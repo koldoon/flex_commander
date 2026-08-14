@@ -69,7 +69,11 @@ class FileNode extends AbstractFsNode {
   FileAttributes attributes;
 
   DateTime? modified;
+
+  /// Время последнего изменения метаданных (ctime): настоящей даты создания
+  /// файла `dart:io` не отдаёт ни на одной платформе.
   DateTime? created;
+
   DateTime? accessed;
 
   bool executable;
@@ -94,7 +98,15 @@ class LinkNode extends FileNode {
   final String reference;
 
   /// Разрешённая цель; null, пока resolve() не выполнен, и у битой ссылки.
-  FsNode? get target;
+  FsNode? target;
+
+  /// Тип цели, известный уже при чтении каталога: `stat` по ссылке всё равно
+  /// идёт до цели, поэтому сортировка «каталоги вперёд» и выбор иконки
+  /// не требуют отдельного разрешения ссылки. null у битой ссылки.
+  final FileType? targetType;
+
+  /// Ссылка ведёт в каталог.
+  bool get isDirectoryLink;
 
   AsyncOperation<FsNode?> resolve();
 
@@ -152,13 +164,15 @@ class FileAttributes {
   final int mode;
 
   /// Строка в стиле ls: "drwxr-xr-x". То, что показывает колонка «Атрибуты».
+  /// Первый символ — тип объекта: `FileStat.modeString()` отдаёт только девять
+  /// символов прав, тип подставляется самостоятельно.
   final String modeString;
 
   bool get isReadable;
   bool get isWritable;
   bool get isExecutable;
 
-  factory FileAttributes.fromStat(FileStat stat);
+  factory FileAttributes.fromStat(FileStat stat, {FileType? type});
 
   /// На Windows строка режима малоинформативна: там показываются флаги RHSA.
   factory FileAttributes.fromWindowsAttributes(int flags);
@@ -406,8 +420,8 @@ int Function(FsNode, FsNode) comparatorFor(SortSpec spec);
 от направления сортировки):
 
 1. `ParentDirNode` — всегда первый.
-2. Если `foldersFirst` — каталоги перед файлами; для ссылки берётся тип её цели,
-   если она уже разрешена, иначе ссылка считается файлом.
+2. Если `foldersFirst` — каталоги перед файлами; ссылка на каталог считается
+   каталогом (тип цели известен из `LinkNode.targetType` сразу после чтения).
 3. Сравнение по колонке:
    - `name`, `ext`, `attributes` — регистронезависимо, «естественный» порядок чисел
      (`file2` перед `file10`), функция `naturalCompare`;
