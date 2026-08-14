@@ -56,13 +56,13 @@ class ColumnSpec {
   bool get flexible => id == FsColumn.name;
 
   ColumnSpec copyWith({double? width, bool? visible}) => ColumnSpec(
-        id: id,
-        width: width ?? this.width,
-        minWidth: minWidth,
-        visible: visible ?? this.visible,
-        pinned: pinned,
-        align: align,
-      );
+    id: id,
+    width: width ?? this.width,
+    minWidth: minWidth,
+    visible: visible ?? this.visible,
+    pinned: pinned,
+    align: align,
+  );
 
   @override
   String toString() => 'ColumnSpec(${id.name}, $width, visible: $visible)';
@@ -70,13 +70,11 @@ class ColumnSpec {
 
 /// Раскладка колонок панели. Неизменяема: любое изменение даёт новую раскладку.
 class ColumnLayout {
-  ColumnLayout(List<ColumnSpec> columns)
-      : columns = List.unmodifiable(columns);
+  ColumnLayout(List<ColumnSpec> columns) : columns = List.unmodifiable(columns);
 
   final List<ColumnSpec> columns;
 
-  List<ColumnSpec> get visibleColumns =>
-      columns.where((c) => c.visible).toList(growable: false);
+  List<ColumnSpec> get visibleColumns => columns.where((c) => c.visible).toList(growable: false);
 
   ColumnSpec? find(FsColumn id) {
     for (final column in columns) {
@@ -100,40 +98,26 @@ class ColumnLayout {
   ColumnLayout resize(FsColumn id, double width) {
     return ColumnLayout([
       for (final column in columns)
-        column.id == id
-            ? column.copyWith(width: width < column.minWidth ? column.minWidth : width)
-            : column,
+        column.id == id ? column.copyWith(width: width < column.minWidth ? column.minWidth : width) : column,
     ]);
   }
 
   ColumnLayout toggleVisible(FsColumn id) {
     return ColumnLayout([
       for (final column in columns)
-        column.id == id && !column.pinned
-            ? column.copyWith(visible: !column.visible)
-            : column,
+        column.id == id && !column.pinned ? column.copyWith(visible: !column.visible) : column,
     ]);
   }
 
   /// Раскладка по умолчанию — как в макете: иконка, имя, расширение, размер, дата.
   static ColumnLayout get defaults => ColumnLayout(const [
-        ColumnSpec(id: FsColumn.icon, width: 24, minWidth: 24, pinned: true),
-        ColumnSpec(id: FsColumn.name, width: 0, minWidth: 80, pinned: true),
-        ColumnSpec(id: FsColumn.ext, width: 40, align: ColumnAlign.end),
-        ColumnSpec(id: FsColumn.size, width: 60, align: ColumnAlign.end),
-        ColumnSpec(id: FsColumn.modified, width: 78, align: ColumnAlign.end),
-        ColumnSpec(
-          id: FsColumn.created,
-          width: 78,
-          visible: false,
-          align: ColumnAlign.end,
-        ),
-        ColumnSpec(
-          id: FsColumn.accessed,
-          width: 78,
-          visible: false,
-          align: ColumnAlign.end,
-        ),
-        ColumnSpec(id: FsColumn.attributes, width: 84, visible: false),
-      ]);
+    ColumnSpec(id: FsColumn.icon, width: 24, minWidth: 24, pinned: true),
+    ColumnSpec(id: FsColumn.name, width: 0, minWidth: 80, pinned: true),
+    ColumnSpec(id: FsColumn.ext, width: 40, align: ColumnAlign.end),
+    ColumnSpec(id: FsColumn.size, width: 60, align: ColumnAlign.end),
+    ColumnSpec(id: FsColumn.modified, width: 78, align: ColumnAlign.end),
+    ColumnSpec(id: FsColumn.created, width: 78, visible: false, align: ColumnAlign.end),
+    ColumnSpec(id: FsColumn.accessed, width: 78, visible: false, align: ColumnAlign.end),
+    ColumnSpec(id: FsColumn.attributes, width: 84, visible: false),
+  ]);
 }

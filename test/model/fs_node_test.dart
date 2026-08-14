@@ -55,22 +55,13 @@ void main() {
     late FileNode readme;
 
     setUp(() {
-      users = DirectoryNode(
-        provider: provider,
-        name: 'Users',
-        parent: provider.rootDirectory,
-      );
-      koldoon =
-          DirectoryNode(provider: provider, name: 'koldoon', parent: users);
-      readme =
-          FileNode(provider: provider, name: 'README.md', parent: koldoon);
+      users = DirectoryNode(provider: provider, name: 'Users', parent: provider.rootDirectory);
+      koldoon = DirectoryNode(provider: provider, name: 'koldoon', parent: users);
+      readme = FileNode(provider: provider, name: 'README.md', parent: koldoon);
     });
 
     test('path идёт от корня к узлу', () {
-      expect(
-        readme.path.map((n) => n.name).toList(),
-        ['/', 'Users', 'koldoon', 'README.md'],
-      );
+      expect(readme.path.map((n) => n.name).toList(), ['/', 'Users', 'koldoon', 'README.md']);
     });
 
     test('pathString собирается провайдером', () {
@@ -87,11 +78,7 @@ void main() {
 
   group('ссылка', () {
     test('info показывает цель', () {
-      final link = LinkNode(
-        provider: provider,
-        name: 'latest',
-        reference: '/opt/app-1.2.0',
-      );
+      final link = LinkNode(provider: provider, name: 'latest', reference: '/opt/app-1.2.0');
       expect(link.info, 'latest -> /opt/app-1.2.0');
     });
 
@@ -109,11 +96,7 @@ void main() {
 
   group('псевдоузел ".."', () {
     test('ведёт в родительский каталог', () {
-      final users = DirectoryNode(
-        provider: provider,
-        name: 'Users',
-        parent: provider.rootDirectory,
-      );
+      final users = DirectoryNode(provider: provider, name: 'Users', parent: provider.rootDirectory);
       final parentNode = ParentDirNode(users);
 
       expect(parentNode.name, '..');
@@ -127,16 +110,8 @@ void main() {
     });
 
     test('для каждого каталога свой экземпляр', () {
-      final a = DirectoryNode(
-        provider: provider,
-        name: 'a',
-        parent: provider.rootDirectory,
-      );
-      final b = DirectoryNode(
-        provider: provider,
-        name: 'b',
-        parent: provider.rootDirectory,
-      );
+      final a = DirectoryNode(provider: provider, name: 'a', parent: provider.rootDirectory);
+      final b = DirectoryNode(provider: provider, name: 'b', parent: provider.rootDirectory);
       expect(ParentDirNode(a), isNot(same(ParentDirNode(b))));
     });
   });

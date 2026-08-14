@@ -39,12 +39,7 @@ abstract class FsNode {
 
 /// Базовая реализация [FsNode]: имя, родитель, размер и обходы дерева вверх.
 abstract class AbstractFsNode implements FsNode {
-  AbstractFsNode({
-    required this.provider,
-    required this.name,
-    this.parent,
-    this.size = FsNode.unknownSize,
-  });
+  AbstractFsNode({required this.provider, required this.name, this.parent, this.size = FsNode.unknownSize});
 
   @override
   final TreeProvider provider;
@@ -109,8 +104,7 @@ class FileNode extends AbstractFsNode {
   /// Расширение считается «настоящим», только если оно не длиннее 12 символов
   /// и не содержит пробелов: имя `.gitignore` расширения не имеет, а
   /// `archive.tar.gz` имеет расширение `gz`. Правило взято из референса.
-  static final RegExp fileExtensionRe =
-      RegExp(r'^([^\/*?|]+)\.([^\/*?|\s]{1,12})$');
+  static final RegExp fileExtensionRe = RegExp(r'^([^\/*?|]+)\.([^\/*?|\s]{1,12})$');
 
   static String _extensionOf(String name) {
     final match = fileExtensionRe.firstMatch(name);
@@ -137,9 +131,7 @@ class FileNode extends AbstractFsNode {
 
   /// Имя без расширения. Показывается в колонке «Имя», когда расширение
   /// вынесено в отдельную колонку.
-  String get baseName => extension.isEmpty
-      ? name
-      : name.substring(0, name.length - extension.length - 1);
+  String get baseName => extension.isEmpty ? name : name.substring(0, name.length - extension.length - 1);
 
   bool get hidden => name.startsWith('.');
 }
@@ -208,8 +200,7 @@ class LinkNode extends FileNode {
   FsNode? target;
 
   /// Ссылка ведёт в каталог.
-  bool get isDirectoryLink =>
-      target is DirectoryNode || targetType == FileType.directory;
+  bool get isDirectoryLink => target is DirectoryNode || targetType == FileType.directory;
 
   AsyncOperation<FsNode?> resolve() => provider.resolveLink(this);
 
@@ -223,12 +214,7 @@ class LinkNode extends FileNode {
 /// приложение) создаётся отдельно для каждого каталога: так узлы остаются
 /// различимыми, а пометка и восстановление курсора работают по идентичности.
 class ParentDirNode extends AbstractFsNode {
-  ParentDirNode(this.directory)
-      : super(
-          provider: directory.provider,
-          name: '..',
-          parent: directory,
-        );
+  ParentDirNode(this.directory) : super(provider: directory.provider, name: '..', parent: directory);
 
   /// Каталог, в списке которого показан этот псевдоузел.
   final DirectoryNode directory;

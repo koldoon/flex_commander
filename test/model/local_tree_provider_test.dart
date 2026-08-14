@@ -42,9 +42,7 @@ void main() {
 
   Future<Map<String, FsNode>> listRoot({bool includeHidden = false}) async {
     final dir = await openRoot();
-    final nodes = await provider
-        .getDirectoryListing(dir, includeHidden: includeHidden)
-        .result;
+    final nodes = await provider.getDirectoryListing(dir, includeHidden: includeHidden).result;
     return {for (final node in nodes) node.name: node};
   }
 
@@ -60,10 +58,7 @@ void main() {
 
     test('скрытые объекты по умолчанию не показываются', () async {
       expect((await listRoot()).containsKey('.hidden'), isFalse);
-      expect(
-        (await listRoot(includeHidden: true)).containsKey('.hidden'),
-        isTrue,
-      );
+      expect((await listRoot(includeHidden: true)).containsKey('.hidden'), isTrue);
     });
 
     test('первым идёт псевдоузел ".."', () async {
@@ -71,8 +66,7 @@ void main() {
       final nodes = await provider.getDirectoryListing(dir).result;
 
       expect(nodes.first, isA<ParentDirNode>());
-      expect((nodes.first as ParentDirNode).targetDirectory?.pathString,
-          p.dirname(root));
+      expect((nodes.first as ParentDirNode).targetDirectory?.pathString, p.dirname(root));
     });
 
     test('файл получает размер, дату и атрибуты', () async {
@@ -120,12 +114,9 @@ void main() {
     test('атрибуты начинаются с символа типа', () async {
       final nodes = await listRoot();
 
-      expect((nodes['notes.txt']! as FileNode).attributes.modeString,
-          startsWith('-'));
-      expect((nodes['bin']! as FileNode).attributes.modeString,
-          startsWith('d'));
-      expect((nodes['bin-link']! as FileNode).attributes.modeString,
-          startsWith('l'));
+      expect((nodes['notes.txt']! as FileNode).attributes.modeString, startsWith('-'));
+      expect((nodes['bin']! as FileNode).attributes.modeString, startsWith('d'));
+      expect((nodes['bin-link']! as FileNode).attributes.modeString, startsWith('l'));
     });
 
     test('чтение в изоляте даёт тот же результат', () async {
@@ -133,36 +124,23 @@ void main() {
       final dir = await isolated.resolvePath(root).result as DirectoryNode;
       final nodes = await isolated.getDirectoryListing(dir).result;
 
-      expect(
-        nodes.map((n) => n.name),
-        containsAll(['bin', 'docs', 'notes.txt']),
-      );
-      expect(
-        nodes.whereType<FileNode>().firstWhere((n) => n.name == 'notes.txt').size,
-        2048,
-      );
+      expect(nodes.map((n) => n.name), containsAll(['bin', 'docs', 'notes.txt']));
+      expect(nodes.whereType<FileNode>().firstWhere((n) => n.name == 'notes.txt').size, 2048);
     });
 
     test('отсутствующий каталог даёт FsError', () async {
-      final missing = DirectoryNode(
-        provider: provider,
-        name: 'nowhere',
-        parent: await openRoot(),
-      );
+      final missing = DirectoryNode(provider: provider, name: 'nowhere', parent: await openRoot());
 
       await expectLater(
         provider.getDirectoryListing(missing).result,
-        throwsA(isA<FsError>()
-            .having((e) => e.kind, 'kind', FsErrorKind.notFound)),
+        throwsA(isA<FsError>().having((e) => e.kind, 'kind', FsErrorKind.notFound)),
       );
     });
   });
 
   group('разбор пути', () {
     test('строит цепочку узлов до корня', () async {
-      final node = await provider
-          .resolvePath(p.join(root, 'docs', 'readme.md'))
-          .result;
+      final node = await provider.resolvePath(p.join(root, 'docs', 'readme.md')).result;
 
       expect(node, isA<FileNode>());
       expect(node!.name, 'readme.md');
@@ -176,18 +154,14 @@ void main() {
     });
 
     test('путь через файл никуда не ведёт', () async {
-      final node = await provider
-          .resolvePath(p.join(root, 'notes.txt', 'inner'))
-          .result;
+      final node = await provider.resolvePath(p.join(root, 'notes.txt', 'inner')).result;
       expect(node, isNull);
     });
 
     test('путь через ссылку на каталог разворачивается', () async {
       await File(p.join(root, 'bin', 'tool')).writeAsString('#!/bin/sh');
 
-      final node = await provider
-          .resolvePath(p.join(root, 'bin-link', 'tool'))
-          .result;
+      final node = await provider.resolvePath(p.join(root, 'bin-link', 'tool')).result;
 
       expect(node, isA<FileNode>());
       expect(node!.parentDirectory?.name, 'bin');

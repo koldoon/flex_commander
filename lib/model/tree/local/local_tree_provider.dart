@@ -16,8 +16,7 @@ import 'local_listing.dart';
 /// что в AIR не было нормального API файловой системы. Здесь есть `dart:io`,
 /// а внешние утилиты понадобятся позже — для копирования с прогрессом.
 class LocalTreeProvider implements TreeProvider {
-  LocalTreeProvider({String? homePath, this.readInIsolate = true})
-      : homePath = homePath ?? _detectHomePath();
+  LocalTreeProvider({String? homePath, this.readInIsolate = true}) : homePath = homePath ?? _detectHomePath();
 
   /// Домашний каталог пользователя — сюда открываются панели, если сохранённый
   /// путь недоступен.
@@ -30,10 +29,7 @@ class LocalTreeProvider implements TreeProvider {
   @override
   String get scheme => NodePath.defaultScheme;
 
-  late final DirectoryNode _root = DirectoryNode(
-    provider: this,
-    name: p.rootPrefix(homePath),
-  );
+  late final DirectoryNode _root = DirectoryNode(provider: this, name: p.rootPrefix(homePath));
 
   @override
   DirectoryNode get rootDirectory => _root;
@@ -48,17 +44,15 @@ class LocalTreeProvider implements TreeProvider {
   }
 
   @override
-  AsyncOperation<List<FsNode>> getDirectoryListing(
-    DirectoryNode dir, {
-    bool includeHidden = false,
-  }) {
+  AsyncOperation<List<FsNode>> getDirectoryListing(DirectoryNode dir, {bool includeHidden = false}) {
     return TaskOperation<List<FsNode>>((op) async {
       final path = pathOf(dir);
       op.report(OperationProgress(message: 'Reading $path…'));
 
-      final entries = readInIsolate
-          ? await readDirectory(path, includeHidden: includeHidden)
-          : await readDirectorySync(path, includeHidden: includeHidden);
+      final entries =
+          readInIsolate
+              ? await readDirectory(path, includeHidden: includeHidden)
+              : await readDirectorySync(path, includeHidden: includeHidden);
 
       op.checkCanceled();
 
@@ -130,48 +124,49 @@ class LocalTreeProvider implements TreeProvider {
 
   /// Строит узел дерева по сырой записи каталога.
   FsNode nodeFromEntry(RawEntry entry, DirectoryNode parent) {
-    final attributes = entry.modeString.isEmpty
-        ? const FileAttributes.unknown()
-        : FileAttributes(mode: entry.mode, modeString: entry.modeString);
+    final attributes =
+        entry.modeString.isEmpty
+            ? const FileAttributes.unknown()
+            : FileAttributes(mode: entry.mode, modeString: entry.modeString);
 
     return switch (entry.fileType) {
       FileType.symbolicLink => LinkNode(
-          provider: this,
-          name: entry.name,
-          parent: parent,
-          reference: entry.linkTarget ?? '',
-          targetType: entry.linkTargetType,
-          size: entry.size,
-          attributes: attributes,
-          modified: entry.modified,
-          created: entry.changed,
-          accessed: entry.accessed,
-          executable: attributes.isExecutable,
-          broken: entry.broken,
-        ),
+        provider: this,
+        name: entry.name,
+        parent: parent,
+        reference: entry.linkTarget ?? '',
+        targetType: entry.linkTargetType,
+        size: entry.size,
+        attributes: attributes,
+        modified: entry.modified,
+        created: entry.changed,
+        accessed: entry.accessed,
+        executable: attributes.isExecutable,
+        broken: entry.broken,
+      ),
       FileType.directory => DirectoryNode(
-          provider: this,
-          name: entry.name,
-          parent: parent,
-          attributes: attributes,
-          modified: entry.modified,
-          created: entry.changed,
-          accessed: entry.accessed,
-          broken: entry.broken,
-        ),
+        provider: this,
+        name: entry.name,
+        parent: parent,
+        attributes: attributes,
+        modified: entry.modified,
+        created: entry.changed,
+        accessed: entry.accessed,
+        broken: entry.broken,
+      ),
       _ => FileNode(
-          provider: this,
-          name: entry.name,
-          parent: parent,
-          size: entry.size,
-          fileType: entry.fileType,
-          attributes: attributes,
-          modified: entry.modified,
-          created: entry.changed,
-          accessed: entry.accessed,
-          executable: attributes.isExecutable,
-          broken: entry.broken,
-        ),
+        provider: this,
+        name: entry.name,
+        parent: parent,
+        size: entry.size,
+        fileType: entry.fileType,
+        attributes: attributes,
+        modified: entry.modified,
+        created: entry.changed,
+        accessed: entry.accessed,
+        executable: attributes.isExecutable,
+        broken: entry.broken,
+      ),
     };
   }
 
@@ -183,9 +178,8 @@ class LocalTreeProvider implements TreeProvider {
       return null;
     }
     final base = link.parentDirectory;
-    final targetPath = p.isAbsolute(link.reference)
-        ? link.reference
-        : p.join(base == null ? homePath : pathOf(base), link.reference);
+    final targetPath =
+        p.isAbsolute(link.reference) ? link.reference : p.join(base == null ? homePath : pathOf(base), link.reference);
 
     return resolvePath(targetPath).result;
   }
@@ -210,29 +204,18 @@ class LocalTreeProvider implements TreeProvider {
     try {
       stat = await FileStat.stat(path);
     } on FileSystemException {
-      return RawEntry(
-        name: name,
-        fileType: FileType.fromEntityType(type),
-        linkTarget: linkTarget,
-        broken: true,
-      );
+      return RawEntry(name: name, fileType: FileType.fromEntityType(type), linkTarget: linkTarget, broken: true);
     }
 
     if (stat.type == FileSystemEntityType.notFound) {
-      return RawEntry(
-        name: name,
-        fileType: FileType.fromEntityType(type),
-        linkTarget: linkTarget,
-        broken: true,
-      );
+      return RawEntry(name: name, fileType: FileType.fromEntityType(type), linkTarget: linkTarget, broken: true);
     }
 
     final statType = FileType.fromEntityType(stat.type);
     if (type == FileSystemEntityType.link) {
       linkTargetType = statType;
     }
-    final fileType =
-        type == FileSystemEntityType.link ? FileType.symbolicLink : statType;
+    final fileType = type == FileSystemEntityType.link ? FileType.symbolicLink : statType;
 
     return RawEntry(
       name: name,
@@ -250,9 +233,7 @@ class LocalTreeProvider implements TreeProvider {
 
   static String _detectHomePath() {
     final env = Platform.environment;
-    final home = Platform.isWindows
-        ? env['USERPROFILE']
-        : env['HOME'];
+    final home = Platform.isWindows ? env['USERPROFILE'] : env['HOME'];
     if (home != null && home.isNotEmpty) {
       return home;
     }

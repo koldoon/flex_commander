@@ -8,18 +8,11 @@ import 'package:path/path.dart' as p;
 
 /// Описание объекта в фейковом дереве.
 class FakeEntry {
-  FakeEntry.directory(this.path)
-      : type = FileType.directory,
-        size = FsNode.unknownSize,
-        linkTarget = null;
+  FakeEntry.directory(this.path) : type = FileType.directory, size = FsNode.unknownSize, linkTarget = null;
 
-  FakeEntry.file(this.path, {this.size = 0, this.modified})
-      : type = FileType.regular,
-        linkTarget = null;
+  FakeEntry.file(this.path, {this.size = 0, this.modified}) : type = FileType.regular, linkTarget = null;
 
-  FakeEntry.link(this.path, this.linkTarget)
-      : type = FileType.symbolicLink,
-        size = FsNode.unknownSize;
+  FakeEntry.link(this.path, this.linkTarget) : type = FileType.symbolicLink, size = FsNode.unknownSize;
 
   final String path;
   final FileType type;
@@ -71,10 +64,7 @@ class InMemoryTreeProvider implements TreeProvider {
   }
 
   @override
-  AsyncOperation<List<FsNode>> getDirectoryListing(
-    DirectoryNode dir, {
-    bool includeHidden = false,
-  }) {
+  AsyncOperation<List<FsNode>> getDirectoryListing(DirectoryNode dir, {bool includeHidden = false}) {
     return TaskOperation<List<FsNode>>((op) async {
       final path = pathOf(dir);
       final error = denied[path];
@@ -82,11 +72,12 @@ class InMemoryTreeProvider implements TreeProvider {
         throw error;
       }
 
-      final children = _entries.values
-          .where((e) => p.dirname(e.path) == path && e.path != path)
-          .where((e) => includeHidden || !e.name.startsWith('.'))
-          .toList()
-        ..sort((a, b) => a.name.compareTo(b.name));
+      final children =
+          _entries.values
+              .where((e) => p.dirname(e.path) == path && e.path != path)
+              .where((e) => includeHidden || !e.name.startsWith('.'))
+              .toList()
+            ..sort((a, b) => a.name.compareTo(b.name));
 
       op.checkCanceled();
 
@@ -132,9 +123,8 @@ class InMemoryTreeProvider implements TreeProvider {
   AsyncOperation<FsNode?> resolveLink(LinkNode link) {
     return TaskOperation<FsNode?>((op) async {
       final base = link.parentDirectory;
-      final target = p.isAbsolute(link.reference)
-          ? link.reference
-          : p.join(base == null ? '/' : pathOf(base), link.reference);
+      final target =
+          p.isAbsolute(link.reference) ? link.reference : p.join(base == null ? '/' : pathOf(base), link.reference);
       final node = await resolvePath(target).result;
       link.target = node;
       return node;
@@ -145,29 +135,29 @@ class InMemoryTreeProvider implements TreeProvider {
     const attributes = FileAttributes(mode: 0x1FF, modeString: 'rwxrwxrwx');
     return switch (entry.type) {
       FileType.directory => DirectoryNode(
-          provider: this,
-          name: entry.name,
-          parent: parent,
-          modified: entry.modified,
-          attributes: attributes,
-        ),
+        provider: this,
+        name: entry.name,
+        parent: parent,
+        modified: entry.modified,
+        attributes: attributes,
+      ),
       FileType.symbolicLink => LinkNode(
-          provider: this,
-          name: entry.name,
-          parent: parent,
-          reference: entry.linkTarget ?? '',
-          targetType: _typeOfTarget(entry),
-          modified: entry.modified,
-          attributes: attributes,
-        ),
+        provider: this,
+        name: entry.name,
+        parent: parent,
+        reference: entry.linkTarget ?? '',
+        targetType: _typeOfTarget(entry),
+        modified: entry.modified,
+        attributes: attributes,
+      ),
       _ => FileNode(
-          provider: this,
-          name: entry.name,
-          parent: parent,
-          size: entry.size,
-          modified: entry.modified,
-          attributes: attributes,
-        ),
+        provider: this,
+        name: entry.name,
+        parent: parent,
+        size: entry.size,
+        modified: entry.modified,
+        attributes: attributes,
+      ),
     };
   }
 

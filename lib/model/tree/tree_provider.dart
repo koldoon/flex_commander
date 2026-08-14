@@ -13,11 +13,11 @@ class FsError implements Exception {
   final Object? cause;
 
   String get message => switch (kind) {
-        FsErrorKind.notFound => 'Not found: $path',
-        FsErrorKind.permissionDenied => 'Permission denied: $path',
-        FsErrorKind.notADirectory => 'Not a directory: $path',
-        FsErrorKind.io => 'I/O error: $path',
-      };
+    FsErrorKind.notFound => 'Not found: $path',
+    FsErrorKind.permissionDenied => 'Permission denied: $path',
+    FsErrorKind.notADirectory => 'Not a directory: $path',
+    FsErrorKind.io => 'I/O error: $path',
+  };
 
   @override
   String toString() => message;
@@ -43,10 +43,7 @@ abstract interface class TreeProvider {
   AsyncOperation<FsNode?> resolvePath(String path);
 
   /// Чтение содержимого каталога. По завершении заполняет [DirectoryNode.nodes].
-  AsyncOperation<List<FsNode>> getDirectoryListing(
-    DirectoryNode dir, {
-    bool includeHidden = false,
-  });
+  AsyncOperation<List<FsNode>> getDirectoryListing(DirectoryNode dir, {bool includeHidden = false});
 
   /// Разрешение ссылки: заполняет [LinkNode.target].
   AsyncOperation<FsNode?> resolveLink(LinkNode link);
@@ -91,10 +88,7 @@ class FileReference {
 
 /// Обмен файлами между провайдерами. Реализуется вместе с [TreeEditor].
 abstract interface class FilesProvider {
-  AsyncOperation<List<FileReference>> getFiles(
-    List<FsNode> nodes, {
-    bool followLinks = true,
-  });
+  AsyncOperation<List<FileReference>> getFiles(List<FsNode> nodes, {bool followLinks = true});
 
   AsyncOperation<void> putFiles(List<FileReference> files, DirectoryNode toDir);
 

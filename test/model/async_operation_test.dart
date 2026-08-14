@@ -67,9 +67,7 @@ void main() {
         // Даём подписчику встать до первого сообщения.
         await Future<void>.delayed(Duration.zero);
         operation.report(const OperationProgress(message: 'step 1'));
-        operation.report(
-          const OperationProgress(percent: 1, message: 'step 2'),
-        );
+        operation.report(const OperationProgress(percent: 1, message: 'step 2'));
       });
       op.progress.listen((event) => reported.add(event.message));
 

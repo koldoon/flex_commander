@@ -11,10 +11,7 @@ void main() {
     });
 
     test('явная схема fs разбирается так же', () {
-      expect(
-        NodePath.parse('fs:/Users/koldoon'),
-        NodePath.parse('/Users/koldoon'),
-      );
+      expect(NodePath.parse('fs:/Users/koldoon'), NodePath.parse('/Users/koldoon'));
     });
 
     test('вложенный провайдер даёт несколько частей', () {
@@ -56,11 +53,7 @@ void main() {
     });
 
     test('разбор и сборка обратимы', () {
-      for (final source in [
-        '/Users/koldoon/Developer',
-        '/tmp/a:b/c.txt',
-        '/Users/k/a.zip:zip:/x/y.txt',
-      ]) {
+      for (final source in ['/Users/koldoon/Developer', '/tmp/a:b/c.txt', '/Users/k/a.zip:zip:/x/y.txt']) {
         expect(NodePath.parse(source).toString(), source);
       }
     });

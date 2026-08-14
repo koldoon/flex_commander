@@ -25,12 +25,9 @@ class OperationOption {
 /// недоступный каталог, повторить попытку. Операция ждёт [answer] и продолжает
 /// работу с полученным вариантом.
 class OperationRequest {
-  OperationRequest({
-    required this.message,
-    required this.options,
-    OperationOption? defaultOption,
-  })  : assert(options.isNotEmpty, 'Нужен хотя бы один вариант ответа'),
-        defaultOption = defaultOption ?? options.last;
+  OperationRequest({required this.message, required this.options, OperationOption? defaultOption})
+    : assert(options.isNotEmpty, 'Нужен хотя бы один вариант ответа'),
+      defaultOption = defaultOption ?? options.last;
 
   final String message;
   final List<OperationOption> options;

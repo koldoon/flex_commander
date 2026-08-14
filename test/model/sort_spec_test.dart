@@ -15,24 +15,13 @@ void main() {
     root = provider.rootDirectory;
   });
 
-  FileNode file(String name, {int size = 0, DateTime? modified}) => FileNode(
-        provider: provider,
-        name: name,
-        parent: root,
-        size: size,
-        modified: modified,
-      );
+  FileNode file(String name, {int size = 0, DateTime? modified}) =>
+      FileNode(provider: provider, name: name, parent: root, size: size, modified: modified);
 
-  DirectoryNode dir(String name) =>
-      DirectoryNode(provider: provider, name: name, parent: root);
+  DirectoryNode dir(String name) => DirectoryNode(provider: provider, name: name, parent: root);
 
-  LinkNode link(String name, {FileType? targetType}) => LinkNode(
-        provider: provider,
-        name: name,
-        parent: root,
-        reference: '/somewhere',
-        targetType: targetType,
-      );
+  LinkNode link(String name, {FileType? targetType}) =>
+      LinkNode(provider: provider, name: name, parent: root, reference: '/somewhere', targetType: targetType);
 
   List<String> sorted(List<FsNode> nodes, SortSpec spec) {
     final result = nodes.toList()..sort(comparatorFor(spec));
@@ -41,69 +30,39 @@ void main() {
 
   group('порядок, не зависящий от направления', () {
     test('".." всегда первый', () {
-      final directory = DirectoryNode(
-        provider: provider,
-        name: 'sub',
-        parent: root,
-      );
-      final nodes = <FsNode>[
-        file('zzz.txt'),
-        ParentDirNode(directory),
-        dir('aaa'),
-      ];
+      final directory = DirectoryNode(provider: provider, name: 'sub', parent: root);
+      final nodes = <FsNode>[file('zzz.txt'), ParentDirNode(directory), dir('aaa')];
 
       expect(sorted(nodes, const SortSpec()).first, '..');
-      expect(
-        sorted(nodes, const SortSpec(direction: SortDirection.descending)).first,
-        '..',
-      );
+      expect(sorted(nodes, const SortSpec(direction: SortDirection.descending)).first, '..');
     });
 
     test('каталоги выше файлов', () {
       final nodes = <FsNode>[file('aaa.txt'), dir('zzz')];
       expect(sorted(nodes, const SortSpec()), ['zzz', 'aaa.txt']);
-      expect(
-        sorted(nodes, const SortSpec(direction: SortDirection.descending)),
-        ['zzz', 'aaa.txt'],
-      );
+      expect(sorted(nodes, const SortSpec(direction: SortDirection.descending)), ['zzz', 'aaa.txt']);
     });
 
     test('ссылка на каталог считается каталогом', () {
-      final nodes = <FsNode>[
-        file('aaa.txt'),
-        link('zlink', targetType: FileType.directory),
-      ];
+      final nodes = <FsNode>[file('aaa.txt'), link('zlink', targetType: FileType.directory)];
       expect(sorted(nodes, const SortSpec()), ['zlink', 'aaa.txt']);
     });
 
     test('ссылка на файл остаётся файлом', () {
-      final nodes = <FsNode>[
-        link('alink', targetType: FileType.regular),
-        dir('zzz'),
-      ];
+      final nodes = <FsNode>[link('alink', targetType: FileType.regular), dir('zzz')];
       expect(sorted(nodes, const SortSpec()), ['zzz', 'alink']);
     });
 
     test('без foldersFirst каталоги и файлы смешиваются', () {
       final nodes = <FsNode>[dir('zzz'), file('aaa.txt')];
-      expect(
-        sorted(nodes, const SortSpec(foldersFirst: false)),
-        ['aaa.txt', 'zzz'],
-      );
+      expect(sorted(nodes, const SortSpec(foldersFirst: false)), ['aaa.txt', 'zzz']);
     });
   });
 
   group('сортировка по колонкам', () {
     test('по имени, с числами как числами', () {
-      final nodes = <FsNode>[
-        file('file10.txt'),
-        file('file2.txt'),
-        file('File1.txt'),
-      ];
-      expect(
-        sorted(nodes, const SortSpec()),
-        ['File1.txt', 'file2.txt', 'file10.txt'],
-      );
+      final nodes = <FsNode>[file('file10.txt'), file('file2.txt'), file('File1.txt')];
+      expect(sorted(nodes, const SortSpec()), ['File1.txt', 'file2.txt', 'file10.txt']);
     });
 
     test('по размеру; неизвестный размер идёт первым', () {
@@ -112,10 +71,7 @@ void main() {
         file('small.bin', size: 10),
         file('unknown.bin', size: FsNode.unknownSize),
       ];
-      expect(
-        sorted(nodes, const SortSpec(column: FsColumn.size)),
-        ['unknown.bin', 'small.bin', 'big.bin'],
-      );
+      expect(sorted(nodes, const SortSpec(column: FsColumn.size)), ['unknown.bin', 'small.bin', 'big.bin']);
     });
 
     test('по дате; отсутствующая дата идёт первой', () {
@@ -124,42 +80,22 @@ void main() {
         file('old.txt', modified: DateTime(2018, 2, 19)),
         file('none.txt'),
       ];
-      expect(
-        sorted(nodes, const SortSpec(column: FsColumn.modified)),
-        ['none.txt', 'old.txt', 'new.txt'],
-      );
+      expect(sorted(nodes, const SortSpec(column: FsColumn.modified)), ['none.txt', 'old.txt', 'new.txt']);
     });
 
     test('по расширению', () {
-      final nodes = <FsNode>[
-        file('b.xlsx'),
-        file('a.zip'),
-        file('c.doc'),
-      ];
-      expect(
-        sorted(nodes, const SortSpec(column: FsColumn.ext)),
-        ['c.doc', 'b.xlsx', 'a.zip'],
-      );
+      final nodes = <FsNode>[file('b.xlsx'), file('a.zip'), file('c.doc')];
+      expect(sorted(nodes, const SortSpec(column: FsColumn.ext)), ['c.doc', 'b.xlsx', 'a.zip']);
     });
 
     test('направление переворачивает сравнение по колонке', () {
       final nodes = <FsNode>[file('a.txt'), file('b.txt')];
-      expect(
-        sorted(nodes, const SortSpec(direction: SortDirection.descending)),
-        ['b.txt', 'a.txt'],
-      );
+      expect(sorted(nodes, const SortSpec(direction: SortDirection.descending)), ['b.txt', 'a.txt']);
     });
 
     test('при равенстве порядок устойчив и задаётся именем', () {
-      final nodes = <FsNode>[
-        file('b.txt', size: 10),
-        file('a.txt', size: 10),
-        file('c.txt', size: 10),
-      ];
-      expect(
-        sorted(nodes, const SortSpec(column: FsColumn.size)),
-        ['a.txt', 'b.txt', 'c.txt'],
-      );
+      final nodes = <FsNode>[file('b.txt', size: 10), file('a.txt', size: 10), file('c.txt', size: 10)];
+      expect(sorted(nodes, const SortSpec(column: FsColumn.size)), ['a.txt', 'b.txt', 'c.txt']);
     });
   });
 

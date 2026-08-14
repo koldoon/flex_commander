@@ -11,32 +11,24 @@ class FileAttributes {
   const FileAttributes({required this.mode, required this.modeString});
 
   /// Пустые атрибуты: объект не удалось прочитать.
-  const FileAttributes.unknown()
-      : mode = 0,
-        modeString = '';
+  const FileAttributes.unknown() : mode = 0, modeString = '';
 
   /// Атрибуты Windows: read-only, hidden, system, archive.
-  FileAttributes.windows({
-    bool readOnly = false,
-    bool hidden = false,
-    bool system = false,
-    bool archive = false,
-  })  : mode = 0,
-        modeString = [
-          if (readOnly) 'R' else '-',
-          if (hidden) 'H' else '-',
-          if (system) 'S' else '-',
-          if (archive) 'A' else '-',
-        ].join();
+  FileAttributes.windows({bool readOnly = false, bool hidden = false, bool system = false, bool archive = false})
+    : mode = 0,
+      modeString =
+          [
+            if (readOnly) 'R' else '-',
+            if (hidden) 'H' else '-',
+            if (system) 'S' else '-',
+            if (archive) 'A' else '-',
+          ].join();
 
   /// `FileStat.modeString()` возвращает только девять символов прав
   /// («rw-r--r--»), без первого символа типа, поэтому тип подставляется сам.
   factory FileAttributes.fromStat(FileStat stat, {FileType? type}) {
     final fileType = type ?? FileType.fromEntityType(stat.type);
-    return FileAttributes(
-      mode: stat.mode,
-      modeString: '${fileType.attributeChar}${stat.modeString()}',
-    );
+    return FileAttributes(mode: stat.mode, modeString: '${fileType.attributeChar}${stat.modeString()}');
   }
 
   /// Режим доступа из `FileStat.mode`.
