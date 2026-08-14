@@ -139,9 +139,12 @@ lib/
       sort_spec.dart               SortSpec, SortDirection, компараторы
     settings/
       app_settings.dart            AppSettings, PanelSettings
+      window_geometry.dart         положение и размер окна
       settings_store.dart          чтение/запись settings.json
     os/
       system_open.dart             открытие объекта средствами системы
+      window_service.dart          интерфейс управления окном
+      plugin_window_service.dart   реализация поверх window_manager
 
   state/
     app_controller.dart            левая/правая панель, активная панель, реестр команд
@@ -188,9 +191,11 @@ lib/
 ```yaml
 dependencies:
   path: ^1.9.0            # basename/extension/join/normalize
-  path_provider: ^2.1.4   # каталог настроек
-  window_manager: ^0.4.0  # геометрия окна между запусками (опционально)
+  window_manager: ^0.5.1  # положение и размер окна между запусками
 ```
+
+`path_provider` не понадобился: настройки лежат в домашнем каталоге
+(`~/.flex-commander/settings.json`), как и в референсе.
 
 Уже подключённые `go_router` и `dicom` для MVP не нужны — приложение одноэкранное;
 их можно убрать из `pubspec.yaml`. `logecom` используется для логирования операций
@@ -199,6 +204,14 @@ dependencies:
 Платформа: сначала macOS (в проекте есть только `macos/`). Платформозависимые места
 изолируются в `LocalTreeProvider` и `FileAttributes` (разбор режима доступа, корни дисков,
 «корзина» при удалении).
+
+**Песочница macOS выключена** (`macos/Runner/*.entitlements`). Файловому менеджеру нужен
+доступ ко всей файловой системе, а в песочнице ему видна только папка-контейнер: туда же
+подменяется и домашний каталог, так что настройки уезжают в
+`~/Library/Containers/…/Data`, а попытка открыть, например, `~/Downloads` заканчивается
+ошибкой ввода-вывода. Защита уровня системы (TCC) при этом остаётся: при первом заходе
+в «Загрузки», «Документы» и на рабочий стол macOS один раз спросит разрешение —
+пояснения для этих запросов лежат в `macos/Runner/Info.plist`.
 
 ## Этапы
 

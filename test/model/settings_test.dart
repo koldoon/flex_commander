@@ -5,6 +5,7 @@ import 'package:flex_commander/model/panel/column_spec.dart';
 import 'package:flex_commander/model/panel/sort_spec.dart';
 import 'package:flex_commander/model/settings/app_settings.dart';
 import 'package:flex_commander/model/settings/settings_store.dart';
+import 'package:flex_commander/model/settings/window_geometry.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -149,6 +150,34 @@ void main() {
       final restored = ColumnLayout.fromJson(moved.toJson());
 
       expect(restored.columns.map((c) => c.id), moved.columns.map((c) => c.id));
+    });
+  });
+
+  group('WindowGeometry', () {
+    const geometry = WindowGeometry(left: 120, top: 80, width: 900, height: 640);
+
+    test('запись и чтение дают то же самое', () {
+      expect(WindowGeometry.fromJson(geometry.toJson()), geometry);
+    });
+
+    test('мусор заменяется умолчаниями', () {
+      final restored = WindowGeometry.fromJson({'left': 'слева', 'top': null, 'width': 0, 'height': -5});
+
+      expect(restored?.left, WindowGeometry.defaults.left);
+      expect(restored?.width, WindowGeometry.defaults.width);
+      expect(restored?.height, WindowGeometry.defaults.height);
+    });
+
+    test('слишком маленькое окно подтягивается до минимума', () {
+      final restored = WindowGeometry.fromJson({'left': 0, 'top': 0, 'width': 100, 'height': 50});
+
+      expect(restored?.width, WindowGeometry.minWidth);
+      expect(restored?.height, WindowGeometry.minHeight);
+    });
+
+    test('отсутствие раздела даёт null', () {
+      expect(WindowGeometry.fromJson(null), isNull);
+      expect(AppSettings.fromJson(const <String, Object?>{}).window, isNull);
     });
   });
 

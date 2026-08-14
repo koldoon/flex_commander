@@ -1,5 +1,6 @@
 import '../panel/column_spec.dart';
 import '../panel/sort_spec.dart';
+import 'window_geometry.dart';
 
 /// Тема оформления. Собственный перечислимый тип, а не `ThemeMode` из Flutter:
 /// слой моделей не должен зависеть от виджетов.
@@ -74,6 +75,7 @@ class AppSettings {
     this.activePanel = 0,
     this.splitRatio = 0.5,
     this.themeMode = AppThemeMode.system,
+    this.window,
   });
 
   /// Версия формата файла. Увеличивается, когда старый файл перестаёт
@@ -93,18 +95,23 @@ class AppSettings {
   final double splitRatio;
   final AppThemeMode themeMode;
 
+  /// Положение и размер окна; null — окно ещё ни разу не открывали.
+  final WindowGeometry? window;
+
   AppSettings copyWith({
     PanelSettings? left,
     PanelSettings? right,
     int? activePanel,
     double? splitRatio,
     AppThemeMode? themeMode,
+    WindowGeometry? window,
   }) => AppSettings(
     left: left ?? this.left,
     right: right ?? this.right,
     activePanel: activePanel ?? this.activePanel,
     splitRatio: splitRatio ?? this.splitRatio,
     themeMode: themeMode ?? this.themeMode,
+    window: window ?? this.window,
   );
 
   Map<String, Object?> toJson() => {
@@ -112,6 +119,7 @@ class AppSettings {
     'activePanel': activePanel,
     'splitRatio': splitRatio,
     'themeMode': themeMode.name,
+    if (window != null) 'window': window!.toJson(),
     'panels': [left.toJson(), right.toJson()],
   };
 
@@ -134,6 +142,7 @@ class AppSettings {
       activePanel: activePanel == 1 ? 1 : 0,
       splitRatio: splitRatio is num ? splitRatio.toDouble().clamp(minSplitRatio, maxSplitRatio) : 0.5,
       themeMode: AppThemeMode.byName(json['themeMode']),
+      window: WindowGeometry.fromJson(json['window']),
     );
   }
 

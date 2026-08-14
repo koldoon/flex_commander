@@ -3,8 +3,10 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../model/os/window_service.dart';
 import '../model/settings/app_settings.dart';
 import '../model/settings/settings_store.dart';
+import '../model/settings/window_geometry.dart';
 import 'commands/command_registry.dart';
 import 'commands/default_commands.dart';
 import 'panel_controller.dart';
@@ -20,16 +22,20 @@ class AppController extends ChangeNotifier {
     required this.store,
     required AppSettings settings,
     CommandRegistry? commands,
+    WindowService? window,
     this.saveDelay = const Duration(seconds: 1),
   }) : _splitRatio = settings.splitRatio,
        _themeMode = settings.themeMode,
+       _windowGeometry = settings.window,
        _initialSettings = settings,
+       window = window ?? const NoopWindowService(),
        commands = commands ?? defaultCommandRegistry() {
     // Одна панель активна всегда, ещё до первого чтения каталогов.
     left.setActive(settings.activePanel != 1);
     right.setActive(settings.activePanel == 1);
     left.addListener(_onPanelChanged);
     right.addListener(_onPanelChanged);
+    this.window.addListener(_onWindowChanged);
     this.commands.attach(this);
   }
 
@@ -41,6 +47,9 @@ class AppController extends ChangeNotifier {
   /// стоит одна и та же команда.
   final CommandRegistry commands;
 
+  /// Окно приложения. Без управления окном (в тестах) — заглушка.
+  final WindowService window;
+
   /// Задержка перед записью настроек. Настройки пишутся и при выходе, но
   /// отложенная запись бережёт их и при аварийном завершении.
   final Duration saveDelay;
@@ -49,6 +58,7 @@ class AppController extends ChangeNotifier {
 
   double _splitRatio;
   AppThemeMode _themeMode;
+  WindowGeometry? _windowGeometry;
   Timer? _saveTimer;
   String? _savedSnapshot;
 
@@ -62,6 +72,28 @@ class AppController extends ChangeNotifier {
   double get splitRatio => _splitRatio;
 
   AppThemeMode get themeMode => _themeMode;
+
+  /// Последняя известная геометрия окна.
+  WindowGeometry? get windowGeometry => _windowGeometry;
+
+  /// Запоминает геометрию окна.
+  ///
+  /// У развёрнутого окна размеры совпадают с экраном, поэтому запоминается не
+  /// они, а те, к которым окно вернётся после сворачивания — иначе оно так и
+  /// осталось бы во весь экран.
+  void setWindowGeometry(WindowGeometry? geometry) {
+    if (geometry == null) {
+      return;
+    }
+    final previous = _windowGeometry;
+    final updated = geometry.maximized && previous != null ? previous.copyWith(maximized: true) : geometry;
+
+    if (_windowGeometry == updated) {
+      return;
+    }
+    _windowGeometry = updated;
+    _scheduleSave();
+  }
 
   void activate(PanelController panel) {
     assert(panel == left || panel == right, 'Панель не принадлежит этому приложению');
@@ -100,6 +132,7 @@ class AppController extends ChangeNotifier {
   /// приложение всегда стартовало в рабочем состоянии.
   Future<void> start() async {
     _savedSnapshot = _snapshot();
+    await window.restore(_initialSettings.window);
 
     await Future.wait([_openPanel(left, _initialSettings.left.path), _openPanel(right, _initialSettings.right.path)]);
 
@@ -116,6 +149,11 @@ class AppController extends ChangeNotifier {
     left.cancel();
     right.cancel();
     await commands.shutdown();
+    // Геометрию здесь не спрашиваем: выход происходит внутри системного
+    // обработчика завершения, и обращение к плагину через платформенный канал
+    // в этот момент приводит к взаимной блокировке — приложение перестаёт
+    // закрываться. Сохраняется последнее известное состояние, а обновляет его
+    // captureWindowGeometry.
     await save();
   }
 
@@ -126,6 +164,7 @@ class AppController extends ChangeNotifier {
     activePanel: left.active ? 0 : 1,
     splitRatio: _splitRatio,
     themeMode: _themeMode,
+    window: _windowGeometry,
   );
 
   Future<void> save() async {
@@ -149,6 +188,16 @@ class AppController extends ChangeNotifier {
 
   /// Панели уведомляют обо всём, включая движение курсора, поэтому запись
   /// планируется только при изменении того, что действительно сохраняется.
+  /// Спрашивает у окна его текущую геометрию и запоминает её.
+  ///
+  /// Вызывается на изменения окна и при уходе приложения на второй план —
+  /// то есть заведомо не в момент завершения процесса.
+  Future<void> captureWindowGeometry() async {
+    setWindowGeometry(await window.current());
+  }
+
+  void _onWindowChanged() => unawaited(captureWindowGeometry());
+
   void _onPanelChanged() {
     if (_snapshot() != _savedSnapshot) {
       _scheduleSave();
@@ -167,6 +216,7 @@ class AppController extends ChangeNotifier {
     _saveTimer?.cancel();
     left.removeListener(_onPanelChanged);
     right.removeListener(_onPanelChanged);
+    window.removeListener(_onWindowChanged);
     super.dispose();
   }
 }
