@@ -140,31 +140,33 @@ lib/
     settings/
       app_settings.dart            AppSettings, PanelSettings
       settings_store.dart          чтение/запись settings.json
+    os/
+      system_open.dart             открытие объекта средствами системы
 
   state/
     app_controller.dart            левая/правая панель, активная панель, реестр команд
     panel_controller.dart          состояние одной панели
     panel_selection.dart           пометка объектов
     commands/
-      app_command.dart             AppCommand, KeyBinding, CommandContext
-      command_registry.dart        установка команд и диспетчеризация комбинаций
+      app_command.dart             AppCommand, KeyBinding, CommandContext, FunctionKeySlot
+      key_combination.dart         нормализация нажатия в строку вида Ctrl-Shift-F5
+      command_registry.dart        установка команд и разбор нажатий
       navigation_commands.dart     курсор, Tab, Enter, Backspace, Home/End
       selection_commands.dart      пометка объектов
-      settings_commands.dart       сохранение настроек при выходе
+      default_commands.dart        набор команд приложения в порядке приоритета
     app_scope.dart                 InheritedNotifier-доступ к контроллерам
 
   view/
     application_view.dart          корневой макет окна
+    keyboard_handler.dart          приём клавиатуры для всего окна
     panel/
       panel_view.dart              панель целиком
       panel_path_header.dart       «плашка» с текущим путём
       panel_status_bar.dart        строка состояния под списком
       file_table.dart              таблица: заголовки + прокручиваемые строки + вертикальные линейки
-      file_table_header.dart       строка заголовков колонок
-      file_table_header_cell.dart  заголовок одной колонки с индикатором сортировки
+      file_table_header.dart       заголовки колонок: сортировка, ширина, порядок, видимость
       file_table_row.dart          одна строка файла
       file_type_icon.dart          иконка типа объекта
-      column_resizer.dart          перетаскиваемый разделитель колонок
     function_bar/
       function_bar.dart            ряд F-кнопок внизу окна
       function_button.dart         одна кнопка

@@ -88,43 +88,67 @@ class _FileTableState extends State<FileTable> {
     final theme = FcTheme.of(context);
     final panel = widget.panel;
 
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = panel.columns.visibleColumns;
-        final widths = _columnWidths(columns, constraints.maxWidth);
-        final contentWidth = widths.fold<double>(0, (sum, width) => sum + width);
+    return ListenableBuilder(
+      // Раскладка колонок и правило сортировки живут в панели: их изменение
+      // должно пересчитывать ширины и перерисовывать заголовки.
+      listenable: panel,
+      builder:
+          (context, _) => LayoutBuilder(
+            builder: (context, constraints) {
+              final app = AppScope.read(context);
+              final columns = panel.columns.visibleColumns;
+              final widths = _columnWidths(columns, constraints.maxWidth);
+              final contentWidth = widths.fold<double>(0, (sum, width) => sum + width);
 
-        // Сколько строк видно — от этого считается шаг PgUp/PgDn.
-        final listHeight = constraints.maxHeight - theme.metrics.headerRowHeight;
-        panel.pageSize = (listHeight / theme.metrics.rowHeight).floor().clamp(1, 1000);
+              // Сколько строк видно — от этого считается шаг PgUp/PgDn.
+              final listHeight = constraints.maxHeight - theme.metrics.headerRowHeight;
+              panel.pageSize = (listHeight / theme.metrics.rowHeight).floor().clamp(1, 1000);
 
-        final table = SizedBox(
-          width: contentWidth,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              FileTableHeader(columns: columns, widths: widths, sort: panel.sort),
-              Expanded(child: _buildList(columns, widths)),
-            ],
+              final table = SizedBox(
+                width: contentWidth,
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    FileTableHeader(
+                      layout: panel.columns,
+                      columns: columns,
+                      widths: widths,
+                      sort: panel.sort,
+                      onColumnTap: (column) {
+                        app.activate(panel);
+                        panel.sortBy(column);
+                      },
+                      onLayoutChanged: (layout) {
+                        app.activate(panel);
+                        panel.setColumnLayout(layout);
+                      },
+                    ),
+                    Expanded(child: _buildList(columns, widths)),
+                  ],
+                ),
+              );
+
+              return Stack(
+                children: [
+                  // Линейки рисуются под содержимым и на всю высоту таблицы —
+                  // как в макете, где они идут от заголовков до строки состояния.
+                  Positioned.fill(
+                    child: CustomPaint(
+                      painter: _ColumnDividersPainter(
+                        columns: columns,
+                        widths: widths,
+                        color: theme.colors.columnDivider,
+                      ),
+                    ),
+                  ),
+                  if (contentWidth > constraints.maxWidth)
+                    SingleChildScrollView(scrollDirection: Axis.horizontal, child: table)
+                  else
+                    table,
+                ],
+              );
+            },
           ),
-        );
-
-        return Stack(
-          children: [
-            // Линейки рисуются под содержимым и на всю высоту таблицы —
-            // как в макете, где они идут от заголовков до строки состояния.
-            Positioned.fill(
-              child: CustomPaint(
-                painter: _ColumnDividersPainter(columns: columns, widths: widths, color: theme.colors.columnDivider),
-              ),
-            ),
-            if (contentWidth > constraints.maxWidth)
-              SingleChildScrollView(scrollDirection: Axis.horizontal, child: table)
-            else
-              table,
-          ],
-        );
-      },
     );
   }
 

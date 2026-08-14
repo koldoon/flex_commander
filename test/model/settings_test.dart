@@ -114,6 +114,44 @@ void main() {
     });
   });
 
+  group('перестановка колонок', () {
+    test('колонка встаёт на указанную позицию', () {
+      final layout = ColumnLayout.defaults;
+      final moved = layout.moveColumn(layout.indexOf(FsColumn.modified), 2);
+
+      expect(moved.columns.map((c) => c.id).take(5), [
+        FsColumn.icon,
+        FsColumn.name,
+        FsColumn.modified,
+        FsColumn.ext,
+        FsColumn.size,
+      ]);
+    });
+
+    test('обязательные колонки не двигаются', () {
+      final layout = ColumnLayout.defaults;
+      final moved = layout.moveColumn(layout.indexOf(FsColumn.name), 4);
+
+      expect(moved.columns.map((c) => c.id), layout.columns.map((c) => c.id));
+    });
+
+    test('другие колонки не встают перед обязательными', () {
+      final layout = ColumnLayout.defaults;
+      final moved = layout.moveColumn(layout.indexOf(FsColumn.size), 0);
+
+      expect(moved.columns.map((c) => c.id).take(3), [FsColumn.icon, FsColumn.name, FsColumn.size]);
+      expect(layout.firstMovableIndex, 2);
+    });
+
+    test('порядок колонок переживает сохранение', () {
+      final layout = ColumnLayout.defaults;
+      final moved = layout.moveColumn(layout.indexOf(FsColumn.modified), 2);
+      final restored = ColumnLayout.fromJson(moved.toJson());
+
+      expect(restored.columns.map((c) => c.id), moved.columns.map((c) => c.id));
+    });
+  });
+
   group('SettingsStore', () {
     late Directory temp;
     late SettingsStore store;

@@ -85,13 +85,30 @@ class ColumnLayout {
     return null;
   }
 
+  int indexOf(FsColumn id) => columns.indexWhere((column) => column.id == id);
+
+  /// Первая позиция, куда можно перетащить колонку: обязательные колонки
+  /// (иконка и имя) всегда остаются слева.
+  int get firstMovableIndex {
+    var index = 0;
+    for (var i = 0; i < columns.length; i++) {
+      if (columns[i].pinned) {
+        index = i + 1;
+      }
+    }
+    return index;
+  }
+
+  /// Переставляет колонку так, чтобы её итоговая позиция стала [to].
+  /// Обязательные колонки не двигаются и не пропускают другие вперёд себя.
   ColumnLayout moveColumn(int from, int to) {
-    if (from == to) {
+    if (from == to || from < 0 || from >= columns.length || columns[from].pinned) {
       return this;
     }
+
     final result = columns.toList();
     final spec = result.removeAt(from);
-    result.insert(to.clamp(0, result.length), spec);
+    result.insert(to.clamp(firstMovableIndex, result.length), spec);
     return ColumnLayout(result);
   }
 
