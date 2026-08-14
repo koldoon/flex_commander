@@ -193,6 +193,10 @@ abstract interface class TreeProvider {
   /// Корневой каталог провайдера.
   DirectoryNode get rootDirectory;
 
+  /// Каталог по умолчанию: сюда открывается панель, если сохранённый путь
+  /// недоступен. Для локальной ФС — домашний каталог пользователя.
+  String get homePath;
+
   /// Разбор строки пути в узел. Достраивает всю цепочку узлов от корня,
   /// при необходимости обращаясь во вложенные провайдеры.
   AsyncOperation<FsNode?> resolvePath(String path);
@@ -453,7 +457,8 @@ class AppSettings {
   final PanelSettings right;
   final int activePanel;       // 0 — левая, 1 — правая
   final double splitRatio;     // доля ширины окна под левой панелью, 0.2…0.8
-  final ThemeMode themeMode;
+  final AppThemeMode themeMode;   // system | light | dark; собственный тип,
+                                  // чтобы модели не зависели от Flutter
 
   static AppSettings get defaults;   // обе панели — домашний каталог, split 0.5
 }
