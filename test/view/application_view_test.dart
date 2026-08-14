@@ -65,9 +65,10 @@ void main() {
 
     expect(find.byType(PanelView), findsNWidgets(2));
     expect(find.byType(FunctionBar), findsOneWidget);
-    for (final label in FunctionBar.labels.toSet()) {
-      expect(find.text(label), findsWidgets);
+    for (final label in ['Help', 'Menu', 'View', 'Edit', 'Copy', 'Move', 'Mk Dir', 'Delete']) {
+      expect(find.text(label), findsOneWidget);
     }
+    expect(find.text('-'), findsWidgets); // F9 и F10 пока пусты
     expect(find.text('F1'), findsOneWidget);
     expect(find.text('F10'), findsOneWidget);
   });

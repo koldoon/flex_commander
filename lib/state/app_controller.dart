@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 
 import '../model/settings/app_settings.dart';
 import '../model/settings/settings_store.dart';
+import 'commands/command_registry.dart';
+import 'commands/default_commands.dart';
 import 'panel_controller.dart';
 
 /// Состояние приложения: две панели, активная из них и общие настройки.
@@ -17,20 +19,27 @@ class AppController extends ChangeNotifier {
     required this.right,
     required this.store,
     required AppSettings settings,
+    CommandRegistry? commands,
     this.saveDelay = const Duration(seconds: 1),
   }) : _splitRatio = settings.splitRatio,
        _themeMode = settings.themeMode,
-       _initialSettings = settings {
+       _initialSettings = settings,
+       commands = commands ?? defaultCommandRegistry() {
     // Одна панель активна всегда, ещё до первого чтения каталогов.
     left.setActive(settings.activePanel != 1);
     right.setActive(settings.activePanel == 1);
     left.addListener(_onPanelChanged);
     right.addListener(_onPanelChanged);
+    this.commands.attach(this);
   }
 
   final PanelController left;
   final PanelController right;
   final SettingsStore store;
+
+  /// Действия приложения: за кнопкой нижней панели и за горячей клавишей
+  /// стоит одна и та же команда.
+  final CommandRegistry commands;
 
   /// Задержка перед записью настроек. Настройки пишутся и при выходе, но
   /// отложенная запись бережёт их и при аварийном завершении.
@@ -106,6 +115,7 @@ class AppController extends ChangeNotifier {
     _saveTimer?.cancel();
     left.cancel();
     right.cancel();
+    await commands.shutdown();
     await save();
   }
 

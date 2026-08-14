@@ -33,13 +33,13 @@ CommandRegistry.dispatch(combination, app)
 
 Важные детали реализации:
 
-- Один корневой `Focus` с `onKeyEvent`; панели **не** держат собственных обработчиков
-  клавиатуры — активная панель определяется `AppController.activePanel`, а не системным
-  фокусом. Это избавляет от вечной борьбы с `FocusManager` (в референсе с этим боролись
-  вручную в `Main.onActivate`).
-- `Tab` перехватывается до штатной навигации по фокусу: корневой `FocusScope` создаётся
-  с `TraversalEdgeBehavior` и обработчиком, возвращающим `handled` для `Tab`,
-  иначе Flutter уведёт фокус на F-кнопки.
+- Один корневой `Focus` с `onKeyEvent` (виджет `KeyboardHandler`); панели **не** держат
+  собственных обработчиков клавиатуры — активная панель определяется
+  `AppController.activePanel`, а не системным фокусом. Это избавляет от вечной борьбы
+  с `FocusManager` (в референсе с этим боролись вручную в `Main.onActivate`).
+- У этого `Focus` выставлено `descendantsAreFocusable: false`: фокус не уходит вниз,
+  поэтому `Tab` достаётся команде переключения панелей, а не штатной навигации,
+  и кнопки внизу окна его не перехватывают.
 - `KeyRepeatEvent` обрабатывается так же, как `KeyDownEvent`, — иначе не будет
   автоповтора стрелок при удержании.
 - Пока `panel.busy`, все комбинации игнорируются, кроме `Esc` (отмена операции) —
@@ -69,8 +69,8 @@ CommandRegistry.dispatch(combination, app)
 |---|---|---|
 | `↑` / `↓` | `panel.cursor.move` | курсор на строку вверх/вниз |
 | `PgUp` / `PgDn` | `panel.cursor.page` | курсор на страницу (по числу видимых строк минус одна) |
-| `Home` / `Left` | `panel.cursor.first` | курсор на первый элемент |
-| `End` / `Right` | `panel.cursor.last` | курсор на последний элемент |
+| `Home` / `Left` | `panel.cursor.edge` | курсор на первый элемент |
+| `End` / `Right` | `panel.cursor.edge` | курсор на последний элемент |
 | `Tab` | `app.togglePanel` | переключить активную панель |
 | `Enter` | `panel.open` | каталог — войти; ссылка — разрешить и войти; файл — открыть системой |
 | `Backspace` | `panel.up` | на уровень вверх, курсор на покинутый каталог |
@@ -89,7 +89,7 @@ CommandRegistry.dispatch(combination, app)
 |---|---|---|
 | `Space` | `panel.selection.toggle` | инвертировать пометку и сдвинуть курсор вниз |
 | `Ins` | `panel.selection.toggle` | то же (для внешних клавиатур) |
-| `Esc` | `panel.selection.clear` | снять всю пометку |
+| `Esc` | `panel.cancel` / `panel.selection.clear` | прервать операцию, а если панель свободна — снять пометку |
 | `Cmd-A` | `panel.selection.all` | пометить всё, кроме `..` |
 | `+` / `-` | `panel.selection.wildcard` | пометить/снять по маске (диалог, этап 5) |
 
@@ -143,8 +143,7 @@ F8 Delete, F9 `-`, F10 `-`.
 |---|---|---|---|
 | `panel.cursor.move` | — | `Up`, `Down` | список не пуст |
 | `panel.cursor.page` | — | `PgUp`, `PgDn` | список не пуст |
-| `panel.cursor.first` | — | `Home`, `Left` | список не пуст |
-| `panel.cursor.last` | — | `End`, `Right` | список не пуст |
+| `panel.cursor.edge` | — | `Home`, `Left`, `End`, `Right` | список не пуст |
 | `app.togglePanel` | — | `Tab` | всегда |
 | `panel.open` | — | `Enter`, `Cmd-O` | есть объект под курсором |
 | `panel.up` | — | `Bsp`, `Cmd-Up` | у каталога есть родитель |
@@ -154,13 +153,17 @@ F8 Delete, F9 `-`, F10 `-`.
 | `panel.selection.toggle` | — | `Space`, `Ins` | под курсором не `..` |
 | `panel.selection.clear` | — | `Esc` | есть пометка |
 | `panel.selection.all` | — | `Cmd-A` | список не пуст |
-| `app.saveSettings` | — | — | вызывается при выходе |
+| `panel.cancel` | — | `Esc` | панель занята длительной операцией |
+| `app.toggleTheme` | — | `Cmd-T` | всегда |
+
+Настройки при выходе сохраняет `AppController.shutdown()`, отдельной команды для
+этого нет.
 
 ## 5. Статус команд в MVP
 
 Команды `file.copy`, `file.move`, `file.mkdir`, `file.remove`, `file.view`, `file.edit`,
-`app.menu`, `app.help` в MVP **регистрируются, но не реализованы**: их `isExecutable()`
-возвращает `false`, поэтому кнопки F1–F8 видны и приглушены. Это сознательно:
+`app.menu`, `app.help` в MVP **регистрируются, но не реализованы**: это `PlaceholderCommand`
+с `isExecutable() == false`, поэтому кнопки F1–F8 видны и приглушены. Это сознательно:
 нижняя панель выглядит как в макете, а связка «кнопка ↔ команда ↔ клавиша» проверяется
 на этапе 4, а не переписывается на этапе 7.
 
