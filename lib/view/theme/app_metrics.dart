@@ -25,7 +25,11 @@ class FcMetrics {
   double get panelTopPadding => 22;
 
   double get headerRowHeight => 26;
+
+  /// Шаг строк списка: сама строка на [rowGap] ниже, разница — просвет
+  /// между соседними строками (как в референсе).
   double get rowHeight => 20;
+  double get rowGap => 1;
   double get statusBarHeight => 30;
 
   double get functionBarHeight => 27;
