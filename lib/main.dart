@@ -1,45 +1,30 @@
-import 'package:flutter/material.dart';
+import 'dart:async';
 
-void main() {
-  runApp(const MyApp());
-}
+import 'package:flutter/widgets.dart';
 
-class MyApp extends StatelessWidget {
-  const MyApp({super.key});
+import 'app.dart';
+import 'model/settings/settings_store.dart';
+import 'model/tree/local/local_tree_provider.dart';
+import 'state/app_controller.dart';
+import 'state/panel_controller.dart';
 
-  @override
-  Widget build(BuildContext context) {
-    return MaterialApp(
-      title: 'Flutter Demo',
-      theme: ThemeData(colorScheme: ColorScheme.fromSeed(seedColor: Colors.deepPurple)),
-      home: const MyHomePage(title: 'Flutter Demo Home Page'),
-    );
-  }
-}
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage({super.key, required this.title});
+  final provider = LocalTreeProvider();
+  final store = SettingsStore.forHome(provider.homePath);
+  final settings = await store.load();
 
-  final String title;
+  final controller = AppController(
+    left: PanelController(provider: provider, settings: settings.left),
+    right: PanelController(provider: provider, settings: settings.right),
+    store: store,
+    settings: settings,
+  );
 
-  @override
-  State<MyHomePage> createState() => _MyHomePageState();
-}
+  runApp(FlexCommanderApp(controller: controller));
 
-class _MyHomePageState extends State<MyHomePage> {
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(backgroundColor: Theme.of(context).colorScheme.inversePrimary, title: Text(widget.title)),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Text('You have pushed the button this many times:'),
-            Text('Placeholder', style: Theme.of(context).textTheme.headlineMedium),
-          ],
-        ),
-      ),
-    );
-  }
+  // Каталоги читаются уже после первого кадра: окно появляется сразу, а панели
+  // заполняются по мере чтения.
+  unawaited(controller.start());
 }
