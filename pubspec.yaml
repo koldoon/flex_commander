@@ -38,6 +38,7 @@ dependencies:
   logecom: ^0.0.11
   dicom: ^0.0.3
   path: ^1.9.1
+  window_manager: ^0.5.2
 
 dev_dependencies:
   flutter_test:

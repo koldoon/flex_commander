@@ -460,7 +460,18 @@ class AppSettings {
   final AppThemeMode themeMode;   // system | light | dark; собственный тип,
                                   // чтобы модели не зависели от Flutter
 
+  /// Положение и размер окна; null — окно ещё ни разу не открывали.
+  final WindowGeometry? window;
+
   static AppSettings get defaults;   // обе панели — домашний каталог, split 0.5
+}
+
+class WindowGeometry {
+  final double left, top, width, height;
+
+  /// Окно развёрнуто. Само положение и размер при этом хранятся те, к которым
+  /// окно вернётся после сворачивания.
+  final bool maximized;
 }
 ```
 
@@ -474,6 +485,7 @@ class AppSettings {
   "activePanel": 0,
   "splitRatio": 0.5,
   "themeMode": "system",
+  "window": { "left": 120, "top": 80, "width": 900, "height": 640, "maximized": false },
   "panels": [
     {
       "path": "fs:/Users/koldoon/Developer",
