@@ -16,8 +16,7 @@ class NodePathPart {
   final String path;
 
   @override
-  bool operator ==(Object other) =>
-      other is NodePathPart && other.scheme == scheme && other.path == path;
+  bool operator ==(Object other) => other is NodePathPart && other.scheme == scheme && other.path == path;
 
   @override
   int get hashCode => Object.hash(scheme, path);
@@ -28,8 +27,8 @@ class NodePathPart {
 
 class NodePath {
   NodePath(List<NodePathPart> parts)
-      : assert(parts.isNotEmpty, 'Путь не может быть пустым'),
-        parts = List.unmodifiable(parts);
+    : assert(parts.isNotEmpty, 'Путь не может быть пустым'),
+      parts = List.unmodifiable(parts);
 
   /// Схема по умолчанию: локальная файловая система.
   static const String defaultScheme = 'fs';
@@ -80,8 +79,7 @@ class NodePath {
   }
 
   /// Путь для локальной файловой системы.
-  factory NodePath.local(String path) =>
-      NodePath([NodePathPart(defaultScheme, path)]);
+  factory NodePath.local(String path) => NodePath([NodePathPart(defaultScheme, path)]);
 
   /// Схема `fs` в начале не печатается: пользователь видит привычный
   /// `/Users/koldoon`, а не `fs:/Users/koldoon`.
@@ -106,8 +104,7 @@ class NodePath {
   bool operator ==(Object other) =>
       other is NodePath &&
       other.parts.length == parts.length &&
-      List.generate(parts.length, (i) => other.parts[i] == parts[i])
-          .every((equal) => equal);
+      List.generate(parts.length, (i) => other.parts[i] == parts[i]).every((equal) => equal);
 
   @override
   int get hashCode => Object.hashAll(parts);

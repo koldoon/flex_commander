@@ -54,19 +54,13 @@ class RawEntry {
 /// `stat()` на десятках тысяч файлов заметно блокирует поток, поэтому чтение
 /// уходит из основного изолята целиком. Отменить его нельзя — вызывающий код
 /// просто игнорирует результат отменённой операции.
-Future<List<RawEntry>> readDirectory(
-  String path, {
-  bool includeHidden = false,
-}) {
+Future<List<RawEntry>> readDirectory(String path, {bool includeHidden = false}) {
   return Isolate.run(() => readDirectorySync(path, includeHidden: includeHidden));
 }
 
 /// Тело чтения каталога. Вынесено отдельно, чтобы вызываться и без изолята
 /// (в тестах) и внутри [Isolate.run].
-Future<List<RawEntry>> readDirectorySync(
-  String path, {
-  bool includeHidden = false,
-}) async {
+Future<List<RawEntry>> readDirectorySync(String path, {bool includeHidden = false}) async {
   final directory = Directory(path);
   final entries = <RawEntry>[];
 
@@ -151,18 +145,19 @@ Future<RawEntry> _describe(FileSystemEntity entity, String name) async {
 
 FsError _toFsError(String path, FileSystemException error) {
   final code = error.osError?.errorCode;
-  final kind = Platform.isWindows
-      ? switch (code) {
-          2 || 3 => FsErrorKind.notFound, // ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND
-          5 => FsErrorKind.permissionDenied, // ERROR_ACCESS_DENIED
-          267 => FsErrorKind.notADirectory, // ERROR_DIRECTORY
-          _ => FsErrorKind.io,
-        }
-      : switch (code) {
-          2 => FsErrorKind.notFound, // ENOENT
-          13 => FsErrorKind.permissionDenied, // EACCES
-          20 => FsErrorKind.notADirectory, // ENOTDIR
-          _ => FsErrorKind.io,
-        };
+  final kind =
+      Platform.isWindows
+          ? switch (code) {
+            2 || 3 => FsErrorKind.notFound, // ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND
+            5 => FsErrorKind.permissionDenied, // ERROR_ACCESS_DENIED
+            267 => FsErrorKind.notADirectory, // ERROR_DIRECTORY
+            _ => FsErrorKind.io,
+          }
+          : switch (code) {
+            2 => FsErrorKind.notFound, // ENOENT
+            13 => FsErrorKind.permissionDenied, // EACCES
+            20 => FsErrorKind.notADirectory, // ENOTDIR
+            _ => FsErrorKind.io,
+          };
   return FsError(path, kind, error);
 }

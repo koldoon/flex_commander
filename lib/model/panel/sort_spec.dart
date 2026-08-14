@@ -5,17 +5,12 @@ enum SortDirection {
   ascending,
   descending;
 
-  SortDirection get opposite =>
-      this == ascending ? descending : ascending;
+  SortDirection get opposite => this == ascending ? descending : ascending;
 }
 
 /// Правило сортировки списка панели.
 class SortSpec {
-  const SortSpec({
-    this.column = FsColumn.name,
-    this.direction = SortDirection.ascending,
-    this.foldersFirst = true,
-  });
+  const SortSpec({this.column = FsColumn.name, this.direction = SortDirection.ascending, this.foldersFirst = true});
 
   final FsColumn column;
   final SortDirection direction;
@@ -27,25 +22,14 @@ class SortSpec {
   /// по возрастанию.
   SortSpec toggled(FsColumn other) {
     if (other == column) {
-      return SortSpec(
-        column: column,
-        direction: direction.opposite,
-        foldersFirst: foldersFirst,
-      );
+      return SortSpec(column: column, direction: direction.opposite, foldersFirst: foldersFirst);
     }
-    return SortSpec(
-      column: other,
-      direction: SortDirection.ascending,
-      foldersFirst: foldersFirst,
-    );
+    return SortSpec(column: other, direction: SortDirection.ascending, foldersFirst: foldersFirst);
   }
 
   @override
   bool operator ==(Object other) =>
-      other is SortSpec &&
-      other.column == column &&
-      other.direction == direction &&
-      other.foldersFirst == foldersFirst;
+      other is SortSpec && other.column == column && other.direction == direction && other.foldersFirst == foldersFirst;
 
   @override
   int get hashCode => Object.hash(column, direction, foldersFirst);
@@ -86,15 +70,13 @@ int Function(FsNode, FsNode) comparatorFor(SortSpec spec) {
   };
 }
 
-bool _isDirectory(FsNode node) =>
-    node is DirectoryNode || (node is LinkNode && node.isDirectoryLink);
+bool _isDirectory(FsNode node) => node is DirectoryNode || (node is LinkNode && node.isDirectoryLink);
 
 int _compareByColumn(FsNode a, FsNode b, FsColumn column) {
   return switch (column) {
     FsColumn.name => naturalCompare(a.name, b.name),
     FsColumn.ext => naturalCompare(_extensionOf(a), _extensionOf(b)),
-    FsColumn.attributes =>
-      naturalCompare(_attributesOf(a), _attributesOf(b)),
+    FsColumn.attributes => naturalCompare(_attributesOf(a), _attributesOf(b)),
     FsColumn.size => a.size.compareTo(b.size),
     FsColumn.modified => _compareDates(_fileOf(a)?.modified, _fileOf(b)?.modified),
     FsColumn.created => _compareDates(_fileOf(a)?.created, _fileOf(b)?.created),

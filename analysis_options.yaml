@@ -26,3 +26,7 @@ linter:
 
 # Additional information about this file can be found at
 # https://dart.dev/guides/language/analysis-options
+
+# Ширина строки для dart format. Совпадает с настройкой форматирования в IDE.
+formatter:
+  page_width: 120

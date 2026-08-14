@@ -14,8 +14,7 @@ enum OperationStatus {
   canceled,
   error;
 
-  bool get isFinished =>
-      this == complete || this == canceled || this == error;
+  bool get isFinished => this == complete || this == canceled || this == error;
 }
 
 /// Прогресс операции.
@@ -71,10 +70,8 @@ class TaskOperation<T> implements AsyncOperation<T> {
   final Future<T> Function(TaskOperation<T> op) _body;
 
   final Completer<T> _completer = Completer<T>();
-  final StreamController<OperationProgress> _progress =
-      StreamController<OperationProgress>.broadcast();
-  final StreamController<OperationRequest> _requests =
-      StreamController<OperationRequest>.broadcast();
+  final StreamController<OperationProgress> _progress = StreamController<OperationProgress>.broadcast();
+  final StreamController<OperationRequest> _requests = StreamController<OperationRequest>.broadcast();
 
   OperationStatus _status = OperationStatus.inited;
 
@@ -142,9 +139,7 @@ class TaskOperation<T> implements AsyncOperation<T> {
       if (isCanceled) {
         return;
       }
-      _status = error is OperationCanceled
-          ? OperationStatus.canceled
-          : OperationStatus.error;
+      _status = error is OperationCanceled ? OperationStatus.canceled : OperationStatus.error;
       _finish();
       if (!_completer.isCompleted) {
         _completer.completeError(error, stackTrace);
@@ -162,9 +157,7 @@ class TaskOperation<T> implements AsyncOperation<T> {
 class CompletedOperation<T> implements AsyncOperation<T> {
   CompletedOperation(T value) : result = Future.value(value);
 
-  CompletedOperation.error(Object error)
-      : result = Future.error(error),
-        _status = OperationStatus.error {
+  CompletedOperation.error(Object error) : result = Future.error(error), _status = OperationStatus.error {
     // Ошибка обязательно должна быть кем-то прочитана, иначе Dart сообщит
     // о необработанной ошибке ещё до того, как её заберёт вызывающий код.
     result.ignore();
