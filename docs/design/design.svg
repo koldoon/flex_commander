@@ -1,0 +1,692 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="802px" height="621px" viewBox="0 0 802 621" version="1.1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+    <title>Desktop</title>
+    <defs>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-1">
+            <stop stop-color="#FAFAFA" offset="0%"></stop>
+            <stop stop-color="#D9D9D9" offset="100%"></stop>
+        </linearGradient>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-2">
+            <stop stop-color="#F0F0F0" offset="0%"></stop>
+            <stop stop-color="#D4D4D4" offset="100%"></stop>
+        </linearGradient>
+        <path d="M4,0 L796,0 C798.209139,0 800,1.790861 800,4 L800,21 L800,21 L0,21 L0,4 C0,1.790861 1.790861,4.4408921e-16 4,0 Z" id="path-3"></path>
+        <filter x="-0.1%" y="-2.4%" width="100.1%" height="109.5%" filterUnits="objectBoundingBox" id="filter-4">
+            <feOffset dx="0" dy="1" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.174988678 0" type="matrix" in="shadowOffsetOuter1"></feColorMatrix>
+        </filter>
+        <rect id="path-5" x="0" y="1" width="396" height="19"></rect>
+        <filter x="-0.4%" y="-7.9%" width="100.8%" height="115.8%" filterUnits="objectBoundingBox" id="filter-6">
+            <feOffset dx="3" dy="0" in="SourceAlpha" result="shadowOffsetInner1"></feOffset>
+            <feComposite in="shadowOffsetInner1" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shadowInnerInner1"></feComposite>
+            <feColorMatrix values="0 0 0 0 0.294117647   0 0 0 0 0.725490196   0 0 0 0 0.956862745  0 0 0 1 0" type="matrix" in="shadowInnerInner1"></feColorMatrix>
+        </filter>
+        <rect id="path-7" x="0" y="1" width="396" height="19"></rect>
+        <filter x="-0.4%" y="-7.9%" width="100.8%" height="115.8%" filterUnits="objectBoundingBox" id="filter-8">
+            <feOffset dx="3" dy="0" in="SourceAlpha" result="shadowOffsetInner1"></feOffset>
+            <feComposite in="shadowOffsetInner1" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shadowInnerInner1"></feComposite>
+            <feColorMatrix values="0 0 0 0 0.294117647   0 0 0 0 0.725490196   0 0 0 0 0.956862745  0 0 0 1 0" type="matrix" in="shadowInnerInner1"></feColorMatrix>
+        </filter>
+        <rect id="path-9" x="0" y="1" width="396" height="19"></rect>
+        <filter x="-0.4%" y="-7.9%" width="100.8%" height="115.8%" filterUnits="objectBoundingBox" id="filter-10">
+            <feOffset dx="3" dy="0" in="SourceAlpha" result="shadowOffsetInner1"></feOffset>
+            <feComposite in="shadowOffsetInner1" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shadowInnerInner1"></feComposite>
+            <feColorMatrix values="0 0 0 0 0.294117647   0 0 0 0 0.725490196   0 0 0 0 0.956862745  0 0 0 1 0" type="matrix" in="shadowInnerInner1"></feColorMatrix>
+        </filter>
+        <linearGradient x1="50%" y1="0%" x2="50%" y2="100%" id="linearGradient-11">
+            <stop stop-color="#FDFDFD" offset="0%"></stop>
+            <stop stop-color="#F1F1F1" offset="100%"></stop>
+        </linearGradient>
+        <rect id="path-12" x="0" y="0" width="76" height="21" rx="3"></rect>
+        <filter x="-2.6%" y="-4.8%" width="105.3%" height="119.0%" filterUnits="objectBoundingBox" id="filter-13">
+            <feOffset dx="0" dy="1" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="0.5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feComposite in="shadowBlurOuter1" in2="SourceAlpha" operator="out" result="shadowBlurOuter1"></feComposite>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.0844655797 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <filter x="-3.3%" y="-7.1%" width="106.6%" height="123.8%" filterUnits="objectBoundingBox" id="filter-14">
+            <feGaussianBlur stdDeviation="0.5" in="SourceAlpha" result="shadowBlurInner1"></feGaussianBlur>
+            <feOffset dx="0" dy="2" in="shadowBlurInner1" result="shadowOffsetInner1"></feOffset>
+            <feComposite in="shadowOffsetInner1" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shadowInnerInner1"></feComposite>
+            <feColorMatrix values="0 0 0 0 1   0 0 0 0 1   0 0 0 0 1  0 0 0 1 0" type="matrix" in="shadowInnerInner1"></feColorMatrix>
+        </filter>
+        <rect id="path-15" x="0" y="0" width="76" height="21" rx="3"></rect>
+        <filter x="-2.6%" y="-4.8%" width="105.3%" height="119.0%" filterUnits="objectBoundingBox" id="filter-16">
+            <feOffset dx="0" dy="1" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="0.5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feComposite in="shadowBlurOuter1" in2="SourceAlpha" operator="out" result="shadowBlurOuter1"></feComposite>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.0844655797 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <filter x="-3.3%" y="-7.1%" width="106.6%" height="123.8%" filterUnits="objectBoundingBox" id="filter-17">
+            <feGaussianBlur stdDeviation="0.5" in="SourceAlpha" result="shadowBlurInner1"></feGaussianBlur>
+            <feOffset dx="0" dy="2" in="shadowBlurInner1" result="shadowOffsetInner1"></feOffset>
+            <feComposite in="shadowOffsetInner1" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shadowInnerInner1"></feComposite>
+            <feColorMatrix values="0 0 0 0 1   0 0 0 0 1   0 0 0 0 1  0 0 0 1 0" type="matrix" in="shadowInnerInner1"></feColorMatrix>
+        </filter>
+        <rect id="path-18" x="0" y="0" width="76" height="21" rx="3"></rect>
+        <filter x="-2.6%" y="-4.8%" width="105.3%" height="119.0%" filterUnits="objectBoundingBox" id="filter-19">
+            <feOffset dx="0" dy="1" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="0.5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feComposite in="shadowBlurOuter1" in2="SourceAlpha" operator="out" result="shadowBlurOuter1"></feComposite>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.0844655797 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <filter x="-3.3%" y="-7.1%" width="106.6%" height="123.8%" filterUnits="objectBoundingBox" id="filter-20">
+            <feGaussianBlur stdDeviation="0.5" in="SourceAlpha" result="shadowBlurInner1"></feGaussianBlur>
+            <feOffset dx="0" dy="2" in="shadowBlurInner1" result="shadowOffsetInner1"></feOffset>
+            <feComposite in="shadowOffsetInner1" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shadowInnerInner1"></feComposite>
+            <feColorMatrix values="0 0 0 0 1   0 0 0 0 1   0 0 0 0 1  0 0 0 1 0" type="matrix" in="shadowInnerInner1"></feColorMatrix>
+        </filter>
+        <rect id="path-21" x="0" y="0" width="76" height="21" rx="3"></rect>
+        <filter x="-2.6%" y="-4.8%" width="105.3%" height="119.0%" filterUnits="objectBoundingBox" id="filter-22">
+            <feOffset dx="0" dy="1" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="0.5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feComposite in="shadowBlurOuter1" in2="SourceAlpha" operator="out" result="shadowBlurOuter1"></feComposite>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.0844655797 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <filter x="-3.3%" y="-7.1%" width="106.6%" height="123.8%" filterUnits="objectBoundingBox" id="filter-23">
+            <feGaussianBlur stdDeviation="0.5" in="SourceAlpha" result="shadowBlurInner1"></feGaussianBlur>
+            <feOffset dx="0" dy="2" in="shadowBlurInner1" result="shadowOffsetInner1"></feOffset>
+            <feComposite in="shadowOffsetInner1" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shadowInnerInner1"></feComposite>
+            <feColorMatrix values="0 0 0 0 1   0 0 0 0 1   0 0 0 0 1  0 0 0 1 0" type="matrix" in="shadowInnerInner1"></feColorMatrix>
+        </filter>
+        <rect id="path-24" x="0" y="0" width="76" height="21" rx="3"></rect>
+        <filter x="-2.6%" y="-4.8%" width="105.3%" height="119.0%" filterUnits="objectBoundingBox" id="filter-25">
+            <feOffset dx="0" dy="1" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="0.5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feComposite in="shadowBlurOuter1" in2="SourceAlpha" operator="out" result="shadowBlurOuter1"></feComposite>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.0844655797 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <filter x="-3.3%" y="-7.1%" width="106.6%" height="123.8%" filterUnits="objectBoundingBox" id="filter-26">
+            <feGaussianBlur stdDeviation="0.5" in="SourceAlpha" result="shadowBlurInner1"></feGaussianBlur>
+            <feOffset dx="0" dy="2" in="shadowBlurInner1" result="shadowOffsetInner1"></feOffset>
+            <feComposite in="shadowOffsetInner1" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shadowInnerInner1"></feComposite>
+            <feColorMatrix values="0 0 0 0 1   0 0 0 0 1   0 0 0 0 1  0 0 0 1 0" type="matrix" in="shadowInnerInner1"></feColorMatrix>
+        </filter>
+        <rect id="path-27" x="0" y="0" width="76" height="21" rx="3"></rect>
+        <filter x="-2.6%" y="-4.8%" width="105.3%" height="119.0%" filterUnits="objectBoundingBox" id="filter-28">
+            <feOffset dx="0" dy="1" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="0.5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feComposite in="shadowBlurOuter1" in2="SourceAlpha" operator="out" result="shadowBlurOuter1"></feComposite>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.0844655797 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <filter x="-3.3%" y="-7.1%" width="106.6%" height="123.8%" filterUnits="objectBoundingBox" id="filter-29">
+            <feGaussianBlur stdDeviation="0.5" in="SourceAlpha" result="shadowBlurInner1"></feGaussianBlur>
+            <feOffset dx="0" dy="2" in="shadowBlurInner1" result="shadowOffsetInner1"></feOffset>
+            <feComposite in="shadowOffsetInner1" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shadowInnerInner1"></feComposite>
+            <feColorMatrix values="0 0 0 0 1   0 0 0 0 1   0 0 0 0 1  0 0 0 1 0" type="matrix" in="shadowInnerInner1"></feColorMatrix>
+        </filter>
+        <rect id="path-30" x="0" y="0" width="76" height="21" rx="3"></rect>
+        <filter x="-2.6%" y="-4.8%" width="105.3%" height="119.0%" filterUnits="objectBoundingBox" id="filter-31">
+            <feOffset dx="0" dy="1" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="0.5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feComposite in="shadowBlurOuter1" in2="SourceAlpha" operator="out" result="shadowBlurOuter1"></feComposite>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.0844655797 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <filter x="-3.3%" y="-7.1%" width="106.6%" height="123.8%" filterUnits="objectBoundingBox" id="filter-32">
+            <feGaussianBlur stdDeviation="0.5" in="SourceAlpha" result="shadowBlurInner1"></feGaussianBlur>
+            <feOffset dx="0" dy="2" in="shadowBlurInner1" result="shadowOffsetInner1"></feOffset>
+            <feComposite in="shadowOffsetInner1" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shadowInnerInner1"></feComposite>
+            <feColorMatrix values="0 0 0 0 1   0 0 0 0 1   0 0 0 0 1  0 0 0 1 0" type="matrix" in="shadowInnerInner1"></feColorMatrix>
+        </filter>
+        <rect id="path-33" x="0" y="0" width="76" height="21" rx="3"></rect>
+        <filter x="-2.6%" y="-4.8%" width="105.3%" height="119.0%" filterUnits="objectBoundingBox" id="filter-34">
+            <feOffset dx="0" dy="1" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="0.5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feComposite in="shadowBlurOuter1" in2="SourceAlpha" operator="out" result="shadowBlurOuter1"></feComposite>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.0844655797 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <filter x="-3.3%" y="-7.1%" width="106.6%" height="123.8%" filterUnits="objectBoundingBox" id="filter-35">
+            <feGaussianBlur stdDeviation="0.5" in="SourceAlpha" result="shadowBlurInner1"></feGaussianBlur>
+            <feOffset dx="0" dy="2" in="shadowBlurInner1" result="shadowOffsetInner1"></feOffset>
+            <feComposite in="shadowOffsetInner1" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shadowInnerInner1"></feComposite>
+            <feColorMatrix values="0 0 0 0 1   0 0 0 0 1   0 0 0 0 1  0 0 0 1 0" type="matrix" in="shadowInnerInner1"></feColorMatrix>
+        </filter>
+        <rect id="path-36" x="0" y="0" width="76" height="21" rx="3"></rect>
+        <filter x="-2.6%" y="-4.8%" width="105.3%" height="119.0%" filterUnits="objectBoundingBox" id="filter-37">
+            <feOffset dx="0" dy="1" in="SourceAlpha" result="shadowOffsetOuter1"></feOffset>
+            <feGaussianBlur stdDeviation="0.5" in="shadowOffsetOuter1" result="shadowBlurOuter1"></feGaussianBlur>
+            <feComposite in="shadowBlurOuter1" in2="SourceAlpha" operator="out" result="shadowBlurOuter1"></feComposite>
+            <feColorMatrix values="0 0 0 0 0   0 0 0 0 0   0 0 0 0 0  0 0 0 0.0844655797 0" type="matrix" in="shadowBlurOuter1"></feColorMatrix>
+        </filter>
+        <filter x="-3.3%" y="-7.1%" width="106.6%" height="123.8%" filterUnits="objectBoundingBox" id="filter-38">
+            <feGaussianBlur stdDeviation="0.5" in="SourceAlpha" result="shadowBlurInner1"></feGaussianBlur>
+            <feOffset dx="0" dy="2" in="shadowBlurInner1" result="shadowOffsetInner1"></feOffset>
+            <feComposite in="shadowOffsetInner1" in2="SourceAlpha" operator="arithmetic" k2="-1" k3="1" result="shadowInnerInner1"></feComposite>
+            <feColorMatrix values="0 0 0 0 1   0 0 0 0 1   0 0 0 0 1  0 0 0 1 0" type="matrix" in="shadowInnerInner1"></feColorMatrix>
+        </filter>
+    </defs>
+    <g id="Desktop" stroke="none" stroke-width="1" fill="none" fill-rule="evenodd">
+        <g id="Window" transform="translate(1.000000, 1.000000)">
+            <rect id="Rectangle" stroke="#CCCCCC" fill="url(#linearGradient-1)" x="-0.5" y="-0.5" width="801" height="620" rx="4"></rect>
+            <g id="Rectangle-6">
+                <use fill="black" fill-opacity="1" filter="url(#filter-4)" xlink:href="#path-3"></use>
+                <use fill="url(#linearGradient-2)" fill-rule="evenodd" xlink:href="#path-3"></use>
+            </g>
+            <circle id="Oval" stroke-opacity="0.13" stroke="#000000" fill="#FEBC2E" cx="36" cy="11" r="5.5"></circle>
+            <circle id="Oval" stroke-opacity="0.13" stroke="#000000" fill="#29CD42" cx="57" cy="11" r="5.5"></circle>
+            <circle id="Oval" stroke-opacity="0.13" stroke="#000000" fill="#FD5E57" cx="15" cy="11" r="5.5"></circle>
+        </g>
+        <g id="Application" transform="translate(3.000000, 30.000000)">
+            <g id="Panel/View-Right" transform="translate(399.000000, 0.000000)">
+                <path d="M395.5,10.5 L395.5,559.5 L0.5,559.5 L0.5,10.5 L395.5,10.5 Z" id="Rectangle-2" stroke-opacity="0.24" stroke="#000000" fill="#FFFFFF"></path>
+                <g id="Panel/Row" transform="translate(0.000000, 60.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">..</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)">
+                        <image id="16@2x" x="0" y="0" width="15.8796992" height="16" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAEKADAAQAAAABAAAAEAAAAAA0VXHyAAABtklEQVQ4EcVSsS5EQRS98+buW2sjQlZQiFYl2V6tFX/iCzTEH9CLWqsTIvEBVLKNgmaD2GRj2TV3xjnzdlUKKjc7e++cOffMmZkn8t/hdk6vlhdW1w51qrli0cQnG/a7Dwf7m+tnvzGn0c+055cWtguwC4eBohB/vHf9uBtVe36swmxYsyjia6Wkt9cnOz+51E8z99IPEgJWIOASmDrdKlozR6wTMEE2Jm6AOkJtlFR67a0NfbW6pIFAwMSRDJ2YWHNSuYopodnlZsKgiJZN6ZvO6UgCbBdSKmS5O2wysZ3HYnDOMYlc4+89hKTeTJReIY19qmOQyRIKkSeDGgUBVTgBnyT3eloHXlAABUmeAGOcyc8LyBXEzRDoVcMRFCgFIlHWY36ljDlwuuFFVq/ixICZodeGQ1iM4nEPJFKaTvJrYMqnpQP8ck0Ka8HFZgdULMHw2IEYFzlI5GBMcIrR5eRuvMJBoxZdo+bF4xwkfgdrNOQ0rjnJ9wGc300Zo9Pn+5tOY7Z1Uas3FlMMeGO8N5kkQ4PvH3HgAlY5D8B9oRJHg26/c3tHjGMKQzH+EgHkj780/Mj9AoIxsnosFOGQAAAAAElFTkSuQmCC"></image>
+                    </g>
+                </g>
+                <g id="Panel/Row" transform="translate(0.000000, 80.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">bin</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)">
+                        <image id="16@2x" x="0" y="0" width="15.8796992" height="16" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAEKADAAQAAAABAAAAEAAAAAA0VXHyAAABtklEQVQ4EcVSsS5EQRS98+buW2sjQlZQiFYl2V6tFX/iCzTEH9CLWqsTIvEBVLKNgmaD2GRj2TV3xjnzdlUKKjc7e++cOffMmZkn8t/hdk6vlhdW1w51qrli0cQnG/a7Dwf7m+tnvzGn0c+055cWtguwC4eBohB/vHf9uBtVe36swmxYsyjia6Wkt9cnOz+51E8z99IPEgJWIOASmDrdKlozR6wTMEE2Jm6AOkJtlFR67a0NfbW6pIFAwMSRDJ2YWHNSuYopodnlZsKgiJZN6ZvO6UgCbBdSKmS5O2wysZ3HYnDOMYlc4+89hKTeTJReIY19qmOQyRIKkSeDGgUBVTgBnyT3eloHXlAABUmeAGOcyc8LyBXEzRDoVcMRFCgFIlHWY36ljDlwuuFFVq/ixICZodeGQ1iM4nEPJFKaTvJrYMqnpQP8ck0Ka8HFZgdULMHw2IEYFzlI5GBMcIrR5eRuvMJBoxZdo+bF4xwkfgdrNOQ0rjnJ9wGc300Zo9Pn+5tOY7Z1Uas3FlMMeGO8N5kkQ4PvH3HgAlY5D8B9oRJHg26/c3tHjGMKQzH+EgHkj780/Mj9AoIxsnosFOGQAAAAAElFTkSuQmCC"></image>
+                    </g>
+                </g>
+                <g id="Panel/Row-Copy" transform="translate(0.000000, 100.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">etc</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)">
+                        <image id="16@2x" x="0" y="0" width="15.8796992" height="16" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAEKADAAQAAAABAAAAEAAAAAA0VXHyAAABtklEQVQ4EcVSsS5EQRS98+buW2sjQlZQiFYl2V6tFX/iCzTEH9CLWqsTIvEBVLKNgmaD2GRj2TV3xjnzdlUKKjc7e++cOffMmZkn8t/hdk6vlhdW1w51qrli0cQnG/a7Dwf7m+tnvzGn0c+055cWtguwC4eBohB/vHf9uBtVe36swmxYsyjia6Wkt9cnOz+51E8z99IPEgJWIOASmDrdKlozR6wTMEE2Jm6AOkJtlFR67a0NfbW6pIFAwMSRDJ2YWHNSuYopodnlZsKgiJZN6ZvO6UgCbBdSKmS5O2wysZ3HYnDOMYlc4+89hKTeTJReIY19qmOQyRIKkSeDGgUBVTgBnyT3eloHXlAABUmeAGOcyc8LyBXEzRDoVcMRFCgFIlHWY36ljDlwuuFFVq/ixICZodeGQ1iM4nEPJFKaTvJrYMqnpQP8ck0Ka8HFZgdULMHw2IEYFzlI5GBMcIrR5eRuvMJBoxZdo+bF4xwkfgdrNOQ0rjnJ9wGc300Zo9Pn+5tOY7Z1Uas3FlMMeGO8N5kkQ4PvH3HgAlY5D8B9oRJHg26/c3tHjGMKQzH+EgHkj780/Mj9AoIxsnosFOGQAAAAAElFTkSuQmCC"></image>
+                    </g>
+                </g>
+                <g id="Panel/Row-Copy-2" transform="translate(0.000000, 120.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">lib</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)">
+                        <image id="16@2x" x="0" y="0" width="15.8796992" height="16" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAEKADAAQAAAABAAAAEAAAAAA0VXHyAAABtklEQVQ4EcVSsS5EQRS98+buW2sjQlZQiFYl2V6tFX/iCzTEH9CLWqsTIvEBVLKNgmaD2GRj2TV3xjnzdlUKKjc7e++cOffMmZkn8t/hdk6vlhdW1w51qrli0cQnG/a7Dwf7m+tnvzGn0c+055cWtguwC4eBohB/vHf9uBtVe36swmxYsyjia6Wkt9cnOz+51E8z99IPEgJWIOASmDrdKlozR6wTMEE2Jm6AOkJtlFR67a0NfbW6pIFAwMSRDJ2YWHNSuYopodnlZsKgiJZN6ZvO6UgCbBdSKmS5O2wysZ3HYnDOMYlc4+89hKTeTJReIY19qmOQyRIKkSeDGgUBVTgBnyT3eloHXlAABUmeAGOcyc8LyBXEzRDoVcMRFCgFIlHWY36ljDlwuuFFVq/ixICZodeGQ1iM4nEPJFKaTvJrYMqnpQP8ck0Ka8HFZgdULMHw2IEYFzlI5GBMcIrR5eRuvMJBoxZdo+bF4xwkfgdrNOQ0rjnJ9wGc300Zo9Pn+5tOY7Z1Uas3FlMMeGO8N5kkQ4PvH3HgAlY5D8B9oRJHg26/c3tHjGMKQzH+EgHkj780/Mj9AoIxsnosFOGQAAAAAElFTkSuQmCC"></image>
+                    </g>
+                </g>
+                <g id="Panel/Row-Copy-3" transform="translate(0.000000, 140.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">manual</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)">
+                        <image id="16@2x" x="0" y="0" width="15.8796992" height="16" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAEKADAAQAAAABAAAAEAAAAAA0VXHyAAABtklEQVQ4EcVSsS5EQRS98+buW2sjQlZQiFYl2V6tFX/iCzTEH9CLWqsTIvEBVLKNgmaD2GRj2TV3xjnzdlUKKjc7e++cOffMmZkn8t/hdk6vlhdW1w51qrli0cQnG/a7Dwf7m+tnvzGn0c+055cWtguwC4eBohB/vHf9uBtVe36swmxYsyjia6Wkt9cnOz+51E8z99IPEgJWIOASmDrdKlozR6wTMEE2Jm6AOkJtlFR67a0NfbW6pIFAwMSRDJ2YWHNSuYopodnlZsKgiJZN6ZvO6UgCbBdSKmS5O2wysZ3HYnDOMYlc4+89hKTeTJReIY19qmOQyRIKkSeDGgUBVTgBnyT3eloHXlAABUmeAGOcyc8LyBXEzRDoVcMRFCgFIlHWY36ljDlwuuFFVq/ixICZodeGQ1iM4nEPJFKaTvJrYMqnpQP8ck0Ka8HFZgdULMHw2IEYFzlI5GBMcIrR5eRuvMJBoxZdo+bF4xwkfgdrNOQ0rjnJ9wGc300Zo9Pn+5tOY7Z1Uas3FlMMeGO8N5kkQ4PvH3HgAlY5D8B9oRJHg26/c3tHjGMKQzH+EgHkj780/Mj9AoIxsnosFOGQAAAAAElFTkSuQmCC"></image>
+                    </g>
+                </g>
+                <g id="Panel/Row-Copy-4" transform="translate(0.000000, 160.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">CONTRIBUTORS</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="296.552" y="15">6K</tspan>
+                    </text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="228.336" y="15">xlsx</tspan>
+                    </text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)"></g>
+                </g>
+                <g id="Panel/Row-Copy-5" transform="translate(0.000000, 180.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">INSTALL</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="290.984" y="15">126</tspan>
+                    </text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)"></g>
+                </g>
+                <g id="Panel/Row-Copy-6" transform="translate(0.000000, 200.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">KEYS</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="279.872" y="15">90.1K</tspan>
+                    </text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)"></g>
+                </g>
+                <g id="Panel/Row-Copy-7" transform="translate(0.000000, 220.000000)">
+                    <g id="Rectangle-8">
+                        <use fill-opacity="0.0399999991" fill="#000000" fill-rule="evenodd" xlink:href="#path-5"></use>
+                        <use fill="black" fill-opacity="1" filter="url(#filter-6)" xlink:href="#path-5"></use>
+                    </g>
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#333333">
+                        <tspan x="30" y="15">LICENSE</tspan>
+                    </text>
+                    <g id="Icon/Folder-16@2x" opacity="0.600000024" transform="translate(8.932331, 2.000000)"></g>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#555555">
+                        <tspan x="279.872" y="15">14.9K</tspan>
+                    </text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                </g>
+                <g id="Panel/Row-Copy-8" transform="translate(0.000000, 240.000000)">
+                    <g id="Rectangle-8">
+                        <use fill-opacity="0.0399999991" fill="#000000" fill-rule="evenodd" xlink:href="#path-7"></use>
+                        <use fill="black" fill-opacity="1" filter="url(#filter-8)" xlink:href="#path-7"></use>
+                    </g>
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#333333">
+                        <tspan x="30" y="15">fetch</tspan>
+                    </text>
+                    <g id="Icon/Folder-16@2x" opacity="0.600000024" transform="translate(8.932331, 2.000000)"></g>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#555555">
+                        <tspan x="279.872" y="15">11.1K</tspan>
+                    </text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                </g>
+                <g id="Panel/Row-Copy-9" transform="translate(0.000000, 260.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">patch</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="286.544" y="15">1.9K</tspan>
+                    </text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="229.668" y="15">xml</tspan>
+                    </text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)"></g>
+                </g>
+                <rect id="Rectangle-4" fill-opacity="0.119999997" fill="#000000" x="317.593985" y="33" width="1" height="496"></rect>
+                <rect id="Rectangle-4" fill-opacity="0.119999997" fill="#000000" x="256.06015" y="33" width="1" height="496"></rect>
+                <polygon id="Rectangle-4" fill-opacity="0.119999997" fill="#000000" points="1.98496241 530 394.015038 530 394.015038 531 1.98496241 531"></polygon>
+                <g id="headers" transform="translate(91.274436, 34.000000)" fill="#333333">
+                    <text id="Name" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400">
+                        <tspan x="12.9740301" y="12">Name</tspan>
+                    </text>
+                    <text id="Ext" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400">
+                        <tspan x="139.906015" y="12">Ext</tspan>
+                    </text>
+                    <text id="Size" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400">
+                        <tspan x="184.662632" y="12">Size</tspan>
+                    </text>
+                    <text id="Modified" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400">
+                        <tspan x="238.495353" y="12">Modified</tspan>
+                    </text>
+                    <text id="" font-family="FontAwesome" font-size="14" font-weight="normal">
+                        <tspan x="0" y="13"></tspan>
+                    </text>
+                </g>
+                <text id="" font-family="LastResort, .LastResort" font-size="10" font-weight="normal" fill="#FFFFFF">
+                    <tspan x="155.780978" y="45"></tspan>
+                </text>
+                <text id="INSTALL" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#737373">
+                    <tspan x="10" y="549">Selected 2 Items</tspan>
+                </text>
+                <g id="Panel/Path-Selected" transform="translate(116.120301, 0.000000)">
+                    <rect id="Rectangle-2" stroke="#A0A0A0" fill="#B0B1AF" x="0.5" y="0.5" width="162.759398" height="20" rx="3"></rect>
+                    <text id="/users/koldoon/Devel" font-family="Avenir-Heavy, Avenir" font-size="12" font-weight="600">
+                        <tspan x="8.00769925" y="14.0454545" fill="#EDEDED">/users/koldoon/</tspan>
+                        <tspan x="97.0836992" y="14.0454545" fill="#FFFFFF">Developer</tspan>
+                    </text>
+                </g>
+            </g>
+            <g id="Panel/View-Left">
+                <path d="M395.5,10.5 L395.5,559.5 L0.5,559.5 L0.5,10.5 L395.5,10.5 Z" id="Rectangle-2" stroke-opacity="0.24" stroke="#000000" fill="#FFFFFF"></path>
+                <g id="Panel/Row" transform="translate(0.000000, 60.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">..</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)">
+                        <image id="16@2x" x="0" y="0" width="15.8796992" height="16" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAEKADAAQAAAABAAAAEAAAAAA0VXHyAAABtklEQVQ4EcVSsS5EQRS98+buW2sjQlZQiFYl2V6tFX/iCzTEH9CLWqsTIvEBVLKNgmaD2GRj2TV3xjnzdlUKKjc7e++cOffMmZkn8t/hdk6vlhdW1w51qrli0cQnG/a7Dwf7m+tnvzGn0c+055cWtguwC4eBohB/vHf9uBtVe36swmxYsyjia6Wkt9cnOz+51E8z99IPEgJWIOASmDrdKlozR6wTMEE2Jm6AOkJtlFR67a0NfbW6pIFAwMSRDJ2YWHNSuYopodnlZsKgiJZN6ZvO6UgCbBdSKmS5O2wysZ3HYnDOMYlc4+89hKTeTJReIY19qmOQyRIKkSeDGgUBVTgBnyT3eloHXlAABUmeAGOcyc8LyBXEzRDoVcMRFCgFIlHWY36ljDlwuuFFVq/ixICZodeGQ1iM4nEPJFKaTvJrYMqnpQP8ck0Ka8HFZgdULMHw2IEYFzlI5GBMcIrR5eRuvMJBoxZdo+bF4xwkfgdrNOQ0rjnJ9wGc300Zo9Pn+5tOY7Z1Uas3FlMMeGO8N5kkQ4PvH3HgAlY5D8B9oRJHg26/c3tHjGMKQzH+EgHkj780/Mj9AoIxsnosFOGQAAAAAElFTkSuQmCC"></image>
+                    </g>
+                </g>
+                <g id="Panel/Row" transform="translate(0.000000, 80.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">bin</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)">
+                        <image id="16@2x" x="0" y="0" width="15.8796992" height="16" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAEKADAAQAAAABAAAAEAAAAAA0VXHyAAABtklEQVQ4EcVSsS5EQRS98+buW2sjQlZQiFYl2V6tFX/iCzTEH9CLWqsTIvEBVLKNgmaD2GRj2TV3xjnzdlUKKjc7e++cOffMmZkn8t/hdk6vlhdW1w51qrli0cQnG/a7Dwf7m+tnvzGn0c+055cWtguwC4eBohB/vHf9uBtVe36swmxYsyjia6Wkt9cnOz+51E8z99IPEgJWIOASmDrdKlozR6wTMEE2Jm6AOkJtlFR67a0NfbW6pIFAwMSRDJ2YWHNSuYopodnlZsKgiJZN6ZvO6UgCbBdSKmS5O2wysZ3HYnDOMYlc4+89hKTeTJReIY19qmOQyRIKkSeDGgUBVTgBnyT3eloHXlAABUmeAGOcyc8LyBXEzRDoVcMRFCgFIlHWY36ljDlwuuFFVq/ixICZodeGQ1iM4nEPJFKaTvJrYMqnpQP8ck0Ka8HFZgdULMHw2IEYFzlI5GBMcIrR5eRuvMJBoxZdo+bF4xwkfgdrNOQ0rjnJ9wGc300Zo9Pn+5tOY7Z1Uas3FlMMeGO8N5kkQ4PvH3HgAlY5D8B9oRJHg26/c3tHjGMKQzH+EgHkj780/Mj9AoIxsnosFOGQAAAAAElFTkSuQmCC"></image>
+                    </g>
+                </g>
+                <g id="Panel/Row-Copy" transform="translate(0.000000, 100.000000)">
+                    <g id="Rectangle-8">
+                        <use fill-opacity="0.0399999991" fill="#000000" fill-rule="evenodd" xlink:href="#path-9"></use>
+                        <use fill="black" fill-opacity="1" filter="url(#filter-10)" xlink:href="#path-9"></use>
+                    </g>
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#333333">
+                        <tspan x="30" y="15">etc</tspan>
+                    </text>
+                    <g id="Icon/Folder-16@2x" opacity="0.600000024" transform="translate(8.932331, 2.000000)">
+                        <image id="16@2x" x="0" y="0" width="15.8796992" height="16" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAEKADAAQAAAABAAAAEAAAAAA0VXHyAAABtklEQVQ4EcVSsS5EQRS98+buW2sjQlZQiFYl2V6tFX/iCzTEH9CLWqsTIvEBVLKNgmaD2GRj2TV3xjnzdlUKKjc7e++cOffMmZkn8t/hdk6vlhdW1w51qrli0cQnG/a7Dwf7m+tnvzGn0c+055cWtguwC4eBohB/vHf9uBtVe36swmxYsyjia6Wkt9cnOz+51E8z99IPEgJWIOASmDrdKlozR6wTMEE2Jm6AOkJtlFR67a0NfbW6pIFAwMSRDJ2YWHNSuYopodnlZsKgiJZN6ZvO6UgCbBdSKmS5O2wysZ3HYnDOMYlc4+89hKTeTJReIY19qmOQyRIKkSeDGgUBVTgBnyT3eloHXlAABUmeAGOcyc8LyBXEzRDoVcMRFCgFIlHWY36ljDlwuuFFVq/ixICZodeGQ1iM4nEPJFKaTvJrYMqnpQP8ck0Ka8HFZgdULMHw2IEYFzlI5GBMcIrR5eRuvMJBoxZdo+bF4xwkfgdrNOQ0rjnJ9wGc300Zo9Pn+5tOY7Z1Uas3FlMMeGO8N5kkQ4PvH3HgAlY5D8B9oRJHg26/c3tHjGMKQzH+EgHkj780/Mj9AoIxsnosFOGQAAAAAElFTkSuQmCC"></image>
+                    </g>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                </g>
+                <g id="Panel/Row-Copy-2" transform="translate(0.000000, 120.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">lib</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)">
+                        <image id="16@2x" x="0" y="0" width="15.8796992" height="16" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAEKADAAQAAAABAAAAEAAAAAA0VXHyAAABtklEQVQ4EcVSsS5EQRS98+buW2sjQlZQiFYl2V6tFX/iCzTEH9CLWqsTIvEBVLKNgmaD2GRj2TV3xjnzdlUKKjc7e++cOffMmZkn8t/hdk6vlhdW1w51qrli0cQnG/a7Dwf7m+tnvzGn0c+055cWtguwC4eBohB/vHf9uBtVe36swmxYsyjia6Wkt9cnOz+51E8z99IPEgJWIOASmDrdKlozR6wTMEE2Jm6AOkJtlFR67a0NfbW6pIFAwMSRDJ2YWHNSuYopodnlZsKgiJZN6ZvO6UgCbBdSKmS5O2wysZ3HYnDOMYlc4+89hKTeTJReIY19qmOQyRIKkSeDGgUBVTgBnyT3eloHXlAABUmeAGOcyc8LyBXEzRDoVcMRFCgFIlHWY36ljDlwuuFFVq/ixICZodeGQ1iM4nEPJFKaTvJrYMqnpQP8ck0Ka8HFZgdULMHw2IEYFzlI5GBMcIrR5eRuvMJBoxZdo+bF4xwkfgdrNOQ0rjnJ9wGc300Zo9Pn+5tOY7Z1Uas3FlMMeGO8N5kkQ4PvH3HgAlY5D8B9oRJHg26/c3tHjGMKQzH+EgHkj780/Mj9AoIxsnosFOGQAAAAAElFTkSuQmCC"></image>
+                    </g>
+                </g>
+                <g id="Panel/Row-Copy-3" transform="translate(0.000000, 140.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">manual</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)">
+                        <image id="16@2x" x="0" y="0" width="15.8796992" height="16" xlink:href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAAXNSR0IArs4c6QAAAERlWElmTU0AKgAAAAgAAYdpAAQAAAABAAAAGgAAAAAAA6ABAAMAAAABAAEAAKACAAQAAAABAAAAEKADAAQAAAABAAAAEAAAAAA0VXHyAAABtklEQVQ4EcVSsS5EQRS98+buW2sjQlZQiFYl2V6tFX/iCzTEH9CLWqsTIvEBVLKNgmaD2GRj2TV3xjnzdlUKKjc7e++cOffMmZkn8t/hdk6vlhdW1w51qrli0cQnG/a7Dwf7m+tnvzGn0c+055cWtguwC4eBohB/vHf9uBtVe36swmxYsyjia6Wkt9cnOz+51E8z99IPEgJWIOASmDrdKlozR6wTMEE2Jm6AOkJtlFR67a0NfbW6pIFAwMSRDJ2YWHNSuYopodnlZsKgiJZN6ZvO6UgCbBdSKmS5O2wysZ3HYnDOMYlc4+89hKTeTJReIY19qmOQyRIKkSeDGgUBVTgBnyT3eloHXlAABUmeAGOcyc8LyBXEzRDoVcMRFCgFIlHWY36ljDlwuuFFVq/ixICZodeGQ1iM4nEPJFKaTvJrYMqnpQP8ck0Ka8HFZgdULMHw2IEYFzlI5GBMcIrR5eRuvMJBoxZdo+bF4xwkfgdrNOQ0rjnJ9wGc300Zo9Pn+5tOY7Z1Uas3FlMMeGO8N5kkQ4PvH3HgAlY5D8B9oRJHg26/c3tHjGMKQzH+EgHkj780/Mj9AoIxsnosFOGQAAAAAElFTkSuQmCC"></image>
+                    </g>
+                </g>
+                <g id="Panel/Row-Copy-4" transform="translate(0.000000, 160.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">CONTRIBUTORS</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="296.552" y="15">6K</tspan>
+                    </text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="228.336" y="15">xlsx</tspan>
+                    </text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)"></g>
+                </g>
+                <g id="Panel/Row-Copy-5" transform="translate(0.000000, 181.000000)">
+                    <rect id="bg" fill="#0169D9" x="0" y="0" width="396" height="19"></rect>
+                    <rect id="caret-selection" fill="#4BB9F4" x="0" y="0" width="2.97744361" height="19"></rect>
+                    <text id="ABC" font-family="Ubuntu-Medium, Ubuntu" font-size="12" font-weight="400" fill="#FFFFFF">
+                        <tspan x="30" y="14">INSTALL</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Ubuntu-Medium, Ubuntu" font-size="12" font-weight="400" fill="#FFFFFF">
+                        <tspan x="327.364" y="14">19-02-201</tspan>
+                        <tspan x="351.592" y="30">8</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Ubuntu-Medium, Ubuntu" font-size="12" font-weight="400" fill="#FFFFFF">
+                        <tspan x="289.552" y="14">126</tspan>
+                    </text>
+                    <text id="xlsx" font-family="Ubuntu-Medium, Ubuntu" font-size="12" font-weight="400"></text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 1.000000)"></g>
+                </g>
+                <g id="Panel/Row-Copy-6" transform="translate(0.000000, 200.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">KEYS</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="279.872" y="15">90.1K</tspan>
+                    </text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)"></g>
+                </g>
+                <g id="Panel/Row-Copy-7" transform="translate(0.000000, 220.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">LICENSE</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="279.872" y="15">14.9K</tspan>
+                    </text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400"></text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)"></g>
+                </g>
+                <g id="Panel/Row-Copy-8" transform="translate(0.000000, 240.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">fetch</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="279.872" y="15">11.1K</tspan>
+                    </text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="229.668" y="15">xml</tspan>
+                    </text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)"></g>
+                </g>
+                <g id="Panel/Row-Copy-9" transform="translate(0.000000, 260.000000)">
+                    <text id="ABC" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="30" y="15">patch</tspan>
+                    </text>
+                    <text id="19-02-2018" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="324.52" y="15">19-02-2018</tspan>
+                    </text>
+                    <text id="999.9G" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="286.544" y="15">1.9K</tspan>
+                    </text>
+                    <text id="xlsx" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#444444">
+                        <tspan x="229.668" y="15">xml</tspan>
+                    </text>
+                    <g id="Icon/Folder-16@2x" transform="translate(7.939850, 2.000000)"></g>
+                </g>
+                <rect id="Rectangle-4" fill-opacity="0.119999997" fill="#000000" x="317.593985" y="33" width="1" height="496"></rect>
+                <rect id="Rectangle-4" fill-opacity="0.119999997" fill="#000000" x="256.06015" y="33" width="1" height="496"></rect>
+                <polygon id="Rectangle-4" fill-opacity="0.119999997" fill="#000000" points="1.98496241 530 394.015038 530 394.015038 531 1.98496241 531"></polygon>
+                <g id="headers" transform="translate(91.274436, 34.000000)" fill="#333333">
+                    <text id="Name" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400">
+                        <tspan x="12.9740301" y="12">Name</tspan>
+                    </text>
+                    <text id="Ext" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400">
+                        <tspan x="139.906015" y="12">Ext</tspan>
+                    </text>
+                    <text id="Size" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400">
+                        <tspan x="184.662632" y="12">Size</tspan>
+                    </text>
+                    <text id="Modified" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400">
+                        <tspan x="238.495353" y="12">Modified</tspan>
+                    </text>
+                    <text id="" font-family="FontAwesome" font-size="14" font-weight="normal">
+                        <tspan x="-1.42108547e-14" y="13"></tspan>
+                    </text>
+                </g>
+                <text id="" font-family="LastResort, .LastResort" font-size="10" font-weight="normal" fill="#FFFFFF">
+                    <tspan x="155.780978" y="45"></tspan>
+                </text>
+                <text id="INSTALL" font-family="Avenir-Medium, Avenir" font-size="12" font-weight="400" fill="#737373">
+                    <tspan x="10" y="549">INSTALL</tspan>
+                </text>
+                <g id="Panel/Path-Selected" transform="translate(116.120301, 0.000000)">
+                    <rect id="Rectangle-2" stroke="#0063CD" fill="#0169D9" x="0.5" y="0.5" width="162.759398" height="20" rx="3"></rect>
+                    <text id="/users/koldoon/Devel" font-family="Avenir-Heavy, Avenir" font-size="12" font-weight="600">
+                        <tspan x="8.00769925" y="14.0454545" fill="#EDEDED">/users/koldoon/</tspan>
+                        <tspan x="97.0836992" y="14.0454545" fill="#FFFFFF">Developer</tspan>
+                    </text>
+                </g>
+            </g>
+            <g id="Fs" transform="translate(2.000000, 564.000000)">
+                <g id="Button-/-Function">
+                    <g id="Rectangle-3">
+                        <use fill="black" fill-opacity="1" filter="url(#filter-13)" xlink:href="#path-12"></use>
+                        <use fill="url(#linearGradient-11)" fill-rule="evenodd" xlink:href="#path-12"></use>
+                        <use fill="black" fill-opacity="1" filter="url(#filter-14)" xlink:href="#path-12"></use>
+                        <rect stroke-opacity="0.265596694" stroke="#000000" stroke-width="1" stroke-linejoin="square" x="0.5" y="0.5" width="75" height="20" rx="3"></rect>
+                    </g>
+                    <text id="Help" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="28" y="14">Help</tspan>
+                    </text>
+                    <text id="F1" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="6.075" y="14">F1</tspan>
+                    </text>
+                    <line x1="22.5" y1="1.5" x2="22.5" y2="19.5" id="Line" stroke="#B9B9B9" opacity="0.61254529" stroke-linecap="square"></line>
+                </g>
+                <g id="Button-/-Function" transform="translate(89.000000, 0.000000)">
+                    <g id="Rectangle-3">
+                        <use fill="black" fill-opacity="1" filter="url(#filter-16)" xlink:href="#path-15"></use>
+                        <use fill="url(#linearGradient-11)" fill-rule="evenodd" xlink:href="#path-15"></use>
+                        <use fill="black" fill-opacity="1" filter="url(#filter-17)" xlink:href="#path-15"></use>
+                        <rect stroke-opacity="0.265596694" stroke="#000000" stroke-width="1" stroke-linejoin="square" x="0.5" y="0.5" width="75" height="20" rx="3"></rect>
+                    </g>
+                    <text id="Help" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="28" y="14">Menu</tspan>
+                    </text>
+                    <text id="F1" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="6.075" y="14">F2</tspan>
+                    </text>
+                    <line x1="22.5" y1="1.5" x2="22.5" y2="19.5" id="Line" stroke="#B9B9B9" opacity="0.61254529" stroke-linecap="square"></line>
+                </g>
+                <g id="Button-/-Function" transform="translate(179.000000, 0.000000)">
+                    <g id="Rectangle-3">
+                        <use fill="black" fill-opacity="1" filter="url(#filter-19)" xlink:href="#path-18"></use>
+                        <use fill="url(#linearGradient-11)" fill-rule="evenodd" xlink:href="#path-18"></use>
+                        <use fill="black" fill-opacity="1" filter="url(#filter-20)" xlink:href="#path-18"></use>
+                        <rect stroke-opacity="0.265596694" stroke="#000000" stroke-width="1" stroke-linejoin="square" x="0.5" y="0.5" width="75" height="20" rx="3"></rect>
+                    </g>
+                    <text id="Help" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="28" y="14">View</tspan>
+                    </text>
+                    <text id="F1" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="6.075" y="14">F3</tspan>
+                    </text>
+                    <line x1="22.5" y1="1.5" x2="22.5" y2="19.5" id="Line" stroke="#B9B9B9" opacity="0.61254529" stroke-linecap="square"></line>
+                </g>
+                <g id="Button-/-Function" transform="translate(268.000000, 0.000000)">
+                    <g id="Rectangle-3">
+                        <use fill="black" fill-opacity="1" filter="url(#filter-22)" xlink:href="#path-21"></use>
+                        <use fill="url(#linearGradient-11)" fill-rule="evenodd" xlink:href="#path-21"></use>
+                        <use fill="black" fill-opacity="1" filter="url(#filter-23)" xlink:href="#path-21"></use>
+                        <rect stroke-opacity="0.265596694" stroke="#000000" stroke-width="1" stroke-linejoin="square" x="0.5" y="0.5" width="75" height="20" rx="3"></rect>
+                    </g>
+                    <text id="Help" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="28" y="14">Edit</tspan>
+                    </text>
+                    <text id="F1" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="6.075" y="14">F4</tspan>
+                    </text>
+                    <line x1="22.5" y1="1.5" x2="22.5" y2="19.5" id="Line" stroke="#B9B9B9" opacity="0.61254529" stroke-linecap="square"></line>
+                </g>
+                <g id="Button-/-Function" transform="translate(357.000000, 0.000000)">
+                    <g id="Rectangle-3">
+                        <use fill="black" fill-opacity="1" filter="url(#filter-25)" xlink:href="#path-24"></use>
+                        <use fill="url(#linearGradient-11)" fill-rule="evenodd" xlink:href="#path-24"></use>
+                        <use fill="black" fill-opacity="1" filter="url(#filter-26)" xlink:href="#path-24"></use>
+                        <rect stroke-opacity="0.265596694" stroke="#000000" stroke-width="1" stroke-linejoin="square" x="0.5" y="0.5" width="75" height="20" rx="3"></rect>
+                    </g>
+                    <text id="Help" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="28" y="14">Copy</tspan>
+                    </text>
+                    <text id="F1" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="6.075" y="14">F5</tspan>
+                    </text>
+                    <line x1="22.5" y1="1.5" x2="22.5" y2="19.5" id="Line" stroke="#B9B9B9" opacity="0.61254529" stroke-linecap="square"></line>
+                </g>
+                <g id="Button-/-Function" transform="translate(447.000000, 0.000000)">
+                    <g id="Rectangle-3">
+                        <use fill="black" fill-opacity="1" filter="url(#filter-28)" xlink:href="#path-27"></use>
+                        <use fill="url(#linearGradient-11)" fill-rule="evenodd" xlink:href="#path-27"></use>
+                        <use fill="black" fill-opacity="1" filter="url(#filter-29)" xlink:href="#path-27"></use>
+                        <rect stroke-opacity="0.265596694" stroke="#000000" stroke-width="1" stroke-linejoin="square" x="0.5" y="0.5" width="75" height="20" rx="3"></rect>
+                    </g>
+                    <text id="Help" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="28" y="14">Move</tspan>
+                    </text>
+                    <text id="F1" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="6.075" y="14">F6</tspan>
+                    </text>
+                    <line x1="22.5" y1="1.5" x2="22.5" y2="19.5" id="Line" stroke="#B9B9B9" opacity="0.61254529" stroke-linecap="square"></line>
+                </g>
+                <g id="Button-/-Function" transform="translate(536.000000, 0.000000)">
+                    <g id="Rectangle-3">
+                        <use fill="black" fill-opacity="1" filter="url(#filter-31)" xlink:href="#path-30"></use>
+                        <use fill="url(#linearGradient-11)" fill-rule="evenodd" xlink:href="#path-30"></use>
+                        <use fill="black" fill-opacity="1" filter="url(#filter-32)" xlink:href="#path-30"></use>
+                        <rect stroke-opacity="0.265596694" stroke="#000000" stroke-width="1" stroke-linejoin="square" x="0.5" y="0.5" width="75" height="20" rx="3"></rect>
+                    </g>
+                    <text id="Help" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="28" y="14">Mk Dir</tspan>
+                    </text>
+                    <text id="F1" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="6.075" y="14">F7</tspan>
+                    </text>
+                    <line x1="22.5" y1="1.5" x2="22.5" y2="19.5" id="Line" stroke="#B9B9B9" opacity="0.61254529" stroke-linecap="square"></line>
+                </g>
+                <g id="Button-/-Function" transform="translate(626.000000, 0.000000)">
+                    <g id="Rectangle-3">
+                        <use fill="black" fill-opacity="1" filter="url(#filter-34)" xlink:href="#path-33"></use>
+                        <use fill="url(#linearGradient-11)" fill-rule="evenodd" xlink:href="#path-33"></use>
+                        <use fill="black" fill-opacity="1" filter="url(#filter-35)" xlink:href="#path-33"></use>
+                        <rect stroke-opacity="0.265596694" stroke="#000000" stroke-width="1" stroke-linejoin="square" x="0.5" y="0.5" width="75" height="20" rx="3"></rect>
+                    </g>
+                    <text id="Help" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="28" y="14">Delete</tspan>
+                    </text>
+                    <text id="F1" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="6.075" y="14">F8</tspan>
+                    </text>
+                    <line x1="22.5" y1="1.5" x2="22.5" y2="19.5" id="Line" stroke="#B9B9B9" opacity="0.61254529" stroke-linecap="square"></line>
+                </g>
+                <g id="Button-/-Function" transform="translate(715.000000, 0.000000)">
+                    <g id="Rectangle-3">
+                        <use fill="black" fill-opacity="1" filter="url(#filter-37)" xlink:href="#path-36"></use>
+                        <use fill="url(#linearGradient-11)" fill-rule="evenodd" xlink:href="#path-36"></use>
+                        <use fill="black" fill-opacity="1" filter="url(#filter-38)" xlink:href="#path-36"></use>
+                        <rect stroke-opacity="0.265596694" stroke="#000000" stroke-width="1" stroke-linejoin="square" x="0.5" y="0.5" width="75" height="20" rx="3"></rect>
+                    </g>
+                    <text id="Help" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="28" y="14">-</tspan>
+                    </text>
+                    <text id="F1" font-family="Avenir-Black, Avenir" font-size="10" font-weight="700" fill="#737373">
+                        <tspan x="6.075" y="14">F9</tspan>
+                    </text>
+                    <line x1="22.5" y1="1.5" x2="22.5" y2="19.5" id="Line" stroke="#B9B9B9" opacity="0.61254529" stroke-linecap="square"></line>
+                </g>
+            </g>
+        </g>
+    </g>
+</svg>
