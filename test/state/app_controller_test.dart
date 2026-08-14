@@ -30,6 +30,20 @@ void main() {
 
   tearDown(() => temp.delete(recursive: true));
 
+  /// Ждёт, пока настройки окажутся на диске: запись отложена таймером и идёт
+  /// в реальную файловую систему, поэтому фиксированная пауза делает тест
+  /// нестабильным под нагрузкой.
+  Future<AppSettings> waitForSaved() async {
+    final file = File(store.filePath);
+    for (var attempt = 0; attempt < 100; attempt++) {
+      if (await file.exists()) {
+        return store.load();
+      }
+      await Future<void>.delayed(saveDelay);
+    }
+    fail('Настройки так и не были сохранены в ${store.filePath}');
+  }
+
   AppController build(AppSettings settings) {
     return AppController(
       left: PanelController(provider: provider, settings: settings.left),
@@ -112,9 +126,7 @@ void main() {
       app.left.setColumnLayout(app.left.columns.resize(FsColumn.size, 111));
       expect(File(store.filePath).existsSync(), isFalse);
 
-      await Future<void>.delayed(saveDelay * 3);
-
-      final saved = await store.load();
+      final saved = await waitForSaved();
       expect(saved.left.columns.find(FsColumn.size)?.width, 111);
     });
 
@@ -124,7 +136,7 @@ void main() {
       await app.start();
 
       app.left.moveCursor(1);
-      await Future<void>.delayed(saveDelay * 3);
+      await Future<void>.delayed(saveDelay * 10);
 
       expect(File(store.filePath).existsSync(), isFalse);
     });
@@ -135,9 +147,8 @@ void main() {
       await app.start();
 
       await app.left.openPath('/home/docs');
-      await Future<void>.delayed(saveDelay * 3);
 
-      expect((await store.load()).left.path, '/home/docs');
+      expect((await waitForSaved()).left.path, '/home/docs');
     });
 
     test('shutdown пишет настройки немедленно', () async {
