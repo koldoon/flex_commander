@@ -45,7 +45,9 @@ class PanelController extends ChangeNotifier {
   SortSpec _sort;
   bool _showHidden;
 
-  AsyncOperation<List<FsNode>>? _operation;
+  /// Текущая операция панели: чтение каталога или разбор пути.
+  /// Хранится ради отмены, поэтому тип результата здесь не важен.
+  AsyncOperation<Object?>? _operation;
 
   /// Номер последнего запроса чтения. Результат более старого запроса
   /// применять нельзя: пользователь уже ушёл в другой каталог.
@@ -99,12 +101,20 @@ class PanelController extends ChangeNotifier {
     _statusText = 'Loading…';
     notifyListeners();
 
+    final resolving = provider.resolvePath(target);
+    _operation = resolving;
+
     DirectoryNode? dir;
     try {
-      dir = await _asDirectory(await provider.resolvePath(target).result);
+      dir = await _asDirectory(await resolving.result);
     } on FsError {
       dir = null;
     } on OperationCanceled {
+      // Отмена во время разбора пути: панель остаётся там, где была.
+      if (requestId == _requestId) {
+        _status = PanelStatus.idle;
+        _finish();
+      }
       return false;
     }
 
