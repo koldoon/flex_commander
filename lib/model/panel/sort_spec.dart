@@ -27,6 +27,26 @@ class SortSpec {
     return SortSpec(column: other, direction: SortDirection.ascending, foldersFirst: foldersFirst);
   }
 
+  Map<String, Object?> toJson() => {'column': column.name, 'direction': direction.name, 'foldersFirst': foldersFirst};
+
+  /// Разбор настроек: непонятные значения заменяются умолчаниями, а не роняют
+  /// загрузку.
+  factory SortSpec.fromJson(Object? json) {
+    if (json is! Map) {
+      return const SortSpec();
+    }
+    const fallback = SortSpec();
+    final column = FsColumn.byName('${json['column']}');
+    final foldersFirst = json['foldersFirst'];
+
+    return SortSpec(
+      column: column != null && column.sortable ? column : fallback.column,
+      direction:
+          '${json['direction']}' == SortDirection.descending.name ? SortDirection.descending : SortDirection.ascending,
+      foldersFirst: foldersFirst is bool ? foldersFirst : fallback.foldersFirst,
+    );
+  }
+
   @override
   bool operator ==(Object other) =>
       other is SortSpec && other.column == column && other.direction == direction && other.foldersFirst == foldersFirst;

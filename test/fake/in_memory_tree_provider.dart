@@ -55,6 +55,9 @@ class InMemoryTreeProvider implements TreeProvider {
   DirectoryNode get rootDirectory => _root;
 
   @override
+  String get homePath => '/';
+
+  @override
   String pathOf(FsNode node) {
     final segments = node.path.map((n) => n.name).toList();
     if (segments.length == 1) {

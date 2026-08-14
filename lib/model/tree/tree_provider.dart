@@ -34,6 +34,10 @@ abstract interface class TreeProvider {
   /// Корневой каталог провайдера.
   DirectoryNode get rootDirectory;
 
+  /// Каталог по умолчанию: сюда открывается панель, если сохранённый путь
+  /// недоступен. Для локальной ФС это домашний каталог пользователя.
+  String get homePath;
+
   /// Путь узла внутри этого провайдера, без схемы.
   String pathOf(FsNode node);
 

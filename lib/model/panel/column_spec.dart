@@ -109,6 +109,51 @@ class ColumnLayout {
     ]);
   }
 
+  List<Map<String, Object?>> toJson() => [
+    for (final column in columns) {'id': column.id.name, 'width': column.width, 'visible': column.visible},
+  ];
+
+  /// Восстановление раскладки из настроек.
+  ///
+  /// Основой всегда служит [defaults]: из файла берутся только порядок, ширина
+  /// и видимость известных колонок. Неизвестные записи игнорируются, а колонки,
+  /// появившиеся в новых версиях, добавляются в конец — поэтому старый файл
+  /// настроек не мешает добавлять колонки.
+  factory ColumnLayout.fromJson(Object? json) {
+    if (json is! List) {
+      return defaults;
+    }
+
+    final byId = {for (final column in defaults.columns) column.id: column};
+    final restored = <ColumnSpec>[];
+
+    for (final item in json) {
+      if (item is! Map) {
+        continue;
+      }
+      final id = FsColumn.byName('${item['id']}');
+      final spec = id == null ? null : byId.remove(id);
+      if (spec == null) {
+        continue;
+      }
+      final width = item['width'];
+      final visible = item['visible'];
+      restored.add(
+        spec.copyWith(
+          width: width is num ? width.toDouble() : null,
+          visible: spec.pinned ? true : (visible is bool ? visible : null),
+        ),
+      );
+    }
+
+    if (restored.isEmpty) {
+      return defaults;
+    }
+    // Колонки, которых не было в файле, идут следом в порядке умолчаний.
+    restored.addAll(byId.values);
+    return ColumnLayout(restored);
+  }
+
   /// Раскладка по умолчанию — как в макете: иконка, имя, расширение, размер, дата.
   static ColumnLayout get defaults => ColumnLayout(const [
     ColumnSpec(id: FsColumn.icon, width: 24, minWidth: 24, pinned: true),
