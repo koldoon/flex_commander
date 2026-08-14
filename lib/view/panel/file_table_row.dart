@@ -42,34 +42,40 @@ class FileTableRow extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color:
-              _selected
-                  ? colors.cursorBackground
-                  : marked
-                  ? colors.markedBackground
-                  : null,
-        ),
-        child: Stack(
-          children: [
-            Row(
-              children: [
-                for (var i = 0; i < columns.length; i++)
-                  SizedBox(width: widths[i], child: _cell(context, theme, columns[i])),
-              ],
-            ),
-            // Полоса пометки поверх фона: она должна читаться и тогда, когда
-            // строка вдобавок под курсором.
-            if (marked)
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: theme.metrics.markedBarWidth,
-                child: ColoredBox(color: colors.markedBar),
+      // Просвет между строками: подсветка курсора и пометки не смыкается
+      // со следующей строкой. Нажатие по просвету всё равно попадает в строку —
+      // отступ лежит внутри области жеста.
+      child: Padding(
+        padding: EdgeInsets.only(bottom: theme.metrics.rowGap),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color:
+                _selected
+                    ? colors.cursorBackground
+                    : marked
+                    ? colors.markedBackground
+                    : null,
+          ),
+          child: Stack(
+            children: [
+              Row(
+                children: [
+                  for (var i = 0; i < columns.length; i++)
+                    SizedBox(width: widths[i], child: _cell(context, theme, columns[i])),
+                ],
               ),
-          ],
+              // Полоса пометки поверх фона: она должна читаться и тогда, когда
+              // строка вдобавок под курсором.
+              if (marked)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: theme.metrics.markedBarWidth,
+                  child: ColoredBox(color: colors.markedBar),
+                ),
+            ],
+          ),
         ),
       ),
     );
