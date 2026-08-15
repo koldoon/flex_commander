@@ -10,11 +10,15 @@ import 'selection_commands.dart';
 /// операцию, а в остальное время снимает пометку.
 List<AppCommand> defaultCommands() => [
   // Навигация.
-  MoveCursorCommand(),
-  PageCursorCommand(),
-  CursorEdgeCommand(),
+  MoveCursorUpCommand(),
+  MoveCursorDownCommand(),
+  PageUpCommand(),
+  PageDownCommand(),
+  GoToFirstNodeCommand(),
+  GoToLastNodeCommand(),
   TogglePanelCommand(),
   OpenNodeCommand(),
+  OpenWithSystemCommand(),
   GoUpCommand(),
   GoToRootCommand(),
   ReloadCommand(),

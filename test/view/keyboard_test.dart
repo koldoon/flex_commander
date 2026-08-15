@@ -41,8 +41,9 @@ void main() {
 
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home/docs'));
     final commands = CommandRegistry([
-      ...defaultCommands().where((command) => command.id != 'panel.open'),
+      ...defaultCommands().where((command) => command.id != 'panel.open' && command.id != 'panel.openWithSystem'),
       OpenNodeCommand(opener: (path) async => opened.add(path)),
+      OpenWithSystemCommand(opener: (path) async => opened.add(path)),
     ]);
     app = AppController(
       left: PanelController(provider: provider, settings: settings.left),

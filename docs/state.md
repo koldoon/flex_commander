@@ -257,11 +257,11 @@ class KeyBinding {
   /// Позволяет повесить на Enter разные команды для *.app, *.zip и обычных файлов —
   /// приём референса (BindingProperties.nodeValue).
   final RegExp? nameMatch;
-
-  /// Параметры, с которыми команда вызывается именно по этой привязке
-  /// (например Cmd-O — «открыть системой», не входя в каталог).
-  final Map<String, Object?> parameters;
 }
+
+// Параметров у привязки нет намеренно: команда не должна зависеть от того,
+// чем её вызвали — см. keyboard.md, «Команда не знает, чем её вызвали».
+
 
 abstract class AppCommand {
   /// Стабильный идентификатор для настроек и логов: "panel.open", "file.copy".
@@ -286,12 +286,14 @@ abstract class AppCommand {
   Future<void> shutdown();
 }
 
+/// Всё, на что опирается команда: активная панель и выбранные объекты.
 class CommandContext {
   final AppController app;
-  final PanelController panel;      // активная панель
+  final PanelController panel;      // активная панель — источник операции
   final FsNode? node;               // объект под курсором
   final List<FsNode> targets;       // помеченные объекты или [node], если пометки нет
-  final Map<String, Object?> parameters;
+
+  PanelController get target => app.passivePanel;   // приёмник операции
 }
 ```
 
@@ -316,7 +318,7 @@ class CommandRegistry {
 1. перебрать установленные команды в порядке установки;
 2. у каждой — её привязки; отобрать те, где совпала комбинация;
 3. если у привязки задан `nameMatch`, проверить имя объекта под курсором;
-4. собрать `CommandContext` с параметрами привязки;
+4. собрать `CommandContext` — активная панель и выбранные объекты, ничего больше;
 5. если `isExecutable(context)` — выполнить и остановиться.
 
 Порядок установки задаёт приоритет, поэтому специализированные команды
