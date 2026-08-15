@@ -35,9 +35,51 @@ class LocalTreeProvider implements TreeProvider {
   @override
   DirectoryNode get rootDirectory => _root;
 
+  /// Видимый путь: ссылки в нём остаются ссылками.
+  ///
+  /// Пользователь, зашедший в `/etc`, должен видеть `/etc`, а по «..» попадать
+  /// в `/`, а не в `/private`, куда ведёт настоящая цель.
   @override
-  String pathOf(FsNode node) {
-    final segments = node.path.map((n) => n.name).toList();
+  String pathOf(FsNode node) => _join(visiblePathNodes(node).map((n) => n.name).toList());
+
+  /// Настоящий путь в файловой системе: все ссылки развёрнуты.
+  ///
+  /// Именно он используется для чтения каталогов и файловых операций.
+  /// Алгоритм повторяет `FileNodeUtil.getAbsoluteFileSystemPath` референса.
+  String physicalPathOf(FsNode node) {
+    var segments = <String>[];
+    FsNode? previous;
+
+    for (final current in node.path) {
+      if (previous is LinkNode && segments.isNotEmpty) {
+        // Имя, добавленное целью предыдущей ссылки, заменяется тем, куда эта
+        // ссылка на самом деле ведёт.
+        segments.removeLast();
+      }
+
+      if (current is LinkNode) {
+        final reference = current.reference;
+        if (reference.isEmpty) {
+          segments.add(current.name);
+        } else if (p.isAbsolute(reference)) {
+          segments = p.split(reference);
+        } else {
+          segments.addAll(p.split(reference));
+        }
+      } else {
+        segments.add(current.name);
+      }
+
+      previous = current;
+    }
+
+    return _join(segments);
+  }
+
+  String _join(List<String> segments) {
+    if (segments.isEmpty) {
+      return p.rootPrefix(homePath);
+    }
     if (segments.length == 1) {
       return segments.first;
     }
@@ -47,8 +89,8 @@ class LocalTreeProvider implements TreeProvider {
   @override
   AsyncOperation<List<FsNode>> getDirectoryListing(DirectoryNode dir, {bool includeHidden = false}) {
     return TaskOperation<List<FsNode>>((op) async {
-      final path = pathOf(dir);
-      op.report(OperationProgress(message: 'Reading $path…'));
+      final path = physicalPathOf(dir);
+      op.report(OperationProgress(message: 'Reading ${pathOf(dir)}…'));
 
       final entries =
           readInIsolate
@@ -84,7 +126,9 @@ class LocalTreeProvider implements TreeProvider {
         op.checkCanceled();
 
         final name = segments[i];
-        final childPath = p.joinAll(segments.sublist(0, i + 1));
+        // Путь ребёнка считается от настоящего пути родителя: если выше по
+        // цепочке была ссылка, читать нужно там, куда она ведёт.
+        final childPath = p.join(physicalPathOf(parent), name);
         final entry = await _describePath(childPath, name);
         if (entry == null) {
           return null;
@@ -98,8 +142,10 @@ class LocalTreeProvider implements TreeProvider {
         if (node is! DirectoryNode) {
           // Промежуточный элемент пути не каталог: дальше идти некуда.
           // Ссылка на каталог допустима — разворачиваем её и продолжаем.
+          // Цель становится дочерним узлом ссылки, поэтому видимый путь
+          // по-прежнему идёт через неё.
           if (node is LinkNode && node.isDirectoryLink) {
-            final target = await _resolveLinkTarget(node);
+            final target = await _resolveTarget(node);
             if (target is DirectoryNode) {
               parent = target;
               continue;
@@ -116,15 +162,17 @@ class LocalTreeProvider implements TreeProvider {
   @override
   AsyncOperation<FsNode?> resolveLink(LinkNode link) {
     return TaskOperation<FsNode?>((op) async {
-      final target = await _resolveLinkTarget(link);
+      final target = await _resolveTarget(link);
       op.checkCanceled();
-      link.target = target;
       return target;
     });
   }
 
   /// Строит узел дерева по сырой записи каталога.
-  FsNode nodeFromEntry(RawEntry entry, DirectoryNode parent) {
+  ///
+  /// Родителем может быть и ссылка: её разрешённая цель становится дочерним
+  /// узлом самой ссылки.
+  FsNode nodeFromEntry(RawEntry entry, FsNode parent) {
     final attributes =
         entry.modeString.isEmpty
             ? const FileAttributes.unknown()
@@ -171,18 +219,42 @@ class LocalTreeProvider implements TreeProvider {
     };
   }
 
-  /// Разрешает ссылку в узел дерева: цель ищется по абсолютному пути, поэтому
-  /// у неё оказывается настоящий родитель, и переход наверх ведёт туда, где
-  /// объект лежит на самом деле, а не откуда на него сослались.
-  Future<FsNode?> _resolveLinkTarget(LinkNode link) async {
-    if (link.reference.isEmpty) {
-      return null;
-    }
-    final base = link.parentDirectory;
-    final targetPath =
-        p.isAbsolute(link.reference) ? link.reference : p.join(base == null ? homePath : pathOf(base), link.reference);
+  /// Разрешает ссылку: цель становится **дочерним узлом самой ссылки**.
+  ///
+  /// Так дерево помнит, как пользователь сюда попал: видимый путь идёт через
+  /// ссылку, а переход наверх возвращает в каталог, где эта ссылка лежит,
+  /// а не туда, где физически находится её цель. Цепочки ссылок разворачиваются
+  /// до первого «настоящего» узла, повторы отслеживаются — иначе закольцованная
+  /// ссылка увела бы в бесконечность.
+  Future<FsNode?> _resolveTarget(LinkNode link) async {
+    final visited = <String>{};
+    LinkNode current = link;
 
-    return resolvePath(targetPath).result;
+    while (true) {
+      if (current.reference.isEmpty) {
+        return null;
+      }
+
+      final path = physicalPathOf(current);
+      if (!visited.add(path)) {
+        // Ссылка ведёт сама на себя по кругу.
+        return null;
+      }
+
+      final entry = await _describePath(path, p.basename(path));
+      if (entry == null) {
+        return null;
+      }
+
+      final target = nodeFromEntry(entry, current);
+      current.target = target;
+
+      if (target is LinkNode) {
+        current = target;
+        continue;
+      }
+      return target;
+    }
   }
 
   Future<RawEntry?> _describePath(String path, String name) async {

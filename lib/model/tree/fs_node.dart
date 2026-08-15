@@ -208,6 +208,25 @@ class LinkNode extends FileNode {
   String get info => '$name -> $reference';
 }
 
+/// Узлы, из имён которых складывается **видимый** путь.
+///
+/// Цель ссылки не добавляет своё имя: путь должен показывать, как пользователь
+/// сюда пришёл, а не куда ссылка ведёт. Для цепочки
+/// `/ → etc(ссылка) → etc(каталог) → apache2` видимый путь — `/etc/apache2`,
+/// а не `/private/etc/apache2`. Правило взято из `FileNodeUtil.getPath`
+/// референса.
+List<FsNode> visiblePathNodes(FsNode node) {
+  final result = <FsNode>[];
+  FsNode? previous;
+  for (final current in node.path) {
+    if (previous is! LinkNode) {
+      result.add(current);
+    }
+    previous = current;
+  }
+  return result;
+}
+
 /// Псевдоузел «..» — вход в родительский каталог.
 ///
 /// В отличие от референса (там был один статический экземпляр на всё

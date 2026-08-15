@@ -160,14 +160,28 @@ class PanelController extends ChangeNotifier {
     return node;
   }
 
-  /// На уровень вверх. Курсор встаёт на покинутый каталог.
+  /// На уровень вверх. Курсор встаёт на объект, через который сюда вошли.
+  ///
+  /// Если каталог открыт через ссылку, наверху нас ждёт сама ссылка, а не
+  /// каталог, где физически лежит её цель: подниматься нужно туда, откуда
+  /// пользователь пришёл.
   Future<void> goUp() async {
     final dir = _directory;
-    final parent = dir?.parentDirectory;
-    if (dir == null || parent == null) {
+    if (dir == null) {
       return;
     }
-    await _load(parent, cursorName: dir.name);
+
+    FsNode entered = dir;
+    FsNode? parent = dir.parent;
+    while (parent != null && parent is! DirectoryNode) {
+      entered = parent;
+      parent = parent.parent;
+    }
+    if (parent is! DirectoryNode) {
+      return;
+    }
+
+    await _load(parent, cursorName: entered.name);
   }
 
   /// Перечитать текущий каталог, сохранив курсор и пометку.
