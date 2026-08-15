@@ -61,6 +61,15 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  testWidgets('приложение подключает ключ навигатора к диалогам', (tester) async {
+    await pumpApp(tester);
+
+    // Без этого диалоги молча не открываются: команда получает «отказ»
+    // пользователя и ничего не делает — ровно так ошибка и выглядела.
+    expect(dialogs.navigatorKey.currentContext, isNotNull);
+    expect(dialogs.navigatorKey.currentState, isNotNull);
+  });
+
   testWidgets('F7 открывает диалог с полем ввода', (tester) async {
     await pumpApp(tester);
     await pressF7(tester);

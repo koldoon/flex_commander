@@ -90,6 +90,10 @@ List<KeyBinding> defaultKeyBindings() => [
   KeyBinding('F5', 'file.copy'),
   KeyBinding('F6', 'file.move'),
   KeyBinding('F7', 'file.mkdir'),
+  // На macOS F-клавиши по умолчанию отданы системе (F7 — «предыдущий трек»),
+  // и до приложения нажатие не доходит. Привычное сочетание из Finder работает
+  // без настройки клавиатуры.
+  KeyBinding('Shift-Cmd-N', 'file.mkdir'),
   KeyBinding('F8', 'file.remove'),
 ];
 
