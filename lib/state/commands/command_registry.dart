@@ -65,7 +65,7 @@ class CommandRegistry {
         if (!binding.matches(combination, node)) {
           continue;
         }
-        final context = contextFor(command, parameters: binding.parameters);
+        final context = contextFor(command);
         if (!command.isExecutable(context)) {
           continue;
         }
@@ -76,12 +76,13 @@ class CommandRegistry {
     return false;
   }
 
-  /// Запуск команды не с клавиатуры — кнопкой нижней панели или из меню.
-  bool run(AppCommand command, {Map<String, Object?> parameters = const {}}) {
+  /// Запуск команды не с клавиатуры — кнопкой нижней панели, из меню или из
+  /// списка команд. Результат тот же, что и по горячей клавише.
+  bool run(AppCommand command) {
     if (_app == null) {
       return false;
     }
-    final context = contextFor(command, parameters: parameters);
+    final context = contextFor(command);
     if (!command.isExecutable(context)) {
       return false;
     }
@@ -93,7 +94,7 @@ class CommandRegistry {
     return _app != null && command.isExecutable(contextFor(command));
   }
 
-  CommandContext contextFor(AppCommand command, {Map<String, Object?> parameters = const {}}) {
+  CommandContext contextFor(AppCommand command) {
     final app = _app!;
     final panel = app.activePanel;
     final node = panel.currentNode;
@@ -105,7 +106,6 @@ class CommandRegistry {
       node: node,
       // Если пометки нет, операция работает с объектом под курсором.
       targets: marked.isNotEmpty ? marked : [if (node != null) node],
-      parameters: parameters,
     );
   }
 

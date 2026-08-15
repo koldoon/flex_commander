@@ -39,7 +39,6 @@ class RecordingCommand extends AppCommand {
   final bool _executable;
 
   int calls = 0;
-  Map<String, Object?> lastParameters = const {};
   List<String> lastTargets = const [];
 
   @override
@@ -51,7 +50,6 @@ class RecordingCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     calls++;
-    lastParameters = context.parameters;
     lastTargets = context.targets.map((node) => node.name).toList();
   }
 }
@@ -123,18 +121,16 @@ void main() {
       expect(registry.dispatch(KeyCombination.parse('F6')), isFalse);
     });
 
-    test('параметры привязки доходят до команды', () {
-      final command = RecordingCommand(
-        id: 'params',
-        bindings: [
-          KeyBinding('F5', parameters: const {'mode': 'fast'}),
-        ],
-      );
+    test('несколько привязок вызывают команду одинаково', () {
+      final command = RecordingCommand(id: 'multi', bindings: [KeyBinding('F5'), KeyBinding('Cmd-E')]);
       final registry = CommandRegistry([command]);
       build(registry);
 
       registry.dispatch(KeyCombination.parse('F5'));
-      expect(command.lastParameters, {'mode': 'fast'});
+      registry.dispatch(KeyCombination.parse('Cmd-E'));
+
+      // Команда не знает, чем её вызвали: обе привязки дают один и тот же вызов.
+      expect(command.calls, 2);
     });
 
     test('фильтр по имени выбирает специализированную команду', () async {
@@ -225,6 +221,68 @@ void main() {
     });
   });
 
+  group('команда не зависит от способа вызова', () {
+    test('любую команду можно выполнить без клавиатуры', () async {
+      final registry = defaultCommandRegistry();
+      build(registry);
+      await app.start();
+
+      // Так команды будут вызываться из списка команд и из меню.
+      expect(registry.run(registry.find('panel.cursor.down')!), isTrue);
+      expect(app.left.cursorIndex, 1);
+
+      expect(registry.run(registry.find('panel.cursor.last')!), isTrue);
+      expect(app.left.cursorIndex, app.left.nodes.length - 1);
+
+      expect(registry.run(registry.find('panel.cursor.first')!), isTrue);
+      expect(app.left.cursorIndex, 0);
+
+      expect(registry.run(registry.find('app.togglePanel')!), isTrue);
+      expect(app.activePanel, app.right);
+    });
+
+    test('вызов клавишей и вызов из списка команд дают одно и то же', () async {
+      final registry = defaultCommandRegistry();
+      build(registry);
+      await app.start();
+
+      registry.dispatch(KeyCombination.parse('Down'));
+      final byKey = app.left.cursorIndex;
+
+      app.left.setCursorToFirst();
+      registry.run(registry.find('panel.cursor.down')!);
+
+      expect(app.left.cursorIndex, byKey);
+    });
+
+    test('противоположные действия — разные команды', () {
+      final registry = defaultCommandRegistry();
+      build(registry);
+
+      // Одна команда с параметром «направление» не подошла бы: из списка
+      // команд её нельзя вызвать осмысленно.
+      for (final id in [
+        'panel.cursor.up',
+        'panel.cursor.down',
+        'panel.cursor.pageUp',
+        'panel.cursor.pageDown',
+        'panel.cursor.first',
+        'panel.cursor.last',
+        'panel.open',
+        'panel.openWithSystem',
+      ]) {
+        expect(registry.find(id), isNotNull, reason: 'нет команды $id');
+      }
+    });
+
+    test('у каждой команды есть название для списка команд', () {
+      build(defaultCommandRegistry());
+      for (final command in defaultCommands()) {
+        expect(command.label, isNotEmpty, reason: 'у ${command.id} нет названия');
+      }
+    });
+  });
+
   group('набор команд по умолчанию', () {
     test('файловые операции занимают слоты, но пока не выполняются', () {
       final registry = defaultCommandRegistry();
@@ -273,7 +331,7 @@ void main() {
 
     test('Cmd-O открывает объект системой, не входя в каталог', () async {
       final opened = <String>[];
-      final registry = CommandRegistry([OpenNodeCommand(opener: (path) async => opened.add(path))]);
+      final registry = CommandRegistry([OpenWithSystemCommand(opener: (path) async => opened.add(path))]);
       build(registry);
       await app.start();
 

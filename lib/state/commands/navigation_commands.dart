@@ -2,91 +2,115 @@ import '../../model/os/system_open.dart';
 import '../../model/settings/app_settings.dart';
 import 'app_command.dart';
 
-/// Перемещение курсора на строку. Направление приходит параметром привязки,
-/// поэтому обе клавиши обслуживает одна команда.
-class MoveCursorCommand extends AppCommand {
-  static const String deltaParameter = 'delta';
+/// Курсор на строку вверх.
+class MoveCursorUpCommand extends AppCommand {
+  @override
+  String get id => 'panel.cursor.up';
 
   @override
-  String get id => 'panel.cursor.move';
+  String get label => 'Cursor up';
 
   @override
-  String get label => 'Move cursor';
-
-  @override
-  List<KeyBinding> get bindings => [
-    KeyBinding('Up', parameters: const {deltaParameter: -1}),
-    KeyBinding('Down', parameters: const {deltaParameter: 1}),
-  ];
+  List<KeyBinding> get bindings => [KeyBinding('Up')];
 
   @override
   bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
 
   @override
-  Future<void> execute(CommandContext context) async {
-    context.panel.moveCursor(context.parameter<int>(deltaParameter) ?? 0);
-  }
+  Future<void> execute(CommandContext context) async => context.panel.moveCursor(-1);
 }
 
-/// Перемещение курсора на страницу — по числу видимых строк.
-class PageCursorCommand extends AppCommand {
-  static const String directionParameter = 'direction';
+/// Курсор на строку вниз.
+class MoveCursorDownCommand extends AppCommand {
+  @override
+  String get id => 'panel.cursor.down';
 
   @override
-  String get id => 'panel.cursor.page';
+  String get label => 'Cursor down';
 
   @override
-  String get label => 'Page';
-
-  @override
-  List<KeyBinding> get bindings => [
-    KeyBinding('PgUp', parameters: const {directionParameter: -1}),
-    KeyBinding('PgDn', parameters: const {directionParameter: 1}),
-  ];
+  List<KeyBinding> get bindings => [KeyBinding('Down')];
 
   @override
   bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
 
   @override
-  Future<void> execute(CommandContext context) async {
-    context.panel.moveCursorPage(context.parameter<int>(directionParameter) ?? 0);
-  }
+  Future<void> execute(CommandContext context) async => context.panel.moveCursor(1);
 }
 
-/// Курсор в начало и в конец списка.
+/// Курсор на страницу вверх — по числу видимых строк.
+class PageUpCommand extends AppCommand {
+  @override
+  String get id => 'panel.cursor.pageUp';
+
+  @override
+  String get label => 'Page up';
+
+  @override
+  List<KeyBinding> get bindings => [KeyBinding('PgUp')];
+
+  @override
+  bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
+
+  @override
+  Future<void> execute(CommandContext context) async => context.panel.moveCursorPage(-1);
+}
+
+/// Курсор на страницу вниз.
+class PageDownCommand extends AppCommand {
+  @override
+  String get id => 'panel.cursor.pageDown';
+
+  @override
+  String get label => 'Page down';
+
+  @override
+  List<KeyBinding> get bindings => [KeyBinding('PgDn')];
+
+  @override
+  bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
+
+  @override
+  Future<void> execute(CommandContext context) async => context.panel.moveCursorPage(1);
+}
+
+/// Курсор на первый объект списка.
 ///
-/// Стрелки влево и вправо заняты именно этим — панели переключаются только
-/// Tab (решение референса: `GoToFirstNodeCommand` / `GoToLastNodeCommand`).
-class CursorEdgeCommand extends AppCommand {
-  static const String edgeParameter = 'edge';
-  static const String first = 'first';
-  static const String last = 'last';
+/// Стрелка влево занята именно этим — панели переключаются только Tab
+/// (решение референса: `GoToFirstNodeCommand`).
+class GoToFirstNodeCommand extends AppCommand {
+  @override
+  String get id => 'panel.cursor.first';
 
   @override
-  String get id => 'panel.cursor.edge';
+  String get label => 'First item';
 
   @override
-  String get label => 'First / last';
-
-  @override
-  List<KeyBinding> get bindings => [
-    KeyBinding('Home', parameters: const {edgeParameter: first}),
-    KeyBinding('Left', parameters: const {edgeParameter: first}),
-    KeyBinding('End', parameters: const {edgeParameter: last}),
-    KeyBinding('Right', parameters: const {edgeParameter: last}),
-  ];
+  List<KeyBinding> get bindings => [KeyBinding('Home'), KeyBinding('Left')];
 
   @override
   bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
 
   @override
-  Future<void> execute(CommandContext context) async {
-    if (context.parameter<String>(edgeParameter) == last) {
-      context.panel.setCursorToLast();
-    } else {
-      context.panel.setCursorToFirst();
-    }
-  }
+  Future<void> execute(CommandContext context) async => context.panel.setCursorToFirst();
+}
+
+/// Курсор на последний объект списка.
+class GoToLastNodeCommand extends AppCommand {
+  @override
+  String get id => 'panel.cursor.last';
+
+  @override
+  String get label => 'Last item';
+
+  @override
+  List<KeyBinding> get bindings => [KeyBinding('End'), KeyBinding('Right')];
+
+  @override
+  bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
+
+  @override
+  Future<void> execute(CommandContext context) async => context.panel.setCursorToLast();
 }
 
 /// Переключение активной панели.
@@ -110,11 +134,9 @@ class TogglePanelCommand extends AppCommand {
 /// Вход в объект под курсором.
 ///
 /// Каталог открывается в панели, ссылка разрешается, обычный файл отдаётся
-/// системе. `Cmd-O` открывает системой что угодно, включая каталог.
+/// системе.
 class OpenNodeCommand extends AppCommand {
   OpenNodeCommand({SystemOpener? opener}) : _open = opener ?? openWithSystem;
-
-  static const String forceOpenParameter = 'forceOpen';
 
   final SystemOpener _open;
 
@@ -125,31 +147,47 @@ class OpenNodeCommand extends AppCommand {
   String get label => 'Open';
 
   @override
-  List<KeyBinding> get bindings => [
-    KeyBinding('Enter'),
-    KeyBinding('Cmd-O', parameters: const {forceOpenParameter: true}),
-  ];
+  List<KeyBinding> get bindings => [KeyBinding('Enter')];
 
   @override
   bool isExecutable(CommandContext context) => context.node != null && !context.panel.busy;
 
   @override
   Future<void> execute(CommandContext context) async {
-    final node = context.node;
-    if (node == null) {
-      return;
-    }
-
-    if (context.parameter<bool>(forceOpenParameter) ?? false) {
-      await _open(node.pathString);
-      return;
-    }
-
     // Панель сама решает, куда можно войти, и возвращает то, что каталогом
     // не является: такой объект открывает система.
     final rest = await context.panel.enterCurrent();
     if (rest != null) {
       await _open(rest.pathString);
+    }
+  }
+}
+
+/// Открыть объект средствами системы, не заходя в него.
+///
+/// Отдельная команда, а не параметр [OpenNodeCommand]: команда обязана
+/// работать одинаково, откуда бы её ни вызвали.
+class OpenWithSystemCommand extends AppCommand {
+  OpenWithSystemCommand({SystemOpener? opener}) : _open = opener ?? openWithSystem;
+
+  final SystemOpener _open;
+
+  @override
+  String get id => 'panel.openWithSystem';
+
+  @override
+  String get label => 'Open with system';
+
+  @override
+  List<KeyBinding> get bindings => [KeyBinding('Cmd-O')];
+
+  @override
+  bool isExecutable(CommandContext context) => context.node != null;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    for (final node in context.targets) {
+      await _open(node.pathString);
     }
   }
 }
@@ -215,7 +253,7 @@ class ToggleHiddenCommand extends AppCommand {
   String get id => 'panel.toggleHidden';
 
   @override
-  String get label => 'Hidden';
+  String get label => 'Hidden files';
 
   @override
   List<KeyBinding> get bindings => [KeyBinding('Cmd-H')];
@@ -248,13 +286,14 @@ class CancelCommand extends AppCommand {
   Future<void> execute(CommandContext context) async => context.panel.cancel();
 }
 
-/// Переключение темы оформления. Кнопкой не показывается — только клавишами.
+/// Переключение темы оформления. Кнопкой не показывается — только клавишами
+/// и из списка команд.
 class ToggleThemeCommand extends AppCommand {
   @override
   String get id => 'app.toggleTheme';
 
   @override
-  String get label => 'Theme';
+  String get label => 'Toggle theme';
 
   @override
   List<KeyBinding> get bindings => [KeyBinding('Cmd-T')];
