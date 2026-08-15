@@ -1,29 +1,37 @@
 import 'package:flutter/foundation.dart';
 
+import '../model/app/panel_selection.dart';
 import '../model/tree/fs_node.dart';
 
-/// Помеченные объекты панели.
+/// Помеченные объекты панели — реализация [PanelSelection].
 ///
 /// Вынесена из панели отдельным объектом, чтобы строка списка подписывалась
 /// только на пометку, а не на всё состояние панели: иначе перемещение курсора
-/// перерисовывало бы всю таблицу.
-class PanelSelection extends ChangeNotifier {
+/// перерисовывало бы всю таблицу. Наружу отдаётся интерфейсом, но сама
+/// реализация ещё и [Listenable] — на это подписывается таблица.
+class SelectionController extends ChangeNotifier implements PanelSelection {
   /// Порядок пометки сохраняется — он же становится порядком обработки
   /// в файловых операциях.
   final Set<FsNode> _nodes = <FsNode>{};
 
+  @override
   List<FsNode> get nodes => List.unmodifiable(_nodes);
 
+  @override
   int get length => _nodes.length;
 
+  @override
   bool get isEmpty => _nodes.isEmpty;
 
+  @override
   bool get isNotEmpty => _nodes.isNotEmpty;
 
+  @override
   bool contains(FsNode node) => _nodes.contains(node);
 
   /// Суммарный размер помеченных объектов; объекты с неизвестным размером
   /// (каталоги) в сумму не входят.
+  @override
   int get totalSize {
     var total = 0;
     for (final node in _nodes) {
@@ -35,6 +43,7 @@ class PanelSelection extends ChangeNotifier {
   }
 
   /// Псевдоузел «..» не помечается никогда — поведение референса.
+  @override
   void add(FsNode node) {
     if (node is ParentDirNode || !_nodes.add(node)) {
       return;
@@ -42,12 +51,14 @@ class PanelSelection extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
   void remove(FsNode node) {
     if (_nodes.remove(node)) {
       notifyListeners();
     }
   }
 
+  @override
   void toggle(FsNode node) {
     if (contains(node)) {
       remove(node);
@@ -56,6 +67,7 @@ class PanelSelection extends ChangeNotifier {
     }
   }
 
+  @override
   void addAll(Iterable<FsNode> nodes) {
     var added = false;
     for (final node in nodes) {
@@ -68,6 +80,7 @@ class PanelSelection extends ChangeNotifier {
     }
   }
 
+  @override
   void clear() {
     if (_nodes.isEmpty) {
       return;
@@ -78,5 +91,6 @@ class PanelSelection extends ChangeNotifier {
 
   /// Имена помеченных объектов. После перечитывания каталога узлы — новые
   /// экземпляры, поэтому пометка переносится именно по именам.
+  @override
   Set<String> get names => {for (final node in _nodes) node.name};
 }

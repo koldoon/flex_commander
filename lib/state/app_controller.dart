@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../model/app/application.dart';
 import '../model/os/window_service.dart';
 import '../model/settings/app_settings.dart';
 import '../model/settings/settings_store.dart';
@@ -11,11 +12,12 @@ import 'commands/command_registry.dart';
 import 'commands/default_commands.dart';
 import 'panel_controller.dart';
 
-/// Состояние приложения: две панели, активная из них и общие настройки.
+/// Состояние приложения — реализация [Application].
 ///
 /// Ветвление «если активна левая, то…» живёт только здесь: панели друг о друге
 /// не знают. Активная панель — источник операции, пассивная — её приёмник.
-class AppController extends ChangeNotifier {
+/// Команды видят приложение только как [Application].
+class AppController extends ChangeNotifier implements Application {
   AppController({
     required this.left,
     required this.right,
@@ -39,7 +41,12 @@ class AppController extends ChangeNotifier {
     this.commands.attach(this);
   }
 
+  /// Тип уточнён до реализации: виджетам нужна подписка на изменения,
+  /// командам — только интерфейс [Panel].
+  @override
   final PanelController left;
+
+  @override
   final PanelController right;
   final SettingsStore store;
 
@@ -63,17 +70,22 @@ class AppController extends ChangeNotifier {
   String? _savedSnapshot;
 
   /// Активная панель: в ней курсор и ввод с клавиатуры.
+  @override
   PanelController get activePanel => left.active ? left : right;
 
   /// Пассивная панель — приёмник операций копирования и перемещения.
+  @override
   PanelController get passivePanel => left.active ? right : left;
 
   /// Доля ширины окна под левой панелью.
+  @override
   double get splitRatio => _splitRatio;
 
+  @override
   AppThemeMode get themeMode => _themeMode;
 
   /// Последняя известная геометрия окна.
+  @override
   WindowGeometry? get windowGeometry => _windowGeometry;
 
   /// Запоминает геометрию окна.
@@ -95,7 +107,8 @@ class AppController extends ChangeNotifier {
     _scheduleSave();
   }
 
-  void activate(PanelController panel) {
+  @override
+  void activate(Panel panel) {
     assert(panel == left || panel == right, 'Панель не принадлежит этому приложению');
     if (panel.active) {
       return;
@@ -106,8 +119,10 @@ class AppController extends ChangeNotifier {
   }
 
   /// Переключить активную панель (Tab).
+  @override
   void toggleActivePanel() => activate(left.active ? right : left);
 
+  @override
   void setSplitRatio(double value) {
     final clamped = value.clamp(AppSettings.minSplitRatio, AppSettings.maxSplitRatio);
     if (_splitRatio == clamped) {
@@ -118,6 +133,7 @@ class AppController extends ChangeNotifier {
     _scheduleSave();
   }
 
+  @override
   void setThemeMode(AppThemeMode value) {
     if (_themeMode == value) {
       return;
@@ -130,6 +146,7 @@ class AppController extends ChangeNotifier {
   /// Открывает сохранённые каталоги и активирует панель, которая была активной
   /// в прошлый раз. Недоступный путь заменяется корнем провайдера, чтобы
   /// приложение всегда стартовало в рабочем состоянии.
+  @override
   Future<void> start() async {
     _savedSnapshot = _snapshot();
     await window.restore(_initialSettings.window);
@@ -144,6 +161,7 @@ class AppController extends ChangeNotifier {
   }
 
   /// Сохраняет настройки и останавливает незавершённые операции.
+  @override
   Future<void> shutdown() async {
     _saveTimer?.cancel();
     left.cancel();
@@ -158,6 +176,7 @@ class AppController extends ChangeNotifier {
   }
 
   /// Текущее состояние приложения в виде сохраняемых настроек.
+  @override
   AppSettings get settings => AppSettings(
     left: left.settings,
     right: right.settings,

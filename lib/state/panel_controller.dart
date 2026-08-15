@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../model/app/panel.dart';
 import '../model/async/async_operation.dart';
 import '../model/panel/column_spec.dart';
 import '../model/panel/sort_spec.dart';
@@ -7,9 +8,9 @@ import '../model/settings/app_settings.dart';
 import '../model/tree/fs_node.dart';
 import '../model/tree/node_path.dart';
 import '../model/tree/tree_provider.dart';
-import 'panel_selection.dart';
+import 'selection_controller.dart';
 
-enum PanelStatus { idle, loading, error }
+export '../model/app/panel.dart' show Panel, PanelStatus;
 
 /// Создаёт панели.
 ///
@@ -23,25 +24,31 @@ class PanelControllerFactory {
   PanelController create(PanelSettings settings) => PanelController(provider: provider, settings: settings);
 }
 
-/// Состояние одной панели: открытый каталог, отсортированный список, курсор,
-/// пометка и настройки вида.
+/// Состояние одной панели — реализация [Panel].
 ///
 /// Ничего не знает ни о второй панели, ни о виджетах: панели симметричны, а
-/// связывает их [AppController].
-class PanelController extends ChangeNotifier {
+/// связывает их `AppController`. Команды видят её только как [Panel];
+/// [ChangeNotifier] нужен виджетам, поэтому он остаётся в реализации, а не
+/// в интерфейсе.
+class PanelController extends ChangeNotifier implements Panel {
   PanelController({required this.provider, required PanelSettings settings})
     : _columns = settings.columns,
       _sort = settings.sort,
       _showHidden = settings.showHidden,
       _lastPath = settings.path;
 
+  @override
   final TreeProvider provider;
 
   /// Сколько строк помещается в видимой части списка. Значение выставляет
   /// таблица; от него считается шаг PgUp/PgDn.
+  @override
   int pageSize = 20;
 
-  final PanelSelection selection = PanelSelection();
+  /// Тип уточнён до реализации намеренно: таблице нужна подписка на изменения,
+  /// а командам достаточно интерфейса [PanelSelection].
+  @override
+  final SelectionController selection = SelectionController();
 
   DirectoryNode? _directory;
   List<FsNode> _nodes = const [];
@@ -75,33 +82,42 @@ class PanelController extends ChangeNotifier {
 
   // --- каталог ---
 
+  @override
   DirectoryNode? get directory => _directory;
 
   /// Отсортированное содержимое каталога — то, что рисует таблица.
+  @override
   List<FsNode> get nodes => _nodes;
 
+  @override
   PanelStatus get status => _status;
 
+  @override
   FsError? get error => _error;
 
   /// Идёт длительная операция: клавиатура игнорируется, кроме отмены.
+  @override
   bool get busy => _busy;
 
   /// Панель активна: в ней курсор и ввод с клавиатуры.
   /// Значение выставляет [AppController], чтобы активной всегда была ровно одна.
+  @override
   bool get active => _active;
 
   /// Текст, выставленный командой ("Loading…", сообщение об ошибке).
   /// null — строка состояния показывает объект под курсором.
+  @override
   String? get statusText => _statusText;
 
   /// Открыть каталог. Отменяет незавершённое чтение этой же панели.
+  @override
   Future<void> open(DirectoryNode dir) {
     return _load(dir, cursorName: _cursorMemory[dir.pathString]);
   }
 
   /// Открыть каталог по строке пути. Возвращает false, если путь недоступен
   /// или это не каталог — тогда вызывающий код решает, куда открыть панель.
+  @override
   Future<bool> openPath(String path) async {
     final target = NodePath.parse(path).last.path;
 
@@ -148,6 +164,7 @@ class PanelController extends ChangeNotifier {
   ///
   /// Возвращает узел, в который войти нельзя (обычный файл) — открывать его
   /// системой будет команда; null, если переход выполнен.
+  @override
   Future<FsNode?> enterCurrent() async {
     final node = currentNode;
     if (node == null) {
@@ -177,6 +194,7 @@ class PanelController extends ChangeNotifier {
   /// Если каталог открыт через ссылку, наверху нас ждёт сама ссылка, а не
   /// каталог, где физически лежит её цель: подниматься нужно туда, откуда
   /// пользователь пришёл.
+  @override
   Future<void> goUp() async {
     final dir = _directory;
     if (dir == null) {
@@ -197,6 +215,7 @@ class PanelController extends ChangeNotifier {
   }
 
   /// Перечитать текущий каталог, сохранив курсор и пометку.
+  @override
   Future<void> reload() async {
     final dir = _directory;
     if (dir == null) {
@@ -206,19 +225,25 @@ class PanelController extends ChangeNotifier {
   }
 
   /// Прервать текущее чтение.
+  @override
   void cancel() => _operation?.cancel();
 
   // --- курсор ---
 
+  @override
   int get cursorIndex => _cursorIndex;
 
+  @override
   FsNode? get currentNode => _cursorIndex >= 0 && _cursorIndex < _nodes.length ? _nodes[_cursorIndex] : null;
 
+  @override
   void moveCursor(int delta) => setCursorIndex(_cursorIndex + delta);
 
   /// Сдвинуть курсор на страницу: `direction` равен -1 или 1.
+  @override
   void moveCursorPage(int direction) => moveCursor(direction * (pageSize - 1).clamp(1, pageSize));
 
+  @override
   void setCursorIndex(int index) {
     if (_nodes.isEmpty) {
       _setCursor(0);
@@ -227,12 +252,15 @@ class PanelController extends ChangeNotifier {
     _setCursor(index.clamp(0, _nodes.length - 1));
   }
 
+  @override
   void setCursorToFirst() => setCursorIndex(0);
 
+  @override
   void setCursorToLast() => setCursorIndex(_nodes.length - 1);
 
   /// Поставить курсор на объект с таким именем. Если его нет, курсор
   /// остаётся на месте.
+  @override
   void setCursorToName(String name) {
     final index = _nodes.indexWhere((node) => node.name == name);
     if (index >= 0) {
@@ -244,6 +272,7 @@ class PanelController extends ChangeNotifier {
 
   /// Инвертировать пометку объекта под курсором и сдвинуть курсор вниз —
   /// так пометка нескольких файлов подряд делается одной клавишей.
+  @override
   void toggleCurrentMark() {
     final node = currentNode;
     if (node == null || node is ParentDirNode) {
@@ -253,21 +282,26 @@ class PanelController extends ChangeNotifier {
     moveCursor(1);
   }
 
+  @override
   void markAll() => selection.addAll(_nodes);
 
   // --- вид ---
 
+  @override
   ColumnLayout get columns => _columns;
 
+  @override
   void setColumnLayout(ColumnLayout layout) {
     _columns = layout;
     notifyListeners();
   }
 
+  @override
   SortSpec get sort => _sort;
 
   /// Сортировка по колонке: та же колонка меняет направление.
   /// Курсор остаётся на том же объекте, а не на том же индексе.
+  @override
   void sortBy(FsColumn column) {
     if (!column.sortable) {
       return;
@@ -281,8 +315,10 @@ class PanelController extends ChangeNotifier {
     notifyListeners();
   }
 
+  @override
   bool get showHidden => _showHidden;
 
+  @override
   Future<void> setShowHidden(bool value) async {
     if (_showHidden == value) {
       return;
@@ -292,6 +328,7 @@ class PanelController extends ChangeNotifier {
     await reload();
   }
 
+  @override
   void setStatusText(String? text) {
     if (_statusText == text) {
       return;
@@ -312,6 +349,7 @@ class PanelController extends ChangeNotifier {
   // --- настройки ---
 
   /// Текущее состояние панели в виде сохраняемых настроек.
+  @override
   PanelSettings get settings =>
       PanelSettings(path: _directory?.pathString ?? _lastPath, columns: _columns, sort: _sort, showHidden: _showHidden);
 

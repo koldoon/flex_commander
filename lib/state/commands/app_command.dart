@@ -1,6 +1,6 @@
+import '../../model/app/application.dart';
+import '../../model/app/panel.dart';
 import '../../model/tree/fs_node.dart';
-import '../app_controller.dart';
-import '../panel_controller.dart';
 import 'key_combination.dart';
 
 /// Привязка комбинации клавиш к команде.
@@ -40,15 +40,19 @@ class KeyBinding {
 /// Условия, в которых выполняется команда: активная панель и объекты, с
 /// которыми работать.
 ///
+/// Всё здесь — интерфейсы ([Application], [Panel]): команда работает с API
+/// приложения, а не с конкретными контроллерами, и потому не зависит от того,
+/// как они устроены.
+///
 /// Больше в контексте ничего нет намеренно — команда не должна знать, чем её
 /// вызвали: клавишей, кнопкой внизу окна или списком команд.
 class CommandContext {
   const CommandContext({required this.app, required this.panel, this.node, this.targets = const []});
 
-  final AppController app;
+  final Application app;
 
   /// Активная панель — источник операции.
-  final PanelController panel;
+  final Panel panel;
 
   /// Объект под курсором.
   final FsNode? node;
@@ -58,7 +62,7 @@ class CommandContext {
   final List<FsNode> targets;
 
   /// Пассивная панель — приёмник операций.
-  PanelController get target => app.passivePanel;
+  Panel get target => app.passivePanel;
 }
 
 /// Действие приложения.
@@ -87,7 +91,7 @@ abstract class AppCommand {
 
   /// Вызывается один раз при установке. false — команда не устанавливается
   /// (например, недоступна на этой платформе).
-  bool init(AppController app) => true;
+  bool init(Application app) => true;
 
   /// Можно ли выполнить прямо сейчас.
   bool isExecutable(CommandContext context);

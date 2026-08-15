@@ -1,6 +1,7 @@
 import 'package:dicom/dicom.dart';
 import 'package:logecom/logecom.dart';
 
+import 'model/app/application.dart';
 import 'model/os/plugin_window_service.dart';
 import 'model/os/system_open.dart';
 import 'model/os/window_service.dart';
@@ -51,6 +52,10 @@ class AppContext extends DI {
     bind<CommandRegistry>(
       to: (c) => CommandRegistry(defaultCommands(opener: c.get<SystemOpener>()), defaultKeyBindings()),
     );
+
+    // Наружу приложение отдаётся интерфейсом: команды и всё, что пишется
+    // против API, не должны видеть реализацию.
+    bind<Application>(to: (c) => c.get<AppController>());
 
     bind<AppController>(
       to: (c) {

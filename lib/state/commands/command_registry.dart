@@ -1,4 +1,4 @@
-import '../app_controller.dart';
+import '../../model/app/application.dart';
 import 'app_command.dart';
 import 'key_combination.dart';
 
@@ -21,7 +21,7 @@ class CommandRegistry {
 
   final List<AppCommand> _installed = [];
   final List<KeyBinding> _bindings = [];
-  AppController? _app;
+  Application? _app;
 
   Iterable<AppCommand> get installed => _installed;
 
@@ -29,7 +29,7 @@ class CommandRegistry {
   List<KeyBinding> get bindings => List.unmodifiable(_bindings);
 
   /// Связывает реестр с приложением и инициализирует команды.
-  void attach(AppController app) {
+  void attach(Application app) {
     _app = app;
     _installed.removeWhere((command) => !command.init(app));
   }
