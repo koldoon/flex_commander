@@ -40,6 +40,14 @@ class PanelController extends ChangeNotifier implements Panel {
   @override
   final TreeProvider provider;
 
+  @override
+  TreeEditor? get editor {
+    // Приведение явное: TreeEditor и TreeProvider — независимые интерфейсы,
+    // и Dart не выводит одно из другого сам.
+    final provider = this.provider;
+    return provider is TreeEditor ? provider as TreeEditor : null;
+  }
+
   /// Сколько строк помещается в видимой части списка. Значение выставляет
   /// таблица; от него считается шаг PgUp/PgDn.
   @override

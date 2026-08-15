@@ -213,7 +213,8 @@ abstract interface class TreeProvider {
   AsyncOperation<FsNode?> resolveLink(LinkNode link);
 }
 
-/// Изменение дерева. Реализуется после MVP.
+/// Изменение дерева. Отдельный интерфейс: провайдер может уметь только читать
+/// (архив, открытый на просмотр), и команда это проверяет через `panel.editor`.
 abstract interface class TreeEditor {
   TransferOperation copy();
   TransferOperation move();

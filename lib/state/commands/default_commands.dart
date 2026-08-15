@@ -1,6 +1,7 @@
 import '../../model/os/system_open.dart';
 import 'app_command.dart';
 import 'command_registry.dart';
+import 'file_commands.dart';
 import 'navigation_commands.dart';
 import 'selection_commands.dart';
 
@@ -27,6 +28,9 @@ List<AppCommand> defaultCommands({SystemOpener? opener}) => [
   ToggleThemeCommand(),
   CancelCommand(),
 
+  // Файловые операции.
+  MakeDirectoryCommand(),
+
   // Пометка объектов.
   ClearSelectionCommand(),
   ToggleMarkCommand(),
@@ -40,7 +44,6 @@ List<AppCommand> defaultCommands({SystemOpener? opener}) => [
   PlaceholderCommand(id: 'file.edit', label: 'Edit'),
   PlaceholderCommand(id: 'file.copy', label: 'Copy'),
   PlaceholderCommand(id: 'file.move', label: 'Move'),
-  PlaceholderCommand(id: 'file.mkdir', label: 'Mk Dir'),
   PlaceholderCommand(id: 'file.remove', label: 'Delete'),
 ];
 
