@@ -11,9 +11,6 @@ class MoveCursorUpCommand extends AppCommand {
   String get label => 'Cursor up';
 
   @override
-  List<KeyBinding> get bindings => [KeyBinding('Up')];
-
-  @override
   bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
 
   @override
@@ -27,9 +24,6 @@ class MoveCursorDownCommand extends AppCommand {
 
   @override
   String get label => 'Cursor down';
-
-  @override
-  List<KeyBinding> get bindings => [KeyBinding('Down')];
 
   @override
   bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
@@ -47,9 +41,6 @@ class PageUpCommand extends AppCommand {
   String get label => 'Page up';
 
   @override
-  List<KeyBinding> get bindings => [KeyBinding('PgUp')];
-
-  @override
   bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
 
   @override
@@ -63,9 +54,6 @@ class PageDownCommand extends AppCommand {
 
   @override
   String get label => 'Page down';
-
-  @override
-  List<KeyBinding> get bindings => [KeyBinding('PgDn')];
 
   @override
   bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
@@ -86,9 +74,6 @@ class GoToFirstNodeCommand extends AppCommand {
   String get label => 'First item';
 
   @override
-  List<KeyBinding> get bindings => [KeyBinding('Home'), KeyBinding('Left')];
-
-  @override
   bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
 
   @override
@@ -104,9 +89,6 @@ class GoToLastNodeCommand extends AppCommand {
   String get label => 'Last item';
 
   @override
-  List<KeyBinding> get bindings => [KeyBinding('End'), KeyBinding('Right')];
-
-  @override
   bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
 
   @override
@@ -120,9 +102,6 @@ class TogglePanelCommand extends AppCommand {
 
   @override
   String get label => 'Switch panel';
-
-  @override
-  List<KeyBinding> get bindings => [KeyBinding('Tab')];
 
   @override
   bool isExecutable(CommandContext context) => true;
@@ -145,9 +124,6 @@ class OpenNodeCommand extends AppCommand {
 
   @override
   String get label => 'Open';
-
-  @override
-  List<KeyBinding> get bindings => [KeyBinding('Enter')];
 
   @override
   bool isExecutable(CommandContext context) => context.node != null && !context.panel.busy;
@@ -179,9 +155,6 @@ class OpenWithSystemCommand extends AppCommand {
   String get label => 'Open with system';
 
   @override
-  List<KeyBinding> get bindings => [KeyBinding('Cmd-O')];
-
-  @override
   bool isExecutable(CommandContext context) => context.node != null;
 
   @override
@@ -201,9 +174,6 @@ class GoUpCommand extends AppCommand {
   String get label => 'Up';
 
   @override
-  List<KeyBinding> get bindings => [KeyBinding('Bsp'), KeyBinding('Cmd-Up')];
-
-  @override
   bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.directory?.parentDirectory != null;
 
   @override
@@ -217,9 +187,6 @@ class GoToRootCommand extends AppCommand {
 
   @override
   String get label => 'Root';
-
-  @override
-  List<KeyBinding> get bindings => [KeyBinding('Cmd-/')];
 
   @override
   bool isExecutable(CommandContext context) =>
@@ -238,9 +205,6 @@ class ReloadCommand extends AppCommand {
   String get label => 'Reload';
 
   @override
-  List<KeyBinding> get bindings => [KeyBinding('Cmd-R')];
-
-  @override
   bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.directory != null;
 
   @override
@@ -254,9 +218,6 @@ class ToggleHiddenCommand extends AppCommand {
 
   @override
   String get label => 'Hidden files';
-
-  @override
-  List<KeyBinding> get bindings => [KeyBinding('Cmd-H')];
 
   @override
   bool isExecutable(CommandContext context) => !context.panel.busy;
@@ -277,9 +238,6 @@ class CancelCommand extends AppCommand {
   String get label => 'Cancel';
 
   @override
-  List<KeyBinding> get bindings => [KeyBinding('Esc')];
-
-  @override
   bool isExecutable(CommandContext context) => context.panel.busy;
 
   @override
@@ -294,9 +252,6 @@ class ToggleThemeCommand extends AppCommand {
 
   @override
   String get label => 'Toggle theme';
-
-  @override
-  List<KeyBinding> get bindings => [KeyBinding('Cmd-T')];
 
   @override
   bool isExecutable(CommandContext context) => true;

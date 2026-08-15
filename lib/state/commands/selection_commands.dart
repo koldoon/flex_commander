@@ -11,9 +11,6 @@ class ToggleMarkCommand extends AppCommand {
   String get label => 'Mark';
 
   @override
-  List<KeyBinding> get bindings => [KeyBinding('Space'), KeyBinding('Ins')];
-
-  @override
   bool isExecutable(CommandContext context) {
     final node = context.node;
     return node != null && node is! ParentDirNode;
@@ -32,9 +29,6 @@ class ClearSelectionCommand extends AppCommand {
   String get label => 'Unmark all';
 
   @override
-  List<KeyBinding> get bindings => [KeyBinding('Esc')];
-
-  @override
   bool isExecutable(CommandContext context) => context.panel.selection.isNotEmpty;
 
   @override
@@ -48,9 +42,6 @@ class SelectAllCommand extends AppCommand {
 
   @override
   String get label => 'Mark all';
-
-  @override
-  List<KeyBinding> get bindings => [KeyBinding('Cmd-A')];
 
   @override
   bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;

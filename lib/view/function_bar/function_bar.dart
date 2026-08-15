@@ -1,16 +1,22 @@
 import 'package:flutter/material.dart';
 
 import '../../state/app_scope.dart';
-import '../../state/commands/app_command.dart';
+import '../../state/commands/key_combination.dart';
 import '../theme/app_theme.dart';
 import 'function_button.dart';
 
 /// Ряд функциональных кнопок внизу окна.
 ///
-/// Подписи и доступность берутся из реестра команд: за кнопкой и за клавишей
-/// стоит одна и та же команда, поэтому они не могут разойтись.
+/// Это нарисованная клавиатура: панель сама спрашивает у реестра, какая команда
+/// закреплена за `F1`…`F10`, показывает её название и по нажатию отправляет ту
+/// же комбинацию, что пришла бы с настоящей клавиши. Поэтому команды ничего не
+/// знают о нижней панели, а кнопка и клавиша не могут разойтись — даже когда
+/// привязки станут настраиваемыми.
 class FunctionBar extends StatelessWidget {
   const FunctionBar({super.key});
+
+  /// Сколько функциональных клавиш показывать.
+  static const int keyCount = 10;
 
   @override
   Widget build(BuildContext context) {
@@ -26,9 +32,9 @@ class FunctionBar extends StatelessWidget {
         builder:
             (context, _) => Row(
               children: [
-                for (final slot in FunctionKeySlot.values) ...[
-                  if (slot.index > 0) SizedBox(width: metrics.functionBarGap),
-                  Expanded(child: _button(app.commands.commandForSlot(slot), slot)),
+                for (var number = 1; number <= keyCount; number++) ...[
+                  if (number > 1) SizedBox(width: metrics.functionBarGap),
+                  Expanded(child: _button(context, number)),
                 ],
               ],
             ),
@@ -36,20 +42,21 @@ class FunctionBar extends StatelessWidget {
     );
   }
 
-  Widget _button(AppCommand? command, FunctionKeySlot slot) {
+  Widget _button(BuildContext context, int number) {
+    final registry = AppScope.read(context).commands;
+    final keys = KeyCombination('F$number');
+    final command = registry.commandFor(keys);
+
     if (command == null) {
-      return FunctionButton(number: slot.number, label: '-', enabled: false);
+      return FunctionButton(number: number, label: '-', enabled: false);
     }
-    return Builder(
-      builder: (context) {
-        final registry = AppScope.read(context).commands;
-        return FunctionButton(
-          number: slot.number,
-          label: command.label,
-          enabled: registry.isExecutable(command),
-          onPressed: () => registry.run(command),
-        );
-      },
+
+    return FunctionButton(
+      number: number,
+      label: command.label,
+      enabled: registry.isExecutable(command),
+      // Нажатие мышью — это нажатие той же клавиши.
+      onPressed: () => registry.dispatch(keys),
     );
   }
 }
