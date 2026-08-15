@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../model/app/application.dart';
+import '../model/app/user_interaction.dart';
 import '../model/os/window_service.dart';
 import '../model/settings/app_settings.dart';
 import '../model/settings/settings_store.dart';
@@ -25,8 +26,10 @@ class AppController extends ChangeNotifier implements Application {
     required AppSettings settings,
     CommandRegistry? commands,
     WindowService? window,
+    UserInteraction? dialogs,
     this.saveDelay = const Duration(seconds: 1),
-  }) : _splitRatio = settings.splitRatio,
+  }) : dialogs = dialogs ?? const SilentUserInteraction(),
+       _splitRatio = settings.splitRatio,
        _themeMode = settings.themeMode,
        _windowGeometry = settings.window,
        _initialSettings = settings,
@@ -56,6 +59,9 @@ class AppController extends ChangeNotifier implements Application {
 
   /// Окно приложения. Без управления окном (в тестах) — заглушка.
   final WindowService window;
+
+  @override
+  final UserInteraction dialogs;
 
   /// Задержка перед записью настроек. Настройки пишутся и при выходе, но
   /// отложенная запись бережёт их и при аварийном завершении.

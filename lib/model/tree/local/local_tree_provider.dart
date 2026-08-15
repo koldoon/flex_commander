@@ -15,7 +15,7 @@ import 'local_listing.dart';
 /// В референсной реализации то же самое делалось запуском `ls` и `stat`, потому
 /// что в AIR не было нормального API файловой системы. Здесь есть `dart:io`,
 /// а внешние утилиты понадобятся позже — для копирования с прогрессом.
-class LocalTreeProvider implements TreeProvider {
+class LocalTreeProvider implements TreeProvider, TreeEditor {
   LocalTreeProvider({String? homePath, this.readInIsolate = true}) : homePath = homePath ?? _detectHomePath();
 
   /// Домашний каталог пользователя — сюда открываются панели, если сохранённый
@@ -167,6 +167,50 @@ class LocalTreeProvider implements TreeProvider {
       return target;
     });
   }
+
+  /// Создаёт каталог внутри [parent].
+  ///
+  /// Каталог создаётся по настоящему пути (ссылки развёрнуты), но узел
+  /// возвращается дочерним для [parent] — панель показывает его там, где
+  /// пользователь находится.
+  @override
+  AsyncOperation<DirectoryNode> makeDirectory(DirectoryNode parent, String name) {
+    return TaskOperation<DirectoryNode>((op) async {
+      final path = p.join(physicalPathOf(parent), name);
+      if (name.isEmpty || name == '.' || name == '..' || name.contains(p.separator) || name.contains('/')) {
+        throw FsError(name, FsErrorKind.invalidName);
+      }
+
+      if (await FileSystemEntity.type(path, followLinks: false) != FileSystemEntityType.notFound) {
+        throw FsError(path, FsErrorKind.alreadyExists);
+      }
+
+      try {
+        await Directory(path).create();
+      } on FileSystemException catch (error) {
+        throw fsErrorFrom(path, error);
+      }
+      op.checkCanceled();
+
+      final entry = await _describePath(path, name);
+      if (entry == null) {
+        throw FsError(path, FsErrorKind.io);
+      }
+      return nodeFromEntry(entry, parent) as DirectoryNode;
+    });
+  }
+
+  // Копирование, перемещение и удаление появятся следующими шагами этого
+  // этапа; команды за ними пока не закреплены.
+  @override
+  TransferOperation copy() => throw UnimplementedError('Копирование ещё не реализовано');
+
+  @override
+  TransferOperation move() => throw UnimplementedError('Перемещение ещё не реализовано');
+
+  @override
+  AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true}) =>
+      throw UnimplementedError('Удаление ещё не реализовано');
 
   /// Строит узел дерева по сырой записи каталога.
   ///

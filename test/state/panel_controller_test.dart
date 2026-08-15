@@ -286,7 +286,7 @@ void main() {
     test('исчезнувший объект под курсором заменяется соседним', () async {
       panel.setCursorToName('report.xlsx');
       final index = panel.cursorIndex;
-      provider.remove('/home/report.xlsx');
+      provider.removeEntry('/home/report.xlsx');
 
       await panel.reload();
 
@@ -296,7 +296,7 @@ void main() {
 
     test('исчезнувшие помеченные объекты отбрасываются', () async {
       panel.markAll();
-      provider.remove('/home/notes.txt');
+      provider.removeEntry('/home/notes.txt');
 
       await panel.reload();
 

@@ -68,7 +68,7 @@ Future<List<RawEntry>> readDirectorySync(String path, {bool includeHidden = fals
   try {
     listing = directory.list(followLinks: false);
   } on FileSystemException catch (error) {
-    throw _toFsError(path, error);
+    throw fsErrorFrom(path, error);
   }
 
   try {
@@ -80,7 +80,7 @@ Future<List<RawEntry>> readDirectorySync(String path, {bool includeHidden = fals
       entries.add(await _describe(entity, name));
     }
   } on FileSystemException catch (error) {
-    throw _toFsError(path, error);
+    throw fsErrorFrom(path, error);
   }
 
   return entries;
@@ -143,7 +143,8 @@ Future<RawEntry> _describe(FileSystemEntity entity, String name) async {
   );
 }
 
-FsError _toFsError(String path, FileSystemException error) {
+/// Переводит ошибку `dart:io` в ошибку дерева.
+FsError fsErrorFrom(String path, FileSystemException error) {
   final code = error.osError?.errorCode;
   final kind =
       Platform.isWindows

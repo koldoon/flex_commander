@@ -17,6 +17,11 @@ abstract interface class Panel {
   /// Откуда панель берёт содержимое.
   TreeProvider get provider;
 
+  /// Редактор дерева, если провайдер умеет изменять содержимое; иначе null —
+  /// например, у архива, открытого только на просмотр. С него начинается
+  /// любая файловая операция.
+  TreeEditor? get editor;
+
   // --- каталог ---
 
   DirectoryNode? get directory;

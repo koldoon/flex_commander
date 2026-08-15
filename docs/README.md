@@ -38,8 +38,9 @@
 
 Не входит в MVP (закладывается архитектурно, реализуется позже):
 
-- Файловые операции: копирование, перемещение, удаление, создание каталога
-  (кнопки присутствуют, но неактивны — см. [`keyboard.md`](keyboard.md#статус-команд-в-mvp)).
+- Файловые операции: копирование, перемещение и удаление (кнопки присутствуют, но
+  неактивны — см. [`keyboard.md`](keyboard.md#статус-команд-в-mvp)). Создание каталога
+  уже работает: с него начался этап файловых операций.
 - Вложенные провайдеры дерева (архивы, sftp) — интерфейсы закладываются, реализация одна: локальная ФС.
 - Встроенные просмотрщик и редактор (F3/F4), вкладки, история, закладки, поиск, drag&drop.
 
@@ -145,6 +146,7 @@ lib/
   model/
     app/
       application.dart             Application — API приложения для команд
+      user_interaction.dart        UserInteraction — диалоги для команд
       panel.dart                   Panel, PanelStatus — API панели
       panel_selection.dart         PanelSelection — API пометки объектов
     tree/
@@ -177,6 +179,7 @@ lib/
     selection_controller.dart      реализация PanelSelection
     commands/
       app_command.dart             AppCommand, KeyBinding, CommandContext
+      file_commands.dart           файловые операции: создание каталога
       key_combination.dart         нормализация нажатия в строку вида Ctrl-Shift-F5
       command_registry.dart        команды, привязки клавиш и разбор нажатий
       navigation_commands.dart     курсор, Tab, Enter, Backspace, Home/End
@@ -200,6 +203,8 @@ lib/
       function_button.dart         одна кнопка
     common/
       split_view.dart              две панели с перетаскиваемым разделителем
+    dialogs/
+      dialog_user_interaction.dart реализация UserInteraction поверх Flutter
     theme/
       app_theme.dart               ThemeData и расширение FcTheme
       app_colors.dart              палитра из макета
@@ -250,4 +255,4 @@ dependencies:
 | 4 | Реестр команд и клавиатура: курсор, `Tab`, `Enter`, `Backspace`, пометка |
 | 5 | Настройка колонок: ширина, порядок, видимость; сортировка кликом |
 | 6 | Сохранение и восстановление состояния между запусками |
-| 7 | `TreeEditor`: копирование, перемещение, удаление, mkdir с прогрессом и запросами — за рамками MVP |
+| 7 | `TreeEditor`: создание каталога (сделано), копирование, перемещение и удаление с прогрессом и запросами |

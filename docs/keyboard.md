@@ -130,7 +130,7 @@ CommandRegistry.dispatch(combination, app)
 |---|---|---|
 | `F5` | `file.copy` | копировать помеченное в каталог пассивной панели |
 | `F6` | `file.move` | переместить |
-| `F7` | `file.mkdir` | создать каталог |
+| `F7` | `file.mkdir` | создать каталог — **реализовано** |
 | `F8` | `file.remove` | удалить (в корзину) |
 | `Shift-F8` | `file.remove` (`toTrash: false`) | удалить безвозвратно |
 | `F3` | `file.view` | просмотр |
@@ -217,9 +217,11 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 
 ## 5. Статус команд в MVP
 
-Команды `file.copy`, `file.move`, `file.mkdir`, `file.remove`, `file.view`, `file.edit`,
-`app.menu`, `app.help` в MVP **регистрируются, но не реализованы**: это `PlaceholderCommand`
-с `isExecutable() == false`, поэтому кнопки F1–F8 видны и приглушены. Это сознательно:
+Команды `file.copy`, `file.move`, `file.remove`, `file.view`, `file.edit`, `app.menu`,
+`app.help` пока **регистрируются, но не реализованы**: это `PlaceholderCommand`
+с `isExecutable() == false`, поэтому их кнопки видны и приглушены.
+
+`file.mkdir` (F7) уже работает — с неё начался этап файловых операций. Это сознательно:
 нижняя панель выглядит как в макете, а связка «кнопка ↔ команда ↔ клавиша» проверяется
 на этапе 4, а не переписывается на этапе 7.
 

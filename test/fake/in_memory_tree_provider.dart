@@ -28,7 +28,7 @@ class FakeEntry {
 /// Узлы создаются заново на каждое чтение — как и в [LocalTreeProvider],
 /// поэтому тесты контроллеров честно проверяют перенос курсора и пометки
 /// по именам, а не по совпадению экземпляров.
-class InMemoryTreeProvider implements TreeProvider {
+class InMemoryTreeProvider implements TreeProvider, TreeEditor {
   InMemoryTreeProvider([List<FakeEntry> entries = const []]) {
     for (final entry in entries) {
       add(entry);
@@ -44,7 +44,8 @@ class InMemoryTreeProvider implements TreeProvider {
     _entries[p.normalize(entry.path)] = entry;
   }
 
-  void remove(String path) => _entries.remove(p.normalize(path));
+  /// Убрать объект из фикстуры (имитация удаления снаружи приложения).
+  void removeEntry(String path) => _entries.remove(p.normalize(path));
 
   @override
   String get scheme => NodePath.defaultScheme;
@@ -173,6 +174,31 @@ class InMemoryTreeProvider implements TreeProvider {
   }
 
   String name(List<String> segments, int index) => segments[index];
+
+  @override
+  AsyncOperation<DirectoryNode> makeDirectory(DirectoryNode parent, String name) {
+    return TaskOperation<DirectoryNode>((op) async {
+      final path = p.join(physicalPathOf(parent), name);
+      if (name.isEmpty || name.contains('/')) {
+        throw FsError(name, FsErrorKind.invalidName);
+      }
+      if (_entries.containsKey(p.normalize(path))) {
+        throw FsError(path, FsErrorKind.alreadyExists);
+      }
+
+      add(FakeEntry.directory(path));
+      return _nodeFrom(_entries[p.normalize(path)]!, parent) as DirectoryNode;
+    });
+  }
+
+  @override
+  TransferOperation copy() => throw UnimplementedError();
+
+  @override
+  TransferOperation move() => throw UnimplementedError();
+
+  @override
+  AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true}) => throw UnimplementedError();
 
   FsNode _nodeFrom(FakeEntry entry, FsNode parent) {
     const attributes = FileAttributes(mode: 0x1FF, modeString: 'rwxrwxrwx');

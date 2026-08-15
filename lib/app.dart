@@ -8,9 +8,13 @@ import 'view/application_view.dart';
 import 'view/theme/app_theme.dart';
 
 class FlexCommanderApp extends StatefulWidget {
-  const FlexCommanderApp({super.key, required this.controller});
+  const FlexCommanderApp({super.key, required this.controller, this.navigatorKey});
 
   final AppController controller;
+
+  /// Ключ навигатора, через который команды показывают диалоги: они выполняются
+  /// вне дерева виджетов, и другого доступа к нему у них нет.
+  final GlobalKey<NavigatorState>? navigatorKey;
 
   @override
   State<FlexCommanderApp> createState() => _FlexCommanderAppState();
@@ -51,6 +55,7 @@ class _FlexCommanderAppState extends State<FlexCommanderApp> {
         builder:
             (context, child) => MaterialApp(
               title: 'Flex Commander',
+              navigatorKey: widget.navigatorKey,
               debugShowCheckedModeBanner: false,
               theme: AppTheme.light,
               darkTheme: AppTheme.dark,

@@ -2,7 +2,7 @@ import '../async/async_operation.dart';
 import 'fs_node.dart';
 
 /// Вид ошибки доступа к дереву.
-enum FsErrorKind { notFound, permissionDenied, notADirectory, io }
+enum FsErrorKind { notFound, permissionDenied, notADirectory, alreadyExists, invalidName, io }
 
 /// Ошибка чтения или изменения дерева.
 class FsError implements Exception {
@@ -16,6 +16,8 @@ class FsError implements Exception {
     FsErrorKind.notFound => 'Not found: $path',
     FsErrorKind.permissionDenied => 'Permission denied: $path',
     FsErrorKind.notADirectory => 'Not a directory: $path',
+    FsErrorKind.alreadyExists => 'Already exists: $path',
+    FsErrorKind.invalidName => 'Invalid name: $path',
     FsErrorKind.io => 'I/O error: $path',
   };
 
@@ -53,7 +55,10 @@ abstract interface class TreeProvider {
   AsyncOperation<FsNode?> resolveLink(LinkNode link);
 }
 
-/// Изменение дерева. Реализуется на этапе файловых операций.
+/// Изменение дерева.
+///
+/// Отдельный интерфейс: провайдер может уметь только читать (архив, открытый
+/// на просмотр), и команда это проверяет — `provider is TreeEditor`.
 abstract interface class TreeEditor {
   TransferOperation copy();
 
