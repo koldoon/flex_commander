@@ -111,6 +111,18 @@ void main() {
     expect(app.left.nodes.map((n) => n.name), isNot(contains('tools')));
   });
 
+  test('каталог создаётся и сочетанием, не занятым системой', () async {
+    // На macOS F7 по умолчанию перехватывает система, поэтому у команды есть
+    // и второе сочетание.
+    dialogs.answer = 'docs';
+
+    commands().dispatch(KeyCombination.parse('Shift-Cmd-N'));
+    await Future<void>.delayed(Duration.zero);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(app.left.nodes.map((n) => n.name), contains('docs'));
+  });
+
   test('команда доступна и выполнима из списка команд', () {
     final command = commands().find('file.mkdir')!;
 

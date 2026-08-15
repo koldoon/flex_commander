@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:logecom/logecom.dart';
+
 import '../../model/app/user_interaction.dart';
 import '../theme/app_theme.dart';
 
@@ -10,7 +12,20 @@ import '../theme/app_theme.dart';
 class DialogUserInteraction implements UserInteraction {
   final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
-  BuildContext? get _context => navigatorKey.currentContext;
+  final Logger _logger = Logecom.createLogger(DialogUserInteraction);
+
+  /// Контекст навигатора; null — ключ не подключён к [MaterialApp].
+  ///
+  /// Молчать в этом случае нельзя: команда получит «пользователь отказался»
+  /// и просто ничего не сделает, а причина останется незаметной.
+  BuildContext? get _context {
+    final context = navigatorKey.currentContext;
+    assert(context != null, 'navigatorKey не подключён к MaterialApp: диалоги не откроются');
+    if (context == null) {
+      _logger.error('Диалог не открыт: navigatorKey не подключён к MaterialApp');
+    }
+    return context;
+  }
 
   @override
   Future<String?> promptText({

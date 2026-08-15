@@ -8,13 +8,16 @@ import 'view/application_view.dart';
 import 'view/theme/app_theme.dart';
 
 class FlexCommanderApp extends StatefulWidget {
-  const FlexCommanderApp({super.key, required this.controller, this.navigatorKey});
+  const FlexCommanderApp({super.key, required this.controller, required this.navigatorKey});
 
   final AppController controller;
 
   /// Ключ навигатора, через который команды показывают диалоги: они выполняются
   /// вне дерева виджетов, и другого доступа к нему у них нет.
-  final GlobalKey<NavigatorState>? navigatorKey;
+  ///
+  /// Параметр обязательный намеренно: без него диалоги молча не открываются,
+  /// а команда выглядит так, будто пользователь от неё отказался.
+  final GlobalKey<NavigatorState> navigatorKey;
 
   @override
   State<FlexCommanderApp> createState() => _FlexCommanderAppState();
