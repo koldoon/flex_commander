@@ -11,6 +11,18 @@ import 'panel_selection.dart';
 
 enum PanelStatus { idle, loading, error }
 
+/// Создаёт панели.
+///
+/// Панелей две, и они одного типа, поэтому контейнер не может выдать «ту самую»:
+/// он отдаёт фабрику, а кто именно левая, а кто правая, решает [AppController].
+class PanelControllerFactory {
+  PanelControllerFactory({required this.provider});
+
+  final TreeProvider provider;
+
+  PanelController create(PanelSettings settings) => PanelController(provider: provider, settings: settings);
+}
+
 /// Состояние одной панели: открытый каталог, отсортированный список, курсор,
 /// пометка и настройки вида.
 ///
