@@ -107,11 +107,44 @@ void main() {
       expect(namesOf(panel), ['..', 'readme.md']);
     });
 
-    test('вход в ссылку на каталог ведёт в её цель', () async {
+    test('вход в ссылку показывает путь через саму ссылку', () async {
       panel.setCursorToName('link-to-bin');
       expect(await panel.enterCurrent(), isNull);
 
-      expect(panel.directory?.pathString, '/home/bin');
+      // Содержимое берётся из цели, но пользователь пришёл через ссылку —
+      // её и должен видеть в заголовке панели.
+      expect(panel.directory?.pathString, '/home/link-to-bin');
+    });
+
+    test('из каталога, открытого по ссылке, наверх ведёт к самой ссылке', () async {
+      panel.setCursorToName('link-to-bin');
+      await panel.enterCurrent();
+
+      await panel.goUp();
+
+      // Не в /home/bin/.. и не в физического родителя цели, а туда,
+      // откуда пользователь пришёл.
+      expect(panel.directory?.pathString, '/home');
+      expect(panel.currentNode?.name, 'link-to-bin');
+    });
+
+    test('".." внутри ссылки работает так же, как переход наверх', () async {
+      panel.setCursorToName('link-to-bin');
+      await panel.enterCurrent();
+
+      panel.setCursorToFirst();
+      expect(panel.currentNode, isA<ParentDirNode>());
+      await panel.enterCurrent();
+
+      expect(panel.directory?.pathString, '/home');
+      expect(panel.currentNode?.name, 'link-to-bin');
+    });
+
+    test('путь через ссылку восстанавливается из настроек', () async {
+      expect(await panel.openPath('/home/link-to-bin'), isTrue);
+
+      expect(panel.directory?.pathString, '/home/link-to-bin');
+      expect(panel.settings.path, '/home/link-to-bin');
     });
 
     test('файл возвращается вызывающему коду', () async {

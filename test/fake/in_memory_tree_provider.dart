@@ -57,9 +57,37 @@ class InMemoryTreeProvider implements TreeProvider {
   @override
   String get homePath => '/';
 
+  /// Видимый путь: цель ссылки своё имя не добавляет.
   @override
-  String pathOf(FsNode node) {
-    final segments = node.path.map((n) => n.name).toList();
+  String pathOf(FsNode node) => _join(visiblePathNodes(node).map((n) => n.name).toList());
+
+  /// Настоящий путь: ссылки развёрнуты.
+  String physicalPathOf(FsNode node) {
+    var segments = <String>[];
+    FsNode? previous;
+
+    for (final current in node.path) {
+      if (previous is LinkNode && segments.isNotEmpty) {
+        segments.removeLast();
+      }
+      if (current is LinkNode && current.reference.isNotEmpty) {
+        if (p.isAbsolute(current.reference)) {
+          segments = p.split(current.reference);
+        } else {
+          segments.addAll(p.split(current.reference));
+        }
+      } else {
+        segments.add(current.name);
+      }
+      previous = current;
+    }
+    return _join(segments);
+  }
+
+  String _join(List<String> segments) {
+    if (segments.isEmpty) {
+      return '/';
+    }
     if (segments.length == 1) {
       return segments.first;
     }
@@ -69,7 +97,7 @@ class InMemoryTreeProvider implements TreeProvider {
   @override
   AsyncOperation<List<FsNode>> getDirectoryListing(DirectoryNode dir, {bool includeHidden = false}) {
     return TaskOperation<List<FsNode>>((op) async {
-      final path = pathOf(dir);
+      final path = physicalPathOf(dir);
       final error = denied[path];
       if (error != null) {
         throw error;
@@ -104,8 +132,8 @@ class InMemoryTreeProvider implements TreeProvider {
       }
 
       for (var i = 1; i < segments.length; i++) {
-        final childPath = p.joinAll(segments.sublist(0, i + 1));
-        final entry = _entries[childPath];
+        final childPath = p.join(physicalPathOf(parent), name(segments, i));
+        final entry = _entries[p.normalize(childPath)];
         if (entry == null) {
           return null;
         }
@@ -114,6 +142,13 @@ class InMemoryTreeProvider implements TreeProvider {
           return node;
         }
         if (node is! DirectoryNode) {
+          if (node is LinkNode) {
+            final target = await resolveLink(node).result;
+            if (target is DirectoryNode) {
+              parent = target;
+              continue;
+            }
+          }
           return null;
         }
         parent = node;
@@ -122,19 +157,24 @@ class InMemoryTreeProvider implements TreeProvider {
     });
   }
 
+  /// Цель ссылки становится дочерним узлом самой ссылки — как в настоящем
+  /// провайдере, иначе тесты навигации проверяли бы не то поведение.
   @override
   AsyncOperation<FsNode?> resolveLink(LinkNode link) {
     return TaskOperation<FsNode?>((op) async {
-      final base = link.parentDirectory;
-      final target =
-          p.isAbsolute(link.reference) ? link.reference : p.join(base == null ? '/' : pathOf(base), link.reference);
-      final node = await resolvePath(target).result;
-      link.target = node;
-      return node;
+      final entry = _entries[p.normalize(physicalPathOf(link))];
+      if (entry == null) {
+        return null;
+      }
+      final target = _nodeFrom(entry, link);
+      link.target = target;
+      return target;
     });
   }
 
-  FsNode _nodeFrom(FakeEntry entry, DirectoryNode parent) {
+  String name(List<String> segments, int index) => segments[index];
+
+  FsNode _nodeFrom(FakeEntry entry, FsNode parent) {
     const attributes = FileAttributes(mode: 0x1FF, modeString: 'rwxrwxrwx');
     return switch (entry.type) {
       FileType.directory => DirectoryNode(

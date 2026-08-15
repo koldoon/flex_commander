@@ -164,18 +164,67 @@ void main() {
       final node = await provider.resolvePath(p.join(root, 'bin-link', 'tool')).result;
 
       expect(node, isA<FileNode>());
-      expect(node!.parentDirectory?.name, 'bin');
+      expect(node!.pathString, p.join(root, 'bin-link', 'tool'));
+      expect(provider.physicalPathOf(node), p.join(root, 'bin', 'tool'));
     });
   });
 
   group('разрешение ссылки', () {
-    test('заполняет target узлом настоящего каталога', () async {
+    test('цель становится дочерним узлом ссылки', () async {
       final link = (await listRoot())['bin-link'] as LinkNode;
       final target = await provider.resolveLink(link).result;
 
       expect(target, isA<DirectoryNode>());
       expect(link.target, same(target));
-      expect(target!.pathString, p.join(root, 'bin'));
+      expect(target!.parent, same(link));
+    });
+
+    test('видимый путь идёт через ссылку, настоящий — через цель', () async {
+      final link = (await listRoot())['bin-link'] as LinkNode;
+      final target = (await provider.resolveLink(link).result)!;
+
+      // Пользователь зашёл в bin-link — его он и должен видеть в заголовке.
+      expect(target.pathString, p.join(root, 'bin-link'));
+      // А читать надо настоящий каталог.
+      expect(provider.physicalPathOf(target), p.join(root, 'bin'));
+    });
+
+    test('наверх ведёт каталог со ссылкой, а не с её целью', () async {
+      final link = (await listRoot())['bin-link'] as LinkNode;
+      final target = (await provider.resolveLink(link).result)! as DirectoryNode;
+
+      // Родительский каталог цели — тот, где лежит ссылка.
+      expect(target.parentDirectory?.pathString, root);
+    });
+
+    test('содержимое читается из настоящего каталога', () async {
+      await File(p.join(root, 'bin', 'tool')).writeAsString('#!/bin/sh');
+
+      final link = (await listRoot())['bin-link'] as LinkNode;
+      final target = (await provider.resolveLink(link).result)! as DirectoryNode;
+      final nodes = await provider.getDirectoryListing(target).result;
+
+      expect(nodes.map((n) => n.name), containsAll(['..', 'tool']));
+      // И путь файла внутри ссылки тоже остаётся видимым.
+      expect(nodes.firstWhere((n) => n.name == 'tool').pathString, p.join(root, 'bin-link', 'tool'));
+    });
+
+    test('цепочка ссылок разворачивается до настоящего узла', () async {
+      await Link(p.join(root, 'bin-link-2')).create(p.join(root, 'bin-link'));
+
+      final link = (await listRoot())['bin-link-2'] as LinkNode;
+      final target = await provider.resolveLink(link).result;
+
+      expect(target, isA<DirectoryNode>());
+      expect(provider.physicalPathOf(target!), p.join(root, 'bin'));
+      expect(target.pathString, p.join(root, 'bin-link-2'));
+    });
+
+    test('закольцованная ссылка не разрешается', () async {
+      await Link(p.join(root, 'loop')).create(p.join(root, 'loop'));
+
+      final link = (await listRoot())['loop'] as LinkNode;
+      expect(await provider.resolveLink(link).result, isNull);
     });
 
     test('битая ссылка не разрешается', () async {
