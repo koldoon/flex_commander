@@ -2,20 +2,31 @@ import '../app_controller.dart';
 import 'app_command.dart';
 import 'key_combination.dart';
 
-/// Установленные команды и разбор нажатий по ним.
+/// Команды приложения и привязки клавиш к ним.
 ///
-/// Порядок установки задаёт приоритет, поэтому специализированные команды
-/// («Enter на архиве») ставятся раньше общих («Enter»). Схема повторяет
+/// Реестр — единственное место, где живут привязки: он их устанавливает,
+/// хранит, отдаёт наружу и разбирает по ним нажатия. Команды о клавишах ничего
+/// не знают, поэтому переназначение горячих клавиш (позже — из настроек)
+/// не затрагивает ни одну команду.
+///
+/// Порядок привязок задаёт приоритет: специализированные ставятся раньше общих,
+/// поэтому `Esc` во время чтения каталога отменяет операцию, а в остальное
+/// время снимает пометку. Схема повторяет
 /// `ApplicationImpl.processKeyboardCombination` из референса.
 class CommandRegistry {
-  CommandRegistry([List<AppCommand> commands = const []]) {
+  CommandRegistry([List<AppCommand> commands = const [], List<KeyBinding> bindings = const []]) {
     _installed.addAll(commands);
+    _bindings.addAll(bindings);
   }
 
   final List<AppCommand> _installed = [];
+  final List<KeyBinding> _bindings = [];
   AppController? _app;
 
   Iterable<AppCommand> get installed => _installed;
+
+  /// Все привязки в порядке приоритета.
+  List<KeyBinding> get bindings => List.unmodifiable(_bindings);
 
   /// Связывает реестр с приложением и инициализирует команды.
   void attach(AppController app) {
@@ -31,6 +42,16 @@ class CommandRegistry {
     _installed.add(command);
   }
 
+  /// Закрепляет комбинацию за командой. Более ранние привязки имеют приоритет.
+  void bind(KeyBinding binding) => _bindings.add(binding);
+
+  /// Снимает все привязки команды — например, при переназначении клавиш.
+  void unbind(String commandId) => _bindings.removeWhere((binding) => binding.commandId == commandId);
+
+  /// Чем вызывается команда: для подсказок в списке команд и в настройках.
+  List<KeyBinding> bindingsOf(String commandId) =>
+      _bindings.where((binding) => binding.commandId == commandId).toList(growable: false);
+
   AppCommand? find(String id) {
     for (final command in _installed) {
       if (command.id == id) {
@@ -40,13 +61,35 @@ class CommandRegistry {
     return null;
   }
 
-  AppCommand? commandForSlot(FunctionKeySlot slot) {
-    for (final command in _installed) {
-      if (command.functionKey == slot) {
+  /// Команда, закреплённая за комбинацией клавиш прямо сейчас.
+  ///
+  /// Сначала ищется выполнимая — та, что действительно запустится по нажатию;
+  /// если такой нет, возвращается первая подходящая, чтобы кнопка нижней панели
+  /// всё равно показала название и осталась приглушённой.
+  AppCommand? commandFor(KeyCombination combination) {
+    final app = _app;
+    if (app == null) {
+      return null;
+    }
+
+    final node = app.activePanel.currentNode;
+    AppCommand? fallback;
+
+    for (final binding in _bindings) {
+      if (!binding.matches(combination, node)) {
+        continue;
+      }
+      final command = find(binding.commandId);
+      if (command == null) {
+        // Привязка к неизвестной команде: могла остаться от старых настроек.
+        continue;
+      }
+      if (command.isExecutable(contextFor(command))) {
         return command;
       }
+      fallback ??= command;
     }
-    return null;
+    return fallback;
   }
 
   /// Находит подходящую команду и выполняет её.
@@ -54,26 +97,13 @@ class CommandRegistry {
   /// false — ничего не подошло; тогда событие клавиатуры уходит дальше по
   /// дереву Flutter.
   bool dispatch(KeyCombination combination) {
-    final app = _app;
-    if (app == null) {
+    final command = commandFor(combination);
+    if (command == null) {
       return false;
     }
-
-    final node = app.activePanel.currentNode;
-    for (final command in _installed) {
-      for (final binding in command.bindings) {
-        if (!binding.matches(combination, node)) {
-          continue;
-        }
-        final context = contextFor(command);
-        if (!command.isExecutable(context)) {
-          continue;
-        }
-        command.execute(context);
-        return true;
-      }
-    }
-    return false;
+    // Кнопка нижней панели дёргает тот же dispatch, поэтому нажатие мышью и
+    // нажатие клавиши не могут разойтись.
+    return run(command);
   }
 
   /// Запуск команды не с клавиатуры — кнопкой нижней панели, из меню или из

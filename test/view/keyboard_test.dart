@@ -40,11 +40,13 @@ void main() {
     opened = [];
 
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home/docs'));
+    // Команды подменяются, а привязки остаются штатными: они ссылаются на
+    // команды по идентификатору, поэтому подмена реализации их не касается.
     final commands = CommandRegistry([
       ...defaultCommands().where((command) => command.id != 'panel.open' && command.id != 'panel.openWithSystem'),
       OpenNodeCommand(opener: (path) async => opened.add(path)),
       OpenWithSystemCommand(opener: (path) async => opened.add(path)),
-    ]);
+    ], defaultKeyBindings());
     app = AppController(
       left: PanelController(provider: provider, settings: settings.left),
       right: PanelController(provider: provider, settings: settings.right),

@@ -3,39 +3,26 @@ import '../app_controller.dart';
 import '../panel_controller.dart';
 import 'key_combination.dart';
 
-/// Слот нижней панели. Номер слота — это номер функциональной клавиши.
-enum FunctionKeySlot {
-  f1,
-  f2,
-  f3,
-  f4,
-  f5,
-  f6,
-  f7,
-  f8,
-  f9,
-  f10;
-
-  int get number => index + 1;
-
-  KeyCombination get keys => KeyCombination('F$number');
-}
-
-/// Привязка команды к комбинации клавиш.
+/// Привязка комбинации клавиш к команде.
 ///
-/// Привязка отвечает только за то, **какая** команда будет вызвана. Никаких
-/// данных в команду она не передаёт: иначе поведение зависело бы от способа
-/// вызова, и команду нельзя было бы выполнить из списка команд или по кнопке.
+/// Привязка не принадлежит команде: её ставит, хранит и разбирает реестр
+/// (`CommandRegistry`). Так их можно будет менять из настроек, не трогая код
+/// команд, а сами команды остаются самостоятельными действиями.
 class KeyBinding {
-  KeyBinding(String keys, {this.nameMatch}) : keys = KeyCombination.parse(keys);
+  KeyBinding(String keys, this.commandId, {this.nameMatch}) : keys = KeyCombination.parse(keys);
 
-  const KeyBinding.combination(this.keys, {this.nameMatch});
+  const KeyBinding.combination(this.keys, this.commandId, {this.nameMatch});
 
   final KeyCombination keys;
 
+  /// Идентификатор команды ([AppCommand.id]), а не сама команда: привязки
+  /// хранятся в настройках, где живут только идентификаторы.
+  final String commandId;
+
   /// Необязательный фильтр по имени объекта под курсором. Позволяет повесить на
   /// Enter разные команды для `*.app`, `*.zip` и обычных файлов — приём
-  /// референса (`BindingProperties.nodeValue`).
+  /// референса (`BindingProperties.nodeValue`). Это условие выбора команды,
+  /// а не данные для неё.
   final RegExp? nameMatch;
 
   bool matches(KeyCombination combination, FsNode? node) {
@@ -45,6 +32,9 @@ class KeyBinding {
     final pattern = nameMatch;
     return pattern == null || (node != null && pattern.hasMatch(node.name));
   }
+
+  @override
+  String toString() => '$keys → $commandId';
 }
 
 /// Условия, в которых выполняется команда: активная панель и объекты, с
@@ -73,16 +63,18 @@ class CommandContext {
 
 /// Действие приложения.
 ///
-/// Команда описывает себя целиком: своё название, привязки клавиш, место в
-/// нижней панели и условие выполнимости. Кнопка внизу окна и горячая клавиша —
-/// два вида на одну и ту же команду, поэтому они не могут разъехаться.
+/// Команда описывает только себя: название, условие выполнимости и поведение.
 ///
-/// **Команда не знает, чем её вызвали.** Всё, на что она опирается, — это
-/// [CommandContext]: активная панель и выбранные объекты. Поэтому привязки
-/// клавиш можно будет менять из настроек, а любую команду — выполнить из
-/// списка команд, как в VS Code. Если два действия отличаются поведением
-/// («войти» и «открыть системой»), это две разные команды, а не одна
-/// с параметром.
+/// **Команда не знает, чем её вызвали и где её показывают.** Всё, на что она
+/// опирается, — это [CommandContext]: активная панель и выбранные объекты.
+/// Ни привязок клавиш, ни места в интерфейсе она не объявляет: привязками
+/// заведует реестр, а нижняя панель — это та же клавиатура, только
+/// нарисованная, и она сама спрашивает, что закреплено за `F5`.
+///
+/// Поэтому привязки клавиш можно будет менять из настроек, а любую команду —
+/// выполнить из списка команд, как в VS Code. Если два действия отличаются
+/// поведением («войти» и «открыть системой»), это две разные команды, а не
+/// одна с параметром.
 abstract class AppCommand {
   /// Стабильный идентификатор для настроек, логов и поиска команды в коде:
   /// `panel.open`, `file.copy`. Пользователю не показывается.
@@ -92,11 +84,6 @@ abstract class AppCommand {
   /// в списке команд. В интерфейсе видно именно его — ни [id], ни имя класса
   /// наружу не показываются, поэтому название должно читаться вне контекста.
   String get label;
-
-  /// Слот нижней панели; null — команда кнопкой не показывается.
-  FunctionKeySlot? get functionKey => null;
-
-  List<KeyBinding> get bindings;
 
   /// Вызывается один раз при установке. false — команда не устанавливается
   /// (например, недоступна на этой платформе).
@@ -111,24 +98,17 @@ abstract class AppCommand {
   Future<void> shutdown() async {}
 }
 
-/// Команда, которая ещё не реализована: место в нижней панели занято, кнопка
-/// показана и приглушена. Так связка «кнопка ↔ команда ↔ клавиша» проверяется
-/// сейчас, а не переписывается вместе с файловыми операциями.
+/// Команда, которая ещё не реализована: клавиша за ней уже закреплена, кнопка
+/// внизу окна показана и приглушена. Так связка «кнопка ↔ команда ↔ клавиша»
+/// проверяется сейчас, а не переписывается вместе с файловыми операциями.
 class PlaceholderCommand extends AppCommand {
-  PlaceholderCommand({required this.id, required this.label, required this.functionKey, List<KeyBinding>? bindings})
-    : bindings = bindings ?? [KeyBinding.combination(functionKey.keys)];
+  PlaceholderCommand({required this.id, required this.label});
 
   @override
   final String id;
 
   @override
   final String label;
-
-  @override
-  final FunctionKeySlot functionKey;
-
-  @override
-  final List<KeyBinding> bindings;
 
   @override
   bool isExecutable(CommandContext context) => false;

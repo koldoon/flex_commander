@@ -17,14 +17,7 @@ import '../fake/in_memory_tree_provider.dart';
 
 /// Команда-заглушка, которая запоминает, что её вызвали.
 class RecordingCommand extends AppCommand {
-  RecordingCommand({
-    required this.id,
-    required List<KeyBinding> bindings,
-    bool executable = true,
-    this.label = 'Recording',
-    this.functionKey,
-  }) : _bindings = bindings,
-       _executable = executable;
+  RecordingCommand({required this.id, bool executable = true, this.label = 'Recording'}) : _executable = executable;
 
   @override
   final String id;
@@ -32,17 +25,10 @@ class RecordingCommand extends AppCommand {
   @override
   final String label;
 
-  @override
-  final FunctionKeySlot? functionKey;
-
-  final List<KeyBinding> _bindings;
   final bool _executable;
 
   int calls = 0;
   List<String> lastTargets = const [];
-
-  @override
-  List<KeyBinding> get bindings => _bindings;
 
   @override
   bool isExecutable(CommandContext context) => _executable;
@@ -59,6 +45,10 @@ void main() {
   late Directory temp;
   late AppController app;
 
+  /// Не каждому тесту нужно приложение: чистые проверки набора команд
+  /// обходятся без него, и завершение теста не должно на этом спотыкаться.
+  var appBuilt = false;
+
   setUp(() async {
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
     provider = InMemoryTreeProvider([
@@ -73,11 +63,15 @@ void main() {
 
   tearDown(() async {
     debugDefaultTargetPlatformOverride = null;
-    app.dispose();
+    if (appBuilt) {
+      app.dispose();
+      appBuilt = false;
+    }
     await temp.delete(recursive: true);
   });
 
   AppController build(CommandRegistry registry) {
+    appBuilt = true;
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home/docs'));
     return app = AppController(
       left: PanelController(provider: provider, settings: settings.left),
@@ -91,9 +85,9 @@ void main() {
 
   group('разбор нажатия', () {
     test('выполняется первая подходящая команда', () async {
-      final first = RecordingCommand(id: 'first', bindings: [KeyBinding('F5')]);
-      final second = RecordingCommand(id: 'second', bindings: [KeyBinding('F5')]);
-      final registry = CommandRegistry([first, second]);
+      final first = RecordingCommand(id: 'first');
+      final second = RecordingCommand(id: 'second');
+      final registry = CommandRegistry([first, second], [KeyBinding('F5', 'first'), KeyBinding('F5', 'second')]);
       build(registry);
 
       expect(registry.dispatch(KeyCombination.parse('F5')), isTrue);
@@ -102,9 +96,12 @@ void main() {
     });
 
     test('невыполнимая команда пропускается', () async {
-      final blocked = RecordingCommand(id: 'blocked', bindings: [KeyBinding('F5')], executable: false);
-      final fallback = RecordingCommand(id: 'fallback', bindings: [KeyBinding('F5')]);
-      final registry = CommandRegistry([blocked, fallback]);
+      final blocked = RecordingCommand(id: 'blocked', executable: false);
+      final fallback = RecordingCommand(id: 'fallback');
+      final registry = CommandRegistry(
+        [blocked, fallback],
+        [KeyBinding('F5', 'blocked'), KeyBinding('F5', 'fallback')],
+      );
       build(registry);
 
       expect(registry.dispatch(KeyCombination.parse('F5')), isTrue);
@@ -113,17 +110,15 @@ void main() {
     });
 
     test('нажатие без команды остаётся необработанным', () {
-      final registry = CommandRegistry([
-        RecordingCommand(id: 'a', bindings: [KeyBinding('F5')]),
-      ]);
+      final registry = CommandRegistry([RecordingCommand(id: 'a')], [KeyBinding('F5', 'a')]);
       build(registry);
 
       expect(registry.dispatch(KeyCombination.parse('F6')), isFalse);
     });
 
     test('несколько привязок вызывают команду одинаково', () {
-      final command = RecordingCommand(id: 'multi', bindings: [KeyBinding('F5'), KeyBinding('Cmd-E')]);
-      final registry = CommandRegistry([command]);
+      final command = RecordingCommand(id: 'multi');
+      final registry = CommandRegistry([command], [KeyBinding('F5', 'multi'), KeyBinding('Cmd-E', 'multi')]);
       build(registry);
 
       registry.dispatch(KeyCombination.parse('F5'));
@@ -134,9 +129,12 @@ void main() {
     });
 
     test('фильтр по имени выбирает специализированную команду', () async {
-      final apps = RecordingCommand(id: 'open.app', bindings: [KeyBinding('Enter', nameMatch: RegExp(r'\.app$'))]);
-      final common = RecordingCommand(id: 'open', bindings: [KeyBinding('Enter')]);
-      final registry = CommandRegistry([apps, common]);
+      final apps = RecordingCommand(id: 'open.app');
+      final common = RecordingCommand(id: 'open');
+      final registry = CommandRegistry(
+        [apps, common],
+        [KeyBinding('Enter', 'open.app', nameMatch: RegExp(r'\.app$')), KeyBinding('Enter', 'open')],
+      );
       build(registry);
       await app.start();
 
@@ -154,8 +152,8 @@ void main() {
 
   group('условия команды', () {
     test('без пометки целью становится объект под курсором', () async {
-      final command = RecordingCommand(id: 'targets', bindings: [KeyBinding('F5')]);
-      build(CommandRegistry([command]));
+      final command = RecordingCommand(id: 'targets');
+      build(CommandRegistry([command], [KeyBinding('F5', 'targets')]));
       await app.start();
 
       app.left.setCursorToName('notes.txt');
@@ -165,8 +163,8 @@ void main() {
     });
 
     test('с пометкой целями становятся помеченные объекты', () async {
-      final command = RecordingCommand(id: 'targets', bindings: [KeyBinding('F5')]);
-      build(CommandRegistry([command]));
+      final command = RecordingCommand(id: 'targets');
+      build(CommandRegistry([command], [KeyBinding('F5', 'targets')]));
       await app.start();
 
       app.left.setCursorToName('notes.txt');
@@ -178,8 +176,8 @@ void main() {
     });
 
     test('контекст берёт активную панель, а пассивная — приёмник', () async {
-      final command = RecordingCommand(id: 'ctx', bindings: [KeyBinding('F5')]);
-      final registry = CommandRegistry([command]);
+      final command = RecordingCommand(id: 'ctx');
+      final registry = CommandRegistry([command], [KeyBinding('F5', 'ctx')]);
       build(registry);
       await app.start();
 
@@ -191,33 +189,107 @@ void main() {
     });
   });
 
-  group('нижняя панель', () {
-    test('слот занимает команда, которая его объявила', () {
-      final copy = RecordingCommand(id: 'copy', bindings: [], label: 'Copy', functionKey: FunctionKeySlot.f5);
-      final registry = CommandRegistry([copy]);
+  group('нижняя панель — та же клавиатура', () {
+    test('кнопка находит команду по её привязке к клавише', () {
+      final copy = RecordingCommand(id: 'copy', label: 'Copy');
+      final registry = CommandRegistry([copy], [KeyBinding('F5', 'copy')]);
       build(registry);
 
-      expect(registry.commandForSlot(FunctionKeySlot.f5), copy);
-      expect(registry.commandForSlot(FunctionKeySlot.f6), isNull);
+      // Команда не объявляет, где её показывать: панель спрашивает,
+      // что закреплено за F5.
+      expect(registry.commandFor(KeyCombination.parse('F5')), copy);
+      expect(registry.commandFor(KeyCombination.parse('F6')), isNull);
     });
 
-    test('кнопка выполняет ту же команду, что и клавиша', () {
-      final command = RecordingCommand(id: 'copy', bindings: [KeyBinding('F5')], functionKey: FunctionKeySlot.f5);
-      final registry = CommandRegistry([command]);
+    test('нажатие кнопки равносильно нажатию клавиши', () {
+      final command = RecordingCommand(id: 'copy');
+      final registry = CommandRegistry([command], [KeyBinding('F5', 'copy')]);
       build(registry);
 
-      expect(registry.run(command), isTrue);
+      registry.dispatch(KeyCombination.parse('F5'));
       expect(command.calls, 1);
     });
 
-    test('невыполнимая команда кнопкой не запускается', () {
-      final command = RecordingCommand(id: 'copy', bindings: [], executable: false, functionKey: FunctionKeySlot.f5);
+    test('невыполнимая команда всё равно даёт кнопке название', () {
+      final command = RecordingCommand(id: 'copy', executable: false, label: 'Copy');
+      final registry = CommandRegistry([command], [KeyBinding('F5', 'copy')]);
+      build(registry);
+
+      // Кнопка показывает «Copy» и остаётся приглушённой.
+      expect(registry.commandFor(KeyCombination.parse('F5')), command);
+      expect(registry.isExecutable(command), isFalse);
+      expect(registry.dispatch(KeyCombination.parse('F5')), isFalse);
+      expect(command.calls, 0);
+    });
+
+    test('за клавишей стоит та команда, которая по ней и сработает', () {
+      final blocked = RecordingCommand(id: 'blocked', executable: false);
+      final ready = RecordingCommand(id: 'ready');
+      final registry = CommandRegistry([blocked, ready], [KeyBinding('F5', 'blocked'), KeyBinding('F5', 'ready')]);
+      build(registry);
+
+      expect(registry.commandFor(KeyCombination.parse('F5')), ready);
+      registry.dispatch(KeyCombination.parse('F5'));
+      expect(ready.calls, 1);
+      expect(blocked.calls, 0);
+    });
+  });
+
+  group('привязками заведует реестр', () {
+    test('привязку можно поставить и снять, не трогая команду', () {
+      final command = RecordingCommand(id: 'custom');
       final registry = CommandRegistry([command]);
       build(registry);
 
-      expect(registry.isExecutable(command), isFalse);
-      expect(registry.run(command), isFalse);
-      expect(command.calls, 0);
+      expect(registry.dispatch(KeyCombination.parse('F5')), isFalse);
+
+      registry.bind(KeyBinding('F5', 'custom'));
+      expect(registry.dispatch(KeyCombination.parse('F5')), isTrue);
+      expect(command.calls, 1);
+
+      registry.unbind('custom');
+      expect(registry.dispatch(KeyCombination.parse('F5')), isFalse);
+      expect(command.calls, 1);
+    });
+
+    test('клавишу можно переназначить на другую команду', () {
+      final copy = RecordingCommand(id: 'copy', label: 'Copy');
+      final move = RecordingCommand(id: 'move', label: 'Move');
+      final registry = CommandRegistry([copy, move], [KeyBinding('F5', 'copy')]);
+      build(registry);
+
+      registry.unbind('copy');
+      registry.bind(KeyBinding('F5', 'move'));
+
+      // Ни одна из команд об этом не знает.
+      expect(registry.commandFor(KeyCombination.parse('F5')), move);
+      registry.dispatch(KeyCombination.parse('F5'));
+      expect(move.calls, 1);
+      expect(copy.calls, 0);
+    });
+
+    test('реестр знает, чем вызывается команда', () {
+      final registry = defaultCommandRegistry();
+      build(registry);
+
+      final keys = registry.bindingsOf('panel.cursor.first').map((b) => b.keys.toString());
+      expect(keys, ['Home', 'Left']);
+    });
+
+    test('привязка к неизвестной команде игнорируется', () {
+      final registry = CommandRegistry([], [KeyBinding('F5', 'нет.такой.команды')]);
+      build(registry);
+
+      // Такое остаётся от старых настроек после переименования команды.
+      expect(registry.commandFor(KeyCombination.parse('F5')), isNull);
+      expect(registry.dispatch(KeyCombination.parse('F5')), isFalse);
+    });
+
+    test('каждая привязка ссылается на существующую команду', () {
+      final ids = defaultCommands().map((command) => command.id).toSet();
+      for (final binding in defaultKeyBindings()) {
+        expect(ids, contains(binding.commandId), reason: 'привязка $binding указывает в пустоту');
+      }
     });
   });
 
@@ -276,7 +348,6 @@ void main() {
     });
 
     test('у каждой команды есть название для списка команд', () {
-      build(defaultCommandRegistry());
       for (final command in defaultCommands()) {
         expect(command.label, isNotEmpty, reason: 'у ${command.id} нет названия');
       }
@@ -284,25 +355,24 @@ void main() {
   });
 
   group('набор команд по умолчанию', () {
-    test('файловые операции занимают слоты, но пока не выполняются', () {
+    test('файловые операции закреплены за клавишами, но пока не выполняются', () {
       final registry = defaultCommandRegistry();
       build(registry);
 
-      final copy = registry.commandForSlot(FunctionKeySlot.f5);
+      final copy = registry.commandFor(KeyCombination.parse('F5'));
       expect(copy?.id, 'file.copy');
       expect(registry.isExecutable(copy!), isFalse);
     });
 
-    test('слоты F9 и F10 пока свободны', () {
+    test('F9 и F10 пока ни за кем не закреплены', () {
       final registry = defaultCommandRegistry();
       build(registry);
 
-      expect(registry.commandForSlot(FunctionKeySlot.f9), isNull);
-      expect(registry.commandForSlot(FunctionKeySlot.f10), isNull);
+      expect(registry.commandFor(KeyCombination.parse('F9')), isNull);
+      expect(registry.commandFor(KeyCombination.parse('F10')), isNull);
     });
 
     test('у команд нет одинаковых идентификаторов', () {
-      build(defaultCommandRegistry());
       final ids = defaultCommands().map((command) => command.id).toList();
       expect(ids.toSet(), hasLength(ids.length));
     });
@@ -331,7 +401,10 @@ void main() {
 
     test('Cmd-O открывает объект системой, не входя в каталог', () async {
       final opened = <String>[];
-      final registry = CommandRegistry([OpenWithSystemCommand(opener: (path) async => opened.add(path))]);
+      final registry = CommandRegistry(
+        [OpenWithSystemCommand(opener: (path) async => opened.add(path))],
+        [KeyBinding('Cmd-O', 'panel.openWithSystem')],
+      );
       build(registry);
       await app.start();
 
@@ -345,7 +418,10 @@ void main() {
 
     test('Enter на файле отдаёт его системе', () async {
       final opened = <String>[];
-      final registry = CommandRegistry([OpenNodeCommand(opener: (path) async => opened.add(path))]);
+      final registry = CommandRegistry(
+        [OpenNodeCommand(opener: (path) async => opened.add(path))],
+        [KeyBinding('Enter', 'panel.open')],
+      );
       build(registry);
       await app.start();
 
