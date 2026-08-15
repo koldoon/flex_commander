@@ -387,7 +387,51 @@ class SettingsStore {
 - Запись атомарная: временный файл рядом + `rename`.
 - Ошибки записи не должны мешать работе: логируются и игнорируются.
 
-## 8. Тестирование
+## 8. Контейнер зависимостей
+
+Граф служб приложения собран в одном месте — `AppContext` (контейнер `dicom`):
+
+```dart
+class AppContext extends DI {
+  AppContext({TreeProvider? provider, SettingsStore? store, WindowService? window}) {
+    bind<Logger>(to: (c) => Logecom.createLogger(c.plan[c.plan.length - 2]), dynamic: true);
+    bind<TreeProvider>(to: (c) => provider ?? LocalTreeProvider());
+    bind<WindowService>(to: (c) => window ?? PluginWindowService());
+    bind<SystemOpener>(to: (c) => openWithSystem);
+    bind<SettingsStore>(to: (c) => store ?? SettingsStore.forHome(...));
+    bind<PanelControllerFactory>(to: (c) => PanelControllerFactory(provider: c.get<TreeProvider>()));
+    bind<CommandRegistry>(to: (c) => CommandRegistry(defaultCommands(opener: c.get<SystemOpener>()), defaultKeyBindings()));
+    bind<AppController>(to: (c) => AppController(...));
+  }
+}
+```
+
+Что из этого следует:
+
+- **Зависимости приходят параметрами конструктора.** Ни один класс не достаёт себе
+  зависимость сам; `inject<T>()` существует, но пользоваться им должна только точка
+  сборки — иначе контейнер превратится в глобальную переменную.
+- **Создание ленивое.** Служба появляется при первом обращении. Это не теория:
+  `PluginWindowService` в конструкторе обращается к плагину окна, которого в тестах
+  нет, — и это не мешает собрать контекст в тесте.
+- **Подмена — через параметры конструктора.** Повторная привязка того же типа
+  в `dicom` не заменяет прежнюю, а добавляется к ней (это механизм множественных
+  зависимостей), поэтому для подстановки заглушек предусмотрены параметры.
+- **Тип зависимости берётся из места вызова.** У необязательного параметра он
+  nullable, поэтому `c.get<CommandRegistry>()` пишется явно: иначе контейнер будет
+  искать привязку к `CommandRegistry?` и не найдёт её.
+- **Асинхронные зависимости связываются после чтения.** Фабрики контейнера
+  синхронные, а настройки читаются с диска, поэтому `AppContext.init()` сначала
+  берёт из контейнера `SettingsStore`, дожидается `load()` и только потом связывает
+  готовый `AppSettings`. К этому моменту его ещё никто не запрашивал.
+- **Две панели — через фабрику.** Контейнер не различает два экземпляра одного
+  типа, поэтому он отдаёт `PanelControllerFactory`, а какая панель левая, решает
+  `AppController`.
+
+Логгер связан как `dynamic`: он создаётся заново на каждый запрос, а категорию берёт
+из дерева зависимостей (`c.plan`) — в логах сразу видно, какой класс написал строку.
+
+## 9. Тестирование
 
 | Что | Как |
 |---|---|

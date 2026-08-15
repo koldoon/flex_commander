@@ -1,3 +1,4 @@
+import '../../model/os/system_open.dart';
 import 'app_command.dart';
 import 'command_registry.dart';
 import 'navigation_commands.dart';
@@ -6,8 +7,9 @@ import 'selection_commands.dart';
 /// Команды приложения.
 ///
 /// Порядок здесь ни на что не влияет: приоритет задают привязки клавиш,
-/// а не команды.
-List<AppCommand> defaultCommands() => [
+/// а не команды. Зависимости команд приходят параметрами — их подставляет
+/// контейнер (`AppContext`), а тесты подменяют своими.
+List<AppCommand> defaultCommands({SystemOpener? opener}) => [
   // Навигация.
   MoveCursorUpCommand(),
   MoveCursorDownCommand(),
@@ -16,8 +18,8 @@ List<AppCommand> defaultCommands() => [
   GoToFirstNodeCommand(),
   GoToLastNodeCommand(),
   TogglePanelCommand(),
-  OpenNodeCommand(),
-  OpenWithSystemCommand(),
+  OpenNodeCommand(opener: opener),
+  OpenWithSystemCommand(opener: opener),
   GoUpCommand(),
   GoToRootCommand(),
   ReloadCommand(),
@@ -88,4 +90,5 @@ List<KeyBinding> defaultKeyBindings() => [
   KeyBinding('F8', 'file.remove'),
 ];
 
-CommandRegistry defaultCommandRegistry() => CommandRegistry(defaultCommands(), defaultKeyBindings());
+CommandRegistry defaultCommandRegistry({SystemOpener? opener}) =>
+    CommandRegistry(defaultCommands(opener: opener), defaultKeyBindings());

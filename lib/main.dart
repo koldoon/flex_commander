@@ -1,29 +1,23 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:logecom/logecom.dart';
 
 import 'app.dart';
+import 'app_context.dart';
 import 'model/os/plugin_window_service.dart';
-import 'model/settings/settings_store.dart';
-import 'model/tree/local/local_tree_provider.dart';
 import 'state/app_controller.dart';
-import 'state/panel_controller.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await PluginWindowService.ensureInitialized();
 
-  final provider = LocalTreeProvider();
-  final store = SettingsStore.forHome(provider.homePath);
-  final settings = await store.load();
+  _setUpLogging();
 
-  final controller = AppController(
-    left: PanelController(provider: provider, settings: settings.left),
-    right: PanelController(provider: provider, settings: settings.right),
-    store: store,
-    settings: settings,
-    window: PluginWindowService(),
-  );
+  // Все службы создаёт контейнер: здесь только точка сборки.
+  final context = await AppContext.init();
+  final controller = context.get<AppController>();
 
   runApp(FlexCommanderApp(controller: controller));
 
@@ -31,4 +25,16 @@ Future<void> main() async {
   // показывается сразу с сохранёнными размерами, а панели заполняются
   // по мере чтения.
   unawaited(controller.start());
+}
+
+void _setUpLogging() {
+  Logecom.instance.pipeline = [
+    ConsoleTransport(
+      printingMethod: kDebugMode ? PrintingMethod.stdOut : PrintingMethod.developerLog,
+      alignMessages: true,
+    ),
+  ];
+
+  final logger = Logecom.createLogger('App');
+  FlutterError.onError = (details) => logger.error('Flutter error', [details.exception, details.stack]);
 }

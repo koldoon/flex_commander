@@ -14,8 +14,8 @@ class SettingsStore {
   SettingsStore({required this.filePath, this.fallbackPath = '', this.onError});
 
   /// Хранилище в стандартном месте.
-  factory SettingsStore.forHome(String homePath) =>
-      SettingsStore(filePath: p.join(homePath, directoryName, fileName), fallbackPath: homePath);
+  factory SettingsStore.forHome(String homePath, {void Function(Object error)? onError}) =>
+      SettingsStore(filePath: p.join(homePath, directoryName, fileName), fallbackPath: homePath, onError: onError);
 
   static const String directoryName = '.flex-commander';
   static const String fileName = 'settings.json';
