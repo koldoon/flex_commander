@@ -52,13 +52,18 @@
 ┌──────────────────────────────────────────────┐
 │ view/      виджеты, тема, форматирование     │  Flutter
 ├──────────────────────────────────────────────┤
-│ state/     контроллеры панелей и приложения, │  чистый Dart + foundation
+│ state/     реализации Application и Panel,   │  чистый Dart + foundation
 │            реестр команд, привязки клавиш    │
 ├──────────────────────────────────────────────┤
-│ model/     дерево узлов, провайдеры дерева,  │  чистый Dart + dart:io
-│            асинхронные операции, настройки   │
+│ model/     API приложения (Application,      │  чистый Dart + dart:io
+│            Panel, TreeProvider…), дерево     │
+│            узлов, операции, настройки        │
 └──────────────────────────────────────────────┘
 ```
+
+Интерфейсы живут в нижнем слое, реализации — в верхнем: так команда (и любой
+будущий модуль) зависит от API, а не от конкретных классов, и стрелки зависимостей
+не разворачиваются.
 
 Ключевая идея слоя моделей взята из референса и сохранена целиком:
 **панель показывает не «список файлов», а каталог в дереве узлов**, а всё, что умеет
@@ -69,12 +74,17 @@
 
 Принципы:
 
-1. **Панель работает с `FsNode`, а не с путями.** Путь — производная величина
+1. **Слой интерфейсов — это API приложения.** `Application`, `Panel`,
+   `PanelSelection`, `TreeProvider`, `AsyncOperation` описывают, что умеет
+   приложение; контроллеры их реализуют. Команды пишутся только против
+   интерфейсов, поэтому реализацию можно менять, не трогая ни одну команду.
+   Так же устроен референс (`IApplication`, `IPanel`, `IPanelSelection`).
+2. **Панель работает с `FsNode`, а не с путями.** Путь — производная величина
    (`node.pathString`), а не первичный ключ.
-2. **Всё, что обращается к ФС, асинхронно и отменяемо.** Никаких синхронных `statSync`
+3. **Всё, что обращается к ФС, асинхронно и отменяемо.** Никаких синхронных `statSync`
    в дереве виджетов.
-3. **Контроллеры не знают о виджетах.** Никаких `BuildContext` в `state/`.
-4. **Действия — это команды**, а не обработчики в виджетах: команда описывает только
+4. **Контроллеры не знают о виджетах.** Никаких `BuildContext` в `state/`.
+5. **Действия — это команды**, а не обработчики в виджетах: команда описывает только
    себя — название, условие выполнимости и поведение. Она не знает **чем её вызвали**,
    **какими клавишами** и **где её показывают**: привязками заведует реестр, а кнопки
    внизу окна — это нарисованная клавиатура, которая сама спрашивает, что закреплено
@@ -82,11 +92,11 @@
    привязки станут настраиваемыми, а любую команду можно будет выполнить из списка
    команд. Разное поведение — это разные команды, а не параметры одной
    (см. [`keyboard.md`](keyboard.md#команда-не-знает-чем-её-вызвали)).
-5. **Одна панель — один контроллер.** Панели симметричны и не знают друг о друге;
+6. **Одна панель — один контроллер.** Панели симметричны и не знают друг о друге;
    их связывает `AppController` (активная / пассивная = источник / приёмник операции).
-6. **Никаких внешних пакетов управления состоянием.** `ChangeNotifier` +
+7. **Никаких внешних пакетов управления состоянием.** `ChangeNotifier` +
    `InheritedNotifier` покрывают задачу; дерево состояния маленькое и статичное.
-7. **Службы создаёт контейнер зависимостей**, а не вызывающий код: весь граф
+8. **Службы создаёт контейнер зависимостей**, а не вызывающий код: весь граф
    собран в `AppContext` (`dicom`), зависимости создаются лениво и приходят
    параметрами конструкторов. Классы не тянут зависимости из глобальных точек:
    `inject<T>()` — только для точки сборки. Подробно — в
@@ -103,9 +113,9 @@
 | `m.tree.impl.fs.LocalFileSystemTreeProvider` (через CLI `ls`/`stat`) | `LocalTreeProvider` (через `dart:io`) |
 | `m.async.IAsyncOperation` + `IAsyncOperationStatus` | `AsyncOperation<T>` (`Future` + прогресс + отмена) |
 | `m.interactive.IInteraction` | `OperationRequest` — запрос к пользователю из середины операции |
-| `m.app.IApplication` | `AppController` |
-| `m.app.IPanel` | `PanelController` |
-| `m.app.IPanelSelection` / `PanelSelection` | `PanelSelection` |
+| `m.app.IApplication` | `Application` (интерфейс) + `AppController` (реализация) |
+| `m.app.IPanel` | `Panel` + `PanelController` |
+| `m.app.IPanelSelection` | `PanelSelection` + `SelectionController` |
 | `m.app.ICommand` + `BindingProperties` | `AppCommand` + `KeyBinding` |
 | `m.app.impl.ApplicationImpl.processKeyboardCombination()` | `CommandRegistry.dispatch()` |
 | `conf.AppConfig` (`~/.flexnavigator/settings.json`) | `SettingsStore` (`~/.flex-commander/settings.json`) |
@@ -133,6 +143,10 @@ lib/
   app.dart                         MaterialApp, тема, AppScope
 
   model/
+    app/
+      application.dart             Application — API приложения для команд
+      panel.dart                   Panel, PanelStatus — API панели
+      panel_selection.dart         PanelSelection — API пометки объектов
     tree/
       fs_node.dart                 FsNode, FileNode, DirectoryNode, LinkNode, ParentDirNode
       file_type.dart               FileType и его разбор
@@ -158,9 +172,9 @@ lib/
       plugin_window_service.dart   реализация поверх window_manager
 
   state/
-    app_controller.dart            левая/правая панель, активная панель, реестр команд
-    panel_controller.dart          состояние одной панели
-    panel_selection.dart           пометка объектов
+    app_controller.dart            реализация Application
+    panel_controller.dart          реализация Panel
+    selection_controller.dart      реализация PanelSelection
     commands/
       app_command.dart             AppCommand, KeyBinding, CommandContext
       key_combination.dart         нормализация нажатия в строку вида Ctrl-Shift-F5

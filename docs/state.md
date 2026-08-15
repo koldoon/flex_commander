@@ -4,8 +4,32 @@
 и `PanelController` — и в реестре команд. Виджеты состояния не хранят
 (кроме позиции скролла и локальных анимаций).
 
-Роли повторяют референс: `IApplication` → `AppController`, `IPanel` → `PanelController`,
-`IPanelSelection` → `PanelSelection`, `ICommand` + `BindingProperties` → `AppCommand` + `KeyBinding`.
+## 0. Слой интерфейсов — API приложения
+
+Прежде чем говорить о контроллерах: то, что они реализуют, описано отдельно,
+в `model/app/`. Это и есть API, против которого пишутся команды.
+
+| Интерфейс | Реализация | Аналог в референсе |
+|---|---|---|
+| `Application` | `AppController` | `IApplication` / `ApplicationImpl` |
+| `Panel` | `PanelController` | `IPanel` / `FilesPanel` |
+| `PanelSelection` | `SelectionController` | `IPanelSelection` / `PanelSelection` |
+| `TreeProvider` | `LocalTreeProvider` | `ITreeProvider` |
+| `AsyncOperation` | `TaskOperation` | `IAsyncOperation` |
+
+Зачем разделение:
+
+- **Команда видит только интерфейс.** `CommandContext` отдаёт `Application` и `Panel`,
+  а не контроллеры, поэтому реализацию можно переписать, не трогая ни одной команды.
+  Это же станет контрактом для команд, которые появятся на следующих этапах.
+- **Интерфейсы лежат в нижнем слое.** `model/app/` не знает ни о Flutter, ни о
+  контроллерах; зависимости идут снизу вверх, а не наоборот.
+- **`ChangeNotifier` остаётся в реализации.** Подписка на изменения нужна виджетам,
+  а не командам, поэтому в интерфейсах её нет. Виджеты получают контроллеры
+  (`AppScope`, `PanelScope`) и подписываются на них напрямую; типы полей `left`,
+  `right` и `selection` в реализациях уточнены до конкретных классов.
+- **Контейнер отдаёт и то, и другое.** `get<Application>()` возвращает тот же
+  экземпляр, что и `get<AppController>()`.
 
 ## 1. Механизм
 

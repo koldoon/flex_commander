@@ -1,6 +1,9 @@
 import 'dart:io';
 
 import 'package:flex_commander/app_context.dart';
+import 'package:flex_commander/model/app/application.dart';
+import 'package:flex_commander/model/app/panel.dart';
+import 'package:flex_commander/model/app/panel_selection.dart';
 import 'package:flex_commander/model/settings/app_settings.dart';
 import 'package:flex_commander/model/settings/settings_store.dart';
 import 'package:flex_commander/model/tree/tree_provider.dart';
@@ -81,6 +84,18 @@ void main() {
     expect(context.get<AppSettings>().splitRatio, 0.3);
     expect(app.splitRatio, 0.3);
     expect(app.activePanel, app.right);
+  });
+
+  test('приложение доступно и как интерфейс, и как реализация', () async {
+    final context = await init();
+    final app = context.get<AppController>();
+    addTearDown(app.dispose);
+
+    // Команды пишутся против Application; контейнер отдаёт тот же экземпляр.
+    expect(context.get<Application>(), same(app));
+    expect(app, isA<Application>());
+    expect(app.left, isA<Panel>());
+    expect(app.left.selection, isA<PanelSelection>());
   });
 
   test('логгер получает категорию по имени потребителя', () {
