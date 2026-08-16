@@ -101,6 +101,65 @@ void main() {
       expect(messages, contains('Copying notes.txt…'));
       expect(messages.last, 'Done');
     });
+
+    test('счётчик обработанного растёт, а не стоит на месте', () async {
+      final nodes = await listRoot();
+      final operation = provider.copy([nodes['docs']!], await targetDir());
+      final processed = <int>[];
+      operation.progress.listen((event) => processed.add(event.processed));
+
+      await operation.result;
+
+      // В каталоге четыре объекта: он сам, вложенный каталог и два файла.
+      expect(processed.last, 4);
+      // Между началом и концом счётчик проходил промежуточные значения.
+      expect(processed.toSet().length, greaterThan(1));
+    });
+
+    test('общее количество считается фоном и в конце становится окончательным', () async {
+      final nodes = await listRoot();
+      final operation = provider.copy([nodes['docs']!, nodes['notes.txt']!], await targetDir());
+      final reports = <OperationProgress>[];
+      operation.progress.listen(reports.add);
+
+      await operation.result;
+
+      // Работа началась, не дожидаясь конца подсчёта: пока он идёт, общее
+      // число — нижняя оценка, и это видно.
+      expect(reports.first.totalIsFinal, isFalse);
+      expect(reports.first.total, lessThan(5));
+
+      // К концу оно точное: каталог с тремя вложенными объектами и файл.
+      final counted = reports.where((event) => event.totalIsFinal);
+      expect(counted.last.total, 5);
+      expect(reports.last.percent, 1);
+    });
+
+    test('в сообщении видно имя объекта, который копируется сейчас', () async {
+      final nodes = await listRoot();
+      final operation = provider.copy([nodes['docs']!], await targetDir());
+      final messages = <String>[];
+      operation.progress.listen((event) => messages.add(event.message));
+
+      await operation.result;
+
+      // Имя вложенного файла, а не только имя всего задания.
+      expect(messages.any((message) => message.contains('readme.md') || message.contains('deep.txt')), isTrue);
+    });
+
+    test('перенос переименованием доводит счётчик до конца', () async {
+      final nodes = await listRoot();
+      final operation = provider.move([nodes['docs']!], await targetDir());
+      final reports = <OperationProgress>[];
+      operation.progress.listen(reports.add);
+
+      await operation.result;
+
+      // Переименование переносит поддерево одним действием: поштучно объекты
+      // не проходили, но задание выполнено целиком, и счётчик это показывает.
+      expect(reports.last.percent, 1);
+      expect(reports.last.processed, reports.last.total);
+    });
   });
 
   group('имя уже занято', () {

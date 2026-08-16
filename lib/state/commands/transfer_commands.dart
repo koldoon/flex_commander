@@ -159,7 +159,14 @@ abstract class TransferCommandBase extends AsyncCommandBase {
           return CommandDialogQuestion(message: question.message, options: question.options, onAnswer: answer);
         }
         if (isRunning) {
-          return CommandDialogProgress(progress: progress, message: progressMessage, onCancel: cancel);
+          return CommandDialogProgress(
+            progress: progress,
+            message: progressMessage,
+            processed: processed,
+            total: total,
+            totalIsFinal: totalIsFinal,
+            onCancel: cancel,
+          );
         }
 
         return CommandDialogForm(

@@ -18,16 +18,50 @@ enum OperationStatus {
 }
 
 /// Прогресс операции.
+///
+/// Доля выполненного считается из двух счётчиков: сколько объектов уже
+/// обработано и сколько их всего. Второе число может быть неизвестно или
+/// известно лишь частично — обход большого дерева сам по себе долгий, и
+/// операции считают его фоном, не задерживая начало работы.
 class OperationProgress {
-  const OperationProgress({this.percent, this.message = ''});
+  const OperationProgress({
+    double? percent,
+    this.message = '',
+    this.processed = 0,
+    this.total,
+    this.totalIsFinal = true,
+  }) : _percent = percent;
 
-  /// 0.0…1.0 или null, если прогресс неопределённый.
-  final double? percent;
+  final double? _percent;
 
   final String message;
 
+  /// Сколько объектов обработано.
+  final int processed;
+
+  /// Сколько объектов всего; null — пока неизвестно.
+  final int? total;
+
+  /// Досчитан ли [total] до конца. Пока нет, это нижняя оценка, и показывать
+  /// её как окончательную нельзя.
+  final bool totalIsFinal;
+
+  /// 0.0…1.0 или null, если прогресс неопределённый.
+  double? get percent {
+    if (_percent != null) {
+      return _percent;
+    }
+    final count = total;
+    if (count == null || count <= 0) {
+      return null;
+    }
+    // Пока идёт подсчёт, обработанных может оказаться больше, чем насчитано:
+    // доля всё равно не должна выходить за единицу.
+    return (processed / count).clamp(0.0, 1.0);
+  }
+
   @override
-  String toString() => 'OperationProgress($percent, $message)';
+  String toString() => 'OperationProgress($percent, $message, $processed/$total)';
 }
 
 /// Операция отменена вызовом [AsyncOperation.cancel].

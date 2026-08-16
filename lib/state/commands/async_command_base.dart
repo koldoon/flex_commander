@@ -21,8 +21,7 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
   StreamSubscription<OperationProgress>? _progress;
 
   bool _running = false;
-  double? _progressValue;
-  String _message = '';
+  OperationProgress _state = const OperationProgress();
 
   /// Вопрос, на который сейчас ждут ответа.
   OperationRequest? _question;
@@ -44,18 +43,13 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
     }
 
     _running = true;
-    _progressValue = null;
-    _message = message;
+    _state = OperationProgress(message: message);
     _operation = operation;
     notifyListeners();
 
     // Подписки ставятся сразу: операция начинает работу следующим шагом цикла
     // событий и до тех пор ничего не теряется.
-    _progress = operation.progress.listen((event) {
-      _progressValue = event.percent;
-      _message = event.message;
-      notifyListeners();
-    });
+    _progress = operation.progress.listen(_onProgress);
     _requests = operation.requests.listen((request) {
       if (!hasOpenDialog) {
         request.respond(request.defaultOption);
@@ -72,10 +66,41 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
     } finally {
       unawaited(_progress?.cancel());
       unawaited(_requests?.cancel());
+      _pendingRedraw?.cancel();
+      _pendingRedraw = null;
+      _sinceRedraw.stop();
       _running = false;
       _question = null;
       notifyListeners();
     }
+  }
+
+  /// Копирование мелких файлов идёт куда быстрее, чем имеет смысл
+  /// перерисовывать окно: сообщения принимаются все, а слушатели узнают о них
+  /// не чаще, чем раз в [_redrawInterval].
+  static const Duration _redrawInterval = Duration(milliseconds: 50);
+
+  final Stopwatch _sinceRedraw = Stopwatch();
+  Timer? _pendingRedraw;
+
+  void _onProgress(OperationProgress event) {
+    _state = event;
+
+    if (_sinceRedraw.isRunning && _sinceRedraw.elapsed < _redrawInterval) {
+      // Слишком часто: показать это состояние, если следом ничего не придёт.
+      _pendingRedraw ??= Timer(_redrawInterval - _sinceRedraw.elapsed, _redraw);
+      return;
+    }
+    _redraw();
+  }
+
+  void _redraw() {
+    _pendingRedraw?.cancel();
+    _pendingRedraw = null;
+    _sinceRedraw
+      ..reset()
+      ..start();
+    notifyListeners();
   }
 
   /// Ответ на вопрос, заданный по ходу работы.
@@ -88,10 +113,19 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
   // --- AsyncCommand ---
 
   @override
-  double? get progress => _progressValue;
+  double? get progress => _state.percent;
 
   @override
-  String get progressMessage => _message;
+  String get progressMessage => _state.message;
+
+  @override
+  int get processed => _state.processed;
+
+  @override
+  int? get total => _state.total;
+
+  @override
+  bool get totalIsFinal => _state.totalIsFinal;
 
   @override
   bool get isRunning => _running;

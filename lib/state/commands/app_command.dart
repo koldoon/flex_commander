@@ -254,6 +254,16 @@ abstract interface class AsyncCommand {
   /// Что происходит прямо сейчас — короткой строкой.
   String get progressMessage;
 
+  /// Сколько объектов обработано.
+  int get processed;
+
+  /// Сколько объектов всего; null — пока неизвестно. Долгие операции считают
+  /// это число фоном, поэтому оно появляется не сразу и какое-то время растёт.
+  int? get total;
+
+  /// Досчитано ли [total] до конца.
+  bool get totalIsFinal;
+
   /// Работа идёт.
   bool get isRunning;
 

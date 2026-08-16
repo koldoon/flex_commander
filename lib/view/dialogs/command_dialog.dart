@@ -86,16 +86,33 @@ class CommandDialogConfirm extends StatelessWidget {
 }
 
 /// Ход выполнения с возможностью прервать.
+///
+/// Кроме полосы показывает счётчик объектов: сколько обработано из скольких.
+/// Общее количество долгие операции считают фоном, поэтому пока счёт не
+/// закончен, к числу добавляется многоточие — иначе растущий «итог» выглядел бы
+/// ошибкой.
 class CommandDialogProgress extends StatelessWidget {
-  const CommandDialogProgress({super.key, required this.message, required this.onCancel, this.progress});
+  const CommandDialogProgress({
+    super.key,
+    required this.message,
+    required this.onCancel,
+    this.progress,
+    this.processed = 0,
+    this.total,
+    this.totalIsFinal = true,
+  });
 
   final String message;
   final double? progress;
+  final int processed;
+  final int? total;
+  final bool totalIsFinal;
   final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
+    final counter = _counter;
 
     return Column(
       mainAxisSize: MainAxisSize.min,
@@ -104,9 +121,23 @@ class CommandDialogProgress extends StatelessWidget {
         Text(message, style: theme.rowStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
         const SizedBox(height: 8),
         LinearProgressIndicator(value: progress, minHeight: 4),
+        if (counter != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: Text(counter, style: theme.numericStyle, textAlign: TextAlign.right),
+          ),
         _CommandDialogActions(actions: [_CommandDialogAction(label: 'Cancel', onPressed: onCancel)]),
       ],
     );
+  }
+
+  String? get _counter {
+    final count = total;
+    if (count == null) {
+      // Считать ещё не начали: показывать «0 из 0» бессмысленно.
+      return processed == 0 ? null : '$processed';
+    }
+    return totalIsFinal ? '$processed of $count' : '$processed of $count…';
   }
 }
 
