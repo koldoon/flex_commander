@@ -104,6 +104,26 @@ void main() {
     expect(namesOf(), isNot(contains('tools')));
   });
 
+  test('подтверждение выполняет команду и закрывает окно', () async {
+    // Так это делает ядро по Enter: параметры уже заданы, остаётся выполнить.
+    final command = makeDirectory()..setParam(MakeDirectoryCommand.nameParam, 'docs');
+
+    await command.submit();
+
+    expect(namesOf(), contains('docs'));
+    expect(command.error, isNull);
+  });
+
+  test('ошибка остаётся в команде, а не улетает наружу', () async {
+    final command = makeDirectory()..setParam(MakeDirectoryCommand.nameParam, 'bin');
+
+    // submit — общее поведение ядра: ошибку показывает окно, поэтому наружу
+    // она не выбрасывается.
+    await command.submit();
+
+    expect(command.error, contains('Already exists'));
+  });
+
   test('команда доступна и закреплена за клавишей', () {
     final command = commands().find('file.mkdir')!;
 

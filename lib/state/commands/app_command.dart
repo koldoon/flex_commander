@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../model/app/application.dart';
 import '../../model/app/panel.dart';
 import '../../model/tree/fs_node.dart';
+import '../../model/tree/tree_provider.dart';
 import 'key_combination.dart';
 
 /// Привязка комбинации клавиш к команде.
@@ -179,6 +180,53 @@ abstract class AppCommand extends ChangeNotifier {
   /// Выполняет работу — с параметрами, которые уже заданы, и без вопросов
   /// пользователю. Ошибку сообщает исключением ([FsError]).
   Future<void> execute();
+
+  /// Идёт ли работа.
+  ///
+  /// Ядро смотрит на это: пока команда исполняется, подтверждение и отмена
+  /// в её окне ничего не делают. Команды с длительной работой переопределяют
+  /// (см. [AsyncCommand]).
+  bool get isRunning => false;
+
+  /// Ошибка последней попытки — её показывает окно команды.
+  String? get error => _error;
+  String? _error;
+
+  @protected
+  set error(String? value) {
+    _error = value;
+    notifyListeners();
+  }
+
+  /// Подтверждение: Enter в открытом окне или кнопка подтверждения.
+  ///
+  /// Общее поведение для всех команд: выполнить с уже заданными параметрами и
+  /// закрыть окно; ошибка остаётся в окне, чтобы можно было исправить ввод
+  /// и повторить. Команда может переопределить, если ей нужно иначе.
+  Future<void> submit() async {
+    if (isRunning) {
+      return;
+    }
+    error = null;
+
+    try {
+      await execute();
+      closeDialog();
+    } on FsError catch (failure) {
+      error = failure.message;
+    }
+  }
+
+  /// Отказ: Esc в открытом окне или кнопка отмены.
+  ///
+  /// Пока идёт работа, окно не закрывается: прервать её — это отдельное
+  /// действие (`AsyncCommand.cancel`).
+  void dismiss() {
+    if (isRunning) {
+      return;
+    }
+    closeDialog();
+  }
 
   /// Закрывает своё окно, если оно открыто.
   void closeDialog() => _context?.app.closeDialog(runId);
