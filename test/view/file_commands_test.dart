@@ -81,6 +81,15 @@ void main() {
       expect(tester.widget<TextField>(find.byType(TextField)).autofocus, isTrue);
     });
 
+    testWidgets('фокус сразу в поле ввода', (tester) async {
+      await pumpApp(tester);
+      await press(tester, LogicalKeyboardKey.f7);
+
+      // Имя можно набирать сразу, без клика по полю.
+      final editable = tester.widget<EditableText>(find.byType(EditableText));
+      expect(editable.focusNode.hasFocus, isTrue);
+    });
+
     testWidgets('введённое имя создаёт каталог и закрывает окно', (tester) async {
       await pumpApp(tester);
       await press(tester, LogicalKeyboardKey.f7);

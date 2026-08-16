@@ -28,6 +28,10 @@ class MakeDirectoryCommand extends AppCommand {
   @override
   bool get hasDialog => true;
 
+  /// Имя набирают сразу: фокус ставит поле ввода.
+  @override
+  bool get dialogTakesFocus => true;
+
   @override
   bool isExecutable(CommandContext context) {
     final panel = context.panel;
