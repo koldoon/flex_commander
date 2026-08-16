@@ -59,8 +59,9 @@ class _CommandDialogFrameState extends State<_CommandDialogFrame> {
   /// Фокус самого окна.
   ///
   /// Нужен для окон, в которых нечего фокусировать: без него клавиши уходили бы
-  /// в панели, а окно оставалось бы глухим к Enter и Esc. Если внутри есть поле
-  /// ввода, фокус забирает оно, а события всё равно поднимаются сюда.
+  /// в панели, а окно оставалось бы глухим к Enter и Esc. Если окно ставит
+  /// фокус само (поле ввода), рама его не забирает, а события всё равно
+  /// поднимаются сюда от поля.
   final FocusNode _node = FocusNode(debugLabel: 'command dialog');
 
   AppCommand get command => widget.command;
@@ -68,11 +69,9 @@ class _CommandDialogFrameState extends State<_CommandDialogFrame> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && _node.enclosingScope?.focusedChild == null) {
-        _node.requestFocus();
-      }
-    });
+    if (!command.dialogTakesFocus) {
+      _node.requestFocus();
+    }
   }
 
   @override
