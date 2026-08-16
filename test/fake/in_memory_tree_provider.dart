@@ -1,5 +1,6 @@
 import 'package:flex_commander/model/async/async_operation.dart';
 import 'package:flex_commander/model/async/operation_request.dart';
+import 'package:flex_commander/model/async/transfer_progress.dart';
 import 'package:flex_commander/model/tree/file_attributes.dart';
 import 'package:flex_commander/model/tree/file_type.dart';
 import 'package:flex_commander/model/tree/fs_node.dart';
@@ -204,19 +205,35 @@ class InMemoryTreeProvider implements TreeProvider, TreeEditor {
   AsyncOperation<void> _transfer(List<FsNode> nodes, DirectoryNode destination, {required bool move}) {
     return TaskOperation<void>((op) async {
       final targetDir = p.normalize(physicalPathOf(destination));
-      final verb = move ? 'Moving' : 'Copying';
+      final progress = TransferProgress(op, move ? 'Moving' : 'Copying');
       var overwriteAll = false;
       var skipAll = false;
+
+      final sources = [for (final node in nodes) p.normalize(physicalPathOf(node))];
+      // В памяти подсчёт мгновенный, но проходит теми же шагами, что и на диске:
+      // счётчики в окне команды должны заполняться так же.
+      for (var i = 0; i < sources.length; i++) {
+        var counted = 0;
+        for (final key in _entries.keys) {
+          if (key == sources[i] || key.startsWith('${sources[i]}/')) {
+            counted++;
+            progress.countOne();
+          }
+        }
+        progress.sourceCounted(i, counted);
+      }
+      progress.countingFinished();
 
       for (var i = 0; i < nodes.length; i++) {
         op.checkCanceled();
 
         final node = nodes[i];
-        final source = p.normalize(physicalPathOf(node));
+        final source = sources[i];
         final target = p.normalize(p.join(targetDir, node.name));
-        op.report(OperationProgress(percent: i / nodes.length, message: '$verb ${node.name}…'));
+        progress.startSource(node.name);
 
         if (!_entries.containsKey(source)) {
+          progress.sourceDoneWholly(i);
           if (skipAll) {
             continue;
           }
@@ -229,6 +246,7 @@ class InMemoryTreeProvider implements TreeProvider, TreeEditor {
 
         if (_entries.containsKey(target)) {
           if (skipAll) {
+            progress.sourceDoneWholly(i);
             continue;
           }
           if (!overwriteAll) {
@@ -250,9 +268,11 @@ class InMemoryTreeProvider implements TreeProvider, TreeEditor {
             }
             if (answer == OperationOption.skipAll) {
               skipAll = true;
+              progress.sourceDoneWholly(i);
               continue;
             }
             if (answer == OperationOption.skip) {
+              progress.sourceDoneWholly(i);
               continue;
             }
             if (answer == OperationOption.overwriteAll) {
@@ -262,13 +282,14 @@ class InMemoryTreeProvider implements TreeProvider, TreeEditor {
           _removeTree(target);
         }
 
-        _copyTree(source, target);
+        _copyTree(source, target, progress);
         if (move) {
           _removeTree(source);
         }
       }
 
-      op.report(const OperationProgress(percent: 1, message: 'Done'));
+      progress.stop();
+      progress.finish();
     });
   }
 
@@ -283,12 +304,13 @@ class InMemoryTreeProvider implements TreeProvider, TreeEditor {
   }
 
   /// Копирует объект вместе со всем, что под ним.
-  void _copyTree(String source, String target) {
+  void _copyTree(String source, String target, TransferProgress progress) {
     for (final entry in _entries.values.toList()) {
       final path = p.normalize(entry.path);
       if (path != source && !path.startsWith('$source/')) {
         continue;
       }
+      progress.advance(entry.name);
       add(_cloneAt(entry, p.normalize(p.join(target, p.relative(path, from: source)))));
     }
   }

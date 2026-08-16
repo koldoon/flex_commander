@@ -1,9 +1,11 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
 import '../../async/async_operation.dart';
 import '../../async/operation_request.dart';
+import '../../async/transfer_progress.dart';
 import '../file_attributes.dart';
 import '../file_type.dart';
 import '../fs_node.dart';
@@ -331,113 +333,171 @@ class LocalTreeProvider implements TreeProvider, TreeEditor {
   AsyncOperation<void> _transfer(List<FsNode> nodes, DirectoryNode destination, {required bool move}) {
     return TaskOperation<void>((op) async {
       final targetDir = physicalPathOf(destination);
-      final verb = move ? 'Moving' : 'Copying';
+      final sources = [for (final node in nodes) entityPathOf(node)];
+      final progress = TransferProgress(op, move ? 'Moving' : 'Copying');
       var overwriteAll = false;
       var skipAll = false;
 
-      for (var i = 0; i < nodes.length; i++) {
-        op.checkCanceled();
+      // Подсчёт идёт рядом с работой, а не перед ней: обойти большое дерево
+      // стоит почти столько же, сколько его скопировать, и стоять всё это время
+      // с пустым окном незачем. Пока счёт не закончен, общее число — нижняя
+      // оценка, и окно показывает это отдельно.
+      unawaited(_countSources(sources, progress));
 
-        final node = nodes[i];
-        final source = entityPathOf(node);
-        final target = p.join(targetDir, node.name);
-        op.report(OperationProgress(percent: i / nodes.length, message: '$verb ${node.name}…'));
+      try {
+        for (var i = 0; i < nodes.length; i++) {
+          op.checkCanceled();
 
-        try {
-          if (p.equals(source, target)) {
-            throw FsError(target, FsErrorKind.alreadyExists);
-          }
-          if (_isInside(target, source)) {
-            // Копирование каталога в самого себя не закончилось бы никогда.
-            throw FsError(source, FsErrorKind.targetInsideSource);
-          }
+          final node = nodes[i];
+          final source = sources[i];
+          final target = p.join(targetDir, node.name);
+          progress.startSource(node.name);
 
-          if (await FileSystemEntity.type(target, followLinks: false) != FileSystemEntityType.notFound) {
+          try {
+            if (p.equals(source, target)) {
+              throw FsError(target, FsErrorKind.alreadyExists);
+            }
+            if (_isInside(target, source)) {
+              // Копирование каталога в самого себя не закончилось бы никогда.
+              throw FsError(source, FsErrorKind.targetInsideSource);
+            }
+
+            if (await FileSystemEntity.type(target, followLinks: false) != FileSystemEntityType.notFound) {
+              if (skipAll) {
+                progress.sourceDoneWholly(i);
+                continue;
+              }
+              if (!overwriteAll) {
+                final answer = await op.ask(
+                  OperationRequest(
+                    message: 'Already exists: $target',
+                    options: const [
+                      OperationOption.overwrite,
+                      OperationOption.overwriteAll,
+                      OperationOption.skip,
+                      OperationOption.skipAll,
+                      OperationOption.cancel,
+                    ],
+                    // Молча затирать чужие файлы нельзя.
+                    defaultOption: OperationOption.skip,
+                  ),
+                );
+
+                if (answer == OperationOption.cancel) {
+                  throw const OperationCanceled();
+                }
+                if (answer == OperationOption.skipAll) {
+                  skipAll = true;
+                  progress.sourceDoneWholly(i);
+                  continue;
+                }
+                if (answer == OperationOption.skip) {
+                  progress.sourceDoneWholly(i);
+                  continue;
+                }
+                if (answer == OperationOption.overwriteAll) {
+                  overwriteAll = true;
+                }
+              }
+              await _deletePermanently(target);
+            }
+
+            if (move) {
+              // Переименование переносит всё поддерево одним действием —
+              // поштучно объекты в нём не проходили.
+              if (await _moveEntity(source, target, op, progress)) {
+                progress.sourceDoneWholly(i);
+              }
+            } else {
+              await _copyEntity(source, target, op, progress);
+            }
+          } on FsError catch (error) {
+            progress.sourceDoneWholly(i);
             if (skipAll) {
               continue;
             }
-            if (!overwriteAll) {
-              final answer = await op.ask(
-                OperationRequest(
-                  message: 'Already exists: $target',
-                  options: const [
-                    OperationOption.overwrite,
-                    OperationOption.overwriteAll,
-                    OperationOption.skip,
-                    OperationOption.skipAll,
-                    OperationOption.cancel,
-                  ],
-                  // Молча затирать чужие файлы нельзя.
-                  defaultOption: OperationOption.skip,
-                ),
-              );
-
-              if (answer == OperationOption.cancel) {
-                throw const OperationCanceled();
-              }
-              if (answer == OperationOption.skipAll) {
-                skipAll = true;
-                continue;
-              }
-              if (answer == OperationOption.skip) {
-                continue;
-              }
-              if (answer == OperationOption.overwriteAll) {
-                overwriteAll = true;
-              }
+            final answer = await op.ask(
+              OperationRequest(
+                message: error.message,
+                options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
+                defaultOption: OperationOption.skip,
+              ),
+            );
+            if (answer == OperationOption.cancel) {
+              throw const OperationCanceled();
             }
-            await _deletePermanently(target);
-          }
-
-          if (move) {
-            await _moveEntity(source, target, op);
-          } else {
-            await _copyEntity(source, target, op);
-          }
-        } on FsError catch (error) {
-          if (skipAll) {
-            continue;
-          }
-          final answer = await op.ask(
-            OperationRequest(
-              message: error.message,
-              options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
-              defaultOption: OperationOption.skip,
-            ),
-          );
-          if (answer == OperationOption.cancel) {
-            throw const OperationCanceled();
-          }
-          if (answer == OperationOption.skipAll) {
-            skipAll = true;
+            if (answer == OperationOption.skipAll) {
+              skipAll = true;
+            }
           }
         }
+      } finally {
+        // Считать дальше незачем: работа кончилась — успехом, ошибкой или отменой.
+        progress.stop();
       }
 
-      op.report(const OperationProgress(percent: 1, message: 'Done'));
+      progress.finish();
     });
+  }
+
+  /// Фоновый подсчёт объектов задания.
+  ///
+  /// Ошибка обхода не прекращает работу: это оценка, а не сама операция, и
+  /// недосчитанный каталог хуже, чем несделанное копирование.
+  Future<void> _countSources(List<String> sources, TransferProgress progress) async {
+    for (var i = 0; i < sources.length; i++) {
+      if (progress.stopped) {
+        return;
+      }
+
+      var counted = 0;
+      try {
+        counted = 1;
+        progress.countOne();
+
+        if (FileSystemEntity.typeSync(sources[i], followLinks: false) == FileSystemEntityType.directory) {
+          await for (final _ in Directory(sources[i]).list(recursive: true, followLinks: false)) {
+            if (progress.stopped) {
+              return;
+            }
+            counted++;
+            progress.countOne();
+          }
+        }
+      } on FileSystemException {
+        // Каталог мог исчезнуть или оказаться закрытым — считаем дальше.
+      }
+
+      progress.sourceCounted(i, counted);
+    }
+
+    progress.countingFinished();
   }
 
   /// Перенос: сначала переименование — оно мгновенное. Между дисками так
   /// нельзя, и тогда объект копируется и удаляется.
-  Future<void> _moveEntity(String source, String target, TaskOperation<void> op) async {
+  ///
+  /// Возвращает true, если обошлось переименованием.
+  Future<bool> _moveEntity(String source, String target, TaskOperation<void> op, TransferProgress progress) async {
     try {
       await _entityAt(source).rename(target);
-      return;
+      return true;
     } on FileSystemException catch (error) {
       if (!_isCrossDevice(error)) {
         throw fsErrorFrom(source, error);
       }
     }
 
-    await _copyEntity(source, target, op);
+    await _copyEntity(source, target, op, progress);
     await _deletePermanently(source);
+    return false;
   }
 
   /// Копирование объекта любого вида. Ссылка копируется как ссылка: то, куда
   /// она ведёт, остаётся на месте.
-  Future<void> _copyEntity(String source, String target, TaskOperation<void> op) async {
+  Future<void> _copyEntity(String source, String target, TaskOperation<void> op, TransferProgress progress) async {
     op.checkCanceled();
+    progress.advance(p.basename(source));
 
     try {
       switch (FileSystemEntity.typeSync(source, followLinks: false)) {
@@ -446,7 +506,7 @@ class LocalTreeProvider implements TreeProvider, TreeEditor {
         case FileSystemEntityType.directory:
           await Directory(target).create(recursive: true);
           await for (final entity in Directory(source).list(followLinks: false)) {
-            await _copyEntity(entity.path, p.join(target, p.basename(entity.path)), op);
+            await _copyEntity(entity.path, p.join(target, p.basename(entity.path)), op, progress);
           }
         default:
           await File(source).copy(target);
