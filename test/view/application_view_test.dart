@@ -55,7 +55,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(FlexCommanderApp(controller: app, navigatorKey: GlobalKey<NavigatorState>()));
+    await tester.pumpWidget(FlexCommanderApp(controller: app));
     await app.start();
     await tester.pumpAndSettle();
   }

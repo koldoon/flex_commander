@@ -1,7 +1,6 @@
 import '../settings/app_settings.dart';
 import '../settings/window_geometry.dart';
 import 'panel.dart';
-import 'user_interaction.dart';
 
 /// Приложение целиком — то, чем оперируют команды.
 ///
@@ -19,8 +18,11 @@ abstract interface class Application {
   /// Пассивная панель — приёмник операции.
   Panel get passivePanel;
 
-  /// Диалоги: через них команды спрашивают пользователя и сообщают об ошибках.
-  UserInteraction get dialogs;
+  /// Закрывает окно запущенной команды.
+  ///
+  /// Команда получает идентификатор запуска при создании и просит закрыть
+  /// именно своё окно: одновременно могут работать несколько команд.
+  void closeDialog(String runId);
 
   void activate(Panel panel);
 

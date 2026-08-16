@@ -5,47 +5,48 @@ import 'file_commands.dart';
 import 'navigation_commands.dart';
 import 'selection_commands.dart';
 
-/// Команды приложения.
+/// Команды приложения — фабриками, а не экземплярами: на каждый запуск
+/// создаётся своя команда, потому что она хранит состояние исполнения.
 ///
 /// Порядок здесь ни на что не влияет: приоритет задают привязки клавиш,
 /// а не команды. Зависимости команд приходят параметрами — их подставляет
 /// контейнер (`AppContext`), а тесты подменяют своими.
-List<AppCommand> defaultCommands({SystemOpener? opener}) => [
+List<CommandFactory> defaultCommands({SystemOpener? opener}) => [
   // Навигация.
-  MoveCursorUpCommand(),
-  MoveCursorDownCommand(),
-  PageUpCommand(),
-  PageDownCommand(),
-  GoToFirstNodeCommand(),
-  GoToLastNodeCommand(),
-  TogglePanelCommand(),
-  OpenNodeCommand(opener: opener),
-  OpenWithSystemCommand(opener: opener),
-  GoUpCommand(),
-  GoToRootCommand(),
-  ReloadCommand(),
-  ToggleHiddenCommand(),
-  ToggleThemeCommand(),
-  CancelCommand(),
+  () => MoveCursorUpCommand(),
+  () => MoveCursorDownCommand(),
+  () => PageUpCommand(),
+  () => PageDownCommand(),
+  () => GoToFirstNodeCommand(),
+  () => GoToLastNodeCommand(),
+  () => TogglePanelCommand(),
+  () => OpenNodeCommand(opener: opener),
+  () => OpenWithSystemCommand(opener: opener),
+  () => GoUpCommand(),
+  () => GoToRootCommand(),
+  () => ReloadCommand(),
+  () => ToggleHiddenCommand(),
+  () => ToggleThemeCommand(),
+  () => CancelCommand(),
 
   // Файловые операции.
-  MakeDirectoryCommand(),
-  RemoveCommand(),
-  RemovePermanentlyCommand(),
+  () => MakeDirectoryCommand(),
+  () => RemoveCommand(),
+  () => RemovePermanentlyCommand(),
 
   // Пометка объектов.
-  ClearSelectionCommand(),
-  ToggleMarkCommand(),
-  SelectAllCommand(),
+  () => ClearSelectionCommand(),
+  () => ToggleMarkCommand(),
+  () => SelectAllCommand(),
 
   // Файловые операции появятся на следующем этапе: клавиши за ними уже
   // закреплены, кнопки внизу окна показаны и приглушены.
-  PlaceholderCommand(id: 'app.help', label: 'Help'),
-  PlaceholderCommand(id: 'app.menu', label: 'Menu'),
-  PlaceholderCommand(id: 'file.view', label: 'View'),
-  PlaceholderCommand(id: 'file.edit', label: 'Edit'),
-  PlaceholderCommand(id: 'file.copy', label: 'Copy'),
-  PlaceholderCommand(id: 'file.move', label: 'Move'),
+  () => PlaceholderCommand(id: 'app.help', label: 'Help'),
+  () => PlaceholderCommand(id: 'app.menu', label: 'Menu'),
+  () => PlaceholderCommand(id: 'file.view', label: 'View'),
+  () => PlaceholderCommand(id: 'file.edit', label: 'Edit'),
+  () => PlaceholderCommand(id: 'file.copy', label: 'Copy'),
+  () => PlaceholderCommand(id: 'file.move', label: 'Move'),
 ];
 
 /// Привязки клавиш по умолчанию.

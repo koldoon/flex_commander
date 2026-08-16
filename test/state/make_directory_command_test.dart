@@ -2,21 +2,22 @@ import 'dart:io';
 
 import 'package:flex_commander/model/settings/app_settings.dart';
 import 'package:flex_commander/model/settings/settings_store.dart';
+import 'package:flex_commander/model/tree/tree_provider.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/state/commands/command_registry.dart';
 import 'package:flex_commander/state/commands/default_commands.dart';
-import 'package:flex_commander/state/commands/key_combination.dart';
+import 'package:flex_commander/state/commands/file_commands.dart';
 import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
-import '../fake/fake_user_interaction.dart';
 import '../fake/in_memory_tree_provider.dart';
 
+/// Команда должна работать и без интерфейса: задать параметры и выполнить.
+/// Именно так её вызовут меню, сценарий или командная строка.
 void main() {
   late InMemoryTreeProvider provider;
   late Directory temp;
-  late FakeUserInteraction dialogs;
   late AppController app;
 
   setUp(() async {
@@ -26,7 +27,6 @@ void main() {
       FakeEntry.file('/home/notes.txt', size: 10),
     ]);
     temp = await Directory.systemTemp.createTemp('flex_commander_mkdir_cmd');
-    dialogs = FakeUserInteraction();
 
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
     app = AppController(
@@ -35,7 +35,6 @@ void main() {
       store: SettingsStore(filePath: p.join(temp.path, 'settings.json')),
       settings: settings,
       commands: defaultCommandRegistry(),
-      dialogs: dialogs,
       saveDelay: const Duration(milliseconds: 5),
     );
     await app.start();
@@ -48,86 +47,68 @@ void main() {
 
   CommandRegistry commands() => app.commands;
 
-  Future<void> pressF7() async {
-    commands().dispatch(KeyCombination.parse('F7'));
-    // Команда асинхронная: спрашивает имя, создаёт каталог, перечитывает панель.
-    await Future<void>.delayed(Duration.zero);
-    await Future<void>.delayed(Duration.zero);
-  }
+  MakeDirectoryCommand makeDirectory() => commands().create('file.mkdir')! as MakeDirectoryCommand;
 
-  test('F7 спрашивает имя и создаёт каталог', () async {
-    dialogs.answer = 'docs';
+  List<String> namesOf() => app.left.nodes.map((node) => node.name).toList();
 
-    await pressF7();
+  test('создаёт каталог по заданному параметру', () async {
+    final command = makeDirectory()..setParam(MakeDirectoryCommand.nameParam, 'docs');
 
-    expect(dialogs.prompts, ['Create directory']);
-    expect(app.left.nodes.map((n) => n.name), contains('docs'));
-    expect(dialogs.errors, isEmpty);
+    await command.execute();
+
+    expect(namesOf(), contains('docs'));
   });
 
   test('курсор встаёт на созданный каталог', () async {
-    dialogs.answer = 'docs';
+    final command = makeDirectory()..setParam(MakeDirectoryCommand.nameParam, 'docs');
 
-    await pressF7();
+    await command.execute();
 
     expect(app.left.currentNode?.name, 'docs');
   });
 
-  test('отказ пользователя ничего не создаёт', () async {
-    dialogs.answer = null;
+  test('лишние пробелы в имени отбрасываются', () async {
+    final command = makeDirectory()..setParam(MakeDirectoryCommand.nameParam, '  docs  ');
 
-    await pressF7();
+    await command.execute();
 
-    expect(app.left.nodes.map((n) => n.name), isNot(contains('docs')));
-    expect(dialogs.errors, isEmpty);
+    expect(namesOf(), contains('docs'));
   });
 
-  test('пустое имя ничего не создаёт', () async {
-    dialogs.answer = '   ';
+  test('пустое имя — ошибка, а не молчаливый отказ', () async {
+    final command = makeDirectory()..setParam(MakeDirectoryCommand.nameParam, '   ');
 
-    await pressF7();
-
-    // "..", bin, notes.txt — и ничего нового.
-    expect(app.left.nodes.map((n) => n.name), ['..', 'bin', 'notes.txt']);
-    expect(dialogs.errors, isEmpty);
+    await expectLater(
+      command.execute(),
+      throwsA(isA<FsError>().having((e) => e.kind, 'kind', FsErrorKind.invalidName)),
+    );
   });
 
-  test('имя существующего объекта показывает ошибку', () async {
-    dialogs.answer = 'bin';
+  test('существующее имя даёт ошибку', () async {
+    final command = makeDirectory()..setParam(MakeDirectoryCommand.nameParam, 'bin');
 
-    await pressF7();
-
-    expect(dialogs.errors.single, contains('Already exists'));
+    await expectLater(
+      command.execute(),
+      throwsA(isA<FsError>().having((e) => e.kind, 'kind', FsErrorKind.alreadyExists)),
+    );
   });
 
   test('каталог создаётся в активной панели', () async {
     app.toggleActivePanel();
     await app.right.openPath('/home/bin');
-    dialogs.answer = 'tools';
 
-    await pressF7();
+    final command = makeDirectory()..setParam(MakeDirectoryCommand.nameParam, 'tools');
+    await command.execute();
 
-    expect(app.right.nodes.map((n) => n.name), contains('tools'));
-    expect(app.left.nodes.map((n) => n.name), isNot(contains('tools')));
+    expect(app.right.nodes.map((node) => node.name), contains('tools'));
+    expect(namesOf(), isNot(contains('tools')));
   });
 
-  test('каталог создаётся и сочетанием, не занятым системой', () async {
-    // На macOS F7 по умолчанию перехватывает система, поэтому у команды есть
-    // и второе сочетание.
-    dialogs.answer = 'docs';
-
-    commands().dispatch(KeyCombination.parse('Shift-Cmd-N'));
-    await Future<void>.delayed(Duration.zero);
-    await Future<void>.delayed(Duration.zero);
-
-    expect(app.left.nodes.map((n) => n.name), contains('docs'));
-  });
-
-  test('команда доступна и выполнима из списка команд', () {
+  test('команда доступна и закреплена за клавишей', () {
     final command = commands().find('file.mkdir')!;
 
     expect(command.label, 'Mk Dir');
     expect(commands().isExecutable(command), isTrue);
-    expect(commands().commandFor(KeyCombination.parse('F7')), same(command));
+    expect(commands().bindingsOf('file.mkdir').map((b) => b.keys.toString()), contains('F7'));
   });
 }

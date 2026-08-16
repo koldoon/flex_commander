@@ -43,6 +43,13 @@ class KeyboardHandler extends StatelessWidget {
       return KeyEventResult.ignored;
     }
 
+    if (app.commands.openDialogs.isNotEmpty) {
+      // Пока открыто окно команды, клавиши принадлежат ему. Обычно фокус и так
+      // у окна, но правило должно быть явным: панели не должны реагировать на
+      // ввод из-под чужого окна.
+      return KeyEventResult.ignored;
+    }
+
     if (app.activePanel.busy && combination.key != cancelKey) {
       // Событие считается обработанным: пока идёт чтение, клавиши не должны
       // проваливаться дальше и, например, уводить фокус по Tab.

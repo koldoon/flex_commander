@@ -146,7 +146,6 @@ lib/
   model/
     app/
       application.dart             Application — API приложения для команд
-      user_interaction.dart        UserInteraction — диалоги для команд
       panel.dart                   Panel, PanelStatus — API панели
       panel_selection.dart         PanelSelection — API пометки объектов
     tree/
@@ -178,7 +177,7 @@ lib/
     panel_controller.dart          реализация Panel
     selection_controller.dart      реализация PanelSelection
     commands/
-      app_command.dart             AppCommand, KeyBinding, CommandContext
+      app_command.dart             AppCommand, AsyncCommand, KeyBinding, CommandContext
       file_commands.dart           файловые операции: создание каталога, удаление
       key_combination.dart         нормализация нажатия в строку вида Ctrl-Shift-F5
       command_registry.dart        команды, привязки клавиш и разбор нажатий
@@ -204,7 +203,8 @@ lib/
     common/
       split_view.dart              две панели с перетаскиваемым разделителем
     dialogs/
-      dialog_user_interaction.dart реализация UserInteraction поверх Flutter
+      command_dialog_layer.dart    рамка и заголовок окна команды
+      command_dialog.dart          типовое содержимое: форма, вопрос, прогресс
     theme/
       app_theme.dart               ThemeData и расширение FcTheme
       app_colors.dart              палитра из макета

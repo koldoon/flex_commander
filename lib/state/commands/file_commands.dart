@@ -1,21 +1,34 @@
 import 'dart:async';
 
+import 'package:flutter/material.dart';
+
 import '../../model/async/async_operation.dart';
+import '../../model/async/operation_request.dart';
 import '../../model/tree/fs_node.dart';
 import '../../model/tree/tree_provider.dart';
+import '../../view/dialogs/command_dialog.dart';
 import 'app_command.dart';
 
 /// Создание каталога в активной панели.
 ///
-/// Первая настоящая файловая операция. Имя спрашивается через
-/// [Application.dialogs], сам каталог создаёт [TreeEditor] — команда не знает
-/// ни о виджетах, ни о файловой системе.
+/// Работает и без интерфейса: задать имя параметром и вызвать [execute].
+/// Окно — надстройка: оно задаёт тот же параметр и вызывает тот же [execute].
 class MakeDirectoryCommand extends AppCommand {
+  /// Имя нового каталога.
+  static const String nameParam = 'name';
+
+  final TextEditingController _name = TextEditingController();
+  String? _error;
+  bool _working = false;
+
   @override
   String get id => 'file.mkdir';
 
   @override
   String get label => 'Mk Dir';
+
+  @override
+  bool get hasDialog => true;
 
   @override
   bool isExecutable(CommandContext context) {
@@ -25,38 +38,79 @@ class MakeDirectoryCommand extends AppCommand {
   }
 
   @override
-  Future<void> execute(CommandContext context) async {
+  Future<void> execute() async {
     final panel = context.panel;
     final parent = panel.directory;
     final editor = panel.editor;
+    final name = param<String>(nameParam)?.trim() ?? '';
+
     if (parent == null || editor == null) {
       return;
     }
+    if (name.isEmpty) {
+      throw const FsError('', FsErrorKind.invalidName);
+    }
 
-    final name = await context.app.dialogs.promptText(
-      title: 'Create directory',
-      hint: 'Directory name',
-      confirmLabel: 'Create',
+    final created = await editor.makeDirectory(parent, name).result;
+    // Каталог создан на диске, но в панели его ещё нет: перечитываем и ставим
+    // курсор на новый каталог, чтобы с ним можно было сразу работать.
+    await panel.reload();
+    panel.setCursorToName(created.name);
+  }
+
+  @override
+  Widget? getDialog(BuildContext context) {
+    return ListenableBuilder(
+      listenable: this,
+      builder:
+          (context, _) => CommandDialogForm(
+            error: _error,
+            busy: _working,
+            onCancel: closeDialog,
+            onSubmit: _submit,
+            submitLabel: 'Create',
+            child: TextField(
+              controller: _name,
+              autofocus: true,
+              decoration: const InputDecoration(hintText: 'Directory name', isDense: true),
+              onSubmitted: (_) => _submit(),
+            ),
+          ),
     );
-    if (name == null || name.trim().isEmpty) {
-      // Пользователь отказался — молча выходим.
+  }
+
+  /// Кнопка окна: задать параметр и выполнить — ровно то же самое сделал бы
+  /// сценарий или командная строка.
+  Future<void> _submit() async {
+    if (_working || _name.text.trim().isEmpty) {
       return;
     }
 
+    setParam(nameParam, _name.text);
+    _working = true;
+    _error = null;
+    notifyListeners();
+
     try {
-      final created = await editor.makeDirectory(parent, name.trim()).result;
-      // Каталог создан на диске, но в панели его ещё нет: перечитываем и
-      // ставим курсор на новый каталог, чтобы с ним можно было сразу работать.
-      await panel.reload();
-      panel.setCursorToName(created.name);
+      await execute();
+      closeDialog();
     } on FsError catch (error) {
-      await context.app.dialogs.showError(title: 'Cannot create directory', message: error.message);
+      // Ошибка не закрывает окно: имя можно исправить и попробовать снова.
+      _error = error.message;
+      _working = false;
+      notifyListeners();
     }
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
   }
 }
 
 /// Удаление выбранных объектов в корзину.
-class RemoveCommand extends AppCommand {
+class RemoveCommand extends RemoveCommandBase {
   @override
   String get id => 'file.remove';
 
@@ -64,17 +118,14 @@ class RemoveCommand extends AppCommand {
   String get label => 'Delete';
 
   @override
-  bool isExecutable(CommandContext context) => canRemove(context);
-
-  @override
-  Future<void> execute(CommandContext context) => removeTargets(context, toTrash: true);
+  bool get toTrash => true;
 }
 
 /// Удаление выбранных объектов мимо корзины.
 ///
 /// Отдельная команда, а не параметр [RemoveCommand]: поведение разное,
 /// и в списке команд это должно быть видно.
-class RemovePermanentlyCommand extends AppCommand {
+class RemovePermanentlyCommand extends RemoveCommandBase {
   @override
   String get id => 'file.removePermanently';
 
@@ -82,71 +133,183 @@ class RemovePermanentlyCommand extends AppCommand {
   String get label => 'Delete permanently';
 
   @override
-  bool isExecutable(CommandContext context) => canRemove(context);
+  bool get toTrash => false;
+}
+
+/// Общий ход удаления.
+///
+/// [execute] удаляет без вопросов — так его вызовет сценарий. Окно добавляет
+/// к этому подтверждение перед началом и показывает ход работы.
+///
+/// Реализует [AsyncCommand]: прогресс виден и снаружи окна — это задел на
+/// фоновое выполнение, когда операции будут показываться общим списком.
+abstract class RemoveCommandBase extends AppCommand implements AsyncCommand {
+  /// Куда девается объект: в корзину или совсем.
+  bool get toTrash;
+
+  AsyncOperation<void>? _operation;
+  StreamSubscription<OperationRequest>? _requests;
+  StreamSubscription<OperationProgress>? _progress;
+
+  bool _running = false;
+  double? _progressValue;
+  String _message = '';
+  String? _error;
+
+  /// Вопрос, на который сейчас ждут ответа: «объект не удалился, что делать?».
+  OperationRequest? _question;
 
   @override
-  Future<void> execute(CommandContext context) => removeTargets(context, toTrash: false);
-}
+  bool get hasDialog => true;
 
-/// Есть ли что удалять: псевдоузел «..» объектом не считается.
-bool canRemove(CommandContext context) {
-  final panel = context.panel;
-  if (panel.busy || panel.editor == null) {
-    return false;
-  }
-  return context.targets.any((node) => node is! ParentDirNode);
-}
-
-/// Общий ход удаления: спросить, удалить, перечитать панель.
-///
-/// Вынесено отдельно, потому что обе команды делают одно и то же и отличаются
-/// только тем, куда девается объект.
-Future<void> removeTargets(CommandContext context, {required bool toTrash}) async {
-  final panel = context.panel;
-  final editor = panel.editor;
-  final targets = context.targets.where((node) => node is! ParentDirNode).toList();
-  if (editor == null || targets.isEmpty) {
-    return;
+  @override
+  bool isExecutable(CommandContext context) {
+    final panel = context.panel;
+    if (panel.busy || panel.editor == null) {
+      return false;
+    }
+    // Псевдоузел «..» объектом не считается.
+    return context.targets.any((node) => node is! ParentDirNode);
   }
 
-  final what = targets.length == 1 ? '«${targets.single.name}»' : '${targets.length} items';
-  final confirmed = await context.app.dialogs.confirm(
-    title: toTrash ? 'Delete' : 'Delete permanently',
-    message: toTrash ? 'Move $what to Trash?' : 'Delete $what permanently? This cannot be undone.',
-    confirmLabel: 'Delete',
-  );
-  if (!confirmed) {
-    return;
+  /// Объекты, с которыми работает команда: помеченные или тот, что под курсором.
+  List<FsNode> get targets => context.targets.where((node) => node is! ParentDirNode).toList();
+
+  @override
+  Future<void> execute() async {
+    final panel = context.panel;
+    final editor = panel.editor;
+    final targets = this.targets;
+    if (editor == null || targets.isEmpty || _running) {
+      return;
+    }
+
+    _running = true;
+    _error = null;
+    _message = 'Deleting…';
+    notifyListeners();
+
+    final operation = editor.remove(targets, toTrash: toTrash);
+    _operation = operation;
+
+    // Подписки ставятся сразу: операция начинает работу следующим шагом цикла
+    // событий и до тех пор ничего не теряется.
+    _progress = operation.progress.listen((event) {
+      _progressValue = event.percent;
+      _message = event.message;
+      notifyListeners();
+    });
+    _requests = operation.requests.listen((request) {
+      if (!hasOpenDialog) {
+        // Спросить некого — например, команду запустил сценарий.
+        request.respond(request.defaultOption);
+        return;
+      }
+      _question = request;
+      notifyListeners();
+    });
+
+    try {
+      await operation.result;
+    } on OperationCanceled {
+      // Прервано пользователем: удалённое останется удалённым.
+    } finally {
+      unawaited(_progress?.cancel());
+      unawaited(_requests?.cancel());
+      _running = false;
+      _question = null;
+
+      // Часть объектов могла исчезнуть, часть остаться: список в панели больше
+      // не совпадает с диском.
+      panel.selection.clear();
+      await panel.reload();
+      notifyListeners();
+    }
   }
 
-  final operation = editor.remove(targets, toTrash: toTrash);
+  // --- AsyncCommand ---
 
-  // Операция спрашивает по ходу дела: что делать с объектом, который не
-  // удалился. Ответ приходит от пользователя тем же путём, что и остальные
-  // диалоги.
-  final requests = operation.requests.listen((request) async {
-    final answer = await context.app.dialogs.chooseOption(
-      title: toTrash ? 'Cannot delete' : 'Cannot delete permanently',
-      message: request.message,
-      options: request.options,
+  @override
+  double? get progress => _progressValue;
+
+  @override
+  String get progressMessage => _message;
+
+  @override
+  bool get isRunning => _running;
+
+  @override
+  Future<void> get completion => _completion.future;
+  final Completer<void> _completion = Completer<void>();
+
+  @override
+  void cancel() {
+    _operation?.cancel();
+    if (!_running) {
+      closeDialog();
+    }
+  }
+
+  /// Ответ на вопрос, заданный по ходу работы.
+  void answer(OperationOption option) {
+    _question?.respond(option);
+    _question = null;
+    notifyListeners();
+  }
+
+  // --- окно ---
+
+  @override
+  Widget? getDialog(BuildContext context) {
+    return ListenableBuilder(
+      listenable: this,
+      builder: (context, _) {
+        final question = _question;
+        if (question != null) {
+          return CommandDialogQuestion(message: question.message, options: question.options, onAnswer: answer);
+        }
+        if (_running) {
+          return CommandDialogProgress(progress: _progressValue, message: _message, onCancel: cancel);
+        }
+        final error = _error;
+        if (error != null) {
+          return CommandDialogConfirm(
+            message: 'Delete failed',
+            error: error,
+            confirmLabel: 'Close',
+            onCancel: closeDialog,
+            onConfirm: closeDialog,
+          );
+        }
+
+        return CommandDialogConfirm(
+          message: _confirmationMessage,
+          confirmLabel: toTrash ? 'Delete' : 'Delete permanently',
+          onCancel: closeDialog,
+          onConfirm: _confirm,
+        );
+      },
     );
-    request.respond(answer ?? request.defaultOption);
-  });
-
-  try {
-    await operation.result;
-  } on OperationCanceled {
-    // Пользователь прервал удаление: то, что уже удалено, останется удалённым.
-  } on FsError catch (error) {
-    await context.app.dialogs.showError(title: 'Delete failed', message: error.message);
-  } finally {
-    // Ответы больше не нужны; ждать завершения отписки незачем — это лишний
-    // виток перед тем, как панель обновится.
-    unawaited(requests.cancel());
   }
 
-  // Часть объектов могла исчезнуть, часть остаться: список в панели больше
-  // не совпадает с диском.
-  panel.selection.clear();
-  await panel.reload();
+  String get _confirmationMessage {
+    final targets = this.targets;
+    final what = targets.length == 1 ? '«${targets.single.name}»' : '${targets.length} items';
+    return toTrash ? 'Move $what to Trash?' : 'Delete $what permanently? This cannot be undone.';
+  }
+
+  /// Кнопка окна: подтверждение и тот же [execute].
+  Future<void> _confirm() async {
+    try {
+      await execute();
+    } on FsError catch (error) {
+      _error = error.message;
+      notifyListeners();
+      return;
+    }
+    if (!_completion.isCompleted) {
+      _completion.complete();
+    }
+    closeDialog();
+  }
 }
