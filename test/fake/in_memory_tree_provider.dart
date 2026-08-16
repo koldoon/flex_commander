@@ -193,10 +193,115 @@ class InMemoryTreeProvider implements TreeProvider, TreeEditor {
   }
 
   @override
-  TransferOperation copy() => throw UnimplementedError();
+  AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination) =>
+      _transfer(nodes, destination, move: false);
 
   @override
-  TransferOperation move() => throw UnimplementedError();
+  AsyncOperation<void> move(List<FsNode> nodes, DirectoryNode destination) => _transfer(nodes, destination, move: true);
+
+  /// Копирование и перенос в памяти: те же вопросы и тот же порядок, что и в
+  /// настоящем провайдере, — иначе тесты команд проверяли бы не то поведение.
+  AsyncOperation<void> _transfer(List<FsNode> nodes, DirectoryNode destination, {required bool move}) {
+    return TaskOperation<void>((op) async {
+      final targetDir = p.normalize(physicalPathOf(destination));
+      final verb = move ? 'Moving' : 'Copying';
+      var overwriteAll = false;
+      var skipAll = false;
+
+      for (var i = 0; i < nodes.length; i++) {
+        op.checkCanceled();
+
+        final node = nodes[i];
+        final source = p.normalize(physicalPathOf(node));
+        final target = p.normalize(p.join(targetDir, node.name));
+        op.report(OperationProgress(percent: i / nodes.length, message: '$verb ${node.name}…'));
+
+        if (!_entries.containsKey(source)) {
+          if (skipAll) {
+            continue;
+          }
+          final answer = await _askAboutFailure(op, FsError(source, FsErrorKind.notFound).message);
+          if (answer == OperationOption.skipAll) {
+            skipAll = true;
+          }
+          continue;
+        }
+
+        if (_entries.containsKey(target)) {
+          if (skipAll) {
+            continue;
+          }
+          if (!overwriteAll) {
+            final answer = await op.ask(
+              OperationRequest(
+                message: 'Already exists: $target',
+                options: const [
+                  OperationOption.overwrite,
+                  OperationOption.overwriteAll,
+                  OperationOption.skip,
+                  OperationOption.skipAll,
+                  OperationOption.cancel,
+                ],
+                defaultOption: OperationOption.skip,
+              ),
+            );
+            if (answer == OperationOption.cancel) {
+              throw const OperationCanceled();
+            }
+            if (answer == OperationOption.skipAll) {
+              skipAll = true;
+              continue;
+            }
+            if (answer == OperationOption.skip) {
+              continue;
+            }
+            if (answer == OperationOption.overwriteAll) {
+              overwriteAll = true;
+            }
+          }
+          _removeTree(target);
+        }
+
+        _copyTree(source, target);
+        if (move) {
+          _removeTree(source);
+        }
+      }
+
+      op.report(const OperationProgress(percent: 1, message: 'Done'));
+    });
+  }
+
+  Future<OperationOption> _askAboutFailure(TaskOperation<void> op, String message) {
+    return op.ask(
+      OperationRequest(
+        message: message,
+        options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
+        defaultOption: OperationOption.skip,
+      ),
+    );
+  }
+
+  /// Копирует объект вместе со всем, что под ним.
+  void _copyTree(String source, String target) {
+    for (final entry in _entries.values.toList()) {
+      final path = p.normalize(entry.path);
+      if (path != source && !path.startsWith('$source/')) {
+        continue;
+      }
+      add(_cloneAt(entry, p.normalize(p.join(target, p.relative(path, from: source)))));
+    }
+  }
+
+  void _removeTree(String path) {
+    _entries.removeWhere((key, _) => key == path || key.startsWith('$path/'));
+  }
+
+  FakeEntry _cloneAt(FakeEntry entry, String path) => switch (entry.type) {
+    FileType.directory => FakeEntry.directory(path),
+    FileType.symbolicLink => FakeEntry.link(path, entry.linkTarget ?? ''),
+    _ => FakeEntry.file(path, size: entry.size, modified: entry.modified),
+  };
 
   /// Удаление в памяти: повторяет поведение настоящего провайдера — пропущенный
   /// объект не прекращает работу, а вопрос задаётся тем же способом.
@@ -218,13 +323,7 @@ class InMemoryTreeProvider implements TreeProvider, TreeEditor {
         if (skipAll) {
           continue;
         }
-        final answer = await op.ask(
-          OperationRequest(
-            message: FsError(path, FsErrorKind.notFound).message,
-            options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
-            defaultOption: OperationOption.skip,
-          ),
-        );
+        final answer = await _askAboutFailure(op, FsError(path, FsErrorKind.notFound).message);
         if (answer == OperationOption.cancel) {
           throw const OperationCanceled();
         }

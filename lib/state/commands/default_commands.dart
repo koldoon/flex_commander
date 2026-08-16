@@ -4,6 +4,7 @@ import 'command_registry.dart';
 import 'file_commands.dart';
 import 'navigation_commands.dart';
 import 'selection_commands.dart';
+import 'transfer_commands.dart';
 
 /// Команды приложения — фабриками, а не экземплярами: на каждый запуск
 /// создаётся своя команда, потому что она хранит состояние исполнения.
@@ -33,20 +34,20 @@ List<CommandFactory> defaultCommands({SystemOpener? opener}) => [
   () => MakeDirectoryCommand(),
   () => RemoveCommand(),
   () => RemovePermanentlyCommand(),
+  () => CopyCommand(),
+  () => MoveCommand(),
 
   // Пометка объектов.
   () => ClearSelectionCommand(),
   () => ToggleMarkCommand(),
   () => SelectAllCommand(),
 
-  // Файловые операции появятся на следующем этапе: клавиши за ними уже
-  // закреплены, кнопки внизу окна показаны и приглушены.
+  // Ещё не реализованные команды: клавиши за ними уже закреплены, кнопки внизу
+  // окна показаны и приглушены.
   () => PlaceholderCommand(id: 'app.help', label: 'Help'),
   () => PlaceholderCommand(id: 'app.menu', label: 'Menu'),
   () => PlaceholderCommand(id: 'file.view', label: 'View'),
   () => PlaceholderCommand(id: 'file.edit', label: 'Edit'),
-  () => PlaceholderCommand(id: 'file.copy', label: 'Copy'),
-  () => PlaceholderCommand(id: 'file.move', label: 'Move'),
 ];
 
 /// Привязки клавиш по умолчанию.
