@@ -22,6 +22,7 @@ class CommandLog {
   final List<String> calls = [];
   final List<String> runIds = [];
   final Map<String, List<String>> targets = {};
+  final Map<String, Map<String, Object?>> parameters = {};
 
   int callsOf(String id) => calls.where((call) => call == id).length;
 }
@@ -48,6 +49,7 @@ class RecordingCommand extends AppCommand {
     log.calls.add(id);
     log.runIds.add(runId);
     log.targets[id] = context.targets.map((node) => node.name).toList();
+    log.parameters[id] = parameters.values;
   }
 }
 
@@ -257,12 +259,82 @@ void main() {
       expect(log.callsOf('copy'), 0);
     });
 
+    group('любой печатный символ', () {
+      test('набранный символ приходит команде параметром', () {
+        final registry = CommandRegistry([recording('jump')], [const KeyBinding.anyCharacter('jump')]);
+        build(registry);
+
+        expect(registry.dispatch(const KeyCombination('D')), isTrue);
+        expect(log.parameters['jump'], {'character': 'D'});
+      });
+
+      test('сочетание с модификатором вводом символа не считается', () {
+        final registry = CommandRegistry([recording('jump')], [const KeyBinding.anyCharacter('jump')]);
+        build(registry);
+
+        expect(registry.dispatch(KeyCombination.parse('Cmd-D')), isFalse);
+        expect(log.callsOf('jump'), 0);
+      });
+
+      test('заглавная буква — тот же символ', () {
+        final registry = CommandRegistry([recording('jump')], [const KeyBinding.anyCharacter('jump')]);
+        build(registry);
+
+        expect(registry.dispatch(const KeyCombination('D', shift: true)), isTrue);
+      });
+
+      test('именованные клавиши не перехватываются', () {
+        final registry = CommandRegistry([recording('jump')], [const KeyBinding.anyCharacter('jump')]);
+        build(registry);
+
+        for (final key in ['Space', 'Enter', 'Esc', 'F5', 'Up']) {
+          expect(registry.dispatch(KeyCombination.parse(key)), isFalse, reason: key);
+        }
+      });
+
+      test('привязка к конкретной клавише важнее', () {
+        final registry = CommandRegistry(
+          [recording('specific'), recording('jump')],
+          [KeyBinding('D', 'specific'), const KeyBinding.anyCharacter('jump')],
+        );
+        build(registry);
+
+        registry.dispatch(const KeyCombination('D'));
+
+        expect(log.callsOf('specific'), 1);
+        expect(log.callsOf('jump'), 0);
+      });
+
+      test('в наборе по умолчанию пометка пробелом не перехвачена', () {
+        final registry = defaultCommandRegistry();
+        build(registry);
+
+        expect(registry.commandFor(KeyCombination.parse('Space'))?.id, 'panel.selection.toggle');
+        expect(registry.commandFor(const KeyCombination('D'))?.id, 'panel.goToName');
+      });
+    });
+
     test('реестр знает, чем вызывается команда', () {
       final registry = defaultCommandRegistry();
       build(registry);
 
       final keys = registry.bindingsOf('panel.cursor.first').map((b) => b.keys.toString());
       expect(keys, ['Home', 'Left']);
+    });
+
+    test('привязка передаёт команде значения', () {
+      final registry = CommandRegistry(
+        [recording('sort')],
+        [
+          KeyBinding('F5', 'sort', parameters: {'column': 'name'}),
+        ],
+      );
+      build(registry);
+
+      registry.dispatch(KeyCombination.parse('F5'));
+
+      // Одна команда на разных клавишах с разными значениями.
+      expect(log.parameters['sort'], {'column': 'name'});
     });
 
     test('привязка к неизвестной команде игнорируется', () {

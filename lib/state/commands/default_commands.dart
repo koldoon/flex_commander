@@ -20,6 +20,7 @@ List<CommandFactory> defaultCommands({SystemOpener? opener}) => [
   () => PageDownCommand(),
   () => GoToFirstNodeCommand(),
   () => GoToLastNodeCommand(),
+  () => GoToNameCommand(),
   () => TogglePanelCommand(),
   () => OpenNodeCommand(opener: opener),
   () => OpenWithSystemCommand(opener: opener),
@@ -84,6 +85,10 @@ List<KeyBinding> defaultKeyBindings() => [
   KeyBinding('Space', 'panel.selection.toggle'),
   KeyBinding('Ins', 'panel.selection.toggle'),
   KeyBinding('Cmd-A', 'panel.selection.all'),
+
+  // Переход к имени по набранному символу. Стоит последней: любая привязка к
+  // конкретной клавише имеет приоритет над «любым символом».
+  const KeyBinding.anyCharacter('panel.goToName', characterParam: GoToNameCommand.characterParam),
 
   // Нижняя панель: подписи кнопок берутся из этих же привязок.
   KeyBinding('F1', 'app.help'),

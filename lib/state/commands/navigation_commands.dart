@@ -1,4 +1,5 @@
 import '../../model/os/system_open.dart';
+import '../../model/tree/fs_node.dart';
 import '../../model/settings/app_settings.dart';
 import 'app_command.dart';
 
@@ -30,6 +31,50 @@ class MoveCursorDownCommand extends AppCommand {
 
   @override
   Future<void> execute() async => context.panel.moveCursor(1);
+}
+
+/// Курсор на первый объект, чьё имя начинается с заданного символа.
+///
+/// Символ приходит параметром, а не из события клавиатуры: команде всё равно,
+/// набрали его на клавиатуре, выбрали в списке команд или подставил сценарий.
+class GoToNameCommand extends AppCommand {
+  /// Символ, с которого начинается имя.
+  static const String characterParam = 'character';
+
+  @override
+  String get id => 'panel.goToName';
+
+  @override
+  String get label => 'Go to name';
+
+  @override
+  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.nodes.isNotEmpty;
+
+  @override
+  Future<void> execute() async {
+    final character = param<String>(characterParam)?.toLowerCase() ?? '';
+    if (character.isEmpty) {
+      return;
+    }
+
+    final panel = context.panel;
+    final nodes = panel.nodes;
+
+    // Поиск идёт от курсора вниз и по кругу: повторное нажатие той же буквы
+    // переходит к следующему такому имени, а не топчется на первом.
+    for (var offset = 1; offset <= nodes.length; offset++) {
+      final index = (panel.cursorIndex + offset) % nodes.length;
+      final node = nodes[index];
+      // «..» — это не имя файла.
+      if (node is ParentDirNode) {
+        continue;
+      }
+      if (node.name.toLowerCase().startsWith(character)) {
+        panel.setCursorIndex(index);
+        return;
+      }
+    }
+  }
 }
 
 /// Курсор на страницу вверх — по числу видимых строк.

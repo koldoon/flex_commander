@@ -21,6 +21,16 @@ class KeyCombination {
   /// поэтому при разборе строки `Cmd-O` там получается `Ctrl-O`.
   final bool cmd;
 
+  /// Особая комбинация «любой печатный символ» — для привязок вроде перехода
+  /// к имени по набранной букве. Настоящей клавиши с таким названием нет:
+  /// [_nameOf] возвращает либо одиночный символ, либо имя из [_specialKeys].
+  static const KeyCombination anyCharacter = KeyCombination('AnyChar');
+
+  /// Печатный символ: буква, цифра, знак. Shift допускается — это тот же
+  /// символ, только заглавный; остальные модификаторы делают из нажатия
+  /// сочетание, а не ввод символа.
+  bool get isCharacter => key.length == 1 && !ctrl && !alt && !cmd;
+
   static bool get _isMacOS => defaultTargetPlatform == TargetPlatform.macOS;
 
   /// Комбинация из события клавиатуры; null, если нажат только модификатор.

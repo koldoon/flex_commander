@@ -12,9 +12,23 @@ import 'key_combination.dart';
 /// (`CommandRegistry`). Так их можно будет менять из настроек, не трогая код
 /// команд, а сами команды остаются самостоятельными действиями.
 class KeyBinding {
-  KeyBinding(String keys, this.commandId, {this.nameMatch}) : keys = KeyCombination.parse(keys);
+  KeyBinding(String keys, this.commandId, {this.nameMatch, this.parameters = const {}})
+    : keys = KeyCombination.parse(keys),
+      characterParam = null;
 
-  const KeyBinding.combination(this.keys, this.commandId, {this.nameMatch});
+  const KeyBinding.combination(this.keys, this.commandId, {this.nameMatch, this.parameters = const {}})
+    : characterParam = null;
+
+  /// Привязка к любому печатному символу: набранный символ приходит команде
+  /// параметром [characterParam].
+  ///
+  /// Так переход к имени по первой букве обходится одной привязкой вместо
+  /// сорока — по одной на каждую клавишу. Команда при этом по-прежнему не знает,
+  /// чем её вызвали: символ для неё — обычный параметр, и точно так же его
+  /// задаст список команд или сценарий.
+  const KeyBinding.anyCharacter(this.commandId, {this.characterParam = 'character', this.parameters = const {}})
+    : keys = KeyCombination.anyCharacter,
+      nameMatch = null;
 
   final KeyCombination keys;
 
@@ -28,12 +42,34 @@ class KeyBinding {
   /// а не данные для неё.
   final RegExp? nameMatch;
 
+  /// Значения, с которыми команда выполняется по этой привязке. Позволяет
+  /// повесить одну команду на разные клавиши с разными значениями — приём
+  /// референса (`BindingProperties.setParams`).
+  final Map<String, Object?> parameters;
+
+  /// Имя параметра, в который кладётся набранный символ; null у обычных
+  /// привязок.
+  final String? characterParam;
+
   bool matches(KeyCombination combination, FsNode? node) {
-    if (combination != keys) {
+    if (keys == KeyCombination.anyCharacter) {
+      if (!combination.isCharacter) {
+        return false;
+      }
+    } else if (combination != keys) {
       return false;
     }
     final pattern = nameMatch;
     return pattern == null || (node != null && pattern.hasMatch(node.name));
+  }
+
+  /// Значения для запуска по этой комбинации.
+  Map<String, Object?> parametersFor(KeyCombination combination) {
+    final name = characterParam;
+    if (name == null) {
+      return parameters;
+    }
+    return {...parameters, name: combination.key};
   }
 
   @override
