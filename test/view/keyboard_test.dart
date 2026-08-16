@@ -6,7 +6,6 @@ import 'package:flex_commander/model/settings/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/state/commands/command_registry.dart';
 import 'package:flex_commander/state/commands/default_commands.dart';
-import 'package:flex_commander/state/commands/navigation_commands.dart';
 import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flex_commander/view/function_bar/function_button.dart';
 import 'package:flutter/material.dart';
@@ -42,11 +41,9 @@ void main() {
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home/docs'));
     // Команды подменяются, а привязки остаются штатными: они ссылаются на
     // команды по идентификатору, поэтому подмена реализации их не касается.
-    final commands = CommandRegistry([
-      ...defaultCommands().where((command) => command.id != 'panel.open' && command.id != 'panel.openWithSystem'),
-      OpenNodeCommand(opener: (path) async => opened.add(path)),
-      OpenWithSystemCommand(opener: (path) async => opened.add(path)),
-    ], defaultKeyBindings());
+    // Открытие системой подменяется записью в список: команды создаются
+    // фабриками, поэтому подставить свою реализацию — это подставить фабрику.
+    final commands = CommandRegistry(defaultCommands(opener: (path) async => opened.add(path)), defaultKeyBindings());
     app = AppController(
       left: PanelController(provider: provider, settings: settings.left),
       right: PanelController(provider: provider, settings: settings.right),
@@ -67,7 +64,7 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(FlexCommanderApp(controller: app, navigatorKey: GlobalKey<NavigatorState>()));
+    await tester.pumpWidget(FlexCommanderApp(controller: app));
     await app.start();
     await tester.pumpAndSettle();
   }

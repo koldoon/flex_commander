@@ -2,7 +2,6 @@ import 'package:dicom/dicom.dart';
 import 'package:logecom/logecom.dart';
 
 import 'model/app/application.dart';
-import 'model/app/user_interaction.dart';
 import 'model/os/plugin_window_service.dart';
 import 'model/os/system_open.dart';
 import 'model/os/window_service.dart';
@@ -14,7 +13,6 @@ import 'state/app_controller.dart';
 import 'state/commands/command_registry.dart';
 import 'state/commands/default_commands.dart';
 import 'state/panel_controller.dart';
-import 'view/dialogs/dialog_user_interaction.dart';
 
 /// Контекст приложения: что от чего зависит и в каком порядке создаётся.
 ///
@@ -26,7 +24,7 @@ import 'view/dialogs/dialog_user_interaction.dart';
 /// Подменяются зависимости параметрами конструктора: повторная привязка того же
 /// типа в контейнере не заменяет прежнюю, а добавляется к ней.
 class AppContext extends DI {
-  AppContext({TreeProvider? provider, SettingsStore? store, WindowService? window, UserInteraction? dialogs}) {
+  AppContext({TreeProvider? provider, SettingsStore? store, WindowService? window}) {
     // Логгер с категорией по имени класса, который его запросил: контейнер
     // знает текущее дерево зависимостей, а предпоследний его элемент — как раз
     // потребитель логгера.
@@ -35,11 +33,6 @@ class AppContext extends DI {
     bind<TreeProvider>(to: (c) => provider ?? LocalTreeProvider());
     bind<WindowService>(to: (c) => window ?? PluginWindowService());
     bind<SystemOpener>(to: (c) => openWithSystem);
-
-    // Диалоги нужны и как интерфейс — командам, и как реализация — окну,
-    // которому нужен ключ навигатора.
-    bind<DialogUserInteraction>(to: (c) => DialogUserInteraction());
-    bind<UserInteraction>(to: (c) => dialogs ?? c.get<DialogUserInteraction>());
 
     bind<SettingsStore>(
       to: (c) {
@@ -79,7 +72,6 @@ class AppContext extends DI {
           settings: settings,
           commands: c.get<CommandRegistry>(),
           window: c.get<WindowService>(),
-          dialogs: c.get<UserInteraction>(),
         );
       },
     );
@@ -90,13 +82,8 @@ class AppContext extends DI {
   /// Настройки читаются с диска, а фабрики контейнера синхронные, поэтому
   /// готовое значение связывается уже после чтения — до первого обращения
   /// к [AppController] оно всё равно никому не нужно.
-  static Future<AppContext> init({
-    TreeProvider? provider,
-    SettingsStore? store,
-    WindowService? window,
-    UserInteraction? dialogs,
-  }) async {
-    final context = AppContext(provider: provider, store: store, window: window, dialogs: dialogs);
+  static Future<AppContext> init({TreeProvider? provider, SettingsStore? store, WindowService? window}) async {
+    final context = AppContext(provider: provider, store: store, window: window);
     final settings = await context.get<SettingsStore>().load();
     context.bind<AppSettings>(to: (c) => settings);
 

@@ -8,7 +8,6 @@ import 'app.dart';
 import 'app_context.dart';
 import 'model/os/plugin_window_service.dart';
 import 'state/app_controller.dart';
-import 'view/dialogs/dialog_user_interaction.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,9 +18,8 @@ Future<void> main() async {
   // Все службы создаёт контейнер: здесь только точка сборки.
   final context = await AppContext.init();
   final controller = context.get<AppController>();
-  final dialogs = context.get<DialogUserInteraction>();
 
-  runApp(FlexCommanderApp(controller: controller, navigatorKey: dialogs.navigatorKey));
+  runApp(FlexCommanderApp(controller: controller));
 
   // Окно и каталоги восстанавливаются уже после первого кадра: окно
   // показывается сразу с сохранёнными размерами, а панели заполняются
