@@ -225,46 +225,85 @@ class LocalTreeProvider implements TreeProvider, TreeEditor {
   @override
   AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true}) {
     return TaskOperation<void>((op) async {
+      // Путь самого объекта: удалять нужно ссылку, а не её цель.
+      final sources = [for (final node in nodes) entityPathOf(node)];
+      final progress = TransferProgress(op, 'Deleting');
+
+      // Считаем рядом с работой, а не перед ней: см. TransferProgress.
+      unawaited(_countSources(sources, progress));
+
       var skipAll = false;
 
-      for (var i = 0; i < nodes.length; i++) {
-        op.checkCanceled();
+      try {
+        for (var i = 0; i < nodes.length; i++) {
+          op.checkCanceled();
 
-        final node = nodes[i];
-        // Путь самого объекта: удалять нужно ссылку, а не её цель.
-        final path = entityPathOf(node);
-        op.report(OperationProgress(percent: i / nodes.length, message: 'Deleting ${node.name}…'));
+          final node = nodes[i];
+          final path = sources[i];
+          progress.startSource(node.name);
 
-        try {
-          if (toTrash) {
-            await _moveToTrash(path);
-          } else {
-            await _deletePermanently(path);
-          }
-        } on FsError catch (error) {
-          if (skipAll) {
-            continue;
-          }
+          try {
+            if (toTrash) {
+              // Корзина — это переименование: поддерево уезжает одним действием,
+              // поштучно его объекты не проходят.
+              await _moveToTrash(path);
+              progress.sourceDoneWholly(i);
+            } else {
+              await _deleteTree(path, op, progress);
+            }
+          } on FsError catch (error) {
+            progress.sourceDoneWholly(i);
+            if (skipAll) {
+              continue;
+            }
 
-          final answer = await op.ask(
-            OperationRequest(
-              message: error.message,
-              options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
-              defaultOption: OperationOption.skip,
-            ),
-          );
+            final answer = await op.ask(
+              OperationRequest(
+                message: error.message,
+                options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
+                defaultOption: OperationOption.skip,
+              ),
+            );
 
-          if (answer == OperationOption.cancel) {
-            throw const OperationCanceled();
+            if (answer == OperationOption.cancel) {
+              throw const OperationCanceled();
+            }
+            if (answer == OperationOption.skipAll) {
+              skipAll = true;
+            }
           }
-          if (answer == OperationOption.skipAll) {
-            skipAll = true;
-          }
+        }
+      } finally {
+        progress.stop();
+      }
+
+      progress.finish();
+    });
+  }
+
+  /// Удаляет объект вместе со всем, что под ним, отмечая каждый шаг.
+  ///
+  /// Каталог обходится сам, а не отдаётся системе целиком: иначе об удалении
+  /// тысячи файлов было бы известно только «начали» и «кончили», а прервать его
+  /// было бы негде. Содержимое каталога сначала вычитывается целиком: удалять
+  /// объекты, продолжая читать тот же каталог, — верный способ что-нибудь
+  /// пропустить.
+  Future<void> _deleteTree(String path, TaskOperation<void> op, TransferProgress progress) async {
+    op.checkCanceled();
+
+    try {
+      final entity = _entityAt(path);
+      if (entity is Directory) {
+        for (final child in await entity.list(followLinks: false).toList()) {
+          await _deleteTree(child.path, op, progress);
         }
       }
 
-      op.report(const OperationProgress(percent: 1, message: 'Done'));
-    });
+      progress.advance(p.basename(path));
+      await entity.delete();
+    } on FileSystemException catch (error) {
+      throw fsErrorFrom(path, error);
+    }
   }
 
   /// Переносит объект в корзину пользователя.
