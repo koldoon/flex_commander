@@ -210,6 +210,15 @@ void main() {
       expect(app.left.directory?.pathString, '/home');
     });
 
+    testWidgets('Cmd-/ уводит в корень из любого каталога', (tester) async {
+      await pumpApp(tester);
+      expect(app.left.directory?.pathString, '/home');
+
+      await press(tester, LogicalKeyboardKey.slash, modifiers: [commandKey]);
+
+      expect(app.left.directory, provider.rootDirectory);
+    });
+
     testWidgets('Backspace поднимает наверх и ставит курсор на покинутый каталог', (tester) async {
       await pumpApp(tester);
       app.left.setCursorToName('docs');
