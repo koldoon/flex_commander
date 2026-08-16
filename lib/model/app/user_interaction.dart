@@ -1,3 +1,5 @@
+import '../async/operation_request.dart';
+
 /// Взаимодействие с пользователем: вопросы, подтверждения и сообщения.
 ///
 /// Команды спрашивают через этот интерфейс и ничего не знают о виджетах —
@@ -17,6 +19,17 @@ abstract interface class UserInteraction {
 
   /// Сообщение об ошибке.
   Future<void> showError({required String title, String? message});
+
+  /// Выбор одного из вариантов — этим отвечают на [OperationRequest],
+  /// который длительная операция задаёт по ходу работы: перезаписать,
+  /// пропустить, пропустить все, отменить.
+  ///
+  /// null — пользователь закрыл вопрос, не выбрав ничего.
+  Future<OperationOption?> chooseOption({
+    required String title,
+    String? message,
+    required List<OperationOption> options,
+  });
 }
 
 /// Молчаливая реализация: ничего не спрашивает и ничего не показывает.
@@ -39,4 +52,11 @@ class SilentUserInteraction implements UserInteraction {
 
   @override
   Future<void> showError({required String title, String? message}) async {}
+
+  @override
+  Future<OperationOption?> chooseOption({
+    required String title,
+    String? message,
+    required List<OperationOption> options,
+  }) async => null;
 }

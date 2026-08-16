@@ -62,9 +62,13 @@ abstract class AsyncOperation<T> {
 /// изоляте. Тело операции получает саму операцию, чтобы сообщать прогресс,
 /// задавать вопросы и проверять отмену.
 class TaskOperation<T> implements AsyncOperation<T> {
-  /// Создаёт и сразу запускает операцию.
+  /// Создаёт и запускает операцию.
+  ///
+  /// Тело стартует не мгновенно, а следующим шагом цикла событий: вызывающий
+  /// код должен успеть подписаться на прогресс и на вопросы, а он делает это
+  /// строкой ниже. Иначе первые события — и первый вопрос — прошли бы мимо.
   TaskOperation(this._body) {
-    _run();
+    scheduleMicrotask(_run);
   }
 
   final Future<T> Function(TaskOperation<T> op) _body;
@@ -81,8 +85,21 @@ class TaskOperation<T> implements AsyncOperation<T> {
   @override
   Future<T> get result => _completer.future;
 
+  OperationProgress? _lastProgress;
+
+  /// Прогресс операции.
+  ///
+  /// Новый подписчик первым делом получает последнее известное состояние:
+  /// операция стартует сразу при создании, и тот, кто подписался следующей
+  /// строкой, иначе пропустил бы уже случившееся.
   @override
-  Stream<OperationProgress> get progress => _progress.stream;
+  Stream<OperationProgress> get progress async* {
+    final last = _lastProgress;
+    if (last != null) {
+      yield last;
+    }
+    yield* _progress.stream;
+  }
 
   @override
   Stream<OperationRequest> get requests => _requests.stream;
@@ -98,6 +115,7 @@ class TaskOperation<T> implements AsyncOperation<T> {
   }
 
   void report(OperationProgress value) {
+    _lastProgress = value;
     if (!_progress.isClosed) {
       _progress.add(value);
     }
@@ -126,6 +144,10 @@ class TaskOperation<T> implements AsyncOperation<T> {
   }
 
   Future<void> _run() async {
+    if (isCanceled) {
+      // Отменили ещё до старта.
+      return;
+    }
     _status = OperationStatus.processing;
     try {
       final value = await _body(this);

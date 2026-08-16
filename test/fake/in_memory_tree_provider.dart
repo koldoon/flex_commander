@@ -1,4 +1,5 @@
 import 'package:flex_commander/model/async/async_operation.dart';
+import 'package:flex_commander/model/async/operation_request.dart';
 import 'package:flex_commander/model/tree/file_attributes.dart';
 import 'package:flex_commander/model/tree/file_type.dart';
 import 'package:flex_commander/model/tree/fs_node.dart';
@@ -197,8 +198,42 @@ class InMemoryTreeProvider implements TreeProvider, TreeEditor {
   @override
   TransferOperation move() => throw UnimplementedError();
 
+  /// Удаление в памяти: повторяет поведение настоящего провайдера — пропущенный
+  /// объект не прекращает работу, а вопрос задаётся тем же способом.
   @override
-  AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true}) => throw UnimplementedError();
+  AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true}) {
+    return TaskOperation<void>((op) async {
+      var skipAll = false;
+
+      for (final node in nodes) {
+        op.checkCanceled();
+        final path = p.normalize(physicalPathOf(node));
+
+        if (_entries.containsKey(path)) {
+          // Каталог удаляется вместе с содержимым.
+          _entries.removeWhere((key, _) => key == path || key.startsWith('$path/'));
+          continue;
+        }
+
+        if (skipAll) {
+          continue;
+        }
+        final answer = await op.ask(
+          OperationRequest(
+            message: FsError(path, FsErrorKind.notFound).message,
+            options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
+            defaultOption: OperationOption.skip,
+          ),
+        );
+        if (answer == OperationOption.cancel) {
+          throw const OperationCanceled();
+        }
+        if (answer == OperationOption.skipAll) {
+          skipAll = true;
+        }
+      }
+    });
+  }
 
   FsNode _nodeFrom(FakeEntry entry, FsNode parent) {
     const attributes = FileAttributes(mode: 0x1FF, modeString: 'rwxrwxrwx');

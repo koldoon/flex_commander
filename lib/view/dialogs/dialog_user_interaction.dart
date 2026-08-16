@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:logecom/logecom.dart';
 
 import '../../model/app/user_interaction.dart';
+import '../../model/async/operation_request.dart';
 import '../theme/app_theme.dart';
 
 /// Диалоги приложения — реализация [UserInteraction] поверх Flutter.
@@ -60,6 +61,23 @@ class DialogUserInteraction implements UserInteraction {
           (context) => _MessageDialog(title: title, message: message, confirmLabel: confirmLabel, showCancel: true),
     );
     return result ?? false;
+  }
+
+  @override
+  Future<OperationOption?> chooseOption({
+    required String title,
+    String? message,
+    required List<OperationOption> options,
+  }) async {
+    final context = _context;
+    if (context == null) {
+      return null;
+    }
+
+    return showDialog<OperationOption>(
+      context: context,
+      builder: (context) => _OptionsDialog(title: title, message: message, options: options),
+    );
   }
 
   @override
@@ -125,6 +143,33 @@ class _TextPromptDialogState extends State<_TextPromptDialog> {
       actions: [
         TextButton(onPressed: () => Navigator.of(context).pop(), child: const Text('Cancel')),
         FilledButton(onPressed: _submit, child: Text(widget.confirmLabel)),
+      ],
+    );
+  }
+}
+
+/// Вопрос по ходу операции: столько кнопок, сколько вариантов ответа.
+class _OptionsDialog extends StatelessWidget {
+  const _OptionsDialog({required this.title, required this.options, this.message});
+
+  final String title;
+  final String? message;
+  final List<OperationOption> options;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FcTheme.of(context);
+    final message = this.message;
+
+    return AlertDialog(
+      title: Text(title, style: theme.headerStyle.copyWith(fontSize: theme.metrics.fontSize + 2)),
+      content: message == null ? null : SizedBox(width: 360, child: Text(message, style: theme.rowStyle)),
+      actions: [
+        for (final option in options)
+          if (option == options.last)
+            FilledButton(autofocus: true, onPressed: () => Navigator.of(context).pop(option), child: Text(option.label))
+          else
+            TextButton(onPressed: () => Navigator.of(context).pop(option), child: Text(option.label)),
       ],
     );
   }

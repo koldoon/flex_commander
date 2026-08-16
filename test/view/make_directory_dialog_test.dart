@@ -137,4 +137,64 @@ void main() {
 
     expect(find.text('Create directory'), findsOneWidget);
   });
+
+  group('удаление', () {
+    testWidgets('спрашивает подтверждение и удаляет', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('Move «notes.txt» to Trash?'), findsOneWidget);
+
+      // В диалоге кнопка подтверждения называется так же, как команда.
+      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await tester.pumpAndSettle();
+      // Удаление асинхронное: подтверждение, операция, перечитывание панели.
+      for (var i = 0; i < 4; i++) {
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+
+      expect(app.left.nodes.map((n) => n.name), isNot(contains('notes.txt')));
+    });
+
+    testWidgets('отказ оставляет объект на месте', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(app.left.nodes.map((n) => n.name), contains('notes.txt'));
+    });
+
+    testWidgets('ошибка предлагает пропустить, пропустить все или отменить', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+      // Объект исчез уже после того, как панель его показала.
+      provider.removeEntry('/home/notes.txt');
+
+      await tester.tap(find.text('Delete'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cannot delete'), findsOneWidget);
+      expect(find.text('Skip'), findsOneWidget);
+      expect(find.text('Skip all'), findsOneWidget);
+      expect(find.text('Cancel'), findsOneWidget);
+
+      await tester.tap(find.text('Skip'));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 20));
+
+      expect(find.text('Cannot delete'), findsNothing);
+    });
+  });
 }
