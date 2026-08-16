@@ -210,19 +210,7 @@ class InMemoryTreeProvider implements TreeProvider, TreeEditor {
       var skipAll = false;
 
       final sources = [for (final node in nodes) p.normalize(physicalPathOf(node))];
-      // В памяти подсчёт мгновенный, но проходит теми же шагами, что и на диске:
-      // счётчики в окне команды должны заполняться так же.
-      for (var i = 0; i < sources.length; i++) {
-        var counted = 0;
-        for (final key in _entries.keys) {
-          if (key == sources[i] || key.startsWith('${sources[i]}/')) {
-            counted++;
-            progress.countOne();
-          }
-        }
-        progress.sourceCounted(i, counted);
-      }
-      progress.countingFinished();
+      _count(sources, progress);
 
       for (var i = 0; i < nodes.length; i++) {
         op.checkCanceled();
@@ -326,22 +314,37 @@ class InMemoryTreeProvider implements TreeProvider, TreeEditor {
   };
 
   /// Удаление в памяти: повторяет поведение настоящего провайдера — пропущенный
-  /// объект не прекращает работу, а вопрос задаётся тем же способом.
+  /// объект не прекращает работу, вопрос задаётся тем же способом, счётчики
+  /// заполняются так же.
   @override
   AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true}) {
     return TaskOperation<void>((op) async {
+      final sources = [for (final node in nodes) p.normalize(physicalPathOf(node))];
+      final progress = TransferProgress(op, 'Deleting');
+      _count(sources, progress);
+
       var skipAll = false;
 
-      for (final node in nodes) {
+      for (var i = 0; i < nodes.length; i++) {
         op.checkCanceled();
-        final path = p.normalize(physicalPathOf(node));
+        final path = sources[i];
+        progress.startSource(nodes[i].name);
 
         if (_entries.containsKey(path)) {
+          if (toTrash) {
+            // Корзина — это переименование: поддерево уезжает одним действием.
+            progress.sourceDoneWholly(i);
+          } else {
+            for (final key in _subtreeOf(path)) {
+              progress.advance(p.basename(key));
+            }
+          }
           // Каталог удаляется вместе с содержимым.
-          _entries.removeWhere((key, _) => key == path || key.startsWith('$path/'));
+          _removeTree(path);
           continue;
         }
 
+        progress.sourceDoneWholly(i);
         if (skipAll) {
           continue;
         }
@@ -353,8 +356,31 @@ class InMemoryTreeProvider implements TreeProvider, TreeEditor {
           skipAll = true;
         }
       }
+
+      progress.stop();
+      progress.finish();
     });
   }
+
+  /// Подсчёт объектов задания. В памяти он мгновенный, но проходит теми же
+  /// шагами, что и на диске: счётчики в окне команды должны заполняться так же.
+  void _count(List<String> sources, TransferProgress progress) {
+    for (var i = 0; i < sources.length; i++) {
+      var counted = 0;
+      for (final _ in _subtreeOf(sources[i])) {
+        counted++;
+        progress.countOne();
+      }
+      progress.sourceCounted(i, counted);
+    }
+    progress.countingFinished();
+  }
+
+  /// Пути объекта и всего, что под ним.
+  List<String> _subtreeOf(String path) => [
+    for (final key in _entries.keys)
+      if (key == path || key.startsWith('$path/')) key,
+  ];
 
   FsNode _nodeFrom(FakeEntry entry, FsNode parent) {
     const attributes = FileAttributes(mode: 0x1FF, modeString: 'rwxrwxrwx');

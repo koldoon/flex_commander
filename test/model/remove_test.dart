@@ -125,6 +125,36 @@ void main() {
       expect(progress, contains('Deleting notes.txt…'));
       expect(progress.last, 'Done');
     });
+
+    test('счётчик проходит по всему содержимому каталога', () async {
+      final nodes = await listRoot();
+      final operation = provider.remove([nodes['docs']!], toTrash: false);
+      final reports = <OperationProgress>[];
+      operation.progress.listen(reports.add);
+
+      await operation.result;
+      await Future<void>.delayed(Duration.zero);
+
+      // Каталог и файл внутри: удаление большого дерева не стоит на нуле.
+      expect(reports.map((event) => event.processed).toSet().length, greaterThan(1));
+      expect(reports.any((event) => event.message.contains('readme.md')), isTrue);
+      expect(reports.last.percent, 1);
+      expect(reports.last.processed, 2);
+    });
+
+    test('удаление в корзину доводит счётчик до конца одним действием', () async {
+      final nodes = await listRoot();
+      final operation = provider.remove([nodes['docs']!]);
+      final reports = <OperationProgress>[];
+      operation.progress.listen(reports.add);
+
+      await operation.result;
+      await Future<void>.delayed(Duration.zero);
+
+      // Корзина — это переименование: поштучно объекты не проходили.
+      expect(reports.last.percent, 1);
+      expect(reports.last.processed, reports.last.total);
+    });
   });
 
   group('ошибки', () {
