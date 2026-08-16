@@ -1,4 +1,5 @@
 import 'package:flex_commander/model/app/user_interaction.dart';
+import 'package:flex_commander/model/async/operation_request.dart';
 
 /// Диалоги в памяти: запоминают, о чём спросили, и отвечают заранее заданным.
 class FakeUserInteraction implements UserInteraction {
@@ -34,5 +35,20 @@ class FakeUserInteraction implements UserInteraction {
   @override
   Future<void> showError({required String title, String? message}) async {
     errors.add(message == null ? title : '$title: $message');
+  }
+
+  /// Что выбрать в вопросе по ходу операции; null — закрыть, не выбрав.
+  OperationOption? choice;
+
+  final List<String> choices = [];
+
+  @override
+  Future<OperationOption?> chooseOption({
+    required String title,
+    String? message,
+    required List<OperationOption> options,
+  }) async {
+    choices.add(message == null ? title : '$title: $message');
+    return choice;
   }
 }

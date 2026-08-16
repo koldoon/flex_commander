@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../async/async_operation.dart';
+import '../../async/operation_request.dart';
 import '../file_attributes.dart';
 import '../file_type.dart';
 import '../fs_node.dart';
@@ -74,6 +75,20 @@ class LocalTreeProvider implements TreeProvider, TreeEditor {
     }
 
     return _join(segments);
+  }
+
+  /// Настоящий путь **самого объекта**: ссылки выше по цепочке развёрнуты,
+  /// а сам объект — нет.
+  ///
+  /// Именно по нему выполняются операции над объектом: удалять и перемещать
+  /// нужно саму ссылку, а не то, куда она ведёт. [physicalPathOf] для ссылки
+  /// возвращает её цель — это верно для чтения, но не для изменения.
+  String entityPathOf(FsNode node) {
+    final parent = node.parent;
+    if (parent == null) {
+      return physicalPathOf(node);
+    }
+    return p.join(physicalPathOf(parent), node.name);
   }
 
   String _join(List<String> segments) {
@@ -200,17 +215,112 @@ class LocalTreeProvider implements TreeProvider, TreeEditor {
     });
   }
 
-  // Копирование, перемещение и удаление появятся следующими шагами этого
-  // этапа; команды за ними пока не закреплены.
+  /// Удаляет объекты — по одному, с прогрессом и возможностью отмены.
+  ///
+  /// Ошибка на одном объекте не прекращает работу: операция спрашивает, что
+  /// делать (пропустить, пропустить все, отменить), и идёт дальше. Если вопрос
+  /// никто не слушает, применяется вариант по умолчанию — «пропустить».
+  @override
+  AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true}) {
+    return TaskOperation<void>((op) async {
+      var skipAll = false;
+
+      for (var i = 0; i < nodes.length; i++) {
+        op.checkCanceled();
+
+        final node = nodes[i];
+        // Путь самого объекта: удалять нужно ссылку, а не её цель.
+        final path = entityPathOf(node);
+        op.report(OperationProgress(percent: i / nodes.length, message: 'Deleting ${node.name}…'));
+
+        try {
+          if (toTrash) {
+            await _moveToTrash(path);
+          } else {
+            await _deletePermanently(path);
+          }
+        } on FsError catch (error) {
+          if (skipAll) {
+            continue;
+          }
+
+          final answer = await op.ask(
+            OperationRequest(
+              message: error.message,
+              options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
+              defaultOption: OperationOption.skip,
+            ),
+          );
+
+          if (answer == OperationOption.cancel) {
+            throw const OperationCanceled();
+          }
+          if (answer == OperationOption.skipAll) {
+            skipAll = true;
+          }
+        }
+      }
+
+      op.report(const OperationProgress(percent: 1, message: 'Done'));
+    });
+  }
+
+  /// Переносит объект в корзину пользователя.
+  ///
+  /// Перенос, а не удаление: корзина — это каталог `~/.Trash`, и объект должен
+  /// оставаться восстановимым. Имя при совпадении разводится суффиксом, как
+  /// это делает сама система.
+  Future<void> _moveToTrash(String path) async {
+    final trash = Directory(p.join(homePath, '.Trash'));
+    try {
+      if (!await trash.exists()) {
+        await trash.create(recursive: true);
+      }
+
+      var target = p.join(trash.path, p.basename(path));
+      var attempt = 2;
+      while (await FileSystemEntity.type(target, followLinks: false) != FileSystemEntityType.notFound) {
+        target = p.join(trash.path, '${p.basenameWithoutExtension(path)} $attempt${p.extension(path)}');
+        attempt++;
+      }
+
+      await _entityAt(path).rename(target);
+    } on FileSystemException catch (error) {
+      // Перенос между дисками сам по себе невозможен: корзина живёт на диске
+      // пользователя, а объект может быть на другом.
+      throw fsErrorFrom(path, error);
+    }
+  }
+
+  Future<void> _deletePermanently(String path) async {
+    try {
+      final entity = _entityAt(path);
+      if (entity is Directory) {
+        await entity.delete(recursive: true);
+      } else {
+        await entity.delete();
+      }
+    } on FileSystemException catch (error) {
+      throw fsErrorFrom(path, error);
+    }
+  }
+
+  /// Объект по пути без разыменования ссылок: удалять нужно саму ссылку,
+  /// а не то, куда она ведёт.
+  FileSystemEntity _entityAt(String path) {
+    return switch (FileSystemEntity.typeSync(path, followLinks: false)) {
+      FileSystemEntityType.directory => Directory(path),
+      FileSystemEntityType.link => Link(path),
+      _ => File(path),
+    };
+  }
+
+  // Копирование и перемещение появятся следующими шагами этого этапа.
   @override
   TransferOperation copy() => throw UnimplementedError('Копирование ещё не реализовано');
 
   @override
   TransferOperation move() => throw UnimplementedError('Перемещение ещё не реализовано');
-
-  @override
-  AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true}) =>
-      throw UnimplementedError('Удаление ещё не реализовано');
 
   /// Строит узел дерева по сырой записи каталога.
   ///

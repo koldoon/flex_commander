@@ -131,8 +131,8 @@ CommandRegistry.dispatch(combination, app)
 | `F5` | `file.copy` | копировать помеченное в каталог пассивной панели |
 | `F6` | `file.move` | переместить |
 | `F7` | `file.mkdir` | создать каталог — **реализовано** |
-| `F8` | `file.remove` | удалить (в корзину) |
-| `Shift-F8` | `file.remove` (`toTrash: false`) | удалить безвозвратно |
+| `F8`, `Cmd-Backspace` | `file.remove` | удалить в корзину — **реализовано** |
+| `Shift-F8`, `Shift-Cmd-Backspace` | `file.removePermanently` | удалить мимо корзины — **реализовано** |
 | `F3` | `file.view` | просмотр |
 | `F4` | `file.edit` | редактирование |
 | `F2` | `app.menu` | меню приложения |
@@ -210,6 +210,9 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 | `panel.selection.clear` | `Esc` | есть пометка |
 | `panel.selection.all` | `Cmd-A` | список не пуст |
 | `panel.cancel` | `Esc` | панель занята длительной операцией |
+| `file.mkdir` | `F7`, `Shift-Cmd-N` | панель не занята и провайдер умеет писать |
+| `file.remove` | `F8`, `Cmd-Bsp` | выбран объект, отличный от «..» |
+| `file.removePermanently` | `Shift-F8`, `Shift-Cmd-Bsp` | то же |
 | `app.toggleTheme` | — | `Cmd-T` | всегда |
 
 Настройки при выходе сохраняет `AppController.shutdown()`, отдельной команды для
@@ -217,11 +220,12 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 
 ## 5. Статус команд в MVP
 
-Команды `file.copy`, `file.move`, `file.remove`, `file.view`, `file.edit`, `app.menu`,
-`app.help` пока **регистрируются, но не реализованы**: это `PlaceholderCommand`
+Команды `file.copy`, `file.move`, `file.view`, `file.edit`, `app.menu` и `app.help`
+пока **регистрируются, но не реализованы**: это `PlaceholderCommand`
 с `isExecutable() == false`, поэтому их кнопки видны и приглушены.
 
-`file.mkdir` (F7) уже работает — с неё начался этап файловых операций. Это сознательно:
+Уже работают `file.mkdir` (F7) и удаление — `file.remove` (F8) и
+`file.removePermanently` (Shift-F8). Это сознательно:
 нижняя панель выглядит как в макете, а связка «кнопка ↔ команда ↔ клавиша» проверяется
 на этапе 4, а не переписывается на этапе 7.
 

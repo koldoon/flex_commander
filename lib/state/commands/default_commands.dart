@@ -30,6 +30,8 @@ List<AppCommand> defaultCommands({SystemOpener? opener}) => [
 
   // Файловые операции.
   MakeDirectoryCommand(),
+  RemoveCommand(),
+  RemovePermanentlyCommand(),
 
   // Пометка объектов.
   ClearSelectionCommand(),
@@ -44,7 +46,6 @@ List<AppCommand> defaultCommands({SystemOpener? opener}) => [
   PlaceholderCommand(id: 'file.edit', label: 'Edit'),
   PlaceholderCommand(id: 'file.copy', label: 'Copy'),
   PlaceholderCommand(id: 'file.move', label: 'Move'),
-  PlaceholderCommand(id: 'file.remove', label: 'Delete'),
 ];
 
 /// Привязки клавиш по умолчанию.
@@ -95,6 +96,11 @@ List<KeyBinding> defaultKeyBindings() => [
   // без настройки клавиатуры.
   KeyBinding('Shift-Cmd-N', 'file.mkdir'),
   KeyBinding('F8', 'file.remove'),
+  KeyBinding('Shift-F8', 'file.removePermanently'),
+  // F-клавиши на macOS по умолчанию отданы системе, поэтому у удаления есть
+  // и привычные сочетания.
+  KeyBinding('Cmd-Bsp', 'file.remove'),
+  KeyBinding('Shift-Cmd-Bsp', 'file.removePermanently'),
 ];
 
 CommandRegistry defaultCommandRegistry({SystemOpener? opener}) =>
