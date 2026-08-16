@@ -18,8 +18,6 @@ class MakeDirectoryCommand extends AppCommand {
   static const String nameParam = 'name';
 
   final TextEditingController _name = TextEditingController();
-  String? _error;
-  bool _working = false;
 
   @override
   String get id => 'file.mkdir';
@@ -64,42 +62,22 @@ class MakeDirectoryCommand extends AppCommand {
       listenable: this,
       builder:
           (context, _) => CommandDialogForm(
-            error: _error,
-            busy: _working,
-            onCancel: closeDialog,
-            onSubmit: _submit,
+            error: error,
+            onCancel: dismiss,
+            onSubmit: submit,
             submitLabel: 'Create',
             child: TextField(
               controller: _name,
               autofocus: true,
               decoration: const InputDecoration(hintText: 'Directory name', isDense: true),
-              onSubmitted: (_) => _submit(),
+              // Имя задаётся по мере ввода, а не при подтверждении: Enter
+              // обрабатывает ядро, и к моменту execute параметр уже должен быть
+              // на месте.
+              onChanged: (value) => setParam(nameParam, value),
+              onSubmitted: (_) => submit(),
             ),
           ),
     );
-  }
-
-  /// Кнопка окна: задать параметр и выполнить — ровно то же самое сделал бы
-  /// сценарий или командная строка.
-  Future<void> _submit() async {
-    if (_working || _name.text.trim().isEmpty) {
-      return;
-    }
-
-    setParam(nameParam, _name.text);
-    _working = true;
-    _error = null;
-    notifyListeners();
-
-    try {
-      await execute();
-      closeDialog();
-    } on FsError catch (error) {
-      // Ошибка не закрывает окно: имя можно исправить и попробовать снова.
-      _error = error.message;
-      _working = false;
-      notifyListeners();
-    }
   }
 
   @override
@@ -154,7 +132,6 @@ abstract class RemoveCommandBase extends AppCommand implements AsyncCommand {
   bool _running = false;
   double? _progressValue;
   String _message = '';
-  String? _error;
 
   /// Вопрос, на который сейчас ждут ответа: «объект не удалился, что делать?».
   OperationRequest? _question;
@@ -185,7 +162,6 @@ abstract class RemoveCommandBase extends AppCommand implements AsyncCommand {
     }
 
     _running = true;
-    _error = null;
     _message = 'Deleting…';
     notifyListeners();
 
@@ -271,22 +247,22 @@ abstract class RemoveCommandBase extends AppCommand implements AsyncCommand {
         if (_running) {
           return CommandDialogProgress(progress: _progressValue, message: _message, onCancel: cancel);
         }
-        final error = _error;
-        if (error != null) {
+        final failure = error;
+        if (failure != null) {
           return CommandDialogConfirm(
             message: 'Delete failed',
-            error: error,
+            error: failure,
             confirmLabel: 'Close',
-            onCancel: closeDialog,
-            onConfirm: closeDialog,
+            onCancel: dismiss,
+            onConfirm: dismiss,
           );
         }
 
         return CommandDialogConfirm(
           message: _confirmationMessage,
           confirmLabel: toTrash ? 'Delete' : 'Delete permanently',
-          onCancel: closeDialog,
-          onConfirm: _confirm,
+          onCancel: dismiss,
+          onConfirm: submit,
         );
       },
     );
@@ -298,18 +274,11 @@ abstract class RemoveCommandBase extends AppCommand implements AsyncCommand {
     return toTrash ? 'Move $what to Trash?' : 'Delete $what permanently? This cannot be undone.';
   }
 
-  /// Кнопка окна: подтверждение и тот же [execute].
-  Future<void> _confirm() async {
-    try {
-      await execute();
-    } on FsError catch (error) {
-      _error = error.message;
-      notifyListeners();
-      return;
-    }
+  @override
+  Future<void> submit() async {
+    await super.submit();
     if (!_completion.isCompleted) {
       _completion.complete();
     }
-    closeDialog();
   }
 }

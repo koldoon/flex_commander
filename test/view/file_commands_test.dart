@@ -94,15 +94,28 @@ void main() {
       expect(app.left.currentNode?.name, 'docs');
     });
 
-    testWidgets('Enter в поле подтверждает ввод', (tester) async {
+    testWidgets('Enter подтверждает ввод', (tester) async {
+      await pumpApp(tester);
+      await press(tester, LogicalKeyboardKey.f7);
+
+      // Enter обрабатывает ядро: параметр уже задан вводом, а не подтверждением.
+      await tester.enterText(find.byType(TextField), 'docs');
+      await press(tester, LogicalKeyboardKey.enter);
+      await settle(tester);
+
+      expect(namesOf(), contains('docs'));
+    });
+
+    testWidgets('Esc закрывает окно, ничего не создавая', (tester) async {
       await pumpApp(tester);
       await press(tester, LogicalKeyboardKey.f7);
 
       await tester.enterText(find.byType(TextField), 'docs');
-      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await press(tester, LogicalKeyboardKey.escape);
       await settle(tester);
 
-      expect(namesOf(), contains('docs'));
+      expect(find.byType(TextField), findsNothing);
+      expect(namesOf(), isNot(contains('docs')));
     });
 
     testWidgets('отмена ничего не создаёт', (tester) async {
@@ -239,6 +252,35 @@ void main() {
   });
 
   group('окна команд', () {
+    testWidgets('Enter подтверждает и там, где вводить нечего', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await press(tester, LogicalKeyboardKey.f8);
+      expect(find.textContaining('to Trash?'), findsOneWidget);
+
+      // В окне удаления нет поля ввода — фокус на самом окне, и Enter всё равно
+      // доходит до ядра.
+      await press(tester, LogicalKeyboardKey.enter);
+      await settle(tester);
+
+      expect(namesOf(), isNot(contains('notes.txt')));
+    });
+
+    testWidgets('Esc закрывает окно подтверждения', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await press(tester, LogicalKeyboardKey.f8);
+      await press(tester, LogicalKeyboardKey.escape);
+      await settle(tester);
+
+      expect(find.textContaining('to Trash?'), findsNothing);
+      expect(namesOf(), contains('notes.txt'));
+    });
+
     testWidgets('пока окно открыто, панели не отвечают на клавиши', (tester) async {
       await pumpApp(tester);
       final cursor = app.left.cursorIndex;

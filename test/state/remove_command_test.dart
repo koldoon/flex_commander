@@ -114,6 +114,21 @@ void main() {
     expect(command, isA<AsyncCommand>());
   });
 
+  test('пока команда исполняется, подтверждение и отмена не срабатывают', () async {
+    app.left.setCursorToName('notes.txt');
+    final command = remove();
+
+    final running = command.execute();
+    expect(command.isRunning, isTrue);
+
+    // Ядро зовёт эти методы по Enter и Esc — во время работы они молчат.
+    await command.submit();
+    command.dismiss();
+
+    await running;
+    expect(namesOf(), isNot(contains('notes.txt')));
+  });
+
   test('обе команды видны в списке команд', () {
     expect(commands().find('file.remove')?.label, 'Delete');
     expect(commands().find('file.removePermanently')?.label, 'Delete permanently');
