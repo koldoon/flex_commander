@@ -16,6 +16,9 @@ import 'key_combination.dart';
 /// запуска, и если у команды есть окно, реестр держит её в списке открытых,
 /// пока команда сама не попросит закрыть.
 ///
+/// Привязка может нести и значения для команды ([KeyBinding.parameters]): одна
+/// команда с разными значениями на разных клавишах — приём референса.
+///
 /// Порядок привязок задаёт приоритет: специализированные ставятся раньше общих,
 /// поэтому `Esc` во время чтения каталога отменяет операцию, а в остальное
 /// время снимает пометку. Схема повторяет
@@ -89,14 +92,21 @@ class CommandRegistry extends ChangeNotifier {
   /// Сначала ищется выполнимая — та, что действительно запустится по нажатию;
   /// если такой нет, возвращается первая подходящая, чтобы кнопка нижней панели
   /// всё равно показала название и осталась приглушённой.
-  AppCommand? commandFor(KeyCombination combination) {
+  AppCommand? commandFor(KeyCombination combination) => _prototypes[bindingFor(combination)?.commandId];
+
+  /// Привязка, которая сработает по этой комбинации прямо сейчас.
+  ///
+  /// Сначала ищется та, чья команда действительно выполнится; если такой нет,
+  /// возвращается первая подходящая, чтобы кнопка нижней панели всё равно
+  /// показала название и осталась приглушённой.
+  KeyBinding? bindingFor(KeyCombination combination) {
     final app = _app;
     if (app == null) {
       return null;
     }
 
     final node = app.activePanel.currentNode;
-    AppCommand? fallback;
+    KeyBinding? fallback;
 
     for (final binding in _bindings) {
       if (!binding.matches(combination, node)) {
@@ -108,9 +118,9 @@ class CommandRegistry extends ChangeNotifier {
         continue;
       }
       if (command.isExecutable(contextFor(command))) {
-        return command;
+        return binding;
       }
-      fallback ??= command;
+      fallback ??= binding;
     }
     return fallback;
   }
@@ -120,13 +130,13 @@ class CommandRegistry extends ChangeNotifier {
   /// false — ничего не подошло; тогда событие клавиатуры уходит дальше по
   /// дереву Flutter.
   bool dispatch(KeyCombination combination) {
-    final command = commandFor(combination);
-    if (command == null) {
+    final binding = bindingFor(combination);
+    if (binding == null) {
       return false;
     }
     // Кнопка нижней панели дёргает тот же dispatch, поэтому нажатие мышью и
     // нажатие клавиши не могут разойтись.
-    return run(command.id);
+    return run(binding.commandId, parameters: binding.parametersFor(combination));
   }
 
   /// Запускает команду по идентификатору — с клавиатуры, кнопкой, из меню или
@@ -134,7 +144,7 @@ class CommandRegistry extends ChangeNotifier {
   ///
   /// Для работы создаётся новый экземпляр: состояние исполнения принадлежит
   /// запуску, а не команде вообще.
-  bool run(String commandId) {
+  bool run(String commandId, {Map<String, Object?> parameters = const {}}) {
     final app = _app;
     final prototype = _prototypes[commandId];
     if (app == null || prototype == null) {
@@ -153,6 +163,9 @@ class CommandRegistry extends ChangeNotifier {
     if (command == null || !command.isExecutable(command.context)) {
       return false;
     }
+    // Значения проставляются до запуска: окно команды может их изменить, а
+    // если окна нет, команда выполнится ровно с ними.
+    parameters.forEach(command.setParam);
 
     if (command.hasDialog) {
       // У команды есть окно: оно соберёт параметры и вызовет execute само.

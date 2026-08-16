@@ -140,6 +140,36 @@ void main() {
     });
   });
 
+  group('переход к имени', () {
+    testWidgets('буква ставит курсор на имя, которое с неё начинается', (tester) async {
+      await pumpApp(tester);
+
+      await press(tester, LogicalKeyboardKey.keyN);
+
+      expect(app.left.currentNode?.name, 'notes.txt');
+    });
+
+    testWidgets('разные буквы ведут к разным именам', (tester) async {
+      await pumpApp(tester);
+
+      await press(tester, LogicalKeyboardKey.keyD);
+      expect(app.left.currentNode?.name, 'docs');
+
+      await press(tester, LogicalKeyboardKey.keyR);
+      expect(app.left.currentNode?.name, 'report.xlsx');
+    });
+
+    testWidgets('пробел по-прежнему помечает, а не ищет', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await press(tester, LogicalKeyboardKey.space);
+
+      expect(app.left.selection.names, contains('notes.txt'));
+    });
+  });
+
   group('панели', () {
     testWidgets('Tab переключает панель и не уводит фокус на кнопки', (tester) async {
       await pumpApp(tester);
