@@ -315,12 +315,159 @@ class LocalTreeProvider implements TreeProvider, TreeEditor {
     };
   }
 
-  // Копирование и перемещение появятся следующими шагами этого этапа.
   @override
-  TransferOperation copy() => throw UnimplementedError('Копирование ещё не реализовано');
+  AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination) =>
+      _transfer(nodes, destination, move: false);
 
   @override
-  TransferOperation move() => throw UnimplementedError('Перемещение ещё не реализовано');
+  AsyncOperation<void> move(List<FsNode> nodes, DirectoryNode destination) => _transfer(nodes, destination, move: true);
+
+  /// Копирование и перемещение — одна работа с одним отличием в конце:
+  /// перемещение убирает исходный объект.
+  ///
+  /// Существующий объект не перезаписывается молча: операция спрашивает, что
+  /// делать, и запоминает ответы «…все». Ошибка на одном объекте не прекращает
+  /// работу — вопрос задаётся и по ней.
+  AsyncOperation<void> _transfer(List<FsNode> nodes, DirectoryNode destination, {required bool move}) {
+    return TaskOperation<void>((op) async {
+      final targetDir = physicalPathOf(destination);
+      final verb = move ? 'Moving' : 'Copying';
+      var overwriteAll = false;
+      var skipAll = false;
+
+      for (var i = 0; i < nodes.length; i++) {
+        op.checkCanceled();
+
+        final node = nodes[i];
+        final source = entityPathOf(node);
+        final target = p.join(targetDir, node.name);
+        op.report(OperationProgress(percent: i / nodes.length, message: '$verb ${node.name}…'));
+
+        try {
+          if (p.equals(source, target)) {
+            throw FsError(target, FsErrorKind.alreadyExists);
+          }
+          if (_isInside(target, source)) {
+            // Копирование каталога в самого себя не закончилось бы никогда.
+            throw FsError(source, FsErrorKind.targetInsideSource);
+          }
+
+          if (await FileSystemEntity.type(target, followLinks: false) != FileSystemEntityType.notFound) {
+            if (skipAll) {
+              continue;
+            }
+            if (!overwriteAll) {
+              final answer = await op.ask(
+                OperationRequest(
+                  message: 'Already exists: $target',
+                  options: const [
+                    OperationOption.overwrite,
+                    OperationOption.overwriteAll,
+                    OperationOption.skip,
+                    OperationOption.skipAll,
+                    OperationOption.cancel,
+                  ],
+                  // Молча затирать чужие файлы нельзя.
+                  defaultOption: OperationOption.skip,
+                ),
+              );
+
+              if (answer == OperationOption.cancel) {
+                throw const OperationCanceled();
+              }
+              if (answer == OperationOption.skipAll) {
+                skipAll = true;
+                continue;
+              }
+              if (answer == OperationOption.skip) {
+                continue;
+              }
+              if (answer == OperationOption.overwriteAll) {
+                overwriteAll = true;
+              }
+            }
+            await _deletePermanently(target);
+          }
+
+          if (move) {
+            await _moveEntity(source, target, op);
+          } else {
+            await _copyEntity(source, target, op);
+          }
+        } on FsError catch (error) {
+          if (skipAll) {
+            continue;
+          }
+          final answer = await op.ask(
+            OperationRequest(
+              message: error.message,
+              options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
+              defaultOption: OperationOption.skip,
+            ),
+          );
+          if (answer == OperationOption.cancel) {
+            throw const OperationCanceled();
+          }
+          if (answer == OperationOption.skipAll) {
+            skipAll = true;
+          }
+        }
+      }
+
+      op.report(const OperationProgress(percent: 1, message: 'Done'));
+    });
+  }
+
+  /// Перенос: сначала переименование — оно мгновенное. Между дисками так
+  /// нельзя, и тогда объект копируется и удаляется.
+  Future<void> _moveEntity(String source, String target, TaskOperation<void> op) async {
+    try {
+      await _entityAt(source).rename(target);
+      return;
+    } on FileSystemException catch (error) {
+      if (!_isCrossDevice(error)) {
+        throw fsErrorFrom(source, error);
+      }
+    }
+
+    await _copyEntity(source, target, op);
+    await _deletePermanently(source);
+  }
+
+  /// Копирование объекта любого вида. Ссылка копируется как ссылка: то, куда
+  /// она ведёт, остаётся на месте.
+  Future<void> _copyEntity(String source, String target, TaskOperation<void> op) async {
+    op.checkCanceled();
+
+    try {
+      switch (FileSystemEntity.typeSync(source, followLinks: false)) {
+        case FileSystemEntityType.link:
+          await Link(target).create(await Link(source).target());
+        case FileSystemEntityType.directory:
+          await Directory(target).create(recursive: true);
+          await for (final entity in Directory(source).list(followLinks: false)) {
+            await _copyEntity(entity.path, p.join(target, p.basename(entity.path)), op);
+          }
+        default:
+          await File(source).copy(target);
+      }
+    } on FileSystemException catch (error) {
+      throw fsErrorFrom(source, error);
+    }
+  }
+
+  /// Лежит ли [path] внутри [directory].
+  bool _isInside(String path, String directory) {
+    final normalized = p.normalize(directory);
+    return p.isWithin(normalized, p.normalize(path));
+  }
+
+  /// Ошибка «перенос между разными дисками» — единственный случай, когда
+  /// переименование заменяется копированием с удалением.
+  bool _isCrossDevice(FileSystemException error) {
+    final code = error.osError?.errorCode;
+    return Platform.isWindows ? code == 17 : code == 18; // ERROR_NOT_SAME_DEVICE / EXDEV
+  }
 
   /// Строит узел дерева по сырой записи каталога.
   ///

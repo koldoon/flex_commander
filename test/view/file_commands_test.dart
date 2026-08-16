@@ -260,6 +260,138 @@ void main() {
     });
   });
 
+  group('копирование и перенос', () {
+    /// Обе панели в этих тестах показывают один каталог, поэтому приёмник
+    /// задаётся вводом — как это и делает пользователь, когда ему нужно не то,
+    /// что в соседней панели.
+    Future<void> openTransfer(WidgetTester tester, LogicalKeyboardKey key, {String? destination}) async {
+      await press(tester, key);
+      if (destination != null) {
+        await tester.enterText(find.byType(TextField), destination);
+        await tester.pumpAndSettle();
+      }
+    }
+
+    testWidgets('F5 открывает окно с каталогом пассивной панели', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await press(tester, LogicalKeyboardKey.f5);
+
+      expect(find.text('Copy «notes.txt» to:'), findsOneWidget);
+      // Путь уже подставлен: обычно копируют именно в соседнюю панель.
+      expect(tester.widget<TextField>(find.byType(TextField)).controller?.text, '/home');
+    });
+
+    testWidgets('фокус сразу в поле ввода', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await press(tester, LogicalKeyboardKey.f5);
+
+      expect(tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus, isTrue);
+    });
+
+    testWidgets('Enter копирует в указанный каталог', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await openTransfer(tester, LogicalKeyboardKey.f5, destination: '/home/bin');
+      await press(tester, LogicalKeyboardKey.enter);
+      await settle(tester);
+
+      expect(find.byType(TextField), findsNothing);
+      expect(await provider.resolvePath('/home/bin/notes.txt').result, isNotNull);
+      expect(namesOf(), contains('notes.txt'));
+    });
+
+    testWidgets('F6 переносит: в источнике объекта не остаётся', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await openTransfer(tester, LogicalKeyboardKey.f6, destination: '/home/bin');
+      expect(find.text('Move «notes.txt» to:'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FilledButton, 'Move'));
+      await settle(tester);
+
+      expect(namesOf(), isNot(contains('notes.txt')));
+      expect(await provider.resolvePath('/home/bin/notes.txt').result, isNotNull);
+    });
+
+    testWidgets('помеченные объекты видны в заголовке окна', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      app.left.toggleCurrentMark();
+      app.left.toggleCurrentMark();
+      await tester.pump();
+
+      await press(tester, LogicalKeyboardKey.f5);
+
+      expect(find.text('Copy 2 items to:'), findsOneWidget);
+    });
+
+    testWidgets('о занятом имени спрашивают, и «пропустить» ничего не меняет', (tester) async {
+      provider.add(FakeEntry.file('/home/bin/notes.txt', size: 1));
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await openTransfer(tester, LogicalKeyboardKey.f5, destination: '/home/bin');
+      await tester.tap(find.widgetWithText(FilledButton, 'Copy'));
+      await settle(tester);
+
+      expect(find.textContaining('Already exists'), findsOneWidget);
+      expect(find.text('Overwrite'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(TextButton, 'Skip'));
+      await settle(tester);
+
+      expect(find.textContaining('Already exists'), findsNothing);
+    });
+
+    testWidgets('Esc закрывает окно, ничего не копируя', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await openTransfer(tester, LogicalKeyboardKey.f5, destination: '/home/bin');
+      await press(tester, LogicalKeyboardKey.escape);
+      await settle(tester);
+
+      expect(find.byType(TextField), findsNothing);
+      expect(await provider.resolvePath('/home/bin/notes.txt').result, isNull);
+    });
+
+    testWidgets('ошибка в пути показывается в том же окне', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await openTransfer(tester, LogicalKeyboardKey.f5, destination: '/nowhere');
+      await press(tester, LogicalKeyboardKey.enter);
+      await settle(tester);
+
+      expect(find.byType(TextField), findsOneWidget);
+      expect(find.textContaining('Not found'), findsOneWidget);
+    });
+
+    testWidgets('кнопки нижней панели делают то же самое', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await tester.tap(find.text('Copy'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Copy «notes.txt» to:'), findsOneWidget);
+    });
+  });
+
   group('окна команд', () {
     testWidgets('Enter подтверждает и там, где вводить нечего', (tester) async {
       await pumpApp(tester);

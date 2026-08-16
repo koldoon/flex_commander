@@ -216,9 +216,9 @@ abstract interface class TreeProvider {
 /// Изменение дерева. Отдельный интерфейс: провайдер может уметь только читать
 /// (архив, открытый на просмотр), и команда это проверяет через `panel.editor`.
 abstract interface class TreeEditor {
-  TransferOperation copy();
-  TransferOperation move();
-  AsyncOperation<void> remove(List<FsNode> nodes);
+  AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination);
+  AsyncOperation<void> move(List<FsNode> nodes, DirectoryNode destination);
+  AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true});
   AsyncOperation<DirectoryNode> makeDirectory(DirectoryNode parent, String name);
 }
 
@@ -348,21 +348,30 @@ class OperationRequest {
   открытие в этой же панели (поведение референса: `cancelPreviousOperations()`).
 - Результат «отменено» — не ошибка приложения: контроллер просто возвращает панель
   в прежнее состояние.
-- Для MVP достаточно `AsyncOperation` над чтением каталога и разрешением ссылок;
-  `TransferOperation` (копирование/перемещение с очередью узлов, прогрессом по файлу
-  и по очереди) описывается интерфейсом, но реализуется на этапе 7.
+- Пакетные операции (`copy`, `move`, `remove`) — это тот же `AsyncOperation`, а не
+  отдельный вид. В референсе у переноса был свой строитель (`TransferOperation` с
+  `from`/`to`/`nodes`), но здесь операция начинает работу сразу после создания,
+  и настраивать её потом уже нечем: всё, что нужно, передаётся аргументами.
+  Очередь наружу не выставляется — о ходе работы говорит `progress`.
 
-```dart
-/// Пакетная операция над списком узлов (аналог INodesBatchOperation).
-abstract class TransferOperation extends AsyncOperation<void> {
-  TransferOperation from(DirectoryNode source);
-  TransferOperation to(DirectoryNode destination);
-  TransferOperation nodes(List<FsNode> list);
+### Копирование и перенос
 
-  List<FsNode> get queue;
-  int get currentIndex;
-}
-```
+- **Копируется объект, а не то, куда он ведёт.** Ссылка копируется ссылкой: создаётся
+  новая с тем же значением. Пути берутся через `entityPathOf` — `physicalPathOf` для
+  ссылки вернул бы её цель, и перенос ссылки утащил бы за собой чужой каталог.
+- **Каталог переносится вместе с содержимым**, рекурсивно.
+- **Занятое имя — вопрос, а не решение.** `OperationRequest` предлагает перезаписать,
+  перезаписать все, пропустить, пропустить все, отменить; ответ «…все» запоминается
+  на всю операцию. Ответ по умолчанию — «пропустить»: молча затирать чужие файлы нельзя.
+- **Ошибка на одном объекте не прекращает работу** — задаётся тот же вопрос.
+- **Перенос начинается с переименования**: в пределах диска оно мгновенное. Между
+  дисками (`EXDEV`) объект копируется и затем удаляется.
+- **Невозможные задания отсекаются до работы**: копирование каталога внутрь самого
+  себя (`FsErrorKind.targetInsideSource`) не закончилось бы никогда, а копирование
+  «на себя же» бессмысленно.
+- Прогресс считается по объектам задания, а не по байтам: побайтовый прогресс
+  потребовал бы предварительного обхода дерева (в референсе для этого было отдельное
+  окно подготовки) — это отдельная задача.
 
 ## 4. Колонки
 

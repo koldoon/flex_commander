@@ -1,13 +1,10 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 
-import '../../model/async/async_operation.dart';
-import '../../model/async/operation_request.dart';
 import '../../model/tree/fs_node.dart';
 import '../../model/tree/tree_provider.dart';
 import '../../view/dialogs/command_dialog.dart';
 import 'app_command.dart';
+import 'async_command_base.dart';
 
 /// Создание каталога в активной панели.
 ///
@@ -125,23 +122,9 @@ class RemovePermanentlyCommand extends RemoveCommandBase {
 ///
 /// Реализует [AsyncCommand]: прогресс виден и снаружи окна — это задел на
 /// фоновое выполнение, когда операции будут показываться общим списком.
-abstract class RemoveCommandBase extends AppCommand implements AsyncCommand {
+abstract class RemoveCommandBase extends AsyncCommandBase {
   /// Куда девается объект: в корзину или совсем.
   bool get toTrash;
-
-  AsyncOperation<void>? _operation;
-  StreamSubscription<OperationRequest>? _requests;
-  StreamSubscription<OperationProgress>? _progress;
-
-  bool _running = false;
-  double? _progressValue;
-  String _message = '';
-
-  /// Вопрос, на который сейчас ждут ответа: «объект не удалился, что делать?».
-  OperationRequest? _question;
-
-  @override
-  bool get hasDialog => true;
 
   @override
   bool isExecutable(CommandContext context) {
@@ -161,80 +144,18 @@ abstract class RemoveCommandBase extends AppCommand implements AsyncCommand {
     final panel = context.panel;
     final editor = panel.editor;
     final targets = this.targets;
-    if (editor == null || targets.isEmpty || _running) {
+    if (editor == null || targets.isEmpty || isRunning) {
       return;
     }
 
-    _running = true;
-    _message = 'Deleting…';
-    notifyListeners();
-
-    final operation = editor.remove(targets, toTrash: toTrash);
-    _operation = operation;
-
-    // Подписки ставятся сразу: операция начинает работу следующим шагом цикла
-    // событий и до тех пор ничего не теряется.
-    _progress = operation.progress.listen((event) {
-      _progressValue = event.percent;
-      _message = event.message;
-      notifyListeners();
-    });
-    _requests = operation.requests.listen((request) {
-      if (!hasOpenDialog) {
-        // Спросить некого — например, команду запустил сценарий.
-        request.respond(request.defaultOption);
-        return;
-      }
-      _question = request;
-      notifyListeners();
-    });
-
     try {
-      await operation.result;
-    } on OperationCanceled {
-      // Прервано пользователем: удалённое останется удалённым.
+      await runOperation(editor.remove(targets, toTrash: toTrash), message: 'Deleting…');
     } finally {
-      unawaited(_progress?.cancel());
-      unawaited(_requests?.cancel());
-      _running = false;
-      _question = null;
-
       // Часть объектов могла исчезнуть, часть остаться: список в панели больше
       // не совпадает с диском.
       panel.selection.clear();
       await panel.reload();
-      notifyListeners();
     }
-  }
-
-  // --- AsyncCommand ---
-
-  @override
-  double? get progress => _progressValue;
-
-  @override
-  String get progressMessage => _message;
-
-  @override
-  bool get isRunning => _running;
-
-  @override
-  Future<void> get completion => _completion.future;
-  final Completer<void> _completion = Completer<void>();
-
-  @override
-  void cancel() {
-    _operation?.cancel();
-    if (!_running) {
-      closeDialog();
-    }
-  }
-
-  /// Ответ на вопрос, заданный по ходу работы.
-  void answer(OperationOption option) {
-    _question?.respond(option);
-    _question = null;
-    notifyListeners();
   }
 
   // --- окно ---
@@ -244,12 +165,12 @@ abstract class RemoveCommandBase extends AppCommand implements AsyncCommand {
     return ListenableBuilder(
       listenable: this,
       builder: (context, _) {
-        final question = _question;
+        final question = this.question;
         if (question != null) {
           return CommandDialogQuestion(message: question.message, options: question.options, onAnswer: answer);
         }
-        if (_running) {
-          return CommandDialogProgress(progress: _progressValue, message: _message, onCancel: cancel);
+        if (isRunning) {
+          return CommandDialogProgress(progress: progress, message: progressMessage, onCancel: cancel);
         }
         final failure = error;
         if (failure != null) {
@@ -276,13 +197,5 @@ abstract class RemoveCommandBase extends AppCommand implements AsyncCommand {
     final targets = this.targets;
     final what = targets.length == 1 ? '«${targets.single.name}»' : '${targets.length} items';
     return toTrash ? 'Move $what to Trash?' : 'Delete $what permanently? This cannot be undone.';
-  }
-
-  @override
-  Future<void> submit() async {
-    await super.submit();
-    if (!_completion.isCompleted) {
-      _completion.complete();
-    }
   }
 }

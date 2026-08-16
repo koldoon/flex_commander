@@ -2,7 +2,7 @@ import '../async/async_operation.dart';
 import 'fs_node.dart';
 
 /// Вид ошибки доступа к дереву.
-enum FsErrorKind { notFound, permissionDenied, notADirectory, alreadyExists, invalidName, io }
+enum FsErrorKind { notFound, permissionDenied, notADirectory, alreadyExists, invalidName, targetInsideSource, io }
 
 /// Ошибка чтения или изменения дерева.
 class FsError implements Exception {
@@ -18,6 +18,7 @@ class FsError implements Exception {
     FsErrorKind.notADirectory => 'Not a directory: $path',
     FsErrorKind.alreadyExists => 'Already exists: $path',
     FsErrorKind.invalidName => 'Invalid name: $path',
+    FsErrorKind.targetInsideSource => 'Cannot copy a directory into itself: $path',
     FsErrorKind.io => 'I/O error: $path',
   };
 
@@ -60,27 +61,18 @@ abstract interface class TreeProvider {
 /// Отдельный интерфейс: провайдер может уметь только читать (архив, открытый
 /// на просмотр), и команда это проверяет — `provider is TreeEditor`.
 abstract interface class TreeEditor {
-  TransferOperation copy();
+  /// Копирует объекты в каталог.
+  ///
+  /// Существующие объекты не перезаписываются молча: операция спрашивает
+  /// ([OperationRequest]), а если спросить некого — пропускает.
+  AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination);
 
-  TransferOperation move();
+  /// Переносит объекты в каталог.
+  AsyncOperation<void> move(List<FsNode> nodes, DirectoryNode destination);
 
   AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true});
 
   AsyncOperation<DirectoryNode> makeDirectory(DirectoryNode parent, String name);
-}
-
-/// Пакетная операция переноса узлов между каталогами (возможно, разных
-/// провайдеров). Реализуется на этапе файловых операций.
-abstract class TransferOperation implements AsyncOperation<void> {
-  TransferOperation from(DirectoryNode source);
-
-  TransferOperation to(DirectoryNode destination);
-
-  TransferOperation nodes(List<FsNode> list);
-
-  List<FsNode> get queue;
-
-  int get currentIndex;
 }
 
 /// Ссылка на файл локальной ФС — «мост» между разными провайдерами:
