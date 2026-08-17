@@ -56,7 +56,7 @@ void main() {
     });
 
     test('кегль один на всё приложение: `h5` референса', () {
-      const expected = 34 * FcMetrics.scale;
+      const expected = 34 * FcMetrics.fontScale;
       expect(theme.metrics.fontSize, expected);
       for (final style in [theme.uiStyle, theme.rowStyle, theme.headerStyle, theme.pathStyle, theme.buttonStyle]) {
         expect(style.fontSize, expected);
@@ -81,8 +81,15 @@ void main() {
       expect(metrics.rowHeight, 50 * FcMetrics.scale);
       expect(metrics.pathHeaderHeight, 60 * FcMetrics.scale);
       expect(metrics.buttonHeight, 60 * FcMetrics.scale);
-      // Пропорции референса сохранены: строка ровно в полтора кегля.
-      expect(metrics.rowHeight / metrics.fontSize, closeTo(50 / 34, 0.001));
+    });
+
+    test('кегль мельче, чем даёт коэффициент разметки', () {
+      // Замер снимка работающего референса: текст там мельче, чем следует из
+      // отношения 34 к 50 в исходниках. Геометрия при этом совпадает.
+      expect(FcMetrics.fontScale, lessThan(FcMetrics.scale));
+      expect(metrics.fontSize, lessThan(34 * FcMetrics.scale));
+      // Иконка — глиф того же кегля, что и текст.
+      expect(metrics.iconSize, metrics.fontSize);
     });
 
     test('колонка иконки вмещает отступ, глиф и просвет до имени', () {
