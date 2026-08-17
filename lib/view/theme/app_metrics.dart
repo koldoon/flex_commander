@@ -101,8 +101,12 @@ class FcMetrics {
   /// Скругление окна: `radiusX="10"`.
   double get dialogRadius => _ref(10);
 
-  /// Ширина окна: `minWidth="1000"` у диалогов команд.
-  double get dialogWidth => _ref(1000);
+  /// Ширина окна команды: `minWidth="1000" maxWidth="2000"`.
+  ///
+  /// Окно раздаётся по содержимому в этих пределах — прежде всего по ряду
+  /// кнопок, ширина которых зависит от подписей.
+  double get dialogMinWidth => _ref(1000);
+  double get dialogMaxWidth => _ref(2000);
 
   /// Заголовок: `left="20" top="25"`.
   double get dialogTitlePadding => _ref(20);
@@ -121,12 +125,24 @@ class FcMetrics {
   /// Ширина колонки подписей в форме окна.
   double get dialogLabelWidth => _ref(220);
 
+  /// Тень окна: `DropShadowFilter distance="5" blurX="15" blurY="15"`.
+  double get dialogShadowOffset => _ref(5);
+  double get dialogShadowBlur => _ref(15);
+
   // --- кнопка окна команды (RegularButtonSkin) ---
 
   /// `height="60"`, `radiusX="8"`, метка с полями `left="40"`.
   double get buttonHeight => _ref(60);
   double get buttonRadius => _ref(8);
   double get buttonHorizontalPadding => _ref(40);
+
+  /// Тень под кнопкой и под полосой заголовка окна:
+  /// `DropShadowFilter blurY="2" blurX="0" distance="1" angle="90"`.
+  ///
+  /// Как и [strokeWidth], не по [scale]: после уменьшения тень стала бы тоньше
+  /// точки и исчезла бы совсем.
+  double get buttonShadowOffset => 1;
+  double get buttonShadowBlur => 2;
 
   // --- поле ввода (TextInputBorderedSkin) ---
 

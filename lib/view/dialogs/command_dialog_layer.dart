@@ -123,37 +123,51 @@ class _CommandDialogFrameState extends State<_CommandDialogFrame> {
             child: Focus(
               focusNode: _node,
               child: Container(
-                width: metrics.dialogWidth,
+                constraints: BoxConstraints(minWidth: metrics.dialogMinWidth, maxWidth: metrics.dialogMaxWidth),
                 decoration: BoxDecoration(
                   color: colors.dialogBackground,
                   borderRadius: radius,
-                  boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 15, offset: Offset(0, 5))],
+                  boxShadow: [
+                    BoxShadow(
+                      color: colors.shadow,
+                      offset: Offset(0, metrics.dialogShadowOffset),
+                      blurRadius: metrics.dialogShadowBlur,
+                    ),
+                  ],
                 ),
                 // Скруглённые углы обрезают полосу заголовка: в референсе
                 // она для этого закрыта маской.
                 clipBehavior: Clip.antiAlias,
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Container(
-                      width: double.infinity,
-                      padding: EdgeInsets.symmetric(
-                        horizontal: metrics.dialogTitlePadding,
-                        vertical: metrics.dialogTitleVerticalPadding,
-                      ),
-                      decoration: BoxDecoration(color: colors.dialogTitleBackground),
-                      foregroundDecoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomCenter,
-                          end: Alignment.topCenter,
-                          colors: [colors.buttonPressed, const Color(0x00000000)],
+                // Ширина — по содержимому: главным образом по ряду кнопок,
+                // которые в референсе стоят одной строкой и не растягиваются.
+                child: IntrinsicWidth(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Container(
+                        width: double.infinity,
+                        padding: EdgeInsets.symmetric(
+                          horizontal: metrics.dialogTitlePadding,
+                          vertical: metrics.dialogTitleVerticalPadding,
                         ),
+                        decoration: BoxDecoration(
+                          color: colors.dialogTitleBackground,
+                          // Полоса заголовка отбрасывает тень на содержимое —
+                          // тот же фильтр, что у кнопок.
+                          boxShadow: [
+                            BoxShadow(
+                              color: colors.shadow,
+                              offset: Offset(0, metrics.buttonShadowOffset),
+                              blurRadius: metrics.buttonShadowBlur,
+                            ),
+                          ],
+                        ),
+                        child: Text(command.dialogTitle, style: theme.dialogTitleStyle),
                       ),
-                      child: Text(command.dialogTitle, style: theme.dialogTitleStyle),
-                    ),
-                    widget.child,
-                  ],
+                      widget.child,
+                    ],
+                  ),
                 ),
               ),
             ),

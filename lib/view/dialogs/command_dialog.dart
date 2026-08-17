@@ -181,13 +181,14 @@ class CommandDialogBody extends StatelessWidget {
         Container(height: metrics.dialogDividerHeight, color: theme.colors.dialogDivider),
         Padding(
           padding: padding,
-          // Wrap, а не Row: кнопок бывает пять («перезаписать все», «пропустить
-          // все»), и в одну строку они не помещаются.
-          child: Wrap(
-            alignment: WrapAlignment.end,
-            spacing: metrics.dialogGap,
-            runSpacing: metrics.dialogGap,
-            children: actions,
+          // Одна строка, прижатая вправо (`HorizontalLayout horizontalAlign="right"`).
+          // Кнопки не растягиваются: ширина каждой — по её подписи, а окно
+          // раздаётся настолько, чтобы они поместились.
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              for (var i = 0; i < actions.length; i++) ...[if (i > 0) SizedBox(width: metrics.dialogGap), actions[i]],
+            ],
           ),
         ),
       ],
@@ -264,18 +265,17 @@ class _FcButtonState extends State<FcButton> {
               color: widget.primary ? colors.buttonPrimaryBackground : colors.buttonBackground,
               border: Border.all(color: colors.buttonBorder, width: metrics.strokeWidth),
               borderRadius: radius,
+              // Тень под кнопкой: она отделяет её от фона окна.
+              boxShadow: [
+                BoxShadow(
+                  color: colors.shadow,
+                  offset: Offset(0, metrics.buttonShadowOffset),
+                  blurRadius: metrics.buttonShadowBlur,
+                ),
+              ],
             ),
-            foregroundDecoration: BoxDecoration(
-              borderRadius: radius,
-              // Затемнение снизу вверх: `LinearGradient angle="-90"` с
-              // переходом от чёрного 20% к прозрачному.
-              gradient: LinearGradient(
-                begin: Alignment.bottomCenter,
-                end: Alignment.topCenter,
-                colors: [colors.buttonPressed, const Color(0x00000000)],
-              ),
-              color: _pressed ? colors.buttonPressed : null,
-            ),
+            // Заливка ровная, без градиента; затемняется только нажатая кнопка.
+            foregroundDecoration: _pressed ? BoxDecoration(color: colors.buttonPressed, borderRadius: radius) : null,
             child: Text(widget.label, style: theme.buttonStyle),
           ),
         ),
