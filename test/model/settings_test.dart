@@ -22,6 +22,7 @@ void main() {
         right: PanelSettings.defaults('/tmp'),
         activePanel: 1,
         splitRatio: 0.35,
+        sizeScanConcurrency: 4,
       );
 
       final restored = AppSettings.fromJson(jsonDecode(jsonEncode(source.toJson())));
@@ -35,6 +36,7 @@ void main() {
       expect(restored.right.path, '/tmp');
       expect(restored.activePanel, 1);
       expect(restored.splitRatio, 0.35);
+      expect(restored.sizeScanConcurrency, 4);
     });
 
     test('пустой объект даёт умолчания', () {
@@ -44,18 +46,30 @@ void main() {
       expect(settings.right.path, '/home');
       expect(settings.activePanel, 0);
       expect(settings.splitRatio, 0.5);
+      expect(settings.sizeScanConcurrency, AppSettings.defaultSizeScanConcurrency);
     });
 
     test('мусор в значениях заменяется умолчаниями', () {
       final settings = AppSettings.fromJson({
         'activePanel': 'левая',
         'splitRatio': 'половина',
+        'sizeScanConcurrency': 'десять',
         'panels': 'нет',
       }, fallbackPath: '/home');
 
       expect(settings.activePanel, 0);
       expect(settings.splitRatio, 0.5);
+      expect(settings.sizeScanConcurrency, AppSettings.defaultSizeScanConcurrency);
       expect(settings.left.path, '/home');
+    });
+
+    test('размер пула ограничен разумными пределами', () {
+      // Ноль остановил бы подсчёт вовсе, а сотни обходов завалили бы диск.
+      expect(AppSettings.fromJson({'sizeScanConcurrency': 0}).sizeScanConcurrency, AppSettings.minSizeScanConcurrency);
+      expect(
+        AppSettings.fromJson({'sizeScanConcurrency': 1000}).sizeScanConcurrency,
+        AppSettings.maxSizeScanConcurrency,
+      );
     });
 
     test('доля разделителя ограничена разумными пределами', () {

@@ -44,6 +44,30 @@ class _HeldSizeProvider extends InMemoryTreeProvider {
   }
 }
 
+/// Провайдер, который считает, сколько обходов идёт одновременно.
+///
+/// Каждый обход сообщает о себе и ждёт, пока его не отпустят, поэтому предел
+/// пула виден напрямую.
+class _CountingSizeProvider extends InMemoryTreeProvider {
+  _CountingSizeProvider() : super(_entries());
+
+  final Completer<void> release = Completer<void>();
+
+  int running = 0;
+  int peak = 0;
+
+  @override
+  AsyncOperation<int> calculateSize(List<FsNode> nodes) {
+    return TaskOperation<int>((op) async {
+      running++;
+      peak = running > peak ? running : peak;
+      await release.future;
+      running--;
+      return 0;
+    });
+  }
+}
+
 /// Провайдер, у которого подсчёт размера не удаётся вовсе.
 class _FailingSizeProvider extends InMemoryTreeProvider {
   _FailingSizeProvider() : super(_entries());
@@ -83,8 +107,12 @@ void main() {
       (of ?? panel).nodes.whereType<DirectoryNode>().firstWhere((node) => node.name == name);
 
   /// Панель на своём провайдере — для тестов, которым нужен особый обход.
-  Future<PanelController> panelOn(TreeProvider source) async {
-    final it = PanelController(provider: source, settings: PanelSettings.defaults('/home'));
+  Future<PanelController> panelOn(TreeProvider source, {int concurrency = 1}) async {
+    final it = PanelController(
+      provider: source,
+      settings: PanelSettings.defaults('/home'),
+      sizeScanConcurrency: concurrency,
+    );
     addTearDown(it.dispose);
     await it.openPath('/home');
     return it;
@@ -282,6 +310,61 @@ void main() {
 
       // Ноль — это «посчитан», поэтому второй раз в очередь он не встаёт.
       mark('notes.txt');
+      expect(panel.selectionSizeIsFinal, isTrue);
+    });
+  });
+
+  group('пул обхода', () {
+    /// Даёт обходам стартовать, но не завершиться.
+    Future<void> start() async {
+      for (var i = 0; i < 5; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+
+    test('несколько каталогов считаются одновременно', () async {
+      final counting = _CountingSizeProvider();
+      final panel = await panelOn(counting, concurrency: 10);
+
+      for (final name in ['docs', 'bin', 'empty']) {
+        panel.setCursorToName(name);
+        panel.toggleCurrentMark();
+      }
+      await start();
+
+      // Все три сразу: по очереди пришлось бы ждать самый медленный каталог.
+      expect(counting.peak, 3);
+      counting.release.complete();
+    });
+
+    test('размер пула ограничивает число одновременных обходов', () async {
+      final counting = _CountingSizeProvider();
+      final panel = await panelOn(counting, concurrency: 2);
+
+      for (final name in ['docs', 'bin', 'empty']) {
+        panel.setCursorToName(name);
+        panel.toggleCurrentMark();
+      }
+      await start();
+
+      // Третий ждёт в очереди: сотня одновременных обходов завалила бы диск.
+      expect(counting.peak, 2);
+      expect(panel.selectionSizeIsFinal, isFalse);
+      counting.release.complete();
+    });
+
+    test('освободившееся место в пуле занимает следующий из очереди', () async {
+      final panel = await panelOn(InMemoryTreeProvider(_entries()), concurrency: 1);
+
+      for (final name in ['docs', 'bin']) {
+        panel.setCursorToName(name);
+        panel.toggleCurrentMark();
+      }
+      await settle();
+
+      // Пул из одного — это прежняя последовательная очередь, и она доходит
+      // до конца.
+      expect(panel.selectionSize, 700);
       expect(panel.selectionSizeIsFinal, isTrue);
     });
   });

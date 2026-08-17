@@ -522,6 +522,8 @@ class AppSettings {
   final PanelSettings right;
   final int activePanel;       // 0 — левая, 1 — правая
   final double splitRatio;     // доля ширины окна под левой панелью, 0.2…0.8
+  final int sizeScanConcurrency;  // сколько каталогов обходить сразу, считая
+                                  // их размер; 1…64, по умолчанию 10
 
   /// Положение и размер окна; null — окно ещё ни разу не открывали.
   final WindowGeometry? window;
@@ -547,6 +549,7 @@ class WindowGeometry {
   "version": 1,
   "activePanel": 0,
   "splitRatio": 0.5,
+  "sizeScanConcurrency": 10,
   "window": { "left": 120, "top": 80, "width": 900, "height": 640, "maximized": false },
   "panels": [
     {

@@ -47,7 +47,13 @@ class AppContext extends DI {
       },
     );
 
-    bind<PanelControllerFactory>(to: (c) => PanelControllerFactory(provider: c.get<TreeProvider>()));
+    bind<PanelControllerFactory>(
+      to:
+          (c) => PanelControllerFactory(
+            provider: c.get<TreeProvider>(),
+            sizeScanConcurrency: c.get<AppSettings>().sizeScanConcurrency,
+          ),
+    );
 
     bind<CommandRegistry>(
       to: (c) => CommandRegistry(defaultCommands(opener: c.get<SystemOpener>()), defaultKeyBindings()),
