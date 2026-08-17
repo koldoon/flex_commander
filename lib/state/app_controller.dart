@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
+import '../core/serialization.dart';
 import '../model/app/application.dart';
 import '../model/os/window_service.dart';
 import '../model/settings/app_settings.dart';
@@ -216,7 +217,7 @@ class AppController extends ChangeNotifier implements Application {
     _saveTimer = Timer(saveDelay, () => unawaited(save()));
   }
 
-  String _snapshot() => jsonEncode(settings.toJson());
+  String _snapshot() => jsonEncode(serialize(settings));
 
   @override
   void dispose() {

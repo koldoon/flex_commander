@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../core/serialization.dart';
 import 'app_settings.dart';
 
 /// Чтение и запись настроек приложения.
@@ -40,7 +41,12 @@ class SettingsStore {
       if (content.trim().isEmpty) {
         return AppSettings.defaults(fallbackPath);
       }
-      return AppSettings.fromJson(jsonDecode(content), fallbackPath: fallbackPath);
+
+      // Разбор дописывает в готовые умолчания то, что нашлось в файле: чего
+      // в нём нет, остаётся умолчанием само, без проверок в каждом поле.
+      final settings = AppSettings.defaults(fallbackPath);
+      extract(settings, jsonDecode(content));
+      return settings;
     } catch (error) {
       onError?.call(error);
       return AppSettings.defaults(fallbackPath);
@@ -54,7 +60,8 @@ class SettingsStore {
     final temp = File('$filePath.tmp');
     try {
       await file.parent.create(recursive: true);
-      await temp.writeAsString('${const JsonEncoder.withIndent('  ').convert(settings.toJson())}\n', flush: true);
+      final json = const JsonEncoder.withIndent('  ').convert(serialize(settings));
+      await temp.writeAsString('$json\n', flush: true);
       await temp.rename(filePath);
     } catch (error) {
       onError?.call(error);

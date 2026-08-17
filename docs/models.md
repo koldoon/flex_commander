@@ -506,24 +506,45 @@ int Function(FsNode, FsNode) comparatorFor(SortSpec spec);
 
 ## 6. Настройки
 
-```dart
-class PanelSettings {
-  final String path;           // полная строка пути, включая схему провайдера
-  final ColumnLayout columns;
-  final SortSpec sort;
-  final bool showHidden;
+Чтение и запись идут через `core/serialization.dart` — небольшой пакет с интерфейсом
+`Serializable` (`fromMap`/`toMap`) и конверторами (`toInt`, `toDouble`, `toBool`, …).
+Он лежит **ниже всех слоёв**, в `lib/core`, потому что им пользуются модели, а зависеть
+от `lib/state` они не могут.
 
-  Map<String, Object?> toJson();
-  factory PanelSettings.fromJson(Map<String, Object?> json);
+Главное следствие: `fromMap` **дописывает** в готовый объект то, что нашлось в файле, а
+не собирает объект с нуля. Значение по умолчанию задаётся один раз, при создании, и
+в разборе не повторяется; чего в файле нет или что в нём испорчено — остаётся
+умолчанием само. Поэтому поля настроек **изменяемые**, а `SettingsStore` читает так:
+
+```dart
+final settings = AppSettings.defaults(fallbackPath);
+extract(settings, jsonDecode(content));      // дописали то, что в файле
+```
+
+и пишет так: `jsonEncode(serialize(settings))`.
+
+Раскладка колонок и правило сортировки остались **неизменяемыми значениями**:
+`Serializable` устроен вокруг словаря, а колонки хранятся списком, поэтому под этот
+интерфейс они не подходят. Внутри своих `fromJson` они пользуются теми же конверторами.
+
+```dart
+class PanelSettings implements Serializable {
+  String path;                 // полная строка пути, включая схему провайдера
+  ColumnLayout columns;
+  SortSpec sort;
+  bool showHidden;
+
+  void fromMap(Map<String, dynamic> m);
+  void toMap(Map<String, dynamic> m);
 }
 
-class AppSettings {
-  final PanelSettings left;
-  final PanelSettings right;
-  final int activePanel;       // 0 — левая, 1 — правая
-  final double splitRatio;     // доля ширины окна под левой панелью, 0.2…0.8
-  final int sizeScanConcurrency;  // сколько каталогов обходить сразу, считая
-                                  // их размер; 1…64, по умолчанию 10
+class AppSettings implements Serializable {
+  PanelSettings left;
+  PanelSettings right;
+  int activePanel;             // 0 — левая, 1 — правая
+  double splitRatio;           // доля ширины окна под левой панелью, 0.2…0.8
+  int sizeScanConcurrency;     // сколько каталогов обходить сразу, считая
+                              // их размер; 1…64, по умолчанию 10
 
   /// Положение и размер окна; null — окно ещё ни разу не открывали.
   final WindowGeometry? window;

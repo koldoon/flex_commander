@@ -75,7 +75,11 @@ void main() {
   });
 
   test('настройки читаются до сборки приложения', () async {
-    await store.save(AppSettings.defaults('/home').copyWith(splitRatio: 0.3, activePanel: 1));
+    await store.save(
+      AppSettings.defaults('/home')
+        ..splitRatio = 0.3
+        ..activePanel = 1,
+    );
 
     final context = await init();
     final app = context.get<AppController>();

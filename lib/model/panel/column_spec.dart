@@ -1,3 +1,5 @@
+import '../../core/serialization.dart';
+
 /// Идентификатор колонки панели.
 ///
 /// Значения сохраняются в настройках по имени, поэтому переименовывать их
@@ -157,17 +159,17 @@ class ColumnLayout {
       if (item is! Map) {
         continue;
       }
-      final id = FsColumn.byName('${item['id']}');
+      final id = FsColumn.byName(extract('', item['id']));
       final spec = id == null ? null : byId.remove(id);
       if (spec == null) {
         continue;
       }
-      final width = item['width'];
-      final visible = item['visible'];
       restored.add(
         spec.copyWith(
-          width: spec.pinned || width is! num ? null : width.toDouble(),
-          visible: spec.pinned ? true : (visible is bool ? visible : null),
+          // Значения читаются конверторами пакета: чего в файле нет, остаётся
+          // как в умолчаниях.
+          width: spec.pinned ? null : extract(spec.width, item['width']),
+          visible: spec.pinned ? true : extract(spec.visible, item['visible']),
         ),
       );
     }

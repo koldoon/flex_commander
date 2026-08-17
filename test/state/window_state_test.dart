@@ -19,7 +19,7 @@ void main() {
   late AppController app;
 
   const saveDelay = Duration(milliseconds: 10);
-  const geometry = WindowGeometry(left: 120, top: 80, width: 900, height: 640);
+  final geometry = WindowGeometry(left: 120, top: 80, width: 900, height: 640);
 
   setUp(() async {
     provider = InMemoryTreeProvider([FakeEntry.directory('/home'), FakeEntry.file('/home/notes.txt', size: 1)]);
@@ -57,7 +57,7 @@ void main() {
 
   group('восстановление окна', () {
     test('сохранённая геометрия применяется при запуске', () async {
-      build(AppSettings.defaults('/home').copyWith(window: geometry));
+      build(AppSettings.defaults('/home')..window = geometry);
       await app.start();
 
       expect(window.restoreCalled, isTrue);
@@ -86,12 +86,12 @@ void main() {
     });
 
     test('у развёрнутого окна запоминаются размеры до разворота', () async {
-      build(AppSettings.defaults('/home').copyWith(window: geometry));
+      build(AppSettings.defaults('/home')..window = geometry);
       await app.start();
 
       // Разворот приходит с размерами экрана — запоминать их нельзя, иначе
       // после сворачивания окно останется во весь экран.
-      window.moveTo(const WindowGeometry(left: 0, top: 0, width: 2560, height: 1440, maximized: true));
+      window.moveTo(WindowGeometry(left: 0, top: 0, width: 2560, height: 1440, maximized: true));
       await Future<void>.delayed(Duration.zero);
 
       expect(app.windowGeometry, geometry.copyWith(maximized: true));

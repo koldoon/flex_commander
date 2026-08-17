@@ -1,3 +1,4 @@
+import '../../core/serialization.dart';
 import '../tree/fs_node.dart';
 import 'column_spec.dart';
 
@@ -36,14 +37,17 @@ class SortSpec {
       return const SortSpec();
     }
     const fallback = SortSpec();
-    final column = FsColumn.byName('${json['column']}');
-    final foldersFirst = json['foldersFirst'];
+    // Значения читаются конверторами пакета; перечислимые типы он не знает,
+    // поэтому имя колонки и направление сводятся к допустимым здесь.
+    final column = FsColumn.byName(extract('', json['column']));
 
     return SortSpec(
       column: column != null && column.sortable ? column : fallback.column,
       direction:
-          '${json['direction']}' == SortDirection.descending.name ? SortDirection.descending : SortDirection.ascending,
-      foldersFirst: foldersFirst is bool ? foldersFirst : fallback.foldersFirst,
+          extract('', json['direction']) == SortDirection.descending.name
+              ? SortDirection.descending
+              : SortDirection.ascending,
+      foldersFirst: extract(fallback.foldersFirst, json['foldersFirst']),
     );
   }
 
