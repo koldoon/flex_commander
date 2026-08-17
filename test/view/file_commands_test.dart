@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:flex_commander/app.dart';
+import 'package:flex_commander/model/async/async_operation.dart';
 import 'package:flex_commander/model/settings/app_settings.dart';
 import 'package:flex_commander/model/settings/settings_store.dart';
+import 'package:flex_commander/model/tree/fs_node.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/state/commands/default_commands.dart';
 import 'package:flex_commander/state/panel_controller.dart';
@@ -14,15 +16,37 @@ import 'package:path/path.dart' as p;
 
 import '../fake/in_memory_tree_provider.dart';
 
+/// Провайдер, у которого копирование можно замедлить.
+///
+/// В памяти оно мгновенное, и окно хода работы не успевает попасть ни в один
+/// кадр — проверить его было бы нечем.
+class _SlowCopyProvider extends InMemoryTreeProvider {
+  _SlowCopyProvider(super.entries);
+
+  bool slow = false;
+
+  @override
+  AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination) {
+    if (!slow) {
+      return super.copy(nodes, destination);
+    }
+    return TaskOperation<void>((op) async {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      op.checkCanceled();
+      return super.copy(nodes, destination).result;
+    });
+  }
+}
+
 /// Файловые команды рисуют свои окна сами, поэтому и проверяются целиком:
 /// от нажатия клавиши до изменившейся панели.
 void main() {
-  late InMemoryTreeProvider provider;
+  late _SlowCopyProvider provider;
   late Directory temp;
   late AppController app;
 
   setUp(() async {
-    provider = InMemoryTreeProvider([
+    provider = _SlowCopyProvider([
       FakeEntry.directory('/home'),
       FakeEntry.directory('/home/bin'),
       FakeEntry.file('/home/notes.txt', size: 10),
@@ -47,8 +71,8 @@ void main() {
     await temp.delete(recursive: true);
   });
 
-  Future<void> pumpApp(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(802, 621);
+  Future<void> pumpApp(WidgetTester tester, {Size size = const Size(802, 621)}) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
@@ -403,26 +427,36 @@ void main() {
       expect(find.textContaining('Not found'), findsOneWidget);
     });
 
-    testWidgets('ширина окна не зависит от длины имени', (tester) async {
-      await pumpApp(tester);
+    testWidgets('до запуска окно облегает содержимое', (tester) async {
+      // Окно пошире: при узком половина окна почти равна нижнему пределу,
+      // и два поведения было бы не различить.
+      await pumpApp(tester, size: const Size(1400, 800));
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
 
-      Future<double> widthFor(String name) async {
-        app.left.setCursorToName(name);
-        await tester.pump();
-        await press(tester, LogicalKeyboardKey.f5);
-        final width = tester.getSize(find.byType(CommandDialogBody)).width;
-        await press(tester, LogicalKeyboardKey.escape);
-        await settle(tester);
-        return width;
-      }
+      await press(tester, LogicalKeyboardKey.f5);
 
-      final short = await widthFor('notes.txt');
-      final long = await widthFor('a-very-long-name-that-would-have-stretched-the-dialog.txt');
+      final width = tester.getSize(find.byType(CommandDialogBody)).width;
+      expect(width, lessThan(1400 / 2));
+    });
 
-      // Иначе окно «прыгало» бы на каждом файле по ходу копирования.
-      expect(long, short);
-      // Половина ширины окна приложения.
-      expect(short, closeTo(tester.view.physicalSize.width / tester.view.devicePixelRatio / 2, 1));
+    testWidgets('во время работы ширина фиксирована', (tester) async {
+      provider.slow = true;
+      await pumpApp(tester, size: const Size(1400, 800));
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await openTransfer(tester, LogicalKeyboardKey.f5, destination: '/home/bin');
+      await tester.tap(find.widgetWithText(FcButton, 'Copy'));
+      await tester.pump();
+
+      // Пошла работа: по ходу неё в окне меняются имена файлов, и от них окно
+      // «прыгало» бы на каждом.
+      expect(find.byType(FcProgressBar), findsOneWidget);
+      expect(tester.getSize(find.byType(CommandDialogBody)).width, closeTo(1400 / 2, 1));
+
+      await tester.pump(const Duration(milliseconds: 300));
+      await settle(tester);
     });
 
     testWidgets('кнопки нижней панели делают то же самое', (tester) async {
