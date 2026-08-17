@@ -74,6 +74,10 @@ void main() {
       ]);
 
       expect(layout.columns.take(4).map((c) => c.id), [FsColumn.icon, FsColumn.name, FsColumn.modified, FsColumn.ext]);
+      // Ширина колонки с иконкой — из умолчаний, а не из файла: менять её
+      // пользователь не может, а оформление со временем меняется.
+      expect(layout.find(FsColumn.icon)?.width, ColumnLayout.defaults.find(FsColumn.icon)?.width);
+      expect(layout.find(FsColumn.modified)?.width, 90);
       expect(layout.find(FsColumn.modified)?.width, 90);
       expect(layout.find(FsColumn.ext)?.visible, isFalse);
     });

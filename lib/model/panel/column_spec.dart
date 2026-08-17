@@ -126,8 +126,11 @@ class ColumnLayout {
     ]);
   }
 
+  /// Ширина сохраняется только у тех колонок, которые пользователь может
+  /// менять: у закреплённых её всё равно задаёт приложение (см. [fromJson]).
   List<Map<String, Object?>> toJson() => [
-    for (final column in columns) {'id': column.id.name, 'width': column.width, 'visible': column.visible},
+    for (final column in columns)
+      {'id': column.id.name, if (!column.pinned) 'width': column.width, 'visible': column.visible},
   ];
 
   /// Восстановление раскладки из настроек.
@@ -136,6 +139,12 @@ class ColumnLayout {
   /// и видимость известных колонок. Неизвестные записи игнорируются, а колонки,
   /// появившиеся в новых версиях, добавляются в конец — поэтому старый файл
   /// настроек не мешает добавлять колонки.
+  ///
+  /// **Ширина закреплённых колонок из файла не берётся.** Менять её пользователь
+  /// не может — у иконки нет ручки, а имя «резиновое», — зато задаёт приложение,
+  /// исходя из размера глифа и отступов. Если читать её из настроек, однажды
+  /// сохранённое значение осталось бы навсегда и правки оформления до
+  /// пользователя не дошли бы.
   factory ColumnLayout.fromJson(Object? json) {
     if (json is! List) {
       return defaults;
@@ -157,7 +166,7 @@ class ColumnLayout {
       final visible = item['visible'];
       restored.add(
         spec.copyWith(
-          width: width is num ? width.toDouble() : null,
+          width: spec.pinned || width is! num ? null : width.toDouble(),
           visible: spec.pinned ? true : (visible is bool ? visible : null),
         ),
       );
