@@ -314,6 +314,16 @@ void main() {
       });
     });
 
+    test('показ скрытых объектов доступен и на macOS', () {
+      final registry = defaultCommandRegistry();
+      build(registry);
+
+      // `Cmd-H` на macOS забирает системное меню приложения, и до окна нажатие
+      // не доходит: без второго сочетания команда была бы недоступна.
+      final keys = registry.bindingsOf('panel.toggleHidden').map((binding) => binding.keys.toString());
+      expect(keys, contains('Shift-Cmd-H'));
+    });
+
     test('реестр знает, чем вызывается команда', () {
       final registry = defaultCommandRegistry();
       build(registry);

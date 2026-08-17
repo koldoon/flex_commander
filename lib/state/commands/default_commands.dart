@@ -75,6 +75,10 @@ List<KeyBinding> defaultKeyBindings() => [
   KeyBinding('Cmd-Up', 'panel.up'),
   KeyBinding('Cmd-/', 'panel.root'),
   KeyBinding('Cmd-R', 'panel.reload'),
+  // На macOS `Cmd-H` занят системным меню приложения («Hide APP_NAME»), и до
+  // окна нажатие не доходит вовсе. Поэтому основное сочетание — `Cmd-Shift-H`;
+  // `Cmd-H` остаётся ради Windows и Linux, где он разбирается как `Ctrl-H`.
+  KeyBinding('Cmd-Shift-H', 'panel.toggleHidden'),
   KeyBinding('Cmd-H', 'panel.toggleHidden'),
 
   // Пометка объектов. Отмена операции идёт раньше сброса пометки.

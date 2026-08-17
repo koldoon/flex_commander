@@ -242,14 +242,19 @@ void main() {
       expect(app.left.directory?.pathString, '/home');
     });
 
-    testWidgets('Cmd-H показывает скрытые объекты', (tester) async {
+    testWidgets('Cmd-Shift-H показывает скрытые объекты', (tester) async {
       await pumpApp(tester);
       expect(app.left.nodes.map((node) => node.name), isNot(contains('.hidden')));
 
-      await press(tester, LogicalKeyboardKey.keyH, modifiers: const [commandKey]);
+      await press(tester, LogicalKeyboardKey.keyH, modifiers: const [commandKey, LogicalKeyboardKey.shiftLeft]);
 
       expect(app.left.showHidden, isTrue);
       expect(app.left.nodes.map((node) => node.name), contains('.hidden'));
+
+      await press(tester, LogicalKeyboardKey.keyH, modifiers: const [commandKey, LogicalKeyboardKey.shiftLeft]);
+
+      expect(app.left.showHidden, isFalse);
+      expect(app.left.nodes.map((node) => node.name), isNot(contains('.hidden')));
     });
   });
 
