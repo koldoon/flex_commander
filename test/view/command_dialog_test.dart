@@ -17,13 +17,18 @@ void main() {
       MaterialApp(
         theme: AppTheme.theme,
         home: Scaffold(
-          body: CommandDialogProgress(
-            message: message,
-            progress: progress,
-            processed: processed,
-            total: total,
-            totalIsFinal: totalIsFinal,
-            onCancel: () {},
+          // Окно команды меряет себя по содержимому — в рамке стоит
+          // `IntrinsicWidth`. Без него измерение здесь не воспроизводится,
+          // и виджеты, которые его не переживают, проходят мимо тестов.
+          body: IntrinsicWidth(
+            child: CommandDialogProgress(
+              message: message,
+              progress: progress,
+              processed: processed,
+              total: total,
+              totalIsFinal: totalIsFinal,
+              onCancel: () {},
+            ),
           ),
         ),
       ),
