@@ -27,6 +27,7 @@ void main() {
       FakeEntry.directory('/home/bin'),
       FakeEntry.file('/home/notes.txt', size: 10),
       FakeEntry.file('/home/report.xlsx', size: 20),
+      FakeEntry.file('/home/a-very-long-name-that-would-have-stretched-the-dialog.txt', size: 30),
     ]);
     temp = await Directory.systemTemp.createTemp('flex_commander_file_cmd');
 
@@ -380,6 +381,28 @@ void main() {
 
       expect(find.byType(TextField), findsOneWidget);
       expect(find.textContaining('Not found'), findsOneWidget);
+    });
+
+    testWidgets('ширина окна не зависит от длины имени', (tester) async {
+      await pumpApp(tester);
+
+      Future<double> widthFor(String name) async {
+        app.left.setCursorToName(name);
+        await tester.pump();
+        await press(tester, LogicalKeyboardKey.f5);
+        final width = tester.getSize(find.byType(CommandDialogBody)).width;
+        await press(tester, LogicalKeyboardKey.escape);
+        await settle(tester);
+        return width;
+      }
+
+      final short = await widthFor('notes.txt');
+      final long = await widthFor('a-very-long-name-that-would-have-stretched-the-dialog.txt');
+
+      // Иначе окно «прыгало» бы на каждом файле по ходу копирования.
+      expect(long, short);
+      // Половина ширины окна приложения.
+      expect(short, closeTo(tester.view.physicalSize.width / tester.view.devicePixelRatio / 2, 1));
     });
 
     testWidgets('кнопки нижней панели делают то же самое', (tester) async {

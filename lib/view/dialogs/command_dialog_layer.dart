@@ -123,7 +123,10 @@ class _CommandDialogFrameState extends State<_CommandDialogFrame> {
             child: Focus(
               focusNode: _node,
               child: Container(
-                constraints: BoxConstraints(minWidth: metrics.dialogMinWidth, maxWidth: metrics.dialogMaxWidth),
+                width: (MediaQuery.sizeOf(context).width * metrics.dialogWidthFactor).clamp(
+                  metrics.dialogMinWidth,
+                  metrics.dialogMaxWidth,
+                ),
                 decoration: BoxDecoration(
                   color: colors.dialogBackground,
                   borderRadius: radius,
@@ -138,35 +141,31 @@ class _CommandDialogFrameState extends State<_CommandDialogFrame> {
                 // Скруглённые углы обрезают полосу заголовка: в референсе
                 // она для этого закрыта маской.
                 clipBehavior: Clip.antiAlias,
-                // Ширина — по содержимому: главным образом по ряду кнопок,
-                // которые в референсе стоят одной строкой и не растягиваются.
-                child: IntrinsicWidth(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        height: metrics.dialogTitleHeight,
-                        alignment: Alignment.centerLeft,
-                        padding: EdgeInsets.symmetric(horizontal: metrics.dialogTitlePadding),
-                        decoration: BoxDecoration(
-                          color: colors.dialogTitleBackground,
-                          // Полоса заголовка отбрасывает тень на содержимое —
-                          // тот же фильтр, что у кнопок.
-                          boxShadow: [
-                            BoxShadow(
-                              color: colors.shadow,
-                              offset: Offset(0, metrics.buttonShadowOffset),
-                              blurRadius: metrics.buttonShadowBlur,
-                            ),
-                          ],
-                        ),
-                        child: Text(command.dialogTitle, style: theme.dialogTitleStyle),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Container(
+                      width: double.infinity,
+                      height: metrics.dialogTitleHeight,
+                      alignment: Alignment.centerLeft,
+                      padding: EdgeInsets.symmetric(horizontal: metrics.dialogTitlePadding),
+                      decoration: BoxDecoration(
+                        color: colors.dialogTitleBackground,
+                        // Полоса заголовка отбрасывает тень на содержимое —
+                        // тот же фильтр, что у кнопок.
+                        boxShadow: [
+                          BoxShadow(
+                            color: colors.shadow,
+                            offset: Offset(0, metrics.buttonShadowOffset),
+                            blurRadius: metrics.buttonShadowBlur,
+                          ),
+                        ],
                       ),
-                      widget.child,
-                    ],
-                  ),
+                      child: Text(command.dialogTitle, style: theme.dialogTitleStyle),
+                    ),
+                    widget.child,
+                  ],
                 ),
               ),
             ),

@@ -1,4 +1,6 @@
 import 'package:flex_commander/view/dialogs/command_dialog.dart';
+import 'package:flex_commander/view/theme/app_colors.dart';
+import 'package:flex_commander/view/theme/app_metrics.dart';
 import 'package:flex_commander/view/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -53,6 +55,34 @@ void main() {
 
     // Растущее число не должно выглядеть ошибкой.
     expect(find.text('3 of 10…'), findsOneWidget);
+  });
+
+  /// Закрашенная часть полосы: `DecoratedBox`, залитый цветом хода работы.
+  /// Внешняя рамка полосы — тоже `DecoratedBox`, но она без заливки.
+  Finder progressFill() => find.byWidgetPredicate(
+    (widget) => widget is DecoratedBox && (widget.decoration as BoxDecoration).color == const FcColors().progress,
+  );
+
+  testWidgets('закрашенная часть видна и занимает свою долю', (tester) async {
+    await pumpProgress(tester, processed: 1, total: 2, progress: 0.5);
+
+    const metrics = FcMetrics();
+    final bar = tester.getSize(find.byType(FcProgressBar));
+    final fill = tester.getSize(progressFill());
+    // Заливка лежит внутри обводки и отступа.
+    final inset = 2 * (metrics.strokeWidth + metrics.progressInset);
+
+    // Полоса заливается на всю свою высоту: у пустого `DecoratedBox` своей
+    // высоты нет, и без растяжения от заливки осталась бы нулевая полоска.
+    expect(fill.height, greaterThan(0));
+    expect(fill.height, closeTo(bar.height - inset, 0.01));
+    expect(fill.width, closeTo((bar.width - inset) / 2, 1));
+  });
+
+  testWidgets('при неизвестной доле полоса пуста', (tester) async {
+    await pumpProgress(tester);
+
+    expect(progressFill(), findsNothing);
   });
 
   testWidgets('пока ничего не посчитано, счётчика нет, а полоса неопределённая', (tester) async {
