@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../model/async/async_operation.dart';
 import '../../model/async/operation_request.dart';
+import '../throttle.dart';
 import 'app_command.dart';
 
 /// Команда, работа которой занимает время: удаление, копирование, перенос.
@@ -66,41 +67,20 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
     } finally {
       unawaited(_progress?.cancel());
       unawaited(_requests?.cancel());
-      _pendingRedraw?.cancel();
-      _pendingRedraw = null;
-      _sinceRedraw.stop();
+      _redraw.cancel();
       _running = false;
       _question = null;
       notifyListeners();
     }
   }
 
-  /// Копирование мелких файлов идёт куда быстрее, чем имеет смысл
-  /// перерисовывать окно: сообщения принимаются все, а слушатели узнают о них
-  /// не чаще, чем раз в [_redrawInterval].
-  static const Duration _redrawInterval = Duration(milliseconds: 50);
-
-  final Stopwatch _sinceRedraw = Stopwatch();
-  Timer? _pendingRedraw;
+  /// Окно перерисовывается не на каждое сообщение операции: копирование мелких
+  /// файлов идёт куда быстрее, чем имеет смысл обновлять экран.
+  late final Throttle _redraw = Throttle(notifyListeners);
 
   void _onProgress(OperationProgress event) {
     _state = event;
-
-    if (_sinceRedraw.isRunning && _sinceRedraw.elapsed < _redrawInterval) {
-      // Слишком часто: показать это состояние, если следом ничего не придёт.
-      _pendingRedraw ??= Timer(_redrawInterval - _sinceRedraw.elapsed, _redraw);
-      return;
-    }
     _redraw();
-  }
-
-  void _redraw() {
-    _pendingRedraw?.cancel();
-    _pendingRedraw = null;
-    _sinceRedraw
-      ..reset()
-      ..start();
-    notifyListeners();
   }
 
   /// Ответ на вопрос, заданный по ходу работы.

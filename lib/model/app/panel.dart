@@ -91,6 +91,15 @@ abstract interface class Panel {
 
   PanelSelection get selection;
 
+  /// Суммарный размер помеченных объектов вместе с содержимым каталогов.
+  ///
+  /// Размер файлов известен сразу, каталоги обходятся фоном, поэтому значение
+  /// растёт по ходу подсчёта.
+  int get selectionSize;
+
+  /// Подсчёт [selectionSize] закончен.
+  bool get selectionSizeIsFinal;
+
   /// Инвертировать пометку объекта под курсором и сдвинуть курсор вниз.
   void toggleCurrentMark();
 

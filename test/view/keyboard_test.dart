@@ -290,6 +290,11 @@ void main() {
 
       expect(app.left.selection.length, app.left.nodes.length - 1);
       expect(app.left.selection.names, isNot(contains('..')));
+
+      // Пометка каталогов запускает фоновый подсчёт их размера — даём ему
+      // отработать, иначе тест закончится с недоделанной работой.
+      await tester.pump(const Duration(milliseconds: 300));
+      await tester.pumpAndSettle();
     });
   });
 

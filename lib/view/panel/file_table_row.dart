@@ -103,7 +103,7 @@ class FileTableRow extends StatelessWidget {
         alignment: column.align == ColumnAlign.end ? Alignment.centerRight : Alignment.centerLeft,
         // Текст опущен относительно иконки — см. `FcMetrics.textVerticalNudge`.
         child: Transform.translate(
-          offset: Offset(0, metrics.textVerticalNudge),
+          offset: Offset(0, metrics.rowTextVerticalNudge),
           child: Text(
             text,
             maxLines: 1,

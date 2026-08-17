@@ -48,9 +48,12 @@ class PanelStatusBar extends StatelessWidget {
 
     final selection = panel.selection;
     if (selection.isNotEmpty) {
-      final size = selection.totalSize;
+      final size = panel.selectionSize;
       final items = 'Selected ${selection.length} ${selection.length == 1 ? 'item' : 'items'}';
-      return size > 0 ? '$items, ${formatBytesLong(size)}' : items;
+      // Каталоги обходятся фоном, и пока обход идёт, сумма неполная —
+      // сказать об этом надо прямо, иначе растущее число выглядит ошибкой.
+      final scanning = panel.selectionSizeIsFinal ? '' : ' (Scanning…)';
+      return size > 0 ? '$items, ${formatBytesLong(size)}$scanning' : '$items$scanning';
     }
 
     return panel.currentNode?.info ?? '-';
