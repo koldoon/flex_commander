@@ -101,12 +101,16 @@ class FileTableRow extends StatelessWidget {
       padding: EdgeInsets.symmetric(horizontal: metrics.cellPadding),
       child: Align(
         alignment: column.align == ColumnAlign.end ? Alignment.centerRight : Alignment.centerLeft,
-        child: Text(
-          text,
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-          textAlign: column.align == ColumnAlign.end ? TextAlign.right : TextAlign.left,
-          style: _styleFor(theme, column),
+        // Текст опущен относительно иконки — см. `FcMetrics.textVerticalNudge`.
+        child: Transform.translate(
+          offset: Offset(0, metrics.textVerticalNudge),
+          child: Text(
+            text,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            textAlign: column.align == ColumnAlign.end ? TextAlign.right : TextAlign.left,
+            style: _styleFor(theme, column),
+          ),
         ),
       ),
     );

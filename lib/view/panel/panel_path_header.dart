@@ -38,12 +38,17 @@ class PanelPathHeader extends StatelessWidget {
           builder: (context, constraints) {
             return Center(
               widthFactor: 1,
-              child: Text(
-                _trimHead(path, style, constraints.maxWidth, MediaQuery.textScalerOf(context)),
-                maxLines: 1,
-                softWrap: false,
-                textAlign: TextAlign.center,
-                style: style,
+              // Тот же сдвиг, что у строк списка: в референсе метка пути тоже
+              // стоит на `verticalCenter="2"`.
+              child: Transform.translate(
+                offset: Offset(0, metrics.textVerticalNudge),
+                child: Text(
+                  _trimHead(path, style, constraints.maxWidth, MediaQuery.textScalerOf(context)),
+                  maxLines: 1,
+                  softWrap: false,
+                  textAlign: TextAlign.center,
+                  style: style,
+                ),
               ),
             );
           },
