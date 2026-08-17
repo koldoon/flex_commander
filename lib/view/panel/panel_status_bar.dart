@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 
+import '../../model/tree/fs_node.dart';
 import '../../state/panel_controller.dart';
 import '../format/size_format.dart';
 import '../theme/app_theme.dart';
+import '../theme/fc_icons.dart';
 
 /// Строка состояния под списком.
 ///
@@ -29,8 +31,8 @@ class PanelStatusBar extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(top: BorderSide(color: theme.colors.columnDivider, width: theme.metrics.strokeWidth)),
           ),
-          child: Text(
-            _text(),
+          child: Text.rich(
+            _content(theme),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: error ? theme.statusStyle.copyWith(color: theme.colors.error) : theme.statusStyle,
@@ -40,10 +42,10 @@ class PanelStatusBar extends StatelessWidget {
     );
   }
 
-  String _text() {
+  InlineSpan _content(FcTheme theme) {
     final status = panel.statusText;
     if (status != null && status.isNotEmpty) {
-      return status;
+      return TextSpan(text: status);
     }
 
     final selection = panel.selection;
@@ -53,9 +55,25 @@ class PanelStatusBar extends StatelessWidget {
       // Каталоги обходятся фоном, и пока обход идёт, сумма неполная —
       // сказать об этом надо прямо, иначе растущее число выглядит ошибкой.
       final scanning = panel.selectionSizeIsFinal ? '' : ' (Scanning…)';
-      return size > 0 ? '$items, ${formatBytesLong(size)}$scanning' : '$items$scanning';
+      return TextSpan(text: size > 0 ? '$items, ${formatBytesLong(size)}$scanning' : '$items$scanning');
     }
 
-    return panel.currentNode?.info ?? '-';
+    final node = panel.currentNode;
+    if (node is LinkNode) {
+      // Стрелка — глиф шрифта иконок, а не пара знаков «->»: рисованная
+      // стрелка не рассыпается на разные шрифты и выглядит как стрелка.
+      return TextSpan(
+        children: [
+          TextSpan(text: node.name),
+          TextSpan(
+            text: ' ${FcIcons.glyph(FcIcons.angleRight)} ',
+            style: const TextStyle(fontFamily: FcIcons.fontFamily),
+          ),
+          TextSpan(text: node.reference),
+        ],
+      );
+    }
+
+    return TextSpan(text: node?.name ?? '-');
   }
 }

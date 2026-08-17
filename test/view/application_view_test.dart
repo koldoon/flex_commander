@@ -11,7 +11,9 @@ import 'package:flex_commander/view/function_bar/function_bar.dart';
 import 'package:flex_commander/view/panel/file_table_row.dart';
 import 'package:flex_commander/view/panel/file_type_icon.dart';
 import 'package:flex_commander/view/panel/panel_path_header.dart';
+import 'package:flex_commander/view/panel/panel_status_bar.dart';
 import 'package:flex_commander/view/panel/panel_view.dart';
+import 'package:flex_commander/view/theme/fc_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -139,6 +141,28 @@ void main() {
     await tester.pump();
 
     expect(find.text('Selected 1 item, 90.1 KB'), findsOneWidget);
+  });
+
+  testWidgets('ссылка в строке состояния показана стрелкой из шрифта', (tester) async {
+    await pumpApp(tester);
+
+    app.left.setCursorToName('link-to-bin');
+    await tester.pump();
+
+    final status = tester.widget<Text>(
+      find.descendant(of: find.byType(PanelStatusBar).first, matching: find.byType(Text)),
+    );
+    final span = status.textSpan!;
+
+    // Пара знаков «->» распадается на разные шрифты и стрелкой не выглядит.
+    expect(span.toPlainText(), 'link-to-bin ${FcIcons.glyph(FcIcons.angleRight)} /home/bin');
+    expect(span.toPlainText(), isNot(contains('->')));
+
+    // Глиф должен быть набран шрифтом иконок, иначе на его месте пустой квадрат.
+    final arrow = (span as TextSpan).children!.firstWhere(
+      (child) => (child as TextSpan).text!.contains(FcIcons.glyph(FcIcons.angleRight)),
+    );
+    expect((arrow as TextSpan).style?.fontFamily, FcIcons.fontFamily);
   });
 
   testWidgets('пока каталоги считаются, об этом сказано прямо', (tester) async {
