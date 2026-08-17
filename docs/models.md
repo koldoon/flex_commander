@@ -550,16 +550,22 @@ class WindowGeometry {
       "showHidden": false,
       "sort": { "column": "name", "direction": "ascending", "foldersFirst": true },
       "columns": [
-        { "id": "icon", "width": 24, "visible": true },
-        { "id": "name", "width": 0, "visible": true },
+        { "id": "icon", "visible": true },
+        { "id": "name", "visible": true },
         { "id": "ext", "width": 40, "visible": true },
-        { "id": "size", "width": 60, "visible": true },
-        { "id": "modified", "width": 78, "visible": true }
+        { "id": "size", "width": 64, "visible": true },
+        { "id": "modified", "width": 88, "visible": true }
       ]
     }
   ]
 }
 ```
+
+У закреплённых колонок (`icon`, `name`) ширины в файле нет и она оттуда не читается:
+менять её пользователь не может — у иконки нет ручки, а имя «резиновое», — зато задаёт
+приложение, исходя из размера глифа и отступов. Если бы ширина читалась из настроек,
+однажды сохранённое значение осталось бы навсегда и правки оформления до пользователя
+не дошли бы.
 
 Разбор устойчив к мусору: неизвестные `id` колонок и лишние поля игнорируются,
 отсутствующие берутся из умолчаний, при ошибке разбора применяется `AppSettings.defaults`
