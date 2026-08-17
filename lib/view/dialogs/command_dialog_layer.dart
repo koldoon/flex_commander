@@ -147,10 +147,9 @@ class _CommandDialogFrameState extends State<_CommandDialogFrame> {
                     children: [
                       Container(
                         width: double.infinity,
-                        padding: EdgeInsets.symmetric(
-                          horizontal: metrics.dialogTitlePadding,
-                          vertical: metrics.dialogTitleVerticalPadding,
-                        ),
+                        height: metrics.dialogTitleHeight,
+                        alignment: Alignment.centerLeft,
+                        padding: EdgeInsets.symmetric(horizontal: metrics.dialogTitlePadding),
                         decoration: BoxDecoration(
                           color: colors.dialogTitleBackground,
                           // Полоса заголовка отбрасывает тень на содержимое —
