@@ -122,6 +122,24 @@ void main() {
     expect(find.text('Selected 1 item, 90.1 KB'), findsOneWidget);
   });
 
+  testWidgets('пока каталоги считаются, об этом сказано прямо', (tester) async {
+    await pumpApp(tester);
+
+    app.left.setCursorToName('docs');
+    app.left.toggleCurrentMark();
+    await tester.pump();
+
+    // Размер каталога считается фоном, и пока он не досчитан, сумма неполная.
+    expect(find.textContaining('(Scanning…)'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    // Досчитали: содержимое каталога вошло в сумму, оговорки больше нет.
+    expect(find.textContaining('(Scanning…)'), findsNothing);
+    expect(find.text('Selected 1 item, 384 B'), findsOneWidget);
+  });
+
   testWidgets('клик по строке делает панель активной и ставит курсор', (tester) async {
     await pumpApp(tester);
     expect(app.activePanel, app.left);

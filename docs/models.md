@@ -211,6 +211,10 @@ abstract interface class TreeProvider {
 
   /// Разрешение ссылки: заполняет link.target.
   AsyncOperation<FsNode?> resolveLink(LinkNode link);
+
+  /// Суммарный размер объектов вместе с содержимым каталогов.
+  /// Промежуточные суммы идут в OperationProgress.processed.
+  AsyncOperation<int> calculateSize(List<FsNode> nodes);
 }
 
 /// Изменение дерева. Отдельный интерфейс: провайдер может уметь только читать
