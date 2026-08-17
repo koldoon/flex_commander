@@ -143,6 +143,10 @@ lib/
   app_context.dart                 контейнер зависимостей: весь граф приложения
   app.dart                         MaterialApp, тема, AppScope
 
+  core/
+    serialization.dart             Serializable и конверторы JSON: ниже всех слоёв,
+                                   потому что им пользуются модели
+
   model/
     app/
       application.dart             Application — API приложения для команд

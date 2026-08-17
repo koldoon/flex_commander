@@ -1,65 +1,66 @@
+import '../../core/serialization.dart';
 import '../panel/column_spec.dart';
 import '../panel/sort_spec.dart';
 import 'window_geometry.dart';
 
 /// Сохраняемые настройки одной панели.
-class PanelSettings {
-  const PanelSettings({
-    required this.path,
-    required this.columns,
-    this.sort = const SortSpec(),
-    this.showHidden = false,
-  });
+///
+/// Поля изменяемые: [fromMap] дописывает в готовый объект то, что нашлось
+/// в файле, а чего в файле нет — остаётся как было. Поэтому «значение по
+/// умолчанию» задаётся один раз, при создании, и не повторяется в разборе.
+class PanelSettings implements Serializable {
+  PanelSettings({this.path = '', ColumnLayout? columns, this.sort = const SortSpec(), this.showHidden = false})
+    : columns = columns ?? ColumnLayout.defaults;
+
+  static PanelSettings defaults(String path) => PanelSettings(path: path);
 
   /// Последний открытый каталог: полная строка пути, включая схему провайдера.
-  final String path;
+  String path;
 
-  final ColumnLayout columns;
-  final SortSpec sort;
-  final bool showHidden;
+  ColumnLayout columns;
+  SortSpec sort;
+  bool showHidden;
 
-  PanelSettings copyWith({String? path, ColumnLayout? columns, SortSpec? sort, bool? showHidden}) => PanelSettings(
-    path: path ?? this.path,
-    columns: columns ?? this.columns,
-    sort: sort ?? this.sort,
-    showHidden: showHidden ?? this.showHidden,
-  );
-
-  Map<String, Object?> toJson() => {
-    'path': path,
-    'showHidden': showHidden,
-    'sort': sort.toJson(),
-    'columns': columns.toJson(),
-  };
-
-  factory PanelSettings.fromJson(Object? json, {String fallbackPath = ''}) {
-    if (json is! Map) {
-      return PanelSettings.defaults(fallbackPath);
-    }
-    final path = json['path'];
-    final showHidden = json['showHidden'];
-
-    return PanelSettings(
-      path: path is String && path.isNotEmpty ? path : fallbackPath,
-      columns: ColumnLayout.fromJson(json['columns']),
-      sort: SortSpec.fromJson(json['sort']),
-      showHidden: showHidden is bool ? showHidden : false,
-    );
+  @override
+  void toMap(Map<String, dynamic> m) {
+    m['path'] = path;
+    m['showHidden'] = showHidden;
+    // Раскладка колонок и правило сортировки — значения, а не документы:
+    // `Serializable` устроен вокруг словаря, а колонки хранятся списком.
+    m['sort'] = sort.toJson();
+    m['columns'] = columns.toJson();
   }
 
-  static PanelSettings defaults(String path) => PanelSettings(path: path, columns: ColumnLayout.defaults);
+  @override
+  void fromMap(Map<String, dynamic> m) {
+    // Каталог, который подставили при создании: пустая строка в файле не должна
+    // его затирать, иначе панель открылась бы в никуда.
+    final fallback = path;
+    path = extract(path, m['path']);
+    if (path.isEmpty) {
+      path = fallback;
+    }
+
+    showHidden = extract(showHidden, m['showHidden']);
+    sort = SortSpec.fromJson(m['sort']);
+    columns = ColumnLayout.fromJson(m['columns']);
+  }
 }
 
 /// Сохраняемые настройки приложения.
-class AppSettings {
-  const AppSettings({
-    required this.left,
-    required this.right,
+class AppSettings implements Serializable {
+  AppSettings({
+    PanelSettings? left,
+    PanelSettings? right,
     this.activePanel = 0,
     this.splitRatio = 0.5,
     this.sizeScanConcurrency = defaultSizeScanConcurrency,
     this.window,
-  });
+  }) : left = left ?? PanelSettings(),
+       right = right ?? PanelSettings();
+
+  static AppSettings defaults(String path) =>
+      AppSettings(left: PanelSettings.defaults(path), right: PanelSettings.defaults(path));
 
   /// Версия формата файла. Увеличивается, когда старый файл перестаёт
   /// читаться напрямую и нужен перенос настроек.
@@ -79,72 +80,55 @@ class AppSettings {
   static const int minSizeScanConcurrency = 1;
   static const int maxSizeScanConcurrency = 64;
 
-  final PanelSettings left;
-  final PanelSettings right;
+  PanelSettings left;
+  PanelSettings right;
 
   /// 0 — активна левая панель, 1 — правая.
-  final int activePanel;
+  int activePanel;
 
-  final double splitRatio;
+  double splitRatio;
 
   /// Размер пула обхода каталогов, см. [defaultSizeScanConcurrency].
-  final int sizeScanConcurrency;
+  int sizeScanConcurrency;
 
   /// Положение и размер окна; null — окно ещё ни разу не открывали.
-  final WindowGeometry? window;
+  WindowGeometry? window;
 
-  AppSettings copyWith({
-    PanelSettings? left,
-    PanelSettings? right,
-    int? activePanel,
-    double? splitRatio,
-    int? sizeScanConcurrency,
-    WindowGeometry? window,
-  }) => AppSettings(
-    left: left ?? this.left,
-    right: right ?? this.right,
-    activePanel: activePanel ?? this.activePanel,
-    splitRatio: splitRatio ?? this.splitRatio,
-    sizeScanConcurrency: sizeScanConcurrency ?? this.sizeScanConcurrency,
-    window: window ?? this.window,
-  );
-
-  Map<String, Object?> toJson() => {
-    'version': version,
-    'activePanel': activePanel,
-    'splitRatio': splitRatio,
-    'sizeScanConcurrency': sizeScanConcurrency,
-    if (window != null) 'window': window!.toJson(),
-    'panels': [left.toJson(), right.toJson()],
-  };
-
-  /// Разбор устойчив к мусору: неизвестные поля игнорируются, отсутствующие
-  /// берутся из умолчаний. Полностью нечитаемый файл — забота [SettingsStore].
-  factory AppSettings.fromJson(Object? json, {String fallbackPath = ''}) {
-    if (json is! Map) {
-      return AppSettings.defaults(fallbackPath);
+  @override
+  void toMap(Map<String, dynamic> m) {
+    m['version'] = version;
+    m['activePanel'] = activePanel;
+    m['splitRatio'] = splitRatio;
+    m['sizeScanConcurrency'] = sizeScanConcurrency;
+    if (window != null) {
+      m['window'] = serialize(window);
     }
-
-    final panels = json['panels'];
-    final left = panels is List && panels.isNotEmpty ? panels[0] : null;
-    final right = panels is List && panels.length > 1 ? panels[1] : null;
-    final activePanel = json['activePanel'];
-    final splitRatio = json['splitRatio'];
-    final concurrency = json['sizeScanConcurrency'];
-
-    return AppSettings(
-      left: PanelSettings.fromJson(left, fallbackPath: fallbackPath),
-      right: PanelSettings.fromJson(right, fallbackPath: fallbackPath),
-      activePanel: activePanel == 1 ? 1 : 0,
-      splitRatio: splitRatio is num ? splitRatio.toDouble().clamp(minSplitRatio, maxSplitRatio) : 0.5,
-      sizeScanConcurrency:
-          concurrency is num
-              ? concurrency.toInt().clamp(minSizeScanConcurrency, maxSizeScanConcurrency)
-              : defaultSizeScanConcurrency,
-      window: WindowGeometry.fromJson(json['window']),
-    );
+    m['panels'] = [serialize(left), serialize(right)];
   }
 
-  static AppSettings defaults(String path) =>
-      AppSettings(left: PanelSettings.defaults(path), right: PanelSettings.defaults(path));
+  /// Разбор устойчив к мусору: чего в файле нет или что в нём испорчено,
+  /// остаётся умолчанием — этим занимаются [extract] и конверторы пакета.
+  /// Полностью нечитаемый файл — забота `SettingsStore`.
+  @override
+  void fromMap(Map<String, dynamic> m) {
+    activePanel = extract(activePanel, m['activePanel']) == 1 ? 1 : 0;
+    splitRatio = extract(splitRatio, m['splitRatio']).clamp(minSplitRatio, maxSplitRatio);
+    sizeScanConcurrency = extract(
+      sizeScanConcurrency,
+      m['sizeScanConcurrency'],
+    ).clamp(minSizeScanConcurrency, maxSizeScanConcurrency);
+    window = extractObject(m['window'], (_) => WindowGeometry());
+
+    // Панели дописываются в уже готовые: в них лежит каталог по умолчанию,
+    // и файл без пути его не потеряет.
+    final panels = m['panels'];
+    if (panels is List) {
+      if (panels.isNotEmpty) {
+        extract(left, panels[0]);
+      }
+      if (panels.length > 1) {
+        extract(right, panels[1]);
+      }
+    }
+  }
 }

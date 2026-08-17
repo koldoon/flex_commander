@@ -3,11 +3,23 @@ import 'dart:io';
 
 import 'package:flex_commander/model/panel/column_spec.dart';
 import 'package:flex_commander/model/panel/sort_spec.dart';
+import 'package:flex_commander/core/serialization.dart';
 import 'package:flex_commander/model/settings/app_settings.dart';
 import 'package:flex_commander/model/settings/settings_store.dart';
 import 'package:flex_commander/model/settings/window_geometry.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+
+/// Читает настройки так же, как это делает `SettingsStore`: дописывает в
+/// готовые умолчания то, что нашлось в источнике.
+AppSettings read(Object? json, {String fallbackPath = ''}) {
+  final settings = AppSettings.defaults(fallbackPath);
+  extract(settings, json);
+  return settings;
+}
+
+/// Пишет объект так же, как `SettingsStore`.
+Map<String, dynamic> write(Serializable value) => serialize(value) as Map<String, dynamic>;
 
 void main() {
   group('AppSettings', () {
@@ -25,7 +37,7 @@ void main() {
         sizeScanConcurrency: 4,
       );
 
-      final restored = AppSettings.fromJson(jsonDecode(jsonEncode(source.toJson())));
+      final restored = read(jsonDecode(jsonEncode(write(source))));
 
       expect(restored.left.path, '/Users/koldoon');
       expect(restored.left.showHidden, isTrue);
@@ -40,7 +52,7 @@ void main() {
     });
 
     test('пустой объект даёт умолчания', () {
-      final settings = AppSettings.fromJson(const <String, Object?>{}, fallbackPath: '/home');
+      final settings = read(const <String, Object?>{}, fallbackPath: '/home');
 
       expect(settings.left.path, '/home');
       expect(settings.right.path, '/home');
@@ -50,7 +62,7 @@ void main() {
     });
 
     test('мусор в значениях заменяется умолчаниями', () {
-      final settings = AppSettings.fromJson({
+      final settings = read({
         'activePanel': 'левая',
         'splitRatio': 'половина',
         'sizeScanConcurrency': 'десять',
@@ -63,18 +75,80 @@ void main() {
       expect(settings.left.path, '/home');
     });
 
+    test('неполный файл остальных настроек не теряет', () {
+      // Разбор дописывает в умолчания то, что нашлось, а не заменяет их целиком.
+      final settings = read({'splitRatio': 0.3}, fallbackPath: '/home');
+
+      expect(settings.splitRatio, 0.3);
+      expect(settings.left.path, '/home');
+      expect(settings.right.path, '/home');
+      expect(settings.sizeScanConcurrency, AppSettings.defaultSizeScanConcurrency);
+      expect(settings.left.columns.columns.length, ColumnLayout.defaults.columns.length);
+    });
+
+    test('панель без пути остаётся в каталоге по умолчанию', () {
+      // Пустая строка в файле не должна затирать подставленный каталог, иначе
+      // панель открылась бы в никуда.
+      final settings = read({
+        'panels': [
+          {'path': '', 'showHidden': true},
+        ],
+      }, fallbackPath: '/home');
+
+      expect(settings.left.path, '/home');
+      expect(settings.left.showHidden, isTrue);
+    });
+
+    test('настоящий файл настроек читается без потерь', () {
+      // Слепок реального settings.json: у закреплённых колонок ширины нет,
+      // у остальных она дробная, окно развёрнуто, панели с разными путями.
+      final settings = read({
+        'version': 1,
+        'activePanel': 1,
+        'splitRatio': 0.5073790742024964,
+        'sizeScanConcurrency': 10,
+        'window': {'left': -1344.0, 'top': 310.0, 'width': 1280.0, 'height': 770.0, 'maximized': true},
+        'panels': [
+          {
+            'path': '/Users/koldoon',
+            'showHidden': true,
+            'sort': {'column': 'modified', 'direction': 'descending', 'foldersFirst': true},
+            'columns': [
+              {'id': 'icon', 'visible': true},
+              {'id': 'name', 'visible': true},
+              {'id': 'ext', 'width': 51.40234375, 'visible': true},
+            ],
+          },
+          {'path': '/Users', 'showHidden': false},
+        ],
+      }, fallbackPath: '/home');
+
+      expect(settings.activePanel, 1);
+      expect(settings.splitRatio, closeTo(0.5073790742024964, 1e-9));
+      expect(settings.window?.left, -1344);
+      expect(settings.window?.maximized, isTrue);
+
+      expect(settings.left.path, '/Users/koldoon');
+      expect(settings.left.showHidden, isTrue);
+      expect(settings.left.sort.column, FsColumn.modified);
+      expect(settings.left.sort.direction, SortDirection.descending);
+      expect(settings.left.columns.find(FsColumn.ext)?.width, closeTo(51.40234375, 1e-9));
+      // Колонок в файле три, остальные дописываются из умолчаний.
+      expect(settings.left.columns.columns.length, ColumnLayout.defaults.columns.length);
+
+      expect(settings.right.path, '/Users');
+      expect(settings.right.showHidden, isFalse);
+    });
+
     test('размер пула ограничен разумными пределами', () {
       // Ноль остановил бы подсчёт вовсе, а сотни обходов завалили бы диск.
-      expect(AppSettings.fromJson({'sizeScanConcurrency': 0}).sizeScanConcurrency, AppSettings.minSizeScanConcurrency);
-      expect(
-        AppSettings.fromJson({'sizeScanConcurrency': 1000}).sizeScanConcurrency,
-        AppSettings.maxSizeScanConcurrency,
-      );
+      expect(read({'sizeScanConcurrency': 0}).sizeScanConcurrency, AppSettings.minSizeScanConcurrency);
+      expect(read({'sizeScanConcurrency': 1000}).sizeScanConcurrency, AppSettings.maxSizeScanConcurrency);
     });
 
     test('доля разделителя ограничена разумными пределами', () {
-      expect(AppSettings.fromJson({'splitRatio': 0.01}).splitRatio, AppSettings.minSplitRatio);
-      expect(AppSettings.fromJson({'splitRatio': 42}).splitRatio, AppSettings.maxSplitRatio);
+      expect(read({'splitRatio': 0.01}).splitRatio, AppSettings.minSplitRatio);
+      expect(read({'splitRatio': 42}).splitRatio, AppSettings.maxSplitRatio);
     });
   });
 
@@ -167,14 +241,16 @@ void main() {
   });
 
   group('WindowGeometry', () {
-    const geometry = WindowGeometry(left: 120, top: 80, width: 900, height: 640);
+    WindowGeometry? readGeometry(Object? json) => extractObject(json, (_) => WindowGeometry());
 
     test('запись и чтение дают то же самое', () {
-      expect(WindowGeometry.fromJson(geometry.toJson()), geometry);
+      final geometry = WindowGeometry(left: 120, top: 80, width: 900, height: 640);
+
+      expect(readGeometry(write(geometry)), geometry);
     });
 
     test('мусор заменяется умолчаниями', () {
-      final restored = WindowGeometry.fromJson({'left': 'слева', 'top': null, 'width': 0, 'height': -5});
+      final restored = readGeometry({'left': 'слева', 'top': null, 'width': 0, 'height': -5});
 
       expect(restored?.left, WindowGeometry.defaults.left);
       expect(restored?.width, WindowGeometry.defaults.width);
@@ -182,15 +258,15 @@ void main() {
     });
 
     test('слишком маленькое окно подтягивается до минимума', () {
-      final restored = WindowGeometry.fromJson({'left': 0, 'top': 0, 'width': 100, 'height': 50});
+      final restored = readGeometry({'left': 0, 'top': 0, 'width': 100, 'height': 50});
 
       expect(restored?.width, WindowGeometry.minWidth);
       expect(restored?.height, WindowGeometry.minHeight);
     });
 
     test('отсутствие раздела даёт null', () {
-      expect(WindowGeometry.fromJson(null), isNull);
-      expect(AppSettings.fromJson(const <String, Object?>{}).window, isNull);
+      expect(readGeometry(null), isNull);
+      expect(read(const <String, Object?>{}).window, isNull);
     });
   });
 
@@ -211,7 +287,11 @@ void main() {
     });
 
     test('сохранение и загрузка', () async {
-      await store.save(AppSettings.defaults('/Users/koldoon').copyWith(splitRatio: 0.3, activePanel: 1));
+      await store.save(
+        AppSettings.defaults('/Users/koldoon')
+          ..splitRatio = 0.3
+          ..activePanel = 1,
+      );
 
       final settings = await store.load();
       expect(settings.left.path, '/Users/koldoon');
