@@ -1,3 +1,4 @@
+import 'package:flex_commander/model/panel/column_spec.dart';
 import 'package:flex_commander/view/theme/app_colors.dart';
 import 'package:flex_commander/view/theme/app_metrics.dart';
 import 'package:flex_commander/view/theme/app_theme.dart';
@@ -82,6 +83,14 @@ void main() {
       expect(metrics.buttonHeight, 60 * FcMetrics.scale);
       // Пропорции референса сохранены: строка ровно в полтора кегля.
       expect(metrics.rowHeight / metrics.fontSize, closeTo(50 / 34, 0.001));
+    });
+
+    test('колонка иконки вмещает отступ, глиф и просвет до имени', () {
+      // Ширина колонки лежит в слое моделей и метрики оттуда не видит,
+      // поэтому согласованность проверяется здесь.
+      final icon = ColumnLayout.defaults.find(FsColumn.icon)!;
+      expect(icon.width, closeTo(metrics.iconColumnWidth, 1));
+      expect(icon.minWidth, icon.width);
     });
 
     test('обводка остаётся в одну точку', () {

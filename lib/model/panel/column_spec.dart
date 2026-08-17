@@ -176,7 +176,8 @@ class ColumnLayout {
     // Ширины — по референсу с тем же коэффициентом, что и остальные размеры
     // (см. `FcMetrics.scale`): колонка иконки вмещает отступ, глиф и просвет
     // до имени, размер — `width="160"`, дата — `width="220"`.
-    ColumnSpec(id: FsColumn.icon, width: 34, minWidth: 34, pinned: true),
+    // Иконка: отступ слева, глиф и просвет до имени — `FcMetrics.iconColumnWidth`.
+    ColumnSpec(id: FsColumn.icon, width: 38, minWidth: 38, pinned: true),
     ColumnSpec(id: FsColumn.name, width: 0, minWidth: 90, pinned: true),
     ColumnSpec(id: FsColumn.ext, width: 40, align: ColumnAlign.end),
     ColumnSpec(id: FsColumn.size, width: 64, align: ColumnAlign.end),
