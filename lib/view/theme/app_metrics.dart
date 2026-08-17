@@ -71,16 +71,19 @@ class FcMetrics {
   /// Отступ от края строки до иконки: `left="30"`.
   double get iconLeftPadding => _ref(30);
 
-  /// Отступ от иконки до имени.
+  /// Просвет от иконки до имени.
   ///
   /// Имя стоит на `left="{iconLabel.width + 50}"`, сама иконка — на `left="30"`,
-  /// то есть между ними 20 единиц. Но в `icon.as` каждый глиф записан **с
-  /// пробелом** (`"\uf07b "`), и этот пробел уже сидит внутри `iconLabel.width`,
-  /// поэтому от самого глифа до имени выходит примерно на треть больше.
-  double get iconGap => _ref(30);
+  /// то есть между ними 20 единиц. Плюс пробел, зашитый в каждый глиф
+  /// (`"\uf07b "` в `icon.as`): он входит в `iconLabel.width`, а в FontAwesome
+  /// это около четверти кегля.
+  double get iconGap => _ref(28);
 
   /// Ширина колонки с иконкой: отступ слева, глиф и просвет до имени.
-  double get iconColumnWidth => iconLeftPadding + iconSize + iconGap;
+  ///
+  /// Поле ячейки имени ([cellPadding]) — часть того же просвета, поэтому оно
+  /// вычитается: иначе имя отойдёт от иконки дальше, чем в референсе.
+  double get iconColumnWidth => iconLeftPadding + iconSize + iconGap - cellPadding;
 
   // --- нижняя панель (FunctionKeyRenderer) ---
 
