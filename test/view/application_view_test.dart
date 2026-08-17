@@ -7,6 +7,7 @@ import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flex_commander/view/function_bar/function_bar.dart';
 import 'package:flex_commander/view/panel/file_table_row.dart';
+import 'package:flex_commander/view/panel/file_type_icon.dart';
 import 'package:flex_commander/view/panel/panel_path_header.dart';
 import 'package:flex_commander/view/panel/panel_view.dart';
 import 'package:flutter/material.dart';
@@ -71,6 +72,18 @@ void main() {
     expect(find.text('-'), findsWidgets); // F9 и F10 пока пусты
     expect(find.text('F1'), findsOneWidget);
     expect(find.text('F10'), findsOneWidget);
+  });
+
+  testWidgets('текст строки опущен относительно иконки', (tester) async {
+    await pumpApp(tester);
+
+    // У Consolas на некоторых кеглях смещена базовая линия, поэтому текст
+    // сдвинут вниз — иначе он не стоит на одной линии с иконкой.
+    final row = find.byType(FileTableRow).first;
+    final icon = tester.getCenter(find.descendant(of: row, matching: find.byType(FileTypeIcon)).first);
+    final name = tester.getCenter(find.descendant(of: row, matching: find.text('..')).first);
+
+    expect(name.dy, greaterThan(icon.dy));
   });
 
   testWidgets('панель показывает путь, заголовки и содержимое каталога', (tester) async {
