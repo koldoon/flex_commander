@@ -160,13 +160,15 @@ class CommandDialogBody extends StatelessWidget {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
     final padding = EdgeInsets.symmetric(horizontal: metrics.dialogHorizontalPadding, vertical: metrics.dialogPadding);
+    // Сверху отступ больше: содержимое отходит от полосы заголовка.
+    final contentPadding = padding.copyWith(top: metrics.dialogContentTopPadding);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Padding(
-          padding: padding,
+          padding: contentPadding,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

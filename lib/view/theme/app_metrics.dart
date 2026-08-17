@@ -108,13 +108,25 @@ class FcMetrics {
   double get dialogMinWidth => _ref(1000);
   double get dialogMaxWidth => _ref(2000);
 
-  /// Заголовок: `left="20" top="25"`.
+  /// Полоса заголовка: `left="20"` у метки.
   double get dialogTitlePadding => _ref(20);
-  double get dialogTitleVerticalPadding => _ref(25);
+
+  /// Высота полосы заголовка: `top="25"` + кегль `h5` (34) + `bottom="25"`.
+  ///
+  /// Задана высотой, а не полями: иначе к 25 сверху и снизу прибавился бы ещё
+  /// межстрочный просвет, который Flutter кладёт внутрь строки, и полоса вышла
+  /// бы выше референсной.
+  double get dialogTitleHeight => _ref(84);
 
   /// Содержимое: `padding="20" paddingLeft="40"`.
   double get dialogPadding => _ref(20);
   double get dialogHorizontalPadding => _ref(40);
+
+  /// Отступ от полосы заголовка до первой строки содержимого.
+  ///
+  /// Больше обычного [dialogPadding]: к нему в референсе добавляется смещение
+  /// первой строки формы — `baseline="maxAscent:10"` в `SimpleFormItemSkin`.
+  double get dialogContentTopPadding => _ref(30);
 
   /// Между строками содержимого и между кнопками: `gap="20"`.
   double get dialogGap => _ref(20);
