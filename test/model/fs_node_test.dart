@@ -121,5 +121,15 @@ void main() {
       final dir = DirectoryNode(provider: provider, name: 'lib');
       expect(dir.size, FsNode.unknownSize);
     });
+
+    test('выставляется после создания', () {
+      final dir = DirectoryNode(provider: provider, name: 'lib');
+
+      // На этом держится показ размера каталога: его считает панель, когда
+      // каталог помечают, и пишет прямо в узел.
+      dir.size = 300;
+
+      expect(dir.size, 300);
+    });
   });
 }

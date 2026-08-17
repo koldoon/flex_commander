@@ -165,6 +165,25 @@ void main() {
     expect((arrow as TextSpan).style?.fontFamily, FcIcons.fontFamily);
   });
 
+  testWidgets('посчитанный размер каталога виден в колонке', (tester) async {
+    await pumpApp(tester);
+
+    // Строка каталога в левой панели: имя «docs» есть и в плашке пути правой.
+    final row = find.ancestor(
+      of: find.descendant(of: find.byType(PanelView).first, matching: find.text('docs')),
+      matching: find.byType(FileTableRow),
+    );
+    expect(find.descendant(of: row, matching: find.text('384')), findsNothing);
+
+    app.left.setCursorToName('docs');
+    app.left.toggleCurrentMark();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    // Размер взялся из узла — той же величины, что и сумма внизу.
+    expect(find.descendant(of: row, matching: find.text('384')), findsOneWidget);
+  });
+
   testWidgets('пока каталоги считаются, об этом сказано прямо', (tester) async {
     await pumpApp(tester);
 
