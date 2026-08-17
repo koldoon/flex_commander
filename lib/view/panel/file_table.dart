@@ -134,21 +134,27 @@ class _FileTableState extends State<FileTable> {
 
               return Stack(
                 children: [
-                  // Линейки рисуются под содержимым и на всю высоту таблицы —
-                  // как в макете, где они идут от заголовков до строки состояния.
-                  Positioned.fill(
-                    child: CustomPaint(
-                      painter: _ColumnDividersPainter(
-                        columns: columns,
-                        widths: widths,
-                        color: theme.colors.columnDivider,
-                      ),
-                    ),
-                  ),
                   if (contentWidth > constraints.maxWidth)
                     SingleChildScrollView(scrollDirection: Axis.horizontal, child: table)
                   else
                     table,
+                  // Линейки идут поверх строк и на всю высоту таблицы: в
+                  // референсе `PanelLine` объявлены после списка, поэтому
+                  // подсветка курсора их не закрывает. Иначе в активной строке
+                  // разделители колонок пропадали бы.
+                  Positioned.fill(
+                    // Рисунок, а не участник разметки: клики по строке должны
+                    // проходить сквозь него.
+                    child: IgnorePointer(
+                      child: CustomPaint(
+                        painter: _ColumnDividersPainter(
+                          columns: columns,
+                          widths: widths,
+                          color: theme.colors.columnDivider,
+                        ),
+                      ),
+                    ),
+                  ),
                 ],
               );
             },
