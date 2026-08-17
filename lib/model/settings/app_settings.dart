@@ -57,6 +57,7 @@ class AppSettings {
     required this.right,
     this.activePanel = 0,
     this.splitRatio = 0.5,
+    this.sizeScanConcurrency = defaultSizeScanConcurrency,
     this.window,
   });
 
@@ -68,6 +69,16 @@ class AppSettings {
   static const double minSplitRatio = 0.2;
   static const double maxSplitRatio = 0.8;
 
+  /// Сколько каталогов панель обходит одновременно, считая их размер.
+  ///
+  /// Обход — работа не вычислительная, а ожидающая ответа файловой системы,
+  /// поэтому несколько сразу заканчиваются заметно быстрее, чем по очереди.
+  /// Предел нужен, чтобы не завалить диск сотней одновременных обходов, если
+  /// помечены сотни каталогов.
+  static const int defaultSizeScanConcurrency = 10;
+  static const int minSizeScanConcurrency = 1;
+  static const int maxSizeScanConcurrency = 64;
+
   final PanelSettings left;
   final PanelSettings right;
 
@@ -75,6 +86,9 @@ class AppSettings {
   final int activePanel;
 
   final double splitRatio;
+
+  /// Размер пула обхода каталогов, см. [defaultSizeScanConcurrency].
+  final int sizeScanConcurrency;
 
   /// Положение и размер окна; null — окно ещё ни разу не открывали.
   final WindowGeometry? window;
@@ -84,12 +98,14 @@ class AppSettings {
     PanelSettings? right,
     int? activePanel,
     double? splitRatio,
+    int? sizeScanConcurrency,
     WindowGeometry? window,
   }) => AppSettings(
     left: left ?? this.left,
     right: right ?? this.right,
     activePanel: activePanel ?? this.activePanel,
     splitRatio: splitRatio ?? this.splitRatio,
+    sizeScanConcurrency: sizeScanConcurrency ?? this.sizeScanConcurrency,
     window: window ?? this.window,
   );
 
@@ -97,6 +113,7 @@ class AppSettings {
     'version': version,
     'activePanel': activePanel,
     'splitRatio': splitRatio,
+    'sizeScanConcurrency': sizeScanConcurrency,
     if (window != null) 'window': window!.toJson(),
     'panels': [left.toJson(), right.toJson()],
   };
@@ -113,12 +130,17 @@ class AppSettings {
     final right = panels is List && panels.length > 1 ? panels[1] : null;
     final activePanel = json['activePanel'];
     final splitRatio = json['splitRatio'];
+    final concurrency = json['sizeScanConcurrency'];
 
     return AppSettings(
       left: PanelSettings.fromJson(left, fallbackPath: fallbackPath),
       right: PanelSettings.fromJson(right, fallbackPath: fallbackPath),
       activePanel: activePanel == 1 ? 1 : 0,
       splitRatio: splitRatio is num ? splitRatio.toDouble().clamp(minSplitRatio, maxSplitRatio) : 0.5,
+      sizeScanConcurrency:
+          concurrency is num
+              ? concurrency.toInt().clamp(minSizeScanConcurrency, maxSizeScanConcurrency)
+              : defaultSizeScanConcurrency,
       window: WindowGeometry.fromJson(json['window']),
     );
   }
