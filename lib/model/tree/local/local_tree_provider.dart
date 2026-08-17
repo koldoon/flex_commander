@@ -363,7 +363,9 @@ class LocalTreeProvider implements TreeProvider, TreeEditor {
 
       for (final node in nodes) {
         op.checkCanceled();
-        final path = physicalPathOf(node);
+        // Путь самого объекта: ссылка должна остаться ссылкой, иначе
+        // содержимое каталога, на который она ведёт, попало бы в сумму дважды.
+        final path = entityPathOf(node);
 
         if (FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.directory) {
           total += node.size > 0 ? node.size : 0;
