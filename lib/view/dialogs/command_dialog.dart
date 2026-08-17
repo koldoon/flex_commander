@@ -187,16 +187,19 @@ class CommandDialogBody extends StatelessWidget {
           // Одна строка, прижатая вправо (`HorizontalLayout horizontalAlign="right"`).
           // Кнопки не растягиваются: ширина каждой — по её подписи.
           //
-          // `Wrap`, а не `Row`: ширина окна задана долей окна приложения и от
-          // кнопок не зависит, поэтому пять кнопок («перезаписать все»,
-          // «пропустить все») в узком окне могут не поместиться. Перенос на
-          // вторую строку случается только тогда и всё же лучше, чем полоса
-          // переполнения поверх интерфейса.
-          child: Wrap(
-            alignment: WrapAlignment.end,
-            spacing: metrics.dialogGap,
-            runSpacing: metrics.dialogGap,
-            children: actions,
+          // Ширина окна задана долей окна приложения и от кнопок не зависит,
+          // поэтому пять кнопок (вопрос о занятом имени) в узкое окно могут не
+          // помещаться. Тогда `FittedBox` соразмерно уменьшает весь ряд —
+          // строка остаётся одной, без переноса и без полосы переполнения.
+          child: FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: Alignment.centerRight,
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                for (var i = 0; i < actions.length; i++) ...[if (i > 0) SizedBox(width: metrics.dialogGap), actions[i]],
+              ],
+            ),
           ),
         ),
       ],
