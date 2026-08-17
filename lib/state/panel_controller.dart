@@ -34,22 +34,13 @@ class PanelControllerFactory {
 /// [ChangeNotifier] нужен виджетам, поэтому он остаётся в реализации, а не
 /// в интерфейсе.
 class PanelController extends ChangeNotifier implements Panel {
-  PanelController({required this.provider, required PanelSettings settings, this.sizeScanDelay = _sizeScanDelay})
+  PanelController({required this.provider, required PanelSettings settings})
     : _columns = settings.columns,
       _sort = settings.sort,
       _showHidden = settings.showHidden,
       _lastPath = settings.path {
     selection.addListener(_onSelectionChanged);
   }
-
-  /// Пауза перед подсчётом размера помеченных каталогов.
-  ///
-  /// Пометка идёт очередями — `Space` нажимают подряд, `Cmd-A` помечает всё
-  /// разом, — и начинать обход дерева на каждое нажатие незачем: он всё равно
-  /// был бы отменён следующим.
-  static const Duration _sizeScanDelay = Duration(milliseconds: 200);
-
-  final Duration sizeScanDelay;
 
   @override
   final TreeProvider provider;
@@ -512,13 +503,21 @@ class PanelController extends ChangeNotifier implements Panel {
 
   // --- размер помеченного ---
 
+  /// Уже посчитанные каталоги: имя — насчитанный размер.
+  ///
+  /// По имени, а не по узлу: после перечитывания каталога узлы — новые
+  /// экземпляры, так же переносится и сама пометка.
+  final Map<String, int> _scannedDirectories = {};
+
+  /// Каталоги, до которых обход ещё не дошёл.
+  final List<DirectoryNode> _scanQueue = [];
+
+  /// Каталог, который считают прямо сейчас, и его текущая сумма.
+  DirectoryNode? _scanning;
+  int _scanningSize = 0;
+
   AsyncOperation<int>? _sizeScan;
   StreamSubscription<OperationProgress>? _sizeProgress;
-  Timer? _sizeScanTimer;
-
-  /// Сколько насчитано в помеченных каталогах.
-  int _scannedSize = 0;
-  bool _sizeScanning = false;
 
   /// Строка состояния обновляется не на каждый посчитанный файл.
   late final Throttle _sizeRedraw = Throttle(notifyListeners);
@@ -529,65 +528,102 @@ class PanelController extends ChangeNotifier implements Panel {
   /// поэтому значение растёт по ходу обхода. Закончен ли подсчёт, говорит
   /// [selectionSizeIsFinal].
   @override
-  int get selectionSize => selection.totalSize + _scannedSize;
+  int get selectionSize {
+    var total = selection.totalSize + _scanningSize;
+    for (final size in _scannedDirectories.values) {
+      total += size;
+    }
+    return total;
+  }
 
   @override
-  bool get selectionSizeIsFinal => !_sizeScanning;
+  bool get selectionSizeIsFinal => _scanning == null && _scanQueue.isEmpty;
 
+  /// Пометка изменилась: новые каталоги встают в очередь, снятые — уходят.
+  ///
+  /// Идущий обход при этом не прерывается: помечать файлы продолжают по ходу
+  /// подсчёта, и начинать всё заново на каждое нажатие было бы напрасной
+  /// работой — до конца дело не дошло бы никогда.
   void _onSelectionChanged() {
-    _stopSizeScan();
+    final selected = {for (final node in selection.nodes.whereType<DirectoryNode>()) node.name: node};
 
-    final directories = selection.nodes.whereType<DirectoryNode>().toList(growable: false);
-    if (directories.isEmpty) {
-      notifyListeners();
-      return;
+    // Снятое с пометки перестаёт учитываться, где бы оно ни было.
+    _scannedDirectories.removeWhere((name, _) => !selected.containsKey(name));
+    _scanQueue.removeWhere((directory) => !selected.containsKey(directory.name));
+
+    final scanning = _scanning;
+    if (scanning != null && !selected.containsKey(scanning.name)) {
+      _cancelCurrentScan();
     }
 
-    // Пока обход не начался, размер уже не окончателен: иначе в строке
-    // состояния успела бы мигнуть сумма без каталогов.
-    _sizeScanning = true;
-    _sizeScanTimer = Timer(sizeScanDelay, () => _startSizeScan(directories));
+    for (final entry in selected.entries) {
+      if (_scannedDirectories.containsKey(entry.key) ||
+          _scanning?.name == entry.key ||
+          _scanQueue.any((directory) => directory.name == entry.key)) {
+        continue;
+      }
+      _scanQueue.add(entry.value);
+    }
+
+    _startNextScan();
     notifyListeners();
   }
 
-  void _startSizeScan(List<DirectoryNode> directories) {
-    final operation = provider.calculateSize(directories);
+  void _startNextScan() {
+    if (_scanning != null || _scanQueue.isEmpty) {
+      return;
+    }
+
+    final directory = _scanQueue.removeAt(0);
+    final operation = provider.calculateSize([directory]);
+    _scanning = directory;
+    _scanningSize = 0;
     _sizeScan = operation;
 
     _sizeProgress = operation.progress.listen((event) {
-      _scannedSize = event.processed;
+      _scanningSize = event.processed;
       _sizeRedraw();
     });
 
     operation.result
-        .then((total) {
-          if (!identical(_sizeScan, operation)) {
-            // Пометку успели сменить — этот результат уже не о ней.
-            return;
-          }
-          _scannedSize = total;
-          _sizeScanning = false;
-          _sizeRedraw.flush();
-        })
-        .catchError((Object _) {
-          if (identical(_sizeScan, operation)) {
-            // Подсчёт не удался: показываем то, что успели насчитать.
-            _sizeScanning = false;
-            _sizeRedraw.flush();
-          }
-        });
+        .then((total) => _finishScan(operation, directory, total))
+        // Каталог мог исчезнуть или оказаться закрытым: засчитываем то,
+        // что успели, и идём дальше по очереди.
+        .catchError((Object _) => _finishScan(operation, directory, _scanningSize));
   }
 
-  void _stopSizeScan() {
-    _sizeScanTimer?.cancel();
-    _sizeScanTimer = null;
+  void _finishScan(AsyncOperation<int> operation, DirectoryNode directory, int total) {
+    if (!identical(_sizeScan, operation)) {
+      // Пометку успели сменить — этот результат уже не о ней.
+      return;
+    }
+
+    _scannedDirectories[directory.name] = total;
+    _releaseScan();
+    _startNextScan();
+    _sizeRedraw.flush();
+  }
+
+  /// Прекращает текущий обход, не трогая очередь и уже посчитанное.
+  void _cancelCurrentScan() {
+    _sizeScan?.cancel();
+    _releaseScan();
+  }
+
+  void _releaseScan() {
     unawaited(_sizeProgress?.cancel());
     _sizeProgress = null;
-    _sizeScan?.cancel();
     _sizeScan = null;
+    _scanning = null;
+    _scanningSize = 0;
+  }
+
+  /// Забывает всё: и текущий обход, и очередь, и посчитанное.
+  void _stopSizeScan() {
+    _cancelCurrentScan();
+    _scanQueue.clear();
+    _scannedDirectories.clear();
     _sizeRedraw.cancel();
-    _scannedSize = 0;
-    _sizeScanning = false;
   }
 
   @override

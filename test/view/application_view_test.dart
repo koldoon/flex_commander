@@ -1,8 +1,10 @@
 import 'dart:io';
 
 import 'package:flex_commander/app.dart';
+import 'package:flex_commander/model/async/async_operation.dart';
 import 'package:flex_commander/model/settings/app_settings.dart';
 import 'package:flex_commander/model/settings/settings_store.dart';
+import 'package:flex_commander/model/tree/fs_node.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flex_commander/view/function_bar/function_bar.dart';
@@ -16,13 +18,30 @@ import 'package:path/path.dart' as p;
 
 import '../fake/in_memory_tree_provider.dart';
 
+/// Провайдер, у которого подсчёт размера не заканчивается мгновенно.
+///
+/// В памяти обход занимает доли микросекунды, и надпись «(Scanning…)» не
+/// успевает попасть ни в один кадр — проверить её было бы нечем.
+class _SlowSizeProvider extends InMemoryTreeProvider {
+  _SlowSizeProvider(super.entries);
+
+  @override
+  AsyncOperation<int> calculateSize(List<FsNode> nodes) {
+    return TaskOperation<int>((op) async {
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      op.checkCanceled();
+      return super.calculateSize(nodes).result;
+    });
+  }
+}
+
 void main() {
   late InMemoryTreeProvider provider;
   late Directory temp;
   late AppController app;
 
   setUp(() async {
-    provider = InMemoryTreeProvider([
+    provider = _SlowSizeProvider([
       FakeEntry.directory('/home'),
       FakeEntry.directory('/home/bin'),
       FakeEntry.directory('/home/docs'),
