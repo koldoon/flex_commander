@@ -109,7 +109,7 @@ CommandRegistry.dispatch(combination, app)
 | `Cmd-/` | `panel.root` | в корень провайдера |
 | `Cmd-O` | `panel.openWithSystem` | открыть выбранные объекты системой, не входя в них |
 | `Cmd-R` | `panel.reload` | перечитать текущий каталог |
-| `Cmd-H` | `panel.toggleHidden` | показать/скрыть скрытые объекты |
+| `Cmd-Shift-H`, `Cmd-H` | `panel.toggleHidden` | показать/скрыть скрытые объекты |
 
 `Left`/`Right` заняты переходом к первому/последнему элементу — это решение референса
 (`GoToFirstNodeCommand` / `GoToLastNodeCommand`), панели переключаются только `Tab`.
@@ -157,6 +157,17 @@ CommandRegistry.dispatch(combination, app)
 Отличие от референса: там `Backspace` был привязан к удалению (по-макосьи), а «наверх»
 делалось через `..`. В классических коммандерах `Backspace` — это «на уровень вверх»,
 и здесь выбран этот вариант; удаление живёт только на `F8`/`Shift-F8`.
+
+### Занятые системой сочетания
+
+`Cmd-H` на macOS забирает главное меню приложения («Hide APP_NAME», см.
+`macos/Runner/Base.lproj/MainMenu.xib`) — до окна такое нажатие не доходит вовсе,
+и команда, привязанная только к нему, выглядит несуществующей. Поэтому у показа
+скрытых объектов основное сочетание `Cmd-Shift-H`, а `Cmd-H` остаётся ради Windows
+и Linux, где он разбирается как `Ctrl-H`.
+
+Там же заняты `Cmd-Q` (выход), `Cmd-M` (свернуть), `Cmd-W` (закрыть окно) и
+`Cmd-Alt-H` («Hide Others») — на них вешать команды нельзя.
 
 ### Особенность macOS
 
@@ -222,7 +233,7 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 | `panel.up` | `Bsp`, `Cmd-Up` | у каталога есть родитель |
 | `panel.root` | `Cmd-/` | не в корне |
 | `panel.reload` | `Cmd-R` | панель не занята |
-| `panel.toggleHidden` | — | `Cmd-H` | всегда |
+| `panel.toggleHidden` | `Cmd-Shift-H`, `Cmd-H` | всегда |
 | `panel.selection.toggle` | `Space`, `Ins` | под курсором не `..` |
 | `panel.selection.clear` | `Esc` | есть пометка |
 | `panel.selection.all` | `Cmd-A` | список не пуст |
