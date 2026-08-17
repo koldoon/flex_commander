@@ -28,7 +28,6 @@ List<CommandFactory> defaultCommands({SystemOpener? opener}) => [
   () => GoToRootCommand(),
   () => ReloadCommand(),
   () => ToggleHiddenCommand(),
-  () => ToggleThemeCommand(),
   () => CancelCommand(),
 
   // Файловые операции.
@@ -77,7 +76,6 @@ List<KeyBinding> defaultKeyBindings() => [
   KeyBinding('Cmd-/', 'panel.root'),
   KeyBinding('Cmd-R', 'panel.reload'),
   KeyBinding('Cmd-H', 'panel.toggleHidden'),
-  KeyBinding('Cmd-T', 'app.toggleTheme'),
 
   // Пометка объектов. Отмена операции идёт раньше сброса пометки.
   KeyBinding('Esc', 'panel.cancel'),

@@ -169,26 +169,35 @@ abstract class TransferCommandBase extends AsyncCommandBase {
           );
         }
 
+        final theme = FcTheme.of(context);
+
         return CommandDialogForm(
           error: error,
           onCancel: dismiss,
           onSubmit: submit,
           submitLabel: label,
+          // Поля те же, что в референсе: откуда и куда.
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              Text(prompt, style: FcTheme.of(context).rowStyle, maxLines: 2, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 8),
-              TextField(
-                controller: _destination,
-                autofocus: true,
-                decoration: const InputDecoration(hintText: 'Destination path', isDense: true),
-                // Путь задаётся по мере ввода, а не при подтверждении: Enter
-                // обрабатывает ядро, и к моменту execute параметр уже должен
-                // быть на месте.
-                onChanged: (value) => setParam(destinationParam, value),
-                onSubmitted: (_) => submit(),
+              CommandDialogField(
+                label: 'From:',
+                child: Text(_sourcePath, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.dialogTextStyle),
+              ),
+              SizedBox(height: theme.metrics.dialogGap),
+              CommandDialogField(
+                label: 'To:',
+                child: FcTextField(
+                  controller: _destination,
+                  autofocus: true,
+                  hintText: 'Destination path',
+                  // Путь задаётся по мере ввода, а не при подтверждении: Enter
+                  // обрабатывает ядро, и к моменту execute параметр уже должен
+                  // быть на месте.
+                  onChanged: (value) => setParam(destinationParam, value),
+                  onSubmitted: (_) => submit(),
+                ),
               ),
             ],
           ),
@@ -197,12 +206,19 @@ abstract class TransferCommandBase extends AsyncCommandBase {
     );
   }
 
-  /// Что и куда — строкой над полем ввода.
-  @visibleForTesting
-  String get prompt {
+  /// Заголовок собирается как в референсе: действие и то, над чем оно идёт.
+  @override
+  String get dialogTitle {
     final targets = this.targets;
     final what = targets.length == 1 ? '«${targets.single.name}»' : '${targets.length} items';
-    return '$label $what to:';
+    return '$label $what';
+  }
+
+  /// Каталог, из которого идёт работа: показывается в окне.
+  String get _sourcePath {
+    final panel = context.panel;
+    final directory = panel.directory;
+    return directory == null ? '' : panel.provider.pathOf(directory);
   }
 
   @override

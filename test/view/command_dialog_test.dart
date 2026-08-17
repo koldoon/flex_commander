@@ -15,7 +15,7 @@ void main() {
   }) {
     return tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.light,
+        theme: AppTheme.theme,
         home: Scaffold(
           body: CommandDialogProgress(
             message: message,
@@ -40,7 +40,7 @@ void main() {
     await pumpProgress(tester, processed: 3, total: 10, progress: 0.3);
 
     expect(find.text('3 of 10'), findsOneWidget);
-    expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value, 0.3);
+    expect(tester.widget<FcProgressBar>(find.byType(FcProgressBar)).value, 0.3);
   });
 
   testWidgets('пока идёт подсчёт, итог помечен как неокончательный', (tester) async {
@@ -54,6 +54,6 @@ void main() {
     await pumpProgress(tester);
 
     expect(find.textContaining(' of '), findsNothing);
-    expect(tester.widget<LinearProgressIndicator>(find.byType(LinearProgressIndicator)).value, isNull);
+    expect(tester.widget<FcProgressBar>(find.byType(FcProgressBar)).value, isNull);
   });
 }

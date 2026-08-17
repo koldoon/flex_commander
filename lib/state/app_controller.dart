@@ -27,7 +27,6 @@ class AppController extends ChangeNotifier implements Application {
     WindowService? window,
     this.saveDelay = const Duration(seconds: 1),
   }) : _splitRatio = settings.splitRatio,
-       _themeMode = settings.themeMode,
        _windowGeometry = settings.window,
        _initialSettings = settings,
        window = window ?? const NoopWindowService(),
@@ -64,7 +63,6 @@ class AppController extends ChangeNotifier implements Application {
   final AppSettings _initialSettings;
 
   double _splitRatio;
-  AppThemeMode _themeMode;
   WindowGeometry? _windowGeometry;
   Timer? _saveTimer;
   String? _savedSnapshot;
@@ -80,9 +78,6 @@ class AppController extends ChangeNotifier implements Application {
   /// Доля ширины окна под левой панелью.
   @override
   double get splitRatio => _splitRatio;
-
-  @override
-  AppThemeMode get themeMode => _themeMode;
 
   /// Последняя известная геометрия окна.
   @override
@@ -137,16 +132,6 @@ class AppController extends ChangeNotifier implements Application {
     _scheduleSave();
   }
 
-  @override
-  void setThemeMode(AppThemeMode value) {
-    if (_themeMode == value) {
-      return;
-    }
-    _themeMode = value;
-    notifyListeners();
-    _scheduleSave();
-  }
-
   /// Открывает сохранённые каталоги и активирует панель, которая была активной
   /// в прошлый раз. Недоступный путь заменяется корнем провайдера, чтобы
   /// приложение всегда стартовало в рабочем состоянии.
@@ -186,7 +171,6 @@ class AppController extends ChangeNotifier implements Application {
     right: right.settings,
     activePanel: left.active ? 0 : 1,
     splitRatio: _splitRatio,
-    themeMode: _themeMode,
     window: _windowGeometry,
   );
 

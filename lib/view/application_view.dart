@@ -23,17 +23,12 @@ class ApplicationView extends StatelessWidget {
         children: [
           KeyboardHandler(
             app: app,
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [theme.colors.windowBackgroundTop, theme.colors.windowBackgroundBottom],
-                ),
-              ),
-              padding: EdgeInsets.all(metrics.windowPadding),
+            child: ColoredBox(
+              // Фон окна ровный: градиента в референсе нет.
+              color: theme.colors.windowBackground,
               child: Column(
                 children: [
+                  SizedBox(height: metrics.windowTopPadding),
                   Expanded(
                     child: SplitView(
                       ratio: app.splitRatio,
@@ -42,8 +37,9 @@ class ApplicationView extends StatelessWidget {
                       right: PanelView(panel: app.right),
                     ),
                   ),
-                  SizedBox(height: metrics.windowPadding),
+                  SizedBox(height: metrics.functionBarGap),
                   const FunctionBar(),
+                  SizedBox(height: metrics.windowBottomPadding),
                 ],
               ),
             ),

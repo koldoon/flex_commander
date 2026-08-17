@@ -173,13 +173,16 @@ class ColumnLayout {
 
   /// Раскладка по умолчанию — как в макете: иконка, имя, расширение, размер, дата.
   static ColumnLayout get defaults => ColumnLayout(const [
-    ColumnSpec(id: FsColumn.icon, width: 24, minWidth: 24, pinned: true),
-    ColumnSpec(id: FsColumn.name, width: 0, minWidth: 80, pinned: true),
+    // Ширины — по референсу с тем же коэффициентом, что и остальные размеры
+    // (см. `FcMetrics.scale`): колонка иконки вмещает отступ, глиф и просвет
+    // до имени, размер — `width="160"`, дата — `width="220"`.
+    ColumnSpec(id: FsColumn.icon, width: 34, minWidth: 34, pinned: true),
+    ColumnSpec(id: FsColumn.name, width: 0, minWidth: 90, pinned: true),
     ColumnSpec(id: FsColumn.ext, width: 40, align: ColumnAlign.end),
-    ColumnSpec(id: FsColumn.size, width: 60, align: ColumnAlign.end),
-    ColumnSpec(id: FsColumn.modified, width: 78, align: ColumnAlign.end),
-    ColumnSpec(id: FsColumn.created, width: 78, visible: false, align: ColumnAlign.end),
-    ColumnSpec(id: FsColumn.accessed, width: 78, visible: false, align: ColumnAlign.end),
-    ColumnSpec(id: FsColumn.attributes, width: 84, visible: false),
+    ColumnSpec(id: FsColumn.size, width: 64, align: ColumnAlign.end),
+    ColumnSpec(id: FsColumn.modified, width: 88, align: ColumnAlign.end),
+    ColumnSpec(id: FsColumn.created, width: 88, visible: false, align: ColumnAlign.end),
+    ColumnSpec(id: FsColumn.accessed, width: 88, visible: false, align: ColumnAlign.end),
+    ColumnSpec(id: FsColumn.attributes, width: 88, visible: false),
   ]);
 }

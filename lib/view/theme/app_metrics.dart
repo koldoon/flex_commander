@@ -1,52 +1,167 @@
-/// Размеры интерфейса.
+/// Размеры интерфейса — по референсному приложению.
 ///
-/// Значения сняты с макета `docs/design/design.svg` (он нарисован в масштабе 1:1,
-/// поэтому это логические пиксели). Геометрия панели там такая:
-///
-///     0…10     верхняя половина «плашки» пути — над рамкой панели
-///     10       рамка панели
-///     10…33    отступ до заголовков (в нём лежит нижняя половина плашки)
-///     33…59    строка заголовков колонок
-///     60…      строки файлов по 20 px
-///     …559     строка состояния высотой 30 px
+/// Все значения выведены из исходных чисел MXML через единый коэффициент
+/// [scale], поэтому пропорции референса сохранены точно, а общий размер
+/// интерфейса меняется одной строкой. Рядом с каждым значением указан его
+/// исходник, чтобы сверка с референсом была построчной.
 class FcMetrics {
   const FcMetrics();
 
-  /// Отступ от края окна до панелей и зазор между панелями.
-  double get windowPadding => 3;
-  double get panelGap => 3;
+  /// Во сколько раз интерфейс мельче исходных чисел референса.
+  ///
+  /// Референс нарисован в координатах `applicationDPI="320"`, и простое деление
+  /// пополам даёт заметно более крупный интерфейс, чем он выглядел на экране.
+  /// Коэффициент подобран по живому приложению: шаг строк выходит 20 точек,
+  /// кегль — 13.6.
+  static const double scale = 0.4;
 
-  /// «Плашка» с путём: наполовину заходит на верхнюю рамку панели.
-  double get pathHeaderHeight => 21;
-  double get pathHeaderRadius => 3;
-  double get pathHeaderMinInset => 20;
+  double _ref(double value) => value * scale;
 
-  /// Отступ от рамки панели до строки заголовков.
-  double get panelTopPadding => 22;
+  // --- окно (Main.mxml) ---
 
-  double get headerRowHeight => 26;
+  /// Отступ от верха окна до панелей: `top="20"`.
+  double get windowTopPadding => _ref(20);
 
-  /// Шаг строк списка: сама строка на [rowGap] ниже, разница — просвет
-  /// между соседними строками (как в референсе).
-  double get rowHeight => 20;
-  double get rowGap => 1;
-  double get statusBarHeight => 30;
+  /// Зазор между панелями: `width / 2 - 10` у обеих.
+  double get panelGap => _ref(20);
 
-  double get functionBarHeight => 27;
-  double get functionButtonHeight => 21;
-  double get functionButtonRadius => 3;
-  double get functionBarGap => 8;
+  /// Просвет между панелями и нижней панелью кнопок.
+  double get functionBarGap => _ref(15);
 
-  /// Ширина полосы, отмечающей помеченный объект у левого края строки.
-  double get markedBarWidth => 3;
+  /// Отступ от низа окна: `bottom="15"` у списка кнопок.
+  double get windowBottomPadding => _ref(15);
 
-  double get cellPadding => 6;
-  double get iconSize => 16;
-  double get fontSize => 12;
+  // --- панель (FilesPanel.mxml) ---
+
+  /// Плашка с путём: `height="60"`, скругление `radiusX="5"`.
+  /// Она наполовину заходит на верхнюю рамку панели — рамка начинается с
+  /// `top="30"`, то есть ровно с середины плашки.
+  double get pathHeaderHeight => _ref(60);
+  double get pathHeaderRadius => _ref(5);
+
+  /// Насколько плашка уже панели: `maxWidth="{width - 100}"`.
+  double get pathHeaderMinInset => _ref(50);
+
+  /// Отступ от рамки панели до строки заголовков: `top="80"` при рамке с 30.
+  double get panelTopPadding => _ref(50);
+
+  /// От заголовков до первой строки: список начинается с `top="135"`.
+  double get headerRowHeight => _ref(55);
+
+  /// Строка списка: `height="50"` у `FileItemRenderer`, `gap="2"` в раскладке.
+  double get rowHeight => _ref(50);
+  double get rowGap => _ref(2);
+
+  /// Строка состояния: линейка над ней стоит на `bottom="60"`.
+  double get statusBarHeight => _ref(60);
+
+  /// Поля внутри панели: заголовки `left="30"`, содержимое строки `right="40"`.
+  double get panelLeftPadding => _ref(30);
+  double get panelRightPadding => _ref(40);
+
+  /// Поля строки состояния и плашки пути: `left="20"` у обеих меток.
+  double get labelPadding => _ref(20);
+
+  /// Зазор между колонками: `gap="30"` у заголовков, `gap="20"` у строки.
+  double get columnGap => _ref(20);
+
+  /// Полоса, отмечающая помеченный объект у левого края строки: `width="8"`.
+  double get markedBarWidth => _ref(8);
+
+  /// Отступ от края строки до иконки: `left="30"`.
+  double get iconLeftPadding => _ref(30);
+
+  /// Отступ от иконки до имени: `left="{iconLabel.width + 50}"`.
+  double get iconGap => _ref(20);
+
+  // --- нижняя панель (FunctionKeyRenderer) ---
+
+  /// Высота кнопки: `rowHeight="55"`.
+  double get functionButtonHeight => _ref(55);
+
+  /// Скругление кнопки: `radiusX="5"`.
+  double get functionButtonRadius => _ref(5);
+
+  /// Ширина колонки с номером клавиши: `width="50"` у метки номера.
+  ///
+  /// Шире исходного: в референсе там стояла одна цифра, а у нас — `F1`…`F10`.
+  double get functionKeyNumberWidth => _ref(75);
+
+  /// Просвет между кнопкой и её номером: кнопка начинается с `left="55"`.
+  double get functionKeyNumberGap => _ref(5);
+
+  /// Зазор между кнопками: `horizontalGap="20"`.
+  double get functionButtonGap => _ref(20);
+
+  /// Поле справа у ряда кнопок: `paddingRight="30"`.
+  double get functionBarRightPadding => _ref(30);
+
+  // --- окна команд (TitledPopupPanelSkin) ---
+
+  /// Скругление окна: `radiusX="10"`.
+  double get dialogRadius => _ref(10);
+
+  /// Ширина окна: `minWidth="1000"` у диалогов команд.
+  double get dialogWidth => _ref(1000);
+
+  /// Заголовок: `left="20" top="25"`.
+  double get dialogTitlePadding => _ref(20);
+  double get dialogTitleVerticalPadding => _ref(25);
+
+  /// Содержимое: `padding="20" paddingLeft="40"`.
+  double get dialogPadding => _ref(20);
+  double get dialogHorizontalPadding => _ref(40);
+
+  /// Между строками содержимого и между кнопками: `gap="20"`.
+  double get dialogGap => _ref(20);
+
+  /// Линия над рядом кнопок: `height="2"`.
+  double get dialogDividerHeight => 1;
+
+  /// Ширина колонки подписей в форме окна.
+  double get dialogLabelWidth => _ref(220);
+
+  // --- кнопка окна команды (RegularButtonSkin) ---
+
+  /// `height="60"`, `radiusX="8"`, метка с полями `left="40"`.
+  double get buttonHeight => _ref(60);
+  double get buttonRadius => _ref(8);
+  double get buttonHorizontalPadding => _ref(40);
+
+  // --- поле ввода (TextInputBorderedSkin) ---
+
+  /// `height="70"`, `radiusX="8"`, текст с `left="22"`.
+  double get inputHeight => _ref(70);
+  double get inputRadius => _ref(8);
+  double get inputHorizontalPadding => _ref(22);
+
+  // --- полоса хода работы (ProgressBar.mxml) ---
+
+  /// `height="30"`, скругление в половину высоты, заливка с отступом `4`.
+  double get progressHeight => _ref(30);
+  double get progressInset => _ref(4);
+
+  // --- общее ---
+
+  /// Толщина обводок: `weight="2"` в референсе.
+  ///
+  /// Единственное значение не по [scale]: после уменьшения линия стала бы тоньше
+  /// точки и размылась бы, а в референсе она чёткая.
+  double get strokeWidth => 1;
+
+  /// Размер шрифта: `h5` — `fontSize: 34px`.
+  double get fontSize => _ref(34);
+
+  /// Иконка — глиф того же кегля, что и текст (`styleName="h5 ... icon"`).
+  double get iconSize => _ref(34);
+
+  /// Поле внутри ячейки таблицы: половина зазора между колонками.
+  double get cellPadding => _ref(10);
 
   /// Ширина области захвата разделителя панелей и границ колонок.
-  double get resizeHandleWidth => 7;
+  /// Не уже [panelGap]: иначе разделитель было бы труднее подцепить, чем видно.
+  double get resizeHandleWidth => 10;
 
   /// Минимальная ширина панели при перетаскивании разделителя.
-  double get minPanelWidth => 200;
+  double get minPanelWidth => 220;
 }

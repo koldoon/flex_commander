@@ -8,6 +8,9 @@ import '../theme/app_theme.dart';
 /// Рамку и заголовок рисует ядро, а внутренности — команда. Чтобы окна разных
 /// команд выглядели одинаково, типовые случаи собраны здесь: форма с полем
 /// ввода, подтверждение, ход выполнения и вопрос по ходу работы.
+///
+/// Вид взят у референса: содержимое с полями `padding="20" paddingLeft="40"`,
+/// под ним линия и ряд кнопок, прижатых вправо (`TitledPopupPanelSkin`).
 
 /// Форма: произвольное содержимое, кнопки «отмена» и подтверждение.
 class CommandDialogForm extends StatelessWidget {
@@ -30,19 +33,12 @@ class CommandDialogForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        child,
-        if (error != null) _CommandDialogError(message: error!),
-        _CommandDialogActions(
-          actions: [
-            _CommandDialogAction(label: 'Cancel', onPressed: onCancel),
-            _CommandDialogAction(label: submitLabel, onPressed: busy ? null : onSubmit, primary: true),
-          ],
-        ),
+    return CommandDialogBody(
+      actions: [
+        FcButton(label: 'Cancel', onPressed: onCancel),
+        FcButton(label: submitLabel, onPressed: busy ? null : onSubmit, primary: true),
       ],
+      children: [child, if (error != null) _CommandDialogError(message: error!)],
     );
   }
 }
@@ -66,20 +62,14 @@ class CommandDialogConfirm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FcTheme.of(context);
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return CommandDialogBody(
+      actions: [
+        FcButton(label: 'Cancel', onPressed: onCancel),
+        FcButton(label: confirmLabel, onPressed: onConfirm, primary: true),
+      ],
       children: [
-        Text(message, style: theme.rowStyle),
+        Text(message, style: FcTheme.of(context).dialogTextStyle),
         if (error != null) _CommandDialogError(message: error!),
-        _CommandDialogActions(
-          actions: [
-            _CommandDialogAction(label: 'Cancel', onPressed: onCancel),
-            _CommandDialogAction(label: confirmLabel, onPressed: onConfirm, primary: true),
-          ],
-        ),
       ],
     );
   }
@@ -114,19 +104,16 @@ class CommandDialogProgress extends StatelessWidget {
     final theme = FcTheme.of(context);
     final counter = _counter;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
+    return CommandDialogBody(
+      actions: [FcButton(label: 'Cancel', onPressed: onCancel)],
       children: [
-        Text(message, style: theme.rowStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
-        const SizedBox(height: 8),
-        LinearProgressIndicator(value: progress, minHeight: 4),
+        CommandDialogField(
+          label: 'Item:',
+          child: Text(message, style: theme.dialogTextStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
         if (counter != null)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: Text(counter, style: theme.numericStyle, textAlign: TextAlign.right),
-          ),
-        _CommandDialogActions(actions: [_CommandDialogAction(label: 'Cancel', onPressed: onCancel)]),
+          CommandDialogField(label: 'Processed:', child: Text(counter, style: theme.dialogTextStyle)),
+        CommandDialogField(label: 'Progress:', child: FcProgressBar(value: progress)),
       ],
     );
   }
@@ -151,24 +138,239 @@ class CommandDialogQuestion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    return CommandDialogBody(
+      actions: [
+        for (final option in options)
+          FcButton(label: option.label, onPressed: () => onAnswer(option), primary: option == options.first),
+      ],
+      children: [Text(message, style: FcTheme.of(context).dialogTextStyle)],
+    );
+  }
+}
+
+/// Содержимое окна: строки с полями и ряд кнопок под линией.
+class CommandDialogBody extends StatelessWidget {
+  const CommandDialogBody({super.key, required this.children, required this.actions});
+
+  final List<Widget> children;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
+    final metrics = theme.metrics;
+    final padding = EdgeInsets.symmetric(horizontal: metrics.dialogHorizontalPadding, vertical: metrics.dialogPadding);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Text(message, style: theme.rowStyle),
-        _CommandDialogActions(
-          actions: [
-            for (final option in options)
-              _CommandDialogAction(
-                label: option.label,
-                onPressed: () => onAnswer(option),
-                primary: option == options.first,
-              ),
-          ],
+        Padding(
+          padding: padding,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              for (var i = 0; i < children.length; i++) ...[
+                if (i > 0) SizedBox(height: metrics.dialogGap),
+                children[i],
+              ],
+            ],
+          ),
+        ),
+        Container(height: metrics.dialogDividerHeight, color: theme.colors.dialogDivider),
+        Padding(
+          padding: padding,
+          // Wrap, а не Row: кнопок бывает пять («перезаписать все», «пропустить
+          // все»), и в одну строку они не помещаются.
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            spacing: metrics.dialogGap,
+            runSpacing: metrics.dialogGap,
+            children: actions,
+          ),
         ),
       ],
+    );
+  }
+}
+
+/// Строка формы: подпись слева, содержимое справа (`SimpleFormItemSkin`).
+class CommandDialogField extends StatelessWidget {
+  const CommandDialogField({super.key, required this.label, required this.child});
+
+  final String label;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FcTheme.of(context);
+
+    return Row(
+      children: [
+        SizedBox(
+          width: theme.metrics.dialogLabelWidth,
+          child: Text(label, textAlign: TextAlign.right, style: theme.dialogLabelStyle),
+        ),
+        SizedBox(width: theme.metrics.dialogGap),
+        Expanded(child: child),
+      ],
+    );
+  }
+}
+
+/// Кнопка окна команды — `RegularButtonSkin` и `DefaultButtonSkin` референса.
+///
+/// Отличаются они только цветом заливки: обычная `sea`, подтверждающая `blue1`.
+/// Снизу вверх идёт лёгкое затемнение, нажатие затемняет кнопку целиком.
+class FcButton extends StatefulWidget {
+  const FcButton({super.key, required this.label, required this.onPressed, this.primary = false});
+
+  final String label;
+  final VoidCallback? onPressed;
+  final bool primary;
+
+  @override
+  State<FcButton> createState() => _FcButtonState();
+}
+
+class _FcButtonState extends State<FcButton> {
+  bool _pressed = false;
+
+  bool get _enabled => widget.onPressed != null;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FcTheme.of(context);
+    final metrics = theme.metrics;
+    final colors = theme.colors;
+    final radius = BorderRadius.circular(metrics.buttonRadius);
+
+    return Opacity(
+      opacity: _enabled ? 1 : 0.5,
+      child: MouseRegion(
+        cursor: _enabled ? SystemMouseCursors.click : MouseCursor.defer,
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: _enabled ? (_) => setState(() => _pressed = true) : null,
+          onTapUp: _enabled ? (_) => setState(() => _pressed = false) : null,
+          onTapCancel: _enabled ? () => setState(() => _pressed = false) : null,
+          onTap: widget.onPressed,
+          child: Container(
+            height: metrics.buttonHeight,
+            padding: EdgeInsets.symmetric(horizontal: metrics.buttonHorizontalPadding),
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: widget.primary ? colors.buttonPrimaryBackground : colors.buttonBackground,
+              border: Border.all(color: colors.buttonBorder, width: metrics.strokeWidth),
+              borderRadius: radius,
+            ),
+            foregroundDecoration: BoxDecoration(
+              borderRadius: radius,
+              // Затемнение снизу вверх: `LinearGradient angle="-90"` с
+              // переходом от чёрного 20% к прозрачному.
+              gradient: LinearGradient(
+                begin: Alignment.bottomCenter,
+                end: Alignment.topCenter,
+                colors: [colors.buttonPressed, const Color(0x00000000)],
+              ),
+              color: _pressed ? colors.buttonPressed : null,
+            ),
+            child: Text(widget.label, style: theme.buttonStyle),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// Поле ввода — `TextInputBorderedSkin` референса.
+class FcTextField extends StatelessWidget {
+  const FcTextField({
+    super.key,
+    required this.controller,
+    this.hintText,
+    this.autofocus = false,
+    this.onChanged,
+    this.onSubmitted,
+  });
+
+  final TextEditingController controller;
+  final String? hintText;
+  final bool autofocus;
+  final ValueChanged<String>? onChanged;
+  final ValueChanged<String>? onSubmitted;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FcTheme.of(context);
+    final metrics = theme.metrics;
+    final colors = theme.colors;
+
+    return Container(
+      height: metrics.inputHeight,
+      alignment: Alignment.center,
+      padding: EdgeInsets.symmetric(horizontal: metrics.inputHorizontalPadding),
+      decoration: BoxDecoration(
+        color: colors.inputBackground,
+        border: Border.all(color: colors.inputBorder, width: metrics.strokeWidth),
+        borderRadius: BorderRadius.circular(metrics.inputRadius),
+      ),
+      child: TextField(
+        controller: controller,
+        autofocus: autofocus,
+        onChanged: onChanged,
+        onSubmitted: onSubmitted,
+        style: theme.inputStyle,
+        cursorColor: colors.inputText,
+        decoration: InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
+          hintText: hintText,
+          hintStyle: theme.inputStyle.copyWith(color: colors.inputHint),
+        ),
+      ),
+    );
+  }
+}
+
+/// Полоса хода работы — `ProgressBar.mxml`: обводка и заливка одного цвета,
+/// заливка вписана внутрь с небольшим отступом.
+class FcProgressBar extends StatelessWidget {
+  const FcProgressBar({super.key, this.value});
+
+  /// 0…1; null — доля неизвестна, полоса пуста.
+  final double? value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FcTheme.of(context);
+    final metrics = theme.metrics;
+
+    return Container(
+      height: metrics.progressHeight,
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.colors.progress, width: metrics.strokeWidth),
+        borderRadius: BorderRadius.circular(metrics.progressHeight / 2),
+      ),
+      padding: EdgeInsets.all(metrics.progressInset),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          return Align(
+            alignment: Alignment.centerLeft,
+            child: SizedBox(
+              width: constraints.maxWidth * (value ?? 0).clamp(0.0, 1.0),
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  color: theme.colors.progress,
+                  borderRadius: BorderRadius.circular(metrics.progressHeight / 2 - metrics.progressInset),
+                ),
+              ),
+            ),
+          );
+        },
+      ),
     );
   }
 }
@@ -181,43 +383,6 @@ class _CommandDialogError extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
-
-    return Padding(
-      padding: const EdgeInsets.only(top: 8),
-      child: Text(message, style: theme.rowStyle.copyWith(color: theme.colors.error)),
-    );
-  }
-}
-
-class _CommandDialogActions extends StatelessWidget {
-  const _CommandDialogActions({required this.actions});
-
-  final List<Widget> actions;
-
-  @override
-  Widget build(BuildContext context) {
-    // Wrap, а не Row: кнопок бывает три, и с длинными названиями («Delete
-    // permanently», «Skip all») в одну строку они не помещаются.
-    return Padding(
-      padding: const EdgeInsets.only(top: 16),
-      child: Wrap(alignment: WrapAlignment.end, spacing: 8, runSpacing: 8, children: actions),
-    );
-  }
-}
-
-/// Кнопка окна команды: вид один на все окна.
-class _CommandDialogAction extends StatelessWidget {
-  const _CommandDialogAction({required this.label, required this.onPressed, this.primary = false});
-
-  final String label;
-  final VoidCallback? onPressed;
-  final bool primary;
-
-  @override
-  Widget build(BuildContext context) {
-    if (primary) {
-      return FilledButton(onPressed: onPressed, child: Text(label));
-    }
-    return TextButton(onPressed: onPressed, child: Text(label));
+    return Text(message, style: theme.dialogTextStyle.copyWith(color: theme.colors.error));
   }
 }

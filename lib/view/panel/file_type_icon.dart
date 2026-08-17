@@ -2,11 +2,14 @@ import 'package:flutter/material.dart';
 
 import '../../model/tree/fs_node.dart';
 import '../theme/app_theme.dart';
+import '../theme/fc_icons.dart';
 
-/// Иконка типа объекта.
+/// Иконка типа объекта — глифами FontAwesome, как в референсе.
 ///
-/// У обычного файла иконки нет — место под неё всё равно резервируется, чтобы
-/// имена стояли в одну колонку (так же было в референсе).
+/// У обычного файла иконки нет, но место под неё резервируется: в референсе для
+/// этого рисовали невидимый кружок (`fa_circle_o`), чтобы имена всех строк
+/// начинались с одной позиции. Здесь то же самое, только пустым местом той же
+/// ширины.
 class FileTypeIcon extends StatelessWidget {
   const FileTypeIcon({super.key, required this.node, required this.selected});
 
@@ -18,34 +21,29 @@ class FileTypeIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
-    final data = _iconFor(node);
-    if (data == null) {
+    final icon = _iconFor(node);
+    if (icon == null) {
       return SizedBox(width: theme.metrics.iconSize);
     }
 
-    final (icon, color) = data;
-    return Icon(icon, size: theme.metrics.iconSize, color: selected ? theme.colors.cursorText : color(theme));
+    return Icon(icon, size: theme.metrics.iconSize, color: selected ? theme.colors.iconSelected : theme.colors.icon);
   }
 
-  (IconData, Color Function(FcTheme))? _iconFor(FsNode node) {
+  IconData? _iconFor(FsNode node) {
     if (node is ParentDirNode) {
-      return (Icons.folder, (theme) => theme.colors.folderIcon);
+      return FcIcons.folder;
     }
     if (node is FileNode && node.broken) {
-      return (Icons.priority_high, (theme) => theme.colors.error);
+      return FcIcons.exclamation;
     }
     if (node is DirectoryNode) {
-      return (Icons.folder, (theme) => theme.colors.folderIcon);
+      return FcIcons.folder;
     }
     if (node is LinkNode) {
-      // Ссылка на каталог выглядит папкой со стрелкой: важно и то, куда она
-      // ведёт, и то, что это ссылка.
-      return node.isDirectoryLink
-          ? (Icons.drive_file_move_outlined, (theme) => theme.colors.folderIcon)
-          : (Icons.link, (theme) => theme.colors.secondaryText);
+      return FcIcons.link;
     }
     if (node is FileNode && node.executable) {
-      return (Icons.chevron_right, (theme) => theme.colors.secondaryText);
+      return FcIcons.asterisk;
     }
     return null;
   }

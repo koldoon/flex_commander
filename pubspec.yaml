@@ -62,6 +62,24 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Шрифты референсного приложения: интерфейс — Ubuntu, списки файлов —
+  # Consolas, иконки — FontAwesome. Ими же приложение выглядит одинаково
+  # на любой системе, а не только там, где эти шрифты установлены.
+  fonts:
+    - family: Ubuntu
+      fonts:
+        - asset: assets/fonts/Ubuntu-R.ttf
+        - asset: assets/fonts/Ubuntu-B.ttf
+          weight: 700
+    - family: Consolas
+      fonts:
+        - asset: assets/fonts/consola.ttf
+        - asset: assets/fonts/consolab.ttf
+          weight: 700
+    - family: FontAwesome
+      fonts:
+        - asset: assets/fonts/fontawesome-webfont.ttf
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

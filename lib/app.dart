@@ -52,9 +52,7 @@ class _FlexCommanderAppState extends State<FlexCommanderApp> {
             (context, child) => MaterialApp(
               title: 'Flex Commander',
               debugShowCheckedModeBanner: false,
-              theme: AppTheme.light,
-              darkTheme: AppTheme.dark,
-              themeMode: AppTheme.themeModeOf(widget.controller.themeMode),
+              theme: AppTheme.theme,
               home: const ApplicationView(),
             ),
       ),

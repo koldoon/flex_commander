@@ -24,19 +24,23 @@ class FunctionBar extends StatelessWidget {
     final app = AppScope.of(context);
 
     return SizedBox(
-      height: metrics.functionBarHeight,
+      height: metrics.functionButtonHeight,
       child: ListenableBuilder(
         // Доступность кнопок зависит от состояния активной панели: есть ли
         // объект под курсором, не занята ли панель.
         listenable: Listenable.merge([app.left, app.right]),
         builder:
-            (context, _) => Row(
-              children: [
-                for (var number = 1; number <= keyCount; number++) ...[
-                  if (number > 1) SizedBox(width: metrics.functionBarGap),
-                  Expanded(child: _button(context, number)),
+            (context, _) => Padding(
+              // Поле справа: `paddingRight="30"` у раскладки кнопок.
+              padding: EdgeInsets.only(right: metrics.functionBarRightPadding),
+              child: Row(
+                children: [
+                  for (var number = 1; number <= keyCount; number++) ...[
+                    if (number > 1) SizedBox(width: metrics.functionButtonGap),
+                    Expanded(child: _button(context, number)),
+                  ],
                 ],
-              ],
+              ),
             ),
       ),
     );

@@ -24,9 +24,11 @@ class PanelStatusBar extends StatelessWidget {
         final error = panel.status == PanelStatus.error;
         return Container(
           height: theme.metrics.statusBarHeight,
-          padding: EdgeInsets.symmetric(horizontal: theme.metrics.cellPadding * 2),
+          padding: EdgeInsets.symmetric(horizontal: theme.metrics.labelPadding),
           alignment: Alignment.centerLeft,
-          decoration: BoxDecoration(border: Border(top: BorderSide(color: theme.colors.columnDivider))),
+          decoration: BoxDecoration(
+            border: Border(top: BorderSide(color: theme.colors.columnDivider, width: theme.metrics.strokeWidth)),
+          ),
           child: Text(
             _text(),
             maxLines: 1,

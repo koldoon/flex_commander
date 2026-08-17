@@ -34,10 +34,6 @@ abstract interface class Application {
 
   void setSplitRatio(double value);
 
-  AppThemeMode get themeMode;
-
-  void setThemeMode(AppThemeMode mode);
-
   /// Последняя известная геометрия окна.
   WindowGeometry? get windowGeometry;
 
