@@ -33,8 +33,8 @@ class ApplicationView extends StatelessWidget {
                     child: SplitView(
                       ratio: app.splitRatio,
                       onRatioChanged: app.setSplitRatio,
-                      left: PanelView(panel: app.left),
-                      right: PanelView(panel: app.right),
+                      left: PanelView(panel: app.left, outerEdge: PanelOuterEdge.left),
+                      right: PanelView(panel: app.right, outerEdge: PanelOuterEdge.right),
                     ),
                   ),
                   SizedBox(height: metrics.functionBarGap),
