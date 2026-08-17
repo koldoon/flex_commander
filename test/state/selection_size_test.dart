@@ -21,12 +21,7 @@ void main() {
       FakeEntry.file('/home/notes.txt', size: 50),
     ]);
 
-    panel = PanelController(
-      provider: provider,
-      settings: PanelSettings.defaults('/home'),
-      // Пауза перед подсчётом в тестах не нужна: она гасит частые нажатия.
-      sizeScanDelay: Duration.zero,
-    );
+    panel = PanelController(provider: provider, settings: PanelSettings.defaults('/home'));
     await panel.openPath('/home');
   });
 
@@ -96,6 +91,31 @@ void main() {
 
     expect(panel.selectionSize, 0);
     expect(panel.selectionSizeIsFinal, isTrue);
+  });
+
+  test('новый каталог встаёт в очередь, не прерывая начатое', () async {
+    mark('docs');
+    // Ещё не досчитали первый — помечаем второй.
+    mark('bin');
+
+    await settle();
+
+    // Оба посчитаны: второй не отменил обход первого, а дождался очереди.
+    expect(panel.selectionSize, 700);
+    expect(panel.selectionSizeIsFinal, isTrue);
+  });
+
+  test('снятая пометка уходит из суммы и из очереди', () async {
+    mark('docs');
+    mark('bin');
+    await settle();
+    expect(panel.selectionSize, 700);
+
+    panel.setCursorToName('bin');
+    panel.toggleCurrentMark();
+    await settle();
+
+    expect(panel.selectionSize, 300);
   });
 
   test('новая пометка считается заново, а не поверх старой', () async {
