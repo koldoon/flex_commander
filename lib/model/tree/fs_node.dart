@@ -19,8 +19,6 @@ abstract class FsNode {
   int get size;
 
   /// Текст для строки состояния, когда узел под курсором.
-  String get info;
-
   /// Полный путь строкой.
   String get pathString;
 
@@ -56,8 +54,6 @@ abstract class AbstractFsNode implements FsNode {
   int size;
 
   @override
-  String get info => name;
-
   @override
   String get pathString => provider.pathOf(this);
 
@@ -203,9 +199,6 @@ class LinkNode extends FileNode {
   bool get isDirectoryLink => target is DirectoryNode || targetType == FileType.directory;
 
   AsyncOperation<FsNode?> resolve() => provider.resolveLink(this);
-
-  @override
-  String get info => '$name -> $reference';
 }
 
 /// Узлы, из имён которых складывается **видимый** путь.

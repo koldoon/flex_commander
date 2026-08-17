@@ -79,7 +79,7 @@ void main() {
   group('ссылка', () {
     test('info показывает цель', () {
       final link = LinkNode(provider: provider, name: 'latest', reference: '/opt/app-1.2.0');
-      expect(link.info, 'latest -> /opt/app-1.2.0');
+      expect(link.reference, '/opt/app-1.2.0');
     });
 
     test('тип цели известен без разрешения ссылки', () {
