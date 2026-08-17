@@ -273,6 +273,12 @@ FlexCommanderApp                      MaterialApp, тема, AppScope
 11 %, текст белый. Полоса хода работы (`FcProgressBar`) — `ProgressBar.mxml`:
 обводка и заливка одного цвета, заливка вписана внутрь с отступом.
 
+Внутри окна нельзя мерить себя по родителю: ширину окна задаёт содержимое
+(`IntrinsicWidth`), а `LayoutBuilder` такого измерения не переживает — падает
+с «does not support returning intrinsic dimensions». Поэтому заполненная часть
+полосы отмеряется долями `Row`; `FractionallySizedBox` тоже не годится — при
+нулевой доле его внутренняя ширина обращается в бесконечность.
+
 Заголовок окна берётся из `AppCommand.dialogTitle` и, как в референсе, говорит не
 только что делаем, но и над чем: «Copy «notes.txt»», «Delete 3 items».
 

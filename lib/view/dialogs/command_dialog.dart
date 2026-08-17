@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../model/async/operation_request.dart';
+import '../theme/app_metrics.dart';
 import '../theme/app_theme.dart';
 
 /// Готовые куски содержимого окна команды.
@@ -357,23 +358,32 @@ class FcProgressBar extends StatelessWidget {
         borderRadius: BorderRadius.circular(metrics.progressHeight / 2),
       ),
       padding: EdgeInsets.all(metrics.progressInset),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Align(
-            alignment: Alignment.centerLeft,
-            child: SizedBox(
-              width: constraints.maxWidth * (value ?? 0).clamp(0.0, 1.0),
-              child: DecoratedBox(
-                decoration: BoxDecoration(
-                  color: theme.colors.progress,
-                  borderRadius: BorderRadius.circular(metrics.progressHeight / 2 - metrics.progressInset),
-                ),
-              ),
-            ),
-          );
-        },
-      ),
+      // Заполненная часть отмеряется долями `Row`, а не шириной по замеру
+      // родителя: окно команды меряет себя по содержимому (`IntrinsicWidth`),
+      // а `LayoutBuilder` такого измерения не переживает вовсе, у
+      // `FractionallySizedBox` же при нулевой доле внутренняя ширина
+      // обращается в бесконечность.
+      child: Row(children: _parts(theme, metrics)),
     );
+  }
+
+  List<Widget> _parts(FcTheme theme, FcMetrics metrics) {
+    const total = 1000;
+    final filled = ((value ?? 0).clamp(0.0, 1.0) * total).round();
+
+    return [
+      if (filled > 0)
+        Expanded(
+          flex: filled,
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: theme.colors.progress,
+              borderRadius: BorderRadius.circular(metrics.progressHeight / 2 - metrics.progressInset),
+            ),
+          ),
+        ),
+      if (filled < total) Expanded(flex: total - filled, child: const SizedBox.shrink()),
+    ];
   }
 }
 
