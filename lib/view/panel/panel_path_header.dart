@@ -38,17 +38,14 @@ class PanelPathHeader extends StatelessWidget {
           builder: (context, constraints) {
             return Center(
               widthFactor: 1,
-              // Тот же сдвиг, что у строк списка: в референсе метка пути тоже
-              // стоит на `verticalCenter="2"`.
-              child: Transform.translate(
-                offset: Offset(0, metrics.textVerticalNudge),
-                child: Text(
-                  _trimHead(path, style, constraints.maxWidth, MediaQuery.textScalerOf(context)),
-                  maxLines: 1,
-                  softWrap: false,
-                  textAlign: TextAlign.center,
-                  style: style,
-                ),
+              // Сдвига, как в строках списка, здесь нет: он нужен Consolas,
+              // а путь набран Ubuntu — у него базовая линия обычная.
+              child: Text(
+                _trimHead(path, style, constraints.maxWidth, MediaQuery.textScalerOf(context)),
+                maxLines: 1,
+                softWrap: false,
+                textAlign: TextAlign.center,
+                style: style,
               ),
             );
           },

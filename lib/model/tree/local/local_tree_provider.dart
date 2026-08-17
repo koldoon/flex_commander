@@ -357,6 +357,48 @@ class LocalTreeProvider implements TreeProvider, TreeEditor {
   }
 
   @override
+  AsyncOperation<int> calculateSize(List<FsNode> nodes) {
+    return TaskOperation<int>((op) async {
+      var total = 0;
+
+      for (final node in nodes) {
+        op.checkCanceled();
+        final path = physicalPathOf(node);
+
+        if (FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.directory) {
+          total += node.size > 0 ? node.size : 0;
+          op.report(OperationProgress(processed: total, message: node.name));
+          continue;
+        }
+
+        try {
+          // Обход асинхронный: между объектами управление возвращается циклу
+          // событий, поэтому интерфейс остаётся отзывчивым даже на большом
+          // дереве, а отмена срабатывает сразу.
+          await for (final entity in Directory(path).list(recursive: true, followLinks: false)) {
+            op.checkCanceled();
+            if (entity is! File) {
+              continue;
+            }
+            try {
+              total += await entity.length();
+            } on FileSystemException {
+              // Файл исчез или закрыт — он просто не попадёт в сумму.
+              continue;
+            }
+            op.report(OperationProgress(processed: total, message: node.name));
+          }
+        } on FileSystemException {
+          // Каталог целиком недоступен: сумма останется без него.
+          continue;
+        }
+      }
+
+      return total;
+    });
+  }
+
+  @override
   AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination) =>
       _transfer(nodes, destination, move: false);
 

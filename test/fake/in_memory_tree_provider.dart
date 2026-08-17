@@ -177,6 +177,37 @@ class InMemoryTreeProvider implements TreeProvider, TreeEditor {
 
   String name(List<String> segments, int index) => segments[index];
 
+  /// Подсчёт размера в памяти: те же промежуточные суммы, что и на диске, —
+  /// иначе тесты проверяли бы не то поведение.
+  @override
+  AsyncOperation<int> calculateSize(List<FsNode> nodes) {
+    return TaskOperation<int>((op) async {
+      var total = 0;
+
+      for (final node in nodes) {
+        op.checkCanceled();
+        final path = p.normalize(physicalPathOf(node));
+
+        for (final entry in _entries.values.toList()) {
+          final entryPath = p.normalize(entry.path);
+          if (entryPath != path && !entryPath.startsWith('$path/')) {
+            continue;
+          }
+          if (entry.size > 0) {
+            total += entry.size;
+          }
+          // Пауза между объектами: подсчёт идёт фоном и в памяти тоже.
+          // Микрозадача, а не таймер: тестам не приходится крутить часы.
+          await Future<void>.microtask(() {});
+          op.checkCanceled();
+          op.report(OperationProgress(processed: total, message: node.name));
+        }
+      }
+
+      return total;
+    });
+  }
+
   @override
   AsyncOperation<DirectoryNode> makeDirectory(DirectoryNode parent, String name) {
     return TaskOperation<DirectoryNode>((op) async {

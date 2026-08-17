@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../model/app/panel.dart';
@@ -9,6 +11,7 @@ import '../model/tree/fs_node.dart';
 import '../model/tree/node_path.dart';
 import '../model/tree/tree_provider.dart';
 import 'selection_controller.dart';
+import 'throttle.dart';
 
 export '../model/app/panel.dart' show Panel, PanelStatus;
 
@@ -31,11 +34,22 @@ class PanelControllerFactory {
 /// [ChangeNotifier] нужен виджетам, поэтому он остаётся в реализации, а не
 /// в интерфейсе.
 class PanelController extends ChangeNotifier implements Panel {
-  PanelController({required this.provider, required PanelSettings settings})
+  PanelController({required this.provider, required PanelSettings settings, this.sizeScanDelay = _sizeScanDelay})
     : _columns = settings.columns,
       _sort = settings.sort,
       _showHidden = settings.showHidden,
-      _lastPath = settings.path;
+      _lastPath = settings.path {
+    selection.addListener(_onSelectionChanged);
+  }
+
+  /// Пауза перед подсчётом размера помеченных каталогов.
+  ///
+  /// Пометка идёт очередями — `Space` нажимают подряд, `Cmd-A` помечает всё
+  /// разом, — и начинать обход дерева на каждое нажатие незачем: он всё равно
+  /// был бы отменён следующим.
+  static const Duration _sizeScanDelay = Duration(milliseconds: 200);
+
+  final Duration sizeScanDelay;
 
   @override
   final TreeProvider provider;
@@ -496,9 +510,91 @@ class PanelController extends ChangeNotifier implements Panel {
     }
   }
 
+  // --- размер помеченного ---
+
+  AsyncOperation<int>? _sizeScan;
+  StreamSubscription<OperationProgress>? _sizeProgress;
+  Timer? _sizeScanTimer;
+
+  /// Сколько насчитано в помеченных каталогах.
+  int _scannedSize = 0;
+  bool _sizeScanning = false;
+
+  /// Строка состояния обновляется не на каждый посчитанный файл.
+  late final Throttle _sizeRedraw = Throttle(notifyListeners);
+
+  /// Суммарный размер помеченных объектов.
+  ///
+  /// Размер файлов известен сразу, содержимое каталогов считается фоном,
+  /// поэтому значение растёт по ходу обхода. Закончен ли подсчёт, говорит
+  /// [selectionSizeIsFinal].
+  @override
+  int get selectionSize => selection.totalSize + _scannedSize;
+
+  @override
+  bool get selectionSizeIsFinal => !_sizeScanning;
+
+  void _onSelectionChanged() {
+    _stopSizeScan();
+
+    final directories = selection.nodes.whereType<DirectoryNode>().toList(growable: false);
+    if (directories.isEmpty) {
+      notifyListeners();
+      return;
+    }
+
+    // Пока обход не начался, размер уже не окончателен: иначе в строке
+    // состояния успела бы мигнуть сумма без каталогов.
+    _sizeScanning = true;
+    _sizeScanTimer = Timer(sizeScanDelay, () => _startSizeScan(directories));
+    notifyListeners();
+  }
+
+  void _startSizeScan(List<DirectoryNode> directories) {
+    final operation = provider.calculateSize(directories);
+    _sizeScan = operation;
+
+    _sizeProgress = operation.progress.listen((event) {
+      _scannedSize = event.processed;
+      _sizeRedraw();
+    });
+
+    operation.result
+        .then((total) {
+          if (!identical(_sizeScan, operation)) {
+            // Пометку успели сменить — этот результат уже не о ней.
+            return;
+          }
+          _scannedSize = total;
+          _sizeScanning = false;
+          _sizeRedraw.flush();
+        })
+        .catchError((Object _) {
+          if (identical(_sizeScan, operation)) {
+            // Подсчёт не удался: показываем то, что успели насчитать.
+            _sizeScanning = false;
+            _sizeRedraw.flush();
+          }
+        });
+  }
+
+  void _stopSizeScan() {
+    _sizeScanTimer?.cancel();
+    _sizeScanTimer = null;
+    unawaited(_sizeProgress?.cancel());
+    _sizeProgress = null;
+    _sizeScan?.cancel();
+    _sizeScan = null;
+    _sizeRedraw.cancel();
+    _scannedSize = 0;
+    _sizeScanning = false;
+  }
+
   @override
   void dispose() {
     _operation?.cancel();
+    _stopSizeScan();
+    selection.removeListener(_onSelectionChanged);
     selection.dispose();
     super.dispose();
   }
