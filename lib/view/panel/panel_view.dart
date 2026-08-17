@@ -7,14 +7,35 @@ import 'file_table.dart';
 import 'panel_path_header.dart';
 import 'panel_status_bar.dart';
 
+/// Внешний край окна, к которому прижата панель.
+///
+/// Единственное, зачем панели знать свою сторону: с этого края рамка не
+/// рисуется. В референсе она там есть, но нарочно вынесена за край окна
+/// (`left="-3"` у левой панели, `right="-3"` у правой) — видно её не должно быть.
+enum PanelOuterEdge { left, right }
+
 /// Панель целиком: «плашка» пути, таблица файлов и строка состояния.
 ///
-/// Не знает, левая она или правая: обе панели устроены одинаково, а какая из
-/// них активна, решает [AppController].
+/// О том, левая она или правая, панель знает только ради внешней рамки
+/// ([outerEdge]); всё остальное у обеих одинаково, а какая из них активна,
+/// решает [AppController].
 class PanelView extends StatelessWidget {
-  const PanelView({super.key, required this.panel});
+  const PanelView({super.key, required this.panel, this.outerEdge});
 
   final PanelController panel;
+
+  final PanelOuterEdge? outerEdge;
+
+  /// Рамка панели без той стороны, что смотрит на край окна.
+  Border _border(FcTheme theme) {
+    final side = BorderSide(color: theme.colors.panelBorder, width: theme.metrics.strokeWidth);
+    return Border(
+      top: side,
+      bottom: side,
+      left: outerEdge == PanelOuterEdge.left ? BorderSide.none : side,
+      right: outerEdge == PanelOuterEdge.right ? BorderSide.none : side,
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -34,10 +55,7 @@ class PanelView extends StatelessWidget {
               // Верхняя половина «плашки» пути лежит над рамкой панели.
               padding: EdgeInsets.only(top: metrics.pathHeaderHeight / 2),
               child: Container(
-                decoration: BoxDecoration(
-                  color: theme.colors.panelBackground,
-                  border: Border.all(color: theme.colors.panelBorder, width: metrics.strokeWidth),
-                ),
+                decoration: BoxDecoration(color: theme.colors.panelBackground, border: _border(theme)),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
