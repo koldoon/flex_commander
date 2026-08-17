@@ -185,13 +185,18 @@ class CommandDialogBody extends StatelessWidget {
         Padding(
           padding: padding,
           // Одна строка, прижатая вправо (`HorizontalLayout horizontalAlign="right"`).
-          // Кнопки не растягиваются: ширина каждой — по её подписи, а окно
-          // раздаётся настолько, чтобы они поместились.
-          child: Row(
-            mainAxisAlignment: MainAxisAlignment.end,
-            children: [
-              for (var i = 0; i < actions.length; i++) ...[if (i > 0) SizedBox(width: metrics.dialogGap), actions[i]],
-            ],
+          // Кнопки не растягиваются: ширина каждой — по её подписи.
+          //
+          // `Wrap`, а не `Row`: ширина окна задана долей окна приложения и от
+          // кнопок не зависит, поэтому пять кнопок («перезаписать все»,
+          // «пропустить все») в узком окне могут не поместиться. Перенос на
+          // вторую строку случается только тогда и всё же лучше, чем полоса
+          // переполнения поверх интерфейса.
+          child: Wrap(
+            alignment: WrapAlignment.end,
+            spacing: metrics.dialogGap,
+            runSpacing: metrics.dialogGap,
+            children: actions,
           ),
         ),
       ],
@@ -363,7 +368,9 @@ class FcProgressBar extends StatelessWidget {
       // а `LayoutBuilder` такого измерения не переживает вовсе, у
       // `FractionallySizedBox` же при нулевой доле внутренняя ширина
       // обращается в бесконечность.
-      child: Row(children: _parts(theme, metrics)),
+      // Заливка тянется на всю высоту полосы: у пустого `DecoratedBox` своей
+      // высоты нет, и по умолчанию `Row` оставил бы от него нулевую полоску.
+      child: Row(crossAxisAlignment: CrossAxisAlignment.stretch, children: _parts(theme, metrics)),
     );
   }
 
