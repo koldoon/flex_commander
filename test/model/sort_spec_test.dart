@@ -18,7 +18,8 @@ void main() {
   FileNode file(String name, {int size = 0, DateTime? modified}) =>
       FileNode(provider: provider, name: name, parent: root, size: size, modified: modified);
 
-  DirectoryNode dir(String name) => DirectoryNode(provider: provider, name: name, parent: root);
+  DirectoryNode dir(String name, {int size = FsNode.unknownSize}) =>
+      DirectoryNode(provider: provider, name: name, parent: root, size: size);
 
   LinkNode link(String name, {FileType? targetType}) =>
       LinkNode(provider: provider, name: name, parent: root, reference: '/somewhere', targetType: targetType);
@@ -72,6 +73,19 @@ void main() {
         file('unknown.bin', size: FsNode.unknownSize),
       ];
       expect(sorted(nodes, const SortSpec(column: FsColumn.size)), ['unknown.bin', 'small.bin', 'big.bin']);
+    });
+
+    test('по размеру: посчитанные каталоги сравниваются между собой', () {
+      final nodes = <FsNode>[
+        dir('big', size: 1000),
+        dir('small', size: 10),
+        dir('unknown'),
+        file('file.txt', size: 500),
+      ];
+
+      // «Каталоги вперёд» решается по типу узла, поэтому посчитанный каталог
+      // не перемешивается с файлами; непосчитанный идёт первым.
+      expect(sorted(nodes, const SortSpec(column: FsColumn.size)), ['unknown', 'small', 'big', 'file.txt']);
     });
 
     test('по дате; отсутствующая дата идёт первой', () {

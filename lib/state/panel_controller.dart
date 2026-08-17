@@ -403,6 +403,14 @@ class PanelController extends ChangeNotifier implements Panel {
       _lastPath = dir.pathString;
       _nodes = nodes;
       _applySort();
+
+      // Обход размеров останавливается здесь, и место у вызова несущее в обе
+      // стороны. До `_restoreSelection` — потому что она уведомит пометку и
+      // пересоберёт очередь уже на новых узлах; если остановить после, свежий
+      // обход будет убит и заново не начнётся, ведь уведомлений больше не
+      // будет. И только в этой ветке — при ошибке или отмене чтения на экране
+      // остаются прежние узлы, и обход над ними по-прежнему правомерен.
+      _stopSizeScan();
       _restoreSelection(markedNames);
       _restoreCursor(cursorName, cursorFallbackIndex);
 
@@ -503,18 +511,14 @@ class PanelController extends ChangeNotifier implements Panel {
 
   // --- размер помеченного ---
 
-  /// Уже посчитанные каталоги: имя — насчитанный размер.
-  ///
-  /// По имени, а не по узлу: после перечитывания каталога узлы — новые
-  /// экземпляры, так же переносится и сама пометка.
-  final Map<String, int> _scannedDirectories = {};
-
   /// Каталоги, до которых обход ещё не дошёл.
+  ///
+  /// У всех, кто здесь лежит, размер ещё не посчитан — это условие постановки
+  /// в очередь.
   final List<DirectoryNode> _scanQueue = [];
 
-  /// Каталог, который считают прямо сейчас, и его текущая сумма.
+  /// Каталог, который считают прямо сейчас.
   DirectoryNode? _scanning;
-  int _scanningSize = 0;
 
   AsyncOperation<int>? _sizeScan;
   StreamSubscription<OperationProgress>? _sizeProgress;
@@ -527,14 +531,12 @@ class PanelController extends ChangeNotifier implements Panel {
   /// Размер файлов известен сразу, содержимое каталогов считается фоном,
   /// поэтому значение растёт по ходу обхода. Закончен ли подсчёт, говорит
   /// [selectionSizeIsFinal].
+  ///
+  /// Отдельного счётчика здесь нет: посчитанное лежит в самих узлах, поэтому
+  /// сумма и колонка «Size» в таблице показывают одно и то же число и разойтись
+  /// не могут.
   @override
-  int get selectionSize {
-    var total = selection.totalSize + _scanningSize;
-    for (final size in _scannedDirectories.values) {
-      total += size;
-    }
-    return total;
-  }
+  int get selectionSize => selection.totalSize;
 
   @override
   bool get selectionSizeIsFinal => _scanning == null && _scanQueue.isEmpty;
@@ -545,24 +547,24 @@ class PanelController extends ChangeNotifier implements Panel {
   /// подсчёта, и начинать всё заново на каждое нажатие было бы напрасной
   /// работой — до конца дело не дошло бы никогда.
   void _onSelectionChanged() {
-    final selected = {for (final node in selection.nodes.whereType<DirectoryNode>()) node.name: node};
+    final selected = selection.nodes.whereType<DirectoryNode>().toSet();
 
-    // Снятое с пометки перестаёт учитываться, где бы оно ни было.
-    _scannedDirectories.removeWhere((name, _) => !selected.containsKey(name));
-    _scanQueue.removeWhere((directory) => !selected.containsKey(directory.name));
+    // Снятое с пометки ждать в очереди перестаёт, но уже посчитанный размер
+    // в узле остаётся: он всё ещё верен, и в колонке его видно.
+    _scanQueue.removeWhere((directory) => !selected.contains(directory));
 
     final scanning = _scanning;
-    if (scanning != null && !selected.containsKey(scanning.name)) {
+    if (scanning != null && !selected.contains(scanning)) {
       _cancelCurrentScan();
     }
 
-    for (final entry in selected.entries) {
-      if (_scannedDirectories.containsKey(entry.key) ||
-          _scanning?.name == entry.key ||
-          _scanQueue.any((directory) => directory.name == entry.key)) {
+    for (final directory in selected) {
+      // Посчитанный каталог второй раз не обходим: значение в узле авторитетно
+      // до перечитывания каталога.
+      if (directory.size != FsNode.unknownSize || identical(_scanning, directory) || _scanQueue.contains(directory)) {
         continue;
       }
-      _scanQueue.add(entry.value);
+      _scanQueue.add(directory);
     }
 
     _startNextScan();
@@ -577,11 +579,16 @@ class PanelController extends ChangeNotifier implements Panel {
     final directory = _scanQueue.removeAt(0);
     final operation = provider.calculateSize([directory]);
     _scanning = directory;
-    _scanningSize = 0;
     _sizeScan = operation;
 
     _sizeProgress = operation.progress.listen((event) {
-      _scanningSize = event.processed;
+      // Событие предыдущего обхода может доехать уже после того, как он
+      // закончился и записал итог: между `report` и слушателем есть задержка
+      // в микрозадачу. Без этой проверки итог сменился бы частичной суммой.
+      if (!identical(_sizeScan, operation)) {
+        return;
+      }
+      directory.size = event.processed;
       _sizeRedraw();
     });
 
@@ -589,24 +596,32 @@ class PanelController extends ChangeNotifier implements Panel {
         .then((total) => _finishScan(operation, directory, total))
         // Каталог мог исчезнуть или оказаться закрытым: засчитываем то,
         // что успели, и идём дальше по очереди.
-        .catchError((Object _) => _finishScan(operation, directory, _scanningSize));
+        .catchError((Object _) => _finishScan(operation, directory, directory.size));
   }
 
+  /// Записывает итог в узел и берётся за следующий каталог.
+  ///
+  /// Отрицательное значение сюда попасть не должно, но зажим обязателен:
+  /// [FsNode.unknownSize] в узле означает «не посчитан», и такой итог заставил
+  /// бы обходить недоступный каталог заново на каждое нажатие.
   void _finishScan(AsyncOperation<int> operation, DirectoryNode directory, int total) {
     if (!identical(_sizeScan, operation)) {
       // Пометку успели сменить — этот результат уже не о ней.
       return;
     }
 
-    _scannedDirectories[directory.name] = total;
+    directory.size = total < 0 ? 0 : total;
     _releaseScan();
     _startNextScan();
     _sizeRedraw.flush();
   }
 
-  /// Прекращает текущий обход, не трогая очередь и уже посчитанное.
+  /// Прекращает текущий обход, не трогая очередь.
   void _cancelCurrentScan() {
     _sizeScan?.cancel();
+    // Частичная сумма, застывшая в колонке как итог, — ложь. Сбрасываем до
+    // `_releaseScan`: он забудет, какой каталог считали.
+    _scanning?.size = FsNode.unknownSize;
     _releaseScan();
   }
 
@@ -615,14 +630,15 @@ class PanelController extends ChangeNotifier implements Panel {
     _sizeProgress = null;
     _sizeScan = null;
     _scanning = null;
-    _scanningSize = 0;
   }
 
-  /// Забывает всё: и текущий обход, и очередь, и посчитанное.
+  /// Забывает и текущий обход, и очередь.
+  ///
+  /// Очередь чистится без сброса размеров: в неё попадают только каталоги
+  /// с непосчитанным размером, сбрасывать там нечего.
   void _stopSizeScan() {
     _cancelCurrentScan();
     _scanQueue.clear();
-    _scannedDirectories.clear();
     _sizeRedraw.cancel();
   }
 
