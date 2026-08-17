@@ -78,6 +78,10 @@ class CommandDialogConfirm extends StatelessWidget {
 
 /// Ход выполнения с возможностью прервать.
 ///
+/// Задаёт себе ширину — долю окна приложения: по ходу работы здесь меняются
+/// имена файлов, и если бы окно облегало содержимое, оно «прыгало» бы на
+/// каждом. Рамка окна ширину не назначает, она облегает то, что ей дали.
+///
 /// Кроме полосы показывает счётчик объектов: сколько обработано из скольких.
 /// Общее количество долгие операции считают фоном, поэтому пока счёт не
 /// закончен, к числу добавляется многоточие — иначе растущий «итог» выглядел бы
@@ -105,17 +109,20 @@ class CommandDialogProgress extends StatelessWidget {
     final theme = FcTheme.of(context);
     final counter = _counter;
 
-    return CommandDialogBody(
-      actions: [FcButton(label: 'Cancel', onPressed: onCancel)],
-      children: [
-        CommandDialogField(
-          label: 'Item:',
-          child: Text(message, style: theme.dialogTextStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
-        ),
-        if (counter != null)
-          CommandDialogField(label: 'Processed:', child: Text(counter, style: theme.dialogTextStyle)),
-        CommandDialogField(label: 'Progress:', child: FcProgressBar(value: progress)),
-      ],
+    return SizedBox(
+      width: MediaQuery.sizeOf(context).width * theme.metrics.dialogWidthFactor,
+      child: CommandDialogBody(
+        actions: [FcButton(label: 'Cancel', onPressed: onCancel)],
+        children: [
+          CommandDialogField(
+            label: 'Item:',
+            child: Text(message, style: theme.dialogTextStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
+          ),
+          if (counter != null)
+            CommandDialogField(label: 'Processed:', child: Text(counter, style: theme.dialogTextStyle)),
+          CommandDialogField(label: 'Progress:', child: FcProgressBar(value: progress)),
+        ],
+      ),
     );
   }
 

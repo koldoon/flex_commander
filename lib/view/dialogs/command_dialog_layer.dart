@@ -4,7 +4,6 @@ import 'package:flutter/services.dart';
 import '../../state/app_controller.dart';
 import '../../state/commands/app_command.dart';
 import '../../state/commands/key_combination.dart';
-import '../theme/app_metrics.dart';
 import '../theme/app_theme.dart';
 
 /// Окна запущенных команд.
@@ -123,51 +122,53 @@ class _CommandDialogFrameState extends State<_CommandDialogFrame> {
             onKeyEvent: _handleKey,
             child: Focus(
               focusNode: _node,
-              // Ширина зависит от того, идёт ли работа, а это состояние
-              // команды — на него и подписываемся.
-              child: ListenableBuilder(
-                listenable: command,
-                builder: (context, content) => _sized(context, metrics, content!),
-                child: Container(
-                  decoration: BoxDecoration(
-                    color: colors.dialogBackground,
-                    borderRadius: radius,
-                    boxShadow: [
-                      BoxShadow(
-                        color: colors.shadow,
-                        offset: Offset(0, metrics.dialogShadowOffset),
-                        blurRadius: metrics.dialogShadowBlur,
-                      ),
-                    ],
-                  ),
-                  // Скруглённые углы обрезают полосу заголовка: в референсе
-                  // она для этого закрыта маской.
-                  clipBehavior: Clip.antiAlias,
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      Container(
-                        width: double.infinity,
-                        height: metrics.dialogTitleHeight,
-                        alignment: Alignment.centerLeft,
-                        padding: EdgeInsets.symmetric(horizontal: metrics.dialogTitlePadding),
-                        decoration: BoxDecoration(
-                          color: colors.dialogTitleBackground,
-                          // Полоса заголовка отбрасывает тень на содержимое —
-                          // тот же фильтр, что у кнопок.
-                          boxShadow: [
-                            BoxShadow(
-                              color: colors.shadow,
-                              offset: Offset(0, metrics.buttonShadowOffset),
-                              blurRadius: metrics.buttonShadowBlur,
-                            ),
-                          ],
+              // Ширину рамка не назначает: окно облегает содержимое в пределах
+              // `minWidth`/`maxWidth`. Нужен определённый размер — команда
+              // задаёт его сама в том, что вернула из `getDialog`.
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: metrics.dialogMinWidth, maxWidth: metrics.dialogMaxWidth),
+                child: IntrinsicWidth(
+                  child: Container(
+                    decoration: BoxDecoration(
+                      color: colors.dialogBackground,
+                      borderRadius: radius,
+                      boxShadow: [
+                        BoxShadow(
+                          color: colors.shadow,
+                          offset: Offset(0, metrics.dialogShadowOffset),
+                          blurRadius: metrics.dialogShadowBlur,
                         ),
-                        child: Text(command.dialogTitle, style: theme.dialogTitleStyle),
-                      ),
-                      widget.child,
-                    ],
+                      ],
+                    ),
+                    // Скруглённые углы обрезают полосу заголовка: в референсе
+                    // она для этого закрыта маской.
+                    clipBehavior: Clip.antiAlias,
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        Container(
+                          width: double.infinity,
+                          height: metrics.dialogTitleHeight,
+                          alignment: Alignment.centerLeft,
+                          padding: EdgeInsets.symmetric(horizontal: metrics.dialogTitlePadding),
+                          decoration: BoxDecoration(
+                            color: colors.dialogTitleBackground,
+                            // Полоса заголовка отбрасывает тень на содержимое —
+                            // тот же фильтр, что у кнопок.
+                            boxShadow: [
+                              BoxShadow(
+                                color: colors.shadow,
+                                offset: Offset(0, metrics.buttonShadowOffset),
+                                blurRadius: metrics.buttonShadowBlur,
+                              ),
+                            ],
+                          ),
+                          child: Text(command.dialogTitle, style: theme.dialogTitleStyle),
+                        ),
+                        widget.child,
+                      ],
+                    ),
                   ),
                 ),
               ),
@@ -175,29 +176,6 @@ class _CommandDialogFrameState extends State<_CommandDialogFrame> {
           ),
         ),
       ],
-    );
-  }
-
-  /// Задаёт окну ширину.
-  ///
-  /// Пока команда не работает, окно облегает содержимое в пределах
-  /// `minWidth`/`maxWidth` — как в референсе. Во время работы ширина
-  /// фиксируется долей окна приложения: в окне копирования по ходу дела
-  /// меняются имена файлов, и от них окно «прыгало» бы на каждом.
-  Widget _sized(BuildContext context, FcMetrics metrics, Widget content) {
-    if (!command.isRunning) {
-      return ConstrainedBox(
-        constraints: BoxConstraints(minWidth: metrics.dialogMinWidth, maxWidth: metrics.dialogMaxWidth),
-        child: IntrinsicWidth(child: content),
-      );
-    }
-
-    return SizedBox(
-      width: (MediaQuery.sizeOf(context).width * metrics.dialogWidthFactor).clamp(
-        metrics.dialogMinWidth,
-        metrics.dialogMaxWidth,
-      ),
-      child: content,
     );
   }
 }
