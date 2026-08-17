@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../theme/app_theme.dart';
@@ -39,7 +41,7 @@ class SplitView extends StatelessWidget {
               // Зазор между панелями узкий, поэтому область захвата шире его
               // самого и заходит на края обеих панелей.
               child: OverflowBox(
-                maxWidth: metrics.resizeHandleWidth,
+                maxWidth: math.max(metrics.resizeHandleWidth, metrics.panelGap),
                 child: MouseRegion(
                   cursor: SystemMouseCursors.resizeColumn,
                   child: GestureDetector(

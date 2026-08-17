@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../model/tree/fs_node.dart';
 import '../../model/tree/tree_provider.dart';
 import '../../view/dialogs/command_dialog.dart';
+import '../../view/theme/app_theme.dart';
 import 'app_command.dart';
 import 'async_command_base.dart';
 
@@ -67,18 +68,45 @@ class MakeDirectoryCommand extends AppCommand {
             onCancel: dismiss,
             onSubmit: submit,
             submitLabel: 'Create',
-            child: TextField(
-              controller: _name,
-              autofocus: true,
-              decoration: const InputDecoration(hintText: 'Directory name', isDense: true),
-              // Имя задаётся по мере ввода, а не при подтверждении: Enter
-              // обрабатывает ядро, и к моменту execute параметр уже должен быть
-              // на месте.
-              onChanged: (value) => setParam(nameParam, value),
-              onSubmitted: (_) => submit(),
+            // Поля те же, что в референсе: имя и каталог, в котором создаём.
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                CommandDialogField(
+                  label: 'Name:',
+                  child: FcTextField(
+                    controller: _name,
+                    autofocus: true,
+                    hintText: 'Directory name',
+                    // Имя задаётся по мере ввода, а не при подтверждении: Enter
+                    // обрабатывает ядро, и к моменту execute параметр уже
+                    // должен быть на месте.
+                    onChanged: (value) => setParam(nameParam, value),
+                    onSubmitted: (_) => submit(),
+                  ),
+                ),
+                SizedBox(height: FcTheme.of(context).metrics.dialogGap),
+                CommandDialogField(
+                  label: 'Inside:',
+                  child: Text(
+                    _parentPath,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: FcTheme.of(context).dialogTextStyle,
+                  ),
+                ),
+              ],
             ),
           ),
     );
+  }
+
+  /// Каталог, в котором появится новый: показывается в окне.
+  String get _parentPath {
+    final panel = context.panel;
+    final directory = panel.directory;
+    return directory == null ? '' : panel.provider.pathOf(directory);
   }
 
   @override
@@ -200,9 +228,15 @@ abstract class RemoveCommandBase extends AsyncCommandBase {
     );
   }
 
-  String get _confirmationMessage {
+  /// Заголовок собирается как в референсе: действие и то, над чем оно идёт.
+  @override
+  String get dialogTitle => '$label $_what';
+
+  String get _what {
     final targets = this.targets;
-    final what = targets.length == 1 ? '«${targets.single.name}»' : '${targets.length} items';
-    return toTrash ? 'Move $what to Trash?' : 'Delete $what permanently? This cannot be undone.';
+    return targets.length == 1 ? '«${targets.single.name}»' : '${targets.length} items';
   }
+
+  String get _confirmationMessage =>
+      toTrash ? 'Move $_what to Trash?' : 'Delete $_what permanently? This cannot be undone.';
 }

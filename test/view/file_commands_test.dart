@@ -6,6 +6,7 @@ import 'package:flex_commander/model/settings/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/state/commands/default_commands.dart';
 import 'package:flex_commander/state/panel_controller.dart';
+import 'package:flex_commander/view/dialogs/command_dialog.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -95,7 +96,7 @@ void main() {
       await press(tester, LogicalKeyboardKey.f7);
 
       await tester.enterText(find.byType(TextField), 'docs');
-      await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+      await tester.tap(find.widgetWithText(FcButton, 'Create'));
       await settle(tester);
 
       expect(find.byType(TextField), findsNothing);
@@ -132,7 +133,7 @@ void main() {
       await press(tester, LogicalKeyboardKey.f7);
 
       await tester.enterText(find.byType(TextField), 'docs');
-      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.tap(find.widgetWithText(FcButton, 'Cancel'));
       await settle(tester);
 
       expect(find.byType(TextField), findsNothing);
@@ -144,7 +145,7 @@ void main() {
       await press(tester, LogicalKeyboardKey.f7);
 
       await tester.enterText(find.byType(TextField), 'bin');
-      await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+      await tester.tap(find.widgetWithText(FcButton, 'Create'));
       await settle(tester);
 
       // Окно не закрылось: имя можно исправить и попробовать снова.
@@ -152,7 +153,7 @@ void main() {
       expect(find.textContaining('Already exists'), findsOneWidget);
 
       await tester.enterText(find.byType(TextField), 'docs');
-      await tester.tap(find.widgetWithText(FilledButton, 'Create'));
+      await tester.tap(find.widgetWithText(FcButton, 'Create'));
       await settle(tester);
 
       expect(namesOf(), contains('docs'));
@@ -177,7 +178,7 @@ void main() {
       await press(tester, LogicalKeyboardKey.f8);
       expect(find.textContaining('Move «notes.txt» to Trash?'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await tester.tap(find.widgetWithText(FcButton, 'Delete'));
       await settle(tester);
 
       expect(namesOf(), isNot(contains('notes.txt')));
@@ -189,7 +190,7 @@ void main() {
       await tester.pump();
 
       await press(tester, LogicalKeyboardKey.f8);
-      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.tap(find.widgetWithText(FcButton, 'Cancel'));
       await settle(tester);
 
       expect(namesOf(), contains('notes.txt'));
@@ -205,7 +206,7 @@ void main() {
       await press(tester, LogicalKeyboardKey.f8);
       expect(find.textContaining('Move 2 items to Trash?'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await tester.tap(find.widgetWithText(FcButton, 'Delete'));
       await settle(tester);
 
       expect(namesOf(), isNot(contains('notes.txt')));
@@ -235,14 +236,14 @@ void main() {
       provider.removeEntry('/home/notes.txt');
 
       await press(tester, LogicalKeyboardKey.f8);
-      await tester.tap(find.widgetWithText(FilledButton, 'Delete'));
+      await tester.tap(find.widgetWithText(FcButton, 'Delete'));
       await settle(tester);
 
       expect(find.textContaining('Not found'), findsOneWidget);
       expect(find.text('Skip'), findsOneWidget);
       expect(find.text('Skip all'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Skip'));
+      await tester.tap(find.widgetWithText(FcButton, 'Skip'));
       await settle(tester);
 
       // Ответили — окно закрылось само.
@@ -279,7 +280,8 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.f5);
 
-      expect(find.text('Copy «notes.txt» to:'), findsOneWidget);
+      // Заголовок окна говорит, что и куда, — как в референсе.
+      expect(find.text('Copy «notes.txt»'), findsOneWidget);
       // Путь уже подставлен: обычно копируют именно в соседнюю панель.
       expect(tester.widget<TextField>(find.byType(TextField)).controller?.text, '/home');
     });
@@ -314,9 +316,9 @@ void main() {
       await tester.pump();
 
       await openTransfer(tester, LogicalKeyboardKey.f6, destination: '/home/bin');
-      expect(find.text('Move «notes.txt» to:'), findsOneWidget);
+      expect(find.text('Move «notes.txt»'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(FilledButton, 'Move'));
+      await tester.tap(find.widgetWithText(FcButton, 'Move'));
       await settle(tester);
 
       expect(namesOf(), isNot(contains('notes.txt')));
@@ -332,7 +334,7 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.f5);
 
-      expect(find.text('Copy 2 items to:'), findsOneWidget);
+      expect(find.text('Copy 2 items'), findsOneWidget);
     });
 
     testWidgets('о занятом имени спрашивают, и «пропустить» ничего не меняет', (tester) async {
@@ -342,13 +344,13 @@ void main() {
       await tester.pump();
 
       await openTransfer(tester, LogicalKeyboardKey.f5, destination: '/home/bin');
-      await tester.tap(find.widgetWithText(FilledButton, 'Copy'));
+      await tester.tap(find.widgetWithText(FcButton, 'Copy'));
       await settle(tester);
 
       expect(find.textContaining('Already exists'), findsOneWidget);
       expect(find.text('Overwrite'), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(TextButton, 'Skip'));
+      await tester.tap(find.widgetWithText(FcButton, 'Skip'));
       await settle(tester);
 
       expect(find.textContaining('Already exists'), findsNothing);
@@ -385,10 +387,11 @@ void main() {
       app.left.setCursorToName('notes.txt');
       await tester.pump();
 
+      // Кнопка нижней панели: подпись на ней — просто «Copy».
       await tester.tap(find.text('Copy'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Copy «notes.txt» to:'), findsOneWidget);
+      expect(find.text('Copy «notes.txt»'), findsOneWidget);
     });
   });
 
@@ -436,7 +439,7 @@ void main() {
       await pumpApp(tester);
 
       await press(tester, LogicalKeyboardKey.f7);
-      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.tap(find.widgetWithText(FcButton, 'Cancel'));
       await settle(tester);
 
       await press(tester, LogicalKeyboardKey.arrowDown);

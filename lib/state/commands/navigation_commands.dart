@@ -1,6 +1,5 @@
 import '../../model/os/system_open.dart';
 import '../../model/tree/fs_node.dart';
-import '../../model/settings/app_settings.dart';
 import 'app_command.dart';
 
 /// Курсор на строку вверх.
@@ -287,23 +286,4 @@ class CancelCommand extends AppCommand {
 
   @override
   Future<void> execute() async => context.panel.cancel();
-}
-
-/// Переключение темы оформления. Кнопкой не показывается — только клавишами
-/// и из списка команд.
-class ToggleThemeCommand extends AppCommand {
-  @override
-  String get id => 'app.toggleTheme';
-
-  @override
-  String get label => 'Toggle theme';
-
-  @override
-  bool isExecutable(CommandContext context) => true;
-
-  @override
-  Future<void> execute() async {
-    final app = context.app;
-    app.setThemeMode(app.themeMode == AppThemeMode.dark ? AppThemeMode.light : AppThemeMode.dark);
-  }
 }

@@ -2,23 +2,6 @@ import '../panel/column_spec.dart';
 import '../panel/sort_spec.dart';
 import 'window_geometry.dart';
 
-/// Тема оформления. Собственный перечислимый тип, а не `ThemeMode` из Flutter:
-/// слой моделей не должен зависеть от виджетов.
-enum AppThemeMode {
-  system,
-  light,
-  dark;
-
-  static AppThemeMode byName(Object? value) {
-    for (final mode in values) {
-      if (mode.name == value) {
-        return mode;
-      }
-    }
-    return system;
-  }
-}
-
 /// Сохраняемые настройки одной панели.
 class PanelSettings {
   const PanelSettings({
@@ -74,7 +57,6 @@ class AppSettings {
     required this.right,
     this.activePanel = 0,
     this.splitRatio = 0.5,
-    this.themeMode = AppThemeMode.system,
     this.window,
   });
 
@@ -93,7 +75,6 @@ class AppSettings {
   final int activePanel;
 
   final double splitRatio;
-  final AppThemeMode themeMode;
 
   /// Положение и размер окна; null — окно ещё ни разу не открывали.
   final WindowGeometry? window;
@@ -103,14 +84,12 @@ class AppSettings {
     PanelSettings? right,
     int? activePanel,
     double? splitRatio,
-    AppThemeMode? themeMode,
     WindowGeometry? window,
   }) => AppSettings(
     left: left ?? this.left,
     right: right ?? this.right,
     activePanel: activePanel ?? this.activePanel,
     splitRatio: splitRatio ?? this.splitRatio,
-    themeMode: themeMode ?? this.themeMode,
     window: window ?? this.window,
   );
 
@@ -118,7 +97,6 @@ class AppSettings {
     'version': version,
     'activePanel': activePanel,
     'splitRatio': splitRatio,
-    'themeMode': themeMode.name,
     if (window != null) 'window': window!.toJson(),
     'panels': [left.toJson(), right.toJson()],
   };
@@ -141,7 +119,6 @@ class AppSettings {
       right: PanelSettings.fromJson(right, fallbackPath: fallbackPath),
       activePanel: activePanel == 1 ? 1 : 0,
       splitRatio: splitRatio is num ? splitRatio.toDouble().clamp(minSplitRatio, maxSplitRatio) : 0.5,
-      themeMode: AppThemeMode.byName(json['themeMode']),
       window: WindowGeometry.fromJson(json['window']),
     );
   }

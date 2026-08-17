@@ -518,8 +518,6 @@ class AppSettings {
   final PanelSettings right;
   final int activePanel;       // 0 — левая, 1 — правая
   final double splitRatio;     // доля ширины окна под левой панелью, 0.2…0.8
-  final AppThemeMode themeMode;   // system | light | dark; собственный тип,
-                                  // чтобы модели не зависели от Flutter
 
   /// Положение и размер окна; null — окно ещё ни разу не открывали.
   final WindowGeometry? window;
@@ -545,7 +543,6 @@ class WindowGeometry {
   "version": 1,
   "activePanel": 0,
   "splitRatio": 0.5,
-  "themeMode": "system",
   "window": { "left": 120, "top": 80, "width": 900, "height": 640, "maximized": false },
   "panels": [
     {

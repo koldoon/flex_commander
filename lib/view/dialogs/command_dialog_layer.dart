@@ -106,10 +106,13 @@ class _CommandDialogFrameState extends State<_CommandDialogFrame> {
     final theme = FcTheme.of(context);
     final colors = theme.colors;
 
+    final metrics = theme.metrics;
+    final radius = BorderRadius.circular(metrics.dialogRadius);
+
     return Stack(
       children: [
         // Затемнение: пока окно открыто, работать с панелями нельзя.
-        const Positioned.fill(child: ModalBarrier(dismissible: false, color: Color(0x66000000))),
+        Positioned.fill(child: ModalBarrier(dismissible: false, color: colors.dialogBarrier)),
         Center(
           child: FocusScope(
             autofocus: true,
@@ -120,27 +123,34 @@ class _CommandDialogFrameState extends State<_CommandDialogFrame> {
             child: Focus(
               focusNode: _node,
               child: Container(
-                width: 420,
-                padding: const EdgeInsets.all(16),
+                width: metrics.dialogWidth,
                 decoration: BoxDecoration(
-                  color: colors.panelBackground,
-                  border: Border.all(color: colors.panelBorder),
-                  borderRadius: BorderRadius.circular(6),
-                  boxShadow: const [BoxShadow(color: Color(0x33000000), blurRadius: 16, offset: Offset(0, 4))],
+                  color: colors.dialogBackground,
+                  borderRadius: radius,
+                  boxShadow: const [BoxShadow(color: Color(0x40000000), blurRadius: 15, offset: Offset(0, 5))],
                 ),
+                // Скруглённые углы обрезают полосу заголовка: в референсе
+                // она для этого закрыта маской.
+                clipBehavior: Clip.antiAlias,
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Padding(
-                      padding: const EdgeInsets.only(bottom: 12),
-                      child: Text(
-                        command.label,
-                        style: theme.headerStyle.copyWith(
-                          fontSize: theme.metrics.fontSize + 2,
-                          fontWeight: FontWeight.w600,
+                    Container(
+                      width: double.infinity,
+                      padding: EdgeInsets.symmetric(
+                        horizontal: metrics.dialogTitlePadding,
+                        vertical: metrics.dialogTitleVerticalPadding,
+                      ),
+                      decoration: BoxDecoration(color: colors.dialogTitleBackground),
+                      foregroundDecoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.bottomCenter,
+                          end: Alignment.topCenter,
+                          colors: [colors.buttonPressed, const Color(0x00000000)],
                         ),
                       ),
+                      child: Text(command.dialogTitle, style: theme.dialogTitleStyle),
                     ),
                     widget.child,
                   ],

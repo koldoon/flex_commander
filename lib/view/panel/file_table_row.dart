@@ -85,7 +85,11 @@ class FileTableRow extends StatelessWidget {
     final metrics = theme.metrics;
 
     if (column.id == FsColumn.icon) {
-      return Center(child: FileTypeIcon(node: node, selected: _selected));
+      // Иконка прижата к левому краю строки: `left="30"` у `iconLabel`.
+      return Padding(
+        padding: EdgeInsets.only(left: metrics.iconLeftPadding),
+        child: Align(alignment: Alignment.centerLeft, child: FileTypeIcon(node: node, selected: _selected)),
+      );
     }
 
     final text = _textFor(column);
@@ -108,20 +112,11 @@ class FileTableRow extends StatelessWidget {
     );
   }
 
+  /// В референсе все ячейки строки одного цвета, а под курсором — белые:
+  /// тип объекта показывает иконка, а не цвет имени.
   TextStyle _styleFor(FcTheme theme, ColumnSpec column) {
-    final numeric = column.id != FsColumn.name && column.id != FsColumn.ext;
-    final base = numeric ? theme.numericStyle : theme.rowStyle;
-
-    if (_selected) {
-      return base.copyWith(color: theme.colors.cursorText);
-    }
-    if (column.id == FsColumn.size) {
-      return base.copyWith(color: theme.colors.sizeText);
-    }
-    if (column.id == FsColumn.name && (node is DirectoryNode || node is ParentDirNode)) {
-      return base.copyWith(color: theme.colors.directoryText);
-    }
-    return base;
+    final base = theme.rowStyle;
+    return _selected ? base.copyWith(color: theme.colors.cursorText) : base;
   }
 
   String _textFor(ColumnSpec column) {

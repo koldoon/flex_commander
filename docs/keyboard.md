@@ -232,7 +232,6 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 | `file.removePermanently` | `Shift-F8`, `Shift-Cmd-Bsp` | то же |
 | `file.copy` | `F5` | то же |
 | `file.move` | `F6` | то же |
-| `app.toggleTheme` | — | `Cmd-T` | всегда |
 
 Настройки при выходе сохраняет `AppController.shutdown()`, отдельной команды для
 этого нет.

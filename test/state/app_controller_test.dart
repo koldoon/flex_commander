@@ -181,10 +181,10 @@ void main() {
       await app.start();
 
       app.toggleActivePanel();
-      app.setThemeMode(AppThemeMode.dark);
+      app.setSplitRatio(0.35);
 
       expect(app.settings.activePanel, 1);
-      expect(app.settings.themeMode, AppThemeMode.dark);
+      expect(app.settings.splitRatio, 0.35);
       expect(app.settings.left.path, '/home');
     });
   });

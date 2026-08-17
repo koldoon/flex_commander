@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../model/panel/column_spec.dart';
 import '../../model/panel/sort_spec.dart';
 import '../theme/app_theme.dart';
+import '../theme/fc_icons.dart';
 
 /// Строка заголовков колонок.
 ///
@@ -282,15 +283,20 @@ class FileTableHeaderCell extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.symmetric(horizontal: theme.metrics.cellPadding),
           child: Row(
-            mainAxisAlignment: column.align == ColumnAlign.end ? MainAxisAlignment.end : MainAxisAlignment.center,
+            // Заголовки в референсе выровнены по центру колонки независимо от
+            // того, как выровнено её содержимое (`horizontalAlign="center"`).
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              // Треугольник стоит перед текстом — как в макете и в референсе.
-              if (sorted)
+              // Треугольник стоит перед текстом — как в референсе, и теми же
+              // глифами (`fa_caret_down` / `fa_caret_up`).
+              if (sorted) ...[
                 Icon(
-                  direction == SortDirection.ascending ? Icons.arrow_drop_down : Icons.arrow_drop_up,
+                  direction == SortDirection.ascending ? FcIcons.caretDown : FcIcons.caretUp,
                   size: theme.metrics.iconSize,
                   color: theme.colors.headerText,
                 ),
+                SizedBox(width: theme.metrics.cellPadding),
+              ],
               Flexible(child: Text(title, maxLines: 1, overflow: TextOverflow.clip, style: theme.headerStyle)),
             ],
           ),

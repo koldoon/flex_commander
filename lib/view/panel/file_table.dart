@@ -97,8 +97,12 @@ class _FileTableState extends State<FileTable> {
             builder: (context, constraints) {
               final app = AppScope.read(context);
               final columns = panel.columns.visibleColumns;
-              final widths = _columnWidths(columns, constraints.maxWidth);
-              final contentWidth = widths.fold<double>(0, (sum, width) => sum + width);
+              // Поле справа принадлежит содержимому, а не подсветке строки:
+              // `right="40"` у содержимого строки при рамке панели, идущей
+              // до самого края.
+              final inset = theme.metrics.panelRightPadding;
+              final widths = _columnWidths(columns, constraints.maxWidth - inset);
+              final contentWidth = widths.fold<double>(0, (sum, width) => sum + width) + inset;
 
               // Сколько строк видно — от этого считается шаг PgUp/PgDn.
               final listHeight = constraints.maxHeight - theme.metrics.headerRowHeight;

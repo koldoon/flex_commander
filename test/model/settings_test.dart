@@ -22,7 +22,6 @@ void main() {
         right: PanelSettings.defaults('/tmp'),
         activePanel: 1,
         splitRatio: 0.35,
-        themeMode: AppThemeMode.dark,
       );
 
       final restored = AppSettings.fromJson(jsonDecode(jsonEncode(source.toJson())));
@@ -36,7 +35,6 @@ void main() {
       expect(restored.right.path, '/tmp');
       expect(restored.activePanel, 1);
       expect(restored.splitRatio, 0.35);
-      expect(restored.themeMode, AppThemeMode.dark);
     });
 
     test('пустой объект даёт умолчания', () {
@@ -46,20 +44,17 @@ void main() {
       expect(settings.right.path, '/home');
       expect(settings.activePanel, 0);
       expect(settings.splitRatio, 0.5);
-      expect(settings.themeMode, AppThemeMode.system);
     });
 
     test('мусор в значениях заменяется умолчаниями', () {
       final settings = AppSettings.fromJson({
         'activePanel': 'левая',
         'splitRatio': 'половина',
-        'themeMode': 'неоновая',
         'panels': 'нет',
       }, fallbackPath: '/home');
 
       expect(settings.activePanel, 0);
       expect(settings.splitRatio, 0.5);
-      expect(settings.themeMode, AppThemeMode.system);
       expect(settings.left.path, '/home');
     });
 

@@ -36,12 +36,14 @@ class PanelView extends StatelessWidget {
               child: Container(
                 decoration: BoxDecoration(
                   color: theme.colors.panelBackground,
-                  border: Border.all(color: theme.colors.panelBorder),
+                  border: Border.all(color: theme.colors.panelBorder, width: metrics.strokeWidth),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    SizedBox(height: metrics.panelTopPadding - metrics.pathHeaderHeight / 2),
+                    // От рамки панели до строки заголовков: `top="80"` при
+                    // рамке, начинающейся с `top="30"`.
+                    SizedBox(height: metrics.panelTopPadding),
                     Expanded(child: FileTable(panel: panel)),
                     PanelStatusBar(panel: panel),
                   ],

@@ -15,29 +15,36 @@ class PanelPathHeader extends StatelessWidget {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
     final colors = theme.colors;
-    final padding = metrics.cellPadding * 2;
+
+    // Активность панели в референсе плашкой не показывалась, но панелей две:
+    // видеть, какая из них принимает клавиши, нужно, и приглушённая плашка —
+    // самый спокойный способ это сказать.
+    final style = active ? theme.pathStyle : theme.pathStyle.copyWith(color: colors.pathInactiveText);
 
     return Tooltip(
       message: path,
       waitDuration: const Duration(milliseconds: 600),
       child: Container(
         height: metrics.pathHeaderHeight,
-        padding: EdgeInsets.symmetric(horizontal: padding),
+        padding: EdgeInsets.symmetric(horizontal: metrics.labelPadding),
         // Без alignment: иначе Container растянулся бы на всю доступную
         // ширину, а плашка должна облегать путь.
         decoration: BoxDecoration(
-          color: active ? colors.pathActiveBackground : colors.pathInactiveBackground,
-          border: Border.all(color: active ? colors.pathActiveBorder : colors.pathInactiveBorder),
+          color: active ? colors.pathBackground : colors.pathInactiveBackground,
+          border: Border.all(color: colors.pathBorder, width: metrics.strokeWidth),
           borderRadius: BorderRadius.circular(metrics.pathHeaderRadius),
         ),
         child: LayoutBuilder(
           builder: (context, constraints) {
-            final style = theme.pathStyle;
-            return Text(
-              _trimHead(path, style, constraints.maxWidth, MediaQuery.textScalerOf(context)),
-              maxLines: 1,
-              softWrap: false,
-              style: style,
+            return Center(
+              widthFactor: 1,
+              child: Text(
+                _trimHead(path, style, constraints.maxWidth, MediaQuery.textScalerOf(context)),
+                maxLines: 1,
+                softWrap: false,
+                textAlign: TextAlign.center,
+                style: style,
+              ),
             );
           },
         ),
