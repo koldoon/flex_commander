@@ -155,6 +155,10 @@ class FcColors {
   /// Выделение текста в поле ввода (`focusedTextSelectionColor`).
   Color get inputSelection => FcPalette.red;
 
+  /// Тень под кнопкой, полосой заголовка и самим окном: чёрный 25 %
+  /// (`DropShadowFilter alpha="0.25"`).
+  Color get shadow => const Color(0xFF000000).withValues(alpha: 0.25);
+
   // --- прочее ---
 
   /// Полоса хода работы: обводка и заливка одного цвета.
