@@ -357,6 +357,26 @@ void main() {
       expect(find.textContaining('Already exists'), findsNothing);
     });
 
+    testWidgets('кнопки стоят в одну строку, даже когда их пять', (tester) async {
+      provider.add(FakeEntry.file('/home/bin/notes.txt', size: 1));
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await openTransfer(tester, LogicalKeyboardKey.f5, destination: '/home/bin');
+      await tester.tap(find.widgetWithText(FcButton, 'Copy'));
+      await settle(tester);
+
+      // Вопрос о занятом имени — самый широкий набор кнопок: пять штук.
+      expect(find.byType(FcButton), findsNWidgets(5));
+      final tops = tester.widgetList<FcButton>(find.byType(FcButton)).map((button) {
+        return tester.getTopLeft(find.byWidget(button)).dy;
+      });
+
+      // Все на одной высоте: ряд не переносится на вторую строку.
+      expect(tops.toSet(), hasLength(1));
+    });
+
     testWidgets('Esc закрывает окно, ничего не копируя', (tester) async {
       await pumpApp(tester);
       app.left.setCursorToName('notes.txt');
