@@ -17,6 +17,9 @@ class CopyCommand extends TransferCommandBase {
   String get label => 'Copy';
 
   @override
+  String get description => 'Copy the selected items to the other panel';
+
+  @override
   bool get moves => false;
 }
 
@@ -30,6 +33,9 @@ class MoveCommand extends TransferCommandBase {
 
   @override
   String get label => 'Move';
+
+  @override
+  String get description => 'Move the selected items to the other panel';
 
   @override
   bool get moves => true;

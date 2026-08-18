@@ -70,26 +70,31 @@ void main() {
   /// панели — «F5» там номер клавиши, а не строка таблицы.
   Finder inHelp(Finder finder) => find.descendant(of: find.byType(CommandDialogHelp), matching: finder);
 
-  /// Значение в той же строке таблицы, что и название.
+  /// Вся строка таблицы, кроме названия, — по порядку слева направо.
   ///
   /// Ищется по вертикали, а не по устройству таблицы: тест должен проверять
-  /// то, что видит пользователь, — что значение стоит напротив названия.
-  String valueOf(WidgetTester tester, String name) {
-    // Первое вхождение: то же слово может встретиться ниже подписью команды —
-    // «Hidden files» есть и в настройках, и у двух привязок клавиш.
+  /// то, что видит пользователь, — что значения стоят напротив названия.
+  List<String> rowOf(WidgetTester tester, String name) {
+    // Первое вхождение: то же слово может встретиться ниже — «Hidden files»
+    // есть и в настройках, и среди команд.
     final top = tester.getTopLeft(inHelp(find.text(name)).first).dy;
+    final cells = <(double, String)>[];
 
     for (final element in inHelp(find.byType(Text)).evaluate()) {
       final text = element.widget as Text;
-      if (text.data == name) {
+      final origin = tester.getTopLeft(find.byWidget(text));
+      if (text.data == name || (origin.dy - top).abs() >= 0.5) {
         continue;
       }
-      if ((tester.getTopLeft(find.byWidget(text)).dy - top).abs() < 0.5) {
-        return text.data ?? '';
-      }
+      cells.add((origin.dx, text.data ?? ''));
     }
-    return '';
+
+    cells.sort((a, b) => a.$1.compareTo(b.$1));
+    return [for (final cell in cells) cell.$2];
   }
+
+  /// Значение в той же строке, что и название.
+  String valueOf(WidgetTester tester, String name) => rowOf(tester, name).firstOrNull ?? '';
 
   group('окно', () {
     testWidgets('F1 открывает справку с одной кнопкой', (tester) async {
@@ -98,7 +103,7 @@ void main() {
       expect(find.byType(CommandDialogHelp), findsOneWidget);
       expect(find.text('Help'), findsWidgets);
       expect(inHelp(find.text('Settings')), findsOneWidget);
-      expect(inHelp(find.text('Keys')), findsOneWidget);
+      expect(inHelp(find.text('Commands')), findsOneWidget);
       // Единственная кнопка: закрыть. Ни отмены, ни подтверждения — читать
       // справку нечем, кроме глаз.
       expect(find.byType(FcButton), findsOneWidget);
@@ -225,20 +230,48 @@ void main() {
       expect(valueOf(tester, 'Window'), '1024×700 at 40, 20');
     });
 
-    testWidgets('привязки клавиш перечислены названиями команд', (tester) async {
+    testWidgets('команда показана названием, клавишами и описанием', (tester) async {
       await openHelp(tester);
 
       // Не идентификаторы: `file.copy` пользователю ни о чём не говорит.
-      expect(inHelp(find.text('F5')), findsOneWidget);
-      expect(valueOf(tester, 'F5'), 'Copy');
-      expect(inHelp(find.text('Tab')), findsOneWidget);
+      expect(rowOf(tester, 'Copy'), ['F5', 'Copy the selected items to the other panel']);
       expect(inHelp(find.text('file.copy')), findsNothing);
+    });
+
+    testWidgets('у команды с несколькими клавишами показаны все', (tester) async {
+      await openHelp(tester);
+
+      // На macOS F-клавиши заняты системой, и рядом стоят привычные сочетания.
+      // Платформа в widget-тестах не macOS, поэтому `Cmd` печатается как
+      // `Ctrl` — ровно то, во что его сворачивает `KeyCombination`.
+      expect(rowOf(tester, 'Delete').first, 'F8, Ctrl-Bsp');
+    });
+
+    testWidgets('привязка к любому символу названа по-человечески', (tester) async {
+      await openHelp(tester);
+
+      // Настоящей клавиши «AnyChar» не существует.
+      expect(rowOf(tester, 'Go to name').first, 'any letter');
+      expect(inHelp(find.text('AnyChar')), findsNothing);
+    });
+
+    testWidgets('нереализованные команды не притворяются рабочими', (tester) async {
+      await openHelp(tester);
+
+      expect(rowOf(tester, 'View'), ['F3', 'Not implemented yet']);
+    });
+
+    testWidgets('команде без описания пустая колонка не мешает', (tester) async {
+      await openHelp(tester);
+
+      // Объяснять «Cursor up» нечем, и придумывать текст ради колонки незачем.
+      expect(rowOf(tester, 'Cursor up'), ['Up', '']);
     });
 
     testWidgets('справка знает и о самой себе', (tester) async {
       await openHelp(tester);
 
-      expect(valueOf(tester, 'F1'), 'Help');
+      expect(rowOf(tester, 'Help').first, 'F1');
     });
   });
 }

@@ -4,12 +4,19 @@ import 'package:flutter/services.dart';
 import '../theme/app_theme.dart';
 import 'command_dialog.dart';
 
-/// Строка справки: название и значение.
+/// Строка справки: название и одно или два значения.
+///
+/// Третья ячейка нужна разделу команд — название, клавиши и описание; в
+/// настройках её нет, и пустой она там не остаётся: у раздела столько столбцов,
+/// сколько ему нужно.
 class HelpRow {
-  const HelpRow(this.name, this.value);
+  const HelpRow(this.name, this.value, [this.note = '']);
 
   final String name;
   final String value;
+  final String note;
+
+  List<String> get cells => note.isEmpty ? [name, value] : [name, value, note];
 }
 
 /// Раздел справки — заголовок и строки под ним.
@@ -18,6 +25,9 @@ class HelpSection {
 
   final String title;
   final List<HelpRow> rows;
+
+  /// Сколько столбцов нужно разделу: по самой полной строке.
+  int get columns => rows.fold(1, (count, row) => row.cells.length > count ? row.cells.length : count);
 }
 
 /// Содержимое окна справки: прокручивающаяся таблица и одна кнопка.
@@ -111,7 +121,16 @@ class _CommandDialogHelpState extends State<CommandDialogHelp> {
                     top: metrics.dialogContentTopPadding,
                     bottom: metrics.dialogPadding,
                   ),
-                  child: _HelpTable(sections: widget.sections),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      for (var i = 0; i < widget.sections.length; i++) ...[
+                        if (i > 0) SizedBox(height: metrics.dialogGap),
+                        _HelpSectionTable(section: widget.sections[i]),
+                      ],
+                    ],
+                  ),
                 ),
               ),
               // Тот же ряд, что и у остальных окон: кнопка по размеру подписи,
@@ -126,55 +145,62 @@ class _CommandDialogHelpState extends State<CommandDialogHelp> {
   }
 }
 
-/// Таблица справки: два столбца, оба по своему содержимому.
+/// Раздел справки таблицей: столбцы по своему содержимому.
 ///
-/// Одна таблица на все разделы, а не по таблице на раздел: столбцы должны
-/// стоять на одной вертикали через всё окно. Ширина столбца — по самой длинной
+/// У каждого раздела таблица своя, потому что и столбцы у них разные: в
+/// настройках их два, в списке команд — три. Ширина столбца — по самой длинной
 /// строке в нём (`IntrinsicColumnWidth`), поэтому окно получается ровно таким,
-/// каким его делает содержимое, и ни точкой шире.
-class _HelpTable extends StatelessWidget {
-  const _HelpTable({required this.sections});
+/// каким его делает содержимое.
+///
+/// Ячейка при этом не растёт бесконечно: длинный путь или описание упираются в
+/// [FcMetrics.helpCellMaxWidth] и переносятся по строкам. Без этого одна
+/// длинная строка растянула бы окно до полей экрана, а таблица с
+/// `IntrinsicColumnWidth` под тесной разметкой не ужимается, а вылезает наружу.
+class _HelpSectionTable extends StatelessWidget {
+  const _HelpSectionTable({required this.section});
 
-  final List<HelpSection> sections;
+  final HelpSection section;
 
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
+    final columns = section.columns;
 
-    return Table(
-      columnWidths: const {0: IntrinsicColumnWidth(), 1: IntrinsicColumnWidth()},
-      defaultVerticalAlignment: TableCellVerticalAlignment.top,
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        for (var i = 0; i < sections.length; i++) ...[
-          // Разделы отбиваются пустой строкой, а не отступом у заголовка:
-          // в таблице отступы задаются ячейками.
-          if (i > 0) _spacer(metrics.dialogGap),
-          _row(
-            Text(sections[i].title, style: theme.dialogTitleStyle),
-            const SizedBox.shrink(),
-            gap: metrics.dialogGap,
-            bottom: metrics.dialogPadding / 2,
-          ),
-          for (final row in sections[i].rows)
-            _row(
-              Text(row.name, style: theme.dialogLabelStyle),
-              Text(row.value, style: theme.dialogTextStyle),
-              gap: metrics.dialogGap,
-              bottom: metrics.dialogPadding / 4,
-            ),
-        ],
-      ],
-    );
-  }
-
-  TableRow _spacer(double height) => TableRow(children: [SizedBox(height: height), SizedBox(height: height)]);
-
-  TableRow _row(Widget name, Widget value, {required double gap, required double bottom}) {
-    return TableRow(
-      children: [
-        Padding(padding: EdgeInsets.only(right: gap, bottom: bottom), child: name),
-        Padding(padding: EdgeInsets.only(bottom: bottom), child: value),
+        Padding(
+          padding: EdgeInsets.only(bottom: metrics.dialogPadding / 2),
+          child: Text(section.title, style: theme.dialogTitleStyle),
+        ),
+        Table(
+          columnWidths: {for (var i = 0; i < columns; i++) i: const IntrinsicColumnWidth()},
+          defaultVerticalAlignment: TableCellVerticalAlignment.top,
+          children: [
+            for (final row in section.rows)
+              TableRow(
+                children: [
+                  for (var i = 0; i < columns; i++)
+                    Padding(
+                      // Последний столбец без правого поля: за ним край окна.
+                      padding: EdgeInsets.only(
+                        right: i == columns - 1 ? 0 : metrics.dialogGap,
+                        bottom: metrics.dialogPadding / 4,
+                      ),
+                      child: ConstrainedBox(
+                        constraints: BoxConstraints(maxWidth: metrics.helpCellMaxWidth),
+                        child: Text(
+                          i < row.cells.length ? row.cells[i] : '',
+                          style: i == 0 ? theme.dialogLabelStyle : theme.dialogTextStyle,
+                        ),
+                      ),
+                    ),
+                ],
+              ),
+          ],
+        ),
       ],
     );
   }

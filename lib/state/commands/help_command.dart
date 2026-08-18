@@ -7,6 +7,7 @@ import '../../view/dialogs/help_table.dart';
 import '../../view/panel/file_table_header.dart';
 import 'app_command.dart';
 import 'command_registry.dart';
+import 'key_combination.dart';
 
 /// Справка: что сейчас настроено и какие клавиши за что отвечают.
 ///
@@ -45,7 +46,7 @@ class HelpCommand extends AppCommand {
   @override
   Widget? getDialog(BuildContext context) => CommandDialogHelp(sections: _sections(), onClose: dismiss);
 
-  List<HelpSection> _sections() => [_settings(), _keys()];
+  List<HelpSection> _sections() => [_settings(), _commands()];
 
   /// Настройки — то, что приложение помнит между запусками.
   HelpSection _settings() {
@@ -65,17 +66,34 @@ class HelpCommand extends AppCommand {
     ]);
   }
 
-  /// Клавиши — в порядке приоритета, том же, в котором их разбирает реестр.
-  HelpSection _keys() {
+  /// Команды: что умеет приложение, какими клавишами и что это значит.
+  ///
+  /// Список берётся у реестра, а не пишется здесь: новая команда или новая
+  /// привязка появляется в справке сама, и разойтись с действительностью она
+  /// не может.
+  HelpSection _commands() {
     final registry = _registry?.call();
     if (registry == null) {
-      return const HelpSection('Keys', [HelpRow('', 'Key bindings are not available')]);
+      return const HelpSection('Commands', [HelpRow('', 'Command list is not available')]);
     }
 
-    return HelpSection('Keys', [
-      for (final binding in registry.bindings)
-        HelpRow(binding.keys.toString(), registry.find(binding.commandId)?.label ?? binding.commandId),
+    return HelpSection('Commands', [
+      for (final command in registry.installed)
+        HelpRow(command.label, _keysOf(registry, command.id), command.description),
     ]);
+  }
+
+  /// Клавиши команды — все, через запятую, в порядке приоритета.
+  ///
+  /// У команды их бывает несколько: на macOS F-клавиши заняты системой, и
+  /// рядом с ними стоят привычные сочетания.
+  String _keysOf(CommandRegistry registry, String commandId) {
+    final keys = [
+      for (final binding in registry.bindingsOf(commandId))
+        binding.keys == KeyCombination.anyCharacter ? 'any letter' : binding.keys.toString(),
+    ];
+    // Команда без привязки — не ошибка: её вызывают из списка команд.
+    return keys.isEmpty ? '—' : keys.join(', ');
   }
 
   String _pathOf(Panel panel) => panel.directory?.displayPath ?? '—';
