@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../state/app_scope.dart';
-import '../../state/commands/key_combination.dart';
-import '../theme/app_theme.dart';
+import 'package:fc_api/fc_api.dart';
 import 'function_button.dart';
 
 /// Ряд функциональных кнопок внизу окна.
@@ -27,8 +26,9 @@ class FunctionBar extends StatelessWidget {
       height: metrics.functionButtonHeight,
       child: ListenableBuilder(
         // Доступность кнопок зависит от состояния активной панели: есть ли
-        // объект под курсором, не занята ли панель.
-        listenable: Listenable.merge([app.left, app.right]),
+        // объект под курсором, не занята ли панель. А набор команд меняется и
+        // сам по себе: модуль может поставить свою команду после запуска.
+        listenable: Listenable.merge([app.left, app.right, app.commands]),
         builder:
             (context, _) => Padding(
               // Поле справа: `paddingRight="30"` у раскладки кнопок.

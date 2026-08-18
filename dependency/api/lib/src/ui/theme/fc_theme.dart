@@ -1,0 +1,71 @@
+import 'package:flutter/material.dart';
+
+import 'app_colors.dart';
+import 'app_metrics.dart';
+import 'fc_fonts.dart';
+import 'fc_icons.dart';
+
+/// Оформление: палитра, метрики, иконки, шрифты и стили текста.
+///
+/// Доступ — через [FcTheme.of]; хардкод цветов и размеров в виджетах не нужен.
+/// Всё оформление собрано здесь целиком, поэтому подменить его — это подменить
+/// одно значение, а не искать константы по всему приложению.
+class FcTheme extends ThemeExtension<FcTheme> {
+  const FcTheme({
+    this.colors = const FcColors(),
+    this.metrics = const FcMetrics(),
+    this.icons = const FcIcons(),
+    this.fonts = const FcFonts(),
+  });
+
+  final FcColors colors;
+  final FcMetrics metrics;
+  final FcIcons icons;
+  final FcFonts fonts;
+
+  static FcTheme of(BuildContext context) => Theme.of(context).extension<FcTheme>()!;
+
+  /// Базовый стиль интерфейса.
+  TextStyle get uiStyle =>
+      TextStyle(fontFamily: fonts.ui, fontSize: metrics.fontSize, color: colors.rowText, height: 1.2);
+
+  /// Строка списка файлов.
+  TextStyle get rowStyle =>
+      TextStyle(fontFamily: fonts.fixed, fontSize: metrics.fontSize, color: colors.rowText, height: 1.2);
+
+  /// Колонки с числами и датами. Consolas моноширинный, поэтому отдельная
+  /// настройка цифр не нужна — столбец и так не «прыгает».
+  TextStyle get numericStyle => rowStyle;
+
+  TextStyle get headerStyle => uiStyle.copyWith(color: colors.headerText);
+
+  TextStyle get statusStyle => uiStyle;
+
+  TextStyle get pathStyle => uiStyle.copyWith(color: colors.pathText);
+
+  /// Заголовок окна команды: `styleName="white bold left h5"`.
+  TextStyle get dialogTitleStyle => uiStyle.copyWith(color: colors.dialogTitleText, fontWeight: FontWeight.bold);
+
+  /// Подпись поля в окне команды.
+  TextStyle get dialogLabelStyle => uiStyle.copyWith(color: colors.dialogLabel);
+
+  /// Значение в окне команды.
+  TextStyle get dialogTextStyle => uiStyle.copyWith(color: colors.dialogText);
+
+  TextStyle get buttonStyle => uiStyle.copyWith(color: colors.buttonText);
+
+  TextStyle get inputStyle => uiStyle.copyWith(color: colors.inputText);
+
+  @override
+  FcTheme copyWith({FcColors? colors, FcMetrics? metrics, FcIcons? icons, FcFonts? fonts}) => FcTheme(
+    colors: colors ?? this.colors,
+    metrics: metrics ?? this.metrics,
+    icons: icons ?? this.icons,
+    fonts: fonts ?? this.fonts,
+  );
+
+  /// Темы переключаются целиком и сразу: плавный переход между палитрами
+  /// файловому менеджеру ни к чему, а половинчатое состояние сбивало бы с толку.
+  @override
+  FcTheme lerp(covariant FcTheme? other, double t) => other ?? this;
+}

@@ -47,12 +47,14 @@ class _FlexCommanderAppState extends State<FlexCommanderApp> {
     return AppScope(
       controller: widget.controller,
       child: ListenableBuilder(
-        listenable: widget.controller,
+        // Оформление меняется отдельно от остального состояния: тему
+        // выбирает команда, а не панель, — поэтому подписки две.
+        listenable: Listenable.merge([widget.controller, widget.controller.theme]),
         builder:
             (context, child) => MaterialApp(
               title: 'Flex Commander',
               debugShowCheckedModeBanner: false,
-              theme: AppTheme.theme,
+              theme: buildThemeData(widget.controller.theme.current),
               home: const ApplicationView(),
             ),
       ),

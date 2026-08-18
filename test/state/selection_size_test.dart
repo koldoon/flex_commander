@@ -1,13 +1,9 @@
-import 'package:flex_commander/model/settings/app_settings.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_api/fc_api.dart';
 import 'dart:async';
 
-import 'package:flex_commander/model/async/async_operation.dart';
-import 'package:flex_commander/model/tree/fs_node.dart';
-import 'package:flex_commander/model/tree/tree_provider.dart';
 import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import '../fake/in_memory_tree_provider.dart';
 
 List<FakeEntry> _entries() => [
   FakeEntry.directory('/home'),
@@ -84,7 +80,7 @@ void main() {
 
   setUp(() async {
     provider = InMemoryTreeProvider(_entries());
-    panel = PanelController(provider: provider, settings: PanelSettings.defaults('/home'));
+    panel = testPanel(provider: provider, settings: PanelSettings.defaults('/home'));
     await panel.openPath('/home');
   });
 
@@ -108,11 +104,7 @@ void main() {
 
   /// Панель на своём провайдере — для тестов, которым нужен особый обход.
   Future<PanelController> panelOn(TreeProvider source, {int concurrency = 1}) async {
-    final it = PanelController(
-      provider: source,
-      settings: PanelSettings.defaults('/home'),
-      sizeScanConcurrency: concurrency,
-    );
+    final it = testPanel(provider: source, settings: PanelSettings.defaults('/home'), sizeScanConcurrency: concurrency);
     addTearDown(it.dispose);
     await it.openPath('/home');
     return it;

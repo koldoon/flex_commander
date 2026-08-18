@@ -1,8 +1,7 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
-import '../state/app_controller.dart';
-import '../state/commands/key_combination.dart';
+import 'package:fc_api/fc_api.dart';
 
 /// Приём клавиатуры для всего окна.
 ///
@@ -12,7 +11,7 @@ import '../state/commands/key_combination.dart';
 class KeyboardHandler extends StatelessWidget {
   const KeyboardHandler({super.key, required this.app, required this.child});
 
-  final AppController app;
+  final Application app;
   final Widget child;
 
   /// Пока панель занята длительной операцией, работает только отмена.

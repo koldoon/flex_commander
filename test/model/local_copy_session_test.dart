@@ -1,14 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flex_commander/model/tree/fs_node.dart';
-import 'package:flex_commander/model/tree/local/local_tree_provider.dart';
-import 'package:flex_commander/model/tree/transfer/local_copy_session.dart';
-import 'package:flex_commander/model/tree/tree_provider.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_api/fc_api.dart';
+import 'package:flex_commander/modules/local_fs/local_staging_area.dart';
+import 'package:flex_commander/modules/local_fs/local_tree_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-
-import '../fake/in_memory_tree_provider.dart';
 
 /// Локальные копии чужих файлов и время их жизни.
 void main() {
@@ -23,7 +21,7 @@ void main() {
     await File(p.join(root, 'notes.txt')).writeAsString('текст файла');
 
     disk = LocalTreeProvider(homePath: root, readInIsolate: false);
-    session = LocalCopySession();
+    session = LocalCopySession(const LocalStagingArea());
   });
 
   tearDown(() async {

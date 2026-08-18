@@ -1,24 +1,20 @@
 import 'dart:io';
 
+import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
-import 'package:flex_commander/model/async/async_operation.dart';
-import 'package:flex_commander/model/settings/app_settings.dart';
-import 'package:flex_commander/model/settings/settings_store.dart';
-import 'package:flex_commander/model/tree/fs_node.dart';
+import 'package:fc_api/fc_api.dart';
+import 'package:flex_commander/settings/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
-import 'package:flex_commander/state/panel_controller.dart';
+import 'package:flex_commander/state/commands/default_commands.dart';
 import 'package:flex_commander/view/function_bar/function_bar.dart';
 import 'package:flex_commander/view/panel/file_table_row.dart';
 import 'package:flex_commander/view/panel/file_type_icon.dart';
 import 'package:flex_commander/view/panel/panel_path_header.dart';
 import 'package:flex_commander/view/panel/panel_status_bar.dart';
 import 'package:flex_commander/view/panel/panel_view.dart';
-import 'package:flex_commander/view/theme/fc_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-
-import '../fake/in_memory_tree_provider.dart';
 
 /// Провайдер, у которого подсчёт размера не заканчивается мгновенно.
 ///
@@ -57,8 +53,9 @@ void main() {
 
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home/docs'));
     app = AppController(
-      left: PanelController(provider: provider, settings: settings.left),
-      right: PanelController(provider: provider, settings: settings.right),
+      left: testPanel(provider: provider, settings: settings.left),
+      right: testPanel(provider: provider, settings: settings.right),
+      commands: defaultCommandRegistry(),
       store: SettingsStore(filePath: p.join(temp.path, 'settings.json')),
       settings: settings,
       // Короткая задержка: иначе отложенная запись настроек остаётся висящим
@@ -124,6 +121,23 @@ void main() {
     expect(find.text('..'), findsWidgets);
   });
 
+  testWidgets('заголовок панели показывает текст, выставленный командой', (tester) async {
+    await pumpApp(tester);
+    expect(find.text('/home'), findsOneWidget);
+
+    // Так панель подписывает то, что заполнено не каталогом: результаты
+    // поиска, ветку соединения, список закладок.
+    app.left.setHeaderText('Search: *.txt');
+    await tester.pump();
+
+    expect(find.text('Search: *.txt'), findsOneWidget);
+    expect(find.text('/home'), findsNothing);
+
+    app.left.setHeaderText(null);
+    await tester.pump();
+    expect(find.text('/home'), findsOneWidget);
+  });
+
   testWidgets('строка состояния показывает объект под курсором', (tester) async {
     await pumpApp(tester);
 
@@ -155,14 +169,14 @@ void main() {
     final span = status.textSpan!;
 
     // Пара знаков «->» распадается на разные шрифты и стрелкой не выглядит.
-    expect(span.toPlainText(), 'link-to-bin ${FcIcons.glyph(FcIcons.angleRight)} /home/bin');
+    expect(span.toPlainText(), 'link-to-bin ${const FcIcons().glyph(const FcIcons().angleRight)} /home/bin');
     expect(span.toPlainText(), isNot(contains('->')));
 
     // Глиф должен быть набран шрифтом иконок, иначе на его месте пустой квадрат.
     final arrow = (span as TextSpan).children!.firstWhere(
-      (child) => (child as TextSpan).text!.contains(FcIcons.glyph(FcIcons.angleRight)),
+      (child) => (child as TextSpan).text!.contains(const FcIcons().glyph(const FcIcons().angleRight)),
     );
-    expect((arrow as TextSpan).style?.fontFamily, FcIcons.fontFamily);
+    expect((arrow as TextSpan).style?.fontFamily, FcIcons.defaultFontFamily);
   });
 
   testWidgets('посчитанный размер каталога виден в колонке', (tester) async {

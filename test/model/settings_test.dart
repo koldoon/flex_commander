@@ -1,12 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:flex_commander/model/panel/column_spec.dart';
-import 'package:flex_commander/model/panel/sort_spec.dart';
-import 'package:flex_commander/core/serialization.dart';
-import 'package:flex_commander/model/settings/app_settings.dart';
-import 'package:flex_commander/model/settings/settings_store.dart';
-import 'package:flex_commander/model/settings/window_geometry.dart';
+import 'package:fc_api/fc_api.dart';
+import 'package:flex_commander/settings/settings_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 

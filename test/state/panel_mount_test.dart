@@ -1,12 +1,7 @@
-import 'package:flex_commander/model/settings/app_settings.dart';
-import 'package:flex_commander/model/tree/fs_node.dart';
-import 'package:flex_commander/model/tree/provider_registry.dart';
-import 'package:flex_commander/model/tree/transfer/transfer_engine.dart';
-import 'package:flex_commander/model/tree/tree_provider.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import '../fake/in_memory_tree_provider.dart';
 
 /// Панель во вложенном источнике.
 ///
@@ -25,7 +20,7 @@ void main() {
 
   /// [disposed] — тест закрывает панель сам, и второй раз её закрывать нельзя.
   Future<PanelController> panelOn(ProviderRegistry source, {String path = '/home', bool disposed = false}) async {
-    final it = PanelController(provider: source.root, registry: source, settings: PanelSettings.defaults(path));
+    final it = testPanel(provider: source.root, registry: source, settings: PanelSettings.defaults(path));
     if (!disposed) {
       addTearDown(it.dispose);
     }
@@ -224,7 +219,7 @@ void main() {
   });
 
   test('без реестра панель живёт в одном источнике, как раньше', () async {
-    final plain = PanelController(provider: disk, settings: PanelSettings.defaults('/home'));
+    final plain = testPanel(provider: disk, settings: PanelSettings.defaults('/home'));
     addTearDown(plain.dispose);
     await plain.openPath('/home');
     plain.setCursorToName('archive.arc');

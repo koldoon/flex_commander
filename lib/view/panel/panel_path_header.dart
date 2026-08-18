@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../theme/app_theme.dart';
+import 'package:fc_api/fc_api.dart';
 
 /// «Плашка» с текущим путём: скруглённый прямоугольник, наполовину заходящий
 /// на верхнюю рамку панели.

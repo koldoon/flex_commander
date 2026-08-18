@@ -1,6 +1,4 @@
-import '../../model/os/system_open.dart';
-import 'app_command.dart';
-import 'command_registry.dart';
+import 'package:fc_api/fc_api.dart';
 import 'file_commands.dart';
 import 'help_command.dart';
 import 'layout_commands.dart';
@@ -14,7 +12,7 @@ import 'transfer_commands.dart';
 /// Порядок здесь ни на что не влияет: приоритет задают привязки клавиш,
 /// а не команды. Зависимости команд приходят параметрами — их подставляет
 /// контейнер (`AppContext`), а тесты подменяют своими.
-List<CommandFactory> defaultCommands({SystemOpener? opener, CommandRegistry? Function()? registry}) => [
+List<AppCommandFactory> defaultCommands({SystemOpener? opener, CommandRegistry? Function()? registry}) => [
   // Навигация.
   () => MoveCursorUpCommand(),
   () => MoveCursorDownCommand(),
@@ -117,11 +115,11 @@ List<KeyBinding> defaultKeyBindings() => [
   KeyBinding('Shift-Cmd-Bsp', 'file.removePermanently'),
 ];
 
-CommandRegistry defaultCommandRegistry({SystemOpener? opener}) {
+CommandRegistry defaultCommandRegistry({SystemOpener? opener, CommandErrorHandler? onError}) {
   // Справка показывает содержимое самого реестра, а реестра в этот момент ещё
   // нет: команда получает не его, а способ его спросить — к первому запуску он
   // уже собран.
   late final CommandRegistry registry;
-  registry = CommandRegistry(defaultCommands(opener: opener, registry: () => registry), defaultKeyBindings());
+  registry = CommandRegistry(defaultCommands(opener: opener, registry: () => registry), defaultKeyBindings(), onError);
   return registry;
 }

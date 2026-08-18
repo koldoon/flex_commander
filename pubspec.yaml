@@ -21,6 +21,12 @@ version: 1.0.0+1
 environment:
   sdk: ^3.7.0
 
+# Приложение — корень воркспейса: пакеты рядом собираются вместе с ним, одной
+# разрешённой версией зависимостей на всех. Сюда добавляются api и модули.
+workspace:
+  - dependency/api
+  - dependency/test_kit
+
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
 # consider running `flutter pub upgrade --major-versions`. Alternatively,
@@ -31,6 +37,11 @@ dependencies:
   flutter:
     sdk: flutter
 
+  # API приложения: модели, интерфейсы, командный фреймворк. Модули зависят
+  # только от него, ядро — от него же плюс своя реализация.
+  fc_api:
+    path: dependency/api
+
   path: ^1.9.1            # basename/extension/join/normalize
   archive: ^4.0.9         # чтение zip-архивов как дерева
   window_manager: ^0.5.2  # положение и размер окна между запусками
@@ -40,6 +51,12 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+  # Подставные провайдер дерева и служба окна. Отдельным пакетом, а не в
+  # `test/`: каталог тестов нельзя импортировать из другого пакета, а тесты
+  # модулей должны собирать приложение из тех же подставок.
+  fc_test_kit:
+    path: dependency/test_kit
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

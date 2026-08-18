@@ -1,5 +1,4 @@
-import '../../model/tree/fs_node.dart';
-import 'app_command.dart';
+import 'package:fc_api/fc_api.dart';
 
 /// Инвертировать пометку объекта под курсором и сдвинуть курсор вниз — так
 /// несколько файлов подряд помечаются одной клавишей.

@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../model/panel/column_spec.dart';
-import '../../model/panel/sort_spec.dart';
-import '../theme/app_theme.dart';
-import '../theme/fc_icons.dart';
+import 'package:fc_api/fc_api.dart';
 
 /// Строка заголовков колонок.
 ///
@@ -265,7 +262,8 @@ class FileTableHeaderCell extends StatelessWidget {
   final SortDirection direction;
   final VoidCallback? onTap;
 
-  static String titleOf(FsColumn column) => _titles[column] ?? column.name;
+  /// Заголовок колонки. Сам список названий живёт в API — рядом с колонками.
+  static String titleOf(FsColumn column) => column.title;
 
   @override
   Widget build(BuildContext context) {
@@ -291,7 +289,7 @@ class FileTableHeaderCell extends StatelessWidget {
               // глифами (`fa_caret_down` / `fa_caret_up`).
               if (sorted) ...[
                 Icon(
-                  direction == SortDirection.ascending ? FcIcons.caretDown : FcIcons.caretUp,
+                  direction == SortDirection.ascending ? theme.icons.caretDown : theme.icons.caretUp,
                   size: theme.metrics.iconSize,
                   color: theme.colors.headerText,
                 ),
@@ -304,15 +302,4 @@ class FileTableHeaderCell extends StatelessWidget {
       ),
     );
   }
-
-  static const Map<FsColumn, String> _titles = {
-    FsColumn.icon: '',
-    FsColumn.name: 'Name',
-    FsColumn.ext: 'Ext',
-    FsColumn.size: 'Size',
-    FsColumn.modified: 'Modified',
-    FsColumn.created: 'Created',
-    FsColumn.accessed: 'Accessed',
-    FsColumn.attributes: 'Attributes',
-  };
 }

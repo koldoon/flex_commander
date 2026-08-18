@@ -1,16 +1,14 @@
 import 'dart:io';
 
+import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
-import 'package:flex_commander/model/settings/app_settings.dart';
-import 'package:flex_commander/model/settings/settings_store.dart';
+import 'package:fc_api/fc_api.dart';
+import 'package:flex_commander/settings/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/state/commands/default_commands.dart';
-import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-
-import '../fake/in_memory_tree_provider.dart';
 
 /// Снимок окна справки: таблица во всю высоту с полями от краёв экрана.
 ///
@@ -30,8 +28,8 @@ void main() {
       right: PanelSettings.defaults('/Users/koldoon'),
     );
     final app = AppController(
-      left: PanelController(provider: provider, settings: settings.left),
-      right: PanelController(provider: provider, settings: settings.right),
+      left: testPanel(provider: provider, settings: settings.left),
+      right: testPanel(provider: provider, settings: settings.right),
       store: SettingsStore(filePath: settingsPath),
       settings: settings,
       commands: defaultCommandRegistry(),

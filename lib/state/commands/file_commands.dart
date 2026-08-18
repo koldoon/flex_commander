@@ -1,11 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../model/tree/fs_node.dart';
-import '../../model/tree/tree_provider.dart';
-import '../../view/dialogs/command_dialog.dart';
-import '../../view/theme/app_theme.dart';
-import 'app_command.dart';
-import 'async_command_base.dart';
+import 'package:fc_api/fc_api.dart';
 
 /// Создание каталога в активной панели.
 ///

@@ -1,6 +1,4 @@
-import 'package:flex_commander/model/async/async_operation.dart';
-import 'package:flex_commander/state/commands/app_command.dart';
-import 'package:flex_commander/state/commands/async_command_base.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Команда с длительной работой: что она делает с потоком сообщений о ходе дела.
@@ -75,5 +73,33 @@ void main() {
     expect(command.progress, closeTo(1 / 3, 0.001));
 
     await running;
+  });
+
+  group('завершение прогона', () {
+    test('дожидается конца работы', () async {
+      final command = _ProbeCommand();
+
+      await command.run(TaskOperation<void>((op) async {}));
+
+      await expectLater(command.completion, completes);
+    });
+
+    test('дожидается и отменённой работы', () async {
+      final command = _ProbeCommand();
+
+      final operation = TaskOperation<void>((op) async {
+        // Работа встаёт до отмены: без неё прогон закончился бы сам собой.
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        await op.checkpoint();
+      });
+
+      final run = command.run(operation);
+      operation.cancel();
+      await run;
+
+      // Раньше completion завершалось только в submit(), и ждущий отменённой
+      // работы не дожидался её никогда.
+      await expectLater(command.completion, completes);
+    });
   });
 }

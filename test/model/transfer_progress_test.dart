@@ -1,5 +1,4 @@
-import 'package:flex_commander/model/async/async_operation.dart';
-import 'package:flex_commander/model/async/transfer_progress.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Счёт объектов идёт двумя встречными потоками: обработанные растут по мере

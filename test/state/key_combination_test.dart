@@ -1,4 +1,4 @@
-import 'package:flex_commander/state/commands/key_combination.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';

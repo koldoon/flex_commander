@@ -2,12 +2,8 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import '../../model/panel/column_spec.dart';
-import '../../model/tree/fs_node.dart';
-import '../../state/app_controller.dart';
+import 'package:fc_api/fc_api.dart';
 import '../../state/app_scope.dart';
-import '../../state/panel_controller.dart';
-import '../theme/app_theme.dart';
 import 'file_table_header.dart';
 import 'file_table_row.dart';
 
@@ -16,7 +12,7 @@ import 'file_table_row.dart';
 class FileTable extends StatefulWidget {
   const FileTable({super.key, required this.panel});
 
-  final PanelController panel;
+  final Panel panel;
 
   @override
   State<FileTable> createState() => _FileTableState();
@@ -288,7 +284,7 @@ class _FileTableState extends State<FileTable> {
   /// Двойной клик распознаётся вручную: штатный `onDoubleTap` заставляет
   /// Flutter придержать одиночный клик до истечения таймаута, а курсор в
   /// файловом менеджере должен переставляться сразу.
-  void _handleRowTap(AppController app, int index) {
+  void _handleRowTap(Application app, int index) {
     final now = DateTime.now();
     final isDoubleTap = index == _lastTapIndex && now.difference(_lastTapTime) < _doubleTapWindow;
     _lastTapIndex = index;

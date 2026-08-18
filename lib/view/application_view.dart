@@ -7,7 +7,7 @@ import 'dialogs/command_dialog_layer.dart';
 import 'keyboard_handler.dart';
 import 'function_bar/function_bar.dart';
 import 'panel/panel_view.dart';
-import 'theme/app_theme.dart';
+import 'package:fc_api/fc_api.dart';
 
 /// Корневой макет окна: две панели и ряд функциональных кнопок под ними.
 class ApplicationView extends StatelessWidget {

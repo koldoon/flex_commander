@@ -1,18 +1,14 @@
 import 'dart:io';
 
-import 'package:flex_commander/model/settings/app_settings.dart';
-import 'package:flex_commander/model/settings/settings_store.dart';
-import 'package:flex_commander/model/tree/tree_provider.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_api/fc_api.dart';
+import 'package:flex_commander/settings/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
-import 'package:flex_commander/state/commands/app_command.dart';
-import 'package:flex_commander/state/commands/command_registry.dart';
 import 'package:flex_commander/state/commands/default_commands.dart';
 import 'package:flex_commander/state/commands/transfer_commands.dart';
 import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-
-import '../fake/in_memory_tree_provider.dart';
 
 /// Копирование и перенос работают без интерфейса: задать параметр и выполнить.
 /// Окно — надстройка, и его в этих тестах нет.
@@ -34,8 +30,8 @@ void main() {
 
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/backup'));
     app = AppController(
-      left: PanelController(provider: provider, settings: settings.left),
-      right: PanelController(provider: provider, settings: settings.right),
+      left: testPanel(provider: provider, settings: settings.left),
+      right: testPanel(provider: provider, settings: settings.right),
       store: SettingsStore(filePath: p.join(temp.path, 'settings.json')),
       settings: settings,
       commands: defaultCommandRegistry(),
@@ -190,8 +186,8 @@ void main() {
       final disk = InMemoryContentProvider([FakeEntry.directory('/backup')]);
       final settings = AppSettings(left: PanelSettings.defaults('/arc'), right: PanelSettings.defaults('/backup'));
       final it = AppController(
-        left: PanelController(provider: archive, settings: settings.left),
-        right: PanelController(provider: disk, settings: settings.right),
+        left: testPanel(provider: archive, settings: settings.left),
+        right: testPanel(provider: disk, settings: settings.right),
         store: SettingsStore(filePath: p.join(temp.path, 'archive.json')),
         settings: settings,
         commands: defaultCommandRegistry(),
