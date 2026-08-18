@@ -205,6 +205,7 @@ lib/
       key_combination.dart         нормализация нажатия в строку вида Ctrl-Shift-F5
       command_registry.dart        команды, привязки клавиш и разбор нажатий
       navigation_commands.dart     курсор, Tab, Enter, Backspace, Home/End
+      layout_commands.dart         разделитель панелей
       selection_commands.dart      пометка объектов
       default_commands.dart        набор команд и привязок по умолчанию
     app_scope.dart                 InheritedNotifier-доступ к контроллерам

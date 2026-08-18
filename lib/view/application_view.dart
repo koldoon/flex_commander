@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../state/app_scope.dart';
+import '../state/commands/layout_commands.dart';
 import 'common/split_view.dart';
 import 'dialogs/command_dialog_layer.dart';
 import 'keyboard_handler.dart';
@@ -33,6 +34,7 @@ class ApplicationView extends StatelessWidget {
                     child: SplitView(
                       ratio: app.splitRatio,
                       onRatioChanged: app.setSplitRatio,
+                      onCenter: () => app.commands.run(CenterSplitCommand.commandId),
                       left: PanelView(panel: app.left, outerEdge: PanelOuterEdge.left),
                       right: PanelView(panel: app.right, outerEdge: PanelOuterEdge.right),
                     ),
