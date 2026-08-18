@@ -222,6 +222,8 @@ abstract interface class TreeProvider {
 
   /// Суммарный размер объектов вместе с содержимым каталогов.
   /// Промежуточные суммы идут в OperationProgress.processed.
+  /// Скрытое считается наравне с остальным, ссылки не разыменовываются,
+  /// а недоступное пропускается — но обход не прекращает.
   AsyncOperation<int> calculateSize(List<FsNode> nodes);
 }
 

@@ -377,6 +377,19 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
     };
   }
 
+  /// Обход поддерева: всё, что лежит под [path], включая скрытое.
+  ///
+  /// Недоступный подкаталог обход **не прекращает**. Без обработчика ошибок
+  /// первая же `EACCES` обрывает поток целиком, и всё, что стояло в очереди
+  /// после неё, не доходит вовсе — размер каталога с одной закрытой папкой
+  /// внутри оказывался меньше настоящего, причём молча. Так же ведёт себя `du`:
+  /// ругается на недоступное и считает остальное.
+  Stream<FileSystemEntity> _walk(String path) {
+    return Directory(path)
+        .list(recursive: true, followLinks: false)
+        .handleError((Object _) {}, test: (error) => error is FileSystemException);
+  }
+
   /// Обход поддерева ради счётчика: без построения узлов, зато с размерами —
   /// иначе не из чего показать долю в байтах.
   ///
@@ -392,7 +405,7 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
       if (FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.directory) {
         return;
       }
-      await for (final entity in Directory(path).list(recursive: true, followLinks: false)) {
+      await for (final entity in _walk(path)) {
         // Ссылка копируется ссылкой и байтов не переносит, каталог их не
         // имеет — считается только содержимое файлов.
         onEntry(entity is File ? await _lengthOf(entity) : 0);
@@ -458,8 +471,10 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
         try {
           // Обход асинхронный: между объектами управление возвращается циклу
           // событий, поэтому интерфейс остаётся отзывчивым даже на большом
-          // дереве, а отмена срабатывает сразу.
-          await for (final entity in Directory(path).list(recursive: true, followLinks: false)) {
+          // дереве, а отмена срабатывает сразу. Скрытые объекты считаются
+          // наравне с остальными: размер каталога от того, показывает их
+          // панель или нет, не меняется.
+          await for (final entity in _walk(path)) {
             op.checkCanceled();
             if (entity is! File) {
               continue;
@@ -473,7 +488,7 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
             op.report(OperationProgress(processed: total, message: node.name));
           }
         } on FileSystemException {
-          // Каталог целиком недоступен: сумма останется без него.
+          // Сам каталог недоступен целиком: сумма останется без него.
           continue;
         }
       }
