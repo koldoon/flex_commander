@@ -178,6 +178,10 @@ abstract class TransferCommandBase extends AsyncCommandBase {
             processed: processed,
             total: total,
             totalIsFinal: totalIsFinal,
+            bytes: bytes,
+            totalBytes: totalBytes,
+            bytesPerSecond: bytesPerSecond,
+            remaining: remaining,
             onCancel: cancel,
           );
         }

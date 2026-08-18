@@ -125,6 +125,7 @@ void main() {
       final operation = editor.remove([nodes['notes.txt']!, nodes['report.txt']!], toTrash: false);
       operation.progress.listen((event) => progress.add(event.message));
       await operation.result;
+      await pumpEventQueue();
       await Future<void>.delayed(Duration.zero);
 
       expect(progress, contains('Deleting notes.txt…'));
@@ -138,6 +139,7 @@ void main() {
       operation.progress.listen(reports.add);
 
       await operation.result;
+      await pumpEventQueue();
       await Future<void>.delayed(Duration.zero);
 
       // Каталог и файл внутри: удаление большого дерева не стоит на нуле.
@@ -154,6 +156,7 @@ void main() {
       operation.progress.listen(reports.add);
 
       await operation.result;
+      await pumpEventQueue();
       await Future<void>.delayed(Duration.zero);
 
       // Корзина — это переименование: поштучно объекты не проходили.
@@ -194,6 +197,7 @@ void main() {
         request.respond(OperationOption.skipAll);
       });
       await operation.result;
+      await pumpEventQueue();
 
       expect(questions, hasLength(1));
     });

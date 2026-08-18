@@ -117,6 +117,7 @@ void main() {
       final questions = collectQuestions(operation);
 
       await operation.result;
+      await pumpEventQueue();
 
       // Ни переименования, ни копирования средствами провайдера здесь нет,
       // а байтов ни одна из сторон не отдаёт: остаётся только признаться.
@@ -133,6 +134,7 @@ void main() {
       final operation = engine.copy([foreign, mine], destination);
       final questions = collectQuestions(operation);
       await operation.result;
+      await pumpEventQueue();
 
       // Один источник чужой, другой свой: вопрос задан по первому, второй
       // скопирован.
@@ -216,6 +218,24 @@ void main() {
       expect(await source.resolvePath('/home/notes.txt').result, isNull);
     });
 
+    test('внутри большого файла видно движение', () async {
+      source.add(FakeEntry.file('/home/big.bin', content: List.filled(50, 1)));
+      final file = (await source.resolvePath('/home/big.bin').result)!;
+
+      final operation = engine.copy([file], await remoteBin());
+      final reports = <OperationProgress>[];
+      operation.progress.listen(reports.add);
+      await operation.result;
+      await pumpEventQueue();
+
+      // Объект всё это время один и тот же, а доля растёт: по объектам тут
+      // было бы «0 из 1» до самого конца.
+      final inside = reports.where((event) => event.bytes > 0 && event.bytes < 50).map((event) => event.bytes);
+      expect(inside, [10, 20, 30, 40]);
+      expect(reports.last.bytes, 50);
+      expect(reports.last.percent, 1);
+    });
+
     test('отмена посреди файла не оставляет обрезанного', () async {
       source.add(FakeEntry.file('/home/big.bin', content: List.filled(50, 1)));
       final file = (await source.resolvePath('/home/big.bin').result)!;
@@ -241,6 +261,7 @@ void main() {
       final operation = engine.copy([file], await remoteBin());
       final questions = collectQuestions(operation);
       await operation.result;
+      await pumpEventQueue();
 
       // Половина файла под настоящим именем выглядела бы как целый файл.
       expect(questions, hasLength(1));
@@ -259,6 +280,7 @@ void main() {
       final operation = engine.copy([first, second], await remoteBin());
       final questions = collectQuestions(operation);
       await operation.result;
+      await pumpEventQueue();
 
       // Провайдер бросил из потока что попало — движок перевёл это в FsError,
       // и вопрос задан как по любой другой ошибке.
@@ -289,6 +311,7 @@ void main() {
       operation.progress.listen(reports.add);
 
       await operation.result;
+      await pumpEventQueue();
 
       // Каталог с тремя вложенными объектами и файл — пять объектов.
       final counted = reports.where((event) => event.totalIsFinal);

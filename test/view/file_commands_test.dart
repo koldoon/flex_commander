@@ -455,6 +455,24 @@ void main() {
       await settle(tester);
     });
 
+    testWidgets('во время работы видно объём задания', (tester) async {
+      provider.slow = true;
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await openTransfer(tester, LogicalKeyboardKey.f5, destination: '/home/bin');
+      await tester.tap(find.widgetWithText(FcButton, 'Copy'));
+      await tester.pump();
+
+      // Объём задания известен ещё до того, как перенесён первый байт.
+      expect(find.text('Size:'), findsOneWidget);
+      expect(find.textContaining('of 10 B'), findsOneWidget);
+
+      await tester.pump(const Duration(milliseconds: 300));
+      await settle(tester);
+    });
+
     testWidgets('кнопки нижней панели делают то же самое', (tester) async {
       await pumpApp(tester);
       app.left.setCursorToName('notes.txt');

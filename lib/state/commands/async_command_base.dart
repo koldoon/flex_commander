@@ -108,6 +108,18 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
   bool get totalIsFinal => _state.totalIsFinal;
 
   @override
+  int get bytes => _state.bytes;
+
+  @override
+  int? get totalBytes => _state.totalBytes;
+
+  @override
+  double? get bytesPerSecond => _state.bytesPerSecond;
+
+  @override
+  Duration? get remaining => _state.remaining;
+
+  @override
   bool get isRunning => _running;
 
   @override

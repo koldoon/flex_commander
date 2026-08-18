@@ -33,7 +33,11 @@ enum TransferStrategy {
 ///
 /// Состояния у движка нет: он ничей и создаётся где угодно.
 class TreeTransferEngine implements TreeEditor {
-  const TreeTransferEngine();
+  const TreeTransferEngine({this.clock = DateTime.now});
+
+  /// Часы для скорости и оценки времени. Подменяются в тестах: настоящее время
+  /// в них — источник случайных отказов.
+  final DateTime Function() clock;
 
   @override
   AsyncOperation<DirectoryNode> makeDirectory(DirectoryNode parent, String name) {
@@ -71,7 +75,7 @@ class TreeTransferEngine implements TreeEditor {
         throw FsError(destination.pathString, FsErrorKind.notSupported);
       }
 
-      final progress = TransferProgress(op, move ? 'Moving' : 'Copying');
+      final progress = TransferProgress(op, move ? 'Moving' : 'Copying', clock: clock);
       var overwriteAll = false;
       var skipAll = false;
 
@@ -198,7 +202,7 @@ class TreeTransferEngine implements TreeEditor {
   @override
   AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true}) {
     return TaskOperation<void>((op) async {
-      final progress = TransferProgress(op, 'Deleting');
+      final progress = TransferProgress(op, 'Deleting', clock: clock);
 
       // Считаем рядом с работой, а не перед ней: см. TransferProgress.
       unawaited(_countSources(nodes, progress));
@@ -278,11 +282,13 @@ class TreeTransferEngine implements TreeEditor {
 
     // [TransferStrategy.providerCopy]: один провайдер — копирует он сам.
     if (source != null && identical(source, target) && await source.copyEntry(node, destination, name)) {
+      // Байты прошли мимо движка — он видит только, что файл целиком скопирован.
+      progress.advanceBytes(node.size);
       return;
     }
 
     // [TransferStrategy.stream]: любой источник в любой приёмник.
-    if (await _streamEntry(target, node, destination, name, op)) {
+    if (await _streamEntry(target, node, destination, name, op, progress)) {
       return;
     }
 
@@ -304,6 +310,7 @@ class TreeTransferEngine implements TreeEditor {
     DirectoryNode destination,
     String name,
     TaskOperation<void> op,
+    TransferProgress progress,
   ) async {
     final reader = _contentOf(node.provider);
     final writer = _contentOf(destination.provider);
@@ -323,6 +330,9 @@ class TreeTransferEngine implements TreeEditor {
       await sink.addStream(
         content.map((chunk) {
           op.checkCanceled();
+          // Единственное место, где видно движение внутри файла: на большом
+          // файле только эти байты и говорят, что работа идёт.
+          progress.advanceBytes(chunk.length);
           return chunk;
         }),
       );
@@ -383,6 +393,9 @@ class TreeTransferEngine implements TreeEditor {
     }
 
     progress?.advance(node.name);
+    // Байты удалённого — тоже сделанная работа: на большом дереве доля
+    // по объектам и доля по объёму расходятся втрое.
+    progress?.advanceBytes(node.size);
     await editor.deleteEntry(node);
   }
 
@@ -406,25 +419,25 @@ class TreeTransferEngine implements TreeEditor {
       }
 
       var counted = 0;
-      final editor = _editorOf(nodes[i]);
+      var countedBytes = 0;
+      final provider = nodes[i].provider;
 
-      if (editor != null) {
-        try {
-          await editor.countEntries(nodes[i], () {
-            if (progress.stopped) {
-              throw const _CountingStopped();
-            }
-            counted++;
-            progress.countOne();
-          });
-        } on _CountingStopped {
-          return;
-        } on FsError {
-          // Каталог мог исчезнуть или оказаться закрытым — считаем дальше.
-        }
+      try {
+        await provider.countEntries(nodes[i], (bytes) {
+          if (progress.stopped) {
+            throw const _CountingStopped();
+          }
+          counted++;
+          countedBytes += bytes;
+          progress.countOne(bytes);
+        });
+      } on _CountingStopped {
+        return;
+      } on FsError {
+        // Каталог мог исчезнуть или оказаться закрытым — считаем дальше.
       }
 
-      progress.sourceCounted(i, counted);
+      progress.sourceCounted(i, counted, countedBytes);
     }
 
     progress.countingFinished();

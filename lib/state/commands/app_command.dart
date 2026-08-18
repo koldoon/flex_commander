@@ -306,6 +306,19 @@ abstract interface class AsyncCommand {
   /// Досчитано ли [total] до конца.
   bool get totalIsFinal;
 
+  /// Сколько байт перенесено.
+  int get bytes;
+
+  /// Сколько байт всего; null — объём не известен (удаление в корзину,
+  /// источник без размеров). Досчитан ли он, говорит тот же [totalIsFinal].
+  int? get totalBytes;
+
+  /// Скорость, байт в секунду; null — считать пока не из чего.
+  double? get bytesPerSecond;
+
+  /// Сколько ещё ждать; null — оценить не из чего.
+  Duration? get remaining;
+
   /// Работа идёт.
   bool get isRunning;
 

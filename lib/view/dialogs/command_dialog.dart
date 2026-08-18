@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
 import '../../model/async/operation_request.dart';
+import '../format/duration_format.dart';
+import '../format/size_format.dart';
 import '../theme/app_metrics.dart';
 import '../theme/app_theme.dart';
 
@@ -95,6 +97,10 @@ class CommandDialogProgress extends StatelessWidget {
     this.processed = 0,
     this.total,
     this.totalIsFinal = true,
+    this.bytes = 0,
+    this.totalBytes,
+    this.bytesPerSecond,
+    this.remaining,
   });
 
   final String message;
@@ -102,12 +108,23 @@ class CommandDialogProgress extends StatelessWidget {
   final int processed;
   final int? total;
   final bool totalIsFinal;
+
+  /// Перенесённый объём и общий; null — объём не известен (удаление в корзину).
+  final int bytes;
+  final int? totalBytes;
+
+  /// Скорость и оценка времени; null — считать пока не из чего.
+  final double? bytesPerSecond;
+  final Duration? remaining;
+
   final VoidCallback onCancel;
 
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
     final counter = _counter;
+    final size = _size;
+    final speed = _speed;
 
     return SizedBox(
       width: MediaQuery.sizeOf(context).width * theme.metrics.dialogWidthFactor,
@@ -120,6 +137,8 @@ class CommandDialogProgress extends StatelessWidget {
           ),
           if (counter != null)
             CommandDialogField(label: 'Processed:', child: Text(counter, style: theme.dialogTextStyle)),
+          if (size != null) CommandDialogField(label: 'Size:', child: Text(size, style: theme.dialogTextStyle)),
+          if (speed != null) CommandDialogField(label: 'Speed:', child: Text(speed, style: theme.dialogTextStyle)),
           CommandDialogField(label: 'Progress:', child: FcProgressBar(value: progress)),
         ],
       ),
@@ -133,6 +152,32 @@ class CommandDialogProgress extends StatelessWidget {
       return processed == 0 ? null : '$processed';
     }
     return totalIsFinal ? '$processed of $count' : '$processed of $count…';
+  }
+
+  /// Объём: `12.4 MB of 700.1 MB`. Многоточие — то же, что у счётчика: общее
+  /// ещё считают, и оно вырастет.
+  String? get _size {
+    final all = totalBytes;
+    if (all == null || all <= 0) {
+      return null;
+    }
+    final line = '${formatBytesLong(bytes)} of ${formatBytesLong(all)}';
+    return totalIsFinal ? line : '$line…';
+  }
+
+  /// Скорость и сколько осталось: `12.4 MB/s, 00:42 left`.
+  ///
+  /// Оценка появляется не сразу: пока скорость не на чем считать, обещать
+  /// время нельзя — соврать хуже, чем промолчать.
+  String? get _speed {
+    final speed = bytesPerSecond;
+    if (speed == null || speed <= 0) {
+      return null;
+    }
+
+    final left = remaining;
+    final line = '${formatBytesLong(speed.round())}/s';
+    return left == null ? line : '$line, ${formatDuration(left)} left';
   }
 }
 
