@@ -28,6 +28,7 @@ workspace:
   - dependency/file_ops
   - dependency/navigation
   - dependency/test_kit
+  - dependency/zip_archiver
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -51,8 +52,10 @@ dependencies:
   fc_navigation:
     path: dependency/navigation
 
+  fc_zip_archiver:
+    path: dependency/zip_archiver
+
   path: ^1.9.1            # basename/extension/join/normalize
-  archive: ^4.0.9         # чтение zip-архивов как дерева
   window_manager: ^0.5.2  # положение и размер окна между запусками
   dicom: ^0.0.3           # контейнер зависимостей
   logecom: ^0.0.11        # логирование операций и ошибок ФС
