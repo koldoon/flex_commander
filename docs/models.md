@@ -254,13 +254,15 @@ abstract interface class NodeEditor {
   bool isInsideSource(FsNode node, DirectoryNode destination);
 }
 
-/// Байтовый ввод-вывод: из него движок строит стратегию «поток» — перенос из
-/// любого источника в любой. Отдельный интерфейс: читать дерево и отдавать
-/// содержимое — разные умения.
+/// Байтовое чтение и байтовая запись — из них движок строит стратегию «поток».
+/// Интерфейса два, потому что умения бывают порознь: архив, открытый на
+/// просмотр, содержимое отдаёт, но принять его не может.
 abstract interface class FileContentProvider {
   /// offset — сколько байт пропустить: без него не будет докачки.
   Future<Stream<List<int>>> openRead(FsNode node, {int offset = 0});
+}
 
+abstract interface class FileContentReceiver {
   /// length — размер, если известен заранее: HTTP и FTP просят его вперёд.
   Future<StreamSink<List<int>>> openWrite(DirectoryNode parent, String name, {int? length});
 }
@@ -348,7 +350,8 @@ class ProviderRegistry {
 | | Что значит |
 |---|---|
 | `provider.canWrite` | реализует `NodeEditor`: есть чем менять дерево |
-| `provider.canStream` | реализует `FileContentProvider`: отдаёт и принимает байты |
+| `provider.canStream` | реализует `FileContentProvider`: отдаёт содержимое |
+| `provider.canReceive` | реализует `FileContentReceiver`: принимает содержимое |
 
 **Объявляется провайдером** (`ProviderCapabilities`) — то, чего по типам не
 видно; аналог `OPIF_*` в Far и флагов плагина в Total Commander:

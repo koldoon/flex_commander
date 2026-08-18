@@ -42,8 +42,8 @@
 
 Не входит в MVP (закладывается архитектурно, реализуется позже):
 
-- Вложенные провайдеры дерева (архивы, sftp) — механизм готов (`ProviderRegistry`),
-  реализация одна: локальная ФС.
+- Вложенные провайдеры дерева: механизм готов (`ProviderRegistry`), из источников
+  реализованы локальная ФС и zip-архив на чтение; sftp — позже.
 - Встроенные просмотрщик и редактор (F3/F4), вкладки, история, закладки, поиск, drag&drop.
 
 ## Архитектура
@@ -116,6 +116,7 @@
 | `m.async.impl.TransferOperation` | `TreeTransferEngine` — обход, конфликты, прогресс и стратегии |
 | `m.tree.IFilesProvider` | `FilesProvider` (интерфейс, реализация — после MVP) |
 | `m.tree.impl.fs.LocalFileSystemTreeProvider` (через CLI `ls`/`stat`) | `LocalTreeProvider` (через `dart:io`) |
+| `m.tree.impl.zip.ZipTreeProvider` (через CLI `unzip`) | `ZipTreeProvider` (через `package:archive`) |
 | `m.async.IAsyncOperation` + `IAsyncOperationStatus` | `AsyncOperation<T>` (`Future` + прогресс + отмена) |
 | `m.interactive.IInteraction` | `OperationRequest` — запрос к пользователю из середины операции |
 | `m.app.IApplication` | `Application` (интерфейс) + `AppController` (реализация) |
@@ -169,6 +170,9 @@ lib/
       local/
         local_tree_provider.dart   реализация поверх dart:io: чтение и примитивы
         local_listing.dart         чтение каталога в изоляте
+      zip/
+        zip_tree_provider.dart     zip-архив как дерево, только на чтение
+        zip_index.dart             оглавление архива деревом
       transfer/
         transfer_engine.dart       копирование, перенос и удаление — один раз
                                    на все провайдеры, включая перенос потоком
@@ -238,6 +242,7 @@ lib/
 ```yaml
 dependencies:
   path: ^1.9.0            # basename/extension/join/normalize
+  archive: ^4.0.9         # чтение zip-архивов как дерева
   window_manager: ^0.5.1  # положение и размер окна между запусками
   dicom: ^0.0.3           # контейнер зависимостей
   logecom: ^0.0.11        # логирование

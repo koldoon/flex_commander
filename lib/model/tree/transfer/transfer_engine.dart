@@ -312,8 +312,8 @@ class TreeTransferEngine implements TreeEditor {
     TaskOperation<void> op,
     TransferProgress progress,
   ) async {
-    final reader = _contentOf(node.provider);
-    final writer = _contentOf(destination.provider);
+    final reader = _readerOf(node.provider);
+    final writer = _writerOf(destination.provider);
     if (reader == null || writer == null) {
       return false;
     }
@@ -453,9 +453,13 @@ class TreeTransferEngine implements TreeEditor {
     );
   }
 
-  /// Байтовый ввод-вывод провайдера; null — содержимого он не отдаёт.
-  FileContentProvider? _contentOf(TreeProvider provider) =>
+  /// Байтовое чтение провайдера; null — содержимого он не отдаёт.
+  FileContentProvider? _readerOf(TreeProvider provider) =>
       provider is FileContentProvider ? provider as FileContentProvider : null;
+
+  /// Байтовая запись; null — принять содержимое он не может.
+  FileContentReceiver? _writerOf(TreeProvider provider) =>
+      provider is FileContentReceiver ? provider as FileContentReceiver : null;
 
   /// Примитивы провайдера, которому принадлежит узел; null — провайдер только
   /// читает.
