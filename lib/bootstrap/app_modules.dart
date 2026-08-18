@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_file_ops/fc_file_ops.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 
 import '../modules/app_shell.dart';
@@ -17,4 +18,10 @@ List<FcModule> appModules() => [const LocalFileSystem(), ...featureModules()];
 /// Тесты собирают приложение на подставном дереве и подставном окне, поэтому
 /// модуль локальной файловой системы им не нужен — а вот всё остальное должно
 /// быть тем же, что и в настоящем запуске.
-List<FcModule> featureModules() => [const AppShell(), const Navigation(), const LegacyCommands(), const ZipArchiver()];
+List<FcModule> featureModules() => [
+  const AppShell(),
+  const Navigation(),
+  const FileOps(),
+  const LegacyCommands(),
+  const ZipArchiver(),
+];

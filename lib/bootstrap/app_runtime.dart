@@ -8,9 +8,16 @@ import '../state/app_controller.dart';
 /// Не «настройки приложения», а именно подмена: так тесты собирают настоящее
 /// приложение на подставных службах, ничего не зная о его внутреннем графе.
 class AppOverrides {
-  const AppOverrides({this.provider, this.store, this.window, this.saveDelay});
+  const AppOverrides({this.provider, this.rightProvider, this.store, this.window, this.saveDelay});
 
   final TreeProvider? provider;
+
+  /// Источник правой панели, если он должен отличаться от левой.
+  ///
+  /// В настоящем приложении панели начинают с одного корня и расходятся, войдя
+  /// в архив или подключившись к серверу. Тесту переноса это долгий путь:
+  /// проще дать панелям разные источники сразу.
+  final TreeProvider? rightProvider;
   final SettingsStore? store;
   final WindowService? window;
 

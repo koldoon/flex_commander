@@ -41,6 +41,9 @@ class TestPlatform implements FcModule {
 /// закрывается вместе с тестом.
 Future<AppRuntime> testApp({
   required TreeProvider provider,
+
+  /// Источник правой панели, если он должен отличаться от левой.
+  TreeProvider? rightProvider,
   List<FcModule> modules = const [],
   AppSettings? settings,
   WindowService? window,
@@ -55,6 +58,7 @@ Future<AppRuntime> testApp({
     [const AppShell(), const TestPlatform(), ...modules],
     overrides: AppOverrides(
       provider: provider,
+      rightProvider: rightProvider,
       store: settingsStore,
       window: window ?? FakeWindowService(),
       // Отложенная запись настроек не должна пережить тест: таймер, оставшийся
