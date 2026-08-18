@@ -155,6 +155,12 @@ abstract class AppCommand extends ChangeNotifier {
   /// ни имя класса наружу не показываются.
   String get label;
 
+  /// Что команда делает — одной строкой, для списка команд и справки.
+  ///
+  /// Пустая строка допустима: у `Cursor up` объяснять нечего, и придумывать
+  /// текст ради заполненной колонки незачем.
+  String get description => '';
+
   /// Идентификатор запуска: свой у каждого экземпляра.
   ///
   /// Ядро выдаёт его при создании; по нему команда закрывает своё окно
@@ -334,6 +340,9 @@ abstract interface class AsyncCommand {
 /// проверяется сейчас, а не переписывается вместе с файловыми операциями.
 class PlaceholderCommand extends AppCommand {
   PlaceholderCommand({required this.id, required this.label});
+
+  @override
+  String get description => 'Not implemented yet';
 
   @override
   final String id;

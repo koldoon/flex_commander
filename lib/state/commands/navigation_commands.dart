@@ -47,6 +47,9 @@ class GoToNameCommand extends AppCommand {
   String get label => 'Go to name';
 
   @override
+  String get description => 'Jump to the first item starting with the typed letter';
+
+  @override
   bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.nodes.isNotEmpty;
 
   @override
@@ -148,6 +151,9 @@ class TogglePanelCommand extends AppCommand {
   String get label => 'Switch panel';
 
   @override
+  String get description => 'Make the other panel active';
+
+  @override
   bool isExecutable(CommandContext context) => true;
 
   @override
@@ -168,6 +174,9 @@ class OpenNodeCommand extends AppCommand {
 
   @override
   String get label => 'Open';
+
+  @override
+  String get description => 'Enter a directory or an archive; other files go to the system';
 
   @override
   bool isExecutable(CommandContext context) => context.node != null && !context.panel.busy;
@@ -203,6 +212,9 @@ class OpenWithSystemCommand extends AppCommand {
   @override
   String get label => 'Open with system';
 
+  @override
+  String get description => 'Hand the selected items to the system, without entering them';
+
   /// Путь уходит внешней программе как есть, поэтому он должен быть настоящим:
   /// у архива и удалённой ФС таких путей не бывает (`OPIF_REALNAMES` в Far —
   /// про то же самое).
@@ -231,6 +243,9 @@ class GoUpCommand extends AppCommand {
   String get label => 'Up';
 
   @override
+  String get description => 'Leave for the parent directory';
+
+  @override
   bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.directory?.parentDirectory != null;
 
   @override
@@ -244,6 +259,9 @@ class GoToRootCommand extends AppCommand {
 
   @override
   String get label => 'Root';
+
+  @override
+  String get description => 'Go to the root of the current source';
 
   @override
   bool isExecutable(CommandContext context) =>
@@ -262,6 +280,9 @@ class ReloadCommand extends AppCommand {
   String get label => 'Reload';
 
   @override
+  String get description => 'Read the current directory again';
+
+  @override
   bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.directory != null;
 
   @override
@@ -275,6 +296,9 @@ class ToggleHiddenCommand extends AppCommand {
 
   @override
   String get label => 'Hidden files';
+
+  @override
+  String get description => 'Show or hide the items whose names start with a dot';
 
   @override
   bool isExecutable(CommandContext context) => !context.panel.busy;
@@ -293,6 +317,9 @@ class CancelCommand extends AppCommand {
 
   @override
   String get label => 'Cancel';
+
+  @override
+  String get description => 'Stop what the panel is doing right now';
 
   @override
   bool isExecutable(CommandContext context) => context.panel.busy;

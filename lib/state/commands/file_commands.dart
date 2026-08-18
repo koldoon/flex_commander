@@ -28,6 +28,9 @@ class MakeDirectoryCommand extends AppCommand {
   String get label => 'Mk Dir';
 
   @override
+  String get description => 'Create a directory in the active panel';
+
+  @override
   bool get hasDialog => true;
 
   /// Имя набирают сразу: фокус ставит поле ввода.
@@ -128,6 +131,9 @@ class RemoveCommand extends RemoveCommandBase {
   String get label => 'Delete';
 
   @override
+  String get description => 'Move the selected items to the trash';
+
+  @override
   bool get toTrash => true;
 }
 
@@ -141,6 +147,9 @@ class RemovePermanentlyCommand extends RemoveCommandBase {
 
   @override
   String get label => 'Delete permanently';
+
+  @override
+  String get description => 'Delete the selected items without the trash';
 
   @override
   bool get toTrash => false;
