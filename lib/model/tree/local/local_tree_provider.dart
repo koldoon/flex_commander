@@ -19,8 +19,9 @@ import 'local_listing.dart';
 ///
 /// Реализует [NodeEditor], а не [TreeEditor]: обход, конфликты, прогресс и
 /// выбор стратегии живут в движке переноса, а здесь — примитивы, каждый над
-/// одним объектом.
-class LocalTreeProvider implements TreeProvider, NodeEditor {
+/// одним объектом. [FileContentProvider] — байты для того же движка: из них он
+/// строит перенос в чужой провайдер и обратно.
+class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider {
   LocalTreeProvider({String? homePath, this.readInIsolate = true}) : homePath = homePath ?? _detectHomePath();
 
   /// Домашний каталог пользователя — сюда открываются панели, если сохранённый
@@ -318,6 +319,33 @@ class LocalTreeProvider implements TreeProvider, NodeEditor {
       }
     } on FileSystemException {
       // Каталог мог исчезнуть или оказаться закрытым — считаем дальше.
+    }
+  }
+
+  /// Содержимое файла потоком.
+  ///
+  /// Путь берётся сам объект, а не его цель, но `dart:io` разыменует ссылку при
+  /// открытии: ссылка, уехавшая в чужой провайдер, приезжает туда файлом —
+  /// цели, на которую она указывает, там всё равно нет.
+  @override
+  Future<Stream<List<int>>> openRead(FsNode node, {int offset = 0}) async {
+    final path = entityPathOf(node);
+    // Ошибка чтения приходит ошибкой потока, а не отсюда, — переводим её там,
+    // где она возникает, иначе движку достанется исключение `dart:io`.
+    return File(path).openRead(offset).handleError((Object error) {
+      throw error is FileSystemException ? fsErrorFrom(path, error) : error;
+    });
+  }
+
+  /// Приёмник для содержимого нового файла. [length] локальной ФС не нужен:
+  /// место под файл она не резервирует.
+  @override
+  Future<StreamSink<List<int>>> openWrite(DirectoryNode parent, String name, {int? length}) async {
+    final path = p.join(physicalPathOf(parent), name);
+    try {
+      return File(path).openWrite();
+    } on FileSystemException catch (error) {
+      throw fsErrorFrom(path, error);
     }
   }
 
