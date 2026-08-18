@@ -57,4 +57,23 @@ void main() {
     expect(runtime.commands.installed.map((command) => command.id), isNot(contains('zip')));
     expect(runtime.app.left.provider, isNotNull);
   });
+
+  test('у каждой команды есть название для списка команд', () {
+    for (final command in runtime.commands.installed) {
+      expect(command.label, isNotEmpty, reason: 'у ${command.id} нет названия');
+    }
+  });
+
+  test('у команд нет одинаковых идентификаторов', () {
+    // Модули складываются в один набор, и столкновение имён здесь — не
+    // теоретическая возможность, а вопрос времени.
+    final ids = runtime.commands.installed.map((command) => command.id).toList();
+
+    expect(ids.toSet(), hasLength(ids.length));
+  });
+
+  test('F9 и F10 пока ни за кем не закреплены', () {
+    expect(runtime.commands.commandFor(KeyCombination.parse('F9')), isNull);
+    expect(runtime.commands.commandFor(KeyCombination.parse('F10')), isNull);
+  });
 }

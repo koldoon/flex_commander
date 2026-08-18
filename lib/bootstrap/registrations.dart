@@ -81,8 +81,16 @@ class Registrations implements FcRegistrar {
   AppSettings? settingsSource;
 
   /// Устанавливает модули по порядку: порядок задаёт приоритет привязок.
+  ///
+  /// Модуль с уже занятым идентификатором пропускается. Список модулей
+  /// складывается из нескольких мест — приложение, тест, вложенный набор, — и
+  /// один и тот же модуль легко указать дважды; повторная установка удвоила бы
+  /// его привязки, а с ними и подписи клавиш в справке.
   void installAll(Iterable<FcModule> list) {
     for (final module in list) {
+      if (modules.any((installed) => installed.id == module.id)) {
+        continue;
+      }
       _current = module.id;
       _lastInstalled = module.id;
       modules.add(module);

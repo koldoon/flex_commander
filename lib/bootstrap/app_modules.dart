@@ -5,7 +5,6 @@ import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_zip_archiver/fc_zip_archiver.dart';
 
 import '../modules/app_shell.dart';
-import '../modules/legacy_commands.dart';
 import '../modules/local_fs/local_file_system.dart';
 
 /// Из чего собрано приложение.
@@ -24,6 +23,5 @@ List<FcModule> featureModules() => [
   const DefaultTheme(),
   const Navigation(),
   const FileOps(),
-  const LegacyCommands(),
   const ZipArchiver(),
 ];

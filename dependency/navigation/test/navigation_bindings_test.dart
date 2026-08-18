@@ -102,8 +102,10 @@ void main() {
   test('приложение собирается и без модуля навигации', () async {
     final runtime = await testApp(provider: provider);
 
-    // Ходить по дереву будет нечем, но запуск — не место для сюрпризов.
-    expect(runtime.commands.installed, isEmpty);
+    // Ходить по дереву будет нечем, но запуск — не место для сюрпризов:
+    // оболочка со справкой на месте, а команд навигации просто нет.
+    expect(runtime.commands.find('panel.up'), isNull);
+    expect(runtime.commands.find('app.help'), isNotNull);
     expect(runtime.app.left, isNotNull);
   });
 }

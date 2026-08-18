@@ -4,7 +4,6 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:flex_commander/settings/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
-import 'package:flex_commander/state/commands/default_commands.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -415,38 +414,8 @@ void main() {
     // Переехало в dependency/navigation: команды и клавиши навигации живут
     // там же, где и сам модуль.
 
-    test('у каждой команды есть название для списка команд', () {
-      final registry = defaultCommandRegistry();
-      build(registry);
-
-      for (final command in registry.installed) {
-        expect(command.label, isNotEmpty, reason: 'у ${command.id} нет названия');
-      }
-    });
-  });
-
-  group('набор команд по умолчанию', () {
-    // Про файловые операции — в dependency/file_ops: команды и клавиши живут
-    // там же, где и сам модуль.
-
-    test('F9 и F10 пока ни за кем не закреплены', () {
-      final registry = defaultCommandRegistry();
-      build(registry);
-
-      expect(registry.commandFor(KeyCombination.parse('F9')), isNull);
-      expect(registry.commandFor(KeyCombination.parse('F10')), isNull);
-    });
-
-    test('у команд нет одинаковых идентификаторов', () {
-      final registry = defaultCommandRegistry();
-      build(registry);
-      final ids = registry.installed.map((command) => command.id).toList();
-
-      expect(ids.toSet(), hasLength(ids.length));
-    });
-
-    // Переехало в dependency/navigation: команды и клавиши навигации живут
-    // там же, где и сам модуль.
+    // Про собранный набор команд — в test/app/bindings_test.dart: набор
+    // складывается из модулей, и проверять его нужно на собранном приложении.
   });
 
   group('исход запуска', () {
