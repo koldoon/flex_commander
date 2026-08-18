@@ -54,6 +54,10 @@ abstract class TransferCommandBase extends AsyncCommandBase {
 
   final TextEditingController _destination = TextEditingController();
 
+  /// Откуда идёт работа. Поле не редактируется — источник задан выбором в
+  /// панели, — но остаётся полем: так форма читается как форма.
+  final TextEditingController _source = TextEditingController();
+
   /// Путь набирают сразу: фокус ставит поле ввода.
   @override
   bool get dialogTakesFocus => true;
@@ -70,6 +74,7 @@ abstract class TransferCommandBase extends AsyncCommandBase {
       setParam(destinationParam, path);
       _destination.text = path;
     }
+    _source.text = _sourcePath;
   }
 
   @override
@@ -198,10 +203,7 @@ abstract class TransferCommandBase extends AsyncCommandBase {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              CommandDialogField(
-                label: 'From:',
-                child: Text(_sourcePath, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.dialogTextStyle),
-              ),
+              CommandDialogField(label: 'From:', child: FcTextField(controller: _source, enabled: false)),
               SizedBox(height: theme.metrics.dialogGap),
               CommandDialogField(
                 label: 'To:',
@@ -241,6 +243,7 @@ abstract class TransferCommandBase extends AsyncCommandBase {
   @override
   void dispose() {
     _destination.dispose();
+    _source.dispose();
     super.dispose();
   }
 }

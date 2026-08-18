@@ -67,6 +67,10 @@ void main() {
     await temp.delete(recursive: true);
   });
 
+  /// Поле, в которое вводят. В окнах есть и выключенные поля — «откуда»
+  /// у переноса и «внутри» у создания каталога, — и они не в счёт.
+  final input = find.byWidgetPredicate((widget) => widget is TextField && widget.enabled != false);
+
   Future<void> pumpApp(WidgetTester tester, {Size size = const Size(802, 621)}) async {
     tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
@@ -99,8 +103,8 @@ void main() {
 
       // Заголовок окна — название самой команды.
       expect(find.text('Mk Dir'), findsWidgets);
-      expect(find.byType(TextField), findsOneWidget);
-      expect(tester.widget<TextField>(find.byType(TextField)).autofocus, isTrue);
+      expect(input, findsOneWidget);
+      expect(tester.widget<TextField>(input).autofocus, isTrue);
     });
 
     testWidgets('фокус сразу в поле ввода', (tester) async {
@@ -108,19 +112,31 @@ void main() {
       await press(tester, LogicalKeyboardKey.f7);
 
       // Имя можно набирать сразу, без клика по полю.
-      final editable = tester.widget<EditableText>(find.byType(EditableText));
+      final editable = tester.widget<EditableText>(find.descendant(of: input, matching: find.byType(EditableText)));
       expect(editable.focusNode.hasFocus, isTrue);
+    });
+
+    testWidgets('«внутри» — такое же поле, только выключенное', (tester) async {
+      await pumpApp(tester);
+      await press(tester, LogicalKeyboardKey.f7);
+
+      final fields = tester.widgetList<TextField>(find.byType(TextField)).toList();
+      expect(fields, hasLength(2));
+
+      // Каталог показан полем, а не текстом: форма из одинаковых полей.
+      final inside = fields.singleWhere((field) => field.enabled == false);
+      expect(inside.controller?.text, '/home');
     });
 
     testWidgets('введённое имя создаёт каталог и закрывает окно', (tester) async {
       await pumpApp(tester);
       await press(tester, LogicalKeyboardKey.f7);
 
-      await tester.enterText(find.byType(TextField), 'docs');
+      await tester.enterText(input, 'docs');
       await tester.tap(find.widgetWithText(FcButton, 'Create'));
       await settle(tester);
 
-      expect(find.byType(TextField), findsNothing);
+      expect(input, findsNothing);
       expect(namesOf(), contains('docs'));
       expect(app.left.currentNode?.name, 'docs');
     });
@@ -130,7 +146,7 @@ void main() {
       await press(tester, LogicalKeyboardKey.f7);
 
       // Enter обрабатывает ядро: параметр уже задан вводом, а не подтверждением.
-      await tester.enterText(find.byType(TextField), 'docs');
+      await tester.enterText(input, 'docs');
       await press(tester, LogicalKeyboardKey.enter);
       await settle(tester);
 
@@ -141,11 +157,11 @@ void main() {
       await pumpApp(tester);
       await press(tester, LogicalKeyboardKey.f7);
 
-      await tester.enterText(find.byType(TextField), 'docs');
+      await tester.enterText(input, 'docs');
       await press(tester, LogicalKeyboardKey.escape);
       await settle(tester);
 
-      expect(find.byType(TextField), findsNothing);
+      expect(input, findsNothing);
       expect(namesOf(), isNot(contains('docs')));
     });
 
@@ -153,11 +169,11 @@ void main() {
       await pumpApp(tester);
       await press(tester, LogicalKeyboardKey.f7);
 
-      await tester.enterText(find.byType(TextField), 'docs');
+      await tester.enterText(input, 'docs');
       await tester.tap(find.widgetWithText(FcButton, 'Cancel'));
       await settle(tester);
 
-      expect(find.byType(TextField), findsNothing);
+      expect(input, findsNothing);
       expect(namesOf(), isNot(contains('docs')));
     });
 
@@ -165,15 +181,15 @@ void main() {
       await pumpApp(tester);
       await press(tester, LogicalKeyboardKey.f7);
 
-      await tester.enterText(find.byType(TextField), 'bin');
+      await tester.enterText(input, 'bin');
       await tester.tap(find.widgetWithText(FcButton, 'Create'));
       await settle(tester);
 
       // Окно не закрылось: имя можно исправить и попробовать снова.
-      expect(find.byType(TextField), findsOneWidget);
+      expect(input, findsOneWidget);
       expect(find.textContaining('Already exists'), findsOneWidget);
 
-      await tester.enterText(find.byType(TextField), 'docs');
+      await tester.enterText(input, 'docs');
       await tester.tap(find.widgetWithText(FcButton, 'Create'));
       await settle(tester);
 
@@ -186,7 +202,7 @@ void main() {
       await tester.tap(find.text('Mk Dir'));
       await tester.pumpAndSettle();
 
-      expect(find.byType(TextField), findsOneWidget);
+      expect(input, findsOneWidget);
     });
   });
 
@@ -289,7 +305,7 @@ void main() {
     Future<void> openTransfer(WidgetTester tester, LogicalKeyboardKey key, {String? destination}) async {
       await press(tester, key);
       if (destination != null) {
-        await tester.enterText(find.byType(TextField), destination);
+        await tester.enterText(input, destination);
         await tester.pumpAndSettle();
       }
     }
@@ -304,7 +320,7 @@ void main() {
       // Заголовок окна говорит, что и куда, — как в референсе.
       expect(find.text('Copy «notes.txt»'), findsOneWidget);
       // Путь уже подставлен: обычно копируют именно в соседнюю панель.
-      expect(tester.widget<TextField>(find.byType(TextField)).controller?.text, '/home');
+      expect(tester.widget<TextField>(input).controller?.text, '/home');
     });
 
     testWidgets('фокус сразу в поле ввода', (tester) async {
@@ -314,7 +330,23 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.f5);
 
-      expect(tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus, isTrue);
+      final editable = tester.widget<EditableText>(find.descendant(of: input, matching: find.byType(EditableText)));
+      expect(editable.focusNode.hasFocus, isTrue);
+    });
+
+    testWidgets('«откуда» — такое же поле, только выключенное', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pump();
+
+      await press(tester, LogicalKeyboardKey.f5);
+
+      final fields = tester.widgetList<TextField>(find.byType(TextField)).toList();
+      expect(fields, hasLength(2));
+
+      // Источник задан выбором в панели: показать — показываем, менять нечего.
+      final source = fields.singleWhere((field) => field.enabled == false);
+      expect(source.controller?.text, '/home');
     });
 
     testWidgets('Enter копирует в указанный каталог', (tester) async {
@@ -326,7 +358,7 @@ void main() {
       await press(tester, LogicalKeyboardKey.enter);
       await settle(tester);
 
-      expect(find.byType(TextField), findsNothing);
+      expect(input, findsNothing);
       expect(await provider.resolvePath('/home/bin/notes.txt').result, isNotNull);
       expect(namesOf(), contains('notes.txt'));
     });
@@ -406,7 +438,7 @@ void main() {
       await press(tester, LogicalKeyboardKey.escape);
       await settle(tester);
 
-      expect(find.byType(TextField), findsNothing);
+      expect(input, findsNothing);
       expect(await provider.resolvePath('/home/bin/notes.txt').result, isNull);
     });
 
@@ -419,7 +451,7 @@ void main() {
       await press(tester, LogicalKeyboardKey.enter);
       await settle(tester);
 
-      expect(find.byType(TextField), findsOneWidget);
+      expect(input, findsOneWidget);
       expect(find.textContaining('Not found'), findsOneWidget);
     });
 
