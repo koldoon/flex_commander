@@ -1,0 +1,31 @@
+name: fc_zip_archiver
+description: "Zip-архив как дерево: панель входит в него, как в каталог."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  archive: ^4.0.9
+  path: ^1.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  # Архив требует произвольного доступа к файлу, поэтому тесты работают с
+  # настоящим диском: локальный провайдер и место под временные файлы — оттуда.
+  flex_commander:
+    path: ../..

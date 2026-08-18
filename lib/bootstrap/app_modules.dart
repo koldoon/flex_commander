@@ -1,11 +1,11 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_file_ops/fc_file_ops.dart';
 import 'package:fc_navigation/fc_navigation.dart';
+import 'package:fc_zip_archiver/fc_zip_archiver.dart';
 
 import '../modules/app_shell.dart';
 import '../modules/legacy_commands.dart';
 import '../modules/local_fs/local_file_system.dart';
-import '../modules/zip/zip_module.dart';
 
 /// Из чего собрано приложение.
 ///
