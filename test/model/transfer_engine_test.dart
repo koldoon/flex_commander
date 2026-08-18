@@ -111,15 +111,15 @@ void main() {
       remote = InMemoryTreeProvider([FakeEntry.directory('/home'), FakeEntry.directory('/home/bin')]);
     });
 
-    test('перенос между провайдерами пока невозможен, и об этом спрашивают', () async {
+    test('без байтового контракта переносить нечем, и об этом спрашивают', () async {
       final destination = (await remote.resolvePath('/home/bin').result)! as DirectoryNode;
       final operation = engine.copy([await node('/home/notes.txt')], destination);
       final questions = collectQuestions(operation);
 
       await operation.result;
 
-      // Ни переименования, ни копирования средствами провайдера здесь нет, а
-      // потока и моста ещё нет вовсе (5.2) — движок признаётся честно.
+      // Ни переименования, ни копирования средствами провайдера здесь нет,
+      // а байтов ни одна из сторон не отдаёт: остаётся только признаться.
       expect(questions.single, FsError('/home/notes.txt', FsErrorKind.notSupported).message);
       expect(await remote.resolvePath('/home/bin/notes.txt').result, isNull);
     });
@@ -149,6 +149,121 @@ void main() {
 
       await expectLater(operation.result, throwsA(isA<FsError>()));
       expect(operation.status, OperationStatus.error);
+    });
+  });
+
+  group('поток', () {
+    late InMemoryContentProvider source;
+    late InMemoryContentProvider remote;
+
+    setUp(() {
+      source = InMemoryContentProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.directory('/home/docs'),
+        FakeEntry.file('/home/docs/readme.md', content: [1, 2, 3]),
+        FakeEntry.file('/home/notes.txt', content: [7, 8, 9, 10]),
+      ]);
+      remote = InMemoryContentProvider([FakeEntry.directory('/home'), FakeEntry.directory('/home/bin')]);
+    });
+
+    Future<DirectoryNode> remoteBin() async => (await remote.resolvePath('/home/bin').result)! as DirectoryNode;
+
+    /// Содержимое файла в приёмнике — тем же контрактом, каким его писали.
+    Future<List<int>?> remoteContent(String path) async {
+      final node = await remote.resolvePath(path).result;
+      if (node == null) {
+        return null;
+      }
+      final chunks = await (await remote.openRead(node)).toList();
+      return [for (final chunk in chunks) ...chunk];
+    }
+
+    test('файл уходит в чужой провайдер вместе с содержимым', () async {
+      final file = (await source.resolvePath('/home/notes.txt').result)!;
+
+      await engine.copy([file], await remoteBin()).result;
+
+      expect(await remoteContent('/home/bin/notes.txt'), [7, 8, 9, 10]);
+      // Ни переименования, ни копирования средствами провайдера тут быть
+      // не могло: провайдеры разные.
+      expect(source.renamed, isEmpty);
+      expect(source.copied, isEmpty);
+    });
+
+    test('приёмник узнаёт размер заранее', () async {
+      final file = (await source.resolvePath('/home/notes.txt').result)!;
+
+      await engine.copy([file], await remoteBin()).result;
+
+      // FTP и HTTP просят размер вперёд — движок отдаёт его, когда знает.
+      expect(remote.written['/home/bin/notes.txt'], 4);
+    });
+
+    test('каталог уезжает целиком, файлы в нём — потоком', () async {
+      final docs = (await source.resolvePath('/home/docs').result)!;
+
+      await engine.copy([docs], await remoteBin()).result;
+
+      expect(await remoteContent('/home/bin/docs/readme.md'), [1, 2, 3]);
+    });
+
+    test('перенос убирает исходный объект', () async {
+      final file = (await source.resolvePath('/home/notes.txt').result)!;
+
+      await engine.move([file], await remoteBin()).result;
+
+      expect(await remoteContent('/home/bin/notes.txt'), [7, 8, 9, 10]);
+      expect(await source.resolvePath('/home/notes.txt').result, isNull);
+    });
+
+    test('отмена посреди файла не оставляет обрезанного', () async {
+      source.add(FakeEntry.file('/home/big.bin', content: List.filled(50, 1)));
+      final file = (await source.resolvePath('/home/big.bin').result)!;
+
+      late final AsyncOperation<void> operation;
+      // Первый кусок уже записан — в приёмнике лежит начало файла.
+      source.onChunk = () => operation.cancel();
+      operation = engine.copy([file], await remoteBin());
+
+      await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
+      await pumpEventQueue();
+
+      expect(await remote.resolvePath('/home/bin/big.bin').result, isNull);
+    });
+
+    test('оборвавшаяся передача не оставляет обрезанного файла', () async {
+      final broken = _BreakingReadProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.file('/home/big.bin', content: List.filled(50, 1)),
+      ]);
+      final file = (await broken.resolvePath('/home/big.bin').result)!;
+
+      final operation = engine.copy([file], await remoteBin());
+      final questions = collectQuestions(operation);
+      await operation.result;
+
+      // Половина файла под настоящим именем выглядела бы как целый файл.
+      expect(questions, hasLength(1));
+      expect(await remote.resolvePath('/home/bin/big.bin').result, isNull);
+    });
+
+    test('ошибка байтов доводится до общего вида, а работа идёт дальше', () async {
+      final broken = _BreakingReadProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.file('/home/big.bin', content: List.filled(50, 1)),
+        FakeEntry.file('/home/small.bin', content: const []),
+      ]);
+      final first = (await broken.resolvePath('/home/big.bin').result)!;
+      final second = (await broken.resolvePath('/home/small.bin').result)!;
+
+      final operation = engine.copy([first, second], await remoteBin());
+      final questions = collectQuestions(operation);
+      await operation.result;
+
+      // Провайдер бросил из потока что попало — движок перевёл это в FsError,
+      // и вопрос задан как по любой другой ошибке.
+      expect(questions.single, contains('/home/big.bin'));
+      expect(await remoteContent('/home/bin/small.bin'), isEmpty);
     });
   });
 
@@ -182,6 +297,29 @@ void main() {
       expect(reports.last.percent, 1);
     });
   });
+}
+
+/// Провайдер, у которого чтение обрывается на первом же куске: так ведёт себя
+/// оборвавшаяся сеть.
+class _BreakingReadProvider extends InMemoryContentProvider {
+  _BreakingReadProvider([super.entries]);
+
+  @override
+  Future<Stream<List<int>>> openRead(FsNode node, {int offset = 0}) async {
+    final content = await super.openRead(node, offset: offset);
+    return () async* {
+      await for (final chunk in content) {
+        // Первый кусок доходит — значит в приёмнике уже что-то лежит.
+        yield chunk;
+        throw const _SocketFailure();
+      }
+    }();
+  }
+}
+
+/// Ошибка не из мира дерева: движок обязан довести её до FsError сам.
+class _SocketFailure implements Exception {
+  const _SocketFailure();
 }
 
 /// Источник только для чтения: примитивов изменения у него нет — так выглядит

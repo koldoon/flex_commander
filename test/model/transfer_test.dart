@@ -271,6 +271,54 @@ void main() {
     });
   });
 
+  group('между провайдерами', () {
+    late LocalTreeProvider remote;
+
+    setUp(() {
+      // Второй экземпляр — для движка это чужой провайдер: ни переименования,
+      // ни `File.copy` между ними нет, остаётся поток.
+      remote = LocalTreeProvider(homePath: root, readInIsolate: false);
+    });
+
+    Future<DirectoryNode> remoteTarget() async => (await remote.resolvePath(target).result)! as DirectoryNode;
+
+    test('файл переносится потоком', () async {
+      final nodes = await listRoot();
+
+      await editor.copy([nodes['notes.txt']!], await remoteTarget()).result;
+
+      expect(await File(p.join(target, 'notes.txt')).readAsString(), 'текст');
+    });
+
+    test('каталог переносится вместе со всем содержимым', () async {
+      final nodes = await listRoot();
+
+      await editor.copy([nodes['docs']!], await remoteTarget()).result;
+
+      expect(await File(p.join(target, 'docs', 'readme.md')).readAsString(), 'hello');
+      expect(await File(p.join(target, 'docs', 'nested', 'deep.txt')).readAsString(), 'deep');
+    });
+
+    test('ссылка приезжает файлом: цели в чужом дереве нет', () async {
+      final nodes = await listRoot();
+
+      await editor.copy([nodes['link-to-notes']!], await remoteTarget()).result;
+
+      final copied = p.join(target, 'link-to-notes');
+      expect(FileSystemEntity.isLinkSync(copied), isFalse);
+      expect(await File(copied).readAsString(), 'текст');
+    });
+
+    test('перенос убирает исходный объект', () async {
+      final nodes = await listRoot();
+
+      await editor.move([nodes['notes.txt']!], await remoteTarget()).result;
+
+      expect(await File(p.join(target, 'notes.txt')).readAsString(), 'текст');
+      expect(await File(p.join(root, 'notes.txt')).exists(), isFalse);
+    });
+  });
+
   group('невозможные задания', () {
     test('каталог нельзя скопировать внутрь самого себя', () async {
       final nodes = await listRoot();

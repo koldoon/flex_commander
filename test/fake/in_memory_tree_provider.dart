@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flex_commander/model/async/async_operation.dart';
 import 'package:flex_commander/model/tree/file_attributes.dart';
 import 'package:flex_commander/model/tree/file_type.dart';
@@ -8,17 +10,31 @@ import 'package:path/path.dart' as p;
 
 /// Описание объекта в фейковом дереве.
 class FakeEntry {
-  FakeEntry.directory(this.path) : type = FileType.directory, size = FsNode.unknownSize, linkTarget = null;
+  FakeEntry.directory(this.path)
+    : type = FileType.directory,
+      size = FsNode.unknownSize,
+      linkTarget = null,
+      content = const [];
 
-  FakeEntry.file(this.path, {this.size = 0, this.modified}) : type = FileType.regular, linkTarget = null;
+  FakeEntry.file(this.path, {int? size, this.modified, List<int>? content})
+    : type = FileType.regular,
+      linkTarget = null,
+      content = content ?? List.filled(size ?? 0, 0),
+      size = size ?? content?.length ?? 0;
 
-  FakeEntry.link(this.path, this.linkTarget) : type = FileType.symbolicLink, size = FsNode.unknownSize;
+  FakeEntry.link(this.path, this.linkTarget)
+    : type = FileType.symbolicLink,
+      size = FsNode.unknownSize,
+      content = const [];
 
   final String path;
   final FileType type;
   final int size;
   final String? linkTarget;
   DateTime? modified;
+
+  /// Содержимое файла. У каталогов и ссылок пустое: содержимого у них нет.
+  final List<int> content;
 
   String get name => p.basename(path);
 }
@@ -32,6 +48,10 @@ class FakeEntry {
 /// Реализует [NodeEditor] — примитивы, и только их: копирование и удаление
 /// выполняет тот же `TreeTransferEngine`, что и в приложении, поэтому фейку
 /// больше не нужно повторять его механику (и незаметно расходиться с ней).
+///
+/// Байтов этот провайдер не отдаёт — так выглядит источник, у которого есть
+/// дерево, но нет содержимого. Тот, у которого есть и оно, — рядом,
+/// [InMemoryContentProvider].
 class InMemoryTreeProvider implements TreeProvider, NodeEditor {
   InMemoryTreeProvider([List<FakeEntry> entries = const []]) {
     for (final entry in entries) {
@@ -349,7 +369,7 @@ class InMemoryTreeProvider implements TreeProvider, NodeEditor {
   FakeEntry _cloneAt(FakeEntry entry, String path) => switch (entry.type) {
     FileType.directory => FakeEntry.directory(path),
     FileType.symbolicLink => FakeEntry.link(path, entry.linkTarget ?? ''),
-    _ => FakeEntry.file(path, size: entry.size, modified: entry.modified),
+    _ => FakeEntry.file(path, size: entry.size, modified: entry.modified, content: entry.content),
   };
 
   /// Пути объекта и всего, что под ним.
@@ -395,4 +415,90 @@ class InMemoryTreeProvider implements TreeProvider, NodeEditor {
     }
     return _entries[p.normalize(target)]?.type;
   }
+}
+
+/// Провайдер в памяти, умеющий отдавать и принимать байты.
+///
+/// Нужен там, где проверяется стратегия «поток»: перенос в чужой провайдер
+/// возможен ровно тогда, когда обе стороны знают байтовый контракт.
+class InMemoryContentProvider extends InMemoryTreeProvider implements FileContentProvider {
+  InMemoryContentProvider([super.entries]);
+
+  /// Куда и с каким объявленным размером писал движок.
+  final Map<String, int?> written = {};
+
+  /// Зовётся после каждого выданного куска: так тест обрывает передачу
+  /// посередине, когда часть байтов уже записана.
+  void Function()? onChunk;
+
+  @override
+  Future<Stream<List<int>>> openRead(FsNode node, {int offset = 0}) async {
+    final path = p.normalize(physicalPathOf(node));
+    final entry = _entries[path];
+    if (entry == null) {
+      throw FsError(path, FsErrorKind.notFound);
+    }
+
+    // Куском по десять байт: движок должен проверять отмену между ними,
+    // а с одним куском проверять было бы нечего.
+    final content = entry.content.sublist(offset.clamp(0, entry.content.length));
+    return () async* {
+      for (var i = 0; i < content.length; i += 10) {
+        yield content.sublist(i, (i + 10).clamp(0, content.length));
+        onChunk?.call();
+      }
+    }();
+  }
+
+  @override
+  Future<StreamSink<List<int>>> openWrite(DirectoryNode parent, String name, {int? length}) async {
+    final path = p.normalize(p.join(physicalPathOf(parent), name));
+    written[path] = length;
+    // Файл появляется сразу и растёт по мере записи — как на настоящей ФС.
+    // Иначе прерванная передача не оставляла бы обрезанного файла, и убирать
+    // за собой движку было бы нечего.
+    add(FakeEntry.file(path, content: const []));
+    return _CollectingSink((bytes) => add(FakeEntry.file(path, content: bytes)));
+  }
+}
+
+/// Приёмник байтов, складывающий их в память.
+class _CollectingSink implements StreamSink<List<int>> {
+  _CollectingSink(this._onBytes);
+
+  /// Зовётся на каждый кусок: в дереве должно быть видно и недописанное.
+  final void Function(List<int> bytes) _onBytes;
+  final List<int> _bytes = [];
+  final Completer<void> _done = Completer<void>();
+
+  @override
+  void add(List<int> data) {
+    _bytes.addAll(data);
+    _onBytes(_bytes);
+  }
+
+  @override
+  Future<void> addStream(Stream<List<int>> stream) async {
+    await for (final chunk in stream) {
+      add(chunk);
+    }
+  }
+
+  @override
+  void addError(Object error, [StackTrace? stackTrace]) {
+    if (!_done.isCompleted) {
+      _done.completeError(error, stackTrace);
+    }
+  }
+
+  @override
+  Future<void> close() async {
+    _onBytes(_bytes);
+    if (!_done.isCompleted) {
+      _done.complete();
+    }
+  }
+
+  @override
+  Future<void> get done => _done.future;
 }

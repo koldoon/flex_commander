@@ -274,11 +274,93 @@ class TreeTransferEngine implements TreeEditor {
       return;
     }
 
-    // [TransferStrategy.stream] и [TransferStrategy.bridge] стоят на байтовом
-    // контракте, которого пока нет (docs/providers.md, 5.2). Пока его нет,
-    // перенос между разными провайдерами честно признаётся невозможным, а не
-    // делает вид, что сработал.
+    // [TransferStrategy.stream]: любой источник в любой приёмник.
+    if (await _streamEntry(target, node, destination, name, op)) {
+      return;
+    }
+
+    // [TransferStrategy.bridge] — мост через временный локальный файл; он ждёт
+    // `FilesProvider` и уборку временных копий (docs/providers.md, 5.7). Пока
+    // его нет, движок честно признаётся, что не умеет, а не делает вид, что
+    // сработал.
     throw FsError(node.pathString, FsErrorKind.notSupported);
+  }
+
+  /// [TransferStrategy.stream]: `openRead → openWrite`.
+  ///
+  /// Единственная стратегия, которой всё равно, одного ли провайдера источник и
+  /// приёмник: байты одинаковы везде. false — байтового контракта нет у одной
+  /// из сторон.
+  Future<bool> _streamEntry(
+    NodeEditor target,
+    FsNode node,
+    DirectoryNode destination,
+    String name,
+    TaskOperation<void> op,
+  ) async {
+    final reader = _contentOf(node.provider);
+    final writer = _contentOf(destination.provider);
+    if (reader == null || writer == null) {
+      return false;
+    }
+
+    final content = await reader.openRead(node);
+    // Размер известен не всегда — приёмнику, которому он нужен вперёд, лучше
+    // получить null, чем `-1` из [FsNode.unknownSize].
+    final sink = await writer.openWrite(destination, name, length: node.size < 0 ? null : node.size);
+
+    var closed = false;
+    try {
+      // Отмена проверяется между кусками: файл может оказаться сколь угодно
+      // большим, и ждать его конца, чтобы прерваться, незачем.
+      await sink.addStream(
+        content.map((chunk) {
+          op.checkCanceled();
+          return chunk;
+        }),
+      );
+      closed = true;
+      await sink.close();
+    } catch (error, stackTrace) {
+      if (!closed) {
+        await _closeQuietly(sink);
+      }
+      // Половина файла под настоящим именем выглядит как целый файл — этого
+      // нельзя оставлять ни после ошибки, ни после отмены.
+      await _discardPartial(target, destination, name);
+
+      if (error is FsError || error is OperationCanceled) {
+        rethrow;
+      }
+      // Провайдер вправе не переводить ошибки байтового ввода-вывода сам:
+      // движок доводит их до общего вида, сохраняя причину.
+      Error.throwWithStackTrace(FsError(node.pathString, FsErrorKind.io, error), stackTrace);
+    }
+    return true;
+  }
+
+  Future<void> _closeQuietly(StreamSink<List<int>> sink) async {
+    try {
+      await sink.close();
+    } catch (_) {
+      // Приёмник и так уже сломан: важна первая ошибка, а не эта.
+    }
+  }
+
+  /// Убирает недописанный файл. Не вышло — значит не вышло: рассказывать нужно
+  /// о том, из-за чего работа прервалась, а не об уборке за ней.
+  Future<void> _discardPartial(NodeEditor target, DirectoryNode destination, String name) async {
+    try {
+      final partial = await target.lookup(destination, name);
+      if (partial == null) {
+        return;
+      }
+      if (!await target.deleteTree(partial)) {
+        await target.deleteEntry(partial);
+      }
+    } on FsError {
+      return;
+    }
   }
 
   /// Удаляет объект вместе с содержимым, отмечая каждый шаг.
@@ -350,6 +432,10 @@ class TreeTransferEngine implements TreeEditor {
       ),
     );
   }
+
+  /// Байтовый ввод-вывод провайдера; null — содержимого он не отдаёт.
+  FileContentProvider? _contentOf(TreeProvider provider) =>
+      provider is FileContentProvider ? provider as FileContentProvider : null;
 
   /// Примитивы провайдера, которому принадлежит узел; null — провайдер только
   /// читает.
