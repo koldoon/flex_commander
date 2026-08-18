@@ -101,6 +101,7 @@ class CommandDialogProgress extends StatelessWidget {
     this.totalBytes,
     this.bytesPerSecond,
     this.remaining,
+    this.onBackground,
   });
 
   final String message;
@@ -119,6 +120,9 @@ class CommandDialogProgress extends StatelessWidget {
 
   final VoidCallback onCancel;
 
+  /// Убрать окно и оставить работу идти; null — прятать нечего или некуда.
+  final VoidCallback? onBackground;
+
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
@@ -129,7 +133,12 @@ class CommandDialogProgress extends StatelessWidget {
     return SizedBox(
       width: MediaQuery.sizeOf(context).width * theme.metrics.dialogWidthFactor,
       child: CommandDialogBody(
-        actions: [FcButton(label: 'Cancel', onPressed: onCancel)],
+        actions: [
+          // «В фон» стоит слева от отмены: уводит работу с глаз, а не
+          // прекращает её, — и путать эти две кнопки нельзя.
+          if (onBackground != null) FcButton(label: 'Background', onPressed: onBackground),
+          FcButton(label: 'Cancel', onPressed: onCancel),
+        ],
         children: [
           CommandDialogField(
             label: 'Item:',

@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+import '../background/task_status.dart';
 import '../commands/command_service.dart';
+import '../ui/panel_viewport.dart';
 import '../ui/theme/theme_service.dart';
 import '../settings/app_settings.dart';
 import '../settings/module_settings.dart';
@@ -35,6 +37,12 @@ abstract interface class Application implements Listenable {
 
   /// Оформление приложения: какое есть и какое выбрано.
   ThemeService get theme;
+
+  /// Работы, ушедшие в фон.
+  BackgroundTasks get background;
+
+  /// Чем рисуется содержимое панелей.
+  PanelViewports get viewports;
 
   /// Закрывает окно запущенной команды.
   ///

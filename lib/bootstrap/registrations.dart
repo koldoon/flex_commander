@@ -67,6 +67,9 @@ class Registrations implements FcRegistrar {
   final List<FcCommandFactory> startupCommands = [];
   final List<FcThemeSpec> themes = [];
 
+  /// Виды содержимого панели: имя вида → чем рисовать.
+  final Map<String, PanelViewportBuilder> viewports = {};
+
   /// Связывание службы с контейнером: тип известен только в момент объявления,
   /// поэтому он захватывается замыканием.
   final Map<Type, void Function(DI container)> serviceBindings = {};
@@ -124,6 +127,9 @@ class Registrations implements FcRegistrar {
 
   @override
   void theme(FcThemeSpec spec) => themes.add(spec);
+
+  @override
+  void viewport(String kind, PanelViewportBuilder builder) => viewports[kind] = builder;
 
   @override
   void service<T extends Object>(T Function(FcServices services) factory) {

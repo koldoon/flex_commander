@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:fc_api/fc_api.dart';
 import '../settings/settings_store.dart';
 import 'panel_controller.dart';
+import 'panel_viewport_registry.dart';
 import 'theme_controller.dart';
 
 /// Состояние приложения — реализация [Application].
@@ -20,6 +21,7 @@ class AppController extends ChangeNotifier implements Application {
     required this.store,
     required AppSettings settings,
     required this.commands,
+    PanelViewports? viewports,
     ThemeController? theme,
     WindowService? window,
     this.saveDelay = const Duration(seconds: 1),
@@ -27,6 +29,7 @@ class AppController extends ChangeNotifier implements Application {
        _windowGeometry = settings.window,
        _initialSettings = settings,
        theme = theme ?? ThemeController(),
+       viewports = viewports ?? const NoPanelViewports(),
        window = window ?? const NoopWindowService() {
     // Одна панель активна всегда, ещё до первого чтения каталогов.
     left.setActive(settings.activePanel != 1);
@@ -59,6 +62,16 @@ class AppController extends ChangeNotifier implements Application {
   /// службой и закрывает её при выходе, остальным хватает [ThemeService].
   @override
   final ThemeController theme;
+
+  /// Чем рисуется содержимое панелей. Без интерфейса — ничем: приложению
+  /// в тесте состояния или в сценарии рисовать нечем и незачем.
+  @override
+  final PanelViewports viewports;
+
+  /// Работы, ушедшие в фон. Их держит реестр команд: он и так знает про все
+  /// запуски и их окна, а фон — это ровно «запуск без окна».
+  @override
+  BackgroundTasks get background => commands;
 
   /// Окно приложения. Без управления окном (в тестах) — заглушка.
   final WindowService window;

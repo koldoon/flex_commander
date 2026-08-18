@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../state/app_scope.dart';
+import 'background/background_bar.dart';
 import 'common/split_view.dart';
 import 'dialogs/command_dialog_layer.dart';
 import 'keyboard_handler.dart';
@@ -44,6 +45,9 @@ class ApplicationView extends StatelessWidget {
                       right: PanelView(panel: app.right, outerEdge: PanelOuterEdge.right),
                     ),
                   ),
+                  // Фоновые работы — между панелями и рядом кнопок: их видно,
+                  // но место они занимают, только когда есть.
+                  BackgroundBar(tasks: app.background),
                   SizedBox(height: metrics.functionBarGap),
                   const FunctionBar(),
                   SizedBox(height: metrics.windowBottomPadding),

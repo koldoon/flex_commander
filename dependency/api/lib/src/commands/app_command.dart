@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../app/application.dart';
+import '../background/task_status.dart';
 import 'framework/framework.dart';
 import '../app/panel.dart';
 import '../tree/fs_node.dart';
@@ -228,6 +229,22 @@ abstract class AppCommand extends ChangeNotifier implements Command {
 
   /// Только для ядра.
   void setDialogOpen(bool value) => _hasOpenDialog = value;
+
+  /// Можно ли спрятать окно этой команды и оставить работу в фоне.
+  ///
+  /// Прятать имеет смысл то, что долго идёт и умеет рассказать о себе
+  /// ([status]); окно ввода прятать некуда — оно ждёт ответа.
+  bool get canRunInBackground => false;
+
+  /// Ход работы для общего места; null — показывать нечего.
+  TaskStatus? get status => null;
+
+  /// Работа идёт без окна, в общем списке фоновых. Выставляет ядро.
+  bool get isInBackground => _isInBackground;
+  bool _isInBackground = false;
+
+  /// Только для ядра.
+  void setBackground(bool value) => _isInBackground = value;
 
   /// Содержимое окна команды; null — окно не нужно.
   ///

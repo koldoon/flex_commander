@@ -38,6 +38,10 @@ export 'src/commands/command_service.dart';
 export 'src/commands/framework/framework.dart';
 export 'src/commands/key_combination.dart';
 
+// --- Фоновые работы и содержимое панели ---
+export 'src/background/task_status.dart';
+export 'src/ui/panel_viewport.dart';
+
 // --- Модули ---
 export 'src/module/fc_module.dart';
 

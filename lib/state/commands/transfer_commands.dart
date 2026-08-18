@@ -188,6 +188,9 @@ abstract class TransferCommandBase extends AsyncCommandBase {
             bytesPerSecond: bytesPerSecond,
             remaining: remaining,
             onCancel: cancel,
+            // Прятать имеет смысл то, что идёт долго: у не начавшейся работы
+            // прятать нечего.
+            onBackground: isRunning ? sendToBackground : null,
           );
         }
 

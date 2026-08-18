@@ -1,5 +1,6 @@
 import '../app/application.dart';
 import '../commands/app_command.dart';
+import '../ui/panel_viewport.dart';
 import '../settings/module_settings.dart';
 import '../tree/provider_registry.dart';
 import '../tree/tree_provider.dart';
@@ -85,6 +86,9 @@ abstract interface class FcRegistrar {
 
   /// Оформление.
   void theme(FcThemeSpec spec);
+
+  /// Чем рисовать содержимое панели для провайдеров, объявивших этот вид.
+  void viewport(String kind, PanelViewportBuilder builder);
 
   /// Служба для ядра и других модулей: разрешается по типу через [FcServices].
   void service<T extends Object>(T Function(FcServices services) factory);
