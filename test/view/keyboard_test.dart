@@ -1,20 +1,33 @@
-import 'dart:io';
-
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/app.dart';
 import 'package:fc_api/fc_api.dart';
-import 'package:flex_commander/settings/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
-import 'package:flex_commander/state/commands/default_commands.dart';
 import 'package:flex_commander/view/function_bar/function_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:path/path.dart' as p;
+
+/// Открытие объекта системой: в тесте вместо запуска программы — запись в список.
+class _RecordingOpener implements FcModule {
+  const _RecordingOpener(this.opened);
+
+  final List<String> opened;
+
+  @override
+  String get id => 'test.opener';
+
+  @override
+  String get title => 'Recording opener';
+
+  @override
+  void install(FcRegistrar registrar) {
+    registrar.service<SystemOpener>((services) => (path) async => opened.add(path));
+  }
+}
 
 void main() {
   late InMemoryTreeProvider provider;
-  late Directory temp;
   late AppController app;
   late List<String> opened;
 
@@ -32,7 +45,6 @@ void main() {
       FakeEntry.file('/home/.hidden', size: 1),
       FakeEntry.file('/home/docs/readme.md', size: 30),
     ]);
-    temp = await Directory.systemTemp.createTemp('flex_commander_keyboard');
     opened = [];
 
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home/docs'));
@@ -40,20 +52,14 @@ void main() {
     // команды по идентификатору, поэтому подмена реализации их не касается.
     // Открытие системой подменяется записью в список: команды создаются
     // фабриками, поэтому подставить свою реализацию — это подставить фабрику.
-    final commands = CommandRegistry(defaultCommands(opener: (path) async => opened.add(path)), defaultKeyBindings());
-    app = AppController(
-      left: testPanel(provider: provider, settings: settings.left),
-      right: testPanel(provider: provider, settings: settings.right),
-      store: SettingsStore(filePath: p.join(temp.path, 'settings.json')),
-      settings: settings,
-      commands: commands,
-      saveDelay: const Duration(milliseconds: 5),
-    );
-  });
-
-  tearDown(() async {
-    app.dispose();
-    await temp.delete(recursive: true);
+    // Открытие системой подменяется модулем: службу объявляет тот, кто её
+    // умеет, — а в тесте её умеет вот этот список.
+    app =
+        (await testApp(
+          provider: provider,
+          modules: [...featureModules(), _RecordingOpener(opened)],
+          settings: settings,
+        )).app;
   });
 
   Future<void> pumpApp(WidgetTester tester) async {

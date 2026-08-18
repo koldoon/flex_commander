@@ -1,20 +1,15 @@
-import 'dart:io';
-
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/app.dart';
 import 'package:fc_api/fc_api.dart';
-import 'package:flex_commander/settings/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
-import 'package:flex_commander/state/commands/default_commands.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:path/path.dart' as p;
 
 /// Справка: таблица текущих настроек и привязок клавиш.
 void main() {
   late InMemoryTreeProvider provider;
-  late Directory temp;
   late AppController app;
 
   setUp(() async {
@@ -23,26 +18,13 @@ void main() {
       FakeEntry.directory('/home/bin'),
       FakeEntry.file('/home/notes.txt', size: 10),
     ]);
-    temp = await Directory.systemTemp.createTemp('flex_commander_help');
 
     final settings = AppSettings(
       left: PanelSettings.defaults('/home'),
       right: PanelSettings.defaults('/home/bin'),
       window: WindowGeometry(left: 40, top: 20, width: 1024, height: 700),
     );
-    app = AppController(
-      left: testPanel(provider: provider, settings: settings.left),
-      right: testPanel(provider: provider, settings: settings.right),
-      store: SettingsStore(filePath: p.join(temp.path, 'settings.json')),
-      settings: settings,
-      commands: defaultCommandRegistry(),
-      saveDelay: const Duration(milliseconds: 5),
-    );
-  });
-
-  tearDown(() async {
-    app.dispose();
-    await temp.delete(recursive: true);
+    app = (await testApp(provider: provider, modules: featureModules(), settings: settings)).app;
   });
 
   Future<void> pumpApp(WidgetTester tester, {Size size = const Size(802, 621)}) async {

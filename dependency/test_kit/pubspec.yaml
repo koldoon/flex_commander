@@ -23,4 +23,9 @@ dependencies:
   flex_commander:
     path: ../..
 
+  # Подставки живут в тестах и пользуются их же средствами: `testApp`
+  # сам закрывает за собой приложение и временный каталог.
+  flutter_test:
+    sdk: flutter
+
   path: ^1.9.1

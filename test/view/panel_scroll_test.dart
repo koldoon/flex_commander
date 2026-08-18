@@ -1,15 +1,11 @@
-import 'dart:io';
-
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
-import 'package:fc_api/fc_api.dart';
-import 'package:flex_commander/settings/settings_store.dart';
+import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/state/app_controller.dart';
-import 'package:flex_commander/state/commands/default_commands.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:path/path.dart' as p;
 
 /// Прокрутка списка при смене каталога.
 ///
@@ -18,7 +14,6 @@ import 'package:path/path.dart' as p;
 /// и заметнее всего он при выходе наверх из длинного списка.
 void main() {
   late InMemoryTreeProvider provider;
-  late Directory temp;
   late AppController app;
 
   setUp(() async {
@@ -31,22 +26,8 @@ void main() {
       for (var i = 0; i < 60; i++) FakeEntry.directory('/home/dir-${i.toString().padLeft(2, '0')}'),
       FakeEntry.file('/home/dir-59/note.txt', size: 1),
     ]);
-    temp = await Directory.systemTemp.createTemp('flex_commander_scroll');
-
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
-    app = AppController(
-      left: testPanel(provider: provider, settings: settings.left),
-      right: testPanel(provider: provider, settings: settings.right),
-      commands: defaultCommandRegistry(),
-      store: SettingsStore(filePath: p.join(temp.path, 'settings.json')),
-      settings: settings,
-      saveDelay: const Duration(milliseconds: 5),
-    );
-  });
-
-  tearDown(() async {
-    app.dispose();
-    await temp.delete(recursive: true);
+    app = (await testApp(provider: provider, modules: featureModules(), settings: settings)).app;
   });
 
   Future<void> pumpApp(WidgetTester tester) async {

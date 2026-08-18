@@ -7,5 +7,7 @@
 library;
 
 export 'src/fake_window_service.dart';
+export 'src/in_memory_settings_store.dart';
 export 'src/in_memory_tree_provider.dart';
+export 'src/test_app.dart';
 export 'src/test_panel.dart';
