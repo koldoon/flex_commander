@@ -21,6 +21,7 @@
 | [`widgets.md`](widgets.md) | Дерево виджетов, описание каждого виджета, тема и метрики из макета |
 | [`keyboard.md`](keyboard.md) | Клавиатура, фокус, реестр команд, нижняя панель F-кнопок |
 | [`providers.md`](providers.md) | Архивы и сетевые ФС: разбор нынешних контрактов, сравнение с TC/Far/MC, что менять |
+| [`modules.md`](modules.md) | Как устроен модуль: что он объявляет, когда что читается, как его проверять |
 | [`refactoring/api-first.md`](refactoring/api-first.md) | Рефакторинг «API-First»: пакет `fc_api`, модули `FcModule`, командный фреймворк, фазы и задачи |
 
 ## Объём первого этапа (MVP)
@@ -49,25 +50,38 @@
 
 ## Архитектура
 
-Слои, снизу вверх. Зависимости направлены строго вверх: `view` знает про `state`,
-`state` — про `model`, `model` не знает ни про что, кроме себя и `dart:io`.
+Приложение собрано из пакетов. В середине — `fc_api`: модели, интерфейсы,
+командный фреймворк и общие элементы интерфейса. От него зависят все: и ядро,
+и модули. Друг о друге они не знают вовсе.
 
 ```
-┌──────────────────────────────────────────────┐
-│ view/      виджеты, тема, форматирование     │  Flutter
-├──────────────────────────────────────────────┤
-│ state/     реализации Application и Panel,   │  чистый Dart + foundation
-│            реестр команд, привязки клавиш    │
-├──────────────────────────────────────────────┤
-│ model/     API приложения (Application,      │  чистый Dart + dart:io
-│            Panel, TreeProvider…), дерево     │
-│            узлов, операции, настройки        │
-└──────────────────────────────────────────────┘
+        ┌───────────────────────────────────────────────┐
+        │ flex_commander (ядро)                         │
+        │ окно, панели, клавиатура, сборка приложения    │
+        └───────────────────────┬───────────────────────┘
+                                │ зависит
+        ┌───────────────────────▼───────────────────────┐
+        │ fc_api                                        │
+        │ Application, Panel, TreeProvider, AppCommand,  │
+        │ командный фреймворк, UI-kit, тема, FcModule    │
+        └───────────────────────▲───────────────────────┘
+                                │ зависят
+  ┌──────────────┬──────────────┴─────┬──────────────┬──────────────────┐
+  │ fc_navigation│ fc_file_ops        │ fc_zip_...   │ fc_default_theme │
+  │ курсор,      │ создать, удалить,  │ архив как    │ оформление и     │
+  │ дерево,      │ скопировать,       │ дерево       │ выбор темы       │
+  │ пометка      │ перенести          │              │                  │
+  └──────────────┴────────────────────┴──────────────┴──────────────────┘
 ```
 
-Интерфейсы живут в нижнем слое, реализации — в верхнем: так команда (и любой
-будущий модуль) зависит от API, а не от конкретных классов, и стрелки зависимостей
-не разворачиваются.
+Ядро знает модули **только по списку** в `lib/bootstrap/app_modules.dart`:
+всё остальное работает с тем, что модули объявили при сборке. Убрать модуль из
+списка — значит убрать его возможность, а не сломать приложение: без навигации
+не походишь по дереву, без файловых операций не скопируешь, но окно откроется.
+
+Как устроен модуль и что он может объявить — в [`modules.md`](modules.md).
+История и причины такой раскладки — в
+[`refactoring/api-first.md`](refactoring/api-first.md).
 
 Ключевая идея слоя моделей взята из референса и сохранена целиком:
 **панель показывает не «список файлов», а каталог в дереве узлов**, а всё, что умеет
@@ -144,102 +158,52 @@
 ## Структура каталогов
 
 ```
-lib/
-  main.dart                        точка входа, настройка логирования, runApp
-  app_context.dart                 контейнер зависимостей: весь граф приложения
-  app.dart                         MaterialApp, тема, AppScope
-
-  core/
-    serialization.dart             Serializable и конверторы JSON: ниже всех слоёв,
-                                   потому что им пользуются модели
-
-  model/
-    app/
-      application.dart             Application — API приложения для команд
-      panel.dart                   Panel, PanelStatus — API панели
-      panel_selection.dart         PanelSelection — API пометки объектов
-    tree/
-      fs_node.dart                 FsNode, FileNode, DirectoryNode, LinkNode, ParentDirNode
-      file_type.dart               FileType и его разбор
-      file_attributes.dart         права доступа, флаги, executable
-      tree_provider.dart           TreeProvider, TreeEditor, NodeEditor,
-                                   FileContentProvider / FileContentReceiver,
-                                   ProviderLifecycle (интерфейсы),
-                                   ProviderCapabilities — что провайдер умеет
-      node_path.dart               разбор и сборка строк пути с учётом провайдеров
-      provider_registry.dart       реестр фабрик по схеме, монтирование вложенных
-                                   провайдеров, разбор пути через всю цепочку
-      local/
-        local_tree_provider.dart   реализация поверх dart:io: чтение и примитивы
-        local_listing.dart         чтение каталога в изоляте
-      zip/
-        zip_tree_provider.dart     zip-архив как дерево, только на чтение
-        zip_index.dart             оглавление архива деревом
-      transfer/
-        transfer_engine.dart       копирование, перенос и удаление — один раз
-                                   на все провайдеры, включая перенос потоком
-                                   между разными источниками
-        local_copy_session.dart    локальные копии чужих файлов и их уборка
-    async/
-      async_operation.dart         AsyncOperation, OperationStatus, OperationProgress
-      operation_request.dart       интерактивные запросы к пользователю
-    panel/
-      column_spec.dart             FsColumn, ColumnSpec, ColumnLayout
-      sort_spec.dart               SortSpec, SortDirection, компараторы
+flex_commander/                    корень воркспейса и само приложение
+  lib/
+    main.dart                      точка входа: список модулей и runApp
+    app.dart                       MaterialApp, тема, AppScope
+    bootstrap/
+      app_modules.dart             из чего собрано приложение — единственный
+                                   список модулей в ядре
+      bootstrap.dart               сборка как последовательность команд
+      app_container.dart           граф зависимостей по объявлениям модулей
+      registrations.dart           регистратор: что модули объявили
+      app_runtime.dart             собранное приложение и подмена служб
+    modules/
+      app_shell.dart               оболочка: движок операций, справка, заглушки
+      local_fs/                    локальная ФС: провайдер, обход каталога,
+                                   временные файлы, окно, открытие системой
     settings/
-      app_settings.dart            AppSettings, PanelSettings
-      window_geometry.dart         положение и размер окна
-      settings_store.dart          чтение/запись settings.json
-    os/
-      system_open.dart             открытие объекта средствами системы
-      window_service.dart          интерфейс управления окном
-      plugin_window_service.dart   реализация поверх window_manager
+      settings_store.dart          чтение и запись settings.json
+    state/
+      app_controller.dart          реализация Application
+      panel_controller.dart        реализация Panel
+      selection_controller.dart    реализация PanelSelection
+      theme_controller.dart        реализация ThemeService
+      panel_viewport_registry.dart чем рисуется содержимое панели
+      app_scope.dart               доступ к приложению из дерева виджетов
+      commands/help_command.dart   справка о текущем состоянии
+    view/                          окно: панели, клавиатура, окна команд,
+                                   ряд F-кнопок, полоса фоновых работ
 
-  state/
-    app_controller.dart            реализация Application
-    panel_controller.dart          реализация Panel
-    selection_controller.dart      реализация PanelSelection
-    commands/
-      app_command.dart             AppCommand, AsyncCommand, KeyBinding, CommandContext
-      file_commands.dart           файловые операции: создание каталога, удаление
-      help_command.dart            справка: настройки и привязки клавиш таблицей
-      key_combination.dart         нормализация нажатия в строку вида Ctrl-Shift-F5
-      command_registry.dart        команды, привязки клавиш и разбор нажатий
-      navigation_commands.dart     курсор, Tab, Enter, Backspace, Home/End
-      layout_commands.dart         разделитель панелей
-      selection_commands.dart      пометка объектов
-      default_commands.dart        набор команд и привязок по умолчанию
-    app_scope.dart                 InheritedNotifier-доступ к контроллерам
-
-  view/
-    application_view.dart          корневой макет окна
-    keyboard_handler.dart          приём клавиатуры для всего окна
-    panel/
-      panel_view.dart              панель целиком
-      panel_path_header.dart       «плашка» с текущим путём
-      panel_status_bar.dart        строка состояния под списком
-      file_table.dart              таблица: заголовки + прокручиваемые строки + вертикальные линейки
-      file_table_header.dart       заголовки колонок: сортировка, ширина, порядок, видимость
-      file_table_row.dart          одна строка файла
-      file_type_icon.dart          иконка типа объекта
-    function_bar/
-      function_bar.dart            ряд F-кнопок внизу окна
-      function_button.dart         одна кнопка
-    common/
-      split_view.dart              две панели с перетаскиваемым разделителем
-    dialogs/
-      command_dialog_layer.dart    рамка и заголовок окна команды
-      command_dialog.dart          типовое содержимое: форма, вопрос, прогресс,
-                                   общий ряд кнопок
-      help_table.dart              окно справки: прокручивающаяся таблица
-    theme/
-      app_theme.dart               ThemeData и расширение FcTheme
-      app_colors.dart              палитра из макета
-      app_metrics.dart             высоты, отступы, размеры шрифта
-    format/
-      size_format.dart             126 / 90.1K / 14.9M / 999.9G
-      date_format.dart             19-02-2018
-      duration_format.dart         00:42 / 1:23:45 — сколько осталось
+dependency/
+  api/                             fc_api — то, против чего пишутся модули
+    lib/src/
+      app/                         Application, Panel, PanelSelection
+      tree/                        FsNode, TreeProvider, движок операций,
+                                   реестр провайдеров, временные файлы
+      async/                       длительные операции и вопросы по ходу
+      commands/                    AppCommand, реестр, привязки клавиш
+      commands/framework/          порт Spicelib: композиция команд
+      background/                  ход фоновых работ
+      module/                      FcModule и регистратор
+      panel/, settings/, format/   колонки, сортировка, настройки, форматтеры
+      ui/                          набор элементов, тема, таблица «ключ → значение»
+  navigation/                      fc_navigation — курсор, дерево, пометка
+  file_ops/                        fc_file_ops — создать, удалить, копировать
+  zip_archiver/                    fc_zip_archiver — архив как дерево
+  default_theme/                   fc_default_theme — оформление и выбор темы
+  test_kit/                        fc_test_kit — подставки и сборка в тестах
 ```
 
 ## Зависимости

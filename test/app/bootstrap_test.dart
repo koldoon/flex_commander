@@ -239,6 +239,17 @@ void main() {
       expect(probe.disposed, isTrue);
     });
   });
+
+  group('повторная установка', () {
+    test('модуль с тем же именем устанавливается один раз', () async {
+      // Список модулей складывается из нескольких мест, и один и тот же модуль
+      // легко указать дважды: повторная установка удвоила бы его привязки.
+      final runtime = await build([ProbeModule(), ProbeModule()]);
+
+      expect(runtime.modules.where((module) => module.id == 'test.probe'), hasLength(1));
+      expect(runtime.commands.bindingsOf('test.probe'), hasLength(1));
+    });
+  });
 }
 
 class _SecondRootModule implements FcModule {

@@ -4,7 +4,6 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:flex_commander/settings/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
-import 'package:flex_commander/state/commands/default_commands.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -46,7 +45,8 @@ void main() {
     return AppController(
       left: testPanel(provider: provider, settings: settings.left),
       right: testPanel(provider: provider, settings: settings.right),
-      commands: defaultCommandRegistry(),
+      // Команды здесь ни при чём: проверяется само приложение.
+      commands: CommandRegistry(),
       store: store,
       settings: settings,
       saveDelay: saveDelay,
