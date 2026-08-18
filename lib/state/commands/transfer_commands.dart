@@ -203,10 +203,10 @@ abstract class TransferCommandBase extends AsyncCommandBase {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              CommandDialogField(label: 'From:', child: FcTextField(controller: _source, enabled: false)),
+              CommandDialogField(label: 'From', child: FcTextField(controller: _source, enabled: false)),
               SizedBox(height: theme.metrics.dialogGap),
               CommandDialogField(
-                label: 'To:',
+                label: 'To',
                 child: FcTextField(
                   controller: _destination,
                   autofocus: true,
@@ -237,7 +237,7 @@ abstract class TransferCommandBase extends AsyncCommandBase {
   String get _sourcePath {
     final panel = context.panel;
     final directory = panel.directory;
-    return directory?.pathString ?? '';
+    return directory?.displayPath ?? '';
   }
 
   @override

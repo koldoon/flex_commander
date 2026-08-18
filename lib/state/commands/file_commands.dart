@@ -83,8 +83,10 @@ class MakeDirectoryCommand extends AppCommand {
               mainAxisSize: MainAxisSize.min,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
+                CommandDialogField(label: 'Inside', child: FcTextField(controller: _inside, enabled: false)),
+                SizedBox(height: FcTheme.of(context).metrics.dialogGap),
                 CommandDialogField(
-                  label: 'Name:',
+                  label: 'Make directory',
                   child: FcTextField(
                     controller: _name,
                     autofocus: true,
@@ -96,8 +98,6 @@ class MakeDirectoryCommand extends AppCommand {
                     onSubmitted: (_) => submit(),
                   ),
                 ),
-                SizedBox(height: FcTheme.of(context).metrics.dialogGap),
-                CommandDialogField(label: 'Inside:', child: FcTextField(controller: _inside, enabled: false)),
               ],
             ),
           ),
@@ -108,7 +108,7 @@ class MakeDirectoryCommand extends AppCommand {
   String get _parentPath {
     final panel = context.panel;
     final directory = panel.directory;
-    return directory?.pathString ?? '';
+    return directory?.displayPath ?? '';
   }
 
   @override

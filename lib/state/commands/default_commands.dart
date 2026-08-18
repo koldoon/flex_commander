@@ -2,6 +2,7 @@ import '../../model/os/system_open.dart';
 import 'app_command.dart';
 import 'command_registry.dart';
 import 'file_commands.dart';
+import 'help_command.dart';
 import 'navigation_commands.dart';
 import 'selection_commands.dart';
 import 'transfer_commands.dart';
@@ -12,7 +13,7 @@ import 'transfer_commands.dart';
 /// Порядок здесь ни на что не влияет: приоритет задают привязки клавиш,
 /// а не команды. Зависимости команд приходят параметрами — их подставляет
 /// контейнер (`AppContext`), а тесты подменяют своими.
-List<CommandFactory> defaultCommands({SystemOpener? opener}) => [
+List<CommandFactory> defaultCommands({SystemOpener? opener, CommandRegistry? Function()? registry}) => [
   // Навигация.
   () => MoveCursorUpCommand(),
   () => MoveCursorDownCommand(),
@@ -42,9 +43,11 @@ List<CommandFactory> defaultCommands({SystemOpener? opener}) => [
   () => ToggleMarkCommand(),
   () => SelectAllCommand(),
 
+  // Справка: таблица текущих настроек и привязок клавиш.
+  () => HelpCommand(registry: registry),
+
   // Ещё не реализованные команды: клавиши за ними уже закреплены, кнопки внизу
   // окна показаны и приглушены.
-  () => PlaceholderCommand(id: 'app.help', label: 'Help'),
   () => PlaceholderCommand(id: 'app.menu', label: 'Menu'),
   () => PlaceholderCommand(id: 'file.view', label: 'View'),
   () => PlaceholderCommand(id: 'file.edit', label: 'Edit'),
@@ -112,5 +115,11 @@ List<KeyBinding> defaultKeyBindings() => [
   KeyBinding('Shift-Cmd-Bsp', 'file.removePermanently'),
 ];
 
-CommandRegistry defaultCommandRegistry({SystemOpener? opener}) =>
-    CommandRegistry(defaultCommands(opener: opener), defaultKeyBindings());
+CommandRegistry defaultCommandRegistry({SystemOpener? opener}) {
+  // Справка показывает содержимое самого реестра, а реестра в этот момент ещё
+  // нет: команда получает не его, а способ его спросить — к первому запуску он
+  // уже собран.
+  late final CommandRegistry registry;
+  registry = CommandRegistry(defaultCommands(opener: opener, registry: () => registry), defaultKeyBindings());
+  return registry;
+}

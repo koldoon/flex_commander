@@ -77,7 +77,7 @@ class PanelView extends StatelessWidget {
                 child: ListenableBuilder(
                   listenable: panel,
                   builder:
-                      (context, _) => PanelPathHeader(path: panel.directory?.pathString ?? '/', active: panel.active),
+                      (context, _) => PanelPathHeader(path: panel.directory?.displayPath ?? '/', active: panel.active),
                 ),
               ),
             ),

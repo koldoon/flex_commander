@@ -20,9 +20,18 @@ abstract class FsNode {
   int get size;
 
   /// Полный путь строкой — через все провайдеры цепочки:
-  /// `fs:/home/archive.zip:zip:/inner/doc.txt`. Схема `fs` в начале не
-  /// печатается, поэтому обычный путь выглядит обычно.
+  /// `/home/archive.zip:zip:/inner/doc.txt`. Схема `fs` в начале не печатается,
+  /// поэтому обычный путь выглядит обычно.
+  ///
+  /// Это адрес для машины: он сохраняется в настройках и разбирается обратно.
+  /// Пользователю показывается [displayPath].
   String get pathString;
+
+  /// Путь для показа пользователю: без схем провайдеров.
+  ///
+  /// `/home/archive.zip/inner/doc.txt` — внутрь архива входят как в каталог,
+  /// и путь должен выглядеть так же.
+  String get displayPath;
 
   /// Путь от корня дерева до этого узла включительно.
   List<FsNode> get path;
@@ -64,6 +73,9 @@ abstract class AbstractFsNode implements FsNode {
 
   @override
   String get pathString => nodePathOf(this).toString();
+
+  @override
+  String get displayPath => nodePathOf(this).displayString;
 
   @override
   List<FsNode> get path {
@@ -283,4 +295,7 @@ class ParentDirNode extends AbstractFsNode {
 
   @override
   String get pathString => targetDirectory?.pathString ?? directory.pathString;
+
+  @override
+  String get displayPath => targetDirectory?.displayPath ?? directory.displayPath;
 }

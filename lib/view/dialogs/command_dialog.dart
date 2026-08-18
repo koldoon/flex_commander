@@ -233,16 +233,44 @@ class CommandDialogBody extends StatelessWidget {
             ],
           ),
         ),
+        CommandDialogActions(actions: actions),
+      ],
+    );
+  }
+}
+
+/// Ряд кнопок внизу окна: линия, отступы и сами кнопки.
+///
+/// Общий для **всех** окон, и это не удобство, а необходимость: кнопка
+/// (`FcButton`) — это `Container` с `alignment`, а такой контейнер под
+/// ограниченной по ширине разметкой растягивается во всю её ширину. Ряд
+/// с `mainAxisSize: min` даёт кнопкам неограниченную ширину, и каждая
+/// получается по своей подписи.
+///
+/// Правило одно на все окна: **кнопки — по размеру подписи, одной строкой,
+/// прижатой вправо** (`HorizontalLayout horizontalAlign="right"` в референсе).
+/// Даже там, где кнопка одна.
+class CommandDialogActions extends StatelessWidget {
+  const CommandDialogActions({super.key, required this.actions});
+
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FcTheme.of(context);
+    final metrics = theme.metrics;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
         Container(height: metrics.dialogDividerHeight, color: theme.colors.dialogDivider),
         Padding(
-          padding: padding,
-          // Одна строка, прижатая вправо (`HorizontalLayout horizontalAlign="right"`).
-          // Кнопки не растягиваются: ширина каждой — по её подписи.
-          //
-          // Ширина окна задана долей окна приложения и от кнопок не зависит,
-          // поэтому пять кнопок (вопрос о занятом имени) в узкое окно могут не
-          // помещаться. Тогда `FittedBox` соразмерно уменьшает весь ряд —
-          // строка остаётся одной, без переноса и без полосы переполнения.
+          padding: EdgeInsets.symmetric(horizontal: metrics.dialogHorizontalPadding, vertical: metrics.dialogPadding),
+          // Ширина окна задана содержимым и от кнопок не зависит, поэтому пять
+          // кнопок (вопрос о занятом имени) в узкое окно могут не помещаться.
+          // Тогда `FittedBox` соразмерно уменьшает весь ряд — строка остаётся
+          // одной, без переноса и без полосы переполнения.
           child: FittedBox(
             fit: BoxFit.scaleDown,
             alignment: Alignment.centerRight,

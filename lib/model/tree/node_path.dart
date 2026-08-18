@@ -100,6 +100,34 @@ class NodePath {
     return buffer.toString();
   }
 
+  /// Путь для показа пользователю: схемы провайдеров в него не входят.
+  ///
+  /// `fs:/home/a.zip:zip:/inner/doc.txt` → `/home/a.zip/inner/doc.txt`. Внутрь
+  /// архива пользователь входит как в каталог и путь ожидает увидеть такой же;
+  /// схема — это устройство приложения, а не часть адреса.
+  ///
+  /// Обратно такая строка не разбирается: по ней не видно, где кончается файл
+  /// архива и начинается путь внутри него. Поэтому сохраняется и передаётся
+  /// по-прежнему [toString] — со схемами.
+  String get displayString {
+    final buffer = StringBuffer(_trimSlash(parts.first.path));
+
+    for (final part in parts.skip(1)) {
+      final path = _trimSlash(part.path);
+      if (path.isEmpty) {
+        // Корень вложенного провайдера: сам он ничего к пути не добавляет.
+        continue;
+      }
+      buffer.write(path.startsWith('/') ? path : '/$path');
+    }
+
+    final result = buffer.toString();
+    return result.isEmpty ? '/' : result;
+  }
+
+  static String _trimSlash(String path) =>
+      path.length > 1 && path.endsWith('/') ? path.substring(0, path.length - 1) : (path == '/' ? '' : path);
+
   @override
   bool operator ==(Object other) =>
       other is NodePath &&
