@@ -102,6 +102,7 @@ void main() {
       operation.progress.listen((event) => messages.add(event.message));
 
       await operation.result;
+      await pumpEventQueue();
 
       expect(messages, contains('Copying notes.txt…'));
       expect(messages.last, 'Done');
@@ -114,6 +115,7 @@ void main() {
       operation.progress.listen((event) => processed.add(event.processed));
 
       await operation.result;
+      await pumpEventQueue();
 
       // В каталоге четыре объекта: он сам, вложенный каталог и два файла.
       expect(processed.last, 4);
@@ -128,6 +130,7 @@ void main() {
       operation.progress.listen(reports.add);
 
       await operation.result;
+      await pumpEventQueue();
 
       // Работа началась, не дожидаясь конца подсчёта: пока он идёт, общее
       // число — нижняя оценка, и это видно.
@@ -140,6 +143,20 @@ void main() {
       expect(reports.last.percent, 1);
     });
 
+    test('объём задания и перенесённое считаются в байтах', () async {
+      final nodes = await listRoot();
+      final operation = editor.copy([nodes['notes.txt']!], await targetDir());
+      final reports = <OperationProgress>[];
+      operation.progress.listen(reports.add);
+
+      await operation.result;
+      await pumpEventQueue();
+
+      // «текст» в utf-8 — десять байт.
+      expect(reports.last.bytes, 10);
+      expect(reports.last.totalBytes, 10);
+    });
+
     test('в сообщении видно имя объекта, который копируется сейчас', () async {
       final nodes = await listRoot();
       final operation = editor.copy([nodes['docs']!], await targetDir());
@@ -147,6 +164,7 @@ void main() {
       operation.progress.listen((event) => messages.add(event.message));
 
       await operation.result;
+      await pumpEventQueue();
 
       // Имя вложенного файла, а не только имя всего задания.
       expect(messages.any((message) => message.contains('readme.md') || message.contains('deep.txt')), isTrue);
@@ -159,6 +177,7 @@ void main() {
       operation.progress.listen(reports.add);
 
       await operation.result;
+      await pumpEventQueue();
 
       // Переименование переносит поддерево одним действием: поштучно объекты
       // не проходили, но задание выполнено целиком, и счётчик это показывает.
@@ -187,6 +206,7 @@ void main() {
       answerWith(operation, OperationOption.overwrite);
 
       await operation.result;
+      await pumpEventQueue();
 
       expect(await File(p.join(target, 'notes.txt')).readAsString(), 'текст');
     });
@@ -202,6 +222,7 @@ void main() {
       });
 
       await operation.result;
+      await pumpEventQueue();
 
       expect(questions, 1);
       expect(await File(p.join(target, 'report.txt')).readAsString(), 'отчёт');
@@ -224,6 +245,7 @@ void main() {
       answerWith(operation, OperationOption.overwrite);
 
       await operation.result;
+      await pumpEventQueue();
 
       expect(await File(p.join(target, 'docs', 'stale.txt')).exists(), isFalse);
       expect(await File(p.join(target, 'docs', 'readme.md')).exists(), isTrue);
@@ -256,6 +278,7 @@ void main() {
       answerWith(operation, OperationOption.skip);
 
       await operation.result;
+      await pumpEventQueue();
 
       expect(await File(p.join(root, 'notes.txt')).exists(), isTrue);
       expect(await File(p.join(target, 'notes.txt')).readAsString(), 'чужое');
@@ -331,6 +354,7 @@ void main() {
         request.respond(OperationOption.skip);
       });
       await operation.result;
+      await pumpEventQueue();
 
       expect(messages.single, contains('into itself'));
       expect(await Directory(p.join(root, 'docs', 'nested', 'docs')).exists(), isFalse);
@@ -347,6 +371,7 @@ void main() {
         request.respond(OperationOption.skip);
       });
       await operation.result;
+      await pumpEventQueue();
 
       expect(messages.single, FsError(p.join(root, 'notes.txt'), FsErrorKind.alreadyExists).message);
     });
@@ -359,6 +384,7 @@ void main() {
       final operation = editor.copy([nodes['notes.txt']!, nodes['report.txt']!], await targetDir());
       answerWith(operation, OperationOption.skip);
       await operation.result;
+      await pumpEventQueue();
 
       expect(await File(p.join(target, 'report.txt')).exists(), isTrue);
     });

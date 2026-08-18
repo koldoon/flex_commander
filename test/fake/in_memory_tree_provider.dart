@@ -233,6 +233,14 @@ class InMemoryReadOnlyProvider implements TreeProvider {
 
   String name(List<String> segments, int index) => segments[index];
 
+  @override
+  Future<void> countEntries(FsNode node, void Function(int bytes) onEntry) async {
+    for (final path in _subtreeOf(p.normalize(physicalPathOf(node)))) {
+      final entry = _entries[path]!;
+      onEntry(entry.type == FileType.regular && entry.size > 0 ? entry.size : 0);
+    }
+  }
+
   /// Подсчёт размера в памяти: те же промежуточные суммы, что и на диске, —
   /// иначе тесты проверяли бы не то поведение.
   @override
@@ -428,13 +436,6 @@ class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEdito
 
   /// Подсчёт объектов задания. В памяти он мгновенный, но проходит теми же
   /// шагами, что и на диске: счётчики в окне команды должны заполняться так же.
-  @override
-  Future<void> countEntries(FsNode node, void Function() onEntry) async {
-    for (final _ in _subtreeOf(p.normalize(physicalPathOf(node)))) {
-      onEntry();
-    }
-  }
-
   @override
   bool isSameEntity(FsNode node, DirectoryNode destination) =>
       p.equals(physicalPathOf(node), p.join(physicalPathOf(destination), node.name));

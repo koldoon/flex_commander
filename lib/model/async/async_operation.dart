@@ -30,6 +30,9 @@ class OperationProgress {
     this.processed = 0,
     this.total,
     this.totalIsFinal = true,
+    this.bytes = 0,
+    this.totalBytes,
+    this.bytesPerSecond,
   }) : _percent = percent;
 
   final double? _percent;
@@ -46,11 +49,36 @@ class OperationProgress {
   /// её как окончательную нельзя.
   final bool totalIsFinal;
 
+  /// Сколько байт уже перенесено.
+  ///
+  /// Объекты плохо описывают работу: копирование одного файла на четыре
+  /// гигабайта — это «0 из 1» до самого конца. Байты растут ровно, и по ним же
+  /// считается скорость.
+  final int bytes;
+
+  /// Сколько байт всего; null — размер не известен и известен не будет
+  /// (удаление в корзину, источник без размеров). Досчитан ли он — говорит
+  /// тот же [totalIsFinal].
+  final int? totalBytes;
+
+  /// Скорость, байт в секунду; null — считать пока не из чего.
+  ///
+  /// Считает её тот, кто ведёт работу (движок переноса), а не провайдер:
+  /// провайдер не знает ни про очередь заданий, ни про то, сколько их ещё.
+  final double? bytesPerSecond;
+
   /// 0.0…1.0 или null, если прогресс неопределённый.
   double? get percent {
     if (_percent != null) {
       return _percent;
     }
+
+    // Байты честнее объектов везде, где они известны.
+    final bytesTotal = totalBytes;
+    if (bytesTotal != null && bytesTotal > 0) {
+      return (bytes / bytesTotal).clamp(0.0, 1.0);
+    }
+
     final count = total;
     if (count == null || count <= 0) {
       return null;
@@ -60,8 +88,21 @@ class OperationProgress {
     return (processed / count).clamp(0.0, 1.0);
   }
 
+  /// Сколько ещё ждать; null — считать не из чего.
+  ///
+  /// Пока подсчёт не закончен ([totalIsFinal]), это оценка по нижней границе:
+  /// работы окажется больше, а не меньше.
+  Duration? get remaining {
+    final speed = bytesPerSecond;
+    final bytesTotal = totalBytes;
+    if (speed == null || speed <= 0 || bytesTotal == null || bytesTotal <= bytes) {
+      return null;
+    }
+    return Duration(seconds: ((bytesTotal - bytes) / speed).round());
+  }
+
   @override
-  String toString() => 'OperationProgress($percent, $message, $processed/$total)';
+  String toString() => 'OperationProgress($percent, $message, $processed/$total, $bytes/$totalBytes)';
 }
 
 /// Операция отменена вызовом [AsyncOperation.cancel].

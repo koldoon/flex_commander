@@ -318,52 +318,6 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
     return true;
   }
 
-  /// Обход поддерева ради счётчика: без построения узлов и без `stat` — это
-  /// оценка, а не работа, и стоить она должна как можно меньше.
-  @override
-  Future<void> countEntries(FsNode node, void Function() onEntry) async {
-    final path = entityPathOf(node);
-    onEntry();
-
-    try {
-      if (FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.directory) {
-        return;
-      }
-      await for (final _ in Directory(path).list(recursive: true, followLinks: false)) {
-        onEntry();
-      }
-    } on FileSystemException {
-      // Каталог мог исчезнуть или оказаться закрытым — считаем дальше.
-    }
-  }
-
-  /// Содержимое файла потоком.
-  ///
-  /// Путь берётся сам объект, а не его цель, но `dart:io` разыменует ссылку при
-  /// открытии: ссылка, уехавшая в чужой провайдер, приезжает туда файлом —
-  /// цели, на которую она указывает, там всё равно нет.
-  @override
-  Future<Stream<List<int>>> openRead(FsNode node, {int offset = 0}) async {
-    final path = entityPathOf(node);
-    // Ошибка чтения приходит ошибкой потока, а не отсюда, — переводим её там,
-    // где она возникает, иначе движку достанется исключение `dart:io`.
-    return File(path).openRead(offset).handleError((Object error) {
-      throw error is FileSystemException ? fsErrorFrom(path, error) : error;
-    });
-  }
-
-  /// Приёмник для содержимого нового файла. [length] локальной ФС не нужен:
-  /// место под файл она не резервирует.
-  @override
-  Future<StreamSink<List<int>>> openWrite(DirectoryNode parent, String name, {int? length}) async {
-    final path = p.join(physicalPathOf(parent), name);
-    try {
-      return File(path).openWrite();
-    } on FileSystemException catch (error) {
-      throw fsErrorFrom(path, error);
-    }
-  }
-
   @override
   bool isSameEntity(FsNode node, DirectoryNode destination) =>
       p.equals(entityPathOf(node), p.join(physicalPathOf(destination), node.name));
@@ -420,6 +374,67 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
       FileSystemEntityType.link => Link(path),
       _ => File(path),
     };
+  }
+
+  /// Обход поддерева ради счётчика: без построения узлов, зато с размерами —
+  /// иначе не из чего показать долю в байтах.
+  ///
+  /// Размер стоит вызова `stat` на файл, то есть подсчёт вдвое дороже простого
+  /// перечисления. Это цена честной доли и оценки времени, и платится она
+  /// фоном, параллельно самой работе.
+  @override
+  Future<void> countEntries(FsNode node, void Function(int bytes) onEntry) async {
+    final path = entityPathOf(node);
+    onEntry(node.size > 0 ? node.size : 0);
+
+    try {
+      if (FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.directory) {
+        return;
+      }
+      await for (final entity in Directory(path).list(recursive: true, followLinks: false)) {
+        // Ссылка копируется ссылкой и байтов не переносит, каталог их не
+        // имеет — считается только содержимое файлов.
+        onEntry(entity is File ? await _lengthOf(entity) : 0);
+      }
+    } on FileSystemException {
+      // Каталог мог исчезнуть или оказаться закрытым — считаем дальше.
+    }
+  }
+
+  Future<int> _lengthOf(File file) async {
+    try {
+      return await file.length();
+    } on FileSystemException {
+      // Файл исчез между перечислением и вопросом о размере.
+      return 0;
+    }
+  }
+
+  /// Содержимое файла потоком.
+  ///
+  /// Путь берётся сам объект, а не его цель, но `dart:io` разыменует ссылку при
+  /// открытии: ссылка, уехавшая в чужой провайдер, приезжает туда файлом —
+  /// цели, на которую она указывает, там всё равно нет.
+  @override
+  Future<Stream<List<int>>> openRead(FsNode node, {int offset = 0}) async {
+    final path = entityPathOf(node);
+    // Ошибка чтения приходит ошибкой потока, а не отсюда, — переводим её там,
+    // где она возникает, иначе движку достанется исключение `dart:io`.
+    return File(path).openRead(offset).handleError((Object error) {
+      throw error is FileSystemException ? fsErrorFrom(path, error) : error;
+    });
+  }
+
+  /// Приёмник для содержимого нового файла. [length] локальной ФС не нужен:
+  /// место под файл она не резервирует.
+  @override
+  Future<StreamSink<List<int>>> openWrite(DirectoryNode parent, String name, {int? length}) async {
+    final path = p.join(physicalPathOf(parent), name);
+    try {
+      return File(path).openWrite();
+    } on FileSystemException catch (error) {
+      throw fsErrorFrom(path, error);
+    }
   }
 
   @override
