@@ -426,24 +426,8 @@ void main() {
   });
 
   group('набор команд по умолчанию', () {
-    test('файловые операции закреплены за клавишами', () {
-      final registry = defaultCommandRegistry();
-      build(registry);
-
-      expect(registry.commandFor(KeyCombination.parse('F5'))?.id, 'file.copy');
-      expect(registry.commandFor(KeyCombination.parse('F7'))?.id, 'file.mkdir');
-      expect(registry.commandFor(KeyCombination.parse('F8'))?.id, 'file.remove');
-    });
-
-    test('удаление умеет сообщать о ходе работы наружу', () {
-      final registry = defaultCommandRegistry();
-      build(registry);
-
-      // Задел на фоновое выполнение: ядро сможет спрятать окно команды,
-      // а прогресс показывать рядом с другими операциями.
-      expect(registry.find('file.remove'), isA<AsyncCommand>());
-      expect(registry.find('file.removePermanently'), isA<AsyncCommand>());
-    });
+    // Про файловые операции — в dependency/file_ops: команды и клавиши живут
+    // там же, где и сам модуль.
 
     test('F9 и F10 пока ни за кем не закреплены', () {
       final registry = defaultCommandRegistry();

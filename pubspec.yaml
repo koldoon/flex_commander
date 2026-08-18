@@ -25,6 +25,7 @@ environment:
 # разрешённой версией зависимостей на всех. Сюда добавляются api и модули.
 workspace:
   - dependency/api
+  - dependency/file_ops
   - dependency/navigation
   - dependency/test_kit
 
@@ -44,6 +45,9 @@ dependencies:
     path: dependency/api
 
   # Модули приложения: ядро знает их только по этому списку.
+  fc_file_ops:
+    path: dependency/file_ops
+
   fc_navigation:
     path: dependency/navigation
 

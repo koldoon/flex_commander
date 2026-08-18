@@ -146,9 +146,21 @@ class AppContainer extends DI {
         final settings = c.get<AppSettings>();
         final panels = c.get<PanelControllerFactory>();
 
+        // Правая панель может стоять на своём источнике: так тест проверяет
+        // перенос между провайдерами, не проходя весь путь через монтирование.
+        final rightProvider = overrides.rightProvider;
+        final rightPanels =
+            rightProvider == null
+                ? panels
+                : PanelControllerFactory(
+                  registry: ProviderRegistry(root: rightProvider),
+                  editor: c.get<TreeEditor>(),
+                  sizeScanConcurrency: settings.sizeScanConcurrency,
+                );
+
         return AppController(
           left: panels.create(settings.left),
-          right: panels.create(settings.right),
+          right: rightPanels.create(settings.right),
           store: c.get<SettingsStore>(),
           settings: settings,
           commands: c.get<CommandRegistry>(),

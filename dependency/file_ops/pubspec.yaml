@@ -1,0 +1,33 @@
+name: fc_file_ops
+description: "Файловые операции: создание каталога, удаление, копирование и перенос."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  # Тесты ходят по дереву и рисуют окно целиком, поэтому им нужны и соседний
+  # модуль навигации, и само приложение.
+  fc_navigation:
+    path: ../navigation
+
+  flex_commander:
+    path: ../..
+
+  path: ^1.9.1
