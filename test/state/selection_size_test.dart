@@ -353,6 +353,21 @@ void main() {
       counting.release.complete();
     });
 
+    test('провайдер вправе сузить пул: настройка — это пожелание, а не приказ', () async {
+      final counting = _CountingSizeProvider()..capabilities = const ProviderCapabilities(maxConcurrency: 1);
+      // Пользователь просит десять, провайдер выдерживает одну.
+      final panel = await panelOn(counting, concurrency: 10);
+
+      for (final name in ['docs', 'bin', 'empty']) {
+        panel.setCursorToName(name);
+        panel.toggleCurrentMark();
+      }
+      await start();
+
+      expect(counting.peak, 1);
+      counting.release.complete();
+    });
+
     test('освободившееся место в пуле занимает следующий из очереди', () async {
       final panel = await panelOn(InMemoryTreeProvider(_entries()), concurrency: 1);
 

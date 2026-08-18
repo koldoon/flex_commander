@@ -36,6 +36,21 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
   @override
   String get scheme => NodePath.defaultScheme;
 
+  /// Локальная ФС умеет всё: переименование мгновенное, чтение с середины
+  /// файла настоящее, дата при копировании сохраняется (`File.copy` переносит
+  /// её вместе с содержимым), а пути можно отдавать внешним программам.
+  ///
+  /// Одновременных обходов диск выдерживает много: узкое место здесь не
+  /// провайдер, а сам диск, и предел ему ставит настройка приложения.
+  @override
+  ProviderCapabilities get capabilities => const ProviderCapabilities(
+    canRename: true,
+    canSeek: true,
+    preservesModified: true,
+    realFileSystem: true,
+    maxConcurrency: 16,
+  );
+
   late final DirectoryNode _root = DirectoryNode(provider: this, name: p.rootPrefix(homePath));
 
   @override

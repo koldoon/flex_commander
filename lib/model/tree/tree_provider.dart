@@ -38,6 +38,61 @@ class FsError implements Exception {
   String toString() => message;
 }
 
+/// Что провайдер умеет — то, чего не видно по списку его интерфейсов.
+///
+/// Аналог флагов плагина в Total Commander и Far (`OPIF_REALNAMES` и соседи).
+/// Нужно это командам и движку переноса: спросить дешевле, чем попробовать и
+/// разобрать неудачу, — а по сети «попробовать» это ещё и лишний обмен.
+///
+/// Умения «менять дерево» и «отдавать байты» сюда намеренно не входят: они
+/// выражены самими интерфейсами ([NodeEditor], [FileContentProvider]), и
+/// спрашивать о них надо там — про флаг можно соврать, про наличие примитивов
+/// нельзя. Короткая запись — [TreeProviderAbilities].
+class ProviderCapabilities {
+  const ProviderCapabilities({
+    this.canRename = false,
+    this.canSeek = false,
+    this.preservesModified = false,
+    this.realFileSystem = false,
+    this.maxConcurrency = 1,
+  });
+
+  /// Переименование внутри провайдера работает и переносит поддерево одним
+  /// действием. false — движок сразу пойдёт копированием, не тратя обращение.
+  final bool canRename;
+
+  /// `openRead` с ненулевым `offset` действительно начинает с этого места,
+  /// а не вычитывает и выбрасывает начало. Отсюда возьмётся докачка.
+  final bool canSeek;
+
+  /// Копия, сделанная самим провайдером ([NodeEditor.copyEntry]), сохраняет
+  /// дату изменения. У переименования она сохраняется всегда, у потока —
+  /// никогда: байты дат не несут.
+  final bool preservesModified;
+
+  /// Пути провайдера — настоящие пути файловой системы: их можно отдать
+  /// внешней программе, и копировать ради этого никуда не нужно. Для архива и
+  /// удалённой ФС это не так. Аналог `OPIF_REALNAMES` в Far.
+  final bool realFileSystem;
+
+  /// Сколько работ провайдер выдерживает одновременно. Локальному диску
+  /// десяток обходов только на пользу, FTP-серверу хватит одного-двух.
+  ///
+  /// Умолчание осторожное — по одной: провайдер, который об этом не подумал,
+  /// будет медленным, но не станет заваливать чужой сервер.
+  final int maxConcurrency;
+}
+
+/// Умения, о которых говорят сами интерфейсы: соврать о них нельзя.
+extension TreeProviderAbilities on TreeProvider {
+  /// Дерево можно менять: у провайдера есть примитивы.
+  bool get canWrite => this is NodeEditor;
+
+  /// Провайдер отдаёт и принимает байты — значит перенос в чужой источник
+  /// и обратно возможен потоком.
+  bool get canStream => this is FileContentProvider;
+}
+
 /// Источник дерева узлов: локальная файловая система, архив, удалённая ФС.
 ///
 /// Панель и команды работают только через этот интерфейс, поэтому новый
@@ -53,6 +108,9 @@ abstract interface class TreeProvider {
   /// недоступен. Для локальной ФС это домашний каталог пользователя.
   String get homePath;
 
+  /// Что провайдер умеет сверх того, что видно по его интерфейсам.
+  ProviderCapabilities get capabilities;
+
   /// Путь узла внутри этого провайдера, без схемы.
   String pathOf(FsNode node);
 
@@ -60,6 +118,15 @@ abstract interface class TreeProvider {
   /// у панели всегда была рабочая связь `parent` для перехода наверх.
   /// Возвращает null, если узла нет.
   AsyncOperation<FsNode?> resolvePath(String path);
+
+  /// Содержимое каталога для обхода: со скрытыми объектами, без псевдоузла
+  /// «..» и **без записи** в [DirectoryNode.nodes].
+  ///
+  /// Не [getDirectoryListing]: тот готовит список для панели и складывает его
+  /// в узел, а обход движка не должен подменять то, что показывает панель.
+  /// Здесь же, а не в [NodeEditor], потому что это чтение: копировать **из**
+  /// архива, открытого на просмотр, ничто не мешает.
+  Future<List<FsNode>> listChildren(DirectoryNode dir);
 
   /// Чтение содержимого каталога. По завершении заполняет [DirectoryNode.nodes].
   AsyncOperation<List<FsNode>> getDirectoryListing(DirectoryNode dir, {bool includeHidden = false});
@@ -112,11 +179,6 @@ abstract interface class TreeEditor {
 /// Метод, вернувший `false`, говорит «так я не умею»: это не ошибка, а сигнал
 /// движку пойти следующей стратегией. Ошибка — это исключение [FsError].
 abstract interface class NodeEditor {
-  /// Содержимое каталога для обхода движком: со скрытыми объектами, без
-  /// псевдоузла «..» и **без записи** в [DirectoryNode.nodes] — обход приёмника
-  /// не должен подменять то, что показывает панель.
-  Future<List<FsNode>> listChildren(DirectoryNode dir);
-
   /// Объект с таким именем в каталоге; null — имя свободно.
   Future<FsNode?> lookup(DirectoryNode parent, String name);
 

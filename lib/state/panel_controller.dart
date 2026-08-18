@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
@@ -64,7 +65,9 @@ class PanelController extends ChangeNotifier implements Panel {
   @override
   final TreeProvider provider;
 
-  /// Сколько каталогов панель обходит одновременно, считая их размер.
+  /// Сколько каталогов панель обходит одновременно, считая их размер, —
+  /// настройка приложения. Настоящий предел меньше, если провайдер объявил
+  /// свой: см. [_scanConcurrency].
   final int sizeScanConcurrency;
 
   final TreeEditor _editor;
@@ -74,7 +77,7 @@ class PanelController extends ChangeNotifier implements Panel {
   /// Сам провайдер операций не выполняет — он даёт движку примитивы
   /// ([NodeEditor]); их отсутствие и означает источник только для чтения.
   @override
-  TreeEditor? get editor => provider is NodeEditor ? _editor : null;
+  TreeEditor? get editor => provider.canWrite ? _editor : null;
 
   /// Сколько строк помещается в видимой части списка. Значение выставляет
   /// таблица; от него считается шаг PgUp/PgDn.
@@ -593,13 +596,21 @@ class PanelController extends ChangeNotifier implements Panel {
     notifyListeners();
   }
 
+  /// Настоящий предел пула: меньшее из настройки приложения и того, что
+  /// провайдер о себе объявил.
+  ///
+  /// Настройка говорит, сколько обходов сразу нужно **пользователю**;
+  /// провайдер — сколько он **выдерживает**. Локальному диску десяток только
+  /// на пользу, а FTP-серверу столько же обходов — способ получить отказ.
+  int get _scanConcurrency => math.min(sizeScanConcurrency, provider.capabilities.maxConcurrency);
+
   /// Добирает обходы из очереди, пока пул не заполнен.
   ///
   /// Обход ждёт ответа файловой системы, а не занимает процессор, поэтому
-  /// несколько сразу заканчиваются заметно быстрее, чем по очереди. Предел —
-  /// [sizeScanConcurrency]: сотня одновременных обходов завалила бы диск.
+  /// несколько сразу заканчиваются заметно быстрее, чем по очереди. Предел
+  /// нужен, чтобы сотня одновременных обходов не завалила диск или сервер.
   void _fillPool() {
-    while (_scans.length < sizeScanConcurrency && _scanQueue.isNotEmpty) {
+    while (_scans.length < _scanConcurrency && _scanQueue.isNotEmpty) {
       _startScan(_scanQueue.removeAt(0));
     }
   }

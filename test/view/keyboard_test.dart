@@ -210,6 +210,20 @@ void main() {
       expect(app.left.directory?.pathString, '/home');
     });
 
+    testWidgets('файл из источника без настоящих путей системе не отдаётся', (tester) async {
+      // Так выглядит файл внутри архива или на сервере: пути, который поймёт
+      // внешняя программа, у него нет, и открывать его будет свой просмотрщик.
+      provider.capabilities = readOnlyCapabilities;
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+
+      await press(tester, LogicalKeyboardKey.enter);
+
+      expect(opened, isEmpty);
+      // Панель осталась на месте: войти в файл всё равно нельзя.
+      expect(app.left.directory?.pathString, '/home');
+    });
+
     testWidgets('Cmd-/ уводит в корень из любого каталога', (tester) async {
       await pumpApp(tester);
       expect(app.left.directory?.pathString, '/home');

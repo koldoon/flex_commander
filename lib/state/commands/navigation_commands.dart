@@ -177,7 +177,12 @@ class OpenNodeCommand extends AppCommand {
     // Панель сама решает, куда можно войти, и возвращает то, что каталогом
     // не является: такой объект открывает система.
     final rest = await context.panel.enterCurrent();
-    if (rest != null) {
+    if (rest == null) {
+      return;
+    }
+    // Отдавать системе можно только настоящий путь: внутри архива или на
+    // сервере открывать нечего, там понадобится свой просмотрщик (F3).
+    if (rest.provider.capabilities.realFileSystem) {
       await _open(rest.pathString);
     }
   }
@@ -198,13 +203,21 @@ class OpenWithSystemCommand extends AppCommand {
   @override
   String get label => 'Open with system';
 
+  /// Путь уходит внешней программе как есть, поэтому он должен быть настоящим:
+  /// у архива и удалённой ФС таких путей не бывает (`OPIF_REALNAMES` в Far —
+  /// про то же самое).
   @override
-  bool isExecutable(CommandContext context) => context.node != null;
+  bool isExecutable(CommandContext context) {
+    final node = context.node;
+    return node != null && node.provider.capabilities.realFileSystem;
+  }
 
   @override
   Future<void> execute() async {
     for (final node in context.targets) {
-      await _open(node.pathString);
+      if (node.provider.capabilities.realFileSystem) {
+        await _open(node.pathString);
+      }
     }
   }
 }

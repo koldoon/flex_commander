@@ -75,7 +75,12 @@ abstract class TransferCommandBase extends AsyncCommandBase {
   @override
   bool isExecutable(CommandContext context) {
     final panel = context.panel;
-    if (panel.busy || panel.editor == null) {
+    if (panel.busy) {
+      return false;
+    }
+    // Принимать должен приёмник; терять объекты источник обязан только при
+    // переносе — копировать из архива, открытого на просмотр, ничто не мешает.
+    if (!context.target.provider.canWrite || (moves && !panel.provider.canWrite)) {
       return false;
     }
     // Псевдоузел «..» объектом не считается.
@@ -88,7 +93,11 @@ abstract class TransferCommandBase extends AsyncCommandBase {
   @override
   Future<void> execute() async {
     final panel = context.panel;
-    final editor = panel.editor;
+    // Редактор берётся у приёмника, а не у источника: операцию выполняет
+    // движок, один на все провайдеры, и получить его нужно там, где заведомо
+    // умеют принимать. У источника его может не быть вовсе — это не мешает
+    // копировать из него.
+    final editor = _destinationPanel.editor;
     final targets = this.targets;
     if (editor == null || targets.isEmpty || isRunning) {
       return;
