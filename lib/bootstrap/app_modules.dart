@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_file_ops/fc_file_ops.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_zip_archiver/fc_zip_archiver.dart';
@@ -20,6 +21,7 @@ List<FcModule> appModules() => [const LocalFileSystem(), ...featureModules()];
 /// быть тем же, что и в настоящем запуске.
 List<FcModule> featureModules() => [
   const AppShell(),
+  const DefaultTheme(),
   const Navigation(),
   const FileOps(),
   const LegacyCommands(),
