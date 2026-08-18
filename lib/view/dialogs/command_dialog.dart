@@ -348,12 +348,17 @@ class _FcButtonState extends State<FcButton> {
 }
 
 /// Поле ввода — `TextInputBorderedSkin` референса.
+///
+/// Выключенное поле остаётся полем: то, что менять нельзя, показывается в такой
+/// же рамке, только приглушённой (`alpha.disabled = 0.5` в скине референса) —
+/// так форма читается как форма, а не как текст вперемешку с полями.
 class FcTextField extends StatelessWidget {
   const FcTextField({
     super.key,
     required this.controller,
     this.hintText,
     this.autofocus = false,
+    this.enabled = true,
     this.onChanged,
     this.onSubmitted,
   });
@@ -361,6 +366,11 @@ class FcTextField extends StatelessWidget {
   final TextEditingController controller;
   final String? hintText;
   final bool autofocus;
+
+  /// Выключенное поле не принимает ни ввод, ни фокус: обходя окно клавишей
+  /// табуляции, на нём останавливаться незачем.
+  final bool enabled;
+
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
 
@@ -370,28 +380,32 @@ class FcTextField extends StatelessWidget {
     final metrics = theme.metrics;
     final colors = theme.colors;
 
-    return Container(
-      height: metrics.inputHeight,
-      alignment: Alignment.center,
-      padding: EdgeInsets.symmetric(horizontal: metrics.inputHorizontalPadding),
-      decoration: BoxDecoration(
-        color: colors.inputBackground,
-        border: Border.all(color: colors.inputBorder, width: metrics.strokeWidth),
-        borderRadius: BorderRadius.circular(metrics.inputRadius),
-      ),
-      child: TextField(
-        controller: controller,
-        autofocus: autofocus,
-        onChanged: onChanged,
-        onSubmitted: onSubmitted,
-        style: theme.inputStyle,
-        cursorColor: colors.inputText,
-        decoration: InputDecoration(
-          isDense: true,
-          border: InputBorder.none,
-          contentPadding: EdgeInsets.zero,
-          hintText: hintText,
-          hintStyle: theme.inputStyle.copyWith(color: colors.inputHint),
+    return Opacity(
+      opacity: enabled ? 1 : 0.5,
+      child: Container(
+        height: metrics.inputHeight,
+        alignment: Alignment.center,
+        padding: EdgeInsets.symmetric(horizontal: metrics.inputHorizontalPadding),
+        decoration: BoxDecoration(
+          color: colors.inputBackground,
+          border: Border.all(color: colors.inputBorder, width: metrics.strokeWidth),
+          borderRadius: BorderRadius.circular(metrics.inputRadius),
+        ),
+        child: TextField(
+          controller: controller,
+          autofocus: autofocus,
+          enabled: enabled,
+          onChanged: onChanged,
+          onSubmitted: onSubmitted,
+          style: theme.inputStyle,
+          cursorColor: colors.inputText,
+          decoration: InputDecoration(
+            isDense: true,
+            border: InputBorder.none,
+            contentPadding: EdgeInsets.zero,
+            hintText: hintText,
+            hintStyle: theme.inputStyle.copyWith(color: colors.inputHint),
+          ),
         ),
       ),
     );

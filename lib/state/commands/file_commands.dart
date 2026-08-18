@@ -17,6 +17,10 @@ class MakeDirectoryCommand extends AppCommand {
 
   final TextEditingController _name = TextEditingController();
 
+  /// Каталог, в котором появится новый. Не редактируется, но показывается таким
+  /// же полем — как в референсе.
+  final TextEditingController _inside = TextEditingController();
+
   @override
   String get id => 'file.mkdir';
 
@@ -29,6 +33,12 @@ class MakeDirectoryCommand extends AppCommand {
   /// Имя набирают сразу: фокус ставит поле ввода.
   @override
   bool get dialogTakesFocus => true;
+
+  @override
+  void attachRun({required String runId, required CommandContext context}) {
+    super.attachRun(runId: runId, context: context);
+    _inside.text = _parentPath;
+  }
 
   @override
   bool isExecutable(CommandContext context) {
@@ -87,15 +97,7 @@ class MakeDirectoryCommand extends AppCommand {
                   ),
                 ),
                 SizedBox(height: FcTheme.of(context).metrics.dialogGap),
-                CommandDialogField(
-                  label: 'Inside:',
-                  child: Text(
-                    _parentPath,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: FcTheme.of(context).dialogTextStyle,
-                  ),
-                ),
+                CommandDialogField(label: 'Inside:', child: FcTextField(controller: _inside, enabled: false)),
               ],
             ),
           ),
@@ -112,6 +114,7 @@ class MakeDirectoryCommand extends AppCommand {
   @override
   void dispose() {
     _name.dispose();
+    _inside.dispose();
     super.dispose();
   }
 }
