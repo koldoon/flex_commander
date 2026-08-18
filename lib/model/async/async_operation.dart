@@ -130,7 +130,16 @@ abstract class AsyncOperation<T> {
   /// Вопросы пользователю. Пустой поток у операций, которые ничего не спрашивают.
   Stream<OperationRequest> get requests;
 
+  /// Прервать немедленно, ни о чём не спрашивая.
   void cancel();
+
+  /// Попросить прервать: работа встанет на ближайшей проверке и спросит
+  /// подтверждение — обычным [OperationRequest], как и всё остальное.
+  ///
+  /// Отдельно от [cancel], потому что это разные действия: закрытие окна или
+  /// уход из приложения прерывают молча, а нажатие Esc — с вопросом. Пока
+  /// пользователь думает, работа не идёт: тело операции ждёт ответа.
+  void requestCancel();
 }
 
 /// Базовая реализация [AsyncOperation] для операций, выполняемых в текущем
@@ -181,12 +190,58 @@ class TaskOperation<T> implements AsyncOperation<T> {
 
   bool get isCanceled => _status == OperationStatus.canceled;
 
+  /// Пользователь просил прервать, но ещё не подтвердил.
+  bool _cancelRequested = false;
+
   /// Бросает [OperationCanceled], если операцию успели отменить.
   /// Вызывается телом операции между шагами.
   void checkCanceled() {
     if (isCanceled) {
       throw const OperationCanceled();
     }
+  }
+
+  @override
+  void requestCancel() {
+    if (_status.isFinished) {
+      return;
+    }
+    _cancelRequested = true;
+  }
+
+  /// Проверка между шагами работы: отмена и просьба прервать.
+  ///
+  /// Заменяет [checkCanceled] везде, где можно подождать. Просьба прервать
+  /// превращается здесь в обычный вопрос, и пауза выходит сама собой: тело
+  /// операции стоит на `await`, пока пользователь не ответит. Отдельного
+  /// «поставить на паузу» поэтому не нужно.
+  ///
+  /// Спросить некого (окна нет, работу запустил сценарий) — берётся вариант по
+  /// умолчанию, то есть «прервать»: это ровно то, о чём просили.
+  Future<void> checkpoint() async {
+    checkCanceled();
+    if (!_cancelRequested) {
+      return;
+    }
+
+    // Сбрасывается до вопроса, а не после: пока ждём ответа, пользователь
+    // может нажать Esc ещё раз, и это должно значить новый вопрос, а не
+    // повтор старого сразу после «продолжить».
+    _cancelRequested = false;
+
+    final answer = await ask(
+      OperationRequest(
+        message: 'Abort the operation?',
+        options: const [OperationOption.abort, OperationOption.resume],
+        defaultOption: OperationOption.abort,
+        escapeOption: OperationOption.resume,
+      ),
+    );
+
+    if (answer == OperationOption.abort) {
+      cancel();
+    }
+    checkCanceled();
   }
 
   void report(OperationProgress value) {
@@ -276,4 +331,8 @@ class CompletedOperation<T> implements AsyncOperation<T> {
 
   @override
   void cancel() {}
+
+  /// Прерывать нечего: работа кончилась раньше, чем её попросили прервать.
+  @override
+  void requestCancel() {}
 }

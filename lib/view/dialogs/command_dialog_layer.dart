@@ -41,10 +41,12 @@ class CommandDialogLayer extends StatelessWidget {
 
 /// Рамка окна команды: затемнение, заголовок, содержимое и общие клавиши.
 ///
-/// Enter и Esc обрабатывает ядро, одинаково для всех команд: пока команда не
-/// исполняется, Enter выполняет её с уже заданными параметрами, а Esc
-/// закрывает окно. Команде остаётся только следить, чтобы параметры были
-/// заданы к этому моменту.
+/// Enter и Esc рама только **передаёт** команде — `submit` и `dismiss`, — а что
+/// они значат, решает сама команда. Обычно это «выполнить с заданными
+/// параметрами» и «закрыть окно», но у длительной команды Esc посреди работы
+/// означает просьбу её прервать, а во время вопроса обе клавиши отвечают на
+/// него (см. `AsyncCommandBase`). Разбирать эти случаи здесь значило бы
+/// рассказывать раме о состояниях команд.
 class _CommandDialogFrame extends StatefulWidget {
   const _CommandDialogFrame({super.key, required this.command, required this.child});
 
@@ -86,7 +88,7 @@ class _CommandDialogFrameState extends State<_CommandDialogFrame> {
     }
 
     final combination = KeyCombination.fromEvent(event);
-    if (combination == null || command.isRunning) {
+    if (combination == null) {
       return KeyEventResult.ignored;
     }
 

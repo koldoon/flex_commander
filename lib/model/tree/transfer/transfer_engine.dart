@@ -87,7 +87,7 @@ class TreeTransferEngine implements TreeEditor {
 
       try {
         for (var i = 0; i < nodes.length; i++) {
-          op.checkCanceled();
+          await op.checkpoint();
 
           final node = nodes[i];
           progress.startSource(node.name);
@@ -211,7 +211,7 @@ class TreeTransferEngine implements TreeEditor {
 
       try {
         for (var i = 0; i < nodes.length; i++) {
-          op.checkCanceled();
+          await op.checkpoint();
 
           final node = nodes[i];
           progress.startSource(node.name);
@@ -267,7 +267,7 @@ class TreeTransferEngine implements TreeEditor {
     TaskOperation<void> op,
     TransferProgress progress,
   ) async {
-    op.checkCanceled();
+    await op.checkpoint();
     progress.advance(node.name);
 
     if (node is DirectoryNode) {
@@ -326,10 +326,12 @@ class TreeTransferEngine implements TreeEditor {
     var closed = false;
     try {
       // Отмена проверяется между кусками: файл может оказаться сколь угодно
-      // большим, и ждать его конца, чтобы прерваться, незачем.
+      // большим, и ждать его конца, чтобы прерваться, незачем. `asyncMap`, а не
+      // `map`: проверка умеет ждать (вопрос о прерывании), и на это время поток
+      // должен встать, а не копиться в приёмнике.
       await sink.addStream(
-        content.map((chunk) {
-          op.checkCanceled();
+        content.asyncMap((chunk) async {
+          await op.checkpoint();
           // Единственное место, где видно движение внутри файла: на большом
           // файле только эти байты и говорят, что работа идёт.
           progress.advanceBytes(chunk.length);
@@ -382,7 +384,7 @@ class TreeTransferEngine implements TreeEditor {
 
   /// Удаляет объект вместе с содержимым, отмечая каждый шаг.
   Future<void> _deleteTree(NodeEditor editor, FsNode node, TaskOperation<void> op, TransferProgress? progress) async {
-    op.checkCanceled();
+    await op.checkpoint();
 
     if (node is DirectoryNode) {
       // Содержимое каталога сначала вычитывается целиком: удалять объекты,

@@ -289,6 +289,122 @@ void main() {
     });
   });
 
+  group('просьба прервать', () {
+    /// Задание из многих файлов: работу должно быть видно по шагам.
+    List<FakeEntry> many() => [
+      FakeEntry.directory('/home'),
+      FakeEntry.directory('/home/bin'),
+      for (var i = 0; i < 20; i++) FakeEntry.file('/home/file-$i.txt', size: 1),
+    ];
+
+    Future<(AsyncOperation<void>, InMemoryTreeProvider)> startCopy() async {
+      final disk = InMemoryTreeProvider(many());
+      final sources = [for (var i = 0; i < 20; i++) (await disk.resolvePath('/home/file-$i.txt').result)!];
+      final target = (await disk.resolvePath('/home/bin').result)! as DirectoryNode;
+      return (engine.copy(sources, target), disk);
+    }
+
+    test('спрашивает подтверждение, а не прерывает молча', () async {
+      final (operation, _) = await startCopy();
+      final questions = <OperationRequest>[];
+      operation.requests.listen(questions.add);
+
+      operation.requestCancel();
+      await pumpEventQueue();
+
+      expect(questions, hasLength(1));
+      expect(questions.single.options, [OperationOption.abort, OperationOption.resume]);
+      // Enter прерывает, Esc — отказывается прерывать.
+      expect(questions.single.defaultOption, OperationOption.abort);
+      expect(questions.single.escapeOption, OperationOption.resume);
+
+      questions.single.respond(OperationOption.abort);
+      await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
+    });
+
+    test('пока ответа нет, работа стоит', () async {
+      final (operation, disk) = await startCopy();
+      OperationRequest? question;
+      operation.requests.listen((request) => question = request);
+
+      operation.requestCancel();
+      await pumpEventQueue();
+      final done = disk.copied.length;
+
+      // Ждём заведомо дольше, чем занял бы весь остаток задания.
+      await pumpEventQueue(times: 100);
+
+      expect(question, isNotNull);
+      expect(disk.copied.length, done, reason: 'работа продолжилась, не дождавшись ответа');
+      expect(done, lessThan(20), reason: 'задание успело кончиться — проверять нечего');
+
+      question!.respond(OperationOption.resume);
+      await operation.result;
+    });
+
+    test('«Cancel» возвращает к работе, и она доходит до конца', () async {
+      final (operation, disk) = await startCopy();
+      operation.requests.listen((request) => request.respond(OperationOption.resume));
+
+      operation.requestCancel();
+      await operation.result;
+
+      expect(disk.copied, hasLength(20));
+      expect(operation.status, OperationStatus.complete);
+    });
+
+    test('«Abort» прекращает работу на том, что успели', () async {
+      final (operation, disk) = await startCopy();
+      operation.requests.listen((request) => request.respond(OperationOption.abort));
+
+      operation.requestCancel();
+      await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
+
+      // Сделанное остаётся сделанным, остальное не начиналось.
+      expect(disk.copied.length, lessThan(20));
+    });
+
+    test('спросить некого — прерывается, как и просили', () async {
+      final (operation, _) = await startCopy();
+
+      // Ни окна, ни слушателя: работу запустил сценарий.
+      operation.requestCancel();
+
+      await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
+    });
+
+    test('удаление спрашивает так же', () async {
+      final disk = InMemoryTreeProvider(many())..hasTrash = false;
+      final sources = [for (var i = 0; i < 20; i++) (await disk.resolvePath('/home/file-$i.txt').result)!];
+      final operation = engine.remove(sources, toTrash: false);
+      final questions = <OperationRequest>[];
+      operation.requests.listen(questions.add);
+
+      operation.requestCancel();
+      await pumpEventQueue();
+
+      expect(questions.single.message, 'Abort the operation?');
+      questions.single.respond(OperationOption.abort);
+      await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
+    });
+
+    test('прерывание без спроса по-прежнему возможно', () async {
+      final (operation, _) = await startCopy();
+      final questions = <OperationRequest>[];
+      operation.requests.listen(questions.add);
+      // Ожидание ставится до отмены: `cancel` завершает операцию ошибкой сразу,
+      // и прочитать её должно быть кому уже в этот момент.
+      final canceled = expectLater(operation.result, throwsA(isA<OperationCanceled>()));
+
+      // Закрытие приложения не спрашивает: спрашивать уже некого.
+      operation.cancel();
+      await pumpEventQueue();
+
+      expect(questions, isEmpty);
+      await canceled;
+    });
+  });
+
   group('обход', () {
     test('не подменяет содержимое каталога, открытого в панели', () async {
       final docs = await directory('/home/docs');

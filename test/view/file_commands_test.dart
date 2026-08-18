@@ -505,6 +505,135 @@ void main() {
       await settle(tester);
     });
 
+    group('прерывание работы', () {
+      // Порядок работы — как в панели, по имени: длинное имя идёт первым,
+      // «report.xlsx» последним.
+      const firstFile = 'a-very-long-name-that-would-have-stretched-the-dialog.txt';
+      const lastFile = 'report.xlsx';
+
+      /// Запускает медленное копирование трёх объектов и доводит его до хода
+      /// работы.
+      ///
+      /// Объектов именно несколько: проверка «не просили ли прервать» стоит
+      /// между ними, и на одном файле спрашивать было бы уже негде. Трёх хватает
+      /// на два вопроса подряд — отказаться от первого и подтвердить второй.
+      Future<void> startSlowCopy(WidgetTester tester) async {
+        provider.slow = true;
+        await pumpApp(tester);
+        for (final name in [firstFile, 'notes.txt', lastFile]) {
+          app.left.setCursorToName(name);
+          app.left.toggleCurrentMark();
+        }
+        await tester.pump();
+
+        await openTransfer(tester, LogicalKeyboardKey.f5, destination: '/home/bin');
+        await tester.tap(find.widgetWithText(FcButton, 'Copy'));
+        await tester.pump();
+        expect(find.byType(FcProgressBar), findsOneWidget);
+      }
+
+      /// Просит прервать и ждёт вопроса: он появится, когда работа дойдёт до
+      /// ближайшей проверки — то есть закончит текущий файл.
+      Future<void> askAbort(WidgetTester tester, {LogicalKeyboardKey? key}) async {
+        if (key != null) {
+          await tester.sendKeyEvent(key);
+        }
+        await tester.pump(const Duration(milliseconds: 250));
+      }
+
+      /// Ждёт конца работы вместе с оставшимися медленными файлами.
+      Future<void> finish(WidgetTester tester) async {
+        await tester.pump(const Duration(milliseconds: 800));
+        await settle(tester);
+      }
+
+      testWidgets('Esc во время работы спрашивает подтверждение', (tester) async {
+        await startSlowCopy(tester);
+
+        await askAbort(tester, key: LogicalKeyboardKey.escape);
+
+        expect(find.textContaining('Abort the operation?'), findsOneWidget);
+        expect(find.widgetWithText(FcButton, 'Abort'), findsOneWidget);
+        expect(find.widgetWithText(FcButton, 'Cancel'), findsOneWidget);
+        // Работа не прервана и не закончена: она ждёт ответа.
+        expect(await provider.resolvePath('/home/bin/$lastFile').result, isNull);
+
+        await tester.tap(find.widgetWithText(FcButton, 'Abort'));
+        await finish(tester);
+      });
+
+      testWidgets('пока ответа нет, работа стоит', (tester) async {
+        await startSlowCopy(tester);
+        await askAbort(tester, key: LogicalKeyboardKey.escape);
+
+        // Заведомо дольше, чем занял бы весь остаток задания.
+        await tester.pump(const Duration(seconds: 2));
+
+        expect(find.widgetWithText(FcButton, 'Abort'), findsOneWidget);
+        expect(await provider.resolvePath('/home/bin/$lastFile').result, isNull);
+
+        await tester.tap(find.widgetWithText(FcButton, 'Abort'));
+        await finish(tester);
+      });
+
+      testWidgets('«Cancel» возвращает к работе, и она доходит до конца', (tester) async {
+        await startSlowCopy(tester);
+        await askAbort(tester, key: LogicalKeyboardKey.escape);
+
+        await tester.tap(find.widgetWithText(FcButton, 'Cancel'));
+        await finish(tester);
+
+        // Окно закрылось само: работа кончилась, а не прервалась.
+        expect(find.byType(FcProgressBar), findsNothing);
+        expect(await provider.resolvePath('/home/bin/$lastFile').result, isNotNull);
+      });
+
+      testWidgets('«Abort» прекращает работу на том, что успели', (tester) async {
+        await startSlowCopy(tester);
+        await askAbort(tester, key: LogicalKeyboardKey.escape);
+
+        await tester.tap(find.widgetWithText(FcButton, 'Abort'));
+        await finish(tester);
+
+        expect(find.byType(FcProgressBar), findsNothing);
+        // Сделанное остаётся сделанным, остальное не начиналось.
+        expect(await provider.resolvePath('/home/bin/$firstFile').result, isNotNull);
+        expect(await provider.resolvePath('/home/bin/$lastFile').result, isNull);
+      });
+
+      testWidgets('Esc отказывается прерывать, Enter прерывает', (tester) async {
+        await startSlowCopy(tester);
+        await askAbort(tester, key: LogicalKeyboardKey.escape);
+
+        // Esc: отказ от прерывания — работа продолжается.
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pump();
+        expect(find.widgetWithText(FcButton, 'Abort'), findsNothing);
+        expect(find.byType(FcProgressBar), findsOneWidget);
+
+        // Enter: подтверждение — «Abort» стоит вариантом по умолчанию.
+        await askAbort(tester, key: LogicalKeyboardKey.escape);
+        await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+        await finish(tester);
+
+        expect(find.byType(FcProgressBar), findsNothing);
+        expect(await provider.resolvePath('/home/bin/$lastFile').result, isNull);
+      });
+
+      testWidgets('кнопка «Cancel» в окне хода работы спрашивает так же', (tester) async {
+        await startSlowCopy(tester);
+
+        // Тот же смысл, что и у Esc, — и тот же вопрос.
+        await tester.tap(find.widgetWithText(FcButton, 'Cancel'));
+        await askAbort(tester);
+
+        expect(find.widgetWithText(FcButton, 'Abort'), findsOneWidget);
+
+        await tester.tap(find.widgetWithText(FcButton, 'Abort'));
+        await finish(tester);
+      });
+    });
+
     testWidgets('кнопки нижней панели делают то же самое', (tester) async {
       await pumpApp(tester);
       app.left.setCursorToName('notes.txt');
