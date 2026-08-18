@@ -187,4 +187,27 @@ void main() {
       expect(app.settings.left.path, '/home');
     });
   });
+
+  group('сохранение чужого', () {
+    test('размер пула обхода каталогов переживает запись', () async {
+      // Ядро эту настройку не меняет, но и потерять её при записи не должно:
+      // снимок собирается заново, и в него нужно перенести прочитанное.
+      final app = build(AppSettings.defaults('/home')..sizeScanConcurrency = 32);
+      addTearDown(app.dispose);
+
+      expect(app.settings.sizeScanConcurrency, 32);
+    });
+
+    test('разделы модулей переносятся в снимок', () async {
+      final settings = AppSettings.defaults('/home');
+      settings.modules.fromMap({
+        'fc.ssh': {'host': 'example.org'},
+      });
+
+      final app = build(settings);
+      addTearDown(app.dispose);
+
+      expect(serialize(app.settings.modules), containsPair('fc.ssh', {'host': 'example.org'}));
+    });
+  });
 }

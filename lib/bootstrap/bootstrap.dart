@@ -113,6 +113,9 @@ class LoadSettingsCommand implements Command {
     final container = data.getObject<AppContainer>()!;
     final settings = await container.get<SettingsStore>().load();
     container.bind<AppSettings>(to: (c) => settings);
+
+    // С этого момента разделы настроек модулей есть где искать.
+    data.getObject<Registrations>()!.settingsSource = settings;
   }
 
   @override

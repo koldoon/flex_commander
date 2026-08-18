@@ -1,5 +1,6 @@
 import '../app/application.dart';
 import '../commands/app_command.dart';
+import '../settings/module_settings.dart';
 import '../tree/provider_registry.dart';
 import '../tree/tree_provider.dart';
 import '../ui/theme/theme_service.dart';
@@ -48,6 +49,13 @@ abstract interface class FcRegistrar {
   /// Обращаться к ним можно **только из фабрик**: во время [FcModule.install]
   /// их ещё нет, а к моменту, когда фабрику позовут, — уже есть.
   FcServices get services;
+
+  /// Раздел настроек этого модуля — под его же именем.
+  ///
+  /// Как и службы, читается не во время объявления, а позже: настройки к тому
+  /// моменту уже прочитаны с диска. Обычное место для этого — стартовая
+  /// команда ([startup]).
+  SettingsScope get settings;
 
   /// Корневой источник дерева — тот, с которого начинается любой путь.
   ///

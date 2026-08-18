@@ -73,15 +73,30 @@ class Registrations implements FcRegistrar {
 
   String? _current;
 
+  /// Настройки приложения, когда их прочитают. До этого раздел модуля просить
+  /// не у кого — и это не ошибка сборки, а ошибка того, кто спросил слишком рано.
+  AppSettings? settingsSource;
+
   /// Устанавливает модули по порядку: порядок задаёт приоритет привязок.
   void installAll(Iterable<FcModule> list) {
     for (final module in list) {
       _current = module.id;
+      _lastInstalled = module.id;
       modules.add(module);
       module.install(this);
     }
     _current = null;
   }
+
+  @override
+  SettingsScope get settings {
+    final namespace = _current ?? _lastInstalled;
+    return _LazyScope(this, namespace ?? 'unknown');
+  }
+
+  /// Кто устанавливался последним: регистратор отдают модулю целиком, и он
+  /// вправе сохранить его у себя — а спросить настройки уже потом.
+  String? _lastInstalled;
 
   @override
   void rootProvider(TreeProvider Function(FcServices services) factory) {
@@ -114,4 +129,29 @@ class Registrations implements FcRegistrar {
   void service<T extends Object>(T Function(FcServices services) factory) {
     serviceBindings[T] = (container) => container.bind<T>(to: (c) => factory(services));
   }
+}
+
+/// Раздел настроек модуля, который добирается до них позже.
+///
+/// Модуль объявляет себя раньше, чем настройки прочитаны с диска: раздел он
+/// получает сразу, а содержимое — когда оно появится.
+class _LazyScope implements SettingsScope {
+  const _LazyScope(this._registrations, this._namespace);
+
+  final Registrations _registrations;
+  final String _namespace;
+
+  SettingsScope get _scope {
+    final settings = _registrations.settingsSource;
+    if (settings == null) {
+      throw StateError('Настройки ещё не прочитаны: раздел модуля доступен из команд, а не из install');
+    }
+    return settings.modules.scope(_namespace);
+  }
+
+  @override
+  T section<T extends Serializable>(T Function() create) => _scope.section(create);
+
+  @override
+  void save() => _scope.save();
 }

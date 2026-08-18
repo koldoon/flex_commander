@@ -33,6 +33,9 @@ class AppController extends ChangeNotifier implements Application {
     right.setActive(settings.activePanel == 1);
     left.addListener(_onPanelChanged);
     right.addListener(_onPanelChanged);
+    // Модуль просит сохранить свой раздел тем же способом, что и панель:
+    // отложенной записью, которая сливает подряд идущие изменения.
+    _initialSettings.modules.onSave = _scheduleSave;
     this.window.addListener(_onWindowChanged);
     commands.attach(this);
   }
@@ -121,6 +124,10 @@ class AppController extends ChangeNotifier implements Application {
   @override
   void toggleActivePanel() => activate(left.active ? right : left);
 
+  /// Раздел настроек модуля: ядро в него не заглядывает, только хранит.
+  @override
+  SettingsScope moduleSettings(String namespace) => _initialSettings.modules.scope(namespace);
+
   /// Окна команд держит реестр — он же их и создаёт.
   @override
   void closeDialog(String runId) => commands.closeDialog(runId);
@@ -169,13 +176,21 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   /// Текущее состояние приложения в виде сохраняемых настроек.
+  /// Текущее состояние приложения в виде сохраняемых настроек.
+  ///
+  /// Собирается заново на каждый запрос — панели и окно рассказывают о себе
+  /// сами. А то, чем приложение не заведует, переносится из прочитанного:
+  /// разделы модулей и размер пула обхода каталогов ядро не меняет, но и
+  /// терять их при записи не должно.
   @override
   AppSettings get settings => AppSettings(
     left: left.settings,
     right: right.settings,
     activePanel: left.active ? 0 : 1,
     splitRatio: _splitRatio,
+    sizeScanConcurrency: _initialSettings.sizeScanConcurrency,
     window: _windowGeometry,
+    modules: _initialSettings.modules,
   );
 
   Future<void> save() async {

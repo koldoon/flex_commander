@@ -46,6 +46,7 @@ export 'src/panel/column_spec.dart';
 export 'src/panel/sort_spec.dart';
 export 'src/serialization.dart';
 export 'src/settings/app_settings.dart';
+export 'src/settings/module_settings.dart';
 export 'src/settings/window_geometry.dart';
 
 // --- Элементы интерфейса ---

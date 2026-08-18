@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../commands/command_service.dart';
 import '../ui/theme/theme_service.dart';
 import '../settings/app_settings.dart';
+import '../settings/module_settings.dart';
 import '../settings/window_geometry.dart';
 import 'panel.dart';
 
@@ -56,6 +57,9 @@ abstract interface class Application implements Listenable {
 
   /// Текущее состояние приложения в виде сохраняемых настроек.
   AppSettings get settings;
+
+  /// Раздел настроек модуля. Имя — идентификатор модуля.
+  SettingsScope moduleSettings(String namespace);
 
   /// Запуск: восстановление окна и каталогов.
   Future<void> start();
