@@ -111,7 +111,9 @@
 | `m.tree.INode` / `AbstractNode` | `model/tree/fs_node.dart` → `FsNode` |
 | `FileNode`, `DirectoryNode`, `LinkNode` | `FileNode`, `DirectoryNode`, `LinkNode` (те же роли) |
 | `m.tree.ITreeProvider` | `TreeProvider` |
-| `m.tree.ITreeEditor`, `IFilesProvider` | `TreeEditor`, `FilesProvider` (интерфейсы, реализация — после MVP) |
+| `m.tree.ITreeEditor` | `TreeEditor` (операция целиком, реализует `TreeTransferEngine`) + `NodeEditor` (примитивы провайдера) |
+| `m.async.impl.TransferOperation` | `TreeTransferEngine` — обход, конфликты, прогресс и стратегии |
+| `m.tree.IFilesProvider` | `FilesProvider` (интерфейс, реализация — после MVP) |
 | `m.tree.impl.fs.LocalFileSystemTreeProvider` (через CLI `ls`/`stat`) | `LocalTreeProvider` (через `dart:io`) |
 | `m.async.IAsyncOperation` + `IAsyncOperationStatus` | `AsyncOperation<T>` (`Future` + прогресс + отмена) |
 | `m.interactive.IInteraction` | `OperationRequest` — запрос к пользователю из середины операции |
@@ -157,11 +159,14 @@ lib/
       fs_node.dart                 FsNode, FileNode, DirectoryNode, LinkNode, ParentDirNode
       file_type.dart               FileType и его разбор
       file_attributes.dart         права доступа, флаги, executable
-      tree_provider.dart           TreeProvider, TreeEditor, FilesProvider (интерфейсы)
+      tree_provider.dart           TreeProvider, TreeEditor, NodeEditor, FilesProvider (интерфейсы)
       node_path.dart               разбор и сборка строк пути с учётом провайдеров
       local/
-        local_tree_provider.dart   реализация поверх dart:io
+        local_tree_provider.dart   реализация поверх dart:io: чтение и примитивы
         local_listing.dart         чтение каталога в изоляте
+      transfer/
+        transfer_engine.dart       копирование, перенос и удаление — один раз
+                                   на все провайдеры
     async/
       async_operation.dart         AsyncOperation, OperationStatus, OperationProgress
       operation_request.dart       интерактивные запросы к пользователю

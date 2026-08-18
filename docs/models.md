@@ -217,13 +217,34 @@ abstract interface class TreeProvider {
   AsyncOperation<int> calculateSize(List<FsNode> nodes);
 }
 
-/// Изменение дерева. Отдельный интерфейс: провайдер может уметь только читать
-/// (архив, открытый на просмотр), и команда это проверяет через `panel.editor`.
+/// Изменение дерева — то, чем пользуются команды: операция целиком, с обходом,
+/// конфликтами, вопросами и прогрессом. Провайдеры его не реализуют: реализация
+/// одна на всех — `TreeTransferEngine`.
 abstract interface class TreeEditor {
   AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination);
   AsyncOperation<void> move(List<FsNode> nodes, DirectoryNode destination);
   AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true});
   AsyncOperation<DirectoryNode> makeDirectory(DirectoryNode parent, String name);
+}
+
+/// Примитивы изменения: один объект, без рекурсии, без вопросов, без прогресса.
+/// Отдельный интерфейс: провайдер может уметь только читать (архив, открытый
+/// на просмотр), и панель это проверяет — `provider is NodeEditor`.
+/// Обычный Future, а не AsyncOperation: отмена и прогресс — у операции, которая
+/// шаг вызвала. false означает «так я не умею», и движок идёт следующей
+/// стратегией; ошибка — это FsError.
+abstract interface class NodeEditor {
+  Future<List<FsNode>> listChildren(DirectoryNode dir);     // без «..», со скрытыми
+  Future<FsNode?> lookup(DirectoryNode parent, String name);
+  Future<DirectoryNode> createDirectory(DirectoryNode parent, String name);
+  Future<bool> copyEntry(FsNode node, DirectoryNode destination, String name);
+  Future<bool> renameEntry(FsNode node, DirectoryNode destination, String name);
+  Future<void> deleteEntry(FsNode node);                    // каталог уже пуст
+  Future<bool> deleteTree(FsNode node);                     // поддерево одним действием
+  Future<bool> trashEntry(FsNode node);
+  Future<void> countEntries(FsNode node, void Function() onEntry);
+  bool isSameEntity(FsNode node, DirectoryNode destination);
+  bool isInsideSource(FsNode node, DirectoryNode destination);
 }
 
 /// «Мост» между разными провайдерами через файлы локальной ФС.
@@ -234,6 +255,38 @@ abstract interface class FilesProvider {
   AsyncOperation<void> purge();
 }
 ```
+
+### Движок переноса
+
+Механика файловых операций живёт **не в провайдере**, а в `TreeTransferEngine`
+(`model/tree/transfer/`): обход дерева, конфликты имён, вопросы пользователю,
+счётчики прогресса, отмена и выбор стратегии — один раз на все источники.
+Провайдер отвечает только за примитивы (`NodeEditor`), каждый над одним объектом.
+
+Так устроено ради второго источника данных: перенос из архива в sftp — это
+работа, у которой источник и приёмник разных провайдеров, и написать её внутри
+одного из них невозможно. Узел носит своего провайдера с собой (`node.provider`),
+поэтому движок спрашивает примитивы у каждой стороны отдельно. В Total Commander
+и Far Manager этим же занимается ядро, а плагин двигает один файл; Midnight
+Commander идёт дальше и копирует единым циклом поверх VFS.
+
+Стратегии для одного объекта, по убыванию скорости:
+
+| Стратегия | Когда | Состояние |
+|---|---|---|
+| `rename` | один провайдер, `renameEntry` вернул true | работает |
+| `providerCopy` | один провайдер, `copyEntry` вернул true | работает |
+| `stream` | `openRead → openWrite` у обеих сторон | нужен байтовый контракт (`providers.md`, 5.2) |
+| `bridge` | временный локальный файл через `FilesProvider` | там же |
+
+Пока байтового контракта нет, перенос между разными провайдерами кончается
+`FsErrorKind.notSupported` — обычным вопросом «пропустить / все / отменить», а не
+молчаливой видимостью работы. Провайдер сегодня один, поэтому наружу это не
+видно.
+
+Отдельное правило: движок обходит каталоги через `listChildren`, а не через
+`getDirectoryListing`. Последний пишет результат в `DirectoryNode.nodes` и
+добавляет «..» — обход приёмника подменил бы то, что показывает панель.
 
 ### Ссылки и два вида путей
 
@@ -369,10 +422,17 @@ class OperationRequest {
   на всю операцию. Ответ по умолчанию — «пропустить»: молча затирать чужие файлы нельзя.
 - **Ошибка на одном объекте не прекращает работу** — задаётся тот же вопрос.
 - **Перенос начинается с переименования**: в пределах диска оно мгновенное. Между
-  дисками (`EXDEV`) объект копируется и затем удаляется.
+  дисками (`EXDEV`) примитив отвечает `false`, и движок копирует объект, а затем
+  удаляет исходный.
 - **Невозможные задания отсекаются до работы**: копирование каталога внутрь самого
   себя (`FsErrorKind.targetInsideSource`) не закончилось бы никогда, а копирование
   «на себя же» бессмысленно.
+- **Каталоги создаёт и обходит движок**, а не провайдер: иначе о копировании
+  тысячи файлов было бы известно только «начали» и «кончили», а прервать его было
+  бы негде. Провайдер копирует файл или ссылку — один объект за раз.
+- **Удаление снизу вверх**: `deleteEntry` получает уже пустой каталог. Там, где
+  поштучный прогресс не нужен (перезапись приёмника, уборка источника после
+  копирования), движок зовёт `deleteTree` — одно действие вместо обхода.
 - Прогресс считается по объектам задания, а не по байтам: побайтовый прогресс
   потребовал бы знать размеры заранее — это отдельная задача.
 
