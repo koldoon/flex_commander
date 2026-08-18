@@ -72,9 +72,7 @@ class AppContext extends DI {
           ),
     );
 
-    bind<CommandRegistry>(
-      to: (c) => CommandRegistry(defaultCommands(opener: c.get<SystemOpener>()), defaultKeyBindings()),
-    );
+    bind<CommandRegistry>(to: (c) => defaultCommandRegistry(opener: c.get<SystemOpener>()));
 
     // Наружу приложение отдаётся интерфейсом: команды и всё, что пишется
     // против API, не должны видеть реализацию.

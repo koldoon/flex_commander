@@ -58,4 +58,32 @@ void main() {
       }
     });
   });
+  group('путь для показа', () {
+    test('схемы провайдеров в него не входят', () {
+      final path = NodePath.parse('/home/a.zip:zip:/inner/doc.txt');
+
+      // Внутрь архива входят как в каталог — и путь должен выглядеть так же.
+      expect(path.displayString, '/home/a.zip/inner/doc.txt');
+    });
+
+    test('корень вложенного провайдера ничего не добавляет', () {
+      expect(NodePath.parse('/home/a.zip:zip:/').displayString, '/home/a.zip');
+    });
+
+    test('несколько вложений склеиваются подряд', () {
+      expect(NodePath.parse('/a.zip:zip:/b.zip:zip:/doc.txt').displayString, '/a.zip/b.zip/doc.txt');
+    });
+
+    test('обычный путь не меняется', () {
+      expect(NodePath.parse('/home/koldoon').displayString, '/home/koldoon');
+      expect(NodePath.parse('/').displayString, '/');
+    });
+
+    test('машине по-прежнему достаётся полная строка', () {
+      // Обратно `displayString` не разбирается: по нему не видно, где кончается
+      // файл архива. Поэтому в настройках сохраняется `toString`.
+      final path = NodePath.parse('/home/a.zip:zip:/inner');
+      expect(path.toString(), '/home/a.zip:zip:/inner');
+    });
+  });
 }

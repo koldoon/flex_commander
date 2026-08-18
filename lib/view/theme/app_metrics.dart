@@ -166,7 +166,14 @@ class FcMetrics {
   double get dialogDividerHeight => 1;
 
   /// Ширина колонки подписей в форме окна.
-  double get dialogLabelWidth => _ref(220);
+  double get dialogLabelWidth => _ref(250);
+
+  /// Поле от края окна приложения до окна справки.
+  ///
+  /// Единственный размер, взятый не из референса: справки там не было вовсе.
+  /// Считается в точках экрана, а не в единицах разметки: это отступ от края
+  /// окна, а не часть рисунка.
+  double get dialogScreenInset => 120;
 
   /// Тень окна: `DropShadowFilter distance="5" blurX="15" blurY="15"`.
   double get dialogShadowOffset => _ref(5);

@@ -199,6 +199,7 @@ lib/
     commands/
       app_command.dart             AppCommand, AsyncCommand, KeyBinding, CommandContext
       file_commands.dart           файловые операции: создание каталога, удаление
+      help_command.dart            справка: настройки и привязки клавиш таблицей
       key_combination.dart         нормализация нажатия в строку вида Ctrl-Shift-F5
       command_registry.dart        команды, привязки клавиш и разбор нажатий
       navigation_commands.dart     курсор, Tab, Enter, Backspace, Home/End
@@ -224,7 +225,9 @@ lib/
       split_view.dart              две панели с перетаскиваемым разделителем
     dialogs/
       command_dialog_layer.dart    рамка и заголовок окна команды
-      command_dialog.dart          типовое содержимое: форма, вопрос, прогресс
+      command_dialog.dart          типовое содержимое: форма, вопрос, прогресс,
+                                   общий ряд кнопок
+      help_table.dart              окно справки: прокручивающаяся таблица
     theme/
       app_theme.dart               ThemeData и расширение FcTheme
       app_colors.dart              палитра из макета
