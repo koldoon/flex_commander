@@ -7,8 +7,8 @@ import 'package:flex_commander/model/tree/local/local_tree_provider.dart';
 import 'package:flex_commander/model/tree/provider_registry.dart';
 import 'package:flex_commander/model/tree/transfer/transfer_engine.dart';
 import 'package:flex_commander/model/tree/tree_provider.dart';
-import 'package:flex_commander/model/tree/zip/zip_tree_provider.dart';
 import 'package:flex_commander/model/settings/app_settings.dart';
+import 'package:flex_commander/model/tree/zip/zip_tree_provider.dart';
 import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -38,7 +38,9 @@ void main() {
   }
 
   setUp(() async {
-    temp = await Directory.systemTemp.createTemp('flex_commander_zip');
+    // Не 'flex_commander_zip': так называет свои каталоги сессия временных
+    // копий, и тест ниже считает именно их.
+    temp = await Directory.systemTemp.createTemp('fc_zip_fixture');
     root = await temp.resolveSymbolicLinks();
     archivePath = p.join(root, 'sample.zip');
     await writeArchive();
@@ -156,10 +158,9 @@ void main() {
       await expectLater(mounted(), throwsA(isA<FsError>()));
     });
 
-    test('архив без настоящего пути пока не открывается', () async {
-      // Архив внутри архива или на сервере: оглавление лежит в конце файла,
-      // и прочитать его, не умея прыгать по файлу, нельзя — нужен мост (5.7).
-      final memory = InMemoryArchiveProvider([
+    test('источник без настоящих путей и без байтов открыть нечем', () async {
+      // Дерево есть, содержимого нет: ни прочитать оглавление, ни скопировать.
+      final memory = InMemoryReadOnlyProvider([
         FakeEntry.directory('/home'),
         FakeEntry.file('/home/inner.zip', content: [1, 2, 3]),
       ]);
@@ -240,6 +241,135 @@ void main() {
 
       expect(await restored.openPath(saved), isTrue);
       expect(restored.nodes.map((node) => node.name), contains('guide.txt'));
+    });
+  });
+
+  group('архив не в локальной ФС', () {
+    /// Архив, лежащий в чужом источнике: у него нет настоящего пути, и
+    /// прочитать его оглавление можно только через временную копию.
+    Future<FsNode> hostedInMemory() async {
+      final memory = InMemoryArchiveProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.file('/home/inner.zip', content: await File(archivePath).readAsBytes()),
+      ]);
+      return (await memory.resolvePath('/home/inner.zip').result)!;
+    }
+
+    test('открывается через временную копию', () async {
+      final zip = await ZipTreeProvider.open(await hostedInMemory());
+
+      expect(await namesIn(zip, '/'), containsAll(['docs', 'readme.md']));
+
+      await (zip as ProviderLifecycle).dispose();
+    });
+
+    test('содержимое читается из копии', () async {
+      final zip = await ZipTreeProvider.open(await hostedInMemory()) as ZipTreeProvider;
+      final node = (await zip.resolvePath('/docs/guide.txt').result)!;
+
+      final chunks = await (await zip.openRead(node)).toList();
+      expect(utf8.decode([for (final chunk in chunks) ...chunk]), 'руководство');
+
+      await zip.dispose();
+    });
+
+    test('копия убирается вместе с провайдером', () async {
+      final zip = await ZipTreeProvider.open(await hostedInMemory()) as ZipTreeProvider;
+      final copy = zip.archivePath;
+      expect(await File(copy).exists(), isTrue);
+      // Копия лежит не там, где оригинал: это временный файл.
+      expect(copy, isNot(archivePath));
+
+      await zip.dispose();
+
+      expect(await File(copy).exists(), isFalse);
+      expect(await Directory(p.dirname(copy)).exists(), isFalse);
+    });
+
+    test('копия не переживает неудачного открытия', () async {
+      // Каталоги сессии временных копий — по её префиксу.
+      int sessions() =>
+          Directory.systemTemp
+              .listSync()
+              .where((entity) => p.basename(entity.path).startsWith('flex_commander_zip_'))
+              .length;
+
+      final broken = InMemoryArchiveProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.file('/home/inner.zip', content: utf8.encode('это вообще не архив')),
+      ]);
+      final host = (await broken.resolvePath('/home/inner.zip').result)!;
+      final before = sessions();
+
+      await expectLater(ZipTreeProvider.open(host), throwsA(isA<FsError>()));
+
+      // Копию успели сделать, а архив не открылся — за собой убрано.
+      expect(sessions(), before);
+    });
+
+    test('локальный архив не копируется вовсе', () async {
+      final zip = await mounted() as ZipTreeProvider;
+
+      // Настоящий путь есть — копировать нечего: ровно за этим и заведён
+      // realFileSystem.
+      expect(zip.archivePath, archivePath);
+
+      await zip.dispose();
+      expect(await File(archivePath).exists(), isTrue);
+    });
+  });
+
+  group('архив внутри архива', () {
+    late String outerPath;
+
+    setUp(() async {
+      // Внешний архив, внутри которого лежит наш sample.zip целиком.
+      outerPath = p.join(root, 'outer.zip');
+      final outer =
+          Archive()
+            ..add(ArchiveFile.bytes('nested/sample.zip', await File(archivePath).readAsBytes()))
+            ..add(ArchiveFile.string('note.txt', 'снаружи'));
+      await File(outerPath).writeAsBytes(ZipEncoder().encodeBytes(outer));
+    });
+
+    test('открывается и читается насквозь', () async {
+      final node = await registry.resolvePath('$outerPath:zip:/nested/sample.zip:zip:/docs/guide.txt').result;
+
+      expect(node, isNotNull);
+      expect(node!.name, 'guide.txt');
+      // Путь пользователю — без схем, как у обычных каталогов.
+      expect(node.displayPath, '$outerPath/nested/sample.zip/docs/guide.txt');
+
+      final inner = node.provider as ZipTreeProvider;
+      final chunks = await (await inner.openRead(node)).toList();
+      expect(utf8.decode([for (final chunk in chunks) ...chunk]), 'руководство');
+    });
+
+    test('панель проходит вглубь и возвращается, закрывая за собой', () async {
+      final panel = PanelController(provider: disk, registry: registry, settings: PanelSettings.defaults(root));
+      addTearDown(panel.dispose);
+      await panel.openPath(root);
+
+      panel.setCursorToName('outer.zip');
+      await panel.enterCurrent();
+      panel.setCursorToName('nested');
+      await panel.enterCurrent();
+      panel.setCursorToName('sample.zip');
+      await panel.enterCurrent();
+
+      // Два архива в стопке; внутренний живёт временной копией внешнего.
+      final inner = panel.provider as ZipTreeProvider;
+      expect(inner.archivePath, isNot(outerPath));
+      expect(await File(inner.archivePath).exists(), isTrue);
+      expect(panel.directory?.displayPath, '$outerPath/nested/sample.zip');
+
+      // Наружу одним прыжком: закрыться должны оба.
+      expect(await panel.openPath(root), isTrue);
+      // Закрытие асинхронное: панель не ждёт его, чтобы показать каталог.
+      await pumpEventQueue();
+
+      expect(panel.provider, same(disk));
+      expect(await File(inner.archivePath).exists(), isFalse);
     });
   });
 
