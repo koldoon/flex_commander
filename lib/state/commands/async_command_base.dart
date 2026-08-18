@@ -125,20 +125,61 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
   @override
   Future<void> get completion => _completion.future;
 
+  /// Прервать работу — по кнопке в окне или по Esc.
+  ///
+  /// Не молча: операция задаст вопрос и **встанет** до ответа. Работа файлового
+  /// менеджера необратима, а Esc нажимают не глядя, поэтому цена случайного
+  /// нажатия — прерванное копирование посреди дерева.
   @override
   void cancel() {
-    _operation?.cancel();
     if (!_running) {
       // Работа ещё не началась — отмена означает «закрыть окно».
       closeDialog();
+      return;
     }
+    _operation?.requestCancel();
   }
 
+  /// Enter: пока идёт вопрос — вариант по умолчанию, иначе как у всех.
+  ///
+  /// «Вариант по умолчанию» и «что делает Enter» — это одно и то же, поэтому
+  /// отдельного поля вопросу не нужно.
   @override
   Future<void> submit() async {
+    final question = _question;
+    if (question != null) {
+      answer(question.defaultOption);
+      return;
+    }
+    if (isRunning) {
+      // Работа идёт: подтверждать нечего, она уже запущена.
+      return;
+    }
+
     await super.submit();
     if (!_completion.isCompleted) {
       _completion.complete();
     }
+  }
+
+  /// Esc: пока идёт вопрос — его вариант для Esc; во время работы — просьба
+  /// прервать; в остальное время — закрыть окно.
+  @override
+  void dismiss() {
+    final question = _question;
+    if (question != null) {
+      final escape = question.escapeOption;
+      if (escape != null) {
+        answer(escape);
+      }
+      // Вопрос без варианта для Esc закрыть нечем: на него надо ответить.
+      return;
+    }
+
+    if (isRunning) {
+      cancel();
+      return;
+    }
+    super.dismiss();
   }
 }

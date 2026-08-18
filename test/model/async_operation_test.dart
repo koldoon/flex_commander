@@ -138,4 +138,95 @@ void main() {
       await expectLater(op.result, throwsA(isA<StateError>()));
     });
   });
+  group('просьба прервать', () {
+    /// Операция, считающая свои шаги: между ними стоит контрольная точка.
+    ///
+    /// Тело бесконечное — так видно и то, что работа встала, и то, что она
+    /// пошла дальше.
+    (TaskOperation<void>, List<int>) counting() {
+      final steps = <int>[];
+      final op = TaskOperation<void>((op) async {
+        for (var i = 0; ; i++) {
+          await op.checkpoint();
+          steps.add(i);
+          await Future<void>.delayed(Duration.zero);
+        }
+      });
+      // Тело бесконечное: каждый такой тест кончается отменой, и её ошибку
+      // читать некому.
+      op.result.ignore();
+      return (op, steps);
+    }
+
+    test('превращается в обычный вопрос, а не в отмену', () async {
+      final (op, _) = counting();
+      final questions = <OperationRequest>[];
+      op.requests.listen(questions.add);
+
+      op.requestCancel();
+      await pumpEventQueue();
+
+      expect(op.status, OperationStatus.processing);
+      expect(questions.single.message, 'Abort the operation?');
+      op.cancel();
+    });
+
+    test('до ответа работа стоит', () async {
+      final (op, steps) = counting();
+      OperationRequest? question;
+      op.requests.listen((request) => question = request);
+
+      op.requestCancel();
+      await pumpEventQueue();
+      final done = steps.length;
+
+      await pumpEventQueue(times: 50);
+
+      // Тело бесконечное: если бы оно работало, шагов стало бы больше.
+      expect(steps.length, done);
+      question!.respond(OperationOption.resume);
+      await pumpEventQueue();
+      expect(steps.length, greaterThan(done));
+      op.cancel();
+    });
+
+    test('повторная просьба задаёт вопрос заново', () async {
+      final (op, _) = counting();
+      final questions = <OperationRequest>[];
+      op.requests.listen(questions.add);
+
+      op.requestCancel();
+      await pumpEventQueue();
+      questions.single.respond(OperationOption.resume);
+      await pumpEventQueue();
+
+      // Просьба не «залипает»: продолжив работу, её надо просить заново.
+      expect(questions, hasLength(1));
+
+      op.requestCancel();
+      await pumpEventQueue();
+
+      expect(questions, hasLength(2));
+      op.cancel();
+    });
+
+    test('у законченной операции просить уже нечего', () async {
+      final op = TaskOperation<int>((op) async => 1);
+      await op.result;
+
+      op.requestCancel();
+
+      expect(op.status, OperationStatus.complete);
+    });
+
+    test('«Abort» завершает операцию отменой', () async {
+      final (op, _) = counting();
+      op.requests.listen((request) => request.respond(OperationOption.abort));
+
+      op.requestCancel();
+      await pumpEventQueue();
+
+      expect(op.status, OperationStatus.canceled);
+    });
+  });
 }
