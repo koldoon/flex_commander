@@ -1,14 +1,9 @@
-import 'dart:io';
-
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/app.dart';
 import 'package:fc_api/fc_api.dart';
-import 'package:flex_commander/settings/settings_store.dart';
-import 'package:flex_commander/state/app_controller.dart';
-import 'package:flex_commander/state/commands/default_commands.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:path/path.dart' as p;
 
 /// Снимок окна в размере макета (802×621), чтобы вёрстку можно было сравнить
 /// с `docs/design/design.png` глазами.
@@ -34,17 +29,9 @@ void main() {
 
     // Каталог настроек не создаётся: реальный ввод-вывод внутри тела
     // widget-теста подвешивает его поддельное асинхронное окружение.
-    final settingsPath = p.join(Directory.systemTemp.path, 'flex_commander_golden', 'settings.json');
     const path = '/Users/koldoon/Developer';
     final settings = AppSettings(left: PanelSettings.defaults(path), right: PanelSettings.defaults(path));
-    final app = AppController(
-      left: testPanel(provider: provider, settings: settings.left),
-      right: testPanel(provider: provider, settings: settings.right),
-      commands: defaultCommandRegistry(),
-      store: SettingsStore(filePath: settingsPath),
-      settings: settings,
-      saveDelay: const Duration(milliseconds: 5),
-    );
+    final app = (await testApp(provider: provider, modules: featureModules(), settings: settings)).app;
 
     tester.view.physicalSize = const Size(802, 621);
     tester.view.devicePixelRatio = 1;
@@ -63,6 +50,5 @@ void main() {
     await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/application_view.png'));
 
     await tester.pump(const Duration(milliseconds: 20));
-    app.dispose();
   });
 }

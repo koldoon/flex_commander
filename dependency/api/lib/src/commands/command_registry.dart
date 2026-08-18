@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../app/application.dart';
+import '../background/task_status.dart';
 import 'app_command.dart';
 import 'command_service.dart';
 import 'framework/framework.dart';
@@ -34,7 +35,7 @@ typedef CommandErrorHandler = void Function(Object error, Command command);
 /// поэтому `Esc` во время чтения каталога отменяет операцию, а в остальное
 /// время снимает пометку. Схема повторяет
 /// `ApplicationImpl.processKeyboardCombination` из референса.
-class CommandRegistry extends ChangeNotifier implements CommandService, CommandLifecycle {
+class CommandRegistry extends ChangeNotifier implements CommandService, CommandLifecycle, BackgroundTasks {
   CommandRegistry([List<AppCommandFactory> commands = const [], List<KeyBinding> bindings = const [], this.onError]) {
     _factories.addAll(commands);
     _bindings.addAll(bindings);
@@ -57,6 +58,9 @@ class CommandRegistry extends ChangeNotifier implements CommandService, CommandL
 
   final List<AppCommand> _openDialogs = [];
 
+  /// Запуски, ушедшие в фон: окна у них нет, а работа идёт.
+  final List<AppCommand> _background = [];
+
   Application? _app;
   int _lastRunId = 0;
 
@@ -71,6 +75,53 @@ class CommandRegistry extends ChangeNotifier implements CommandService, CommandL
   /// Запущенные команды, которым нужно окно. Ядро рисует их поверх приложения.
   @override
   List<AppCommand> get openDialogs => List.unmodifiable(_openDialogs);
+
+  // --- Фоновые работы ---
+
+  @override
+  List<TaskStatus> get tasks => [
+    for (final command in _background)
+      if (command.status case final status?) status,
+  ];
+
+  @override
+  bool isInBackground(String runId) => _background.any((command) => command.runId == runId);
+
+  /// Убирает окно команды, оставляя работу идти.
+  ///
+  /// Прятать можно только то, что умеет рассказать о себе: иначе работа
+  /// исчезла бы с глаз без следа.
+  @override
+  void sendToBackground(String runId) {
+    final command = _openDialogs.where((command) => command.runId == runId).firstOrNull;
+    if (command == null || !command.canRunInBackground || command.status == null) {
+      return;
+    }
+
+    _openDialogs.remove(command);
+    command.setDialogOpen(false);
+    command.setBackground(true);
+    _background.add(command);
+    notifyListeners();
+  }
+
+  /// Возвращает окно работы, ушедшей в фон.
+  ///
+  /// Так операция, задавшая вопрос, снова оказывается на виду: ответить за
+  /// пользователя ядро не вправе.
+  @override
+  void bringToFront(String runId) {
+    final command = _background.where((command) => command.runId == runId).firstOrNull;
+    if (command == null) {
+      return;
+    }
+
+    _background.remove(command);
+    command.setBackground(false);
+    command.setDialogOpen(true);
+    _openDialogs.add(command);
+    notifyListeners();
+  }
 
   /// Связывает реестр с приложением и создаёт прототипы команд.
   void attach(Application app) {
@@ -258,12 +309,16 @@ class CommandRegistry extends ChangeNotifier implements CommandService, CommandL
   /// Закрывает окно запущенной команды. Вызывается самой командой по [runId].
   @override
   void closeDialog(String runId) {
-    final before = _openDialogs.length;
+    final before = _openDialogs.length + _background.length;
+    for (final command in _background.where((command) => command.runId == runId)) {
+      command.setBackground(false);
+    }
+    _background.removeWhere((command) => command.runId == runId);
     for (final command in _openDialogs.where((command) => command.runId == runId)) {
       command.setDialogOpen(false);
     }
     _openDialogs.removeWhere((command) => command.runId == runId);
-    if (_openDialogs.length != before) {
+    if (_openDialogs.length + _background.length != before) {
       notifyListeners();
     }
   }

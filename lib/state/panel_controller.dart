@@ -162,6 +162,14 @@ class PanelController extends ChangeNotifier implements Panel {
   @override
   String? get headerText => _headerText;
 
+  /// Вид содержимого спрашивается у провайдера: он один знает, что показывает.
+  /// Обычный провайдер дерева о видах не подозревает — значит, таблица файлов.
+  @override
+  String get contentKind {
+    final current = provider;
+    return current is PanelContent ? (current as PanelContent).contentKind : PanelViewports.files;
+  }
+
   /// Открыть каталог. Отменяет незавершённое чтение этой же панели.
   @override
   Future<void> open(DirectoryNode dir) {

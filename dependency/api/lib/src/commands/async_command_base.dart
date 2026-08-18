@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../async/async_operation.dart';
 import '../async/operation_request.dart';
 import '../util/throttle.dart';
+import '../background/task_status.dart';
 import 'app_command.dart';
 
 /// Команда, работа которой занимает время: удаление, копирование, перенос.
@@ -16,7 +17,7 @@ import 'app_command.dart';
 /// Вопрос операции («файл уже есть, что делать?») показывается в окне команды,
 /// а если окна нет — берётся ответ по умолчанию: команду мог запустить
 /// сценарий, и спросить там некого.
-abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
+abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, TaskStatus {
   AsyncOperation<void>? _operation;
   StreamSubscription<OperationRequest>? _requests;
   StreamSubscription<OperationProgress>? _progress;
@@ -31,6 +32,26 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
 
   @override
   bool get hasDialog => true;
+
+  /// Длительную работу можно оставить идти без окна: ход дела она рассказывает
+  /// сама ([TaskStatus]), а окна ей нужно ровно столько, сколько нужно
+  /// пользователю.
+  @override
+  bool get canRunInBackground => true;
+
+  @override
+  TaskStatus? get status => this;
+
+  /// Заголовок для общего места фоновых работ.
+  @override
+  String get title => dialogTitle;
+
+  /// Есть ли что прерывать прямо сейчас.
+  @override
+  bool get canCancel => isRunning;
+
+  @override
+  String get message => progressMessage;
 
   /// Вопрос, который показывает окно команды; null — вопроса нет.
   OperationRequest? get question => _question;
@@ -52,9 +73,15 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
     // событий и до тех пор ничего не теряется.
     _progress = operation.progress.listen(_onProgress);
     _requests = operation.requests.listen((request) {
-      if (!hasOpenDialog) {
+      if (!hasOpenDialog && !isInBackground) {
+        // Спросить некого: команду запустил сценарий или список команд.
         request.respond(request.defaultOption);
         return;
+      }
+      if (isInBackground) {
+        // Работа шла без окна, но появился вопрос — отвечать за пользователя
+        // ядро не вправе, поэтому окно возвращается на вид.
+        context.app.background.bringToFront(runId);
       }
       _question = request;
       notifyListeners();
@@ -150,6 +177,12 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
       _completion.complete();
     }
   }
+
+  /// Убрать окно, оставив работу идти.
+  ///
+  /// Решение принимает ядро — команда только просит: у неё нет ни списка
+  /// фоновых работ, ни места, где его показывают.
+  void sendToBackground() => context.app.background.sendToBackground(runId);
 
   /// Прервать работу — по кнопке в окне или по Esc.
   ///

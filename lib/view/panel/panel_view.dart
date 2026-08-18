@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../state/app_scope.dart';
 import 'package:fc_api/fc_api.dart';
-import 'file_table.dart';
 import 'panel_path_header.dart';
 import 'panel_status_bar.dart';
 
@@ -61,7 +60,10 @@ class PanelView extends StatelessWidget {
                     // От рамки панели до строки заголовков: `top="80"` при
                     // рамке, начинающейся с `top="30"`.
                     SizedBox(height: metrics.panelTopPadding),
-                    Expanded(child: FileTable(panel: panel)),
+                    // Не таблица файлов, а то, чем рисуется вид содержимого
+                    // панели: результаты поиска и просмотрщики — такие же
+                    // жильцы панели, как и файлы.
+                    Expanded(child: app.viewports.builderFor(panel.contentKind)(context, panel)),
                     PanelStatusBar(panel: panel),
                   ],
                 ),

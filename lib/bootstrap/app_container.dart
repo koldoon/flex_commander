@@ -5,6 +5,8 @@ import 'package:logecom/logecom.dart';
 import '../settings/settings_store.dart';
 import '../state/app_controller.dart';
 import '../state/panel_controller.dart';
+import '../state/panel_viewport_registry.dart';
+import '../view/panel/file_table.dart';
 import '../state/theme_controller.dart';
 import 'app_runtime.dart';
 import 'registrations.dart';
@@ -96,6 +98,18 @@ class AppContainer extends DI {
     );
 
     bind<ThemeController>(to: (c) => ThemeController(registrations.themes));
+
+    bind<PanelViewports>(
+      to: (c) {
+        // Таблица файлов — вид по умолчанию: её ядро умеет всегда, остальное
+        // приносят модули.
+        final viewports = PanelViewportRegistry(files: (context, panel) => FileTable(panel: panel));
+        for (final entry in registrations.viewports.entries) {
+          viewports.register(entry.key, entry.value);
+        }
+        return viewports;
+      },
+    );
   }
 
   void _bindSettings() {
@@ -139,6 +153,7 @@ class AppContainer extends DI {
           settings: settings,
           commands: c.get<CommandRegistry>(),
           theme: c.get<ThemeController>(),
+          viewports: c.get<PanelViewports>(),
           window: c.get<WindowService>(),
           saveDelay: overrides.saveDelay ?? const Duration(seconds: 1),
         );

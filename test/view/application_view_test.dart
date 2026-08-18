@@ -1,11 +1,8 @@
-import 'dart:io';
-
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/app.dart';
 import 'package:fc_api/fc_api.dart';
-import 'package:flex_commander/settings/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
-import 'package:flex_commander/state/commands/default_commands.dart';
 import 'package:flex_commander/view/function_bar/function_bar.dart';
 import 'package:flex_commander/view/panel/file_table_row.dart';
 import 'package:flex_commander/view/panel/file_type_icon.dart';
@@ -14,7 +11,6 @@ import 'package:flex_commander/view/panel/panel_status_bar.dart';
 import 'package:flex_commander/view/panel/panel_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:path/path.dart' as p;
 
 /// Провайдер, у которого подсчёт размера не заканчивается мгновенно.
 ///
@@ -35,7 +31,6 @@ class _SlowSizeProvider extends InMemoryTreeProvider {
 
 void main() {
   late InMemoryTreeProvider provider;
-  late Directory temp;
   late AppController app;
 
   setUp(() async {
@@ -49,24 +44,9 @@ void main() {
       FakeEntry.file('/home/docs/readme.md', size: 128, modified: DateTime(2026, 3, 3)),
       FakeEntry.file('/home/docs/spec.md', size: 256, modified: DateTime(2026, 3, 4)),
     ]);
-    temp = await Directory.systemTemp.createTemp('flex_commander_view');
 
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home/docs'));
-    app = AppController(
-      left: testPanel(provider: provider, settings: settings.left),
-      right: testPanel(provider: provider, settings: settings.right),
-      commands: defaultCommandRegistry(),
-      store: SettingsStore(filePath: p.join(temp.path, 'settings.json')),
-      settings: settings,
-      // Короткая задержка: иначе отложенная запись настроек остаётся висящим
-      // таймером и тест падает на проверке незавершённых таймеров.
-      saveDelay: const Duration(milliseconds: 5),
-    );
-  });
-
-  tearDown(() async {
-    app.dispose();
-    await temp.delete(recursive: true);
+    app = (await testApp(provider: provider, modules: featureModules(), settings: settings)).app;
   });
 
   Future<void> pumpApp(WidgetTester tester) async {
