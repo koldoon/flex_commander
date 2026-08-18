@@ -39,6 +39,7 @@ dependencies:
   dicom: ^0.0.3
   path: ^1.9.1
   window_manager: ^0.5.2
+  archive: ^4.0.9
 
 dev_dependencies:
   flutter_test:

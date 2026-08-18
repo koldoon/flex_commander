@@ -459,7 +459,7 @@ class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEdito
 ///
 /// Примешиваются и к дереву, которое можно менять, и к тому, которое только
 /// читается: архив, открытый на просмотр, содержимое отдаёт, но не принимает.
-mixin InMemoryContent on InMemoryReadOnlyProvider implements FileContentProvider {
+mixin InMemoryContent on InMemoryReadOnlyProvider implements FileContentProvider, FileContentReceiver {
   /// Куда и с каким объявленным размером писал движок.
   final Map<String, int?> written = {};
 

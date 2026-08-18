@@ -19,9 +19,10 @@ import 'local_listing.dart';
 ///
 /// Реализует [NodeEditor], а не [TreeEditor]: обход, конфликты, прогресс и
 /// выбор стратегии живут в движке переноса, а здесь — примитивы, каждый над
-/// одним объектом. [FileContentProvider] — байты для того же движка: из них он
-/// строит перенос в чужой провайдер и обратно.
-class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider {
+/// одним объектом. Байты для того же движка — обе половины сразу
+/// ([FileContentProvider] и [FileContentReceiver]): локальная ФС и отдаёт
+/// содержимое, и принимает.
+class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider, FileContentReceiver {
   LocalTreeProvider({String? homePath, this.readInIsolate = true}) : homePath = homePath ?? _detectHomePath();
 
   /// Домашний каталог пользователя — сюда открываются панели, если сохранённый

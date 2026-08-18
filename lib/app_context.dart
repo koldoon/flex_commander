@@ -9,6 +9,7 @@ import 'model/settings/app_settings.dart';
 import 'model/settings/settings_store.dart';
 import 'model/tree/local/local_tree_provider.dart';
 import 'model/tree/provider_registry.dart';
+import 'model/tree/zip/zip_tree_provider.dart';
 import 'model/tree/transfer/transfer_engine.dart';
 import 'model/tree/tree_provider.dart';
 import 'state/app_controller.dart';
@@ -33,10 +34,15 @@ class AppContext extends DI {
     bind<Logger>(to: (c) => Logecom.createLogger(c.plan.length > 1 ? c.plan[c.plan.length - 2] : 'App'), dynamic: true);
 
     bind<TreeProvider>(to: (c) => provider ?? LocalTreeProvider());
-    // Реестр вложенных источников. Пока регистрировать нечего: провайдер один,
-    // и цепочка пути состоит из одной части. Появится архив — здесь встанет
-    // его фабрика, и панель научится в него заходить, ничего больше не меняя.
-    bind<ProviderRegistry>(to: (c) => ProviderRegistry(root: c.get<TreeProvider>()));
+    // Реестр вложенных источников: чем открывается то, что каталогом не
+    // является. Архив здесь — обычный провайдер, и панель не знает о нём
+    // ничего, кроме схемы.
+    bind<ProviderRegistry>(
+      to:
+          (c) =>
+              ProviderRegistry(root: c.get<TreeProvider>())
+                ..register(ZipTreeProvider.schemeName, ZipTreeProvider.open, extensions: ZipTreeProvider.extensions),
+    );
     // Движок файловых операций один на приложение: состояния у него нет, а
     // провайдеров узлы приносят с собой — в том числе разных у источника
     // и приёмника.
