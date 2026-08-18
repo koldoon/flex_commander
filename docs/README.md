@@ -160,7 +160,8 @@ lib/
       file_type.dart               FileType и его разбор
       file_attributes.dart         права доступа, флаги, executable
       tree_provider.dart           TreeProvider, TreeEditor, NodeEditor,
-                                   FileContentProvider, FilesProvider (интерфейсы)
+                                   FileContentProvider, FilesProvider (интерфейсы),
+                                   ProviderCapabilities — что провайдер умеет
       node_path.dart               разбор и сборка строк пути с учётом провайдеров
       local/
         local_tree_provider.dart   реализация поверх dart:io: чтение и примитивы
