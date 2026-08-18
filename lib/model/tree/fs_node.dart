@@ -1,6 +1,7 @@
 import '../async/async_operation.dart';
 import 'file_attributes.dart';
 import 'file_type.dart';
+import 'node_path.dart';
 import 'tree_provider.dart';
 
 /// Общий узел дерева.
@@ -18,8 +19,9 @@ abstract class FsNode {
   /// Размер в байтах или [FsNode.unknownSize], если размер неизвестен.
   int get size;
 
-  /// Текст для строки состояния, когда узел под курсором.
-  /// Полный путь строкой.
+  /// Полный путь строкой — через все провайдеры цепочки:
+  /// `fs:/home/archive.zip:zip:/inner/doc.txt`. Схема `fs` в начале не
+  /// печатается, поэтому обычный путь выглядит обычно.
   String get pathString;
 
   /// Путь от корня дерева до этого узла включительно.
@@ -61,8 +63,7 @@ abstract class AbstractFsNode implements FsNode {
   int size;
 
   @override
-  @override
-  String get pathString => provider.pathOf(this);
+  String get pathString => nodePathOf(this).toString();
 
   @override
   List<FsNode> get path {
@@ -208,6 +209,45 @@ class LinkNode extends FileNode {
   AsyncOperation<FsNode?> resolve() => provider.resolveLink(this);
 }
 
+/// Верхний узел того же провайдера — корень поддерева, которое он показывает.
+///
+/// Выше может стоять чужое дерево: провайдер архива смонтирован над файлом
+/// локальной ФС, и родитель его корня — этот самый файл.
+FsNode providerRootOf(FsNode node) {
+  var root = node;
+  while (true) {
+    final parent = root.parent;
+    if (parent == null || !identical(parent.provider, node.provider)) {
+      return root;
+    }
+    root = parent;
+  }
+}
+
+/// Узлы пути, принадлежащие тому же провайдеру, что и [node], — от его корня.
+///
+/// Путь внутри провайдера складывается только из них: имена чужого дерева,
+/// над которым он смонтирован, в него не входят.
+List<FsNode> providerPathNodes(FsNode node) {
+  final chain = node.path;
+  return chain.sublist(chain.indexOf(providerRootOf(node)));
+}
+
+/// Полный путь узла через все провайдеры цепочки.
+///
+/// Собирается снизу вверх: каждый провайдер отвечает за свою часть, а над его
+/// корнем стоит узел, к которому он примонтирован.
+NodePath nodePathOf(FsNode node) {
+  final parts = <NodePathPart>[];
+  FsNode? current = node;
+
+  while (current != null) {
+    parts.insert(0, NodePathPart(current.provider.scheme, current.provider.pathOf(current)));
+    current = providerRootOf(current).parent;
+  }
+  return NodePath(parts);
+}
+
 /// Узлы, из имён которых складывается **видимый** путь.
 ///
 /// Цель ссылки не добавляет своё имя: путь должен показывать, как пользователь
@@ -218,7 +258,7 @@ class LinkNode extends FileNode {
 List<FsNode> visiblePathNodes(FsNode node) {
   final result = <FsNode>[];
   FsNode? previous;
-  for (final current in node.path) {
+  for (final current in providerPathNodes(node)) {
     if (previous is! LinkNode) {
       result.add(current);
     }

@@ -106,7 +106,7 @@ class MakeDirectoryCommand extends AppCommand {
   String get _parentPath {
     final panel = context.panel;
     final directory = panel.directory;
-    return directory == null ? '' : panel.provider.pathOf(directory);
+    return directory?.pathString ?? '';
   }
 
   @override

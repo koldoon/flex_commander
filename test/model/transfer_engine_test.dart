@@ -326,6 +326,9 @@ class _SocketFailure implements Exception {
 /// архив, открытый на просмотр.
 class _ReadOnlyProvider implements TreeProvider {
   @override
+  String get scheme => 'ro';
+
+  @override
   String pathOf(FsNode node) => node.name;
 
   // Остальное этому тесту не нужно: движок отказывается работать раньше, чем

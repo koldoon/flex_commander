@@ -71,7 +71,7 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
     var segments = <String>[];
     FsNode? previous;
 
-    for (final current in node.path) {
+    for (final current in providerPathNodes(node)) {
       if (previous is LinkNode && segments.isNotEmpty) {
         // Имя, добавленное целью предыдущей ссылки, заменяется тем, куда эта
         // ссылка на самом деле ведёт.
