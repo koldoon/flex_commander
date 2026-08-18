@@ -4,8 +4,6 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../async/async_operation.dart';
-import '../../async/operation_request.dart';
-import '../../async/transfer_progress.dart';
 import '../file_attributes.dart';
 import '../file_type.dart';
 import '../fs_node.dart';
@@ -18,7 +16,11 @@ import 'local_listing.dart';
 /// В референсной реализации то же самое делалось запуском `ls` и `stat`, потому
 /// что в AIR не было нормального API файловой системы. Здесь есть `dart:io`,
 /// а внешние утилиты понадобятся позже — для копирования с прогрессом.
-class LocalTreeProvider implements TreeProvider, TreeEditor {
+///
+/// Реализует [NodeEditor], а не [TreeEditor]: обход, конфликты, прогресс и
+/// выбор стратегии живут в движке переноса, а здесь — примитивы, каждый над
+/// одним объектом.
+class LocalTreeProvider implements TreeProvider, NodeEditor {
   LocalTreeProvider({String? homePath, this.readInIsolate = true}) : homePath = homePath ?? _detectHomePath();
 
   /// Домашний каталог пользователя — сюда открываются панели, если сохранённый
@@ -191,120 +193,141 @@ class LocalTreeProvider implements TreeProvider, TreeEditor {
   /// возвращается дочерним для [parent] — панель показывает его там, где
   /// пользователь находится.
   @override
-  AsyncOperation<DirectoryNode> makeDirectory(DirectoryNode parent, String name) {
-    return TaskOperation<DirectoryNode>((op) async {
-      final path = p.join(physicalPathOf(parent), name);
-      if (name.isEmpty || name == '.' || name == '..' || name.contains(p.separator) || name.contains('/')) {
-        throw FsError(name, FsErrorKind.invalidName);
-      }
+  Future<DirectoryNode> createDirectory(DirectoryNode parent, String name) async {
+    final path = p.join(physicalPathOf(parent), name);
+    if (name.isEmpty || name == '.' || name == '..' || name.contains(p.separator) || name.contains('/')) {
+      throw FsError(name, FsErrorKind.invalidName);
+    }
 
-      if (await FileSystemEntity.type(path, followLinks: false) != FileSystemEntityType.notFound) {
-        throw FsError(path, FsErrorKind.alreadyExists);
-      }
-
-      try {
-        await Directory(path).create();
-      } on FileSystemException catch (error) {
-        throw fsErrorFrom(path, error);
-      }
-      op.checkCanceled();
-
-      final entry = await _describePath(path, name);
-      if (entry == null) {
-        throw FsError(path, FsErrorKind.io);
-      }
-      return nodeFromEntry(entry, parent) as DirectoryNode;
-    });
-  }
-
-  /// Удаляет объекты — по одному, с прогрессом и возможностью отмены.
-  ///
-  /// Ошибка на одном объекте не прекращает работу: операция спрашивает, что
-  /// делать (пропустить, пропустить все, отменить), и идёт дальше. Если вопрос
-  /// никто не слушает, применяется вариант по умолчанию — «пропустить».
-  @override
-  AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true}) {
-    return TaskOperation<void>((op) async {
-      // Путь самого объекта: удалять нужно ссылку, а не её цель.
-      final sources = [for (final node in nodes) entityPathOf(node)];
-      final progress = TransferProgress(op, 'Deleting');
-
-      // Считаем рядом с работой, а не перед ней: см. TransferProgress.
-      unawaited(_countSources(sources, progress));
-
-      var skipAll = false;
-
-      try {
-        for (var i = 0; i < nodes.length; i++) {
-          op.checkCanceled();
-
-          final node = nodes[i];
-          final path = sources[i];
-          progress.startSource(node.name);
-
-          try {
-            if (toTrash) {
-              // Корзина — это переименование: поддерево уезжает одним действием,
-              // поштучно его объекты не проходят.
-              await _moveToTrash(path);
-              progress.sourceDoneWholly(i);
-            } else {
-              await _deleteTree(path, op, progress);
-            }
-          } on FsError catch (error) {
-            progress.sourceDoneWholly(i);
-            if (skipAll) {
-              continue;
-            }
-
-            final answer = await op.ask(
-              OperationRequest(
-                message: error.message,
-                options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
-                defaultOption: OperationOption.skip,
-              ),
-            );
-
-            if (answer == OperationOption.cancel) {
-              throw const OperationCanceled();
-            }
-            if (answer == OperationOption.skipAll) {
-              skipAll = true;
-            }
-          }
-        }
-      } finally {
-        progress.stop();
-      }
-
-      progress.finish();
-    });
-  }
-
-  /// Удаляет объект вместе со всем, что под ним, отмечая каждый шаг.
-  ///
-  /// Каталог обходится сам, а не отдаётся системе целиком: иначе об удалении
-  /// тысячи файлов было бы известно только «начали» и «кончили», а прервать его
-  /// было бы негде. Содержимое каталога сначала вычитывается целиком: удалять
-  /// объекты, продолжая читать тот же каталог, — верный способ что-нибудь
-  /// пропустить.
-  Future<void> _deleteTree(String path, TaskOperation<void> op, TransferProgress progress) async {
-    op.checkCanceled();
+    if (await FileSystemEntity.type(path, followLinks: false) != FileSystemEntityType.notFound) {
+      throw FsError(path, FsErrorKind.alreadyExists);
+    }
 
     try {
-      final entity = _entityAt(path);
-      if (entity is Directory) {
-        for (final child in await entity.list(followLinks: false).toList()) {
-          await _deleteTree(child.path, op, progress);
-        }
-      }
+      await Directory(path).create();
+    } on FileSystemException catch (error) {
+      throw fsErrorFrom(path, error);
+    }
 
-      progress.advance(p.basename(path));
-      await entity.delete();
+    final entry = await _describePath(path, name);
+    if (entry == null) {
+      throw FsError(path, FsErrorKind.io);
+    }
+    return nodeFromEntry(entry, parent) as DirectoryNode;
+  }
+
+  /// Содержимое каталога для обхода движком.
+  ///
+  /// Не [getDirectoryListing]: тот пишет результат в [DirectoryNode.nodes] и
+  /// добавляет «..» — обход приёмника подменил бы то, что показывает панель.
+  /// Читается всегда в этом же изоляте: на глубоком дереве изолят на каждый
+  /// каталог стоил бы дороже, чем сами `stat`.
+  @override
+  Future<List<FsNode>> listChildren(DirectoryNode dir) async {
+    final entries = await readDirectorySync(physicalPathOf(dir), includeHidden: true);
+    return [for (final entry in entries) nodeFromEntry(entry, dir)];
+  }
+
+  @override
+  Future<FsNode?> lookup(DirectoryNode parent, String name) async {
+    final path = p.join(physicalPathOf(parent), name);
+    final entry = await _describePath(path, name);
+    return entry == null ? null : nodeFromEntry(entry, parent);
+  }
+
+  /// Копия файла или ссылки. Ссылка копируется как ссылка: то, куда она ведёт,
+  /// остаётся на месте.
+  ///
+  /// Каталоги создаёт и обходит движок — ему нужен прогресс по объектам,
+  /// поэтому здесь на каталог возвращается false.
+  @override
+  Future<bool> copyEntry(FsNode node, DirectoryNode destination, String name) async {
+    final source = entityPathOf(node);
+    final target = p.join(physicalPathOf(destination), name);
+
+    try {
+      switch (FileSystemEntity.typeSync(source, followLinks: false)) {
+        case FileSystemEntityType.link:
+          await Link(target).create(await Link(source).target());
+        case FileSystemEntityType.directory:
+          return false;
+        default:
+          await File(source).copy(target);
+      }
+    } on FileSystemException catch (error) {
+      throw fsErrorFrom(source, error);
+    }
+    return true;
+  }
+
+  /// Переименование — мгновенный перенос. Между дисками так нельзя: false,
+  /// и движок скопирует объект и удалит исходный.
+  @override
+  Future<bool> renameEntry(FsNode node, DirectoryNode destination, String name) async {
+    final source = entityPathOf(node);
+    final target = p.join(physicalPathOf(destination), name);
+
+    try {
+      await _entityAt(source).rename(target);
+      return true;
+    } on FileSystemException catch (error) {
+      if (_isCrossDevice(error)) {
+        return false;
+      }
+      throw fsErrorFrom(source, error);
+    }
+  }
+
+  /// Удаляет один объект: каталог к этому моменту пуст.
+  @override
+  Future<void> deleteEntry(FsNode node) async {
+    // Путь самого объекта: удалять нужно ссылку, а не её цель.
+    final path = entityPathOf(node);
+    try {
+      await _entityAt(path).delete();
     } on FileSystemException catch (error) {
       throw fsErrorFrom(path, error);
     }
   }
+
+  @override
+  Future<bool> deleteTree(FsNode node) async {
+    await _deletePermanently(entityPathOf(node));
+    return true;
+  }
+
+  @override
+  Future<bool> trashEntry(FsNode node) async {
+    await _moveToTrash(entityPathOf(node));
+    return true;
+  }
+
+  /// Обход поддерева ради счётчика: без построения узлов и без `stat` — это
+  /// оценка, а не работа, и стоить она должна как можно меньше.
+  @override
+  Future<void> countEntries(FsNode node, void Function() onEntry) async {
+    final path = entityPathOf(node);
+    onEntry();
+
+    try {
+      if (FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.directory) {
+        return;
+      }
+      await for (final _ in Directory(path).list(recursive: true, followLinks: false)) {
+        onEntry();
+      }
+    } on FileSystemException {
+      // Каталог мог исчезнуть или оказаться закрытым — считаем дальше.
+    }
+  }
+
+  @override
+  bool isSameEntity(FsNode node, DirectoryNode destination) =>
+      p.equals(entityPathOf(node), p.join(physicalPathOf(destination), node.name));
+
+  @override
+  bool isInsideSource(FsNode node, DirectoryNode destination) =>
+      p.isWithin(p.normalize(entityPathOf(node)), p.normalize(p.join(physicalPathOf(destination), node.name)));
 
   /// Переносит объект в корзину пользователя.
   ///
@@ -400,213 +423,9 @@ class LocalTreeProvider implements TreeProvider, TreeEditor {
     });
   }
 
-  @override
-  AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination) =>
-      _transfer(nodes, destination, move: false);
-
-  @override
-  AsyncOperation<void> move(List<FsNode> nodes, DirectoryNode destination) => _transfer(nodes, destination, move: true);
-
-  /// Копирование и перемещение — одна работа с одним отличием в конце:
-  /// перемещение убирает исходный объект.
-  ///
-  /// Существующий объект не перезаписывается молча: операция спрашивает, что
-  /// делать, и запоминает ответы «…все». Ошибка на одном объекте не прекращает
-  /// работу — вопрос задаётся и по ней.
-  AsyncOperation<void> _transfer(List<FsNode> nodes, DirectoryNode destination, {required bool move}) {
-    return TaskOperation<void>((op) async {
-      final targetDir = physicalPathOf(destination);
-      final sources = [for (final node in nodes) entityPathOf(node)];
-      final progress = TransferProgress(op, move ? 'Moving' : 'Copying');
-      var overwriteAll = false;
-      var skipAll = false;
-
-      // Подсчёт идёт рядом с работой, а не перед ней: обойти большое дерево
-      // стоит почти столько же, сколько его скопировать, и стоять всё это время
-      // с пустым окном незачем. Пока счёт не закончен, общее число — нижняя
-      // оценка, и окно показывает это отдельно.
-      unawaited(_countSources(sources, progress));
-
-      try {
-        for (var i = 0; i < nodes.length; i++) {
-          op.checkCanceled();
-
-          final node = nodes[i];
-          final source = sources[i];
-          final target = p.join(targetDir, node.name);
-          progress.startSource(node.name);
-
-          try {
-            if (p.equals(source, target)) {
-              throw FsError(target, FsErrorKind.alreadyExists);
-            }
-            if (_isInside(target, source)) {
-              // Копирование каталога в самого себя не закончилось бы никогда.
-              throw FsError(source, FsErrorKind.targetInsideSource);
-            }
-
-            if (await FileSystemEntity.type(target, followLinks: false) != FileSystemEntityType.notFound) {
-              if (skipAll) {
-                progress.sourceDoneWholly(i);
-                continue;
-              }
-              if (!overwriteAll) {
-                final answer = await op.ask(
-                  OperationRequest(
-                    message: 'Already exists: $target',
-                    options: const [
-                      OperationOption.overwrite,
-                      OperationOption.overwriteAll,
-                      OperationOption.skip,
-                      OperationOption.skipAll,
-                      OperationOption.cancel,
-                    ],
-                    // Молча затирать чужие файлы нельзя.
-                    defaultOption: OperationOption.skip,
-                  ),
-                );
-
-                if (answer == OperationOption.cancel) {
-                  throw const OperationCanceled();
-                }
-                if (answer == OperationOption.skipAll) {
-                  skipAll = true;
-                  progress.sourceDoneWholly(i);
-                  continue;
-                }
-                if (answer == OperationOption.skip) {
-                  progress.sourceDoneWholly(i);
-                  continue;
-                }
-                if (answer == OperationOption.overwriteAll) {
-                  overwriteAll = true;
-                }
-              }
-              await _deletePermanently(target);
-            }
-
-            if (move) {
-              // Переименование переносит всё поддерево одним действием —
-              // поштучно объекты в нём не проходили.
-              if (await _moveEntity(source, target, op, progress)) {
-                progress.sourceDoneWholly(i);
-              }
-            } else {
-              await _copyEntity(source, target, op, progress);
-            }
-          } on FsError catch (error) {
-            progress.sourceDoneWholly(i);
-            if (skipAll) {
-              continue;
-            }
-            final answer = await op.ask(
-              OperationRequest(
-                message: error.message,
-                options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
-                defaultOption: OperationOption.skip,
-              ),
-            );
-            if (answer == OperationOption.cancel) {
-              throw const OperationCanceled();
-            }
-            if (answer == OperationOption.skipAll) {
-              skipAll = true;
-            }
-          }
-        }
-      } finally {
-        // Считать дальше незачем: работа кончилась — успехом, ошибкой или отменой.
-        progress.stop();
-      }
-
-      progress.finish();
-    });
-  }
-
-  /// Фоновый подсчёт объектов задания.
-  ///
-  /// Ошибка обхода не прекращает работу: это оценка, а не сама операция, и
-  /// недосчитанный каталог хуже, чем несделанное копирование.
-  Future<void> _countSources(List<String> sources, TransferProgress progress) async {
-    for (var i = 0; i < sources.length; i++) {
-      if (progress.stopped) {
-        return;
-      }
-
-      var counted = 0;
-      try {
-        counted = 1;
-        progress.countOne();
-
-        if (FileSystemEntity.typeSync(sources[i], followLinks: false) == FileSystemEntityType.directory) {
-          await for (final _ in Directory(sources[i]).list(recursive: true, followLinks: false)) {
-            if (progress.stopped) {
-              return;
-            }
-            counted++;
-            progress.countOne();
-          }
-        }
-      } on FileSystemException {
-        // Каталог мог исчезнуть или оказаться закрытым — считаем дальше.
-      }
-
-      progress.sourceCounted(i, counted);
-    }
-
-    progress.countingFinished();
-  }
-
-  /// Перенос: сначала переименование — оно мгновенное. Между дисками так
-  /// нельзя, и тогда объект копируется и удаляется.
-  ///
-  /// Возвращает true, если обошлось переименованием.
-  Future<bool> _moveEntity(String source, String target, TaskOperation<void> op, TransferProgress progress) async {
-    try {
-      await _entityAt(source).rename(target);
-      return true;
-    } on FileSystemException catch (error) {
-      if (!_isCrossDevice(error)) {
-        throw fsErrorFrom(source, error);
-      }
-    }
-
-    await _copyEntity(source, target, op, progress);
-    await _deletePermanently(source);
-    return false;
-  }
-
-  /// Копирование объекта любого вида. Ссылка копируется как ссылка: то, куда
-  /// она ведёт, остаётся на месте.
-  Future<void> _copyEntity(String source, String target, TaskOperation<void> op, TransferProgress progress) async {
-    op.checkCanceled();
-    progress.advance(p.basename(source));
-
-    try {
-      switch (FileSystemEntity.typeSync(source, followLinks: false)) {
-        case FileSystemEntityType.link:
-          await Link(target).create(await Link(source).target());
-        case FileSystemEntityType.directory:
-          await Directory(target).create(recursive: true);
-          await for (final entity in Directory(source).list(followLinks: false)) {
-            await _copyEntity(entity.path, p.join(target, p.basename(entity.path)), op, progress);
-          }
-        default:
-          await File(source).copy(target);
-      }
-    } on FileSystemException catch (error) {
-      throw fsErrorFrom(source, error);
-    }
-  }
-
-  /// Лежит ли [path] внутри [directory].
-  bool _isInside(String path, String directory) {
-    final normalized = p.normalize(directory);
-    return p.isWithin(normalized, p.normalize(path));
-  }
-
   /// Ошибка «перенос между разными дисками» — единственный случай, когда
-  /// переименование заменяется копированием с удалением.
+  /// переименование отвечает «не умею»: дальше движок скопирует объект
+  /// и удалит исходный.
   bool _isCrossDevice(FileSystemException error) {
     final code = error.osError?.errorCode;
     return Platform.isWindows ? code == 17 : code == 18; // ERROR_NOT_SAME_DEVICE / EXDEV

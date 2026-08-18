@@ -1,6 +1,4 @@
 import 'package:flex_commander/model/async/async_operation.dart';
-import 'package:flex_commander/model/async/operation_request.dart';
-import 'package:flex_commander/model/async/transfer_progress.dart';
 import 'package:flex_commander/model/tree/file_attributes.dart';
 import 'package:flex_commander/model/tree/file_type.dart';
 import 'package:flex_commander/model/tree/fs_node.dart';
@@ -30,7 +28,11 @@ class FakeEntry {
 /// Узлы создаются заново на каждое чтение — как и в [LocalTreeProvider],
 /// поэтому тесты контроллеров честно проверяют перенос курсора и пометки
 /// по именам, а не по совпадению экземпляров.
-class InMemoryTreeProvider implements TreeProvider, TreeEditor {
+///
+/// Реализует [NodeEditor] — примитивы, и только их: копирование и удаление
+/// выполняет тот же `TreeTransferEngine`, что и в приложении, поэтому фейку
+/// больше не нужно повторять его механику (и незаметно расходиться с ней).
+class InMemoryTreeProvider implements TreeProvider, NodeEditor {
   InMemoryTreeProvider([List<FakeEntry> entries = const []]) {
     for (final entry in entries) {
       add(entry);
@@ -41,6 +43,17 @@ class InMemoryTreeProvider implements TreeProvider, TreeEditor {
 
   /// Каталоги, чтение которых заканчивается ошибкой.
   final Map<String, FsError> denied = {};
+
+  /// Умеет ли провайдер переименовывать и есть ли у него корзина: так тест
+  /// заставляет движок пойти запасной стратегией.
+  bool renames = true;
+  bool hasTrash = true;
+
+  /// Что и какой стратегией сделал движок — по путям объектов.
+  final List<String> renamed = [];
+  final List<String> copied = [];
+  final List<String> deleted = [];
+  final List<String> trashed = [];
 
   void add(FakeEntry entry) {
     _entries[p.normalize(entry.path)] = entry;
@@ -209,130 +222,125 @@ class InMemoryTreeProvider implements TreeProvider, TreeEditor {
   }
 
   @override
-  AsyncOperation<DirectoryNode> makeDirectory(DirectoryNode parent, String name) {
-    return TaskOperation<DirectoryNode>((op) async {
-      final path = p.join(physicalPathOf(parent), name);
-      if (name.isEmpty || name.contains('/')) {
-        throw FsError(name, FsErrorKind.invalidName);
-      }
-      if (_entries.containsKey(p.normalize(path))) {
-        throw FsError(path, FsErrorKind.alreadyExists);
-      }
+  Future<DirectoryNode> createDirectory(DirectoryNode parent, String name) async {
+    final path = p.join(physicalPathOf(parent), name);
+    if (name.isEmpty || name.contains('/')) {
+      throw FsError(name, FsErrorKind.invalidName);
+    }
+    if (_entries.containsKey(p.normalize(path))) {
+      throw FsError(path, FsErrorKind.alreadyExists);
+    }
 
-      add(FakeEntry.directory(path));
-      return _nodeFrom(_entries[p.normalize(path)]!, parent) as DirectoryNode;
-    });
+    add(FakeEntry.directory(path));
+    return _nodeFrom(_entries[p.normalize(path)]!, parent) as DirectoryNode;
+  }
+
+  /// Содержимое каталога для движка: со скрытыми, без «..» и без записи
+  /// в [DirectoryNode.nodes] — обход не должен трогать то, что видит панель.
+  @override
+  Future<List<FsNode>> listChildren(DirectoryNode dir) async {
+    final path = physicalPathOf(dir);
+    final children =
+        _entries.values.where((e) => p.dirname(e.path) == path && e.path != path).toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
+    return [for (final entry in children) _nodeFrom(entry, dir)];
   }
 
   @override
-  AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination) =>
-      _transfer(nodes, destination, move: false);
+  Future<FsNode?> lookup(DirectoryNode parent, String name) async {
+    final entry = _entries[p.normalize(p.join(physicalPathOf(parent), name))];
+    return entry == null ? null : _nodeFrom(entry, parent);
+  }
+
+  /// Копия объекта: файлы и ссылки, каталог создаёт и обходит движок.
+  @override
+  Future<bool> copyEntry(FsNode node, DirectoryNode destination, String name) async {
+    final source = p.normalize(physicalPathOf(node));
+    final entry = _entries[source];
+    if (entry == null) {
+      throw FsError(source, FsErrorKind.notFound);
+    }
+    if (entry.type == FileType.directory) {
+      return false;
+    }
+
+    add(_cloneAt(entry, p.normalize(p.join(physicalPathOf(destination), name))));
+    copied.add(source);
+    return true;
+  }
+
+  /// Переименование. В памяти оно возможно всегда: «другого диска» здесь нет.
+  @override
+  Future<bool> renameEntry(FsNode node, DirectoryNode destination, String name) async {
+    final source = p.normalize(physicalPathOf(node));
+    if (!_entries.containsKey(source)) {
+      throw FsError(source, FsErrorKind.notFound);
+    }
+    if (!renames) {
+      // Способ проверить запасной путь движка: копирование с удалением.
+      return false;
+    }
+
+    final target = p.normalize(p.join(physicalPathOf(destination), name));
+    for (final key in _subtreeOf(source)) {
+      final entry = _entries.remove(key)!;
+      add(_cloneAt(entry, p.normalize(p.join(target, p.relative(key, from: source)))));
+    }
+    renamed.add(source);
+    return true;
+  }
 
   @override
-  AsyncOperation<void> move(List<FsNode> nodes, DirectoryNode destination) => _transfer(nodes, destination, move: true);
-
-  /// Копирование и перенос в памяти: те же вопросы и тот же порядок, что и в
-  /// настоящем провайдере, — иначе тесты команд проверяли бы не то поведение.
-  AsyncOperation<void> _transfer(List<FsNode> nodes, DirectoryNode destination, {required bool move}) {
-    return TaskOperation<void>((op) async {
-      final targetDir = p.normalize(physicalPathOf(destination));
-      final progress = TransferProgress(op, move ? 'Moving' : 'Copying');
-      var overwriteAll = false;
-      var skipAll = false;
-
-      final sources = [for (final node in nodes) p.normalize(physicalPathOf(node))];
-      _count(sources, progress);
-
-      for (var i = 0; i < nodes.length; i++) {
-        op.checkCanceled();
-
-        final node = nodes[i];
-        final source = sources[i];
-        final target = p.normalize(p.join(targetDir, node.name));
-        progress.startSource(node.name);
-
-        if (!_entries.containsKey(source)) {
-          progress.sourceDoneWholly(i);
-          if (skipAll) {
-            continue;
-          }
-          final answer = await _askAboutFailure(op, FsError(source, FsErrorKind.notFound).message);
-          if (answer == OperationOption.skipAll) {
-            skipAll = true;
-          }
-          continue;
-        }
-
-        if (_entries.containsKey(target)) {
-          if (skipAll) {
-            progress.sourceDoneWholly(i);
-            continue;
-          }
-          if (!overwriteAll) {
-            final answer = await op.ask(
-              OperationRequest(
-                message: 'Already exists: $target',
-                options: const [
-                  OperationOption.overwrite,
-                  OperationOption.overwriteAll,
-                  OperationOption.skip,
-                  OperationOption.skipAll,
-                  OperationOption.cancel,
-                ],
-                defaultOption: OperationOption.skip,
-              ),
-            );
-            if (answer == OperationOption.cancel) {
-              throw const OperationCanceled();
-            }
-            if (answer == OperationOption.skipAll) {
-              skipAll = true;
-              progress.sourceDoneWholly(i);
-              continue;
-            }
-            if (answer == OperationOption.skip) {
-              progress.sourceDoneWholly(i);
-              continue;
-            }
-            if (answer == OperationOption.overwriteAll) {
-              overwriteAll = true;
-            }
-          }
-          _removeTree(target);
-        }
-
-        _copyTree(source, target, progress);
-        if (move) {
-          _removeTree(source);
-        }
-      }
-
-      progress.stop();
-      progress.finish();
-    });
+  Future<void> deleteEntry(FsNode node) async {
+    final path = p.normalize(physicalPathOf(node));
+    if (!_entries.containsKey(path)) {
+      throw FsError(path, FsErrorKind.notFound);
+    }
+    _entries.remove(path);
+    deleted.add(path);
   }
 
-  Future<OperationOption> _askAboutFailure(TaskOperation<void> op, String message) {
-    return op.ask(
-      OperationRequest(
-        message: message,
-        options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
-        defaultOption: OperationOption.skip,
-      ),
-    );
+  @override
+  Future<bool> deleteTree(FsNode node) async {
+    final path = p.normalize(physicalPathOf(node));
+    if (!_entries.containsKey(path)) {
+      throw FsError(path, FsErrorKind.notFound);
+    }
+    _removeTree(path);
+    return true;
   }
 
-  /// Копирует объект вместе со всем, что под ним.
-  void _copyTree(String source, String target, TransferProgress progress) {
-    for (final entry in _entries.values.toList()) {
-      final path = p.normalize(entry.path);
-      if (path != source && !path.startsWith('$source/')) {
-        continue;
-      }
-      progress.advance(entry.name);
-      add(_cloneAt(entry, p.normalize(p.join(target, p.relative(path, from: source)))));
+  /// Корзины у фейка нет: движок удалит объект обходом.
+  @override
+  Future<bool> trashEntry(FsNode node) async {
+    if (!hasTrash) {
+      return false;
+    }
+    final path = p.normalize(physicalPathOf(node));
+    if (!_entries.containsKey(path)) {
+      throw FsError(path, FsErrorKind.notFound);
+    }
+    _removeTree(path);
+    trashed.add(path);
+    return true;
+  }
+
+  /// Подсчёт объектов задания. В памяти он мгновенный, но проходит теми же
+  /// шагами, что и на диске: счётчики в окне команды должны заполняться так же.
+  @override
+  Future<void> countEntries(FsNode node, void Function() onEntry) async {
+    for (final _ in _subtreeOf(p.normalize(physicalPathOf(node)))) {
+      onEntry();
     }
   }
+
+  @override
+  bool isSameEntity(FsNode node, DirectoryNode destination) =>
+      p.equals(physicalPathOf(node), p.join(physicalPathOf(destination), node.name));
+
+  @override
+  bool isInsideSource(FsNode node, DirectoryNode destination) =>
+      p.isWithin(p.normalize(physicalPathOf(node)), p.normalize(p.join(physicalPathOf(destination), node.name)));
 
   void _removeTree(String path) {
     _entries.removeWhere((key, _) => key == path || key.startsWith('$path/'));
@@ -343,69 +351,6 @@ class InMemoryTreeProvider implements TreeProvider, TreeEditor {
     FileType.symbolicLink => FakeEntry.link(path, entry.linkTarget ?? ''),
     _ => FakeEntry.file(path, size: entry.size, modified: entry.modified),
   };
-
-  /// Удаление в памяти: повторяет поведение настоящего провайдера — пропущенный
-  /// объект не прекращает работу, вопрос задаётся тем же способом, счётчики
-  /// заполняются так же.
-  @override
-  AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true}) {
-    return TaskOperation<void>((op) async {
-      final sources = [for (final node in nodes) p.normalize(physicalPathOf(node))];
-      final progress = TransferProgress(op, 'Deleting');
-      _count(sources, progress);
-
-      var skipAll = false;
-
-      for (var i = 0; i < nodes.length; i++) {
-        op.checkCanceled();
-        final path = sources[i];
-        progress.startSource(nodes[i].name);
-
-        if (_entries.containsKey(path)) {
-          if (toTrash) {
-            // Корзина — это переименование: поддерево уезжает одним действием.
-            progress.sourceDoneWholly(i);
-          } else {
-            for (final key in _subtreeOf(path)) {
-              progress.advance(p.basename(key));
-            }
-          }
-          // Каталог удаляется вместе с содержимым.
-          _removeTree(path);
-          continue;
-        }
-
-        progress.sourceDoneWholly(i);
-        if (skipAll) {
-          continue;
-        }
-        final answer = await _askAboutFailure(op, FsError(path, FsErrorKind.notFound).message);
-        if (answer == OperationOption.cancel) {
-          throw const OperationCanceled();
-        }
-        if (answer == OperationOption.skipAll) {
-          skipAll = true;
-        }
-      }
-
-      progress.stop();
-      progress.finish();
-    });
-  }
-
-  /// Подсчёт объектов задания. В памяти он мгновенный, но проходит теми же
-  /// шагами, что и на диске: счётчики в окне команды должны заполняться так же.
-  void _count(List<String> sources, TransferProgress progress) {
-    for (var i = 0; i < sources.length; i++) {
-      var counted = 0;
-      for (final _ in _subtreeOf(sources[i])) {
-        counted++;
-        progress.countOne();
-      }
-      progress.sourceCounted(i, counted);
-    }
-    progress.countingFinished();
-  }
 
   /// Пути объекта и всего, что под ним.
   List<String> _subtreeOf(String path) => [
