@@ -1,15 +1,11 @@
-import 'dart:io';
-
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/app.dart';
 import 'package:fc_api/fc_api.dart';
-import 'package:flex_commander/settings/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
-import 'package:flex_commander/state/commands/default_commands.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:path/path.dart' as p;
 
 /// Провайдер, у которого копирование можно замедлить.
 ///
@@ -34,7 +30,6 @@ class _SlowCopyProvider extends InMemoryTreeProvider {
 /// от нажатия клавиши до изменившейся панели.
 void main() {
   late _SlowCopyProvider provider;
-  late Directory temp;
   late AppController app;
 
   setUp(() async {
@@ -45,22 +40,9 @@ void main() {
       FakeEntry.file('/home/report.xlsx', size: 20),
       FakeEntry.file('/home/a-very-long-name-that-would-have-stretched-the-dialog.txt', size: 30),
     ]);
-    temp = await Directory.systemTemp.createTemp('flex_commander_file_cmd');
 
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
-    app = AppController(
-      left: testPanel(provider: provider, settings: settings.left),
-      right: testPanel(provider: provider, settings: settings.right),
-      store: SettingsStore(filePath: p.join(temp.path, 'settings.json')),
-      settings: settings,
-      commands: defaultCommandRegistry(),
-      saveDelay: const Duration(milliseconds: 5),
-    );
-  });
-
-  tearDown(() async {
-    app.dispose();
-    await temp.delete(recursive: true);
+    app = (await testApp(provider: provider, modules: featureModules(), settings: settings)).app;
   });
 
   /// Поле, в которое вводят. В окнах есть и выключенные поля — «откуда»

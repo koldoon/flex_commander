@@ -1,46 +1,29 @@
-import 'dart:io';
-
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
-import 'package:flex_commander/bootstrap/bootstrap.dart';
-import 'package:flex_commander/modules/app_shell.dart';
-import 'package:flex_commander/modules/legacy_commands.dart';
-import 'package:flex_commander/modules/zip/zip_module.dart';
-import 'package:flex_commander/settings/settings_store.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:path/path.dart' as p;
 
 /// Привязки клавиш собираются из модулей, и порядок модулей задаёт приоритет.
 ///
 /// Проверяется собранное приложение целиком: пока набор команд лежал в одном
 /// списке, за этим следил сам список, — теперь следить нужно за сборкой.
 void main() {
-  late Directory temp;
   late AppRuntime runtime;
 
   setUp(() async {
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
-    temp = await Directory.systemTemp.createTemp('flex_commander_bindings');
 
     final provider = InMemoryTreeProvider([FakeEntry.directory('/home'), FakeEntry.file('/home/notes.txt', size: 10)]);
 
-    runtime = await initModules(
-      [const AppShell(), const LegacyCommands(), const ZipArchiver()],
-      overrides: AppOverrides(
-        provider: provider,
-        store: SettingsStore(filePath: p.join(temp.path, 'settings.json'), fallbackPath: '/home'),
-        window: FakeWindowService(),
-      ),
-    );
+    // Приложение собирается тем же списком модулей, что и в настоящем запуске:
+    // проверять привязки на другом наборе бессмысленно.
+    runtime = await testApp(provider: provider, modules: featureModules());
   });
 
-  tearDown(() async {
-    debugDefaultTargetPlatformOverride = null;
-    await runtime.dispose();
-    await temp.delete(recursive: true);
-  });
+  // Приложение и временный каталог закрывает сам testApp.
+  tearDown(() => debugDefaultTargetPlatformOverride = null);
 
   test('каждая привязка указывает на установленную команду', () {
     final ids = runtime.commands.installed.map((command) => command.id).toSet();

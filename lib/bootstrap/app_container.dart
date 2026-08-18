@@ -140,6 +140,7 @@ class AppContainer extends DI {
           commands: c.get<CommandRegistry>(),
           theme: c.get<ThemeController>(),
           window: c.get<WindowService>(),
+          saveDelay: overrides.saveDelay ?? const Duration(seconds: 1),
         );
       },
     );

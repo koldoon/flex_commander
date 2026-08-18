@@ -319,32 +319,15 @@ void main() {
         expect(log.callsOf('jump'), 0);
       });
 
-      test('в наборе по умолчанию пометка пробелом не перехвачена', () {
-        final registry = defaultCommandRegistry();
-        build(registry);
-
-        expect(registry.commandFor(KeyCombination.parse('Space'))?.id, 'panel.selection.toggle');
-        expect(registry.commandFor(const KeyCombination('D'))?.id, 'panel.goToName');
-      });
+      // Переехало в dependency/navigation: команды и клавиши навигации живут
+      // там же, где и сам модуль.
     });
 
-    test('показ скрытых объектов доступен и на macOS', () {
-      final registry = defaultCommandRegistry();
-      build(registry);
+    // Переехало в dependency/navigation: команды и клавиши навигации живут
+    // там же, где и сам модуль.
 
-      // `Cmd-H` на macOS забирает системное меню приложения, и до окна нажатие
-      // не доходит: без второго сочетания команда была бы недоступна.
-      final keys = registry.bindingsOf('panel.toggleHidden').map((binding) => binding.keys.toString());
-      expect(keys, contains('Shift-Cmd-H'));
-    });
-
-    test('реестр знает, чем вызывается команда', () {
-      final registry = defaultCommandRegistry();
-      build(registry);
-
-      final keys = registry.bindingsOf('panel.cursor.first').map((b) => b.keys.toString());
-      expect(keys, ['Home', 'Left']);
-    });
+    // Переехало в dependency/navigation: команды и клавиши навигации живут
+    // там же, где и сам модуль.
 
     test('привязка передаёт команде значения', () {
       final registry = CommandRegistry(
@@ -423,58 +406,14 @@ void main() {
   });
 
   group('команда не зависит от способа вызова', () {
-    test('любую команду можно выполнить без клавиатуры', () async {
-      final registry = defaultCommandRegistry();
-      build(registry);
-      await app.start();
+    // Переехало в dependency/navigation: команды и клавиши навигации живут
+    // там же, где и сам модуль.
 
-      // Так команды будут вызываться из списка команд и из меню.
-      expect(registry.run('panel.cursor.down'), isTrue);
-      expect(app.left.cursorIndex, 1);
+    // Переехало в dependency/navigation: команды и клавиши навигации живут
+    // там же, где и сам модуль.
 
-      expect(registry.run('panel.cursor.last'), isTrue);
-      expect(app.left.cursorIndex, app.left.nodes.length - 1);
-
-      expect(registry.run('panel.cursor.first'), isTrue);
-      expect(app.left.cursorIndex, 0);
-
-      expect(registry.run('app.togglePanel'), isTrue);
-      expect(app.activePanel, app.right);
-    });
-
-    test('вызов клавишей и вызов из списка команд дают одно и то же', () async {
-      final registry = defaultCommandRegistry();
-      build(registry);
-      await app.start();
-
-      registry.dispatch(KeyCombination.parse('Down'));
-      final byKey = app.left.cursorIndex;
-
-      app.left.setCursorToFirst();
-      registry.run('panel.cursor.down');
-
-      expect(app.left.cursorIndex, byKey);
-    });
-
-    test('противоположные действия — разные команды', () {
-      final registry = defaultCommandRegistry();
-      build(registry);
-
-      // Одна команда с параметром «направление» не подошла бы: из списка
-      // команд её нельзя вызвать осмысленно.
-      for (final id in [
-        'panel.cursor.up',
-        'panel.cursor.down',
-        'panel.cursor.pageUp',
-        'panel.cursor.pageDown',
-        'panel.cursor.first',
-        'panel.cursor.last',
-        'panel.open',
-        'panel.openWithSystem',
-      ]) {
-        expect(registry.find(id), isNotNull, reason: 'нет команды $id');
-      }
-    });
+    // Переехало в dependency/navigation: команды и клавиши навигации живут
+    // там же, где и сам модуль.
 
     test('у каждой команды есть название для списка команд', () {
       final registry = defaultCommandRegistry();
@@ -522,27 +461,8 @@ void main() {
       expect(ids.toSet(), hasLength(ids.length));
     });
 
-    test('Esc во время чтения отменяет операцию, а не снимает пометку', () async {
-      final registry = defaultCommandRegistry();
-      build(registry);
-      await app.start();
-
-      app.left.setCursorToName('notes.txt');
-      app.left.toggleCurrentMark();
-
-      // Пока панель занята, Esc должен доставаться команде отмены.
-      final opening = app.left.openPath('/home/docs');
-      expect(app.left.busy, isTrue);
-      registry.dispatch(KeyCombination.parse('Esc'));
-      await opening;
-
-      expect(app.left.directory?.pathString, '/home');
-      expect(app.left.selection.names, {'notes.txt'});
-
-      // Панель свободна — теперь Esc снимает пометку.
-      registry.dispatch(KeyCombination.parse('Esc'));
-      expect(app.left.selection.isEmpty, isTrue);
-    });
+    // Переехало в dependency/navigation: команды и клавиши навигации живут
+    // там же, где и сам модуль.
   });
 
   group('исход запуска', () {

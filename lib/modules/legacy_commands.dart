@@ -19,7 +19,6 @@ class LegacyCommands implements FcModule {
   @override
   void install(FcRegistrar registrar) {
     for (final factory in defaultCommands(
-      opener: (path) => registrar.services.resolve<SystemOpener>()(path),
       // Справка показывает содержимое реестра, а реестра во время объявления
       // ещё нет: команда получает не его, а способ его спросить.
       registry: () => registrar.services.resolve<CommandRegistry>(),

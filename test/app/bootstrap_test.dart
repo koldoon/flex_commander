@@ -4,9 +4,8 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/bootstrap/bootstrap.dart';
+import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/modules/app_shell.dart';
-import 'package:flex_commander/modules/legacy_commands.dart';
-import 'package:flex_commander/modules/zip/zip_module.dart';
 import 'package:flex_commander/settings/settings_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -138,9 +137,10 @@ void main() {
   /// Приложение целиком, но на подставных службах.
   Future<AppRuntime> build([List<FcModule> extra = const []]) async {
     final runtime = await initModules([
-      const AppShell(),
-      const LegacyCommands(),
-      const ZipArchiver(),
+      // Платформенное подставное: настоящий модуль локальной ФС открывал бы
+      // файлы системой прямо из теста.
+      const TestPlatform(),
+      ...featureModules(),
       ...extra,
     ], overrides: AppOverrides(provider: provider, store: store, window: window));
     addTearDown(runtime.dispose);
@@ -161,7 +161,7 @@ void main() {
     test('без корневого источника сборка не начинается', () async {
       // Ошибка внятная и сразу: приложение без дерева бессмысленно.
       await expectLater(
-        initModules([const AppShell()]),
+        initModules([const AppShell(), const TestPlatform()]),
         throwsA(isA<CommandFailure>().having((f) => f.rootCause, 'причина', isA<StateError>())),
       );
     });
@@ -219,7 +219,7 @@ void main() {
 
     test('второй корневой источник — ошибка сборки, а не тихая замена', () async {
       await expectLater(
-        initModules([const AppShell(), _SecondRootModule(), _SecondRootModule()]),
+        initModules([const AppShell(), const _SecondRootModule(), const _SecondRootModule()]),
         throwsA(isA<CommandFailure>()),
       );
     });
@@ -229,8 +229,8 @@ void main() {
     test('модули закрываются вместе с приложением', () async {
       final probe = ProbeModule();
       final runtime = await initModules([
-        const AppShell(),
-        const LegacyCommands(),
+        const TestPlatform(),
+        ...featureModules(),
         probe,
       ], overrides: AppOverrides(provider: provider, store: store, window: window));
 

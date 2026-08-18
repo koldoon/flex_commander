@@ -1,47 +1,20 @@
 import 'package:fc_api/fc_api.dart';
 import 'file_commands.dart';
 import 'help_command.dart';
-import 'layout_commands.dart';
-import 'navigation_commands.dart';
-import 'selection_commands.dart';
 import 'transfer_commands.dart';
 
-/// Команды приложения — фабриками, а не экземплярами: на каждый запуск
-/// создаётся своя команда, потому что она хранит состояние исполнения.
+/// Команды, ещё не разъехавшиеся по модулям.
 ///
-/// Порядок здесь ни на что не влияет: приоритет задают привязки клавиш,
-/// а не команды. Зависимости команд приходят параметрами — их подставляет
-/// контейнер (`AppContext`), а тесты подменяют своими.
-List<AppCommandFactory> defaultCommands({SystemOpener? opener, CommandRegistry? Function()? registry}) => [
-  // Навигация.
-  () => MoveCursorUpCommand(),
-  () => MoveCursorDownCommand(),
-  () => PageUpCommand(),
-  () => PageDownCommand(),
-  () => GoToFirstNodeCommand(),
-  () => GoToLastNodeCommand(),
-  () => GoToNameCommand(),
-  () => TogglePanelCommand(),
-  () => CenterSplitCommand(),
-  () => OpenNodeCommand(opener: opener),
-  () => OpenWithSystemCommand(opener: opener),
-  () => GoUpCommand(),
-  () => GoToRootCommand(),
-  () => ReloadCommand(),
-  () => ToggleHiddenCommand(),
-  () => CancelCommand(),
-
+/// Фабриками, а не экземплярами: на каждый запуск создаётся своя команда,
+/// потому что она хранит состояние исполнения. Порядок здесь ни на что не
+/// влияет: приоритет задают привязки клавиш, а не команды.
+List<AppCommandFactory> defaultCommands({CommandRegistry? Function()? registry}) => [
   // Файловые операции.
   () => MakeDirectoryCommand(),
   () => RemoveCommand(),
   () => RemovePermanentlyCommand(),
   () => CopyCommand(),
   () => MoveCommand(),
-
-  // Пометка объектов.
-  () => ClearSelectionCommand(),
-  () => ToggleMarkCommand(),
-  () => SelectAllCommand(),
 
   // Справка: таблица текущих настроек и привязок клавиш.
   () => HelpCommand(registry: registry),
@@ -53,47 +26,23 @@ List<AppCommandFactory> defaultCommands({SystemOpener? opener, CommandRegistry? 
   () => PlaceholderCommand(id: 'file.edit', label: 'Edit'),
 ];
 
-/// Привязки клавиш по умолчанию.
+/// Привязки клавиш команд, ещё не разъехавшихся по модулям.
 ///
-/// Порядок важен: он задаёт приоритет. `Esc` стоит дважды — пока панель занята,
-/// нажатие достаётся отмене операции, а в остальное время снимает пометку.
-/// Позже этот список станет основой для пользовательских настроек: заменить
-/// привязку можно будет, не трогая команды.
+/// Порядок важен: он задаёт приоритет. Навигация и пометка со своими клавишами
+/// уже живут в модуле `fc_navigation` — здесь остались файловые операции,
+/// справка и заглушки.
 List<KeyBinding> defaultKeyBindings() => [
   // Курсор.
-  KeyBinding('Up', 'panel.cursor.up'),
-  KeyBinding('Down', 'panel.cursor.down'),
-  KeyBinding('PgUp', 'panel.cursor.pageUp'),
-  KeyBinding('PgDn', 'panel.cursor.pageDown'),
-  KeyBinding('Home', 'panel.cursor.first'),
-  KeyBinding('Left', 'panel.cursor.first'),
-  KeyBinding('End', 'panel.cursor.last'),
-  KeyBinding('Right', 'panel.cursor.last'),
 
   // Навигация по дереву.
-  KeyBinding('Tab', 'app.togglePanel'),
-  KeyBinding('Enter', 'panel.open'),
-  KeyBinding('Cmd-O', 'panel.openWithSystem'),
-  KeyBinding('Bsp', 'panel.up'),
-  KeyBinding('Cmd-Up', 'panel.up'),
-  KeyBinding('Cmd-/', 'panel.root'),
-  KeyBinding('Cmd-R', 'panel.reload'),
   // На macOS `Cmd-H` занят системным меню приложения («Hide APP_NAME»), и до
   // окна нажатие не доходит вовсе. Поэтому основное сочетание — `Cmd-Shift-H`;
   // `Cmd-H` остаётся ради Windows и Linux, где он разбирается как `Ctrl-H`.
-  KeyBinding('Cmd-Shift-H', 'panel.toggleHidden'),
-  KeyBinding('Cmd-H', 'panel.toggleHidden'),
 
   // Пометка объектов. Отмена операции идёт раньше сброса пометки.
-  KeyBinding('Esc', 'panel.cancel'),
-  KeyBinding('Esc', 'panel.selection.clear'),
-  KeyBinding('Space', 'panel.selection.toggle'),
-  KeyBinding('Ins', 'panel.selection.toggle'),
-  KeyBinding('Cmd-A', 'panel.selection.all'),
 
   // Переход к имени по набранному символу. Стоит последней: любая привязка к
   // конкретной клавише имеет приоритет над «любым символом».
-  const KeyBinding.anyCharacter('panel.goToName', characterParam: GoToNameCommand.characterParam),
 
   // Нижняя панель: подписи кнопок берутся из этих же привязок.
   KeyBinding('F1', 'app.help'),
@@ -115,11 +64,11 @@ List<KeyBinding> defaultKeyBindings() => [
   KeyBinding('Shift-Cmd-Bsp', 'file.removePermanently'),
 ];
 
-CommandRegistry defaultCommandRegistry({SystemOpener? opener, CommandErrorHandler? onError}) {
+CommandRegistry defaultCommandRegistry({CommandErrorHandler? onError}) {
   // Справка показывает содержимое самого реестра, а реестра в этот момент ещё
   // нет: команда получает не его, а способ его спросить — к первому запуску он
   // уже собран.
   late final CommandRegistry registry;
-  registry = CommandRegistry(defaultCommands(opener: opener, registry: () => registry), defaultKeyBindings(), onError);
+  registry = CommandRegistry(defaultCommands(registry: () => registry), defaultKeyBindings(), onError);
   return registry;
 }

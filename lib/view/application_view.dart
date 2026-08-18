@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../state/app_scope.dart';
-import '../state/commands/layout_commands.dart';
 import 'common/split_view.dart';
 import 'dialogs/command_dialog_layer.dart';
 import 'keyboard_handler.dart';
@@ -12,6 +11,9 @@ import 'package:fc_api/fc_api.dart';
 /// Корневой макет окна: две панели и ряд функциональных кнопок под ними.
 class ApplicationView extends StatelessWidget {
   const ApplicationView({super.key});
+
+  /// Действие «разделитель посередине» — если модуль навигации установлен.
+  static const String _centerSplitCommand = 'app.split.center';
 
   @override
   Widget build(BuildContext context) {
@@ -34,7 +36,10 @@ class ApplicationView extends StatelessWidget {
                     child: SplitView(
                       ratio: app.splitRatio,
                       onRatioChanged: app.setSplitRatio,
-                      onCenter: () => app.commands.run(CenterSplitCommand.commandId),
+                      // По идентификатору, а не по классу: команда живёт в
+                      // модуле навигации, и приложение обязано собираться без
+                      // него — просто разделитель тогда не центруется.
+                      onCenter: () => app.commands.run(_centerSplitCommand),
                       left: PanelView(panel: app.left, outerEdge: PanelOuterEdge.left),
                       right: PanelView(panel: app.right, outerEdge: PanelOuterEdge.right),
                     ),

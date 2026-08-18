@@ -1,0 +1,25 @@
+name: fc_navigation
+description: "Перемещение по дереву и пометка объектов: команды и клавиши за ними."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Модуль знает только API — ни о ядре, ни о других модулях он не подозревает.
+  fc_api:
+    path: ../api
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Тесты собирают настоящее приложение с этим модулем.
+  fc_test_kit:
+    path: ../test_kit

@@ -8,11 +8,18 @@ import '../state/app_controller.dart';
 /// Не «настройки приложения», а именно подмена: так тесты собирают настоящее
 /// приложение на подставных службах, ничего не зная о его внутреннем графе.
 class AppOverrides {
-  const AppOverrides({this.provider, this.store, this.window});
+  const AppOverrides({this.provider, this.store, this.window, this.saveDelay});
 
   final TreeProvider? provider;
   final SettingsStore? store;
   final WindowService? window;
+
+  /// Через сколько после изменения настройки уходят в хранилище.
+  ///
+  /// В тестах короче: отложенная запись, оставшаяся висеть таймером, роняет
+  /// виджет-тест — и правильно делает, в настоящем приложении такой таймер
+  /// пережил бы окно.
+  final Duration? saveDelay;
 }
 
 /// Собранное приложение.
