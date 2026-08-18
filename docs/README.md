@@ -114,7 +114,7 @@
 | `m.tree.ITreeProvider` | `TreeProvider` |
 | `m.tree.ITreeEditor` | `TreeEditor` (операция целиком, реализует `TreeTransferEngine`) + `NodeEditor` (примитивы провайдера) |
 | `m.async.impl.TransferOperation` | `TreeTransferEngine` — обход, конфликты, прогресс и стратегии |
-| `m.tree.IFilesProvider` | `FilesProvider` (интерфейс, реализация — после MVP) |
+| `m.tree.IFilesProvider` | `LocalCopySession` — локальные копии чужих файлов (`mc_getlocalcopy`) |
 | `m.tree.impl.fs.LocalFileSystemTreeProvider` (через CLI `ls`/`stat`) | `LocalTreeProvider` (через `dart:io`) |
 | `m.tree.impl.zip.ZipTreeProvider` (через CLI `unzip`) | `ZipTreeProvider` (через `package:archive`) |
 | `m.async.IAsyncOperation` + `IAsyncOperationStatus` | `AsyncOperation<T>` (`Future` + прогресс + отмена) |
@@ -162,7 +162,8 @@ lib/
       file_type.dart               FileType и его разбор
       file_attributes.dart         права доступа, флаги, executable
       tree_provider.dart           TreeProvider, TreeEditor, NodeEditor,
-                                   FileContentProvider, FilesProvider (интерфейсы),
+                                   FileContentProvider / FileContentReceiver,
+                                   ProviderLifecycle (интерфейсы),
                                    ProviderCapabilities — что провайдер умеет
       node_path.dart               разбор и сборка строк пути с учётом провайдеров
       provider_registry.dart       реестр фабрик по схеме, монтирование вложенных
@@ -177,6 +178,7 @@ lib/
         transfer_engine.dart       копирование, перенос и удаление — один раз
                                    на все провайдеры, включая перенос потоком
                                    между разными источниками
+        local_copy_session.dart    локальные копии чужих файлов и их уборка
     async/
       async_operation.dart         AsyncOperation, OperationStatus, OperationProgress
       operation_request.dart       интерактивные запросы к пользователю

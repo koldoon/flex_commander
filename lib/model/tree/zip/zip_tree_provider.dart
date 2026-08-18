@@ -7,6 +7,7 @@ import '../../async/async_operation.dart';
 import '../file_attributes.dart';
 import '../file_type.dart';
 import '../fs_node.dart';
+import '../transfer/local_copy_session.dart';
 import '../tree_provider.dart';
 import 'zip_index.dart';
 
@@ -25,9 +26,14 @@ import 'zip_index.dart';
 /// придётся сперва скачать во временный файл — это мост, `docs/providers.md`,
 /// 5.7. MC делает ровно то же самое, и это не лень, а свойство формата.
 class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLifecycle {
-  ZipTreeProvider._({required this.archivePath, required FsNode host, required ZipIndex index})
-    : _host = host,
-      _index = index;
+  ZipTreeProvider._({
+    required this.archivePath,
+    required FsNode host,
+    required ZipIndex index,
+    LocalCopySession? session,
+  }) : _host = host,
+       _index = index,
+       _session = session;
 
   /// Схема для строк пути: `…/archive.zip:zip:/inner/doc.txt`.
   static const String schemeName = 'zip';
@@ -43,14 +49,29 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
   ///
   /// Фабрика для реестра провайдеров; узел-хозяин запоминается, чтобы корень
   /// архива знал, над чем он смонтирован.
-  static Future<TreeProvider> open(FsNode host) async {
-    if (!host.provider.capabilities.realFileSystem) {
-      // Читать оглавление с конца файла можно только у настоящего файла.
-      throw FsError(host.pathString, FsErrorKind.notSupported);
-    }
+  ///
+  /// Архив, лежащий не в локальной ФС — внутри другого архива или на сервере, —
+  /// сперва оказывается во временном файле: оглавление zip лежит в конце, и
+  /// читать его можно только там, где по файлу умеют прыгать. MC делает ровно
+  /// то же, и это не лень, а свойство формата. Владеет копией сам провайдер и
+  /// убирает её в [dispose].
+  static Future<TreeProvider> open(FsNode host, {void Function(int bytes)? onBytes}) async {
+    final session = LocalCopySession(prefix: 'flex_commander_zip');
 
-    final path = host.pathString;
-    return ZipTreeProvider._(archivePath: path, host: host, index: await readZipIndex(path));
+    try {
+      final path = await session.localPathOf(host, onBytes: onBytes);
+      return ZipTreeProvider._(
+        archivePath: path,
+        host: host,
+        index: await readZipIndex(path),
+        // Копии не было — убирать нечего, и сессию держать незачем.
+        session: session.copied == 0 ? null : session,
+      );
+    } on Object {
+      // Битый архив или отмена: копия не должна пережить неудачу.
+      await session.purge();
+      rethrow;
+    }
   }
 
   /// Путь к файлу архива в локальной файловой системе.
@@ -61,6 +82,9 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
 
   /// Оглавление архива, прочитанное один раз при открытии.
   final ZipIndex _index;
+
+  /// Временная копия архива; null — архив и так лежал в локальной ФС.
+  final LocalCopySession? _session;
 
   /// Открытый файл архива и разобранное по нему оглавление.
   ///
@@ -254,14 +278,17 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
     }
   }
 
-  /// Закрывает файл архива. Панель зовёт это, уходя из архива.
+  /// Закрывает файл архива и убирает временную копию, если она была.
+  /// Панель зовёт это, уходя из архива.
   @override
   Future<void> dispose() async {
     _disposed = true;
     final input = _input;
     _archive = null;
     _input = null;
+    // Сначала закрыть, потом удалять: на Windows открытый файл не удаляется.
     await input?.close();
+    await _session?.purge();
   }
 
   ZipEntry? _entryOf(FsNode node) => _index.at(_segments(pathOf(node)));

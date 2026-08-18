@@ -250,22 +250,38 @@ class PanelController extends ChangeNotifier implements Panel {
     return _enter(node);
   }
 
-  /// Отпускает провайдера, из которого панель ушла.
+  /// Отпускает провайдеров, из которых панель ушла, — всю цепочку.
   ///
-  /// Корень реестра не трогается: он один на приложение и панели не
-  /// принадлежит. Смонтированный принадлежит той панели, что его открыла, —
-  /// у второй панели свой экземпляр, даже если архив тот же файл.
+  /// Уходят не из одного провайдера, а из стопки: архив внутри архива держится
+  /// на файле внешнего, и, выйдя из обоих сразу (набрали путь, ушли в корень),
+  /// закрыть надо оба. Поэтому цепочка обходится по хозяевам: корень
+  /// смонтированного провайдера — это узел того, над кем он стоит.
+  ///
+  /// Провайдеры, на которых держится тот, куда пришли, не трогаются: войдя в
+  /// архив **внутри** архива, внешний закрывать нельзя — на нём стоит
+  /// внутренний. Корень реестра не трогается никогда: он один на приложение и
+  /// панели не принадлежит.
   ///
   /// Правило верно, пока окно операции модально: уйти из каталога, из которого
   /// идёт копирование, сейчас нельзя. Когда операции начнут работать в фоне
   /// (`AsyncCommand`), провайдера придётся отпускать по счётчику пользователей,
   /// а не по уходу панели.
   void _releaseProvider(TreeProvider? provider, {required TreeProvider keeping}) {
-    if (provider == null || identical(provider, keeping) || identical(provider, _registry.root)) {
-      return;
+    final kept = <TreeProvider>{_registry.root};
+    for (TreeProvider? current = keeping; current != null; current = _hostProviderOf(current)) {
+      kept.add(current);
     }
-    unawaited(ProviderRegistry.disposeProvider(provider));
+
+    var current = provider;
+    while (current != null && !kept.contains(current)) {
+      final host = _hostProviderOf(current);
+      unawaited(ProviderRegistry.disposeProvider(current));
+      current = host;
+    }
   }
+
+  /// Провайдер, над которым смонтирован этот; null — он сам себе корень.
+  TreeProvider? _hostProviderOf(TreeProvider provider) => provider.rootDirectory.parent?.provider;
 
   /// Вход в объект, который каталогом не является.
   ///
@@ -277,6 +293,14 @@ class PanelController extends ChangeNotifier implements Panel {
     if (scheme == null) {
       return node;
     }
+
+    // Открытие может оказаться небыстрым: архив, лежащий не в локальной ФС,
+    // сперва копируется во временный файл. Молчать об этом нельзя — со стороны
+    // это выглядит как зависшее приложение.
+    _busy = true;
+    _status = PanelStatus.loading;
+    _statusText = 'Opening ${node.name}…';
+    notifyListeners();
 
     try {
       final mounted = await _registry.mount(scheme, node);
@@ -290,6 +314,10 @@ class PanelController extends ChangeNotifier implements Panel {
       _error = error;
       _status = PanelStatus.error;
       _statusText = error.message;
+    } finally {
+      // Если открылось, состояние выставил `open`; если нет — снимаем занятость
+      // здесь, иначе панель осталась бы глухой к клавиатуре.
+      _busy = false;
       notifyListeners();
     }
     return null;

@@ -284,24 +284,3 @@ abstract interface class FileContentReceiver {
   /// FTP просят размер вперёд, локальной ФС он не нужен.
   Future<StreamSink<List<int>>> openWrite(DirectoryNode parent, String name, {int? length});
 }
-
-/// Ссылка на файл локальной ФС — «мост» между разными провайдерами:
-/// копирование из архива в удалённую ФС идёт через временные локальные файлы.
-class FileReference {
-  const FileReference(this.path, this.node);
-
-  final String path;
-  final FsNode node;
-
-  @override
-  String toString() => path;
-}
-
-/// Обмен файлами между провайдерами. Реализуется вместе с [TreeEditor].
-abstract interface class FilesProvider {
-  AsyncOperation<List<FileReference>> getFiles(List<FsNode> nodes, {bool followLinks = true});
-
-  AsyncOperation<void> putFiles(List<FileReference> files, DirectoryNode toDir);
-
-  AsyncOperation<void> purge();
-}

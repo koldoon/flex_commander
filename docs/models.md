@@ -182,7 +182,7 @@ class FileAttributes {
 
 ## 2. Провайдеры дерева
 
-Интерфейсы повторяют `ITreeProvider` / `ITreeEditor` / `IFilesProvider` референса.
+Интерфейсы повторяют `ITreeProvider` / `ITreeEditor` референса.
 В MVP реализуется только `LocalTreeProvider`, но панель и команды пишутся против
 интерфейса — это условие для будущих архивов и удалённых ФС.
 
@@ -276,12 +276,11 @@ abstract interface class ProviderLifecycle {
   Future<void> dispose();
 }
 
-/// «Мост» между разными провайдерами через файлы локальной ФС.
-/// Нужен, когда копируем из архива в sftp и наоборот. Реализуется после MVP.
-abstract interface class FilesProvider {
-  AsyncOperation<List<FileReference>> getFiles(List<FsNode> nodes, {bool followLinks = true});
-  AsyncOperation<void> putFiles(List<FileReference> files, DirectoryNode toDir);
-  AsyncOperation<void> purge();
+/// Локальные копии чужих файлов и время их жизни — аналог mc_getlocalcopy.
+/// Настоящий путь (realFileSystem) отдаётся как есть, без копирования.
+class LocalCopySession {
+  Future<String> localPathOf(FsNode node, {void Function(int bytes)? onBytes});
+  Future<void> purge();
 }
 ```
 
