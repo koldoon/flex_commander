@@ -1,4 +1,5 @@
 import '../serialization.dart';
+import 'module_settings.dart';
 import '../panel/column_spec.dart';
 import '../panel/sort_spec.dart';
 import 'window_geometry.dart';
@@ -56,8 +57,12 @@ class AppSettings implements Serializable {
     this.splitRatio = 0.5,
     this.sizeScanConcurrency = defaultSizeScanConcurrency,
     this.window,
+    ModuleSettings? modules,
   }) : left = left ?? PanelSettings(),
-       right = right ?? PanelSettings();
+       right = right ?? PanelSettings(),
+       // Разделы модулей переносятся в новый снимок настроек как есть: это
+       // живые объекты самих модулей, а не копия их значений.
+       modules = modules ?? ModuleSettings();
 
   static AppSettings defaults(String path) =>
       AppSettings(left: PanelSettings.defaults(path), right: PanelSettings.defaults(path));
@@ -94,6 +99,12 @@ class AppSettings implements Serializable {
   /// Положение и размер окна; null — окно ещё ни разу не открывали.
   WindowGeometry? window;
 
+  /// Настройки модулей: у каждого свой раздел под своим именем.
+  ///
+  /// Ядро в них не заглядывает — только хранит и отдаёт тому, кто спросит
+  /// своё пространство имён.
+  final ModuleSettings modules;
+
   @override
   void toMap(Map<String, dynamic> m) {
     m['version'] = version;
@@ -104,6 +115,7 @@ class AppSettings implements Serializable {
       m['window'] = serialize(window);
     }
     m['panels'] = [serialize(left), serialize(right)];
+    m['modules'] = serialize(modules);
   }
 
   /// Разбор устойчив к мусору: чего в файле нет или что в нём испорчено,
@@ -118,6 +130,11 @@ class AppSettings implements Serializable {
       m['sizeScanConcurrency'],
     ).clamp(minSizeScanConcurrency, maxSizeScanConcurrency);
     window = extractObject(m['window'], (_) => WindowGeometry());
+
+    final moduleSections = m['modules'];
+    if (moduleSections is Map<String, dynamic>) {
+      modules.fromMap(moduleSections);
+    }
 
     // Панели дописываются в уже готовые: в них лежит каталог по умолчанию,
     // и файл без пути его не потеряет.

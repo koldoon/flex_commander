@@ -44,17 +44,18 @@ Future<AppRuntime> testApp({
   List<FcModule> modules = const [],
   AppSettings? settings,
   WindowService? window,
+  InMemorySettingsStore? store,
   String homePath = '/home',
 }) async {
   // Настройки в памяти: в виджет-тестах время поддельное, и настоящее чтение
   // с диска не завершилось бы никогда.
-  final store = InMemorySettingsStore(settings: settings, homePath: homePath);
+  final settingsStore = store ?? InMemorySettingsStore(settings: settings, homePath: homePath);
 
   final runtime = await initModules(
     [const AppShell(), const TestPlatform(), ...modules],
     overrides: AppOverrides(
       provider: provider,
-      store: store,
+      store: settingsStore,
       window: window ?? FakeWindowService(),
       // Отложенная запись настроек не должна пережить тест: таймер, оставшийся
       // висеть после окна, роняет виджет-тест — и правильно делает.
