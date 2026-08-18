@@ -89,12 +89,14 @@ class TreeTransferEngine implements TreeEditor {
           progress.startSource(node.name);
 
           try {
+            // Примитивы источника нужны, только чтобы у него что-то забрать:
+            // копировать можно и из того, кто ничего не отдаёт, кроме чтения.
             final source = _editorOf(node);
-            if (source == null) {
+            if (move && source == null) {
               throw FsError(node.pathString, FsErrorKind.notSupported);
             }
 
-            if (identical(node.provider, destination.provider)) {
+            if (source != null && identical(node.provider, destination.provider)) {
               // Пересечься источник с приёмником могут только внутри одного
               // провайдера: у разных общих путей нет.
               if (source.isSameEntity(node, destination)) {
@@ -148,8 +150,13 @@ class TreeTransferEngine implements TreeEditor {
               await _purge(target, existing, op);
             }
 
-            // [TransferStrategy.rename]: один провайдер, и он умеет.
-            if (move && identical(source, target) && await source.renameEntry(node, destination, node.name)) {
+            // [TransferStrategy.rename]: один провайдер, и он умеет. Сначала
+            // спрашиваем, потом пробуем: по сети попытка вслепую — это лишний
+            // обмен с сервером на каждый объект.
+            if (move &&
+                identical(source, target) &&
+                node.provider.capabilities.canRename &&
+                await source!.renameEntry(node, destination, node.name)) {
               // Переименование переносит всё поддерево одним действием —
               // поштучно объекты в нём не проходили.
               progress.sourceDoneWholly(i);
@@ -158,7 +165,7 @@ class TreeTransferEngine implements TreeEditor {
 
             await _copyTree(source, target, node, destination, node.name, op, progress);
             if (move) {
-              await _purge(source, node, op);
+              await _purge(source!, node, op);
             }
           } on FsError catch (error) {
             progress.sourceDoneWholly(i);
@@ -248,7 +255,7 @@ class TreeTransferEngine implements TreeEditor {
   /// «кончили», а прервать его было бы негде. Ссылка копируется как ссылка —
   /// это дело примитива, движок про ссылки ничего не решает.
   Future<void> _copyTree(
-    NodeEditor source,
+    NodeEditor? source,
     NodeEditor target,
     FsNode node,
     DirectoryNode destination,
@@ -263,14 +270,14 @@ class TreeTransferEngine implements TreeEditor {
       final created = await target.createDirectory(destination, name);
       // Содержимое вычитывается целиком, а не по ходу копирования: читать тот
       // же каталог, добавляя в него объекты, — верный способ уйти в петлю.
-      for (final child in await source.listChildren(node)) {
+      for (final child in await node.provider.listChildren(node)) {
         await _copyTree(source, target, child, created, child.name, op, progress);
       }
       return;
     }
 
     // [TransferStrategy.providerCopy]: один провайдер — копирует он сам.
-    if (identical(source, target) && await source.copyEntry(node, destination, name)) {
+    if (source != null && identical(source, target) && await source.copyEntry(node, destination, name)) {
       return;
     }
 
@@ -370,7 +377,7 @@ class TreeTransferEngine implements TreeEditor {
     if (node is DirectoryNode) {
       // Содержимое каталога сначала вычитывается целиком: удалять объекты,
       // продолжая читать тот же каталог, — верный способ что-нибудь пропустить.
-      for (final child in await editor.listChildren(node)) {
+      for (final child in await node.provider.listChildren(node)) {
         await _deleteTree(editor, child, op, progress);
       }
     }

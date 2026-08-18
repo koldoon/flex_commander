@@ -180,6 +180,62 @@ void main() {
     expect(commands().isExecutable(commands().find('file.move')!), isFalse);
   });
 
+  group('источник только для чтения', () {
+    late AppController archiveApp;
+
+    /// Левая панель — архив, открытый на просмотр: дерево и содержимое есть,
+    /// менять нечем. Правая — обычный диск.
+    Future<AppController> openArchive(InMemoryReadOnlyProvider archive) async {
+      // Приёмник умеет принимать байты — иначе потоку не во что литься.
+      final disk = InMemoryContentProvider([FakeEntry.directory('/backup')]);
+      final settings = AppSettings(left: PanelSettings.defaults('/arc'), right: PanelSettings.defaults('/backup'));
+      final it = AppController(
+        left: PanelController(provider: archive, settings: settings.left),
+        right: PanelController(provider: disk, settings: settings.right),
+        store: SettingsStore(filePath: p.join(temp.path, 'archive.json')),
+        settings: settings,
+        commands: defaultCommandRegistry(),
+        saveDelay: const Duration(milliseconds: 5),
+      );
+      await it.start();
+      it.left.setCursorToName('inside.txt');
+      return archiveApp = it;
+    }
+
+    List<FakeEntry> entries() => [
+      FakeEntry.directory('/arc'),
+      FakeEntry.file('/arc/inside.txt', content: [1, 2, 3]),
+    ];
+
+    tearDown(() => archiveApp.dispose());
+
+    test('копировать из него можно: принимает приёмник, а не источник', () async {
+      final app = await openArchive(InMemoryArchiveProvider(entries()));
+
+      expect(app.commands.isExecutable(app.commands.find('file.copy')!), isTrue);
+      // Перенос убрал бы объект из архива, а убирать в нём нечем.
+      expect(app.commands.isExecutable(app.commands.find('file.move')!), isFalse);
+    });
+
+    test('копирование доходит до приёмника потоком', () async {
+      final app = await openArchive(InMemoryArchiveProvider(entries()));
+
+      await (app.commands.create('file.copy')!..setParam('destination', '/backup')).execute();
+
+      expect(app.right.nodes.map((node) => node.name), contains('inside.txt'));
+    });
+
+    test('без содержимого копировать нечем, и команда об этом не врёт', () async {
+      // Дерево есть, байтов нет: взять файл неоткуда.
+      final app = await openArchive(InMemoryReadOnlyProvider(entries()));
+
+      final command = app.commands.create('file.copy')!..setParam('destination', '/backup');
+      await command.execute();
+
+      expect(app.right.nodes.map((node) => node.name), isNot(contains('inside.txt')));
+    });
+  });
+
   test('обе команды видны в списке команд и закреплены за клавишами', () {
     expect(commands().find('file.copy')?.label, 'Copy');
     expect(commands().find('file.move')?.label, 'Move');

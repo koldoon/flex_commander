@@ -8,6 +8,24 @@ import 'package:flex_commander/model/tree/node_path.dart';
 import 'package:flex_commander/model/tree/tree_provider.dart';
 import 'package:path/path.dart' as p;
 
+/// Умения локальной ФС: с ними фейк заменяет настоящий провайдер в тестах
+/// панелей и команд.
+const localCapabilities = ProviderCapabilities(
+  canRename: true,
+  canSeek: true,
+  preservesModified: true,
+  realFileSystem: true,
+  maxConcurrency: 16,
+);
+
+/// Умения источника, который только читается: настоящих путей он не даёт,
+/// менять в нём нечем, а переименовывать тем более.
+const readOnlyCapabilities = ProviderCapabilities(maxConcurrency: 16);
+
+/// Умения архива, открытого на просмотр: то же самое плюс содержимое, которое
+/// он готов отдать с любого места.
+const archiveCapabilities = ProviderCapabilities(canSeek: true, maxConcurrency: 16);
+
 /// Описание объекта в фейковом дереве.
 class FakeEntry {
   FakeEntry.directory(this.path)
@@ -39,21 +57,17 @@ class FakeEntry {
   String get name => p.basename(path);
 }
 
-/// Провайдер дерева в памяти: те же контракты, что у настоящего, но без диска.
+/// Дерево в памяти, доступное только для чтения.
 ///
 /// Узлы создаются заново на каждое чтение — как и в [LocalTreeProvider],
 /// поэтому тесты контроллеров честно проверяют перенос курсора и пометки
 /// по именам, а не по совпадению экземпляров.
 ///
-/// Реализует [NodeEditor] — примитивы, и только их: копирование и удаление
-/// выполняет тот же `TreeTransferEngine`, что и в приложении, поэтому фейку
-/// больше не нужно повторять его механику (и незаметно расходиться с ней).
-///
-/// Байтов этот провайдер не отдаёт — так выглядит источник, у которого есть
-/// дерево, но нет содержимого. Тот, у которого есть и оно, — рядом,
-/// [InMemoryContentProvider].
-class InMemoryTreeProvider implements TreeProvider, NodeEditor {
-  InMemoryTreeProvider([List<FakeEntry> entries = const []]) {
+/// Менять в нём нечего: примитивов изменения нет вовсе — так выглядит архив,
+/// открытый на просмотр. Тот, что умеет меняться, — [InMemoryTreeProvider],
+/// тот, что отдаёт ещё и байты, — [InMemoryContentProvider].
+class InMemoryReadOnlyProvider implements TreeProvider {
+  InMemoryReadOnlyProvider([List<FakeEntry> entries = const []]) {
     for (final entry in entries) {
       add(entry);
     }
@@ -64,17 +78,6 @@ class InMemoryTreeProvider implements TreeProvider, NodeEditor {
   /// Каталоги, чтение которых заканчивается ошибкой.
   final Map<String, FsError> denied = {};
 
-  /// Умеет ли провайдер переименовывать и есть ли у него корзина: так тест
-  /// заставляет движок пойти запасной стратегией.
-  bool renames = true;
-  bool hasTrash = true;
-
-  /// Что и какой стратегией сделал движок — по путям объектов.
-  final List<String> renamed = [];
-  final List<String> copied = [];
-  final List<String> deleted = [];
-  final List<String> trashed = [];
-
   void add(FakeEntry entry) {
     _entries[p.normalize(entry.path)] = entry;
   }
@@ -84,6 +87,11 @@ class InMemoryTreeProvider implements TreeProvider, NodeEditor {
 
   @override
   String get scheme => NodePath.defaultScheme;
+
+  /// Объявление можно менять на ходу: приложение обязано верить ему, а не
+  /// типу провайдера, и проверяется это именно так.
+  @override
+  ProviderCapabilities capabilities = readOnlyCapabilities;
 
   late final DirectoryNode _root = DirectoryNode(provider: this, name: '/');
 
@@ -155,6 +163,17 @@ class InMemoryTreeProvider implements TreeProvider, NodeEditor {
       dir.nodes = nodes;
       return nodes;
     });
+  }
+
+  /// Содержимое каталога для движка: со скрытыми, без «..» и без записи
+  /// в [DirectoryNode.nodes] — обход не должен трогать то, что видит панель.
+  @override
+  Future<List<FsNode>> listChildren(DirectoryNode dir) async {
+    final path = physicalPathOf(dir);
+    final children =
+        _entries.values.where((e) => p.dirname(e.path) == path && e.path != path).toList()
+          ..sort((a, b) => a.name.compareTo(b.name));
+    return [for (final entry in children) _nodeFrom(entry, dir)];
   }
 
   @override
@@ -241,6 +260,75 @@ class InMemoryTreeProvider implements TreeProvider, NodeEditor {
     });
   }
 
+  /// Пути объекта и всего, что под ним.
+  List<String> _subtreeOf(String path) => [
+    for (final key in _entries.keys)
+      if (key == path || key.startsWith('$path/')) key,
+  ];
+
+  FsNode _nodeFrom(FakeEntry entry, FsNode parent) {
+    const attributes = FileAttributes(mode: 0x1FF, modeString: 'rwxrwxrwx');
+    return switch (entry.type) {
+      FileType.directory => DirectoryNode(
+        provider: this,
+        name: entry.name,
+        parent: parent,
+        modified: entry.modified,
+        attributes: attributes,
+      ),
+      FileType.symbolicLink => LinkNode(
+        provider: this,
+        name: entry.name,
+        parent: parent,
+        reference: entry.linkTarget ?? '',
+        targetType: _typeOfTarget(entry),
+        modified: entry.modified,
+        attributes: attributes,
+      ),
+      _ => FileNode(
+        provider: this,
+        name: entry.name,
+        parent: parent,
+        size: entry.size,
+        modified: entry.modified,
+        attributes: attributes,
+      ),
+    };
+  }
+
+  FileType? _typeOfTarget(FakeEntry entry) {
+    final target = entry.linkTarget;
+    if (target == null) {
+      return null;
+    }
+    return _entries[p.normalize(target)]?.type;
+  }
+}
+
+/// Провайдер дерева в памяти: те же контракты, что у настоящего, но без диска.
+///
+/// Реализует [NodeEditor] — примитивы, и только их: копирование и удаление
+/// выполняет тот же `TreeTransferEngine`, что и в приложении, поэтому фейку
+/// больше не нужно повторять его механику (и незаметно расходиться с ней).
+///
+/// Байтов не отдаёт — так выглядит источник, у которого есть дерево, но нет
+/// содержимого. Тот, у которого есть и оно, — [InMemoryContentProvider].
+class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEditor {
+  InMemoryTreeProvider([super.entries]) {
+    capabilities = localCapabilities;
+  }
+
+  /// Умеет ли провайдер переименовывать и есть ли у него корзина: так тест
+  /// заставляет движок пойти запасной стратегией.
+  bool renames = true;
+  bool hasTrash = true;
+
+  /// Что и какой стратегией сделал движок — по путям объектов.
+  final List<String> renamed = [];
+  final List<String> copied = [];
+  final List<String> deleted = [];
+  final List<String> trashed = [];
+
   @override
   Future<DirectoryNode> createDirectory(DirectoryNode parent, String name) async {
     final path = p.join(physicalPathOf(parent), name);
@@ -253,17 +341,6 @@ class InMemoryTreeProvider implements TreeProvider, NodeEditor {
 
     add(FakeEntry.directory(path));
     return _nodeFrom(_entries[p.normalize(path)]!, parent) as DirectoryNode;
-  }
-
-  /// Содержимое каталога для движка: со скрытыми, без «..» и без записи
-  /// в [DirectoryNode.nodes] — обход не должен трогать то, что видит панель.
-  @override
-  Future<List<FsNode>> listChildren(DirectoryNode dir) async {
-    final path = physicalPathOf(dir);
-    final children =
-        _entries.values.where((e) => p.dirname(e.path) == path && e.path != path).toList()
-          ..sort((a, b) => a.name.compareTo(b.name));
-    return [for (final entry in children) _nodeFrom(entry, dir)];
   }
 
   @override
@@ -371,59 +448,13 @@ class InMemoryTreeProvider implements TreeProvider, NodeEditor {
     FileType.symbolicLink => FakeEntry.link(path, entry.linkTarget ?? ''),
     _ => FakeEntry.file(path, size: entry.size, modified: entry.modified, content: entry.content),
   };
-
-  /// Пути объекта и всего, что под ним.
-  List<String> _subtreeOf(String path) => [
-    for (final key in _entries.keys)
-      if (key == path || key.startsWith('$path/')) key,
-  ];
-
-  FsNode _nodeFrom(FakeEntry entry, FsNode parent) {
-    const attributes = FileAttributes(mode: 0x1FF, modeString: 'rwxrwxrwx');
-    return switch (entry.type) {
-      FileType.directory => DirectoryNode(
-        provider: this,
-        name: entry.name,
-        parent: parent,
-        modified: entry.modified,
-        attributes: attributes,
-      ),
-      FileType.symbolicLink => LinkNode(
-        provider: this,
-        name: entry.name,
-        parent: parent,
-        reference: entry.linkTarget ?? '',
-        targetType: _typeOfTarget(entry),
-        modified: entry.modified,
-        attributes: attributes,
-      ),
-      _ => FileNode(
-        provider: this,
-        name: entry.name,
-        parent: parent,
-        size: entry.size,
-        modified: entry.modified,
-        attributes: attributes,
-      ),
-    };
-  }
-
-  FileType? _typeOfTarget(FakeEntry entry) {
-    final target = entry.linkTarget;
-    if (target == null) {
-      return null;
-    }
-    return _entries[p.normalize(target)]?.type;
-  }
 }
 
-/// Провайдер в памяти, умеющий отдавать и принимать байты.
+/// Байты в памяти.
 ///
-/// Нужен там, где проверяется стратегия «поток»: перенос в чужой провайдер
-/// возможен ровно тогда, когда обе стороны знают байтовый контракт.
-class InMemoryContentProvider extends InMemoryTreeProvider implements FileContentProvider {
-  InMemoryContentProvider([super.entries]);
-
+/// Примешиваются и к дереву, которое можно менять, и к тому, которое только
+/// читается: архив, открытый на просмотр, содержимое отдаёт, но не принимает.
+mixin InMemoryContent on InMemoryReadOnlyProvider implements FileContentProvider {
   /// Куда и с каким объявленным размером писал движок.
   final Map<String, int?> written = {};
 
@@ -459,6 +490,22 @@ class InMemoryContentProvider extends InMemoryTreeProvider implements FileConten
     // за собой движку было бы нечего.
     add(FakeEntry.file(path, content: const []));
     return _CollectingSink((bytes) => add(FakeEntry.file(path, content: bytes)));
+  }
+}
+
+/// Провайдер в памяти, умеющий отдавать и принимать байты.
+///
+/// Нужен там, где проверяется стратегия «поток»: перенос в чужой провайдер
+/// возможен ровно тогда, когда обе стороны знают байтовый контракт.
+class InMemoryContentProvider extends InMemoryTreeProvider with InMemoryContent {
+  InMemoryContentProvider([super.entries]);
+}
+
+/// Архив, открытый на просмотр: дерево читается, содержимое отдаётся, менять
+/// нечем. Копировать **из** него можно — этим и отличается умение от типа.
+class InMemoryArchiveProvider extends InMemoryReadOnlyProvider with InMemoryContent {
+  InMemoryArchiveProvider([super.entries]) {
+    capabilities = archiveCapabilities;
   }
 }
 
