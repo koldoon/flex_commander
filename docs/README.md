@@ -237,23 +237,24 @@ lib/
 
 ## Зависимости
 
-Добавить в `pubspec.yaml`:
+Весь список — пять пакетов, и каждый на своём месте:
 
 ```yaml
 dependencies:
-  path: ^1.9.0            # basename/extension/join/normalize
+  path: ^1.9.1            # basename/extension/join/normalize
   archive: ^4.0.9         # чтение zip-архивов как дерева
-  window_manager: ^0.5.1  # положение и размер окна между запусками
+  window_manager: ^0.5.2  # положение и размер окна между запусками
   dicom: ^0.0.3           # контейнер зависимостей
-  logecom: ^0.0.11        # логирование
+  logecom: ^0.0.11        # логирование операций и ошибок ФС
 ```
 
-`path_provider` не понадобился: настройки лежат в домашнем каталоге
-(`~/.flex-commander/settings.json`), как и в референсе.
+`logecom` играет роль `SOSLoggingTarget` референса. `path_provider` не понадобился:
+настройки лежат в домашнем каталоге (`~/.flex-commander/settings.json`), как и в
+референсе.
 
-Уже подключённые `go_router` и `dicom` для MVP не нужны — приложение одноэкранное;
-их можно убрать из `pubspec.yaml`. `logecom` используется для логирования операций
-и ошибок ФС (в референсе эту роль играл `SOSLoggingTarget`).
+Из шаблона проекта убраны `go_router` (приложение одноэкранное, маршрутов нет) и
+`cupertino_icons` (иконки — глифы FontAwesome, см. `widgets.md`); вместе с ними ушли
+`flutter_web_plugins` и `logging`, которые тянул за собой роутер.
 
 Платформа: сначала macOS (в проекте есть только `macos/`). Платформозависимые места
 изолируются в `LocalTreeProvider` и `FileAttributes` (разбор режима доступа, корни дисков,
