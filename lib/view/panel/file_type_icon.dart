@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../model/tree/fs_node.dart';
-import '../theme/app_theme.dart';
-import '../theme/fc_icons.dart';
+import 'package:fc_api/fc_api.dart';
 
 /// Иконка типа объекта — глифами FontAwesome, как в референсе.
 ///
@@ -21,7 +19,7 @@ class FileTypeIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
-    final icon = _iconFor(node);
+    final icon = _iconFor(node, theme.icons);
     if (icon == null) {
       return SizedBox(width: theme.metrics.iconSize);
     }
@@ -29,21 +27,21 @@ class FileTypeIcon extends StatelessWidget {
     return Icon(icon, size: theme.metrics.iconSize, color: selected ? theme.colors.iconSelected : theme.colors.icon);
   }
 
-  IconData? _iconFor(FsNode node) {
+  IconData? _iconFor(FsNode node, FcIcons icons) {
     if (node is ParentDirNode) {
-      return FcIcons.folder;
+      return icons.folder;
     }
     if (node is FileNode && node.broken) {
-      return FcIcons.exclamation;
+      return icons.exclamation;
     }
     if (node is DirectoryNode) {
-      return FcIcons.folder;
+      return icons.folder;
     }
     if (node is LinkNode) {
-      return FcIcons.link;
+      return icons.link;
     }
     if (node is FileNode && node.executable) {
-      return FcIcons.asterisk;
+      return icons.asterisk;
     }
     return null;
   }

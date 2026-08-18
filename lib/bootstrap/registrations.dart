@@ -1,0 +1,117 @@
+import 'package:dicom/dicom.dart';
+import 'package:fc_api/fc_api.dart';
+
+/// Вложенный источник, объявленный модулем.
+class ProviderRegistration {
+  const ProviderRegistration(this.scheme, this.factory, this.extensions);
+
+  final String scheme;
+  final ProviderFactory factory;
+  final Set<String> extensions;
+}
+
+/// Службы приложения, доступные фабрикам.
+///
+/// Ссылку на них модуль получает во время сборки, когда контейнера ещё нет, —
+/// и это нормально: обращаются к службам только из фабрик, а те зовутся уже
+/// после сборки.
+class LazyServices implements FcServices {
+  DI? _container;
+
+  /// Только для сборки: связывает службы с готовым контейнером.
+  void bindTo(DI container) => _container = container;
+
+  DI get _di {
+    final container = _container;
+    if (container == null) {
+      throw StateError('Службы ещё не собраны: обращаться к ним можно только из фабрик');
+    }
+    return container;
+  }
+
+  @override
+  T resolve<T>() => _di.get<T>();
+
+  @override
+  List<T> resolveAll<T>() {
+    try {
+      return _di.getAll<T>();
+    } on Exception {
+      // Ни одной реализации: для «сколько есть» это не ошибка.
+      return [];
+    }
+  }
+}
+
+/// Всё, что модули предложили приложению.
+///
+/// Регистратор ([FcRegistrar]) только собирает объявления; что с ними делать,
+/// решает сборка. Поэтому здесь нет ни одного действия — только списки.
+class Registrations implements FcRegistrar {
+  Registrations(this.services);
+
+  @override
+  final LazyServices services;
+
+  /// Модули в порядке установки.
+  final List<FcModule> modules = [];
+
+  TreeProvider Function(FcServices services)? rootProviderFactory;
+
+  /// Кто объявил корневой источник: имя нужно для внятной ошибки о втором.
+  String? _rootProviderOwner;
+
+  final List<ProviderRegistration> providers = [];
+  final List<FcCommandFactory> commands = [];
+  final List<KeyBinding> bindings = [];
+  final List<FcCommandFactory> startupCommands = [];
+  final List<FcThemeSpec> themes = [];
+
+  /// Связывание службы с контейнером: тип известен только в момент объявления,
+  /// поэтому он захватывается замыканием.
+  final Map<Type, void Function(DI container)> serviceBindings = {};
+
+  String? _current;
+
+  /// Устанавливает модули по порядку: порядок задаёт приоритет привязок.
+  void installAll(Iterable<FcModule> list) {
+    for (final module in list) {
+      _current = module.id;
+      modules.add(module);
+      module.install(this);
+    }
+    _current = null;
+  }
+
+  @override
+  void rootProvider(TreeProvider Function(FcServices services) factory) {
+    final owner = _rootProviderOwner;
+    if (owner != null) {
+      throw StateError('Корневой источник уже объявлен модулем $owner, второй объявляет $_current');
+    }
+    _rootProviderOwner = _current;
+    rootProviderFactory = factory;
+  }
+
+  @override
+  void provider(String scheme, ProviderFactory factory, {Set<String> extensions = const {}}) {
+    providers.add(ProviderRegistration(scheme, factory, extensions));
+  }
+
+  @override
+  void command(FcCommandFactory factory) => commands.add(factory);
+
+  @override
+  void binding(KeyBinding binding) => bindings.add(binding);
+
+  @override
+  void startup(FcCommandFactory factory) => startupCommands.add(factory);
+
+  @override
+  void theme(FcThemeSpec spec) => themes.add(spec);
+
+  @override
+  void service<T extends Object>(T Function(FcServices services) factory) {
+    serviceBindings[T] = (container) => container.bind<T>(to: (c) => factory(services));
+  }
+}

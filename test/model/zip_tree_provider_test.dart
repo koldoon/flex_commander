@@ -2,18 +2,14 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:archive/archive.dart';
-import 'package:flex_commander/model/tree/fs_node.dart';
-import 'package:flex_commander/model/tree/local/local_tree_provider.dart';
-import 'package:flex_commander/model/tree/provider_registry.dart';
-import 'package:flex_commander/model/tree/transfer/transfer_engine.dart';
-import 'package:flex_commander/model/tree/tree_provider.dart';
-import 'package:flex_commander/model/settings/app_settings.dart';
-import 'package:flex_commander/model/tree/zip/zip_tree_provider.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_api/fc_api.dart';
+import 'package:flex_commander/modules/local_fs/local_staging_area.dart';
+import 'package:flex_commander/modules/local_fs/local_tree_provider.dart';
+import 'package:flex_commander/modules/zip/zip_tree_provider.dart';
 import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-
-import '../fake/in_memory_tree_provider.dart';
 
 /// Архив как источник дерева: на настоящем zip во временном каталоге.
 void main() {
@@ -46,8 +42,11 @@ void main() {
     await writeArchive();
 
     disk = LocalTreeProvider(homePath: root, readInIsolate: false);
-    registry = ProviderRegistry(root: disk)
-      ..register(ZipTreeProvider.schemeName, ZipTreeProvider.open, extensions: ZipTreeProvider.extensions);
+    registry = ProviderRegistry(root: disk)..register(
+      ZipTreeProvider.schemeName,
+      (host) => ZipTreeProvider.open(host, staging: const LocalStagingArea()),
+      extensions: ZipTreeProvider.extensions,
+    );
   });
 
   tearDown(() async {
@@ -167,7 +166,7 @@ void main() {
       final host = (await memory.resolvePath('/home/inner.zip').result)!;
 
       await expectLater(
-        ZipTreeProvider.open(host),
+        ZipTreeProvider.open(host, staging: const LocalStagingArea()),
         throwsA(isA<FsError>().having((error) => error.kind, 'kind', FsErrorKind.notSupported)),
       );
     });
@@ -194,7 +193,7 @@ void main() {
     late PanelController panel;
 
     setUp(() async {
-      panel = PanelController(provider: disk, registry: registry, settings: PanelSettings.defaults(root));
+      panel = testPanel(provider: disk, registry: registry, settings: PanelSettings.defaults(root));
       addTearDown(panel.dispose);
       await panel.openPath(root);
     });
@@ -236,7 +235,7 @@ void main() {
       await panel.enterCurrent();
 
       final saved = panel.settings.path;
-      final restored = PanelController(provider: disk, registry: registry, settings: PanelSettings.defaults(saved));
+      final restored = testPanel(provider: disk, registry: registry, settings: PanelSettings.defaults(saved));
       addTearDown(restored.dispose);
 
       expect(await restored.openPath(saved), isTrue);
@@ -256,7 +255,7 @@ void main() {
     }
 
     test('открывается через временную копию', () async {
-      final zip = await ZipTreeProvider.open(await hostedInMemory());
+      final zip = await ZipTreeProvider.open(await hostedInMemory(), staging: const LocalStagingArea());
 
       expect(await namesIn(zip, '/'), containsAll(['docs', 'readme.md']));
 
@@ -264,7 +263,8 @@ void main() {
     });
 
     test('содержимое читается из копии', () async {
-      final zip = await ZipTreeProvider.open(await hostedInMemory()) as ZipTreeProvider;
+      final zip =
+          await ZipTreeProvider.open(await hostedInMemory(), staging: const LocalStagingArea()) as ZipTreeProvider;
       final node = (await zip.resolvePath('/docs/guide.txt').result)!;
 
       final chunks = await (await zip.openRead(node)).toList();
@@ -274,7 +274,8 @@ void main() {
     });
 
     test('копия убирается вместе с провайдером', () async {
-      final zip = await ZipTreeProvider.open(await hostedInMemory()) as ZipTreeProvider;
+      final zip =
+          await ZipTreeProvider.open(await hostedInMemory(), staging: const LocalStagingArea()) as ZipTreeProvider;
       final copy = zip.archivePath;
       expect(await File(copy).exists(), isTrue);
       // Копия лежит не там, где оригинал: это временный файл.
@@ -301,7 +302,7 @@ void main() {
       final host = (await broken.resolvePath('/home/inner.zip').result)!;
       final before = sessions();
 
-      await expectLater(ZipTreeProvider.open(host), throwsA(isA<FsError>()));
+      await expectLater(ZipTreeProvider.open(host, staging: const LocalStagingArea()), throwsA(isA<FsError>()));
 
       // Копию успели сделать, а архив не открылся — за собой убрано.
       expect(sessions(), before);
@@ -346,7 +347,7 @@ void main() {
     });
 
     test('панель проходит вглубь и возвращается, закрывая за собой', () async {
-      final panel = PanelController(provider: disk, registry: registry, settings: PanelSettings.defaults(root));
+      final panel = testPanel(provider: disk, registry: registry, settings: PanelSettings.defaults(root));
       addTearDown(panel.dispose);
       await panel.openPath(root);
 

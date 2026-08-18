@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../model/app/panel_selection.dart';
-import '../model/tree/fs_node.dart';
+import 'package:fc_api/fc_api.dart';
 
 /// Помеченные объекты панели — реализация [PanelSelection].
 ///

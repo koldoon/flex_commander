@@ -1,4 +1,4 @@
-import 'package:flex_commander/view/format/duration_format.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Оставшееся время в окне операции.

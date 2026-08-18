@@ -1,9 +1,6 @@
-import 'package:flex_commander/model/tree/fs_node.dart';
-import 'package:flex_commander/model/tree/provider_registry.dart';
-import 'package:flex_commander/model/tree/tree_provider.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import '../fake/in_memory_tree_provider.dart';
 
 /// Вложенные источники: реестр фабрик по схеме и монтирование над узлом.
 ///

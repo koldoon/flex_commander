@@ -1,9 +1,7 @@
 import 'dart:io';
 
-import 'package:flex_commander/model/tree/file_type.dart';
-import 'package:flex_commander/model/tree/fs_node.dart';
-import 'package:flex_commander/model/tree/local/local_tree_provider.dart';
-import 'package:flex_commander/model/tree/tree_provider.dart';
+import 'package:fc_api/fc_api.dart';
+import 'package:flex_commander/modules/local_fs/local_tree_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 

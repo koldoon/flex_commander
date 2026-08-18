@@ -1,13 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../../model/app/panel.dart';
-import '../../model/panel/sort_spec.dart';
-import '../../model/settings/app_settings.dart';
-import '../../view/dialogs/help_table.dart';
-import '../../view/panel/file_table_header.dart';
-import 'app_command.dart';
-import 'command_registry.dart';
-import 'key_combination.dart';
+import 'package:fc_api/fc_api.dart';
 
 /// Справка: что сейчас настроено и какие клавиши за что отвечают.
 ///
@@ -44,25 +37,25 @@ class HelpCommand extends AppCommand {
   Future<void> execute() async {}
 
   @override
-  Widget? getDialog(BuildContext context) => CommandDialogHelp(sections: _sections(), onClose: dismiss);
+  Widget? getDialog(BuildContext context) => FcKeyValueTable(sections: _sections(), onClose: dismiss);
 
-  List<HelpSection> _sections() => [_settings(), _commands()];
+  List<FcTableSection> _sections() => [_settings(), _commands()];
 
   /// Настройки — то, что приложение помнит между запусками.
-  HelpSection _settings() {
+  FcTableSection _settings() {
     final app = context.app;
     final settings = app.settings;
 
-    return HelpSection('Settings', [
-      HelpRow('Left panel', _pathOf(app.left)),
-      HelpRow('Right panel', _pathOf(app.right)),
-      HelpRow('Active panel', identical(app.activePanel, app.left) ? 'Left' : 'Right'),
-      HelpRow('Split', '${(settings.splitRatio * 100).round()}% left'),
-      HelpRow('Hidden files', _bothPanels(settings, (panel) => panel.showHidden ? 'shown' : 'hidden')),
-      HelpRow('Sort', _bothPanels(settings, (panel) => _sortOf(panel.sort))),
-      HelpRow('Columns', _bothPanels(settings, _columnsOf)),
-      HelpRow('Directory scans', '${settings.sizeScanConcurrency} at a time'),
-      HelpRow('Window', _windowOf(settings)),
+    return FcTableSection('Settings', [
+      FcTableRow('Left panel', _pathOf(app.left)),
+      FcTableRow('Right panel', _pathOf(app.right)),
+      FcTableRow('Active panel', identical(app.activePanel, app.left) ? 'Left' : 'Right'),
+      FcTableRow('Split', '${(settings.splitRatio * 100).round()}% left'),
+      FcTableRow('Hidden files', _bothPanels(settings, (panel) => panel.showHidden ? 'shown' : 'hidden')),
+      FcTableRow('Sort', _bothPanels(settings, (panel) => _sortOf(panel.sort))),
+      FcTableRow('Columns', _bothPanels(settings, _columnsOf)),
+      FcTableRow('Directory scans', '${settings.sizeScanConcurrency} at a time'),
+      FcTableRow('Window', _windowOf(settings)),
     ]);
   }
 
@@ -71,15 +64,15 @@ class HelpCommand extends AppCommand {
   /// Список берётся у реестра, а не пишется здесь: новая команда или новая
   /// привязка появляется в справке сама, и разойтись с действительностью она
   /// не может.
-  HelpSection _commands() {
+  FcTableSection _commands() {
     final registry = _registry?.call();
     if (registry == null) {
-      return const HelpSection('Commands', [HelpRow('', 'Command list is not available')]);
+      return const FcTableSection('Commands', [FcTableRow('', 'Command list is not available')]);
     }
 
-    return HelpSection('Commands', [
+    return FcTableSection('Commands', [
       for (final command in registry.installed)
-        HelpRow(command.label, _keysOf(registry, command.id), command.description),
+        FcTableRow(command.label, _keysOf(registry, command.id), command.description),
     ]);
   }
 
@@ -108,12 +101,12 @@ class HelpCommand extends AppCommand {
 
   String _sortOf(SortSpec sort) {
     final direction = sort.direction == SortDirection.ascending ? '↑' : '↓';
-    return '${FileTableHeaderCell.titleOf(sort.column)} $direction';
+    return '${sort.column.title} $direction';
   }
 
   String _columnsOf(PanelSettings panel) => panel.columns.visibleColumns
-      .where((column) => FileTableHeaderCell.titleOf(column.id).isNotEmpty)
-      .map((column) => FileTableHeaderCell.titleOf(column.id))
+      .where((column) => column.id.title.isNotEmpty)
+      .map((column) => column.id.title)
       .join(', ');
 
   String _windowOf(AppSettings settings) {

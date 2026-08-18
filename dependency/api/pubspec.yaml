@@ -1,0 +1,24 @@
+name: fc_api
+description: "API Flex Commander: модели, интерфейсы, командный фреймворк и общие элементы интерфейса для модулей."
+publish_to: 'none'
+version: 1.0.0
+
+# Пакет собирается вместе с приложением: одна разрешённая версия зависимостей
+# на весь воркспейс.
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  # Flutter здесь неизбежен: команда описывает своё окно виджетом, тема —
+  # ThemeExtension, а подписка на изменения — Listenable. Зато `dart:io` в
+  # пакете нет вовсе: платформа живёт в модулях, а не в API (см. purity_test).
+  flutter:
+    sdk: flutter
+
+  path: ^1.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

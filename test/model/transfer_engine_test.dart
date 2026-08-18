@@ -1,11 +1,6 @@
-import 'package:flex_commander/model/async/async_operation.dart';
-import 'package:flex_commander/model/async/operation_request.dart';
-import 'package:flex_commander/model/tree/fs_node.dart';
-import 'package:flex_commander/model/tree/transfer/transfer_engine.dart';
-import 'package:flex_commander/model/tree/tree_provider.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import '../fake/in_memory_tree_provider.dart';
 
 /// Движок переноса: то, что раньше писал каждый провайдер сам.
 ///

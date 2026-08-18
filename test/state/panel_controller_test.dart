@@ -1,12 +1,7 @@
-import 'package:flex_commander/model/panel/column_spec.dart';
-import 'package:flex_commander/model/panel/sort_spec.dart';
-import 'package:flex_commander/model/settings/app_settings.dart';
-import 'package:flex_commander/model/tree/fs_node.dart';
-import 'package:flex_commander/model/tree/tree_provider.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import '../fake/in_memory_tree_provider.dart';
 
 void main() {
   late InMemoryTreeProvider provider;
@@ -23,7 +18,7 @@ void main() {
       FakeEntry.file('/home/docs/readme.md', size: 10),
       FakeEntry.link('/home/link-to-bin', '/home/bin'),
     ]);
-    panel = PanelController(provider: provider, settings: PanelSettings.defaults('/home'));
+    panel = testPanel(provider: provider, settings: PanelSettings.defaults('/home'));
   });
 
   tearDown(() => panel.dispose());

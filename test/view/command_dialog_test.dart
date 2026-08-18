@@ -1,7 +1,4 @@
-import 'package:flex_commander/model/async/operation_request.dart';
-import 'package:flex_commander/view/dialogs/command_dialog.dart';
-import 'package:flex_commander/view/theme/app_colors.dart';
-import 'package:flex_commander/view/theme/app_metrics.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:flex_commander/view/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -18,7 +15,7 @@ void main() {
   }) {
     return tester.pumpWidget(
       MaterialApp(
-        theme: AppTheme.theme,
+        theme: buildThemeData(FcThemeSpec.fallback),
         home: Scaffold(
           // Окно команды меряет себя по содержимому — в рамке стоит
           // `IntrinsicWidth`. Без него измерение здесь не воспроизводится,
@@ -101,7 +98,7 @@ void main() {
       answered = '';
       return tester.pumpWidget(
         MaterialApp(
-          theme: AppTheme.theme,
+          theme: buildThemeData(FcThemeSpec.fallback),
           home: Scaffold(
             body: IntrinsicWidth(
               child: Builder(

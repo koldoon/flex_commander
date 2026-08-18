@@ -1,8 +1,6 @@
-import 'package:flex_commander/model/panel/column_spec.dart';
-import 'package:flex_commander/view/theme/app_colors.dart';
-import 'package:flex_commander/view/theme/app_metrics.dart';
+import 'package:fc_api/fc_api.dart';
+import 'package:flex_commander/state/theme_controller.dart';
 import 'package:flex_commander/view/theme/app_theme.dart';
-import 'package:flex_commander/view/theme/fc_icons.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -11,10 +9,11 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const colors = FcColors();
 
-  test('тема одна', () {
-    // Светлой темы нет: приложение выглядит так же, как референсное.
-    expect(AppTheme.theme.brightness, Brightness.dark);
-    expect(AppTheme.theme.extension<FcTheme>(), isNotNull);
+  test('оформление по умолчанию — тёмное, как у референса', () {
+    final theme = buildThemeData(FcThemeSpec.fallback);
+
+    expect(theme.brightness, Brightness.dark);
+    expect(theme.extension<FcTheme>(), isNotNull);
   });
 
   group('палитра', () {
@@ -56,7 +55,7 @@ void main() {
     });
 
     test('кегль один на всё приложение: `h5` референса', () {
-      const expected = 34 * FcMetrics.fontScale;
+      final expected = 34 * const FcMetrics().fontScale;
       expect(theme.metrics.fontSize, expected);
       for (final style in [theme.uiStyle, theme.rowStyle, theme.headerStyle, theme.pathStyle, theme.buttonStyle]) {
         expect(style.fontSize, expected);
@@ -64,12 +63,12 @@ void main() {
     });
 
     test('иконки — глифы FontAwesome', () {
-      expect(FcIcons.folder.fontFamily, 'FontAwesome');
-      expect(FcIcons.folder.codePoint, 0xf07b);
-      expect(FcIcons.link.codePoint, 0xf0c1);
-      expect(FcIcons.asterisk.codePoint, 0xf069);
-      expect(FcIcons.caretUp.codePoint, 0xf0d8);
-      expect(FcIcons.caretDown.codePoint, 0xf0d7);
+      expect(const FcIcons().folder.fontFamily, 'FontAwesome');
+      expect(const FcIcons().folder.codePoint, 0xf07b);
+      expect(const FcIcons().link.codePoint, 0xf0c1);
+      expect(const FcIcons().asterisk.codePoint, 0xf069);
+      expect(const FcIcons().caretUp.codePoint, 0xf0d8);
+      expect(const FcIcons().caretDown.codePoint, 0xf0d7);
     });
   });
 
@@ -78,16 +77,16 @@ void main() {
 
     test('выведены из исходников референса одним коэффициентом', () {
       // `height="50"` у строки, `height="60"` у плашки пути и кнопки.
-      expect(metrics.rowHeight, 50 * FcMetrics.scale);
-      expect(metrics.pathHeaderHeight, 60 * FcMetrics.scale);
-      expect(metrics.buttonHeight, 60 * FcMetrics.scale);
+      expect(metrics.rowHeight, 50 * const FcMetrics().scale);
+      expect(metrics.pathHeaderHeight, 60 * const FcMetrics().scale);
+      expect(metrics.buttonHeight, 60 * const FcMetrics().scale);
     });
 
     test('кегль мельче, чем даёт коэффициент разметки', () {
       // Замер снимка работающего референса: текст там мельче, чем следует из
       // отношения 34 к 50 в исходниках. Геометрия при этом совпадает.
-      expect(FcMetrics.fontScale, lessThan(FcMetrics.scale));
-      expect(metrics.fontSize, lessThan(34 * FcMetrics.scale));
+      expect(const FcMetrics().fontScale, lessThan(const FcMetrics().scale));
+      expect(metrics.fontSize, lessThan(34 * const FcMetrics().scale));
       // Иконка — глиф того же кегля, что и текст.
       expect(metrics.iconSize, metrics.fontSize);
     });
@@ -103,6 +102,33 @@ void main() {
     test('обводка остаётся в одну точку', () {
       // Единственное значение не по коэффициенту: иначе линия размылась бы.
       expect(metrics.strokeWidth, 1);
+    });
+  });
+
+  group('смена оформления', () {
+    testWidgets('приложение перерисовывается по выбору темы', (tester) async {
+      final themes = ThemeController([
+        FcThemeSpec.fallback,
+        const FcThemeSpec(id: 'light', title: 'Light', brightness: Brightness.light),
+      ]);
+
+      await tester.pumpWidget(
+        ListenableBuilder(
+          listenable: themes,
+          builder:
+              (context, _) => MaterialApp(
+                theme: buildThemeData(themes.current),
+                home: Builder(builder: (context) => Text('${Theme.of(context).brightness}')),
+              ),
+        ),
+      );
+      expect(find.text('Brightness.dark'), findsOneWidget);
+
+      themes.use('light');
+      // MaterialApp переводит тему анимацией, поэтому одного кадра мало.
+      await tester.pumpAndSettle();
+
+      expect(find.text('Brightness.light'), findsOneWidget);
     });
   });
 }

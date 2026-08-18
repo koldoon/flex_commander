@@ -3,19 +3,10 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 
-import '../model/app/panel.dart';
-import '../model/async/async_operation.dart';
-import '../model/panel/column_spec.dart';
-import '../model/panel/sort_spec.dart';
-import '../model/settings/app_settings.dart';
-import '../model/tree/fs_node.dart';
-import '../model/tree/provider_registry.dart';
-import '../model/tree/transfer/transfer_engine.dart';
-import '../model/tree/tree_provider.dart';
+import 'package:fc_api/fc_api.dart';
 import 'selection_controller.dart';
-import 'throttle.dart';
 
-export '../model/app/panel.dart' show Panel, PanelStatus;
+export 'package:fc_api/fc_api.dart' show Panel, PanelStatus;
 
 /// Создаёт панели.
 ///
@@ -24,7 +15,7 @@ export '../model/app/panel.dart' show Panel, PanelStatus;
 class PanelControllerFactory {
   PanelControllerFactory({
     required this.registry,
-    this.editor = const TreeTransferEngine(),
+    required this.editor,
     this.sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
   });
 
@@ -40,32 +31,30 @@ class PanelControllerFactory {
   /// приходит сюда, а не в [PanelSettings].
   final int sizeScanConcurrency;
 
-  PanelController create(PanelSettings settings) => PanelController(
-    provider: registry.root,
-    registry: registry,
-    editor: editor,
-    settings: settings,
-    sizeScanConcurrency: sizeScanConcurrency,
-  );
+  PanelController create(PanelSettings settings) =>
+      PanelController(registry: registry, editor: editor, settings: settings, sizeScanConcurrency: sizeScanConcurrency);
 }
 
 /// Состояние одной панели — реализация [Panel].
 ///
 /// Ничего не знает ни о второй панели, ни о виджетах: панели симметричны, а
-/// связывает их `AppController`. Команды видят её только как [Panel];
-/// [ChangeNotifier] нужен виджетам, поэтому он остаётся в реализации, а не
-/// в интерфейсе.
+/// связывает их `AppController`. Наружу панель видна только как [Panel] —
+/// включая подписку на изменения: [Panel] сам по себе [Listenable], и виджету
+/// ядра или содержимому от модуля реализация не нужна.
 class PanelController extends ChangeNotifier implements Panel {
-  /// [provider] — источник, с которого панель начинает; [registry] — чем
-  /// открываются вложенные (архивы) и как разбираются пути через несколько
-  /// провайдеров. Без реестра панель живёт в одном источнике, как раньше.
+  /// [registry] — откуда панель берёт корневой источник, чем открываются
+  /// вложенные (архивы) и как разбираются пути через несколько провайдеров;
+  /// [editor] — движок файловых операций.
+  ///
+  /// Обе зависимости обязательны и приходят снаружи: какой источник корневой и
+  /// каким движком выполняются операции — решение сборки приложения, а не
+  /// панели. Иначе ядро знало бы конкретные реализации по именам.
   PanelController({
-    required TreeProvider provider,
     required PanelSettings settings,
-    ProviderRegistry? registry,
-    TreeEditor editor = const TreeTransferEngine(),
+    required ProviderRegistry registry,
+    required TreeEditor editor,
     this.sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
-  }) : _registry = registry ?? ProviderRegistry(root: provider),
+  }) : _registry = registry,
        _editor = editor,
        _columns = settings.columns,
        _sort = settings.sort,
@@ -103,8 +92,9 @@ class PanelController extends ChangeNotifier implements Panel {
   @override
   int pageSize = 20;
 
-  /// Тип уточнён до реализации намеренно: таблице нужна подписка на изменения,
-  /// а командам достаточно интерфейса [PanelSelection].
+  /// Тип уточнён до реализации: пометку создала панель, ей же её и закрывать
+  /// ([ChangeNotifier.dispose]). Всем остальным хватает [PanelSelection] —
+  /// подписка на изменения есть и в нём.
   @override
   final SelectionController selection = SelectionController();
 
@@ -116,6 +106,7 @@ class PanelController extends ChangeNotifier implements Panel {
   bool _busy = false;
   bool _active = false;
   String? _statusText;
+  String? _headerText;
   String _lastPath;
 
   ColumnLayout _columns;
@@ -166,6 +157,10 @@ class PanelController extends ChangeNotifier implements Panel {
   /// null — строка состояния показывает объект под курсором.
   @override
   String? get statusText => _statusText;
+
+  /// Заголовок, выставленный командой. null — показывается путь каталога.
+  @override
+  String? get headerText => _headerText;
 
   /// Открыть каталог. Отменяет незавершённое чтение этой же панели.
   @override
@@ -468,6 +463,15 @@ class PanelController extends ChangeNotifier implements Panel {
       return;
     }
     _statusText = text;
+    notifyListeners();
+  }
+
+  @override
+  void setHeaderText(String? text) {
+    if (_headerText == text) {
+      return;
+    }
+    _headerText = text;
     notifyListeners();
   }
 

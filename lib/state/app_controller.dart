@@ -3,15 +3,10 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
-import '../core/serialization.dart';
-import '../model/app/application.dart';
-import '../model/os/window_service.dart';
-import '../model/settings/app_settings.dart';
-import '../model/settings/settings_store.dart';
-import '../model/settings/window_geometry.dart';
-import 'commands/command_registry.dart';
-import 'commands/default_commands.dart';
+import 'package:fc_api/fc_api.dart';
+import '../settings/settings_store.dart';
 import 'panel_controller.dart';
+import 'theme_controller.dart';
 
 /// Состояние приложения — реализация [Application].
 ///
@@ -24,25 +19,27 @@ class AppController extends ChangeNotifier implements Application {
     required this.right,
     required this.store,
     required AppSettings settings,
-    CommandRegistry? commands,
+    required this.commands,
+    ThemeController? theme,
     WindowService? window,
     this.saveDelay = const Duration(seconds: 1),
   }) : _splitRatio = settings.splitRatio,
        _windowGeometry = settings.window,
        _initialSettings = settings,
-       window = window ?? const NoopWindowService(),
-       commands = commands ?? defaultCommandRegistry() {
+       theme = theme ?? ThemeController(),
+       window = window ?? const NoopWindowService() {
     // Одна панель активна всегда, ещё до первого чтения каталогов.
     left.setActive(settings.activePanel != 1);
     right.setActive(settings.activePanel == 1);
     left.addListener(_onPanelChanged);
     right.addListener(_onPanelChanged);
     this.window.addListener(_onWindowChanged);
-    this.commands.attach(this);
+    commands.attach(this);
   }
 
-  /// Тип уточнён до реализации: виджетам нужна подписка на изменения,
-  /// командам — только интерфейс [Panel].
+  /// Тип уточнён до реализации: приложение выставляет панелям признак
+  /// активности и закрывает их при выходе — этого в [Panel] нет и не должно
+  /// быть. Всем остальным, включая виджеты, хватает интерфейса.
   @override
   final PanelController left;
 
@@ -52,7 +49,13 @@ class AppController extends ChangeNotifier implements Application {
 
   /// Действия приложения: за кнопкой нижней панели и за горячей клавишей
   /// стоит одна и та же команда.
+  @override
   final CommandRegistry commands;
+
+  /// Оформление приложения. Тип уточнён до реализации: приложение владеет
+  /// службой и закрывает её при выходе, остальным хватает [ThemeService].
+  @override
+  final ThemeController theme;
 
   /// Окно приложения. Без управления окном (в тестах) — заглушка.
   final WindowService window;

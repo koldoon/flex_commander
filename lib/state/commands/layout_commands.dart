@@ -1,4 +1,4 @@
-import 'app_command.dart';
+import 'package:fc_api/fc_api.dart';
 
 /// Разделитель панелей — посередине.
 ///

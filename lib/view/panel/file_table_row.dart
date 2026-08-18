@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../model/panel/column_spec.dart';
-import '../../model/tree/fs_node.dart';
-import '../format/date_format.dart';
-import '../format/size_format.dart';
-import '../theme/app_theme.dart';
+import 'package:fc_api/fc_api.dart';
 import 'file_type_icon.dart';
 
 /// Одна строка файловой таблицы.

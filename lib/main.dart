@@ -5,9 +5,12 @@ import 'package:flutter/widgets.dart';
 import 'package:logecom/logecom.dart';
 
 import 'app.dart';
-import 'app_context.dart';
-import 'model/os/plugin_window_service.dart';
-import 'state/app_controller.dart';
+import 'bootstrap/bootstrap.dart';
+import 'modules/app_shell.dart';
+import 'modules/legacy_commands.dart';
+import 'modules/local_fs/local_file_system.dart';
+import 'modules/local_fs/plugin_window_service.dart';
+import 'modules/zip/zip_module.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -15,16 +18,21 @@ Future<void> main() async {
 
   _setUpLogging();
 
-  // Все службы создаёт контейнер: здесь только точка сборки.
-  final context = await AppContext.init();
-  final controller = context.get<AppController>();
+  // Единственное место в ядре, которое знает модули по именам. Всё остальное
+  // работает с тем, что модули объявили, и не подозревает об их существовании.
+  final runtime = await initModules([
+    const LocalFileSystem(),
+    const AppShell(),
+    const LegacyCommands(),
+    const ZipArchiver(),
+  ]);
 
-  runApp(FlexCommanderApp(controller: controller));
+  runApp(FlexCommanderApp(controller: runtime.app));
 
   // Окно и каталоги восстанавливаются уже после первого кадра: окно
   // показывается сразу с сохранёнными размерами, а панели заполняются
   // по мере чтения.
-  unawaited(controller.start());
+  unawaited(runtime.app.start());
 }
 
 void _setUpLogging() {

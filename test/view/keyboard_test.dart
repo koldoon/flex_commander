@@ -1,19 +1,16 @@
 import 'dart:io';
 
+import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
-import 'package:flex_commander/model/settings/app_settings.dart';
-import 'package:flex_commander/model/settings/settings_store.dart';
+import 'package:fc_api/fc_api.dart';
+import 'package:flex_commander/settings/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
-import 'package:flex_commander/state/commands/command_registry.dart';
 import 'package:flex_commander/state/commands/default_commands.dart';
-import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flex_commander/view/function_bar/function_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-
-import '../fake/in_memory_tree_provider.dart';
 
 void main() {
   late InMemoryTreeProvider provider;
@@ -45,8 +42,8 @@ void main() {
     // фабриками, поэтому подставить свою реализацию — это подставить фабрику.
     final commands = CommandRegistry(defaultCommands(opener: (path) async => opened.add(path)), defaultKeyBindings());
     app = AppController(
-      left: PanelController(provider: provider, settings: settings.left),
-      right: PanelController(provider: provider, settings: settings.right),
+      left: testPanel(provider: provider, settings: settings.left),
+      right: testPanel(provider: provider, settings: settings.right),
       store: SettingsStore(filePath: p.join(temp.path, 'settings.json')),
       settings: settings,
       commands: commands,
@@ -329,6 +326,21 @@ void main() {
       expect(f5.number, 5);
       // Файловые операции ещё не реализованы: кнопка показана, но неактивна.
       expect(f5.enabled, isFalse);
+    });
+
+    testWidgets('команда, поставленная после запуска, появляется на кнопке', (tester) async {
+      await pumpApp(tester);
+      expect(find.text('Later'), findsNothing);
+
+      // Так команду ставит модуль: приложение уже собрано и нарисовано.
+      app.commands.install(() => PlaceholderCommand(id: 'test.later', label: 'Later'));
+      app.commands.bind(KeyBinding('F9', 'test.later'));
+      await tester.pump();
+
+      final f9 = tester.widget<FunctionButton>(
+        find.ancestor(of: find.text('Later'), matching: find.byType(FunctionButton)),
+      );
+      expect(f9.number, 9);
     });
   });
 }

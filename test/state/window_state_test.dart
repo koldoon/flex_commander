@@ -1,15 +1,12 @@
 import 'dart:io';
 
-import 'package:flex_commander/model/settings/app_settings.dart';
-import 'package:flex_commander/model/settings/settings_store.dart';
-import 'package:flex_commander/model/settings/window_geometry.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_api/fc_api.dart';
+import 'package:flex_commander/settings/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
-import 'package:flex_commander/state/panel_controller.dart';
+import 'package:flex_commander/state/commands/default_commands.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-
-import '../fake/fake_window_service.dart';
-import '../fake/in_memory_tree_provider.dart';
 
 void main() {
   late InMemoryTreeProvider provider;
@@ -35,8 +32,9 @@ void main() {
 
   AppController build(AppSettings settings) {
     return app = AppController(
-      left: PanelController(provider: provider, settings: settings.left),
-      right: PanelController(provider: provider, settings: settings.right),
+      left: testPanel(provider: provider, settings: settings.left),
+      right: testPanel(provider: provider, settings: settings.right),
+      commands: defaultCommandRegistry(),
       store: store,
       settings: settings,
       window: window,

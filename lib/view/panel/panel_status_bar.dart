@@ -1,10 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../model/tree/fs_node.dart';
-import '../../state/panel_controller.dart';
-import '../format/size_format.dart';
-import '../theme/app_theme.dart';
-import '../theme/fc_icons.dart';
+import 'package:fc_api/fc_api.dart';
 
 /// Строка состояния под списком.
 ///
@@ -14,7 +10,7 @@ import '../theme/fc_icons.dart';
 class PanelStatusBar extends StatelessWidget {
   const PanelStatusBar({super.key, required this.panel});
 
-  final PanelController panel;
+  final Panel panel;
 
   @override
   Widget build(BuildContext context) {
@@ -66,8 +62,8 @@ class PanelStatusBar extends StatelessWidget {
         children: [
           TextSpan(text: node.name),
           TextSpan(
-            text: ' ${FcIcons.glyph(FcIcons.angleRight)} ',
-            style: const TextStyle(fontFamily: FcIcons.fontFamily),
+            text: ' ${theme.icons.glyph(theme.icons.angleRight)} ',
+            style: TextStyle(fontFamily: theme.icons.fontFamily),
           ),
           TextSpan(text: node.reference),
         ],

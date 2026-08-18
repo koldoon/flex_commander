@@ -1,24 +1,23 @@
 import 'package:flutter/widgets.dart';
 
-import 'app_controller.dart';
-import 'panel_controller.dart';
+import 'package:fc_api/fc_api.dart';
 
 /// Доступ к состоянию приложения из дерева виджетов.
 ///
 /// [InheritedNotifier]: изменения уровня приложения (активная панель, доля
 /// разделителя, тема) редки, и перестроить на них зависимые виджеты дешевле,
 /// чем разводить подписки вручную.
-class AppScope extends InheritedNotifier<AppController> {
-  const AppScope({super.key, required AppController controller, required super.child}) : super(notifier: controller);
+class AppScope extends InheritedNotifier<Application> {
+  const AppScope({super.key, required Application controller, required super.child}) : super(notifier: controller);
 
-  static AppController of(BuildContext context) {
+  static Application of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<AppScope>();
     assert(scope != null, 'AppScope не найден выше по дереву');
     return scope!.notifier!;
   }
 
-  /// Контроллер без подписки на изменения — для обработчиков событий.
-  static AppController read(BuildContext context) {
+  /// Приложение без подписки на изменения — для обработчиков событий.
+  static Application read(BuildContext context) {
     final scope = context.getInheritedWidgetOfExactType<AppScope>();
     assert(scope != null, 'AppScope не найден выше по дереву');
     return scope!.notifier!;
@@ -33,9 +32,9 @@ class AppScope extends InheritedNotifier<AppController> {
 class PanelScope extends InheritedWidget {
   const PanelScope({super.key, required this.panel, required super.child});
 
-  final PanelController panel;
+  final Panel panel;
 
-  static PanelController of(BuildContext context) {
+  static Panel of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<PanelScope>();
     assert(scope != null, 'PanelScope не найден выше по дереву');
     return scope!.panel;

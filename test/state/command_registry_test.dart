@@ -1,18 +1,13 @@
 import 'dart:io';
 
-import 'package:flex_commander/model/settings/app_settings.dart';
-import 'package:flex_commander/model/settings/settings_store.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_api/fc_api.dart';
+import 'package:flex_commander/settings/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
-import 'package:flex_commander/state/commands/app_command.dart';
-import 'package:flex_commander/state/commands/command_registry.dart';
 import 'package:flex_commander/state/commands/default_commands.dart';
-import 'package:flex_commander/state/commands/key_combination.dart';
-import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
-
-import '../fake/in_memory_tree_provider.dart';
 
 /// Журнал вызовов.
 ///
@@ -53,6 +48,25 @@ class RecordingCommand extends AppCommand {
   }
 }
 
+/// Команда, которая падает: раньше её ошибка пропадала бесследно.
+class FailingCommand extends AppCommand {
+  FailingCommand({required this.id, required this.failure});
+
+  @override
+  final String id;
+
+  @override
+  String get label => 'Failing';
+
+  final Object failure;
+
+  @override
+  bool isExecutable(CommandContext context) => true;
+
+  @override
+  Future<void> execute() async => throw failure;
+}
+
 void main() {
   late InMemoryTreeProvider provider;
   late Directory temp;
@@ -89,8 +103,8 @@ void main() {
     appBuilt = true;
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home/docs'));
     return app = AppController(
-      left: PanelController(provider: provider, settings: settings.left),
-      right: PanelController(provider: provider, settings: settings.right),
+      left: testPanel(provider: provider, settings: settings.left),
+      right: testPanel(provider: provider, settings: settings.right),
       store: SettingsStore(filePath: p.join(temp.path, 'settings.json')),
       settings: settings,
       commands: registry,
@@ -98,7 +112,7 @@ void main() {
     );
   }
 
-  CommandFactory recording(String id, {bool executable = true, String label = 'Recording'}) {
+  AppCommandFactory recording(String id, {bool executable = true, String label = 'Recording'}) {
     return () => RecordingCommand(id: id, log: log, executable: executable, label: label);
   }
 
@@ -356,15 +370,9 @@ void main() {
       expect(registry.dispatch(KeyCombination.parse('F5')), isFalse);
     });
 
-    test('каждая привязка ссылается на существующую команду', () {
-      final registry = defaultCommandRegistry();
-      build(registry);
-      final ids = registry.installed.map((command) => command.id).toSet();
-
-      for (final binding in defaultKeyBindings()) {
-        expect(ids, contains(binding.commandId), reason: 'привязка $binding указывает в пустоту');
-      }
-    });
+    // Проверка «каждая привязка указывает на установленную команду» переехала
+    // в test/app/bindings_test.dart: набор привязок теперь собирается из
+    // модулей, и проверять его нужно на собранном приложении.
   });
 
   group('нижняя панель — та же клавиатура', () {
@@ -534,6 +542,81 @@ void main() {
       // Панель свободна — теперь Esc снимает пометку.
       registry.dispatch(KeyCombination.parse('Esc'));
       expect(app.left.selection.isEmpty, isTrue);
+    });
+  });
+
+  group('исход запуска', () {
+    test('ошибка команды без окна доходит до обработчика', () async {
+      final failures = <Object>[];
+      final registry = CommandRegistry(
+        [() => FailingCommand(id: 'broken', failure: 'нет доступа')],
+        [KeyBinding('F5', 'broken')],
+        (error, command) => failures.add(error),
+      );
+      build(registry);
+
+      expect(registry.dispatch(KeyCombination('F5')), isTrue);
+      // Запуск не ждут — нажатие клавиши не может стоять до конца работы, —
+      // поэтому исход разбирается следующим шагом цикла событий.
+      await Future<void>.delayed(Duration.zero);
+
+      expect(failures, ['нет доступа']);
+    });
+
+    test('успешный запуск обработчика ошибок не трогает', () async {
+      final failures = <Object>[];
+      final registry = CommandRegistry(
+        [recording('fine')],
+        [KeyBinding('F5', 'fine')],
+        (error, _) => failures.add(error),
+      );
+      build(registry);
+
+      registry.dispatch(KeyCombination('F5'));
+      await Future<void>.delayed(Duration.zero);
+
+      expect(log.callsOf('fine'), 1);
+      expect(failures, isEmpty);
+    });
+  });
+
+  group('действие как шаг составной команды', () {
+    test('последовательность выполняет действия приложения по порядку', () async {
+      final registry = CommandRegistry([recording('first'), recording('second')]);
+      build(registry);
+
+      // Реестр — окружение фреймворка: он создаёт действия и разбирает исход,
+      // поэтому команда, запущенная клавишей, и она же в составе группы
+      // проходят один и тот же путь.
+      await Commands.asSequence()
+          .create((data) => registry.create('first')!)
+          .create((data) => registry.create('second')!)
+          .lifecycle(registry)
+          .execute();
+
+      expect(log.calls, ['first', 'second']);
+    });
+
+    test('упавшее действие останавливает последовательность', () async {
+      final registry = CommandRegistry([
+        () => FailingCommand(id: 'broken', failure: 'нет доступа'),
+        recording('after'),
+      ]);
+      build(registry);
+
+      await expectLater(
+        Commands.asSequence()
+            .create((data) => registry.create('broken')!)
+            .create((data) => registry.create('after')!)
+            .lifecycle(registry)
+            .execute(),
+        // Шаг создаётся при запуске, то есть завёрнут в обёртку, и падение
+        // приходит наверх завёрнутым дважды: цепочка — для журнала,
+        // rootCause — для того, кто разбирает ошибку.
+        throwsA(isA<CommandFailure>().having((f) => f.rootCause, 'причина', 'нет доступа')),
+      );
+
+      expect(log.calls, isEmpty);
     });
   });
 }

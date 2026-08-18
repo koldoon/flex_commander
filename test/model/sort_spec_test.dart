@@ -1,10 +1,6 @@
-import 'package:flex_commander/model/panel/column_spec.dart';
-import 'package:flex_commander/model/panel/sort_spec.dart';
-import 'package:flex_commander/model/tree/file_type.dart';
-import 'package:flex_commander/model/tree/fs_node.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import '../fake/in_memory_tree_provider.dart';
 
 void main() {
   late InMemoryTreeProvider provider;

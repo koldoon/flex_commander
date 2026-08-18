@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../state/app_scope.dart';
-import '../../state/panel_controller.dart';
-import '../theme/app_theme.dart';
+import 'package:fc_api/fc_api.dart';
 import 'file_table.dart';
 import 'panel_path_header.dart';
 import 'panel_status_bar.dart';
@@ -22,7 +21,7 @@ enum PanelOuterEdge { left, right }
 class PanelView extends StatelessWidget {
   const PanelView({super.key, required this.panel, this.outerEdge});
 
-  final PanelController panel;
+  final Panel panel;
 
   final PanelOuterEdge? outerEdge;
 
@@ -77,7 +76,10 @@ class PanelView extends StatelessWidget {
                 child: ListenableBuilder(
                   listenable: panel,
                   builder:
-                      (context, _) => PanelPathHeader(path: panel.directory?.displayPath ?? '/', active: panel.active),
+                      (context, _) => PanelPathHeader(
+                        path: panel.headerText ?? panel.directory?.displayPath ?? '/',
+                        active: panel.active,
+                      ),
                 ),
               ),
             ),

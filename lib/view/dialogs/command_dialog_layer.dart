@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import '../../state/app_controller.dart';
-import '../../state/commands/app_command.dart';
-import '../../state/commands/key_combination.dart';
-import '../theme/app_theme.dart';
+import 'package:fc_api/fc_api.dart';
 
 /// Окна запущенных команд.
 ///
@@ -15,7 +12,7 @@ import '../theme/app_theme.dart';
 class CommandDialogLayer extends StatelessWidget {
   const CommandDialogLayer({super.key, required this.app});
 
-  final AppController app;
+  final Application app;
 
   @override
   Widget build(BuildContext context) {

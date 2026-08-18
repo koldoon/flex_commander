@@ -1,6 +1,5 @@
-import '../../model/os/system_open.dart';
-import '../../model/tree/fs_node.dart';
-import 'app_command.dart';
+import '../../modules/local_fs/system_open.dart';
+import 'package:fc_api/fc_api.dart';
 
 /// Курсор на строку вверх.
 class MoveCursorUpCommand extends AppCommand {
