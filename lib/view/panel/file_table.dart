@@ -1,6 +1,9 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import '../../model/panel/column_spec.dart';
+import '../../model/tree/fs_node.dart';
 import '../../state/app_controller.dart';
 import '../../state/app_scope.dart';
 import '../../state/panel_controller.dart';
@@ -23,7 +26,19 @@ class _FileTableState extends State<FileTable> {
   /// Окно, в пределах которого два клика по одной строке считаются двойным.
   static const Duration _doubleTapWindow = Duration(milliseconds: 400);
 
-  final ScrollController _scroll = ScrollController();
+  /// Прокрутка живёт по каталогу: у нового каталога и список другой, и место
+  /// в нём своё. Контроллер поэтому пересоздаётся — начальное смещение задаётся
+  /// только при создании.
+  ScrollController _scroll = ScrollController();
+
+  /// Каталог, под который построена нынешняя прокрутка.
+  DirectoryNode? _scrolledDirectory;
+
+  /// Высота видимой части списка и высота строки из последней разметки: по ним
+  /// считается, докуда прокручивать новый список ещё до того, как он появится.
+  double _listHeight = 0;
+  double _rowHeight = 0;
+
   int _lastCursorIndex = -1;
 
   int _lastTapIndex = -1;
@@ -52,13 +67,68 @@ class _FileTableState extends State<FileTable> {
   }
 
   void _onPanelChanged() {
-    if (widget.panel.cursorIndex == _lastCursorIndex) {
+    final panel = widget.panel;
+    if (!identical(panel.directory, _scrolledDirectory)) {
+      // Каталог сменился — прокрутку поставит сборка списка. Здесь этого
+      // делать нельзя: сообщения приходят и до того, как курсор встанет на
+      // место, и посчитанное смещение оказалось бы от старого курсора.
       return;
     }
-    _lastCursorIndex = widget.panel.cursorIndex;
-    // Прокрутка выполняется после кадра: к этому моменту список уже знает
-    // свои размеры и число строк.
+
+    if (panel.cursorIndex == _lastCursorIndex) {
+      return;
+    }
+    _lastCursorIndex = panel.cursorIndex;
+    // Внутри одного каталога список уже на экране, и прокрутить его можно
+    // после кадра: видно движение курсора, а не прыжок содержимого.
     WidgetsBinding.instance.addPostFrameCallback((_) => _ensureCursorVisible());
+  }
+
+  /// Готовит прокрутку нового каталога — до того, как список появится
+  /// на экране.
+  ///
+  /// Прокручивать его после кадра нельзя: список успевает мелькнуть началом —
+  /// заметнее всего это при выходе наверх, когда курсор встаёт на каталог (или
+  /// архив), из которого вышли, а он далеко внизу. Строки одной высоты, поэтому
+  /// смещение считается без разметки и уходит в новый контроллер: первый же
+  /// кадр рисуется прокрученным.
+  ///
+  /// Делается это при сборке, а не по сообщению панели: пока каталог читается,
+  /// сообщений приходит несколько, и курсор встаёт на место последним.
+  ///
+  /// Контроллер именно новый: начальное смещение задаётся только при создании.
+  /// А ключ у списка меняется вместе с ним потому, что `Scrollable` бережёт
+  /// положение, когда узнаёт свой прежний элемент, — и прокрутка прежнего
+  /// каталога перетекла бы в новый.
+  void _prepareScroll() {
+    final panel = widget.panel;
+    if (identical(panel.directory, _scrolledDirectory)) {
+      return;
+    }
+
+    final previous = _scroll;
+    _scrolledDirectory = panel.directory;
+    _lastCursorIndex = panel.cursorIndex;
+    _scroll = ScrollController(initialScrollOffset: _cursorOffset());
+
+    // Прежний контроллер ещё привязан к списку, который сейчас на экране:
+    // отпускать его можно только после того, как список сменится.
+    WidgetsBinding.instance.addPostFrameCallback((_) => previous.dispose());
+  }
+
+  /// Куда прокрутить новый список, чтобы курсор был виден.
+  ///
+  /// Прокрутка минимальная: строка у нижнего края, если она ниже видимой части,
+  /// и ноль, если список и так начинается с неё.
+  double _cursorOffset() {
+    if (_listHeight <= 0 || _rowHeight <= 0) {
+      // Разметки ещё не было — считать не из чего; поправит `_ensureCursorVisible`.
+      return 0;
+    }
+
+    final bottom = (widget.panel.cursorIndex + 1) * _rowHeight;
+    final total = widget.panel.nodes.length * _rowHeight;
+    return (bottom - _listHeight).clamp(0.0, math.max(0.0, total - _listHeight));
   }
 
   /// Держит курсор в видимой части списка. Прокрутка мгновенная: в файловом
@@ -107,6 +177,10 @@ class _FileTableState extends State<FileTable> {
               // Сколько строк видно — от этого считается шаг PgUp/PgDn.
               final listHeight = constraints.maxHeight - theme.metrics.headerRowHeight;
               panel.pageSize = (listHeight / theme.metrics.rowHeight).floor().clamp(1, 1000);
+              // Те же размеры нужны прокрутке нового каталога, а она считается
+              // до разметки: запоминаем то, что известно сейчас.
+              _listHeight = listHeight;
+              _rowHeight = theme.metrics.rowHeight;
 
               final table = SizedBox(
                 width: contentWidth,
@@ -175,6 +249,8 @@ class _FileTableState extends State<FileTable> {
       // пометки; ListView строит только видимые, поэтому это дёшево.
       listenable: Listenable.merge([panel, panel.selection]),
       builder: (context, _) {
+        _prepareScroll();
+
         if (panel.status == PanelStatus.error) {
           return _PanelMessage(text: panel.error?.message ?? 'Error');
         }
@@ -183,6 +259,9 @@ class _FileTableState extends State<FileTable> {
         }
 
         return ListView.builder(
+          // Новый каталог — новый список: положение прежнего в него не
+          // переносится.
+          key: ValueKey(_scrolledDirectory),
           controller: _scroll,
           itemExtent: theme.metrics.rowHeight,
           itemCount: panel.nodes.length,
