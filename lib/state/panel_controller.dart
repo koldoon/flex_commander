@@ -9,7 +9,7 @@ import '../model/panel/column_spec.dart';
 import '../model/panel/sort_spec.dart';
 import '../model/settings/app_settings.dart';
 import '../model/tree/fs_node.dart';
-import '../model/tree/node_path.dart';
+import '../model/tree/provider_registry.dart';
 import '../model/tree/transfer/transfer_engine.dart';
 import '../model/tree/tree_provider.dart';
 import 'selection_controller.dart';
@@ -23,12 +23,14 @@ export '../model/app/panel.dart' show Panel, PanelStatus;
 /// он отдаёт фабрику, а кто именно левая, а кто правая, решает [AppController].
 class PanelControllerFactory {
   PanelControllerFactory({
-    required this.provider,
+    required this.registry,
     this.editor = const TreeTransferEngine(),
     this.sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
   });
 
-  final TreeProvider provider;
+  /// Реестр провайдеров: с какого панель начинает и чем открываются вложенные
+  /// источники.
+  final ProviderRegistry registry;
 
   /// Движок файловых операций. Он один на приложение: своего состояния у него
   /// нет, а узлы приносят своих провайдеров с собой.
@@ -38,8 +40,13 @@ class PanelControllerFactory {
   /// приходит сюда, а не в [PanelSettings].
   final int sizeScanConcurrency;
 
-  PanelController create(PanelSettings settings) =>
-      PanelController(provider: provider, editor: editor, settings: settings, sizeScanConcurrency: sizeScanConcurrency);
+  PanelController create(PanelSettings settings) => PanelController(
+    provider: registry.root,
+    registry: registry,
+    editor: editor,
+    settings: settings,
+    sizeScanConcurrency: sizeScanConcurrency,
+  );
 }
 
 /// Состояние одной панели — реализация [Panel].
@@ -49,12 +56,17 @@ class PanelControllerFactory {
 /// [ChangeNotifier] нужен виджетам, поэтому он остаётся в реализации, а не
 /// в интерфейсе.
 class PanelController extends ChangeNotifier implements Panel {
+  /// [provider] — источник, с которого панель начинает; [registry] — чем
+  /// открываются вложенные (архивы) и как разбираются пути через несколько
+  /// провайдеров. Без реестра панель живёт в одном источнике, как раньше.
   PanelController({
-    required this.provider,
+    required TreeProvider provider,
     required PanelSettings settings,
+    ProviderRegistry? registry,
     TreeEditor editor = const TreeTransferEngine(),
     this.sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
-  }) : _editor = editor,
+  }) : _registry = registry ?? ProviderRegistry(root: provider),
+       _editor = editor,
        _columns = settings.columns,
        _sort = settings.sort,
        _showHidden = settings.showHidden,
@@ -62,8 +74,15 @@ class PanelController extends ChangeNotifier implements Panel {
     selection.addListener(_onSelectionChanged);
   }
 
+  final ProviderRegistry _registry;
+
+  /// Провайдер, содержимое которого панель показывает **сейчас**.
+  ///
+  /// Панель больше не привязана к одному источнику на всю жизнь: она следует
+  /// за каталогом, а тот приносит своего провайдера с собой. Войти в архив —
+  /// это открыть каталог чужого провайдера, и ничего кроме.
   @override
-  final TreeProvider provider;
+  TreeProvider get provider => _directory?.provider ?? _registry.root;
 
   /// Сколько каталогов панель обходит одновременно, считая их размер, —
   /// настройка приложения. Настоящий предел меньше, если провайдер объявил
@@ -157,9 +176,10 @@ class PanelController extends ChangeNotifier implements Panel {
   /// Открыть каталог по строке пути. Возвращает false, если путь недоступен
   /// или это не каталог — тогда вызывающий код решает, куда открыть панель.
   @override
-  Future<bool> openPath(String path) async {
-    final target = NodePath.parse(path).last.path;
+  AsyncOperation<FsNode?> resolvePath(String path) => _registry.resolvePath(path);
 
+  @override
+  Future<bool> openPath(String path) async {
     // Разбор пути тоже обращается к провайдеру и может быть небыстрым,
     // поэтому панель занята уже на этом шаге, а не только на чтении каталога.
     final requestId = ++_requestId;
@@ -168,7 +188,9 @@ class PanelController extends ChangeNotifier implements Panel {
     _statusText = 'Loading…';
     notifyListeners();
 
-    final resolving = provider.resolvePath(target);
+    // Путь может проходить через несколько провайдеров: архив внутри архива —
+    // это всё та же одна строка.
+    final resolving = _registry.resolvePath(path);
     _operation = resolving;
 
     DirectoryNode? dir;
@@ -223,9 +245,34 @@ class PanelController extends ChangeNotifier implements Panel {
         await open(target);
         return null;
       }
-      return target ?? node;
+      return _enter(target ?? node);
     }
-    return node;
+    return _enter(node);
+  }
+
+  /// Вход в объект, который каталогом не является.
+  ///
+  /// Если такие объекты кто-то умеет открывать как дерево (архив), панель
+  /// монтирует этого провайдера и заходит в его корень. Иначе объект
+  /// возвращается наверх — им займётся система.
+  Future<FsNode?> _enter(FsNode node) async {
+    final scheme = _registry.schemeFor(node);
+    if (scheme == null) {
+      return node;
+    }
+
+    try {
+      final mounted = await _registry.mount(scheme, node);
+      await open(mounted.rootDirectory);
+    } on FsError catch (error) {
+      // Битый архив — это отказ открыть, а не пустой каталог: панель остаётся
+      // на месте и говорит почему.
+      _error = error;
+      _status = PanelStatus.error;
+      _statusText = error.message;
+      notifyListeners();
+    }
+    return null;
   }
 
   /// На уровень вверх. Курсор встаёт на объект, через который сюда вошли.
@@ -415,7 +462,7 @@ class PanelController extends ChangeNotifier implements Panel {
     _statusText = 'Loading…';
     notifyListeners();
 
-    final operation = provider.getDirectoryListing(dir, includeHidden: _showHidden);
+    final operation = dir.provider.getDirectoryListing(dir, includeHidden: _showHidden);
     _operation = operation;
 
     try {
@@ -529,7 +576,7 @@ class PanelController extends ChangeNotifier implements Panel {
       return link.target;
     }
     try {
-      return await provider.resolveLink(link).result;
+      return await link.provider.resolveLink(link).result;
     } on FsError {
       return null;
     }
@@ -616,7 +663,7 @@ class PanelController extends ChangeNotifier implements Panel {
   }
 
   void _startScan(DirectoryNode directory) {
-    final operation = provider.calculateSize([directory]);
+    final operation = directory.provider.calculateSize([directory]);
     final scan = _SizeScan(operation);
     _scans[directory] = scan;
 

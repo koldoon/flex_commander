@@ -67,11 +67,15 @@ class FakeEntry {
 /// открытый на просмотр. Тот, что умеет меняться, — [InMemoryTreeProvider],
 /// тот, что отдаёт ещё и байты, — [InMemoryContentProvider].
 class InMemoryReadOnlyProvider implements TreeProvider {
-  InMemoryReadOnlyProvider([List<FakeEntry> entries = const []]) {
+  InMemoryReadOnlyProvider([List<FakeEntry> entries = const [], this.host]) {
     for (final entry in entries) {
       add(entry);
     }
   }
+
+  /// Узел, над которым провайдер смонтирован; null — он сам себе корень.
+  /// Родитель корня — этим монтирование и держится.
+  final FsNode? host;
 
   final Map<String, FakeEntry> _entries = {};
 
@@ -93,7 +97,7 @@ class InMemoryReadOnlyProvider implements TreeProvider {
   @override
   ProviderCapabilities capabilities = readOnlyCapabilities;
 
-  late final DirectoryNode _root = DirectoryNode(provider: this, name: '/');
+  late final DirectoryNode _root = DirectoryNode(provider: this, name: '/', parent: host);
 
   @override
   DirectoryNode get rootDirectory => _root;
@@ -314,7 +318,7 @@ class InMemoryReadOnlyProvider implements TreeProvider {
 /// Байтов не отдаёт — так выглядит источник, у которого есть дерево, но нет
 /// содержимого. Тот, у которого есть и оно, — [InMemoryContentProvider].
 class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEditor {
-  InMemoryTreeProvider([super.entries]) {
+  InMemoryTreeProvider([super.entries, super.host]) {
     capabilities = localCapabilities;
   }
 
@@ -498,15 +502,19 @@ mixin InMemoryContent on InMemoryReadOnlyProvider implements FileContentProvider
 /// Нужен там, где проверяется стратегия «поток»: перенос в чужой провайдер
 /// возможен ровно тогда, когда обе стороны знают байтовый контракт.
 class InMemoryContentProvider extends InMemoryTreeProvider with InMemoryContent {
-  InMemoryContentProvider([super.entries]);
+  InMemoryContentProvider([super.entries, super.host]);
 }
 
 /// Архив, открытый на просмотр: дерево читается, содержимое отдаётся, менять
 /// нечем. Копировать **из** него можно — этим и отличается умение от типа.
 class InMemoryArchiveProvider extends InMemoryReadOnlyProvider with InMemoryContent {
-  InMemoryArchiveProvider([super.entries]) {
+  InMemoryArchiveProvider([super.entries, super.host]) {
     capabilities = archiveCapabilities;
   }
+
+  /// Своя схема: в пути она стоит перед своей частью — `/home/a.arc:arc:/doc`.
+  @override
+  String get scheme => 'arc';
 }
 
 /// Приёмник байтов, складывающий их в память.

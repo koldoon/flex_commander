@@ -124,11 +124,13 @@ abstract class TransferCommandBase extends AsyncCommandBase {
       throw const FsError('', FsErrorKind.invalidName);
     }
 
-    final provider = _destinationPanel.provider;
-    var node = await provider.resolvePath(path).result;
+    // Путь разбирает панель-приёмник: он может проходить через несколько
+    // провайдеров («…/archive.zip:zip:/inner»), и одному провайдеру такое
+    // не по силам.
+    var node = await _destinationPanel.resolvePath(path).result;
     if (node is LinkNode) {
       // Ссылка на каталог — тоже каталог: копировать «в неё» можно.
-      node = await provider.resolveLink(node).result;
+      node = await node.provider.resolveLink(node).result;
     }
     if (node == null) {
       throw FsError(path, FsErrorKind.notFound);
@@ -144,7 +146,9 @@ abstract class TransferCommandBase extends AsyncCommandBase {
 
   String? get _defaultDestination {
     final directory = _destinationPanel.directory;
-    return directory == null ? null : _destinationPanel.provider.pathOf(directory);
+    // Полный путь: приёмник может оказаться внутри архива, и часть про
+    // локальную ФС из строки выкидывать нельзя.
+    return directory?.pathString;
   }
 
   Future<void> _reloadDestination() async {
@@ -227,7 +231,7 @@ abstract class TransferCommandBase extends AsyncCommandBase {
   String get _sourcePath {
     final panel = context.panel;
     final directory = panel.directory;
-    return directory == null ? '' : panel.provider.pathOf(directory);
+    return directory?.pathString ?? '';
   }
 
   @override

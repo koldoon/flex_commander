@@ -8,6 +8,7 @@ import 'model/os/window_service.dart';
 import 'model/settings/app_settings.dart';
 import 'model/settings/settings_store.dart';
 import 'model/tree/local/local_tree_provider.dart';
+import 'model/tree/provider_registry.dart';
 import 'model/tree/transfer/transfer_engine.dart';
 import 'model/tree/tree_provider.dart';
 import 'state/app_controller.dart';
@@ -32,6 +33,10 @@ class AppContext extends DI {
     bind<Logger>(to: (c) => Logecom.createLogger(c.plan.length > 1 ? c.plan[c.plan.length - 2] : 'App'), dynamic: true);
 
     bind<TreeProvider>(to: (c) => provider ?? LocalTreeProvider());
+    // Реестр вложенных источников. Пока регистрировать нечего: провайдер один,
+    // и цепочка пути состоит из одной части. Появится архив — здесь встанет
+    // его фабрика, и панель научится в него заходить, ничего больше не меняя.
+    bind<ProviderRegistry>(to: (c) => ProviderRegistry(root: c.get<TreeProvider>()));
     // Движок файловых операций один на приложение: состояния у него нет, а
     // провайдеров узлы приносят с собой — в том числе разных у источника
     // и приёмника.
@@ -55,7 +60,7 @@ class AppContext extends DI {
     bind<PanelControllerFactory>(
       to:
           (c) => PanelControllerFactory(
-            provider: c.get<TreeProvider>(),
+            registry: c.get<ProviderRegistry>(),
             editor: c.get<TreeEditor>(),
             sizeScanConcurrency: c.get<AppSettings>().sizeScanConcurrency,
           ),
