@@ -4,9 +4,14 @@ import 'package:flex_commander/model/async/async_operation.dart';
 import 'package:flex_commander/model/async/operation_request.dart';
 import 'package:flex_commander/model/tree/fs_node.dart';
 import 'package:flex_commander/model/tree/local/local_tree_provider.dart';
+import 'package:flex_commander/model/tree/transfer/transfer_engine.dart';
 import 'package:flex_commander/model/tree/tree_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+
+/// Работу делает движок, провайдер даёт ему примитивы: своего состояния
+/// у движка нет, поэтому он один на все тесты файла.
+const editor = TreeTransferEngine();
 
 /// Копирование и перенос на настоящей файловой системе: во временном каталоге.
 void main() {
@@ -56,7 +61,7 @@ void main() {
     test('файл появляется в приёмнике и остаётся в источнике', () async {
       final nodes = await listRoot();
 
-      await provider.copy([nodes['notes.txt']!], await targetDir()).result;
+      await editor.copy([nodes['notes.txt']!], await targetDir()).result;
 
       expect(await File(p.join(target, 'notes.txt')).readAsString(), 'текст');
       expect(await File(p.join(root, 'notes.txt')).exists(), isTrue);
@@ -65,7 +70,7 @@ void main() {
     test('каталог копируется вместе со всем содержимым', () async {
       final nodes = await listRoot();
 
-      await provider.copy([nodes['docs']!], await targetDir()).result;
+      await editor.copy([nodes['docs']!], await targetDir()).result;
 
       expect(await File(p.join(target, 'docs', 'readme.md')).readAsString(), 'hello');
       expect(await File(p.join(target, 'docs', 'nested', 'deep.txt')).readAsString(), 'deep');
@@ -74,7 +79,7 @@ void main() {
     test('ссылка копируется ссылкой, а не тем, куда ведёт', () async {
       final nodes = await listRoot();
 
-      await provider.copy([nodes['link-to-notes']!], await targetDir()).result;
+      await editor.copy([nodes['link-to-notes']!], await targetDir()).result;
 
       final copied = p.join(target, 'link-to-notes');
       expect(FileSystemEntity.isLinkSync(copied), isTrue);
@@ -84,7 +89,7 @@ void main() {
     test('копируются все переданные объекты', () async {
       final nodes = await listRoot();
 
-      await provider.copy([nodes['notes.txt']!, nodes['report.txt']!], await targetDir()).result;
+      await editor.copy([nodes['notes.txt']!, nodes['report.txt']!], await targetDir()).result;
 
       expect(await File(p.join(target, 'notes.txt')).exists(), isTrue);
       expect(await File(p.join(target, 'report.txt')).exists(), isTrue);
@@ -92,7 +97,7 @@ void main() {
 
     test('сообщает о ходе работы', () async {
       final nodes = await listRoot();
-      final operation = provider.copy([nodes['notes.txt']!, nodes['report.txt']!], await targetDir());
+      final operation = editor.copy([nodes['notes.txt']!, nodes['report.txt']!], await targetDir());
       final messages = <String>[];
       operation.progress.listen((event) => messages.add(event.message));
 
@@ -104,7 +109,7 @@ void main() {
 
     test('счётчик обработанного растёт, а не стоит на месте', () async {
       final nodes = await listRoot();
-      final operation = provider.copy([nodes['docs']!], await targetDir());
+      final operation = editor.copy([nodes['docs']!], await targetDir());
       final processed = <int>[];
       operation.progress.listen((event) => processed.add(event.processed));
 
@@ -118,7 +123,7 @@ void main() {
 
     test('общее количество считается фоном и в конце становится окончательным', () async {
       final nodes = await listRoot();
-      final operation = provider.copy([nodes['docs']!, nodes['notes.txt']!], await targetDir());
+      final operation = editor.copy([nodes['docs']!, nodes['notes.txt']!], await targetDir());
       final reports = <OperationProgress>[];
       operation.progress.listen(reports.add);
 
@@ -137,7 +142,7 @@ void main() {
 
     test('в сообщении видно имя объекта, который копируется сейчас', () async {
       final nodes = await listRoot();
-      final operation = provider.copy([nodes['docs']!], await targetDir());
+      final operation = editor.copy([nodes['docs']!], await targetDir());
       final messages = <String>[];
       operation.progress.listen((event) => messages.add(event.message));
 
@@ -149,7 +154,7 @@ void main() {
 
     test('перенос переименованием доводит счётчик до конца', () async {
       final nodes = await listRoot();
-      final operation = provider.move([nodes['docs']!], await targetDir());
+      final operation = editor.move([nodes['docs']!], await targetDir());
       final reports = <OperationProgress>[];
       operation.progress.listen(reports.add);
 
@@ -171,14 +176,14 @@ void main() {
       final nodes = await listRoot();
 
       // Спросить некого: операция берёт ответ по умолчанию — пропустить.
-      await provider.copy([nodes['notes.txt']!], await targetDir()).result;
+      await editor.copy([nodes['notes.txt']!], await targetDir()).result;
 
       expect(await File(p.join(target, 'notes.txt')).readAsString(), 'чужое');
     });
 
     test('перезапись заменяет содержимое', () async {
       final nodes = await listRoot();
-      final operation = provider.copy([nodes['notes.txt']!], await targetDir());
+      final operation = editor.copy([nodes['notes.txt']!], await targetDir());
       answerWith(operation, OperationOption.overwrite);
 
       await operation.result;
@@ -189,7 +194,7 @@ void main() {
     test('«перезаписать все» больше не спрашивает', () async {
       await File(p.join(target, 'report.txt')).writeAsString('чужое');
       final nodes = await listRoot();
-      final operation = provider.copy([nodes['notes.txt']!, nodes['report.txt']!], await targetDir());
+      final operation = editor.copy([nodes['notes.txt']!, nodes['report.txt']!], await targetDir());
       var questions = 0;
       operation.requests.listen((request) {
         questions++;
@@ -204,7 +209,7 @@ void main() {
 
     test('отмена прекращает работу', () async {
       final nodes = await listRoot();
-      final operation = provider.copy([nodes['notes.txt']!, nodes['report.txt']!], await targetDir());
+      final operation = editor.copy([nodes['notes.txt']!, nodes['report.txt']!], await targetDir());
       answerWith(operation, OperationOption.cancel);
 
       await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
@@ -215,7 +220,7 @@ void main() {
       await Directory(p.join(target, 'docs')).create();
       await File(p.join(target, 'docs', 'stale.txt')).writeAsString('старое');
       final nodes = await listRoot();
-      final operation = provider.copy([nodes['docs']!], await targetDir());
+      final operation = editor.copy([nodes['docs']!], await targetDir());
       answerWith(operation, OperationOption.overwrite);
 
       await operation.result;
@@ -229,7 +234,7 @@ void main() {
     test('объект исчезает из источника', () async {
       final nodes = await listRoot();
 
-      await provider.move([nodes['notes.txt']!], await targetDir()).result;
+      await editor.move([nodes['notes.txt']!], await targetDir()).result;
 
       expect(await File(p.join(target, 'notes.txt')).readAsString(), 'текст');
       expect(await File(p.join(root, 'notes.txt')).exists(), isFalse);
@@ -238,7 +243,7 @@ void main() {
     test('каталог переносится вместе с содержимым', () async {
       final nodes = await listRoot();
 
-      await provider.move([nodes['docs']!], await targetDir()).result;
+      await editor.move([nodes['docs']!], await targetDir()).result;
 
       expect(await Directory(p.join(root, 'docs')).exists(), isFalse);
       expect(await File(p.join(target, 'docs', 'nested', 'deep.txt')).readAsString(), 'deep');
@@ -247,7 +252,7 @@ void main() {
     test('пропущенный объект остаётся на месте', () async {
       await File(p.join(target, 'notes.txt')).writeAsString('чужое');
       final nodes = await listRoot();
-      final operation = provider.move([nodes['notes.txt']!], await targetDir());
+      final operation = editor.move([nodes['notes.txt']!], await targetDir());
       answerWith(operation, OperationOption.skip);
 
       await operation.result;
@@ -259,7 +264,7 @@ void main() {
     test('перенос ссылки не трогает то, куда она ведёт', () async {
       final nodes = await listRoot();
 
-      await provider.move([nodes['link-to-notes']!], await targetDir()).result;
+      await editor.move([nodes['link-to-notes']!], await targetDir()).result;
 
       expect(FileSystemEntity.isLinkSync(p.join(target, 'link-to-notes')), isTrue);
       expect(await File(p.join(root, 'notes.txt')).exists(), isTrue);
@@ -271,7 +276,7 @@ void main() {
       final nodes = await listRoot();
       final inside = (await provider.resolvePath(p.join(root, 'docs', 'nested')).result)! as DirectoryNode;
 
-      final operation = provider.copy([nodes['docs']!], inside);
+      final operation = editor.copy([nodes['docs']!], inside);
       final messages = <String>[];
       operation.requests.listen((request) {
         messages.add(request.message);
@@ -287,7 +292,7 @@ void main() {
       final nodes = await listRoot();
       final sameDir = (await provider.resolvePath(root).result)! as DirectoryNode;
 
-      final operation = provider.copy([nodes['notes.txt']!], sameDir);
+      final operation = editor.copy([nodes['notes.txt']!], sameDir);
       final messages = <String>[];
       operation.requests.listen((request) {
         messages.add(request.message);
@@ -303,7 +308,7 @@ void main() {
       // Объект исчез уже после того, как каталог был прочитан.
       await File(p.join(root, 'notes.txt')).delete();
 
-      final operation = provider.copy([nodes['notes.txt']!, nodes['report.txt']!], await targetDir());
+      final operation = editor.copy([nodes['notes.txt']!, nodes['report.txt']!], await targetDir());
       answerWith(operation, OperationOption.skip);
       await operation.result;
 

@@ -4,8 +4,13 @@ import 'package:flex_commander/model/async/async_operation.dart';
 import 'package:flex_commander/model/async/operation_request.dart';
 import 'package:flex_commander/model/tree/fs_node.dart';
 import 'package:flex_commander/model/tree/local/local_tree_provider.dart';
+import 'package:flex_commander/model/tree/transfer/transfer_engine.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+
+/// Работу делает движок, провайдер даёт ему примитивы: своего состояния
+/// у движка нет, поэтому он один на все тесты файла.
+const editor = TreeTransferEngine();
 
 void main() {
   late Directory temp;
@@ -48,7 +53,7 @@ void main() {
     test('файл переносится в корзину, а не исчезает', () async {
       final nodes = await listRoot();
 
-      await provider.remove([nodes['notes.txt']!]).result;
+      await editor.remove([nodes['notes.txt']!]).result;
 
       expect(await File(p.join(root, 'notes.txt')).exists(), isFalse);
       expect(await File(trashPath('notes.txt')).exists(), isTrue);
@@ -57,7 +62,7 @@ void main() {
     test('каталог переносится вместе с содержимым', () async {
       final nodes = await listRoot();
 
-      await provider.remove([nodes['docs']!]).result;
+      await editor.remove([nodes['docs']!]).result;
 
       expect(await Directory(p.join(root, 'docs')).exists(), isFalse);
       expect(await File(p.join(trashPath('docs'), 'readme.md')).exists(), isTrue);
@@ -68,7 +73,7 @@ void main() {
       await File(trashPath('notes.txt')).writeAsString('старый');
 
       final nodes = await listRoot();
-      await provider.remove([nodes['notes.txt']!]).result;
+      await editor.remove([nodes['notes.txt']!]).result;
 
       expect(await File(trashPath('notes.txt')).readAsString(), 'старый');
       expect(await File(trashPath('notes 2.txt')).exists(), isTrue);
@@ -77,7 +82,7 @@ void main() {
     test('удаляется сама ссылка, а не то, куда она ведёт', () async {
       final nodes = await listRoot();
 
-      await provider.remove([nodes['link-to-docs']!]).result;
+      await editor.remove([nodes['link-to-docs']!]).result;
 
       expect(await Link(p.join(root, 'link-to-docs')).exists(), isFalse);
       expect(await Directory(p.join(root, 'docs')).exists(), isTrue);
@@ -88,7 +93,7 @@ void main() {
     test('файл исчезает совсем', () async {
       final nodes = await listRoot();
 
-      await provider.remove([nodes['notes.txt']!], toTrash: false).result;
+      await editor.remove([nodes['notes.txt']!], toTrash: false).result;
 
       expect(await File(p.join(root, 'notes.txt')).exists(), isFalse);
       expect(await Directory(p.join(home, '.Trash')).exists(), isFalse);
@@ -97,7 +102,7 @@ void main() {
     test('каталог удаляется вместе с содержимым', () async {
       final nodes = await listRoot();
 
-      await provider.remove([nodes['docs']!], toTrash: false).result;
+      await editor.remove([nodes['docs']!], toTrash: false).result;
 
       expect(await Directory(p.join(root, 'docs')).exists(), isFalse);
     });
@@ -107,7 +112,7 @@ void main() {
     test('удаляются все', () async {
       final nodes = await listRoot();
 
-      await provider.remove([nodes['notes.txt']!, nodes['report.txt']!], toTrash: false).result;
+      await editor.remove([nodes['notes.txt']!, nodes['report.txt']!], toTrash: false).result;
 
       expect(await File(p.join(root, 'notes.txt')).exists(), isFalse);
       expect(await File(p.join(root, 'report.txt')).exists(), isFalse);
@@ -117,7 +122,7 @@ void main() {
       final nodes = await listRoot();
       final progress = <String>[];
 
-      final operation = provider.remove([nodes['notes.txt']!, nodes['report.txt']!], toTrash: false);
+      final operation = editor.remove([nodes['notes.txt']!, nodes['report.txt']!], toTrash: false);
       operation.progress.listen((event) => progress.add(event.message));
       await operation.result;
       await Future<void>.delayed(Duration.zero);
@@ -128,7 +133,7 @@ void main() {
 
     test('счётчик проходит по всему содержимому каталога', () async {
       final nodes = await listRoot();
-      final operation = provider.remove([nodes['docs']!], toTrash: false);
+      final operation = editor.remove([nodes['docs']!], toTrash: false);
       final reports = <OperationProgress>[];
       operation.progress.listen(reports.add);
 
@@ -144,7 +149,7 @@ void main() {
 
     test('удаление в корзину доводит счётчик до конца одним действием', () async {
       final nodes = await listRoot();
-      final operation = provider.remove([nodes['docs']!]);
+      final operation = editor.remove([nodes['docs']!]);
       final reports = <OperationProgress>[];
       operation.progress.listen(reports.add);
 
@@ -170,7 +175,7 @@ void main() {
       final node = await missingNode();
       final nodes = await listRoot();
 
-      await provider.remove([node, nodes['report.txt']!], toTrash: false).result;
+      await editor.remove([node, nodes['report.txt']!], toTrash: false).result;
 
       // Первый пропущен, второй всё равно удалён.
       expect(await File(p.join(root, 'report.txt')).exists(), isFalse);
@@ -183,7 +188,7 @@ void main() {
       await File(p.join(root, 'report.txt')).delete();
 
       final questions = <String>[];
-      final operation = provider.remove([nodes['notes.txt']!, nodes['report.txt']!], toTrash: false);
+      final operation = editor.remove([nodes['notes.txt']!, nodes['report.txt']!], toTrash: false);
       operation.requests.listen((request) {
         questions.add(request.message);
         request.respond(OperationOption.skipAll);
@@ -197,7 +202,7 @@ void main() {
       final missing = await missingNode();
       final nodes = await listRoot();
 
-      final operation = provider.remove([missing, nodes['report.txt']!], toTrash: false);
+      final operation = editor.remove([missing, nodes['report.txt']!], toTrash: false);
       operation.requests.listen((request) => request.respond(OperationOption.cancel));
 
       await expectLater(operation.result, throwsA(isA<OperationCanceled>()));

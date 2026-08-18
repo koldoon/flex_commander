@@ -2,9 +2,14 @@ import 'dart:io';
 
 import 'package:flex_commander/model/tree/fs_node.dart';
 import 'package:flex_commander/model/tree/local/local_tree_provider.dart';
+import 'package:flex_commander/model/tree/transfer/transfer_engine.dart';
 import 'package:flex_commander/model/tree/tree_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+
+/// Работу делает движок, провайдер даёт ему примитивы: своего состояния
+/// у движка нет, поэтому он один на все тесты файла.
+const editor = TreeTransferEngine();
 
 void main() {
   late Directory temp;
@@ -29,7 +34,7 @@ void main() {
 
   test('создаёт каталог и возвращает его узел', () async {
     final parent = await openRoot();
-    final created = await provider.makeDirectory(parent, 'docs').result;
+    final created = await editor.makeDirectory(parent, 'docs').result;
 
     expect(await Directory(p.join(root, 'docs')).exists(), isTrue);
     expect(created.name, 'docs');
@@ -39,7 +44,7 @@ void main() {
 
   test('новый каталог сразу виден в панели после перечитывания', () async {
     final parent = await openRoot();
-    await provider.makeDirectory(parent, 'docs').result;
+    await editor.makeDirectory(parent, 'docs').result;
 
     final nodes = await provider.getDirectoryListing(parent).result;
     expect(nodes.map((n) => n.name), contains('docs'));
@@ -49,7 +54,7 @@ void main() {
     final link = (await provider.resolvePath(p.join(root, 'bin-link')).result)! as LinkNode;
     final target = (await provider.resolveLink(link).result)! as DirectoryNode;
 
-    final created = await provider.makeDirectory(target, 'tools').result;
+    final created = await editor.makeDirectory(target, 'tools').result;
 
     // Файл лежит в настоящем каталоге...
     expect(await Directory(p.join(root, 'bin', 'tools')).exists(), isTrue);
@@ -61,7 +66,7 @@ void main() {
     final parent = await openRoot();
 
     await expectLater(
-      provider.makeDirectory(parent, 'bin').result,
+      editor.makeDirectory(parent, 'bin').result,
       throwsA(isA<FsError>().having((e) => e.kind, 'kind', FsErrorKind.alreadyExists)),
     );
   });
@@ -71,7 +76,7 @@ void main() {
     final parent = await openRoot();
 
     await expectLater(
-      provider.makeDirectory(parent, 'notes.txt').result,
+      editor.makeDirectory(parent, 'notes.txt').result,
       throwsA(isA<FsError>().having((e) => e.kind, 'kind', FsErrorKind.alreadyExists)),
     );
   });
@@ -81,14 +86,18 @@ void main() {
 
     for (final name in ['', '.', '..', 'a/b']) {
       await expectLater(
-        provider.makeDirectory(parent, name).result,
+        editor.makeDirectory(parent, name).result,
         throwsA(isA<FsError>().having((e) => e.kind, 'kind', FsErrorKind.invalidName)),
         reason: 'имя «$name» должно быть отклонено',
       );
     }
   });
 
-  test('провайдер локальной ФС умеет изменять дерево', () {
-    expect(provider, isA<TreeEditor>());
+  test('провайдер локальной ФС даёт примитивы, а операции выполняет движок', () {
+    expect(provider, isA<NodeEditor>());
+    // Операцию целиком провайдер не выполняет: обход, конфликты и прогресс —
+    // не его дело.
+    expect(provider, isNot(isA<TreeEditor>()));
+    expect(editor, isA<TreeEditor>());
   });
 }

@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:flex_commander/app.dart';
-import 'package:flex_commander/model/async/async_operation.dart';
 import 'package:flex_commander/model/settings/app_settings.dart';
 import 'package:flex_commander/model/settings/settings_store.dart';
 import 'package:flex_commander/model/tree/fs_node.dart';
@@ -19,22 +18,19 @@ import '../fake/in_memory_tree_provider.dart';
 /// Провайдер, у которого копирование можно замедлить.
 ///
 /// В памяти оно мгновенное, и окно хода работы не успевает попасть ни в один
-/// кадр — проверить его было бы нечем.
+/// кадр — проверить его было бы нечем. Замедляется примитив, а не операция:
+/// операция теперь одна на все провайдеры и живёт в движке.
 class _SlowCopyProvider extends InMemoryTreeProvider {
   _SlowCopyProvider(super.entries);
 
   bool slow = false;
 
   @override
-  AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination) {
-    if (!slow) {
-      return super.copy(nodes, destination);
-    }
-    return TaskOperation<void>((op) async {
+  Future<bool> copyEntry(FsNode node, DirectoryNode destination, String name) async {
+    if (slow) {
       await Future<void>.delayed(const Duration(milliseconds: 200));
-      op.checkCanceled();
-      return super.copy(nodes, destination).result;
-    });
+    }
+    return super.copyEntry(node, destination, name);
   }
 }
 

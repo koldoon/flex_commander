@@ -2,7 +2,16 @@ import '../async/async_operation.dart';
 import 'fs_node.dart';
 
 /// Вид ошибки доступа к дереву.
-enum FsErrorKind { notFound, permissionDenied, notADirectory, alreadyExists, invalidName, targetInsideSource, io }
+enum FsErrorKind {
+  notFound,
+  permissionDenied,
+  notADirectory,
+  alreadyExists,
+  invalidName,
+  targetInsideSource,
+  notSupported,
+  io,
+}
 
 /// Ошибка чтения или изменения дерева.
 class FsError implements Exception {
@@ -19,6 +28,7 @@ class FsError implements Exception {
     FsErrorKind.alreadyExists => 'Already exists: $path',
     FsErrorKind.invalidName => 'Invalid name: $path',
     FsErrorKind.targetInsideSource => 'Cannot copy a directory into itself: $path',
+    FsErrorKind.notSupported => 'Not supported: $path',
     FsErrorKind.io => 'I/O error: $path',
   };
 
@@ -67,10 +77,13 @@ abstract interface class TreeProvider {
   AsyncOperation<int> calculateSize(List<FsNode> nodes);
 }
 
-/// Изменение дерева.
+/// Изменение дерева — то, чем пользуются команды.
 ///
-/// Отдельный интерфейс: провайдер может уметь только читать (архив, открытый
-/// на просмотр), и команда это проверяет — `provider is TreeEditor`.
+/// Операция целиком: обход, конфликты, вопросы и прогресс. Провайдеры этот
+/// интерфейс **не реализуют** — его реализует движок переноса
+/// (`TreeTransferEngine`), а провайдер даёт ему примитивы ([NodeEditor]).
+/// Разделение нужно затем, чтобы перенос между разными источниками (архив →
+/// сеть) выполнялся одним и тем же кодом, а не заново в каждом провайдере.
 abstract interface class TreeEditor {
   /// Копирует объекты в каталог.
   ///
@@ -84,6 +97,69 @@ abstract interface class TreeEditor {
   AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true});
 
   AsyncOperation<DirectoryNode> makeDirectory(DirectoryNode parent, String name);
+}
+
+/// Примитивы изменения дерева: один объект, без рекурсии, без вопросов и без
+/// прогресса — всё это дело движка переноса.
+///
+/// Отдельный интерфейс: провайдер может уметь только читать (архив, открытый на
+/// просмотр), и панель это проверяет — `provider is NodeEditor`. Возвращаемое
+/// значение — обычный `Future`, а не [AsyncOperation]: своя отмена и свой
+/// прогресс шагу не нужны, ими владеет операция, которая шаг вызвала.
+///
+/// Метод, вернувший `false`, говорит «так я не умею»: это не ошибка, а сигнал
+/// движку пойти следующей стратегией. Ошибка — это исключение [FsError].
+abstract interface class NodeEditor {
+  /// Содержимое каталога для обхода движком: со скрытыми объектами, без
+  /// псевдоузла «..» и **без записи** в [DirectoryNode.nodes] — обход приёмника
+  /// не должен подменять то, что показывает панель.
+  Future<List<FsNode>> listChildren(DirectoryNode dir);
+
+  /// Объект с таким именем в каталоге; null — имя свободно.
+  Future<FsNode?> lookup(DirectoryNode parent, String name);
+
+  /// Создаёт каталог. Проверка имени — здесь: она платформенная.
+  Future<DirectoryNode> createDirectory(DirectoryNode parent, String name);
+
+  /// Копия объекта средствами самого провайдера — файла или ссылки.
+  /// Каталоги движок создаёт и обходит сам, чтобы считать прогресс.
+  ///
+  /// false — провайдер так не умеет: движок пойдёт потоком или через мост.
+  Future<bool> copyEntry(FsNode node, DirectoryNode destination, String name);
+
+  /// Переименование — самый быстрый перенос: поддерево уезжает одним действием.
+  /// false — так нельзя: другой диск (`EXDEV`), другой провайдер.
+  Future<bool> renameEntry(FsNode node, DirectoryNode destination, String name);
+
+  /// Удаляет один объект. Каталог к этому моменту пуст: движок обошёл его сам,
+  /// чтобы показать ход работы.
+  Future<void> deleteEntry(FsNode node);
+
+  /// Удаляет объект вместе со всем, что под ним, одним действием.
+  ///
+  /// Движок зовёт это там, где поштучный прогресс не нужен: перезапись
+  /// приёмника, уборка источника после копирования. false — провайдер так не
+  /// умеет, и движок удалит поддерево обходом.
+  Future<bool> deleteTree(FsNode node);
+
+  /// Переносит объект в корзину — тоже одним действием.
+  /// false — корзины у провайдера нет.
+  Future<bool> trashEntry(FsNode node);
+
+  /// Обходит поддерево [node], сообщая о каждом объекте (включая сам [node])
+  /// через [onEntry]: движок считает объекты сам и рисует из них общее число.
+  ///
+  /// Исключение из [onEntry] наружу не гасится — так движок прекращает подсчёт,
+  /// когда работа кончилась раньше него.
+  Future<void> countEntries(FsNode node, void Function() onEntry);
+
+  /// Тот же самый объект: класть его туда, где он и лежит, нечего.
+  /// Вызывается, только когда источник и приёмник одного провайдера.
+  bool isSameEntity(FsNode node, DirectoryNode destination);
+
+  /// Приёмник лежит внутри источника: копирование каталога в самого себя
+  /// не закончилось бы никогда. Тоже в пределах одного провайдера.
+  bool isInsideSource(FsNode node, DirectoryNode destination);
 }
 
 /// Ссылка на файл локальной ФС — «мост» между разными провайдерами:

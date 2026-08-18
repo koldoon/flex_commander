@@ -9,6 +9,7 @@ import '../model/panel/sort_spec.dart';
 import '../model/settings/app_settings.dart';
 import '../model/tree/fs_node.dart';
 import '../model/tree/node_path.dart';
+import '../model/tree/transfer/transfer_engine.dart';
 import '../model/tree/tree_provider.dart';
 import 'selection_controller.dart';
 import 'throttle.dart';
@@ -20,16 +21,24 @@ export '../model/app/panel.dart' show Panel, PanelStatus;
 /// Панелей две, и они одного типа, поэтому контейнер не может выдать «ту самую»:
 /// он отдаёт фабрику, а кто именно левая, а кто правая, решает [AppController].
 class PanelControllerFactory {
-  PanelControllerFactory({required this.provider, this.sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency});
+  PanelControllerFactory({
+    required this.provider,
+    this.editor = const TreeTransferEngine(),
+    this.sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
+  });
 
   final TreeProvider provider;
+
+  /// Движок файловых операций. Он один на приложение: своего состояния у него
+  /// нет, а узлы приносят своих провайдеров с собой.
+  final TreeEditor editor;
 
   /// Размер пула обхода каталогов — общая для приложения настройка, поэтому
   /// приходит сюда, а не в [PanelSettings].
   final int sizeScanConcurrency;
 
   PanelController create(PanelSettings settings) =>
-      PanelController(provider: provider, settings: settings, sizeScanConcurrency: sizeScanConcurrency);
+      PanelController(provider: provider, editor: editor, settings: settings, sizeScanConcurrency: sizeScanConcurrency);
 }
 
 /// Состояние одной панели — реализация [Panel].
@@ -42,8 +51,10 @@ class PanelController extends ChangeNotifier implements Panel {
   PanelController({
     required this.provider,
     required PanelSettings settings,
+    TreeEditor editor = const TreeTransferEngine(),
     this.sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
-  }) : _columns = settings.columns,
+  }) : _editor = editor,
+       _columns = settings.columns,
        _sort = settings.sort,
        _showHidden = settings.showHidden,
        _lastPath = settings.path {
@@ -56,13 +67,14 @@ class PanelController extends ChangeNotifier implements Panel {
   /// Сколько каталогов панель обходит одновременно, считая их размер.
   final int sizeScanConcurrency;
 
+  final TreeEditor _editor;
+
+  /// Редактор дерева: движок переноса, если провайдеру есть чем работать.
+  ///
+  /// Сам провайдер операций не выполняет — он даёт движку примитивы
+  /// ([NodeEditor]); их отсутствие и означает источник только для чтения.
   @override
-  TreeEditor? get editor {
-    // Приведение явное: TreeEditor и TreeProvider — независимые интерфейсы,
-    // и Dart не выводит одно из другого сам.
-    final provider = this.provider;
-    return provider is TreeEditor ? provider as TreeEditor : null;
-  }
+  TreeEditor? get editor => provider is NodeEditor ? _editor : null;
 
   /// Сколько строк помещается в видимой части списка. Значение выставляет
   /// таблица; от него считается шаг PgUp/PgDn.
