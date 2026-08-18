@@ -3,6 +3,7 @@ import 'app_command.dart';
 import 'command_registry.dart';
 import 'file_commands.dart';
 import 'help_command.dart';
+import 'layout_commands.dart';
 import 'navigation_commands.dart';
 import 'selection_commands.dart';
 import 'transfer_commands.dart';
@@ -23,6 +24,7 @@ List<CommandFactory> defaultCommands({SystemOpener? opener, CommandRegistry? Fun
   () => GoToLastNodeCommand(),
   () => GoToNameCommand(),
   () => TogglePanelCommand(),
+  () => CenterSplitCommand(),
   () => OpenNodeCommand(opener: opener),
   () => OpenWithSystemCommand(opener: opener),
   () => GoUpCommand(),

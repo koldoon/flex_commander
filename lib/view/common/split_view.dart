@@ -12,6 +12,7 @@ class SplitView extends StatelessWidget {
     required this.right,
     required this.ratio,
     required this.onRatioChanged,
+    required this.onCenter,
   });
 
   final Widget left;
@@ -21,6 +22,14 @@ class SplitView extends StatelessWidget {
   final double ratio;
 
   final ValueChanged<double> onRatioChanged;
+
+  /// Вернуть разделитель в середину.
+  ///
+  /// Отдельно от [onRatioChanged], хотя мог бы быть и `onRatioChanged(0.5)`:
+  /// это не «поставь такую долю», а именованное действие, и снаружи за ним
+  /// стоит команда. Знать о ней виджету незачем — как и о том, что «середина»
+  /// это ровно половина.
+  final VoidCallback onCenter;
 
   @override
   Widget build(BuildContext context) {
@@ -49,8 +58,10 @@ class SplitView extends StatelessWidget {
                     onHorizontalDragUpdate: (details) {
                       onRatioChanged((leftWidth + details.delta.dx) / available);
                     },
-                    // Двойной клик возвращает панели к равной ширине.
-                    onDoubleTap: () => onRatioChanged(0.5),
+                    // Двойной клик и щелчок средней кнопкой возвращают панели
+                    // к равной ширине: одно действие — один путь.
+                    onDoubleTap: onCenter,
+                    onTertiaryTapUp: (_) => onCenter(),
                     child: const SizedBox.expand(),
                   ),
                 ),
