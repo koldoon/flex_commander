@@ -180,7 +180,7 @@ abstract class TransferCommandBase extends AsyncCommandBase {
       builder: (context, _) {
         final question = this.question;
         if (question != null) {
-          return CommandDialogQuestion(message: question.message, options: question.options, onAnswer: answer);
+          return CommandDialogQuestion(request: question, onAnswer: answer, onTextChanged: setAnswerText);
         }
         if (isRunning) {
           return CommandDialogProgress(

@@ -508,7 +508,9 @@ class InMemoryContentProvider extends InMemoryTreeProvider with InMemoryContent 
 
 /// Архив, открытый на просмотр: дерево читается, содержимое отдаётся, менять
 /// нечем. Копировать **из** него можно — этим и отличается умение от типа.
-class InMemoryArchiveProvider extends InMemoryReadOnlyProvider with InMemoryContent {
+///
+/// Держит «ресурс», как настоящий: закрыт он или нет, видно по [closed].
+class InMemoryArchiveProvider extends InMemoryReadOnlyProvider with InMemoryContent implements ProviderLifecycle {
   InMemoryArchiveProvider([super.entries, super.host]) {
     capabilities = archiveCapabilities;
   }
@@ -516,6 +518,12 @@ class InMemoryArchiveProvider extends InMemoryReadOnlyProvider with InMemoryCont
   /// Своя схема: в пути она стоит перед своей частью — `/home/a.arc:arc:/doc`.
   @override
   String get scheme => 'arc';
+
+  /// Провайдера закрыли: пользоваться его узлами уже нельзя.
+  bool closed = false;
+
+  @override
+  Future<void> dispose() async => closed = true;
 }
 
 /// Приёмник байтов, складывающий их в память.

@@ -92,17 +92,53 @@ class ProviderRegistry {
       FsNode? node = await root.resolvePath(first.path).result;
       op.checkCanceled();
 
-      for (final part in chain.parts.skip(1)) {
-        if (node == null) {
-          return null;
-        }
-        final provider = await mount(part.scheme, node);
-        op.checkCanceled();
+      // Смонтированное по дороге придётся закрыть, если путь не разберётся:
+      // провайдер архива держит открытый файл, и бросить его молча нельзя.
+      final mounted = <TreeProvider>[];
 
-        node = await provider.resolvePath(part.path).result;
-        op.checkCanceled();
+      try {
+        for (final part in chain.parts.skip(1)) {
+          if (node == null) {
+            break;
+          }
+          final provider = await mount(part.scheme, node);
+          mounted.add(provider);
+          op.checkCanceled();
+
+          node = await provider.resolvePath(part.path).result;
+          op.checkCanceled();
+        }
+      } catch (_) {
+        await disposeAll(mounted);
+        rethrow;
+      }
+
+      if (node == null) {
+        await disposeAll(mounted);
       }
       return node;
     });
+  }
+
+  /// Закрывает провайдеров, которые не понадобились.
+  ///
+  /// Ошибка закрытия не важна: рассказывать нужно о том, из-за чего не вышло
+  /// открыть путь, а не о том, как за этим убирали.
+  static Future<void> disposeAll(Iterable<TreeProvider> providers) async {
+    for (final provider in providers) {
+      await disposeProvider(provider);
+    }
+  }
+
+  /// Закрывает провайдера, если ему есть что закрывать.
+  static Future<void> disposeProvider(TreeProvider provider) async {
+    if (provider is! ProviderLifecycle) {
+      return;
+    }
+    try {
+      await (provider as ProviderLifecycle).dispose();
+    } on Object {
+      // См. [disposeAll].
+    }
   }
 }

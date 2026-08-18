@@ -182,21 +182,58 @@ class CommandDialogProgress extends StatelessWidget {
 }
 
 /// Вопрос по ходу работы: столько кнопок, сколько вариантов ответа.
-class CommandDialogQuestion extends StatelessWidget {
-  const CommandDialogQuestion({super.key, required this.message, required this.options, required this.onAnswer});
+class CommandDialogQuestion extends StatefulWidget {
+  const CommandDialogQuestion({super.key, required this.request, required this.onAnswer, this.onTextChanged});
 
-  final String message;
-  final List<OperationOption> options;
+  final OperationRequest request;
   final void Function(OperationOption option) onAnswer;
+
+  /// Набранное сообщается по мере ввода — то же правило, что и у окон с
+  /// параметрами: Enter обрабатывает ядро, и к моменту ответа текст уже должен
+  /// лежать там, откуда его возьмут.
+  final ValueChanged<String>? onTextChanged;
+
+  @override
+  State<CommandDialogQuestion> createState() => _CommandDialogQuestionState();
+}
+
+class _CommandDialogQuestionState extends State<CommandDialogQuestion> {
+  final TextEditingController _input = TextEditingController();
+
+  @override
+  void dispose() {
+    _input.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
+    final request = widget.request;
+    final label = request.inputLabel;
+
     return CommandDialogBody(
       actions: [
-        for (final option in options)
-          FcButton(label: option.label, onPressed: () => onAnswer(option), primary: option == options.first),
+        for (final option in request.options)
+          FcButton(
+            label: option.label,
+            onPressed: () => widget.onAnswer(option),
+            primary: option == request.defaultOption,
+          ),
       ],
-      children: [Text(message, style: FcTheme.of(context).dialogTextStyle)],
+      children: [
+        Text(request.message, style: FcTheme.of(context).dialogTextStyle),
+        if (label != null)
+          CommandDialogField(
+            label: label,
+            child: FcTextField(
+              controller: _input,
+              autofocus: true,
+              obscureText: request.secret,
+              onChanged: widget.onTextChanged,
+              onSubmitted: (_) => widget.onAnswer(request.defaultOption),
+            ),
+          ),
+      ],
     );
   }
 }
@@ -387,6 +424,7 @@ class FcTextField extends StatelessWidget {
     this.hintText,
     this.autofocus = false,
     this.enabled = true,
+    this.obscureText = false,
     this.onChanged,
     this.onSubmitted,
   });
@@ -394,6 +432,9 @@ class FcTextField extends StatelessWidget {
   final TextEditingController controller;
   final String? hintText;
   final bool autofocus;
+
+  /// Набранное не показывать: пароль.
+  final bool obscureText;
 
   /// Выключенное поле не принимает ни ввод, ни фокус: обходя окно клавишей
   /// табуляции, на нём останавливаться незачем.
@@ -423,6 +464,7 @@ class FcTextField extends StatelessWidget {
           controller: controller,
           autofocus: autofocus,
           enabled: enabled,
+          obscureText: obscureText,
           onChanged: onChanged,
           onSubmitted: onSubmitted,
           style: theme.inputStyle,

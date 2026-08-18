@@ -23,9 +23,12 @@ void main() {
     FakeEntry.file('/readme.md', content: [4]),
   ];
 
-  Future<PanelController> panelOn(ProviderRegistry source, {String path = '/home'}) async {
+  /// [disposed] — тест закрывает панель сам, и второй раз её закрывать нельзя.
+  Future<PanelController> panelOn(ProviderRegistry source, {String path = '/home', bool disposed = false}) async {
     final it = PanelController(provider: source.root, registry: source, settings: PanelSettings.defaults(path));
-    addTearDown(it.dispose);
+    if (!disposed) {
+      addTearDown(it.dispose);
+    }
     await it.openPath(path);
     return it;
   }
@@ -131,6 +134,93 @@ void main() {
     await const TreeTransferEngine().copy([inside], outside).result;
 
     expect(await disk.resolvePath('/home/readme.md').result, isNotNull);
+  });
+
+  group('жизненный цикл', () {
+    late List<InMemoryArchiveProvider> mounted;
+    late ProviderRegistry tracking;
+
+    setUp(() {
+      mounted = [];
+      tracking = ProviderRegistry(root: disk)..register('arc', (host) async {
+        final provider = InMemoryArchiveProvider(archiveEntries(), host);
+        mounted.add(provider);
+        return provider;
+      }, extensions: {'arc'});
+    });
+
+    Future<PanelController> panelInArchive({bool disposed = false}) async {
+      final it = await panelOn(tracking, disposed: disposed);
+      it.setCursorToName('archive.arc');
+      await it.enterCurrent();
+      expect(it.provider, isA<InMemoryArchiveProvider>());
+      return it;
+    }
+
+    test('уход из архива его закрывает', () async {
+      final panel = await panelInArchive();
+      expect(mounted.single.closed, isFalse);
+
+      await panel.goUp();
+
+      expect(mounted.single.closed, isTrue);
+      expect(panel.provider, same(disk));
+    });
+
+    test('переходы внутри архива его не закрывают', () async {
+      final panel = await panelInArchive();
+
+      panel.setCursorToName('inner');
+      await panel.enterCurrent();
+      await panel.goUp();
+
+      // Провайдер тот же — закрывать нечего.
+      expect(mounted, hasLength(1));
+      expect(mounted.single.closed, isFalse);
+    });
+
+    test('вход в другой архив закрывает прежний', () async {
+      final panel = await panelInArchive();
+      // Уходим наружу и заходим снова: это уже другой экземпляр.
+      await panel.goUp();
+      panel.setCursorToName('archive.arc');
+      await panel.enterCurrent();
+
+      expect(mounted, hasLength(2));
+      expect(mounted.first.closed, isTrue);
+      expect(mounted.last.closed, isFalse);
+    });
+
+    test('закрытие панели закрывает и архив', () async {
+      final panel = await panelInArchive(disposed: true);
+
+      panel.dispose();
+
+      expect(mounted.single.closed, isTrue);
+    });
+
+    test('корневой провайдер не закрывается никогда', () async {
+      final panel = await panelOn(tracking, disposed: true);
+
+      panel.dispose();
+
+      // Он один на приложение и панели не принадлежит.
+      expect(await disk.resolvePath('/home').result, isNotNull);
+    });
+
+    test('неразобранный путь не оставляет архив открытым', () async {
+      // Смонтировать пришлось, а узла внутри не нашлось.
+      expect(await tracking.resolvePath('/home/archive.arc:arc:/missing').result, isNull);
+
+      expect(mounted.single.closed, isTrue);
+    });
+
+    test('разобранный путь оставляет архив открытым: им ещё пользуются', () async {
+      final node = await tracking.resolvePath('/home/archive.arc:arc:/inner').result;
+
+      expect(node, isNotNull);
+      expect(mounted.single.closed, isFalse);
+    });
   });
 
   test('без реестра панель живёт в одном источнике, как раньше', () async {

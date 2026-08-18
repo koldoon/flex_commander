@@ -1,3 +1,4 @@
+import 'package:flex_commander/model/async/operation_request.dart';
 import 'package:flex_commander/view/dialogs/command_dialog.dart';
 import 'package:flex_commander/view/theme/app_colors.dart';
 import 'package:flex_commander/view/theme/app_metrics.dart';
@@ -90,5 +91,109 @@ void main() {
 
     expect(find.textContaining(' of '), findsNothing);
     expect(tester.widget<FcProgressBar>(find.byType(FcProgressBar)).value, isNull);
+  });
+  group('вопрос с вводом строки', () {
+    late OperationRequest request;
+    late String answered;
+
+    Future<void> pumpQuestion(WidgetTester tester, OperationRequest it) {
+      request = it;
+      answered = '';
+      return tester.pumpWidget(
+        MaterialApp(
+          theme: AppTheme.theme,
+          home: Scaffold(
+            body: IntrinsicWidth(
+              child: Builder(
+                builder:
+                    (context) => CommandDialogQuestion(
+                      request: it,
+                      onAnswer: (option) => it.respond(option, text: answered),
+                      onTextChanged: (value) => answered = value,
+                    ),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+
+    OperationRequest passwordRequest({bool secret = true}) => OperationRequest(
+      message: 'archive.zip is encrypted',
+      options: const [OperationOption.retry, OperationOption.cancel],
+      defaultOption: OperationOption.retry,
+      inputLabel: 'Password:',
+      secret: secret,
+    );
+
+    testWidgets('вопрос без поля остаётся набором кнопок', (tester) async {
+      await pumpQuestion(
+        tester,
+        OperationRequest(message: 'Already exists', options: const [OperationOption.skip, OperationOption.cancel]),
+      );
+
+      expect(find.byType(TextField), findsNothing);
+      expect(find.text('Already exists'), findsOneWidget);
+    });
+
+    testWidgets('поле появляется с подписью и берёт фокус', (tester) async {
+      await pumpQuestion(tester, passwordRequest());
+
+      expect(find.text('Password:'), findsOneWidget);
+      // Набирать можно сразу, без клика по полю.
+      expect(tester.widget<EditableText>(find.byType(EditableText)).focusNode.hasFocus, isTrue);
+    });
+
+    testWidgets('пароль не показывается', (tester) async {
+      await pumpQuestion(tester, passwordRequest());
+      expect(tester.widget<TextField>(find.byType(TextField)).obscureText, isTrue);
+
+      await pumpQuestion(tester, passwordRequest(secret: false));
+      expect(tester.widget<TextField>(find.byType(TextField)).obscureText, isFalse);
+    });
+
+    testWidgets('набранное доходит до того, кто спрашивал', (tester) async {
+      await pumpQuestion(tester, passwordRequest());
+
+      await tester.enterText(find.byType(TextField), 'secret');
+      await tester.tap(find.widgetWithText(FcButton, 'Retry'));
+
+      expect(await request.answer, OperationOption.retry);
+      expect(request.text, 'secret');
+    });
+
+    testWidgets('Enter в поле отвечает вариантом по умолчанию', (tester) async {
+      await pumpQuestion(tester, passwordRequest());
+
+      await tester.enterText(find.byType(TextField), 'secret');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+
+      expect(await request.answer, OperationOption.retry);
+      expect(request.text, 'secret');
+    });
+
+    testWidgets('отказ отвечает без текста', (tester) async {
+      await pumpQuestion(tester, passwordRequest());
+
+      await tester.enterText(find.byType(TextField), 'secret');
+      await tester.tap(find.widgetWithText(FcButton, 'Cancel'));
+
+      expect(await request.answer, OperationOption.cancel);
+    });
+
+    testWidgets('подсвечена та кнопка, которую нажмёт Enter', (tester) async {
+      await pumpQuestion(
+        tester,
+        OperationRequest(
+          message: 'Already exists',
+          options: const [OperationOption.overwrite, OperationOption.skip, OperationOption.cancel],
+          defaultOption: OperationOption.skip,
+        ),
+      );
+
+      // Не первая по порядку: молча затирать чужие файлы нельзя.
+      expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Skip')).primary, isTrue);
+      expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Overwrite')).primary, isFalse);
+    });
   });
 }
