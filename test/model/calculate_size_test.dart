@@ -90,6 +90,80 @@ void main() {
     expect(total, lessThan(300));
   });
 
+  test('скрытые файлы и каталоги считаются наравне с остальными', () async {
+    // Панель может их не показывать, но размер каталога от этого не меняется —
+    // именно так считает и сама система.
+    await File(p.join(root, 'docs', '.hidden.txt')).writeAsBytes(List.filled(7, 0));
+    await Directory(p.join(root, 'docs', '.cache')).create();
+    await File(p.join(root, 'docs', '.cache', 'inside.bin')).writeAsBytes(List.filled(13, 0));
+    final nodes = await listRoot();
+
+    final total = await provider.calculateSize([nodes['docs']!]).result;
+
+    expect(total, 300 + 7 + 13);
+  });
+
+  test('недоступный подкаталог не обрывает подсчёт остального', () async {
+    // Закрытых каталогов в macOS хватает (~/Library и соседи), и первая же
+    // такая папка обрывала обход: всё, что стояло после неё, в сумму не
+    // попадало — молча и незаметно.
+    final tree = Directory(p.join(root, 'tree'))..createSync();
+    var expected = 0;
+    final locked = <String>[];
+
+    // Вперемешку: порядок обхода каталога задаёт файловая система, и полагаться
+    // на него нельзя.
+    for (var i = 0; i < 10; i++) {
+      await File(p.join(tree.path, 'file-$i.txt')).writeAsBytes(List.filled(100 + i, 0));
+      expected += 100 + i;
+
+      final closed = p.join(tree.path, 'locked-$i');
+      await Directory(closed).create();
+      await File(p.join(closed, 'secret.bin')).writeAsBytes(List.filled(1000, 0));
+      await Process.run('chmod', ['000', closed]);
+      locked.add(closed);
+    }
+    // Иначе временный каталог не удалить.
+    addTearDown(() async {
+      for (final path in locked) {
+        await Process.run('chmod', ['755', path]);
+      }
+    });
+
+    final nodes = await listRoot();
+    final total = await provider.calculateSize([nodes['tree']!]).result;
+
+    // Недоступное не посчитано — прочитать его нечем; всё остальное на месте.
+    expect(total, expected);
+  });
+
+  test('счётчик объектов задания тоже не спотыкается о закрытый каталог', () async {
+    // Тот же обход, но ради числа объектов: по нему рисуется доля в окне
+    // операции, и оборванный счёт превратил бы её в ложь.
+    final tree = Directory(p.join(root, 'tree'))..createSync();
+    final locked = p.join(tree.path, 'locked');
+    await Directory(locked).create();
+    await File(p.join(locked, 'secret.bin')).writeAsBytes(List.filled(1000, 0));
+    await Process.run('chmod', ['000', locked]);
+    addTearDown(() => Process.run('chmod', ['755', locked]));
+
+    for (var i = 0; i < 5; i++) {
+      await File(p.join(tree.path, 'file-$i.txt')).writeAsBytes(List.filled(10, 0));
+    }
+
+    final nodes = await listRoot();
+    var entries = 0;
+    var bytes = 0;
+    await provider.countEntries(nodes['tree']!, (size) {
+      entries++;
+      bytes += size;
+    });
+
+    // Сам каталог, пять файлов и закрытый каталог; внутрь него не заглянуть.
+    expect(entries, 7);
+    expect(bytes, 50);
+  });
+
   test('операцию можно прервать', () async {
     final nodes = await listRoot();
     final operation = provider.calculateSize([nodes['docs']!]);
