@@ -228,6 +228,7 @@ lib/
     format/
       size_format.dart             126 / 90.1K / 14.9M / 999.9G
       date_format.dart             19-02-2018
+      duration_format.dart         00:42 / 1:23:45 — сколько осталось
 ```
 
 ## Зависимости
