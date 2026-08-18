@@ -250,6 +250,23 @@ class PanelController extends ChangeNotifier implements Panel {
     return _enter(node);
   }
 
+  /// Отпускает провайдера, из которого панель ушла.
+  ///
+  /// Корень реестра не трогается: он один на приложение и панели не
+  /// принадлежит. Смонтированный принадлежит той панели, что его открыла, —
+  /// у второй панели свой экземпляр, даже если архив тот же файл.
+  ///
+  /// Правило верно, пока окно операции модально: уйти из каталога, из которого
+  /// идёт копирование, сейчас нельзя. Когда операции начнут работать в фоне
+  /// (`AsyncCommand`), провайдера придётся отпускать по счётчику пользователей,
+  /// а не по уходу панели.
+  void _releaseProvider(TreeProvider? provider, {required TreeProvider keeping}) {
+    if (provider == null || identical(provider, keeping) || identical(provider, _registry.root)) {
+      return;
+    }
+    unawaited(ProviderRegistry.disposeProvider(provider));
+  }
+
   /// Вход в объект, который каталогом не является.
   ///
   /// Если такие объекты кто-то умеет открывать как дерево (архив), панель
@@ -264,6 +281,9 @@ class PanelController extends ChangeNotifier implements Panel {
     try {
       final mounted = await _registry.mount(scheme, node);
       await open(mounted.rootDirectory);
+      // Прочитать корень могло и не выйти: тогда панель осталась там, где была,
+      // а смонтированное держит открытый файл впустую.
+      _releaseProvider(mounted, keeping: provider);
     } on FsError catch (error) {
       // Битый архив — это отказ открыть, а не пустой каталог: панель остаётся
       // на месте и говорит почему.
@@ -472,8 +492,13 @@ class PanelController extends ChangeNotifier implements Panel {
         return;
       }
 
+      final left = _directory?.provider;
       _directory = dir;
       _lastPath = dir.pathString;
+      // Из смонтированного провайдера ушли — закрыть его файлы и соединения.
+      // Делается это здесь, а не там, откуда уходят: способов уйти много
+      // (открыть, подняться, набрать путь), а место, где каталог сменился, одно.
+      _releaseProvider(left, keeping: dir.provider);
       _nodes = nodes;
       _applySort();
 
@@ -730,6 +755,8 @@ class PanelController extends ChangeNotifier implements Panel {
   void dispose() {
     _operation?.cancel();
     _stopSizeScan();
+    // Панель закрылась вместе с приложением, а архив остался открытым.
+    _releaseProvider(_directory?.provider, keeping: _registry.root);
     selection.removeListener(_onSelectionChanged);
     selection.dispose();
     super.dispose();

@@ -24,7 +24,7 @@ import 'zip_index.dart';
 /// ([ProviderCapabilities.realFileSystem]); архив внутри архива или на сервере
 /// придётся сперва скачать во временный файл — это мост, `docs/providers.md`,
 /// 5.7. MC делает ровно то же самое, и это не лень, а свойство формата.
-class ZipTreeProvider implements TreeProvider, FileContentProvider {
+class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLifecycle {
   ZipTreeProvider._({required this.archivePath, required FsNode host, required ZipIndex index})
     : _host = host,
       _index = index;
@@ -61,6 +61,21 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider {
 
   /// Оглавление архива, прочитанное один раз при открытии.
   final ZipIndex _index;
+
+  /// Открытый файл архива и разобранное по нему оглавление.
+  ///
+  /// Держатся всё время, пока панель показывает архив: оглавление лежит в конце
+  /// файла, и открывать его заново на каждое чтение — это лишний проход по
+  /// всему оглавлению. На архиве из 2000 записей так уходило 2.7 мс на файл,
+  /// почти всё — на повторное чтение.
+  ///
+  /// Закрывает их [dispose], и потому провайдер обязан быть
+  /// [ProviderLifecycle]: без него дескриптор было бы некому отпустить.
+  InputFileStream? _input;
+  Archive? _archive;
+
+  /// Провайдер закрыт: узлами его дерева пользоваться уже нельзя.
+  bool _disposed = false;
 
   /// Сколько байт отдавать одним куском: столько же читает `dart:io`, и на
   /// таком куске движок успевает и прогресс посчитать, и отмену заметить.
@@ -189,31 +204,64 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider {
     ]);
   }
 
-  /// Читает одну запись, открывая архив заново.
-  ///
-  /// Держать файл открытым между чтениями было бы быстрее, но закрыть его
-  /// потом некому: у [TreeProvider] нет ни `dispose`, ни `close`
-  /// (`docs/providers.md`, 5.6). Открытый дескриптор на каждый вход в архив —
-  /// цена хуже, чем лишнее чтение оглавления.
+  /// Читает одну запись из открытого архива.
   Future<Uint8List> _readEntry(String name) async {
+    final archive = _openArchive();
+    final path = '$archivePath:$schemeName:/$name';
+
+    final file = archive.find(name);
+    if (file == null) {
+      throw FsError(path, FsErrorKind.notFound);
+    }
+
+    try {
+      // Распакованное отдаётся наружу и в самой записи не остаётся: иначе
+      // распаковка архива осела бы в памяти целиком. Именно `writeContent`,
+      // а не `readBytes`: он умеет освободить кэш, не трогая сжатые данные,
+      // и запись остаётся читаемой снова. `clear()` обнулил бы и их.
+      final output = OutputMemoryStream();
+      file.writeContent(output);
+      return output.getBytes();
+    } on ArchiveException catch (error) {
+      throw FsError(archivePath, FsErrorKind.io, error);
+    }
+  }
+
+  /// Открытый архив; открывается при первом чтении и живёт до [dispose].
+  ///
+  /// Оглавление читается второй раз — первый был при монтировании, ради дерева.
+  /// Держать его открытым с самого начала незачем: в архив часто заходят
+  /// посмотреть, ничего не читая.
+  Archive _openArchive() {
+    if (_disposed) {
+      throw FsError(archivePath, FsErrorKind.notSupported);
+    }
+
+    final opened = _archive;
+    if (opened != null) {
+      return opened;
+    }
+
     final input = InputFileStream(archivePath);
     try {
       final archive = ZipDecoder().decodeStream(input);
-      final file = archive.find(name);
-      if (file == null) {
-        throw FsError('$archivePath:$schemeName:/$name', FsErrorKind.notFound);
-      }
-
-      final bytes = file.readBytes();
-      if (bytes == null) {
-        throw FsError('$archivePath:$schemeName:/$name', FsErrorKind.io);
-      }
-      return bytes;
+      _input = input;
+      _archive = archive;
+      return archive;
     } on ArchiveException catch (error) {
+      unawaited(input.close());
       throw FsError(archivePath, FsErrorKind.io, error);
-    } finally {
-      await input.close();
     }
+  }
+
+  /// Закрывает файл архива. Панель зовёт это, уходя из архива.
+  @override
+  Future<void> dispose() async {
+    _disposed = true;
+    final input = _input;
+    _archive = null;
+    _input = null;
+    await input?.close();
   }
 
   ZipEntry? _entryOf(FsNode node) => _index.at(_segments(pathOf(node)));

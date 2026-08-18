@@ -83,10 +83,20 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
     _redraw();
   }
 
+  /// Что набрано в поле вопроса — если у вопроса есть поле.
+  ///
+  /// Хранится здесь, а не в окне: отвечает на вопрос и кнопка, и Enter, который
+  /// перехватывает ядро, — и оба должны видеть одно и то же. То же правило, что
+  /// и у окон с параметрами: значение задаётся по мере ввода.
+  String _answerText = '';
+
+  void setAnswerText(String value) => _answerText = value;
+
   /// Ответ на вопрос, заданный по ходу работы.
   void answer(OperationOption option) {
-    _question?.respond(option);
+    _question?.respond(option, text: _answerText);
     _question = null;
+    _answerText = '';
     notifyListeners();
   }
 

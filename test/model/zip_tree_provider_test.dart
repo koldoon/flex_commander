@@ -243,6 +243,52 @@ void main() {
     });
   });
 
+  group('жизненный цикл', () {
+    test('архив открыт, пока им пользуются, и закрывается по dispose', () async {
+      final zip = await mounted() as ZipTreeProvider;
+      final node = (await zip.resolvePath('/readme.md').result)!;
+
+      // Читаем дважды: второй раз оглавление уже не перечитывается.
+      expect(await (await zip.openRead(node)).toList(), isNotEmpty);
+      expect(await (await zip.openRead(node)).toList(), isNotEmpty);
+
+      await zip.dispose();
+
+      // После закрытия узлами пользоваться нельзя, и провайдер это говорит.
+      await expectLater(
+        zip.openRead(node),
+        throwsA(isA<FsError>().having((error) => error.kind, 'kind', FsErrorKind.notSupported)),
+      );
+    });
+
+    test('закрытый архив можно закрыть ещё раз', () async {
+      final zip = await mounted() as ZipTreeProvider;
+
+      await zip.dispose();
+      await zip.dispose();
+    });
+
+    test('дерево читается и без единого чтения содержимого', () async {
+      // В архив часто заходят посмотреть: открывать файл ради этого незачем.
+      final zip = await mounted() as ZipTreeProvider;
+
+      expect(await namesIn(zip, '/'), contains('readme.md'));
+
+      await zip.dispose();
+    });
+
+    test('файл архива отпускается: его можно удалить', () async {
+      final zip = await mounted() as ZipTreeProvider;
+      final node = (await zip.resolvePath('/readme.md').result)!;
+      await (await zip.openRead(node)).toList();
+
+      await zip.dispose();
+      await File(archivePath).delete();
+
+      expect(await File(archivePath).exists(), isFalse);
+    });
+  });
+
   group('в цепочке провайдеров', () {
     test('архив открывается по расширению имени', () async {
       expect(registry.schemeFor(await hostNode()), ZipTreeProvider.schemeName);
