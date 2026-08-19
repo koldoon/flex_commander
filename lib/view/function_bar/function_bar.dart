@@ -39,33 +39,52 @@ class FunctionBar extends StatelessWidget {
         // Зажатые модификаторы сюда не входят: на них ряд подписан самим
         // обращением к ModifiersScope — тот перестроит зависимых сам.
         listenable: Listenable.merge([app.left, app.right, app.commands]),
-        builder:
-            (context, _) => Padding(
-              // Поле справа: `paddingRight="30"` у раскладки кнопок.
-              padding: EdgeInsets.only(right: metrics.functionBarRightPadding),
-              child: Row(
-                children: [
-                  for (var number = 1; number <= keyCount; number++) ...[
-                    if (number > 1) SizedBox(width: metrics.functionButtonGap),
-                    Expanded(child: _button(context, number)),
-                  ],
+        builder: (context, _) {
+          final layer = _layerOf(context);
+
+          return Padding(
+            // Поле справа: `paddingRight="30"` у раскладки кнопок.
+            padding: EdgeInsets.only(right: metrics.functionBarRightPadding),
+            child: Row(
+              children: [
+                for (var number = 1; number <= keyCount; number++) ...[
+                  if (number > 1) SizedBox(width: metrics.functionButtonGap),
+                  Expanded(child: _button(context, layer, number)),
                 ],
-              ),
+              ],
             ),
+          );
+        },
       ),
     );
   }
 
-  Widget _button(BuildContext context, int number) {
-    final app = AppScope.read(context);
-    final registry = app.commands;
+  /// Какой слой показывать: зажатый — или базовый, если зажатому показать
+  /// нечего.
+  ///
+  /// Слой без единой привязки не показывается вовсе: ряд из десяти прочерков
+  /// ничего не сообщает, а выглядит как поломка. Стоит появиться первой
+  /// привязке — слой показывается целиком, и клавиши без команды в нём честно
+  /// пустые: смешивать слои значило бы врать.
+  KeyModifiers _layerOf(BuildContext context) {
+    final registry = AppScope.read(context).commands;
 
     // Пока открыто окно команды, клавиши принадлежат ему: показывать слой
     // модификатора значило бы обещать то, чего сейчас не будет. Заодно ряд не
     // мигает, когда Shift зажимают ради заглавной буквы в поле имени.
-    final modifiers = registry.openDialogs.isEmpty ? ModifiersScope.of(context) : KeyModifiers.none;
+    final held = registry.openDialogs.isEmpty ? ModifiersScope.of(context) : KeyModifiers.none;
+    if (held.isEmpty) {
+      return held;
+    }
 
-    final keys = modifiers.on('F$number');
+    final known = Iterable.generate(keyCount, (index) => held.on('F${index + 1}'));
+    return known.any((keys) => registry.commandFor(keys) != null) ? held : KeyModifiers.none;
+  }
+
+  Widget _button(BuildContext context, KeyModifiers layer, int number) {
+    final registry = AppScope.read(context).commands;
+
+    final keys = layer.on('F$number');
     final command = registry.commandFor(keys);
 
     if (command == null) {
