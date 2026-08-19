@@ -4,7 +4,7 @@ import 'package:flex_commander/app.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/state/panel_controller.dart';
-import 'package:flex_commander/view/panel/file_table_header.dart';
+import 'package:fc_panels/fc_panels.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';

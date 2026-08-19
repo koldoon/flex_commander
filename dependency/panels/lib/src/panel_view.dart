@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../state/app_scope.dart';
 import 'package:fc_api/fc_api.dart';
 import 'panel_path_header.dart';
 import 'panel_status_bar.dart';

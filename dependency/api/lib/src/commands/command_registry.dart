@@ -200,10 +200,14 @@ class CommandRegistry extends ChangeNotifier implements CommandService, CommandL
     }
 
     final node = app.activePanel.currentNode;
+    final screenId = app.screens.active?.id;
     KeyBinding? fallback;
 
     for (final binding in _bindings) {
-      if (!binding.matches(combination, node)) {
+      // Клавиша принадлежит тому, что сейчас на экране: `F5` не должен
+      // копировать файлы из-под открытого просмотрщика, а ряд кнопок —
+      // обещать то, чего по нажатию не будет.
+      if (!binding.matches(combination, node, screenId: screenId)) {
         continue;
       }
       final command = _prototypes[binding.commandId];

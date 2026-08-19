@@ -42,6 +42,7 @@ export 'src/commands/key_combination.dart';
 // --- Фоновые работы и содержимое панели ---
 export 'src/background/task_status.dart';
 export 'src/ui/panel_viewport.dart';
+export 'src/ui/screen.dart';
 
 // --- Модули ---
 export 'src/module/fc_module.dart';
@@ -55,6 +56,7 @@ export 'src/settings/module_settings.dart';
 export 'src/settings/window_geometry.dart';
 
 // --- Элементы интерфейса ---
+export 'src/ui/app_scope.dart';
 export 'src/ui/controls.dart';
 export 'src/ui/dialog/command_dialog.dart';
 export 'src/ui/key_value_table.dart';

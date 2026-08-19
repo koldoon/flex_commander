@@ -4,6 +4,7 @@ import '../app/application.dart';
 import '../background/task_status.dart';
 import 'framework/framework.dart';
 import '../app/panel.dart';
+import '../ui/screen.dart';
 import '../tree/fs_node.dart';
 import '../tree/tree_provider.dart';
 import 'key_combination.dart';
@@ -14,12 +15,17 @@ import 'key_combination.dart';
 /// (`CommandRegistry`). Так их можно будет менять из настроек, не трогая код
 /// команд, а сами команды остаются самостоятельными действиями.
 class KeyBinding {
-  KeyBinding(String keys, this.commandId, {this.nameMatch, this.parameters = const {}})
+  KeyBinding(String keys, this.commandId, {this.nameMatch, this.parameters = const {}, this.screen = Screens.files})
     : keys = KeyCombination.parse(keys),
       characterParam = null;
 
-  const KeyBinding.combination(this.keys, this.commandId, {this.nameMatch, this.parameters = const {}})
-    : characterParam = null;
+  const KeyBinding.combination(
+    this.keys,
+    this.commandId, {
+    this.nameMatch,
+    this.parameters = const {},
+    this.screen = Screens.files,
+  }) : characterParam = null;
 
   /// Привязка к любому печатному символу: набранный символ приходит команде
   /// параметром [characterParam].
@@ -28,9 +34,13 @@ class KeyBinding {
   /// сорока — по одной на каждую клавишу. Команда при этом по-прежнему не знает,
   /// чем её вызвали: символ для неё — обычный параметр, и точно так же его
   /// задаст список команд или сценарий.
-  const KeyBinding.anyCharacter(this.commandId, {this.characterParam = 'character', this.parameters = const {}})
-    : keys = KeyCombination.anyCharacter,
-      nameMatch = null;
+  const KeyBinding.anyCharacter(
+    this.commandId, {
+    this.characterParam = 'character',
+    this.parameters = const {},
+    this.screen = Screens.files,
+  }) : keys = KeyCombination.anyCharacter,
+       nameMatch = null;
 
   final KeyCombination keys;
 
@@ -53,7 +63,23 @@ class KeyBinding {
   /// привязок.
   final String? characterParam;
 
-  bool matches(KeyCombination combination, FsNode? node) {
+  /// В каком экране привязка действует; null — в любом.
+  ///
+  /// Умолчание — [Screens.files]: клавиша принадлежит тому, что сейчас на
+  /// экране, и по умолчанию это файловые панели. Иначе `F5` копировал бы файлы
+  /// из-под открытого просмотрщика, а ряд кнопок обещал бы то, чего не будет.
+  final String? screen;
+
+  /// Действует ли привязка сейчас.
+  ///
+  /// [screenId] — имя видимого экрана. null означает, что экрана нет **вовсе**:
+  /// приложение без интерфейса — тест состояния, сценарий, будущая командная
+  /// строка. Ограничивать там нечем, и привязка действует: экран — это про то,
+  /// кому принадлежит клавиша, а не про то, можно ли выполнить команду.
+  bool matches(KeyCombination combination, FsNode? node, {String? screenId}) {
+    if (screen != null && screenId != null && screen != screenId) {
+      return false;
+    }
     if (keys == KeyCombination.anyCharacter) {
       if (!combination.isCharacter) {
         return false;
@@ -75,7 +101,7 @@ class KeyBinding {
   }
 
   @override
-  String toString() => '$keys → $commandId';
+  String toString() => '$keys → $commandId${screen == null ? ' (везде)' : ''}';
 }
 
 /// Условия, в которых выполняется команда: активная панель и объекты, с

@@ -1,25 +1,21 @@
 import 'package:flutter/material.dart';
 
-import '../state/app_scope.dart';
 import 'background/background_bar.dart';
-import 'common/split_view.dart';
 import 'dialogs/command_dialog_layer.dart';
 import 'dialogs/credentials_layer.dart';
 import 'keyboard_handler.dart';
 import 'function_bar/function_bar.dart';
-import 'panel/panel_view.dart';
 import 'toast_layer.dart';
 import 'package:fc_api/fc_api.dart';
 
-/// Корневой макет окна: две панели и ряд функциональных кнопок под ними.
+/// Корневой макет окна: экран и ряд функциональных кнопок под ним.
+///
+/// Что именно показано выше кнопок, ядро не решает: наверху стопки экранов
+/// может стоять и модуль панелей, и просмотрщик, и что угодно ещё. Ряд кнопок
+/// остаётся на месте всегда — он показывает команды того экрана, который
+/// видно.
 class ApplicationView extends StatelessWidget {
   const ApplicationView({super.key});
-
-  /// Действие «разделитель посередине» — если модуль навигации установлен.
-  ///
-  /// Строкой, а не классом: модуль может быть отключён, и тянуть ради этой
-  /// кнопки зависимость на него ядро не должно.
-  static const String _centerSplitCommand = 'app.split.center';
 
   @override
   Widget build(BuildContext context) {
@@ -39,15 +35,12 @@ class ApplicationView extends StatelessWidget {
                 children: [
                   SizedBox(height: metrics.windowTopPadding),
                   Expanded(
-                    child: SplitView(
-                      ratio: app.splitRatio,
-                      onRatioChanged: app.setSplitRatio,
-                      // По идентификатору, а не по классу: команда живёт в
-                      // модуле навигации, и приложение обязано собираться без
-                      // него — просто разделитель тогда не центруется.
-                      onCenter: () => app.commands.run(_centerSplitCommand),
-                      left: PanelView(panel: app.left, outerEdge: PanelOuterEdge.left),
-                      right: PanelView(panel: app.right, outerEdge: PanelOuterEdge.right),
+                    child: ListenableBuilder(
+                      listenable: app.screens,
+                      // Пусто — значит показывать нечем: модуль панелей
+                      // отключён. Приложение при этом работает, и ряд кнопок
+                      // на месте.
+                      builder: (context, _) => app.screens.active?.build(context) ?? const SizedBox.expand(),
                     ),
                   ),
                   // Фоновые работы — между панелями и рядом кнопок: их видно,

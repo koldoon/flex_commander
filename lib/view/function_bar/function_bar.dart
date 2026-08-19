@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../state/app_scope.dart';
 import 'package:fc_api/fc_api.dart';
 import '../modifiers_scope.dart';
 import 'function_button.dart';
@@ -36,9 +35,12 @@ class FunctionBar extends StatelessWidget {
         // Доступность кнопок зависит от состояния активной панели: есть ли
         // объект под курсором, не занята ли панель. А набор команд меняется и
         // сам по себе: модуль может поставить свою команду после запуска.
+        // Экраны — потому что за одной и той же клавишей в разных экранах
+        // стоят разные команды, и ряд обязан показывать команды того экрана,
+        // который сейчас видно.
         // Зажатые модификаторы сюда не входят: на них ряд подписан самим
         // обращением к ModifiersScope — тот перестроит зависимых сам.
-        listenable: Listenable.merge([app.left, app.right, app.commands]),
+        listenable: Listenable.merge([app.left, app.right, app.commands, app.screens]),
         builder: (context, _) {
           final layer = _layerOf(context);
 

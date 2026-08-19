@@ -1,12 +1,16 @@
 import 'package:flutter/widgets.dart';
 
-import 'package:fc_api/fc_api.dart';
+import '../app/application.dart';
+import '../app/panel.dart';
 
 /// Доступ к состоянию приложения из дерева виджетов.
 ///
 /// [InheritedNotifier]: изменения уровня приложения (активная панель, доля
 /// разделителя, тема) редки, и перестроить на них зависимые виджеты дешевле,
 /// чем разводить подписки вручную.
+///
+/// Живёт в API, а не в ядре: виджеты модулей — экран панелей, просмотрщик —
+/// достают приложение отсюда, а зависеть от ядра модуль не может.
 class AppScope extends InheritedNotifier<Application> {
   const AppScope({super.key, required Application controller, required super.child}) : super(notifier: controller);
 

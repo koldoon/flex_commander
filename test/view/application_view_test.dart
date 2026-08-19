@@ -5,11 +5,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/view/function_bar/function_bar.dart';
-import 'package:flex_commander/view/panel/file_table_row.dart';
-import 'package:flex_commander/view/panel/file_type_icon.dart';
-import 'package:flex_commander/view/panel/panel_path_header.dart';
-import 'package:flex_commander/view/panel/panel_status_bar.dart';
-import 'package:flex_commander/view/panel/panel_view.dart';
+import 'package:fc_panels/fc_panels.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 

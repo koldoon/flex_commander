@@ -6,7 +6,6 @@ import '../settings/settings_store.dart';
 import '../state/app_controller.dart';
 import '../state/panel_controller.dart';
 import '../state/panel_viewport_registry.dart';
-import '../view/panel/file_table.dart';
 import '../state/theme_controller.dart';
 import '../state/credentials_controller.dart';
 import '../state/toast_controller.dart';
@@ -111,7 +110,7 @@ class AppContainer extends DI {
       to: (c) {
         // Таблица файлов — вид по умолчанию: её ядро умеет всегда, остальное
         // приносят модули.
-        final viewports = PanelViewportRegistry(files: (context, panel) => FileTable(panel: panel));
+        final viewports = PanelViewportRegistry();
         for (final entry in registrations.viewports.entries) {
           viewports.register(entry.key, entry.value);
         }
