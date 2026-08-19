@@ -14,6 +14,9 @@ class ApplicationView extends StatelessWidget {
   const ApplicationView({super.key});
 
   /// Действие «разделитель посередине» — если модуль навигации установлен.
+  ///
+  /// Строкой, а не классом: модуль может быть отключён, и тянуть ради этой
+  /// кнопки зависимость на него ядро не должно.
   static const String _centerSplitCommand = 'app.split.center';
 
   @override

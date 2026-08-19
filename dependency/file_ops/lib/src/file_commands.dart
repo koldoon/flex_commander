@@ -16,8 +16,10 @@ class MakeDirectoryCommand extends AppCommand {
   /// же полем — как в референсе.
   final TextEditingController _inside = TextEditingController();
 
+  static const String commandId = 'file.mkdir';
+
   @override
-  String get id => 'file.mkdir';
+  String get id => commandId;
 
   @override
   String get label => 'Mk Dir';
@@ -119,8 +121,10 @@ class MakeDirectoryCommand extends AppCommand {
 
 /// Удаление выбранных объектов в корзину.
 class RemoveCommand extends RemoveCommandBase {
+  static const String commandId = 'file.remove';
+
   @override
-  String get id => 'file.remove';
+  String get id => commandId;
 
   @override
   String get label => 'Delete';
@@ -137,8 +141,10 @@ class RemoveCommand extends RemoveCommandBase {
 /// Отдельная команда, а не параметр [RemoveCommand]: поведение разное,
 /// и в списке команд это должно быть видно.
 class RemovePermanentlyCommand extends RemoveCommandBase {
+  static const String commandId = 'file.removePermanently';
+
   @override
-  String get id => 'file.removePermanently';
+  String get id => commandId;
 
   @override
   String get label => 'Delete permanently';
