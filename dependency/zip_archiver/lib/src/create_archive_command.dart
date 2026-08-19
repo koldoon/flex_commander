@@ -140,11 +140,13 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
         final opened = <InputFileStream>[];
 
         try {
-          for (var i = 0; i < sources.length; i++) {
+          for (final source in sources) {
             await op.checkpoint();
-            progress.startSource(sources[i].name);
-            await _addNode(encoder, sources[i], sources[i].name, copies, opened, op, progress);
-            progress.sourceDoneWholly(i);
+            progress.startSource(source.name);
+            // Объекты и байты считает сам обход: `sourceDoneWholly` здесь
+            // добавил бы их второй раз — он для работ, которые проходят
+            // источник целиком одним действием.
+            await _addNode(encoder, source, source.name, copies, opened, op, progress);
           }
           encoder.endEncode();
         } finally {
@@ -155,7 +157,13 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
         }
 
         await op.checkpoint();
-        await _deliver(archivePath, destination, name, op);
+
+        // Второе плечо: готовый архив уходит приёмнику. Его размер до этого
+        // момента неизвестен, поэтому работа прирастает здесь — бар при этом
+        // не прыгает назад, а лишь пересчитывает оставшееся.
+        final packed = await File(archivePath).length();
+        progress.countBytes(packed);
+        await _deliver(archivePath, destination, name, op, progress);
       } finally {
         progress.stop();
         await copies.purge();
@@ -191,17 +199,28 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
 
     // Настоящий путь берётся как есть, чужой источник выкладывается во
     // временный файл: упаковщику нужен файл, по которому можно ходить.
-    final path = await copies.localPathOf(node, onBytes: progress.advanceBytes);
+    final path = await copies.localPathOf(node);
     final content = InputFileStream(path);
     opened.add(content);
 
+    // Запись читается и сжимается прямо здесь, поэтому байты учитываются
+    // сразу после неё. Внутри одного файла движения не видно — как и у
+    // копирования средствами провайдера; для этого нужен отдельный
+    // показатель хода по текущему объекту.
     encoder.add(ArchiveFile.stream(entryName, content));
+    progress.advanceBytes(node.size);
     progress.advance(node.name);
   }
 
   /// Передаёт готовый архив приёмнику — тем же байтовым контрактом, которым
   /// пользуется движок переноса.
-  Future<void> _deliver(String archivePath, DirectoryNode destination, String name, TaskOperation<void> op) async {
+  Future<void> _deliver(
+    String archivePath,
+    DirectoryNode destination,
+    String name,
+    TaskOperation<void> op,
+    TransferProgress progress,
+  ) async {
     final provider = destination.provider;
     if (provider is! FileContentReceiver) {
       throw FsError(destination.pathString, FsErrorKind.notSupported);
@@ -211,9 +230,11 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
     final sink = await (provider as FileContentReceiver).openWrite(destination, name, length: await file.length());
 
     try {
+      progress.startSource(name);
       await sink.addStream(
         file.openRead().asyncMap((chunk) async {
           await op.checkpoint();
+          progress.advanceBytes(chunk.length);
           return chunk;
         }),
       );

@@ -193,4 +193,42 @@ void main() {
       expect(command.dialogTitle, 'Create ZIP archive');
     });
   });
+
+  group('ход работы', () {
+    test('учитываются оба плеча: и упаковка, и передача приёмнику', () async {
+      await File(p.join(source, 'big.txt')).writeAsString('текст ' * 2000);
+      await runtime.app.left.reload();
+      runtime.app.left.setCursorToName('big.txt');
+      final sourceSize = await File(p.join(source, 'big.txt')).length();
+
+      final command = await pack(name: 'work') as AsyncCommandBase;
+
+      // Работа кончилась целиком, а её объём — это прочитанные исходные байты
+      // плюс отданные приёмнику: одного плеча мало.
+      expect(command.bytes, command.totalBytes);
+      expect(command.totalBytes, greaterThan(sourceSize));
+      expect(command.progress, 1);
+    });
+
+    test('байты упаковки учитываются по мере обхода, а не одним скачком', () async {
+      for (var i = 0; i < 3; i++) {
+        await File(p.join(source, 'file$i.txt')).writeAsString('содержимое $i ' * 200);
+      }
+      await runtime.app.left.reload();
+      runtime.app.left
+        ..setCursorToName('file0.txt')
+        ..toggleCurrentMark()
+        ..setCursorToName('file1.txt')
+        ..toggleCurrentMark()
+        ..setCursorToName('file2.txt')
+        ..toggleCurrentMark();
+
+      final command = await pack(name: 'moving') as AsyncCommandBase;
+
+      // Каждый упакованный файл — это его байты в общем счёте; на глаз это и
+      // есть движение бара. Что показ ещё и не частит, решает throttle окна.
+      expect(command.processed, greaterThanOrEqualTo(3));
+      expect(command.bytes, command.totalBytes);
+    });
+  });
 }
