@@ -1,0 +1,34 @@
+name: fc_7z_archiver
+description: "Архив 7z как дерево: панель входит в него, как в каталог."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  path: ^1.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  # Программе нужен настоящий файл, по которому можно ходить: тесты работают с
+  # диском, а локальный провайдер и место под временные файлы — из ядра.
+  flex_commander:
+    path: ../..
+
+  # Окно команды рисуется настоящим оформлением: своих значений у API нет.
+  fc_default_theme:
+    path: ../default_theme
