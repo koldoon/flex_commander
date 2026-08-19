@@ -6,6 +6,8 @@ import 'package:fc_api/fc_api.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as p;
 
+import 'counting_input_stream.dart';
+
 /// Степень сжатия — то немногое, что при упаковке действительно выбирают.
 ///
 /// Уровни те же, что у формата: без сжатия хранит быстрее всего, лучшее жмёт
@@ -197,7 +199,9 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
       return;
     }
 
-    progress.startItem(node.name, bytes: node.size < 0 ? null : node.size);
+    // Дважды: упаковщик читает запись ради контрольной суммы, а потом ради
+    // сжатия — и второй проход занимает куда больше времени.
+    progress.startItem(node.name, bytes: node.size < 0 ? null : node.size * 2);
 
     // Настоящий путь берётся как есть, чужой источник выкладывается во
     // временный файл: упаковщику нужен файл, по которому можно ходить.
@@ -205,12 +209,9 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
     final content = InputFileStream(path);
     opened.add(content);
 
-    // Запись читается и сжимается прямо здесь, поэтому байты учитываются
-    // сразу после неё. Внутри одного файла движения не видно — как и у
-    // копирования средствами провайдера; для этого нужен отдельный
-    // показатель хода по текущему объекту.
-    encoder.add(ArchiveFile.stream(entryName, content));
-    progress.advanceBytes(node.size);
+    // Байты приходят по мере того, как упаковщик читает запись: так видно
+    // движение и внутри одного большого файла, а не только между файлами.
+    encoder.add(ArchiveFile.stream(entryName, CountingInputStream(content, progress.advanceBytes)));
     progress.advance(node.name);
   }
 
@@ -267,6 +268,8 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
         // Каталог мог исчезнуть или оказаться закрытым — считаем дальше.
       }
       progress.sourceCounted(i, counted, bytes);
+      // Второй проход по тем же байтам — такая же работа, как первый.
+      progress.countBytes(bytes);
     }
 
     progress.countingFinished();
