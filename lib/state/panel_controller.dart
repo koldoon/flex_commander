@@ -252,8 +252,12 @@ class PanelController extends ChangeNotifier implements Panel {
 
     DirectoryNode? dir;
     try {
+      _error = null;
       dir = await _asDirectory(await resolving.result);
-    } on FsError {
+    } on FsError catch (error) {
+      // Причина нужна тому, кто просил открыть: «нет такого пути» и «такой
+      // протокол мы не умеем» — разные ответы.
+      _error = error;
       dir = null;
     } on OperationCanceled {
       // Отмена во время разбора пути: панель остаётся там, где была.
@@ -269,8 +273,8 @@ class PanelController extends ChangeNotifier implements Panel {
       return false;
     }
     if (dir == null) {
-      _status = PanelStatus.idle;
-      _finish();
+      _status = _error == null ? PanelStatus.idle : PanelStatus.error;
+      _finish(statusText: _error?.message);
       return false;
     }
 

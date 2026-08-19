@@ -98,7 +98,11 @@ class InMemoryReadOnlyProvider implements TreeProvider {
   DirectoryNode get rootDirectory => _root;
 
   @override
-  String get homePath => '/';
+  String get homePath => home;
+
+  /// Каталог по умолчанию. Настраивается: без него не проверить ни тильду в
+  /// пути, ни возврат панели домой, когда сохранённый путь пропал.
+  String home = '/';
 
   /// Видимый путь: цель ссылки своё имя не добавляет.
   @override

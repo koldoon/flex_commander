@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -22,7 +24,7 @@ class DialogFrame extends StatefulWidget {
     required this.onDismiss,
     required this.child,
     this.takesFocus = false,
-    this.alignment = Alignment.center,
+    this.area = DialogArea.window,
   });
 
   final String title;
@@ -34,9 +36,9 @@ class DialogFrame extends StatefulWidget {
   /// Содержимое ставит фокус само (поле ввода) — тогда рама его не забирает.
   final bool takesFocus;
 
-  /// Где встать окну. Обычно середина, но окно про названную панель встаёт над
-  /// ней самой.
-  final Alignment alignment;
+  /// Часть окна приложения, над которой встаёт окно. Обычно всё окно, но окно
+  /// про названную панель встаёт над ней самой.
+  final DialogArea area;
 
   final Widget child;
 
@@ -100,8 +102,8 @@ class _DialogFrameState extends State<DialogFrame> {
       children: [
         // Затемнение: пока окно открыто, работать с панелями нельзя.
         Positioned.fill(child: ModalBarrier(dismissible: false, color: colors.dialogBarrier)),
-        Align(
-          alignment: widget.alignment,
+        CustomSingleChildLayout(
+          delegate: _OverArea(widget.area, metrics.dialogMinWidth),
           child: FocusScope(
             autofocus: true,
             // Обработчик стоит на самой области окна: если внутри есть поле
@@ -166,4 +168,36 @@ class _DialogFrameState extends State<DialogFrame> {
       ],
     );
   }
+}
+
+/// Ставит окно над заданной частью экрана.
+///
+/// `Align` для этого не годится: он раскладывает по **свободному** месту, и
+/// широкое окно уезжает от задуманного тем сильнее, чем оно шире. Ширина при
+/// этом ограничивается самой областью — окно шире панели над ней не
+/// поместится, как ни выравнивай, — но не ниже [minWidth]: на узком экране
+/// важнее прочитать окно, чем попасть точно над панелью.
+class _OverArea extends SingleChildLayoutDelegate {
+  const _OverArea(this.area, this.minWidth);
+
+  final DialogArea area;
+  final double minWidth;
+
+  @override
+  BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
+    final allowed = math.max(minWidth, constraints.maxWidth * area.width);
+    return constraints.loosen().copyWith(maxWidth: math.min(constraints.maxWidth, allowed));
+  }
+
+  @override
+  Offset getPositionForChild(Size size, Size childSize) {
+    // За край не выпускаем: на узком окне важнее видеть окно целиком, чем
+    // держать его точно над панелью.
+    final free = math.max(0.0, size.width - childSize.width);
+    final x = (size.width * area.center - childSize.width / 2).clamp(0.0, free).toDouble();
+    return Offset(x, (size.height - childSize.height) / 2);
+  }
+
+  @override
+  bool shouldRelayout(_OverArea oldDelegate) => oldDelegate.area != area || oldDelegate.minWidth != minWidth;
 }

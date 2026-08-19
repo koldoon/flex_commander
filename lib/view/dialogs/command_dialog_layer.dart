@@ -33,7 +33,7 @@ class CommandDialogLayer extends StatelessWidget {
                   key: ValueKey(command.runId),
                   title: command.dialogTitle,
                   takesFocus: command.dialogTakesFocus,
-                  alignment: command.dialogAlignment,
+                  area: command.dialogArea,
                   onSubmit: command.submit,
                   onDismiss: command.dismiss,
                   child: content,

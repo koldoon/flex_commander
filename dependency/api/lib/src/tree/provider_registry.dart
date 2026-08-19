@@ -148,7 +148,7 @@ class ProviderRegistry {
         throw FsError(path, FsErrorKind.notSupported);
       }
 
-      FsNode? node = await start.resolvePath(first.path).result;
+      FsNode? node = await start.resolvePath(_expandHome(first.path, start)).result;
       op.checkCanceled();
 
       // Смонтированное по дороге придётся закрыть, если путь не разберётся:
@@ -182,6 +182,28 @@ class ProviderRegistry {
       }
       return node;
     });
+  }
+
+  /// Разворачивает `~` в домашний каталог источника.
+  ///
+  /// Живёт здесь, а не в каждом провайдере: тильда — это соглашение о **записи**
+  /// пути, и одинаково полезно оно и локальной ФС, и серверу, у которого свой
+  /// `homePath`. Провайдер отвечает за то, где его дом, а не за то, как о нём
+  /// сокращённо пишут.
+  ///
+  /// Разворачивается только ведущая тильда: `~/Developer` — дом, а `dir/~name`
+  /// — обычное имя, каких в файловых системах хватает.
+  static String _expandHome(String path, TreeProvider provider) {
+    if (path != '~' && !path.startsWith('~/')) {
+      return path;
+    }
+    final home = provider.homePath;
+    final rest = path.substring(1);
+    if (rest.isEmpty) {
+      return home;
+    }
+    // `/` на стыке не должен удвоиться: дом бывает и корнем.
+    return home.endsWith('/') ? '$home${rest.substring(1)}' : '$home$rest';
   }
 
   /// Закрывает провайдеров, которые не понадобились.

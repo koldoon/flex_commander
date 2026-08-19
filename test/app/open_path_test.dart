@@ -4,7 +4,9 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flex_commander/view/dialogs/dialog_frame.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Открытие произвольного пути и адреса.
@@ -39,7 +41,7 @@ void main() {
       FakeEntry.directory('/home/docs'),
       FakeEntry.directory('/etc'),
       FakeEntry.file('/home/notes.txt', size: 10),
-    ]);
+    ])..home = '/home';
 
     return testApp(
       provider: local,
@@ -138,7 +140,7 @@ void main() {
 
       expect(command.dialogTitle, 'Open path (left panel)');
       // Середина левой панели при разделителе посередине — четверть ширины.
-      expect((command as OpenPathCommand).dialogAlignment.x, closeTo(-0.5, 0.001));
+      expect((command as OpenPathCommand).dialogArea, const DialogArea(end: 0.5));
 
       // Отложенной записи настроек даём сработать: таймер не должен пережить
       // тест.
@@ -156,7 +158,36 @@ void main() {
             ..setParam(OpenPathCommand.panelParam, 'right');
 
       expect(command.dialogTitle, 'Open path (right panel)');
-      expect(command.dialogAlignment.x, closeTo(0.5, 0.001));
+      expect(command.dialogArea, const DialogArea(start: 0.5));
+    });
+
+    testWidgets('окно нарисовано над своей панелью, а не посередине экрана', (tester) async {
+      final runtime = await app();
+      tester.view.physicalSize = const Size(1000, 700);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      await tester.pumpAndSettle();
+
+      for (final entry in {'left': 250.0, 'right': 750.0}.entries) {
+        runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: entry.key});
+        await tester.pumpAndSettle();
+
+        // Меряется само окно, а не рама: рама — это ещё и затемнение во весь
+        // экран. Доля ширины задаёт середину окна, а не выравнивание по
+        // свободному месту, и на широком экране разница видна.
+        final dialog = tester.getRect(
+          find.descendant(of: find.byType(DialogFrame), matching: find.byType(IntrinsicWidth)),
+        );
+        expect(dialog.center.dx, closeTo(entry.value, 1), reason: 'окно ${entry.key} панели');
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      }
+
+      await tester.pump(const Duration(milliseconds: 20));
     });
 
     testWidgets('поле заполнено текущим путём панели', (tester) async {
@@ -189,6 +220,47 @@ void main() {
       expect(runtime.app.right.directory?.pathString, '/etc');
       expect(runtime.app.activePanel, runtime.app.right, reason: 'пользователь смотрит туда, куда пришёл');
       expect(find.text('Open path (right panel)'), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
+    testWidgets('незнакомый протокол называет себя, а не «путь не найден»', (tester) async {
+      final runtime = await app();
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      await tester.pumpAndSettle();
+
+      runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: 'left'});
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'ssh://user@host/srv');
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      // «Путь не найден» тут врёт: путь-то мы даже не смотрели, потому что не
+      // умеем такой протокол.
+      // Строка попадает и в окно, и в статус панели — важно, что она эта.
+      expect(find.textContaining('Not supported'), findsWidgets);
+      expect(find.textContaining('Not found'), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
+    testWidgets('домашний каталог подставляется вместо тильды', (tester) async {
+      final runtime = await app();
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      await tester.pumpAndSettle();
+
+      runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: 'left'});
+      await tester.pumpAndSettle();
+
+      // `~` — это соглашение о записи пути, и знает о доме сам источник.
+      await tester.enterText(find.byType(TextField), '~/docs');
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(runtime.app.left.directory?.pathString, '/home/docs');
 
       await tester.pump(const Duration(milliseconds: 20));
     });
