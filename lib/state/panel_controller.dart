@@ -273,8 +273,12 @@ class PanelController extends ChangeNotifier implements Panel {
       return false;
     }
     if (dir == null) {
-      _status = _error == null ? PanelStatus.idle : PanelStatus.error;
-      _finish(statusText: _error?.message);
+      // Содержимое остаётся прежним: панель меняется только после **успешного**
+      // открытия. Причина неудачи уходит тому, кто просил открыть (окно ввода
+      // пути), — подменять ею список файлов значило бы наказывать за опечатку
+      // потерей того, на что человек смотрел.
+      _status = PanelStatus.idle;
+      _finish();
       return false;
     }
 
@@ -295,16 +299,39 @@ class PanelController extends ChangeNotifier implements Panel {
   /// при этом закрывается — ушли с сервера, соединение разорвано. Общий корень
   /// не закрывается никогда: он не её.
   Future<TreeProvider> _rootFor(String path) async {
-    final scheme = NodePath.parse(path).scheme;
+    final address = Uri.tryParse(path);
+    if (address == null) {
+      throw FsError(path, FsErrorKind.invalidAddress);
+    }
 
+    if (address.hasScheme) {
+      return _rootForAddress(path, address);
+    }
+
+    // Без протокола это путь — и он должен быть путём: «Blah» им не является,
+    // и говорить о нём «не найдено» значило бы делать вид, что мы искали.
+    // Тильда считается: её разворачивает реестр в дом источника.
+    if (!path.startsWith('/') && !path.startsWith('~')) {
+      throw FsError(path, FsErrorKind.invalidAddress);
+    }
+
+    await _releaseOwnRoot();
+    return _registry.root;
+  }
+
+  /// Корень для строки с протоколом.
+  Future<TreeProvider> _rootForAddress(String path, Uri address) async {
+    final scheme = address.scheme.toLowerCase();
+
+    // Схема общего корня — это он и есть: `fs:/etc` и `/etc` значат одно.
     if (scheme == NodePath.defaultScheme || scheme == _registry.root.scheme) {
       await _releaseOwnRoot();
       return _registry.root;
     }
 
-    final address = _addressOf(path);
-    if (address == null || !_registry.knowsAddress(scheme)) {
-      throw FsError(path, FsErrorKind.notSupported);
+    if (!_registry.knowsAddress(scheme)) {
+      // Имя протокола, а не вся строка: разговор о нём, а не о пути.
+      throw FsError(scheme, FsErrorKind.unsupportedScheme);
     }
 
     // Тот же адрес — тот же корень: перечитывать сервер заново незачем, а
@@ -319,16 +346,6 @@ class PanelController extends ChangeNotifier implements Panel {
     _ownRoot = opened;
     _ownAddress = address;
     return opened;
-  }
-
-  /// Адрес из строки пути; null — строка адресом не является.
-  Uri? _addressOf(String path) {
-    try {
-      final address = Uri.parse(path);
-      return address.hasScheme ? address : null;
-    } on FormatException {
-      return null;
-    }
   }
 
   /// Закрывает корень, открытый самой панелью.

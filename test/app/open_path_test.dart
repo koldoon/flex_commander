@@ -239,8 +239,7 @@ void main() {
 
       // «Путь не найден» тут врёт: путь-то мы даже не смотрели, потому что не
       // умеем такой протокол.
-      // Строка попадает и в окно, и в статус панели — важно, что она эта.
-      expect(find.textContaining('Not supported'), findsWidgets);
+      expect(find.textContaining('Protocol ssh is not supported'), findsWidgets);
       expect(find.textContaining('Not found'), findsNothing);
 
       await tester.pump(const Duration(milliseconds: 20));
@@ -261,6 +260,68 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(runtime.app.left.directory?.pathString, '/home/docs');
+
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
+    testWidgets('на неудаче панель показывает прежнее содержимое', (tester) async {
+      final runtime = await app();
+      // Размер как у остальных проверок вида: на умолчании строки не влезают.
+      tester.view.physicalSize = const Size(802, 621);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      await tester.pumpAndSettle();
+
+      final before = runtime.app.left.nodes.map((node) => node.name).toList();
+      expect(before, isNotEmpty);
+
+      runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: 'left'});
+      await tester.pumpAndSettle();
+      await tester.enterText(find.byType(TextField), 'Blah');
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      // Панель меняется только после успешного открытия: за опечатку не
+      // наказывают потерей того, на что человек смотрел.
+      expect(runtime.app.left.nodes.map((node) => node.name), before);
+      expect(runtime.app.left.status, PanelStatus.idle);
+      // Имя в таблице разложено по колонкам, поэтому ищется каталог: у него
+      // расширения нет.
+      expect(find.text('docs'), findsWidgets, reason: 'список файлов на месте');
+
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
+    testWidgets('на что похож ввод, о том и ошибка', (tester) async {
+      final runtime = await app(extra: [memoryAddresses()]);
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      await tester.pumpAndSettle();
+
+      // Ввод → что должно быть сказано.
+      const answers = {
+        'Blah': 'Wrong URI',
+        'ssh://user@host/srv': 'Protocol ssh is not supported',
+        '/такого/нет': 'Not found',
+        'mem://alpha/нет-такого': 'Not found',
+      };
+
+      for (final entry in answers.entries) {
+        runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: 'left'});
+        await tester.pumpAndSettle();
+
+        await tester.enterText(find.byType(TextField), entry.key);
+        await tester.tap(find.text('Open'));
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining(entry.value), findsWidgets, reason: 'на «${entry.key}»');
+
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pumpAndSettle();
+      }
 
       await tester.pump(const Duration(milliseconds: 20));
     });
