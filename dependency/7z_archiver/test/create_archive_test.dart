@@ -23,6 +23,15 @@ void main() {
   late AppRuntime runtime;
   late FakeProcessRunner runner;
 
+  /// Что ушло программе списком имён.
+  late List<String> packedNames;
+
+  /// Имена из списка, который назвали ключом `-i@`.
+  List<String> listOf(ProcessCall call) {
+    final listFile = call.arguments.firstWhere((argument) => argument.startsWith('-i@'), orElse: () => '');
+    return listFile.isEmpty ? const [] : File(listFile.substring(3)).readAsLinesSync();
+  }
+
   /// Что программа печатает, упаковывая: имена записей и проценты.
   String packingOutput(Iterable<String> names) => [
     'Scanning the drive:',
@@ -46,6 +55,7 @@ void main() {
     await Directory(p.join(source, 'docs')).create();
     await File(p.join(source, 'docs', 'guide.txt')).writeAsString('руководство');
 
+    packedNames = <String>[];
     runner = FakeProcessRunner(
       reply: (call) {
         if (call.command != 'a') {
@@ -55,9 +65,9 @@ void main() {
         // приёмника проверять доставку было бы нечего.
         final archive = call.arguments.reversed.firstWhere((argument) => argument.endsWith('.7z'));
         File(p.isAbsolute(archive) ? archive : p.join(call.workingDirectory!, archive)).writeAsStringSync('7z!');
-        return FakeProcessReply(
-          stdout: packingOutput(call.arguments.where((a) => !a.startsWith('-') && a != '--' && !a.endsWith('.7z'))),
-        );
+        // Список читается сейчас: временный каталог живёт до конца работы.
+        packedNames = listOf(call);
+        return FakeProcessReply(stdout: packingOutput(packedNames));
       },
     );
 
@@ -117,7 +127,7 @@ void main() {
       // Настоящие пути есть — выкладывать содержимое никуда не надо, довольно
       // назвать рабочий каталог.
       expect(packing().workingDirectory, source);
-      expect(packing().arguments.last, 'docs');
+      expect(packedNames, ['docs']);
     });
 
     test('степень сжатия доходит до программы', () async {
@@ -129,6 +139,28 @@ void main() {
       expect(packing().arguments, contains('-t7z'));
     });
 
+    test('пароля упаковка не просит', () async {
+      // `-p` у записи значит «зашифруй», и с пустым значением программа
+      // спрашивает пароль в stdin: работа срывается на ровном месте.
+      runtime.app.left.setCursorToName('notes.txt');
+
+      await pack(name: 'plain');
+
+      expect(packing().has('-p'), isFalse);
+    });
+
+    test('имена уходят списком, а не аргументами', () async {
+      // Помеченных может быть тысячи: командная строка такой длины не бывает.
+      runtime.app.left.setCursorToName('notes.txt');
+
+      await pack(name: 'listed');
+
+      final arguments = packing().arguments;
+      expect(arguments.any((argument) => argument.startsWith('-i@')), isTrue);
+      expect(arguments.indexWhere((argument) => argument.startsWith('-i@')), lessThan(arguments.indexOf('--')));
+      expect(arguments.last, endsWith('listed.7z'), reason: 'после `--` остаётся только путь архива');
+    });
+
     test('пакуется всё помеченное, а не только объект под курсором', () async {
       runtime.app.left
         ..setCursorToName('notes.txt')
@@ -138,7 +170,7 @@ void main() {
 
       await pack(name: 'both');
 
-      expect(packing().arguments, containsAll(['notes.txt', 'docs']));
+      expect(packedNames..sort(), ['docs', 'notes.txt']);
     });
 
     test('панель-приёмник показывает новый архив сразу', () async {
@@ -243,6 +275,7 @@ void main() {
     // Заглянуть под руку программе можно только пока она «работает»: временный
     // каталог живёт ровно до конца упаковки.
     String? staged;
+    packedNames = <String>[];
     runner = FakeProcessRunner(
       reply: (call) {
         if (call.command != 'a') {
