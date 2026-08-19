@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'package:fc_api/fc_api.dart';
+
+import 'dialog_frame.dart';
 
 /// Окна запущенных команд.
 ///
@@ -28,153 +29,17 @@ class CommandDialogLayer extends StatelessWidget {
           children: [
             for (final command in dialogs)
               if (command.getDialog(context) case final content?)
-                _CommandDialogFrame(key: ValueKey(command.runId), command: command, child: content),
+                DialogFrame(
+                  key: ValueKey(command.runId),
+                  title: command.dialogTitle,
+                  takesFocus: command.dialogTakesFocus,
+                  onSubmit: command.submit,
+                  onDismiss: command.dismiss,
+                  child: content,
+                ),
           ],
         );
       },
-    );
-  }
-}
-
-/// Рамка окна команды: затемнение, заголовок, содержимое и общие клавиши.
-///
-/// Enter и Esc рама только **передаёт** команде — `submit` и `dismiss`, — а что
-/// они значат, решает сама команда. Обычно это «выполнить с заданными
-/// параметрами» и «закрыть окно», но у длительной команды Esc посреди работы
-/// означает просьбу её прервать, а во время вопроса обе клавиши отвечают на
-/// него (см. `AsyncCommandBase`). Разбирать эти случаи здесь значило бы
-/// рассказывать раме о состояниях команд.
-class _CommandDialogFrame extends StatefulWidget {
-  const _CommandDialogFrame({super.key, required this.command, required this.child});
-
-  final AppCommand command;
-  final Widget child;
-
-  @override
-  State<_CommandDialogFrame> createState() => _CommandDialogFrameState();
-}
-
-class _CommandDialogFrameState extends State<_CommandDialogFrame> {
-  /// Фокус самого окна.
-  ///
-  /// Нужен для окон, в которых нечего фокусировать: без него клавиши уходили бы
-  /// в панели, а окно оставалось бы глухим к Enter и Esc. Если окно ставит
-  /// фокус само (поле ввода), рама его не забирает, а события всё равно
-  /// поднимаются сюда от поля.
-  final FocusNode _node = FocusNode(debugLabel: 'command dialog');
-
-  AppCommand get command => widget.command;
-
-  @override
-  void initState() {
-    super.initState();
-    if (!command.dialogTakesFocus) {
-      _node.requestFocus();
-    }
-  }
-
-  @override
-  void dispose() {
-    _node.dispose();
-    super.dispose();
-  }
-
-  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent) {
-      return KeyEventResult.ignored;
-    }
-
-    final combination = KeyCombination.fromEvent(event);
-    if (combination == null) {
-      return KeyEventResult.ignored;
-    }
-
-    if (combination == const KeyCombination('Enter')) {
-      command.submit();
-      return KeyEventResult.handled;
-    }
-    if (combination == const KeyCombination('Esc')) {
-      command.dismiss();
-      return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = FcTheme.of(context);
-    final colors = theme.colors;
-
-    final metrics = theme.metrics;
-    final radius = BorderRadius.circular(metrics.dialogRadius);
-
-    return Stack(
-      children: [
-        // Затемнение: пока окно открыто, работать с панелями нельзя.
-        Positioned.fill(child: ModalBarrier(dismissible: false, color: colors.dialogBarrier)),
-        Center(
-          child: FocusScope(
-            autofocus: true,
-            // Обработчик стоит на самой области окна: если внутри есть поле
-            // ввода, событие поднимется сюда от него, а если фокусировать
-            // нечего — фокус берёт само окно.
-            onKeyEvent: _handleKey,
-            child: Focus(
-              focusNode: _node,
-              // Ширину рамка не назначает: окно облегает содержимое в пределах
-              // `minWidth`/`maxWidth`. Нужен определённый размер — команда
-              // задаёт его сама в том, что вернула из `getDialog`.
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: metrics.dialogMinWidth, maxWidth: metrics.dialogMaxWidth),
-                child: IntrinsicWidth(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: colors.dialogBackground,
-                      borderRadius: radius,
-                      boxShadow: [
-                        BoxShadow(
-                          color: colors.shadow,
-                          offset: Offset(0, metrics.dialogShadowOffset),
-                          blurRadius: metrics.dialogShadowBlur,
-                        ),
-                      ],
-                    ),
-                    // Скруглённые углы обрезают полосу заголовка: в референсе
-                    // она для этого закрыта маской.
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          height: metrics.dialogTitleHeight,
-                          alignment: Alignment.centerLeft,
-                          padding: EdgeInsets.symmetric(horizontal: metrics.dialogTitlePadding),
-                          decoration: BoxDecoration(
-                            color: colors.dialogTitleBackground,
-                            // Полоса заголовка отбрасывает тень на содержимое —
-                            // тот же фильтр, что у кнопок.
-                            boxShadow: [
-                              BoxShadow(
-                                color: colors.shadow,
-                                offset: Offset(0, metrics.buttonShadowOffset),
-                                blurRadius: metrics.buttonShadowBlur,
-                              ),
-                            ],
-                          ),
-                          child: Text(command.dialogTitle, style: theme.dialogTitleStyle),
-                        ),
-                        widget.child,
-                      ],
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        ),
-      ],
     );
   }
 }

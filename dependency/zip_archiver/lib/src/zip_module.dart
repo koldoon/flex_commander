@@ -22,7 +22,13 @@ class ZipArchiver implements FcModule {
       ZipTreeProvider.schemeName,
       // Архив внутри архива сперва оказывается на диске, но где именно —
       // знает не архиватор: место под временные файлы даёт приложение.
-      (host) => ZipTreeProvider.open(host, staging: registry.services.resolve<StagingArea>()),
+      (host) => ZipTreeProvider.open(
+        host,
+        staging: registry.services.resolve<StagingArea>(),
+        // Зашифрованная запись спросит пароль сама — тем же способом, каким
+        // это делает 7z и сделает подключение к серверу.
+        credentials: registry.services.resolve<Credentials>(),
+      ),
       extensions: ZipTreeProvider.extensions,
     );
 

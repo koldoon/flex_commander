@@ -44,7 +44,7 @@ void main() {
     disk = LocalTreeProvider(homePath: root, readInIsolate: false);
     registry = ProviderRegistry(root: disk)..register(
       ZipTreeProvider.schemeName,
-      (host) => ZipTreeProvider.open(host, staging: const LocalStagingArea()),
+      (host) => ZipTreeProvider.open(host, credentials: FakeCredentials(), staging: const LocalStagingArea()),
       extensions: ZipTreeProvider.extensions,
     );
   });

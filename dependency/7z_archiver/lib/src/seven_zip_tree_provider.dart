@@ -10,6 +10,14 @@ import 'seven_zip_listing.dart';
 
 part 'writable_seven_zip_tree_provider.dart';
 
+/// Оглавление и пароль, которым оно открылось.
+class _UnlockedListing {
+  _UnlockedListing(this.listing, this.password);
+
+  final SevenZipListing listing;
+  final String? password;
+}
+
 /// Архив 7z как дерево.
 ///
 /// Формат читается не своими силами, а программой `7z`: упаковщика 7z в Dart
@@ -26,9 +34,12 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
     required FsNode host,
     required SevenZipListing listing,
     required this.cli,
+    required this.credentials,
+    String? password,
     LocalCopySession? session,
   }) : _host = host,
        _listing = listing,
+       _password = password,
        _session = session;
 
   /// Схема для строк пути: `…/archive.7z:7z:/inner/doc.txt`.
@@ -46,21 +57,24 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
     FsNode host, {
     required StagingArea staging,
     required SevenZipCli cli,
+    required Credentials credentials,
     void Function(int bytes)? onBytes,
   }) async {
     final session = LocalCopySession(staging, prefix: 'flex_commander_7z');
 
     try {
       final path = await session.localPathOf(host, onBytes: onBytes);
-      final listing = await cli.list(path);
+      final unlocked = await _list(path, cli: cli, credentials: credentials, name: host.name);
 
       if (session.copied == 0) {
         // Архив лежит в настоящей файловой системе: в него можно и писать.
         return WritableSevenZipTreeProvider(
           archivePath: path,
           host: host,
-          listing: listing,
+          listing: unlocked.listing,
           cli: cli,
+          credentials: credentials,
+          password: unlocked.password,
           staging: staging,
         );
       }
@@ -68,7 +82,15 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
       // Архив, открытый через временную копию (внутри другого архива или на
       // сервере), остаётся только для чтения: изменения ушли бы вместе с
       // копией. Сессия хранится, чтобы копию было кому убрать.
-      return SevenZipTreeProvider(archivePath: path, host: host, listing: listing, cli: cli, session: session);
+      return SevenZipTreeProvider(
+        archivePath: path,
+        host: host,
+        listing: unlocked.listing,
+        cli: cli,
+        credentials: credentials,
+        password: unlocked.password,
+        session: session,
+      );
     } on Object {
       // Битый архив, нет программы, отмена: копия не должна пережить неудачу.
       await session.purge();
@@ -76,11 +98,61 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
     }
   }
 
+  /// Читает оглавление, спрашивая пароль, пока он не подойдёт.
+  ///
+  /// У архива с шифрованным оглавлением без пароля не видно даже имён:
+  /// программа отвечает «Cannot open encrypted archive», и это приходит сюда
+  /// отказом в доступе. Повтор — забота спрашивающего: только он знает, подошёл
+  /// ли пароль.
+  static Future<_UnlockedListing> _list(
+    String path, {
+    required SevenZipCli cli,
+    required Credentials credentials,
+    required String name,
+  }) async {
+    var request = CredentialRequest(realm: realmOf(path), title: 'Encrypted archive', message: name);
+    String? password;
+
+    while (true) {
+      try {
+        return _UnlockedListing(await cli.list(path, password: password), password);
+      } on FsError catch (error) {
+        if (error.kind != FsErrorKind.permissionDenied) {
+          rethrow;
+        }
+      }
+
+      if (password != null) {
+        // Этот не подошёл: забыть, чтобы следующий вопрос был настоящим
+        // вопросом, а не тем же ответом из памяти.
+        credentials.forget(request.realm);
+        request = request.retrying();
+      }
+
+      password = (await credentials.obtain(request))?.password;
+      if (password == null || password.isEmpty) {
+        throw FsError(path, FsErrorKind.permissionDenied);
+      }
+    }
+  }
+
+  /// Адрес, под которым помнится пароль к этому архиву.
+  static String realmOf(String archivePath) => '$schemeName:$archivePath';
+
   /// Путь к файлу архива в локальной файловой системе.
   final String archivePath;
 
   /// Программа, которой читается и пишется архив.
   final SevenZipCli cli;
+
+  /// Откуда берётся пароль, когда он нужен.
+  final Credentials credentials;
+
+  /// Пароль, которым архив открылся; null — архив без пароля.
+  ///
+  /// Живёт, пока открыт архив: спрашивать его на каждую запись значило бы
+  /// показывать окно на каждый файл — программа-то запускается заново.
+  String? _password;
 
   /// Узел, над которым провайдер смонтирован: файл архива в чужом дереве.
   final FsNode _host;
@@ -206,14 +278,42 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
     if (entry == null || entry.isDirectory) {
       throw FsError(node.pathString, FsErrorKind.notFound);
     }
-    if (entry.encrypted) {
-      // Пароля у нас нет и спросить его негде: сказать об этом сразу честнее,
-      // чем отдать поток, который сорвётся на первом же байте.
-      throw FsError(node.pathString, FsErrorKind.permissionDenied);
+    if (entry.encrypted && _password == null) {
+      // Записи бывают зашифрованы поодиночке — оглавление при этом читается без
+      // пароля. Спрашиваем до чтения: поток иначе сорвался бы на первом байте.
+      final credential = await credentials.obtain(
+        CredentialRequest(realm: realmOf(archivePath), title: 'Encrypted archive', message: _host.name),
+      );
+      _password = credential?.password;
+      if (_password == null) {
+        throw FsError(node.pathString, FsErrorKind.permissionDenied);
+      }
     }
 
-    final content = cli.read(archivePath, entry.entryName);
+    final content = _forgetWrongPassword(cli.read(archivePath, entry.entryName, password: _password));
     return offset <= 0 ? content : _skip(content, offset);
+  }
+
+  /// Пароль не подошёл — забыть его, чтобы следующее чтение спросило заново.
+  ///
+  /// Повторить прямо здесь нельзя: поток уже отдан наружу, и часть байтов
+  /// читатель мог получить. Зато второй попытки не будет с тем же неверным
+  /// паролем — а это и есть разница между «спросили ещё раз» и «архив
+  /// сломался».
+  Stream<List<int>> _forgetWrongPassword(Stream<List<int>> source) async* {
+    try {
+      // `await for`, а не `yield*`: тот пересылает ошибки потока читателю мимо
+      // `try`, и поймать их здесь было бы нечем.
+      await for (final chunk in source) {
+        yield chunk;
+      }
+    } on FsError catch (error) {
+      if (error.kind == FsErrorKind.permissionDenied) {
+        credentials.forget(realmOf(archivePath));
+        _password = null;
+      }
+      rethrow;
+    }
   }
 
   /// Выбрасывает первые [offset] байт: программа отдаёт запись только целиком.
@@ -243,7 +343,7 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
 
   /// Заменяет оглавление прочитанным заново — после того, как архив изменили.
   Future<void> refresh() async {
-    _listing = await cli.list(archivePath);
+    _listing = await cli.list(archivePath, password: _password);
   }
 
   SevenZipEntry? _entryOf(FsNode node) => _listing.at(_segments(pathOf(node)));

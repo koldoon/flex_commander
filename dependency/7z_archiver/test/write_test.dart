@@ -68,6 +68,7 @@ void main() {
               host,
               staging: LocalStagingArea(root: temp),
               cli: SevenZipCli(processes: runner),
+              credentials: FakeCredentials(),
             )
             as WritableSevenZipTreeProvider;
     addTearDown(provider.dispose);
@@ -104,6 +105,7 @@ void main() {
       host,
       staging: LocalStagingArea(root: temp),
       cli: SevenZipCli(processes: runner),
+      credentials: FakeCredentials(),
     );
     addTearDown(() => (provider as ProviderLifecycle).dispose());
 
@@ -314,6 +316,7 @@ void main() {
               host,
               staging: LocalStagingArea(root: temp),
               cli: SevenZipCli(processes: runner),
+              credentials: FakeCredentials(),
             )
             as WritableSevenZipTreeProvider;
 

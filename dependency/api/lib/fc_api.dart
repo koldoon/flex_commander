@@ -69,6 +69,7 @@ export 'src/ui/theme/theme_service.dart';
 export 'src/format/date_format.dart';
 export 'src/format/duration_format.dart';
 export 'src/format/size_format.dart';
+export 'src/os/credentials.dart';
 export 'src/os/process_runner.dart';
 export 'src/os/system_opener.dart';
 export 'src/os/window_service.dart';

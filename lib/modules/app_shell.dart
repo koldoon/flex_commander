@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 
 import '../state/commands/help_command.dart';
+import '../state/credentials_controller.dart';
 
 /// Оболочка приложения: то, что есть у файлового менеджера всегда.
 ///
@@ -28,6 +29,11 @@ class AppShell implements FcModule {
     // Движок один на приложение: состояния у него нет, а провайдеров узлы
     // приносят с собой — в том числе разных у источника и приёмника.
     registry.service<TreeEditor>((services) => const TreeTransferEngine());
+
+    // Пароль нужен файловому менеджеру всегда: архив под паролем, сервер с
+    // паролем. Модуль просит службу так же, как любую другую, — и не знает,
+    // ни как её спрашивают, ни где она помнит ответ.
+    registry.service<Credentials>((services) => services.resolve<CredentialsController>());
 
     // Справка показывает содержимое реестра, а реестра во время объявления
     // ещё нет: команда получает не его, а способ его спросить.
