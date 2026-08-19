@@ -10,13 +10,25 @@ import 'window_geometry.dart';
 /// в файле, а чего в файле нет — остаётся как было. Поэтому «значение по
 /// умолчанию» задаётся один раз, при создании, и не повторяется в разборе.
 class PanelSettings implements Serializable {
-  PanelSettings({this.path = '', ColumnLayout? columns, this.sort = const SortSpec(), this.showHidden = false})
-    : columns = columns ?? ColumnLayout.defaults;
+  PanelSettings({
+    this.path = '',
+    this.cursor = '',
+    ColumnLayout? columns,
+    this.sort = const SortSpec(),
+    this.showHidden = false,
+  }) : columns = columns ?? ColumnLayout.defaults;
 
   static PanelSettings defaults(String path) => PanelSettings(path: path);
 
   /// Последний открытый каталог: полная строка пути, включая схему провайдера.
   String path;
+
+  /// Имя объекта под курсором в этом каталоге.
+  ///
+  /// Имя, а не номер строки: за время между запусками в каталоге прибавится
+  /// или убавится файлов, и номер привёл бы курсор не туда. Пропавшее имя
+  /// ставит курсор в начало — это честнее, чем угадывать соседа.
+  String cursor;
 
   ColumnLayout columns;
   SortSpec sort;
@@ -25,6 +37,7 @@ class PanelSettings implements Serializable {
   @override
   void toMap(Map<String, dynamic> m) {
     m['path'] = path;
+    m['cursor'] = cursor;
     m['showHidden'] = showHidden;
     // Раскладка колонок и правило сортировки — значения, а не документы:
     // `Serializable` устроен вокруг словаря, а колонки хранятся списком.
@@ -42,6 +55,7 @@ class PanelSettings implements Serializable {
       path = fallback;
     }
 
+    cursor = extract(cursor, m['cursor']);
     showHidden = extract(showHidden, m['showHidden']);
     sort = SortSpec.fromJson(m['sort']);
     columns = ColumnLayout.fromJson(m['columns']);

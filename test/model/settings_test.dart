@@ -23,6 +23,7 @@ void main() {
       final source = AppSettings(
         left: PanelSettings(
           path: '/Users/koldoon',
+          cursor: 'notes.txt',
           columns: ColumnLayout.defaults.resize(FsColumn.size, 120).toggleVisible(FsColumn.attributes),
           sort: const SortSpec(column: FsColumn.modified, direction: SortDirection.descending),
           showHidden: true,
@@ -36,6 +37,7 @@ void main() {
       final restored = read(jsonDecode(jsonEncode(write(source))));
 
       expect(restored.left.path, '/Users/koldoon');
+      expect(restored.left.cursor, 'notes.txt');
       expect(restored.left.showHidden, isTrue);
       expect(restored.left.sort.column, FsColumn.modified);
       expect(restored.left.sort.direction, SortDirection.descending);

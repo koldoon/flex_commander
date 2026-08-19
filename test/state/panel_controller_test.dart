@@ -338,4 +338,55 @@ void main() {
     expect(settings.sort.column, FsColumn.size);
     expect(settings.columns.find(FsColumn.attributes)?.visible, isTrue);
   });
+
+  group('курсор между запусками', () {
+    test('положение курсора попадает в настройки', () async {
+      await panel.openPath('/home');
+      panel.setCursorToName('report.xlsx');
+
+      expect(panel.settings.cursor, 'report.xlsx');
+    });
+
+    test('прочитанное из настроек ставит курсор при открытии', () async {
+      final restored = testPanel(provider: provider, settings: PanelSettings(path: '/home', cursor: 'report.xlsx'));
+      addTearDown(restored.dispose);
+
+      await restored.openPath('/home');
+
+      expect(restored.currentNode?.name, 'report.xlsx');
+    });
+
+    test('исчезнувший объект ставит курсор в начало, а не мимо', () async {
+      final restored = testPanel(
+        provider: provider,
+        settings: PanelSettings(path: '/home', cursor: 'его-больше-нет.txt'),
+      );
+      addTearDown(restored.dispose);
+
+      await restored.openPath('/home');
+
+      expect(restored.cursorIndex, 0);
+      expect(restored.currentNode, isNotNull);
+    });
+
+    test('запомненное не теряется, пока каталог не прочитан', () {
+      // Настройки могут сохраниться и до первого чтения — например, если
+      // приложение закрыли сразу после запуска.
+      final restored = testPanel(provider: provider, settings: PanelSettings(path: '/home', cursor: 'report.xlsx'));
+      addTearDown(restored.dispose);
+
+      expect(restored.settings.cursor, 'report.xlsx');
+    });
+
+    test('курсор помнится для каждого каталога свой', () async {
+      await panel.openPath('/home');
+      panel.setCursorToName('report.xlsx');
+
+      await panel.openPath('/home/docs');
+      expect(panel.settings.cursor, isNot('report.xlsx'));
+
+      await panel.openPath('/home');
+      expect(panel.currentNode?.name, 'report.xlsx');
+    });
+  });
 }
