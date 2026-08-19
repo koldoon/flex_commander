@@ -116,7 +116,7 @@ class SevenZipCli {
   Future<SevenZipListing> list(String archivePath) async {
     final outcome = await run(['l', '-slt', ...literalNames, '--', archivePath]);
 
-    if (!_ok(outcome.exitCode)) {
+    if (!succeeded(outcome.exitCode)) {
       throw errorOf(archivePath, outcome.exitCode, outcome.stderr);
     }
 
@@ -140,7 +140,7 @@ class SevenZipCli {
 
       final code = await session.exitCode;
       await watching;
-      if (!_ok(code)) {
+      if (!succeeded(code)) {
         throw errorOf(entryName, code, complaints.toString());
       }
     } finally {
@@ -150,9 +150,52 @@ class SevenZipCli {
     }
   }
 
+  /// Добавляет в архив то, что лежит в [workingDirectory], по списку имён.
+  ///
+  /// Имена относительные, и рабочий каталог задан не для удобства: программа
+  /// записывает путь таким, каким его получила, и `docs/readme.txt` из нужного
+  /// каталога даёт ровно такую запись. Абсолютный путь дал бы совсем другую.
+  Future<void> add(
+    String archivePath, {
+    required String workingDirectory,
+    required String listFile,
+    int level = normalLevel,
+  }) async {
+    final outcome = await run([
+      'a',
+      '-t7z',
+      '-mx=$level',
+      _listCharset,
+      ...literalNames,
+      '--',
+      archivePath,
+      '@$listFile',
+    ], workingDirectory: workingDirectory);
+
+    if (!succeeded(outcome.exitCode)) {
+      throw errorOf(archivePath, outcome.exitCode, outcome.stderr);
+    }
+  }
+
+  /// Удаляет записи по точным именам.
+  Future<void> delete(String archivePath, {required String listFile}) async {
+    final outcome = await run(['d', _listCharset, ...literalNames, '--', archivePath, '@$listFile']);
+
+    if (!succeeded(outcome.exitCode)) {
+      throw errorOf(archivePath, outcome.exitCode, outcome.stderr);
+    }
+  }
+
+  /// Уровень сжатия по умолчанию — тот же, что предлагает сама программа.
+  static const int normalLevel = 5;
+
+  /// Кодировка списков: без этого программа читала бы их в кодировке консоли,
+  /// и имя с кириллицей до неё не дошло бы.
+  static const String _listCharset = '-scsUTF-8';
+
   /// Ноль — успех, единица — предупреждение: часть файлов пропущена, но работа
   /// сделана. Считать предупреждение провалом нельзя.
-  bool _ok(int exitCode) => exitCode == 0 || exitCode == _warning;
+  bool succeeded(int exitCode) => exitCode == 0 || exitCode == _warning;
 
   static const int _warning = 1;
   static const int _commandLineError = 7;
