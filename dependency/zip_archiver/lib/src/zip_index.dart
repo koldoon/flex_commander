@@ -1,4 +1,7 @@
+import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 
@@ -11,14 +14,22 @@ import 'package:fc_api/fc_api.dart';
 /// достраиваются по путям, и у достроенного нет ни даты, ни прав.
 class ZipEntry {
   ZipEntry({required this.name, required this.isDirectory, this.entryName = '', this.size = 0, this.modified})
-    : mode = 0;
+    : mode = 0,
+      encrypted = false;
 
-  ZipEntry.file({required this.name, required this.entryName, required this.size, this.modified, this.mode = 0})
-    : isDirectory = false;
+  ZipEntry.file({
+    required this.name,
+    required this.entryName,
+    required this.size,
+    this.modified,
+    this.mode = 0,
+    this.encrypted = false,
+  }) : isDirectory = false;
 
   ZipEntry.directory({required this.name, this.entryName = '', this.modified, this.mode = 0})
     : isDirectory = true,
-      size = 0;
+      size = 0,
+      encrypted = false;
 
   /// Имя внутри родительского каталога.
   final String name;
@@ -32,6 +43,16 @@ class ZipEntry {
 
   /// Права доступа из архива; 0 — их там не было.
   final int mode;
+
+  /// Содержимое зашифровано — читать его без пароля бессмысленно.
+  ///
+  /// Признак читается из оглавления **своими силами**: библиотека его наружу
+  /// не отдаёт, а без него неверный пароль не отличить от битого архива.
+  /// ZipCrypto к тому же не сообщает о неверном пароле вовсе — распаковщик
+  /// просто давится зашифрованными байтами («Filter error, bad data»), и по
+  /// одной этой ошибке спрашивать пароль значило бы спрашивать его и на
+  /// испорченном архиве.
+  final bool encrypted;
 
   final Map<String, ZipEntry> children = {};
 
@@ -80,6 +101,7 @@ Future<ZipIndex> readZipIndex(String archivePath) async {
     throw FsError(archivePath, FsErrorKind.io);
   }
 
+  final encrypted = await readEncryptedNames(archivePath);
   final input = InputFileStream(archivePath);
 
   try {
@@ -117,6 +139,7 @@ Future<ZipIndex> readZipIndex(String archivePath) async {
       parent.children[name] = ZipEntry.file(
         name: name,
         entryName: file.name,
+        encrypted: encrypted.contains(file.name),
         size: file.size,
         modified: file.lastModDateTime,
         mode: file.mode,
@@ -132,6 +155,91 @@ Future<ZipIndex> readZipIndex(String archivePath) async {
   } finally {
     await input.close();
   }
+}
+
+/// Подпись записи оглавления и его конца.
+const int _centralHeader = 0x02014b50;
+const int _endOfCentralRecord = 0x06054b50;
+
+/// Имена записей, у которых поднят признак шифрования.
+///
+/// Оглавление разбирается своими силами: `package:archive` этот бит наружу не
+/// отдаёт, а знать его нужно **до** чтения — иначе неверный пароль неотличим от
+/// испорченного архива, а у ZipCrypto он и вовсе ничем себя не выдаёт.
+///
+/// Разбор бережный: не нашли конец оглавления, не сошлась подпись, встретился
+/// zip64 — возвращается пустое множество. Это значит «не знаем», и провайдер
+/// поведёт себя как раньше; врать про шифрование хуже, чем промолчать.
+Future<Set<String>> readEncryptedNames(String archivePath) async {
+  final file = await File(archivePath).open();
+
+  try {
+    final length = await file.length();
+    // Конец оглавления лежит в хвосте: 22 байта плюс комментарий (до 64 КиБ).
+    final tailSize = math.min(length, 22 + 0xFFFF);
+    await file.setPosition(length - tailSize);
+    final tail = await file.read(tailSize);
+
+    final end = _lastSignature(tail, _endOfCentralRecord);
+    if (end < 0 || end + 20 > tail.length) {
+      return const {};
+    }
+
+    final endView = ByteData.sublistView(tail);
+    final count = endView.getUint16(end + 10, Endian.little);
+    final size = endView.getUint32(end + 12, Endian.little);
+    final offset = endView.getUint32(end + 16, Endian.little);
+    if (size == 0xFFFFFFFF || offset == 0xFFFFFFFF || offset + size > length) {
+      // zip64 или неправдоподобные числа: молчим.
+      return const {};
+    }
+
+    await file.setPosition(offset);
+    return _encryptedIn(await file.read(size), count);
+  } on FileSystemException {
+    return const {};
+  } finally {
+    await file.close();
+  }
+}
+
+Set<String> _encryptedIn(Uint8List central, int count) {
+  final names = <String>{};
+  final view = ByteData.sublistView(central);
+  var at = 0;
+
+  for (var i = 0; i < count && at + 46 <= central.length; i++) {
+    if (view.getUint32(at, Endian.little) != _centralHeader) {
+      break;
+    }
+
+    final flags = view.getUint16(at + 8, Endian.little);
+    final nameLength = view.getUint16(at + 28, Endian.little);
+    final extraLength = view.getUint16(at + 30, Endian.little);
+    final commentLength = view.getUint16(at + 32, Endian.little);
+    if (at + 46 + nameLength > central.length) {
+      break;
+    }
+
+    // Первый бит общих признаков и означает «содержимое зашифровано».
+    if (flags & 0x1 != 0) {
+      names.add(utf8.decode(central.sublist(at + 46, at + 46 + nameLength), allowMalformed: true));
+    }
+
+    at += 46 + nameLength + extraLength + commentLength;
+  }
+
+  return names;
+}
+
+/// Последнее вхождение подписи; -1 — не нашлось.
+int _lastSignature(Uint8List bytes, int signature) {
+  for (var at = bytes.length - 4; at >= 0; at--) {
+    if (ByteData.sublistView(bytes).getUint32(at, Endian.little) == signature) {
+      return at;
+    }
+  }
+  return -1;
 }
 
 /// Первые четыре байта файла. 0 — файл короче или не читается.

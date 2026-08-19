@@ -144,7 +144,7 @@ void main() {
     final outcome = await processes.run(await cli.resolve(), [
       'a',
       '-t7z',
-      '-psecret',
+      '-pтайна',
       '-mhe=on',
       '-y',
       '--',
@@ -153,7 +153,10 @@ void main() {
     ]);
     expect(outcome.exitCode, 0, reason: outcome.stderr);
 
-    final credentials = FakeCredentials(answers: ['мимо', 'secret']);
+    // Пароль не из латиницы намеренно: программе он уходит аргументом, и
+    // байты до неё должны дойти неиспорченными — у zip на этом месте живёт
+    // отдельная беда, см. `zip_archiver/test/password_test.dart`.
+    final credentials = FakeCredentials(answers: ['мимо', 'тайна']);
     final local = LocalTreeProvider();
     final host = (await local.resolvePath(archivePath).result)!;
     final provider = await SevenZipTreeProvider.open(
