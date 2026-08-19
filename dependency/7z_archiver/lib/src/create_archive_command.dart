@@ -142,7 +142,12 @@ class CreateSevenZipArchiveCommand extends AsyncCommandBase {
       try {
         final workingDirectory = await _sourcesRoot(sources, staged, op, progress);
 
-        await _run(archivePath, workingDirectory, [for (final source in sources) source.name], op, progress);
+        // Имена уходят списком, а не аргументами: помеченных может быть
+        // тысячи, и командная строка такой длины не бывает.
+        final list = File(p.join(staged.path, 'sources.txt'));
+        await list.writeAsString(sources.map((source) => source.name).join('\n'), encoding: utf8);
+
+        await _run(archivePath, workingDirectory, list.path, op, progress);
         await op.checkpoint();
 
         if (!direct) {
@@ -251,7 +256,7 @@ class CreateSevenZipArchiveCommand extends AsyncCommandBase {
   Future<void> _run(
     String archivePath,
     String workingDirectory,
-    List<String> names,
+    String listFile,
     TaskOperation<void> op,
     TransferProgress progress,
   ) async {
@@ -259,6 +264,8 @@ class CreateSevenZipArchiveCommand extends AsyncCommandBase {
       'a',
       '-t7z',
       '-mx=${_compression.level}',
+      '-scsUTF-8',
+      SevenZipCli.listSwitch(listFile),
       // Имена обработанных записей и проценты — то единственное, из чего можно
       // собрать ход работы.
       '-bb1',
@@ -267,7 +274,6 @@ class CreateSevenZipArchiveCommand extends AsyncCommandBase {
       ..._cli.literalNames,
       '--',
       archivePath,
-      ...names,
     ], workingDirectory: workingDirectory);
 
     final complaints = StringBuffer();

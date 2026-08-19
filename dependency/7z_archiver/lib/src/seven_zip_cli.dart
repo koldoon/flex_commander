@@ -37,13 +37,23 @@ class SevenZipCli {
   /// образец для подстановки.
   bool _literalNames = true;
 
-  /// Ключи, которые идут в каждый вызов.
+  /// Ключи, которые идут в каждый вызов: отвечать «да», иначе вопрос о
+  /// перезаписи ждёт ответа.
+  static const List<String> _always = ['-y'];
+
+  /// Пустой пароль — **только для чтения**.
   ///
-  /// `-y` — отвечать «да»: вопрос о перезаписи иначе ждёт ответа.
-  /// `-p` — пустой пароль: без него архив с паролем спрашивает его в stdin и
-  /// подвешивает работу. Пустой пароль не подойдёт, и программа честно
-  /// ошибётся — это лучше, чем зависнуть.
-  static const List<String> _always = ['-y', '-p'];
+  /// У чтения он значит «пароль вот такой, не спрашивай»: на архиве с паролем
+  /// программа быстро ошибётся вместо того, чтобы ждать ввода. У записи тот же
+  /// ключ значит ровно обратное — «зашифруй», — и с пустым значением программа
+  /// спрашивает пароль в stdin. Так что `a` и `d` его не получают: на обычном
+  /// архиве им нечего спрашивать вовсе.
+  ///
+  /// Проверено на 7-Zip 26.02: `l` шифрованного архива с ключом даёт код 2 и
+  /// внятное «Cannot open encrypted archive», без ключа — код 255 «Break
+  /// signaled»; `d` с ключом — те же 255, потому что он просит пароль для
+  /// нового архива.
+  static const String _emptyPassword = '-p';
 
   /// Путь к программе; бросает, если её нет.
   Future<String> resolve() async {
@@ -114,7 +124,7 @@ class SevenZipCli {
 
   /// Оглавление архива.
   Future<SevenZipListing> list(String archivePath) async {
-    final outcome = await run(['l', '-slt', ...literalNames, '--', archivePath]);
+    final outcome = await run(['l', '-slt', _emptyPassword, ...literalNames, '--', archivePath]);
 
     if (!succeeded(outcome.exitCode)) {
       throw errorOf(archivePath, outcome.exitCode, outcome.stderr);
@@ -128,7 +138,17 @@ class SevenZipCli {
   /// Ход работы отключён (`-bsp0`) и сообщения тоже (`-bso0`): данные идут в
   /// тот же поток, и проценты оказались бы посреди файла.
   Stream<List<int>> read(String archivePath, String entryName) async* {
-    final session = await start(['x', '-so', '-bso0', '-bsp0', ...literalNames, '--', archivePath, entryName]);
+    final session = await start([
+      'x',
+      '-so',
+      '-bso0',
+      '-bsp0',
+      _emptyPassword,
+      ...literalNames,
+      '--',
+      archivePath,
+      entryName,
+    ]);
 
     // Второй поток нужно читать, даже если он не нужен: программа, чей вывод
     // никто не забирает, встанет на заполненном канале.
@@ -166,10 +186,10 @@ class SevenZipCli {
       '-t7z',
       '-mx=$level',
       _listCharset,
+      listSwitch(listFile),
       ...literalNames,
       '--',
       archivePath,
-      '@$listFile',
     ], workingDirectory: workingDirectory);
 
     if (!succeeded(outcome.exitCode)) {
@@ -179,7 +199,7 @@ class SevenZipCli {
 
   /// Удаляет записи по точным именам.
   Future<void> delete(String archivePath, {required String listFile}) async {
-    final outcome = await run(['d', _listCharset, ...literalNames, '--', archivePath, '@$listFile']);
+    final outcome = await run(['d', _listCharset, listSwitch(listFile), ...literalNames, '--', archivePath]);
 
     if (!succeeded(outcome.exitCode)) {
       throw errorOf(archivePath, outcome.exitCode, outcome.stderr);
@@ -192,6 +212,14 @@ class SevenZipCli {
   /// Кодировка списков: без этого программа читала бы их в кодировке консоли,
   /// и имя с кириллицей до неё не дошло бы.
   static const String _listCharset = '-scsUTF-8';
+
+  /// Список имён — **ключом** `-i@файл`, а не аргументом `@файл`.
+  ///
+  /// Разница неочевидна и стоила отладки: `--` прекращает разбор ключей, и
+  /// стоящий после него `@файл` программа принимает за имя файла с именем `@`.
+  /// Ключ же идёт до `--` и разбирается как положено, а `--` продолжает
+  /// защищать путь архива, начинающийся с дефиса.
+  static String listSwitch(String listFile) => '-i@$listFile';
 
   /// Ноль — успех, единица — предупреждение: часть файлов пропущена, но работа
   /// сделана. Считать предупреждение провалом нельзя.

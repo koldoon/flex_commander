@@ -42,9 +42,9 @@ void main() {
   FakeProcessRunner runnerWith(FakeProcessReply Function(ProcessCall call) reply) {
     return FakeProcessRunner(
       reply: (call) {
-        final listFile = call.arguments.where((argument) => argument.startsWith('@'));
+        final listFile = call.arguments.where((argument) => argument.startsWith('-i@'));
         if (listFile.isNotEmpty) {
-          lists[call.command] = File(listFile.first.substring(1)).readAsLinesSync();
+          lists[call.command] = File(listFile.first.substring(3)).readAsLinesSync();
         }
         return reply(call);
       },
@@ -76,6 +76,19 @@ void main() {
 
   test('архив в настоящей ФС открывается пишущим', () async {
     expect(await open(), isA<NodeEditor>());
+  });
+
+  test('запись пустого пароля не просит', () async {
+    // Ключ `-p` у записи значит «зашифруй», и с пустым значением программа
+    // спрашивает пароль в stdin — то есть виснет или срывается. Читающим
+    // командам тот же ключ нужен, и там он значит ровно обратное.
+    final provider = await open();
+    await provider.createDirectory(provider.rootDirectory, 'fresh');
+    await provider.deleteEntry((await provider.resolvePath('/docs/readme.txt').result)!);
+
+    expect(runner.callsOf('a').single.has('-p'), isFalse);
+    expect(runner.callsOf('d').single.has('-p'), isFalse);
+    expect(runner.callsOf('l').first.has('-p'), isTrue, reason: 'чтение без него сорвётся на архиве с паролем');
   });
 
   test('архив, открытый через копию, писать нельзя', () async {
@@ -112,6 +125,14 @@ void main() {
       expect(File(p.join(call.workingDirectory!, 'docs/notes.txt')).readAsStringSync(), 'заметки');
       expect(call.arguments, contains('-t7z'));
       expect(call.has('-scsUTF-8'), isTrue, reason: 'иначе имя с кириллицей не дойдёт до программы');
+
+      // Список — ключом, а не аргументом: после `--` программа приняла бы
+      // `@файл` за имя файла с именем `@`.
+      expect(call.arguments.any((argument) => argument.startsWith('-i@')), isTrue);
+      expect(
+        call.arguments.indexWhere((argument) => argument.startsWith('-i@')),
+        lessThan(call.arguments.indexOf('--')),
+      );
     });
 
     test('панель видит запись сразу, не дожидаясь программы', () async {
