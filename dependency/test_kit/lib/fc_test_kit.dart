@@ -6,6 +6,7 @@
 /// подставок, что и тесты ядра.
 library;
 
+export 'src/fake_process_runner.dart';
 export 'src/fake_window_service.dart';
 export 'src/in_memory_settings_store.dart';
 export 'src/in_memory_tree_provider.dart';
