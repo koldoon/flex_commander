@@ -8,6 +8,7 @@ import '../state/panel_controller.dart';
 import '../state/panel_viewport_registry.dart';
 import '../view/panel/file_table.dart';
 import '../state/theme_controller.dart';
+import '../state/toast_controller.dart';
 import 'app_runtime.dart';
 import 'registrations.dart';
 
@@ -171,6 +172,7 @@ class AppContainer extends DI {
           viewports: c.get<PanelViewports>(),
           window: c.get<WindowService>(),
           saveDelay: overrides.saveDelay ?? const Duration(seconds: 1),
+          toasts: ToastController(duration: overrides.toastDuration ?? ToastController.defaultDuration),
         );
       },
     );

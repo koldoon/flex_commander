@@ -330,7 +330,14 @@ class ToggleHiddenCommand extends AppCommand {
   bool isExecutable(CommandContext context) => !context.panel.busy;
 
   @override
-  Future<void> execute() => context.panel.setShowHidden(!context.panel.showHidden);
+  Future<void> execute() async {
+    final showing = !context.panel.showHidden;
+    await context.panel.setShowHidden(showing);
+
+    // Сказать вслух: в каталоге без скрытых файлов переключение ничего не
+    // меняет на экране, и понять, сработало ли оно, иначе неоткуда.
+    context.app.toasts.show('Show hidden files: ${showing ? 'On' : 'Off'}');
+  }
 }
 
 /// Отмена текущей операции панели.

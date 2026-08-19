@@ -65,6 +65,10 @@ Future<AppRuntime> testApp({
 
   /// Подставная программа для модулей, стоящих над внешним инструментом.
   ProcessRunner? processes,
+
+  /// Сколько висит всплывающее сообщение: тесту про сами сообщения нужно
+  /// подольше, остальным — чтобы таймер не пережил проверку.
+  Duration? toastDuration,
   InMemorySettingsStore? store,
   String homePath = '/home',
 }) async {
@@ -82,6 +86,9 @@ Future<AppRuntime> testApp({
       // Отложенная запись настроек не должна пережить тест: таймер, оставшийся
       // висеть после окна, роняет виджет-тест — и правильно делает.
       saveDelay: const Duration(milliseconds: 5),
+      // Сообщение живёт ровно столько, сколько нужно тесту, чтобы его увидеть:
+      // висящий таймер роняет виджет-тест.
+      toastDuration: toastDuration ?? const Duration(milliseconds: 5),
     ),
   );
   addTearDown(runtime.dispose);
