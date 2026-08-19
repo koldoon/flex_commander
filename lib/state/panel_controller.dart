@@ -178,8 +178,20 @@ class PanelController extends ChangeNotifier implements Panel {
 
   /// Открыть каталог по строке пути. Возвращает false, если путь недоступен
   /// или это не каталог — тогда вызывающий код решает, куда открыть панель.
+  /// Разбирает путь, переиспользуя то, что панель уже смонтировала.
+  ///
+  /// Иначе путь внутрь открытого архива поднял бы второй экземпляр провайдера
+  /// поверх того же файла: записанное через него панель бы не увидела — её
+  /// оглавление принадлежит первому.
   @override
-  AsyncOperation<FsNode?> resolvePath(String path) => _registry.resolvePath(path);
+  AsyncOperation<FsNode?> resolvePath(String path) => _registry.resolvePath(path, reuse: _mountedProviders);
+
+  /// Цепочка провайдеров, на которой стоит панель: от текущего к корню.
+  Iterable<TreeProvider> get _mountedProviders sync* {
+    for (TreeProvider? current = _directory?.provider; current != null; current = _hostProviderOf(current)) {
+      yield current;
+    }
+  }
 
   @override
   Future<bool> openPath(String path) async {
