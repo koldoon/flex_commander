@@ -17,7 +17,7 @@ jobs:
     timeout-minutes: 45
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Агент запускается службой и не читает ~/.zprofile, поэтому SDK добавляем в PATH сами.
       # Путь можно переопределить переменной репозитория FLUTTER_ROOT.
@@ -56,7 +56,7 @@ jobs:
       - name: Сборка macOS
         run: flutter build macos --release
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         with:
           name: flex_commander-macos-${{ github.sha }}
           path: build/macos/Build/Products/Release/flex_commander.app
