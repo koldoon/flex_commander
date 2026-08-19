@@ -109,7 +109,7 @@ void main() {
 
   test('обе команды видны в списке команд', () {
     expect(commands().find('file.remove')?.label, 'Delete');
-    expect(commands().find('file.removePermanently')?.label, 'Delete permanently');
+    expect(commands().find('file.removePermanently')?.label, 'Delete !');
     expect(commands().bindingsOf('file.remove').map((b) => b.keys.toString()), contains('F8'));
     expect(commands().bindingsOf('file.removePermanently').map((b) => b.keys.toString()), contains('Shift-F8'));
   });
