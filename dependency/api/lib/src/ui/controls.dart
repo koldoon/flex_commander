@@ -124,25 +124,33 @@ class FcRadioGroup<T> extends StatelessWidget {
   Widget build(BuildContext context) {
     final metrics = FcTheme.of(context).metrics;
     final items = <Widget>[
-      for (final entry in options.entries) ...[
-        if (entry.key != options.keys.first) SizedBox.square(dimension: metrics.checkboxGap),
+      for (final entry in options.entries)
         _FcRadioOption<T>(
           label: entry.value,
           selected: entry.key == value,
           onTap: onChanged == null ? null : () => onChanged!(entry.key),
         ),
-      ],
     ];
 
-    return Align(
-      alignment: Alignment.centerLeft,
-      widthFactor: 1,
-      heightFactor: 1,
-      child:
-          direction == Axis.vertical
-              ? Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.start, children: items)
-              : Row(mainAxisSize: MainAxisSize.min, children: items),
-    );
+    if (direction == Axis.vertical) {
+      return Align(
+        alignment: Alignment.centerLeft,
+        widthFactor: 1,
+        heightFactor: 1,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < items.length; i++) ...[if (i > 0) SizedBox(height: metrics.checkboxGap), items[i]],
+          ],
+        ),
+      );
+    }
+
+    // Ряд, который переносится: сколько вариантов и какой ширины у них подписи,
+    // модуль знает, а вот сколько места ему дадут — нет. Строка, вылезающая за
+    // край окна, — не тот способ об этом сообщить.
+    return Wrap(spacing: metrics.checkboxGap, runSpacing: metrics.checkboxGap, children: items);
   }
 }
 

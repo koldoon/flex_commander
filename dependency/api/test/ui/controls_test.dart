@@ -156,4 +156,26 @@ void main() {
       expect(text.style?.color, const DefaultColors().error);
     });
   });
+
+  group('переключатель в ряд', () {
+    testWidgets('переносится, а не вылезает за край', (tester) async {
+      // Сколько места дадут — модуль не знает, и ряд с длинными подписями
+      // должен переноситься, а не рисовать полосатую «переполненность».
+      await pumpInDialogColumn(
+        tester,
+        const FcRadioGroup<String>(
+          direction: Axis.horizontal,
+          options: {'a': 'Store', 'b': 'Fast', 'c': 'Normal', 'd': 'Best'},
+          value: 'a',
+          onChanged: null,
+        ),
+        width: 200,
+      );
+
+      expect(tester.takeException(), isNull);
+      for (final title in ['Store', 'Fast', 'Normal', 'Best']) {
+        expect(find.text(title), findsOneWidget);
+      }
+    });
+  });
 }

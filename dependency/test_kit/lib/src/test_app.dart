@@ -3,6 +3,7 @@ import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/bootstrap/bootstrap.dart';
 import 'package:flex_commander/modules/app_shell.dart';
+import 'package:flex_commander/modules/local_fs/local_staging_area.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_window_service.dart';
@@ -26,6 +27,10 @@ class TestPlatform implements FcModule {
   @override
   void install(FcRegistry registry) {
     registry.service<SystemOpener>((services) => (path) async {});
+
+    // Место под временные файлы — настоящее: тем, кому оно нужно (архиватор),
+    // нужен и настоящий файл, по которому можно ходить.
+    registry.service<StagingArea>((services) => const LocalStagingArea());
   }
 }
 
