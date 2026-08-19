@@ -90,11 +90,7 @@ class SshKeyring {
         continue;
       }
 
-      var request = CredentialRequest(
-        realm: 'ssh-key:$path',
-        title: 'Encrypted key',
-        message: p.basename(path),
-      );
+      var request = CredentialRequest(realm: 'ssh-key:$path', title: 'Encrypted key', message: p.basename(path));
 
       for (var attempt = 0; attempt < _attempts; attempt++) {
         final passphrase = (await credentials.obtain(request))?.password;

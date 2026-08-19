@@ -7,9 +7,10 @@ import 'sftp_api.dart';
 /// Тип цели ([linkTargetType]) известен не всегда: за ним нужен отдельный
 /// вопрос серверу, и листинг спрашивает его только про ссылки.
 FsNode nodeFromEntry(SftpEntry entry, FsNode parent, TreeProvider provider, {FileType? linkTargetType}) {
-  final attributes = entry.mode == 0
-      ? const FileAttributes.unknown()
-      : FileAttributes.fromMode(entry.mode, permissionsOf(entry.mode), entry.type);
+  final attributes =
+      entry.mode == 0
+          ? const FileAttributes.unknown()
+          : FileAttributes.fromMode(entry.mode, permissionsOf(entry.mode), entry.type);
 
   return switch (entry.type) {
     FileType.symbolicLink => LinkNode(

@@ -161,8 +161,7 @@ class DartsshSftp implements SftpApi {
     );
   }
 
-  static DateTime? _time(int? seconds) =>
-      seconds == null ? null : DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+  static DateTime? _time(int? seconds) => seconds == null ? null : DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
 
   static FileType _typeOf(SftpFileMode? mode) => switch (mode?.type) {
     SftpFileType.directory => FileType.directory,
