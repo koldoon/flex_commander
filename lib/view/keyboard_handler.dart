@@ -3,12 +3,14 @@ import 'package:flutter/widgets.dart';
 
 import 'package:fc_api/fc_api.dart';
 
+import 'modifiers_scope.dart';
+
 /// Приём клавиатуры для всего окна.
 ///
 /// Обработчик один: активная панель определяется [AppController], а не
 /// системным фокусом, поэтому панели своих обработчиков не имеют и бороться
 /// с `FocusManager` не приходится (в референсе с этим боролись вручную).
-class KeyboardHandler extends StatelessWidget {
+class KeyboardHandler extends StatefulWidget {
   const KeyboardHandler({super.key, required this.app, required this.child});
 
   final Application app;
@@ -16,6 +18,25 @@ class KeyboardHandler extends StatelessWidget {
 
   /// Пока панель занята длительной операцией, работает только отмена.
   static const String cancelKey = 'Esc';
+
+  @override
+  State<KeyboardHandler> createState() => _KeyboardHandlerState();
+}
+
+class _KeyboardHandlerState extends State<KeyboardHandler> {
+  /// Зажатые модификаторы: их показывает нижний ряд кнопок.
+  ///
+  /// Держатся здесь, потому что здесь и так проходят все события клавиатуры —
+  /// включая одиночные нажатия модификаторов, у которых нет комбинации.
+  final ValueNotifier<KeyModifiers> _modifiers = ValueNotifier(KeyModifiers.none);
+
+  Application get app => widget.app;
+
+  @override
+  void dispose() {
+    _modifiers.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -26,11 +47,19 @@ class KeyboardHandler extends StatelessWidget {
       canRequestFocus: true,
       descendantsAreFocusable: false,
       onKeyEvent: _handleKey,
-      child: child,
+      // Уход фокуса сбрасывает слой: отпускание клавиши случится уже в чужом
+      // окне и до нас не дойдёт, а ряд иначе остался бы в слое навсегда.
+      onFocusChange: (hasFocus) => _modifiers.value = hasFocus ? KeyModifiers.pressed() : KeyModifiers.none,
+      child: ModifiersScope(modifiers: _modifiers, child: widget.child),
     );
   }
 
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    // Снимается до всех проверок и ранних выходов: модификатор отпускают и
+    // тогда, когда открыто окно команды, — а ряд кнопок не должен остаться в
+    // чужом слое.
+    _modifiers.value = KeyModifiers.pressed();
+
     // Автоповтор обрабатывается наравне с нажатием: иначе удержание стрелки
     // не двигает курсор.
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
@@ -49,7 +78,7 @@ class KeyboardHandler extends StatelessWidget {
       return KeyEventResult.ignored;
     }
 
-    if (app.activePanel.busy && combination.key != cancelKey) {
+    if (app.activePanel.busy && combination.key != KeyboardHandler.cancelKey) {
       // Событие считается обработанным: пока идёт чтение, клавиши не должны
       // проваливаться дальше и, например, уводить фокус по Tab.
       return KeyEventResult.handled;

@@ -182,7 +182,7 @@ void main() {
   group('команда', () {
     test('закреплена за Shift-F5 и видна в списке команд', () {
       expect(runtime.commands.commandFor(KeyCombination.parse('Shift-F5'))?.id, CreateZipArchiveCommand.commandId);
-      expect(runtime.commands.find(CreateZipArchiveCommand.commandId)?.label, 'Create archive');
+      expect(runtime.commands.find(CreateZipArchiveCommand.commandId)?.label, 'Mk Zip');
     });
 
     test('рассказывает о ходе работы, как перенос', () {

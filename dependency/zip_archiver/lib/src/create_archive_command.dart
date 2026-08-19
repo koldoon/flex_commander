@@ -57,7 +57,7 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
   String get id => commandId;
 
   @override
-  String get label => 'Create archive';
+  String get label => 'Mk Zip';
 
   @override
   String get description => 'Pack the selected items into a new zip archive';

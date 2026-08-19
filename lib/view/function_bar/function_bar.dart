@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../state/app_scope.dart';
 import 'package:fc_api/fc_api.dart';
+import '../modifiers_scope.dart';
 import 'function_button.dart';
 
 /// Ряд функциональных кнопок внизу окна.
@@ -11,6 +12,13 @@ import 'function_button.dart';
 /// же комбинацию, что пришла бы с настоящей клавиши. Поэтому команды ничего не
 /// знают о нижней панели, а кнопка и клавиша не могут разойтись — даже когда
 /// привязки станут настраиваемыми.
+///
+/// **Пока зажат модификатор, показывается его слой**: за F-клавишами живут не
+/// только «чистые» команды, но и `Shift-F5`, `Shift-F7`, `Shift-F8`, а узнать
+/// о них иначе можно только из справки. Клавиши, за которыми в этом слое ничего
+/// нет, показываются прочерком: ряд говорит о том, что клавиша сделает **сейчас**,
+/// а смешивать слои значило бы врать — «Copy» на `F5`, когда `Shift-F5` пакует
+/// архив.
 class FunctionBar extends StatelessWidget {
   const FunctionBar({super.key});
 
@@ -28,6 +36,8 @@ class FunctionBar extends StatelessWidget {
         // Доступность кнопок зависит от состояния активной панели: есть ли
         // объект под курсором, не занята ли панель. А набор команд меняется и
         // сам по себе: модуль может поставить свою команду после запуска.
+        // Зажатые модификаторы сюда не входят: на них ряд подписан самим
+        // обращением к ModifiersScope — тот перестроит зависимых сам.
         listenable: Listenable.merge([app.left, app.right, app.commands]),
         builder:
             (context, _) => Padding(
@@ -47,8 +57,15 @@ class FunctionBar extends StatelessWidget {
   }
 
   Widget _button(BuildContext context, int number) {
-    final registry = AppScope.read(context).commands;
-    final keys = KeyCombination('F$number');
+    final app = AppScope.read(context);
+    final registry = app.commands;
+
+    // Пока открыто окно команды, клавиши принадлежат ему: показывать слой
+    // модификатора значило бы обещать то, чего сейчас не будет. Заодно ряд не
+    // мигает, когда Shift зажимают ради заглавной буквы в поле имени.
+    final modifiers = registry.openDialogs.isEmpty ? ModifiersScope.of(context) : KeyModifiers.none;
+
+    final keys = modifiers.on('F$number');
     final command = registry.commandFor(keys);
 
     if (command == null) {

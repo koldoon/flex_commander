@@ -9,6 +9,29 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+/// Команда, которая только отмечается о запуске: так видно, какую именно
+/// отправила кнопка нижней панели.
+class _RecordingCommand extends AppCommand {
+  _RecordingCommand({required this.id, required this.label, required this.runs});
+
+  final List<String> runs;
+
+  @override
+  final String id;
+
+  @override
+  final String label;
+
+  @override
+  String get description => 'Records its own run';
+
+  @override
+  bool isExecutable(CommandContext context) => true;
+
+  @override
+  Future<void> execute() async => runs.add(id);
+}
+
 /// Открытие объекта системой: в тесте вместо запуска программы — запись в список.
 class _RecordingOpener implements FcModule {
   const _RecordingOpener(this.opened);
@@ -348,6 +371,104 @@ void main() {
         find.ancestor(of: find.text('Later'), matching: find.byType(FunctionButton)),
       );
       expect(f9.number, 9);
+    });
+  });
+
+  group('слой зажатого модификатора', () {
+    /// Подпись на кнопке с этим номером.
+    String labelOf(WidgetTester tester, int number) {
+      final buttons = tester.widgetList<FunctionButton>(find.byType(FunctionButton));
+      return buttons.firstWhere((button) => button.number == number).label;
+    }
+
+    FunctionButton buttonOf(WidgetTester tester, int number) =>
+        tester.widgetList<FunctionButton>(find.byType(FunctionButton)).firstWhere((button) => button.number == number);
+
+    /// Зажимает модификатор, не отпуская его.
+    Future<void> hold(WidgetTester tester, LogicalKeyboardKey key) async {
+      await tester.sendKeyDownEvent(key);
+      await tester.pumpAndSettle();
+    }
+
+    Future<void> release(WidgetTester tester, LogicalKeyboardKey key) async {
+      await tester.sendKeyUpEvent(key);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('пока зажат Shift, ряд показывает его слой', (tester) async {
+      await pumpApp(tester);
+      expect(labelOf(tester, 5), 'Copy');
+
+      await hold(tester, LogicalKeyboardKey.shift);
+
+      // За Shift-F5 и Shift-F7 стоят упаковщики, за Shift-F8 — удаление мимо
+      // корзины. Всё это ставят модули, ряд о них не знает.
+      expect(labelOf(tester, 5), 'Mk Zip');
+      expect(labelOf(tester, 7), 'Mk 7z');
+      expect(labelOf(tester, 8), isNot('Delete'));
+
+      await release(tester, LogicalKeyboardKey.shift);
+      expect(labelOf(tester, 5), 'Copy');
+    });
+
+    testWidgets('клавиша без команды в слое — прочерк и приглушена', (tester) async {
+      await pumpApp(tester);
+      expect(labelOf(tester, 1), 'Help');
+
+      await hold(tester, LogicalKeyboardKey.shift);
+
+      // Ряд говорит о том, что клавиша сделает сейчас: за Shift-F1 не стоит
+      // ничего, и показывать «Help» значило бы врать.
+      expect(labelOf(tester, 1), '-');
+      expect(buttonOf(tester, 1).enabled, isFalse);
+    });
+
+    testWidgets('нажатие мышью в слое отправляет комбинацию слоя', (tester) async {
+      await pumpApp(tester);
+
+      // Две команды на одной клавише, в разных слоях: так видно, какую из них
+      // отправила кнопка.
+      final runs = <String>[];
+      app.commands
+        ..install(() => _RecordingCommand(id: 'test.plain', label: 'Plain', runs: runs))
+        ..install(() => _RecordingCommand(id: 'test.layered', label: 'Layered', runs: runs))
+        ..bind(KeyBinding('F9', 'test.plain'))
+        ..bind(KeyBinding('Shift-F9', 'test.layered'));
+      await tester.pump();
+
+      await hold(tester, LogicalKeyboardKey.shift);
+      expect(labelOf(tester, 9), 'Layered');
+
+      await tester.tap(find.text('Layered'));
+      await tester.pumpAndSettle();
+
+      // Кнопка и клавиша не расходятся и во втором слое.
+      expect(runs, ['test.layered']);
+    });
+
+    testWidgets('уход фокуса возвращает базовый слой', (tester) async {
+      await pumpApp(tester);
+      await hold(tester, LogicalKeyboardKey.shift);
+      expect(labelOf(tester, 5), 'Mk Zip');
+
+      // Отпускание случится уже в чужом окне и до нас не дойдёт — иначе ряд
+      // остался бы в слое навсегда.
+      FocusManager.instance.primaryFocus?.unfocus();
+      await tester.pumpAndSettle();
+
+      expect(labelOf(tester, 5), 'Copy');
+    });
+
+    testWidgets('пока открыто окно команды, слой не показывается', (tester) async {
+      await pumpApp(tester);
+      app.commands.run(HelpCommand.commandId);
+      await tester.pumpAndSettle();
+
+      await hold(tester, LogicalKeyboardKey.shift);
+
+      // Клавиши сейчас принадлежат окну, и обещать Shift-F5 нельзя. Заодно ряд
+      // не мигает, когда Shift зажимают ради заглавной буквы в поле имени.
+      expect(labelOf(tester, 5), 'Copy');
     });
   });
 
