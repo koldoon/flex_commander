@@ -12,6 +12,21 @@ enum FsErrorKind {
   invalidName,
   targetInsideSource,
   notSupported,
+
+  /// Протокол, которого никто не умеет: `ssh://` без модуля SSH.
+  ///
+  /// Отдельно от [notSupported]: там речь о том, чего не умеет **источник**
+  /// (писать в архив, открытый на просмотр), а здесь — о том, что открывать
+  /// адрес просто нечем. `path` в такой ошибке — имя протокола.
+  unsupportedScheme,
+
+  /// Строка не разбирается ни как путь, ни как адрес.
+  ///
+  /// «Blah» — это не путь (не абсолютный) и не адрес (нет протокола), и
+  /// говорить о нём «не найдено» или «протокол не поддерживается» одинаково
+  /// неверно: не найдено — значит искали, а искать тут нечего.
+  invalidAddress,
+
   io,
 }
 
@@ -31,6 +46,8 @@ class FsError implements Exception {
     FsErrorKind.invalidName => 'Invalid name: $path',
     FsErrorKind.targetInsideSource => 'Cannot copy a directory into itself: $path',
     FsErrorKind.notSupported => 'Not supported: $path',
+    FsErrorKind.unsupportedScheme => 'Protocol $path is not supported',
+    FsErrorKind.invalidAddress => 'Wrong URI: $path',
     FsErrorKind.io => 'I/O error: $path',
   };
 
