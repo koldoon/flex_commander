@@ -305,6 +305,10 @@ class TreeTransferEngine implements TreeEditor {
       return;
     }
 
+    // Дальше идёт файл: его собственный ход показывается отдельно от общего —
+    // иначе один большой файл выглядит как остановка работы.
+    progress.startItem(node.name, bytes: node.size < 0 ? null : node.size);
+
     // [TransferStrategy.providerCopy]: один провайдер — копирует он сам.
     if (source != null && identical(source, target) && await source.copyEntry(node, destination, name)) {
       // Байты прошли мимо движка — он видит только, что файл целиком скопирован.
