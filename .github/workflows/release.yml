@@ -14,7 +14,7 @@ jobs:
     timeout-minutes: 60
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Агент запускается службой и не читает ~/.zprofile, поэтому SDK добавляем в PATH сами.
       # Путь можно переопределить переменной репозитория FLUTTER_ROOT.
@@ -53,7 +53,7 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "$app" "$out"
           echo "path=${out}" >> "$GITHUB_OUTPUT"
 
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           files: ${{ steps.package.outputs.path }}
           generate_release_notes: true
