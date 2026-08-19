@@ -6,6 +6,7 @@ import 'package:flex_commander/modules/app_shell.dart';
 import 'package:flex_commander/modules/local_fs/local_staging_area.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'fake_process_runner.dart';
 import 'fake_window_service.dart';
 import 'in_memory_settings_store.dart';
 
@@ -16,7 +17,11 @@ import 'in_memory_settings_store.dart';
 /// Здесь она есть и ничего не делает; модуль, установленный после, заменит её
 /// своей: службы разрешаются по типу, и последнее объявление выигрывает.
 class TestPlatform implements FcModule {
-  const TestPlatform();
+  const TestPlatform({this.processes});
+
+  /// Подставная программа для тех, кто стоит над внешним инструментом.
+  /// Пусто — запускатель, у которого не установлено ничего.
+  final ProcessRunner? processes;
 
   @override
   String get id => 'test.platform';
@@ -31,6 +36,10 @@ class TestPlatform implements FcModule {
     // Место под временные файлы — настоящее: тем, кому оно нужно (архиватор),
     // нужен и настоящий файл, по которому можно ходить.
     registry.service<StagingArea>((services) => const LocalStagingArea());
+
+    // Внешних программ в тестах нет: по умолчанию запускатель отвечает
+    // «не установлено», а тест модуля подставляет свой сценарий.
+    registry.service<ProcessRunner>((services) => processes ?? FakeProcessRunner(executables: const {}));
   }
 }
 
@@ -53,6 +62,9 @@ Future<AppRuntime> testApp({
   List<FcModule> modules = const [],
   AppSettings? settings,
   WindowService? window,
+
+  /// Подставная программа для модулей, стоящих над внешним инструментом.
+  ProcessRunner? processes,
   InMemorySettingsStore? store,
   String homePath = '/home',
 }) async {
@@ -61,7 +73,7 @@ Future<AppRuntime> testApp({
   final settingsStore = store ?? InMemorySettingsStore(settings: settings, homePath: homePath);
 
   final runtime = await initModules(
-    [const AppShell(), const TestPlatform(), const DefaultTheme(), ...modules],
+    [const AppShell(), TestPlatform(processes: processes), const DefaultTheme(), ...modules],
     overrides: AppOverrides(
       provider: provider,
       rightProvider: rightProvider,

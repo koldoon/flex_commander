@@ -1,5 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 
+import 'local_process_runner.dart';
 import 'local_staging_area.dart';
 import 'local_tree_provider.dart';
 import 'plugin_window_service.dart';
@@ -26,6 +27,10 @@ class LocalFileSystem implements FcModule {
     // Место для временных файлов: им пользуются те, кому нужен настоящий файл
     // на диске, — архиватор и будущие сетевые источники.
     registry.service<StagingArea>((services) => const LocalStagingArea());
+
+    // Запуск программ: им пользуются модули, которые стоят над внешним
+    // инструментом, — архиватор 7z и будущие сетевые источники.
+    registry.service<ProcessRunner>((services) => const LocalProcessRunner());
 
     registry.service<SystemOpener>((services) => openWithSystem);
     registry.service<WindowService>((services) => PluginWindowService());
