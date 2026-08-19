@@ -19,23 +19,23 @@ class FileOps implements FcModule {
   String get title => 'File operations';
 
   @override
-  void install(FcRegistrar registrar) {
-    registrar.command((context) => MakeDirectoryCommand());
-    registrar.command((context) => RemoveCommand());
-    registrar.command((context) => RemovePermanentlyCommand());
-    registrar.command((context) => CopyCommand());
-    registrar.command((context) => MoveCommand());
+  void install(FcRegistry registry) {
+    registry.command((context) => MakeDirectoryCommand());
+    registry.command((context) => RemoveCommand());
+    registry.command((context) => RemovePermanentlyCommand());
+    registry.command((context) => CopyCommand());
+    registry.command((context) => MoveCommand());
 
-    registrar.binding(KeyBinding('F5', 'file.copy'));
-    registrar.binding(KeyBinding('F6', 'file.move'));
-    registrar.binding(KeyBinding('F7', 'file.mkdir'));
+    registry.binding(KeyBinding('F5', 'file.copy'));
+    registry.binding(KeyBinding('F6', 'file.move'));
+    registry.binding(KeyBinding('F7', 'file.mkdir'));
     // На macOS F-клавиши по умолчанию отданы системе (F7 — «предыдущий трек»),
     // и до приложения нажатие не доходит. Привычное сочетание из Finder
     // работает без настройки клавиатуры.
-    registrar.binding(KeyBinding('Shift-Cmd-N', 'file.mkdir'));
-    registrar.binding(KeyBinding('F8', 'file.remove'));
-    registrar.binding(KeyBinding('Shift-F8', 'file.removePermanently'));
-    registrar.binding(KeyBinding('Cmd-Bsp', 'file.remove'));
-    registrar.binding(KeyBinding('Shift-Cmd-Bsp', 'file.removePermanently'));
+    registry.binding(KeyBinding('Shift-Cmd-N', 'file.mkdir'));
+    registry.binding(KeyBinding('F8', 'file.remove'));
+    registry.binding(KeyBinding('Shift-F8', 'file.removePermanently'));
+    registry.binding(KeyBinding('Cmd-Bsp', 'file.remove'));
+    registry.binding(KeyBinding('Shift-Cmd-Bsp', 'file.removePermanently'));
   }
 }

@@ -21,8 +21,8 @@ class _RecordingOpener implements FcModule {
   String get title => 'Recording opener';
 
   @override
-  void install(FcRegistrar registrar) {
-    registrar.service<SystemOpener>((services) => (path) async => opened.add(path));
+  void install(FcRegistry registry) {
+    registry.service<SystemOpener>((services) => (path) async => opened.add(path));
   }
 }
 

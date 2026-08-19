@@ -29,11 +29,11 @@ class _ProbeModule implements FcModule {
   String get title => 'Probe';
 
   @override
-  void install(FcRegistrar registrar) {
+  void install(FcRegistry registry) {
     // Раздел получен во время объявления, а прочитан будет позже — к запуску
     // стартовой команды настройки уже с диска.
-    scope = registrar.settings;
-    registrar.startup((context) => _ReadSettingsCommand(this));
+    scope = registry.settings;
+    registry.startup((context) => _ReadSettingsCommand(this));
   }
 }
 

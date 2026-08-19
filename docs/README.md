@@ -167,7 +167,7 @@ flex_commander/                    корень воркспейса и само
                                    список модулей в ядре
       bootstrap.dart               сборка как последовательность команд
       app_container.dart           граф зависимостей по объявлениям модулей
-      registrations.dart           регистратор: что модули объявили
+      registrations.dart           реестр объявлений: что модули объявили
       app_runtime.dart             собранное приложение и подмена служб
     modules/
       app_shell.dart               оболочка: движок операций, справка, заглушки
@@ -196,7 +196,7 @@ dependency/
       commands/                    AppCommand, реестр, привязки клавиш
       commands/framework/          порт Spicelib: композиция команд
       background/                  ход фоновых работ
-      module/                      FcModule и регистратор
+      module/                      FcModule и реестр объявлений
       panel/, settings/, format/   колонки, сортировка, настройки, форматтеры
       ui/                          набор элементов, тема, таблица «ключ → значение»
   navigation/                      fc_navigation — курсор, дерево, пометка

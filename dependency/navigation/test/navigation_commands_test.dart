@@ -16,8 +16,7 @@ class _SystemOpenerModule implements FcModule {
   String get title => 'Fake opener';
 
   @override
-  void install(FcRegistrar registrar) =>
-      registrar.service<SystemOpener>((services) => (path) async => opened.add(path));
+  void install(FcRegistry registry) => registry.service<SystemOpener>((services) => (path) async => opened.add(path));
 }
 
 /// Переходы по дереву: команды, которым не нужен ни диалог, ни клавиатура.

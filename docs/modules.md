@@ -22,9 +22,9 @@ class Navigation implements FcModule {
   String get title => 'Navigation';        // название для справки и списка модулей
 
   @override
-  void install(FcRegistrar registrar) {
-    registrar.command((context) => GoUpCommand());
-    registrar.binding(KeyBinding('Bsp', 'panel.up'));
+  void install(FcRegistry registry) {
+    registry.command((context) => GoUpCommand());
+    registry.binding(KeyBinding('Bsp', 'panel.up'));
   }
 }
 ```
@@ -38,7 +38,7 @@ class Navigation implements FcModule {
 
 ## Что можно объявить
 
-| Метод регистратора | Что даёт |
+| Метод реестра | Что даёт |
 |---|---|
 | `rootProvider(factory)` | корневой источник дерева; ровно один на приложение |
 | `provider(scheme, factory, extensions)` | вложенный источник: архив, сервер |
@@ -57,9 +57,9 @@ class Navigation implements FcModule {
 1. **`install`** — модули объявляют, что предлагают. Служб ещё нет, настроек
    ещё нет, приложения ещё нет.
 2. **Граф зависимостей** — по объявлениям строится контейнер. С этого момента
-   `registrar.services.resolve<T>()` в фабриках работает.
+   `registry.services.resolve<T>()` в фабриках работает.
 3. **Настройки** — прочитаны с диска. С этого момента работает
-   `registrar.settings.section(...)`.
+   `registry.settings.section(...)`.
 4. **Приложение** — собрано. С этого момента у команд есть `context.app`.
 5. **Стартовые команды** — выполняются по очереди. Ошибка одной не роняет
    запуск: модуль темы не восстановил оформление — приложение всё равно

@@ -15,8 +15,8 @@ class _NightTheme implements FcModule {
   String get title => 'Night';
 
   @override
-  void install(FcRegistrar registrar) {
-    registrar.theme(const FcThemeSpec(id: 'night', title: 'Night', brightness: Brightness.dark));
+  void install(FcRegistry registry) {
+    registry.theme(const FcThemeSpec(id: 'night', title: 'Night', brightness: Brightness.dark));
   }
 }
 

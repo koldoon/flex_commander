@@ -20,14 +20,14 @@ class LocalFileSystem implements FcModule {
   String get title => 'Local file system';
 
   @override
-  void install(FcRegistrar registrar) {
-    registrar.rootProvider((services) => LocalTreeProvider());
+  void install(FcRegistry registry) {
+    registry.rootProvider((services) => LocalTreeProvider());
 
     // Место для временных файлов: им пользуются те, кому нужен настоящий файл
     // на диске, — архиватор и будущие сетевые источники.
-    registrar.service<StagingArea>((services) => const LocalStagingArea());
+    registry.service<StagingArea>((services) => const LocalStagingArea());
 
-    registrar.service<SystemOpener>((services) => openWithSystem);
-    registrar.service<WindowService>((services) => PluginWindowService());
+    registry.service<SystemOpener>((services) => openWithSystem);
+    registry.service<WindowService>((services) => PluginWindowService());
   }
 }
