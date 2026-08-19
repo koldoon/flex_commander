@@ -61,7 +61,7 @@ class CreateSevenZipArchiveCommand extends AsyncCommandBase {
   String get id => commandId;
 
   @override
-  String get label => 'Create 7z archive';
+  String get label => 'Mk 7z';
 
   @override
   String get description => 'Pack the selected items into a new 7z archive';
