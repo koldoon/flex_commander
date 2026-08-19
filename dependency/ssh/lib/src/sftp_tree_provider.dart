@@ -37,11 +37,7 @@ class SftpTreeProvider
       throw FsError(address.toString(), FsErrorKind.invalidAddress);
     }
 
-    final connection = await SshConnection.open(
-      target: target,
-      credentials: credentials,
-      sshDirectory: sshDirectory,
-    );
+    final connection = await SshConnection.open(target: target, credentials: credentials, sshDirectory: sshDirectory);
 
     return SftpTreeProvider(
       target: target,
@@ -356,14 +352,18 @@ class SftpTreeProvider
     if (entry == null) {
       return null;
     }
-    return _nodeFrom(SftpEntry(
-      name: name,
-      type: entry.type,
-      size: entry.size,
-      mode: entry.mode,
-      modified: entry.modified,
-      accessed: entry.accessed,
-    ), path, parent);
+    return _nodeFrom(
+      SftpEntry(
+        name: name,
+        type: entry.type,
+        size: entry.size,
+        mode: entry.mode,
+        modified: entry.modified,
+        accessed: entry.accessed,
+      ),
+      path,
+      parent,
+    );
   }
 
   /// Запись — узлом. Про ссылку спрашивается отдельно: куда она ведёт и что
@@ -429,6 +429,5 @@ class SftpTreeProvider
 
   /// Путь в канонический вид. Относительный считается от дома пользователя —
   /// так же, как его понял бы сам сервер.
-  String _normalize(String path) =>
-      p.posix.normalize(path.startsWith('/') ? path : p.posix.join(homePath, path));
+  String _normalize(String path) => p.posix.normalize(path.startsWith('/') ? path : p.posix.join(homePath, path));
 }

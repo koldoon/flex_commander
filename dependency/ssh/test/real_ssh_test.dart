@@ -130,9 +130,11 @@ void main() {
 
     final dir = await workDirectory(provider);
     final path = remote(dir);
-    await remoteShell("mkdir -p '$path/docs' && printf 'заметки' > '$path/notes.txt' "
-        "&& ln -s docs '$path/current' && ln -s nowhere '$path/broken' "
-        "&& printf 'x' > '$path/.hidden'");
+    await remoteShell(
+      "mkdir -p '$path/docs' && printf 'заметки' > '$path/notes.txt' "
+      "&& ln -s docs '$path/current' && ln -s nowhere '$path/broken' "
+      "&& printf 'x' > '$path/.hidden'",
+    );
 
     final nodes = await provider.getDirectoryListing(dir).result;
     final names = nodes.map((node) => node.name).toList();
@@ -312,10 +314,7 @@ void main() {
     final server = panel.provider;
     expect(await panel.openPath('/home'), isTrue);
     expect(panel.provider.scheme, isNot('ssh'));
-    expect(
-      () => (server as SftpTreeProvider).getDirectoryListing(server.rootDirectory).result,
-      throwsA(anything),
-    );
+    expect(() => (server as SftpTreeProvider).getDirectoryListing(server.rootDirectory).result, throwsA(anything));
   });
 
   test('архив на сервере открывается показанным путём', () async {
@@ -378,8 +377,10 @@ void main() {
     final dir = await workDirectory(provider);
     expect(await provider.resolvePath(remote(dir, 'нет-такого')).result, isNull);
 
-    await remoteShell("mkdir -p '${remote(dir)}/closed' && printf 'тайна' > '${remote(dir)}/closed/secret' "
-        "&& chmod 000 '${remote(dir)}/closed'");
+    await remoteShell(
+      "mkdir -p '${remote(dir)}/closed' && printf 'тайна' > '${remote(dir)}/closed/secret' "
+      "&& chmod 000 '${remote(dir)}/closed'",
+    );
 
     final closed = await provider.resolvePath(remote(dir, 'closed')).result;
     try {

@@ -39,12 +39,7 @@ class FakeSftp implements SftpApi {
   }
 
   void file(String path, String content, {int mode = 0x81A4, DateTime? modified}) {
-    _nodes[_norm(path)] = _FakeNode(
-      FileType.regular,
-      bytes: utf8.encode(content),
-      mode: mode,
-      modified: modified,
-    );
+    _nodes[_norm(path)] = _FakeNode(FileType.regular, bytes: utf8.encode(content), mode: mode, modified: modified);
   }
 
   void link(String path, String reference, {int mode = 0xA1FF}) {
@@ -259,9 +254,7 @@ class FakeSftp implements SftpApi {
       if (node.type != FileType.symbolicLink || reference == null) {
         return current;
       }
-      current = _norm(
-        reference.startsWith('/') ? reference : p.posix.join(p.posix.dirname(current), reference),
-      );
+      current = _norm(reference.startsWith('/') ? reference : p.posix.join(p.posix.dirname(current), reference));
     }
     return null;
   }
