@@ -95,7 +95,12 @@ class ProviderRegistry {
   /// [TreeProvider.resolvePath] корневого провайдера.
   ///
   /// Возвращает null, если узла нет; недоступная схема — это [FsError].
-  AsyncOperation<FsNode?> resolvePath(String path) {
+  ///
+  /// [reuse] — провайдеры, которые уже смонтированы и работают: монтировать их
+  /// заново нельзя. Смонтированный архив — живой объект с открытым файлом,
+  /// временной копией и накопленными изменениями; второй экземпляр поверх того
+  /// же файла ничего о них не знает, и записанное через один не увидит другой.
+  AsyncOperation<FsNode?> resolvePath(String path, {Iterable<TreeProvider> reuse = const []}) {
     return TaskOperation<FsNode?>((op) async {
       final chain = NodePath.parse(path);
       // Первая часть всегда адресует корневой провайдер: другого корня пока не
@@ -119,8 +124,13 @@ class ProviderRegistry {
           if (node == null) {
             break;
           }
-          final provider = await mount(part.scheme, node);
-          mounted.add(provider);
+          // Уже работающий провайдер поверх этого же узла — тот самый, что
+          // нужен: заводить второй значило бы разойтись с ним состоянием.
+          final existing = _reusable(reuse, part.scheme, node);
+          final provider = existing ?? await mount(part.scheme, node);
+          if (existing == null) {
+            mounted.add(provider);
+          }
           op.checkCanceled();
 
           node = await provider.resolvePath(part.path).result;
@@ -142,6 +152,21 @@ class ProviderRegistry {
   ///
   /// Ошибка закрытия не важна: рассказывать нужно о том, из-за чего не вышло
   /// открыть путь, а не о том, как за этим убирали.
+  /// Смонтированный поверх этого узла провайдер с такой же схемой; null — его
+  /// ещё нет.
+  TreeProvider? _reusable(Iterable<TreeProvider> reuse, String scheme, FsNode host) {
+    for (final provider in reuse) {
+      final mountedOver = provider.rootDirectory.parent;
+      if (provider.scheme == scheme &&
+          mountedOver != null &&
+          identical(mountedOver.provider, host.provider) &&
+          mountedOver.pathString == host.pathString) {
+        return provider;
+      }
+    }
+    return null;
+  }
+
   static Future<void> disposeAll(Iterable<TreeProvider> providers) async {
     for (final provider in providers) {
       await disposeProvider(provider);

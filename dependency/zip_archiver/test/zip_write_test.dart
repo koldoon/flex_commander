@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:archive/archive.dart';
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_zip_archiver/fc_zip_archiver.dart';
 import 'package:flex_commander/modules/local_fs/local_staging_area.dart';
 import 'package:flex_commander/modules/local_fs/local_tree_provider.dart';
@@ -190,6 +191,26 @@ void main() {
       expect(nested.canWrite, isFalse);
       expect(nested.canReceive, isFalse);
       expect(outer.canWrite, isTrue);
+    });
+  });
+
+  group('панель с открытым архивом', () {
+    test('видит скопированное в неё сразу после работы', () async {
+      // Как в приложении: панель стоит в архиве, копируют в неё же.
+      final panel = testPanel(provider: disk, registry: registry, settings: PanelSettings.defaults(root));
+      addTearDown(panel.dispose);
+      await panel.openPath(root);
+
+      panel.setCursorToName('sample.zip');
+      await panel.enterCurrent();
+      expect(panel.provider, isA<WritableZipTreeProvider>());
+
+      // Путь приёмника команда разбирает панелью — так же, как F5.
+      final destination = (await panel.resolvePath('$archivePath:zip:/').result)! as DirectoryNode;
+      await engine.copy([await onDisk('notes.txt')], destination).result;
+      await panel.reload();
+
+      expect(panel.nodes.map((node) => node.name), contains('notes.txt'));
     });
   });
 }
