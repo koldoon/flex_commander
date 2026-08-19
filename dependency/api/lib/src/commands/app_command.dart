@@ -213,12 +213,12 @@ abstract class AppCommand extends ChangeNotifier implements Command {
   /// выполняется сразу.
   bool get hasDialog => false;
 
-  /// Где встать окну команды.
+  /// Над какой частью окна приложения встаёт окно команды.
   ///
-  /// По умолчанию — середина экрана. Команда, работающая с **названной**
-  /// панелью, ставит своё окно над ней: «открыть путь в левой» и «открыть путь
-  /// в правой» иначе неотличимы на вид.
-  Alignment get dialogAlignment => Alignment.center;
+  /// По умолчанию — над всем. Команда, работающая с **названной** панелью,
+  /// называет её область: «открыть путь в левой» и «открыть путь в правой»
+  /// иначе неотличимы на вид.
+  DialogArea get dialogArea => DialogArea.window;
 
   /// Ставит ли окно фокус само — например, в поле ввода.
   ///
@@ -383,6 +383,35 @@ abstract interface class AsyncCommand {
 
   /// Прервать работу.
   void cancel();
+}
+
+/// Часть окна приложения, над которой встаёт окно команды.
+///
+/// Доли ширины от левого края: `DialogArea(end: 0.5)` — левая половина.
+/// Область задаёт и середину окна, и предел его ширины: окно шире панели над
+/// ней не поместится, как ни выравнивай.
+@immutable
+class DialogArea {
+  const DialogArea({this.start = 0, this.end = 1})
+    : assert(start >= 0 && start < end && end <= 1, 'Область — доли ширины слева направо');
+
+  /// Всё окно приложения.
+  static const DialogArea window = DialogArea();
+
+  final double start;
+  final double end;
+
+  double get center => (start + end) / 2;
+  double get width => end - start;
+
+  @override
+  bool operator ==(Object other) => other is DialogArea && other.start == start && other.end == end;
+
+  @override
+  int get hashCode => Object.hash(start, end);
+
+  @override
+  String toString() => 'DialogArea($start…$end)';
 }
 
 /// Команда, которая ещё не реализована: клавиша за ней уже закреплена, кнопка

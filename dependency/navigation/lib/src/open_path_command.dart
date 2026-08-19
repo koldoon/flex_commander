@@ -50,13 +50,13 @@ class OpenPathCommand extends AppCommand {
   /// Окно встаёт над своей панелью.
   ///
   /// Иначе «открыть путь в левой» и «открыть путь в правой» неотличимы на вид:
-  /// заголовок читают не в первую очередь. Доля разделителя known приложению,
-  /// и середина левой панели в координатах выравнивания — это `ratio - 1`,
-  /// правой — `ratio`.
+  /// заголовок читают не в первую очередь. Левая панель занимает долю
+  /// `splitRatio` — её середина приходится на половину этой доли; правая
+  /// начинается там же и тянется до края.
   @override
-  Alignment get dialogAlignment {
+  DialogArea get dialogArea {
     final ratio = context.app.splitRatio;
-    return Alignment(_isLeft ? ratio - 1 : ratio, 0);
+    return _isLeft ? DialogArea(end: ratio) : DialogArea(start: ratio);
   }
 
   @override
@@ -76,7 +76,9 @@ class OpenPathCommand extends AppCommand {
     // Панель, в которую открыли путь, становится активной: пользователь смотрит
     // туда, куда только что пришёл.
     if (!await panel.openPath(path)) {
-      throw FsError(path, FsErrorKind.notFound);
+      // Причину берём у панели: «путь не найден» и «такой протокол мы не
+      // умеем» — разные ответы, и второй сам себя объясняет.
+      throw panel.error ?? FsError(path, FsErrorKind.notFound);
     }
     context.app.activate(panel);
   }
