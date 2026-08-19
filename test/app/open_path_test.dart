@@ -11,9 +11,9 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Открытие произвольного пути и адреса.
 ///
-/// SSH ещё нет, а механика уже есть — и проверяется на подставном источнике,
-/// объявленном по схеме `mem`. Ровно так же встанет и настоящий: модуль
-/// объявляет схему, панель встаёт на неё целиком.
+/// Механика проверяется на подставном источнике, объявленном по схеме `mem`:
+/// настоящий (`ssh`) стоит на ней же — модуль объявляет схему, панель встаёт
+/// на неё целиком, — но тянуть в тест ядра сеть незачем.
 void main() {
   /// Сколько раз открывали адрес и какие источники при этом создали.
   late List<Uri> opened;
@@ -203,6 +203,29 @@ void main() {
       expect(tester.widget<TextField>(find.byType(TextField)).controller?.text, '/home');
     });
 
+    testWidgets('на чужом источнике поле показывает протокол, а не «//alpha»', (tester) async {
+      final runtime = await app(extra: [memoryAddresses()]);
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      expect(await runtime.app.left.openPath('mem://alpha/srv'), isTrue);
+      await tester.pumpAndSettle();
+
+      runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: 'left'});
+      await tester.pumpAndSettle();
+
+      // Человек правит то, что видит в заголовке панели. `//alpha/srv` там
+      // было бы ни адресом, ни путём.
+      final shown = tester.widget<TextField>(find.byType(TextField)).controller?.text;
+      expect(shown, 'mem://alpha/srv');
+
+      // И эта же строка обязана открыться обратно.
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(runtime.app.left.directory?.displayPath, 'mem://alpha/srv');
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
     testWidgets('введённый путь открывается, и панель становится активной', (tester) async {
       final runtime = await app();
       await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
@@ -233,13 +256,15 @@ void main() {
       runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: 'left'});
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField), 'ssh://user@host/srv');
+      // Протокол, которого в приложении действительно нет: `ssh` с недавних
+      // пор умеет свой модуль, и на нём эта проверка проверяла бы уже не то.
+      await tester.enterText(find.byType(TextField), 'ftp://user@host/srv');
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
       // «Путь не найден» тут врёт: путь-то мы даже не смотрели, потому что не
       // умеем такой протокол.
-      expect(find.textContaining('Protocol ssh is not supported'), findsWidgets);
+      expect(find.textContaining('Protocol ftp is not supported'), findsWidgets);
       expect(find.textContaining('Not found'), findsNothing);
 
       await tester.pump(const Duration(milliseconds: 20));
@@ -304,7 +329,7 @@ void main() {
       // Ввод → что должно быть сказано.
       const answers = {
         'Blah': 'Wrong URI',
-        'ssh://user@host/srv': 'Protocol ssh is not supported',
+        'ftp://user@host/srv': 'Protocol ftp is not supported',
         '/такого/нет': 'Not found',
         'mem://alpha/нет-такого': 'Not found',
       };

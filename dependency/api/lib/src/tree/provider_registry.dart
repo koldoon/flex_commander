@@ -184,6 +184,109 @@ class ProviderRegistry {
     });
   }
 
+  /// Разбор строки, которую видит пользователь.
+  ///
+  /// В показываемом пути схем вложенных провайдеров нет — архив в нём выглядит
+  /// каталогом (`/home/a.zip/inner`). Однозначно такая строка не разбирается:
+  /// по ней не видно, где кончается файл архива и начинается путь внутри него.
+  /// Видно это только источнику — по типу узла, — и потому разбор идёт с
+  /// вопросами к нему.
+  ///
+  /// Нужен там, где строку набирает человек: он набирает то, что ему показали,
+  /// а показывают ему [NodePath.displayString]. Машинный путь со схемами
+  /// (настройки) разбирается по-прежнему [resolvePath] — без единого лишнего
+  /// обращения.
+  AsyncOperation<FsNode?> resolveDisplayPath(
+    String path, {
+    TreeProvider? from,
+    Iterable<TreeProvider> reuse = const [],
+  }) {
+    final chain = NodePath.parse(path);
+    if (chain.parts.length > 1) {
+      // Схемы на месте — строка машинная и однозначная, гадать не о чем.
+      return resolvePath(path, from: from, reuse: reuse);
+    }
+
+    return TaskOperation<FsNode?>((op) async {
+      final start = from ?? root;
+      final first = chain.parts.first;
+      // То же правило, что и в [resolvePath]: чужая схема в начале — это другой
+      // корень, и открывает его не разбор пути.
+      if (first.scheme != start.scheme && first.scheme != NodePath.defaultScheme) {
+        throw FsError(path, FsErrorKind.notSupported);
+      }
+
+      // Смонтированное по дороге придётся закрыть, если путь не разберётся.
+      final mounted = <TreeProvider>[];
+      try {
+        final node = await _resolveMounting(start, _expandHome(first.path, start), reuse, mounted, op);
+        if (node == null) {
+          await disposeAll(mounted);
+        }
+        return node;
+      } on Object {
+        await disposeAll(mounted);
+        rethrow;
+      }
+    });
+  }
+
+  /// Разбирает путь внутри [provider], монтируя то, что встретится по дороге.
+  ///
+  /// Сначала — путь целиком: строка без архива разбирается одним обращением,
+  /// как и раньше. Если не вышло, ищется граница провайдера, и ищется **с
+  /// конца**: первый же ответивший префикс и есть она. С начала пришлось бы
+  /// перебирать все звенья до неё, а по сети каждое звено — это обмен.
+  ///
+  /// Границей считается косая черта, поэтому на Windows, где локальные пути
+  /// пишутся через обратную, архив в набранном пути не опознается: там разбор
+  /// просто вернёт «не найдено», как и до появления этого метода.
+  Future<FsNode?> _resolveMounting(
+    TreeProvider provider,
+    String path,
+    Iterable<TreeProvider> reuse,
+    List<TreeProvider> mounted,
+    TaskOperation<FsNode?> op,
+  ) async {
+    final whole = await provider.resolvePath(path).result;
+    op.checkCanceled();
+    if (whole != null) {
+      return whole;
+    }
+
+    for (var slash = path.lastIndexOf('/'); slash > 0; slash = path.lastIndexOf('/', slash - 1)) {
+      op.checkCanceled();
+
+      final host = await provider.resolvePath(path.substring(0, slash)).result;
+      op.checkCanceled();
+      if (host == null) {
+        continue;
+      }
+
+      final scheme = schemeFor(host);
+      if (scheme == null) {
+        // Звено разобралось, но открывать его нечем: значит пути правда нет,
+        // а не «мы не с той стороны посмотрели».
+        return null;
+      }
+
+      // Уже работающий провайдер поверх этого же узла — тот самый, что нужен:
+      // второй разошёлся бы с ним состоянием.
+      final existing = _reusable(reuse, scheme, host);
+      final inner = existing ?? await mount(scheme, host);
+      if (existing == null) {
+        mounted.add(inner);
+      }
+      op.checkCanceled();
+
+      // Остаток может содержать ещё один архив — вложенные разбираются тем же
+      // способом.
+      return _resolveMounting(inner, path.substring(slash), reuse, mounted, op);
+    }
+
+    return null;
+  }
+
   /// Разворачивает `~` в домашний каталог источника.
   ///
   /// Живёт здесь, а не в каждом провайдере: тильда — это соглашение о **записи**

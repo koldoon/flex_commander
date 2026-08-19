@@ -242,6 +242,37 @@ void main() {
       expect(await restored.openPath(saved), isTrue);
       expect(restored.nodes.map((node) => node.name), contains('guide.txt'));
     });
+
+    test('круг замкнулся: показанный путь открывается обратно', () async {
+      panel.setCursorToName('sample.zip');
+      await panel.enterCurrent();
+      panel.setCursorToName('docs');
+      await panel.enterCurrent();
+
+      // То, что человек видит в заголовке и правит в окне `Cmd-F1`. Схемы
+      // архива в нём нет, и разобрать его можно только спросив источник о типе
+      // каждого звена.
+      final shown = panel.directory!.displayPath;
+      expect(shown, '$archivePath/docs');
+
+      expect(await panel.openPath(shown), isTrue);
+      expect(panel.directory?.displayPath, shown);
+      expect(panel.nodes.map((node) => node.name), contains('guide.txt'));
+    });
+
+    test('и корень архива тоже — иначе круг рвался бы на нём', () async {
+      panel.setCursorToName('sample.zip');
+      await panel.enterCurrent();
+
+      final shown = panel.directory!.displayPath;
+      expect(shown, archivePath);
+
+      // Строка кончается файлом архива, а панель ждёт каталог: вход в него —
+      // то же самое, что Enter.
+      expect(await panel.openPath(shown), isTrue);
+      expect(panel.provider, isA<ZipTreeProvider>());
+      expect(panel.nodes.map((node) => node.name), containsAll(['docs', 'readme.md']));
+    });
   });
 
   group('архив не в локальной ФС', () {

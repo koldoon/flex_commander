@@ -84,7 +84,11 @@ class OpenPathCommand extends AppCommand {
   }
 
   /// Что показать в поле, когда окно открылось.
-  String get currentPath => panel.directory?.pathString ?? '';
+  ///
+  /// Показанный путь, а не машинный: человек правит то, что видит в заголовке
+  /// панели, и `/home/a.zip:zip:/inner` там ни к чему. Разобрать такую строку
+  /// обратно умеет `ProviderRegistry.resolveDisplayPath`.
+  String get currentPath => panel.directory?.displayPath ?? '';
 
   @override
   Widget? getDialog(BuildContext context) {
