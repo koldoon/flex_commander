@@ -4,6 +4,7 @@ import 'package:flex_commander/app.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/view/function_bar/function_button.dart';
+import 'package:flex_commander/state/commands/help_command.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -347,6 +348,68 @@ void main() {
         find.ancestor(of: find.text('Later'), matching: find.byType(FunctionButton)),
       );
       expect(f9.number, 9);
+    });
+  });
+
+  group('клавиши не уходят мимо приложения', () {
+    /// Ставит над приложением слушателя: он получает только то, что приложение
+    /// пропустило дальше по дереву — а значит, и наружу, в систему.
+    Future<List<LogicalKeyboardKey>> pumpWithWatcher(WidgetTester tester) async {
+      final escaped = <LogicalKeyboardKey>[];
+
+      tester.view.physicalSize = const Size(802, 621);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(
+        Focus(
+          onKeyEvent: (node, event) {
+            if (event is KeyDownEvent) {
+              escaped.add(event.logicalKey);
+            }
+            return KeyEventResult.ignored;
+          },
+          child: FlexCommanderApp(controller: app),
+        ),
+      );
+      await app.start();
+      await tester.pumpAndSettle();
+
+      return escaped;
+    }
+
+    testWidgets('клавиша без команды дальше не идёт', (tester) async {
+      // F9 ни за кем не закреплена. Уходя дальше, событие попадает в AppKit, а
+      // тот на некоторых сочетаниях отвечает приложению обратно: `Cmd+.` он
+      // понимает как «отменить» и присылает Escape — снова и снова, десятками
+      // тысяч событий подряд.
+      final escaped = await pumpWithWatcher(tester);
+
+      await press(tester, LogicalKeyboardKey.f9);
+
+      expect(escaped, isEmpty);
+    });
+
+    testWidgets('Escape на свободной панели дальше не идёт', (tester) async {
+      // Отменять нечего, пометки нет — команда не выполнится. Но событие всё
+      // равно наше: именно на этом круге и рождался поток Escape.
+      final escaped = await pumpWithWatcher(tester);
+
+      await press(tester, LogicalKeyboardKey.escape);
+
+      expect(escaped, isEmpty);
+    });
+
+    testWidgets('пока открыто окно команды, клавиши принадлежат ему', (tester) async {
+      final escaped = await pumpWithWatcher(tester);
+      app.commands.run(HelpCommand.commandId);
+      await tester.pumpAndSettle();
+
+      await press(tester, LogicalKeyboardKey.f9);
+
+      // Из-под чужого окна панели не отвечают, и событие должно уйти дальше —
+      // к самому окну.
+      expect(escaped, [LogicalKeyboardKey.f9]);
     });
   });
 }
