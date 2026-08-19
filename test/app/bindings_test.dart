@@ -58,6 +58,14 @@ void main() {
     expect(runtime.app.left.provider, isNotNull);
   });
 
+  test('упаковка разведена по клавишам: zip на Shift-F5, 7z на Shift-F7', () {
+    // Два архиватора — две команды: реестр берёт первую подходящую привязку, и
+    // на одной клавише вторая никогда бы не сработала.
+    expect(runtime.commands.commandFor(KeyCombination.parse('Shift-F5'))?.id, 'zip.create');
+    expect(runtime.commands.commandFor(KeyCombination.parse('Shift-F7'))?.id, '7z.create');
+    expect(runtime.commands.commandFor(KeyCombination.parse('F7'))?.id, 'file.mkdir');
+  });
+
   test('модуль 7z встаёт и там, где программы нет', () {
     // Внешнего инструмента в тестах не установлено, и это не должно мешать
     // сборке приложения: приложение здесь уже собрано со всеми модулями, а

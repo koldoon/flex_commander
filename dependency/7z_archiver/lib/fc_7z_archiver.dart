@@ -4,6 +4,7 @@
 /// и это не выбор, а положение дел — см. `docs/providers.md`.
 library;
 
+export 'src/create_archive_command.dart';
 export 'src/seven_zip_cli.dart';
 export 'src/seven_zip_listing.dart';
 export 'src/seven_zip_module.dart';
