@@ -147,7 +147,7 @@ class RemovePermanentlyCommand extends RemoveCommandBase {
   String get id => commandId;
 
   @override
-  String get label => 'Delete permanently';
+  String get label => 'Delete !';
 
   @override
   String get description => 'Delete the selected items without the trash';
