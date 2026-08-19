@@ -12,8 +12,10 @@ import 'transfer_commands.dart';
 class FileOps implements FcModule {
   const FileOps();
 
+  static const String commandId = 'fc.file_ops';
+
   @override
-  String get id => 'fc.file_ops';
+  String get id => commandId;
 
   @override
   String get title => 'File operations';
@@ -26,16 +28,16 @@ class FileOps implements FcModule {
     registry.command((context) => CopyCommand());
     registry.command((context) => MoveCommand());
 
-    registry.binding(KeyBinding('F5', 'file.copy'));
-    registry.binding(KeyBinding('F6', 'file.move'));
-    registry.binding(KeyBinding('F7', 'file.mkdir'));
+    registry.binding(KeyBinding('F5', CopyCommand.commandId));
+    registry.binding(KeyBinding('F6', MoveCommand.commandId));
+    registry.binding(KeyBinding('F7', MakeDirectoryCommand.commandId));
     // На macOS F-клавиши по умолчанию отданы системе (F7 — «предыдущий трек»),
     // и до приложения нажатие не доходит. Привычное сочетание из Finder
     // работает без настройки клавиатуры.
-    registry.binding(KeyBinding('Shift-Cmd-N', 'file.mkdir'));
-    registry.binding(KeyBinding('F8', 'file.remove'));
-    registry.binding(KeyBinding('Shift-F8', 'file.removePermanently'));
-    registry.binding(KeyBinding('Cmd-Bsp', 'file.remove'));
-    registry.binding(KeyBinding('Shift-Cmd-Bsp', 'file.removePermanently'));
+    registry.binding(KeyBinding('Shift-Cmd-N', MakeDirectoryCommand.commandId));
+    registry.binding(KeyBinding('F8', RemoveCommand.commandId));
+    registry.binding(KeyBinding('Shift-F8', RemovePermanentlyCommand.commandId));
+    registry.binding(KeyBinding('Cmd-Bsp', RemoveCommand.commandId));
+    registry.binding(KeyBinding('Shift-Cmd-Bsp', RemovePermanentlyCommand.commandId));
   }
 }

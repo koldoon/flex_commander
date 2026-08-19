@@ -13,8 +13,10 @@ import 'selection_commands.dart';
 class Navigation implements FcModule {
   const Navigation();
 
+  static const String commandId = 'fc.navigation';
+
   @override
-  String get id => 'fc.navigation';
+  String get id => commandId;
 
   @override
   String get title => 'Navigation';
@@ -52,38 +54,40 @@ class Navigation implements FcModule {
   /// Клавиши. Порядок задаёт приоритет — он и есть содержание этого метода.
   void _bindKeys(FcRegistry registry) {
     // Курсор.
-    registry.binding(KeyBinding('Up', 'panel.cursor.up'));
-    registry.binding(KeyBinding('Down', 'panel.cursor.down'));
-    registry.binding(KeyBinding('PgUp', 'panel.cursor.pageUp'));
-    registry.binding(KeyBinding('PgDn', 'panel.cursor.pageDown'));
-    registry.binding(KeyBinding('Home', 'panel.cursor.first'));
-    registry.binding(KeyBinding('Left', 'panel.cursor.first'));
-    registry.binding(KeyBinding('End', 'panel.cursor.last'));
-    registry.binding(KeyBinding('Right', 'panel.cursor.last'));
+    registry.binding(KeyBinding('Up', MoveCursorUpCommand.commandId));
+    registry.binding(KeyBinding('Down', MoveCursorDownCommand.commandId));
+    registry.binding(KeyBinding('PgUp', PageUpCommand.commandId));
+    registry.binding(KeyBinding('PgDn', PageDownCommand.commandId));
+    registry.binding(KeyBinding('Home', GoToFirstNodeCommand.commandId));
+    registry.binding(KeyBinding('Left', GoToFirstNodeCommand.commandId));
+    registry.binding(KeyBinding('End', GoToLastNodeCommand.commandId));
+    registry.binding(KeyBinding('Right', GoToLastNodeCommand.commandId));
 
     // Навигация по дереву.
-    registry.binding(KeyBinding('Tab', 'app.togglePanel'));
-    registry.binding(KeyBinding('Enter', 'panel.open'));
-    registry.binding(KeyBinding('Cmd-O', 'panel.openWithSystem'));
-    registry.binding(KeyBinding('Bsp', 'panel.up'));
-    registry.binding(KeyBinding('Cmd-Up', 'panel.up'));
-    registry.binding(KeyBinding('Cmd-/', 'panel.root'));
-    registry.binding(KeyBinding('Cmd-R', 'panel.reload'));
+    registry.binding(KeyBinding('Tab', TogglePanelCommand.commandId));
+    registry.binding(KeyBinding('Enter', OpenNodeCommand.commandId));
+    registry.binding(KeyBinding('Cmd-O', OpenWithSystemCommand.commandId));
+    registry.binding(KeyBinding('Bsp', GoUpCommand.commandId));
+    registry.binding(KeyBinding('Cmd-Up', GoUpCommand.commandId));
+    registry.binding(KeyBinding('Cmd-/', GoToRootCommand.commandId));
+    registry.binding(KeyBinding('Cmd-R', ReloadCommand.commandId));
     // На macOS `Cmd-H` занят системным меню приложения («Hide APP_NAME»), и до
     // окна нажатие не доходит вовсе. Поэтому основное сочетание — `Cmd-Shift-H`;
     // `Cmd-H` остаётся ради Windows и Linux, где он разбирается как `Ctrl-H`.
-    registry.binding(KeyBinding('Cmd-Shift-H', 'panel.toggleHidden'));
-    registry.binding(KeyBinding('Cmd-H', 'panel.toggleHidden'));
+    registry.binding(KeyBinding('Cmd-Shift-H', ToggleHiddenCommand.commandId));
+    registry.binding(KeyBinding('Cmd-H', ToggleHiddenCommand.commandId));
 
     // Пометка объектов. Отмена операции идёт раньше сброса пометки.
-    registry.binding(KeyBinding('Esc', 'panel.cancel'));
-    registry.binding(KeyBinding('Esc', 'panel.selection.clear'));
-    registry.binding(KeyBinding('Space', 'panel.selection.toggle'));
-    registry.binding(KeyBinding('Ins', 'panel.selection.toggle'));
-    registry.binding(KeyBinding('Cmd-A', 'panel.selection.all'));
+    registry.binding(KeyBinding('Esc', CancelCommand.commandId));
+    registry.binding(KeyBinding('Esc', ClearSelectionCommand.commandId));
+    registry.binding(KeyBinding('Space', ToggleMarkCommand.commandId));
+    registry.binding(KeyBinding('Ins', ToggleMarkCommand.commandId));
+    registry.binding(KeyBinding('Cmd-A', SelectAllCommand.commandId));
 
     // Переход к имени по набранному символу. Стоит после привязок к конкретным
     // символам: иначе набор имени перехватывал бы их.
-    registry.binding(const KeyBinding.anyCharacter('panel.goToName', characterParam: GoToNameCommand.characterParam));
+    registry.binding(
+      const KeyBinding.anyCharacter(GoToNameCommand.commandId, characterParam: GoToNameCommand.characterParam),
+    );
   }
 }

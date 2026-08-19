@@ -2,8 +2,10 @@ import 'package:fc_api/fc_api.dart';
 
 /// Курсор на строку вверх.
 class MoveCursorUpCommand extends AppCommand {
+  static const String commandId = 'panel.cursor.up';
+
   @override
-  String get id => 'panel.cursor.up';
+  String get id => commandId;
 
   @override
   String get label => 'Cursor up';
@@ -17,8 +19,10 @@ class MoveCursorUpCommand extends AppCommand {
 
 /// Курсор на строку вниз.
 class MoveCursorDownCommand extends AppCommand {
+  static const String commandId = 'panel.cursor.down';
+
   @override
-  String get id => 'panel.cursor.down';
+  String get id => commandId;
 
   @override
   String get label => 'Cursor down';
@@ -38,8 +42,10 @@ class GoToNameCommand extends AppCommand {
   /// Символ, с которого начинается имя.
   static const String characterParam = 'character';
 
+  static const String commandId = 'panel.goToName';
+
   @override
-  String get id => 'panel.goToName';
+  String get id => commandId;
 
   @override
   String get label => 'Go to name';
@@ -79,8 +85,10 @@ class GoToNameCommand extends AppCommand {
 
 /// Курсор на страницу вверх — по числу видимых строк.
 class PageUpCommand extends AppCommand {
+  static const String commandId = 'panel.cursor.pageUp';
+
   @override
-  String get id => 'panel.cursor.pageUp';
+  String get id => commandId;
 
   @override
   String get label => 'Page up';
@@ -94,8 +102,10 @@ class PageUpCommand extends AppCommand {
 
 /// Курсор на страницу вниз.
 class PageDownCommand extends AppCommand {
+  static const String commandId = 'panel.cursor.pageDown';
+
   @override
-  String get id => 'panel.cursor.pageDown';
+  String get id => commandId;
 
   @override
   String get label => 'Page down';
@@ -112,8 +122,10 @@ class PageDownCommand extends AppCommand {
 /// Стрелка влево занята именно этим — панели переключаются только Tab
 /// (решение референса: `GoToFirstNodeCommand`).
 class GoToFirstNodeCommand extends AppCommand {
+  static const String commandId = 'panel.cursor.first';
+
   @override
-  String get id => 'panel.cursor.first';
+  String get id => commandId;
 
   @override
   String get label => 'First item';
@@ -127,8 +139,10 @@ class GoToFirstNodeCommand extends AppCommand {
 
 /// Курсор на последний объект списка.
 class GoToLastNodeCommand extends AppCommand {
+  static const String commandId = 'panel.cursor.last';
+
   @override
-  String get id => 'panel.cursor.last';
+  String get id => commandId;
 
   @override
   String get label => 'Last item';
@@ -142,8 +156,10 @@ class GoToLastNodeCommand extends AppCommand {
 
 /// Переключение активной панели.
 class TogglePanelCommand extends AppCommand {
+  static const String commandId = 'app.togglePanel';
+
   @override
-  String get id => 'app.togglePanel';
+  String get id => commandId;
 
   @override
   String get label => 'Switch panel';
@@ -167,8 +183,10 @@ class OpenNodeCommand extends AppCommand {
 
   final SystemOpener _open;
 
+  static const String commandId = 'panel.open';
+
   @override
-  String get id => 'panel.open';
+  String get id => commandId;
 
   @override
   String get label => 'Open';
@@ -204,8 +222,10 @@ class OpenWithSystemCommand extends AppCommand {
 
   final SystemOpener _open;
 
+  static const String commandId = 'panel.openWithSystem';
+
   @override
-  String get id => 'panel.openWithSystem';
+  String get id => commandId;
 
   @override
   String get label => 'Open with system';
@@ -234,8 +254,10 @@ class OpenWithSystemCommand extends AppCommand {
 
 /// На уровень вверх.
 class GoUpCommand extends AppCommand {
+  static const String commandId = 'panel.up';
+
   @override
-  String get id => 'panel.up';
+  String get id => commandId;
 
   @override
   String get label => 'Up';
@@ -252,8 +274,10 @@ class GoUpCommand extends AppCommand {
 
 /// В корень провайдера.
 class GoToRootCommand extends AppCommand {
+  static const String commandId = 'panel.root';
+
   @override
-  String get id => 'panel.root';
+  String get id => commandId;
 
   @override
   String get label => 'Root';
@@ -271,8 +295,10 @@ class GoToRootCommand extends AppCommand {
 
 /// Перечитать текущий каталог.
 class ReloadCommand extends AppCommand {
+  static const String commandId = 'panel.reload';
+
   @override
-  String get id => 'panel.reload';
+  String get id => commandId;
 
   @override
   String get label => 'Reload';
@@ -289,8 +315,10 @@ class ReloadCommand extends AppCommand {
 
 /// Показать или спрятать скрытые объекты.
 class ToggleHiddenCommand extends AppCommand {
+  static const String commandId = 'panel.toggleHidden';
+
   @override
-  String get id => 'panel.toggleHidden';
+  String get id => commandId;
 
   @override
   String get label => 'Hidden files';
@@ -310,8 +338,10 @@ class ToggleHiddenCommand extends AppCommand {
 /// Стоит раньше команды сброса пометки: пока панель занята, Esc должен
 /// прерывать чтение, а не трогать пометку.
 class CancelCommand extends AppCommand {
+  static const String commandId = 'panel.cancel';
+
   @override
-  String get id => 'panel.cancel';
+  String get id => commandId;
 
   @override
   String get label => 'Cancel';

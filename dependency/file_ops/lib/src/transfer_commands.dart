@@ -4,8 +4,10 @@ import 'package:fc_api/fc_api.dart';
 
 /// Копирование выбранных объектов в другой каталог.
 class CopyCommand extends TransferCommandBase {
+  static const String commandId = 'file.copy';
+
   @override
-  String get id => 'file.copy';
+  String get id => commandId;
 
   @override
   String get label => 'Copy';
@@ -22,8 +24,10 @@ class CopyCommand extends TransferCommandBase {
 /// Отдельная команда, а не параметр [CopyCommand]: у неё своя клавиша, своя
 /// кнопка и своя строка в списке команд.
 class MoveCommand extends TransferCommandBase {
+  static const String commandId = 'file.move';
+
   @override
-  String get id => 'file.move';
+  String get id => commandId;
 
   @override
   String get label => 'Move';

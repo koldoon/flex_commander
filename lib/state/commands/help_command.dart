@@ -15,8 +15,10 @@ class HelpCommand extends AppCommand {
   /// внутри него же, и к моменту создания команды его ещё нет.
   final CommandRegistry? Function()? _registry;
 
+  static const String commandId = 'app.help';
+
   @override
-  String get id => 'app.help';
+  String get id => commandId;
 
   @override
   String get label => 'Help';

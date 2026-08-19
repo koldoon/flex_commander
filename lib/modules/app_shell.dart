@@ -10,6 +10,13 @@ import '../state/commands/help_command.dart';
 class AppShell implements FcModule {
   const AppShell();
 
+  /// Обещания клавиш: команды за ними появятся модулями, а сами клавиши
+  /// заняты уже сейчас. Идентификаторы объявлены здесь — своих классов у
+  /// заглушек нет.
+  static const String menuCommand = 'app.menu';
+  static const String viewCommand = 'file.view';
+  static const String editCommand = 'file.edit';
+
   @override
   String get id => 'fc.shell';
 
@@ -25,14 +32,14 @@ class AppShell implements FcModule {
     // Справка показывает содержимое реестра, а реестра во время объявления
     // ещё нет: команда получает не его, а способ его спросить.
     registry.command((context) => HelpCommand(registry: () => context.resolve<CommandRegistry>()));
-    registry.binding(KeyBinding('F1', 'app.help'));
+    registry.binding(KeyBinding('F1', HelpCommand.commandId));
 
     // Ещё не реализованное: клавиша закреплена, кнопка показана и приглушена.
-    registry.command((context) => PlaceholderCommand(id: 'app.menu', label: 'Menu'));
-    registry.command((context) => PlaceholderCommand(id: 'file.view', label: 'View'));
-    registry.command((context) => PlaceholderCommand(id: 'file.edit', label: 'Edit'));
-    registry.binding(KeyBinding('F2', 'app.menu'));
-    registry.binding(KeyBinding('F3', 'file.view'));
-    registry.binding(KeyBinding('F4', 'file.edit'));
+    registry.command((context) => PlaceholderCommand(id: menuCommand, label: 'Menu'));
+    registry.command((context) => PlaceholderCommand(id: viewCommand, label: 'View'));
+    registry.command((context) => PlaceholderCommand(id: editCommand, label: 'Edit'));
+    registry.binding(KeyBinding('F2', menuCommand));
+    registry.binding(KeyBinding('F3', viewCommand));
+    registry.binding(KeyBinding('F4', editCommand));
   }
 }

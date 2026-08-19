@@ -17,8 +17,10 @@ class SwitchThemeCommand extends AppCommand {
   final FcContext env;
   final SettingsScope settings;
 
+  static const String commandId = 'app.theme.use';
+
   @override
-  String get id => 'app.theme.use';
+  String get id => commandId;
 
   @override
   String get label => 'Switch theme';
@@ -57,8 +59,10 @@ class RestoreThemeCommand extends AppCommand {
   final FcContext env;
   final SettingsScope settings;
 
+  static const String commandId = 'app.theme.restore';
+
   @override
-  String get id => 'app.theme.restore';
+  String get id => commandId;
 
   @override
   String get label => 'Restore theme';

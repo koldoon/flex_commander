@@ -3,8 +3,10 @@ import 'package:fc_api/fc_api.dart';
 /// Инвертировать пометку объекта под курсором и сдвинуть курсор вниз — так
 /// несколько файлов подряд помечаются одной клавишей.
 class ToggleMarkCommand extends AppCommand {
+  static const String commandId = 'panel.selection.toggle';
+
   @override
-  String get id => 'panel.selection.toggle';
+  String get id => commandId;
 
   @override
   String get label => 'Mark';
@@ -24,8 +26,10 @@ class ToggleMarkCommand extends AppCommand {
 
 /// Снять всю пометку.
 class ClearSelectionCommand extends AppCommand {
+  static const String commandId = 'panel.selection.clear';
+
   @override
-  String get id => 'panel.selection.clear';
+  String get id => commandId;
 
   @override
   String get label => 'Unmark all';
@@ -42,8 +46,10 @@ class ClearSelectionCommand extends AppCommand {
 
 /// Пометить всё, кроме «..».
 class SelectAllCommand extends AppCommand {
+  static const String commandId = 'panel.selection.all';
+
   @override
-  String get id => 'panel.selection.all';
+  String get id => commandId;
 
   @override
   String get label => 'Mark all';

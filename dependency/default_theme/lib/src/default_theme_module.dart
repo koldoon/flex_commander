@@ -18,8 +18,10 @@ class DefaultTheme implements FcModule {
   /// Имя темы: под ним она попадает в настройки.
   static const String themeId = 'default';
 
+  static const String commandId = 'fc.default_theme';
+
   @override
-  String get id => 'fc.default_theme';
+  String get id => commandId;
 
   @override
   String get title => 'Default theme';
