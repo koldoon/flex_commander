@@ -78,7 +78,20 @@ class PanelController extends ChangeNotifier implements Panel {
   /// за каталогом, а тот приносит своего провайдера с собой. Войти в архив —
   /// это открыть каталог чужого провайдера, и ничего кроме.
   @override
-  TreeProvider get provider => _directory?.provider ?? _registry.root;
+  TreeProvider get provider => _directory?.provider ?? _root;
+
+  /// Корень, на котором стоит панель.
+  ///
+  /// Обычно общий (локальная ФС), но панель может встать и на свой — сервер,
+  /// открытый по адресу. Тогда он принадлежит ей: закрыть его больше некому.
+  TreeProvider get _root => _ownRoot ?? _registry.root;
+
+  /// Корень, который панель открыла сама; null — стоит на общем.
+  TreeProvider? _ownRoot;
+
+  /// Адрес, которым этот корень открыт: по нему видно, что второй такой же
+  /// открывать не нужно, а на другой хост — нужно.
+  Uri? _ownAddress;
 
   /// Сколько каталогов панель обходит одновременно, считая их размер, —
   /// настройка приложения. Настоящий предел меньше, если провайдер объявил
@@ -195,7 +208,8 @@ class PanelController extends ChangeNotifier implements Panel {
   /// поверх того же файла: записанное через него панель бы не увидела — её
   /// оглавление принадлежит первому.
   @override
-  AsyncOperation<FsNode?> resolvePath(String path) => _registry.resolvePath(path, reuse: _mountedProviders);
+  AsyncOperation<FsNode?> resolvePath(String path) =>
+      _registry.resolvePath(path, from: _root, reuse: _mountedProviders);
 
   /// Цепочка провайдеров, на которой стоит панель: от текущего к корню.
   Iterable<TreeProvider> get _mountedProviders sync* {
@@ -214,9 +228,26 @@ class PanelController extends ChangeNotifier implements Panel {
     _statusText = 'Loading…';
     notifyListeners();
 
-    // Путь может проходить через несколько провайдеров: архив внутри архива —
-    // это всё та же одна строка.
-    final resolving = _registry.resolvePath(path);
+    // Одна операция на весь разбор — вместе с подключением к адресу.
+    // Подключение бывает долгим (сервер на другом конце света), и всё это время
+    // Esc должен работать: если операцию завести только на чтении каталога,
+    // отменять во время подключения будет нечего.
+    final resolving = TaskOperation<FsNode?>((op) async {
+      // Чужая схема в начале — это другой корень: сервер, а не каталог. Панель
+      // встаёт на него целиком, и разбор остатка пути идёт уже от него.
+      final start = await _rootFor(path);
+      op.checkCanceled();
+
+      // Путь может проходить через несколько провайдеров: архив внутри архива —
+      // это всё та же одна строка.
+      final inner = _registry.resolvePath(path, from: start, reuse: _mountedProviders);
+      _innerOperation = inner;
+      try {
+        return await inner.result;
+      } finally {
+        _innerOperation = null;
+      }
+    });
     _operation = resolving;
 
     DirectoryNode? dir;
@@ -245,6 +276,65 @@ class PanelController extends ChangeNotifier implements Panel {
 
     await _load(dir, cursorName: _cursorMemory[dir.pathString]);
     return _status != PanelStatus.error;
+  }
+
+  /// Корень, от которого разбирать этот путь.
+  ///
+  /// Правило простое и в обе стороны одинаковое: **путь без схемы — это общий
+  /// корень**, локальная ФС. Стоя на сервере, вернуться домой можно, набрав
+  /// обычный путь, а остаться на нём — назвав его схему целиком. Ходьба внутри
+  /// панели (Enter, «..») сюда не заходит вовсе, так что сервер от этого не
+  /// «схлопывается» под ногами.
+  ///
+  /// Адрес чужой схемы открывает подключение, и панель **забирает его себе**:
+  /// закрыть его больше некому, как и смонтированный архив. Прежний свой корень
+  /// при этом закрывается — ушли с сервера, соединение разорвано. Общий корень
+  /// не закрывается никогда: он не её.
+  Future<TreeProvider> _rootFor(String path) async {
+    final scheme = NodePath.parse(path).scheme;
+
+    if (scheme == NodePath.defaultScheme || scheme == _registry.root.scheme) {
+      await _releaseOwnRoot();
+      return _registry.root;
+    }
+
+    final address = _addressOf(path);
+    if (address == null || !_registry.knowsAddress(scheme)) {
+      throw FsError(path, FsErrorKind.notSupported);
+    }
+
+    // Тот же адрес — тот же корень: перечитывать сервер заново незачем, а
+    // второе подключение к нему разошлось бы состоянием с первым.
+    final own = _ownRoot;
+    if (own != null && own.scheme == scheme && _ownAddress?.authority == address.authority) {
+      return own;
+    }
+
+    final opened = await _registry.openAddress(address);
+    await _releaseOwnRoot();
+    _ownRoot = opened;
+    _ownAddress = address;
+    return opened;
+  }
+
+  /// Адрес из строки пути; null — строка адресом не является.
+  Uri? _addressOf(String path) {
+    try {
+      final address = Uri.parse(path);
+      return address.hasScheme ? address : null;
+    } on FormatException {
+      return null;
+    }
+  }
+
+  /// Закрывает корень, открытый самой панелью.
+  Future<void> _releaseOwnRoot() async {
+    final own = _ownRoot;
+    _ownRoot = null;
+    _ownAddress = null;
+    if (own != null) {
+      await ProviderRegistry.disposeProvider(own);
+    }
   }
 
   /// Войти в объект под курсором.
@@ -385,8 +475,18 @@ class PanelController extends ChangeNotifier implements Panel {
   }
 
   /// Прервать текущее чтение.
+  ///
+  /// Отмена доходит и внутрь: разбор пути — это внешняя операция (подключение
+  /// плюс чтение), а каталог читает вложенная, и остановить нужно ту, что идёт
+  /// прямо сейчас.
   @override
-  void cancel() => _operation?.cancel();
+  void cancel() {
+    _operation?.cancel();
+    _innerOperation?.cancel();
+  }
+
+  /// Вложенная операция разбора пути, пока она идёт.
+  AsyncOperation<Object?>? _innerOperation;
 
   // --- курсор ---
 
@@ -830,6 +930,8 @@ class PanelController extends ChangeNotifier implements Panel {
     _stopSizeScan();
     // Панель закрылась вместе с приложением, а архив остался открытым.
     _releaseProvider(_directory?.provider, keeping: _registry.root);
+    // Своё подключение закрывается вместе с панелью: держать его больше некому.
+    unawaited(_releaseOwnRoot());
     selection.removeListener(_onSelectionChanged);
     selection.dispose();
     super.dispose();

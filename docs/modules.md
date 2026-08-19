@@ -61,7 +61,8 @@ class GoUpCommand extends AppCommand {
 | Метод реестра | Что даёт |
 |---|---|
 | `rootProvider(factory)` | корневой источник дерева; ровно один на приложение |
-| `provider(scheme, factory, extensions)` | вложенный источник: архив, сервер |
+| `provider(scheme, factory, extensions)` | вложенный источник: архив |
+| `addressProvider(scheme, factory)` | источник по адресу: `ssh://user@host/` |
 | `command(factory)` | действие приложения; фабрика зовётся на каждый запуск |
 | `binding(KeyBinding)` | клавиша за действием; порядок задаёт приоритет |
 | `startup(factory)` | команда, которая выполняется один раз при запуске |

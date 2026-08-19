@@ -22,6 +22,7 @@ class DialogFrame extends StatefulWidget {
     required this.onDismiss,
     required this.child,
     this.takesFocus = false,
+    this.alignment = Alignment.center,
   });
 
   final String title;
@@ -32,6 +33,10 @@ class DialogFrame extends StatefulWidget {
 
   /// Содержимое ставит фокус само (поле ввода) — тогда рама его не забирает.
   final bool takesFocus;
+
+  /// Где встать окну. Обычно середина, но окно про названную панель встаёт над
+  /// ней самой.
+  final Alignment alignment;
 
   final Widget child;
 
@@ -95,7 +100,8 @@ class _DialogFrameState extends State<DialogFrame> {
       children: [
         // Затемнение: пока окно открыто, работать с панелями нельзя.
         Positioned.fill(child: ModalBarrier(dismissible: false, color: colors.dialogBarrier)),
-        Center(
+        Align(
+          alignment: widget.alignment,
           child: FocusScope(
             autofocus: true,
             // Обработчик стоит на самой области окна: если внутри есть поле

@@ -66,6 +66,12 @@ abstract interface class FcRegistry {
   /// Вложенный источник: схема пути и расширения, которыми он открывается.
   void provider(String scheme, ProviderFactory factory, {Set<String> extensions = const {}});
 
+  /// Источник, открываемый по адресу: `ssh://user@host/srv`.
+  ///
+  /// В отличие от вложенного, такому не над чем монтироваться — он сам себе
+  /// корень, и панель встаёт на него целиком.
+  void addressProvider(String scheme, AddressFactory factory);
+
   /// Действие приложения. Фабрика зовётся на каждый запуск: команда хранит
   /// состояние исполнения, поэтому экземпляр у запуска свой.
   void command(FcCommandFactory factory);

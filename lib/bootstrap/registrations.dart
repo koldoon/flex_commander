@@ -10,6 +10,14 @@ class ProviderRegistration {
   final Set<String> extensions;
 }
 
+/// Источник по адресу, объявленный модулем.
+class AddressRegistration {
+  const AddressRegistration(this.scheme, this.factory);
+
+  final String scheme;
+  final AddressFactory factory;
+}
+
 /// Службы приложения, доступные фабрикам.
 ///
 /// Ссылку на них модуль получает во время сборки, когда контейнера ещё нет, —
@@ -62,6 +70,7 @@ class Registrations implements FcRegistry {
   String? _rootProviderOwner;
 
   final List<ProviderRegistration> providers = [];
+  final List<AddressRegistration> addresses = [];
   final List<FcCommandFactory> commands = [];
   final List<KeyBinding> bindings = [];
   final List<FcCommandFactory> startupCommands = [];
@@ -122,6 +131,11 @@ class Registrations implements FcRegistry {
   @override
   void provider(String scheme, ProviderFactory factory, {Set<String> extensions = const {}}) {
     providers.add(ProviderRegistration(scheme, factory, extensions));
+  }
+
+  @override
+  void addressProvider(String scheme, AddressFactory factory) {
+    addresses.add(AddressRegistration(scheme, factory));
   }
 
   @override
