@@ -423,6 +423,39 @@ void main() {
       expect(buttonOf(tester, 1).enabled, isFalse);
     });
 
+    testWidgets('слой без единой привязки не показывается', (tester) async {
+      await pumpApp(tester);
+      expect(labelOf(tester, 5), 'Copy');
+
+      // За Ctrl нет ни одной F-привязки: ряд из десяти прочерков ничего не
+      // сообщает, а выглядит как поломка.
+      await hold(tester, LogicalKeyboardKey.control);
+
+      expect(labelOf(tester, 5), 'Copy');
+      expect(labelOf(tester, 1), 'Help');
+
+      await release(tester, LogicalKeyboardKey.control);
+    });
+
+    testWidgets('первая же привязка в слое показывает его целиком', (tester) async {
+      await pumpApp(tester);
+      await hold(tester, LogicalKeyboardKey.control);
+      expect(labelOf(tester, 5), 'Copy', reason: 'слоя ещё нет');
+
+      // Модуль поставил команду на Ctrl-F9 — слой появился, и остальные
+      // клавиши в нём честно пустые.
+      app.commands
+        ..install(() => _RecordingCommand(id: 'test.layered', label: 'Layered', runs: []))
+        ..bind(KeyBinding('Ctrl-F9', 'test.layered'));
+      await tester.pumpAndSettle();
+
+      expect(labelOf(tester, 9), 'Layered');
+      expect(labelOf(tester, 5), '-');
+
+      await release(tester, LogicalKeyboardKey.control);
+      expect(labelOf(tester, 5), 'Copy');
+    });
+
     testWidgets('нажатие мышью в слое отправляет комбинацию слоя', (tester) async {
       await pumpApp(tester);
 
