@@ -31,7 +31,8 @@ migrate_working_dir/
 .flutter-plugins-dependencies
 .pub-cache/
 .pub/
-/build/
+# Каталоги сборки: и корня, и пакетов воркспейса в dependency/.
+**/build/
 
 # Symbolication related
 app.*.symbols
