@@ -10,11 +10,17 @@ import 'package:path/path.dart' as p;
 /// в API, поэтому провайдер архива или сетевого источника обходится контрактом
 /// и не тянет за собой платформу.
 class LocalStagingArea implements StagingArea {
-  const LocalStagingArea();
+  const LocalStagingArea({this.root});
+
+  /// Где заводить временные каталоги; null — там, где их заводит система.
+  ///
+  /// Задаётся в тестах: временные файлы разных работ иначе перемешиваются в
+  /// общем каталоге системы, и проверить «за собой убрано» становится нечем.
+  final Directory? root;
 
   @override
   Future<StagedDirectory> open(String prefix) async {
-    return _LocalStagedDirectory(await Directory.systemTemp.createTemp('${prefix}_'));
+    return _LocalStagedDirectory(await (root ?? Directory.systemTemp).createTemp('${prefix}_'));
   }
 }
 

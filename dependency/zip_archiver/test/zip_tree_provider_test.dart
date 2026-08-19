@@ -289,12 +289,12 @@ void main() {
     });
 
     test('копия не переживает неудачного открытия', () async {
-      // Каталоги сессии временных копий — по её префиксу.
+      // Временные каталоги считаются в своём месте, а не в общем каталоге
+      // системы: туда же складывают своё и остальные работы, и по нему ничего
+      // не проверишь.
+      final staging = LocalStagingArea(root: temp);
       int sessions() =>
-          Directory.systemTemp
-              .listSync()
-              .where((entity) => p.basename(entity.path).startsWith('flex_commander_zip_'))
-              .length;
+          temp.listSync().where((entity) => p.basename(entity.path).startsWith('flex_commander_zip_')).length;
 
       final broken = InMemoryArchiveProvider([
         FakeEntry.directory('/home'),
@@ -303,7 +303,7 @@ void main() {
       final host = (await broken.resolvePath('/home/inner.zip').result)!;
       final before = sessions();
 
-      await expectLater(ZipTreeProvider.open(host, staging: const LocalStagingArea()), throwsA(isA<FsError>()));
+      await expectLater(ZipTreeProvider.open(host, staging: staging), throwsA(isA<FsError>()));
 
       // Копию успели сделать, а архив не открылся — за собой убрано.
       expect(sessions(), before);
