@@ -16,6 +16,8 @@ void main() {
     FakeEntry.directory('/inner'),
     FakeEntry.file('/inner/doc.txt', content: [1, 2, 3]),
     FakeEntry.file('/readme.md', content: [4]),
+    // Архив внутри архива: показанный путь и через него должен разбираться.
+    FakeEntry.file('/nested.arc', content: [0]),
   ];
 
   setUp(() {
@@ -111,6 +113,95 @@ void main() {
     test('чужая схема в начале пути — отказ', () async {
       // Второй корневой провайдер появится вместе с сетевым (5.6).
       await expectLater(registry.resolvePath('sftp:/host/dir').result, throwsA(isA<FsError>()));
+    });
+  });
+
+  group('разбор показанного пути', () {
+    test('архив в пути опознаётся по типу узла, а не по схеме', () async {
+      final node = await registry.resolveDisplayPath('/home/archive.arc/inner/doc.txt').result;
+
+      expect(node?.name, 'doc.txt');
+      expect(node?.provider, isA<InMemoryArchiveProvider>());
+      // Наружу узел выходит с полным машинным путём: он и уйдёт в настройки.
+      expect(node?.pathString, '/home/archive.arc:arc:/inner/doc.txt');
+      expect(node?.displayPath, '/home/archive.arc/inner/doc.txt');
+    });
+
+    test('путь без архива разбирается одним обращением', () async {
+      final node = await registry.resolveDisplayPath('/home/notes.txt').result;
+
+      expect(node?.name, 'notes.txt');
+      expect(node?.provider, same(disk));
+      // Быстрый путь: монтировать было нечего.
+      expect(mountedOver, isEmpty);
+    });
+
+    test('архив в архиве — тем же способом', () async {
+      final node = await registry.resolveDisplayPath('/home/archive.arc/nested.arc/inner/doc.txt').result;
+
+      expect(node?.name, 'doc.txt');
+      expect(node?.pathString, '/home/archive.arc:arc:/nested.arc:arc:/inner/doc.txt');
+      expect(mountedOver, hasLength(2));
+    });
+
+    test('сам архив остаётся файлом: входит в него панель, а не разбор', () async {
+      final node = await registry.resolveDisplayPath('/home/archive.arc').result;
+
+      expect(node, isA<FileNode>());
+      expect(node, isNot(isA<DirectoryNode>()));
+      expect(mountedOver, isEmpty);
+    });
+
+    test('машинный путь со схемами разбирается по-прежнему', () async {
+      final node = await registry.resolveDisplayPath('/home/archive.arc:arc:/inner/doc.txt').result;
+
+      expect(node?.pathString, '/home/archive.arc:arc:/inner/doc.txt');
+    });
+
+    test('несуществующего внутри архива нет — и это не исключение', () async {
+      expect(await registry.resolveDisplayPath('/home/archive.arc/missing').result, isNull);
+    });
+
+    test('обычный файл посреди пути архивом не притворяется', () async {
+      // `notes.txt` открывать нечем: значит пути правда нет.
+      expect(await registry.resolveDisplayPath('/home/notes.txt/inner').result, isNull);
+      expect(mountedOver, isEmpty);
+    });
+
+    test('не разобралось — смонтированное по дороге закрыто', () async {
+      final opened = <InMemoryArchiveProvider>[];
+      final registry = ProviderRegistry(root: disk)..register('arc', (host) async {
+        final provider = InMemoryArchiveProvider(archiveEntries(), host);
+        opened.add(provider);
+        return provider;
+      }, extensions: {'arc'});
+
+      expect(await registry.resolveDisplayPath('/home/archive.arc/missing').result, isNull);
+
+      // Архив держит открытый файл, и бросить его молча нельзя.
+      expect(opened.single.closed, isTrue);
+    });
+
+    test('битый архив — отказ открыть, а не «пути нет»', () async {
+      final registry = ProviderRegistry(root: disk)
+        ..register('arc', (host) async => throw FsError(host.pathString, FsErrorKind.io), extensions: {'arc'});
+
+      await expectLater(
+        registry.resolveDisplayPath('/home/archive.arc/inner').result,
+        throwsA(isA<FsError>().having((error) => error.kind, 'kind', FsErrorKind.io)),
+      );
+    });
+
+    test('уже смонтированный берётся, а не заводится второй', () async {
+      final mounted = await registry.mount('arc', await nodeAt('/home/archive.arc'));
+      expect(mountedOver, hasLength(1));
+
+      final node = await registry.resolveDisplayPath('/home/archive.arc/readme.md', reuse: [mounted]).result;
+
+      expect(node?.name, 'readme.md');
+      // Второй экземпляр поверх того же файла разошёлся бы с первым состоянием.
+      expect(node?.provider, same(mounted));
+      expect(mountedOver, hasLength(1));
     });
   });
 }

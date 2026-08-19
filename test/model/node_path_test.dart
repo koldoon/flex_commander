@@ -79,6 +79,30 @@ void main() {
       expect(NodePath.parse('/').displayString, '/');
     });
 
+    test('локальная ФС своего имени не называет', () {
+      // Схема по умолчанию — это «схемы не было»: обычный путь выглядит
+      // обычным путём, как его набирают в терминале.
+      expect(NodePath.parse('fs:/Users/koldoon').displayString, '/Users/koldoon');
+      expect(NodePath.parse('/Users/koldoon').displayString, '/Users/koldoon');
+    });
+
+    test('чужой корень называет протокол обязательно', () {
+      // Без него `//koldoon@shark` — ни адрес, ни путь: непонятно, о какой
+      // машине речь.
+      expect(NodePath.parse('ssh://koldoon@shark/etc').displayString, 'ssh://koldoon@shark/etc');
+      expect(NodePath.parse('mem://alpha/srv').displayString, 'mem://alpha/srv');
+    });
+
+    test('архив по дороге не называется и над сервером тоже', () {
+      // Начало пути отвечает на вопрос «где», промежуточное звено — только на
+      // вопрос «что внутри», и протокол ему ни к чему.
+      expect(
+        NodePath.parse('ssh://koldoon@shark/etc/backup.zip:zip:/squid').displayString,
+        'ssh://koldoon@shark/etc/backup.zip/squid',
+      );
+      expect(NodePath.parse('/Users/koldoon/some.zip:zip:/folder').displayString, '/Users/koldoon/some.zip/folder');
+    });
+
     test('машине по-прежнему достаётся полная строка', () {
       // Обратно `displayString` не разбирается: по нему не видно, где кончается
       // файл архива. Поэтому в настройках сохраняется `toString`.

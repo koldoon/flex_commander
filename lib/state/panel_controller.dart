@@ -209,7 +209,7 @@ class PanelController extends ChangeNotifier implements Panel {
   /// оглавление принадлежит первому.
   @override
   AsyncOperation<FsNode?> resolvePath(String path) =>
-      _registry.resolvePath(path, from: _root, reuse: _mountedProviders);
+      _registry.resolveDisplayPath(path, from: _root, reuse: _mountedProviders);
 
   /// Цепочка провайдеров, на которой стоит панель: от текущего к корню.
   Iterable<TreeProvider> get _mountedProviders sync* {
@@ -240,7 +240,9 @@ class PanelController extends ChangeNotifier implements Panel {
 
       // Путь может проходить через несколько провайдеров: архив внутри архива —
       // это всё та же одна строка.
-      final inner = _registry.resolvePath(path, from: start, reuse: _mountedProviders);
+      // Разбор с вопросами о типе звена: человек набирает то, что ему
+      // показали, а показанный путь схем архивов не содержит.
+      final inner = _registry.resolveDisplayPath(path, from: start, reuse: _mountedProviders);
       _innerOperation = inner;
       try {
         return await inner.result;
@@ -787,7 +789,18 @@ class PanelController extends ChangeNotifier implements Panel {
       final target = await _resolve(node);
       return target is DirectoryNode ? target : null;
     }
-    return null;
+    if (node == null) {
+      return null;
+    }
+
+    // Файл, который открывается как каталог, — архив, набранный путём. Так
+    // замыкается круг: панель в корне архива показывает `/home/a.zip`, и эта
+    // же строка обязана вернуть туда обратно. То же самое делает Enter на нём.
+    final scheme = _registry.schemeFor(node);
+    if (scheme == null) {
+      return null;
+    }
+    return (await _registry.mount(scheme, node)).rootDirectory;
   }
 
   Future<FsNode?> _resolve(LinkNode link) async {
