@@ -93,6 +93,19 @@ class TransferProgress {
     _report();
   }
 
+  /// Работы прибавилось на [bytes] байт — без нового объекта.
+  ///
+  /// Так учитывается второе плечо работы, размер которого до времени неизвестен:
+  /// упаковка сперва читает исходные байты, а потом отдаёт приёмнику готовый
+  /// архив, и сколько в нём байт, видно только когда он собран.
+  void countBytes(int bytes) {
+    if (bytes <= 0) {
+      return;
+    }
+    _totalBytes += bytes;
+    _report();
+  }
+
   /// Источник обработан целиком одним действием.
   void sourceDoneWholly(int index) {
     final counted = _countedSources[index];
