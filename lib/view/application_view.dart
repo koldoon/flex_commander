@@ -7,6 +7,7 @@ import 'dialogs/command_dialog_layer.dart';
 import 'keyboard_handler.dart';
 import 'function_bar/function_bar.dart';
 import 'panel/panel_view.dart';
+import 'toast_layer.dart';
 import 'package:fc_api/fc_api.dart';
 
 /// Корневой макет окна: две панели и ряд функциональных кнопок под ними.
@@ -58,6 +59,9 @@ class ApplicationView extends StatelessWidget {
               ),
             ),
           ),
+          // Сообщения — над панелями, но под окнами команд: окно важнее, и
+          // закрывать его строкой о том, что уже случилось, незачем.
+          ToastLayer(toasts: app.toasts),
           // Окна команд рисуются поверх и **вне** обработчика клавиатуры:
           // иначе они не смогли бы принять фокус — он не пускает его внутрь.
           CommandDialogLayer(app: app),

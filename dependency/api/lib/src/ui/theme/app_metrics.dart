@@ -171,6 +171,17 @@ abstract class FcMetrics {
   double get dialogShadowOffset;
   double get dialogShadowBlur;
 
+  // --- всплывающее сообщение ---
+
+  /// Поля внутри сообщения. Меньше, чем у окна команды: там форма, здесь
+  /// одна строка.
+  double get toastPadding;
+  double get toastHorizontalPadding;
+
+  /// На сколько сообщение поднято над низом окна — чтобы не налезать на ряд
+  /// функциональных кнопок.
+  double get toastBottomOffset;
+
   // --- кнопка окна команды (RegularButtonSkin) ---
 
   /// `height="60"`, `radiusX="8"`, метка с полями `left="40"`.

@@ -163,6 +163,16 @@ class DefaultMetrics extends FcMetrics {
   double get dialogLabelWidth => ref(250);
 
   @override
+  double get toastPadding => ref(14);
+
+  @override
+  double get toastHorizontalPadding => ref(24);
+
+  /// Над рядом кнопок: его высота плюс поля окна снизу и небольшой просвет.
+  @override
+  double get toastBottomOffset => functionButtonHeight + windowBottomPadding + ref(20);
+
+  @override
   double get helpCellMaxWidth => ref(900);
 
   @override

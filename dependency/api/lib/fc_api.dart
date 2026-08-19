@@ -13,6 +13,7 @@ library;
 export 'src/app/application.dart';
 export 'src/app/panel.dart';
 export 'src/app/panel_selection.dart';
+export 'src/app/toasts.dart';
 
 // --- Дерево и провайдеры ---
 export 'src/tree/file_attributes.dart';

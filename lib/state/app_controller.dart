@@ -8,6 +8,7 @@ import '../settings/settings_store.dart';
 import 'panel_controller.dart';
 import 'panel_viewport_registry.dart';
 import 'theme_controller.dart';
+import 'toast_controller.dart';
 
 /// Состояние приложения — реализация [Application].
 ///
@@ -23,12 +24,14 @@ class AppController extends ChangeNotifier implements Application {
     required this.commands,
     PanelViewports? viewports,
     ThemeController? theme,
+    ToastController? toasts,
     WindowService? window,
     this.saveDelay = const Duration(seconds: 1),
   }) : _splitRatio = settings.splitRatio,
        _windowGeometry = settings.window,
        _initialSettings = settings,
        theme = theme ?? ThemeController(),
+       toasts = toasts ?? ToastController(),
        viewports = viewports ?? const NoPanelViewports(),
        window = window ?? const NoopWindowService() {
     // Одна панель активна всегда, ещё до первого чтения каталогов.
@@ -72,6 +75,10 @@ class AppController extends ChangeNotifier implements Application {
   /// запуски и их окна, а фон — это ровно «запуск без окна».
   @override
   BackgroundTasks get background => commands;
+
+  /// Всплывающие сообщения: о том, что случилось и уже закончилось.
+  @override
+  final ToastController toasts;
 
   /// Окно приложения. Без управления окном (в тестах) — заглушка.
   final WindowService window;
@@ -253,6 +260,7 @@ class AppController extends ChangeNotifier implements Application {
   @override
   void dispose() {
     _saveTimer?.cancel();
+    toasts.dispose();
     left.removeListener(_onPanelChanged);
     right.removeListener(_onPanelChanged);
     window.removeListener(_onWindowChanged);
