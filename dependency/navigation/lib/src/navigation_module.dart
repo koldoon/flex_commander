@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 
 import 'layout_commands.dart';
 import 'navigation_commands.dart';
+import 'open_path_command.dart';
 import 'selection_commands.dart';
 
 /// Перемещение по дереву и пометка объектов.
@@ -38,6 +39,7 @@ class Navigation implements FcModule {
     registry.command((context) => OpenNodeCommand(opener: context.resolve<SystemOpener>()));
     registry.command((context) => OpenWithSystemCommand(opener: context.resolve<SystemOpener>()));
     registry.command((context) => GoUpCommand());
+    registry.command((context) => OpenPathCommand());
     registry.command((context) => GoToRootCommand());
     registry.command((context) => ReloadCommand());
     registry.command((context) => ToggleHiddenCommand());
@@ -70,6 +72,23 @@ class Navigation implements FcModule {
     registry.binding(KeyBinding('Bsp', GoUpCommand.commandId));
     registry.binding(KeyBinding('Cmd-Up', GoUpCommand.commandId));
     registry.binding(KeyBinding('Cmd-/', GoToRootCommand.commandId));
+
+    // Произвольный путь — по клавише на каждую панель, как выбор диска в
+    // Norton Commander. Команда одна: какая панель, приходит параметром.
+    registry.binding(
+      KeyBinding(
+        'Cmd-F1',
+        OpenPathCommand.commandId,
+        parameters: {OpenPathCommand.panelParam: OpenPathCommand.leftPanel},
+      ),
+    );
+    registry.binding(
+      KeyBinding(
+        'Cmd-F2',
+        OpenPathCommand.commandId,
+        parameters: {OpenPathCommand.panelParam: OpenPathCommand.rightPanel},
+      ),
+    );
     registry.binding(KeyBinding('Cmd-R', ReloadCommand.commandId));
     // На macOS `Cmd-H` занят системным меню приложения («Hide APP_NAME»), и до
     // окна нажатие не доходит вовсе. Поэтому основное сочетание — `Cmd-Shift-H`;

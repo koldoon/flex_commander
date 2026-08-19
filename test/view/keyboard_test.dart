@@ -427,32 +427,46 @@ void main() {
       await pumpApp(tester);
       expect(labelOf(tester, 5), 'Copy');
 
-      // За Ctrl нет ни одной F-привязки: ряд из десяти прочерков ничего не
+      // За Alt нет ни одной F-привязки: ряд из десяти прочерков ничего не
       // сообщает, а выглядит как поломка.
-      await hold(tester, LogicalKeyboardKey.control);
+      await hold(tester, LogicalKeyboardKey.alt);
 
       expect(labelOf(tester, 5), 'Copy');
       expect(labelOf(tester, 1), 'Help');
 
+      await release(tester, LogicalKeyboardKey.alt);
+    });
+
+    testWidgets('слой командной клавиши показывает открытие пути', (tester) async {
+      await pumpApp(tester);
+
+      // `Cmd-F1` и `Cmd-F2` открывают путь в левой и правой панели; вне macOS
+      // «командная» клавиша — Ctrl, во что `KeyCombination` её и сворачивает.
+      await hold(tester, LogicalKeyboardKey.control);
+
+      expect(labelOf(tester, 1), 'Open path');
+      expect(labelOf(tester, 2), 'Open path');
+
       await release(tester, LogicalKeyboardKey.control);
+      expect(labelOf(tester, 1), 'Help');
     });
 
     testWidgets('первая же привязка в слое показывает его целиком', (tester) async {
       await pumpApp(tester);
-      await hold(tester, LogicalKeyboardKey.control);
+      await hold(tester, LogicalKeyboardKey.alt);
       expect(labelOf(tester, 5), 'Copy', reason: 'слоя ещё нет');
 
-      // Модуль поставил команду на Ctrl-F9 — слой появился, и остальные
+      // Модуль поставил команду на Alt-F9 — слой появился, и остальные
       // клавиши в нём честно пустые.
       app.commands
         ..install(() => _RecordingCommand(id: 'test.layered', label: 'Layered', runs: []))
-        ..bind(KeyBinding('Ctrl-F9', 'test.layered'));
+        ..bind(KeyBinding('Alt-F9', 'test.layered'));
       await tester.pumpAndSettle();
 
       expect(labelOf(tester, 9), 'Layered');
       expect(labelOf(tester, 5), '-');
 
-      await release(tester, LogicalKeyboardKey.control);
+      await release(tester, LogicalKeyboardKey.alt);
       expect(labelOf(tester, 5), 'Copy');
     });
 

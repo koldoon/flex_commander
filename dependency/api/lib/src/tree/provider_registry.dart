@@ -13,6 +13,17 @@ import 'tree_provider.dart';
 /// Ошибку сообщает исключением [FsError]: битый архив — это не «пустой архив».
 typedef ProviderFactory = Future<TreeProvider> Function(FsNode host);
 
+/// Создаёт источник по адресу: `ssh://user@host/srv` — это подключение.
+///
+/// В отличие от [ProviderFactory], такому источнику не над чем монтироваться:
+/// он сам себе корень. Архив — звено пути (`/home/a.zip:zip:/inner`), сервер —
+/// начало другого пути, и это разные вещи, сколько бы общего у них ни было.
+///
+/// **Пароль в путях созданного источника не появляется.** Из адреса он берётся
+/// один раз и уходит в `Credentials`; `pathOf` возвращает `//user@host/…`.
+/// Иначе пароль утёк бы в `settings.json` вместе с путём панели.
+typedef AddressFactory = Future<TreeProvider> Function(Uri address);
+
 /// Реестр провайдеров: какая схема чем открывается и что во что вкладывается.
 ///
 /// Вложенность выражена композицией, а не наследованием: провайдер архива
@@ -48,6 +59,9 @@ class ProviderRegistry {
 
   final Map<String, ProviderFactory> _factories = {};
 
+  /// Схема → чем открывается адрес с такой схемой.
+  final Map<String, AddressFactory> _addresses = {};
+
   /// Расширение имени → схема. По нему решается, что делать с файлом, на
   /// котором нажали Enter.
   final Map<String, String> _extensions = {};
@@ -62,6 +76,24 @@ class ProviderRegistry {
     for (final extension in extensions) {
       _extensions[extension.toLowerCase()] = scheme;
     }
+  }
+
+  /// Регистрирует источник, открываемый по адресу: `ssh`, `ftp`, `smb`.
+  void registerAddress(String scheme, AddressFactory factory) => _addresses[scheme.toLowerCase()] = factory;
+
+  /// Открывается ли адрес с такой схемой.
+  bool knowsAddress(String scheme) => _addresses.containsKey(scheme.toLowerCase());
+
+  /// Создаёт источник по адресу.
+  ///
+  /// Каждый вызов — своё подключение: две панели на одном сервере не делят
+  /// состояние, как не делят его и два открытых архива над одним файлом.
+  Future<TreeProvider> openAddress(Uri address) async {
+    final factory = _addresses[address.scheme.toLowerCase()];
+    if (factory == null) {
+      throw FsError(address.toString(), FsErrorKind.notSupported);
+    }
+    return factory(address);
   }
 
   /// Схема, которой открывается этот объект; null — открывать его нечем,
@@ -100,19 +132,23 @@ class ProviderRegistry {
   /// заново нельзя. Смонтированный архив — живой объект с открытым файлом,
   /// временной копией и накопленными изменениями; второй экземпляр поверх того
   /// же файла ничего о них не знает, и записанное через один не увидит другой.
-  AsyncOperation<FsNode?> resolvePath(String path, {Iterable<TreeProvider> reuse = const []}) {
+  ///
+  /// [from] — корень, с которого начинается разбор. У каждой панели он свой:
+  /// одна может стоять на локальной ФС, другая — на сервере.
+  AsyncOperation<FsNode?> resolvePath(String path, {TreeProvider? from, Iterable<TreeProvider> reuse = const []}) {
     return TaskOperation<FsNode?>((op) async {
+      final start = from ?? root;
       final chain = NodePath.parse(path);
-      // Первая часть всегда адресует корневой провайдер: другого корня пока не
-      // бывает, а `fs` в ней — это «схемы не было вовсе», её подставляет разбор
-      // строки. Чужая схема в начале — отказ до тех пор, пока корневых
-      // провайдеров не станет несколько (docs/providers.md, 5.6).
+      // Первая часть адресует корень: `fs` в ней — это «схемы не было вовсе»,
+      // её подставляет разбор строки. Чужая схема в начале означает **другой**
+      // корень, и открывает его не разбор пути, а тот, кому решать, на чём
+      // стоять, — панель (`PanelController.openPath`).
       final first = chain.parts.first;
-      if (first.scheme != root.scheme && first.scheme != NodePath.defaultScheme) {
+      if (first.scheme != start.scheme && first.scheme != NodePath.defaultScheme) {
         throw FsError(path, FsErrorKind.notSupported);
       }
 
-      FsNode? node = await root.resolvePath(first.path).result;
+      FsNode? node = await start.resolvePath(first.path).result;
       op.checkCanceled();
 
       // Смонтированное по дороге придётся закрыть, если путь не разберётся:

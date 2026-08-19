@@ -77,6 +77,9 @@ class AppContainer extends DI {
         for (final declared in registrations.providers) {
           registry.register(declared.scheme, declared.factory, extensions: declared.extensions);
         }
+        for (final declared in registrations.addresses) {
+          registry.registerAddress(declared.scheme, declared.factory);
+        }
         return registry;
       },
     );

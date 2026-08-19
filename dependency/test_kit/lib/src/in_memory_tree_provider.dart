@@ -521,6 +521,54 @@ class InMemoryArchiveProvider extends InMemoryReadOnlyProvider with InMemoryCont
   Future<void> dispose() async => closed = true;
 }
 
+/// Источник, открытый **по адресу**: не звено пути, а его начало.
+///
+/// Так выглядит будущий SSH: панель встаёт на него целиком, а в путях он
+/// называет и себя — `mem://alpha/srv`. Хост в пути не украшение: без него
+/// сохранённый путь панели не восстановить, а с ним полная строка собирается
+/// сама (`nodePathOf`).
+///
+/// Пароль в путях не появляется — это правило для всех адресных источников:
+/// иначе он утёк бы в `settings.json` вместе с путём панели.
+class InMemoryAddressProvider extends InMemoryReadOnlyProvider with InMemoryContent implements ProviderLifecycle {
+  InMemoryAddressProvider({required this.address, List<FakeEntry> entries = const []}) : super(entries) {
+    capabilities = archiveCapabilities;
+  }
+
+  /// Адрес, которым источник открыт.
+  final Uri address;
+
+  @override
+  String get scheme => address.scheme;
+
+  /// Провайдера закрыли: соединение разорвано.
+  bool closed = false;
+
+  /// Путь включает хост: `//alpha/srv`. Схему допишет сборка полного пути.
+  @override
+  String pathOf(FsNode node) => '//${address.authority}${super.pathOf(node)}';
+
+  /// И разбирается такой же — с хостом.
+  ///
+  /// Правило для всех адресных источников: **что отдаёт `pathOf`, то и
+  /// принимает `resolvePath`**. Иначе панель не сможет открыть собственный
+  /// сохранённый путь.
+  @override
+  AsyncOperation<FsNode?> resolvePath(String path) => super.resolvePath(_withoutAuthority(path));
+
+  String _withoutAuthority(String path) {
+    final prefix = '//${address.authority}';
+    if (!path.startsWith('//')) {
+      return path;
+    }
+    final rest = path.startsWith(prefix) ? path.substring(prefix.length) : path.substring(2);
+    return rest.isEmpty ? '/' : rest;
+  }
+
+  @override
+  Future<void> dispose() async => closed = true;
+}
+
 /// Приёмник байтов, складывающий их в память.
 class _CollectingSink implements StreamSink<List<int>> {
   _CollectingSink(this._onBytes);
