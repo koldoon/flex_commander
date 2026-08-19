@@ -23,8 +23,8 @@ class TestPlatform implements FcModule {
   String get title => 'Test platform';
 
   @override
-  void install(FcRegistrar registrar) {
-    registrar.service<SystemOpener>((services) => (path) async {});
+  void install(FcRegistry registry) {
+    registry.service<SystemOpener>((services) => (path) async {});
   }
 }
 

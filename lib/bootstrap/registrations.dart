@@ -45,9 +45,9 @@ class LazyServices implements FcServices {
 
 /// Всё, что модули предложили приложению.
 ///
-/// Регистратор ([FcRegistrar]) только собирает объявления; что с ними делать,
+/// Регистратор ([FcRegistry]) только собирает объявления; что с ними делать,
 /// решает сборка. Поэтому здесь нет ни одного действия — только списки.
-class Registrations implements FcRegistrar {
+class Registrations implements FcRegistry {
   Registrations(this.services);
 
   @override
@@ -105,7 +105,7 @@ class Registrations implements FcRegistrar {
     return _LazyScope(this, namespace ?? 'unknown');
   }
 
-  /// Кто устанавливался последним: регистратор отдают модулю целиком, и он
+  /// Кто устанавливался последним: реестр отдают модулю целиком, и он
   /// вправе сохранить его у себя — а спросить настройки уже потом.
   String? _lastInstalled;
 

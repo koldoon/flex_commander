@@ -25,13 +25,13 @@ class ProbeModule implements FcModule, FcModuleLifecycle {
   String get title => 'Probe';
 
   @override
-  void install(FcRegistrar registrar) {
-    registrar.service<ProbeService>((services) => const ProbeService('собрана'));
-    registrar.command((context) => ProbeCommand(context));
-    registrar.binding(KeyBinding('F9', 'test.probe'));
-    registrar.theme(const FcThemeSpec(id: 'probe', title: 'Probe theme'));
+  void install(FcRegistry registry) {
+    registry.service<ProbeService>((services) => const ProbeService('собрана'));
+    registry.command((context) => ProbeCommand(context));
+    registry.binding(KeyBinding('F9', 'test.probe'));
+    registry.theme(const FcThemeSpec(id: 'probe', title: 'Probe theme'));
     if (startupLog case final log?) {
-      registrar.startup((context) => StartupCommand(log, context));
+      registry.startup((context) => StartupCommand(log, context));
     }
   }
 
@@ -102,7 +102,7 @@ class BrokenStartupModule implements FcModule {
   String get title => 'Broken';
 
   @override
-  void install(FcRegistrar registrar) => registrar.startup((context) => _BrokenCommand());
+  void install(FcRegistry registry) => registry.startup((context) => _BrokenCommand());
 }
 
 class _BrokenCommand extends AppCommand {
@@ -262,5 +262,5 @@ class _SecondRootModule implements FcModule {
   String get title => 'Root';
 
   @override
-  void install(FcRegistrar registrar) => registrar.rootProvider((services) => InMemoryTreeProvider([]));
+  void install(FcRegistry registry) => registry.rootProvider((services) => InMemoryTreeProvider([]));
 }

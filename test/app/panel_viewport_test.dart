@@ -24,8 +24,8 @@ class _SearchModule implements FcModule {
   String get title => 'Search results';
 
   @override
-  void install(FcRegistrar registrar) {
-    registrar.viewport('search', (context, panel) => const Center(child: Text('Результаты поиска')));
+  void install(FcRegistry registry) {
+    registry.viewport('search', (context, panel) => const Center(child: Text('Результаты поиска')));
   }
 }
 

@@ -17,12 +17,12 @@ class ZipArchiver implements FcModule {
   String get title => 'Zip archives';
 
   @override
-  void install(FcRegistrar registrar) {
-    registrar.provider(
+  void install(FcRegistry registry) {
+    registry.provider(
       ZipTreeProvider.schemeName,
       // Архив внутри архива сперва оказывается на диске, но где именно —
       // знает не архиватор: место под временные файлы даёт приложение.
-      (host) => ZipTreeProvider.open(host, staging: registrar.services.resolve<StagingArea>()),
+      (host) => ZipTreeProvider.open(host, staging: registry.services.resolve<StagingArea>()),
       extensions: ZipTreeProvider.extensions,
     );
   }

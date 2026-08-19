@@ -93,12 +93,12 @@ command_registry,key_combination,async_command_base}`, `state/throttle.dart`,
 abstract interface class FcModule {
   String get id;                      // 'fc.zip_archiver' — namespace настроек, адрес в логах
   String get title;
-  void install(FcRegistrar registrar); // один раз при сборке, ДО появления Application
+  void install(FcRegistry registry); // один раз при сборке, ДО появления Application
 }
 
 abstract interface class FcModuleLifecycle { Future<void> dispose(); }
 
-abstract interface class FcRegistrar {
+abstract interface class FcRegistry {
   SettingsScope get settings;
   void rootProvider(TreeProvider Function(FcServices c) factory);
   void provider(String scheme, ProviderFactory factory, {Set<String> extensions = const {}});
@@ -115,7 +115,7 @@ abstract interface class FcContext implements FcServices { Application get app; 
 typedef AppCommandFactory = AppCommand Function(FcContext context);
 ```
 
-Модуль получает **регистратор**, а не контейнер: `dicom.get<T>()` бросает при двух
+Модуль получает **реестр объявлений** (`FcRegistry`), а не контейнер: `dicom.get<T>()` бросает при двух
 привязках, то есть переопределить тип ядра модуль физически не может — отдавать контейнер
 наружу значит приглашать к ошибке. Разделение `FcServices`/`FcContext` типом запрещает
 обращаться к `app` там, где приложения ещё нет; попутно это чинит нынешнюю петлю
@@ -131,7 +131,7 @@ Future<AppRuntime> initModules(List<FcModule> modules, {AppOverrides overrides})
 //   .add(InstallModulesCommand())      // FcModule.install → Registrations
 //   .add(LoadSettingsCommand())        // AppSettings + ModuleSettings
 //   .add(BuildContainerCommand())      // dicom: ProviderRegistry, CommandRegistry, AppController
-//   .add(RunStartupCommandsCommand())  // registrar.startup(...) последовательно
+//   .add(RunStartupCommandsCommand())  // registry.startup(...) последовательно
 ```
 
 **Командный фреймворк** (чистый Dart). `AsyncCommand` из референса в Dart исчезает:
@@ -303,7 +303,7 @@ CommandService` + три починки из раздела выше. Новые
 три виджета панели → `theme.icons.*`. Значения по умолчанию не меняются — голдены обязаны
 совпасть пиксель-в-пиксель, это и есть проверка переноса.
 
-**Ф6. `FcModule`, регистратор, `AppBootstrapCommand`.** `app_context.dart` превращается в
+**Ф6. `FcModule`, реестр объявлений, `AppBootstrapCommand`.** `app_context.dart` превращается в
 `BuildContainerCommand`, питающийся `Registrations`, а не хардкодом строк 36/44/49/50/75.
 Внутренние модули ядра: `LocalFileSystem`, `AppShell` (`app.help`, `app.togglePanel`,
 `app.split.center`, viewport `files`, `TreeTransferEngine` как служба). `defaultCommands()`
@@ -321,7 +321,7 @@ CommandService` + три починки из раздела выше. Новые
 *Держать фазу маленькой: здесь всплывёт всё, чего не хватает в `FcContext`.*
 
 **Ф8. Настройки модулей.** `ModuleSettings`/`SettingsScope` + бакет `modules` в
-`AppSettings` со сквозным проносом незнакомых ключей; `FcRegistrar.settings` отдаёт scope с
+`AppSettings` со сквозным проносом незнакомых ключей; `FcRegistry.settings` отдаёт scope с
 namespace = `module.id`; `AppController._scheduleSave()` дёргается и по `scope.save()`.
 Версию `AppSettings.version` не поднимаем — миграция не нужна.
 
@@ -369,7 +369,7 @@ defaultKeyBindings` и `LegacyCommands`. Обновить `docs/*.md`: слои 
 | 4 | Ф3. `fc_api`: чистая часть | **выполнено** | 3 |
 | 5 | Ф4. `fc_api`: команды, UI-kit, тема; разрыв инверсии слоёв | **выполнено** | 4 |
 | 6 | Ф5. Тема как служба `ThemeService` | **выполнено** | 5 |
-| 7 | Ф6. `FcModule`, регистратор, `AppBootstrapCommand` | **выполнено** | 5 |
+| 7 | Ф6. `FcModule`, реестр объявлений, `AppBootstrapCommand` | **выполнено** | 5 |
 | 8 | Ф7. Модуль-канарейка `dependency/navigation` | **выполнено** | 7 |
 | 9 | Ф8. Настройки модулей: `ModuleSettings`/`SettingsScope` | **выполнено** | 7 |
 | 10 | Ф9. Фоновые задачи и viewport панели | **выполнено** | 7 |
@@ -459,7 +459,7 @@ defaultKeyBindings` и `LegacyCommands`. Обновить `docs/*.md`: слои 
   с пояснением — это осознанный отказ от константности, а не недосмотр.
 - **Ф5.** Голдены совпали пиксель-в-пиксель: значения по умолчанию не менялись, и это
   и было проверкой переноса.
-- **Ф6.** `FcRegistrar` получил `services` — ленивую ссылку на службы приложения. Иначе
+- **Ф6.** `FcRegistry` получил `services` — ленивую ссылку на службы приложения. Иначе
   модулю негде взять зависимость для фабрики: во время `install` контейнера ещё нет, а
   подписывать каждую фабрику типом `FcServices Function` значило бы утроить сигнатуры.
 - **Ф6.** Фабрика команды модуля (`FcCommandFactory`) принимает `FcContext`, а реестр
@@ -502,7 +502,7 @@ defaultKeyBindings` и `LegacyCommands`. Обновить `docs/*.md`: слои 
 - **Ф7.** `OpenNodeCommand`/`OpenWithSystemCommand` больше не подставляют себе
   `openWithSystem`: платформенной реализации у модуля нет, служба приходит снаружи.
 - **Ф7.** Голдены снова совпали: порядок команд в справке от переезда не изменился.
-- **Ф8.** `FcRegistrar.settings` отдаёт раздел сразу, а содержимое у него появляется позже:
+- **Ф8.** `FcRegistry.settings` отдаёт раздел сразу, а содержимое у него появляется позже:
   модуль объявляет себя раньше, чем настройки прочитаны с диска. Обращение из `install`
   даёт внятную ошибку, обычное место для чтения — стартовая команда.
 - **Ф8.** Вскрылась давняя потеря настроек: `AppController.settings` собирал снимок заново
@@ -568,6 +568,11 @@ defaultKeyBindings` и `LegacyCommands`. Обновить `docs/*.md`: слои 
 - **Ф13.** Документация: `docs/README.md` описывает пакеты вместо слоёв, появился
   `docs/modules.md` — что модуль объявляет, когда что становится доступно и как его
   проверять.
+
+### После приёмки
+
+- `FcRegistrar` переименован в `FcRegistry`, параметр `registrar` — в `registry`:
+  так просил автор проекта. Смысл прежний — это то, куда модуль складывает объявления.
 
 ## Что осталось за рамками
 

@@ -35,7 +35,7 @@ class _SlowModule implements FcModule {
   String get title => 'Slow work';
 
   @override
-  void install(FcRegistrar registrar) => registrar.command((context) => _SlowCommand(operation));
+  void install(FcRegistry registry) => registry.command((context) => _SlowCommand(operation));
 }
 
 void main() {

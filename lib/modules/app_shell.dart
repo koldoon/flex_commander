@@ -17,22 +17,22 @@ class AppShell implements FcModule {
   String get title => 'Application shell';
 
   @override
-  void install(FcRegistrar registrar) {
+  void install(FcRegistry registry) {
     // Движок один на приложение: состояния у него нет, а провайдеров узлы
     // приносят с собой — в том числе разных у источника и приёмника.
-    registrar.service<TreeEditor>((services) => const TreeTransferEngine());
+    registry.service<TreeEditor>((services) => const TreeTransferEngine());
 
     // Справка показывает содержимое реестра, а реестра во время объявления
     // ещё нет: команда получает не его, а способ его спросить.
-    registrar.command((context) => HelpCommand(registry: () => context.resolve<CommandRegistry>()));
-    registrar.binding(KeyBinding('F1', 'app.help'));
+    registry.command((context) => HelpCommand(registry: () => context.resolve<CommandRegistry>()));
+    registry.binding(KeyBinding('F1', 'app.help'));
 
     // Ещё не реализованное: клавиша закреплена, кнопка показана и приглушена.
-    registrar.command((context) => PlaceholderCommand(id: 'app.menu', label: 'Menu'));
-    registrar.command((context) => PlaceholderCommand(id: 'file.view', label: 'View'));
-    registrar.command((context) => PlaceholderCommand(id: 'file.edit', label: 'Edit'));
-    registrar.binding(KeyBinding('F2', 'app.menu'));
-    registrar.binding(KeyBinding('F3', 'file.view'));
-    registrar.binding(KeyBinding('F4', 'file.edit'));
+    registry.command((context) => PlaceholderCommand(id: 'app.menu', label: 'Menu'));
+    registry.command((context) => PlaceholderCommand(id: 'file.view', label: 'View'));
+    registry.command((context) => PlaceholderCommand(id: 'file.edit', label: 'Edit'));
+    registry.binding(KeyBinding('F2', 'app.menu'));
+    registry.binding(KeyBinding('F3', 'file.view'));
+    registry.binding(KeyBinding('F4', 'file.edit'));
   }
 }

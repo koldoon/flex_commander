@@ -20,11 +20,11 @@ class DefaultTheme implements FcModule {
   String get title => 'Default theme';
 
   @override
-  void install(FcRegistrar registrar) {
-    registrar.theme(const FcThemeSpec(id: themeId, title: 'Default'));
+  void install(FcRegistry registry) {
+    registry.theme(const FcThemeSpec(id: themeId, title: 'Default'));
 
-    final settings = registrar.settings;
-    registrar.command((context) => SwitchThemeCommand(context, settings));
-    registrar.startup((context) => RestoreThemeCommand(context, settings));
+    final settings = registry.settings;
+    registry.command((context) => SwitchThemeCommand(context, settings));
+    registry.startup((context) => RestoreThemeCommand(context, settings));
   }
 }
