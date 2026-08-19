@@ -15,9 +15,19 @@ import 'package:path/path.dart' as p;
 /// расшифровывать, но не зашифровывать, поэтому сделать их на ходу нельзя.
 /// Пароль у обоих `secret`, внутри один файл `secret.txt` со словом «секрет».
 ///
-/// Два вида шифрования не прихоть: ведут они себя **по-разному**. AES честно
-/// сообщает о неверном пароле, а ZipCrypto библиотека расшифровывает молча и
-/// отдаёт мусор — там неверный пароль ловится только контрольной суммой.
+/// Три заготовки не прихоть: ведут они себя **по-разному**.
+///
+/// * `aes.zip` — AES256: библиотека честно сообщает о неверном пароле.
+/// * `zipcrypto.zip` — ZipCrypto: молча расшифровывает в мусор, и неверный
+///   пароль ловится только контрольной суммой.
+/// * `cyrillic.zip` — пароль не из латиницы: библиотека выводит ключ из кодов
+///   UTF-16, а архиваторы кладут байты UTF-8, и без перевода такой архив не
+///   открывается никаким паролем.
+/// * `descriptor.zip` — тот же ZipCrypto, но собранный системным `zip`:
+///   размеры записи лежат в хвосте (бит 3 общих признаков), и распаковщик,
+///   получив ещё зашифрованные байты, падает с «Filter error, bad data».
+///   Именно на таком архиве первое копирование когда-то кончалось ошибкой
+///   ввода-вывода вместо вопроса о пароле.
 void main() {
   late Directory temp;
   late LocalTreeProvider local;
@@ -50,7 +60,15 @@ void main() {
     return utf8.decode([for (final chunk in chunks) ...chunk]).trim();
   }
 
-  for (final name in ['aes.zip', 'zipcrypto.zip']) {
+  // Заготовка → пароль к ней.
+  const fixtures = {
+    'aes.zip': 'secret',
+    'zipcrypto.zip': 'secret',
+    'descriptor.zip': 'secret',
+    'cyrillic.zip': 'тайна',
+  };
+
+  fixtures.forEach((name, secret) {
     group(name, () {
       test('оглавление читается и без пароля', () async {
         final credentials = FakeCredentials();
@@ -63,7 +81,7 @@ void main() {
       });
 
       test('содержимое спрашивает пароль и расшифровывается', () async {
-        final credentials = FakeCredentials(answers: ['secret']);
+        final credentials = FakeCredentials(answers: [secret]);
         final zip = await open(name, credentials);
 
         expect(await readSecret(zip), 'секрет');
@@ -72,7 +90,7 @@ void main() {
       });
 
       test('неверный пароль — второй вопрос, уже с пометкой', () async {
-        final credentials = FakeCredentials(answers: ['мимо', 'secret']);
+        final credentials = FakeCredentials(answers: ['мимо', secret]);
         final zip = await open(name, credentials);
 
         expect(await readSecret(zip), 'секрет');
@@ -91,7 +109,7 @@ void main() {
       });
 
       test('пароль спрашивается один раз на архив', () async {
-        final credentials = FakeCredentials(answers: ['secret']);
+        final credentials = FakeCredentials(answers: [secret]);
         final zip = await open(name, credentials);
 
         await readSecret(zip);
@@ -101,5 +119,5 @@ void main() {
         expect(credentials.asked, hasLength(1));
       });
     });
-  }
+  });
 }

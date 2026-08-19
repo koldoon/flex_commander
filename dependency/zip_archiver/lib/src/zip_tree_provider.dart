@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
@@ -112,6 +113,18 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
 
   /// Адрес, под которым помнится пароль к этому архиву.
   static String realmOf(String archivePath) => '$schemeName:$archivePath';
+
+  /// Пароль в том виде, в каком его ждёт библиотека: байтами UTF-8.
+  ///
+  /// Ключ она выводит из `password.codeUnits`, то есть из кодов UTF-16, — а
+  /// архиваторы (`zip`, 7-Zip) берут байты UTF-8. Для латиницы это одно и то
+  /// же, а «тайна» даёт другой ключ, и архив не открывается **никогда**, каким
+  /// бы верным пароль ни был. Строка из байтов даёт библиотеке ровно то, на что
+  /// она рассчитана.
+  String? get _passwordForLibrary {
+    final password = _password;
+    return password == null ? null : String.fromCharCodes(utf8.encode(password));
+  }
 
   /// Узел, над которым провайдер смонтирован: файл архива в чужом дереве.
   final FsNode _host;
@@ -255,7 +268,7 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
       throw FsError(node.pathString, FsErrorKind.notFound);
     }
 
-    final bytes = await _readEntry(entry.entryName);
+    final bytes = await _readEntry(entry);
     final start = offset.clamp(0, bytes.length);
 
     return Stream<List<int>>.fromIterable([
@@ -265,13 +278,20 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
   }
 
   /// Читает одну запись из открытого архива.
-  Future<Uint8List> _readEntry(String name) async {
+  Future<Uint8List> _readEntry(ZipEntry entry) async {
+    final name = entry.entryName;
     final path = '$archivePath:$schemeName:/$name';
     var request = CredentialRequest(realm: realmOf(archivePath), title: 'Encrypted archive', message: _host.name);
 
     while (true) {
       try {
-        return _decodeEntry(name, path);
+        // Зашифрованную запись без пароля читать бессмысленно: распаковщик
+        // подавится ещё зашифрованными байтами, и «Filter error» не отличить
+        // от испорченного архива. Признак известен из оглавления — спрашиваем
+        // сразу, как это делает 7z.
+        if (!entry.encrypted || _password != null) {
+          return _decodeEntry(name, path, encrypted: entry.encrypted);
+        }
       } on _NeedsPassword {
         // Спросим ниже и попробуем снова.
       }
@@ -293,7 +313,7 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
   }
 
   /// Одна попытка распаковать запись имеющимся паролем.
-  Uint8List _decodeEntry(String name, String path) {
+  Uint8List _decodeEntry(String name, String path, {required bool encrypted}) {
     final archive = _openArchive();
 
     final file = archive.find(name);
@@ -314,15 +334,15 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
         throw const _NeedsPassword();
       }
       return bytes;
-    } on ArchiveException catch (error) {
-      throw FsError(archivePath, FsErrorKind.io, error);
     } on _NeedsPassword {
       rethrow;
     } on Object catch (error) {
-      // Библиотека сообщает о пароле по-разному: у AES это «password error», а
-      // без пароля вовсе — разыменование null внутри неё. Всё остальное —
-      // обычная беда с архивом.
-      if (error is TypeError || '$error'.toLowerCase().contains('password')) {
+      // У зашифрованной записи любая беда при распаковке значит одно: ключ не
+      // тот. ZipCrypto о неверном пароле не сообщает вовсе — распаковщик
+      // давится зашифрованными байтами («Filter error, bad data»), а AES
+      // говорит «password error». Гадать по тексту незачем: шифрование мы
+      // знаем из оглавления.
+      if (encrypted) {
         throw const _NeedsPassword();
       }
       throw FsError(archivePath, FsErrorKind.io, error);
@@ -331,11 +351,10 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
 
   /// Похоже ли, что запись действительно расшифровалась.
   ///
-  /// ZipCrypto библиотека расшифровывает молча и **не сообщает о неверном
-  /// пароле вовсе** — просто отдаёт мусор. Ловится это контрольной суммой:
-  /// у такой записи она настоящая, и на мусоре не сойдётся. У AES сумма
-  /// объявлена нулём (так устроен AE-2), и проверять там нечего — зато оттуда
-  /// приходит внятная ошибка.
+  /// ZipCrypto иногда распаковывается и с неверным паролем — молча, в мусор.
+  /// Ловится это контрольной суммой: у такой записи она настоящая, и на мусоре
+  /// не сойдётся. У AES сумма объявлена нулём (так устроен AE-2), и проверять
+  /// там нечего — зато оттуда приходит внятная ошибка.
   static bool _decoded(ArchiveFile file, List<int> bytes) {
     final declared = file.crc32;
     return declared == null || declared == 0 || getCrc32(bytes) == declared;
@@ -358,7 +377,7 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
 
     final input = InputFileStream(archivePath);
     try {
-      final archive = ZipDecoder().decodeStream(input, password: _password);
+      final archive = ZipDecoder().decodeStream(input, password: _passwordForLibrary);
       _input = input;
       _archive = archive;
       return archive;
