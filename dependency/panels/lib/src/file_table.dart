@@ -3,7 +3,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
 import 'package:fc_api/fc_api.dart';
-import '../../state/app_scope.dart';
 import 'file_table_header.dart';
 import 'file_table_row.dart';
 

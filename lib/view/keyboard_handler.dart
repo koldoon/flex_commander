@@ -40,16 +40,28 @@ class _KeyboardHandlerState extends State<KeyboardHandler> {
 
   @override
   Widget build(BuildContext context) {
-    return Focus(
-      autofocus: true,
-      // Обычная навигация по фокусу приложению не нужна: Tab переключает
-      // панели, а не перескакивает на кнопки внизу окна.
-      canRequestFocus: true,
-      descendantsAreFocusable: false,
-      onKeyEvent: _handleKey,
-      // Уход фокуса сбрасывает слой: отпускание клавиши случится уже в чужом
-      // окне и до нас не дойдёт, а ряд иначе остался бы в слое навсегда.
-      onFocusChange: (hasFocus) => _modifiers.value = hasFocus ? KeyModifiers.pressed() : KeyModifiers.none,
+    // Подписка на экраны: от того, какой из них сверху, зависит, пускать ли
+    // фокус внутрь, — а смена экрана обработчик иначе не заметит.
+    return ListenableBuilder(
+      listenable: app.screens,
+      builder: (context, child) {
+        return Focus(
+          autofocus: true,
+          // Обычная навигация по фокусу приложению не нужна: Tab переключает
+          // панели, а не перескакивает на кнопки внизу окна.
+          canRequestFocus: true,
+          // Кроме случая, когда фокус нужен самому экрану: просмотрщику его
+          // прокрутка разбирает стрелки и PgUp/PgDn сама, и до неё события
+          // должны доходить. Нажатия, которые она не взяла, всплывают сюда же.
+          descendantsAreFocusable: app.screens.active?.takesFocus ?? false,
+          onKeyEvent: _handleKey,
+          // Уход фокуса сбрасывает слой: отпускание клавиши случится уже в
+          // чужом окне и до нас не дойдёт, а ряд иначе остался бы в слое
+          // навсегда.
+          onFocusChange: (hasFocus) => _modifiers.value = hasFocus ? KeyModifiers.pressed() : KeyModifiers.none,
+          child: child!,
+        );
+      },
       child: ModifiersScope(modifiers: _modifiers, child: widget.child),
     );
   }
@@ -78,7 +90,10 @@ class _KeyboardHandlerState extends State<KeyboardHandler> {
       return KeyEventResult.ignored;
     }
 
-    if (app.activePanel.busy && combination.key != KeyboardHandler.cancelKey) {
+    // Занятость панели глушит клавиши только на самой панели: чужой экран
+    // читает свой файл и о чтении каталога ничего не знает.
+    final onPanels = app.screens.active?.id == Screens.files;
+    if (onPanels && app.activePanel.busy && combination.key != KeyboardHandler.cancelKey) {
       // Событие считается обработанным: пока идёт чтение, клавиши не должны
       // проваливаться дальше и, например, уводить фокус по Tab.
       return KeyEventResult.handled;

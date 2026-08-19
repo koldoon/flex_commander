@@ -3,13 +3,13 @@ import 'package:flutter/widgets.dart';
 
 /// Виды содержимого панели — реализация [PanelViewports].
 ///
-/// Ядро знает ровно один вид: таблицу файлов. Она же и подставляется, когда
-/// про вид ничего не известно, — модуль, который его объявил, могли отключить,
-/// а панель показать что-то обязана.
+/// Своих видов у ядра нет ни одного: таблицу файлов приносит модуль панелей,
+/// как и всё остальное. Штатный вид — тот, что объявлен под именем
+/// [PanelViewports.files]; он же подставляется, когда про вид ничего не
+/// известно: модуль, который его объявил, могли отключить, а панель показать
+/// что-то обязана.
 class PanelViewportRegistry implements PanelViewports {
-  PanelViewportRegistry({required PanelViewportBuilder files}) {
-    _builders[PanelViewports.files] = files;
-  }
+  PanelViewportRegistry();
 
   final Map<String, PanelViewportBuilder> _builders = {};
 
@@ -19,8 +19,11 @@ class PanelViewportRegistry implements PanelViewports {
   @override
   void register(String kind, PanelViewportBuilder builder) => _builders[kind] = builder;
 
+  /// Нет ни вида, ни штатного — рисовать нечем: модуль панелей отключён.
+  /// Пустое место честнее исключения: приложение при этом работает.
   @override
-  PanelViewportBuilder builderFor(String kind) => _builders[kind] ?? _builders[PanelViewports.files]!;
+  PanelViewportBuilder builderFor(String kind) =>
+      _builders[kind] ?? _builders[PanelViewports.files] ?? (context, panel) => const SizedBox.shrink();
 }
 
 /// Ни одного вида содержимого.

@@ -1,0 +1,31 @@
+name: fc_panels
+description: "Файловые панели: экран, с которого начинается работа."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  # Оформление настоящее: своих значений у API нет, а панель рисуется цветом.
+  fc_default_theme:
+    path: ../default_theme
+
+  # Сборка приложения для тестов: подставное дерево, подставное окно.
+  flex_commander:
+    path: ../..

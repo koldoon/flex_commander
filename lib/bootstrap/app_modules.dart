@@ -3,6 +3,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_file_ops/fc_file_ops.dart';
 import 'package:fc_navigation/fc_navigation.dart';
+import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_ssh/fc_ssh.dart';
 import 'package:fc_zip_archiver/fc_zip_archiver.dart';
 
@@ -23,6 +24,9 @@ List<FcModule> appModules() => [const LocalFileSystem(), ...featureModules()];
 List<FcModule> featureModules() => [
   const AppShell(),
   const DefaultTheme(),
+  // Панели — обычный модуль: ядро показывает верхний экран и ряд кнопок, а чем
+  // показывать файлы, решает он.
+  const Panels(),
   const Navigation(),
   const FileOps(),
   const ZipArchiver(),

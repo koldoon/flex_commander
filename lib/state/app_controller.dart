@@ -7,6 +7,7 @@ import 'package:fc_api/fc_api.dart';
 import '../settings/settings_store.dart';
 import 'panel_controller.dart';
 import 'panel_viewport_registry.dart';
+import 'screens_controller.dart';
 import 'credentials_controller.dart';
 import 'theme_controller.dart';
 import 'toast_controller.dart';
@@ -24,6 +25,7 @@ class AppController extends ChangeNotifier implements Application {
     required AppSettings settings,
     required this.commands,
     PanelViewports? viewports,
+    ScreensController? screens,
     ThemeController? theme,
     ToastController? toasts,
     CredentialsController? credentials,
@@ -36,6 +38,7 @@ class AppController extends ChangeNotifier implements Application {
        toasts = toasts ?? ToastController(),
        credentials = credentials ?? CredentialsController(),
        viewports = viewports ?? const NoPanelViewports(),
+       screens = screens ?? ScreensController(),
        window = window ?? const NoopWindowService() {
     // Одна панель активна всегда, ещё до первого чтения каталогов.
     left.setActive(settings.activePanel != 1);
@@ -52,6 +55,11 @@ class AppController extends ChangeNotifier implements Application {
   /// Тип уточнён до реализации: приложение выставляет панелям признак
   /// активности и закрывает их при выходе — этого в [Panel] нет и не должно
   /// быть. Всем остальным, включая виджеты, хватает интерфейса.
+  /// Что видно выше ряда функциональных кнопок. Сами панели тоже экран, и
+  /// открывает его модуль: ядро не решает, чем показывать файлы.
+  @override
+  final ScreensController screens;
+
   @override
   final PanelController left;
 
