@@ -1,5 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 
+import 'create_archive_command.dart';
 import 'seven_zip_cli.dart';
 import 'seven_zip_settings.dart';
 import 'seven_zip_tree_provider.dart';
@@ -7,7 +8,7 @@ import 'seven_zip_tree_provider.dart';
 /// Архив 7z как дерево.
 ///
 /// Ядру про архивы знать нечего: модуль объявляет схему пути и расширения, по
-/// которым файл открывается как каталог.
+/// которым файл открывается как каталог, и команду упаковки на `Shift-F7`.
 ///
 /// Модуль ставится и там, где программы 7-Zip нет: схема остаётся, а обращение
 /// к архиву кончается внятной ошибкой. Молчаливое «ничего не происходит» было
@@ -48,5 +49,13 @@ class SevenZipArchiver implements FcModule {
       ),
       extensions: SevenZipTreeProvider.extensions,
     );
+
+    // Упаковка — такое же действие, как копирование, и живёт там же, где
+    // формат: про 7z знает только этот модуль.
+    registry.command(
+      (context) =>
+          CreateSevenZipArchiveCommand(staging: context.resolve<StagingArea>(), cli: context.resolve<SevenZipCli>()),
+    );
+    registry.binding(KeyBinding('Shift-F7', CreateSevenZipArchiveCommand.commandId));
   }
 }
