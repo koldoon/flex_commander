@@ -44,7 +44,7 @@ void main() {
     disk = LocalTreeProvider(homePath: root, readInIsolate: false);
     registry = ProviderRegistry(root: disk)..register(
       ZipTreeProvider.schemeName,
-      (host) => ZipTreeProvider.open(host, staging: const LocalStagingArea()),
+      (host) => ZipTreeProvider.open(host, credentials: FakeCredentials(), staging: const LocalStagingArea()),
       extensions: ZipTreeProvider.extensions,
     );
   });
@@ -167,7 +167,7 @@ void main() {
       final host = (await memory.resolvePath('/home/inner.zip').result)!;
 
       await expectLater(
-        ZipTreeProvider.open(host, staging: const LocalStagingArea()),
+        ZipTreeProvider.open(host, credentials: FakeCredentials(), staging: const LocalStagingArea()),
         throwsA(isA<FsError>().having((error) => error.kind, 'kind', FsErrorKind.notSupported)),
       );
     });
@@ -256,7 +256,11 @@ void main() {
     }
 
     test('открывается через временную копию', () async {
-      final zip = await ZipTreeProvider.open(await hostedInMemory(), staging: const LocalStagingArea());
+      final zip = await ZipTreeProvider.open(
+        await hostedInMemory(),
+        credentials: FakeCredentials(),
+        staging: const LocalStagingArea(),
+      );
 
       expect(await namesIn(zip, '/'), containsAll(['docs', 'readme.md']));
 
@@ -265,7 +269,12 @@ void main() {
 
     test('содержимое читается из копии', () async {
       final zip =
-          await ZipTreeProvider.open(await hostedInMemory(), staging: const LocalStagingArea()) as ZipTreeProvider;
+          await ZipTreeProvider.open(
+                await hostedInMemory(),
+                credentials: FakeCredentials(),
+                staging: const LocalStagingArea(),
+              )
+              as ZipTreeProvider;
       final node = (await zip.resolvePath('/docs/guide.txt').result)!;
 
       final chunks = await (await zip.openRead(node)).toList();
@@ -276,7 +285,12 @@ void main() {
 
     test('копия убирается вместе с провайдером', () async {
       final zip =
-          await ZipTreeProvider.open(await hostedInMemory(), staging: const LocalStagingArea()) as ZipTreeProvider;
+          await ZipTreeProvider.open(
+                await hostedInMemory(),
+                credentials: FakeCredentials(),
+                staging: const LocalStagingArea(),
+              )
+              as ZipTreeProvider;
       final copy = zip.archivePath;
       expect(await File(copy).exists(), isTrue);
       // Копия лежит не там, где оригинал: это временный файл.
@@ -303,7 +317,10 @@ void main() {
       final host = (await broken.resolvePath('/home/inner.zip').result)!;
       final before = sessions();
 
-      await expectLater(ZipTreeProvider.open(host, staging: staging), throwsA(isA<FsError>()));
+      await expectLater(
+        ZipTreeProvider.open(host, credentials: FakeCredentials(), staging: staging),
+        throwsA(isA<FsError>()),
+      );
 
       // Копию успели сделать, а архив не открылся — за собой убрано.
       expect(sessions(), before);

@@ -19,7 +19,9 @@ class WritableSevenZipTreeProvider extends SevenZipTreeProvider
     required super.host,
     required super.listing,
     required super.cli,
+    required super.credentials,
     required StagingArea staging,
+    super.password,
   }) : _staging = staging;
 
   final StagingArea _staging;

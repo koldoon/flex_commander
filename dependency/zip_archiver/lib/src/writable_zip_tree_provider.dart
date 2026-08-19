@@ -17,6 +17,7 @@ class WritableZipTreeProvider extends ZipTreeProvider implements NodeEditor, Fil
     required super.archivePath,
     required super.host,
     required super.index,
+    required super.credentials,
     required StagingArea staging,
   }) : _staging = staging,
        super._();

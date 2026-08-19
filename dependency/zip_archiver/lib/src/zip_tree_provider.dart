@@ -10,6 +10,11 @@ import 'zip_index.dart';
 
 part 'writable_zip_tree_provider.dart';
 
+/// Запись зашифрована, и имеющийся пароль не подошёл — или его нет вовсе.
+class _NeedsPassword implements Exception {
+  const _NeedsPassword();
+}
+
 /// Провайдер дерева поверх zip-архива, открытого на просмотр.
 ///
 /// Реализует ровно два умения: читать дерево ([TreeProvider]) и отдавать
@@ -32,6 +37,7 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
     required this.archivePath,
     required FsNode host,
     required ZipIndex index,
+    required this.credentials,
     LocalCopySession? session,
   }) : _host = host,
        _index = index,
@@ -60,6 +66,7 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
   static Future<TreeProvider> open(
     FsNode host, {
     required StagingArea staging,
+    required Credentials credentials,
     void Function(int bytes)? onBytes,
   }) async {
     final session = LocalCopySession(staging, prefix: 'flex_commander_zip');
@@ -71,13 +78,19 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
       if (session.copied == 0) {
         // Архив лежит в настоящей файловой системе: в него можно и писать.
         // Пересобранный архив заменит этот же файл.
-        return WritableZipTreeProvider._(archivePath: path, host: host, index: index, staging: staging);
+        return WritableZipTreeProvider._(
+          archivePath: path,
+          host: host,
+          index: index,
+          credentials: credentials,
+          staging: staging,
+        );
       }
 
       // Архив внутри архива или на сервере: открыт через временную копию.
       // Писать в неё бессмысленно — изменения ушли бы вместе с копией, — и
       // потому такой архив остаётся только для чтения.
-      return ZipTreeProvider._(archivePath: path, host: host, index: index, session: session);
+      return ZipTreeProvider._(archivePath: path, host: host, index: index, credentials: credentials, session: session);
     } on Object {
       // Битый архив или отмена: копия не должна пережить неудачу.
       await session.purge();
@@ -87,6 +100,18 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
 
   /// Путь к файлу архива в локальной файловой системе.
   final String archivePath;
+
+  /// Откуда берётся пароль, когда запись зашифрована.
+  final Credentials credentials;
+
+  /// Пароль, которым запись расшифровалась; null — архив без пароля.
+  ///
+  /// Живёт, пока открыт архив: спрашивать на каждую запись значило бы окно на
+  /// каждый файл.
+  String? _password;
+
+  /// Адрес, под которым помнится пароль к этому архиву.
+  static String realmOf(String archivePath) => '$schemeName:$archivePath';
 
   /// Узел, над которым провайдер смонтирован: файл архива в чужом дереве.
   final FsNode _host;
@@ -241,8 +266,35 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
 
   /// Читает одну запись из открытого архива.
   Future<Uint8List> _readEntry(String name) async {
-    final archive = _openArchive();
     final path = '$archivePath:$schemeName:/$name';
+    var request = CredentialRequest(realm: realmOf(archivePath), title: 'Encrypted archive', message: _host.name);
+
+    while (true) {
+      try {
+        return _decodeEntry(name, path);
+      } on _NeedsPassword {
+        // Спросим ниже и попробуем снова.
+      }
+
+      if (_password != null) {
+        // Этот не подошёл: забыть, иначе следующий вопрос вернёт тот же ответ.
+        credentials.forget(request.realm);
+        request = request.retrying();
+      }
+
+      final password = (await credentials.obtain(request))?.password;
+      if (password == null || password.isEmpty) {
+        throw FsError(path, FsErrorKind.permissionDenied);
+      }
+      _password = password;
+      // Архив открыт без пароля — с ним его надо открыть заново.
+      await _closeArchive();
+    }
+  }
+
+  /// Одна попытка распаковать запись имеющимся паролем.
+  Uint8List _decodeEntry(String name, String path) {
+    final archive = _openArchive();
 
     final file = archive.find(name);
     if (file == null) {
@@ -256,10 +308,37 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
       // и запись остаётся читаемой снова. `clear()` обнулил бы и их.
       final output = OutputMemoryStream();
       file.writeContent(output);
-      return output.getBytes();
+      final bytes = output.getBytes();
+
+      if (!_decoded(file, bytes)) {
+        throw const _NeedsPassword();
+      }
+      return bytes;
     } on ArchiveException catch (error) {
       throw FsError(archivePath, FsErrorKind.io, error);
+    } on _NeedsPassword {
+      rethrow;
+    } on Object catch (error) {
+      // Библиотека сообщает о пароле по-разному: у AES это «password error», а
+      // без пароля вовсе — разыменование null внутри неё. Всё остальное —
+      // обычная беда с архивом.
+      if (error is TypeError || '$error'.toLowerCase().contains('password')) {
+        throw const _NeedsPassword();
+      }
+      throw FsError(archivePath, FsErrorKind.io, error);
     }
+  }
+
+  /// Похоже ли, что запись действительно расшифровалась.
+  ///
+  /// ZipCrypto библиотека расшифровывает молча и **не сообщает о неверном
+  /// пароле вовсе** — просто отдаёт мусор. Ловится это контрольной суммой:
+  /// у такой записи она настоящая, и на мусоре не сойдётся. У AES сумма
+  /// объявлена нулём (так устроен AE-2), и проверять там нечего — зато оттуда
+  /// приходит внятная ошибка.
+  static bool _decoded(ArchiveFile file, List<int> bytes) {
+    final declared = file.crc32;
+    return declared == null || declared == 0 || getCrc32(bytes) == declared;
   }
 
   /// Открытый архив; открывается при первом чтении и живёт до [dispose].
@@ -279,7 +358,7 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
 
     final input = InputFileStream(archivePath);
     try {
-      final archive = ZipDecoder().decodeStream(input);
+      final archive = ZipDecoder().decodeStream(input, password: _password);
       _input = input;
       _archive = archive;
       return archive;

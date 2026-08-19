@@ -4,6 +4,7 @@ import '../state/app_scope.dart';
 import 'background/background_bar.dart';
 import 'common/split_view.dart';
 import 'dialogs/command_dialog_layer.dart';
+import 'dialogs/credentials_layer.dart';
 import 'keyboard_handler.dart';
 import 'function_bar/function_bar.dart';
 import 'panel/panel_view.dart';
@@ -65,6 +66,9 @@ class ApplicationView extends StatelessWidget {
           // Окна команд рисуются поверх и **вне** обработчика клавиатуры:
           // иначе они не смогли бы принять фокус — он не пускает его внутрь.
           CommandDialogLayer(app: app),
+          // Вопрос о пароле — там же и по той же причине. Задаёт его не
+          // команда, а тот, кто наткнулся на защищённое.
+          CredentialsLayer(credentials: app.credentials),
         ],
       ),
     );

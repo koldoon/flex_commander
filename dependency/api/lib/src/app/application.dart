@@ -7,6 +7,7 @@ import '../ui/theme/theme_service.dart';
 import '../settings/app_settings.dart';
 import '../settings/module_settings.dart';
 import '../settings/window_geometry.dart';
+import '../os/credentials.dart';
 import 'panel.dart';
 import 'toasts.dart';
 
@@ -44,6 +45,10 @@ abstract interface class Application implements Listenable {
 
   /// Всплывающие сообщения: сказать о том, что случилось и уже закончилось.
   Toasts get toasts;
+
+  /// Пароли и прочие секреты: спросить у пользователя то, без чего дальше
+  /// нельзя. Модули получают ту же службу через `services.resolve<Credentials>()`.
+  Credentials get credentials;
 
   /// Чем рисуется содержимое панелей.
   PanelViewports get viewports;

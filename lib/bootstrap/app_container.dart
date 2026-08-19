@@ -8,6 +8,7 @@ import '../state/panel_controller.dart';
 import '../state/panel_viewport_registry.dart';
 import '../view/panel/file_table.dart';
 import '../state/theme_controller.dart';
+import '../state/credentials_controller.dart';
 import '../state/toast_controller.dart';
 import 'app_runtime.dart';
 import 'registrations.dart';
@@ -143,6 +144,10 @@ class AppContainer extends DI {
 
     // Наружу приложение отдаётся интерфейсом: команды и всё, что пишется
     // против API, не должны видеть реализацию.
+    // Секреты — одна служба на приложение: спрошенный пароль должен быть
+    // виден и той панели, которая спросила, и той, что откроет тот же архив.
+    bind<CredentialsController>(to: (c) => CredentialsController());
+
     bind<Application>(to: (c) => c.get<AppController>());
 
     bind<AppController>(
@@ -173,6 +178,7 @@ class AppContainer extends DI {
           window: c.get<WindowService>(),
           saveDelay: overrides.saveDelay ?? const Duration(seconds: 1),
           toasts: ToastController(duration: overrides.toastDuration ?? ToastController.defaultDuration),
+          credentials: c.get<CredentialsController>(),
         );
       },
     );

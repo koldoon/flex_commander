@@ -55,6 +55,7 @@ void main() {
       await host(),
       staging: LocalStagingArea(root: temp),
       cli: SevenZipCli(processes: runner),
+      credentials: FakeCredentials(),
     );
     addTearDown(() => (provider as ProviderLifecycle).dispose());
     return provider;
@@ -92,6 +93,7 @@ void main() {
           await host(),
           staging: LocalStagingArea(root: temp),
           cli: SevenZipCli(processes: runner),
+          credentials: FakeCredentials(),
         ),
         throwsA(
           isA<FsError>()
@@ -113,6 +115,7 @@ void main() {
           await host(),
           staging: LocalStagingArea(root: temp),
           cli: SevenZipCli(processes: runner),
+          credentials: FakeCredentials(),
         ),
         throwsA(isA<FsError>().having((e) => e.kind, 'kind', FsErrorKind.io)),
       );

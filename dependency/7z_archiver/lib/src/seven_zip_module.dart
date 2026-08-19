@@ -46,6 +46,9 @@ class SevenZipArchiver implements FcModule {
         host,
         staging: registry.services.resolve<StagingArea>(),
         cli: registry.services.resolve<SevenZipCli>(),
+        // Архив под паролем спросит его сам — тем же способом, каким это
+        // сделает будущее подключение к серверу.
+        credentials: registry.services.resolve<Credentials>(),
       ),
       extensions: SevenZipTreeProvider.extensions,
     );

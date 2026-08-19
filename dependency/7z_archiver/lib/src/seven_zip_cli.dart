@@ -55,6 +55,13 @@ class SevenZipCli {
   /// нового архива.
   static const String _emptyPassword = '-p';
 
+  /// Ключ пароля для чтения: пустой, если пароля нет.
+  ///
+  /// Пустой всё равно нужен — иначе программа спросит пароль в stdin и,
+  /// не дождавшись, оборвётся с кодом 255 вместо внятной ошибки.
+  static String passwordSwitch(String? password) =>
+      password == null || password.isEmpty ? _emptyPassword : '$_emptyPassword$password';
+
   /// Путь к программе; бросает, если её нет.
   Future<String> resolve() async {
     if (_searched) {
@@ -123,8 +130,11 @@ class SevenZipCli {
   static const String _literal = '-spd';
 
   /// Оглавление архива.
-  Future<SevenZipListing> list(String archivePath) async {
-    final outcome = await run(['l', '-slt', _emptyPassword, ...literalNames, '--', archivePath]);
+  ///
+  /// [password] нужен архиву с шифрованным оглавлением: без него программа не
+  /// покажет даже имён.
+  Future<SevenZipListing> list(String archivePath, {String? password}) async {
+    final outcome = await run(['l', '-slt', passwordSwitch(password), ...literalNames, '--', archivePath]);
 
     if (!succeeded(outcome.exitCode)) {
       throw errorOf(archivePath, outcome.exitCode, outcome.stderr);
@@ -137,13 +147,13 @@ class SevenZipCli {
   ///
   /// Ход работы отключён (`-bsp0`) и сообщения тоже (`-bso0`): данные идут в
   /// тот же поток, и проценты оказались бы посреди файла.
-  Stream<List<int>> read(String archivePath, String entryName) async* {
+  Stream<List<int>> read(String archivePath, String entryName, {String? password}) async* {
     final session = await start([
       'x',
       '-so',
       '-bso0',
       '-bsp0',
-      _emptyPassword,
+      passwordSwitch(password),
       ...literalNames,
       '--',
       archivePath,

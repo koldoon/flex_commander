@@ -7,6 +7,7 @@ import 'package:fc_api/fc_api.dart';
 import '../settings/settings_store.dart';
 import 'panel_controller.dart';
 import 'panel_viewport_registry.dart';
+import 'credentials_controller.dart';
 import 'theme_controller.dart';
 import 'toast_controller.dart';
 
@@ -25,6 +26,7 @@ class AppController extends ChangeNotifier implements Application {
     PanelViewports? viewports,
     ThemeController? theme,
     ToastController? toasts,
+    CredentialsController? credentials,
     WindowService? window,
     this.saveDelay = const Duration(seconds: 1),
   }) : _splitRatio = settings.splitRatio,
@@ -32,6 +34,7 @@ class AppController extends ChangeNotifier implements Application {
        _initialSettings = settings,
        theme = theme ?? ThemeController(),
        toasts = toasts ?? ToastController(),
+       credentials = credentials ?? CredentialsController(),
        viewports = viewports ?? const NoPanelViewports(),
        window = window ?? const NoopWindowService() {
     // Одна панель активна всегда, ещё до первого чтения каталогов.
@@ -79,6 +82,10 @@ class AppController extends ChangeNotifier implements Application {
   /// Всплывающие сообщения: о том, что случилось и уже закончилось.
   @override
   final ToastController toasts;
+
+  /// Пароли и прочие секреты: спросить то, без чего дальше нельзя.
+  @override
+  final CredentialsController credentials;
 
   /// Окно приложения. Без управления окном (в тестах) — заглушка.
   final WindowService window;
@@ -291,6 +298,7 @@ class AppController extends ChangeNotifier implements Application {
   void dispose() {
     _saveTimer?.cancel();
     toasts.dispose();
+    credentials.dispose();
     left.removeListener(_onPanelChanged);
     right.removeListener(_onPanelChanged);
     window.removeListener(_onWindowChanged);
