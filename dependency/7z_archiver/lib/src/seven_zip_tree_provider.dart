@@ -1,9 +1,14 @@
 import 'dart:async';
+import 'dart:convert';
+import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:path/path.dart' as p;
 
 import 'seven_zip_cli.dart';
 import 'seven_zip_listing.dart';
+
+part 'writable_seven_zip_tree_provider.dart';
 
 /// Архив 7z как дерево.
 ///
@@ -48,6 +53,17 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
     try {
       final path = await session.localPathOf(host, onBytes: onBytes);
       final listing = await cli.list(path);
+
+      if (session.copied == 0) {
+        // Архив лежит в настоящей файловой системе: в него можно и писать.
+        return WritableSevenZipTreeProvider(
+          archivePath: path,
+          host: host,
+          listing: listing,
+          cli: cli,
+          staging: staging,
+        );
+      }
 
       // Архив, открытый через временную копию (внутри другого архива или на
       // сервере), остаётся только для чтения: изменения ушли бы вместе с
