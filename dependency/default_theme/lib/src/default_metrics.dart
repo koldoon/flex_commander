@@ -240,6 +240,12 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get cellPadding => ref(10);
 
+  // Не через `ref`: поправка оптическая, ей незачем меняться вместе
+  // с масштабом интерфейса. Полточки — на экране с удвоенной плотностью это
+  // ровно один аппаратный пиксель, целая точка сдвигает уже заметно.
+  @override
+  double get rowContentVerticalNudge => 0.5;
+
   @override
   double get rowTextVerticalNudge => ref(2);
 

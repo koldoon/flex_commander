@@ -54,11 +54,17 @@ class FileTableRow extends StatelessWidget {
           ),
           child: Stack(
             children: [
-              Row(
-                children: [
-                  for (var i = 0; i < columns.length; i++)
-                    SizedBox(width: widths[i], child: _cell(context, theme, columns[i])),
-                ],
+              // Содержимое опущено относительно подсветки — см.
+              // `FcMetrics.rowContentVerticalNudge`. Сдвиг не меняет разметку,
+              // поэтому шаг строк остаётся прежним.
+              Transform.translate(
+                offset: Offset(0, theme.metrics.rowContentVerticalNudge),
+                child: Row(
+                  children: [
+                    for (var i = 0; i < columns.length; i++)
+                      SizedBox(width: widths[i], child: _cell(context, theme, columns[i])),
+                  ],
+                ),
               ),
               // Полоса пометки поверх фона: она должна читаться и тогда, когда
               // строка вдобавок под курсором.
