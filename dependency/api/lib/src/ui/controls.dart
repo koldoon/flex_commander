@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'theme/fc_icons.dart';
 import 'theme/fc_theme.dart';
 
 /// Подпись поля в окне команды.

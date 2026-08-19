@@ -45,7 +45,7 @@ class Navigation implements FcModule {
 | `command(factory)` | действие приложения; фабрика зовётся на каждый запуск |
 | `binding(KeyBinding)` | клавиша за действием; порядок задаёт приоритет |
 | `startup(factory)` | команда, которая выполняется один раз при запуске |
-| `theme(FcThemeSpec)` | оформление |
+| `theme(FcThemeSpec)` | оформление: палитра, размеры, иконки, шрифты |
 | `viewport(kind, builder)` | чем рисовать содержимое панели этого вида |
 | `service<T>(factory)` | служба для ядра и других модулей |
 | `settings` | раздел настроек этого модуля |
@@ -68,6 +68,38 @@ class Navigation implements FcModule {
 Отсюда правило: **всё, что нужно прочитать или подключить, читается и
 подключается из команд**, а не из `install`. Обращение к службам или настройкам
 слишком рано даёт внятную ошибку, а не тихую ерунду.
+
+## Оформление
+
+Значений оформления в `fc_api` нет вовсе — там только роли: `FcColors` называет,
+что именно красится, `FcMetrics` — что измеряется, `FcIcons` и `FcFonts` — какие
+бывают иконки и шрифты. Числа и цвета приносит тема, и без единой темы
+приложение не собирается: красить нечем.
+
+Готовые значения живут в `fc_default_theme`. Своя тема наследуется от них и
+переопределяет нужное — переписывать полсотни размеров не приходится:
+
+```dart
+class LightColors extends DefaultColors {
+  const LightColors();
+
+  @override
+  Color get windowBackground => const Color(0xFFF5F5F5);
+}
+
+registry.theme(const FcThemeSpec(
+  id: 'light',
+  title: 'Light',
+  brightness: Brightness.light,
+  colors: LightColors(),
+  metrics: DefaultMetrics(),
+  icons: DefaultIcons(),
+  fonts: DefaultFonts(),
+));
+```
+
+Размер всего интерфейса задаётся одним числом: `DefaultMetrics(scale: 0.8)` —
+и это уже «крупная» тема.
 
 ## Настройки
 

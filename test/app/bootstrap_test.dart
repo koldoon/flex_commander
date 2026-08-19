@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/bootstrap/bootstrap.dart';
@@ -29,7 +30,16 @@ class ProbeModule implements FcModule, FcModuleLifecycle {
     registry.service<ProbeService>((services) => const ProbeService('собрана'));
     registry.command((context) => ProbeCommand(context));
     registry.binding(KeyBinding('F9', 'test.probe'));
-    registry.theme(const FcThemeSpec(id: 'probe', title: 'Probe theme'));
+    registry.theme(
+      const FcThemeSpec(
+        id: 'probe',
+        title: 'Probe theme',
+        colors: DefaultColors(),
+        metrics: DefaultMetrics(),
+        icons: DefaultIcons(),
+        fonts: DefaultFonts(),
+      ),
+    );
     if (startupLog case final log?) {
       registry.startup((context) => StartupCommand(log, context));
     }
@@ -156,6 +166,17 @@ void main() {
       expect(runtime.app.store, same(store));
       expect(runtime.app.window, same(window));
       expect(runtime.commands.installed, isNotEmpty);
+    });
+
+    test('без оформления сборка не начинается', () async {
+      // Красить нечем: значений оформления в API нет вовсе, их приносит модуль.
+      await expectLater(
+        initModules([
+          const AppShell(),
+          const TestPlatform(),
+        ], overrides: AppOverrides(provider: provider, store: store, window: window)),
+        throwsA(isA<CommandFailure>().having((f) => f.rootCause, 'причина', isA<StateError>())),
+      );
     });
 
     test('без корневого источника сборка не начинается', () async {

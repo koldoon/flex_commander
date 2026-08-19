@@ -22,3 +22,8 @@ dependencies:
 dev_dependencies:
   flutter_test:
     sdk: flutter
+
+  # Набор элементов проверяется на настоящем оформлении: своих значений у API
+  # нет и не должно быть, а рисовать тесту чем-то надо.
+  fc_default_theme:
+    path: ../default_theme

@@ -97,6 +97,9 @@ class AppContainer extends DI {
       },
     );
 
+    if (registrations.themes.isEmpty) {
+      throw StateError('Ни один модуль не объявил оформление');
+    }
     bind<ThemeController>(to: (c) => ThemeController(registrations.themes));
 
     bind<PanelViewports>(

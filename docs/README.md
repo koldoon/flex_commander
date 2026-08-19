@@ -198,11 +198,13 @@ dependency/
       background/                  ход фоновых работ
       module/                      FcModule и реестр объявлений
       panel/, settings/, format/   колонки, сортировка, настройки, форматтеры
-      ui/                          набор элементов, тема, таблица «ключ → значение»
+      ui/                          набор элементов, роли оформления (без значений),
+                                   таблица «ключ → значение»
   navigation/                      fc_navigation — курсор, дерево, пометка
   file_ops/                        fc_file_ops — создать, удалить, копировать
   zip_archiver/                    fc_zip_archiver — архив как дерево
-  default_theme/                   fc_default_theme — оформление и выбор темы
+  default_theme/                   fc_default_theme — палитра, размеры, иконки,
+                                   шрифты и выбор темы
   test_kit/                        fc_test_kit — подставки и сборка в тестах
 ```
 
