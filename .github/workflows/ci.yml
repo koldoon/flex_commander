@@ -53,8 +53,10 @@ jobs:
             echo "::endgroup::"
           done
 
+      # Вырезка глифов невозможна: DefaultIcons строит IconData не константой,
+      # семейство шрифта приходит из темы во время работы.
       - name: Сборка macOS
-        run: flutter build macos --release
+        run: flutter build macos --release --no-tree-shake-icons
 
       - uses: actions/upload-artifact@v7
         with:

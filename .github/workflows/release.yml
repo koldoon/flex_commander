@@ -40,7 +40,7 @@ jobs:
         run: |
           flutter clean
           flutter pub get
-          flutter build macos --release \
+          flutter build macos --release --no-tree-shake-icons \
             --build-name="${{ steps.version.outputs.name }}" \
             --build-number="${{ github.run_number }}"
 
