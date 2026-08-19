@@ -197,6 +197,8 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
       return;
     }
 
+    progress.startItem(node.name, bytes: node.size < 0 ? null : node.size);
+
     // Настоящий путь берётся как есть, чужой источник выкладывается во
     // временный файл: упаковщику нужен файл, по которому можно ходить.
     final path = await copies.localPathOf(node);
@@ -230,7 +232,9 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
     final sink = await (provider as FileContentReceiver).openWrite(destination, name, length: await file.length());
 
     try {
-      progress.startSource(name);
+      progress
+        ..startSource(name)
+        ..startItem(name, bytes: await file.length());
       await sink.addStream(
         file.openRead().asyncMap((chunk) async {
           await op.checkpoint();
@@ -292,6 +296,10 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
             totalBytes: totalBytes,
             bytesPerSecond: bytesPerSecond,
             remaining: remaining,
+            itemName: itemName,
+            itemProgress: itemProgress,
+            itemBytes: itemBytes,
+            itemTotalBytes: itemTotalBytes,
             onCancel: cancel,
             onBackground: sendToBackground,
           );

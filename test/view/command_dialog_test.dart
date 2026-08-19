@@ -23,6 +23,10 @@ void main() {
     int processed = 0,
     int? total,
     bool totalIsFinal = true,
+    String itemName = '',
+    double? itemProgress,
+    int itemBytes = 0,
+    int? itemTotalBytes,
   }) {
     return tester.pumpWidget(
       MaterialApp(
@@ -38,6 +42,10 @@ void main() {
               processed: processed,
               total: total,
               totalIsFinal: totalIsFinal,
+              itemName: itemName,
+              itemProgress: itemProgress,
+              itemBytes: itemBytes,
+              itemTotalBytes: itemTotalBytes,
               onCancel: () {},
             ),
           ),
@@ -202,6 +210,45 @@ void main() {
       // Не первая по порядку: молча затирать чужие файлы нельзя.
       expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Skip')).primary, isTrue);
       expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Overwrite')).primary, isFalse);
+    });
+  });
+
+  group('ход текущего объекта', () {
+    testWidgets('второго бара нет, пока не о чем рассказывать', (tester) async {
+      await pumpProgress(tester, processed: 3, total: 10, progress: 0.3);
+
+      // Удаление в корзину, работа без байтов — показывать по объекту нечего.
+      expect(find.byType(FcProgressBar), findsOneWidget);
+      expect(find.text('Current:'), findsNothing);
+    });
+
+    testWidgets('у текущего объекта свой бар и своя строка объёма', (tester) async {
+      await pumpProgress(
+        tester,
+        processed: 3,
+        total: 10,
+        progress: 0.3,
+        itemName: 'movie.mkv',
+        itemProgress: 0.25,
+        itemBytes: 1024 * 1024,
+        itemTotalBytes: 4 * 1024 * 1024,
+      );
+
+      // Работа из тысячи мелких файлов и работа из одного огромного в общем
+      // счёте выглядят одинаково — вот это их и различает.
+      expect(find.byType(FcProgressBar), findsNWidgets(2));
+      expect(find.text('File:'), findsOneWidget);
+      expect(find.text('Total:'), findsOneWidget);
+      expect(find.textContaining('movie.mkv'), findsOneWidget);
+      expect(find.textContaining('1.0 MB of 4.0 MB'), findsOneWidget);
+    });
+
+    testWidgets('бар объекта показывает свою долю, а не общую', (tester) async {
+      await pumpProgress(tester, progress: 0.3, itemName: 'big.bin', itemProgress: 0.75, itemTotalBytes: 100);
+
+      final bars = tester.widgetList<FcProgressBar>(find.byType(FcProgressBar)).toList();
+      expect(bars.first.value, 0.75);
+      expect(bars.last.value, 0.3);
     });
   });
 }

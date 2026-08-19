@@ -33,6 +33,9 @@ class OperationProgress {
     this.bytes = 0,
     this.totalBytes,
     this.bytesPerSecond,
+    this.itemName = '',
+    this.itemBytes = 0,
+    this.itemTotalBytes,
   }) : _percent = percent;
 
   final double? _percent;
@@ -66,6 +69,30 @@ class OperationProgress {
   /// Считает её тот, кто ведёт работу (движок переноса), а не провайдер:
   /// провайдер не знает ни про очередь заданий, ни про то, сколько их ещё.
   final double? bytesPerSecond;
+
+  /// Объект, который обрабатывается прямо сейчас; пустая строка — работа не
+  /// разбита на объекты (или он ещё не начат).
+  final String itemName;
+
+  /// Сколько байт этого объекта уже прошло.
+  ///
+  /// Отдельно от [bytes] потому, что одно другого не заменяет: общий счёт
+  /// говорит, сколько осталось работы, а этот — сколько осталось у файла, на
+  /// котором всё встало. Файл на четыре гигабайта в общем счёте выглядит одним
+  /// объектом из тысячи, и по нему не видно ничего.
+  final int itemBytes;
+
+  /// Сколько байт в текущем объекте; null — размер неизвестен.
+  final int? itemTotalBytes;
+
+  /// Доля текущего объекта, 0.0…1.0; null — показывать нечего.
+  double? get itemPercent {
+    final size = itemTotalBytes;
+    if (size == null || size <= 0) {
+      return null;
+    }
+    return (itemBytes / size).clamp(0.0, 1.0);
+  }
 
   /// 0.0…1.0 или null, если прогресс неопределённый.
   double? get percent {

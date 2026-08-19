@@ -46,4 +46,61 @@ void main() {
 
     expect(reports.last.percent, 1);
   });
+
+  test('у текущего объекта свой счёт, и он обнуляется на следующем', () async {
+    final reports = <OperationProgress>[];
+
+    final operation = TaskOperation<void>((op) async {
+      final progress = TransferProgress(op, 'Copying');
+      progress
+        ..countOne(100)
+        ..countOne(100)
+        ..startItem('first.bin', bytes: 100);
+      await Future<void>.delayed(Duration.zero);
+
+      // Половина файла: общий счёт сдвинулся на четверть, а по файлу — половина.
+      progress.advanceBytes(50);
+      await Future<void>.delayed(Duration.zero);
+      final half = reports.last;
+      expect(half.itemName, 'first.bin');
+      expect(half.itemPercent, 0.5);
+      expect(half.percent, 0.25);
+
+      progress
+        ..advanceBytes(50)
+        ..advance('first.bin');
+      await Future<void>.delayed(Duration.zero);
+
+      // Объект пройден: его счёт больше ничего не значит и не должен
+      // притворяться ходом следующего.
+      final done = reports.last;
+      expect(done.itemName, isEmpty);
+      expect(done.itemPercent, isNull);
+      expect(done.percent, 0.5);
+
+      progress.startItem('second.bin', bytes: 100);
+      await Future<void>.delayed(Duration.zero);
+      expect(reports.last.itemPercent, 0);
+    });
+
+    operation.progress.listen(reports.add);
+    await operation.result;
+  });
+
+  test('объект без известного размера показывать нечем', () async {
+    final reports = <OperationProgress>[];
+
+    final operation = TaskOperation<void>((op) async {
+      final progress = TransferProgress(op, 'Deleting');
+      // Размер бывает неизвестен: удаление в корзину, источник без размеров.
+      progress.startItem('unknown.bin');
+      await Future<void>.delayed(Duration.zero);
+    });
+
+    operation.progress.listen(reports.add);
+    await operation.result;
+
+    expect(reports.last.itemName, 'unknown.bin');
+    expect(reports.last.itemPercent, isNull);
+  });
 }

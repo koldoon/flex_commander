@@ -161,6 +161,20 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
   Duration? get remaining => _state.remaining;
 
   @override
+  String get itemName => _state.itemName;
+
+  @override
+  int get itemBytes => _state.itemBytes;
+
+  @override
+  int? get itemTotalBytes => _state.itemTotalBytes;
+
+  /// Ход по текущему объекту: без него большой файл выглядит как остановка —
+  /// общий счёт по нему не двигается до самого конца.
+  @override
+  double? get itemProgress => _state.itemPercent;
+
+  @override
   bool get isRunning => _running;
 
   /// Завершение прогона: успешное, с ошибкой или отменённое.

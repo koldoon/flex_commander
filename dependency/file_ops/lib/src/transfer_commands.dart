@@ -191,6 +191,10 @@ abstract class TransferCommandBase extends AsyncCommandBase {
             totalBytes: totalBytes,
             bytesPerSecond: bytesPerSecond,
             remaining: remaining,
+            itemName: itemName,
+            itemProgress: itemProgress,
+            itemBytes: itemBytes,
+            itemTotalBytes: itemTotalBytes,
             onCancel: cancel,
             // Прятать имеет смысл то, что идёт долго: у не начавшейся работы
             // прятать нечего.

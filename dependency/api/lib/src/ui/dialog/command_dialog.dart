@@ -102,6 +102,10 @@ class CommandDialogProgress extends StatelessWidget {
     this.bytesPerSecond,
     this.remaining,
     this.onBackground,
+    this.itemName = '',
+    this.itemProgress,
+    this.itemBytes = 0,
+    this.itemTotalBytes,
   });
 
   final String message;
@@ -122,6 +126,16 @@ class CommandDialogProgress extends StatelessWidget {
 
   /// Убрать окно и оставить работу идти; null — прятать нечего или некуда.
   final VoidCallback? onBackground;
+
+  /// Что обрабатывается прямо сейчас и сколько его прошло.
+  ///
+  /// Второй бар — не украшение: работа из тысячи мелких файлов и работа из
+  /// одного файла на четыре гигабайта в общем счёте выглядят одинаково, а
+  /// это ровно тот случай, когда пользователь думает, что всё зависло.
+  final String itemName;
+  final double? itemProgress;
+  final int itemBytes;
+  final int? itemTotalBytes;
 
   @override
   Widget build(BuildContext context) {
@@ -148,10 +162,24 @@ class CommandDialogProgress extends StatelessWidget {
             CommandDialogField(label: 'Processed:', child: Text(counter, style: theme.dialogTextStyle)),
           if (size != null) CommandDialogField(label: 'Size:', child: Text(size, style: theme.dialogTextStyle)),
           if (speed != null) CommandDialogField(label: 'Speed:', child: Text(speed, style: theme.dialogTextStyle)),
-          CommandDialogField(label: 'Progress:', child: FcProgressBar(value: progress)),
+          if (_itemSize case final line?)
+            CommandDialogField(label: 'Current:', child: Text(line, style: theme.dialogTextStyle)),
+          // Бар текущего объекта — над общим: он про «здесь и сейчас», а
+          // общий про всю работу.
+          if (itemProgress != null) CommandDialogField(label: 'File:', child: FcProgressBar(value: itemProgress)),
+          CommandDialogField(label: 'Total:', child: FcProgressBar(value: progress)),
         ],
       ),
     );
+  }
+
+  /// Объём текущего объекта: `1.2 MB of 4.0 GB`.
+  String? get _itemSize {
+    final size = itemTotalBytes;
+    if (size == null || size <= 0 || itemName.isEmpty) {
+      return null;
+    }
+    return '$itemName — ${formatBytesLong(itemBytes)} of ${formatBytesLong(size)}';
   }
 
   String? get _counter {

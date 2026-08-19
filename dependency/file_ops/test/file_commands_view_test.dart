@@ -459,7 +459,7 @@ void main() {
 
       // Пошла работа: по ходу неё в окне меняются имена файлов, и от них окно
       // «прыгало» бы на каждом.
-      expect(find.byType(FcProgressBar), findsOneWidget);
+      expect(find.byType(FcProgressBar), findsNWidgets(2));
       expect(tester.getSize(find.byType(CommandDialogBody)).width, closeTo(1400 / 2, 1));
 
       await tester.pump(const Duration(milliseconds: 300));
@@ -478,7 +478,9 @@ void main() {
 
       // Объём задания известен ещё до того, как перенесён первый байт.
       expect(find.text('Size:'), findsOneWidget);
-      expect(find.textContaining('of 10 B'), findsOneWidget);
+      // Дважды: общий объём работы и объём текущего файла — это разные строки.
+      expect(find.textContaining('of 10 B'), findsNWidgets(2));
+      expect(find.text('Current:'), findsOneWidget);
 
       await tester.pump(const Duration(milliseconds: 300));
       await settle(tester);
@@ -508,7 +510,7 @@ void main() {
         await openTransfer(tester, LogicalKeyboardKey.f5, destination: '/home/bin');
         await tester.tap(find.widgetWithText(FcButton, 'Copy'));
         await tester.pump();
-        expect(find.byType(FcProgressBar), findsOneWidget);
+        expect(find.byType(FcProgressBar), findsNWidgets(2));
       }
 
       /// Просит прервать и ждёт вопроса: он появится, когда работа дойдёт до
@@ -588,7 +590,7 @@ void main() {
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
         await tester.pump();
         expect(find.widgetWithText(FcButton, 'Abort'), findsNothing);
-        expect(find.byType(FcProgressBar), findsOneWidget);
+        expect(find.byType(FcProgressBar), findsNWidgets(2));
 
         // Enter: подтверждение — «Abort» стоит вариантом по умолчанию.
         await askAbort(tester, key: LogicalKeyboardKey.escape);

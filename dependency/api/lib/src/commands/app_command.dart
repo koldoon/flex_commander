@@ -350,6 +350,18 @@ abstract interface class AsyncCommand {
   /// источник без размеров). Досчитан ли он, говорит тот же [totalIsFinal].
   int? get totalBytes;
 
+  /// Объект, который обрабатывается прямо сейчас; пустая строка — работа
+  /// не разбита на объекты.
+  String get itemName;
+
+  /// Сколько байт текущего объекта прошло и сколько в нём всего.
+  int get itemBytes;
+
+  int? get itemTotalBytes;
+
+  /// Доля текущего объекта, 0…1; null — показывать нечего.
+  double? get itemProgress;
+
   /// Скорость, байт в секунду; null — считать пока не из чего.
   double? get bytesPerSecond;
 

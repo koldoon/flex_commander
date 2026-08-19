@@ -44,6 +44,11 @@ class TransferProgress {
   bool _stopped = false;
   String _current = '';
 
+  /// Объект, который обрабатывается прямо сейчас, и сколько его уже прошло.
+  String _item = '';
+  int _itemBytes = 0;
+  int? _itemTotalBytes;
+
   int get processed => _processed;
 
   int get total => _total;
@@ -51,6 +56,13 @@ class TransferProgress {
   int get bytes => _bytes;
 
   int get totalBytes => _totalBytes;
+
+  /// Что обрабатывается прямо сейчас.
+  String get item => _item;
+
+  int get itemBytes => _itemBytes;
+
+  int? get itemTotalBytes => _itemTotalBytes;
 
   /// Подсчёт закончился: [total] и [totalBytes] — окончательные числа.
   bool get isCounted => _counted;
@@ -64,10 +76,25 @@ class TransferProgress {
     _report();
   }
 
+  /// Начался очередной объект: [bytes] — сколько в нём, null — неизвестно.
+  ///
+  /// Отсюда и берётся ход по текущему объекту: без него большой файл выглядит
+  /// как остановка — общий счёт по нему не двигается до самого конца.
+  void startItem(String name, {int? bytes}) {
+    _item = name;
+    _itemBytes = 0;
+    _itemTotalBytes = bytes != null && bytes >= 0 ? bytes : null;
+    _report();
+  }
+
   /// Обработан очередной объект.
   void advance(String name) {
     _processed++;
     _current = name;
+    // Объект пройден: его собственный счёт больше ничего не значит.
+    _item = '';
+    _itemBytes = 0;
+    _itemTotalBytes = null;
     _report();
   }
 
@@ -80,6 +107,7 @@ class TransferProgress {
       return;
     }
     _bytes += bytes;
+    _itemBytes += bytes;
     _speed.sample(_bytes);
     _report();
   }
@@ -171,6 +199,9 @@ class TransferProgress {
     _operation.report(
       OperationProgress(
         message: _current.isEmpty ? '$_verb…' : '$_verb $_current…',
+        itemName: _item,
+        itemBytes: _itemBytes,
+        itemTotalBytes: _itemTotalBytes,
         processed: _processed,
         // Ноль — это не «ничего нет», а «ещё не считали».
         total: _total == 0 && !_counted ? null : _total,
