@@ -1,3 +1,4 @@
+import 'package:fc_7z_archiver/fc_7z_archiver.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_file_ops/fc_file_ops.dart';
@@ -24,4 +25,5 @@ List<FcModule> featureModules() => [
   const Navigation(),
   const FileOps(),
   const ZipArchiver(),
+  const SevenZipArchiver(),
 ];

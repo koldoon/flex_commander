@@ -24,6 +24,7 @@ environment:
 # Приложение — корень воркспейса: пакеты рядом собираются вместе с ним, одной
 # разрешённой версией зависимостей на всех. Сюда добавляются api и модули.
 workspace:
+  - dependency/7z_archiver
   - dependency/api
   - dependency/default_theme
   - dependency/file_ops
@@ -47,6 +48,9 @@ dependencies:
     path: dependency/api
 
   # Модули приложения: ядро знает их только по этому списку.
+  fc_7z_archiver:
+    path: dependency/7z_archiver
+
   fc_default_theme:
     path: dependency/default_theme
 

@@ -14,6 +14,10 @@ class ProcessCall {
   /// Аргументы одной строкой — так их удобнее искать в проверках.
   String get commandLine => arguments.join(' ');
 
+  /// Команда программы: первый аргумент, который не ключ. Ключи идут вперемешку
+  /// с ней, и «первый аргумент» командой не является.
+  String get command => arguments.firstWhere((argument) => !argument.startsWith('-'), orElse: () => '');
+
   /// Есть ли среди аргументов такой — точным совпадением, а не подстрокой.
   bool has(String argument) => arguments.contains(argument);
 
@@ -74,9 +78,8 @@ class FakeProcessRunner implements ProcessRunner {
 
   ProcessCall get lastCall => calls.last;
 
-  /// Вызовы, у которых первым аргументом стоит эта команда (`l`, `a`, `d`, `x`).
-  List<ProcessCall> callsOf(String command) =>
-      calls.where((call) => call.arguments.isNotEmpty && call.arguments.first == command).toList();
+  /// Вызовы с этой командой (`l`, `a`, `d`, `x`).
+  List<ProcessCall> callsOf(String command) => calls.where((call) => call.command == command).toList();
 
   @override
   Future<ProcessOutcome> run(String executable, List<String> arguments, {String? workingDirectory}) async {

@@ -58,6 +58,13 @@ void main() {
     expect(runtime.app.left.provider, isNotNull);
   });
 
+  test('модуль 7z встаёт и там, где программы нет', () {
+    // Внешнего инструмента в тестах не установлено, и это не должно мешать
+    // сборке приложения: приложение здесь уже собрано со всеми модулями, а
+    // нехватка программы всплывёт при обращении к архиву — понятной ошибкой.
+    expect(runtime.modules.map((module) => module.id), contains('fc.7z_archiver'));
+  });
+
   test('у каждой команды есть название для списка команд', () {
     for (final command in runtime.commands.installed) {
       expect(command.label, isNotEmpty, reason: 'у ${command.id} нет названия');
