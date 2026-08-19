@@ -200,9 +200,11 @@ dependency/
       panel/, settings/, format/   колонки, сортировка, настройки, форматтеры
       ui/                          набор элементов, роли оформления (без значений),
                                    таблица «ключ → значение»
+      os/                          запуск программ, окно, открытие системой
   navigation/                      fc_navigation — курсор, дерево, пометка
   file_ops/                        fc_file_ops — создать, удалить, копировать
   zip_archiver/                    fc_zip_archiver — архив как дерево
+  7z_archiver/                     fc_7z_archiver — то же поверх программы 7z
   default_theme/                   fc_default_theme — палитра, размеры, иконки,
                                    шрифты и выбор темы
   test_kit/                        fc_test_kit — подставки и сборка в тестах
