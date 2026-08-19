@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/bootstrap/bootstrap.dart';
 import 'package:flex_commander/modules/app_shell.dart';
@@ -35,10 +36,10 @@ class TestPlatform implements FcModule {
 /// модулем: команда, поставленная модулем, доходит до реестра, привязка — до
 /// клавиатуры, а всё вместе живёт по тем же правилам, что и в настоящем запуске.
 ///
-/// Оболочка ([AppShell]) и подставная платформа ([TestPlatform]) добавляются
-/// всегда: без движка файловых операций панель не собрать, а модуль не обязан
-/// знать ни о нём, ни о том, чем открываются файлы в системе. Приложение
-/// закрывается вместе с тестом.
+/// Оболочка ([AppShell]), подставная платформа ([TestPlatform]) и оформление
+/// по умолчанию ([DefaultTheme]) добавляются всегда: без движка файловых
+/// операций панель не собрать, без темы — не покрасить, а модуль не обязан
+/// знать ни о том, ни о другом. Приложение закрывается вместе с тестом.
 Future<AppRuntime> testApp({
   required TreeProvider provider,
 
@@ -55,7 +56,7 @@ Future<AppRuntime> testApp({
   final settingsStore = store ?? InMemorySettingsStore(settings: settings, homePath: homePath);
 
   final runtime = await initModules(
-    [const AppShell(), const TestPlatform(), ...modules],
+    [const AppShell(), const TestPlatform(), const DefaultTheme(), ...modules],
     overrides: AppOverrides(
       provider: provider,
       rightProvider: rightProvider,

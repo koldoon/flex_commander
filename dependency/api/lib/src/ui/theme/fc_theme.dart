@@ -8,15 +8,10 @@ import 'fc_icons.dart';
 /// Оформление: палитра, метрики, иконки, шрифты и стили текста.
 ///
 /// Доступ — через [FcTheme.of]; хардкод цветов и размеров в виджетах не нужен.
-/// Всё оформление собрано здесь целиком, поэтому подменить его — это подменить
-/// одно значение, а не искать константы по всему приложению.
+/// Значений по умолчанию здесь нет: их приносит тема, а API описывает только
+/// роли. Готовое оформление — в модуле `fc_default_theme`.
 class FcTheme extends ThemeExtension<FcTheme> {
-  const FcTheme({
-    this.colors = const FcColors(),
-    this.metrics = const FcMetrics(),
-    this.icons = const FcIcons(),
-    this.fonts = const FcFonts(),
-  });
+  const FcTheme({required this.colors, required this.metrics, required this.icons, required this.fonts});
 
   final FcColors colors;
   final FcMetrics metrics;

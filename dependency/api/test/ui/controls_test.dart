@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -7,7 +8,13 @@ import 'package:flutter_test/flutter_test.dart';
 Future<void> pumpInDialogColumn(WidgetTester tester, Widget child, {double width = 400}) {
   return tester.pumpWidget(
     MaterialApp(
-      theme: ThemeData(extensions: const [FcTheme()]),
+      theme: ThemeData(
+        extensions: const [
+          // Значения берутся у оформления по умолчанию: API описывает роли,
+          // а красит тема.
+          FcTheme(colors: DefaultColors(), metrics: DefaultMetrics(), icons: DefaultIcons(), fonts: DefaultFonts()),
+        ],
+      ),
       home: Scaffold(
         body: Center(
           child: SizedBox(
@@ -146,7 +153,7 @@ void main() {
       await pumpInDialogColumn(tester, const FcErrorText(message: 'Permission denied'));
 
       final text = tester.widget<Text>(find.text('Permission denied'));
-      expect(text.style?.color, const FcColors().error);
+      expect(text.style?.color, const DefaultColors().error);
     });
   });
 }

@@ -2,6 +2,7 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/app.dart';
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/view/function_bar/function_bar.dart';
 import 'package:flex_commander/view/panel/file_table_row.dart';
@@ -149,14 +150,14 @@ void main() {
     final span = status.textSpan!;
 
     // Пара знаков «->» распадается на разные шрифты и стрелкой не выглядит.
-    expect(span.toPlainText(), 'link-to-bin ${const FcIcons().glyph(const FcIcons().angleRight)} /home/bin');
+    expect(span.toPlainText(), 'link-to-bin ${const DefaultIcons().glyph(const DefaultIcons().angleRight)} /home/bin');
     expect(span.toPlainText(), isNot(contains('->')));
 
     // Глиф должен быть набран шрифтом иконок, иначе на его месте пустой квадрат.
     final arrow = (span as TextSpan).children!.firstWhere(
-      (child) => (child as TextSpan).text!.contains(const FcIcons().glyph(const FcIcons().angleRight)),
+      (child) => (child as TextSpan).text!.contains(const DefaultIcons().glyph(const DefaultIcons().angleRight)),
     );
-    expect((arrow as TextSpan).style?.fontFamily, FcIcons.defaultFontFamily);
+    expect((arrow as TextSpan).style?.fontFamily, DefaultIcons.defaultFontFamily);
   });
 
   testWidgets('посчитанный размер каталога виден в колонке', (tester) async {

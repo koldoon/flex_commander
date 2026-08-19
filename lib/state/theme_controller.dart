@@ -3,9 +3,9 @@ import 'package:flutter/foundation.dart';
 
 /// Оформление приложения — реализация [ThemeService].
 ///
-/// Пока ни одна тема не установлена, приложение работает на встроенных
-/// умолчаниях API ([FcThemeSpec.fallback]): модуль темы может быть отключён,
-/// и это не повод не запускаться.
+/// Тема нужна всегда: значений оформления в API нет вовсе — он описывает роли,
+/// а красит модуль. Приложение, в котором оформления не объявил никто, не
+/// собирается: это ошибка сборки, а не повод рисовать чем попало.
 class ThemeController extends ChangeNotifier implements ThemeService {
   ThemeController([List<FcThemeSpec> themes = const []]) {
     for (final theme in themes) {
@@ -26,8 +26,12 @@ class ThemeController extends ChangeNotifier implements ThemeService {
         return theme;
       }
     }
+    if (_themes.isEmpty) {
+      // Красить нечем: значений оформления в API нет, их приносит модуль.
+      throw StateError('Ни один модуль не объявил оформление');
+    }
     // Выбранной темы нет: её модуль могли отключить между запусками.
-    return _themes.isNotEmpty ? _themes.first : FcThemeSpec.fallback;
+    return _themes.first;
   }
 
   @override

@@ -16,8 +16,27 @@ class _NightTheme implements FcModule {
 
   @override
   void install(FcRegistry registry) {
-    registry.theme(const FcThemeSpec(id: 'night', title: 'Night', brightness: Brightness.dark));
+    // Своя палитра — наследованием: переопределяется одно, остальное берётся
+    // у оформления по умолчанию.
+    registry.theme(
+      const FcThemeSpec(
+        id: 'night',
+        title: 'Night',
+        colors: _NightColors(),
+        metrics: DefaultMetrics(),
+        icons: DefaultIcons(),
+        fonts: DefaultFonts(),
+      ),
+    );
   }
+}
+
+/// Ночная палитра: от неё нужен один цвет, остальное — как у умолчания.
+class _NightColors extends DefaultColors {
+  const _NightColors();
+
+  @override
+  Color get windowBackground => const Color(0xFF000000);
 }
 
 void main() {
@@ -31,8 +50,8 @@ void main() {
     final runtime = await testApp(provider: provider, modules: [const DefaultTheme()]);
 
     expect(runtime.theme.current.id, DefaultTheme.themeId);
-    expect(runtime.theme.current.colors.windowBackground, const FcColors().windowBackground);
-    expect(runtime.theme.current.metrics.rowHeight, const FcMetrics().rowHeight);
+    expect(runtime.theme.current.colors.windowBackground, const DefaultColors().windowBackground);
+    expect(runtime.theme.current.metrics.rowHeight, const DefaultMetrics().rowHeight);
   });
 
   test('выбранная тема восстанавливается при запуске', () async {
@@ -97,10 +116,6 @@ void main() {
     expect(runtime.commands.isExecutable(command!), isFalse);
   });
 
-  test('приложение собирается и без модуля темы', () async {
-    final runtime = await testApp(provider: provider);
-
-    expect(runtime.theme.available, isEmpty);
-    expect(runtime.theme.current.id, FcThemeSpec.fallback.id);
-  });
+  // Проверка «без оформления сборка не начинается» — в тестах сборки
+  // приложения: она про сборку, а не про этот модуль.
 }

@@ -1,9 +1,20 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:flex_commander/view/theme/app_theme.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Окно хода работы: что именно видит пользователь, пока идёт копирование.
+/// Оформление, которым рисуется окно в тестах.
+const _defaultTheme = FcThemeSpec(
+  id: 'default',
+  title: 'Default',
+  colors: DefaultColors(),
+  metrics: DefaultMetrics(),
+  icons: DefaultIcons(),
+  fonts: DefaultFonts(),
+);
+
 void main() {
   Future<void> pumpProgress(
     WidgetTester tester, {
@@ -15,7 +26,7 @@ void main() {
   }) {
     return tester.pumpWidget(
       MaterialApp(
-        theme: buildThemeData(FcThemeSpec.fallback),
+        theme: buildThemeData(_defaultTheme),
         home: Scaffold(
           // Окно команды меряет себя по содержимому — в рамке стоит
           // `IntrinsicWidth`. Без него измерение здесь не воспроизводится,
@@ -58,13 +69,13 @@ void main() {
   /// Закрашенная часть полосы: `DecoratedBox`, залитый цветом хода работы.
   /// Внешняя рамка полосы — тоже `DecoratedBox`, но она без заливки.
   Finder progressFill() => find.byWidgetPredicate(
-    (widget) => widget is DecoratedBox && (widget.decoration as BoxDecoration).color == const FcColors().progress,
+    (widget) => widget is DecoratedBox && (widget.decoration as BoxDecoration).color == const DefaultColors().progress,
   );
 
   testWidgets('закрашенная часть видна и занимает свою долю', (tester) async {
     await pumpProgress(tester, processed: 1, total: 2, progress: 0.5);
 
-    const metrics = FcMetrics();
+    const metrics = DefaultMetrics();
     final bar = tester.getSize(find.byType(FcProgressBar));
     final fill = tester.getSize(progressFill());
     // Заливка лежит внутри обводки и отступа.
@@ -98,7 +109,7 @@ void main() {
       answered = '';
       return tester.pumpWidget(
         MaterialApp(
-          theme: buildThemeData(FcThemeSpec.fallback),
+          theme: buildThemeData(_defaultTheme),
           home: Scaffold(
             body: IntrinsicWidth(
               child: Builder(

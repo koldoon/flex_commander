@@ -15,16 +15,12 @@ class FcThemeSpec {
   const FcThemeSpec({
     required this.id,
     required this.title,
+    required this.colors,
+    required this.metrics,
+    required this.icons,
+    required this.fonts,
     this.brightness = Brightness.dark,
-    this.colors = const FcColors(),
-    this.metrics = const FcMetrics(),
-    this.icons = const FcIcons(),
-    this.fonts = const FcFonts(),
   });
-
-  /// Оформление по умолчанию: то, с чем приложение работает, пока ни один
-  /// модуль темы не установлен.
-  static const FcThemeSpec fallback = FcThemeSpec(id: 'default', title: 'Default');
 
   /// Устойчивое имя для настроек: `default`, `light`, `solarized`.
   final String id;
@@ -54,7 +50,11 @@ abstract interface class ThemeService implements Listenable {
   /// Все известные темы в порядке установки.
   List<FcThemeSpec> get available;
 
-  /// Выбранная тема. Пока ни одна не установлена — [FcThemeSpec.fallback].
+  /// Выбранная тема.
+  ///
+  /// Тема нужна всегда: без неё нечем красить. Приложение, в котором ни один
+  /// модуль её не объявил, не собирается — так же, как без корневого источника
+  /// дерева.
   FcThemeSpec get current;
 
   /// Ставит тему. Повторная установка с тем же [FcThemeSpec.id] заменяет
