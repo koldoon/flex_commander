@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write   # нужно для создания релиза
+
+jobs:
+  release:
+    runs-on: [self-hosted, macOS]
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Агент запускается службой и не читает ~/.zprofile, поэтому SDK добавляем в PATH сами.
+      # Путь можно переопределить переменной репозитория FLUTTER_ROOT.
+      - name: Flutter SDK в PATH
+        run: |
+          if ! command -v flutter >/dev/null 2>&1; then
+            echo "${FLUTTER_ROOT}/bin" >> "$GITHUB_PATH"
+          fi
+        env:
+          FLUTTER_ROOT: ${{ vars.FLUTTER_ROOT || '/Users/koldoon/Developer/Flutter' }}
+
+      # Номер версии — из тега (v1.2.3 -> 1.2.3), номер сборки — счётчик прогонов.
+      # pubspec.yaml при этом не трогаем.
+      - name: Версия из тега
+        id: version
+        run: |
+          tag="${GITHUB_REF_NAME}"
+          echo "name=${tag#v}" >> "$GITHUB_OUTPUT"
+          echo "tag=${tag}" >> "$GITHUB_OUTPUT"
+
+      # Релиз собираем с нуля: остатки от CI-прогонов в артефакт попасть не должны.
+      - name: Чистая сборка
+        run: |
+          flutter clean
+          flutter pub get
+          flutter build macos --release \
+            --build-name="${{ steps.version.outputs.name }}" \
+            --build-number="${{ github.run_number }}"
+
+      - name: Упаковка
+        id: package
+        run: |
+          set -euo pipefail
+          app="build/macos/Build/Products/Release/flex_commander.app"
+          out="flex_commander-${{ steps.version.outputs.tag }}-macos-arm64.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$app" "$out"
+          echo "path=${out}" >> "$GITHUB_OUTPUT"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          files: ${{ steps.package.outputs.path }}
+          generate_release_notes: true

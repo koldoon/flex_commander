@@ -1,0 +1,63 @@
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+# Раннер один: новый пуш в ту же ветку отменяет предыдущий прогон, очередь не растёт.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: [self-hosted, macOS]
+    timeout-minutes: 45
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Агент запускается службой и не читает ~/.zprofile, поэтому SDK добавляем в PATH сами.
+      # Путь можно переопределить переменной репозитория FLUTTER_ROOT.
+      - name: Flutter SDK в PATH
+        run: |
+          if ! command -v flutter >/dev/null 2>&1; then
+            echo "${FLUTTER_ROOT}/bin" >> "$GITHUB_PATH"
+          fi
+        env:
+          FLUTTER_ROOT: ${{ vars.FLUTTER_ROOT || '/Users/koldoon/Developer/Flutter' }}
+
+      - name: Версия окружения
+        run: flutter --version
+
+      - name: Зависимости воркспейса
+        run: flutter pub get
+
+      - name: Форматирование
+        run: dart format --output=none --set-exit-if-changed .
+
+      - name: Статический анализ
+        run: flutter analyze
+
+      # Пакеты воркспейса перебираем каталогами: новый модуль в dependency/ подхватится сам,
+      # а test_kit (без каталога test) пропустится.
+      - name: Тесты
+        run: |
+          set -euo pipefail
+          for pkg in . dependency/*/; do
+            [ -d "${pkg}/test" ] || continue
+            echo "::group::flutter test ${pkg}"
+            (cd "$pkg" && flutter test)
+            echo "::endgroup::"
+          done
+
+      - name: Сборка macOS
+        run: flutter build macos --release
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: flex_commander-macos-${{ github.sha }}
+          path: build/macos/Build/Products/Release/flex_commander.app
+          retention-days: 7
