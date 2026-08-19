@@ -219,7 +219,7 @@ class PanelController extends ChangeNotifier implements Panel {
   }
 
   @override
-  Future<bool> openPath(String path) async {
+  Future<bool> openPath(String path, {bool allowConnect = true}) async {
     // Разбор пути тоже обращается к провайдеру и может быть небыстрым,
     // поэтому панель занята уже на этом шаге, а не только на чтении каталога.
     final requestId = ++_requestId;
@@ -235,7 +235,7 @@ class PanelController extends ChangeNotifier implements Panel {
     final resolving = TaskOperation<FsNode?>((op) async {
       // Чужая схема в начале — это другой корень: сервер, а не каталог. Панель
       // встаёт на него целиком, и разбор остатка пути идёт уже от него.
-      final start = await _rootFor(path);
+      final start = await _rootFor(path, allowConnect: allowConnect);
       op.checkCanceled();
 
       // Путь может проходить через несколько провайдеров: архив внутри архива —
@@ -300,14 +300,14 @@ class PanelController extends ChangeNotifier implements Panel {
   /// закрыть его больше некому, как и смонтированный архив. Прежний свой корень
   /// при этом закрывается — ушли с сервера, соединение разорвано. Общий корень
   /// не закрывается никогда: он не её.
-  Future<TreeProvider> _rootFor(String path) async {
+  Future<TreeProvider> _rootFor(String path, {required bool allowConnect}) async {
     final address = Uri.tryParse(path);
     if (address == null) {
       throw FsError(path, FsErrorKind.invalidAddress);
     }
 
     if (address.hasScheme) {
-      return _rootForAddress(path, address);
+      return _rootForAddress(path, address, allowConnect: allowConnect);
     }
 
     // Без протокола это путь — и он должен быть путём: «Blah» им не является,
@@ -322,7 +322,7 @@ class PanelController extends ChangeNotifier implements Panel {
   }
 
   /// Корень для строки с протоколом.
-  Future<TreeProvider> _rootForAddress(String path, Uri address) async {
+  Future<TreeProvider> _rootForAddress(String path, Uri address, {required bool allowConnect}) async {
     final scheme = address.scheme.toLowerCase();
 
     // Схема общего корня — это он и есть: `fs:/etc` и `/etc` значат одно.
@@ -341,6 +341,12 @@ class PanelController extends ChangeNotifier implements Panel {
     final own = _ownRoot;
     if (own != null && own.scheme == scheme && _ownAddress?.authority == address.authority) {
       return own;
+    }
+
+    if (!allowConnect) {
+      // Подключаться сейчас нельзя — см. [Panel.openPath]. Отвечаем так же,
+      // как о любом недоступном пути: тот, кто просил, откроет что-нибудь ещё.
+      throw FsError(path, FsErrorKind.notFound);
     }
 
     final opened = await _registry.openAddress(address);

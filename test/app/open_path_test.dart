@@ -35,7 +35,7 @@ void main() {
     created = [];
   });
 
-  Future<AppRuntime> app({List<FcModule> extra = const []}) async {
+  Future<AppRuntime> app({List<FcModule> extra = const [], String leftPath = '/home'}) async {
     final local = InMemoryTreeProvider([
       FakeEntry.directory('/home'),
       FakeEntry.directory('/home/docs'),
@@ -46,9 +46,41 @@ void main() {
     return testApp(
       provider: local,
       modules: [...featureModules(), ...extra],
-      settings: AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home')),
+      settings: AppSettings(left: PanelSettings.defaults(leftPath), right: PanelSettings.defaults('/home')),
     );
   }
+
+  group('запуск', () {
+    test('сохранённый адрес соединения не поднимает', () async {
+      final runtime = await app(extra: [memoryAddresses()], leftPath: 'mem://alpha/srv');
+
+      await runtime.app.start();
+
+      // Восстановление состояния в сеть не ходит: иначе каждый запуск начинался
+      // бы с вопроса о пароле поверх пустых панелей, а недоступный сервер
+      // задерживал бы его до истечения времени подключения.
+      expect(opened, isEmpty);
+      expect(runtime.app.left.directory?.pathString, '/home');
+    });
+
+    test('обычный сохранённый путь по-прежнему открывается', () async {
+      final runtime = await app(extra: [memoryAddresses()], leftPath: '/home/docs');
+
+      await runtime.app.start();
+
+      expect(runtime.app.left.directory?.pathString, '/home/docs');
+    });
+
+    test('а руками адрес открывается сразу же', () async {
+      final runtime = await app(extra: [memoryAddresses()], leftPath: 'mem://alpha/srv');
+      await runtime.app.start();
+
+      expect(await runtime.app.left.openPath('mem://alpha/srv'), isTrue);
+
+      expect(opened.single.host, 'alpha');
+      expect(runtime.app.left.nodes.map((node) => node.name), contains('alpha.txt'));
+    });
+  });
 
   group('панель на своём корне', () {
     test('адрес известной схемы поднимает свой источник', () async {

@@ -29,6 +29,7 @@ workspace:
   - dependency/default_theme
   - dependency/file_ops
   - dependency/navigation
+  - dependency/ssh
   - dependency/test_kit
   - dependency/zip_archiver
 
@@ -59,6 +60,9 @@ dependencies:
 
   fc_navigation:
     path: dependency/navigation
+
+  fc_ssh:
+    path: dependency/ssh
 
   fc_zip_archiver:
     path: dependency/zip_archiver

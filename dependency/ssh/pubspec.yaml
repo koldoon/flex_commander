@@ -1,0 +1,32 @@
+name: fc_ssh
+description: "Файловая система чужой машины по SSH: панель встаёт на сервер целиком."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  # SFTP на чистом Dart: `dart:io` умеет сокет, но не протокол, а внешний
+  # `sftp` не даёт ни докачки, ни внятных кодов ошибок.
+  dartssh2: ^3.3.0
+  path: ^1.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  # Живому тесту нужна вторая сторона копирования — настоящая локальная ФС.
+  flex_commander:
+    path: ../..
