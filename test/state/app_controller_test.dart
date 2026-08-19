@@ -104,6 +104,22 @@ void main() {
       expect(app.activePanel, app.right);
     });
 
+    test('курсор возвращается туда, где его оставили', () async {
+      // Настоящий перезапуск: первое приложение сохраняет состояние в файл,
+      // второе поднимается из того же файла.
+      final first = build(AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/work')));
+      await first.start();
+      first.left.setCursorToName('notes.txt');
+      await first.shutdown();
+      first.dispose();
+
+      final second = build(await store.load());
+      addTearDown(second.dispose);
+      await second.start();
+
+      expect(second.left.currentNode?.name, 'notes.txt');
+    });
+
     test('недоступный путь заменяется каталогом по умолчанию', () async {
       final app = build(
         AppSettings(left: PanelSettings.defaults('/удалённый/каталог'), right: PanelSettings.defaults('/work')),

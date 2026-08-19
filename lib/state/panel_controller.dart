@@ -60,6 +60,13 @@ class PanelController extends ChangeNotifier implements Panel {
        _sort = settings.sort,
        _showHidden = settings.showHidden,
        _lastPath = settings.path {
+    // Прочитанное из настроек кладётся в ту же память, которой панель
+    // пользуется при обычном хождении по дереву: восстановление после запуска
+    // — это тот же возврат в каталог, где уже были, и отдельной ветки ему не
+    // нужно.
+    if (settings.path.isNotEmpty && settings.cursor.isNotEmpty) {
+      _cursorMemory[settings.path] = settings.cursor;
+    }
     selection.addListener(_onSelectionChanged);
   }
 
@@ -126,7 +133,11 @@ class PanelController extends ChangeNotifier implements Panel {
   final Map<String, String> _cursorMemory = {};
 
   /// Сколько каталогов помнить. Ограничение защищает от роста памяти при
-  /// долгой работе; между запусками карта не сохраняется.
+  /// долгой работе.
+  ///
+  /// Между запусками переживает только одна запись — про последний каталог
+  /// панели: она и лежит в настройках. Хранить всю карту значило бы копить в
+  /// файле настроек список каталогов, где пользователь когда-либо был.
   static const int cursorMemoryLimit = 100;
 
   // --- каталог ---
@@ -508,8 +519,18 @@ class PanelController extends ChangeNotifier implements Panel {
 
   /// Текущее состояние панели в виде сохраняемых настроек.
   @override
-  PanelSettings get settings =>
-      PanelSettings(path: _directory?.pathString ?? _lastPath, columns: _columns, sort: _sort, showHidden: _showHidden);
+  PanelSettings get settings {
+    final path = _directory?.pathString ?? _lastPath;
+    return PanelSettings(
+      path: path,
+      // Пока каталог не прочитан, курсора нет — но и терять запомненное
+      // нельзя: настройки могут сохраниться и до первого чтения.
+      cursor: currentNode?.name ?? _cursorMemory[path] ?? '',
+      columns: _columns,
+      sort: _sort,
+      showHidden: _showHidden,
+    );
+  }
 
   // --- внутреннее ---
 

@@ -92,7 +92,13 @@ class AppController extends ChangeNotifier implements Application {
   double _splitRatio;
   WindowGeometry? _windowGeometry;
   Timer? _saveTimer;
+
+  /// Записанное состояние целиком — по нему решается, нужна ли запись вообще.
   String? _savedSnapshot;
+
+  /// Оно же без положения курсора — по нему решается, планировать ли
+  /// отложенную запись: ходьба по панели сама по себе на диск не пишет.
+  String? _savedQuietSnapshot;
 
   /// Активная панель: в ней курсор и ввод с клавиатуры.
   @override
@@ -168,7 +174,7 @@ class AppController extends ChangeNotifier implements Application {
   /// приложение всегда стартовало в рабочем состоянии.
   @override
   Future<void> start() async {
-    _savedSnapshot = _snapshot();
+    _rememberSaved();
     await window.restore(_initialSettings.window);
 
     await Future.wait([_openPanel(left, _initialSettings.left.path), _openPanel(right, _initialSettings.right.path)]);
@@ -177,7 +183,7 @@ class AppController extends ChangeNotifier implements Application {
     // Первый кадр показывается уже с восстановленным состоянием, поэтому
     // отложенную запись, вызванную открытием каталогов, отменяем.
     _saveTimer?.cancel();
-    _savedSnapshot = _snapshot();
+    _rememberSaved();
   }
 
   /// Сохраняет настройки и останавливает незавершённые операции.
@@ -214,11 +220,10 @@ class AppController extends ChangeNotifier implements Application {
   );
 
   Future<void> save() async {
-    final snapshot = _snapshot();
-    if (snapshot == _savedSnapshot) {
+    if (_snapshot() == _savedSnapshot) {
       return;
     }
-    _savedSnapshot = snapshot;
+    _rememberSaved();
     await store.save(settings);
   }
 
@@ -245,7 +250,11 @@ class AppController extends ChangeNotifier implements Application {
   void _onWindowChanged() => unawaited(captureWindowGeometry());
 
   void _onPanelChanged() {
-    if (_snapshot() != _savedSnapshot) {
+    // Курсор из сравнения исключён намеренно: иначе каждый шаг стрелкой заводил
+    // бы таймер записи, а ходят по панели постоянно. В файл он всё равно
+    // попадёт — вместе со следующей настоящей причиной записать и при выходе,
+    // где `save` сравнивает снимки целиком.
+    if (_snapshotWithoutCursor() != _savedQuietSnapshot) {
       _scheduleSave();
     }
   }
@@ -256,6 +265,27 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   String _snapshot() => jsonEncode(serialize(settings));
+
+  /// Тот же снимок, но без положения курсора.
+  String _snapshotWithoutCursor() {
+    final map = serialize(settings);
+    final panels = map['panels'];
+    if (panels is List) {
+      for (final panel in panels) {
+        if (panel is Map) {
+          panel.remove('cursor');
+        }
+      }
+    }
+    return jsonEncode(map);
+  }
+
+  /// Запоминает записанное состояние — оба снимка разом: полный, по которому
+  /// решается сама запись, и тихий, по которому решается её планирование.
+  void _rememberSaved() {
+    _savedSnapshot = _snapshot();
+    _savedQuietSnapshot = _snapshotWithoutCursor();
+  }
 
   @override
   void dispose() {
