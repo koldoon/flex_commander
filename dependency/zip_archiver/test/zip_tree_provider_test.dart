@@ -105,13 +105,14 @@ void main() {
   });
 
   group('умения', () {
-    test('архив читается, но не меняется', () async {
+    test('архив на диске и читается, и принимает содержимое', () async {
       final zip = await mounted();
 
-      expect(zip.canWrite, isFalse);
-      // Отдавать содержимое умеет, принимать — нет.
+      // Писать в архив можно: он пересобирается целиком, но снаружи это
+      // обычный приёмник.
+      expect(zip.canWrite, isTrue);
       expect(zip.canStream, isTrue);
-      expect(zip.canReceive, isFalse);
+      expect(zip.canReceive, isTrue);
     });
 
     test('настоящих путей у архива нет', () async {
@@ -205,8 +206,8 @@ void main() {
 
       expect(panel.nodes.map((node) => node.name), containsAll(['docs', 'readme.md']));
       expect(panel.provider, isA<ZipTreeProvider>());
-      // Внутри архива менять нечем — файловые команды выключатся сами.
-      expect(panel.editor, isNull);
+      // В архив на диске можно писать: файловые команды остаются доступными.
+      expect(panel.editor, isNotNull);
     });
 
     test('путь показывает цепочку, а «..» выводит наружу', () async {

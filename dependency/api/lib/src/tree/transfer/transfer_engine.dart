@@ -76,6 +76,14 @@ class TreeTransferEngine implements TreeEditor {
       }
 
       final progress = TransferProgress(op, move ? 'Moving' : 'Copying', clock: clock);
+      // Приёмнику, которому запись по одному обходится дорого (архив
+      // пересобирается целиком), сообщаем границы работы: пусть накопит.
+      final batch = _batchOf(destination.provider);
+      // Именно `if`, а не `await batch?.…`: ожидание пустого значения — это
+      // всё равно пауза, и она сдвигала бы начало работы у всех остальных.
+      if (batch != null) {
+        await batch.beginWrites();
+      }
       var overwriteAll = false;
       var skipAll = false;
 
@@ -188,6 +196,11 @@ class TreeTransferEngine implements TreeEditor {
       } finally {
         // Считать дальше незачем: работа кончилась — успехом, ошибкой или отменой.
         progress.stop();
+        // Накопленное должно оказаться на месте при любом исходе: после
+        // ошибки и отмены — тоже, иначе часть работы пропала бы молча.
+        if (batch != null) {
+          await batch.endWrites();
+        }
       }
 
       progress.finish();
@@ -203,6 +216,15 @@ class TreeTransferEngine implements TreeEditor {
   AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true}) {
     return TaskOperation<void>((op) async {
       final progress = TransferProgress(op, 'Deleting', clock: clock);
+
+      // Границы работы — только когда всё удаляется из одного источника:
+      // у разных провайдеров общей работы нет.
+      final provider = nodes.isEmpty ? null : nodes.first.provider;
+      final batch =
+          provider != null && nodes.every((node) => identical(node.provider, provider)) ? _batchOf(provider) : null;
+      if (batch != null) {
+        await batch.beginWrites();
+      }
 
       // Считаем рядом с работой, а не перед ней: см. TransferProgress.
       unawaited(_countSources(nodes, progress));
@@ -246,6 +268,9 @@ class TreeTransferEngine implements TreeEditor {
         }
       } finally {
         progress.stop();
+        if (batch != null) {
+          await batch.endWrites();
+        }
       }
 
       progress.finish();
@@ -460,6 +485,9 @@ class TreeTransferEngine implements TreeEditor {
   /// Байтовое чтение провайдера; null — содержимого он не отдаёт.
   FileContentProvider? _readerOf(TreeProvider provider) =>
       provider is FileContentProvider ? provider as FileContentProvider : null;
+
+  /// Границы работы; null — провайдеру они не нужны.
+  BatchedWrites? _batchOf(TreeProvider provider) => provider is BatchedWrites ? provider as BatchedWrites : null;
 
   /// Байтовая запись; null — принять содержимое он не может.
   FileContentReceiver? _writerOf(TreeProvider provider) =>

@@ -1,10 +1,14 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:path/path.dart' as p;
 import 'zip_index.dart';
+
+part 'writable_zip_tree_provider.dart';
 
 /// Провайдер дерева поверх zip-архива, открытого на просмотр.
 ///
@@ -13,6 +17,9 @@ import 'zip_index.dart';
 /// значит `panel.editor` внутри архива пуст, и файловые команды выключаются
 /// сами, а копировать **из** архива можно: этим занимается движок переноса,
 /// у которого для такой пары есть стратегия «поток».
+///
+/// Читать умеет любой архив, а писать — только тот, что лежит в настоящей
+/// файловой системе: см. [WritableZipTreeProvider].
 ///
 /// Неприятная правда формата: **zip требует произвольного доступа**. Оглавление
 /// лежит в конце файла, и прочитать его, не умея прыгать по файлу, нельзя.
@@ -59,13 +66,18 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
 
     try {
       final path = await session.localPathOf(host, onBytes: onBytes);
-      return ZipTreeProvider._(
-        archivePath: path,
-        host: host,
-        index: await readZipIndex(path),
-        // Копии не было — убирать нечего, и сессию держать незачем.
-        session: session.copied == 0 ? null : session,
-      );
+      final index = await readZipIndex(path);
+
+      if (session.copied == 0) {
+        // Архив лежит в настоящей файловой системе: в него можно и писать.
+        // Пересобранный архив заменит этот же файл.
+        return WritableZipTreeProvider._(archivePath: path, host: host, index: index, staging: staging);
+      }
+
+      // Архив внутри архива или на сервере: открыт через временную копию.
+      // Писать в неё бессмысленно — изменения ушли бы вместе с копией, — и
+      // потому такой архив остаётся только для чтения.
+      return ZipTreeProvider._(archivePath: path, host: host, index: index, session: session);
     } on Object {
       // Битый архив или отмена: копия не должна пережить неудачу.
       await session.purge();
@@ -282,12 +294,19 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
   @override
   Future<void> dispose() async {
     _disposed = true;
+    await _closeArchive();
+    await _session?.purge();
+  }
+
+  /// Отпускает открытый файл архива, оставляя провайдер рабочим.
+  ///
+  /// Нужно пишущему архиву: подменить файл, пока он открыт, нельзя — на
+  /// Windows это прямо запрещено. Следующее чтение откроет его заново.
+  Future<void> _closeArchive() async {
     final input = _input;
     _archive = null;
     _input = null;
-    // Сначала закрыть, потом удалять: на Windows открытый файл не удаляется.
     await input?.close();
-    await _session?.purge();
   }
 
   ZipEntry? _entryOf(FsNode node) => _index.at(_segments(pathOf(node)));
