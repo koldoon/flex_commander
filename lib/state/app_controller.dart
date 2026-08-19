@@ -235,7 +235,12 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   Future<void> _openPanel(PanelController panel, String path) async {
-    if (path.isNotEmpty && await panel.openPath(path)) {
+    // Без подключения: восстановление состояния не должно ходить в сеть.
+    // Сохранённый адрес сервера означал бы вопрос о пароле поверх ещё пустых
+    // панелей, а недоступный сервер — ожидание до истечения времени
+    // подключения при каждом запуске. На сервер человек возвращается сам —
+    // так же ведут себя Total Commander и Far.
+    if (path.isNotEmpty && await panel.openPath(path, allowConnect: false)) {
       return;
     }
     if (await panel.openPath(panel.provider.homePath)) {

@@ -3,6 +3,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_file_ops/fc_file_ops.dart';
 import 'package:fc_navigation/fc_navigation.dart';
+import 'package:fc_ssh/fc_ssh.dart';
 import 'package:fc_zip_archiver/fc_zip_archiver.dart';
 
 import '../modules/app_shell.dart';
@@ -26,4 +27,5 @@ List<FcModule> featureModules() => [
   const FileOps(),
   const ZipArchiver(),
   const SevenZipArchiver(),
+  const SshFileSystem(),
 ];
