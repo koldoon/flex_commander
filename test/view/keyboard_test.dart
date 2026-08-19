@@ -499,21 +499,31 @@ void main() {
       return escaped;
     }
 
-    testWidgets('клавиша без команды дальше не идёт', (tester) async {
-      // F9 ни за кем не закреплена. Уходя дальше, событие попадает в AppKit, а
-      // тот на некоторых сочетаниях отвечает приложению обратно: `Cmd+.` он
-      // понимает как «отменить» и присылает Escape — снова и снова, десятками
-      // тысяч событий подряд.
+    testWidgets('клавиша без команды уходит дальше — к системе', (tester) async {
+      // F9 ни за кем не закреплена. Съедать такое нельзя: `Cmd+Q`, `Cmd+W` и
+      // прочие сочетания меню Flutter спрашивает у приложения раньше, чем
+      // строку меню, и «обработано» их отменяет — приложение перестаёт
+      // закрываться по Cmd+Q.
       final escaped = await pumpWithWatcher(tester);
 
       await press(tester, LogicalKeyboardKey.f9);
 
+      expect(escaped, [LogicalKeyboardKey.f9]);
+    });
+
+    testWidgets('клавиша с командой дальше не идёт', (tester) async {
+      final escaped = await pumpWithWatcher(tester);
+
+      await press(tester, LogicalKeyboardKey.f1);
+
       expect(escaped, isEmpty);
     });
 
-    testWidgets('Escape на свободной панели дальше не идёт', (tester) async {
-      // Отменять нечего, пометки нет — команда не выполнится. Но событие всё
-      // равно наше: именно на этом круге и рождался поток Escape.
+    testWidgets('Escape приложение наружу не выпускает', (tester) async {
+      // Отменять нечего, пометки нет — команда не выполнится. Но выпускать
+      // Escape нельзя всё равно: AppKit понимает `Cmd+.` как «отменить» и
+      // присылает Escape в ответ, а неразобранный Escape уходит к нему
+      // обратно — и так по кругу, десятками тысяч событий подряд.
       final escaped = await pumpWithWatcher(tester);
 
       await press(tester, LogicalKeyboardKey.escape);
@@ -526,11 +536,11 @@ void main() {
       app.commands.run(HelpCommand.commandId);
       await tester.pumpAndSettle();
 
-      await press(tester, LogicalKeyboardKey.f9);
+      // F1 закреплена за справкой, но из-под чужого окна панели не отвечают:
+      // событие должно уйти дальше — к самому окну.
+      await press(tester, LogicalKeyboardKey.f1);
 
-      // Из-под чужого окна панели не отвечают, и событие должно уйти дальше —
-      // к самому окну.
-      expect(escaped, [LogicalKeyboardKey.f9]);
+      expect(escaped, [LogicalKeyboardKey.f1]);
     });
   });
 }
