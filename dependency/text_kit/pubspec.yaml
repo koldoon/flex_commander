@@ -1,0 +1,35 @@
+name: fc_text_kit
+description: "Показ текста во весь экран: поле, оформление, подсветка, поиск."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  # Рамка панели, тема и окна команд: показ текста занимает место панели и
+  # обязан выглядеть так же.
+  fc_ui_kit:
+    path: ../ui_kit
+
+  # Само поле: своя раскладка и отрисовка под большой текст, поиск и подсветка.
+  # В проекте лежит своя копия — dependency/re_editor, см. её README.
+  re_editor: ^0.10.0
+
+  # Правила языков берутся напрямую: поле принимает их объектами `Mode`.
+  re_highlight: ^0.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_default_theme:
+    path: ../default_theme

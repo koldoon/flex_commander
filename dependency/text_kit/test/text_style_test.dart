@@ -1,4 +1,5 @@
 import 'package:fc_default_theme/fc_default_theme.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,13 +18,13 @@ void main() {
     // Фон панели — белый с прозрачностью пять процентов поверх фона окна.
     // Второй такой же слой внутри поля сложил бы прозрачности, и экран
     // отличался бы от панели на полтона.
-    final style = codeStyle(theme, base, 'sql');
+    final style = textViewStyle(theme, base, 'sql');
 
     expect(style.backgroundColor, isNull);
   });
 
   test('шрифт и цвет текста — из темы, а не свои', () {
-    final style = codeStyle(theme, base, null);
+    final style = textViewStyle(theme, base, null);
 
     expect(style.fontFamily, base.fontFamily);
     expect(style.fontSize, base.fontSize);
@@ -32,7 +33,7 @@ void main() {
 
   group('подсветка', () {
     test('регистрируется ровно один язык — опознанный', () {
-      final style = codeStyle(theme, base, 'sql');
+      final style = textViewStyle(theme, base, 'sql');
 
       expect(style.codeTheme?.languages.keys, ['sql']);
     });
@@ -40,14 +41,14 @@ void main() {
     test('язык не опознан — темы нет вовсе, но текст показывается', () {
       // Не пустая карта языков, а именно `null`: по пустой разбор считает
       // минимум `reduce`-ом и падает на пустом списке — в изоляте, молча.
-      final style = codeStyle(theme, base, null);
+      final style = textViewStyle(theme, base, null);
 
       expect(style.codeTheme, isNull);
       expect(style.textColor, isNotNull);
     });
 
     test('цвета токенов — из общей карты', () {
-      final style = codeStyle(theme, base, 'dart');
+      final style = textViewStyle(theme, base, 'dart');
       final shared = syntaxTheme(const DefaultColors(), base);
 
       expect(style.codeTheme?.theme['keyword']?.color, shared['keyword']?.color);

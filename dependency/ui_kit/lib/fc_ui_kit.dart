@@ -11,13 +11,8 @@
 library;
 
 export 'src/app_scope.dart';
-export 'src/code_language.dart';
-export 'src/code_shortcuts.dart';
-export 'src/code_style.dart';
-export 'src/code_view.dart';
 export 'src/command_dialog.dart';
 export 'src/controls.dart';
 export 'src/fc_theme.dart';
 export 'src/key_value_table.dart';
 export 'src/panel_frame.dart';
-export 'src/syntax_theme.dart';

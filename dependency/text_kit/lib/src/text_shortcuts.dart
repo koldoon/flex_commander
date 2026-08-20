@@ -11,8 +11,8 @@ import 'package:re_editor/re_editor.dart';
 /// `Esc` отпускают оба экрана: он закрывает их, и, утонув в виджете, оставил бы
 /// человека внутри без выхода. Просмотрщик отпускает ещё и копирование — у него
 /// на `Cmd-C` стоит своя команда, которая говорит, что случилось.
-class FcCodeShortcuts extends DefaultCodeShortcutsActivatorsBuilder {
-  const FcCodeShortcuts({this.released = const {CodeShortcutType.esc}});
+class FcTextShortcuts extends DefaultCodeShortcutsActivatorsBuilder {
+  const FcTextShortcuts({this.released = const {CodeShortcutType.esc}});
 
   /// Клавиши, которые принадлежат экрану, а не тексту.
   final Set<CodeShortcutType> released;

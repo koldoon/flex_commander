@@ -1,11 +1,10 @@
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:re_editor/re_editor.dart';
 
 import 'code_language.dart';
-import 'code_shortcuts.dart';
-import 'code_style.dart';
-import 'fc_theme.dart';
-import 'panel_frame.dart';
+import 'text_shortcuts.dart';
+import 'text_style.dart';
 
 /// Показ текста во весь экран: та же рамка, что у панели, и текстовое поле во
 /// всю её.
@@ -14,8 +13,8 @@ import 'panel_frame.dart';
 /// [readOnly]. Раскладку, отрисовку, выделение и ввод берёт на себя
 /// `re_editor`: это не надстройка над `TextField`, а свой движок, рассчитанный
 /// на большой текст, и рисует он только то, что попало на экран.
-class FcCodeView extends StatefulWidget {
-  const FcCodeView({
+class FcTextView extends StatefulWidget {
+  const FcTextView({
     super.key,
     required this.controller,
     required this.path,
@@ -24,7 +23,7 @@ class FcCodeView extends StatefulWidget {
     this.readOnly = false,
     this.wordWrap = false,
     this.showLineNumbers = false,
-    this.shortcuts = const FcCodeShortcuts(),
+    this.shortcuts = const FcTextShortcuts(),
   });
 
   /// Содержимое и курсор. Владеет им экран: сохранять или копировать просит
@@ -47,14 +46,14 @@ class FcCodeView extends StatefulWidget {
   final bool showLineNumbers;
 
   /// Какие клавиши поле отпускает экрану.
-  final FcCodeShortcuts shortcuts;
+  final FcTextShortcuts shortcuts;
 
   @override
-  State<FcCodeView> createState() => _FcCodeViewState();
+  State<FcTextView> createState() => _FcTextViewState();
 }
 
-class _FcCodeViewState extends State<FcCodeView> {
-  final FocusNode _focus = FocusNode(debugLabel: 'FcCodeView');
+class _FcTextViewState extends State<FcTextView> {
+  final FocusNode _focus = FocusNode(debugLabel: 'FcTextView');
 
   @override
   void initState() {
@@ -104,7 +103,7 @@ class _FcCodeViewState extends State<FcCodeView> {
           showCursorWhenReadOnly: false,
           wordWrap: widget.wordWrap,
           padding: EdgeInsets.symmetric(horizontal: theme.metrics.panelLeftPadding),
-          style: codeStyle(theme, codeBaseStyle(theme), languageOf(widget.fileName)),
+          style: textViewStyle(theme, textBaseStyle(theme), languageOf(widget.fileName)),
           indicatorBuilder: widget.showLineNumbers ? _lineNumbers : null,
           shortcutsActivatorsBuilder: widget.shortcuts,
         ),

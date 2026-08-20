@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
-import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:fc_viewer/fc_viewer.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -80,7 +80,7 @@ void main() {
       final screen = await openViewer();
       await pumpScreen(tester, screen, app: runtime.app);
 
-      final view = tester.widget<FcCodeView>(find.byType(FcCodeView));
+      final view = tester.widget<FcTextView>(find.byType(FcTextView));
 
       expect(view.shortcuts.released, contains(CodeShortcutType.copy));
       await disposeScreen(tester);

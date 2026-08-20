@@ -1,4 +1,5 @@
 import 'package:fc_default_theme/fc_default_theme.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -15,7 +16,7 @@ void main() {
           ],
         ),
         home: Scaffold(
-          body: FcCodeView(
+          body: FcTextView(
             controller: CodeLineEditingController.fromText('раз\nдва\nтри'),
             path: '/home/notes.txt',
             fileName: 'notes.txt',

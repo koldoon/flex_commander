@@ -1,5 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:fc_viewer/fc_viewer.dart';
 import 'package:flutter/services.dart';
@@ -8,7 +9,7 @@ import 'package:re_editor/re_editor.dart';
 
 /// Показ файла: заголовок, режимы и фокус.
 ///
-/// Сам текст рисует `FcCodeView` — общий с редактором. Здесь проверяется то,
+/// Сам текст рисует `FcTextView` — общий с редактором. Здесь проверяется то,
 /// чем распоряжается просмотрщик: что он этому показу передаёт.
 void main() {
   late InMemoryContentProvider disk;
@@ -63,7 +64,7 @@ void main() {
       final screen = await screenWith('раз\nдва');
       await pumpScreen(tester, screen);
 
-      final view = tester.widget<FcCodeView>(find.byType(FcCodeView));
+      final view = tester.widget<FcTextView>(find.byType(FcTextView));
 
       expect(view.readOnly, isTrue);
       expect(view.controller.text, 'раз\nдва');
@@ -92,7 +93,7 @@ void main() {
     (tester) async => withDesktopPlatform(() async {
       // Прокрутка теперь дело самого показа, а не команд просмотрщика. В
       // библиотеке страница вверх и вниз не назначены ни на одну клавишу —
-      // клавиши им даёт `FcCodeShortcuts`.
+      // клавиши им даёт `FcTextShortcuts`.
       final screen = await screenWith(List.generate(500, (i) => 'строка $i').join('\n'));
       await pumpScreen(tester, screen);
       expect(screen.controller.selection.baseIndex, 0);
@@ -117,7 +118,7 @@ void main() {
       (tester) async => withDesktopPlatform(() async {
         await pumpScreen(tester, await screenWith('очень длинная строка ${'—' * 300}'));
 
-        expect(tester.widget<FcCodeView>(find.byType(FcCodeView)).wordWrap, isFalse);
+        expect(tester.widget<FcTextView>(find.byType(FcTextView)).wordWrap, isFalse);
 
         await disposeScreen(tester);
       }),
@@ -128,7 +129,7 @@ void main() {
       (tester) async => withDesktopPlatform(() async {
         await pumpScreen(tester, await screenWith('раз', wordWrap: true));
 
-        expect(tester.widget<FcCodeView>(find.byType(FcCodeView)).wordWrap, isTrue);
+        expect(tester.widget<FcTextView>(find.byType(FcTextView)).wordWrap, isTrue);
 
         await disposeScreen(tester);
       }),
@@ -143,7 +144,7 @@ void main() {
         screen.toggleWordWrap();
         await tester.pump();
 
-        expect(tester.widget<FcCodeView>(find.byType(FcCodeView)).wordWrap, isTrue);
+        expect(tester.widget<FcTextView>(find.byType(FcTextView)).wordWrap, isTrue);
 
         await disposeScreen(tester);
       }),

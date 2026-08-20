@@ -1,11 +1,11 @@
-import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:flutter/widgets.dart';
 
 import 'editor_screen.dart';
 
 /// Правка файла: общий показ текста с правом писать.
 ///
-/// Вся видимая часть — в `FcCodeView`: рамка, поле, подсветка, фокус. Здесь
+/// Вся видимая часть — в `FcTextView`: рамка, поле, подсветка, фокус. Здесь
 /// остаётся только то, чем редактор отличается от просмотрщика, — право писать
 /// и знак несохранённого в заголовке.
 class EditorView extends StatelessWidget {
@@ -18,7 +18,7 @@ class EditorView extends StatelessWidget {
     return ListenableBuilder(
       listenable: screen,
       builder:
-          (context, _) => FcCodeView(
+          (context, _) => FcTextView(
             controller: screen.controller,
             path: screen.node.displayPath,
             fileName: screen.node.name,
