@@ -1,13 +1,12 @@
 import 'dart:async';
 import 'dart:io';
 
-import 'package:archive/archive.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as p;
 
-import 'counting_input_stream.dart';
+import 'zip_encoding.dart';
 
 /// Степень сжатия — то немногое, что при упаковке действительно выбирают.
 ///
@@ -147,26 +146,33 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
       final archivePath = p.join(staged.path, name);
 
       try {
-        final output = OutputFileStream(archivePath);
-        final encoder = ZipEncoder()..startEncode(output, level: _compression.level);
-        final opened = <InputFileStream>[];
-
-        try {
-          for (final source in sources) {
-            await op.checkpoint();
-            progress.startSource(source.name);
-            // Объекты и байты считает сам обход: `sourceDoneWholly` здесь
-            // добавил бы их второй раз — он для работ, которые проходят
-            // источник целиком одним действием.
-            await _addNode(encoder, source, source.name, copies, opened, op, progress, links);
-          }
-          encoder.endEncode();
-        } finally {
-          await output.close();
-          for (final stream in opened) {
-            await stream.close();
-          }
+        // Сперва обход, потом сжатие — и сжатие в отдельном изоляте.
+        //
+        // Обход спрашивает провайдеров и человека (про ссылки), а это дело
+        // главного изолята: туда не переехать. Зато сжатие туда переезжает
+        // целиком — оно синхронное, и на большом дереве кадры не выходят вовсе.
+        final entries = <ZipEntry>[];
+        for (final source in sources) {
+          await op.checkpoint();
+          progress.startSource(source.name);
+          // Объекты и байты считает сам обход: `sourceDoneWholly` здесь
+          // добавил бы их второй раз — он для работ, которые проходят источник
+          // целиком одним действием.
+          await _addNode(entries, source, source.name, copies, op, progress, links);
         }
+
+        await op.checkpoint();
+
+        await encodeZipArchive(
+          archivePath: archivePath,
+          entries: entries,
+          level: _compression.level,
+          op: op,
+          onEntry: (name, bytes) => progress.startItem(name, bytes: bytes),
+          // Байты приходят по мере того, как упаковщик читает запись: так видно
+          // движение и внутри одного большого файла, а не только между файлами.
+          onBytes: progress.advanceBytes,
+        );
 
         await op.checkpoint();
 
@@ -187,13 +193,15 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
     });
   }
 
-  /// Кладёт один объект в архив: файл — записью, каталог — записью и обходом.
+  /// Записывает один объект в список заданий: файл — записью, каталог —
+  /// записью и обходом.
+  ///
+  /// Именно список, а не сам архив: сжатие идёт потом и в другом изоляте.
   Future<void> _addNode(
-    ZipEncoder encoder,
+    List<ZipEntry> entries,
     FsNode node,
     String entryName,
     LocalCopySession copies,
-    List<InputFileStream> opened,
     TaskOperation<void> op,
     TransferProgress progress,
     _Links links,
@@ -204,12 +212,12 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
     // файлом не является, и поток по ней не открыть — на этом и падала
     // упаковка каталога с `.framework` внутри.
     if (node is LinkNode) {
-      final FsNode? followed = await _addLink(encoder, node, entryName, op, links);
+      final FsNode? followed = await _addLink(node, op, links);
       if (followed == null) {
         return;
       }
       try {
-        await _addNode(encoder, followed, entryName, copies, opened, op, progress, links);
+        await _addNode(entries, followed, entryName, copies, op, progress, links);
       } finally {
         links.leaveLink(node);
       }
@@ -218,41 +226,26 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
 
     if (node is DirectoryNode) {
       // Пустой каталог иначе пропал бы: в zip он существует только записью.
-      encoder.add(ArchiveFile.directory('$entryName/'));
+      entries.add(ZipEntry.directory(entryName));
       progress.advance(node.name);
 
       for (final child in await node.provider.listChildren(node)) {
-        await _addNode(encoder, child, '$entryName/${child.name}', copies, opened, op, progress, links);
+        await _addNode(entries, child, '$entryName/${child.name}', copies, op, progress, links);
       }
       return;
     }
 
-    // Дважды: упаковщик читает запись ради контрольной суммы, а потом ради
-    // сжатия — и второй проход занимает куда больше времени.
-    progress.startItem(node.name, bytes: node.size < 0 ? null : node.size * 2);
-
     // Настоящий путь берётся как есть, чужой источник выкладывается во
-    // временный файл: упаковщику нужен файл, по которому можно ходить.
-    final path = await copies.localPathOf(node);
-    final content = InputFileStream(path);
-    opened.add(content);
-
-    // Байты приходят по мере того, как упаковщик читает запись: так видно
-    // движение и внутри одного большого файла, а не только между файлами.
-    encoder.add(ArchiveFile.stream(entryName, CountingInputStream(content, progress.advanceBytes)));
+    // временный файл: упаковщику нужен файл, по которому можно ходить, — и
+    // ходить он будет из другого изолята, где провайдеров нет вовсе.
+    entries.add(ZipEntry.file(entryName, await copies.localPathOf(node)));
     progress.advance(node.name);
   }
 
   /// Что делать со ссылкой: положить записью-ссылкой или пойти по ней.
   ///
   /// Возвращает цель, если решено идти; null — со ссылкой уже разобрались.
-  Future<FsNode?> _addLink(
-    ZipEncoder encoder,
-    LinkNode node,
-    String entryName,
-    TaskOperation<void> op,
-    _Links links,
-  ) async {
+  Future<FsNode?> _addLink(LinkNode node, TaskOperation<void> op, _Links links) async {
     if (!links.follow) {
       // Ссылку в архив положить нечем.
       //
