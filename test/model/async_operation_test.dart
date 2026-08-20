@@ -228,4 +228,214 @@ void main() {
       expect(op.status, OperationStatus.canceled);
     });
   });
+
+  group('делегирование вложенных', () {
+    test('прогресс вложенной доходит до подписчика внешней', () async {
+      final release = Completer<void>();
+      // Вложенная рассказывает о себе раньше, чем внешняя успевает подписаться:
+      // операция стартует сразу при создании, и первую веху спасает только
+      // повтор последнего события новому подписчику.
+      final inner = TaskOperation<int>((op) async {
+        op.message('Reading a.zip');
+        await release.future;
+        return 1;
+      });
+      final outer = TaskOperation<int>((op) => op.delegate(inner));
+
+      final seen = <String>[];
+      outer.progress.listen((event) => seen.add(event.message));
+      await pumpEventQueue();
+
+      release.complete();
+      expect(await outer.result, 1);
+      expect(seen, ['Reading a.zip']);
+    });
+
+    test('веха объявляет долю неизвестной', () async {
+      final op = TaskOperation<void>((op) async => op.message('Connecting'));
+      final seen = <OperationProgress>[];
+      op.progress.listen(seen.add);
+
+      await op.result;
+      await pumpEventQueue();
+
+      expect(seen.single.message, 'Connecting');
+      // Ноль процентов и «неизвестно сколько» — разные вещи, и полоса не должна
+      // выдавать второе за первое.
+      expect(seen.single.percent, isNull);
+    });
+
+    test('отмена внешней доходит до вложенной', () async {
+      final inner = TaskOperation<int>((op) async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        return 1;
+      });
+      final outer = TaskOperation<int>((op) => op.delegate(inner));
+      await pumpEventQueue();
+
+      outer.cancel();
+
+      await expectLater(outer.result, throwsA(isA<OperationCanceled>()));
+      expect(inner.status, OperationStatus.canceled);
+    });
+
+    test('отмена доходит через несколько уровней', () async {
+      // Разбор пути рекурсивен, и работает всегда самая вложенная операция:
+      // прерывать её приходится через всю цепочку.
+      final inner = TaskOperation<int>((op) async {
+        await Future<void>.delayed(const Duration(seconds: 1));
+        return 1;
+      });
+      final middle = TaskOperation<int>((op) => op.delegate(inner));
+      final outer = TaskOperation<int>((op) => op.delegate(middle));
+      await pumpEventQueue();
+
+      outer.cancel();
+
+      await expectLater(outer.result, throwsA(isA<OperationCanceled>()));
+      expect(middle.status, OperationStatus.canceled);
+      expect(inner.status, OperationStatus.canceled);
+    });
+
+    test('делегирование из уже отменённой отменяет и вложенную', () async {
+      // Отмена пришла, пока вложенную только создавали: работать она уже
+      // начала, и бросить её без присмотра нельзя.
+      late final TaskOperation<int> inner;
+      final started = Completer<void>();
+      final outer = TaskOperation<int>((op) async {
+        started.complete();
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+        inner = TaskOperation<int>((op) async {
+          await Future<void>.delayed(const Duration(seconds: 1));
+          return 1;
+        })..result.ignore();
+        return op.delegate(inner);
+      });
+
+      // Отменять до старта тела нельзя: такая операция вовсе не начнётся,
+      // и делегировать станет нечего.
+      await started.future;
+      outer.cancel();
+      await expectLater(outer.result, throwsA(isA<OperationCanceled>()));
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+
+      expect(inner.status, OperationStatus.canceled);
+    });
+
+    test('завершённую вложенную отмена уже не трогает', () async {
+      final inner = TaskOperation<int>((op) async => 1);
+      final release = Completer<void>();
+      final outer = TaskOperation<int>((op) async {
+        final value = await op.delegate(inner);
+        await release.future;
+        return value;
+      });
+      await pumpEventQueue();
+      expect(inner.status, OperationStatus.complete);
+
+      outer.cancel();
+      release.complete();
+
+      await expectLater(outer.result, throwsA(isA<OperationCanceled>()));
+      expect(inner.status, OperationStatus.complete);
+    });
+
+    test('ошибка вложенной приходит наружу как есть', () async {
+      // Отказ открыть архив — это отказ, а не отмена: подменять одно другим
+      // значило бы промолчать о причине.
+      final inner = TaskOperation<int>((op) async => throw const FsError('/a.zip', FsErrorKind.io));
+      final outer = TaskOperation<int>((op) => op.delegate(inner));
+
+      await expectLater(outer.result, throwsA(isA<FsError>()));
+      expect(outer.status, OperationStatus.error);
+    });
+
+    test('вопрос вложенной наверх не идёт: берётся вариант по умолчанию', () async {
+      late final OperationOption answer;
+      final inner = TaskOperation<int>((op) async {
+        answer = await op.ask(
+          OperationRequest(
+            message: 'Overwrite?',
+            options: const [OperationOption.overwrite, OperationOption.skip],
+            defaultOption: OperationOption.skip,
+          ),
+        );
+        return 1;
+      });
+      final outer = TaskOperation<int>((op) => op.delegate(inner));
+
+      final questions = <OperationRequest>[];
+      outer.requests.listen(questions.add);
+
+      expect(await outer.result, 1);
+      expect(questions, isEmpty);
+      expect(answer, OperationOption.skip);
+    });
+
+    test('просьба прервать вниз не идёт', () async {
+      // Мягкая отмена — это вопрос, а задать его вложенной некому: её вопросы
+      // наверх не идут, и «спросить» молча превратилось бы в «прервать».
+      final inner = TaskOperation<int>((op) async {
+        await Future<void>.delayed(const Duration(milliseconds: 50));
+        return 1;
+      });
+      final outer = TaskOperation<int>((op) => op.delegate(inner));
+      await pumpEventQueue();
+
+      outer.requestCancel();
+      await pumpEventQueue();
+
+      expect(inner.status, OperationStatus.processing);
+      expect(await outer.result, 1);
+    });
+
+    test('событие вложенной после конца внешней ничего не ломает', () async {
+      final inner = _StubbornOperation();
+      final outer = TaskOperation<int>((op) => op.delegate(inner));
+      await pumpEventQueue();
+
+      outer.cancel();
+      await expectLater(outer.result, throwsA(isA<OperationCanceled>()));
+
+      // Вложенная отмены не слушает и продолжает рассказывать о себе: её
+      // события должны пропадать молча, а не падать в закрытый поток.
+      inner.emit('Reading a.zip');
+      await pumpEventQueue();
+
+      expect(outer.status, OperationStatus.canceled);
+      inner.finish();
+    });
+  });
+}
+
+/// Операция, которая отмены не слушает: так ведёт себя работа, которую нечем
+/// прервать, — уже начатое подключение или запущенная внешняя программа.
+class _StubbornOperation implements AsyncOperation<int> {
+  final StreamController<OperationProgress> _progress = StreamController<OperationProgress>.broadcast();
+  final Completer<int> _completer = Completer<int>();
+
+  @override
+  OperationStatus get status => _completer.isCompleted ? OperationStatus.complete : OperationStatus.processing;
+
+  @override
+  Future<int> get result => _completer.future;
+
+  @override
+  Stream<OperationProgress> get progress => _progress.stream;
+
+  @override
+  Stream<OperationRequest> get requests => const Stream.empty();
+
+  @override
+  void cancel() {}
+
+  @override
+  void requestCancel() {}
+
+  void emit(String message) => _progress.add(OperationProgress(message: message));
+
+  void finish() {
+    _completer.complete(1);
+    _progress.close();
+  }
 }
