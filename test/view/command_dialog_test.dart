@@ -215,12 +215,12 @@ void main() {
   });
 
   group('ход текущего объекта', () {
-    testWidgets('второго бара нет, пока не о чем рассказывать', (tester) async {
+    testWidgets('блока объекта нет, пока не о чем рассказывать', (tester) async {
       await pumpProgress(tester, processed: 3, total: 10, progress: 0.3);
 
       // Удаление в корзину, работа без байтов — показывать по объекту нечего.
       expect(find.byType(FcProgressBar), findsOneWidget);
-      expect(find.text('Current:'), findsNothing);
+      expect(find.text('File'), findsNothing);
     });
 
     testWidgets('у текущего объекта свой бар и своя строка объёма', (tester) async {
@@ -238,10 +238,43 @@ void main() {
       // Работа из тысячи мелких файлов и работа из одного огромного в общем
       // счёте выглядят одинаково — вот это их и различает.
       expect(find.byType(FcProgressBar), findsNWidgets(2));
-      expect(find.text('File:'), findsOneWidget);
-      expect(find.text('Total:'), findsOneWidget);
-      expect(find.textContaining('movie.mkv'), findsOneWidget);
-      expect(find.textContaining('1.0 MB of 4.0 MB'), findsOneWidget);
+      expect(find.text('File'), findsOneWidget);
+      expect(find.text('Total'), findsOneWidget);
+      // Имя, объём и полоса — три строки под одной подписью, каждая своя.
+      expect(find.text('movie.mkv'), findsOneWidget);
+      expect(find.text('1.0 MB of 4.0 MB'), findsOneWidget);
+    });
+
+    testWidgets('имя объекта показано без пути', (tester) async {
+      // Внутри архива у записи путь длинный, а толку от него нет: где лежит
+      // работа — сказано строкой выше, в «Item».
+      await pumpProgress(
+        tester,
+        progress: 0.3,
+        itemName: 'bin/cache/artifacts/engine/darwin-x64/engine.stamp',
+        itemProgress: 0.5,
+        itemTotalBytes: 100,
+      );
+
+      expect(find.text('engine.stamp'), findsOneWidget);
+      expect(find.textContaining('darwin-x64'), findsNothing);
+    });
+
+    testWidgets('длинное имя обрезается, а не переносится', (tester) async {
+      // Иначе окно росло бы вниз на каждом длинном имени.
+      await pumpProgress(
+        tester,
+        progress: 0.3,
+        itemName: 'a-very-long-name-that-would-have-stretched-the-dialog-down-a-line.txt',
+        itemProgress: 0.5,
+        itemTotalBytes: 100,
+      );
+
+      final name = tester.widget<Text>(
+        find.text('a-very-long-name-that-would-have-stretched-the-dialog-down-a-line.txt'),
+      );
+      expect(name.maxLines, 1);
+      expect(name.overflow, TextOverflow.ellipsis);
     });
 
     testWidgets('бар объекта показывает свою долю, а не общую', (tester) async {

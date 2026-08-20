@@ -63,7 +63,7 @@ void main() {
     // Он объясняет, почему счёт объектов уже полон, а работа идёт.
     await pumpProgress(tester, stageLabel: '2 of 2 — repacking archive');
 
-    expect(find.text('Stage:'), findsOneWidget);
+    expect(find.text('Stage'), findsOneWidget);
     expect(find.text('2 of 2 — repacking archive'), findsOneWidget);
   });
 
@@ -72,7 +72,7 @@ void main() {
     // сообщает.
     await pumpProgress(tester);
 
-    expect(find.text('Stage:'), findsNothing);
+    expect(find.text('Stage'), findsNothing);
   });
 
   testWidgets('строки окна разделены общим зазором', (tester) async {

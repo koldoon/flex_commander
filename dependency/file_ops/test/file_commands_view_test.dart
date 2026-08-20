@@ -478,10 +478,10 @@ void main() {
       await tester.pump();
 
       // Объём задания известен ещё до того, как перенесён первый байт.
-      expect(find.text('Size:'), findsOneWidget);
       // Дважды: общий объём работы и объём текущего файла — это разные строки.
       expect(find.textContaining('of 10 B'), findsNWidgets(2));
-      expect(find.text('Current:'), findsOneWidget);
+      expect(find.text('File'), findsOneWidget);
+      expect(find.text('Total'), findsOneWidget);
 
       await tester.pump(const Duration(milliseconds: 300));
       await settle(tester);
