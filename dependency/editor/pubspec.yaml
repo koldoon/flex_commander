@@ -1,0 +1,42 @@
+name: fc_editor
+description: "Редактор текста: правка файла во весь экран."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  fc_ui_kit:
+    path: ../ui_kit
+
+  # Редактор кода: своя раскладка и отрисовка под большой текст, а подсветка
+  # у него — тот же `re_highlight`, что и у просмотрщика.
+  re_editor: ^0.10.0
+
+  # Правила языков берутся напрямую: редактор принимает их объектами `Mode`.
+  re_highlight: ^0.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  fc_default_theme:
+    path: ../default_theme
+
+  flex_commander:
+    path: ../..
+
+  # Тестам нужны настоящие пути на диске: сохранение проверяется на нём.
+  path: ^1.9.1

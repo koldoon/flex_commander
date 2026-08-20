@@ -50,7 +50,7 @@ void main() {
       (binding) => '${binding.keys}' == 'Esc' && binding.screen != Screens.files,
     );
 
-    expect(elsewhere.map((binding) => binding.commandId), ['viewer.close']);
+    expect(elsewhere.map((binding) => binding.commandId), ['viewer.close', 'editor.close']);
   });
 
   test('переход по набранному символу не перехватывает обычные клавиши', () {
