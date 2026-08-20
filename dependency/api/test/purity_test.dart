@@ -24,12 +24,17 @@ void main() {
   });
 
   test('модели и фреймворк не тянут виджеты', () {
-    // Флаттер в API есть, и это осознанно: команда описывает своё окно
-    // виджетом, тема — ThemeExtension, подписка — Listenable. Но виджеты
-    // и клавиатура допустимы только там, где без них нельзя: интерфейс и
-    // действия. Модель, дерево, операции и фреймворк остаются чистыми —
-    // ими можно пользоваться и без экрана.
-    const uiOnly = ['lib/src/ui/', 'lib/src/commands/app_command.dart', 'lib/src/commands/key_combination.dart'];
+    // Виджетов в API нет вовсе — они живут в `fc_ui_kit`. Здесь остались
+    // только контракты, и виджет в них встречается ровно там, где контракт
+    // о нём и говорит: экран и содержимое панели обязаны отдать, чем их
+    // рисовать, команда — своё окно, а клавиатуре нужны коды клавиш.
+    const uiOnly = [
+      'lib/src/app/screen.dart',
+      'lib/src/app/panel_viewport.dart',
+      'lib/src/commands/app_command.dart',
+      'lib/src/commands/key_combination.dart',
+      'lib/src/theme/fc_icons.dart',
+    ];
     const forbidden = [
       "package:flutter/widgets.dart",
       "package:flutter/material.dart",

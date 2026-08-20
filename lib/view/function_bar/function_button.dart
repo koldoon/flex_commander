@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 
 /// Кнопка нижней панели: номер клавиши слева и подпись команды в кнопке.
 ///

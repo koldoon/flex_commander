@@ -2,7 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 
 /// Две панели и перетаскиваемый разделитель между ними.
 class SplitView extends StatelessWidget {

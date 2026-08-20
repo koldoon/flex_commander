@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-import 'dialog/command_dialog.dart';
-import 'theme/fc_theme.dart';
+import 'command_dialog.dart';
+import 'fc_theme.dart';
 
 /// Строка таблицы: название и одно или два значения.
 ///

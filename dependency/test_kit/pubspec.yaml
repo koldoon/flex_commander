@@ -18,6 +18,9 @@ dependencies:
   fc_api:
     path: ../api
 
+  fc_ui_kit:
+    path: ../ui_kit
+
   # Красить чем-то надо: значений оформления в API нет, их приносит модуль.
   fc_default_theme:
     path: ../default_theme

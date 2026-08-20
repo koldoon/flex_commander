@@ -1,10 +1,10 @@
 import '../app/application.dart';
 import '../commands/app_command.dart';
-import '../ui/panel_viewport.dart';
+import '../app/panel_viewport.dart';
 import '../settings/module_settings.dart';
 import '../tree/provider_registry.dart';
 import '../tree/tree_provider.dart';
-import '../ui/theme/theme_service.dart';
+import '../theme/theme_service.dart';
 
 /// Часть приложения, подключаемая целиком: провайдер, набор команд, тема.
 ///

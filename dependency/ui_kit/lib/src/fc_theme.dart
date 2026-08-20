@@ -1,9 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'app_colors.dart';
-import 'app_metrics.dart';
-import 'fc_fonts.dart';
-import 'fc_icons.dart';
+import 'package:fc_api/fc_api.dart';
 
 /// Оформление: палитра, метрики, иконки, шрифты и стили текста.
 ///
@@ -63,4 +60,13 @@ class FcTheme extends ThemeExtension<FcTheme> {
   /// файловому менеджеру ни к чему, а половинчатое состояние сбивало бы с толку.
   @override
   FcTheme lerp(covariant FcTheme? other, double t) => other ?? this;
+}
+
+/// Значения темы в виде расширения, которое виджеты достают через [FcTheme.of].
+///
+/// Расширением, а не полем в самой [FcThemeSpec]: спецификация живёт в API и
+/// говорит, какие роли есть, — а собирать из них тему для дерева виджетов
+/// умеет тот, кто виджеты и рисует.
+extension FcThemeOfSpec on FcThemeSpec {
+  FcTheme get theme => FcTheme(colors: colors, metrics: metrics, icons: icons, fonts: fonts);
 }

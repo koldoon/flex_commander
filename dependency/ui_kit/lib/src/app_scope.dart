@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import '../app/application.dart';
-import '../app/panel.dart';
+import 'package:fc_api/fc_api.dart';
 
 /// Доступ к состоянию приложения из дерева виджетов.
 ///

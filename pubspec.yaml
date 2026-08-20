@@ -32,6 +32,7 @@ workspace:
   - dependency/panels
   - dependency/ssh
   - dependency/test_kit
+  - dependency/ui_kit
   - dependency/viewer
   - dependency/zip_archiver
 
@@ -68,6 +69,8 @@ dependencies:
 
   fc_ssh:
     path: dependency/ssh
+  fc_ui_kit:
+    path: dependency/ui_kit
 
   fc_viewer:
     path: dependency/viewer

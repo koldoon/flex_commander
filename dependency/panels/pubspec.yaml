@@ -15,6 +15,9 @@ dependencies:
   fc_api:
     path: ../api
 
+  fc_ui_kit:
+    path: ../ui_kit
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

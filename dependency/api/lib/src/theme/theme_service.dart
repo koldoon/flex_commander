@@ -4,7 +4,6 @@ import 'app_colors.dart';
 import 'app_metrics.dart';
 import 'fc_fonts.dart';
 import 'fc_icons.dart';
-import 'fc_theme.dart';
 
 /// Оформление, которое предлагает модуль.
 ///
@@ -36,9 +35,8 @@ class FcThemeSpec {
   final FcIcons icons;
   final FcFonts fonts;
 
-  /// Значения темы в виде расширения, которое виджеты достают через
-  /// [FcTheme.of].
-  FcTheme get theme => FcTheme(colors: colors, metrics: metrics, icons: icons, fonts: fonts);
+  // Как из этих значений собрать расширение темы для дерева виджетов, знает
+  // `fc_ui_kit`: здесь объявлено, что за роли есть, а не чем их рисуют.
 }
 
 /// Оформление приложения: какое есть и какое выбрано.

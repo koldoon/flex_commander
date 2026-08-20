@@ -13,6 +13,8 @@ library;
 export 'src/app/application.dart';
 export 'src/app/panel.dart';
 export 'src/app/panel_selection.dart';
+export 'src/app/panel_viewport.dart';
+export 'src/app/screen.dart';
 export 'src/app/toasts.dart';
 
 // --- Дерево и провайдеры ---
@@ -39,11 +41,8 @@ export 'src/commands/command_service.dart';
 export 'src/commands/framework/framework.dart';
 export 'src/commands/key_combination.dart';
 
-// --- Фоновые работы и содержимое панели ---
+// --- Фоновые работы ---
 export 'src/background/task_status.dart';
-export 'src/ui/panel_frame.dart';
-export 'src/ui/panel_viewport.dart';
-export 'src/ui/screen.dart';
 
 // --- Модули ---
 export 'src/module/fc_module.dart';
@@ -56,17 +55,12 @@ export 'src/settings/app_settings.dart';
 export 'src/settings/module_settings.dart';
 export 'src/settings/window_geometry.dart';
 
-// --- Элементы интерфейса ---
-export 'src/ui/app_scope.dart';
-export 'src/ui/controls.dart';
-export 'src/ui/dialog/command_dialog.dart';
-export 'src/ui/key_value_table.dart';
-export 'src/ui/theme/app_colors.dart';
-export 'src/ui/theme/app_metrics.dart';
-export 'src/ui/theme/fc_fonts.dart';
-export 'src/ui/theme/fc_icons.dart';
-export 'src/ui/theme/fc_theme.dart';
-export 'src/ui/theme/theme_service.dart';
+// --- Оформление: роли, а не то, чем их рисуют ---
+export 'src/theme/app_colors.dart';
+export 'src/theme/app_metrics.dart';
+export 'src/theme/fc_fonts.dart';
+export 'src/theme/fc_icons.dart';
+export 'src/theme/theme_service.dart';
 
 // --- Служебное ---
 export 'src/format/date_format.dart';
