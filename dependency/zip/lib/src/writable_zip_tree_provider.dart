@@ -249,22 +249,16 @@ class WritableZipTreeProvider extends ZipTreeProvider implements NodeEditor, Fil
 
   String _asDirectoryName(String name) => name.endsWith('/') ? name : '$name/';
 
-  bool _isRemoved(String entryName) {
-    for (final removed in _removed) {
-      if (entryName == removed ||
-          entryName == _asDirectoryName(removed) ||
-          entryName.startsWith(_asDirectoryName(removed))) {
-        return true;
-      }
-    }
-    return false;
-  }
-
   /// Собирает архив заново: старые записи, кроме удалённых и перезаписанных,
   /// плюс новые.
   ///
   /// Пересборка идёт во временный файл и подменяет исходный одним движением:
   /// оборванная на середине работа не должна оставить испорченный архив.
+  ///
+  /// Сама сборка — в отдельном изоляте (`repackZipArchive`): и разбор, и сжатие
+  /// в `archive` синхронные, а идёт пересборка после записи, когда счётчик уже
+  /// показал «готово». Замереть на ней значит выглядеть зависшим ровно тогда,
+  /// когда человек ждёт конца работы.
   Future<void> _repack() async {
     final directory = await _incomingDirectory();
     final target = p.join(directory.path, 'repacked.zip');
@@ -272,40 +266,13 @@ class WritableZipTreeProvider extends ZipTreeProvider implements NodeEditor, Fil
     // Открытый на чтение архив держит файл: на Windows подменить его нельзя.
     await _closeArchive();
 
-    final input = InputFileStream(archivePath);
-    final output = OutputFileStream(target);
-    final encoder = ZipEncoder()..startEncode(output);
-    final staged = <InputFileStream>[];
-
-    try {
-      final existing = ZipDecoder().decodeStream(input);
-      for (final file in existing.files) {
-        if (_isRemoved(file.name) || _added.containsKey(file.name)) {
-          continue;
-        }
-        encoder.add(file);
-      }
-
-      for (final name in _addedDirs) {
-        encoder.add(ArchiveFile.directory(name));
-      }
-
-      for (final entry in _added.entries) {
-        final content = InputFileStream(entry.value);
-        staged.add(content);
-        encoder.add(ArchiveFile.stream(entry.key, content));
-      }
-
-      encoder.endEncode();
-    } on ArchiveException catch (error) {
-      throw FsError(archivePath, FsErrorKind.io, error);
-    } finally {
-      await output.close();
-      await input.close();
-      for (final content in staged) {
-        await content.close();
-      }
-    }
+    await repackZipArchive(
+      archivePath: archivePath,
+      targetPath: target,
+      removed: Set.of(_removed),
+      addedDirectories: Set.of(_addedDirs),
+      added: Map.of(_added),
+    );
 
     await File(target).rename(archivePath);
 

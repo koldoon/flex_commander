@@ -28,10 +28,10 @@ void main() {
     }
   });
 
-  List<ZipEntry> entries() => [
-    const ZipEntry.directory('docs'),
-    ZipEntry.file('docs/notes.txt', p.join(root, 'notes.txt')),
-    ZipEntry.file('docs/readme.md', p.join(root, 'readme.md')),
+  List<ZipItem> entries() => [
+    const ZipItem.directory('docs'),
+    ZipItem.file('docs/notes.txt', p.join(root, 'notes.txt')),
+    ZipItem.file('docs/readme.md', p.join(root, 'readme.md')),
   ];
 
   Future<void> pack({
