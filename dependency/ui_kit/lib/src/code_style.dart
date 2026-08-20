@@ -31,10 +31,18 @@ CodeEditorStyle codeStyle(FcTheme theme, TextStyle base, String? language) {
     textColor: colors.rowText,
     cursorColor: colors.markedBar,
     selectionColor: colors.inputSelection,
-    codeTheme: CodeHighlightTheme(
-      languages: {if (mode != null) language!: CodeHighlightThemeMode(mode: mode)},
-      theme: syntaxTheme(colors, base),
-    ),
+    // Язык не опознан — темы подсветки нет вовсе, а не пустая.
+    //
+    // Пустая карта языков роняет разбор: он считает по ней минимальный размер
+    // файла (`reduce`) и падает на пустом списке — в изоляте, то есть молча и
+    // мимо любого нашего try. Наткнулись на `.log`.
+    codeTheme:
+        mode == null
+            ? null
+            : CodeHighlightTheme(
+              languages: {language!: CodeHighlightThemeMode(mode: mode)},
+              theme: syntaxTheme(colors, base),
+            ),
   );
 }
 

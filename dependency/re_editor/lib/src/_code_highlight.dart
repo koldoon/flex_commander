@@ -213,7 +213,10 @@ class _CodeHighlightEngine {
       return;
     }
     final Map<String, CodeHighlightThemeMode>? modes = _theme?.languages;
-    if (modes == null) {
+    // FLEX COMMANDER: пустая карта языков — это «подсвечивать нечем», а не
+    // повод падать. В апстриме дальше считался минимум по пустому списку
+    // (`reduce`), и разбор умирал в изоляте — молча. См. README.md.
+    if (modes == null || modes.isEmpty) {
       callback(const []);
       return;
     }
