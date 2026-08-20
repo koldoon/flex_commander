@@ -158,6 +158,40 @@ void main() {
     expect(commands().isExecutable(commands().find('file.move')!), isFalse);
   });
 
+  group('символические ссылки', () {
+    setUp(() async {
+      provider.add(FakeEntry.link('/home/shortcut', '/home/docs'));
+      // Панель прочитала каталог при запуске — новый объект она увидит только
+      // после перечитывания.
+      await app.left.reload();
+    });
+
+    test('по умолчанию по ссылкам не идём — как в mc', () async {
+      final command = transfer();
+
+      expect(command.param<bool>(TransferCommandBase.followLinksParam) ?? false, isFalse);
+    });
+
+    test('не следуем — в приёмнике оказывается ссылка, а не копия каталога', () async {
+      app.left.setCursorToName('shortcut');
+
+      await transfer().execute();
+
+      final copied = await provider.resolvePath('/backup/shortcut').result;
+      expect(copied, isA<LinkNode>());
+    });
+
+    test('следуем — в приёмнике оказывается содержимое цели', () async {
+      app.left.setCursorToName('shortcut');
+      final command = transfer()..setParam(TransferCommandBase.followLinksParam, true);
+
+      await command.execute();
+
+      // Пошли по ссылке: скопировался каталог, на который она указывает.
+      expect(await provider.resolvePath('/backup/shortcut/readme.md').result, isNotNull);
+    });
+  });
+
   group('источник только для чтения', () {
     /// Левая панель — архив, открытый на просмотр: дерево и содержимое есть,
     /// менять нечем. Правая — обычный диск.

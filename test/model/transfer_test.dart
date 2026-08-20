@@ -318,10 +318,21 @@ void main() {
       expect(await File(p.join(target, 'docs', 'nested', 'deep.txt')).readAsString(), 'deep');
     });
 
-    test('ссылка приезжает файлом: цели в чужом дереве нет', () async {
+    test('ссылку чужому приёмнику передать нечем — по умолчанию пропускается', () async {
+      // Байтового представления у ссылки нет, а подменять её содержимым цели
+      // молча нельзя: это разные вещи и по размеру, и по смыслу. Окна здесь
+      // нет, поэтому берётся ответ по умолчанию — «пропустить».
       final nodes = await listRoot();
 
       await editor.copy([nodes['link-to-notes']!], await remoteTarget()).result;
+
+      expect(await File(p.join(target, 'link-to-notes')).exists(), isFalse);
+    });
+
+    test('следуем по ссылке — приезжает файл: цели в чужом дереве нет', () async {
+      final nodes = await listRoot();
+
+      await editor.copy([nodes['link-to-notes']!], await remoteTarget(), followLinks: true).result;
 
       final copied = p.join(target, 'link-to-notes');
       expect(FileSystemEntity.isLinkSync(copied), isFalse);

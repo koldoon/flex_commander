@@ -131,6 +131,18 @@ class InMemoryReadOnlyProvider implements TreeProvider {
     return _join(segments);
   }
 
+  /// Путь самого объекта: ссылка остаётся ссылкой, а не разворачивается.
+  ///
+  /// Так же устроен настоящий провайдер: копировать ссылку — значит копировать
+  /// её саму, и путь для этого нужен её собственный.
+  String entityPathOf(FsNode node) {
+    final parent = node.parent;
+    if (parent == null) {
+      return physicalPathOf(node);
+    }
+    return p.normalize(p.join(physicalPathOf(parent), node.name));
+  }
+
   String _join(List<String> segments) {
     if (segments.isEmpty) {
       return '/';
@@ -363,7 +375,8 @@ class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEdito
   /// Копия объекта: файлы и ссылки, каталог создаёт и обходит движок.
   @override
   Future<bool> copyEntry(FsNode node, DirectoryNode destination, String name) async {
-    final source = p.normalize(physicalPathOf(node));
+    // Именно свой путь, а не развёрнутый: ссылка копируется ссылкой.
+    final source = p.normalize(entityPathOf(node));
     final entry = _entries[source];
     if (entry == null) {
       throw FsError(source, FsErrorKind.notFound);

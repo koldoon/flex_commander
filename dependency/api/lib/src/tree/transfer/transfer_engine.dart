@@ -54,11 +54,12 @@ class TreeTransferEngine implements TreeEditor {
   }
 
   @override
-  AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination) =>
-      _transfer(nodes, destination, move: false);
+  AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination, {bool followLinks = false}) =>
+      _transfer(nodes, destination, move: false, followLinks: followLinks);
 
   @override
-  AsyncOperation<void> move(List<FsNode> nodes, DirectoryNode destination) => _transfer(nodes, destination, move: true);
+  AsyncOperation<void> move(List<FsNode> nodes, DirectoryNode destination, {bool followLinks = false}) =>
+      _transfer(nodes, destination, move: true, followLinks: followLinks);
 
   /// Копирование и перемещение — одна работа с одним отличием в конце:
   /// перемещение убирает исходный объект.
@@ -66,7 +67,12 @@ class TreeTransferEngine implements TreeEditor {
   /// Существующий объект не перезаписывается молча: операция спрашивает, что
   /// делать, и запоминает ответы «…все». Ошибка на одном объекте не прекращает
   /// работу — вопрос задаётся и по ней.
-  AsyncOperation<void> _transfer(List<FsNode> nodes, DirectoryNode destination, {required bool move}) {
+  AsyncOperation<void> _transfer(
+    List<FsNode> nodes,
+    DirectoryNode destination, {
+    required bool move,
+    bool followLinks = false,
+  }) {
     return TaskOperation<void>((op) async {
       // Приёмник проверяется до начала работы: менять «куда» по ходу нечем,
       // и спрашивать об этом по каждому объекту незачем.
@@ -89,6 +95,7 @@ class TreeTransferEngine implements TreeEditor {
       }
       var overwriteAll = false;
       var skipAll = false;
+      final links = _LinkPolicy(follow: followLinks);
 
       // Подсчёт идёт рядом с работой, а не перед ней: обойти большое дерево
       // стоит почти столько же, сколько его скопировать, и стоять всё это время
@@ -178,7 +185,7 @@ class TreeTransferEngine implements TreeEditor {
               continue;
             }
 
-            await _copyTree(source, target, node, destination, node.name, op, progress);
+            await _copyTree(source, target, node, destination, node.name, op, progress, links);
             if (move) {
               await _purge(source!, node, op);
             }
@@ -289,8 +296,7 @@ class TreeTransferEngine implements TreeEditor {
   ///
   /// Каталог создаётся и обходится здесь, а не отдаётся провайдеру целиком:
   /// иначе о копировании тысячи файлов было бы известно только «начали» и
-  /// «кончили», а прервать его было бы негде. Ссылка копируется как ссылка —
-  /// это дело примитива, движок про ссылки ничего не решает.
+  /// «кончили», а прервать его было бы негде.
   Future<void> _copyTree(
     NodeEditor? source,
     NodeEditor target,
@@ -299,16 +305,34 @@ class TreeTransferEngine implements TreeEditor {
     String name,
     TaskOperation<void> op,
     TransferProgress progress,
+    _LinkPolicy links,
   ) async {
     await op.checkpoint();
     progress.advance(node.name);
+
+    // Ссылка разбирается до того, как узел сочтут файлом: ссылка на каталог
+    // файлом не является, и поток по ней открыть нельзя — на этом падала
+    // упаковка каталога с `.framework` внутри.
+    if (node is LinkNode) {
+      final FsNode? followed = await _resolveLink(source, target, node, destination, name, op, progress, links);
+      if (followed == null) {
+        return;
+      }
+      // Пошли по ссылке: дальше работаем с целью, но под именем ссылки.
+      try {
+        await _copyTree(source, target, followed, destination, name, op, progress, links);
+      } finally {
+        links.leaveLink(node);
+      }
+      return;
+    }
 
     if (node is DirectoryNode) {
       final created = await target.createDirectory(destination, name);
       // Содержимое вычитывается целиком, а не по ходу копирования: читать тот
       // же каталог, добавляя в него объекты, — верный способ уйти в петлю.
       for (final child in await node.provider.listChildren(node)) {
-        await _copyTree(source, target, child, created, child.name, op, progress);
+        await _copyTree(source, target, child, created, child.name, op, progress, links);
       }
       return;
     }
@@ -336,6 +360,78 @@ class TreeTransferEngine implements TreeEditor {
     // внешней программой); `LocalCopySession` для этого готова — ею уже
     // пользуется zip, чтобы открыться поверх чужого источника.
     throw FsError(node.pathString, FsErrorKind.notSupported);
+  }
+
+  /// Что делать со ссылкой: сохранить ссылкой, пропустить или пойти по ней.
+  ///
+  /// Возвращает цель, если по ссылке решено пойти; null — со ссылкой уже
+  /// разобрались (сохранили или пропустили), звать дальше нечего.
+  Future<FsNode?> _resolveLink(
+    NodeEditor? source,
+    NodeEditor target,
+    LinkNode node,
+    DirectoryNode destination,
+    String name,
+    TaskOperation<void> op,
+    TransferProgress progress,
+    _LinkPolicy links,
+  ) async {
+    if (!links.follow) {
+      // Ссылка ссылкой — это дело примитива провайдера: локальная ФС создаёт
+      // `Link`. Чужому приёмнику её не передать: байтового представления у
+      // ссылки нет, а подменять её содержимым молча нельзя.
+      if (source != null && identical(source, target) && await source.copyEntry(node, destination, name)) {
+        progress.advanceBytes(node.size < 0 ? 0 : node.size);
+        return null;
+      }
+      await _askAboutLink(op, node, links);
+      return null;
+    }
+
+    if (!links.enterLink(node)) {
+      // По этой ссылке мы уже идём выше по ветке: `dir/sub/link → dir`. Пойти
+      // по ней снова — уйти в бесконечность, а промолчать — незаметно
+      // выбросить часть работы. Поэтому спрашиваем, как и про всё прочее.
+      await _askAboutLink(op, node, links, recursive: true);
+      return null;
+    }
+
+    final FsNode? followed = await node.resolve().result;
+    if (followed == null) {
+      // Битая ссылка: идти некуда, и это не повод рушить всю работу.
+      links.leaveLink(node);
+      await _askAboutLink(op, node, links);
+      return null;
+    }
+    return followed;
+  }
+
+  /// Вопрос про ссылку — тот же, что при отказах: пропустить, пропустить все,
+  /// отменить.
+  Future<void> _askAboutLink(TaskOperation<void> op, LinkNode node, _LinkPolicy links, {bool recursive = false}) async {
+    if (links.skipAll) {
+      return;
+    }
+
+    final answer = await op.ask(
+      OperationRequest(
+        message:
+            recursive
+                ? 'The link «${node.name}» points into the directory being copied'
+                : 'Cannot store the link «${node.name}» as a link here',
+        options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
+        // Подменять ссылку её содержимым молча нельзя: это разные вещи и по
+        // размеру, и по смыслу.
+        defaultOption: OperationOption.skip,
+      ),
+    );
+
+    if (answer == OperationOption.cancel) {
+      throw const OperationCanceled();
+    }
+    if (answer == OperationOption.skipAll) {
+      links.skipAll = true;
+    }
   }
 
   /// [TransferStrategy.stream]: `openRead → openWrite`.
@@ -518,4 +614,44 @@ class TreeTransferEngine implements TreeEditor {
 /// Работа кончилась раньше подсчёта — обход пора прекращать.
 class _CountingStopped implements Exception {
   const _CountingStopped();
+}
+
+/// Что делать со ссылками в этой работе.
+///
+/// Живёт на всю работу, а не на объект: «пропустить все» должно действовать до
+/// конца, а пройденные цели — помнить всю ветку обхода.
+class _LinkPolicy {
+  _LinkPolicy({required this.follow});
+
+  /// Идти по ссылкам или переносить их ссылками.
+  final bool follow;
+
+  /// Больше не спрашивать: пропускать все ссылки, которые сохранить нечем.
+  bool skipAll = false;
+
+  /// Дальше этого числа вложенных ссылок не идём.
+  ///
+  /// Предохранитель на случай, когда петлю не опознать по цели: относительные
+  /// ссылки (`../..`) могут ходить по кругу, ни разу не повторившись строкой.
+  static const int maxDepth = 32;
+
+  /// Куда ведут ссылки, по которым мы сейчас идём, — вся ветка обхода.
+  ///
+  /// Именно ветка: одна и та же ссылка может честно встретиться в разных
+  /// ветках, и это не петля. А вот встреча с ней **внутри неё самой** — петля
+  /// и есть.
+  ///
+  /// По цели, а не по пути: цель ссылки остаётся ребёнком самой ссылки, и путь
+  /// у неё идёт через ссылку — сравнивать пути бесполезно.
+  final Set<String> _following = {};
+
+  /// Входим в ссылку. false — по ней уже идём или зашли слишком глубоко.
+  bool enterLink(LinkNode node) {
+    if (_following.length >= maxDepth) {
+      return false;
+    }
+    return _following.add(node.reference);
+  }
+
+  void leaveLink(LinkNode node) => _following.remove(node.reference);
 }

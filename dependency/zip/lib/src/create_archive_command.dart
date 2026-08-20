@@ -52,6 +52,10 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
   /// Степень сжатия — имя значения [ZipCompression].
   static const String compressionParam = 'compression';
 
+  /// Идти ли по символическим ссылкам. По умолчанию нет: ссылка ложится в
+  /// архив ссылкой, как в mc.
+  static const String followLinksParam = 'followLinks';
+
   final StagingArea _staging;
 
   @override
@@ -136,6 +140,8 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
       // столько же, сколько его упаковать.
       unawaited(_count(sources, progress));
 
+      final links = _Links(follow: param<bool>(followLinksParam) ?? false);
+
       final staged = await _staging.open('flex_commander_zip_create');
       final copies = LocalCopySession(_staging, prefix: 'flex_commander_zip_source');
       final archivePath = p.join(staged.path, name);
@@ -152,7 +158,7 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
             // Объекты и байты считает сам обход: `sourceDoneWholly` здесь
             // добавил бы их второй раз — он для работ, которые проходят
             // источник целиком одним действием.
-            await _addNode(encoder, source, source.name, copies, opened, op, progress);
+            await _addNode(encoder, source, source.name, copies, opened, op, progress, links);
           }
           encoder.endEncode();
         } finally {
@@ -190,8 +196,25 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
     List<InputFileStream> opened,
     TaskOperation<void> op,
     TransferProgress progress,
+    _Links links,
   ) async {
     await op.checkpoint();
+
+    // Ссылка разбирается до того, как узел сочтут файлом: ссылка на каталог
+    // файлом не является, и поток по ней не открыть — на этом и падала
+    // упаковка каталога с `.framework` внутри.
+    if (node is LinkNode) {
+      final FsNode? followed = await _addLink(encoder, node, entryName, op, links);
+      if (followed == null) {
+        return;
+      }
+      try {
+        await _addNode(encoder, followed, entryName, copies, opened, op, progress, links);
+      } finally {
+        links.leaveLink(node);
+      }
+      return;
+    }
 
     if (node is DirectoryNode) {
       // Пустой каталог иначе пропал бы: в zip он существует только записью.
@@ -199,7 +222,7 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
       progress.advance(node.name);
 
       for (final child in await node.provider.listChildren(node)) {
-        await _addNode(encoder, child, '$entryName/${child.name}', copies, opened, op, progress);
+        await _addNode(encoder, child, '$entryName/${child.name}', copies, opened, op, progress, links);
       }
       return;
     }
@@ -218,6 +241,69 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
     // движение и внутри одного большого файла, а не только между файлами.
     encoder.add(ArchiveFile.stream(entryName, CountingInputStream(content, progress.advanceBytes)));
     progress.advance(node.name);
+  }
+
+  /// Что делать со ссылкой: положить записью-ссылкой или пойти по ней.
+  ///
+  /// Возвращает цель, если решено идти; null — со ссылкой уже разобрались.
+  Future<FsNode?> _addLink(
+    ZipEncoder encoder,
+    LinkNode node,
+    String entryName,
+    TaskOperation<void> op,
+    _Links links,
+  ) async {
+    if (!links.follow) {
+      // Ссылку в архив положить нечем.
+      //
+      // В zip она хранится файлом с правами UNIX (`S_IFLNK`) и признаком
+      // «создано на UNIX» в заголовке. Библиотека `archive` пишет заголовок
+      // всегда с признаком MS-DOS, поэтому такую запись не узнал бы даже её
+      // собственный распаковщик. Подменять ссылку содержимым цели молча
+      // нельзя — спрашиваем, как и при отказах.
+      await _askAboutLink(op, node, links, kind: _LinkTrouble.cannotStore);
+      return null;
+    }
+
+    if (!links.enterLink(node)) {
+      // По этой ссылке мы уже идём выше по ветке: `docs/loop → docs`.
+      await _askAboutLink(op, node, links, kind: _LinkTrouble.recursive);
+      return null;
+    }
+
+    final FsNode? followed = await node.resolve().result;
+    if (followed == null) {
+      links.leaveLink(node);
+      await _askAboutLink(op, node, links, kind: _LinkTrouble.broken);
+      return null;
+    }
+    return followed;
+  }
+
+  /// Вопрос про ссылку — тот же, что при отказах.
+  Future<void> _askAboutLink(TaskOperation<void> op, LinkNode node, _Links links, {required _LinkTrouble kind}) async {
+    if (links.skipAll) {
+      return;
+    }
+
+    final answer = await op.ask(
+      OperationRequest(
+        message: switch (kind) {
+          _LinkTrouble.cannotStore => 'Cannot store the link «${node.name}» in a zip archive',
+          _LinkTrouble.recursive => 'The link «${node.name}» points into the directory being packed',
+          _LinkTrouble.broken => 'The link «${node.name}» leads nowhere',
+        },
+        options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
+        defaultOption: OperationOption.skip,
+      ),
+    );
+
+    if (answer == OperationOption.cancel) {
+      throw const OperationCanceled();
+    }
+    if (answer == OperationOption.skipAll) {
+      links.skipAll = true;
+    }
   }
 
   /// Передаёт готовый архив приёмнику — тем же байтовым контрактом, которым
@@ -385,6 +471,13 @@ class _CreateArchiveFormState extends State<_CreateArchiveForm> {
             onSubmitted: (_) => widget.command.submit(),
           ),
         ),
+        // Ссылки: по умолчанию ложатся в архив ссылками, как в mc.
+        FcCheckbox(
+          label: 'Follow symlinks',
+          value: widget.command.param<bool>(CreateZipArchiveCommand.followLinksParam) ?? false,
+          onChanged:
+              (value) => setState(() => widget.command.setParam(CreateZipArchiveCommand.followLinksParam, value)),
+        ),
         CommandDialogField(
           label: 'Compression',
           child: FcRadioGroup<ZipCompression>(
@@ -401,3 +494,38 @@ class _CreateArchiveFormState extends State<_CreateArchiveForm> {
     );
   }
 }
+
+/// Что делать со ссылками при упаковке.
+///
+/// Своя, а не общая с движком переноса: у движка вопрос «умеет ли приёмник
+/// хранить ссылку», а zip умеет всегда — здесь решается только «класть ссылкой
+/// или идти по ней».
+class _Links {
+  _Links({required this.follow});
+
+  /// Дальше этого числа вложенных ссылок не идём: относительные ссылки могут
+  /// ходить по кругу, ни разу не повторившись строкой.
+  static const int maxDepth = 32;
+
+  final bool follow;
+
+  bool skipAll = false;
+
+  /// Куда ведут ссылки, по которым мы сейчас идём.
+  ///
+  /// По цели, а не по пути: цель ссылки остаётся ребёнком самой ссылки, и путь
+  /// у неё идёт через ссылку — сравнивать пути бесполезно.
+  final Set<String> _following = {};
+
+  bool enterLink(LinkNode node) {
+    if (_following.length >= maxDepth) {
+      return false;
+    }
+    return _following.add(node.reference);
+  }
+
+  void leaveLink(LinkNode node) => _following.remove(node.reference);
+}
+
+/// Что не так со ссылкой.
+enum _LinkTrouble { cannotStore, recursive, broken }

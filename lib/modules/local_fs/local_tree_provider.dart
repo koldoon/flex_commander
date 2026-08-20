@@ -106,6 +106,14 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
     if (parent == null) {
       return physicalPathOf(node);
     }
+    // Цель ссылки — особый случай: она стоит **под** самой ссылкой (так её
+    // возвращает `resolveLink`, чтобы панель показывала её там, где человек
+    // находится), и склейка «путь ссылки плюс имя цели» удвоила бы последний
+    // отрезок: `…/notes.txt/notes.txt`. Свой путь у такой цели и есть путь
+    // ссылки, развёрнутый.
+    if (parent is LinkNode && identical(parent.target, node)) {
+      return physicalPathOf(node);
+    }
     return p.join(physicalPathOf(parent), node.name);
   }
 
