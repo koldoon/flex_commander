@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fc_api/fc_api.dart';
 import 'package:flutter/material.dart';
 
@@ -27,6 +29,10 @@ class _ViewerViewState extends State<ViewerView> {
   /// Ширина знака моноширинного шрифта — по ней считается ширина холста.
   double _charWidth = 0;
 
+  /// Поля вокруг текста. Полосы прокрутки в них не входят: они стоят по краю
+  /// панели, а поля отодвигают от них сам текст.
+  EdgeInsets _textPadding = EdgeInsets.zero;
+
   final ScrollController _vertical = ScrollController();
   final ScrollController _horizontal = ScrollController();
 
@@ -46,6 +52,11 @@ class _ViewerViewState extends State<ViewerView> {
       fontSize: theme.metrics.fontSize,
       color: theme.colors.rowText,
       height: 1.35,
+    );
+
+    _textPadding = EdgeInsets.symmetric(
+      horizontal: theme.metrics.panelLeftPadding,
+      vertical: theme.metrics.cellPadding,
     );
 
     if (_style == style) {
@@ -139,11 +150,10 @@ class _ViewerViewState extends State<ViewerView> {
                     color: theme.colors.panelBackground,
                     border: Border.all(color: theme.colors.panelBorder, width: theme.metrics.strokeWidth),
                   ),
+                  // Отступ здесь — только для полос прокрутки: они стоят по
+                  // краю панели, а текст отодвигают уже свои поля.
                   child: Padding(
-                    padding: EdgeInsets.symmetric(
-                      horizontal: theme.metrics.panelLeftPadding,
-                      vertical: theme.metrics.cellPadding,
-                    ),
+                    padding: EdgeInsets.all(theme.metrics.scrollbarInset),
                     child: widget.screen.wordWrap ? _wrapped() : _plain(),
                   ),
                 ),
@@ -155,41 +165,61 @@ class _ViewerViewState extends State<ViewerView> {
     );
   }
 
-  /// Без переноса: холст шире окна, и его возят по обеим осям.
+  /// Без переноса: холст бывает шире окна, и тогда его возят по обеим осям.
+  ///
+  /// Уже окна холст не бывает: у длинного, но узкого файла он растягивается до
+  /// края. Иначе вертикальная полоса прокрутки вставала бы по правому краю
+  /// **текста** — посреди пустого места, — а не по краю окна, где её ищут.
   Widget _plain() {
-    final width = widget.screen.document.longestLine * _charWidth + _charWidth;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final text = widget.screen.document.longestLine * _charWidth + _charWidth + _textPadding.horizontal;
 
-    return Scrollbar(
-      controller: _horizontal,
-      child: SingleChildScrollView(
-        controller: _horizontal,
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(width: width, child: _lines(softWrap: false)),
-      ),
+        return Scrollbar(
+          controller: _vertical,
+          // Видна всегда, а не только пока крутят: полоса заодно показывает,
+          // насколько файл длиннее окна, — а исчезающая говорит об этом лишь
+          // тому, кто уже крутит.
+          thumbVisibility: true,
+          // Вертикальная полоса — **снаружи** горизонтальной прокрутки, потому
+          // и по краю окна. Список из-за этого лежит на уровень глубже, и
+          // уведомления от него приходят с глубиной 1.
+          notificationPredicate: (notification) => notification.depth == 1,
+          child: Scrollbar(
+            controller: _horizontal,
+            thumbVisibility: true,
+            child: SingleChildScrollView(
+              controller: _horizontal,
+              scrollDirection: Axis.horizontal,
+              child: SizedBox(width: math.max(text, constraints.maxWidth), child: _lines(softWrap: false)),
+            ),
+          ),
+        );
+      },
     );
   }
 
   /// С переносом: возить по ширине нечего, длинная строка занимает несколько
   /// экранных.
-  Widget _wrapped() => _lines(softWrap: true);
+  Widget _wrapped() => Scrollbar(controller: _vertical, thumbVisibility: true, child: _lines(softWrap: true));
 
   Widget _lines({required bool softWrap}) {
     final spans = _spans ?? const <TextSpan>[];
 
-    return Scrollbar(
+    return ListView.builder(
       controller: _vertical,
-      child: ListView.builder(
-        controller: _vertical,
-        // Прокрутка стрелками и PgUp/PgDn — забота самого списка: экран
-        // забирает фокус себе (`takesFocus`), и события доходят до него.
-        primary: false,
-        itemCount: spans.length,
-        // Строки одной высоты — список знает, где какая, и не раскладывает
-        // всё подряд ради прокрутки. С переносом высота у строк разная, и
-        // подсказку дать нечем.
-        itemExtent: softWrap ? null : _lineHeight,
-        itemBuilder: (context, index) => Text.rich(spans[index], softWrap: softWrap, maxLines: softWrap ? null : 1),
-      ),
+      // Поля вокруг текста — у списка, а не снаружи полос: иначе полосы
+      // отъехали бы от рамки вместе с текстом.
+      padding: _textPadding,
+      // Не главный список экрана: прокруткой с клавиатуры занимаются команды
+      // просмотрщика, а не фокус и не `PrimaryScrollController`.
+      primary: false,
+      itemCount: spans.length,
+      // Строки одной высоты — список знает, где какая, и не раскладывает всё
+      // подряд ради прокрутки. С переносом высота у строк разная, и подсказку
+      // дать нечем.
+      itemExtent: softWrap ? null : _lineHeight,
+      itemBuilder: (context, index) => Text.rich(spans[index], softWrap: softWrap, maxLines: softWrap ? null : 1),
     );
   }
 
