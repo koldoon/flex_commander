@@ -29,6 +29,7 @@ class ViewerView extends StatelessWidget {
       builder:
           (context, _) => FcTextView(
             controller: screen.controller,
+            finder: screen.finder,
             // Полный адрес, а не одно имя: файл может лежать в архиве или на
             // сервере, и по имени этого не видно. Размер — припиской.
             path: screen.node.displayPath,

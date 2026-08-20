@@ -160,7 +160,7 @@ CommandRegistry.dispatch(combination, app)
 |---|---|---|
 | `F5` | `file.copy` | копировать выбранное в каталог пассивной панели |
 | `F6` | `file.move` | перенести |
-| `F7`, `Shift-Cmd-N` | `file.mkdir` | создать каталог |
+| `F7`, `Shift-Cmd-N` | `file.mkdir` | создать каталог (в просмотрщике и редакторе `F7` — поиск: клавиша принадлежит экрану) |
 | `F8`, `Cmd-Backspace` | `file.remove` | удалить в корзину |
 | `Shift-F8`, `Shift-Cmd-Backspace` | `file.removePermanently` | удалить мимо корзины |
 | `F3` | `file.view` | просмотр файла во весь экран (`docs/screens.md`) |

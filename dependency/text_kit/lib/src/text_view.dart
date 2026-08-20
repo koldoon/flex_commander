@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:re_editor/re_editor.dart';
 
 import 'code_language.dart';
+import 'text_finder.dart';
 import 'text_shortcuts.dart';
 import 'text_style.dart';
 
@@ -17,6 +18,7 @@ class FcTextView extends StatefulWidget {
   const FcTextView({
     super.key,
     required this.controller,
+    this.finder,
     required this.path,
     required this.fileName,
     this.trailing,
@@ -29,6 +31,10 @@ class FcTextView extends StatefulWidget {
   /// Содержимое и курсор. Владеет им экран: сохранять или копировать просит
   /// команда, а она о виджетах ничего не знает.
   final CodeLineEditingController controller;
+
+  /// Поиск — им же владеет экран. Поле подсвечивает по нему **все** совпадения
+  /// само; своей панели поиска мы не рисуем, строку спрашивает окно команды.
+  final FcTextFinder? finder;
 
   /// Полный адрес файла — в заголовке. Не одно имя: файл может лежать в архиве
   /// или на сервере, и по имени этого не видно.
@@ -95,6 +101,7 @@ class _FcTextViewState extends State<FcTextView> {
         padding: EdgeInsets.all(theme.metrics.scrollbarInset),
         child: CodeEditor(
           controller: widget.controller,
+          findController: widget.finder?.findController,
           focusNode: _focus,
           readOnly: widget.readOnly,
           // В режиме чтения курсора не видно: править нечего, а мигающая

@@ -14,6 +14,19 @@ import 'package:re_editor/re_editor.dart';
 class FcTextShortcuts extends DefaultCodeShortcutsActivatorsBuilder {
   const FcTextShortcuts({this.released = const {CodeShortcutType.esc}});
 
+  /// Сочетания встроенного поиска — отпускаются **всегда**, независимо от
+  /// [released].
+  ///
+  /// `Cmd-F` принадлежит нашей команде, а панель, которую эти клавиши
+  /// открывали, мы не рисуем: нажатие уходило бы в пустоту. Отдельным
+  /// множеством, а не умолчанием [released], чтобы экран, назвавший свои
+  /// клавиши, не отменил это ненароком.
+  static const Set<CodeShortcutType> find = {
+    CodeShortcutType.find,
+    CodeShortcutType.findToggleMatchCase,
+    CodeShortcutType.findToggleRegex,
+  };
+
   /// Клавиши, которые принадлежат экрану, а не тексту.
   final Set<CodeShortcutType> released;
 
@@ -30,7 +43,7 @@ class FcTextShortcuts extends DefaultCodeShortcutsActivatorsBuilder {
 
   @override
   List<ShortcutActivator>? build(CodeShortcutType type) {
-    if (released.contains(type)) {
+    if (released.contains(type) || find.contains(type)) {
       return const [];
     }
 

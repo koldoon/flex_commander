@@ -172,6 +172,16 @@ void main() {
       expect(openEditor()!.showLineNumbers, isFalse);
     });
 
+    test('поиск в редакторе — на тех же клавишах, что в просмотрщике', () async {
+      await edit('notes.txt');
+
+      expect(runtime.commands.commandFor(KeyCombination.parse('F7'))?.id, TextEditor.findCommandId);
+      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-F'))?.id, TextEditor.findCommandId);
+      expect(runtime.commands.commandFor(KeyCombination.parse('Shift-F7'))?.id, TextEditor.findNextCommandId);
+      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-G'))?.id, TextEditor.findNextCommandId);
+      expect(runtime.commands.commandFor(KeyCombination.parse('Shift-Cmd-G'))?.id, TextEditor.findPreviousCommandId);
+    });
+
     test('панельные клавиши в редакторе молчат', () async {
       await edit('notes.txt');
 
