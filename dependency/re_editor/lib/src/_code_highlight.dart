@@ -213,9 +213,10 @@ class _CodeHighlightEngine {
       return;
     }
     final Map<String, CodeHighlightThemeMode>? modes = _theme?.languages;
-    // FLEX COMMANDER: пустая карта языков — это «подсвечивать нечем», а не
-    // повод падать. В апстриме дальше считался минимум по пустому списку
-    // (`reduce`), и разбор умирал в изоляте — молча. См. README.md.
+    // FLEX COMMANDER: an empty language map means there is nothing to
+    // highlight, which is not a reason to fail. Upstream went on to reduce an
+    // empty list of sizes, and highlighting died inside the isolate — with
+    // nothing but an unhandled exception in the console. See README.md.
     if (modes == null || modes.isEmpty) {
       callback(const []);
       return;

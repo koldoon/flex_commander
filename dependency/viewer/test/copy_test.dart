@@ -73,14 +73,17 @@ void main() {
     expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-C'))?.id, isNot(CopySelectionCommand.commandId));
   });
 
-  testWidgets('копирование отпущено команде, а не виджету', (tester) async {
-    // Иначе `Cmd-C` сработала бы дважды: своя команда и встроенное сочетание.
-    final screen = await openViewer();
-    await pumpScreen(tester, screen, app: runtime.app);
+  testWidgets(
+    'копирование отпущено команде, а не виджету',
+    (tester) async => withDesktopPlatform(() async {
+      // Иначе `Cmd-C` сработала бы дважды: своя команда и встроенное сочетание.
+      final screen = await openViewer();
+      await pumpScreen(tester, screen, app: runtime.app);
 
-    final view = tester.widget<FcCodeView>(find.byType(FcCodeView));
+      final view = tester.widget<FcCodeView>(find.byType(FcCodeView));
 
-    expect(view.shortcuts.released, contains(CodeShortcutType.copy));
-    await disposeScreen(tester);
-  });
+      expect(view.shortcuts.released, contains(CodeShortcutType.copy));
+      await disposeScreen(tester);
+    }),
+  );
 }
