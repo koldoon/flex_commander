@@ -64,6 +64,70 @@ void main() {
     expect(screens.active?.id, 'files');
     expect(notifications, before);
   });
+
+  group('стопка говорит и о том, что внутри верхнего экрана', () {
+    test('экран сообщил о себе — сообщила и стопка', () {
+      // Ряд функциональных кнопок подписан на стопку, а доступность его команд
+      // зависит от состояния экрана: есть ли в редакторе несохранённое.
+      final screen = _LivingScreen('editor');
+      screens.open(screen);
+      final before = notifications;
+
+      screen.change();
+
+      expect(notifications, before + 1);
+    });
+
+    test('закрытый экран больше не слышен', () {
+      final screen = _LivingScreen('editor');
+      screens.open(screen);
+      screens.close('editor');
+      final before = notifications;
+
+      screen.change();
+
+      expect(notifications, before);
+    });
+
+    test('слушают верхний, а не тот, что под ним', () {
+      final below = _LivingScreen('files');
+      final above = _LivingScreen('editor');
+      screens.open(below);
+      screens.open(above);
+      final before = notifications;
+
+      below.change();
+
+      expect(notifications, before, reason: 'нижний экран не виден — и говорить ему не о чем');
+
+      above.change();
+
+      expect(notifications, before + 1);
+    });
+
+    test('экран, который о себе не сообщает, стопке не мешает', () {
+      screens.open(const _Screen('files'));
+
+      expect(() => screens.close('files'), returnsNormally);
+    });
+  });
+}
+
+/// Экран, который сообщает о себе, — как настоящие: и редактор, и просмотрщик
+/// умеют меняться, пока открыты.
+class _LivingScreen extends ChangeNotifier implements Screen {
+  _LivingScreen(this.id);
+
+  @override
+  final String id;
+
+  @override
+  bool get takesFocus => true;
+
+  void change() => notifyListeners();
+
+  @override
+  Widget build(BuildContext context) => const SizedBox.shrink();
 }
 
 class _Screen implements Screen {

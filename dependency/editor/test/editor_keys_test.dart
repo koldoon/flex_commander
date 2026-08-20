@@ -6,6 +6,7 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flex_commander/view/function_bar/function_button.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:re_editor/re_editor.dart';
@@ -59,7 +60,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(runtime.app.activePanel, isNot(same(wasActive)), reason: 'приложение оглохло после редактора');
-    await tester.pump(const Duration(milliseconds: 20));
+    await disposeScreen(tester);
   });
 
   testWidgets('F2 сохраняет, а не переносит строки', (tester) async {
@@ -72,7 +73,25 @@ void main() {
 
     expect(await contentOf('/home/notes.txt'), 'новое содержимое');
     expect(screen.modified, isFalse);
-    await tester.pump(const Duration(milliseconds: 20));
+    await disposeScreen(tester);
+  });
+
+  testWidgets('F2 загорается, как только появилось несохранённое', (tester) async {
+    // Живая проверка показала обратное: правку сделали, а кнопка осталась
+    // приглушённой — ряд подписан на стопку экранов и о правке не узнавал.
+    final screen = await openEditor(tester);
+
+    FunctionButton save() =>
+        tester.widget<FunctionButton>(find.byWidgetPredicate((w) => w is FunctionButton && w.number == 2));
+
+    expect(save().label, 'Save');
+    expect(save().enabled, isFalse, reason: 'сохранять нечего: файл только открыли');
+
+    screen.controller.text = 'правка';
+    await tester.pump();
+
+    expect(save().enabled, isTrue);
+    await disposeScreen(tester);
   });
 
   testWidgets('фокус сразу в тексте: курсор доступен без щелчка мышью', (tester) async {
@@ -85,6 +104,6 @@ void main() {
     final editor = tester.widget<CodeEditor>(find.byType(CodeEditor));
 
     expect(editor.focusNode?.hasFocus, isTrue);
-    await tester.pump(const Duration(milliseconds: 20));
+    await disposeScreen(tester);
   });
 }
