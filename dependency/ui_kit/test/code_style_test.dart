@@ -37,10 +37,12 @@ void main() {
       expect(style.codeTheme?.languages.keys, ['sql']);
     });
 
-    test('язык не опознан — подсветки нет, но текст показывается', () {
+    test('язык не опознан — темы нет вовсе, но текст показывается', () {
+      // Не пустая карта языков, а именно `null`: по пустой разбор считает
+      // минимум `reduce`-ом и падает на пустом списке — в изоляте, молча.
       final style = codeStyle(theme, base, null);
 
-      expect(style.codeTheme?.languages, isEmpty);
+      expect(style.codeTheme, isNull);
       expect(style.textColor, isNotNull);
     });
 
