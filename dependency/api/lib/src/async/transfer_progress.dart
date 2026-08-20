@@ -36,6 +36,12 @@ class TransferProgress {
   /// Источники, обработанные целиком, но ещё не посчитанные.
   final Set<int> _wholeSources = {};
 
+  /// Плечо работы: который идёт, сколько всего и чем занято.
+  int _stage = 0;
+  int _stageCount = 0;
+  String _stageName = '';
+  bool _stageSized = true;
+
   int _processed = 0;
   int _total = 0;
   int _bytes = 0;
@@ -69,6 +75,23 @@ class TransferProgress {
 
   /// Работа кончилась — фоновому подсчёту пора остановиться.
   bool get stopped => _stopped;
+
+  /// Начинается очередное плечо работы.
+  ///
+  /// Плечи заводит тот, кто ведёт работу, и только там, где второе плечо
+  /// действительно долгое: упаковка и передача архива, запись в архив и его
+  /// пересборка. У обычного копирования плеч нет, и окно о них молчит.
+  ///
+  /// [sized] — известно ли, сколько в этом плече работы. Неизвестно (пересборка
+  /// архива) — доля не показывается вовсе: полоса, замершая на ста процентах,
+  /// выглядит как зависшая программа.
+  void beginStage(String name, {required int index, required int count, bool sized = true}) {
+    _stage = index;
+    _stageCount = count;
+    _stageName = name;
+    _stageSized = sized;
+    _report();
+  }
 
   /// Начало работы над очередным источником.
   void startSource(String name) {
@@ -114,6 +137,9 @@ class TransferProgress {
 
   /// Посчитан очередной объект размером [bytes].
   void countOne(int bytes) {
+    if (_stopped) {
+      return;
+    }
     _total++;
     if (bytes > 0) {
       _totalBytes += bytes;
@@ -127,7 +153,7 @@ class TransferProgress {
   /// упаковка сперва читает исходные байты, а потом отдаёт приёмнику готовый
   /// архив, и сколько в нём байт, видно только когда он собран.
   void countBytes(int bytes) {
-    if (bytes <= 0) {
+    if (bytes <= 0 || _stopped) {
       return;
     }
     _totalBytes += bytes;
@@ -149,6 +175,9 @@ class TransferProgress {
 
   /// В источнике [index] насчитано [count] объектов на [bytes] байт.
   void sourceCounted(int index, int count, int bytes) {
+    if (_stopped) {
+      return;
+    }
     _countedSources[index] = count;
     _countedBytes[index] = bytes;
     if (_wholeSources.remove(index)) {
@@ -159,10 +188,18 @@ class TransferProgress {
   }
 
   void countingFinished() {
+    if (_stopped) {
+      return;
+    }
     _counted = true;
     _report();
   }
 
+  /// Работа кончилась — фоновому подсчёту пора остановиться.
+  ///
+  /// Останавливается именно **подсчёт**, а не рассказ о ходе работы: после
+  /// этого может начаться последнее плечо — пересборка архива, — и молчать о
+  /// нём нельзя, иначе окно замрёт на «готово», пока идёт работа.
   void stop() => _stopped = true;
 
   /// Работа закончена.
@@ -171,6 +208,11 @@ class TransferProgress {
   /// подсчёт к этому моменту не успел дойти до конца — досчитывать его теперь
   /// значило бы обходить дерево ради числа, которое никому уже не нужно.
   void finish() {
+    // Этапы кончились вместе с работой: «Done» ни к какому плечу не относится.
+    _stage = 0;
+    _stageCount = 0;
+    _stageName = '';
+    _stageSized = true;
     final done = _processed > _total ? _processed : _total;
     final bytes = _bytes > _totalBytes ? _bytes : _totalBytes;
     _operation.report(
@@ -189,16 +231,14 @@ class TransferProgress {
   /// Сообщение уходит на каждое изменение: как часто перерисовываться, решает
   /// тот, кто показывает прогресс (см. `AsyncCommandBase`), — модель не должна
   /// гадать, кто и с какой частотой её слушает.
-  ///
-  /// После [stop] не уходит вовсе: работа кончилась, и фоновый подсчёт, который
-  /// ещё доскрипывает, не должен дописывать что-то после «Done».
   void _report() {
-    if (_stopped) {
-      return;
-    }
     _operation.report(
       OperationProgress(
         message: _current.isEmpty ? '$_verb…' : '$_verb $_current…',
+        stage: _stage,
+        stageCount: _stageCount,
+        stageName: _stageName,
+        indeterminate: !_stageSized,
         itemName: _item,
         itemBytes: _itemBytes,
         itemTotalBytes: _itemTotalBytes,

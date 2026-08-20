@@ -136,13 +136,33 @@ void main() {
     expect(progress.stopped, isTrue);
   });
 
-  test('после остановки сообщения не уходят: за «Done» дописывать нечего', () async {
+  test('после остановки фоновый подсчёт больше ничего не приписывает', () async {
+    progress.countOne(100);
+    progress.countingFinished();
+    await flush();
+    final counted = reports.last.total;
+
     progress.stop();
     progress.countOne(100);
-    progress.advance('late.txt');
+    progress.sourceCounted(1, 5, 500);
     await flush();
 
-    expect(reports, isEmpty);
+    // Досчитывать после конца работы нечего: числа остались теми же.
+    expect(reports.last.total, counted);
+    expect(reports.last.totalBytes, 100);
+  });
+
+  test('после остановки о последнем плече рассказать всё ещё можно', () async {
+    // Останавливается подсчёт, а не рассказ: за записью в архив идёт его
+    // пересборка, и молчать о ней нельзя — окно замерло бы на «готово», пока
+    // работа идёт.
+    progress.stop();
+    progress.beginStage('repacking archive', index: 2, count: 2, sized: false);
+    await flush();
+
+    expect(reports.last.stageName, 'repacking archive');
+    expect(reports.last.hasStages, isTrue);
+    expect(reports.last.percent, isNull, reason: 'сколько осталось — неизвестно');
   });
 
   group('байты', () {

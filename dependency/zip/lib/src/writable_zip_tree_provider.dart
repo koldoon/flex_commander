@@ -47,6 +47,12 @@ class WritableZipTreeProvider extends ZipTreeProvider implements NodeEditor, Fil
 
   // --- границы работы ---
 
+  /// Пересборка архива: старые записи плюс новые, целиком заново. На большом
+  /// архиве это дольше самой записи, поэтому окно операции показывает её
+  /// отдельным этапом.
+  @override
+  String get writesStageName => 'repacking archive';
+
   @override
   Future<void> beginWrites() async => _batchDepth++;
 

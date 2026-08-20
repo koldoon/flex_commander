@@ -395,6 +395,12 @@ abstract interface class AsyncCommand {
   /// Доля текущего объекта, 0…1; null — показывать нечего.
   double? get itemProgress;
 
+  /// Который этап идёт и чем занят: «2 of 2 — repacking archive».
+  ///
+  /// null — работа одноплечая, и говорить об этапах нечего. Строка собрана
+  /// здесь, а не в окне: как называть плечи, решает тот, кто их завёл.
+  String? get stageLabel;
+
   /// Скорость, байт в секунду; null — считать пока не из чего.
   double? get bytesPerSecond;
 

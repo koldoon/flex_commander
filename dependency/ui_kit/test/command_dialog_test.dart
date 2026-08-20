@@ -33,6 +33,48 @@ void main() {
     );
   }
 
+  Future<void> pumpProgress(WidgetTester tester, {String? stageLabel}) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: ThemeData(
+          extensions: const [
+            FcTheme(colors: DefaultColors(), metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts()),
+          ],
+        ),
+        home: Scaffold(
+          body: Center(
+            child: SizedBox(
+              width: 420,
+              child: CommandDialogProgress(
+                message: 'Copying notes.txt…',
+                stageLabel: stageLabel,
+                processed: 3,
+                total: 10,
+                onCancel: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  testWidgets('этап показан отдельной строкой', (tester) async {
+    // Он объясняет, почему счёт объектов уже полон, а работа идёт.
+    await pumpProgress(tester, stageLabel: '2 of 2 — repacking archive');
+
+    expect(find.text('Stage:'), findsOneWidget);
+    expect(find.text('2 of 2 — repacking archive'), findsOneWidget);
+  });
+
+  testWidgets('у одноплечей работы строки этапа нет вовсе', (tester) async {
+    // Большинство работ одноплечие, и лишняя строка в их окне ничего не
+    // сообщает.
+    await pumpProgress(tester);
+
+    expect(find.text('Stage:'), findsNothing);
+  });
+
   testWidgets('строки окна разделены общим зазором', (tester) async {
     // Иначе каждое окно расставляет его вручную, а забывшее — слепляет поля
     // друг с другом: ровно так и вышло с окном поиска.

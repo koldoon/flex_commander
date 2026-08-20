@@ -83,6 +83,9 @@ class TreeTransferEngine implements TreeEditor {
       // всё равно пауза, и она сдвигала бы начало работы у всех остальных.
       if (batch != null) {
         await batch.beginWrites();
+        // Плечи есть только у приёмника, который применяет накопленное разом:
+        // у обычного копирования этапов нет, и окно о них молчит.
+        progress.beginStage(move ? 'moving' : 'copying', index: 1, count: 2);
       }
       var overwriteAll = false;
       var skipAll = false;
@@ -199,6 +202,9 @@ class TreeTransferEngine implements TreeEditor {
         // Накопленное должно оказаться на месте при любом исходе: после
         // ошибки и отмены — тоже, иначе часть работы пропала бы молча.
         if (batch != null) {
+          // Второе плечо. Сколько в нём работы, не знает никто: доля не
+          // показывается, зато видно, что работа идёт.
+          progress.beginStage(batch.writesStageName, index: 2, count: 2, sized: false);
           await batch.endWrites();
         }
       }
@@ -224,6 +230,7 @@ class TreeTransferEngine implements TreeEditor {
           provider != null && nodes.every((node) => identical(node.provider, provider)) ? _batchOf(provider) : null;
       if (batch != null) {
         await batch.beginWrites();
+        progress.beginStage('deleting', index: 1, count: 2);
       }
 
       // Считаем рядом с работой, а не перед ней: см. TransferProgress.
@@ -269,6 +276,7 @@ class TreeTransferEngine implements TreeEditor {
       } finally {
         progress.stop();
         if (batch != null) {
+          progress.beginStage(batch.writesStageName, index: 2, count: 2, sized: false);
           await batch.endWrites();
         }
       }
