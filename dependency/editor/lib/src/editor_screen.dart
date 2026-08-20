@@ -14,11 +14,18 @@ import 'text_file.dart';
 /// в команды. Обязанность вернуть фокус при закрытии лежит на
 /// `KeyboardHandler` — см. `docs/screens.md`.
 class EditorScreen extends ChangeNotifier implements Screen {
-  EditorScreen({required this.node, required TextFile file, required bool wordWrap, this.onWrapChanged})
-    : _lineBreak = file.lineBreak,
-      _saved = file.text,
-      _wordWrap = wordWrap,
-      controller = CodeLineEditingController.fromText(file.text) {
+  EditorScreen({
+    required this.node,
+    required TextFile file,
+    required bool wordWrap,
+    bool showLineNumbers = true,
+    this.onWrapChanged,
+    this.onLineNumbersChanged,
+  }) : _lineBreak = file.lineBreak,
+       _saved = file.text,
+       _wordWrap = wordWrap,
+       _showLineNumbers = showLineNumbers,
+       controller = CodeLineEditingController.fromText(file.text) {
     controller.addListener(_onTextChanged);
   }
 
@@ -33,15 +40,22 @@ class EditorScreen extends ChangeNotifier implements Screen {
 
   final void Function(bool wordWrap)? onWrapChanged;
 
+  /// Куда сообщить, что номера строк переключили.
+  final void Function(bool showLineNumbers)? onLineNumbersChanged;
+
   final LineBreak _lineBreak;
 
   /// Текст, каким он лежит в файле. По нему видно, есть ли несохранённое.
   String _saved;
 
   bool _wordWrap;
+  bool _showLineNumbers;
   bool _modified = false;
 
   bool get wordWrap => _wordWrap;
+
+  /// Показывать номера строк.
+  bool get showLineNumbers => _showLineNumbers;
 
   /// Есть ли изменения, которых нет в файле.
   bool get modified => _modified;
@@ -56,6 +70,12 @@ class EditorScreen extends ChangeNotifier implements Screen {
   void toggleWordWrap() {
     _wordWrap = !_wordWrap;
     onWrapChanged?.call(_wordWrap);
+    notifyListeners();
+  }
+
+  void toggleLineNumbers() {
+    _showLineNumbers = !_showLineNumbers;
+    onLineNumbersChanged?.call(_showLineNumbers);
     notifyListeners();
   }
 

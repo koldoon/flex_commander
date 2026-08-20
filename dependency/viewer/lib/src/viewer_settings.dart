@@ -2,7 +2,7 @@ import 'package:fc_api/fc_api.dart';
 
 /// Что просмотрщик помнит между запусками.
 class ViewerSettings implements Serializable {
-  ViewerSettings({this.maxFileSize = defaultMaxFileSize, this.wordWrap = false});
+  ViewerSettings({this.maxFileSize = defaultMaxFileSize, this.wordWrap = false, this.showLineNumbers = false});
 
   /// Сто килобайт.
   ///
@@ -17,15 +17,23 @@ class ViewerSettings implements Serializable {
   /// Переносить длинные строки.
   bool wordWrap;
 
+  /// Показывать номера строк.
+  ///
+  /// По умолчанию выключены: просмотрщик чаще открывают, чтобы прочитать, а не
+  /// чтобы сослаться на строку. В редакторе — наоборот.
+  bool showLineNumbers;
+
   @override
   void fromMap(Map<String, dynamic> m) {
     maxFileSize = extract(maxFileSize, m['maxFileSize']);
     wordWrap = extract(wordWrap, m['wordWrap']);
+    showLineNumbers = extract(showLineNumbers, m['showLineNumbers']);
   }
 
   @override
   void toMap(Map<String, dynamic> m) {
     m['maxFileSize'] = maxFileSize;
     m['wordWrap'] = wordWrap;
+    m['showLineNumbers'] = showLineNumbers;
   }
 }

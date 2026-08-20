@@ -26,6 +26,7 @@ class EditorView extends StatelessWidget {
             // выдумывать не нужно.
             trailing: screen.modified ? '•' : null,
             wordWrap: screen.wordWrap,
+            showLineNumbers: screen.showLineNumbers,
           ),
     );
   }

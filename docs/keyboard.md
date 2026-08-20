@@ -163,8 +163,8 @@ CommandRegistry.dispatch(combination, app)
 | `F7`, `Shift-Cmd-N` | `file.mkdir` | создать каталог |
 | `F8`, `Cmd-Backspace` | `file.remove` | удалить в корзину |
 | `Shift-F8`, `Shift-Cmd-Backspace` | `file.removePermanently` | удалить мимо корзины |
-| `F3` | `file.view` | просмотр — *ещё не реализовано* |
-| `F4` | `file.edit` | редактирование — *ещё не реализовано* |
+| `F3` | `file.view` | просмотр файла во весь экран (`docs/screens.md`) |
+| `F4` | `file.edit` | правка файла во весь экран (`docs/screens.md`) |
 | `F2` | `app.menu` | меню приложения — *ещё не реализовано* |
 | `F1` | `app.help` | справка: настройки и привязки клавиш таблицей |
 

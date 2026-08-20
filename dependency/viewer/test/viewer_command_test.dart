@@ -80,6 +80,21 @@ void main() {
       expect(runtime.commands.commandFor(KeyCombination.parse('F2'))!.label, 'Unwrap');
     });
 
+    test('F9 показывает номера строк и меняет подпись', () async {
+      await view('notes.txt');
+      final numbers = runtime.commands.commandFor(KeyCombination.parse('F9'))!;
+
+      // В просмотрщике номеров по умолчанию нет: сюда чаще заходят прочитать,
+      // а не сослаться на строку.
+      expect(openViewer()!.showLineNumbers, isFalse);
+      expect(numbers.label, 'Lines');
+
+      runtime.commands.dispatch(KeyCombination.parse('F9'));
+
+      expect(openViewer()!.showLineNumbers, isTrue);
+      expect(runtime.commands.commandFor(KeyCombination.parse('F9'))!.label, 'No lines');
+    });
+
     test('Esc закрывает и возвращает панели', () async {
       await view('notes.txt');
 
@@ -122,6 +137,16 @@ void main() {
       await view('notes.txt');
 
       expect(openViewer()!.wordWrap, isTrue);
+    });
+
+    test('номера строк помнятся между открытиями', () async {
+      await view('notes.txt');
+      runtime.commands.dispatch(KeyCombination.parse('F9'));
+      runtime.commands.dispatch(KeyCombination.parse('Esc'));
+
+      await view('notes.txt');
+
+      expect(openViewer()!.showLineNumbers, isTrue);
     });
 
     test('предел лежит в разделе модуля', () {

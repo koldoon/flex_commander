@@ -13,9 +13,16 @@ import 'viewer_view.dart';
 /// [ChangeNotifier], потому что показ меняется по ходу дела: `F2` переключает
 /// перенос строк, и вид перерисовывается сам.
 class ViewerScreen extends ChangeNotifier implements Screen {
-  ViewerScreen({required this.node, required String text, bool wordWrap = false, this.onWrapChanged})
-    : controller = CodeLineEditingController.fromText(text),
-      _wordWrap = wordWrap;
+  ViewerScreen({
+    required this.node,
+    required String text,
+    bool wordWrap = false,
+    bool showLineNumbers = false,
+    this.onWrapChanged,
+    this.onLineNumbersChanged,
+  }) : controller = CodeLineEditingController.fromText(text),
+       _wordWrap = wordWrap,
+       _showLineNumbers = showLineNumbers;
 
   /// Общеизвестное имя: к нему привязаны клавиши просмотрщика.
   static const String screenId = 'viewer';
@@ -31,7 +38,11 @@ class ViewerScreen extends ChangeNotifier implements Screen {
   /// запусками.
   final void Function(bool wordWrap)? onWrapChanged;
 
+  /// Куда сообщить, что номера строк переключили.
+  final void Function(bool showLineNumbers)? onLineNumbersChanged;
+
   bool _wordWrap;
+  bool _showLineNumbers;
 
   /// Переносить длинные строки. В этом режиме прокрутка только вертикальная:
   /// переносить и одновременно возить по ширине нечего.
@@ -40,6 +51,15 @@ class ViewerScreen extends ChangeNotifier implements Screen {
   void toggleWordWrap() {
     _wordWrap = !_wordWrap;
     onWrapChanged?.call(_wordWrap);
+    notifyListeners();
+  }
+
+  /// Показывать номера строк.
+  bool get showLineNumbers => _showLineNumbers;
+
+  void toggleLineNumbers() {
+    _showLineNumbers = !_showLineNumbers;
+    onLineNumbersChanged?.call(_showLineNumbers);
     notifyListeners();
   }
 
