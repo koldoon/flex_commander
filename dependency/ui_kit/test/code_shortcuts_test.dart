@@ -1,18 +1,18 @@
-import 'package:fc_editor/fc_editor.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:re_editor/re_editor.dart';
 
-/// Какие клавиши редактор отпускает экрану.
+/// Какие клавиши показ текста отпускает экрану.
 ///
 /// Виджетом это не проверить: `re_editor` считает подсветку в изоляте, а
 /// `flutter_test` живёт на поддельном времени — прогон с настоящим `CodeEditor`
 /// не завершается. Поэтому проверяется решение (что отпущено), а то, что
 /// отпущенное действительно доходит до команд, — живым запуском.
 void main() {
-  const shortcuts = EditorShortcuts();
+  const shortcuts = FcCodeShortcuts();
 
   test('Esc отпущен экрану: им закрывают редактор', () {
-    expect(EditorShortcuts.released, contains(CodeShortcutType.esc));
+    expect(shortcuts.released, contains(CodeShortcutType.esc));
     expect(shortcuts.build(CodeShortcutType.esc), isEmpty);
   });
 
@@ -23,7 +23,7 @@ void main() {
     const defaults = DefaultCodeShortcutsActivatorsBuilder();
 
     for (final type in CodeShortcutType.values) {
-      if (EditorShortcuts.released.contains(type)) {
+      if (shortcuts.released.contains(type)) {
         continue;
       }
       expect(shortcuts.build(type), defaults.build(type), reason: '$type');

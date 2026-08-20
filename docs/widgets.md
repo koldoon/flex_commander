@@ -41,12 +41,18 @@ FlexCommanderApp                      MaterialApp, тема, AppScope
     │       │       │           └── PanelStatusBar
     │       │       ├── SplitHandle
     │       │       └── PanelScope(right) → PanelView
-    │       └─ ViewerScreen           fc_viewer
-    │           └── ViewerView
-    │               └── FcPanelFrame           та же рамка, что у панели
-    │                   ├── FcPathPlate        полный адрес и размер файла
-    │                   └── SelectionArea      выделение мышью, копирование по Cmd-C
-    │                       └── Scrollbar → SingleChildScrollView → ListView.builder
+    │       ├─ ViewerScreen           fc_viewer
+    │       │   └── ViewerView
+    │       │       └── FcPanelFrame           та же рамка, что у панели
+    │       │           ├── FcPathPlate        полный адрес и размер файла
+    │       │           └── SelectionArea      выделение мышью, копирование по Cmd-C
+    │       │               └── Scrollbar → SingleChildScrollView → ListView.builder
+    │       └─ EditorScreen           fc_editor
+    │           └── EditorView
+    │               └── FcCodeView            общий показ текста, из fc_ui_kit
+    │                   └── FcPanelFrame       та же рамка, что у панели
+    │                       ├── FcPathPlate    полный адрес и знак несохранённого
+    │                       └── CodeEditor     re_editor: своя раскладка и отрисовка
     ├── BackgroundBar                  фоновые работы, если они есть
     ├── FunctionBar                    команды видимого экрана
     │   └── FunctionButton × 10
@@ -136,6 +142,27 @@ FlexCommanderApp                      MaterialApp, тема, AppScope
 - Приписка справа (`trailing`) — размер файла у просмотрщика; ширину под неё
   обрезка учитывает, чтобы не съесть размер вместе с путём.
 - Клик — выделение пути для копирования (после MVP: редактирование пути вводом).
+
+### `FcCodeView`
+
+Показ текста во весь экран: рамка панели, плашка с адресом и текстовое поле во
+всю оставшуюся площадь. Один виджет на просмотрщик и на редактор — разница
+между ними в одном `readOnly`.
+
+Раскладку, отрисовку, выделение и ввод берёт на себя `re_editor` (в проекте
+лежит своя копия — `dependency/re_editor`, см. `docs/screens.md`). Это не
+надстройка над `TextField`, а свой движок под большой текст: рисуется только
+то, что попало на экран.
+
+Здесь же собрано всё, что обязано быть у обоих экранов одинаковым:
+
+* `codeStyle` — шрифт, кегль, цвета и высота строки из темы; фона нет
+  (`backgroundColor: null`), его рисует рамка;
+* `codeFontHeight` — высота строки одним числом на всех;
+* `languageOf` — язык подсветки по имени файла;
+* `FcCodeShortcuts` — какие встроенные сочетания поле **отпускает** экрану;
+* фокус: узел свой, и просит он его сам после кадра — `autofocus` к этому
+  моменту отклоняется молча (`docs/screens.md`).
 
 ### `FileTable`
 
