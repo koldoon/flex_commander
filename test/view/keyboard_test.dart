@@ -444,8 +444,8 @@ void main() {
       // «командная» клавиша — Ctrl, во что `KeyCombination` её и сворачивает.
       await hold(tester, LogicalKeyboardKey.control);
 
-      expect(labelOf(tester, 1), 'Open path');
-      expect(labelOf(tester, 2), 'Open path');
+      expect(labelOf(tester, 1), 'Address');
+      expect(labelOf(tester, 2), 'Address');
 
       await release(tester, LogicalKeyboardKey.control);
       expect(labelOf(tester, 1), 'Help');

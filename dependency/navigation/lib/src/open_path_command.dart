@@ -29,7 +29,12 @@ class OpenPathCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Open path';
+  /// Коротко, потому что подпись живёт на кнопке в ряду: рядом такие же
+  /// сжатые `Mk Dir` и `Line Num`, а длинное слово там обрезается. Полное
+  /// название — в заголовке окна, места там хватает.
+  ///
+  /// «Адрес», а не «путь»: вводят и `ssh://user@host/srv`, и `~/Downloads`.
+  String get label => 'Address';
 
   @override
   String get description => 'Open any path or address in the left or right panel';
