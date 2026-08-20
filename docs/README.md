@@ -208,6 +208,7 @@ dependency/
                                    Не модуль: регистрировать нечего
   panels/                          fc_panels — файловые панели как экран
   viewer/                          fc_viewer — просмотрщик текста (F3)
+  editor/                          fc_editor — редактор текста (F4)
   navigation/                      fc_navigation — курсор, дерево, пометка
   file_ops/                        fc_file_ops — создать, удалить, копировать
   zip/                             fc_zip — архив как дерево

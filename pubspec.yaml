@@ -27,6 +27,7 @@ workspace:
   - dependency/7z
   - dependency/api
   - dependency/default_theme
+  - dependency/editor
   - dependency/file_ops
   - dependency/navigation
   - dependency/panels
@@ -57,6 +58,9 @@ dependencies:
 
   fc_default_theme:
     path: dependency/default_theme
+
+  fc_editor:
+    path: dependency/editor
 
   fc_file_ops:
     path: dependency/file_ops

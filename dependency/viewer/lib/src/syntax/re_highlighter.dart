@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/painting.dart';
 import 'package:re_highlight/languages/all.dart';
 import 'package:re_highlight/re_highlight.dart';
@@ -38,7 +39,7 @@ class ReHighlighter implements SyntaxHighlighter {
     final TextSpan? span;
     try {
       final result = _highlight.highlight(code: lines.join('\n'), language: language);
-      final renderer = TextSpanRenderer(base, _theme(base));
+      final renderer = TextSpanRenderer(base, syntaxTheme(colors, base));
       result.render(renderer);
       span = renderer.span;
     } on Object {
@@ -174,51 +175,4 @@ class ReHighlighter implements SyntaxHighlighter {
     'patch': 'diff',
     'log': 'accesslog',
   };
-
-  /// Класс токена highlight.js → цвет оформления.
-  ///
-  /// Названо здесь только то, что действительно различается на глаз в
-  /// просмотрщике; всё остальное рисуется обычным цветом строки.
-  Map<String, TextStyle> _theme(TextStyle base) {
-    TextStyle of(Color color) => base.copyWith(color: color);
-
-    final keyword = of(colors.syntaxKeyword);
-    final type = of(colors.syntaxType);
-    final literal = of(colors.syntaxLiteral);
-    final meta = of(colors.syntaxMeta);
-    final string = of(colors.syntaxString);
-    final comment = of(colors.syntaxComment);
-
-    return {
-      'keyword': keyword,
-      'selector-tag': keyword,
-      'section': keyword,
-      'string': string,
-      'meta-string': string,
-      'regexp': string,
-      'char.escape': string,
-      'number': of(colors.syntaxNumber),
-      'comment': comment,
-      'quote': comment,
-      'doctag': comment,
-      'type': type,
-      'title': type,
-      'title.class_': type,
-      'title.function_': type,
-      'class-title': type,
-      'name': type,
-      'literal': literal,
-      'built_in': literal,
-      'symbol': literal,
-      'variable.language_': literal,
-      'meta': meta,
-      'attr': meta,
-      'attribute': meta,
-      'selector-attr': meta,
-      'selector-class': meta,
-      'selector-id': meta,
-      'template-variable': meta,
-      'subst': base,
-    };
-  }
 }
