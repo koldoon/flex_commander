@@ -58,6 +58,64 @@ void main() {
     expect(find.text('строка 4999'), findsNothing);
   });
 
+  testWidgets('у узкого файла полоса прокрутки прижата к краю окна', (tester) async {
+    // Длинный, но узкий файл: вертикальная прокрутка нужна, а горизонтальная
+    // нет. Полоса должна стоять по краю окна, а не по краю текста — иначе она
+    // висит посреди пустого места.
+    final screen = await screenWith(List.generate(500, (i) => 'ы').join('\n'));
+    await pump(tester, screen);
+
+    final listWidth = tester.getSize(find.byType(ListView)).width;
+    final available = tester.getSize(find.byType(Scrollbar).first).width;
+
+    expect(listWidth, available, reason: 'холст сузился по тексту');
+  });
+
+  testWidgets('полосы видны всегда и отстоят от рамки на метрику', (tester) async {
+    final inset = DefaultMetrics().scrollbarInset;
+    final screen = await screenWith(List.generate(500, (i) => 'строка $i').join('\n'));
+    await pump(tester, screen);
+
+    final bars = tester.widgetList<Scrollbar>(find.byType(Scrollbar)).toList();
+    // Полоса видна всегда, а не пока крутят: она заодно показывает, насколько
+    // файл длиннее окна.
+    expect(bars, hasLength(2));
+    expect(bars.every((bar) => bar.thumbVisibility ?? false), isTrue);
+
+    final panel = tester.getRect(
+      find.ancestor(of: find.byType(Scrollbar).first, matching: find.byType(DecoratedBox)).first,
+    );
+    final bar = tester.getRect(find.byType(Scrollbar).first);
+
+    expect(bar.right, panel.right - inset);
+    expect(bar.top, panel.top + inset);
+    expect(bar.bottom, panel.bottom - inset);
+  });
+
+  testWidgets('поля текста полосы от рамки не отодвигают', (tester) async {
+    final inset = DefaultMetrics().scrollbarInset;
+    await pump(tester, await screenWith(List.generate(500, (i) => 'строка $i').join('\n')));
+
+    final panel = tester.getRect(
+      find.ancestor(of: find.byType(Scrollbar).first, matching: find.byType(DecoratedBox)).first,
+    );
+    final text = tester.getRect(find.text('строка 0'));
+
+    // Текст отодвинут своими полями — заметно дальше, чем полоса.
+    expect(text.left, greaterThan(panel.left + inset * 2));
+  });
+
+  testWidgets('широкий файл по-прежнему шире окна', (tester) async {
+    final screen = await screenWith('первая ${'—' * 500}\nвторая');
+    await pump(tester, screen);
+
+    final listWidth = tester.getSize(find.byType(ListView)).width;
+    final available = tester.getSize(find.byType(Scrollbar).first).width;
+
+    // Растягивание до края не должно отнимать горизонтальную прокрутку.
+    expect(listWidth, greaterThan(available));
+  });
+
   testWidgets('без переноса файл возят и по ширине', (tester) async {
     await pump(tester, await screenWith('очень длинная строка ${'—' * 300}'));
 
@@ -86,18 +144,22 @@ void main() {
     final screen = await screenWith(List.generate(500, (i) => 'строка $i').join('\n'));
     await pump(tester, screen);
 
+    double offset() => tester.widget<ListView>(find.byType(ListView)).controller!.offset;
+
     // Прокрутка — команды экрана, а не фокус: вид отзывается на просьбу.
     screen.scroll(ScrollStep.lineDown);
     await tester.pumpAndSettle();
-    expect(find.text('строка 0'), findsNothing);
+    final afterLine = offset();
+    expect(afterLine, greaterThan(0));
 
     screen.scroll(ScrollStep.pageDown);
     await tester.pumpAndSettle();
-    final afterPage = find.textContaining('строка ');
-    expect(afterPage, findsWidgets);
+    // Страница двигает заметно дальше строки.
+    expect(offset(), greaterThan(afterLine * 5));
 
     screen.scroll(ScrollStep.toStart);
     await tester.pumpAndSettle();
+    expect(offset(), 0);
     expect(find.text('строка 0'), findsOneWidget);
 
     screen.scroll(ScrollStep.toEnd);

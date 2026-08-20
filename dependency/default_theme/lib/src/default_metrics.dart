@@ -232,6 +232,9 @@ class DefaultMetrics extends FcMetrics {
   double get strokeWidth => 1;
 
   @override
+  double get scrollbarInset => 2;
+
+  @override
   double get fontSize => 34 * fontScale;
 
   @override
