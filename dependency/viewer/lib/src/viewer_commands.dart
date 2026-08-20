@@ -134,22 +134,16 @@ class ToggleWordWrapCommand extends AppCommand {
 class ToggleViewerNumbersCommand extends AppCommand {
   static const String commandId = 'viewer.numbers';
 
-  /// Приложение для **прототипа**: подпись у него спрашивают и тогда, когда
-  /// никакого запуска нет, — ряд кнопок читает её прямо у него.
-  Application? _app;
-
-  @override
-  bool init(Application app) {
-    _app = app;
-    return true;
-  }
-
   @override
   String get id => commandId;
 
-  /// Подпись говорит, что клавиша сделает **сейчас**, — как и везде в ряду.
+  /// Подпись постоянная — в отличие от переноса строк, где она меняется.
+  ///
+  /// Номера строк видно на самом экране, и скачущая подпись в ряду ничего к
+  /// этому не добавляет, а мельтешит. О том, что переключилось, говорит
+  /// всплывающее сообщение.
   @override
-  String get label => _viewerOf(_app)?.showLineNumbers == true ? 'No lines' : 'Lines';
+  String get label => 'Line Num';
 
   @override
   String get description => 'Show line numbers in the viewer';

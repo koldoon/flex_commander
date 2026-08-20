@@ -83,19 +83,21 @@ void main() {
       expect(runtime.app.toasts.current?.message, 'Wrap: On');
     });
 
-    test('F9 показывает номера строк и меняет подпись', () async {
+    test('F9 показывает номера строк, не меняя подписи', () async {
       await view('notes.txt');
       final numbers = runtime.commands.commandFor(KeyCombination.parse('F9'))!;
 
       // В просмотрщике номеров по умолчанию нет: сюда чаще заходят прочитать,
       // а не сослаться на строку.
       expect(openViewer()!.showLineNumbers, isFalse);
-      expect(numbers.label, 'Lines');
+      expect(numbers.label, 'Line Num');
 
       runtime.commands.dispatch(KeyCombination.parse('F9'));
 
       expect(openViewer()!.showLineNumbers, isTrue);
-      expect(runtime.commands.commandFor(KeyCombination.parse('F9'))!.label, 'No lines');
+      // Подпись не скачет: номера видно на самом экране. Что переключилось,
+      // говорит всплывающее сообщение.
+      expect(runtime.commands.commandFor(KeyCombination.parse('F9'))!.label, 'Line Num');
       expect(runtime.app.toasts.current?.message, 'Show line numbers: On');
     });
 
