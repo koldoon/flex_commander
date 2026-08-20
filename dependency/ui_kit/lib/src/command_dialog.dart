@@ -85,8 +85,12 @@ class CommandDialogConfirm extends StatelessWidget {
 /// имена файлов, и если бы окно облегало содержимое, оно «прыгало» бы на
 /// каждом. Рамка окна ширину не назначает, она облегает то, что ей дали.
 ///
-/// Кроме полосы показывает счётчик объектов: сколько обработано из скольких.
-/// Общее количество долгие операции считают фоном, поэтому пока счёт не
+/// Устроено сверху вниз от частного к общему: этап работы, что именно
+/// делается, текущий объект со своим объёмом и полосой, скорость и общий счёт
+/// со своей полосой. Объект и итог — по три строки под одной подписью: так
+/// видно, что объём и полоса относятся к своему счёту, а не к соседнему.
+///
+/// Счётчик объектов долгие операции досчитывают фоном, поэтому пока счёт не
 /// закончен, к числу добавляется многоточие — иначе растущий «итог» выглядел бы
 /// ошибкой.
 class CommandDialogProgress extends StatelessWidget {
@@ -134,9 +138,7 @@ class CommandDialogProgress extends StatelessWidget {
 
   /// Что обрабатывается прямо сейчас и сколько его прошло.
   ///
-  /// Второй бар — не украшение: работа из тысячи мелких файлов и работа из
-  /// одного файла на четыре гигабайта в общем счёте выглядят одинаково, а
-  /// это ровно тот случай, когда пользователь думает, что всё зависло.
+  /// Имя можно давать с путём — окно покажет только последнюю часть.
   final String itemName;
   final double? itemProgress;
   final int itemBytes;
@@ -148,6 +150,8 @@ class CommandDialogProgress extends StatelessWidget {
     final counter = _counter;
     final size = _size;
     final speed = _speed;
+    final itemSize = _itemSize;
+    final fileName = _fileName;
 
     return SizedBox(
       width: MediaQuery.sizeOf(context).width * theme.metrics.dialogWidthFactor,
@@ -159,36 +163,63 @@ class CommandDialogProgress extends StatelessWidget {
           FcButton(label: 'Cancel', onPressed: onCancel),
         ],
         children: [
-          CommandDialogField(
-            label: 'Item:',
-            child: Text(message, style: theme.dialogTextStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
+          // Этап — первой строкой: он объясняет, почему счёт объектов уже
+          // полон, а работа всё идёт.
+          if (stageLabel case final stage?) CommandDialogField(label: 'Stage', child: _line(theme, stage)),
+          CommandDialogField(label: 'Item', child: _line(theme, message)),
+          // Про текущий объект — три строки под одной подписью: имя, объём,
+          // своя полоса. Полоса не украшение: работа из тысячи мелких файлов и
+          // работа из одного файла на четыре гигабайта в общем счёте выглядят
+          // одинаково, а это ровно тот случай, когда кажется, что всё зависло.
+          if (fileName != null)
+            CommandDialogField.column(
+              label: 'File',
+              children: [
+                _line(theme, fileName),
+                if (itemSize != null) _line(theme, itemSize),
+                if (itemProgress != null) FcProgressBar(value: itemProgress),
+              ],
+            ),
+          if (speed != null) CommandDialogField(label: 'Speed', child: _line(theme, speed)),
+          CommandDialogField.column(
+            label: 'Total',
+            children: [
+              if (counter != null) _line(theme, counter),
+              if (size != null) _line(theme, size),
+              FcProgressBar(value: progress),
+            ],
           ),
-          // Этап — первой строкой после сообщения: он объясняет, почему счёт
-          // объектов уже полон, а работа идёт.
-          if (stageLabel case final stage?)
-            CommandDialogField(label: 'Stage:', child: Text(stage, style: theme.dialogTextStyle)),
-          if (counter != null)
-            CommandDialogField(label: 'Processed:', child: Text(counter, style: theme.dialogTextStyle)),
-          if (size != null) CommandDialogField(label: 'Size:', child: Text(size, style: theme.dialogTextStyle)),
-          if (speed != null) CommandDialogField(label: 'Speed:', child: Text(speed, style: theme.dialogTextStyle)),
-          if (_itemSize case final line?)
-            CommandDialogField(label: 'Current:', child: Text(line, style: theme.dialogTextStyle)),
-          // Бар текущего объекта — над общим: он про «здесь и сейчас», а
-          // общий про всю работу.
-          if (itemProgress != null) CommandDialogField(label: 'File:', child: FcProgressBar(value: itemProgress)),
-          CommandDialogField(label: 'Total:', child: FcProgressBar(value: progress)),
         ],
       ),
     );
   }
 
+  /// Строка окна — всегда одна: длинное имя обрезается многоточием, а не
+  /// переносится. Иначе окно росло бы вниз на каждом длинном пути.
+  Widget _line(FcTheme theme, String text) =>
+      Text(text, style: theme.dialogTextStyle, maxLines: 1, overflow: TextOverflow.ellipsis);
+
+  /// Имя текущего объекта без пути.
+  ///
+  /// Путь внутри архива или внутри дерева длинный, а толку от него нет:
+  /// обрабатывается то, что названо, а где оно лежит — видно по строке `Item`.
+  String? get _fileName {
+    if (itemName.isEmpty) {
+      return null;
+    }
+    final trimmed = itemName.endsWith('/') ? itemName.substring(0, itemName.length - 1) : itemName;
+    final cut = trimmed.lastIndexOf('/');
+    final name = cut < 0 ? trimmed : trimmed.substring(cut + 1);
+    return name.isEmpty ? itemName : name;
+  }
+
   /// Объём текущего объекта: `1.2 MB of 4.0 GB`.
   String? get _itemSize {
     final size = itemTotalBytes;
-    if (size == null || size <= 0 || itemName.isEmpty) {
+    if (size == null || size <= 0) {
       return null;
     }
-    return '$itemName — ${formatBytesLong(itemBytes)} of ${formatBytesLong(size)}';
+    return '${formatBytesLong(itemBytes)} of ${formatBytesLong(size)}';
   }
 
   String? get _counter {
@@ -371,24 +402,52 @@ class CommandDialogActions extends StatelessWidget {
 }
 
 /// Строка формы: подпись слева, содержимое справа (`SimpleFormItemSkin`).
+///
+/// Подпись — без двоеточия: она и так отличается от значения цветом, а
+/// двоеточие в такой колонке только шумит.
 class CommandDialogField extends StatelessWidget {
-  const CommandDialogField({super.key, required this.label, required this.child});
+  const CommandDialogField({super.key, required this.label, required Widget child})
+    : _child = child,
+      children = const [];
+
+  /// Несколько строк под одной подписью; подпись встаёт вровень с первой.
+  ///
+  /// Так связанное читается связанным: имя файла, его объём и его полоса —
+  /// одно поле из трёх строк, а не три поля, из которых два безымянных.
+  const CommandDialogField.column({super.key, required this.label, required this.children}) : _child = null;
 
   final String label;
-  final Widget child;
+  final List<Widget> children;
+  final Widget? _child;
 
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
+    final single = _child;
 
     return Row(
+      // Одну строку подпись держит по середине — как рядом с полем ввода;
+      // столбец строк — по верхней, иначе она уедет в середину блока.
+      crossAxisAlignment: single != null ? CrossAxisAlignment.center : CrossAxisAlignment.start,
       children: [
         SizedBox(
           width: theme.metrics.dialogLabelWidth,
           child: Text(label, textAlign: TextAlign.right, style: theme.dialogLabelStyle),
         ),
         SizedBox(width: theme.metrics.dialogGap),
-        Expanded(child: child),
+        Expanded(child: single ?? _column(theme)),
+      ],
+    );
+  }
+
+  Widget _column(FcTheme theme) {
+    final gap = theme.metrics.dialogLineGap;
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < children.length; i++) ...[if (i > 0) SizedBox(height: gap), children[i]],
       ],
     );
   }

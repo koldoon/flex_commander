@@ -147,6 +147,10 @@ abstract class FcMetrics {
   /// Между строками содержимого и между кнопками: `gap="20"`.
   double get dialogGap;
 
+  /// Между строками одного поля: имя, объём и полоса стоят теснее, чем поля
+  /// друг от друга, — иначе блок рассыпается на три отдельные строки.
+  double get dialogLineGap;
+
   /// Линия над рядом кнопок: `height="2"`.
   double get dialogDividerHeight;
 
