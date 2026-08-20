@@ -40,7 +40,13 @@ class ApplicationView extends StatelessWidget {
                       // Пусто — значит показывать нечем: модуль панелей
                       // отключён. Приложение при этом работает, и ряд кнопок
                       // на месте.
-                      builder: (context, _) => app.screens.active?.build(context) ?? const SizedBox.expand(),
+                      builder: (context, _) {
+                        final screen = app.screens.active;
+                        if (screen == null) {
+                          return const SizedBox.expand();
+                        }
+                        return screen.build(context);
+                      },
                     ),
                   ),
                   // Фоновые работы — между панелями и рядом кнопок: их видно,
