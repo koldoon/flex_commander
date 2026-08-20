@@ -41,6 +41,7 @@ Future<void> encodeZipArchive({
   required int level,
   required TaskOperation<void> op,
   void Function(String name, int? bytes)? onEntry,
+  void Function(String name)? onEntryDone,
   void Function(int bytes)? onBytes,
 }) async {
   final ReceivePort port = ReceivePort();
@@ -61,6 +62,8 @@ Future<void> encodeZipArchive({
     switch (message) {
       case _EntryStarted(:final name, :final bytes):
         onEntry?.call(name, bytes);
+      case _EntryDone(:final name):
+        onEntryDone?.call(name);
       case _BytesRead(:final bytes):
         onBytes?.call(bytes);
       case _Finished():
@@ -82,13 +85,18 @@ Future<void> encodeZipArchive({
 
   try {
     // Отмена не ждёт конца записи: изолят снимается, а недописанный архив
-    // лежит во временном каталоге и уходит вместе с ним. Проверяем по часам —
-    // отдельного оповещения об отмене у операции нет, а изолят не прервать
-    // изнутри.
+    // лежит во временном каталоге и уходит вместе с ним.
+    //
+    // Именно `checkpoint`, а не `checkCanceled`: кнопка «Cancel» только
+    // **просит** прервать, а вопрос «Abort the operation?» и сама отмена
+    // происходят в нём. Пока тело операции стоит в ожидании изолята, звать его
+    // больше некому — и без этого кнопка не делала ничего.
     while (true) {
-      op.checkCanceled();
+      await op.checkpoint();
       final bool finished = await Future.any([
         done.future.then((_) => true),
+        // Сто миллисекунд — предел задержки между нажатием «Cancel» и
+        // вопросом: чаще незачем, реже уже заметно.
         Future<bool>.delayed(const Duration(milliseconds: 100), () => false),
       ]);
       if (finished) {
@@ -116,6 +124,7 @@ void _encode(_EncodeRequest request) {
       if (entry.isDirectory) {
         // Пустой каталог иначе пропал бы: в zip он существует только записью.
         encoder.add(ArchiveFile.directory('${entry.name}/'));
+        port.send(_EntryDone(entry.name));
         continue;
       }
 
@@ -130,6 +139,7 @@ void _encode(_EncodeRequest request) {
       encoder.add(
         ArchiveFile.stream(entry.name, CountingInputStream(content, (bytes) => port.send(_BytesRead(bytes)))),
       );
+      port.send(_EntryDone(entry.name));
     }
 
     encoder.endEncode();
@@ -161,6 +171,17 @@ class _EntryStarted {
 
   final String name;
   final int? bytes;
+}
+
+/// Запись готова — она и есть обработанный объект.
+///
+/// Отмечает её упаковщик, а не обход: обход только составляет список, и
+/// считать по нему сделанное значило бы показывать «2000 из 2000», пока файлы
+/// ещё бегут.
+class _EntryDone {
+  const _EntryDone(this.name);
+
+  final String name;
 }
 
 /// Прочитаны очередные байты.
