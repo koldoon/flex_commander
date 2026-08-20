@@ -242,19 +242,14 @@ class ToggleEditorWrapCommand extends AppCommand {
 class ToggleEditorNumbersCommand extends AppCommand {
   static const String commandId = 'editor.numbers';
 
-  Application? _app;
-
-  @override
-  bool init(Application app) {
-    _app = app;
-    return true;
-  }
-
   @override
   String get id => commandId;
 
+  /// Подпись постоянная — в отличие от переноса строк, где она меняется:
+  /// номера строк видно на самом экране. Что переключилось, говорит
+  /// всплывающее сообщение.
   @override
-  String get label => _editorOf(_app)?.showLineNumbers == true ? 'No lines' : 'Lines';
+  String get label => 'Line Num';
 
   @override
   String get description => 'Show line numbers in the editor';
