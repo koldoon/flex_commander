@@ -1,6 +1,8 @@
 import 'dart:io';
 
+import 'package:fc_api/fc_api.dart';
 import 'package:flex_commander/modules/local_fs/local_listing.dart';
+import 'package:flex_commander/modules/local_fs/local_tree_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -75,6 +77,37 @@ void main() {
       expect(other.modified, entry.modified, reason: entry.name);
     }
   });
+
+  test('сколько стоит отсортировать каталог', () async {
+    if (!enabled) {
+      markTestSkipped('замер выключен');
+      return;
+    }
+
+    void row(Object a, Object b) => print('${a.toString().padRight(10)}${b.toString().padLeft(12)}');
+
+    final provider = LocalTreeProvider(readInIsolate: false);
+    row('записей', 'сортировка');
+
+    for (final count in [1000, 10000]) {
+      // Имена как в жизни: разный регистр и числа внутри — «естественный»
+      // порядок именно на них и работает.
+      final nodes = <FsNode>[
+        for (var i = 0; i < count; i++)
+          FileNode(provider: provider, name: '${i.isEven ? 'Файл' : 'file'}_${count - i}_v${i % 17}.txt'),
+      ];
+
+      const spec = SortSpec();
+      final watch = Stopwatch()..start();
+      const runs = 5;
+      for (var i = 0; i < runs; i++) {
+        nodes.toList().sort(comparatorFor(spec));
+      }
+      watch.stop();
+
+      row(count, (watch.elapsedMicroseconds / runs / 1000).toStringAsFixed(2));
+    }
+  }, timeout: const Timeout(Duration(minutes: 5)));
 
   test('сколько стоит прочитать каталог', () async {
     if (!enabled) {
