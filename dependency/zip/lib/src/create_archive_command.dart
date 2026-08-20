@@ -151,7 +151,7 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
         // Обход спрашивает провайдеров и человека (про ссылки), а это дело
         // главного изолята: туда не переехать. Зато сжатие туда переезжает
         // целиком — оно синхронное, и на большом дереве кадры не выходят вовсе.
-        final entries = <ZipEntry>[];
+        final entries = <ZipItem>[];
         for (final source in sources) {
           await op.checkpoint();
           progress.startSource(source.name);
@@ -199,7 +199,7 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
   ///
   /// Именно список, а не сам архив: сжатие идёт потом и в другом изоляте.
   Future<void> _addNode(
-    List<ZipEntry> entries,
+    List<ZipItem> entries,
     FsNode node,
     String entryName,
     LocalCopySession copies,
@@ -227,7 +227,7 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
 
     if (node is DirectoryNode) {
       // Пустой каталог иначе пропал бы: в zip он существует только записью.
-      entries.add(ZipEntry.directory(entryName));
+      entries.add(ZipItem.directory(entryName));
 
       for (final child in await node.provider.listChildren(node)) {
         await _addNode(entries, child, '$entryName/${child.name}', copies, op, progress, links);
@@ -238,7 +238,7 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
     // Настоящий путь берётся как есть, чужой источник выкладывается во
     // временный файл: упаковщику нужен файл, по которому можно ходить, — и
     // ходить он будет из другого изолята, где провайдеров нет вовсе.
-    entries.add(ZipEntry.file(entryName, await copies.localPathOf(node)));
+    entries.add(ZipItem.file(entryName, await copies.localPathOf(node)));
   }
 
   /// Что делать со ссылкой: положить записью-ссылкой или пойти по ней.

@@ -12,10 +12,10 @@ import 'counting_input_stream.dart';
 /// Простые значения, а не узлы: задание уходит в изолят, и провайдеры туда не
 /// переезжают. Дерево обходит главный изолят — он же решает, что делать со
 /// ссылками, — а сюда приходит уже готовый список.
-class ZipEntry {
-  const ZipEntry.file(this.name, this.path) : isDirectory = false;
+class ZipItem {
+  const ZipItem.file(this.name, this.path) : isDirectory = false;
 
-  const ZipEntry.directory(this.name) : path = null, isDirectory = true;
+  const ZipItem.directory(this.name) : path = null, isDirectory = true;
 
   /// Имя внутри архива.
   final String name;
@@ -37,7 +37,7 @@ class ZipEntry {
 /// какая запись началась и сколько байт прошло.
 Future<void> encodeZipArchive({
   required String archivePath,
-  required List<ZipEntry> entries,
+  required List<ZipItem> entries,
   required int level,
   required TaskOperation<void> op,
   void Function(String name, int? bytes)? onEntry,
@@ -161,7 +161,7 @@ class _EncodeRequest {
 
   final SendPort port;
   final String archivePath;
-  final List<ZipEntry> entries;
+  final List<ZipItem> entries;
   final int level;
 }
 
@@ -199,4 +199,85 @@ class _Failed {
   const _Failed(this.message);
 
   final String message;
+}
+
+/// Пересобирает архив **в отдельном изоляте**: старые записи, кроме удалённых
+/// и перезаписанных, плюс новые.
+///
+/// Причина та же, что у сборки нового архива: и разбор, и сжатие в `archive`
+/// синхронные. Пересборка идёт после записи в архив, когда счётчик уже показал
+/// «готово», — замереть на ней значит выглядеть зависшим ровно в тот момент,
+/// когда человек ждёт конца работы.
+///
+/// Прогресса здесь нет: пересборку затевает провайдер, а он о работе, внутри
+/// которой оказался, ничего не знает. Окно операции показывает её отдельным
+/// этапом без доли (`docs/providers.md`).
+Future<void> repackZipArchive({
+  required String archivePath,
+  required String targetPath,
+  required Set<String> removed,
+  required Set<String> addedDirectories,
+  required Map<String, String> added,
+}) async {
+  final String? failure = await Isolate.run(() => _repack(archivePath, targetPath, removed, addedDirectories, added));
+
+  if (failure != null) {
+    throw FsError(archivePath, FsErrorKind.io, failure);
+  }
+}
+
+/// Тело пересборки. Возвращает описание беды или null.
+String? _repack(
+  String archivePath,
+  String targetPath,
+  Set<String> removed,
+  Set<String> addedDirectories,
+  Map<String, String> added,
+) {
+  bool isRemoved(String name) {
+    for (final entry in removed) {
+      final directory = entry.endsWith('/') ? entry : '$entry/';
+      if (name == entry || name == directory || name.startsWith(directory)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  final InputFileStream input = InputFileStream(archivePath);
+  final OutputFileStream output = OutputFileStream(targetPath);
+  final ZipEncoder encoder = ZipEncoder()..startEncode(output);
+  final List<InputFileStream> staged = [];
+
+  try {
+    for (final file in ZipDecoder().decodeStream(input).files) {
+      if (isRemoved(file.name) || added.containsKey(file.name)) {
+        continue;
+      }
+      encoder.add(file);
+    }
+
+    for (final name in addedDirectories) {
+      encoder.add(ArchiveFile.directory(name));
+    }
+
+    for (final entry in added.entries) {
+      final InputFileStream content = InputFileStream(entry.value);
+      staged.add(content);
+      encoder.add(ArchiveFile.stream(entry.key, content));
+    }
+
+    encoder.endEncode();
+    return null;
+  } on ArchiveException catch (error) {
+    return error.toString();
+  } on FileSystemException catch (error) {
+    return error.message;
+  } finally {
+    output.closeSync();
+    input.closeSync();
+    for (final content in staged) {
+      content.closeSync();
+    }
+  }
 }

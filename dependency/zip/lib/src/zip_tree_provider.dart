@@ -7,6 +7,7 @@ import 'package:archive/archive.dart';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:path/path.dart' as p;
+import 'zip_encoding.dart';
 import 'zip_index.dart';
 
 part 'writable_zip_tree_provider.dart';
