@@ -41,6 +41,7 @@ export 'src/commands/key_combination.dart';
 
 // --- Фоновые работы и содержимое панели ---
 export 'src/background/task_status.dart';
+export 'src/ui/panel_frame.dart';
 export 'src/ui/panel_viewport.dart';
 export 'src/ui/screen.dart';
 
