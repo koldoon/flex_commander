@@ -138,27 +138,22 @@ class _ViewerViewState extends State<ViewerView> {
     return ListenableBuilder(
       listenable: widget.screen,
       builder: (context, _) {
-        return Padding(
-          padding: EdgeInsets.symmetric(horizontal: theme.metrics.panelGap / 2),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _Header(screen: widget.screen),
-              Expanded(
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: theme.colors.panelBackground,
-                    border: Border.all(color: theme.colors.panelBorder, width: theme.metrics.strokeWidth),
-                  ),
-                  // Отступ здесь — только для полос прокрутки: они стоят по
-                  // краю панели, а текст отодвигают уже свои поля.
-                  child: Padding(
-                    padding: EdgeInsets.all(theme.metrics.scrollbarInset),
-                    child: widget.screen.wordWrap ? _wrapped() : _plain(),
-                  ),
-                ),
-              ),
-            ],
+        // Та же рамка, что у файловой панели, и та же плашка: просмотрщик
+        // занимает её место и обязан выглядеть так же. Оба края внешние —
+        // он во всю ширину окна.
+        return FcPanelFrame(
+          outerEdge: PanelOuterEdge.both,
+          header: FcPathPlate(
+            // Полный адрес, а не одно имя: файл может лежать в архиве или на
+            // сервере, и по имени этого не видно. Размер — припиской.
+            path: widget.screen.node.displayPath,
+            trailing: formatBytesLong(widget.screen.node.size),
+          ),
+          // Отступ здесь — только для полос прокрутки: они стоят по краю
+          // панели, а текст отодвигают уже свои поля.
+          child: Padding(
+            padding: EdgeInsets.all(theme.metrics.scrollbarInset),
+            child: widget.screen.wordWrap ? _wrapped() : _plain(),
           ),
         );
       },
@@ -177,17 +172,12 @@ class _ViewerViewState extends State<ViewerView> {
 
         return Scrollbar(
           controller: _vertical,
-          // Видна всегда, а не только пока крутят: полоса заодно показывает,
-          // насколько файл длиннее окна, — а исчезающая говорит об этом лишь
-          // тому, кто уже крутит.
-          thumbVisibility: true,
           // Вертикальная полоса — **снаружи** горизонтальной прокрутки, потому
           // и по краю окна. Список из-за этого лежит на уровень глубже, и
           // уведомления от него приходят с глубиной 1.
           notificationPredicate: (notification) => notification.depth == 1,
           child: Scrollbar(
             controller: _horizontal,
-            thumbVisibility: true,
             child: SingleChildScrollView(
               controller: _horizontal,
               scrollDirection: Axis.horizontal,
@@ -201,7 +191,7 @@ class _ViewerViewState extends State<ViewerView> {
 
   /// С переносом: возить по ширине нечего, длинная строка занимает несколько
   /// экранных.
-  Widget _wrapped() => Scrollbar(controller: _vertical, thumbVisibility: true, child: _lines(softWrap: true));
+  Widget _wrapped() => Scrollbar(controller: _vertical, child: _lines(softWrap: true));
 
   Widget _lines({required bool softWrap}) {
     final spans = _spans ?? const <TextSpan>[];
@@ -226,45 +216,5 @@ class _ViewerViewState extends State<ViewerView> {
   double get _lineHeight {
     final style = _style;
     return style == null ? 0 : (style.fontSize ?? 0) * (style.height ?? 1);
-  }
-}
-
-/// Заголовок: что открыто и какого оно размера.
-class _Header extends StatelessWidget {
-  const _Header({required this.screen});
-
-  final ViewerScreen screen;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = FcTheme.of(context);
-    final metrics = theme.metrics;
-
-    return Container(
-      height: metrics.pathHeaderHeight,
-      margin: EdgeInsets.only(bottom: metrics.rowGap),
-      padding: EdgeInsets.symmetric(horizontal: metrics.labelPadding),
-      decoration: BoxDecoration(
-        color: theme.colors.pathBackground,
-        border: Border.all(color: theme.colors.pathBorder, width: metrics.strokeWidth),
-        borderRadius: BorderRadius.circular(metrics.pathHeaderRadius),
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              // Полный адрес, а не одно имя: файл может лежать в архиве или на
-              // сервере, и по имени этого не видно.
-              screen.node.displayPath,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: theme.pathStyle,
-            ),
-          ),
-          SizedBox(width: metrics.columnGap),
-          Text(formatBytesLong(screen.node.size), style: theme.pathStyle.copyWith(color: theme.colors.secondaryText)),
-        ],
-      ),
-    );
   }
 }

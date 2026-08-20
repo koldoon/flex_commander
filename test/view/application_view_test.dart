@@ -84,7 +84,7 @@ void main() {
   testWidgets('панель показывает путь, заголовки и содержимое каталога', (tester) async {
     await pumpApp(tester);
 
-    expect(find.byType(PanelPathHeader), findsNWidgets(2));
+    expect(find.byType(FcPathPlate), findsNWidgets(2));
     expect(find.text('Name'), findsNWidgets(2));
     expect(find.text('Ext'), findsNWidgets(2));
     expect(find.text('Size'), findsNWidgets(2));

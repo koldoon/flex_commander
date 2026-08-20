@@ -37,12 +37,29 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('заголовок называет полный адрес и размер', (tester) async {
+  testWidgets('заголовок — та же плашка, что у панели, с адресом и размером', (tester) async {
     await pump(tester, await screenWith('раз\nдва'));
 
+    // Одна плашка на всё: рамку и заголовок просмотрщик берёт у общего
+    // `FcPanelFrame` — того же, которым рисуется файловая панель.
+    expect(find.byType(FcPanelFrame), findsOneWidget);
+    final plate = tester.widget<FcPathPlate>(find.byType(FcPathPlate));
+
     // Полный адрес, а не одно имя: файл может лежать в архиве или на сервере.
+    expect(plate.path, '/home/notes.txt');
+    expect(plate.trailing, '1.2 KB');
     expect(find.text('/home/notes.txt'), findsOneWidget);
-    expect(find.text('1.2 KB'), findsOneWidget);
+  });
+
+  testWidgets('плашка облегает содержимое, а не тянется на всю ширину', (tester) async {
+    await pump(tester, await screenWith('раз'));
+
+    final plate = tester.getRect(find.byType(FcPathPlate));
+    final frame = tester.getRect(find.byType(FcPanelFrame));
+
+    expect(plate.width, lessThan(frame.width / 2));
+    // И наполовину заходит на верхнюю рамку — как у панели.
+    expect(plate.top, frame.top);
   });
 
   testWidgets('рисуются только видимые строки, а не весь файл', (tester) async {
@@ -71,25 +88,30 @@ void main() {
     expect(listWidth, available, reason: 'холст сузился по тексту');
   });
 
-  testWidgets('полосы видны всегда и отстоят от рамки на метрику', (tester) async {
+  testWidgets('полосы стоят по краю панели, а показываются как везде', (tester) async {
     final inset = DefaultMetrics().scrollbarInset;
     final screen = await screenWith(List.generate(500, (i) => 'строка $i').join('\n'));
     await pump(tester, screen);
 
     final bars = tester.widgetList<Scrollbar>(find.byType(Scrollbar)).toList();
-    // Полоса видна всегда, а не пока крутят: она заодно показывает, насколько
-    // файл длиннее окна.
     expect(bars, hasLength(2));
-    expect(bars.every((bar) => bar.thumbVisibility ?? false), isTrue);
+    // Показываются так же, как в файловых панелях, — поведением прокрутки по
+    // умолчанию. Своей видимостью просмотрщик не выделяется.
+    expect(bars.every((bar) => bar.thumbVisibility == null), isTrue);
 
     final panel = tester.getRect(
       find.ancestor(of: find.byType(Scrollbar).first, matching: find.byType(DecoratedBox)).first,
     );
     final bar = tester.getRect(find.byType(Scrollbar).first);
 
+    // Справа рамки нет вовсе: просмотрщик во всю ширину окна, оба края у него
+    // внешние — как у панелей, прижатых к краям.
     expect(bar.right, panel.right - inset);
-    expect(bar.top, panel.top + inset);
-    expect(bar.bottom, panel.bottom - inset);
+    // Снизу рамка есть, и полоса стоит внутри неё.
+    expect(bar.bottom, panel.bottom - const DefaultMetrics().strokeWidth - inset);
+    // Сверху между рамкой и содержимым стоит поле панели — полоса начинается
+    // за ним, как и текст.
+    expect(bar.top, greaterThan(panel.top));
   });
 
   testWidgets('поля текста полосы от рамки не отодвигают', (tester) async {
@@ -99,7 +121,7 @@ void main() {
     final panel = tester.getRect(
       find.ancestor(of: find.byType(Scrollbar).first, matching: find.byType(DecoratedBox)).first,
     );
-    final text = tester.getRect(find.text('строка 0'));
+    final text = tester.getRect(find.text('строка 0').first);
 
     // Текст отодвинут своими полями — заметно дальше, чем полоса.
     expect(text.left, greaterThan(panel.left + inset * 2));
