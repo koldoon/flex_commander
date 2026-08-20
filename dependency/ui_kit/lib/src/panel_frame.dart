@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'theme/fc_theme.dart';
+import 'fc_theme.dart';
 
 /// Внешний край окна, к которому прижата панель.
 ///

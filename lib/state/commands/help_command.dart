@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 
 /// Справка: что сейчас настроено и какие клавиши за что отвечают.
 ///

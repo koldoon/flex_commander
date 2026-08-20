@@ -2,9 +2,9 @@ import 'package:flutter/foundation.dart';
 
 import '../background/task_status.dart';
 import '../commands/command_service.dart';
-import '../ui/panel_viewport.dart';
-import '../ui/screen.dart';
-import '../ui/theme/theme_service.dart';
+import 'panel_viewport.dart';
+import 'screen.dart';
+import '../theme/theme_service.dart';
 import '../settings/app_settings.dart';
 import '../settings/module_settings.dart';
 import '../settings/window_geometry.dart';

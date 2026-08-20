@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 
 /// Рамка модального окна: затемнение, заголовок, содержимое и общие клавиши.
 ///

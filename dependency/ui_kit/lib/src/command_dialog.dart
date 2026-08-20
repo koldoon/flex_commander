@@ -1,10 +1,7 @@
 import 'package:flutter/material.dart';
 
-import '../../async/operation_request.dart';
-import '../../format/duration_format.dart';
-import '../../format/size_format.dart';
-import '../theme/app_metrics.dart';
-import '../theme/fc_theme.dart';
+import 'package:fc_api/fc_api.dart';
+import 'fc_theme.dart';
 
 /// Готовые куски содержимого окна команды.
 ///

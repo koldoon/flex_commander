@@ -14,15 +14,19 @@ void main() {
     // Единственное место, которому положено знать имена: там список и лежит.
     const allowed = 'lib/bootstrap/app_modules.dart';
 
+    // Два пакета ядру знать положено, и оба — не модули: `fc_api` объявляет
+    // контракты, `fc_ui_kit` даёт то, чем рисуют. Регистрировать в них нечего,
+    // убрать их из списка нельзя, и необязательными они никогда не были.
+    const libraries = ["package:fc_api/", "package:fc_ui_kit/"];
+
     final offenders = [
       for (final file in sources)
         if (!file.path.endsWith(allowed))
-          if (file.readAsStringSync().contains("import 'package:fc_") &&
-              !file.readAsStringSync().contains("import 'package:fc_api/"))
-            file.path,
+          for (final import in RegExp("import 'package:fc_[a-z_]+/").allMatches(file.readAsStringSync()))
+            if (!libraries.any((library) => import[0]!.contains(library))) file.path,
     ];
 
-    expect(offenders, isEmpty, reason: 'ядро должно знать только fc_api');
+    expect(offenders, isEmpty, reason: 'ядро знает только контракты и набор элементов интерфейса');
   });
 
   test('ядро пишется против API, а не против его внутренностей', () {

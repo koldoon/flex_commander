@@ -4,7 +4,7 @@ import '../app/application.dart';
 import '../background/task_status.dart';
 import 'framework/framework.dart';
 import '../app/panel.dart';
-import '../ui/screen.dart';
+import '../app/screen.dart';
 import '../tree/fs_node.dart';
 import '../tree/tree_provider.dart';
 import 'key_combination.dart';

@@ -1,5 +1,5 @@
-name: fc_default_theme
-description: "Оформление по умолчанию и команды выбора темы."
+name: fc_ui_kit
+description: "Общие элементы интерфейса: рамки, окна команд, кнопки, поля ввода."
 publish_to: 'none'
 version: 1.0.0
 
@@ -15,12 +15,9 @@ dependencies:
   fc_api:
     path: ../api
 
-  fc_ui_kit:
-    path: ../ui_kit
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
-  fc_test_kit:
-    path: ../test_kit
+  fc_default_theme:
+    path: ../default_theme
