@@ -58,6 +58,9 @@ class _KeyboardHandlerState extends State<KeyboardHandler> {
           // Уход фокуса сбрасывает слой: отпускание клавиши случится уже в
           // чужом окне и до нас не дойдёт, а ряд иначе остался бы в слое
           // навсегда.
+          // Уход фокуса сбрасывает слой модификаторов; забирать фокус обратно
+          // здесь нельзя — он уходит и по делу: в окно команды, в вопрос о
+          // пароле, в соседнее приложение.
           onFocusChange: (hasFocus) => _modifiers.value = hasFocus ? KeyModifiers.pressed() : KeyModifiers.none,
           child: child!,
         );

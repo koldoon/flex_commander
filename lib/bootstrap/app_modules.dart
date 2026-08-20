@@ -5,6 +5,7 @@ import 'package:fc_file_ops/fc_file_ops.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_ssh/fc_ssh.dart';
+import 'package:fc_viewer/fc_viewer.dart';
 import 'package:fc_zip_archiver/fc_zip_archiver.dart';
 
 import '../modules/app_shell.dart';
@@ -32,4 +33,6 @@ List<FcModule> featureModules() => [
   const ZipArchiver(),
   const SevenZipArchiver(),
   const SshFileSystem(),
+  // Просмотрщик после оболочки: он занимает место её заглушки на F3.
+  const TextViewer(),
 ];

@@ -194,4 +194,30 @@ class DefaultColors extends FcColors {
 
   @override
   Color get error => FcPalette.red;
+  // --- подсветка синтаксиса ---
+  //
+  // Палитра просмотрщика подобрана к тёмно-синему фону приложения: холодная
+  // основа, тёплые акценты на литералах. Комментарий приглушён до того же
+  // цвета, что и второстепенный текст в панели, — он и читается так же.
+
+  @override
+  Color get syntaxKeyword => const Color(0xFF7FB4FF);
+
+  @override
+  Color get syntaxString => const Color(0xFF9BD16B);
+
+  @override
+  Color get syntaxNumber => const Color(0xFFF5BB30);
+
+  @override
+  Color get syntaxComment => FcPalette.blue0.withValues(alpha: 0.7);
+
+  @override
+  Color get syntaxType => const Color(0xFF7FD1C8);
+
+  @override
+  Color get syntaxLiteral => const Color(0xFFE59BD8);
+
+  @override
+  Color get syntaxMeta => FcPalette.functionKey;
 }

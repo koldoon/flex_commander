@@ -235,7 +235,16 @@ void main() {
     testWidgets('нереализованные команды не притворяются рабочими', (tester) async {
       await openHelp(tester);
 
-      expect(rowOf(tester, 'View'), ['F3', 'Not implemented yet']);
+      // `F4` пока за заглушкой: клавиша закреплена, а редактора ещё нет.
+      expect(rowOf(tester, 'Edit'), ['F4', 'Not implemented yet']);
+    });
+
+    testWidgets('пришедший модулем занимает место заглушки', (tester) async {
+      await openHelp(tester);
+
+      // `F3` держала заглушка, пока не появился просмотрщик: у команды тот же
+      // идентификатор, и клавиша досталась ей вместе с местом в справке.
+      expect(rowOf(tester, 'View'), ['F3', 'Show the file under the cursor as text']);
     });
 
     testWidgets('команде без описания пустая колонка не мешает', (tester) async {
