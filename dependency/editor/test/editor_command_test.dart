@@ -158,6 +158,7 @@ void main() {
 
       expect(openEditor()!.showLineNumbers, isFalse);
       expect(runtime.commands.commandFor(KeyCombination.parse('F9'))!.label, 'Lines');
+      expect(runtime.app.toasts.current?.message, 'Show line numbers: Off');
     });
 
     test('номера строк помнятся между открытиями', () async {

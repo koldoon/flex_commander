@@ -78,6 +78,9 @@ void main() {
       expect(openViewer()!.wordWrap, isTrue);
       // Подпись говорит, что клавиша сделает **сейчас**.
       expect(runtime.commands.commandFor(KeyCombination.parse('F2'))!.label, 'Unwrap');
+      // И видно, что клавиша сработала: на узком файле текст не меняется, и
+      // одной подписи в ряду мало.
+      expect(runtime.app.toasts.current?.message, 'Wrap: On');
     });
 
     test('F9 показывает номера строк и меняет подпись', () async {
@@ -93,6 +96,7 @@ void main() {
 
       expect(openViewer()!.showLineNumbers, isTrue);
       expect(runtime.commands.commandFor(KeyCombination.parse('F9'))!.label, 'No lines');
+      expect(runtime.app.toasts.current?.message, 'Show line numbers: On');
     });
 
     test('Esc закрывает и возвращает панели', () async {
