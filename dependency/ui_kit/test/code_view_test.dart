@@ -51,6 +51,16 @@ void main() {
     await dispose(tester);
   });
 
+  testWidgets('в режиме чтения курсор не мигает', (tester) async {
+    // Править нечего, а мигающая палочка обещает ввод. Позицию поле держит и
+    // без неё — ею листают стрелки и страницы.
+    await pump(tester, showLineNumbers: false);
+
+    expect(tester.widget<CodeEditor>(find.byType(CodeEditor)).showCursorWhenReadOnly, isFalse);
+
+    await dispose(tester);
+  });
+
   testWidgets('фон рисует рамка, а не поле: иначе полтона разницы с панелью', (tester) async {
     await pump(tester, showLineNumbers: false);
 

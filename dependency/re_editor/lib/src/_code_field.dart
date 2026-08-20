@@ -614,17 +614,35 @@ class _CodeFieldRender extends RenderBox implements MouseTrackerAnnotation {
     return _selectWord(localPosition);
   }
 
+  /// FLEX COMMANDER: scrolls vertically without leaving the scrollable range.
+  ///
+  /// Landing outside it is not harmless: the position is then out of range,
+  /// the physics start a spring simulation to bring it back, and the reader
+  /// sees a bounce nobody asked for. See README.md.
+  void _jumpVerticallyTo(double offset) {
+    final double? maxOffset = _verticalViewportSize;
+    _verticalViewport.jumpTo(maxOffset == null ? max(0, offset) : min(max(0, offset), maxOffset));
+  }
+
   void makePositionVisible(CodeLinePosition position, [int tryCount = 0]) {
     final Offset? offset = calculateTextPositionViewportOffset(position);
     if (offset == null) {
       if (_displayParagraphs.isNotEmpty) {
+        // FLEX COMMANDER: two fixes here. The offset is kept inside the
+        // scrollable range, and the distance to a line below the viewport is
+        // counted from the last displayed line rather than the first.
+        //
+        // Counting from `first` overshot by a whole screen, and jumping out of
+        // range left the position for the physics to spring back — a bounce
+        // where the caller simply asked to show a line. `PageDown` near the end
+        // of a document did both at once. See README.md.
         final CodeLineRenderParagraph first = _displayParagraphs.first;
         if (position.index < first.index) {
-          _verticalViewport.jumpTo(first.top + _preferredLineHeight * (position.index - first.index));
+          _jumpVerticallyTo(first.top + _preferredLineHeight * (position.index - first.index));
         }
         final CodeLineRenderParagraph last = _displayParagraphs.last;
         if (position.index > last.index) {
-          _verticalViewport.jumpTo(max(0, last.bottom - size.height + _preferredLineHeight * (position.index - first.index)));
+          _jumpVerticallyTo(last.bottom - size.height + _preferredLineHeight * (position.index - last.index));
         }
       }
       if (tryCount < 10) {
@@ -640,9 +658,9 @@ class _CodeFieldRender extends RenderBox implements MouseTrackerAnnotation {
       return;
     }
     if (offset.dy < 0) {
-      _verticalViewport.jumpTo(_verticalViewport.pixels + offset.dy);
+      _jumpVerticallyTo(_verticalViewport.pixels + offset.dy);
     } else if (offset.dy > size.height - _preferredLineHeight) {
-      _verticalViewport.jumpTo(_verticalViewport.pixels + offset.dy - (size.height - _preferredLineHeight));
+      _jumpVerticallyTo(_verticalViewport.pixels + offset.dy - (size.height - _preferredLineHeight));
     }
     if (_horizontalViewport != null) {
       if (offset.dx < 0) {
@@ -1005,7 +1023,29 @@ class _CodeFieldRender extends RenderBox implements MouseTrackerAnnotation {
     return null;
   }
 
-  void _updateDisplayRenderParagraphs() {
+  /// FLEX COMMANDER: `cycle` bounds the number of layout cycles.
+  ///
+  /// Laying out may correct the scroll offset, and a corrected offset asks for
+  /// another layout. Upstream this recursion had no limit, and it did not
+  /// always converge: `applyContentDimensions` below starts a ballistic
+  /// activity when the offset is out of range, the activity moves the offset
+  /// again, and the next cycle sees the same mismatch. The application froze
+  /// hard — the stack was thousands of frames of this method.
+  ///
+  /// The estimate that drives it cannot be exact in principle: the height of
+  /// the lines outside the viewport is guessed as one grid line each, while a
+  /// wrapped line takes more. So the loop needs a bound rather than a better
+  /// guess. `RenderViewport` bounds itself the same way, see
+  /// `_maxLayoutCycles` there.
+  ///
+  /// Stopping early costs at most one imprecise frame: the next layout starts
+  /// from the corrected offset and settles.
+  static const int _kMaxLayoutCycles = 10;
+
+  void _updateDisplayRenderParagraphs([int cycle = 0]) {
+    if (cycle > _kMaxLayoutCycles) {
+      return;
+    }
     final double effectiveWidth;
     if (_horizontalViewport == null) {
       effectiveWidth = constraints.maxWidth - _padding.horizontal;
@@ -1025,7 +1065,7 @@ class _CodeFieldRender extends RenderBox implements MouseTrackerAnnotation {
     } else {
       if (_codes.length <= _displayParagraphs.first.index) {
         _displayParagraphs.clear();
-        _updateDisplayRenderParagraphs();
+        _updateDisplayRenderParagraphs(cycle + 1);
         return;
       }
       if (target < _displayParagraphs.first.top) {
@@ -1071,7 +1111,7 @@ class _CodeFieldRender extends RenderBox implements MouseTrackerAnnotation {
     }
     // The codes length maybe changed, this will make the displayParagraphs empty.
     if (_displayParagraphs.isEmpty) {
-      _updateDisplayRenderParagraphs();
+      _updateDisplayRenderParagraphs(cycle + 1);
       return;
     }
     final double totalHeight = _displayParagraphs.last.bottom + (_codes.length - (_displayParagraphs.last.index + 1)) * _preferredLineHeight + paddingBottom;
@@ -1086,8 +1126,19 @@ class _CodeFieldRender extends RenderBox implements MouseTrackerAnnotation {
       _horizontalViewport!.applyContentDimensions(0, _horizontalViewportSize!);
     }
     // applyContentDimensions will change the _verticalViewport.pixels, we should rebuild.
-    if (_displayParagraphs.first.offset.dy > _verticalViewport.pixels + paddingTop) {
-      _updateDisplayRenderParagraphs();
+    //
+    // FLEX COMMANDER: but only while there is something above to build.
+    //
+    // The gap at the top also appears when the offset is simply out of range —
+    // a hair above the first line, left by physics that have not settled yet.
+    // Rebuilding cannot close that gap: line 0 is already the first one shown.
+    // Upstream rebuilt anyway, layout asked for another layout, and the
+    // ballistic activity that would have pulled the offset back to zero was
+    // restarted by every frame and never got to run. The offset stayed a
+    // fraction of a point above the top, and the editor shuddered there for as
+    // long as the file was open.
+    if (_displayParagraphs.first.index > 0 && _displayParagraphs.first.offset.dy > _verticalViewport.pixels + paddingTop) {
+      _updateDisplayRenderParagraphs(cycle + 1);
       return;
     }
 
@@ -1181,8 +1232,23 @@ class _CodeFieldRender extends RenderBox implements MouseTrackerAnnotation {
   }
 
   void _calculatePreferredLineHeight() {
+    // FLEX COMMANDER: measured with the same strut the paragraphs are laid out
+    // with, see `_CodeParagraphProvider.updateBaseStyle`.
+    //
+    // This number is the grid the editor places lines on, so it has to be the
+    // height a line actually gets. Measured without the strut it was three
+    // points taller here, and every line scrolled past added that much to a
+    // correction the layout applied to the scroll offset. Scrolling up by a
+    // page pushed the offset above the top of the document, the physics sprang
+    // it back, and the reader saw a bounce. See README.md.
     final TextPainter painter = TextPainter(
       textDirection: TextDirection.ltr,
+      strutStyle: StrutStyle(
+        fontSize: _textStyle.fontSize,
+        fontFamily: _textStyle.fontFamily,
+        height: _textStyle.height,
+        forceStrutHeight: true,
+      ),
     );
     painter.text = TextSpan(
       text: '0',
