@@ -151,9 +151,15 @@ class _ViewerViewState extends State<ViewerView> {
           ),
           // Отступ здесь — только для полос прокрутки: они стоят по краю
           // панели, а текст отодвигают уже свои поля.
-          child: Padding(
-            padding: EdgeInsets.all(theme.metrics.scrollbarInset),
-            child: widget.screen.wordWrap ? _wrapped() : _plain(),
+          // Выделение мышью — обычное текстовое: тянут по строкам, а копирует
+          // команда просмотрщика. Что выделено, показ сообщает экрану — тому,
+          // у кого команда и спросит.
+          child: SelectionArea(
+            onSelectionChanged: (content) => widget.screen.setSelection(content?.plainText),
+            child: Padding(
+              padding: EdgeInsets.all(theme.metrics.scrollbarInset),
+              child: widget.screen.wordWrap ? _wrapped() : _plain(),
+            ),
           ),
         );
       },

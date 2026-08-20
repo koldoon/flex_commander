@@ -70,6 +70,17 @@ class ViewerScreen extends ChangeNotifier implements Screen {
   @override
   bool get takesFocus => false;
 
+  String _selection = '';
+
+  /// Выделенное мышью; пустая строка — не выделено ничего.
+  ///
+  /// Держится здесь, а не в виде: копирует его команда, а команда о виджетах
+  /// ничего не знает.
+  String get selection => _selection;
+
+  /// Зовётся показом, когда выделение меняется.
+  void setSelection(String? value) => _selection = value ?? '';
+
   Scroller? _scroller;
 
   /// Вид сообщает о себе, когда появляется на экране, и отзывается, когда

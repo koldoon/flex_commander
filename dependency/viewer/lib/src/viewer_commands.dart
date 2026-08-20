@@ -116,6 +116,47 @@ class ToggleWordWrapCommand extends AppCommand {
   Future<void> execute() async => _viewerOf(context.app)?.toggleWordWrap();
 }
 
+/// Скопировать выделенное в буфер обмена.
+class CopySelectionCommand extends AppCommand {
+  CopySelectionCommand(this.clipboard);
+
+  static const String commandId = 'viewer.copy';
+
+  final ClipboardService clipboard;
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => 'Copy';
+
+  @override
+  String get description => 'Copy the selected text to the clipboard';
+
+  static ViewerScreen? _viewerOf(Application app) {
+    final screen = app.screens.active;
+    return screen is ViewerScreen ? screen : null;
+  }
+
+  /// Копировать нечего, пока ничего не выделено: кнопка в ряду останется
+  /// приглушённой, а не сделает вид, что сработала.
+  @override
+  bool isExecutable(CommandContext context) => _viewerOf(context.app)?.selection.isNotEmpty ?? false;
+
+  @override
+  Future<void> execute() async {
+    final text = _viewerOf(context.app)?.selection ?? '';
+    if (text.isEmpty) {
+      return;
+    }
+
+    await clipboard.writeText(text);
+    // Случилось и закончилось — ровно то, о чём говорят всплывающим
+    // сообщением.
+    context.app.toasts.show('Copied ${text.length} characters');
+  }
+}
+
 /// Подвинуть показ.
 ///
 /// Одна команда на все восемь клавиш: куда двигать, приходит значением

@@ -31,6 +31,7 @@ class TextViewer implements FcModule {
     registry.command((context) => ToggleWordWrapCommand());
     registry.command((context) => CloseViewerCommand());
     registry.command((context) => ScrollViewerCommand());
+    registry.command((context) => CopySelectionCommand(registry.services.resolve<ClipboardService>()));
 
     // Привязки просмотрщика действуют только в его экране: в панелях за этими
     // же клавишами стоят свои команды, и ряд кнопок показывает те, что сейчас
@@ -38,6 +39,7 @@ class TextViewer implements FcModule {
     registry.binding(KeyBinding('F2', ToggleWordWrapCommand.commandId, screen: ViewerScreen.screenId));
     registry.binding(KeyBinding('Esc', CloseViewerCommand.commandId, screen: ViewerScreen.screenId));
     registry.binding(KeyBinding('F10', CloseViewerCommand.commandId, screen: ViewerScreen.screenId));
+    registry.binding(KeyBinding('Cmd-C', CopySelectionCommand.commandId, screen: ViewerScreen.screenId));
 
     // Прокрутка — такие же команды, как всё остальное: клавиша принадлежит
     // экрану, и переназначить её можно будет из настроек. Куда двигать,
