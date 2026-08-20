@@ -31,6 +31,10 @@ workspace:
   - dependency/file_ops
   - dependency/navigation
   - dependency/panels
+  # Своя копия re_editor: в ней две правки, без которых выделение в редакторе и
+  # просмотрщике разрывается между строками. Членство в воркспейсе и есть
+  # подмена — все, кто просит re_editor, получают её.
+  - dependency/re_editor
   - dependency/ssh
   - dependency/test_kit
   - dependency/ui_kit

@@ -103,6 +103,8 @@ CodeEditorStyle editorStyle(FcTheme theme, TextStyle base, String? language) {
   return CodeEditorStyle(
     fontFamily: base.fontFamily,
     fontSize: base.fontSize,
+    // Высота строки — своя, а не умолчание библиотеки: см. `codeFontHeight`.
+    fontHeight: codeFontHeight,
     textColor: colors.rowText,
     cursorColor: colors.markedBar,
     selectionColor: colors.inputSelection,

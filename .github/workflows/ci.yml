@@ -35,8 +35,12 @@ jobs:
       - name: Зависимости воркспейса
         run: flutter pub get
 
+      # Свою копию re_editor обходим: чужой код мы не переформатируем, иначе
+      # отличия от апстрима перестанут быть теми двумя, что описаны в его README.
       - name: Форматирование
-        run: dart format --output=none --set-exit-if-changed .
+        run: |
+          git ls-files -z '*.dart' | grep -zv '^dependency/re_editor/' \
+            | xargs -0 dart format --output=none --set-exit-if-changed
 
       - name: Статический анализ
         run: flutter analyze
