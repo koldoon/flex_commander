@@ -128,9 +128,9 @@ class _ParagraphImpl extends IParagraph {
     if (range.isCollapsed) {
       return const [];
     }
-    // FLEX COMMANDER: прямоугольник выделения — во всю строку сетки, а не по
-    // восходящей и нисходящей глифов: иначе между строками остаётся полоса
-    // фона. См. README.md.
+    // FLEX COMMANDER: selection boxes span the whole line of the grid instead
+    // of the glyph ascent and descent. Otherwise a stripe of background is
+    // left between the lines and the selection looks striped. See README.md.
     return paragraph.getBoxesForRange(range.start, range.end, boxHeightStyle: ui.BoxHeightStyle.max).map((e) {
       final Rect rect = e.toRect();
       final int line = max(0, (rect.center.dy / _preferredLineHeight).floor());
@@ -218,9 +218,10 @@ class _CodeParagraphProvider {
     if (uiStyle == _style) {
       return;
     }
-    // FLEX COMMANDER: струна заводится один раз и достаётся обоим —
-    // и раскладке абзаца, и измерению шага строк ниже. В апстриме шаг мерился
-    // без струны, и строки разъезжались с сеткой. См. README.md.
+    // FLEX COMMANDER: one strut for both the paragraph layout and the line
+    // height measured below. Upstream measured the line height without the
+    // strut, so the grid the editor lays lines on did not match the height
+    // the paragraphs were actually given. See README.md.
     final StrutStyle strutStyle = StrutStyle(
       fontSize: style.fontSize,
       fontFamily: style.fontFamily,

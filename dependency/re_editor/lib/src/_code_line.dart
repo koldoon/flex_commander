@@ -485,12 +485,39 @@ class _CodeLineEditingControllerImpl extends ValueNotifier<CodeLineEditingValue>
 
   @override
   void moveCursorToPageUp() {
-    // TODO
+    _moveCursorByPage(false);
   }
 
   @override
   void moveCursorToPageDown() {
-    // TODO
+    _moveCursorByPage(true);
+  }
+
+  /// FLEX COMMANDER: page up and down were left unimplemented upstream, so
+  /// `PageUp` and `PageDown` did nothing at all. See README.md.
+  ///
+  /// The page is measured from the viewport: as many lines as fit on screen,
+  /// minus one kept as an overlap so that the eye can connect what was on
+  /// screen with what is there now. With word wrap on, a wrapped line still
+  /// counts as one, so the jump may be longer than a screen.
+  void _moveCursorByPage(bool forward) {
+    final _CodeFieldRender? render = _render;
+    if (render == null || !render.hasSize || render.lineHeight <= 0) {
+      // Nothing is laid out yet, so there is no page to measure. Moving by a
+      // single line is still better than standing still.
+      moveCursor(forward ? AxisDirection.down : AxisDirection.up);
+      return;
+    }
+
+    final int page = max(1, (render.size.height / render.lineHeight).floor() - 1);
+    final CodeLinePosition current = selection.extent;
+    final int index = min(max(0, current.index + (forward ? page : -page)), codeLines.length - 1);
+
+    selection = CodeLineSelection.collapsed(
+      index: index,
+      offset: min(codeLines[index].length, current.offset)
+    );
+    makeCursorVisible();
   }
 
   @override
