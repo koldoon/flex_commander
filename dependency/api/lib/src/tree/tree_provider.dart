@@ -187,10 +187,15 @@ abstract interface class TreeEditor {
   ///
   /// Существующие объекты не перезаписываются молча: операция спрашивает
   /// ([OperationRequest]), а если спросить некого — пропускает.
-  AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination);
+  ///
+  /// [followLinks] — идти ли по символическим ссылкам. По умолчанию нет:
+  /// ссылка переносится ссылкой, как в mc. Приёмник, который так не умеет,
+  /// вызывает вопрос — молча подменять ссылку её содержимым нельзя, это разные
+  /// вещи и по размеру, и по смыслу.
+  AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination, {bool followLinks});
 
   /// Переносит объекты в каталог.
-  AsyncOperation<void> move(List<FsNode> nodes, DirectoryNode destination);
+  AsyncOperation<void> move(List<FsNode> nodes, DirectoryNode destination, {bool followLinks});
 
   AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true});
 

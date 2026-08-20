@@ -54,6 +54,13 @@ abstract class TransferCommandBase extends AsyncCommandBase {
   /// Путь каталога, куда идёт работа.
   static const String destinationParam = 'destination';
 
+  /// Идти ли по символическим ссылкам.
+  ///
+  /// По умолчанию нет — как в mc: ссылка переносится ссылкой. Приёмник,
+  /// который так не умеет, вызывает вопрос: подменять ссылку её содержимым
+  /// молча нельзя, это разные вещи и по размеру, и по смыслу.
+  static const String followLinksParam = 'followLinks';
+
   /// Убирается ли исходный объект.
   bool get moves;
 
@@ -114,7 +121,11 @@ abstract class TransferCommandBase extends AsyncCommandBase {
     }
 
     final destination = await _resolveDestination();
-    final operation = moves ? editor.move(targets, destination) : editor.copy(targets, destination);
+    final followLinks = param<bool>(followLinksParam) ?? false;
+    final operation =
+        moves
+            ? editor.move(targets, destination, followLinks: followLinks)
+            : editor.copy(targets, destination, followLinks: followLinks);
 
     try {
       await runOperation(operation, message: moves ? 'Moving…' : 'Copying…');
@@ -204,35 +215,37 @@ abstract class TransferCommandBase extends AsyncCommandBase {
           );
         }
 
-        final theme = FcTheme.of(context);
-
         return CommandDialogForm(
           error: error,
           onCancel: dismiss,
           onSubmit: submit,
           submitLabel: label,
-          // Поля те же, что в референсе: откуда и куда.
+          // Поля те же, что в референсе: откуда и куда. Зазор между строками
+          // ставит сама форма.
           children: [
-            Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                CommandDialogField(label: 'From', child: FcTextField(controller: _source, enabled: false)),
-                SizedBox(height: theme.metrics.dialogGap),
-                CommandDialogField(
-                  label: 'To',
-                  child: FcTextField(
-                    controller: _destination,
-                    autofocus: true,
-                    hintText: 'Destination path',
-                    // Путь задаётся по мере ввода, а не при подтверждении: Enter
-                    // обрабатывает ядро, и к моменту execute параметр уже должен
-                    // быть на месте.
-                    onChanged: (value) => setParam(destinationParam, value),
-                    onSubmitted: (_) => submit(),
-                  ),
-                ),
-              ],
+            CommandDialogField(label: 'From', child: FcTextField(controller: _source, enabled: false)),
+            CommandDialogField(
+              label: 'To',
+              child: FcTextField(
+                controller: _destination,
+                autofocus: true,
+                hintText: 'Destination path',
+                // Путь задаётся по мере ввода, а не при подтверждении: Enter
+                // обрабатывает ядро, и к моменту execute параметр уже должен
+                // быть на месте.
+                onChanged: (value) => setParam(destinationParam, value),
+                onSubmitted: (_) => submit(),
+              ),
+            ),
+            // Значение живёт в параметрах команды, а не в состоянии виджета:
+            // окно строит сама команда, и перерисовывает его её же уведомление.
+            FcCheckbox(
+              label: 'Follow symlinks',
+              value: param<bool>(followLinksParam) ?? false,
+              onChanged: (value) {
+                setParam(followLinksParam, value);
+                notifyListeners();
+              },
             ),
           ],
         );

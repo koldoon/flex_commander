@@ -58,14 +58,68 @@ void main() {
   }
 
   /// Запускает упаковку с заданным именем — как это делает окно команды.
-  Future<AppCommand> pack({String name = 'archive', ZipCompression? compression}) async {
+  Future<AppCommand> pack({String name = 'archive', ZipCompression? compression, bool followLinks = false}) async {
     final command =
         runtime.commands.create(CreateZipArchiveCommand.commandId)!
           ..setParam(CreateZipArchiveCommand.nameParam, name)
-          ..setParam(CreateZipArchiveCommand.compressionParam, (compression ?? ZipCompression.normal).name);
+          ..setParam(CreateZipArchiveCommand.compressionParam, (compression ?? ZipCompression.normal).name)
+          ..setParam(CreateZipArchiveCommand.followLinksParam, followLinks);
     await command.execute();
     return command;
   }
+
+  group('символические ссылки', () {
+    setUp(() async {
+      // Ссылка на каталог: узел у неё не `DirectoryNode`, и поток по ней не
+      // открыть. На этом упаковка каталога с `.framework` внутри и падала.
+      await Link(p.join(source, 'docs', 'shortcut')).create(p.join(source, 'docs', 'empty'));
+    });
+
+    // Окна в этих тестах нет, поэтому на вопрос о ссылке берётся ответ по
+    // умолчанию — «пропустить» (см. `AsyncCommandBase`). Сам вопрос и ответы
+    // на него проверяются на движке переноса.
+
+    test('ссылка на каталог не роняет упаковку', () async {
+      runtime.app.left.setCursorToName('docs');
+
+      final command = await pack(name: 'docs.zip');
+
+      expect(command.error, isNull);
+      // Остальное упаковалось: одна ссылка не должна стоить всей работы.
+      expect((await archiveAt('docs.zip')).keys, contains('docs/guide.txt'));
+    });
+
+    test('не следуем — ссылка в архив не попадает', () async {
+      runtime.app.left.setCursorToName('docs');
+
+      await pack(name: 'docs.zip');
+
+      // Хранить ссылку в zip нам нечем (см. комментарий в команде), а
+      // подменять её содержимым цели молча нельзя.
+      expect((await archiveAt('docs.zip')).keys, isNot(contains('docs/shortcut')));
+      expect((await archiveAt('docs.zip')).keys, isNot(contains('docs/shortcut/')));
+    });
+
+    test('следуем — в архив ложится содержимое цели', () async {
+      await File(p.join(source, 'docs', 'empty', 'inside.txt')).writeAsString('внутри');
+      runtime.app.left.setCursorToName('docs');
+
+      await pack(name: 'docs.zip', followLinks: true);
+
+      expect(await archiveAt('docs.zip'), containsPair('docs/shortcut/inside.txt', 'внутри'));
+    });
+
+    test('ссылка на саму упаковываемую ветку не уводит в бесконечность', () async {
+      // `docs/loop → docs`: пойти по ней — значит паковать себя в себя.
+      await Link(p.join(source, 'docs', 'loop')).create(p.join(source, 'docs'));
+      runtime.app.left.setCursorToName('docs');
+
+      final command = await pack(name: 'docs.zip', followLinks: true);
+
+      expect(command.error, isNull);
+      expect((await archiveAt('docs.zip')).keys, contains('docs/guide.txt'));
+    });
+  });
 
   group('упаковка', () {
     test('файл под курсором уходит в новый архив', () async {

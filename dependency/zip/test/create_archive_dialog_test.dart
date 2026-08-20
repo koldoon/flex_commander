@@ -85,6 +85,19 @@ void main() {
     expect(find.text('Cancel'), findsOneWidget);
   });
 
+  testWidgets('ссылками распоряжается флажок, и по умолчанию он снят', (tester) async {
+    // Как в mc: ссылка остаётся ссылкой, а не подменяется содержимым цели.
+    final command = await pumpDialog(tester);
+
+    expect(find.text('Follow symlinks'), findsOneWidget);
+    expect(command.param<bool>(CreateZipArchiveCommand.followLinksParam) ?? false, isFalse);
+
+    await tester.tap(find.text('Follow symlinks'));
+    await tester.pump();
+
+    expect(command.param<bool>(CreateZipArchiveCommand.followLinksParam), isTrue);
+  });
+
   testWidgets('по умолчанию выбрано среднее сжатие', (tester) async {
     final command = await pumpDialog(tester);
 

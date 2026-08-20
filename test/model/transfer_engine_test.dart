@@ -90,6 +90,108 @@ void main() {
     return messages;
   }
 
+  group('символические ссылки', () {
+    late InMemoryContentProvider disk;
+
+    setUp(() {
+      // С содержимым: перенос на чужой провайдер идёт байтами, и источнику
+      // должно быть что отдать.
+      disk = InMemoryContentProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.directory('/home/box'),
+        FakeEntry.directory('/home/src'),
+        FakeEntry.directory('/home/src/real'),
+        FakeEntry.file('/home/src/real/inside.txt', size: 7),
+        // Ссылка на каталог: узел у неё не `DirectoryNode`, и поток по ней не
+        // открыть — на этом падала упаковка каталога с `.framework` внутри.
+        FakeEntry.link('/home/src/link', '/home/src/real'),
+      ]);
+    });
+
+    Future<FsNode> at(String path) async => (await disk.resolvePath(path).result)!;
+
+    Future<DirectoryNode> dir(String path) async => (await at(path)) as DirectoryNode;
+
+    test('ссылка на каталог не роняет работу', () async {
+      final operation = engine.copy([await dir('/home/src')], await dir('/home/box'));
+      collectQuestions(operation);
+
+      await operation.result;
+
+      expect(await disk.resolvePath('/home/box/src/link').result, isNotNull);
+    });
+
+    test('не следуем — ссылка уходит ссылкой, а не содержимым', () async {
+      final operation = engine.copy([await dir('/home/src')], await dir('/home/box'));
+      collectQuestions(operation);
+      await operation.result;
+
+      final copied = await disk.resolvePath('/home/box/src/link').result;
+
+      expect(copied, isA<LinkNode>());
+      // Указывает туда же, куда и оригинал: содержимое цели не поехало копией
+      // — это разные вещи и по размеру, и по смыслу. Пройти по ссылке из копии
+      // по-прежнему можно, но ведёт она в исходный каталог.
+      expect((copied! as LinkNode).reference, '/home/src/real');
+    });
+
+    test('следуем — в приёмнике оказывается содержимое цели', () async {
+      final operation = engine.copy([await dir('/home/src')], await dir('/home/box'), followLinks: true);
+      collectQuestions(operation);
+      await operation.result;
+
+      final copied = await disk.resolvePath('/home/box/src/link/inside.txt').result;
+
+      expect(copied, isNotNull);
+    });
+
+    test('приёмник ссылку хранить не умеет — спрашивает, а не падает', () async {
+      // Чужой приёмник: у ссылки нет байтового представления, и передать её
+      // нечем.
+      final other = InMemoryContentProvider([FakeEntry.directory('/remote')]);
+      final target = (await other.resolvePath('/remote').result)! as DirectoryNode;
+
+      final operation = engine.copy([await at('/home/src/link')], target);
+      final questions = collectQuestions(operation);
+      await operation.result;
+
+      expect(questions, hasLength(1));
+      expect(questions.single, contains('link'));
+    });
+
+    test('«пропустить все» больше не спрашивает', () async {
+      disk.add(FakeEntry.link('/home/src/second', '/home/src/real'));
+      final other = InMemoryContentProvider([FakeEntry.directory('/remote')]);
+      final target = (await other.resolvePath('/remote').result)! as DirectoryNode;
+
+      final operation = engine.copy([await dir('/home/src')], target);
+      final questions = <String>[];
+      operation.requests.listen((request) {
+        questions.add(request.message);
+        request.respond(OperationOption.skipAll);
+      });
+
+      await operation.result;
+
+      // Спросили один раз — на каталоге со ссылками это и есть разница между
+      // «прозрачно» и «замучил вопросами».
+      expect(questions, hasLength(1));
+    });
+
+    test('ссылка внутрь копируемого каталога не уводит в бесконечность', () async {
+      // `src/loop → src`: пойти по ней — значит копировать себя в себя.
+      disk.add(FakeEntry.link('/home/src/loop', '/home/src'));
+
+      final operation = engine.copy([await dir('/home/src')], await dir('/home/box'), followLinks: true);
+      final questions = collectQuestions(operation);
+
+      await operation.result.timeout(const Duration(seconds: 10));
+
+      expect(questions, hasLength(1));
+      expect(questions.single, contains('points into the directory'));
+    });
+  });
+
   group('стратегии', () {
     test('перенос в пределах провайдера идёт переименованием', () async {
       await engine.move([await node('/home/notes.txt')], await directory('/home/bin')).result;

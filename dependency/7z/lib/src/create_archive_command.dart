@@ -55,6 +55,10 @@ class CreateSevenZipArchiveCommand extends AsyncCommandBase {
   /// Степень сжатия — имя значения [SevenZipCompression].
   static const String compressionParam = 'compression';
 
+  /// Идти ли по символическим ссылкам. По умолчанию нет — и тогда программе
+  /// нужен ключ `-snl`: сама по себе она ссылки разыменовывает.
+  static const String followLinksParam = 'followLinks';
+
   final StagingArea _staging;
   final SevenZipCli _cli;
 
@@ -271,6 +275,8 @@ class CreateSevenZipArchiveCommand extends AsyncCommandBase {
       '-t7z',
       '-mx=${_compression.level}',
       '-scsUTF-8',
+      // Без него `7z` кладёт в архив содержимое цели вместо самой ссылки.
+      if (param<bool>(followLinksParam) != true) '-snl',
       SevenZipCli.listSwitch(listFile),
       // Имена обработанных записей и проценты — то единственное, из чего можно
       // собрать ход работы.
@@ -567,6 +573,13 @@ class _CreateArchiveFormState extends State<_CreateArchiveForm> {
             onChanged: (value) => widget.command.setParam(CreateSevenZipArchiveCommand.nameParam, value),
             onSubmitted: (_) => widget.command.submit(),
           ),
+        ),
+        // Ссылки: по умолчанию ложатся в архив ссылками, как в mc.
+        FcCheckbox(
+          label: 'Follow symlinks',
+          value: widget.command.param<bool>(CreateSevenZipArchiveCommand.followLinksParam) ?? false,
+          onChanged:
+              (value) => setState(() => widget.command.setParam(CreateSevenZipArchiveCommand.followLinksParam, value)),
         ),
         CommandDialogField(
           label: 'Compression',
