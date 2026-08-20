@@ -44,7 +44,9 @@ void main() {
     disk = LocalTreeProvider(homePath: root, readInIsolate: false);
     registry = ProviderRegistry(root: disk)..register(
       ZipTreeProvider.schemeName,
-      (host) => ZipTreeProvider.open(host, credentials: FakeCredentials(), staging: const LocalStagingArea()),
+      (host) => TaskOperation<TreeProvider>(
+        (op) => ZipTreeProvider.open(host, credentials: FakeCredentials(), staging: const LocalStagingArea()),
+      ),
       extensions: ZipTreeProvider.extensions,
     );
   });
@@ -57,7 +59,7 @@ void main() {
 
   Future<TreeProvider> mounted() async {
     final host = (await disk.resolvePath(archivePath).result)!;
-    return registry.mount(ZipTreeProvider.schemeName, host);
+    return registry.mount(ZipTreeProvider.schemeName, host).result;
   }
 
   Future<FsNode> onDisk(String path) async => (await disk.resolvePath(p.join(root, path)).result)!;
@@ -183,9 +185,10 @@ void main() {
         outerPath,
       ).writeAsBytes(ZipEncoder().encodeBytes(Archive()..add(ArchiveFile.bytes('nested.zip', inner))));
 
-      final outer = await registry.mount(ZipTreeProvider.schemeName, (await disk.resolvePath(outerPath).result)!);
+      final outer =
+          await registry.mount(ZipTreeProvider.schemeName, (await disk.resolvePath(outerPath).result)!).result;
       final nestedHost = (await outer.resolvePath('/nested.zip').result)!;
-      final nested = await registry.mount(ZipTreeProvider.schemeName, nestedHost);
+      final nested = await registry.mount(ZipTreeProvider.schemeName, nestedHost).result;
 
       // Писать в копию бессмысленно: изменения ушли бы вместе с ней.
       expect(nested.canWrite, isFalse);

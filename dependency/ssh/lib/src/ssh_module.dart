@@ -26,7 +26,15 @@ class SshFileSystem implements FcModule {
         scheme,
         // Пароль и парольная фраза спрашиваются тем же окном, что и пароль
         // архива: модуль не знает, ни как спрашивают, ни где помнят ответ.
-        (address) => SftpTreeProvider.open(address, credentials: registry.services.resolve<Credentials>()),
+        (address) => TaskOperation<TreeProvider>((op) {
+          // Ни адреса целиком, ни authority: в них бывает пароль, набранный
+          // прямо в строке. Хост и протокол говорят ровно то, что нужно.
+          op.message('Connecting to $scheme://${address.host}…');
+          return ProviderRegistry.keepUnlessCanceled(
+            op,
+            SftpTreeProvider.open(address, credentials: registry.services.resolve<Credentials>()),
+          );
+        }),
       );
     }
   }

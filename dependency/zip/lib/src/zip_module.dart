@@ -22,13 +22,22 @@ class ZipArchiver implements FcModule {
       ZipTreeProvider.schemeName,
       // Архив внутри архива сперва оказывается на диске, но где именно —
       // знает не архиватор: место под временные файлы даёт приложение.
-      (host) => ZipTreeProvider.open(
-        host,
-        staging: registry.services.resolve<StagingArea>(),
-        // Зашифрованная запись спросит пароль сама — тем же способом, каким
-        // это делает 7z и сделает подключение к серверу.
-        credentials: registry.services.resolve<Credentials>(),
-      ),
+      (host) => TaskOperation<TreeProvider>((op) {
+        op.message('Reading ${host.name}…');
+        return ProviderRegistry.keepUnlessCanceled(
+          op,
+          ZipTreeProvider.open(
+            host,
+            staging: registry.services.resolve<StagingArea>(),
+            // Зашифрованная запись спросит пароль сама — тем же способом, каким
+            // это делает 7z и делает подключение к серверу.
+            credentials: registry.services.resolve<Credentials>(),
+            // Архив с сервера сперва копируется целиком, и это самая долгая
+            // часть открытия: молчать о ней нельзя.
+            onBytes: (bytes) => op.report(OperationProgress(message: 'Reading ${host.name}…', bytes: bytes)),
+          ),
+        );
+      }),
       extensions: ZipTreeProvider.extensions,
     );
 

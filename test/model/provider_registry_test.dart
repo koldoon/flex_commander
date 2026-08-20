@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,10 +30,14 @@ void main() {
     ]);
     mountedOver = [];
 
-    registry = ProviderRegistry(root: disk)..register('arc', (host) async {
-      mountedOver.add(host);
-      return InMemoryArchiveProvider(archiveEntries(), host);
-    }, extensions: {'arc'});
+    registry = ProviderRegistry(root: disk)..register(
+      'arc',
+      (host) => TaskOperation<TreeProvider>((op) async {
+        mountedOver.add(host);
+        return InMemoryArchiveProvider(archiveEntries(), host);
+      }),
+      extensions: {'arc'},
+    );
   });
 
   Future<FsNode> nodeAt(String path) async => (await disk.resolvePath(path).result)!;
@@ -53,7 +59,7 @@ void main() {
     test('незарегистрированная схема — отказ, а не пустое дерево', () async {
       final host = await nodeAt('/home/archive.arc');
 
-      await expectLater(registry.mount('zip', host), throwsA(isA<FsError>()));
+      await expectLater(registry.mount('zip', host).result, throwsA(isA<FsError>()));
     });
   });
 
@@ -61,7 +67,7 @@ void main() {
     test('корень смонтированного провайдера стоит над узлом-хозяином', () async {
       final host = await nodeAt('/home/archive.arc');
 
-      final mounted = await registry.mount('arc', host);
+      final mounted = await registry.mount('arc', host).result;
 
       expect(mountedOver.single, same(host));
       expect(mounted.rootDirectory.parent, same(host));
@@ -70,7 +76,7 @@ void main() {
     });
 
     test('путь внутри провайдера чужих имён не содержит', () async {
-      final mounted = await registry.mount('arc', await nodeAt('/home/archive.arc'));
+      final mounted = await registry.mount('arc', await nodeAt('/home/archive.arc')).result;
       final inner = (await mounted.resolvePath('/inner/doc.txt').result)!;
 
       // Провайдер архива знает только свою часть пути.
@@ -78,7 +84,7 @@ void main() {
     });
 
     test('полный путь собирается через оба дерева', () async {
-      final mounted = await registry.mount('arc', await nodeAt('/home/archive.arc'));
+      final mounted = await registry.mount('arc', await nodeAt('/home/archive.arc')).result;
       final inner = (await mounted.resolvePath('/inner/doc.txt').result)!;
 
       // Ровно тот формат, который умеет разбирать NodePath.
@@ -170,11 +176,15 @@ void main() {
 
     test('не разобралось — смонтированное по дороге закрыто', () async {
       final opened = <InMemoryArchiveProvider>[];
-      final registry = ProviderRegistry(root: disk)..register('arc', (host) async {
-        final provider = InMemoryArchiveProvider(archiveEntries(), host);
-        opened.add(provider);
-        return provider;
-      }, extensions: {'arc'});
+      final registry = ProviderRegistry(root: disk)..register(
+        'arc',
+        (host) => TaskOperation<TreeProvider>((op) async {
+          final provider = InMemoryArchiveProvider(archiveEntries(), host);
+          opened.add(provider);
+          return provider;
+        }),
+        extensions: {'arc'},
+      );
 
       expect(await registry.resolveDisplayPath('/home/archive.arc/missing').result, isNull);
 
@@ -183,8 +193,11 @@ void main() {
     });
 
     test('битый архив — отказ открыть, а не «пути нет»', () async {
-      final registry = ProviderRegistry(root: disk)
-        ..register('arc', (host) async => throw FsError(host.pathString, FsErrorKind.io), extensions: {'arc'});
+      final registry = ProviderRegistry(root: disk)..register(
+        'arc',
+        (host) => TaskOperation<TreeProvider>((op) async => throw FsError(host.pathString, FsErrorKind.io)),
+        extensions: {'arc'},
+      );
 
       await expectLater(
         registry.resolveDisplayPath('/home/archive.arc/inner').result,
@@ -193,7 +206,7 @@ void main() {
     });
 
     test('уже смонтированный берётся, а не заводится второй', () async {
-      final mounted = await registry.mount('arc', await nodeAt('/home/archive.arc'));
+      final mounted = await registry.mount('arc', await nodeAt('/home/archive.arc')).result;
       expect(mountedOver, hasLength(1));
 
       final node = await registry.resolveDisplayPath('/home/archive.arc/readme.md', reuse: [mounted]).result;
@@ -204,4 +217,149 @@ void main() {
       expect(mountedOver, hasLength(1));
     });
   });
+
+  group('ход разбора', () {
+    /// Собирает сообщения операции по порядку, без повторов подряд.
+    Future<List<String>> messagesOf(AsyncOperation<Object?> operation) async {
+      final seen = <String>[];
+      operation.progress.listen((event) {
+        if (event.message.isNotEmpty && (seen.isEmpty || seen.last != event.message)) {
+          seen.add(event.message);
+        }
+      });
+      await operation.result;
+      await pumpEventQueue();
+      return seen;
+    }
+
+    test('каждое звено цепочки называет себя', () async {
+      final messages = await messagesOf(registry.resolvePath('/home/archive.arc:arc:/inner/doc.txt'));
+
+      expect(messages, ['Reading archive.arc…']);
+    });
+
+    test('вложенные архивы называются по порядку вложенности', () async {
+      // Показанный путь схем не содержит, и звенья в нём находит сам разбор —
+      // тем важнее рассказать, на каком из них работа стоит.
+      final messages = await messagesOf(registry.resolveDisplayPath('/home/archive.arc/nested.arc/readme.md'));
+
+      expect(messages, ['Reading archive.arc…', 'Reading nested.arc…']);
+    });
+
+    test('прогресс провайдера доходит наверх', () async {
+      final talking = ProviderRegistry(root: _TalkingProvider(disk));
+
+      final messages = await messagesOf(talking.resolvePath('/home/notes.txt'));
+
+      expect(messages, ['Looking up /home/notes.txt']);
+    });
+
+    test('прогресс фабрики доходит наверх', () async {
+      final talking = ProviderRegistry(root: disk)..register(
+        'arc',
+        (host) => TaskOperation<TreeProvider>((op) async {
+          op.message('Unpacking ${host.name}');
+          return InMemoryArchiveProvider(archiveEntries(), host);
+        }),
+        extensions: {'arc'},
+      );
+
+      final messages = await messagesOf(talking.resolveDisplayPath('/home/archive.arc/readme.md'));
+
+      // Веха реестра — про звено, веха фабрики — про то, чем она занята внутри.
+      expect(messages, ['Reading archive.arc…', 'Unpacking archive.arc']);
+    });
+
+    test('отмена доходит до провайдера', () async {
+      final slow = _SlowProvider(disk);
+      final operation = ProviderRegistry(root: slow).resolvePath('/home/notes.txt');
+      await pumpEventQueue();
+
+      operation.cancel();
+
+      await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
+      expect(slow.canceled, isTrue);
+    });
+
+    test('отменённая фабрика закрывает опоздавший провайдер', () async {
+      // Самое долгое место открытия — окно пароля: пока его набирают, отменить
+      // успевают не раз, а тело фабрики всё равно доработает до конца.
+      final door = Completer<void>();
+      final opened = <InMemoryArchiveProvider>[];
+      final slow = ProviderRegistry(root: disk)..register(
+        'arc',
+        (host) => TaskOperation<TreeProvider>((op) {
+          return ProviderRegistry.keepUnlessCanceled(op, () async {
+            await door.future;
+            final provider = InMemoryArchiveProvider(archiveEntries(), host);
+            opened.add(provider);
+            return provider;
+          }());
+        }),
+        extensions: {'arc'},
+      );
+
+      final operation = slow.resolveDisplayPath('/home/archive.arc/readme.md');
+      await pumpEventQueue();
+      operation.cancel();
+      await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
+
+      // Фабрика доделывает своё уже после отмены — и убирает за собой сама:
+      // больше ссылки на открытый архив ни у кого нет.
+      door.complete();
+      await pumpEventQueue();
+      expect(opened.single.closed, isTrue);
+    });
+  });
+}
+
+/// Провайдер, который рассказывает о разборе пути.
+class _TalkingProvider extends _ForwardingProvider {
+  _TalkingProvider(super.inner);
+
+  @override
+  AsyncOperation<FsNode?> resolvePath(String path) => TaskOperation<FsNode?>((op) async {
+    op.message('Looking up $path');
+    return inner.resolvePath(path).result;
+  });
+}
+
+/// Провайдер, у которого разбор пути не кончается сам.
+class _SlowProvider extends _ForwardingProvider {
+  _SlowProvider(super.inner);
+
+  bool canceled = false;
+
+  @override
+  AsyncOperation<FsNode?> resolvePath(String path) {
+    final operation = TaskOperation<FsNode?>((op) async {
+      await Future<void>.delayed(const Duration(seconds: 1));
+      return null;
+    });
+    operation.result.catchError((Object _) {
+      canceled = true;
+      return null;
+    });
+    return operation;
+  }
+}
+
+/// Провайдер, во всём повторяющий другой: наследникам остаётся подменить одно.
+class _ForwardingProvider extends InMemoryTreeProvider {
+  _ForwardingProvider(this.inner);
+
+  final InMemoryTreeProvider inner;
+
+  @override
+  DirectoryNode get rootDirectory => inner.rootDirectory;
+
+  @override
+  String get homePath => inner.homePath;
+
+  @override
+  AsyncOperation<FsNode?> resolvePath(String path) => inner.resolvePath(path);
+
+  @override
+  AsyncOperation<List<FsNode>> getDirectoryListing(DirectoryNode dir, {bool includeHidden = true}) =>
+      inner.getDirectoryListing(dir, includeHidden: includeHidden);
 }
