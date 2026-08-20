@@ -169,6 +169,7 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
           level: _compression.level,
           op: op,
           onEntry: (name, bytes) => progress.startItem(name, bytes: bytes),
+          onEntryDone: progress.advance,
           // Байты приходят по мере того, как упаковщик читает запись: так видно
           // движение и внутри одного большого файла, а не только между файлами.
           onBytes: progress.advanceBytes,
@@ -227,7 +228,6 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
     if (node is DirectoryNode) {
       // Пустой каталог иначе пропал бы: в zip он существует только записью.
       entries.add(ZipEntry.directory(entryName));
-      progress.advance(node.name);
 
       for (final child in await node.provider.listChildren(node)) {
         await _addNode(entries, child, '$entryName/${child.name}', copies, op, progress, links);
@@ -239,7 +239,6 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
     // временный файл: упаковщику нужен файл, по которому можно ходить, — и
     // ходить он будет из другого изолята, где провайдеров нет вовсе.
     entries.add(ZipEntry.file(entryName, await copies.localPathOf(node)));
-    progress.advance(node.name);
   }
 
   /// Что делать со ссылкой: положить записью-ссылкой или пойти по ней.
