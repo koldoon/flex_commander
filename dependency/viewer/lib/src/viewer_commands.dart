@@ -116,7 +116,18 @@ class ToggleWordWrapCommand extends AppCommand {
   bool isExecutable(CommandContext context) => _viewerOf(context.app) != null;
 
   @override
-  Future<void> execute() async => _viewerOf(context.app)?.toggleWordWrap();
+  Future<void> execute() async {
+    final screen = _viewerOf(context.app);
+    if (screen == null) {
+      return;
+    }
+
+    screen.toggleWordWrap();
+    // Переключилось и закончилось — о таком говорят всплывающим сообщением.
+    // На узком файле подписи в ряду мало: она меняется, а текст на экране —
+    // нет, и непонятно, сработала клавиша или нет.
+    context.app.toasts.show('Wrap: ${screen.wordWrap ? 'On' : 'Off'}');
+  }
 }
 
 /// Показать или спрятать номера строк.
@@ -152,7 +163,15 @@ class ToggleViewerNumbersCommand extends AppCommand {
   bool isExecutable(CommandContext context) => _viewerOf(context.app) != null;
 
   @override
-  Future<void> execute() async => _viewerOf(context.app)?.toggleLineNumbers();
+  Future<void> execute() async {
+    final screen = _viewerOf(context.app);
+    if (screen == null) {
+      return;
+    }
+
+    screen.toggleLineNumbers();
+    context.app.toasts.show('Show line numbers: ${screen.showLineNumbers ? 'On' : 'Off'}');
+  }
 }
 
 /// Скопировать выделенное в буфер обмена.

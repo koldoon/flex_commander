@@ -226,7 +226,16 @@ class ToggleEditorWrapCommand extends AppCommand {
   bool isExecutable(CommandContext context) => _editorOf(context.app) != null;
 
   @override
-  Future<void> execute() async => _editorOf(context.app)?.toggleWordWrap();
+  Future<void> execute() async {
+    final screen = _editorOf(context.app);
+    if (screen == null) {
+      return;
+    }
+
+    screen.toggleWordWrap();
+    // Переключилось и закончилось — о таком говорят всплывающим сообщением.
+    context.app.toasts.show('Wrap: ${screen.wordWrap ? 'On' : 'Off'}');
+  }
 }
 
 /// Показать или спрятать номера строк.
@@ -259,7 +268,15 @@ class ToggleEditorNumbersCommand extends AppCommand {
   bool isExecutable(CommandContext context) => _editorOf(context.app) != null;
 
   @override
-  Future<void> execute() async => _editorOf(context.app)?.toggleLineNumbers();
+  Future<void> execute() async {
+    final screen = _editorOf(context.app);
+    if (screen == null) {
+      return;
+    }
+
+    screen.toggleLineNumbers();
+    context.app.toasts.show('Show line numbers: ${screen.showLineNumbers ? 'On' : 'Off'}');
+  }
 }
 
 /// Закрыть редактор; при несохранённом — спросить.
