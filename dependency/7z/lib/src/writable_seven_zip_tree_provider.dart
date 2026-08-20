@@ -52,6 +52,11 @@ class WritableSevenZipTreeProvider extends SevenZipTreeProvider
 
   // --- границы работы ---
 
+  /// Обновление архива программой `7z`: она перекладывает его целиком, и на
+  /// большом архиве это дольше самой записи.
+  @override
+  String get writesStageName => 'updating archive';
+
   @override
   Future<void> beginWrites() async => _batchDepth++;
 

@@ -217,6 +217,7 @@ abstract class RemoveCommandBase extends AsyncCommandBase {
           return CommandDialogProgress(
             progress: progress,
             message: progressMessage,
+            stageLabel: stageLabel,
             processed: processed,
             total: total,
             totalIsFinal: totalIsFinal,

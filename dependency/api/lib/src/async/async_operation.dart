@@ -36,6 +36,10 @@ class OperationProgress {
     this.itemName = '',
     this.itemBytes = 0,
     this.itemTotalBytes,
+    this.stage = 0,
+    this.stageCount = 0,
+    this.stageName = '',
+    this.indeterminate = false,
   }) : _percent = percent;
 
   final double? _percent;
@@ -85,6 +89,29 @@ class OperationProgress {
   /// Сколько байт в текущем объекте; null — размер неизвестен.
   final int? itemTotalBytes;
 
+  /// Который сейчас идёт этап работы, считая с единицы; 0 — этапов нет.
+  ///
+  /// Этап — это плечо работы, у которого своя мера: «упаковать», а потом
+  /// «отдать приёмнику»; «скопировать записи», а потом «пересобрать архив».
+  /// Плечи заводятся только там, где второе действительно долгое, — у обычного
+  /// копирования файла этапов нет вовсе, и окно о них не заикается.
+  final int stage;
+
+  /// Сколько всего этапов; 0 или 1 — работа одноплечая.
+  final int stageCount;
+
+  /// Чем занят текущий этап: «repacking archive», «uploading».
+  final String stageName;
+
+  /// Сколько осталось — неизвестно, и врать долей нельзя.
+  ///
+  /// Так идёт пересборка архива: сколько в ней работы, до конца не знает никто,
+  /// а полоса, замершая на ста процентах, выглядит как зависшая программа.
+  final bool indeterminate;
+
+  /// Есть ли о чём говорить: этапы показываются, только когда их больше одного.
+  bool get hasStages => stageCount > 1 && stage > 0;
+
   /// Доля текущего объекта, 0.0…1.0; null — показывать нечего.
   double? get itemPercent {
     final size = itemTotalBytes;
@@ -96,6 +123,9 @@ class OperationProgress {
 
   /// 0.0…1.0 или null, если прогресс неопределённый.
   double? get percent {
+    if (indeterminate) {
+      return null;
+    }
     if (_percent != null) {
       return _percent;
     }

@@ -28,6 +28,58 @@ void main() {
 
   Future<DirectoryNode> directory(String path) async => (await node(path)) as DirectoryNode;
 
+  group('плечи работы', () {
+    late _BatchingProvider archive;
+
+    setUp(() {
+      archive = _BatchingProvider([FakeEntry.directory('/box')]);
+    });
+
+    test('у приёмника, применяющего накопленное разом, работа двуплечая', () async {
+      final target = (await archive.resolvePath('/box').result)! as DirectoryNode;
+      final reports = <OperationProgress>[];
+      final operation = engine.copy([await node('/home/notes.txt')], target);
+      operation.progress.listen(reports.add);
+
+      await operation.result;
+      await Future<void>.delayed(Duration.zero);
+
+      // Первое плечо — сама запись, второе — то, чем занят приёмник; и назвал
+      // его он сам.
+      expect(reports.map((report) => report.stageName), contains('copying'));
+      expect(reports.map((report) => report.stageName), contains('repacking archive'));
+      expect(archive.calls, ['begin', 'end']);
+    });
+
+    test('о втором плече рассказано до того, как оно началось', () async {
+      final target = (await archive.resolvePath('/box').result)! as DirectoryNode;
+      final reports = <OperationProgress>[];
+      final operation = engine.copy([await node('/home/notes.txt')], target);
+      operation.progress.listen(reports.add);
+
+      await operation.result;
+      await Future<void>.delayed(Duration.zero);
+
+      final repacking = reports.lastWhere((report) => report.stageName == 'repacking archive');
+
+      // Сколько в пересборке работы, не знает никто: доли нет, но видно, что
+      // работа идёт — иначе окно замерло бы на «готово».
+      expect(repacking.hasStages, isTrue);
+      expect(repacking.percent, isNull);
+    });
+
+    test('обычному приёмнику плечи не заводятся', () async {
+      final reports = <OperationProgress>[];
+      final operation = engine.copy([await node('/home/notes.txt')], await directory('/home/bin'));
+      operation.progress.listen(reports.add);
+
+      await operation.result;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(reports.every((report) => !report.hasStages), isTrue);
+    });
+  });
+
   /// Собирает вопросы, отвечая «пропустить».
   List<String> collectQuestions(AsyncOperation<void> operation) {
     final messages = <String>[];
@@ -458,6 +510,22 @@ class _SocketFailure implements Exception {
 
 /// Источник только для чтения: примитивов изменения у него нет — так выглядит
 /// архив, открытый на просмотр.
+/// Приёмник, который применяет накопленное разом, — как архив.
+class _BatchingProvider extends InMemoryContentProvider implements BatchedWrites {
+  _BatchingProvider(super.entries);
+
+  final List<String> calls = [];
+
+  @override
+  String get writesStageName => 'repacking archive';
+
+  @override
+  Future<void> beginWrites() async => calls.add('begin');
+
+  @override
+  Future<void> endWrites() async => calls.add('end');
+}
+
 class _ReadOnlyProvider implements TreeProvider {
   @override
   String get scheme => 'ro';

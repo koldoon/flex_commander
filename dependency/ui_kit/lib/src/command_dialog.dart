@@ -107,7 +107,11 @@ class CommandDialogProgress extends StatelessWidget {
     this.itemProgress,
     this.itemBytes = 0,
     this.itemTotalBytes,
+    this.stageLabel,
   });
+
+  /// Который этап работы идёт; null — работа одноплечая, и строки не будет.
+  final String? stageLabel;
 
   final String message;
   final double? progress;
@@ -159,6 +163,10 @@ class CommandDialogProgress extends StatelessWidget {
             label: 'Item:',
             child: Text(message, style: theme.dialogTextStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
           ),
+          // Этап — первой строкой после сообщения: он объясняет, почему счёт
+          // объектов уже полон, а работа идёт.
+          if (stageLabel case final stage?)
+            CommandDialogField(label: 'Stage:', child: Text(stage, style: theme.dialogTextStyle)),
           if (counter != null)
             CommandDialogField(label: 'Processed:', child: Text(counter, style: theme.dialogTextStyle)),
           if (size != null) CommandDialogField(label: 'Size:', child: Text(size, style: theme.dialogTextStyle)),

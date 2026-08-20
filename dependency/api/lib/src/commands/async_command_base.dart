@@ -175,6 +175,9 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
   double? get itemProgress => _state.itemPercent;
 
   @override
+  String? get stageLabel => _state.hasStages ? '${_state.stage} of ${_state.stageCount} — ${_state.stageName}' : null;
+
+  @override
   bool get isRunning => _running;
 
   /// Завершение прогона: успешное, с ошибкой или отменённое.

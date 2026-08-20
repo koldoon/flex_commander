@@ -129,6 +129,9 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
   AsyncOperation<void> _pack(List<FsNode> sources, DirectoryNode destination, String name) {
     return TaskOperation<void>((op) async {
       final progress = TransferProgress(op, 'Packing');
+      // Плечи: сперва архив собирается, потом уходит приёмнику. Второе
+      // бывает и дольше первого — по сети, например.
+      progress.beginStage('packing', index: 1, count: 2);
       // Считаем рядом с работой, а не перед ней: обойти дерево стоит почти
       // столько же, сколько его упаковать.
       unawaited(_count(sources, progress));
@@ -166,6 +169,7 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
         // не прыгает назад, а лишь пересчитывает оставшееся.
         final packed = await File(archivePath).length();
         progress.countBytes(packed);
+        progress.beginStage('storing archive', index: 2, count: 2);
         await _deliver(archivePath, destination, name, op, progress);
       } finally {
         progress.stop();
