@@ -37,6 +37,7 @@ workspace:
   - dependency/re_editor
   - dependency/ssh
   - dependency/test_kit
+  - dependency/text_kit
   - dependency/ui_kit
   - dependency/viewer
   - dependency/zip
@@ -100,6 +101,10 @@ dev_dependencies:
   # модулей должны собирать приложение из тех же подставок.
   fc_test_kit:
     path: dependency/test_kit
+
+  # Показ текста — ради замера сетки строк в test/rendering.
+  fc_text_kit:
+    path: dependency/text_kit
 
   # The "flutter_lints" package below contains a set of recommended lints to
   # encourage good coding practices. The lint set provided by the package is

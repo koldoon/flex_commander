@@ -1,4 +1,4 @@
-import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Язык подсветки по имени файла.

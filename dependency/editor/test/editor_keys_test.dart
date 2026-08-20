@@ -109,7 +109,7 @@ void main() {
     'PgDn и PgUp листают текст',
     (tester) async => withDesktopPlatform(() async {
       // В библиотеке страница вверх и вниз не назначены ни на одну клавишу —
-      // клавиши им даёт `FcCodeShortcuts`. А ещё их должно хватать до текста:
+      // клавиши им даёт `FcTextShortcuts`. А ещё их должно хватать до текста:
       // в панелях за теми же клавишами стоят свои команды.
       final screen = await openEditor(tester, name: 'long.txt');
       expect(screen.controller.selection.baseIndex, 0);

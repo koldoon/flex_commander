@@ -1,4 +1,4 @@
-import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -10,7 +10,7 @@ import 'package:re_editor/re_editor.dart';
 /// действительно доходит до команд, проверяется на живом приложении
 /// (`editor_keys_test.dart`).
 void main() {
-  const shortcuts = FcCodeShortcuts();
+  const shortcuts = FcTextShortcuts();
 
   test('Esc отпущен экрану: им закрывают редактор', () {
     expect(shortcuts.released, contains(CodeShortcutType.esc));
@@ -18,7 +18,7 @@ void main() {
   });
 
   test('просмотрщик отпускает и копирование: у него на Cmd-C своя команда', () {
-    const viewer = FcCodeShortcuts(released: {CodeShortcutType.esc, CodeShortcutType.copy});
+    const viewer = FcTextShortcuts(released: {CodeShortcutType.esc, CodeShortcutType.copy});
 
     expect(viewer.build(CodeShortcutType.copy), isEmpty);
     // А редактору копирование остаётся: своей команды на него у него нет.
@@ -55,7 +55,7 @@ void main() {
     const defaults = DefaultCodeShortcutsActivatorsBuilder();
 
     for (final type in CodeShortcutType.values) {
-      if (shortcuts.released.contains(type) || FcCodeShortcuts.added.containsKey(type)) {
+      if (shortcuts.released.contains(type) || FcTextShortcuts.added.containsKey(type)) {
         continue;
       }
       expect(shortcuts.build(type), defaults.build(type), reason: '$type');

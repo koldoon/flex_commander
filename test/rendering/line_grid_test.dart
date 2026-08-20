@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:fc_default_theme/fc_default_theme.dart';
-import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:flutter/painting.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -16,7 +16,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// и полосы в выделении, и отскок прокрутки — разница копилась в поправку к
 /// положению. Наша копия меряет шаг той же струной
 /// (`dependency/re_editor/README.md`), а высоту строки приложение задаёт само —
-/// [codeFontHeight].
+/// [textLineHeight].
 ///
 /// Меряется настоящими шрифтами приложения: у тестового шрифта метрики свои, и
 /// на нём расхождения не видно вовсе.
@@ -65,7 +65,7 @@ void main() {
       test('сетка сходится с раскладкой: шаг равен высоте строки в абзаце', () {
         // Главное свойство починки, и оно не про шрифт: обе величины меряются
         // одной струной, а `forceStrutHeight` делает строку ровно такой.
-        expect(gridStep(family, codeFontHeight), closeTo(paragraphWith(family, codeFontHeight).height / 3, 0.01));
+        expect(gridStep(family, textLineHeight), closeTo(paragraphWith(family, textLineHeight).height / 3, 0.01));
       });
 
       test('глифы не убегают из строки сетки', () {
@@ -75,8 +75,8 @@ void main() {
         // вверх. Выход в доли точки безобиден и, главное, **не копится**: он
         // одинаков в каждой строке. Копилось бы — поехала бы вся раскладка, и
         // это ловит соседний тест.
-        final ui.Paragraph paragraph = paragraphWith(family, codeFontHeight);
-        final double step = gridStep(family, codeFontHeight);
+        final ui.Paragraph paragraph = paragraphWith(family, textLineHeight);
+        final double step = gridStep(family, textLineHeight);
 
         for (int line = 0; line < 3; line++) {
           final int start = line * 4;
@@ -96,7 +96,7 @@ void main() {
             (TextPainter(textDirection: TextDirection.ltr)
               ..text = TextSpan(text: '0', style: styleWith(family, null))).preferredLineHeight;
 
-        expect(gridStep(family, codeFontHeight), greaterThanOrEqualTo(natural));
+        expect(gridStep(family, textLineHeight), greaterThanOrEqualTo(natural));
       });
     });
   }
@@ -107,6 +107,6 @@ void main() {
         (TextPainter(textDirection: TextDirection.ltr)
           ..text = TextSpan(text: '0', style: styleWith('Consolas', 1.4))).preferredLineHeight;
 
-    expect(gridStep('Consolas', codeFontHeight), before);
+    expect(gridStep('Consolas', textLineHeight), before);
   });
 }
