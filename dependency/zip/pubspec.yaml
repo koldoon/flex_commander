@@ -1,4 +1,4 @@
-name: fc_zip_archiver
+name: fc_zip
 description: "Zip-архив как дерево: панель входит в него, как в каталог."
 publish_to: 'none'
 version: 1.0.0

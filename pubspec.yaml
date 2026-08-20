@@ -24,7 +24,7 @@ environment:
 # Приложение — корень воркспейса: пакеты рядом собираются вместе с ним, одной
 # разрешённой версией зависимостей на всех. Сюда добавляются api и модули.
 workspace:
-  - dependency/7z_archiver
+  - dependency/7z
   - dependency/api
   - dependency/default_theme
   - dependency/file_ops
@@ -34,7 +34,7 @@ workspace:
   - dependency/test_kit
   - dependency/ui_kit
   - dependency/viewer
-  - dependency/zip_archiver
+  - dependency/zip
 
 # Dependencies specify other packages that your package needs in order to work.
 # To automatically upgrade your package dependencies to the latest versions
@@ -52,8 +52,8 @@ dependencies:
     path: dependency/api
 
   # Модули приложения: ядро знает их только по этому списку.
-  fc_7z_archiver:
-    path: dependency/7z_archiver
+  fc_7z:
+    path: dependency/7z
 
   fc_default_theme:
     path: dependency/default_theme
@@ -75,8 +75,8 @@ dependencies:
   fc_viewer:
     path: dependency/viewer
 
-  fc_zip_archiver:
-    path: dependency/zip_archiver
+  fc_zip:
+    path: dependency/zip
 
   path: ^1.9.1            # basename/extension/join/normalize
   window_manager: ^0.5.2  # положение и размер окна между запусками

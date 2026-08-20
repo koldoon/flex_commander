@@ -1,4 +1,4 @@
-import 'package:fc_7z_archiver/src/seven_zip_listing.dart';
+import 'package:fc_7z/src/seven_zip_listing.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Вывод настоящей программы: шапка с версией, свойства архива, а уже потом

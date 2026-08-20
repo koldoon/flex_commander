@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fc_7z_archiver/fc_7z_archiver.dart';
+import 'package:fc_7z/fc_7z.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';

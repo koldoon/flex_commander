@@ -1,5 +1,5 @@
 import 'dart:io';
-import 'package:fc_7z_archiver/fc_7z_archiver.dart';
+import 'package:fc_7z/fc_7z.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
