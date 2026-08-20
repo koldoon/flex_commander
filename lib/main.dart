@@ -7,6 +7,7 @@ import 'package:logecom/logecom.dart';
 import 'app.dart';
 import 'bootstrap/app_modules.dart';
 import 'bootstrap/bootstrap.dart';
+import 'bootstrap/error_traps.dart';
 import 'modules/local_fs/plugin_window_service.dart';
 
 Future<void> main() async {
@@ -15,9 +16,16 @@ Future<void> main() async {
 
   _setUpLogging();
 
+  // Ловушки ставятся до всего остального: поломка при запуске — тоже поломка,
+  // и терять её нельзя. Пока приложения нет, пойманное копится и уходит
+  // сборщику, как только тот появится.
+  final logger = Logecom.createLogger('App');
+  final traps = ErrorTraps(log: (error, stack) => logger.error('Unhandled', [error, stack]))..install();
+
   // Единственное место в ядре, которое знает модули по именам. Всё остальное
   // работает с тем, что модули объявили, и не подозревает об их существовании.
   final runtime = await initModules(appModules());
+  traps.attach(runtime.app.errors);
 
   runApp(FlexCommanderApp(controller: runtime.app));
 
@@ -34,7 +42,4 @@ void _setUpLogging() {
       alignMessages: true,
     ),
   ];
-
-  final logger = Logecom.createLogger('App');
-  FlutterError.onError = (details) => logger.error('Flutter error', [details.exception, details.stack]);
 }

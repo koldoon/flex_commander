@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 
 import '../background/task_status.dart';
 import '../commands/command_service.dart';
+import 'errors.dart';
 import 'panel_viewport.dart';
 import 'screen.dart';
 import '../theme/theme_service.dart';
@@ -43,6 +44,10 @@ abstract interface class Application implements Listenable {
 
   /// Работы, ушедшие в фон.
   BackgroundTasks get background;
+
+  /// Ошибки, которые никто не поймал: показать человеку, а не только записать
+  /// в журнал.
+  Errors get errors;
 
   /// Всплывающие сообщения: сказать о том, что случилось и уже закончилось.
   Toasts get toasts;
