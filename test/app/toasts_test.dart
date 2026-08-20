@@ -4,8 +4,13 @@ import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/state/toast_controller.dart';
+import 'package:flex_commander/view/dialogs/command_dialog_layer.dart';
+import 'package:flex_commander/view/dialogs/credentials_layer.dart';
+import 'package:flex_commander/view/dialogs/error_layer.dart';
 import 'package:flex_commander/view/function_bar/function_bar.dart';
+import 'package:flex_commander/view/toast_layer.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Всплывающие сообщения: служба и то, что от неё видно на экране.
@@ -136,6 +141,34 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
       await tester.pumpAndSettle();
       expect(find.text('Show hidden files: Off'), findsNothing);
+    });
+
+    testWidgets('сообщение видно и поверх открытого окна', (tester) async {
+      // Раньше сообщения лежали под окнами и тонули в их затенении. А говорят
+      // ими и сами окна: «Report» в окне ошибки кладёт отчёт в буфер и
+      // сообщает об этом — подтверждение пропадало ровно тогда, когда его
+      // ждут.
+      final runtime = await pumpApp(tester);
+      runtime.app.errors.report(StateError('сломалось'), StackTrace.fromString('#0 place'));
+      await tester.pumpAndSettle();
+      expect(find.text('Unexpected error'), findsOneWidget);
+
+      runtime.app.toasts.show('Error report copied');
+      await tester.pumpAndSettle();
+
+      // Порядок в стопке и есть порядок рисования: сообщение идёт после всех
+      // слоёв с окнами.
+      final children = tester.widget<Stack>(find.byType(Stack).first).children;
+      final toast = children.indexWhere((child) => child is ToastLayer);
+      final dialogs = children.lastIndexWhere(
+        (child) => child is CommandDialogLayer || child is CredentialsLayer || child is ErrorLayer,
+      );
+
+      expect(toast, greaterThan(dialogs), reason: 'сообщение рисуется под окном и тонет в затенении');
+      expect(find.text('Error report copied'), findsOneWidget);
+
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
     });
 
     testWidgets('сообщение не отнимает места у панелей', (tester) async {
