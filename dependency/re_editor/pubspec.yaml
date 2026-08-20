@@ -1,0 +1,17 @@
+name: re_editor
+description: A powerful lightweight text and code editor widget for flutter.
+version: 0.10.0
+homepage: https://github.com/Reqable/re_editor
+
+# Своя копия: чужой пакет, взятый в проект ради двух правок. Что именно
+# изменено и почему — в README.md рядом.
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  re_highlight: ^0.0.3
+  isolate_manager: ^4.1.5+1

@@ -1,0 +1,10 @@
+# Чужой код: мы его не стилизуем и не переписываем под свои правила. Анализ
+# здесь молчит, чтобы отличия от апстрима оставались ровно теми, что описаны в
+# README.md, а не расползались правками ради тишины в консоли.
+analyzer:
+  errors:
+    deprecated_member_use: ignore
+    deprecated_member_use_from_same_package: ignore
+    unused_element: ignore
+    unused_field: ignore
+    todo: ignore
