@@ -232,30 +232,33 @@ class PanelController extends ChangeNotifier implements Panel {
     // Подключение бывает долгим (сервер на другом конце света), и всё это время
     // Esc должен работать: если операцию завести только на чтении каталога,
     // отменять во время подключения будет нечего.
-    final resolving = TaskOperation<FsNode?>((op) async {
+    final resolving = TaskOperation<DirectoryNode?>((op) async {
       // Чужая схема в начале — это другой корень: сервер, а не каталог. Панель
       // встаёт на него целиком, и разбор остатка пути идёт уже от него.
-      final start = await _rootFor(path, allowConnect: allowConnect);
+      final start = await _rootFor(op, path, allowConnect: allowConnect);
       op.checkCanceled();
 
       // Путь может проходить через несколько провайдеров: архив внутри архива —
       // это всё та же одна строка.
       // Разбор с вопросами о типе звена: человек набирает то, что ему
       // показали, а показанный путь схем архивов не содержит.
-      final inner = _registry.resolveDisplayPath(path, from: start, reuse: _mountedProviders);
-      _innerOperation = inner;
-      try {
-        return await inner.result;
-      } finally {
-        _innerOperation = null;
-      }
+      final node = await op.delegate(_registry.resolveDisplayPath(path, from: start, reuse: _mountedProviders));
+      op.checkCanceled();
+
+      // Архив, набранный путём, монтируется здесь же, внутри операции: снаружи
+      // прервать это было бы нечем, а лежащий на сервере архив копируется
+      // целиком.
+      return _asDirectory(op, node);
     });
     _operation = resolving;
+    // Ход разбора виден в строке состояния: «Connecting to ssh://shark…»,
+    // «Reading a.zip…». Без этого длинная цепочка выглядит зависанием.
+    final release = _followProgress(resolving, requestId);
 
     DirectoryNode? dir;
     try {
       _error = null;
-      dir = await _asDirectory(await resolving.result);
+      dir = await resolving.result;
     } on FsError catch (error) {
       // Причина нужна тому, кто просил открыть: «нет такого пути» и «такой
       // протокол мы не умеем» — разные ответы.
@@ -268,6 +271,8 @@ class PanelController extends ChangeNotifier implements Panel {
         _finish();
       }
       return false;
+    } finally {
+      release();
     }
 
     if (requestId != _requestId) {
@@ -300,14 +305,14 @@ class PanelController extends ChangeNotifier implements Panel {
   /// закрыть его больше некому, как и смонтированный архив. Прежний свой корень
   /// при этом закрывается — ушли с сервера, соединение разорвано. Общий корень
   /// не закрывается никогда: он не её.
-  Future<TreeProvider> _rootFor(String path, {required bool allowConnect}) async {
+  Future<TreeProvider> _rootFor(TaskOperation<Object?> op, String path, {required bool allowConnect}) async {
     final address = Uri.tryParse(path);
     if (address == null) {
       throw FsError(path, FsErrorKind.invalidAddress);
     }
 
     if (address.hasScheme) {
-      return _rootForAddress(path, address, allowConnect: allowConnect);
+      return _rootForAddress(op, path, address, allowConnect: allowConnect);
     }
 
     // Без протокола это путь — и он должен быть путём: «Blah» им не является,
@@ -322,7 +327,12 @@ class PanelController extends ChangeNotifier implements Panel {
   }
 
   /// Корень для строки с протоколом.
-  Future<TreeProvider> _rootForAddress(String path, Uri address, {required bool allowConnect}) async {
+  Future<TreeProvider> _rootForAddress(
+    TaskOperation<Object?> op,
+    String path,
+    Uri address, {
+    required bool allowConnect,
+  }) async {
     final scheme = address.scheme.toLowerCase();
 
     // Схема общего корня — это он и есть: `fs:/etc` и `/etc` значат одно.
@@ -349,7 +359,9 @@ class PanelController extends ChangeNotifier implements Panel {
       throw FsError(path, FsErrorKind.notFound);
     }
 
-    final opened = await _registry.openAddress(address).result;
+    // О себе подключение рассказывает само: панель не знает ни про этапы
+    // рукопожатия, ни про то, что пароль ещё спросят.
+    final opened = await op.delegate(_registry.openAddress(address));
     await _releaseOwnRoot();
     _ownRoot = opened;
     _ownAddress = address;
@@ -442,17 +454,28 @@ class PanelController extends ChangeNotifier implements Panel {
     // Открытие может оказаться небыстрым: архив, лежащий не в локальной ФС,
     // сперва копируется во временный файл. Молчать об этом нельзя — со стороны
     // это выглядит как зависшее приложение.
+    final requestId = ++_requestId;
     _busy = true;
     _status = PanelStatus.loading;
     _statusText = 'Opening ${node.name}…';
     notifyListeners();
 
+    // Монтирование — операция, и панель держит её у себя: Esc должен прерывать
+    // копирование архива с сервера, а не ждать его конца.
+    final mounting = _registry.mount(scheme, node);
+    _operation = mounting;
+    final release = _followProgress(mounting, requestId);
+
     try {
-      final mounted = await _registry.mount(scheme, node).result;
+      final mounted = await mounting.result;
       await open(mounted.rootDirectory);
       // Прочитать корень могло и не выйти: тогда панель осталась там, где была,
       // а смонтированное держит открытый файл впустую.
       _releaseProvider(mounted, keeping: provider);
+    } on OperationCanceled {
+      // Открытие прервали: панель остаётся там, где была.
+      _status = PanelStatus.idle;
+      _statusText = null;
     } on FsError catch (error) {
       // Битый архив — это отказ открыть, а не пустой каталог: панель остаётся
       // на месте и говорит почему.
@@ -460,6 +483,10 @@ class PanelController extends ChangeNotifier implements Panel {
       _status = PanelStatus.error;
       _statusText = error.message;
     } finally {
+      release();
+      if (identical(_operation, mounting)) {
+        _operation = null;
+      }
       // Если открылось, состояние выставил `open`; если нет — снимаем занятость
       // здесь, иначе панель осталась бы глухой к клавиатуре.
       _busy = false;
@@ -503,19 +530,13 @@ class PanelController extends ChangeNotifier implements Panel {
     await _load(dir, cursorName: currentNode?.name, cursorFallbackIndex: _cursorIndex, markedNames: selection.names);
   }
 
-  /// Прервать текущее чтение.
+  /// Прервать текущую работу панели.
   ///
-  /// Отмена доходит и внутрь: разбор пути — это внешняя операция (подключение
-  /// плюс чтение), а каталог читает вложенная, и остановить нужно ту, что идёт
-  /// прямо сейчас.
+  /// Внутрь отмена доходит сама: разбор пути — это операция, внутри которой
+  /// идут подключение, монтирование и чтение, и каждая вложенная прерывается
+  /// вместе с ней (`AsyncOperation.delegate`).
   @override
-  void cancel() {
-    _operation?.cancel();
-    _innerOperation?.cancel();
-  }
-
-  /// Вложенная операция разбора пути, пока она идёт.
-  AsyncOperation<Object?>? _innerOperation;
+  void cancel() => _operation?.cancel();
 
   // --- курсор ---
 
@@ -731,6 +752,30 @@ class PanelController extends ChangeNotifier implements Panel {
     }
   }
 
+  /// Показывает ход операции в строке состояния панели.
+  ///
+  /// Возвращает то, чем подписку снять: держать её дольше самой работы нельзя —
+  /// опоздавшее событие переписало бы статус уже следующего дела. По той же
+  /// причине проверяется и номер запроса.
+  ///
+  /// Событий бывает больше, чем имеет смысл перерисовывать: у копирования
+  /// архива во временный файл они идут пачками по мере чтения байт.
+  void Function() _followProgress(AsyncOperation<Object?> operation, int requestId) {
+    final redraw = Throttle(notifyListeners);
+    final subscription = operation.progress.listen((event) {
+      if (requestId != _requestId || event.message.isEmpty || _statusText == event.message) {
+        return;
+      }
+      _statusText = event.message;
+      redraw();
+    });
+
+    return () {
+      redraw.cancel();
+      unawaited(subscription.cancel());
+    };
+  }
+
   void _finish({String? statusText}) {
     _busy = false;
     _statusText = statusText;
@@ -786,8 +831,12 @@ class PanelController extends ChangeNotifier implements Panel {
     notifyListeners();
   }
 
-  /// Приводит узел к каталогу: ссылку на каталог разворачивает.
-  Future<DirectoryNode?> _asDirectory(FsNode? node) async {
+  /// Приводит узел к каталогу: ссылку на каталог разворачивает, архив —
+  /// монтирует.
+  ///
+  /// Операция передаётся, а не берётся из поля: монтирование идёт **внутри**
+  /// разбора пути, и прерываться должно вместе с ним.
+  Future<DirectoryNode?> _asDirectory(TaskOperation<Object?> op, FsNode? node) async {
     if (node is DirectoryNode) {
       return node;
     }
@@ -806,7 +855,7 @@ class PanelController extends ChangeNotifier implements Panel {
     if (scheme == null) {
       return null;
     }
-    return (await _registry.mount(scheme, node).result).rootDirectory;
+    return (await op.delegate(_registry.mount(scheme, node))).rootDirectory;
   }
 
   Future<FsNode?> _resolve(LinkNode link) async {

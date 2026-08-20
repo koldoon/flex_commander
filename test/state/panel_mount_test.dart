@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:flex_commander/state/panel_controller.dart';
@@ -225,6 +227,69 @@ void main() {
 
       expect(node, isNotNull);
       expect(mounted.single.closed, isFalse);
+    });
+  });
+
+  group('ход открытия', () {
+    /// Реестр, у которого монтирование не кончается, пока его не отпустят.
+    (ProviderRegistry, Completer<void>) slowRegistry() {
+      final door = Completer<void>();
+      final source = ProviderRegistry(root: disk)..register(
+        'arc',
+        (host) => TaskOperation<TreeProvider>((op) async {
+          op.message('Unpacking ${host.name}');
+          await door.future;
+          return InMemoryArchiveProvider(archiveEntries(), host);
+        }),
+        extensions: {'arc'},
+      );
+      return (source, door);
+    }
+
+    test('строка состояния называет то, что открывается сейчас', () async {
+      final (source, door) = slowRegistry();
+      final it = await panelOn(source);
+
+      final opening = it.openPath('/home/archive.arc/inner');
+      await pumpEventQueue();
+
+      // «Loading…» ничего не говорит о том, чего ждать: путь может идти через
+      // сервер и два архива.
+      expect(it.statusText, 'Unpacking archive.arc');
+
+      door.complete();
+      expect(await opening, isTrue);
+    });
+
+    test('отмена во время разбора оставляет панель на месте', () async {
+      final (source, door) = slowRegistry();
+      final it = await panelOn(source);
+
+      final opening = it.openPath('/home/archive.arc/inner');
+      await pumpEventQueue();
+      it.cancel();
+
+      expect(await opening, isFalse);
+      expect(it.directory?.pathString, '/home');
+      expect(it.busy, isFalse);
+      door.complete();
+    });
+
+    test('отмена во время монтирования по Enter прерывает открытие', () async {
+      final (source, door) = slowRegistry();
+      final it = await panelOn(source);
+      it.setCursorToName('archive.arc');
+
+      final entering = it.enterCurrent();
+      await pumpEventQueue();
+      expect(it.statusText, 'Unpacking archive.arc');
+
+      it.cancel();
+      await entering;
+
+      expect(it.directory?.pathString, '/home');
+      expect(it.busy, isFalse);
+      door.complete();
     });
   });
 
