@@ -46,6 +46,22 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('открывшийся экран сразу получает фокус: курсор на месте', (tester) async {
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    runtime.app.screens.open(const _EditorLikeScreen());
+    await tester.pumpAndSettle();
+
+    // Без этого человек видит текст, но курсора нет и печатать некуда, пока
+    // он не ткнёт мышью.
+    expect(FocusManager.instance.primaryFocus?.debugLabel, _EditorLikeScreen.focusLabel);
+
+    runtime.app.screens.close(_EditorLikeScreen.screenId);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('пока экран открыт, набор идёт в него, а не в панели', (tester) async {
     await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
     await tester.pumpAndSettle();
@@ -65,10 +81,14 @@ void main() {
 }
 
 /// Экран, которому фокус нужен по-настоящему, — как редактору.
+///
+/// Фокус он **просит сам**: `autofocus` в этот момент не срабатывает — фокус
+/// уже у обработчика клавиатуры, и область считает, что хозяин есть.
 class _EditorLikeScreen implements Screen {
   const _EditorLikeScreen();
 
   static const String screenId = 'editor-like';
+  static const String focusLabel = 'editor-like-field';
 
   @override
   String get id => screenId;
@@ -77,5 +97,35 @@ class _EditorLikeScreen implements Screen {
   bool get takesFocus => true;
 
   @override
-  Widget build(BuildContext context) => const TextField(autofocus: true);
+  Widget build(BuildContext context) => const _EditorLikeField();
+}
+
+class _EditorLikeField extends StatefulWidget {
+  const _EditorLikeField();
+
+  @override
+  State<_EditorLikeField> createState() => _EditorLikeFieldState();
+}
+
+class _EditorLikeFieldState extends State<_EditorLikeField> {
+  final FocusNode _focus = FocusNode(debugLabel: _EditorLikeScreen.focusLabel);
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _focus.requestFocus();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _focus.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => TextField(focusNode: _focus);
 }

@@ -25,6 +25,24 @@ class _EditorViewState extends State<EditorView> {
   final FocusNode _focus = FocusNode(debugLabel: 'EditorView');
 
   @override
+  void initState() {
+    super.initState();
+    // Фокус просится явно, а не через `autofocus`.
+    //
+    // К моменту, когда редактор появляется, фокус уже у обработчика
+    // клавиатуры, и область считает, что хозяин есть, — просьбу `autofocus`
+    // она отклоняет молча. Человек при этом видит текст, но курсора нет и
+    // печатать некуда, пока он не ткнёт мышью.
+    //
+    // После кадра: до него узла ещё нет в дереве фокуса.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _focus.requestFocus();
+      }
+    });
+  }
+
+  @override
   void dispose() {
     _focus.dispose();
     super.dispose();
@@ -53,7 +71,6 @@ class _EditorViewState extends State<EditorView> {
             child: CodeEditor(
               controller: widget.screen.controller,
               focusNode: _focus,
-              autofocus: true,
               wordWrap: widget.screen.wordWrap,
               padding: EdgeInsets.symmetric(horizontal: theme.metrics.panelLeftPadding),
               style: editorStyle(theme, base, language),
