@@ -32,6 +32,7 @@ workspace:
   - dependency/panels
   - dependency/ssh
   - dependency/test_kit
+  - dependency/viewer
   - dependency/zip_archiver
 
 # Dependencies specify other packages that your package needs in order to work.
@@ -67,6 +68,9 @@ dependencies:
 
   fc_ssh:
     path: dependency/ssh
+
+  fc_viewer:
+    path: dependency/viewer
 
   fc_zip_archiver:
     path: dependency/zip_archiver

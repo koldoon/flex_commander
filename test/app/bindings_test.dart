@@ -34,10 +34,23 @@ void main() {
   });
 
   test('Esc сперва отменяет операцию, а уже потом снимает пометку', () {
-    final forEsc = runtime.commands.bindings.where((binding) => '${binding.keys}' == 'Esc').toList();
+    final forEsc =
+        runtime.commands.bindings
+            .where((binding) => '${binding.keys}' == 'Esc' && binding.screen == Screens.files)
+            .toList();
 
     // Порядок задаёт приоритет: пока панель занята, Esc достаётся отмене.
     expect(forEsc.map((binding) => binding.commandId), ['panel.cancel', 'panel.selection.clear']);
+  });
+
+  test('Esc чужого экрана панелям не мешает', () {
+    // У просмотрщика своя Esc — она действует только в его экране, и потому
+    // не встаёт в очередь к панельным.
+    final elsewhere = runtime.commands.bindings.where(
+      (binding) => '${binding.keys}' == 'Esc' && binding.screen != Screens.files,
+    );
+
+    expect(elsewhere.map((binding) => binding.commandId), ['viewer.close']);
   });
 
   test('переход по набранному символу не перехватывает обычные клавиши', () {

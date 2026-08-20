@@ -1,0 +1,33 @@
+name: fc_viewer
+description: "Просмотрщик текста: файл во весь экран, с подсветкой и переносом строк."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  # Подсветка синтаксиса: перенос highlight.js на чистый Dart, 190+ языков.
+  # Спрятана за своим интерфейсом — см. src/syntax.
+  re_highlight: ^0.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  fc_default_theme:
+    path: ../default_theme
+
+  flex_commander:
+    path: ../..
