@@ -128,7 +128,7 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
       final entries =
           readInIsolate
               ? await readDirectory(path, includeHidden: includeHidden)
-              : await readDirectorySync(path, includeHidden: includeHidden);
+              : readDirectoryBlocking(path, includeHidden: includeHidden);
 
       op.checkCanceled();
 
@@ -238,7 +238,7 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
   /// каталог стоил бы дороже, чем сами `stat`.
   @override
   Future<List<FsNode>> listChildren(DirectoryNode dir) async {
-    final entries = await readDirectorySync(physicalPathOf(dir), includeHidden: true);
+    final entries = readDirectoryBlocking(physicalPathOf(dir), includeHidden: true);
     return [for (final entry in entries) nodeFromEntry(entry, dir)];
   }
 

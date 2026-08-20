@@ -52,51 +52,61 @@ class RawEntry {
 
 /// Читает каталог в отдельном изоляте.
 ///
-/// `stat()` на десятках тысяч файлов заметно блокирует поток, поэтому чтение
+/// `stat` на десятках тысяч файлов заметно блокирует поток, поэтому чтение
 /// уходит из основного изолята целиком. Отменить его нельзя — вызывающий код
 /// просто игнорирует результат отменённой операции.
+///
+/// Внутри — **блокирующие** вызовы: изолят за тем и заводится, чтобы в нём
+/// можно было блокироваться, а асинхронный ввод-вывод стоил бы дороже самой
+/// работы (см. [readDirectoryBlocking]).
 Future<List<RawEntry>> readDirectory(String path, {bool includeHidden = false}) {
-  return Isolate.run(() => readDirectorySync(path, includeHidden: includeHidden));
+  return Isolate.run(() => readDirectoryBlocking(path, includeHidden: includeHidden));
 }
 
-/// Тело чтения каталога. Вынесено отдельно, чтобы вызываться и без изолята
-/// (в тестах) и внутри [Isolate.run].
-Future<List<RawEntry>> readDirectorySync(String path, {bool includeHidden = false}) async {
-  final directory = Directory(path);
+/// Чтение каталога **блокирующими** вызовами.
+///
+/// Асинхронный ввод-вывод в Dart не бесплатен: каждый вызов уходит в пул
+/// потоков виртуальной машины и возвращается сообщением, и на запись это
+/// десятки микросекунд поверх одного-двух на сам системный вызов. Внутри
+/// изолята блокироваться можно и нужно — ровно за этим он и заводится.
+///
+/// Замер (`test/performance/listing_bench_test.dart`, macOS, 8 ядер):
+///
+/// ```
+/// записей   асинхронно   блокирующе
+///     100      4.63 мс      2.18 мс
+///    1000     40.82 мс      9.33 мс
+///   10000    194.24 мс     88.46 мс
+/// ```
+List<RawEntry> readDirectoryBlocking(String path, {bool includeHidden = false}) {
   final entries = <RawEntry>[];
 
-  final Stream<FileSystemEntity> listing;
+  final List<FileSystemEntity> listing;
   try {
-    listing = directory.list(followLinks: false);
+    listing = Directory(path).listSync(followLinks: false);
   } on FileSystemException catch (error) {
     throw fsErrorFrom(path, error);
   }
 
-  try {
-    await for (final entity in listing) {
-      final name = p.basename(entity.path);
-      if (!includeHidden && name.startsWith('.')) {
-        continue;
-      }
-      entries.add(await _describe(entity, name));
+  for (final entity in listing) {
+    final name = p.basename(entity.path);
+    if (!includeHidden && name.startsWith('.')) {
+      continue;
     }
-  } on FileSystemException catch (error) {
-    throw fsErrorFrom(path, error);
+    entries.add(_describeBlocking(entity, name));
   }
 
   return entries;
 }
 
-Future<RawEntry> _describe(FileSystemEntity entity, String name) async {
-  // Ссылка описывается данными своей цели, но остаётся ссылкой: так в панели
-  // сразу виден и размер цели, и то, что перед нами именно ссылка.
+RawEntry _describeBlocking(FileSystemEntity entity, String name) {
   String? linkTarget;
   FileType? linkTargetType;
   final isLink = entity is Link;
 
   if (isLink) {
     try {
-      linkTarget = await entity.target();
+      linkTarget = entity.targetSync();
     } on FileSystemException {
       linkTarget = '';
     }
@@ -104,9 +114,8 @@ Future<RawEntry> _describe(FileSystemEntity entity, String name) async {
 
   FileStat stat;
   try {
-    stat = await FileStat.stat(entity.path);
+    stat = FileStat.statSync(entity.path);
     if (stat.type == FileSystemEntityType.notFound) {
-      // Битая ссылка или объект исчез между list() и stat().
       return RawEntry(
         name: name,
         fileType: isLink ? FileType.symbolicLink : FileType.unknown,
@@ -132,7 +141,6 @@ Future<RawEntry> _describe(FileSystemEntity entity, String name) async {
   return RawEntry(
     name: name,
     fileType: fileType,
-    // Размер каталога — это размер его записи в ФС, для панели он бесполезен.
     size: statType == FileType.directory ? -1 : stat.size,
     modified: stat.modified,
     accessed: stat.accessed,
