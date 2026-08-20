@@ -420,6 +420,6 @@ class _AddressModule implements FcModule {
 
   @override
   void install(FcRegistry registry) {
-    registry.addressProvider('mem', (address) async => factory(address));
+    registry.addressProvider('mem', (address) => TaskOperation<TreeProvider>((op) async => factory(address)));
   }
 }

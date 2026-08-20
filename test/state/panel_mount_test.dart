@@ -34,8 +34,11 @@ void main() {
       FakeEntry.file('/home/archive.arc', content: [0]),
       FakeEntry.file('/home/notes.txt', size: 3),
     ]);
-    registry = ProviderRegistry(root: disk)
-      ..register('arc', (host) async => InMemoryArchiveProvider(archiveEntries(), host), extensions: {'arc'});
+    registry = ProviderRegistry(root: disk)..register(
+      'arc',
+      (host) => TaskOperation<TreeProvider>((op) async => InMemoryArchiveProvider(archiveEntries(), host)),
+      extensions: {'arc'},
+    );
     panel = await panelOn(registry);
   });
 
@@ -106,8 +109,11 @@ void main() {
   });
 
   test('битый архив оставляет панель на месте и говорит почему', () async {
-    final broken = ProviderRegistry(root: disk)
-      ..register('arc', (host) async => throw FsError(host.pathString, FsErrorKind.io), extensions: {'arc'});
+    final broken = ProviderRegistry(root: disk)..register(
+      'arc',
+      (host) => TaskOperation<TreeProvider>((op) async => throw FsError(host.pathString, FsErrorKind.io)),
+      extensions: {'arc'},
+    );
     final it = await panelOn(broken);
     it.setCursorToName('archive.arc');
 
@@ -137,11 +143,15 @@ void main() {
 
     setUp(() {
       mounted = [];
-      tracking = ProviderRegistry(root: disk)..register('arc', (host) async {
-        final provider = InMemoryArchiveProvider(archiveEntries(), host);
-        mounted.add(provider);
-        return provider;
-      }, extensions: {'arc'});
+      tracking = ProviderRegistry(root: disk)..register(
+        'arc',
+        (host) => TaskOperation<TreeProvider>((op) async {
+          final provider = InMemoryArchiveProvider(archiveEntries(), host);
+          mounted.add(provider);
+          return provider;
+        }),
+        extensions: {'arc'},
+      );
     });
 
     Future<PanelController> panelInArchive({bool disposed = false}) async {

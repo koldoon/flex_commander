@@ -44,7 +44,9 @@ void main() {
     disk = LocalTreeProvider(homePath: root, readInIsolate: false);
     registry = ProviderRegistry(root: disk)..register(
       ZipTreeProvider.schemeName,
-      (host) => ZipTreeProvider.open(host, credentials: FakeCredentials(), staging: const LocalStagingArea()),
+      (host) => TaskOperation<TreeProvider>(
+        (op) => ZipTreeProvider.open(host, credentials: FakeCredentials(), staging: const LocalStagingArea()),
+      ),
       extensions: ZipTreeProvider.extensions,
     );
   });
@@ -57,7 +59,7 @@ void main() {
 
   Future<FsNode> hostNode() async => (await disk.resolvePath(archivePath).result)!;
 
-  Future<TreeProvider> mounted() async => registry.mount(ZipTreeProvider.schemeName, await hostNode());
+  Future<TreeProvider> mounted() async => registry.mount(ZipTreeProvider.schemeName, await hostNode()).result;
 
   Future<List<String>> namesIn(TreeProvider provider, String path) async {
     final dir = (await provider.resolvePath(path).result)! as DirectoryNode;

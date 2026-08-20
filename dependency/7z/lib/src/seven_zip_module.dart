@@ -42,14 +42,23 @@ class SevenZipArchiver implements FcModule {
       SevenZipTreeProvider.schemeName,
       // Архив внутри архива сперва оказывается на диске, но где именно —
       // знает не архиватор: место под временные файлы даёт приложение.
-      (host) => SevenZipTreeProvider.open(
-        host,
-        staging: registry.services.resolve<StagingArea>(),
-        cli: registry.services.resolve<SevenZipCli>(),
-        // Архив под паролем спросит его сам — тем же способом, каким это
-        // сделает будущее подключение к серверу.
-        credentials: registry.services.resolve<Credentials>(),
-      ),
+      (host) => TaskOperation<TreeProvider>((op) {
+        op.message('Reading ${host.name}…');
+        return ProviderRegistry.keepUnlessCanceled(
+          op,
+          SevenZipTreeProvider.open(
+            host,
+            staging: registry.services.resolve<StagingArea>(),
+            cli: registry.services.resolve<SevenZipCli>(),
+            // Архив под паролем спросит его сам — тем же способом, каким это
+            // делает подключение к серверу.
+            credentials: registry.services.resolve<Credentials>(),
+            // Копирование архива во временный файл — самая долгая часть
+            // открытия, и о ней стоит рассказывать.
+            onBytes: (bytes) => op.report(OperationProgress(message: 'Reading ${host.name}…', bytes: bytes)),
+          ),
+        );
+      }),
       extensions: SevenZipTreeProvider.extensions,
     );
 

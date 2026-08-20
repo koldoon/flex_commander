@@ -11,7 +11,12 @@ import 'tree_provider.dart';
 /// лежит, а полный путь узла собирается через оба дерева.
 ///
 /// Ошибку сообщает исключением [FsError]: битый архив — это не «пустой архив».
-typedef ProviderFactory = Future<TreeProvider> Function(FsNode host);
+///
+/// Операция, а не `Future`: открыть архив бывает долго — лежащий на сервере
+/// сперва копируется во временный файл, — и всё это время работа должна
+/// рассказывать о себе и прерываться. Оба свойства уже есть у [AsyncOperation],
+/// и заводить ради них второй канал незачем.
+typedef ProviderFactory = AsyncOperation<TreeProvider> Function(FsNode host);
 
 /// Создаёт источник по адресу: `ssh://user@host/srv` — это подключение.
 ///
@@ -21,8 +26,13 @@ typedef ProviderFactory = Future<TreeProvider> Function(FsNode host);
 ///
 /// **Пароль в путях созданного источника не появляется.** Из адреса он берётся
 /// один раз и уходит в `Credentials`; `pathOf` возвращает `//user@host/…`.
-/// Иначе пароль утёк бы в `settings.json` вместе с путём панели.
-typedef AddressFactory = Future<TreeProvider> Function(Uri address);
+/// Иначе пароль утёк бы в `settings.json` вместе с путём панели. По той же
+/// причине его нет и в сообщениях о ходе работы: там только схема и хост.
+///
+/// Операция, а не `Future`, — по той же причине, что и у [ProviderFactory]:
+/// подключение к серверу на другом конце света идёт секундами, и всё это время
+/// пользователь вправе знать, чего ждёт, и вправе перестать ждать.
+typedef AddressFactory = AsyncOperation<TreeProvider> Function(Uri address);
 
 /// Реестр провайдеров: какая схема чем открывается и что во что вкладывается.
 ///
@@ -88,10 +98,12 @@ class ProviderRegistry {
   ///
   /// Каждый вызов — своё подключение: две панели на одном сервере не делят
   /// состояние, как не делят его и два открытых архива над одним файлом.
-  Future<TreeProvider> openAddress(Uri address) async {
+  AsyncOperation<TreeProvider> openAddress(Uri address) {
     final factory = _addresses[address.scheme.toLowerCase()];
     if (factory == null) {
-      throw FsError(address.toString(), FsErrorKind.notSupported);
+      // Имя протокола, а не вся строка: разговор о нём, а не о пути, — и
+      // пароль, набранный прямо в адресе, в сообщение не попадает.
+      return CompletedOperation.error(FsError(address.scheme, FsErrorKind.unsupportedScheme));
     }
     return factory(address);
   }
@@ -112,12 +124,35 @@ class ProviderRegistry {
   ///
   /// Каждый вызов создаёт нового: узлы дерева живут ровно до перечитывания
   /// каталога, и держать провайдера дольше, чем открыта панель, незачем.
-  Future<TreeProvider> mount(String scheme, FsNode host) async {
+  AsyncOperation<TreeProvider> mount(String scheme, FsNode host) {
     final factory = _factories[scheme];
     if (factory == null) {
-      throw FsError(host.pathString, FsErrorKind.notSupported);
+      return CompletedOperation.error(FsError(host.pathString, FsErrorKind.notSupported));
     }
     return factory(host);
+  }
+
+  /// Фабрике: отдать созданное, только если её не отменили.
+  ///
+  /// Отмена завершает операцию, но не тело: самое долгое место открытия — это
+  /// не сеть, а окно пароля, и пока человек его набирает, прервать успевают
+  /// не раз. Тело потом всё равно доработает — архив откроется, сессия
+  /// установится, — а отдать результат уже некому. Закрыть его может только
+  /// сама фабрика: больше ссылки ни у кого нет.
+  ///
+  /// ```dart
+  /// registry.provider('zip', (host) => TaskOperation((op) {
+  ///   op.message('Reading ${host.name}…');
+  ///   return ProviderRegistry.keepUnlessCanceled(op, ZipTreeProvider.open(host, …));
+  /// }));
+  /// ```
+  static Future<TreeProvider> keepUnlessCanceled(TaskOperation<TreeProvider> op, Future<TreeProvider> opening) async {
+    final provider = await opening;
+    if (op.isCanceled) {
+      await disposeProvider(provider);
+      throw const OperationCanceled();
+    }
+    return provider;
   }
 
   /// Разбор строки пути через всю цепочку провайдеров.
@@ -148,7 +183,7 @@ class ProviderRegistry {
         throw FsError(path, FsErrorKind.notSupported);
       }
 
-      FsNode? node = await start.resolvePath(_expandHome(first.path, start)).result;
+      FsNode? node = await op.delegate(start.resolvePath(_expandHome(first.path, start)));
       op.checkCanceled();
 
       // Смонтированное по дороге придётся закрыть, если путь не разберётся:
@@ -163,13 +198,21 @@ class ProviderRegistry {
           // Уже работающий провайдер поверх этого же узла — тот самый, что
           // нужен: заводить второй значило бы разойтись с ним состоянием.
           final existing = _reusable(reuse, part.scheme, node);
-          final provider = existing ?? await mount(part.scheme, node);
+          if (existing == null) {
+            // Веха про звено цепочки: дальше о себе рассказывает сам провайдер,
+            // а о том, что звеньев несколько, знает только разбор пути.
+            op.message('Reading ${node.name}…');
+          }
+          final provider = existing ?? await op.delegate<TreeProvider>(mount(part.scheme, node));
           if (existing == null) {
             mounted.add(provider);
           }
+          // Проверка нужна и после делегирования: отмена могла прийти в зазор
+          // между концом монтирования и продолжением тела, и без неё
+          // смонтированное осталось бы держать открытый файл впустую.
           op.checkCanceled();
 
-          node = await provider.resolvePath(part.path).result;
+          node = await op.delegate<FsNode?>(provider.resolvePath(part.path));
           op.checkCanceled();
         }
       } catch (_) {
@@ -248,7 +291,7 @@ class ProviderRegistry {
     List<TreeProvider> mounted,
     TaskOperation<FsNode?> op,
   ) async {
-    final whole = await provider.resolvePath(path).result;
+    final whole = await op.delegate(provider.resolvePath(path));
     op.checkCanceled();
     if (whole != null) {
       return whole;
@@ -257,7 +300,9 @@ class ProviderRegistry {
     for (var slash = path.lastIndexOf('/'); slash > 0; slash = path.lastIndexOf('/', slash - 1)) {
       op.checkCanceled();
 
-      final host = await provider.resolvePath(path.substring(0, slash)).result;
+      // Перебор префиксов о себе не рассказывает: по сети это десяток зондов
+      // в секунду, и веха на каждый была бы мельканием ни о чём.
+      final host = await op.delegate(provider.resolvePath(path.substring(0, slash)));
       op.checkCanceled();
       if (host == null) {
         continue;
@@ -273,10 +318,14 @@ class ProviderRegistry {
       // Уже работающий провайдер поверх этого же узла — тот самый, что нужен:
       // второй разошёлся бы с ним состоянием.
       final existing = _reusable(reuse, scheme, host);
-      final inner = existing ?? await mount(scheme, host);
+      if (existing == null) {
+        op.message('Reading ${host.name}…');
+      }
+      final inner = existing ?? await op.delegate<TreeProvider>(mount(scheme, host));
       if (existing == null) {
         mounted.add(inner);
       }
+      // См. [resolvePath]: без этой проверки смонтированное утекает.
       op.checkCanceled();
 
       // Остаток может содержать ещё один архив — вложенные разбираются тем же

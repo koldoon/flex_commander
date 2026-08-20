@@ -349,7 +349,7 @@ class PanelController extends ChangeNotifier implements Panel {
       throw FsError(path, FsErrorKind.notFound);
     }
 
-    final opened = await _registry.openAddress(address);
+    final opened = await _registry.openAddress(address).result;
     await _releaseOwnRoot();
     _ownRoot = opened;
     _ownAddress = address;
@@ -448,7 +448,7 @@ class PanelController extends ChangeNotifier implements Panel {
     notifyListeners();
 
     try {
-      final mounted = await _registry.mount(scheme, node);
+      final mounted = await _registry.mount(scheme, node).result;
       await open(mounted.rootDirectory);
       // Прочитать корень могло и не выйти: тогда панель осталась там, где была,
       // а смонтированное держит открытый файл впустую.
@@ -806,7 +806,7 @@ class PanelController extends ChangeNotifier implements Panel {
     if (scheme == null) {
       return null;
     }
-    return (await _registry.mount(scheme, node)).rootDirectory;
+    return (await _registry.mount(scheme, node).result).rootDirectory;
   }
 
   Future<FsNode?> _resolve(LinkNode link) async {
