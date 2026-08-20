@@ -43,15 +43,12 @@ FlexCommanderApp                      MaterialApp, тема, AppScope
     │       │       └── PanelScope(right) → PanelView
     │       ├─ ViewerScreen           fc_viewer
     │       │   └── ViewerView
-    │       │       └── FcPanelFrame           та же рамка, что у панели
-    │       │           ├── FcPathPlate        полный адрес и размер файла
-    │       │           └── SelectionArea      выделение мышью, копирование по Cmd-C
-    │       │               └── Scrollbar → SingleChildScrollView → ListView.builder
+    │       │       └── FcCodeView            тот же показ, только readOnly
     │       └─ EditorScreen           fc_editor
     │           └── EditorView
     │               └── FcCodeView            общий показ текста, из fc_ui_kit
     │                   └── FcPanelFrame       та же рамка, что у панели
-    │                       ├── FcPathPlate    полный адрес и знак несохранённого
+    │                       ├── FcPathPlate    полный адрес, размер или знак правки
     │                       └── CodeEditor     re_editor: своя раскладка и отрисовка
     ├── BackgroundBar                  фоновые работы, если они есть
     ├── FunctionBar                    команды видимого экрана

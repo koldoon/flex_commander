@@ -42,7 +42,7 @@ void main() {
 
       expect(openViewer(), isNotNull);
       expect(openViewer()!.node.name, 'notes.txt');
-      expect(openViewer()!.document.lines, ['раз', 'два', 'три']);
+      expect(openViewer()!.controller.text, 'раз\nдва\nтри');
       // Панели никуда не делись — они под ним.
       expect(runtime.app.screens.stack.map((screen) => screen.id), [Screens.files, ViewerScreen.screenId]);
     });

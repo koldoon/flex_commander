@@ -1,18 +1,8 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:flutter/widgets.dart';
+import 'package:re_editor/re_editor.dart';
 
-import 'syntax/syntax_highlighter.dart';
-import 'text_document.dart';
 import 'viewer_view.dart';
-
-/// Как раздобыть подсветку под цвета текущего оформления.
-typedef HighlighterFactory = SyntaxHighlighter Function(FcColors colors);
-
-/// Куда двигать показ.
-enum ScrollStep { lineUp, lineDown, pageUp, pageDown, toStart, toEnd, columnLeft, columnRight }
-
-/// Кто умеет двигать показ: сам вид, когда он на экране.
-typedef Scroller = void Function(ScrollStep step);
 
 /// Открытый файл: сам текст и то, как его сейчас показывают.
 ///
@@ -23,13 +13,9 @@ typedef Scroller = void Function(ScrollStep step);
 /// [ChangeNotifier], потому что показ меняется по ходу дела: `F2` переключает
 /// перенос строк, и вид перерисовывается сам.
 class ViewerScreen extends ChangeNotifier implements Screen {
-  ViewerScreen({
-    required this.node,
-    required this.document,
-    required this.highlighterFor,
-    bool wordWrap = false,
-    this.onWrapChanged,
-  }) : _wordWrap = wordWrap;
+  ViewerScreen({required this.node, required String text, bool wordWrap = false, this.onWrapChanged})
+    : controller = CodeLineEditingController.fromText(text),
+      _wordWrap = wordWrap;
 
   /// Общеизвестное имя: к нему привязаны клавиши просмотрщика.
   static const String screenId = 'viewer';
@@ -37,9 +23,9 @@ class ViewerScreen extends ChangeNotifier implements Screen {
   /// Что показываем: из узла берётся и заголовок, и размер.
   final FsNode node;
 
-  final TextDocument document;
-
-  final HighlighterFactory highlighterFor;
+  /// Содержимое, курсор и выделение. Владеет им экран, а не вид: копирует
+  /// команда, а она о виджетах ничего не знает.
+  final CodeLineEditingController controller;
 
   /// Куда сообщить, что перенос переключили, — настройки помнят его между
   /// запусками.
@@ -57,44 +43,31 @@ class ViewerScreen extends ChangeNotifier implements Screen {
     notifyListeners();
   }
 
+  /// Выделено ли хоть что-нибудь. Спрашивает команда копирования: копировать
+  /// нечего — кнопка в ряду останется приглушённой.
+  bool get hasSelection => !controller.selection.isCollapsed;
+
+  /// Выделенное мышью или клавишами; пустая строка — не выделено ничего.
+  String get selection => controller.selectedText;
+
   @override
   String get id => screenId;
 
-  /// Фокус просмотрщику не нужен.
+  /// Фокус нужен: стрелки, страницы и выделение с клавиатуры — дело самого
+  /// показа.
   ///
-  /// Прокрутка у него — такие же команды, как и всё остальное: клавиша
-  /// принадлежит экрану, ряд кнопок показывает то, что она сделает, а
-  /// переназначить её можно будет из настроек. Отдать прокрутку `Scrollable`
-  /// значило бы завести вторую, невидимую систему клавиш — и заодно
-  /// разбираться, кому возвращать фокус, когда экран закроется.
+  /// Так было не всегда: пока просмотрщик рисовал строки сам, прокрутка была
+  /// командами. Переезд на общий с редактором показ забрал её себе — вместе с
+  /// выделением, которое командами и не сделать. Обязанность вернуть фокус при
+  /// закрытии лежит на `KeyboardHandler`, см. `docs/screens.md`.
   @override
-  bool get takesFocus => false;
+  bool get takesFocus => true;
 
-  String _selection = '';
-
-  /// Выделенное мышью; пустая строка — не выделено ничего.
-  ///
-  /// Держится здесь, а не в виде: копирует его команда, а команда о виджетах
-  /// ничего не знает.
-  String get selection => _selection;
-
-  /// Зовётся показом, когда выделение меняется.
-  void setSelection(String? value) => _selection = value ?? '';
-
-  Scroller? _scroller;
-
-  /// Вид сообщает о себе, когда появляется на экране, и отзывается, когда
-  /// уходит: контроллеры прокрутки принадлежат ему, и он же их закрывает.
-  void attachScroller(Scroller scroller) => _scroller = scroller;
-
-  void detachScroller(Scroller scroller) {
-    if (identical(_scroller, scroller)) {
-      _scroller = null;
-    }
+  @override
+  void dispose() {
+    controller.dispose();
+    super.dispose();
   }
-
-  /// Двигает показ. Пока вида нет, двигать нечего — это не ошибка.
-  void scroll(ScrollStep step) => _scroller?.call(step);
 
   @override
   Widget build(BuildContext context) => ViewerView(screen: this);

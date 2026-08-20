@@ -1,0 +1,90 @@
+import 'dart:convert';
+
+import 'package:fc_api/fc_api.dart';
+import 'package:fc_editor/fc_editor.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:flex_commander/app.dart';
+import 'package:flex_commander/bootstrap/app_modules.dart';
+import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:re_editor/re_editor.dart';
+
+/// Клавиши экрана доходят до команд, а не тонут в тексте.
+///
+/// Редактор — единственный экран, который забирает клавиатуру себе целиком:
+/// печатать надо в текст. Поэтому важно, что то немногое, что принадлежит
+/// экрану, он отпускает, — иначе человек остаётся в редакторе без выхода.
+void main() {
+  late AppRuntime runtime;
+  late InMemoryContentProvider disk;
+
+  setUp(() async {
+    disk = InMemoryContentProvider([
+      FakeEntry.directory('/home'),
+      FakeEntry.file('/home/notes.txt', content: utf8.encode('раз\nдва\nтри')),
+    ])..home = '/home';
+    runtime = await testApp(provider: disk, modules: featureModules());
+    await runtime.app.start();
+  });
+
+  Future<EditorScreen> openEditor(WidgetTester tester) async {
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    runtime.app.left.setCursorToName('notes.txt');
+    await (runtime.commands.create(EditFileCommand.commandId)!).execute();
+    await tester.pumpAndSettle();
+
+    return runtime.app.screens.active! as EditorScreen;
+  }
+
+  Future<String> contentOf(String path) async {
+    final node = (await disk.resolvePath(path).result)!;
+    final chunks = await (await disk.openRead(node)).toList();
+    return utf8.decode(chunks.expand((chunk) => chunk).toList());
+  }
+
+  testWidgets('Esc закрывает редактор, а не тонет в нём', (tester) async {
+    await openEditor(tester);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(runtime.app.screens.active?.id, Screens.files);
+
+    // И приложение по-прежнему слышит клавиатуру: фокус вернулся.
+    final wasActive = runtime.app.activePanel;
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+
+    expect(runtime.app.activePanel, isNot(same(wasActive)), reason: 'приложение оглохло после редактора');
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('F2 сохраняет, а не переносит строки', (tester) async {
+    final screen = await openEditor(tester);
+    screen.controller.text = 'новое содержимое';
+    await tester.pump();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.f2);
+    await tester.pumpAndSettle();
+
+    expect(await contentOf('/home/notes.txt'), 'новое содержимое');
+    expect(screen.modified, isFalse);
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('фокус сразу в тексте: курсор доступен без щелчка мышью', (tester) async {
+    // Печатать надо в текст, и просить об этом мышью человек не обязан.
+    // Проверяется именно фокус, а не сама печать: ввод у `re_editor` идёт
+    // через свой `TextInputClient`, и `tester.enterText` до него не достаёт —
+    // он ищет `EditableText`, которого здесь нет.
+    await openEditor(tester);
+
+    final editor = tester.widget<CodeEditor>(find.byType(CodeEditor));
+
+    expect(editor.focusNode?.hasFocus, isTrue);
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+}
