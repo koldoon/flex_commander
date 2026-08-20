@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'background/background_bar.dart';
 import 'dialogs/command_dialog_layer.dart';
 import 'dialogs/credentials_layer.dart';
+import 'dialogs/error_layer.dart';
 import 'keyboard_handler.dart';
 import 'function_bar/function_bar.dart';
 import 'toast_layer.dart';
@@ -68,6 +69,10 @@ class ApplicationView extends StatelessWidget {
           // Вопрос о пароле — там же и по той же причине. Задаёт его не
           // команда, а тот, кто наткнулся на защищённое.
           CredentialsLayer(credentials: app.credentials),
+
+          // Ошибка, которую никто не поймал, — поверх всего: пока о ней не
+          // сказали, продолжать всё равно нечего.
+          ErrorLayer(errors: app.errors, toasts: app.toasts),
         ],
       ),
     );

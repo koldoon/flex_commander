@@ -41,10 +41,16 @@ class FcTableSection {
 /// назначает — она облегает то, что ей дали, — а высоту не ограничивает вовсе,
 /// поэтому длинная таблица без этого вылезла бы за экран.
 class FcKeyValueTable extends StatefulWidget {
-  const FcKeyValueTable({super.key, required this.sections, required this.onClose});
+  const FcKeyValueTable({super.key, required this.sections, required this.onClose, this.actions = const []});
 
   final List<FcTableSection> sections;
   final VoidCallback onClose;
+
+  /// Кнопки левее «Close»: у справки их нет, у окна ошибки — «Report».
+  ///
+  /// Ряд кнопок собирается здесь, а не у вызывающего: он один на все окна
+  /// приложения, и обходить его своей разметкой нельзя (см. ниже).
+  final List<Widget> actions;
 
   @override
   State<FcKeyValueTable> createState() => _FcKeyValueTableState();
@@ -140,7 +146,9 @@ class _FcKeyValueTableState extends State<FcKeyValueTable> {
               // Тот же ряд, что и у остальных окон: кнопка по размеру подписи,
               // прижата вправо. Своей разметкой её обходить нельзя — `FcButton`
               // под ограниченной шириной растягивается во всю её ширину.
-              CommandDialogActions(actions: [FcButton(label: 'Close', onPressed: widget.onClose, primary: true)]),
+              CommandDialogActions(
+                actions: [...widget.actions, FcButton(label: 'Close', onPressed: widget.onClose, primary: true)],
+              ),
             ],
           ),
         ),

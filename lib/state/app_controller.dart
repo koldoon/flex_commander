@@ -10,6 +10,7 @@ import 'panel_viewport_registry.dart';
 import 'screens_controller.dart';
 import 'credentials_controller.dart';
 import 'theme_controller.dart';
+import 'error_controller.dart';
 import 'toast_controller.dart';
 
 /// Состояние приложения — реализация [Application].
@@ -29,6 +30,7 @@ class AppController extends ChangeNotifier implements Application {
     ThemeController? theme,
     ToastController? toasts,
     CredentialsController? credentials,
+    ErrorController? errors,
     WindowService? window,
     this.saveDelay = const Duration(seconds: 1),
   }) : _splitRatio = settings.splitRatio,
@@ -37,6 +39,7 @@ class AppController extends ChangeNotifier implements Application {
        theme = theme ?? ThemeController(),
        toasts = toasts ?? ToastController(),
        credentials = credentials ?? CredentialsController(),
+       errors = errors ?? ErrorController(),
        viewports = viewports ?? const NoPanelViewports(),
        screens = screens ?? ScreensController(),
        window = window ?? const NoopWindowService() {
@@ -86,6 +89,10 @@ class AppController extends ChangeNotifier implements Application {
   /// запуски и их окна, а фон — это ровно «запуск без окна».
   @override
   BackgroundTasks get background => commands;
+
+  /// Ошибки, которые никто не поймал: показать, а не только записать в журнал.
+  @override
+  final ErrorController errors;
 
   /// Всплывающие сообщения: о том, что случилось и уже закончилось.
   @override
