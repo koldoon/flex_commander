@@ -120,6 +120,10 @@ class FcRadioGroup<T> extends StatelessWidget {
 
   final Axis direction;
 
+  /// Варианты разделены [FcMetrics.dialogGap] — тем же зазором, что строки
+  /// окна и кнопки в его ряду: это расстояние **между контролами**.
+  /// [FcMetrics.checkboxGap] здесь не годится, он про другое — про расстояние
+  /// от знака до его метки, внутри одного варианта.
   @override
   Widget build(BuildContext context) {
     final metrics = FcTheme.of(context).metrics;
@@ -141,7 +145,7 @@ class FcRadioGroup<T> extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            for (var i = 0; i < items.length; i++) ...[if (i > 0) SizedBox(height: metrics.checkboxGap), items[i]],
+            for (var i = 0; i < items.length; i++) ...[if (i > 0) SizedBox(height: metrics.dialogGap), items[i]],
           ],
         ),
       );
@@ -150,7 +154,7 @@ class FcRadioGroup<T> extends StatelessWidget {
     // Ряд, который переносится: сколько вариантов и какой ширины у них подписи,
     // модуль знает, а вот сколько места ему дадут — нет. Строка, вылезающая за
     // край окна, — не тот способ об этом сообщить.
-    return Wrap(spacing: metrics.checkboxGap, runSpacing: metrics.checkboxGap, children: items);
+    return Wrap(spacing: metrics.dialogGap, runSpacing: metrics.dialogGap, children: items);
   }
 }
 

@@ -122,6 +122,28 @@ void main() {
       expect(choice, 'copy');
     });
 
+    testWidgets('варианты разделены общим зазором окна', (tester) async {
+      // `checkboxGap` здесь не годится: он про расстояние от знака до его
+      // метки, внутри варианта. Между вариантами — то же, что между строками
+      // окна и кнопками в его ряду.
+      await pumpInDialogColumn(
+        tester,
+        const FcRadioGroup<String>(
+          options: {'copy': 'Copy', 'move': 'Move'},
+          value: 'copy',
+          onChanged: null,
+          direction: Axis.horizontal,
+        ),
+      );
+
+      final Rect first = tester.getRect(find.text('Copy'));
+      final Rect second = tester.getRect(find.text('Move'));
+      final double gap = const DefaultMetrics().dialogGap;
+
+      // Между вариантами: конец подписи, знак второго и зазоры вокруг него.
+      expect(second.left - first.right, greaterThanOrEqualTo(gap));
+    });
+
     testWidgets('порядок вариантов — порядок карты', (tester) async {
       await pumpInDialogColumn(
         tester,
