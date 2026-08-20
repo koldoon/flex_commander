@@ -45,7 +45,7 @@ dependency/api/                 # fc_api          (flutter)
 dependency/test_kit/            # fc_test_kit     (dev-only, фейки для тестов)
 dependency/navigation/          # fc_navigation
 dependency/file_ops/            # fc_file_ops
-dependency/zip_archiver/        # fc_zip_archiver
+dependency/zip/        # fc_zip
 dependency/default_theme/       # fc_default_theme
 ```
 
@@ -77,7 +77,7 @@ command_registry,key_combination,async_command_base}`, `state/throttle.dart`,
 Каталог выложен так, чтобы вынос был `git mv` без правок кода.
 
 **→ модули:** `navigation_commands`/`selection_commands`/`layout_commands` → `fc_navigation`;
-`file_commands`/`transfer_commands` → `fc_file_ops`; `model/tree/zip/*` → `fc_zip_archiver`;
+`file_commands`/`transfer_commands` → `fc_file_ops`; `model/tree/zip/*` → `fc_zip`;
 нынешняя палитра (`FcColors`/`FcMetrics`/`FcIcons` — значения по умолчанию) + стартовая
 команда → `fc_default_theme`; `test/fake/*` → **`lib/`**
 пакета `fc_test_kit` (Dart не умеет импортировать `test/` чужого пакета — без этого не
@@ -336,7 +336,7 @@ namespace = `module.id`; `AppController._scheduleSave()` дёргается и �
 F5–F8, `Shift-Cmd-N`, `Cmd-Bsp`, `Shift-Cmd-Bsp`. Тесты в пакет; голден `copy_dialog.png`
 остаётся в приложении (нужны шрифты и полная сборка).
 
-**Ф11. `dependency/zip_archiver`.** `zip_tree_provider`, `zip_index`; `StagingArea` через
+**Ф11. `dependency/zip`.** `zip_tree_provider`, `zip_index`; `StagingArea` через
 `context.resolve`; `archive` уходит из корневого `pubspec.yaml`.
 
 **Ф12. `dependency/default_theme`.** `FcThemeSpec(id: 'default', title: 'Default')` с
@@ -374,7 +374,7 @@ defaultKeyBindings` и `LegacyCommands`. Обновить `docs/*.md`: слои 
 | 9 | Ф8. Настройки модулей: `ModuleSettings`/`SettingsScope` | **выполнено** | 7 |
 | 10 | Ф9. Фоновые задачи и viewport панели | **выполнено** | 7 |
 | 11 | Ф10. `dependency/file_ops` | **выполнено** | 5, 7 |
-| 12 | Ф11. `dependency/zip_archiver` | **выполнено** | 4, 7 |
+| 12 | Ф11. `dependency/zip` | **выполнено** | 4, 7 |
 | 13 | Ф12. `dependency/default_theme` | **выполнено** | 6, 7, 9 |
 | 14 | Ф13. Уборка и документация | **выполнено** | 8, 11, 12, 13 |
 
@@ -542,7 +542,7 @@ defaultKeyBindings` и `LegacyCommands`. Обновить `docs/*.md`: слои 
   дело того, кто его читает.
 - **Ф11.** Тесты архива зависят от приложения: zip требует произвольного доступа к файлу,
   поэтому они работают с настоящим диском — локальный провайдер и место под временные
-  файлы берутся оттуда. Это честная зависимость теста, а не модуля: сам `fc_zip_archiver`
+  файлы берутся оттуда. Это честная зависимость теста, а не модуля: сам `fc_zip`
   знает только API.
 - **Ф12.** Голден справки перегенерирован — **первый и единственный раз за весь
   рефакторинг**. Причина содержательная, а не оформительская: в списке команд появилась
@@ -615,6 +615,6 @@ defaultKeyBindings` и `LegacyCommands`. Обновить `docs/*.md`: слои 
 - Ручной прогон приложения (`flutter run -d macos`) после Ф6, Ф9 и Ф12: вход в zip-архив,
   копирование с прогрессом и Esc посреди работы, уход операции в фон и возврат, F1-справка,
   переключение темы.
-- Приёмочный критерий всего рефакторинга: `fc_default_theme` и `fc_zip_archiver` не
+- Приёмочный критерий всего рефакторинга: `fc_default_theme` и `fc_zip` не
   импортируют ничего, кроме `package:fc_api/fc_api.dart` (+ `archive` у zip), а
   `lib/main.dart` — единственное место в ядре, знающее имена модулей.

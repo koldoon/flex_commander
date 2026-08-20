@@ -1,4 +1,4 @@
-import 'package:fc_7z_archiver/fc_7z_archiver.dart';
+import 'package:fc_7z/fc_7z.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_file_ops/fc_file_ops.dart';
@@ -6,7 +6,7 @@ import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_ssh/fc_ssh.dart';
 import 'package:fc_viewer/fc_viewer.dart';
-import 'package:fc_zip_archiver/fc_zip_archiver.dart';
+import 'package:fc_zip/fc_zip.dart';
 
 import '../modules/app_shell.dart';
 import '../modules/local_fs/local_file_system.dart';

@@ -4,7 +4,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
-import 'package:fc_zip_archiver/fc_zip_archiver.dart';
+import 'package:fc_zip/fc_zip.dart';
 import 'package:flex_commander/modules/local_fs/local_staging_area.dart';
 import 'package:flex_commander/modules/local_fs/local_tree_provider.dart';
 import 'package:flex_commander/state/panel_controller.dart';

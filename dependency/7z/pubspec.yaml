@@ -1,4 +1,4 @@
-name: fc_7z_archiver
+name: fc_7z
 description: "Архив 7z как дерево: панель входит в него, как в каталог."
 publish_to: 'none'
 version: 1.0.0
