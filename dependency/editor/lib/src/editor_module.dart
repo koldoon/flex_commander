@@ -29,11 +29,13 @@ class TextEditor implements FcModule {
     registry.command((context) => SaveFileCommand());
     registry.command((context) => CloseEditorCommand());
     registry.command((context) => ToggleEditorWrapCommand());
+    registry.command((context) => ToggleEditorNumbersCommand());
 
     registry.binding(KeyBinding('F2', SaveFileCommand.commandId, screen: EditorScreen.screenId));
     registry.binding(KeyBinding('Esc', CloseEditorCommand.commandId, screen: EditorScreen.screenId));
     registry.binding(KeyBinding('F10', CloseEditorCommand.commandId, screen: EditorScreen.screenId));
     registry.binding(KeyBinding('Cmd-S', SaveFileCommand.commandId, screen: EditorScreen.screenId));
+    registry.binding(KeyBinding('F9', ToggleEditorNumbersCommand.commandId, screen: EditorScreen.screenId));
     registry.binding(KeyBinding('Cmd-W', ToggleEditorWrapCommand.commandId, screen: EditorScreen.screenId));
   }
 }

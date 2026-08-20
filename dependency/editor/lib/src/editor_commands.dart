@@ -79,8 +79,13 @@ class EditFileCommand extends AppCommand {
         node: node,
         file: file,
         wordWrap: settings.wordWrap,
+        showLineNumbers: settings.showLineNumbers,
         onWrapChanged: (value) {
           settings.wordWrap = value;
+          onSettingsChanged();
+        },
+        onLineNumbersChanged: (value) {
+          settings.showLineNumbers = value;
           onSettingsChanged();
         },
       ),
@@ -222,6 +227,39 @@ class ToggleEditorWrapCommand extends AppCommand {
 
   @override
   Future<void> execute() async => _editorOf(context.app)?.toggleWordWrap();
+}
+
+/// Показать или спрятать номера строк.
+class ToggleEditorNumbersCommand extends AppCommand {
+  static const String commandId = 'editor.numbers';
+
+  Application? _app;
+
+  @override
+  bool init(Application app) {
+    _app = app;
+    return true;
+  }
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => _editorOf(_app)?.showLineNumbers == true ? 'No lines' : 'Lines';
+
+  @override
+  String get description => 'Show line numbers in the editor';
+
+  static EditorScreen? _editorOf(Application? app) {
+    final screen = app?.screens.active;
+    return screen is EditorScreen ? screen : null;
+  }
+
+  @override
+  bool isExecutable(CommandContext context) => _editorOf(context.app) != null;
+
+  @override
+  Future<void> execute() async => _editorOf(context.app)?.toggleLineNumbers();
 }
 
 /// Закрыть редактор; при несохранённом — спросить.

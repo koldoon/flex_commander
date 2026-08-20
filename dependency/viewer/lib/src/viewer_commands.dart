@@ -68,8 +68,13 @@ class ViewFileCommand extends AppCommand {
         node: node,
         text: document.text,
         wordWrap: settings.wordWrap,
+        showLineNumbers: settings.showLineNumbers,
         onWrapChanged: (value) {
           settings.wordWrap = value;
+          onSettingsChanged();
+        },
+        onLineNumbersChanged: (value) {
+          settings.showLineNumbers = value;
           onSettingsChanged();
         },
       ),
@@ -112,6 +117,42 @@ class ToggleWordWrapCommand extends AppCommand {
 
   @override
   Future<void> execute() async => _viewerOf(context.app)?.toggleWordWrap();
+}
+
+/// Показать или спрятать номера строк.
+class ToggleViewerNumbersCommand extends AppCommand {
+  static const String commandId = 'viewer.numbers';
+
+  /// Приложение для **прототипа**: подпись у него спрашивают и тогда, когда
+  /// никакого запуска нет, — ряд кнопок читает её прямо у него.
+  Application? _app;
+
+  @override
+  bool init(Application app) {
+    _app = app;
+    return true;
+  }
+
+  @override
+  String get id => commandId;
+
+  /// Подпись говорит, что клавиша сделает **сейчас**, — как и везде в ряду.
+  @override
+  String get label => _viewerOf(_app)?.showLineNumbers == true ? 'No lines' : 'Lines';
+
+  @override
+  String get description => 'Show line numbers in the viewer';
+
+  static ViewerScreen? _viewerOf(Application? app) {
+    final screen = app?.screens.active;
+    return screen is ViewerScreen ? screen : null;
+  }
+
+  @override
+  bool isExecutable(CommandContext context) => _viewerOf(context.app) != null;
+
+  @override
+  Future<void> execute() async => _viewerOf(context.app)?.toggleLineNumbers();
 }
 
 /// Скопировать выделенное в буфер обмена.

@@ -146,6 +146,30 @@ void main() {
       expect(runtime.commands.commandFor(KeyCombination.parse('Esc'))?.id, CloseEditorCommand.commandId);
     });
 
+    test('F9 прячет номера строк и меняет подпись', () async {
+      await edit('notes.txt');
+      final numbers = runtime.commands.commandFor(KeyCombination.parse('F9'))!;
+
+      // В редакторе номера включены: правя код, на строки ссылаются.
+      expect(openEditor()!.showLineNumbers, isTrue);
+      expect(numbers.label, 'No lines');
+
+      runtime.commands.dispatch(KeyCombination.parse('F9'));
+
+      expect(openEditor()!.showLineNumbers, isFalse);
+      expect(runtime.commands.commandFor(KeyCombination.parse('F9'))!.label, 'Lines');
+    });
+
+    test('номера строк помнятся между открытиями', () async {
+      await edit('notes.txt');
+      runtime.commands.dispatch(KeyCombination.parse('F9'));
+      runtime.commands.dispatch(KeyCombination.parse('Esc'));
+
+      await edit('notes.txt');
+
+      expect(openEditor()!.showLineNumbers, isFalse);
+    });
+
     test('панельные клавиши в редакторе молчат', () async {
       await edit('notes.txt');
 

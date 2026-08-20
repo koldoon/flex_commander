@@ -30,6 +30,7 @@ class TextViewer implements FcModule {
 
     registry.command((context) => ToggleWordWrapCommand());
     registry.command((context) => CloseViewerCommand());
+    registry.command((context) => ToggleViewerNumbersCommand());
     registry.command((context) => CopySelectionCommand(registry.services.resolve<ClipboardService>()));
 
     // Привязки просмотрщика действуют только в его экране: в панелях за этими
@@ -38,6 +39,7 @@ class TextViewer implements FcModule {
     registry.binding(KeyBinding('F2', ToggleWordWrapCommand.commandId, screen: ViewerScreen.screenId));
     registry.binding(KeyBinding('Esc', CloseViewerCommand.commandId, screen: ViewerScreen.screenId));
     registry.binding(KeyBinding('F10', CloseViewerCommand.commandId, screen: ViewerScreen.screenId));
+    registry.binding(KeyBinding('F9', ToggleViewerNumbersCommand.commandId, screen: ViewerScreen.screenId));
     registry.binding(KeyBinding('Cmd-C', CopySelectionCommand.commandId, screen: ViewerScreen.screenId));
 
     // Стрелок, страниц и `Home` здесь нет нарочно: прокрутку и выделение

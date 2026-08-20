@@ -34,6 +34,7 @@ class ViewerView extends StatelessWidget {
             trailing: formatBytesLong(screen.node.size),
             readOnly: true,
             wordWrap: screen.wordWrap,
+            showLineNumbers: screen.showLineNumbers,
             shortcuts: _shortcuts,
           ),
     );
