@@ -30,13 +30,73 @@ class _KeyboardHandlerState extends State<KeyboardHandler> {
   /// включая одиночные нажатия модификаторов, у которых нет комбинации.
   final ValueNotifier<KeyModifiers> _modifiers = ValueNotifier(KeyModifiers.none);
 
+  /// Свой узел фокуса: его приходится забирать обратно — см. [_reclaimFocus].
+  final FocusNode _node = FocusNode(debugLabel: 'KeyboardHandler');
+
   Application get app => widget.app;
+
+  /// Экран, который был виден в прошлый раз, — чтобы заметить уход того,
+  /// кто забирал фокус.
+  Screen? _lastScreen;
+
+  /// Ждём, что осиротевший фокус достанется нам.
+  bool _awaitingFocus = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _lastScreen = app.screens.active;
+    app.screens.addListener(_onScreenChanged);
+    FocusManager.instance.addListener(_onFocusChanged);
+  }
 
   @override
   void dispose() {
+    FocusManager.instance.removeListener(_onFocusChanged);
+    app.screens.removeListener(_onScreenChanged);
+    _node.dispose();
     _modifiers.dispose();
     super.dispose();
   }
+
+  /// Экран, забиравший фокус, ушёл — ждём фокус обратно.
+  ///
+  /// Такой экран (редактор) уносит с собой узел, у которого фокус был, а
+  /// объемлющая область истории не помнит: фокус достаётся ей самой, то есть
+  /// никому, и приложение перестаёт слышать клавиатуру целиком. Снаружи это
+  /// выглядит как зависшее окно.
+  void _onScreenChanged() {
+    final was = _lastScreen;
+    _lastScreen = app.screens.active;
+    if (was != null && was.takesFocus && !identical(was, _lastScreen)) {
+      _awaitingFocus = true;
+    }
+  }
+
+  /// Забирает осиротевший фокус — но только после ухода такого экрана.
+  ///
+  /// Ждать в общем случае нельзя: фокус уходит и по делу — в окно команды, в
+  /// вопрос о пароле, в соседнее приложение по `Cmd-Tab`. Отбирать его там
+  /// значило бы не давать печатать и оставлять ряд кнопок в чужом слое.
+  void _onFocusChanged() {
+    if (!_awaitingFocus) {
+      return;
+    }
+    _awaitingFocus = false;
+
+    // Фокус у области, а не у обычного узла, — значит им никто не владеет:
+    // у настоящего хозяина узел обычный.
+    if (FocusManager.instance.primaryFocus is FocusScopeNode && mounted && _wantsFocus) {
+      _node.requestFocus();
+    }
+  }
+
+  /// Должен ли фокус быть у обработчика прямо сейчас.
+  ///
+  /// Не должен, пока открыто окно команды или вопрос о пароле (в их полях
+  /// нужно печатать) и пока открыт экран, которому фокус нужен самому.
+  bool get _wantsFocus =>
+      app.commands.openDialogs.isEmpty && app.credentials.pending == null && !(app.screens.active?.takesFocus ?? false);
 
   @override
   Widget build(BuildContext context) {
@@ -46,6 +106,7 @@ class _KeyboardHandlerState extends State<KeyboardHandler> {
       listenable: app.screens,
       builder: (context, child) {
         return Focus(
+          focusNode: _node,
           autofocus: true,
           // Обычная навигация по фокусу приложению не нужна: Tab переключает
           // панели, а не перескакивает на кнопки внизу окна.

@@ -1,0 +1,81 @@
+import 'package:fc_api/fc_api.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:flex_commander/app.dart';
+import 'package:flex_commander/bootstrap/app_modules.dart';
+import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+/// Экран, забирающий фокус, обязан вернуть его, закрываясь.
+///
+/// Иначе узел, у которого был фокус, исчезает вместе с экраном, и приложение
+/// перестаёт слышать клавиатуру целиком — снаружи это выглядит как зависшее
+/// окно. Первым таким экраном станет редактор: печатать командами нельзя.
+void main() {
+  late AppRuntime runtime;
+
+  setUp(() async {
+    runtime = await testApp(
+      provider: InMemoryTreeProvider([FakeEntry.directory('/home'), FakeEntry.file('/home/notes.txt', size: 10)])
+        ..home = '/home',
+      modules: featureModules(),
+    );
+    await runtime.app.start();
+  });
+
+  testWidgets('открыли, закрыли — и клавиши снова доходят', (tester) async {
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    final wasActive = runtime.app.activePanel;
+
+    runtime.app.screens.open(const _EditorLikeScreen());
+    await tester.pumpAndSettle();
+    // Фокус внутри экрана: печатать нужно туда, а не в панели.
+    expect(find.byType(TextField), findsOneWidget);
+
+    runtime.app.screens.close(_EditorLikeScreen.screenId);
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pumpAndSettle();
+
+    expect(runtime.app.activePanel, isNot(same(wasActive)), reason: 'приложение оглохло после экрана с фокусом');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('пока экран открыт, набор идёт в него, а не в панели', (tester) async {
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    runtime.app.screens.open(const _EditorLikeScreen());
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField), 'печать');
+    await tester.pumpAndSettle();
+
+    expect(find.text('печать'), findsOneWidget);
+
+    runtime.app.screens.close(_EditorLikeScreen.screenId);
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+}
+
+/// Экран, которому фокус нужен по-настоящему, — как редактору.
+class _EditorLikeScreen implements Screen {
+  const _EditorLikeScreen();
+
+  static const String screenId = 'editor-like';
+
+  @override
+  String get id => screenId;
+
+  @override
+  bool get takesFocus => true;
+
+  @override
+  Widget build(BuildContext context) => const TextField(autofocus: true);
+}
