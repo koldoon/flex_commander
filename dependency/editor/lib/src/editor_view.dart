@@ -56,7 +56,7 @@ class _EditorViewState extends State<EditorView> {
               autofocus: true,
               wordWrap: widget.screen.wordWrap,
               padding: EdgeInsets.symmetric(horizontal: theme.metrics.panelLeftPadding),
-              style: _styleFor(theme, base, language),
+              style: editorStyle(theme, base, language),
               // Встроенные сочетания редактора не должны отбирать клавиши у
               // экрана: `Esc`, `F2` и `F10` принадлежат командам, и ряд кнопок
               // обещает именно их.
@@ -73,7 +73,13 @@ class _EditorViewState extends State<EditorView> {
 ///
 /// Языков ровно один — тот, что опознан по имени файла: регистрировать все две
 /// сотни ради одного файла незачем.
-CodeEditorStyle _styleFor(FcTheme theme, TextStyle base, String? language) {
+///
+/// **Своего фона у редактора нет.** Фон панели (`panelBackground`) — это белый
+/// с прозрачностью пять процентов поверх фона окна, и рисует его рамка
+/// (`FcPanelFrame`). Положить тот же цвет ещё раз внутри редактора значит
+/// сложить прозрачности: получается полтона разницы с панелью — ровно то, что
+/// видно глазом и не видно в коде. `null` здесь означает «не красить».
+CodeEditorStyle editorStyle(FcTheme theme, TextStyle base, String? language) {
   final colors = theme.colors;
   final mode = language == null ? null : builtinAllLanguages[language];
 
@@ -81,7 +87,6 @@ CodeEditorStyle _styleFor(FcTheme theme, TextStyle base, String? language) {
     fontFamily: base.fontFamily,
     fontSize: base.fontSize,
     textColor: colors.rowText,
-    backgroundColor: colors.panelBackground,
     cursorColor: colors.markedBar,
     selectionColor: colors.inputSelection,
     codeTheme: CodeHighlightTheme(
