@@ -15,6 +15,11 @@ import 'package:path/path.dart' as p;
 ///
 /// Рядом стоит обычная проверка: способы обязаны давать **одинаковый**
 /// результат. Ускорение, потерявшее половину записей, — не ускорение.
+///
+/// Числа сравнивать можно только внутри одного прогона и в одинаковых
+/// условиях: виртуальная машина разогревается по ходу дела, и та же
+/// сортировка в конце прогона идёт втрое быстрее, чем в начале. Поэтому «до»
+/// и «после» меряются одной и той же командой, а не разными.
 // Замер печатает таблицу — иначе он бесполезен.
 // ignore_for_file: avoid_print
 
@@ -77,6 +82,29 @@ void main() {
       expect(other.modified, entry.modified, reason: entry.name);
     }
   });
+
+  test('сколько стоит открыть каталог целиком', () async {
+    if (!enabled) {
+      markTestSkipped('замер выключен');
+      return;
+    }
+
+    void row(Object a, Object b) => print('${a.toString().padRight(10)}${b.toString().padLeft(14)}');
+
+    // То же, что делает панель по Enter: чтение в изоляте плюс постройка узлов
+    // уже в главном — узлы держат ссылки на провайдера и на родителя, а такие
+    // связи через границу изолята не переносят.
+    final provider = LocalTreeProvider();
+    row('записей', 'открытие');
+
+    for (final count in [1000, 10000]) {
+      final path = await makeDirectory(count);
+      final dir = (await provider.resolvePath(path).result)! as DirectoryNode;
+
+      final listing = await measure(() => provider.getDirectoryListing(dir).result);
+      row(count, listing.toStringAsFixed(2));
+    }
+  }, timeout: const Timeout(Duration(minutes: 5)));
 
   test('сколько стоит отсортировать каталог', () async {
     if (!enabled) {
