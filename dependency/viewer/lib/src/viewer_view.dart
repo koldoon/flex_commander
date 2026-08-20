@@ -10,6 +10,8 @@ import 'viewer_screen.dart';
 /// Вся видимая часть — в `FcCodeView`: рамка, поле, подсветка, фокус. Здесь
 /// остаётся только то, чем просмотрщик отличается от редактора, — запрет на
 /// правку, размер файла в заголовке и `Cmd-C`, отпущенная своей команде.
+///
+/// Курсора в нём не видно: `FcCodeView` прячет его в режиме чтения.
 class ViewerView extends StatelessWidget {
   const ViewerView({super.key, required this.screen});
 

@@ -98,6 +98,10 @@ class _FcCodeViewState extends State<FcCodeView> {
           controller: widget.controller,
           focusNode: _focus,
           readOnly: widget.readOnly,
+          // В режиме чтения курсора не видно: править нечего, а мигающая
+          // палочка обещает ввод. Позицию он всё равно держит — ею листают
+          // стрелки и страницы, — просто не мозолит глаза.
+          showCursorWhenReadOnly: false,
           wordWrap: widget.wordWrap,
           padding: EdgeInsets.symmetric(horizontal: theme.metrics.panelLeftPadding),
           style: codeStyle(theme, codeBaseStyle(theme), languageOf(widget.fileName)),
