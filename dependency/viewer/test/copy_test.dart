@@ -1,17 +1,19 @@
 import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_ui_kit/fc_ui_kit.dart';
-import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:fc_viewer/fc_viewer.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
-import 'package:flutter/material.dart';
-import 'package:flutter/rendering.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:re_editor/re_editor.dart';
 
-/// Выделение мышью и копирование в буфер обмена.
+/// Выделение и копирование в буфер обмена.
+///
+/// Выделяет человек мышью или клавишами — этим занимается сам показ, — а
+/// копирует команда просмотрщика: она проходит через буфер обмена приложения и
+/// говорит, что случилось.
 void main() {
   late AppRuntime runtime;
   late FakeClipboard clipboard;
@@ -35,20 +37,6 @@ void main() {
     return runtime.app.screens.active! as ViewerScreen;
   }
 
-  Future<void> pumpViewer(WidgetTester tester, ViewerScreen screen) async {
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: ThemeData(
-          extensions: const [
-            FcTheme(colors: DefaultColors(), metrics: DefaultMetrics(), icons: DefaultIcons(), fonts: DefaultFonts()),
-          ],
-        ),
-        home: Scaffold(body: Builder(builder: screen.build)),
-      ),
-    );
-    await tester.pumpAndSettle();
-  }
-
   test('пока ничего не выделено, копировать нечего', () async {
     await openViewer();
 
@@ -60,44 +48,39 @@ void main() {
 
   test('выделенное уходит в буфер по Cmd-C', () async {
     final screen = await openViewer();
-    screen.setSelection('вторая строка');
+    screen.controller.selectLine(1);
 
     expect(runtime.commands.dispatch(KeyCombination.parse('Cmd-C')), isTrue);
     await Future<void>.delayed(Duration.zero);
 
-    expect(clipboard.text, 'вторая строка');
+    expect(clipboard.text, contains('вторая строка'));
     // Случилось и закончилось — о таком говорят всплывающим сообщением.
     expect(runtime.app.toasts.current?.message, contains('Copied'));
+  });
+
+  test('снятое выделение снова делает копирование недоступным', () async {
+    final screen = await openViewer();
+    screen.controller.selectLine(0);
+    expect(screen.hasSelection, isTrue);
+
+    screen.controller.selection = const CodeLineSelection.collapsed(index: 0, offset: 0);
+
+    expect(screen.hasSelection, isFalse);
+    expect(runtime.commands.isExecutable(runtime.commands.find(CopySelectionCommand.commandId)!), isFalse);
   });
 
   test('в панелях Cmd-C просмотрщику не принадлежит', () {
     expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-C'))?.id, isNot(CopySelectionCommand.commandId));
   });
 
-  testWidgets('текст обёрнут выделением, и оно сообщает экрану', (tester) async {
+  testWidgets('копирование отпущено команде, а не виджету', (tester) async {
+    // Иначе `Cmd-C` сработала бы дважды: своя команда и встроенное сочетание.
     final screen = await openViewer();
-    await pumpViewer(tester, screen);
+    await pumpScreen(tester, screen, app: runtime.app);
 
-    // Обычное текстовое выделение мышью: тянут по строкам.
-    expect(find.byType(SelectionArea), findsOneWidget);
+    final view = tester.widget<FcCodeView>(find.byType(FcCodeView));
 
-    final area = tester.widget<SelectionArea>(find.byType(SelectionArea));
-    area.onSelectionChanged!(const SelectedContent(plainText: 'первая'));
-
-    expect(screen.selection, 'первая');
-  });
-
-  testWidgets('снятое выделение снова делает копирование недоступным', (tester) async {
-    final screen = await openViewer();
-    await pumpViewer(tester, screen);
-
-    final area = tester.widget<SelectionArea>(find.byType(SelectionArea));
-    area.onSelectionChanged!(const SelectedContent(plainText: 'первая'));
-    expect(screen.selection, isNotEmpty);
-
-    area.onSelectionChanged!(null);
-
-    expect(screen.selection, isEmpty);
-    expect(runtime.commands.isExecutable(runtime.commands.find(CopySelectionCommand.commandId)!), isFalse);
+    expect(view.shortcuts.released, contains(CodeShortcutType.copy));
+    await disposeScreen(tester);
   });
 }

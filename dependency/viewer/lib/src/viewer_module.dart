@@ -30,7 +30,6 @@ class TextViewer implements FcModule {
 
     registry.command((context) => ToggleWordWrapCommand());
     registry.command((context) => CloseViewerCommand());
-    registry.command((context) => ScrollViewerCommand());
     registry.command((context) => CopySelectionCommand(registry.services.resolve<ClipboardService>()));
 
     // Привязки просмотрщика действуют только в его экране: в панелях за этими
@@ -41,28 +40,8 @@ class TextViewer implements FcModule {
     registry.binding(KeyBinding('F10', CloseViewerCommand.commandId, screen: ViewerScreen.screenId));
     registry.binding(KeyBinding('Cmd-C', CopySelectionCommand.commandId, screen: ViewerScreen.screenId));
 
-    // Прокрутка — такие же команды, как всё остальное: клавиша принадлежит
-    // экрану, и переназначить её можно будет из настроек. Куда двигать,
-    // приходит значением привязки.
-    for (final entry
-        in const {
-          'Up': ScrollStep.lineUp,
-          'Down': ScrollStep.lineDown,
-          'PgUp': ScrollStep.pageUp,
-          'PgDn': ScrollStep.pageDown,
-          'Home': ScrollStep.toStart,
-          'End': ScrollStep.toEnd,
-          'Left': ScrollStep.columnLeft,
-          'Right': ScrollStep.columnRight,
-        }.entries) {
-      registry.binding(
-        KeyBinding(
-          entry.key,
-          ScrollViewerCommand.commandId,
-          screen: ViewerScreen.screenId,
-          parameters: {ScrollViewerCommand.stepParam: entry.value.name},
-        ),
-      );
-    }
+    // Стрелок, страниц и `Home` здесь нет нарочно: прокрутку и выделение
+    // забрал себе показ — он же берёт фокус. Пока просмотрщик рисовал строки
+    // сам, это были команды; общий с редактором показ сделал их его делом.
   }
 }

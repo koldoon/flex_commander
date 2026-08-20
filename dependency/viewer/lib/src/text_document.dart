@@ -2,43 +2,22 @@ import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
 
-/// Текст файла, разобранный на строки.
+/// Текст файла, готовый к показу.
 ///
-/// Строки нужны и показу (рисуется только видимое), и подсветке, и прокрутке
-/// по ширине: длину холста даёт самая длинная строка, и считать её каждый раз
-/// заново незачем.
+/// Отдельно от редакторского `TextFile`, и разница между ними существенная:
+/// просмотрщик **показывает**, а редактор ещё и пишет. Поэтому здесь чтение с
+/// допуском ошибок, а там — строгое.
 class TextDocument {
-  TextDocument({required this.lines, required this.longestLine});
+  const TextDocument(this.text);
 
-  /// Пустой документ: файл на ноль байт — это не ошибка.
-  TextDocument.empty() : lines = const [''], longestLine = 0;
-
-  /// Разбирает текст на строки.
+  /// Приводит переводы строк к одному виду.
   ///
-  /// Три вида перевода строки, потому что файлы приходят с разных машин:
-  /// `\r\n` (Windows), `\n` (unix) и одиночный `\r` (старые Mac). Завершающий
-  /// перевод новой строки не создаёт: в файле, оканчивающемся переводом, строк
-  /// столько же, сколько их видит редактор.
-  factory TextDocument.parse(String text) {
-    if (text.isEmpty) {
-      return TextDocument.empty();
-    }
-
-    final normalized = text.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
-    final lines = normalized.split('\n');
-    if (lines.length > 1 && lines.last.isEmpty) {
-      lines.removeLast();
-    }
-
-    var longest = 0;
-    for (final line in lines) {
-      if (line.length > longest) {
-        longest = line.length;
-      }
-    }
-
-    return TextDocument(lines: List.unmodifiable(lines), longestLine: longest);
-  }
+  /// Три вида, потому что файлы приходят с разных машин: `\r\n` (Windows),
+  /// `\n` (unix) и одиночный `\r` (старые Mac). Показ знает только про `\n`, и
+  /// не приведённый `\r` встал бы в тексте видимым мусором.
+  ///
+  /// Обратно их возвращать не нужно: просмотрщик ничего не записывает.
+  factory TextDocument.parse(String text) => TextDocument(text.replaceAll('\r\n', '\n').replaceAll('\r', '\n'));
 
   /// Читает файл целиком.
   ///
@@ -57,10 +36,5 @@ class TextDocument {
     return TextDocument.parse(utf8.decode(bytes, allowMalformed: true));
   }
 
-  final List<String> lines;
-
-  /// Длина самой длинной строки в символах.
-  final int longestLine;
-
-  int get lineCount => lines.length;
+  final String text;
 }

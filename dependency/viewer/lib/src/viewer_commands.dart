@@ -1,6 +1,5 @@
 import 'package:fc_api/fc_api.dart';
 
-import 'syntax/re_highlighter.dart';
 import 'text_document.dart';
 import 'viewer_screen.dart';
 import 'viewer_settings.dart';
@@ -67,8 +66,7 @@ class ViewFileCommand extends AppCommand {
     context.app.screens.open(
       ViewerScreen(
         node: node,
-        document: document,
-        highlighterFor: ReHighlighter.new,
+        text: document.text,
         wordWrap: settings.wordWrap,
         onWrapChanged: (value) {
           settings.wordWrap = value;
@@ -141,7 +139,7 @@ class CopySelectionCommand extends AppCommand {
   /// Копировать нечего, пока ничего не выделено: кнопка в ряду останется
   /// приглушённой, а не сделает вид, что сработала.
   @override
-  bool isExecutable(CommandContext context) => _viewerOf(context.app)?.selection.isNotEmpty ?? false;
+  bool isExecutable(CommandContext context) => _viewerOf(context.app)?.hasSelection ?? false;
 
   @override
   Future<void> execute() async {
@@ -154,43 +152,6 @@ class CopySelectionCommand extends AppCommand {
     // Случилось и закончилось — ровно то, о чём говорят всплывающим
     // сообщением.
     context.app.toasts.show('Copied ${text.length} characters');
-  }
-}
-
-/// Подвинуть показ.
-///
-/// Одна команда на все восемь клавиш: куда двигать, приходит значением
-/// привязки — тот же приём, что у панелей с их курсором.
-class ScrollViewerCommand extends AppCommand {
-  static const String commandId = 'viewer.scroll';
-
-  /// Имя значения в привязке.
-  static const String stepParam = 'step';
-
-  @override
-  String get id => commandId;
-
-  @override
-  String get label => 'Scroll';
-
-  @override
-  String get description => 'Move the viewer';
-
-  @override
-  bool isExecutable(CommandContext context) => context.app.screens.active is ViewerScreen;
-
-  @override
-  Future<void> execute() async {
-    final screen = context.app.screens.active;
-    final name = param<String>(stepParam);
-    if (screen is! ViewerScreen || name == null) {
-      return;
-    }
-
-    final step = ScrollStep.values.where((value) => value.name == name).firstOrNull;
-    if (step != null) {
-      screen.scroll(step);
-    }
   }
 }
 
