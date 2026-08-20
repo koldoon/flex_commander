@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:flutter/widgets.dart';
 import 'package:re_editor/re_editor.dart';
 
@@ -12,7 +13,7 @@ import 'viewer_view.dart';
 ///
 /// [ChangeNotifier], потому что показ меняется по ходу дела: `F2` переключает
 /// перенос строк, и вид перерисовывается сам.
-class ViewerScreen extends ChangeNotifier implements Screen {
+class ViewerScreen extends ChangeNotifier implements Screen, FcSearchable {
   ViewerScreen({
     required this.node,
     required String text,
@@ -33,6 +34,11 @@ class ViewerScreen extends ChangeNotifier implements Screen {
   /// Содержимое, курсор и выделение. Владеет им экран, а не вид: копирует
   /// команда, а она о виджетах ничего не знает.
   final CodeLineEditingController controller;
+
+  /// Поиск по тексту. Тоже у экрана: искать просит команда, а найденное
+  /// подсвечивает вид.
+  @override
+  late final FcTextFinder finder = FcTextFinder(controller);
 
   /// Куда сообщить, что перенос переключили, — настройки помнят его между
   /// запусками.
@@ -85,6 +91,7 @@ class ViewerScreen extends ChangeNotifier implements Screen {
 
   @override
   void dispose() {
+    finder.dispose();
     controller.dispose();
     super.dispose();
   }

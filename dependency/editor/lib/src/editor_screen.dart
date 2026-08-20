@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:flutter/widgets.dart';
 import 'package:re_editor/re_editor.dart';
 
@@ -13,7 +14,7 @@ import 'text_file.dart';
 /// В отличие от просмотрщика **берёт фокус себе**: печатать надо в текст, а не
 /// в команды. Обязанность вернуть фокус при закрытии лежит на
 /// `KeyboardHandler` — см. `docs/screens.md`.
-class EditorScreen extends ChangeNotifier implements Screen {
+class EditorScreen extends ChangeNotifier implements Screen, FcSearchable {
   EditorScreen({
     required this.node,
     required TextFile file,
@@ -37,6 +38,10 @@ class EditorScreen extends ChangeNotifier implements Screen {
   /// Содержимое и курсор. Владеет им экран: сохранять просит команда, а она о
   /// виджетах ничего не знает.
   final CodeLineEditingController controller;
+
+  /// Поиск по тексту — такой же, как в просмотрщике: показ у них общий.
+  @override
+  late final FcTextFinder finder = FcTextFinder(controller);
 
   final void Function(bool wordWrap)? onWrapChanged;
 
@@ -96,6 +101,7 @@ class EditorScreen extends ChangeNotifier implements Screen {
 
   @override
   void dispose() {
+    finder.dispose();
     controller.removeListener(_onTextChanged);
     controller.dispose();
     super.dispose();

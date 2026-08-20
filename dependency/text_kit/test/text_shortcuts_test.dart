@@ -48,6 +48,12 @@ void main() {
     });
   });
 
+  test('встроенный поиск отпущен: панели у нас нет, Cmd-F за командой', () {
+    for (final CodeShortcutType type in FcTextShortcuts.find) {
+      expect(shortcuts.build(type), isEmpty, reason: '$type');
+    }
+  });
+
   test('всё остальное остаётся полю ровно таким, каким было', () {
     // Печатать, ходить курсором, отменять и копировать — его дело. Сравнение
     // с умолчанием, а не «непусто»: так видно, что мы **ничего** больше не
@@ -55,7 +61,9 @@ void main() {
     const defaults = DefaultCodeShortcutsActivatorsBuilder();
 
     for (final type in CodeShortcutType.values) {
-      if (shortcuts.released.contains(type) || FcTextShortcuts.added.containsKey(type)) {
+      if (shortcuts.released.contains(type) ||
+          FcTextShortcuts.find.contains(type) ||
+          FcTextShortcuts.added.containsKey(type)) {
         continue;
       }
       expect(shortcuts.build(type), defaults.build(type), reason: '$type');
