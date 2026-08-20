@@ -546,44 +546,36 @@ class _CreateArchiveFormState extends State<_CreateArchiveForm> {
 
   @override
   Widget build(BuildContext context) {
-    final metrics = FcTheme.of(context).metrics;
-
     return CommandDialogForm(
       error: widget.command.error,
       onCancel: widget.command.dismiss,
       onSubmit: widget.command.submit,
       submitLabel: 'Create',
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          CommandDialogField(label: 'Create in', child: FcTextField(controller: _destination, enabled: false)),
-          SizedBox(height: metrics.dialogGap),
-          CommandDialogField(
-            label: 'Archive name',
-            child: FcTextField(
-              controller: _name,
-              autofocus: true,
-              hintText: 'archive.7z',
-              onChanged: (value) => widget.command.setParam(CreateSevenZipArchiveCommand.nameParam, value),
-              onSubmitted: (_) => widget.command.submit(),
-            ),
+      children: [
+        CommandDialogField(label: 'Create in', child: FcTextField(controller: _destination, enabled: false)),
+        CommandDialogField(
+          label: 'Archive name',
+          child: FcTextField(
+            controller: _name,
+            autofocus: true,
+            hintText: 'archive.7z',
+            onChanged: (value) => widget.command.setParam(CreateSevenZipArchiveCommand.nameParam, value),
+            onSubmitted: (_) => widget.command.submit(),
           ),
-          SizedBox(height: metrics.dialogGap),
-          CommandDialogField(
-            label: 'Compression',
-            child: FcRadioGroup<SevenZipCompression>(
-              direction: Axis.horizontal,
-              options: {for (final value in SevenZipCompression.values) value: value.title},
-              value: _compression,
-              onChanged: (value) {
-                setState(() => _compression = value);
-                widget.command.setParam(CreateSevenZipArchiveCommand.compressionParam, value.name);
-              },
-            ),
+        ),
+        CommandDialogField(
+          label: 'Compression',
+          child: FcRadioGroup<SevenZipCompression>(
+            direction: Axis.horizontal,
+            options: {for (final value in SevenZipCompression.values) value: value.title},
+            value: _compression,
+            onChanged: (value) {
+              setState(() => _compression = value);
+              widget.command.setParam(CreateSevenZipArchiveCommand.compressionParam, value.name);
+            },
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 }

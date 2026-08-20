@@ -85,26 +85,28 @@ class _CredentialsDialogState extends State<_CredentialsDialog> {
         onCancel: _dismiss,
         onSubmit: _submit,
         submitLabel: 'Unlock',
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Text(request.message, style: theme.dialogTextStyle),
-            SizedBox(height: metrics.dialogGap),
-            for (final field in request.fields) ...[
-              if (field != request.fields.first) SizedBox(height: metrics.dialogGap),
-              CommandDialogField(
-                label: field.label,
-                child: FcTextField(
-                  controller: _inputs[field.name]!,
-                  autofocus: field == request.fields.first,
-                  obscureText: field.secret,
-                  onSubmitted: (_) => _submit(),
+        children: [
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Text(request.message, style: theme.dialogTextStyle),
+              SizedBox(height: metrics.dialogGap),
+              for (final field in request.fields) ...[
+                if (field != request.fields.first) SizedBox(height: metrics.dialogGap),
+                CommandDialogField(
+                  label: field.label,
+                  child: FcTextField(
+                    controller: _inputs[field.name]!,
+                    autofocus: field == request.fields.first,
+                    obscureText: field.secret,
+                    onSubmitted: (_) => _submit(),
+                  ),
                 ),
-              ),
+              ],
             ],
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
