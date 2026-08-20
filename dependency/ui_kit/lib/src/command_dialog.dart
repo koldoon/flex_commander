@@ -13,10 +13,14 @@ import 'fc_theme.dart';
 /// под ним линия и ряд кнопок, прижатых вправо (`TitledPopupPanelSkin`).
 
 /// Форма: произвольное содержимое, кнопки «отмена» и подтверждение.
+///
+/// Содержимое — **список** строк, а не одна: между ними форма сама ставит
+/// зазор. Иначе каждое окно расставляет его вручную, а забывшее — слепляет
+/// поля друг с другом; так и случилось с окном поиска.
 class CommandDialogForm extends StatelessWidget {
   const CommandDialogForm({
     super.key,
-    required this.child,
+    required this.children,
     required this.onCancel,
     required this.onSubmit,
     required this.submitLabel,
@@ -24,7 +28,7 @@ class CommandDialogForm extends StatelessWidget {
     this.busy = false,
   });
 
-  final Widget child;
+  final List<Widget> children;
   final VoidCallback onCancel;
   final VoidCallback onSubmit;
   final String submitLabel;
@@ -38,7 +42,7 @@ class CommandDialogForm extends StatelessWidget {
         FcButton(label: 'Cancel', onPressed: onCancel),
         FcButton(label: submitLabel, onPressed: busy ? null : onSubmit, primary: true),
       ],
-      children: [child, if (error != null) FcErrorText(message: error!)],
+      children: [...children, if (error != null) FcErrorText(message: error!)],
     );
   }
 }

@@ -211,27 +211,29 @@ abstract class TransferCommandBase extends AsyncCommandBase {
           onSubmit: submit,
           submitLabel: label,
           // Поля те же, что в референсе: откуда и куда.
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              CommandDialogField(label: 'From', child: FcTextField(controller: _source, enabled: false)),
-              SizedBox(height: theme.metrics.dialogGap),
-              CommandDialogField(
-                label: 'To',
-                child: FcTextField(
-                  controller: _destination,
-                  autofocus: true,
-                  hintText: 'Destination path',
-                  // Путь задаётся по мере ввода, а не при подтверждении: Enter
-                  // обрабатывает ядро, и к моменту execute параметр уже должен
-                  // быть на месте.
-                  onChanged: (value) => setParam(destinationParam, value),
-                  onSubmitted: (_) => submit(),
+          children: [
+            Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                CommandDialogField(label: 'From', child: FcTextField(controller: _source, enabled: false)),
+                SizedBox(height: theme.metrics.dialogGap),
+                CommandDialogField(
+                  label: 'To',
+                  child: FcTextField(
+                    controller: _destination,
+                    autofocus: true,
+                    hintText: 'Destination path',
+                    // Путь задаётся по мере ввода, а не при подтверждении: Enter
+                    // обрабатывает ядро, и к моменту execute параметр уже должен
+                    // быть на месте.
+                    onChanged: (value) => setParam(destinationParam, value),
+                    onSubmitted: (_) => submit(),
+                  ),
                 ),
-              ),
-            ],
-          ),
+              ],
+            ),
+          ],
         );
       },
     );

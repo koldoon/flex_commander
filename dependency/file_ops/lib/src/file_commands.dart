@@ -80,27 +80,29 @@ class MakeDirectoryCommand extends AppCommand {
             onSubmit: submit,
             submitLabel: 'Create',
             // Поля те же, что в референсе: имя и каталог, в котором создаём.
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                CommandDialogField(label: 'Inside', child: FcTextField(controller: _inside, enabled: false)),
-                SizedBox(height: FcTheme.of(context).metrics.dialogGap),
-                CommandDialogField(
-                  label: 'Make directory',
-                  child: FcTextField(
-                    controller: _name,
-                    autofocus: true,
-                    hintText: 'Directory name',
-                    // Имя задаётся по мере ввода, а не при подтверждении: Enter
-                    // обрабатывает ядро, и к моменту execute параметр уже
-                    // должен быть на месте.
-                    onChanged: (value) => setParam(nameParam, value),
-                    onSubmitted: (_) => submit(),
+            children: [
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CommandDialogField(label: 'Inside', child: FcTextField(controller: _inside, enabled: false)),
+                  SizedBox(height: FcTheme.of(context).metrics.dialogGap),
+                  CommandDialogField(
+                    label: 'Make directory',
+                    child: FcTextField(
+                      controller: _name,
+                      autofocus: true,
+                      hintText: 'Directory name',
+                      // Имя задаётся по мере ввода, а не при подтверждении: Enter
+                      // обрабатывает ядро, и к моменту execute параметр уже
+                      // должен быть на месте.
+                      onChanged: (value) => setParam(nameParam, value),
+                      onSubmitted: (_) => submit(),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
     );
   }

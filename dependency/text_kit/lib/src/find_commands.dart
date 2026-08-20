@@ -258,46 +258,43 @@ class _FindFormState extends State<_FindForm> {
       onCancel: widget.command.dismiss,
       onSubmit: _submit,
       submitLabel: 'Find',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          CommandDialogField(
-            label: 'Text',
-            // `Shift-Enter` ищет назад. Рама окна пропускает его мимо себя —
-            // она знает только про чистый `Enter`, — и он достаётся полю.
-            child: CallbackShortcuts(
-              bindings: {const SingleActivator(LogicalKeyboardKey.enter, shift: true): () => _submit(backwards: true)},
-              child: FcTextField(
-                controller: _pattern,
-                autofocus: true,
-                hintText: 'text to find',
-                onChanged: (value) {
-                  widget.command.setParam(FcFindTextCommand.patternParam, value);
-                },
-                onSubmitted: (_) => _submit(),
-              ),
+      children: [
+        CommandDialogField(
+          label: 'Text',
+          // `Shift-Enter` ищет назад. Рама окна пропускает его мимо себя —
+          // она знает только про чистый `Enter`, — и он достаётся полю.
+          child: CallbackShortcuts(
+            bindings: {const SingleActivator(LogicalKeyboardKey.enter, shift: true): () => _submit(backwards: true)},
+            child: FcTextField(
+              controller: _pattern,
+              autofocus: true,
+              hintText: 'text to find',
+              onChanged: (value) {
+                widget.command.setParam(FcFindTextCommand.patternParam, value);
+              },
+              onSubmitted: (_) => _submit(),
             ),
           ),
-          FcCheckbox(
-            label: 'Case sensitive',
-            value: _caseSensitive,
-            onChanged:
-                (value) => setState(() {
-                  _caseSensitive = value;
-                  _push();
-                }),
-          ),
-          FcCheckbox(
-            label: 'Regular expression',
-            value: _regex,
-            onChanged:
-                (value) => setState(() {
-                  _regex = value;
-                  _push();
-                }),
-          ),
-        ],
-      ),
+        ),
+        FcCheckbox(
+          label: 'Case sensitive',
+          value: _caseSensitive,
+          onChanged:
+              (value) => setState(() {
+                _caseSensitive = value;
+                _push();
+              }),
+        ),
+        FcCheckbox(
+          label: 'Regular expression',
+          value: _regex,
+          onChanged:
+              (value) => setState(() {
+                _regex = value;
+                _push();
+              }),
+        ),
+      ],
     );
   }
 }

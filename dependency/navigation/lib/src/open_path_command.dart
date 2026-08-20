@@ -140,16 +140,18 @@ class _OpenPathFormState extends State<_OpenPathForm> {
       onCancel: widget.command.dismiss,
       onSubmit: widget.command.submit,
       submitLabel: 'Open',
-      child: CommandDialogField(
-        label: 'Path',
-        child: FcTextField(
-          controller: _path,
-          autofocus: true,
-          hintText: '/etc or ssh://user@host/srv',
-          onChanged: (value) => widget.command.setParam(OpenPathCommand.pathParam, value),
-          onSubmitted: (_) => widget.command.submit(),
+      children: [
+        CommandDialogField(
+          label: 'Path',
+          child: FcTextField(
+            controller: _path,
+            autofocus: true,
+            hintText: '/etc or ssh://user@host/srv',
+            onChanged: (value) => widget.command.setParam(OpenPathCommand.pathParam, value),
+            onSubmitted: (_) => widget.command.submit(),
+          ),
         ),
-      ),
+      ],
     );
   }
 }
