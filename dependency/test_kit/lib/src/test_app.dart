@@ -6,6 +6,7 @@ import 'package:flex_commander/modules/app_shell.dart';
 import 'package:flex_commander/modules/local_fs/local_staging_area.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'fake_clipboard.dart';
 import 'fake_process_runner.dart';
 import 'fake_window_service.dart';
 import 'in_memory_settings_store.dart';
@@ -17,11 +18,15 @@ import 'in_memory_settings_store.dart';
 /// Здесь она есть и ничего не делает; модуль, установленный после, заменит её
 /// своей: службы разрешаются по типу, и последнее объявление выигрывает.
 class TestPlatform implements FcModule {
-  const TestPlatform({this.processes});
+  const TestPlatform({this.processes, this.clipboard});
 
   /// Подставная программа для тех, кто стоит над внешним инструментом.
   /// Пусто — запускатель, у которого не установлено ничего.
   final ProcessRunner? processes;
+
+  /// Буфер обмена. Пусто — свой, в памяти: настоящий буфер машины прогон
+  /// трогать не должен.
+  final FakeClipboard? clipboard;
 
   @override
   String get id => 'test.platform';
@@ -40,6 +45,11 @@ class TestPlatform implements FcModule {
     // Внешних программ в тестах нет: по умолчанию запускатель отвечает
     // «не установлено», а тест модуля подставляет свой сценарий.
     registry.service<ProcessRunner>((services) => processes ?? FakeProcessRunner(executables: const {}));
+
+    // Буфер обмена — в памяти: человек за машиной в это время тоже что-то
+    // копирует, и стирать ему это прогоном нельзя.
+    final clipboard = this.clipboard ?? FakeClipboard();
+    registry.service<ClipboardService>((services) => clipboard);
   }
 }
 
@@ -66,6 +76,9 @@ Future<AppRuntime> testApp({
   /// Подставная программа для модулей, стоящих над внешним инструментом.
   ProcessRunner? processes,
 
+  /// Буфер обмена, если тесту нужно посмотреть, что в него положили.
+  FakeClipboard? clipboard,
+
   /// Сколько висит всплывающее сообщение: тесту про сами сообщения нужно
   /// подольше, остальным — чтобы таймер не пережил проверку.
   Duration? toastDuration,
@@ -77,7 +90,7 @@ Future<AppRuntime> testApp({
   final settingsStore = store ?? InMemorySettingsStore(settings: settings, homePath: homePath);
 
   final runtime = await initModules(
-    [const AppShell(), TestPlatform(processes: processes), const DefaultTheme(), ...modules],
+    [const AppShell(), TestPlatform(processes: processes, clipboard: clipboard), const DefaultTheme(), ...modules],
     overrides: AppOverrides(
       provider: provider,
       rightProvider: rightProvider,

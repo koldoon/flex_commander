@@ -4,6 +4,7 @@ import 'local_process_runner.dart';
 import 'local_staging_area.dart';
 import 'local_tree_provider.dart';
 import 'plugin_window_service.dart';
+import 'system_clipboard.dart';
 import 'system_open.dart';
 
 /// Локальная файловая система: корневой источник, окно и всё платформенное.
@@ -33,6 +34,10 @@ class LocalFileSystem implements FcModule {
     registry.service<ProcessRunner>((services) => const LocalProcessRunner());
 
     registry.service<SystemOpener>((services) => openWithSystem);
+
+    // Буфер обмена: им пользуется просмотрщик, а дальше — команды «скопировать
+    // путь» и «скопировать список имён».
+    registry.service<ClipboardService>((services) => const SystemClipboard());
     registry.service<WindowService>((services) => PluginWindowService());
   }
 }
