@@ -6,7 +6,6 @@ import '../app/application.dart';
 import '../background/task_status.dart';
 import 'app_command.dart';
 import 'command_service.dart';
-import 'framework/framework.dart';
 import 'key_combination.dart';
 
 /// Куда уходит ошибка команды, у которой нет окна.
@@ -14,7 +13,7 @@ import 'key_combination.dart';
 /// У команды с окном ошибка остаётся в нём — пользователь видит её и может
 /// исправить ввод. У команды без окна показать её негде, а молчать нельзя:
 /// приложение отдаёт сюда журнал, тесты — список.
-typedef CommandErrorHandler = void Function(Object error, Command command);
+typedef CommandErrorHandler = void Function(Object error, AppCommand command);
 
 /// Команды приложения, привязки клавиш к ним и открытые окна команд.
 ///
@@ -35,7 +34,7 @@ typedef CommandErrorHandler = void Function(Object error, Command command);
 /// поэтому `Esc` во время чтения каталога отменяет операцию, а в остальное
 /// время снимает пометку. Схема повторяет
 /// `ApplicationImpl.processKeyboardCombination` из референса.
-class CommandRegistry extends ChangeNotifier implements CommandService, CommandLifecycle, BackgroundTasks {
+class CommandRegistry extends ChangeNotifier implements CommandService, BackgroundTasks {
   CommandRegistry([List<AppCommandFactory> commands = const [], List<KeyBinding> bindings = const [], this.onError]) {
     _factories.addAll(commands);
     _bindings.addAll(bindings);
@@ -264,33 +263,34 @@ class CommandRegistry extends ChangeNotifier implements CommandService, CommandL
 
     if (command.hasDialog) {
       // У команды есть окно: оно соберёт параметры и вызовет execute само.
-      beforeExecution(command, CommandData());
+      _beforeRun(command);
       return true;
     }
 
     // Запуск не ждут: нажатие клавиши не может стоять и ждать конца работы.
     // Но исход разбирается — раньше ошибка команды без окна пропадала совсем.
-    unawaited(_runToCompletion(command));
+    unawaited(runToCompletion(command));
     return true;
   }
 
-  /// Выполняет команду и разбирает исход: закрывает окно, если оно было, и
-  /// сообщает об ошибке.
-  Future<void> _runToCompletion(AppCommand command) async {
-    final data = CommandData();
-    beforeExecution(command, data);
+  /// Выполняет уже созданную команду и разбирает исход: закрывает окно, если
+  /// оно было, и сообщает об ошибке.
+  ///
+  /// Публичный, потому что запускают команды не только клавишей: этим же путём
+  /// идут стартовые команды модулей при сборке приложения. Ошибка наружу не
+  /// пробрасывается, а уходит в [onError] — упавшая команда одного модуля не
+  /// должна ронять остальные.
+  Future<void> runToCompletion(AppCommand command) async {
+    _beforeRun(command);
 
-    CommandResult result;
+    Object? failure;
     try {
       await command.execute();
-      result = CommandResult.completed(command);
-    } on CommandCanceled {
-      result = CommandResult.canceled(command);
     } catch (error) {
-      result = CommandResult.failed(command, error);
+      failure = error;
     }
 
-    afterCompletion(command, result);
+    _afterRun(command, failure);
   }
 
   /// Создаёт экземпляр команды и связывает его с запуском, но не выполняет.
@@ -353,31 +353,17 @@ class CommandRegistry extends ChangeNotifier implements CommandService, CommandL
     }
   }
 
-  // --- Окружение командного фреймворка ---
+  // --- Запуск: что делается до работы и после неё ---
   //
-  // Реестр — это [CommandLifecycle] приложения: он создаёт действия, следит за
-  // их окнами и разбирает исход. Поэтому команда, запущенная клавишей, и она
-  // же в составе последовательности проходят один и тот же путь.
+  // Один путь на все способы вызова: клавишей, кнопкой, из списка команд или
+  // при сборке приложения. Поэтому окно учитывается и исход разбирается
+  // одинаково, кто бы команду ни запустил.
 
-  @override
-  Command createInstance(CommandFactory factory, CommandData data) {
-    final command = factory(data);
-    if (command is AppCommand) {
-      _attachRun(command);
-    }
-    return command;
-  }
-
-  /// Учёт окна: команда с окном попадает в список открытых, и ядро его рисует.
+  /// Готовит запуск: связывает команду с ним и учитывает её окно.
   ///
-  /// Команда с окном внутри составной команды — случай, до которого дело ещё
-  /// не дошло: окно соберёт параметры само, а составная команда в это время
-  /// будет ждать её завершения. Разбирается это вместе с фоновыми работами.
-  @override
-  void beforeExecution(Command command, CommandData data) {
-    if (command is! AppCommand) {
-      return;
-    }
+  /// Окно попадает в список открытых, и ядро его рисует; когда его закрыть,
+  /// решает сама команда.
+  void _beforeRun(AppCommand command) {
     _attachRun(command);
 
     if (command.hasDialog && !command.hasOpenDialog) {
@@ -387,20 +373,16 @@ class CommandRegistry extends ChangeNotifier implements CommandService, CommandL
     }
   }
 
-  @override
-  void afterCompletion(Command command, CommandResult result) {
-    if (command is AppCommand) {
-      closeDialog(command.runId);
-    }
-
-    final error = result.error;
+  /// Разбирает исход: окно закрывается при любом, ошибка уходит в [onError].
+  void _afterRun(AppCommand command, Object? error) {
+    closeDialog(command.runId);
     if (error != null) {
       onError?.call(error, command);
     }
   }
 
-  /// Связывает команду с запуском, если этого ещё не сделали: во фреймворк
-  /// команда может прийти и готовой, созданной вручную.
+  /// Связывает команду с запуском, если этого ещё не сделали: команда может
+  /// прийти и готовой, созданной вручную ([create]).
   void _attachRun(AppCommand command) {
     if (command.runId.isNotEmpty) {
       return;

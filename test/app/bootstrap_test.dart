@@ -175,16 +175,13 @@ void main() {
           const AppShell(),
           const TestPlatform(),
         ], overrides: AppOverrides(provider: provider, store: store, window: window)),
-        throwsA(isA<CommandFailure>().having((f) => f.rootCause, 'причина', isA<StateError>())),
+        throwsA(isA<StateError>()),
       );
     });
 
     test('без корневого источника сборка не начинается', () async {
       // Ошибка внятная и сразу: приложение без дерева бессмысленно.
-      await expectLater(
-        initModules([const AppShell(), const TestPlatform()]),
-        throwsA(isA<CommandFailure>().having((f) => f.rootCause, 'причина', isA<StateError>())),
-      );
+      await expectLater(initModules([const AppShell(), const TestPlatform()]), throwsA(isA<StateError>()));
     });
 
     test('настройки читаются до создания приложения', () async {
@@ -241,7 +238,7 @@ void main() {
     test('второй корневой источник — ошибка сборки, а не тихая замена', () async {
       await expectLater(
         initModules([const AppShell(), const _SecondRootModule(), const _SecondRootModule()]),
-        throwsA(isA<CommandFailure>()),
+        throwsA(isA<StateError>()),
       );
     });
   });
