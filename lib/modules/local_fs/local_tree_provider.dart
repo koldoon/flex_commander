@@ -263,7 +263,12 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
   /// Каталоги создаёт и обходит движок — ему нужен прогресс по объектам,
   /// поэтому здесь на каталог возвращается false.
   @override
-  Future<bool> copyEntry(FsNode node, DirectoryNode destination, String name) async {
+  Future<bool> copyEntry(
+    FsNode node,
+    DirectoryNode destination,
+    String name, {
+    bool Function(int bytes)? onBytes,
+  }) async {
     final source = entityPathOf(node);
     final target = p.join(physicalPathOf(destination), name);
 

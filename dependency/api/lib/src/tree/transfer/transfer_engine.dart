@@ -342,10 +342,39 @@ class TreeTransferEngine implements TreeEditor {
     progress.startItem(node.name, bytes: node.size < 0 ? null : node.size);
 
     // [TransferStrategy.providerCopy]: один провайдер — копирует он сам.
-    if (source != null && identical(source, target) && await source.copyEntry(node, destination, name)) {
-      // Байты прошли мимо движка — он видит только, что файл целиком скопирован.
-      progress.advanceBytes(node.size);
-      return;
+    if (source != null && identical(source, target)) {
+      // Сколько байт провайдер насчитал сам: остаток движок доберёт по концу,
+      // а молчащий провайдер так и останется на старом поведении.
+      var reported = 0;
+      bool onBytes(int bytes) {
+        reported += bytes;
+        progress.advanceBytes(bytes);
+        // Ждать здесь нечем: провайдер стоит внутри своей копии. Вопрос об
+        // отмене задаётся поверх идущей работы, а ответ доходит следующим
+        // куском.
+        return op.keepRunning();
+      }
+
+      final bool copied;
+      try {
+        copied = await source.copyEntry(node, destination, name, onBytes: onBytes);
+      } on FsError {
+        // Половина файла под настоящим именем выглядит как целый файл: копия
+        // провайдера обрывается так же, как и поток, и убирать за ней нужно
+        // ровно так же.
+        await _discardPartial(target, destination, name);
+        rethrow;
+      } on OperationCanceled {
+        await _discardPartial(target, destination, name);
+        rethrow;
+      }
+
+      if (copied) {
+        // Провайдер мог промолчать: тогда объём засчитывается целиком, как
+        // раньше. Размер неизвестен — разница уйдёт в минус, и её отбросят.
+        progress.advanceBytes(node.size - reported);
+        return;
+      }
     }
 
     // [TransferStrategy.stream]: любой источник в любой приёмник.

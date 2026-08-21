@@ -207,7 +207,12 @@ class SftpTreeProvider
   /// false — и движок скопирует потоком, читая и записывая по одному
   /// соединению.
   @override
-  Future<bool> copyEntry(FsNode node, DirectoryNode destination, String name) async => false;
+  Future<bool> copyEntry(
+    FsNode node,
+    DirectoryNode destination,
+    String name, {
+    bool Function(int bytes)? onBytes,
+  }) async => false;
 
   @override
   Future<bool> renameEntry(FsNode node, DirectoryNode destination, String name) async {

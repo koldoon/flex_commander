@@ -346,6 +346,10 @@ class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEdito
   bool renames = true;
   bool hasTrash = true;
 
+  /// Какими кусками копия провайдера отчитывается о байтах; 0 — не
+  /// отчитываться вовсе.
+  int copyChunkBytes = 0;
+
   /// Что и какой стратегией сделал движок — по путям объектов.
   final List<String> renamed = [];
   final List<String> copied = [];
@@ -373,8 +377,17 @@ class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEdito
   }
 
   /// Копия объекта: файлы и ссылки, каталог создаёт и обходит движок.
+  ///
+  /// Байты отдаются кусками по [copyChunkBytes] — так на фейке проверяется ход
+  /// внутри файла у стратегии `providerCopy`. 0 (по умолчанию) — молчать вовсе:
+  /// это провайдер, который так не умеет, и объём ему засчитывает движок.
   @override
-  Future<bool> copyEntry(FsNode node, DirectoryNode destination, String name) async {
+  Future<bool> copyEntry(
+    FsNode node,
+    DirectoryNode destination,
+    String name, {
+    bool Function(int bytes)? onBytes,
+  }) async {
     // Именно свой путь, а не развёрнутый: ссылка копируется ссылкой.
     final source = p.normalize(entityPathOf(node));
     final entry = _entries[source];
@@ -385,7 +398,25 @@ class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEdito
       return false;
     }
 
-    add(_cloneAt(entry, p.normalize(p.join(physicalPathOf(destination), name))));
+    final target = p.normalize(p.join(physicalPathOf(destination), name));
+    if (onBytes != null && copyChunkBytes > 0 && entry.type == FileType.regular) {
+      var done = 0;
+      while (done < entry.size) {
+        final chunk = entry.size - done < copyChunkBytes ? entry.size - done : copyChunkBytes;
+        done += chunk;
+        if (!onBytes(chunk)) {
+          // Настоящая копия оставляет после себя недописанный файл — фейк
+          // оставляет тоже: убирать за ней движку, и это надо проверять.
+          add(FakeEntry.file(target, size: done));
+          throw const OperationCanceled();
+        }
+        // Ответ на вопрос об отмене доходит между кусками, а не внутри куска:
+        // без такта цикла событий его некому доставить.
+        await Future<void>.delayed(Duration.zero);
+      }
+    }
+
+    add(_cloneAt(entry, target));
     copied.add(source);
     return true;
   }

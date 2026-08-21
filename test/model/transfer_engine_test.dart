@@ -253,6 +253,62 @@ void main() {
     });
   });
 
+  group('ход внутри файла', () {
+    test('байты провайдера двигают и его полосу, и общую', () async {
+      // Копия средствами провайдера — единственная стратегия, где движок не
+      // видит байт сам: рассказать о них может только провайдер.
+      provider.copyChunkBytes = 4;
+      final reports = <OperationProgress>[];
+      final operation = engine.copy([await node('/home/notes.txt')], await directory('/home/bin'));
+      operation.progress.listen(reports.add);
+
+      await operation.result;
+      await pumpEventQueue();
+
+      final partial = reports.where((report) => report.itemBytes > 0 && report.itemBytes < 10);
+      expect(partial, isNotEmpty, reason: 'файл так и остался «нулём до конца»');
+      expect(reports.map((report) => report.itemBytes), contains(10));
+      // Ни байта дважды: добор по концу считает только то, о чём провайдер
+      // промолчал.
+      expect(reports.last.bytes, 10);
+    });
+
+    test('молчащий провайдер засчитывается целиком, как раньше', () async {
+      final reports = <OperationProgress>[];
+      final operation = engine.copy([await node('/home/notes.txt')], await directory('/home/bin'));
+      operation.progress.listen(reports.add);
+
+      await operation.result;
+      await pumpEventQueue();
+
+      expect(reports.where((report) => report.itemBytes > 0 && report.itemBytes < 10), isEmpty);
+      expect(reports.last.bytes, 10);
+    });
+
+    test('отмена посреди файла убирает недописанное', () async {
+      provider.copyChunkBytes = 1;
+      final operation = engine.copy([await node('/home/notes.txt')], await directory('/home/bin'));
+      operation.requests.listen((request) => request.respond(OperationOption.abort));
+
+      // Просьба приходит, когда копия уже пошла: между объектами её перехватила
+      // бы обычная контрольная точка, и до файла дело бы не дошло.
+      var asked = false;
+      operation.progress.listen((report) {
+        if (!asked && report.itemBytes > 0) {
+          asked = true;
+          operation.requestCancel();
+        }
+      });
+
+      await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
+      await pumpEventQueue();
+
+      expect(asked, isTrue, reason: 'копия кончилась раньше, чем её успели прервать');
+      // Половина файла под настоящим именем выглядит как целый файл.
+      expect(await provider.resolvePath('/home/bin/notes.txt').result, isNull);
+    });
+  });
+
   group('два провайдера', () {
     late InMemoryTreeProvider remote;
 

@@ -20,11 +20,16 @@ class _SlowCopyProvider extends InMemoryTreeProvider {
   bool slow = false;
 
   @override
-  Future<bool> copyEntry(FsNode node, DirectoryNode destination, String name) async {
+  Future<bool> copyEntry(
+    FsNode node,
+    DirectoryNode destination,
+    String name, {
+    bool Function(int bytes)? onBytes,
+  }) async {
     if (slow) {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
-    return super.copyEntry(node, destination, name);
+    return super.copyEntry(node, destination, name, onBytes: onBytes);
   }
 }
 

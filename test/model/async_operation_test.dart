@@ -229,6 +229,104 @@ void main() {
     });
   });
 
+  group('просьба прервать работу, которую не остановить', () {
+    /// Операция, которая считает свои куски и не умеет ждать: между кусками
+    /// стоит [TaskOperation.keepRunning], а не контрольная точка.
+    ///
+    /// Так ведёт себя копирование файла средствами системы: приостановить его
+    /// нельзя, можно только бросить.
+    (TaskOperation<void>, List<int>) chunking() {
+      final chunks = <int>[];
+      final op = TaskOperation<void>((op) async {
+        for (var i = 0; ; i++) {
+          if (!op.keepRunning()) {
+            throw const OperationCanceled();
+          }
+          chunks.add(i);
+          await Future<void>.delayed(Duration.zero);
+        }
+      });
+      // Тело бесконечное: каждый такой тест кончается отменой, и её ошибку
+      // читать некому.
+      op.result.ignore();
+      return (op, chunks);
+    }
+
+    test('пока не просили — работа идёт молча', () async {
+      final (op, chunks) = chunking();
+      final questions = <OperationRequest>[];
+      op.requests.listen(questions.add);
+
+      await pumpEventQueue(times: 10);
+
+      expect(questions, isEmpty);
+      expect(chunks, isNotEmpty);
+      op.cancel();
+    });
+
+    test('вопрос задаётся один раз, а работа не встаёт', () async {
+      final (op, chunks) = chunking();
+      final questions = <OperationRequest>[];
+      op.requests.listen(questions.add);
+
+      op.requestCancel();
+      await pumpEventQueue();
+      final done = chunks.length;
+
+      await pumpEventQueue(times: 50);
+
+      // Ответа нет, а куски идут: вопрос поверх работы, а не вместо неё.
+      expect(questions, hasLength(1));
+      expect(chunks.length, greaterThan(done));
+      expect(op.status, OperationStatus.processing);
+      op.cancel();
+    });
+
+    test('«Resume» — работа как ни в чём не бывало', () async {
+      final (op, chunks) = chunking();
+      final questions = <OperationRequest>[];
+      op.requests.listen(questions.add);
+
+      op.requestCancel();
+      await pumpEventQueue();
+      questions.single.respond(OperationOption.resume);
+      await pumpEventQueue();
+      final done = chunks.length;
+
+      await pumpEventQueue(times: 10);
+
+      expect(op.status, OperationStatus.processing);
+      expect(chunks.length, greaterThan(done));
+
+      // Просьба не «залипает»: продолжив работу, её надо просить заново.
+      op.requestCancel();
+      await pumpEventQueue();
+      expect(questions, hasLength(2));
+      op.cancel();
+    });
+
+    test('«Abort» доходит следующим куском', () async {
+      final (op, _) = chunking();
+      op.requests.listen((request) => request.respond(OperationOption.abort));
+
+      op.requestCancel();
+      await pumpEventQueue();
+
+      expect(op.status, OperationStatus.canceled);
+    });
+
+    test('спросить некого — работа бросается', () async {
+      final (op, _) = chunking();
+
+      op.requestCancel();
+      await pumpEventQueue();
+
+      // Без окна вопрос отвечает сам себя вариантом по умолчанию, и это
+      // «прервать»: ровно то, о чём просили.
+      expect(op.status, OperationStatus.canceled);
+    });
+  });
+
   group('делегирование вложенных', () {
     test('прогресс вложенной доходит до подписчика внешней', () async {
       final release = Completer<void>();

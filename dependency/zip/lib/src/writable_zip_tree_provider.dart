@@ -126,7 +126,12 @@ class WritableZipTreeProvider extends ZipTreeProvider implements NodeEditor, Fil
   /// Копировать средствами архива нечего: содержимое всё равно распаковывается
   /// и запаковывается заново — этим и займётся поток.
   @override
-  Future<bool> copyEntry(FsNode node, DirectoryNode destination, String name) async => false;
+  Future<bool> copyEntry(
+    FsNode node,
+    DirectoryNode destination,
+    String name, {
+    bool Function(int bytes)? onBytes,
+  }) async => false;
 
   /// Переименование внутри архива — та же пересборка, что и копирование,
   /// поэтому движок обходится общим путём.
