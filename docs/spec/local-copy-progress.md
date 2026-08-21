@@ -1,6 +1,7 @@
 # Ход внутри файла на локальной ФС — от `copyfile(3)`
 
-**Состояние:** спецификация от 21.08.2026, код не начат. Отметки о ходе работы —
+**Состояние:** спецификация от 21.08.2026, код написан и проверен тестами;
+остаётся проверка на живом. Отметки о ходе работы —
 §7; готовый контракт по итогам уедет в [`models.md`](../models.md) и
 [`providers.md`](../providers.md), а этот файл останется записью о том, что
 решалось и почему.
@@ -364,7 +365,8 @@ registry.rootProvider((services) => LocalTreeProvider(settings: () => settings.s
 - [x] `onBytes` в `NodeEditor.copyEntry`, пять реализаций, движок + тесты.
 - [x] `local_file_copy.dart`: `copyfile` через FFI, изолят, отмена + тесты.
 - [x] Настройка `copyProgressMinBytes` и выбор пути в `LocalTreeProvider`.
-- [ ] Документация: `models.md`, `providers.md`, `modules.md`, `README.md`.
+- [x] Документация: `models.md`, `providers.md`, `modules.md`, `README.md`,
+      а заодно `state.md` — там описан Esc посреди копирования.
 - [ ] Проверка на живом.
 
 ## 8. Что остаётся за рамками
