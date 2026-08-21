@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:flex_commander/modules/local_fs/local_fs_settings.dart';
 import 'package:flex_commander/modules/local_fs/local_tree_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -179,6 +180,59 @@ void main() {
       // не проходили, но задание выполнено целиком, и счётчик это показывает.
       expect(reports.last.percent, 1);
       expect(reports.last.processed, reports.last.total);
+    });
+  });
+
+  group('ход внутри файла', () {
+    /// Размер, на котором видно движение: несколько кусков по полмегабайта.
+    const size = 8 * 1024 * 1024;
+
+    /// Провайдер с известным порогом: значение по умолчанию тут ни при чём —
+    /// проверяется, что порог вообще работает.
+    LocalTreeProvider providerWith(int threshold) => LocalTreeProvider(
+      homePath: root,
+      readInIsolate: false,
+      settings: () => LocalFsSettings(copyProgressMinBytes: threshold),
+    );
+
+    Future<(FsNode, DirectoryNode)> bigFile(LocalTreeProvider disk) async {
+      await File(p.join(root, 'big.bin')).writeAsBytes(List<int>.filled(size, 7), flush: true);
+      final node = (await disk.resolvePath(p.join(root, 'big.bin')).result)!;
+      return (node, (await disk.resolvePath(target).result)! as DirectoryNode);
+    }
+
+    test('выше порога — байты идут по ходу дела', () async {
+      final disk = providerWith(1024);
+      final (node, destination) = await bigFile(disk);
+      final operation = editor.copy([node], destination);
+      final reports = <OperationProgress>[];
+      operation.progress.listen(reports.add);
+
+      await operation.result;
+      await pumpEventQueue();
+
+      final partial = reports.where((report) => report.itemBytes > 0 && report.itemBytes < size);
+      expect(partial, isNotEmpty, reason: 'полоса файла так и стояла на нуле');
+      // Сумма сходится с размером: ни байта дважды, ни байта мимо.
+      expect(reports.last.bytes, size);
+      expect(await File(p.join(target, 'big.bin')).length(), size);
+    });
+
+    test('ниже порога — копия одним действием, как раньше', () async {
+      // Порог выше самого файла: ход внутри него не показывается вовсе.
+      final disk = providerWith(size * 2);
+      final (node, destination) = await bigFile(disk);
+      final operation = editor.copy([node], destination);
+      final reports = <OperationProgress>[];
+      operation.progress.listen(reports.add);
+
+      await operation.result;
+      await pumpEventQueue();
+
+      expect(reports.where((report) => report.itemBytes > 0 && report.itemBytes < size), isEmpty);
+      // Объём всё равно засчитан целиком — по концу копии.
+      expect(reports.last.bytes, size);
+      expect(await File(p.join(target, 'big.bin')).length(), size);
     });
   });
 

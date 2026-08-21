@@ -1,5 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 
+import 'local_fs_settings.dart';
 import 'local_process_runner.dart';
 import 'local_staging_area.dart';
 import 'local_tree_provider.dart';
@@ -23,7 +24,11 @@ class LocalFileSystem implements FcModule {
 
   @override
   void install(FcRegistry registry) {
-    registry.rootProvider((services) => LocalTreeProvider());
+    // Раздел настроек берётся не сейчас, а по надобности: сам файл настроек
+    // лежит в домашнем каталоге, а где он — знает провайдер, который здесь
+    // только создаётся.
+    final settings = registry.settings;
+    registry.rootProvider((services) => LocalTreeProvider(settings: () => settings.section(LocalFsSettings.new)));
 
     // Место для временных файлов: им пользуются те, кому нужен настоящий файл
     // на диске, — архиватор и будущие сетевые источники.

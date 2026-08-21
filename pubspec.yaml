@@ -88,6 +88,7 @@ dependencies:
     path: dependency/zip
 
   path: ^1.9.1            # basename/extension/join/normalize
+  ffi: ^2.1.4             # calloc и строки для copyfile(3)
   window_manager: ^0.5.2  # положение и размер окна между запусками
   dicom: ^0.0.3           # контейнер зависимостей
   logecom: ^0.0.11        # логирование операций и ошибок ФС

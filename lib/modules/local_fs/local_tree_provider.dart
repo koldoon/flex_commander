@@ -5,6 +5,8 @@ import 'package:path/path.dart' as p;
 
 import 'package:fc_api/fc_api.dart';
 
+import 'local_file_copy.dart';
+import 'local_fs_settings.dart';
 import 'local_mapping.dart';
 import 'local_listing.dart';
 
@@ -20,7 +22,8 @@ import 'local_listing.dart';
 /// ([FileContentProvider] и [FileContentReceiver]): локальная ФС и отдаёт
 /// содержимое, и принимает.
 class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider, FileContentReceiver {
-  LocalTreeProvider({String? homePath, this.readInIsolate = true}) : homePath = homePath ?? _detectHomePath();
+  LocalTreeProvider({String? homePath, this.readInIsolate = true, this.settings})
+    : homePath = homePath ?? _detectHomePath();
 
   /// Домашний каталог пользователя — сюда открываются панели, если сохранённый
   /// путь недоступен.
@@ -30,6 +33,19 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
   /// Чтение каталога в отдельном изоляте. Отключается в тестах, где каталоги
   /// маленькие, а лишний изолят только замедляет прогон.
   final bool readInIsolate;
+
+  /// Раздел настроек модуля — **способом узнать**, а не значением.
+  ///
+  /// Провайдер создаётся раньше, чем настройки прочитаны с диска: `homePath`
+  /// для файла настроек берётся у него самого. Поэтому раздел спрашивается
+  /// лениво, на каждой копии, а не подставляется в конструктор. null — в
+  /// тестах: берутся умолчания.
+  final LocalFsSettings Function()? settings;
+
+  /// Умолчания на случай, когда настроек нет вовсе.
+  late final LocalFsSettings _defaults = LocalFsSettings();
+
+  LocalFsSettings get _settings => settings?.call() ?? _defaults;
 
   @override
   String get scheme => NodePath.defaultScheme;
@@ -279,12 +295,26 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
         case FileSystemEntityType.directory:
           return false;
         default:
-          await File(source).copy(target);
+          await _copyFile(source, target, node.size, onBytes);
       }
     } on FileSystemException catch (error) {
       throw fsErrorFrom(source, error);
     }
     return true;
+  }
+
+  /// Копия файла: с ходом внутри него или одним действием.
+  ///
+  /// Ход стоит изолята и нативного колбэка на каждый файл — на дереве из
+  /// десятков тысяч мелких файлов это дороже самой копии, поэтому ниже порога
+  /// (и там, где рассказывать некому) остаётся `File.copy`. Результат один и
+  /// тот же: разница только в том, рассказывают ли о ходе.
+  Future<void> _copyFile(String source, String target, int size, bool Function(int bytes)? onBytes) async {
+    if (onBytes == null || !systemFileCopyAvailable || size < _settings.copyProgressMinBytes) {
+      await File(source).copy(target);
+      return;
+    }
+    await copyFileWithProgress(source, target, onBytes);
   }
 
   /// Переименование — мгновенный перенос. Между дисками так нельзя: false,

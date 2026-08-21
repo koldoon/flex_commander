@@ -362,8 +362,8 @@ registry.rootProvider((services) => LocalTreeProvider(settings: () => settings.s
 - [x] `keepRunning()` в `TaskOperation` + тесты (в `test/model/async_operation_test.dart`,
       рядом с тестами `checkpoint`, а не в `dependency/api/test/async/`).
 - [x] `onBytes` в `NodeEditor.copyEntry`, пять реализаций, движок + тесты.
-- [ ] `local_file_copy.dart`: `copyfile` через FFI, изолят, отмена + тесты.
-- [ ] Настройка `copyProgressMinBytes` и выбор пути в `LocalTreeProvider`.
+- [x] `local_file_copy.dart`: `copyfile` через FFI, изолят, отмена + тесты.
+- [x] Настройка `copyProgressMinBytes` и выбор пути в `LocalTreeProvider`.
 - [ ] Документация: `models.md`, `providers.md`, `modules.md`, `README.md`.
 - [ ] Проверка на живом.
 
