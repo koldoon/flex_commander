@@ -48,6 +48,64 @@ void main() {
     });
   });
 
+  group('стрелки крутят текст там, где курсора не видно', () {
+    const viewer = FcTextShortcuts(scrollsByArrows: true);
+
+    test('в библиотеке клавиш для прокрутки нет и быть не должно', () {
+      // Общей клавиши у неё не бывает: Ctrl-стрелки в VS Code, Cmd-стрелки в
+      // других, а на macOS Ctrl-стрелка занята Mission Control. Умолчание тут
+      // отнимало бы чужое сочетание — назначает приложение.
+      const defaults = DefaultCodeShortcutsActivatorsBuilder();
+
+      expect(defaults.build(CodeShortcutType.scrollLineUp) ?? const [], isEmpty);
+      expect(defaults.build(CodeShortcutType.scrollLineDown) ?? const [], isEmpty);
+    });
+
+    test('в просмотрщике стрелка вызывает прокрутку', () {
+      expect(viewer.build(CodeShortcutType.scrollLineUp), [const SingleActivator(LogicalKeyboardKey.arrowUp)]);
+      expect(viewer.build(CodeShortcutType.scrollLineDown), [const SingleActivator(LogicalKeyboardKey.arrowDown)]);
+    });
+
+    test('и ход курсора отпускается, а не перекрывается', () {
+      // Назначить стрелку двум типам сразу — значит положиться на порядок
+      // значений в enum библиотеки: кто позже, тот и перезапишет.
+      expect(viewer.build(CodeShortcutType.cursorMoveUp), isEmpty);
+      expect(viewer.build(CodeShortcutType.cursorMoveDown), isEmpty);
+    });
+
+    test('в редакторе всё наоборот: стрелка ходит курсором', () {
+      expect(shortcuts.build(CodeShortcutType.cursorMoveUp), isNotEmpty);
+      expect(shortcuts.build(CodeShortcutType.cursorMoveDown), isNotEmpty);
+      expect(shortcuts.build(CodeShortcutType.scrollLineUp) ?? const [], isEmpty);
+      expect(shortcuts.build(CodeShortcutType.scrollLineDown) ?? const [], isEmpty);
+    });
+
+    test('выделение стрелками остаётся: у него своё намерение', () {
+      // Shift-стрелки — другой тип, и Cmd-C в просмотрщике живёт вместе с ним.
+      const defaults = DefaultCodeShortcutsActivatorsBuilder();
+
+      expect(viewer.build(CodeShortcutType.selectionExtendUp), defaults.build(CodeShortcutType.selectionExtendUp));
+      expect(viewer.build(CodeShortcutType.selectionExtendDown), defaults.build(CodeShortcutType.selectionExtendDown));
+    });
+
+    test('кроме двух стрелок просмотрщик не задевает ничего', () {
+      const defaults = DefaultCodeShortcutsActivatorsBuilder();
+
+      for (final type in CodeShortcutType.values) {
+        if (viewer.released.contains(type) ||
+            FcTextShortcuts.find.contains(type) ||
+            FcTextShortcuts.added.containsKey(type) ||
+            type == CodeShortcutType.cursorMoveUp ||
+            type == CodeShortcutType.cursorMoveDown ||
+            type == CodeShortcutType.scrollLineUp ||
+            type == CodeShortcutType.scrollLineDown) {
+          continue;
+        }
+        expect(viewer.build(type), defaults.build(type), reason: '$type');
+      }
+    });
+  });
+
   test('встроенный поиск отпущен: панели у нас нет, Cmd-F за командой', () {
     for (final CodeShortcutType type in FcTextShortcuts.find) {
       expect(shortcuts.build(type), isEmpty, reason: '$type');

@@ -217,11 +217,23 @@ abstract class CodeLineEditingController extends ValueNotifier<CodeLineEditingVa
   /// Move the cursor to the end of document.
   void moveCursorToPageEnd();
 
-  /// TODO
+  /// Scroll the viewport one page up, taking the cursor along.
   void moveCursorToPageUp();
 
-  /// TODO
+  /// Scroll the viewport one page down, taking the cursor along.
   void moveCursorToPageDown();
+
+  /// FLEX COMMANDER: scroll the text one line up without walking the cursor
+  /// through the document. See README.md.
+  ///
+  /// Nothing upstream can do this, and every editor can: it is what `Ctrl` or
+  /// `Cmd` with an arrow does. A read-only view needs it most — there the caret
+  /// is hidden, so an arrow that only moves the caret answers nothing at all
+  /// until it reaches the edge of the screen.
+  void scrollLineUp();
+
+  /// FLEX COMMANDER: scroll the text one line down. See [scrollLineUp].
+  void scrollLineDown();
 
   /// Move the cursor to the start of the word.
   void moveCursorToWordBoundaryForward();
