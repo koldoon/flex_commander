@@ -1,7 +1,7 @@
 /// API Flex Commander: то, против чего пишутся модули.
 ///
 /// Здесь только контракты и то, что из них следует: дерево узлов и провайдеры,
-/// длительные операции, действия и командный фреймворк, панели и приложение,
+/// длительные операции, действия с их реестром, панели и приложение,
 /// настройки, общие элементы интерфейса. Ни файловой системы, ни окна, ни
 /// конкретных провайдеров — всё это живёт в модулях, а пакет остаётся тем, во
 /// что они включаются.
@@ -34,12 +34,11 @@ export 'src/async/async_operation.dart';
 export 'src/async/operation_request.dart';
 export 'src/async/transfer_progress.dart';
 
-// --- Действия и командный фреймворк ---
+// --- Действия и клавиши ---
 export 'src/commands/app_command.dart';
 export 'src/commands/async_command_base.dart';
 export 'src/commands/command_registry.dart';
 export 'src/commands/command_service.dart';
-export 'src/commands/framework/framework.dart';
 export 'src/commands/key_combination.dart';
 
 // --- Фоновые работы ---
