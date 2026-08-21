@@ -97,20 +97,6 @@ class ProviderRegistry {
   /// Открывается ли адрес с такой схемой.
   bool knowsAddress(String scheme) => _addresses.containsKey(scheme.toLowerCase());
 
-  /// Создаёт источник по адресу.
-  ///
-  /// Каждый вызов — своё подключение: две панели на одном сервере не делят
-  /// состояние, как не делят его и два открытых архива над одним файлом.
-  AsyncOperation<TreeProvider> openAddress(Uri address) {
-    final factory = _addresses[address.scheme.toLowerCase()];
-    if (factory == null) {
-      // Имя протокола, а не вся строка: разговор о нём, а не о пути, — и
-      // пароль, набранный прямо в адресе, в сообщение не попадает.
-      return CompletedOperation.error(FsError(address.scheme, FsErrorKind.unsupportedScheme));
-    }
-    return factory(address);
-  }
-
   /// Схема, которой открывается этот объект; null — открывать его нечем,
   /// и панель отдаст его системе.
   ///
@@ -154,15 +140,21 @@ class ProviderRegistry {
   /// копируется целиком), и всё это время оно рассказывает о себе и
   /// прерывается.
   AsyncOperation<ProviderLease> acquire(String scheme, FsNode host) {
-    return TaskOperation<ProviderLease>((op) async {
-      final factory = _factories[scheme];
-      if (factory == null) {
-        throw FsError(host.pathString, FsErrorKind.notSupported);
-      }
-      // Аренда хозяина держится всё время, пока жив тот, кто над ним стоит:
-      // архив внутри архива читает файл внешнего.
-      return _acquire(op, _MountKey.over(scheme, host), () => factory(host), host: host.provider);
-    });
+    return TaskOperation<ProviderLease>((op) async => _acquireOver(op, scheme, host));
+  }
+
+  /// Аренда провайдера над узлом — внутри чужой операции.
+  ///
+  /// [milestone] говорится, только если монтировать пришлось на самом деле: у
+  /// уже открытого архива ждать нечего, и веха о нём была бы мельканием.
+  Future<ProviderLease> _acquireOver(TaskOperation<Object?> op, String scheme, FsNode host, {String? milestone}) {
+    final factory = _factories[scheme];
+    if (factory == null) {
+      throw FsError(host.pathString, FsErrorKind.notSupported);
+    }
+    // Аренда хозяина держится всё время, пока жив тот, кто над ним стоит:
+    // архив внутри архива читает файл внешнего.
+    return _acquire(op, _MountKey.over(scheme, host), () => factory(host), host: host.provider, milestone: milestone);
   }
 
   /// То же для источника по адресу: `ssh://user@host/srv`.
@@ -219,6 +211,7 @@ class ProviderRegistry {
     _MountKey key,
     AsyncOperation<TreeProvider> Function() open, {
     TreeProvider? host,
+    String? milestone,
   }) async {
     // Пока прежний экземпляр закрывается, новый не монтируется: иначе умирающий
     // zip подменит файл пересобранным ровно тогда, когда новый его читает.
@@ -226,7 +219,14 @@ class ProviderRegistry {
       await closing;
     }
 
-    final entry = _mountTable[key] ??= _MountEntry(key: key, host: host == null ? null : leaseOf(host), open: open());
+    var entry = _mountTable[key];
+    if (entry == null) {
+      // Веха — только о настоящей работе: уже открытый архив ждать не заставит.
+      if (milestone != null) {
+        op.message(milestone);
+      }
+      entry = _mountTable[key] = _MountEntry(key: key, host: host == null ? null : leaseOf(host), open: open());
+    }
     return _attach(op, entry);
   }
 
@@ -280,18 +280,6 @@ class ProviderRegistry {
     await entry.host?.release();
   }
 
-  /// Монтирует провайдера схемы [scheme] над узлом [host].
-  ///
-  /// Каждый вызов создаёт нового: узлы дерева живут ровно до перечитывания
-  /// каталога, и держать провайдера дольше, чем открыта панель, незачем.
-  AsyncOperation<TreeProvider> mount(String scheme, FsNode host) {
-    final factory = _factories[scheme];
-    if (factory == null) {
-      return CompletedOperation.error(FsError(host.pathString, FsErrorKind.notSupported));
-    }
-    return factory(host);
-  }
-
   /// Фабрике: отдать созданное, только если её не отменили.
   ///
   /// Отмена завершает операцию, но не тело: самое долгое место открытия — это
@@ -321,17 +309,15 @@ class ProviderRegistry {
   /// между ними. Пока цепочка из одной части (обычный путь), всё сводится к
   /// [TreeProvider.resolvePath] корневого провайдера.
   ///
-  /// Возвращает null, если узла нет; недоступная схема — это [FsError].
-  ///
-  /// [reuse] — провайдеры, которые уже смонтированы и работают: монтировать их
-  /// заново нельзя. Смонтированный архив — живой объект с открытым файлом,
-  /// временной копией и накопленными изменениями; второй экземпляр поверх того
-  /// же файла ничего о них не знает, и записанное через один не увидит другой.
+  /// Возвращает узел **вместе с арендой** всего, что смонтировано ради него:
+  /// отпустить её обязан тот, кто просил разобрать путь, — иначе архив,
+  /// открытый по дороге, останется занятым навсегда. Узла нет —
+  /// [ResolvedNode.none], и отпускать нечего; недоступная схема — [FsError].
   ///
   /// [from] — корень, с которого начинается разбор. У каждой панели он свой:
   /// одна может стоять на локальной ФС, другая — на сервере.
-  AsyncOperation<FsNode?> resolvePath(String path, {TreeProvider? from, Iterable<TreeProvider> reuse = const []}) {
-    return TaskOperation<FsNode?>((op) async {
+  AsyncOperation<ResolvedNode> resolvePath(String path, {TreeProvider? from}) {
+    return TaskOperation<ResolvedNode>((op) async {
       final start = from ?? root;
       final chain = NodePath.parse(path);
       // Первая часть адресует корень: `fs` в ней — это «схемы не было вовсе»,
@@ -346,44 +332,37 @@ class ProviderRegistry {
       FsNode? node = await op.delegate(start.resolvePath(_expandHome(first.path, start)));
       op.checkCanceled();
 
-      // Смонтированное по дороге придётся закрыть, если путь не разберётся:
-      // провайдер архива держит открытый файл, и бросить его молча нельзя.
-      final mounted = <TreeProvider>[];
-
+      // Аренда самого глубокого звена: она же держит все внешние.
+      ProviderLease? lease;
       try {
         for (final part in chain.parts.skip(1)) {
           if (node == null) {
             break;
           }
-          // Уже работающий провайдер поверх этого же узла — тот самый, что
-          // нужен: заводить второй значило бы разойтись с ним состоянием.
-          final existing = _reusable(reuse, part.scheme, node);
-          if (existing == null) {
-            // Веха про звено цепочки: дальше о себе рассказывает сам провайдер,
-            // а о том, что звеньев несколько, знает только разбор пути.
-            op.message('Reading ${node.name}…');
-          }
-          final provider = existing ?? await op.delegate<TreeProvider>(mount(part.scheme, node));
-          if (existing == null) {
-            mounted.add(provider);
-          }
-          // Проверка нужна и после делегирования: отмена могла прийти в зазор
-          // между концом монтирования и продолжением тела, и без неё
-          // смонтированное осталось бы держать открытый файл впустую.
+          // Веха про звено цепочки: дальше о себе рассказывает сам провайдер,
+          // а о том, что звеньев несколько, знает только разбор пути.
+          final inner = await _acquireOver(op, part.scheme, node, milestone: 'Reading ${node.name}…');
+          // Прежняя аренда больше не наша забота: новая держит её сама.
+          await lease?.release();
+          lease = inner;
+          // Проверка нужна и после монтирования: отмена могла прийти в зазор
+          // между его концом и продолжением тела.
           op.checkCanceled();
 
-          node = await op.delegate<FsNode?>(provider.resolvePath(part.path));
+          node = await op.delegate<FsNode?>(inner.provider.resolvePath(part.path));
           op.checkCanceled();
         }
-      } catch (_) {
-        await disposeEach(mounted);
+      } on Object {
+        await lease?.release();
         rethrow;
       }
 
       if (node == null) {
-        await disposeEach(mounted);
+        // Смонтированное по дороге держать больше некому.
+        await lease?.release();
+        return const ResolvedNode.none();
       }
-      return node;
+      return ResolvedNode(node, lease);
     });
   }
 
@@ -398,19 +377,15 @@ class ProviderRegistry {
   /// Нужен там, где строку набирает человек: он набирает то, что ему показали,
   /// а показывают ему [NodePath.displayString]. Машинный путь со схемами
   /// (настройки) разбирается по-прежнему [resolvePath] — без единого лишнего
-  /// обращения.
-  AsyncOperation<FsNode?> resolveDisplayPath(
-    String path, {
-    TreeProvider? from,
-    Iterable<TreeProvider> reuse = const [],
-  }) {
+  /// обращения. Аренда возвращается так же.
+  AsyncOperation<ResolvedNode> resolveDisplayPath(String path, {TreeProvider? from}) {
     final chain = NodePath.parse(path);
     if (chain.parts.length > 1) {
       // Схемы на месте — строка машинная и однозначная, гадать не о чем.
-      return resolvePath(path, from: from, reuse: reuse);
+      return resolvePath(path, from: from);
     }
 
-    return TaskOperation<FsNode?>((op) async {
+    return TaskOperation<ResolvedNode>((op) async {
       final start = from ?? root;
       final first = chain.parts.first;
       // То же правило, что и в [resolvePath]: чужая схема в начале — это другой
@@ -419,18 +394,7 @@ class ProviderRegistry {
         throw FsError(path, FsErrorKind.notSupported);
       }
 
-      // Смонтированное по дороге придётся закрыть, если путь не разберётся.
-      final mounted = <TreeProvider>[];
-      try {
-        final node = await _resolveMounting(start, _expandHome(first.path, start), reuse, mounted, op);
-        if (node == null) {
-          await disposeEach(mounted);
-        }
-        return node;
-      } on Object {
-        await disposeEach(mounted);
-        rethrow;
-      }
+      return _resolveMounting(start, _expandHome(first.path, start), op);
     });
   }
 
@@ -444,17 +408,11 @@ class ProviderRegistry {
   /// Границей считается косая черта, поэтому на Windows, где локальные пути
   /// пишутся через обратную, архив в набранном пути не опознается: там разбор
   /// просто вернёт «не найдено», как и до появления этого метода.
-  Future<FsNode?> _resolveMounting(
-    TreeProvider provider,
-    String path,
-    Iterable<TreeProvider> reuse,
-    List<TreeProvider> mounted,
-    TaskOperation<FsNode?> op,
-  ) async {
+  Future<ResolvedNode> _resolveMounting(TreeProvider provider, String path, TaskOperation<Object?> op) async {
     final whole = await op.delegate(provider.resolvePath(path));
     op.checkCanceled();
     if (whole != null) {
-      return whole;
+      return ResolvedNode(whole, null);
     }
 
     for (var slash = path.lastIndexOf('/'); slash > 0; slash = path.lastIndexOf('/', slash - 1)) {
@@ -472,28 +430,33 @@ class ProviderRegistry {
       if (scheme == null) {
         // Звено разобралось, но открывать его нечем: значит пути правда нет,
         // а не «мы не с той стороны посмотрели».
-        return null;
+        return const ResolvedNode.none();
       }
 
-      // Уже работающий провайдер поверх этого же узла — тот самый, что нужен:
-      // второй разошёлся бы с ним состоянием.
-      final existing = _reusable(reuse, scheme, host);
-      if (existing == null) {
-        op.message('Reading ${host.name}…');
-      }
-      final inner = existing ?? await op.delegate<TreeProvider>(mount(scheme, host));
-      if (existing == null) {
-        mounted.add(inner);
-      }
-      // См. [resolvePath]: без этой проверки смонтированное утекает.
+      final lease = await _acquireOver(op, scheme, host, milestone: 'Reading ${host.name}…');
       op.checkCanceled();
 
-      // Остаток может содержать ещё один архив — вложенные разбираются тем же
-      // способом.
-      return _resolveMounting(inner, path.substring(slash), reuse, mounted, op);
+      try {
+        // Остаток может содержать ещё один архив — вложенные разбираются тем же
+        // способом.
+        final inner = await _resolveMounting(lease.provider, path.substring(slash), op);
+        if (inner.node == null) {
+          await lease.release();
+          return const ResolvedNode.none();
+        }
+        if (inner.lease != null) {
+          // Внутри смонтировали ещё один: он держит наш, и наша аренда лишняя.
+          await lease.release();
+          return inner;
+        }
+        return ResolvedNode(inner.node, lease);
+      } on Object {
+        await lease.release();
+        rethrow;
+      }
     }
 
-    return null;
+    return const ResolvedNode.none();
   }
 
   /// Разворачивает `~` в домашний каталог источника.
@@ -518,32 +481,10 @@ class ProviderRegistry {
     return home.endsWith('/') ? '$home${rest.substring(1)}' : '$home$rest';
   }
 
-  /// Закрывает провайдеров, которые не понадобились.
-  ///
-  /// Ошибка закрытия не важна: рассказывать нужно о том, из-за чего не вышло
-  /// открыть путь, а не о том, как за этим убирали.
-  /// Смонтированный поверх этого узла провайдер с такой же схемой; null — его
-  /// ещё нет.
-  TreeProvider? _reusable(Iterable<TreeProvider> reuse, String scheme, FsNode host) {
-    for (final provider in reuse) {
-      final mountedOver = provider.rootDirectory.parent;
-      if (provider.scheme == scheme &&
-          mountedOver != null &&
-          identical(mountedOver.provider, host.provider) &&
-          mountedOver.pathString == host.pathString) {
-        return provider;
-      }
-    }
-    return null;
-  }
-
-  static Future<void> disposeEach(Iterable<TreeProvider> providers) async {
-    for (final provider in providers) {
-      await disposeProvider(provider);
-    }
-  }
-
   /// Закрывает провайдера, если ему есть что закрывать.
+  ///
+  /// Ошибка закрытия проглатывается: рассказывать нужно о том, что не вышло
+  /// сделать, а не о том, как за этим убирали.
   static Future<void> disposeProvider(TreeProvider provider) async {
     if (provider is! ProviderLifecycle) {
       return;
@@ -551,7 +492,7 @@ class ProviderRegistry {
     try {
       await (provider as ProviderLifecycle).dispose();
     } on Object {
-      // См. [disposeEach].
+      // Закрытие — уборка, и её беды пользователя не касаются.
     }
   }
 }

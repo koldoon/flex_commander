@@ -83,15 +83,24 @@ class PanelController extends ChangeNotifier implements Panel {
   /// Корень, на котором стоит панель.
   ///
   /// Обычно общий (локальная ФС), но панель может встать и на свой — сервер,
-  /// открытый по адресу. Тогда он принадлежит ей: закрыть его больше некому.
-  TreeProvider get _root => _ownRoot ?? _registry.root;
+  /// открытый по адресу. Тогда она его **арендатор**, и держится он, пока
+  /// аренда на руках.
+  TreeProvider get _root => _rootLease?.provider ?? _registry.root;
 
-  /// Корень, который панель открыла сама; null — стоит на общем.
-  TreeProvider? _ownRoot;
+  /// Аренда своего корня; null — панель стоит на общем.
+  ProviderLease? _rootLease;
 
   /// Адрес, которым этот корень открыт: по нему видно, что второй такой же
   /// открывать не нужно, а на другой хост — нужно.
   Uri? _ownAddress;
+
+  /// Аренда провайдера, содержимое которого панель показывает сейчас; null —
+  /// это общий корень, арендовать нечего.
+  ///
+  /// Одна на всю цепочку: аренда архива держит аренду того, над кем он
+  /// смонтирован, — вплоть до своего корня. Поэтому панели хватает самой
+  /// глубокой, а обходить стопку хозяев больше не нужно.
+  ProviderLease? _lease;
 
   /// Сколько каталогов панель обходит одновременно, считая их размер, —
   /// настройка приложения. Настоящий предел меньше, если провайдер объявил
@@ -200,23 +209,20 @@ class PanelController extends ChangeNotifier implements Panel {
     return _load(dir, cursorName: _cursorMemory[dir.pathString]);
   }
 
-  /// Открыть каталог по строке пути. Возвращает false, если путь недоступен
-  /// или это не каталог — тогда вызывающий код решает, куда открыть панель.
-  /// Разбирает путь, переиспользуя то, что панель уже смонтировала.
+  /// Ещё одна аренда на то, в чём панель стоит сейчас; null — общий корень.
   ///
-  /// Иначе путь внутрь открытого архива поднял бы второй экземпляр провайдера
-  /// поверх того же файла: записанное через него панель бы не увидела — её
-  /// оглавление принадлежит первому.
+  /// Панель при этом остаётся арендатором сама: у длительной работы своя
+  /// аренда, и уход панели её не касается.
   @override
-  AsyncOperation<FsNode?> resolvePath(String path) =>
-      _registry.resolveDisplayPath(path, from: _root, reuse: _mountedProviders);
+  ProviderLease? leaseProvider() => _registry.leaseOf(provider);
 
-  /// Цепочка провайдеров, на которой стоит панель: от текущего к корню.
-  Iterable<TreeProvider> get _mountedProviders sync* {
-    for (TreeProvider? current = _directory?.provider; current != null; current = _hostProviderOf(current)) {
-      yield current;
-    }
-  }
+  /// Разбирает путь от корня этой панели и отдаёт узел вместе с арендой.
+  ///
+  /// Аренду обязан отпустить тот, кто просил: путь может пройти через архив,
+  /// который ради него и смонтируют. Уже открытый архив вторым экземпляром не
+  /// становится — реестр отдаёт того же и просто считает арендаторов.
+  @override
+  AsyncOperation<ResolvedNode> resolvePath(String path) => _registry.resolveDisplayPath(path, from: _root);
 
   @override
   Future<bool> openPath(String path, {bool allowConnect = true}) async {
@@ -232,7 +238,7 @@ class PanelController extends ChangeNotifier implements Panel {
     // Подключение бывает долгим (сервер на другом конце света), и всё это время
     // Esc должен работать: если операцию завести только на чтении каталога,
     // отменять во время подключения будет нечего.
-    final resolving = TaskOperation<DirectoryNode?>((op) async {
+    final resolving = TaskOperation<ResolvedNode>((op) async {
       // Чужая схема в начале — это другой корень: сервер, а не каталог. Панель
       // встаёт на него целиком, и разбор остатка пути идёт уже от него.
       final start = await _rootFor(op, path, allowConnect: allowConnect);
@@ -242,28 +248,27 @@ class PanelController extends ChangeNotifier implements Panel {
       // это всё та же одна строка.
       // Разбор с вопросами о типе звена: человек набирает то, что ему
       // показали, а показанный путь схем архивов не содержит.
-      final node = await op.delegate(_registry.resolveDisplayPath(path, from: start, reuse: _mountedProviders));
+      final resolved = await op.delegate(_registry.resolveDisplayPath(path, from: start));
       op.checkCanceled();
 
       // Архив, набранный путём, монтируется здесь же, внутри операции: снаружи
       // прервать это было бы нечем, а лежащий на сервере архив копируется
       // целиком.
-      return _asDirectory(op, node);
+      return _asDirectory(op, resolved);
     });
     _operation = resolving;
     // Ход разбора виден в строке состояния: «Connecting to ssh://shark…»,
     // «Reading a.zip…». Без этого длинная цепочка выглядит зависанием.
     final release = _followProgress(resolving, requestId);
 
-    DirectoryNode? dir;
+    ResolvedNode resolved = const ResolvedNode.none();
     try {
       _error = null;
-      dir = await resolving.result;
+      resolved = await resolving.result;
     } on FsError catch (error) {
       // Причина нужна тому, кто просил открыть: «нет такого пути» и «такой
       // протокол мы не умеем» — разные ответы.
       _error = error;
-      dir = null;
     } on OperationCanceled {
       // Отмена во время разбора пути: панель остаётся там, где была.
       if (requestId == _requestId) {
@@ -275,21 +280,24 @@ class PanelController extends ChangeNotifier implements Panel {
       release();
     }
 
+    final dir = resolved.node;
     if (requestId != _requestId) {
       // Пока разбирали путь, панель уже отправили в другой каталог.
+      await resolved.release();
       return false;
     }
-    if (dir == null) {
+    if (dir is! DirectoryNode) {
       // Содержимое остаётся прежним: панель меняется только после **успешного**
       // открытия. Причина неудачи уходит тому, кто просил открыть (окно ввода
       // пути), — подменять ею список файлов значило бы наказывать за опечатку
       // потерей того, на что человек смотрел.
+      await resolved.release();
       _status = PanelStatus.idle;
       _finish();
       return false;
     }
 
-    await _load(dir, cursorName: _cursorMemory[dir.pathString]);
+    await _load(dir, lease: resolved.lease, cursorName: _cursorMemory[dir.pathString]);
     return _status != PanelStatus.error;
   }
 
@@ -322,7 +330,7 @@ class PanelController extends ChangeNotifier implements Panel {
       throw FsError(path, FsErrorKind.invalidAddress);
     }
 
-    await _releaseOwnRoot();
+    await _releaseRoot();
     return _registry.root;
   }
 
@@ -337,7 +345,7 @@ class PanelController extends ChangeNotifier implements Panel {
 
     // Схема общего корня — это он и есть: `fs:/etc` и `/etc` значат одно.
     if (scheme == NodePath.defaultScheme || scheme == _registry.root.scheme) {
-      await _releaseOwnRoot();
+      await _releaseRoot();
       return _registry.root;
     }
 
@@ -348,7 +356,7 @@ class PanelController extends ChangeNotifier implements Panel {
 
     // Тот же адрес — тот же корень: перечитывать сервер заново незачем, а
     // второе подключение к нему разошлось бы состоянием с первым.
-    final own = _ownRoot;
+    final own = _rootLease?.provider;
     if (own != null && own.scheme == scheme && _ownAddress?.authority == address.authority) {
       return own;
     }
@@ -361,21 +369,24 @@ class PanelController extends ChangeNotifier implements Panel {
 
     // О себе подключение рассказывает само: панель не знает ни про этапы
     // рукопожатия, ни про то, что пароль ещё спросят.
-    final opened = await op.delegate(_registry.openAddress(address));
-    await _releaseOwnRoot();
-    _ownRoot = opened;
+    //
+    // Сперва взять новое, потом отпустить старое: иначе панель, вернувшаяся на
+    // тот же сервер другим путём, разорвала бы соединение ровно затем, чтобы
+    // тут же установить его заново.
+    final lease = await op.delegate(_registry.acquireAddress(address));
+    final previous = _rootLease;
+    _rootLease = lease;
     _ownAddress = address;
-    return opened;
+    await previous?.release();
+    return lease.provider;
   }
 
-  /// Закрывает корень, открытый самой панелью.
-  Future<void> _releaseOwnRoot() async {
-    final own = _ownRoot;
-    _ownRoot = null;
+  /// Отпускает свой корень: панель возвращается на общий.
+  Future<void> _releaseRoot() async {
+    final own = _rootLease;
+    _rootLease = null;
     _ownAddress = null;
-    if (own != null) {
-      await ProviderRegistry.disposeProvider(own);
-    }
+    await own?.release();
   }
 
   /// Войти в объект под курсором.
@@ -407,38 +418,31 @@ class PanelController extends ChangeNotifier implements Panel {
     return _enter(node);
   }
 
-  /// Отпускает провайдеров, из которых панель ушла, — всю цепочку.
+  /// Берёт аренду на провайдера каталога, в который панель пришла, и
+  /// отпускает прежнюю.
   ///
-  /// Уходят не из одного провайдера, а из стопки: архив внутри архива держится
-  /// на файле внешнего, и, выйдя из обоих сразу (набрали путь, ушли в корень),
-  /// закрыть надо оба. Поэтому цепочка обходится по хозяевам: корень
-  /// смонтированного провайдера — это узел того, над кем он стоит.
+  /// [lease] — аренда, добытая по дороге (разбор пути, вход в архив); null
+  /// означает «взять её самим»: в каталог соседа по тому же провайдеру или
+  /// наверх, к хозяину, панель приходит без всякой аренды на руках.
   ///
-  /// Провайдеры, на которых держится тот, куда пришли, не трогаются: войдя в
-  /// архив **внутри** архива, внешний закрывать нельзя — на нём стоит
-  /// внутренний. Корень реестра не трогается никогда: он один на приложение и
-  /// панели не принадлежит.
-  ///
-  /// Правило верно, пока окно операции модально: уйти из каталога, из которого
-  /// идёт копирование, сейчас нельзя. Когда операции начнут работать в фоне
-  /// (`AsyncCommand`), провайдера придётся отпускать по счётчику пользователей,
-  /// а не по уходу панели.
-  void _releaseProvider(TreeProvider? provider, {required TreeProvider keeping}) {
-    final kept = <TreeProvider>{_registry.root};
-    for (TreeProvider? current = keeping; current != null; current = _hostProviderOf(current)) {
-      kept.add(current);
+  /// Сперва взять новое, потом отпустить старое: панель, идущая из архива в тот
+  /// же архив уровнем выше или во вложенный, иначе закрыла бы и тут же открыла
+  /// заново то, что и не переставало быть нужным, — а у 7z это ещё и
+  /// перечитанное оглавление.
+  void _adoptLease(ProviderLease? lease, DirectoryNode dir) {
+    final previous = _lease;
+    if (lease == null && identical(previous?.provider, dir.provider)) {
+      // Тот же провайдер: аренда на руках и есть та самая.
+      return;
     }
 
-    var current = provider;
-    while (current != null && !kept.contains(current)) {
-      final host = _hostProviderOf(current);
-      unawaited(ProviderRegistry.disposeProvider(current));
-      current = host;
-    }
+    // Общий корень не арендуется: он никем не смонтирован, и `leaseOf` о нём
+    // ничего не знает — это и означает null.
+    _lease = lease ?? _registry.leaseOf(dir.provider);
+    // Отпускания не ждут: панель уже в другом каталоге, а закрытие архива —
+    // уборка за ней.
+    unawaited(previous?.release());
   }
-
-  /// Провайдер, над которым смонтирован этот; null — он сам себе корень.
-  TreeProvider? _hostProviderOf(TreeProvider provider) => provider.rootDirectory.parent?.provider;
 
   /// Вход в объект, который каталогом не является.
   ///
@@ -462,16 +466,19 @@ class PanelController extends ChangeNotifier implements Panel {
 
     // Монтирование — операция, и панель держит её у себя: Esc должен прерывать
     // копирование архива с сервера, а не ждать его конца.
-    final mounting = _registry.mount(scheme, node);
+    final mounting = _registry.acquire(scheme, node);
     _operation = mounting;
     final release = _followProgress(mounting, requestId);
 
     try {
-      final mounted = await mounting.result;
-      await open(mounted.rootDirectory);
-      // Прочитать корень могло и не выйти: тогда панель осталась там, где была,
-      // а смонтированное держит открытый файл впустую.
-      _releaseProvider(mounted, keeping: provider);
+      final lease = await mounting.result;
+      // Аренда уходит в чтение: прочитать корень могло и не выйти — тогда
+      // панель осталась там, где была, а `_load` отпустит непригодившееся.
+      await _load(
+        lease.provider.rootDirectory,
+        lease: lease,
+        cursorName: _cursorMemory[lease.provider.rootDirectory.pathString],
+      );
     } on OperationCanceled {
       // Открытие прервали: панель остаётся там, где была.
       _status = PanelStatus.idle;
@@ -691,6 +698,7 @@ class PanelController extends ChangeNotifier implements Panel {
   /// нельзя.
   Future<void> _load(
     DirectoryNode dir, {
+    ProviderLease? lease,
     String? cursorName,
     int? cursorFallbackIndex,
     Set<String>? markedNames,
@@ -708,6 +716,7 @@ class PanelController extends ChangeNotifier implements Panel {
     final operation = dir.provider.getDirectoryListing(dir, includeHidden: _showHidden);
     _operation = operation;
 
+    var adopted = false;
     try {
       final nodes = await operation.result;
       if (requestId != _requestId) {
@@ -715,13 +724,13 @@ class PanelController extends ChangeNotifier implements Panel {
         return;
       }
 
-      final left = _directory?.provider;
       _directory = dir;
       _lastPath = dir.pathString;
-      // Из смонтированного провайдера ушли — закрыть его файлы и соединения.
-      // Делается это здесь, а не там, откуда уходят: способов уйти много
-      // (открыть, подняться, набрать путь), а место, где каталог сменился, одно.
-      _releaseProvider(left, keeping: dir.provider);
+      // Каталог сменился — сменилась и аренда. Делается это здесь, а не там,
+      // откуда уходят: способов уйти много (открыть, подняться, набрать путь),
+      // а место, где каталог сменился, одно.
+      _adoptLease(lease, dir);
+      adopted = true;
       _nodes = nodes;
       _applySort();
 
@@ -749,6 +758,12 @@ class PanelController extends ChangeNotifier implements Panel {
       _status = PanelStatus.error;
       _error = error;
       _finish(statusText: error.message);
+    } finally {
+      // Аренда, добытая ради этого каталога, панели не пригодилась: читать не
+      // вышло, и держать открытый архив больше некому.
+      if (!adopted) {
+        await lease?.release();
+      }
     }
   }
 
@@ -831,21 +846,28 @@ class PanelController extends ChangeNotifier implements Panel {
     notifyListeners();
   }
 
-  /// Приводит узел к каталогу: ссылку на каталог разворачивает, архив —
-  /// монтирует.
+  /// Приводит разобранное к каталогу: ссылку разворачивает, архив — монтирует.
   ///
   /// Операция передаётся, а не берётся из поля: монтирование идёт **внутри**
   /// разбора пути, и прерываться должно вместе с ним.
-  Future<DirectoryNode?> _asDirectory(TaskOperation<Object?> op, FsNode? node) async {
+  ///
+  /// Аренда идёт с узлом: у архива, открытого здесь же, она своя, и держит она
+  /// в том числе ту, с которой пришли.
+  Future<ResolvedNode> _asDirectory(TaskOperation<Object?> op, ResolvedNode resolved) async {
+    final node = resolved.node;
     if (node is DirectoryNode) {
-      return node;
+      return resolved;
     }
     if (node is LinkNode) {
       final target = await _resolve(node);
-      return target is DirectoryNode ? target : null;
+      if (target is DirectoryNode) {
+        return ResolvedNode(target, resolved.lease);
+      }
+      await resolved.release();
+      return const ResolvedNode.none();
     }
     if (node == null) {
-      return null;
+      return const ResolvedNode.none();
     }
 
     // Файл, который открывается как каталог, — архив, набранный путём. Так
@@ -853,9 +875,14 @@ class PanelController extends ChangeNotifier implements Panel {
     // же строка обязана вернуть туда обратно. То же самое делает Enter на нём.
     final scheme = _registry.schemeFor(node);
     if (scheme == null) {
-      return null;
+      await resolved.release();
+      return const ResolvedNode.none();
     }
-    return (await op.delegate(_registry.mount(scheme, node))).rootDirectory;
+
+    final lease = await op.delegate(_registry.acquire(scheme, node));
+    // Своя аренда больше не нужна: смонтированный держит её сам.
+    await resolved.release();
+    return ResolvedNode(lease.provider.rootDirectory, lease);
   }
 
   Future<FsNode?> _resolve(LinkNode link) async {
@@ -1017,10 +1044,12 @@ class PanelController extends ChangeNotifier implements Panel {
   void dispose() {
     _operation?.cancel();
     _stopSizeScan();
-    // Панель закрылась вместе с приложением, а архив остался открытым.
-    _releaseProvider(_directory?.provider, keeping: _registry.root);
-    // Своё подключение закрывается вместе с панелью: держать его больше некому.
-    unawaited(_releaseOwnRoot());
+    // Панель ушла — она больше не арендатор ни архива, ни своего сервера.
+    // Закроются они, только если держать их больше некому: работа, ушедшая в
+    // фон, продолжает читать то, из чего панель уже вышла.
+    unawaited(_lease?.release());
+    _lease = null;
+    unawaited(_releaseRoot());
     selection.removeListener(_onSelectionChanged);
     selection.dispose();
     super.dispose();

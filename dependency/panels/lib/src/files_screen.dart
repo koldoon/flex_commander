@@ -27,6 +27,11 @@ class FilesScreen implements Screen {
   @override
   bool get takesFocus => false;
 
+  /// Закрывать нечего: своего состояния у экрана нет вовсе — он рисует панели,
+  /// а живут они в приложении.
+  @override
+  void close() {}
+
   @override
   Widget build(BuildContext context) {
     final app = AppScope.of(context);

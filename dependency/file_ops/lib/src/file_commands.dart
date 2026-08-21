@@ -192,9 +192,14 @@ abstract class RemoveCommandBase extends AsyncCommandBase {
       return;
     }
 
+    // Аренда — на всё время работы: удаление можно отправить в фон, и панель
+    // за это время вправе выйти из архива, в котором оно идёт.
+    final source = panel.leaseProvider();
+
     try {
       await runOperation(editor.remove(targets, toTrash: toTrash), message: 'Deleting…');
     } finally {
+      await source?.release();
       // Часть объектов могла исчезнуть, часть остаться: список в панели больше
       // не совпадает с диском.
       panel.selection.clear();

@@ -120,16 +120,26 @@ abstract class TransferCommandBase extends AsyncCommandBase {
       return;
     }
 
-    final destination = await _resolveDestination();
+    final resolved = await _resolveDestination();
+    final destination = resolved.node! as DirectoryNode;
     final followLinks = param<bool>(followLinksParam) ?? false;
     final operation =
         moves
             ? editor.move(targets, destination, followLinks: followLinks)
             : editor.copy(targets, destination, followLinks: followLinks);
 
+    // Аренда источника — на всё время работы, а не на каждое чтение: между
+    // чтениями панель успевает уйти, а работа, отправленная в фон, продолжает
+    // читать оттуда, откуда она ушла.
+    final source = panel.leaseProvider();
+
     try {
       await runOperation(operation, message: moves ? 'Moving…' : 'Copying…');
     } finally {
+      // Отпускаются обе — и после отмены, и после ошибки: `finally` для того
+      // здесь и стоит.
+      await resolved.release();
+      await source?.release();
       // Обе панели теперь показывают не то, что на диске: в приёмнике объекты
       // появились, из источника при переносе исчезли.
       panel.selection.clear();
@@ -138,8 +148,12 @@ abstract class TransferCommandBase extends AsyncCommandBase {
     }
   }
 
-  /// Каталог-приёмник по пути из параметра.
-  Future<DirectoryNode> _resolveDestination() async {
+  /// Каталог-приёмник по пути из параметра — вместе с арендой.
+  ///
+  /// Аренда здесь не формальность: приёмник задают строкой, и она может вести
+  /// не туда, где панель стоит. Тогда архив по дороге монтируется ради этой
+  /// работы, и отпустить его, кроме неё, некому.
+  Future<ResolvedNode> _resolveDestination() async {
     final path = param<String>(destinationParam)?.trim() ?? '';
     if (path.isEmpty) {
       throw const FsError('', FsErrorKind.invalidName);
@@ -148,18 +162,21 @@ abstract class TransferCommandBase extends AsyncCommandBase {
     // Путь разбирает панель-приёмник: он может проходить через несколько
     // провайдеров («…/archive.zip:zip:/inner»), и одному провайдеру такое
     // не по силам.
-    var node = await _destinationPanel.resolvePath(path).result;
+    final resolved = await _destinationPanel.resolvePath(path).result;
+    var node = resolved.node;
     if (node is LinkNode) {
       // Ссылка на каталог — тоже каталог: копировать «в неё» можно.
       node = await node.provider.resolveLink(node).result;
     }
     if (node == null) {
+      await resolved.release();
       throw FsError(path, FsErrorKind.notFound);
     }
     if (node is! DirectoryNode) {
+      await resolved.release();
       throw FsError(path, FsErrorKind.notADirectory);
     }
-    return node;
+    return ResolvedNode(node, resolved.lease);
   }
 
   /// Панель, в которую идёт работа: пассивная. Ею же задан путь по умолчанию.

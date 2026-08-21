@@ -90,6 +90,14 @@ class ViewerScreen extends ChangeNotifier implements Screen, FcSearchable {
   bool get takesFocus => true;
 
   @override
+  /// Экран закрыли.
+  ///
+  /// Аренды у просмотрщика нет и не нужно: `TextDocument.read` вычитывает файл
+  /// целиком до открытия экрана, и провайдер ему больше не понадобится.
+  @override
+  void close() => dispose();
+
+  @override
   void dispose() {
     finder.dispose();
     controller.dispose();

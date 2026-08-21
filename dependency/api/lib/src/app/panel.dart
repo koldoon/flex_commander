@@ -5,6 +5,7 @@ import '../panel/column_spec.dart';
 import '../panel/sort_spec.dart';
 import '../settings/app_settings.dart';
 import '../tree/fs_node.dart';
+import '../tree/provider_lease.dart';
 import '../tree/tree_provider.dart';
 import 'panel_selection.dart';
 
@@ -90,9 +91,21 @@ abstract interface class Panel implements Listenable {
   /// недоступным, и панель открывается там, где всегда.
   Future<bool> openPath(String path, {bool allowConnect = true});
 
+  /// Стать ещё одним арендатором того источника, в котором панель стоит
+  /// сейчас; null — это общий корень, и арендовать нечего.
+  ///
+  /// Нужно длительным работам: пока они идут, панель вправе уйти куда угодно —
+  /// хоть выйти из архива, — а тот, из кого работа читает, обязан дожить до её
+  /// конца. Отпускать полагается в `finally`.
+  ProviderLease? leaseProvider();
+
   /// Разбор строки пути — через всю цепочку провайдеров, как это делает
   /// [openPath]. Нужен командам, которым путь задают параметром.
-  AsyncOperation<FsNode?> resolvePath(String path);
+  ///
+  /// Узел приходит **вместе с арендой** всего, что смонтировано ради него, и
+  /// отпустить её обязан тот, кто просил: путь может пройти через архив,
+  /// который ради него и откроют, а панель о нём ничего не знает.
+  AsyncOperation<ResolvedNode> resolvePath(String path);
 
   /// Войти в объект под курсором. Возвращает узел, в который войти нельзя
   /// (обычный файл); null, если переход выполнен.
