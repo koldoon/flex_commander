@@ -25,6 +25,15 @@ enum CodeShortcutType {
   cursorMovePageEnd,
   cursorMovePageUp,
   cursorMovePageDown,
+  // FLEX COMMANDER: scrolling the text without walking the cursor through the
+  // document. See README.md.
+  //
+  // Placed after the cursor moves on purpose: `_CodeShortcuts._buildShortcuts`
+  // walks this enum in order, so a later value wins a key an earlier one also
+  // claims. No default keys are assigned to these two — see the doc on
+  // `CodeShortcutScrollLineIntent`.
+  scrollLineUp,
+  scrollLineDown,
   cursorMoveWordBoundaryForward,
   cursorMoveWordBoundaryBackward,
   selectionExtendUp,
@@ -152,6 +161,20 @@ class CodeShortcutCursorMovePageIntent extends Intent {
   const CodeShortcutCursorMovePageIntent(this.forward);
 }
 
+/// FLEX COMMANDER: scroll the text by one line, leaving the caret where it is
+/// in the document. See README.md.
+///
+/// Deliberately without a default key binding, unlike `PageUp` and `PageDown`.
+/// Those name their own action, so an obvious default exists. Scrolling without
+/// moving the caret has no shared one: `Ctrl` with an arrow in VS Code, `Cmd`
+/// with an arrow elsewhere, and on macOS `Ctrl` with an arrow belongs to
+/// Mission Control. Claiming any of them here would take a combination that is
+/// not ours; the application knows which one it can spare.
+class CodeShortcutScrollLineIntent extends Intent {
+  final bool forward;
+  const CodeShortcutScrollLineIntent(this.forward);
+}
+
 class CodeShortcutCursorMoveWordBoundaryIntent extends Intent {
   final bool forward;
   const CodeShortcutCursorMoveWordBoundaryIntent(this.forward);
@@ -244,6 +267,8 @@ const Map<CodeShortcutType, Intent> kCodeShortcutIntents = {
   CodeShortcutType.cursorMovePageEnd: CodeShortcutCursorMoveDocEdgeIntent(true),
   CodeShortcutType.cursorMovePageUp: CodeShortcutCursorMovePageIntent(false),
   CodeShortcutType.cursorMovePageDown: CodeShortcutCursorMovePageIntent(true),
+  CodeShortcutType.scrollLineUp: CodeShortcutScrollLineIntent(false),
+  CodeShortcutType.scrollLineDown: CodeShortcutScrollLineIntent(true),
   CodeShortcutType.cursorMoveWordBoundaryForward: CodeShortcutCursorMoveWordBoundaryIntent(true),
   CodeShortcutType.cursorMoveWordBoundaryBackward: CodeShortcutCursorMoveWordBoundaryIntent(false),
   CodeShortcutType.selectionExtendUp: CodeShortcutSelectionExtendIntent(AxisDirection.up),

@@ -493,13 +493,43 @@ class _CodeLineEditingControllerImpl extends ValueNotifier<CodeLineEditingValue>
     _moveCursorByPage(true);
   }
 
+  @override
+  void scrollLineUp() {
+    _scrollByLine(false);
+  }
+
+  @override
+  void scrollLineDown() {
+    _scrollByLine(true);
+  }
+
+  /// FLEX COMMANDER: scrolls the text by one line without moving the caret
+  /// through the document. See README.md.
+  ///
+  /// A page with a step of one line, and nothing else — the same
+  /// [_CodeFieldRender.scrollVerticallyBy] does the work.
+  void _scrollByLine(bool forward) {
+    final _CodeFieldRender? render = _render;
+    if (render == null || !render.hasSize || render.lineHeight <= 0) {
+      return;
+    }
+    _scrollVerticallyBy(render, forward ? render.lineHeight : -render.lineHeight);
+  }
+
   /// FLEX COMMANDER: page up and down were left unimplemented upstream, so
   /// `PageUp` and `PageDown` did nothing at all. See README.md.
   ///
-  /// The page is measured from the viewport: as many lines as fit on screen,
-  /// minus one kept as an overlap so that the eye can connect what was on
-  /// screen with what is there now. With word wrap on, a wrapped line still
-  /// counts as one, so the jump may be longer than a screen.
+  /// A page scrolls the viewport, and the cursor rides along keeping its screen
+  /// row — the way every editor pages. It is not the cursor that jumps a page
+  /// with the screen catching up: measured that way the first press moves
+  /// nothing on screen, and the view stays a page behind the cursor forever.
+  /// The whole of it lives in [_CodeFieldRender.scrollVerticallyBy].
+  ///
+  /// The page is a screen less one line of overlap, so that the bottom row of
+  /// the page that leaves becomes the top row of the one that arrives and the
+  /// eye has something to hold on to. In pixels, not in lines: a wrapped line
+  /// takes several screen rows, and counting document lines jumps further than
+  /// a screen.
   void _moveCursorByPage(bool forward) {
     final _CodeFieldRender? render = _render;
     if (render == null || !render.hasSize || render.lineHeight <= 0) {
@@ -509,15 +539,19 @@ class _CodeLineEditingControllerImpl extends ValueNotifier<CodeLineEditingValue>
       return;
     }
 
-    final int page = max(1, (render.size.height / render.lineHeight).floor() - 1);
-    final CodeLinePosition current = selection.extent;
-    final int index = min(max(0, current.index + (forward ? page : -page)), codeLines.length - 1);
+    final double page = max(render.lineHeight, render.size.height - render.lineHeight);
+    _scrollVerticallyBy(render, forward ? page : -page);
+  }
 
-    selection = CodeLineSelection.collapsed(
-      index: index,
-      offset: min(codeLines[index].length, current.offset)
-    );
-    makeCursorVisible();
+  /// FLEX COMMANDER: scrolls the viewport and puts the cursor where the scroll
+  /// left it. See README.md.
+  ///
+  /// Shared by paging and by line scrolling: the step differs, the operation
+  /// does not.
+  void _scrollVerticallyBy(_CodeFieldRender render, double delta) {
+    render.scrollVerticallyBy(delta, (CodeLinePosition position) {
+      selection = CodeLineSelection.fromPosition(position: position);
+    });
   }
 
   @override
@@ -2405,6 +2439,16 @@ class _CodeLineEditingControllerDelegate implements CodeLineEditingController {
   @override
   void moveCursorToPageDown() {
     _delegate.moveCursorToPageDown();
+  }
+
+  @override
+  void scrollLineUp() {
+    _delegate.scrollLineUp();
+  }
+
+  @override
+  void scrollLineDown() {
+    _delegate.scrollLineDown();
   }
 
   @override

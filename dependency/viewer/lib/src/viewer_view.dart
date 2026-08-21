@@ -20,7 +20,14 @@ class ViewerView extends StatelessWidget {
   /// `Esc` закрывает экран, `Cmd-C` копирует нашей командой — она проходит
   /// через буфер обмена приложения и говорит человеку, что случилось. Оставь
   /// копирование виджету, оно сработало бы дважды и молча.
-  static const FcTextShortcuts _shortcuts = FcTextShortcuts(released: {CodeShortcutType.esc, CodeShortcutType.copy});
+  ///
+  /// Стрелки крутят текст, а не ходят курсором: курсора здесь не видно, и
+  /// шагать им по строкам, пока экран стоит, некому. Так листают Lister,
+  /// просмотрщик Far и `less`.
+  static const FcTextShortcuts _shortcuts = FcTextShortcuts(
+    released: {CodeShortcutType.esc, CodeShortcutType.copy},
+    scrollsByArrows: true,
+  );
 
   @override
   Widget build(BuildContext context) {

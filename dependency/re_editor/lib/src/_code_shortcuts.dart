@@ -197,6 +197,14 @@ class _CodeShortcutActions extends StatelessWidget {
         actions.editingController.moveCursorToPageUp();
       }
     },
+    // FLEX COMMANDER: scrolling the text by a line. See README.md.
+    CodeShortcutScrollLineIntent: (intent, actions) {
+      if ((intent as CodeShortcutScrollLineIntent).forward) {
+        actions.editingController.scrollLineDown();
+      } else {
+        actions.editingController.scrollLineUp();
+      }
+    },
     CodeShortcutCursorMoveWordBoundaryIntent: (intent, actions) {
       if ((intent as CodeShortcutCursorMoveWordBoundaryIntent).forward) {
         actions.editingController.moveCursorToWordBoundaryForward();

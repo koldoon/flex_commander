@@ -624,6 +624,65 @@ class _CodeFieldRender extends RenderBox implements MouseTrackerAnnotation {
     _verticalViewport.jumpTo(maxOffset == null ? max(0, offset) : min(max(0, offset), maxOffset));
   }
 
+  /// FLEX COMMANDER: scrolls the viewport by [delta] pixels and takes the
+  /// cursor along, keeping the screen row it was sitting on.
+  ///
+  /// This is what paging and line scrolling are both made of; they differ only
+  /// in the step. The operation is about the viewport, not about the cursor:
+  /// the screen has to move on the very first key press, whichever way it was
+  /// moving before. Moving the cursor and letting `makeCursorVisible` follow
+  /// cannot do that — a page is measured so that the cursor stays on screen,
+  /// so the first press scrolls nothing at all. See README.md.
+  ///
+  /// The step is in pixels rather than in lines on purpose: with word wrap on,
+  /// one document line takes several screen rows, and counting document lines
+  /// jumps further than a screen.
+  ///
+  /// [onCursorLanded] is called on the next frame, once the new page is laid
+  /// out: before that, nothing is known about lines that were off screen. It
+  /// is not called at all if the widget is gone by then — there is nothing
+  /// left to show.
+  void scrollVerticallyBy(double delta, ValueChanged<CodeLinePosition> onCursorLanded) {
+    if (!hasSize || _codes.isEmpty) {
+      return;
+    }
+    // The screen row of the cursor, taken before the jump: afterwards its
+    // paragraph may no longer be laid out.
+    final Offset? cursorOffset = calculateTextPositionViewportOffset(_selection.extent);
+    final double before = _verticalViewport.pixels;
+    _jumpVerticallyTo(before + delta);
+    final bool scrolled = _verticalViewport.pixels != before;
+
+    SchedulerBinding.instance.addPostFrameCallback((timeStamp) {
+      // Check whether the viewport is still valid.
+      final ViewportOffset viewport = _verticalViewport;
+      if (!attached || (viewport is ScrollPosition && viewport.context.notificationContext == null)) {
+        return;
+      }
+      if (!scrolled) {
+        // The jump ran into the edge of the document, so there is no new page
+        // to hold the cursor. Send it to the edge instead: `PageDown` on the
+        // last page still walks down to the last line.
+        final int index = delta > 0 ? _codes.length - 1 : 0;
+        onCursorLanded(CodeLinePosition(index: index, offset: delta > 0 ? _codes[index].length : 0));
+        return;
+      }
+      // The same screen point, hit the way the mouse hits a line when
+      // clicking. Wrapped lines are its business, not ours.
+      //
+      // With no cursor on screen — scrolled away by the wheel, left behind by
+      // a search — it lands on the top row of the new page. The screen does
+      // not jump for that: it is already where it was scrolled to.
+      final Offset target = cursorOffset == null
+        ? Offset(paddingLeft, 0)
+        : Offset(cursorOffset.dx, min(max(0, cursorOffset.dy), size.height - _preferredLineHeight));
+      final CodeLinePosition? landed = calculateTextPosition(target);
+      if (landed != null) {
+        onCursorLanded(landed);
+      }
+    });
+  }
+
   void makePositionVisible(CodeLinePosition position, [int tryCount = 0]) {
     final Offset? offset = calculateTextPositionViewportOffset(position);
     if (offset == null) {
