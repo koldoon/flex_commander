@@ -89,7 +89,7 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
   Future<void> execute() async {
     final sources = _sourcesOf(context);
     final destination = context.target.directory;
-    if (sources.isEmpty || destination == null || isRunning) {
+    if (sources.isEmpty || destination == null || isBusy) {
       return;
     }
 
@@ -370,41 +370,12 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
 
   // --- окно ---
 
+  /// Вопрос по ходу работы, ход дела и разбор ошибки — общие для всех
+  /// длительных работ: упаковка ничем не отличается от копирования, и
+  /// рассказывать о ней иначе незачем. Своё у команды одно — форма.
   @override
-  Widget? getDialog(BuildContext context) {
-    return ListenableBuilder(
-      listenable: this,
-      builder: (context, _) {
-        final question = this.question;
-        if (question != null) {
-          return CommandDialogQuestion(request: question, onAnswer: answer, onTextChanged: setAnswerText);
-        }
-        if (isRunning) {
-          // То же окно хода работы, что у копирования: упаковка — такая же
-          // длительная работа, и рассказывать о ней иначе незачем.
-          return CommandDialogProgress(
-            progress: progress,
-            message: progressMessage,
-            processed: processed,
-            total: total,
-            totalIsFinal: totalIsFinal,
-            bytes: bytes,
-            totalBytes: totalBytes,
-            bytesPerSecond: bytesPerSecond,
-            remaining: remaining,
-            itemName: itemName,
-            itemProgress: itemProgress,
-            itemBytes: itemBytes,
-            itemTotalBytes: itemTotalBytes,
-            onCancel: cancel,
-            onBackground: sendToBackground,
-          );
-        }
-
-        return _CreateArchiveForm(command: this);
-      },
-    );
-  }
+  Widget? getDialog(BuildContext context) =>
+      AsyncCommandDialog(command: this, form: (context) => _CreateArchiveForm(command: this));
 
   /// Имя, предложенное по умолчанию: по единственному объекту или по каталогу,
   /// из которого пакуем, — как в референсных менеджерах.

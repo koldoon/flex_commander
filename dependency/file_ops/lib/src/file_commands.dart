@@ -188,7 +188,7 @@ abstract class RemoveCommandBase extends AsyncCommandBase {
     final panel = context.panel;
     final editor = panel.editor;
     final targets = this.targets;
-    if (editor == null || targets.isEmpty || isRunning) {
+    if (editor == null || targets.isEmpty || isBusy) {
       return;
     }
 
@@ -209,57 +209,24 @@ abstract class RemoveCommandBase extends AsyncCommandBase {
 
   // --- окно ---
 
+  /// Вопрос по ходу работы, ход дела и разбор ошибки — общие для всех
+  /// длительных работ, их берёт на себя [AsyncCommandDialog]. Команде остаётся
+  /// то, что у неё своё: спросить, точно ли удалять.
   @override
-  Widget? getDialog(BuildContext context) {
-    return ListenableBuilder(
-      listenable: this,
-      builder: (context, _) {
-        final question = this.question;
-        if (question != null) {
-          return CommandDialogQuestion(request: question, onAnswer: answer, onTextChanged: setAnswerText);
-        }
-        if (isRunning) {
-          return CommandDialogProgress(
-            progress: progress,
-            message: progressMessage,
-            stageLabel: stageLabel,
-            processed: processed,
-            total: total,
-            totalIsFinal: totalIsFinal,
-            bytes: bytes,
-            totalBytes: totalBytes,
-            bytesPerSecond: bytesPerSecond,
-            remaining: remaining,
-            itemName: itemName,
-            itemProgress: itemProgress,
-            itemBytes: itemBytes,
-            itemTotalBytes: itemTotalBytes,
-            onCancel: cancel,
-            // Прятать имеет смысл то, что идёт долго: у не начавшейся работы
-            // прятать нечего.
-            onBackground: isRunning ? sendToBackground : null,
-          );
-        }
-        final failure = error;
-        if (failure != null) {
-          return CommandDialogConfirm(
-            message: 'Delete failed',
-            error: failure,
-            confirmLabel: 'Close',
-            onCancel: dismiss,
-            onConfirm: dismiss,
-          );
-        }
+  Widget? getDialog(BuildContext context) => AsyncCommandDialog(command: this, form: _form);
 
-        return CommandDialogConfirm(
-          message: _confirmationMessage,
-          confirmLabel: toTrash ? 'Delete' : 'Delete permanently',
-          onCancel: dismiss,
-          onConfirm: submit,
-        );
-      },
-    );
-  }
+  /// «Delete !» в заголовке разбора читалось бы как опечатка: восклицательный
+  /// знак в названии команды отличает её от удаления в корзину, а не от чего-то
+  /// ещё.
+  @override
+  String get failureMessage => 'Delete failed';
+
+  Widget _form(BuildContext context) => CommandDialogConfirm(
+    message: _confirmationMessage,
+    confirmLabel: toTrash ? 'Delete' : 'Delete permanently',
+    onCancel: dismiss,
+    onConfirm: submit,
+  );
 
   /// Заголовок собирается как в референсе: действие и то, над чем оно идёт.
   @override

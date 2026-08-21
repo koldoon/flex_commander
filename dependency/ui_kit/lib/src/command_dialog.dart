@@ -97,7 +97,7 @@ class CommandDialogProgress extends StatelessWidget {
   const CommandDialogProgress({
     super.key,
     required this.message,
-    required this.onCancel,
+    this.onCancel,
     this.progress,
     this.processed = 0,
     this.total,
@@ -106,6 +106,7 @@ class CommandDialogProgress extends StatelessWidget {
     this.totalBytes,
     this.bytesPerSecond,
     this.remaining,
+    this.canBackground = false,
     this.onBackground,
     this.itemName = '',
     this.itemProgress,
@@ -131,9 +132,21 @@ class CommandDialogProgress extends StatelessWidget {
   final double? bytesPerSecond;
   final Duration? remaining;
 
-  final VoidCallback onCancel;
+  /// Прервать работу; null — прерывать уже нечего, и кнопка приглушена.
+  ///
+  /// Живая кнопка «Cancel» у законченной работы хуже серой: отменять там нечего,
+  /// и нажатие означало бы что-то другое, чем написано на кнопке.
+  final VoidCallback? onCancel;
 
-  /// Убрать окно и оставить работу идти; null — прятать нечего или некуда.
+  /// Бывает ли у этой работы фон: без этого кнопки нет вовсе.
+  final bool canBackground;
+
+  /// Убрать окно и оставить работу идти; null — прятать сейчас нечего, и кнопка
+  /// приглушена, но с места не девается.
+  ///
+  /// Разница с [canBackground] не придирка: ряд кнопок не должен переставляться
+  /// ровно в тот момент, когда работа заканчивается, — иначе окно дёргается на
+  /// прощание.
   final VoidCallback? onBackground;
 
   /// Что обрабатывается прямо сейчас и сколько его прошло.
@@ -159,7 +172,7 @@ class CommandDialogProgress extends StatelessWidget {
         actions: [
           // «В фон» стоит слева от отмены: уводит работу с глаз, а не
           // прекращает её, — и путать эти две кнопки нельзя.
-          if (onBackground != null) FcButton(label: 'Background', onPressed: onBackground),
+          if (canBackground || onBackground != null) FcButton(label: 'Background', onPressed: onBackground),
           FcButton(label: 'Cancel', onPressed: onCancel),
         ],
         children: [

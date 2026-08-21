@@ -19,6 +19,10 @@ class _SlowCopyProvider extends InMemoryTreeProvider {
 
   bool slow = false;
 
+  /// Медленное чтение каталога — это хвост работы: сама операция кончилась, а
+  /// команда ещё перечитывает обе панели, и окно всё это время открыто.
+  bool slowListing = false;
+
   @override
   Future<bool> copyEntry(
     FsNode node,
@@ -30,6 +34,17 @@ class _SlowCopyProvider extends InMemoryTreeProvider {
       await Future<void>.delayed(const Duration(milliseconds: 200));
     }
     return super.copyEntry(node, destination, name, onBytes: onBytes);
+  }
+
+  @override
+  AsyncOperation<List<FsNode>> getDirectoryListing(DirectoryNode dir, {bool includeHidden = false}) {
+    if (!slowListing) {
+      return super.getDirectoryListing(dir, includeHidden: includeHidden);
+    }
+    return TaskOperation<List<FsNode>>((op) async {
+      await Future<void>.delayed(const Duration(milliseconds: 200));
+      return super.getDirectoryListing(dir, includeHidden: includeHidden).result;
+    });
   }
 }
 
@@ -490,6 +505,86 @@ void main() {
 
       await tester.pump(const Duration(milliseconds: 300));
       await settle(tester);
+    });
+
+    group('конец работы', () {
+      /// Доводит копирование до **хвоста**: операция кончилась, а команда ещё
+      /// перечитывает обе панели, и окно всё это время открыто.
+      ///
+      /// Раньше в этот промежуток окно откатывалось к форме с параметрами —
+      /// `isRunning` гас в конце операции, а форма стояла в окне веткой
+      /// «иначе». На локальном диске это было мигание в несколько кадров,
+      /// по сети — секунды.
+      Future<void> copyIntoTail(WidgetTester tester) async {
+        await pumpApp(tester);
+        app.left.setCursorToName('notes.txt');
+        await tester.pump();
+
+        await openTransfer(tester, LogicalKeyboardKey.f5, destination: '/home/bin');
+        // Копирование мгновенное, а перечитывание панелей — нет: хвост длиннее
+        // самой работы, ровно как по сети.
+        provider.slowListing = true;
+        await tester.tap(find.widgetWithText(FcButton, 'Copy'));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 20));
+      }
+
+      /// Отпускает хвост доработать: иначе тест кончится с висящим таймером.
+      Future<void> finish(WidgetTester tester) async {
+        await tester.pump(const Duration(milliseconds: 500));
+        await settle(tester);
+      }
+
+      testWidgets('форма с параметрами больше не выскакивает', (tester) async {
+        await copyIntoTail(tester);
+
+        // Ни поля «куда», ни кнопки «Copy» — окно осталось окном хода работы.
+        expect(input, findsNothing);
+        expect(find.widgetWithText(FcButton, 'Copy'), findsNothing);
+        expect(find.byType(FcProgressBar), findsNWidgets(2));
+
+        await finish(tester);
+        expect(find.byType(FcButton), findsNothing);
+      });
+
+      testWidgets('кнопки гаснут, но с места не девается ни одна', (tester) async {
+        await copyIntoTail(tester);
+
+        // Прерывать нечего и прятать нечего, но ряд кнопок не переставляется:
+        // окно не должно дёргаться на прощание.
+        expect(find.widgetWithText(FcButton, 'Background'), findsOneWidget);
+        expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Background')).onPressed, isNull);
+        expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Cancel')).onPressed, isNull);
+
+        await finish(tester);
+      });
+
+      testWidgets('Enter в хвосте не запускает работу заново', (tester) async {
+        await copyIntoTail(tester);
+
+        // Раньше охрана подтверждения смотрела на идущую операцию, а её в
+        // хвосте уже нет: копирование шло вторым заходом — и упиралось в файл,
+        // который само же и создало.
+        await press(tester, LogicalKeyboardKey.enter);
+        await finish(tester);
+
+        expect(find.textContaining('Already exists'), findsNothing);
+        expect(find.byType(FcButton), findsNothing);
+      });
+
+      testWidgets('Esc в хвосте окно не закрывает', (tester) async {
+        await copyIntoTail(tester);
+
+        // Работа сделана, окно уйдёт само; закрывать его раньше — значит
+        // потерять ошибку, если хвост ещё успеет её принести.
+        await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+        await tester.pump();
+
+        expect(find.byType(FcProgressBar), findsNWidgets(2));
+
+        await finish(tester);
+        expect(find.byType(FcButton), findsNothing);
+      });
     });
 
     group('прерывание работы', () {

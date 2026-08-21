@@ -116,7 +116,7 @@ abstract class TransferCommandBase extends AsyncCommandBase {
     // копировать из него.
     final editor = _destinationPanel.editor;
     final targets = this.targets;
-    if (editor == null || targets.isEmpty || isRunning) {
+    if (editor == null || targets.isEmpty || isBusy) {
       return;
     }
 
@@ -200,73 +200,46 @@ abstract class TransferCommandBase extends AsyncCommandBase {
 
   // --- окно ---
 
+  /// Вопрос по ходу работы, ход дела и разбор ошибки — общие для всех
+  /// длительных работ, их берёт на себя [AsyncCommandDialog]. Команде остаётся
+  /// то, что у неё своё: куда копировать.
   @override
-  Widget? getDialog(BuildContext context) {
-    return ListenableBuilder(
-      listenable: this,
-      builder: (context, _) {
-        final question = this.question;
-        if (question != null) {
-          return CommandDialogQuestion(request: question, onAnswer: answer, onTextChanged: setAnswerText);
-        }
-        if (isRunning) {
-          return CommandDialogProgress(
-            progress: progress,
-            message: progressMessage,
-            stageLabel: stageLabel,
-            processed: processed,
-            total: total,
-            totalIsFinal: totalIsFinal,
-            bytes: bytes,
-            totalBytes: totalBytes,
-            bytesPerSecond: bytesPerSecond,
-            remaining: remaining,
-            itemName: itemName,
-            itemProgress: itemProgress,
-            itemBytes: itemBytes,
-            itemTotalBytes: itemTotalBytes,
-            onCancel: cancel,
-            // Прятать имеет смысл то, что идёт долго: у не начавшейся работы
-            // прятать нечего.
-            onBackground: isRunning ? sendToBackground : null,
-          );
-        }
+  Widget? getDialog(BuildContext context) => AsyncCommandDialog(command: this, form: _form);
 
-        return CommandDialogForm(
-          error: error,
-          onCancel: dismiss,
-          onSubmit: submit,
-          submitLabel: label,
-          // Поля те же, что в референсе: откуда и куда. Зазор между строками
-          // ставит сама форма.
-          children: [
-            CommandDialogField(label: 'From', child: FcTextField(controller: _source, enabled: false)),
-            CommandDialogField(
-              label: 'To',
-              child: FcTextField(
-                controller: _destination,
-                autofocus: true,
-                hintText: 'Destination path',
-                // Путь задаётся по мере ввода, а не при подтверждении: Enter
-                // обрабатывает ядро, и к моменту execute параметр уже должен
-                // быть на месте.
-                onChanged: (value) => setParam(destinationParam, value),
-                onSubmitted: (_) => submit(),
-              ),
-            ),
-            // Значение живёт в параметрах команды, а не в состоянии виджета:
-            // окно строит сама команда, и перерисовывает его её же уведомление.
-            FcCheckbox(
-              label: 'Follow symlinks',
-              value: param<bool>(followLinksParam) ?? false,
-              onChanged: (value) {
-                setParam(followLinksParam, value);
-                notifyListeners();
-              },
-            ),
-          ],
-        );
-      },
+  Widget _form(BuildContext context) {
+    return CommandDialogForm(
+      error: error,
+      onCancel: dismiss,
+      onSubmit: submit,
+      submitLabel: label,
+      // Поля те же, что в референсе: откуда и куда. Зазор между строками
+      // ставит сама форма.
+      children: [
+        CommandDialogField(label: 'From', child: FcTextField(controller: _source, enabled: false)),
+        CommandDialogField(
+          label: 'To',
+          child: FcTextField(
+            controller: _destination,
+            autofocus: true,
+            hintText: 'Destination path',
+            // Путь задаётся по мере ввода, а не при подтверждении: Enter
+            // обрабатывает ядро, и к моменту execute параметр уже должен
+            // быть на месте.
+            onChanged: (value) => setParam(destinationParam, value),
+            onSubmitted: (_) => submit(),
+          ),
+        ),
+        // Значение живёт в параметрах команды, а не в состоянии виджета:
+        // окно строит сама команда, и перерисовывает его её же уведомление.
+        FcCheckbox(
+          label: 'Follow symlinks',
+          value: param<bool>(followLinksParam) ?? false,
+          onChanged: (value) {
+            setParam(followLinksParam, value);
+            notifyListeners();
+          },
+        ),
+      ],
     );
   }
 

@@ -8,6 +8,25 @@ import '../util/throttle.dart';
 import '../background/task_status.dart';
 import 'app_command.dart';
 
+/// Где прогон: не начинался, идёт, кончился.
+///
+/// Разделение не формальное. «Операция крутится» и «прогон закончен» — разные
+/// вопросы, и между ответами на них лежит хвост работы: отпустить аренду,
+/// перечитать панели, закрыть окно. Пока это был один признак занятости, окно
+/// в хвосте откатывалось к форме с параметрами, а Enter запускал работу второй
+/// раз — охрана смотрела на ту же крутящуюся операцию, которой уже не было.
+enum CommandRunPhase {
+  /// Работа не начиналась: окно показывает форму.
+  idle,
+
+  /// Операция идёт: окно показывает ход дела, «Cancel» её прерывает.
+  running,
+
+  /// Операция кончилась — успехом, ошибкой или отменой, — а команда ещё
+  /// доигрывает и окно ещё открыто.
+  done,
+}
+
 /// Команда, работа которой занимает время: удаление, копирование, перенос.
 ///
 /// Здесь собрано всё, что у таких команд одинаково: подписки на ход работы и
@@ -22,7 +41,7 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
   StreamSubscription<OperationRequest>? _requests;
   StreamSubscription<OperationProgress>? _progress;
 
-  bool _running = false;
+  CommandRunPhase _phase = CommandRunPhase.idle;
   OperationProgress _state = const OperationProgress();
 
   /// Вопрос, на который сейчас ждут ответа.
@@ -56,15 +75,24 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
   /// Вопрос, который показывает окно команды; null — вопроса нет.
   OperationRequest? get question => _question;
 
+  /// Заголовок разбора, когда работа не удалась: окно показывает его вместо
+  /// хода дела.
+  ///
+  /// Форму назад оно не пускает — правки ввода тут уже ничего не изменят,
+  /// работа была начата, — поэтому сказать, что именно не вышло, больше некому.
+  String get failureMessage => '$label failed';
+
   /// Выполняет операцию, показывая её ход. Отмена пользователем ошибкой
   /// не считается: сделанное остаётся сделанным.
   @protected
   Future<void> runOperation(AsyncOperation<void> operation, {required String message}) async {
-    if (_running) {
+    // По [isBusy], а не по [isRunning]: прогон, который уже кончился, повторять
+    // тоже нечего — экземпляр команды живёт один запуск.
+    if (isBusy) {
       return;
     }
 
-    _running = true;
+    _phase = CommandRunPhase.running;
     _state = OperationProgress(message: message);
     _operation = operation;
     notifyListeners();
@@ -95,7 +123,10 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
       unawaited(_progress?.cancel());
       unawaited(_requests?.cancel());
       _redraw.cancel();
-      _running = false;
+      // Не [idle]: операции больше нет, но прогон не кончен, пока не закрыто
+      // окно. Иначе оно на весь хвост — отпустить аренду, перечитать панели —
+      // откатилось бы к форме с параметрами.
+      _phase = CommandRunPhase.done;
       _question = null;
       // Прогон закончился — успехом, ошибкой или отменой. Раньше [completion]
       // завершалось только в [submit], и ждущий отменённой или запущенной без
@@ -178,7 +209,17 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
   String? get stageLabel => _state.hasStages ? '${_state.stage} of ${_state.stageCount} — ${_state.stageName}' : null;
 
   @override
-  bool get isRunning => _running;
+  bool get isRunning => _phase == CommandRunPhase.running;
+
+  /// Где прогон. Смотреть на неё стоит тем, кому важно не «крутится ли
+  /// операция», а «начиналась ли работа»: окну и охранам подтверждения.
+  CommandRunPhase get phase => _phase;
+
+  /// Прогон начался и ещё не закрыт окном: операция идёт или команда доигрывает.
+  ///
+  /// То, что раньше спрашивали у [isRunning] и получали неверный ответ в хвосте
+  /// работы.
+  bool get isBusy => _phase != CommandRunPhase.idle;
 
   /// Завершение прогона: успешное, с ошибкой или отменённое.
   ///
@@ -208,7 +249,7 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
   /// нажатия — прерванное копирование посреди дерева.
   @override
   void cancel() {
-    if (!_running) {
+    if (!isRunning) {
       // Работа ещё не началась — отмена означает «закрыть окно».
       closeDialog();
       return;
@@ -227,8 +268,10 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
       answer(question.defaultOption);
       return;
     }
-    if (isRunning) {
-      // Работа идёт: подтверждать нечего, она уже запущена.
+    if (isBusy) {
+      // Работа уже запущена — идёт она или доигрывает, подтверждать нечего.
+      // Именно [isBusy]: пока охрана смотрела на идущую операцию, Enter в
+      // хвосте работы запускал её второй раз.
       return;
     }
 
@@ -256,6 +299,12 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
 
     if (isRunning) {
       cancel();
+      return;
+    }
+    if (_phase == CommandRunPhase.done && error == null) {
+      // Работа кончилась и окно закроется само, как только команда доиграет.
+      // Закрывать его по Esc раньше нечестно: пропала бы ошибка, если хвост
+      // ещё успеет её принести.
       return;
     }
     super.dismiss();
