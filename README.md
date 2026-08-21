@@ -182,8 +182,8 @@ live 7z tests skip when the program is not installed. Workflows are in
 ## Architecture
 
 The application is assembled from packages. In the middle sits `fc_api` — models,
-interfaces, the command framework and the shared interface elements. The core depends on
-it, every module depends on it, and modules know nothing about each other.
+interfaces, commands with their registry and the shared interface elements. The core
+depends on it, every module depends on it, and modules know nothing about each other.
 
 ```
 flex_commander (core)  ->  fc_api  <-  modules (navigation, file_ops, zip, 7z, ssh, …)
