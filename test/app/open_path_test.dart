@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -404,6 +407,105 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
     });
   });
+
+  group('окно во время работы', () {
+    /// Подключение, которое само не кончается: тест держит его открытым ровно
+    /// столько, сколько нужно, чтобы посмотреть на окно.
+    late Completer<void> gate;
+
+    setUp(() => gate = Completer<void>());
+
+    tearDown(() {
+      // Тело операции стоит на этом ожидании — отпустить его надо и после
+      // отмены, иначе оно переживёт сам тест.
+      if (!gate.isCompleted) {
+        gate.complete();
+      }
+    });
+
+    /// Собранное приложение с начатым, но не законченным подключением.
+    Future<AppRuntime> connecting(WidgetTester tester) async {
+      final runtime = await app(extra: [_SlowAddressModule(gate: gate, opened: opened)]);
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      await tester.pumpAndSettle();
+
+      runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: 'left'});
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField), 'slow://alpha/srv');
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+      return runtime;
+    }
+
+    testWidgets('окно рассказывает, чем занята панель', (tester) async {
+      await connecting(tester);
+
+      // Строку состояния панели закрывает затенение окна, поэтому веха
+      // показывается в самом окне — и это веха источника, а не общее «Loading…».
+      expect(find.text('Status'), findsOneWidget);
+      // Именно в окне: в строке состояния панели эта же веха есть и сейчас, но
+      // её закрывает затенение — с неё вся работа и началась.
+      expect(
+        find.descendant(of: find.byType(DialogFrame), matching: find.text('Connecting to slow://alpha…')),
+        findsOneWidget,
+      );
+      // Работа уже идёт: подтверждать нечего.
+      expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Open')).onPressed, isNull);
+    });
+
+    testWidgets('Esc прерывает работу, но окна не закрывает', (tester) async {
+      final runtime = await connecting(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      // Прервали, но не ушли: набранный адрес на месте, и его можно поправить.
+      expect(find.text('Open path (left panel)'), findsOneWidget);
+      expect(tester.widget<TextField>(find.byType(TextField)).controller?.text, 'slow://alpha/srv');
+      // Отмена — не отказ: «Not found» здесь был бы враньём.
+      expect(find.textContaining('Not found'), findsNothing);
+      expect(find.text('Status'), findsNothing, reason: 'работа кончилась — говорить не о чем');
+      expect(runtime.app.left.directory?.pathString, '/home', reason: 'панель осталась где была');
+      expect(runtime.app.left.busy, isFalse);
+
+      // А второй Esc закрывает: прерывать больше нечего.
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      expect(find.text('Open path (left panel)'), findsNothing);
+
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
+    testWidgets('кнопка «Cancel» во время работы делает то же самое', (tester) async {
+      final runtime = await connecting(tester);
+
+      await tester.tap(find.text('Cancel'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Open path (left panel)'), findsOneWidget);
+      expect(runtime.app.left.directory?.pathString, '/home');
+      expect(runtime.app.left.busy, isFalse);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
+    testWidgets('Enter во время работы не начинает вторую попытку', (tester) async {
+      await connecting(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(opened, hasLength(1), reason: 'подключение уже идёт — второе к тому же адресу лишнее');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+  });
 }
 
 /// Модуль, объявляющий источник по схеме `mem`.
@@ -421,5 +523,39 @@ class _AddressModule implements FcModule {
   @override
   void install(FcRegistry registry) {
     registry.addressProvider('mem', (address) => TaskOperation<TreeProvider>((op) async => factory(address)));
+  }
+}
+
+/// Модуль с источником, подключение к которому длится, пока его держит тест.
+///
+/// Настоящее подключение — это секунды ожидания, а с недоступным сервером и
+/// минуты; `Completer` даёт ровно это, не заводя в тесте ни сети, ни таймеров.
+class _SlowAddressModule implements FcModule {
+  const _SlowAddressModule({required this.gate, required this.opened});
+
+  final Completer<void> gate;
+
+  /// Куда ходили: по длине списка видно, не начали ли вторую попытку.
+  final List<Uri> opened;
+
+  @override
+  String get id => 'test.slow';
+
+  @override
+  String get title => 'Slow addresses';
+
+  @override
+  void install(FcRegistry registry) {
+    registry.addressProvider(
+      'slow',
+      (address) => TaskOperation<TreeProvider>((op) async {
+        opened.add(address);
+        // Веху формулирует тот, кто работает: панель о рукопожатии не знает.
+        op.message('Connecting to slow://${address.host}…');
+        await gate.future;
+        op.checkCanceled();
+        return InMemoryAddressProvider(address: address, entries: [FakeEntry.directory('/srv')]);
+      }),
+    );
   }
 }

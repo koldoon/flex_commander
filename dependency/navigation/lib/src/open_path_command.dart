@@ -72,6 +72,31 @@ class OpenPathCommand extends AppCommand {
     return !target.busy;
   }
 
+  /// Идёт открытие: подключение к источнику, разбор пути, чтение каталога.
+  ///
+  /// Пока идёт, подтверждать нечего (`Open` приглушён), а `Esc` означает
+  /// «прервать» — см. [dismiss].
+  @override
+  bool get isRunning => _running;
+  bool _running = false;
+
+  /// Работу прервал пользователь.
+  ///
+  /// Отличать это от неудачи обязательно: после отмены в окне не должно
+  /// появиться ни «Not found», ни чего-либо ещё — человек получил ровно то,
+  /// о чём просил.
+  bool _canceled = false;
+
+  /// Чем панель занята прямо сейчас; null — работа не идёт.
+  ///
+  /// Это её собственная веха — «Connecting to ssh://shark…», «Reading a.zip…»:
+  /// та самая строка, что в обычное время видна в строке состояния панели. Её
+  /// закрывает затенение этого окна, поэтому окно показывает веху у себя.
+  /// Второго канала для этого не заводится: две истины об одном и том же
+  /// разошлись бы.
+  String? get statusMessage => _statusMessage;
+  String? _statusMessage;
+
   @override
   Future<void> execute() async {
     final path = (param<String>(pathParam) ?? '').trim();
@@ -79,14 +104,92 @@ class OpenPathCommand extends AppCommand {
       return;
     }
 
-    // Панель, в которую открыли путь, становится активной: пользователь смотрит
-    // туда, куда только что пришёл.
-    if (!await panel.openPath(path)) {
-      // Причину берём у панели: «путь не найден» и «такой протокол мы не
-      // умеем» — разные ответы, и второй сам себя объясняет.
-      throw panel.error ?? FsError(path, FsErrorKind.notFound);
+    _canceled = false;
+    _running = true;
+    // Подписка ставится до вызова: первую веху панель выставляет синхронно,
+    // ещё внутри `openPath`, и подписавшийся после неё бы её не услышал.
+    panel.addListener(_onPanelChanged);
+    notifyListeners();
+
+    try {
+      final opened = await panel.openPath(path);
+
+      // Об отмене спрашиваем первым делом. Прерванное чтение каталога
+      // оставляет панель там, где она была, а `openPath` отвечает при этом
+      // «получилось»: закрыть по такому ответу окно значило бы сделать вид,
+      // что путь открылся.
+      if (_canceled) {
+        return;
+      }
+      if (!opened) {
+        // Причину берём у панели: «путь не найден» и «такой протокол мы не
+        // умеем» — разные ответы, и второй сам себя объясняет.
+        throw panel.error ?? FsError(path, FsErrorKind.notFound);
+      }
+
+      // Панель, в которую открыли путь, становится активной: пользователь
+      // смотрит туда, куда только что пришёл.
+      context.app.activate(panel);
+    } finally {
+      panel.removeListener(_onPanelChanged);
+      _running = false;
+      _statusMessage = null;
+      notifyListeners();
     }
-    context.app.activate(panel);
+  }
+
+  /// Веха панели — в окно.
+  ///
+  /// Частоту здесь не ограничивают: панель шлёт свои вехи не чаще, чем имеет
+  /// смысл перерисовывать, — у неё для этого свой `Throttle`.
+  void _onPanelChanged() {
+    final message = panel.busy ? panel.statusText : null;
+    if (message == _statusMessage) {
+      return;
+    }
+    _statusMessage = message;
+    notifyListeners();
+  }
+
+  /// `Enter` и «Open»: выполнить и закрыть окно — кроме двух случаев.
+  ///
+  /// Неудача оставляет окно с сообщением: адрес правится тут же, а не
+  /// набирается заново из-за одной опечатки. Отмена оставляет его молча —
+  /// прерывают, чтобы поправить набранное или не ждать недоступный сервер,
+  /// а уйти можно вторым `Esc`.
+  @override
+  Future<void> submit() async {
+    if (_running) {
+      return;
+    }
+    error = null;
+
+    try {
+      await execute();
+    } on FsError catch (failure) {
+      error = failure.message;
+      return;
+    }
+
+    if (_canceled) {
+      return;
+    }
+    closeDialog();
+  }
+
+  /// `Esc` и «Cancel»: во время работы — прервать, в остальное время — закрыть.
+  ///
+  /// Отмена жёсткая, без вопроса «точно прервать?»: спрашивать стоит там, где
+  /// сделанное необратимо (копирование посреди дерева), а подключение и чтение
+  /// бросают, ничего не испортив.
+  @override
+  void dismiss() {
+    if (_running) {
+      _canceled = true;
+      panel.cancel();
+      return;
+    }
+    super.dismiss();
   }
 
   /// Что показать в поле, когда окно открылось.
@@ -102,7 +205,7 @@ class OpenPathCommand extends AppCommand {
   }
 }
 
-/// Одно поле — путь, и две кнопки.
+/// Одно поле — путь, строка о ходе работы и две кнопки.
 class _OpenPathForm extends StatefulWidget {
   const _OpenPathForm({required this.command});
 
@@ -134,11 +237,15 @@ class _OpenPathFormState extends State<_OpenPathForm> {
 
   @override
   Widget build(BuildContext context) {
+    final command = widget.command;
+
     return CommandDialogForm(
       // Неудача не закрывает окно: путь правится тут же и пробуется снова.
-      error: widget.command.error,
-      onCancel: widget.command.dismiss,
-      onSubmit: widget.command.submit,
+      error: command.error,
+      // Работа уже идёт — подтверждать нечего.
+      busy: command.isRunning,
+      onCancel: command.dismiss,
+      onSubmit: command.submit,
       submitLabel: 'Open',
       children: [
         CommandDialogField(
@@ -146,11 +253,31 @@ class _OpenPathFormState extends State<_OpenPathForm> {
           child: FcTextField(
             controller: _path,
             autofocus: true,
+            // Поле остаётся живым и во время работы: выключенное отдало бы
+            // фокус, а вернуть его после отмены было бы нечем — `autofocus`
+            // срабатывает один раз. Набранное при этом никому не мешает:
+            // параметр читается на входе в `execute`.
             hintText: '/etc or ssh://user@host/srv',
-            onChanged: (value) => widget.command.setParam(OpenPathCommand.pathParam, value),
-            onSubmitted: (_) => widget.command.submit(),
+            onChanged: (value) => command.setParam(OpenPathCommand.pathParam, value),
+            onSubmitted: (_) => command.submit(),
           ),
         ),
+        // Чем занята панель прямо сейчас. Без этой строки открытие адреса через
+        // сервер и два архива выглядит зависшим приложением: сказать о ходе
+        // работы есть что, но говорится это в строке состояния панели — под
+        // затенением этого самого окна.
+        if (command.statusMessage case final message?)
+          CommandDialogField(
+            label: 'Status',
+            // Одной строкой: адреса длинные, а окно не должно расти вниз на
+            // каждой вехе.
+            child: Text(
+              message,
+              style: FcTheme.of(context).dialogTextStyle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
       ],
     );
   }
