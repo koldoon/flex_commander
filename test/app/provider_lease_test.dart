@@ -58,13 +58,7 @@ void main() {
     ])..home = '/home';
 
     final runtime = await initModules(
-      [
-        const AppShell(),
-        const TestPlatform(),
-        const DefaultTheme(),
-        ...featureModules(),
-        _ArchiveModule(opened),
-      ],
+      [const AppShell(), const TestPlatform(), const DefaultTheme(), ...featureModules(), _ArchiveModule(opened)],
       overrides: AppOverrides(
         provider: disk,
         store: InMemorySettingsStore(

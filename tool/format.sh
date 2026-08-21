@@ -12,4 +12,9 @@
 # и переформатировать их нельзя.
 set -e
 cd "$(dirname "$0")/.."
-git ls-files -z '*.dart' | grep -zv '^dependency/re_editor/' | xargs -0 dart format "$@"
+# `--others --exclude-standard` — про новые файлы: без них только что созданный
+# исходник остаётся неотформатированным до самого коммита, а на коммите его
+# заворачивает CI. Игнорируемое (build/, .dart_tool/) при этом не подхватывается.
+git ls-files -z --cached --others --exclude-standard '*.dart' \
+  | grep -zv '^dependency/re_editor/' \
+  | xargs -0 dart format "$@"
