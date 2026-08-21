@@ -169,7 +169,10 @@ flutter analyze
 ```
 
 `dependency/re_editor/` is skipped on purpose: it is a vendored fork, and reformatting it
-would bury the handful of deliberate differences from upstream.
+would bury the handful of deliberate differences from upstream. Locally, format with
+[`tool/format.sh`](tool/format.sh) rather than `dart format .` — it applies the same
+selection, in write mode. `dart format` has no exclude of its own: neither a flag nor
+`analysis_options.yaml`, which it does not read at all.
 
 Some tests need something real and skip themselves when it is missing: `FC_SSH_TEST_HOST`
 enables the live SSH tests, `FC_BENCH=1` enables the directory-listing benchmark, and the
