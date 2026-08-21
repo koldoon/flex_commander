@@ -1,6 +1,9 @@
+import 'dart:async';
+
 import '../async/async_operation.dart';
 import 'fs_node.dart';
 import 'node_path.dart';
+import 'provider_lease.dart';
 import 'tree_provider.dart';
 
 /// Создаёт провайдера поверх узла: архив — над файлом, удалённая ФС — над
@@ -120,6 +123,163 @@ class ProviderRegistry {
     return _extensions[node.extension.toLowerCase()];
   }
 
+  // --- Смонтированное и его арендаторы ---
+  //
+  // Владение выражено состоянием, а не местом в коде: смонтированный провайдер
+  // жив, пока его держит хоть одна аренда. Иначе владельцем оказывался «тот,
+  // кто открыл», а пользователей у открытого архива больше одного, и уходят
+  // они не по очереди.
+
+  /// Что смонтировано сейчас: ключ → запись со счётчиком арендаторов.
+  final Map<_MountKey, _MountEntry> _mountTable = {};
+
+  /// Что смонтировано и сколько у чего арендаторов.
+  ///
+  /// Этим проверяется, что после работы ничего не осталось, и этим же справка
+  /// ответит на вопрос «почему архив занят».
+  List<MountedProvider> get mounted => [
+    for (final entry in _mountTable.values)
+      MountedProvider(
+        scheme: entry.key.scheme,
+        host: entry.key.host,
+        tenants: entry.tenants,
+        opening: entry.provider == null,
+      ),
+  ];
+
+  /// Монтирует провайдера схемы [scheme] над узлом [host] — или добавляет
+  /// арендатора к уже смонтированному над тем же узлом.
+  ///
+  /// Операция, а не `Future`: монтирование бывает долгим (архив с сервера
+  /// копируется целиком), и всё это время оно рассказывает о себе и
+  /// прерывается.
+  AsyncOperation<ProviderLease> acquire(String scheme, FsNode host) {
+    return TaskOperation<ProviderLease>((op) async {
+      final factory = _factories[scheme];
+      if (factory == null) {
+        throw FsError(host.pathString, FsErrorKind.notSupported);
+      }
+      // Аренда хозяина держится всё время, пока жив тот, кто над ним стоит:
+      // архив внутри архива читает файл внешнего.
+      return _acquire(op, _MountKey.over(scheme, host), () => factory(host), host: host.provider);
+    });
+  }
+
+  /// То же для источника по адресу: `ssh://user@host/srv`.
+  ///
+  /// Ключ — схема и адрес без пароля: один и тот же сервер, набранный с
+  /// паролем и без, — это одно подключение, а не два. Разные пользователи
+  /// одного сервера — разные, поэтому имя в ключ входит.
+  AsyncOperation<ProviderLease> acquireAddress(Uri address) {
+    return TaskOperation<ProviderLease>((op) async {
+      final scheme = address.scheme.toLowerCase();
+      final factory = _addresses[scheme];
+      if (factory == null) {
+        // Имя протокола, а не вся строка: разговор о нём, а не о пути, — и
+        // пароль, набранный прямо в адресе, в сообщение не попадает.
+        throw FsError(address.scheme, FsErrorKind.unsupportedScheme);
+      }
+      return _acquire(op, _MountKey.address(scheme, address), () => factory(address));
+    });
+  }
+
+  /// Ещё один арендатор уже смонтированного; null — этого провайдера никто не
+  /// монтировал (общий корень), и арендовать нечего.
+  ///
+  /// Нужен там, где провайдер уже на руках, а аренды на него нет: панель,
+  /// выходящая из вложенного архива во внешний, отпускает внутреннюю аренду —
+  /// и внешний ей всё ещё нужен.
+  ProviderLease? leaseOf(TreeProvider provider) {
+    for (final entry in _mountTable.values) {
+      if (identical(entry.provider, provider)) {
+        entry.tenants++;
+        return _Lease(this, entry);
+      }
+    }
+    return null;
+  }
+
+  /// Закрывает всё, не спрашивая счётчиков. Только выход из приложения: спорить
+  /// там не с кем, а открытый файл пережить процесс не должен.
+  Future<void> disposeAll() async {
+    final entries = _mountTable.values.toList();
+    _mountTable.clear();
+    for (final entry in entries) {
+      final provider = entry.provider;
+      if (provider != null) {
+        await disposeProvider(provider);
+      } else {
+        entry.open.cancel();
+      }
+    }
+  }
+
+  Future<ProviderLease> _acquire(
+    TaskOperation<Object?> op,
+    _MountKey key,
+    AsyncOperation<TreeProvider> Function() open, {
+    TreeProvider? host,
+  }) async {
+    // Пока прежний экземпляр закрывается, новый не монтируется: иначе умирающий
+    // zip подменит файл пересобранным ровно тогда, когда новый его читает.
+    for (var closing = _mountTable[key]?.closing; closing != null; closing = _mountTable[key]?.closing) {
+      await closing;
+    }
+
+    final entry = _mountTable[key] ??= _MountEntry(key: key, host: host == null ? null : leaseOf(host), open: open());
+    return _attach(op, entry);
+  }
+
+  /// Ставит арендатора в очередь за монтированием — общим на всех.
+  ///
+  /// Прогресс идёт наверх, а отмена вниз **не** идёт: один ушедший не вправе
+  /// прервать работу, которую ждут остальные. Ушли все — тогда и прервёт, это
+  /// делает [_close].
+  Future<ProviderLease> _attach(TaskOperation<Object?> op, _MountEntry entry) async {
+    entry.tenants++;
+    final progress = entry.open.progress.listen(op.report);
+    try {
+      await entry.opened;
+      // Отмена могла прийти в зазор между концом монтирования и продолжением
+      // тела: без проверки смонтированное осталось бы висеть впустую.
+      op.checkCanceled();
+      return _Lease(this, entry);
+    } on Object {
+      await _detach(entry);
+      rethrow;
+    } finally {
+      unawaited(progress.cancel());
+    }
+  }
+
+  /// Отпускает одного арендатора. Последний ушедший закрывает провайдера.
+  Future<void> _detach(_MountEntry entry) async {
+    entry.tenants--;
+    if (entry.tenants > 0) {
+      return;
+    }
+    entry.closing = _close(entry);
+    await entry.closing;
+  }
+
+  Future<void> _close(_MountEntry entry) async {
+    final provider = entry.provider;
+    if (provider != null) {
+      await disposeProvider(provider);
+    } else {
+      // Ещё открывается, а ждать больше некому — незачем и открывать.
+      // Опоздавший провайдер закроет сама фабрика (`keepUnlessCanceled`).
+      entry.open.cancel();
+    }
+
+    // Запись живёт до конца закрытия: acquire по этому ключу дожидается его и
+    // монтирует заново, а не получает умирающий экземпляр.
+    _mountTable.remove(entry.key);
+    // Внешний отпускается после внутреннего: пока внутренний закрывается, он
+    // ещё читает файл внешнего.
+    await entry.host?.release();
+  }
+
   /// Монтирует провайдера схемы [scheme] над узлом [host].
   ///
   /// Каждый вызов создаёт нового: узлы дерева живут ровно до перечитывания
@@ -216,12 +376,12 @@ class ProviderRegistry {
           op.checkCanceled();
         }
       } catch (_) {
-        await disposeAll(mounted);
+        await disposeEach(mounted);
         rethrow;
       }
 
       if (node == null) {
-        await disposeAll(mounted);
+        await disposeEach(mounted);
       }
       return node;
     });
@@ -264,11 +424,11 @@ class ProviderRegistry {
       try {
         final node = await _resolveMounting(start, _expandHome(first.path, start), reuse, mounted, op);
         if (node == null) {
-          await disposeAll(mounted);
+          await disposeEach(mounted);
         }
         return node;
       } on Object {
-        await disposeAll(mounted);
+        await disposeEach(mounted);
         rethrow;
       }
     });
@@ -377,7 +537,7 @@ class ProviderRegistry {
     return null;
   }
 
-  static Future<void> disposeAll(Iterable<TreeProvider> providers) async {
+  static Future<void> disposeEach(Iterable<TreeProvider> providers) async {
     for (final provider in providers) {
       await disposeProvider(provider);
     }
@@ -391,7 +551,97 @@ class ProviderRegistry {
     try {
       await (provider as ProviderLifecycle).dispose();
     } on Object {
-      // См. [disposeAll].
+      // См. [disposeEach].
     }
+  }
+}
+
+/// Ключ таблицы смонтированного.
+///
+/// Хозяин — **узел, а не строка**: `/a.zip` на диске и `/a.zip` на сервере —
+/// разные архивы, и одинаковая строка их не роднит. Поэтому в ключ входит сам
+/// провайдер хозяина, и сравнивается он по тождеству.
+class _MountKey {
+  _MountKey.over(this.scheme, FsNode host) : hostProvider = host.provider, host = host.pathString;
+
+  /// Источник по адресу сам себе корень: хозяина у него нет, а место занимает
+  /// адрес без пароля.
+  _MountKey.address(this.scheme, Uri address) : hostProvider = null, host = _addressOf(address);
+
+  final String scheme;
+  final TreeProvider? hostProvider;
+  final String host;
+
+  /// `user@host:22` — без пароля.
+  ///
+  /// Пароль не годится ни в ключ, ни в показ: с ним один и тот же сервер,
+  /// набранный с паролем и без, оказался бы двумя подключениями, а `mounted`
+  /// показал бы пароль в справке.
+  static String _addressOf(Uri address) {
+    final user = address.userInfo.split(':').first;
+    final place = address.hasPort ? '${address.host}:${address.port}' : address.host;
+    return user.isEmpty ? place : '$user@$place';
+  }
+
+  @override
+  bool operator ==(Object other) =>
+      other is _MountKey && other.scheme == scheme && identical(other.hostProvider, hostProvider) && other.host == host;
+
+  @override
+  int get hashCode => Object.hash(scheme, hostProvider == null ? null : identityHashCode(hostProvider), host);
+
+  @override
+  String toString() => '$scheme over $host';
+}
+
+/// Запись таблицы: одно смонтированное и все, кто его держит.
+class _MountEntry {
+  _MountEntry({required this.key, required this.host, required this.open}) {
+    opened = open.result.then((value) => provider = value);
+    // Ждать монтирования может уже никто — например, его отменили последним
+    // ушедшим арендатором. Ошибка при этом обязана считаться прочитанной,
+    // иначе Dart сообщит о ней как о непойманной.
+    opened.ignore();
+  }
+
+  final _MountKey key;
+
+  /// Аренда того, над кем смонтировано; null — сам себе корень (адрес).
+  final ProviderLease? host;
+
+  /// Монтирование, общее на всех арендаторов.
+  final AsyncOperation<TreeProvider> open;
+
+  late final Future<TreeProvider> opened;
+
+  /// Готовый провайдер; null — ещё открывается или уже не откроется.
+  TreeProvider? provider;
+
+  int tenants = 0;
+
+  /// Идущее закрытие; null — не закрывается.
+  Future<void>? closing;
+}
+
+/// Аренда на руках у одного арендатора.
+class _Lease implements ProviderLease {
+  _Lease(this._registry, this._entry);
+
+  final ProviderRegistry _registry;
+  final _MountEntry _entry;
+  bool _released = false;
+
+  @override
+  TreeProvider get provider => _entry.provider!;
+
+  @override
+  Future<void> release() async {
+    // Отпускать полагается из `finally`, куда попадают и по дороге ошибки, и
+    // после обычного конца: второй вызов ничего не делает.
+    if (_released) {
+      return;
+    }
+    _released = true;
+    await _registry._detach(_entry);
   }
 }
