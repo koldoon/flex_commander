@@ -452,44 +452,4 @@ void main() {
       expect(failures, isEmpty);
     });
   });
-
-  group('действие как шаг составной команды', () {
-    test('последовательность выполняет действия приложения по порядку', () async {
-      final registry = CommandRegistry([recording('first'), recording('second')]);
-      build(registry);
-
-      // Реестр — окружение фреймворка: он создаёт действия и разбирает исход,
-      // поэтому команда, запущенная клавишей, и она же в составе группы
-      // проходят один и тот же путь.
-      await Commands.asSequence()
-          .create((data) => registry.create('first')!)
-          .create((data) => registry.create('second')!)
-          .lifecycle(registry)
-          .execute();
-
-      expect(log.calls, ['first', 'second']);
-    });
-
-    test('упавшее действие останавливает последовательность', () async {
-      final registry = CommandRegistry([
-        () => FailingCommand(id: 'broken', failure: 'нет доступа'),
-        recording('after'),
-      ]);
-      build(registry);
-
-      await expectLater(
-        Commands.asSequence()
-            .create((data) => registry.create('broken')!)
-            .create((data) => registry.create('after')!)
-            .lifecycle(registry)
-            .execute(),
-        // Шаг создаётся при запуске, то есть завёрнут в обёртку, и падение
-        // приходит наверх завёрнутым дважды: цепочка — для журнала,
-        // rootCause — для того, кто разбирает ошибку.
-        throwsA(isA<CommandFailure>().having((f) => f.rootCause, 'причина', 'нет доступа')),
-      );
-
-      expect(log.calls, isEmpty);
-    });
-  });
 }

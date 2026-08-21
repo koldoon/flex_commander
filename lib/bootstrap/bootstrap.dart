@@ -8,176 +8,58 @@ import 'registrations.dart';
 
 /// Сборка приложения из списка модулей.
 ///
-/// Выражена командным фреймворком не для красоты: сборка — это и есть работа
-/// из нескольких шагов, где каждый следующий пользуется сделанным до него.
-/// Шаги ничего не знают друг о друге: результат каждого попадает в данные
-/// группы, а следующий берёт оттуда то, что ему нужно, по типу. Заодно это
-/// первая проверка фреймворка на настоящей работе.
-class AppBootstrapCommand implements Command {
-  AppBootstrapCommand(this.modules, {this.overrides = const AppOverrides()});
-
-  final List<FcModule> modules;
-
-  /// Подмена служб: так тесты собирают настоящее приложение на подставках.
-  final AppOverrides overrides;
-
-  AppRuntime? _runtime;
-
-  /// Собранное приложение. Доступно после [execute].
-  AppRuntime get runtime {
-    final runtime = _runtime;
-    if (runtime == null) {
-      throw StateError('Приложение ещё не собрано: сначала execute');
-    }
-    return runtime;
-  }
-
-  @override
-  Future<void> execute() async {
-    final sequence =
-        Commands.asSequence()
-            .description('Сборка приложения')
-            .add(InstallModulesCommand(modules))
-            .create((data) => BuildContainerCommand(data, overrides))
-            .create(LoadSettingsCommand.new)
-            .create(CreateAppCommand.new)
-            .create(RunStartupCommandsCommand.new)
-            .build();
-
-    await sequence.execute();
-
-    // Собранное приложение лежит в данных последовательности — там же, где и
-    // всё остальное, что шаги передавали друг другу.
-    _runtime = sequence.result?.getObject<AppRuntime>();
-  }
-
-  @override
-  String toString() => 'Сборка приложения';
-}
-
-/// Короткая форма для `main()` и тестов.
+/// Пять шагов подряд, и каждый следующий пользуется сделанным до него: модули
+/// объявляют, что предлагают; по объявлениям собирается граф зависимостей;
+/// читаются настройки; создаётся приложение; выполняются стартовые команды
+/// модулей.
+///
+/// Порядок здесь — не украшение, а условие: контейнер нельзя собрать раньше
+/// объявлений, настройки читаются до создания приложения (иначе панели встанут
+/// на умолчаниях, а не там, где их оставили), а стартовые команды идут
+/// последними — им нужно готовое приложение.
 Future<AppRuntime> initModules(List<FcModule> modules, {AppOverrides overrides = const AppOverrides()}) async {
-  final bootstrap = AppBootstrapCommand(modules, overrides: overrides);
-  await bootstrap.execute();
-  return bootstrap.runtime;
-}
+  // Шаг 1: модули объявляют, что они предлагают.
+  final registrations = Registrations(LazyServices())..installAll(modules);
 
-/// Шаг 1: модули объявляют, что они предлагают.
-class InstallModulesCommand implements ResultCommand<Registrations> {
-  InstallModulesCommand(this.modules);
+  // Шаг 2: по объявлениям собирается граф зависимостей.
+  final container = AppContainer(registrations, overrides: overrides);
 
-  final List<FcModule> modules;
+  // Шаг 3: настройки читаются с диска.
+  //
+  // Отдельным шагом, потому что чтение асинхронное, а фабрики контейнера
+  // синхронные: готовое значение связывается уже после чтения.
+  final settings = await container.get<SettingsStore>().load();
+  container.bind<AppSettings>(to: (c) => settings);
+  // С этого момента разделы настроек модулей есть где искать.
+  registrations.settingsSource = settings;
 
-  @override
-  Registrations? result;
-
-  @override
-  Future<void> execute() async {
-    result = Registrations(LazyServices())..installAll(modules);
+  // Шаг 4: создаётся само приложение.
+  final app = container.get<AppController>();
+  // С этого момента командам модулей есть у кого спросить про приложение.
+  if (container.context case final RuntimeContext context) {
+    context.app = app;
   }
+  final runtime = AppRuntime(app: app, modules: registrations.modules);
 
-  @override
-  String toString() => 'Установка модулей';
+  // Шаг 5: выполняются стартовые команды модулей.
+  await _runStartupCommands(container, registrations);
+
+  return runtime;
 }
 
-/// Шаг 2: по объявлениям собирается граф зависимостей.
-class BuildContainerCommand implements ResultCommand<AppContainer> {
-  BuildContainerCommand(this.data, this.overrides);
-
-  final CommandData data;
-  final AppOverrides overrides;
-
-  @override
-  AppContainer? result;
-
-  @override
-  Future<void> execute() async {
-    result = AppContainer(data.getObject<Registrations>()!, overrides: overrides);
-  }
-
-  @override
-  String toString() => 'Сборка зависимостей';
-}
-
-/// Шаг 3: настройки читаются с диска.
+/// Стартовые команды модулей — по порядку объявления.
 ///
-/// Отдельным шагом, потому что чтение асинхронное, а фабрики контейнера
-/// синхронные: готовое значение связывается уже после чтения.
-class LoadSettingsCommand implements Command {
-  LoadSettingsCommand(this.data);
-
-  final CommandData data;
-
-  @override
-  Future<void> execute() async {
-    final container = data.getObject<AppContainer>()!;
-    final settings = await container.get<SettingsStore>().load();
-    container.bind<AppSettings>(to: (c) => settings);
-
-    // С этого момента разделы настроек модулей есть где искать.
-    data.getObject<Registrations>()!.settingsSource = settings;
+/// Идут они тем же путём, что и команда, запущенная клавишей: реестр связывает
+/// их с запуском и разбирает исход. Поэтому ошибка одной из них не роняет
+/// запуск, а уходит в журнал — модуль темы не смог восстановить оформление,
+/// приложение всё равно должно открыться.
+Future<void> _runStartupCommands(AppContainer container, Registrations registrations) async {
+  if (registrations.startupCommands.isEmpty) {
+    return;
   }
 
-  @override
-  String toString() => 'Чтение настроек';
-}
-
-/// Шаг 4: создаётся само приложение.
-class CreateAppCommand implements ResultCommand<AppRuntime> {
-  CreateAppCommand(this.data);
-
-  final CommandData data;
-
-  @override
-  AppRuntime? result;
-
-  @override
-  Future<void> execute() async {
-    final container = data.getObject<AppContainer>()!;
-    final registrations = data.getObject<Registrations>()!;
-    final app = container.get<AppController>();
-
-    // С этого момента командам модулей есть у кого спросить про приложение.
-    if (container.context case final RuntimeContext context) {
-      context.app = app;
-    }
-
-    result = AppRuntime(app: app, modules: registrations.modules);
+  final registry = container.get<CommandRegistry>();
+  for (final factory in registrations.startupCommands) {
+    await registry.runToCompletion(factory(container.context));
   }
-
-  @override
-  String toString() => 'Создание приложения';
-}
-
-/// Шаг 5: выполняются стартовые команды модулей.
-///
-/// Ошибка одной из них не роняет запуск: модуль темы не смог восстановить
-/// оформление — приложение всё равно должно открыться.
-class RunStartupCommandsCommand implements Command {
-  RunStartupCommandsCommand(this.data);
-
-  final CommandData data;
-
-  @override
-  Future<void> execute() async {
-    final container = data.getObject<AppContainer>()!;
-    final registrations = data.getObject<Registrations>()!;
-    if (registrations.startupCommands.isEmpty) {
-      return;
-    }
-
-    final group = Commands.asSequence()
-        .description('Стартовые команды')
-        .skipErrors()
-        .lifecycle(container.get<CommandRegistry>());
-
-    for (final factory in registrations.startupCommands) {
-      group.create((data) => factory(container.context));
-    }
-
-    await group.execute();
-  }
-
-  @override
-  String toString() => 'Стартовые команды';
 }
