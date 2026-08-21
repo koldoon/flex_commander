@@ -255,8 +255,10 @@ class ProviderRegistry {
 
 Шаги (§7):
 
-- [ ] 1. Таблица, `ProviderLease`, `acquire`/`acquireAddress`/`leaseOf`;
-      `mounted`, `disposeAll`. Тесты на реестре.
+- [x] 1. Таблица, `ProviderLease`, `acquire`/`acquireAddress`/`leaseOf`;
+      `mounted`, `disposeAll`. Тесты на реестре — группа «аренда смонтированного»
+      в `test/model/provider_registry_test.dart`. Прежний `mount` пока жив: им
+      ещё пользуется панель, он уйдёт на шаге 3.
 - [ ] 2. `resolvePath`/`resolveDisplayPath` отдают `ResolvedNode`; чинится
       потерянный провайдер при разборе чужого пути.
 - [ ] 3. Панель переходит на аренду; исчезает `reuse:` и обход цепочки.

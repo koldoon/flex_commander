@@ -218,6 +218,237 @@ void main() {
     });
   });
 
+  group('аренда смонтированного', () {
+    test('второй арендатор получает тот же экземпляр', () async {
+      final host = await nodeAt('/home/archive.arc');
+
+      final first = await registry.acquire('arc', host).result;
+      final second = await registry.acquire('arc', host).result;
+
+      // Два экземпляра поверх одного файла разошлись бы состоянием: записанное
+      // через один не увидел бы другой.
+      expect(second.provider, same(first.provider));
+      expect(mountedOver, hasLength(1));
+      expect(registry.mounted.single.tenants, 2);
+    });
+
+    test('закрывает последний ушедший', () async {
+      final host = await nodeAt('/home/archive.arc');
+      final first = await registry.acquire('arc', host).result;
+      final second = await registry.acquire('arc', host).result;
+      final provider = first.provider as InMemoryArchiveProvider;
+
+      await first.release();
+      expect(provider.closed, isFalse, reason: 'второй арендатор ещё читает');
+
+      await second.release();
+      expect(provider.closed, isTrue);
+      expect(registry.mounted, isEmpty);
+    });
+
+    test('второе освобождение той же аренды ничего не делает', () async {
+      final host = await nodeAt('/home/archive.arc');
+      final lease = await registry.acquire('arc', host).result;
+      final other = await registry.acquire('arc', host).result;
+
+      // Отпускать полагается из `finally`, куда попадают дважды.
+      await lease.release();
+      await lease.release();
+
+      expect((other.provider as InMemoryArchiveProvider).closed, isFalse);
+      expect(registry.mounted.single.tenants, 1);
+    });
+
+    test('leaseOf делает арендатором того, у кого провайдер уже на руках', () async {
+      final host = await nodeAt('/home/archive.arc');
+      final lease = await registry.acquire('arc', host).result;
+
+      final second = registry.leaseOf(lease.provider)!;
+      await lease.release();
+
+      expect((second.provider as InMemoryArchiveProvider).closed, isFalse);
+      await second.release();
+      expect((second.provider as InMemoryArchiveProvider).closed, isTrue);
+    });
+
+    test('общий корень не арендуется', () async {
+      // Его никто не монтировал, в таблице его нет, и отпускать нечего.
+      expect(registry.leaseOf(disk), isNull);
+    });
+
+    test('аренда внутреннего держит внешний', () async {
+      final outer = await registry.acquire('arc', await nodeAt('/home/archive.arc')).result;
+      final nested = (await outer.provider.resolvePath('/nested.arc').result)!;
+      final inner = await registry.acquire('arc', nested).result;
+
+      // Внешний нужен внутреннему: его файл — это данные внутреннего.
+      await outer.release();
+      expect((outer.provider as InMemoryArchiveProvider).closed, isFalse);
+      expect(registry.mounted, hasLength(2));
+
+      await inner.release();
+      expect((inner.provider as InMemoryArchiveProvider).closed, isTrue);
+      expect((outer.provider as InMemoryArchiveProvider).closed, isTrue, reason: 'внутренний ушёл — внешний свободен');
+      expect(registry.mounted, isEmpty);
+    });
+
+    test('одинаковый путь у разных источников — разные архивы', () async {
+      final other = InMemoryContentProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.file('/home/archive.arc', content: [0]),
+      ]);
+      final host = await nodeAt('/home/archive.arc');
+      final twin = (await other.resolvePath('/home/archive.arc').result)!;
+
+      final first = await registry.acquire('arc', host).result;
+      final second = await registry.acquire('arc', twin).result;
+
+      // Строка одна, а файлы разные: один на диске, другой на сервере.
+      expect(second.provider, isNot(same(first.provider)));
+      expect(registry.mounted, hasLength(2));
+    });
+
+    test('неудачное монтирование записи не оставляет', () async {
+      final broken = ProviderRegistry(root: disk)..register(
+        'arc',
+        (host) => CompletedOperation<TreeProvider>.error(const FsError('/home/archive.arc', FsErrorKind.io)),
+        extensions: {'arc'},
+      );
+
+      await expectLater(broken.acquire('arc', await nodeAt('/home/archive.arc')).result, throwsA(isA<FsError>()));
+
+      expect(broken.mounted, isEmpty);
+    });
+
+    test('незарегистрированная схема — отказ, а не запись в таблице', () async {
+      await expectLater(registry.acquire('zip', await nodeAt('/home/archive.arc')).result, throwsA(isA<FsError>()));
+
+      expect(registry.mounted, isEmpty);
+    });
+
+    group('пока открывается', () {
+      late Completer<void> door;
+      late List<InMemoryArchiveProvider> opened;
+      late ProviderRegistry slow;
+
+      setUp(() {
+        door = Completer<void>();
+        opened = [];
+        slow = ProviderRegistry(root: disk)..register(
+          'arc',
+          (host) => TaskOperation<TreeProvider>((op) {
+            op.message('Unpacking ${host.name}');
+            return ProviderRegistry.keepUnlessCanceled(op, () async {
+              await door.future;
+              final provider = InMemoryArchiveProvider(archiveEntries(), host);
+              opened.add(provider);
+              return provider;
+            }());
+          }),
+          extensions: {'arc'},
+        );
+      });
+
+      tearDown(() {
+        if (!door.isCompleted) {
+          door.complete();
+        }
+      });
+
+      test('второй арендатор ждёт то же монтирование, а не заводит второе', () async {
+        final host = await nodeAt('/home/archive.arc');
+        final first = slow.acquire('arc', host);
+        final second = slow.acquire('arc', host);
+        await pumpEventQueue();
+
+        expect(slow.mounted.single.opening, isTrue);
+        expect(slow.mounted.single.tenants, 2);
+
+        door.complete();
+        expect((await first.result).provider, same((await second.result).provider));
+        expect(opened, hasLength(1));
+      });
+
+      test('ушедший арендатор работы остальных не прерывает', () async {
+        final host = await nodeAt('/home/archive.arc');
+        final first = slow.acquire('arc', host);
+        final second = slow.acquire('arc', host);
+        await pumpEventQueue();
+
+        first.cancel();
+        await expectLater(first.result, throwsA(isA<OperationCanceled>()));
+        door.complete();
+
+        // Ждали двое, ушёл один: архив всё равно нужен второму.
+        expect((await second.result).provider, isNotNull);
+        expect(opened.single.closed, isFalse);
+      });
+
+      test('ушли все — монтирование прерывается', () async {
+        final host = await nodeAt('/home/archive.arc');
+        final only = slow.acquire('arc', host);
+        await pumpEventQueue();
+
+        only.cancel();
+        await expectLater(only.result, throwsA(isA<OperationCanceled>()));
+        door.complete();
+        await pumpEventQueue();
+
+        // Ждать некому: опоздавший провайдер закрывает сама фабрика.
+        expect(slow.mounted, isEmpty);
+        expect(opened.single.closed, isTrue);
+      });
+
+      test('веха монтирования доходит до каждого арендатора', () async {
+        final host = await nodeAt('/home/archive.arc');
+        final first = slow.acquire('arc', host);
+        final second = slow.acquire('arc', host);
+        final heard = <String>[];
+        second.progress.listen((event) {
+          if (event.message.isNotEmpty) {
+            heard.add(event.message);
+          }
+        });
+
+        door.complete();
+        await first.result;
+        await second.result;
+        await pumpEventQueue();
+
+        // Второй ждёт чужое монтирование — и всё равно знает, чего ждёт.
+        expect(heard, contains('Unpacking archive.arc'));
+      });
+
+      test('acquire во время закрытия ждёт его и монтирует заново', () async {
+        final host = await nodeAt('/home/archive.arc');
+        door.complete();
+        final lease = await slow.acquire('arc', host).result;
+        final first = lease.provider as InMemoryArchiveProvider;
+
+        // Отпускаем и тут же просим снова: между этими двумя вызовами нельзя
+        // получить умирающий экземпляр — у 7z это ещё и перечитанное
+        // оглавление, подменённое пересборкой.
+        final releasing = lease.release();
+        final second = await slow.acquire('arc', host).result;
+        await releasing;
+
+        expect(first.closed, isTrue);
+        expect(second.provider, isNot(same(first)));
+        expect((second.provider as InMemoryArchiveProvider).closed, isFalse);
+      });
+    });
+
+    test('на выходе закрывается всё, не спрашивая счётчиков', () async {
+      final host = await nodeAt('/home/archive.arc');
+      final lease = await registry.acquire('arc', host).result;
+
+      await registry.disposeAll();
+
+      expect((lease.provider as InMemoryArchiveProvider).closed, isTrue);
+      expect(registry.mounted, isEmpty);
+    });
+  });
+
   group('ход разбора', () {
     /// Собирает сообщения операции по порядку, без повторов подряд.
     Future<List<String>> messagesOf(AsyncOperation<Object?> operation) async {
