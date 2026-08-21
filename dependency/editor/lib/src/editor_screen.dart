@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:flutter/widgets.dart';
@@ -20,6 +22,7 @@ class EditorScreen extends ChangeNotifier implements Screen, FcSearchable {
     required TextFile file,
     required bool wordWrap,
     bool showLineNumbers = true,
+    this.lease,
     this.onWrapChanged,
     this.onLineNumbersChanged,
   }) : _lineBreak = file.lineBreak,
@@ -34,6 +37,13 @@ class EditorScreen extends ChangeNotifier implements Screen, FcSearchable {
 
   /// Что правим: из узла берётся и заголовок, и куда сохранять.
   final FsNode node;
+
+  /// Аренда источника, из которого правим; null — общий корень.
+  ///
+  /// Держится всё время, пока экран открыт: между открытием и сохранением
+  /// проходит сколько угодно времени, и панель за это время вправе выйти из
+  /// архива. Закрылся бы он — сохранять стало бы некуда.
+  final ProviderLease? lease;
 
   /// Содержимое и курсор. Владеет им экран: сохранять просит команда, а она о
   /// виджетах ничего не знает.
@@ -97,6 +107,16 @@ class EditorScreen extends ChangeNotifier implements Screen, FcSearchable {
       _modified = changed;
       notifyListeners();
     }
+  }
+
+  @override
+  /// Экран закрыли: источник больше не нужен.
+  @override
+  void close() {
+    // Отпускания не ждут: дальше экран не используется, а закрытие архива —
+    // уборка за ним.
+    unawaited(lease?.release());
+    dispose();
   }
 
   @override

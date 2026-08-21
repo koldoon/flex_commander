@@ -189,6 +189,7 @@ class AppContainer extends DI {
           store: c.get<SettingsStore>(),
           settings: settings,
           commands: c.get<CommandRegistry>(),
+          providers: c.get<ProviderRegistry>(),
           theme: c.get<ThemeController>(),
           viewports: c.get<PanelViewports>(),
           window: c.get<WindowService>(),

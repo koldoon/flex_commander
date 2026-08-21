@@ -25,8 +25,9 @@ class ScreensController extends ChangeNotifier implements Screens {
   @override
   void open(Screen screen) {
     // Тот же экран второй раз — это замена, а не второй слой: два просмотрщика
-    // друг над другом не стопка, а недосмотр.
-    _stack.removeWhere((existing) => existing.id == screen.id);
+    // друг над другом не стопка, а недосмотр. Заменённый закрывается: он держал
+    // и своё состояние, и, может быть, аренду источника.
+    _removeWhere((existing) => existing.id == screen.id);
     _stack.add(screen);
     _watchActive();
     notifyListeners();
@@ -35,10 +36,23 @@ class ScreensController extends ChangeNotifier implements Screens {
   @override
   void close(String id) {
     final before = _stack.length;
-    _stack.removeWhere((screen) => screen.id == id);
+    _removeWhere((screen) => screen.id == id);
     if (_stack.length != before) {
       _watchActive();
       notifyListeners();
+    }
+  }
+
+  /// Убирает экраны из стопки, давая каждому закрыться.
+  ///
+  /// Раньше их просто выбрасывали, и `dispose` у редактора не звался никогда:
+  /// вместе с ним оставались висеть и поле ввода, и аренда архива, из которого
+  /// правили файл.
+  void _removeWhere(bool Function(Screen screen) matches) {
+    final leaving = _stack.where(matches).toList();
+    _stack.removeWhere(matches);
+    for (final screen in leaving) {
+      screen.close();
     }
   }
 
@@ -67,6 +81,8 @@ class ScreensController extends ChangeNotifier implements Screens {
   void dispose() {
     _watched?.removeListener(notifyListeners);
     _watched = null;
+    // Приложение уходит — уходят и экраны: открытый редактор держит аренду.
+    _removeWhere((screen) => true);
     super.dispose();
   }
 }

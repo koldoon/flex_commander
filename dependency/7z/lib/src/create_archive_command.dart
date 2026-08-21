@@ -110,7 +110,17 @@ class CreateSevenZipArchiveCommand extends AsyncCommandBase {
       throw FsError('${destination.pathString}/$name', FsErrorKind.alreadyExists);
     }
 
-    await runOperation(_pack(sources, destination, name), message: 'Packing…');
+    // Аренда обоих концов на всё время работы: упаковку можно отправить в фон,
+    // и любая из панелей за это время вправе уйти из своего архива.
+    final from = context.panel.leaseProvider();
+    final into = context.target.leaseProvider();
+
+    try {
+      await runOperation(_pack(sources, destination, name), message: 'Packing…');
+    } finally {
+      await from?.release();
+      await into?.release();
+    }
 
     // Приёмник теперь показывает не то, что на диске: там появился архив.
     await context.target.reload();

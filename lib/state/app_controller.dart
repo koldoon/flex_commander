@@ -25,6 +25,7 @@ class AppController extends ChangeNotifier implements Application {
     required this.store,
     required AppSettings settings,
     required this.commands,
+    this.providers,
     PanelViewports? viewports,
     ScreensController? screens,
     ThemeController? theme,
@@ -208,6 +209,14 @@ class AppController extends ChangeNotifier implements Application {
     _rememberSaved();
   }
 
+  /// Реестр провайдеров; null — приложение собрано без него (тест состояния).
+  ///
+  /// Нужен ровно для одного: на выходе закрыть всё смонтированное, не
+  /// спрашивая счётчиков. Спорить там не с кем, а открытый файл или живое
+  /// соединение пережить процесс не должны. Наружу отдаётся ради проверок:
+  /// `providers.mounted` отвечает на вопрос «что осталось открытым».
+  final ProviderRegistry? providers;
+
   /// Сохраняет настройки и останавливает незавершённые операции.
   @override
   Future<void> shutdown() async {
@@ -221,6 +230,10 @@ class AppController extends ChangeNotifier implements Application {
     // закрываться. Сохраняется последнее известное состояние, а обновляет его
     // captureWindowGeometry.
     await save();
+
+    // Последним — источники: до этого момента фоновые работы ещё могли из них
+    // читать, а панели — сохранять свои пути.
+    await providers?.disposeAll();
   }
 
   /// Текущее состояние приложения в виде сохраняемых настроек.

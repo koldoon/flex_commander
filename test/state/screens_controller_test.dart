@@ -89,6 +89,26 @@ void main() {
       expect(notifications, before);
     });
 
+    test('стопка даёт экрану закрыться', () {
+      final screen = _LivingScreen('editor');
+      screens.open(screen);
+
+      screens.close('editor');
+
+      // Иначе открытый редактор так и остался бы держать аренду архива, из
+      // которого правили файл, — и своё поле ввода заодно.
+      expect(screen.closed, isTrue);
+    });
+
+    test('замена экрана тем же именем закрывает прежний', () {
+      final first = _LivingScreen('editor');
+      screens.open(first);
+
+      screens.open(_LivingScreen('editor'));
+
+      expect(first.closed, isTrue);
+    });
+
     test('слушают верхний, а не тот, что под ним', () {
       final below = _LivingScreen('files');
       final above = _LivingScreen('editor');
@@ -126,6 +146,14 @@ class _LivingScreen extends ChangeNotifier implements Screen {
 
   void change() => notifyListeners();
 
+  /// Закрывали ли экран: стопка обязана дать ему отпустить своё.
+  bool closed = false;
+
+  /// Подставка не закрывается по-настоящему: тесту важно, что стопка позвала
+  /// закрытие, а не что после него осталось.
+  @override
+  void close() => closed = true;
+
   @override
   Widget build(BuildContext context) => const SizedBox.shrink();
 }
@@ -135,6 +163,9 @@ class _Screen implements Screen {
 
   @override
   final String id;
+
+  @override
+  void close() {}
 
   @override
   bool get takesFocus => false;

@@ -48,6 +48,9 @@ class AppRuntime {
 
   CommandService get commands => app.commands;
 
+  /// Реестр провайдеров: чем открываются архивы и адреса, и что открыто сейчас.
+  ProviderRegistry? get providers => app.providers;
+
   ThemeService get theme => app.theme;
 
   /// Закрывает приложение: сперва модули, потом само приложение.

@@ -78,6 +78,9 @@ class EditFileCommand extends AppCommand {
       EditorScreen(
         node: node,
         file: file,
+        // Правку архива не закончить, если панель из него выйдет: аренда
+        // держится до закрытия экрана.
+        lease: context.panel.leaseProvider(),
         wordWrap: settings.wordWrap,
         showLineNumbers: settings.showLineNumbers,
         onWrapChanged: (value) {

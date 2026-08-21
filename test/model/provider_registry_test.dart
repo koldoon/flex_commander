@@ -42,6 +42,18 @@ void main() {
 
   Future<FsNode> nodeAt(String path) async => (await disk.resolvePath(path).result)!;
 
+  /// Узел из разбора пути; аренду тест отпускает сразу — в приложении её
+  /// держит тот, кто путь и просил разобрать.
+  Future<FsNode?> nodeOf(AsyncOperation<ResolvedNode> operation) async {
+    final resolved = await operation.result;
+    await resolved.release();
+    return resolved.node;
+  }
+
+  /// Провайдер над узлом — для проверок, которым нужен сам экземпляр.
+  Future<TreeProvider> archiveOver(String path) async =>
+      (await registry.acquire('arc', await nodeAt(path)).result).provider;
+
   group('чем открывать', () {
     test('расширение выбирает схему', () async {
       expect(registry.schemeFor(await nodeAt('/home/archive.arc')), 'arc');
@@ -59,7 +71,7 @@ void main() {
     test('незарегистрированная схема — отказ, а не пустое дерево', () async {
       final host = await nodeAt('/home/archive.arc');
 
-      await expectLater(registry.mount('zip', host).result, throwsA(isA<FsError>()));
+      await expectLater(registry.acquire('zip', host).result, throwsA(isA<FsError>()));
     });
   });
 
@@ -67,7 +79,7 @@ void main() {
     test('корень смонтированного провайдера стоит над узлом-хозяином', () async {
       final host = await nodeAt('/home/archive.arc');
 
-      final mounted = await registry.mount('arc', host).result;
+      final mounted = (await registry.acquire('arc', host).result).provider;
 
       expect(mountedOver.single, same(host));
       expect(mounted.rootDirectory.parent, same(host));
@@ -76,7 +88,7 @@ void main() {
     });
 
     test('путь внутри провайдера чужих имён не содержит', () async {
-      final mounted = await registry.mount('arc', await nodeAt('/home/archive.arc')).result;
+      final mounted = await archiveOver('/home/archive.arc');
       final inner = (await mounted.resolvePath('/inner/doc.txt').result)!;
 
       // Провайдер архива знает только свою часть пути.
@@ -84,7 +96,7 @@ void main() {
     });
 
     test('полный путь собирается через оба дерева', () async {
-      final mounted = await registry.mount('arc', await nodeAt('/home/archive.arc')).result;
+      final mounted = await archiveOver('/home/archive.arc');
       final inner = (await mounted.resolvePath('/inner/doc.txt').result)!;
 
       // Ровно тот формат, который умеет разбирать NodePath.
@@ -94,7 +106,7 @@ void main() {
 
   group('разбор цепочки', () {
     test('путь проходит через оба провайдера', () async {
-      final node = await registry.resolvePath('/home/archive.arc:arc:/inner/doc.txt').result;
+      final node = await nodeOf(registry.resolvePath('/home/archive.arc:arc:/inner/doc.txt'));
 
       expect(node?.name, 'doc.txt');
       expect(node?.provider, isA<InMemoryArchiveProvider>());
@@ -102,18 +114,18 @@ void main() {
     });
 
     test('обычный путь — это цепочка из одной части', () async {
-      final node = await registry.resolvePath('/home/notes.txt').result;
+      final node = await nodeOf(registry.resolvePath('/home/notes.txt'));
 
       expect(node?.name, 'notes.txt');
       expect(node?.provider, same(disk));
     });
 
     test('несуществующего внутри архива нет', () async {
-      expect(await registry.resolvePath('/home/archive.arc:arc:/missing').result, isNull);
+      expect(await nodeOf(registry.resolvePath('/home/archive.arc:arc:/missing')), isNull);
     });
 
     test('нет хозяина — нечего и монтировать', () async {
-      expect(await registry.resolvePath('/home/missing.arc:arc:/inner').result, isNull);
+      expect(await nodeOf(registry.resolvePath('/home/missing.arc:arc:/inner')), isNull);
     });
 
     test('чужая схема в начале пути — отказ', () async {
@@ -124,7 +136,7 @@ void main() {
 
   group('разбор показанного пути', () {
     test('архив в пути опознаётся по типу узла, а не по схеме', () async {
-      final node = await registry.resolveDisplayPath('/home/archive.arc/inner/doc.txt').result;
+      final node = await nodeOf(registry.resolveDisplayPath('/home/archive.arc/inner/doc.txt'));
 
       expect(node?.name, 'doc.txt');
       expect(node?.provider, isA<InMemoryArchiveProvider>());
@@ -134,7 +146,7 @@ void main() {
     });
 
     test('путь без архива разбирается одним обращением', () async {
-      final node = await registry.resolveDisplayPath('/home/notes.txt').result;
+      final node = await nodeOf(registry.resolveDisplayPath('/home/notes.txt'));
 
       expect(node?.name, 'notes.txt');
       expect(node?.provider, same(disk));
@@ -143,7 +155,7 @@ void main() {
     });
 
     test('архив в архиве — тем же способом', () async {
-      final node = await registry.resolveDisplayPath('/home/archive.arc/nested.arc/inner/doc.txt').result;
+      final node = await nodeOf(registry.resolveDisplayPath('/home/archive.arc/nested.arc/inner/doc.txt'));
 
       expect(node?.name, 'doc.txt');
       expect(node?.pathString, '/home/archive.arc:arc:/nested.arc:arc:/inner/doc.txt');
@@ -151,7 +163,7 @@ void main() {
     });
 
     test('сам архив остаётся файлом: входит в него панель, а не разбор', () async {
-      final node = await registry.resolveDisplayPath('/home/archive.arc').result;
+      final node = await nodeOf(registry.resolveDisplayPath('/home/archive.arc'));
 
       expect(node, isA<FileNode>());
       expect(node, isNot(isA<DirectoryNode>()));
@@ -159,18 +171,18 @@ void main() {
     });
 
     test('машинный путь со схемами разбирается по-прежнему', () async {
-      final node = await registry.resolveDisplayPath('/home/archive.arc:arc:/inner/doc.txt').result;
+      final node = await nodeOf(registry.resolveDisplayPath('/home/archive.arc:arc:/inner/doc.txt'));
 
       expect(node?.pathString, '/home/archive.arc:arc:/inner/doc.txt');
     });
 
     test('несуществующего внутри архива нет — и это не исключение', () async {
-      expect(await registry.resolveDisplayPath('/home/archive.arc/missing').result, isNull);
+      expect(await nodeOf(registry.resolveDisplayPath('/home/archive.arc/missing')), isNull);
     });
 
     test('обычный файл посреди пути архивом не притворяется', () async {
       // `notes.txt` открывать нечем: значит пути правда нет.
-      expect(await registry.resolveDisplayPath('/home/notes.txt/inner').result, isNull);
+      expect(await nodeOf(registry.resolveDisplayPath('/home/notes.txt/inner')), isNull);
       expect(mountedOver, isEmpty);
     });
 
@@ -186,7 +198,7 @@ void main() {
         extensions: {'arc'},
       );
 
-      expect(await registry.resolveDisplayPath('/home/archive.arc/missing').result, isNull);
+      expect(await nodeOf(registry.resolveDisplayPath('/home/archive.arc/missing')), isNull);
 
       // Архив держит открытый файл, и бросить его молча нельзя.
       expect(opened.single.closed, isTrue);
@@ -206,13 +218,15 @@ void main() {
     });
 
     test('уже смонтированный берётся, а не заводится второй', () async {
-      final mounted = await registry.mount('arc', await nodeAt('/home/archive.arc')).result;
+      final mounted = await archiveOver('/home/archive.arc');
       expect(mountedOver, hasLength(1));
 
-      final node = await registry.resolveDisplayPath('/home/archive.arc/readme.md', reuse: [mounted]).result;
+      final node = await nodeOf(registry.resolveDisplayPath('/home/archive.arc/readme.md'));
 
       expect(node?.name, 'readme.md');
       // Второй экземпляр поверх того же файла разошёлся бы с первым состоянием.
+      // Список `reuse` для этого больше не нужен: реестр считает арендаторов и
+      // отдаёт того же самого всем, кто просит.
       expect(node?.provider, same(mounted));
       expect(mountedOver, hasLength(1));
     });

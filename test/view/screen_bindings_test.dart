@@ -83,6 +83,9 @@ class _StubScreen implements Screen {
   bool get takesFocus => false;
 
   @override
+  void close() {}
+
+  @override
   Widget build(BuildContext context) => const Center(child: Text('Stub screen content'));
 }
 

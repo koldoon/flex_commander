@@ -215,18 +215,82 @@ void main() {
       expect(await disk.resolvePath('/home').result, isNotNull);
     });
 
+    group('арендаторов больше одного', () {
+      test('один архив в двух панелях — один экземпляр', () async {
+        final first = await panelInArchive();
+        final second = await panelInArchive();
+
+        // Два экземпляра поверх одного файла разошлись бы состоянием:
+        // записанное через один не увидел бы другой.
+        expect(mounted, hasLength(1));
+        expect(second.provider, same(first.provider));
+        expect(tracking.mounted.single.tenants, 2);
+      });
+
+      test('одна панель ушла — вторая продолжает читать', () async {
+        final first = await panelInArchive();
+        final second = await panelInArchive();
+
+        await first.goUp();
+
+        expect(mounted.single.closed, isFalse, reason: 'вторая панель всё ещё в архиве');
+        expect(namesOf(second), containsAll(['inner', 'readme.md']));
+
+        await second.goUp();
+        expect(mounted.single.closed, isTrue);
+      });
+
+      test('работа держит архив, из которого панель уже ушла', () async {
+        final panel = await panelInArchive();
+
+        // Так делает длительная команда: берёт аренду на всё время работы,
+        // потому что панель за это время вправе уйти куда угодно.
+        final work = panel.leaseProvider()!;
+        await panel.goUp();
+
+        // Раньше здесь провайдер закрывался, а работа продолжала из него
+        // читать: «отпускает тот, кто уходит» держалось на модальном окне.
+        expect(mounted.single.closed, isFalse);
+        expect((await work.provider.resolvePath('/readme.md').result)?.name, 'readme.md');
+
+        await work.release();
+        expect(mounted.single.closed, isTrue);
+      });
+
+      test('разобранный мимо панели путь закрывается тем, кто его просил', () async {
+        // Приёмник у F5 задан строкой и может вести не туда, где панель стоит:
+        // архив по дороге монтируется ради работы, и отпустить его больше
+        // некому.
+        final onDisk = await panelOn(tracking);
+        final resolved = await onDisk.resolvePath('/home/archive.arc/inner').result;
+
+        expect(resolved.node?.name, 'inner');
+        expect(mounted.single.closed, isFalse);
+
+        await resolved.release();
+        expect(mounted.single.closed, isTrue);
+        expect(tracking.mounted, isEmpty, reason: 'после работы не осталось ничего');
+      });
+    });
+
     test('неразобранный путь не оставляет архив открытым', () async {
       // Смонтировать пришлось, а узла внутри не нашлось.
-      expect(await tracking.resolvePath('/home/archive.arc:arc:/missing').result, isNull);
+      expect((await tracking.resolvePath('/home/archive.arc:arc:/missing').result).node, isNull);
 
       expect(mounted.single.closed, isTrue);
+      expect(tracking.mounted, isEmpty, reason: 'запись в таблице тоже не осталась');
     });
 
     test('разобранный путь оставляет архив открытым: им ещё пользуются', () async {
-      final node = await tracking.resolvePath('/home/archive.arc:arc:/inner').result;
+      final resolved = await tracking.resolvePath('/home/archive.arc:arc:/inner').result;
 
-      expect(node, isNotNull);
+      expect(resolved.node, isNotNull);
       expect(mounted.single.closed, isFalse);
+
+      // Держится он не сам по себе, а на аренде: отпустили — закрылся.
+      await resolved.release();
+      expect(mounted.single.closed, isTrue);
+      expect(tracking.mounted, isEmpty);
     });
   });
 

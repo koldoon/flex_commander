@@ -97,6 +97,9 @@ class _EditorLikeScreen implements Screen {
   bool get takesFocus => true;
 
   @override
+  void close() {}
+
+  @override
   Widget build(BuildContext context) => const _EditorLikeField();
 }
 

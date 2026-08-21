@@ -302,13 +302,28 @@ class ProviderRegistry {
   /// Чем открывается этот объект; null — открывать нечем.
   String? schemeFor(FsNode node);
 
-  /// Монтирует провайдера над узлом.
-  Future<TreeProvider> mount(String scheme, FsNode host);
+  /// Аренда провайдера над узлом: смонтировать или добавить арендатора к уже
+  /// смонтированному.
+  AsyncOperation<ProviderLease> acquire(String scheme, FsNode host);
 
-  /// Разбор пути через всю цепочку: `/home/a.zip:zip:/inner`.
-  AsyncOperation<FsNode?> resolvePath(String path);
+  /// То же для источника по адресу: `ssh://user@host/srv`.
+  AsyncOperation<ProviderLease> acquireAddress(Uri address);
+
+  /// Ещё одна аренда на того, кто уже на руках; null — общий корень.
+  ProviderLease? leaseOf(TreeProvider provider);
+
+  /// Разбор пути через всю цепочку: `/home/a.zip:zip:/inner`. Узел приходит
+  /// вместе с арендой всего, что смонтировано ради него.
+  AsyncOperation<ResolvedNode> resolvePath(String path);
+
+  /// Что смонтировано и сколько у чего арендаторов.
+  List<MountedProvider> get mounted;
 }
 ```
+
+**Провайдера иначе не получить**: `mount` наружу не отдаётся вовсе. Владельцем
+смонтированного оказывается не «тот, кто открыл», а каждый, у кого на руках
+аренда, — подробности в [`providers.md`](providers.md), раздел 8.
 
 Монтирование держится на одном правиле: **корень смонтированного провайдера
 считает своим родителем узел-хозяина**. Из него следует всё остальное:

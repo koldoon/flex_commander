@@ -59,7 +59,7 @@ void main() {
 
   Future<TreeProvider> mounted() async {
     final host = (await disk.resolvePath(archivePath).result)!;
-    return registry.mount(ZipTreeProvider.schemeName, host).result;
+    return (await registry.acquire(ZipTreeProvider.schemeName, host).result).provider;
   }
 
   Future<FsNode> onDisk(String path) async => (await disk.resolvePath(p.join(root, path)).result)!;
@@ -186,9 +186,10 @@ void main() {
       ).writeAsBytes(ZipEncoder().encodeBytes(Archive()..add(ArchiveFile.bytes('nested.zip', inner))));
 
       final outer =
-          await registry.mount(ZipTreeProvider.schemeName, (await disk.resolvePath(outerPath).result)!).result;
+          (await registry.acquire(ZipTreeProvider.schemeName, (await disk.resolvePath(outerPath).result)!).result)
+              .provider;
       final nestedHost = (await outer.resolvePath('/nested.zip').result)!;
-      final nested = await registry.mount(ZipTreeProvider.schemeName, nestedHost).result;
+      final nested = (await registry.acquire(ZipTreeProvider.schemeName, nestedHost).result).provider;
 
       // Писать в копию бессмысленно: изменения ушли бы вместе с ней.
       expect(nested.canWrite, isFalse);
@@ -208,12 +209,20 @@ void main() {
       await panel.enterCurrent();
       expect(panel.provider, isA<WritableZipTreeProvider>());
 
-      // Путь приёмника команда разбирает панелью — так же, как F5.
-      final destination = (await panel.resolvePath('$archivePath:zip:/').result)! as DirectoryNode;
-      await engine.copy([await onDisk('notes.txt')], destination).result;
+      // Путь приёмника команда разбирает панелью — так же, как F5, и держит
+      // аренду всё время работы: панель за это время вправе уйти куда угодно.
+      final destination = await panel.resolvePath('$archivePath:zip:/').result;
+      try {
+        await engine.copy([await onDisk('notes.txt')], destination.node! as DirectoryNode).result;
+      } finally {
+        await destination.release();
+      }
       await panel.reload();
 
       expect(panel.nodes.map((node) => node.name), contains('notes.txt'));
+      // Второго экземпляра поверх того же файла не завелось: панель и приёмник
+      // — это один и тот же открытый архив.
+      expect(destination.node!.provider, same(panel.provider));
     });
   });
 }

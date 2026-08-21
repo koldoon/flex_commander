@@ -59,7 +59,12 @@ void main() {
 
   Future<FsNode> hostNode() async => (await disk.resolvePath(archivePath).result)!;
 
-  Future<TreeProvider> mounted() async => registry.mount(ZipTreeProvider.schemeName, await hostNode()).result;
+  Future<TreeProvider> mounted() async =>
+      (await registry.acquire(ZipTreeProvider.schemeName, await hostNode()).result).provider;
+
+  /// Узел из разбора пути; аренду тест отпускает сам — в приложении её держит
+  /// тот, кто путь и просил разобрать.
+  Future<FsNode?> nodeOf(AsyncOperation<ResolvedNode> operation) async => (await operation.result).node;
 
   Future<List<String>> namesIn(TreeProvider provider, String path) async {
     final dir = (await provider.resolvePath(path).result)! as DirectoryNode;
@@ -385,7 +390,7 @@ void main() {
     });
 
     test('открывается и читается насквозь', () async {
-      final node = await registry.resolvePath('$outerPath:zip:/nested/sample.zip:zip:/docs/guide.txt').result;
+      final node = await nodeOf(registry.resolvePath('$outerPath:zip:/nested/sample.zip:zip:/docs/guide.txt'));
 
       expect(node, isNotNull);
       expect(node!.name, 'guide.txt');
@@ -477,7 +482,7 @@ void main() {
     });
 
     test('путь внутрь архива разбирается целиком', () async {
-      final node = await registry.resolvePath('$archivePath:zip:/docs/guide.txt').result;
+      final node = await nodeOf(registry.resolvePath('$archivePath:zip:/docs/guide.txt'));
 
       expect(node?.name, 'guide.txt');
       expect(node?.pathString, '$archivePath:zip:/docs/guide.txt');
