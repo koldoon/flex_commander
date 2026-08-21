@@ -200,15 +200,17 @@ enum CommandRunPhase {
 
 Разбор «вопрос → прогресс → форма» сегодня написан слово в слово четыре раза, и
 поправить его в четырёх местах — значит согласиться, что пятая команда повторит
-ошибку. Он переезжает в базу:
+ошибку. Он становится общим — виджетом `AsyncCommandDialog` в `ui_kit`:
 
 ```dart
-/// Окно длительной работы: вопрос по ходу дела, ход дела и разбор ошибки —
-/// одинаковы у всех, и потому собраны здесь. Команда даёт только то, с чего всё
-/// начинается, — свою форму.
-@protected
-Widget buildDialog(BuildContext context, {required WidgetBuilder form});
+@override
+Widget? getDialog(BuildContext context) => AsyncCommandDialog(command: this, form: _form);
 ```
+
+В `ui_kit`, а не методом самой `AsyncCommandBase`, потому что зависимость идёт
+`ui_kit → api`: базе, живущей в `api`, взять `CommandDialogProgress` неоткуда.
+Разделение при этом получается правильное — в `api` фаза прогона, в `ui_kit`
+то, как она выглядит.
 
 Порядок веток внутри:
 
@@ -224,31 +226,32 @@ Widget buildDialog(BuildContext context, {required WidgetBuilder form});
 `String get failureMessage => '$label failed'` переопределяется: у обеих команд
 удаления это `Delete failed`, потому что `label` у одной из них — `Delete !`.
 
-Команда после этого пишет:
-
-```dart
-@override
-Widget? getDialog(BuildContext context) => buildDialog(context, form: _form);
-```
-
-Подписку на саму себя (`ListenableBuilder`) ставит база: она же и решает, что
+Подписку на команду (`ListenableBuilder`) ставит само окно: оно же и решает, что
 показывать.
 
-### Кнопка, которую можно погасить
+### Кнопки, которые можно погасить
 
 `CommandDialogProgress.onCancel` становится `VoidCallback?`. `FcButton` уже
 принимает `null`: рисует подпись с `opacity: 0.5`, не берёт курсор и не
-нажимается. Больше в `ui_kit` ничего не нужно.
+нажимается.
+
+У «Background» одного этого мало: сейчас кнопки нет вовсе, когда
+`onBackground == null`, и в хвосте она бы не погасла, а исчезла — ряд
+переставился бы ровно в момент завершения. Поэтому у окна появляется
+`canBackground`: он про то, **бывает** ли у этой работы фон, а `onBackground` —
+про то, можно ли спрятать её **сейчас**.
 
 ## 4. Почему так, а не иначе
 
 * **Не закрывать окно сразу по концу операции.** Соблазнительно: работа
   сделана, а перечитывание панелей — дело приложения, у панелей есть свой
-  признак занятости. Но ошибке из хвоста тогда негде лечь. `panel.reload()`
-  внутри архива или по SSH вполне бросает `FsError`, и ловит её `submit`,
-  которому нужно живое окно. Пришлось бы разделять исходы («на успехе закрыть
-  раньше, на ошибке — не закрыть»), то есть заводить ту же фазу, только
-  неявную.
+  признак занятости (ошибку чтения они и показывают сами, в своей строке
+  состояния, — `PanelController._load` её ловит и наружу не пускает). Но
+  окно нужно живым не только хвосту: `operation.result` бросает не одну
+  `OperationCanceled`, и всё, что не отмена, доходит до `AppCommand.submit`
+  уже **после** того, как `runOperation` вернул управление. Закрыв окно
+  раньше, пришлось бы разделять исходы («на успехе закрыть, на ошибке — нет»),
+  то есть завести ту же фазу, только неявную.
 * **Не переносить хвост внутрь `runOperation`.** Если между `_running = false` и
   `closeDialog()` не останется ни одного `await`, кадра с формой действительно
   не будет: `notifyListeners` только помечает виджеты грязными, а кадр рисуется
@@ -275,9 +278,10 @@ Widget? getDialog(BuildContext context) => buildDialog(context, form: _form);
 
 | Файл | Что |
 |---|---|
-| `api/…/commands/async_command_base.dart` | `CommandRunPhase`, `isBusy`, охраны в `submit`/`dismiss`, `buildDialog`, `failureMessage` |
-| `ui_kit/…/command_dialog.dart` | `CommandDialogProgress.onCancel` — `VoidCallback?` |
-| `file_ops/…/transfer_commands.dart` | `getDialog` через `buildDialog`, форма отдельным методом, охрана `execute` по `isBusy` |
+| `api/…/commands/async_command_base.dart` | `CommandRunPhase`, `isBusy`, охраны в `submit`/`dismiss`, `failureMessage` |
+| `ui_kit/…/async_command_dialog.dart` | новый: общий каркас окна |
+| `ui_kit/…/command_dialog.dart` | `CommandDialogProgress`: `onCancel` — `VoidCallback?`, новый `canBackground` |
+| `file_ops/…/transfer_commands.dart` | `getDialog` через `AsyncCommandDialog`, форма отдельным методом, охрана `execute` по `isBusy` |
 | `file_ops/…/file_commands.dart` | то же; ветка ошибки уходит в базу, `failureMessage` |
 | `zip/…/create_archive_command.dart` | то же |
 | `7z/…/create_archive_command.dart` | то же |
@@ -288,25 +292,23 @@ Widget? getDialog(BuildContext context) => buildDialog(context, form: _form);
 
 Тесты:
 
-* `test/state/async_command_test.dart` (там уже живёт `_ProbeCommand`):
-  * по концу операции `isRunning == false`, а `isBusy == true` — и так до
-    закрытия окна;
-  * `submit()` в фазе `done` работу второй раз **не** запускает: счётчик
-    запусков операции равен единице;
-  * `dismiss()` в фазе `done` без ошибки окна не закрывает, с ошибкой —
-    закрывает;
-  * прогон, который не начинался, оставляет фазу `idle`.
-* `file_ops/test/transfer_command_test.dart` — виджет-тест: после завершения
-  `execute`, пока окно ещё открыто, в нём есть `CommandDialogProgress` и нет
-  поля ввода пути; ошибка **до** старта по-прежнему оставляет форму с текстом
-  ошибки.
-* `file_ops/test/remove_command_test.dart` — ошибка после прогона по-прежнему
-  даёт окно `Delete failed` с кнопкой `Close`.
-* `zip/test/create_archive_dialog_test.dart`, `7z/test/create_archive_dialog_test.dart`
-  — проходят без правок по смыслу; если тест спрашивает `isRunning` как «окно
-  показывает прогресс», вопрос меняется на `isBusy`.
-* `ui_kit/test/command_dialog_test.dart` — прогресс с `onCancel: null` рисуется,
-  кнопка приглушена.
+* `test/state/async_command_test.dart` (там уже живёт `_ProbeCommand`) — сама
+  фаза:
+  * прогон, который не начинался, остаётся в `idle`;
+  * по концу операции `isRunning == false`, а `isBusy == true`, фаза `done`;
+  * отмена даёт тот же исход, что успех;
+  * подтверждение в фазе `done` работу второй раз **не** запускает: счётчики
+    и попыток, и прогонов равны единице.
+* `ui_kit/test/async_command_dialog_test.dart` (новый) — сам каркас, все четыре
+  его состояния плюс два разных исхода ошибки: **до** старта она остаётся в
+  форме, **после** — форму не воскрешает и показывает `Probe failed` с кнопкой
+  `Close`. Там же — что в хвосте обе кнопки погашены и обе на месте.
+* `file_ops/test/file_commands_view_test.dart` — то же самое от нажатия
+  клавиши: у провайдера появляется `slowListing`, из-за которого перечитывание
+  панелей длиннее самого копирования, то есть хвост воспроизводится честно. В
+  нём: формы и кнопки `Copy` в окне нет, полосы хода работы есть, `Enter` не
+  запускает копирование заново, `Esc` окна не закрывает.
+* Остальные наборы проходят без правок.
 
 На живом (проверяет пользователь):
 
@@ -323,11 +325,12 @@ Widget? getDialog(BuildContext context) => buildDialog(context, form: _form);
 
 ## 7. Ход работы
 
-- [ ] Спецификация (этот файл).
-- [ ] `CommandRunPhase`, `isBusy` и охраны в `AsyncCommandBase` + тесты.
-- [ ] `buildDialog` и `failureMessage` в базе; `onCancel?` в `ui_kit`.
-- [ ] Четыре команды на общий каркас + их тесты.
-- [ ] Документация: `state.md`, `widgets.md`.
+- [x] Спецификация (этот файл).
+- [x] `CommandRunPhase`, `isBusy` и охраны в `AsyncCommandBase` + тесты.
+- [x] `AsyncCommandDialog` и `failureMessage`; `onCancel?` и `canBackground`
+      в `ui_kit` + тесты каркаса.
+- [x] Четыре команды на общий каркас + виджет-тесты на хвост работы.
+- [x] Документация: `state.md`, `widgets.md`.
 - [ ] Проверка на живом.
 
 ## 8. Что остаётся за рамками
