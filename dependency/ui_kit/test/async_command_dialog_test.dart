@@ -106,7 +106,7 @@ void main() {
 
     // Хвост работы: операции уже нет, окно ещё есть. Формы тут быть не должно
     // ни кадра — ровно за этим фаза прогона и заведена.
-    expect(command.phase, CommandRunPhase.done);
+    expect(command.isBusy, isTrue);
     expect(find.text('форма'), findsNothing);
     expect(find.byType(CommandDialogProgress), findsOneWidget);
   });

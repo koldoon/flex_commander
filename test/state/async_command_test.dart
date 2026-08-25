@@ -129,7 +129,7 @@ void main() {
     test('работа не начиналась — прогон в idle', () {
       final command = _ProbeCommand();
 
-      expect(command.phase, CommandRunPhase.idle);
+      expect(command.isBusy, isFalse);
       expect(command.isBusy, isFalse);
       expect(command.isRunning, isFalse);
     });
@@ -144,7 +144,7 @@ void main() {
       // окно в хвосте откатывалось к форме с параметрами.
       expect(command.isRunning, isFalse);
       expect(command.isBusy, isTrue);
-      expect(command.phase, CommandRunPhase.done);
+      expect(command.isBusy, isTrue);
     });
 
     test('отменённая работа оставляет тот же исход', () async {
@@ -160,7 +160,7 @@ void main() {
 
       // Отмена — такой же конец прогона, как успех: окно закрывается тем же
       // путём и точно так же не должно мигать формой.
-      expect(command.phase, CommandRunPhase.done);
+      expect(command.isBusy, isTrue);
     });
 
     test('подтверждение в хвосте работы не запускает её второй раз', () async {

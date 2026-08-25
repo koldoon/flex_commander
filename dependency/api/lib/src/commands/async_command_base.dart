@@ -9,25 +9,6 @@ import '../util/throttle.dart';
 import '../background/operations.dart';
 import 'app_command.dart';
 
-/// Где прогон: не начинался, идёт, кончился.
-///
-/// Разделение не формальное. «Операция крутится» и «прогон закончен» — разные
-/// вопросы, и между ответами на них лежит хвост работы: отпустить аренду,
-/// перечитать панели, закрыть окно. Пока это был один признак занятости, окно
-/// в хвосте откатывалось к форме с параметрами, а Enter запускал работу второй
-/// раз — охрана смотрела на ту же крутящуюся операцию, которой уже не было.
-enum CommandRunPhase {
-  /// Работа не начиналась: окно показывает форму.
-  idle,
-
-  /// Операция идёт: окно показывает ход дела, «Cancel» её прерывает.
-  running,
-
-  /// Операция кончилась — успехом, ошибкой или отменой, — а команда ещё
-  /// доигрывает и окно ещё открыто.
-  done,
-}
-
 /// Команда, работа которой занимает время: удаление, копирование, перенос.
 ///
 /// Здесь собрано всё, что у таких команд одинаково: подписки на ход работы и
@@ -42,7 +23,6 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
   StreamSubscription<OperationRequest>? _requests;
   OperationStatus? _watched;
 
-  CommandRunPhase _phase = CommandRunPhase.idle;
   OperationProgress _state = const OperationProgress();
 
   /// Вопрос, на который сейчас ждут ответа.
@@ -90,7 +70,6 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
       return;
     }
 
-    _phase = CommandRunPhase.running;
     _state = OperationProgress(message: message);
     _operation = operation;
     // Работа заведена: с этого момента её можно найти. В статусной области её
@@ -133,10 +112,9 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
       contextOrNull?.app.operations.forget(runId);
       unawaited(_requests?.cancel());
       _redraw.cancel();
-      // Не [idle]: операции больше нет, но прогон не кончен, пока не закрыто
-      // окно. Иначе оно на весь хвост — отпустить аренду, перечитать панели —
+      // Работа остаётся на месте: прогон не кончен, пока не закрыто окно.
+      // Иначе оно на весь хвост — отпустить аренду, перечитать панели —
       // откатилось бы к форме с параметрами.
-      _phase = CommandRunPhase.done;
       _question = null;
       // Прогон закончился — успехом, ошибкой или отменой. Раньше [completion]
       // завершалось только в [submit], и ждущий отменённой или запущенной без
@@ -252,17 +230,15 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
   String? get stageLabel => _state.hasStages ? '${_state.stage} of ${_state.stageCount} — ${_state.stageName}' : null;
 
   @override
-  bool get isRunning => _phase == CommandRunPhase.running;
-
-  /// Где прогон. Смотреть на неё стоит тем, кому важно не «крутится ли
-  /// операция», а «начиналась ли работа»: окну и охранам подтверждения.
-  CommandRunPhase get phase => _phase;
+  bool get isRunning => _operation?.state.isFinished == false;
 
   /// Прогон начался и ещё не закрыт окном: операция идёт или команда доигрывает.
   ///
-  /// То, что раньше спрашивали у [isRunning] и получали неверный ответ в хвосте
-  /// работы.
-  bool get isBusy => _phase != CommandRunPhase.idle;
+  /// Отдельной фазы для этого не нужно: работа заведена — значит прогон начат,
+  /// и возвращаться к форме не к чему. Это и есть охрана от того, что `Enter`,
+  /// нажатый в момент завершения — а он нажимается именно тогда, потому что на
+  /// экране форма с кнопкой, — запускал работу второй раз.
+  bool get isBusy => _operation != null;
 
   /// Завершение прогона: успешное, с ошибкой или отменённое.
   ///
@@ -344,7 +320,7 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
       cancel();
       return;
     }
-    if (_phase == CommandRunPhase.done && error == null) {
+    if (isBusy && error == null) {
       // Работа кончилась и окно закроется само, как только команда доиграет.
       // Закрывать его по Esc раньше нечестно: пропала бы ошибка, если хвост
       // ещё успеет её принести.
