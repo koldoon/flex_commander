@@ -295,7 +295,7 @@ void main() {
       expect(await File(p.join(target, 'report.txt')).exists(), isFalse);
     });
 
-    test('перезапись каталога не оставляет старого содержимого', () async {
+    test('каталог поверх каталога сливается, а не заменяется', () async {
       await Directory(p.join(target, 'docs')).create();
       await File(p.join(target, 'docs', 'stale.txt')).writeAsString('старое');
       final nodes = await listRoot();
@@ -306,8 +306,32 @@ void main() {
       await operation.result;
       await pumpEventQueue();
 
-      expect(await File(p.join(target, 'docs', 'stale.txt')).exists(), isFalse);
+      // Чужого содержимого в задании не было: совпало имя каталога, а не то,
+      // что внутри. Так ведут себя mc, Total Commander и Far.
+      expect(await File(p.join(target, 'docs', 'stale.txt')).readAsString(), 'старое');
       expect(await File(p.join(target, 'docs', 'readme.md')).exists(), isTrue);
+      expect(await File(p.join(target, 'docs', 'nested', 'deep.txt')).exists(), isTrue);
+    });
+
+    test('о совпавшем файле внутри спрашивают, а «пропустить» его сохраняет', () async {
+      await Directory(p.join(target, 'docs')).create();
+      await File(p.join(target, 'docs', 'readme.md')).writeAsString('своё');
+      final nodes = await listRoot();
+      final operation = editor.copy();
+      final questions = <String>[];
+      operation.requests.listen((request) {
+        questions.add(request.message);
+        request.respond(OperationRequestOption.skip);
+      });
+
+      operation.start(TransferParams([nodes['docs']!], await targetDir()));
+      await operation.result;
+      await pumpEventQueue();
+
+      expect(questions.single, contains('readme.md'));
+      expect(await File(p.join(target, 'docs', 'readme.md')).readAsString(), 'своё');
+      // Остальное доехало: пропустили один файл, а не весь каталог.
+      expect(await File(p.join(target, 'docs', 'nested', 'deep.txt')).exists(), isTrue);
     });
   });
 

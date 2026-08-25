@@ -91,8 +91,7 @@ class TreeTransferEngine implements TreeEditor {
         // у обычного копирования этапов нет, и окно о них молчит.
         progress.beginStage(move ? 'moving' : 'copying', index: 1, count: 2);
       }
-      var overwriteAll = false;
-      var skipAll = false;
+      final overwrite = _OverwritePolicy();
       final links = _LinkPolicy(follow: followLinks);
 
       // Подсчёт идёт рядом с работой, а не перед ней: обойти большое дерево
@@ -129,46 +128,15 @@ class TreeTransferEngine implements TreeEditor {
             }
 
             final existing = await target.lookup(destination, node.name);
-            if (existing != null) {
-              if (skipAll) {
+            final merging = _merges(node, existing);
+            if (existing != null && !merging) {
+              if (!await _resolveConflict(op, overwrite, existing)) {
                 progress.sourceDoneWholly(i);
                 continue;
               }
-              if (!overwriteAll) {
-                final answer = await op.ask(
-                  OperationRequest(
-                    message: FsError(existing.pathString, FsErrorKind.alreadyExists).message,
-                    options: const [
-                      OperationRequestOption.overwrite,
-                      OperationRequestOption.overwriteAll,
-                      OperationRequestOption.skip,
-                      OperationRequestOption.skipAll,
-                      OperationRequestOption.cancel,
-                    ],
-                    // Молча затирать чужие файлы нельзя.
-                    enterOption: OperationRequestOption.skip,
-                  ),
-                );
-
-                if (answer == OperationRequestOption.cancel) {
-                  throw const OperationCanceled();
-                }
-                if (answer == OperationRequestOption.skipAll) {
-                  skipAll = true;
-                  progress.sourceDoneWholly(i);
-                  continue;
-                }
-                if (answer == OperationRequestOption.skip) {
-                  progress.sourceDoneWholly(i);
-                  continue;
-                }
-                if (answer == OperationRequestOption.overwriteAll) {
-                  overwriteAll = true;
-                }
-              }
               // В задании объекты приёмника не считаются — они не наши, — но
-              // и молчать о них нельзя: перезапись каталога по сети идёт
-              // минутами, а окно показывало бы прежние цифры.
+              // и молчать о них нельзя: уборка по сети идёт минутами, а окно
+              // показывало бы прежние цифры.
               await _purge(target, existing, op, progress);
             }
 
@@ -176,6 +144,9 @@ class TreeTransferEngine implements TreeEditor {
             // спрашиваем, потом пробуем: по сети попытка вслепую — это лишний
             // обмен с сервером на каждый объект.
             if (move &&
+                // Слияние переименованием не сделать: оно подменило бы весь
+                // каталог целиком вместе с чужим содержимым.
+                !merging &&
                 identical(source, target) &&
                 node.provider.capabilities.canRename &&
                 await source!.renameEntry(node, destination, node.name)) {
@@ -185,13 +156,20 @@ class TreeTransferEngine implements TreeEditor {
               continue;
             }
 
-            await _copyTree(source, target, node, destination, node.name, op, progress, links);
+            await _copyTree(source, target, node, destination, node.name, op, progress, links, overwrite);
             if (move) {
-              await _purge(source!, node, op, progress);
+              // Пропущенное остаётся на месте: слияние делает перенос
+              // выборочным, и снести источник целиком значило бы потерять то,
+              // что человек решил сохранить.
+              if (overwrite.kept.isEmpty) {
+                await _purge(source!, node, op, progress);
+              } else {
+                await _purgeExcept(source!, node, overwrite.kept, op, progress);
+              }
             }
           } on FsError catch (error) {
             progress.sourceDoneWholly(i);
-            if (skipAll) {
+            if (overwrite.skipAll) {
               continue;
             }
             final answer = await _askAboutFailure(op, error.message);
@@ -199,7 +177,7 @@ class TreeTransferEngine implements TreeEditor {
               throw const OperationCanceled();
             }
             if (answer == OperationRequestOption.skipAll) {
-              skipAll = true;
+              overwrite.skipAll = true;
             }
           }
         }
@@ -308,6 +286,7 @@ class TreeTransferEngine implements TreeEditor {
     TaskOperation<Object?, void> op,
     TransferProgress progress,
     _LinkPolicy links,
+    _OverwritePolicy overwrite,
   ) async {
     await op.checkpoint();
     progress.advance(node.name);
@@ -322,7 +301,7 @@ class TreeTransferEngine implements TreeEditor {
       }
       // Пошли по ссылке: дальше работаем с целью, но под именем ссылки.
       try {
-        await _copyTree(source, target, followed, destination, name, op, progress, links);
+        await _copyTree(source, target, followed, destination, name, op, progress, links, overwrite);
       } finally {
         links.leaveLink(node);
       }
@@ -330,11 +309,28 @@ class TreeTransferEngine implements TreeEditor {
     }
 
     if (node is DirectoryNode) {
-      final created = await target.createDirectory(destination, name);
+      // Каталог, который уже есть, берётся как есть: это и есть слияние.
+      // Заводить его заново незачем, а иные приёмники на такое и отвечают
+      // отказом — «уже существует».
+      final present = await target.lookup(destination, name);
+      final created = present is DirectoryNode ? present : await target.createDirectory(destination, name);
       // Содержимое вычитывается целиком, а не по ходу копирования: читать тот
       // же каталог, добавляя в него объекты, — верный способ уйти в петлю.
       for (final child in await node.provider.listChildren(node)) {
-        await _copyTree(source, target, child, created, child.name, op, progress, links);
+        // Вопросы задаются здесь, о файлах, а не там, о каталоге целиком: в
+        // этом и состоит слияние. Каталог поверх каталога уходит вглубь молча.
+        final existing = await target.lookup(created, child.name);
+        if (existing != null && !_merges(child, existing)) {
+          if (!await _resolveConflict(op, overwrite, existing)) {
+            // Пропущенное считается пройденным — работы по нему больше нет, —
+            // и запоминается: при переносе его нельзя убирать из источника.
+            progress.advance(child.name);
+            overwrite.kept.add(child.pathString);
+            continue;
+          }
+          await _purge(target, existing, op, progress);
+        }
+        await _copyTree(source, target, child, created, child.name, op, progress, links, overwrite);
       }
       return;
     }
@@ -391,6 +387,57 @@ class TreeTransferEngine implements TreeEditor {
     // внешней программой); `LocalCopySession` для этого готова — ею уже
     // пользуется zip, чтобы открыться поверх чужого источника.
     throw FsError(node.pathString, FsErrorKind.notSupported);
+  }
+
+  /// Сливаются ли эти двое: каталог поверх каталога — слияние, а не замена.
+  ///
+  /// Так делают mc, Total Commander и Far, и так оно и правильно: имена
+  /// совпали — это ещё не повод сносить чужое содержимое. Спрашивать здесь не о
+  /// чем, вопросы будут о файлах внутри.
+  bool _merges(FsNode node, FsNode? existing) => existing is DirectoryNode && node is DirectoryNode;
+
+  /// Спрашивает, что делать с тем, что в приёмнике уже есть.
+  ///
+  /// false — этот объект пропускаем. Ответы «…все» помнятся на всё задание:
+  /// один и тот же вопрос про сотню файлов внутри каталога — это не разговор, а
+  /// наказание.
+  Future<bool> _resolveConflict(TaskOperation<Object?, void> op, _OverwritePolicy overwrite, FsNode existing) async {
+    if (overwrite.skipAll) {
+      return false;
+    }
+    if (overwrite.overwriteAll) {
+      return true;
+    }
+
+    final answer = await op.ask(
+      OperationRequest(
+        message: FsError(existing.pathString, FsErrorKind.alreadyExists).message,
+        options: const [
+          OperationRequestOption.overwrite,
+          OperationRequestOption.overwriteAll,
+          OperationRequestOption.skip,
+          OperationRequestOption.skipAll,
+          OperationRequestOption.cancel,
+        ],
+        // Молча затирать чужие файлы нельзя.
+        enterOption: OperationRequestOption.skip,
+      ),
+    );
+
+    if (answer == OperationRequestOption.cancel) {
+      throw const OperationCanceled();
+    }
+    if (answer == OperationRequestOption.skipAll) {
+      overwrite.skipAll = true;
+      return false;
+    }
+    if (answer == OperationRequestOption.skip) {
+      return false;
+    }
+    if (answer == OperationRequestOption.overwriteAll) {
+      overwrite.overwriteAll = true;
+    }
+    return true;
   }
 
   /// Что делать со ссылкой: сохранить ссылкой, пропустить или пойти по ней.
@@ -607,6 +654,41 @@ class TreeTransferEngine implements TreeEditor {
     }
   }
 
+  /// Убирает источник после переноса, не трогая того, чего не переносили.
+  ///
+  /// Слияние делает перенос выборочным: файл, о котором ответили «пропустить»,
+  /// остался в источнике не по случайности — его туда не клали заново. Снести
+  /// его вместе с остальным значило бы потерять ровно то, что человек решил
+  /// сохранить. Каталог, в котором такой файл лежит, тоже остаётся.
+  ///
+  /// Возвращает true, если объект убран.
+  Future<bool> _purgeExcept(
+    NodeEditor editor,
+    FsNode node,
+    Set<String> kept,
+    TaskOperation<Object?, void> op,
+    TransferProgress? progress,
+  ) async {
+    await op.checkpoint();
+    if (kept.contains(node.pathString)) {
+      return false;
+    }
+
+    if (node is DirectoryNode) {
+      var emptied = true;
+      for (final child in await node.provider.listChildren(node)) {
+        emptied = await _purgeExcept(editor, child, kept, op, progress) && emptied;
+      }
+      if (!emptied) {
+        return false;
+      }
+    }
+
+    progress?.chore('Removing ${node.name}…');
+    await editor.deleteEntry(node);
+    return true;
+  }
+
   /// Фоновый подсчёт объектов задания.
   ///
   /// Ошибка обхода не прекращает работу: это оценка, а не сама операция, и
@@ -671,6 +753,20 @@ class TreeTransferEngine implements TreeEditor {
     final provider = node.provider;
     return provider is NodeEditor ? provider as NodeEditor : null;
   }
+}
+
+/// Что делать с тем, что в приёмнике уже есть.
+///
+/// Одна на всё задание: ответы «…все» на то и «все», чтобы не спрашивать о
+/// каждом файле внутри каталога заново.
+class _OverwritePolicy {
+  bool overwriteAll = false;
+  bool skipAll = false;
+
+  /// Пути источников, которые решено не переносить.
+  ///
+  /// Нужны переносу: пропущенное остаётся в источнике, и убирать его нельзя.
+  final Set<String> kept = {};
 }
 
 /// Работа кончилась раньше подсчёта — обход пора прекращать.

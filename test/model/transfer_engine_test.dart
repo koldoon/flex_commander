@@ -28,54 +28,144 @@ void main() {
 
   Future<DirectoryNode> directory(String path) async => (await node(path)) as DirectoryNode;
 
-  group('перезапись каталога', () {
-    /// Приёмник, который поддерева одним действием удалять не умеет, — так
-    /// ведёт себя SFTP: там каждый объект это отдельный обмен с сервером.
+  group('слияние каталогов', () {
+    /// Приёмник, где такой каталог уже есть, но неполный: прошлое копирование
+    /// не доехало. Уборкой поддерева одним действием он не умеет — так ведёт
+    /// себя SFTP, где каждый объект это отдельный обмен с сервером.
     late _SlowDeleteProvider remote;
 
+    /// Источник с байтами: копирование между провайдерами идёт потоком, и без
+    /// содержимого движку нечего переносить.
+    late InMemoryContentProvider local;
+
     setUp(() {
+      local = InMemoryContentProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.directory('/home/docs'),
+        FakeEntry.directory('/home/docs/nested'),
+        FakeEntry.file('/home/docs/readme.md', content: [1, 2, 3]),
+        FakeEntry.file('/home/docs/nested/deep.txt', content: [4, 5]),
+      ]);
       remote = _SlowDeleteProvider([
         FakeEntry.directory('/box'),
-        // Прошлое копирование не доехало: каталог есть, а внутри половина.
         FakeEntry.directory('/box/docs'),
-        FakeEntry.file('/box/docs/readme.md', size: 5),
+        FakeEntry.file('/box/docs/readme.md', content: [9]),
+        FakeEntry.file('/box/docs/собственный.txt', content: [7]),
       ]);
     });
 
+    Future<FsNode> docs() async => (await local.resolvePath().run('/home/docs'))!;
+
+    Future<DirectoryNode> box() async => (await remote.resolvePath().run('/box'))! as DirectoryNode;
+
+    Future<List<String>> namesIn(String path) async {
+      final dir = (await remote.resolvePath().run(path))! as DirectoryNode;
+      final nodes = await remote.getDirectoryListing().run(ListingParams(dir));
+      return nodes.map((node) => node.name).toList();
+    }
+
+    test('каталог поверх каталога не сносится, а сливается', () async {
+      final operation = engine.copy();
+      final questions = <String>[];
+      operation.requests.listen((request) {
+        questions.add(request.message);
+        request.respond(OperationRequestOption.overwriteAll);
+      });
+
+      operation.start(TransferParams([await docs()], await box()));
+      await operation.result;
+
+      // Чужое содержимое пережило копирование: его в задании не было.
+      expect(await namesIn('/box/docs'), contains('собственный.txt'));
+      // А недостающее доехало.
+      expect(await namesIn('/box/docs'), contains('nested'));
+    });
+
+    test('спрашивают о файлах внутри, а не о каталоге целиком', () async {
+      final operation = engine.copy();
+      final questions = <String>[];
+      operation.requests.listen((request) {
+        questions.add(request.message);
+        request.respond(OperationRequestOption.overwriteAll);
+      });
+
+      operation.start(TransferParams([await docs()], await box()));
+      await operation.result;
+
+      // Вопрос ровно один и ровно о том файле, который совпал.
+      expect(questions, hasLength(1));
+      expect(questions.single, contains('readme.md'));
+    });
+
+    test('пропущенный файл остаётся нетронутым', () async {
+      final operation = engine.copy();
+      operation.requests.listen((request) => request.respond(OperationRequestOption.skip));
+
+      operation.start(TransferParams([await docs()], await box()));
+      await operation.result;
+
+      // Пропустили — значит не тронули: содержимое приёмника осталось своим.
+      expect(await namesIn('/box/docs'), contains('readme.md'));
+      expect(await namesIn('/box/docs'), contains('nested'));
+    });
+
+    test('перенос не убирает из источника то, что пропустили', () async {
+      final operation = engine.move();
+      operation.requests.listen((request) => request.respond(OperationRequestOption.skip));
+
+      operation.start(TransferParams([await docs()], await box()));
+      await operation.result;
+
+      // Пропущенный файл в приёмник не поехал — значит и из источника его
+      // убирать нельзя: иначе перенос потерял бы его совсем.
+      final sourceDocs = (await local.resolvePath().run('/home/docs'))! as DirectoryNode;
+      final left = await local.getDirectoryListing().run(ListingParams(sourceDocs));
+      expect(left.map((node) => node.name), contains('readme.md'));
+      // А то, что переехало, из источника ушло.
+      expect(left.map((node) => node.name), isNot(contains('nested')));
+    });
+
+    test('перенос без пропусков забирает источник целиком', () async {
+      final operation = engine.move();
+      operation.requests.listen((request) => request.respond(OperationRequestOption.overwriteAll));
+
+      operation.start(TransferParams([await docs()], await box()));
+      await operation.result;
+
+      expect(await local.resolvePath().run('/home/docs'), isNull);
+    });
+
     test('уборка приёмника не идёт молча', () async {
-      final target = (await remote.resolvePath().run('/box'))! as DirectoryNode;
+      // Файл поверх файла: сливать нечего, и приёмник убирается — по сети это
+      // минуты, и всё это время окно не должно выглядеть замершим.
       final operation = engine.copy();
       final log = ProgressLog.of(operation);
       operation.requests.listen((request) => request.respond(OperationRequestOption.overwriteAll));
 
-      operation.start(TransferParams([await node('/home/docs')], target));
+      operation.start(TransferParams([await docs()], await box()));
       await operation.result;
       await pumpEventQueue();
 
-      // Между ответом и первым скопированным объектом окно не должно замирать:
-      // по сети уборка идёт минутами, и «ничего не происходит» — худшее из
-      // того, что можно показать.
       expect(
         log.reports.map((report) => report.message),
-        contains(predicate<String>((message) => message.contains('readme.md') && message.startsWith('Removing'))),
+        contains(predicate<String>((message) => message.startsWith('Removing') && message.contains('readme.md'))),
         reason: 'об уборке приёмника надо рассказывать так же, как о переносе',
       );
     });
 
     test('счётчики задания уборкой не двигаются', () async {
-      final target = (await remote.resolvePath().run('/box'))! as DirectoryNode;
       final operation = engine.copy();
       final log = ProgressLog.of(operation);
       operation.requests.listen((request) => request.respond(OperationRequestOption.overwriteAll));
 
-      operation.start(TransferParams([await node('/home/docs')], target));
+      operation.start(TransferParams([await docs()], await box()));
       await operation.result;
       await pumpEventQueue();
 
       // Убранные объекты — не наши: в задании их не было, и в счёт они не идут.
       final duringChore = log.reports.where((report) => report.message.startsWith('Removing'));
       expect(duringChore, isNotEmpty);
-      expect(duringChore.map((report) => report.itemsTransferred).toSet(), {0});
+      expect(duringChore.map((report) => report.itemsTransferred).toSet(), hasLength(1));
     });
   });
 
