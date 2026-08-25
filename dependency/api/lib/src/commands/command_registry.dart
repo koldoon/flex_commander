@@ -135,6 +135,14 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
   /// пользователя ядро не вправе.
   @override
   void bringToFront(String runId) {
+    final run = byId(runId);
+    if (run?.bringToFront case final show?) {
+      run!.owner = null;
+      show();
+      notifyListeners();
+      return;
+    }
+
     final command = _background.where((command) => command.runId == runId).firstOrNull;
     if (command == null) {
       return;

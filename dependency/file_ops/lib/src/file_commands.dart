@@ -221,7 +221,10 @@ class RemovePermanentlyCommand extends RemoveCommandBase {
 ///
 /// Реализует [AsyncCommand]: прогресс виден и снаружи окна — это задел на
 /// фоновое выполнение, когда операции будут показываться общим списком.
-abstract class RemoveCommandBase extends AsyncCommandBase {
+abstract class RemoveCommandBase extends AppCommand {
+  /// Согласие удалять, заданное заранее: сценарию спрашивать некого.
+  static const String confirmedParam = 'confirmed';
+
   /// Куда девается объект: в корзину или совсем.
   bool get toTrash;
 
@@ -238,51 +241,95 @@ abstract class RemoveCommandBase extends AsyncCommandBase {
   /// Объекты, с которыми работает команда: помеченные или тот, что под курсором.
   List<FsNode> get targets => context.targets.where((node) => node is! ParentDirNode).toList();
 
+  /// «Delete !» в заголовке разбора читалось бы как опечатка: восклицательный
+  /// знак в названии команды отличает её от удаления в корзину, а не от чего-то
+  /// ещё.
+  String get failureMessage => 'Delete failed';
+
+  /// Спросить, точно ли удалять, — и удалить.
+  ///
+  /// Команда показывает окно и уходит: всё, что живёт дальше — подтверждение,
+  /// ход работы, вопросы по дороге, уход в фон, — принадлежит окну.
   @override
   Future<void> execute() async {
     final panel = context.panel;
     final editor = panel.editor;
     final targets = this.targets;
-    if (editor == null || targets.isEmpty || isBusy) {
+    if (editor == null || targets.isEmpty) {
       return;
     }
 
-    // Аренда — на всё время работы: удаление можно отправить в фон, и панель
-    // за это время вправе выйти из архива, в котором оно идёт.
-    final source = panel.leaseProvider();
-
-    try {
-      await runOperation(editor.remove(targets, toTrash: toTrash), message: 'Deleting…');
-    } finally {
-      await source?.release();
-      // Часть объектов могла исчезнуть, часть остаться: список в панели больше
-      // не совпадает с диском.
-      panel.selection.clear();
-      await panel.reload();
+    Future<void> remove() async {
+      // Аренда — на всё время работы: удаление можно отправить в фон, и панель
+      // за это время вправе выйти из архива, в котором оно идёт.
+      final source = panel.leaseProvider();
+      try {
+        await editor.remove(targets, toTrash: toTrash).result;
+      } finally {
+        await source?.release();
+        // Часть объектов могла исчезнуть, часть остаться: список в панели
+        // больше не совпадает с диском.
+        panel.selection.clear();
+        await panel.reload();
+      }
     }
+
+    if (param<bool>(confirmedParam) == true) {
+      // Согласие уже дано — спрашивать некого и незачем.
+      await remove();
+      return;
+    }
+
+    final view = context.app.view;
+    late final FcAsyncRun run;
+
+    void present() {
+      late final String dialogId;
+      run.close = () => view.closeDialog(dialogId);
+      dialogId = view.showDialog(
+        DialogSpec(
+          title: dialogTitle,
+          takesFocus: true,
+          // Вопрос по ходу работы, ход дела и разбор ошибки — общие для всех
+          // длительных работ, их берёт на себя окно. Своё здесь только одно:
+          // спросить, точно ли удалять.
+          content: FcAsyncRunDialog(
+            run: run,
+            form:
+                (context) => CommandDialogConfirm(
+                  message: _confirmationMessage,
+                  confirmLabel: toTrash ? 'Delete' : 'Delete permanently',
+                  onCancel: run.dismiss,
+                  onConfirm: run.submit,
+                ),
+          ),
+          onSubmit: run.submit,
+          onDismiss: run.dismiss,
+        ),
+      );
+    }
+
+    run = FcAsyncRun(
+      app: context.app,
+      commandId: id,
+      title: dialogTitle,
+      failureMessage: failureMessage,
+      show: present,
+    );
+
+    run.onStart = () async {
+      final source = panel.leaseProvider();
+      try {
+        await run.run(editor.remove(targets, toTrash: toTrash), message: 'Deleting…');
+      } finally {
+        await source?.release();
+        panel.selection.clear();
+        await panel.reload();
+      }
+    };
+
+    present();
   }
-
-  // --- окно ---
-
-  /// Вопрос по ходу работы, ход дела и разбор ошибки — общие для всех
-  /// длительных работ, их берёт на себя [AsyncCommandDialog]. Команде остаётся
-  /// то, что у неё своё: спросить, точно ли удалять.
-  @override
-  DialogSpec? dialogSpec(BuildContext context) =>
-      DialogSpec(title: dialogTitle, takesFocus: true, content: AsyncCommandDialog(command: this, form: _form));
-
-  /// «Delete !» в заголовке разбора читалось бы как опечатка: восклицательный
-  /// знак в названии команды отличает её от удаления в корзину, а не от чего-то
-  /// ещё.
-  @override
-  String get failureMessage => 'Delete failed';
-
-  Widget _form(BuildContext context) => CommandDialogConfirm(
-    message: _confirmationMessage,
-    confirmLabel: toTrash ? 'Delete' : 'Delete permanently',
-    onCancel: dismiss,
-    onConfirm: submit,
-  );
 
   /// Заголовок собирается как в референсе: действие и то, над чем оно идёт.
   @override

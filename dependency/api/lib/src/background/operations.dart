@@ -6,7 +6,13 @@ import '../async/operation_status.dart';
 
 /// Заведённая работа: сама она и то, что про неё знает реестр.
 class OperationRun {
-  OperationRun({required this.runId, required this.operation, required this.commandId, required this.title});
+  OperationRun({
+    required this.runId,
+    required this.operation,
+    required this.commandId,
+    required this.title,
+    this.bringToFront,
+  });
 
   final String runId;
 
@@ -33,6 +39,13 @@ class OperationRun {
   ///
   /// Привязка к позиции, а не к объекту панели: панель заменяема, позиция нет.
   ViewportPosition? owner;
+
+  /// Чем показать эту работу снова; null — показывать нечем.
+  ///
+  /// Реестру незачем знать, **как** это делается: окно строит тот, кто работу
+  /// завёл, — он и говорит здесь, чем его вернуть. Иначе реестру пришлось бы
+  /// разбираться в командах, окнах и их состояниях.
+  final VoidCallback? bringToFront;
 
   bool get isInBackground => owner != null;
 

@@ -33,11 +33,11 @@ void main() {
     expect(commands.commandFor(KeyCombination.parse('Shift-Cmd-Bsp'))?.id, 'file.removePermanently');
   });
 
-  test('длительные операции рассказывают о ходе работы', () {
-    // Из этого и растёт фоновое выполнение: ядро прячет окно, а ход дела
-    // показывает рядом с остальными такими же.
+  test('длительные операции есть в списке команд', () {
+    // Ход работы теперь рассказывает не команда, а прогон: она показывает окно
+    // и уходит. Здесь остаётся проверить, что сами команды на месте.
     for (final id in ['file.remove', 'file.removePermanently', 'file.copy', 'file.move']) {
-      expect(commands.find(id)!.canRunInBackground, isTrue);
+      expect(commands.find(id), isNotNull, reason: 'команда $id не установлена');
     }
   });
 

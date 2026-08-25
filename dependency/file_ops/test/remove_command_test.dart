@@ -26,8 +26,10 @@ void main() {
 
   CommandService commands() => app.commands;
 
+  /// Согласие задаётся сразу: у теста окна нет, а спрашивать некого.
   RemoveCommandBase remove({bool permanently = false}) =>
-      commands().create(permanently ? 'file.removePermanently' : 'file.remove')! as RemoveCommandBase;
+      commands().create(permanently ? 'file.removePermanently' : 'file.remove')! as RemoveCommandBase
+        ..setParam(RemoveCommandBase.confirmedParam, true);
 
   List<String> namesOf() => app.left.nodes.map((node) => node.name).toList();
 
@@ -79,31 +81,53 @@ void main() {
     expect(namesOf(), isNot(contains('report.xlsx')));
   });
 
-  test('команда сообщает о ходе работы', () async {
-    app.left.setCursorToName('notes.txt');
-    final command = remove();
+  test('о ходе работы рассказывает прогон, а не команда', () async {
+    // Ход работы, подтверждение и отмена принадлежат окну: команда показывает
+    // его и уходит. Проверяется поэтому прогон.
+    final run = FcAsyncRun(
+      app: app,
+      commandId: 'file.remove',
+      title: 'Delete',
+      failureMessage: 'Delete failed',
+      show: () {},
+    );
 
-    final done = command.execute();
-    expect(command.isRunning, isTrue);
+    app.left.setCursorToName('notes.txt');
+    final node = app.left.currentNode!;
+    final done = run.run(app.left.editor!.remove([node]), message: 'Deleting…');
+
+    expect(run.isRunning, isTrue);
     await done;
 
-    expect(command.isRunning, isFalse);
-    expect(command.progressMessage, isNotEmpty);
-    expect(command, isA<AsyncCommand>());
+    expect(run.isRunning, isFalse);
+    expect(run.progressMessage, isNotEmpty);
   });
 
-  test('пока команда исполняется, подтверждение и отмена не срабатывают', () async {
+  test('пока прогон идёт, подтверждение и отмена не срабатывают', () async {
+    final run = FcAsyncRun(
+      app: app,
+      commandId: 'file.remove',
+      title: 'Delete',
+      failureMessage: 'Delete failed',
+      show: () {},
+    );
+    var started = 0;
+    run.onStart = () async => started++;
+
     app.left.setCursorToName('notes.txt');
-    final command = remove();
+    final node = app.left.currentNode!;
+    final running = run.run(app.left.editor!.remove([node]), message: 'Deleting…');
+    expect(run.isRunning, isTrue);
 
-    final running = command.execute();
-    expect(command.isRunning, isTrue);
+    // Рама окна зовёт эти методы по Enter и Esc — во время работы они молчат.
+    await run.submit();
+    run.dismiss();
 
-    // Ядро зовёт эти методы по Enter и Esc — во время работы они молчат.
-    await command.submit();
-    command.dismiss();
+    expect(started, 0, reason: 'работа уже идёт, запускать нечего');
 
     await running;
+    // Перечитывает панель тот, кто заводил работу; здесь её завёл тест.
+    await app.left.reload();
     expect(namesOf(), isNot(contains('notes.txt')));
   });
 
