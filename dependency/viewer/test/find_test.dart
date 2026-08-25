@@ -43,7 +43,7 @@ void main() {
   Future<ViewerScreen> openViewer() async {
     runtime.app.left.setCursorToName('notes.txt');
     await (runtime.commands.create(ViewFileCommand.commandId)!).execute();
-    return runtime.app.screens.active! as ViewerScreen;
+    return runtime.app.view.contentAt(ViewportPosition.fullscreen)! as ViewerScreen;
   }
 
   group('клавиши', () {

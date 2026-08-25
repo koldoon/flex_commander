@@ -34,7 +34,7 @@ void main() {
   Future<ViewerScreen> openViewer() async {
     runtime.app.left.setCursorToName('notes.txt');
     await (runtime.commands.create(ViewFileCommand.commandId)!).execute();
-    return runtime.app.screens.active! as ViewerScreen;
+    return runtime.app.view.contentAt(ViewportPosition.fullscreen)! as ViewerScreen;
   }
 
   test('пока ничего не выделено, копировать нечего', () async {
@@ -78,7 +78,7 @@ void main() {
     (tester) async => withDesktopPlatform(() async {
       // Иначе `Cmd-C` сработала бы дважды: своя команда и встроенное сочетание.
       final screen = await openViewer();
-      await pumpScreen(tester, screen, app: runtime.app);
+      await pumpScreen(tester, ViewerView(screen: screen), app: runtime.app);
 
       final view = tester.widget<FcTextView>(find.byType(FcTextView));
 

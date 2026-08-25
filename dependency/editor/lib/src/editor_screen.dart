@@ -16,7 +16,7 @@ import 'text_file.dart';
 /// В отличие от просмотрщика **берёт фокус себе**: печатать надо в текст, а не
 /// в команды. Обязанность вернуть фокус при закрытии лежит на
 /// `KeyboardHandler` — см. `docs/screens.md`.
-class EditorScreen extends ChangeNotifier implements Screen, FcSearchable {
+class EditorScreen extends ChangeNotifier implements ViewportState, FcSearchable {
   EditorScreen({
     required this.node,
     required TextFile file,
@@ -132,8 +132,5 @@ class EditorScreen extends ChangeNotifier implements Screen, FcSearchable {
 
   /// Фокус нужен: иначе некуда печатать.
   @override
-  bool get takesFocus => true;
-
-  @override
-  Widget build(BuildContext context) => EditorView(screen: this);
+  bool get takesKeyboard => true;
 }

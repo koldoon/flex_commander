@@ -8,6 +8,7 @@ import 'package:fc_panels/fc_panels.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flex_commander/view/split_view.dart';
 
 /// Разделитель панелей: перетаскивание и возврат в середину.
 void main() {

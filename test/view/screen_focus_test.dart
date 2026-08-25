@@ -5,6 +5,7 @@ import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Экран, забирающий фокус, обязан вернуть его, закрываясь.
@@ -19,7 +20,7 @@ void main() {
     runtime = await testApp(
       provider: InMemoryTreeProvider([FakeEntry.directory('/home'), FakeEntry.file('/home/notes.txt', size: 10)])
         ..home = '/home',
-      modules: featureModules(),
+      modules: [...featureModules(), const _FocusModule()],
     );
     await runtime.app.start();
   });
@@ -30,12 +31,12 @@ void main() {
 
     final wasActive = runtime.app.activePanel;
 
-    runtime.app.screens.open(const _EditorLikeScreen());
+    runtime.app.view.pushViewportContent(ViewportPosition.fullscreen, _EditorLikeScreen());
     await tester.pumpAndSettle();
     // Фокус внутри экрана: печатать нужно туда, а не в панели.
     expect(find.byType(TextField), findsOneWidget);
 
-    runtime.app.screens.close(_EditorLikeScreen.screenId);
+    runtime.app.view.popViewportContent(ViewportPosition.fullscreen);
     await tester.pumpAndSettle();
 
     await tester.sendKeyEvent(LogicalKeyboardKey.tab);
@@ -50,14 +51,14 @@ void main() {
     await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
     await tester.pumpAndSettle();
 
-    runtime.app.screens.open(const _EditorLikeScreen());
+    runtime.app.view.pushViewportContent(ViewportPosition.fullscreen, _EditorLikeScreen());
     await tester.pumpAndSettle();
 
     // Без этого человек видит текст, но курсора нет и печатать некуда, пока
     // он не ткнёт мышью.
     expect(FocusManager.instance.primaryFocus?.debugLabel, _EditorLikeScreen.focusLabel);
 
-    runtime.app.screens.close(_EditorLikeScreen.screenId);
+    runtime.app.view.popViewportContent(ViewportPosition.fullscreen);
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 20));
   });
@@ -66,7 +67,7 @@ void main() {
     await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
     await tester.pumpAndSettle();
 
-    runtime.app.screens.open(const _EditorLikeScreen());
+    runtime.app.view.pushViewportContent(ViewportPosition.fullscreen, _EditorLikeScreen());
     await tester.pumpAndSettle();
 
     await tester.enterText(find.byType(TextField), 'печать');
@@ -74,33 +75,42 @@ void main() {
 
     expect(find.text('печать'), findsOneWidget);
 
-    runtime.app.screens.close(_EditorLikeScreen.screenId);
+    runtime.app.view.popViewportContent(ViewportPosition.fullscreen);
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 20));
   });
 }
 
-/// Экран, которому фокус нужен по-настоящему, — как редактору.
+/// Приносит вид для содержимого-подставки: в ядре своих видов нет.
+class _FocusModule implements FcModule {
+  const _FocusModule();
+
+  @override
+  String get id => 'test.focus';
+
+  @override
+  String get title => 'Focus stub';
+
+  @override
+  void install(FcRegistry registry) {
+    registry.view<_EditorLikeScreen>((context, state) => const _EditorLikeField());
+  }
+}
+
+/// Содержимое, которому фокус нужен по-настоящему, — как редактору.
 ///
 /// Фокус он **просит сам**: `autofocus` в этот момент не срабатывает — фокус
 /// уже у обработчика клавиатуры, и область считает, что хозяин есть.
-class _EditorLikeScreen implements Screen {
-  const _EditorLikeScreen();
+class _EditorLikeScreen extends ChangeNotifier implements ViewportState {
+  _EditorLikeScreen();
 
-  static const String screenId = 'editor-like';
   static const String focusLabel = 'editor-like-field';
 
   @override
-  String get id => screenId;
-
-  @override
-  bool get takesFocus => true;
+  bool get takesKeyboard => true;
 
   @override
   void close() {}
-
-  @override
-  Widget build(BuildContext context) => const _EditorLikeField();
 }
 
 class _EditorLikeField extends StatefulWidget {
@@ -124,11 +134,11 @@ class _EditorLikeFieldState extends State<_EditorLikeField> {
   }
 
   @override
+  Widget build(BuildContext context) => TextField(focusNode: _focus);
+
+  @override
   void dispose() {
     _focus.dispose();
     super.dispose();
   }
-
-  @override
-  Widget build(BuildContext context) => TextField(focusNode: _focus);
 }

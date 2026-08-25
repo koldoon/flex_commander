@@ -47,7 +47,7 @@ void main() {
   }
 
   EditorScreen? openEditor() {
-    final screen = runtime.app.screens.active;
+    final screen = runtime.app.view.contentAt(ViewportPosition.fullscreen);
     return screen is EditorScreen ? screen : null;
   }
 
@@ -59,13 +59,15 @@ void main() {
 
       expect(openEditor(), isNotNull);
       expect(openEditor()!.controller.text, 'раз\nдва\n');
-      expect(runtime.app.screens.stack.map((screen) => screen.id), [Screens.files, EditorScreen.screenId]);
+      expect(runtime.app.view.stackAt(ViewportPosition.fullscreen).map((state) => state.runtimeType), [EditorScreen]);
+      // Панели никуда не делись — они под ним, в своих областях.
+      expect(runtime.app.view.panelAt(ViewportPosition.left), isNotNull);
     });
 
     test('редактору нужен фокус — в отличие от просмотрщика', () async {
       await edit('notes.txt');
 
-      expect(openEditor()!.takesFocus, isTrue);
+      expect(openEditor()!.takesKeyboard, isTrue);
     });
 
     test('не-текст на правку не открывается, и сказано почему', () async {
@@ -122,7 +124,7 @@ void main() {
       expect(close.hasDialog, isFalse);
       await close.execute();
 
-      expect(runtime.app.screens.active?.id, Screens.files);
+      expect(runtime.app.view.contentAt(ViewportPosition.fullscreen), isNull);
     });
 
     test('с правками спрашивает, а не теряет молча', () async {

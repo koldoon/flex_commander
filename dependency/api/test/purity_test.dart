@@ -31,6 +31,7 @@ void main() {
     const uiOnly = [
       'lib/src/app/screen.dart',
       'lib/src/app/panel_viewport.dart',
+      'lib/src/app/views.dart',
       // Набросок целевого API: там виджет нужен по той же причине, что в
       // `screen.dart`, — описание окна обязано отдать, чем его рисовать.
       'lib/src/__ref/application.dart',

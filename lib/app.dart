@@ -5,7 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
 import 'state/app_controller.dart';
-import 'view/application_view.dart';
+import 'view/app_shell.dart';
 import 'view/theme/app_theme.dart';
 
 class FlexCommanderApp extends StatefulWidget {
@@ -56,7 +56,7 @@ class _FlexCommanderAppState extends State<FlexCommanderApp> {
               title: 'Flex Commander',
               debugShowCheckedModeBanner: false,
               theme: buildThemeData(widget.controller.theme.current),
-              home: const ApplicationView(),
+              home: const AppShell(),
             ),
       ),
     );

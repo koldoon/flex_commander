@@ -6,6 +6,8 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flex_commander/view/split_view.dart';
+import 'package:flex_commander/view/app_shell.dart';
 
 /// Панели как экран: модуль ставит его при запуске, ядро о панелях не знает.
 void main() {
@@ -27,10 +29,7 @@ void main() {
             FcTheme(colors: DefaultColors(), metrics: DefaultMetrics(), icons: DefaultIcons(), fonts: DefaultFonts()),
           ],
         ),
-        home: AppScope(
-          controller: runtime.app,
-          child: Scaffold(body: Builder(builder: (context) => runtime.app.screens.active!.build(context))),
-        ),
+        home: AppScope(controller: runtime.app, child: Scaffold(body: const AppShell())),
       ),
     );
     await tester.pumpAndSettle();
@@ -39,13 +38,17 @@ void main() {
   test('модуль ставит экран при сборке приложения, до первого кадра', () async {
     // Стартовая команда модуля выполняется при установке — панели стоят на
     // экране ещё до того, как приложение начнёт читать каталоги.
-    expect(runtime.app.screens.active?.id, Screens.files);
+    expect(
+      runtime.app.view.contentAt(ViewportPosition.fullscreen),
+      isNull,
+      reason: 'панели видны, пока сверху ничего нет',
+    );
   });
 
   test('фокус экрану панелей не нужен: активную панель знает приложение', () async {
     await runtime.app.start();
 
-    expect(runtime.app.screens.active?.takesFocus, isFalse);
+    expect(runtime.app.view.panelAt(ViewportPosition.left)?.takesKeyboard, isFalse);
   });
 
   test('таблица файлов объявлена штатным видом содержимого', () async {

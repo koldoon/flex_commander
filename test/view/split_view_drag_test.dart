@@ -3,6 +3,7 @@ import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:flex_commander/view/split_view.dart';
 
 /// Разделитель панелей: он обязан идти ровно за курсором.
 void main() {

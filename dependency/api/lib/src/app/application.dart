@@ -4,8 +4,8 @@ import '../background/task_status.dart';
 import '../commands/command_service.dart';
 import 'errors.dart';
 import 'panel_viewport.dart';
+import 'viewport.dart';
 import 'views.dart';
-import 'screen.dart';
 import '../theme/theme_service.dart';
 import '../settings/app_settings.dart';
 import '../settings/module_settings.dart';
@@ -66,11 +66,11 @@ abstract interface class Application implements Listenable {
   /// проверяет компилятор, и модуль, объявивший состояние, объявляет и вид.
   Views get views;
 
-  /// Экраны приложения: что видно выше ряда функциональных кнопок.
+  /// Рабочая область: что где стоит и кому принадлежит ввод.
   ///
-  /// Сами файловые панели — тоже экран, и приходит он модулем: ядро не решает,
-  /// чем показывать файлы.
-  Screens get screens;
+  /// Сами файловые панели — такое же содержимое области, как просмотрщик или
+  /// результаты поиска: ядро не решает, чем показывать файлы.
+  ApplicationView get view;
 
   /// Закрывает окно запущенной команды.
   ///

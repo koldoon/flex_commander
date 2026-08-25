@@ -39,11 +39,11 @@ void main() {
       runtime.app.left.setCursorToName('notes.txt');
       await (runtime.commands.create(ViewFileCommand.commandId)!).execute();
       await tester.pumpAndSettle();
-      expect(runtime.app.screens.active, isA<ViewerScreen>());
+      expect(runtime.app.view.contentAt(ViewportPosition.fullscreen), isA<ViewerScreen>());
 
       runtime.commands.dispatch(KeyCombination.parse('Esc'));
       await tester.pumpAndSettle();
-      expect(runtime.app.screens.active?.id, Screens.files);
+      expect(runtime.app.view.contentAt(ViewportPosition.fullscreen), isNull);
 
       // Тот самый Tab, который в живом приложении перестал работать.
       await tester.sendKeyEvent(LogicalKeyboardKey.tab);

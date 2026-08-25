@@ -4,6 +4,7 @@ import 'package:fc_text_kit/fc_text_kit.dart';
 import 'editor_commands.dart';
 import 'editor_screen.dart';
 import 'editor_settings.dart';
+import 'editor_view.dart';
 
 /// Редактор текста.
 ///
@@ -26,6 +27,8 @@ class TextEditor implements FcModule {
 
   @override
   void install(FcRegistry registry) {
+    // Что рисует состояние, объявляет тот же модуль, который его завёл.
+    registry.view<EditorScreen>((context, state) => EditorView(screen: state));
     EditorSettings settingsOf() => registry.settings.section(EditorSettings.new);
 
     // `F4` уже закреплена оболочкой за этим идентификатором — команда занимает
@@ -41,16 +44,16 @@ class TextEditor implements FcModule {
     registry.command((context) => FcFindNextCommand(id: findNextCommandId, screenId: EditorScreen.screenId));
     registry.command((context) => FcFindPreviousCommand(id: findPreviousCommandId, screenId: EditorScreen.screenId));
 
-    registry.binding(KeyBinding('F2', SaveFileCommand.commandId, screen: EditorScreen.screenId));
-    registry.binding(KeyBinding('Esc', CloseEditorCommand.commandId, screen: EditorScreen.screenId));
-    registry.binding(KeyBinding('F10', CloseEditorCommand.commandId, screen: EditorScreen.screenId));
-    registry.binding(KeyBinding('Cmd-S', SaveFileCommand.commandId, screen: EditorScreen.screenId));
-    registry.binding(KeyBinding('F7', findCommandId, screen: EditorScreen.screenId));
-    registry.binding(KeyBinding('Cmd-F', findCommandId, screen: EditorScreen.screenId));
-    registry.binding(KeyBinding('Shift-F7', findNextCommandId, screen: EditorScreen.screenId));
-    registry.binding(KeyBinding('Cmd-G', findNextCommandId, screen: EditorScreen.screenId));
-    registry.binding(KeyBinding('Shift-Cmd-G', findPreviousCommandId, screen: EditorScreen.screenId));
-    registry.binding(KeyBinding('F9', ToggleEditorNumbersCommand.commandId, screen: EditorScreen.screenId));
-    registry.binding(KeyBinding('Cmd-W', ToggleEditorWrapCommand.commandId, screen: EditorScreen.screenId));
+    registry.binding(KeyBinding.inState<EditorScreen>('F2', SaveFileCommand.commandId));
+    registry.binding(KeyBinding.inState<EditorScreen>('Esc', CloseEditorCommand.commandId));
+    registry.binding(KeyBinding.inState<EditorScreen>('F10', CloseEditorCommand.commandId));
+    registry.binding(KeyBinding.inState<EditorScreen>('Cmd-S', SaveFileCommand.commandId));
+    registry.binding(KeyBinding.inState<EditorScreen>('F7', findCommandId));
+    registry.binding(KeyBinding.inState<EditorScreen>('Cmd-F', findCommandId));
+    registry.binding(KeyBinding.inState<EditorScreen>('Shift-F7', findNextCommandId));
+    registry.binding(KeyBinding.inState<EditorScreen>('Cmd-G', findNextCommandId));
+    registry.binding(KeyBinding.inState<EditorScreen>('Shift-Cmd-G', findPreviousCommandId));
+    registry.binding(KeyBinding.inState<EditorScreen>('F9', ToggleEditorNumbersCommand.commandId));
+    registry.binding(KeyBinding.inState<EditorScreen>('Cmd-W', ToggleEditorWrapCommand.commandId));
   }
 }

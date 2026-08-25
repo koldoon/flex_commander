@@ -1,7 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 
 import 'file_table.dart';
-import 'files_screen.dart';
 import 'panel_view.dart';
 
 /// Файловые панели.
@@ -29,31 +28,5 @@ class Panels implements FcModule {
     // Панель — тоже состояние области, и рисуется тем же механизмом, что всё
     // остальное: ядро не знает, чем показывают файлы.
     registry.view<Panel>((context, panel) => PanelView(panel: panel));
-
-    // Экран открывается стартовой командой: во время объявления приложения
-    // ещё нет, а к первому кадру экран уже должен стоять.
-    registry.startup((context) => _OpenFilesScreen(context.app));
   }
-}
-
-/// Ставит панели на экран при запуске.
-class _OpenFilesScreen extends AppCommand {
-  _OpenFilesScreen(this._app);
-
-  final Application _app;
-
-  @override
-  String get id => 'panels.show';
-
-  @override
-  String get label => 'Show file panels';
-
-  @override
-  String get description => 'Put the file panels on screen';
-
-  @override
-  bool isExecutable(CommandContext context) => true;
-
-  @override
-  Future<void> execute() async => _app.screens.open(const FilesScreen());
 }

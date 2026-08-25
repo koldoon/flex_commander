@@ -199,14 +199,14 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Backgrou
     }
 
     final node = app.activePanel.currentNode;
-    final screenId = app.screens.active?.id;
+    final content = app.view.contentAt(app.view.activeArea);
     KeyBinding? fallback;
 
     for (final binding in _bindings) {
       // Клавиша принадлежит тому, что сейчас на экране: `F5` не должен
       // копировать файлы из-под открытого просмотрщика, а ряд кнопок —
       // обещать то, чего по нажатию не будет.
-      if (!binding.matches(combination, node, screenId: screenId)) {
+      if (!binding.matches(combination, node, content: content)) {
         continue;
       }
       final command = _prototypes[binding.commandId];

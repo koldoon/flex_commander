@@ -39,7 +39,7 @@ void main() {
     await (runtime.commands.create(EditFileCommand.commandId)!).execute();
     await tester.pumpAndSettle();
 
-    return runtime.app.screens.active! as EditorScreen;
+    return runtime.app.view.contentAt(ViewportPosition.fullscreen)! as EditorScreen;
   }
 
   Future<String> contentOf(String path) async {
@@ -56,7 +56,7 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
 
-      expect(runtime.app.screens.active?.id, Screens.files);
+      expect(runtime.app.view.contentAt(ViewportPosition.fullscreen), isNull);
 
       // И приложение по-прежнему слышит клавиатуру: фокус вернулся.
       final wasActive = runtime.app.activePanel;

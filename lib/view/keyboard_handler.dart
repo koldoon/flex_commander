@@ -45,12 +45,6 @@ class _KeyboardHandlerState extends State<KeyboardHandler> {
   /// включая одиночные нажатия модификаторов, у которых нет комбинации.
   final ValueNotifier<KeyModifiers> _modifiers = ValueNotifier(KeyModifiers.none);
 
-  /// Узел, которому фокус достаётся, пока его никто не просил.
-  ///
-  /// На разбор клавиш он больше не влияет — только на то, чтобы фокус был хоть
-  /// где-то и `Tab` не уводил его в неожиданное место.
-  final FocusNode _node = FocusNode(debugLabel: 'KeyboardHandler');
-
   Application get app => widget.app;
 
   @override
@@ -58,13 +52,14 @@ class _KeyboardHandlerState extends State<KeyboardHandler> {
     super.initState();
     FocusManager.instance.addEarlyKeyEventHandler(_handleKey);
     FocusManager.instance.addLateKeyEventHandler(_swallowEscape);
+    FocusManager.instance.addListener(_onFocusChanged);
   }
 
   @override
   void dispose() {
     FocusManager.instance.removeEarlyKeyEventHandler(_handleKey);
     FocusManager.instance.removeLateKeyEventHandler(_swallowEscape);
-    _node.dispose();
+    FocusManager.instance.removeListener(_onFocusChanged);
     _modifiers.dispose();
     super.dispose();
   }
@@ -72,15 +67,29 @@ class _KeyboardHandlerState extends State<KeyboardHandler> {
   @override
   Widget build(BuildContext context) {
     return Focus(
-      focusNode: _node,
-      autofocus: true,
-      // Фокус внутрь пускается всегда: раньше его приходилось запирать, чтобы
-      // нажатия доставались обработчику, а тот теперь получает их первым в
-      // любом случае. Вместе с запором ушла и вся возня с возвратом фокуса
-      // после закрытия экрана, который его забирал.
-      onFocusChange: (hasFocus) => _modifiers.value = hasFocus ? KeyModifiers.pressed() : KeyModifiers.none,
+      // Фокуса себе не просит вовсе: нажатия он получает раньше дерева фокуса,
+      // и владелец фокуса на разбор не влияет. Раньше приходилось и держать
+      // фокус, и запирать его внутри, и отбирать обратно после закрытия
+      // экрана, который его забирал, — всё это ушло.
+      canRequestFocus: false,
+      skipTraversal: true,
       child: ModifiersScope(modifiers: _modifiers, child: widget.child),
     );
+  }
+
+  /// Фокус остался ничьим — окно ушло к соседнему приложению.
+  ///
+  /// Слой модификаторов сбрасывается: отпускание случится уже там и до нас не
+  /// дойдёт, а ряд кнопок иначе остался бы в чужом слое навсегда.
+  ///
+  /// «Ничей» — это область, а не обычный узел: у настоящего хозяина узел
+  /// обычный. Зажатый модификатор от этого не теряется — его снимает каждое
+  /// нажатие, а смена фокуса при удержании не происходит.
+  void _onFocusChanged() {
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus == null || focus is FocusScopeNode) {
+      _modifiers.value = KeyModifiers.none;
+    }
   }
 
   KeyEventResult _handleKey(KeyEvent event) {
@@ -109,10 +118,10 @@ class _KeyboardHandlerState extends State<KeyboardHandler> {
       return KeyEventResult.ignored;
     }
 
-    // Занятость панели глушит клавиши только на самой панели: чужой экран
-    // читает свой файл и о чтении каталога ничего не знает.
-    final onPanels = app.screens.active?.id == Screens.files;
-    if (onPanels && app.activePanel.busy && combination.key != KeyboardHandler.cancelKey) {
+    // Занятость глушит клавиши только там, где стоит занятая панель: чужое
+    // содержимое читает свой файл и о чтении каталога ничего не знает.
+    final panel = app.view.panelAt(app.view.activeArea);
+    if (panel != null && panel.busy && combination.key != KeyboardHandler.cancelKey) {
       // Событие считается обработанным: пока идёт чтение, клавиши не должны
       // проваливаться дальше и, например, уводить фокус по Tab.
       return KeyEventResult.handled;

@@ -4,6 +4,7 @@ import 'package:fc_text_kit/fc_text_kit.dart';
 import 'viewer_commands.dart';
 import 'viewer_screen.dart';
 import 'viewer_settings.dart';
+import 'viewer_view.dart';
 
 /// Просмотрщик текста.
 ///
@@ -27,6 +28,8 @@ class TextViewer implements FcModule {
 
   @override
   void install(FcRegistry registry) {
+    // Что рисует состояние, объявляет тот же модуль, который его завёл.
+    registry.view<ViewerScreen>((context, state) => ViewerView(screen: state));
     // Раздел настроек читается не сейчас, а когда позовут фабрику: во время
     // объявления настроек ещё нет.
     ViewerSettings settingsOf() => registry.settings.section(ViewerSettings.new);
@@ -49,16 +52,16 @@ class TextViewer implements FcModule {
     // Привязки просмотрщика действуют только в его экране: в панелях за этими
     // же клавишами стоят свои команды, и ряд кнопок показывает те, что сейчас
     // на месте.
-    registry.binding(KeyBinding('F2', ToggleWordWrapCommand.commandId, screen: ViewerScreen.screenId));
-    registry.binding(KeyBinding('Esc', CloseViewerCommand.commandId, screen: ViewerScreen.screenId));
-    registry.binding(KeyBinding('F10', CloseViewerCommand.commandId, screen: ViewerScreen.screenId));
-    registry.binding(KeyBinding('F7', findCommandId, screen: ViewerScreen.screenId));
-    registry.binding(KeyBinding('Cmd-F', findCommandId, screen: ViewerScreen.screenId));
-    registry.binding(KeyBinding('Shift-F7', findNextCommandId, screen: ViewerScreen.screenId));
-    registry.binding(KeyBinding('Cmd-G', findNextCommandId, screen: ViewerScreen.screenId));
-    registry.binding(KeyBinding('Shift-Cmd-G', findPreviousCommandId, screen: ViewerScreen.screenId));
-    registry.binding(KeyBinding('F9', ToggleViewerNumbersCommand.commandId, screen: ViewerScreen.screenId));
-    registry.binding(KeyBinding('Cmd-C', CopySelectionCommand.commandId, screen: ViewerScreen.screenId));
+    registry.binding(KeyBinding.inState<ViewerScreen>('F2', ToggleWordWrapCommand.commandId));
+    registry.binding(KeyBinding.inState<ViewerScreen>('Esc', CloseViewerCommand.commandId));
+    registry.binding(KeyBinding.inState<ViewerScreen>('F10', CloseViewerCommand.commandId));
+    registry.binding(KeyBinding.inState<ViewerScreen>('F7', findCommandId));
+    registry.binding(KeyBinding.inState<ViewerScreen>('Cmd-F', findCommandId));
+    registry.binding(KeyBinding.inState<ViewerScreen>('Shift-F7', findNextCommandId));
+    registry.binding(KeyBinding.inState<ViewerScreen>('Cmd-G', findNextCommandId));
+    registry.binding(KeyBinding.inState<ViewerScreen>('Shift-Cmd-G', findPreviousCommandId));
+    registry.binding(KeyBinding.inState<ViewerScreen>('F9', ToggleViewerNumbersCommand.commandId));
+    registry.binding(KeyBinding.inState<ViewerScreen>('Cmd-C', CopySelectionCommand.commandId));
 
     // Стрелок, страниц и `Home` здесь нет нарочно: прокрутку и выделение
     // забрал себе показ — он же берёт фокус. Пока просмотрщик рисовал строки

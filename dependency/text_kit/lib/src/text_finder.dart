@@ -151,6 +151,12 @@ class FcTextFinder {
 ///
 /// Реализуют его и просмотрщик, и редактор — показ у них общий, значит и поиск
 /// один и тот же. Команды поиска спрашивают именно это, а не конкретный экран.
-abstract interface class FcSearchable implements Screen {
+abstract interface class FcSearchable implements ViewportState {
+  /// Устойчивое имя: по нему команда поиска узнаёт своё содержимое.
+  ///
+  /// Просмотрщик и редактор ищут одинаково и пользуются одними командами, но
+  /// экземпляры у них разные, и путать их нельзя.
+  String get id;
+
   FcTextFinder get finder;
 }

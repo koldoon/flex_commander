@@ -5,6 +5,7 @@ import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/view/function_bar/function_button.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Ряд кнопок показывает команды того экрана, который сейчас виден.
@@ -32,13 +33,13 @@ void main() {
   String? labelOn(String keys) => runtime.commands.commandFor(KeyCombination.parse(keys))?.label;
 
   test('в панелях за клавишами стоят панельные команды', () {
-    expect(runtime.app.screens.active?.id, Screens.files);
+    expect(runtime.app.view.contentAt(ViewportPosition.fullscreen), isNull);
     expect(labelOn('F5'), isNotNull);
     expect(labelOn('F2'), isNot('Stub wrap'));
   });
 
   test('в чужом экране панельные команды молчат, а его — отвечают', () {
-    runtime.app.screens.open(const _StubScreen());
+    runtime.app.view.pushViewportContent(ViewportPosition.fullscreen, _StubScreen());
 
     // `F5` принадлежит панелям: копировать из-под чужого экрана нечего.
     expect(labelOn('F5'), isNull);
@@ -46,8 +47,8 @@ void main() {
   });
 
   test('экран закрылся — клавиши вернулись панелям', () {
-    runtime.app.screens.open(const _StubScreen());
-    runtime.app.screens.close('stub');
+    runtime.app.view.pushViewportContent(ViewportPosition.fullscreen, _StubScreen());
+    runtime.app.view.popViewportContent(ViewportPosition.fullscreen);
 
     expect(labelOn('F5'), isNotNull);
     expect(labelOn('F2'), isNot('Stub wrap'));
@@ -58,7 +59,7 @@ void main() {
     expect(find.text('Stub wrap'), findsNothing);
     expect(find.byType(FunctionButton), findsNWidgets(10));
 
-    runtime.app.screens.open(const _StubScreen());
+    runtime.app.view.pushViewportContent(ViewportPosition.fullscreen, _StubScreen());
     await tester.pumpAndSettle();
 
     // Ряд кнопок остался на месте и показывает команды экрана.
@@ -73,20 +74,14 @@ void main() {
 }
 
 /// Экран-подставка: в ядре своих экранов нет, а проверять правило надо.
-class _StubScreen implements Screen {
-  const _StubScreen();
+class _StubScreen extends ChangeNotifier implements ViewportState {
+  _StubScreen();
 
   @override
-  String get id => 'stub';
-
-  @override
-  bool get takesFocus => false;
+  bool get takesKeyboard => false;
 
   @override
   void close() {}
-
-  @override
-  Widget build(BuildContext context) => const Center(child: Text('Stub screen content'));
 }
 
 class _StubScreenModule implements FcModule {
@@ -100,8 +95,9 @@ class _StubScreenModule implements FcModule {
 
   @override
   void install(FcRegistry registry) {
+    registry.view<_StubScreen>((context, state) => const Center(child: Text('Stub screen content')));
     registry.command((context) => _StubCommand());
-    registry.binding(KeyBinding('F2', 'stub.wrap', screen: 'stub'));
+    registry.binding(KeyBinding.inState<_StubScreen>('F2', 'stub.wrap'));
   }
 }
 

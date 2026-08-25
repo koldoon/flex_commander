@@ -545,6 +545,11 @@ class PanelController extends ChangeNotifier implements Panel {
   @override
   void cancel() => _operation?.cancel();
 
+  /// Фокус панелям не нужен: какая область активна, знает приложение, а
+  /// нажатия разбирает ранний обработчик клавиатуры.
+  @override
+  bool get takesKeyboard => false;
+
   /// Панель убрали из области: отпустить всё, что она держала.
   ///
   /// Сегодня не зовётся никем: панель пока никем не заменяют, а на выходе из

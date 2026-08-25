@@ -15,7 +15,7 @@ mixin _ScreenFinder on AppCommand {
   String get screenId;
 
   FcTextFinder? finderOf(Application app) {
-    final Screen? screen = app.screens.active;
+    final ViewportState? screen = app.view.contentAt(ViewportPosition.fullscreen);
     return screen is FcSearchable && screen.id == screenId ? screen.finder : null;
   }
 

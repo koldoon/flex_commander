@@ -26,7 +26,7 @@ void main() {
   testWidgets(
     'заголовок — та же плашка, что у панели, с адресом и размером',
     (tester) async => withDesktopPlatform(() async {
-      await pumpScreen(tester, await screenWith('раз\nдва'));
+      await pumpScreen(tester, ViewerView(screen: await screenWith('раз\nдва')));
 
       // Одна плашка на всё: рамку и заголовок просмотрщик берёт у общего
       // `FcPanelFrame` — того же, которым рисуется файловая панель.
@@ -45,7 +45,7 @@ void main() {
   testWidgets(
     'плашка облегает содержимое, а не тянется на всю ширину',
     (tester) async => withDesktopPlatform(() async {
-      await pumpScreen(tester, await screenWith('раз'));
+      await pumpScreen(tester, ViewerView(screen: await screenWith('раз')));
 
       final plate = tester.getRect(find.byType(FcPathPlate));
       final frame = tester.getRect(find.byType(FcPanelFrame));
@@ -62,7 +62,7 @@ void main() {
     'текст показывается, но не правится',
     (tester) async => withDesktopPlatform(() async {
       final screen = await screenWith('раз\nдва');
-      await pumpScreen(tester, screen);
+      await pumpScreen(tester, ViewerView(screen: screen));
 
       final view = tester.widget<FcTextView>(find.byType(FcTextView));
 
@@ -78,7 +78,7 @@ void main() {
     (tester) async => withDesktopPlatform(() async {
       // Прокрутка, выделение и `Cmd-C` — дело самого показа, и без фокуса не
       // работает ни одно из них.
-      await pumpScreen(tester, await screenWith('раз\nдва'));
+      await pumpScreen(tester, ViewerView(screen: await screenWith('раз\nдва')));
 
       final editor = tester.widget<CodeEditor>(find.byType(CodeEditor));
 
@@ -95,7 +95,7 @@ void main() {
       // библиотеке страница вверх и вниз не назначены ни на одну клавишу —
       // клавиши им даёт `FcTextShortcuts`.
       final screen = await screenWith(List.generate(500, (i) => 'строка $i').join('\n'));
-      await pumpScreen(tester, screen);
+      await pumpScreen(tester, ViewerView(screen: screen));
       expect(screen.controller.selection.baseIndex, 0);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
@@ -116,7 +116,7 @@ void main() {
     testWidgets(
       'выключен — показ возит текст и по ширине',
       (tester) async => withDesktopPlatform(() async {
-        await pumpScreen(tester, await screenWith('очень длинная строка ${'—' * 300}'));
+        await pumpScreen(tester, ViewerView(screen: await screenWith('очень длинная строка ${'—' * 300}')));
 
         expect(tester.widget<FcTextView>(find.byType(FcTextView)).wordWrap, isFalse);
 
@@ -127,7 +127,7 @@ void main() {
     testWidgets(
       'включён — с самого открытия, если так было в прошлый раз',
       (tester) async => withDesktopPlatform(() async {
-        await pumpScreen(tester, await screenWith('раз', wordWrap: true));
+        await pumpScreen(tester, ViewerView(screen: await screenWith('раз', wordWrap: true)));
 
         expect(tester.widget<FcTextView>(find.byType(FcTextView)).wordWrap, isTrue);
 
@@ -139,7 +139,7 @@ void main() {
       'переключение перерисовывает показ',
       (tester) async => withDesktopPlatform(() async {
         final screen = await screenWith('очень длинная строка ${'—' * 300}');
-        await pumpScreen(tester, screen);
+        await pumpScreen(tester, ViewerView(screen: screen));
 
         screen.toggleWordWrap();
         await tester.pump();

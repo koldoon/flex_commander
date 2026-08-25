@@ -63,7 +63,8 @@ class ViewFileCommand extends AppCommand {
     // анализатор не выводит. Тем же приёмом пользуется движок переноса.
     final document = await TextDocument.read(node, source as FileContentProvider);
 
-    context.app.screens.open(
+    context.app.view.pushViewportContent(
+      ViewportPosition.fullscreen,
       ViewerScreen(
         node: node,
         text: document.text,
@@ -108,7 +109,7 @@ class ToggleWordWrapCommand extends AppCommand {
   String get description => 'Wrap long lines in the viewer';
 
   static ViewerScreen? _viewerOf(Application? app) {
-    final screen = app?.screens.active;
+    final screen = app?.view.contentAt(ViewportPosition.fullscreen);
     return screen is ViewerScreen ? screen : null;
   }
 
@@ -149,7 +150,7 @@ class ToggleViewerNumbersCommand extends AppCommand {
   String get description => 'Show line numbers in the viewer';
 
   static ViewerScreen? _viewerOf(Application? app) {
-    final screen = app?.screens.active;
+    final screen = app?.view.contentAt(ViewportPosition.fullscreen);
     return screen is ViewerScreen ? screen : null;
   }
 
@@ -186,7 +187,7 @@ class CopySelectionCommand extends AppCommand {
   String get description => 'Copy the selected text to the clipboard';
 
   static ViewerScreen? _viewerOf(Application app) {
-    final screen = app.screens.active;
+    final screen = app.view.contentAt(ViewportPosition.fullscreen);
     return screen is ViewerScreen ? screen : null;
   }
 
@@ -223,8 +224,8 @@ class CloseViewerCommand extends AppCommand {
   String get description => 'Close the viewer';
 
   @override
-  bool isExecutable(CommandContext context) => context.app.screens.active?.id == ViewerScreen.screenId;
+  bool isExecutable(CommandContext context) => context.app.view.contentAt(ViewportPosition.fullscreen) is ViewerScreen;
 
   @override
-  Future<void> execute() async => context.app.screens.close(ViewerScreen.screenId);
+  Future<void> execute() async => context.app.view.popViewportContent(ViewportPosition.fullscreen);
 }

@@ -5,12 +5,12 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Поднимает экран в дереве виджетов: тема, область приложения и сам экран.
+/// Поднимает содержимое области в дереве виджетов: тема, область приложения и
+/// сам виджет.
 ///
-/// Экран собирается тем же вызовом, что и в приложении (`Screen.build`), —
-/// иначе тест проверял бы не то, что показывают.
-Future<void> pumpScreen(WidgetTester tester, Screen screen, {Application? app}) async {
-  Widget content = Builder(builder: screen.build);
+/// Виджет передаётся готовым: чем рисуется состояние, знает реестр видов, а
+/// тесту модуля своё собственное содержимое известно и так.
+Future<void> pumpScreen(WidgetTester tester, Widget content, {Application? app}) async {
   if (app != null) {
     content = AppScope(controller: app, child: content);
   }

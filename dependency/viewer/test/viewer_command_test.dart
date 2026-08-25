@@ -32,7 +32,7 @@ void main() {
   }
 
   ViewerScreen? openViewer() {
-    final screen = runtime.app.screens.active;
+    final screen = runtime.app.view.contentAt(ViewportPosition.fullscreen);
     return screen is ViewerScreen ? screen : null;
   }
 
@@ -43,8 +43,9 @@ void main() {
       expect(openViewer(), isNotNull);
       expect(openViewer()!.node.name, 'notes.txt');
       expect(openViewer()!.controller.text, 'раз\nдва\nтри');
-      // Панели никуда не делись — они под ним.
-      expect(runtime.app.screens.stack.map((screen) => screen.id), [Screens.files, ViewerScreen.screenId]);
+      // Панели никуда не делись — они под ним, в своих областях.
+      expect(runtime.app.view.stackAt(ViewportPosition.fullscreen), hasLength(1));
+      expect(runtime.app.view.panelAt(ViewportPosition.left), isNotNull);
     });
 
     test('каталог показывать нечем', () {
@@ -107,7 +108,7 @@ void main() {
       runtime.commands.dispatch(KeyCombination.parse('Esc'));
 
       expect(openViewer(), isNull);
-      expect(runtime.app.screens.active?.id, Screens.files);
+      expect(runtime.app.view.contentAt(ViewportPosition.fullscreen), isNull);
     });
 
     test('F10 закрывает так же, как Esc', () async {
@@ -115,7 +116,7 @@ void main() {
 
       runtime.commands.dispatch(KeyCombination.parse('F10'));
 
-      expect(runtime.app.screens.active?.id, Screens.files);
+      expect(runtime.app.view.contentAt(ViewportPosition.fullscreen), isNull);
     });
 
     test('панельные клавиши в просмотрщике молчат', () async {
@@ -126,7 +127,7 @@ void main() {
       expect(runtime.commands.commandFor(KeyCombination.parse('F5')), isNull);
       expect(runtime.commands.commandFor(KeyCombination.parse('F3')), isNull);
       expect(runtime.commands.dispatch(KeyCombination.parse('F3')), isFalse);
-      expect(runtime.app.screens.stack, hasLength(2));
+      expect(runtime.app.view.stackAt(ViewportPosition.fullscreen), hasLength(1));
     });
 
     test('в панелях за F2 стоит не просмотрщик', () {

@@ -74,7 +74,8 @@ class EditFileCommand extends AppCommand {
       rethrow;
     }
 
-    context.app.screens.open(
+    context.app.view.pushViewportContent(
+      ViewportPosition.fullscreen,
       EditorScreen(
         node: node,
         file: file,
@@ -118,7 +119,7 @@ class SaveFileCommand extends AppCommand {
   String get description => 'Write the changes back to the file';
 
   static EditorScreen? _editorOf(Application? app) {
-    final screen = app?.screens.active;
+    final screen = app?.view.contentAt(ViewportPosition.fullscreen);
     return screen is EditorScreen ? screen : null;
   }
 
@@ -221,7 +222,7 @@ class ToggleEditorWrapCommand extends AppCommand {
   String get description => 'Wrap long lines in the editor';
 
   static EditorScreen? _editorOf(Application? app) {
-    final screen = app?.screens.active;
+    final screen = app?.view.contentAt(ViewportPosition.fullscreen);
     return screen is EditorScreen ? screen : null;
   }
 
@@ -258,7 +259,7 @@ class ToggleEditorNumbersCommand extends AppCommand {
   String get description => 'Show line numbers in the editor';
 
   static EditorScreen? _editorOf(Application? app) {
-    final screen = app?.screens.active;
+    final screen = app?.view.contentAt(ViewportPosition.fullscreen);
     return screen is EditorScreen ? screen : null;
   }
 
@@ -291,12 +292,12 @@ class CloseEditorCommand extends AppCommand {
   String get description => 'Close the editor';
 
   EditorScreen? get _screen {
-    final screen = context.app.screens.active;
+    final screen = context.app.view.contentAt(ViewportPosition.fullscreen);
     return screen is EditorScreen ? screen : null;
   }
 
   @override
-  bool isExecutable(CommandContext context) => context.app.screens.active?.id == EditorScreen.screenId;
+  bool isExecutable(CommandContext context) => context.app.view.contentAt(ViewportPosition.fullscreen) is EditorScreen;
 
   /// Вопрос задаётся только тогда, когда есть что терять.
   @override
@@ -326,5 +327,5 @@ class CloseEditorCommand extends AppCommand {
   }
 
   @override
-  Future<void> execute() async => context.app.screens.close(EditorScreen.screenId);
+  Future<void> execute() async => context.app.view.popViewportContent(ViewportPosition.fullscreen);
 }

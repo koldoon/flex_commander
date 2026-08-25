@@ -36,18 +36,18 @@ void main() {
   test('Esc сперва отменяет операцию, а уже потом снимает пометку', () {
     final forEsc =
         runtime.commands.bindings
-            .where((binding) => '${binding.keys}' == 'Esc' && binding.screen == Screens.files)
+            .where((binding) => '${binding.keys}' == 'Esc' && (binding.inContent?.call(runtime.app.left) ?? false))
             .toList();
 
     // Порядок задаёт приоритет: пока панель занята, Esc достаётся отмене.
     expect(forEsc.map((binding) => binding.commandId), ['panel.cancel', 'panel.selection.clear']);
   });
 
-  test('Esc чужого экрана панелям не мешает', () {
-    // У просмотрщика своя Esc — она действует только в его экране, и потому
-    // не встаёт в очередь к панельным.
+  test('Esc чужого содержимого панелям не мешает', () {
+    // У просмотрщика своя Esc — она действует только при его содержимом, и
+    // потому не встаёт в очередь к панельным.
     final elsewhere = runtime.commands.bindings.where(
-      (binding) => '${binding.keys}' == 'Esc' && binding.screen != Screens.files,
+      (binding) => '${binding.keys}' == 'Esc' && !((binding.inContent?.call(runtime.app.left) ?? false)),
     );
 
     expect(elsewhere.map((binding) => binding.commandId), ['viewer.close', 'editor.close']);

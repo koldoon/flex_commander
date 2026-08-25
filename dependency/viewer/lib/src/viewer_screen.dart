@@ -13,7 +13,7 @@ import 'viewer_view.dart';
 ///
 /// [ChangeNotifier], потому что показ меняется по ходу дела: `F2` переключает
 /// перенос строк, и вид перерисовывается сам.
-class ViewerScreen extends ChangeNotifier implements Screen, FcSearchable {
+class ViewerScreen extends ChangeNotifier implements ViewportState, FcSearchable {
   ViewerScreen({
     required this.node,
     required String text,
@@ -87,7 +87,7 @@ class ViewerScreen extends ChangeNotifier implements Screen, FcSearchable {
   /// выделением, которое командами и не сделать. Обязанность вернуть фокус при
   /// закрытии лежит на `KeyboardHandler`, см. `docs/screens.md`.
   @override
-  bool get takesFocus => true;
+  bool get takesKeyboard => true;
 
   @override
   /// Экран закрыли.
@@ -103,7 +103,4 @@ class ViewerScreen extends ChangeNotifier implements Screen, FcSearchable {
     controller.dispose();
     super.dispose();
   }
-
-  @override
-  Widget build(BuildContext context) => ViewerView(screen: this);
 }

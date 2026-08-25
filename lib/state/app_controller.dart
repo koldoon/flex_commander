@@ -7,7 +7,7 @@ import 'package:fc_api/fc_api.dart';
 import '../settings/settings_store.dart';
 import 'panel_controller.dart';
 import 'panel_viewport_registry.dart';
-import 'screens_controller.dart';
+import 'app_view_controller.dart';
 import 'view_registry.dart';
 import 'credentials_controller.dart';
 import 'theme_controller.dart';
@@ -29,7 +29,6 @@ class AppController extends ChangeNotifier implements Application {
     this.providers,
     PanelViewports? viewports,
     Views? views,
-    ScreensController? screens,
     ThemeController? theme,
     ToastController? toasts,
     CredentialsController? credentials,
@@ -45,7 +44,6 @@ class AppController extends ChangeNotifier implements Application {
        errors = errors ?? ErrorController(),
        viewports = viewports ?? const NoPanelViewports(),
        views = views ?? const NoViews(),
-       screens = screens ?? ScreensController(),
        window = window ?? const NoopWindowService() {
     // Одна панель активна всегда, ещё до первого чтения каталогов.
     left.setActive(settings.activePanel != 1);
@@ -65,7 +63,9 @@ class AppController extends ChangeNotifier implements Application {
   /// Что видно выше ряда функциональных кнопок. Сами панели тоже экран, и
   /// открывает его модуль: ядро не решает, чем показывать файлы.
   @override
-  final ScreensController screens;
+  /// Рабочая область: что где стоит и кому принадлежит ввод.
+  @override
+  late final AppViewController view = AppViewController(this);
 
   @override
   final PanelController left;

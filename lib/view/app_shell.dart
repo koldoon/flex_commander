@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter/material.dart';
 
 import 'background/background_bar.dart';
@@ -5,18 +6,60 @@ import 'dialogs/command_dialog_layer.dart';
 import 'dialogs/credentials_layer.dart';
 import 'dialogs/error_layer.dart';
 import 'keyboard_handler.dart';
+import 'split_view.dart';
 import 'function_bar/function_bar.dart';
 import 'toast_layer.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
-/// Корневой макет окна: экран и ряд функциональных кнопок под ним.
+/// Шелл: рабочая область, ряд функциональных кнопок под ней и слои поверх.
 ///
-/// Что именно показано выше кнопок, ядро не решает: наверху стопки экранов
-/// может стоять и модуль панелей, и просмотрщик, и что угодно ещё. Ряд кнопок
-/// остаётся на месте всегда — он показывает команды того экрана, который
-/// видно.
-class ApplicationView extends StatelessWidget {
-  const ApplicationView({super.key});
+/// Раскладку знает он один — областей шесть, и что в какой лежит, он спрашивает
+/// у [ApplicationView]. Чем рисовать содержимое, он не знает вовсе: за этим
+/// идёт в реестр видов.
+///
+/// Что именно показано выше кнопок, ядро не решает: в областях лежат состояния,
+/// а чем их рисовать, объявляют модули. Ряд кнопок остаётся на месте всегда —
+/// он показывает команды того, что сейчас видно.
+class AppShell extends StatelessWidget {
+  const AppShell({super.key});
+
+  /// Рабочая область: полноэкранное, если оно есть, иначе две панели.
+  ///
+  /// Разделитель считается от доли ширины окна, а она принадлежит рабочей
+  /// области целиком, — поэтому и разделитель рисует шелл, а не модуль
+  /// панелей.
+  Widget _workArea(BuildContext context, Application app) {
+    final fullscreen = app.view.contentAt(ViewportPosition.fullscreen);
+    if (fullscreen != null) {
+      return _place(context, app, fullscreen);
+    }
+
+    return SplitView(
+      ratio: app.splitRatio,
+      onRatioChanged: app.setSplitRatio,
+      // По идентификатору, а не по классу: команда живёт в модуле навигации,
+      // и приложение обязано собираться без него — просто разделитель тогда
+      // не центруется.
+      onCenter: () => app.commands.run(centerSplitCommand),
+      left: _place(context, app, app.view.contentAt(ViewportPosition.left)),
+      right: _place(context, app, app.view.contentAt(ViewportPosition.right)),
+    );
+  }
+
+  /// Рисует состояние тем, что для него объявлено.
+  ///
+  /// Пусто — значит показывать нечем: модуль, объявивший вид, отключён.
+  /// Приложение при этом работает, и ряд кнопок на месте.
+  Widget _place(BuildContext context, Application app, ViewportState? state) {
+    if (state == null) {
+      return const SizedBox.expand();
+    }
+    final build = app.views.builderFor(state);
+    return build == null ? const SizedBox.expand() : build(context, state);
+  }
+
+  /// Действие «разделитель посередине» — если модуль навигации установлен.
+  static const String centerSplitCommand = 'app.split.center';
 
   @override
   Widget build(BuildContext context) {
@@ -36,19 +79,7 @@ class ApplicationView extends StatelessWidget {
                 children: [
                   SizedBox(height: metrics.windowTopPadding),
                   Expanded(
-                    child: ListenableBuilder(
-                      listenable: app.screens,
-                      // Пусто — значит показывать нечем: модуль панелей
-                      // отключён. Приложение при этом работает, и ряд кнопок
-                      // на месте.
-                      builder: (context, _) {
-                        final screen = app.screens.active;
-                        if (screen == null) {
-                          return const SizedBox.expand();
-                        }
-                        return screen.build(context);
-                      },
-                    ),
+                    child: ListenableBuilder(listenable: app.view, builder: (context, _) => _workArea(context, app)),
                   ),
                   // Фоновые работы — между панелями и рядом кнопок: их видно,
                   // но место они занимают, только когда есть.
