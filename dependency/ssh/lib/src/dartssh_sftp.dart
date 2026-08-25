@@ -67,6 +67,18 @@ class DartsshSftp implements SftpApi {
   }
 
   @override
+  Future<void> createLink(String path, String reference) async {
+    try {
+      // Порядок доводов у `dartssh2` такой же, как в самом протоколе: сперва
+      // цель, потом путь новой ссылки. Имена в библиотеке названы наоборот,
+      // поэтому здесь они и переставлены — проверено на живом сервере.
+      await _sftp.link(reference, path);
+    } on SftpError catch (error) {
+      throw _errorFrom(path, error);
+    }
+  }
+
+  @override
   Future<void> removeFile(String path) async {
     try {
       await _sftp.remove(path);

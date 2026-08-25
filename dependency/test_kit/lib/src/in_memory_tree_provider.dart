@@ -84,6 +84,9 @@ class InMemoryReadOnlyProvider implements TreeProvider {
   /// Убрать объект из фикстуры (имитация удаления снаружи приложения).
   void removeEntry(String path) => _entries.remove(p.normalize(path));
 
+  /// Что лежит по пути; null — ничего.
+  FakeEntry? entryAt(String path) => _entries[p.normalize(path)];
+
   @override
   String get scheme => NodePath.defaultScheme;
 
@@ -547,7 +550,19 @@ mixin InMemoryContent on InMemoryReadOnlyProvider implements FileContentProvider
 ///
 /// Нужен там, где проверяется стратегия «поток»: перенос в чужой провайдер
 /// возможен ровно тогда, когда обе стороны знают байтовый контракт.
-class InMemoryContentProvider extends InMemoryTreeProvider with InMemoryContent {
+class InMemoryContentProvider extends InMemoryTreeProvider with InMemoryContent implements LinkEditor {
+  /// Ссылки — умение отдельное: его объявляют те, кто и правда их заводит.
+  /// Приёмник без ссылок (архив) собирается из [InMemoryTreeProvider] и
+  /// [InMemoryContent] — байты есть, ссылок нет.
+  @override
+  Future<void> createLink(DirectoryNode parent, String name, String reference) async {
+    final path = p.normalize(p.join(physicalPathOf(parent), name));
+    if (entryAt(path) != null) {
+      throw FsError(path, FsErrorKind.alreadyExists);
+    }
+    add(FakeEntry.link(path, reference));
+  }
+
   InMemoryContentProvider([super.entries, super.host]);
 }
 

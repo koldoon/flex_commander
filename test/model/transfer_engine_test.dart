@@ -328,7 +328,8 @@ void main() {
         for (var i = 0; i < 4; i++) FakeEntry.link('/home/conf/link$i', '/home/conf/some$i.conf'),
         for (var i = 0; i < 4; i++) FakeEntry.file('/home/conf/some$i.conf', content: [1]),
       ]);
-      final box = _CountingProvider([FakeEntry.directory('/box')]);
+      // Приёмник ссылок не умеет — потому и вопросы.
+      final box = _NoLinksProvider([FakeEntry.directory('/box')]);
       final destination = (await box.resolvePath().run('/box'))! as DirectoryNode;
       final conf = (await source.resolvePath().run('/home/conf'))!;
 
@@ -375,6 +376,23 @@ void main() {
 
     Future<DirectoryNode> dir(String path) async => (await at(path)) as DirectoryNode;
 
+    test('ссылка уходит ссылкой и в чужой приёмник', () async {
+      // Приёмник объявил `LinkEditor` — значит цель у него и спрашивать не о
+      // чем: это тот самый случай `/etc/nginx` с сервера на диск.
+      final other = InMemoryContentProvider([FakeEntry.directory('/remote')]);
+      final target = (await other.resolvePath().run('/remote'))! as DirectoryNode;
+
+      final operation = engine.copy();
+      final questions = collectQuestions(operation);
+      operation.start(TransferParams([await at('/home/src/link')], target));
+      await operation.result;
+
+      expect(questions, isEmpty, reason: 'сохранить ссылку было чем — спрашивать не о чем');
+      final copied = await other.resolvePath().run('/remote/link');
+      expect(copied, isA<LinkNode>());
+      expect((copied! as LinkNode).reference, '/home/src/real', reason: 'цель переносится как есть');
+    });
+
     test('ссылка на каталог не роняет работу', () async {
       final operation = engine.copy();
       collectQuestions(operation);
@@ -412,9 +430,9 @@ void main() {
     });
 
     test('приёмник ссылку хранить не умеет — спрашивает, а не падает', () async {
-      // Чужой приёмник: у ссылки нет байтового представления, и передать её
-      // нечем.
-      final other = InMemoryContentProvider([FakeEntry.directory('/remote')]);
+      // Приёмник, не объявивший `LinkEditor`: так ведут себя архивы. Байтового
+      // представления у ссылки нет, и сохранить её там нечем.
+      final other = _NoLinksProvider([FakeEntry.directory('/remote')]);
       final target = (await other.resolvePath().run('/remote'))! as DirectoryNode;
 
       final operation = engine.copy();
@@ -428,7 +446,7 @@ void main() {
 
     test('«пропустить все» больше не спрашивает', () async {
       disk.add(FakeEntry.link('/home/src/second', '/home/src/real'));
-      final other = InMemoryContentProvider([FakeEntry.directory('/remote')]);
+      final other = _NoLinksProvider([FakeEntry.directory('/remote')]);
       final target = (await other.resolvePath().run('/remote'))! as DirectoryNode;
 
       final operation = engine.copy();
@@ -1067,4 +1085,16 @@ class _ClosingSink implements StreamSink<List<int>> {
     await _inner.close();
     await _onClose();
   }
+}
+
+/// Приёмник, который дерево менять умеет и байты принимает, а ссылки заводить
+/// — нет: `LinkEditor` он не объявляет.
+///
+/// Так ведут себя архивы: ссылку в них заводит сам архиватор своей записью, и
+/// движку туда не надо.
+class _NoLinksProvider extends InMemoryTreeProvider with InMemoryContent {
+  _NoLinksProvider(super.entries);
+
+  @override
+  ProviderCapabilities get capabilities => const ProviderCapabilities(maxConcurrency: 4);
 }

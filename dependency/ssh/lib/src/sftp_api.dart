@@ -59,6 +59,9 @@ abstract interface class SftpApi {
 
   Future<void> makeDirectory(String path);
 
+  /// Заводит ссылку по пути [path], указывающую на [reference].
+  Future<void> createLink(String path, String reference);
+
   /// Удаляет файл или ссылку — саму ссылку, не её цель.
   Future<void> removeFile(String path);
 

@@ -22,7 +22,7 @@ import 'local_listing.dart';
 /// одним объектом. Байты для того же движка — обе половины сразу
 /// ([FileContentProvider] и [FileContentReceiver]): локальная ФС и отдаёт
 /// содержимое, и принимает.
-class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider, FileContentReceiver {
+class LocalTreeProvider implements TreeProvider, NodeEditor, LinkEditor, FileContentProvider, FileContentReceiver {
   LocalTreeProvider({String? homePath, this.readInIsolate = true, this.settings})
     : homePath = homePath ?? _detectHomePath();
 
@@ -322,6 +322,16 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
 
   /// Переименование — мгновенный перенос. Между дисками так нельзя: false,
   /// и движок скопирует объект и удалит исходный.
+  @override
+  Future<void> createLink(DirectoryNode parent, String name, String reference) async {
+    final path = p.join(physicalPathOf(parent), name);
+    try {
+      await Link(path).create(reference);
+    } on FileSystemException catch (error) {
+      throw fsErrorFrom(path, error);
+    }
+  }
+
   @override
   Future<bool> renameEntry(FsNode node, DirectoryNode destination, String name) async {
     final source = entityPathOf(node);

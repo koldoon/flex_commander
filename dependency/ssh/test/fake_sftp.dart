@@ -112,6 +112,21 @@ class FakeSftp implements SftpApi {
   }
 
   @override
+  Future<void> createLink(String path, String reference) async {
+    calls.add('symlink $path -> $reference');
+    _checkDenied(path);
+
+    final target = _real(path);
+    if (target == null) {
+      throw FsError(path, FsErrorKind.notFound);
+    }
+    if (_nodes.containsKey(target)) {
+      throw FsError(path, FsErrorKind.alreadyExists);
+    }
+    _nodes[target] = _FakeNode(FileType.symbolicLink, linkTarget: reference);
+  }
+
+  @override
   Future<void> removeFile(String path) async {
     calls.add('remove $path');
     _checkDenied(path);

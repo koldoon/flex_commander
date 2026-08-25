@@ -579,13 +579,11 @@ class TreeTransferEngine implements TreeEditor {
     _LinkPolicy links,
   ) async {
     if (!links.follow) {
-      // Ссылка ссылкой — это дело примитива провайдера: локальная ФС создаёт
-      // `Link`. Чужому приёмнику её не передать: байтового представления у
-      // ссылки нет, а подменять её содержимым молча нельзя.
-      if (source != null && identical(source, target) && await source.copyEntry(node, destination, name)) {
+      if (await _storeLink(source, target, node, destination, name)) {
         progress.advanceBytes(node.size < 0 ? 0 : node.size);
         return null;
       }
+      // Сохранить нечем — вот теперь спрашиваем.
       await _askAboutLink(op, node, links);
       return null;
     }
@@ -607,6 +605,45 @@ class TreeTransferEngine implements TreeEditor {
     }
     return followed;
   }
+
+  /// Кладёт ссылку ссылкой. false — этого не смог никто.
+  ///
+  /// Сперва свой провайдер: `copyEntry` — это «сделай копию у себя», и локальная
+  /// ФС давно так и делает. Потом приёмник, если он объявил, что ссылки умеет:
+  /// байтов у ссылки нет, потоком её не передать, но строку с целью отдать
+  /// можно, и этого достаточно.
+  ///
+  /// Отказ по ходу дела (права, чужой каталог) — это `FsError`, и он тоже
+  /// значит «не вышло»: дальше будет вопрос, а не упавшая работа. Умение и
+  /// событие — разные вещи: про первое говорит интерфейс, про второе исключение.
+  Future<bool> _storeLink(
+    NodeEditor? source,
+    NodeEditor target,
+    LinkNode node,
+    DirectoryNode destination,
+    String name,
+  ) async {
+    if (source != null && identical(source, target) && await source.copyEntry(node, destination, name)) {
+      return true;
+    }
+
+    final linker = _linkerOf(target);
+    if (linker == null || node.reference.isEmpty) {
+      // Пустая цель — это не ссылка, а недочитанный узел: заводить по ней
+      // нечего, и лучше спросить.
+      return false;
+    }
+
+    try {
+      await linker.createLink(destination, name, node.reference);
+      return true;
+    } on FsError {
+      return false;
+    }
+  }
+
+  /// Умеет ли приёмник заводить ссылки; null — не умеет.
+  LinkEditor? _linkerOf(NodeEditor target) => target is LinkEditor ? target as LinkEditor : null;
 
   /// Вопрос про ссылку — тот же, что при отказах: пропустить, пропустить все,
   /// отменить.

@@ -21,7 +21,7 @@ import 'ssh_connection.dart';
 /// сервер, а удаление и переименование он к последней ссылке в пути не
 /// применяет — то есть ровно то поведение, которое нам и нужно.
 class SftpTreeProvider
-    implements TreeProvider, NodeEditor, FileContentProvider, FileContentReceiver, ProviderLifecycle {
+    implements TreeProvider, NodeEditor, LinkEditor, FileContentProvider, FileContentReceiver, ProviderLifecycle {
   SftpTreeProvider({required this.target, required SftpApi sftp, required this.homePath, SshConnection? connection})
     : _sftp = sftp,
       _connection = connection;
@@ -218,6 +218,10 @@ class SftpTreeProvider
     String name, {
     bool Function(int bytes)? onBytes,
   }) async => false;
+
+  @override
+  Future<void> createLink(DirectoryNode parent, String name, String reference) =>
+      _sftp.createLink(p.posix.join(remotePathOf(parent), name), reference);
 
   @override
   Future<bool> renameEntry(FsNode node, DirectoryNode destination, String name) async {

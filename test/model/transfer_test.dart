@@ -414,15 +414,41 @@ void main() {
       expect(await File(p.join(target, 'docs', 'nested', 'deep.txt')).readAsString(), 'deep');
     });
 
-    test('ссылку чужому приёмнику передать нечем — по умолчанию пропускается', () async {
-      // Байтового представления у ссылки нет, а подменять её содержимым цели
-      // молча нельзя: это разные вещи и по размеру, и по смыслу. Окна здесь
-      // нет, поэтому берётся ответ по умолчанию — «пропустить».
+    test('ссылка уходит ссылкой и к чужому приёмнику', () async {
+      // Байтов у ссылки нет, потоком её не передать — зато можно отдать строку
+      // с целью, и приёмник заведёт ссылку сам. Это и есть тот случай, ради
+      // которого `/etc/nginx` копируется с сервера молча.
       final nodes = await listRoot();
 
       await editor.copy().run(TransferParams([nodes['link-to-notes']!], await remoteTarget()));
 
-      expect(await File(p.join(target, 'link-to-notes')).exists(), isFalse);
+      final copied = p.join(target, 'link-to-notes');
+      expect(await FileSystemEntity.isLink(copied), isTrue, reason: 'приехала ссылка, а не копия файла');
+      expect(await Link(copied).target(), p.join(root, 'notes.txt'), reason: 'цель перенесена как есть');
+    });
+
+    test('относительная цель остаётся относительной', () async {
+      await Link(p.join(root, 'docs', 'near')).create('readme.md');
+      final docs = (await provider.resolvePath().run(p.join(root, 'docs')))! as DirectoryNode;
+      final nodes = await provider.getDirectoryListing().run(ListingParams(docs));
+      final near = nodes.firstWhere((node) => node.name == 'near');
+
+      await editor.copy().run(TransferParams([near], await remoteTarget()));
+
+      // Переписывать цель мы не вправе: что человек имел в виду, знает он.
+      expect(await Link(p.join(target, 'near')).target(), 'readme.md');
+    });
+
+    test('битая ссылка переносится и остаётся битой', () async {
+      await Link(p.join(root, 'dangling')).create('/nowhere/at/all');
+      final nodes = await listRoot();
+
+      await editor.copy().run(TransferParams([nodes['dangling']!], await remoteTarget()));
+
+      final copied = p.join(target, 'dangling');
+      expect(await FileSystemEntity.isLink(copied), isTrue);
+      expect(await Link(copied).target(), '/nowhere/at/all');
+      expect(await File(copied).exists(), isFalse, reason: 'битой она и была');
     });
 
     test('следуем по ссылке — приезжает файл: цели в чужом дереве нет', () async {
