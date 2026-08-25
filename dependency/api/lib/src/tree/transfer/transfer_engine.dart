@@ -100,6 +100,23 @@ class TreeTransferEngine implements TreeEditor {
       // оценка, и окно показывает это отдельно.
       unawaited(_countSources(nodes, progress));
 
+      // «Нет ли там такого» спрашивается один раз про весь приёмник, а не про
+      // каждый помеченный объект: по сети каждый такой вопрос — обмен с
+      // сервером, и на тысяче помеченных их набегает тысяча ещё до начала
+      // работы.
+      //
+      // Одному источнику перечисление не окупается: приёмник бывает огромным, а
+      // вопрос к нему всего один. Не вышло перечислить (каталог, в который
+      // писать можно, а читать нельзя) — спрашиваем по-старому, поштучно.
+      Map<String, FsNode>? present;
+      if (nodes.length > 1) {
+        try {
+          present = {for (final entry in await destination.provider.listChildren(destination)) entry.name: entry};
+        } on FsError {
+          present = null;
+        }
+      }
+
       try {
         for (var i = 0; i < nodes.length; i++) {
           await op.checkpoint();
@@ -127,7 +144,7 @@ class TreeTransferEngine implements TreeEditor {
               }
             }
 
-            final existing = await target.lookup(destination, node.name);
+            final existing = present != null ? present[node.name] : await target.lookup(destination, node.name);
             final merging = _merges(node, existing);
             if (existing != null && !merging) {
               if (!await _resolveConflict(op, overwrite, existing)) {
@@ -314,21 +331,34 @@ class TreeTransferEngine implements TreeEditor {
       // отказом — «уже существует».
       final present = await target.lookup(destination, name);
       final created = present is DirectoryNode ? present : await target.createDirectory(destination, name);
+
+      // Что в приёмнике уже лежит — спрашивается **одним** перечислением, а не
+      // проверкой на каждый объект. По сети проверка — это обмен с сервером, и
+      // на тысяче файлов их набегает тысяча: минуты ожидания на ровном месте.
+      //
+      // Каталог, который мы сами только что завели, не перечисляется вовсе: он
+      // пуст, и спрашивать его не о чем. Это обычный случай — копирование
+      // дерева на новое место, — и он не платит за слияние ничего.
+      final existing =
+          present is DirectoryNode
+              ? {for (final entry in await created.provider.listChildren(created)) entry.name: entry}
+              : const <String, FsNode>{};
+
       // Содержимое вычитывается целиком, а не по ходу копирования: читать тот
       // же каталог, добавляя в него объекты, — верный способ уйти в петлю.
       for (final child in await node.provider.listChildren(node)) {
         // Вопросы задаются здесь, о файлах, а не там, о каталоге целиком: в
         // этом и состоит слияние. Каталог поверх каталога уходит вглубь молча.
-        final existing = await target.lookup(created, child.name);
-        if (existing != null && !_merges(child, existing)) {
-          if (!await _resolveConflict(op, overwrite, existing)) {
+        final present = existing[child.name];
+        if (present != null && !_merges(child, present)) {
+          if (!await _resolveConflict(op, overwrite, present)) {
             // Пропущенное считается пройденным — работы по нему больше нет, —
             // и запоминается: при переносе его нельзя убирать из источника.
             progress.advance();
             overwrite.kept.add(child.pathString);
             continue;
           }
-          await _purge(target, existing, op, progress);
+          await _purge(target, present, op, progress);
         }
         await _copyTree(source, target, child, created, child.name, op, progress, links, overwrite);
       }
