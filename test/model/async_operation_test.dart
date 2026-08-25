@@ -9,7 +9,7 @@ void main() {
       final op = TaskOperation<int>((op) async => 42);
 
       expect(await op.result, 42);
-      expect(op.status, OperationStatus.complete);
+      expect(op.status, OperationState.complete);
       expect(op.status.isFinished, isTrue);
     });
 
@@ -17,7 +17,7 @@ void main() {
       final op = TaskOperation<int>((op) async => throw StateError('boom'));
 
       await expectLater(op.result, throwsA(isA<StateError>()));
-      expect(op.status, OperationStatus.error);
+      expect(op.status, OperationState.error);
     });
 
     test('отмена завершает операцию ошибкой OperationCanceled', () async {
@@ -33,7 +33,7 @@ void main() {
       op.cancel();
 
       await expectLater(op.result, throwsA(isA<OperationCanceled>()));
-      expect(op.status, OperationStatus.canceled);
+      expect(op.status, OperationState.canceled);
     });
 
     test('результат отменённой операции не доходит до вызывающего', () async {
@@ -47,7 +47,7 @@ void main() {
 
       // Тело успевает досчитать уже после отмены — состояние не должно меняться.
       await Future<void>.delayed(const Duration(milliseconds: 30));
-      expect(op.status, OperationStatus.canceled);
+      expect(op.status, OperationState.canceled);
     });
 
     test('повторная отмена ничего не ломает', () async {
@@ -55,7 +55,7 @@ void main() {
       await op.result;
 
       op.cancel();
-      expect(op.status, OperationStatus.complete);
+      expect(op.status, OperationState.complete);
     });
 
     test('прогресс доходит до подписчика', () async {
@@ -128,12 +128,12 @@ void main() {
     test('готовое значение', () async {
       final op = CompletedOperation<int>(7);
       expect(await op.result, 7);
-      expect(op.status, OperationStatus.complete);
+      expect(op.status, OperationState.complete);
     });
 
     test('готовая ошибка', () async {
       final op = CompletedOperation<int>.error(StateError('nope'));
-      expect(op.status, OperationStatus.error);
+      expect(op.status, OperationState.error);
       await expectLater(op.result, throwsA(isA<StateError>()));
     });
   });
@@ -165,7 +165,7 @@ void main() {
       op.requestCancel();
       await pumpEventQueue();
 
-      expect(op.status, OperationStatus.processing);
+      expect(op.status, OperationState.processing);
       expect(questions.single.message, 'Abort the operation?');
       op.cancel();
     });
@@ -215,7 +215,7 @@ void main() {
 
       op.requestCancel();
 
-      expect(op.status, OperationStatus.complete);
+      expect(op.status, OperationState.complete);
     });
 
     test('«Abort» завершает операцию отменой', () async {
@@ -225,7 +225,7 @@ void main() {
       op.requestCancel();
       await pumpEventQueue();
 
-      expect(op.status, OperationStatus.canceled);
+      expect(op.status, OperationState.canceled);
     });
   });
 
@@ -278,7 +278,7 @@ void main() {
       // Ответа нет, а куски идут: вопрос поверх работы, а не вместо неё.
       expect(questions, hasLength(1));
       expect(chunks.length, greaterThan(done));
-      expect(op.status, OperationStatus.processing);
+      expect(op.status, OperationState.processing);
       op.cancel();
     });
 
@@ -295,7 +295,7 @@ void main() {
 
       await pumpEventQueue(times: 10);
 
-      expect(op.status, OperationStatus.processing);
+      expect(op.status, OperationState.processing);
       expect(chunks.length, greaterThan(done));
 
       // Просьба не «залипает»: продолжив работу, её надо просить заново.
@@ -312,7 +312,7 @@ void main() {
       op.requestCancel();
       await pumpEventQueue();
 
-      expect(op.status, OperationStatus.canceled);
+      expect(op.status, OperationState.canceled);
     });
 
     test('спросить некого — работа бросается', () async {
@@ -323,7 +323,7 @@ void main() {
 
       // Без окна вопрос отвечает сам себя вариантом по умолчанию, и это
       // «прервать»: ровно то, о чём просили.
-      expect(op.status, OperationStatus.canceled);
+      expect(op.status, OperationState.canceled);
     });
   });
 
@@ -374,7 +374,7 @@ void main() {
       outer.cancel();
 
       await expectLater(outer.result, throwsA(isA<OperationCanceled>()));
-      expect(inner.status, OperationStatus.canceled);
+      expect(inner.status, OperationState.canceled);
     });
 
     test('отмена доходит через несколько уровней', () async {
@@ -391,8 +391,8 @@ void main() {
       outer.cancel();
 
       await expectLater(outer.result, throwsA(isA<OperationCanceled>()));
-      expect(middle.status, OperationStatus.canceled);
-      expect(inner.status, OperationStatus.canceled);
+      expect(middle.status, OperationState.canceled);
+      expect(inner.status, OperationState.canceled);
     });
 
     test('делегирование из уже отменённой отменяет и вложенную', () async {
@@ -417,7 +417,7 @@ void main() {
       await expectLater(outer.result, throwsA(isA<OperationCanceled>()));
       await Future<void>.delayed(const Duration(milliseconds: 40));
 
-      expect(inner.status, OperationStatus.canceled);
+      expect(inner.status, OperationState.canceled);
     });
 
     test('завершённую вложенную отмена уже не трогает', () async {
@@ -429,13 +429,13 @@ void main() {
         return value;
       });
       await pumpEventQueue();
-      expect(inner.status, OperationStatus.complete);
+      expect(inner.status, OperationState.complete);
 
       outer.cancel();
       release.complete();
 
       await expectLater(outer.result, throwsA(isA<OperationCanceled>()));
-      expect(inner.status, OperationStatus.complete);
+      expect(inner.status, OperationState.complete);
     });
 
     test('ошибка вложенной приходит наружу как есть', () async {
@@ -445,7 +445,7 @@ void main() {
       final outer = TaskOperation<int>((op) => op.delegate(inner));
 
       await expectLater(outer.result, throwsA(isA<FsError>()));
-      expect(outer.status, OperationStatus.error);
+      expect(outer.status, OperationState.error);
     });
 
     test('вопрос вложенной наверх не идёт: берётся вариант по умолчанию', () async {
@@ -483,7 +483,7 @@ void main() {
       outer.requestCancel();
       await pumpEventQueue();
 
-      expect(inner.status, OperationStatus.processing);
+      expect(inner.status, OperationState.processing);
       expect(await outer.result, 1);
     });
 
@@ -500,7 +500,7 @@ void main() {
       inner.emit('Reading a.zip');
       await pumpEventQueue();
 
-      expect(outer.status, OperationStatus.canceled);
+      expect(outer.status, OperationState.canceled);
       inner.finish();
     });
   });
@@ -513,7 +513,7 @@ class _StubbornOperation implements AsyncOperation<int> {
   final Completer<int> _completer = Completer<int>();
 
   @override
-  OperationStatus get status => _completer.isCompleted ? OperationStatus.complete : OperationStatus.processing;
+  OperationState get status => _completer.isCompleted ? OperationState.complete : OperationState.processing;
 
   @override
   Future<int> get result => _completer.future;

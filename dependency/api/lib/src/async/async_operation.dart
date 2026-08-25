@@ -6,7 +6,7 @@ import 'operation_request.dart';
 ///
 /// [pending] пока не используется: он появится, когда операции начнут
 /// выстраиваться в очередь (копирование нескольких пакетов файлов).
-enum OperationStatus {
+enum OperationState {
   inited,
   pending,
   processing,
@@ -176,7 +176,7 @@ class OperationCanceled implements Exception {
 /// файловому менеджеру: операцию можно отменить, она умеет сообщать о ходе
 /// работы и задавать вопросы (перезаписать? пропустить?) не прерываясь.
 abstract class AsyncOperation<T> {
-  OperationStatus get status;
+  OperationState get status;
 
   /// Результат. Завершается ошибкой [FsError] или [OperationCanceled].
   Future<T> get result;
@@ -218,10 +218,10 @@ class TaskOperation<T> implements AsyncOperation<T> {
   final StreamController<OperationProgress> _progress = StreamController<OperationProgress>.broadcast();
   final StreamController<OperationRequest> _requests = StreamController<OperationRequest>.broadcast();
 
-  OperationStatus _status = OperationStatus.inited;
+  OperationState _status = OperationState.inited;
 
   @override
-  OperationStatus get status => _status;
+  OperationState get status => _status;
 
   @override
   Future<T> get result => _completer.future;
@@ -245,7 +245,7 @@ class TaskOperation<T> implements AsyncOperation<T> {
   @override
   Stream<OperationRequest> get requests => _requests.stream;
 
-  bool get isCanceled => _status == OperationStatus.canceled;
+  bool get isCanceled => _status == OperationState.canceled;
 
   /// Пользователь просил прервать, но ещё не подтвердил.
   bool _cancelRequested = false;
@@ -407,7 +407,7 @@ class TaskOperation<T> implements AsyncOperation<T> {
     if (_status.isFinished) {
       return;
     }
-    _status = OperationStatus.canceled;
+    _status = OperationState.canceled;
     // Копия списка: вложенная убирает себя из него сама, а обход идёт по нему же.
     for (final inner in _delegated.toList()) {
       inner.cancel();
@@ -423,20 +423,20 @@ class TaskOperation<T> implements AsyncOperation<T> {
       // Отменили ещё до старта.
       return;
     }
-    _status = OperationStatus.processing;
+    _status = OperationState.processing;
     try {
       final value = await _body(this);
       if (isCanceled) {
         return;
       }
-      _status = OperationStatus.complete;
+      _status = OperationState.complete;
       _finish();
       _completer.complete(value);
     } catch (error, stackTrace) {
       if (isCanceled) {
         return;
       }
-      _status = error is OperationCanceled ? OperationStatus.canceled : OperationStatus.error;
+      _status = error is OperationCanceled ? OperationState.canceled : OperationState.error;
       _finish();
       if (!_completer.isCompleted) {
         _completer.completeError(error, stackTrace);
@@ -454,7 +454,7 @@ class TaskOperation<T> implements AsyncOperation<T> {
 class CompletedOperation<T> implements AsyncOperation<T> {
   CompletedOperation(T value) : result = Future.value(value);
 
-  CompletedOperation.error(Object error) : result = Future.error(error), _status = OperationStatus.error {
+  CompletedOperation.error(Object error) : result = Future.error(error), _status = OperationState.error {
     // Ошибка обязательно должна быть кем-то прочитана, иначе Dart сообщит
     // о необработанной ошибке ещё до того, как её заберёт вызывающий код.
     result.ignore();
@@ -463,10 +463,10 @@ class CompletedOperation<T> implements AsyncOperation<T> {
   @override
   final Future<T> result;
 
-  OperationStatus _status = OperationStatus.complete;
+  OperationState _status = OperationState.complete;
 
   @override
-  OperationStatus get status => _status;
+  OperationState get status => _status;
 
   @override
   Stream<OperationProgress> get progress => const Stream.empty();

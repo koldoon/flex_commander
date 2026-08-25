@@ -355,7 +355,7 @@ void main() {
       final operation = engine.copy([await node('/home/notes.txt')], destination);
 
       await expectLater(operation.result, throwsA(isA<FsError>()));
-      expect(operation.status, OperationStatus.error);
+      expect(operation.status, OperationState.error);
     });
   });
 
@@ -555,7 +555,7 @@ void main() {
       await operation.result;
 
       expect(disk.copied, hasLength(20));
-      expect(operation.status, OperationStatus.complete);
+      expect(operation.status, OperationState.complete);
     });
 
     test('«Abort» прекращает работу на том, что успели', () async {
