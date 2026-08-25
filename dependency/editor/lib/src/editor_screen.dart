@@ -5,7 +5,6 @@ import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:flutter/widgets.dart';
 import 'package:re_editor/re_editor.dart';
 
-import 'editor_view.dart';
 import 'text_file.dart';
 
 /// Файл, открытый на правку.

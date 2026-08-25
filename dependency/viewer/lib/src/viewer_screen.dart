@@ -3,8 +3,6 @@ import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:flutter/widgets.dart';
 import 'package:re_editor/re_editor.dart';
 
-import 'viewer_view.dart';
-
 /// Открытый файл: сам текст и то, как его сейчас показывают.
 ///
 /// Экран, а не окно команды: он занимает место панелей, оставляет ряд

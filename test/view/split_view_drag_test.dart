@@ -1,5 +1,4 @@
 import 'package:fc_default_theme/fc_default_theme.dart';
-import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
