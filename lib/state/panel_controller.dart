@@ -802,17 +802,21 @@ class PanelController extends ChangeNotifier implements Panel {
   /// архива во временный файл они идут пачками по мере чтения байт.
   void Function() _followProgress(AsyncOperation<Object?> operation, int requestId) {
     final redraw = Throttle(notifyListeners);
-    final subscription = operation.progress.listen((event) {
-      if (requestId != _requestId || event.message.isEmpty || _statusText == event.message) {
+    final status = operation.status;
+    void onChanged() {
+      final message = status.message;
+      if (requestId != _requestId || message.isEmpty || _statusText == message) {
         return;
       }
-      _statusText = event.message;
+      _statusText = message;
       redraw();
-    });
+    }
+
+    status.addListener(onChanged);
 
     return () {
       redraw.cancel();
-      unawaited(subscription.cancel());
+      status.removeListener(onChanged);
     };
   }
 
@@ -1006,16 +1010,19 @@ class PanelController extends ChangeNotifier implements Panel {
     final scan = _SizeScan(operation);
     _scans[directory] = scan;
 
-    scan.progress = operation.progress.listen((event) {
-      // Событие может доехать после того, как этот обход отменили или он
-      // закончился: между `report` и слушателем есть задержка в микрозадачу.
-      // Без проверки итог сменился бы частичной суммой.
-      if (!identical(_scans[directory], scan)) {
+    final status = operation.status;
+    void onChanged() {
+      // Обход могли отменить или заменить другим, пока этот ещё рассказывает
+      // о себе. Без проверки итог сменился бы частичной суммой.
+      if (!identical(_scans[directory], scan) || status is! MultipleTransferOperationStatus) {
         return;
       }
-      directory.size = event.processed;
+      directory.size = status.itemsTransferred;
       _sizeRedraw();
-    });
+    }
+
+    status.addListener(onChanged);
+    scan.stopWatching = () => status.removeListener(onChanged);
 
     operation.result
         .then((total) => _finishScan(directory, scan, total))
@@ -1086,11 +1093,13 @@ class _SizeScan {
   _SizeScan(this.operation);
 
   final AsyncOperation<int> operation;
-  StreamSubscription<OperationProgress>? progress;
+
+  /// Чем прекратить слушать ход обхода; null — уже прекратили.
+  void Function()? stopWatching;
 
   void release() {
-    unawaited(progress?.cancel());
-    progress = null;
+    stopWatching?.call();
+    stopWatching = null;
   }
 
   void cancel() {

@@ -237,7 +237,7 @@ class ProviderRegistry {
   /// делает [_close].
   Future<ProviderLease> _attach(TaskOperation<Object?> op, _MountEntry entry) async {
     entry.tenants++;
-    final progress = entry.open.progress.listen(op.report);
+    final stopRelay = op.relayFrom(entry.open);
     try {
       await entry.opened;
       // Отмена могла прийти в зазор между концом монтирования и продолжением
@@ -248,7 +248,7 @@ class ProviderRegistry {
       await _detach(entry);
       rethrow;
     } finally {
-      unawaited(progress.cancel());
+      stopRelay();
     }
   }
 

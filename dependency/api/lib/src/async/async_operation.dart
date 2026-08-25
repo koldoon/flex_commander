@@ -341,6 +341,36 @@ class TaskOperation<T> implements AsyncOperation<T> {
     return true;
   }
 
+  /// Пересказывает ход чужой работы как свой, не забирая над ней власти.
+  ///
+  /// Отмена вниз при этом **не** идёт — тем и отличается от [delegate]: за
+  /// смонтированным источником стоит очередь арендаторов, и один ушедший не
+  /// вправе прервать то, чего ждут остальные.
+  ///
+  /// Возвращает то, чем пересказ прекратить.
+  VoidCallback relayFrom(AsyncOperation<Object?> source) {
+    final status = source.status;
+    if (status is! _TaskOperationStatus) {
+      return () {};
+    }
+
+    OperationProgress? relayed;
+    void relay() {
+      final last = status.lastProgress;
+      // Только новое: ход и смена состояния сообщают об одном и том же
+      // объекте, и пересказывать его дважды значило бы удвоить каждый шаг.
+      if (last == null || identical(last, relayed)) {
+        return;
+      }
+      relayed = last;
+      report(last);
+    }
+
+    status.addListener(relay);
+    relay();
+    return () => status.removeListener(relay);
+  }
+
   void report(OperationProgress value) {
     if (_state.isFinished) {
       // Отчёт вложенной операции, доехавший после конца работы: рассказывать
@@ -383,31 +413,14 @@ class TaskOperation<T> implements AsyncOperation<T> {
 
     // Слушаем ход вложенной и пересказываем наружу: она рассказывает о себе,
     // а видно должно быть работу целиком.
-    OperationProgress? relayed;
-    void relay() {
-      final status = inner.status;
-      if (status is! _TaskOperationStatus) {
-        return;
-      }
-      final last = status.lastProgress;
-      // Только новое: ход и смена состояния сообщают об одном и том же
-      // объекте, и пересказывать его дважды значило бы удвоить каждый шаг.
-      if (last == null || identical(last, relayed)) {
-        return;
-      }
-      relayed = last;
-      report(last);
-    }
-
-    inner.status.addListener(relay);
-    relay();
+    final stopRelay = relayFrom(inner);
     _delegated.add(inner);
     try {
       return await inner.result;
     } finally {
       _delegated.remove(inner);
       // Отписка мгновенная: это Listenable, а не поток.
-      inner.status.removeListener(relay);
+      stopRelay();
     }
   }
 
