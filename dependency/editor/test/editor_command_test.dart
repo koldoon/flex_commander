@@ -131,10 +131,12 @@ void main() {
       await edit('notes.txt');
       openEditor()!.controller.text = 'несохранённое';
 
-      final close = runtime.commands.create(CloseEditorCommand.commandId)! as CloseEditorCommand;
+      // Спрашивать или нет, решает сама команда — снаружи «есть ли у неё
+      // окно» больше никого не касается.
+      expect(runtime.commands.run(CloseEditorCommand.commandId), isTrue);
+      await pumpEventQueue();
 
-      expect(close.hasDialog, isTrue);
-      expect(close.dialogTitle, 'Unsaved changes');
+      expect(runtime.app.view.dialogs.single.title, 'Unsaved changes');
       // Экран при этом ещё открыт: вопрос задан, ответа нет.
       expect(openEditor(), isNotNull);
     });

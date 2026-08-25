@@ -299,36 +299,48 @@ class CloseEditorCommand extends AppCommand {
   @override
   bool isExecutable(CommandContext context) => context.app.view.contentAt(ViewportPosition.fullscreen) is EditorScreen;
 
-  /// Вопрос задаётся только тогда, когда есть что терять.
-  @override
-  bool get hasDialog => _screen?.modified ?? false;
-
   @override
   String get dialogTitle => 'Unsaved changes';
 
+  /// Закрыть — и спросить по дороге, если есть что терять.
+  ///
+  /// Вопрос задаётся не всегда, и решает это сама команда: снаружи «есть ли у
+  /// неё окно» больше никого не касается. Состояния прогона у неё нет — окно
+  /// живёт само, а команда, показав его, уходит.
   @override
-  DialogSpec? dialogSpec(BuildContext context) {
+  Future<void> execute() async {
+    final view = context.app.view;
     final screen = _screen;
     if (screen == null) {
-      return null;
+      return;
     }
 
-    return DialogSpec(
-      title: dialogTitle,
-      content: ListenableBuilder(
-        listenable: this,
-        builder:
-            (context, _) => CommandDialogConfirm(
-              message: '${screen.node.name} has unsaved changes. Close and lose them?',
-              confirmLabel: 'Discard',
-              error: error,
-              onCancel: dismiss,
-              onConfirm: submit,
-            ),
+    void discard() => view.popViewportContent(ViewportPosition.fullscreen);
+
+    if (!screen.modified) {
+      discard();
+      return;
+    }
+
+    late final String dialogId;
+    void close() => view.closeDialog(dialogId);
+    void confirm() {
+      close();
+      discard();
+    }
+
+    dialogId = view.showDialog(
+      DialogSpec(
+        title: dialogTitle,
+        content: CommandDialogConfirm(
+          message: '${screen.node.name} has unsaved changes. Close and lose them?',
+          confirmLabel: 'Discard',
+          onCancel: close,
+          onConfirm: confirm,
+        ),
+        onSubmit: confirm,
+        onDismiss: close,
       ),
     );
   }
-
-  @override
-  Future<void> execute() async => context.app.view.popViewportContent(ViewportPosition.fullscreen);
 }
