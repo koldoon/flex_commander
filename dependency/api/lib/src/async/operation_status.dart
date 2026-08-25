@@ -57,19 +57,24 @@ abstract interface class MeasurableOperationStatus extends OperationStatus {
   Duration? get remaining;
 }
 
-/// Ход по одному объекту.
+/// Ход внутри одного объекта: который идёт сейчас и сколько его прошло.
+///
+/// Счётчики названы по объекту, а не просто «байты»: одна и та же работа
+/// бывает и множественной, и поштучной сразу — копирование дерева идёт по
+/// файлам, а внутри четырёхгигабайтного файла ещё и по байтам. Совпади имена,
+/// один класс не смог бы рассказать про то и другое.
 abstract interface class SingleTransferOperationStatus extends ComputableOperationStatus {
   /// Объект, который обрабатывается сейчас; пусто — работа не разбита на
   /// объекты.
   String get itemName;
 
-  int get bytesTransferred;
+  int get itemBytesTransferred;
 
   /// null — размер не известен и известен не будет.
-  int? get bytesTotal;
+  int? get itemBytesTotal;
 }
 
-/// Ход по множеству объектов.
+/// Ход по работе целиком: сколько объектов и байт прошло из всех.
 abstract interface class MultipleTransferOperationStatus extends ComputableOperationStatus {
   int get itemsTransferred;
 
@@ -78,6 +83,12 @@ abstract interface class MultipleTransferOperationStatus extends ComputableOpera
 
   /// Досчитано ли [itemsTotal]. Пока нет — это нижняя оценка.
   bool get totalIsFinal;
+
+  int get bytesTransferred;
+
+  /// null — объём не известен и известен не будет: удаление в корзину,
+  /// источник без размеров.
+  int? get bytesTotal;
 }
 
 /// Этап многоэтапной работы.

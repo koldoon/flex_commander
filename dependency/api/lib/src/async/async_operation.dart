@@ -546,10 +546,16 @@ class _TaskOperationStatus extends ChangeNotifier
   String get itemName => lastProgress?.itemName ?? '';
 
   @override
-  int get bytesTransferred => lastProgress?.itemBytes ?? 0;
+  int get itemBytesTransferred => lastProgress?.itemBytes ?? 0;
 
   @override
-  int? get bytesTotal => lastProgress?.itemTotalBytes;
+  int? get itemBytesTotal => lastProgress?.itemTotalBytes;
+
+  @override
+  int get bytesTransferred => lastProgress?.bytes ?? 0;
+
+  @override
+  int? get bytesTotal => lastProgress?.totalBytes;
 
   @override
   int get itemsTransferred => lastProgress?.processed ?? 0;
