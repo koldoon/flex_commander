@@ -77,10 +77,10 @@ packages:
     dependency: "direct main"
     description:
       name: dicom
-      sha256: df42354475c387f622a8ade803182f9e022d90e758603057acf53ef9c1bf0a93
+      sha256: a49766a9bcc0e2b5bc77e3220ebe4b1b4e2e24bdbcb0e7da538104f16cc31666
       url: "https://pub.dev"
     source: hosted
-    version: "0.0.3"
+    version: "0.0.4"
   duration:
     dependency: transitive
     description:
