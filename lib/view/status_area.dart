@@ -28,7 +28,7 @@ class StatusArea extends StatelessWidget {
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [for (final task in running) _RunRow(task: task)],
+          children: [for (final task in running) _RunRow(task: task, operations: tasks)],
         );
       },
     );
@@ -37,7 +37,9 @@ class StatusArea extends StatelessWidget {
 
 /// Одна работа: сколько сделано и чем её остановить.
 class _RunRow extends StatelessWidget {
-  const _RunRow({required this.task});
+  const _RunRow({required this.task, required this.operations});
+
+  final Operations operations;
 
   final OperationRun task;
 
@@ -68,6 +70,8 @@ class _RunRow extends StatelessWidget {
               SizedBox(width: metrics.dialogGap),
               // Работа в фоне остаётся управляемой: прервать её можно, не
               // возвращая окна.
+              if (task.status.state == OperationState.userActionRequired)
+                _AttentionButton(onPressed: () => operations.bringToFront(task.runId), theme: theme),
               _CancelButton(
                 onPressed: task.status.state.isFinished ? null : task.operation.requestCancel,
                 theme: theme,
@@ -93,6 +97,32 @@ class _CancelButton extends StatelessWidget {
       child: GestureDetector(
         onTap: onPressed,
         child: Opacity(opacity: onPressed == null ? 0.5 : 1, child: Text('✕', style: theme.statusStyle)),
+      ),
+    );
+  }
+}
+
+/// Работа встала и ждёт ответа: вернуть ей окно.
+///
+/// Окно само не выпрыгивает — вырывать человека из другого дела нельзя, а
+/// вопрос никуда не денется. Но и молчать нельзя, иначе работа стоит, а он
+/// этого не замечает: здесь она об этом и говорит.
+class _AttentionButton extends StatelessWidget {
+  const _AttentionButton({required this.onPressed, required this.theme});
+
+  final VoidCallback onPressed;
+  final FcTheme theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        onTap: onPressed,
+        child: Padding(
+          padding: EdgeInsets.only(right: theme.metrics.dialogGap / 2),
+          child: Text('?', style: theme.statusStyle),
+        ),
       ),
     );
   }

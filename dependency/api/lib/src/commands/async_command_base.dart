@@ -112,9 +112,12 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
         return;
       }
       if (isInBackground) {
-        // Работа шла без окна, но появился вопрос — отвечать за пользователя
-        // ядро не вправе, поэтому окно возвращается на вид.
-        context.app.operations.bringToFront(runId);
+        // Окно само не выпрыгивает: вырывать человека из другого дела нельзя,
+        // а вопрос никуда не денется — работа ждёт столько, сколько нужно.
+        // Но и молчать нельзя, иначе она стоит, а он этого не замечает: у
+        // полоски в статусной области загорается кнопка, и об этом говорится
+        // тостом — один раз, в тот момент, когда работа упёрлась.
+        contextOrNull?.app.toasts.show('$title: waiting for an answer');
       }
       _question = request;
       notifyListeners();

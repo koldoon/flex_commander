@@ -428,6 +428,10 @@ class TaskOperation<T> implements AsyncOperation<T> {
   /// Если вопрос никто не слушает, возвращается вариант по умолчанию.
   Future<OperationRequestOption> ask(OperationRequest request) {
     if (_requests.hasListener) {
+      // Работа встала: об этом обязан узнать не только тот, кто её слушает, но
+      // и статусная область — там у полоски появляется кнопка «нужен ответ».
+      _status.setRequest(request);
+      unawaited(request.answer.whenComplete(() => _status.setRequest(null)));
       _requests.add(request);
       return request.answer;
     }

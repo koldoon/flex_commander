@@ -109,9 +109,15 @@ void main() {
     await run.completion;
   });
 
-  test('вопрос посреди фоновой работы возвращает окно', () async {
+  test('вопрос посреди фоновой работы окно не выдёргивает, а зажигает кнопку', () async {
     final work = blockingOperation();
-    final runtime = await testApp(provider: provider, modules: [_SlowModule(work.operation)]);
+    // Сообщение живёт дольше проверки: по умолчанию оно гаснет за пять
+    // миллисекунд, а до заявки надо ещё дойти.
+    final runtime = await testApp(
+      provider: provider,
+      modules: [_SlowModule(work.operation)],
+      toastDuration: const Duration(seconds: 1),
+    );
 
     runtime.commands.run('test.slow');
     final run = runtime.commands.openDialogs.single as AsyncCommandBase;
@@ -121,23 +127,21 @@ void main() {
 
     // Прервать работу можно и из фона — но прерывание не молчаливое: операция
     // переспрашивает, и отвечать за пользователя ядро не вправе.
-    final task =
-        [
-          for (final run in runtime.app.operations.all)
-            if (run.isInBackground) run,
-        ].single;
-    expect(!task.status.state.isFinished, isTrue);
+    final task = runtime.app.operations.at(ViewportPosition.left).single;
+    expect(task.status.state.isFinished, isFalse);
     task.operation.requestCancel();
     await Future<void>.delayed(const Duration(milliseconds: 10));
 
-    expect(
-      [
-        for (final run in runtime.app.operations.all)
-          if (run.isInBackground) run,
-      ],
-      isEmpty,
-      reason: 'вопрос вернул окно из фона',
-    );
+    // Окно само не выпрыгивает: вырывать человека из другого дела нельзя, а
+    // вопрос никуда не денется — работа ждёт столько, сколько нужно.
+    expect(runtime.app.operations.at(ViewportPosition.left), hasLength(1));
+    expect(runtime.commands.openDialogs, isEmpty);
+    expect(task.status.state, OperationState.userActionRequired, reason: 'у полоски загорается кнопка');
+    // Но и молчать нельзя, иначе работа стоит, а человек этого не замечает.
+    expect(runtime.app.toasts.current?.message, contains('waiting for an answer'));
+
+    // Кнопка возвращает окно — и вопрос в нём.
+    runtime.app.operations.bringToFront(task.runId);
     expect(runtime.commands.openDialogs.single, same(run));
     expect(run.question, isNotNull);
 
@@ -145,25 +149,5 @@ void main() {
     await run.submit();
     await run.completion;
     expect(run.isRunning, isFalse);
-  });
-
-  test('законченная работа уходит из списка', () async {
-    final work = blockingOperation();
-    final runtime = await testApp(provider: provider, modules: [_SlowModule(work.operation)]);
-
-    runtime.commands.run('test.slow');
-    final run = runtime.commands.openDialogs.single as AsyncCommandBase;
-    unawaited(run.submit());
-    await Future<void>.delayed(const Duration(milliseconds: 5));
-    runtime.app.operations.sendToBackground(run.runId, owner: ViewportPosition.left);
-
-    work.finish();
-    await run.completion;
-    await Future<void>.delayed(const Duration(milliseconds: 5));
-
-    expect([
-      for (final run in runtime.app.operations.all)
-        if (run.isInBackground) run,
-    ], isEmpty);
   });
 }
