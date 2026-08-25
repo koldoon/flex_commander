@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import '../../async/async_operation.dart';
-import '../../async/user_action_request.dart';
+import '../../async/operation_request.dart';
 import '../../async/transfer_progress.dart';
 import '../fs_node.dart';
 import '../tree_provider.dart';
@@ -138,33 +138,33 @@ class TreeTransferEngine implements TreeEditor {
               }
               if (!overwriteAll) {
                 final answer = await op.ask(
-                  ChoiceRequest(
+                  OperationRequest(
                     message: FsError(existing.pathString, FsErrorKind.alreadyExists).message,
                     options: const [
-                      OperationOption.overwrite,
-                      OperationOption.overwriteAll,
-                      OperationOption.skip,
-                      OperationOption.skipAll,
-                      OperationOption.cancel,
+                      OperationRequestOption.overwrite,
+                      OperationRequestOption.overwriteAll,
+                      OperationRequestOption.skip,
+                      OperationRequestOption.skipAll,
+                      OperationRequestOption.cancel,
                     ],
                     // Молча затирать чужие файлы нельзя.
-                    enterOption: OperationOption.skip,
+                    enterOption: OperationRequestOption.skip,
                   ),
                 );
 
-                if (answer == OperationOption.cancel) {
+                if (answer == OperationRequestOption.cancel) {
                   throw const OperationCanceled();
                 }
-                if (answer == OperationOption.skipAll) {
+                if (answer == OperationRequestOption.skipAll) {
                   skipAll = true;
                   progress.sourceDoneWholly(i);
                   continue;
                 }
-                if (answer == OperationOption.skip) {
+                if (answer == OperationRequestOption.skip) {
                   progress.sourceDoneWholly(i);
                   continue;
                 }
-                if (answer == OperationOption.overwriteAll) {
+                if (answer == OperationRequestOption.overwriteAll) {
                   overwriteAll = true;
                 }
               }
@@ -195,10 +195,10 @@ class TreeTransferEngine implements TreeEditor {
               continue;
             }
             final answer = await _askAboutFailure(op, error.message);
-            if (answer == OperationOption.cancel) {
+            if (answer == OperationRequestOption.cancel) {
               throw const OperationCanceled();
             }
-            if (answer == OperationOption.skipAll) {
+            if (answer == OperationRequestOption.skipAll) {
               skipAll = true;
             }
           }
@@ -272,10 +272,10 @@ class TreeTransferEngine implements TreeEditor {
             }
 
             final answer = await _askAboutFailure(op, error.message);
-            if (answer == OperationOption.cancel) {
+            if (answer == OperationRequestOption.cancel) {
               throw const OperationCanceled();
             }
-            if (answer == OperationOption.skipAll) {
+            if (answer == OperationRequestOption.skipAll) {
               skipAll = true;
             }
           }
@@ -443,22 +443,22 @@ class TreeTransferEngine implements TreeEditor {
     }
 
     final answer = await op.ask(
-      ChoiceRequest(
+      OperationRequest(
         message:
             recursive
                 ? 'The link «${node.name}» points into the directory being copied'
                 : 'Cannot store the link «${node.name}» as a link here',
-        options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
+        options: const [OperationRequestOption.skip, OperationRequestOption.skipAll, OperationRequestOption.cancel],
         // Подменять ссылку её содержимым молча нельзя: это разные вещи и по
         // размеру, и по смыслу.
-        enterOption: OperationOption.skip,
+        enterOption: OperationRequestOption.skip,
       ),
     );
 
-    if (answer == OperationOption.cancel) {
+    if (answer == OperationRequestOption.cancel) {
       throw const OperationCanceled();
     }
-    if (answer == OperationOption.skipAll) {
+    if (answer == OperationRequestOption.skipAll) {
       links.skipAll = true;
     }
   }
@@ -609,12 +609,12 @@ class TreeTransferEngine implements TreeEditor {
     progress.countingFinished();
   }
 
-  Future<OperationOption> _askAboutFailure(TaskOperation<void> op, String message) {
+  Future<OperationRequestOption> _askAboutFailure(TaskOperation<void> op, String message) {
     return op.ask(
-      ChoiceRequest(
+      OperationRequest(
         message: message,
-        options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
-        enterOption: OperationOption.skip,
+        options: const [OperationRequestOption.skip, OperationRequestOption.skipAll, OperationRequestOption.cancel],
+        enterOption: OperationRequestOption.skip,
       ),
     );
   }

@@ -50,7 +50,7 @@ void main() {
   Future<DirectoryNode> targetDir() async => (await provider.resolvePath(target).result)! as DirectoryNode;
 
   /// Отвечает на все вопросы операции одинаково.
-  void answerWith(AsyncOperation<void> operation, OperationOption option) {
+  void answerWith(AsyncOperation<void> operation, OperationRequestOption option) {
     operation.requests.listen((request) => request.respond(option));
   }
 
@@ -253,7 +253,7 @@ void main() {
     test('перезапись заменяет содержимое', () async {
       final nodes = await listRoot();
       final operation = editor.copy([nodes['notes.txt']!], await targetDir());
-      answerWith(operation, OperationOption.overwrite);
+      answerWith(operation, OperationRequestOption.overwrite);
 
       await operation.result;
       await pumpEventQueue();
@@ -268,7 +268,7 @@ void main() {
       var questions = 0;
       operation.requests.listen((request) {
         questions++;
-        request.respond(OperationOption.overwriteAll);
+        request.respond(OperationRequestOption.overwriteAll);
       });
 
       await operation.result;
@@ -281,7 +281,7 @@ void main() {
     test('отмена прекращает работу', () async {
       final nodes = await listRoot();
       final operation = editor.copy([nodes['notes.txt']!, nodes['report.txt']!], await targetDir());
-      answerWith(operation, OperationOption.cancel);
+      answerWith(operation, OperationRequestOption.cancel);
 
       await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
       expect(await File(p.join(target, 'report.txt')).exists(), isFalse);
@@ -292,7 +292,7 @@ void main() {
       await File(p.join(target, 'docs', 'stale.txt')).writeAsString('старое');
       final nodes = await listRoot();
       final operation = editor.copy([nodes['docs']!], await targetDir());
-      answerWith(operation, OperationOption.overwrite);
+      answerWith(operation, OperationRequestOption.overwrite);
 
       await operation.result;
       await pumpEventQueue();
@@ -325,7 +325,7 @@ void main() {
       await File(p.join(target, 'notes.txt')).writeAsString('чужое');
       final nodes = await listRoot();
       final operation = editor.move([nodes['notes.txt']!], await targetDir());
-      answerWith(operation, OperationOption.skip);
+      answerWith(operation, OperationRequestOption.skip);
 
       await operation.result;
       await pumpEventQueue();
@@ -412,7 +412,7 @@ void main() {
       final messages = <String>[];
       operation.requests.listen((request) {
         messages.add(request.message);
-        request.respond(OperationOption.skip);
+        request.respond(OperationRequestOption.skip);
       });
       await operation.result;
       await pumpEventQueue();
@@ -429,7 +429,7 @@ void main() {
       final messages = <String>[];
       operation.requests.listen((request) {
         messages.add(request.message);
-        request.respond(OperationOption.skip);
+        request.respond(OperationRequestOption.skip);
       });
       await operation.result;
       await pumpEventQueue();
@@ -443,7 +443,7 @@ void main() {
       await File(p.join(root, 'notes.txt')).delete();
 
       final operation = editor.copy([nodes['notes.txt']!, nodes['report.txt']!], await targetDir());
-      answerWith(operation, OperationOption.skip);
+      answerWith(operation, OperationRequestOption.skip);
       await operation.result;
       await pumpEventQueue();
 

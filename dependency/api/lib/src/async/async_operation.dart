@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'user_action_request.dart';
+import 'operation_request.dart';
 
 /// Состояние операции.
 ///
@@ -185,13 +185,13 @@ abstract class AsyncOperation<T> {
   Stream<OperationProgress> get progress;
 
   /// Вопросы пользователю. Пустой поток у операций, которые ничего не спрашивают.
-  Stream<ChoiceRequest> get requests;
+  Stream<OperationRequest> get requests;
 
   /// Прервать немедленно, ни о чём не спрашивая.
   void cancel();
 
   /// Попросить прервать: работа встанет на ближайшей проверке и спросит
-  /// подтверждение — обычным [ChoiceRequest], как и всё остальное.
+  /// подтверждение — обычным [OperationRequest], как и всё остальное.
   ///
   /// Отдельно от [cancel], потому что это разные действия: закрытие окна или
   /// уход из приложения прерывают молча, а нажатие Esc — с вопросом. Пока
@@ -216,7 +216,7 @@ class TaskOperation<T> implements AsyncOperation<T> {
 
   final Completer<T> _completer = Completer<T>();
   final StreamController<OperationProgress> _progress = StreamController<OperationProgress>.broadcast();
-  final StreamController<ChoiceRequest> _requests = StreamController<ChoiceRequest>.broadcast();
+  final StreamController<OperationRequest> _requests = StreamController<OperationRequest>.broadcast();
 
   OperationState _status = OperationState.inited;
 
@@ -243,7 +243,7 @@ class TaskOperation<T> implements AsyncOperation<T> {
   }
 
   @override
-  Stream<ChoiceRequest> get requests => _requests.stream;
+  Stream<OperationRequest> get requests => _requests.stream;
 
   bool get isCanceled => _status == OperationState.canceled;
 
@@ -295,15 +295,15 @@ class TaskOperation<T> implements AsyncOperation<T> {
     _cancelRequested = false;
 
     final answer = await ask(
-      ChoiceRequest(
+      OperationRequest(
         message: 'Abort the operation?',
-        options: const [OperationOption.abort, OperationOption.resume],
-        enterOption: OperationOption.abort,
-        escapeOption: OperationOption.resume,
+        options: const [OperationRequestOption.abort, OperationRequestOption.resume],
+        enterOption: OperationRequestOption.abort,
+        escapeOption: OperationRequestOption.resume,
       ),
     );
 
-    if (answer == OperationOption.abort) {
+    if (answer == OperationRequestOption.abort) {
       cancel();
     }
     checkCanceled();
@@ -394,7 +394,7 @@ class TaskOperation<T> implements AsyncOperation<T> {
 
   /// Задаёт вопрос пользователю и ждёт ответа.
   /// Если вопрос никто не слушает, возвращается вариант по умолчанию.
-  Future<OperationOption> ask(ChoiceRequest request) {
+  Future<OperationRequestOption> ask(OperationRequest request) {
     if (_requests.hasListener) {
       _requests.add(request);
       return request.answer;
@@ -476,7 +476,7 @@ class CompletedOperation<T> implements AsyncOperation<T> {
   Stream<OperationProgress> get progress => const Stream.empty();
 
   @override
-  Stream<ChoiceRequest> get requests => const Stream.empty();
+  Stream<OperationRequest> get requests => const Stream.empty();
 
   @override
   void cancel() {}

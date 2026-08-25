@@ -454,7 +454,7 @@ Widget? getDialog(BuildContext context) => AsyncCommandDialog(command: this, for
 нулевая полоска.
 
 Кнопка, подсвеченная как основная, — та, которую нажмёт Enter
-(`OperationRequest.defaultOption`), а не первая по порядку. У вопроса о занятом
+(`UserActionRequest.defaultOption`), а не первая по порядку. У вопроса о занятом
 имени это «Skip»: молча затирать чужие файлы нельзя, и подсвечивать «Overwrite»
 было бы приглашением сделать именно это.
 

@@ -547,7 +547,7 @@ class FsError implements Exception {
 ```
 
 `permissionDenied` не обязан быть фатальным: операция может задать вопрос пользователю
-через `OperationRequest` (в референсе — `AccessDeniedMessage`) и продолжить.
+через `UserActionRequest` (в референсе — `AccessDeniedMessage`) и продолжить.
 
 Тестовая реализация `InMemoryTreeProvider` живёт в `test/fake/` и строит дерево
 из литерала Dart: на ней тестируются контроллеры и команды без обращения к диску.
@@ -585,7 +585,7 @@ abstract class AsyncOperation<T> {
 
   /// Вопросы пользователю: перезаписать? пропустить? продолжить без прав?
   /// Пустой поток у операций, которые ничего не спрашивают.
-  Stream<OperationRequest> get requests;
+  Stream<UserActionRequest> get requests;
 
   void cancel();
 }
@@ -593,10 +593,10 @@ abstract class AsyncOperation<T> {
 
 ```dart
 /// Запрос из середины операции. Аналог IInteraction/IMessage референса.
-class OperationRequest {
+class UserActionRequest {
   final String message;
-  final List<OperationOption> options;   // Overwrite / Skip / Skip all / Cancel
-  void answer(OperationOption option);
+  final List<OperationRequestOption> options;   // Overwrite / Skip / Skip all / Cancel
+  void answer(OperationRequestOption option);
 }
 ```
 
@@ -666,7 +666,7 @@ final node = await op.delegate(provider.resolvePath(path));
   новая с тем же значением. Пути берутся через `entityPathOf` — `physicalPathOf` для
   ссылки вернул бы её цель, и перенос ссылки утащил бы за собой чужой каталог.
 - **Каталог переносится вместе с содержимым**, рекурсивно.
-- **Занятое имя — вопрос, а не решение.** `OperationRequest` предлагает перезаписать,
+- **Занятое имя — вопрос, а не решение.** `UserActionRequest` предлагает перезаписать,
   перезаписать все, пропустить, пропустить все, отменить; ответ «…все» запоминается
   на всю операцию. Ответ по умолчанию — «пропустить»: молча затирать чужие файлы нельзя.
 - **Ошибка на одном объекте не прекращает работу** — задаётся тот же вопрос.

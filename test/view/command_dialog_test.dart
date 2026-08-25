@@ -110,10 +110,10 @@ void main() {
     expect(tester.widget<FcProgressBar>(find.byType(FcProgressBar)).value, isNull);
   });
   group('вопрос с вводом строки', () {
-    late ChoiceRequest request;
+    late OperationRequest request;
     late String answered;
 
-    Future<void> pumpQuestion(WidgetTester tester, ChoiceRequest it) {
+    Future<void> pumpQuestion(WidgetTester tester, OperationRequest it) {
       request = it;
       answered = '';
       return tester.pumpWidget(
@@ -135,10 +135,10 @@ void main() {
       );
     }
 
-    ChoiceRequest passwordRequest({bool secret = true}) => ChoiceRequest(
+    OperationRequest passwordRequest({bool secret = true}) => OperationRequest(
       message: 'archive.zip is encrypted',
-      options: const [OperationOption.retry, OperationOption.cancel],
-      enterOption: OperationOption.retry,
+      options: const [OperationRequestOption.retry, OperationRequestOption.cancel],
+      enterOption: OperationRequestOption.retry,
       inputLabel: 'Password:',
       secret: secret,
     );
@@ -146,10 +146,10 @@ void main() {
     testWidgets('вопрос без поля остаётся набором кнопок', (tester) async {
       await pumpQuestion(
         tester,
-        ChoiceRequest(
+        OperationRequest(
           message: 'Already exists',
-          options: const [OperationOption.skip, OperationOption.cancel],
-          enterOption: OperationOption.skip,
+          options: const [OperationRequestOption.skip, OperationRequestOption.cancel],
+          enterOption: OperationRequestOption.skip,
         ),
       );
 
@@ -179,7 +179,7 @@ void main() {
       await tester.enterText(find.byType(TextField), 'secret');
       await tester.tap(find.widgetWithText(FcButton, 'Retry'));
 
-      expect(await request.answer, OperationOption.retry);
+      expect(await request.answer, OperationRequestOption.retry);
       expect(request.text, 'secret');
     });
 
@@ -189,7 +189,7 @@ void main() {
       await tester.enterText(find.byType(TextField), 'secret');
       await tester.testTextInput.receiveAction(TextInputAction.done);
 
-      expect(await request.answer, OperationOption.retry);
+      expect(await request.answer, OperationRequestOption.retry);
       expect(request.text, 'secret');
     });
 
@@ -199,16 +199,16 @@ void main() {
       await tester.enterText(find.byType(TextField), 'secret');
       await tester.tap(find.widgetWithText(FcButton, 'Cancel'));
 
-      expect(await request.answer, OperationOption.cancel);
+      expect(await request.answer, OperationRequestOption.cancel);
     });
 
     testWidgets('подсвечена та кнопка, которую нажмёт Enter', (tester) async {
       await pumpQuestion(
         tester,
-        ChoiceRequest(
+        OperationRequest(
           message: 'Already exists',
-          options: const [OperationOption.overwrite, OperationOption.skip, OperationOption.cancel],
-          enterOption: OperationOption.skip,
+          options: const [OperationRequestOption.overwrite, OperationRequestOption.skip, OperationRequestOption.cancel],
+          enterOption: OperationRequestOption.skip,
         ),
       );
 

@@ -84,15 +84,15 @@ void main() {
       op = TaskOperation<String>((operation) async {
         await Future<void>.delayed(Duration.zero);
         final answer = await operation.ask(
-          ChoiceRequest(
+          OperationRequest(
             message: 'Overwrite file?',
-            options: const [OperationOption.overwrite, OperationOption.skip],
-            enterOption: OperationOption.skip,
+            options: const [OperationRequestOption.overwrite, OperationRequestOption.skip],
+            enterOption: OperationRequestOption.skip,
           ),
         );
         return answer.id;
       });
-      op.requests.listen((request) => request.respond(OperationOption.skip));
+      op.requests.listen((request) => request.respond(OperationRequestOption.skip));
 
       expect(await op.result, 'skip');
     });
@@ -100,10 +100,10 @@ void main() {
     test('без подписчиков применяется вариант по умолчанию', () async {
       final op = TaskOperation<String>((operation) async {
         final answer = await operation.ask(
-          ChoiceRequest(
+          OperationRequest(
             message: 'Overwrite file?',
-            options: const [OperationOption.overwrite, OperationOption.cancel],
-            enterOption: OperationOption.cancel,
+            options: const [OperationRequestOption.overwrite, OperationRequestOption.cancel],
+            enterOption: OperationRequestOption.cancel,
           ),
         );
         return answer.id;
@@ -113,17 +113,17 @@ void main() {
     });
 
     test('повторный ответ игнорируется', () {
-      final request = ChoiceRequest(
+      final request = OperationRequest(
         message: 'Overwrite?',
-        options: const [OperationOption.overwrite, OperationOption.skip],
-        enterOption: OperationOption.skip,
+        options: const [OperationRequestOption.overwrite, OperationRequestOption.skip],
+        enterOption: OperationRequestOption.skip,
       );
 
-      request.respond(OperationOption.overwrite);
-      request.respond(OperationOption.skip);
+      request.respond(OperationRequestOption.overwrite);
+      request.respond(OperationRequestOption.skip);
 
       expect(request.isAnswered, isTrue);
-      expect(request.answer, completion(OperationOption.overwrite));
+      expect(request.answer, completion(OperationRequestOption.overwrite));
     });
   });
 
@@ -162,7 +162,7 @@ void main() {
 
     test('превращается в обычный вопрос, а не в отмену', () async {
       final (op, _) = counting();
-      final questions = <ChoiceRequest>[];
+      final questions = <OperationRequest>[];
       op.requests.listen(questions.add);
 
       op.requestCancel();
@@ -175,7 +175,7 @@ void main() {
 
     test('до ответа работа стоит', () async {
       final (op, steps) = counting();
-      ChoiceRequest? question;
+      OperationRequest? question;
       op.requests.listen((request) => question = request);
 
       op.requestCancel();
@@ -186,7 +186,7 @@ void main() {
 
       // Тело бесконечное: если бы оно работало, шагов стало бы больше.
       expect(steps.length, done);
-      question!.respond(OperationOption.resume);
+      question!.respond(OperationRequestOption.resume);
       await pumpEventQueue();
       expect(steps.length, greaterThan(done));
       op.cancel();
@@ -194,12 +194,12 @@ void main() {
 
     test('повторная просьба задаёт вопрос заново', () async {
       final (op, _) = counting();
-      final questions = <ChoiceRequest>[];
+      final questions = <OperationRequest>[];
       op.requests.listen(questions.add);
 
       op.requestCancel();
       await pumpEventQueue();
-      questions.single.respond(OperationOption.resume);
+      questions.single.respond(OperationRequestOption.resume);
       await pumpEventQueue();
 
       // Просьба не «залипает»: продолжив работу, её надо просить заново.
@@ -223,7 +223,7 @@ void main() {
 
     test('«Abort» завершает операцию отменой', () async {
       final (op, _) = counting();
-      op.requests.listen((request) => request.respond(OperationOption.abort));
+      op.requests.listen((request) => request.respond(OperationRequestOption.abort));
 
       op.requestCancel();
       await pumpEventQueue();
@@ -257,7 +257,7 @@ void main() {
 
     test('пока не просили — работа идёт молча', () async {
       final (op, chunks) = chunking();
-      final questions = <ChoiceRequest>[];
+      final questions = <OperationRequest>[];
       op.requests.listen(questions.add);
 
       await pumpEventQueue(times: 10);
@@ -269,7 +269,7 @@ void main() {
 
     test('вопрос задаётся один раз, а работа не встаёт', () async {
       final (op, chunks) = chunking();
-      final questions = <ChoiceRequest>[];
+      final questions = <OperationRequest>[];
       op.requests.listen(questions.add);
 
       op.requestCancel();
@@ -287,12 +287,12 @@ void main() {
 
     test('«Resume» — работа как ни в чём не бывало', () async {
       final (op, chunks) = chunking();
-      final questions = <ChoiceRequest>[];
+      final questions = <OperationRequest>[];
       op.requests.listen(questions.add);
 
       op.requestCancel();
       await pumpEventQueue();
-      questions.single.respond(OperationOption.resume);
+      questions.single.respond(OperationRequestOption.resume);
       await pumpEventQueue();
       final done = chunks.length;
 
@@ -310,7 +310,7 @@ void main() {
 
     test('«Abort» доходит следующим куском', () async {
       final (op, _) = chunking();
-      op.requests.listen((request) => request.respond(OperationOption.abort));
+      op.requests.listen((request) => request.respond(OperationRequestOption.abort));
 
       op.requestCancel();
       await pumpEventQueue();
@@ -452,25 +452,25 @@ void main() {
     });
 
     test('вопрос вложенной наверх не идёт: берётся вариант по умолчанию', () async {
-      late final OperationOption answer;
+      late final OperationRequestOption answer;
       final inner = TaskOperation<int>((op) async {
         answer = await op.ask(
-          ChoiceRequest(
+          OperationRequest(
             message: 'Overwrite?',
-            options: const [OperationOption.overwrite, OperationOption.skip],
-            enterOption: OperationOption.skip,
+            options: const [OperationRequestOption.overwrite, OperationRequestOption.skip],
+            enterOption: OperationRequestOption.skip,
           ),
         );
         return 1;
       });
       final outer = TaskOperation<int>((op) => op.delegate(inner));
 
-      final questions = <ChoiceRequest>[];
+      final questions = <OperationRequest>[];
       outer.requests.listen(questions.add);
 
       expect(await outer.result, 1);
       expect(questions, isEmpty);
-      expect(answer, OperationOption.skip);
+      expect(answer, OperationRequestOption.skip);
     });
 
     test('просьба прервать вниз не идёт', () async {
@@ -525,7 +525,7 @@ class _StubbornOperation implements AsyncOperation<int> {
   Stream<OperationProgress> get progress => _progress.stream;
 
   @override
-  Stream<ChoiceRequest> get requests => const Stream.empty();
+  Stream<OperationRequest> get requests => const Stream.empty();
 
   @override
   void cancel() {}

@@ -191,7 +191,7 @@ void main() {
       final operation = editor.remove([nodes['notes.txt']!, nodes['report.txt']!], toTrash: false);
       operation.requests.listen((request) {
         questions.add(request.message);
-        request.respond(OperationOption.skipAll);
+        request.respond(OperationRequestOption.skipAll);
       });
       await operation.result;
       await pumpEventQueue();
@@ -204,7 +204,7 @@ void main() {
       final nodes = await listRoot();
 
       final operation = editor.remove([missing, nodes['report.txt']!], toTrash: false);
-      operation.requests.listen((request) => request.respond(OperationOption.cancel));
+      operation.requests.listen((request) => request.respond(OperationRequestOption.cancel));
 
       await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
       // До второго объекта дело не дошло.

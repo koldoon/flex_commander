@@ -169,7 +169,7 @@ void main() {
       // Перезапись — обычный вопрос движка. По умолчанию он предлагает
       // пропустить, поэтому в тесте отвечаем «перезаписать» явно.
       final operation = engine.copy([await onDisk('readme.md')], await inArchive(zip, '/'));
-      operation.requests.listen((request) => request.respond(OperationOption.overwrite));
+      operation.requests.listen((request) => request.respond(OperationRequestOption.overwrite));
       await operation.result;
 
       expect(await archiveOnDisk(), containsPair('readme.md', 'новая версия'));

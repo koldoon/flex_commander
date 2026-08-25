@@ -85,7 +85,7 @@ void main() {
     final messages = <String>[];
     operation.requests.listen((request) {
       messages.add(request.message);
-      request.respond(OperationOption.skip);
+      request.respond(OperationRequestOption.skip);
     });
     return messages;
   }
@@ -168,7 +168,7 @@ void main() {
       final questions = <String>[];
       operation.requests.listen((request) {
         questions.add(request.message);
-        request.respond(OperationOption.skipAll);
+        request.respond(OperationRequestOption.skipAll);
       });
 
       await operation.result;
@@ -288,7 +288,7 @@ void main() {
     test('отмена посреди файла убирает недописанное', () async {
       provider.copyChunkBytes = 1;
       final operation = engine.copy([await node('/home/notes.txt')], await directory('/home/bin'));
-      operation.requests.listen((request) => request.respond(OperationOption.abort));
+      operation.requests.listen((request) => request.respond(OperationRequestOption.abort));
 
       // Просьба приходит, когда копия уже пошла: между объектами её перехватила
       // бы обычная контрольная точка, и до файла дело бы не дошло.
@@ -511,25 +511,25 @@ void main() {
 
     test('спрашивает подтверждение, а не прерывает молча', () async {
       final (operation, _) = await startCopy();
-      final questions = <ChoiceRequest>[];
+      final questions = <OperationRequest>[];
       operation.requests.listen(questions.add);
 
       operation.requestCancel();
       await pumpEventQueue();
 
       expect(questions, hasLength(1));
-      expect(questions.single.options, [OperationOption.abort, OperationOption.resume]);
+      expect(questions.single.options, [OperationRequestOption.abort, OperationRequestOption.resume]);
       // Enter прерывает, Esc — отказывается прерывать.
-      expect(questions.single.enterOption, OperationOption.abort);
-      expect(questions.single.escapeOption, OperationOption.resume);
+      expect(questions.single.enterOption, OperationRequestOption.abort);
+      expect(questions.single.escapeOption, OperationRequestOption.resume);
 
-      questions.single.respond(OperationOption.abort);
+      questions.single.respond(OperationRequestOption.abort);
       await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
     });
 
     test('пока ответа нет, работа стоит', () async {
       final (operation, disk) = await startCopy();
-      ChoiceRequest? question;
+      OperationRequest? question;
       operation.requests.listen((request) => question = request);
 
       operation.requestCancel();
@@ -543,13 +543,13 @@ void main() {
       expect(disk.copied.length, done, reason: 'работа продолжилась, не дождавшись ответа');
       expect(done, lessThan(20), reason: 'задание успело кончиться — проверять нечего');
 
-      question!.respond(OperationOption.resume);
+      question!.respond(OperationRequestOption.resume);
       await operation.result;
     });
 
     test('«Cancel» возвращает к работе, и она доходит до конца', () async {
       final (operation, disk) = await startCopy();
-      operation.requests.listen((request) => request.respond(OperationOption.resume));
+      operation.requests.listen((request) => request.respond(OperationRequestOption.resume));
 
       operation.requestCancel();
       await operation.result;
@@ -560,7 +560,7 @@ void main() {
 
     test('«Abort» прекращает работу на том, что успели', () async {
       final (operation, disk) = await startCopy();
-      operation.requests.listen((request) => request.respond(OperationOption.abort));
+      operation.requests.listen((request) => request.respond(OperationRequestOption.abort));
 
       operation.requestCancel();
       await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
@@ -582,20 +582,20 @@ void main() {
       final disk = InMemoryTreeProvider(many())..hasTrash = false;
       final sources = [for (var i = 0; i < 20; i++) (await disk.resolvePath('/home/file-$i.txt').result)!];
       final operation = engine.remove(sources, toTrash: false);
-      final questions = <ChoiceRequest>[];
+      final questions = <OperationRequest>[];
       operation.requests.listen(questions.add);
 
       operation.requestCancel();
       await pumpEventQueue();
 
       expect(questions.single.message, 'Abort the operation?');
-      questions.single.respond(OperationOption.abort);
+      questions.single.respond(OperationRequestOption.abort);
       await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
     });
 
     test('прерывание без спроса по-прежнему возможно', () async {
       final (operation, _) = await startCopy();
-      final questions = <ChoiceRequest>[];
+      final questions = <OperationRequest>[];
       operation.requests.listen(questions.add);
       // Ожидание ставится до отмены: `cancel` завершает операцию ошибкой сразу,
       // и прочитать её должно быть кому уже в этот момент.

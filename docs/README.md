@@ -136,7 +136,7 @@
 | `m.tree.impl.fs.LocalFileSystemTreeProvider` (через CLI `ls`/`stat`) | `LocalTreeProvider` (через `dart:io`) |
 | `m.tree.impl.zip.ZipTreeProvider` (через CLI `unzip`) | `ZipTreeProvider` (через `package:archive`) |
 | `m.async.IAsyncOperation` + `IAsyncOperationStatus` | `AsyncOperation<T>` (`Future` + прогресс + отмена) |
-| `m.interactive.IInteraction` | `OperationRequest` — запрос к пользователю из середины операции |
+| `m.interactive.IInteraction` | `UserActionRequest` — запрос к пользователю из середины операции |
 | `m.app.IApplication` | `Application` (интерфейс) + `AppController` (реализация) |
 | `m.app.IPanel` | `Panel` + `PanelController` |
 | `m.app.IPanelSelection` | `PanelSelection` + `SelectionController` |

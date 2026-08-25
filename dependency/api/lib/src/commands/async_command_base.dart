@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../async/async_operation.dart';
-import '../async/user_action_request.dart';
+import '../async/operation_request.dart';
 import '../util/throttle.dart';
 import '../background/task_status.dart';
 import 'app_command.dart';
@@ -38,14 +38,14 @@ enum CommandRunPhase {
 /// сценарий, и спросить там некого.
 abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, TaskStatus {
   AsyncOperation<void>? _operation;
-  StreamSubscription<ChoiceRequest>? _requests;
+  StreamSubscription<OperationRequest>? _requests;
   StreamSubscription<OperationProgress>? _progress;
 
   CommandRunPhase _phase = CommandRunPhase.idle;
   OperationProgress _state = const OperationProgress();
 
   /// Вопрос, на который сейчас ждут ответа.
-  ChoiceRequest? _question;
+  OperationRequest? _question;
 
   final Completer<void> _completion = Completer<void>();
 
@@ -73,7 +73,7 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
   String get message => progressMessage;
 
   /// Вопрос, который показывает окно команды; null — вопроса нет.
-  ChoiceRequest? get question => _question;
+  OperationRequest? get question => _question;
 
   /// Заголовок разбора, когда работа не удалась: окно показывает его вместо
   /// хода дела.
@@ -155,7 +155,7 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
   void setAnswerText(String value) => _answerText = value;
 
   /// Ответ на вопрос, заданный по ходу работы.
-  void answer(OperationOption option) {
+  void answer(OperationRequestOption option) {
     _question?.respond(option, text: _answerText);
     _question = null;
     _answerText = '';

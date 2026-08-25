@@ -275,8 +275,8 @@ class CommandDialogProgress extends StatelessWidget {
 class CommandDialogQuestion extends StatefulWidget {
   const CommandDialogQuestion({super.key, required this.request, required this.onAnswer, this.onTextChanged});
 
-  final ChoiceRequest request;
-  final void Function(OperationOption option) onAnswer;
+  final OperationRequest request;
+  final void Function(OperationRequestOption option) onAnswer;
 
   /// Набранное сообщается по мере ввода — то же правило, что и у окон с
   /// параметрами: Enter обрабатывает ядро, и к моменту ответа текст уже должен
