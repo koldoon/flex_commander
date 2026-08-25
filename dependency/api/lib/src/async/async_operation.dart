@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import 'operation_request.dart';
 import 'operation_status.dart';
 
@@ -162,12 +164,18 @@ class OperationCanceled implements Exception {
 /// файловому менеджеру: операцию можно отменить, она умеет сообщать о ходе
 /// работы и задавать вопросы (перезаписать? пропустить?) не прерываясь.
 abstract class AsyncOperation<T> {
-  OperationState get status;
+  OperationState get state;
+
+  /// Ход работы: объект, а не поток. Читается всегда, подписка не обязательна.
+  OperationStatus get status;
 
   /// Результат. Завершается ошибкой [FsError] или [OperationCanceled].
   Future<T> get result;
 
-  /// Прогресс. Быстрые операции могут не отдавать ничего.
+  /// Прогресс потоком.
+  ///
+  /// Переходное: ход работы держит [status], а поток из него питается —
+  /// источник правды один. Уйдёт, когда потребители перейдут на объект.
   Stream<OperationProgress> get progress;
 
   /// Вопросы пользователю. Пустой поток у операций, которые ничего не спрашивают.
@@ -201,37 +209,45 @@ class TaskOperation<T> implements AsyncOperation<T> {
   final Future<T> Function(TaskOperation<T> op) _body;
 
   final Completer<T> _completer = Completer<T>();
-  final StreamController<OperationProgress> _progress = StreamController<OperationProgress>.broadcast();
   final StreamController<OperationRequest> _requests = StreamController<OperationRequest>.broadcast();
 
-  OperationState _status = OperationState.inited;
+  OperationState _state = OperationState.inited;
 
   @override
-  OperationState get status => _status;
+  OperationState get state => _state;
+
+  @override
+  late final OperationStatus status = _status;
+
+  final _TaskOperationStatus _status = _TaskOperationStatus();
 
   @override
   Future<T> get result => _completer.future;
 
-  OperationProgress? _lastProgress;
+  final StreamController<OperationProgress> _progress = StreamController<OperationProgress>.broadcast();
 
-  /// Прогресс операции.
-  ///
-  /// Новый подписчик первым делом получает последнее известное состояние:
-  /// операция стартует сразу при создании, и тот, кто подписался следующей
-  /// строкой, иначе пропустил бы уже случившееся.
+  /// Новый подписчик первым делом получает последнее известное: операция
+  /// стартует сразу при создании, и подписавшийся следующей строкой иначе
+  /// пропустил бы уже случившееся.
   @override
   Stream<OperationProgress> get progress async* {
-    final last = _lastProgress;
+    final last = _status.lastProgress;
     if (last != null) {
       yield last;
     }
     yield* _progress.stream;
   }
 
+  /// Переводит состояние и сообщает об этом наружу одним движением.
+  void _setState(OperationState value) {
+    _state = value;
+    _status.setState(value);
+  }
+
   @override
   Stream<OperationRequest> get requests => _requests.stream;
 
-  bool get isCanceled => _status == OperationState.canceled;
+  bool get isCanceled => _state == OperationState.canceled;
 
   /// Пользователь просил прервать, но ещё не подтвердил.
   bool _cancelRequested = false;
@@ -254,7 +270,7 @@ class TaskOperation<T> implements AsyncOperation<T> {
 
   @override
   void requestCancel() {
-    if (_status.isFinished) {
+    if (_state.isFinished) {
       return;
     }
     _cancelRequested = true;
@@ -326,14 +342,15 @@ class TaskOperation<T> implements AsyncOperation<T> {
   }
 
   void report(OperationProgress value) {
-    if (_progress.isClosed) {
-      // Событие вложенной операции, доехавшее после конца работы. Последним
-      // известным ему становиться незачем: его получил бы тот, кто подписался
-      // на уже законченную операцию, — и услышал бы про шаг, которого не было.
+    if (_state.isFinished) {
+      // Отчёт вложенной операции, доехавший после конца работы: рассказывать
+      // про шаг, которого уже не было, незачем.
       return;
     }
-    _lastProgress = value;
-    _progress.add(value);
+    _status.update(value);
+    if (!_progress.isClosed) {
+      _progress.add(value);
+    }
   }
 
   /// Веха: чем работа занята сейчас.
@@ -364,17 +381,33 @@ class TaskOperation<T> implements AsyncOperation<T> {
       throw const OperationCanceled();
     }
 
-    // Подписка ставится до первого await, в том же такте, что и создание
-    // вложенной: потерять первое её событие нечем.
-    final progress = inner.progress.listen(report);
+    // Слушаем ход вложенной и пересказываем наружу: она рассказывает о себе,
+    // а видно должно быть работу целиком.
+    OperationProgress? relayed;
+    void relay() {
+      final status = inner.status;
+      if (status is! _TaskOperationStatus) {
+        return;
+      }
+      final last = status.lastProgress;
+      // Только новое: ход и смена состояния сообщают об одном и том же
+      // объекте, и пересказывать его дважды значило бы удвоить каждый шаг.
+      if (last == null || identical(last, relayed)) {
+        return;
+      }
+      relayed = last;
+      report(last);
+    }
+
+    inner.status.addListener(relay);
+    relay();
     _delegated.add(inner);
     try {
       return await inner.result;
     } finally {
       _delegated.remove(inner);
-      // Отписки нельзя дожидаться: `progress` — асинхронный генератор, и его
-      // отмена не завершится, пока он подвешен на await.
-      unawaited(progress.cancel());
+      // Отписка мгновенная: это Listenable, а не поток.
+      inner.status.removeListener(relay);
     }
   }
 
@@ -394,10 +427,10 @@ class TaskOperation<T> implements AsyncOperation<T> {
 
   @override
   void cancel() {
-    if (_status.isFinished) {
+    if (_state.isFinished) {
       return;
     }
-    _status = OperationState.canceled;
+    _setState(OperationState.canceled);
     // Копия списка: вложенная убирает себя из него сама, а обход идёт по нему же.
     for (final inner in _delegated.toList()) {
       inner.cancel();
@@ -413,20 +446,20 @@ class TaskOperation<T> implements AsyncOperation<T> {
       // Отменили ещё до старта.
       return;
     }
-    _status = OperationState.processing;
+    _setState(OperationState.processing);
     try {
       final value = await _body(this);
       if (isCanceled) {
         return;
       }
-      _status = OperationState.complete;
+      _setState(OperationState.complete);
       _finish();
       _completer.complete(value);
     } catch (error, stackTrace) {
       if (isCanceled) {
         return;
       }
-      _status = error is OperationCanceled ? OperationState.canceled : OperationState.error;
+      _setState(error is OperationCanceled ? OperationState.canceled : OperationState.error);
       _finish();
       if (!_completer.isCompleted) {
         _completer.completeError(error, stackTrace);
@@ -444,7 +477,7 @@ class TaskOperation<T> implements AsyncOperation<T> {
 class CompletedOperation<T> implements AsyncOperation<T> {
   CompletedOperation(T value) : result = Future.value(value);
 
-  CompletedOperation.error(Object error) : result = Future.error(error), _status = OperationState.error {
+  CompletedOperation.error(Object error) : result = Future.error(error), _state = OperationState.error {
     // Ошибка обязательно должна быть кем-то прочитана, иначе Dart сообщит
     // о необработанной ошибке ещё до того, как её заберёт вызывающий код.
     result.ignore();
@@ -453,10 +486,13 @@ class CompletedOperation<T> implements AsyncOperation<T> {
   @override
   final Future<T> result;
 
-  OperationState _status = OperationState.complete;
+  OperationState _state = OperationState.complete;
 
   @override
-  OperationState get status => _status;
+  OperationState get state => _state;
+
+  @override
+  late final OperationStatus status = _TaskOperationStatus()..setState(_state);
 
   @override
   Stream<OperationProgress> get progress => const Stream.empty();
@@ -470,4 +506,96 @@ class CompletedOperation<T> implements AsyncOperation<T> {
   /// Прерывать нечего: работа кончилась раньше, чем её попросили прервать.
   @override
   void requestCancel() {}
+}
+
+/// Ход работы, который ведёт [TaskOperation].
+///
+/// Реализует всю решётку сразу — и это не жадность: одно копирование
+/// одновременно и измеримо, и разбито на объекты, и идёт по байтам внутри
+/// текущего, и бывает многоэтапным. Чего у него нет прямо сейчас, сказано
+/// значением `null`, а не отсутствием типа: «скорость ещё не посчитана» — факт
+/// времени выполнения, а не свойство класса.
+class _TaskOperationStatus extends ChangeNotifier
+    implements
+        MeasurableOperationStatus,
+        SingleTransferOperationStatus,
+        MultipleTransferOperationStatus,
+        MultistageOperationStatus,
+        InteractiveOperationStatus {
+  OperationProgress? lastProgress;
+
+  OperationState _state = OperationState.inited;
+  UserActionRequest? _request;
+
+  @override
+  OperationState get state => _request != null ? OperationState.userActionRequired : _state;
+
+  @override
+  String get message => lastProgress?.message ?? '';
+
+  @override
+  double? get percentProgress => lastProgress?.percent;
+
+  @override
+  double? get speed => lastProgress?.bytesPerSecond;
+
+  @override
+  Duration? get remaining => lastProgress?.remaining;
+
+  @override
+  String get itemName => lastProgress?.itemName ?? '';
+
+  @override
+  int get bytesTransferred => lastProgress?.itemBytes ?? 0;
+
+  @override
+  int? get bytesTotal => lastProgress?.itemTotalBytes;
+
+  @override
+  int get itemsTransferred => lastProgress?.processed ?? 0;
+
+  @override
+  int? get itemsTotal => lastProgress?.total;
+
+  @override
+  bool get totalIsFinal => lastProgress?.totalIsFinal ?? true;
+
+  /// Этапы известны не заранее: второй появляется, только если в деле оказался
+  /// пакетный приёмник. Поэтому список строится из того, что рассказали.
+  @override
+  List<StageOperationStatus> get stages {
+    final progress = lastProgress;
+    if (progress == null || !progress.hasStages) {
+      return const [];
+    }
+    return [
+      for (var index = 1; index <= progress.stageCount; index++)
+        _Stage(index == progress.stage ? progress.stageName : ''),
+    ];
+  }
+
+  @override
+  UserActionRequest? get request => _request;
+
+  void update(OperationProgress value) {
+    lastProgress = value;
+    notifyListeners();
+  }
+
+  void setState(OperationState value) {
+    _state = value;
+    notifyListeners();
+  }
+
+  void setRequest(UserActionRequest? value) {
+    _request = value;
+    notifyListeners();
+  }
+}
+
+class _Stage implements StageOperationStatus {
+  const _Stage(this.name);
+
+  @override
+  final String name;
 }

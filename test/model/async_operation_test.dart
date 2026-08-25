@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -9,15 +10,15 @@ void main() {
       final op = TaskOperation<int>((op) async => 42);
 
       expect(await op.result, 42);
-      expect(op.status, OperationState.complete);
-      expect(op.status.isFinished, isTrue);
+      expect(op.state, OperationState.complete);
+      expect(op.state.isFinished, isTrue);
     });
 
     test('ошибка тела попадает в результат', () async {
       final op = TaskOperation<int>((op) async => throw StateError('boom'));
 
       await expectLater(op.result, throwsA(isA<StateError>()));
-      expect(op.status, OperationState.error);
+      expect(op.state, OperationState.error);
     });
 
     test('отмена завершает операцию ошибкой OperationCanceled', () async {
@@ -33,7 +34,7 @@ void main() {
       op.cancel();
 
       await expectLater(op.result, throwsA(isA<OperationCanceled>()));
-      expect(op.status, OperationState.canceled);
+      expect(op.state, OperationState.canceled);
     });
 
     test('результат отменённой операции не доходит до вызывающего', () async {
@@ -47,7 +48,7 @@ void main() {
 
       // Тело успевает досчитать уже после отмены — состояние не должно меняться.
       await Future<void>.delayed(const Duration(milliseconds: 30));
-      expect(op.status, OperationState.canceled);
+      expect(op.state, OperationState.canceled);
     });
 
     test('повторная отмена ничего не ломает', () async {
@@ -55,7 +56,7 @@ void main() {
       await op.result;
 
       op.cancel();
-      expect(op.status, OperationState.complete);
+      expect(op.state, OperationState.complete);
     });
 
     test('прогресс доходит до подписчика', () async {
@@ -131,12 +132,12 @@ void main() {
     test('готовое значение', () async {
       final op = CompletedOperation<int>(7);
       expect(await op.result, 7);
-      expect(op.status, OperationState.complete);
+      expect(op.state, OperationState.complete);
     });
 
     test('готовая ошибка', () async {
       final op = CompletedOperation<int>.error(StateError('nope'));
-      expect(op.status, OperationState.error);
+      expect(op.state, OperationState.error);
       await expectLater(op.result, throwsA(isA<StateError>()));
     });
   });
@@ -168,7 +169,7 @@ void main() {
       op.requestCancel();
       await pumpEventQueue();
 
-      expect(op.status, OperationState.processing);
+      expect(op.state, OperationState.processing);
       expect(questions.single.message, 'Abort the operation?');
       op.cancel();
     });
@@ -218,7 +219,7 @@ void main() {
 
       op.requestCancel();
 
-      expect(op.status, OperationState.complete);
+      expect(op.state, OperationState.complete);
     });
 
     test('«Abort» завершает операцию отменой', () async {
@@ -228,7 +229,7 @@ void main() {
       op.requestCancel();
       await pumpEventQueue();
 
-      expect(op.status, OperationState.canceled);
+      expect(op.state, OperationState.canceled);
     });
   });
 
@@ -281,7 +282,7 @@ void main() {
       // Ответа нет, а куски идут: вопрос поверх работы, а не вместо неё.
       expect(questions, hasLength(1));
       expect(chunks.length, greaterThan(done));
-      expect(op.status, OperationState.processing);
+      expect(op.state, OperationState.processing);
       op.cancel();
     });
 
@@ -298,7 +299,7 @@ void main() {
 
       await pumpEventQueue(times: 10);
 
-      expect(op.status, OperationState.processing);
+      expect(op.state, OperationState.processing);
       expect(chunks.length, greaterThan(done));
 
       // Просьба не «залипает»: продолжив работу, её надо просить заново.
@@ -315,7 +316,7 @@ void main() {
       op.requestCancel();
       await pumpEventQueue();
 
-      expect(op.status, OperationState.canceled);
+      expect(op.state, OperationState.canceled);
     });
 
     test('спросить некого — работа бросается', () async {
@@ -326,7 +327,7 @@ void main() {
 
       // Без окна вопрос отвечает сам себя вариантом по умолчанию, и это
       // «прервать»: ровно то, о чём просили.
-      expect(op.status, OperationState.canceled);
+      expect(op.state, OperationState.canceled);
     });
   });
 
@@ -377,7 +378,7 @@ void main() {
       outer.cancel();
 
       await expectLater(outer.result, throwsA(isA<OperationCanceled>()));
-      expect(inner.status, OperationState.canceled);
+      expect(inner.state, OperationState.canceled);
     });
 
     test('отмена доходит через несколько уровней', () async {
@@ -394,8 +395,8 @@ void main() {
       outer.cancel();
 
       await expectLater(outer.result, throwsA(isA<OperationCanceled>()));
-      expect(middle.status, OperationState.canceled);
-      expect(inner.status, OperationState.canceled);
+      expect(middle.state, OperationState.canceled);
+      expect(inner.state, OperationState.canceled);
     });
 
     test('делегирование из уже отменённой отменяет и вложенную', () async {
@@ -420,7 +421,7 @@ void main() {
       await expectLater(outer.result, throwsA(isA<OperationCanceled>()));
       await Future<void>.delayed(const Duration(milliseconds: 40));
 
-      expect(inner.status, OperationState.canceled);
+      expect(inner.state, OperationState.canceled);
     });
 
     test('завершённую вложенную отмена уже не трогает', () async {
@@ -432,13 +433,13 @@ void main() {
         return value;
       });
       await pumpEventQueue();
-      expect(inner.status, OperationState.complete);
+      expect(inner.state, OperationState.complete);
 
       outer.cancel();
       release.complete();
 
       await expectLater(outer.result, throwsA(isA<OperationCanceled>()));
-      expect(inner.status, OperationState.complete);
+      expect(inner.state, OperationState.complete);
     });
 
     test('ошибка вложенной приходит наружу как есть', () async {
@@ -448,7 +449,7 @@ void main() {
       final outer = TaskOperation<int>((op) => op.delegate(inner));
 
       await expectLater(outer.result, throwsA(isA<FsError>()));
-      expect(outer.status, OperationState.error);
+      expect(outer.state, OperationState.error);
     });
 
     test('вопрос вложенной наверх не идёт: берётся вариант по умолчанию', () async {
@@ -486,7 +487,7 @@ void main() {
       outer.requestCancel();
       await pumpEventQueue();
 
-      expect(inner.status, OperationState.processing);
+      expect(inner.state, OperationState.processing);
       expect(await outer.result, 1);
     });
 
@@ -503,7 +504,7 @@ void main() {
       inner.emit('Reading a.zip');
       await pumpEventQueue();
 
-      expect(outer.status, OperationState.canceled);
+      expect(outer.state, OperationState.canceled);
       inner.finish();
     });
   });
@@ -516,7 +517,10 @@ class _StubbornOperation implements AsyncOperation<int> {
   final Completer<int> _completer = Completer<int>();
 
   @override
-  OperationState get status => _completer.isCompleted ? OperationState.complete : OperationState.processing;
+  OperationState get state => _completer.isCompleted ? OperationState.complete : OperationState.processing;
+
+  @override
+  final OperationStatus status = _SilentStatus();
 
   @override
   Future<int> get result => _completer.future;
@@ -539,4 +543,13 @@ class _StubbornOperation implements AsyncOperation<int> {
     _completer.complete(1);
     _progress.close();
   }
+}
+
+/// Ход, о котором нечего рассказать: заглушке довольно быть Listenable.
+class _SilentStatus extends ChangeNotifier implements OperationStatus {
+  @override
+  OperationState get state => OperationState.processing;
+
+  @override
+  String get message => '';
 }
