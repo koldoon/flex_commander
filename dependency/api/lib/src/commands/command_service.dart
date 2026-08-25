@@ -20,9 +20,6 @@ abstract interface class CommandService implements Listenable {
   /// Все привязки в порядке приоритета.
   List<KeyBinding> get bindings;
 
-  /// Запущенные команды, которым нужно окно.
-  List<AppCommand> get openDialogs;
-
   /// Ставит команду. Фабрика зовётся на каждый запуск: команда хранит
   /// состояние исполнения, поэтому экземпляр у запуска свой.
   void install(AppCommandFactory factory);
@@ -56,9 +53,6 @@ abstract interface class CommandService implements Listenable {
   /// Создаёт экземпляр команды и связывает его с запуском, но не выполняет:
   /// так её получают те, кто задаёт параметры сам.
   AppCommand? create(String commandId);
-
-  /// Закрывает окно запущенной команды. Вызывает сама команда по своему runId.
-  void closeDialog(String runId);
 
   /// Можно ли выполнить команду прямо сейчас.
   bool isExecutable(AppCommand command);

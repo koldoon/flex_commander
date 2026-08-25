@@ -39,7 +39,6 @@ export 'src/async/transfer_progress.dart';
 
 // --- Действия и клавиши ---
 export 'src/commands/app_command.dart';
-export 'src/commands/async_command_base.dart';
 export 'src/commands/async_run.dart';
 export 'src/commands/command_registry.dart';
 export 'src/commands/command_service.dart';

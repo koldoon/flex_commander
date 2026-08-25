@@ -76,15 +76,15 @@ void main() {
     });
 
     // Окна в этих тестах нет, поэтому на вопрос о ссылке берётся ответ по
-    // умолчанию — «пропустить» (см. `AsyncCommandBase`). Сам вопрос и ответы
+    // умолчанию — «пропустить» (см. `TaskOperation.ask`). Сам вопрос и ответы
     // на него проверяются на движке переноса.
 
     test('ссылка на каталог не роняет упаковку', () async {
       runtime.app.left.setCursorToName('docs');
 
-      final command = await pack(name: 'docs.zip');
+      // Без окна неудача была бы исключением: раз его нет, работа дошла.
+      await pack(name: 'docs.zip');
 
-      expect(command.error, isNull);
       // Остальное упаковалось: одна ссылка не должна стоить всей работы.
       expect((await archiveAt('docs.zip')).keys, contains('docs/guide.txt'));
     });
@@ -114,9 +114,8 @@ void main() {
       await Link(p.join(source, 'docs', 'loop')).create(p.join(source, 'docs'));
       runtime.app.left.setCursorToName('docs');
 
-      final command = await pack(name: 'docs.zip', followLinks: true);
+      await pack(name: 'docs.zip', followLinks: true);
 
-      expect(command.error, isNull);
       expect((await archiveAt('docs.zip')).keys, contains('docs/guide.txt'));
     });
   });

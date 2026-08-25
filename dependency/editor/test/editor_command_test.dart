@@ -121,7 +121,6 @@ void main() {
       await edit('notes.txt');
       final close = runtime.commands.create(CloseEditorCommand.commandId)! as CloseEditorCommand;
 
-      expect(close.hasDialog, isFalse);
       await close.execute();
 
       expect(runtime.app.view.contentAt(ViewportPosition.fullscreen), isNull);

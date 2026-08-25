@@ -77,7 +77,7 @@ class FunctionBar extends StatelessWidget {
     // мигает, когда Shift зажимают ради заглавной буквы в поле имени.
     // Окно бывает и своё у команды, и принадлежащее рабочей области: клавиши
     // в обоих случаях принадлежат ему, и обещать слой модификаторов нельзя.
-    final noDialogs = app.commands.openDialogs.isEmpty && app.view.dialogs.isEmpty;
+    final noDialogs = app.view.dialogs.isEmpty;
     final held = noDialogs ? ModifiersScope.of(context) : KeyModifiers.none;
     if (held.isEmpty) {
       return held;

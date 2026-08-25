@@ -9,10 +9,15 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Длительная работа, которой можно управлять из теста.
-class _SlowCommand extends AsyncCommandBase {
+///
+/// Устроена как настоящие: показывает окно и уходит. Прогон она держит только
+/// ради теста — ему нужно за что-то ухватиться.
+class _SlowCommand extends AppCommand {
   _SlowCommand(this.operation);
 
   final TaskOperation<void> operation;
+
+  FcAsyncRun? lastRun;
 
   @override
   String get id => 'test.slow';
@@ -20,6 +25,7 @@ class _SlowCommand extends AsyncCommandBase {
   @override
   String get label => 'Slow work';
 
+  /// Заголовок полоски задаёт заводивший работу, а не имя команды.
   @override
   String get dialogTitle => 'Copy 3 items';
 
@@ -27,13 +33,36 @@ class _SlowCommand extends AsyncCommandBase {
   bool isExecutable(CommandContext context) => true;
 
   @override
-  Future<void> execute() => runOperation(operation, message: 'Working…');
+  Future<void> execute() async {
+    final view = context.app.view;
+    late final FcAsyncRun run;
+
+    void present() {
+      late final String dialogId;
+      run.close = () => view.closeDialog(dialogId);
+      dialogId = view.showDialog(
+        DialogSpec(title: dialogTitle, content: const SizedBox.shrink(), onSubmit: run.submit, onDismiss: run.dismiss),
+      );
+    }
+
+    run = FcAsyncRun(
+      app: context.app,
+      commandId: id,
+      title: dialogTitle,
+      failureMessage: 'Slow work failed',
+      show: present,
+    );
+    run.onStart = () => run.run(operation, message: 'Working…');
+    lastRun = run;
+
+    present();
+  }
 }
 
 class _SlowModule implements FcModule {
-  _SlowModule(this.operation);
+  _SlowModule(this.command);
 
-  final TaskOperation<void> operation;
+  final _SlowCommand command;
 
   @override
   String get id => 'test.slow';
@@ -42,7 +71,7 @@ class _SlowModule implements FcModule {
   String get title => 'Slow work';
 
   @override
-  void install(FcRegistry registry) => registry.command((context) => _SlowCommand(operation));
+  void install(FcRegistry registry) => registry.command((context) => command);
 }
 
 /// Работа показывается под той панелью, с которой её запустили.
@@ -63,10 +92,11 @@ void main() {
       }
     });
     addTearDown(() => done = true);
+    final command = _SlowCommand(operation);
 
     final runtime = await testApp(
       provider: InMemoryTreeProvider([FakeEntry.directory('/home')])..home = '/home',
-      modules: [...featureModules(), _SlowModule(operation)],
+      modules: [...featureModules(), _SlowModule(command)],
     );
     await runtime.app.start();
     await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
@@ -80,11 +110,11 @@ void main() {
     expect(find.text('Copy 3 items'), findsNothing);
 
     expect(runtime.commands.run('test.slow'), isTrue);
-    final run = runtime.commands.openDialogs.single as AsyncCommandBase;
+    final run = command.lastRun!;
     unawaited(run.submit());
     await tester.pump(const Duration(milliseconds: 5));
 
-    runtime.app.operations.sendToBackground(run.runId, owner: ViewportPosition.left);
+    run.sendToBackground();
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 60));
 
@@ -111,23 +141,24 @@ void main() {
       }
     });
     addTearDown(() => done = true);
+    final command = _SlowCommand(operation);
 
     final runtime = await testApp(
       provider: InMemoryTreeProvider([FakeEntry.directory('/home')])..home = '/home',
-      modules: [...featureModules(), _SlowModule(operation)],
+      modules: [...featureModules(), _SlowModule(command)],
     );
     await runtime.app.start();
     await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
     await tester.pumpAndSettle();
 
     expect(runtime.commands.run('test.slow'), isTrue);
-    final run = runtime.commands.openDialogs.single as AsyncCommandBase;
+    final run = command.lastRun!;
     unawaited(run.submit());
     await tester.pump(const Duration(milliseconds: 5));
-    runtime.app.operations.sendToBackground(run.runId, owner: ViewportPosition.left);
+    run.sendToBackground();
     await tester.pump();
 
-    expect(runtime.commands.openDialogs, isEmpty);
+    expect(runtime.app.view.dialogs, isEmpty);
 
     // Нажатый крестик и есть внимание человека: он смотрит сюда и уже решил.
     await tester.tap(find.text('✕'));
@@ -135,7 +166,7 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
 
     // Окно вернулось само, и вопрос уже в нём — второй кнопки на пути нет.
-    expect(runtime.commands.openDialogs.single, same(run));
+    expect(runtime.app.view.dialogs, hasLength(1));
     expect(run.question, isNotNull);
     expect(runtime.app.operations.at(ViewportPosition.left), isEmpty);
 

@@ -27,6 +27,10 @@ void main() {
 
   MakeDirectoryCommand makeDirectory() => commands().create('file.mkdir')! as MakeDirectoryCommand;
 
+  /// Создаёт каталог тем же путём, каким это делает окно: параметром, минуя
+  /// его самого.
+  Future<void> create(String name) => (makeDirectory()..setParam(MakeDirectoryCommand.nameParam, name)).execute();
+
   List<String> namesOf() => app.left.nodes.map((node) => node.name).toList();
 
   test('создаёт каталог по заданному параметру', () async {
@@ -85,24 +89,27 @@ void main() {
     expect(namesOf(), isNot(contains('tools')));
   });
 
-  test('подтверждение выполняет команду и закрывает окно', () async {
-    // Так это делает ядро по Enter: параметры уже заданы, остаётся выполнить.
-    final command = makeDirectory()..setParam(MakeDirectoryCommand.nameParam, 'docs');
+  test('подтверждение окна создаёт каталог и закрывает его', () async {
+    var closed = false;
+    final state =
+        MakeDirectoryDialogState(parentPath: '/home', create: create)
+          ..name = 'docs'
+          ..close = () => closed = true;
 
-    await command.submit();
+    await state.submit();
 
     expect(namesOf(), contains('docs'));
-    expect(command.error, isNull);
+    expect(state.error, isNull);
+    expect(closed, isTrue);
   });
 
-  test('ошибка остаётся в команде, а не улетает наружу', () async {
-    final command = makeDirectory()..setParam(MakeDirectoryCommand.nameParam, 'bin');
+  test('ошибка остаётся в окне, а не улетает наружу', () async {
+    final state = MakeDirectoryDialogState(parentPath: '/home', create: create)..name = 'bin';
 
-    // submit — общее поведение ядра: ошибку показывает окно, поэтому наружу
-    // она не выбрасывается.
-    await command.submit();
+    // Имя правят тут же, поэтому наружу ошибка не выбрасывается.
+    await state.submit();
 
-    expect(command.error, contains('Already exists'));
+    expect(state.error, contains('Already exists'));
   });
 
   test('команда доступна и закреплена за клавишей', () {

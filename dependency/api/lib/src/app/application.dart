@@ -72,12 +72,6 @@ abstract interface class Application implements Listenable {
   /// результаты поиска: ядро не решает, чем показывать файлы.
   ApplicationView get view;
 
-  /// Закрывает окно запущенной команды.
-  ///
-  /// Команда получает идентификатор запуска при создании и просит закрыть
-  /// именно своё окно: одновременно могут работать несколько команд.
-  void closeDialog(String runId);
-
   void activate(Panel panel);
 
   /// Переключить активную панель.

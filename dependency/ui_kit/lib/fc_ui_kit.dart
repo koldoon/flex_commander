@@ -11,7 +11,6 @@
 library;
 
 export 'src/app_scope.dart';
-export 'src/async_command_dialog.dart';
 export 'src/async_run_dialog.dart';
 export 'src/command_dialog.dart';
 export 'src/controls.dart';

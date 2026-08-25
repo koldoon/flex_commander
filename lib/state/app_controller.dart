@@ -184,8 +184,6 @@ class AppController extends ChangeNotifier implements Application {
   SettingsScope moduleSettings(String namespace) => _initialSettings.modules.scope(namespace);
 
   /// Окна команд держит реестр — он же их и создаёт.
-  @override
-  void closeDialog(String runId) => commands.closeDialog(runId);
 
   @override
   void setSplitRatio(double value) {

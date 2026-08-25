@@ -56,10 +56,7 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
   /// отдельный экземпляр.
   final Map<String, AppCommand> _prototypes = {};
 
-  final List<AppCommand> _openDialogs = [];
-
   /// Запуски, ушедшие в фон: окна у них нет, а работа идёт.
-  final List<AppCommand> _background = [];
 
   Application? _app;
   int _lastRunId = 0;
@@ -73,8 +70,6 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
   List<KeyBinding> get bindings => List.unmodifiable(_bindings);
 
   /// Запущенные команды, которым нужно окно. Ядро рисует их поверх приложения.
-  @override
-  List<AppCommand> get openDialogs => List.unmodifiable(_openDialogs);
 
   // --- Фоновые работы ---
 
@@ -115,17 +110,14 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
   /// исчезла бы с глаз без следа.
   @override
   void sendToBackground(String runId, {required ViewportPosition owner}) {
-    final command = _openDialogs.where((command) => command.runId == runId).firstOrNull;
     final run = byId(runId);
-    if (command == null || run == null || !command.canRunInBackground) {
+    if (run == null) {
       return;
     }
 
+    // Убрать окно — дело того, кто его показал: реестру остаётся запомнить,
+    // где показывать полоску.
     run.owner = owner;
-    _openDialogs.remove(command);
-    command.setDialogOpen(false);
-    command.setBackground(true);
-    _background.add(command);
     notifyListeners();
   }
 
@@ -140,20 +132,7 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
       run!.owner = null;
       show();
       notifyListeners();
-      return;
     }
-
-    final command = _background.where((command) => command.runId == runId).firstOrNull;
-    if (command == null) {
-      return;
-    }
-
-    _background.remove(command);
-    byId(runId)?.owner = null;
-    command.setBackground(false);
-    command.setDialogOpen(true);
-    _openDialogs.add(command);
-    notifyListeners();
   }
 
   /// Связывает реестр с приложением и создаёт прототипы команд.
@@ -295,12 +274,6 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
     // если окна нет, команда выполнится ровно с ними.
     parameters.forEach(command.setParam);
 
-    if (command.hasDialog) {
-      // У команды есть окно: оно соберёт параметры и вызовет execute само.
-      _beforeRun(command);
-      return true;
-    }
-
     // Запуск не ждут: нажатие клавиши не может стоять и ждать конца работы.
     // Но исход разбирается — раньше ошибка команды без окна пропадала совсем.
     unawaited(runToCompletion(command));
@@ -315,7 +288,7 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
   /// пробрасывается, а уходит в [onError] — упавшая команда одного модуля не
   /// должна ронять остальные.
   Future<void> runToCompletion(AppCommand command) async {
-    _beforeRun(command);
+    _attachRun(command);
 
     Object? failure;
     try {
@@ -342,23 +315,6 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
     final command = factory();
     command.attachRun(runId: '$commandId#${++_lastRunId}', context: contextFor(command));
     return command;
-  }
-
-  /// Закрывает окно запущенной команды. Вызывается самой командой по [runId].
-  @override
-  void closeDialog(String runId) {
-    final before = _openDialogs.length + _background.length;
-    for (final command in _background.where((command) => command.runId == runId)) {
-      command.setBackground(false);
-    }
-    _background.removeWhere((command) => command.runId == runId);
-    for (final command in _openDialogs.where((command) => command.runId == runId)) {
-      command.setDialogOpen(false);
-    }
-    _openDialogs.removeWhere((command) => command.runId == runId);
-    if (_openDialogs.length + _background.length != before) {
-      notifyListeners();
-    }
   }
 
   @override
@@ -393,23 +349,11 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
   // при сборке приложения. Поэтому окно учитывается и исход разбирается
   // одинаково, кто бы команду ни запустил.
 
-  /// Готовит запуск: связывает команду с ним и учитывает её окно.
+  /// Разбирает исход: ошибка уходит в [onError].
   ///
-  /// Окно попадает в список открытых, и ядро его рисует; когда его закрыть,
-  /// решает сама команда.
-  void _beforeRun(AppCommand command) {
-    _attachRun(command);
-
-    if (command.hasDialog && !command.hasOpenDialog) {
-      command.setDialogOpen(true);
-      _openDialogs.add(command);
-      notifyListeners();
-    }
-  }
-
-  /// Разбирает исход: окно закрывается при любом, ошибка уходит в [onError].
+  /// Окно здесь не при чём: им распоряжается тот, кто его показал, — сама
+  /// команда.
   void _afterRun(AppCommand command, Object? error) {
-    closeDialog(command.runId);
     if (error != null) {
       onError?.call(error, command);
     }
