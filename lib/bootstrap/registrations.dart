@@ -79,6 +79,9 @@ class Registrations implements FcRegistry {
   /// Виды содержимого панели: имя вида → чем рисовать.
   final Map<String, PanelViewportBuilder> viewports = {};
 
+  /// Виды состояний: тип → чем рисовать. Ключ — точный тип.
+  final Map<Type, StateViewBuilder<Object>> views = {};
+
   /// Связывание службы с контейнером: тип известен только в момент объявления,
   /// поэтому он захватывается замыканием.
   final Map<Type, void Function(DI container)> serviceBindings = {};
@@ -152,6 +155,18 @@ class Registrations implements FcRegistry {
 
   @override
   void viewport(String kind, PanelViewportBuilder builder) => viewports[kind] = builder;
+
+  @override
+  void view<S extends Object>(StateViewBuilder<S> builder) {
+    final taken = views[S];
+    if (taken != null) {
+      // Тихая победа последнего означала бы, что вид зависит от порядка
+      // модулей в списке, — а он там стоит ради приоритета привязок клавиш,
+      // и трогать его ради картинки никто не станет.
+      throw StateError('Вид для $S уже объявлен: два вида на один тип — это ошибка, а не выбор');
+    }
+    views[S] = (context, state) => builder(context, state as S);
+  }
 
   @override
   void service<T extends Object>(T Function(FcServices services) factory) {

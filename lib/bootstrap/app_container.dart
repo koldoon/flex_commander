@@ -6,6 +6,7 @@ import '../settings/settings_store.dart';
 import '../state/app_controller.dart';
 import '../state/panel_controller.dart';
 import '../state/panel_viewport_registry.dart';
+import '../state/view_registry.dart';
 import '../state/theme_controller.dart';
 import '../state/credentials_controller.dart';
 import '../state/error_controller.dart';
@@ -118,6 +119,8 @@ class AppContainer extends DI {
         return viewports;
       },
     );
+
+    bind<Views>(to: (c) => ViewRegistry(registrations.views));
   }
 
   void _bindSettings() {

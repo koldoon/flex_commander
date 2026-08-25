@@ -1,6 +1,7 @@
 import '../app/application.dart';
 import '../commands/app_command.dart';
 import '../app/panel_viewport.dart';
+import '../app/views.dart';
 import '../settings/module_settings.dart';
 import '../tree/provider_registry.dart';
 import '../tree/tree_provider.dart';
@@ -95,6 +96,12 @@ abstract interface class FcRegistry {
 
   /// Чем рисовать содержимое панели для провайдеров, объявивших этот вид.
   void viewport(String kind, PanelViewportBuilder builder);
+
+  /// Чем рисовать состояние типа [S].
+  ///
+  /// Ключ — точный тип: связь «состояние ↔ вид» проверяет компилятор. Два вида
+  /// на один тип — ошибка сборки, а не тихая победа последнего.
+  void view<S extends Object>(StateViewBuilder<S> builder);
 
   /// Служба для ядра и других модулей: разрешается по типу через [FcServices].
   void service<T extends Object>(T Function(FcServices services) factory);
