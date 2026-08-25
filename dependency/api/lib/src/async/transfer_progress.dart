@@ -49,10 +49,38 @@ class TransferProgress {
   /// очередной из помеченных.
   String _current = '';
 
-  /// Объект, который обрабатывается прямо сейчас, и сколько его уже прошло.
-  String _item = '';
-  int _itemBytes = 0;
-  int? _itemTotalBytes;
+  /// Объекты, которые обрабатываются **прямо сейчас**.
+  ///
+  /// Их бывает несколько: мелкие файлы уходят на сервер не по одному, иначе
+  /// каждый ждал бы своей очереди, а до него — ответа на предыдущий.
+  ///
+  /// Наружу показывается самый ранний из живых и держится, пока не кончится.
+  /// Показывать последний начатый значило бы менять строку по десять раз в
+  /// секунду: прочитать её было бы нельзя.
+  final Map<int, _Item> _items = {};
+  int _nextItem = 0;
+
+  /// Последний закрытый — он остаётся на виду, пока не начался следующий.
+  ///
+  /// Пустая строка в конце работы убрала бы полосу по объекту ровно тогда,
+  /// когда на неё смотрят, а между файлами она бы мигала.
+  _Item? _finished;
+
+  /// Чем работа занята вместо переноса; пустая строка — переносом и занята.
+  String _chore = '';
+
+  _Item? get _shown {
+    if (_items.isEmpty) {
+      return _finished;
+    }
+    var earliest = _items.keys.first;
+    for (final token in _items.keys) {
+      if (token < earliest) {
+        earliest = token;
+      }
+    }
+    return _items[earliest];
+  }
 
   int get processed => _processed;
 
@@ -63,11 +91,11 @@ class TransferProgress {
   int get totalBytes => _totalBytes;
 
   /// Что обрабатывается прямо сейчас.
-  String get item => _item;
+  String get item => _chore.isNotEmpty ? _chore : (_shown?.name ?? '');
 
-  int get itemBytes => _itemBytes;
+  int get itemBytes => _chore.isNotEmpty ? 0 : (_shown?.bytes ?? 0);
 
-  int? get itemTotalBytes => _itemTotalBytes;
+  int? get itemTotalBytes => _chore.isNotEmpty ? null : _shown?.totalBytes;
 
   /// Подсчёт закончился: [total] и [totalBytes] — окончательные числа.
   bool get isCounted => _counted;
@@ -102,20 +130,16 @@ class TransferProgress {
   /// Показывается там же, где текущий объект: источник задания при этом не
   /// меняется — убирают-то ради него.
   void chore(String name) {
-    _item = name;
-    _itemBytes = 0;
-    _itemTotalBytes = null;
+    _chore = name;
     _report();
   }
 
   /// Уборка кончилась: дальше снова видно сам перенос.
   void choreDone() {
-    if (_item.isEmpty) {
+    if (_chore.isEmpty) {
       return;
     }
-    _item = '';
-    _itemBytes = 0;
-    _itemTotalBytes = null;
+    _chore = '';
     _report();
   }
 
@@ -129,10 +153,30 @@ class TransferProgress {
   ///
   /// Отсюда и берётся ход по текущему объекту: без него большой файл выглядит
   /// как остановка — общий счёт по нему не двигается до самого конца.
-  void startItem(String name, {int? bytes}) {
-    _item = name;
-    _itemBytes = 0;
-    _itemTotalBytes = bytes != null && bytes >= 0 ? bytes : null;
+  /// Возвращает метку: по ней объекту засчитывают байты и по ней же его
+  /// закрывают. Без метки не обойтись — объектов в работе бывает несколько.
+  int startItem(String name, {int? bytes}) {
+    final token = _nextItem++;
+    _items[token] = _Item(name, bytes != null && bytes >= 0 ? bytes : null);
+    // Место занято новым: прежний своё отстоял.
+    _finished = null;
+    _report();
+    return token;
+  }
+
+  /// Объект пройден: его собственный счёт больше ничего не значит.
+  ///
+  /// Последний закрытый остаётся на виду, пока не начался следующий: пустая
+  /// строка в конце работы убрала бы полосу ровно тогда, когда на неё смотрят
+  /// (см. `dialog-run-phase.md` — там же про хвост работы).
+  void finishItem(int token) {
+    final item = _items.remove(token);
+    if (item == null) {
+      return;
+    }
+    if (_items.isEmpty) {
+      _finished = item;
+    }
     _report();
   }
 
@@ -144,10 +188,6 @@ class TransferProgress {
   /// стоит, а по его содержимому бежит строка `File`.
   void advance() {
     _processed++;
-    // Объект пройден: его собственный счёт больше ничего не значит.
-    _item = '';
-    _itemBytes = 0;
-    _itemTotalBytes = null;
     _report();
   }
 
@@ -155,12 +195,16 @@ class TransferProgress {
   ///
   /// Зовётся по куску потока, а не по файлу: внутри большого файла тоже должно
   /// быть видно движение.
-  void advanceBytes(int bytes) {
+  /// [item] — метка объекта, которому эти байты принадлежат; null — байты
+  /// задания, ничьи в отдельности (так их считает перепаковка архива).
+  void advanceBytes(int bytes, [int? item]) {
     if (bytes <= 0) {
       return;
     }
     _bytes += bytes;
-    _itemBytes += bytes;
+    if (item != null) {
+      _items[item]?.bytes += bytes;
+    }
     _speed.sample(_bytes);
     _report();
   }
@@ -268,9 +312,9 @@ class TransferProgress {
       stageCount: _stageCount,
       stageName: _stageName,
       indeterminate: !_stageSized,
-      itemName: _item,
-      itemBytesTransferred: _itemBytes,
-      itemBytesTotal: _itemTotalBytes,
+      itemName: item,
+      itemBytesTransferred: itemBytes,
+      itemBytesTotal: itemTotalBytes,
       itemsTransferred: _processed,
       // Ноль — это не «ничего нет», а «ещё не считали».
       itemsTotal: _total == 0 && !_counted ? null : _total,
@@ -324,4 +368,13 @@ class _SpeedWindow {
     }
     return (last.$2 - first.$2) / seconds;
   }
+}
+
+/// Объект в работе: имя, сколько его уже прошло и сколько в нём всего.
+class _Item {
+  _Item(this.name, this.totalBytes);
+
+  final String name;
+  final int? totalBytes;
+  int bytes = 0;
 }

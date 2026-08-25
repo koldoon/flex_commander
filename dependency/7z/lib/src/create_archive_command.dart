@@ -310,9 +310,8 @@ class CreateSevenZipArchiveCommand extends AppCommand {
     // Выкладывание — это работа сверх упаковки: те же байты пройдут ещё раз.
     // Общий объём растёт здесь, чтобы бар не показывал больше сделанного, чем
     // есть на самом деле.
-    progress
-      ..countBytes(node.size < 0 ? 0 : node.size)
-      ..startItem(node.name, bytes: node.size < 0 ? null : node.size);
+    progress.countBytes(node.size < 0 ? 0 : node.size);
+    final item = progress.startItem(node.name, bytes: node.size < 0 ? null : node.size);
 
     final file = File(path);
     await file.parent.create(recursive: true);
@@ -322,11 +321,12 @@ class CreateSevenZipArchiveCommand extends AppCommand {
       await sink.addStream(
         (await (provider as FileContentProvider).openRead(node)).asyncMap((chunk) async {
           await op.checkpoint();
-          progress.advanceBytes(chunk.length);
+          progress.advanceBytes(chunk.length, item);
           return chunk;
         }),
       );
     } finally {
+      progress.finishItem(item);
       await sink.close();
     }
   }
@@ -447,17 +447,17 @@ class CreateSevenZipArchiveCommand extends AppCommand {
     final sink = await (provider as FileContentReceiver).openWrite(destination, name, length: length);
 
     try {
-      progress
-        ..startSource(name)
-        ..startItem(name, bytes: length);
+      progress.startSource(name);
+      final item = progress.startItem(name, bytes: length);
       await sink.addStream(
         file.openRead().asyncMap((chunk) async {
           await op.checkpoint();
-          progress.advanceBytes(chunk.length);
+          progress.advanceBytes(chunk.length, item);
           return chunk;
         }),
       );
       await sink.close();
+      progress.finishItem(item);
     } on Object {
       await sink.close().catchError((Object _) {});
       rethrow;
@@ -521,6 +521,7 @@ class _PackingProgress {
   final String _workingDirectory;
 
   String? _current;
+  int? _item;
   int _bytes = 0;
 
   Future<void> startItem(String name) async {
@@ -537,9 +538,8 @@ class _PackingProgress {
     // звеном её пути. Строка `Item` держится на нём, пока по его содержимому
     // бежит `File`.
     final cut = name.indexOf('/');
-    _progress
-      ..startSource(cut < 0 ? name : name.substring(0, cut))
-      ..startItem(p.basename(name), bytes: _bytes);
+    _progress.startSource(cut < 0 ? name : name.substring(0, cut));
+    _item = _progress.startItem(p.basename(name), bytes: _bytes);
   }
 
   /// Закрывает текущую запись: объект готов, байты засчитаны.
@@ -548,10 +548,13 @@ class _PackingProgress {
     if (current == null) {
       return;
     }
-    _progress
-      ..advanceBytes(_bytes)
-      ..advance();
+    _progress.advanceBytes(_bytes, _item);
+    if (_item case final item?) {
+      _progress.finishItem(item);
+    }
+    _progress.advance();
     _current = null;
+    _item = null;
     _bytes = 0;
   }
 

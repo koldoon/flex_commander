@@ -17,6 +17,13 @@ import 'package:flutter_test/flutter_test.dart';
 class _SlowCopyProvider extends InMemoryTreeProvider {
   _SlowCopyProvider(super.entries);
 
+  /// Один поток: этот провайдер изображает медленный источник, по которому
+  /// работа идёт объект за объектом. Проверка «не просили ли прервать» стоит
+  /// между ними, и на нескольких сразу проверять было бы уже негде — а речь
+  /// здесь именно о ней.
+  @override
+  ProviderCapabilities get capabilities => const ProviderCapabilities(maxConcurrency: 1);
+
   bool slow = false;
 
   /// Медленное чтение каталога — это хвост работы: сама операция кончилась, а

@@ -78,7 +78,10 @@ class SftpTreeProvider
     canSeek: true,
     preservesModified: false,
     realFileSystem: false,
-    maxConcurrency: 2,
+    // Четыре, а не два: канал у SFTP один, но запросы в нём идут вперемешку, и
+    // OpenSSH держит в полёте до шестидесяти четырёх. Четыре — скромно даже для
+    // домашнего сервера, а задержку они прячут почти целиком.
+    maxConcurrency: 4,
   );
 
   /// Путь внутри провайдера — с началом адреса, чтобы строка целиком

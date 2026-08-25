@@ -54,12 +54,12 @@ void main() {
       final progress = TransferProgress(op);
       progress
         ..countOne(100)
-        ..countOne(100)
-        ..startItem('first.bin', bytes: 100);
+        ..countOne(100);
+      final first = progress.startItem('first.bin', bytes: 100);
       await Future<void>.delayed(Duration.zero);
 
       // Половина файла: общий счёт сдвинулся на четверть, а по файлу — половина.
-      progress.advanceBytes(50);
+      progress.advanceBytes(50, first);
       await Future<void>.delayed(Duration.zero);
       final half = reports.last;
       expect(half.itemName, 'first.bin');
@@ -67,8 +67,9 @@ void main() {
       expect(half.percent, 0.25);
 
       progress
-        ..advanceBytes(50)
-        ..advance();
+        ..advanceBytes(50, first)
+        ..advance()
+        ..finishItem(first);
       await Future<void>.delayed(Duration.zero);
 
       // Объект пройден. На полосе он остаётся доделанным, а не исчезает:

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -27,6 +28,89 @@ void main() {
   Future<FsNode> node(String path) async => (await provider.resolvePath().run(path))!;
 
   Future<DirectoryNode> directory(String path) async => (await node(path)) as DirectoryNode;
+
+  group('несколько файлов разом', () {
+    /// Приёмник, который считает, сколько записей открыто одновременно.
+    late _CountingProvider box;
+
+    /// Источник с байтами: перенос между провайдерами идёт потоком.
+    late InMemoryContentProvider disk;
+
+    Future<DirectoryNode> target() async => (await box.resolvePath().run('/box'))! as DirectoryNode;
+
+    Future<List<FsNode>> files(int count, {int size = 8}) async {
+      final dir = (await disk.resolvePath().run('/home'))! as DirectoryNode;
+      final all = await disk.getDirectoryListing().run(ListingParams(dir));
+      return all.where((node) => node is! ParentDirNode).take(count).toList();
+    }
+
+    setUp(() {
+      disk = InMemoryContentProvider([
+        FakeEntry.directory('/home'),
+        for (var i = 0; i < 8; i++) FakeEntry.file('/home/small$i.bin', content: [1, 2, 3]),
+      ]);
+      box = _CountingProvider([FakeEntry.directory('/box')]);
+    });
+
+    test('мелкие файлы идут не по одному', () async {
+      await engine.copy().run(TransferParams(await files(8), await target()));
+
+      // Предел приёмника — четыре: столько и должно оказаться в полёте, иначе
+      // каждый файл ждал бы своей очереди.
+      expect(box.peak, greaterThan(1));
+      expect(box.peak, lessThanOrEqualTo(4));
+    });
+
+    test('предел берётся меньший из двух сторон', () async {
+      // Источник выдерживает один поток — значит и работа идёт по одному,
+      // сколько бы ни выдерживал приёмник.
+      final slow = _NarrowProvider([
+        FakeEntry.directory('/home'),
+        for (var i = 0; i < 6; i++) FakeEntry.file('/home/small$i.bin', content: [1, 2, 3]),
+      ]);
+      final dir = (await slow.resolvePath().run('/home'))! as DirectoryNode;
+      final sources = (await slow.getDirectoryListing().run(ListingParams(dir))).where((n) => n is! ParentDirNode);
+
+      await engine.copy().run(TransferParams(sources.toList(), await target()));
+
+      expect(box.peak, 1);
+    });
+
+    test('крупный файл идёт один', () async {
+      disk.add(FakeEntry.file('/home/big.bin', content: List.filled(2 * 1024 * 1024, 7)));
+      final dir = (await disk.resolvePath().run('/home'))! as DirectoryNode;
+      final all = (await disk.getDirectoryListing().run(ListingParams(dir))).where((n) => n is! ParentDirNode);
+
+      await engine.copy().run(TransferParams(all.toList(), await target()));
+
+      // Пока шёл крупный, других открытых не было: его полоса — его
+      // собственная, делить её не с кем.
+      expect(box.peakWithBig, 1, reason: 'крупный файл ведут одного');
+    });
+
+    test('в строке файла стоит самый ранний из идущих', () async {
+      final operation = engine.copy();
+      final log = ProgressLog.of(operation);
+
+      operation.start(TransferParams(await files(8), await target()));
+      await operation.result;
+      await pumpEventQueue();
+
+      // Имена не мельтешат: пока один объект в работе, строка держится на нём.
+      // Проверяется тем, что каждое имя стоит подряд, а не вперемешку.
+      final names = [
+        for (final report in log.reports)
+          if (report.itemName.isNotEmpty) report.itemName,
+      ];
+      final seen = <String>{};
+      for (var i = 0; i < names.length; i++) {
+        if (i > 0 && names[i] == names[i - 1]) {
+          continue;
+        }
+        expect(seen.add(names[i]), isTrue, reason: 'имя ${names[i]} вернулось в строку после чужого');
+      }
+    });
+  });
 
   group('слияние каталогов', () {
     /// Приёмник, где такой каталог уже есть, но неполный: прошлое копирование
@@ -872,5 +956,80 @@ class _SlowDeleteProvider extends InMemoryContentProvider {
   Future<void> deleteEntry(FsNode node) async {
     onDelete?.call();
     await super.deleteEntry(node);
+  }
+}
+
+/// Приёмник, который считает, сколько записей открыто одновременно.
+class _CountingProvider extends InMemoryContentProvider {
+  _CountingProvider(super.entries);
+
+  /// Четыре — как у SFTP: предел должен соблюдаться, а не игнорироваться.
+  @override
+  ProviderCapabilities get capabilities => const ProviderCapabilities(maxConcurrency: 4);
+
+  int _open = 0;
+
+  /// Наибольшее число одновременно открытых записей.
+  int peak = 0;
+
+  /// То же, но только пока шёл крупный файл: у него полоса своя.
+  int peakWithBig = 0;
+
+  bool _big = false;
+
+  @override
+  Future<StreamSink<List<int>>> openWrite(DirectoryNode parent, String name, {int? length}) async {
+    _open++;
+    if (name == 'big.bin') {
+      _big = true;
+      peakWithBig = _open;
+    } else if (_big) {
+      peakWithBig = _open > peakWithBig ? _open : peakWithBig;
+    }
+    peak = _open > peak ? _open : peak;
+    final sink = await super.openWrite(parent, name, length: length);
+    // Задержка нужна, чтобы записи успели пересечься: без неё каждая
+    // заканчивается раньше, чем начинается следующая.
+    return _ClosingSink(sink, () async {
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      _open--;
+      if (name == 'big.bin') {
+        _big = false;
+      }
+    });
+  }
+}
+
+/// Источник, выдерживающий один поток.
+class _NarrowProvider extends InMemoryContentProvider {
+  _NarrowProvider(super.entries);
+
+  @override
+  ProviderCapabilities get capabilities => const ProviderCapabilities(maxConcurrency: 1);
+}
+
+/// Приёмник, сообщающий о закрытии.
+class _ClosingSink implements StreamSink<List<int>> {
+  _ClosingSink(this._inner, this._onClose);
+
+  final StreamSink<List<int>> _inner;
+  final Future<void> Function() _onClose;
+
+  @override
+  void add(List<int> data) => _inner.add(data);
+
+  @override
+  void addError(Object error, [StackTrace? stackTrace]) => _inner.addError(error, stackTrace);
+
+  @override
+  Future<void> addStream(Stream<List<int>> stream) => _inner.addStream(stream);
+
+  @override
+  Future<void> get done => _inner.done;
+
+  @override
+  Future<void> close() async {
+    await _inner.close();
+    await _onClose();
   }
 }

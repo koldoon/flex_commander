@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import '../../async/async_operation.dart';
 import '../../async/operation_request.dart';
@@ -93,6 +94,9 @@ class TreeTransferEngine implements TreeEditor {
       }
       final overwrite = _OverwritePolicy();
       final links = _LinkPolicy(follow: followLinks);
+      // Предел — по слабейшей стороне: локальному диску десяток потоков только
+      // на пользу, серверу столько же — способ получить отказ.
+      final pool = _TransferPool(math.min(destination.provider.capabilities.maxConcurrency, _sourceConcurrency(nodes)));
 
       // Подсчёт идёт рядом с работой, а не перед ней: обойти большое дерево
       // стоит почти столько же, сколько его скопировать, и стоять всё это время
@@ -173,16 +177,31 @@ class TreeTransferEngine implements TreeEditor {
               continue;
             }
 
-            await _copyTree(source, target, node, destination, node.name, op, progress, links, overwrite);
-            if (move) {
-              // Пропущенное остаётся на месте: слияние делает перенос
-              // выборочным, и снести источник целиком значило бы потерять то,
-              // что человек решил сохранить.
-              if (overwrite.kept.isEmpty) {
-                await _purge(source!, node, op, progress);
-              } else {
-                await _purgeExcept(source!, node, overwrite.kept, op, progress);
+            Future<void> transfer() async {
+              await _copyTree(source, target, node, destination, node.name, op, progress, links, overwrite, pool);
+              if (move) {
+                // Дожидаемся всего, что ушло в пул из этого источника: убирать
+                // его, пока часть содержимого ещё летит, нельзя.
+                await pool.drain();
+                // Пропущенное остаётся на месте: слияние делает перенос
+                // выборочным, и снести источник целиком значило бы потерять то,
+                // что человек решил сохранить.
+                if (overwrite.kept.isEmpty) {
+                  await _purge(source!, node, op, progress);
+                } else {
+                  await _purgeExcept(source!, node, overwrite.kept, op, progress);
+                }
               }
+            }
+
+            // Каталог идёт сам, в глубину: в полёте оказываются его файлы, а
+            // не он целиком. Мелкий файл уходит в пул, крупный ведут одного:
+            // прятать задержку нечем, когда файл и так занимает канал, зато
+            // полоса по объекту остаётся его собственной.
+            if (node is DirectoryNode || move || node.size >= _soloBytes) {
+              await transfer();
+            } else {
+              await pool.add(transfer);
             }
           } on FsError catch (error) {
             progress.sourceDoneWholly(i);
@@ -198,7 +217,38 @@ class TreeTransferEngine implements TreeEditor {
             }
           }
         }
+        // Ждём всё, что ещё летит. Ждём с проверками: просьба прервать
+        // приходит и тогда, когда раздавать уже нечего, а работы идут, — и
+        // услышать её должно быть кому. Проверка приходится примерно на
+        // законченный файл, то есть с той же частотой, что и раньше, когда
+        // файлы шли по одному.
+        while (!pool.isEmpty) {
+          await op.checkpoint();
+          await pool.settleAny();
+        }
+
+        // Про каждый неудавшийся спрашивают тем же вопросом, что и всегда, —
+        // только позже: посреди раздачи ответ всё равно догонял бы работы,
+        // которые уже идут.
+        for (final error in await pool.drain()) {
+          if (overwrite.skipAll) {
+            continue;
+          }
+          if (error is! FsError) {
+            throw error;
+          }
+          final answer = await _askAboutFailure(op, error.message);
+          if (answer == OperationRequestOption.cancel) {
+            throw const OperationCanceled();
+          }
+          if (answer == OperationRequestOption.skipAll) {
+            overwrite.skipAll = true;
+          }
+        }
       } finally {
+        // Отмена и ошибка обрываются на полуслове: дождаться идущих всё равно
+        // надо, но разбирать здесь уже нечего.
+        await pool.drain();
         // Считать дальше незачем: работа кончилась — успехом, ошибкой или отменой.
         progress.stop();
         // Накопленное должно оказаться на месте при любом исходе: после
@@ -304,6 +354,7 @@ class TreeTransferEngine implements TreeEditor {
     TransferProgress progress,
     _LinkPolicy links,
     _OverwritePolicy overwrite,
+    _TransferPool pool,
   ) async {
     await op.checkpoint();
     progress.advance();
@@ -318,7 +369,7 @@ class TreeTransferEngine implements TreeEditor {
       }
       // Пошли по ссылке: дальше работаем с целью, но под именем ссылки.
       try {
-        await _copyTree(source, target, followed, destination, name, op, progress, links, overwrite);
+        await _copyTree(source, target, followed, destination, name, op, progress, links, overwrite, pool);
       } finally {
         links.leaveLink(node);
       }
@@ -360,15 +411,46 @@ class TreeTransferEngine implements TreeEditor {
           }
           await _purge(target, present, op, progress);
         }
-        await _copyTree(source, target, child, created, child.name, op, progress, links, overwrite);
+        if (child is DirectoryNode || child.size >= _soloBytes) {
+          if (child is! DirectoryNode) {
+            // Крупный файл ведут одного — и только после того, как мелкие
+            // разлетелись: иначе его полоса делилась бы с чужими байтами.
+            await pool.drain();
+          }
+          await _copyTree(source, target, child, created, child.name, op, progress, links, overwrite, pool);
+        } else {
+          await pool.add(
+            () => _copyTree(source, target, child, created, child.name, op, progress, links, overwrite, pool),
+          );
+        }
       }
       return;
     }
 
     // Дальше идёт файл: его собственный ход показывается отдельно от общего —
     // иначе один большой файл выглядит как остановка работы.
-    progress.startItem(node.name, bytes: node.size < 0 ? null : node.size);
+    //
+    // Метка нужна потому, что файлов в работе бывает несколько: по ней байты
+    // достаются своему объекту, а не первому попавшемуся.
+    final item = progress.startItem(node.name, bytes: node.size < 0 ? null : node.size);
+    try {
+      await _copyFile(source, target, node, destination, name, op, progress, item);
+    } finally {
+      progress.finishItem(item);
+    }
+  }
 
+  /// Сам перенос байтов: стратегии по порядку.
+  Future<void> _copyFile(
+    NodeEditor? source,
+    NodeEditor target,
+    FsNode node,
+    DirectoryNode destination,
+    String name,
+    TaskOperation<Object?, void> op,
+    TransferProgress progress,
+    int item,
+  ) async {
     // [TransferStrategy.providerCopy]: один провайдер — копирует он сам.
     if (source != null && identical(source, target)) {
       // Сколько байт провайдер насчитал сам: остаток движок доберёт по концу,
@@ -376,7 +458,7 @@ class TreeTransferEngine implements TreeEditor {
       var reported = 0;
       bool onBytes(int bytes) {
         reported += bytes;
-        progress.advanceBytes(bytes);
+        progress.advanceBytes(bytes, item);
         // Ждать здесь нечем: провайдер стоит внутри своей копии. Вопрос об
         // отмене задаётся поверх идущей работы, а ответ доходит следующим
         // куском.
@@ -400,13 +482,13 @@ class TreeTransferEngine implements TreeEditor {
       if (copied) {
         // Провайдер мог промолчать: тогда объём засчитывается целиком, как
         // раньше. Размер неизвестен — разница уйдёт в минус, и её отбросят.
-        progress.advanceBytes(node.size - reported);
+        progress.advanceBytes(node.size - reported, item);
         return;
       }
     }
 
     // [TransferStrategy.stream]: любой источник в любой приёмник.
-    if (await _streamEntry(target, node, destination, name, op, progress)) {
+    if (await _streamEntry(target, node, destination, name, op, progress, item)) {
       return;
     }
 
@@ -417,6 +499,18 @@ class TreeTransferEngine implements TreeEditor {
     // внешней программой); `LocalCopySession` для этого готова — ею уже
     // пользуется zip, чтобы открыться поверх чужого источника.
     throw FsError(node.pathString, FsErrorKind.notSupported);
+  }
+
+  /// Сколько потоков выдерживают источники задания: по слабейшему из них.
+  ///
+  /// Источников бывает несколько и они бывают из разных мест — помеченное
+  /// копируют одним заданием, а лежать оно может и на диске, и в архиве.
+  int _sourceConcurrency(List<FsNode> nodes) {
+    var limit = 1 << 20;
+    for (final node in nodes) {
+      limit = math.min(limit, node.provider.capabilities.maxConcurrency);
+    }
+    return limit;
   }
 
   /// Сливаются ли эти двое: каталог поверх каталога — слияние, а не замена.
@@ -559,6 +653,7 @@ class TreeTransferEngine implements TreeEditor {
     String name,
     TaskOperation<Object?, void> op,
     TransferProgress progress,
+    int item,
   ) async {
     final reader = _readerOf(node.provider);
     final writer = _writerOf(destination.provider);
@@ -582,7 +677,7 @@ class TreeTransferEngine implements TreeEditor {
           await op.checkpoint();
           // Единственное место, где видно движение внутри файла: на большом
           // файле только эти байты и говорят, что работа идёт.
-          progress.advanceBytes(chunk.length);
+          progress.advanceBytes(chunk.length, item);
           return chunk;
         }),
       );
@@ -782,6 +877,74 @@ class TreeTransferEngine implements TreeEditor {
     // и Dart не выводит одно из другого сам.
     final provider = node.provider;
     return provider is NodeEditor ? provider as NodeEditor : null;
+  }
+}
+
+/// Файл крупнее этого идёт один: параллель придумана, чтобы прятать задержку,
+/// а файл, который сам занимает канал, прятать нечего.
+///
+/// Мегабайт — с запасом над произведением полосы на задержку: при 10 МБ/с и
+/// 25 мс в полёте имеет смысл держать четверть мегабайта.
+const int _soloBytes = 1024 * 1024;
+
+/// Сколько файлов идёт разом.
+///
+/// Мелкий файл — это три обмена с сервером (открыть, записать, закрыть), и
+/// каждый из них ждёт ответа. По сети с задержкой в 25 мс тысяча файлов
+/// проведёт в ожидании две минуты, ничего при этом не передавая. Пока один
+/// ждёт, другие успевают отправить своё — этим пул и занят.
+///
+/// Предел спрашивают у обоих провайдеров: сколько выдерживает **тот, кто
+/// слабее**.
+///
+/// Ошибки пул **копит, а не бросает**: неудача на одном объекте не прекращает
+/// работу над остальными — это правило старше пула, и ломать его он не вправе.
+/// Спрашивают по ним потом, когда все доиграли: ответ «отменить», данный
+/// посреди раздачи, всё равно догонял бы уже начатые работы.
+class _TransferPool {
+  _TransferPool(int limit) : limit = limit < 1 ? 1 : limit;
+
+  final int limit;
+
+  final Set<Future<void>> _running = {};
+
+  final List<Object> _errors = [];
+
+  bool get isEmpty => _running.isEmpty;
+
+  /// Ставит работу в пул, дождавшись свободного места.
+  Future<void> add(Future<void> Function() work) async {
+    while (_running.length >= limit) {
+      await Future.any(_running);
+    }
+
+    final slot = Completer<void>();
+    _running.add(slot.future);
+    unawaited(
+      work().then((_) {}, onError: (Object error) => _errors.add(error)).whenComplete(() {
+        _running.remove(slot.future);
+        slot.complete();
+      }),
+    );
+  }
+
+  /// Ждёт, пока закончится хоть одна из идущих работ.
+  Future<void> settleAny() async {
+    if (_running.isEmpty) {
+      return;
+    }
+    await Future.any(_running);
+  }
+
+  /// Ждёт, пока пул опустеет, и отдаёт накопившиеся ошибки — по одной на
+  /// неудавшийся объект, в порядке, в котором они случились.
+  Future<List<Object>> drain() async {
+    while (_running.isNotEmpty) {
+      await Future.wait(_running.toList());
+    }
+    final errors = [..._errors];
+    _errors.clear();
+    return errors;
   }
 }
 

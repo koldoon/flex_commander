@@ -214,6 +214,10 @@ class CreateZipArchiveCommand extends AppCommand {
         // Обход спрашивает провайдеров и человека (про ссылки), а это дело
         // главного изолята: туда не переехать. Зато сжатие туда переезжает
         // целиком — оно синхронное, и на большом дереве кадры не выходят вовсе.
+        // Метка записи, которую упаковщик держит в работе: он идёт по одной,
+        // но байты и её конец приходят разными вызовами.
+        int? entryItem;
+
         final entries = <ZipItem>[];
         for (final source in sources) {
           await op.checkpoint();
@@ -235,14 +239,19 @@ class CreateZipArchiveCommand extends AppCommand {
             // Источник задания — тот, из которого запись пришла: он назван
             // первым звеном её пути. Строка `Item` держится на нём, пока по
             // его содержимому бежит `File`.
-            progress
-              ..startSource(_sourceOf(name))
-              ..startItem(name, bytes: bytes);
+            progress.startSource(_sourceOf(name));
+            entryItem = progress.startItem(name, bytes: bytes);
           },
-          onEntryDone: (_) => progress.advance(),
+          onEntryDone: (_) {
+            if (entryItem != null) {
+              progress.finishItem(entryItem!);
+              entryItem = null;
+            }
+            progress.advance();
+          },
           // Байты приходят по мере того, как упаковщик читает запись: так видно
           // движение и внутри одного большого файла, а не только между файлами.
-          onBytes: progress.advanceBytes,
+          onBytes: (bytes) => progress.advanceBytes(bytes, entryItem),
         );
 
         await op.checkpoint();
@@ -391,17 +400,17 @@ class CreateZipArchiveCommand extends AppCommand {
     final sink = await (provider as FileContentReceiver).openWrite(destination, name, length: await file.length());
 
     try {
-      progress
-        ..startSource(name)
-        ..startItem(name, bytes: await file.length());
+      progress.startSource(name);
+      final item = progress.startItem(name, bytes: await file.length());
       await sink.addStream(
         file.openRead().asyncMap((chunk) async {
           await op.checkpoint();
-          progress.advanceBytes(chunk.length);
+          progress.advanceBytes(chunk.length, item);
           return chunk;
         }),
       );
       await sink.close();
+      progress.finishItem(item);
     } on Object {
       await sink.close().catchError((Object _) {});
       rethrow;
