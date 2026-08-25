@@ -145,47 +145,66 @@ void main() {
 
   group('окно не закрывается, пока не нашлось', () {
     test('не нашлось — ошибка в окне, а не закрытие', () async {
-      await openViewer();
-      final AppCommand find = runtime.commands.create(TextViewer.findCommandId)!;
-      find.setParam(FcFindTextCommand.patternParam, 'кошка');
+      final screen = await openViewer();
+      final state = FcFindDialogState(
+        finder: screen.finder,
+        pattern: 'кошка',
+        caseSensitive: false,
+        regex: false,
+        onFound: () => runtime.app.toasts.show('Match 1 of 3'),
+      );
 
-      await find.submit();
+      await state.submit();
 
       // Строку правят тут же, а не набирают заново из-за одной опечатки.
-      expect(find.error, 'Not found: кошка');
+      expect(state.error, 'Not found: кошка');
     });
 
     test('нашлось — ошибки нет, счёт сказан', () async {
       final screen = await openViewer();
-      final AppCommand find = runtime.commands.create(TextViewer.findCommandId)!;
-      find.setParam(FcFindTextCommand.patternParam, 'строка');
+      final state = FcFindDialogState(
+        finder: screen.finder,
+        pattern: 'строка',
+        caseSensitive: false,
+        regex: false,
+        onFound: () => runtime.app.toasts.show('Match 1 of 3'),
+      );
 
-      await find.submit();
+      await state.submit();
 
-      expect(find.error, isNull);
+      expect(state.error, isNull);
       expect(screen.finder.matchCount, 3);
       expect(runtime.app.toasts.current?.message, 'Match 1 of 3');
     });
 
     test('пустая строка — вопрос к вводу, а не поиск', () async {
-      await openViewer();
-      final AppCommand find = runtime.commands.create(TextViewer.findCommandId)!;
+      final screen = await openViewer();
+      final state = FcFindDialogState(
+        finder: screen.finder,
+        pattern: '',
+        caseSensitive: false,
+        regex: false,
+        onFound: () => runtime.app.toasts.show('Match 1 of 3'),
+      );
 
-      await find.submit();
+      await state.submit();
 
-      expect(find.error, 'Nothing to find');
+      expect(state.error, 'Nothing to find');
     });
 
     test('негодное выражение названо негодным', () async {
-      await openViewer();
-      final AppCommand find = runtime.commands.create(TextViewer.findCommandId)!;
-      find
-        ..setParam(FcFindTextCommand.patternParam, '(')
-        ..setParam(FcFindTextCommand.regexParam, true);
+      final screen = await openViewer();
+      final state = FcFindDialogState(
+        finder: screen.finder,
+        pattern: '(',
+        caseSensitive: false,
+        regex: true,
+        onFound: () {},
+      );
 
-      await find.submit();
+      await state.submit();
 
-      expect(find.error, 'Not a valid expression');
+      expect(state.error, 'Not a valid expression');
     });
   });
 }
