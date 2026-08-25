@@ -30,5 +30,5 @@ class CenterSplitCommand extends AppCommand {
   bool isExecutable(CommandContext context) => context.app.splitRatio != centerRatio;
 
   @override
-  Future<void> execute() async => context.app.setSplitRatio(centerRatio);
+  Future<void> execute(CommandContext context) async => context.app.setSplitRatio(centerRatio);
 }

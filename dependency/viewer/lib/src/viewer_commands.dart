@@ -38,7 +38,7 @@ class ViewFileCommand extends AppCommand {
   }
 
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final node = context.node;
     if (node == null) {
       return;
@@ -117,7 +117,7 @@ class ToggleWordWrapCommand extends AppCommand {
   bool isExecutable(CommandContext context) => _viewerOf(context.app) != null;
 
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final screen = _viewerOf(context.app);
     if (screen == null) {
       return;
@@ -158,7 +158,7 @@ class ToggleViewerNumbersCommand extends AppCommand {
   bool isExecutable(CommandContext context) => _viewerOf(context.app) != null;
 
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final screen = _viewerOf(context.app);
     if (screen == null) {
       return;
@@ -197,7 +197,7 @@ class CopySelectionCommand extends AppCommand {
   bool isExecutable(CommandContext context) => _viewerOf(context.app)?.hasSelection ?? false;
 
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final text = _viewerOf(context.app)?.selection ?? '';
     if (text.isEmpty) {
       return;
@@ -227,5 +227,6 @@ class CloseViewerCommand extends AppCommand {
   bool isExecutable(CommandContext context) => context.app.view.contentAt(ViewportPosition.fullscreen) is ViewerScreen;
 
   @override
-  Future<void> execute() async => context.app.view.popViewportContent(ViewportPosition.fullscreen);
+  Future<void> execute(CommandContext context) async =>
+      context.app.view.popViewportContent(ViewportPosition.fullscreen);
 }

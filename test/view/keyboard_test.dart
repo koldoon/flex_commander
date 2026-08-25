@@ -29,7 +29,7 @@ class _RecordingCommand extends AppCommand {
   bool isExecutable(CommandContext context) => true;
 
   @override
-  Future<void> execute() async => runs.add(id);
+  Future<void> execute(CommandContext context) async => runs.add(id);
 }
 
 /// Открытие объекта системой: в тесте вместо запуска программы — запись в список.

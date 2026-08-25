@@ -89,7 +89,13 @@ void main() {
       store: store,
     );
 
-    expect(runtime.commands.run('app.theme.use', parameters: {SwitchThemeCommand.themeIdParam: 'night'}), isTrue);
+    expect(
+      runtime.commands.run(
+        'app.theme.use',
+        const CommandInvocation(parameters: {SwitchThemeCommand.themeIdParam: 'night'}),
+      ),
+      isTrue,
+    );
     expect(runtime.theme.current.id, 'night');
 
     // Запись отложенная, как и у остальных настроек.

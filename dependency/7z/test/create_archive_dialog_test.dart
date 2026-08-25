@@ -51,7 +51,7 @@ void main() {
     final command = runtime.commands.create(CreateSevenZipArchiveCommand.commandId)!;
     // Окно показывает сама команда: она строит его и уходит. Рисуется дальше
     // то, что она отдала рабочей области.
-    await command.execute();
+    await command.executeWith();
     final spec = runtime.app.view.dialogs.single;
 
     await tester.pumpWidget(

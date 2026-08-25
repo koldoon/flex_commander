@@ -29,30 +29,30 @@ void main() {
 
   /// Создаёт каталог тем же путём, каким это делает окно: параметром, минуя
   /// его самого.
-  Future<void> create(String name) => (makeDirectory()..setParam(MakeDirectoryCommand.nameParam, name)).execute();
+  Future<void> create(String name) => makeDirectory().executeWith({MakeDirectoryCommand.nameParam: name});
 
   List<String> namesOf() => app.left.nodes.map((node) => node.name).toList();
 
   test('создаёт каталог по заданному параметру', () async {
-    final command = makeDirectory()..setParam(MakeDirectoryCommand.nameParam, 'docs');
+    final command = makeDirectory();
 
-    await command.execute();
+    await command.executeWith({MakeDirectoryCommand.nameParam: 'docs'});
 
     expect(namesOf(), contains('docs'));
   });
 
   test('курсор встаёт на созданный каталог', () async {
-    final command = makeDirectory()..setParam(MakeDirectoryCommand.nameParam, 'docs');
+    final command = makeDirectory();
 
-    await command.execute();
+    await command.executeWith({MakeDirectoryCommand.nameParam: 'docs'});
 
     expect(app.left.currentNode?.name, 'docs');
   });
 
   test('лишние пробелы в имени отбрасываются', () async {
-    final command = makeDirectory()..setParam(MakeDirectoryCommand.nameParam, '  docs  ');
+    final command = makeDirectory();
 
-    await command.execute();
+    await command.executeWith({MakeDirectoryCommand.nameParam: '  docs  '});
 
     expect(namesOf(), contains('docs'));
   });
@@ -70,10 +70,10 @@ void main() {
   });
 
   test('существующее имя даёт ошибку', () async {
-    final command = makeDirectory()..setParam(MakeDirectoryCommand.nameParam, 'bin');
+    final command = makeDirectory();
 
     await expectLater(
-      command.execute(),
+      command.executeWith({MakeDirectoryCommand.nameParam: 'bin'}),
       throwsA(isA<FsError>().having((e) => e.kind, 'kind', FsErrorKind.alreadyExists)),
     );
   });
@@ -82,8 +82,9 @@ void main() {
     app.toggleActivePanel();
     await app.right.openPath('/home/bin');
 
-    final command = makeDirectory()..setParam(MakeDirectoryCommand.nameParam, 'tools');
-    await command.execute();
+    final command = makeDirectory();
+
+    await command.executeWith({MakeDirectoryCommand.nameParam: 'tools'});
 
     expect(app.right.nodes.map((node) => node.name), contains('tools'));
     expect(namesOf(), isNot(contains('tools')));

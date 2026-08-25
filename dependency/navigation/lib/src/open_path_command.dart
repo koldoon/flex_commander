@@ -39,12 +39,12 @@ class OpenPathCommand extends AppCommand {
   @override
   String get description => 'Open any path or address in the left or right panel';
 
-  /// Панель, о которой идёт речь.
-  Panel get panel => _isLeft ? context.app.left : context.app.right;
+  /// Панель, о которой идёт речь. Какая именно — известно только из вызова.
+  Panel panelOf(CommandContext context) => _isLeft(context) ? context.app.left : context.app.right;
 
-  bool get _isLeft => param<String>(panelParam) != rightPanel;
+  bool _isLeft(CommandContext context) => context.invocation.param<String>(panelParam) != rightPanel;
 
-  String get dialogTitle => 'Open path (${_isLeft ? 'left' : 'right'} panel)';
+  String titleOf(CommandContext context) => 'Open path (${_isLeft(context) ? 'left' : 'right'} panel)';
 
   /// Окно встаёт над своей панелью.
   ///
@@ -52,16 +52,15 @@ class OpenPathCommand extends AppCommand {
   /// заголовок читают не в первую очередь. Левая панель занимает долю
   /// `splitRatio` — её середина приходится на половину этой доли; правая
   /// начинается там же и тянется до края.
-  DialogArea get dialogArea {
+  DialogArea areaOf(CommandContext context) {
     final ratio = context.app.splitRatio;
-    return _isLeft ? DialogArea(end: ratio) : DialogArea(start: ratio);
+    return _isLeft(context) ? DialogArea(end: ratio) : DialogArea(start: ratio);
   }
 
   @override
   bool isExecutable(CommandContext context) {
     // Панель, занятая чтением, нового пути не примет: сперва пусть закончит.
-    final target = param<String>(panelParam) == rightPanel ? context.app.right : context.app.left;
-    return !target.busy;
+    return !panelOf(context).busy;
   }
 
   /// Открыть путь — или сперва спросить, какой.
@@ -71,10 +70,11 @@ class OpenPathCommand extends AppCommand {
   /// а всё, что живёт дальше — набранное, ход работы, ошибка, — принадлежит
   /// самому окну.
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
+    final panel = panelOf(context);
     final state = OpenPathDialogState(panel: panel, activate: () => context.app.activate(panel));
 
-    final given = (param<String>(pathParam) ?? '').trim();
+    final given = (context.invocation.param<String>(pathParam) ?? '').trim();
     if (given.isNotEmpty) {
       state.path = given;
       await state.submit();
@@ -87,14 +87,14 @@ class OpenPathCommand extends AppCommand {
     }
 
     final view = context.app.view;
-    state.path = currentPath;
+    state.path = panel.directory?.displayPath ?? '';
 
     late final String dialogId;
     state.close = () => view.closeDialog(dialogId);
     dialogId = view.showDialog(
       DialogSpec(
-        title: dialogTitle,
-        area: dialogArea,
+        title: titleOf(context),
+        area: areaOf(context),
         takesFocus: true,
         content: _OpenPathForm(state: state),
         onSubmit: state.submit,
@@ -108,7 +108,6 @@ class OpenPathCommand extends AppCommand {
   /// Показанный путь, а не машинный: человек правит то, что видит в заголовке
   /// панели, и `/home/a.zip:zip:/inner` там ни к чему. Разобрать такую строку
   /// обратно умеет `ProviderRegistry.resolveDisplayPath`.
-  String get currentPath => panel.directory?.displayPath ?? '';
 }
 
 /// Что набрано в окне адреса, чем занята панель и что из этого вышло.

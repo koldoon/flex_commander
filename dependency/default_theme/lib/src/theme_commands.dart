@@ -32,8 +32,8 @@ class SwitchThemeCommand extends AppCommand {
   bool isExecutable(CommandContext context) => context.app.theme.available.length > 1;
 
   @override
-  Future<void> execute() async {
-    final themeId = param<String>(themeIdParam) ?? _nextTheme();
+  Future<void> execute(CommandContext context) async {
+    final themeId = context.invocation.param<String>(themeIdParam) ?? _nextTheme();
     env.app.theme.use(themeId);
 
     // Выбор переживает перезапуск: тема — это то, что настраивают один раз.
@@ -71,7 +71,7 @@ class RestoreThemeCommand extends AppCommand {
   bool isExecutable(CommandContext context) => true;
 
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     // Незнакомое имя служба игнорирует: модуль темы могли отключить между
     // запусками, и это не повод не открыться.
     env.app.theme.use(settings.section(ThemeSettings.new).themeId);

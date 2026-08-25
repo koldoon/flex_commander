@@ -36,7 +36,7 @@ void main() {
     await tester.pumpAndSettle();
 
     runtime.app.left.setCursorToName(name);
-    await (runtime.commands.create(EditFileCommand.commandId)!).execute();
+    await (runtime.commands.create(EditFileCommand.commandId)!).executeWith();
     await tester.pumpAndSettle();
 
     return runtime.app.view.contentAt(ViewportPosition.fullscreen)! as EditorScreen;

@@ -87,7 +87,7 @@ class CreateZipArchiveCommand extends AppCommand {
   /// Имя задают либо параметром, либо человеком в окне. Первый случай идёт
   /// мимо окна вовсе; во втором команда показывает окно и уходит.
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final sources = _sourcesOf(context);
     final destination = context.target.directory;
     if (sources.isEmpty || destination == null) {
@@ -128,9 +128,13 @@ class CreateZipArchiveCommand extends AppCommand {
       await context.target.reload();
     }
 
-    final given = param<String>(nameParam);
+    final given = context.invocation.param<String>(nameParam);
     if (given != null) {
-      await pack(given, ZipCompression.byName(param<String>(compressionParam)), param<bool>(followLinksParam) ?? false);
+      await pack(
+        given,
+        ZipCompression.byName(context.invocation.param<String>(compressionParam)),
+        context.invocation.param<bool>(followLinksParam) ?? false,
+      );
       return;
     }
 

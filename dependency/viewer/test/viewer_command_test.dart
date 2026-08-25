@@ -28,7 +28,7 @@ void main() {
   Future<void> view(String name) async {
     runtime.app.left.setCursorToName(name);
     final command = runtime.commands.create(ViewFileCommand.commandId)!;
-    await command.execute();
+    await command.executeWith();
   }
 
   ViewerScreen? openViewer() {

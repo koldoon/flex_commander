@@ -37,7 +37,7 @@ void main() {
       final wasActive = runtime.app.activePanel;
 
       runtime.app.left.setCursorToName('notes.txt');
-      await (runtime.commands.create(ViewFileCommand.commandId)!).execute();
+      await (runtime.commands.create(ViewFileCommand.commandId)!).executeWith();
       await tester.pumpAndSettle();
       expect(runtime.app.view.contentAt(ViewportPosition.fullscreen), isA<ViewerScreen>());
 

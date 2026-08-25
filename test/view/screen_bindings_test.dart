@@ -111,5 +111,5 @@ class _StubCommand extends AppCommand {
   bool isExecutable(CommandContext context) => true;
 
   @override
-  Future<void> execute() async {}
+  Future<void> execute(CommandContext context) async {}
 }

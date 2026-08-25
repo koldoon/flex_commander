@@ -2,7 +2,6 @@ import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
-import 'package:flutter/widgets.dart';
 
 import 'editor_screen.dart';
 import 'editor_settings.dart';
@@ -43,7 +42,7 @@ class EditFileCommand extends AppCommand {
   }
 
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final node = context.node;
     if (node == null) {
       return;
@@ -129,7 +128,7 @@ class SaveFileCommand extends AppCommand {
   bool isExecutable(CommandContext context) => _editorOf(context.app)?.modified ?? false;
 
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final screen = _editorOf(context.app) ?? _editorOf(_app);
     if (screen == null || !screen.modified) {
       return;
@@ -230,7 +229,7 @@ class ToggleEditorWrapCommand extends AppCommand {
   bool isExecutable(CommandContext context) => _editorOf(context.app) != null;
 
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final screen = _editorOf(context.app);
     if (screen == null) {
       return;
@@ -267,7 +266,7 @@ class ToggleEditorNumbersCommand extends AppCommand {
   bool isExecutable(CommandContext context) => _editorOf(context.app) != null;
 
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final screen = _editorOf(context.app);
     if (screen == null) {
       return;
@@ -307,7 +306,7 @@ class CloseEditorCommand extends AppCommand {
   /// неё окно» больше никого не касается. Состояния прогона у неё нет — окно
   /// живёт само, а команда, показав его, уходит.
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final view = context.app.view;
     final screen = _screen;
     if (screen == null) {

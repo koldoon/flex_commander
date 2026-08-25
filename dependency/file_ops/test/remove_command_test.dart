@@ -27,16 +27,16 @@ void main() {
   CommandService commands() => app.commands;
 
   /// Согласие задаётся сразу: у теста окна нет, а спрашивать некого.
-  RemoveCommandBase remove({bool permanently = false}) =>
-      commands().create(permanently ? 'file.removePermanently' : 'file.remove')! as RemoveCommandBase
-        ..setParam(RemoveCommandBase.confirmedParam, true);
+  Future<void> remove({bool permanently = false}) => commands()
+      .create(permanently ? 'file.removePermanently' : 'file.remove')!
+      .executeWith({RemoveCommandBase.confirmedParam: true});
 
   List<String> namesOf() => app.left.nodes.map((node) => node.name).toList();
 
   test('удаляет объект под курсором', () async {
     app.left.setCursorToName('notes.txt');
 
-    await remove().execute();
+    await remove();
 
     expect(namesOf(), isNot(contains('notes.txt')));
   });
@@ -46,7 +46,7 @@ void main() {
     app.left.toggleCurrentMark();
     app.left.toggleCurrentMark();
 
-    await remove().execute();
+    await remove();
 
     expect(namesOf(), isNot(contains('notes.txt')));
     expect(namesOf(), isNot(contains('report.xlsx')));
@@ -57,7 +57,7 @@ void main() {
     app.left.setCursorToName('notes.txt');
     app.left.toggleCurrentMark();
 
-    await remove().execute();
+    await remove();
 
     expect(app.left.selection.isEmpty, isTrue);
   });
@@ -76,7 +76,7 @@ void main() {
     provider.removeEntry('/home/notes.txt');
 
     // Спросить некого — операция берёт ответ по умолчанию и идёт дальше.
-    await remove().execute();
+    await remove();
 
     expect(namesOf(), isNot(contains('report.xlsx')));
   });

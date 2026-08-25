@@ -43,7 +43,7 @@ void main() {
 
   Future<void> edit(String name) async {
     runtime.app.left.setCursorToName(name);
-    await (runtime.commands.create(EditFileCommand.commandId)!).execute();
+    await (runtime.commands.create(EditFileCommand.commandId)!).executeWith();
   }
 
   EditorScreen? openEditor() {
@@ -90,7 +90,7 @@ void main() {
       openEditor()!.controller.text = 'раз\nдва\nтри\n';
 
       expect(openEditor()!.modified, isTrue);
-      await (runtime.commands.create(SaveFileCommand.commandId)!).execute();
+      await (runtime.commands.create(SaveFileCommand.commandId)!).executeWith();
 
       expect(fileText('notes.txt'), 'раз\nдва\nтри\n');
       expect(openEditor()!.modified, isFalse);
@@ -101,7 +101,7 @@ void main() {
       await edit('windows.txt');
       openEditor()!.controller.text = 'раз\nдва\nтри\n';
 
-      await (runtime.commands.create(SaveFileCommand.commandId)!).execute();
+      await (runtime.commands.create(SaveFileCommand.commandId)!).executeWith();
 
       expect(File(p.join(temp.path, 'windows.txt')).readAsBytesSync(), utf8.encode('раз\r\nдва\r\nтри\r\n'));
     });
@@ -109,7 +109,7 @@ void main() {
     test('временный файл после себя не оставляется', () async {
       await edit('notes.txt');
       openEditor()!.controller.text = 'иначе';
-      await (runtime.commands.create(SaveFileCommand.commandId)!).execute();
+      await (runtime.commands.create(SaveFileCommand.commandId)!).executeWith();
 
       final names = temp.listSync().map((entity) => p.basename(entity.path));
       expect(names.where((name) => name.contains('fc-save')), isEmpty);
@@ -121,7 +121,7 @@ void main() {
       await edit('notes.txt');
       final close = runtime.commands.create(CloseEditorCommand.commandId)! as CloseEditorCommand;
 
-      await close.execute();
+      await close.executeWith();
 
       expect(runtime.app.view.contentAt(ViewportPosition.fullscreen), isNull);
     });

@@ -59,7 +59,6 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
   /// Запуски, ушедшие в фон: окна у них нет, а работа идёт.
 
   Application? _app;
-  int _lastRunId = 0;
 
   /// Команды в порядке установки — то, что увидит список команд.
   @override
@@ -140,6 +139,7 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
     _app = app;
     for (final factory in _factories) {
       final command = factory();
+      command.bind(app);
       if (!command.init(app)) {
         continue;
       }
@@ -247,36 +247,31 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
     }
     // Кнопка нижней панели дёргает тот же dispatch, поэтому нажатие мышью и
     // нажатие клавиши не могут разойтись.
-    return run(binding.commandId, parameters: binding.parametersFor(combination));
+    return run(binding.commandId, CommandInvocation(parameters: binding.parametersFor(combination)));
   }
 
   /// Запускает команду по идентификатору — с клавиатуры, кнопкой, из меню или
   /// из списка команд. Результат всюду одинаковый.
   ///
-  /// Для работы создаётся новый экземпляр: состояние исполнения принадлежит
-  /// запуску, а не команде вообще.
+  /// Запускает прототип: состояния прогона у команды нет, и второй экземпляр
+  /// ей не нужен. Всё, с чем её вызвали, лежит в [invocation].
   @override
-  bool run(String commandId, {Map<String, Object?> parameters = const {}}) {
+  bool run(String commandId, [CommandInvocation invocation = const CommandInvocation()]) {
     final app = _app;
-    final prototype = _prototypes[commandId];
-    if (app == null || prototype == null) {
+    final command = _prototypes[commandId];
+    if (app == null || command == null) {
       return false;
     }
-    if (!prototype.isExecutable(contextFor(prototype))) {
+    // Выполнимость спрашивают про этот запуск: «открыть путь в левой» и «в
+    // правой» — одна команда, а заняты панели порознь.
+    final context = CommandContext.of(app, invocation);
+    if (!command.isExecutable(context)) {
       return false;
     }
-
-    final command = create(commandId);
-    if (command == null || !command.isExecutable(command.context)) {
-      return false;
-    }
-    // Значения проставляются до запуска: окно команды может их изменить, а
-    // если окна нет, команда выполнится ровно с ними.
-    parameters.forEach(command.setParam);
 
     // Запуск не ждут: нажатие клавиши не может стоять и ждать конца работы.
     // Но исход разбирается — раньше ошибка команды без окна пропадала совсем.
-    unawaited(runToCompletion(command));
+    unawaited(runToCompletion(command, invocation));
     return true;
   }
 
@@ -287,12 +282,10 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
   /// идут стартовые команды модулей при сборке приложения. Ошибка наружу не
   /// пробрасывается, а уходит в [onError] — упавшая команда одного модуля не
   /// должна ронять остальные.
-  Future<void> runToCompletion(AppCommand command) async {
-    _attachRun(command);
-
+  Future<void> runToCompletion(AppCommand command, [CommandInvocation invocation = const CommandInvocation()]) async {
     Object? failure;
     try {
-      await command.execute();
+      await command.execute(CommandContext.of(_app!, invocation));
     } catch (error) {
       failure = error;
     }
@@ -313,29 +306,16 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
     }
 
     final command = factory();
-    command.attachRun(runId: '$commandId#${++_lastRunId}', context: contextFor(command));
+    command.bind(app);
     return command;
   }
 
   @override
-  bool isExecutable(AppCommand command) {
-    return _app != null && command.isExecutable(contextFor(command));
+  bool isExecutable(AppCommand command, [CommandInvocation invocation = const CommandInvocation()]) {
+    return _app != null && command.isExecutable(CommandContext.of(_app!, invocation));
   }
 
-  CommandContext contextFor(AppCommand command) {
-    final app = _app!;
-    final panel = app.activePanel;
-    final node = panel.currentNode;
-    final marked = panel.selection.nodes;
-
-    return CommandContext(
-      app: app,
-      panel: panel,
-      node: node,
-      // Если пометки нет, операция работает с объектом под курсором.
-      targets: marked.isNotEmpty ? marked : [if (node != null) node],
-    );
-  }
+  CommandContext contextFor(AppCommand command) => CommandContext.of(_app!);
 
   Future<void> shutdown() async {
     for (final command in _prototypes.values) {
@@ -357,14 +337,5 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
     if (error != null) {
       onError?.call(error, command);
     }
-  }
-
-  /// Связывает команду с запуском, если этого ещё не сделали: команда может
-  /// прийти и готовой, созданной вручную ([create]).
-  void _attachRun(AppCommand command) {
-    if (command.runId.isNotEmpty) {
-      return;
-    }
-    command.attachRun(runId: '${command.id}#${++_lastRunId}', context: contextFor(command));
   }
 }

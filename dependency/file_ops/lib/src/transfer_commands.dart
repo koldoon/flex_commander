@@ -87,7 +87,7 @@ abstract class TransferCommandBase extends AppCommand {
   /// Путь задают либо параметром, либо человеком в окне. Первый случай идёт
   /// мимо окна вовсе; во втором команда показывает окно и уходит.
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final panel = context.panel;
     // Редактор берётся у приёмника, а не у источника: операцию выполняет
     // движок, один на все провайдеры, и получить его нужно там, где заведомо
@@ -135,9 +135,9 @@ abstract class TransferCommandBase extends AppCommand {
     // «Задан» — значит параметр есть, а не «есть и непустой»: пробелы это
     // заданный приёмник, просто негодный, и сказать об этом надо, а не
     // показывать окно, которого сценарий не увидит.
-    final given = param<String>(destinationParam);
+    final given = context.invocation.param<String>(destinationParam);
     if (given != null) {
-      await transfer(editor, given, param<bool>(followLinksParam) ?? false);
+      await transfer(editor, given, context.invocation.param<bool>(followLinksParam) ?? false);
       return;
     }
 

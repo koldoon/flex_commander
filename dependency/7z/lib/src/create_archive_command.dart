@@ -88,7 +88,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
   List<FsNode> _sourcesOf(CommandContext context) => context.targets.where((node) => node is! ParentDirNode).toList();
 
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final sources = _sourcesOf(context);
     final destination = context.target.directory;
     if (sources.isEmpty || destination == null) {
@@ -129,12 +129,12 @@ class CreateSevenZipArchiveCommand extends AppCommand {
       await context.target.reload();
     }
 
-    final given = param<String>(nameParam);
+    final given = context.invocation.param<String>(nameParam);
     if (given != null) {
       await pack(
         given,
-        SevenZipCompression.byName(param<String>(compressionParam)),
-        param<bool>(followLinksParam) ?? false,
+        SevenZipCompression.byName(context.invocation.param<String>(compressionParam)),
+        context.invocation.param<bool>(followLinksParam) ?? false,
       );
       return;
     }

@@ -59,12 +59,12 @@ void main() {
 
   /// Запускает упаковку с заданным именем — как это делает окно команды.
   Future<AppCommand> pack({String name = 'archive', ZipCompression? compression, bool followLinks = false}) async {
-    final command =
-        runtime.commands.create(CreateZipArchiveCommand.commandId)!
-          ..setParam(CreateZipArchiveCommand.nameParam, name)
-          ..setParam(CreateZipArchiveCommand.compressionParam, (compression ?? ZipCompression.normal).name)
-          ..setParam(CreateZipArchiveCommand.followLinksParam, followLinks);
-    await command.execute();
+    final command = runtime.commands.create(CreateZipArchiveCommand.commandId)!;
+    await command.executeWith({
+      CreateZipArchiveCommand.nameParam: name,
+      CreateZipArchiveCommand.compressionParam: (compression ?? ZipCompression.normal).name,
+      CreateZipArchiveCommand.followLinksParam: followLinks,
+    });
     return command;
   }
 
@@ -213,22 +213,18 @@ void main() {
       await File(p.join(target, 'taken.zip')).writeAsString('чужое');
       runtime.app.left.setCursorToName('notes.txt');
 
-      final command =
-          runtime.commands.create(CreateZipArchiveCommand.commandId)!
-            ..setParam(CreateZipArchiveCommand.nameParam, 'taken.zip');
+      final command = runtime.commands.create(CreateZipArchiveCommand.commandId)!;
 
-      await expectLater(command.execute(), throwsA(isA<FsError>()));
+      await expectLater(command.executeWith({CreateZipArchiveCommand.nameParam: 'taken.zip'}), throwsA(isA<FsError>()));
       expect(await File(p.join(target, 'taken.zip')).readAsString(), 'чужое');
     });
 
     test('пустое имя не проходит', () async {
       runtime.app.left.setCursorToName('notes.txt');
 
-      final command =
-          runtime.commands.create(CreateZipArchiveCommand.commandId)!
-            ..setParam(CreateZipArchiveCommand.nameParam, '   ');
+      final command = runtime.commands.create(CreateZipArchiveCommand.commandId)!;
 
-      await expectLater(command.execute(), throwsA(isA<FsError>()));
+      await expectLater(command.executeWith({CreateZipArchiveCommand.nameParam: '   '}), throwsA(isA<FsError>()));
     });
   });
 

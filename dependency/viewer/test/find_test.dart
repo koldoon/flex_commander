@@ -36,13 +36,12 @@ void main() {
   /// `commands.run` возвращает управление сразу.
   Future<void> runCommand(String id, [Map<String, Object?> parameters = const {}]) async {
     final AppCommand command = runtime.commands.create(id)!;
-    parameters.forEach(command.setParam);
-    await command.execute();
+    await command.executeWith(parameters);
   }
 
   Future<ViewerScreen> openViewer() async {
     runtime.app.left.setCursorToName('notes.txt');
-    await (runtime.commands.create(ViewFileCommand.commandId)!).execute();
+    await (runtime.commands.create(ViewFileCommand.commandId)!).executeWith();
     return runtime.app.view.contentAt(ViewportPosition.fullscreen)! as ViewerScreen;
   }
 

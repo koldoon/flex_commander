@@ -32,18 +32,17 @@ void main() {
   /// Приёмник задаётся сразу: у теста окна нет, а путь по умолчанию
   /// подставляет именно оно. Проверка самой подстановки — в виджетном тесте
   /// «F5 открывает окно с каталогом пассивной панели».
-  TransferCommandBase transfer({bool move = false, String? destination}) =>
-      commands().create(move ? 'file.move' : 'file.copy')! as TransferCommandBase
-        ..setParam(TransferCommandBase.destinationParam, destination ?? app.right.directory!.pathString);
+  Future<void> transfer({bool move = false, String? destination, bool followLinks = false}) =>
+      commands().create(move ? 'file.move' : 'file.copy')!.executeWith({
+        TransferCommandBase.destinationParam: destination ?? app.right.directory!.pathString,
+        if (followLinks) TransferCommandBase.followLinksParam: true,
+      });
 
   List<String> namesOf(PanelController panel) => panel.nodes.map((node) => node.name).toList();
 
   test('копирует в каталог пассивной панели', () async {
     app.left.setCursorToName('notes.txt');
-    final command = transfer();
-
-    expect(command.param<String>(TransferCommandBase.destinationParam), '/backup');
-    await command.execute();
+    await transfer();
 
     expect(namesOf(app.right), contains('notes.txt'));
     expect(namesOf(app.left), contains('notes.txt'));
@@ -52,7 +51,7 @@ void main() {
   test('перенос убирает объект из источника', () async {
     app.left.setCursorToName('notes.txt');
 
-    await transfer(move: true).execute();
+    await transfer(move: true);
 
     expect(namesOf(app.left), isNot(contains('notes.txt')));
     expect(namesOf(app.right), contains('notes.txt'));
@@ -63,7 +62,7 @@ void main() {
     app.left.toggleCurrentMark();
     app.left.toggleCurrentMark();
 
-    await transfer().execute();
+    await transfer();
 
     expect(namesOf(app.right), containsAll(['notes.txt', 'report.xlsx']));
     expect(namesOf(app.right), isNot(contains('docs')));
@@ -72,7 +71,7 @@ void main() {
   test('каталог копируется вместе с содержимым', () async {
     app.left.setCursorToName('docs');
 
-    await transfer().execute();
+    await transfer();
 
     final copied = await provider.resolvePath('/backup/docs/readme.md').result;
     expect(copied, isNotNull);
@@ -80,10 +79,7 @@ void main() {
 
   test('приёмник задаётся параметром, а не панелью', () async {
     app.left.setCursorToName('notes.txt');
-    final command = transfer();
-    command.setParam(TransferCommandBase.destinationParam, '/home/docs');
-
-    await command.execute();
+    await transfer(destination: '/home/docs');
 
     expect(await provider.resolvePath('/home/docs/notes.txt').result, isNotNull);
     expect(namesOf(app.right), isNot(contains('notes.txt')));
@@ -91,19 +87,13 @@ void main() {
 
   test('несуществующий приёмник — ошибка', () async {
     app.left.setCursorToName('notes.txt');
-    final command = transfer();
-    command.setParam(TransferCommandBase.destinationParam, '/nowhere');
-
-    await expectLater(command.execute(), throwsA(isA<FsError>()));
+    await expectLater(transfer(destination: '/nowhere'), throwsA(isA<FsError>()));
   });
 
   test('приёмник-файл — ошибка', () async {
     app.left.setCursorToName('notes.txt');
-    final command = transfer();
-    command.setParam(TransferCommandBase.destinationParam, '/home/report.xlsx');
-
     await expectLater(
-      command.execute(),
+      transfer(destination: '/home/report.xlsx'),
       throwsA(isA<FsError>().having((e) => e.kind, 'kind', FsErrorKind.notADirectory)),
     );
   });
@@ -115,7 +105,7 @@ void main() {
     // нечего, надо сказать, что он не годится. В окне та же ошибка остаётся
     // в нём самом — это проверяет виджетный тест.
     await expectLater(
-      transfer(destination: '   ').execute(),
+      transfer(destination: '   '),
       throwsA(isA<FsError>().having((e) => e.kind, 'kind', FsErrorKind.invalidName)),
     );
   });
@@ -128,7 +118,7 @@ void main() {
     app.left.toggleCurrentMark();
 
     // Спросить некого: существующий файл пропускается, работа продолжается.
-    await transfer().execute();
+    await transfer();
 
     expect(namesOf(app.right), containsAll(['notes.txt', 'report.xlsx']));
   });
@@ -137,7 +127,7 @@ void main() {
     app.left.setCursorToName('notes.txt');
     app.left.toggleCurrentMark();
 
-    await transfer(move: true).execute();
+    await transfer(move: true);
 
     expect(app.left.selection.isEmpty, isTrue);
     expect(namesOf(app.left), isNot(contains('notes.txt')));
@@ -149,7 +139,7 @@ void main() {
     // приёмник задан параметром, и команда работает напрямую.
     app.left.setCursorToName('notes.txt');
 
-    await transfer().execute();
+    await transfer();
 
     expect(namesOf(app.right), contains('notes.txt'));
   });
@@ -169,16 +159,11 @@ void main() {
       await app.left.reload();
     });
 
-    test('по умолчанию по ссылкам не идём — как в mc', () async {
-      final command = transfer();
-
-      expect(command.param<bool>(TransferCommandBase.followLinksParam) ?? false, isFalse);
-    });
-
-    test('не следуем — в приёмнике оказывается ссылка, а не копия каталога', () async {
+    test('по умолчанию по ссылкам не идём — как в mc: в приёмнике ссылка, а не копия каталога', () async {
       app.left.setCursorToName('shortcut');
 
-      await transfer().execute();
+      // Значения нет вовсе — и это значит «не следовать».
+      await transfer();
 
       final copied = await provider.resolvePath('/backup/shortcut').result;
       expect(copied, isA<LinkNode>());
@@ -186,9 +171,7 @@ void main() {
 
     test('следуем — в приёмнике оказывается содержимое цели', () async {
       app.left.setCursorToName('shortcut');
-      final command = transfer()..setParam(TransferCommandBase.followLinksParam, true);
-
-      await command.execute();
+      await transfer(followLinks: true);
 
       // Пошли по ссылке: скопировался каталог, на который она указывает.
       expect(await provider.resolvePath('/backup/shortcut/readme.md').result, isNotNull);
@@ -230,7 +213,7 @@ void main() {
     test('копирование доходит до приёмника потоком', () async {
       final app = await openArchive(InMemoryArchiveProvider(entries()));
 
-      await (app.commands.create('file.copy')!..setParam('destination', '/backup')).execute();
+      await app.commands.create('file.copy')!.executeWith({'destination': '/backup'});
 
       expect(app.right.nodes.map((node) => node.name), contains('inside.txt'));
     });
@@ -239,8 +222,7 @@ void main() {
       // Дерево есть, байтов нет: взять файл неоткуда.
       final app = await openArchive(InMemoryReadOnlyProvider(entries()));
 
-      final command = app.commands.create('file.copy')!..setParam('destination', '/backup');
-      await command.execute();
+      await app.commands.create('file.copy')!.executeWith({'destination': '/backup'});
 
       expect(app.right.nodes.map((node) => node.name), isNot(contains('inside.txt')));
     });

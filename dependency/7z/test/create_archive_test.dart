@@ -89,11 +89,11 @@ void main() {
 
   /// Запускает упаковку с заданным именем — как это делает окно команды.
   Future<AppCommand> pack({String name = 'archive', SevenZipCompression? compression}) async {
-    final command =
-        runtime.commands.create(CreateSevenZipArchiveCommand.commandId)!
-          ..setParam(CreateSevenZipArchiveCommand.nameParam, name)
-          ..setParam(CreateSevenZipArchiveCommand.compressionParam, (compression ?? SevenZipCompression.normal).name);
-    await command.execute();
+    final command = runtime.commands.create(CreateSevenZipArchiveCommand.commandId)!;
+    await command.executeWith({
+      CreateSevenZipArchiveCommand.nameParam: name,
+      CreateSevenZipArchiveCommand.compressionParam: (compression ?? SevenZipCompression.normal).name,
+    });
     return command;
   }
 

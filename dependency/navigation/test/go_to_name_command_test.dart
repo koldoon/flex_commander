@@ -31,8 +31,7 @@ void main() {
 
   Future<void> goTo(String character) async {
     final command = commands().create('panel.goToName')!;
-    command.setParam(GoToNameCommand.characterParam, character);
-    await command.execute();
+    await command.executeWith({GoToNameCommand.characterParam: character});
   }
 
   String? cursorName() => app.left.currentNode?.name;
@@ -92,7 +91,7 @@ void main() {
   test('без символа команда ничего не делает', () async {
     app.left.setCursorToName('notes.txt');
 
-    await commands().create('panel.goToName')!.execute();
+    await commands().create('panel.goToName')!.executeWith();
 
     expect(cursorName(), 'notes.txt');
   });

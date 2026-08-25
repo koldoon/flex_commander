@@ -10,11 +10,10 @@ import 'package:path/path.dart' as p;
 
 /// Журнал вызовов.
 ///
-/// Экземпляр команды создаётся на каждый запуск, поэтому считать вызовы
-/// на самом экземпляре бессмысленно — они пишутся в общий журнал.
+/// Команда — один экземпляр на всё приложение, и своего состояния прогона у неё
+/// нет: что и с чем вызывали, видно только снаружи.
 class CommandLog {
   final List<String> calls = [];
-  final List<String> runIds = [];
   final Map<String, List<String>> targets = {};
   final Map<String, Map<String, Object?>> parameters = {};
 
@@ -39,11 +38,10 @@ class RecordingCommand extends AppCommand {
   bool isExecutable(CommandContext context) => _executable;
 
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     log.calls.add(id);
-    log.runIds.add(runId);
     log.targets[id] = context.targets.map((node) => node.name).toList();
-    log.parameters[id] = parameters.values;
+    log.parameters[id] = context.invocation.parameters;
   }
 }
 
@@ -63,7 +61,7 @@ class FailingCommand extends AppCommand {
   bool isExecutable(CommandContext context) => true;
 
   @override
-  Future<void> execute() async => throw failure;
+  Future<void> execute(CommandContext context) async => throw failure;
 }
 
 void main() {
@@ -178,18 +176,30 @@ void main() {
     });
   });
 
-  group('экземпляр на запуск', () {
-    test('каждый запуск получает свой идентификатор', () {
+  group('команда — прототип', () {
+    test('оба нажатия идут через один и тот же экземпляр', () {
       final registry = CommandRegistry([recording('twice')], [KeyBinding('F5', 'twice')]);
       build(registry);
 
       registry.dispatch(KeyCombination.parse('F5'));
       registry.dispatch(KeyCombination.parse('F5'));
 
-      // Состояние исполнения принадлежит запуску, а не команде вообще.
-      expect(log.runIds, hasLength(2));
-      expect(log.runIds.first, isNot(log.runIds.last));
-      expect(log.runIds.first, startsWith('twice#'));
+      // Второго экземпляра команде не нужно: состояние прогона живёт в окне
+      // или в работе, а не в ней самой.
+      expect(log.callsOf('twice'), 2);
+      expect(registry.installed.where((command) => command.id == 'twice'), hasLength(1));
+    });
+
+    test('значения принадлежат вызову, а не команде', () {
+      final registry = CommandRegistry([recording('args')]);
+      build(registry);
+
+      registry.run('args', const CommandInvocation(parameters: {'name': 'первый'}));
+      expect(log.parameters['args'], {'name': 'первый'});
+
+      // Второй запуск не видит значений первого — их негде было запомнить.
+      registry.run('args');
+      expect(log.parameters['args'], isEmpty);
     });
 
     test('в списке команд остаётся один экземпляр на команду', () {

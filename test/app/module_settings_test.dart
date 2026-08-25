@@ -52,7 +52,7 @@ class _ReadSettingsCommand extends AppCommand {
   bool isExecutable(CommandContext context) => true;
 
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     module.seenAtStartup = module.scope.section(_ProbeSettings.new).greeting;
   }
 }

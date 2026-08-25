@@ -171,11 +171,16 @@ void main() {
       await tester.pumpAndSettle();
 
       runtime.app.activate(runtime.app.right);
-      final command = runtime.commands.create(OpenPathCommand.commandId)!..setParam(OpenPathCommand.panelParam, 'left');
+      final command = runtime.commands.find(OpenPathCommand.commandId)! as OpenPathCommand;
+      // Панель называет вызов, а не активность: команда одна на обе клавиши.
+      final context = CommandContext.of(
+        runtime.app,
+        const CommandInvocation(parameters: {OpenPathCommand.panelParam: 'left'}),
+      );
 
-      expect((command as OpenPathCommand).dialogTitle, 'Open path (left panel)');
+      expect(command.titleOf(context), 'Open path (left panel)');
       // Середина левой панели при разделителе посередине — четверть ширины.
-      expect((command as OpenPathCommand).dialogArea, const DialogArea(end: 0.5));
+      expect(command.areaOf(context), const DialogArea(end: 0.5));
 
       // Отложенной записи настроек даём сработать: таймер не должен пережить
       // тест.
@@ -188,12 +193,14 @@ void main() {
       await runtime.app.start();
       await tester.pumpAndSettle();
 
-      final command =
-          runtime.commands.create(OpenPathCommand.commandId)! as OpenPathCommand
-            ..setParam(OpenPathCommand.panelParam, 'right');
+      final command = runtime.commands.find(OpenPathCommand.commandId)! as OpenPathCommand;
+      final context = CommandContext.of(
+        runtime.app,
+        const CommandInvocation(parameters: {OpenPathCommand.panelParam: 'right'}),
+      );
 
-      expect((command as OpenPathCommand).dialogTitle, 'Open path (right panel)');
-      expect(command.dialogArea, const DialogArea(start: 0.5));
+      expect(command.titleOf(context), 'Open path (right panel)');
+      expect(command.areaOf(context), const DialogArea(start: 0.5));
     });
 
     testWidgets('окно нарисовано над своей панелью, а не посередине экрана', (tester) async {
@@ -207,7 +214,10 @@ void main() {
       await tester.pumpAndSettle();
 
       for (final entry in {'left': 250.0, 'right': 750.0}.entries) {
-        runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: entry.key});
+        runtime.commands.run(
+          OpenPathCommand.commandId,
+          CommandInvocation(parameters: {OpenPathCommand.panelParam: entry.key}),
+        );
         await tester.pumpAndSettle();
 
         // Меряется само окно, а не рама: рама — это ещё и затемнение во весь
@@ -231,7 +241,10 @@ void main() {
       await runtime.app.start();
       await tester.pumpAndSettle();
 
-      runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: 'left'});
+      runtime.commands.run(
+        OpenPathCommand.commandId,
+        CommandInvocation(parameters: {OpenPathCommand.panelParam: 'left'}),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('Open path (left panel)'), findsOneWidget);
@@ -245,7 +258,10 @@ void main() {
       expect(await runtime.app.left.openPath('mem://alpha/srv'), isTrue);
       await tester.pumpAndSettle();
 
-      runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: 'left'});
+      runtime.commands.run(
+        OpenPathCommand.commandId,
+        CommandInvocation(parameters: {OpenPathCommand.panelParam: 'left'}),
+      );
       await tester.pumpAndSettle();
 
       // Человек правит то, что видит в заголовке панели. `//alpha/srv` там
@@ -268,7 +284,10 @@ void main() {
       await tester.pumpAndSettle();
 
       runtime.app.activate(runtime.app.left);
-      runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: 'right'});
+      runtime.commands.run(
+        OpenPathCommand.commandId,
+        CommandInvocation(parameters: {OpenPathCommand.panelParam: 'right'}),
+      );
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), '/etc');
@@ -288,7 +307,10 @@ void main() {
       await runtime.app.start();
       await tester.pumpAndSettle();
 
-      runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: 'left'});
+      runtime.commands.run(
+        OpenPathCommand.commandId,
+        CommandInvocation(parameters: {OpenPathCommand.panelParam: 'left'}),
+      );
       await tester.pumpAndSettle();
 
       // Протокол, которого в приложении действительно нет: `ssh` с недавних
@@ -311,7 +333,10 @@ void main() {
       await runtime.app.start();
       await tester.pumpAndSettle();
 
-      runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: 'left'});
+      runtime.commands.run(
+        OpenPathCommand.commandId,
+        CommandInvocation(parameters: {OpenPathCommand.panelParam: 'left'}),
+      );
       await tester.pumpAndSettle();
 
       // `~` — это соглашение о записи пути, и знает о доме сам источник.
@@ -338,7 +363,10 @@ void main() {
       final before = runtime.app.left.nodes.map((node) => node.name).toList();
       expect(before, isNotEmpty);
 
-      runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: 'left'});
+      runtime.commands.run(
+        OpenPathCommand.commandId,
+        CommandInvocation(parameters: {OpenPathCommand.panelParam: 'left'}),
+      );
       await tester.pumpAndSettle();
       await tester.enterText(find.byType(TextField), 'Blah');
       await tester.tap(find.text('Open'));
@@ -370,7 +398,10 @@ void main() {
       };
 
       for (final entry in answers.entries) {
-        runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: 'left'});
+        runtime.commands.run(
+          OpenPathCommand.commandId,
+          CommandInvocation(parameters: {OpenPathCommand.panelParam: 'left'}),
+        );
         await tester.pumpAndSettle();
 
         await tester.enterText(find.byType(TextField), entry.key);
@@ -392,7 +423,10 @@ void main() {
       await runtime.app.start();
       await tester.pumpAndSettle();
 
-      runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: 'left'});
+      runtime.commands.run(
+        OpenPathCommand.commandId,
+        CommandInvocation(parameters: {OpenPathCommand.panelParam: 'left'}),
+      );
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), '/такого/нет');
@@ -430,7 +464,10 @@ void main() {
       await runtime.app.start();
       await tester.pumpAndSettle();
 
-      runtime.commands.run(OpenPathCommand.commandId, parameters: {OpenPathCommand.panelParam: 'left'});
+      runtime.commands.run(
+        OpenPathCommand.commandId,
+        CommandInvocation(parameters: {OpenPathCommand.panelParam: 'left'}),
+      );
       await tester.pumpAndSettle();
 
       await tester.enterText(find.byType(TextField), 'slow://alpha/srv');

@@ -1,7 +1,6 @@
 import 'package:flutter/widgets.dart';
 
 import '../app/application.dart';
-import '../background/operations.dart';
 import '../app/panel.dart';
 import '../app/viewport.dart';
 import '../tree/fs_node.dart';
@@ -136,12 +135,45 @@ class KeyBinding {
 /// приложения, а не с конкретными контроллерами, и потому не зависит от того,
 /// как они устроены.
 ///
-/// Больше в контексте ничего нет намеренно — команда не должна знать, чем её
-/// вызвали: клавишей, кнопкой внизу окна или списком команд.
+/// Про то, **чем** её вызвали, команда знает ровно одно — [invocation]: клавиша
+/// это была, кнопка внизу окна или список команд, из контекста не видно и
+/// видно быть не должно.
 class CommandContext {
-  const CommandContext({required this.app, required this.panel, this.node, this.targets = const []});
+  const CommandContext({
+    required this.app,
+    required this.panel,
+    this.node,
+    this.targets = const [],
+    this.invocation = const CommandInvocation(),
+  });
+
+  /// Условия прямо сейчас.
+  ///
+  /// Вычисляются, а не хранятся: команда — прототип, она живёт всё время
+  /// работы приложения, и запомненный контекст к следующему запуску устарел бы.
+  factory CommandContext.of(Application app, [CommandInvocation invocation = const CommandInvocation()]) {
+    final panel = app.activePanel;
+    final node = panel.currentNode;
+    final marked = panel.selection.nodes;
+
+    return CommandContext(
+      app: app,
+      panel: panel,
+      node: node,
+      // Если пометки нет, операция работает с объектом под курсором.
+      targets: marked.isNotEmpty ? marked : [if (node != null) node],
+      invocation: invocation,
+    );
+  }
 
   final Application app;
+
+  /// Этот запуск: значения, с которыми команду вызвали.
+  ///
+  /// Читают его и [AppCommand.isExecutable], и [AppCommand.execute]: «открыть
+  /// путь в левой» нельзя, пока левая занята чтением, — а какая именно панель,
+  /// известно только из вызова.
+  final CommandInvocation invocation;
 
   /// Активная панель — источник операции.
   final Panel panel;
@@ -164,19 +196,23 @@ class CommandContext {
 /// создании (окружение модуля) и на запуске ([CommandContext]).
 typedef AppCommandFactory = AppCommand Function();
 
-/// Значения, с которыми команда выполняется.
+/// Один запуск команды: с чем её вызвали.
 ///
-/// Их можно задать откуда угодно: из окна команды, из меню, из будущей
-/// командной строки или из сценария. Аналог `IParameters` референса.
-class CommandParameters {
-  final Map<String, Object?> _values = {};
+/// Отдельным объектом, а не полем команды: команда — прототип, один на всё
+/// время работы приложения, и `Cmd+F1` с `Cmd+F2`, нажатые подряд, дали бы два
+/// запуска с разными значениями в одном и том же поле.
+class CommandInvocation {
+  const CommandInvocation({this.parameters = const {}, this.operationId});
 
-  Map<String, Object?> get values => Map.unmodifiable(_values);
+  /// Значения запуска: из привязки, из списка команд, из сценария.
+  final Map<String, Object?> parameters;
 
-  void set(String name, Object? value) => _values[name] = value;
+  /// Работа, к окну которой возвращаются (кнопка в статусной области);
+  /// null — обычный запуск.
+  final String? operationId;
 
-  T? get<T>(String name) {
-    final value = _values[name];
+  T? param<T>(String name) {
+    final value = parameters[name];
     return value is T ? value : null;
   }
 }
@@ -186,10 +222,11 @@ class CommandParameters {
 /// Команда описывает только себя: название, условие выполнимости, поведение —
 /// и, если нужно, собственное окно.
 ///
-/// **Каждый запуск — свой экземпляр.** Команда хранит состояние исполнения
-/// (что спросили, что уже сделано, где ошибка), поэтому два одновременных
-/// запуска не мешают друг другу. Ядро создаёт экземпляр через контейнер и
-/// выдаёт ему [runId] — по нему же команда просит закрыть своё окно.
+/// **Экземпляр один на всё приложение.** Команда — прототип: она отвечает на
+/// вопросы о себе (название, выполнимость) и умеет выполниться, но состояния
+/// прогона не держит. Что спросили, что уже сделано, где ошибка — это состояние
+/// окна ([DialogSpec.content]) или работы ([FcAsyncRun]), и живёт оно там,
+/// сколько нужно, хоть в трёх копиях сразу.
 ///
 /// **Команда не знает, чем её вызвали.** Всё, на что она опирается, — это
 /// [CommandContext]: активная панель и выбранные объекты. Ни привязок клавиш,
@@ -225,34 +262,22 @@ abstract class AppCommand extends ChangeNotifier {
   /// текст ради заполненной колонки незачем.
   String get description => '';
 
-  /// Идентификатор запуска: свой у каждого экземпляра.
-  ///
-  /// Ядро выдаёт его при создании; по нему команда закрывает своё окно
-  /// (`app.closeDialog(runId)`), а ядро отличает окна разных запусков.
-  String get runId => _runId;
-  String _runId = '';
+  /// Приложение, в котором команда установлена; null — её создали в обход
+  /// сборки, как делают тесты.
+  Application? get appOrNull => _app;
+  Application? _app;
 
-  /// Условия запуска: активная панель и выбранные объекты.
-  /// Ядро передаёт их при создании экземпляра.
-  CommandContext get context => _context!;
+  /// Условия прямо сейчас: активная панель и выбранные объекты.
+  ///
+  /// Читаются живьём, а не запоминаются при запуске: команда — прототип, один
+  /// на всё время работы приложения.
+  CommandContext get context => CommandContext.of(_app!);
 
   /// То же, но без обещания: null — команду вызвали напрямую, минуя ядро.
-  /// Так делают тесты, которым приложение не нужно.
-  CommandContext? get contextOrNull => _context;
-  CommandContext? _context;
+  CommandContext? get contextOrNull => _app == null ? null : CommandContext.of(_app!);
 
-  /// Параметры, с которыми команда выполнится.
-  final CommandParameters parameters = CommandParameters();
-
-  void setParam(String name, Object? value) => parameters.set(name, value);
-
-  T? param<T>(String name) => parameters.get<T>(name);
-
-  /// Только для ядра: связать экземпляр с запуском.
-  void attachRun({required String runId, required CommandContext context}) {
-    _runId = runId;
-    _context = context;
-  }
+  /// Только для ядра: связать команду с приложением.
+  void bind(Application app) => _app = app;
 
   /// Вызывается один раз при установке прототипа. false — команда не
   /// устанавливается (например, недоступна на этой платформе).
@@ -261,9 +286,16 @@ abstract class AppCommand extends ChangeNotifier {
   /// Можно ли выполнить прямо сейчас.
   bool isExecutable(CommandContext context);
 
-  /// Выполняет работу — с параметрами, которые уже заданы, и без вопросов
-  /// пользователю. Ошибку сообщает исключением ([FsError]).
-  Future<void> execute();
+  /// Выполняет работу.
+  ///
+  /// Значение задано в [CommandContext.invocation] — делаем; не задано —
+  /// команда показывает окно и уходит. Первый случай идёт мимо окна вовсе, и
+  /// неудачу ему сообщает исключение ([FsError]), а не строка в окне, которого
+  /// нет.
+  ///
+  /// Контекст приходит аргументом, а не берётся из [context]: он принадлежит
+  /// запуску, а команда — прототип и хранить его не вправе.
+  Future<void> execute(CommandContext context);
 
   /// Вызывается при завершении приложения.
   Future<void> shutdown() async {}
@@ -422,5 +454,5 @@ class PlaceholderCommand extends AppCommand {
   bool isExecutable(CommandContext context) => false;
 
   @override
-  Future<void> execute() async {}
+  Future<void> execute(CommandContext context) async {}
 }

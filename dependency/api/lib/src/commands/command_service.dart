@@ -48,12 +48,12 @@ abstract interface class CommandService implements Listenable {
 
   /// Запускает команду по идентификатору — с клавиатуры, кнопкой, из меню.
   /// Результат всюду одинаковый.
-  bool run(String commandId, {Map<String, Object?> parameters});
+  bool run(String commandId, [CommandInvocation invocation = const CommandInvocation()]);
 
   /// Создаёт экземпляр команды и связывает его с запуском, но не выполняет:
   /// так её получают те, кто задаёт параметры сам.
   AppCommand? create(String commandId);
 
   /// Можно ли выполнить команду прямо сейчас.
-  bool isExecutable(AppCommand command);
+  bool isExecutable(AppCommand command, [CommandInvocation invocation = const CommandInvocation()]);
 }

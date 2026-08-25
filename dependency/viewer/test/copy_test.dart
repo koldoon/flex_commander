@@ -33,7 +33,7 @@ void main() {
 
   Future<ViewerScreen> openViewer() async {
     runtime.app.left.setCursorToName('notes.txt');
-    await (runtime.commands.create(ViewFileCommand.commandId)!).execute();
+    await (runtime.commands.create(ViewFileCommand.commandId)!).executeWith();
     return runtime.app.view.contentAt(ViewportPosition.fullscreen)! as ViewerScreen;
   }
 

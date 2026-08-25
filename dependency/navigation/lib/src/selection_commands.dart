@@ -21,7 +21,7 @@ class ToggleMarkCommand extends AppCommand {
   }
 
   @override
-  Future<void> execute() async => context.panel.toggleCurrentMark();
+  Future<void> execute(CommandContext context) async => context.panel.toggleCurrentMark();
 }
 
 /// Снять всю пометку.
@@ -41,7 +41,7 @@ class ClearSelectionCommand extends AppCommand {
   bool isExecutable(CommandContext context) => context.panel.selection.isNotEmpty;
 
   @override
-  Future<void> execute() async => context.panel.selection.clear();
+  Future<void> execute(CommandContext context) async => context.panel.selection.clear();
 }
 
 /// Пометить всё, кроме «..».
@@ -61,5 +61,5 @@ class SelectAllCommand extends AppCommand {
   bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
 
   @override
-  Future<void> execute() async => context.panel.markAll();
+  Future<void> execute(CommandContext context) async => context.panel.markAll();
 }

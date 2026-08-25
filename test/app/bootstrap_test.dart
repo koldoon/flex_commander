@@ -71,7 +71,7 @@ class ProbeCommand extends AppCommand {
   bool isExecutable(CommandContext context) => true;
 
   @override
-  Future<void> execute() async {}
+  Future<void> execute(CommandContext context) async {}
 
   String get serviceValue => env.resolve<ProbeService>().value;
 
@@ -94,7 +94,7 @@ class StartupCommand extends AppCommand {
   bool isExecutable(CommandContext context) => true;
 
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     // Приложение к этому моменту собрано: стартовая команда работает с ним,
     // а не с полуготовым контейнером.
     log.add(env.app.activePanel.settings.path);
@@ -126,7 +126,7 @@ class _BrokenCommand extends AppCommand {
   bool isExecutable(CommandContext context) => true;
 
   @override
-  Future<void> execute() async => throw StateError('модуль сломался');
+  Future<void> execute(CommandContext context) async => throw StateError('модуль сломался');
 }
 
 void main() {

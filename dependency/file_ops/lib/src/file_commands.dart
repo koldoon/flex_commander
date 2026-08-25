@@ -37,7 +37,7 @@ class MakeDirectoryCommand extends AppCommand {
   /// Имя задают либо параметром, либо человеком в окне. Первый случай идёт
   /// мимо окна вовсе; во втором команда показывает окно и уходит.
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final panel = context.panel;
     final parent = panel.directory;
     final editor = panel.editor;
@@ -55,7 +55,7 @@ class MakeDirectoryCommand extends AppCommand {
 
     // «Задано» — значит параметр есть, а не «есть и непустой»: пробелы это
     // заданное имя, просто негодное.
-    final given = param<String>(nameParam);
+    final given = context.invocation.param<String>(nameParam);
     if (given != null) {
       final trimmed = given.trim();
       if (trimmed.isEmpty) {
@@ -260,7 +260,7 @@ abstract class RemoveCommandBase extends AppCommand {
   /// Команда показывает окно и уходит: всё, что живёт дальше — подтверждение,
   /// ход работы, вопросы по дороге, уход в фон, — принадлежит окну.
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final panel = context.panel;
     final editor = panel.editor;
     final targets = this.targets;
@@ -283,7 +283,7 @@ abstract class RemoveCommandBase extends AppCommand {
       }
     }
 
-    if (param<bool>(confirmedParam) == true) {
+    if (context.invocation.param<bool>(confirmedParam) == true) {
       // Согласие уже дано — спрашивать некого и незачем.
       await remove();
       return;

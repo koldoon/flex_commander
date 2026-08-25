@@ -70,15 +70,15 @@ class FcFindTextCommand extends AppCommand with _ScreenFinder {
   /// случай идёт мимо окна вовсе; во втором команда показывает окно и уходит,
   /// а состояние ввода живёт в самом окне.
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final FcTextFinder? finder = finderOf(context.app);
     if (finder == null) {
       return;
     }
 
-    final String? given = param<String>(patternParam);
+    final String? given = context.invocation.param<String>(patternParam);
     if (given != null) {
-      final int count = await _run(finder, given);
+      final int count = await _run(context, finder, given);
       if (count == 0) {
         context.app.toasts.show('Not found: $given');
         return;
@@ -109,20 +109,13 @@ class FcFindTextCommand extends AppCommand with _ScreenFinder {
     );
   }
 
-  Future<int> _run(FcTextFinder finder, String pattern) => finder.search(
+  /// Условия поиска приходят тем же вызовом, что и строка: у команды-прототипа
+  /// своего «как искать» нет.
+  Future<int> _run(CommandContext context, FcTextFinder finder, String pattern) => finder.search(
     pattern,
-    caseSensitive: param<bool>(caseSensitiveParam) ?? false,
-    regex: param<bool>(regexParam) ?? false,
+    caseSensitive: context.invocation.param<bool>(caseSensitiveParam) ?? false,
+    regex: context.invocation.param<bool>(regexParam) ?? false,
   );
-
-  static bool _isValidRegex(String pattern) {
-    try {
-      RegExp(pattern);
-      return true;
-    } on FormatException {
-      return false;
-    }
-  }
 }
 
 /// Что набрано в окне поиска и что из этого вышло.
@@ -226,7 +219,7 @@ class FcFindNextCommand extends AppCommand with _ScreenFinder {
   bool isExecutable(CommandContext context) => (finderOf(context.app)?.matchCount ?? 0) > 0;
 
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final FcTextFinder? finder = finderOf(context.app);
     if (finder == null || !finder.next()) {
       return;
@@ -257,7 +250,7 @@ class FcFindPreviousCommand extends AppCommand with _ScreenFinder {
   bool isExecutable(CommandContext context) => (finderOf(context.app)?.matchCount ?? 0) > 0;
 
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final FcTextFinder? finder = finderOf(context.app);
     if (finder == null || !finder.previous()) {
       return;

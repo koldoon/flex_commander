@@ -45,7 +45,7 @@ void main() {
 
   CommandService commands() => app.commands;
 
-  Future<void> run(String id) => commands().create(id)!.execute();
+  Future<void> run(String id) => commands().create(id)!.executeWith();
 
   group('переход в корень', () {
     test('панель открывает корневой каталог провайдера', () async {

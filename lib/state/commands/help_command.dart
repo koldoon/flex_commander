@@ -1,5 +1,3 @@
-import 'package:flutter/widgets.dart';
-
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
@@ -38,7 +36,7 @@ class HelpCommand extends AppCommand {
   ///
   /// Enter в таком окне равносилен «закрыть»: делать в нём больше нечего.
   @override
-  Future<void> execute() async {
+  Future<void> execute(CommandContext context) async {
     final view = context.app.view;
     late final String dialogId;
     void close() => view.closeDialog(dialogId);
