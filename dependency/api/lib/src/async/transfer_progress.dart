@@ -22,7 +22,7 @@ class TransferProgress {
   TransferProgress(this._operation, this._verb, {DateTime Function() clock = DateTime.now})
     : _speed = _SpeedWindow(clock);
 
-  final TaskOperation<void> _operation;
+  final TaskOperation<Object?, void> _operation;
 
   /// Что происходит: `Copying`, `Moving`.
   final String _verb;

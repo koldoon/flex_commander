@@ -39,7 +39,7 @@ Future<void> encodeZipArchive({
   required String archivePath,
   required List<ZipItem> entries,
   required int level,
-  required TaskOperation<void> op,
+  required TaskOperation<Object?, void> op,
   void Function(String name, int? bytes)? onEntry,
   void Function(String name)? onEntryDone,
   void Function(int bytes)? onBytes,

@@ -24,7 +24,7 @@ class _ArchiveModule implements FcModule {
   void install(FcRegistry registry) {
     registry.provider(
       'arc',
-      (host) => TaskOperation<TreeProvider>((op) async {
+      () => TaskOperation<FsNode, TreeProvider>((op, host) async {
         final provider = InMemoryArchiveProvider([
           FakeEntry.directory('/inner'),
           FakeEntry.file('/inner/doc.txt', content: [1, 2, 3]),

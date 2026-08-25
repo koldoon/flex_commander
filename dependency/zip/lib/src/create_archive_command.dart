@@ -113,11 +113,12 @@ class CreateZipArchiveCommand extends AppCommand {
       final into = context.target.leaseProvider();
 
       try {
-        final operation = packOperation(sources, destination, name, compression: compression, followLinks: followLinks);
+        final operation = packOperation();
+        final params = ZipPackParams(sources, destination, name, compression: compression, followLinks: followLinks);
         if (run != null) {
-          await run.run(operation, message: 'Packing…');
+          await run.run(operation, params, message: 'Packing…');
         } else {
-          await operation.result;
+          await operation.run(params);
         }
       } finally {
         await from?.release();
@@ -186,14 +187,13 @@ class CreateZipArchiveCommand extends AppCommand {
   /// байта — а приёмник вправе и не уметь такого. Прерванная работа при этом не
   /// оставляет полуархива на месте назначения.
   @visibleForTesting
-  AsyncOperation<void> packOperation(
-    List<FsNode> sources,
-    DirectoryNode destination,
-    String name, {
-    required ZipCompression compression,
-    required bool followLinks,
-  }) {
-    return TaskOperation<void>((op) async {
+  Operation<ZipPackParams, void> packOperation() {
+    return TaskOperation<ZipPackParams, void>((op, params) async {
+      final sources = params.sources;
+      final destination = params.destination;
+      final name = params.name;
+      final compression = params.compression;
+      final followLinks = params.followLinks;
       final progress = TransferProgress(op, 'Packing');
       // Плечи: сперва архив собирается, потом уходит приёмнику. Второе
       // бывает и дольше первого — по сети, например.
@@ -266,7 +266,7 @@ class CreateZipArchiveCommand extends AppCommand {
     FsNode node,
     String entryName,
     LocalCopySession copies,
-    TaskOperation<void> op,
+    TaskOperation<Object?, void> op,
     TransferProgress progress,
     _Links links,
   ) async {
@@ -307,7 +307,7 @@ class CreateZipArchiveCommand extends AppCommand {
   /// Что делать со ссылкой: положить записью-ссылкой или пойти по ней.
   ///
   /// Возвращает цель, если решено идти; null — со ссылкой уже разобрались.
-  Future<FsNode?> _addLink(LinkNode node, TaskOperation<void> op, _Links links) async {
+  Future<FsNode?> _addLink(LinkNode node, TaskOperation<Object?, void> op, _Links links) async {
     if (!links.follow) {
       // Ссылку в архив положить нечем.
       //
@@ -336,7 +336,12 @@ class CreateZipArchiveCommand extends AppCommand {
   }
 
   /// Вопрос про ссылку — тот же, что при отказах.
-  Future<void> _askAboutLink(TaskOperation<void> op, LinkNode node, _Links links, {required _LinkTrouble kind}) async {
+  Future<void> _askAboutLink(
+    TaskOperation<Object?, void> op,
+    LinkNode node,
+    _Links links, {
+    required _LinkTrouble kind,
+  }) async {
     if (links.skipAll) {
       return;
     }
@@ -367,7 +372,7 @@ class CreateZipArchiveCommand extends AppCommand {
     String archivePath,
     DirectoryNode destination,
     String name,
-    TaskOperation<void> op,
+    TaskOperation<Object?, void> op,
     TransferProgress progress,
   ) async {
     final provider = destination.provider;
@@ -567,3 +572,28 @@ class _Links {
 
 /// Что не так со ссылкой.
 enum _LinkTrouble { cannotStore, recursive, broken }
+
+/// Что паковать, куда и как.
+class ZipPackParams {
+  const ZipPackParams(
+    this.sources,
+    this.destination,
+    this.name, {
+    required this.compression,
+    required this.followLinks,
+  });
+
+  final List<FsNode> sources;
+
+  /// Каталог, в котором появится архив.
+  final DirectoryNode destination;
+
+  /// Имя архива вместе с расширением: `notes.zip`.
+  final String name;
+
+  final ZipCompression compression;
+
+  /// Идти ли по символическим ссылкам вместо того, чтобы класть их в архив
+  /// ссылками.
+  final bool followLinks;
+}

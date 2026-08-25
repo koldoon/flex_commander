@@ -29,13 +29,13 @@ void main() {
   });
 
   Future<DirectoryNode> open(String path) async {
-    final node = await provider.resolvePath(path).result;
+    final node = await provider.resolvePath().run(path);
     return node as DirectoryNode;
   }
 
   group('пути', () {
     test('путь узла — полный адрес сервера', () async {
-      final node = await provider.resolvePath('/srv/notes.txt').result;
+      final node = await provider.resolvePath().run('/srv/notes.txt');
 
       expect(node!.pathString, 'ssh://tester@example.org/srv/notes.txt');
       expect(provider.remotePathOf(node), '/srv/notes.txt');
@@ -47,27 +47,27 @@ void main() {
     });
 
     test('разбирается и с началом адреса, и без него', () async {
-      final withAuthority = await provider.resolvePath('//tester@example.org/srv/notes.txt').result;
-      final plain = await provider.resolvePath('/srv/notes.txt').result;
+      final withAuthority = await provider.resolvePath().run('//tester@example.org/srv/notes.txt');
+      final plain = await provider.resolvePath().run('/srv/notes.txt');
 
       expect(withAuthority, isNotNull);
       expect(withAuthority!.pathString, plain!.pathString);
     });
 
     test('которого нет — null, а не ошибка', () async {
-      expect(await provider.resolvePath('/srv/missing').result, isNull);
-      expect(await provider.resolvePath('/srv/notes.txt/deeper').result, isNull);
+      expect(await provider.resolvePath().run('/srv/missing'), isNull);
+      expect(await provider.resolvePath().run('/srv/notes.txt/deeper'), isNull);
     });
 
     test('цепочка узлов доходит до корня — панели есть куда идти наверх', () async {
-      final node = await provider.resolvePath('/srv/www/index.html').result;
+      final node = await provider.resolvePath().run('/srv/www/index.html');
 
       expect(node!.path.map((n) => n.name).toList(), ['/', 'srv', 'www', 'index.html']);
       expect(identical(node.path.first, provider.rootDirectory), isTrue);
     });
 
     test('через ссылку на каталог — видимый путь идёт по ссылке', () async {
-      final node = await provider.resolvePath('/srv/current/index.html').result;
+      final node = await provider.resolvePath().run('/srv/current/index.html');
 
       expect(node, isNotNull);
       expect(provider.remotePathOf(node!), '/srv/current/index.html');
@@ -78,7 +78,7 @@ void main() {
   group('чтение каталога', () {
     test('скрытое по умолчанию не показывается, «..» есть', () async {
       final dir = await open('/srv');
-      final nodes = await provider.getDirectoryListing(dir).result;
+      final nodes = await provider.getDirectoryListing().run(ListingParams(dir));
       final names = nodes.map((node) => node.name).toList();
 
       expect(names.first, '..');
@@ -88,20 +88,20 @@ void main() {
 
     test('скрытое по требованию показывается', () async {
       final dir = await open('/srv');
-      final nodes = await provider.getDirectoryListing(dir, includeHidden: true).result;
+      final nodes = await provider.getDirectoryListing().run(ListingParams(dir, includeHidden: true));
 
       expect(nodes.map((node) => node.name), contains('.hidden'));
     });
 
     test('в корне «..» нет', () async {
-      final nodes = await provider.getDirectoryListing(provider.rootDirectory).result;
+      final nodes = await provider.getDirectoryListing().run(ListingParams(provider.rootDirectory));
 
       expect(nodes.map((node) => node.name), isNot(contains('..')));
     });
 
     test('ссылка знает про цель, битая — про то, что цели нет', () async {
       final dir = await open('/srv');
-      final nodes = await provider.getDirectoryListing(dir).result;
+      final nodes = await provider.getDirectoryListing().run(ListingParams(dir));
 
       final current = nodes.firstWhere((node) => node.name == 'current') as LinkNode;
       expect(current.reference, '/srv/www');
@@ -115,7 +115,7 @@ void main() {
 
     test('обход движка не подменяет то, что показывает панель', () async {
       final dir = await open('/srv');
-      await provider.getDirectoryListing(dir).result;
+      await provider.getDirectoryListing().run(ListingParams(dir));
       final shown = dir.nodes;
 
       final children = await provider.listChildren(dir);
@@ -130,17 +130,17 @@ void main() {
       server.denied['/srv/www'] = FsErrorKind.permissionDenied;
 
       expect(
-        () => provider.getDirectoryListing(dir).result,
+        () => provider.getDirectoryListing().run(ListingParams(dir)),
         throwsA(isA<FsError>().having((error) => error.kind, 'kind', FsErrorKind.permissionDenied)),
       );
     });
 
     test('ссылка разворачивается в цель, а та помнит ссылку родителем', () async {
       final dir = await open('/srv');
-      final nodes = await provider.getDirectoryListing(dir).result;
+      final nodes = await provider.getDirectoryListing().run(ListingParams(dir));
       final link = nodes.firstWhere((node) => node.name == 'current') as LinkNode;
 
-      final target = await provider.resolveLink(link).result;
+      final target = await provider.resolveLink().run(link);
 
       expect(target, isA<DirectoryNode>());
       expect(target!.name, 'www');
@@ -181,7 +181,7 @@ void main() {
     });
 
     test('переименование внутри сервера — одним действием', () async {
-      final source = await provider.resolvePath('/srv/notes.txt').result;
+      final source = await provider.resolvePath().run('/srv/notes.txt');
       final destination = await open('/srv/www');
 
       expect(await provider.renameEntry(source!, destination, 'readme.txt'), isTrue);
@@ -190,7 +190,7 @@ void main() {
     });
 
     test('в чужой источник переименованием не уехать', () async {
-      final source = await provider.resolvePath('/srv/notes.txt').result;
+      final source = await provider.resolvePath().run('/srv/notes.txt');
       final elsewhere = InMemoryContentProvider();
 
       expect(await provider.renameEntry(source!, elsewhere.rootDirectory, 'readme.txt'), isFalse);
@@ -198,38 +198,38 @@ void main() {
     });
 
     test('копии средствами сервера нет — движку сказано прямо', () async {
-      final source = await provider.resolvePath('/srv/notes.txt').result;
+      final source = await provider.resolvePath().run('/srv/notes.txt');
       final destination = await open('/srv/www');
 
       expect(await provider.copyEntry(source!, destination, 'notes.txt'), isFalse);
     });
 
     test('удаляются и файл, и пустой каталог, и сама ссылка', () async {
-      final file = await provider.resolvePath('/srv/notes.txt').result;
+      final file = await provider.resolvePath().run('/srv/notes.txt');
       await provider.deleteEntry(file!);
       expect(server.has('/srv/notes.txt'), isFalse);
 
-      final link = await provider.resolvePath('/srv/current').result;
+      final link = await provider.resolvePath().run('/srv/current');
       await provider.deleteEntry(link!);
       expect(server.has('/srv/current'), isFalse);
       // Цель ссылки на месте: удаляли ссылку, а не то, куда она вела.
       expect(server.has('/srv/www'), isTrue);
 
-      final directory = await provider.resolvePath('/srv/www/index.html').result;
+      final directory = await provider.resolvePath().run('/srv/www/index.html');
       await provider.deleteEntry(directory!);
       await provider.deleteEntry((await open('/srv/www')));
       expect(server.has('/srv/www'), isFalse);
     });
 
     test('корзины и удаления поддерева нет — рекурсию ведёт движок', () async {
-      final node = await provider.resolvePath('/srv/www').result;
+      final node = await provider.resolvePath().run('/srv/www');
 
       expect(await provider.trashEntry(node!), isFalse);
       expect(await provider.deleteTree(node), isFalse);
     });
 
     test('тот же объект и объект внутри себя', () async {
-      final node = await provider.resolvePath('/srv/www').result;
+      final node = await provider.resolvePath().run('/srv/www');
       final srv = await open('/srv');
 
       expect(provider.isSameEntity(node!, srv), isTrue);
@@ -240,7 +240,7 @@ void main() {
 
   group('байты', () {
     test('читается целиком и с середины', () async {
-      final node = await provider.resolvePath('/srv/www/index.html').result;
+      final node = await provider.resolvePath().run('/srv/www/index.html');
 
       expect(utf8.decode(await _collect(await provider.openRead(node!))), '<html/>');
       expect(utf8.decode(await _collect(await provider.openRead(node, offset: 6))), '>');
@@ -259,9 +259,9 @@ void main() {
 
   group('подсчёт', () {
     test('размер поддерева — только файлы', () async {
-      final node = await provider.resolvePath('/srv').result;
+      final node = await provider.resolvePath().run('/srv');
 
-      final total = await provider.calculateSize([node!]).result;
+      final total = await provider.calculateSize().run([node!]);
 
       // <html/> (7) + заметки (14 байт в utf-8) + скрытое (14). Ссылки байтов
       // не переносят, у каталогов их нет.
@@ -269,7 +269,7 @@ void main() {
     });
 
     test('обход считает и сам объект, и всё под ним', () async {
-      final node = await provider.resolvePath('/srv/www').result;
+      final node = await provider.resolvePath().run('/srv/www');
       final sizes = <int>[];
 
       await provider.countEntries(node!, sizes.add);
@@ -283,8 +283,8 @@ void main() {
       server.file('/srv/locked/secret', 'x');
       server.denied['/srv/locked'] = FsErrorKind.permissionDenied;
 
-      final node = await provider.resolvePath('/srv').result;
-      final total = await provider.calculateSize([node!]).result;
+      final node = await provider.resolvePath().run('/srv');
+      final total = await provider.calculateSize().run([node!]);
 
       expect(total, greaterThan(0));
     });
@@ -308,43 +308,43 @@ void main() {
     });
 
     test('с сервера к себе', () async {
-      final source = await provider.resolvePath('/srv/notes.txt').result;
+      final source = await provider.resolvePath().run('/srv/notes.txt');
 
-      await engine.copy([source!], local.rootDirectory).result;
+      await engine.copy().run(TransferParams([source!], local.rootDirectory));
 
-      final copied = await local.resolvePath('/notes.txt').result;
+      final copied = await local.resolvePath().run('/notes.txt');
       expect(copied, isNotNull);
       expect(utf8.decode(await _collect(await local.openRead(copied!))), 'заметки');
     });
 
     test('к себе целым каталогом', () async {
-      final source = await provider.resolvePath('/srv/www').result;
+      final source = await provider.resolvePath().run('/srv/www');
 
-      await engine.copy([source!], local.rootDirectory).result;
+      await engine.copy().run(TransferParams([source!], local.rootDirectory));
 
-      expect(await local.resolvePath('/www/index.html').result, isNotNull);
+      expect(await local.resolvePath().run('/www/index.html'), isNotNull);
     });
 
     test('от себя на сервер', () async {
       await local.createDirectory(local.rootDirectory, 'out');
-      final outgoing = await local.resolvePath('/out').result as DirectoryNode;
+      final outgoing = await local.resolvePath().run('/out') as DirectoryNode;
       final sink = await local.openWrite(outgoing, 'report.txt', length: null);
       await sink.addStream(Stream<List<int>>.value(utf8.encode('отчёт')));
       await sink.close();
 
-      final source = await local.resolvePath('/out/report.txt').result;
-      final destination = await provider.resolvePath('/srv/www').result as DirectoryNode;
+      final source = await local.resolvePath().run('/out/report.txt');
+      final destination = await provider.resolvePath().run('/srv/www') as DirectoryNode;
 
-      await engine.copy([source!], destination).result;
+      await engine.copy().run(TransferParams([source!], destination));
 
       expect(server.contentOf('/srv/www/report.txt'), 'отчёт');
     });
 
     test('перенос внутри сервера идёт переименованием', () async {
-      final source = await provider.resolvePath('/srv/notes.txt').result;
-      final destination = await provider.resolvePath('/srv/www').result as DirectoryNode;
+      final source = await provider.resolvePath().run('/srv/notes.txt');
+      final destination = await provider.resolvePath().run('/srv/www') as DirectoryNode;
 
-      await engine.move([source!], destination).result;
+      await engine.move().run(TransferParams([source!], destination));
 
       expect(server.has('/srv/www/notes.txt'), isTrue);
       expect(server.has('/srv/notes.txt'), isFalse);

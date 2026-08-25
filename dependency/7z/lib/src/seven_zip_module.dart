@@ -42,7 +42,7 @@ class SevenZipArchiver implements FcModule {
       SevenZipTreeProvider.schemeName,
       // Архив внутри архива сперва оказывается на диске, но где именно —
       // знает не архиватор: место под временные файлы даёт приложение.
-      (host) => TaskOperation<TreeProvider>((op) {
+      () => TaskOperation<FsNode, TreeProvider>((op, host) {
         op.message('Reading ${host.name}…');
         return ProviderRegistry.keepUnlessCanceled(
           op,

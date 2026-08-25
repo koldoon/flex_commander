@@ -158,28 +158,50 @@ class OperationCanceled implements Exception {
   String toString() => 'OperationCanceled';
 }
 
-/// Асинхронная операция: результат, прогресс, отмена и вопросы пользователю.
+/// Длительная работа: параметры на входе, результат на выходе.
 ///
 /// От голого [Future] отличается тремя вещами, без которых не обойтись
-/// файловому менеджеру: операцию можно отменить, она умеет сообщать о ходе
-/// работы и задавать вопросы (перезаписать? пропустить?) не прерываясь.
-abstract class AsyncOperation<T> {
+/// файловому менеджеру: работу можно отменить, она умеет сообщать о ходе дела
+/// и задавать вопросы (перезаписать? пропустить?) не прерываясь.
+///
+/// **Создать и запустить — разные действия.** Созданная работа не начата: на
+/// неё можно спокойно подписаться, положить её в очередь, показать строкой
+/// «ждёт». Пока никто не позвал [start], не случилось ничего.
+///
+/// **Вход — только данные.** Ни приложения, ни областей, ни панелей в типе [P]
+/// быть не должно: живое состояние читает команда, до запуска, а работа
+/// получает снимок. Иначе фоновое копирование сломается в тот день, когда
+/// панель выйдет из архива. Это проверяет доктринальный тест.
+abstract class Operation<P, R> {
   OperationState get state;
 
   /// Ход работы: объект, а не поток. Читается всегда, подписка не обязательна.
+  ///
+  /// Что именно про работу известно — доля, скорость, байты, этапы, — говорят
+  /// подтипы [OperationStatus]: работа объявляет о себе тем, что реализует.
   OperationStatus get status;
 
   /// Результат. Завершается ошибкой [FsError] или [OperationCanceled].
-  Future<T> get result;
+  ///
+  /// Отдельно от [start], а не его возвращаемым значением: запускает работу
+  /// один — очередь, окно, команда, — а ждать её вправе кто угодно.
+  Future<R> get result;
 
   /// Прогресс потоком.
   ///
   /// Переходное: ход работы держит [status], а поток из него питается —
-  /// источник правды один. Уйдёт, когда потребители перейдут на объект.
+  /// источник правды один. Уйдёт, когда на объект перейдут тесты: в рабочем
+  /// коде потребителей у потока уже нет.
   Stream<OperationProgress> get progress;
 
-  /// Вопросы пользователю. Пустой поток у операций, которые ничего не спрашивают.
+  /// Вопросы пользователю. Пустой поток у работ, которые ничего не спрашивают.
   Stream<OperationRequest> get requests;
+
+  /// Заводит работу с этими данными.
+  ///
+  /// Второй раз ничего не делает: результат у работы один, и переиграть его
+  /// нельзя. Нужна ещё одна такая же — создайте ещё одну.
+  void start(P params);
 
   /// Прервать немедленно, ни о чём не спрашивая.
   void cancel();
@@ -193,22 +215,34 @@ abstract class AsyncOperation<T> {
   void requestCancel();
 }
 
-/// Базовая реализация [AsyncOperation] для операций, выполняемых в текущем
-/// изоляте. Тело операции получает саму операцию, чтобы сообщать прогресс,
-/// задавать вопросы и проверять отмену.
-class TaskOperation<T> implements AsyncOperation<T> {
-  /// Создаёт и запускает операцию.
-  ///
-  /// Тело стартует не мгновенно, а следующим шагом цикла событий: вызывающий
-  /// код должен успеть подписаться на прогресс и на вопросы, а он делает это
-  /// строкой ниже. Иначе первые события — и первый вопрос — прошли бы мимо.
-  TaskOperation(this._body) {
-    scheduleMicrotask(_run);
+/// Завести работу и дождаться её — одним выражением.
+///
+/// Это не второй способ запуска, а тот же [Operation.start] с ожиданием следом:
+/// подавляющему большинству мест разделять «создать» и «запустить» незачем —
+/// оно нужно очереди, которая ждёт своей очереди, и окну, которое подписывается
+/// раньше запуска.
+extension StartAndWait<P, R> on Operation<P, R> {
+  Future<R> run(P params) {
+    start(params);
+    return result;
   }
+}
 
-  final Future<T> Function(TaskOperation<T> op) _body;
+/// Базовая реализация [Operation] для работ, выполняемых в текущем изоляте.
+/// Тело получает саму работу — чтобы сообщать о ходе дела, задавать вопросы и
+/// проверять отмену, — и её параметры.
+class TaskOperation<P, R> implements Operation<P, R> {
+  /// Создаёт работу, **не** начиная её: тело ждёт [start].
+  ///
+  /// Раньше тело стартовало следующим шагом цикла событий, и на этом держался
+  /// негласный уговор — подписывайтесь строкой ниже, иначе первые события и
+  /// первый вопрос пройдут мимо. Уговора больше нет: создал, подписался,
+  /// запустил.
+  TaskOperation(this._body);
 
-  final Completer<T> _completer = Completer<T>();
+  final Future<R> Function(TaskOperation<P, R> op, P params) _body;
+
+  final Completer<R> _completer = Completer<R>();
   final StreamController<OperationRequest> _requests = StreamController<OperationRequest>.broadcast();
 
   OperationState _state = OperationState.inited;
@@ -222,7 +256,7 @@ class TaskOperation<T> implements AsyncOperation<T> {
   final _TaskOperationStatus _status = _TaskOperationStatus();
 
   @override
-  Future<T> get result => _completer.future;
+  Future<R> get result => _completer.future;
 
   final StreamController<OperationProgress> _progress = StreamController<OperationProgress>.broadcast();
 
@@ -252,13 +286,13 @@ class TaskOperation<T> implements AsyncOperation<T> {
   /// Пользователь просил прервать, но ещё не подтвердил.
   bool _cancelRequested = false;
 
-  /// Вложенные операции, которые идут прямо сейчас.
+  /// Вложенные работы, которые идут прямо сейчас.
   ///
   /// Список, а не одна ссылка: тело зовёт [delegate] из разных мест — разбор
   /// пути рекурсивен, — и вложенных по дороге может оказаться несколько.
   /// Прерывают всегда снаружи, а работает самая вложенная, и добраться до неё
   /// можно только по такому списку.
-  final List<AsyncOperation<Object?>> _delegated = [];
+  final List<Operation<Object?, Object?>> _delegated = [];
 
   /// Бросает [OperationCanceled], если операцию успели отменить.
   /// Вызывается телом операции между шагами.
@@ -348,7 +382,7 @@ class TaskOperation<T> implements AsyncOperation<T> {
   /// вправе прервать то, чего ждут остальные.
   ///
   /// Возвращает то, чем пересказ прекратить.
-  VoidCallback relayFrom(AsyncOperation<Object?> source) {
+  VoidCallback relayFrom(Operation<Object?, Object?> source) {
     final status = source.status;
     if (status is! _TaskOperationStatus) {
       return () {};
@@ -403,19 +437,19 @@ class TaskOperation<T> implements AsyncOperation<T> {
   /// относится вовсе: его спрашивает `Credentials` — отдельная служба со своим
   /// окном. По той же причине не идёт вниз и [requestCancel]: вложенная задала
   /// бы вопрос в пустоту, и мягкая отмена молча стала бы жёсткой.
-  Future<R> delegate<R>(AsyncOperation<R> inner) async {
+  Future<R2> delegate<Q, R2>(Operation<Q, R2> inner, Q params) async {
     if (isCanceled) {
-      // Отменили, пока вложенную только создавали: она уже начала работать, и
-      // бросить её как есть нельзя.
-      inner.cancel();
+      // Отменили, пока вложенную только создавали. Запускать её теперь незачем.
       throw const OperationCanceled();
     }
 
     // Слушаем ход вложенной и пересказываем наружу: она рассказывает о себе,
-    // а видно должно быть работу целиком.
+    // а видно должно быть работу целиком. Подписка до запуска — потому запуск
+    // и отделён от создания.
     final stopRelay = relayFrom(inner);
     _delegated.add(inner);
     try {
+      inner.start(params);
       return await inner.result;
     } finally {
       _delegated.remove(inner);
@@ -460,14 +494,24 @@ class TaskOperation<T> implements AsyncOperation<T> {
     }
   }
 
-  Future<void> _run() async {
+  @override
+  void start(P params) {
+    if (_state != OperationState.inited) {
+      // Уже запускали: результат у работы один, и переиграть его нельзя.
+      return;
+    }
+    _setState(OperationState.pending);
+    unawaited(_run(params));
+  }
+
+  Future<void> _run(P params) async {
     if (isCanceled) {
       // Отменили ещё до старта.
       return;
     }
     _setState(OperationState.processing);
     try {
-      final value = await _body(this);
+      final value = await _body(this, params);
       if (isCanceled) {
         return;
       }
@@ -492,9 +536,10 @@ class TaskOperation<T> implements AsyncOperation<T> {
   }
 }
 
-/// Уже завершённая операция. Удобна для заглушек и тестов.
-class CompletedOperation<T> implements AsyncOperation<T> {
-  CompletedOperation(T value) : result = Future.value(value);
+/// Уже завершённая работа. Удобна для заглушек и тестов: [start] ей ничего не
+/// добавляет — всё уже случилось.
+class CompletedOperation<P, R> implements Operation<P, R> {
+  CompletedOperation(R value) : result = Future.value(value);
 
   CompletedOperation.error(Object error) : result = Future.error(error), _state = OperationState.error {
     // Ошибка обязательно должна быть кем-то прочитана, иначе Dart сообщит
@@ -503,7 +548,7 @@ class CompletedOperation<T> implements AsyncOperation<T> {
   }
 
   @override
-  final Future<T> result;
+  final Future<R> result;
 
   OperationState _state = OperationState.complete;
 
@@ -518,6 +563,10 @@ class CompletedOperation<T> implements AsyncOperation<T> {
 
   @override
   Stream<OperationRequest> get requests => const Stream.empty();
+
+  /// Запускать нечего: всё уже случилось.
+  @override
+  void start(P params) {}
 
   @override
   void cancel() {}

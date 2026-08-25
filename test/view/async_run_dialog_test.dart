@@ -52,12 +52,12 @@ void main() {
     );
   }
 
-  Future<void> work(AsyncOperation<void> operation) => run.run(operation, message: 'Working…');
+  Future<void> work(Operation<Object?, void> operation) => run.run(operation, null, message: 'Working…');
 
   /// Работа, которая идёт, пока её не отпустят.
-  ({AsyncOperation<void> operation, Completer<void> release}) hangingOperation() {
+  ({Operation<Object?, void> operation, Completer<void> release}) hangingOperation() {
     final release = Completer<void>();
-    return (operation: TaskOperation<void>((op) => release.future), release: release);
+    return (operation: TaskOperation<void, void>((op, _) => release.future), release: release);
   }
 
   testWidgets('до начала работы видна форма', (tester) async {
@@ -86,7 +86,7 @@ void main() {
   testWidgets('работа кончилась — окно замирает на ходе дела', (tester) async {
     await pump(tester);
 
-    await work(TaskOperation<void>((op) async {}));
+    await work(TaskOperation<void, void>((op, _) async {}));
     await tester.pump();
 
     // Хвост работы: операции уже нет, окно ещё есть. Формы тут быть не должно
@@ -99,7 +99,7 @@ void main() {
   testWidgets('в хвосте работы обе кнопки погашены, но остаются на месте', (tester) async {
     await pump(tester);
 
-    await work(TaskOperation<void>((op) async {}));
+    await work(TaskOperation<void, void>((op, _) async {}));
     await tester.pump();
 
     // Прерывать и прятать уже нечего, а переставлять ряд кнопок в момент
@@ -112,7 +112,7 @@ void main() {
   testWidgets('ошибка после начала работы форму не воскрешает', (tester) async {
     await pump(tester);
 
-    await work(TaskOperation<void>((op) async {}));
+    await work(TaskOperation<void, void>((op, _) async {}));
     run.error = '/backup: permission denied';
     await tester.pump();
 
@@ -138,7 +138,7 @@ void main() {
     await pump(tester);
 
     final running = work(
-      TaskOperation<void>((op) async {
+      TaskOperation<void, void>((op, _) async {
         await op.ask(
           OperationRequest(
             message: 'File exists',

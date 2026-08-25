@@ -5,6 +5,7 @@ import '../../async/operation_request.dart';
 import '../../async/transfer_progress.dart';
 import '../fs_node.dart';
 import '../tree_provider.dart';
+import '../operation_params.dart';
 
 /// Как переносится один объект. Порядок — по убыванию скорости.
 enum TransferStrategy {
@@ -40,26 +41,25 @@ class TreeTransferEngine implements TreeEditor {
   final DateTime Function() clock;
 
   @override
-  AsyncOperation<DirectoryNode> makeDirectory(DirectoryNode parent, String name) {
-    return TaskOperation<DirectoryNode>((op) async {
+  Operation<MakeDirectoryParams, DirectoryNode> makeDirectory() {
+    return TaskOperation<MakeDirectoryParams, DirectoryNode>((op, params) async {
+      final parent = params.parent;
       final editor = _editorOf(parent);
       if (editor == null) {
         throw FsError(parent.pathString, FsErrorKind.notSupported);
       }
 
-      final created = await editor.createDirectory(parent, name);
+      final created = await editor.createDirectory(parent, params.name);
       op.checkCanceled();
       return created;
     });
   }
 
   @override
-  AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination, {bool followLinks = false}) =>
-      _transfer(nodes, destination, move: false, followLinks: followLinks);
+  Operation<TransferParams, void> copy() => _transfer(move: false);
 
   @override
-  AsyncOperation<void> move(List<FsNode> nodes, DirectoryNode destination, {bool followLinks = false}) =>
-      _transfer(nodes, destination, move: true, followLinks: followLinks);
+  Operation<TransferParams, void> move() => _transfer(move: true);
 
   /// Копирование и перемещение — одна работа с одним отличием в конце:
   /// перемещение убирает исходный объект.
@@ -67,13 +67,11 @@ class TreeTransferEngine implements TreeEditor {
   /// Существующий объект не перезаписывается молча: операция спрашивает, что
   /// делать, и запоминает ответы «…все». Ошибка на одном объекте не прекращает
   /// работу — вопрос задаётся и по ней.
-  AsyncOperation<void> _transfer(
-    List<FsNode> nodes,
-    DirectoryNode destination, {
-    required bool move,
-    bool followLinks = false,
-  }) {
-    return TaskOperation<void>((op) async {
+  Operation<TransferParams, void> _transfer({required bool move}) {
+    return TaskOperation<TransferParams, void>((op, params) async {
+      final nodes = params.nodes;
+      final destination = params.destination;
+      final followLinks = params.followLinks;
       // Приёмник проверяется до начала работы: менять «куда» по ходу нечем,
       // и спрашивать об этом по каждому объекту незачем.
       final target = _editorOf(destination);
@@ -226,8 +224,10 @@ class TreeTransferEngine implements TreeEditor {
   /// делать (пропустить, пропустить все, отменить), и идёт дальше. Если вопрос
   /// никто не слушает, применяется вариант по умолчанию — «пропустить».
   @override
-  AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true}) {
-    return TaskOperation<void>((op) async {
+  Operation<RemoveParams, void> remove() {
+    return TaskOperation<RemoveParams, void>((op, params) async {
+      final nodes = params.nodes;
+      final toTrash = params.toTrash;
       final progress = TransferProgress(op, 'Deleting', clock: clock);
 
       // Границы работы — только когда всё удаляется из одного источника:
@@ -303,7 +303,7 @@ class TreeTransferEngine implements TreeEditor {
     FsNode node,
     DirectoryNode destination,
     String name,
-    TaskOperation<void> op,
+    TaskOperation<Object?, void> op,
     TransferProgress progress,
     _LinkPolicy links,
   ) async {
@@ -401,7 +401,7 @@ class TreeTransferEngine implements TreeEditor {
     LinkNode node,
     DirectoryNode destination,
     String name,
-    TaskOperation<void> op,
+    TaskOperation<Object?, void> op,
     TransferProgress progress,
     _LinkPolicy links,
   ) async {
@@ -437,7 +437,12 @@ class TreeTransferEngine implements TreeEditor {
 
   /// Вопрос про ссылку — тот же, что при отказах: пропустить, пропустить все,
   /// отменить.
-  Future<void> _askAboutLink(TaskOperation<void> op, LinkNode node, _LinkPolicy links, {bool recursive = false}) async {
+  Future<void> _askAboutLink(
+    TaskOperation<Object?, void> op,
+    LinkNode node,
+    _LinkPolicy links, {
+    bool recursive = false,
+  }) async {
     if (links.skipAll) {
       return;
     }
@@ -473,7 +478,7 @@ class TreeTransferEngine implements TreeEditor {
     FsNode node,
     DirectoryNode destination,
     String name,
-    TaskOperation<void> op,
+    TaskOperation<Object?, void> op,
     TransferProgress progress,
   ) async {
     final reader = _readerOf(node.provider);
@@ -547,7 +552,12 @@ class TreeTransferEngine implements TreeEditor {
   }
 
   /// Удаляет объект вместе с содержимым, отмечая каждый шаг.
-  Future<void> _deleteTree(NodeEditor editor, FsNode node, TaskOperation<void> op, TransferProgress? progress) async {
+  Future<void> _deleteTree(
+    NodeEditor editor,
+    FsNode node,
+    TaskOperation<Object?, void> op,
+    TransferProgress? progress,
+  ) async {
     await op.checkpoint();
 
     if (node is DirectoryNode) {
@@ -567,7 +577,7 @@ class TreeTransferEngine implements TreeEditor {
 
   /// Убирает объект целиком и молча: перезапись приёмника и уборка источника
   /// после копирования в задании не считаются — там свои объекты, не наши.
-  Future<void> _purge(NodeEditor editor, FsNode node, TaskOperation<void> op) async {
+  Future<void> _purge(NodeEditor editor, FsNode node, TaskOperation<Object?, void> op) async {
     if (await editor.deleteTree(node)) {
       return;
     }
@@ -609,7 +619,7 @@ class TreeTransferEngine implements TreeEditor {
     progress.countingFinished();
   }
 
-  Future<OperationRequestOption> _askAboutFailure(TaskOperation<void> op, String message) {
+  Future<OperationRequestOption> _askAboutFailure(TaskOperation<Object?, void> op, String message) {
     return op.ask(
       OperationRequest(
         message: message,

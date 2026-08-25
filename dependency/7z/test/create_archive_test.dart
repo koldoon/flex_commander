@@ -101,19 +101,22 @@ void main() {
 
   /// Ход работы — свойство самой операции, а не команды: команда показывает
   /// окно и уходит. Поэтому проверяется операция.
-  Future<AsyncOperation<void>> packed(String name) async {
+  Future<Operation<Object?, void>> packed(String name) async {
     final command = runtime.commands.create(CreateSevenZipArchiveCommand.commandId)! as CreateSevenZipArchiveCommand;
     final panel = runtime.app.left;
     final sources =
         panel.selection.isEmpty ? [panel.currentNode!] : panel.nodes.where(panel.selection.contains).toList();
 
-    final operation = command.packOperation(
-      sources,
-      runtime.app.right.directory!,
-      '$name.7z',
-      compression: SevenZipCompression.normal,
-      followLinks: false,
-    );
+    final operation =
+        command.packOperation()..start(
+          SevenZipPackParams(
+            sources,
+            runtime.app.right.directory!,
+            '$name.7z',
+            compression: SevenZipCompression.normal,
+            followLinks: false,
+          ),
+        );
     await operation.result;
     return operation;
   }
@@ -346,13 +349,16 @@ void main() {
 
       // Прерывают саму работу, а не команду: команда показала окно и ушла.
       final command = runtime.commands.create(CreateSevenZipArchiveCommand.commandId)! as CreateSevenZipArchiveCommand;
-      final operation = command.packOperation(
-        [runtime.app.left.currentNode!],
-        runtime.app.right.directory!,
-        'huge.7z',
-        compression: SevenZipCompression.normal,
-        followLinks: false,
-      );
+      final operation =
+          command.packOperation()..start(
+            SevenZipPackParams(
+              [runtime.app.left.currentNode!],
+              runtime.app.right.directory!,
+              'huge.7z',
+              compression: SevenZipCompression.normal,
+              followLinks: false,
+            ),
+          );
 
       // Ход работы уже пошёл — программа назвала первую запись.
       await Future<void>.delayed(const Duration(milliseconds: 50));

@@ -62,7 +62,7 @@ void main() {
   tearDown(() => temp.deleteSync(recursive: true));
 
   Future<WritableSevenZipTreeProvider> open() async {
-    final host = (await local.resolvePath(archive.path).result)!;
+    final host = (await local.resolvePath().run(archive.path))!;
     final provider =
         await SevenZipTreeProvider.open(
               host,
@@ -85,7 +85,7 @@ void main() {
     // командам тот же ключ нужен, и там он значит ровно обратное.
     final provider = await open();
     await provider.createDirectory(provider.rootDirectory, 'fresh');
-    await provider.deleteEntry((await provider.resolvePath('/docs/readme.txt').result)!);
+    await provider.deleteEntry((await provider.resolvePath().run('/docs/readme.txt'))!);
 
     expect(runner.callsOf('a').single.has('-p'), isFalse);
     expect(runner.callsOf('d').single.has('-p'), isFalse);
@@ -99,7 +99,7 @@ void main() {
     // выглядит архив внутри архива.
     final inner = InMemoryContentProvider([FakeEntry.file('/a.7z', size: 5, content: utf8.encode('архив'))])
       ..capabilities = archiveCapabilities;
-    final host = (await inner.resolvePath('/a.7z').result)!;
+    final host = (await inner.resolvePath().run('/a.7z'))!;
 
     final provider = await SevenZipTreeProvider.open(
       host,
@@ -115,7 +115,7 @@ void main() {
   group('добавление', () {
     test('содержимое ложится по своему пути и уходит одним вызовом', () async {
       final provider = await open();
-      final docs = (await provider.resolvePath('/docs').result)! as DirectoryNode;
+      final docs = (await provider.resolvePath().run('/docs'))! as DirectoryNode;
 
       final sink = await provider.openWrite(docs, 'notes.txt');
       sink.add(utf8.encode('заметки'));
@@ -147,7 +147,7 @@ void main() {
       sink.add(utf8.encode('12345'));
       await sink.close();
 
-      final node = await provider.resolvePath('/added.txt').result;
+      final node = await provider.resolvePath().run('/added.txt');
       expect((node! as FileNode).size, 5);
 
       await provider.endWrites();
@@ -172,7 +172,7 @@ void main() {
       sink.add(utf8.encode('12345'));
       await sink.close();
 
-      expect(await provider.resolvePath('/added.txt').result, isNotNull);
+      expect(await provider.resolvePath().run('/added.txt'), isNotNull);
     });
 
     test('пустой каталог заводится настоящим пустым каталогом', () async {
@@ -198,7 +198,7 @@ void main() {
   group('удаление', () {
     test('запись удаляется по точному имени', () async {
       final provider = await open();
-      final node = (await provider.resolvePath('/docs/readme.txt').result)!;
+      final node = (await provider.resolvePath().run('/docs/readme.txt'))!;
 
       await provider.deleteEntry(node);
 
@@ -208,7 +208,7 @@ void main() {
 
     test('поддерево перечисляется целиком, без подстановок', () async {
       final provider = await open();
-      final node = (await provider.resolvePath('/docs').result)!;
+      final node = (await provider.resolvePath().run('/docs'))!;
 
       await provider.deleteTree(node);
 
@@ -223,9 +223,9 @@ void main() {
       final provider = await open();
 
       await provider.beginWrites();
-      await provider.deleteEntry((await provider.resolvePath('/docs/readme.txt').result)!);
+      await provider.deleteEntry((await provider.resolvePath().run('/docs/readme.txt'))!);
 
-      expect(await provider.resolvePath('/docs/readme.txt').result, isNull);
+      expect(await provider.resolvePath().run('/docs/readme.txt'), isNull);
 
       await provider.endWrites();
     });
@@ -254,7 +254,7 @@ void main() {
       final provider = await open();
 
       await provider.beginWrites();
-      await provider.deleteEntry((await provider.resolvePath('/docs/readme.txt').result)!);
+      await provider.deleteEntry((await provider.resolvePath().run('/docs/readme.txt'))!);
       final sink = await provider.openWrite(provider.rootDirectory, 'new.txt');
       sink.add(utf8.encode('новое'));
       await sink.close();
@@ -305,12 +305,12 @@ void main() {
 
       // Оглавление перечитано, и записи, которой программа не сделала, в
       // панели нет — иначе пользователь смотрел бы на несуществующий файл.
-      expect(await provider.resolvePath('/doomed.txt').result, isNull);
+      expect(await provider.resolvePath().run('/doomed.txt'), isNull);
     });
   });
 
   test('незаписанное дописывается при закрытии панели', () async {
-    final host = (await local.resolvePath(archive.path).result)!;
+    final host = (await local.resolvePath().run(archive.path))!;
     final provider =
         await SevenZipTreeProvider.open(
               host,

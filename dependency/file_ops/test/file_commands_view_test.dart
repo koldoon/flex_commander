@@ -37,13 +37,13 @@ class _SlowCopyProvider extends InMemoryTreeProvider {
   }
 
   @override
-  AsyncOperation<List<FsNode>> getDirectoryListing(DirectoryNode dir, {bool includeHidden = false}) {
+  Operation<ListingParams, List<FsNode>> getDirectoryListing() {
     if (!slowListing) {
-      return super.getDirectoryListing(dir, includeHidden: includeHidden);
+      return super.getDirectoryListing();
     }
-    return TaskOperation<List<FsNode>>((op) async {
+    return TaskOperation<ListingParams, List<FsNode>>((op, params) async {
       await Future<void>.delayed(const Duration(milliseconds: 200));
-      return super.getDirectoryListing(dir, includeHidden: includeHidden).result;
+      return super.getDirectoryListing().run(params);
     });
   }
 }
@@ -359,7 +359,7 @@ void main() {
       await settle(tester);
 
       expect(input, findsNothing);
-      expect(await provider.resolvePath('/home/bin/notes.txt').result, isNotNull);
+      expect(await provider.resolvePath().run('/home/bin/notes.txt'), isNotNull);
       expect(namesOf(), contains('notes.txt'));
     });
 
@@ -375,7 +375,7 @@ void main() {
       await settle(tester);
 
       expect(namesOf(), isNot(contains('notes.txt')));
-      expect(await provider.resolvePath('/home/bin/notes.txt').result, isNotNull);
+      expect(await provider.resolvePath().run('/home/bin/notes.txt'), isNotNull);
     });
 
     testWidgets('помеченные объекты видны в заголовке окна', (tester) async {
@@ -439,7 +439,7 @@ void main() {
       await settle(tester);
 
       expect(input, findsNothing);
-      expect(await provider.resolvePath('/home/bin/notes.txt').result, isNull);
+      expect(await provider.resolvePath().run('/home/bin/notes.txt'), isNull);
     });
 
     testWidgets('ошибка в пути показывается в том же окне', (tester) async {
@@ -638,7 +638,7 @@ void main() {
         expect(find.widgetWithText(FcButton, 'Abort'), findsOneWidget);
         expect(find.widgetWithText(FcButton, 'Cancel'), findsOneWidget);
         // Работа не прервана и не закончена: она ждёт ответа.
-        expect(await provider.resolvePath('/home/bin/$lastFile').result, isNull);
+        expect(await provider.resolvePath().run('/home/bin/$lastFile'), isNull);
 
         await tester.tap(find.widgetWithText(FcButton, 'Abort'));
         await finish(tester);
@@ -652,7 +652,7 @@ void main() {
         await tester.pump(const Duration(seconds: 2));
 
         expect(find.widgetWithText(FcButton, 'Abort'), findsOneWidget);
-        expect(await provider.resolvePath('/home/bin/$lastFile').result, isNull);
+        expect(await provider.resolvePath().run('/home/bin/$lastFile'), isNull);
 
         await tester.tap(find.widgetWithText(FcButton, 'Abort'));
         await finish(tester);
@@ -667,7 +667,7 @@ void main() {
 
         // Окно закрылось само: работа кончилась, а не прервалась.
         expect(find.byType(FcProgressBar), findsNothing);
-        expect(await provider.resolvePath('/home/bin/$lastFile').result, isNotNull);
+        expect(await provider.resolvePath().run('/home/bin/$lastFile'), isNotNull);
       });
 
       testWidgets('«Abort» прекращает работу на том, что успели', (tester) async {
@@ -679,8 +679,8 @@ void main() {
 
         expect(find.byType(FcProgressBar), findsNothing);
         // Сделанное остаётся сделанным, остальное не начиналось.
-        expect(await provider.resolvePath('/home/bin/$firstFile').result, isNotNull);
-        expect(await provider.resolvePath('/home/bin/$lastFile').result, isNull);
+        expect(await provider.resolvePath().run('/home/bin/$firstFile'), isNotNull);
+        expect(await provider.resolvePath().run('/home/bin/$lastFile'), isNull);
       });
 
       testWidgets('Esc отказывается прерывать, Enter прерывает', (tester) async {
@@ -699,7 +699,7 @@ void main() {
         await finish(tester);
 
         expect(find.byType(FcProgressBar), findsNothing);
-        expect(await provider.resolvePath('/home/bin/$lastFile').result, isNull);
+        expect(await provider.resolvePath().run('/home/bin/$lastFile'), isNull);
       });
 
       testWidgets('кнопка «Cancel» в окне хода работы спрашивает так же', (tester) async {

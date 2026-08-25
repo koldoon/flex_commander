@@ -144,7 +144,7 @@ class PanelController extends ChangeNotifier implements Panel {
 
   /// Текущая операция панели: чтение каталога или разбор пути.
   /// Хранится ради отмены, поэтому тип результата здесь не важен.
-  AsyncOperation<Object?>? _operation;
+  Operation<Object?, Object?>? _operation;
 
   /// Номер последнего запроса чтения. Результат более старого запроса
   /// применять нельзя: пользователь уже ушёл в другой каталог.
@@ -222,7 +222,9 @@ class PanelController extends ChangeNotifier implements Panel {
   /// который ради него и смонтируют. Уже открытый архив вторым экземпляром не
   /// становится — реестр отдаёт того же и просто считает арендаторов.
   @override
-  AsyncOperation<ResolvedNode> resolvePath(String path) => _registry.resolveDisplayPath(path, from: _root);
+  Operation<String, ResolvedNode> resolvePath() => TaskOperation<String, ResolvedNode>(
+    (op, path) => op.delegate(_registry.resolveDisplayPath(), ResolvePathParams(path, from: _root)),
+  );
 
   @override
   Future<bool> openPath(String path, {bool allowConnect = true}) async {
@@ -238,7 +240,7 @@ class PanelController extends ChangeNotifier implements Panel {
     // Подключение бывает долгим (сервер на другом конце света), и всё это время
     // Esc должен работать: если операцию завести только на чтении каталога,
     // отменять во время подключения будет нечего.
-    final resolving = TaskOperation<ResolvedNode>((op) async {
+    final resolving = TaskOperation<String, ResolvedNode>((op, _) async {
       // Чужая схема в начале — это другой корень: сервер, а не каталог. Панель
       // встаёт на него целиком, и разбор остатка пути идёт уже от него.
       final start = await _rootFor(op, path, allowConnect: allowConnect);
@@ -248,7 +250,7 @@ class PanelController extends ChangeNotifier implements Panel {
       // это всё та же одна строка.
       // Разбор с вопросами о типе звена: человек набирает то, что ему
       // показали, а показанный путь схем архивов не содержит.
-      final resolved = await op.delegate(_registry.resolveDisplayPath(path, from: start));
+      final resolved = await op.delegate(_registry.resolveDisplayPath(), ResolvePathParams(path, from: start));
       op.checkCanceled();
 
       // Архив, набранный путём, монтируется здесь же, внутри операции: снаружи
@@ -260,6 +262,9 @@ class PanelController extends ChangeNotifier implements Panel {
     // Ход разбора виден в строке состояния: «Connecting to ssh://shark…»,
     // «Reading a.zip…». Без этого длинная цепочка выглядит зависанием.
     final release = _followProgress(resolving, requestId);
+    // Подписка встала — можно начинать. Путь операция берёт из замыкания: он
+    // нужен ей ещё и до запуска, чтобы решить, с какого корня разбирать.
+    resolving.start(path);
 
     ResolvedNode resolved = const ResolvedNode.none();
     try {
@@ -313,7 +318,7 @@ class PanelController extends ChangeNotifier implements Panel {
   /// закрыть его больше некому, как и смонтированный архив. Прежний свой корень
   /// при этом закрывается — ушли с сервера, соединение разорвано. Общий корень
   /// не закрывается никогда: он не её.
-  Future<TreeProvider> _rootFor(TaskOperation<Object?> op, String path, {required bool allowConnect}) async {
+  Future<TreeProvider> _rootFor(TaskOperation<Object?, Object?> op, String path, {required bool allowConnect}) async {
     final address = Uri.tryParse(path);
     if (address == null) {
       throw FsError(path, FsErrorKind.invalidAddress);
@@ -336,7 +341,7 @@ class PanelController extends ChangeNotifier implements Panel {
 
   /// Корень для строки с протоколом.
   Future<TreeProvider> _rootForAddress(
-    TaskOperation<Object?> op,
+    TaskOperation<Object?, Object?> op,
     String path,
     Uri address, {
     required bool allowConnect,
@@ -373,7 +378,7 @@ class PanelController extends ChangeNotifier implements Panel {
     // Сперва взять новое, потом отпустить старое: иначе панель, вернувшаяся на
     // тот же сервер другим путём, разорвала бы соединение ровно затем, чтобы
     // тут же установить его заново.
-    final lease = await op.delegate(_registry.acquireAddress(address));
+    final lease = await op.delegate(_registry.acquireAddress(), address);
     final previous = _rootLease;
     _rootLease = lease;
     _ownAddress = address;
@@ -466,9 +471,10 @@ class PanelController extends ChangeNotifier implements Panel {
 
     // Монтирование — операция, и панель держит её у себя: Esc должен прерывать
     // копирование архива с сервера, а не ждать его конца.
-    final mounting = _registry.acquire(scheme, node);
+    final mounting = _registry.acquire();
     _operation = mounting;
     final release = _followProgress(mounting, requestId);
+    mounting.start(AcquireParams(scheme, node));
 
     try {
       final lease = await mounting.result;
@@ -738,8 +744,9 @@ class PanelController extends ChangeNotifier implements Panel {
     _statusText = 'Loading…';
     notifyListeners();
 
-    final operation = dir.provider.getDirectoryListing(dir, includeHidden: _showHidden);
+    final operation = dir.provider.getDirectoryListing();
     _operation = operation;
+    operation.start(ListingParams(dir, includeHidden: _showHidden));
 
     var adopted = false;
     try {
@@ -800,7 +807,7 @@ class PanelController extends ChangeNotifier implements Panel {
   ///
   /// Событий бывает больше, чем имеет смысл перерисовывать: у копирования
   /// архива во временный файл они идут пачками по мере чтения байт.
-  void Function() _followProgress(AsyncOperation<Object?> operation, int requestId) {
+  void Function() _followProgress(Operation<Object?, Object?> operation, int requestId) {
     final redraw = Throttle(notifyListeners);
     final status = operation.status;
     void onChanged() {
@@ -882,7 +889,7 @@ class PanelController extends ChangeNotifier implements Panel {
   ///
   /// Аренда идёт с узлом: у архива, открытого здесь же, она своя, и держит она
   /// в том числе ту, с которой пришли.
-  Future<ResolvedNode> _asDirectory(TaskOperation<Object?> op, ResolvedNode resolved) async {
+  Future<ResolvedNode> _asDirectory(TaskOperation<Object?, Object?> op, ResolvedNode resolved) async {
     final node = resolved.node;
     if (node is DirectoryNode) {
       return resolved;
@@ -908,7 +915,7 @@ class PanelController extends ChangeNotifier implements Panel {
       return const ResolvedNode.none();
     }
 
-    final lease = await op.delegate(_registry.acquire(scheme, node));
+    final lease = await op.delegate(_registry.acquire(), AcquireParams(scheme, node));
     // Своя аренда больше не нужна: смонтированный держит её сам.
     await resolved.release();
     return ResolvedNode(lease.provider.rootDirectory, lease);
@@ -919,7 +926,7 @@ class PanelController extends ChangeNotifier implements Panel {
       return link.target;
     }
     try {
-      return await link.provider.resolveLink(link).result;
+      return await link.provider.resolveLink().run(link);
     } on FsError {
       return null;
     }
@@ -1006,7 +1013,7 @@ class PanelController extends ChangeNotifier implements Panel {
   }
 
   void _startScan(DirectoryNode directory) {
-    final operation = directory.provider.calculateSize([directory]);
+    final operation = directory.provider.calculateSize();
     final scan = _SizeScan(operation);
     _scans[directory] = scan;
 
@@ -1023,6 +1030,9 @@ class PanelController extends ChangeNotifier implements Panel {
 
     status.addListener(onChanged);
     scan.stopWatching = () => status.removeListener(onChanged);
+    // Очередь для того и нужна: работа создана раньше, а начинается, когда до
+    // неё дошла очередь и в пуле освободилось место.
+    operation.start([directory]);
 
     operation.result
         .then((total) => _finishScan(directory, scan, total))
@@ -1092,7 +1102,7 @@ class PanelController extends ChangeNotifier implements Panel {
 class _SizeScan {
   _SizeScan(this.operation);
 
-  final AsyncOperation<int> operation;
+  final Operation<List<FsNode>, int> operation;
 
   /// Чем прекратить слушать ход обхода; null — уже прекратили.
   void Function()? stopWatching;

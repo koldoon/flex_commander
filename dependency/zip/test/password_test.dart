@@ -43,7 +43,7 @@ void main() {
   Future<FsNode> fixture(String name) async {
     final target = p.join(temp.path, name);
     File(p.join('test', 'assets', name)).copySync(target);
-    return (await local.resolvePath(target).result)!;
+    return (await local.resolvePath().run(target))!;
   }
 
   Future<ZipTreeProvider> open(String name, FakeCredentials credentials) async {
@@ -55,7 +55,7 @@ void main() {
   }
 
   Future<String> readSecret(ZipTreeProvider zip) async {
-    final node = (await zip.resolvePath('/secret.txt').result)!;
+    final node = (await zip.resolvePath().run('/secret.txt'))!;
     final chunks = await (await zip.openRead(node)).toList();
     return utf8.decode([for (final chunk in chunks) ...chunk]).trim();
   }

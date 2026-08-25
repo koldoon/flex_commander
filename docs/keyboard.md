@@ -412,7 +412,7 @@ implemented yet».
 Файловые операции — `file.mkdir`, `file.remove`, `file.removePermanently`,
 `file.copy`, `file.move` — работают. У каждой длительной есть:
 
-- `TreeEditor`-операция с прогрессом (`AsyncOperation.progress`);
+- `TreeEditor`-работа с прогрессом (`Operation.status`);
 - своё окно: подтверждение или ввод перед началом, ход работы после;
 - обработка `UserActionRequest` (перезаписать / пропустить / пропустить все / отменить);
 - отмена по кнопке во время работы;

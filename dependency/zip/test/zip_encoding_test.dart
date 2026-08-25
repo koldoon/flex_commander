@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:archive/archive.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_zip/fc_zip.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -39,8 +40,8 @@ void main() {
     void Function(String name)? onEntryDone,
     void Function(int bytes)? onBytes,
   }) {
-    final operation = TaskOperation<void>(
-      (op) => encodeZipArchive(
+    final operation = TaskOperation<void, void>(
+      (op, _) => encodeZipArchive(
         archivePath: archivePath,
         entries: entries(),
         level: 6,
@@ -49,7 +50,7 @@ void main() {
         onBytes: onBytes,
       ),
     );
-    return operation.result;
+    return operation.run(null);
   }
 
   test('архив собирается со всем, что дали', () async {
@@ -80,7 +81,7 @@ void main() {
     // `checkpoint` кнопка не делала ничего.
     final archivePath = p.join(root, 'archive.zip');
 
-    final operation = TaskOperation<void>((op) async {
+    final operation = startedTask<void>((op) async {
       op.requestCancel();
       await encodeZipArchive(archivePath: archivePath, entries: entries(), level: 6, op: op);
     });
@@ -98,7 +99,7 @@ void main() {
   test('продолжить — значит продолжить', () async {
     final archivePath = p.join(root, 'archive.zip');
 
-    final operation = TaskOperation<void>((op) async {
+    final operation = startedTask<void>((op) async {
       op.requestCancel();
       await encodeZipArchive(archivePath: archivePath, entries: entries(), level: 6, op: op);
     });

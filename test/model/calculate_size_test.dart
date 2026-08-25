@@ -32,15 +32,15 @@ void main() {
   });
 
   Future<Map<String, FsNode>> listRoot() async {
-    final dir = (await provider.resolvePath(root).result)! as DirectoryNode;
-    final nodes = await provider.getDirectoryListing(dir).result;
+    final dir = (await provider.resolvePath().run(root))! as DirectoryNode;
+    final nodes = await provider.getDirectoryListing().run(ListingParams(dir));
     return {for (final node in nodes) node.name: node};
   }
 
   test('каталог считается вместе со всем содержимым', () async {
     final nodes = await listRoot();
 
-    final total = await provider.calculateSize([nodes['docs']!]).result;
+    final total = await provider.calculateSize().run([nodes['docs']!]);
 
     expect(total, 300);
   });
@@ -48,17 +48,18 @@ void main() {
   test('считаются все переданные объекты', () async {
     final nodes = await listRoot();
 
-    final total = await provider.calculateSize([nodes['docs']!, nodes['notes.txt']!]).result;
+    final total = await provider.calculateSize().run([nodes['docs']!, nodes['notes.txt']!]);
 
     expect(total, 350);
   });
 
   test('промежуточные суммы приходят по ходу обхода', () async {
     final nodes = await listRoot();
-    final operation = provider.calculateSize([nodes['docs']!]);
+    final operation = provider.calculateSize();
     final reports = <int>[];
     operation.progress.listen((event) => reports.add(event.processed));
 
+    operation.start([nodes['docs']!]);
     final total = await operation.result;
     await Future<void>.delayed(Duration.zero);
 
@@ -70,10 +71,11 @@ void main() {
 
   test('в сообщении видно, чей размер считают', () async {
     final nodes = await listRoot();
-    final operation = provider.calculateSize([nodes['docs']!]);
+    final operation = provider.calculateSize();
     final messages = <String>[];
     operation.progress.listen((event) => messages.add(event.message));
 
+    operation.start([nodes['docs']!]);
     await operation.result;
     await Future<void>.delayed(Duration.zero);
 
@@ -84,7 +86,7 @@ void main() {
     final nodes = await listRoot();
 
     // Иначе содержимое каталога попало бы в сумму дважды.
-    final total = await provider.calculateSize([nodes['link-to-docs']!]).result;
+    final total = await provider.calculateSize().run([nodes['link-to-docs']!]);
 
     expect(total, lessThan(300));
   });
@@ -97,7 +99,7 @@ void main() {
     await File(p.join(root, 'docs', '.cache', 'inside.bin')).writeAsBytes(List.filled(13, 0));
     final nodes = await listRoot();
 
-    final total = await provider.calculateSize([nodes['docs']!]).result;
+    final total = await provider.calculateSize().run([nodes['docs']!]);
 
     expect(total, 300 + 7 + 13);
   });
@@ -130,7 +132,7 @@ void main() {
     });
 
     final nodes = await listRoot();
-    final total = await provider.calculateSize([nodes['tree']!]).result;
+    final total = await provider.calculateSize().run([nodes['tree']!]);
 
     // Недоступное не посчитано — прочитать его нечем; всё остальное на месте.
     expect(total, expected);
@@ -165,10 +167,11 @@ void main() {
 
   test('операцию можно прервать', () async {
     final nodes = await listRoot();
-    final operation = provider.calculateSize([nodes['docs']!]);
+    final operation = provider.calculateSize();
 
     operation.cancel();
 
+    operation.start([nodes['docs']!]);
     await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
   });
 
@@ -177,7 +180,7 @@ void main() {
     // Каталог исчез уже после того, как панель его показала.
     await Directory(p.join(root, 'docs')).delete(recursive: true);
 
-    final total = await provider.calculateSize([nodes['docs']!, nodes['notes.txt']!]).result;
+    final total = await provider.calculateSize().run([nodes['docs']!, nodes['notes.txt']!]);
 
     expect(total, 50);
   });

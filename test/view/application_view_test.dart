@@ -18,11 +18,11 @@ class _SlowSizeProvider extends InMemoryTreeProvider {
   _SlowSizeProvider(super.entries);
 
   @override
-  AsyncOperation<int> calculateSize(List<FsNode> nodes) {
-    return TaskOperation<int>((op) async {
+  Operation<List<FsNode>, int> calculateSize() {
+    return TaskOperation<List<FsNode>, int>((op, nodes) async {
       await Future<void>.delayed(const Duration(milliseconds: 100));
       op.checkCanceled();
-      return super.calculateSize(nodes).result;
+      return super.calculateSize().run(nodes);
     });
   }
 }

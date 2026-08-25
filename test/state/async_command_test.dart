@@ -14,7 +14,7 @@ void main() {
   FcAsyncRun probe() =>
       FcAsyncRun(app: app, commandId: 'test.probe', title: 'Probe', failureMessage: 'Probe failed', show: () {});
 
-  Future<void> work(FcAsyncRun run, AsyncOperation<void> operation) => run.run(operation, message: 'Working…');
+  Future<void> work(FcAsyncRun run, Operation<void, void> operation) => run.run(operation, null, message: 'Working…');
 
   test('окно перерисовывается не на каждый файл', () async {
     final run = probe();
@@ -23,7 +23,7 @@ void main() {
 
     await work(
       run,
-      TaskOperation<void>((op) async {
+      TaskOperation<void, void>((op, _) async {
         for (var i = 0; i < 500; i++) {
           op.report(OperationProgress(message: 'file$i.txt', processed: i, total: 500));
         }
@@ -40,7 +40,7 @@ void main() {
 
     await work(
       run,
-      TaskOperation<void>((op) async {
+      TaskOperation<void, void>((op, _) async {
         for (var i = 0; i < 20; i++) {
           op.report(OperationProgress(message: 'file$i.txt', processed: i, total: 20));
           // Пауза больше интервала перерисовки: события не сливаются в одно.
@@ -58,7 +58,7 @@ void main() {
 
   test('пока считают, общее количество не выдаётся за окончательное', () async {
     final run = probe();
-    final operation = TaskOperation<void>((op) async {
+    final operation = TaskOperation<void, void>((op, _) async {
       op.report(const OperationProgress(message: 'a.txt', processed: 1, total: 3, totalIsFinal: false));
       await Future<void>.delayed(const Duration(milliseconds: 60));
     });
@@ -78,7 +78,7 @@ void main() {
     test('дожидается конца работы', () async {
       final run = probe();
 
-      await work(run, TaskOperation<void>((op) async {}));
+      await work(run, TaskOperation<void, void>((op, _) async {}));
 
       await expectLater(run.completion, completes);
     });
@@ -86,7 +86,7 @@ void main() {
     test('дожидается и отменённой работы', () async {
       final run = probe();
 
-      final operation = TaskOperation<void>((op) async {
+      final operation = TaskOperation<void, void>((op, _) async {
         // Работа встаёт до отмены: без неё прогон закончился бы сам собой.
         await Future<void>.delayed(const Duration(milliseconds: 50));
         await op.checkpoint();
@@ -113,7 +113,7 @@ void main() {
     test('операция кончилась, а прогон — ещё нет', () async {
       final run = probe();
 
-      await work(run, TaskOperation<void>((op) async {}));
+      await work(run, TaskOperation<void, void>((op, _) async {}));
 
       // Между этими двумя ответами лежит хвост работы: отпустить аренду,
       // перечитать панели, закрыть окно. Пока это был один признак занятости,
@@ -124,7 +124,7 @@ void main() {
 
     test('отменённая работа оставляет тот же исход', () async {
       final run = probe();
-      final operation = TaskOperation<void>((op) async {
+      final operation = TaskOperation<void, void>((op, _) async {
         await Future<void>.delayed(const Duration(milliseconds: 50));
         await op.checkpoint();
       });
@@ -144,7 +144,7 @@ void main() {
       var runs = 0;
       run.onStart = () async {
         attempts++;
-        await work(run, TaskOperation<void>((op) async => runs++));
+        await work(run, TaskOperation<void, void>((op, _) async => runs++));
       };
 
       await run.submit();

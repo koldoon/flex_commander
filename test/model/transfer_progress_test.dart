@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Счёт объектов идёт двумя встречными потоками: обработанные растут по мере
@@ -6,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// сходятся, в каком бы порядке ни шли события.
 void main() {
   late List<OperationProgress> reports;
-  late TaskOperation<void> operation;
+  late TaskOperation<void, void> operation;
   late TransferProgress progress;
 
   /// Часы, которые двигает тест: скорость и оценка времени иначе зависели бы
@@ -18,7 +19,7 @@ void main() {
     now = DateTime(2026, 1, 1, 12);
     reports = [];
     // Тело операции не завершается: важна только отчётность.
-    operation = TaskOperation<void>((op) async {
+    operation = startedTask<void>((op) async {
       await Future<void>.delayed(const Duration(seconds: 10));
     });
     // Отмена в конце теста завершает операцию ошибкой, и прочитать её некому.

@@ -44,8 +44,8 @@ void main() {
     disk = LocalTreeProvider(homePath: root, readInIsolate: false);
     registry = ProviderRegistry(root: disk)..register(
       ZipTreeProvider.schemeName,
-      (host) => TaskOperation<TreeProvider>(
-        (op) => ZipTreeProvider.open(host, credentials: FakeCredentials(), staging: const LocalStagingArea()),
+      () => TaskOperation<FsNode, TreeProvider>(
+        (op, host) => ZipTreeProvider.open(host, credentials: FakeCredentials(), staging: const LocalStagingArea()),
       ),
       extensions: ZipTreeProvider.extensions,
     );
@@ -57,18 +57,18 @@ void main() {
     }
   });
 
-  Future<FsNode> hostNode() async => (await disk.resolvePath(archivePath).result)!;
+  Future<FsNode> hostNode() async => (await disk.resolvePath().run(archivePath))!;
 
   Future<TreeProvider> mounted() async =>
-      (await registry.acquire(ZipTreeProvider.schemeName, await hostNode()).result).provider;
+      (await registry.acquire().run(AcquireParams(ZipTreeProvider.schemeName, await hostNode()))).provider;
 
   /// Узел из разбора пути; аренду тест отпускает сам — в приложении её держит
   /// тот, кто путь и просил разобрать.
-  Future<FsNode?> nodeOf(AsyncOperation<ResolvedNode> operation) async => (await operation.result).node;
+  Future<FsNode?> nodeOf(Future<ResolvedNode> pending) async => (await pending).node;
 
   Future<List<String>> namesIn(TreeProvider provider, String path) async {
-    final dir = (await provider.resolvePath(path).result)! as DirectoryNode;
-    final nodes = await provider.getDirectoryListing(dir).result;
+    final dir = (await provider.resolvePath().run(path))! as DirectoryNode;
+    final nodes = await provider.getDirectoryListing().run(ListingParams(dir));
     return nodes.map((node) => node.name).toList();
   }
 
@@ -90,7 +90,7 @@ void main() {
 
     test('у файла известны размер и дата', () async {
       final zip = await mounted();
-      final node = (await zip.resolvePath('/readme.md').result)!;
+      final node = (await zip.resolvePath().run('/readme.md'))!;
 
       expect(node.size, utf8.encode('привет').length);
       expect((node as FileNode).modified, isNotNull);
@@ -99,14 +99,14 @@ void main() {
     test('несуществующего пути нет', () async {
       final zip = await mounted();
 
-      expect(await zip.resolvePath('/docs/missing.txt').result, isNull);
+      expect(await zip.resolvePath().run('/docs/missing.txt'), isNull);
     });
 
     test('размер задания считается по оглавлению', () async {
       final zip = await mounted();
-      final docs = (await zip.resolvePath('/docs').result)!;
+      final docs = (await zip.resolvePath().run('/docs'))!;
 
-      final size = await zip.calculateSize([docs]).result;
+      final size = await zip.calculateSize().run([docs]);
       expect(size, utf8.encode('руководство').length + utf8.encode('глубоко').length);
     });
   });
@@ -135,7 +135,7 @@ void main() {
   group('содержимое', () {
     test('файл читается целиком', () async {
       final zip = await mounted() as ZipTreeProvider;
-      final node = (await zip.resolvePath('/docs/guide.txt').result)!;
+      final node = (await zip.resolvePath().run('/docs/guide.txt'))!;
 
       final chunks = await (await zip.openRead(node)).toList();
       expect(utf8.decode([for (final chunk in chunks) ...chunk]), 'руководство');
@@ -143,7 +143,7 @@ void main() {
 
     test('offset пропускает начало', () async {
       final zip = await mounted() as ZipTreeProvider;
-      final node = (await zip.resolvePath('/readme.md').result)!;
+      final node = (await zip.resolvePath().run('/readme.md'))!;
 
       final chunks = await (await zip.openRead(node, offset: 6)).toList();
       // «привет» в utf-8 — двенадцать байт, с шестого остаются три буквы.
@@ -152,7 +152,7 @@ void main() {
 
     test('каталог содержимого не отдаёт', () async {
       final zip = await mounted() as ZipTreeProvider;
-      final docs = (await zip.resolvePath('/docs').result)!;
+      final docs = (await zip.resolvePath().run('/docs'))!;
 
       await expectLater(zip.openRead(docs), throwsA(isA<FsError>()));
     });
@@ -171,7 +171,7 @@ void main() {
         FakeEntry.directory('/home'),
         FakeEntry.file('/home/inner.zip', content: [1, 2, 3]),
       ]);
-      final host = (await memory.resolvePath('/home/inner.zip').result)!;
+      final host = (await memory.resolvePath().run('/home/inner.zip'))!;
 
       await expectLater(
         ZipTreeProvider.open(host, credentials: FakeCredentials(), staging: const LocalStagingArea()),
@@ -290,7 +290,7 @@ void main() {
         FakeEntry.directory('/home'),
         FakeEntry.file('/home/inner.zip', content: await File(archivePath).readAsBytes()),
       ]);
-      return (await memory.resolvePath('/home/inner.zip').result)!;
+      return (await memory.resolvePath().run('/home/inner.zip'))!;
     }
 
     test('открывается через временную копию', () async {
@@ -313,7 +313,7 @@ void main() {
                 staging: const LocalStagingArea(),
               )
               as ZipTreeProvider;
-      final node = (await zip.resolvePath('/docs/guide.txt').result)!;
+      final node = (await zip.resolvePath().run('/docs/guide.txt'))!;
 
       final chunks = await (await zip.openRead(node)).toList();
       expect(utf8.decode([for (final chunk in chunks) ...chunk]), 'руководство');
@@ -352,7 +352,7 @@ void main() {
         FakeEntry.directory('/home'),
         FakeEntry.file('/home/inner.zip', content: utf8.encode('это вообще не архив')),
       ]);
-      final host = (await broken.resolvePath('/home/inner.zip').result)!;
+      final host = (await broken.resolvePath().run('/home/inner.zip'))!;
       final before = sessions();
 
       await expectLater(
@@ -390,7 +390,9 @@ void main() {
     });
 
     test('открывается и читается насквозь', () async {
-      final node = await nodeOf(registry.resolvePath('$outerPath:zip:/nested/sample.zip:zip:/docs/guide.txt'));
+      final node = await nodeOf(
+        registry.resolvePath().run(ResolvePathParams('$outerPath:zip:/nested/sample.zip:zip:/docs/guide.txt')),
+      );
 
       expect(node, isNotNull);
       expect(node!.name, 'guide.txt');
@@ -433,7 +435,7 @@ void main() {
   group('жизненный цикл', () {
     test('архив открыт, пока им пользуются, и закрывается по dispose', () async {
       final zip = await mounted() as ZipTreeProvider;
-      final node = (await zip.resolvePath('/readme.md').result)!;
+      final node = (await zip.resolvePath().run('/readme.md'))!;
 
       // Читаем дважды: второй раз оглавление уже не перечитывается.
       expect(await (await zip.openRead(node)).toList(), isNotEmpty);
@@ -466,7 +468,7 @@ void main() {
 
     test('файл архива отпускается: его можно удалить', () async {
       final zip = await mounted() as ZipTreeProvider;
-      final node = (await zip.resolvePath('/readme.md').result)!;
+      final node = (await zip.resolvePath().run('/readme.md'))!;
       await (await zip.openRead(node)).toList();
 
       await zip.dispose();
@@ -482,7 +484,7 @@ void main() {
     });
 
     test('путь внутрь архива разбирается целиком', () async {
-      final node = await nodeOf(registry.resolvePath('$archivePath:zip:/docs/guide.txt'));
+      final node = await nodeOf(registry.resolvePath().run(ResolvePathParams('$archivePath:zip:/docs/guide.txt')));
 
       expect(node?.name, 'guide.txt');
       expect(node?.pathString, '$archivePath:zip:/docs/guide.txt');
@@ -490,20 +492,20 @@ void main() {
 
     test('файл из архива копируется на диск потоком', () async {
       final zip = await mounted();
-      final source = (await zip.resolvePath('/docs/guide.txt').result)!;
-      final target = (await disk.resolvePath(root).result)! as DirectoryNode;
+      final source = (await zip.resolvePath().run('/docs/guide.txt'))!;
+      final target = (await disk.resolvePath().run(root))! as DirectoryNode;
 
-      await const TreeTransferEngine().copy([source], target).result;
+      await const TreeTransferEngine().copy().run(TransferParams([source], target));
 
       expect(await File(p.join(root, 'guide.txt')).readAsString(), 'руководство');
     });
 
     test('каталог из архива копируется со всем содержимым', () async {
       final zip = await mounted();
-      final source = (await zip.resolvePath('/docs').result)!;
-      final target = (await disk.resolvePath(root).result)! as DirectoryNode;
+      final source = (await zip.resolvePath().run('/docs'))!;
+      final target = (await disk.resolvePath().run(root))! as DirectoryNode;
 
-      await const TreeTransferEngine().copy([source], target).result;
+      await const TreeTransferEngine().copy().run(TransferParams([source], target));
 
       expect(await File(p.join(root, 'docs', 'guide.txt')).readAsString(), 'руководство');
       expect(await File(p.join(root, 'docs', 'deep', 'note.txt')).readAsString(), 'глубоко');

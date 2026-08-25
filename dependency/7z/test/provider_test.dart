@@ -48,7 +48,7 @@ void main() {
   tearDown(() => temp.deleteSync(recursive: true));
 
   /// Узел архива в настоящем дереве — над ним и монтируется провайдер.
-  Future<FsNode> host() async => (await local.resolvePath(archive.path).result)!;
+  Future<FsNode> host() async => (await local.resolvePath().run(archive.path))!;
 
   Future<TreeProvider> open(FakeProcessRunner runner) async {
     final provider = await SevenZipTreeProvider.open(
@@ -67,7 +67,7 @@ void main() {
   group('открытие', () {
     test('дерево строится по оглавлению', () async {
       final provider = await open(listingRunner());
-      final children = await provider.getDirectoryListing(provider.rootDirectory).result;
+      final children = await provider.getDirectoryListing().run(ListingParams(provider.rootDirectory));
 
       // «..» из корня архива ведёт наружу, к файлу архива; скрытое спрятано.
       expect(children.map((node) => node.name), ['..', 'docs']);
@@ -157,7 +157,7 @@ void main() {
       );
 
       final provider = await open(runner);
-      final node = await provider.resolvePath('/docs/readme.txt').result;
+      final node = await provider.resolvePath().run('/docs/readme.txt');
       final bytes = await (provider as FileContentProvider).openRead(node!);
 
       expect(utf8.decode(await bytes.expand((chunk) => chunk).toList()), 'привет, архив');
@@ -183,7 +183,7 @@ void main() {
       );
 
       final provider = await open(runner);
-      final node = await provider.resolvePath('/docs/readme.txt').result;
+      final node = await provider.resolvePath().run('/docs/readme.txt');
       final bytes = await (provider as FileContentProvider).openRead(node!, offset: 4);
 
       expect(await bytes.expand((chunk) => chunk).toList(), [5, 6]);
@@ -199,7 +199,7 @@ void main() {
       );
 
       final provider = await open(runner);
-      final node = await provider.resolvePath('/docs/readme.txt').result;
+      final node = await provider.resolvePath().run('/docs/readme.txt');
       final bytes = await (provider as FileContentProvider).openRead(node!);
 
       await expectLater(bytes.drain<void>(), throwsA(isA<FsError>()));
@@ -220,7 +220,7 @@ Encrypted = +
       );
 
       final provider = await open(runner);
-      final node = await provider.resolvePath('/secret.txt').result;
+      final node = await provider.resolvePath().run('/secret.txt');
 
       await expectLater(
         (provider as FileContentProvider).openRead(node!),
@@ -231,7 +231,7 @@ Encrypted = +
 
     test('каталог содержимого не имеет', () async {
       final provider = await open(listingRunner());
-      final node = await provider.resolvePath('/docs').result;
+      final node = await provider.resolvePath().run('/docs');
 
       await expectLater(
         (provider as FileContentProvider).openRead(node!),
@@ -243,7 +243,7 @@ Encrypted = +
   group('дерево', () {
     test('размер и дата берутся из оглавления', () async {
       final provider = await open(listingRunner());
-      final file = (await provider.resolvePath('/docs/readme.txt').result)! as FileNode;
+      final file = (await provider.resolvePath().run('/docs/readme.txt'))! as FileNode;
 
       expect(file.size, 12);
       expect(file.modified, DateTime(2026, 8, 19, 10, 1, 2));
@@ -254,8 +254,8 @@ Encrypted = +
       final provider = await open(listingRunner());
       final root = provider.rootDirectory;
 
-      final visible = await provider.getDirectoryListing(root).result;
-      final all = await provider.getDirectoryListing(root, includeHidden: true).result;
+      final visible = await provider.getDirectoryListing().run(ListingParams(root));
+      final all = await provider.getDirectoryListing().run(ListingParams(root, includeHidden: true));
 
       expect(visible.map((node) => node.name), ['..', 'docs']);
       expect(all.map((node) => node.name), ['..', '.hidden', 'docs']);
@@ -271,13 +271,13 @@ Encrypted = +
       await provider.countEntries(root, (bytes) => count++);
 
       expect(count, 4, reason: 'корень, docs, readme.txt и .hidden');
-      expect(await provider.calculateSize([root]).result, 15);
+      expect(await provider.calculateSize().run([root]), 15);
       expect(runner.calls.length, before, reason: 'всё уже прочитано при открытии');
     });
 
     test('путь наружу из корня ведёт туда, где лежит архив', () async {
       final provider = await open(listingRunner());
-      final listing = await provider.getDirectoryListing(provider.rootDirectory).result;
+      final listing = await provider.getDirectoryListing().run(ListingParams(provider.rootDirectory));
 
       // Провайдер смонтирован над файлом архива в чужом дереве, и «..» из
       // корня — это выход обратно в тот каталог, где архив лежит.

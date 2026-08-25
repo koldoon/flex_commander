@@ -94,7 +94,7 @@ void main() {
 
     app.left.setCursorToName('notes.txt');
     final node = app.left.currentNode!;
-    final done = run.run(app.left.editor!.remove([node]), message: 'Deleting…');
+    final done = run.run(app.left.editor!.remove(), RemoveParams([node]), message: 'Deleting…');
 
     expect(run.isRunning, isTrue);
     await done;
@@ -116,7 +116,7 @@ void main() {
 
     app.left.setCursorToName('notes.txt');
     final node = app.left.currentNode!;
-    final running = run.run(app.left.editor!.remove([node]), message: 'Deleting…');
+    final running = run.run(app.left.editor!.remove(), RemoveParams([node]), message: 'Deleting…');
     expect(run.isRunning, isTrue);
 
     // Рама окна зовёт эти методы по Enter и Esc — во время работы они молчат.

@@ -112,7 +112,7 @@ abstract interface class Panel implements ViewportState {
   /// Узел приходит **вместе с арендой** всего, что смонтировано ради него, и
   /// отпустить её обязан тот, кто просил: путь может пройти через архив,
   /// который ради него и откроют, а панель о нём ничего не знает.
-  AsyncOperation<ResolvedNode> resolvePath(String path);
+  Operation<String, ResolvedNode> resolvePath();
 
   /// Войти в объект под курсором. Возвращает узел, в который войти нельзя
   /// (обычный файл); null, если переход выполнен.

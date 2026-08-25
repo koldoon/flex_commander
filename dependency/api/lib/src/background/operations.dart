@@ -10,7 +10,7 @@ class OperationRun {
 
   final String runId;
 
-  final AsyncOperation<Object?> operation;
+  final Operation<Object?, Object?> operation;
 
   /// Что показать в полоске: «Copy 3 items».
   ///

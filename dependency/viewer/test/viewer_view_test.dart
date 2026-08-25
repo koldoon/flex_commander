@@ -18,7 +18,7 @@ void main() {
     disk = InMemoryContentProvider([FakeEntry.directory('/home'), FakeEntry.file('/home/notes.txt', size: 1234)]);
   });
 
-  Future<FsNode> node() async => (await disk.resolvePath('/home/notes.txt').result)!;
+  Future<FsNode> node() async => (await disk.resolvePath().run('/home/notes.txt'))!;
 
   Future<ViewerScreen> screenWith(String text, {bool wordWrap = false}) async =>
       ViewerScreen(node: await node(), text: text, wordWrap: wordWrap);

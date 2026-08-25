@@ -96,7 +96,7 @@
 Принципы:
 
 1. **Слой интерфейсов — это API приложения.** `Application`, `Panel`,
-   `PanelSelection`, `TreeProvider`, `AsyncOperation` описывают, что умеет
+   `PanelSelection`, `TreeProvider`, `Operation` описывают, что умеет
    приложение; контроллеры их реализуют. Команды пишутся только против
    интерфейсов, поэтому реализацию можно менять, не трогая ни одну команду.
    Так же устроен референс (`IApplication`, `IPanel`, `IPanelSelection`).
@@ -135,7 +135,7 @@
 | `m.tree.IFilesProvider` | `LocalCopySession` — локальные копии чужих файлов (`mc_getlocalcopy`) |
 | `m.tree.impl.fs.LocalFileSystemTreeProvider` (через CLI `ls`/`stat`) | `LocalTreeProvider` (через `dart:io`) |
 | `m.tree.impl.zip.ZipTreeProvider` (через CLI `unzip`) | `ZipTreeProvider` (через `package:archive`) |
-| `m.async.IAsyncOperation` + `IAsyncOperationStatus` | `AsyncOperation<T>` (`Future` + прогресс + отмена) |
+| `m.async.IAsyncOperation` + `IAsyncOperationStatus` | `Operation<P, R>` (данные → результат, прогресс, отмена) |
 | `m.interactive.IInteraction` | `UserActionRequest` — запрос к пользователю из середины операции |
 | `m.app.IApplication` | `Application` (интерфейс) + `AppController` (реализация) |
 | `m.app.IPanel` | `Panel` + `PanelController` |

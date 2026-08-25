@@ -9,7 +9,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   Future<FsNode> nodeWith(List<int> content) async {
     final disk = InMemoryContentProvider([FakeEntry.directory('/home'), FakeEntry.file('/home/f', content: content)]);
-    return (await disk.resolvePath('/home/f').result)!;
+    return (await disk.resolvePath().run('/home/f'))!;
   }
 
   Future<TextFile> read(List<int> content) async {

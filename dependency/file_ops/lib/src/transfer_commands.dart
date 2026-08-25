@@ -102,10 +102,8 @@ abstract class TransferCommandBase extends AppCommand {
     Future<void> transfer(TreeEditor editor, String path, bool followLinks, [FcAsyncRun? run]) async {
       final resolved = await _resolveDestination(context, path);
       final destination = resolved.node! as DirectoryNode;
-      final operation =
-          moves
-              ? editor.move(targets, destination, followLinks: followLinks)
-              : editor.copy(targets, destination, followLinks: followLinks);
+      final operation = moves ? editor.move() : editor.copy();
+      final params = TransferParams(targets, destination, followLinks: followLinks);
 
       // Аренда источника — на всё время работы, а не на каждое чтение: между
       // чтениями панель успевает уйти, а работа, отправленная в фон,
@@ -115,9 +113,9 @@ abstract class TransferCommandBase extends AppCommand {
       try {
         final message = moves ? 'Moving…' : 'Copying…';
         if (run != null) {
-          await run.run(operation, message: message);
+          await run.run(operation, params, message: message);
         } else {
-          await operation.result;
+          await operation.run(params);
         }
       } finally {
         // Отпускаются обе — и после отмены, и после ошибки: `finally` для того
@@ -189,11 +187,11 @@ abstract class TransferCommandBase extends AppCommand {
     // Путь разбирает панель-приёмник: он может проходить через несколько
     // провайдеров («…/archive.zip:zip:/inner»), и одному провайдеру такое
     // не по силам.
-    final resolved = await _destinationPanelOf(context).resolvePath(path).result;
+    final resolved = await _destinationPanelOf(context).resolvePath().run(path);
     var node = resolved.node;
     if (node is LinkNode) {
       // Ссылка на каталог — тоже каталог: копировать «в неё» можно.
-      node = await node.provider.resolveLink(node).result;
+      node = await node.provider.resolveLink().run(node);
     }
     if (node == null) {
       await resolved.release();

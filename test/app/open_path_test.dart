@@ -559,7 +559,7 @@ class _AddressModule implements FcModule {
 
   @override
   void install(FcRegistry registry) {
-    registry.addressProvider('mem', (address) => TaskOperation<TreeProvider>((op) async => factory(address)));
+    registry.addressProvider('mem', () => TaskOperation<Uri, TreeProvider>((op, address) async => factory(address)));
   }
 }
 
@@ -585,7 +585,7 @@ class _SlowAddressModule implements FcModule {
   void install(FcRegistry registry) {
     registry.addressProvider(
       'slow',
-      (address) => TaskOperation<TreeProvider>((op) async {
+      () => TaskOperation<Uri, TreeProvider>((op, address) async {
         opened.add(address);
         // Веху формулирует тот, кто работает: панель о рукопожатии не знает.
         op.message('Connecting to slow://${address.host}…');

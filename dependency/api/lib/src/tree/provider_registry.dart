@@ -5,6 +5,7 @@ import 'fs_node.dart';
 import 'node_path.dart';
 import 'provider_lease.dart';
 import 'tree_provider.dart';
+import 'operation_params.dart';
 
 /// Создаёт провайдера поверх узла: архив — над файлом, удалённая ФС — над
 /// строкой пути.
@@ -17,9 +18,12 @@ import 'tree_provider.dart';
 ///
 /// Операция, а не `Future`: открыть архив бывает долго — лежащий на сервере
 /// сперва копируется во временный файл, — и всё это время работа должна
-/// рассказывать о себе и прерываться. Оба свойства уже есть у [AsyncOperation],
+/// рассказывать о себе и прерываться. Оба свойства уже есть у [Operation],
 /// и заводить ради них второй канал незачем.
-typedef ProviderFactory = AsyncOperation<TreeProvider> Function(FsNode host);
+///
+/// Фабрика работу только создаёт: узел, над которым монтируют, приходит
+/// параметром запуска, а реестр успевает подписаться на ход дела.
+typedef ProviderFactory = Operation<FsNode, TreeProvider> Function();
 
 /// Создаёт источник по адресу: `ssh://user@host/srv` — это подключение.
 ///
@@ -35,7 +39,7 @@ typedef ProviderFactory = AsyncOperation<TreeProvider> Function(FsNode host);
 /// Операция, а не `Future`, — по той же причине, что и у [ProviderFactory]:
 /// подключение к серверу на другом конце света идёт секундами, и всё это время
 /// пользователь вправе знать, чего ждёт, и вправе перестать ждать.
-typedef AddressFactory = AsyncOperation<TreeProvider> Function(Uri address);
+typedef AddressFactory = Operation<Uri, TreeProvider> Function();
 
 /// Реестр провайдеров: какая схема чем открывается и что во что вкладывается.
 ///
@@ -139,22 +143,35 @@ class ProviderRegistry {
   /// Операция, а не `Future`: монтирование бывает долгим (архив с сервера
   /// копируется целиком), и всё это время оно рассказывает о себе и
   /// прерывается.
-  AsyncOperation<ProviderLease> acquire(String scheme, FsNode host) {
-    return TaskOperation<ProviderLease>((op) async => _acquireOver(op, scheme, host));
+  Operation<AcquireParams, ProviderLease> acquire() {
+    return TaskOperation<AcquireParams, ProviderLease>(
+      (op, params) async => _acquireOver(op, params.scheme, params.host),
+    );
   }
 
   /// Аренда провайдера над узлом — внутри чужой операции.
   ///
   /// [milestone] говорится, только если монтировать пришлось на самом деле: у
   /// уже открытого архива ждать нечего, и веха о нём была бы мельканием.
-  Future<ProviderLease> _acquireOver(TaskOperation<Object?> op, String scheme, FsNode host, {String? milestone}) {
+  Future<ProviderLease> _acquireOver(
+    TaskOperation<Object?, Object?> op,
+    String scheme,
+    FsNode host, {
+    String? milestone,
+  }) {
     final factory = _factories[scheme];
     if (factory == null) {
       throw FsError(host.pathString, FsErrorKind.notSupported);
     }
     // Аренда хозяина держится всё время, пока жив тот, кто над ним стоит:
     // архив внутри архива читает файл внешнего.
-    return _acquire(op, _MountKey.over(scheme, host), () => factory(host), host: host.provider, milestone: milestone);
+    return _acquire(
+      op,
+      _MountKey.over(scheme, host),
+      () => factory()..start(host),
+      host: host.provider,
+      milestone: milestone,
+    );
   }
 
   /// То же для источника по адресу: `ssh://user@host/srv`.
@@ -162,8 +179,8 @@ class ProviderRegistry {
   /// Ключ — схема и адрес без пароля: один и тот же сервер, набранный с
   /// паролем и без, — это одно подключение, а не два. Разные пользователи
   /// одного сервера — разные, поэтому имя в ключ входит.
-  AsyncOperation<ProviderLease> acquireAddress(Uri address) {
-    return TaskOperation<ProviderLease>((op) async {
+  Operation<Uri, ProviderLease> acquireAddress() {
+    return TaskOperation<Uri, ProviderLease>((op, address) async {
       final scheme = address.scheme.toLowerCase();
       final factory = _addresses[scheme];
       if (factory == null) {
@@ -171,7 +188,7 @@ class ProviderRegistry {
         // пароль, набранный прямо в адресе, в сообщение не попадает.
         throw FsError(address.scheme, FsErrorKind.unsupportedScheme);
       }
-      return _acquire(op, _MountKey.address(scheme, address), () => factory(address));
+      return _acquire(op, _MountKey.address(scheme, address), () => factory()..start(address));
     });
   }
 
@@ -207,9 +224,9 @@ class ProviderRegistry {
   }
 
   Future<ProviderLease> _acquire(
-    TaskOperation<Object?> op,
+    TaskOperation<Object?, Object?> op,
     _MountKey key,
-    AsyncOperation<TreeProvider> Function() open, {
+    Operation<Object?, TreeProvider> Function() open, {
     TreeProvider? host,
     String? milestone,
   }) async {
@@ -235,7 +252,7 @@ class ProviderRegistry {
   /// Прогресс идёт наверх, а отмена вниз **не** идёт: один ушедший не вправе
   /// прервать работу, которую ждут остальные. Ушли все — тогда и прервёт, это
   /// делает [_close].
-  Future<ProviderLease> _attach(TaskOperation<Object?> op, _MountEntry entry) async {
+  Future<ProviderLease> _attach(TaskOperation<Object?, Object?> op, _MountEntry entry) async {
     entry.tenants++;
     final stopRelay = op.relayFrom(entry.open);
     try {
@@ -294,7 +311,10 @@ class ProviderRegistry {
   ///   return ProviderRegistry.keepUnlessCanceled(op, ZipTreeProvider.open(host, …));
   /// }));
   /// ```
-  static Future<TreeProvider> keepUnlessCanceled(TaskOperation<TreeProvider> op, Future<TreeProvider> opening) async {
+  static Future<TreeProvider> keepUnlessCanceled(
+    TaskOperation<Object?, TreeProvider> op,
+    Future<TreeProvider> opening,
+  ) async {
     final provider = await opening;
     if (op.isCanceled) {
       await disposeProvider(provider);
@@ -316,9 +336,10 @@ class ProviderRegistry {
   ///
   /// [from] — корень, с которого начинается разбор. У каждой панели он свой:
   /// одна может стоять на локальной ФС, другая — на сервере.
-  AsyncOperation<ResolvedNode> resolvePath(String path, {TreeProvider? from}) {
-    return TaskOperation<ResolvedNode>((op) async {
-      final start = from ?? root;
+  Operation<ResolvePathParams, ResolvedNode> resolvePath() {
+    return TaskOperation<ResolvePathParams, ResolvedNode>((op, params) async {
+      final path = params.path;
+      final start = params.from ?? root;
       final chain = NodePath.parse(path);
       // Первая часть адресует корень: `fs` в ней — это «схемы не было вовсе»,
       // её подставляет разбор строки. Чужая схема в начале означает **другой**
@@ -329,7 +350,7 @@ class ProviderRegistry {
         throw FsError(path, FsErrorKind.notSupported);
       }
 
-      FsNode? node = await op.delegate(start.resolvePath(_expandHome(first.path, start)));
+      FsNode? node = await op.delegate(start.resolvePath(), _expandHome(first.path, start));
       op.checkCanceled();
 
       // Аренда самого глубокого звена: она же держит все внешние.
@@ -349,7 +370,7 @@ class ProviderRegistry {
           // между его концом и продолжением тела.
           op.checkCanceled();
 
-          node = await op.delegate<FsNode?>(inner.provider.resolvePath(part.path));
+          node = await op.delegate<String, FsNode?>(inner.provider.resolvePath(), part.path);
           op.checkCanceled();
         }
       } on Object {
@@ -378,15 +399,16 @@ class ProviderRegistry {
   /// а показывают ему [NodePath.displayString]. Машинный путь со схемами
   /// (настройки) разбирается по-прежнему [resolvePath] — без единого лишнего
   /// обращения. Аренда возвращается так же.
-  AsyncOperation<ResolvedNode> resolveDisplayPath(String path, {TreeProvider? from}) {
-    final chain = NodePath.parse(path);
-    if (chain.parts.length > 1) {
-      // Схемы на месте — строка машинная и однозначная, гадать не о чем.
-      return resolvePath(path, from: from);
-    }
+  Operation<ResolvePathParams, ResolvedNode> resolveDisplayPath() {
+    return TaskOperation<ResolvePathParams, ResolvedNode>((op, params) async {
+      final chain = NodePath.parse(params.path);
+      if (chain.parts.length > 1) {
+        // Схемы на месте — строка машинная и однозначная, гадать не о чем.
+        return op.delegate(resolvePath(), params);
+      }
 
-    return TaskOperation<ResolvedNode>((op) async {
-      final start = from ?? root;
+      final path = params.path;
+      final start = params.from ?? root;
       final first = chain.parts.first;
       // То же правило, что и в [resolvePath]: чужая схема в начале — это другой
       // корень, и открывает его не разбор пути.
@@ -408,8 +430,8 @@ class ProviderRegistry {
   /// Границей считается косая черта, поэтому на Windows, где локальные пути
   /// пишутся через обратную, архив в набранном пути не опознается: там разбор
   /// просто вернёт «не найдено», как и до появления этого метода.
-  Future<ResolvedNode> _resolveMounting(TreeProvider provider, String path, TaskOperation<Object?> op) async {
-    final whole = await op.delegate(provider.resolvePath(path));
+  Future<ResolvedNode> _resolveMounting(TreeProvider provider, String path, TaskOperation<Object?, Object?> op) async {
+    final whole = await op.delegate(provider.resolvePath(), path);
     op.checkCanceled();
     if (whole != null) {
       return ResolvedNode(whole, null);
@@ -420,7 +442,7 @@ class ProviderRegistry {
 
       // Перебор префиксов о себе не рассказывает: по сети это десяток зондов
       // в секунду, и веха на каждый была бы мельканием ни о чём.
-      final host = await op.delegate(provider.resolvePath(path.substring(0, slash)));
+      final host = await op.delegate(provider.resolvePath(), path.substring(0, slash));
       op.checkCanceled();
       if (host == null) {
         continue;
@@ -551,7 +573,7 @@ class _MountEntry {
   final ProviderLease? host;
 
   /// Монтирование, общее на всех арендаторов.
-  final AsyncOperation<TreeProvider> open;
+  final Operation<Object?, TreeProvider> open;
 
   late final Future<TreeProvider> opened;
 

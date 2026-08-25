@@ -28,11 +28,11 @@ void main() {
     }
   });
 
-  Future<DirectoryNode> openRoot() async => (await provider.resolvePath(root).result)! as DirectoryNode;
+  Future<DirectoryNode> openRoot() async => (await provider.resolvePath().run(root))! as DirectoryNode;
 
   test('создаёт каталог и возвращает его узел', () async {
     final parent = await openRoot();
-    final created = await editor.makeDirectory(parent, 'docs').result;
+    final created = await editor.makeDirectory().run(MakeDirectoryParams(parent, 'docs'));
 
     expect(await Directory(p.join(root, 'docs')).exists(), isTrue);
     expect(created.name, 'docs');
@@ -42,17 +42,17 @@ void main() {
 
   test('новый каталог сразу виден в панели после перечитывания', () async {
     final parent = await openRoot();
-    await editor.makeDirectory(parent, 'docs').result;
+    await editor.makeDirectory().run(MakeDirectoryParams(parent, 'docs'));
 
-    final nodes = await provider.getDirectoryListing(parent).result;
+    final nodes = await provider.getDirectoryListing().run(ListingParams(parent));
     expect(nodes.map((n) => n.name), contains('docs'));
   });
 
   test('внутри ссылки каталог создаётся по настоящему пути', () async {
-    final link = (await provider.resolvePath(p.join(root, 'bin-link')).result)! as LinkNode;
-    final target = (await provider.resolveLink(link).result)! as DirectoryNode;
+    final link = (await provider.resolvePath().run(p.join(root, 'bin-link')))! as LinkNode;
+    final target = (await provider.resolveLink().run(link))! as DirectoryNode;
 
-    final created = await editor.makeDirectory(target, 'tools').result;
+    final created = await editor.makeDirectory().run(MakeDirectoryParams(target, 'tools'));
 
     // Файл лежит в настоящем каталоге...
     expect(await Directory(p.join(root, 'bin', 'tools')).exists(), isTrue);
@@ -64,7 +64,7 @@ void main() {
     final parent = await openRoot();
 
     await expectLater(
-      editor.makeDirectory(parent, 'bin').result,
+      editor.makeDirectory().run(MakeDirectoryParams(parent, 'bin')),
       throwsA(isA<FsError>().having((e) => e.kind, 'kind', FsErrorKind.alreadyExists)),
     );
   });
@@ -74,7 +74,7 @@ void main() {
     final parent = await openRoot();
 
     await expectLater(
-      editor.makeDirectory(parent, 'notes.txt').result,
+      editor.makeDirectory().run(MakeDirectoryParams(parent, 'notes.txt')),
       throwsA(isA<FsError>().having((e) => e.kind, 'kind', FsErrorKind.alreadyExists)),
     );
   });
@@ -84,7 +84,7 @@ void main() {
 
     for (final name in ['', '.', '..', 'a/b']) {
       await expectLater(
-        editor.makeDirectory(parent, name).result,
+        editor.makeDirectory().run(MakeDirectoryParams(parent, name)),
         throwsA(isA<FsError>().having((e) => e.kind, 'kind', FsErrorKind.invalidName)),
         reason: 'имя «$name» должно быть отклонено',
       );

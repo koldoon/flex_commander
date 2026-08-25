@@ -56,7 +56,7 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
   static var _nextRun = 0;
   late final String runId = '$commandId#${_nextRun++}';
 
-  AsyncOperation<void>? _operation;
+  Operation<Object?, void>? _operation;
   StreamSubscription<OperationRequest>? _requests;
   OperationStatus? _watched;
 
@@ -75,9 +75,13 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
   /// файлов идёт куда быстрее, чем имеет смысл обновлять экран.
   late final Throttle _redraw = Throttle(notifyListeners);
 
-  /// Выполняет операцию, показывая её ход. Отмена пользователем ошибкой
-  /// не считается: сделанное остаётся сделанным.
-  Future<void> run(AsyncOperation<void> operation, {required String message}) async {
+  /// Заводит работу и показывает её ход. Отмена пользователем ошибкой не
+  /// считается: сделанное остаётся сделанным.
+  ///
+  /// Запуск здесь, а не у того, кто работу создал: сперва окно подписывается на
+  /// ход дела и на вопросы, и только потом работа начинается. Иначе первый же
+  /// вопрос — «перезаписать?» на первом файле — мог бы пройти мимо окна.
+  Future<void> run<P>(Operation<P, void> operation, P params, {required String message}) async {
     // По [isBusy], а не по [isRunning]: прогон, который уже кончился,
     // повторять тоже нечего.
     if (isBusy) {
@@ -91,11 +95,12 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
     app.operations.register(OperationRun(runId: runId, operation: operation, title: title, bringToFront: show));
     notifyListeners();
 
-    // Подписки ставятся сразу: операция начинает работу следующим шагом цикла
-    // событий и до тех пор ничего не теряется.
+    // Сначала подписки, потом запуск: до [Operation.start] не происходит
+    // ничего, и потерять нечего.
     _watched = operation.status;
     _watched!.addListener(_onStatusChanged);
     _requests = operation.requests.listen(_onRequest);
+    operation.start(params);
 
     try {
       await operation.result;

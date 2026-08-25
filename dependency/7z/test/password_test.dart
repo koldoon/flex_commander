@@ -37,7 +37,7 @@ Encrypted = +
   tearDown(() => temp.deleteSync(recursive: true));
 
   Future<TreeProvider> open(FakeProcessRunner runner, FakeCredentials credentials) async {
-    final host = (await local.resolvePath(archive.path).result)!;
+    final host = (await local.resolvePath().run(archive.path))!;
     final provider = await SevenZipTreeProvider.open(
       host,
       staging: LocalStagingArea(root: temp),
@@ -93,7 +93,7 @@ Encrypted = +
       final runner = runnerLockedWith('тайна');
       final credentials = FakeCredentials();
 
-      final host = (await local.resolvePath(archive.path).result)!;
+      final host = (await local.resolvePath().run(archive.path))!;
       await expectLater(
         SevenZipTreeProvider.open(
           host,
@@ -119,7 +119,7 @@ Encrypted = +
       final credentials = FakeCredentials(answers: ['тайна']);
 
       final provider = await open(runner, credentials);
-      final node = (await provider.resolvePath('/secret.txt').result)!;
+      final node = (await provider.resolvePath().run('/secret.txt'))!;
 
       for (var attempt = 0; attempt < 3; attempt++) {
         final bytes = await (provider as FileContentProvider).openRead(node);
@@ -148,7 +148,7 @@ Encrypted = +
       final credentials = FakeCredentials(answers: ['мимо', 'тайна']);
 
       final provider = await open(runner, credentials);
-      final node = (await provider.resolvePath('/secret.txt').result)!;
+      final node = (await provider.resolvePath().run('/secret.txt'))!;
 
       final failing = await (provider as FileContentProvider).openRead(node);
       await expectLater(failing.drain<void>(), throwsA(isA<FsError>()));

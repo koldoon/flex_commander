@@ -8,7 +8,7 @@ void main() {
   test('работа прирастает байтами без нового объекта', () async {
     final reports = <OperationProgress>[];
 
-    final operation = TaskOperation<void>((op) async {
+    final operation = startedTask<void>((op) async {
       final progress = TransferProgress(op, 'Packing');
 
       // Первое плечо: два объекта на 200 байт, пройдены целиком.
@@ -50,7 +50,7 @@ void main() {
   test('у текущего объекта свой счёт, и он обнуляется на следующем', () async {
     final reports = <OperationProgress>[];
 
-    final operation = TaskOperation<void>((op) async {
+    final operation = startedTask<void>((op) async {
       final progress = TransferProgress(op, 'Copying');
       progress
         ..countOne(100)
@@ -90,7 +90,7 @@ void main() {
   test('объект без известного размера показывать нечем', () async {
     final reports = <OperationProgress>[];
 
-    final operation = TaskOperation<void>((op) async {
+    final operation = startedTask<void>((op) async {
       final progress = TransferProgress(op, 'Deleting');
       // Размер бывает неизвестен: удаление в корзину, источник без размеров.
       progress.startItem('unknown.bin');
@@ -104,3 +104,9 @@ void main() {
     expect(reports.last.itemPercent, isNull);
   });
 }
+
+/// Работа, заведённая сразу: тесту, который проверяет само тело, пауза между
+/// созданием и запуском ни к чему. (Свой, а не из `fc_test_kit`: тот зависит от
+/// `fc_api`, и обратная зависимость замкнула бы круг.)
+TaskOperation<void, R> startedTask<R>(Future<R> Function(TaskOperation<void, R> op) body) =>
+    TaskOperation<void, R>((op, _) => body(op))..start(null);

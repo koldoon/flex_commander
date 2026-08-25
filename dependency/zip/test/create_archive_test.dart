@@ -244,20 +244,23 @@ void main() {
   group('ход работы', () {
     /// Ход работы — свойство самой операции, а не команды: команда показывает
     /// окно и уходит. Поэтому проверяется операция.
-    Future<AsyncOperation<void>> packed(String name) async {
+    Future<Operation<Object?, void>> packed(String name) async {
       final command = runtime.commands.create(CreateZipArchiveCommand.commandId)! as CreateZipArchiveCommand;
       final sources =
           runtime.app.left.selection.isEmpty
               ? [runtime.app.left.currentNode!]
               : runtime.app.left.nodes.where(runtime.app.left.selection.contains).toList();
 
-      final operation = command.packOperation(
-        sources,
-        runtime.app.right.directory!,
-        '$name.zip',
-        compression: ZipCompression.normal,
-        followLinks: false,
-      );
+      final operation =
+          command.packOperation()..start(
+            ZipPackParams(
+              sources,
+              runtime.app.right.directory!,
+              '$name.zip',
+              compression: ZipCompression.normal,
+              followLinks: false,
+            ),
+          );
       await operation.result;
       return operation;
     }

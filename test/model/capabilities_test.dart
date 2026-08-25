@@ -36,9 +36,9 @@ void main() {
     }
   });
 
-  Future<FsNode> nodeAt(String name) async => (await provider.resolvePath(p.join(root, name)).result)!;
+  Future<FsNode> nodeAt(String name) async => (await provider.resolvePath().run(p.join(root, name)))!;
 
-  Future<DirectoryNode> targetDir() async => (await provider.resolvePath(target).result)! as DirectoryNode;
+  Future<DirectoryNode> targetDir() async => (await provider.resolvePath().run(target))! as DirectoryNode;
 
   group('умения выводятся из интерфейсов', () {
     test('локальная ФС меняет дерево и отдаёт байты', () {
@@ -69,7 +69,7 @@ void main() {
       final modified = DateTime(2020, 1, 2, 3, 4, 5);
       File(p.join(root, 'notes.txt')).setLastModifiedSync(modified);
 
-      await editor.copy([await nodeAt('notes.txt')], await targetDir()).result;
+      await editor.copy().run(TransferParams([await nodeAt('notes.txt')], await targetDir()));
 
       expect(File(p.join(target, 'notes.txt')).lastModifiedSync(), modified);
     });

@@ -37,11 +37,11 @@ void main() {
       FakeEntry.directory('/home'),
       FakeEntry.file('/home/remote.bin', content: content ?? utf8.encode('содержимое')),
     ]);
-    return (await memory.resolvePath('/home/remote.bin').result)!;
+    return (await memory.resolvePath().run('/home/remote.bin'))!;
   }
 
   test('настоящий путь отдаётся как есть, без копирования', () async {
-    final node = (await disk.resolvePath(p.join(root, 'notes.txt')).result)!;
+    final node = (await disk.resolvePath().run(p.join(root, 'notes.txt')))!;
 
     expect(await session.localPathOf(node), p.join(root, 'notes.txt'));
     // Ровно за этим и заведён realFileSystem: копировать то, что и так лежит
@@ -91,7 +91,7 @@ void main() {
   });
 
   test('без копий убирать нечего — и каталог не заводится', () async {
-    final node = (await disk.resolvePath(p.join(root, 'notes.txt')).result)!;
+    final node = (await disk.resolvePath().run(p.join(root, 'notes.txt')))!;
     await session.localPathOf(node);
 
     await session.purge();
@@ -105,7 +105,7 @@ void main() {
       FakeEntry.directory('/home'),
       FakeEntry.file('/home/remote.bin', content: [1, 2, 3]),
     ]);
-    final node = (await memory.resolvePath('/home/remote.bin').result)!;
+    final node = (await memory.resolvePath().run('/home/remote.bin'))!;
 
     await expectLater(
       session.localPathOf(node),
@@ -122,7 +122,7 @@ void main() {
       FakeEntry.directory('/home'),
       FakeEntry.file('/home/remote.bin', content: List.filled(50, 1)),
     ]);
-    final node = (await broken.resolvePath('/home/remote.bin').result)!;
+    final node = (await broken.resolvePath().run('/home/remote.bin'))!;
 
     await expectLater(session.localPathOf(node), throwsA(anything));
 

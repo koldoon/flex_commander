@@ -114,11 +114,18 @@ class CreateSevenZipArchiveCommand extends AppCommand {
       final into = context.target.leaseProvider();
 
       try {
-        final operation = packOperation(sources, destination, name, compression: compression, followLinks: followLinks);
+        final operation = packOperation();
+        final params = SevenZipPackParams(
+          sources,
+          destination,
+          name,
+          compression: compression,
+          followLinks: followLinks,
+        );
         if (run != null) {
-          await run.run(operation, message: 'Packing…');
+          await run.run(operation, params, message: 'Packing…');
         } else {
-          await operation.result;
+          await operation.run(params);
         }
       } finally {
         await from?.release();
@@ -186,14 +193,13 @@ class CreateSevenZipArchiveCommand extends AppCommand {
   /// место: лишнего плеча не появляется вовсе. Иначе архив собирается во
   /// временном файле и уходит приёмнику байтами — как у zip.
   @visibleForTesting
-  AsyncOperation<void> packOperation(
-    List<FsNode> sources,
-    DirectoryNode destination,
-    String name, {
-    required SevenZipCompression compression,
-    required bool followLinks,
-  }) {
-    return TaskOperation<void>((op) async {
+  Operation<SevenZipPackParams, void> packOperation() {
+    return TaskOperation<SevenZipPackParams, void>((op, params) async {
+      final sources = params.sources;
+      final destination = params.destination;
+      final name = params.name;
+      final compression = params.compression;
+      final followLinks = params.followLinks;
       final progress = TransferProgress(op, 'Packing');
       // Плечи: сперва архив собирается, потом уходит приёмнику. Второе
       // бывает и дольше первого — по сети, например.
@@ -259,7 +265,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
   Future<String> _sourcesRoot(
     List<FsNode> sources,
     StagedDirectory staged,
-    TaskOperation<void> op,
+    TaskOperation<Object?, void> op,
     TransferProgress progress,
   ) async {
     final provider = sources.first.provider;
@@ -280,7 +286,12 @@ class CreateSevenZipArchiveCommand extends AppCommand {
   }
 
   /// Выкладывает узел на диск: файл — байтами, каталог — обходом.
-  Future<void> _materialize(FsNode node, String path, TaskOperation<void> op, TransferProgress progress) async {
+  Future<void> _materialize(
+    FsNode node,
+    String path,
+    TaskOperation<Object?, void> op,
+    TransferProgress progress,
+  ) async {
     await op.checkpoint();
 
     if (node is DirectoryNode) {
@@ -334,7 +345,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
     String archivePath,
     String workingDirectory,
     String listFile,
-    TaskOperation<void> op,
+    TaskOperation<Object?, void> op,
     TransferProgress progress, {
     required SevenZipCompression compression,
     required bool followLinks,
@@ -423,7 +434,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
     String archivePath,
     DirectoryNode destination,
     String name,
-    TaskOperation<void> op,
+    TaskOperation<Object?, void> op,
     TransferProgress progress,
   ) async {
     final provider = destination.provider;
@@ -648,4 +659,29 @@ class _CreateArchiveFormState extends State<_CreateArchiveForm> {
       ],
     );
   }
+}
+
+/// Что паковать, куда и как.
+class SevenZipPackParams {
+  const SevenZipPackParams(
+    this.sources,
+    this.destination,
+    this.name, {
+    required this.compression,
+    required this.followLinks,
+  });
+
+  final List<FsNode> sources;
+
+  /// Каталог, в котором появится архив.
+  final DirectoryNode destination;
+
+  /// Имя архива вместе с расширением: `notes.7z`.
+  final String name;
+
+  final SevenZipCompression compression;
+
+  /// Идти ли по символическим ссылкам вместо того, чтобы класть их в архив
+  /// ссылками.
+  final bool followLinks;
 }

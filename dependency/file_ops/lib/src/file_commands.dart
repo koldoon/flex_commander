@@ -46,7 +46,7 @@ class MakeDirectoryCommand extends AppCommand {
     }
 
     Future<void> create(String name) async {
-      final created = await editor.makeDirectory(parent, name).result;
+      final created = await editor.makeDirectory().run(MakeDirectoryParams(parent, name));
       // Каталог создан на диске, но в панели его ещё нет: перечитываем и
       // ставим курсор на новый каталог, чтобы с ним можно было сразу работать.
       await panel.reload();
@@ -273,7 +273,7 @@ abstract class RemoveCommandBase extends AppCommand {
       // за это время вправе выйти из архива, в котором оно идёт.
       final source = panel.leaseProvider();
       try {
-        await editor.remove(targets, toTrash: toTrash).result;
+        await editor.remove().run(RemoveParams(targets, toTrash: toTrash));
       } finally {
         await source?.release();
         // Часть объектов могла исчезнуть, часть остаться: список в панели
@@ -331,7 +331,7 @@ abstract class RemoveCommandBase extends AppCommand {
     run.onStart = () async {
       final source = panel.leaseProvider();
       try {
-        await run.run(editor.remove(targets, toTrash: toTrash), message: 'Deleting…');
+        await run.run(editor.remove(), RemoveParams(targets, toTrash: toTrash), message: 'Deleting…');
       } finally {
         await source?.release();
         panel.selection.clear();

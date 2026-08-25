@@ -1,4 +1,4 @@
-import 'operation.dart';
+import 'package:fc_api/fc_api.dart';
 
 // Всё остальное из наброска рабочей области уже в настоящем API: области и
 // стопки (ViewportPosition, ViewportState, ViewPort), окна (DialogSpec,

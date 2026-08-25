@@ -89,7 +89,7 @@ class DirectoryNode extends FileNode {
   List<FsNode> get nodes;
 
   /// Перечитать содержимое. Делегирует provider.getDirectoryListing(this).
-  AsyncOperation<List<FsNode>> refresh();
+  Operation<ListingParams, List<FsNode>> refresh();
 }
 
 /// Символическая ссылка.
@@ -109,7 +109,7 @@ class LinkNode extends FileNode {
   /// Ссылка ведёт в каталог.
   bool get isDirectoryLink;
 
-  AsyncOperation<FsNode?> resolve();
+  Operation<LinkNode, FsNode?> resolve();
 
   @override
   String get info => '$name -> $reference';
@@ -207,10 +207,10 @@ abstract interface class TreeProvider {
 
   /// Разбор строки пути в узел. Достраивает всю цепочку узлов от корня,
   /// при необходимости обращаясь во вложенные провайдеры.
-  AsyncOperation<FsNode?> resolvePath(String path);
+  Operation<String, FsNode?> resolvePath();
 
   /// Чтение содержимого каталога. По завершении заполняет dir.nodes.
-  AsyncOperation<List<FsNode>> getDirectoryListing(DirectoryNode dir);
+  Operation<ListingParams, List<FsNode>> getDirectoryListing();
 
   /// Содержимое каталога для обхода движком: со скрытыми, без «..» и без
   /// записи в dir.nodes. Здесь, а не в NodeEditor: это чтение — копировать
@@ -218,29 +218,29 @@ abstract interface class TreeProvider {
   Future<List<FsNode>> listChildren(DirectoryNode dir);
 
   /// Разрешение ссылки: заполняет link.target.
-  AsyncOperation<FsNode?> resolveLink(LinkNode link);
+  Operation<LinkNode, FsNode?> resolveLink();
 
   /// Суммарный размер объектов вместе с содержимым каталогов.
   /// Промежуточные суммы идут в OperationProgress.processed.
   /// Скрытое считается наравне с остальным, ссылки не разыменовываются,
   /// а недоступное пропускается — но обход не прекращает.
-  AsyncOperation<int> calculateSize(List<FsNode> nodes);
+  Operation<List<FsNode>, int> calculateSize();
 }
 
 /// Изменение дерева — то, чем пользуются команды: операция целиком, с обходом,
 /// конфликтами, вопросами и прогрессом. Провайдеры его не реализуют: реализация
 /// одна на всех — `TreeTransferEngine`.
 abstract interface class TreeEditor {
-  AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination);
-  AsyncOperation<void> move(List<FsNode> nodes, DirectoryNode destination);
-  AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true});
-  AsyncOperation<DirectoryNode> makeDirectory(DirectoryNode parent, String name);
+  Operation<TransferParams, void> copy();
+  Operation<TransferParams, void> move();
+  Operation<RemoveParams, void> remove();
+  Operation<MakeDirectoryParams, DirectoryNode> makeDirectory();
 }
 
 /// Примитивы изменения: один объект, без рекурсии, без вопросов, без прогресса.
 /// Отдельный интерфейс: провайдер может уметь только читать (архив, открытый
 /// на просмотр), и панель это проверяет — `provider.canWrite`.
-/// Обычный Future, а не AsyncOperation: отмена и прогресс — у операции, которая
+/// Обычный Future, а не Operation: отмена и прогресс — у работы, которая
 /// шаг вызвала. false означает «так я не умею», и движок идёт следующей
 /// стратегией; ошибка — это FsError.
 abstract interface class NodeEditor {
@@ -307,17 +307,17 @@ class ProviderRegistry {
 
   /// Аренда провайдера над узлом: смонтировать или добавить арендатора к уже
   /// смонтированному.
-  AsyncOperation<ProviderLease> acquire(String scheme, FsNode host);
+  Operation<AcquireParams, ProviderLease> acquire();
 
   /// То же для источника по адресу: `ssh://user@host/srv`.
-  AsyncOperation<ProviderLease> acquireAddress(Uri address);
+  Operation<Uri, ProviderLease> acquireAddress();
 
   /// Ещё одна аренда на того, кто уже на руках; null — общий корень.
   ProviderLease? leaseOf(TreeProvider provider);
 
   /// Разбор пути через всю цепочку: `/home/a.zip:zip:/inner`. Узел приходит
   /// вместе с арендой всего, что смонтировано ради него.
-  AsyncOperation<ResolvedNode> resolvePath(String path);
+  Operation<ResolvePathParams, ResolvedNode> resolvePath();
 
   /// Что смонтировано и сколько у чего арендаторов.
   List<MountedProvider> get mounted;
@@ -567,8 +567,12 @@ class OperationProgress {
   final String message;      // "Reading /usr/lib…", "12 of 340"
 }
 
-abstract class AsyncOperation<T> {
+abstract class Operation<P, R> {
   OperationStatus get status;
+
+  /// Заводит работу с этими данными. До этого вызова не происходит ничего:
+  /// работу можно положить в очередь и подписаться на неё, ничего не пропустив.
+  void start(P params);
 
   /// Прервать немедленно и молча — при закрытии окна или выходе.
   void cancel();
@@ -578,7 +582,8 @@ abstract class AsyncOperation<T> {
   void requestCancel();
 
   /// Результат. Завершается ошибкой FsError или OperationCanceled.
-  Future<T> get result;
+  /// Отдельно от start: запускает работу один, а ждать её вправе кто угодно.
+  Future<R> get result;
 
   /// Прогресс. Для быстрых операций (чтение каталога) может не отдавать ничего.
   Stream<OperationProgress> get progress;
@@ -618,11 +623,17 @@ class UserActionRequest {
   равно копируется, — обман; спросить после конца файла — это минуты молчания.
 - Результат «отменено» — не ошибка приложения: контроллер просто возвращает панель
   в прежнее состояние.
-- Пакетные операции (`copy`, `move`, `remove`) — это тот же `AsyncOperation`, а не
+- **Создать и запустить — разные действия.** `provider.copy()` заводит работу,
+  `start(TransferParams(…))` её начинает. Так работа успевает попасть в очередь,
+  а окно — подписаться на ход дела и на вопросы раньше, чем придёт первый из них.
+- **Данные на входе — отдельный тип** (`TransferParams`, `RemoveParams`,
+  `ListingParams`, `MakeDirectoryParams`), и он часть сигнатуры работы. Ни
+  приложения, ни областей, ни панелей в нём быть не может: живое состояние
+  читает команда, до запуска, а работа получает снимок. Это проверяет
+  доктринальный тест.
+- Пакетные операции (`copy`, `move`, `remove`) — это та же `Operation`, а не
   отдельный вид. В референсе у переноса был свой строитель (`TransferOperation` с
-  `from`/`to`/`nodes`), но здесь операция начинает работу сразу после создания,
-  и настраивать её потом уже нечем: всё, что нужно, передаётся аргументами.
-  Очередь наружу не выставляется — о ходе работы говорит `progress`.
+  `from`/`to`/`nodes`); здесь его место занял тип параметров.
 
 ### Вложенные операции
 

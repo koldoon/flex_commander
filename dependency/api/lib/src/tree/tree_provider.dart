@@ -2,6 +2,7 @@ import 'dart:async';
 
 import '../async/async_operation.dart';
 import 'fs_node.dart';
+import 'operation_params.dart';
 
 /// Вид ошибки доступа к дереву.
 enum FsErrorKind {
@@ -137,7 +138,7 @@ abstract interface class TreeProvider {
   /// Разбор строки пути в узел. Достраивает всю цепочку узлов от корня, чтобы
   /// у панели всегда была рабочая связь `parent` для перехода наверх.
   /// Возвращает null, если узла нет.
-  AsyncOperation<FsNode?> resolvePath(String path);
+  Operation<String, FsNode?> resolvePath();
 
   /// Содержимое каталога для обхода: со скрытыми объектами, без псевдоузла
   /// «..» и **без записи** в [DirectoryNode.nodes].
@@ -149,10 +150,10 @@ abstract interface class TreeProvider {
   Future<List<FsNode>> listChildren(DirectoryNode dir);
 
   /// Чтение содержимого каталога. По завершении заполняет [DirectoryNode.nodes].
-  AsyncOperation<List<FsNode>> getDirectoryListing(DirectoryNode dir, {bool includeHidden = false});
+  Operation<ListingParams, List<FsNode>> getDirectoryListing();
 
   /// Разрешение ссылки: заполняет [LinkNode.target].
-  AsyncOperation<FsNode?> resolveLink(LinkNode link);
+  Operation<LinkNode, FsNode?> resolveLink();
 
   /// Обходит поддерево [node], сообщая о каждом объекте (включая сам [node])
   /// через [onEntry] — с его размером в байтах, 0 у каталогов и у того, чей
@@ -172,7 +173,7 @@ abstract interface class TreeProvider {
   ///
   /// Ссылки не разыменовываются: считается сама ссылка, а не то, куда она
   /// ведёт, — иначе одни и те же байты попали бы в сумму дважды.
-  AsyncOperation<int> calculateSize(List<FsNode> nodes);
+  Operation<List<FsNode>, int> calculateSize();
 }
 
 /// Изменение дерева — то, чем пользуются команды.
@@ -192,14 +193,14 @@ abstract interface class TreeEditor {
   /// ссылка переносится ссылкой, как в mc. Приёмник, который так не умеет,
   /// вызывает вопрос — молча подменять ссылку её содержимым нельзя, это разные
   /// вещи и по размеру, и по смыслу.
-  AsyncOperation<void> copy(List<FsNode> nodes, DirectoryNode destination, {bool followLinks});
+  Operation<TransferParams, void> copy();
 
   /// Переносит объекты в каталог.
-  AsyncOperation<void> move(List<FsNode> nodes, DirectoryNode destination, {bool followLinks});
+  Operation<TransferParams, void> move();
 
-  AsyncOperation<void> remove(List<FsNode> nodes, {bool toTrash = true});
+  Operation<RemoveParams, void> remove();
 
-  AsyncOperation<DirectoryNode> makeDirectory(DirectoryNode parent, String name);
+  Operation<MakeDirectoryParams, DirectoryNode> makeDirectory();
 }
 
 /// Примитивы изменения дерева: один объект, без рекурсии, без вопросов и без

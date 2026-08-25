@@ -43,7 +43,7 @@ void main() {
   }
 
   Future<String> contentOf(String path) async {
-    final node = (await disk.resolvePath(path).result)!;
+    final node = (await disk.resolvePath().run(path))!;
     final chunks = await (await disk.openRead(node)).toList();
     return utf8.decode(chunks.expand((chunk) => chunk).toList());
   }

@@ -32,7 +32,7 @@ void main() {
 
     registry = ProviderRegistry(root: disk)..register(
       'arc',
-      (host) => TaskOperation<TreeProvider>((op) async {
+      () => TaskOperation<FsNode, TreeProvider>((op, host) async {
         mountedOver.add(host);
         return InMemoryArchiveProvider(archiveEntries(), host);
       }),
@@ -40,19 +40,19 @@ void main() {
     );
   });
 
-  Future<FsNode> nodeAt(String path) async => (await disk.resolvePath(path).result)!;
+  Future<FsNode> nodeAt(String path) async => (await disk.resolvePath().run(path))!;
 
   /// Узел из разбора пути; аренду тест отпускает сразу — в приложении её
   /// держит тот, кто путь и просил разобрать.
-  Future<FsNode?> nodeOf(AsyncOperation<ResolvedNode> operation) async {
-    final resolved = await operation.result;
+  Future<FsNode?> nodeOf(Future<ResolvedNode> pending) async {
+    final resolved = await pending;
     await resolved.release();
     return resolved.node;
   }
 
   /// Провайдер над узлом — для проверок, которым нужен сам экземпляр.
   Future<TreeProvider> archiveOver(String path) async =>
-      (await registry.acquire('arc', await nodeAt(path)).result).provider;
+      (await registry.acquire().run(AcquireParams('arc', await nodeAt(path)))).provider;
 
   group('чем открывать', () {
     test('расширение выбирает схему', () async {
@@ -71,7 +71,7 @@ void main() {
     test('незарегистрированная схема — отказ, а не пустое дерево', () async {
       final host = await nodeAt('/home/archive.arc');
 
-      await expectLater(registry.acquire('zip', host).result, throwsA(isA<FsError>()));
+      await expectLater(registry.acquire().run(AcquireParams('zip', host)), throwsA(isA<FsError>()));
     });
   });
 
@@ -79,7 +79,7 @@ void main() {
     test('корень смонтированного провайдера стоит над узлом-хозяином', () async {
       final host = await nodeAt('/home/archive.arc');
 
-      final mounted = (await registry.acquire('arc', host).result).provider;
+      final mounted = (await registry.acquire().run(AcquireParams('arc', host))).provider;
 
       expect(mountedOver.single, same(host));
       expect(mounted.rootDirectory.parent, same(host));
@@ -89,7 +89,7 @@ void main() {
 
     test('путь внутри провайдера чужих имён не содержит', () async {
       final mounted = await archiveOver('/home/archive.arc');
-      final inner = (await mounted.resolvePath('/inner/doc.txt').result)!;
+      final inner = (await mounted.resolvePath().run('/inner/doc.txt'))!;
 
       // Провайдер архива знает только свою часть пути.
       expect(mounted.pathOf(inner), '/inner/doc.txt');
@@ -97,7 +97,7 @@ void main() {
 
     test('полный путь собирается через оба дерева', () async {
       final mounted = await archiveOver('/home/archive.arc');
-      final inner = (await mounted.resolvePath('/inner/doc.txt').result)!;
+      final inner = (await mounted.resolvePath().run('/inner/doc.txt'))!;
 
       // Ровно тот формат, который умеет разбирать NodePath.
       expect(inner.pathString, '/home/archive.arc:arc:/inner/doc.txt');
@@ -106,7 +106,7 @@ void main() {
 
   group('разбор цепочки', () {
     test('путь проходит через оба провайдера', () async {
-      final node = await nodeOf(registry.resolvePath('/home/archive.arc:arc:/inner/doc.txt'));
+      final node = await nodeOf(registry.resolvePath().run(ResolvePathParams('/home/archive.arc:arc:/inner/doc.txt')));
 
       expect(node?.name, 'doc.txt');
       expect(node?.provider, isA<InMemoryArchiveProvider>());
@@ -114,29 +114,31 @@ void main() {
     });
 
     test('обычный путь — это цепочка из одной части', () async {
-      final node = await nodeOf(registry.resolvePath('/home/notes.txt'));
+      final node = await nodeOf(registry.resolvePath().run(ResolvePathParams('/home/notes.txt')));
 
       expect(node?.name, 'notes.txt');
       expect(node?.provider, same(disk));
     });
 
     test('несуществующего внутри архива нет', () async {
-      expect(await nodeOf(registry.resolvePath('/home/archive.arc:arc:/missing')), isNull);
+      expect(await nodeOf(registry.resolvePath().run(ResolvePathParams('/home/archive.arc:arc:/missing'))), isNull);
     });
 
     test('нет хозяина — нечего и монтировать', () async {
-      expect(await nodeOf(registry.resolvePath('/home/missing.arc:arc:/inner')), isNull);
+      expect(await nodeOf(registry.resolvePath().run(ResolvePathParams('/home/missing.arc:arc:/inner'))), isNull);
     });
 
     test('чужая схема в начале пути — отказ', () async {
       // Второй корневой провайдер появится вместе с сетевым (5.6).
-      await expectLater(registry.resolvePath('sftp:/host/dir').result, throwsA(isA<FsError>()));
+      await expectLater(registry.resolvePath().run(ResolvePathParams('sftp:/host/dir')), throwsA(isA<FsError>()));
     });
   });
 
   group('разбор показанного пути', () {
     test('архив в пути опознаётся по типу узла, а не по схеме', () async {
-      final node = await nodeOf(registry.resolveDisplayPath('/home/archive.arc/inner/doc.txt'));
+      final node = await nodeOf(
+        registry.resolveDisplayPath().run(ResolvePathParams('/home/archive.arc/inner/doc.txt')),
+      );
 
       expect(node?.name, 'doc.txt');
       expect(node?.provider, isA<InMemoryArchiveProvider>());
@@ -146,7 +148,7 @@ void main() {
     });
 
     test('путь без архива разбирается одним обращением', () async {
-      final node = await nodeOf(registry.resolveDisplayPath('/home/notes.txt'));
+      final node = await nodeOf(registry.resolveDisplayPath().run(ResolvePathParams('/home/notes.txt')));
 
       expect(node?.name, 'notes.txt');
       expect(node?.provider, same(disk));
@@ -155,7 +157,9 @@ void main() {
     });
 
     test('архив в архиве — тем же способом', () async {
-      final node = await nodeOf(registry.resolveDisplayPath('/home/archive.arc/nested.arc/inner/doc.txt'));
+      final node = await nodeOf(
+        registry.resolveDisplayPath().run(ResolvePathParams('/home/archive.arc/nested.arc/inner/doc.txt')),
+      );
 
       expect(node?.name, 'doc.txt');
       expect(node?.pathString, '/home/archive.arc:arc:/nested.arc:arc:/inner/doc.txt');
@@ -163,7 +167,7 @@ void main() {
     });
 
     test('сам архив остаётся файлом: входит в него панель, а не разбор', () async {
-      final node = await nodeOf(registry.resolveDisplayPath('/home/archive.arc'));
+      final node = await nodeOf(registry.resolveDisplayPath().run(ResolvePathParams('/home/archive.arc')));
 
       expect(node, isA<FileNode>());
       expect(node, isNot(isA<DirectoryNode>()));
@@ -171,18 +175,20 @@ void main() {
     });
 
     test('машинный путь со схемами разбирается по-прежнему', () async {
-      final node = await nodeOf(registry.resolveDisplayPath('/home/archive.arc:arc:/inner/doc.txt'));
+      final node = await nodeOf(
+        registry.resolveDisplayPath().run(ResolvePathParams('/home/archive.arc:arc:/inner/doc.txt')),
+      );
 
       expect(node?.pathString, '/home/archive.arc:arc:/inner/doc.txt');
     });
 
     test('несуществующего внутри архива нет — и это не исключение', () async {
-      expect(await nodeOf(registry.resolveDisplayPath('/home/archive.arc/missing')), isNull);
+      expect(await nodeOf(registry.resolveDisplayPath().run(ResolvePathParams('/home/archive.arc/missing'))), isNull);
     });
 
     test('обычный файл посреди пути архивом не притворяется', () async {
       // `notes.txt` открывать нечем: значит пути правда нет.
-      expect(await nodeOf(registry.resolveDisplayPath('/home/notes.txt/inner')), isNull);
+      expect(await nodeOf(registry.resolveDisplayPath().run(ResolvePathParams('/home/notes.txt/inner'))), isNull);
       expect(mountedOver, isEmpty);
     });
 
@@ -190,7 +196,7 @@ void main() {
       final opened = <InMemoryArchiveProvider>[];
       final registry = ProviderRegistry(root: disk)..register(
         'arc',
-        (host) => TaskOperation<TreeProvider>((op) async {
+        () => TaskOperation<FsNode, TreeProvider>((op, host) async {
           final provider = InMemoryArchiveProvider(archiveEntries(), host);
           opened.add(provider);
           return provider;
@@ -198,7 +204,7 @@ void main() {
         extensions: {'arc'},
       );
 
-      expect(await nodeOf(registry.resolveDisplayPath('/home/archive.arc/missing')), isNull);
+      expect(await nodeOf(registry.resolveDisplayPath().run(ResolvePathParams('/home/archive.arc/missing'))), isNull);
 
       // Архив держит открытый файл, и бросить его молча нельзя.
       expect(opened.single.closed, isTrue);
@@ -207,12 +213,12 @@ void main() {
     test('битый архив — отказ открыть, а не «пути нет»', () async {
       final registry = ProviderRegistry(root: disk)..register(
         'arc',
-        (host) => TaskOperation<TreeProvider>((op) async => throw FsError(host.pathString, FsErrorKind.io)),
+        () => TaskOperation<FsNode, TreeProvider>((op, host) async => throw FsError(host.pathString, FsErrorKind.io)),
         extensions: {'arc'},
       );
 
       await expectLater(
-        registry.resolveDisplayPath('/home/archive.arc/inner').result,
+        registry.resolveDisplayPath().run(ResolvePathParams('/home/archive.arc/inner')),
         throwsA(isA<FsError>().having((error) => error.kind, 'kind', FsErrorKind.io)),
       );
     });
@@ -221,7 +227,7 @@ void main() {
       final mounted = await archiveOver('/home/archive.arc');
       expect(mountedOver, hasLength(1));
 
-      final node = await nodeOf(registry.resolveDisplayPath('/home/archive.arc/readme.md'));
+      final node = await nodeOf(registry.resolveDisplayPath().run(ResolvePathParams('/home/archive.arc/readme.md')));
 
       expect(node?.name, 'readme.md');
       // Второй экземпляр поверх того же файла разошёлся бы с первым состоянием.
@@ -236,8 +242,8 @@ void main() {
     test('второй арендатор получает тот же экземпляр', () async {
       final host = await nodeAt('/home/archive.arc');
 
-      final first = await registry.acquire('arc', host).result;
-      final second = await registry.acquire('arc', host).result;
+      final first = await registry.acquire().run(AcquireParams('arc', host));
+      final second = await registry.acquire().run(AcquireParams('arc', host));
 
       // Два экземпляра поверх одного файла разошлись бы состоянием: записанное
       // через один не увидел бы другой.
@@ -248,8 +254,8 @@ void main() {
 
     test('закрывает последний ушедший', () async {
       final host = await nodeAt('/home/archive.arc');
-      final first = await registry.acquire('arc', host).result;
-      final second = await registry.acquire('arc', host).result;
+      final first = await registry.acquire().run(AcquireParams('arc', host));
+      final second = await registry.acquire().run(AcquireParams('arc', host));
       final provider = first.provider as InMemoryArchiveProvider;
 
       await first.release();
@@ -262,8 +268,8 @@ void main() {
 
     test('второе освобождение той же аренды ничего не делает', () async {
       final host = await nodeAt('/home/archive.arc');
-      final lease = await registry.acquire('arc', host).result;
-      final other = await registry.acquire('arc', host).result;
+      final lease = await registry.acquire().run(AcquireParams('arc', host));
+      final other = await registry.acquire().run(AcquireParams('arc', host));
 
       // Отпускать полагается из `finally`, куда попадают дважды.
       await lease.release();
@@ -275,7 +281,7 @@ void main() {
 
     test('leaseOf делает арендатором того, у кого провайдер уже на руках', () async {
       final host = await nodeAt('/home/archive.arc');
-      final lease = await registry.acquire('arc', host).result;
+      final lease = await registry.acquire().run(AcquireParams('arc', host));
 
       final second = registry.leaseOf(lease.provider)!;
       await lease.release();
@@ -291,9 +297,9 @@ void main() {
     });
 
     test('аренда внутреннего держит внешний', () async {
-      final outer = await registry.acquire('arc', await nodeAt('/home/archive.arc')).result;
-      final nested = (await outer.provider.resolvePath('/nested.arc').result)!;
-      final inner = await registry.acquire('arc', nested).result;
+      final outer = await registry.acquire().run(AcquireParams('arc', await nodeAt('/home/archive.arc')));
+      final nested = (await outer.provider.resolvePath().run('/nested.arc'))!;
+      final inner = await registry.acquire().run(AcquireParams('arc', nested));
 
       // Внешний нужен внутреннему: его файл — это данные внутреннего.
       await outer.release();
@@ -312,10 +318,10 @@ void main() {
         FakeEntry.file('/home/archive.arc', content: [0]),
       ]);
       final host = await nodeAt('/home/archive.arc');
-      final twin = (await other.resolvePath('/home/archive.arc').result)!;
+      final twin = (await other.resolvePath().run('/home/archive.arc'))!;
 
-      final first = await registry.acquire('arc', host).result;
-      final second = await registry.acquire('arc', twin).result;
+      final first = await registry.acquire().run(AcquireParams('arc', host));
+      final second = await registry.acquire().run(AcquireParams('arc', twin));
 
       // Строка одна, а файлы разные: один на диске, другой на сервере.
       expect(second.provider, isNot(same(first.provider)));
@@ -325,17 +331,23 @@ void main() {
     test('неудачное монтирование записи не оставляет', () async {
       final broken = ProviderRegistry(root: disk)..register(
         'arc',
-        (host) => CompletedOperation<TreeProvider>.error(const FsError('/home/archive.arc', FsErrorKind.io)),
+        () => CompletedOperation<FsNode, TreeProvider>.error(const FsError('/home/archive.arc', FsErrorKind.io)),
         extensions: {'arc'},
       );
 
-      await expectLater(broken.acquire('arc', await nodeAt('/home/archive.arc')).result, throwsA(isA<FsError>()));
+      await expectLater(
+        broken.acquire().run(AcquireParams('arc', await nodeAt('/home/archive.arc'))),
+        throwsA(isA<FsError>()),
+      );
 
       expect(broken.mounted, isEmpty);
     });
 
     test('незарегистрированная схема — отказ, а не запись в таблице', () async {
-      await expectLater(registry.acquire('zip', await nodeAt('/home/archive.arc')).result, throwsA(isA<FsError>()));
+      await expectLater(
+        registry.acquire().run(AcquireParams('zip', await nodeAt('/home/archive.arc'))),
+        throwsA(isA<FsError>()),
+      );
 
       expect(registry.mounted, isEmpty);
     });
@@ -350,7 +362,7 @@ void main() {
         opened = [];
         slow = ProviderRegistry(root: disk)..register(
           'arc',
-          (host) => TaskOperation<TreeProvider>((op) {
+          () => TaskOperation<FsNode, TreeProvider>((op, host) {
             op.message('Unpacking ${host.name}');
             return ProviderRegistry.keepUnlessCanceled(op, () async {
               await door.future;
@@ -371,8 +383,8 @@ void main() {
 
       test('второй арендатор ждёт то же монтирование, а не заводит второе', () async {
         final host = await nodeAt('/home/archive.arc');
-        final first = slow.acquire('arc', host);
-        final second = slow.acquire('arc', host);
+        final first = slow.acquire()..start(AcquireParams('arc', host));
+        final second = slow.acquire()..start(AcquireParams('arc', host));
         await pumpEventQueue();
 
         expect(slow.mounted.single.opening, isTrue);
@@ -385,8 +397,8 @@ void main() {
 
       test('ушедший арендатор работы остальных не прерывает', () async {
         final host = await nodeAt('/home/archive.arc');
-        final first = slow.acquire('arc', host);
-        final second = slow.acquire('arc', host);
+        final first = slow.acquire()..start(AcquireParams('arc', host));
+        final second = slow.acquire()..start(AcquireParams('arc', host));
         await pumpEventQueue();
 
         first.cancel();
@@ -400,7 +412,7 @@ void main() {
 
       test('ушли все — монтирование прерывается', () async {
         final host = await nodeAt('/home/archive.arc');
-        final only = slow.acquire('arc', host);
+        final only = slow.acquire()..start(AcquireParams('arc', host));
         await pumpEventQueue();
 
         only.cancel();
@@ -415,8 +427,8 @@ void main() {
 
       test('веха монтирования доходит до каждого арендатора', () async {
         final host = await nodeAt('/home/archive.arc');
-        final first = slow.acquire('arc', host);
-        final second = slow.acquire('arc', host);
+        final first = slow.acquire()..start(AcquireParams('arc', host));
+        final second = slow.acquire()..start(AcquireParams('arc', host));
         final heard = <String>[];
         second.progress.listen((event) {
           if (event.message.isNotEmpty) {
@@ -436,14 +448,14 @@ void main() {
       test('acquire во время закрытия ждёт его и монтирует заново', () async {
         final host = await nodeAt('/home/archive.arc');
         door.complete();
-        final lease = await slow.acquire('arc', host).result;
+        final lease = await slow.acquire().run(AcquireParams('arc', host));
         final first = lease.provider as InMemoryArchiveProvider;
 
         // Отпускаем и тут же просим снова: между этими двумя вызовами нельзя
         // получить умирающий экземпляр — у 7z это ещё и перечитанное
         // оглавление, подменённое пересборкой.
         final releasing = lease.release();
-        final second = await slow.acquire('arc', host).result;
+        final second = await slow.acquire().run(AcquireParams('arc', host));
         await releasing;
 
         expect(first.closed, isTrue);
@@ -454,7 +466,7 @@ void main() {
 
     test('на выходе закрывается всё, не спрашивая счётчиков', () async {
       final host = await nodeAt('/home/archive.arc');
-      final lease = await registry.acquire('arc', host).result;
+      final lease = await registry.acquire().run(AcquireParams('arc', host));
 
       await registry.disposeAll();
 
@@ -464,21 +476,25 @@ void main() {
   });
 
   group('ход разбора', () {
-    /// Собирает сообщения операции по порядку, без повторов подряд.
-    Future<List<String>> messagesOf(AsyncOperation<Object?> operation) async {
+    /// Собирает сообщения работы по порядку, без повторов подряд.
+    ///
+    /// Подписка ставится до запуска — потому «создать» и «запустить» и
+    /// разведены: раньше первое сообщение приходилось ловить наперегонки.
+    Future<List<String>> messagesOf(Operation<ResolvePathParams, Object?> operation, String path) async {
       final seen = <String>[];
       operation.progress.listen((event) {
         if (event.message.isNotEmpty && (seen.isEmpty || seen.last != event.message)) {
           seen.add(event.message);
         }
       });
+      operation.start(ResolvePathParams(path));
       await operation.result;
       await pumpEventQueue();
       return seen;
     }
 
     test('каждое звено цепочки называет себя', () async {
-      final messages = await messagesOf(registry.resolvePath('/home/archive.arc:arc:/inner/doc.txt'));
+      final messages = await messagesOf(registry.resolvePath(), '/home/archive.arc:arc:/inner/doc.txt');
 
       expect(messages, ['Reading archive.arc…']);
     });
@@ -486,7 +502,7 @@ void main() {
     test('вложенные архивы называются по порядку вложенности', () async {
       // Показанный путь схем не содержит, и звенья в нём находит сам разбор —
       // тем важнее рассказать, на каком из них работа стоит.
-      final messages = await messagesOf(registry.resolveDisplayPath('/home/archive.arc/nested.arc/readme.md'));
+      final messages = await messagesOf(registry.resolveDisplayPath(), '/home/archive.arc/nested.arc/readme.md');
 
       expect(messages, ['Reading archive.arc…', 'Reading nested.arc…']);
     });
@@ -494,7 +510,7 @@ void main() {
     test('прогресс провайдера доходит наверх', () async {
       final talking = ProviderRegistry(root: _TalkingProvider(disk));
 
-      final messages = await messagesOf(talking.resolvePath('/home/notes.txt'));
+      final messages = await messagesOf(talking.resolvePath(), '/home/notes.txt');
 
       expect(messages, ['Looking up /home/notes.txt']);
     });
@@ -502,14 +518,14 @@ void main() {
     test('прогресс фабрики доходит наверх', () async {
       final talking = ProviderRegistry(root: disk)..register(
         'arc',
-        (host) => TaskOperation<TreeProvider>((op) async {
+        () => TaskOperation<FsNode, TreeProvider>((op, host) async {
           op.message('Unpacking ${host.name}');
           return InMemoryArchiveProvider(archiveEntries(), host);
         }),
         extensions: {'arc'},
       );
 
-      final messages = await messagesOf(talking.resolveDisplayPath('/home/archive.arc/readme.md'));
+      final messages = await messagesOf(talking.resolveDisplayPath(), '/home/archive.arc/readme.md');
 
       // Веха реестра — про звено, веха фабрики — про то, чем она занята внутри.
       expect(messages, ['Reading archive.arc…', 'Unpacking archive.arc']);
@@ -517,7 +533,7 @@ void main() {
 
     test('отмена доходит до провайдера', () async {
       final slow = _SlowProvider(disk);
-      final operation = ProviderRegistry(root: slow).resolvePath('/home/notes.txt');
+      final operation = ProviderRegistry(root: slow).resolvePath()..start(const ResolvePathParams('/home/notes.txt'));
       await pumpEventQueue();
 
       operation.cancel();
@@ -533,7 +549,7 @@ void main() {
       final opened = <InMemoryArchiveProvider>[];
       final slow = ProviderRegistry(root: disk)..register(
         'arc',
-        (host) => TaskOperation<TreeProvider>((op) {
+        () => TaskOperation<FsNode, TreeProvider>((op, host) {
           return ProviderRegistry.keepUnlessCanceled(op, () async {
             await door.future;
             final provider = InMemoryArchiveProvider(archiveEntries(), host);
@@ -544,7 +560,7 @@ void main() {
         extensions: {'arc'},
       );
 
-      final operation = slow.resolveDisplayPath('/home/archive.arc/readme.md');
+      final operation = slow.resolveDisplayPath()..start(ResolvePathParams('/home/archive.arc/readme.md'));
       await pumpEventQueue();
       operation.cancel();
       await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
@@ -563,9 +579,9 @@ class _TalkingProvider extends _ForwardingProvider {
   _TalkingProvider(super.inner);
 
   @override
-  AsyncOperation<FsNode?> resolvePath(String path) => TaskOperation<FsNode?>((op) async {
+  Operation<String, FsNode?> resolvePath() => TaskOperation<String, FsNode?>((op, path) async {
     op.message('Looking up $path');
-    return inner.resolvePath(path).result;
+    return inner.resolvePath().run(path);
   });
 }
 
@@ -576,8 +592,8 @@ class _SlowProvider extends _ForwardingProvider {
   bool canceled = false;
 
   @override
-  AsyncOperation<FsNode?> resolvePath(String path) {
-    final operation = TaskOperation<FsNode?>((op) async {
+  Operation<String, FsNode?> resolvePath() {
+    final operation = TaskOperation<String, FsNode?>((op, path) async {
       await Future<void>.delayed(const Duration(seconds: 1));
       return null;
     });
@@ -602,9 +618,8 @@ class _ForwardingProvider extends InMemoryTreeProvider {
   String get homePath => inner.homePath;
 
   @override
-  AsyncOperation<FsNode?> resolvePath(String path) => inner.resolvePath(path);
+  Operation<String, FsNode?> resolvePath() => inner.resolvePath();
 
   @override
-  AsyncOperation<List<FsNode>> getDirectoryListing(DirectoryNode dir, {bool includeHidden = true}) =>
-      inner.getDirectoryListing(dir, includeHidden: includeHidden);
+  Operation<ListingParams, List<FsNode>> getDirectoryListing() => inner.getDirectoryListing();
 }

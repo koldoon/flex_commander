@@ -26,7 +26,7 @@ class SshFileSystem implements FcModule {
         scheme,
         // Пароль и парольная фраза спрашиваются тем же окном, что и пароль
         // архива: модуль не знает, ни как спрашивают, ни где помнят ответ.
-        (address) => TaskOperation<TreeProvider>((op) {
+        () => TaskOperation<Uri, TreeProvider>((op, address) {
           // Ни адреса целиком, ни authority: в них бывает пароль, набранный
           // прямо в строке. Хост и протокол говорят ровно то, что нужно.
           op.message('Connecting to $scheme://${address.host}…');

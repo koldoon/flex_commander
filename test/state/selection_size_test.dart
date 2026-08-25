@@ -30,8 +30,8 @@ class _HeldSizeProvider extends InMemoryTreeProvider {
   final Completer<void> release = Completer<void>();
 
   @override
-  AsyncOperation<int> calculateSize(List<FsNode> nodes) {
-    return TaskOperation<int>((op) async {
+  Operation<List<FsNode>, int> calculateSize() {
+    return TaskOperation<List<FsNode>, int>((op, nodes) async {
       op.report(const OperationProgress(processed: partial));
       await release.future;
       op.checkCanceled();
@@ -53,8 +53,8 @@ class _CountingSizeProvider extends InMemoryTreeProvider {
   int peak = 0;
 
   @override
-  AsyncOperation<int> calculateSize(List<FsNode> nodes) {
-    return TaskOperation<int>((op) async {
+  Operation<List<FsNode>, int> calculateSize() {
+    return TaskOperation<List<FsNode>, int>((op, nodes) async {
       running++;
       peak = running > peak ? running : peak;
       await release.future;
@@ -69,8 +69,9 @@ class _FailingSizeProvider extends InMemoryTreeProvider {
   _FailingSizeProvider() : super(_entries());
 
   @override
-  AsyncOperation<int> calculateSize(List<FsNode> nodes) =>
-      TaskOperation<int>((op) async => throw const FsError('/home/docs', FsErrorKind.permissionDenied));
+  Operation<List<FsNode>, int> calculateSize() => TaskOperation<List<FsNode>, int>(
+    (op, nodes) async => throw const FsError('/home/docs', FsErrorKind.permissionDenied),
+  );
 }
 
 /// Размер помеченного: файлы известны сразу, каталоги считаются фоном.

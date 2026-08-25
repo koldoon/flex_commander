@@ -12,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 class _SlowCommand extends AppCommand {
   _SlowCommand(this.operation);
 
-  final TaskOperation<void> operation;
+  final TaskOperation<void, void> operation;
 
   FcAsyncRun? lastRun;
 
@@ -47,7 +47,7 @@ class _SlowCommand extends AppCommand {
       failureMessage: 'Slow work failed',
       show: present,
     );
-    run.onStart = () => run.run(operation, message: 'Working…');
+    run.onStart = () => run.run(operation, null, message: 'Working…');
     lastRun = run;
 
     present();
@@ -77,9 +77,9 @@ void main() {
   });
 
   /// Работа, которая идёт, пока её не отпустят.
-  ({TaskOperation<void> operation, void Function() finish}) blockingOperation() {
+  ({TaskOperation<void, void> operation, void Function() finish}) blockingOperation() {
     var done = false;
-    final operation = TaskOperation<void>((op) async {
+    final operation = TaskOperation<void, void>((op, _) async {
       while (!done) {
         await Future<void>.delayed(const Duration(milliseconds: 1));
         await op.checkpoint();

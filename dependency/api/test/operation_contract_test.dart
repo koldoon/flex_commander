@@ -14,13 +14,15 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   test('в контракте работ нет приложения, областей и панелей', () {
     // Реестр работ — другое дело: он как раз знает, под какой панелью
-    // показывать полоску. Проверяется контракт самой работы.
-    const contract = 'lib/src/__ref/operation.dart';
+    // показывать полоску. Проверяется контракт самой работы: сама Operation и
+    // типы её параметров — то, из чего работа узнаёт, что ей делать.
+    const contracts = ['lib/src/async/async_operation.dart', 'lib/src/tree/operation_params.dart'];
     const forbidden = ['Application', 'ApplicationView', 'Panel'];
 
     final code = [
-      for (final line in File(contract).readAsLinesSync())
-        if (!line.trimLeft().startsWith('///') && !line.trimLeft().startsWith('//')) line,
+      for (final contract in contracts)
+        for (final line in File(contract).readAsLinesSync())
+          if (!line.trimLeft().startsWith('///') && !line.trimLeft().startsWith('//')) line,
     ].join('\n');
 
     final offenders = [

@@ -73,7 +73,7 @@ void main() {
 
     await transfer();
 
-    final copied = await provider.resolvePath('/backup/docs/readme.md').result;
+    final copied = await provider.resolvePath().run('/backup/docs/readme.md');
     expect(copied, isNotNull);
   });
 
@@ -81,7 +81,7 @@ void main() {
     app.left.setCursorToName('notes.txt');
     await transfer(destination: '/home/docs');
 
-    expect(await provider.resolvePath('/home/docs/notes.txt').result, isNotNull);
+    expect(await provider.resolvePath().run('/home/docs/notes.txt'), isNotNull);
     expect(namesOf(app.right), isNot(contains('notes.txt')));
   });
 
@@ -165,7 +165,7 @@ void main() {
       // Значения нет вовсе — и это значит «не следовать».
       await transfer();
 
-      final copied = await provider.resolvePath('/backup/shortcut').result;
+      final copied = await provider.resolvePath().run('/backup/shortcut');
       expect(copied, isA<LinkNode>());
     });
 
@@ -174,7 +174,7 @@ void main() {
       await transfer(followLinks: true);
 
       // Пошли по ссылке: скопировался каталог, на который она указывает.
-      expect(await provider.resolvePath('/backup/shortcut/readme.md').result, isNotNull);
+      expect(await provider.resolvePath().run('/backup/shortcut/readme.md'), isNotNull);
     });
   });
 

@@ -96,8 +96,8 @@ class SftpTreeProvider
   }
 
   @override
-  AsyncOperation<FsNode?> resolvePath(String path) {
-    return TaskOperation<FsNode?>((op) async {
+  Operation<String, FsNode?> resolvePath() {
+    return TaskOperation<String, FsNode?>((op, path) async {
       final normalized = _normalize(target.stripAuthority(path));
       if (normalized == '/') {
         return _root;
@@ -138,8 +138,10 @@ class SftpTreeProvider
   }
 
   @override
-  AsyncOperation<List<FsNode>> getDirectoryListing(DirectoryNode dir, {bool includeHidden = false}) {
-    return TaskOperation<List<FsNode>>((op) async {
+  Operation<ListingParams, List<FsNode>> getDirectoryListing() {
+    return TaskOperation<ListingParams, List<FsNode>>((op, params) async {
+      final dir = params.dir;
+      final includeHidden = params.includeHidden;
       final path = remotePathOf(dir);
       op.report(OperationProgress(message: 'Reading ${pathOf(dir)}…'));
 
@@ -168,8 +170,8 @@ class SftpTreeProvider
   }
 
   @override
-  AsyncOperation<FsNode?> resolveLink(LinkNode link) {
-    return TaskOperation<FsNode?>((op) async {
+  Operation<LinkNode, FsNode?> resolveLink() {
+    return TaskOperation<LinkNode, FsNode?>((op, link) async {
       final resolved = await _resolveTarget(link);
       op.checkCanceled();
       return resolved;
@@ -279,8 +281,8 @@ class SftpTreeProvider
   }
 
   @override
-  AsyncOperation<int> calculateSize(List<FsNode> nodes) {
-    return TaskOperation<int>((op) async {
+  Operation<List<FsNode>, int> calculateSize() {
+    return TaskOperation<List<FsNode>, int>((op, nodes) async {
       var total = 0;
 
       for (final node in nodes) {

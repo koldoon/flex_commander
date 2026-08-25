@@ -44,8 +44,8 @@ void main() {
     disk = LocalTreeProvider(homePath: root, readInIsolate: false);
     registry = ProviderRegistry(root: disk)..register(
       ZipTreeProvider.schemeName,
-      (host) => TaskOperation<TreeProvider>(
-        (op) => ZipTreeProvider.open(host, credentials: FakeCredentials(), staging: const LocalStagingArea()),
+      () => TaskOperation<FsNode, TreeProvider>(
+        (op, host) => ZipTreeProvider.open(host, credentials: FakeCredentials(), staging: const LocalStagingArea()),
       ),
       extensions: ZipTreeProvider.extensions,
     );
@@ -58,14 +58,14 @@ void main() {
   });
 
   Future<TreeProvider> mounted() async {
-    final host = (await disk.resolvePath(archivePath).result)!;
-    return (await registry.acquire(ZipTreeProvider.schemeName, host).result).provider;
+    final host = (await disk.resolvePath().run(archivePath))!;
+    return (await registry.acquire().run(AcquireParams(ZipTreeProvider.schemeName, host))).provider;
   }
 
-  Future<FsNode> onDisk(String path) async => (await disk.resolvePath(p.join(root, path)).result)!;
+  Future<FsNode> onDisk(String path) async => (await disk.resolvePath().run(p.join(root, path)))!;
 
   Future<DirectoryNode> inArchive(TreeProvider zip, String path) async =>
-      (await zip.resolvePath(path).result)! as DirectoryNode;
+      (await zip.resolvePath().run(path))! as DirectoryNode;
 
   /// Что лежит в файле архива — прочитанное заново, а не из памяти провайдера.
   Future<Map<String, String>> archiveOnDisk() async {
@@ -80,10 +80,12 @@ void main() {
     test('файл с диска оказывается в архиве', () async {
       final zip = await mounted();
 
-      await engine.copy([await onDisk('notes.txt')], await inArchive(zip, '/')).result;
+      await engine.copy().run(TransferParams([await onDisk('notes.txt')], await inArchive(zip, '/')));
 
       // Дерево показывает новую запись сразу.
-      final names = (await zip.getDirectoryListing(await inArchive(zip, '/')).result).map((node) => node.name);
+      final names = (await zip.getDirectoryListing().run(
+        ListingParams(await inArchive(zip, '/')),
+      )).map((node) => node.name);
       expect(names, contains('notes.txt'));
 
       // И она же лежит в самом файле архива.
@@ -95,7 +97,7 @@ void main() {
     test('каталог копируется со всем содержимым', () async {
       final zip = await mounted();
 
-      await engine.copy([await onDisk('photos')], await inArchive(zip, '/')).result;
+      await engine.copy().run(TransferParams([await onDisk('photos')], await inArchive(zip, '/')));
 
       expect(await archiveOnDisk(), containsPair('photos/cat.txt', 'кот'));
     });
@@ -103,7 +105,7 @@ void main() {
     test('копирование во вложенный каталог архива', () async {
       final zip = await mounted();
 
-      await engine.copy([await onDisk('notes.txt')], await inArchive(zip, '/docs')).result;
+      await engine.copy().run(TransferParams([await onDisk('notes.txt')], await inArchive(zip, '/docs')));
 
       expect(await archiveOnDisk(), containsPair('docs/notes.txt', 'заметки'));
       expect(await archiveOnDisk(), containsPair('docs/guide.txt', 'руководство'));
@@ -115,7 +117,7 @@ void main() {
 
       // Границы работы движок сообщает сам: внутри них архив не трогается.
       await zip.beginWrites();
-      await engine.copy([await onDisk('notes.txt')], destination).result;
+      await engine.copy().run(TransferParams([await onDisk('notes.txt')], destination));
       expect(await archiveOnDisk(), isNot(contains('notes.txt')), reason: 'внутри работы архив не пересобирается');
 
       await zip.endWrites();
@@ -124,9 +126,9 @@ void main() {
 
     test('содержимое читается обратно из архива', () async {
       final zip = await mounted();
-      await engine.copy([await onDisk('notes.txt')], await inArchive(zip, '/')).result;
+      await engine.copy().run(TransferParams([await onDisk('notes.txt')], await inArchive(zip, '/')));
 
-      final node = (await zip.resolvePath('/notes.txt').result)!;
+      final node = (await zip.resolvePath().run('/notes.txt'))!;
       final bytes = await (await (zip as FileContentProvider).openRead(node)).expand((chunk) => chunk).toList();
 
       expect(utf8.decode(bytes), 'заметки');
@@ -146,7 +148,7 @@ void main() {
     test('запись удаляется из архива', () async {
       final zip = await mounted();
 
-      await engine.remove([(await zip.resolvePath('/readme.md').result)!], toTrash: false).result;
+      await engine.remove().run(RemoveParams([(await zip.resolvePath().run('/readme.md'))!], toTrash: false));
 
       expect(await archiveOnDisk(), isNot(contains('readme.md')));
       expect(await archiveOnDisk(), containsPair('docs/guide.txt', 'руководство'));
@@ -155,7 +157,7 @@ void main() {
     test('каталог удаляется со всем содержимым', () async {
       final zip = await mounted();
 
-      await engine.remove([(await zip.resolvePath('/docs').result)!], toTrash: false).result;
+      await engine.remove().run(RemoveParams([(await zip.resolvePath().run('/docs'))!], toTrash: false));
 
       final left = await archiveOnDisk();
       expect(left.keys, isNot(contains('docs/guide.txt')));
@@ -168,8 +170,9 @@ void main() {
 
       // Перезапись — обычный вопрос движка. По умолчанию он предлагает
       // пропустить, поэтому в тесте отвечаем «перезаписать» явно.
-      final operation = engine.copy([await onDisk('readme.md')], await inArchive(zip, '/'));
+      final operation = engine.copy();
       operation.requests.listen((request) => request.respond(OperationRequestOption.overwrite));
+      operation.start(TransferParams([await onDisk('readme.md')], await inArchive(zip, '/')));
       await operation.result;
 
       expect(await archiveOnDisk(), containsPair('readme.md', 'новая версия'));
@@ -185,11 +188,10 @@ void main() {
         outerPath,
       ).writeAsBytes(ZipEncoder().encodeBytes(Archive()..add(ArchiveFile.bytes('nested.zip', inner))));
 
-      final outer =
-          (await registry.acquire(ZipTreeProvider.schemeName, (await disk.resolvePath(outerPath).result)!).result)
-              .provider;
-      final nestedHost = (await outer.resolvePath('/nested.zip').result)!;
-      final nested = (await registry.acquire(ZipTreeProvider.schemeName, nestedHost).result).provider;
+      final outerHost = (await disk.resolvePath().run(outerPath))!;
+      final outer = (await registry.acquire().run(AcquireParams(ZipTreeProvider.schemeName, outerHost))).provider;
+      final nestedHost = (await outer.resolvePath().run('/nested.zip'))!;
+      final nested = (await registry.acquire().run(AcquireParams(ZipTreeProvider.schemeName, nestedHost))).provider;
 
       // Писать в копию бессмысленно: изменения ушли бы вместе с ней.
       expect(nested.canWrite, isFalse);
@@ -211,9 +213,9 @@ void main() {
 
       // Путь приёмника команда разбирает панелью — так же, как F5, и держит
       // аренду всё время работы: панель за это время вправе уйти куда угодно.
-      final destination = await panel.resolvePath('$archivePath:zip:/').result;
+      final destination = await panel.resolvePath().run('$archivePath:zip:/');
       try {
-        await engine.copy([await onDisk('notes.txt')], destination.node! as DirectoryNode).result;
+        await engine.copy().run(TransferParams([await onDisk('notes.txt')], destination.node! as DirectoryNode));
       } finally {
         await destination.release();
       }

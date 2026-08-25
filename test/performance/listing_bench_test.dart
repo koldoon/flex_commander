@@ -99,9 +99,9 @@ void main() {
 
     for (final count in [1000, 10000]) {
       final path = await makeDirectory(count);
-      final dir = (await provider.resolvePath(path).result)! as DirectoryNode;
+      final dir = (await provider.resolvePath().run(path))! as DirectoryNode;
 
-      final listing = await measure(() => provider.getDirectoryListing(dir).result);
+      final listing = await measure(() => provider.getDirectoryListing().run(ListingParams(dir)));
       row(count, listing.toStringAsFixed(2));
     }
   }, timeout: const Timeout(Duration(minutes: 5)));

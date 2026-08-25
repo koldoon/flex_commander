@@ -191,8 +191,8 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
   }
 
   @override
-  AsyncOperation<FsNode?> resolvePath(String path) {
-    return TaskOperation<FsNode?>((op) async {
+  Operation<String, FsNode?> resolvePath() {
+    return TaskOperation<String, FsNode?>((op, path) async {
       FsNode node = rootDirectory;
       SevenZipEntry entry = _listing.root;
 
@@ -209,8 +209,10 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
   }
 
   @override
-  AsyncOperation<List<FsNode>> getDirectoryListing(DirectoryNode dir, {bool includeHidden = false}) {
-    return TaskOperation<List<FsNode>>((op) async {
+  Operation<ListingParams, List<FsNode>> getDirectoryListing() {
+    return TaskOperation<ListingParams, List<FsNode>>((op, params) async {
+      final dir = params.dir;
+      final includeHidden = params.includeHidden;
       final entry = _entryOf(dir);
       if (entry == null || !entry.isDirectory) {
         throw FsError(dir.pathString, FsErrorKind.notFound);
@@ -238,7 +240,7 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
 
   /// Ссылок внутри архива мы не показываем: разрешать нечего.
   @override
-  AsyncOperation<FsNode?> resolveLink(LinkNode link) => CompletedOperation<FsNode?>(null);
+  Operation<LinkNode, FsNode?> resolveLink() => CompletedOperation<LinkNode, FsNode?>(null);
 
   @override
   Future<void> countEntries(FsNode node, void Function(int bytes) onEntry) async {
@@ -251,8 +253,8 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
 
   /// Размер считается по оглавлению: обходить нечего, всё уже прочитано.
   @override
-  AsyncOperation<int> calculateSize(List<FsNode> nodes) {
-    return TaskOperation<int>((op) async {
+  Operation<List<FsNode>, int> calculateSize() {
+    return TaskOperation<List<FsNode>, int>((op, nodes) async {
       var total = 0;
       for (final node in nodes) {
         op.checkCanceled();

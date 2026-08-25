@@ -69,7 +69,7 @@ void main() {
 
   /// Свой каталог на время теста — внутри дома, как его видит сервер.
   Future<DirectoryNode> workDirectory(SftpTreeProvider provider) async {
-    final home = await provider.resolvePath(provider.homePath).result as DirectoryNode;
+    final home = await provider.resolvePath().run(provider.homePath) as DirectoryNode;
     return work = await provider.createDirectory(home, 'flex_commander_test_$pid');
   }
 
@@ -77,7 +77,7 @@ void main() {
       name.isEmpty ? provider!.remotePathOf(dir) : p.posix.join(provider!.remotePathOf(dir), name);
 
   Future<String> readRemote(String path) async {
-    final node = await provider!.resolvePath(path).result;
+    final node = await provider!.resolvePath().run(path);
     final bytes = <int>[];
     await for (final chunk in await provider!.openRead(node!)) {
       bytes.addAll(chunk);
@@ -136,7 +136,7 @@ void main() {
       "&& printf 'x' > '$path/.hidden'",
     );
 
-    final nodes = await provider.getDirectoryListing(dir).result;
+    final nodes = await provider.getDirectoryListing().run(ListingParams(dir));
     final names = nodes.map((node) => node.name).toList();
 
     expect(names.first, '..');
@@ -164,13 +164,13 @@ void main() {
 
     // Скрытое по требованию видно.
     expect(
-      (await provider.getDirectoryListing(dir, includeHidden: true).result).map((node) => node.name),
+      (await provider.getDirectoryListing().run(ListingParams(dir, includeHidden: true))).map((node) => node.name),
       contains('.hidden'),
     );
 
     // И через ссылку на каталог ходится.
-    expect(await provider.resolvePath('$path/current').result, isA<LinkNode>());
-    await writeRemote(await provider.resolvePath('$path/docs').result as DirectoryNode, 'guide.txt', 'руководство');
+    expect(await provider.resolvePath().run('$path/current'), isA<LinkNode>());
+    await writeRemote(await provider.resolvePath().run('$path/docs') as DirectoryNode, 'guide.txt', 'руководство');
     expect(await readRemote('$path/current/guide.txt'), 'руководство');
   });
 
@@ -193,19 +193,19 @@ void main() {
     final big = List<int>.generate(256 * 1024, (i) => i % 256);
     await File(p.join(outgoing.path, 'deep.bin')).writeAsBytes(big);
 
-    final source = await local.resolvePath(p.join(localWork!.path, 'outgoing')).result;
-    await engine.copy([source!], dir).result;
+    final source = await local.resolvePath().run(p.join(localWork!.path, 'outgoing'));
+    await engine.copy().run(TransferParams([source!], dir));
 
     final path = remote(dir);
     expect(await readRemote('$path/outgoing/report.txt'), 'отчёт');
 
-    final uploaded = await provider.resolvePath('$path/outgoing/nested/deep.bin').result;
+    final uploaded = await provider.resolvePath().run('$path/outgoing/nested/deep.bin');
     expect(uploaded, isNotNull);
     expect((uploaded! as FileNode).size, big.length);
 
     // И обратно: тот же файл забираем к себе и сверяем байты.
     final back = await Directory(p.join(localWork!.path, 'back')).create();
-    await engine.copy([uploaded], (await local.resolvePath(back.path).result) as DirectoryNode).result;
+    await engine.copy().run(TransferParams([uploaded], (await local.resolvePath().run(back.path)) as DirectoryNode));
 
     final returned = await File(p.join(back.path, 'deep.bin')).readAsBytes();
     expect(returned, hasLength(big.length));
@@ -222,7 +222,7 @@ void main() {
     final dir = await workDirectory(provider);
     await writeRemote(dir, 'tail.txt', 'начало-и-конец');
 
-    final node = await provider.resolvePath('${remote(dir)}/tail.txt').result;
+    final node = await provider.resolvePath().run('${remote(dir)}/tail.txt');
     final bytes = <int>[];
     await for (final chunk in await provider.openRead(node!, offset: utf8.encode('начало-и-').length)) {
       bytes.addAll(chunk);
@@ -241,7 +241,7 @@ void main() {
     final dir = await workDirectory(provider);
 
     final logs = await provider.createDirectory(dir, 'logs');
-    expect(await provider.resolvePath(remote(dir, 'logs')).result, isA<DirectoryNode>());
+    expect(await provider.resolvePath().run(remote(dir, 'logs')), isA<DirectoryNode>());
 
     // Занятое имя — внятный ответ, а не общий отказ сервера.
     await expectLater(
@@ -250,18 +250,18 @@ void main() {
     );
 
     await writeRemote(logs, 'app.log', 'строка');
-    final logFile = await provider.resolvePath(remote(logs, 'app.log')).result;
+    final logFile = await provider.resolvePath().run(remote(logs, 'app.log'));
 
     expect(await provider.renameEntry(logFile!, dir, 'moved.log'), isTrue);
     expect(await readRemote(remote(dir, 'moved.log')), 'строка');
-    expect(await provider.resolvePath(remote(logs, 'app.log')).result, isNull);
+    expect(await provider.resolvePath().run(remote(logs, 'app.log')), isNull);
 
-    final moved = await provider.resolvePath(remote(dir, 'moved.log')).result;
+    final moved = await provider.resolvePath().run(remote(dir, 'moved.log'));
     await provider.deleteEntry(moved!);
-    expect(await provider.resolvePath(remote(dir, 'moved.log')).result, isNull);
+    expect(await provider.resolvePath().run(remote(dir, 'moved.log')), isNull);
 
     await provider.deleteEntry(logs);
-    expect(await provider.resolvePath(remote(dir, 'logs')).result, isNull);
+    expect(await provider.resolvePath().run(remote(dir, 'logs')), isNull);
   });
 
   test('удаление поддерева — движком, по одному объекту', () async {
@@ -275,13 +275,13 @@ void main() {
     final dir = await workDirectory(provider);
     await remoteShell("mkdir -p '${remote(dir)}/tree/inner' && printf 'a' > '${remote(dir)}/tree/inner/a.txt'");
 
-    final tree = await provider.resolvePath(remote(dir, 'tree')).result;
+    final tree = await provider.resolvePath().run(remote(dir, 'tree'));
 
     // Корзины на сервере нет, поэтому удаление окончательное — движок обходит
     // поддерево сам.
-    await engine.remove([tree!], toTrash: false).result;
+    await engine.remove().run(RemoveParams([tree!], toTrash: false));
 
-    expect(await provider.resolvePath(remote(dir, 'tree')).result, isNull);
+    expect(await provider.resolvePath().run(remote(dir, 'tree')), isNull);
   });
 
   test('панель встаёт на сервер целиком и уходит с него', () async {
@@ -314,7 +314,10 @@ void main() {
     final server = panel.provider;
     expect(await panel.openPath('/home'), isTrue);
     expect(panel.provider.scheme, isNot('ssh'));
-    expect(() => (server as SftpTreeProvider).getDirectoryListing(server.rootDirectory).result, throwsA(anything));
+    expect(
+      () => (server as SftpTreeProvider).getDirectoryListing().run(ListingParams(server.rootDirectory)),
+      throwsA(anything),
+    );
   });
 
   test('архив на сервере открывается показанным путём', () async {
@@ -375,17 +378,17 @@ void main() {
     }
 
     final dir = await workDirectory(provider);
-    expect(await provider.resolvePath(remote(dir, 'нет-такого')).result, isNull);
+    expect(await provider.resolvePath().run(remote(dir, 'нет-такого')), isNull);
 
     await remoteShell(
       "mkdir -p '${remote(dir)}/closed' && printf 'тайна' > '${remote(dir)}/closed/secret' "
       "&& chmod 000 '${remote(dir)}/closed'",
     );
 
-    final closed = await provider.resolvePath(remote(dir, 'closed')).result;
+    final closed = await provider.resolvePath().run(remote(dir, 'closed'));
     try {
       await expectLater(
-        () => provider.getDirectoryListing(closed as DirectoryNode).result,
+        () => provider.getDirectoryListing().run(ListingParams(closed as DirectoryNode)),
         throwsA(isA<FsError>().having((error) => error.kind, 'kind', FsErrorKind.permissionDenied)),
       );
     } finally {

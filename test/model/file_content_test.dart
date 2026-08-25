@@ -28,9 +28,9 @@ void main() {
     }
   });
 
-  Future<FsNode> nodeAt(String name) async => (await provider.resolvePath(p.join(root, name)).result)!;
+  Future<FsNode> nodeAt(String name) async => (await provider.resolvePath().run(p.join(root, name)))!;
 
-  Future<DirectoryNode> rootDir() async => (await provider.resolvePath(root).result)! as DirectoryNode;
+  Future<DirectoryNode> rootDir() async => (await provider.resolvePath().run(root))! as DirectoryNode;
 
   Future<String> read(FsNode node, {int offset = 0}) async {
     final chunks = await (await provider.openRead(node, offset: offset)).toList();

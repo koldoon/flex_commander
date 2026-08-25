@@ -3,6 +3,7 @@ import 'file_attributes.dart';
 import 'file_type.dart';
 import 'node_path.dart';
 import 'tree_provider.dart';
+import 'operation_params.dart';
 
 /// Общий узел дерева.
 ///
@@ -182,8 +183,8 @@ class DirectoryNode extends FileNode {
   @override
   String get baseName => name;
 
-  /// Перечитать содержимое каталога.
-  AsyncOperation<List<FsNode>> refresh() => provider.getDirectoryListing(this);
+  /// Перечитать содержимое каталога: работа заведена и уже идёт.
+  Operation<ListingParams, List<FsNode>> refresh() => provider.getDirectoryListing()..start(ListingParams(this));
 }
 
 /// Символическая ссылка.
@@ -218,7 +219,7 @@ class LinkNode extends FileNode {
   /// Ссылка ведёт в каталог.
   bool get isDirectoryLink => target is DirectoryNode || targetType == FileType.directory;
 
-  AsyncOperation<FsNode?> resolve() => provider.resolveLink(this);
+  Operation<LinkNode, FsNode?> resolve() => provider.resolveLink()..start(this);
 }
 
 /// Верхний узел того же провайдера — корень поддерева, которое он показывает.

@@ -34,13 +34,13 @@ void main() {
   });
 
   Future<DirectoryNode> openRoot() async {
-    final node = await provider.resolvePath(root).result;
+    final node = await provider.resolvePath().run(root);
     return node as DirectoryNode;
   }
 
   Future<Map<String, FsNode>> listRoot({bool includeHidden = false}) async {
     final dir = await openRoot();
-    final nodes = await provider.getDirectoryListing(dir, includeHidden: includeHidden).result;
+    final nodes = await provider.getDirectoryListing().run(ListingParams(dir, includeHidden: includeHidden));
     return {for (final node in nodes) node.name: node};
   }
 
@@ -61,7 +61,7 @@ void main() {
 
     test('первым идёт псевдоузел ".."', () async {
       final dir = await openRoot();
-      final nodes = await provider.getDirectoryListing(dir).result;
+      final nodes = await provider.getDirectoryListing().run(ListingParams(dir));
 
       expect(nodes.first, isA<ParentDirNode>());
       expect((nodes.first as ParentDirNode).targetDirectory?.pathString, p.dirname(root));
@@ -105,7 +105,7 @@ void main() {
       final dir = await openRoot();
       expect(dir.nodes, isEmpty);
 
-      final nodes = await provider.getDirectoryListing(dir).result;
+      final nodes = await provider.getDirectoryListing().run(ListingParams(dir));
       expect(dir.nodes, orderedEquals(nodes));
     });
 
@@ -119,8 +119,8 @@ void main() {
 
     test('чтение в изоляте даёт тот же результат', () async {
       final isolated = LocalTreeProvider(homePath: root);
-      final dir = await isolated.resolvePath(root).result as DirectoryNode;
-      final nodes = await isolated.getDirectoryListing(dir).result;
+      final dir = await isolated.resolvePath().run(root) as DirectoryNode;
+      final nodes = await isolated.getDirectoryListing().run(ListingParams(dir));
 
       expect(nodes.map((n) => n.name), containsAll(['bin', 'docs', 'notes.txt']));
       expect(nodes.whereType<FileNode>().firstWhere((n) => n.name == 'notes.txt').size, 2048);
@@ -130,7 +130,7 @@ void main() {
       final missing = DirectoryNode(provider: provider, name: 'nowhere', parent: await openRoot());
 
       await expectLater(
-        provider.getDirectoryListing(missing).result,
+        provider.getDirectoryListing().run(ListingParams(missing)),
         throwsA(isA<FsError>().having((e) => e.kind, 'kind', FsErrorKind.notFound)),
       );
     });
@@ -138,7 +138,7 @@ void main() {
 
   group('разбор пути', () {
     test('строит цепочку узлов до корня', () async {
-      final node = await provider.resolvePath(p.join(root, 'docs', 'readme.md')).result;
+      final node = await provider.resolvePath().run(p.join(root, 'docs', 'readme.md'));
 
       expect(node, isA<FileNode>());
       expect(node!.name, 'readme.md');
@@ -148,18 +148,18 @@ void main() {
     });
 
     test('несуществующий путь даёт null', () async {
-      expect(await provider.resolvePath(p.join(root, 'nope')).result, isNull);
+      expect(await provider.resolvePath().run(p.join(root, 'nope')), isNull);
     });
 
     test('путь через файл никуда не ведёт', () async {
-      final node = await provider.resolvePath(p.join(root, 'notes.txt', 'inner')).result;
+      final node = await provider.resolvePath().run(p.join(root, 'notes.txt', 'inner'));
       expect(node, isNull);
     });
 
     test('путь через ссылку на каталог разворачивается', () async {
       await File(p.join(root, 'bin', 'tool')).writeAsString('#!/bin/sh');
 
-      final node = await provider.resolvePath(p.join(root, 'bin-link', 'tool')).result;
+      final node = await provider.resolvePath().run(p.join(root, 'bin-link', 'tool'));
 
       expect(node, isA<FileNode>());
       expect(node!.pathString, p.join(root, 'bin-link', 'tool'));
@@ -170,7 +170,7 @@ void main() {
   group('разрешение ссылки', () {
     test('цель становится дочерним узлом ссылки', () async {
       final link = (await listRoot())['bin-link'] as LinkNode;
-      final target = await provider.resolveLink(link).result;
+      final target = await provider.resolveLink().run(link);
 
       expect(target, isA<DirectoryNode>());
       expect(link.target, same(target));
@@ -179,7 +179,7 @@ void main() {
 
     test('видимый путь идёт через ссылку, настоящий — через цель', () async {
       final link = (await listRoot())['bin-link'] as LinkNode;
-      final target = (await provider.resolveLink(link).result)!;
+      final target = (await provider.resolveLink().run(link))!;
 
       // Пользователь зашёл в bin-link — его он и должен видеть в заголовке.
       expect(target.pathString, p.join(root, 'bin-link'));
@@ -189,7 +189,7 @@ void main() {
 
     test('наверх ведёт каталог со ссылкой, а не с её целью', () async {
       final link = (await listRoot())['bin-link'] as LinkNode;
-      final target = (await provider.resolveLink(link).result)! as DirectoryNode;
+      final target = (await provider.resolveLink().run(link))! as DirectoryNode;
 
       // Родительский каталог цели — тот, где лежит ссылка.
       expect(target.parentDirectory?.pathString, root);
@@ -199,8 +199,8 @@ void main() {
       await File(p.join(root, 'bin', 'tool')).writeAsString('#!/bin/sh');
 
       final link = (await listRoot())['bin-link'] as LinkNode;
-      final target = (await provider.resolveLink(link).result)! as DirectoryNode;
-      final nodes = await provider.getDirectoryListing(target).result;
+      final target = (await provider.resolveLink().run(link))! as DirectoryNode;
+      final nodes = await provider.getDirectoryListing().run(ListingParams(target));
 
       expect(nodes.map((n) => n.name), containsAll(['..', 'tool']));
       // И путь файла внутри ссылки тоже остаётся видимым.
@@ -211,7 +211,7 @@ void main() {
       await Link(p.join(root, 'bin-link-2')).create(p.join(root, 'bin-link'));
 
       final link = (await listRoot())['bin-link-2'] as LinkNode;
-      final target = await provider.resolveLink(link).result;
+      final target = await provider.resolveLink().run(link);
 
       expect(target, isA<DirectoryNode>());
       expect(provider.physicalPathOf(target!), p.join(root, 'bin'));
@@ -222,12 +222,12 @@ void main() {
       await Link(p.join(root, 'loop')).create(p.join(root, 'loop'));
 
       final link = (await listRoot())['loop'] as LinkNode;
-      expect(await provider.resolveLink(link).result, isNull);
+      expect(await provider.resolveLink().run(link), isNull);
     });
 
     test('битая ссылка не разрешается', () async {
       final link = (await listRoot())['broken-link'] as LinkNode;
-      expect(await provider.resolveLink(link).result, isNull);
+      expect(await provider.resolveLink().run(link), isNull);
     });
   });
 

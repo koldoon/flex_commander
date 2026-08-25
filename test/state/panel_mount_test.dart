@@ -38,7 +38,7 @@ void main() {
     ]);
     registry = ProviderRegistry(root: disk)..register(
       'arc',
-      (host) => TaskOperation<TreeProvider>((op) async => InMemoryArchiveProvider(archiveEntries(), host)),
+      () => TaskOperation<FsNode, TreeProvider>((op, host) async => InMemoryArchiveProvider(archiveEntries(), host)),
       extensions: {'arc'},
     );
     panel = await panelOn(registry);
@@ -113,7 +113,7 @@ void main() {
   test('битый архив оставляет панель на месте и говорит почему', () async {
     final broken = ProviderRegistry(root: disk)..register(
       'arc',
-      (host) => TaskOperation<TreeProvider>((op) async => throw FsError(host.pathString, FsErrorKind.io)),
+      () => TaskOperation<FsNode, TreeProvider>((op, host) async => throw FsError(host.pathString, FsErrorKind.io)),
       extensions: {'arc'},
     );
     final it = await panelOn(broken);
@@ -130,13 +130,13 @@ void main() {
     panel.setCursorToName('archive.arc');
     await panel.enterCurrent();
     final inside = panel.nodes.firstWhere((node) => node.name == 'readme.md');
-    final outside = (await disk.resolvePath('/home').result)! as DirectoryNode;
+    final outside = (await disk.resolvePath().run('/home'))! as DirectoryNode;
 
     // Источник и приёмник разных провайдеров: ни переименования, ни копии
     // средствами провайдера — только байты.
-    await const TreeTransferEngine().copy([inside], outside).result;
+    await const TreeTransferEngine().copy().run(TransferParams([inside], outside));
 
-    expect(await disk.resolvePath('/home/readme.md').result, isNotNull);
+    expect(await disk.resolvePath().run('/home/readme.md'), isNotNull);
   });
 
   group('жизненный цикл', () {
@@ -147,7 +147,7 @@ void main() {
       mounted = [];
       tracking = ProviderRegistry(root: disk)..register(
         'arc',
-        (host) => TaskOperation<TreeProvider>((op) async {
+        () => TaskOperation<FsNode, TreeProvider>((op, host) async {
           final provider = InMemoryArchiveProvider(archiveEntries(), host);
           mounted.add(provider);
           return provider;
@@ -212,7 +212,7 @@ void main() {
       panel.dispose();
 
       // Он один на приложение и панели не принадлежит.
-      expect(await disk.resolvePath('/home').result, isNotNull);
+      expect(await disk.resolvePath().run('/home'), isNotNull);
     });
 
     group('арендаторов больше одного', () {
@@ -251,7 +251,7 @@ void main() {
         // Раньше здесь провайдер закрывался, а работа продолжала из него
         // читать: «отпускает тот, кто уходит» держалось на модальном окне.
         expect(mounted.single.closed, isFalse);
-        expect((await work.provider.resolvePath('/readme.md').result)?.name, 'readme.md');
+        expect((await work.provider.resolvePath().run('/readme.md'))?.name, 'readme.md');
 
         await work.release();
         expect(mounted.single.closed, isTrue);
@@ -262,7 +262,7 @@ void main() {
         // архив по дороге монтируется ради работы, и отпустить его больше
         // некому.
         final onDisk = await panelOn(tracking);
-        final resolved = await onDisk.resolvePath('/home/archive.arc/inner').result;
+        final resolved = await onDisk.resolvePath().run('/home/archive.arc/inner');
 
         expect(resolved.node?.name, 'inner');
         expect(mounted.single.closed, isFalse);
@@ -275,14 +275,14 @@ void main() {
 
     test('неразобранный путь не оставляет архив открытым', () async {
       // Смонтировать пришлось, а узла внутри не нашлось.
-      expect((await tracking.resolvePath('/home/archive.arc:arc:/missing').result).node, isNull);
+      expect((await tracking.resolvePath().run(ResolvePathParams('/home/archive.arc:arc:/missing'))).node, isNull);
 
       expect(mounted.single.closed, isTrue);
       expect(tracking.mounted, isEmpty, reason: 'запись в таблице тоже не осталась');
     });
 
     test('разобранный путь оставляет архив открытым: им ещё пользуются', () async {
-      final resolved = await tracking.resolvePath('/home/archive.arc:arc:/inner').result;
+      final resolved = await tracking.resolvePath().run(ResolvePathParams('/home/archive.arc:arc:/inner'));
 
       expect(resolved.node, isNotNull);
       expect(mounted.single.closed, isFalse);
@@ -300,7 +300,7 @@ void main() {
       final door = Completer<void>();
       final source = ProviderRegistry(root: disk)..register(
         'arc',
-        (host) => TaskOperation<TreeProvider>((op) async {
+        () => TaskOperation<FsNode, TreeProvider>((op, host) async {
           op.message('Unpacking ${host.name}');
           await door.future;
           return InMemoryArchiveProvider(archiveEntries(), host);

@@ -154,8 +154,10 @@ class InMemoryReadOnlyProvider implements TreeProvider {
   }
 
   @override
-  AsyncOperation<List<FsNode>> getDirectoryListing(DirectoryNode dir, {bool includeHidden = false}) {
-    return TaskOperation<List<FsNode>>((op) async {
+  Operation<ListingParams, List<FsNode>> getDirectoryListing() {
+    return TaskOperation<ListingParams, List<FsNode>>((op, params) async {
+      final dir = params.dir;
+      final includeHidden = params.includeHidden;
       final path = physicalPathOf(dir);
       final error = denied[path];
       if (error != null) {
@@ -192,8 +194,8 @@ class InMemoryReadOnlyProvider implements TreeProvider {
   }
 
   @override
-  AsyncOperation<FsNode?> resolvePath(String path) {
-    return TaskOperation<FsNode?>((op) async {
+  Operation<String, FsNode?> resolvePath() {
+    return TaskOperation<String, FsNode?>((op, path) async {
       final normalized = p.normalize(path);
       final segments = p.split(normalized);
       DirectoryNode parent = _root;
@@ -213,7 +215,7 @@ class InMemoryReadOnlyProvider implements TreeProvider {
         }
         if (node is! DirectoryNode) {
           if (node is LinkNode) {
-            final target = await resolveLink(node).result;
+            final target = await resolveLink().run(node);
             if (target is DirectoryNode) {
               parent = target;
               continue;
@@ -230,8 +232,8 @@ class InMemoryReadOnlyProvider implements TreeProvider {
   /// Цель ссылки становится дочерним узлом самой ссылки — как в настоящем
   /// провайдере, иначе тесты навигации проверяли бы не то поведение.
   @override
-  AsyncOperation<FsNode?> resolveLink(LinkNode link) {
-    return TaskOperation<FsNode?>((op) async {
+  Operation<LinkNode, FsNode?> resolveLink() {
+    return TaskOperation<LinkNode, FsNode?>((op, link) async {
       final entry = _entries[p.normalize(physicalPathOf(link))];
       if (entry == null) {
         return null;
@@ -255,8 +257,8 @@ class InMemoryReadOnlyProvider implements TreeProvider {
   /// Подсчёт размера в памяти: те же промежуточные суммы, что и на диске, —
   /// иначе тесты проверяли бы не то поведение.
   @override
-  AsyncOperation<int> calculateSize(List<FsNode> nodes) {
-    return TaskOperation<int>((op) async {
+  Operation<List<FsNode>, int> calculateSize() {
+    return TaskOperation<List<FsNode>, int>((op, nodes) async {
       var total = 0;
 
       for (final node in nodes) {
@@ -602,7 +604,8 @@ class InMemoryAddressProvider extends InMemoryReadOnlyProvider with InMemoryCont
   /// принимает `resolvePath`**. Иначе панель не сможет открыть собственный
   /// сохранённый путь.
   @override
-  AsyncOperation<FsNode?> resolvePath(String path) => super.resolvePath(_withoutAuthority(path));
+  Operation<String, FsNode?> resolvePath() =>
+      TaskOperation<String, FsNode?>((op, path) => op.delegate(super.resolvePath(), _withoutAuthority(path)));
 
   String _withoutAuthority(String path) {
     final prefix = '//${address.authority}';

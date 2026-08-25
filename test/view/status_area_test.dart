@@ -15,7 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 class _SlowCommand extends AppCommand {
   _SlowCommand(this.operation);
 
-  final TaskOperation<void> operation;
+  final TaskOperation<void, void> operation;
 
   FcAsyncRun? lastRun;
 
@@ -51,7 +51,7 @@ class _SlowCommand extends AppCommand {
       failureMessage: 'Slow work failed',
       show: present,
     );
-    run.onStart = () => run.run(operation, message: 'Working…');
+    run.onStart = () => run.run(operation, null, message: 'Working…');
     lastRun = run;
 
     present();
@@ -84,7 +84,7 @@ void main() {
     addTearDown(tester.view.reset);
 
     var done = false;
-    final operation = TaskOperation<void>((op) async {
+    final operation = TaskOperation<void, void>((op, _) async {
       while (!done) {
         await Future<void>.delayed(const Duration(milliseconds: 1));
         await op.checkpoint();
@@ -133,7 +133,7 @@ void main() {
     addTearDown(tester.view.reset);
 
     var done = false;
-    final operation = TaskOperation<void>((op) async {
+    final operation = TaskOperation<void, void>((op, _) async {
       while (!done) {
         await Future<void>.delayed(const Duration(milliseconds: 1));
         await op.checkpoint();

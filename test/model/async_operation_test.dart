@@ -2,12 +2,13 @@ import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:flutter/foundation.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   group('TaskOperation', () {
     test('возвращает результат и завершается', () async {
-      final op = TaskOperation<int>((op) async => 42);
+      final op = startedTask<int>((op) async => 42);
 
       expect(await op.result, 42);
       expect(op.state, OperationState.complete);
@@ -15,7 +16,7 @@ void main() {
     });
 
     test('ошибка тела попадает в результат', () async {
-      final op = TaskOperation<int>((op) async => throw StateError('boom'));
+      final op = startedTask<int>((op) async => throw StateError('boom'));
 
       await expectLater(op.result, throwsA(isA<StateError>()));
       expect(op.state, OperationState.error);
@@ -23,7 +24,7 @@ void main() {
 
     test('отмена завершает операцию ошибкой OperationCanceled', () async {
       final started = Completer<void>();
-      final op = TaskOperation<int>((op) async {
+      final op = startedTask<int>((op) async {
         started.complete();
         await Future<void>.delayed(const Duration(milliseconds: 50));
         op.checkCanceled();
@@ -38,7 +39,7 @@ void main() {
     });
 
     test('результат отменённой операции не доходит до вызывающего', () async {
-      final op = TaskOperation<int>((op) async {
+      final op = startedTask<int>((op) async {
         await Future<void>.delayed(const Duration(milliseconds: 10));
         return 1;
       });
@@ -52,7 +53,7 @@ void main() {
     });
 
     test('повторная отмена ничего не ломает', () async {
-      final op = TaskOperation<int>((op) async => 1);
+      final op = startedTask<int>((op) async => 1);
       await op.result;
 
       op.cancel();
@@ -61,9 +62,9 @@ void main() {
 
     test('прогресс доходит до подписчика', () async {
       final reported = <String>[];
-      late TaskOperation<void> op;
+      late TaskOperation<void, void> op;
 
-      op = TaskOperation<void>((operation) async {
+      op = startedTask<void>((operation) async {
         // Даём подписчику встать до первого сообщения.
         await Future<void>.delayed(Duration.zero);
         operation.report(const OperationProgress(message: 'step 1'));
@@ -80,9 +81,9 @@ void main() {
 
   group('вопросы пользователю', () {
     test('ответ подписчика возвращается в тело операции', () async {
-      late TaskOperation<String> op;
+      late TaskOperation<void, String> op;
 
-      op = TaskOperation<String>((operation) async {
+      op = startedTask<String>((operation) async {
         await Future<void>.delayed(Duration.zero);
         final answer = await operation.ask(
           OperationRequest(
@@ -99,7 +100,7 @@ void main() {
     });
 
     test('без подписчиков применяется вариант по умолчанию', () async {
-      final op = TaskOperation<String>((operation) async {
+      final op = startedTask<String>((operation) async {
         final answer = await operation.ask(
           OperationRequest(
             message: 'Overwrite file?',
@@ -130,13 +131,13 @@ void main() {
 
   group('CompletedOperation', () {
     test('готовое значение', () async {
-      final op = CompletedOperation<int>(7);
+      final op = CompletedOperation<void, int>(7);
       expect(await op.result, 7);
       expect(op.state, OperationState.complete);
     });
 
     test('готовая ошибка', () async {
-      final op = CompletedOperation<int>.error(StateError('nope'));
+      final op = CompletedOperation<void, int>.error(StateError('nope'));
       expect(op.state, OperationState.error);
       await expectLater(op.result, throwsA(isA<StateError>()));
     });
@@ -146,9 +147,9 @@ void main() {
     ///
     /// Тело бесконечное — так видно и то, что работа встала, и то, что она
     /// пошла дальше.
-    (TaskOperation<void>, List<int>) counting() {
+    (TaskOperation<void, void>, List<int>) counting() {
       final steps = <int>[];
-      final op = TaskOperation<void>((op) async {
+      final op = startedTask<void>((op) async {
         for (var i = 0; ; i++) {
           await op.checkpoint();
           steps.add(i);
@@ -214,7 +215,7 @@ void main() {
     });
 
     test('у законченной операции просить уже нечего', () async {
-      final op = TaskOperation<int>((op) async => 1);
+      final op = startedTask<int>((op) async => 1);
       await op.result;
 
       op.requestCancel();
@@ -239,9 +240,9 @@ void main() {
     ///
     /// Так ведёт себя копирование файла средствами системы: приостановить его
     /// нельзя, можно только бросить.
-    (TaskOperation<void>, List<int>) chunking() {
+    (TaskOperation<void, void>, List<int>) chunking() {
       final chunks = <int>[];
-      final op = TaskOperation<void>((op) async {
+      final op = startedTask<void>((op) async {
         for (var i = 0; ; i++) {
           if (!op.keepRunning()) {
             throw const OperationCanceled();
@@ -337,12 +338,12 @@ void main() {
       // Вложенная рассказывает о себе раньше, чем внешняя успевает подписаться:
       // операция стартует сразу при создании, и первую веху спасает только
       // повтор последнего события новому подписчику.
-      final inner = TaskOperation<int>((op) async {
+      final inner = startedTask<int>((op) async {
         op.message('Reading a.zip');
         await release.future;
         return 1;
       });
-      final outer = TaskOperation<int>((op) => op.delegate(inner));
+      final outer = startedTask<int>((op) => op.delegate(inner, null));
 
       final seen = <String>[];
       outer.progress.listen((event) => seen.add(event.message));
@@ -354,7 +355,7 @@ void main() {
     });
 
     test('веха объявляет долю неизвестной', () async {
-      final op = TaskOperation<void>((op) async => op.message('Connecting'));
+      final op = startedTask<void>((op) async => op.message('Connecting'));
       final seen = <OperationProgress>[];
       op.progress.listen(seen.add);
 
@@ -368,11 +369,11 @@ void main() {
     });
 
     test('отмена внешней доходит до вложенной', () async {
-      final inner = TaskOperation<int>((op) async {
+      final inner = startedTask<int>((op) async {
         await Future<void>.delayed(const Duration(milliseconds: 50));
         return 1;
       });
-      final outer = TaskOperation<int>((op) => op.delegate(inner));
+      final outer = startedTask<int>((op) => op.delegate(inner, null));
       await pumpEventQueue();
 
       outer.cancel();
@@ -384,12 +385,12 @@ void main() {
     test('отмена доходит через несколько уровней', () async {
       // Разбор пути рекурсивен, и работает всегда самая вложенная операция:
       // прерывать её приходится через всю цепочку.
-      final inner = TaskOperation<int>((op) async {
+      final inner = startedTask<int>((op) async {
         await Future<void>.delayed(const Duration(seconds: 1));
         return 1;
       });
-      final middle = TaskOperation<int>((op) => op.delegate(inner));
-      final outer = TaskOperation<int>((op) => op.delegate(middle));
+      final middle = startedTask<int>((op) => op.delegate(inner, null));
+      final outer = startedTask<int>((op) => op.delegate(middle, null));
       await pumpEventQueue();
 
       outer.cancel();
@@ -399,19 +400,20 @@ void main() {
       expect(inner.state, OperationState.canceled);
     });
 
-    test('делегирование из уже отменённой отменяет и вложенную', () async {
-      // Отмена пришла, пока вложенную только создавали: работать она уже
-      // начала, и бросить её без присмотра нельзя.
-      late final TaskOperation<int> inner;
+    test('делегирование из уже отменённой вложенную не запускает', () async {
+      // Раньше вложенная начинала работать в тот же миг, когда её создавали, и
+      // отменённой внешней приходилось её догонять. Теперь догонять нечего:
+      // работа ждёт [Operation.start], а запускать её уже незачем.
+      late final TaskOperation<void, int> inner;
       final started = Completer<void>();
-      final outer = TaskOperation<int>((op) async {
+      final outer = startedTask<int>((op) async {
         started.complete();
         await Future<void>.delayed(const Duration(milliseconds: 10));
-        inner = TaskOperation<int>((op) async {
+        inner = TaskOperation<void, int>((op, _) async {
           await Future<void>.delayed(const Duration(seconds: 1));
           return 1;
-        })..result.ignore();
-        return op.delegate(inner);
+        });
+        return op.delegate(inner, null);
       });
 
       // Отменять до старта тела нельзя: такая операция вовсе не начнётся,
@@ -421,14 +423,14 @@ void main() {
       await expectLater(outer.result, throwsA(isA<OperationCanceled>()));
       await Future<void>.delayed(const Duration(milliseconds: 40));
 
-      expect(inner.state, OperationState.canceled);
+      expect(inner.state, OperationState.inited);
     });
 
     test('завершённую вложенную отмена уже не трогает', () async {
-      final inner = TaskOperation<int>((op) async => 1);
+      final inner = startedTask<int>((op) async => 1);
       final release = Completer<void>();
-      final outer = TaskOperation<int>((op) async {
-        final value = await op.delegate(inner);
+      final outer = startedTask<int>((op) async {
+        final value = await op.delegate(inner, null);
         await release.future;
         return value;
       });
@@ -445,8 +447,8 @@ void main() {
     test('ошибка вложенной приходит наружу как есть', () async {
       // Отказ открыть архив — это отказ, а не отмена: подменять одно другим
       // значило бы промолчать о причине.
-      final inner = TaskOperation<int>((op) async => throw const FsError('/a.zip', FsErrorKind.io));
-      final outer = TaskOperation<int>((op) => op.delegate(inner));
+      final inner = startedTask<int>((op) async => throw const FsError('/a.zip', FsErrorKind.io));
+      final outer = startedTask<int>((op) => op.delegate(inner, null));
 
       await expectLater(outer.result, throwsA(isA<FsError>()));
       expect(outer.state, OperationState.error);
@@ -454,7 +456,7 @@ void main() {
 
     test('вопрос вложенной наверх не идёт: берётся вариант по умолчанию', () async {
       late final OperationRequestOption answer;
-      final inner = TaskOperation<int>((op) async {
+      final inner = startedTask<int>((op) async {
         answer = await op.ask(
           OperationRequest(
             message: 'Overwrite?',
@@ -464,7 +466,7 @@ void main() {
         );
         return 1;
       });
-      final outer = TaskOperation<int>((op) => op.delegate(inner));
+      final outer = startedTask<int>((op) => op.delegate(inner, null));
 
       final questions = <OperationRequest>[];
       outer.requests.listen(questions.add);
@@ -477,11 +479,11 @@ void main() {
     test('просьба прервать вниз не идёт', () async {
       // Мягкая отмена — это вопрос, а задать его вложенной некому: её вопросы
       // наверх не идут, и «спросить» молча превратилось бы в «прервать».
-      final inner = TaskOperation<int>((op) async {
+      final inner = startedTask<int>((op) async {
         await Future<void>.delayed(const Duration(milliseconds: 50));
         return 1;
       });
-      final outer = TaskOperation<int>((op) => op.delegate(inner));
+      final outer = startedTask<int>((op) => op.delegate(inner, null));
       await pumpEventQueue();
 
       outer.requestCancel();
@@ -493,7 +495,7 @@ void main() {
 
     test('событие вложенной после конца внешней ничего не ломает', () async {
       final inner = _StubbornOperation();
-      final outer = TaskOperation<int>((op) => op.delegate(inner));
+      final outer = startedTask<int>((op) => op.delegate(inner, null));
       await pumpEventQueue();
 
       outer.cancel();
@@ -512,7 +514,7 @@ void main() {
 
 /// Операция, которая отмены не слушает: так ведёт себя работа, которую нечем
 /// прервать, — уже начатое подключение или запущенная внешняя программа.
-class _StubbornOperation implements AsyncOperation<int> {
+class _StubbornOperation implements Operation<void, int> {
   final StreamController<OperationProgress> _progress = StreamController<OperationProgress>.broadcast();
   final Completer<int> _completer = Completer<int>();
 
@@ -530,6 +532,9 @@ class _StubbornOperation implements AsyncOperation<int> {
 
   @override
   Stream<OperationRequest> get requests => const Stream.empty();
+
+  @override
+  void start(void params) {}
 
   @override
   void cancel() {}

@@ -65,7 +65,7 @@ void main() {
 
     // Чтение — через провайдер, как это делает панель.
     final local = LocalTreeProvider();
-    final host = (await local.resolvePath(archivePath).result)!;
+    final host = (await local.resolvePath().run(archivePath))!;
     final provider = await SevenZipTreeProvider.open(
       host,
       staging: LocalStagingArea(root: temp),
@@ -77,7 +77,7 @@ void main() {
     final names = (await provider.listChildren(provider.rootDirectory)).map((node) => node.name).toList()..sort();
     expect(names, ['docs', 'notes.txt']);
 
-    final entry = (await provider.resolvePath('/docs/guide.txt').result)! as FileNode;
+    final entry = (await provider.resolvePath().run('/docs/guide.txt'))! as FileNode;
     expect(entry.size, utf8.encode('руководство').length);
 
     final bytes = await (provider as FileContentProvider).openRead(entry);
@@ -100,7 +100,7 @@ void main() {
     await cli.add(archivePath, workingDirectory: source, listFile: list.path);
 
     final local = LocalTreeProvider();
-    final host = (await local.resolvePath(archivePath).result)!;
+    final host = (await local.resolvePath().run(archivePath))!;
     final provider =
         await SevenZipTreeProvider.open(
               host,
@@ -119,7 +119,7 @@ void main() {
     expect(names, ['first.txt', 'second.txt'], reason: 'оглавление перечитано у самой программы');
 
     // Удалить.
-    await provider.deleteEntry((await provider.resolvePath('/first.txt').result)!);
+    await provider.deleteEntry((await provider.resolvePath().run('/first.txt'))!);
 
     names = (await provider.listChildren(provider.rootDirectory)).map((node) => node.name).toList();
     expect(names, ['second.txt']);
@@ -158,7 +158,7 @@ void main() {
     // отдельная беда, см. `zip_archiver/test/password_test.dart`.
     final credentials = FakeCredentials(answers: ['мимо', 'тайна']);
     final local = LocalTreeProvider();
-    final host = (await local.resolvePath(archivePath).result)!;
+    final host = (await local.resolvePath().run(archivePath))!;
     final provider = await SevenZipTreeProvider.open(
       host,
       staging: LocalStagingArea(root: temp),
@@ -171,7 +171,7 @@ void main() {
     expect(credentials.asked, hasLength(2));
     expect(credentials.asked.last.retry, isTrue);
 
-    final entry = (await provider.resolvePath('/secret.txt').result)!;
+    final entry = (await provider.resolvePath().run('/secret.txt'))!;
     final bytes = await (provider as FileContentProvider).openRead(entry);
     expect(utf8.decode(await bytes.expand((chunk) => chunk).toList()), 'секрет');
 

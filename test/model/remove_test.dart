@@ -39,8 +39,8 @@ void main() {
   });
 
   Future<Map<String, FsNode>> listRoot() async {
-    final dir = (await provider.resolvePath(root).result)! as DirectoryNode;
-    final nodes = await provider.getDirectoryListing(dir).result;
+    final dir = (await provider.resolvePath().run(root))! as DirectoryNode;
+    final nodes = await provider.getDirectoryListing().run(ListingParams(dir));
     return {for (final node in nodes) node.name: node};
   }
 
@@ -50,7 +50,7 @@ void main() {
     test('файл переносится в корзину, а не исчезает', () async {
       final nodes = await listRoot();
 
-      await editor.remove([nodes['notes.txt']!]).result;
+      await editor.remove().run(RemoveParams([nodes['notes.txt']!]));
 
       expect(await File(p.join(root, 'notes.txt')).exists(), isFalse);
       expect(await File(trashPath('notes.txt')).exists(), isTrue);
@@ -59,7 +59,7 @@ void main() {
     test('каталог переносится вместе с содержимым', () async {
       final nodes = await listRoot();
 
-      await editor.remove([nodes['docs']!]).result;
+      await editor.remove().run(RemoveParams([nodes['docs']!]));
 
       expect(await Directory(p.join(root, 'docs')).exists(), isFalse);
       expect(await File(p.join(trashPath('docs'), 'readme.md')).exists(), isTrue);
@@ -70,7 +70,7 @@ void main() {
       await File(trashPath('notes.txt')).writeAsString('старый');
 
       final nodes = await listRoot();
-      await editor.remove([nodes['notes.txt']!]).result;
+      await editor.remove().run(RemoveParams([nodes['notes.txt']!]));
 
       expect(await File(trashPath('notes.txt')).readAsString(), 'старый');
       expect(await File(trashPath('notes 2.txt')).exists(), isTrue);
@@ -79,7 +79,7 @@ void main() {
     test('удаляется сама ссылка, а не то, куда она ведёт', () async {
       final nodes = await listRoot();
 
-      await editor.remove([nodes['link-to-docs']!]).result;
+      await editor.remove().run(RemoveParams([nodes['link-to-docs']!]));
 
       expect(await Link(p.join(root, 'link-to-docs')).exists(), isFalse);
       expect(await Directory(p.join(root, 'docs')).exists(), isTrue);
@@ -90,7 +90,7 @@ void main() {
     test('файл исчезает совсем', () async {
       final nodes = await listRoot();
 
-      await editor.remove([nodes['notes.txt']!], toTrash: false).result;
+      await editor.remove().run(RemoveParams([nodes['notes.txt']!], toTrash: false));
 
       expect(await File(p.join(root, 'notes.txt')).exists(), isFalse);
       expect(await Directory(p.join(home, '.Trash')).exists(), isFalse);
@@ -99,7 +99,7 @@ void main() {
     test('каталог удаляется вместе с содержимым', () async {
       final nodes = await listRoot();
 
-      await editor.remove([nodes['docs']!], toTrash: false).result;
+      await editor.remove().run(RemoveParams([nodes['docs']!], toTrash: false));
 
       expect(await Directory(p.join(root, 'docs')).exists(), isFalse);
     });
@@ -109,7 +109,7 @@ void main() {
     test('удаляются все', () async {
       final nodes = await listRoot();
 
-      await editor.remove([nodes['notes.txt']!, nodes['report.txt']!], toTrash: false).result;
+      await editor.remove().run(RemoveParams([nodes['notes.txt']!, nodes['report.txt']!], toTrash: false));
 
       expect(await File(p.join(root, 'notes.txt')).exists(), isFalse);
       expect(await File(p.join(root, 'report.txt')).exists(), isFalse);
@@ -119,8 +119,9 @@ void main() {
       final nodes = await listRoot();
       final progress = <String>[];
 
-      final operation = editor.remove([nodes['notes.txt']!, nodes['report.txt']!], toTrash: false);
+      final operation = editor.remove();
       operation.progress.listen((event) => progress.add(event.message));
+      operation.start(RemoveParams([nodes['notes.txt']!, nodes['report.txt']!], toTrash: false));
       await operation.result;
       await pumpEventQueue();
       await Future<void>.delayed(Duration.zero);
@@ -131,10 +132,11 @@ void main() {
 
     test('счётчик проходит по всему содержимому каталога', () async {
       final nodes = await listRoot();
-      final operation = editor.remove([nodes['docs']!], toTrash: false);
+      final operation = editor.remove();
       final reports = <OperationProgress>[];
       operation.progress.listen(reports.add);
 
+      operation.start(RemoveParams([nodes['docs']!], toTrash: false));
       await operation.result;
       await pumpEventQueue();
       await Future<void>.delayed(Duration.zero);
@@ -148,10 +150,11 @@ void main() {
 
     test('удаление в корзину доводит счётчик до конца одним действием', () async {
       final nodes = await listRoot();
-      final operation = editor.remove([nodes['docs']!]);
+      final operation = editor.remove();
       final reports = <OperationProgress>[];
       operation.progress.listen(reports.add);
 
+      operation.start(RemoveParams([nodes['docs']!]));
       await operation.result;
       await pumpEventQueue();
       await Future<void>.delayed(Duration.zero);
@@ -175,7 +178,7 @@ void main() {
       final node = await missingNode();
       final nodes = await listRoot();
 
-      await editor.remove([node, nodes['report.txt']!], toTrash: false).result;
+      await editor.remove().run(RemoveParams([node, nodes['report.txt']!], toTrash: false));
 
       // Первый пропущен, второй всё равно удалён.
       expect(await File(p.join(root, 'report.txt')).exists(), isFalse);
@@ -188,11 +191,13 @@ void main() {
       await File(p.join(root, 'report.txt')).delete();
 
       final questions = <String>[];
-      final operation = editor.remove([nodes['notes.txt']!, nodes['report.txt']!], toTrash: false);
+      final operation = editor.remove();
       operation.requests.listen((request) {
         questions.add(request.message);
         request.respond(OperationRequestOption.skipAll);
       });
+
+      operation.start(RemoveParams([nodes['notes.txt']!, nodes['report.txt']!], toTrash: false));
       await operation.result;
       await pumpEventQueue();
 
@@ -203,9 +208,10 @@ void main() {
       final missing = await missingNode();
       final nodes = await listRoot();
 
-      final operation = editor.remove([missing, nodes['report.txt']!], toTrash: false);
+      final operation = editor.remove();
       operation.requests.listen((request) => request.respond(OperationRequestOption.cancel));
 
+      operation.start(RemoveParams([missing, nodes['report.txt']!], toTrash: false));
       await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
       // До второго объекта дело не дошло.
       expect(await File(p.join(root, 'report.txt')).exists(), isTrue);
