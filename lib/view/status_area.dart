@@ -7,20 +7,20 @@ import 'package:flutter/material.dart';
 /// Полоска над нижней панелью: по строке на работу — название, ход дела и
 /// крестик. Пока фоновых работ нет, её не видно вовсе: пустая полоса отнимала
 /// бы место у панелей.
-class BackgroundBar extends StatelessWidget {
-  const BackgroundBar({super.key, required this.tasks});
+class StatusArea extends StatelessWidget {
+  const StatusArea({super.key, required this.tasks, required this.owner});
 
   final Operations tasks;
+
+  /// Чьи работы показывать: под какой панелью стоит эта область.
+  final ViewportPosition owner;
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: tasks,
       builder: (context, _) {
-        final running = [
-          for (final run in tasks.all)
-            if (run.isInBackground) run,
-        ];
+        final running = tasks.at(owner);
         if (running.isEmpty) {
           return const SizedBox.shrink();
         }
@@ -28,16 +28,16 @@ class BackgroundBar extends StatelessWidget {
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [for (final task in running) _BackgroundTaskRow(task: task)],
+          children: [for (final task in running) _RunRow(task: task)],
         );
       },
     );
   }
 }
 
-/// Одна фоновая работа: сколько сделано и чем её остановить.
-class _BackgroundTaskRow extends StatelessWidget {
-  const _BackgroundTaskRow({required this.task});
+/// Одна работа: сколько сделано и чем её остановить.
+class _RunRow extends StatelessWidget {
+  const _RunRow({required this.task});
 
   final OperationRun task;
 

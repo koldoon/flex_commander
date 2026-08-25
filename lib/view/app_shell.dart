@@ -1,7 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:flutter/material.dart';
 
-import 'background/background_bar.dart';
+import 'status_area.dart';
 import 'dialogs/command_dialog_layer.dart';
 import 'dialogs/credentials_layer.dart';
 import 'dialogs/error_layer.dart';
@@ -41,8 +41,24 @@ class AppShell extends StatelessWidget {
       // и приложение обязано собираться без него — просто разделитель тогда
       // не центруется.
       onCenter: () => app.commands.run(centerSplitCommand),
-      left: _place(context, app, app.view.contentAt(ViewportPosition.left)),
-      right: _place(context, app, app.view.contentAt(ViewportPosition.right)),
+      left: _column(context, app, ViewportPosition.left),
+      right: _column(context, app, ViewportPosition.right),
+    );
+  }
+
+  /// Панель и её статусная область — столбец из двух виджетов.
+  ///
+  /// Область показывает **работу**: только ту, что явно отправили в фон с этой
+  /// панели. Место она занимает, лишь когда есть что показать. Про
+  /// **содержимое** — объект под курсором, сводку по пометке — говорит строка
+  /// внутри самой панели, а не эта область.
+  Widget _column(BuildContext context, Application app, ViewportPosition position) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(child: _place(context, app, app.view.contentAt(position))),
+        StatusArea(tasks: app.operations, owner: position),
+      ],
     );
   }
 
@@ -81,9 +97,6 @@ class AppShell extends StatelessWidget {
                   Expanded(
                     child: ListenableBuilder(listenable: app.view, builder: (context, _) => _workArea(context, app)),
                   ),
-                  // Фоновые работы — между панелями и рядом кнопок: их видно,
-                  // но место они занимают, только когда есть.
-                  BackgroundBar(tasks: app.operations),
                   SizedBox(height: metrics.functionBarGap),
                   const FunctionBar(),
                   SizedBox(height: metrics.windowBottomPadding),
