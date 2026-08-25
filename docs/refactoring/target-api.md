@@ -347,9 +347,9 @@ nullable — иначе придётся вернуть 0, то есть сов�
 |---|---|
 | `Screens`, `PanelViewports` | одна модель областей вместо двух |
 | `AppCommand extends ChangeNotifier` | прототип состояния не держит |
-| `AppCommand.runId`, `getDialog`, `submit`, `dismiss`, `isRunning`, `error` | состояние прогона уехало в окно и в работу |
+| `AppCommand.runId`, `getDialog`, `submit`, `dismiss`, `isRunning`, `error`, `parameters` | состояние прогона уехало в окно и в работу, значения — в вызов |
 | `CommandRunPhase` | `operation == null` — форма, иначе работа |
-| `canRunInBackground`, `bringToFront` | кнопку решает окно; возврат — `execute` с `operationId` |
+| `canRunInBackground` | кнопку решает окно: работа, которую видно, уйти в фон умеет всегда |
 | `BackgroundTasks`, `TaskStatus` | заменены `Operations` и `OperationStatus` |
 | `Credentials` на `Application` | остаётся службой, но не частью API приложения |
 
@@ -586,7 +586,7 @@ nullable — иначе придётся вернуть 0, то есть сов�
 `AsyncCommandBase.sendToBackground` временно зовёт новый реестр — мост живёт
 один этап и умирает в П6.
 
-### П6. Команды-прототипы и окна как состояния — **начат**
+### П6. Команды-прототипы и окна как состояния — **сделан**
 
 Сделаны три куска, отделявшиеся чисто:
 
@@ -769,11 +769,17 @@ nullable — иначе придётся вернуть 0, то есть сов�
 
 ## 14. Проверка
 
-- `./tool/format.sh && dart analyze` — набросок собирается, хотя и не
-  экспортируется из `fc_api.dart`.
-- `dependency/api/test/purity_test.dart` — `dart:io` в API нет;
-  `__ref/application.dart` внесён в список тех, кому виджеты нужны по
-  контракту, рядом со `screen.dart` и `panel_viewport.dart`.
-- Доктринальный тест на границу «живое/снимок»: в типах параметров `Operation`
-  не должно встречаться `Application`, `ApplicationView` и `Panel`. Пишется
-  сразу и работает уже на наброске.
+- `./tool/format.sh && dart analyze` — чисто, включая набросок: он собирается,
+  хотя и не экспортируется из `fc_api.dart`.
+- `dependency/api/test/purity_test.dart` — `dart:io` в API нет, виджеты только
+  там, где контракт о них и говорит. Набросок из списка исключений вышел:
+  виджеты ему больше не нужны.
+- `dependency/api/test/operation_contract_test.dart` — доктринальный тест на
+  границу «живое/снимок»: в типах параметров `Operation` не встречается ни
+  `Application`, ни `ApplicationView`, ни `Panel`. Читает он `__ref/operation.dart`
+  — для него набросок не документация, а исходник.
+- Голдены (3) за весь переход не двинулись ни разу — раскладку меняли, а
+  картинку нет.
+- Полный прогон: 771 тест приложения и модульные наборы
+  (`7z`, `zip`, `file_ops`, `navigation`, `editor`, `viewer`, `text_kit`,
+  `ssh`, `api`, `ui_kit`, `default_theme`).
