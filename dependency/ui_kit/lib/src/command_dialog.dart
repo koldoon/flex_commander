@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
 import 'package:fc_api/fc_api.dart';
@@ -471,11 +472,14 @@ class CommandDialogField extends StatelessWidget {
 /// Отличаются они только цветом заливки: обычная `sea`, подтверждающая `blue1`.
 /// Снизу вверх идёт лёгкое затемнение, нажатие затемняет кнопку целиком.
 class FcButton extends StatefulWidget {
-  const FcButton({super.key, required this.label, required this.onPressed, this.primary = false});
+  const FcButton({super.key, required this.label, required this.onPressed, this.primary = false, this.focusNode});
 
   final String label;
   final VoidCallback? onPressed;
   final bool primary;
+
+  /// Узел фокуса — когда он нужен снаружи: окно хочет поставить фокус сюда.
+  final FocusNode? focusNode;
 
   @override
   State<FcButton> createState() => _FcButtonState();
@@ -483,8 +487,26 @@ class FcButton extends StatefulWidget {
 
 class _FcButtonState extends State<FcButton> {
   bool _pressed = false;
+  bool _focused = false;
 
   bool get _enabled => widget.onPressed != null;
+
+  /// `Space` и `Enter` нажимают кнопку, на которой стоит фокус.
+  ///
+  /// `Enter` берётся здесь, а не рамой окна: пока фокус не на кнопке, он
+  /// по-прежнему уходит команде и подтверждает окно. Иначе человек, дотабившийся
+  /// до «Cancel», нажатием `Enter` получил бы «Overwrite». Flutter отдаёт
+  /// нажатие сперва узлу в фокусе, потом вверх по предкам, — этого и довольно.
+  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    if (!_enabled || event is! KeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (event.logicalKey == LogicalKeyboardKey.space || event.logicalKey == LogicalKeyboardKey.enter) {
+      widget.onPressed!.call();
+      return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -500,37 +522,50 @@ class _FcButtonState extends State<FcButton> {
     return Align(
       widthFactor: 1,
       heightFactor: 1,
-      child: Opacity(
-        opacity: _enabled ? 1 : 0.5,
-        child: MouseRegion(
-          cursor: _enabled ? SystemMouseCursors.click : MouseCursor.defer,
-          child: GestureDetector(
-            behavior: HitTestBehavior.opaque,
-            onTapDown: _enabled ? (_) => setState(() => _pressed = true) : null,
-            onTapUp: _enabled ? (_) => setState(() => _pressed = false) : null,
-            onTapCancel: _enabled ? () => setState(() => _pressed = false) : null,
-            onTap: widget.onPressed,
-            child: Container(
-              height: metrics.buttonHeight,
-              padding: EdgeInsets.symmetric(horizontal: metrics.buttonHorizontalPadding),
-              decoration: BoxDecoration(
-                color: widget.primary ? colors.buttonPrimaryBackground : colors.buttonBackground,
-                border: Border.all(color: colors.buttonBorder, width: metrics.strokeWidth),
-                borderRadius: radius,
-                // Тень под кнопкой: она отделяет её от фона окна.
-                boxShadow: [
-                  BoxShadow(
-                    color: colors.shadow,
-                    offset: Offset(0, metrics.buttonShadowOffset),
-                    blurRadius: metrics.buttonShadowBlur,
+      child: Focus(
+        focusNode: widget.focusNode,
+        // Выключенная кнопка обход пропускает сама собой — списка исключений
+        // для этого не нужно.
+        canRequestFocus: _enabled,
+        skipTraversal: !_enabled,
+        onKeyEvent: _handleKey,
+        onFocusChange: (value) => setState(() => _focused = value),
+        child: Opacity(
+          opacity: _enabled ? 1 : 0.5,
+          child: MouseRegion(
+            cursor: _enabled ? SystemMouseCursors.click : MouseCursor.defer,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onTapDown: _enabled ? (_) => setState(() => _pressed = true) : null,
+              onTapUp: _enabled ? (_) => setState(() => _pressed = false) : null,
+              onTapCancel: _enabled ? () => setState(() => _pressed = false) : null,
+              onTap: widget.onPressed,
+              child: Container(
+                height: metrics.buttonHeight,
+                padding: EdgeInsets.symmetric(horizontal: metrics.buttonHorizontalPadding),
+                decoration: BoxDecoration(
+                  color: widget.primary ? colors.buttonPrimaryBackground : colors.buttonBackground,
+                  border: Border.all(
+                    color: _focused ? colors.focusRing : colors.buttonBorder,
+                    width: metrics.strokeWidth * (_focused ? 2 : 1),
                   ),
-                ],
+                  borderRadius: radius,
+                  // Тень под кнопкой: она отделяет её от фона окна.
+                  boxShadow: [
+                    BoxShadow(
+                      color: colors.shadow,
+                      offset: Offset(0, metrics.buttonShadowOffset),
+                      blurRadius: metrics.buttonShadowBlur,
+                    ),
+                  ],
+                ),
+                // Заливка ровная, без градиента; затемняется только нажатая кнопка.
+                foregroundDecoration:
+                    _pressed ? BoxDecoration(color: colors.buttonPressed, borderRadius: radius) : null,
+                // Center с множителями, а не `alignment` у Container: с ним кнопка
+                // заняла бы всю предложенную ширину, а нужна ширина подписи.
+                child: Center(widthFactor: 1, heightFactor: 1, child: Text(widget.label, style: theme.buttonStyle)),
               ),
-              // Заливка ровная, без градиента; затемняется только нажатая кнопка.
-              foregroundDecoration: _pressed ? BoxDecoration(color: colors.buttonPressed, borderRadius: radius) : null,
-              // Center с множителями, а не `alignment` у Container: с ним кнопка
-              // заняла бы всю предложенную ширину, а нужна ширина подписи.
-              child: Center(widthFactor: 1, heightFactor: 1, child: Text(widget.label, style: theme.buttonStyle)),
             ),
           ),
         ),
@@ -544,7 +579,7 @@ class _FcButtonState extends State<FcButton> {
 /// Выключенное поле остаётся полем: то, что менять нельзя, показывается в такой
 /// же рамке, только приглушённой (`alpha.disabled = 0.5` в скине референса) —
 /// так форма читается как форма, а не как текст вперемешку с полями.
-class FcTextField extends StatelessWidget {
+class FcTextField extends StatefulWidget {
   const FcTextField({
     super.key,
     required this.controller,
@@ -554,7 +589,11 @@ class FcTextField extends StatelessWidget {
     this.obscureText = false,
     this.onChanged,
     this.onSubmitted,
+    this.focusNode,
   });
+
+  /// Узел фокуса — когда он нужен снаружи.
+  final FocusNode? focusNode;
 
   final TextEditingController controller;
   final String? hintText;
@@ -571,10 +610,53 @@ class FcTextField extends StatelessWidget {
   final ValueChanged<String>? onSubmitted;
 
   @override
+  State<FcTextField> createState() => _FcTextFieldState();
+}
+
+class _FcTextFieldState extends State<FcTextField> {
+  /// Свой узел — только если снаружи не дали: поле должно знать, в фокусе оно
+  /// или нет, а `TextField` об этом не рассказывает.
+  FocusNode? _own;
+
+  FocusNode get _node => widget.focusNode ?? (_own ??= FocusNode(debugLabel: 'FcTextField'));
+
+  bool _focused = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _node.addListener(_onFocusChanged);
+  }
+
+  @override
+  void didUpdateWidget(FcTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.focusNode != widget.focusNode) {
+      oldWidget.focusNode?.removeListener(_onFocusChanged);
+      _node.addListener(_onFocusChanged);
+      _onFocusChanged();
+    }
+  }
+
+  void _onFocusChanged() {
+    if (mounted && _focused != _node.hasFocus) {
+      setState(() => _focused = _node.hasFocus);
+    }
+  }
+
+  @override
+  void dispose() {
+    _node.removeListener(_onFocusChanged);
+    _own?.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
     final colors = theme.colors;
+    final enabled = widget.enabled;
 
     return Opacity(
       opacity: enabled ? 1 : 0.5,
@@ -584,23 +666,27 @@ class FcTextField extends StatelessWidget {
         padding: EdgeInsets.symmetric(horizontal: metrics.inputHorizontalPadding),
         decoration: BoxDecoration(
           color: colors.inputBackground,
-          border: Border.all(color: colors.inputBorder, width: metrics.strokeWidth),
+          border: Border.all(
+            color: _focused ? colors.focusRing : colors.inputBorder,
+            width: metrics.strokeWidth * (_focused ? 2 : 1),
+          ),
           borderRadius: BorderRadius.circular(metrics.inputRadius),
         ),
         child: TextField(
-          controller: controller,
-          autofocus: autofocus,
+          controller: widget.controller,
+          focusNode: _node,
+          autofocus: widget.autofocus,
           enabled: enabled,
-          obscureText: obscureText,
-          onChanged: onChanged,
-          onSubmitted: onSubmitted,
+          obscureText: widget.obscureText,
+          onChanged: widget.onChanged,
+          onSubmitted: widget.onSubmitted,
           style: theme.inputStyle,
           cursorColor: colors.inputText,
           decoration: InputDecoration(
             isDense: true,
             border: InputBorder.none,
             contentPadding: EdgeInsets.zero,
-            hintText: hintText,
+            hintText: widget.hintText,
             hintStyle: theme.inputStyle.copyWith(color: colors.inputHint),
           ),
         ),

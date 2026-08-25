@@ -184,6 +184,12 @@ class DefaultColors extends FcColors {
   @override
   Color get inputSelection => FcPalette.red;
 
+  /// Обводка фокуса: тот же синий, каким подсвечена строка под курсором в
+  /// панели, только ярче — обводка тонкая, и приглушённая на тёмном фоне
+  /// теряется.
+  @override
+  Color get focusRing => FcPalette.blue1;
+
   @override
   Color get shadow => const Color(0xFF000000).withValues(alpha: 0.25);
 

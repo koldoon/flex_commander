@@ -110,55 +110,69 @@ class _DialogFrameState extends State<DialogFrame> {
             // Обработчик стоит на самой области окна: если внутри есть поле
             // ввода, событие поднимется сюда от него, а если фокусировать
             // нечего — фокус берёт само окно.
+            //
+            // Кнопка и флажок разбирают свои клавиши раньше: Flutter отдаёт
+            // нажатие сперва узлу в фокусе, потом вверх по предкам. Поэтому
+            // `Enter` на кнопке нажимает её, а не подтверждает окно, — а `Esc`
+            // не берёт себе никто, и он доходит сюда откуда угодно.
             onKeyEvent: _handleKey,
-            child: Focus(
-              focusNode: _node,
-              // Ширину рамка не назначает: окно облегает содержимое в пределах
-              // `minWidth`/`maxWidth`. Нужен определённый размер — команда
-              // задаёт его сама в том, что вернула из `dialogSpec`.
-              child: ConstrainedBox(
-                constraints: BoxConstraints(minWidth: metrics.dialogMinWidth, maxWidth: metrics.dialogMaxWidth),
-                child: IntrinsicWidth(
-                  child: Container(
-                    decoration: BoxDecoration(
-                      color: colors.dialogBackground,
-                      borderRadius: radius,
-                      boxShadow: [
-                        BoxShadow(
-                          color: colors.shadow,
-                          offset: Offset(0, metrics.dialogShadowOffset),
-                          blurRadius: metrics.dialogShadowBlur,
-                        ),
-                      ],
-                    ),
-                    // Скруглённые углы обрезают полосу заголовка: в референсе
-                    // она для этого закрыта маской.
-                    clipBehavior: Clip.antiAlias,
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: [
-                        Container(
-                          width: double.infinity,
-                          height: metrics.dialogTitleHeight,
-                          alignment: Alignment.centerLeft,
-                          padding: EdgeInsets.symmetric(horizontal: metrics.dialogTitlePadding),
-                          decoration: BoxDecoration(
-                            color: colors.dialogTitleBackground,
-                            // Полоса заголовка отбрасывает тень на содержимое —
-                            // тот же фильтр, что у кнопок.
-                            boxShadow: [
-                              BoxShadow(
-                                color: colors.shadow,
-                                offset: Offset(0, metrics.buttonShadowOffset),
-                                blurRadius: metrics.buttonShadowBlur,
-                              ),
-                            ],
+            // Обход замкнут внутри окна: за окном панели, и `Tab` там значит
+            // «сменить панель». Порядок — по дереву: как выложено, так и
+            // обходится, отдельного списка держать не приходится.
+            child: FocusTraversalGroup(
+              policy: WidgetOrderTraversalPolicy(),
+              child: Focus(
+                focusNode: _node,
+                // Узел рамы нужен, чтобы окно слышало клавиши, когда внутри
+                // фокусировать нечего. Останавливаться на нём `Tab`у незачем.
+                skipTraversal: true,
+                // Ширину рамка не назначает: окно облегает содержимое в пределах
+                // `minWidth`/`maxWidth`. Нужен определённый размер — команда
+                // задаёт его сама в том, что вернула из `dialogSpec`.
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(minWidth: metrics.dialogMinWidth, maxWidth: metrics.dialogMaxWidth),
+                  child: IntrinsicWidth(
+                    child: Container(
+                      decoration: BoxDecoration(
+                        color: colors.dialogBackground,
+                        borderRadius: radius,
+                        boxShadow: [
+                          BoxShadow(
+                            color: colors.shadow,
+                            offset: Offset(0, metrics.dialogShadowOffset),
+                            blurRadius: metrics.dialogShadowBlur,
                           ),
-                          child: Text(widget.title, style: theme.dialogTitleStyle),
-                        ),
-                        widget.child,
-                      ],
+                        ],
+                      ),
+                      // Скруглённые углы обрезают полосу заголовка: в референсе
+                      // она для этого закрыта маской.
+                      clipBehavior: Clip.antiAlias,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Container(
+                            width: double.infinity,
+                            height: metrics.dialogTitleHeight,
+                            alignment: Alignment.centerLeft,
+                            padding: EdgeInsets.symmetric(horizontal: metrics.dialogTitlePadding),
+                            decoration: BoxDecoration(
+                              color: colors.dialogTitleBackground,
+                              // Полоса заголовка отбрасывает тень на содержимое —
+                              // тот же фильтр, что у кнопок.
+                              boxShadow: [
+                                BoxShadow(
+                                  color: colors.shadow,
+                                  offset: Offset(0, metrics.buttonShadowOffset),
+                                  blurRadius: metrics.buttonShadowBlur,
+                                ),
+                              ],
+                            ),
+                            child: Text(widget.title, style: theme.dialogTitleStyle),
+                          ),
+                          widget.child,
+                        ],
+                      ),
                     ),
                   ),
                 ),
