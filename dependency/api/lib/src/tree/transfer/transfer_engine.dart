@@ -289,7 +289,7 @@ class TreeTransferEngine implements TreeEditor {
     _OverwritePolicy overwrite,
   ) async {
     await op.checkpoint();
-    progress.advance(node.name);
+    progress.advance();
 
     // Ссылка разбирается до того, как узел сочтут файлом: ссылка на каталог
     // файлом не является, и поток по ней открыть нельзя — на этом падала
@@ -324,7 +324,7 @@ class TreeTransferEngine implements TreeEditor {
           if (!await _resolveConflict(op, overwrite, existing)) {
             // Пропущенное считается пройденным — работы по нему больше нет, —
             // и запоминается: при переносе его нельзя убирать из источника.
-            progress.advance(child.name);
+            progress.advance();
             overwrite.kept.add(child.pathString);
             continue;
           }
@@ -619,7 +619,7 @@ class TreeTransferEngine implements TreeEditor {
     }
 
     if (counts) {
-      progress?.advance(node.name);
+      progress?.advance();
       // Байты удалённого — тоже сделанная работа: на большом дереве доля
       // по объектам и доля по объёму расходятся втрое.
       progress?.advanceBytes(node.size);

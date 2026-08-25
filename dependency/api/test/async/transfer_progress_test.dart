@@ -68,7 +68,7 @@ void main() {
 
       progress
         ..advanceBytes(50)
-        ..advance('first.bin');
+        ..advance();
       await Future<void>.delayed(Duration.zero);
 
       // Объект пройден. На полосе он остаётся доделанным, а не исчезает:

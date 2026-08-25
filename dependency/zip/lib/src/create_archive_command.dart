@@ -231,8 +231,15 @@ class CreateZipArchiveCommand extends AppCommand {
           entries: entries,
           level: compression.level,
           op: op,
-          onEntry: (name, bytes) => progress.startItem(name, bytes: bytes),
-          onEntryDone: progress.advance,
+          onEntry: (name, bytes) {
+            // Источник задания — тот, из которого запись пришла: он назван
+            // первым звеном её пути. Строка `Item` держится на нём, пока по
+            // его содержимому бежит `File`.
+            progress
+              ..startSource(_sourceOf(name))
+              ..startItem(name, bytes: bytes);
+          },
+          onEntryDone: (_) => progress.advance(),
           // Байты приходят по мере того, как упаковщик читает запись: так видно
           // движение и внутри одного большого файла, а не только между файлами.
           onBytes: progress.advanceBytes,
@@ -424,6 +431,15 @@ class CreateZipArchiveCommand extends AppCommand {
     }
 
     progress.countingFinished();
+  }
+
+  /// Источник, из которого пришла запись архива: первое звено её пути.
+  ///
+  /// Записи именуются от источника (`docs/nested/deep.txt`), и по имени видно,
+  /// чей это объект, — упаковщику знать про источники незачем.
+  String _sourceOf(String entry) {
+    final cut = entry.indexOf('/');
+    return cut < 0 ? entry : entry.substring(0, cut);
   }
 
   // --- окно ---

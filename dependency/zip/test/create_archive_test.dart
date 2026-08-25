@@ -280,6 +280,32 @@ void main() {
       expect(status.percentProgress, 1);
     });
 
+    test('в строке источника стоит объект задания, а имя файла — в своей строке', () async {
+      runtime.app.left.setCursorToName('docs');
+
+      final command = runtime.commands.create(CreateZipArchiveCommand.commandId)! as CreateZipArchiveCommand;
+      final operation = command.packOperation();
+      final log = ProgressLog.of(operation);
+      operation.start(
+        ZipPackParams(
+          [runtime.app.left.currentNode!],
+          runtime.app.right.directory!,
+          'docs.zip',
+          compression: ZipCompression.normal,
+          followLinks: false,
+        ),
+      );
+      await operation.result;
+      await pumpEventQueue();
+
+      // Пакуется каталог — он и стоит в строке источника, пока по его
+      // содержимому бежит имя записи. Последнее плечо — отдача архива
+      // приёмнику, и там источник уже сам архив.
+      expect(log.reports.map((report) => report.message), contains('docs'));
+      expect(log.reports.any((report) => report.itemName.contains('guide.txt')), isTrue);
+      expect(log.reports.map((report) => report.message), isNot(contains('guide.txt')));
+    });
+
     test('байты упаковки учитываются по мере обхода, а не одним скачком', () async {
       for (var i = 0; i < 3; i++) {
         await File(p.join(source, 'file$i.txt')).writeAsString('содержимое $i ' * 200);

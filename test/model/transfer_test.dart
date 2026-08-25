@@ -155,7 +155,7 @@ void main() {
       expect(reports.last.bytesTotal, 10);
     });
 
-    test('в сообщении видно имя объекта, который копируется сейчас', () async {
+    test('в строке источника стоит объект задания, а имя файла — в своей строке', () async {
       final nodes = await listRoot();
       final operation = editor.copy();
       final log = ProgressLog.of(operation);
@@ -164,10 +164,18 @@ void main() {
       await operation.result;
       await pumpEventQueue();
 
-      // Имя вложенного файла, а не только имя всего задания.
+      // Копируется каталог — он и стоит в строке источника всё время работы.
+      // Пустое — «сказать пока нечего»: это до того, как работа взялась за
+      // первый источник.
+      final named = log.reports
+          .map((report) => report.message)
+          .where((message) => message.isNotEmpty && message != 'Done');
+      expect(named, everyElement('docs'));
+      // А по его содержимому бежит имя текущего файла — это разные строки окна.
       expect(
-        log.reports.any((report) => report.message.contains('readme.md') || report.message.contains('deep.txt')),
+        log.reports.any((report) => report.itemName == 'readme.md' || report.itemName == 'deep.txt'),
         isTrue,
+        reason: 'имя файла показывается отдельно от имени задания',
       );
     });
 

@@ -142,7 +142,9 @@ void main() {
 
       // Каталог и файл внутри: удаление большого дерева не стоит на нуле.
       expect(reports.map((event) => event.itemsTransferred).toSet().length, greaterThan(1));
-      expect(reports.any((event) => event.message.contains('readme.md')), isTrue);
+      // Источник задания не меняется: удаляют каталог, а не то, что внутри.
+      final named = reports.map((event) => event.message).where((message) => message.isNotEmpty && message != 'Done');
+      expect(named, everyElement('docs'));
       expect(reports.last.percent, 1);
       expect(reports.last.itemsTransferred, 2);
     });

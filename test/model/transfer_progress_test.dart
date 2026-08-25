@@ -45,7 +45,7 @@ void main() {
     for (var i = 0; i < 4; i++) {
       progress.countOne(0);
     }
-    progress.advance('a.txt');
+    progress.advance();
     progress.countingFinished();
     await flush();
 
@@ -66,8 +66,8 @@ void main() {
 
   test('доля не выходит за единицу, если работа обогнала подсчёт', () async {
     progress.countOne(0);
-    progress.advance('a.txt');
-    progress.advance('b.txt');
+    progress.advance();
+    progress.advance();
     progress.startSource('c.txt');
     await flush();
 
@@ -110,13 +110,18 @@ void main() {
   });
 
   test('сообщается каждое изменение: как часто перерисовываться, решает окно', () async {
+    progress.startSource('docs');
     for (var i = 0; i < 100; i++) {
-      progress.advance('file$i.txt');
+      progress.advance();
     }
     await flush();
 
-    expect(reports.length, 100);
-    expect(reports.last.message, 'file99.txt');
+    // Сто шагов — сто сообщений: реже отчитываться модель не вправе, а решать,
+    // сколько из них рисовать, — не её дело.
+    expect(reports.length, 101);
+    // Источник задания при этом не менялся: работа всё это время шла по нему.
+    expect(reports.last.message, 'docs');
+    expect(reports.last.itemsTransferred, 100);
   });
 
   test('в конце счётчики сходятся, даже если подсчёт не успел', () async {
@@ -184,7 +189,7 @@ void main() {
       progress.countOne(0);
       progress.countOne(0);
       progress.countingFinished();
-      progress.advance('a.txt');
+      progress.advance();
       await flush();
 
       expect(reports.last.bytesTotal, isNull);

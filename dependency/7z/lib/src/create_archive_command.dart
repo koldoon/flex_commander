@@ -533,7 +533,13 @@ class _PackingProgress {
     // Размер берётся с диска: программа его не печатает, а один вызов stat
     // рядом со сжатием ничего не стоит.
     _bytes = await _sizeOf(p.join(_workingDirectory, name));
-    _progress.startItem(p.basename(name), bytes: _bytes);
+    // Источник задания — тот, из которого запись пришла: он назван первым
+    // звеном её пути. Строка `Item` держится на нём, пока по его содержимому
+    // бежит `File`.
+    final cut = name.indexOf('/');
+    _progress
+      ..startSource(cut < 0 ? name : name.substring(0, cut))
+      ..startItem(p.basename(name), bytes: _bytes);
   }
 
   /// Закрывает текущую запись: объект готов, байты засчитаны.
@@ -544,7 +550,7 @@ class _PackingProgress {
     }
     _progress
       ..advanceBytes(_bytes)
-      ..advance(p.basename(current));
+      ..advance();
     _current = null;
     _bytes = 0;
   }
