@@ -1,9 +1,7 @@
 import 'dart:async';
 
-import 'package:fc_api/fc_api.dart' show OperationOption;
+import 'package:fc_api/fc_api.dart' show OperationOption, ViewportPosition;
 import 'package:flutter/foundation.dart';
-
-import 'application.dart';
 
 /// Длительная работа.
 ///

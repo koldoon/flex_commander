@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import 'package:fc_api/fc_api.dart' show KeyCombination;
+import 'package:fc_api/fc_api.dart' show KeyCombination, ViewportPosition, ViewportState;
 
 import 'application.dart';
 

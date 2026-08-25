@@ -1,4 +1,5 @@
-import 'package:fc_api/fc_api.dart' show AddressFactory, FcThemeSpec, ProviderFactory, SettingsScope, TreeProvider;
+import 'package:fc_api/fc_api.dart'
+    show AddressFactory, FcThemeSpec, ProviderFactory, SettingsScope, StateViewBuilder, TreeProvider, ViewportState;
 import 'package:flutter/foundation.dart';
 
 import 'application.dart';

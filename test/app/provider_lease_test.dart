@@ -97,6 +97,27 @@ void main() {
     await runtime.dispose();
   });
 
+  test('панель убрали из области — аренда ушла с ней', () async {
+    // Панель — это то, что стоит в области, и заменить её однажды придётся:
+    // дерево каталогов и миниатюры (Г5) — такие же панели. Аренда обязана уйти
+    // вместе с той, которая её брала: иначе архив останется открытым, а
+    // отпустить его будет уже некому — прежней панели больше нет.
+    final runtime = await app();
+    final left = runtime.app.left;
+
+    left.setCursorToName('archive.arc');
+    await left.enterCurrent();
+    expect(opened.single.closed, isFalse);
+
+    left.close();
+    await settle();
+
+    expect(opened.single.closed, isTrue);
+    expect(runtime.providers?.mounted, isEmpty);
+
+    await runtime.dispose();
+  });
+
   test('обе панели в одном архиве — один экземпляр на двоих', () async {
     final runtime = await app();
 

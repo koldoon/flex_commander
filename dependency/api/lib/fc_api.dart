@@ -16,6 +16,7 @@ export 'src/app/panel_selection.dart';
 export 'src/app/panel_viewport.dart';
 export 'src/app/screen.dart';
 export 'src/app/views.dart';
+export 'src/app/viewport.dart';
 export 'src/app/errors.dart';
 export 'src/app/toasts.dart';
 
