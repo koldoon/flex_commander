@@ -34,6 +34,7 @@ export 'src/tree/tree_provider.dart';
 // --- Длительные операции ---
 export 'src/async/async_operation.dart';
 export 'src/async/operation_request.dart';
+export 'src/async/operation_status.dart';
 export 'src/async/transfer_progress.dart';
 
 // --- Действия и клавиши ---

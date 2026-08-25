@@ -1,4 +1,4 @@
-import 'package:fc_api/fc_api.dart' show UserActionRequest, ViewportPosition;
+import 'package:fc_api/fc_api.dart' show OperationStatus, StageOperationStatus, ViewportPosition;
 import 'package:flutter/foundation.dart';
 
 /// Длительная работа.
@@ -53,99 +53,8 @@ abstract interface class MultistageOperation<P, R> extends Operation<P, R> {
   List<StageOperationStatus> get stages;
 }
 
-enum OperationState {
-  idle,
-  pending,
-  processing,
-
-  /// Работа встала и ждёт человека. Ждёт столько, сколько нужно: ответа
-  /// «по умолчанию» нет.
-  userActionRequired,
-  complete,
-  canceled,
-  error;
-
-  bool get isFinished => this == complete || this == canceled || this == error;
-}
-
-/// Статус недетерминированной операции (нет детализации по прогрессу).
-///
-/// Этого хватает универсальному месту — компактной полоске в статусной области:
-/// по [state] она понимает, показывать ли кнопку «нужен ответ», и до самой
-/// заявки не добирается. Окно операции строит её команда, знает её тип и
-/// приводит к нужному подтипу один раз.
-abstract interface class OperationStatus implements Listenable {
-  OperationState get state;
-
-  /// Что происходит прямо сейчас — короткой строкой.
-  String get message;
-
-  // Троттлинг перерисовки — обязанность реализации, а не того, кто рисует:
-  // копирование отчитывается на каждый блок, и уведомлять на каждый отчёт
-  // значит положить окно. Принимать все отчёты, уведомлять не чаще ~50 мс,
-  // последнее состояние досылать таймером.
-}
-
-/// Подтип говорит про **род** работы; null внутри — про «пока неизвестно».
-///
-/// Копирование измеримо по природе, поэтому тип правильный всегда. А есть ли
-/// скорость прямо сейчас — факт времени выполнения: первые полсекунды считать
-/// не из чего, и вернуть там 0 значило бы соврать.
-abstract interface class ComputableOperationStatus extends OperationStatus {
-  /// 0…100; null — прогресс неопределённый.
-  num? get percentProgress;
-}
-
-abstract interface class MeasurableOperationStatus extends OperationStatus {
-  /// В зависимости от контекста может иметь разные величины измерения:
-  /// items/s | bytes/s. null — считать пока не из чего.
-  num? get speed;
-
-  /// Сколько ещё ждать; null — оценить не из чего.
-  Duration? get remaining;
-}
-
-/// Статус операции по передаче для одного элемента.
-abstract interface class SingleTransferOperationStatus extends ComputableOperationStatus {
-  /// Объект, который обрабатывается прямо сейчас; пустая строка — работа
-  /// не разбита на объекты.
-  String get itemName;
-
-  int get bytesTransferred;
-
-  /// null — размер не известен и известен не будет: удаление в корзину,
-  /// источник без размеров.
-  int? get bytesTotal;
-}
-
-/// Статус операции для множества элементов.
-abstract interface class MultipleTransferOperationStatus extends ComputableOperationStatus {
-  int get itemsTransferred;
-
-  /// null — ещё считается фоном. Обход большого дерева сам по себе долгий,
-  /// и операции считают его, не задерживая начало работы.
-  int? get itemsTotal;
-
-  /// Досчитан ли [itemsTotal] до конца. Пока нет — это нижняя оценка, и
-  /// показывать её как окончательную нельзя.
-  bool get totalIsFinal;
-}
-
-abstract interface class StageOperationStatus extends OperationStatus {
-  String get name;
-}
-
-/// Работа, которую можно приостановить вопросом: «такой файл уже есть,
-/// заменить?».
-abstract interface class InteractiveOperationStatus extends OperationStatus {
-  /// null — вопроса сейчас нет.
-  ///
-  /// Что вопрос есть, универсальное место узнаёт по
-  /// [OperationState.userActionRequired], сюда не заглядывая: полоска в
-  /// статусной области показывает кнопку по состоянию, а до самой заявки
-  /// добирается окно, которое и так знает свой тип.
-  UserActionRequest? get request;
-}
+// Состояния и статусы — OperationState, OperationStatus и вся решётка
+// подтипов — уже переехали в настоящий API и берутся оттуда.
 
 // Заявки — UserActionRequest и OperationRequest — уже переехали в настоящий
 // API и берутся оттуда. Правило, ради которого они здесь стояли: работа

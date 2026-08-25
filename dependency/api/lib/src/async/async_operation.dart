@@ -1,21 +1,7 @@
 import 'dart:async';
 
 import 'operation_request.dart';
-
-/// Состояние операции.
-///
-/// [pending] пока не используется: он появится, когда операции начнут
-/// выстраиваться в очередь (копирование нескольких пакетов файлов).
-enum OperationState {
-  inited,
-  pending,
-  processing,
-  complete,
-  canceled,
-  error;
-
-  bool get isFinished => this == complete || this == canceled || this == error;
-}
+import 'operation_status.dart';
 
 /// Прогресс операции.
 ///
