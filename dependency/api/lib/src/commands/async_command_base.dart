@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../async/async_operation.dart';
 import '../async/operation_request.dart';
+import '../async/operation_status.dart';
 import '../util/throttle.dart';
 import '../background/task_status.dart';
 import 'app_command.dart';
@@ -39,7 +40,7 @@ enum CommandRunPhase {
 abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, TaskStatus {
   AsyncOperation<void>? _operation;
   StreamSubscription<OperationRequest>? _requests;
-  StreamSubscription<OperationProgress>? _progress;
+  OperationStatus? _watched;
 
   CommandRunPhase _phase = CommandRunPhase.idle;
   OperationProgress _state = const OperationProgress();
@@ -99,7 +100,9 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
 
     // Подписки ставятся сразу: операция начинает работу следующим шагом цикла
     // событий и до тех пор ничего не теряется.
-    _progress = operation.progress.listen(_onProgress);
+    // Подписка, а не поток: ход работы — объект, и читается он весь сразу.
+    _watched = operation.status;
+    _watched!.addListener(_onStatusChanged);
     _requests = operation.requests.listen((request) {
       if (!hasOpenDialog && !isInBackground) {
         // Спросить некого: команду запустил сценарий или список команд.
@@ -120,7 +123,8 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
     } on OperationCanceled {
       // Прервано пользователем.
     } finally {
-      unawaited(_progress?.cancel());
+      _watched?.removeListener(_onStatusChanged);
+      _watched = null;
       unawaited(_requests?.cancel());
       _redraw.cancel();
       // Не [idle]: операции больше нет, но прогон не кончен, пока не закрыто
@@ -139,6 +143,39 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
   /// Окно перерисовывается не на каждое сообщение операции: копирование мелких
   /// файлов идёт куда быстрее, чем имеет смысл обновлять экран.
   late final Throttle _redraw = Throttle(notifyListeners);
+
+  /// Собирает снимок хода из того, что рассказал статус.
+  ///
+  /// Переходное: наружу команда отдаёт поля по одному, и снимок избавляет от
+  /// того, чтобы переписывать их все разом. Уйдёт вместе с [AsyncCommandBase].
+  static OperationProgress _snapshot(OperationStatus status) {
+    final stages = status is MultistageOperationStatus ? status.stages : const <StageOperationStatus>[];
+    final current = stages.indexWhere((stage) => stage.name.isNotEmpty);
+    return OperationProgress(
+      percent: status is ComputableOperationStatus ? status.percentProgress : null,
+      message: status.message,
+      processed: status is MultipleTransferOperationStatus ? status.itemsTransferred : 0,
+      total: status is MultipleTransferOperationStatus ? status.itemsTotal : null,
+      totalIsFinal: status is MultipleTransferOperationStatus ? status.totalIsFinal : true,
+      bytes: status is MultipleTransferOperationStatus ? status.bytesTransferred : 0,
+      totalBytes: status is MultipleTransferOperationStatus ? status.bytesTotal : null,
+      bytesPerSecond: status is MeasurableOperationStatus ? status.speed : null,
+      itemName: status is SingleTransferOperationStatus ? status.itemName : '',
+      itemBytes: status is SingleTransferOperationStatus ? status.itemBytesTransferred : 0,
+      itemTotalBytes: status is SingleTransferOperationStatus ? status.itemBytesTotal : null,
+      stage: current < 0 ? 0 : current + 1,
+      stageCount: stages.length,
+      stageName: current < 0 ? '' : stages[current].name,
+    );
+  }
+
+  void _onStatusChanged() {
+    final status = _watched;
+    if (status == null) {
+      return;
+    }
+    _onProgress(_snapshot(status));
+  }
 
   void _onProgress(OperationProgress event) {
     _state = event;

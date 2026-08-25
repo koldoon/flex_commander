@@ -524,6 +524,14 @@ class _TaskOperationStatus extends ChangeNotifier
         InteractiveOperationStatus {
   OperationProgress? lastProgress;
 
+  /// Последний отчёт, в котором объект был назван.
+  ///
+  /// Итоговый отчёт объекта не называет: работа кончилась, и рассказывать про
+  /// «текущий» уже нечего. Но показать пустоту в этот момент — значит убрать
+  /// полоску по объекту ровно тогда, когда на результат смотрят. Пустое имя
+  /// означает «сказать нечего», а не «объекта не было, забудьте».
+  OperationProgress? _lastNamedItem;
+
   OperationState _state = OperationState.inited;
   UserActionRequest? _request;
 
@@ -543,13 +551,13 @@ class _TaskOperationStatus extends ChangeNotifier
   Duration? get remaining => lastProgress?.remaining;
 
   @override
-  String get itemName => lastProgress?.itemName ?? '';
+  String get itemName => _lastNamedItem?.itemName ?? '';
 
   @override
-  int get itemBytesTransferred => lastProgress?.itemBytes ?? 0;
+  int get itemBytesTransferred => _lastNamedItem?.itemBytes ?? 0;
 
   @override
-  int? get itemBytesTotal => lastProgress?.itemTotalBytes;
+  int? get itemBytesTotal => _lastNamedItem?.itemTotalBytes;
 
   @override
   int get bytesTransferred => lastProgress?.bytes ?? 0;
@@ -585,6 +593,9 @@ class _TaskOperationStatus extends ChangeNotifier
 
   void update(OperationProgress value) {
     lastProgress = value;
+    if (value.itemName.isNotEmpty) {
+      _lastNamedItem = value;
+    }
     notifyListeners();
   }
 
