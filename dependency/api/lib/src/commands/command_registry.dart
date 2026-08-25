@@ -3,7 +3,8 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../app/application.dart';
-import '../background/task_status.dart';
+import '../app/viewport.dart';
+import '../background/operations.dart';
 import 'app_command.dart';
 import 'command_service.dart';
 import 'key_combination.dart';
@@ -34,7 +35,7 @@ typedef CommandErrorHandler = void Function(Object error, AppCommand command);
 /// поэтому `Esc` во время чтения каталога отменяет операцию, а в остальное
 /// время снимает пометку. Схема повторяет
 /// `ApplicationImpl.processKeyboardCombination` из референса.
-class CommandRegistry extends ChangeNotifier implements CommandService, BackgroundTasks {
+class CommandRegistry extends ChangeNotifier implements CommandService, Operations {
   CommandRegistry([List<AppCommandFactory> commands = const [], List<KeyBinding> bindings = const [], this.onError]) {
     _factories.addAll(commands);
     _bindings.addAll(bindings);
@@ -77,26 +78,50 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Backgrou
 
   // --- Фоновые работы ---
 
+  final List<OperationRun> _runs = [];
+
   @override
-  List<TaskStatus> get tasks => [
-    for (final command in _background)
-      if (command.status case final status?) status,
+  List<OperationRun> get all => List.unmodifiable(_runs);
+
+  @override
+  List<OperationRun> at(ViewportPosition position) => [
+    for (final run in _runs)
+      if (run.owner == position) run,
   ];
 
   @override
-  bool isInBackground(String runId) => _background.any((command) => command.runId == runId);
+  OperationRun? byId(String runId) => _runs.where((run) => run.runId == runId).firstOrNull;
+
+  @override
+  void register(OperationRun run) {
+    _runs
+      ..removeWhere((existing) => existing.runId == run.runId)
+      ..add(run);
+    notifyListeners();
+  }
+
+  @override
+  void forget(String runId) {
+    final before = _runs.length;
+    _runs.removeWhere((run) => run.runId == runId);
+    if (_runs.length != before) {
+      notifyListeners();
+    }
+  }
 
   /// Убирает окно команды, оставляя работу идти.
   ///
   /// Прятать можно только то, что умеет рассказать о себе: иначе работа
   /// исчезла бы с глаз без следа.
   @override
-  void sendToBackground(String runId) {
+  void sendToBackground(String runId, {required ViewportPosition owner}) {
     final command = _openDialogs.where((command) => command.runId == runId).firstOrNull;
-    if (command == null || !command.canRunInBackground || command.status == null) {
+    final run = byId(runId);
+    if (command == null || run == null || !command.canRunInBackground) {
       return;
     }
 
+    run.owner = owner;
     _openDialogs.remove(command);
     command.setDialogOpen(false);
     command.setBackground(true);
@@ -116,6 +141,7 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Backgrou
     }
 
     _background.remove(command);
+    byId(runId)?.owner = null;
     command.setBackground(false);
     command.setDialogOpen(true);
     _openDialogs.add(command);

@@ -95,7 +95,7 @@ class AppController extends ChangeNotifier implements Application {
   /// Работы, ушедшие в фон. Их держит реестр команд: он и так знает про все
   /// запуски и их окна, а фон — это ровно «запуск без окна».
   @override
-  BackgroundTasks get background => commands;
+  Operations get operations => commands;
 
   /// Ошибки, которые никто не поймал: показать, а не только записать в журнал.
   @override

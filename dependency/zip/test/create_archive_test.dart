@@ -242,7 +242,6 @@ void main() {
     test('рассказывает о ходе работы, как перенос', () {
       final command = runtime.commands.find(CreateZipArchiveCommand.commandId)!;
 
-      expect(command, isA<TaskStatus>());
       expect(command.canRunInBackground, isTrue);
       expect(command.dialogTitle, 'Create ZIP archive');
     });

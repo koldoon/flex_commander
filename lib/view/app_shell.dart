@@ -83,7 +83,7 @@ class AppShell extends StatelessWidget {
                   ),
                   // Фоновые работы — между панелями и рядом кнопок: их видно,
                   // но место они занимают, только когда есть.
-                  BackgroundBar(tasks: app.background),
+                  BackgroundBar(tasks: app.operations),
                   SizedBox(height: metrics.functionBarGap),
                   const FunctionBar(),
                   SizedBox(height: metrics.windowBottomPadding),

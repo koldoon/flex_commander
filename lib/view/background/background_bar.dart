@@ -10,14 +10,17 @@ import 'package:flutter/material.dart';
 class BackgroundBar extends StatelessWidget {
   const BackgroundBar({super.key, required this.tasks});
 
-  final BackgroundTasks tasks;
+  final Operations tasks;
 
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
       listenable: tasks,
       builder: (context, _) {
-        final running = tasks.tasks;
+        final running = [
+          for (final run in tasks.all)
+            if (run.isInBackground) run,
+        ];
         if (running.isEmpty) {
           return const SizedBox.shrink();
         }
@@ -36,7 +39,7 @@ class BackgroundBar extends StatelessWidget {
 class _BackgroundTaskRow extends StatelessWidget {
   const _BackgroundTaskRow({required this.task});
 
-  final TaskStatus task;
+  final OperationRun task;
 
   @override
   Widget build(BuildContext context) {
@@ -44,20 +47,31 @@ class _BackgroundTaskRow extends StatelessWidget {
     final metrics = theme.metrics;
 
     return ListenableBuilder(
-      listenable: task,
+      listenable: task.status,
       builder: (context, _) {
         return Padding(
           padding: EdgeInsets.symmetric(horizontal: metrics.dialogGap, vertical: metrics.strokeWidth * 2),
           child: Row(
             children: [
               Text('${task.title}: ', style: theme.statusStyle),
-              Expanded(child: Text(task.message, style: theme.statusStyle, overflow: TextOverflow.ellipsis)),
+              Expanded(child: Text(task.status.message, style: theme.statusStyle, overflow: TextOverflow.ellipsis)),
               SizedBox(width: metrics.dialogGap),
-              SizedBox(width: metrics.dialogLabelWidth / 2, child: FcProgressBar(value: task.progress)),
+              SizedBox(
+                width: metrics.dialogLabelWidth / 2,
+                child: FcProgressBar(
+                  value:
+                      task.status is ComputableOperationStatus
+                          ? (task.status as ComputableOperationStatus).percentProgress
+                          : null,
+                ),
+              ),
               SizedBox(width: metrics.dialogGap),
               // Работа в фоне остаётся управляемой: прервать её можно, не
               // возвращая окна.
-              _CancelButton(onPressed: task.canCancel ? task.cancel : null, theme: theme),
+              _CancelButton(
+                onPressed: task.status.state.isFinished ? null : task.operation.requestCancel,
+                theme: theme,
+              ),
             ],
           ),
         );

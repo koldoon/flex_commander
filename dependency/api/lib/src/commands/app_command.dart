@@ -1,7 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../app/application.dart';
-import '../background/task_status.dart';
+import '../background/operations.dart';
 import '../app/panel.dart';
 import '../app/viewport.dart';
 import '../tree/fs_node.dart';
@@ -235,6 +235,10 @@ abstract class AppCommand extends ChangeNotifier {
   /// Условия запуска: активная панель и выбранные объекты.
   /// Ядро передаёт их при создании экземпляра.
   CommandContext get context => _context!;
+
+  /// То же, но без обещания: null — команду вызвали напрямую, минуя ядро.
+  /// Так делают тесты, которым приложение не нужно.
+  CommandContext? get contextOrNull => _context;
   CommandContext? _context;
 
   /// Параметры, с которыми команда выполнится.
@@ -292,9 +296,6 @@ abstract class AppCommand extends ChangeNotifier {
   /// Прятать имеет смысл то, что долго идёт и умеет рассказать о себе
   /// ([status]); окно ввода прятать некуда — оно ждёт ответа.
   bool get canRunInBackground => false;
-
-  /// Ход работы для общего места; null — показывать нечего.
-  TaskStatus? get status => null;
 
   /// Работа идёт без окна, в общем списке фоновых. Выставляет ядро.
   bool get isInBackground => _isInBackground;

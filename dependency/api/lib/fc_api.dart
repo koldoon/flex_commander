@@ -45,7 +45,7 @@ export 'src/commands/command_service.dart';
 export 'src/commands/key_combination.dart';
 
 // --- Фоновые работы ---
-export 'src/background/task_status.dart';
+export 'src/background/operations.dart';
 
 // --- Модули ---
 export 'src/module/fc_module.dart';

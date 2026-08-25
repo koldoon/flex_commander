@@ -37,7 +37,6 @@ void main() {
     // Из этого и растёт фоновое выполнение: ядро прячет окно, а ход дела
     // показывает рядом с остальными такими же.
     for (final id in ['file.remove', 'file.removePermanently', 'file.copy', 'file.move']) {
-      expect(commands.find(id), isA<TaskStatus>(), reason: 'команда $id не умеет рассказать о себе');
       expect(commands.find(id)!.canRunInBackground, isTrue);
     }
   });

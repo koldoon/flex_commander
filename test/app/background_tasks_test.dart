@@ -66,13 +66,22 @@ void main() {
     unawaited(run.submit());
     await Future<void>.delayed(const Duration(milliseconds: 5));
 
-    runtime.app.background.sendToBackground(run.runId);
+    runtime.app.operations.sendToBackground(run.runId, owner: ViewportPosition.left);
 
     // Окна больше нет, а работа идёт — и видна там, где видны все такие.
     expect(runtime.commands.openDialogs, isEmpty);
-    expect(runtime.app.background.tasks, hasLength(1));
-    expect(runtime.app.background.tasks.single.isRunning, isTrue);
-    expect(runtime.app.background.isInBackground(run.runId), isTrue);
+    expect([
+      for (final run in runtime.app.operations.all)
+        if (run.isInBackground) run,
+    ], hasLength(1));
+    expect(
+      [
+        for (final run in runtime.app.operations.all)
+          if (run.isInBackground) run,
+      ].single.status.state,
+      OperationState.processing,
+    );
+    expect(runtime.app.operations.byId(run.runId)?.isInBackground ?? false, isTrue);
 
     work.finish();
     await run.completion;
@@ -87,11 +96,14 @@ void main() {
     unawaited(run.submit());
     await Future<void>.delayed(const Duration(milliseconds: 5));
 
-    runtime.app.background.sendToBackground(run.runId);
-    runtime.app.background.bringToFront(run.runId);
+    runtime.app.operations.sendToBackground(run.runId, owner: ViewportPosition.left);
+    runtime.app.operations.bringToFront(run.runId);
 
     expect(runtime.commands.openDialogs.single, same(run));
-    expect(runtime.app.background.tasks, isEmpty);
+    expect([
+      for (final run in runtime.app.operations.all)
+        if (run.isInBackground) run,
+    ], isEmpty);
 
     work.finish();
     await run.completion;
@@ -105,16 +117,27 @@ void main() {
     final run = runtime.commands.openDialogs.single as AsyncCommandBase;
     unawaited(run.submit());
     await Future<void>.delayed(const Duration(milliseconds: 5));
-    runtime.app.background.sendToBackground(run.runId);
+    runtime.app.operations.sendToBackground(run.runId, owner: ViewportPosition.left);
 
     // Прервать работу можно и из фона — но прерывание не молчаливое: операция
     // переспрашивает, и отвечать за пользователя ядро не вправе.
-    final task = runtime.app.background.tasks.single;
-    expect(task.canCancel, isTrue);
-    task.cancel();
+    final task =
+        [
+          for (final run in runtime.app.operations.all)
+            if (run.isInBackground) run,
+        ].single;
+    expect(!task.status.state.isFinished, isTrue);
+    task.operation.requestCancel();
     await Future<void>.delayed(const Duration(milliseconds: 10));
 
-    expect(runtime.app.background.tasks, isEmpty, reason: 'вопрос вернул окно из фона');
+    expect(
+      [
+        for (final run in runtime.app.operations.all)
+          if (run.isInBackground) run,
+      ],
+      isEmpty,
+      reason: 'вопрос вернул окно из фона',
+    );
     expect(runtime.commands.openDialogs.single, same(run));
     expect(run.question, isNotNull);
 
@@ -132,12 +155,15 @@ void main() {
     final run = runtime.commands.openDialogs.single as AsyncCommandBase;
     unawaited(run.submit());
     await Future<void>.delayed(const Duration(milliseconds: 5));
-    runtime.app.background.sendToBackground(run.runId);
+    runtime.app.operations.sendToBackground(run.runId, owner: ViewportPosition.left);
 
     work.finish();
     await run.completion;
     await Future<void>.delayed(const Duration(milliseconds: 5));
 
-    expect(runtime.app.background.tasks, isEmpty);
+    expect([
+      for (final run in runtime.app.operations.all)
+        if (run.isInBackground) run,
+    ], isEmpty);
   });
 }

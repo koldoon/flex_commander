@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import '../background/task_status.dart';
+import '../background/operations.dart';
 import '../commands/command_service.dart';
 import 'errors.dart';
 import 'panel_viewport.dart';
@@ -43,8 +43,8 @@ abstract interface class Application implements Listenable {
   /// Оформление приложения: какое есть и какое выбрано.
   ThemeService get theme;
 
-  /// Работы, ушедшие в фон.
-  BackgroundTasks get background;
+  /// Заведённые работы: их показывают статусные области.
+  Operations get operations;
 
   /// Ошибки, которые никто не поймал: показать человеку, а не только записать
   /// в журнал.

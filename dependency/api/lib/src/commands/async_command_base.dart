@@ -6,7 +6,7 @@ import '../async/async_operation.dart';
 import '../async/operation_request.dart';
 import '../async/operation_status.dart';
 import '../util/throttle.dart';
-import '../background/task_status.dart';
+import '../background/operations.dart';
 import 'app_command.dart';
 
 /// Где прогон: не начинался, идёт, кончился.
@@ -37,7 +37,7 @@ enum CommandRunPhase {
 /// Вопрос операции («файл уже есть, что делать?») показывается в окне команды,
 /// а если окна нет — берётся ответ по умолчанию: команду мог запустить
 /// сценарий, и спросить там некого.
-abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, TaskStatus {
+abstract class AsyncCommandBase extends AppCommand implements AsyncCommand {
   AsyncOperation<void>? _operation;
   StreamSubscription<OperationRequest>? _requests;
   OperationStatus? _watched;
@@ -58,9 +58,6 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
   /// пользователю.
   @override
   bool get canRunInBackground => true;
-
-  @override
-  TaskStatus? get status => this;
 
   /// Заголовок для общего места фоновых работ.
   @override
@@ -96,6 +93,11 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
     _phase = CommandRunPhase.running;
     _state = OperationProgress(message: message);
     _operation = operation;
+    // Работа заведена: с этого момента её можно найти. В статусной области её
+    // пока нет — туда она попадёт, только если её отправят в фон.
+    contextOrNull?.app.operations.register(
+      OperationRun(runId: runId, operation: operation, commandId: id, title: title),
+    );
     notifyListeners();
 
     // Подписки ставятся сразу: операция начинает работу следующим шагом цикла
@@ -112,7 +114,7 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
       if (isInBackground) {
         // Работа шла без окна, но появился вопрос — отвечать за пользователя
         // ядро не вправе, поэтому окно возвращается на вид.
-        context.app.background.bringToFront(runId);
+        context.app.operations.bringToFront(runId);
       }
       _question = request;
       notifyListeners();
@@ -125,6 +127,7 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
     } finally {
       _watched?.removeListener(_onStatusChanged);
       _watched = null;
+      contextOrNull?.app.operations.forget(runId);
       unawaited(_requests?.cancel());
       _redraw.cancel();
       // Не [idle]: операции больше нет, но прогон не кончен, пока не закрыто
@@ -277,7 +280,7 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
   ///
   /// Решение принимает ядро — команда только просит: у неё нет ни списка
   /// фоновых работ, ни места, где его показывают.
-  void sendToBackground() => context.app.background.sendToBackground(runId);
+  void sendToBackground() => context.app.operations.sendToBackground(runId, owner: context.app.view.sourceArea);
 
   /// Прервать работу — по кнопке в окне или по Esc.
   ///
