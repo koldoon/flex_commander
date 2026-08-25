@@ -113,6 +113,31 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
     notifyListeners();
   }
 
+  final List<_OpenDialog> _dialogs = [];
+  var _nextDialog = 0;
+
+  @override
+  List<DialogSpec> get dialogs => [for (final dialog in _dialogs) dialog.spec];
+
+  @override
+  String showDialog(DialogSpec spec) {
+    final id = 'dialog#${_nextDialog++}';
+    _dialogs.add(_OpenDialog(id, spec));
+    notifyListeners();
+    return id;
+  }
+
+  @override
+  void closeDialog(String dialogId) {
+    final before = _dialogs.length;
+    _dialogs.removeWhere((dialog) => dialog.id == dialogId);
+    if (_dialogs.length != before) {
+      notifyListeners();
+    }
+  }
+
+  /// Идентификатор окна вместе с его описанием: описание неизменяемо, а найти
+  /// окно надо по тому, что вернули показавшему.
   void _afterChange() {
     _watchActive();
     notifyListeners();
@@ -147,4 +172,11 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
     }
     super.dispose();
   }
+}
+
+class _OpenDialog {
+  const _OpenDialog(this.id, this.spec);
+
+  final String id;
+  final DialogSpec spec;
 }

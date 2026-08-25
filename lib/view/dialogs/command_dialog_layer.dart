@@ -18,10 +18,11 @@ class CommandDialogLayer extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return ListenableBuilder(
-      listenable: app.commands,
+      listenable: Listenable.merge([app.commands, app.view]),
       builder: (context, _) {
         final dialogs = app.commands.openDialogs;
-        if (dialogs.isEmpty) {
+        final own = app.view.dialogs;
+        if (dialogs.isEmpty && own.isEmpty) {
           return const SizedBox.shrink();
         }
 
@@ -38,6 +39,19 @@ class CommandDialogLayer extends StatelessWidget {
                   onDismiss: command.dismiss,
                   child: spec.content,
                 ),
+            // Окна, которыми владеет рабочая область: их показала команда и
+            // ушла, а живут они дальше сами. Поверх командных — последнее
+            // показанное сверху.
+            for (final spec in own)
+              DialogFrame(
+                key: ValueKey(spec),
+                title: spec.title,
+                takesFocus: spec.takesFocus,
+                area: spec.area,
+                onSubmit: spec.onSubmit ?? () {},
+                onDismiss: spec.onDismiss ?? () {},
+                child: spec.content,
+              ),
           ],
         );
       },

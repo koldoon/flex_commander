@@ -69,12 +69,16 @@ class FunctionBar extends StatelessWidget {
   /// привязке — слой показывается целиком, и клавиши без команды в нём честно
   /// пустые: смешивать слои значило бы врать.
   KeyModifiers _layerOf(BuildContext context) {
-    final registry = AppScope.read(context).commands;
+    final app = AppScope.read(context);
+    final registry = app.commands;
 
     // Пока открыто окно команды, клавиши принадлежат ему: показывать слой
     // модификатора значило бы обещать то, чего сейчас не будет. Заодно ряд не
     // мигает, когда Shift зажимают ради заглавной буквы в поле имени.
-    final held = registry.openDialogs.isEmpty ? ModifiersScope.of(context) : KeyModifiers.none;
+    // Окно бывает и своё у команды, и принадлежащее рабочей области: клавиши
+    // в обоих случаях принадлежат ему, и обещать слой модификаторов нельзя.
+    final noDialogs = app.commands.openDialogs.isEmpty && app.view.dialogs.isEmpty;
+    final held = noDialogs ? ModifiersScope.of(context) : KeyModifiers.none;
     if (held.isEmpty) {
       return held;
     }
@@ -84,7 +88,8 @@ class FunctionBar extends StatelessWidget {
   }
 
   Widget _button(BuildContext context, KeyModifiers layer, int number) {
-    final registry = AppScope.read(context).commands;
+    final app = AppScope.read(context);
+    final registry = app.commands;
 
     final keys = layer.on('F$number');
     final command = registry.commandFor(keys);

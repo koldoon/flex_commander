@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 
+import '../commands/app_command.dart';
 import 'panel.dart';
 
 /// Места на экране.
@@ -155,4 +156,19 @@ abstract interface class ApplicationView implements Listenable {
   /// Единственный вход: выставляет [activeArea] и просит системный фокус для
   /// виджета области. Двумя вызовами эти состояния разъедутся.
   void setFocus(ViewportPosition position);
+
+  /// Открытые окна, снизу вверх: последнее показанное — верхнее.
+  ///
+  /// Стопка, а не список: окно вправе поднять дочернее — выбор каталога,
+  /// подтверждение, — и клавиши принадлежат верхнему.
+  List<DialogSpec> get dialogs;
+
+  /// Показывает окно и возвращает его идентификатор — по нему же закрывать.
+  ///
+  /// Окно **не область**: ни [activeArea], ни [sourceArea] оно не меняет.
+  /// Поэтому команда, запущенная из списка команд, видит ту же панель, что и
+  /// клавиша, — хотя ввод в этот момент был в окне списка.
+  String showDialog(DialogSpec spec);
+
+  void closeDialog(String dialogId);
 }

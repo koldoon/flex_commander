@@ -439,6 +439,8 @@ class DialogSpec {
     required this.content,
     this.area = DialogArea.window,
     this.takesFocus = false,
+    this.onSubmit,
+    this.onDismiss,
   });
 
   /// Заголовок в раме.
@@ -459,6 +461,16 @@ class DialogSpec {
   /// окно осталось бы глухим к Enter и Esc. Явное свойство, а не догадки по
   /// содержимому: кнопки тоже могут принимать фокус, но сами его не просят.
   final bool takesFocus;
+
+  /// Что делает Enter; null — ничего.
+  ///
+  /// У окна, которым владеет рабочая область, команды за спиной нет: она
+  /// показала окно и ушла. Поэтому реакции описываются здесь, вместе с
+  /// остальным про это окно.
+  final VoidCallback? onSubmit;
+
+  /// Что делает Esc; null — ничего.
+  final VoidCallback? onDismiss;
 }
 
 /// Часть окна приложения, над которой встаёт окно команды.

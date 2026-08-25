@@ -25,24 +25,31 @@ class HelpCommand extends AppCommand {
   String get label => 'Help';
 
   @override
-  bool get hasDialog => true;
-
-  /// Фокус берёт сама таблица: её листают клавишами.
-
-  @override
   bool isExecutable(CommandContext context) => true;
 
-  /// Показать — это и есть вся работа: окно рисует справку, делать больше
-  /// нечего. Enter в нём поэтому равносилен «закрыть».
+  /// Показать — это и есть вся работа.
+  ///
+  /// Окно команда не держит: показала и ушла. Состояния прогона у справки нет
+  /// вовсе — таблица собирается один раз и дальше только листается, — поэтому
+  /// экземпляр команды после запуска не нужен ни для чего.
+  ///
+  /// Enter в таком окне равносилен «закрыть»: делать в нём больше нечего.
   @override
-  Future<void> execute() async {}
+  Future<void> execute() async {
+    final view = context.app.view;
+    late final String dialogId;
+    void close() => view.closeDialog(dialogId);
 
-  @override
-  DialogSpec? dialogSpec(BuildContext context) => DialogSpec(
-    title: dialogTitle,
-    takesFocus: true,
-    content: FcKeyValueTable(sections: _sections(), onClose: dismiss),
-  );
+    dialogId = view.showDialog(
+      DialogSpec(
+        title: dialogTitle,
+        takesFocus: true,
+        content: FcKeyValueTable(sections: _sections(), onClose: close),
+        onSubmit: close,
+        onDismiss: close,
+      ),
+    );
+  }
 
   List<FcTableSection> _sections() => [_settings(), _commands()];
 

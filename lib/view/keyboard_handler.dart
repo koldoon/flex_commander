@@ -105,7 +105,7 @@ class _KeyboardHandlerState extends State<KeyboardHandler> {
       return KeyEventResult.ignored;
     }
 
-    if (app.commands.openDialogs.isNotEmpty) {
+    if (app.commands.openDialogs.isNotEmpty || app.view.dialogs.isNotEmpty) {
       // Пока открыто окно команды, клавиши принадлежат ему целиком, и
       // обработчик отходит в сторону — включая `Esc`. Иначе `Esc` не дошёл бы
       // ни до окна, ни до вопроса по ходу работы: обработчик забрал бы его
