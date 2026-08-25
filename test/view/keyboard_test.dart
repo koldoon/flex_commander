@@ -96,7 +96,11 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Future<void> press(
+  /// Возвращает, взял ли каркас нажатие себе.
+  ///
+  /// `false` означает «ушло дальше, в систему»: именно этого ответа ждёт
+  /// `Cmd+Q` и не должен дождаться `Escape`.
+  Future<bool> press(
     WidgetTester tester,
     LogicalKeyboardKey key, {
     List<LogicalKeyboardKey> modifiers = const [],
@@ -104,13 +108,14 @@ void main() {
     for (final modifier in modifiers) {
       await tester.sendKeyDownEvent(modifier);
     }
-    await tester.sendKeyEvent(key);
+    final handled = await tester.sendKeyEvent(key);
     for (final modifier in modifiers.reversed) {
       await tester.sendKeyUpEvent(modifier);
     }
     await tester.pumpAndSettle();
     // Даём сработать отложенной записи настроек, если команда её запланировала.
     await tester.pump(const Duration(milliseconds: 20));
+    return handled;
   }
 
   group('курсор', () {
@@ -520,30 +525,19 @@ void main() {
   });
 
   group('клавиши не уходят мимо приложения', () {
-    /// Ставит над приложением слушателя: он получает только то, что приложение
-    /// пропустило дальше по дереву — а значит, и наружу, в систему.
-    Future<List<LogicalKeyboardKey>> pumpWithWatcher(WidgetTester tester) async {
-      final escaped = <LogicalKeyboardKey>[];
-
+    /// Граница «ушло наружу» — это ответ каркаса, а не виджет над приложением.
+    ///
+    /// Виджет-предок увидел бы событие раньше и дерева фокуса, и позднего
+    /// перехвата `Escape`, то есть проверял бы не то. Каркас отвечает
+    /// последним, и его «не обработано» — ровно то, что уходит в систему.
+    Future<void> pumpApp(WidgetTester tester) async {
       tester.view.physicalSize = const Size(802, 621);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
 
-      await tester.pumpWidget(
-        Focus(
-          onKeyEvent: (node, event) {
-            if (event is KeyDownEvent) {
-              escaped.add(event.logicalKey);
-            }
-            return KeyEventResult.ignored;
-          },
-          child: FlexCommanderApp(controller: app),
-        ),
-      );
+      await tester.pumpWidget(FlexCommanderApp(controller: app));
       await app.start();
       await tester.pumpAndSettle();
-
-      return escaped;
     }
 
     testWidgets('клавиша без команды уходит дальше — к системе', (tester) async {
@@ -551,19 +545,15 @@ void main() {
       // прочие сочетания меню Flutter спрашивает у приложения раньше, чем
       // строку меню, и «обработано» их отменяет — приложение перестаёт
       // закрываться по Cmd+Q.
-      final escaped = await pumpWithWatcher(tester);
+      await pumpApp(tester);
 
-      await press(tester, LogicalKeyboardKey.f9);
-
-      expect(escaped, [LogicalKeyboardKey.f9]);
+      expect(await press(tester, LogicalKeyboardKey.f9), isFalse);
     });
 
     testWidgets('клавиша с командой дальше не идёт', (tester) async {
-      final escaped = await pumpWithWatcher(tester);
+      await pumpApp(tester);
 
-      await press(tester, LogicalKeyboardKey.f1);
-
-      expect(escaped, isEmpty);
+      expect(await press(tester, LogicalKeyboardKey.f1), isTrue);
     });
 
     testWidgets('Escape приложение наружу не выпускает', (tester) async {
@@ -571,23 +561,22 @@ void main() {
       // Escape нельзя всё равно: AppKit понимает `Cmd+.` как «отменить» и
       // присылает Escape в ответ, а неразобранный Escape уходит к нему
       // обратно — и так по кругу, десятками тысяч событий подряд.
-      final escaped = await pumpWithWatcher(tester);
+      //
+      // Забирает его поздний перехват — после дерева фокуса, а не до: сначала
+      // `Escape` принадлежит тому, кто на экране.
+      await pumpApp(tester);
 
-      await press(tester, LogicalKeyboardKey.escape);
-
-      expect(escaped, isEmpty);
+      expect(await press(tester, LogicalKeyboardKey.escape), isTrue);
     });
 
     testWidgets('пока открыто окно команды, клавиши принадлежат ему', (tester) async {
-      final escaped = await pumpWithWatcher(tester);
+      await pumpApp(tester);
       app.commands.run(HelpCommand.commandId);
       await tester.pumpAndSettle();
 
       // F1 закреплена за справкой, но из-под чужого окна панели не отвечают:
-      // событие должно уйти дальше — к самому окну.
-      await press(tester, LogicalKeyboardKey.f1);
-
-      expect(escaped, [LogicalKeyboardKey.f1]);
+      // событие должно уйти дальше — к самому окну, а не быть съеденным.
+      expect(await press(tester, LogicalKeyboardKey.f1), isFalse);
     });
   });
 }

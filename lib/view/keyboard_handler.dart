@@ -7,9 +7,24 @@ import 'modifiers_scope.dart';
 
 /// Приём клавиатуры для всего окна.
 ///
-/// Обработчик один: активная панель определяется [AppController], а не
-/// системным фокусом, поэтому панели своих обработчиков не имеют и бороться
-/// с `FocusManager` не приходится (в референсе с этим боролись вручную).
+/// Нажатие разбирается **раньше дерева фокуса**
+/// ([FocusManager.addEarlyKeyEventHandler]), а не после него. Разница
+/// принципиальная: обработчик больше не обязан быть тем, у кого фокус, и не
+/// обязан отбирать его обратно. Кто владеет фокусом — редактор, поле ввода в
+/// окне, прокрутка просмотрщика, — на разбор привязок не влияет вовсе.
+///
+/// Уровня три, и порядок между ними существенен:
+///
+/// 1. **Рано** — привязки приложения. Пока открыто окно команды, этот уровень
+///    молчит: клавиши принадлежат окну. Пока панель занята — пропускает только
+///    отмену.
+/// 2. **Дерево фокуса** — всё, для чего привязки нет: печать в редакторе,
+///    прокрутка стрелками в просмотрщике, `Esc` в открытом окне и в вопросе по
+///    ходу работы.
+/// 3. **Поздно** — `Esc`, который никто не взял, гасится здесь и наружу не
+///    уходит.
+///
+/// Гасить `Esc` рано нельзя: тогда он не дошёл бы ни до окна, ни до вопроса.
 class KeyboardHandler extends StatefulWidget {
   const KeyboardHandler({super.key, required this.app, required this.child});
 
@@ -30,110 +45,49 @@ class _KeyboardHandlerState extends State<KeyboardHandler> {
   /// включая одиночные нажатия модификаторов, у которых нет комбинации.
   final ValueNotifier<KeyModifiers> _modifiers = ValueNotifier(KeyModifiers.none);
 
-  /// Свой узел фокуса: его приходится забирать обратно — см. [_reclaimFocus].
+  /// Узел, которому фокус достаётся, пока его никто не просил.
+  ///
+  /// На разбор клавиш он больше не влияет — только на то, чтобы фокус был хоть
+  /// где-то и `Tab` не уводил его в неожиданное место.
   final FocusNode _node = FocusNode(debugLabel: 'KeyboardHandler');
 
   Application get app => widget.app;
 
-  /// Экран, который был виден в прошлый раз, — чтобы заметить уход того,
-  /// кто забирал фокус.
-  Screen? _lastScreen;
-
-  /// Ждём, что осиротевший фокус достанется нам.
-  bool _awaitingFocus = false;
-
   @override
   void initState() {
     super.initState();
-    _lastScreen = app.screens.active;
-    app.screens.addListener(_onScreenChanged);
-    FocusManager.instance.addListener(_onFocusChanged);
+    FocusManager.instance.addEarlyKeyEventHandler(_handleKey);
+    FocusManager.instance.addLateKeyEventHandler(_swallowEscape);
   }
 
   @override
   void dispose() {
-    FocusManager.instance.removeListener(_onFocusChanged);
-    app.screens.removeListener(_onScreenChanged);
+    FocusManager.instance.removeEarlyKeyEventHandler(_handleKey);
+    FocusManager.instance.removeLateKeyEventHandler(_swallowEscape);
     _node.dispose();
     _modifiers.dispose();
     super.dispose();
   }
 
-  /// Экран, забиравший фокус, ушёл — ждём фокус обратно.
-  ///
-  /// Такой экран (редактор) уносит с собой узел, у которого фокус был, а
-  /// объемлющая область истории не помнит: фокус достаётся ей самой, то есть
-  /// никому, и приложение перестаёт слышать клавиатуру целиком. Снаружи это
-  /// выглядит как зависшее окно.
-  void _onScreenChanged() {
-    final was = _lastScreen;
-    _lastScreen = app.screens.active;
-    if (was != null && was.takesFocus && !identical(was, _lastScreen)) {
-      _awaitingFocus = true;
-    }
-  }
-
-  /// Забирает осиротевший фокус — но только после ухода такого экрана.
-  ///
-  /// Ждать в общем случае нельзя: фокус уходит и по делу — в окно команды, в
-  /// вопрос о пароле, в соседнее приложение по `Cmd-Tab`. Отбирать его там
-  /// значило бы не давать печатать и оставлять ряд кнопок в чужом слое.
-  void _onFocusChanged() {
-    if (!_awaitingFocus) {
-      return;
-    }
-    _awaitingFocus = false;
-
-    // Фокус у области, а не у обычного узла, — значит им никто не владеет:
-    // у настоящего хозяина узел обычный.
-    if (FocusManager.instance.primaryFocus is FocusScopeNode && mounted && _wantsFocus) {
-      _node.requestFocus();
-    }
-  }
-
-  /// Должен ли фокус быть у обработчика прямо сейчас.
-  ///
-  /// Не должен, пока открыто окно команды или вопрос о пароле (в их полях
-  /// нужно печатать) и пока открыт экран, которому фокус нужен самому.
-  bool get _wantsFocus =>
-      app.commands.openDialogs.isEmpty && app.credentials.pending == null && !(app.screens.active?.takesFocus ?? false);
-
   @override
   Widget build(BuildContext context) {
-    // Подписка на экраны: от того, какой из них сверху, зависит, пускать ли
-    // фокус внутрь, — а смена экрана обработчик иначе не заметит.
-    return ListenableBuilder(
-      listenable: app.screens,
-      builder: (context, child) {
-        return Focus(
-          focusNode: _node,
-          autofocus: true,
-          // Обычная навигация по фокусу приложению не нужна: Tab переключает
-          // панели, а не перескакивает на кнопки внизу окна.
-          canRequestFocus: true,
-          // Кроме случая, когда фокус нужен самому экрану: просмотрщику его
-          // прокрутка разбирает стрелки и PgUp/PgDn сама, и до неё события
-          // должны доходить. Нажатия, которые она не взяла, всплывают сюда же.
-          descendantsAreFocusable: app.screens.active?.takesFocus ?? false,
-          onKeyEvent: _handleKey,
-          // Уход фокуса сбрасывает слой: отпускание клавиши случится уже в
-          // чужом окне и до нас не дойдёт, а ряд иначе остался бы в слое
-          // навсегда.
-          // Уход фокуса сбрасывает слой модификаторов; забирать фокус обратно
-          // здесь нельзя — он уходит и по делу: в окно команды, в вопрос о
-          // пароле, в соседнее приложение.
-          onFocusChange: (hasFocus) => _modifiers.value = hasFocus ? KeyModifiers.pressed() : KeyModifiers.none,
-          child: child!,
-        );
-      },
+    return Focus(
+      focusNode: _node,
+      autofocus: true,
+      // Фокус внутрь пускается всегда: раньше его приходилось запирать, чтобы
+      // нажатия доставались обработчику, а тот теперь получает их первым в
+      // любом случае. Вместе с запором ушла и вся возня с возвратом фокуса
+      // после закрытия экрана, который его забирал.
+      onFocusChange: (hasFocus) => _modifiers.value = hasFocus ? KeyModifiers.pressed() : KeyModifiers.none,
       child: ModifiersScope(modifiers: _modifiers, child: widget.child),
     );
   }
 
-  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+  KeyEventResult _handleKey(KeyEvent event) {
     // Снимается до всех проверок и ранних выходов: модификатор отпускают и
     // тогда, когда открыто окно команды, — а ряд кнопок не должен остаться в
-    // чужом слое.
+    // чужом слое. Состояние читается у `HardwareKeyboard`, а не копится из
+    // событий: на macOS отпускание не приходит, пока держат Cmd.
     _modifiers.value = KeyModifiers.pressed();
 
     // Автоповтор обрабатывается наравне с нажатием: иначе удержание стрелки
@@ -142,15 +96,16 @@ class _KeyboardHandlerState extends State<KeyboardHandler> {
       return KeyEventResult.ignored;
     }
 
-    final combination = KeyCombination.fromEvent(event);
-    if (combination == null) {
+    if (app.commands.openDialogs.isNotEmpty) {
+      // Пока открыто окно команды, клавиши принадлежат ему целиком, и
+      // обработчик отходит в сторону — включая `Esc`. Иначе `Esc` не дошёл бы
+      // ни до окна, ни до вопроса по ходу работы: обработчик забрал бы его
+      // раньше, чем дерево фокуса.
       return KeyEventResult.ignored;
     }
 
-    if (app.commands.openDialogs.isNotEmpty) {
-      // Пока открыто окно команды, клавиши принадлежат ему. Обычно фокус и так
-      // у окна, но правило должно быть явным: панели не должны реагировать на
-      // ввод из-под чужого окна.
+    final combination = KeyCombination.fromEvent(event);
+    if (combination == null) {
       return KeyEventResult.ignored;
     }
 
@@ -167,20 +122,30 @@ class _KeyboardHandlerState extends State<KeyboardHandler> {
       return KeyEventResult.handled;
     }
 
-    // Команды под клавишу не нашлось. Обычно такое событие надо пропустить
-    // дальше — иначе система не получит своих сочетаний: `Cmd+Q`, `Cmd+W` и
-    // прочие меню Flutter спрашивает у приложения раньше, чем строку меню, и
-    // «обработано» их отменяет.
-    //
-    // Но Escape наружу пускать нельзя. AppKit понимает `Cmd+.` как «отменить
-    // операцию» и присылает в ответ Escape; если и его вернуть неразобранным,
-    // он уйдёт обратно в AppKit, тот снова ответит Escape — и так по кругу.
-    // Одно нажатие `Cmd+.` давало больше тридцати тысяч событий подряд, а
-    // каждое из них отменяло начатое чтение каталога: вход по Enter выглядел
-    // как «ничего не произошло».
-    //
-    // Escape — клавиша приложения (отмена операции, снятие пометки), и то, что
-    // сейчас ей нечего делать, ничего не меняет: наружу ей всё равно не надо.
-    return combination.key == KeyboardHandler.cancelKey ? KeyEventResult.handled : KeyEventResult.ignored;
+    // Команды под клавишу не нашлось — пропускаем дальше: в поле ввода, в
+    // прокрутку, а оттуда в систему. `Cmd+Q`, `Cmd+W` и прочие меню Flutter
+    // спрашивает у приложения раньше, чем строку меню, и «обработано» их
+    // отменяет. `Esc` в том числе: он ещё нужен окну и вопросу.
+    return KeyEventResult.ignored;
+  }
+
+  /// Третий уровень: `Esc`, который не взял никто.
+  ///
+  /// Наружу его пускать нельзя. AppKit понимает `Cmd+.` как «отменить
+  /// операцию» и присылает в ответ Escape; если и его вернуть неразобранным,
+  /// он уйдёт обратно в AppKit, тот снова ответит Escape — и так по кругу.
+  /// Одно нажатие `Cmd+.` давало больше тридцати тысяч событий подряд, а
+  /// каждое из них отменяло начатое чтение каталога: вход по Enter выглядел
+  /// как «ничего не произошло».
+  ///
+  /// Здесь, а не на первом уровне: `Esc` — клавиша приложения, но сначала он
+  /// принадлежит тому, кто на экране. Гасить его рано значило бы никогда не
+  /// донести до окна и до вопроса по ходу работы.
+  KeyEventResult _swallowEscape(KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
+      return KeyEventResult.ignored;
+    }
+    final combination = KeyCombination.fromEvent(event);
+    return combination?.key == KeyboardHandler.cancelKey ? KeyEventResult.handled : KeyEventResult.ignored;
   }
 }
