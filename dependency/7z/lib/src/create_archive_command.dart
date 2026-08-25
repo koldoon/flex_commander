@@ -71,7 +71,6 @@ class CreateSevenZipArchiveCommand extends AppCommand {
   @override
   String get description => 'Pack the selected items into a new 7z archive';
 
-  @override
   String get dialogTitle => 'Create 7z archive';
 
   /// Окно начинается с формы, и фокус нужен полю имени.

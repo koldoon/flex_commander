@@ -22,6 +22,9 @@ class MakeDirectoryCommand extends AppCommand {
   @override
   String get description => 'Create a directory in the active panel';
 
+  /// В заголовке места больше, чем на кнопке в ряду, где стоит сжатое «Mk Dir».
+  String get dialogTitle => 'Make directory';
+
   @override
   bool isExecutable(CommandContext context) {
     final panel = context.panel;
@@ -338,7 +341,6 @@ abstract class RemoveCommandBase extends AppCommand {
   }
 
   /// Заголовок собирается как в референсе: действие и то, над чем оно идёт.
-  @override
   String get dialogTitle => '$label $_what';
 
   String get _what {

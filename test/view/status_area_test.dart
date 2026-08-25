@@ -26,7 +26,6 @@ class _SlowCommand extends AppCommand {
   String get label => 'Slow work';
 
   /// Заголовок полоски задаёт заводивший работу, а не имя команды.
-  @override
   String get dialogTitle => 'Copy 3 items';
 
   @override

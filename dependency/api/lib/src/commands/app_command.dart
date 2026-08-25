@@ -254,12 +254,6 @@ abstract class AppCommand extends ChangeNotifier {
     _context = context;
   }
 
-  /// Заголовок окна команды.
-  ///
-  /// По умолчанию — [label], но команде бывает что уточнить: «Copy «notes.txt»»
-  /// понятнее, чем просто «Copy». В референсе заголовок собирался так же.
-  String get dialogTitle => label;
-
   /// Вызывается один раз при установке прототипа. false — команда не
   /// устанавливается (например, недоступна на этой платформе).
   bool init(Application app) => true;

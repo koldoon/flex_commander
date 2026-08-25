@@ -59,7 +59,6 @@ class FcFindTextCommand extends AppCommand with _ScreenFinder {
   String get description => 'Find text in the document';
 
   /// В заголовке места больше, чем на кнопке в ряду.
-  @override
   String get dialogTitle => 'Find text';
 
   @override

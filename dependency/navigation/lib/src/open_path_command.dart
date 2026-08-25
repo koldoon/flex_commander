@@ -44,7 +44,6 @@ class OpenPathCommand extends AppCommand {
 
   bool get _isLeft => param<String>(panelParam) != rightPanel;
 
-  @override
   String get dialogTitle => 'Open path (${_isLeft ? 'left' : 'right'} panel)';
 
   /// Окно встаёт над своей панелью.

@@ -24,6 +24,9 @@ class HelpCommand extends AppCommand {
   @override
   String get label => 'Help';
 
+  /// В заголовке места больше, чем на кнопке в ряду.
+  String get dialogTitle => 'Help';
+
   @override
   bool isExecutable(CommandContext context) => true;
 

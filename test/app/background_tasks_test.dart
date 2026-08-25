@@ -22,6 +22,8 @@ class _SlowCommand extends AppCommand {
   @override
   String get label => 'Slow work';
 
+  String get dialogTitle => 'Slow work';
+
   @override
   bool isExecutable(CommandContext context) => true;
 

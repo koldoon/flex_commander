@@ -173,7 +173,7 @@ void main() {
       runtime.app.activate(runtime.app.right);
       final command = runtime.commands.create(OpenPathCommand.commandId)!..setParam(OpenPathCommand.panelParam, 'left');
 
-      expect(command.dialogTitle, 'Open path (left panel)');
+      expect((command as OpenPathCommand).dialogTitle, 'Open path (left panel)');
       // Середина левой панели при разделителе посередине — четверть ширины.
       expect((command as OpenPathCommand).dialogArea, const DialogArea(end: 0.5));
 
@@ -192,7 +192,7 @@ void main() {
           runtime.commands.create(OpenPathCommand.commandId)! as OpenPathCommand
             ..setParam(OpenPathCommand.panelParam, 'right');
 
-      expect(command.dialogTitle, 'Open path (right panel)');
+      expect((command as OpenPathCommand).dialogTitle, 'Open path (right panel)');
       expect(command.dialogArea, const DialogArea(start: 0.5));
     });
 

@@ -226,7 +226,6 @@ abstract class TransferCommandBase extends AppCommand {
   }
 
   /// Заголовок собирается как в референсе: действие и то, над чем оно идёт.
-  @override
   String get dialogTitle {
     final targets = this.targets;
     final what = targets.length == 1 ? '«${targets.single.name}»' : '${targets.length} items';

@@ -239,7 +239,7 @@ void main() {
     });
 
     test('заголовок окна говорит, что делается', () {
-      final command = runtime.commands.find(CreateZipArchiveCommand.commandId)!;
+      final command = runtime.commands.find(CreateZipArchiveCommand.commandId)! as CreateZipArchiveCommand;
 
       expect(command.dialogTitle, 'Create ZIP archive');
     });

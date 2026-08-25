@@ -299,7 +299,6 @@ class CloseEditorCommand extends AppCommand {
   @override
   bool isExecutable(CommandContext context) => context.app.view.contentAt(ViewportPosition.fullscreen) is EditorScreen;
 
-  @override
   String get dialogTitle => 'Unsaved changes';
 
   /// Закрыть — и спросить по дороге, если есть что терять.
