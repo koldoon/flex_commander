@@ -43,6 +43,20 @@ class _RunRow extends StatelessWidget {
 
   final OperationRun task;
 
+  /// Просит прервать работу — и сразу возвращает ей окно.
+  ///
+  /// Нажатый крестик и есть внимание человека: он смотрит сюда и уже решил.
+  /// Показывать ему после этого кнопку «нужен ответ», чтобы он нажал её ещё
+  /// раз ради того же самого вопроса, — лишний шаг на пустом месте.
+  ///
+  /// Окно возвращается **до** просьбы: прерывание не молчаливое, операция
+  /// переспросит на ближайшей проверке, и к этому моменту спрашивать должно
+  /// быть уже где.
+  void _requestCancel(OperationRun task) {
+    operations.bringToFront(task.runId);
+    task.operation.requestCancel();
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
@@ -68,14 +82,12 @@ class _RunRow extends StatelessWidget {
                 ),
               ),
               SizedBox(width: metrics.dialogGap),
-              // Работа в фоне остаётся управляемой: прервать её можно, не
-              // возвращая окна.
+              // Вопрос, возникший сам собой — конфликт имён, недоступный
+              // каталог, — окна не выдёргивает: человек занят другим. Кнопка
+              // ждёт, пока он сам решит вернуться.
               if (task.status.state == OperationState.userActionRequired)
                 _AttentionButton(onPressed: () => operations.bringToFront(task.runId), theme: theme),
-              _CancelButton(
-                onPressed: task.status.state.isFinished ? null : task.operation.requestCancel,
-                theme: theme,
-              ),
+              _CancelButton(onPressed: task.status.state.isFinished ? null : () => _requestCancel(task), theme: theme),
             ],
           ),
         );

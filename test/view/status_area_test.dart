@@ -97,4 +97,50 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
     await tester.pumpAndSettle();
   });
+
+  testWidgets('крестик возвращает окно сразу, а не через «нужен ответ»', (tester) async {
+    tester.view.physicalSize = const Size(802, 621);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    var done = false;
+    final operation = TaskOperation<void>((op) async {
+      while (!done) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+        await op.checkpoint();
+      }
+    });
+    addTearDown(() => done = true);
+
+    final runtime = await testApp(
+      provider: InMemoryTreeProvider([FakeEntry.directory('/home')])..home = '/home',
+      modules: [...featureModules(), _SlowModule(operation)],
+    );
+    await runtime.app.start();
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    expect(runtime.commands.run('test.slow'), isTrue);
+    final run = runtime.commands.openDialogs.single as AsyncCommandBase;
+    unawaited(run.submit());
+    await tester.pump(const Duration(milliseconds: 5));
+    runtime.app.operations.sendToBackground(run.runId, owner: ViewportPosition.left);
+    await tester.pump();
+
+    expect(runtime.commands.openDialogs, isEmpty);
+
+    // Нажатый крестик и есть внимание человека: он смотрит сюда и уже решил.
+    await tester.tap(find.text('✕'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 20));
+
+    // Окно вернулось само, и вопрос уже в нём — второй кнопки на пути нет.
+    expect(runtime.commands.openDialogs.single, same(run));
+    expect(run.question, isNotNull);
+    expect(runtime.app.operations.at(ViewportPosition.left), isEmpty);
+
+    done = true;
+    await run.submit();
+    await tester.pumpAndSettle();
+  });
 }
