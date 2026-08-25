@@ -24,7 +24,7 @@ void main() {
     // Отмена в конце теста завершает операцию ошибкой, и прочитать её некому.
     operation.result.ignore();
     reports = ProgressLog.of(operation).reports;
-    progress = TransferProgress(operation, 'Copying', clock: () => now);
+    progress = TransferProgress(operation, clock: () => now);
   });
 
   tearDown(() => operation.cancel());
@@ -38,7 +38,7 @@ void main() {
 
     expect(reports.last.itemsTotal, isNull);
     expect(reports.last.percent, isNull);
-    expect(reports.last.message, 'Copying notes.txt…');
+    expect(reports.last.message, 'notes.txt');
   });
 
   test('доля считается из обработанных и общего', () async {
@@ -116,7 +116,7 @@ void main() {
     await flush();
 
     expect(reports.length, 100);
-    expect(reports.last.message, 'Copying file99.txt…');
+    expect(reports.last.message, 'file99.txt');
   });
 
   test('в конце счётчики сходятся, даже если подсчёт не успел', () async {

@@ -79,7 +79,7 @@ class TreeTransferEngine implements TreeEditor {
         throw FsError(destination.pathString, FsErrorKind.notSupported);
       }
 
-      final progress = TransferProgress(op, move ? 'Moving' : 'Copying', clock: clock);
+      final progress = TransferProgress(op, clock: clock);
       // Приёмнику, которому запись по одному обходится дорого (архив
       // пересобирается целиком), сообщаем границы работы: пусть накопит.
       final batch = _batchOf(destination.provider);
@@ -208,7 +208,7 @@ class TreeTransferEngine implements TreeEditor {
     return TaskOperation<RemoveParams, void>((op, params) async {
       final nodes = params.nodes;
       final toTrash = params.toTrash;
-      final progress = TransferProgress(op, 'Deleting', clock: clock);
+      final progress = TransferProgress(op, clock: clock);
 
       // Границы работы — только когда всё удаляется из одного источника:
       // у разных провайдеров общей работы нет.
@@ -625,7 +625,7 @@ class TreeTransferEngine implements TreeEditor {
       progress?.advanceBytes(node.size);
     } else {
       // Уборка по дороге: рассказываем, но в счёт задания не берём.
-      progress?.chore('Removing ${node.name}…');
+      progress?.chore(node.name);
     }
     await editor.deleteEntry(node);
   }
@@ -643,7 +643,7 @@ class TreeTransferEngine implements TreeEditor {
     TaskOperation<Object?, void> op, [
     TransferProgress? progress,
   ]) async {
-    progress?.chore('Removing ${node.name}…');
+    progress?.chore(node.name);
     try {
       if (await editor.deleteTree(node)) {
         return;
@@ -684,7 +684,7 @@ class TreeTransferEngine implements TreeEditor {
       }
     }
 
-    progress?.chore('Removing ${node.name}…');
+    progress?.chore(node.name);
     await editor.deleteEntry(node);
     return true;
   }

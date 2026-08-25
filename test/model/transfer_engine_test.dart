@@ -135,37 +135,40 @@ void main() {
       expect(await local.resolvePath().run('/home/docs'), isNull);
     });
 
-    test('уборка приёмника не идёт молча', () async {
-      // Файл поверх файла: сливать нечего, и приёмник убирается — по сети это
-      // минуты, и всё это время окно не должно выглядеть замершим.
-      final operation = engine.copy();
-      final log = ProgressLog.of(operation);
-      operation.requests.listen((request) => request.respond(OperationRequestOption.overwriteAll));
-
-      operation.start(TransferParams([await docs()], await box()));
-      await operation.result;
-      await pumpEventQueue();
-
-      expect(
-        log.reports.map((report) => report.message),
-        contains(predicate<String>((message) => message.startsWith('Removing') && message.contains('readme.md'))),
-        reason: 'об уборке приёмника надо рассказывать так же, как о переносе',
+    test('уборка источника после переноса не идёт молча', () async {
+      // Перенос между провайдерами убирает источник поштучно — по сети это
+      // минуты. Окно всё это время должно двигаться, а не замирать.
+      late final ProgressLog log;
+      final seenAtDelete = <int>[];
+      final countersAtDelete = <int>[];
+      final slowSource = _SlowDeleteProvider(
+        [
+          FakeEntry.directory('/home'),
+          FakeEntry.directory('/home/docs'),
+          FakeEntry.directory('/home/docs/nested'),
+          FakeEntry.file('/home/docs/readme.md', content: [1, 2, 3]),
+          FakeEntry.file('/home/docs/nested/deep.txt', content: [4, 5]),
+        ],
+        onDelete: () {
+          seenAtDelete.add(log.reports.length);
+          countersAtDelete.add(log.last.itemsTransferred);
+        },
       );
-    });
 
-    test('счётчики задания уборкой не двигаются', () async {
-      final operation = engine.copy();
-      final log = ProgressLog.of(operation);
-      operation.requests.listen((request) => request.respond(OperationRequestOption.overwriteAll));
-
-      operation.start(TransferParams([await docs()], await box()));
+      final operation = engine.move();
+      log = ProgressLog.of(operation);
+      operation.start(
+        TransferParams([
+          (await slowSource.resolvePath().run('/home/docs'))!,
+        ], (await remote.resolvePath().run('/box'))! as DirectoryNode),
+      );
       await operation.result;
       await pumpEventQueue();
 
+      expect(seenAtDelete.length, greaterThan(1), reason: 'источник убирался поштучно');
+      expect(seenAtDelete.last, greaterThan(seenAtDelete.first), reason: 'о каждой убранной записи в окне сказано');
       // Убранные объекты — не наши: в задании их не было, и в счёт они не идут.
-      final duringChore = log.reports.where((report) => report.message.startsWith('Removing'));
-      expect(duringChore, isNotEmpty);
-      expect(duringChore.map((report) => report.itemsTransferred).toSet(), hasLength(1));
+      expect(countersAtDelete.toSet(), hasLength(1), reason: 'уборка не двигает счётчиков задания');
     });
   });
 
@@ -857,8 +860,17 @@ class _ReadOnlyProvider implements TreeProvider {
 /// Провайдер, который не умеет убирать поддерево одним действием: движку
 /// приходится обходить его поштучно — как по SFTP.
 class _SlowDeleteProvider extends InMemoryContentProvider {
-  _SlowDeleteProvider(super.entries);
+  _SlowDeleteProvider(super.entries, {this.onDelete});
+
+  /// Зовётся на каждую убранную запись: так тест видит ход уборки.
+  final void Function()? onDelete;
 
   @override
   Future<bool> deleteTree(FsNode node) async => false;
+
+  @override
+  Future<void> deleteEntry(FsNode node) async {
+    onDelete?.call();
+    await super.deleteEntry(node);
+  }
 }

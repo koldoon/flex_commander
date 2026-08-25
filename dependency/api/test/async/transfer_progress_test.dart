@@ -9,7 +9,7 @@ void main() {
     late final _Log reports;
 
     final operation = TaskOperation<void, void>((op, _) async {
-      final progress = TransferProgress(op, 'Packing');
+      final progress = TransferProgress(op);
 
       // Первое плечо: два объекта на 200 байт, пройдены целиком.
       progress
@@ -51,7 +51,7 @@ void main() {
     late final _Log reports;
 
     final operation = TaskOperation<void, void>((op, _) async {
-      final progress = TransferProgress(op, 'Copying');
+      final progress = TransferProgress(op);
       progress
         ..countOne(100)
         ..countOne(100)
@@ -94,7 +94,7 @@ void main() {
     late final _Log reports;
 
     final operation = TaskOperation<void, void>((op, _) async {
-      final progress = TransferProgress(op, 'Deleting');
+      final progress = TransferProgress(op);
       // Размер бывает неизвестен: удаление в корзину, источник без размеров.
       progress.startItem('unknown.bin');
       await Future<void>.delayed(Duration.zero);

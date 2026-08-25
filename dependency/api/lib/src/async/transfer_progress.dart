@@ -19,13 +19,9 @@ import 'async_operation.dart';
 /// в нём объектов и байт, к этому моменту может быть ещё не посчитано, поэтому
 /// такие источники запоминаются и учитываются, как только счёт до них дойдёт.
 class TransferProgress {
-  TransferProgress(this._operation, this._verb, {DateTime Function() clock = DateTime.now})
-    : _speed = _SpeedWindow(clock);
+  TransferProgress(this._operation, {DateTime Function() clock = DateTime.now}) : _speed = _SpeedWindow(clock);
 
   final TaskOperation<Object?, void> _operation;
-
-  /// Что происходит: `Copying`, `Moving`.
-  final String _verb;
 
   final _SpeedWindow _speed;
 
@@ -96,7 +92,7 @@ class TransferProgress {
     _report();
   }
 
-  /// Уборка по дороге: чем работа занята вместо переноса.
+  /// Уборка по дороге: что убирают вместо того, чтобы переносить.
   ///
   /// Перезапись приёмника сперва убирает то, что там лежало, а перенос — то,
   /// что осталось в источнике. В счётчиках задания эти объекты не считаются:
@@ -253,7 +249,10 @@ class TransferProgress {
   /// гадать, кто и с какой частотой её слушает.
   void _report() {
     _operation.report(
-      message: _chore.isNotEmpty ? _chore : (_current.isEmpty ? '$_verb…' : '$_verb $_current…'),
+      // Имя — и только имя: чем занята работа, сказано в заголовке окна, а
+      // подпись строки говорит, что это за имя. Повторять то и другое внутри
+      // строки значит оставить меньше места самому имени.
+      message: _chore.isNotEmpty ? _chore : _current,
       stage: _stage,
       stageCount: _stageCount,
       stageName: _stageName,

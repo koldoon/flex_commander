@@ -200,7 +200,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
       final name = params.name;
       final compression = params.compression;
       final followLinks = params.followLinks;
-      final progress = TransferProgress(op, 'Packing');
+      final progress = TransferProgress(op);
       // Плечи: сперва архив собирается, потом уходит приёмнику. Второе
       // бывает и дольше первого — по сети, например.
       progress.beginStage('packing', index: 1, count: 2);

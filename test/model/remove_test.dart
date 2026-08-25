@@ -126,7 +126,7 @@ void main() {
       await pumpEventQueue();
       await Future<void>.delayed(Duration.zero);
 
-      expect(log.reports.map((report) => report.message), contains('Deleting notes.txt…'));
+      expect(log.reports.map((report) => report.message), contains('notes.txt'));
       expect(log.last.message, 'Done');
     });
 

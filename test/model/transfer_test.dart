@@ -102,7 +102,7 @@ void main() {
       await operation.result;
       await pumpEventQueue();
 
-      expect(log.reports.map((report) => report.message), contains('Copying notes.txt…'));
+      expect(log.reports.map((report) => report.message), contains('notes.txt'));
       expect(log.last.message, 'Done');
     });
 
