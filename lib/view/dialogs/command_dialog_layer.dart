@@ -6,8 +6,8 @@ import 'dialog_frame.dart';
 
 /// Окна запущенных команд.
 ///
-/// Ядро рисует рамку, заголовок и затемнение, а содержимое берёт у самой
-/// команды — [AppCommand.getDialog]. Так все окна выглядят одинаково, но
+/// Ядро рисует рамку, заголовок и затемнение, а всё остальное берёт из
+/// описания, которое даёт сама команда, — [AppCommand.dialogSpec]. Так все окна выглядят одинаково, но
 /// команда полностью распоряжается тем, что внутри, и меняет это по ходу
 /// работы: ввод, ход выполнения, вопрос, ошибка.
 class CommandDialogLayer extends StatelessWidget {
@@ -28,15 +28,15 @@ class CommandDialogLayer extends StatelessWidget {
         return Stack(
           children: [
             for (final command in dialogs)
-              if (command.getDialog(context) case final content?)
+              if (command.dialogSpec(context) case final spec?)
                 DialogFrame(
                   key: ValueKey(command.runId),
-                  title: command.dialogTitle,
-                  takesFocus: command.dialogTakesFocus,
-                  area: command.dialogArea,
+                  title: spec.title,
+                  takesFocus: spec.takesFocus,
+                  area: spec.area,
                   onSubmit: command.submit,
                   onDismiss: command.dismiss,
-                  child: content,
+                  child: spec.content,
                 ),
           ],
         );

@@ -121,8 +121,11 @@ class FcFindTextCommand extends AppCommand with _ScreenFinder {
   }
 
   @override
-  Widget? getDialog(BuildContext context) =>
-      ListenableBuilder(listenable: this, builder: (context, _) => _FindForm(command: this));
+  DialogSpec? dialogSpec(BuildContext context) => DialogSpec(
+    title: dialogTitle,
+    takesFocus: true,
+    content: ListenableBuilder(listenable: this, builder: (context, _) => _FindForm(command: this)),
+  );
 
   Future<int> _run(FcTextFinder finder, String pattern) => finder.search(
     pattern,

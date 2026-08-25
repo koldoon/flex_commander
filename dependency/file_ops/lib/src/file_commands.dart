@@ -32,8 +32,6 @@ class MakeDirectoryCommand extends AppCommand {
   bool get hasDialog => true;
 
   /// Имя набирают сразу: фокус ставит поле ввода.
-  @override
-  bool get dialogTakesFocus => true;
 
   @override
   void attachRun({required String runId, required CommandContext context}) {
@@ -70,40 +68,44 @@ class MakeDirectoryCommand extends AppCommand {
   }
 
   @override
-  Widget? getDialog(BuildContext context) {
-    return ListenableBuilder(
-      listenable: this,
-      builder:
-          (context, _) => CommandDialogForm(
-            error: error,
-            onCancel: dismiss,
-            onSubmit: submit,
-            submitLabel: 'Create',
-            // Поля те же, что в референсе: имя и каталог, в котором создаём.
-            children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  CommandDialogField(label: 'Inside', child: FcTextField(controller: _inside, enabled: false)),
-                  SizedBox(height: FcTheme.of(context).metrics.dialogGap),
-                  CommandDialogField(
-                    label: 'Make directory',
-                    child: FcTextField(
-                      controller: _name,
-                      autofocus: true,
-                      hintText: 'Directory name',
-                      // Имя задаётся по мере ввода, а не при подтверждении: Enter
-                      // обрабатывает ядро, и к моменту execute параметр уже
-                      // должен быть на месте.
-                      onChanged: (value) => setParam(nameParam, value),
-                      onSubmitted: (_) => submit(),
+  DialogSpec? dialogSpec(BuildContext context) {
+    return DialogSpec(
+      title: dialogTitle,
+      takesFocus: true,
+      content: ListenableBuilder(
+        listenable: this,
+        builder:
+            (context, _) => CommandDialogForm(
+              error: error,
+              onCancel: dismiss,
+              onSubmit: submit,
+              submitLabel: 'Create',
+              // Поля те же, что в референсе: имя и каталог, в котором создаём.
+              children: [
+                Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    CommandDialogField(label: 'Inside', child: FcTextField(controller: _inside, enabled: false)),
+                    SizedBox(height: FcTheme.of(context).metrics.dialogGap),
+                    CommandDialogField(
+                      label: 'Make directory',
+                      child: FcTextField(
+                        controller: _name,
+                        autofocus: true,
+                        hintText: 'Directory name',
+                        // Имя задаётся по мере ввода, а не при подтверждении: Enter
+                        // обрабатывает ядро, и к моменту execute параметр уже
+                        // должен быть на месте.
+                        onChanged: (value) => setParam(nameParam, value),
+                        onSubmitted: (_) => submit(),
+                      ),
                     ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+                  ],
+                ),
+              ],
+            ),
+      ),
     );
   }
 
@@ -213,7 +215,8 @@ abstract class RemoveCommandBase extends AsyncCommandBase {
   /// длительных работ, их берёт на себя [AsyncCommandDialog]. Команде остаётся
   /// то, что у неё своё: спросить, точно ли удалять.
   @override
-  Widget? getDialog(BuildContext context) => AsyncCommandDialog(command: this, form: _form);
+  DialogSpec? dialogSpec(BuildContext context) =>
+      DialogSpec(title: dialogTitle, takesFocus: true, content: AsyncCommandDialog(command: this, form: _form));
 
   /// «Delete !» в заголовке разбора читалось бы как опечатка: восклицательный
   /// знак в названии команды отличает её от удаления в корзину, а не от чего-то

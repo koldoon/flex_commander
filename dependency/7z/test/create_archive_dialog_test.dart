@@ -61,7 +61,7 @@ void main() {
           body: Center(
             // Контекст берётся из дерева — так же, как его берёт слой окон
             // команд в ядре.
-            child: SizedBox(width: 500, child: Builder(builder: (context) => command.getDialog(context)!)),
+            child: SizedBox(width: 500, child: Builder(builder: (context) => command.dialogSpec(context)!.content!)),
           ),
         ),
       ),

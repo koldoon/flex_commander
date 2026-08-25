@@ -307,22 +307,25 @@ class CloseEditorCommand extends AppCommand {
   String get dialogTitle => 'Unsaved changes';
 
   @override
-  Widget? getDialog(BuildContext context) {
+  DialogSpec? dialogSpec(BuildContext context) {
     final screen = _screen;
     if (screen == null) {
       return null;
     }
 
-    return ListenableBuilder(
-      listenable: this,
-      builder:
-          (context, _) => CommandDialogConfirm(
-            message: '${screen.node.name} has unsaved changes. Close and lose them?',
-            confirmLabel: 'Discard',
-            error: error,
-            onCancel: dismiss,
-            onConfirm: submit,
-          ),
+    return DialogSpec(
+      title: dialogTitle,
+      content: ListenableBuilder(
+        listenable: this,
+        builder:
+            (context, _) => CommandDialogConfirm(
+              message: '${screen.node.name} has unsaved changes. Close and lose them?',
+              confirmLabel: 'Discard',
+              error: error,
+              onCancel: dismiss,
+              onConfirm: submit,
+            ),
+      ),
     );
   }
 

@@ -12,7 +12,8 @@ import 'command_dialog.dart';
 ///
 /// ```dart
 /// @override
-/// Widget? getDialog(BuildContext context) => AsyncCommandDialog(command: this, form: _form);
+/// DialogSpec? dialogSpec(BuildContext context) =>
+///     DialogSpec(title: dialogTitle, content: AsyncCommandDialog(command: this, form: _form));
 /// ```
 ///
 /// Подписку на команду ставит окно: состояние исполнения меняется её же

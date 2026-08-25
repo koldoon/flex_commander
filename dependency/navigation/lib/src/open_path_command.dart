@@ -51,8 +51,6 @@ class OpenPathCommand extends AppCommand {
   bool get hasDialog => true;
 
   @override
-  bool get dialogTakesFocus => true;
-
   /// Окно встаёт над своей панелью.
   ///
   /// Иначе «открыть путь в левой» и «открыть путь в правой» неотличимы на вид:
@@ -64,6 +62,14 @@ class OpenPathCommand extends AppCommand {
     final ratio = context.app.splitRatio;
     return _isLeft ? DialogArea(end: ratio) : DialogArea(start: ratio);
   }
+
+  @override
+  DialogSpec? dialogSpec(BuildContext context) => DialogSpec(
+    title: dialogTitle,
+    area: dialogArea,
+    takesFocus: true,
+    content: ListenableBuilder(listenable: this, builder: (context, _) => _OpenPathForm(command: this)),
+  );
 
   @override
   bool isExecutable(CommandContext context) {
@@ -198,11 +204,6 @@ class OpenPathCommand extends AppCommand {
   /// панели, и `/home/a.zip:zip:/inner` там ни к чему. Разобрать такую строку
   /// обратно умеет `ProviderRegistry.resolveDisplayPath`.
   String get currentPath => panel.directory?.displayPath ?? '';
-
-  @override
-  Widget? getDialog(BuildContext context) {
-    return ListenableBuilder(listenable: this, builder: (context, _) => _OpenPathForm(command: this));
-  }
 }
 
 /// Одно поле — путь, строка о ходе работы и две кнопки.

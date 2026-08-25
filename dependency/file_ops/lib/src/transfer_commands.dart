@@ -71,8 +71,6 @@ abstract class TransferCommandBase extends AsyncCommandBase {
   final TextEditingController _source = TextEditingController();
 
   /// Путь набирают сразу: фокус ставит поле ввода.
-  @override
-  bool get dialogTakesFocus => true;
 
   @override
   void attachRun({required String runId, required CommandContext context}) {
@@ -204,7 +202,8 @@ abstract class TransferCommandBase extends AsyncCommandBase {
   /// длительных работ, их берёт на себя [AsyncCommandDialog]. Команде остаётся
   /// то, что у неё своё: куда копировать.
   @override
-  Widget? getDialog(BuildContext context) => AsyncCommandDialog(command: this, form: _form);
+  DialogSpec? dialogSpec(BuildContext context) =>
+      DialogSpec(title: dialogTitle, takesFocus: true, content: AsyncCommandDialog(command: this, form: _form));
 
   Widget _form(BuildContext context) {
     return CommandDialogForm(

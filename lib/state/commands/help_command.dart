@@ -28,8 +28,6 @@ class HelpCommand extends AppCommand {
   bool get hasDialog => true;
 
   /// Фокус берёт сама таблица: её листают клавишами.
-  @override
-  bool get dialogTakesFocus => true;
 
   @override
   bool isExecutable(CommandContext context) => true;
@@ -40,7 +38,11 @@ class HelpCommand extends AppCommand {
   Future<void> execute() async {}
 
   @override
-  Widget? getDialog(BuildContext context) => FcKeyValueTable(sections: _sections(), onClose: dismiss);
+  DialogSpec? dialogSpec(BuildContext context) => DialogSpec(
+    title: dialogTitle,
+    takesFocus: true,
+    content: FcKeyValueTable(sections: _sections(), onClose: dismiss),
+  );
 
   List<FcTableSection> _sections() => [_settings(), _commands()];
 

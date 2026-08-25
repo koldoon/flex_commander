@@ -75,8 +75,6 @@ class CreateSevenZipArchiveCommand extends AsyncCommandBase {
   String get dialogTitle => 'Create 7z archive';
 
   /// Окно начинается с формы, и фокус нужен полю имени.
-  @override
-  bool get dialogTakesFocus => true;
 
   @override
   bool isExecutable(CommandContext context) {
@@ -423,8 +421,11 @@ class CreateSevenZipArchiveCommand extends AsyncCommandBase {
   /// длительных работ: упаковка ничем не отличается от копирования, и
   /// рассказывать о ней иначе незачем. Своё у команды одно — форма.
   @override
-  Widget? getDialog(BuildContext context) =>
-      AsyncCommandDialog(command: this, form: (context) => _CreateArchiveForm(command: this));
+  DialogSpec? dialogSpec(BuildContext context) => DialogSpec(
+    title: dialogTitle,
+    takesFocus: true,
+    content: AsyncCommandDialog(command: this, form: (context) => _CreateArchiveForm(command: this)),
+  );
 
   /// Имя, предложенное по умолчанию: по единственному объекту или по каталогу,
   /// из которого пакуем, — как в референсных менеджерах.

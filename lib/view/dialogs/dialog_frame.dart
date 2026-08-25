@@ -115,7 +115,7 @@ class _DialogFrameState extends State<DialogFrame> {
               focusNode: _node,
               // Ширину рамка не назначает: окно облегает содержимое в пределах
               // `minWidth`/`maxWidth`. Нужен определённый размер — команда
-              // задаёт его сама в том, что вернула из `getDialog`.
+              // задаёт его сама в том, что вернула из `dialogSpec`.
               child: ConstrainedBox(
                 constraints: BoxConstraints(minWidth: metrics.dialogMinWidth, maxWidth: metrics.dialogMaxWidth),
                 child: IntrinsicWidth(
