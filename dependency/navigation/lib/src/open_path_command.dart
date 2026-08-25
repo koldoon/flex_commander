@@ -47,29 +47,16 @@ class OpenPathCommand extends AppCommand {
   @override
   String get dialogTitle => 'Open path (${_isLeft ? 'left' : 'right'} panel)';
 
-  @override
-  bool get hasDialog => true;
-
-  @override
   /// Окно встаёт над своей панелью.
   ///
   /// Иначе «открыть путь в левой» и «открыть путь в правой» неотличимы на вид:
   /// заголовок читают не в первую очередь. Левая панель занимает долю
   /// `splitRatio` — её середина приходится на половину этой доли; правая
   /// начинается там же и тянется до края.
-  @override
   DialogArea get dialogArea {
     final ratio = context.app.splitRatio;
     return _isLeft ? DialogArea(end: ratio) : DialogArea(start: ratio);
   }
-
-  @override
-  DialogSpec? dialogSpec(BuildContext context) => DialogSpec(
-    title: dialogTitle,
-    area: dialogArea,
-    takesFocus: true,
-    content: ListenableBuilder(listenable: this, builder: (context, _) => _OpenPathForm(command: this)),
-  );
 
   @override
   bool isExecutable(CommandContext context) {
@@ -78,12 +65,73 @@ class OpenPathCommand extends AppCommand {
     return !target.busy;
   }
 
+  /// Открыть путь — или сперва спросить, какой.
+  ///
+  /// Путь задают либо привязкой и сценарием, либо человеком в окне. Первый
+  /// случай идёт мимо окна вовсе; во втором команда показывает окно и уходит,
+  /// а всё, что живёт дальше — набранное, ход работы, ошибка, — принадлежит
+  /// самому окну.
+  @override
+  Future<void> execute() async {
+    final state = OpenPathDialogState(panel: panel, activate: () => context.app.activate(panel));
+
+    final given = (param<String>(pathParam) ?? '').trim();
+    if (given.isNotEmpty) {
+      state.path = given;
+      await state.submit();
+      if (state.error != null) {
+        // Сценарий и привязка окна не видят: неудачу им сообщает исключение,
+        // а не строка в окне, которого нет.
+        throw panel.error ?? FsError(given, FsErrorKind.notFound);
+      }
+      return;
+    }
+
+    final view = context.app.view;
+    state.path = currentPath;
+
+    late final String dialogId;
+    state.close = () => view.closeDialog(dialogId);
+    dialogId = view.showDialog(
+      DialogSpec(
+        title: dialogTitle,
+        area: dialogArea,
+        takesFocus: true,
+        content: _OpenPathForm(state: state),
+        onSubmit: state.submit,
+        onDismiss: state.dismiss,
+      ),
+    );
+  }
+
+  /// Что показать в поле, когда окно открылось.
+  ///
+  /// Показанный путь, а не машинный: человек правит то, что видит в заголовке
+  /// панели, и `/home/a.zip:zip:/inner` там ни к чему. Разобрать такую строку
+  /// обратно умеет `ProviderRegistry.resolveDisplayPath`.
+  String get currentPath => panel.directory?.displayPath ?? '';
+}
+
+/// Что набрано в окне адреса, чем занята панель и что из этого вышло.
+///
+/// Живёт, пока открыто окно: команда, показав его, уходит. Здесь же и отмена —
+/// прерывают открытие, а не команду.
+class OpenPathDialogState extends ChangeNotifier {
+  OpenPathDialogState({required this.panel, required this.activate});
+
+  final Panel panel;
+
+  /// Панель, в которую открыли путь, становится активной: пользователь
+  /// смотрит туда, куда только что пришёл.
+  final VoidCallback activate;
+
+  String path = '';
+
   /// Идёт открытие: подключение к источнику, разбор пути, чтение каталога.
   ///
   /// Пока идёт, подтверждать нечего (`Open` приглушён), а `Esc` означает
-  /// «прервать» — см. [dismiss].
-  @override
-  bool get isRunning => _running;
+  /// «прервать».
+  bool get running => _running;
   bool _running = false;
 
   /// Работу прервал пользователь.
@@ -103,10 +151,25 @@ class OpenPathCommand extends AppCommand {
   String? get statusMessage => _statusMessage;
   String? _statusMessage;
 
-  @override
-  Future<void> execute() async {
-    final path = (param<String>(pathParam) ?? '').trim();
-    if (path.isEmpty) {
+  String? error;
+
+  /// Чем закрыть себя; null — окно ещё не показано (так бывает в тесте).
+  VoidCallback? close;
+
+  /// `Enter` и «Open»: открыть и закрыть окно — кроме двух случаев.
+  ///
+  /// Неудача оставляет окно с сообщением: адрес правится тут же, а не
+  /// набирается заново из-за одной опечатки. Отмена оставляет его молча —
+  /// прерывают, чтобы поправить набранное или не ждать недоступный сервер,
+  /// а уйти можно вторым `Esc`.
+  Future<void> submit() async {
+    if (_running) {
+      return;
+    }
+    error = null;
+
+    final target = path.trim();
+    if (target.isEmpty) {
       return;
     }
 
@@ -118,7 +181,7 @@ class OpenPathCommand extends AppCommand {
     notifyListeners();
 
     try {
-      final opened = await panel.openPath(path);
+      final opened = await panel.openPath(target);
 
       // Об отмене спрашиваем первым делом. Прерванное чтение каталога
       // оставляет панель там, где она была, а `openPath` отвечает при этом
@@ -130,18 +193,33 @@ class OpenPathCommand extends AppCommand {
       if (!opened) {
         // Причину берём у панели: «путь не найден» и «такой протокол мы не
         // умеем» — разные ответы, и второй сам себя объясняет.
-        throw panel.error ?? FsError(path, FsErrorKind.notFound);
+        error = (panel.error ?? FsError(target, FsErrorKind.notFound)).message;
+        return;
       }
-
-      // Панель, в которую открыли путь, становится активной: пользователь
-      // смотрит туда, куда только что пришёл.
-      context.app.activate(panel);
+      activate();
+      close?.call();
+    } on FsError catch (failure) {
+      error = failure.message;
     } finally {
       panel.removeListener(_onPanelChanged);
       _running = false;
       _statusMessage = null;
       notifyListeners();
     }
+  }
+
+  /// `Esc` и «Cancel»: во время работы — прервать, в остальное время — закрыть.
+  ///
+  /// Отмена жёсткая, без вопроса «точно прервать?»: спрашивать стоит там, где
+  /// сделанное необратимо (копирование посреди дерева), а подключение и чтение
+  /// бросают, ничего не испортив.
+  void dismiss() {
+    if (_running) {
+      _canceled = true;
+      panel.cancel();
+      return;
+    }
+    close?.call();
   }
 
   /// Веха панели — в окно.
@@ -156,79 +234,23 @@ class OpenPathCommand extends AppCommand {
     _statusMessage = message;
     notifyListeners();
   }
-
-  /// `Enter` и «Open»: выполнить и закрыть окно — кроме двух случаев.
-  ///
-  /// Неудача оставляет окно с сообщением: адрес правится тут же, а не
-  /// набирается заново из-за одной опечатки. Отмена оставляет его молча —
-  /// прерывают, чтобы поправить набранное или не ждать недоступный сервер,
-  /// а уйти можно вторым `Esc`.
-  @override
-  Future<void> submit() async {
-    if (_running) {
-      return;
-    }
-    error = null;
-
-    try {
-      await execute();
-    } on FsError catch (failure) {
-      error = failure.message;
-      return;
-    }
-
-    if (_canceled) {
-      return;
-    }
-    closeDialog();
-  }
-
-  /// `Esc` и «Cancel»: во время работы — прервать, в остальное время — закрыть.
-  ///
-  /// Отмена жёсткая, без вопроса «точно прервать?»: спрашивать стоит там, где
-  /// сделанное необратимо (копирование посреди дерева), а подключение и чтение
-  /// бросают, ничего не испортив.
-  @override
-  void dismiss() {
-    if (_running) {
-      _canceled = true;
-      panel.cancel();
-      return;
-    }
-    super.dismiss();
-  }
-
-  /// Что показать в поле, когда окно открылось.
-  ///
-  /// Показанный путь, а не машинный: человек правит то, что видит в заголовке
-  /// панели, и `/home/a.zip:zip:/inner` там ни к чему. Разобрать такую строку
-  /// обратно умеет `ProviderRegistry.resolveDisplayPath`.
-  String get currentPath => panel.directory?.displayPath ?? '';
 }
 
 /// Одно поле — путь, строка о ходе работы и две кнопки.
 class _OpenPathForm extends StatefulWidget {
-  const _OpenPathForm({required this.command});
+  const _OpenPathForm({required this.state});
 
-  final OpenPathCommand command;
+  final OpenPathDialogState state;
 
   @override
   State<_OpenPathForm> createState() => _OpenPathFormState();
 }
 
 class _OpenPathFormState extends State<_OpenPathForm> {
-  late final TextEditingController _path = TextEditingController(text: widget.command.currentPath)
+  late final TextEditingController _path = TextEditingController(text: widget.state.path)
     // Текущий путь выделен целиком: чаще его заменяют, чем правят, а если
     // правят — достаточно нажать стрелку.
-    ..selection = TextSelection(baseOffset: 0, extentOffset: widget.command.currentPath.length);
-
-  @override
-  void initState() {
-    super.initState();
-    // Значение задаётся сразу, а не при подтверждении: Enter обрабатывает ядро,
-    // и к моменту execute параметр уже должен быть на месте.
-    widget.command.setParam(OpenPathCommand.pathParam, _path.text);
-  }
+    ..selection = TextSelection(baseOffset: 0, extentOffset: widget.state.path.length);
 
   @override
   void dispose() {
@@ -238,48 +260,51 @@ class _OpenPathFormState extends State<_OpenPathForm> {
 
   @override
   Widget build(BuildContext context) {
-    final command = widget.command;
+    final state = widget.state;
 
-    return CommandDialogForm(
-      // Неудача не закрывает окно: путь правится тут же и пробуется снова.
-      error: command.error,
-      // Работа уже идёт — подтверждать нечего.
-      busy: command.isRunning,
-      onCancel: command.dismiss,
-      onSubmit: command.submit,
-      submitLabel: 'Open',
-      children: [
-        CommandDialogField(
-          label: 'Path',
-          child: FcTextField(
-            controller: _path,
-            autofocus: true,
-            // Поле остаётся живым и во время работы: выключенное отдало бы
-            // фокус, а вернуть его после отмены было бы нечем — `autofocus`
-            // срабатывает один раз. Набранное при этом никому не мешает:
-            // параметр читается на входе в `execute`.
-            hintText: '/etc or ssh://user@host/srv',
-            onChanged: (value) => command.setParam(OpenPathCommand.pathParam, value),
-            onSubmitted: (_) => command.submit(),
+    return ListenableBuilder(
+      listenable: state,
+      builder:
+          (context, _) => CommandDialogForm(
+            // Неудача не закрывает окно: путь правится тут же и пробуется снова.
+            error: state.error,
+            // Работа уже идёт — подтверждать нечего.
+            busy: state.running,
+            onCancel: state.dismiss,
+            onSubmit: state.submit,
+            submitLabel: 'Open',
+            children: [
+              CommandDialogField(
+                label: 'Path',
+                child: FcTextField(
+                  controller: _path,
+                  autofocus: true,
+                  // Поле остаётся живым и во время работы: выключенное отдало бы
+                  // фокус, а вернуть его после отмены было бы нечем — `autofocus`
+                  // срабатывает один раз.
+                  hintText: '/etc or ssh://user@host/srv',
+                  onChanged: (value) => state.path = value,
+                  onSubmitted: (_) => state.submit(),
+                ),
+              ),
+              // Чем занята панель прямо сейчас. Без этой строки открытие адреса
+              // через сервер и два архива выглядит зависшим приложением: сказать о
+              // ходе работы есть что, но говорится это в строке состояния панели —
+              // под затенением этого самого окна.
+              if (state.statusMessage case final message?)
+                CommandDialogField(
+                  label: 'Status',
+                  // Одной строкой: адреса длинные, а окно не должно расти вниз на
+                  // каждой вехе.
+                  child: Text(
+                    message,
+                    style: FcTheme.of(context).dialogTextStyle,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+            ],
           ),
-        ),
-        // Чем занята панель прямо сейчас. Без этой строки открытие адреса через
-        // сервер и два архива выглядит зависшим приложением: сказать о ходе
-        // работы есть что, но говорится это в строке состояния панели — под
-        // затенением этого самого окна.
-        if (command.statusMessage case final message?)
-          CommandDialogField(
-            label: 'Status',
-            // Одной строкой: адреса длинные, а окно не должно расти вниз на
-            // каждой вехе.
-            child: Text(
-              message,
-              style: FcTheme.of(context).dialogTextStyle,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-          ),
-      ],
     );
   }
 }
