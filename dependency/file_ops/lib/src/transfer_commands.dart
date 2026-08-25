@@ -50,7 +50,7 @@ class MoveCommand extends TransferCommandBase {
 /// [execute] делает работу без вопросов о самом задании: что копировать и куда,
 /// уже решено. Вопросы по ходу («такой файл уже есть») задаёт операция, и на них
 /// отвечает окно, а если окна нет — берётся ответ по умолчанию.
-abstract class TransferCommandBase extends AsyncCommandBase {
+abstract class TransferCommandBase extends AppCommand {
   /// Путь каталога, куда идёт работа.
   static const String destinationParam = 'destination';
 
@@ -63,29 +63,6 @@ abstract class TransferCommandBase extends AsyncCommandBase {
 
   /// Убирается ли исходный объект.
   bool get moves;
-
-  final TextEditingController _destination = TextEditingController();
-
-  /// Откуда идёт работа. Поле не редактируется — источник задан выбором в
-  /// панели, — но остаётся полем: так форма читается как форма.
-  final TextEditingController _source = TextEditingController();
-
-  /// Путь набирают сразу: фокус ставит поле ввода.
-
-  @override
-  void attachRun({required String runId, required CommandContext context}) {
-    super.attachRun(runId: runId, context: context);
-
-    // Значение по умолчанию проставляется здесь, а не в окне: команду можно
-    // выполнить и без окна, и тогда каталог пассивной панели остаётся
-    // разумным ответом на вопрос «куда».
-    final path = _defaultDestination;
-    if (path != null) {
-      setParam(destinationParam, path);
-      _destination.text = path;
-    }
-    _source.text = _sourcePath;
-  }
 
   @override
   bool isExecutable(CommandContext context) {
@@ -105,6 +82,10 @@ abstract class TransferCommandBase extends AsyncCommandBase {
   /// Объекты, с которыми работает команда: помеченные или тот, что под курсором.
   List<FsNode> get targets => context.targets.where((node) => node is! ParentDirNode).toList();
 
+  /// Перенести — или сперва спросить, куда.
+  ///
+  /// Путь задают либо параметром, либо человеком в окне. Первый случай идёт
+  /// мимо окна вовсе; во втором команда показывает окно и уходит.
   @override
   Future<void> execute() async {
     final panel = context.panel;
@@ -114,36 +95,84 @@ abstract class TransferCommandBase extends AsyncCommandBase {
     // копировать из него.
     final editor = _destinationPanel.editor;
     final targets = this.targets;
-    if (editor == null || targets.isEmpty || isBusy) {
+    if (editor == null || targets.isEmpty) {
       return;
     }
 
-    final resolved = await _resolveDestination();
-    final destination = resolved.node! as DirectoryNode;
-    final followLinks = param<bool>(followLinksParam) ?? false;
-    final operation =
-        moves
-            ? editor.move(targets, destination, followLinks: followLinks)
-            : editor.copy(targets, destination, followLinks: followLinks);
+    Future<void> transfer(TreeEditor editor, String path, bool followLinks, [FcAsyncRun? run]) async {
+      final resolved = await _resolveDestination(path);
+      final destination = resolved.node! as DirectoryNode;
+      final operation =
+          moves
+              ? editor.move(targets, destination, followLinks: followLinks)
+              : editor.copy(targets, destination, followLinks: followLinks);
 
-    // Аренда источника — на всё время работы, а не на каждое чтение: между
-    // чтениями панель успевает уйти, а работа, отправленная в фон, продолжает
-    // читать оттуда, откуда она ушла.
-    final source = panel.leaseProvider();
+      // Аренда источника — на всё время работы, а не на каждое чтение: между
+      // чтениями панель успевает уйти, а работа, отправленная в фон,
+      // продолжает читать оттуда, откуда она ушла.
+      final source = panel.leaseProvider();
 
-    try {
-      await runOperation(operation, message: moves ? 'Moving…' : 'Copying…');
-    } finally {
-      // Отпускаются обе — и после отмены, и после ошибки: `finally` для того
-      // здесь и стоит.
-      await resolved.release();
-      await source?.release();
-      // Обе панели теперь показывают не то, что на диске: в приёмнике объекты
-      // появились, из источника при переносе исчезли.
-      panel.selection.clear();
-      await panel.reload();
-      await _reloadDestination();
+      try {
+        final message = moves ? 'Moving…' : 'Copying…';
+        if (run != null) {
+          await run.run(operation, message: message);
+        } else {
+          await operation.result;
+        }
+      } finally {
+        // Отпускаются обе — и после отмены, и после ошибки: `finally` для того
+        // здесь и стоит.
+        await resolved.release();
+        await source?.release();
+        // Обе панели теперь показывают не то, что на диске: в приёмнике
+        // объекты появились, из источника при переносе исчезли.
+        panel.selection.clear();
+        await panel.reload();
+        await _reloadDestination();
+      }
     }
+
+    // «Задан» — значит параметр есть, а не «есть и непустой»: пробелы это
+    // заданный приёмник, просто негодный, и сказать об этом надо, а не
+    // показывать окно, которого сценарий не увидит.
+    final given = param<String>(destinationParam);
+    if (given != null) {
+      await transfer(editor, given, param<bool>(followLinksParam) ?? false);
+      return;
+    }
+
+    final view = context.app.view;
+    late final _TransferRun run;
+
+    void present() {
+      late final String dialogId;
+      run.close = () => view.closeDialog(dialogId);
+      dialogId = view.showDialog(
+        DialogSpec(
+          title: dialogTitle,
+          takesFocus: true,
+          // Вопрос по ходу работы, ход дела и разбор ошибки — общие для всех
+          // длительных работ, их берёт на себя окно. Своё здесь одно: куда.
+          content: FcAsyncRunDialog(run: run, form: (context) => _TransferForm(run: run, submitLabel: label)),
+          onSubmit: run.submit,
+          onDismiss: run.dismiss,
+        ),
+      );
+    }
+
+    run = _TransferRun(
+      app: context.app,
+      commandId: id,
+      title: dialogTitle,
+      failureMessage: '$label failed',
+      show: present,
+      sourcePath: _sourcePath,
+      // Каталог пассивной панели — разумный ответ на вопрос «куда».
+      destination: _defaultDestination ?? '',
+    );
+    run.onStart = () => transfer(editor, run.destination, run.followLinks, run);
+
+    present();
   }
 
   /// Каталог-приёмник по пути из параметра — вместе с арендой.
@@ -151,8 +180,8 @@ abstract class TransferCommandBase extends AsyncCommandBase {
   /// Аренда здесь не формальность: приёмник задают строкой, и она может вести
   /// не туда, где панель стоит. Тогда архив по дороге монтируется ради этой
   /// работы, и отпустить его, кроме неё, некому.
-  Future<ResolvedNode> _resolveDestination() async {
-    final path = param<String>(destinationParam)?.trim() ?? '';
+  Future<ResolvedNode> _resolveDestination(String raw) async {
+    final path = raw.trim();
     if (path.isEmpty) {
       throw const FsError('', FsErrorKind.invalidName);
     }
@@ -196,52 +225,6 @@ abstract class TransferCommandBase extends AsyncCommandBase {
     }
   }
 
-  // --- окно ---
-
-  /// Вопрос по ходу работы, ход дела и разбор ошибки — общие для всех
-  /// длительных работ, их берёт на себя [AsyncCommandDialog]. Команде остаётся
-  /// то, что у неё своё: куда копировать.
-  @override
-  DialogSpec? dialogSpec(BuildContext context) =>
-      DialogSpec(title: dialogTitle, takesFocus: true, content: AsyncCommandDialog(command: this, form: _form));
-
-  Widget _form(BuildContext context) {
-    return CommandDialogForm(
-      error: error,
-      onCancel: dismiss,
-      onSubmit: submit,
-      submitLabel: label,
-      // Поля те же, что в референсе: откуда и куда. Зазор между строками
-      // ставит сама форма.
-      children: [
-        CommandDialogField(label: 'From', child: FcTextField(controller: _source, enabled: false)),
-        CommandDialogField(
-          label: 'To',
-          child: FcTextField(
-            controller: _destination,
-            autofocus: true,
-            hintText: 'Destination path',
-            // Путь задаётся по мере ввода, а не при подтверждении: Enter
-            // обрабатывает ядро, и к моменту execute параметр уже должен
-            // быть на месте.
-            onChanged: (value) => setParam(destinationParam, value),
-            onSubmitted: (_) => submit(),
-          ),
-        ),
-        // Значение живёт в параметрах команды, а не в состоянии виджета:
-        // окно строит сама команда, и перерисовывает его её же уведомление.
-        FcCheckbox(
-          label: 'Follow symlinks',
-          value: param<bool>(followLinksParam) ?? false,
-          onChanged: (value) {
-            setParam(followLinksParam, value);
-            notifyListeners();
-          },
-        ),
-      ],
-    );
-  }
-
   /// Заголовок собирается как в референсе: действие и то, над чем оно идёт.
   @override
   String get dialogTitle {
@@ -256,11 +239,86 @@ abstract class TransferCommandBase extends AsyncCommandBase {
     final directory = panel.directory;
     return directory?.displayPath ?? '';
   }
+}
+
+/// Прогон переноса вместе с тем, что спрашивают до его начала.
+///
+/// Куда и идти ли по ссылкам — свойства этого окна, а не команды: команда
+/// показала его и ушла.
+class _TransferRun extends FcAsyncRun {
+  _TransferRun({
+    required super.app,
+    required super.commandId,
+    required super.title,
+    required super.failureMessage,
+    required super.show,
+    required this.sourcePath,
+    required this.destination,
+  });
+
+  /// Откуда идёт работа. Не редактируется — источник задан выбором в панели.
+  final String sourcePath;
+
+  String destination;
+
+  /// Идти ли по символическим ссылкам.
+  ///
+  /// По умолчанию нет — как в mc: ссылка переносится ссылкой.
+  bool followLinks = false;
+
+  void setFollowLinks(bool value) {
+    followLinks = value;
+    notifyListeners();
+  }
+}
+
+/// Два поля — откуда и куда — и признак «идти по ссылкам».
+class _TransferForm extends StatefulWidget {
+  const _TransferForm({required this.run, required this.submitLabel});
+
+  final _TransferRun run;
+  final String submitLabel;
+
+  @override
+  State<_TransferForm> createState() => _TransferFormState();
+}
+
+class _TransferFormState extends State<_TransferForm> {
+  late final TextEditingController _source = TextEditingController(text: widget.run.sourcePath);
+  late final TextEditingController _destination = TextEditingController(text: widget.run.destination);
 
   @override
   void dispose() {
-    _destination.dispose();
     _source.dispose();
+    _destination.dispose();
     super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final run = widget.run;
+
+    return CommandDialogForm(
+      error: run.error,
+      onCancel: run.dismiss,
+      onSubmit: run.submit,
+      submitLabel: widget.submitLabel,
+      // Поля те же, что в референсе: откуда и куда. Зазор между строками
+      // ставит сама форма.
+      children: [
+        CommandDialogField(label: 'From', child: FcTextField(controller: _source, enabled: false)),
+        CommandDialogField(
+          label: 'To',
+          child: FcTextField(
+            controller: _destination,
+            autofocus: true,
+            hintText: 'Destination path',
+            onChanged: (value) => run.destination = value,
+            onSubmitted: (_) => run.submit(),
+          ),
+        ),
+        FcCheckbox(label: 'Follow symlinks', value: run.followLinks, onChanged: run.setFollowLinks),
+      ],
+    );
   }
 }

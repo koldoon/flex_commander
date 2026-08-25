@@ -50,9 +50,15 @@ class MakeDirectoryCommand extends AppCommand {
       panel.setCursorToName(created.name);
     }
 
-    final given = param<String>(nameParam)?.trim() ?? '';
-    if (given.isNotEmpty) {
-      await create(given);
+    // «Задано» — значит параметр есть, а не «есть и непустой»: пробелы это
+    // заданное имя, просто негодное.
+    final given = param<String>(nameParam);
+    if (given != null) {
+      final trimmed = given.trim();
+      if (trimmed.isEmpty) {
+        throw const FsError('', FsErrorKind.invalidName);
+      }
+      await create(trimmed);
       return;
     }
 

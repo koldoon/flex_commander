@@ -29,12 +29,16 @@ void main() {
 
   CommandService commands() => app.commands;
 
-  TransferCommandBase transfer({bool move = false}) =>
-      commands().create(move ? 'file.move' : 'file.copy')! as TransferCommandBase;
+  /// Приёмник задаётся сразу: у теста окна нет, а путь по умолчанию
+  /// подставляет именно оно. Проверка самой подстановки — в виджетном тесте
+  /// «F5 открывает окно с каталогом пассивной панели».
+  TransferCommandBase transfer({bool move = false, String? destination}) =>
+      commands().create(move ? 'file.move' : 'file.copy')! as TransferCommandBase
+        ..setParam(TransferCommandBase.destinationParam, destination ?? app.right.directory!.pathString);
 
   List<String> namesOf(PanelController panel) => panel.nodes.map((node) => node.name).toList();
 
-  test('по умолчанию копирует в каталог пассивной панели', () async {
+  test('копирует в каталог пассивной панели', () async {
     app.left.setCursorToName('notes.txt');
     final command = transfer();
 
@@ -104,15 +108,16 @@ void main() {
     );
   });
 
-  test('пустой приёмник — ошибка, а окно её показывает', () async {
+  test('пустой приёмник — ошибка, а не молчаливый отказ', () async {
     app.left.setCursorToName('notes.txt');
-    final command = transfer();
-    command.setParam(TransferCommandBase.destinationParam, '   ');
 
-    // submit — то, что вызывает ядро по Enter: ошибка остаётся в окне.
-    await command.submit();
-
-    expect(command.error, isNotNull);
+    // Пробелы — это заданный приёмник, просто негодный: спрашивать заново
+    // нечего, надо сказать, что он не годится. В окне та же ошибка остаётся
+    // в нём самом — это проверяет виджетный тест.
+    await expectLater(
+      transfer(destination: '   ').execute(),
+      throwsA(isA<FsError>().having((e) => e.kind, 'kind', FsErrorKind.invalidName)),
+    );
   });
 
   test('без окна вопрос о совпадении имён решается сам собой', () async {
@@ -139,16 +144,14 @@ void main() {
     expect(namesOf(app.right), contains('notes.txt'));
   });
 
-  test('команда сообщает о ходе работы', () async {
+  test('работа доходит до конца и без окна', () async {
+    // Ход работы рассказывает прогон, а он живёт в окне; здесь окна нет —
+    // приёмник задан параметром, и команда работает напрямую.
     app.left.setCursorToName('notes.txt');
-    final command = transfer();
 
-    final done = command.execute();
-    await done;
+    await transfer().execute();
 
-    expect(command.isRunning, isFalse);
-    expect(command.progressMessage, isNotEmpty);
-    expect(command, isA<AsyncCommand>());
+    expect(namesOf(app.right), contains('notes.txt'));
   });
 
   test('на «..» команда недоступна', () {
