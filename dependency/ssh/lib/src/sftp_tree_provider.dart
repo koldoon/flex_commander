@@ -143,7 +143,7 @@ class SftpTreeProvider
       final dir = params.dir;
       final includeHidden = params.includeHidden;
       final path = remotePathOf(dir);
-      op.report(OperationProgress(message: 'Reading ${pathOf(dir)}…'));
+      op.report(message: 'Reading ${pathOf(dir)}…');
 
       final entries = await _sftp.listDirectory(path);
       op.checkCanceled();
@@ -290,7 +290,7 @@ class SftpTreeProvider
 
         if (node is! DirectoryNode) {
           total += node.size > 0 ? node.size : 0;
-          op.report(OperationProgress(processed: total, message: node.name));
+          op.report(itemsTransferred: total, message: node.name);
           continue;
         }
 
@@ -303,7 +303,7 @@ class SftpTreeProvider
             return;
           }
           total += entry.size > 0 ? entry.size : 0;
-          op.report(OperationProgress(processed: total, message: node.name));
+          op.report(itemsTransferred: total, message: node.name);
         });
       }
 

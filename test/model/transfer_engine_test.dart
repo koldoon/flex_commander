@@ -37,9 +37,8 @@ void main() {
 
     test('у приёмника, применяющего накопленное разом, работа двуплечая', () async {
       final target = (await archive.resolvePath().run('/box'))! as DirectoryNode;
-      final reports = <OperationProgress>[];
       final operation = engine.copy();
-      operation.progress.listen(reports.add);
+      final reports = ProgressLog.of(operation).reports;
 
       operation.start(TransferParams([await node('/home/notes.txt')], target));
       await operation.result;
@@ -54,9 +53,8 @@ void main() {
 
     test('о втором плече рассказано до того, как оно началось', () async {
       final target = (await archive.resolvePath().run('/box'))! as DirectoryNode;
-      final reports = <OperationProgress>[];
       final operation = engine.copy();
-      operation.progress.listen(reports.add);
+      final reports = ProgressLog.of(operation).reports;
 
       operation.start(TransferParams([await node('/home/notes.txt')], target));
       await operation.result;
@@ -71,9 +69,8 @@ void main() {
     });
 
     test('обычному приёмнику плечи не заводятся', () async {
-      final reports = <OperationProgress>[];
       final operation = engine.copy();
-      operation.progress.listen(reports.add);
+      final reports = ProgressLog.of(operation).reports;
 
       operation.start(TransferParams([await node('/home/notes.txt')], await directory('/home/bin')));
       await operation.result;
@@ -267,33 +264,31 @@ void main() {
       // Копия средствами провайдера — единственная стратегия, где движок не
       // видит байт сам: рассказать о них может только провайдер.
       provider.copyChunkBytes = 4;
-      final reports = <OperationProgress>[];
       final operation = engine.copy();
-      operation.progress.listen(reports.add);
+      final reports = ProgressLog.of(operation).reports;
 
       operation.start(TransferParams([await node('/home/notes.txt')], await directory('/home/bin')));
       await operation.result;
       await pumpEventQueue();
 
-      final partial = reports.where((report) => report.itemBytes > 0 && report.itemBytes < 10);
+      final partial = reports.where((report) => report.itemBytesTransferred > 0 && report.itemBytesTransferred < 10);
       expect(partial, isNotEmpty, reason: 'файл так и остался «нулём до конца»');
-      expect(reports.map((report) => report.itemBytes), contains(10));
+      expect(reports.map((report) => report.itemBytesTransferred), contains(10));
       // Ни байта дважды: добор по концу считает только то, о чём провайдер
       // промолчал.
-      expect(reports.last.bytes, 10);
+      expect(reports.last.bytesTransferred, 10);
     });
 
     test('молчащий провайдер засчитывается целиком, как раньше', () async {
-      final reports = <OperationProgress>[];
       final operation = engine.copy();
-      operation.progress.listen(reports.add);
+      final reports = ProgressLog.of(operation).reports;
 
       operation.start(TransferParams([await node('/home/notes.txt')], await directory('/home/bin')));
       await operation.result;
       await pumpEventQueue();
 
-      expect(reports.where((report) => report.itemBytes > 0 && report.itemBytes < 10), isEmpty);
-      expect(reports.last.bytes, 10);
+      expect(reports.where((report) => report.itemBytesTransferred > 0 && report.itemBytesTransferred < 10), isEmpty);
+      expect(reports.last.bytesTransferred, 10);
     });
 
     test('отмена посреди файла убирает недописанное', () async {
@@ -304,8 +299,9 @@ void main() {
       // Просьба приходит, когда копия уже пошла: между объектами её перехватила
       // бы обычная контрольная точка, и до файла дело бы не дошло.
       var asked = false;
-      operation.progress.listen((report) {
-        if (!asked && report.itemBytes > 0) {
+      final status = operation.status as SingleTransferOperationStatus;
+      status.addListener(() {
+        if (!asked && status.itemBytesTransferred > 0) {
           asked = true;
           operation.requestCancel();
         }
@@ -444,17 +440,18 @@ void main() {
       final file = (await source.resolvePath().run('/home/big.bin'))!;
 
       final operation = engine.copy();
-      final reports = <OperationProgress>[];
-      operation.progress.listen(reports.add);
+      final reports = ProgressLog.of(operation).reports;
       operation.start(TransferParams([file], await remoteBin()));
       await operation.result;
       await pumpEventQueue();
 
       // Объект всё это время один и тот же, а доля растёт: по объектам тут
       // было бы «0 из 1» до самого конца.
-      final inside = reports.where((event) => event.bytes > 0 && event.bytes < 50).map((event) => event.bytes);
+      final inside = reports
+          .where((event) => event.bytesTransferred > 0 && event.bytesTransferred < 50)
+          .map((event) => event.bytesTransferred);
       expect(inside, [10, 20, 30, 40]);
-      expect(reports.last.bytes, 50);
+      expect(reports.last.bytesTransferred, 50);
       expect(reports.last.percent, 1);
     });
 
@@ -648,16 +645,15 @@ void main() {
           engine.copy()..start(
             TransferParams([await node('/home/docs'), await node('/home/notes.txt')], await directory('/home/bin')),
           );
-      final reports = <OperationProgress>[];
-      operation.progress.listen(reports.add);
+      final reports = ProgressLog.of(operation).reports;
 
       await operation.result;
       await pumpEventQueue();
 
       // Каталог с тремя вложенными объектами и файл — пять объектов.
-      final counted = reports.where((event) => event.totalIsFinal);
-      expect(counted.last.total, 5);
-      expect(reports.last.processed, reports.last.total);
+      final counted = reports.where((report) => report.totalIsFinal);
+      expect(counted.last.itemsTotal, 5);
+      expect(reports.last.itemsTransferred, reports.last.itemsTotal);
       expect(reports.last.percent, 1);
     });
   });

@@ -25,7 +25,7 @@ void main() {
       run,
       TaskOperation<void, void>((op, _) async {
         for (var i = 0; i < 500; i++) {
-          op.report(OperationProgress(message: 'file$i.txt', processed: i, total: 500));
+          op.report(message: 'file$i.txt', itemsTransferred: i, itemsTotal: 500);
         }
       }),
     );
@@ -42,11 +42,11 @@ void main() {
       run,
       TaskOperation<void, void>((op, _) async {
         for (var i = 0; i < 20; i++) {
-          op.report(OperationProgress(message: 'file$i.txt', processed: i, total: 20));
+          op.report(message: 'file$i.txt', itemsTransferred: i, itemsTotal: 20);
           // Пауза больше интервала перерисовки: события не сливаются в одно.
           await Future<void>.delayed(const Duration(milliseconds: 6));
         }
-        op.report(const OperationProgress(percent: 1, message: 'Done', processed: 20, total: 20));
+        op.report(percent: 1, message: 'Done', itemsTransferred: 20, itemsTotal: 20);
       }),
     );
 
@@ -59,7 +59,7 @@ void main() {
   test('пока считают, общее количество не выдаётся за окончательное', () async {
     final run = probe();
     final operation = TaskOperation<void, void>((op, _) async {
-      op.report(const OperationProgress(message: 'a.txt', processed: 1, total: 3, totalIsFinal: false));
+      op.report(message: 'a.txt', itemsTransferred: 1, itemsTotal: 3, totalIsFinal: false);
       await Future<void>.delayed(const Duration(milliseconds: 60));
     });
 

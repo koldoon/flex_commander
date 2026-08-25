@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/modules/local_fs/local_tree_provider.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -56,30 +57,29 @@ void main() {
   test('промежуточные суммы приходят по ходу обхода', () async {
     final nodes = await listRoot();
     final operation = provider.calculateSize();
-    final reports = <int>[];
-    operation.progress.listen((event) => reports.add(event.processed));
+    final log = ProgressLog.of(operation);
 
     operation.start([nodes['docs']!]);
     final total = await operation.result;
     await Future<void>.delayed(Duration.zero);
 
     // Сумма росла, а не появилась одним числом в конце.
-    expect(reports.length, greaterThan(1));
-    expect(reports, isNot(contains(greaterThan(total))));
-    expect(reports.last, total);
+    final counted = log.reports.map((report) => report.itemsTransferred).toList();
+    expect(counted.length, greaterThan(1));
+    expect(counted, isNot(contains(greaterThan(total))));
+    expect(counted.last, total);
   });
 
   test('в сообщении видно, чей размер считают', () async {
     final nodes = await listRoot();
     final operation = provider.calculateSize();
-    final messages = <String>[];
-    operation.progress.listen((event) => messages.add(event.message));
+    final log = ProgressLog.of(operation);
 
     operation.start([nodes['docs']!]);
     await operation.result;
     await Future<void>.delayed(Duration.zero);
 
-    expect(messages, everyElement('docs'));
+    expect(log.reports.map((report) => report.message), everyElement('docs'));
   });
 
   test('ссылка на каталог не разворачивается', () async {

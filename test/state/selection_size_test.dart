@@ -32,7 +32,7 @@ class _HeldSizeProvider extends InMemoryTreeProvider {
   @override
   Operation<List<FsNode>, int> calculateSize() {
     return TaskOperation<List<FsNode>, int>((op, nodes) async {
-      op.report(const OperationProgress(processed: partial));
+      op.report(itemsTransferred: partial);
       await release.future;
       op.checkCanceled();
       return 300;

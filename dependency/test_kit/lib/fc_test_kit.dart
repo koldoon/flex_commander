@@ -7,6 +7,7 @@
 library;
 
 export 'src/command_run.dart';
+export 'src/progress_log.dart';
 export 'src/started_task.dart';
 export 'src/fake_clipboard.dart';
 export 'src/fake_credentials.dart';

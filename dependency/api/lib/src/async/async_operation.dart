@@ -5,151 +5,6 @@ import 'package:flutter/foundation.dart';
 import 'operation_request.dart';
 import 'operation_status.dart';
 
-/// Прогресс операции.
-///
-/// Доля выполненного считается из двух счётчиков: сколько объектов уже
-/// обработано и сколько их всего. Второе число может быть неизвестно или
-/// известно лишь частично — обход большого дерева сам по себе долгий, и
-/// операции считают его фоном, не задерживая начало работы.
-class OperationProgress {
-  const OperationProgress({
-    double? percent,
-    this.message = '',
-    this.processed = 0,
-    this.total,
-    this.totalIsFinal = true,
-    this.bytes = 0,
-    this.totalBytes,
-    this.bytesPerSecond,
-    this.itemName = '',
-    this.itemBytes = 0,
-    this.itemTotalBytes,
-    this.stage = 0,
-    this.stageCount = 0,
-    this.stageName = '',
-    this.indeterminate = false,
-  }) : _percent = percent;
-
-  final double? _percent;
-
-  final String message;
-
-  /// Сколько объектов обработано.
-  final int processed;
-
-  /// Сколько объектов всего; null — пока неизвестно.
-  final int? total;
-
-  /// Досчитан ли [total] до конца. Пока нет, это нижняя оценка, и показывать
-  /// её как окончательную нельзя.
-  final bool totalIsFinal;
-
-  /// Сколько байт уже перенесено.
-  ///
-  /// Объекты плохо описывают работу: копирование одного файла на четыре
-  /// гигабайта — это «0 из 1» до самого конца. Байты растут ровно, и по ним же
-  /// считается скорость.
-  final int bytes;
-
-  /// Сколько байт всего; null — размер не известен и известен не будет
-  /// (удаление в корзину, источник без размеров). Досчитан ли он — говорит
-  /// тот же [totalIsFinal].
-  final int? totalBytes;
-
-  /// Скорость, байт в секунду; null — считать пока не из чего.
-  ///
-  /// Считает её тот, кто ведёт работу (движок переноса), а не провайдер:
-  /// провайдер не знает ни про очередь заданий, ни про то, сколько их ещё.
-  final double? bytesPerSecond;
-
-  /// Объект, который обрабатывается прямо сейчас; пустая строка — работа не
-  /// разбита на объекты (или он ещё не начат).
-  final String itemName;
-
-  /// Сколько байт этого объекта уже прошло.
-  ///
-  /// Отдельно от [bytes] потому, что одно другого не заменяет: общий счёт
-  /// говорит, сколько осталось работы, а этот — сколько осталось у файла, на
-  /// котором всё встало. Файл на четыре гигабайта в общем счёте выглядит одним
-  /// объектом из тысячи, и по нему не видно ничего.
-  final int itemBytes;
-
-  /// Сколько байт в текущем объекте; null — размер неизвестен.
-  final int? itemTotalBytes;
-
-  /// Который сейчас идёт этап работы, считая с единицы; 0 — этапов нет.
-  ///
-  /// Этап — это плечо работы, у которого своя мера: «упаковать», а потом
-  /// «отдать приёмнику»; «скопировать записи», а потом «пересобрать архив».
-  /// Плечи заводятся только там, где второе действительно долгое, — у обычного
-  /// копирования файла этапов нет вовсе, и окно о них не заикается.
-  final int stage;
-
-  /// Сколько всего этапов; 0 или 1 — работа одноплечая.
-  final int stageCount;
-
-  /// Чем занят текущий этап: «repacking archive», «uploading».
-  final String stageName;
-
-  /// Сколько осталось — неизвестно, и врать долей нельзя.
-  ///
-  /// Так идёт пересборка архива: сколько в ней работы, до конца не знает никто,
-  /// а полоса, замершая на ста процентах, выглядит как зависшая программа.
-  final bool indeterminate;
-
-  /// Есть ли о чём говорить: этапы показываются, только когда их больше одного.
-  bool get hasStages => stageCount > 1 && stage > 0;
-
-  /// Доля текущего объекта, 0.0…1.0; null — показывать нечего.
-  double? get itemPercent {
-    final size = itemTotalBytes;
-    if (size == null || size <= 0) {
-      return null;
-    }
-    return (itemBytes / size).clamp(0.0, 1.0);
-  }
-
-  /// 0.0…1.0 или null, если прогресс неопределённый.
-  double? get percent {
-    if (indeterminate) {
-      return null;
-    }
-    if (_percent != null) {
-      return _percent;
-    }
-
-    // Байты честнее объектов везде, где они известны.
-    final bytesTotal = totalBytes;
-    if (bytesTotal != null && bytesTotal > 0) {
-      return (bytes / bytesTotal).clamp(0.0, 1.0);
-    }
-
-    final count = total;
-    if (count == null || count <= 0) {
-      return null;
-    }
-    // Пока идёт подсчёт, обработанных может оказаться больше, чем насчитано:
-    // доля всё равно не должна выходить за единицу.
-    return (processed / count).clamp(0.0, 1.0);
-  }
-
-  /// Сколько ещё ждать; null — считать не из чего.
-  ///
-  /// Пока подсчёт не закончен ([totalIsFinal]), это оценка по нижней границе:
-  /// работы окажется больше, а не меньше.
-  Duration? get remaining {
-    final speed = bytesPerSecond;
-    final bytesTotal = totalBytes;
-    if (speed == null || speed <= 0 || bytesTotal == null || bytesTotal <= bytes) {
-      return null;
-    }
-    return Duration(seconds: ((bytesTotal - bytes) / speed).round());
-  }
-
-  @override
-  String toString() => 'OperationProgress($percent, $message, $processed/$total, $bytes/$totalBytes)';
-}
-
 /// Операция отменена вызовом [AsyncOperation.cancel].
 class OperationCanceled implements Exception {
   const OperationCanceled();
@@ -175,10 +30,16 @@ class OperationCanceled implements Exception {
 abstract class Operation<P, R> {
   OperationState get state;
 
-  /// Ход работы: объект, а не поток. Читается всегда, подписка не обязательна.
+  /// Ход работы — объект, и другого канала нет.
   ///
   /// Что именно про работу известно — доля, скорость, байты, этапы, — говорят
   /// подтипы [OperationStatus]: работа объявляет о себе тем, что реализует.
+  /// Читается он всегда, подписка не обязательна; подписавшийся получает
+  /// уведомление на каждый отчёт.
+  ///
+  /// Потока событий рядом с ним больше нет. Был — и оказался вторым
+  /// источником правды о том же самом: событие можно пропустить, объект нельзя,
+  /// и разъехаться им было нечем только потому, что поток питался из объекта.
   OperationStatus get status;
 
   /// Результат. Завершается ошибкой [FsError] или [OperationCanceled].
@@ -186,13 +47,6 @@ abstract class Operation<P, R> {
   /// Отдельно от [start], а не его возвращаемым значением: запускает работу
   /// один — очередь, окно, команда, — а ждать её вправе кто угодно.
   Future<R> get result;
-
-  /// Прогресс потоком.
-  ///
-  /// Переходное: ход работы держит [status], а поток из него питается —
-  /// источник правды один. Уйдёт, когда на объект перейдут тесты: в рабочем
-  /// коде потребителей у потока уже нет.
-  Stream<OperationProgress> get progress;
 
   /// Вопросы пользователю. Пустой поток у работ, которые ничего не спрашивают.
   Stream<OperationRequest> get requests;
@@ -257,20 +111,6 @@ class TaskOperation<P, R> implements Operation<P, R> {
 
   @override
   Future<R> get result => _completer.future;
-
-  final StreamController<OperationProgress> _progress = StreamController<OperationProgress>.broadcast();
-
-  /// Новый подписчик первым делом получает последнее известное: операция
-  /// стартует сразу при создании, и подписавшийся следующей строкой иначе
-  /// пропустил бы уже случившееся.
-  @override
-  Stream<OperationProgress> get progress async* {
-    final last = _status.lastProgress;
-    if (last != null) {
-      yield last;
-    }
-    yield* _progress.stream;
-  }
 
   /// Переводит состояние и сообщает об этом наружу одним движением.
   void _setState(OperationState value) {
@@ -384,20 +224,32 @@ class TaskOperation<P, R> implements Operation<P, R> {
   /// Возвращает то, чем пересказ прекратить.
   VoidCallback relayFrom(Operation<Object?, Object?> source) {
     final status = source.status;
-    if (status is! _TaskOperationStatus) {
-      return () {};
-    }
 
-    OperationProgress? relayed;
     void relay() {
-      final last = status.lastProgress;
-      // Только новое: ход и смена состояния сообщают об одном и том же
-      // объекте, и пересказывать его дважды значило бы удвоить каждый шаг.
-      if (last == null || identical(last, relayed)) {
-        return;
-      }
-      relayed = last;
-      report(last);
+      final computable = status is ComputableOperationStatus ? status : null;
+      final measurable = status is MeasurableOperationStatus ? status : null;
+      final single = status is SingleTransferOperationStatus ? status : null;
+      final multiple = status is MultipleTransferOperationStatus ? status : null;
+      final staged = status is MultistageOperationStatus ? status : null;
+      final stages = staged?.stages ?? const <StageOperationStatus>[];
+      final current = stages.indexWhere((stage) => stage.name.isNotEmpty);
+
+      report(
+        message: status.message,
+        percent: computable?.percentProgress,
+        itemsTransferred: multiple?.itemsTransferred ?? 0,
+        itemsTotal: multiple?.itemsTotal,
+        totalIsFinal: multiple?.totalIsFinal ?? true,
+        bytesTransferred: multiple?.bytesTransferred ?? 0,
+        bytesTotal: multiple?.bytesTotal,
+        speed: measurable?.speed,
+        itemName: single?.itemName ?? '',
+        itemBytesTransferred: single?.itemBytesTransferred ?? 0,
+        itemBytesTotal: single?.itemBytesTotal,
+        stage: current < 0 ? 0 : current + 1,
+        stageCount: stages.length,
+        stageName: current < 0 ? '' : stages[current].name,
+      );
     }
 
     status.addListener(relay);
@@ -405,23 +257,60 @@ class TaskOperation<P, R> implements Operation<P, R> {
     return () => status.removeListener(relay);
   }
 
-  void report(OperationProgress value) {
+  /// Рассказывает о ходе работы.
+  ///
+  /// Отчёт **целиком**: что не названо, то и сброшено. Так и было со времён
+  /// отдельного объекта-отчёта — накапливает состояние тот, кто ведёт работу
+  /// ([TransferProgress]), а не статус.
+  ///
+  /// Имена — те же, какими ход работы читают: подтипы [OperationStatus] и
+  /// отчёт говорят на одном языке, и переводить между ними больше не нужно.
+  void report({
+    String message = '',
+    double? percent,
+    bool indeterminate = false,
+    int itemsTransferred = 0,
+    int? itemsTotal,
+    bool totalIsFinal = true,
+    int bytesTransferred = 0,
+    int? bytesTotal,
+    double? speed,
+    String itemName = '',
+    int itemBytesTransferred = 0,
+    int? itemBytesTotal,
+    int stage = 0,
+    int stageCount = 0,
+    String stageName = '',
+  }) {
     if (_state.isFinished) {
       // Отчёт вложенной операции, доехавший после конца работы: рассказывать
       // про шаг, которого уже не было, незачем.
       return;
     }
-    _status.update(value);
-    if (!_progress.isClosed) {
-      _progress.add(value);
-    }
+    _status.update(
+      message: message,
+      percent: percent,
+      indeterminate: indeterminate,
+      itemsTransferred: itemsTransferred,
+      itemsTotal: itemsTotal,
+      totalIsFinal: totalIsFinal,
+      bytesTransferred: bytesTransferred,
+      bytesTotal: bytesTotal,
+      speed: speed,
+      itemName: itemName,
+      itemBytesTransferred: itemBytesTransferred,
+      itemBytesTotal: itemBytesTotal,
+      stage: stage,
+      stageCount: stageCount,
+      stageName: stageName,
+    );
   }
 
   /// Веха: чем работа занята сейчас.
   ///
   /// Доля при этом объявляется неизвестной: шаг, о котором нечего сказать,
   /// кроме названия, — это не ноль процентов, а «сколько осталось — неизвестно».
-  void message(String text) => report(OperationProgress(message: text, indeterminate: true));
+  void message(String text) => report(message: text, indeterminate: true);
 
   /// Ждёт вложенную операцию, переливая её прогресс к себе и передавая ей отмену.
   ///
@@ -531,7 +420,6 @@ class TaskOperation<P, R> implements Operation<P, R> {
   }
 
   void _finish() {
-    _progress.close();
     _requests.close();
   }
 }
@@ -557,9 +445,6 @@ class CompletedOperation<P, R> implements Operation<P, R> {
 
   @override
   late final OperationStatus status = _TaskOperationStatus()..setState(_state);
-
-  @override
-  Stream<OperationProgress> get progress => const Stream.empty();
 
   @override
   Stream<OperationRequest> get requests => const Stream.empty();
@@ -590,15 +475,51 @@ class _TaskOperationStatus extends ChangeNotifier
         MultipleTransferOperationStatus,
         MultistageOperationStatus,
         InteractiveOperationStatus {
-  OperationProgress? lastProgress;
+  /// Ход работы — плоские поля, а не последний отчёт: отчёт был событием, а
+  /// это состояние. Что не названо в очередном отчёте, здесь сбрасывается.
+  @override
+  String message = '';
 
-  /// Последний отчёт, в котором объект был назван.
+  double? _percent;
+  bool _indeterminate = false;
+
+  @override
+  double? speed;
+
+  @override
+  int itemsTransferred = 0;
+
+  @override
+  int? itemsTotal;
+
+  @override
+  bool totalIsFinal = true;
+
+  @override
+  int bytesTransferred = 0;
+
+  @override
+  int? bytesTotal;
+
+  /// Текущий объект: имя и его собственный счёт.
   ///
-  /// Итоговый отчёт объекта не называет: работа кончилась, и рассказывать про
-  /// «текущий» уже нечего. Но показать пустоту в этот момент — значит убрать
-  /// полоску по объекту ровно тогда, когда на результат смотрят. Пустое имя
-  /// означает «сказать нечего», а не «объекта не было, забудьте».
-  OperationProgress? _lastNamedItem;
+  /// Держатся отдельно от остального, потому что переживают отчёт, в котором
+  /// объект не назван. Итоговый отчёт его и не называет: работа кончилась, и
+  /// рассказывать про «текущий» уже нечего, — но показать пустоту в этот момент
+  /// значит убрать полоску по объекту ровно тогда, когда на результат смотрят.
+  /// Пустое имя означает «сказать нечего», а не «объекта не было, забудьте».
+  @override
+  String itemName = '';
+
+  @override
+  int itemBytesTransferred = 0;
+
+  @override
+  int? itemBytesTotal;
+
+  int _stage = 0;
+  int _stageCount = 0;
+  String _stageName = '';
 
   OperationState _state = OperationState.inited;
   UserActionRequest? _request;
@@ -606,64 +527,95 @@ class _TaskOperationStatus extends ChangeNotifier
   @override
   OperationState get state => _request != null ? OperationState.userActionRequired : _state;
 
+  /// 0.0…1.0 или null, если доля неизвестна.
+  ///
+  /// Байты честнее объектов везде, где они известны: копирование одного файла
+  /// на четыре гигабайта — это «0 из 1» до самого конца.
   @override
-  String get message => lastProgress?.message ?? '';
+  double? get percentProgress {
+    if (_indeterminate) {
+      return null;
+    }
+    if (_percent != null) {
+      return _percent;
+    }
 
-  @override
-  double? get percentProgress => lastProgress?.percent;
+    final size = bytesTotal;
+    if (size != null && size > 0) {
+      return (bytesTransferred / size).clamp(0.0, 1.0);
+    }
 
-  @override
-  double? get speed => lastProgress?.bytesPerSecond;
+    final count = itemsTotal;
+    if (count == null || count <= 0) {
+      return null;
+    }
+    // Пока идёт подсчёт, обработанных может оказаться больше, чем насчитано:
+    // доля всё равно не должна выходить за единицу.
+    return (itemsTransferred / count).clamp(0.0, 1.0);
+  }
 
+  /// Сколько ещё ждать; null — считать не из чего.
+  ///
+  /// Пока подсчёт не закончен ([totalIsFinal]), это оценка по нижней границе:
+  /// работы окажется больше, а не меньше.
   @override
-  Duration? get remaining => lastProgress?.remaining;
-
-  @override
-  String get itemName => _lastNamedItem?.itemName ?? '';
-
-  @override
-  int get itemBytesTransferred => _lastNamedItem?.itemBytes ?? 0;
-
-  @override
-  int? get itemBytesTotal => _lastNamedItem?.itemTotalBytes;
-
-  @override
-  int get bytesTransferred => lastProgress?.bytes ?? 0;
-
-  @override
-  int? get bytesTotal => lastProgress?.totalBytes;
-
-  @override
-  int get itemsTransferred => lastProgress?.processed ?? 0;
-
-  @override
-  int? get itemsTotal => lastProgress?.total;
-
-  @override
-  bool get totalIsFinal => lastProgress?.totalIsFinal ?? true;
+  Duration? get remaining {
+    final rate = speed;
+    final size = bytesTotal;
+    if (rate == null || rate <= 0 || size == null || size <= bytesTransferred) {
+      return null;
+    }
+    return Duration(seconds: ((size - bytesTransferred) / rate).round());
+  }
 
   /// Этапы известны не заранее: второй появляется, только если в деле оказался
   /// пакетный приёмник. Поэтому список строится из того, что рассказали.
   @override
   List<StageOperationStatus> get stages {
-    final progress = lastProgress;
-    if (progress == null || !progress.hasStages) {
+    if (_stageCount <= 1 || _stage <= 0) {
       return const [];
     }
-    return [
-      for (var index = 1; index <= progress.stageCount; index++)
-        _Stage(index == progress.stage ? progress.stageName : ''),
-    ];
+    return [for (var index = 1; index <= _stageCount; index++) _Stage(index == _stage ? _stageName : '')];
   }
 
   @override
   UserActionRequest? get request => _request;
 
-  void update(OperationProgress value) {
-    lastProgress = value;
-    if (value.itemName.isNotEmpty) {
-      _lastNamedItem = value;
+  void update({
+    required String message,
+    required double? percent,
+    required bool indeterminate,
+    required int itemsTransferred,
+    required int? itemsTotal,
+    required bool totalIsFinal,
+    required int bytesTransferred,
+    required int? bytesTotal,
+    required double? speed,
+    required String itemName,
+    required int itemBytesTransferred,
+    required int? itemBytesTotal,
+    required int stage,
+    required int stageCount,
+    required String stageName,
+  }) {
+    this.message = message;
+    _percent = percent;
+    _indeterminate = indeterminate;
+    this.itemsTransferred = itemsTransferred;
+    this.itemsTotal = itemsTotal;
+    this.totalIsFinal = totalIsFinal;
+    this.bytesTransferred = bytesTransferred;
+    this.bytesTotal = bytesTotal;
+    this.speed = speed;
+    // Названный объект переживает отчёт, в котором о нём молчат.
+    if (itemName.isNotEmpty) {
+      this.itemName = itemName;
+      this.itemBytesTransferred = itemBytesTransferred;
+      this.itemBytesTotal = itemBytesTotal;
     }
+    _stage = stage;
+    _stageCount = stageCount;
+    _stageName = stageName;
     notifyListeners();
   }
 

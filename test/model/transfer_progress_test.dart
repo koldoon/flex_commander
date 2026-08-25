@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 /// работы, общее число — по мере фонового подсчёта. Здесь проверяется, что они
 /// сходятся, в каком бы порядке ни шли события.
 void main() {
-  late List<OperationProgress> reports;
+  late List<ProgressSnapshot> reports;
   late TaskOperation<void, void> operation;
   late TransferProgress progress;
 
@@ -17,14 +17,13 @@ void main() {
 
   setUp(() {
     now = DateTime(2026, 1, 1, 12);
-    reports = [];
     // Тело операции не завершается: важна только отчётность.
     operation = startedTask<void>((op) async {
       await Future<void>.delayed(const Duration(seconds: 10));
     });
     // Отмена в конце теста завершает операцию ошибкой, и прочитать её некому.
     operation.result.ignore();
-    operation.progress.listen(reports.add);
+    reports = ProgressLog.of(operation).reports;
     progress = TransferProgress(operation, 'Copying', clock: () => now);
   });
 
@@ -37,7 +36,7 @@ void main() {
     progress.startSource('notes.txt');
     await flush();
 
-    expect(reports.last.total, isNull);
+    expect(reports.last.itemsTotal, isNull);
     expect(reports.last.percent, isNull);
     expect(reports.last.message, 'Copying notes.txt…');
   });
@@ -50,8 +49,8 @@ void main() {
     progress.countingFinished();
     await flush();
 
-    expect(reports.last.processed, 1);
-    expect(reports.last.total, 4);
+    expect(reports.last.itemsTransferred, 1);
+    expect(reports.last.itemsTotal, 4);
     expect(reports.last.percent, 0.25);
     expect(reports.last.totalIsFinal, isTrue);
   });
@@ -61,7 +60,7 @@ void main() {
     progress.startSource('a.txt');
     await flush();
 
-    expect(reports.last.total, 1);
+    expect(reports.last.itemsTotal, 1);
     expect(reports.last.totalIsFinal, isFalse);
   });
 
@@ -91,7 +90,7 @@ void main() {
       progress.startSource('next');
       await flush();
 
-      expect(reports.last.processed, 50);
+      expect(reports.last.itemsTransferred, 50);
     });
 
     test('учитывается позже, если подсчёт до него ещё не дошёл', () async {
@@ -99,13 +98,13 @@ void main() {
       progress.sourceDoneWholly(0);
       progress.startSource('next');
       await flush();
-      expect(reports.last.processed, 0);
+      expect(reports.last.itemsTransferred, 0);
 
       countSource(0, 50);
       progress.countingFinished();
       await flush();
 
-      expect(reports.last.processed, 50);
+      expect(reports.last.itemsTransferred, 50);
       expect(reports.last.percent, 1);
     });
   });
@@ -128,7 +127,7 @@ void main() {
     await flush();
 
     expect(reports.last.percent, 1);
-    expect(reports.last.processed, reports.last.total);
+    expect(reports.last.itemsTransferred, reports.last.itemsTotal);
   });
 
   test('после остановки фоновый подсчёт знает, что пора закончить', () {
@@ -141,7 +140,7 @@ void main() {
     progress.countOne(100);
     progress.countingFinished();
     await flush();
-    final counted = reports.last.total;
+    final counted = reports.last.itemsTotal;
 
     progress.stop();
     progress.countOne(100);
@@ -149,8 +148,8 @@ void main() {
     await flush();
 
     // Досчитывать после конца работы нечего: числа остались теми же.
-    expect(reports.last.total, counted);
-    expect(reports.last.totalBytes, 100);
+    expect(reports.last.itemsTotal, counted);
+    expect(reports.last.bytesTotal, 100);
   });
 
   test('после остановки о последнем плече рассказать всё ещё можно', () async {
@@ -174,10 +173,10 @@ void main() {
       progress.advanceBytes(40);
       await flush();
 
-      expect(reports.last.processed, 0);
+      expect(reports.last.itemsTransferred, 0);
       expect(reports.last.percent, 0.4);
-      expect(reports.last.bytes, 40);
-      expect(reports.last.totalBytes, 100);
+      expect(reports.last.bytesTransferred, 40);
+      expect(reports.last.bytesTotal, 100);
     });
 
     test('без байтов доля остаётся по объектам', () async {
@@ -188,7 +187,7 @@ void main() {
       progress.advance('a.txt');
       await flush();
 
-      expect(reports.last.totalBytes, isNull);
+      expect(reports.last.bytesTotal, isNull);
       expect(reports.last.percent, 0.5);
     });
 
@@ -200,7 +199,7 @@ void main() {
       await flush();
 
       // Переименование перенесло поддерево разом: объём тоже сделан целиком.
-      expect(reports.last.bytes, 100);
+      expect(reports.last.bytesTransferred, 100);
       expect(reports.last.percent, 1);
     });
 
@@ -208,14 +207,14 @@ void main() {
       progress.countOne(1000);
       progress.advanceBytes(100);
       await flush();
-      expect(reports.last.bytesPerSecond, isNull);
+      expect(reports.last.speed, isNull);
 
       tick(const Duration(seconds: 1));
       progress.advanceBytes(100);
       await flush();
 
       // Двести байт за секунду — но первый отсчёт был на сотне.
-      expect(reports.last.bytesPerSecond, 100);
+      expect(reports.last.speed, 100);
     });
 
     test('оценка времени считается из скорости и остатка', () async {
@@ -248,9 +247,9 @@ void main() {
       progress.advanceBytes(100);
       await flush();
 
-      expect(reports.last.bytes, 200);
-      expect(reports.last.bytesPerSecond, isNotNull);
-      expect(reports.last.bytesPerSecond, greaterThan(0));
+      expect(reports.last.bytesTransferred, 200);
+      expect(reports.last.speed, isNotNull);
+      expect(reports.last.speed, greaterThan(0));
     });
   });
 }

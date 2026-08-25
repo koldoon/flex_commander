@@ -251,7 +251,7 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
           continue;
         }
         _walk(entry, (child) => total += child.isDirectory ? 0 : child.size);
-        op.report(OperationProgress(processed: total, message: node.name));
+        op.report(itemsTransferred: total, message: node.name);
       }
       return total;
     });

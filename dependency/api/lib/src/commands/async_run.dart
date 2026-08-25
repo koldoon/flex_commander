@@ -60,7 +60,9 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
   StreamSubscription<OperationRequest>? _requests;
   OperationStatus? _watched;
 
-  OperationProgress _state = const OperationProgress();
+  /// Что окно показывает, пока работа не заведена: одно сообщение и ничего
+  /// больше. Дальше ход берётся у самой работы — второго места ему не нужно.
+  String _startingMessage = '';
 
   OperationRequest? _question;
 
@@ -88,7 +90,7 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
       return;
     }
 
-    _state = OperationProgress(message: message);
+    _startingMessage = message;
     _operation = operation;
     // Работа заведена: с этого момента её можно найти. В статусной области её
     // пока нет — туда она попадёт, только если её отправят в фон.
@@ -107,8 +109,10 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
     } on OperationCanceled {
       // Прервано пользователем.
     } finally {
+      // Подписка снимается, а сам статус остаётся: работа кончилась, но окно
+      // ещё открыто, и на её последние цифры смотрят. Забыть их значило бы
+      // обнулить полосу в тот момент, когда на неё и смотрят.
       _watched?.removeListener(_onStatusChanged);
-      _watched = null;
       app.operations.forget(runId);
       unawaited(_requests?.cancel());
       _redraw.cancel();
@@ -133,36 +137,7 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
     notifyListeners();
   }
 
-  void _onStatusChanged() {
-    final status = _watched;
-    if (status == null) {
-      return;
-    }
-    _state = _snapshot(status);
-    _redraw();
-  }
-
-  /// Собирает снимок хода из того, что рассказал статус.
-  static OperationProgress _snapshot(OperationStatus status) {
-    final stages = status is MultistageOperationStatus ? status.stages : const <StageOperationStatus>[];
-    final current = stages.indexWhere((stage) => stage.name.isNotEmpty);
-    return OperationProgress(
-      percent: status is ComputableOperationStatus ? status.percentProgress : null,
-      message: status.message,
-      processed: status is MultipleTransferOperationStatus ? status.itemsTransferred : 0,
-      total: status is MultipleTransferOperationStatus ? status.itemsTotal : null,
-      totalIsFinal: status is MultipleTransferOperationStatus ? status.totalIsFinal : true,
-      bytes: status is MultipleTransferOperationStatus ? status.bytesTransferred : 0,
-      totalBytes: status is MultipleTransferOperationStatus ? status.bytesTotal : null,
-      bytesPerSecond: status is MeasurableOperationStatus ? status.speed : null,
-      itemName: status is SingleTransferOperationStatus ? status.itemName : '',
-      itemBytes: status is SingleTransferOperationStatus ? status.itemBytesTransferred : 0,
-      itemTotalBytes: status is SingleTransferOperationStatus ? status.itemBytesTotal : null,
-      stage: current < 0 ? 0 : current + 1,
-      stageCount: stages.length,
-      stageName: current < 0 ? '' : stages[current].name,
-    );
-  }
+  void _onStatusChanged() => _redraw();
 
   /// Что набрано в поле вопроса — если у вопроса есть поле.
   ///
@@ -269,50 +244,73 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
   }
 
   // --- ход работы ---
+  //
+  // Читается у самой работы: копию хода окно не держит. Пока работы нет,
+  // отвечает то, с чем прогон начинали.
+
+  OperationStatus? get _status => _watched;
+
+  T? _as<T>() {
+    final status = _status;
+    return status is T ? status as T : null;
+  }
 
   @override
-  double? get progress => _state.percent;
+  double? get progress => _as<ComputableOperationStatus>()?.percentProgress;
 
   @override
-  String get progressMessage => _state.message;
+  String get progressMessage => _status?.message ?? _startingMessage;
 
   @override
-  int get processed => _state.processed;
+  int get processed => _as<MultipleTransferOperationStatus>()?.itemsTransferred ?? 0;
 
   @override
-  int? get total => _state.total;
+  int? get total => _as<MultipleTransferOperationStatus>()?.itemsTotal;
 
   @override
-  bool get totalIsFinal => _state.totalIsFinal;
+  bool get totalIsFinal => _as<MultipleTransferOperationStatus>()?.totalIsFinal ?? true;
 
   @override
-  int get bytes => _state.bytes;
+  int get bytes => _as<MultipleTransferOperationStatus>()?.bytesTransferred ?? 0;
 
   @override
-  int? get totalBytes => _state.totalBytes;
+  int? get totalBytes => _as<MultipleTransferOperationStatus>()?.bytesTotal;
 
   @override
-  double? get bytesPerSecond => _state.bytesPerSecond;
+  double? get bytesPerSecond => _as<MeasurableOperationStatus>()?.speed;
 
   @override
-  Duration? get remaining => _state.remaining;
+  Duration? get remaining => _as<MeasurableOperationStatus>()?.remaining;
 
   @override
-  String get itemName => _state.itemName;
+  String get itemName => _as<SingleTransferOperationStatus>()?.itemName ?? '';
 
   @override
-  int get itemBytes => _state.itemBytes;
+  int get itemBytes => _as<SingleTransferOperationStatus>()?.itemBytesTransferred ?? 0;
 
   @override
-  int? get itemTotalBytes => _state.itemTotalBytes;
+  int? get itemTotalBytes => _as<SingleTransferOperationStatus>()?.itemBytesTotal;
 
   /// Ход по текущему объекту: без него большой файл выглядит как остановка —
   /// общий счёт по нему не двигается до самого конца.
   @override
-  double? get itemProgress => _state.itemPercent;
+  double? get itemProgress {
+    final size = itemTotalBytes;
+    if (size == null || size <= 0) {
+      return null;
+    }
+    return (itemBytes / size).clamp(0.0, 1.0);
+  }
 
   @override
-  String? get stageLabel => _state.hasStages ? '${_state.stage} of ${_state.stageCount} — ${_state.stageName}' : null;
+  String? get stageLabel {
+    final stages = _as<MultistageOperationStatus>()?.stages ?? const <StageOperationStatus>[];
+    final current = stages.indexWhere((stage) => stage.name.isNotEmpty);
+    if (current < 0) {
+      return null;
+    }
+    return '${current + 1} of ${stages.length} — ${stages[current].name}';
+  }
 
   @override
   bool get isRunning => _operation?.state.isFinished == false;

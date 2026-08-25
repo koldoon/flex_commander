@@ -34,7 +34,7 @@ class ZipArchiver implements FcModule {
             credentials: registry.services.resolve<Credentials>(),
             // Архив с сервера сперва копируется целиком, и это самая долгая
             // часть открытия: молчать о ней нельзя.
-            onBytes: (bytes) => op.report(OperationProgress(message: 'Reading ${host.name}…', bytes: bytes)),
+            onBytes: (bytes) => op.report(message: 'Reading ${host.name}…', bytesTransferred: bytes),
           ),
         );
       }),

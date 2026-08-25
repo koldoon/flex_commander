@@ -277,7 +277,7 @@ class InMemoryReadOnlyProvider implements TreeProvider {
           // Микрозадача, а не таймер: тестам не приходится крутить часы.
           await Future<void>.microtask(() {});
           op.checkCanceled();
-          op.report(OperationProgress(processed: total, message: node.name));
+          op.report(itemsTransferred: total, message: node.name);
         }
       }
 

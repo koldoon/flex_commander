@@ -429,12 +429,7 @@ void main() {
         final host = await nodeAt('/home/archive.arc');
         final first = slow.acquire()..start(AcquireParams('arc', host));
         final second = slow.acquire()..start(AcquireParams('arc', host));
-        final heard = <String>[];
-        second.progress.listen((event) {
-          if (event.message.isNotEmpty) {
-            heard.add(event.message);
-          }
-        });
+        final log = ProgressLog.of(second);
 
         door.complete();
         await first.result;
@@ -442,7 +437,7 @@ void main() {
         await pumpEventQueue();
 
         // Второй ждёт чужое монтирование — и всё равно знает, чего ждёт.
-        expect(heard, contains('Unpacking archive.arc'));
+        expect(log.reports.map((report) => report.message), contains('Unpacking archive.arc'));
       });
 
       test('acquire во время закрытия ждёт его и монтирует заново', () async {
@@ -481,16 +476,14 @@ void main() {
     /// Подписка ставится до запуска — потому «создать» и «запустить» и
     /// разведены: раньше первое сообщение приходилось ловить наперегонки.
     Future<List<String>> messagesOf(Operation<ResolvePathParams, Object?> operation, String path) async {
-      final seen = <String>[];
-      operation.progress.listen((event) {
-        if (event.message.isNotEmpty && (seen.isEmpty || seen.last != event.message)) {
-          seen.add(event.message);
-        }
-      });
+      final log = ProgressLog.of(operation);
       operation.start(ResolvePathParams(path));
       await operation.result;
       await pumpEventQueue();
-      return seen;
+      return [
+        for (final report in log.reports)
+          if (report.message.isNotEmpty) report.message,
+      ];
     }
 
     test('каждое звено цепочки называет себя', () async {

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:flex_commander/modules/local_fs/local_tree_provider.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -117,24 +118,22 @@ void main() {
 
     test('операция сообщает о ходе работы', () async {
       final nodes = await listRoot();
-      final progress = <String>[];
 
       final operation = editor.remove();
-      operation.progress.listen((event) => progress.add(event.message));
+      final log = ProgressLog.of(operation);
       operation.start(RemoveParams([nodes['notes.txt']!, nodes['report.txt']!], toTrash: false));
       await operation.result;
       await pumpEventQueue();
       await Future<void>.delayed(Duration.zero);
 
-      expect(progress, contains('Deleting notes.txt…'));
-      expect(progress.last, 'Done');
+      expect(log.reports.map((report) => report.message), contains('Deleting notes.txt…'));
+      expect(log.last.message, 'Done');
     });
 
     test('счётчик проходит по всему содержимому каталога', () async {
       final nodes = await listRoot();
       final operation = editor.remove();
-      final reports = <OperationProgress>[];
-      operation.progress.listen(reports.add);
+      final reports = ProgressLog.of(operation).reports;
 
       operation.start(RemoveParams([nodes['docs']!], toTrash: false));
       await operation.result;
@@ -142,17 +141,16 @@ void main() {
       await Future<void>.delayed(Duration.zero);
 
       // Каталог и файл внутри: удаление большого дерева не стоит на нуле.
-      expect(reports.map((event) => event.processed).toSet().length, greaterThan(1));
+      expect(reports.map((event) => event.itemsTransferred).toSet().length, greaterThan(1));
       expect(reports.any((event) => event.message.contains('readme.md')), isTrue);
       expect(reports.last.percent, 1);
-      expect(reports.last.processed, 2);
+      expect(reports.last.itemsTransferred, 2);
     });
 
     test('удаление в корзину доводит счётчик до конца одним действием', () async {
       final nodes = await listRoot();
       final operation = editor.remove();
-      final reports = <OperationProgress>[];
-      operation.progress.listen(reports.add);
+      final reports = ProgressLog.of(operation).reports;
 
       operation.start(RemoveParams([nodes['docs']!]));
       await operation.result;
@@ -161,7 +159,7 @@ void main() {
 
       // Корзина — это переименование: поштучно объекты не проходили.
       expect(reports.last.percent, 1);
-      expect(reports.last.processed, reports.last.total);
+      expect(reports.last.itemsTransferred, reports.last.itemsTotal);
     });
   });
 

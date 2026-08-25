@@ -61,21 +61,20 @@ void main() {
     });
 
     test('прогресс доходит до подписчика', () async {
-      final reported = <String>[];
       late TaskOperation<void, void> op;
 
-      op = startedTask<void>((operation) async {
-        // Даём подписчику встать до первого сообщения.
-        await Future<void>.delayed(Duration.zero);
-        operation.report(const OperationProgress(message: 'step 1'));
-        operation.report(const OperationProgress(percent: 1, message: 'step 2'));
+      op = TaskOperation<void, void>((operation, _) async {
+        operation.report(message: 'step 1');
+        operation.report(percent: 1, message: 'step 2');
       });
-      op.progress.listen((event) => reported.add(event.message));
+      // Подписка до запуска: ждать, пока тело даст фору, больше не нужно.
+      final log = ProgressLog.of(op);
+      op.start(null);
 
       await op.result;
       await Future<void>.delayed(Duration.zero);
 
-      expect(reported, ['step 1', 'step 2']);
+      expect(log.reports.map((report) => report.message), ['step 1', 'step 2']);
     });
   });
 
@@ -345,19 +344,17 @@ void main() {
       });
       final outer = startedTask<int>((op) => op.delegate(inner, null));
 
-      final seen = <String>[];
-      outer.progress.listen((event) => seen.add(event.message));
+      final log = ProgressLog.of(outer);
       await pumpEventQueue();
 
       release.complete();
       expect(await outer.result, 1);
-      expect(seen, ['Reading a.zip']);
+      expect(log.reports.map((report) => report.message), ['Reading a.zip']);
     });
 
     test('веха объявляет долю неизвестной', () async {
       final op = startedTask<void>((op) async => op.message('Connecting'));
-      final seen = <OperationProgress>[];
-      op.progress.listen(seen.add);
+      final seen = ProgressLog.of(op).reports;
 
       await op.result;
       await pumpEventQueue();
@@ -515,7 +512,6 @@ void main() {
 /// Операция, которая отмены не слушает: так ведёт себя работа, которую нечем
 /// прервать, — уже начатое подключение или запущенная внешняя программа.
 class _StubbornOperation implements Operation<void, int> {
-  final StreamController<OperationProgress> _progress = StreamController<OperationProgress>.broadcast();
   final Completer<int> _completer = Completer<int>();
 
   @override
@@ -526,9 +522,6 @@ class _StubbornOperation implements Operation<void, int> {
 
   @override
   Future<int> get result => _completer.future;
-
-  @override
-  Stream<OperationProgress> get progress => _progress.stream;
 
   @override
   Stream<OperationRequest> get requests => const Stream.empty();
@@ -542,12 +535,10 @@ class _StubbornOperation implements Operation<void, int> {
   @override
   void requestCancel() {}
 
-  void emit(String message) => _progress.add(OperationProgress(message: message));
+  /// Рассказывает о себе дальше — уже некому, но она об этом не знает.
+  void emit(String message) => (status as _SilentStatus).say(message);
 
-  void finish() {
-    _completer.complete(1);
-    _progress.close();
-  }
+  void finish() => _completer.complete(1);
 }
 
 /// Ход, о котором нечего рассказать: заглушке довольно быть Listenable.
@@ -556,5 +547,10 @@ class _SilentStatus extends ChangeNotifier implements OperationStatus {
   OperationState get state => OperationState.processing;
 
   @override
-  String get message => '';
+  String message = '';
+
+  void say(String text) {
+    message = text;
+    notifyListeners();
+  }
 }

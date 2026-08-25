@@ -55,7 +55,7 @@ class SevenZipArchiver implements FcModule {
             credentials: registry.services.resolve<Credentials>(),
             // Копирование архива во временный файл — самая долгая часть
             // открытия, и о ней стоит рассказывать.
-            onBytes: (bytes) => op.report(OperationProgress(message: 'Reading ${host.name}…', bytes: bytes)),
+            onBytes: (bytes) => op.report(message: 'Reading ${host.name}…', bytesTransferred: bytes),
           ),
         );
       }),

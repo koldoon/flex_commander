@@ -150,7 +150,7 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
       final dir = params.dir;
       final includeHidden = params.includeHidden;
       final path = physicalPathOf(dir);
-      op.report(OperationProgress(message: 'Reading ${pathOf(dir)}…'));
+      op.report(message: 'Reading ${pathOf(dir)}…');
 
       final entries =
           readInIsolate
@@ -507,7 +507,7 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
 
         if (FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.directory) {
           total += node.size > 0 ? node.size : 0;
-          op.report(OperationProgress(processed: total, message: node.name));
+          op.report(itemsTransferred: total, message: node.name);
           continue;
         }
 
@@ -528,7 +528,7 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, FileContentProvider
               // Файл исчез или закрыт — он просто не попадёт в сумму.
               continue;
             }
-            op.report(OperationProgress(processed: total, message: node.name));
+            op.report(itemsTransferred: total, message: node.name);
           }
         } on FileSystemException {
           // Сам каталог недоступен целиком: сумма останется без него.

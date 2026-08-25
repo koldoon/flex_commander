@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:fc_api/fc_api.dart';
 import 'package:flex_commander/modules/local_fs/local_fs_settings.dart';
 import 'package:flex_commander/modules/local_fs/local_tree_provider.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -95,38 +96,35 @@ void main() {
     test('сообщает о ходе работы', () async {
       final nodes = await listRoot();
       final operation = editor.copy();
-      final messages = <String>[];
-      operation.progress.listen((event) => messages.add(event.message));
+      final log = ProgressLog.of(operation);
 
       operation.start(TransferParams([nodes['notes.txt']!, nodes['report.txt']!], await targetDir()));
       await operation.result;
       await pumpEventQueue();
 
-      expect(messages, contains('Copying notes.txt…'));
-      expect(messages.last, 'Done');
+      expect(log.reports.map((report) => report.message), contains('Copying notes.txt…'));
+      expect(log.last.message, 'Done');
     });
 
     test('счётчик обработанного растёт, а не стоит на месте', () async {
       final nodes = await listRoot();
       final operation = editor.copy();
-      final processed = <int>[];
-      operation.progress.listen((event) => processed.add(event.processed));
+      final log = ProgressLog.of(operation);
 
       operation.start(TransferParams([nodes['docs']!], await targetDir()));
       await operation.result;
       await pumpEventQueue();
 
       // В каталоге четыре объекта: он сам, вложенный каталог и два файла.
-      expect(processed.last, 4);
+      expect(log.last.itemsTransferred, 4);
       // Между началом и концом счётчик проходил промежуточные значения.
-      expect(processed.toSet().length, greaterThan(1));
+      expect(log.reports.map((report) => report.itemsTransferred).toSet().length, greaterThan(1));
     });
 
     test('общее количество считается фоном и в конце становится окончательным', () async {
       final nodes = await listRoot();
       final operation = editor.copy();
-      final reports = <OperationProgress>[];
-      operation.progress.listen(reports.add);
+      final reports = ProgressLog.of(operation).reports;
 
       operation.start(TransferParams([nodes['docs']!, nodes['notes.txt']!], await targetDir()));
       await operation.result;
@@ -135,48 +133,48 @@ void main() {
       // Работа началась, не дожидаясь конца подсчёта: пока он идёт, общее
       // число — нижняя оценка, и это видно.
       expect(reports.first.totalIsFinal, isFalse);
-      expect(reports.first.total, lessThan(5));
+      expect(reports.first.itemsTotal, lessThan(5));
 
       // К концу оно точное: каталог с тремя вложенными объектами и файл.
-      final counted = reports.where((event) => event.totalIsFinal);
-      expect(counted.last.total, 5);
+      final counted = reports.where((report) => report.totalIsFinal);
+      expect(counted.last.itemsTotal, 5);
       expect(reports.last.percent, 1);
     });
 
     test('объём задания и перенесённое считаются в байтах', () async {
       final nodes = await listRoot();
       final operation = editor.copy();
-      final reports = <OperationProgress>[];
-      operation.progress.listen(reports.add);
+      final reports = ProgressLog.of(operation).reports;
 
       operation.start(TransferParams([nodes['notes.txt']!], await targetDir()));
       await operation.result;
       await pumpEventQueue();
 
       // «текст» в utf-8 — десять байт.
-      expect(reports.last.bytes, 10);
-      expect(reports.last.totalBytes, 10);
+      expect(reports.last.bytesTransferred, 10);
+      expect(reports.last.bytesTotal, 10);
     });
 
     test('в сообщении видно имя объекта, который копируется сейчас', () async {
       final nodes = await listRoot();
       final operation = editor.copy();
-      final messages = <String>[];
-      operation.progress.listen((event) => messages.add(event.message));
+      final log = ProgressLog.of(operation);
 
       operation.start(TransferParams([nodes['docs']!], await targetDir()));
       await operation.result;
       await pumpEventQueue();
 
       // Имя вложенного файла, а не только имя всего задания.
-      expect(messages.any((message) => message.contains('readme.md') || message.contains('deep.txt')), isTrue);
+      expect(
+        log.reports.any((report) => report.message.contains('readme.md') || report.message.contains('deep.txt')),
+        isTrue,
+      );
     });
 
     test('перенос переименованием доводит счётчик до конца', () async {
       final nodes = await listRoot();
       final operation = editor.move();
-      final reports = <OperationProgress>[];
-      operation.progress.listen(reports.add);
+      final reports = ProgressLog.of(operation).reports;
 
       operation.start(TransferParams([nodes['docs']!], await targetDir()));
       await operation.result;
@@ -185,7 +183,7 @@ void main() {
       // Переименование переносит поддерево одним действием: поштучно объекты
       // не проходили, но задание выполнено целиком, и счётчик это показывает.
       expect(reports.last.percent, 1);
-      expect(reports.last.processed, reports.last.total);
+      expect(reports.last.itemsTransferred, reports.last.itemsTotal);
     });
   });
 
@@ -211,17 +209,16 @@ void main() {
       final disk = providerWith(1024);
       final (node, destination) = await bigFile(disk);
       final operation = editor.copy();
-      final reports = <OperationProgress>[];
-      operation.progress.listen(reports.add);
+      final reports = ProgressLog.of(operation).reports;
 
       operation.start(TransferParams([node], destination));
       await operation.result;
       await pumpEventQueue();
 
-      final partial = reports.where((report) => report.itemBytes > 0 && report.itemBytes < size);
+      final partial = reports.where((report) => report.itemBytesTransferred > 0 && report.itemBytesTransferred < size);
       expect(partial, isNotEmpty, reason: 'полоса файла так и стояла на нуле');
       // Сумма сходится с размером: ни байта дважды, ни байта мимо.
-      expect(reports.last.bytes, size);
+      expect(reports.last.bytesTransferred, size);
       expect(await File(p.join(target, 'big.bin')).length(), size);
     });
 
@@ -230,16 +227,15 @@ void main() {
       final disk = providerWith(size * 2);
       final (node, destination) = await bigFile(disk);
       final operation = editor.copy();
-      final reports = <OperationProgress>[];
-      operation.progress.listen(reports.add);
+      final reports = ProgressLog.of(operation).reports;
 
       operation.start(TransferParams([node], destination));
       await operation.result;
       await pumpEventQueue();
 
-      expect(reports.where((report) => report.itemBytes > 0 && report.itemBytes < size), isEmpty);
+      expect(reports.where((report) => report.itemBytesTransferred > 0 && report.itemBytesTransferred < size), isEmpty);
       // Объём всё равно засчитан целиком — по концу копии.
-      expect(reports.last.bytes, size);
+      expect(reports.last.bytesTransferred, size);
       expect(await File(p.join(target, 'big.bin')).length(), size);
     });
   });

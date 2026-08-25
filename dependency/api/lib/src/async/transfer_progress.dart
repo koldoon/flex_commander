@@ -6,7 +6,7 @@ import 'async_operation.dart';
 /// работы; общее считается **фоном**, параллельно ей: обход большого дерева
 /// стоит почти столько же, сколько его копирование, и ждать его перед началом
 /// незачем. Поэтому общее сначала неизвестно, потом растёт и лишь в конце
-/// становится окончательным — [OperationProgress.totalIsFinal] говорит, что
+/// становится окончательным — [MultipleTransferOperationStatus.totalIsFinal] говорит, что
 /// именно сейчас видит пользователь.
 ///
 /// Байты нужны там, где объекты ничего не описывают: копирование одного файла
@@ -216,15 +216,12 @@ class TransferProgress {
     final done = _processed > _total ? _processed : _total;
     final bytes = _bytes > _totalBytes ? _bytes : _totalBytes;
     _operation.report(
-      OperationProgress(
-        percent: 1,
-        message: 'Done',
-        processed: done,
-        total: done,
-        totalIsFinal: true,
-        bytes: bytes,
-        totalBytes: bytes,
-      ),
+      percent: 1,
+      message: 'Done',
+      itemsTransferred: done,
+      itemsTotal: done,
+      bytesTransferred: bytes,
+      bytesTotal: bytes,
     );
   }
 
@@ -233,25 +230,23 @@ class TransferProgress {
   /// гадать, кто и с какой частотой её слушает.
   void _report() {
     _operation.report(
-      OperationProgress(
-        message: _current.isEmpty ? '$_verb…' : '$_verb $_current…',
-        stage: _stage,
-        stageCount: _stageCount,
-        stageName: _stageName,
-        indeterminate: !_stageSized,
-        itemName: _item,
-        itemBytes: _itemBytes,
-        itemTotalBytes: _itemTotalBytes,
-        processed: _processed,
-        // Ноль — это не «ничего нет», а «ещё не считали».
-        total: _total == 0 && !_counted ? null : _total,
-        totalIsFinal: _counted,
-        bytes: _bytes,
-        // Задание без байтов (пустые файлы, удаление в корзину) не должно
-        // показывать долю по байтам: она была бы неотличима от нуля работы.
-        totalBytes: _totalBytes == 0 ? null : _totalBytes,
-        bytesPerSecond: _speed.perSecond,
-      ),
+      message: _current.isEmpty ? '$_verb…' : '$_verb $_current…',
+      stage: _stage,
+      stageCount: _stageCount,
+      stageName: _stageName,
+      indeterminate: !_stageSized,
+      itemName: _item,
+      itemBytesTransferred: _itemBytes,
+      itemBytesTotal: _itemTotalBytes,
+      itemsTransferred: _processed,
+      // Ноль — это не «ничего нет», а «ещё не считали».
+      itemsTotal: _total == 0 && !_counted ? null : _total,
+      totalIsFinal: _counted,
+      bytesTransferred: _bytes,
+      // Задание без байтов (пустые файлы, удаление в корзину) не должно
+      // показывать долю по байтам: она была бы неотличима от нуля работы.
+      bytesTotal: _totalBytes == 0 ? null : _totalBytes,
+      speed: _speed.perSecond,
     );
   }
 }
