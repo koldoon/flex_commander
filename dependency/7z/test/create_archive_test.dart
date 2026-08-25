@@ -99,6 +99,25 @@ void main() {
 
   ProcessCall packing() => runner.callsOf('a').single;
 
+  /// Ход работы — свойство самой операции, а не команды: команда показывает
+  /// окно и уходит. Поэтому проверяется операция.
+  Future<AsyncOperation<void>> packed(String name) async {
+    final command = runtime.commands.create(CreateSevenZipArchiveCommand.commandId)! as CreateSevenZipArchiveCommand;
+    final panel = runtime.app.left;
+    final sources =
+        panel.selection.isEmpty ? [panel.currentNode!] : panel.nodes.where(panel.selection.contains).toList();
+
+    final operation = command.packOperation(
+      sources,
+      runtime.app.right.directory!,
+      '$name.7z',
+      compression: SevenZipCompression.normal,
+      followLinks: false,
+    );
+    await operation.result;
+    return operation;
+  }
+
   group('вызов программы', () {
     test('архив пишется прямо в каталог пассивной панели', () async {
       runtime.app.left.setCursorToName('notes.txt');
@@ -243,11 +262,11 @@ void main() {
     test('имена от программы становятся ходом работы', () async {
       runtime.app.left.setCursorToName('docs');
 
-      final command = await pack(name: 'docs') as AsyncCommandBase;
+      final status = (await packed('docs')).status as MultipleTransferOperationStatus;
 
       // Программа назвала одну запись — столько объектов и засчитано.
-      expect(command.processed, greaterThan(0));
-      expect(command.bytes, greaterThan(0), reason: 'размер записи берётся с диска');
+      expect(status.itemsTransferred, greaterThan(0));
+      expect(status.bytesTransferred, greaterThan(0), reason: 'размер записи берётся с диска');
     });
 
     test('объём работы считается по дереву источников', () async {
@@ -257,10 +276,10 @@ void main() {
         ..setCursorToName('docs')
         ..toggleCurrentMark();
 
-      final command = await pack(name: 'both') as AsyncCommandBase;
+      final status = (await packed('both')).status as MultipleTransferOperationStatus;
 
-      expect(command.total, greaterThanOrEqualTo(2));
-      expect(command.totalIsFinal, isTrue);
+      expect(status.itemsTotal, greaterThanOrEqualTo(2));
+      expect(status.totalIsFinal, isTrue);
     });
   });
 
@@ -325,19 +344,25 @@ void main() {
       await runtime.app.start();
       runtime.app.left.setCursorToName('notes.txt');
 
-      final command =
-          runtime.commands.create(CreateSevenZipArchiveCommand.commandId)! as AsyncCommandBase
-            ..setParam(CreateSevenZipArchiveCommand.nameParam, 'huge')
-            ..setParam(CreateSevenZipArchiveCommand.compressionParam, SevenZipCompression.normal.name);
+      // Прерывают саму работу, а не команду: команда показала окно и ушла.
+      final command = runtime.commands.create(CreateSevenZipArchiveCommand.commandId)! as CreateSevenZipArchiveCommand;
+      final operation = command.packOperation(
+        [runtime.app.left.currentNode!],
+        runtime.app.right.directory!,
+        'huge.7z',
+        compression: SevenZipCompression.normal,
+        followLinks: false,
+      );
 
-      final running = command.execute();
       // Ход работы уже пошёл — программа назвала первую запись.
       await Future<void>.delayed(const Duration(milliseconds: 50));
 
-      command.cancel();
+      // Просьба прервать, а не жёсткая отмена: так делает Esc в окне, и именно
+      // она доходит до программы через контрольную точку.
+      operation.requestCancel();
 
-      // Отмена — обычный исход, а не ошибка: команда просто заканчивается.
-      await running;
+      // Отмена — обычный исход, а не ошибка: работа просто заканчивается.
+      await operation.result.catchError((Object _) {});
 
       expect(runner.sessions.single.killed, isTrue, reason: 'иначе программа дописывала бы архив в никуда');
       expect(File(p.join(target, 'huge.7z')).existsSync(), isFalse);

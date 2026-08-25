@@ -239,28 +239,47 @@ void main() {
       expect(runtime.commands.find(CreateZipArchiveCommand.commandId)?.label, 'Mk Zip');
     });
 
-    test('рассказывает о ходе работы, как перенос', () {
+    test('заголовок окна говорит, что делается', () {
       final command = runtime.commands.find(CreateZipArchiveCommand.commandId)!;
 
-      expect(command.canRunInBackground, isTrue);
       expect(command.dialogTitle, 'Create ZIP archive');
     });
   });
 
   group('ход работы', () {
+    /// Ход работы — свойство самой операции, а не команды: команда показывает
+    /// окно и уходит. Поэтому проверяется операция.
+    Future<AsyncOperation<void>> packed(String name) async {
+      final command = runtime.commands.create(CreateZipArchiveCommand.commandId)! as CreateZipArchiveCommand;
+      final sources =
+          runtime.app.left.selection.isEmpty
+              ? [runtime.app.left.currentNode!]
+              : runtime.app.left.nodes.where(runtime.app.left.selection.contains).toList();
+
+      final operation = command.packOperation(
+        sources,
+        runtime.app.right.directory!,
+        '$name.zip',
+        compression: ZipCompression.normal,
+        followLinks: false,
+      );
+      await operation.result;
+      return operation;
+    }
+
     test('учитываются оба плеча: и упаковка, и передача приёмнику', () async {
       await File(p.join(source, 'big.txt')).writeAsString('текст ' * 2000);
       await runtime.app.left.reload();
       runtime.app.left.setCursorToName('big.txt');
       final sourceSize = await File(p.join(source, 'big.txt')).length();
 
-      final command = await pack(name: 'work') as AsyncCommandBase;
+      final status = (await packed('work')).status as MultipleTransferOperationStatus;
 
       // Работа кончилась целиком, а её объём — это прочитанные исходные байты
       // плюс отданные приёмнику: одного плеча мало.
-      expect(command.bytes, command.totalBytes);
-      expect(command.totalBytes, greaterThan(sourceSize));
-      expect(command.progress, 1);
+      expect(status.bytesTransferred, status.bytesTotal);
+      expect(status.bytesTotal, greaterThan(sourceSize));
+      expect(status.percentProgress, 1);
     });
 
     test('байты упаковки учитываются по мере обхода, а не одним скачком', () async {
@@ -276,12 +295,12 @@ void main() {
         ..setCursorToName('file2.txt')
         ..toggleCurrentMark();
 
-      final command = await pack(name: 'moving') as AsyncCommandBase;
+      final status = (await packed('moving')).status as MultipleTransferOperationStatus;
 
       // Каждый упакованный файл — это его байты в общем счёте; на глаз это и
-      // есть движение бара. Что показ ещё и не частит, решает throttle окна.
-      expect(command.processed, greaterThanOrEqualTo(3));
-      expect(command.bytes, command.totalBytes);
+      // есть движение бара.
+      expect(status.itemsTransferred, greaterThanOrEqualTo(3));
+      expect(status.bytesTransferred, status.bytesTotal);
     });
   });
 }

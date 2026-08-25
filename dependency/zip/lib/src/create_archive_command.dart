@@ -40,7 +40,7 @@ enum ZipCompression {
 /// Источники могут лежать где угодно, в том числе в другом архиве: содержимое
 /// берётся через [LocalCopySession], а она сама решает, есть ли у файла
 /// настоящий путь или его придётся выложить во временный.
-class CreateZipArchiveCommand extends AsyncCommandBase {
+class CreateZipArchiveCommand extends AppCommand {
   CreateZipArchiveCommand({required StagingArea staging}) : _staging = staging;
 
   static const String commandId = 'zip.create';
@@ -83,53 +83,98 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
 
   List<FsNode> _sourcesOf(CommandContext context) => context.targets.where((node) => node is! ParentDirNode).toList();
 
+  /// Упаковать — или сперва спросить, как назвать и как жать.
+  ///
+  /// Имя задают либо параметром, либо человеком в окне. Первый случай идёт
+  /// мимо окна вовсе; во втором команда показывает окно и уходит.
   @override
   Future<void> execute() async {
     final sources = _sourcesOf(context);
     final destination = context.target.directory;
-    if (sources.isEmpty || destination == null || isBusy) {
+    if (sources.isEmpty || destination == null) {
       return;
     }
 
-    final name = _archiveName;
-    if (name.isEmpty || name.contains('/') || name.contains(r'\')) {
-      throw FsError(name, FsErrorKind.invalidName);
+    Future<void> pack(String typed, ZipCompression compression, bool followLinks, [FcAsyncRun? run]) async {
+      final name = _withExtension(typed);
+      if (name.isEmpty || name.contains('/') || name.contains(r'\')) {
+        throw FsError(name, FsErrorKind.invalidName);
+      }
+
+      final provider = destination.provider;
+      if (provider is NodeEditor && await (provider as NodeEditor).lookup(destination, name) != null) {
+        // Молча затирать существующий архив нельзя: имя можно поправить прямо
+        // в окне и повторить.
+        throw FsError('${destination.pathString}/$name', FsErrorKind.alreadyExists);
+      }
+
+      // Аренда обоих концов на всё время работы: упаковку можно отправить в
+      // фон, и любая из панелей за это время вправе уйти из своего архива.
+      final from = context.panel.leaseProvider();
+      final into = context.target.leaseProvider();
+
+      try {
+        final operation = packOperation(sources, destination, name, compression: compression, followLinks: followLinks);
+        if (run != null) {
+          await run.run(operation, message: 'Packing…');
+        } else {
+          await operation.result;
+        }
+      } finally {
+        await from?.release();
+        await into?.release();
+      }
+
+      // Приёмник теперь показывает не то, что на диске: там появился архив.
+      await context.target.reload();
     }
 
-    final provider = destination.provider;
-    if (provider is NodeEditor && await (provider as NodeEditor).lookup(destination, name) != null) {
-      // Молча затирать существующий архив нельзя: имя можно поправить прямо
-      // в окне и повторить.
-      throw FsError('${destination.pathString}/$name', FsErrorKind.alreadyExists);
+    final given = param<String>(nameParam);
+    if (given != null) {
+      await pack(given, ZipCompression.byName(param<String>(compressionParam)), param<bool>(followLinksParam) ?? false);
+      return;
     }
 
-    // Аренда обоих концов на всё время работы: упаковку можно отправить в фон,
-    // и любая из панелей за это время вправе уйти из своего архива.
-    final from = context.panel.leaseProvider();
-    final into = context.target.leaseProvider();
+    final view = context.app.view;
+    late final _CreateArchiveRun run;
 
-    try {
-      await runOperation(_pack(sources, destination, name), message: 'Packing…');
-    } finally {
-      await from?.release();
-      await into?.release();
+    void present() {
+      late final String dialogId;
+      run.close = () => view.closeDialog(dialogId);
+      dialogId = view.showDialog(
+        DialogSpec(
+          title: dialogTitle,
+          takesFocus: true,
+          content: FcAsyncRunDialog(run: run, form: (context) => _CreateArchiveForm(run: run)),
+          onSubmit: run.submit,
+          onDismiss: run.dismiss,
+        ),
+      );
     }
 
-    // Приёмник теперь показывает не то, что на диске: там появился архив.
-    await context.target.reload();
+    run = _CreateArchiveRun(
+      app: context.app,
+      commandId: id,
+      title: dialogTitle,
+      failureMessage: '$label failed',
+      show: present,
+      name: defaultName,
+      destinationPath: destinationPath,
+    );
+    run.onStart = () => pack(run.name, run.compression, run.followLinks, run);
+
+    present();
   }
 
   /// Имя архива: пустое расширение дописывается само — команда всё-таки
   /// называется «create zip archive».
-  String get _archiveName {
-    final typed = (param<String>(nameParam) ?? '').trim();
+  static String _withExtension(String raw) {
+    final typed = raw.trim();
     if (typed.isEmpty) {
       return '';
     }
     return typed.toLowerCase().endsWith('.zip') ? typed : '$typed.zip';
   }
-
-  ZipCompression get _compression => ZipCompression.byName(param<String>(compressionParam));
 
   /// Упаковка: сборка архива во временном файле и передача его приёмнику.
   ///
@@ -137,7 +182,14 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
   /// конец, и отданный наружу поток пришлось бы держать открытым до последнего
   /// байта — а приёмник вправе и не уметь такого. Прерванная работа при этом не
   /// оставляет полуархива на месте назначения.
-  AsyncOperation<void> _pack(List<FsNode> sources, DirectoryNode destination, String name) {
+  @visibleForTesting
+  AsyncOperation<void> packOperation(
+    List<FsNode> sources,
+    DirectoryNode destination,
+    String name, {
+    required ZipCompression compression,
+    required bool followLinks,
+  }) {
     return TaskOperation<void>((op) async {
       final progress = TransferProgress(op, 'Packing');
       // Плечи: сперва архив собирается, потом уходит приёмнику. Второе
@@ -147,7 +199,7 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
       // столько же, сколько его упаковать.
       unawaited(_count(sources, progress));
 
-      final links = _Links(follow: param<bool>(followLinksParam) ?? false);
+      final links = _Links(follow: followLinks);
 
       final staged = await _staging.open('flex_commander_zip_create');
       final copies = LocalCopySession(_staging, prefix: 'flex_commander_zip_source');
@@ -174,7 +226,7 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
         await encodeZipArchive(
           archivePath: archivePath,
           entries: entries,
-          level: _compression.level,
+          level: compression.level,
           op: op,
           onEntry: (name, bytes) => progress.startItem(name, bytes: bytes),
           onEntryDone: progress.advance,
@@ -371,13 +423,6 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
   /// Вопрос по ходу работы, ход дела и разбор ошибки — общие для всех
   /// длительных работ: упаковка ничем не отличается от копирования, и
   /// рассказывать о ней иначе незачем. Своё у команды одно — форма.
-  @override
-  DialogSpec? dialogSpec(BuildContext context) => DialogSpec(
-    title: dialogTitle,
-    takesFocus: true,
-    content: AsyncCommandDialog(command: this, form: (context) => _CreateArchiveForm(command: this)),
-  );
-
   /// Имя, предложенное по умолчанию: по единственному объекту или по каталогу,
   /// из которого пакуем, — как в референсных менеджерах.
   String get defaultName {
@@ -395,29 +440,52 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
   String get destinationPath => context.target.directory?.pathString ?? '';
 }
 
+/// Прогон упаковки вместе с тем, что спрашивают до её начала.
+class _CreateArchiveRun extends FcAsyncRun {
+  _CreateArchiveRun({
+    required super.app,
+    required super.commandId,
+    required super.title,
+    required super.failureMessage,
+    required super.show,
+    required this.name,
+    required this.destinationPath,
+  });
+
+  String name;
+
+  /// Куда ляжет архив. Не редактируется — приёмник задан панелью.
+  final String destinationPath;
+
+  /// Ссылки: по умолчанию ложатся в архив ссылками, как в mc.
+  bool followLinks = false;
+
+  ZipCompression compression = ZipCompression.normal;
+
+  void setFollowLinks(bool value) {
+    followLinks = value;
+    notifyListeners();
+  }
+
+  void setCompression(ZipCompression value) {
+    compression = value;
+    notifyListeners();
+  }
+}
+
 /// Форма создания архива: имя и степень сжатия.
 class _CreateArchiveForm extends StatefulWidget {
-  const _CreateArchiveForm({required this.command});
+  const _CreateArchiveForm({required this.run});
 
-  final CreateZipArchiveCommand command;
+  final _CreateArchiveRun run;
 
   @override
   State<_CreateArchiveForm> createState() => _CreateArchiveFormState();
 }
 
 class _CreateArchiveFormState extends State<_CreateArchiveForm> {
-  late final TextEditingController _name = TextEditingController(text: widget.command.defaultName);
-  late final TextEditingController _destination = TextEditingController(text: widget.command.destinationPath);
-  ZipCompression _compression = ZipCompression.normal;
-
-  @override
-  void initState() {
-    super.initState();
-    // Значения задаются сразу, а не при подтверждении: Enter обрабатывает
-    // ядро, и к моменту execute параметры уже должны быть на месте.
-    widget.command.setParam(CreateZipArchiveCommand.nameParam, _name.text);
-    widget.command.setParam(CreateZipArchiveCommand.compressionParam, _compression.name);
-  }
+  late final TextEditingController _name = TextEditingController(text: widget.run.name);
+  late final TextEditingController _destination = TextEditingController(text: widget.run.destinationPath);
 
   @override
   void dispose() {
@@ -428,10 +496,12 @@ class _CreateArchiveFormState extends State<_CreateArchiveForm> {
 
   @override
   Widget build(BuildContext context) {
+    final run = widget.run;
+
     return CommandDialogForm(
-      error: widget.command.error,
-      onCancel: widget.command.dismiss,
-      onSubmit: widget.command.submit,
+      error: run.error,
+      onCancel: run.dismiss,
+      onSubmit: run.submit,
       submitLabel: 'Create',
       children: [
         CommandDialogField(label: 'Create in', child: FcTextField(controller: _destination, enabled: false)),
@@ -441,27 +511,18 @@ class _CreateArchiveFormState extends State<_CreateArchiveForm> {
             controller: _name,
             autofocus: true,
             hintText: 'archive.zip',
-            onChanged: (value) => widget.command.setParam(CreateZipArchiveCommand.nameParam, value),
-            onSubmitted: (_) => widget.command.submit(),
+            onChanged: (value) => run.name = value,
+            onSubmitted: (_) => run.submit(),
           ),
         ),
-        // Ссылки: по умолчанию ложатся в архив ссылками, как в mc.
-        FcCheckbox(
-          label: 'Follow symlinks',
-          value: widget.command.param<bool>(CreateZipArchiveCommand.followLinksParam) ?? false,
-          onChanged:
-              (value) => setState(() => widget.command.setParam(CreateZipArchiveCommand.followLinksParam, value)),
-        ),
+        FcCheckbox(label: 'Follow symlinks', value: run.followLinks, onChanged: run.setFollowLinks),
         CommandDialogField(
           label: 'Compression',
           child: FcRadioGroup<ZipCompression>(
             direction: Axis.horizontal,
             options: {for (final value in ZipCompression.values) value: value.title},
-            value: _compression,
-            onChanged: (value) {
-              setState(() => _compression = value);
-              widget.command.setParam(CreateZipArchiveCommand.compressionParam, value.name);
-            },
+            value: run.compression,
+            onChanged: run.setCompression,
           ),
         ),
       ],

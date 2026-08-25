@@ -45,6 +45,10 @@ void main() {
   Future<AppCommand> pumpDialog(WidgetTester tester) async {
     runtime.app.left.setCursorToName('notes.txt');
     final command = runtime.commands.create(CreateZipArchiveCommand.commandId)!;
+    // Окно показывает сама команда: она строит его и уходит. Рисуется дальше
+    // то, что она отдала рабочей области.
+    await command.execute();
+    final spec = runtime.app.view.dialogs.single;
 
     await tester.pumpWidget(
       MaterialApp(
@@ -57,7 +61,7 @@ void main() {
           body: Center(
             // Контекст берётся из дерева — так же, как его берёт слой окон
             // команд в ядре.
-            child: SizedBox(width: 500, child: Builder(builder: (context) => command.dialogSpec(context)!.content!)),
+            child: SizedBox(width: 500, child: spec.content),
           ),
         ),
       ),
@@ -87,50 +91,60 @@ void main() {
 
   testWidgets('ссылками распоряжается флажок, и по умолчанию он снят', (tester) async {
     // Как в mc: ссылка остаётся ссылкой, а не подменяется содержимым цели.
-    final command = await pumpDialog(tester);
+    await pumpDialog(tester);
 
     expect(find.text('Follow symlinks'), findsOneWidget);
-    expect(command.param<bool>(CreateZipArchiveCommand.followLinksParam) ?? false, isFalse);
+    expect(tester.widget<FcCheckbox>(find.byType(FcCheckbox)).value, isFalse);
 
     await tester.tap(find.text('Follow symlinks'));
     await tester.pump();
 
-    expect(command.param<bool>(CreateZipArchiveCommand.followLinksParam), isTrue);
+    expect(tester.widget<FcCheckbox>(find.byType(FcCheckbox)).value, isTrue);
   });
 
   testWidgets('по умолчанию выбрано среднее сжатие', (tester) async {
-    final command = await pumpDialog(tester);
+    await pumpDialog(tester);
 
-    expect(command.parameters.values[CreateZipArchiveCommand.compressionParam], ZipCompression.normal.name);
+    expect(
+      tester.widget<FcRadioGroup<ZipCompression>>(find.byType(FcRadioGroup<ZipCompression>)).value,
+      ZipCompression.normal,
+    );
   });
 
-  testWidgets('введённое имя доходит до команды по мере ввода', (tester) async {
-    final command = await pumpDialog(tester);
+  testWidgets('имя из поля доходит до работы, а не остаётся в нём', (tester) async {
+    await pumpDialog(tester);
 
-    await tester.enterText(find.byType(FcTextField).last, 'photos');
+    // Стёртое имя — самый короткий способ это увидеть: работа отказывается
+    // заводиться, не дойдя до диска, и говорит об этом в той же форме.
+    // Проверять по созданному архиву нельзя: настоящего похода к диску
+    // виджетный тест не дожидается.
+    await tester.enterText(find.byType(FcTextField).last, '');
+    await tester.pump();
+    await tester.tap(find.widgetWithText(FcButton, 'Create'));
     await tester.pump();
 
-    // Enter обрабатывает ядро, поэтому параметр должен быть на месте раньше.
-    expect(command.parameters.values[CreateZipArchiveCommand.nameParam], 'photos');
+    expect(find.text(const FsError('', FsErrorKind.invalidName).message), findsOneWidget);
   });
 
-  testWidgets('выбранное сжатие доходит до команды', (tester) async {
-    final command = await pumpDialog(tester);
+  testWidgets('выбранное сжатие доходит до работы', (tester) async {
+    await pumpDialog(tester);
 
     await tester.tap(find.text('Best'));
     await tester.pump();
 
-    expect(command.parameters.values[CreateZipArchiveCommand.compressionParam], ZipCompression.best.name);
+    expect(
+      tester.widget<FcRadioGroup<ZipCompression>>(find.byType(FcRadioGroup<ZipCompression>)).value,
+      ZipCompression.best,
+    );
   });
 
   testWidgets('Cancel закрывает окно, ничего не создавая', (tester) async {
-    final command = await pumpDialog(tester);
-    runtime.commands.run(CreateZipArchiveCommand.commandId);
+    await pumpDialog(tester);
 
     await tester.tap(find.text('Cancel'));
     await tester.pump();
 
     expect(Directory(target).listSync(), isEmpty);
-    expect(command.isRunning, isFalse);
+    expect(runtime.app.view.dialogs, isEmpty);
   });
 }
