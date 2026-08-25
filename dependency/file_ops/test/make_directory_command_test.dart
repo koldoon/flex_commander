@@ -53,13 +53,16 @@ void main() {
     expect(namesOf(), contains('docs'));
   });
 
-  test('пустое имя — ошибка, а не молчаливый отказ', () async {
-    final command = makeDirectory()..setParam(MakeDirectoryCommand.nameParam, '   ');
+  test('пустое имя — ошибка в окне, а не молчаливый отказ', () async {
+    // Проверка имени переехала туда, где она нужна: имени нет — значит его
+    // спрашивают, а ошибка появляется, когда его так и не набрали.
+    var created = false;
+    final state = MakeDirectoryDialogState(parentPath: '/home', create: (name) async => created = true)..name = '   ';
 
-    await expectLater(
-      command.execute(),
-      throwsA(isA<FsError>().having((e) => e.kind, 'kind', FsErrorKind.invalidName)),
-    );
+    await state.submit();
+
+    expect(created, isFalse);
+    expect(state.error, const FsError('', FsErrorKind.invalidName).message);
   });
 
   test('существующее имя даёт ошибку', () async {

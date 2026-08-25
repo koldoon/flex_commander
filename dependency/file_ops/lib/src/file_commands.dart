@@ -11,12 +11,6 @@ class MakeDirectoryCommand extends AppCommand {
   /// Имя нового каталога.
   static const String nameParam = 'name';
 
-  final TextEditingController _name = TextEditingController();
-
-  /// Каталог, в котором появится новый. Не редактируется, но показывается таким
-  /// же полем — как в референсе.
-  final TextEditingController _inside = TextEditingController();
-
   static const String commandId = 'file.mkdir';
 
   @override
@@ -29,82 +23,51 @@ class MakeDirectoryCommand extends AppCommand {
   String get description => 'Create a directory in the active panel';
 
   @override
-  bool get hasDialog => true;
-
-  /// Имя набирают сразу: фокус ставит поле ввода.
-
-  @override
-  void attachRun({required String runId, required CommandContext context}) {
-    super.attachRun(runId: runId, context: context);
-    _inside.text = _parentPath;
-  }
-
-  @override
   bool isExecutable(CommandContext context) {
     final panel = context.panel;
     // Провайдер может уметь только читать — тогда создавать нечем.
     return !panel.busy && panel.directory != null && panel.editor != null;
   }
 
+  /// Создать каталог — или сперва спросить, как его назвать.
+  ///
+  /// Имя задают либо параметром, либо человеком в окне. Первый случай идёт
+  /// мимо окна вовсе; во втором команда показывает окно и уходит.
   @override
   Future<void> execute() async {
     final panel = context.panel;
     final parent = panel.directory;
     final editor = panel.editor;
-    final name = param<String>(nameParam)?.trim() ?? '';
-
     if (parent == null || editor == null) {
       return;
     }
-    if (name.isEmpty) {
-      throw const FsError('', FsErrorKind.invalidName);
+
+    Future<void> create(String name) async {
+      final created = await editor.makeDirectory(parent, name).result;
+      // Каталог создан на диске, но в панели его ещё нет: перечитываем и
+      // ставим курсор на новый каталог, чтобы с ним можно было сразу работать.
+      await panel.reload();
+      panel.setCursorToName(created.name);
     }
 
-    final created = await editor.makeDirectory(parent, name).result;
-    // Каталог создан на диске, но в панели его ещё нет: перечитываем и ставим
-    // курсор на новый каталог, чтобы с ним можно было сразу работать.
-    await panel.reload();
-    panel.setCursorToName(created.name);
-  }
+    final given = param<String>(nameParam)?.trim() ?? '';
+    if (given.isNotEmpty) {
+      await create(given);
+      return;
+    }
 
-  @override
-  DialogSpec? dialogSpec(BuildContext context) {
-    return DialogSpec(
-      title: dialogTitle,
-      takesFocus: true,
-      content: ListenableBuilder(
-        listenable: this,
-        builder:
-            (context, _) => CommandDialogForm(
-              error: error,
-              onCancel: dismiss,
-              onSubmit: submit,
-              submitLabel: 'Create',
-              // Поля те же, что в референсе: имя и каталог, в котором создаём.
-              children: [
-                Column(
-                  mainAxisSize: MainAxisSize.min,
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    CommandDialogField(label: 'Inside', child: FcTextField(controller: _inside, enabled: false)),
-                    SizedBox(height: FcTheme.of(context).metrics.dialogGap),
-                    CommandDialogField(
-                      label: 'Make directory',
-                      child: FcTextField(
-                        controller: _name,
-                        autofocus: true,
-                        hintText: 'Directory name',
-                        // Имя задаётся по мере ввода, а не при подтверждении: Enter
-                        // обрабатывает ядро, и к моменту execute параметр уже
-                        // должен быть на месте.
-                        onChanged: (value) => setParam(nameParam, value),
-                        onSubmitted: (_) => submit(),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+    final view = context.app.view;
+    final state = MakeDirectoryDialogState(parentPath: _parentPath, create: create);
+
+    late final String dialogId;
+    state.close = () => view.closeDialog(dialogId);
+    dialogId = view.showDialog(
+      DialogSpec(
+        title: dialogTitle,
+        takesFocus: true,
+        content: _MakeDirectoryForm(state: state),
+        onSubmit: state.submit,
+        onDismiss: state.close,
       ),
     );
   }
@@ -115,12 +78,102 @@ class MakeDirectoryCommand extends AppCommand {
     final directory = panel.directory;
     return directory?.displayPath ?? '';
   }
+}
+
+/// Что набрано в окне создания каталога и что из этого вышло.
+///
+/// Живёт, пока открыто окно: команда, показав его, уходит. Ошибка остаётся
+/// здесь же — имя правят тут же, а не набирают заново.
+class MakeDirectoryDialogState extends ChangeNotifier {
+  MakeDirectoryDialogState({required this.parentPath, required this.create});
+
+  /// Каталог, в котором появится новый. Не редактируется, но показывается
+  /// таким же полем — как в референсе.
+  final String parentPath;
+
+  final Future<void> Function(String name) create;
+
+  String name = '';
+  String? error;
+
+  /// Чем закрыть себя; null — окно ещё не показано (так бывает в тесте).
+  VoidCallback? close;
+
+  Future<void> submit() async {
+    error = null;
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      error = const FsError('', FsErrorKind.invalidName).message;
+      notifyListeners();
+      return;
+    }
+
+    try {
+      await create(trimmed);
+      close?.call();
+    } on FsError catch (failure) {
+      error = failure.message;
+      notifyListeners();
+    }
+  }
+}
+
+/// Два поля — куда и как назвать — и две кнопки.
+class _MakeDirectoryForm extends StatefulWidget {
+  const _MakeDirectoryForm({required this.state});
+
+  final MakeDirectoryDialogState state;
+
+  @override
+  State<_MakeDirectoryForm> createState() => _MakeDirectoryFormState();
+}
+
+class _MakeDirectoryFormState extends State<_MakeDirectoryForm> {
+  late final TextEditingController _inside = TextEditingController(text: widget.state.parentPath);
+  final TextEditingController _name = TextEditingController();
 
   @override
   void dispose() {
-    _name.dispose();
     _inside.dispose();
+    _name.dispose();
     super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = widget.state;
+
+    return ListenableBuilder(
+      listenable: state,
+      builder:
+          (context, _) => CommandDialogForm(
+            error: state.error,
+            onCancel: state.close ?? () {},
+            onSubmit: state.submit,
+            submitLabel: 'Create',
+            // Поля те же, что в референсе: имя и каталог, в котором создаём.
+            children: [
+              Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  CommandDialogField(label: 'Inside', child: FcTextField(controller: _inside, enabled: false)),
+                  SizedBox(height: FcTheme.of(context).metrics.dialogGap),
+                  CommandDialogField(
+                    label: 'Make directory',
+                    child: FcTextField(
+                      controller: _name,
+                      autofocus: true,
+                      hintText: 'Directory name',
+                      onChanged: (value) => state.name = value,
+                      onSubmitted: (_) => state.submit(),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+    );
   }
 }
 
