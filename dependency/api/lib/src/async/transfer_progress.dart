@@ -50,6 +50,9 @@ class TransferProgress {
   bool _stopped = false;
   String _current = '';
 
+  /// Чем работа занята вместо переноса; пустая строка — переносом и занята.
+  String _chore = '';
+
   /// Объект, который обрабатывается прямо сейчас, и сколько его уже прошло.
   String _item = '';
   int _itemBytes = 0;
@@ -90,6 +93,26 @@ class TransferProgress {
     _stageCount = count;
     _stageName = name;
     _stageSized = sized;
+    _report();
+  }
+
+  /// Уборка по дороге: чем работа занята вместо переноса.
+  ///
+  /// Перезапись приёмника сперва убирает то, что там лежало, а перенос — то,
+  /// что осталось в источнике. В счётчиках задания эти объекты не считаются:
+  /// они не наши. Но молчать о них нельзя — по сети уборка каталога идёт
+  /// минутами, и окно всё это время выглядело бы зависшим.
+  void chore(String text) {
+    _chore = text;
+    _report();
+  }
+
+  /// Уборка кончилась: дальше снова видно сам перенос.
+  void choreDone() {
+    if (_chore.isEmpty) {
+      return;
+    }
+    _chore = '';
     _report();
   }
 
@@ -230,7 +253,7 @@ class TransferProgress {
   /// гадать, кто и с какой частотой её слушает.
   void _report() {
     _operation.report(
-      message: _current.isEmpty ? '$_verb…' : '$_verb $_current…',
+      message: _chore.isNotEmpty ? _chore : (_current.isEmpty ? '$_verb…' : '$_verb $_current…'),
       stage: _stage,
       stageCount: _stageCount,
       stageName: _stageName,

@@ -166,8 +166,10 @@ class TreeTransferEngine implements TreeEditor {
                   overwriteAll = true;
                 }
               }
-              // Молча: объекты приёмника в задании не считаются.
-              await _purge(target, existing, op);
+              // В задании объекты приёмника не считаются — они не наши, — но
+              // и молчать о них нельзя: перезапись каталога по сети идёт
+              // минутами, а окно показывало бы прежние цифры.
+              await _purge(target, existing, op, progress);
             }
 
             // [TransferStrategy.rename]: один провайдер, и он умеет. Сначала
@@ -185,7 +187,7 @@ class TreeTransferEngine implements TreeEditor {
 
             await _copyTree(source, target, node, destination, node.name, op, progress, links);
             if (move) {
-              await _purge(source!, node, op);
+              await _purge(source!, node, op, progress);
             }
           } on FsError catch (error) {
             progress.sourceDoneWholly(i);
@@ -556,32 +558,53 @@ class TreeTransferEngine implements TreeEditor {
     NodeEditor editor,
     FsNode node,
     TaskOperation<Object?, void> op,
-    TransferProgress? progress,
-  ) async {
+    TransferProgress? progress, {
+    bool counts = true,
+  }) async {
     await op.checkpoint();
 
     if (node is DirectoryNode) {
       // Содержимое каталога сначала вычитывается целиком: удалять объекты,
       // продолжая читать тот же каталог, — верный способ что-нибудь пропустить.
       for (final child in await node.provider.listChildren(node)) {
-        await _deleteTree(editor, child, op, progress);
+        await _deleteTree(editor, child, op, progress, counts: counts);
       }
     }
 
-    progress?.advance(node.name);
-    // Байты удалённого — тоже сделанная работа: на большом дереве доля
-    // по объектам и доля по объёму расходятся втрое.
-    progress?.advanceBytes(node.size);
+    if (counts) {
+      progress?.advance(node.name);
+      // Байты удалённого — тоже сделанная работа: на большом дереве доля
+      // по объектам и доля по объёму расходятся втрое.
+      progress?.advanceBytes(node.size);
+    } else {
+      // Уборка по дороге: рассказываем, но в счёт задания не берём.
+      progress?.chore('Removing ${node.name}…');
+    }
     await editor.deleteEntry(node);
   }
 
-  /// Убирает объект целиком и молча: перезапись приёмника и уборка источника
-  /// после копирования в задании не считаются — там свои объекты, не наши.
-  Future<void> _purge(NodeEditor editor, FsNode node, TaskOperation<Object?, void> op) async {
-    if (await editor.deleteTree(node)) {
-      return;
+  /// Убирает объект целиком: перезапись приёмника и уборка источника после
+  /// копирования в задании не считаются — там свои объекты, не наши.
+  ///
+  /// Не считаются — но и не молчат. Провайдер, который умеет убрать поддерево
+  /// одним действием, справляется мгновенно; тот, который не умеет (SFTP),
+  /// обходит его поштучно, и по сети это минуты. Молчащее окно в это время
+  /// неотличимо от зависшего.
+  Future<void> _purge(
+    NodeEditor editor,
+    FsNode node,
+    TaskOperation<Object?, void> op, [
+    TransferProgress? progress,
+  ]) async {
+    progress?.chore('Removing ${node.name}…');
+    try {
+      if (await editor.deleteTree(node)) {
+        return;
+      }
+      await _deleteTree(editor, node, op, progress, counts: false);
+    } finally {
+      progress?.choreDone();
     }
-    await _deleteTree(editor, node, op, null);
   }
 
   /// Фоновый подсчёт объектов задания.

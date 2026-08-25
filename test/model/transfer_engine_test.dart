@@ -28,6 +28,57 @@ void main() {
 
   Future<DirectoryNode> directory(String path) async => (await node(path)) as DirectoryNode;
 
+  group('перезапись каталога', () {
+    /// Приёмник, который поддерева одним действием удалять не умеет, — так
+    /// ведёт себя SFTP: там каждый объект это отдельный обмен с сервером.
+    late _SlowDeleteProvider remote;
+
+    setUp(() {
+      remote = _SlowDeleteProvider([
+        FakeEntry.directory('/box'),
+        // Прошлое копирование не доехало: каталог есть, а внутри половина.
+        FakeEntry.directory('/box/docs'),
+        FakeEntry.file('/box/docs/readme.md', size: 5),
+      ]);
+    });
+
+    test('уборка приёмника не идёт молча', () async {
+      final target = (await remote.resolvePath().run('/box'))! as DirectoryNode;
+      final operation = engine.copy();
+      final log = ProgressLog.of(operation);
+      operation.requests.listen((request) => request.respond(OperationRequestOption.overwriteAll));
+
+      operation.start(TransferParams([await node('/home/docs')], target));
+      await operation.result;
+      await pumpEventQueue();
+
+      // Между ответом и первым скопированным объектом окно не должно замирать:
+      // по сети уборка идёт минутами, и «ничего не происходит» — худшее из
+      // того, что можно показать.
+      expect(
+        log.reports.map((report) => report.message),
+        contains(predicate<String>((message) => message.contains('readme.md') && message.startsWith('Removing'))),
+        reason: 'об уборке приёмника надо рассказывать так же, как о переносе',
+      );
+    });
+
+    test('счётчики задания уборкой не двигаются', () async {
+      final target = (await remote.resolvePath().run('/box'))! as DirectoryNode;
+      final operation = engine.copy();
+      final log = ProgressLog.of(operation);
+      operation.requests.listen((request) => request.respond(OperationRequestOption.overwriteAll));
+
+      operation.start(TransferParams([await node('/home/docs')], target));
+      await operation.result;
+      await pumpEventQueue();
+
+      // Убранные объекты — не наши: в задании их не было, и в счёт они не идут.
+      final duringChore = log.reports.where((report) => report.message.startsWith('Removing'));
+      expect(duringChore, isNotEmpty);
+      expect(duringChore.map((report) => report.itemsTransferred).toSet(), {0});
+    });
+  });
+
   group('плечи работы', () {
     late _BatchingProvider archive;
 
@@ -711,4 +762,13 @@ class _ReadOnlyProvider implements TreeProvider {
   // спросит у провайдера хоть что-то.
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
+}
+
+/// Провайдер, который не умеет убирать поддерево одним действием: движку
+/// приходится обходить его поштучно — как по SFTP.
+class _SlowDeleteProvider extends InMemoryContentProvider {
+  _SlowDeleteProvider(super.entries);
+
+  @override
+  Future<bool> deleteTree(FsNode node) async => false;
 }
