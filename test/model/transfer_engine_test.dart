@@ -318,6 +318,41 @@ void main() {
     return messages;
   }
 
+  group('вопросы, когда файлов несколько разом', () {
+    test('«пропустить все» снимает и те вопросы, что уже встали в очередь', () async {
+      // Каталог со ссылками — как `/etc/nginx`: их несколько, и в работу они
+      // уходят разом. Человек отвечает один раз.
+      final source = InMemoryContentProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.directory('/home/conf'),
+        for (var i = 0; i < 4; i++) FakeEntry.link('/home/conf/link$i', '/home/conf/some$i.conf'),
+        for (var i = 0; i < 4; i++) FakeEntry.file('/home/conf/some$i.conf', content: [1]),
+      ]);
+      final box = _CountingProvider([FakeEntry.directory('/box')]);
+      final destination = (await box.resolvePath().run('/box'))! as DirectoryNode;
+      final conf = (await source.resolvePath().run('/home/conf'))!;
+
+      final operation = engine.copy();
+      final questions = <OperationRequest>[];
+      // Отвечают не мгновенно, а как человек: пока думают, к вопросу успевают
+      // подойти остальные ссылки.
+      operation.requests.listen(questions.add);
+
+      operation.start(TransferParams([conf], destination));
+      await pumpEventQueue();
+
+      // Показан ровно один: очередь не пускает остальных вперёд. Без неё
+      // окно показало бы последний, а три первых повисли бы навсегда — и с
+      // ними вся работа, дошедшая по счётчикам до конца.
+      expect(questions, hasLength(1));
+      questions.single.respond(OperationRequestOption.skipAll);
+
+      await operation.result;
+
+      expect(questions, hasLength(1), reason: 'ответ «все» снял и те вопросы, что уже ждали');
+    });
+  });
+
   group('символические ссылки', () {
     late InMemoryContentProvider disk;
 

@@ -631,6 +631,10 @@ class TreeTransferEngine implements TreeEditor {
         // размеру, и по смыслу.
         enterOption: OperationRequestOption.skip,
       ),
+      // Ссылок в дереве бывает много, и идут они разом. Ответ «пропустить все»
+      // на первую снимает и те вопросы, что уже встали в очередь: человек
+      // сказал это один раз, и десять раз переспрашивать его незачем.
+      stillNeeded: () => !links.skipAll,
     );
 
     if (answer == OperationRequestOption.cancel) {

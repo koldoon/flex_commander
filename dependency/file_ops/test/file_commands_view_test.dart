@@ -22,7 +22,12 @@ class _SlowCopyProvider extends InMemoryTreeProvider {
   /// между ними, и на нескольких сразу проверять было бы уже негде — а речь
   /// здесь именно о ней.
   @override
-  ProviderCapabilities get capabilities => const ProviderCapabilities(maxConcurrency: 1);
+  ProviderCapabilities get capabilities =>
+      parallelEverything
+          ? const ProviderCapabilities(maxConcurrency: 4)
+          : const ProviderCapabilities(maxConcurrency: 1);
+
+  bool parallelEverything = false;
 
   bool slow = false;
 

@@ -349,7 +349,34 @@ class TaskOperation<P, R> implements Operation<P, R> {
 
   /// Задаёт вопрос пользователю и ждёт ответа.
   /// Если вопрос никто не слушает, возвращается вариант по умолчанию.
-  Future<OperationRequestOption> ask(OperationRequest request) {
+  /// [stillNeeded] — нужен ли ещё этот вопрос, когда до него дошла очередь.
+  /// Ответ «…все» на предыдущий обычно снимает и все следующие: человек сказал
+  /// «пропустить все» один раз, и спрашивать его о том же ещё десять раз —
+  /// издевательство. Такой вопрос не показывается вовсе, а вместо ответа
+  /// берётся [OperationRequest.enterOption].
+  Future<OperationRequestOption> ask(OperationRequest request, {bool Function()? stillNeeded}) {
+    // Спрашивают **по одному**. Работа идёт не в один поток: файлы переносятся
+    // разом, и вопрос — «уже существует», «ссылку сохранить нечем» — может
+    // подняться у нескольких сразу. Окно показывает один вопрос; остальные без
+    // очереди повисли бы навсегда, а с ними и вся работа, дошедшая до конца по
+    // счётчикам.
+    final ahead = _asked;
+    final mine = Completer<void>();
+    _asked = mine.future;
+    return ahead
+        .then((_) {
+          if (stillNeeded != null && !stillNeeded()) {
+            return Future.value(request.enterOption);
+          }
+          return _ask(request);
+        })
+        .whenComplete(mine.complete);
+  }
+
+  /// Очередь вопросов: следующий поднимается, когда ответили на предыдущий.
+  Future<void> _asked = Future<void>.value();
+
+  Future<OperationRequestOption> _ask(OperationRequest request) {
     if (_requests.hasListener) {
       // Работа встала: об этом обязан узнать не только тот, кто её слушает, но
       // и статусная область — там у полоски появляется кнопка «нужен ответ».

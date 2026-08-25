@@ -141,6 +141,73 @@ void main() {
       await expectLater(op.result, throwsA(isA<StateError>()));
     });
   });
+  group('вопросы по очереди', () {
+    test('два вопроса разом не теряют друг друга', () async {
+      // Работа идёт не в один поток: файлы переносятся разом, и спросить могут
+      // сразу несколько. Окно показывает один вопрос — значит и задавать их
+      // надо по одному, иначе непоказанный повиснет навсегда, а с ним и работа.
+      final asked = <String>[];
+      final op = TaskOperation<void, void>((op, _) async {
+        await Future.wait([
+          op.ask(
+            OperationRequest(
+              message: 'first',
+              options: const [OperationRequestOption.skip],
+              enterOption: OperationRequestOption.skip,
+            ),
+          ),
+          op.ask(
+            OperationRequest(
+              message: 'second',
+              options: const [OperationRequestOption.skip],
+              enterOption: OperationRequestOption.skip,
+            ),
+          ),
+        ]);
+      });
+
+      final questions = <OperationRequest>[];
+      op.requests.listen((request) {
+        asked.add(request.message);
+        questions.add(request);
+      });
+      op.start(null);
+      await pumpEventQueue();
+
+      // Поднят ровно один: второй ждёт ответа на первый.
+      expect(asked, ['first']);
+      questions.single.respond(OperationRequestOption.skip);
+      await pumpEventQueue();
+
+      expect(asked, ['first', 'second']);
+      questions.last.respond(OperationRequestOption.skip);
+      await op.result;
+    });
+
+    test('работа доходит до конца, когда на все ответили', () async {
+      final op = TaskOperation<void, void>((op, _) async {
+        await Future.wait([
+          for (var i = 0; i < 3; i++)
+            op.ask(
+              OperationRequest(
+                message: 'q$i',
+                options: const [OperationRequestOption.skip],
+                enterOption: OperationRequestOption.skip,
+              ),
+            ),
+        ]);
+      });
+
+      op.requests.listen((request) => request.respond(OperationRequestOption.skip));
+      op.start(null);
+
+      // Без очереди здесь было бы вечное ожидание: показан один вопрос, а
+      // ответа ждут трое.
+      await op.result;
+      expect(op.state, OperationState.complete);
+    });
+  });
+
   group('просьба прервать', () {
     /// Операция, считающая свои шаги: между ними стоит контрольная точка.
     ///
