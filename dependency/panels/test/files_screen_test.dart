@@ -71,9 +71,12 @@ void main() {
     await runtime.app.start();
     await pumpScreen(tester);
 
-    final panels = tester.widgetList<PanelView>(find.byType(PanelView)).toList();
+    // Сторону панель выводит сама: вид её строит реестр, и про место в окне
+    // ему знать неоткуда. Поэтому проверяется рамка — то, что нарисовано, — а
+    // не аргумент, которого больше нет.
+    final frames = tester.widgetList<FcPanelFrame>(find.byType(FcPanelFrame)).toList();
 
-    expect(panels.first.outerEdge, PanelOuterEdge.left);
-    expect(panels.last.outerEdge, PanelOuterEdge.right);
+    expect(frames.first.outerEdge, PanelOuterEdge.left);
+    expect(frames.last.outerEdge, PanelOuterEdge.right);
   });
 }

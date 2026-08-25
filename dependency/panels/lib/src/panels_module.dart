@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 
 import 'file_table.dart';
 import 'files_screen.dart';
+import 'panel_view.dart';
 
 /// Файловые панели.
 ///
@@ -25,6 +26,9 @@ class Panels implements FcModule {
     // Таблица файлов — штатный вид содержимого панели. Остальные виды
     // (результаты поиска, дерево) объявляются так же, своими модулями.
     registry.viewport(PanelViewports.files, (context, panel) => FileTable(panel: panel));
+    // Панель — тоже состояние области, и рисуется тем же механизмом, что всё
+    // остальное: ядро не знает, чем показывают файлы.
+    registry.view<Panel>((context, panel) => PanelView(panel: panel));
 
     // Экран открывается стартовой командой: во время объявления приложения
     // ещё нет, а к первому кадру экран уже должен стоять.

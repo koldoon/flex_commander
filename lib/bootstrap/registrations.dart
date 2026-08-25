@@ -79,8 +79,8 @@ class Registrations implements FcRegistry {
   /// Виды содержимого панели: имя вида → чем рисовать.
   final Map<String, PanelViewportBuilder> viewports = {};
 
-  /// Виды состояний: тип → чем рисовать. Ключ — точный тип.
-  final Map<Type, StateViewBuilder<Object>> views = {};
+  /// Виды состояний: тип, на который объявлен, → сам вид.
+  final Map<Type, StateView> views = {};
 
   /// Связывание службы с контейнером: тип известен только в момент объявления,
   /// поэтому он захватывается замыканием.
@@ -165,7 +165,11 @@ class Registrations implements FcRegistry {
       // и трогать его ради картинки никто не станет.
       throw StateError('Вид для $S уже объявлен: два вида на один тип — это ошибка, а не выбор');
     }
-    views[S] = (context, state) => builder(context, state as S);
+    views[S] = StateView(
+      stateType: S,
+      matches: (state) => state is S,
+      build: (context, state) => builder(context, state as S),
+    );
   }
 
   @override

@@ -195,6 +195,7 @@ class AppContainer extends DI {
           providers: c.get<ProviderRegistry>(),
           theme: c.get<ThemeController>(),
           viewports: c.get<PanelViewports>(),
+          views: c.get<Views>(),
           window: c.get<WindowService>(),
           saveDelay: overrides.saveDelay ?? const Duration(seconds: 1),
           toasts: ToastController(duration: overrides.toastDuration ?? ToastController.defaultDuration),

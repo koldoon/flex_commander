@@ -10,19 +10,25 @@ import 'panel_status_bar.dart';
 /// пользуется просмотрщик: место в окне у них одно и то же, и выглядеть они
 /// обязаны одинаково.
 ///
-/// О том, левая она или правая, панель знает только ради внешней рамки
-/// ([outerEdge]); всё остальное у обеих одинаково, а какая из них активна,
-/// решает приложение.
+/// О том, левая она или правая, панель знает только ради внешней рамки; всё
+/// остальное у обеих одинаково, а какая из них активна, решает приложение.
+///
+/// Сторону панель выводит сама, а не получает параметром: вид её строит реестр,
+/// а он передаёт только состояние — про место в окне ему знать неоткуда.
 class PanelView extends StatelessWidget {
-  const PanelView({super.key, required this.panel, this.outerEdge});
+  const PanelView({super.key, required this.panel});
 
   final Panel panel;
-
-  final PanelOuterEdge? outerEdge;
 
   @override
   Widget build(BuildContext context) {
     final app = AppScope.read(context);
+    final outerEdge =
+        identical(panel, app.left)
+            ? PanelOuterEdge.left
+            : identical(panel, app.right)
+            ? PanelOuterEdge.right
+            : null;
 
     return PanelScope(
       panel: panel,

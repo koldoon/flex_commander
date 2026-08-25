@@ -4,6 +4,7 @@ import '../background/task_status.dart';
 import '../commands/command_service.dart';
 import 'errors.dart';
 import 'panel_viewport.dart';
+import 'views.dart';
 import 'screen.dart';
 import '../theme/theme_service.dart';
 import '../settings/app_settings.dart';
@@ -58,6 +59,12 @@ abstract interface class Application implements Listenable {
 
   /// Чем рисуется содержимое панелей.
   PanelViewports get viewports;
+
+  /// Чем рисуются состояния: панель, просмотрщик, заявка от работы.
+  ///
+  /// Вид ищется по самому состоянию, а не по имени вида: связь между ними
+  /// проверяет компилятор, и модуль, объявивший состояние, объявляет и вид.
+  Views get views;
 
   /// Экраны приложения: что видно выше ряда функциональных кнопок.
   ///

@@ -5,15 +5,34 @@ import 'package:fc_api/fc_api.dart';
 /// Своих видов у ядра нет ни одного, как и видов содержимого панели: их
 /// приносят модули. Ядро только находит, чем показать то, что ему дали.
 class ViewRegistry implements Views {
-  const ViewRegistry(this._builders);
+  const ViewRegistry(this._views);
 
-  final Map<Type, StateViewBuilder<Object>> _builders;
+  final Map<Type, StateView> _views;
 
-  /// Типы, для которых вид объявлен.
-  Iterable<Type> get types => _builders.keys;
+  /// Типы, на которые вид объявлен.
+  Iterable<Type> get types => _views.keys;
 
   @override
-  StateViewBuilder<Object>? builderFor(Type stateType) => _builders[stateType];
+  StateViewBuilder<Object>? builderFor(Object state) {
+    // Точное совпадение вперёд подходящего: вид, объявленный ровно на этот тип,
+    // очевидно ближе к делу, чем вид на его интерфейс.
+    final exact = _views[state.runtimeType];
+    if (exact != null) {
+      return exact.build;
+    }
+
+    final matching = [
+      for (final view in _views.values)
+        if (view.matches(state)) view,
+    ];
+    if (matching.length > 1) {
+      final names = matching.map((view) => view.stateType).join(', ');
+      throw StateError(
+        'Состоянию ${state.runtimeType} подходит несколько видов ($names): выбор стал бы делом порядка модулей',
+      );
+    }
+    return matching.isEmpty ? null : matching.single.build;
+  }
 }
 
 /// Ни одного вида.
@@ -24,5 +43,5 @@ class NoViews implements Views {
   const NoViews();
 
   @override
-  StateViewBuilder<Object>? builderFor(Type stateType) => null;
+  StateViewBuilder<Object>? builderFor(Object state) => null;
 }

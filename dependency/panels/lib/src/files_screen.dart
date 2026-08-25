@@ -3,7 +3,6 @@ import 'package:flutter/widgets.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
-import 'panel_view.dart';
 import 'split_view.dart';
 
 /// Две файловые панели с подвижным разделителем — экран, с которого начинается
@@ -43,9 +42,18 @@ class FilesScreen implements Screen {
       // и приложение обязано собираться без него — просто разделитель тогда
       // не центруется.
       onCenter: () => app.commands.run(centerSplitCommand),
-      left: PanelView(panel: app.left, outerEdge: PanelOuterEdge.left),
-      right: PanelView(panel: app.right, outerEdge: PanelOuterEdge.right),
+      left: _place(context, app, app.left),
+      right: _place(context, app, app.right),
     );
+  }
+
+  /// Рисует то, что стоит в области, — через реестр видов, а не напрямую.
+  ///
+  /// Пустое место, если вида нет: модуль, объявивший его, могли отключить, а
+  /// область показать что-то обязана.
+  Widget _place(BuildContext context, Application app, Panel panel) {
+    final build = app.views.builderFor(panel);
+    return build == null ? const SizedBox.shrink() : build(context, panel);
   }
 
   /// Действие «разделитель посередине» — если модуль навигации установлен.

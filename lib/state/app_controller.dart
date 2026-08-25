@@ -8,6 +8,7 @@ import '../settings/settings_store.dart';
 import 'panel_controller.dart';
 import 'panel_viewport_registry.dart';
 import 'screens_controller.dart';
+import 'view_registry.dart';
 import 'credentials_controller.dart';
 import 'theme_controller.dart';
 import 'error_controller.dart';
@@ -27,6 +28,7 @@ class AppController extends ChangeNotifier implements Application {
     required this.commands,
     this.providers,
     PanelViewports? viewports,
+    Views? views,
     ScreensController? screens,
     ThemeController? theme,
     ToastController? toasts,
@@ -42,6 +44,7 @@ class AppController extends ChangeNotifier implements Application {
        credentials = credentials ?? CredentialsController(),
        errors = errors ?? ErrorController(),
        viewports = viewports ?? const NoPanelViewports(),
+       views = views ?? const NoViews(),
        screens = screens ?? ScreensController(),
        window = window ?? const NoopWindowService() {
     // Одна панель активна всегда, ещё до первого чтения каталогов.
@@ -85,6 +88,9 @@ class AppController extends ChangeNotifier implements Application {
   /// в тесте состояния или в сценарии рисовать нечем и незачем.
   @override
   final PanelViewports viewports;
+
+  @override
+  final Views views;
 
   /// Работы, ушедшие в фон. Их держит реестр команд: он и так знает про все
   /// запуски и их окна, а фон — это ровно «запуск без окна».
