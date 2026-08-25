@@ -83,6 +83,7 @@ class SshConnection {
       username: target.user,
       identities: identities.isEmpty ? null : identities,
       onPasswordRequest: asker?.ask,
+      algorithms: _algorithms,
       // Ключ хоста принимается без проверки. Это долг, а не решение:
       // `known_hosts` — отдельная работа со своим окном подтверждения, и
       // сделанная наполовину она хуже, чем не сделанная вовсе.
@@ -112,6 +113,36 @@ class SshConnection {
     }
   }
 }
+
+/// Порядок шифров — по скорости на нашей стороне.
+///
+/// Библиотека предлагает серверу свой список в порядке предпочтения, а
+/// шифрование у неё на чистом Dart, без аппаратной поддержки. Разница между
+/// семействами оттого не косметическая, а десятикратная: замер на 8 МБ через
+/// голый канал (`tool/bench.dart` в истории, сервер по Wi-Fi) дал
+/// **chacha20-poly1305 — 25 МБ/с, aes128-ctr — 11 МБ/с, aes128-gcm — 1 МБ/с**.
+///
+/// У `dartssh2` первыми в списке стоят как раз GCM, и на них мы упирались в
+/// один мегабайт в секунду при канале, вывозящем десять. GCM держит умножение
+/// в поле, которое в процессоре делается одной командой, а в Dart — циклом;
+/// chacha20 же придуман ровно для того, чтобы быть быстрым без железа. Тот же
+/// порядок предпочитает и OpenSSH.
+///
+/// Список полный, а не усечённый: сервер, знающий только GCM, должен
+/// подключиться — пусть и медленно.
+const SSHAlgorithms _algorithms = SSHAlgorithms(
+  cipher: [
+    SSHCipherType.chacha20poly1305,
+    SSHCipherType.aes128ctr,
+    SSHCipherType.aes192ctr,
+    SSHCipherType.aes256ctr,
+    SSHCipherType.aes128gcm,
+    SSHCipherType.aes256gcm,
+    SSHCipherType.aes128cbc,
+    SSHCipherType.aes192cbc,
+    SSHCipherType.aes256cbc,
+  ],
+);
 
 /// Сервер спрашивает пароль — спрашиваем человека.
 ///

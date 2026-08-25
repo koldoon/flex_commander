@@ -6,12 +6,14 @@ import 'package:fc_api/fc_api.dart';
 
 /// Приёмник байтов поверх открытого файла на сервере.
 ///
-/// Запись идёт кусками по очереди, а не через `SftpFile.write`: тот пишет
-/// с опережением, но ошибку записи роняет мимо возвращённого будущего — сбой
-/// на середине выглядел бы как вечное ожидание конца копирования. Здесь каждый
-/// кусок ждут, поэтому и обратное давление настоящее (движок не читает
+/// Запись идёт через `SftpFile.writeBytes`, а не через `SftpFile.write`: тот
+/// пишет с опережением, но ошибку записи роняет мимо возвращённого будущего —
+/// сбой на середине выглядел бы как вечное ожидание конца копирования. Здесь
+/// каждую отдачу ждут, поэтому и обратное давление настоящее (движок не читает
 /// источник быстрее, чем сервер принимает), и ошибка приходит туда, где её
 /// разбирают.
+///
+/// Отдают не то, что пришло, а накопленный мегабайт: см. [_bufferSize].
 class SftpFileSink implements StreamSink<List<int>> {
   SftpFileSink(this._file, this._path);
 
@@ -40,6 +42,20 @@ class SftpFileSink implements StreamSink<List<int>> {
   @override
   void addError(Object error, [StackTrace? stackTrace]) => _remember(error, stackTrace);
 
+  /// Сколько копить, прежде чем отдать серверу.
+  ///
+  /// Источник отдаёт байты кусками по 16 КБ, и запись куском в 16 КБ означает
+  /// один обмен с сервером на каждые 16 КБ: при задержке в 25 мс это 0,6 МБ/с,
+  /// сколько бы ни давал канал. `SftpFile.writeBytes` внутри режет отданное на
+  /// свои куски и пускает их разом, поэтому мегабайт уходит за один обмен, а не
+  /// за шестьдесят четыре.
+  ///
+  /// Мегабайт, а не больше: это уже за пределом, где задержка перестаёт быть
+  /// видна, а память на каждую идущую работу лишней не бывает.
+  static const int _bufferSize = 1024 * 1024;
+
+  final BytesBuilder _buffer = BytesBuilder(copy: false);
+
   @override
   Future<void> addStream(Stream<List<int>> stream) async {
     await for (final chunk in stream) {
@@ -47,8 +63,20 @@ class SftpFileSink implements StreamSink<List<int>> {
       // должен совпадать с порядком вызовов.
       await _queue;
       _throwIfFailed();
-      await _write(chunk);
+      _buffer.add(chunk);
+      if (_buffer.length >= _bufferSize) {
+        await _write(_buffer.takeBytes());
+      }
     }
+    await _flush();
+  }
+
+  /// Отдаёт накопленное: остаток последнего куска или всё, если его не набрали.
+  Future<void> _flush() async {
+    if (_buffer.isEmpty) {
+      return;
+    }
+    await _write(_buffer.takeBytes());
   }
 
   @override
@@ -63,6 +91,7 @@ class SftpFileSink implements StreamSink<List<int>> {
     try {
       await _queue;
       _throwIfFailed();
+      await _flush();
       await _file.close();
       if (!_done.isCompleted) {
         _done.complete();
