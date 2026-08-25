@@ -80,7 +80,7 @@ abstract class TransferCommandBase extends AppCommand {
   }
 
   /// Объекты, с которыми работает команда: помеченные или тот, что под курсором.
-  List<FsNode> get targets => context.targets.where((node) => node is! ParentDirNode).toList();
+  List<FsNode> targetsOf(CommandContext context) => context.targets.where((node) => node is! ParentDirNode).toList();
 
   /// Перенести — или сперва спросить, куда.
   ///
@@ -93,14 +93,14 @@ abstract class TransferCommandBase extends AppCommand {
     // движок, один на все провайдеры, и получить его нужно там, где заведомо
     // умеют принимать. У источника его может не быть вовсе — это не мешает
     // копировать из него.
-    final editor = _destinationPanel.editor;
-    final targets = this.targets;
+    final editor = _destinationPanelOf(context).editor;
+    final targets = targetsOf(context);
     if (editor == null || targets.isEmpty) {
       return;
     }
 
     Future<void> transfer(TreeEditor editor, String path, bool followLinks, [FcAsyncRun? run]) async {
-      final resolved = await _resolveDestination(path);
+      final resolved = await _resolveDestination(context, path);
       final destination = resolved.node! as DirectoryNode;
       final operation =
           moves
@@ -128,7 +128,7 @@ abstract class TransferCommandBase extends AppCommand {
         // объекты появились, из источника при переносе исчезли.
         panel.selection.clear();
         await panel.reload();
-        await _reloadDestination();
+        await _reloadDestination(context);
       }
     }
 
@@ -149,11 +149,11 @@ abstract class TransferCommandBase extends AppCommand {
       run.close = () => view.closeDialog(dialogId);
       dialogId = view.showDialog(
         DialogSpec(
-          title: dialogTitle,
+          title: titleOf(context),
           takesFocus: true,
           // Вопрос по ходу работы, ход дела и разбор ошибки — общие для всех
           // длительных работ, их берёт на себя окно. Своё здесь одно: куда.
-          content: FcAsyncRunDialog(run: run, form: (context) => _TransferForm(run: run, submitLabel: label)),
+          content: FcAsyncRunDialog(run: run, form: (_) => _TransferForm(run: run, submitLabel: label)),
           onSubmit: run.submit,
           onDismiss: run.dismiss,
         ),
@@ -163,12 +163,12 @@ abstract class TransferCommandBase extends AppCommand {
     run = _TransferRun(
       app: context.app,
       commandId: id,
-      title: dialogTitle,
+      title: titleOf(context),
       failureMessage: '$label failed',
       show: present,
-      sourcePath: _sourcePath,
+      sourcePath: _sourcePathOf(context),
       // Каталог пассивной панели — разумный ответ на вопрос «куда».
-      destination: _defaultDestination ?? '',
+      destination: _defaultDestinationOf(context) ?? '',
     );
     run.onStart = () => transfer(editor, run.destination, run.followLinks, run);
 
@@ -180,7 +180,7 @@ abstract class TransferCommandBase extends AppCommand {
   /// Аренда здесь не формальность: приёмник задают строкой, и она может вести
   /// не туда, где панель стоит. Тогда архив по дороге монтируется ради этой
   /// работы, и отпустить его, кроме неё, некому.
-  Future<ResolvedNode> _resolveDestination(String raw) async {
+  Future<ResolvedNode> _resolveDestination(CommandContext context, String raw) async {
     final path = raw.trim();
     if (path.isEmpty) {
       throw const FsError('', FsErrorKind.invalidName);
@@ -189,7 +189,7 @@ abstract class TransferCommandBase extends AppCommand {
     // Путь разбирает панель-приёмник: он может проходить через несколько
     // провайдеров («…/archive.zip:zip:/inner»), и одному провайдеру такое
     // не по силам.
-    final resolved = await _destinationPanel.resolvePath(path).result;
+    final resolved = await _destinationPanelOf(context).resolvePath(path).result;
     var node = resolved.node;
     if (node is LinkNode) {
       // Ссылка на каталог — тоже каталог: копировать «в неё» можно.
@@ -207,17 +207,17 @@ abstract class TransferCommandBase extends AppCommand {
   }
 
   /// Панель, в которую идёт работа: пассивная. Ею же задан путь по умолчанию.
-  Panel get _destinationPanel => context.target;
+  Panel _destinationPanelOf(CommandContext context) => context.target;
 
-  String? get _defaultDestination {
-    final directory = _destinationPanel.directory;
+  String? _defaultDestinationOf(CommandContext context) {
+    final directory = _destinationPanelOf(context).directory;
     // Полный путь: приёмник может оказаться внутри архива, и часть про
     // локальную ФС из строки выкидывать нельзя.
     return directory?.pathString;
   }
 
-  Future<void> _reloadDestination() async {
-    final panel = _destinationPanel;
+  Future<void> _reloadDestination(CommandContext context) async {
+    final panel = _destinationPanelOf(context);
     // Панель могла за это время уйти в другой каталог — перечитывать имеет смысл
     // только то, куда действительно копировали.
     if (panel.directory != null) {
@@ -226,14 +226,14 @@ abstract class TransferCommandBase extends AppCommand {
   }
 
   /// Заголовок собирается как в референсе: действие и то, над чем оно идёт.
-  String get dialogTitle {
-    final targets = this.targets;
+  String titleOf(CommandContext context) {
+    final targets = targetsOf(context);
     final what = targets.length == 1 ? '«${targets.single.name}»' : '${targets.length} items';
     return '$label $what';
   }
 
   /// Каталог, из которого идёт работа: показывается в окне.
-  String get _sourcePath {
+  String _sourcePathOf(CommandContext context) {
     final panel = context.panel;
     final directory = panel.directory;
     return directory?.displayPath ?? '';

@@ -227,7 +227,11 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
         // Привязка к неизвестной команде: могла остаться от старых настроек.
         continue;
       }
-      if (command.isExecutable(contextFor(command))) {
+      // Выполнимость спрашивается с теми же значениями, с какими команда по
+      // этой клавише и запустится: `Cmd+F2` про правую панель, и занятость
+      // левой ему не помеха.
+      final invocation = CommandInvocation(parameters: binding.parametersFor(combination));
+      if (command.isExecutable(CommandContext.of(app, invocation))) {
         return binding;
       }
       fallback ??= binding;

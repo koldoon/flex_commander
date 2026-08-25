@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import '../modifiers_scope.dart';
 import 'function_button.dart';
@@ -92,16 +93,19 @@ class FunctionBar extends StatelessWidget {
     final registry = app.commands;
 
     final keys = layer.on('F$number');
-    final command = registry.commandFor(keys);
+    final binding = registry.bindingFor(keys);
+    final command = binding == null ? null : registry.find(binding.commandId);
 
-    if (command == null) {
+    if (binding == null || command == null) {
       return FunctionButton(number: number, label: '-', enabled: false);
     }
 
     return FunctionButton(
       number: number,
       label: command.label,
-      enabled: registry.isExecutable(command),
+      // С теми же значениями, с какими нажатие её и запустит: кнопка не вправе
+      // обещать больше, чем клавиша.
+      enabled: registry.isExecutable(command, CommandInvocation(parameters: binding.parametersFor(keys))),
       // Нажатие мышью — это нажатие той же клавиши.
       onPressed: () => registry.dispatch(keys),
     );

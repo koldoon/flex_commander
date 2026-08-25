@@ -31,7 +31,7 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
 
   final Application app;
 
-  /// Кем открыть окно этой работы — для реестра.
+  /// Чьим именем зовётся прогон: из него собирается [runId].
   final String commandId;
 
   /// Что показать в полоске фоновых работ: «Copy 3 items».
@@ -88,9 +88,7 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
     _operation = operation;
     // Работа заведена: с этого момента её можно найти. В статусной области её
     // пока нет — туда она попадёт, только если её отправят в фон.
-    app.operations.register(
-      OperationRun(runId: runId, operation: operation, commandId: commandId, title: title, bringToFront: show),
-    );
+    app.operations.register(OperationRun(runId: runId, operation: operation, title: title, bringToFront: show));
     notifyListeners();
 
     // Подписки ставятся сразу: операция начинает работу следующим шагом цикла

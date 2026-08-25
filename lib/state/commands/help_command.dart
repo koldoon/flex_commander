@@ -45,17 +45,17 @@ class HelpCommand extends AppCommand {
       DialogSpec(
         title: dialogTitle,
         takesFocus: true,
-        content: FcKeyValueTable(sections: _sections(), onClose: close),
+        content: FcKeyValueTable(sections: _sections(context), onClose: close),
         onSubmit: close,
         onDismiss: close,
       ),
     );
   }
 
-  List<FcTableSection> _sections() => [_settings(), _commands()];
+  List<FcTableSection> _sections(CommandContext context) => [_settings(context), _commands(context)];
 
   /// Настройки — то, что приложение помнит между запусками.
-  FcTableSection _settings() {
+  FcTableSection _settings(CommandContext context) {
     final app = context.app;
     final settings = app.settings;
 
@@ -77,7 +77,7 @@ class HelpCommand extends AppCommand {
   /// Список берётся у реестра, а не пишется здесь: новая команда или новая
   /// привязка появляется в справке сама, и разойтись с действительностью она
   /// не может.
-  FcTableSection _commands() {
+  FcTableSection _commands(CommandContext context) {
     final registry = _registry?.call();
     if (registry == null) {
       return const FcTableSection('Commands', [FcTableRow('', 'Command list is not available')]);

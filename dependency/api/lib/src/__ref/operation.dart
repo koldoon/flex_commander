@@ -1,5 +1,4 @@
-import 'package:fc_api/fc_api.dart' show OperationStatus, StageOperationStatus, ViewportPosition;
-import 'package:flutter/foundation.dart';
+import 'package:fc_api/fc_api.dart' show OperationStatus, StageOperationStatus;
 
 /// Длительная работа.
 ///

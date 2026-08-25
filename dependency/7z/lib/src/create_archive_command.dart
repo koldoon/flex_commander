@@ -149,7 +149,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
         DialogSpec(
           title: dialogTitle,
           takesFocus: true,
-          content: FcAsyncRunDialog(run: run, form: (context) => _CreateArchiveForm(run: run)),
+          content: FcAsyncRunDialog(run: run, form: (_) => _CreateArchiveForm(run: run)),
           onSubmit: run.submit,
           onDismiss: run.dismiss,
         ),
@@ -162,8 +162,8 @@ class CreateSevenZipArchiveCommand extends AppCommand {
       title: dialogTitle,
       failureMessage: '$label failed',
       show: present,
-      name: defaultName,
-      destinationPath: destinationPath,
+      name: defaultNameOf(context),
+      destinationPath: destinationPathOf(context),
     );
     run.onStart = () => pack(run.name, run.compression, run.followLinks, run);
 
@@ -483,7 +483,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
   /// рассказывать о ней иначе незачем. Своё у команды одно — форма.
   /// Имя, предложенное по умолчанию: по единственному объекту или по каталогу,
   /// из которого пакуем, — как в референсных менеджерах.
-  String get defaultName {
+  String defaultNameOf(CommandContext context) {
     final sources = _sourcesOf(context);
     if (sources.length == 1) {
       return '${sources.single.name}.7z';
@@ -495,7 +495,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
 
   /// Куда ляжет архив — показывается в окне, чтобы «в какую панель» не
   /// приходилось угадывать.
-  String get destinationPath => context.target.directory?.pathString ?? '';
+  String destinationPathOf(CommandContext context) => context.target.directory?.pathString ?? '';
 }
 
 /// Ход упаковки: какая запись сейчас в работе и сколько она весит.

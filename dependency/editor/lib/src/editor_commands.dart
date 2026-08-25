@@ -290,7 +290,7 @@ class CloseEditorCommand extends AppCommand {
   @override
   String get description => 'Close the editor';
 
-  EditorScreen? get _screen {
+  EditorScreen? _screenOf(CommandContext context) {
     final screen = context.app.view.contentAt(ViewportPosition.fullscreen);
     return screen is EditorScreen ? screen : null;
   }
@@ -308,7 +308,7 @@ class CloseEditorCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final view = context.app.view;
-    final screen = _screen;
+    final screen = _screenOf(context);
     if (screen == null) {
       return;
     }

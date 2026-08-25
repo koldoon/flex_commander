@@ -1,21 +1,10 @@
-import 'package:fc_api/fc_api.dart' show FcContext;
 import 'package:flutter/foundation.dart';
 
-import 'application.dart';
-import 'command.dart';
-
-/// Как создать команду. Зависимости подставляет контейнер.
-///
-/// Экземпляр создаётся один раз, при установке: команда — прототип и состояния
-/// прогона не держит.
-typedef FcCommandFactory = AppCommand Function(FcContext context);
-
-// FcModule уже в настоящем API.
-
-// FcRegistry уже в настоящем API — вместе с view<S>() по типу состояния.
+// FcModule, FcRegistry, FcServices и FcContext уже в настоящем API — вместе с
+// view<S>() по типу состояния и resolveOrNull. Фабрика команды там же
+// (AppCommandFactory), и создаётся команда один раз: она прототип.
+//
 // Не хватает только strings(locale, table): это Б1, и она ещё не наступила.
-
-// FcServices и FcContext уже в настоящем API, включая resolveOrNull.
 
 /// Строки интерфейса.
 ///

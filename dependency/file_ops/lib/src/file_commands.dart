@@ -66,7 +66,7 @@ class MakeDirectoryCommand extends AppCommand {
     }
 
     final view = context.app.view;
-    final state = MakeDirectoryDialogState(parentPath: _parentPath, create: create);
+    final state = MakeDirectoryDialogState(parentPath: _parentPathOf(context), create: create);
 
     late final String dialogId;
     state.close = () => view.closeDialog(dialogId);
@@ -82,7 +82,7 @@ class MakeDirectoryCommand extends AppCommand {
   }
 
   /// Каталог, в котором появится новый: показывается в окне.
-  String get _parentPath {
+  String _parentPathOf(CommandContext context) {
     final panel = context.panel;
     final directory = panel.directory;
     return directory?.displayPath ?? '';
@@ -248,7 +248,7 @@ abstract class RemoveCommandBase extends AppCommand {
   }
 
   /// Объекты, с которыми работает команда: помеченные или тот, что под курсором.
-  List<FsNode> get targets => context.targets.where((node) => node is! ParentDirNode).toList();
+  List<FsNode> targetsOf(CommandContext context) => context.targets.where((node) => node is! ParentDirNode).toList();
 
   /// «Delete !» в заголовке разбора читалось бы как опечатка: восклицательный
   /// знак в названии команды отличает её от удаления в корзину, а не от чего-то
@@ -263,7 +263,7 @@ abstract class RemoveCommandBase extends AppCommand {
   Future<void> execute(CommandContext context) async {
     final panel = context.panel;
     final editor = panel.editor;
-    final targets = this.targets;
+    final targets = targetsOf(context);
     if (editor == null || targets.isEmpty) {
       return;
     }
@@ -290,6 +290,8 @@ abstract class RemoveCommandBase extends AppCommand {
     }
 
     final view = context.app.view;
+    // Считается до окна: внутри `form` в имени `context` уже BuildContext.
+    final confirmation = _confirmationMessageOf(context);
     late final FcAsyncRun run;
 
     void present() {
@@ -297,7 +299,7 @@ abstract class RemoveCommandBase extends AppCommand {
       run.close = () => view.closeDialog(dialogId);
       dialogId = view.showDialog(
         DialogSpec(
-          title: dialogTitle,
+          title: titleOf(context),
           takesFocus: true,
           // Вопрос по ходу работы, ход дела и разбор ошибки — общие для всех
           // длительных работ, их берёт на себя окно. Своё здесь только одно:
@@ -305,8 +307,8 @@ abstract class RemoveCommandBase extends AppCommand {
           content: FcAsyncRunDialog(
             run: run,
             form:
-                (context) => CommandDialogConfirm(
-                  message: _confirmationMessage,
+                (_) => CommandDialogConfirm(
+                  message: confirmation,
                   confirmLabel: toTrash ? 'Delete' : 'Delete permanently',
                   onCancel: run.dismiss,
                   onConfirm: run.submit,
@@ -321,7 +323,7 @@ abstract class RemoveCommandBase extends AppCommand {
     run = FcAsyncRun(
       app: context.app,
       commandId: id,
-      title: dialogTitle,
+      title: titleOf(context),
       failureMessage: failureMessage,
       show: present,
     );
@@ -341,13 +343,15 @@ abstract class RemoveCommandBase extends AppCommand {
   }
 
   /// Заголовок собирается как в референсе: действие и то, над чем оно идёт.
-  String get dialogTitle => '$label $_what';
+  String titleOf(CommandContext context) => '$label ${_whatOf(context)}';
 
-  String get _what {
-    final targets = this.targets;
+  String _whatOf(CommandContext context) {
+    final targets = targetsOf(context);
     return targets.length == 1 ? '«${targets.single.name}»' : '${targets.length} items';
   }
 
-  String get _confirmationMessage =>
-      toTrash ? 'Move $_what to Trash?' : 'Delete $_what permanently? This cannot be undone.';
+  String _confirmationMessageOf(CommandContext context) {
+    final what = _whatOf(context);
+    return toTrash ? 'Move $what to Trash?' : 'Delete $what permanently? This cannot be undone.';
+  }
 }

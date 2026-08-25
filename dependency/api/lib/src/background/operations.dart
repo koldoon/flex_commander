@@ -6,23 +6,11 @@ import '../async/operation_status.dart';
 
 /// Заведённая работа: сама она и то, что про неё знает реестр.
 class OperationRun {
-  OperationRun({
-    required this.runId,
-    required this.operation,
-    required this.commandId,
-    required this.title,
-    this.bringToFront,
-  });
+  OperationRun({required this.runId, required this.operation, required this.title, this.bringToFront});
 
   final String runId;
 
   final AsyncOperation<Object?> operation;
-
-  /// Кем открыть окно **прогресса** этой работы.
-  ///
-  /// За вопросы он не отвечает: вид заявки находится по её типу, и спрашивать
-  /// может модуль, к этой команде отношения не имеющий.
-  final String commandId;
 
   /// Что показать в полоске: «Copy 3 items».
   ///
@@ -42,9 +30,10 @@ class OperationRun {
 
   /// Чем показать эту работу снова; null — показывать нечем.
   ///
-  /// Реестру незачем знать, **как** это делается: окно строит тот, кто работу
-  /// завёл, — он и говорит здесь, чем его вернуть. Иначе реестру пришлось бы
-  /// разбираться в командах, окнах и их состояниях.
+  /// Реестру незачем знать, **как** это делается, и незачем знать команду: окно
+  /// строит тот, кто работу завёл, — он и оставляет здесь, чем его вернуть.
+  /// Иначе реестру пришлось бы разбираться в командах, окнах и их состояниях, а
+  /// команде — собирать состояние заново поверх уже идущей работы.
   final VoidCallback? bringToFront;
 
   bool get isInBackground => owner != null;
