@@ -84,9 +84,10 @@ void main() {
       op = TaskOperation<String>((operation) async {
         await Future<void>.delayed(Duration.zero);
         final answer = await operation.ask(
-          OperationRequest(
+          ChoiceRequest(
             message: 'Overwrite file?',
             options: const [OperationOption.overwrite, OperationOption.skip],
+            enterOption: OperationOption.skip,
           ),
         );
         return answer.id;
@@ -99,9 +100,10 @@ void main() {
     test('без подписчиков применяется вариант по умолчанию', () async {
       final op = TaskOperation<String>((operation) async {
         final answer = await operation.ask(
-          OperationRequest(
+          ChoiceRequest(
             message: 'Overwrite file?',
             options: const [OperationOption.overwrite, OperationOption.cancel],
+            enterOption: OperationOption.cancel,
           ),
         );
         return answer.id;
@@ -111,9 +113,10 @@ void main() {
     });
 
     test('повторный ответ игнорируется', () {
-      final request = OperationRequest(
+      final request = ChoiceRequest(
         message: 'Overwrite?',
         options: const [OperationOption.overwrite, OperationOption.skip],
+        enterOption: OperationOption.skip,
       );
 
       request.respond(OperationOption.overwrite);
@@ -159,7 +162,7 @@ void main() {
 
     test('превращается в обычный вопрос, а не в отмену', () async {
       final (op, _) = counting();
-      final questions = <OperationRequest>[];
+      final questions = <ChoiceRequest>[];
       op.requests.listen(questions.add);
 
       op.requestCancel();
@@ -172,7 +175,7 @@ void main() {
 
     test('до ответа работа стоит', () async {
       final (op, steps) = counting();
-      OperationRequest? question;
+      ChoiceRequest? question;
       op.requests.listen((request) => question = request);
 
       op.requestCancel();
@@ -191,7 +194,7 @@ void main() {
 
     test('повторная просьба задаёт вопрос заново', () async {
       final (op, _) = counting();
-      final questions = <OperationRequest>[];
+      final questions = <ChoiceRequest>[];
       op.requests.listen(questions.add);
 
       op.requestCancel();
@@ -254,7 +257,7 @@ void main() {
 
     test('пока не просили — работа идёт молча', () async {
       final (op, chunks) = chunking();
-      final questions = <OperationRequest>[];
+      final questions = <ChoiceRequest>[];
       op.requests.listen(questions.add);
 
       await pumpEventQueue(times: 10);
@@ -266,7 +269,7 @@ void main() {
 
     test('вопрос задаётся один раз, а работа не встаёт', () async {
       final (op, chunks) = chunking();
-      final questions = <OperationRequest>[];
+      final questions = <ChoiceRequest>[];
       op.requests.listen(questions.add);
 
       op.requestCancel();
@@ -284,7 +287,7 @@ void main() {
 
     test('«Resume» — работа как ни в чём не бывало', () async {
       final (op, chunks) = chunking();
-      final questions = <OperationRequest>[];
+      final questions = <ChoiceRequest>[];
       op.requests.listen(questions.add);
 
       op.requestCancel();
@@ -452,17 +455,17 @@ void main() {
       late final OperationOption answer;
       final inner = TaskOperation<int>((op) async {
         answer = await op.ask(
-          OperationRequest(
+          ChoiceRequest(
             message: 'Overwrite?',
             options: const [OperationOption.overwrite, OperationOption.skip],
-            defaultOption: OperationOption.skip,
+            enterOption: OperationOption.skip,
           ),
         );
         return 1;
       });
       final outer = TaskOperation<int>((op) => op.delegate(inner));
 
-      final questions = <OperationRequest>[];
+      final questions = <ChoiceRequest>[];
       outer.requests.listen(questions.add);
 
       expect(await outer.result, 1);
@@ -522,7 +525,7 @@ class _StubbornOperation implements AsyncOperation<int> {
   Stream<OperationProgress> get progress => _progress.stream;
 
   @override
-  Stream<OperationRequest> get requests => const Stream.empty();
+  Stream<ChoiceRequest> get requests => const Stream.empty();
 
   @override
   void cancel() {}

@@ -511,7 +511,7 @@ void main() {
 
     test('спрашивает подтверждение, а не прерывает молча', () async {
       final (operation, _) = await startCopy();
-      final questions = <OperationRequest>[];
+      final questions = <ChoiceRequest>[];
       operation.requests.listen(questions.add);
 
       operation.requestCancel();
@@ -520,7 +520,7 @@ void main() {
       expect(questions, hasLength(1));
       expect(questions.single.options, [OperationOption.abort, OperationOption.resume]);
       // Enter прерывает, Esc — отказывается прерывать.
-      expect(questions.single.defaultOption, OperationOption.abort);
+      expect(questions.single.enterOption, OperationOption.abort);
       expect(questions.single.escapeOption, OperationOption.resume);
 
       questions.single.respond(OperationOption.abort);
@@ -529,7 +529,7 @@ void main() {
 
     test('пока ответа нет, работа стоит', () async {
       final (operation, disk) = await startCopy();
-      OperationRequest? question;
+      ChoiceRequest? question;
       operation.requests.listen((request) => question = request);
 
       operation.requestCancel();
@@ -582,7 +582,7 @@ void main() {
       final disk = InMemoryTreeProvider(many())..hasTrash = false;
       final sources = [for (var i = 0; i < 20; i++) (await disk.resolvePath('/home/file-$i.txt').result)!];
       final operation = engine.remove(sources, toTrash: false);
-      final questions = <OperationRequest>[];
+      final questions = <ChoiceRequest>[];
       operation.requests.listen(questions.add);
 
       operation.requestCancel();
@@ -595,7 +595,7 @@ void main() {
 
     test('прерывание без спроса по-прежнему возможно', () async {
       final (operation, _) = await startCopy();
-      final questions = <OperationRequest>[];
+      final questions = <ChoiceRequest>[];
       operation.requests.listen(questions.add);
       // Ожидание ставится до отмены: `cancel` завершает операцию ошибкой сразу,
       // и прочитать её должно быть кому уже в этот момент.

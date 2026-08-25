@@ -110,10 +110,10 @@ void main() {
     expect(tester.widget<FcProgressBar>(find.byType(FcProgressBar)).value, isNull);
   });
   group('вопрос с вводом строки', () {
-    late OperationRequest request;
+    late ChoiceRequest request;
     late String answered;
 
-    Future<void> pumpQuestion(WidgetTester tester, OperationRequest it) {
+    Future<void> pumpQuestion(WidgetTester tester, ChoiceRequest it) {
       request = it;
       answered = '';
       return tester.pumpWidget(
@@ -135,10 +135,10 @@ void main() {
       );
     }
 
-    OperationRequest passwordRequest({bool secret = true}) => OperationRequest(
+    ChoiceRequest passwordRequest({bool secret = true}) => ChoiceRequest(
       message: 'archive.zip is encrypted',
       options: const [OperationOption.retry, OperationOption.cancel],
-      defaultOption: OperationOption.retry,
+      enterOption: OperationOption.retry,
       inputLabel: 'Password:',
       secret: secret,
     );
@@ -146,7 +146,11 @@ void main() {
     testWidgets('вопрос без поля остаётся набором кнопок', (tester) async {
       await pumpQuestion(
         tester,
-        OperationRequest(message: 'Already exists', options: const [OperationOption.skip, OperationOption.cancel]),
+        ChoiceRequest(
+          message: 'Already exists',
+          options: const [OperationOption.skip, OperationOption.cancel],
+          enterOption: OperationOption.skip,
+        ),
       );
 
       expect(find.byType(TextField), findsNothing);
@@ -201,10 +205,10 @@ void main() {
     testWidgets('подсвечена та кнопка, которую нажмёт Enter', (tester) async {
       await pumpQuestion(
         tester,
-        OperationRequest(
+        ChoiceRequest(
           message: 'Already exists',
           options: const [OperationOption.overwrite, OperationOption.skip, OperationOption.cancel],
-          defaultOption: OperationOption.skip,
+          enterOption: OperationOption.skip,
         ),
       );
 

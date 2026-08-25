@@ -1,7 +1,7 @@
 import 'dart:async';
 
 import '../../async/async_operation.dart';
-import '../../async/operation_request.dart';
+import '../../async/user_action_request.dart';
 import '../../async/transfer_progress.dart';
 import '../fs_node.dart';
 import '../tree_provider.dart';
@@ -138,7 +138,7 @@ class TreeTransferEngine implements TreeEditor {
               }
               if (!overwriteAll) {
                 final answer = await op.ask(
-                  OperationRequest(
+                  ChoiceRequest(
                     message: FsError(existing.pathString, FsErrorKind.alreadyExists).message,
                     options: const [
                       OperationOption.overwrite,
@@ -148,7 +148,7 @@ class TreeTransferEngine implements TreeEditor {
                       OperationOption.cancel,
                     ],
                     // Молча затирать чужие файлы нельзя.
-                    defaultOption: OperationOption.skip,
+                    enterOption: OperationOption.skip,
                   ),
                 );
 
@@ -443,7 +443,7 @@ class TreeTransferEngine implements TreeEditor {
     }
 
     final answer = await op.ask(
-      OperationRequest(
+      ChoiceRequest(
         message:
             recursive
                 ? 'The link «${node.name}» points into the directory being copied'
@@ -451,7 +451,7 @@ class TreeTransferEngine implements TreeEditor {
         options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
         // Подменять ссылку её содержимым молча нельзя: это разные вещи и по
         // размеру, и по смыслу.
-        defaultOption: OperationOption.skip,
+        enterOption: OperationOption.skip,
       ),
     );
 
@@ -611,10 +611,10 @@ class TreeTransferEngine implements TreeEditor {
 
   Future<OperationOption> _askAboutFailure(TaskOperation<void> op, String message) {
     return op.ask(
-      OperationRequest(
+      ChoiceRequest(
         message: message,
         options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
-        defaultOption: OperationOption.skip,
+        enterOption: OperationOption.skip,
       ),
     );
   }

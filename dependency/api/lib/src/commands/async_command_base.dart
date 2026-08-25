@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../async/async_operation.dart';
-import '../async/operation_request.dart';
+import '../async/user_action_request.dart';
 import '../util/throttle.dart';
 import '../background/task_status.dart';
 import 'app_command.dart';
@@ -38,14 +38,14 @@ enum CommandRunPhase {
 /// сценарий, и спросить там некого.
 abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, TaskStatus {
   AsyncOperation<void>? _operation;
-  StreamSubscription<OperationRequest>? _requests;
+  StreamSubscription<ChoiceRequest>? _requests;
   StreamSubscription<OperationProgress>? _progress;
 
   CommandRunPhase _phase = CommandRunPhase.idle;
   OperationProgress _state = const OperationProgress();
 
   /// Вопрос, на который сейчас ждут ответа.
-  OperationRequest? _question;
+  ChoiceRequest? _question;
 
   final Completer<void> _completion = Completer<void>();
 
@@ -73,7 +73,7 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
   String get message => progressMessage;
 
   /// Вопрос, который показывает окно команды; null — вопроса нет.
-  OperationRequest? get question => _question;
+  ChoiceRequest? get question => _question;
 
   /// Заголовок разбора, когда работа не удалась: окно показывает его вместо
   /// хода дела.
@@ -103,7 +103,7 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
     _requests = operation.requests.listen((request) {
       if (!hasOpenDialog && !isInBackground) {
         // Спросить некого: команду запустил сценарий или список команд.
-        request.respond(request.defaultOption);
+        request.respond(request.enterOption);
         return;
       }
       if (isInBackground) {
@@ -265,7 +265,7 @@ abstract class AsyncCommandBase extends AppCommand implements AsyncCommand, Task
   Future<void> submit() async {
     final question = _question;
     if (question != null) {
-      answer(question.defaultOption);
+      answer(question.enterOption);
       return;
     }
     if (isBusy) {

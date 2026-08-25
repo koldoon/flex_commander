@@ -289,14 +289,14 @@ class CreateZipArchiveCommand extends AsyncCommandBase {
     }
 
     final answer = await op.ask(
-      OperationRequest(
+      ChoiceRequest(
         message: switch (kind) {
           _LinkTrouble.cannotStore => 'Cannot store the link «${node.name}» in a zip archive',
           _LinkTrouble.recursive => 'The link «${node.name}» points into the directory being packed',
           _LinkTrouble.broken => 'The link «${node.name}» leads nowhere',
         },
         options: const [OperationOption.skip, OperationOption.skipAll, OperationOption.cancel],
-        defaultOption: OperationOption.skip,
+        enterOption: OperationOption.skip,
       ),
     );
 

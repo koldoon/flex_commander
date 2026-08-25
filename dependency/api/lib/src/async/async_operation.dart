@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'operation_request.dart';
+import 'user_action_request.dart';
 
 /// Состояние операции.
 ///
@@ -185,13 +185,13 @@ abstract class AsyncOperation<T> {
   Stream<OperationProgress> get progress;
 
   /// Вопросы пользователю. Пустой поток у операций, которые ничего не спрашивают.
-  Stream<OperationRequest> get requests;
+  Stream<ChoiceRequest> get requests;
 
   /// Прервать немедленно, ни о чём не спрашивая.
   void cancel();
 
   /// Попросить прервать: работа встанет на ближайшей проверке и спросит
-  /// подтверждение — обычным [OperationRequest], как и всё остальное.
+  /// подтверждение — обычным [ChoiceRequest], как и всё остальное.
   ///
   /// Отдельно от [cancel], потому что это разные действия: закрытие окна или
   /// уход из приложения прерывают молча, а нажатие Esc — с вопросом. Пока
@@ -216,7 +216,7 @@ class TaskOperation<T> implements AsyncOperation<T> {
 
   final Completer<T> _completer = Completer<T>();
   final StreamController<OperationProgress> _progress = StreamController<OperationProgress>.broadcast();
-  final StreamController<OperationRequest> _requests = StreamController<OperationRequest>.broadcast();
+  final StreamController<ChoiceRequest> _requests = StreamController<ChoiceRequest>.broadcast();
 
   OperationState _status = OperationState.inited;
 
@@ -243,7 +243,7 @@ class TaskOperation<T> implements AsyncOperation<T> {
   }
 
   @override
-  Stream<OperationRequest> get requests => _requests.stream;
+  Stream<ChoiceRequest> get requests => _requests.stream;
 
   bool get isCanceled => _status == OperationState.canceled;
 
@@ -295,10 +295,10 @@ class TaskOperation<T> implements AsyncOperation<T> {
     _cancelRequested = false;
 
     final answer = await ask(
-      OperationRequest(
+      ChoiceRequest(
         message: 'Abort the operation?',
         options: const [OperationOption.abort, OperationOption.resume],
-        defaultOption: OperationOption.abort,
+        enterOption: OperationOption.abort,
         escapeOption: OperationOption.resume,
       ),
     );
@@ -394,12 +394,16 @@ class TaskOperation<T> implements AsyncOperation<T> {
 
   /// Задаёт вопрос пользователю и ждёт ответа.
   /// Если вопрос никто не слушает, возвращается вариант по умолчанию.
-  Future<OperationOption> ask(OperationRequest request) {
+  Future<OperationOption> ask(ChoiceRequest request) {
     if (_requests.hasListener) {
       _requests.add(request);
       return request.answer;
     }
-    return Future.value(request.defaultOption);
+    // Переходное: по замыслу работа всегда ждёт человека, а спрашивать вправе
+    // только та, которую ждут. Пока заявкой владеет команда, а не окно (П6),
+    // слушателя действительно может не быть — и тогда берётся то, что нажал бы
+    // Enter. Уйдёт вместе с AsyncCommandBase.
+    return Future.value(request.enterOption);
   }
 
   @override
@@ -472,7 +476,7 @@ class CompletedOperation<T> implements AsyncOperation<T> {
   Stream<OperationProgress> get progress => const Stream.empty();
 
   @override
-  Stream<OperationRequest> get requests => const Stream.empty();
+  Stream<ChoiceRequest> get requests => const Stream.empty();
 
   @override
   void cancel() {}

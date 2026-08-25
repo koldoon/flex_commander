@@ -1,6 +1,6 @@
 import 'dart:async';
 
-/// Вариант ответа на [OperationRequest].
+/// Вариант ответа на [ChoiceRequest].
 class OperationOption {
   const OperationOption(this.id, this.label);
 
@@ -31,30 +31,43 @@ class OperationOption {
   String toString() => 'OperationOption($id)';
 }
 
-/// Вопрос пользователю из середины операции: перезаписать файл, пропустить
-/// недоступный каталог, повторить попытку. Операция ждёт [answer] и продолжает
-/// работу с полученным вариантом.
-class OperationRequest {
-  OperationRequest({
+/// То, из-за чего работа встала и ждёт человека.
+///
+/// Сам по себе — только **сигнал**: ни текста, ни полей, ни вариантов ответа
+/// здесь нет. Всё это лежит в подтипе, который заводит тот, кто спрашивает, и
+/// для которого он же регистрирует вид. Так архиватор спросит пароль формой из
+/// двух полей, а движок переноса — конфликтом с датами и размерами обоих
+/// файлов, и ядру не нужно знать ни про то, ни про другое.
+abstract interface class UserActionRequest {}
+
+/// Готовая заявка для простого вопроса: сообщение и кнопки.
+///
+/// Вид для неё рисует ядро, поэтому свой заводить не надо: перезаписать,
+/// пропустить, повторить, прервать — всё это кнопки и строка.
+class ChoiceRequest implements UserActionRequest {
+  ChoiceRequest({
     required this.message,
     required this.options,
-    OperationOption? defaultOption,
+    required this.enterOption,
     this.escapeOption,
     this.inputLabel,
     this.secret = false,
-  }) : assert(options.isNotEmpty, 'Нужен хотя бы один вариант ответа'),
-       defaultOption = defaultOption ?? options.last;
+  }) : assert(options.isNotEmpty, 'Нужен хотя бы один вариант ответа');
 
   final String message;
   final List<OperationOption> options;
 
-  /// Вариант, который применяется, если вопрос никто не слушает. Он же
-  /// отвечает на Enter: «вариант по умолчанию» — это одно и то же.
-  final OperationOption defaultOption;
+  /// Какую кнопку подсветить и нажать по Enter. У конфликта имён это Skip:
+  /// молча затирать чужие файлы нельзя.
+  ///
+  /// Обязательный, а не «последний по умолчанию»: забыть его — ровно тот
+  /// способ, которым однажды затрут чужие файлы. Это только про Enter — что
+  /// делать, если не ответили вовсе, решает сама работа.
+  final OperationOption enterOption;
 
   /// Что означает Esc; null — ничего, и вопрос придётся закрыть кнопкой.
   ///
-  /// Отдельно от [defaultOption], потому что совпадают они не всегда: у вопроса
+  /// Отдельно от [enterOption], потому что совпадают они не всегда: у вопроса
   /// «прервать работу?» Enter прерывает, а Esc — отказывается прерывать.
   final OperationOption? escapeOption;
 
@@ -88,5 +101,5 @@ class OperationRequest {
   }
 
   @override
-  String toString() => 'OperationRequest($message)';
+  String toString() => 'ChoiceRequest($message)';
 }

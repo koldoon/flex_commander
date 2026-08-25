@@ -158,7 +158,11 @@ void main() {
     final run = command.run(
       TaskOperation<void>((op) async {
         await op.ask(
-          OperationRequest(message: 'File exists', options: const [OperationOption.skip, OperationOption.overwrite]),
+          ChoiceRequest(
+            message: 'File exists',
+            options: const [OperationOption.skip, OperationOption.overwrite],
+            enterOption: OperationOption.skip,
+          ),
         );
       }),
     );

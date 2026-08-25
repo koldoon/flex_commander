@@ -275,7 +275,7 @@ class CommandDialogProgress extends StatelessWidget {
 class CommandDialogQuestion extends StatefulWidget {
   const CommandDialogQuestion({super.key, required this.request, required this.onAnswer, this.onTextChanged});
 
-  final OperationRequest request;
+  final ChoiceRequest request;
   final void Function(OperationOption option) onAnswer;
 
   /// Набранное сообщается по мере ввода — то же правило, что и у окон с
@@ -307,7 +307,7 @@ class _CommandDialogQuestionState extends State<CommandDialogQuestion> {
           FcButton(
             label: option.label,
             onPressed: () => widget.onAnswer(option),
-            primary: option == request.defaultOption,
+            primary: option == request.enterOption,
           ),
       ],
       children: [
@@ -320,7 +320,7 @@ class _CommandDialogQuestionState extends State<CommandDialogQuestion> {
               autofocus: true,
               obscureText: request.secret,
               onChanged: widget.onTextChanged,
-              onSubmitted: (_) => widget.onAnswer(request.defaultOption),
+              onSubmitted: (_) => widget.onAnswer(request.enterOption),
             ),
           ),
       ],
