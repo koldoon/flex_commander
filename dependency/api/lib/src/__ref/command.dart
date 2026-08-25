@@ -1,6 +1,6 @@
 import 'package:flutter/foundation.dart';
 
-import 'package:fc_api/fc_api.dart' show KeyCombination, ViewportPosition, ViewportState;
+import 'package:fc_api/fc_api.dart' show KeyBinding, KeyCombination;
 
 import 'application.dart';
 
@@ -125,74 +125,8 @@ abstract class AppCommand {
   Future<void> execute(CommandInvocation invocation);
 }
 
-/// Привязка комбинации клавиш к команде.
-///
-/// Привязка не принадлежит команде: её ставит, хранит и разбирает реестр. Так
-/// их можно менять из настроек, не трогая код команд, а сами команды остаются
-/// самостоятельными действиями и не знают, чем их вызвали.
-class KeyBinding {
-  KeyBinding(
-    this.keys,
-    this.commandId, {
-    this.parameters = const {},
-    this.nameMatch,
-    this.characterParam,
-    this.inContent,
-  });
-
-  /// Действует, только когда в активной области содержимое типа [S].
-  ///
-  /// `KeyBinding.inState<ViewerState>('F5', 'text.format')` — «Format / Raw»
-  /// в просмотрщике, при том что `F5` в панелях копирует.
-  static KeyBinding inState<S extends ViewportState>(
-    KeyCombination keys,
-    String commandId, {
-    Map<String, Object?> parameters = const {},
-    RegExp? nameMatch,
-    String? characterParam,
-  }) => KeyBinding(
-    keys,
-    commandId,
-    parameters: parameters,
-    nameMatch: nameMatch,
-    characterParam: characterParam,
-    inContent: (state) => state is S,
-  );
-
-  final KeyCombination keys;
-
-  /// Идентификатор команды, а не сама команда: привязки хранятся в настройках,
-  /// где живут только идентификаторы.
-  final String commandId;
-
-  /// Значения, с которыми команда выполняется по этой привязке. Позволяет
-  /// повесить одну команду на разные клавиши с разными значениями — например,
-  /// «открыть путь» в названной области.
-  final Map<String, Object?> parameters;
-
-  /// Необязательный фильтр по имени объекта под курсором: разные команды на
-  /// `Enter` для `*.app`, `*.zip` и обычных файлов. Это условие **выбора**
-  /// команды, а не данные для неё.
-  final RegExp? nameMatch;
-
-  /// Имя параметра, в который кладётся набранный символ; null у обычных
-  /// привязок. Переход к имени по первой букве обходится одной привязкой
-  /// вместо сорока.
-  final String? characterParam;
-
-  /// Действует ли привязка при таком содержимом активной области;
-  /// null — действует везде.
-  ///
-  /// Именно по **содержимому**, а не по позиции: в [ViewportPosition.fullscreen]
-  /// бывает и просмотрщик, и редактор, и терминал, а одна и та же клавиша
-  /// значит в них разное. Задаётся через [KeyBinding.inState].
-  ///
-  /// «Везде» — это в том числе там, где области нет вовсе: тест состояния,
-  /// сценарий, командная строка. Контекст — про то, кому принадлежит клавиша,
-  /// а не про то, можно ли выполнить команду; последнее решает
-  /// [AppCommand.isExecutable].
-  final bool Function(ViewportState state)? inContent;
-}
+// KeyBinding уже переехал в настоящий API вместе с привязкой по типу
+// содержимого (KeyBinding.inState).
 
 /// Действия приложения и клавиши за ними.
 abstract interface class CommandService implements Listenable {
