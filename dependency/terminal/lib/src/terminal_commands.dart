@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fc_api/fc_api.dart';
 
 import 'command_line_state.dart';
+import 'completion.dart';
 import 'shell_command.dart';
 import 'shell_session.dart';
 import 'terminal_screens.dart';
@@ -192,6 +193,75 @@ class CloseRunCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     context.app.view.popViewportContent(ViewportPosition.fullscreen);
+  }
+}
+
+/// Дополнить набранный путь.
+///
+/// `Tab` свободен ровно потому, что ввод строке отдаётся отдельной клавишей
+/// (`Cmd-T`): переключение панелей на нём остаётся, пока ввод у панели.
+class CompletePathCommand extends AppCommand {
+  CompletePathCommand({required this.forward});
+
+  static const String commandId = 'terminal.complete';
+  static const String backCommandId = 'terminal.completeBack';
+
+  /// Вперёд по кругу; false — назад (`Shift-Tab`).
+  final bool forward;
+
+  @override
+  String get id => forward ? commandId : backCommandId;
+
+  @override
+  String get label => forward ? 'Complete path' : 'Previous match';
+
+  @override
+  String get description => 'Дополняет путь по началу имени';
+
+  /// Выполнима всегда, пока строка есть — как и `Enter`.
+  ///
+  /// Иначе `Tab`, которому нечего дополнять, провалился бы в поле и увёл фокус
+  /// обходом неизвестно куда.
+  @override
+  bool isExecutable(CommandContext context) => _lineOf(context.app) != null;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final line = _lineOf(context.app);
+    final panel = line?.panel;
+    final directory = panel?.directory;
+    if (line == null || panel == null || directory == null || !line.enabled) {
+      return;
+    }
+
+    // Перебор продолжается, только если строку с прошлой вставки не трогали:
+    // `Tab` после правки — это новый подбор, а не следующий кандидат.
+    if (line.isCompleting && line.suggestions.isNotEmpty) {
+      line.cycleCompletion(forward: forward);
+      return;
+    }
+
+    final before = line.text.text;
+    final selection = line.text.selection;
+    final caret = selection.isValid ? selection.start : before.length;
+    final token = CompletionToken.parse(before, caret);
+
+    final source = CompletionSource(provider: panel.provider, directory: directory.pathString);
+    final List<CompletionCandidate> candidates;
+    try {
+      candidates = await source.candidates(token);
+    } on FsError {
+      // Каталога нет или в него не пускают — дополнять нечем. Молча: пустой
+      // ответ и есть ответ.
+      line.clearCompletion();
+      return;
+    }
+
+    // Чтение — операция, и пока она шла, человек мог набрать что угодно.
+    if (line.text.text != before) {
+      return;
+    }
+    line.complete(token, candidates);
   }
 }
 

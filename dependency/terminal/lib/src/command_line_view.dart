@@ -1,7 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import 'command_line_state.dart';
 
@@ -97,7 +96,9 @@ class _CommandLineViewState extends State<CommandLineView> {
     final state = widget.state;
 
     return ListenableBuilder(
-      listenable: Listenable.merge([state, view, state.panel]),
+      // Поле тоже: подсказка дополнения уходит от любой правки строки, а о
+      // правке знает только контроллер текста.
+      listenable: Listenable.merge([state, view, state.panel, state.text]),
       builder: (context, _) {
         final enabled = state.enabled;
         final style = TextStyle(
@@ -106,54 +107,93 @@ class _CommandLineViewState extends State<CommandLineView> {
           color: enabled ? colors.rowText : colors.secondaryText,
         );
 
-        return Container(
-          height: metrics.inputHeight,
-          color: colors.panelBackground,
-          padding: EdgeInsets.symmetric(horizontal: metrics.panelLeftPadding),
-          child: Row(
-            children: [
-              // Приглашение — это каталог, в котором всё и произойдёт. Оно же
-              // объясняет, почему строка приглушена: путь в архиве или на
-              // сервере видно так же, как обычный.
-              Flexible(
-                child: Text(
-                  '${state.prompt}\$',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: style.copyWith(color: enabled ? colors.pathText : colors.secondaryText),
-                ),
-              ),
-              SizedBox(width: metrics.columnGap),
-              Expanded(
-                flex: 3,
-                child:
-                    enabled
-                        ? Shortcuts(
-                          // `Tab` строка проглатывает: место занято под будущее
-                          // дополнение путей, а обычный обход увёл бы фокус
-                          // неизвестно куда — из полосы, которая одна.
-                          shortcuts: const {
-                            SingleActivator(LogicalKeyboardKey.tab): DoNothingAndStopPropagationIntent(),
-                          },
-                          child: TextField(
-                            controller: state.text,
-                            focusNode: _node,
-                            style: style,
-                            cursorColor: colors.rowText,
-                            cursorWidth: metrics.strokeWidth * 2,
-                            decoration: const InputDecoration.collapsed(hintText: null),
-                          ),
-                        )
-                        : Text(
-                          'Оболочка здесь не работает',
-                          maxLines: 1,
-                          style: style.copyWith(color: colors.secondaryText),
-                        ),
-              ),
-            ],
-          ),
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (state.isCompleting && state.suggestions.length > 1) _suggestions(theme, state),
+            _input(theme, state, enabled, style),
+          ],
         );
       },
+    );
+  }
+
+  /// Из чего выбирать — одной строкой над вводом.
+  ///
+  /// Без окна нарочно: список из трёх имён окна не стоит, а список из трёхсот
+  /// бесполезен и в окне. Не влезло — многоточие, подставленное видно жирным.
+  Widget _suggestions(FcTheme theme, CommandLineState state) {
+    final colors = theme.colors;
+    final metrics = theme.metrics;
+    final base = TextStyle(fontFamily: theme.fonts.fixed, fontSize: metrics.fontSize, color: colors.secondaryText);
+
+    return Container(
+      color: colors.panelBackground,
+      padding: EdgeInsets.symmetric(horizontal: metrics.labelPadding + metrics.cellPadding),
+      child: Text.rich(
+        TextSpan(
+          children: [
+            for (var i = 0; i < state.suggestions.length; i++) ...[
+              if (i > 0) TextSpan(text: '   ', style: base),
+              TextSpan(
+                text: state.suggestions[i].insertion,
+                style:
+                    i == state.suggestionIndex
+                        ? base.copyWith(color: colors.cursorText, fontWeight: FontWeight.bold)
+                        : base,
+              ),
+            ],
+          ],
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  Widget _input(FcTheme theme, CommandLineState state, bool enabled, TextStyle style) {
+    final colors = theme.colors;
+    final metrics = theme.metrics;
+
+    return Container(
+      height: metrics.inputHeight,
+      color: colors.panelBackground,
+      padding: EdgeInsets.symmetric(horizontal: metrics.panelLeftPadding),
+      child: Row(
+        children: [
+          // Приглашение — это каталог, в котором всё и произойдёт. Оно же
+          // объясняет, почему строка приглушена: путь в архиве или на
+          // сервере видно так же, как обычный.
+          Flexible(
+            child: Text(
+              '${state.prompt}\$',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: style.copyWith(color: enabled ? colors.pathText : colors.secondaryText),
+            ),
+          ),
+          SizedBox(width: metrics.columnGap),
+          Expanded(
+            flex: 3,
+            child:
+                enabled
+                    ? TextField(
+                      controller: state.text,
+                      focusNode: _node,
+                      style: style,
+                      cursorColor: colors.rowText,
+                      cursorWidth: metrics.strokeWidth * 2,
+                      decoration: const InputDecoration.collapsed(hintText: null),
+                    )
+                    : Text(
+                      'Оболочка здесь не работает',
+                      maxLines: 1,
+                      style: style.copyWith(color: colors.secondaryText),
+                    ),
+          ),
+        ],
+      ),
     );
   }
 }

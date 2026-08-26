@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:flutter/widgets.dart';
 
+import 'completion.dart';
 import 'terminal_settings.dart';
 
 /// Командная строка под панелями.
@@ -101,10 +102,93 @@ class CommandLineState extends ChangeNotifier implements ViewportState {
     _show(_cursor == history.length ? _draft : history[_cursor]);
   }
 
+  // --- дополнение ---
+
+  /// Начатое дополнение; null — подсказки нет.
+  CompletionRun? get completion => _completion;
+  CompletionRun? _completion;
+
+  /// Кандидаты, которые стоит показать: их больше одного, значит есть из чего
+  /// выбирать. Один подставляется молча — показывать нечего.
+  List<CompletionCandidate> get suggestions => (_completion?.hasChoice ?? false) ? _completion!.candidates : const [];
+
+  /// Который кандидат подставлен сейчас; -1 — перебор не начинали.
+  int get suggestionIndex => _completion?.index ?? -1;
+
+  /// Перебор продолжается: строку с прошлой вставки не трогали.
+  bool get isCompleting => _completion?.matches(text.text) ?? false;
+
+  /// Подставляет разобранное: одного кандидата целиком, из многих — общее
+  /// начало, а если и его нет — первого, начиная перебор.
+  void complete(CompletionToken token, List<CompletionCandidate> candidates) {
+    if (candidates.isEmpty) {
+      clearCompletion();
+      return;
+    }
+
+    final run = CompletionRun(
+      start: token.start,
+      directory: token.directory,
+      quote: token.quote,
+      candidates: candidates,
+    );
+
+    if (candidates.length == 1) {
+      _insertCompletion(run, candidates.single.insertion, to: token.end);
+      // Выбора больше нет: подставили — и забыли.
+      _completion = null;
+      notifyListeners();
+      return;
+    }
+
+    _completion = run;
+    final shared = commonPrefix([for (final candidate in candidates) candidate.name]);
+    if (shared.length > token.prefix.length) {
+      // Есть что дописать без выбора — дописываем и ждём: человек доберёт сам
+      // или нажмёт `Tab` ещё раз.
+      _insertCompletion(run, shared, to: token.end);
+    } else {
+      _insertCompletion(run, run.step(forward: true).insertion, to: token.end);
+    }
+    notifyListeners();
+  }
+
+  /// Следующий кандидат по кругу.
+  void cycleCompletion({required bool forward}) {
+    final run = _completion;
+    if (run == null || !run.hasChoice) {
+      return;
+    }
+    _insertCompletion(run, run.step(forward: forward).insertion, to: run.end);
+    notifyListeners();
+  }
+
+  void clearCompletion() {
+    if (_completion == null) {
+      return;
+    }
+    _completion = null;
+    notifyListeners();
+  }
+
+  /// Заменяет токен на подставленное и запоминает, где остановились.
+  void _insertCompletion(CompletionRun run, String value, {required int to}) {
+    final base = text.text;
+    final inserted = quotePath('${run.directory}$value');
+    final updated = base.replaceRange(run.start, to.clamp(run.start, base.length), inserted);
+    final caret = run.start + inserted.length;
+
+    text.value = TextEditingValue(text: updated, selection: TextSelection.collapsed(offset: caret));
+    run
+      ..end = caret
+      ..text = updated;
+  }
+
   void clear() {
     text.clear();
     _cursor = history.length;
     _draft = '';
+    _completion = null;
     notifyListeners();
   }
 

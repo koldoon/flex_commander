@@ -65,6 +65,8 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
     registry.command(
       (context) => InsertNodeCommand(id: InsertNodeCommand.pathId, label: 'Insert path', fullPath: true),
     );
+    registry.command((context) => CompletePathCommand(forward: true));
+    registry.command((context) => CompletePathCommand(forward: false));
     registry.command((context) => ToggleTerminalCommand(() => context.resolve<ShellSession>()));
     registry.command((context) => CloseRunCommand());
 
@@ -77,6 +79,11 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
     registry.binding(KeyBinding.inState<CommandLineState>('Cmd-Down', HistoryCommand.nextId));
     registry.binding(KeyBinding.inState<CommandLineState>('Cmd-Enter', InsertNodeCommand.nameId));
     registry.binding(KeyBinding.inState<CommandLineState>('Cmd-Shift-Enter', InsertNodeCommand.pathId));
+    // `Tab` принадлежит строке, только пока ввод у неё: у панели за ним
+    // по-прежнему переключение панелей, и в будущем режиме `mc` он там и
+    // останется — без единой проверки настройки.
+    registry.binding(KeyBinding.inState<CommandLineState>('Tab', CompletePathCommand.commandId));
+    registry.binding(KeyBinding.inState<CommandLineState>('Shift-Tab', CompletePathCommand.backCommandId));
 
     // `Ctrl-O` — из `mc`, и действует везде: из панелей, из строки, из самого
     // терминала. Выход должен быть один и тот же отовсюду.

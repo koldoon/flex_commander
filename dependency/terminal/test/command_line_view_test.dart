@@ -108,6 +108,29 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('кандидаты видны над строкой и уходят от правки', (tester) async {
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    runtime.commands.dispatch(KeyCombination.parse('Cmd-T'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(lineField(), 'cat ');
+    runtime.commands.dispatch(KeyCombination.parse('Tab'));
+    await tester.pumpAndSettle();
+
+    // Выбирать есть из чего — значит видно, из чего.
+    expect(find.textContaining('alpha.txt'), findsWidgets);
+    expect(find.textContaining('beta.txt'), findsWidgets);
+
+    // Тронули строку — подсказка ушла: `Tab` после правки это новый подбор.
+    await tester.enterText(lineField(), 'cat x');
+    await tester.pumpAndSettle();
+    expect(find.textContaining('beta.txt'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('щелчок мышью по строке отдаёт ей ввод', (tester) async {
     await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
     await tester.pumpAndSettle();

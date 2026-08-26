@@ -80,7 +80,9 @@ you typed. `Enter` runs the line **in its own process** in the panel's directory
 end of a command is known exactly instead of being guessed from the shape of a prompt:
 a silent successful command shows nothing and simply re-reads the panel, while one that
 says anything keeps its output on screen until you press a key. `cd` is the exception —
-it walks the *panel*, not the shell. Function keys and `↑`/`↓` still belong to the panels
+it walks the *panel*, not the shell. `Tab` completes paths from the panel's source: one
+match is inserted whole, several are extended to their common prefix and then cycled
+through, and what there is to choose from is listed above the line. Function keys and `↑`/`↓` still belong to the panels
 while you type, so `F5` copies and the cursor keeps moving. The pseudo-terminal is
 `posix_openpt` plus `posix_spawn` through `dart:ffi`: no native plugin, so the macOS build
 stays on Swift Package Manager, and a real shell can be driven from `flutter test`.
@@ -128,6 +130,7 @@ On Windows and Linux `Cmd` reads as `Ctrl`.
 | `Cmd-T` | hand the input to the command line |
 | `Esc` (command line) | hand it back to the panel, keeping the text |
 | `Ctrl-O` | raise the shell full-screen and back |
+| `Tab` / `Shift-Tab` (command line) | complete the path, then cycle the matches |
 | `Cmd-↑` / `Cmd-↓` (command line) | previous / next command in the history |
 | `Cmd-Enter` / `Cmd-Shift-Enter` | insert the name / the full path under the cursor |
 
