@@ -97,8 +97,26 @@ void main() {
     expect(dialogField(), findsWidgets);
     expect(runtime.app.view.activeArea, ViewportPosition.left);
 
+    // Окно закрылось и вернуло фокус туда, откуда забрало, — в строку. Значит
+    // и ввод сюда же: иначе курсор мигает, а клавиши работают панельные.
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
+
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'command line');
+    expect(runtime.app.view.activeArea, ViewportPosition.bottom);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('щелчок мышью по строке отдаёт ей ввод', (tester) async {
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+    expect(runtime.app.view.activeArea, ViewportPosition.left);
+
+    await tester.tap(lineField());
+    await tester.pumpAndSettle();
+
+    expect(runtime.app.view.activeArea, ViewportPosition.bottom);
 
     await tester.pump(const Duration(milliseconds: 20));
   });
