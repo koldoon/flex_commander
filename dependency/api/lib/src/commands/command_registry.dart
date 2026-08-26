@@ -36,9 +36,15 @@ typedef CommandErrorHandler = void Function(Object error, AppCommand command);
 /// время снимает пометку. Схема повторяет
 /// `ApplicationImpl.processKeyboardCombination` из референса.
 class CommandRegistry extends ChangeNotifier implements CommandService, Operations {
-  CommandRegistry([List<AppCommandFactory> commands = const [], List<KeyBinding> bindings = const [], this.onError]) {
+  CommandRegistry([
+    List<AppCommandFactory> commands = const [],
+    List<KeyBinding> bindings = const [],
+    this.onError,
+    List<String> owners = const [],
+  ]) {
     _factories.addAll(commands);
     _bindings.addAll(bindings);
+    _owners.addAll(owners);
   }
 
   /// Куда сообщать об ошибке команды без окна; null — молча.
@@ -55,6 +61,35 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
   /// не открывает и состояния исполнения не хранит — для работы создаётся
   /// отдельный экземпляр.
   final Map<String, AppCommand> _prototypes = {};
+
+  /// Названия модулей — по тому же месту, что и фабрики; после [attach] то же
+  /// самое лежит в [_ownerOf] уже по идентификатору команды.
+  final List<String> _owners = [];
+  final Map<String, String> _ownerOf = {};
+
+  /// Кто принёс эту команду; пустая строка — принесли не модулем (тест,
+  /// сценарий) или установили уже на ходу.
+  ///
+  /// Нужно справке: она показывает команды по модулям, и это единственное
+  /// место, где такая связь есть.
+  String ownerOf(String commandId) => _ownerOf[commandId] ?? '';
+
+  /// Модули в порядке **объявления**, без повторов.
+  ///
+  /// Не в порядке [installed]: там команды лежат по первому появлению ключа, а
+  /// модуль, занявший место чужой заглушки (просмотрщик встаёт на `F3`
+  /// оболочки), остаётся на её месте — и порядок перестаёт быть похожим на
+  /// список модулей. Здесь же порядок тот самый, которым задан и приоритет
+  /// привязок.
+  List<String> get owners {
+    final seen = <String>[];
+    for (final owner in _owners) {
+      if (owner.isNotEmpty && !seen.contains(owner)) {
+        seen.add(owner);
+      }
+    }
+    return seen;
+  }
 
   /// Запуски, ушедшие в фон: окна у них нет, а работа идёт.
 
@@ -137,7 +172,8 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
   /// Связывает реестр с приложением и создаёт прототипы команд.
   void attach(Application app) {
     _app = app;
-    for (final factory in _factories) {
+    for (var i = 0; i < _factories.length; i++) {
+      final factory = _factories[i];
       final command = factory();
       command.bind(app);
       if (!command.init(app)) {
@@ -145,6 +181,9 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
       }
       _prototypes[command.id] = command;
       _factoryById[command.id] = factory;
+      if (i < _owners.length) {
+        _ownerOf[command.id] = _owners[i];
+      }
     }
   }
 

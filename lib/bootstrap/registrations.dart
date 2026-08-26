@@ -72,6 +72,14 @@ class Registrations implements FcRegistry {
   final List<ProviderRegistration> providers = [];
   final List<AddressRegistration> addresses = [];
   final List<FcCommandFactory> commands = [];
+
+  /// Название модуля, объявившего команду, — по тому же месту в списке, что и
+  /// сама команда.
+  ///
+  /// Нужно справке: она показывает команды **по модулям**, и без этого
+  /// пришлось бы гадать по идентификаторам. Список, а не карта: имени команды
+  /// на момент объявления ещё нет — есть только фабрика.
+  final List<String> commandOwners = [];
   final List<KeyBinding> bindings = [];
   final List<FcCommandFactory> startupCommands = [];
   final List<FcThemeSpec> themes = [];
@@ -142,7 +150,20 @@ class Registrations implements FcRegistry {
   }
 
   @override
-  void command(FcCommandFactory factory) => commands.add(factory);
+  void command(FcCommandFactory factory) {
+    commands.add(factory);
+    commandOwners.add(_ownerTitle);
+  }
+
+  /// Чьё сейчас объявление — названием, а не идентификатором: справке нужно
+  /// человеческое имя, а `fc.file_ops` таковым не является.
+  String get _ownerTitle {
+    final id = _current;
+    if (id == null) {
+      return '';
+    }
+    return modules.firstWhere((module) => module.id == id).title;
+  }
 
   @override
   void binding(KeyBinding binding) => bindings.add(binding);

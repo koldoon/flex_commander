@@ -52,7 +52,7 @@ class HelpCommand extends AppCommand {
     );
   }
 
-  List<FcTableSection> _sections(CommandContext context) => [_settings(context), _commands(context)];
+  List<FcTableSection> _sections(CommandContext context) => [_settings(context), ..._commands(context)];
 
   /// Настройки — то, что приложение помнит между запусками.
   FcTableSection _settings(CommandContext context) {
@@ -77,16 +77,42 @@ class HelpCommand extends AppCommand {
   /// Список берётся у реестра, а не пишется здесь: новая команда или новая
   /// привязка появляется в справке сама, и разойтись с действительностью она
   /// не может.
-  FcTableSection _commands(CommandContext context) {
+  /// Команды — по модулям, в порядке их установки.
+  ///
+  /// Группировка не украшение: команд уже под полсотни, и одним списком в них
+  /// не найтись. Модуль — единственное деление, которое приложение знает само
+  /// (и то, по которому возможности включаются и выключаются), поэтому и
+  /// заголовки берутся оттуда: «Terminal», «File operations». Придумывать своё
+  /// деление — значит держать его в согласии руками.
+  ///
+  /// Порядок — тот же, в каком модули объявлены: он не случаен, им задаётся
+  /// приоритет привязок.
+  List<FcTableSection> _commands(CommandContext context) {
     final registry = _registry?.call();
     if (registry == null) {
-      return const FcTableSection('Commands', [FcTableRow('', 'Command list is not available')]);
+      return const [
+        FcTableSection('Commands', [FcTableRow('', 'Command list is not available')]),
+      ];
     }
 
-    return FcTableSection('Commands', [
-      for (final command in registry.installed)
-        FcTableRow(command.label, _keysOf(registry, command.id), command.description),
-    ]);
+    final grouped = <String, List<FcTableRow>>{};
+    for (final command in registry.installed) {
+      final owner = registry.ownerOf(command.id);
+      // Пустое — команда пришла не модулем: в приложении такого нет, а в
+      // тесте бывает. Своя строка лучше, чем пропажа.
+      final title = owner.isEmpty ? 'Other' : owner;
+      grouped
+          .putIfAbsent(title, () => [])
+          .add(FcTableRow(command.label, _keysOf(registry, command.id), command.description));
+    }
+
+    // Порядок — по объявлению модулей, а не по появлению команд: модуль,
+    // занявший место чужой заглушки (просмотрщик встаёт на `F3` оболочки),
+    // иначе всплывал бы наверх.
+    return [
+      for (final title in [...registry.owners, 'Other'])
+        if (grouped[title] case final rows?) FcTableSection(title, rows),
+    ];
   }
 
   /// Клавиши команды — все, через запятую, в порядке приоритета.

@@ -99,6 +99,7 @@ class AppContainer extends DI {
           // показать её негде — до появления общего места для фоновых работ
           // она хотя бы попадает в журнал, а не пропадает совсем.
           (error, command) => logger.error('Command failed: $command', error),
+          registrations.commandOwners,
         );
       },
     );

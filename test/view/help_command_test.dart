@@ -81,7 +81,9 @@ void main() {
       expect(find.byType(FcKeyValueTable), findsOneWidget);
       expect(find.text('Help'), findsWidgets);
       expect(inHelp(find.text('Settings')), findsOneWidget);
-      expect(inHelp(find.text('Commands')), findsOneWidget);
+      // Команды показаны по модулям: заголовок раздела — название модуля, а не
+      // общее «Commands». Первым — тот, кто объявлен первым.
+      expect(inHelp(find.text('Application shell')), findsOneWidget);
       // Единственная кнопка: закрыть. Ни отмены, ни подтверждения — читать
       // справку нечем, кроме глаз.
       expect(find.byType(FcButton), findsOneWidget);
@@ -255,6 +257,21 @@ void main() {
 
       // Объяснять «Cursor up» нечем, и придумывать текст ради колонки незачем.
       expect(rowOf(tester, 'Cursor up'), ['Up', '']);
+    });
+
+    testWidgets('команды сгруппированы по модулям, в порядке их объявления', (tester) async {
+      await openHelp(tester, size: const Size(1400, 1400));
+
+      final titles = ['Application shell', 'Terminal', 'Navigation', 'File operations'];
+      final tops = [for (final title in titles) tester.getTopLeft(inHelp(find.text(title)).first).dy];
+
+      // Порядок тот же, что в списке модулей: им же задан приоритет привязок.
+      // Просмотрщик, занявший место заглушки `F3`, наверх не всплывает.
+      expect(tops, orderedEquals([...tops]..sort()));
+      // И команда лежит в разделе своего модуля, а не в общей куче.
+      final copy = tester.getTopLeft(inHelp(find.text('Copy')).first).dy;
+      final fileOps = tester.getTopLeft(inHelp(find.text('File operations')).first).dy;
+      expect(copy, greaterThan(fileOps));
     });
 
     testWidgets('справка знает и о самой себе', (tester) async {
