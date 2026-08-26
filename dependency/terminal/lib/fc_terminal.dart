@@ -3,6 +3,7 @@
 library;
 
 export 'src/command_line_state.dart';
+export 'src/completion.dart';
 export 'src/command_line_view.dart';
 export 'src/posix_pty.dart';
 export 'src/system_pty.dart';
