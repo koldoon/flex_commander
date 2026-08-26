@@ -23,19 +23,20 @@ class PanelStatusBar extends StatelessWidget {
         final error = panel.status == PanelStatus.error;
         return Container(
           height: theme.metrics.statusBarHeight,
-          padding: EdgeInsets.symmetric(horizontal: theme.metrics.labelPadding),
+          // Поле слева и справа: рамка полосы и текст не должны сходиться
+          // вплотную. Ролями, а не числом, — иначе отступ останется прежним
+          // при любом масштабе темы, а всё вокруг него уедет
+          // (`DefaultMetrics(scale: 0.8)` — это «крупная» тема).
+          padding: EdgeInsets.symmetric(horizontal: theme.metrics.labelPadding + theme.metrics.cellPadding),
           alignment: Alignment.centerLeft,
           decoration: BoxDecoration(
             border: Border(top: BorderSide(color: theme.colors.columnDivider, width: theme.metrics.strokeWidth)),
           ),
-          child: Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 5),
-            child: Text.rich(
-              _content(theme),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: error ? theme.statusStyle.copyWith(color: theme.colors.error) : theme.statusStyle,
-            ),
+          child: Text.rich(
+            _content(theme),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: error ? theme.statusStyle.copyWith(color: theme.colors.error) : theme.statusStyle,
           ),
         );
       },
