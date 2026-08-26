@@ -89,27 +89,61 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
     _afterChange();
   }
 
+  /// Область, взявшая ввод себе, — из тех, у кого своего признака активности
+  /// нет. Сегодня это командная строка; null — ввод там, где он и так был.
+  ViewportPosition? _focused;
+
   /// Область, которой принадлежит ввод.
   ///
-  /// Выводится, а не хранится: полноэкранное по определению забирает ввод себе,
-  /// а в остальное время он у той панели, которая активна. Отдельное поле
-  /// пришлось бы держать согласованным с обоими, и однажды оно бы разъехалось.
+  /// Почти выводится: полноэкранное по определению забирает ввод себе, а в
+  /// остальное время он у той панели, которая активна. Между ними — область,
+  /// **явно** его взявшая: командная строка. Хранить её приходится, потому что
+  /// вывести неоткуда — стоит она внизу всегда, а ввод у неё только по просьбе.
+  ///
+  /// Порядок именно такой. Полноэкранное перекрывает и строку: после `Enter`
+  /// ввод принадлежит терминалу, а не строке под ним. Свернули терминал — ввод
+  /// вернулся строке, потому что [_focused] никуда не делся.
   @override
-  ViewportPosition get activeArea =>
-      _stacks[ViewportPosition.fullscreen]!.isEmpty ? sourceArea : ViewportPosition.fullscreen;
+  ViewportPosition get activeArea {
+    if (_stacks[ViewportPosition.fullscreen]!.isNotEmpty) {
+      return ViewportPosition.fullscreen;
+    }
+    final focused = _focused;
+    // Содержимое могли убрать вместе с модулем: ввод тогда возвращается туда,
+    // где ему и место.
+    if (focused != null && contentAt(focused) != null) {
+      return focused;
+    }
+    return sourceArea;
+  }
 
   @override
   ViewportPosition get sourceArea => _app.left.active ? ViewportPosition.left : ViewportPosition.right;
+
+  /// Отпускает ввод, взятый областью без своей активности. true — он был у неё.
+  ///
+  /// Зовёт приложение при переходе к панели: путей туда много — щелчок мышью,
+  /// `Tab`, команда, — и все они идут через `activate`, а не через [setFocus].
+  bool releaseFocus() {
+    if (_focused == null) {
+      return false;
+    }
+    _focused = null;
+    notifyListeners();
+    return true;
+  }
 
   @override
   void setFocus(ViewportPosition position) {
     final panel = panelAt(position);
     if (panel != null) {
+      // Ввод вернулся панели: отпускает его `activate` — он же и уведомит.
       _app.activate(panel);
       return;
     }
     // У областей без панели своего состояния активности нет: `fullscreen`
     // активен, пока в нём что-то лежит, и снимать это не дело фокуса.
+    _focused = position == ViewportPosition.fullscreen ? null : position;
     notifyListeners();
   }
 

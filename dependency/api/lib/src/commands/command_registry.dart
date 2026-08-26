@@ -201,9 +201,9 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
 
   /// Привязка, которая сработает по этой комбинации прямо сейчас.
   ///
-  /// Сначала ищется та, чья команда действительно выполнится; если такой нет,
-  /// возвращается первая подходящая, чтобы кнопка нижней панели всё равно
-  /// показала название и осталась приглушённой.
+  /// Клавиша принадлежит содержимому активной области — тому, что сейчас на
+  /// экране. Исключение одно, и оно описано ниже: функциональные клавиши при
+  /// вводе в командной строке.
   @override
   KeyBinding? bindingFor(KeyCombination combination) {
     final app = _app;
@@ -211,8 +211,40 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
       return null;
     }
 
+    final view = app.view;
+    final active = view.activeArea;
+    final found = _lookup(combination, view.contentAt(active));
+    if (found != null || active != ViewportPosition.bottom || !_beyondTextInput(combination)) {
+      return found;
+    }
+
+    // Клавиша, которой у однострочного поля нет, достаётся панели.
+    //
+    // Внизу командная строка, а панели никуда не делись — они на экране, и ряд
+    // кнопок под строкой обещает именно их команды: без этого он пустел бы
+    // весь, стоило начать набирать. Стрелки вверх и вниз там же и по той же
+    // причине: в строке им ходить некуда, а выбрать файл посреди набора
+    // команды нужно постоянно.
+    //
+    // Перечень, а не общее «не нашлось — поищем у панели»: общий откат отдал бы
+    // панели и букву — привязка любого символа требует, чтобы содержимым была
+    // панель, а здесь мы ровно панель и подставляем, — и быстрый поиск ожил бы
+    // посреди набора. То же с `Enter` и `Bsp`: это клавиши строки.
+    return _lookup(combination, view.contentAt(view.sourceArea));
+  }
+
+  /// Клавиша, которой в однострочном поле ввода делать нечего.
+  static bool _beyondTextInput(KeyCombination combination) =>
+      combination.isFunctionKey || combination.key == 'Up' || combination.key == 'Down';
+
+  /// Привязка, подходящая под комбинацию при таком содержимом активной области.
+  ///
+  /// Сначала та, чья команда действительно выполнится; если такой нет —
+  /// первая подходящая, чтобы кнопка нижней панели показала название и
+  /// осталась приглушённой.
+  KeyBinding? _lookup(KeyCombination combination, ViewportState? content) {
+    final app = _app!;
     final node = app.activePanel.currentNode;
-    final content = app.view.contentAt(app.view.activeArea);
     KeyBinding? fallback;
 
     for (final binding in _bindings) {

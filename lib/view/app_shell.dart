@@ -62,6 +62,20 @@ class AppShell extends StatelessWidget {
     );
   }
 
+  /// Полоса под панелями и над рядом кнопок: командная строка.
+  ///
+  /// Пустой области нет вовсе — не пустой виджет нулевой высоты, а ничего:
+  /// без модуля терминала внизу окна ничего не меняется. Высоту полоса
+  /// назначает себе сама: сколько нужно её содержимому, столько и займёт.
+  Widget _bottomStrip(BuildContext context, Application app) {
+    final content = app.view.contentAt(ViewportPosition.bottom);
+    if (content == null) {
+      return const SizedBox.shrink();
+    }
+    final build = app.views.builderFor(content);
+    return build == null ? const SizedBox.shrink() : build(context, content);
+  }
+
   /// Рисует состояние тем, что для него объявлено.
   ///
   /// Пусто — значит показывать нечем: модуль, объявивший вид, отключён.
@@ -97,6 +111,7 @@ class AppShell extends StatelessWidget {
                   Expanded(
                     child: ListenableBuilder(listenable: app.view, builder: (context, _) => _workArea(context, app)),
                   ),
+                  ListenableBuilder(listenable: app.view, builder: (context, _) => _bottomStrip(context, app)),
                   SizedBox(height: metrics.functionBarGap),
                   const FunctionBar(),
                   SizedBox(height: metrics.windowBottomPadding),

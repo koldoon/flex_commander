@@ -31,6 +31,14 @@ class KeyCombination {
   /// сочетание, а не ввод символа.
   bool get isCharacter => key.length == 1 && !ctrl && !alt && !cmd;
 
+  /// Функциональная клавиша: `F1`…`F12`.
+  ///
+  /// Нужно тем, кто решает, кому клавиша принадлежит: ряд кнопок обещает
+  /// именно их, и текстовый ввод не использует ни одной.
+  bool get isFunctionKey => _functionKeyRe.hasMatch(key);
+
+  static final RegExp _functionKeyRe = RegExp(r'^F\d+$');
+
   static bool get _isMacOS => defaultTargetPlatform == TargetPlatform.macOS;
 
   /// Комбинация из события клавиатуры; null, если нажат только модификатор.

@@ -167,7 +167,14 @@ class AppController extends ChangeNotifier implements Application {
   @override
   void activate(Panel panel) {
     assert(panel == left || panel == right, 'Панель не принадлежит этому приложению');
+    // Ввод мог быть у командной строки — тогда «сделать активной ту же самую
+    // панель» означает вернуть его ей, и ранний выход ниже пропустил бы это:
+    // щелчок по активной панели не выводил бы из строки.
+    final released = view.releaseFocus();
     if (panel.active) {
+      if (released) {
+        notifyListeners();
+      }
       return;
     }
     left.setActive(panel == left);

@@ -73,6 +73,7 @@ export 'src/format/size_format.dart';
 export 'src/os/clipboard.dart';
 export 'src/os/credentials.dart';
 export 'src/os/process_runner.dart';
+export 'src/os/pty.dart';
 export 'src/os/system_opener.dart';
 export 'src/os/window_service.dart';
 export 'src/util/throttle.dart';
