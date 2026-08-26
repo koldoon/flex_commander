@@ -1,13 +1,15 @@
+import 'dart:async';
+import 'dart:isolate';
 import 'dart:typed_data';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:flutter_pty/flutter_pty.dart';
+
+import 'posix_pty.dart';
 
 /// Настоящий псевдотерминал системы.
 ///
-/// Единственное место модуля, знающее про `flutter_pty`. Всё остальное написано
-/// против [PtyLauncher] — и потому проверяется на подставке, без оболочки на
-/// машине, где идёт прогон.
+/// Единственное место модуля, знающее, как он устроен. Всё остальное написано
+/// против [PtyLauncher] — и потому проверяется на подставке.
 class SystemPtyLauncher implements PtyLauncher {
   const SystemPtyLauncher();
 
@@ -21,11 +23,11 @@ class SystemPtyLauncher implements PtyLauncher {
     int rows = 24,
   }) {
     return _SystemPtySession(
-      Pty.start(
-        executable,
+      PosixPty.start(
+        executable: executable,
         arguments: arguments,
         workingDirectory: workingDirectory,
-        environment: environment.isEmpty ? null : environment,
+        environment: environment,
         columns: columns,
         rows: rows,
       ),
@@ -33,24 +35,59 @@ class SystemPtyLauncher implements PtyLauncher {
   }
 }
 
+/// Запущенная программа: чтение в своём изоляте, всё остальное — прямыми
+/// вызовами.
 class _SystemPtySession implements PtySession {
-  _SystemPtySession(this._pty);
+  _SystemPtySession(this._pty) {
+    _messages.listen(_onMessage);
+    unawaited(Isolate.spawn(PtyReader.run, (_pty.master, _pty.pid, _messages.sendPort), debugName: 'pty:${_pty.pid}'));
+  }
 
-  final Pty _pty;
+  final PosixPty _pty;
+  final ReceivePort _messages = ReceivePort();
+  final StreamController<Uint8List> _output = StreamController<Uint8List>.broadcast();
+  final Completer<int> _exit = Completer<int>();
 
   @override
-  Stream<Uint8List> get output => _pty.output;
+  Stream<Uint8List> get output => _output.stream;
+
+  @override
+  Future<int> get exitCode => _exit.future;
 
   @override
   void write(Uint8List data) => _pty.write(data);
 
-  /// Порядок аргументов у `flutter_pty` обратный привычному: сначала строки.
   @override
-  void resize({required int columns, required int rows}) => _pty.resize(rows, columns);
+  void resize({required int columns, required int rows}) => _pty.resize(columns: columns, rows: rows);
 
   @override
-  Future<int> get exitCode => _pty.exitCode;
+  Future<void> kill() async {
+    if (_exit.isCompleted) {
+      return;
+    }
+    _pty.terminate();
+    // Ждём не вечно: программа, которая не уходит по `SIGTERM`, не должна
+    // задерживать выход приложения.
+    await _exit.future.timeout(const Duration(seconds: 2), onTimeout: () => -1);
+  }
 
-  @override
-  Future<void> kill() async => _pty.kill();
+  /// Изолят чтения шлёт байты, а последним сообщением — код возврата.
+  void _onMessage(dynamic message) {
+    if (message is Uint8List) {
+      _output.add(message);
+      return;
+    }
+    if (message is int) {
+      _finish(message);
+    }
+  }
+
+  void _finish(int code) {
+    if (!_exit.isCompleted) {
+      _exit.complete(code);
+    }
+    _messages.close();
+    _pty.closeMaster();
+    unawaited(_output.close());
+  }
 }
