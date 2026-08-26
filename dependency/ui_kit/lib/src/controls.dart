@@ -108,9 +108,16 @@ class _FcCheckboxState extends State<FcCheckbox> {
                     alignment: Alignment.center,
                     decoration: BoxDecoration(
                       color: colors.inputBackground,
+                      border: Border.all(color: colors.inputBorder, width: metrics.strokeWidth),
+                      borderRadius: BorderRadius.circular(metrics.inputRadius),
+                    ),
+                    // Поверх, а не рамкой: знак поехал бы вместе с подписью.
+                    // Слой стоит всегда — появление `foregroundDecoration`
+                    // пересобирает то, что под ним.
+                    foregroundDecoration: BoxDecoration(
                       border: Border.all(
-                        color: _focused ? colors.focusRing : colors.inputBorder,
-                        width: metrics.strokeWidth * (_focused ? 2 : 1),
+                        color: _focused ? colors.focusRing : const Color(0x00000000),
+                        width: metrics.focusRingWidth,
                       ),
                       borderRadius: BorderRadius.circular(metrics.inputRadius),
                     ),
@@ -287,9 +294,13 @@ class _FcRadioOption<T> extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: colors.inputBackground,
+                  border: Border.all(color: colors.inputBorder, width: metrics.strokeWidth),
+                  shape: BoxShape.circle,
+                ),
+                foregroundDecoration: BoxDecoration(
                   border: Border.all(
-                    color: focused ? colors.focusRing : colors.inputBorder,
-                    width: metrics.strokeWidth * (focused ? 2 : 1),
+                    color: focused ? colors.focusRing : const Color(0x00000000),
+                    width: metrics.focusRingWidth,
                   ),
                   shape: BoxShape.circle,
                 ),

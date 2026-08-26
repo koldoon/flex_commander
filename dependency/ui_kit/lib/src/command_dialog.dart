@@ -545,10 +545,7 @@ class _FcButtonState extends State<FcButton> {
                 padding: EdgeInsets.symmetric(horizontal: metrics.buttonHorizontalPadding),
                 decoration: BoxDecoration(
                   color: widget.primary ? colors.buttonPrimaryBackground : colors.buttonBackground,
-                  border: Border.all(
-                    color: _focused ? colors.focusRing : colors.buttonBorder,
-                    width: metrics.strokeWidth * (_focused ? 2 : 1),
-                  ),
+                  border: Border.all(color: colors.buttonBorder, width: metrics.strokeWidth),
                   borderRadius: radius,
                   // Тень под кнопкой: она отделяет её от фона окна.
                   boxShadow: [
@@ -560,8 +557,24 @@ class _FcButtonState extends State<FcButton> {
                   ],
                 ),
                 // Заливка ровная, без градиента; затемняется только нажатая кнопка.
-                foregroundDecoration:
-                    _pressed ? BoxDecoration(color: colors.buttonPressed, borderRadius: radius) : null,
+                // Обводка фокуса — **поверх**, а не рамкой: рамка входит в
+                // размер, и кнопка от неё раздавалась бы на глазах — тронул
+                // `Tab`ом, и ряд поехал. Поверх — значит по тем же границам,
+                // что и были.
+                //
+                // Слой стоит **всегда**, а не появляется вместе с фокусом:
+                // `Container` от появления `foregroundDecoration` меняет
+                // строение дерева, и всё, что под ним, пересоздаётся. Для поля
+                // ввода это стоило бы связи с клавиатурой — набранное уходило бы
+                // в никуда. Невидимость выражается прозрачным цветом.
+                foregroundDecoration: BoxDecoration(
+                  color: _pressed ? colors.buttonPressed : null,
+                  border: Border.all(
+                    color: _focused ? colors.focusRing : const Color(0x00000000),
+                    width: metrics.focusRingWidth,
+                  ),
+                  borderRadius: radius,
+                ),
                 // Center с множителями, а не `alignment` у Container: с ним кнопка
                 // заняла бы всю предложенную ширину, а нужна ширина подписи.
                 child: Center(widthFactor: 1, heightFactor: 1, child: Text(widget.label, style: theme.buttonStyle)),
@@ -620,33 +633,8 @@ class _FcTextFieldState extends State<FcTextField> {
 
   FocusNode get _node => widget.focusNode ?? (_own ??= FocusNode(debugLabel: 'FcTextField'));
 
-  bool _focused = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _node.addListener(_onFocusChanged);
-  }
-
-  @override
-  void didUpdateWidget(FcTextField oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.focusNode != widget.focusNode) {
-      oldWidget.focusNode?.removeListener(_onFocusChanged);
-      _node.addListener(_onFocusChanged);
-      _onFocusChanged();
-    }
-  }
-
-  void _onFocusChanged() {
-    if (mounted && _focused != _node.hasFocus) {
-      setState(() => _focused = _node.hasFocus);
-    }
-  }
-
   @override
   void dispose() {
-    _node.removeListener(_onFocusChanged);
     _own?.dispose();
     super.dispose();
   }
@@ -658,39 +646,60 @@ class _FcTextFieldState extends State<FcTextField> {
     final colors = theme.colors;
     final enabled = widget.enabled;
 
-    return Opacity(
-      opacity: enabled ? 1 : 0.5,
-      child: Container(
-        height: metrics.inputHeight,
-        alignment: Alignment.center,
-        padding: EdgeInsets.symmetric(horizontal: metrics.inputHorizontalPadding),
-        decoration: BoxDecoration(
-          color: colors.inputBackground,
-          border: Border.all(
-            color: _focused ? colors.focusRing : colors.inputBorder,
-            width: metrics.strokeWidth * (_focused ? 2 : 1),
-          ),
-          borderRadius: BorderRadius.circular(metrics.inputRadius),
-        ),
-        child: TextField(
-          controller: widget.controller,
-          focusNode: _node,
-          autofocus: widget.autofocus,
-          enabled: enabled,
-          obscureText: widget.obscureText,
-          onChanged: widget.onChanged,
-          onSubmitted: widget.onSubmitted,
-          style: theme.inputStyle,
-          cursorColor: colors.inputText,
-          decoration: InputDecoration(
-            isDense: true,
-            border: InputBorder.none,
-            contentPadding: EdgeInsets.zero,
-            hintText: widget.hintText,
-            hintStyle: theme.inputStyle.copyWith(color: colors.inputHint),
-          ),
+    // Перестраивается **обводка**, а не поле: `ListenableBuilder` держит
+    // `TextField` тем же самым объектом (он приходит `child`), а трогает только
+    // рамку вокруг него.
+    //
+    // Иначе поле пересобиралось бы на каждую смену фокуса — и роняло бы связь с
+    // вводом ровно в тот момент, когда её устанавливают: набранное уходило в
+    // никуда. Проверяется это тестом про вопрос с паролем.
+    return ListenableBuilder(
+      listenable: _node,
+      child: TextField(
+        controller: widget.controller,
+        focusNode: _node,
+        autofocus: widget.autofocus,
+        enabled: enabled,
+        obscureText: widget.obscureText,
+        onChanged: widget.onChanged,
+        onSubmitted: widget.onSubmitted,
+        style: theme.inputStyle,
+        cursorColor: colors.inputText,
+        decoration: InputDecoration(
+          isDense: true,
+          border: InputBorder.none,
+          contentPadding: EdgeInsets.zero,
+          hintText: widget.hintText,
+          hintStyle: theme.inputStyle.copyWith(color: colors.inputHint),
         ),
       ),
+      builder: (context, child) {
+        return Opacity(
+          opacity: enabled ? 1 : 0.5,
+          child: Container(
+            height: metrics.inputHeight,
+            alignment: Alignment.center,
+            padding: EdgeInsets.symmetric(horizontal: metrics.inputHorizontalPadding),
+            decoration: BoxDecoration(
+              color: colors.inputBackground,
+              border: Border.all(color: colors.inputBorder, width: metrics.strokeWidth),
+              borderRadius: BorderRadius.circular(metrics.inputRadius),
+            ),
+            // Поверх, а не рамкой: рамка входит в размер, и поле от неё сдвинуло
+            // бы и подпись рядом, и ширину всего окна.
+            // Слой стоит всегда: `Container` от его появления пересобрал бы
+            // поле, а с ним и связь с вводом. Невидимость — прозрачным цветом.
+            foregroundDecoration: BoxDecoration(
+              border: Border.all(
+                color: _node.hasFocus ? colors.focusRing : const Color(0x00000000),
+                width: metrics.focusRingWidth,
+              ),
+              borderRadius: BorderRadius.circular(metrics.inputRadius),
+            ),
+            child: child,
+          ),
+        );
+      },
     );
   }
 }
