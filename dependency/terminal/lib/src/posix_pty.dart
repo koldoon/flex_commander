@@ -51,24 +51,24 @@ class PosixPty {
     int rows = 24,
   }) {
     if (!supported) {
-      throw PtyError('Псевдотерминал на ${Platform.operatingSystem} не поддерживается');
+      throw PtyError('A pseudo-terminal is not supported on ${Platform.operatingSystem}');
     }
 
     final libc = _Libc.instance;
     final master = libc.posixOpenpt(_oRdwr | _oNoctty);
     if (master < 0) {
-      throw PtyError('Не удалось открыть псевдотерминал (posix_openpt)');
+      throw PtyError('Could not open a pseudo-terminal (posix_openpt)');
     }
 
     if (libc.grantpt(master) != 0 || libc.unlockpt(master) != 0) {
       libc.close(master);
-      throw PtyError('Ведомая сторона псевдотерминала не открылась (grantpt/unlockpt)');
+      throw PtyError('Could not unlock the terminal slave side (grantpt/unlockpt)');
     }
 
     final slaveName = libc.ptsname(master);
     if (slaveName == nullptr) {
       libc.close(master);
-      throw PtyError('Имя ведомой стороны не получено (ptsname)');
+      throw PtyError('Could not get the slave side name (ptsname)');
     }
     final slavePath = slaveName.toDartString();
 
@@ -107,7 +107,7 @@ class PosixPty {
         // Каталога в файловых действиях нет на Linux со старой glibc, поэтому
         // проверяем сами: иначе программа тихо запустилась бы не там.
         if (!Directory(workingDirectory).existsSync()) {
-          throw PtyError('Каталог $workingDirectory не существует');
+          throw PtyError('Directory $workingDirectory does not exist');
         }
         _check(libc.fileActionsAddChdir(actions, workingDirectory.toNativeUtf8(allocator: arena)), 'addchdir');
       }
@@ -129,7 +129,7 @@ class PosixPty {
         libc.close(master);
         // Код возврата — это errno: «нет такой программы» (2) человек должен
         // увидеть словами, а не числом.
-        throw PtyError('Не удалось запустить $executable: ${_errorText(code)}');
+        throw PtyError('Could not start $executable: ${_errorText(code)}');
       }
 
       return PosixPty._(master, pid.value, slavePath);
@@ -223,9 +223,9 @@ class PosixPty {
   }
 
   static String _errorText(int code) => switch (code) {
-    2 => 'программа не найдена',
-    13 => 'нет прав на запуск',
-    _ => 'ошибка $code',
+    2 => 'program not found',
+    13 => 'not allowed to run',
+    _ => 'error $code',
   };
 }
 

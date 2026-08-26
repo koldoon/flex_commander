@@ -17,7 +17,7 @@ class TerminalScreenView extends StatelessWidget {
       title: 'Terminal',
       // Выход показан словами, а не клавишей ряда: `F10` внутри принадлежит
       // тому, что там запущено, — `htop` и `mc` им и живут.
-      hint: '⌃O — панели',
+      hint: '⌃O panels',
       session: screen.session,
     );
   }
@@ -38,9 +38,9 @@ class CommandRunView extends StatelessWidget {
         return _TerminalFrame(
           title: '\$ ${screen.command}',
           hint: switch (code) {
-            null => 'работает — ⌃C прервать',
-            0 => 'готово — любая клавиша',
-            final failed => 'выход $failed — любая клавиша',
+            null => 'running — ⌃C to interrupt',
+            0 => 'done — press any key',
+            final failed => 'exit $failed — press any key',
           },
           failed: code != null && code != 0,
           session: screen.session,

@@ -83,7 +83,7 @@ void main() {
   test('несуществующая программа объясняется словами', () {
     expect(
       () => const SystemPtyLauncher().start(executable: '/no/such/program', environment: const {}),
-      throwsA(isA<PtyError>().having((error) => error.message, 'message', contains('не найдена'))),
+      throwsA(isA<PtyError>().having((error) => error.message, 'message', contains('not found'))),
     );
   });
 

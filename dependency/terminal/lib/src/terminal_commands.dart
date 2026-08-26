@@ -30,7 +30,7 @@ class FocusCommandLineCommand extends AppCommand {
   String get label => 'Command line';
 
   @override
-  String get description => 'Ввод уходит в командную строку под панелями';
+  String get description => 'Move the input to the command line below the panels';
 
   /// Приглушённой строке ввод не отдаётся.
   ///
@@ -157,7 +157,7 @@ class ToggleTypingCommand extends AppCommand {
   String get label => 'Typing goes to command line';
 
   @override
-  String get description => 'Печать в панели уходит в строку вместо перехода к имени';
+  String get description => 'Typing in a panel goes to the command line instead of jumping to a name';
 
   @override
   bool isExecutable(CommandContext context) => _lineOf(context.app) != null;
@@ -189,7 +189,7 @@ class ToggleTerminalCommand extends AppCommand {
   String get label => 'Terminal';
 
   @override
-  String get description => 'Оболочка во весь экран';
+  String get description => 'The shell, full screen';
 
   @override
   bool isExecutable(CommandContext context) => true;
@@ -381,7 +381,7 @@ class CompletePathCommand extends AppCommand {
   String get label => forward ? 'Complete path' : 'Previous match';
 
   @override
-  String get description => 'Дополняет путь по началу имени';
+  String get description => 'Completes a path by the beginning of a name';
 
   /// Выполнима всегда, пока строка есть — как и `Enter`.
   ///
@@ -522,7 +522,7 @@ class RunCommandLineCommand extends AppCommand {
     } catch (error) {
       // Псевдотерминала на этой платформе может не быть вовсе. Молчать нельзя,
       // но и окна ради этого не ставим: сообщения хватает.
-      app.toasts.show('Оболочка не запустилась: $error');
+      app.toasts.show('Shell did not start: $error');
       return;
     }
 
