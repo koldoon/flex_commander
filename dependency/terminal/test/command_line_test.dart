@@ -90,12 +90,16 @@ void main() {
       expect(line.history, ['ls']);
     });
 
-    test('пустую строку выполнять нечем', () {
+    test('пустая строка ничего не выполняет — но Enter забирает себе', () {
       press('Cmd-T');
       type('   ');
 
-      expect(press('Enter'), isFalse);
+      // `true`, а не `false`: иначе `Enter` провалился бы в поле, а оно на нём
+      // снимает с себя фокус — курсор пропадал, ввод оставался за строкой, и
+      // клавиши панели молчали до самого `Esc`.
+      expect(press('Enter'), isTrue);
       expect(pty.started, isFalse);
+      expect(app.view.activeArea, ViewportPosition.bottom);
     });
 
     test('молчаливая успешная команда экрана не показывает', () async {
@@ -259,9 +263,10 @@ void main() {
     expect(line.enabled, isFalse);
     expect(line.workingDirectory, isNull);
 
-    press('Cmd-T');
-    type('rm -rf /');
-    expect(press('Enter'), isFalse);
+    // И ввод ей не отдаётся: поля нет, курсору взяться неоткуда, а клавиши
+    // панели должны работать.
+    expect(press('Cmd-T'), isFalse);
+    expect(app.view.activeArea, ViewportPosition.left);
     expect(pty.started, isFalse);
   });
 

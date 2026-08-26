@@ -31,8 +31,14 @@ class FocusCommandLineCommand extends AppCommand {
   @override
   String get description => 'Ввод уходит в командную строку под панелями';
 
+  /// Приглушённой строке ввод не отдаётся.
+  ///
+  /// На `ssh://` и в архиве поля ввода нет вовсе — строка объясняет, почему, —
+  /// и просить фокус там не для чего. Забери она ввод, курсора не появилось бы
+  /// нигде, а клавиши панели перестали бы работать: ровно тот разъезд, ради
+  /// которого видимое состояние здесь главнее.
   @override
-  bool isExecutable(CommandContext context) => _lineOf(context.app) != null;
+  bool isExecutable(CommandContext context) => _lineOf(context.app)?.enabled ?? false;
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -212,11 +218,15 @@ class RunCommandLineCommand extends AppCommand {
   @override
   String get label => 'Run';
 
+  /// Выполнима всегда, пока строка есть.
+  ///
+  /// Не «пока есть что выполнять»: `Enter` принадлежит строке целиком, и на
+  /// пустой он должен **ничего не сделать**, а не провалиться дальше. Ниже по
+  /// дереву стоит `TextField`, и он на `Enter` снимает с себя фокус
+  /// (`TextInputAction.done`) — курсор пропадал, а ввод по-прежнему числился за
+  /// строкой: клавиши панели не работали, пока не нажмёшь `Esc`.
   @override
-  bool isExecutable(CommandContext context) {
-    final line = _lineOf(context.app);
-    return line != null && line.enabled && !line.isEmpty;
-  }
+  bool isExecutable(CommandContext context) => _lineOf(context.app) != null;
 
   @override
   Future<void> execute(CommandContext context) async {

@@ -29,13 +29,40 @@ class _CommandLineViewState extends State<CommandLineView> {
   void initState() {
     super.initState();
     view.addListener(_syncFocus);
+    _node.addListener(_onFocusLost);
   }
 
   @override
   void dispose() {
     view.removeListener(_syncFocus);
+    _node.removeListener(_onFocusLost);
     _node.dispose();
     super.dispose();
+  }
+
+  /// Фокус ушёл из поля, а ввод всё ещё числится за строкой.
+  ///
+  /// Значит, кто-то забрал его мимо нас — окно команды, чужой виджет, сам
+  /// `TextField` по `Enter`. Курсора в строке нет, и человек справедливо
+  /// считает, что вернулся в панель; если ввод не отпустить, клавиши панели
+  /// работать не будут, пока он не нажмёт `Esc`. Видимое состояние здесь
+  /// главнее: нет курсора — нет и ввода.
+  void _onFocusLost() {
+    if (!mounted || _node.hasFocus || view.activeArea != ViewportPosition.bottom) {
+      return;
+    }
+    // Окно ушло к соседнему приложению — фокус стал ничьим. Это не «фокус
+    // забрали», и выводить из строки по этому поводу нельзя: человек вернётся
+    // и продолжит набирать. Признак тот же, что у обработчика клавиатуры.
+    final focus = FocusManager.instance.primaryFocus;
+    if (focus == null || focus is FocusScopeNode) {
+      return;
+    }
+
+    final panel = widget.state.panel;
+    if (panel != null) {
+      widget.state.app.activate(panel);
+    }
   }
 
   void _syncFocus() {

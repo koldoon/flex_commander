@@ -63,6 +63,46 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('Enter на пустой строке ничего не ломает: курсор на месте', (tester) async {
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    runtime.commands.dispatch(KeyCombination.parse('Cmd-T'));
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    // Ни курсор не пропал, ни ввод не потерялся: и то и другое у строки.
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'command line');
+    expect(runtime.app.view.activeArea, ViewportPosition.bottom);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('фокус увели мимо нас — ввод возвращается панели', (tester) async {
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    runtime.commands.dispatch(KeyCombination.parse('Cmd-T'));
+    await tester.pumpAndSettle();
+    expect(runtime.app.view.activeArea, ViewportPosition.bottom);
+
+    // `F7` из строки достаётся панели (функциональные — её), и окно забирает
+    // фокус себе. Видимое состояние главнее: курсора в строке нет, значит и
+    // ввода у неё нет.
+    await tester.sendKeyEvent(LogicalKeyboardKey.f7);
+    await tester.pumpAndSettle();
+
+    expect(dialogField(), findsWidgets);
+    expect(runtime.app.view.activeArea, ViewportPosition.left);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('Esc возвращает ввод панели, и поиск по букве оживает', (tester) async {
     await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
     await tester.pumpAndSettle();
