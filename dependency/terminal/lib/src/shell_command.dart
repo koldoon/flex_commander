@@ -24,12 +24,19 @@ class ShellCommand {
   ///
   /// `-i` — ради псевдонимов: `ll` и `gs` человек набирает в строке ровно так
   /// же, как в терминале, и «команда не найдена» на них было бы враньём.
-  /// Плата — чтение `.zshrc` на каждый запуск.
+  ///
+  /// `-l` — ради `PATH`. Приложение, запущенное из Finder, наследует куцый
+  /// системный `PATH` без `/opt/homebrew/bin` (это уже описано в
+  /// `providers.md`, 10), а дописывает его `~/.zprofile` — файл **login**-оболочки.
+  /// Без него в терминале не нашлось бы ничего, поставленного через Homebrew.
+  ///
+  /// Плата — чтение `.zprofile` и `.zshrc` на каждый запуск: доли секунды,
+  /// зависящие от того, что человек туда сложил.
   factory ShellCommand.line(String shell, String command) {
     if (_isWindowsShell(shell)) {
       return ShellCommand(shell, ['/c', command]);
     }
-    return ShellCommand(shell, ['-ic', command]);
+    return ShellCommand(shell, ['-lic', command]);
   }
 
   /// Оболочка, живущая своей жизнью: та самая постоянная сессия.
@@ -37,7 +44,7 @@ class ShellCommand {
     if (_isWindowsShell(shell)) {
       return ShellCommand(shell, const []);
     }
-    return ShellCommand(shell, const ['-i']);
+    return ShellCommand(shell, const ['-l', '-i']);
   }
 
   static bool _isWindowsShell(String shell) => shell.toLowerCase().endsWith('cmd.exe');

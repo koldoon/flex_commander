@@ -113,7 +113,9 @@ class PosixPty {
       }
 
       final argv = _toArray(arena, [executable, ...arguments]);
-      final envp = _toArray(arena, [for (final entry in environment.entries) '${entry.key}=${entry.value}']);
+      final envp = _toArray(arena, [
+        for (final entry in _environmentFor(environment).entries) '${entry.key}=${entry.value}',
+      ]);
       final pid = arena<Int32>();
 
       final code = libc.spawnp(pid, executable.toNativeUtf8(allocator: arena).cast(), actions, attributes, argv, envp);
@@ -181,6 +183,28 @@ class PosixPty {
     } finally {
       calloc.free(size);
     }
+  }
+
+  /// Окружение потомка: наше плюс то, без чего псевдотерминал бесполезен.
+  ///
+  /// **Наследуется, а не заменяется.** Пустое окружение стоило кириллицы: без
+  /// `LANG` оболочка считает UTF-8 побайтно, и `Backspace` стирает половину
+  /// двухбайтового символа — на экране остаётся мусор. Без `PATH` не находится
+  /// ничего, без `HOME` не читаются настройки.
+  ///
+  /// `TERM` ставится всегда: программа по нему решает, что она умеет, а
+  /// незаданный означает «дурной терминал» — без цветов, без перерисовки и без
+  /// строчного редактора у оболочки.
+  static Map<String, String> _environmentFor(Map<String, String> extra) {
+    final environment = <String, String>{...Platform.environment};
+    environment['TERM'] = 'xterm-256color';
+    // Локаль — только если её нет: чужую менять нельзя, человек мог выбрать
+    // свою нарочно.
+    if (!environment.containsKey('LANG') && !environment.containsKey('LC_ALL')) {
+      environment['LANG'] = 'en_US.UTF-8';
+    }
+    environment.addAll(extra);
+    return environment;
   }
 
   static Pointer<Pointer<Utf8>> _toArray(Arena arena, List<String> values) {
