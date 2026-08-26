@@ -114,6 +114,28 @@ void main() {
     expect(text, contains('dumb'), reason: 'заданное вызывающим не должно теряться');
   });
 
+  test('молчащая программа изолят чтения не запирает', () async {
+    // Ожидание ограничено по времени нарочно: изолят, висящий в системном
+    // вызове, до точки останова не доходит — его нельзя ни остановить, ни
+    // разобрать вместе с группой, и на этом спотыкается перезапуск приложения.
+    final session = const SystemPtyLauncher().start(
+      executable: '/bin/sh',
+      arguments: const ['-c', 'sleep 5'],
+      environment: const {},
+    );
+
+    // Программа молчит всё это время, а чтение обязано пережить молчание и
+    // остаться живым: следом за паузой она скажет своё слово.
+    await Future<void>.delayed(Duration(milliseconds: PtyReader.waitMs * 3));
+    session.write(utf8.encode(''));
+
+    final output = StringBuffer();
+    session.output.listen((chunk) => output.write(utf8.decode(chunk, allowMalformed: true)));
+    await session.kill();
+
+    expect(await session.exitCode, isNot(0), reason: 'убитая программа успешной не выглядит');
+  });
+
   test('ввод доходит до программы', () async {
     final session = const SystemPtyLauncher().start(
       executable: '/bin/sh',

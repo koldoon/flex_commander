@@ -247,6 +247,24 @@ final int _tiocswinsz = Platform.isMacOS ? 0x80087467 : 0x5414;
 final int _posixSpawnSetsid = Platform.isMacOS ? 0x0400 : 0x80;
 const int _sigterm = 15;
 
+/// Что и с каким исходом ждать: `struct pollfd`.
+final class _PollFd extends Struct {
+  @Int32()
+  external int fd;
+
+  @Int16()
+  external int events;
+
+  @Int16()
+  external int revents;
+}
+
+/// «Есть что читать» — одинаково на macOS и Linux.
+const int _pollIn = 0x0001;
+
+/// `EINTR`: вызов прервали сигналом, это не ошибка.
+const int _eintr = 4;
+
 final class _WinSize extends Struct {
   @Uint16()
   external int rows;
@@ -294,6 +312,17 @@ class _Libc {
       .lookupFunction<IntPtr Function(Int32, Pointer<Uint8>, IntPtr), int Function(int, Pointer<Uint8>, int)>('read');
   late final write = _library
       .lookupFunction<IntPtr Function(Int32, Pointer<Uint8>, IntPtr), int Function(int, Pointer<Uint8>, int)>('write');
+
+  /// Ожидание готовности с ограничением по времени — вместо вечного `read`.
+  late final poll = _library
+      .lookupFunction<Int32 Function(Pointer<_PollFd>, UnsignedLong, Int32), int Function(Pointer<_PollFd>, int, int)>(
+        'poll',
+      );
+
+  /// `errno` живёт в потоке, и добираются до него по-разному.
+  late final errno = _library.lookupFunction<Pointer<Int32> Function(), Pointer<Int32> Function()>(
+    Platform.isMacOS ? '__error' : '__errno_location',
+  );
 
   late final waitpid = _library
       .lookupFunction<Int32 Function(Int32, Pointer<Int32>, Int32), int Function(int, Pointer<Int32>, int)>('waitpid');
@@ -374,17 +403,45 @@ class _Libc {
 class PtyReader {
   static const int bufferSize = 64 * 1024;
 
+  /// Сколько ждать готовности за раз.
+  ///
+  /// Не «сколько можно»: изолят, висящий в системном вызове, до точки останова
+  /// не доходит — его нельзя ни остановить, ни разобрать вместе с группой. На
+  /// этом спотыкается перезапуск приложения (hot restart): корневой изолят
+  /// пересоздаётся **внутри того же процесса**, и застрявший сосед этому мешает.
+  /// Поэтому ожидание ограничено: раз в четверть секунды управление возвращается
+  /// в Dart, и остановить изолят становится можно.
+  static const int waitMs = 250;
+
   /// Читает, пока читается, и отдаёт прочитанное в [port].
   ///
-  /// Чтение блокирующее — потому и в своём изоляте. Конец ведомой стороны
-  /// приходит как `EIO` (или ноль байт): для псевдотерминала это обычное «все
-  /// закрыли», а не ошибка.
+  /// Конец ведомой стороны приходит как `EIO` (или ноль байт): для
+  /// псевдотерминала это обычное «все закрыли», а не ошибка.
   static void run((int, int, SendPort) request) {
     final (fd, pid, port) = request;
     final libc = _Libc.bind();
     final buffer = calloc<Uint8>(bufferSize);
+    final waiting = calloc<_PollFd>();
     try {
+      waiting.ref
+        ..fd = fd
+        ..events = _pollIn
+        ..revents = 0;
+
       while (true) {
+        final ready = libc.poll(waiting, 1, waitMs);
+        if (ready < 0) {
+          if (libc.errno().value == _eintr) {
+            continue;
+          }
+          break;
+        }
+        if (ready == 0) {
+          // Программа молчит. Это не повод висеть в системном вызове: сходили
+          // в Dart — и обратно.
+          continue;
+        }
+
         final count = libc.read(fd, buffer, bufferSize);
         if (count <= 0) {
           break;
@@ -393,6 +450,7 @@ class PtyReader {
       }
     } finally {
       calloc.free(buffer);
+      calloc.free(waiting);
     }
 
     port.send(_exitCodeOf(libc, pid));

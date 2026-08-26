@@ -40,10 +40,16 @@ class SystemPtyLauncher implements PtyLauncher {
 class _SystemPtySession implements PtySession {
   _SystemPtySession(this._pty) {
     _messages.listen(_onMessage);
-    unawaited(Isolate.spawn(PtyReader.run, (_pty.master, _pty.pid, _messages.sendPort), debugName: 'pty:${_pty.pid}'));
+    _reader = Isolate.spawn(PtyReader.run, (_pty.master, _pty.pid, _messages.sendPort), debugName: 'pty:${_pty.pid}');
   }
 
   final PosixPty _pty;
+
+  /// Изолят чтения: его надо чем-то остановить, когда программа кончилась.
+  ///
+  /// Сам он выйдет и так — но не мгновенно: последним делом он ждёт кода
+  /// возврата. Оставлять висеть незачем, а без ссылки его и не остановить.
+  late final Future<Isolate> _reader;
   final ReceivePort _messages = ReceivePort();
   final StreamController<Uint8List> _output = StreamController<Uint8List>.broadcast();
   final Completer<int> _exit = Completer<int>();
@@ -89,5 +95,6 @@ class _SystemPtySession implements PtySession {
     _messages.close();
     _pty.closeMaster();
     unawaited(_output.close());
+    unawaited(_reader.then((isolate) => isolate.kill(priority: Isolate.immediate)));
   }
 }
