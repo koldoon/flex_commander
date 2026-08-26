@@ -28,6 +28,21 @@ class LocalFileSystem implements FcModule {
     // лежит в домашнем каталоге, а где он — знает провайдер, который здесь
     // только создаётся.
     final settings = registry.settings;
+
+    registry.settingsSchema(
+      () => SettingsSchema([
+        SettingsField.integer(
+          'copyProgressMinBytes',
+          title: 'Show progress inside a file from',
+          unit: 'bytes',
+          description: 'Below this size a copy is counted whole: the progress costs more than the copy',
+          min: 0,
+          max: 1024 * 1024 * 1024,
+          read: () => settings.section(LocalFsSettings.new).copyProgressMinBytes,
+          write: (value) => settings.section(LocalFsSettings.new).copyProgressMinBytes = value,
+        ),
+      ], save: settings.save),
+    );
     registry.rootProvider((services) => LocalTreeProvider(settings: () => settings.section(LocalFsSettings.new)));
 
     // Место для временных файлов: им пользуются те, кому нужен настоящий файл

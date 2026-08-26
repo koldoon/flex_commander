@@ -3,6 +3,7 @@ import '../commands/app_command.dart';
 import '../app/panel_viewport.dart';
 import '../app/views.dart';
 import '../settings/module_settings.dart';
+import '../settings/settings_schema.dart';
 import '../tree/provider_registry.dart';
 import '../tree/tree_provider.dart';
 import '../theme/theme_service.dart';
@@ -102,6 +103,14 @@ abstract interface class FcRegistry {
   /// Ключ — точный тип: связь «состояние ↔ вид» проверяет компилятор. Два вида
   /// на один тип — ошибка сборки, а не тихая победа последнего.
   void view<S extends Object>(StateViewBuilder<S> builder);
+
+  /// Из чего состоит раздел настроек этого модуля — чтобы ядро нарисовало
+  /// окно настроек.
+  ///
+  /// Фабрика, а не готовая схема: во время объявления настройки ещё не
+  /// прочитаны с диска, и строить её тогда нечем. Зовётся, когда окно
+  /// открывают.
+  void settingsSchema(SettingsSchema Function() factory);
 
   /// Служба для ядра и других модулей: разрешается по типу через [FcServices].
   void service<T extends Object>(T Function(FcServices services) factory);

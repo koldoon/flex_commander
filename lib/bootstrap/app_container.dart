@@ -122,6 +122,9 @@ class AppContainer extends DI {
     );
 
     bind<Views>(to: (c) => ViewRegistry(registrations.views));
+
+    // Разделы окна настроек: собраны при объявлении, строятся при открытии.
+    bind<SettingsCatalog>(to: (c) => _Catalog(registrations.settingsPages));
   }
 
   void _bindSettings() {
@@ -206,6 +209,17 @@ class AppContainer extends DI {
       },
     );
   }
+}
+
+/// Разделы настроек — реализация [SettingsCatalog].
+///
+/// Отдельным классом, а не списком наружу: окно спрашивает службу по типу и о
+/// сборке приложения не знает.
+class _Catalog implements SettingsCatalog {
+  const _Catalog(this.pages);
+
+  @override
+  final List<SettingsPage> pages;
 }
 
 /// Окружение команд модуля: службы плюс само приложение.

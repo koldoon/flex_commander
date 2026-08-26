@@ -17,3 +17,4 @@ export 'src/controls.dart';
 export 'src/fc_theme.dart';
 export 'src/key_value_table.dart';
 export 'src/panel_frame.dart';
+export 'src/settings_form.dart';

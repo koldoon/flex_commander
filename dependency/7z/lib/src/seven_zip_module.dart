@@ -29,6 +29,20 @@ class SevenZipArchiver implements FcModule {
     // чужим. Содержимое раздела к моменту вызова фабрики уже прочитано.
     final settings = registry.settings;
 
+    registry.settingsSchema(
+      () => SettingsSchema([
+        SettingsField.text(
+          'binary',
+          title: '7z program',
+          hint: 'found on PATH',
+          description: 'Full path — for when it is installed somewhere unusual',
+          note: 'Applies to the next archive opened',
+          read: () => settings.section(SevenZipSettings.new).binary,
+          write: (value) => settings.section(SevenZipSettings.new).binary = value,
+        ),
+      ], save: settings.save),
+    );
+
     // Программа одна на приложение: она запоминает, где лежит и какие ключи
     // понимает, и выяснять это заново на каждом архиве незачем.
     registry.service<SevenZipCli>(

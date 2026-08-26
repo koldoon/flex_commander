@@ -80,7 +80,9 @@ void main() {
 
       expect(find.byType(FcKeyValueTable), findsOneWidget);
       expect(find.text('Help'), findsWidgets);
-      expect(inHelp(find.text('Settings')), findsOneWidget);
+      // «Settings» в справке двое: заголовок раздела настроек приложения и
+      // подпись команды, открывающей их окно.
+      expect(inHelp(find.text('Settings')), findsNWidgets(2));
       // Команды показаны по модулям: заголовок раздела — название модуля, а не
       // общее «Commands». Первым — тот, кто объявлен первым.
       expect(inHelp(find.text('Application shell')), findsOneWidget);
@@ -236,10 +238,21 @@ void main() {
     });
 
     testWidgets('нереализованные команды не притворяются рабочими', (tester) async {
+      // Без просмотрщика: `F3` держит заглушка оболочки, и справка обязана
+      // сказать об этом прямо, а не показать клавишу как рабочую.
+      app =
+          (await testApp(
+            provider: provider,
+            modules: [
+              for (final module in featureModules())
+                if (module.id != 'fc.viewer') module,
+            ],
+          )).app;
       await openHelp(tester);
 
-      // `F2` пока за заглушкой: клавиша закреплена, а меню ещё нет.
-      expect(rowOf(tester, 'Menu'), ['F2', 'Not implemented yet']);
+      expect(rowOf(tester, 'View'), ['F3', 'Not implemented yet']);
+      // А меню больше нет вовсе: `F2` занят настройками, заглушка убрана.
+      expect(inHelp(find.text('Menu')), findsNothing);
     });
 
     testWidgets('пришедший модулем занимает место заглушки', (tester) async {

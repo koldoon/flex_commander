@@ -39,7 +39,7 @@ Future<AppRuntime> initModules(List<FcModule> modules, {AppOverrides overrides =
   if (container.context case final RuntimeContext context) {
     context.app = app;
   }
-  final runtime = AppRuntime(app: app, modules: registrations.modules);
+  final runtime = AppRuntime(app: app, modules: registrations.modules, services: registrations.services);
 
   // Шаг 5: выполняются стартовые команды модулей.
   await _runStartupCommands(container, registrations);

@@ -47,6 +47,37 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
       (services) => _shell ??= ShellSession(launcher: services.resolve<PtyLauncher>(), settings: settingsOf),
     );
 
+    registry.settingsSchema(
+      () => SettingsSchema([
+        SettingsField.flag(
+          'typingGoesToLine',
+          title: 'Typing goes to the command line',
+          description: 'The mc habit: no jump-to-name by the first letter',
+          read: () => settingsOf().typingGoesToLine,
+          write: (value) => settingsOf().typingGoesToLine = value,
+        ),
+        SettingsField.text(
+          'shell',
+          title: 'Shell',
+          hint: r'$SHELL',
+          description: 'Empty means the shell you work in',
+          note: 'Applies to the next session (⌃O)',
+          read: () => settingsOf().shell,
+          write: (value) => settingsOf().shell = value,
+        ),
+        SettingsField.integer(
+          'maxLines',
+          title: 'Scrollback',
+          unit: 'lines',
+          min: 100,
+          max: 200000,
+          note: 'Applies to the next session (⌃O)',
+          read: () => settingsOf().maxLines,
+          write: (value) => settingsOf().maxLines = value,
+        ),
+      ], save: settings.save),
+    );
+
     registry.view<CommandLineState>((context, state) => CommandLineView(state: state));
     registry.view<TerminalScreen>((context, state) => TerminalScreenView(screen: state));
     registry.view<CommandRunScreen>((context, state) => CommandRunView(screen: state));

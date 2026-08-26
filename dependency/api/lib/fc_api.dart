@@ -57,6 +57,7 @@ export 'src/panel/sort_spec.dart';
 export 'src/serialization.dart';
 export 'src/settings/app_settings.dart';
 export 'src/settings/module_settings.dart';
+export 'src/settings/settings_schema.dart';
 export 'src/settings/window_geometry.dart';
 
 // --- Оформление: роли, а не то, чем их рисуют ---

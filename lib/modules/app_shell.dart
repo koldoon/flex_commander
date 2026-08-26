@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 
 import '../state/commands/help_command.dart';
+import '../state/commands/settings_command.dart';
 import '../state/credentials_controller.dart';
 
 /// Оболочка приложения: то, что есть у файлового менеджера всегда.
@@ -14,7 +15,6 @@ class AppShell implements FcModule {
   /// Обещания клавиш: команды за ними появятся модулями, а сами клавиши
   /// заняты уже сейчас. Идентификаторы объявлены здесь — своих классов у
   /// заглушек нет.
-  static const String menuCommand = 'app.menu';
   static const String viewCommand = 'file.view';
   static const String editCommand = 'file.edit';
 
@@ -41,11 +41,46 @@ class AppShell implements FcModule {
     registry.binding(KeyBinding('F1', HelpCommand.commandId));
 
     // Ещё не реализованное: клавиша закреплена, кнопка показана и приглушена.
-    registry.command((context) => PlaceholderCommand(id: menuCommand, label: 'Menu'));
     registry.command((context) => PlaceholderCommand(id: viewCommand, label: 'View'));
     registry.command((context) => PlaceholderCommand(id: editCommand, label: 'Edit'));
-    registry.binding(KeyBinding('F2', menuCommand));
     registry.binding(KeyBinding('F3', viewCommand));
     registry.binding(KeyBinding('F4', editCommand));
+
+    // Настройки на `F2` — вместо заглушки «Menu», которой там больше нет.
+    //
+    // Меню в этом приложении не появится: строка меню macOS остаётся системной,
+    // а всё, что предложило бы меню приложения, лучше делает палитра команд —
+    // она ищет по названию, показывает клавиши и не требует мыши.
+    registry.command((context) => SettingsCommand(catalog: () => context.resolve<SettingsCatalog>()));
+    registry.binding(KeyBinding('F2', SettingsCommand.commandId));
+    // Привычка macOS. Действует и в просмотрщике, и в редакторе: настройки —
+    // не про то, что сейчас на экране.
+    registry.binding(KeyBinding.anywhere('Cmd-,', SettingsCommand.commandId));
+
+    // Настройки самого приложения: своего модуля у ядра нет, а выбор есть.
+    final settings = registry.settings;
+    registry.settingsSchema(() {
+      final app = registry.services.resolve<Application>();
+      return SettingsSchema([
+        // Тема — выбор из установленных, и знает их служба оформления, а не
+        // модуль темы: тот объявляет только себя.
+        SettingsField.choice(
+          'themeId',
+          title: 'Theme',
+          options: {for (final theme in app.theme.available) theme.id: theme.title},
+          read: () => app.theme.current.id,
+          write: (value) => app.theme.use(value),
+        ),
+        SettingsField.integer(
+          'sizeScanConcurrency',
+          title: 'Directory size scans',
+          description: 'How many directories are measured at once',
+          min: 1,
+          max: 64,
+          read: () => app.settings.sizeScanConcurrency,
+          write: (value) => app.settings.sizeScanConcurrency = value,
+        ),
+      ], save: settings.save);
+    });
   }
 }

@@ -189,7 +189,7 @@ CommandRegistry.dispatch(combination, app)
 | `Shift-F8`, `Shift-Cmd-Backspace` | `file.removePermanently` | удалить мимо корзины |
 | `F3` | `file.view` | просмотр файла во весь экран (`docs/screens.md`) |
 | `F4` | `file.edit` | правка файла во весь экран (`docs/screens.md`) |
-| `F2` | `app.menu` | меню приложения — *ещё не реализовано* |
+| `F2`, `Cmd-,` | `app.settings` | настройки: всё, что человек выбирает, в одном окне |
 | `F1` | `app.help` | справка: настройки и привязки клавиш таблицей |
 
 Отличие от референса: там `Backspace` был привязан к удалению (по-макосьи), а «наверх»

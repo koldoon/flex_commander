@@ -84,6 +84,9 @@ class Registrations implements FcRegistry {
   final List<FcCommandFactory> startupCommands = [];
   final List<FcThemeSpec> themes = [];
 
+  /// Разделы окна настроек — в порядке объявления модулей, с их же названиями.
+  final List<SettingsPage> settingsPages = [];
+
   /// Виды содержимого панели: имя вида → чем рисовать.
   final Map<String, PanelViewportBuilder> viewports = {};
 
@@ -180,6 +183,11 @@ class Registrations implements FcRegistry {
       return '';
     }
     return modules.firstWhere((module) => module.id == id).title;
+  }
+
+  @override
+  void settingsSchema(SettingsSchema Function() factory) {
+    settingsPages.add(SettingsPage(title: _ownerTitle, build: factory));
   }
 
   @override

@@ -38,10 +38,26 @@ class AppOverrides {
 /// То, что нужно `runApp` и тестам: само приложение, его службы и способ всё
 /// это закрыть.
 class AppRuntime {
-  AppRuntime({required this.app, required List<FcModule> modules}) : _modules = modules;
+  AppRuntime({required this.app, required List<FcModule> modules, FcServices? services})
+    : _modules = modules,
+      _services = services;
 
   final AppController app;
   final List<FcModule> _modules;
+  final FcServices? _services;
+
+  /// Служба приложения — та же, что видят фабрики модулей.
+  ///
+  /// Нужна тестам: приложение отдаёт наружу панели, команды и оформление, а
+  /// проверить иногда надо и то, что живёт службой, — например разделы окна
+  /// настроек. Бросает, если приложение собрано без графа зависимостей.
+  T resolve<T>() {
+    final services = _services;
+    if (services == null) {
+      throw StateError('Приложение собрано без служб: спрашивать нечего');
+    }
+    return services.resolve<T>();
+  }
 
   /// Модули в порядке установки.
   List<FcModule> get modules => List.unmodifiable(_modules);

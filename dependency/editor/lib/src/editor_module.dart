@@ -36,6 +36,32 @@ class TextEditor implements FcModule {
 
     // `F4` уже закреплена оболочкой за этим идентификатором — команда занимает
     // место заглушки.
+    registry.settingsSchema(
+      () => SettingsSchema([
+        SettingsField.flag(
+          'wordWrap',
+          title: 'Wrap long lines',
+          read: () => settingsOf().wordWrap,
+          write: (value) => settingsOf().wordWrap = value,
+        ),
+        SettingsField.flag(
+          'showLineNumbers',
+          title: 'Show line numbers',
+          read: () => settingsOf().showLineNumbers,
+          write: (value) => settingsOf().showLineNumbers = value,
+        ),
+        SettingsField.integer(
+          'maxFileSize',
+          title: 'Largest file to open',
+          unit: 'bytes',
+          min: 1024,
+          max: 100 * 1024 * 1024,
+          read: () => settingsOf().maxFileSize,
+          write: (value) => settingsOf().maxFileSize = value,
+        ),
+      ], save: settings.save),
+    );
+
     registry.command((context) => EditFileCommand(settings: settingsOf(), onSettingsChanged: settings.save));
 
     registry.command((context) => SaveFileCommand());
