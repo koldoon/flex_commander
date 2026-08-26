@@ -90,6 +90,22 @@ class _TerminalFrame extends StatelessWidget {
                 session.terminal,
                 autofocus: true,
                 backgroundOpacity: 0,
+                // Только железная клавиатура — без подключения к системному
+                // текстовому вводу.
+                //
+                // Иначе на macOS система забирает нажатия себе: `Backspace`
+                // уходит в `deleteBackward:` текстового поля, которого у нас
+                // нет, и до терминала не доходит вовсе, а буквы приезжают
+                // разбором ввода, который на чужой раскладке врёт. Здесь же
+                // клавиша приходит как есть: служебные разбирает таблица
+                // `xterm` (`Backspace` — `\x7f`, `Tab` — `\x9`, `Ctrl-A` —
+                // `\x1`), а печатные берутся из `event.character` — того
+                // самого символа, который дала раскладка.
+                //
+                // Цена — составной ввод (китайский, японский, мёртвые клавиши):
+                // в терминале его не будет. Для оболочки это меньшая потеря,
+                // чем неработающий `Backspace`.
+                hardwareKeyboardOnly: true,
                 textStyle: TerminalStyle(fontFamily: theme.fonts.fixed, fontSize: metrics.fontSize),
               ),
             ),
