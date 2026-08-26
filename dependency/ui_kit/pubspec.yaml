@@ -19,5 +19,10 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+  # Подставки и подъём виджета в дереве: `pumpScreen` собирает тему и область
+  # приложения, а без них ни одну форму не проверить.
+  fc_test_kit:
+    path: ../test_kit
+
   fc_default_theme:
     path: ../default_theme

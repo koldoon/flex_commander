@@ -314,7 +314,9 @@ class _TransferFormState extends State<_TransferForm> {
             onSubmitted: (_) => run.submit(),
           ),
         ),
-        FcCheckbox(label: 'Follow symlinks', value: run.followLinks, onChanged: run.setFollowLinks),
+        CommandDialogField.wide(
+          child: FcCheckbox(label: 'Follow symlinks', value: run.followLinks, onChanged: run.setFollowLinks),
+        ),
       ],
     );
   }

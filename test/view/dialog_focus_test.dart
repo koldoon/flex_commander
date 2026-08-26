@@ -63,10 +63,12 @@ void main() {
                           child: FcTextField(controller: TextEditingController(text: '/home'), enabled: false),
                         ),
                       CommandDialogField(label: 'To', child: FcTextField(controller: text, autofocus: true)),
-                      FcCheckbox(
-                        label: 'Follow symlinks',
-                        value: checked,
-                        onChanged: (value) => setState(() => checked = value),
+                      CommandDialogField.wide(
+                        child: FcCheckbox(
+                          label: 'Follow symlinks',
+                          value: checked,
+                          onChanged: (value) => setState(() => checked = value),
+                        ),
                       ),
                       CommandDialogField(
                         label: 'Compression',

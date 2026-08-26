@@ -70,7 +70,6 @@ class _CredentialsDialogState extends State<_CredentialsDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
-    final metrics = theme.metrics;
     final request = widget.request;
 
     return DialogFrame(
@@ -86,26 +85,17 @@ class _CredentialsDialogState extends State<_CredentialsDialog> {
         onSubmit: _submit,
         submitLabel: 'Unlock',
         children: [
-          Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(request.message, style: theme.dialogTextStyle),
-              SizedBox(height: metrics.dialogGap),
-              for (final field in request.fields) ...[
-                if (field != request.fields.first) SizedBox(height: metrics.dialogGap),
-                CommandDialogField(
-                  label: field.label,
-                  child: FcTextField(
-                    controller: _inputs[field.name]!,
-                    autofocus: field == request.fields.first,
-                    obscureText: field.secret,
-                    onSubmitted: (_) => _submit(),
-                  ),
-                ),
-              ],
-            ],
-          ),
+          CommandDialogField.wide(child: Text(request.message, style: theme.dialogTextStyle)),
+          for (final field in request.fields)
+            CommandDialogField(
+              label: field.label,
+              child: FcTextField(
+                controller: _inputs[field.name]!,
+                autofocus: field == request.fields.first,
+                obscureText: field.secret,
+                onSubmitted: (_) => _submit(),
+              ),
+            ),
         ],
       ),
     );

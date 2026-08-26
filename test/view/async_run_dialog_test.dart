@@ -42,7 +42,7 @@ void main() {
                       onSubmit: run.submit,
                       submitLabel: 'Go',
                       error: run.error,
-                      children: const [Text('форма')],
+                      children: const [CommandDialogField.wide(child: Text('форма'))],
                     ),
               ),
             ),

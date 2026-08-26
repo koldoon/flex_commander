@@ -548,7 +548,9 @@ class _CreateArchiveFormState extends State<_CreateArchiveForm> {
             onSubmitted: (_) => run.submit(),
           ),
         ),
-        FcCheckbox(label: 'Follow symlinks', value: run.followLinks, onChanged: run.setFollowLinks),
+        CommandDialogField.wide(
+          child: FcCheckbox(label: 'Follow symlinks', value: run.followLinks, onChanged: run.setFollowLinks),
+        ),
         CommandDialogField(
           label: 'Compression',
           child: FcRadioGroup<ZipCompression>(

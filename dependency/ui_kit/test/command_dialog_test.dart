@@ -7,7 +7,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   const metrics = DefaultMetrics();
 
-  Future<void> pump(WidgetTester tester, List<Widget> children, {String? error}) async {
+  Future<void> pump(WidgetTester tester, List<CommandDialogField> children, {String? error}) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(
@@ -79,24 +79,27 @@ void main() {
     // Иначе каждое окно расставляет его вручную, а забывшее — слепляет поля
     // друг с другом: ровно так и вышло с окном поиска.
     await pump(tester, const [
-      CommandDialogField(label: 'One', child: SizedBox(height: 24)),
-      FcCheckbox(label: 'Two', value: false, onChanged: null),
-      FcCheckbox(label: 'Three', value: false, onChanged: null),
+      CommandDialogField(label: 'One', child: SizedBox(key: ValueKey('one'), height: 24)),
+      CommandDialogField.wide(child: SizedBox(key: ValueKey('two'), height: 24)),
+      CommandDialogField.wide(child: SizedBox(key: ValueKey('three'), height: 24)),
     ]);
 
-    final first = tester.getRect(find.byType(CommandDialogField));
-    final checkboxes = tester.widgetList<FcCheckbox>(find.byType(FcCheckbox)).toList();
-    final second = tester.getRect(find.byWidget(checkboxes[0]));
-    final third = tester.getRect(find.byWidget(checkboxes[1]));
+    // Меряется содержимое строк, а не подписи: подпись стоит по середине своей
+    // строки, и расстояние от неё до соседней зависит от высоты содержимого.
+    final first = tester.getRect(find.byKey(const ValueKey('one')));
+    final second = tester.getRect(find.byKey(const ValueKey('two')));
+    final third = tester.getRect(find.byKey(const ValueKey('three')));
 
     expect(second.top - first.bottom, closeTo(metrics.dialogGap, 0.01));
     expect(third.top - second.bottom, closeTo(metrics.dialogGap, 0.01));
   });
 
   testWidgets('сообщение об ошибке отделено тем же зазором', (tester) async {
-    await pump(tester, const [CommandDialogField(label: 'One', child: SizedBox(height: 24))], error: 'не вышло');
+    await pump(tester, const [
+      CommandDialogField(label: 'One', child: SizedBox(key: ValueKey('one'), height: 24)),
+    ], error: 'не вышло');
 
-    final field = tester.getRect(find.byType(CommandDialogField));
+    final field = tester.getRect(find.byKey(const ValueKey('one')));
     final message = tester.getRect(find.text('не вышло'));
 
     expect(message.top - field.bottom, closeTo(metrics.dialogGap, 0.01));

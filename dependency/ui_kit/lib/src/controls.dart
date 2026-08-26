@@ -134,7 +134,10 @@ class _FcCheckboxState extends State<FcCheckbox> {
                             : null,
                   ),
                   SizedBox(width: metrics.checkboxGap),
-                  FcText(label),
+                  // Подпись уступает, если места мало: в форме флаг стоит в
+                  // столбце значений, а тот бывает узким. Раньше флаг занимал
+                  // всю ширину окна и упереться ему было не во что.
+                  Flexible(child: FcText(label)),
                 ],
               ),
             ),
@@ -314,7 +317,8 @@ class _FcRadioOption<T> extends StatelessWidget {
                         : null,
               ),
               SizedBox(width: metrics.checkboxGap),
-              FcText(label),
+              // Подпись уступает, если места мало — как и у флага.
+              Flexible(child: FcText(label)),
             ],
           ),
         ),

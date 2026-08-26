@@ -89,6 +89,11 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get labelPadding => ref(20);
 
+  /// 230 точек при обычном масштабе: столько вмещает разумно длинную подпись
+  /// («Show progress inside a file from»), не отбирая места у значений.
+  @override
+  double get dialogLabelMaxWidth => ref(575);
+
   @override
   double get columnGap => ref(20);
 

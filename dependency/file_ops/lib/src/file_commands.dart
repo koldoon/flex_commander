@@ -162,23 +162,16 @@ class _MakeDirectoryFormState extends State<_MakeDirectoryForm> {
             submitLabel: 'Create',
             // Поля те же, что в референсе: имя и каталог, в котором создаём.
             children: [
-              Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  CommandDialogField(label: 'Inside', child: FcTextField(controller: _inside, enabled: false)),
-                  SizedBox(height: FcTheme.of(context).metrics.dialogGap),
-                  CommandDialogField(
-                    label: 'Make directory',
-                    child: FcTextField(
-                      controller: _name,
-                      autofocus: true,
-                      hintText: 'Directory name',
-                      onChanged: (value) => state.name = value,
-                      onSubmitted: (_) => state.submit(),
-                    ),
-                  ),
-                ],
+              CommandDialogField(label: 'Inside', child: FcTextField(controller: _inside, enabled: false)),
+              CommandDialogField(
+                label: 'Make directory',
+                child: FcTextField(
+                  controller: _name,
+                  autofocus: true,
+                  hintText: 'Directory name',
+                  onChanged: (value) => state.name = value,
+                  onSubmitted: (_) => state.submit(),
+                ),
               ),
             ],
           ),

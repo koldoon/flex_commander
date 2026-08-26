@@ -29,7 +29,9 @@ class CommandDialogForm extends StatelessWidget {
     this.busy = false,
   });
 
-  final List<Widget> children;
+  /// Строки формы — описаниями, а не виджетами: столбец подписей один на всю
+  /// форму, и разложить её может только тот, кто видит их все сразу.
+  final List<CommandDialogField> children;
   final VoidCallback onCancel;
   final VoidCallback onSubmit;
   final String submitLabel;
@@ -43,7 +45,7 @@ class CommandDialogForm extends StatelessWidget {
         FcButton(label: 'Cancel', onPressed: onCancel),
         FcButton(label: submitLabel, onPressed: busy ? null : onSubmit, primary: true),
       ],
-      children: [...children, if (error != null) FcErrorText(message: error!)],
+      children: [...children, if (error != null) CommandDialogField.wide(child: FcErrorText(message: error!))],
     );
   }
 }
@@ -73,8 +75,8 @@ class CommandDialogConfirm extends StatelessWidget {
         FcButton(label: confirmLabel, onPressed: onConfirm, primary: true),
       ],
       children: [
-        Text(message, style: FcTheme.of(context).dialogTextStyle),
-        if (error != null) FcErrorText(message: error!),
+        CommandDialogField.wide(child: Text(message, style: FcTheme.of(context).dialogTextStyle)),
+        if (error != null) CommandDialogField.wide(child: FcErrorText(message: error!)),
       ],
     );
   }
@@ -312,7 +314,7 @@ class _CommandDialogQuestionState extends State<CommandDialogQuestion> {
           ),
       ],
       children: [
-        Text(request.message, style: FcTheme.of(context).dialogTextStyle),
+        CommandDialogField.wide(child: Text(request.message, style: FcTheme.of(context).dialogTextStyle)),
         if (label != null)
           CommandDialogField(
             label: label,
@@ -333,7 +335,9 @@ class _CommandDialogQuestionState extends State<CommandDialogQuestion> {
 class CommandDialogBody extends StatelessWidget {
   const CommandDialogBody({super.key, required this.children, required this.actions});
 
-  final List<Widget> children;
+  /// Строки формы — описаниями, а не виджетами: столбец подписей один на всю
+  /// форму, и разложить её может только тот, кто видит их все сразу.
+  final List<CommandDialogField> children;
   final List<Widget> actions;
 
   @override
@@ -348,19 +352,7 @@ class CommandDialogBody extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(
-          padding: contentPadding,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              for (var i = 0; i < children.length; i++) ...[
-                if (i > 0) SizedBox(height: metrics.dialogGap),
-                children[i],
-              ],
-            ],
-          ),
-        ),
+        Padding(padding: contentPadding, child: FcForm(rows: children)),
         CommandDialogActions(actions: actions),
       ],
     );
@@ -395,6 +387,45 @@ BoxConstraints dialogContentLimits(BuildContext context) {
   final height = screen.height - inset * 2 - metrics.dialogTitleHeight;
 
   return BoxConstraints(maxWidth: width < 0 ? 0 : width, maxHeight: height < 0 ? 0 : height);
+}
+
+/// Ширина самой широкой подписи — но не шире предела из темы.
+///
+/// Нужна тем, кто собирает **несколько** форм, которые должны выглядеть одной:
+/// каждая таблица меряет только свои строки, а столбец у них обязан быть общий.
+///
+/// Меряется настоящим набором текста, а не длиной строки: `Compression` и
+/// `WWWWWWWWWWW` — разные ширины при одинаковой длине, а подписи бывают и
+/// нелатинские. И тем же стилем, каким текст нарисуют: `Text` смешивает
+/// переданный стиль с наследуемым, и без этого замер расходится с
+/// действительностью.
+double widestLabel(BuildContext context, Iterable<String> labels) {
+  final theme = FcTheme.of(context);
+  final scaler = MediaQuery.textScalerOf(context);
+  final style = DefaultTextStyle.of(context).style.merge(theme.dialogLabelStyle);
+  var widest = 0.0;
+
+  for (final label in labels) {
+    if (label.isEmpty) {
+      continue;
+    }
+    final painter = TextPainter(
+      text: TextSpan(text: label, style: style),
+      textDirection: TextDirection.ltr,
+      textScaler: scaler,
+      maxLines: 1,
+    )..layout();
+    // `maxIntrinsicWidth`, а не `width`: именно её берёт раскладка, когда
+    // спрашивает, сколько тексту нужно. `width` округляется иначе, и подпись не
+    // влезала в собственную ширину — переносилась на вторую строку.
+    final needed = painter.maxIntrinsicWidth;
+    widest = widest > needed ? widest : needed;
+    painter.dispose();
+  }
+
+  // Округление вверх: доли точки в раскладке дают дрожание на границе, а
+  // выиграть на них нечего.
+  return widest.ceilToDouble().clamp(0, theme.metrics.dialogLabelMaxWidth);
 }
 
 /// Как отбивается содержимое окна от его краёв.
@@ -454,51 +485,154 @@ class CommandDialogActions extends StatelessWidget {
 
 /// Строка формы: подпись слева, содержимое справа (`SimpleFormItemSkin`).
 ///
+/// **Описание, а не виджет.** Столбец подписей должен быть один на всю форму и
+/// шириной по самой широкой из них — а это знает только тот, кто видит все
+/// строки сразу. Виджет-строка знала бы лишь свою подпись, и столбец пришлось
+/// бы задавать числом, как раньше: короткая форма зияла пустотой слева, а
+/// длинная подпись переносилась в две строки.
+///
 /// Подпись — без двоеточия: она и так отличается от значения цветом, а
 /// двоеточие в такой колонке только шумит.
-class CommandDialogField extends StatelessWidget {
-  const CommandDialogField({super.key, required this.label, required Widget child})
-    : _child = child,
-      children = const [];
+class CommandDialogField {
+  const CommandDialogField({required this.label, required Widget child}) : _child = child, children = const [];
 
   /// Несколько строк под одной подписью; подпись встаёт вровень с первой.
   ///
   /// Так связанное читается связанным: имя файла, его объём и его полоса —
   /// одно поле из трёх строк, а не три поля, из которых два безымянных.
-  const CommandDialogField.column({super.key, required this.label, required this.children}) : _child = null;
+  const CommandDialogField.column({required this.label, required this.children}) : _child = null;
+
+  /// Строка без подписи — во всю ширину столбца значений.
+  ///
+  /// Флаг, полоса хода работы, сообщение об ошибке: подписи слева у них нет, а
+  /// вставать они должны вровень с остальными значениями, а не с их подписями.
+  const CommandDialogField.wide({required Widget child}) : label = '', _child = child, children = const [];
 
   final String label;
   final List<Widget> children;
   final Widget? _child;
 
-  @override
-  Widget build(BuildContext context) {
-    final theme = FcTheme.of(context);
+  /// Содержимое строки — одно или столбцом.
+  Widget content(FcTheme theme) {
     final single = _child;
+    if (single != null) {
+      return single;
+    }
 
-    return Row(
-      // Одну строку подпись держит по середине — как рядом с полем ввода;
-      // столбец строк — по верхней, иначе она уедет в середину блока.
-      crossAxisAlignment: single != null ? CrossAxisAlignment.center : CrossAxisAlignment.start,
-      children: [
-        SizedBox(
-          width: theme.metrics.dialogLabelWidth,
-          child: Text(label, textAlign: TextAlign.right, style: theme.dialogLabelStyle),
-        ),
-        SizedBox(width: theme.metrics.dialogGap),
-        Expanded(child: single ?? _column(theme)),
-      ],
-    );
-  }
-
-  Widget _column(FcTheme theme) {
     final gap = theme.metrics.dialogLineGap;
-
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         for (var i = 0; i < children.length; i++) ...[if (i > 0) SizedBox(height: gap), children[i]],
+      ],
+    );
+  }
+
+  /// Строка без подписи: идёт мимо столбцов, во всю ширину формы.
+  bool get isWide => label.isEmpty;
+
+  /// Одну строку подпись держит по середине — как рядом с полем ввода; столбец
+  /// строк — по верхней, иначе она уедет в середину блока.
+  TableCellVerticalAlignment get alignment =>
+      _child != null ? TableCellVerticalAlignment.middle : TableCellVerticalAlignment.top;
+}
+
+/// Форма: пары «подпись — значение», выровненные по одному столбцу.
+///
+/// Столбец подписей — по самой широкой из них, но не шире предела темы
+/// ([FcMetrics.dialogLabelMaxWidth]): без предела одна длинная подпись съедает
+/// форму, а значения ужимаются в остаток и переносятся по слову.
+///
+/// Строки «во всю ширину» ([CommandDialogField.wide]) идут **мимо столбцов** —
+/// флагу, полосе хода работы и сообщению об ошибке подпись слева не нужна, а
+/// ужиматься в столбец значений им незачем. У `Table` в Flutter объединения
+/// ячеек нет вовсе, поэтому такая строка выходит из таблицы: форма — это
+/// череда таблиц и широких строк между ними. Выравнивание от этого не
+/// страдает, потому что мера столбца общая и посчитана заранее.
+class FcForm extends StatelessWidget {
+  const FcForm({super.key, required this.rows, this.labelWidth});
+
+  final List<CommandDialogField> rows;
+
+  /// Ширина столбца подписей, если её задают снаружи.
+  ///
+  /// Нужна там, где форм несколько, а столбец должен быть один: разделы окна
+  /// настроек лежат порознь (между ними заголовки), но читаются как одна
+  /// форма. Пусто — форма меряет свои подписи сама.
+  final double? labelWidth;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FcTheme.of(context);
+    final gap = theme.metrics.dialogGap;
+    final width = labelWidth ?? widestLabel(context, [for (final row in rows) row.label]);
+
+    final parts = <Widget>[];
+    var run = <CommandDialogField>[];
+
+    void flush() {
+      if (run.isEmpty) {
+        return;
+      }
+      parts.add(_table(theme, width, run));
+      run = [];
+    }
+
+    for (final row in rows) {
+      if (row.isWide) {
+        flush();
+        parts.add(row.content(theme));
+        continue;
+      }
+      run.add(row);
+    }
+    flush();
+
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        for (var i = 0; i < parts.length; i++) ...[if (i > 0) SizedBox(height: gap), parts[i]],
+      ],
+    );
+  }
+
+  Widget _table(FcTheme theme, double width, List<CommandDialogField> rows) {
+    final metrics = theme.metrics;
+
+    return Table(
+      columnWidths: {0: FixedColumnWidth(width), 1: const FlexColumnWidth()},
+      children: [
+        for (var i = 0; i < rows.length; i++)
+          TableRow(
+            children: [
+              TableCell(
+                verticalAlignment: rows[i].alignment,
+                child: Padding(
+                  // Зазор между строками ставит форма: строки о соседях не
+                  // знают, а собранные из разных мест — тем более.
+                  //
+                  // Поля у подписи только снизу: столбец шириной ровно в
+                  // подпись, и отняв у него на зазор, мы отняли бы у текста —
+                  // он переносился на вторую строку. Зазор между столбцами —
+                  // слева у значения.
+                  padding: EdgeInsets.only(bottom: i == rows.length - 1 ? 0 : metrics.dialogGap),
+                  child: Text(rows[i].label, textAlign: TextAlign.right, style: theme.dialogLabelStyle),
+                ),
+              ),
+              TableCell(
+                verticalAlignment: rows[i].alignment,
+                child: Padding(
+                  padding: EdgeInsets.only(
+                    left: metrics.dialogGap,
+                    bottom: i == rows.length - 1 ? 0 : metrics.dialogGap,
+                  ),
+                  child: rows[i].content(theme),
+                ),
+              ),
+            ],
+          ),
       ],
     );
   }

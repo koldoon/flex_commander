@@ -52,6 +52,14 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
 
+    // Подписи всех разделов разом: столбец у них общий.
+    final labelWidth = widestLabel(context, [
+      for (final (_, schema) in _pages)
+        for (final field in schema.fields)
+          // Флаг подписи слева не занимает — она у него справа от квадрата.
+          if (field is! SettingsFlag) field.title,
+    ]);
+
     return ConstrainedBox(
       // Предел по высоте — то же правило, что у справки: без него прокрутка не
       // работает, `Flexible` получает бесконечность, и форма вылезает за экран.
@@ -68,9 +76,19 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  // Разделы — отдельные формы, но столбец подписей у них один
+                  // на всё окно: на одной странице они читаются как одна форма,
+                  // и ступенька между разделами выглядела бы недосмотром.
+                  //
+                  // Заголовок раздела при этом идёт во всю ширину — он не
+                  // строка формы. У `Table` в Flutter объединения ячеек нет
+                  // вовсе, поэтому заголовки живут между таблицами, а не в них.
                   for (final (title, schema) in _pages) ...[
                     _heading(theme, title),
-                    for (final field in schema.fields) _field(theme, schema, field),
+                    FcForm(
+                      labelWidth: labelWidth,
+                      rows: [for (final field in schema.fields) _row(theme, schema, field)],
+                    ),
                     SizedBox(height: metrics.dialogGap),
                   ],
                 ],
@@ -98,27 +116,34 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   );
 
   /// Поле целиком: управление, подпись и оговорки под ним.
-  Widget _field(FcTheme theme, SettingsSchema schema, SettingsField field) {
-    final metrics = theme.metrics;
-    final secondary = TextStyle(
-      fontFamily: theme.fonts.ui,
-      fontSize: theme.metrics.fontSize,
-      color: theme.colors.dialogLabel,
-    );
+  /// Строка формы: подпись, управление и оговорки под ним.
+  ///
+  /// Флаг подписи слева не занимает — она у него справа от квадрата; такая
+  /// строка идёт во всю ширину столбца значений.
+  CommandDialogField _row(FcTheme theme, SettingsSchema schema, SettingsField field) {
+    final control = _control(theme, schema, field);
+    final explained = [
+      control,
+      if (field.description.isNotEmpty) Text(field.description, style: _secondaryStyle(theme)),
+      // Оговорка отдельной строкой и другим цветом: это не объяснение, а
+      // предупреждение — «сейчас ничего не произойдёт».
+      if (field.note.isNotEmpty)
+        Text(field.note, style: _secondaryStyle(theme).copyWith(color: theme.colors.secondaryText)),
+    ];
 
-    return Padding(
-      padding: EdgeInsets.only(bottom: metrics.dialogLineGap, left: metrics.dialogGap),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _control(theme, schema, field),
-          if (field.description.isNotEmpty) Text(field.description, style: secondary),
-          // Оговорка отдельной строкой и другим цветом: это не объяснение, а
-          // предупреждение — «сейчас ничего не произойдёт».
-          if (field.note.isNotEmpty) Text(field.note, style: secondary.copyWith(color: theme.colors.secondaryText)),
-        ],
-      ),
-    );
+    if (field is SettingsFlag) {
+      return CommandDialogField.wide(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: explained,
+        ),
+      );
+    }
+
+    return explained.length == 1
+        ? CommandDialogField(label: field.title, child: control)
+        : CommandDialogField.column(label: field.title, children: explained);
   }
 
   Widget _control(FcTheme theme, SettingsSchema schema, SettingsField field) {
@@ -136,32 +161,27 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
           changed();
         },
       ),
-      SettingsChoice choice => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(choice.title, style: _labelStyle(theme)),
-          FcRadioGroup<String>(
-            options: choice.options,
-            value: choice.read(),
-            onChanged: (value) {
-              choice.write(value);
-              changed();
-            },
-          ),
-        ],
+      SettingsChoice choice => FcRadioGroup<String>(
+        options: choice.options,
+        value: choice.read(),
+        onChanged: (value) {
+          choice.write(value);
+          changed();
+        },
       ),
-      SettingsNumber number => _row(
-        theme,
-        number.title,
-        Row(
-          children: [
-            SizedBox(
+      SettingsNumber number => Row(
+        children: [
+          // Поле числа короткое — ему хватает ширины подписи, — но уступает,
+          // когда столбец значений узок: иначе единица измерения рядом с ним
+          // вылезает за край.
+          Flexible(
+            child: SizedBox(
               width: theme.metrics.dialogLabelWidth,
               child: FcTextField(
                 controller: _editorFor(number.id, '${number.read()}'),
-                // Набранное, которое числом не является, просто не
-                // применяется: ругаться на «сто» посреди набора хуже, чем
-                // подождать, пока человек допишет.
+                // Набранное, которое числом не является, просто не применяется:
+                // ругаться на «сто» посреди набора хуже, чем подождать, пока
+                // человек допишет.
                 onChanged: (value) {
                   final parsed = number.parse(value);
                   if (parsed != null) {
@@ -171,24 +191,20 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                 },
               ),
             ),
-            if (number.unit.isNotEmpty) ...[
-              SizedBox(width: theme.metrics.columnGap),
-              Text(number.unit, style: _labelStyle(theme)),
-            ],
+          ),
+          if (number.unit.isNotEmpty) ...[
+            SizedBox(width: theme.metrics.columnGap),
+            Text(number.unit, style: _labelStyle(theme)),
           ],
-        ),
+        ],
       ),
-      SettingsText text => _row(
-        theme,
-        text.title,
-        FcTextField(
-          controller: _editorFor(text.id, text.read()),
-          hintText: text.hint,
-          onChanged: (value) {
-            text.write(value);
-            schema.save();
-          },
-        ),
+      SettingsText text => FcTextField(
+        controller: _editorFor(text.id, text.read()),
+        hintText: text.hint,
+        onChanged: (value) {
+          text.write(value);
+          schema.save();
+        },
       ),
     };
   }
@@ -196,13 +212,6 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   TextStyle _labelStyle(FcTheme theme) =>
       TextStyle(fontFamily: theme.fonts.ui, fontSize: theme.metrics.fontSize, color: theme.colors.dialogText);
 
-  /// Подпись слева, управление справа — как в окнах команд.
-  Widget _row(FcTheme theme, String title, Widget control) => Row(
-    crossAxisAlignment: CrossAxisAlignment.center,
-    children: [
-      SizedBox(width: theme.metrics.dialogLabelWidth, child: Text(title, style: _labelStyle(theme))),
-      SizedBox(width: theme.metrics.columnGap),
-      Expanded(child: control),
-    ],
-  );
+  TextStyle _secondaryStyle(FcTheme theme) =>
+      TextStyle(fontFamily: theme.fonts.ui, fontSize: theme.metrics.fontSize, color: theme.colors.dialogLabel);
 }

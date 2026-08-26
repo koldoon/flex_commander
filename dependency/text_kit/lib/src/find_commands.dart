@@ -311,15 +311,19 @@ class _FindFormState extends State<_FindForm> {
                   ),
                 ),
               ),
-              FcCheckbox(
-                label: 'Case sensitive',
-                value: state.caseSensitive,
-                onChanged: (value) => state.update(caseSensitive: value),
+              CommandDialogField.wide(
+                child: FcCheckbox(
+                  label: 'Case sensitive',
+                  value: state.caseSensitive,
+                  onChanged: (value) => state.update(caseSensitive: value),
+                ),
               ),
-              FcCheckbox(
-                label: 'Regular expression',
-                value: state.regex,
-                onChanged: (value) => state.update(regex: value),
+              CommandDialogField.wide(
+                child: FcCheckbox(
+                  label: 'Regular expression',
+                  value: state.regex,
+                  onChanged: (value) => state.update(regex: value),
+                ),
               ),
             ],
           ),
