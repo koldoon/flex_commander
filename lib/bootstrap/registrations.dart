@@ -112,22 +112,39 @@ class Registrations implements FcRegistry {
         continue;
       }
       _current = module.id;
-      _lastInstalled = module.id;
       modules.add(module);
       module.install(this);
     }
     _current = null;
   }
 
+  /// Раздел настроек **того модуля, который сейчас объявляется**.
+  ///
+  /// Спрашивать его можно только из `install`, и это не придирка: имя раздела
+  /// известно ровно до тех пор, пока идёт установка. Взятый позже — из фабрики
+  /// команды, из замыкания — он достался бы последнему установленному модулю,
+  /// и настройки уехали бы в чужой раздел молча. Так и случилось: терминал
+  /// писал в раздел редактора, а обнаружилось это по чужим ключам в файле.
+  ///
+  /// Правильно — забрать область один раз и держать её:
+  ///
+  /// ```dart
+  /// final settings = registry.settings;                       // в install
+  /// registry.command((context) => MyCommand(settings.section(MySettings.new)));
+  /// ```
   @override
   SettingsScope get settings {
-    final namespace = _current ?? _lastInstalled;
-    return _LazyScope(this, namespace ?? 'unknown');
+    final namespace = _current;
+    if (namespace == null) {
+      throw StateError(
+        'Раздел настроек спрашивают вне install: чей он — уже неизвестно. '
+        'Заберите его в install («final settings = registry.settings») и держите.',
+      );
+    }
+    return _LazyScope(this, namespace);
   }
 
   /// Кто устанавливался последним: реестр отдают модулю целиком, и он
-  /// вправе сохранить его у себя — а спросить настройки уже потом.
-  String? _lastInstalled;
 
   @override
   void rootProvider(TreeProvider Function(FcServices services) factory) {

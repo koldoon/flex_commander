@@ -35,7 +35,10 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
 
   @override
   void install(FcRegistry registry) {
-    TerminalSettings settingsOf() => registry.settings.section(TerminalSettings.new);
+    // Область забирается **сейчас**, пока идёт установка: позже имя раздела
+    // уже неизвестно, и настройки уехали бы в чужой.
+    final settings = registry.settings;
+    TerminalSettings settingsOf() => settings.section(TerminalSettings.new);
 
     // Псевдотерминал пригодится не одному терминалу — но владеет им тот, кто
     // его принёс.
@@ -50,7 +53,7 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
 
     // Полоса ставится стартовой командой, а не здесь: во время объявления нет
     // ни приложения, ни настроек.
-    registry.startup((context) => InstallCommandLineCommand(settings: settingsOf, save: registry.settings.save));
+    registry.startup((context) => InstallCommandLineCommand(settings: settingsOf, save: settings.save));
 
     registry.command((context) => FocusCommandLineCommand());
     registry.command((context) => LeaveCommandLineCommand());
@@ -72,7 +75,7 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
     registry.command((context) => EraseInLineCommand());
     registry.command((context) => ClearLineCommand());
     registry.command((context) => PasteIntoLineCommand(context.resolve<ClipboardService>()));
-    registry.command((context) => ToggleTypingCommand(settings: settingsOf, save: registry.settings.save));
+    registry.command((context) => ToggleTypingCommand(settings: settingsOf, save: settings.save));
 
     registry.command((context) => CompletePathCommand(forward: true));
     registry.command((context) => CompletePathCommand(forward: false));

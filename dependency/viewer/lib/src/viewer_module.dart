@@ -32,11 +32,14 @@ class TextViewer implements FcModule {
     registry.view<ViewerScreen>((context, state) => ViewerView(screen: state));
     // Раздел настроек читается не сейчас, а когда позовут фабрику: во время
     // объявления настроек ещё нет.
-    ViewerSettings settingsOf() => registry.settings.section(ViewerSettings.new);
+    // Область забирается **сейчас**, пока идёт установка: позже имя раздела
+    // уже неизвестно, и настройки уехали бы в чужой.
+    final settings = registry.settings;
+    ViewerSettings settingsOf() => settings.section(ViewerSettings.new);
 
     // Клавиша `F3` уже закреплена оболочкой за этим идентификатором — команда
     // просто занимает место заглушки.
-    registry.command((context) => ViewFileCommand(settings: settingsOf(), onSettingsChanged: registry.settings.save));
+    registry.command((context) => ViewFileCommand(settings: settingsOf(), onSettingsChanged: settings.save));
 
     registry.command((context) => ToggleWordWrapCommand());
     registry.command((context) => CloseViewerCommand());

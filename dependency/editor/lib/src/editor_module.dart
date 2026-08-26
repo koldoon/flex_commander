@@ -29,11 +29,14 @@ class TextEditor implements FcModule {
   void install(FcRegistry registry) {
     // Что рисует состояние, объявляет тот же модуль, который его завёл.
     registry.view<EditorScreen>((context, state) => EditorView(screen: state));
-    EditorSettings settingsOf() => registry.settings.section(EditorSettings.new);
+    // Область забирается **сейчас**, пока идёт установка: позже имя раздела
+    // уже неизвестно, и настройки уехали бы в чужой.
+    final settings = registry.settings;
+    EditorSettings settingsOf() => settings.section(EditorSettings.new);
 
     // `F4` уже закреплена оболочкой за этим идентификатором — команда занимает
     // место заглушки.
-    registry.command((context) => EditFileCommand(settings: settingsOf(), onSettingsChanged: registry.settings.save));
+    registry.command((context) => EditFileCommand(settings: settingsOf(), onSettingsChanged: settings.save));
 
     registry.command((context) => SaveFileCommand());
     registry.command((context) => CloseEditorCommand());
