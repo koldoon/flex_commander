@@ -28,11 +28,14 @@ class PanelStatusBar extends StatelessWidget {
           decoration: BoxDecoration(
             border: Border(top: BorderSide(color: theme.colors.columnDivider, width: theme.metrics.strokeWidth)),
           ),
-          child: Text.rich(
-            _content(theme),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: error ? theme.statusStyle.copyWith(color: theme.colors.error) : theme.statusStyle,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 5),
+            child: Text.rich(
+              _content(theme),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: error ? theme.statusStyle.copyWith(color: theme.colors.error) : theme.statusStyle,
+            ),
           ),
         );
       },
