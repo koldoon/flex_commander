@@ -75,7 +75,9 @@ on servers open too — the bytes come through the same contract as copying.
 **Terminal and command line.** A shell in the same window: a command line under the
 panels, and a full-screen session over them on `Ctrl+O` — the key `mc` uses. `Cmd+T`
 hands the input to the line; it has to be a key, because a printable character in a panel
-jumps to a name and that cannot be taken away. `Esc` gives the input back and keeps what
+jumps to a name and that cannot be taken away — unless you ask for it: one setting
+(`terminal.toggleTyping`) switches to the `mc` habit, where typing goes straight to the
+line while the input stays with the panel, and the jump-to-name is what goes away instead. `Esc` gives the input back and keeps what
 you typed. `Enter` runs the line **in its own process** in the panel's directory, so the
 end of a command is known exactly instead of being guessed from the shape of a prompt:
 a silent successful command shows nothing and simply re-reads the panel, while one that

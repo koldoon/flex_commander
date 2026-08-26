@@ -50,6 +50,39 @@ class CommandLineState extends ChangeNotifier implements ViewportState {
 
   bool get isEmpty => text.text.trim().isEmpty;
 
+  /// Строка пуста совсем — от этого зависит, кому достанется клавиша в режиме
+  /// `mc`: пробел, `Enter` и `Bsp` принадлежат панели, пока в строке ничего нет.
+  bool get isBlank => text.text.isEmpty;
+
+  /// Печать уходит сюда, а не в переход к имени (`spec/mc-command-line.md`).
+  ///
+  /// И только там, где строке есть что делать: на `ssh://` и в архиве она
+  /// приглушена, выполнять всё равно нечем — значит и печать туда не уходит.
+  bool get typingGoesToLine => settings.typingGoesToLine && enabled;
+
+  /// Дописать в конец — так печатают, когда ввод у панели.
+  void append(String value) {
+    final updated = text.text + value;
+    text.value = TextEditingValue(text: updated, selection: TextSelection.collapsed(offset: updated.length));
+    _completion = null;
+    notifyListeners();
+  }
+
+  /// Стереть последний символ.
+  ///
+  /// Символ, а не код: составные значки стираются целиком, как в любом поле
+  /// ввода.
+  void eraseLast() {
+    final current = text.text;
+    if (current.isEmpty) {
+      return;
+    }
+    final updated = current.characters.skipLast(1).toString();
+    text.value = TextEditingValue(text: updated, selection: TextSelection.collapsed(offset: updated.length));
+    _completion = null;
+    notifyListeners();
+  }
+
   @override
   bool get takesKeyboard => true;
 

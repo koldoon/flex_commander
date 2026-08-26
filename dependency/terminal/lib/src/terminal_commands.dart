@@ -138,6 +138,39 @@ class InsertNodeCommand extends AppCommand {
   }
 }
 
+/// Переключить, куда уходит печать в панели.
+///
+/// Экрана настроек ещё нет, а настройка нужна уже сейчас: команду видно в
+/// списке команд и в справке, и этого довольно.
+class ToggleTypingCommand extends AppCommand {
+  ToggleTypingCommand({required this.settings, required this.save});
+
+  static const String commandId = 'terminal.toggleTyping';
+
+  final TerminalSettings Function() settings;
+  final void Function() save;
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => 'Typing goes to command line';
+
+  @override
+  String get description => 'Печать в панели уходит в строку вместо перехода к имени';
+
+  @override
+  bool isExecutable(CommandContext context) => _lineOf(context.app) != null;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final options = settings();
+    options.typingGoesToLine = !options.typingGoesToLine;
+    save();
+    context.app.toasts.show('Typing goes to command line: ${options.typingGoesToLine ? 'On' : 'Off'}');
+  }
+}
+
 /// Развернуть постоянную сессию во весь экран и обратно.
 ///
 /// Одна команда на оба направления: это переключатель, и `Ctrl-O` работает
@@ -200,6 +233,131 @@ class CloseRunCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     context.app.view.popViewportContent(ViewportPosition.fullscreen);
+  }
+}
+
+/// Печать уходит в строку — повадка `mc`.
+///
+/// Выигрывает у перехода к имени **порядком**: модуль терминала объявлен раньше
+/// модуля навигации, а невыполнимая команда клавишу не забирает. Поэтому при
+/// выключенной настройке буква достаётся панели, как раньше, и ни ядру, ни
+/// навигации о настройке знать не нужно (`spec/mc-command-line.md`, §3).
+class TypeIntoLineCommand extends AppCommand {
+  static const String commandId = 'terminal.type';
+
+  /// Имя значения, в котором приходит набранный символ.
+  static const String characterParam = 'character';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => 'Type into command line';
+
+  @override
+  bool isExecutable(CommandContext context) => _lineOf(context.app)?.typingGoesToLine ?? false;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final character = context.invocation.param<String>(characterParam);
+    if (character != null && character.isNotEmpty) {
+      _lineOf(context.app)?.append(character);
+    }
+  }
+}
+
+/// Пробел в строку — но только когда в ней уже что-то есть.
+///
+/// Пока строка пуста, человек работает с панелью, и `Space` там помечает
+/// объект. Набрал — значит собирается выполнить, и пробел ему нужен.
+class TypeSpaceCommand extends AppCommand {
+  static const String commandId = 'terminal.typeSpace';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => 'Space into command line';
+
+  @override
+  bool isExecutable(CommandContext context) {
+    final line = _lineOf(context.app);
+    return line != null && line.typingGoesToLine && !line.isBlank;
+  }
+
+  @override
+  Future<void> execute(CommandContext context) async => _lineOf(context.app)?.append(' ');
+}
+
+/// Стереть символ — вместо перехода на уровень вверх, пока строка не пуста.
+class EraseInLineCommand extends AppCommand {
+  static const String commandId = 'terminal.erase';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => 'Erase in command line';
+
+  @override
+  bool isExecutable(CommandContext context) {
+    final line = _lineOf(context.app);
+    return line != null && line.typingGoesToLine && !line.isBlank;
+  }
+
+  @override
+  Future<void> execute(CommandContext context) async => _lineOf(context.app)?.eraseLast();
+}
+
+/// Очистить строку — вместо отмены работы и снятия пометки.
+class ClearLineCommand extends AppCommand {
+  static const String commandId = 'terminal.clearLine';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => 'Clear command line';
+
+  @override
+  bool isExecutable(CommandContext context) {
+    final line = _lineOf(context.app);
+    // Занятой панели `Esc` принадлежит целиком: отмена работы важнее уборки в
+    // строке.
+    return line != null && line.typingGoesToLine && !line.isBlank && !context.panel.busy;
+  }
+
+  @override
+  Future<void> execute(CommandContext context) async => _lineOf(context.app)?.clear();
+}
+
+/// Вставить из буфера обмена.
+///
+/// В режиме `mc` поля ввода нет — значит и системной вставки нет; без команды
+/// набирать длинный путь пришлось бы руками.
+class PasteIntoLineCommand extends AppCommand {
+  PasteIntoLineCommand(this.clipboard);
+
+  static const String commandId = 'terminal.paste';
+
+  final ClipboardService clipboard;
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => 'Paste into command line';
+
+  @override
+  bool isExecutable(CommandContext context) => _lineOf(context.app)?.typingGoesToLine ?? false;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final text = await clipboard.readText();
+    if (text != null && text.isNotEmpty) {
+      // Перевод строки — это выполнение, а не текст: вставляем первую строку.
+      _lineOf(context.app)?.append(text.split('\n').first);
+    }
   }
 }
 
@@ -295,15 +453,28 @@ class RunCommandLineCommand extends AppCommand {
   @override
   String get label => 'Run';
 
-  /// Выполнима всегда, пока строка есть.
+  /// Пока ввод у строки — выполнима всегда; пока у панели — только в режиме
+  /// `mc` и только если есть что выполнять.
   ///
-  /// Не «пока есть что выполнять»: `Enter` принадлежит строке целиком, и на
-  /// пустой он должен **ничего не сделать**, а не провалиться дальше. Ниже по
+  /// Первое не «пока есть что выполнять»: `Enter` принадлежит строке целиком, и
+  /// на пустой он должен **ничего не сделать**, а не провалиться дальше. Ниже по
   /// дереву стоит `TextField`, и он на `Enter` снимает с себя фокус
   /// (`TextInputAction.done`) — курсор пропадал, а ввод по-прежнему числился за
   /// строкой: клавиши панели не работали, пока не нажмёшь `Esc`.
+  ///
+  /// Второе — правило `mc`: пустая строка означает, что человек работает с
+  /// панелью, и `Enter` там входит в каталог.
   @override
-  bool isExecutable(CommandContext context) => _lineOf(context.app) != null;
+  bool isExecutable(CommandContext context) {
+    final line = _lineOf(context.app);
+    if (line == null) {
+      return false;
+    }
+    if (context.app.view.activeArea == ViewportPosition.bottom) {
+      return true;
+    }
+    return line.typingGoesToLine && !line.isBlank;
+  }
 
   @override
   Future<void> execute(CommandContext context) async {

@@ -39,8 +39,11 @@ void main() {
             .where((binding) => '${binding.keys}' == 'Esc' && (binding.inContent?.call(runtime.app.left) ?? false))
             .toList();
 
-    // Порядок задаёт приоритет: пока панель занята, Esc достаётся отмене.
-    expect(forEsc.map((binding) => binding.commandId), ['panel.cancel', 'panel.selection.clear']);
+    // Порядок задаёт приоритет. Первой стоит уборка в командной строке — но
+    // она невыполнима, пока строка пуста, пока выключен режим `mc` и пока
+    // панель занята: отмена работы важнее уборки, и это условие записано в
+    // самой команде, а не в порядке.
+    expect(forEsc.map((binding) => binding.commandId), ['terminal.clearLine', 'panel.cancel', 'panel.selection.clear']);
   });
 
   test('Esc чужого содержимого панелям не мешает', () {
@@ -53,11 +56,13 @@ void main() {
     // Терминал добавил две: `Esc` в командной строке возвращает ввод панели, а
     // в экране отработавшей команды убирает его. Обе — при своём содержимом, и
     // в очередь к панельным тоже не встают.
+    // Терминал объявлен раньше просмотрщика и редактора — он перехватывает
+    // печать в режиме `mc`, а выигрывает та привязка, что объявлена раньше.
     expect(elsewhere.map((binding) => binding.commandId), [
-      'viewer.close',
-      'editor.close',
       'terminal.leaveLine',
       'terminal.closeRun',
+      'viewer.close',
+      'editor.close',
     ]);
   });
 

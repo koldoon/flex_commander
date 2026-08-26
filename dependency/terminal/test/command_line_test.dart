@@ -1,10 +1,11 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_terminal/fc_terminal.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
-import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'terminal_modules.dart';
 
 /// Командная строка: что уходит в оболочку, а что — панели.
 ///
@@ -37,7 +38,7 @@ void main() {
       ])..home = '/home',
       // Свой модуль вместо того, что стоит в приложении: у этого псевдотерминал
       // подставной. Два одинаковых модуля спорили бы за одну и ту же службу.
-      modules: [...featureModules().where((module) => module.id != 'fc.terminal'), ShellTerminal(pty: pty)],
+      modules: modulesWithTerminal(pty),
     );
     await runtime.app.start();
   });
@@ -287,7 +288,7 @@ void main() {
     pty = FakePty();
     runtime = await testApp(
       provider: InMemoryReadOnlyProvider([FakeEntry.directory('/home')])..home = '/home',
-      modules: [...featureModules().where((module) => module.id != 'fc.terminal'), ShellTerminal(pty: pty)],
+      modules: modulesWithTerminal(pty),
     );
     await runtime.app.start();
 

@@ -116,12 +116,17 @@ class KeyBinding {
   }
 
   /// Значения для запуска по этой комбинации.
+  ///
+  /// Печатное берётся из **символа**, а не из имени клавиши: имя приведено к
+  /// верхнему регистру и от раскладки не зависит, поэтому набранное `ls` ушло
+  /// бы командой как `LS`, а `!` — как `1`. Имя остаётся запасным вариантом для
+  /// тех комбинаций, что собраны вручную и символа не несут.
   Map<String, Object?> parametersFor(KeyCombination combination) {
     final name = characterParam;
     if (name == null) {
       return parameters;
     }
-    return {...parameters, name: combination.key};
+    return {...parameters, name: combination.character ?? combination.key};
   }
 
   @override

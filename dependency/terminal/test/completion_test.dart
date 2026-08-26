@@ -1,10 +1,11 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_terminal/fc_terminal.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
-import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'terminal_modules.dart';
 
 /// Дополнение путей по `Tab`.
 ///
@@ -43,7 +44,7 @@ void main() {
         FakeEntry.directory('/etc'),
         FakeEntry.file('/etc/passwd', size: 1),
       ])..home = '/home',
-      modules: [...featureModules().where((module) => module.id != 'fc.terminal'), ShellTerminal(pty: FakePty())],
+      modules: modulesWithTerminal(FakePty()),
     );
     await runtime.app.start();
     press('Cmd-T');

@@ -2,11 +2,12 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_terminal/fc_terminal.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
-import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'terminal_modules.dart';
 
 /// Строка в собранном приложении: фокус, набор и то, что видно.
 void main() {
@@ -21,7 +22,7 @@ void main() {
         FakeEntry.file('/home/alpha.txt', size: 10),
         FakeEntry.file('/home/beta.txt', size: 10),
       ])..home = '/home',
-      modules: [...featureModules().where((module) => module.id != 'fc.terminal'), ShellTerminal(pty: pty)],
+      modules: modulesWithTerminal(pty),
     );
     await runtime.app.start();
   });

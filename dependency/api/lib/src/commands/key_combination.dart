@@ -8,7 +8,14 @@ import 'package:flutter/services.dart';
 /// фиксирован: `Ctrl-Alt-Shift-Cmd-Клавиша`.
 @immutable
 class KeyCombination {
-  const KeyCombination(this.key, {this.ctrl = false, this.alt = false, this.shift = false, this.cmd = false});
+  const KeyCombination(
+    this.key, {
+    this.ctrl = false,
+    this.alt = false,
+    this.shift = false,
+    this.cmd = false,
+    this.character,
+  });
 
   /// Нормализованное имя клавиши: `Enter`, `F5`, `Bsp`, `A`, `/`.
   final String key;
@@ -16,6 +23,17 @@ class KeyCombination {
   final bool ctrl;
   final bool alt;
   final bool shift;
+
+  /// Символ, который дала раскладка: `l`, `L`, `!`, `ф`.
+  ///
+  /// Отдельно от [key] и **не участвует в сравнении**: клавиша — это то, за чем
+  /// закреплена команда, а символ — то, что человек напечатал. Имя клавиши
+  /// приведено к верхнему регистру и от раскладки не зависит, поэтому взять
+  /// печатное из него нельзя: `ls` превратилось бы в `LS`, а `!` — в `1`.
+  ///
+  /// null — нажатие символа не дало (стрелка, `F5`) или комбинацию собрали
+  /// вручную: в тесте, в настройках, в сценарии.
+  final String? character;
 
   /// Command на macOS. На остальных платформах роль этой клавиши играет Ctrl,
   /// поэтому при разборе строки `Cmd-O` там получается `Ctrl-O`.
@@ -54,6 +72,7 @@ class KeyCombination {
       alt: keyboard.isAltPressed,
       shift: keyboard.isShiftPressed,
       cmd: keyboard.isMetaPressed,
+      character: event.character,
     );
   }
 

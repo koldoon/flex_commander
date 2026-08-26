@@ -65,6 +65,15 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
     registry.command(
       (context) => InsertNodeCommand(id: InsertNodeCommand.pathId, label: 'Insert path', fullPath: true),
     );
+    // Режим `mc`: печать уходит в строку. Выигрывает у перехода к имени
+    // порядком объявления модулей, а не проверкой настройки в чужом модуле.
+    registry.command((context) => TypeIntoLineCommand());
+    registry.command((context) => TypeSpaceCommand());
+    registry.command((context) => EraseInLineCommand());
+    registry.command((context) => ClearLineCommand());
+    registry.command((context) => PasteIntoLineCommand(context.resolve<ClipboardService>()));
+    registry.command((context) => ToggleTypingCommand(settings: settingsOf, save: registry.settings.save));
+
     registry.command((context) => CompletePathCommand(forward: true));
     registry.command((context) => CompletePathCommand(forward: false));
     registry.command((context) => ToggleTerminalCommand(() => context.resolve<ShellSession>()));
@@ -84,6 +93,16 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
     // останется — без единой проверки настройки.
     registry.binding(KeyBinding.inState<CommandLineState>('Tab', CompletePathCommand.commandId));
     registry.binding(KeyBinding.inState<CommandLineState>('Shift-Tab', CompletePathCommand.backCommandId));
+
+    // Клавиши режима `mc`. Все объявлены для панелей и все невыполнимы, пока
+    // настройка выключена, — тогда клавиша достаётся тому, кто объявлен
+    // следом: переходу к имени, пометке, входу в каталог, уровню вверх.
+    registry.binding(KeyBinding.anyCharacter(TypeIntoLineCommand.commandId));
+    registry.binding(KeyBinding('Space', TypeSpaceCommand.commandId));
+    registry.binding(KeyBinding('Enter', RunCommandLineCommand.commandId));
+    registry.binding(KeyBinding('Bsp', EraseInLineCommand.commandId));
+    registry.binding(KeyBinding('Esc', ClearLineCommand.commandId));
+    registry.binding(KeyBinding('Cmd-V', PasteIntoLineCommand.commandId));
 
     // `Ctrl-O` — из `mc`, и действует везде: из панелей, из строки, из самого
     // терминала. Выход должен быть один и тот же отовсюду.

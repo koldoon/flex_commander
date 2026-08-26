@@ -1,14 +1,14 @@
 import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_terminal/fc_terminal.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
-import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+import 'terminal_modules.dart';
 
 /// Клавиатура в полноэкранном терминале: что именно уезжает программе.
 ///
@@ -23,7 +23,7 @@ void main() {
     pty = FakePty();
     runtime = await testApp(
       provider: InMemoryTreeProvider([FakeEntry.directory('/home')])..home = '/home',
-      modules: [...featureModules().where((module) => module.id != 'fc.terminal'), ShellTerminal(pty: pty)],
+      modules: modulesWithTerminal(pty),
     );
     await runtime.app.start();
     await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));

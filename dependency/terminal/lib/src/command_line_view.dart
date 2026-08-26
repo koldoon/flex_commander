@@ -170,6 +170,25 @@ class _CommandLineViewState extends State<CommandLineView> {
     );
   }
 
+  /// Набранное в режиме `mc`: текст и нарисованный курсор.
+  Widget _typed(FcTheme theme, CommandLineState state, TextStyle style) {
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Text.rich(
+        TextSpan(
+          children: [
+            TextSpan(text: state.text.text, style: style),
+            // Курсор блоком, как в терминале: мигать ему незачем — системного
+            // фокуса здесь всё равно нет.
+            TextSpan(text: '\u2588', style: style.copyWith(color: theme.colors.cursorBackground)),
+          ],
+        ),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
   Widget _input(FcTheme theme, CommandLineState state, bool enabled, TextStyle style) {
     final colors = theme.colors;
     final metrics = theme.metrics;
@@ -195,8 +214,15 @@ class _CommandLineViewState extends State<CommandLineView> {
           Expanded(
             flex: 3,
             child:
-                enabled
-                    ? TextField(
+                !enabled
+                    ? Text('Shell does not work here', maxLines: 1, style: style.copyWith(color: colors.secondaryText))
+                    // В режиме `mc` поля ввода нет вовсе: ввод у панели, и все
+                    // клавиши строки разбираются привязками. Курсор строка
+                    // рисует сама — иначе человеку неоткуда узнать, что печать
+                    // уходит сюда.
+                    : state.typingGoesToLine && view.activeArea != ViewportPosition.bottom
+                    ? _typed(theme, state, style)
+                    : TextField(
                       // Ключ — чтобы поле оставалось тем же самым, что бы ни
                       // происходило вокруг: пересозданное, оно теряет связь с
                       // клавиатурой.
@@ -207,8 +233,7 @@ class _CommandLineViewState extends State<CommandLineView> {
                       cursorColor: colors.rowText,
                       cursorWidth: metrics.strokeWidth * 2,
                       decoration: const InputDecoration.collapsed(hintText: null),
-                    )
-                    : Text('Shell does not work here', maxLines: 1, style: style.copyWith(color: colors.secondaryText)),
+                    ),
           ),
         ],
       ),
