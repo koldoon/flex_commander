@@ -82,7 +82,9 @@ a silent successful command shows nothing and simply re-reads the panel, while o
 says anything keeps its output on screen until you press a key. `cd` is the exception —
 it walks the *panel*, not the shell. `Tab` completes paths from the panel's source: one
 match is inserted whole, several are extended to their common prefix and then cycled
-through, and what there is to choose from is listed above the line. Function keys and `↑`/`↓` still belong to the panels
+through, and what there is to choose from is listed above the line. While that list is up,
+`Enter` accepts what was inserted instead of running the command — you are descending a
+path, not launching it — and `Esc` gives you back what you typed. Function keys and `↑`/`↓` still belong to the panels
 while you type, so `F5` copies and the cursor keeps moving. The pseudo-terminal is
 `posix_openpt` plus `posix_spawn` through `dart:ffi`: no native plugin, so the macOS build
 stays on Swift Package Manager, and a real shell can be driven from `flutter test`.

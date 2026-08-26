@@ -182,6 +182,55 @@ void main() {
     expect(line.text.text, 'cp notes.txt /tmp');
   });
 
+  group('пока идёт выбор', () {
+    test('Enter закрепляет подставленное, а не выполняет команду', () async {
+      type('cd do');
+      await tab();
+      expect(line.text.text, 'cd docs/');
+
+      // Погружение продолжается: `Enter` закрывает выбор, строка остаётся.
+      expect(press('Enter'), isTrue);
+      await pumpEventQueue();
+
+      expect(line.text.text, 'cd docs/');
+      expect(line.suggestions, isEmpty);
+      expect(line.history, isEmpty, reason: 'команда не выполнялась');
+
+      // И следующий `Tab` идёт уже внутрь.
+      await tab();
+      expect(line.text.text, 'cd docs/deep/');
+    });
+
+    test('второй Enter уже выполняет', () async {
+      type('cd do');
+      await tab();
+      press('Enter');
+      await pumpEventQueue();
+
+      press('Enter');
+      await pumpEventQueue();
+
+      // `cd` ведёт панель — значит она и переехала.
+      expect(app.left.directory?.pathString, '/home/docs');
+    });
+
+    test('Esc возвращает набранное руками, а ввод оставляет в строке', () async {
+      type('cat do');
+      await tab();
+      expect(line.text.text, 'cat docs/');
+
+      expect(press('Esc'), isTrue);
+
+      expect(line.text.text, 'cat do');
+      expect(line.suggestions, isEmpty);
+      expect(app.view.activeArea, ViewportPosition.bottom, reason: 'человек ещё не закончил');
+
+      // А второй `Esc` — уже выход в панель.
+      press('Esc');
+      expect(app.view.activeArea, ViewportPosition.left);
+    });
+  });
+
   test('пока ввод у панели, Tab переключает панели', () async {
     press('Esc');
     expect(app.view.activeArea, ViewportPosition.left);

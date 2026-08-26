@@ -244,6 +244,12 @@ class CompletionRun {
   /// правки — это новый подбор, а не следующий кандидат.
   String text = '';
 
+  /// Что было набрано до первой вставки — сюда возвращает отказ.
+  String typed = '';
+
+  /// Где стоял курсор до первой вставки.
+  int typedCaret = 0;
+
   bool get hasChoice => candidates.length > 1;
 
   bool matches(String current) => current == text;

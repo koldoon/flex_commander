@@ -62,7 +62,14 @@ class LeaveCommandLineCommand extends AppCommand {
 
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = _lineOf(context.app)?.panel;
+    final line = _lineOf(context.app);
+    // Первый `Esc` отказывается от выбора и возвращает набранное руками;
+    // ввод при этом остаётся в строке — человек ещё не закончил.
+    if (line != null && line.isCompleting && line.cancelCompletion()) {
+      return;
+    }
+
+    final panel = line?.panel;
     if (panel != null) {
       context.app.activate(panel);
     }
@@ -302,9 +309,21 @@ class RunCommandLineCommand extends AppCommand {
   Future<void> execute(CommandContext context) async {
     final app = context.app;
     final line = _lineOf(app);
-    final command = line?.text.text.trim() ?? '';
-    final directory = line?.workingDirectory;
-    if (line == null || command.isEmpty || directory == null) {
+    if (line == null) {
+      return;
+    }
+
+    // Идёт выбор — `Enter` его закрепляет, а не выполняет команду. Иначе
+    // подставленный каталог тут же уезжал бы в оболочку, вместо того чтобы
+    // пустить человека глубже по пути.
+    if (line.isCompleting && line.suggestions.isNotEmpty) {
+      line.acceptCompletion();
+      return;
+    }
+
+    final command = line.text.text.trim();
+    final directory = line.workingDirectory;
+    if (command.isEmpty || directory == null) {
       return;
     }
 

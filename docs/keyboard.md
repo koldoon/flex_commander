@@ -206,6 +206,8 @@ CommandRegistry.dispatch(combination, app)
 | `Ctrl-O` | `terminal.toggle` | развернуть постоянную сессию оболочки и обратно |
 | `Cmd-↑` / `Cmd-↓` | `terminal.historyPrevious` / `terminal.historyNext` | история команд |
 | `Tab` / `Shift-Tab` | `terminal.complete` | дополнить путь; дальше перебор кандидатов |
+| `Enter` (идёт выбор) | `terminal.run` | закрепить подставленное, не выполняя |
+| `Esc` (идёт выбор) | `terminal.leaveLine` | отказаться от выбора, вернув набранное |
 | `Cmd-Enter` | `terminal.insertName` | вставить имя объекта под курсором |
 | `Cmd-Shift-Enter` | `terminal.insertPath` | вставить полный путь |
 | `Enter`, `Esc`, `Space` | `terminal.closeRun` | убрать экран **отработавшей** команды |

@@ -126,12 +126,10 @@ class CommandLineState extends ChangeNotifier implements ViewportState {
       return;
     }
 
-    final run = CompletionRun(
-      start: token.start,
-      directory: token.directory,
-      quote: token.quote,
-      candidates: candidates,
-    );
+    final run =
+        CompletionRun(start: token.start, directory: token.directory, quote: token.quote, candidates: candidates)
+          ..typed = text.text
+          ..typedCaret = token.end;
 
     if (candidates.length == 1) {
       _insertCompletion(run, candidates.single.insertion, to: token.end);
@@ -161,6 +159,34 @@ class CommandLineState extends ChangeNotifier implements ViewportState {
     }
     _insertCompletion(run, run.step(forward: forward).insertion, to: run.end);
     notifyListeners();
+  }
+
+  /// Принять подставленное: выбор закончен, а набранное остаётся.
+  ///
+  /// Так `Enter` во время выбора не выполняет команду, а закрепляет её кусок:
+  /// после `docs/` человек продолжает погружаться, а не запускает `cd docs/`
+  /// нечаянно.
+  void acceptCompletion() {
+    if (_completion == null) {
+      return;
+    }
+    _completion = null;
+    notifyListeners();
+  }
+
+  /// Отказаться: строка возвращается к тому, что было набрано руками.
+  bool cancelCompletion() {
+    final run = _completion;
+    if (run == null) {
+      return false;
+    }
+    text.value = TextEditingValue(
+      text: run.typed,
+      selection: TextSelection.collapsed(offset: run.typedCaret.clamp(0, run.typed.length)),
+    );
+    _completion = null;
+    notifyListeners();
+    return true;
   }
 
   void clearCompletion() {

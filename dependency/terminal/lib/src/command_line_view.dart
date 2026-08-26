@@ -107,13 +107,18 @@ class _CommandLineViewState extends State<CommandLineView> {
           color: enabled ? colors.rowText : colors.secondaryText,
         );
 
+        // Ряд подсказок стоит **всегда**, даже когда он пуст.
+        //
+        // `if` здесь менял бы строение дерева, а вместе с ним и поле ввода:
+        // Flutter сличает детей по месту и типу, а не по смыслу, — появление
+        // ряда сдвигало поле на позицию вниз, и оно пересоздавалось. Живьём это
+        // стоило связи с системным текстовым вводом, а через неё на macOS идёт
+        // `Backspace`: печатать можно, а стереть нечем. Та же ошибка, что с
+        // обводкой фокуса (`spec/dialog-focus.md`), и лечится так же.
         return Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            if (state.isCompleting && state.suggestions.length > 1) _suggestions(theme, state),
-            _input(theme, state, enabled, style),
-          ],
+          children: [_suggestions(theme, state), _input(theme, state, enabled, style)],
         );
       },
     );
@@ -127,27 +132,40 @@ class _CommandLineViewState extends State<CommandLineView> {
     final colors = theme.colors;
     final metrics = theme.metrics;
     final base = TextStyle(fontFamily: theme.fonts.fixed, fontSize: metrics.fontSize, color: colors.secondaryText);
+    if (!state.isCompleting || state.suggestions.length < 2) {
+      return const SizedBox.shrink();
+    }
 
     return Container(
       color: colors.panelBackground,
       padding: EdgeInsets.symmetric(horizontal: metrics.labelPadding + metrics.cellPadding),
-      child: Text.rich(
-        TextSpan(
-          children: [
-            for (var i = 0; i < state.suggestions.length; i++) ...[
-              if (i > 0) TextSpan(text: '   ', style: base),
+      child: Row(
+        children: [
+          Expanded(
+            child: Text.rich(
               TextSpan(
-                text: state.suggestions[i].insertion,
-                style:
-                    i == state.suggestionIndex
-                        ? base.copyWith(color: colors.cursorText, fontWeight: FontWeight.bold)
-                        : base,
+                children: [
+                  for (var i = 0; i < state.suggestions.length; i++) ...[
+                    if (i > 0) TextSpan(text: '   ', style: base),
+                    TextSpan(
+                      text: state.suggestions[i].insertion,
+                      style:
+                          i == state.suggestionIndex
+                              ? base.copyWith(color: colors.cursorText, fontWeight: FontWeight.bold)
+                              : base,
+                    ),
+                  ],
+                ],
               ),
-            ],
-          ],
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          SizedBox(width: metrics.columnGap),
+          // Что делать дальше — словами: из ряда имён это не очевидно, а
+          // догадываться человек не должен.
+          Text('Tab next · Enter accept · Esc cancel', maxLines: 1, style: base.copyWith(color: colors.pathText)),
+        ],
       ),
     );
   }
@@ -179,6 +197,10 @@ class _CommandLineViewState extends State<CommandLineView> {
             child:
                 enabled
                     ? TextField(
+                      // Ключ — чтобы поле оставалось тем же самым, что бы ни
+                      // происходило вокруг: пересозданное, оно теряет связь с
+                      // клавиатурой.
+                      key: const ValueKey('command-line-input'),
                       controller: state.text,
                       focusNode: _node,
                       style: style,
@@ -186,11 +208,7 @@ class _CommandLineViewState extends State<CommandLineView> {
                       cursorWidth: metrics.strokeWidth * 2,
                       decoration: const InputDecoration.collapsed(hintText: null),
                     )
-                    : Text(
-                      'Оболочка здесь не работает',
-                      maxLines: 1,
-                      style: style.copyWith(color: colors.secondaryText),
-                    ),
+                    : Text('Shell does not work here', maxLines: 1, style: style.copyWith(color: colors.secondaryText)),
           ),
         ],
       ),
