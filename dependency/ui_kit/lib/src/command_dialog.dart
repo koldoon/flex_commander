@@ -397,6 +397,24 @@ BoxConstraints dialogContentLimits(BuildContext context) {
   return BoxConstraints(maxWidth: width < 0 ? 0 : width, maxHeight: height < 0 ? 0 : height);
 }
 
+/// Как отбивается содержимое окна от его краёв.
+///
+/// Одно правило на все окна — рядом с [dialogContentLimits] и по той же
+/// причине: два окна, отбитые по-разному, выглядят как недосмотр, а сверять их
+/// глазами приходится каждый раз заново.
+///
+/// Сверху больше остальных: содержимое отходит от полосы заголовка.
+EdgeInsets dialogContentPadding(BuildContext context) {
+  final metrics = FcTheme.of(context).metrics;
+
+  return EdgeInsets.only(
+    left: metrics.dialogHorizontalPadding,
+    right: metrics.dialogHorizontalPadding,
+    top: metrics.dialogContentTopPadding,
+    bottom: metrics.dialogPadding,
+  );
+}
+
 class CommandDialogActions extends StatelessWidget {
   const CommandDialogActions({super.key, required this.actions});
 

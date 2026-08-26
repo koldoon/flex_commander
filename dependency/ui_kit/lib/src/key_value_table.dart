@@ -117,13 +117,7 @@ class _FcKeyValueTableState extends State<FcKeyValueTable> {
               Flexible(
                 child: SingleChildScrollView(
                   controller: _scroll,
-                  padding: EdgeInsets.only(
-                    left: metrics.dialogHorizontalPadding,
-                    right: metrics.dialogHorizontalPadding,
-                    // Сверху больше: содержимое отходит от полосы заголовка.
-                    top: metrics.dialogContentTopPadding,
-                    bottom: metrics.dialogPadding,
-                  ),
+                  padding: dialogContentPadding(context),
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
                     crossAxisAlignment: CrossAxisAlignment.start,

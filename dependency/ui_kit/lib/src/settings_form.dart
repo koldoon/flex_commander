@@ -62,6 +62,9 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
         children: [
           Flexible(
             child: SingleChildScrollView(
+              // Те же поля, что и у справки: окна не должны быть отбиты
+              // по-разному.
+              padding: dialogContentPadding(context),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
