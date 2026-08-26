@@ -204,6 +204,37 @@ void main() {
   });
 
   group('вставка и история', () {
+    test('пробел ставится только между словом и именем', () {
+      press('Cmd-T');
+      app.left.setCursorToName('docs');
+
+      // Кончилось слово — нужен разделитель.
+      type('rm');
+      press('Cmd-Enter');
+      expect(line.text.text, 'rm docs');
+
+      // А это начало самого имени: `./` и файл должны слипнуться.
+      line.clear();
+      type('./');
+      press('Cmd-Enter');
+      expect(line.text.text, './docs');
+
+      line.clear();
+      type('--out=');
+      press('Cmd-Enter');
+      expect(line.text.text, '--out=docs');
+
+      // Пустая строка и уже поставленный пробел лишнего не получают.
+      line.clear();
+      press('Cmd-Enter');
+      expect(line.text.text, 'docs');
+
+      line.clear();
+      type('cat ');
+      press('Cmd-Enter');
+      expect(line.text.text, 'cat docs');
+    });
+
     test('Cmd-Enter вставляет имя, Cmd-Shift-Enter — путь', () {
       press('Cmd-T');
       app.left.setCursorToName('my report.txt');

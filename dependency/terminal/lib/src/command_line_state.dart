@@ -116,8 +116,7 @@ class CommandLineState extends ChangeNotifier implements ViewportState {
     // держит `TextSelection.collapsed(offset: -1)`.
     final at = selection.isValid ? selection.start : base.length;
     final end = selection.isValid ? selection.end : base.length;
-    final needsSpace = at > 0 && !base.substring(0, at).endsWith(' ');
-    final inserted = needsSpace ? ' $value' : value;
+    final inserted = _separated(base.substring(0, at)) ? ' $value' : value;
 
     text.value = TextEditingValue(
       text: base.replaceRange(at, end, inserted),
@@ -125,6 +124,21 @@ class CommandLineState extends ChangeNotifier implements ViewportState {
     );
     notifyListeners();
   }
+
+  /// Нужен ли пробел между уже набранным и вставляемым.
+  ///
+  /// Только если перед курсором **буква или цифра**, то есть кончилось слово:
+  /// `rm` и имя без пробела слиплись бы. А `./`, `--out=`, `/usr/` и кавычка —
+  /// это начало самого имени, и пробел там его ломает: набранное `./` и
+  /// вставленный файл должны дать `./file`, а не `./ file`.
+  static bool _separated(String before) {
+    if (before.isEmpty) {
+      return false;
+    }
+    return _wordEnd.hasMatch(before.substring(before.length - 1));
+  }
+
+  static final RegExp _wordEnd = RegExp(r'[\p{L}\p{N}]', unicode: true);
 
   void _show(String line) {
     text.value = TextEditingValue(text: line, selection: TextSelection.collapsed(offset: line.length));
