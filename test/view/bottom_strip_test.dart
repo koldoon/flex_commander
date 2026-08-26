@@ -31,7 +31,9 @@ void main() {
         FakeEntry.file('/home/alpha.txt', size: 10),
         FakeEntry.file('/home/beta.txt', size: 10),
       ])..home = '/home',
-      modules: [...featureModules(), const _StubLineModule()],
+      // Без модуля терминала: проверяется механизм ядра, и полосу ставит
+      // подставка. Заодно видно, что приложение без него собирается.
+      modules: [...featureModules().where((module) => module.id != 'fc.terminal'), const _StubLineModule()],
     );
     await runtime.app.start();
   });

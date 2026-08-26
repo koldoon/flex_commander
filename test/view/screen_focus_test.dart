@@ -33,7 +33,7 @@ void main() {
     runtime.app.view.pushViewportContent(ViewportPosition.fullscreen, _EditorLikeScreen());
     await tester.pumpAndSettle();
     // Фокус внутри экрана: печатать нужно туда, а не в панели.
-    expect(find.byType(TextField), findsOneWidget);
+    expect(find.descendant(of: find.byType(_EditorLikeField), matching: find.byType(TextField)), findsOneWidget);
 
     runtime.app.view.popViewportContent(ViewportPosition.fullscreen);
     await tester.pumpAndSettle();
@@ -69,7 +69,10 @@ void main() {
     runtime.app.view.pushViewportContent(ViewportPosition.fullscreen, _EditorLikeScreen());
     await tester.pumpAndSettle();
 
-    await tester.enterText(find.byType(TextField), 'печать');
+    await tester.enterText(
+      find.descendant(of: find.byType(_EditorLikeField), matching: find.byType(TextField)),
+      'печать',
+    );
     await tester.pumpAndSettle();
 
     expect(find.text('печать'), findsOneWidget);

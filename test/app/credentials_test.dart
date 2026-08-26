@@ -119,7 +119,7 @@ void main() {
       expect(find.text('sample.7z'), findsOneWidget);
       expect(find.text('Password'), findsOneWidget);
 
-      final field = tester.widget<TextField>(find.byType(TextField));
+      final field = tester.widget<TextField>(dialogField());
       expect(field.obscureText, isTrue, reason: 'пароль не показывают через плечо');
     });
 
@@ -129,7 +129,7 @@ void main() {
       final asking = credentials.obtain(requestFor('7z:/sample.7z'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField), 'тайна');
+      await tester.enterText(dialogField(), 'тайна');
       await tester.tap(find.text('Unlock'));
       await tester.pumpAndSettle();
 

@@ -129,9 +129,9 @@ void main() {
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
 
-        expect(find.byType(TextField), findsOneWidget);
+        expect(dialogField(), findsOneWidget);
         // Прошлой строки ещё не было — поле пустое и ждёт набора.
-        expect(tester.widget<TextField>(find.byType(TextField)).controller?.text, isEmpty);
+        expect(tester.widget<TextField>(dialogField()).controller?.text, isEmpty);
         expect(find.text('Case sensitive'), findsOneWidget);
         expect(find.text('Regular expression'), findsOneWidget);
 

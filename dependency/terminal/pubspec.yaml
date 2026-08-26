@@ -1,0 +1,41 @@
+name: fc_terminal
+description: "Оболочка в том же окне: командная строка под панелями и полноэкранный терминал."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  fc_ui_kit:
+    path: ../ui_kit
+
+  # Разбор потока терминала и его показ: управляющие последовательности, буфер
+  # прокрутки, выделение мышью. Писать своё — значит писать ещё один эмулятор
+  # терминала, а он нужен целиком или не нужен вовсе.
+  xterm: ^4.0.0
+
+  # Псевдотерминал. Нативная часть принадлежит модулю, а не приложению:
+  # буфер обмена и запуск программ нужны всегда, а этот — только терминалу.
+  flutter_pty: ^0.4.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  fc_default_theme:
+    path: ../default_theme
+
+  flex_commander:
+    path: ../..

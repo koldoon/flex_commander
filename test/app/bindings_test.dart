@@ -50,7 +50,15 @@ void main() {
       (binding) => '${binding.keys}' == 'Esc' && !((binding.inContent?.call(runtime.app.left) ?? false)),
     );
 
-    expect(elsewhere.map((binding) => binding.commandId), ['viewer.close', 'editor.close']);
+    // Терминал добавил две: `Esc` в командной строке возвращает ввод панели, а
+    // в экране отработавшей команды убирает его. Обе — при своём содержимом, и
+    // в очередь к панельным тоже не встают.
+    expect(elsewhere.map((binding) => binding.commandId), [
+      'viewer.close',
+      'editor.close',
+      'terminal.leaveLine',
+      'terminal.closeRun',
+    ]);
   });
 
   test('переход по набранному символу не перехватывает обычные клавиши', () {

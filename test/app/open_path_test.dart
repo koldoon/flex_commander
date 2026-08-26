@@ -248,7 +248,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Open path (left panel)'), findsOneWidget);
-      expect(tester.widget<TextField>(find.byType(TextField)).controller?.text, '/home');
+      expect(tester.widget<TextField>(dialogField()).controller?.text, '/home');
     });
 
     testWidgets('на чужом источнике поле показывает протокол, а не «//alpha»', (tester) async {
@@ -266,7 +266,7 @@ void main() {
 
       // Человек правит то, что видит в заголовке панели. `//alpha/srv` там
       // было бы ни адресом, ни путём.
-      final shown = tester.widget<TextField>(find.byType(TextField)).controller?.text;
+      final shown = tester.widget<TextField>(dialogField()).controller?.text;
       expect(shown, 'mem://alpha/srv');
 
       // И эта же строка обязана открыться обратно.
@@ -290,7 +290,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField), '/etc');
+      await tester.enterText(dialogField(), '/etc');
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
@@ -315,7 +315,7 @@ void main() {
 
       // Протокол, которого в приложении действительно нет: `ssh` с недавних
       // пор умеет свой модуль, и на нём эта проверка проверяла бы уже не то.
-      await tester.enterText(find.byType(TextField), 'ftp://user@host/srv');
+      await tester.enterText(dialogField(), 'ftp://user@host/srv');
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
@@ -340,7 +340,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // `~` — это соглашение о записи пути, и знает о доме сам источник.
-      await tester.enterText(find.byType(TextField), '~/docs');
+      await tester.enterText(dialogField(), '~/docs');
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
@@ -368,7 +368,7 @@ void main() {
         CommandInvocation(parameters: {OpenPathCommand.panelParam: 'left'}),
       );
       await tester.pumpAndSettle();
-      await tester.enterText(find.byType(TextField), 'Blah');
+      await tester.enterText(dialogField(), 'Blah');
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
@@ -404,7 +404,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        await tester.enterText(find.byType(TextField), entry.key);
+        await tester.enterText(dialogField(), entry.key);
         await tester.tap(find.text('Open'));
         await tester.pumpAndSettle();
 
@@ -429,7 +429,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField), '/такого/нет');
+      await tester.enterText(dialogField(), '/такого/нет');
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
@@ -470,7 +470,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField), 'slow://alpha/srv');
+      await tester.enterText(dialogField(), 'slow://alpha/srv');
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
       return runtime;
@@ -500,7 +500,7 @@ void main() {
 
       // Прервали, но не ушли: набранный адрес на месте, и его можно поправить.
       expect(find.text('Open path (left panel)'), findsOneWidget);
-      expect(tester.widget<TextField>(find.byType(TextField)).controller?.text, 'slow://alpha/srv');
+      expect(tester.widget<TextField>(dialogField()).controller?.text, 'slow://alpha/srv');
       // Отмена — не отказ: «Not found» здесь был бы враньём.
       expect(find.textContaining('Not found'), findsNothing);
       expect(find.text('Status'), findsNothing, reason: 'работа кончилась — говорить не о чем');

@@ -1,0 +1,101 @@
+import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:flutter/material.dart';
+import 'package:xterm/xterm.dart';
+
+import 'terminal_screens.dart';
+import 'terminal_session.dart';
+
+/// Постоянная сессия во весь экран.
+class TerminalScreenView extends StatelessWidget {
+  const TerminalScreenView({super.key, required this.screen});
+
+  final TerminalScreen screen;
+
+  @override
+  Widget build(BuildContext context) {
+    return _TerminalFrame(
+      title: 'Terminal',
+      // Выход показан словами, а не клавишей ряда: `F10` внутри принадлежит
+      // тому, что там запущено, — `htop` и `mc` им и живут.
+      hint: '⌃O — панели',
+      session: screen.session,
+    );
+  }
+}
+
+/// Работающая (или отработавшая) команда из строки.
+class CommandRunView extends StatelessWidget {
+  const CommandRunView({super.key, required this.screen});
+
+  final CommandRunScreen screen;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: screen,
+      builder: (context, _) {
+        final code = screen.exitCode;
+        return _TerminalFrame(
+          title: '\$ ${screen.command}',
+          hint: switch (code) {
+            null => 'работает — ⌃C прервать',
+            0 => 'готово — любая клавиша',
+            final failed => 'выход $failed — любая клавиша',
+          },
+          failed: code != null && code != 0,
+          session: screen.session,
+        );
+      },
+    );
+  }
+}
+
+/// Общая обвязка: шапка с тем, что показано, и сам терминал под ней.
+class _TerminalFrame extends StatelessWidget {
+  const _TerminalFrame({required this.title, required this.hint, required this.session, this.failed = false});
+
+  final String title;
+  final String hint;
+  final bool failed;
+  final TerminalSession session;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FcTheme.of(context);
+    final colors = theme.colors;
+    final metrics = theme.metrics;
+
+    final label = TextStyle(fontFamily: theme.fonts.fixed, fontSize: metrics.fontSize, color: colors.pathText);
+
+    return ColoredBox(
+      color: colors.panelBackground,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Container(
+            height: metrics.pathHeaderHeight,
+            padding: EdgeInsets.symmetric(horizontal: metrics.panelLeftPadding),
+            alignment: Alignment.centerLeft,
+            child: Row(
+              children: [
+                Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: label)),
+                Text(hint, style: label.copyWith(color: failed ? colors.markedBar : colors.secondaryText)),
+              ],
+            ),
+          ),
+          Expanded(
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: metrics.panelLeftPadding),
+              child: TerminalView(
+                session.terminal,
+                autofocus: true,
+                backgroundOpacity: 0,
+                textStyle: TerminalStyle(fontFamily: theme.fonts.fixed, fontSize: metrics.fontSize),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}

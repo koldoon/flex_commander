@@ -1,0 +1,83 @@
+import 'package:fc_api/fc_api.dart';
+import 'package:fc_terminal/fc_terminal.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:flex_commander/app.dart';
+import 'package:flex_commander/bootstrap/app_modules.dart';
+import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+/// Строка в собранном приложении: фокус, набор и то, что видно.
+void main() {
+  late AppRuntime runtime;
+  late FakePty pty;
+
+  setUp(() async {
+    pty = FakePty();
+    runtime = await testApp(
+      provider: InMemoryTreeProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.file('/home/alpha.txt', size: 10),
+        FakeEntry.file('/home/beta.txt', size: 10),
+      ])..home = '/home',
+      modules: [...featureModules().where((module) => module.id != 'fc.terminal'), ShellTerminal(pty: pty)],
+    );
+    await runtime.app.start();
+  });
+
+  Finder lineField() => find.descendant(of: find.byType(CommandLineView), matching: find.byType(TextField));
+
+  testWidgets('строка видна внизу и показывает каталог панели', (tester) async {
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(CommandLineView), findsOneWidget);
+    expect(find.text('/home\$'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('до Cmd-T буква ищет файл, после — попадает в поле', (tester) async {
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    // Пока ввод у панели, печать — это переход к имени. Отнять её нельзя.
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+    await tester.pumpAndSettle();
+    expect(runtime.app.left.currentNode?.name, 'beta.txt');
+
+    runtime.commands.dispatch(KeyCombination.parse('Cmd-T'));
+    await tester.pumpAndSettle();
+
+    // Системный фокус пошёл следом за владельцем ввода.
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'command line');
+
+    await tester.enterText(lineField(), 'echo привет');
+    await tester.pumpAndSettle();
+
+    expect(find.text('echo привет'), findsOneWidget);
+    // И курсор панели остался там, где стоял.
+    expect(runtime.app.left.currentNode?.name, 'beta.txt');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('Esc возвращает ввод панели, и поиск по букве оживает', (tester) async {
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    runtime.commands.dispatch(KeyCombination.parse('Cmd-T'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Esc'));
+    await tester.pumpAndSettle();
+
+    expect(FocusManager.instance.primaryFocus?.debugLabel, isNot('command line'));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
+    await tester.pumpAndSettle();
+    expect(runtime.app.left.currentNode?.name, 'alpha.txt');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+}

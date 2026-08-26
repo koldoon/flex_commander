@@ -6,6 +6,7 @@ import 'package:fc_file_ops/fc_file_ops.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_ssh/fc_ssh.dart';
+import 'package:fc_terminal/fc_terminal.dart';
 import 'package:fc_viewer/fc_viewer.dart';
 import 'package:fc_zip/fc_zip.dart';
 
@@ -38,4 +39,7 @@ List<FcModule> featureModules() => [
   const TextViewer(),
   // Редактор после оболочки: он занимает место её заглушки на F4.
   const TextEditor(),
+  // Терминал не const: постоянную сессию держит сам модуль — её надо чем-то
+  // закрыть при выходе.
+  ShellTerminal(),
 ];
