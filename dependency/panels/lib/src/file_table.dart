@@ -247,9 +247,11 @@ class _FileTableState extends State<FileTable> {
       builder: (context, _) {
         _prepareScroll();
 
-        if (panel.status == PanelStatus.error) {
-          return _PanelMessage(text: panel.error?.message ?? 'Error');
-        }
+        // Ошибка чтения списка не убирает: не прочитался **новый** каталог, а
+        // панель осталась в прежнем — с его содержимым, курсором и пометкой.
+        // Стереть их значило бы отнять и `..`, и всё, чем отсюда уходят:
+        // человек, ткнувшийся в чужой каталог, оказывался запертым в
+        // сообщении. Про неудачу говорит строка состояния, и этого довольно.
         if (panel.nodes.isEmpty) {
           return const SizedBox.shrink();
         }
@@ -364,22 +366,5 @@ class _ColumnDividersPainter extends CustomPainter {
       }
     }
     return true;
-  }
-}
-
-class _PanelMessage extends StatelessWidget {
-  const _PanelMessage({required this.text});
-
-  final String text;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = FcTheme.of(context);
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Text(text, textAlign: TextAlign.center, style: theme.rowStyle.copyWith(color: theme.colors.error)),
-      ),
-    );
   }
 }
