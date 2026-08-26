@@ -87,6 +87,22 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('в тесное окно всё умещается прокруткой, а не через край', (tester) async {
+    // Окно ниже, чем список полей: без прокрутки колонка вылезла бы за экран,
+    // и Flutter сообщил бы о переполнении прямо из отрисовки.
+    await openSettings(tester, size: const Size(900, 420));
+
+    expect(find.byType(Scrollable), findsWidgets);
+    expect(tester.takeException(), isNull);
+
+    // Кнопка «Close» остаётся видимой: прокручивается список, а не окно
+    // целиком.
+    expect(find.widgetWithText(FcButton, 'Close'), findsOneWidget);
+    expect(tester.getRect(find.widgetWithText(FcButton, 'Close')).bottom, lessThanOrEqualTo(420));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('Esc закрывает', (tester) async {
     await openSettings(tester);
 

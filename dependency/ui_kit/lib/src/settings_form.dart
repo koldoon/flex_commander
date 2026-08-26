@@ -52,27 +52,32 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Flexible(
-          child: SingleChildScrollView(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                for (final (title, schema) in _pages) ...[
-                  _heading(theme, title),
-                  for (final field in schema.fields) _field(theme, schema, field),
-                  SizedBox(height: metrics.dialogGap),
+    return ConstrainedBox(
+      // Предел по высоте — то же правило, что у справки: без него прокрутка не
+      // работает, `Flexible` получает бесконечность, и форма вылезает за экран.
+      constraints: dialogContentLimits(context),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  for (final (title, schema) in _pages) ...[
+                    _heading(theme, title),
+                    for (final field in schema.fields) _field(theme, schema, field),
+                    SizedBox(height: metrics.dialogGap),
+                  ],
                 ],
-              ],
+              ),
             ),
           ),
-        ),
-        SizedBox(height: metrics.dialogGap),
-        CommandDialogActions(actions: [FcButton(label: 'Close', onPressed: widget.onClose)]),
-      ],
+          SizedBox(height: metrics.dialogGap),
+          CommandDialogActions(actions: [FcButton(label: 'Close', onPressed: widget.onClose)]),
+        ],
+      ),
     );
   }
 

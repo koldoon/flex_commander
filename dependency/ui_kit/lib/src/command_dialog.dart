@@ -378,6 +378,25 @@ class CommandDialogBody extends StatelessWidget {
 /// Правило одно на все окна: **кнопки — по размеру подписи, одной строкой,
 /// прижатой вправо** (`HorizontalLayout horizontalAlign="right"` в референсе).
 /// Даже там, где кнопка одна.
+/// Сколько места содержимому окна дозволено занять.
+///
+/// Одно правило на все окна: рама облегает содержимое, поэтому предел ставит
+/// само содержимое, а не рама. Без предела высоты прокрутка внутри окна не
+/// работает вовсе — `Flexible` получает бесконечность и не ограничивает
+/// ничего, а колонка вылезает за экран.
+///
+/// Полоса заголовка вычитается: её рисует рама, а поля считаются для окна
+/// целиком.
+BoxConstraints dialogContentLimits(BuildContext context) {
+  final metrics = FcTheme.of(context).metrics;
+  final screen = MediaQuery.sizeOf(context);
+  final inset = metrics.dialogScreenInset;
+  final width = screen.width - inset * 2;
+  final height = screen.height - inset * 2 - metrics.dialogTitleHeight;
+
+  return BoxConstraints(maxWidth: width < 0 ? 0 : width, maxHeight: height < 0 ? 0 : height);
+}
+
 class CommandDialogActions extends StatelessWidget {
   const CommandDialogActions({super.key, required this.actions});
 

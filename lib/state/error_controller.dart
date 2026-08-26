@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/scheduler.dart';
 
 /// Ошибки, которые никто не поймал.
 ///
@@ -59,7 +60,7 @@ class ErrorController extends ChangeNotifier implements Errors {
     if (last != null && last.sameAs(report)) {
       // Та же самая: не плодим окна, а считаем повторы.
       _queue[_queue.length - 1] = last.repeated();
-      notifyListeners();
+      _announce();
       return;
     }
 
@@ -68,7 +69,37 @@ class ErrorController extends ChangeNotifier implements Errors {
     }
 
     _queue.add(report);
-    notifyListeners();
+    _announce();
+  }
+
+  /// Сообщить подписчикам — но не посреди кадра.
+  ///
+  /// Ошибка приходит откуда угодно, в том числе из отрисовки: переполнение
+  /// раскладки Flutter сообщает прямо из `paint`. Уведомить в этот момент
+  /// значит попросить перестройку дерева во время его же отрисовки — и вместо
+  /// одной ошибки в журнале появляются две, причём вторая («Build scheduled
+  /// during frame») говорит о нас, а не о том, что случилось на самом деле.
+  ///
+  /// Откладывается **только на время кадра**; в остальное время уведомление
+  /// идёт сразу. Таймер вместо этого не годится: он оставил бы висящее
+  /// напоминание в каждом тесте, который сообщает об ошибке, а платой за это
+  /// был бы лишний заход по очереди событий там, где спешить и правда нужно.
+  ///
+  /// Само состояние меняется сразу в любом случае: [current] отвечает правду с
+  /// первого мгновения, откладывается только уведомление.
+  void _announce() {
+    final phase = SchedulerBinding.instance.schedulerPhase;
+    final duringFrame =
+        phase == SchedulerPhase.transientCallbacks ||
+        phase == SchedulerPhase.midFrameMicrotasks ||
+        phase == SchedulerPhase.persistentCallbacks;
+
+    if (!duringFrame) {
+      notifyListeners();
+      return;
+    }
+
+    SchedulerBinding.instance.addPostFrameCallback((_) => notifyListeners());
   }
 
   /// Закрыть показанную и показать следующую.

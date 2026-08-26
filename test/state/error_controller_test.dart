@@ -5,6 +5,11 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Сборщик того, что никто не поймал.
 void main() {
+  // Сборщик ошибок откладывает уведомление, если оно пришло посреди кадра, и
+  // спрашивает об этом планировщик: в тесте без интерфейса связки нет, а
+  // спросить надо.
+  TestWidgetsFlutterBinding.ensureInitialized();
+
   late FakeClipboard clipboard;
   late ErrorController errors;
 

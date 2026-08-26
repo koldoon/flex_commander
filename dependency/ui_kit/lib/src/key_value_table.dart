@@ -97,19 +97,12 @@ class _FcKeyValueTableState extends State<FcKeyValueTable> {
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
-    final screen = MediaQuery.sizeOf(context);
-
-    // Поля от края экрана считаются для окна целиком, вместе с полосой
-    // заголовка, — её рисует рама, поэтому здесь она вычитается.
-    final inset = metrics.dialogScreenInset;
-    final width = screen.width - inset * 2;
-    final height = screen.height - inset * 2 - metrics.dialogTitleHeight;
 
     return ConstrainedBox(
       // Не `SizedBox`: ширину окну задаёт содержимое, а это только предел.
       // Рама измеряет содержимое (`IntrinsicWidth`) и облегает его, поэтому
       // короткая таблица даёт узкое окно, а длинная упирается в поля.
-      constraints: BoxConstraints(maxWidth: width < 0 ? 0 : width, maxHeight: height < 0 ? 0 : height),
+      constraints: dialogContentLimits(context),
       child: SizedBox(
         // Ширина берётся у самого широкого раздела: строки внутри растягиваются
         // на всё, что им дали, и сами по себе ничего не требуют.
