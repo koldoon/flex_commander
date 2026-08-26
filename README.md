@@ -72,6 +72,19 @@ preserves the file's original line endings, and writes through a temporary file 
 rename so an interrupted save cannot leave half a file behind. Files inside archives and
 on servers open too — the bytes come through the same contract as copying.
 
+**Terminal and command line.** A shell in the same window: a command line under the
+panels, and a full-screen session over them on `Ctrl+O` — the key `mc` uses. `Cmd+T`
+hands the input to the line; it has to be a key, because a printable character in a panel
+jumps to a name and that cannot be taken away. `Esc` gives the input back and keeps what
+you typed. `Enter` runs the line **in its own process** in the panel's directory, so the
+end of a command is known exactly instead of being guessed from the shape of a prompt:
+a silent successful command shows nothing and simply re-reads the panel, while one that
+says anything keeps its output on screen until you press a key. `cd` is the exception —
+it walks the *panel*, not the shell. Function keys and `↑`/`↓` still belong to the panels
+while you type, so `F5` copies and the cursor keeps moving. The pseudo-terminal is
+`posix_openpt` plus `posix_spawn` through `dart:ffi`: no native plugin, so the macOS build
+stays on Swift Package Manager, and a real shell can be driven from `flutter test`.
+
 **Interface and plumbing.** The function-key row asks the command registry what is bound
 to each key, so a button and its key can never disagree; it follows the visible screen
 (in the viewer `F2` says `Wrap`) and shows the layer of whatever modifier is held down.
@@ -112,6 +125,18 @@ On Windows and Linux `Cmd` reads as `Ctrl`.
 | `Cmd-F`, `F7` / `Cmd-G` / `Shift-Cmd-G` | find / find next / find previous |
 | `Cmd-S` (editor) | save |
 | `Esc`, `F10` (viewer, editor) | close and go back to the panels |
+| `Cmd-T` | hand the input to the command line |
+| `Esc` (command line) | hand it back to the panel, keeping the text |
+| `Ctrl-O` | raise the shell full-screen and back |
+| `Cmd-↑` / `Cmd-↓` (command line) | previous / next command in the history |
+| `Cmd-Enter` / `Cmd-Shift-Enter` | insert the name / the full path under the cursor |
+
+Inside the full-screen shell only `Ctrl+O` is taken — everything else goes to whatever
+runs there, because `vim`, `htop` and `mc` live on those keys. The one casualty is `nano`,
+where `Ctrl+O` means "save"; `mc` has made the same trade for decades, and the way out of
+a full-screen view has to be the same key everywhere. Note also that on Windows and Linux
+`Cmd+O` (open with the system) and this `Ctrl+O` are the same combination, and the older
+binding wins there until one of them moves.
 
 On macOS the function keys are taken by the system by default. Turn on *System Settings →
 Keyboard → "Use F1, F2, etc. keys as standard function keys"*, or press `Fn+F5`. The
@@ -208,6 +233,7 @@ declaring — see [`docs/modules.md`](docs/modules.md).
 | `dependency/file_ops` | create, delete, copy, move |
 | `dependency/zip`, `dependency/7z` | archives as trees, plus archive creation |
 | `dependency/ssh` | a remote machine's file system over SFTP |
+| `dependency/terminal` | command line and shell session, on its own pseudo-terminal |
 | `dependency/default_theme` | palette, metrics, icons, fonts |
 | `dependency/test_kit` | fakes and application assembly for tests |
 | `dependency/re_editor` | vendored fork of the text editing engine |
