@@ -814,13 +814,18 @@ Windows и Linux оно и есть родное.
 **Контракт.**
 
 ```dart
-abstract interface class NodeInfoSource {
+abstract interface class NodeInfoProvider {
   /// Что этот модуль знает об узле. Пустой список — «мне сказать нечего».
   Future<List<NodeInfoSection>> describe(FsNode node);
 }
 
-registry.nodeInfo(() => ExifInfoSource(...));
+registry.nodeInfo(() => ExifInfoProvider(...));
 ```
+
+Подробности — в [`spec/file-info.md`](spec/file-info.md): содержимое целиком
+приходит от объявленных провайдеров, а модуль сведений — шелл, который его
+размечает. Основные поля (имя, путь, даты, права) — такой же провайдер, как
+EXIF или `xattr`, а не встроенная часть окна.
 
 **Решения.**
 
