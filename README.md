@@ -107,9 +107,11 @@ stays on Swift Package Manager, and a real shell can be driven from `flutter tes
 **Interface and plumbing.** The function-key row asks the command registry what is bound
 to each key, so a button and its key can never disagree; it follows the visible screen
 (in the viewer `F2` says `Wrap`) and shows the layer of whatever modifier is held down.
-`F1` prints a help table generated from the command registry itself. Passwords for
-encrypted archives and servers are asked by one shared dialog and remembered for the
-session only. Transient messages appear as toasts; window geometry, panel paths and
+`F1` prints a help table generated from the command registry itself. Command windows can
+be dragged aside by their title bar — to see the file list under a running copy, or the
+error behind the dialog — and never leave the window entirely. Passwords for encrypted
+archives and servers are asked by one shared dialog and remembered for the session
+only. Transient messages appear as toasts; window geometry, panel paths and
 settings are stored in `~/.flex-commander/settings.json`.
 
 ## Keyboard
