@@ -56,7 +56,6 @@ class CommandPaletteCommand extends AppCommand {
             _remember(commandId);
             registry.run(commandId);
           },
-          onClose: close,
         ),
         onDismiss: close,
       ),

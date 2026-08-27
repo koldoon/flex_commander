@@ -33,14 +33,13 @@ class PaletteItem {
 /// Список и отбор — общие с историей адресов ([FcPickList]); своё здесь одно:
 /// `Enter` **запускает** выбранное, а не вписывает его в поле. Поле тут только
 /// для поиска.
+///
+/// Кнопок внизу нет вовсе — ни «Close», ни «Run». Это не окно с формой, которую
+/// заполняют и подтверждают, а поиск: набрал, выбрал, нажал `Enter`. Кнопка
+/// «Close» повторяла бы `Esc`, а «Run» — `Enter`, и обе отнимали бы у списка
+/// строку, ради которой окно и открывают.
 class FcCommandPalette extends StatefulWidget {
-  const FcCommandPalette({
-    super.key,
-    required this.items,
-    required this.recent,
-    required this.onRun,
-    required this.onClose,
-  });
+  const FcCommandPalette({super.key, required this.items, required this.recent, required this.onRun});
 
   final List<PaletteItem> items;
 
@@ -48,9 +47,10 @@ class FcCommandPalette extends StatefulWidget {
   final List<String> recent;
 
   /// Запустить выбранное. Окно закрывает вызывающий: у команды может быть своё.
+  ///
+  /// Закрытие по `Esc` сюда не приходит вовсе — его берёт на себя рама окна
+  /// (`onDismiss`), как у всех остальных окон.
   final void Function(String commandId) onRun;
-
-  final VoidCallback onClose;
 
   @override
   State<FcCommandPalette> createState() => _FcCommandPaletteState();
@@ -119,8 +119,8 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
               padding: dialogContentPadding(context),
               child: FcTextField(controller: _query, focusNode: _field, autofocus: true, hintText: 'Command'),
             ),
+            // Список идёт до самого низа окна: ряда кнопок под ним больше нет.
             Flexible(child: FcPickList(rows: _found, query: _query.text, selected: _selected, onTap: widget.onRun)),
-            CommandDialogActions(actions: [FcButton(label: 'Close', onPressed: widget.onClose)]),
           ],
         ),
       ),
