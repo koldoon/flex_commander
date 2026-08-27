@@ -84,7 +84,7 @@ class DefaultMetrics extends FcMetrics {
   double get panelLeftPadding => ref(30);
 
   @override
-  double get panelRightPadding => ref(40);
+  double get panelRightPadding => ref(30);
 
   @override
   double get labelPadding => ref(20);
