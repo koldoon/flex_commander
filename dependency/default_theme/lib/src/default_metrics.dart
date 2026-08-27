@@ -150,6 +150,9 @@ class DefaultMetrics extends FcMetrics {
   double get dialogTitleHeight => ref(84);
 
   @override
+  double get dialogDragKeepVisible => 96;
+
+  @override
   double get dialogPadding => ref(20);
 
   @override

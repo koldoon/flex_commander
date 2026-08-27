@@ -13,6 +13,7 @@ library;
 export 'src/app_scope.dart';
 export 'src/async_run_dialog.dart';
 export 'src/command_dialog.dart';
+export 'src/drag_slop.dart';
 export 'src/command_palette.dart';
 export 'src/controls.dart';
 export 'src/fc_theme.dart';

@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -56,6 +57,13 @@ class _DialogFrameState extends State<DialogFrame> {
   /// поднимаются сюда от поля.
   final FocusNode _node = FocusNode(debugLabel: 'dialog frame');
 
+  /// Куда окно отодвинули от места, назначенного командой.
+  ///
+  /// Живёт здесь, а не в слое окон: слой создаёт раму с ключом по описанию
+  /// окна, поэтому это состояние живёт ровно столько же, сколько само окно, и
+  /// умирает вместе с ним. Отдельного хранилища и ключей к нему не нужно.
+  Offset _shift = Offset.zero;
+
   @override
   void initState() {
     super.initState();
@@ -91,6 +99,44 @@ class _DialogFrameState extends State<DialogFrame> {
     return KeyEventResult.ignored;
   }
 
+  /// Полоса заголовка — она же ручка, за которую окно отодвигают.
+  ///
+  /// Только она: за содержимое окно не тянут — там поля, кнопки и списки, и
+  /// движение по ним значит своё. В macOS ровно так же.
+  ///
+  /// Порога у протяжки нет: окно едет с первой же точки. Порог нужен там, где
+  /// с протяжкой спорит щелчок (заголовки колонок — `drag_slop.dart`), а здесь
+  /// щелчок по заголовку не значит ничего.
+  Widget _titleBar(FcTheme theme, FcColors colors, FcMetrics metrics) {
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      // Отсчёт от нажатия, а не от того места, где протяжка признана протяжкой:
+      // иначе окно отставало бы от указателя и так и ехало бы со сдвигом до
+      // самого конца.
+      dragStartBehavior: DragStartBehavior.down,
+      onPanUpdate: (details) => setState(() => _shift += details.delta),
+      child: Container(
+        width: double.infinity,
+        height: metrics.dialogTitleHeight,
+        alignment: Alignment.centerLeft,
+        padding: EdgeInsets.symmetric(horizontal: metrics.dialogTitlePadding),
+        decoration: BoxDecoration(
+          color: colors.dialogTitleBackground,
+          // Полоса заголовка отбрасывает тень на содержимое — тот же фильтр,
+          // что у кнопок.
+          boxShadow: [
+            BoxShadow(
+              color: colors.shadow,
+              offset: Offset(0, metrics.buttonShadowOffset),
+              blurRadius: metrics.buttonShadowBlur,
+            ),
+          ],
+        ),
+        child: Text(widget.title, style: theme.dialogTitleStyle),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
@@ -104,7 +150,7 @@ class _DialogFrameState extends State<DialogFrame> {
         // Затемнение: пока окно открыто, работать с панелями нельзя.
         Positioned.fill(child: ModalBarrier(dismissible: false, color: colors.dialogBarrier)),
         CustomSingleChildLayout(
-          delegate: _OverArea(widget.area, metrics.dialogMinWidth),
+          delegate: _OverArea(widget.area, metrics.dialogMinWidth, _shift, metrics.dialogDragKeepVisible),
           child: FocusScope(
             autofocus: true,
             // Обработчик стоит на самой области окна: если внутри есть поле
@@ -150,28 +196,7 @@ class _DialogFrameState extends State<DialogFrame> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Container(
-                            width: double.infinity,
-                            height: metrics.dialogTitleHeight,
-                            alignment: Alignment.centerLeft,
-                            padding: EdgeInsets.symmetric(horizontal: metrics.dialogTitlePadding),
-                            decoration: BoxDecoration(
-                              color: colors.dialogTitleBackground,
-                              // Полоса заголовка отбрасывает тень на содержимое —
-                              // тот же фильтр, что у кнопок.
-                              boxShadow: [
-                                BoxShadow(
-                                  color: colors.shadow,
-                                  offset: Offset(0, metrics.buttonShadowOffset),
-                                  blurRadius: metrics.buttonShadowBlur,
-                                ),
-                              ],
-                            ),
-                            child: Text(widget.title, style: theme.dialogTitleStyle),
-                          ),
-                          widget.child,
-                        ],
+                        children: [_titleBar(theme, colors, metrics), widget.child],
                       ),
                     ),
                   ),
@@ -193,10 +218,16 @@ class _DialogFrameState extends State<DialogFrame> {
 /// поместится, как ни выравнивай, — но не ниже [minWidth]: на узком экране
 /// важнее прочитать окно, чем попасть точно над панелью.
 class _OverArea extends SingleChildLayoutDelegate {
-  const _OverArea(this.area, this.minWidth);
+  const _OverArea(this.area, this.minWidth, this.shift, this.keepVisible);
 
   final DialogArea area;
   final double minWidth;
+
+  /// Куда окно отодвинули руками.
+  final Offset shift;
+
+  /// Сколько окна остаётся видно, как далеко его ни утащили.
+  final double keepVisible;
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
@@ -210,9 +241,26 @@ class _OverArea extends SingleChildLayoutDelegate {
     // держать его точно над панелью.
     final free = math.max(0.0, size.width - childSize.width);
     final x = (size.width * area.center - childSize.width / 2).clamp(0.0, free).toDouble();
-    return Offset(x, (size.height - childSize.height) / 2);
+    final y = (size.height - childSize.height) / 2;
+
+    // Отодвинутое руками окно уехать совсем не может: тянут за полосу
+    // заголовка, и спрятанное под край не вернуть ничем.
+    //
+    // Считается это на **каждой** раскладке, а не при отпускании: окно
+    // приложения меняет размер, и уведённое к правому краю обязано остаться
+    // достижимым после того, как приложение сузили.
+    final visible = math.min(keepVisible, childSize.width);
+    return Offset(
+      (x + shift.dx).clamp(visible - childSize.width, size.width - visible),
+      // По вертикали полоса заголовка видна целиком: за неё и тянут.
+      (y + shift.dy).clamp(0.0, math.max(0.0, size.height - childSize.height)),
+    );
   }
 
   @override
-  bool shouldRelayout(_OverArea oldDelegate) => oldDelegate.area != area || oldDelegate.minWidth != minWidth;
+  bool shouldRelayout(_OverArea oldDelegate) =>
+      oldDelegate.area != area ||
+      oldDelegate.minWidth != minWidth ||
+      oldDelegate.shift != shift ||
+      oldDelegate.keepVisible != keepVisible;
 }

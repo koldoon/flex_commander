@@ -182,6 +182,14 @@ abstract class FcMetrics {
   /// окна, а не часть рисунка.
   double get dialogScreenInset;
 
+  /// Сколько окна остаётся видно, когда его утащили за край.
+  ///
+  /// Окно отодвигают, чтобы посмотреть, что под ним, — и увести его совсем за
+  /// край можно только по недосмотру: обратно оно уже не вернётся, потому что
+  /// тянут за полосу заголовка. Считается в точках экрана, а не в единицах
+  /// разметки: это про то, за что можно ухватиться пальцем.
+  double get dialogDragKeepVisible;
+
   /// Тень окна: `DropShadowFilter distance="5" blurX="15" blurY="15"`.
   double get dialogShadowOffset;
   double get dialogShadowBlur;
