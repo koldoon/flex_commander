@@ -33,8 +33,8 @@ class QuickViewView extends StatelessWidget {
     return ListenableBuilder(
       listenable: Listenable.merge([screen, app.view]),
       builder: (context, _) {
-        final position = _positionOf(app);
-        final focused = position != null && app.view.activeArea == position;
+        final position = app.view.positionOf(screen);
+        final focused = app.view.takesKeys(screen);
         final notice = screen.notice;
 
         // Рамку и плашку рисует показ текста сам — тот же `FcPanelFrame`, что
@@ -70,16 +70,6 @@ class QuickViewView extends StatelessWidget {
         );
       },
     );
-  }
-
-  /// В какой области нас показывают: сторона нужна рамке.
-  ViewportPosition? _positionOf(Application app) {
-    for (final position in [ViewportPosition.left, ViewportPosition.right]) {
-      if (identical(app.view.contentAt(position), screen)) {
-        return position;
-      }
-    }
-    return null;
   }
 
   PanelOuterEdge _edgeOf(ViewportPosition? position) => switch (position) {

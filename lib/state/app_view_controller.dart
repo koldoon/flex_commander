@@ -137,6 +137,28 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
   }
 
   @override
+  ViewportPosition? positionOf(ViewportState content) {
+    for (final entry in _stacks.entries) {
+      if (entry.value.any((state) => identical(state, content))) {
+        return entry.key;
+      }
+    }
+    return null;
+  }
+
+  @override
+  bool takesKeys(ViewportState content) {
+    final active = activeArea;
+    if (identical(contentAt(active), content)) {
+      return true;
+    }
+    // Командная строка забирает ввод, но клавиши, которых у однострочного поля
+    // нет, оставляет панели — `F1`…`F12` и стрелки. Значит панель ими и
+    // распоряжается: курсор в ней ходит, и приглушать её нечестно.
+    return active == ViewportPosition.bottom && identical(contentAt(sourceArea), content);
+  }
+
+  @override
   ViewportPosition get sourceArea => _app.left.active ? ViewportPosition.left : ViewportPosition.right;
 
   /// Отпускает ввод, взятый областью без своей активности. true — он был у неё.

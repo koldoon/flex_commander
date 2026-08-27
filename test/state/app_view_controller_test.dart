@@ -142,6 +142,47 @@ void main() {
     expect(notified, 1);
   });
 
+  group('кому достаются клавиши', () {
+    test('содержимое активной области — ему', () {
+      final panel = runtime.app.view.stackAt(left).single;
+
+      expect(runtime.app.view.takesKeys(panel), isTrue);
+      expect(runtime.app.view.takesKeys(runtime.app.view.stackAt(ViewportPosition.right).single), isFalse);
+    });
+
+    test('наложение забирает клавиши у панели под собой', () {
+      final panel = runtime.app.view.stackAt(left).single;
+      final overlay = _Content('quick view');
+      runtime.app.view.pushViewportContent(left, overlay);
+      runtime.app.view.setFocus(left);
+
+      // Панель под наложением жива и остаётся источником, но клавиши не её:
+      // стрелки листают показ. Плашка по этому ответу и приглушается.
+      expect(runtime.app.view.takesKeys(overlay), isTrue);
+      expect(runtime.app.view.takesKeys(panel), isFalse);
+    });
+
+    test('командная строка клавиши панели оставляет', () {
+      final panel = runtime.app.view.stackAt(left).single;
+      final line = _Content('command line');
+      runtime.app.view.setViewportContent(ViewportPosition.bottom, line);
+      runtime.app.view.setFocus(ViewportPosition.bottom);
+
+      // Утвердительно у обоих сразу, и это не ошибка: `F1`…`F12` и стрелки
+      // достаются панели — курсор в ней ходит, пока набирают команду.
+      expect(runtime.app.view.takesKeys(line), isTrue);
+      expect(runtime.app.view.takesKeys(panel), isTrue);
+    });
+
+    test('где стоит содержимое, знает область, а не оно само', () {
+      final overlay = _Content('quick view');
+      runtime.app.view.pushViewportContent(left, overlay);
+
+      expect(runtime.app.view.positionOf(overlay), left);
+      expect(runtime.app.view.positionOf(_Content('нигде не стоит')), isNull);
+    });
+  });
+
   test('полноэкранное забирает ввод, а панель-источник остаётся известной', () {
     expect(runtime.app.view.activeArea, left);
 

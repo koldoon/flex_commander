@@ -124,7 +124,10 @@ class _FcTextViewState extends State<FcTextView> {
     // окна.
     return FcPanelFrame(
       outerEdge: widget.outerEdge,
-      header: FcPathPlate(path: widget.path, trailing: widget.trailing),
+      // Плашка приглушается по тому же правилу, что у файловой панели: она
+      // говорит, кому сейчас достаются клавиши. Во весь экран показ их и
+      // забирает, а в области панели — только когда в него вошли.
+      header: FcPathPlate(path: widget.path, trailing: widget.trailing, active: widget.focused),
       // Отступ здесь — только для полос прокрутки: они стоят по краю панели, а
       // текст отодвигают уже свои поля.
       child: Padding(

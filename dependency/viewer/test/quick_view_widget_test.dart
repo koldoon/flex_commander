@@ -67,6 +67,33 @@ void main() {
   );
 
   testWidgets(
+    'яркая плашка одна: у того, кому достаются клавиши',
+    (tester) async => withDesktopPlatform(() async {
+      await pumpApp(tester);
+      runtime.app.left.setCursorToName('notes.txt');
+      runtime.commands.dispatch(KeyCombination.parse('Shift-F3'));
+      await tester.pump(QuickViewScreen.defaultDelay * 2);
+      await tester.pumpAndSettle();
+
+      /// Плашка по адресу в ней: у панели — каталог, у показа — файл.
+      bool bright(String path) =>
+          tester.widget<FcPathPlate>(find.byWidgetPredicate((w) => w is FcPathPlate && w.path == path)).active;
+
+      // Ввод у файлов: горит их плашка, показ приглушён.
+      expect(bright('/home'), isTrue);
+      expect(bright('/home/notes.txt'), isFalse);
+
+      runtime.app.toggleActivePanel();
+      await tester.pumpAndSettle();
+
+      // Ввод ушёл в показ — и это видно, хотя курсор в списке остался: он
+      // говорит про источник операции, а плашка про клавиши.
+      expect(bright('/home'), isFalse);
+      expect(bright('/home/notes.txt'), isTrue);
+    }),
+  );
+
+  testWidgets(
     'вошли в показ — фокус его, вышли — снова файлов',
     (tester) async => withDesktopPlatform(() async {
       await pumpApp(tester);

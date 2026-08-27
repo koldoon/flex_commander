@@ -39,10 +39,17 @@ class PanelView extends StatelessWidget {
         child: FcPanelFrame(
           outerEdge: outerEdge,
           header: ListenableBuilder(
-            listenable: panel,
+            // И на область тоже: ввод уходит и туда, где панели нет вовсе, —
+            // в быстрый просмотр напротив, — а плашка обязана это показать.
+            listenable: Listenable.merge([panel, app.view]),
             builder:
-                (context, _) =>
-                    FcPathPlate(path: panel.headerText ?? panel.directory?.displayPath ?? '/', active: panel.active),
+                (context, _) => FcPathPlate(
+                  path: panel.headerText ?? panel.directory?.displayPath ?? '/',
+                  // Не `panel.active`: та говорит, какая панель — **источник**
+                  // операции, и остаётся собой, когда ввод ушёл в наложение
+                  // напротив. Плашка говорит другое: где сейчас клавиши.
+                  active: app.view.takesKeys(panel),
+                ),
           ),
           footer: PanelStatusBar(panel: panel),
           // Не таблица файлов, а то, чем рисуется вид содержимого панели:
