@@ -147,6 +147,7 @@ CommandRegistry.dispatch(combination, app)
 | `Cmd-/` | `panel.root` | в корень провайдера |
 | `Cmd-O` | `panel.openWithSystem` | открыть выбранные объекты системой, не входя в них |
 | `Cmd-R` | `panel.reload` | перечитать текущий каталог |
+| `Alt-Shift-Enter` | `panel.calculateSizes` | посчитать размеры всех каталогов здесь |
 | `Cmd-Shift-H`, `Cmd-H` | `panel.toggleHidden` | показать/скрыть скрытые объекты |
 
 `Left`/`Right` заняты переходом к первому/последнему элементу — это решение референса

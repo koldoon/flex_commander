@@ -69,6 +69,10 @@ class Navigation implements FcModule {
     registry.binding(KeyBinding('Tab', TogglePanelCommand.commandId));
     registry.binding(KeyBinding('Enter', OpenNodeCommand.commandId));
     registry.binding(KeyBinding('Cmd-O', OpenWithSystemCommand.commandId));
+
+    // Размеры всех каталогов — как в Total Commander.
+    registry.command((context) => CalculateSizesCommand());
+    registry.binding(KeyBinding('Alt-Shift-Enter', CalculateSizesCommand.commandId));
     registry.binding(KeyBinding('Bsp', GoUpCommand.commandId));
     registry.binding(KeyBinding('Cmd-Up', GoUpCommand.commandId));
     registry.binding(KeyBinding('Cmd-/', GoToRootCommand.commandId));

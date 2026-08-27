@@ -293,6 +293,30 @@ class GoToRootCommand extends AppCommand {
   Future<void> execute(CommandContext context) => context.panel.open(context.panel.provider.rootDirectory);
 }
 
+/// Посчитать размеры всех каталогов текущего каталога.
+///
+/// Одним нажатием, а не пометкой: помечать десяток каталогов ради их размеров —
+/// работа, которую человек делает вместо приложения.
+class CalculateSizesCommand extends AppCommand {
+  static const String commandId = 'panel.calculateSizes';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => 'Sizes';
+
+  @override
+  String get description => 'Measure every directory here, not just the marked ones';
+
+  /// Занятой панели считать нечего: список ещё читается, и обходить пока некого.
+  @override
+  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.directory != null;
+
+  @override
+  Future<void> execute(CommandContext context) async => context.panel.measureDirectories();
+}
+
 /// Перечитать текущий каталог.
 class ReloadCommand extends AppCommand {
   static const String commandId = 'panel.reload';

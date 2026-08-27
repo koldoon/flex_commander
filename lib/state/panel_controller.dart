@@ -962,6 +962,43 @@ class PanelController extends ChangeNotifier implements Panel {
   @override
   bool get selectionSizeIsFinal => _scans.isEmpty && _scanQueue.isEmpty;
 
+  /// Идёт общий подсчёт: считаем до конца, что бы ни делали с пометкой.
+  ///
+  /// Признак, а не второй список: очередь остаётся одна, меняется лишь
+  /// основание, по которому в ней держат каталог.
+  bool _measuringAll = false;
+
+  /// Посчитать размеры всех каталогов текущего каталога.
+  @override
+  void measureDirectories() {
+    _measuringAll = true;
+    for (final node in _nodes) {
+      // `..` пропускается: подсчёт родителя — это подсчёт всего дерева выше, и
+      // по нажатию в панели такого не ждут.
+      if (node is! DirectoryNode || node is ParentDirNode) {
+        continue;
+      }
+      // Посчитанный каталог второй раз не обходим: значение в узле авторитетно
+      // до перечитывания каталога.
+      if (node.size != FsNode.unknownSize || _scans.containsKey(node) || _scanQueue.contains(node)) {
+        continue;
+      }
+      _scanQueue.add(node);
+    }
+
+    _fillPool();
+    _statusText = _scansRunning ? measuringStatus : _statusText;
+    notifyListeners();
+  }
+
+  /// Что показывает строка состояния, пока идёт общий подсчёт.
+  ///
+  /// На медленном источнике прочерки сменяются числами не сразу, и без этой
+  /// строки нажатие выглядит как «ничего не произошло».
+  static const String measuringStatus = 'Measuring directories…';
+
+  bool get _scansRunning => _scans.isNotEmpty || _scanQueue.isNotEmpty;
+
   /// Пометка изменилась: новые каталоги встают в очередь, снятые — уходят.
   ///
   /// Идущий обход при этом не прерывается: помечать файлы продолжают по ходу
@@ -970,13 +1007,17 @@ class PanelController extends ChangeNotifier implements Panel {
   void _onSelectionChanged() {
     final selected = selection.nodes.whereType<DirectoryNode>().toSet();
 
-    // Снятое с пометки ждать в очереди перестаёт, но уже посчитанный размер
-    // в узле остаётся: он всё ещё верен, и в колонке его видно.
-    _scanQueue.removeWhere((directory) => !selected.contains(directory));
+    // Пока идёт общий подсчёт, пометка обход не отменяет: его попросили, и
+    // снятие пометки к этой просьбе отношения не имеет.
+    if (!_measuringAll) {
+      // Снятое с пометки ждать в очереди перестаёт, но уже посчитанный размер
+      // в узле остаётся: он всё ещё верен, и в колонке его видно.
+      _scanQueue.removeWhere((directory) => !selected.contains(directory));
 
-    for (final directory in _scans.keys.toList()) {
-      if (!selected.contains(directory)) {
-        _cancelScan(directory);
+      for (final directory in _scans.keys.toList()) {
+        if (!selected.contains(directory)) {
+          _cancelScan(directory);
+        }
       }
     }
 
@@ -1057,6 +1098,39 @@ class PanelController extends ChangeNotifier implements Panel {
     scan.release();
     _fillPool();
     _sizeRedraw.flush();
+
+    if (!_scansRunning) {
+      _finishMeasuring();
+    }
+  }
+
+  /// Очередь опустела: подвести итог общего подсчёта.
+  ///
+  /// Сортировка по ходу обхода не пересчитывается вовсе — иначе при сортировке
+  /// по размеру строки прыгали бы под курсором десятки раз в секунду. Но при
+  /// подсчёте **всех** каталогов колонка меняется целиком, и оставить прежний
+  /// порядок значило бы показать список, отсортированный по вчерашним числам.
+  /// Поэтому один пересчёт — здесь.
+  void _finishMeasuring() {
+    if (!_measuringAll) {
+      return;
+    }
+    _measuringAll = false;
+    if (_statusText == measuringStatus) {
+      _statusText = null;
+    }
+
+    if (_sort.column == FsColumn.size) {
+      // Курсор держится за **объект**, а не за место: строка уедет, и следить
+      // надо за тем, на чём стоял курсор.
+      final current = currentNode?.name;
+      _applySort();
+      if (current != null) {
+        setCursorToName(current);
+      }
+    }
+
+    notifyListeners();
   }
 
   /// Прекращает обход одного каталога, не трогая ни остальные, ни очередь.
@@ -1080,6 +1154,12 @@ class PanelController extends ChangeNotifier implements Panel {
     }
     _scanQueue.clear();
     _sizeRedraw.cancel();
+    // Уход из каталога подсчёт прекращает: считать то, на что уже не смотрят,
+    // незачем.
+    _measuringAll = false;
+    if (_statusText == measuringStatus) {
+      _statusText = null;
+    }
   }
 
   @override
