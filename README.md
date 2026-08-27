@@ -68,6 +68,14 @@ symbolic links inside a tar are preserved, and links are transferred as links.
 Transfers stream between *any* two sources, so copying out of an archive straight to a
 server is an ordinary `F5`.
 
+**Quick view (`Shift+F3`).** The other panel shows what the cursor is on, and
+walking the list changes it — the file panel keeps the cursor, so a directory of
+logs or configs is read by pressing Down. `Tab` hands the input to the view
+itself, where every viewer key works as it does full-screen (wrap, line numbers,
+search, copy, arrows scrolling the text); `Tab` again returns to the files,
+`Esc` puts the view away. The panel underneath stays exactly as it was, and
+copying *into* a panel that shows a file is simply not offered.
+
 **Viewer (`F3`) and editor (`F4`).** Both are the same text engine — a vendored fork of
 `re_editor`, built for large files — so they look and behave identically. Syntax
 highlighting, search with `Cmd+F` or `F7` and next/previous, word wrap, line numbers, page
@@ -128,6 +136,7 @@ On Windows and Linux `Cmd` reads as `Ctrl`.
 | `F2`, `Cmd-,` | settings: everything you choose, in one window |
 | `Cmd-Shift-P` | the command palette: everything the app can do right now, by name or synonym |
 | `F3` / `F4` | view / edit the file under the cursor |
+| `Shift-F3` | quick view in the other panel; `Tab` hands the input to it |
 | `F5` / `F6` | copy / move to the other panel |
 | `F7`, `Shift-Cmd-N` | make a directory |
 | `F8`, `Cmd-Bsp` | delete to Trash |

@@ -1,8 +1,20 @@
 import 'package:fc_api/fc_api.dart';
 
+import 'quick_view_screen.dart';
 import 'text_document.dart';
 import 'viewer_screen.dart';
 import 'viewer_settings.dart';
+
+/// Просмотрщик, которому сейчас принадлежит ввод.
+///
+/// Область, а не всегда полноэкранная: тот же просмотрщик бывает наложением на
+/// панель (быстрый просмотр), и его клавиши обязаны работать там так же. Ровно
+/// это и значит `activeArea` — где ввод, там и команда.
+ViewerScreen? viewerInFocus(Application? app) {
+  final view = app?.view;
+  final screen = view?.contentAt(view.activeArea);
+  return screen is ViewerScreen ? screen : null;
+}
 
 /// Показать файл под курсором.
 ///
@@ -115,10 +127,7 @@ class ToggleWordWrapCommand extends AppCommand {
   @override
   String get description => 'Wrap long lines in the viewer';
 
-  static ViewerScreen? _viewerOf(Application? app) {
-    final screen = app?.view.contentAt(ViewportPosition.fullscreen);
-    return screen is ViewerScreen ? screen : null;
-  }
+  static ViewerScreen? _viewerOf(Application? app) => viewerInFocus(app);
 
   @override
   bool isExecutable(CommandContext context) => _viewerOf(context.app) != null;
@@ -159,10 +168,7 @@ class ToggleViewerNumbersCommand extends AppCommand {
   @override
   String get description => 'Show line numbers in the viewer';
 
-  static ViewerScreen? _viewerOf(Application? app) {
-    final screen = app?.view.contentAt(ViewportPosition.fullscreen);
-    return screen is ViewerScreen ? screen : null;
-  }
+  static ViewerScreen? _viewerOf(Application? app) => viewerInFocus(app);
 
   @override
   bool isExecutable(CommandContext context) => _viewerOf(context.app) != null;
@@ -196,10 +202,7 @@ class CopySelectionCommand extends AppCommand {
   @override
   String get description => 'Copy the selected text to the clipboard';
 
-  static ViewerScreen? _viewerOf(Application app) {
-    final screen = app.view.contentAt(ViewportPosition.fullscreen);
-    return screen is ViewerScreen ? screen : null;
-  }
+  static ViewerScreen? _viewerOf(Application app) => viewerInFocus(app);
 
   /// Копировать нечего, пока ничего не выделено: кнопка в ряду останется
   /// приглушённой, а не сделает вид, что сработала.
@@ -236,10 +239,76 @@ class CloseViewerCommand extends AppCommand {
   @override
   String get description => 'Close the viewer';
 
+  /// Закрывается **та область, в которой сейчас ввод**, а не всегда
+  /// полноэкранная: просмотрщик бывает и наложением на панель (быстрый
+  /// просмотр), и `Esc` там значит то же самое — убрать показ.
   @override
-  bool isExecutable(CommandContext context) => context.app.view.contentAt(ViewportPosition.fullscreen) is ViewerScreen;
+  bool isExecutable(CommandContext context) {
+    final view = context.app.view;
+    return view.contentAt(view.activeArea) is ViewerScreen;
+  }
 
   @override
-  Future<void> execute(CommandContext context) async =>
-      context.app.view.popViewportContent(ViewportPosition.fullscreen);
+  Future<void> execute(CommandContext context) async {
+    final view = context.app.view;
+    view.popViewportContent(view.activeArea);
+  }
+}
+
+/// Быстрый просмотр в соседней панели.
+///
+/// `Shift-F3` — та же клавиша со слоем `Shift` рядом с обычным `F3`: то же
+/// действие, только рядом, а не во весь экран.
+///
+/// Показ ложится **наложением** на область соседней панели. Под ним панель
+/// цела — каталог, курсор, пометка, аренда, — а `panelAt` отдаёт для этой
+/// области null, и `F5` туда становится невыполнимым сам собой: копировать
+/// некуда, потому что панели там сейчас нет.
+class QuickViewCommand extends AppCommand {
+  QuickViewCommand({required this.settings, required this.onSettingsChanged});
+
+  static const String commandId = 'viewer.quickView';
+
+  final ViewerSettings settings;
+  final void Function() onSettingsChanged;
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => 'Quick View';
+
+  @override
+  String get description => 'Show what is under the cursor in the other panel';
+
+  @override
+  Set<String> get keywords => const {'preview', 'side by side', 'other panel', 'lister'};
+
+  /// Область, куда ложится просмотр: напротив панели-источника.
+  ViewportPosition _targetOf(CommandContext context) => context.app.view.sourceArea.opposite;
+
+  @override
+  bool isExecutable(CommandContext context) => context.app.view.panelAt(context.app.view.sourceArea) != null;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final view = context.app.view;
+    final target = _targetOf(context);
+
+    // Та же клавиша убирает то, что поставила.
+    if (view.contentAt(target) is QuickViewScreen) {
+      view.popViewportContent(target);
+      return;
+    }
+
+    final panel = view.panelAt(view.sourceArea);
+    if (panel == null) {
+      return;
+    }
+
+    view.pushViewportContent(
+      target,
+      QuickViewScreen(panel: panel, settings: settings, onSettingsChanged: onSettingsChanged),
+    );
+  }
 }

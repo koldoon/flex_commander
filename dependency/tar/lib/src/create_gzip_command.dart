@@ -58,7 +58,7 @@ class CreateGzipCommand extends AppCommand {
       return false;
     }
 
-    final destination = context.target.directory;
+    final destination = context.target?.directory;
     return destination != null && destination.provider.canReceive;
   }
 
@@ -67,8 +67,9 @@ class CreateGzipCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final sources = _sourcesOf(context);
-    final destination = context.target.directory;
-    if (sources.length != 1 || destination == null) {
+    final target = context.target;
+    final destination = target?.directory;
+    if (sources.length != 1 || target == null || destination == null) {
       return;
     }
     final source = sources.single;
@@ -88,7 +89,7 @@ class CreateGzipCommand extends AppCommand {
       // Аренда обоих концов: работу можно убрать в фон, и любая из панелей за
       // это время вправе уйти из своего архива.
       final from = context.panel.leaseProvider();
-      final into = context.target.leaseProvider();
+      final into = target.leaseProvider();
 
       try {
         final operation = packOperation();
@@ -103,7 +104,7 @@ class CreateGzipCommand extends AppCommand {
         await into?.release();
       }
 
-      await context.target.reload();
+      await target.reload();
     }
 
     final given = context.invocation.param<String>(nameParam);

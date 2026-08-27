@@ -1,6 +1,8 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
 
+import 'quick_view_screen.dart';
+import 'quick_view_view.dart';
 import 'viewer_commands.dart';
 import 'viewer_screen.dart';
 import 'viewer_settings.dart';
@@ -30,6 +32,10 @@ class TextViewer implements FcModule {
   void install(FcRegistry registry) {
     // Что рисует состояние, объявляет тот же модуль, который его завёл.
     registry.view<ViewerScreen>((context, state) => ViewerView(screen: state));
+    // Свой вид, хотя состояние — наследник: во весь экран рамка внешняя с обеих
+    // сторон и фокус нужен сразу, а в области панели — со своей стороны и
+    // только когда в просмотр вошли.
+    registry.view<QuickViewScreen>((context, state) => QuickViewView(screen: state));
     // Раздел настроек читается не сейчас, а когда позовут фабрику: во время
     // объявления настроек ещё нет.
     // Область забирается **сейчас**, пока идёт установка: позже имя раздела
@@ -67,6 +73,8 @@ class TextViewer implements FcModule {
 
     registry.command((context) => ViewFileCommand(settings: settingsOf(), onSettingsChanged: settings.save));
 
+    registry.command((context) => QuickViewCommand(settings: settingsOf(), onSettingsChanged: settings.save));
+
     registry.command((context) => ToggleWordWrapCommand());
     registry.command((context) => CloseViewerCommand());
     registry.command((context) => ToggleViewerNumbersCommand());
@@ -81,6 +89,17 @@ class TextViewer implements FcModule {
     // Привязки просмотрщика действуют только в его экране: в панелях за этими
     // же клавишами стоят свои команды, и ряд кнопок показывает те, что сейчас
     // на месте.
+    // Быстрый просмотр — в слое `Shift` рядом с `F3`: то же действие, только
+    // рядом, а не во весь экран. Ряд кнопок покажет его сам, как уже
+    // показывает `Shift-F5`.
+    registry.binding(KeyBinding('Shift-F3', QuickViewCommand.commandId));
+
+    // `Tab` из просмотра — обратно к файлам. Клавиша панелей сюда не достаёт:
+    // содержимое активной области больше не панель, и привязка «в панелях» её
+    // не касается. Команда своя же, общая — по идентификатору: модуля
+    // навигации может не быть вовсе, и тогда клавиша просто молчит.
+    registry.binding(KeyBinding.inState<QuickViewScreen>('Tab', 'app.togglePanel'));
+
     registry.binding(KeyBinding.inState<ViewerScreen>('F2', ToggleWordWrapCommand.commandId));
     registry.binding(KeyBinding.inState<ViewerScreen>('Esc', CloseViewerCommand.commandId));
     registry.binding(KeyBinding.inState<ViewerScreen>('F10', CloseViewerCommand.commandId));

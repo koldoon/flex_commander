@@ -59,6 +59,9 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
     stack
       ..clear()
       ..add(state);
+    if (_focused == position) {
+      _focused = null;
+    }
     _closeAll(leaving);
     _afterChange();
   }
@@ -96,6 +99,12 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
       return;
     }
     stack.removeLast().close();
+    // Ввод был в наложении — теперь его нет, и держать за ним область нельзя:
+    // иначе активной считалась бы та, где снова стоит обычная панель, а
+    // рисовалась бы активной другая.
+    if (_focused == position) {
+      _focused = null;
+    }
     _afterChange();
   }
 

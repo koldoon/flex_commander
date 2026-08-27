@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:flutter/foundation.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:flutter/widgets.dart';
 import 'package:re_editor/re_editor.dart';
@@ -13,13 +14,14 @@ import 'package:re_editor/re_editor.dart';
 /// перенос строк, и вид перерисовывается сам.
 class ViewerScreen extends ChangeNotifier implements ViewportState, FcSearchable {
   ViewerScreen({
-    required this.node,
+    required FsNode node,
     required String text,
     bool wordWrap = false,
     bool showLineNumbers = false,
     this.onWrapChanged,
     this.onLineNumbersChanged,
   }) : controller = CodeLineEditingController.fromText(text),
+       _node = node,
        _wordWrap = wordWrap,
        _showLineNumbers = showLineNumbers;
 
@@ -27,7 +29,23 @@ class ViewerScreen extends ChangeNotifier implements ViewportState, FcSearchable
   static const String screenId = 'viewer';
 
   /// Что показываем: из узла берётся и заголовок, и размер.
-  final FsNode node;
+  ///
+  /// Меняется у наследника: быстрый просмотр показывает то, что под курсором,
+  /// и курсор ходит. Во весь экран открывают один файл, и там он постоянен.
+  FsNode get node => _node;
+  FsNode _node;
+
+  /// Показать другой файл в том же состоянии.
+  ///
+  /// Не новое состояние на каждый файл: показ, поиск и переносы строк заведены
+  /// один раз и переживают смену файла — иначе перебор стрелками сбрасывал бы
+  /// их по десять раз в секунду.
+  @protected
+  void showNode(FsNode node, String text) {
+    _node = node;
+    controller.text = text;
+    notifyListeners();
+  }
 
   /// Содержимое, курсор и выделение. Владеет им экран, а не вид: копирует
   /// команда, а она о виджетах ничего не знает.

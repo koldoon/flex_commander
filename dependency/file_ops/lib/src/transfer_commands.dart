@@ -79,7 +79,11 @@ abstract class TransferCommandBase extends AppCommand {
     }
     // Принимать должен приёмник; терять объекты источник обязан только при
     // переносе — копировать из архива, открытого на просмотр, ничто не мешает.
-    if (!context.target.provider.canWrite || (moves && !panel.provider.canWrite)) {
+    // Приёмника может не быть вовсе: напротив стоит не панель, а показ
+    // (быстрый просмотр). Копировать туда нечего — того, что видит человек,
+    // файлы не примут.
+    final target = context.target;
+    if (target == null || !target.provider.canWrite || (moves && !panel.provider.canWrite)) {
       return false;
     }
     // Псевдоузел «..» объектом не считается.
@@ -100,7 +104,8 @@ abstract class TransferCommandBase extends AppCommand {
     // движок, один на все провайдеры, и получить его нужно там, где заведомо
     // умеют принимать. У источника его может не быть вовсе — это не мешает
     // копировать из него.
-    final editor = _destinationPanelOf(context).editor;
+    final destination = _destinationPanelOf(context);
+    final editor = destination?.editor;
     final targets = targetsOf(context);
     if (editor == null || targets.isEmpty) {
       return;
@@ -194,7 +199,14 @@ abstract class TransferCommandBase extends AppCommand {
     // Путь разбирает панель-приёмник: он может проходить через несколько
     // провайдеров («…/archive.zip:zip:/inner»), и одному провайдеру такое
     // не по силам.
-    final resolved = await _destinationPanelOf(context).resolvePath().run(path);
+    final destination = _destinationPanelOf(context);
+    if (destination == null) {
+      // Приёмника нет: панель напротив накрыта показом. Дотуда доходят только
+      // вызовы со значением — клавиша до этого места не добирается, команда
+      // невыполнима.
+      throw FsError(path, FsErrorKind.notSupported);
+    }
+    final resolved = await destination.resolvePath().run(path);
     var node = resolved.node;
     if (node is LinkNode) {
       // Ссылка на каталог — тоже каталог: копировать «в неё» можно.
@@ -211,11 +223,12 @@ abstract class TransferCommandBase extends AppCommand {
     return ResolvedNode(node, resolved.lease);
   }
 
-  /// Панель, в которую идёт работа: пассивная. Ею же задан путь по умолчанию.
-  Panel _destinationPanelOf(CommandContext context) => context.target;
+  /// Панель, в которую идёт работа: та, что показана напротив источника.
+  /// null — напротив не панель, и работать не с чем.
+  Panel? _destinationPanelOf(CommandContext context) => context.target;
 
   String? _defaultDestinationOf(CommandContext context) {
-    final directory = _destinationPanelOf(context).directory;
+    final directory = _destinationPanelOf(context)?.directory;
     // Полный путь: приёмник может оказаться внутри архива, и часть про
     // локальную ФС из строки выкидывать нельзя.
     return directory?.pathString;
@@ -225,7 +238,7 @@ abstract class TransferCommandBase extends AppCommand {
     final panel = _destinationPanelOf(context);
     // Панель могла за это время уйти в другой каталог — перечитывать имеет смысл
     // только то, куда действительно копировали.
-    if (panel.directory != null) {
+    if (panel != null && panel.directory != null) {
       await panel.reload();
     }
   }

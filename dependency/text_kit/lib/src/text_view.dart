@@ -26,6 +26,8 @@ class FcTextView extends StatefulWidget {
     this.wordWrap = false,
     this.showLineNumbers = false,
     this.shortcuts = const FcTextShortcuts(),
+    this.outerEdge = PanelOuterEdge.both,
+    this.focused = true,
   });
 
   /// Содержимое и курсор. Владеет им экран: сохранять или копировать просит
@@ -54,6 +56,18 @@ class FcTextView extends StatefulWidget {
   /// Какие клавиши поле отпускает экрану.
   final FcTextShortcuts shortcuts;
 
+  /// Какие края рамки внешние. Во весь экран — оба; в области панели — тот же,
+  /// что был бы у неё самой, иначе показ выпадал бы из раскладки.
+  final PanelOuterEdge outerEdge;
+
+  /// Просить ли системный фокус.
+  ///
+  /// Полноэкранному он нужен всегда: стрелки и страницы листают текст, а это
+  /// дело показа, а не команд. Быстрому просмотру — только когда в него вошли:
+  /// пока курсор в файловой панели, листать нечего, и забирать у неё фокус
+  /// нельзя.
+  final bool focused;
+
   @override
   State<FcTextView> createState() => _FcTextViewState();
 }
@@ -73,10 +87,26 @@ class _FcTextViewState extends State<FcTextView> {
     //
     // После кадра: до него узла ещё нет в дереве фокуса.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
+      if (mounted && widget.focused) {
         _focus.requestFocus();
       }
     });
+  }
+
+  @override
+  void didUpdateWidget(FcTextView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.focused == oldWidget.focused) {
+      return;
+    }
+    // Фокус ходит за областью: вошли в показ — он ему, ушли — отдаёт обратно.
+    // Отдаёт, а не держит про запас: пока он у поля, стрелки листают текст, а
+    // они нужны курсору в панели.
+    if (widget.focused) {
+      _focus.requestFocus();
+    } else {
+      _focus.unfocus();
+    }
   }
 
   @override
@@ -93,7 +123,7 @@ class _FcTextViewState extends State<FcTextView> {
     // место и обязан выглядеть так же. Оба края внешние — он во всю ширину
     // окна.
     return FcPanelFrame(
-      outerEdge: PanelOuterEdge.both,
+      outerEdge: widget.outerEdge,
       header: FcPathPlate(path: widget.path, trailing: widget.trailing),
       // Отступ здесь — только для полос прокрутки: они стоят по краю панели, а
       // текст отодвигают уже свои поля.

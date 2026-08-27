@@ -93,8 +93,9 @@ class CreateTarArchiveCommand extends AppCommand {
     if (context.panel.busy || _sourcesOf(context).isEmpty) {
       return false;
     }
-    // Класть архив некуда, если приёмник не умеет принимать содержимое.
-    final destination = context.target.directory;
+    // Класть архив некуда, если приёмника нет вовсе (панель накрыта показом)
+    // или он не умеет принимать содержимое.
+    final destination = context.target?.directory;
     return destination != null && destination.provider.canReceive;
   }
 
@@ -103,8 +104,9 @@ class CreateTarArchiveCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final sources = _sourcesOf(context);
-    final destination = context.target.directory;
-    if (sources.isEmpty || destination == null) {
+    final target = context.target;
+    final destination = target?.directory;
+    if (sources.isEmpty || target == null || destination == null) {
       return;
     }
 
@@ -124,7 +126,7 @@ class CreateTarArchiveCommand extends AppCommand {
       // Аренда обоих концов на всё время работы: упаковку можно отправить в
       // фон, и любая из панелей за это время вправе уйти из своего архива.
       final from = context.panel.leaseProvider();
-      final into = context.target.leaseProvider();
+      final into = target.leaseProvider();
 
       try {
         final operation = packOperation();
@@ -140,7 +142,7 @@ class CreateTarArchiveCommand extends AppCommand {
       }
 
       // Приёмник теперь показывает не то, что на диске: там появился архив.
-      await context.target.reload();
+      await target.reload();
     }
 
     final given = context.invocation.param<String>(nameParam);
@@ -400,7 +402,7 @@ class CreateTarArchiveCommand extends AppCommand {
 
   /// Куда ляжет архив — показывается в окне, чтобы «в какую панель» не
   /// приходилось угадывать.
-  String destinationPathOf(CommandContext context) => context.target.directory?.pathString ?? '';
+  String destinationPathOf(CommandContext context) => context.target?.directory?.pathString ?? '';
 }
 
 /// Что упаковать, куда и в каком виде.
