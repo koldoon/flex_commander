@@ -52,6 +52,10 @@ class OpenPathCommand extends AppCommand {
   @override
   String get description => 'Open any path or address in the left or right panel';
 
+  /// Ею же открывают сервер, поэтому `ssh` и `connect` — тоже про неё.
+  @override
+  Set<String> get keywords => const {'path', 'location', 'go to', 'url', 'ssh', 'connect', 'open path'};
+
   /// Панель, о которой идёт речь. Какая именно — известно только из вызова.
   Panel panelOf(CommandContext context) => _isLeft(context) ? context.app.left : context.app.right;
 

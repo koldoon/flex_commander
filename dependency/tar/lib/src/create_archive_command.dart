@@ -84,7 +84,7 @@ class CreateTarArchiveCommand extends AppCommand {
   /// Ищут её и по тому, что она умеет: `.tar.gz` в названии не помещается, а
   /// набирают в палитре чаще всего именно `gz`.
   @override
-  Set<String> get keywords => const {'tar.gz', 'tgz', 'gzip', 'archive', 'compress'};
+  Set<String> get keywords => const {'tar.gz', 'tgz', 'gzip', 'archive', 'compress', 'pack'};
 
   String get dialogTitle => 'Create TAR archive';
 

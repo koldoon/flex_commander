@@ -22,6 +22,10 @@ class HelpCommand extends AppCommand {
   @override
   String get label => 'Help';
 
+  /// В справке лежит перечень клавиш — по нему её и ищут.
+  @override
+  Set<String> get keywords => const {'keys', 'shortcuts', 'keyboard', 'bindings'};
+
   /// В заголовке места больше, чем на кнопке в ряду.
   String get dialogTitle => 'Help';
 

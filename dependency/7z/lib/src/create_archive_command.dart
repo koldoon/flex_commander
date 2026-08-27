@@ -71,6 +71,11 @@ class CreateSevenZipArchiveCommand extends AppCommand {
   @override
   String get description => 'Pack the selected items into a new 7z archive';
 
+  /// `7zip` и `seven` — то же имя, набранное иначе; остальное общее для всех
+  /// упаковщиков.
+  @override
+  Set<String> get keywords => const {'7zip', 'seven zip', 'archive', 'compress', 'pack', 'lzma'};
+
   String get dialogTitle => 'Create 7z archive';
 
   /// Окно начинается с формы, и фокус нужен полю имени.

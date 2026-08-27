@@ -78,6 +78,16 @@ void main() {
       expect(found.ownerHits, isEmpty);
     });
 
+    test('в счёт идёт лучший синоним, а не первый совпавший', () {
+      // Порядок объявления — не мера того, насколько слово подошло: `set` с
+      // начала слова весит больше, чем из середины, где бы оно ни стояло в
+      // списке.
+      final first = matchCommand('set', label: 'X', owner: 'M', keywords: const ['reset', 'settings'])!;
+      final reversed = matchCommand('set', label: 'X', owner: 'M', keywords: const ['settings', 'reset'])!;
+
+      expect(first.score, reversed.score);
+    });
+
     test('спрашиваются раньше модуля: синоним про дело, модуль про принёсшего', () {
       final byKeyword = matchCommand('gz', label: 'Mk Tar', owner: 'Gz archives', keywords: const ['gz'])!;
 

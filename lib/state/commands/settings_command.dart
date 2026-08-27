@@ -24,6 +24,11 @@ class SettingsCommand extends AppCommand {
   @override
   String get description => 'Everything the application remembers by your choice';
 
+  /// `Preferences` — то же самое словом другой школы; `config` — привычка из
+  /// терминала.
+  @override
+  Set<String> get keywords => const {'preferences', 'options', 'config', 'setup'};
+
   @override
   bool isExecutable(CommandContext context) => true;
 

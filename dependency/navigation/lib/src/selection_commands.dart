@@ -15,6 +15,9 @@ class ToggleMarkCommand extends AppCommand {
   String get description => 'Mark or unmark the item under the cursor and step down';
 
   @override
+  Set<String> get keywords => const {'select', 'toggle selection'};
+
+  @override
   bool isExecutable(CommandContext context) {
     final node = context.node;
     return node != null && node is! ParentDirNode;
@@ -38,6 +41,9 @@ class ClearSelectionCommand extends AppCommand {
   String get description => 'Drop the marks, leaving the cursor where it is';
 
   @override
+  Set<String> get keywords => const {'deselect', 'clear selection', 'none'};
+
+  @override
   bool isExecutable(CommandContext context) => context.panel.selection.isNotEmpty;
 
   @override
@@ -56,6 +62,9 @@ class SelectAllCommand extends AppCommand {
 
   @override
   String get description => 'Mark everything in the current directory';
+
+  @override
+  Set<String> get keywords => const {'select all', 'everything'};
 
   @override
   bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;

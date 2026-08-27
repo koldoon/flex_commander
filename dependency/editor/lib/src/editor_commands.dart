@@ -26,6 +26,9 @@ class EditFileCommand extends AppCommand {
   String get label => 'Edit';
 
   @override
+  Set<String> get keywords => const {'editor', 'modify', 'change file'};
+
+  @override
   String get description => 'Open the file under the cursor for editing';
 
   @override
@@ -217,6 +220,10 @@ class ToggleEditorWrapCommand extends AppCommand {
   @override
   String get label => _editorOf(_app)?.wordWrap == true ? 'Unwrap' : 'Wrap';
 
+  /// Название меняется по состоянию, а ищут всегда одним словом.
+  @override
+  Set<String> get keywords => const {'word wrap', 'line wrap'};
+
   @override
   String get description => 'Wrap long lines in the editor';
 
@@ -255,6 +262,9 @@ class ToggleEditorNumbersCommand extends AppCommand {
   String get label => 'Line Num';
 
   @override
+  Set<String> get keywords => const {'line numbers', 'gutter'};
+
+  @override
   String get description => 'Show line numbers in the editor';
 
   static EditorScreen? _editorOf(Application? app) {
@@ -286,6 +296,9 @@ class CloseEditorCommand extends AppCommand {
 
   @override
   String get label => 'Quit';
+
+  @override
+  Set<String> get keywords => const {'close', 'exit', 'back'};
 
   @override
   String get description => 'Close the editor';

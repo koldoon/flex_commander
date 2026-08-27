@@ -56,6 +56,9 @@ class FcFindTextCommand extends AppCommand with _ScreenFinder {
   String get label => 'Find';
 
   @override
+  Set<String> get keywords => const {'search', 'grep', 'look for'};
+
+  @override
   String get description => 'Find text in the document';
 
   /// В заголовке места больше, чем на кнопке в ряду.

@@ -45,6 +45,68 @@ void main() {
       if (text.textSpan?.toPlainText().trim().isNotEmpty ?? false) text.textSpan!.toPlainText(),
   ];
 
+  group('синонимы команд', () {
+    /// Все установленные команды — палитра берёт синонимы у них же.
+    List<AppCommand> installed() => runtime.commands.installed;
+
+    /// Кто найдётся по такому запросу тем же отбором, каким ищет палитра.
+    ///
+    /// Модуль нарочно пуст: проверяются синонимы, и попадание по названию
+    /// модуля здесь только запутало бы ответ.
+    List<String> foundBy(String query) => [
+      for (final command in installed())
+        if (matchCommand(query, label: command.label, owner: '', keywords: command.keywords) != null) command.label,
+    ];
+
+    test('синоним, который и так находится по названию, — мёртвый груз', () {
+      final dead = <String>[];
+      for (final command in installed()) {
+        for (final keyword in command.keywords) {
+          // Тот же отбор, но без синонимов: нашлось — значит слово ничего не
+          // добавляет, а список синонимов растёт и вводит в заблуждение.
+          if (matchCommand(keyword, label: command.label, owner: '') != null) {
+            dead.add('${command.label}: $keyword');
+          }
+        }
+      }
+
+      expect(dead, isEmpty, reason: 'эти слова находятся и без синонимов');
+    });
+
+    test('синонимы записаны строчными и без пустых', () {
+      for (final command in installed()) {
+        for (final keyword in command.keywords) {
+          expect(keyword, keyword.toLowerCase(), reason: '${command.label}: регистр в запросе всё равно не важен');
+          expect(keyword.trim(), isNotEmpty, reason: '${command.label}: пустой синоним');
+        }
+      }
+    });
+
+    test('упаковщики находятся по делу, а не только по формату', () {
+      // Ровно та жалоба, с которой синонимы и завелись: «Mk Tar» умеет
+      // `.tar.gz`, а на `gz` не отзывалась.
+      expect(foundBy('gz'), containsAll(['Mk Tar', 'Mk Gz']));
+      expect(foundBy('compress'), containsAll(['Mk Zip', 'Mk 7z', 'Mk Tar', 'Mk Gz']));
+      expect(foundBy('archive'), containsAll(['Mk Zip', 'Mk 7z', 'Mk Tar', 'Mk Gz']));
+    });
+
+    test('слова другой школы приводят к тому же делу', () {
+      expect(foundBy('folder'), contains('Mk Dir'));
+      expect(foundBy('preferences'), contains('Settings'));
+      expect(foundBy('shortcuts'), contains('Help'));
+      expect(foundBy('refresh'), contains('Reload'));
+      expect(foundBy('dotfiles'), contains('Hidden files'));
+      expect(foundBy('dark'), contains('Switch theme'));
+    });
+
+    test('чего команда не умеет, по тому и не находится', () {
+      // Переименования в приложении нет вовсе: `Move` требует каталог, другого
+      // имени ей не задать. Привести к ней по слову `rename` значило бы
+      // соврать — человек нашёл бы команду и не смог сделать то, что искал.
+      expect(foundBy('rename'), isNot(contains('Move')));
+    });
+  });
+
   testWidgets('Cmd-Shift-P открывает палитру', (tester) async {
     await openPalette(tester);
 

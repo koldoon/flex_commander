@@ -32,6 +32,9 @@ class FocusCommandLineCommand extends AppCommand {
   @override
   String get description => 'Move the input to the command line below the panels';
 
+  @override
+  Set<String> get keywords => const {'shell', 'prompt', 'type command'};
+
   /// Приглушённой строке ввод не отдаётся.
   ///
   /// На `ssh://` и в архиве поля ввода нет вовсе — строка объясняет, почему, —
@@ -190,6 +193,11 @@ class ToggleTerminalCommand extends AppCommand {
 
   @override
   String get description => 'The shell, full screen';
+
+  /// Оболочку ищут по имени той оболочки, которой пользуются, — или просто
+  /// «консоль».
+  @override
+  Set<String> get keywords => const {'shell', 'console', 'bash', 'zsh', 'command prompt'};
 
   @override
   bool isExecutable(CommandContext context) => true;

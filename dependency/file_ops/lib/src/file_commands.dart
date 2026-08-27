@@ -22,6 +22,10 @@ class MakeDirectoryCommand extends AppCommand {
   @override
   String get description => 'Create a directory in the active panel';
 
+  /// «Folder» — то же самое словом другой школы, и набирают его не реже.
+  @override
+  Set<String> get keywords => const {'folder', 'directory', 'new folder', 'create'};
+
   /// В заголовке места больше, чем на кнопке в ряду, где стоит сжатое «Mk Dir».
   String get dialogTitle => 'Make directory';
 
@@ -192,6 +196,10 @@ class RemoveCommand extends RemoveCommandBase {
   @override
   String get description => 'Move the selected items to the trash';
 
+  /// `rm` — привычка из терминала; «trash» и «bin» — то, куда объекты уходят.
+  @override
+  Set<String> get keywords => const {'remove', 'trash', 'bin', 'erase', 'rm'};
+
   @override
   bool get toTrash => true;
 }
@@ -211,6 +219,10 @@ class RemovePermanentlyCommand extends RemoveCommandBase {
 
   @override
   String get description => 'Delete the selected items without the trash';
+
+  /// Ищут её обычно словами про необратимость, а не по имени.
+  @override
+  Set<String> get keywords => const {'remove', 'erase', 'permanently', 'no trash', 'shred'};
 
   @override
   bool get toTrash => false;

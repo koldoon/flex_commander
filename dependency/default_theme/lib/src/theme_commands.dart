@@ -28,6 +28,10 @@ class SwitchThemeCommand extends AppCommand {
   @override
   String get description => 'Choose the application appearance';
 
+  /// «Тёмная тема» ищется словом `dark`, а не словом `switch`.
+  @override
+  Set<String> get keywords => const {'dark', 'light', 'appearance', 'colors', 'look'};
+
   @override
   bool isExecutable(CommandContext context) => context.app.theme.available.length > 1;
 

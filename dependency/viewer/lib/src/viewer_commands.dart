@@ -26,6 +26,9 @@ class ViewFileCommand extends AppCommand {
   String get label => 'View';
 
   @override
+  Set<String> get keywords => const {'viewer', 'preview', 'read', 'open file'};
+
+  @override
   String get description => 'Show the file under the cursor as text';
 
   @override
@@ -105,6 +108,10 @@ class ToggleWordWrapCommand extends AppCommand {
   @override
   String get label => _viewerOf(_app)?.wordWrap == true ? 'Unwrap' : 'Wrap';
 
+  /// Название меняется по состоянию, а ищут всегда одним словом.
+  @override
+  Set<String> get keywords => const {'word wrap', 'line wrap'};
+
   @override
   String get description => 'Wrap long lines in the viewer';
 
@@ -145,6 +152,9 @@ class ToggleViewerNumbersCommand extends AppCommand {
   /// всплывающее сообщение.
   @override
   String get label => 'Line Num';
+
+  @override
+  Set<String> get keywords => const {'line numbers', 'gutter'};
 
   @override
   String get description => 'Show line numbers in the viewer';
@@ -219,6 +229,9 @@ class CloseViewerCommand extends AppCommand {
 
   @override
   String get label => 'Quit';
+
+  @override
+  Set<String> get keywords => const {'close', 'exit', 'back'};
 
   @override
   String get description => 'Close the viewer';

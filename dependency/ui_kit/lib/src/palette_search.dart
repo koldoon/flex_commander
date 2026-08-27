@@ -65,11 +65,17 @@ PaletteMatch? matchCommand(
     return PaletteMatch(score: byLabel.score, labelHits: byLabel.hits, ownerHits: const [], length: label.length);
   }
 
+  // Лучший из синонимов, а не первый совпавший: их у команды несколько, и
+  // порядок объявления — не мера того, насколько слово подошло.
+  double? best;
   for (final keyword in keywords) {
     final byKeyword = _match(trimmed, keyword);
-    if (byKeyword != null) {
-      return PaletteMatch(score: byKeyword.score / 2, labelHits: const [], ownerHits: const [], length: label.length);
+    if (byKeyword != null && (best == null || byKeyword.score > best)) {
+      best = byKeyword.score;
     }
+  }
+  if (best != null) {
+    return PaletteMatch(score: best / 2, labelHits: const [], ownerHits: const [], length: label.length);
   }
 
   final byOwner = _match(trimmed, owner);

@@ -53,6 +53,10 @@ class GoToNameCommand extends AppCommand {
   @override
   String get description => 'Jump to the first item starting with the typed letter';
 
+  /// Ищут её как поиск по панели — этим она и является.
+  @override
+  Set<String> get keywords => const {'search', 'filter', 'jump', 'quick search', 'find file'};
+
   @override
   bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.nodes.isNotEmpty;
 
@@ -168,6 +172,9 @@ class TogglePanelCommand extends AppCommand {
   String get description => 'Make the other panel active';
 
   @override
+  Set<String> get keywords => const {'other panel', 'toggle panel', 'focus'};
+
+  @override
   bool isExecutable(CommandContext context) => true;
 
   @override
@@ -233,6 +240,11 @@ class OpenWithSystemCommand extends AppCommand {
   @override
   String get description => 'Hand the selected items to the system, without entering them';
 
+  /// «Открыть в Finder», «внешней программой», «по умолчанию» — три способа
+  /// назвать одно и то же, и ни одного из них нет в названии.
+  @override
+  Set<String> get keywords => const {'default application', 'external', 'launch', 'finder', 'explorer'};
+
   /// Путь уходит внешней программе как есть, поэтому он должен быть настоящим:
   /// у архива и удалённой ФС таких путей не бывает (`OPIF_REALNAMES` в Far —
   /// про то же самое).
@@ -264,6 +276,9 @@ class GoUpCommand extends AppCommand {
 
   @override
   String get description => 'Leave for the parent directory';
+
+  @override
+  Set<String> get keywords => const {'parent', 'back', 'go up'};
 
   @override
   bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.directory?.parentDirectory != null;
@@ -309,6 +324,10 @@ class CalculateSizesCommand extends AppCommand {
   @override
   String get description => 'Measure every directory here, not just the marked ones';
 
+  /// `du` — привычка из терминала, «disk usage» — то же словами.
+  @override
+  Set<String> get keywords => const {'directory sizes', 'disk usage', 'du', 'measure'};
+
   /// Занятой панели считать нечего: список ещё читается, и обходить пока некого.
   @override
   bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.directory != null;
@@ -331,6 +350,9 @@ class ReloadCommand extends AppCommand {
   String get description => 'Read the current directory again';
 
   @override
+  Set<String> get keywords => const {'refresh', 'rescan', 'update'};
+
+  @override
   bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.directory != null;
 
   @override
@@ -349,6 +371,10 @@ class ToggleHiddenCommand extends AppCommand {
 
   @override
   String get description => 'Show or hide the items whose names start with a dot';
+
+  /// «Dotfiles» — то же самое одним словом, и в названии его нет.
+  @override
+  Set<String> get keywords => const {'dotfiles', 'show hidden', 'invisible'};
 
   @override
   bool isExecutable(CommandContext context) => !context.panel.busy;
@@ -379,6 +405,9 @@ class CancelCommand extends AppCommand {
 
   @override
   String get description => 'Stop what the panel is doing right now';
+
+  @override
+  Set<String> get keywords => const {'stop', 'abort', 'interrupt'};
 
   @override
   bool isExecutable(CommandContext context) => context.panel.busy;

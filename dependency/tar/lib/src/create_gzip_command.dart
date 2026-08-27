@@ -40,7 +40,7 @@ class CreateGzipCommand extends AppCommand {
   String get description => 'Compress a single file into a new gz file';
 
   @override
-  Set<String> get keywords => const {'gzip', 'compress', 'archive'};
+  Set<String> get keywords => const {'gzip', 'compress', 'archive', 'pack'};
 
   String get dialogTitle => 'Compress into gz';
 

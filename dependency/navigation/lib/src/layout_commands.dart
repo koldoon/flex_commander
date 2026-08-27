@@ -25,6 +25,9 @@ class CenterSplitCommand extends AppCommand {
   @override
   String get description => 'Give both panels the same width';
 
+  @override
+  Set<String> get keywords => const {'equal width', 'balance', 'layout'};
+
   /// Уже посередине — делать нечего; в списке команд такая строка приглушена.
   @override
   bool isExecutable(CommandContext context) => context.app.splitRatio != centerRatio;

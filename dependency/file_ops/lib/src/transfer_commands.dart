@@ -36,6 +36,13 @@ class MoveCommand extends TransferCommandBase {
   @override
   String get description => 'Move the selected items to the other panel';
 
+  /// `rename` в синонимах **нет**, хотя в коммандерах `F6` переименовывает:
+  /// приёмником здесь может быть только каталог, и другого имени команде не
+  /// задать. Привести человека к ней по этому слову значило бы соврать —
+  /// переименования в приложении пока нет вовсе.
+  @override
+  Set<String> get keywords => const {'relocate', 'transfer'};
+
   @override
   bool get moves => true;
 }

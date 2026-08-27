@@ -66,6 +66,11 @@ class CreateZipArchiveCommand extends AppCommand {
   @override
   String get description => 'Pack the selected items into a new zip archive';
 
+  /// Ищут упаковщик и по делу, а не только по формату: «archive», «compress»,
+  /// «pack» — слова, которые приходят в голову раньше, чем `zip`.
+  @override
+  Set<String> get keywords => const {'archive', 'compress', 'pack'};
+
   String get dialogTitle => 'Create ZIP archive';
 
   /// Окно начинается с формы, и фокус нужен полю имени.
