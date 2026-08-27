@@ -110,6 +110,33 @@ void main() {
       );
     });
 
+    test('беглое листание не показывает догнавшую картинку', () async {
+      await view('a.png');
+      final screen = shownFullscreen()! as ImageViewerScreen;
+
+      // Два шага подряд, не дожидаясь первого: пока читалась вторая картинка,
+      // нажали дальше — и догнавшая первая не должна вернуть показ назад.
+      final first = screen.step(1);
+      final second = screen.step(1);
+      await Future.wait([first, second]);
+      await settle();
+
+      expect(screen.node.name, 'c.bmp');
+    });
+
+    test('прежняя картинка отпускается: память не копится', () async {
+      await view('a.png');
+      final screen = shownFullscreen()! as ImageViewerScreen;
+      final was = screen.document;
+
+      await screen.step(1);
+      await settle();
+
+      // Распакованное держится живым, пока показано, — и только пока.
+      expect(PaintingBinding.instance.imageCache.containsKey(screen.document.image), isTrue);
+      expect(identical(screen.document, was), isFalse);
+    });
+
     test('текст соседом не считается', () async {
       await view('c.bmp');
 

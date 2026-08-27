@@ -91,26 +91,44 @@ class ImageDocument {
   /// чей заголовок уже разобран, а если распаковка всё же не удалась — пусть
   /// об этом скажет показ, а не тишина.
   Future<void> warmUp() {
+    if (_stream != null) {
+      return Future<void>.value();
+    }
+
     final completer = Completer<void>();
+    void done(_, _) {
+      if (!completer.isCompleted) {
+        completer.complete();
+      }
+    }
+
     final stream = image.resolve(ImageConfiguration.empty);
-    late final ImageStreamListener listener;
-    listener = ImageStreamListener(
-      (_, _) {
-        stream.removeListener(listener);
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      },
-      onError: (_, _) {
-        stream.removeListener(listener);
-        if (!completer.isCompleted) {
-          completer.complete();
-        }
-      },
-    );
+    final listener = ImageStreamListener(done, onError: (_, _) => done(null, null));
+    _stream = stream;
+    _listener = listener;
+    // Слушателя **не снимаем**: пока на распакованную картинку кто-то смотрит,
+    // кеш держит её живой и вытеснить не может. Отпустим — и при беглом
+    // листании она вылетит из кеша ровно тогда, когда её собрались показать.
     stream.addListener(listener);
     return completer.future;
   }
+
+  /// Отпустить распакованное: картинку сменили или показ закрыли.
+  ///
+  /// Без этого кеш держал бы живыми все просмотренные подряд — а их за минуту
+  /// листания набирается столько, сколько в память не влезет.
+  void release() {
+    final stream = _stream;
+    final listener = _listener;
+    if (stream != null && listener != null) {
+      stream.removeListener(listener);
+    }
+    _stream = null;
+    _listener = null;
+  }
+
+  ImageStream? _stream;
+  ImageStreamListener? _listener;
 
   /// Размеры из заголовка; null — заголовок не разобрался.
   ///

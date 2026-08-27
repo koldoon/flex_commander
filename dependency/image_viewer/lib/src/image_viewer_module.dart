@@ -121,6 +121,9 @@ class ImageViewer implements FcModule {
   ) async {
     final node = request.node;
     final document = await ImageDocument.read(node, settings, checkpoint: request.checkpoint);
+    // Распаковать сразу: показ должен появиться картинкой, а не пустым местом,
+    // которое через миг сменится картинкой.
+    await document.warmUp();
 
     return ImageViewerScreen(
       node: node,

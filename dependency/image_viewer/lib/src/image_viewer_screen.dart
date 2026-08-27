@@ -63,10 +63,19 @@ class ImageViewerScreen extends ChangeNotifier implements ViewerContent {
   static const double zoomStep = 1.4142135623730951;
 
   /// Есть ли куда листать. По кругу не ходим: конец списка — это конец.
-  bool get hasNext => _indexOfCurrent >= 0 && _indexOfCurrent < _siblings.length - 1;
-  bool get hasPrevious => _indexOfCurrent > 0;
+  bool get hasNext => _cursor >= 0 && _cursor < _siblings.length - 1;
+  bool get hasPrevious => _cursor > 0;
+
+  /// Где мы в списке — с учётом того, куда уже идём.
+  ///
+  /// Не по показанному узлу: при беглом листании чтение отстаёт от нажатий, и
+  /// второе нажатие целилось бы в того же соседа, что и первое.
+  int get _cursor => _targetIndex ?? _indexOfCurrent;
 
   int get _indexOfCurrent => _siblings.indexWhere((sibling) => sibling.pathString == _node.pathString);
+
+  /// Куда идём, пока читается; null — пришли.
+  int? _targetIndex;
 
   void toggleFit() {
     if (_zoom != null) {
@@ -105,12 +114,16 @@ class ImageViewerScreen extends ChangeNotifier implements ViewerContent {
     notifyListeners();
   }
 
+  /// Поколение листания: пришёл ответ не того поколения — жали дальше, и
+  /// показывать догнавшее уже нельзя.
+  int _generation = 0;
+
   /// Показать соседа: [delta] равна −1 или 1.
   ///
   /// Читает он сам и в себя же: подменять состояние в области нельзя — в
   /// быстром просмотре оно стоит внутри хозяина, и подмена унесла бы хозяина.
   Future<void> step(int delta) async {
-    final index = _indexOfCurrent;
+    final index = _cursor;
     if (index < 0) {
       return;
     }
@@ -119,11 +132,22 @@ class ImageViewerScreen extends ChangeNotifier implements ViewerContent {
       return;
     }
 
+    _targetIndex = next;
+    final generation = ++_generation;
     final node = _siblings[next];
     final document = await ImageDocument.read(node, settings, checkpoint: () async {});
-    // Распаковка до подмены: иначе на месте новой картинки полсекунды видна
-    // прежняя, растянутая в чужие пропорции.
+    // Распаковка до подмены: иначе на месте новой картинки видна прежняя.
     await document.warmUp();
+    if (generation != _generation) {
+      // Пока читали, нажали ещё раз: эта картинка уже никому не нужна, а
+      // показать её значило бы вернуться назад на глазах у человека.
+      document.release();
+      return;
+    }
+    // Прежнюю отпускаем: держать распакованными все просмотренные подряд —
+    // верный способ съесть память за минуту листания.
+    _document.release();
+    _targetIndex = null;
     _node = node;
     _document = document;
     // Масштаб и смещение сбрасываются: следующая картинка другого размера, и
@@ -138,4 +162,10 @@ class ImageViewerScreen extends ChangeNotifier implements ViewerContent {
 
   @override
   void close() => dispose();
+
+  @override
+  void dispose() {
+    _document.release();
+    super.dispose();
+  }
 }
