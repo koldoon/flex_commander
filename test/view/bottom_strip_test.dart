@@ -60,6 +60,29 @@ void main() {
       expect(strip.top, greaterThanOrEqualTo(panels.bottom));
       expect(strip.bottom, lessThanOrEqualTo(buttons.top));
     });
+
+    testWidgets('под полноэкранным содержимым полосы нет', (tester) async {
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await tester.pumpAndSettle();
+      showLine();
+      await tester.pumpAndSettle();
+      expect(find.text('Stub line'), findsOneWidget);
+
+      view.pushViewportContent(ViewportPosition.fullscreen, _StubScreen());
+      await tester.pumpAndSettle();
+
+      // В полноэкранный терминал и так печатают: две строки ввода в одну и ту
+      // же оболочку — это вопрос «а в какую из них сейчас?», на который нечего
+      // ответить.
+      expect(find.text('Stub line'), findsNothing);
+      expect(find.text('Stub screen'), findsOneWidget);
+
+      view.popViewportContent(ViewportPosition.fullscreen);
+      await tester.pumpAndSettle();
+
+      // Полоса возвращается сама: её никто не убирал, она была закрыта.
+      expect(find.text('Stub line'), findsOneWidget);
+    });
   });
 
   group('владелец ввода', () {

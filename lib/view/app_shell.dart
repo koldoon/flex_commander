@@ -67,7 +67,17 @@ class AppShell extends StatelessWidget {
   /// Пустой области нет вовсе — не пустой виджет нулевой высоты, а ничего:
   /// без модуля терминала внизу окна ничего не меняется. Высоту полоса
   /// назначает себе сама: сколько нужно её содержимому, столько и займёт.
+  ///
+  /// Полноэкранное содержимое её убирает — см. ниже.
   Widget _bottomStrip(BuildContext context, Application app) {
+    // Под полноэкранным терминалом её нет: в него и так печатают. Две строки
+    // ввода в одну и ту же оболочку — это вопрос «а в какую из них сейчас?»,
+    // на который нечего ответить; заодно возвращается строка экрана самому
+    // терминалу, ради которого его и разворачивали.
+    if (app.view.contentAt(ViewportPosition.fullscreen) != null) {
+      return const SizedBox.shrink();
+    }
+
     final content = app.view.contentAt(ViewportPosition.bottom);
     if (content == null) {
       return const SizedBox.shrink();
