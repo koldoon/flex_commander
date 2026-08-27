@@ -79,6 +79,13 @@ class TarIndex {
 /// Заголовок записи: ровно один блок.
 const int _blockSize = 512;
 
+/// Через сколько записей проход отдаёт управление.
+///
+/// Число из тех, что не выбираются точно: реже — и `Esc` начинает опаздывать,
+/// чаще — и на архиве из мелочи каждый прыжок по событийному циклу стоит
+/// дороже самого чтения заголовка.
+const int _checkpointEvery = 512;
+
 /// Типы записей, которые нас касаются.
 const String _typeHardLink = '1';
 const String _typeSymLink = '2';
@@ -103,12 +110,24 @@ const String _typePaxGlobal = 'g';
 /// А вот пустой архив — не ошибка: он весь состоит из нулевых блоков, и такой
 /// делает сам `tar`. Отличить его от файла, начинающегося с нулей, нечем — они
 /// побайтно одинаковы, и притворяться, что мы умеем, не стоит.
-Future<TarIndex> readTarIndex(String archivePath) async {
+///
+/// Проход синхронный: заголовки читаются вперемежку с прыжками через
+/// содержимое, и асинхронности тут взяться неоткуда. Но архив из сотен тысяч
+/// записей так листается секундами, а всё это время приложение не
+/// перерисовывается и не слышит `Esc`. Поэтому каждые [_checkpointEvery]
+/// записей проход отдаёт управление: [checkpoint] — это пауза и отмена,
+/// [onEntries] — счётчик для вехи.
+Future<TarIndex> readTarIndex(
+  String archivePath, {
+  Future<void> Function()? checkpoint,
+  void Function(int entries)? onEntries,
+}) async {
   final file = File(archivePath).openSync();
 
   try {
     final root = TarEntry.directory(name: '/');
     var position = 0;
+    var seen = 0;
 
     // Длинные имена приходят отдельной записью **перед** той, к которой
     // относятся: и у GNU (`L`), и у PAX (`x`).
@@ -116,6 +135,11 @@ Future<TarIndex> readTarIndex(String archivePath) async {
     String? pendingLink;
 
     while (true) {
+      if (++seen % _checkpointEvery == 0) {
+        onEntries?.call(seen);
+        await checkpoint?.call();
+      }
+
       file.setPositionSync(position);
       final header = file.readSync(_blockSize);
       if (header.length < _blockSize) {

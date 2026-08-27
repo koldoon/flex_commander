@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_tar/fc_tar.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/modules/local_fs/local_tree_provider.dart';
 import 'package:flex_commander/modules/local_fs/local_staging_area.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -131,6 +132,35 @@ void main() {
       await expectLater(openTar(path), throwsA(isA<FsError>()));
     });
 
+    test('длинный проход прерывается и говорит о ходе', () async {
+      // Записей заведомо больше, чем шаг между точками отмены: иначе проход
+      // кончится, ни разу не отдав управление, и проверять будет нечего.
+      final many = Directory(p.join(work.path, 'many'))..createSync();
+      for (var i = 0; i < 1500; i++) {
+        File(p.join(many.path, 'file$i.txt')).writeAsStringSync('$i');
+      }
+      final path = await pack(['-cf', 'many.tar', 'many'], 'many.tar');
+
+      final counted = <int>[];
+      var calls = 0;
+      await expectLater(
+        readTarIndex(
+          path,
+          onEntries: counted.add,
+          // Отмена — это исключение из `checkpoint`, и проход обязан его
+          // выпустить наружу, а не проглотить и дочитать файл до конца.
+          checkpoint: () async {
+            calls++;
+            throw const OperationCanceled();
+          },
+        ),
+        throwsA(isA<OperationCanceled>()),
+      );
+
+      expect(calls, 1, reason: 'после отмены проход продолжился');
+      expect(counted, isNotEmpty, reason: 'о ходе работы не сказано ни разу');
+    });
+
     test('пустой архив открывается пустым, а не ошибкой', () async {
       final path = await pack(['-cf', 'empty.tar', '-T', '/dev/null'], 'empty.tar');
 
@@ -154,6 +184,28 @@ void main() {
       final node = (await provider.resolvePath().run('/dump.sql'))!;
       expect(node.size, 'select 1;'.length, reason: 'размер берётся из хвоста gzip');
       expect(await readText(provider, node), 'select 1;');
+    });
+
+    test('у хозяина без прыжков размер неизвестен, а содержимое читается', () async {
+      File(p.join(work.path, 'dump.sql')).writeAsStringSync('select 1;');
+      final result = await Process.run('gzip', ['-k', 'dump.sql'], workingDirectory: work.path);
+      expect(result.exitCode, 0);
+
+      // Размер лежит в хвосте gzip, и достать его — это прыжок в конец файла.
+      // Хозяин, который прыгать не умеет (файл на сервере), такого ответа не
+      // даёт, и выдумывать его нельзя: сказать «не знаю» честнее, чем разжать
+      // весь поток ради одного числа.
+      final memory = InMemoryArchiveProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.file('/home/dump.sql.gz', content: File(p.join(work.path, 'dump.sql.gz')).readAsBytesSync()),
+      ])..capabilities = readOnlyCapabilities;
+      final host = (await memory.resolvePath().run('/home/dump.sql.gz'))!;
+
+      final provider = await GzipTreeProvider.open(host);
+      final node = (await provider.resolvePath().run('/dump.sql'))!;
+
+      expect(node.size, FsNode.unknownSize);
+      expect(await readText(provider, node), 'select 1;', reason: 'поток читается и без размера');
     });
 
     test('у .tgz внутри лежит .tar', () async {

@@ -33,16 +33,22 @@ class TarTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
   /// или на сервере, — сперва оказывается во временном файле: читать запись по
   /// смещению можно только там, где по файлу умеют прыгать. Владеет копией сам
   /// провайдер и убирает её в [dispose].
+  /// Проход по архиву прерывается: [checkpoint] зовётся по ходу, а
+  /// [onEntries] сообщает, сколько записей уже сосчитано. У zip такого нет и не
+  /// нужно — там оглавление берётся одним прыжком; здесь открытие стоит целого
+  /// файла, и молчать о нём нельзя.
   static Future<TreeProvider> open(
     FsNode host, {
     required StagingArea staging,
     void Function(int bytes)? onBytes,
+    Future<void> Function()? checkpoint,
+    void Function(int entries)? onEntries,
   }) async {
     final session = LocalCopySession(staging, prefix: 'flex_commander_tar');
 
     try {
       final path = await session.localPathOf(host, onBytes: onBytes);
-      final index = await readTarIndex(path);
+      final index = await readTarIndex(path, checkpoint: checkpoint, onEntries: onEntries);
       return TarTreeProvider._(archivePath: path, host: host, index: index, session: session);
     } on Object {
       // Битый архив или отмена: копия не должна пережить неудачу.
