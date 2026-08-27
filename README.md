@@ -57,10 +57,14 @@ by asking rather than stopping, can be cancelled with confirmation, and can be s
 the background to keep running in the bar above the function keys.
 
 **Data sources.** Local file system; ZIP — read, write, and create with `Shift+F5`; 7z —
-read, write, and create with `Shift+F7`, using the external `7z` program; SSH/SFTP — read
+read, write, and create with `Shift+F7`, using the external `7z` program; tar, gz, tar.gz
+and tgz — read, and create from the command palette («Mk Tar» and «Mk Gz»); SSH/SFTP — read
 and write, authenticating with the keys in `~/.ssh` (asking for a passphrase only when one
 is actually needed) or with a password. Archives nest: an archive inside an archive, an
-archive on a server, addressed by a chain of paths such as `fs:/a.zip:zip:/inner`.
+archive on a server, addressed by a chain of paths such as `fs:/a.zip:zip:/inner` — and
+`.tar.gz` is that same nesting rather than a special case: the `gz` source holds one
+entry, the `.tar` inside it, and entering that opens the `tar` source. Permissions and
+symbolic links inside a tar are preserved, and links are transferred as links.
 Transfers stream between *any* two sources, so copying out of an archive straight to a
 server is an ordinary `F5`.
 
@@ -122,13 +126,14 @@ On Windows and Linux `Cmd` reads as `Ctrl`.
 | `Cmd-O` | open the selected objects with the system |
 | `F1` | help: settings and every command with its keys |
 | `F2`, `Cmd-,` | settings: everything you choose, in one window |
-| `Cmd-Shift-P` | the command palette: everything the app can do right now, by name |
+| `Cmd-Shift-P` | the command palette: everything the app can do right now, by name or synonym |
 | `F3` / `F4` | view / edit the file under the cursor |
 | `F5` / `F6` | copy / move to the other panel |
 | `F7`, `Shift-Cmd-N` | make a directory |
 | `F8`, `Cmd-Bsp` | delete to Trash |
 | `Shift-F8`, `Shift-Cmd-Bsp` | delete permanently |
 | `Shift-F5` / `Shift-F7` | pack the selection into a new zip / 7z archive |
+| — (palette) | «Mk Tar» — pack into `.tar`, `.tar.gz` or `.tgz`; «Mk Gz» — compress one file |
 | `F2` (viewer / editor) | word wrap / save |
 | `F9` (viewer, editor) | line numbers |
 | `Cmd-F`, `F7` / `Cmd-G` / `Shift-Cmd-G` | find / find next / find previous |
