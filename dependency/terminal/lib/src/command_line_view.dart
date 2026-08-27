@@ -115,10 +115,14 @@ class _CommandLineViewState extends State<CommandLineView> {
         // стоило связи с системным текстовым вводом, а через неё на macOS идёт
         // `Backspace`: печатать можно, а стереть нечем. Та же ошибка, что с
         // обводкой фокуса (`spec/dialog-focus.md`), и лечится так же.
-        // Воздух над собой строка отмеряет сама: снизу её отбивает от кнопок
-        // шелл, и делает это независимо от того, есть ли строка вообще.
+        // Воздух вокруг себя строка отмеряет сама — с обеих сторон.
+        //
+        // Шелл своей рамки под ней не ставит: она нужна там, где полосы нет
+        // вовсе (полноэкранный просмотрщик, терминал), а здесь прибавлялась бы
+        // к собственному воздуху строки — и текст отходил бы от кнопок дальше,
+        // чем от панелей.
         return Padding(
-          padding: EdgeInsets.only(top: theme.metrics.commandLineGap),
+          padding: EdgeInsets.symmetric(vertical: theme.metrics.commandLineGap),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,

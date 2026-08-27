@@ -62,6 +62,17 @@ class AppShell extends StatelessWidget {
     );
   }
 
+  /// Что стоит между рабочей областью и рядом кнопок.
+  ///
+  /// Пусто — просвет ставит шелл: это внешняя рамка окна, и полноэкранный
+  /// просмотрщик отбит от кнопок ровно так же, как панели.
+  ///
+  /// Занято — просветы отмеряет **само содержимое**, с обеих сторон. Иначе к
+  /// его собственному воздуху прибавлялась бы ещё и рамка, и текст командной
+  /// строки отходил бы от кнопок дальше, чем от панелей.
+  Widget _belowWorkArea(BuildContext context, Application app) =>
+      _bottomStrip(context, app) ?? SizedBox(height: FcTheme.of(context).metrics.functionBarGap);
+
   /// Полоса под панелями и над рядом кнопок: командная строка.
   ///
   /// Пустой области нет вовсе — не пустой виджет нулевой высоты, а ничего:
@@ -69,27 +80,23 @@ class AppShell extends StatelessWidget {
   /// назначает себе сама: сколько нужно её содержимому, столько и займёт.
   ///
   /// Полноэкранное содержимое её убирает — см. ниже.
-  Widget _bottomStrip(BuildContext context, Application app) {
+  /// null — полосы нет вовсе: ни пустого виджета, ни зазора в никуда.
+  Widget? _bottomStrip(BuildContext context, Application app) {
     // Под полноэкранным терминалом её нет: в него и так печатают. Две строки
     // ввода в одну и ту же оболочку — это вопрос «а в какую из них сейчас?»,
     // на который нечего ответить; заодно возвращается строка экрана самому
     // терминалу, ради которого его и разворачивали.
     if (app.view.contentAt(ViewportPosition.fullscreen) != null) {
-      return const SizedBox.shrink();
+      return null;
     }
 
     final content = app.view.contentAt(ViewportPosition.bottom);
     if (content == null) {
-      return const SizedBox.shrink();
+      return null;
     }
-    final build = app.views.builderFor(content);
-
-    // Просвета сверху шелл не ставит: он отбивает от кнопок **рабочую
-    // область**, и делает это всегда — ниже, одним и тем же `functionBarGap`.
-    // Сколько воздуха нужно над собой, знает само содержимое полосы: у
-    // командной строки это `commandLineGap`. Иначе рамка окна зависела бы от
-    // того, включён ли модуль терминала.
-    return build == null ? const SizedBox.shrink() : build(context, content);
+    // Просветов вокруг полосы шелл не ставит: сколько воздуха ей нужно, знает
+    // она сама — у командной строки это `commandLineGap`, сверху и снизу.
+    return app.views.builderFor(content)?.call(context, content);
   }
 
   /// Рисует состояние тем, что для него объявлено.
@@ -127,8 +134,7 @@ class AppShell extends StatelessWidget {
                   Expanded(
                     child: ListenableBuilder(listenable: app.view, builder: (context, _) => _workArea(context, app)),
                   ),
-                  ListenableBuilder(listenable: app.view, builder: (context, _) => _bottomStrip(context, app)),
-                  SizedBox(height: metrics.functionBarGap),
+                  ListenableBuilder(listenable: app.view, builder: (context, _) => _belowWorkArea(context, app)),
                   const FunctionBar(),
                   SizedBox(height: metrics.windowBottomPadding),
                 ],
