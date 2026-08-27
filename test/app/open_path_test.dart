@@ -574,6 +574,43 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
     });
 
+    testWidgets('строка выбора идёт до краёв окна, а адрес стоит под набранным', (tester) async {
+      final runtime = await app();
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      seed(runtime, ['/home/docs']);
+      await tester.pumpAndSettle();
+
+      await openDialog(tester, runtime);
+
+      final title =
+          find
+              .descendant(of: find.byType(FcPickList), matching: find.textContaining('/home/docs', findRichText: true))
+              .first;
+      final list = tester.getRect(find.byType(FcPickList));
+      final row = tester.getRect(find.ancestor(of: title, matching: find.byType(GestureDetector)).first);
+
+      // Строка выбора выходит за поля формы к самым краям окна: отбитая, она
+      // читалась бы как плитка, а не как «эта строка списка».
+      expect(row.left, list.left);
+      expect(row.right, list.right);
+      // Само окно — это `IntrinsicWidth` внутри рамы: она занимает всю
+      // отведённую команде область, а окно облегает содержимое.
+      final window = tester.getRect(
+        find.descendant(of: find.byType(DialogFrame), matching: find.byType(IntrinsicWidth)),
+      );
+      expect(list.width, moreOrLessEquals(window.width, epsilon: 1));
+
+      // А текст в ней — ровно под набранным. Поле здесь стоит в столбце
+      // значений, за подписью, и список считает отступ по ней же.
+      final typed = tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(EditableText)));
+      expect(tester.getRect(title).left, moreOrLessEquals(typed.left, epsilon: 0.5));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
     testWidgets('пустая история окна не меняет', (tester) async {
       final runtime = await app();
       await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));

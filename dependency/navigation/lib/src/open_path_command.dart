@@ -348,71 +348,83 @@ class _OpenPathFormState extends State<_OpenPathForm> {
 
     return ListenableBuilder(
       listenable: state,
-      builder:
-          (context, _) => CommandDialogForm(
-            // Неудача не закрывает окно: путь правится тут же и пробуется снова.
-            error: state.error,
-            // Работа уже идёт — подтверждать нечего.
-            busy: state.running,
-            onCancel: state.dismiss,
-            onSubmit: state.submit,
-            submitLabel: 'Open',
-            children: [
-              CommandDialogField(
-                label: 'Path',
-                child: FcTextField(
-                  controller: _path,
-                  focusNode: _field,
-                  autofocus: true,
-                  // Поле остаётся живым и во время работы: выключенное отдало бы
-                  // фокус, а вернуть его после отмены было бы нечем — `autofocus`
-                  // срабатывает один раз.
-                  hintText: '/etc or ssh://user@host/srv',
-                  onChanged: _onChanged,
-                  onSubmitted: (_) => state.submit(),
-                ),
+      builder: (context, _) {
+        // Подписи меряются здесь же, а не только внутри формы: список под полем
+        // должен встать текстом ровно под ним, а поле стоит в столбце значений
+        // — за подписью. Меряется тот же набор строк, что форма и покажет,
+        // поэтому список и поле съезжают вместе или не съезжают вовсе.
+        final labels = ['Path', if (state.statusMessage != null) 'Status'];
+        final inset = dialogInputTextInset(context, labelWidth: widestLabel(context, labels));
+
+        return CommandDialogForm(
+          // Неудача не закрывает окно: путь правится тут же и пробуется снова.
+          error: state.error,
+          // Работа уже идёт — подтверждать нечего.
+          busy: state.running,
+          onCancel: state.dismiss,
+          onSubmit: state.submit,
+          submitLabel: 'Open',
+          children: [
+            CommandDialogField(
+              label: 'Path',
+              child: FcTextField(
+                controller: _path,
+                focusNode: _field,
+                autofocus: true,
+                // Поле остаётся живым и во время работы: выключенное отдало бы
+                // фокус, а вернуть его после отмены было бы нечем — `autofocus`
+                // срабатывает один раз.
+                hintText: '/etc or ssh://user@host/srv',
+                onChanged: _onChanged,
+                onSubmitted: (_) => state.submit(),
               ),
-              // История — под полем, как список в палитре. Нажатие мышью и
-              // стрелка делают одно и то же: вписывают адрес в поле. Открывает
-              // всегда `Enter`, и открывает он то, что в поле, — одно правило
-              // вместо двух.
-              if (widget.history.isNotEmpty)
-                CommandDialogField.wide(
-                  child: ConstrainedBox(
-                    // Окно не должно расти на всю историю: дальше список
-                    // прокручивается.
-                    constraints: BoxConstraints(
-                      maxWidth: MediaQuery.sizeOf(context).width * theme.metrics.dialogWidthFactor,
-                      maxHeight: (theme.metrics.rowHeight + theme.metrics.rowGap) * _visibleRows,
-                    ),
-                    child: FcPickList(
-                      rows: _found,
-                      query: _typed,
-                      selected: _selected,
-                      onTap: (address) {
-                        _field.requestFocus();
-                        setState(() {
-                          _selected = _found.indexWhere((row) => row.id == address);
-                          _write(address);
-                        });
-                      },
-                      emptyMessage: 'No matching address in history',
-                    ),
+            ),
+            // История — под полем, как список в палитре. Нажатие мышью и
+            // стрелка делают одно и то же: вписывают адрес в поле. Открывает
+            // всегда `Enter`, и открывает он то, что в поле, — одно правило
+            // вместо двух.
+            if (widget.history.isNotEmpty)
+              // Строка выбора идёт до самых краёв окна, мимо его полей: она
+              // читается как «эта строка», а не «эта плитка». Отбит только
+              // текст — и ровно под набранным в поле.
+              CommandDialogField.bleed(
+                child: ConstrainedBox(
+                  // Окно не должно расти на всю историю: дальше список
+                  // прокручивается.
+                  constraints: BoxConstraints(
+                    maxWidth: MediaQuery.sizeOf(context).width * theme.metrics.dialogWidthFactor,
+                    maxHeight: (theme.metrics.rowHeight + theme.metrics.rowGap) * _visibleRows,
+                  ),
+                  child: FcPickList(
+                    rows: _found,
+                    query: _typed,
+                    selected: _selected,
+                    textInset: inset,
+                    onTap: (address) {
+                      _field.requestFocus();
+                      setState(() {
+                        _selected = _found.indexWhere((row) => row.id == address);
+                        _write(address);
+                      });
+                    },
+                    emptyMessage: 'No matching address in history',
                   ),
                 ),
-              // Чем занята панель прямо сейчас. Без этой строки открытие адреса
-              // через сервер и два архива выглядит зависшим приложением: сказать о
-              // ходе работы есть что, но говорится это в строке состояния панели —
-              // под затенением этого самого окна.
-              if (state.statusMessage case final message?)
-                CommandDialogField(
-                  label: 'Status',
-                  // Одной строкой: адреса длинные, а окно не должно расти вниз на
-                  // каждой вехе.
-                  child: Text(message, style: theme.dialogTextStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
-                ),
-            ],
-          ),
+              ),
+            // Чем занята панель прямо сейчас. Без этой строки открытие адреса
+            // через сервер и два архива выглядит зависшим приложением: сказать о
+            // ходе работы есть что, но говорится это в строке состояния панели —
+            // под затенением этого самого окна.
+            if (state.statusMessage case final message?)
+              CommandDialogField(
+                label: 'Status',
+                // Одной строкой: адреса длинные, а окно не должно расти вниз на
+                // каждой вехе.
+                child: Text(message, style: theme.dialogTextStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
+              ),
+          ],
+        );
+      },
     );
   }
 

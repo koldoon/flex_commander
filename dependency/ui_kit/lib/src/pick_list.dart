@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'command_dialog.dart';
 import 'fc_theme.dart';
 import 'palette_search.dart';
 
@@ -40,6 +41,7 @@ class FcPickList extends StatefulWidget {
     required this.selected,
     required this.onTap,
     this.emptyMessage = 'Nothing found',
+    this.textInset,
   });
 
   final List<FcPickRow> rows;
@@ -53,6 +55,12 @@ class FcPickList extends StatefulWidget {
   final void Function(String id) onTap;
 
   final String emptyMessage;
+
+  /// Отступ текста строки от края списка; пусто — как у поля ввода без подписи.
+  ///
+  /// Задают его там, где поле стоит в столбце значений: текст в нём начинается
+  /// за подписью, и список обязан встать под ним, а не под подписью.
+  final double? textInset;
 
   @override
   State<FcPickList> createState() => _FcPickListState();
@@ -166,12 +174,14 @@ class _FcPickListState extends State<FcPickList> {
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [for (var i = 0; i < widget.rows.length; i++) _row(theme, widget.rows[i], i == widget.selected)],
+        children: [
+          for (var i = 0; i < widget.rows.length; i++) _row(context, theme, widget.rows[i], i == widget.selected),
+        ],
       ),
     );
   }
 
-  Widget _row(FcTheme theme, FcPickRow row, bool current) {
+  Widget _row(BuildContext context, FcTheme theme, FcPickRow row, bool current) {
     final colors = theme.colors;
     final metrics = theme.metrics;
     // Яркое — имя, приглушённое — уточнение и примечание.
@@ -189,7 +199,10 @@ class _FcPickListState extends State<FcPickList> {
       child: Container(
         height: metrics.rowHeight + metrics.rowGap,
         color: current ? colors.cursorBackground : null,
-        padding: EdgeInsets.symmetric(horizontal: metrics.dialogHorizontalPadding),
+        // Подсветка — во всю ширину, отбит только текст: строка выбора обязана
+        // доходить до краёв, иначе читается не как «эта строка», а как «эта
+        // плитка». А текст стоит ровно под набранным в поле.
+        padding: EdgeInsets.symmetric(horizontal: widget.textInset ?? dialogInputTextInset(context)),
         alignment: Alignment.centerLeft,
         child: Row(
           children: [

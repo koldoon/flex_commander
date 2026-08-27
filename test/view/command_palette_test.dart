@@ -53,6 +53,34 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('строка выбора идёт до краёв окна, а текст стоит под набранным', (tester) async {
+    await openPalette(tester);
+    await tester.enterText(field(), 'mkd');
+    await tester.pumpAndSettle();
+
+    // Именно в списке: «Mk Dir» есть и на кнопке `F7` внизу экрана.
+    final title =
+        find.descendant(of: find.byType(FcPickList), matching: find.textContaining('Mk Dir', findRichText: true)).first;
+    final list = tester.getRect(find.byType(FcPickList));
+    final row = tester.getRect(find.ancestor(of: title, matching: find.byType(GestureDetector)).first);
+
+    // Строка выбора — во всю ширину: отбитая полями, она читалась бы как
+    // плитка, а не как «эта строка списка».
+    expect(row.left, list.left);
+    expect(row.right, list.right);
+
+    // А текст в ней — ровно под набранным в поле, иначе список выглядит
+    // съехавшим относительно того самого поля, которое он дополняет.
+    // Поле палитры, а не командная строка внизу экрана.
+    final typed = tester.getRect(
+      find.descendant(of: find.byType(FcCommandPalette), matching: find.byType(EditableText)),
+    );
+    expect(tester.getRect(title).left, moreOrLessEquals(typed.left, epsilon: 0.5));
+    expect(list.width, greaterThan(typed.width), reason: 'поле отбито полями окна, а список — нет');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('набранное отбирает строки — по порядку букв, а не подряд', (tester) async {
     await openPalette(tester);
     // `mkd` находит `Mk Dir`: буквы идут по порядку, но не подряд.

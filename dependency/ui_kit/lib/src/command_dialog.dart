@@ -344,15 +344,19 @@ class CommandDialogBody extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
-    final padding = EdgeInsets.symmetric(horizontal: metrics.dialogHorizontalPadding, vertical: metrics.dialogPadding);
-    // Сверху отступ больше: содержимое отходит от полосы заголовка.
-    final contentPadding = padding.copyWith(top: metrics.dialogContentTopPadding);
+    // Поля по краям ставит сама форма: строка `bleed` выходит за них к краям
+    // окна, а изнутри общего `Padding` выйти нечем. Сверху отступ больше —
+    // содержимое отходит от полосы заголовка.
+    final contentPadding = EdgeInsets.only(top: metrics.dialogContentTopPadding, bottom: metrics.dialogPadding);
 
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Padding(padding: contentPadding, child: FcForm(rows: children)),
+        Padding(
+          padding: contentPadding,
+          child: FcForm(rows: children, horizontalPadding: metrics.dialogHorizontalPadding),
+        ),
         CommandDialogActions(actions: actions),
       ],
     );
@@ -446,6 +450,23 @@ EdgeInsets dialogContentPadding(BuildContext context) {
   );
 }
 
+/// Где начинается текст внутри поля ввода, считая от края окна.
+///
+/// Нужна списку под полем: его строка выбора идёт во всю ширину окна, а текст в
+/// ней обязан стоять ровно под набранным — иначе список выглядит съехавшим
+/// относительно того самого поля, которое он дополняет.
+///
+/// Складывается из поля окна, рамки поля ввода и его собственного отступа —
+/// ровно из того, что стоит слева от текста в [FcTextField].
+double dialogInputTextInset(BuildContext context, {double labelWidth = 0}) {
+  final metrics = FcTheme.of(context).metrics;
+  // Подпись слева — если форма поставила поле в столбец значений: там текст
+  // начинается за подписью и зазором между столбцами.
+  final label = labelWidth > 0 ? labelWidth + metrics.dialogGap : 0.0;
+
+  return metrics.dialogHorizontalPadding + label + metrics.strokeWidth + metrics.inputHorizontalPadding;
+}
+
 class CommandDialogActions extends StatelessWidget {
   const CommandDialogActions({super.key, required this.actions});
 
@@ -494,21 +515,43 @@ class CommandDialogActions extends StatelessWidget {
 /// Подпись — без двоеточия: она и так отличается от значения цветом, а
 /// двоеточие в такой колонке только шумит.
 class CommandDialogField {
-  const CommandDialogField({required this.label, required Widget child}) : _child = child, children = const [];
+  const CommandDialogField({required this.label, required Widget child})
+    : _child = child,
+      children = const [],
+      bleeds = false;
 
   /// Несколько строк под одной подписью; подпись встаёт вровень с первой.
   ///
   /// Так связанное читается связанным: имя файла, его объём и его полоса —
   /// одно поле из трёх строк, а не три поля, из которых два безымянных.
-  const CommandDialogField.column({required this.label, required this.children}) : _child = null;
+  const CommandDialogField.column({required this.label, required this.children}) : _child = null, bleeds = false;
 
   /// Строка без подписи — во всю ширину столбца значений.
   ///
   /// Флаг, полоса хода работы, сообщение об ошибке: подписи слева у них нет, а
   /// вставать они должны вровень с остальными значениями, а не с их подписями.
-  const CommandDialogField.wide({required Widget child}) : label = '', _child = child, children = const [];
+  const CommandDialogField.wide({required Widget child})
+    : label = '',
+      _child = child,
+      children = const [],
+      bleeds = false;
+
+  /// Строка во всю ширину **окна** — мимо полей формы.
+  ///
+  /// Список под полем ввода: его подсветка — это строка выбора, а строка выбора
+  /// обязана доходить до краёв окна, иначе она читается не как «эта строка», а
+  /// как «эта плитка». Само содержимое строки при этом отбито внутри — под
+  /// текстом поля ввода ([dialogInputTextInset]).
+  const CommandDialogField.bleed({required Widget child})
+    : label = '',
+      _child = child,
+      children = const [],
+      bleeds = true;
 
   final String label;
+
+  /// Строка выходит за поля формы к самым краям окна.
+  final bool bleeds;
   final List<Widget> children;
   final Widget? _child;
 
@@ -551,7 +594,7 @@ class CommandDialogField {
 /// череда таблиц и широких строк между ними. Выравнивание от этого не
 /// страдает, потому что мера столбца общая и посчитана заранее.
 class FcForm extends StatelessWidget {
-  const FcForm({super.key, required this.rows, this.labelWidth});
+  const FcForm({super.key, required this.rows, this.labelWidth, this.horizontalPadding = 0});
 
   final List<CommandDialogField> rows;
 
@@ -562,6 +605,12 @@ class FcForm extends StatelessWidget {
   /// форма. Пусто — форма меряет свои подписи сама.
   final double? labelWidth;
 
+  /// Поля по краям — те самые, что отбивают содержимое от рамы окна.
+  ///
+  /// Ставит их **форма**, а не тот, кто её показывает: строка `bleed` обязана
+  /// выйти за них к самым краям окна, а изнутри общего `Padding` выйти нечем.
+  final double horizontalPadding;
+
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
@@ -571,18 +620,23 @@ class FcForm extends StatelessWidget {
     final parts = <Widget>[];
     var run = <CommandDialogField>[];
 
+    Widget inset(Widget part) =>
+        horizontalPadding == 0
+            ? part
+            : Padding(padding: EdgeInsets.symmetric(horizontal: horizontalPadding), child: part);
+
     void flush() {
       if (run.isEmpty) {
         return;
       }
-      parts.add(_table(theme, width, run));
+      parts.add(inset(_table(theme, width, run)));
       run = [];
     }
 
     for (final row in rows) {
       if (row.isWide) {
         flush();
-        parts.add(row.content(theme));
+        parts.add(row.bleeds ? row.content(theme) : inset(row.content(theme)));
         continue;
       }
       run.add(row);
