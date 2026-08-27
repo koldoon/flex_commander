@@ -21,6 +21,9 @@ void main() {
         FakeEntry.directory('/home'),
         FakeEntry.file('/home/alpha.txt', size: 10),
         FakeEntry.file('/home/beta.txt', size: 10),
+        FakeEntry.directory('/home/Developer'),
+        FakeEntry.directory('/home/Developer/Petrosoft'),
+        FakeEntry.directory('/home/Developer/Petrosoft/go-loyalty-service'),
       ])..home = '/home',
       modules: modulesWithTerminal(pty),
     );
@@ -35,6 +38,30 @@ void main() {
 
     expect(find.byType(CommandLineView), findsOneWidget);
     expect(find.text('/home\$'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('длинный путь виден целиком, пока есть место', (tester) async {
+    // Ровно тот случай, на котором это вылезло: обычный домашний путь под
+    // четверть строки не влезает, а справа при этом пусто.
+    const deep = '/home/Developer/Petrosoft/go-loyalty-service';
+    await runtime.app.left.openPath(deep);
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    final line = find.byType(CommandLineView);
+    final strip = tester.getSize(line).width;
+    final prompt = tester.getSize(find.descendant(of: line, matching: find.text('$deep\$')));
+
+    // Приглашение берёт по содержимому, а не долю строки: делили `1:3`, и
+    // путь резался многоточием при пустом поле.
+    expect(prompt.width, greaterThan(strip / 4));
+
+    // Но и не всю строку: около трети остаётся вводу при любом пути. Точная
+    // доля считается от ширины внутри отступов, поэтому здесь «около».
+    final input = tester.getSize(find.descendant(of: line, matching: find.byType(TextField))).width;
+    expect(input, greaterThan(strip * 0.3));
 
     await tester.pump(const Duration(milliseconds: 20));
   });

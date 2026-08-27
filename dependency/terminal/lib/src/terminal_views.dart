@@ -68,7 +68,8 @@ class _TerminalFrame extends StatelessWidget {
     final label = TextStyle(fontFamily: theme.fonts.fixed, fontSize: metrics.fontSize, color: colors.pathText);
 
     return ColoredBox(
-      color: colors.panelBackground,
+      // Фон окна: терминал занимает всё окно и панелью не притворяется.
+      color: colors.windowBackground,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

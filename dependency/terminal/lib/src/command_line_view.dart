@@ -137,7 +137,7 @@ class _CommandLineViewState extends State<CommandLineView> {
     }
 
     return Container(
-      color: colors.panelBackground,
+      color: colors.windowBackground,
       padding: EdgeInsets.symmetric(horizontal: metrics.labelPadding + metrics.cellPadding),
       child: Row(
         children: [
@@ -189,53 +189,82 @@ class _CommandLineViewState extends State<CommandLineView> {
     );
   }
 
+  /// Доля строки, которую ввод оставляет себе, каким бы длинным ни был путь.
+  ///
+  /// Треть — чтобы набранное было видно целиком хотя бы на короткой команде.
+  /// Путь при этом режется многоточием: он всё-таки подпись к работе, а
+  /// работают в поле.
+  static const double _inputShare = 1 / 3;
+
   Widget _input(FcTheme theme, CommandLineState state, bool enabled, TextStyle style) {
     final colors = theme.colors;
     final metrics = theme.metrics;
 
     return Container(
       height: metrics.inputHeight,
-      color: colors.panelBackground,
+      // Фон окна, а не панели: `panelBackground` — это белый пятипроцентный
+      // поверх окна, и кладёт его рамка панели. Строка рамки не имеет и стоит
+      // под панелями, а не внутри: взяв панельный цвет, она притворялась бы
+      // куском панели и вылезала бы полутоном на общем фоне.
+      color: colors.windowBackground,
       padding: EdgeInsets.symmetric(horizontal: metrics.panelLeftPadding),
-      child: Row(
-        children: [
-          // Приглашение — это каталог, в котором всё и произойдёт. Оно же
-          // объясняет, почему строка приглушена: путь в архиве или на
-          // сервере видно так же, как обычный.
-          Flexible(
-            child: Text(
-              '${state.prompt}\$',
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              style: style.copyWith(color: enabled ? colors.pathText : colors.secondaryText),
-            ),
-          ),
-          SizedBox(width: metrics.columnGap),
-          Expanded(
-            flex: 3,
-            child:
-                !enabled
-                    ? Text('Shell does not work here', maxLines: 1, style: style.copyWith(color: colors.secondaryText))
-                    // В режиме `mc` поля ввода нет вовсе: ввод у панели, и все
-                    // клавиши строки разбираются привязками. Курсор строка
-                    // рисует сама — иначе человеку неоткуда узнать, что печать
-                    // уходит сюда.
-                    : state.typingGoesToLine && view.activeArea != ViewportPosition.bottom
-                    ? _typed(theme, state, style)
-                    : TextField(
-                      // Ключ — чтобы поле оставалось тем же самым, что бы ни
-                      // происходило вокруг: пересозданное, оно теряет связь с
-                      // клавиатурой.
-                      key: const ValueKey('command-line-input'),
-                      controller: state.text,
-                      focusNode: _node,
-                      style: style,
-                      cursorColor: colors.rowText,
-                      cursorWidth: metrics.strokeWidth * 2,
-                      decoration: const InputDecoration.collapsed(hintText: null),
-                    ),
-          ),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          // Приглашение занимает столько, сколько ему нужно, — но не за счёт
+          // ввода: [_inputShare] строки остаётся ему всегда.
+          //
+          // Делили долями `1:3`, и путь чуть длиннее четверти строки резался
+          // многоточием, хотя справа было пусто: доли не спрашивают, есть ли
+          // кому занять место. Обычный домашний путь под четверть не влезает —
+          // так это и вылезло.
+          final reserved = constraints.maxWidth * _inputShare + metrics.columnGap;
+          final promptLimit = (constraints.maxWidth - reserved).clamp(0.0, constraints.maxWidth);
+
+          return Row(
+            children: [
+              // Приглашение — это каталог, в котором всё и произойдёт. Оно же
+              // объясняет, почему строка приглушена: путь в архиве или на
+              // сервере видно так же, как обычный.
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: promptLimit),
+                child: Text(
+                  '${state.prompt}\$',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: style.copyWith(color: enabled ? colors.pathText : colors.secondaryText),
+                ),
+              ),
+              SizedBox(width: metrics.columnGap),
+              Expanded(
+                child:
+                    !enabled
+                        ? Text(
+                          'Shell does not work here',
+                          maxLines: 1,
+                          style: style.copyWith(color: colors.secondaryText),
+                        )
+                        // В режиме `mc` поля ввода нет вовсе: ввод у панели, и все
+                        // клавиши строки разбираются привязками. Курсор строка
+                        // рисует сама — иначе человеку неоткуда узнать, что печать
+                        // уходит сюда.
+                        : state.typingGoesToLine && view.activeArea != ViewportPosition.bottom
+                        ? _typed(theme, state, style)
+                        : TextField(
+                          // Ключ — чтобы поле оставалось тем же самым, что бы ни
+                          // происходило вокруг: пересозданное, оно теряет связь с
+                          // клавиатурой.
+                          key: const ValueKey('command-line-input'),
+                          controller: state.text,
+                          focusNode: _node,
+                          style: style,
+                          cursorColor: colors.rowText,
+                          cursorWidth: metrics.strokeWidth * 2,
+                          decoration: const InputDecoration.collapsed(hintText: null),
+                        ),
+              ),
+            ],
+          );
+        },
       ),
     );
   }
