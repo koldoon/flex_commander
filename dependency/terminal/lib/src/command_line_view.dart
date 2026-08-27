@@ -115,10 +115,13 @@ class _CommandLineViewState extends State<CommandLineView> {
         // стоило связи с системным текстовым вводом, а через неё на macOS идёт
         // `Backspace`: печатать можно, а стереть нечем. Та же ошибка, что с
         // обводкой фокуса (`spec/dialog-focus.md`), и лечится так же.
-        return Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [_suggestions(theme, state), _input(theme, state, enabled, style)],
+        return Padding(
+          padding: EdgeInsetsGeometry.only(top: 5),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [_suggestions(theme, state), _input(theme, state, enabled, style)],
+          ),
         );
       },
     );
@@ -136,36 +139,39 @@ class _CommandLineViewState extends State<CommandLineView> {
       return const SizedBox.shrink();
     }
 
-    return Container(
-      color: colors.windowBackground,
-      padding: EdgeInsets.symmetric(horizontal: metrics.labelPadding + metrics.cellPadding),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text.rich(
-              TextSpan(
-                children: [
-                  for (var i = 0; i < state.suggestions.length; i++) ...[
-                    if (i > 0) TextSpan(text: '   ', style: base),
-                    TextSpan(
-                      text: state.suggestions[i].insertion,
-                      style:
-                          i == state.suggestionIndex
-                              ? base.copyWith(color: colors.cursorText, fontWeight: FontWeight.bold)
-                              : base,
-                    ),
+    return Padding(
+      padding: const EdgeInsets.only(top: 5),
+      child: Container(
+        color: colors.windowBackground,
+        padding: EdgeInsets.symmetric(horizontal: metrics.labelPadding + metrics.cellPadding),
+        child: Row(
+          children: [
+            Expanded(
+              child: Text.rich(
+                TextSpan(
+                  children: [
+                    for (var i = 0; i < state.suggestions.length; i++) ...[
+                      if (i > 0) TextSpan(text: '   ', style: base),
+                      TextSpan(
+                        text: state.suggestions[i].insertion,
+                        style:
+                            i == state.suggestionIndex
+                                ? base.copyWith(color: colors.cursorText, fontWeight: FontWeight.bold)
+                                : base,
+                      ),
+                    ],
                   ],
-                ],
+                ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
             ),
-          ),
-          SizedBox(width: metrics.columnGap),
-          // Что делать дальше — словами: из ряда имён это не очевидно, а
-          // догадываться человек не должен.
-          Text('Tab next · Enter accept · Esc cancel', maxLines: 1, style: base.copyWith(color: colors.pathText)),
-        ],
+            SizedBox(width: metrics.columnGap),
+            // Что делать дальше — словами: из ряда имён это не очевидно, а
+            // догадываться человек не должен.
+            Text('Tab next · Enter accept · Esc cancel', maxLines: 1, style: base.copyWith(color: colors.pathText)),
+          ],
+        ),
       ),
     );
   }
