@@ -213,7 +213,10 @@ dependency/
                                    поле, оформление, подсветка, поиск. Общее
                                    для просмотрщика и редактора, тоже не модуль
   panels/                          fc_panels — файловые панели как экран
-  viewer/                          fc_viewer — просмотрщик текста (F3)
+  viewer/                          fc_viewer — оболочка просмотра: F3,
+                                   Shift-F3 и выбор подходящего
+  text_viewer/                     fc_text_viewer — просмотрщик текста,
+                                   один из объявленных в реестре
   editor/                          fc_editor — редактор текста (F4)
   navigation/                      fc_navigation — курсор, дерево, пометка
   file_ops/                        fc_file_ops — создать, удалить, копировать

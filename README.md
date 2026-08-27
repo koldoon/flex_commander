@@ -76,7 +76,14 @@ search, copy, arrows scrolling the text); `Tab` again returns to the files,
 `Esc` puts the view away. The panel underneath stays exactly as it was, and
 copying *into* a panel that shows a file is simply not offered.
 
-**Viewer (`F3`) and editor (`F4`).** Both are the same text engine — a vendored fork of
+**Viewer (`F3`) and editor (`F4`).** What `F3` opens is decided by a registry: a
+module declares a viewer — which files it takes and what it opens — and the
+viewing shell picks the first one that accepts, by priority. Today the only
+viewer is text, so `F3` shows text; when an image viewer arrives, `F3` and the
+quick view will both show pictures without a line changing in either of them. A
+file nobody takes is answered in words, not by a dead key.
+
+Both the viewer and the editor are the same text engine — a vendored fork of
 `re_editor`, built for large files — so they look and behave identically. Syntax
 highlighting, search with `Cmd+F` or `F7` and next/previous, word wrap, line numbers, page
 scrolling; the viewer additionally copies the selection with `Cmd+C`. The editor refuses
@@ -254,7 +261,8 @@ declaring — see [`docs/modules.md`](docs/modules.md).
 | `dependency/ui_kit` | shared widgets: panel frame, dialogs, buttons, fields |
 | `dependency/text_kit` | text display shared by the viewer and the editor |
 | `dependency/panels` | the file panels screen |
-| `dependency/viewer`, `dependency/editor` | viewer (`F3`) and editor (`F4`) |
+| `dependency/viewer` | the viewing shell: `F3`, `Shift+F3` and choosing a viewer |
+| `dependency/text_viewer`, `dependency/editor` | the text viewer and the editor (`F4`) |
 | `dependency/navigation` | cursor, tree walking, marking |
 | `dependency/file_ops` | create, delete, copy, move |
 | `dependency/zip`, `dependency/7z`, `dependency/tar` | archives as trees, plus archive creation |
