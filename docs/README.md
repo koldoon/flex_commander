@@ -217,6 +217,8 @@ dependency/
                                    Shift-F3 и выбор подходящего
   text_viewer/                     fc_text_viewer — просмотрщик текста,
                                    один из объявленных в реестре
+  image_viewer/                    fc_image_viewer — картинки: png, jpeg,
+                                   gif, webp, bmp
   editor/                          fc_editor — редактор текста (F4)
   navigation/                      fc_navigation — курсор, дерево, пометка
   file_ops/                        fc_file_ops — создать, удалить, копировать

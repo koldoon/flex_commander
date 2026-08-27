@@ -78,10 +78,11 @@ copying *into* a panel that shows a file is simply not offered.
 
 **Viewer (`F3`) and editor (`F4`).** What `F3` opens is decided by a registry: a
 module declares a viewer — which files it takes and what it opens — and the
-viewing shell picks the first one that accepts, by priority. Today the only
-viewer is text, so `F3` shows text; when an image viewer arrives, `F3` and the
-quick view will both show pictures without a line changing in either of them. A
-file nobody takes is answered in words, not by a dead key.
+viewing shell picks the first Today the only
+viewer that accepts, by priority. Pictures came that way — a module declaring
+itself, with not a line changed in the shell or in the text viewer — and they
+show up in `F3` and in the quick view alike. A file nobody takes is answered in
+words, not by a dead key.
 
 Both the viewer and the editor are the same text engine — a vendored fork of
 `re_editor`, built for large files — so they look and behave identically. Syntax
@@ -91,6 +92,14 @@ to open a file that is not valid UTF-8 rather than saving replacement characters
 preserves the file's original line endings, and writes through a temporary file with a
 rename so an interrupted save cannot leave half a file behind. Files inside archives and
 on servers open too — the bytes come through the same contract as copying.
+
+**Images.** png, jpeg, gif (animated), webp and bmp, decoded by Flutter itself —
+inside archives and over SSH just as on disk, because the bytes come through the
+same contract as copying. Fit to window or pixel for pixel (`F2`), zoom with
+`+`/`-` or `Cmd`+wheel, pan with the wheel or by dragging; arrows step through
+the images of the same directory without leaving the viewer. Two limits guard
+memory — file size and pixel count — and both are read from the header before
+anything is decoded; over either one, the viewer says so and points at `Cmd+O`.
 
 **Terminal and command line.** A shell in the same window: a command line under the
 panels, and a full-screen session over them on `Ctrl+O` — the key `mc` uses. `Cmd+T`
@@ -280,7 +289,8 @@ takes and saying in words when nothing does.
 | `dependency/text_kit` | text display shared by the viewer and the editor |
 | `dependency/panels` | the file panels screen |
 | `dependency/viewer` | the viewing shell: `F3`, `Shift+F3` and choosing a viewer |
-| `dependency/text_viewer`, `dependency/editor` | the text viewer and the editor (`F4`) |
+| `dependency/text_viewer`, `dependency/image_viewer` | viewers: text and images |
+| `dependency/editor` | the text editor (`F4`) |
 | `dependency/navigation` | cursor, tree walking, marking |
 | `dependency/file_ops` | create, delete, copy, move |
 | `dependency/zip`, `dependency/7z`, `dependency/tar` | archives as trees, plus archive creation |
