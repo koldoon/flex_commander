@@ -119,8 +119,11 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
               padding: dialogContentPadding(context),
               child: FcTextField(controller: _query, focusNode: _field, autofocus: true, hintText: 'Command'),
             ),
-            // Список идёт до самого низа окна: ряда кнопок под ним больше нет.
             Flexible(child: FcPickList(rows: _found, query: _query.text, selected: _selected, onTap: widget.onRun)),
+            // Отступ снизу — такой же, каким поле отбито от полосы заголовка:
+            // ряда кнопок под списком нет, и без него окно кончалось бы строкой
+            // впритык к краю.
+            SizedBox(height: metrics.dialogContentTopPadding),
           ],
         ),
       ),
