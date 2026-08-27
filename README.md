@@ -111,6 +111,12 @@ while you type, so `F5` copies and the cursor keeps moving. The pseudo-terminal 
 `posix_openpt` plus `posix_spawn` through `dart:ffi`: no native plugin, so the macOS build
 stays on Swift Package Manager, and a real shell can be driven from `flutter test`.
 
+**Appearance.** One dark theme, taken from the reference application: palette, metrics,
+icons and fonts all come from a module, and every size in it is a named value rather than
+a number spelled into a widget — the gap between the panels, the window margins, the
+splitter's grab width. Changing how the window breathes is editing that list, not hunting
+through the layout.
+
 **Interface and plumbing.** The function-key row asks the command registry what is bound
 to each key, so a button and its key can never disagree; it follows the visible screen
 (in the viewer `F2` says `Wrap`) and shows the layer of whatever modifier is held down.
@@ -232,6 +238,14 @@ would bury the handful of deliberate differences from upstream. Locally, format 
 selection, in write mode. `dart format` has no exclude of its own: neither a flag nor
 `analysis_options.yaml`, which it does not read at all.
 
+Some of the tests are **golden**: they render the whole window, or a dialog, and compare
+it pixel by pixel with a stored image under `test/view/goldens/`. They are the cheapest
+way to notice that a layout moved when nothing was supposed to move — a metric changed in
+the theme, say, and every column shifted by five points. Regenerate them deliberately,
+never reflexively: `flutter test --update-goldens test/view/`, then look at the diff
+images the run leaves in `test/view/failures/` and satisfy yourself that what changed is
+what you meant to change.
+
 Some tests need something real and skip themselves when it is missing: `FC_SSH_TEST_HOST`
 enables the live SSH tests, `FC_BENCH=1` enables the directory-listing benchmark, and the
 live 7z tests skip when the program is not installed. Workflows are in
@@ -252,8 +266,12 @@ The core knows its modules **only** through the list in
 without the navigation module you cannot walk the tree, without file operations you
 cannot copy — and the window still opens, with the help screen honestly reporting fewer
 commands. A module declares what it offers (tree providers, commands, key bindings, a
-theme, panel viewports, services, its own settings section) and never does any work while
-declaring — see [`docs/modules.md`](docs/modules.md).
+theme, panel viewports, viewers, services, its own settings section) and never does any
+work while declaring — see [`docs/modules.md`](docs/modules.md).
+
+Viewing shows the rule at two levels: turn off the viewing shell and `F3` is gone
+altogether; turn off the text viewer and `F3` stays, opening whatever another module
+takes and saying in words when nothing does.
 
 | Package | What it is |
 |---|---|
