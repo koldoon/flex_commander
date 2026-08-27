@@ -1,0 +1,37 @@
+name: fc_tar
+description: "Архивы tar, gz и tar.gz как дерево: панель входит в них, как в каталог."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  fc_ui_kit:
+    path: ../ui_kit
+
+  path: ^1.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  # Архив читается с произвольного места файла, поэтому тесты работают с
+  # настоящим диском: локальный провайдер и место под временные файлы — оттуда.
+  flex_commander:
+    path: ../..
+
+  # Окно команды рисуется настоящим оформлением: своих значений у API нет.
+  fc_default_theme:
+    path: ../default_theme

@@ -36,6 +36,7 @@ workspace:
   # подмена — все, кто просит re_editor, получают её.
   - dependency/re_editor
   - dependency/ssh
+  - dependency/tar
   - dependency/terminal
   - dependency/test_kit
   - dependency/text_kit
@@ -79,6 +80,9 @@ dependencies:
 
   fc_ssh:
     path: dependency/ssh
+
+  fc_tar:
+    path: dependency/tar
 
   fc_terminal:
     path: dependency/terminal
