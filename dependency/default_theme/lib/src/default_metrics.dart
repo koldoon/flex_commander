@@ -49,7 +49,12 @@ class DefaultMetrics extends FcMetrics {
   double get panelGap => ref(15);
 
   @override
-  double get functionBarGap => ref(5);
+  double get functionBarGap => ref(15);
+
+  /// Меньше, чем просвет до кнопок: над строкой воздух даёт ещё и её
+  /// собственная высота — текст в ней стоит по центру.
+  @override
+  double get commandLineGap => ref(5);
 
   @override
   double get windowBottomPadding => ref(15);

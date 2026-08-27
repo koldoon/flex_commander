@@ -83,18 +83,13 @@ class AppShell extends StatelessWidget {
       return const SizedBox.shrink();
     }
     final build = app.views.builderFor(content);
-    if (build == null) {
-      return const SizedBox.shrink();
-    }
 
-    // Промежуток над полосой — такой же, каким она отбита от ряда кнопок снизу.
-    // Ставит его шелл, а не содержимое: раскладка областей — его дело, и полоса
-    // не обязана знать, что стоит над ней. Пустой области промежутка не
-    // достаётся вовсе — иначе внизу окна был бы виден зазор в никуда.
-    return Padding(
-      padding: EdgeInsets.only(top: FcTheme.of(context).metrics.functionBarGap),
-      child: build(context, content),
-    );
+    // Просвета сверху шелл не ставит: он отбивает от кнопок **рабочую
+    // область**, и делает это всегда — ниже, одним и тем же `functionBarGap`.
+    // Сколько воздуха нужно над собой, знает само содержимое полосы: у
+    // командной строки это `commandLineGap`. Иначе рамка окна зависела бы от
+    // того, включён ли модуль терминала.
+    return build == null ? const SizedBox.shrink() : build(context, content);
   }
 
   /// Рисует состояние тем, что для него объявлено.
