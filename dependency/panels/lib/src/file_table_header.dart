@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import 'package:fc_api/fc_api.dart';
@@ -85,18 +86,26 @@ class _FileTableHeaderState extends State<FileTableHeader> {
       return cell;
     }
 
-    return GestureDetector(
+    // Тап и перетаскивание уживаются в одном месте: без движения срабатывает
+    // сортировка, с заметным движением — перестановка колонки.
+    return RawGestureDetector(
       behavior: HitTestBehavior.translucent,
-      // Тап и перетаскивание уживаются в одном месте: без движения срабатывает
-      // сортировка, с движением — перестановка колонки.
-      onHorizontalDragStart:
-          (_) => setState(() {
-            _dragged = column.id;
-            _dropIndex = index;
-          }),
-      onHorizontalDragUpdate: (details) => _updateDropIndex(details.localPosition.dx, index),
-      onHorizontalDragEnd: (_) => _finishDrag(),
-      onHorizontalDragCancel: _cancelDrag,
+      gestures: {
+        _ColumnDragRecognizer: GestureRecognizerFactoryWithHandlers<_ColumnDragRecognizer>(
+          () => _ColumnDragRecognizer(debugOwner: this),
+          (recognizer) {
+            recognizer.onStart = (_) {
+              setState(() {
+                _dragged = column.id;
+                _dropIndex = index;
+              });
+            };
+            recognizer.onUpdate = (details) => _updateDropIndex(details.localPosition.dx, index);
+            recognizer.onEnd = (_) => _finishDrag();
+            recognizer.onCancel = _cancelDrag;
+          },
+        ),
+      },
       child: Opacity(opacity: _dragged == column.id ? 0.4 : 1, child: cell),
     );
   }
@@ -246,6 +255,32 @@ class _FileTableHeaderState extends State<FileTableHeader> {
   }
 
   static const String _resetLayout = 'reset';
+}
+
+/// Перестановка колонки начинается с заметного движения, а не с дрожания.
+///
+/// У мыши порог, после которого Flutter считает движение перетаскиванием, —
+/// **одна точка** (`kPrecisePointerHitSlop`), и его не изменить настройками:
+/// `computeHitSlop` для мыши возвращает её мимо `DeviceGestureSettings`. А живой
+/// клик почти всегда сдвигает указатель на точку-другую — и перетаскивание
+/// забирало нажатие себе прежде, чем успевал сработать тап: сортировка по
+/// заголовку не работала вовсе.
+///
+/// В тестах этого не видно: там нажатие идеально неподвижно. Поэтому проверка
+/// на сортировку **обязана** двигать указатель между нажатием и отпусканием —
+/// иначе она проверяет то, чего с живой мышью не бывает.
+class _ColumnDragRecognizer extends HorizontalDragGestureRecognizer {
+  _ColumnDragRecognizer({super.debugOwner});
+
+  /// Столько нужно провести, чтобы это считалось перестановкой.
+  ///
+  /// Меньше — дрожание руки на клике, больше — перетаскивание уже не отзывается
+  /// сразу.
+  static const double slop = 8;
+
+  @override
+  bool hasSufficientGlobalDistanceToAccept(PointerDeviceKind kind, double? deviceTouchSlop) =>
+      globalDistanceMoved.abs() > slop;
 }
 
 /// Заголовок одной колонки с индикатором сортировки.
