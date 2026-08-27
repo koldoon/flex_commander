@@ -68,6 +68,24 @@ void main() {
     expect(tester.getSize(find.byType(Image)).width, 6);
   });
 
+  testWidgets('картинке отдана вся рама, плашка лежит поверх', (tester) async {
+    await pump(tester, await screenOf('big.png'));
+
+    final metrics = FcTheme.of(tester.element(find.byType(Image))).metrics;
+    final frame = tester.getRect(find.byType(FcPanelFrame));
+    // Место показа — то, что рама отдала содержимому.
+    final area = tester.getRect(find.descendant(of: find.byType(FcPanelFrame), matching: find.byType(ClipRect)).first);
+    final plate = tester.getRect(find.byType(FcPathPlate));
+
+    // Сплошному содержимому отступ под заголовком не нужен: он оставлен для
+    // списка файлов, где под плашкой начинается первая строка.
+    expect(area.top - frame.top, lessThan(metrics.panelTopPadding));
+    expect(area.top, lessThan(plate.bottom), reason: 'плашка обязана лежать поверх показа');
+
+    // И места отдано почти всё: выше рамы только верхняя половина плашки.
+    expect(area.height, greaterThan(frame.height - metrics.pathHeaderHeight));
+  });
+
   testWidgets('в плашке — размеры, формат и объём', (tester) async {
     await pump(tester, await screenOf('big.png'));
 

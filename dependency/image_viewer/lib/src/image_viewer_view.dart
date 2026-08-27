@@ -29,6 +29,11 @@ class ImageViewerView extends StatelessWidget {
 
         return FcPanelFrame(
           outerEdge: _edgeOf(app),
+          // Картинка — сплошное содержимое: ей отдана вся рама, а плашка с
+          // путём ложится поверх. Отступ под заголовком нужен списку файлов,
+          // где под ним начинается первая строка; здесь он только съедал бы
+          // место показа.
+          fillsFrame: true,
           header: FcPathPlate(
             path: screen.node.displayPath,
             // Про картинку стоит знать три вещи, и все три — в плашке.

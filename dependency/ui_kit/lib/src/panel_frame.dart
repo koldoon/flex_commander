@@ -155,7 +155,14 @@ class FcPathPlate extends StatelessWidget {
 /// API, а не в модуле панелей: иначе каждый следующий экран рисовал бы её
 /// заново и однажды разошёлся бы на пиксель.
 class FcPanelFrame extends StatelessWidget {
-  const FcPanelFrame({super.key, required this.child, this.header, this.footer, this.outerEdge});
+  const FcPanelFrame({
+    super.key,
+    required this.child,
+    this.header,
+    this.footer,
+    this.outerEdge,
+    this.fillsFrame = false,
+  });
 
   /// Содержимое: таблица файлов, текст, что угодно.
   final Widget child;
@@ -168,6 +175,15 @@ class FcPanelFrame extends StatelessWidget {
 
   /// С какой стороны рамка упирается в край окна.
   final PanelOuterEdge? outerEdge;
+
+  /// Содержимое занимает раму целиком, а плашка ложится поверх него.
+  ///
+  /// Обычно под плашкой оставлено место, и не зря: список файлов начинается
+  /// строкой, и накрывать её заголовком нельзя. А **сплошное** содержимое —
+  /// картинка — от этого только теряет: сверху остаётся полоса фона, тогда как
+  /// показывать можно было всю раму. Плашке там ничего не мешает: у неё свой
+  /// фон, и лежит она поверх.
+  final bool fillsFrame;
 
   Border _border(FcTheme theme) {
     final side = BorderSide(color: theme.colors.panelBorder, width: theme.metrics.strokeWidth);
@@ -207,8 +223,9 @@ class FcPanelFrame extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 // От рамки до содержимого: `top="80"` при рамке, начинающейся
-                // с `top="30"`.
-                SizedBox(height: metrics.panelTopPadding),
+                // с `top="30"`. Сплошному содержимому этот отступ не нужен — и
+                // мешает: оно рисуется во всю раму, а плашка ложится поверх.
+                if (!fillsFrame) SizedBox(height: metrics.panelTopPadding),
                 Expanded(child: child),
                 if (footer case final footer?) footer,
               ],
