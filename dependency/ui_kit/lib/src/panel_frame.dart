@@ -156,16 +156,28 @@ class FcPanelFrame extends StatelessWidget {
   /// Строка под содержимым, внутри рамки.
   final Widget? footer;
 
-  /// С какой стороны рамку не рисовать.
+  /// С какой стороны рамка упирается в край окна.
   final PanelOuterEdge? outerEdge;
 
   Border _border(FcTheme theme) {
     final side = BorderSide(color: theme.colors.panelBorder, width: theme.metrics.strokeWidth);
+
+    // Внешний край не рисуется, **пока он и правда край окна**: там рамке не
+    // от чего отделять, а лишняя черта вплотную к границе выглядит обводкой
+    // самого окна.
+    //
+    // Появились поля по краям (`windowSidePadding`) — край перестал быть
+    // краем, и рамка обязана замкнуться: иначе в отступе видна открытая
+    // сторона панели.
+    final flush = theme.metrics.windowSidePadding == 0;
+    final openLeft = flush && (outerEdge == PanelOuterEdge.left || outerEdge == PanelOuterEdge.both);
+    final openRight = flush && (outerEdge == PanelOuterEdge.right || outerEdge == PanelOuterEdge.both);
+
     return Border(
       top: side,
       bottom: side,
-      left: outerEdge == PanelOuterEdge.left || outerEdge == PanelOuterEdge.both ? BorderSide.none : side,
-      right: outerEdge == PanelOuterEdge.right || outerEdge == PanelOuterEdge.both ? BorderSide.none : side,
+      left: openLeft ? BorderSide.none : side,
+      right: openRight ? BorderSide.none : side,
     );
   }
 

@@ -97,6 +97,39 @@ void main() {
     expect(frames.last.outerEdge, PanelOuterEdge.right);
   });
 
+  /// Рамка панели: тот `Container` внутри `FcPanelFrame`, который залит её
+  /// фоном. Их там несколько — своя коробка есть и у плашки с путём.
+  Border borderOf(WidgetTester tester, int index) {
+    final frame = find.byType(FcPanelFrame).at(index);
+    final boxes = tester.widgetList<Container>(find.descendant(of: frame, matching: find.byType(Container)));
+    final panel = boxes.firstWhere(
+      (box) => (box.decoration as BoxDecoration?)?.color == const DefaultColors().panelBackground,
+    );
+    return (panel.decoration! as BoxDecoration).border! as Border;
+  }
+
+  testWidgets('без полей внешние края открыты: рамке не от чего отделять', (tester) async {
+    await runtime.app.start();
+    await pumpScreen(tester);
+
+    expect(borderOf(tester, 0).left.style, BorderStyle.none);
+    expect(borderOf(tester, 1).right.style, BorderStyle.none);
+    // Внутренние края на месте: там панели соседствуют друг с другом.
+    expect(borderOf(tester, 0).right.style, BorderStyle.solid);
+  });
+
+  testWidgets('появились поля — рамка замыкается со всех сторон', (tester) async {
+    await runtime.app.start();
+    await pumpScreen(tester, metrics: const _MetricsWithSides());
+
+    // Иначе в отступе видна открытая сторона панели.
+    for (final index in [0, 1]) {
+      final border = borderOf(tester, index);
+      expect(border.left.style, BorderStyle.solid);
+      expect(border.right.style, BorderStyle.solid);
+    }
+  });
+
   testWidgets('поля по краям окна отступают, а не только панели', (tester) async {
     await runtime.app.start();
     await pumpScreen(tester, metrics: const _MetricsWithSides());
