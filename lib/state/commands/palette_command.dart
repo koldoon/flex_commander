@@ -78,6 +78,9 @@ class CommandPaletteCommand extends AppCommand {
             // Клавиши берутся у реестра, поэтому переназначение видно сразу и
             // разойтись с действительностью не может.
             keys: registry.bindingsOf(command.id).map((binding) => '${binding.keys}').join(', '),
+            // Синонимы объявляет сама команда: про то, каким словом её будут
+            // искать, знает модуль, а не палитра.
+            keywords: command.keywords.toList(),
           ),
     ];
   }

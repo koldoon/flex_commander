@@ -43,7 +43,18 @@ class PaletteMatch implements Comparable<PaletteMatch> {
 ///
 /// Совпадение по модулю весит вдвое меньше: `term` должен находить команды
 /// терминала, но название всё же ближе к делу, чем то, кем команда принесена.
-PaletteMatch? matchCommand(String query, {required String label, required String owner}) {
+///
+/// [keywords] — слова, которых в названии нет, а искать по ним будут: `gz` для
+/// «Mk Tar», умеющей `.tar.gz`. Весят они столько же, сколько модуль, но
+/// спрашиваются раньше: синоним — про само дело, а модуль лишь про то, кем
+/// команда принесена. Подсвечивать в них нечего — в списке их не видно, и
+/// подсветка указывала бы на буквы, которых там нет.
+PaletteMatch? matchCommand(
+  String query, {
+  required String label,
+  required String owner,
+  Iterable<String> keywords = const [],
+}) {
   final trimmed = query.trim();
   if (trimmed.isEmpty) {
     return PaletteMatch(score: 0, labelHits: const [], ownerHits: const [], length: label.length);
@@ -52,6 +63,13 @@ PaletteMatch? matchCommand(String query, {required String label, required String
   final byLabel = _match(trimmed, label);
   if (byLabel != null) {
     return PaletteMatch(score: byLabel.score, labelHits: byLabel.hits, ownerHits: const [], length: label.length);
+  }
+
+  for (final keyword in keywords) {
+    final byKeyword = _match(trimmed, keyword);
+    if (byKeyword != null) {
+      return PaletteMatch(score: byKeyword.score / 2, labelHits: const [], ownerHits: const [], length: label.length);
+    }
   }
 
   final byOwner = _match(trimmed, owner);

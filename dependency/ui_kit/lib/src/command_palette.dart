@@ -8,7 +8,13 @@ import 'pick_list.dart';
 
 /// Строка палитры: что показать и что запустить.
 class PaletteItem {
-  const PaletteItem({required this.id, required this.label, required this.owner, required this.keys});
+  const PaletteItem({
+    required this.id,
+    required this.label,
+    required this.owner,
+    required this.keys,
+    this.keywords = const [],
+  });
 
   /// Идентификатор команды — им её и запускают.
   final String id;
@@ -23,7 +29,12 @@ class PaletteItem {
   /// Палитра заодно учит: увидел раз — дальше жмёшь клавишу.
   final String keys;
 
-  FcPickRow get row => FcPickRow(id: id, title: label, subtitle: owner, trailing: keys);
+  /// Слова, по которым команда находится, хотя в названии их нет: `gz` у
+  /// «Mk Tar». В строке они не показываются — искать по ним можно, читать
+  /// нечего.
+  final List<String> keywords;
+
+  FcPickRow get row => FcPickRow(id: id, title: label, subtitle: owner, trailing: keys, keywords: keywords);
 }
 
 /// Палитра команд: список всего, что можно сделать сейчас, с поиском.

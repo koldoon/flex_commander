@@ -6,6 +6,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 import 'package:path/path.dart' as p;
 
+import 'archive_output.dart';
 import 'tar_writer.dart';
 
 /// Что получится на выходе.
@@ -14,7 +15,14 @@ import 'tar_writer.dart';
 /// gzip поверх него, и уровень там почти ни на что не влияет.
 enum TarFormat {
   plain('.tar', 'tar'),
-  gzip('.tar.gz', 'tar.gz');
+  gzip('.tar.gz', 'tar.gz'),
+
+  /// То же, что [gzip], и отличается только именем файла.
+  ///
+  /// Отдельным пунктом, а не догадкой по набранному расширению: `.tgz` живёт
+  /// там, где длинные имена неудобны, и человек, которому нужен именно он,
+  /// иначе получал бы `.tar.gz` молча.
+  tgz('.tgz', 'tgz');
 
   const TarFormat(this.extension, this.title);
 
@@ -24,9 +32,18 @@ enum TarFormat {
   /// Название для человека.
   final String title;
 
+  /// Заворачивается ли архив в gzip. У `.tar` — нет, у остальных — да.
+  bool get compressed => this != TarFormat.plain;
+
   static TarFormat byName(String? name) =>
       values.firstWhere((value) => value.name == name, orElse: () => TarFormat.gzip);
 }
+
+/// Расширения, которые считаются уже написанным именем архива.
+///
+/// Порядок важен: `.tar.gz` длиннее `.tar` и потому проверяется раньше — иначе
+/// от `src.tar.gz` отрезалось бы только `.gz`.
+const List<String> _tarExtensions = ['.tar.gz', '.tgz', '.tar'];
 
 /// Упаковать выбранное в новый tar-архив.
 ///
@@ -62,7 +79,12 @@ class CreateTarArchiveCommand extends AppCommand {
   String get label => 'Mk Tar';
 
   @override
-  String get description => 'Pack the selected items into a new tar or tar.gz archive';
+  String get description => 'Pack the selected items into a new tar, tar.gz or tgz archive';
+
+  /// Ищут её и по тому, что она умеет: `.tar.gz` в названии не помещается, а
+  /// набирают в палитре чаще всего именно `gz`.
+  @override
+  Set<String> get keywords => const {'tar.gz', 'tgz', 'gzip', 'archive', 'compress'};
 
   String get dialogTitle => 'Create TAR archive';
 
@@ -164,23 +186,27 @@ class CreateTarArchiveCommand extends AppCommand {
 
   /// Имя архива вместе с расширением выбранного формата.
   ///
-  /// Уже написанное расширение не удваивается: человек, набравший `src.tar.gz`
-  /// и выбравший тот же формат, не должен получить `src.tar.gz.tar.gz`.
+  /// Расширение не приписывается, а **заменяется**: набранное имя может уже
+  /// кончаться архивным расширением — своим или чужим. Иначе `src.tar.gz` при
+  /// том же формате стало бы `src.tar.gz.tar.gz`, а при переключении на `.tgz`
+  /// — `src.tar.gz.tgz`, то есть именем, которое врёт о содержимом.
   @visibleForTesting
   static String withExtension(String raw, TarFormat format) {
+    final typed = withoutExtension(raw);
+    return typed.isEmpty ? '' : '$typed${format.extension}';
+  }
+
+  /// Имя без архивного расширения, каким бы из трёх оно ни было.
+  @visibleForTesting
+  static String withoutExtension(String raw) {
     final typed = raw.trim();
-    if (typed.isEmpty) {
-      return '';
-    }
     final lower = typed.toLowerCase();
-    if (lower.endsWith(format.extension) || (format == TarFormat.gzip && lower.endsWith('.tgz'))) {
-      return typed;
+    for (final suffix in _tarExtensions) {
+      if (lower.endsWith(suffix)) {
+        return typed.substring(0, typed.length - suffix.length);
+      }
     }
-    // `.tar` при переключении на `.tar.gz` дополняется, а не задваивается.
-    if (format == TarFormat.gzip && lower.endsWith('.tar')) {
-      return '$typed.gz';
-    }
-    return '$typed${format.extension}';
+    return typed;
   }
 
   /// Упаковка: сборка архива во временном файле и передача его приёмнику.
@@ -222,7 +248,7 @@ class CreateTarArchiveCommand extends AppCommand {
           onBytes: (count) => progress.advanceBytes(count, entryItem),
         );
 
-        final out = params.format == TarFormat.gzip ? gzip.encoder.bind(bytes) : bytes;
+        final out = params.format.compressed ? gzip.encoder.bind(bytes) : bytes;
         final sink = File(archivePath).openWrite();
         try {
           await sink.addStream(out);
@@ -238,7 +264,7 @@ class CreateTarArchiveCommand extends AppCommand {
         final packed = await File(archivePath).length();
         progress.countBytes(packed);
         progress.beginStage('storing archive', index: 2, count: 2);
-        await _deliver(archivePath, destination, params.name, op, progress);
+        await deliverArchive(archivePath, destination, params.name, op, progress);
       } finally {
         progress.stop();
         await staged.dispose();
@@ -360,40 +386,6 @@ class CreateTarArchiveCommand extends AppCommand {
     progress.countingFinished();
   }
 
-  Future<void> _deliver(
-    String archivePath,
-    DirectoryNode destination,
-    String name,
-    TaskOperation<Object?, void> op,
-    TransferProgress progress,
-  ) async {
-    final provider = destination.provider;
-    if (provider is! FileContentReceiver) {
-      throw FsError(destination.pathString, FsErrorKind.notSupported);
-    }
-
-    final file = File(archivePath);
-    final length = await file.length();
-    final sink = await (provider as FileContentReceiver).openWrite(destination, name, length: length);
-
-    try {
-      progress.startSource(name);
-      final item = progress.startItem(name, bytes: length);
-      await sink.addStream(
-        file.openRead().asyncMap((chunk) async {
-          await op.checkpoint();
-          progress.advanceBytes(chunk.length, item);
-          return chunk;
-        }),
-      );
-      await sink.close();
-      progress.finishItem(item);
-    } on Object {
-      await sink.close().catchError((Object _) {});
-      rethrow;
-    }
-  }
-
   /// Имя, предложенное по умолчанию: по единственному объекту или по каталогу,
   /// из которого пакуем, — как в референсных менеджерах.
   String defaultNameOf(CommandContext context) {
@@ -458,19 +450,9 @@ class _CreateArchiveRun extends FcAsyncRun {
   void setFormat(TarFormat value) {
     // Имя идёт за форматом: выбрал `.tar` — расширение в поле меняется тут же,
     // иначе человек получил бы `.tar.gz` с несжатым содержимым.
-    name = CreateTarArchiveCommand.withExtension(_withoutExtension(name), value);
+    name = CreateTarArchiveCommand.withExtension(name, value);
     format = value;
     notifyListeners();
-  }
-
-  static String _withoutExtension(String name) {
-    final lower = name.toLowerCase();
-    for (final suffix in ['.tar.gz', '.tgz', '.tar']) {
-      if (lower.endsWith(suffix)) {
-        return name.substring(0, name.length - suffix.length);
-      }
-    }
-    return name;
   }
 }
 

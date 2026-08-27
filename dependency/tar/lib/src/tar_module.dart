@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 
 import 'create_archive_command.dart';
+import 'create_gzip_command.dart';
 import 'gzip_tree_provider.dart';
 import 'tar_tree_provider.dart';
 
@@ -58,5 +59,10 @@ class TarArchiver implements FcModule {
     // `Shift-F6` встал бы поперёк привычки — `F6` это перенос. Место команды
     // без клавиши — палитра.
     registry.command((context) => CreateTarArchiveCommand(staging: context.resolve<StagingArea>()));
+
+    // Сжатие одного файла — отдельная команда, а не пункт в окне упаковки:
+    // gzip жмёт поток, а не набор файлов, и «сложить три файла в один .gz» —
+    // просьба, которую формат не выполняет.
+    registry.command((context) => CreateGzipCommand(staging: context.resolve<StagingArea>()));
   }
 }

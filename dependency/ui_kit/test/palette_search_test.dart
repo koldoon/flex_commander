@@ -55,6 +55,38 @@ void main() {
     expect(byLabel.score, greaterThan(byOwner.score), reason: 'название ближе к делу, чем то, кем команда принесена');
   });
 
+  group('синонимы', () {
+    test('находят команду, которой в названии этих букв нет', () {
+      // «Mk Tar» умеет `.tar.gz`, и набравший `gz` до сих пор не находил её
+      // вовсе: команда есть, делает ровно то, что просят, а на запрос не
+      // отзывается.
+      expect(match('gz', 'Mk Tar'), isNull);
+      expect(matchCommand('gz', label: 'Mk Tar', owner: 'Tar', keywords: const ['tar.gz', 'tgz']), isNotNull);
+    });
+
+    test('весят меньше названия', () {
+      final byKeyword = matchCommand('tgz', label: 'Mk Tar', owner: 'Tar', keywords: const ['tgz'])!;
+      final byLabel = matchCommand('tgz', label: 'Mk Tgz', owner: 'Tar')!;
+
+      expect(byLabel.score, greaterThan(byKeyword.score));
+    });
+
+    test('подсвечивать в них нечего: в списке их не видно', () {
+      final found = matchCommand('gzip', label: 'Mk Tar', owner: 'Tar', keywords: const ['gzip'])!;
+
+      expect(found.labelHits, isEmpty);
+      expect(found.ownerHits, isEmpty);
+    });
+
+    test('спрашиваются раньше модуля: синоним про дело, модуль про принёсшего', () {
+      final byKeyword = matchCommand('gz', label: 'Mk Tar', owner: 'Gz archives', keywords: const ['gz'])!;
+
+      // Совпало и там, и там, но совпадение по модулю подсветилось бы в чужом
+      // месте — а веса у них одинаковые, и разрешает спор порядок.
+      expect(byKeyword.ownerHits, isEmpty);
+    });
+  });
+
   test('совпавшие буквы известны — их подсвечивают', () {
     final found = match('cf', 'Copy File')!;
 

@@ -76,6 +76,16 @@ void main() {
     expect(await listing(path), contains('src/readme.md'));
   });
 
+  test('.tgz — тот же tar.gz, только имя короче', () async {
+    final path = await pack('src.tgz', format: TarFormat.tgz);
+
+    // Отличие от `.tar.gz` — ровно в имени файла: байты те же, и системный
+    // `tar` разбирает его тем же ключом.
+    final head = await File(path).openRead(0, 2).expand((chunk) => chunk).toList();
+    expect(head, [0x1f, 0x8b]);
+    expect(await listing(path), contains('src/readme.md'));
+  });
+
   test('содержимое доходит побайтно', () async {
     final path = await pack('src.tar', format: TarFormat.plain);
 
@@ -132,16 +142,29 @@ void main() {
     test('расширение дописывается по формату', () {
       expect(CreateTarArchiveCommand.withExtension('src', TarFormat.plain), 'src.tar');
       expect(CreateTarArchiveCommand.withExtension('src', TarFormat.gzip), 'src.tar.gz');
+      expect(CreateTarArchiveCommand.withExtension('src', TarFormat.tgz), 'src.tgz');
     });
 
     test('уже написанное расширение не задваивается', () {
       expect(CreateTarArchiveCommand.withExtension('src.tar', TarFormat.plain), 'src.tar');
       expect(CreateTarArchiveCommand.withExtension('src.tar.gz', TarFormat.gzip), 'src.tar.gz');
-      expect(CreateTarArchiveCommand.withExtension('src.tgz', TarFormat.gzip), 'src.tgz');
+      expect(CreateTarArchiveCommand.withExtension('src.tgz', TarFormat.tgz), 'src.tgz');
     });
 
-    test('.tar при выборе сжатия дополняется, а не заменяется', () {
+    test('чужое расширение заменяется, а не приписывается', () {
+      // `.tgz` — отдельный пункт в окне, и выбор формата теперь решает всё:
+      // набранное расширение уступает выбранному, иначе имя врало бы о
+      // содержимом.
       expect(CreateTarArchiveCommand.withExtension('src.tar', TarFormat.gzip), 'src.tar.gz');
+      expect(CreateTarArchiveCommand.withExtension('src.tgz', TarFormat.gzip), 'src.tar.gz');
+      expect(CreateTarArchiveCommand.withExtension('src.tar.gz', TarFormat.tgz), 'src.tgz');
+      expect(CreateTarArchiveCommand.withExtension('src.tar.gz', TarFormat.plain), 'src.tar');
+    });
+
+    test('расширение самого файла не трогается', () {
+      // `dump.sql` — это имя файла, а не архива: `.sql` в списке архивных
+      // расширений не значится и уцелеет.
+      expect(CreateTarArchiveCommand.withExtension('dump.sql', TarFormat.gzip), 'dump.sql.tar.gz');
     });
   });
 }

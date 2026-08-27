@@ -11,7 +11,13 @@ import 'palette_search.dart';
 /// рядом с ним и приглушённое же примечание справа. У палитры это команда,
 /// модуль и клавиши; у истории адресов — только адрес.
 class FcPickRow {
-  const FcPickRow({required this.id, required this.title, this.subtitle = '', this.trailing = ''});
+  const FcPickRow({
+    required this.id,
+    required this.title,
+    this.subtitle = '',
+    this.trailing = '',
+    this.keywords = const [],
+  });
 
   /// Чем строка отзовётся, когда её выберут.
   final String id;
@@ -25,6 +31,10 @@ class FcPickRow {
   /// Справа, приглушённо: клавиши, дата, размер — что угодно, что не спорит с
   /// именем за внимание.
   final String trailing;
+
+  /// Слова, по которым строка находится, но которых в ней не видно: `gz` у
+  /// «Mk Tar». У истории адресов их нет — там ищут по самому пути.
+  final List<String> keywords;
 }
 
 /// Список с нечётким отбором, подсветкой совпавшего и ходом стрелками.
@@ -72,7 +82,7 @@ class FcPickList extends StatefulWidget {
   static List<FcPickRow> filter(List<FcPickRow> rows, String query, {List<String> recent = const []}) {
     final found = <(FcPickRow, PaletteMatch)>[];
     for (final row in rows) {
-      final match = matchCommand(query, label: row.title, owner: row.subtitle);
+      final match = matchCommand(query, label: row.title, owner: row.subtitle, keywords: row.keywords);
       if (match != null) {
         found.add((row, match));
       }
