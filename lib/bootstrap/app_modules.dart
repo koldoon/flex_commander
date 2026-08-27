@@ -3,6 +3,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_editor/fc_editor.dart';
 import 'package:fc_file_ops/fc_file_ops.dart';
+import 'package:fc_image_viewer/fc_image_viewer.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_ssh/fc_ssh.dart';
@@ -46,6 +47,7 @@ List<FcModule> featureModules() => [
   // себя ей в реестр. Первая выбирает, вторые показывают.
   const Viewer(),
   const TextViewer(),
+  const ImageViewer(),
   // Редактор после оболочки: он занимает место её заглушки на F4.
   const TextEditor(),
 ];

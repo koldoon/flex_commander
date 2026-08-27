@@ -29,6 +29,7 @@ workspace:
   - dependency/default_theme
   - dependency/editor
   - dependency/file_ops
+  - dependency/image_viewer
   - dependency/navigation
   - dependency/panels
   # Своя копия re_editor: в ней две правки, без которых выделение в редакторе и
@@ -96,6 +97,9 @@ dependencies:
 
   fc_text_viewer:
     path: dependency/text_viewer
+
+  fc_image_viewer:
+    path: dependency/image_viewer
 
   fc_zip:
     path: dependency/zip

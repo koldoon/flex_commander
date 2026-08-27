@@ -78,7 +78,14 @@ void main() {
     // Привязка к конкретному символу должна стоять раньше «любого символа»,
     // иначе набор имени перехватил бы её. Клавиши без символа (F5, Tab)
     // могут идти и после: под «любой символ» они не подходят.
-    final laterCharacters = bindings.sublist(anyCharacter + 1).where((binding) => binding.keys.isCharacter);
+    //
+    // Считаются только **панельные** привязки: «любой символ» объявлен для
+    // панелей, и у чужого содержимого он не спорит ни с чем. Масштаб картинки
+    // висит на `+` и `-` — и работает, потому что показана картинка, а не
+    // список файлов.
+    final laterCharacters = bindings
+        .sublist(anyCharacter + 1)
+        .where((binding) => binding.keys.isCharacter && (binding.inContent?.call(runtime.app.left) ?? true));
     expect(laterCharacters, isEmpty, reason: 'эти привязки уже не сработают: $laterCharacters');
   });
 

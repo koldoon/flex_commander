@@ -23,8 +23,16 @@ void main() {
       expect(() => KeyCombination.parse('Hyper-X'), throwsFormatException);
     });
 
+    test('минус — клавиша, а не только разделитель', () {
+      // Разделитель и клавиша совпадают: обычным разбором такое не выразить, а
+      // масштаб в просмотрщике картинок висит именно на ней.
+      expect(KeyCombination.parse('-').key, '-');
+      expect(KeyCombination.parse('Cmd--').key, '-');
+      expect(KeyCombination.parse('Ctrl--').ctrl, isTrue);
+    });
+
     test('разбор и сборка обратимы', () {
-      for (final source in ['Enter', 'Ctrl-R', 'Alt-Shift-Down', 'F10', 'Ctrl-Shift-A']) {
+      for (final source in ['Enter', 'Ctrl-R', 'Alt-Shift-Down', 'F10', 'Ctrl-Shift-A', '-', 'Ctrl--']) {
         expect(KeyCombination.parse(source).toString(), source);
       }
     });

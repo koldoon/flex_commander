@@ -85,7 +85,17 @@ class FcPathPlate extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Flexible(child: pathText),
-                Text(_gap + suffix, maxLines: 1, style: style.copyWith(color: colors.secondaryText)),
+                // Приписка тоже гнётся: в узкой панели её одной хватало, чтобы
+                // плашка вылезла за края. Путь к тому времени ужат уже до
+                // ничего, и ужиматься дальше некому.
+                Flexible(
+                  child: Text(
+                    _gap + suffix,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: style.copyWith(color: colors.secondaryText),
+                  ),
+                ),
               ],
             );
           },

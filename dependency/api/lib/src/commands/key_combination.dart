@@ -77,8 +77,14 @@ class KeyCombination {
   }
 
   factory KeyCombination.parse(String value) {
-    final parts = value.split('-');
-    final key = parts.removeLast();
+    // Разделитель и сама клавиша совпадают: `-` — это минус, а `Cmd--` — минус
+    // с модификатором. Обычным разбором такое не выразить, поэтому этот случай
+    // разбирается первым: строка кончается разделителем, значит клавиша и есть
+    // разделитель.
+    final minus = value.endsWith('-');
+    final parts = (minus ? value.substring(0, value.length - 1) : value).split('-')
+      ..removeWhere((part) => minus && part.isEmpty);
+    final key = minus ? '-' : parts.removeLast();
     var ctrl = false;
     var alt = false;
     var shift = false;
