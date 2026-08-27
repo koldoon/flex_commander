@@ -24,7 +24,8 @@ file command work the same way in all of them.
 Work in progress, and macOS only for now — the tree contains just `macos/`, and the
 platform-specific parts are isolated in the local file system module. One dark theme, no
 light variant. The design documents in [`docs/`](docs/README.md) are written in Russian;
-what is planned next is in [`docs/roadmap.md`](docs/roadmap.md).
+what is planned next is in [`docs/roadmap.md`](docs/roadmap.md), and what changed from
+release to release is in [`docs/release-notes.md`](docs/release-notes.md).
 
 ## What it can do today
 
