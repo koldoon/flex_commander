@@ -255,7 +255,7 @@ declaring — see [`docs/modules.md`](docs/modules.md).
 | `dependency/viewer`, `dependency/editor` | viewer (`F3`) and editor (`F4`) |
 | `dependency/navigation` | cursor, tree walking, marking |
 | `dependency/file_ops` | create, delete, copy, move |
-| `dependency/zip`, `dependency/7z` | archives as trees, plus archive creation |
+| `dependency/zip`, `dependency/7z`, `dependency/tar` | archives as trees, plus archive creation |
 | `dependency/ssh` | a remote machine's file system over SFTP |
 | `dependency/terminal` | command line and shell session, on its own pseudo-terminal |
 | `dependency/default_theme` | palette, metrics, icons, fonts |
