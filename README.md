@@ -120,6 +120,8 @@ On Windows and Linux `Cmd` reads as `Ctrl`.
 | `Cmd-F1`, `Cmd-F2` | open a path or address in the left / right panel |
 | `Cmd-O` | open the selected objects with the system |
 | `F1` | help: settings and every command with its keys |
+| `F2`, `Cmd-,` | settings: everything you choose, in one window |
+| `Cmd-Shift-P` | the command palette: everything the app can do right now, by name |
 | `F3` / `F4` | view / edit the file under the cursor |
 | `F5` / `F6` | copy / move to the other panel |
 | `F7`, `Shift-Cmd-N` | make a directory |

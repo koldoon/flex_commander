@@ -1,7 +1,9 @@
 import 'package:fc_api/fc_api.dart';
 
 import '../state/commands/help_command.dart';
+import '../state/commands/palette_command.dart';
 import '../state/commands/settings_command.dart';
+import '../state/shell_settings.dart';
 import '../state/credentials_controller.dart';
 
 /// Оболочка приложения: то, что есть у файлового менеджера всегда.
@@ -57,8 +59,22 @@ class AppShell implements FcModule {
     // не про то, что сейчас на экране.
     registry.binding(KeyBinding.anywhere('Cmd-,', SettingsCommand.commandId));
 
-    // Настройки самого приложения: своего модуля у ядра нет, а выбор есть.
     final settings = registry.settings;
+
+    // Палитра команд: всё, что приложение умеет сейчас, по названию.
+    //
+    // `F2` ей, вопреки плану, не достаётся — он занят настройками. Клавиша
+    // действует везде: палитра не про то, что сейчас на экране.
+    registry.command(
+      (context) => CommandPaletteCommand(
+        registry: () => context.resolve<CommandRegistry>(),
+        recent: () => settings.section(ShellSettings.new).recentCommands,
+        save: settings.save,
+      ),
+    );
+    registry.binding(KeyBinding.anywhere('Cmd-Shift-P', CommandPaletteCommand.commandId));
+
+    // Настройки самого приложения: своего модуля у ядра нет, а выбор есть.
     registry.settingsSchema(() {
       final app = registry.services.resolve<Application>();
       return SettingsSchema([
