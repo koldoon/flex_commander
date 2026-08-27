@@ -4,6 +4,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flex_commander/view/dialogs/dialog_frame.dart';
 import 'package:flex_commander/state/commands/palette_command.dart';
 import 'package:flex_commander/state/shell_settings.dart';
 import 'package:flutter/material.dart';
@@ -49,6 +50,24 @@ void main() {
 
     expect(find.byType(FcCommandPalette), findsOneWidget);
     expect(rows(tester), isNotEmpty);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('высота списка — целое число строк, без подрезанной снизу', (tester) async {
+    // Высота нарочно некруглая: окно тянется во всю высоту экрана, и остаток от
+    // деления резал бы нижнюю строку пополам.
+    await openPalette(tester, size: const Size(900, 703));
+
+    final theme = FcTheme.of(tester.element(find.byType(FcPickList)));
+    final line = theme.metrics.rowHeight + theme.metrics.rowGap;
+    final list = tester.getRect(find.byType(FcPickList));
+
+    expect(list.height % line, moreOrLessEquals(0, epsilon: 0.01), reason: 'список кончается целой строкой');
+
+    // И под ним остаётся отступ — тот же, каким поле отбито от заголовка.
+    final window = tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(IntrinsicWidth)));
+    expect(window.bottom - list.bottom, moreOrLessEquals(theme.metrics.dialogContentTopPadding, epsilon: 0.5));
 
     await tester.pump(const Duration(milliseconds: 20));
   });

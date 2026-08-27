@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -74,6 +75,28 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
     _query.addListener(() => setState(() => _selected = 0));
   }
 
+  /// Сколько места отдать списку: целое число строк, а не сколько осталось.
+  ///
+  /// Окно тянется во всю высоту экрана, и остаток от деления резал бы нижнюю
+  /// строку пополам: список выглядел бы обрезанным ровно там, где взгляд ищет
+  /// его конец. Поэтому предел округляется **вниз** до целой строки.
+  ///
+  /// Считается здесь, а не внутри списка: узнать доставшуюся высоту изнутри
+  /// можно только `LayoutBuilder`, а он не умеет отвечать на вопрос о
+  /// собственной ширине — тот самый, который рама окна задаёт каждому окну
+  /// (`IntrinsicWidth`).
+  double _listHeight(FcMetrics metrics, double available) {
+    final line = metrics.rowHeight + metrics.rowGap;
+    // Своё место занимают поле ввода и его отступы — всё, что стоит над
+    // списком.
+    final free = available - (metrics.dialogContentTopPadding + metrics.inputHeight + metrics.dialogPadding);
+    final rows = (free / line).floor();
+
+    // На совсем тесном экране целой строки не помещается вовсе: тогда лучше
+    // показать половину, чем ничего.
+    return rows < 1 ? free.clamp(0, double.infinity) : rows * line;
+  }
+
   @override
   void dispose() {
     _query.dispose();
@@ -106,9 +129,14 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
   @override
   Widget build(BuildContext context) {
     final metrics = FcTheme.of(context).metrics;
+    final limits = dialogContentLimits(context);
+    // Отступ снизу — такой же, каким поле отбито от полосы заголовка: ряда
+    // кнопок под списком нет, и без него окно кончалось бы строкой впритык к
+    // краю.
+    final bottom = metrics.dialogContentTopPadding;
 
     return ConstrainedBox(
-      constraints: dialogContentLimits(context),
+      constraints: limits,
       child: SizedBox(
         width: MediaQuery.sizeOf(context).width * metrics.dialogWidthFactor,
         child: Column(
@@ -119,11 +147,11 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
               padding: dialogContentPadding(context),
               child: FcTextField(controller: _query, focusNode: _field, autofocus: true, hintText: 'Command'),
             ),
-            Flexible(child: FcPickList(rows: _found, query: _query.text, selected: _selected, onTap: widget.onRun)),
-            // Отступ снизу — такой же, каким поле отбито от полосы заголовка:
-            // ряда кнопок под списком нет, и без него окно кончалось бы строкой
-            // впритык к краю.
-            SizedBox(height: metrics.dialogContentTopPadding),
+            ConstrainedBox(
+              constraints: BoxConstraints(maxHeight: _listHeight(metrics, limits.maxHeight - bottom)),
+              child: FcPickList(rows: _found, query: _query.text, selected: _selected, onTap: widget.onRun),
+            ),
+            SizedBox(height: bottom),
           ],
         ),
       ),
