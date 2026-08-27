@@ -115,7 +115,7 @@ void main() {
   );
 
   testWidgets(
-    'под курсором каталог — причина словами, без текста',
+    'под курсором каталог — о нём и рассказывают, а не отговариваются словом',
     (tester) async => withDesktopPlatform(() async {
       await pumpApp(tester);
       runtime.app.left.setCursorToName('docs');
@@ -124,8 +124,11 @@ void main() {
       await tester.pump(QuickViewHost.defaultDelay * 2);
       await tester.pumpAndSettle();
 
-      expect(find.text('Directory'), findsOneWidget);
+      // Заглушка «Directory» была временной — до модуля сведений. Текста в
+      // каталоге нет, а сведения есть: имя, путь, тип. Кто именно их
+      // рассказывает, оболочке знать незачем — это дело реестра.
       expect(find.byType(FcTextView), findsNothing);
+      expect(find.text('/home/docs'), findsWidgets);
     }),
   );
 }

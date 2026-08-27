@@ -1,6 +1,7 @@
 import '../app/application.dart';
 import '../commands/app_command.dart';
 import '../app/panel_viewport.dart';
+import '../app/node_info.dart';
 import '../app/viewer_spec.dart';
 import '../app/views.dart';
 import '../settings/module_settings.dart';
@@ -98,6 +99,13 @@ abstract interface class FcRegistry {
 
   /// Чем рисовать содержимое панели для провайдеров, объявивших этот вид.
   void viewport(String kind, PanelViewportBuilder builder);
+
+  /// Провайдер сведений об узле: что этот модуль знает о файле.
+  ///
+  /// Окно сведений собирается из объявленного точно так же, как показ — из
+  /// объявленных просмотрщиков: ядро складывает, порядок задаёт приоритет, а
+  /// что показать, решает не оно.
+  void nodeInfo(NodeInfoProvider Function(FcContext context) factory);
 
   /// Просмотрщик: чем и для каких файлов открывать `F3`.
   ///

@@ -28,6 +28,105 @@ class TextViewer implements FcModule {
   static const String findNextCommandId = 'text.findNext';
   static const String findPreviousCommandId = 'text.findPrevious';
 
+  /// За что берётся: похожее на текст.
+  ///
+  /// Список — честная замена тому, чего ещё нет. Пока тип по содержимому не
+  /// узнаётся (Б6), решать приходится по имени; появится он — `accepts`
+  /// начнёт спрашивать настоящий тип, и список исчезнет.
+  ///
+  /// Раньше текст брался за **всё**: показать байты можно всегда, и файла,
+  /// который нечем открыть, быть не могло. Теперь последним стоит модуль
+  /// сведений — он расскажет про `.bin` куда больше, чем мусор из байтов.
+  static const Set<String> extensions = {
+    'txt',
+    'md',
+    'markdown',
+    'rst',
+    'log',
+    'text',
+    'dart',
+    'js',
+    'ts',
+    'jsx',
+    'tsx',
+    'py',
+    'rb',
+    'go',
+    'rs',
+    'java',
+    'kt',
+    'swift',
+    'c',
+    'h',
+    'cpp',
+    'hpp',
+    'cc',
+    'm',
+    'mm',
+    'cs',
+    'php',
+    'lua',
+    'pl',
+    'sh',
+    'bash',
+    'zsh',
+    'fish',
+    'ps1',
+    'bat',
+    'cmd',
+    'json',
+    'yaml',
+    'yml',
+    'toml',
+    'ini',
+    'conf',
+    'cfg',
+    'properties',
+    'env',
+    'plist',
+    'xml',
+    'html',
+    'htm',
+    'css',
+    'scss',
+    'less',
+    'svg',
+    'csv',
+    'tsv',
+    'sql',
+    'graphql',
+    'proto',
+    'gitignore',
+    'gitattributes',
+    'dockerfile',
+    'makefile',
+    'lock',
+    'patch',
+    'diff',
+    'srt',
+    'vtt',
+  };
+
+  /// Имена без расширения, которые всё равно текст: `Makefile`, `LICENSE`.
+  ///
+  /// Каталог отсеивается **отдельной** строкой, и это не перестраховка:
+  /// `DirectoryNode` — наследник `FileNode`, так что проверка типа его
+  /// пропускает, а расширения у него обычно нет — то есть он выглядел бы
+  /// текстом без имени.
+  static bool looksLikeText(FsNode node) {
+    if (node is! FileNode || node is DirectoryNode) {
+      return false;
+    }
+    final extension = node.extension.toLowerCase();
+    if (extension.isEmpty) {
+      // Без расширения — почти всегда текст: `Makefile`, `LICENSE`, `README`,
+      // `.gitignore`. Двоичное без расширения встречается куда реже, и о нём
+      // расскажут сведения, если человек попросит их сам.
+      return true;
+    }
+    return extensions.contains(extension);
+  }
+
   @override
   String get id => 'fc.text_viewer';
 
@@ -73,11 +172,10 @@ class TextViewer implements FcModule {
       ViewerSpec(
         id: TextViewerScreen.viewerId,
         title: 'Text',
-        // Последний в очереди и берётся за всё: байты показать можно всегда.
-        // Когда появится модуль сведений о файле, последним станет он, а здесь
-        // останется «похоже на текст» — правка ровно в этой строке.
+        // Ниже картинок, но выше сведений: сведения стоят последними и
+        // берутся за то, за что не взялся никто.
         priority: -100,
-        accepts: (node, type) => true,
+        accepts: (node, type) => looksLikeText(node),
         open: (request) => _open(request, settingsOf(), settings.save),
       ),
     );

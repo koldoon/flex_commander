@@ -3,6 +3,7 @@
 library;
 
 export 'src/image_document.dart';
+export 'src/image_info_provider.dart';
 export 'src/image_viewer_commands.dart';
 export 'src/image_viewer_module.dart';
 export 'src/image_viewer_screen.dart';

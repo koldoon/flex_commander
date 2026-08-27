@@ -194,13 +194,16 @@ void main() {
   });
 
   group('показывать нечего', () {
-    test('каталог назван словом, а не пустотой', () async {
+    test('каталог показывается, а не отговаривается словом', () async {
       runtime.app.left.setCursorToName('docs');
 
       await toggle();
       await settle();
 
-      expect(quickView()!.notice, 'Directory');
+      // Заглушка «Directory» была временной — до модуля сведений: теперь о
+      // каталоге рассказывает он, и слов хозяину придумывать не приходится.
+      expect(quickView()!.notice, isNull);
+      expect(quickView()!.inner, isNotNull);
     });
 
     test('слишком большой файл говорит причину прямо в панели', () async {

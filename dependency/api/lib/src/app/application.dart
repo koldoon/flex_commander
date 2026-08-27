@@ -5,6 +5,7 @@ import '../commands/command_service.dart';
 import 'errors.dart';
 import 'panel_viewport.dart';
 import 'viewport.dart';
+import 'node_info.dart';
 import 'viewer_spec.dart';
 import 'views.dart';
 import '../theme/theme_service.dart';
@@ -60,6 +61,12 @@ abstract interface class Application implements Listenable {
 
   /// Чем рисуется содержимое панелей.
   PanelViewports get viewports;
+
+  /// Объявленные провайдеры сведений, по убыванию приоритета.
+  ///
+  /// Списком, как и просмотрщики: спрашивает их окно сведений, а ядро только
+  /// хранит и упорядочивает.
+  List<NodeInfoProvider> get nodeInfoProviders;
 
   /// Объявленные просмотрщики, по убыванию приоритета.
   ///

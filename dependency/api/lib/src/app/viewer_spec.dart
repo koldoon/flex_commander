@@ -1,4 +1,5 @@
 import '../tree/fs_node.dart';
+import 'application.dart';
 import 'viewport.dart';
 
 /// Где показывают файл.
@@ -16,7 +17,14 @@ enum ViewerPlace {
 
 /// Что показать и куда.
 class ViewerRequest {
-  const ViewerRequest({required this.node, required this.place, required this.checkpoint});
+  const ViewerRequest({required this.app, required this.node, required this.place, required this.checkpoint});
+
+  /// Приложение: показу бывает нужно спросить у него объявленное другими.
+  ///
+  /// Сведениям об объекте — провайдеров сведений; будущему показу с
+  /// форматтерами (Г3) — форматтеров. Просмотрщик текста и картинок обходятся
+  /// без него, и это правильный порядок вещей: даётся, но не требуется.
+  final Application app;
 
   /// Файл, который открывают.
   final FsNode node;

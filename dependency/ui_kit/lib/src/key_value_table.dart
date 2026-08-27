@@ -30,6 +30,93 @@ class FcTableSection {
   int get columns => rows.fold(1, (count, row) => row.cells.length > count ? row.cells.length : count);
 }
 
+/// Разделы «ключ → значение» — без рамы и без кнопок.
+///
+/// Отдельно от [FcKeyValueTable] потому, что мест у этой разметки два: окно
+/// команды (там снизу кнопки) и область панели, где показывают сведения об
+/// объекте (там кнопок нет вовсе). Разметка при этом обязана быть одна: два
+/// показа одного и того же однажды разойдутся.
+///
+/// Прокручивается сама: стрелками, PgUp/PgDn, Home/End, — а Enter и Esc
+/// отдаёт тому, кто её показывает.
+class FcKeyValueSections extends StatefulWidget {
+  const FcKeyValueSections({super.key, required this.sections, this.autofocus = true, this.padded = true});
+
+  final List<FcTableSection> sections;
+
+  /// Забирать ли фокус: в окне — да, листать её приходится сразу; в панели —
+  /// нет, там ввод принадлежит списку файлов.
+  final bool autofocus;
+
+  /// Отступы содержимого окна. В панели у рамы свои.
+  final bool padded;
+
+  @override
+  State<FcKeyValueSections> createState() => _FcKeyValueSectionsState();
+}
+
+class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
+  final ScrollController _scroll = ScrollController();
+
+  @override
+  void dispose() {
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  /// Таблицу листают клавишами: её читают, а не заполняют.
+  ///
+  /// Enter и Esc сюда не попадают — они не наши; их обработает рама, когда
+  /// событие поднимется к ней.
+  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    if (event is! KeyDownEvent && event is! KeyRepeatEvent || !_scroll.hasClients) {
+      return KeyEventResult.ignored;
+    }
+
+    final position = _scroll.position;
+    final step = FcTheme.of(context).metrics.rowHeight;
+    final target = switch (event.logicalKey) {
+      LogicalKeyboardKey.arrowDown => position.pixels + step,
+      LogicalKeyboardKey.arrowUp => position.pixels - step,
+      LogicalKeyboardKey.pageDown => position.pixels + position.viewportDimension,
+      LogicalKeyboardKey.pageUp => position.pixels - position.viewportDimension,
+      LogicalKeyboardKey.home => 0.0,
+      LogicalKeyboardKey.end => position.maxScrollExtent,
+      _ => null,
+    };
+    if (target == null) {
+      return KeyEventResult.ignored;
+    }
+    _scroll.jumpTo(target.clamp(0.0, position.maxScrollExtent));
+    return KeyEventResult.handled;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final metrics = FcTheme.of(context).metrics;
+
+    return Focus(
+      autofocus: widget.autofocus,
+      canRequestFocus: widget.autofocus,
+      onKeyEvent: _handleKey,
+      child: SingleChildScrollView(
+        controller: _scroll,
+        padding: widget.padded ? dialogContentPadding(context) : EdgeInsets.zero,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            for (var i = 0; i < widget.sections.length; i++) ...[
+              if (i > 0) SizedBox(height: metrics.dialogGap),
+              _SectionTable(section: widget.sections[i]),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// Таблица «ключ → значение» в окне команды: разделы, строки и одна кнопка.
 ///
 /// Ею показывают справку, настройки, свойства объекта — всё, что укладывается
@@ -57,47 +144,8 @@ class FcKeyValueTable extends StatefulWidget {
 }
 
 class _FcKeyValueTableState extends State<FcKeyValueTable> {
-  final ScrollController _scroll = ScrollController();
-
-  @override
-  void dispose() {
-    _scroll.dispose();
-    super.dispose();
-  }
-
-  /// Таблицу листают клавишами: справку читают, а не заполняют.
-  ///
-  /// Enter и Esc сюда не попадают — они не наши; их обработает рама окна, когда
-  /// событие поднимется к ней.
-  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent || !_scroll.hasClients) {
-      return KeyEventResult.ignored;
-    }
-
-    final position = _scroll.position;
-    final step = FcTheme.of(context).metrics.rowHeight;
-    final target = switch (event.logicalKey) {
-      LogicalKeyboardKey.arrowDown => position.pixels + step,
-      LogicalKeyboardKey.arrowUp => position.pixels - step,
-      LogicalKeyboardKey.pageDown => position.pixels + position.viewportDimension,
-      LogicalKeyboardKey.pageUp => position.pixels - position.viewportDimension,
-      LogicalKeyboardKey.home => position.minScrollExtent,
-      LogicalKeyboardKey.end => position.maxScrollExtent,
-      _ => null,
-    };
-    if (target == null) {
-      return KeyEventResult.ignored;
-    }
-
-    _scroll.jumpTo(target.clamp(position.minScrollExtent, position.maxScrollExtent));
-    return KeyEventResult.handled;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final theme = FcTheme.of(context);
-    final metrics = theme.metrics;
-
     return ConstrainedBox(
       // Не `SizedBox`: ширину окну задаёт содержимое, а это только предел.
       // Рама измеряет содержимое (`IntrinsicWidth`) и облегает его, поэтому
@@ -107,37 +155,18 @@ class _FcKeyValueTableState extends State<FcKeyValueTable> {
         // Ширина берётся у самого широкого раздела: строки внутри растягиваются
         // на всё, что им дали, и сами по себе ничего не требуют.
         width: double.infinity,
-        child: Focus(
-          autofocus: true,
-          onKeyEvent: _handleKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Flexible(
-                child: SingleChildScrollView(
-                  controller: _scroll,
-                  padding: dialogContentPadding(context),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      for (var i = 0; i < widget.sections.length; i++) ...[
-                        if (i > 0) SizedBox(height: metrics.dialogGap),
-                        _SectionTable(section: widget.sections[i]),
-                      ],
-                    ],
-                  ),
-                ),
-              ),
-              // Тот же ряд, что и у остальных окон: кнопка по размеру подписи,
-              // прижата вправо. Своей разметкой её обходить нельзя — `FcButton`
-              // под ограниченной шириной растягивается во всю её ширину.
-              CommandDialogActions(
-                actions: [...widget.actions, FcButton(label: 'Close', onPressed: widget.onClose, primary: true)],
-              ),
-            ],
-          ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Flexible(child: FcKeyValueSections(sections: widget.sections)),
+            // Тот же ряд, что и у остальных окон: кнопка по размеру подписи,
+            // прижата вправо. Своей разметкой её обходить нельзя — `FcButton`
+            // под ограниченной шириной растягивается во всю её ширину.
+            CommandDialogActions(
+              actions: [...widget.actions, FcButton(label: 'Close', onPressed: widget.onClose, primary: true)],
+            ),
+          ],
         ),
       ),
     );

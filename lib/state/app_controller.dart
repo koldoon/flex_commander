@@ -29,6 +29,7 @@ class AppController extends ChangeNotifier implements Application {
     this.providers,
     PanelViewports? viewports,
     List<ViewerSpec> viewers = const [],
+    List<NodeInfoProvider> nodeInfoProviders = const [],
     Views? views,
     ThemeController? theme,
     ToastController? toasts,
@@ -47,6 +48,7 @@ class AppController extends ChangeNotifier implements Application {
        // По убыванию приоритета — один раз при сборке: спрашивают этот список
        // на каждое открытие файла, а меняться ему больше негде.
        viewers = [...viewers]..sort((a, b) => b.priority.compareTo(a.priority)),
+       nodeInfoProviders = [...nodeInfoProviders]..sort((a, b) => b.priority.compareTo(a.priority)),
        views = views ?? const NoViews(),
        window = window ?? const NoopWindowService() {
     // Одна панель активна всегда, ещё до первого чтения каталогов.
@@ -96,6 +98,10 @@ class AppController extends ChangeNotifier implements Application {
   /// Объявленные просмотрщики, по убыванию приоритета.
   @override
   final List<ViewerSpec> viewers;
+
+  /// Объявленные провайдеры сведений, по убыванию приоритета.
+  @override
+  final List<NodeInfoProvider> nodeInfoProviders;
 
   @override
   final Views views;

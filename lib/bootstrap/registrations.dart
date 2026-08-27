@@ -94,6 +94,10 @@ class Registrations implements FcRegistry {
   /// расставит приложение.
   final List<ViewerSpec> viewers = [];
 
+  /// Провайдеры сведений — фабриками: их зовут, когда приложение уже собрано,
+  /// как и фабрики команд.
+  final List<NodeInfoProvider Function(FcContext context)> nodeInfoFactories = [];
+
   /// Виды состояний: тип, на который объявлен, → сам вид.
   final Map<Type, StateView> views = {};
 
@@ -217,6 +221,9 @@ class Registrations implements FcRegistry {
     }
     viewers.add(spec);
   }
+
+  @override
+  void nodeInfo(NodeInfoProvider Function(FcContext context) factory) => nodeInfoFactories.add(factory);
 
   @override
   void view<S extends Object>(StateViewBuilder<S> builder) {

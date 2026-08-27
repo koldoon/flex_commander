@@ -202,6 +202,10 @@ class AppContainer extends DI {
           // Списком, а не службой: складывать и упорядочивать — вся работа
           // ядра с просмотрщиками. Кто возьмётся за файл, спрашивает оболочка.
           viewers: registrations.viewers,
+          // Фабрики зовутся здесь, когда приложение уже собрано: провайдеру
+          // сведений может понадобиться служба, а во время объявления её ещё
+          // нет.
+          nodeInfoProviders: [for (final factory in registrations.nodeInfoFactories) factory(_context)],
           views: c.get<Views>(),
           window: c.get<WindowService>(),
           saveDelay: overrides.saveDelay ?? const Duration(seconds: 1),

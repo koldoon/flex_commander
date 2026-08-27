@@ -2,6 +2,7 @@ import 'package:fc_7z/fc_7z.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_editor/fc_editor.dart';
+import 'package:fc_file_info/fc_file_info.dart';
 import 'package:fc_file_ops/fc_file_ops.dart';
 import 'package:fc_image_viewer/fc_image_viewer.dart';
 import 'package:fc_navigation/fc_navigation.dart';
@@ -48,6 +49,8 @@ List<FcModule> featureModules() => [
   const Viewer(),
   const TextViewer(),
   const ImageViewer(),
+  // Последним в очереди просмотрщиков: берётся за то, за что не взялся никто.
+  const FileInfo(),
   // Редактор после оболочки: он занимает место её заглушки на F4.
   const TextEditor(),
 ];

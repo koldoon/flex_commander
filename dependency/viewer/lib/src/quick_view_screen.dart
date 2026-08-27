@@ -90,14 +90,8 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
       return;
     }
     if (node is ParentDirNode) {
+      // Про «..» сказать нечего: это не объект, а дорога наверх.
       _say('Parent directory');
-      return;
-    }
-    if (node is DirectoryNode) {
-      // Сводку по каталогу — сколько в нём файлов и байт — здесь не считаем:
-      // это обход дерева на каждый шаг курсора, и для него есть своя команда
-      // (`Alt-Shift-Enter`).
-      _say('Directory');
       return;
     }
 

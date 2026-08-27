@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 
 import 'image_document.dart';
+import 'image_info_provider.dart';
 import 'image_viewer_commands.dart';
 import 'image_viewer_screen.dart';
 import 'image_viewer_settings.dart';
@@ -69,10 +70,20 @@ class ImageViewer implements FcModule {
         // за своё, по расширению. Появится Б6 — `accepts` начнёт смотреть на
         // настоящий тип, и `.png`, оказавшийся текстом, перестанет обманывать.
         priority: 100,
-        accepts: (node, type) => node is FileNode && extensions.contains(node.extension.toLowerCase()),
+        // Каталог отсеивается отдельно: `DirectoryNode` — наследник
+        // `FileNode`, и каталог с именем `shots.png` иначе сошёл бы за
+        // картинку.
+        accepts:
+            (node, type) =>
+                node is FileNode && node is! DirectoryNode && extensions.contains(node.extension.toLowerCase()),
         open: (request) => _open(request, settingsOf(), settings.save),
       ),
     );
+
+    // Сведения о картинке — тому окну, которое их показывает. Ему про
+    // картинки знать неоткуда, а нам про окно — незачем: между нами общий
+    // контракт и ни одной правки в чужом модуле.
+    registry.nodeInfo((context) => ImageInfoProvider(settingsOf()));
 
     registry.command((context) => ToggleImageFitCommand());
     registry.command((context) => ZoomImageCommand());

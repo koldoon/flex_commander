@@ -1,0 +1,41 @@
+name: fc_file_info
+description: "Сведения об объекте: окно, показ последним просмотрщиком и разметка разделов."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  fc_ui_kit:
+    path: ../ui_kit
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  fc_default_theme:
+    path: ../default_theme
+
+  flex_commander:
+    path: ../..
+
+  # Оболочка просмотра: без неё F3 некому обслужить, а тесты открывают файл
+  # так же, как это делает человек.
+  fc_viewer:
+    path: ../viewer
+
+  # Проверяем и то, что реестр не перепутал: текст остался за текстовым.
+  fc_text_viewer:
+    path: ../text_viewer

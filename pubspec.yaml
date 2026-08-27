@@ -28,6 +28,7 @@ workspace:
   - dependency/api
   - dependency/default_theme
   - dependency/editor
+  - dependency/file_info
   - dependency/file_ops
   - dependency/image_viewer
   - dependency/navigation
@@ -100,6 +101,9 @@ dependencies:
 
   fc_image_viewer:
     path: dependency/image_viewer
+
+  fc_file_info:
+    path: dependency/file_info
 
   fc_zip:
     path: dependency/zip

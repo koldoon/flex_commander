@@ -31,7 +31,7 @@ Future<ViewerContent> openViewer(
   if (spec == null) {
     throw const ViewerRefused('Nothing here can show this file');
   }
-  return spec.open(ViewerRequest(node: node, place: place, checkpoint: checkpoint ?? _never));
+  return spec.open(ViewerRequest(app: app, node: node, place: place, checkpoint: checkpoint ?? _never));
 }
 
 Future<void> _never() async {}
