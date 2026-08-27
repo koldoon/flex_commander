@@ -101,6 +101,27 @@ void main() {
     expect(first.closed, 1);
   });
 
+  test('в панельной области тот же вид — тоже замена слоя', () {
+    // Правило одно на все области: раньше оно спрашивало, бывает ли область
+    // пустой, и в панельной второе наложение ложилось вторым слоем.
+    final first = _Content('quick view');
+    runtime.app.view.pushViewportContent(left, first);
+    runtime.app.view.pushViewportContent(left, _Content('quick view again'));
+
+    expect(runtime.app.view.stackAt(left), hasLength(2), reason: 'панель на дне и одно наложение над ней');
+    expect(first.closed, 1);
+  });
+
+  test('панель на дне наложением не заменяется', () {
+    // Дно панельной области — сама панель, и её убирают не так. Тот же тип
+    // сверху её перебить не должен, каким бы он ни был.
+    final panel = runtime.app.view.stackAt(left).single;
+    runtime.app.view.pushViewportContent(left, _Content('quick view'));
+
+    expect(runtime.app.view.stackAt(left).first, same(panel));
+    expect(runtime.app.view.panelAt(left), isNull, reason: 'наложение скрывает панель целиком');
+  });
+
   test('другой вид ложится поверх, а не вместо', () {
     runtime.app.view.pushViewportContent(fullscreen, _Content('viewer'));
     runtime.app.view.pushViewportContent(fullscreen, _Other('editor'));

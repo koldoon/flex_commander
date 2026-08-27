@@ -63,12 +63,22 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
     _afterChange();
   }
 
+  /// Есть ли над дном хоть одно наложение.
+  ///
+  /// У панельной области дно — сама панель, и её наложением не заменить: панель
+  /// убирают не так. У `fullscreen` дна нет вовсе, и заменять можно всё.
+  bool _hasOverlay(ViewportPosition position) => _stacks[position]!.length > (_canEmpty(position) ? 0 : 1);
+
   @override
   void pushViewportContent(ViewportPosition position, ViewportState state) {
     final stack = _stacks[position]!;
     // Тот же вид второй раз — это замена верхнего слоя, а не второй слой над
     // первым: два просмотрщика друг над другом не стопка, а недосмотр.
-    if (stack.isNotEmpty && stack.last.runtimeType == state.runtimeType && _canEmpty(position)) {
+    //
+    // Условие про **наложение над дном**, а не про то, бывает ли область
+    // пустой: раньше здесь стояло второе, и в панельной области настоящее
+    // наложение вторым слоем всё-таки ложилось.
+    if (_hasOverlay(position) && stack.last.runtimeType == state.runtimeType) {
       final leaving = stack.removeLast();
       leaving.close();
     }
@@ -79,7 +89,7 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
   @override
   void popViewportContent(ViewportPosition position) {
     final stack = _stacks[position]!;
-    if (stack.length <= (_canEmpty(position) ? 0 : 1)) {
+    if (!_hasOverlay(position)) {
       // Снимать нечего: на дне стоит панель, и убрать её нельзя — только
       // заменить. Это не ошибка: команда закрытия может прийти и после того,
       // как содержимое уже ушло.
