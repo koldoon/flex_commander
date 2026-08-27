@@ -199,6 +199,9 @@ class AppContainer extends DI {
           providers: c.get<ProviderRegistry>(),
           theme: c.get<ThemeController>(),
           viewports: c.get<PanelViewports>(),
+          // Списком, а не службой: складывать и упорядочивать — вся работа
+          // ядра с просмотрщиками. Кто возьмётся за файл, спрашивает оболочка.
+          viewers: registrations.viewers,
           views: c.get<Views>(),
           window: c.get<WindowService>(),
           saveDelay: overrides.saveDelay ?? const Duration(seconds: 1),

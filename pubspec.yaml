@@ -40,6 +40,7 @@ workspace:
   - dependency/terminal
   - dependency/test_kit
   - dependency/text_kit
+  - dependency/text_viewer
   - dependency/ui_kit
   - dependency/viewer
   - dependency/zip
@@ -92,6 +93,9 @@ dependencies:
 
   fc_viewer:
     path: dependency/viewer
+
+  fc_text_viewer:
+    path: dependency/text_viewer
 
   fc_zip:
     path: dependency/zip

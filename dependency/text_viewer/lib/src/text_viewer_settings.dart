@@ -1,8 +1,8 @@
 import 'package:fc_api/fc_api.dart';
 
 /// Что просмотрщик помнит между запусками.
-class ViewerSettings implements Serializable {
-  ViewerSettings({this.maxFileSize = defaultMaxFileSize, this.wordWrap = false, this.showLineNumbers = false});
+class TextViewerSettings implements Serializable {
+  TextViewerSettings({this.maxFileSize = defaultMaxFileSize, this.wordWrap = false, this.showLineNumbers = false});
 
   /// Сто килобайт.
   ///

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
+import 'package:fc_text_viewer/fc_text_viewer.dart';
 import 'package:fc_viewer/fc_viewer.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -31,10 +32,10 @@ void main() {
     await runtime.app.start();
   });
 
-  Future<ViewerScreen> openViewer() async {
+  Future<TextViewerScreen> openViewer() async {
     runtime.app.left.setCursorToName('notes.txt');
     await (runtime.commands.create(ViewFileCommand.commandId)!).executeWith();
-    return runtime.app.view.contentAt(ViewportPosition.fullscreen)! as ViewerScreen;
+    return runtime.app.view.contentAt(ViewportPosition.fullscreen)! as TextViewerScreen;
   }
 
   test('пока ничего не выделено, копировать нечего', () async {
@@ -78,7 +79,7 @@ void main() {
     (tester) async => withDesktopPlatform(() async {
       // Иначе `Cmd-C` сработала бы дважды: своя команда и встроенное сочетание.
       final screen = await openViewer();
-      await pumpScreen(tester, ViewerView(screen: screen), app: runtime.app);
+      await pumpScreen(tester, TextViewerView(screen: screen), app: runtime.app);
 
       final view = tester.widget<FcTextView>(find.byType(FcTextView));
 

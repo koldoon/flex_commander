@@ -45,7 +45,7 @@ void main() {
       runtime.app.left.setCursorToName('notes.txt');
 
       runtime.commands.dispatch(KeyCombination.parse('Shift-F3'));
-      await tester.pump(QuickViewScreen.defaultDelay * 2);
+      await tester.pump(QuickViewHost.defaultDelay * 2);
       await tester.pumpAndSettle();
 
       // Список файлов на месте — просмотр занял только соседнюю область.
@@ -72,7 +72,7 @@ void main() {
       await pumpApp(tester);
       runtime.app.left.setCursorToName('notes.txt');
       runtime.commands.dispatch(KeyCombination.parse('Shift-F3'));
-      await tester.pump(QuickViewScreen.defaultDelay * 2);
+      await tester.pump(QuickViewHost.defaultDelay * 2);
       await tester.pumpAndSettle();
 
       /// Плашка по адресу в ней: у панели — каталог, у показа — файл.
@@ -99,7 +99,7 @@ void main() {
       await pumpApp(tester);
       runtime.app.left.setCursorToName('notes.txt');
       runtime.commands.dispatch(KeyCombination.parse('Shift-F3'));
-      await tester.pump(QuickViewScreen.defaultDelay * 2);
+      await tester.pump(QuickViewHost.defaultDelay * 2);
       await tester.pumpAndSettle();
 
       runtime.app.toggleActivePanel();
@@ -121,7 +121,7 @@ void main() {
       runtime.app.left.setCursorToName('docs');
 
       runtime.commands.dispatch(KeyCombination.parse('Shift-F3'));
-      await tester.pump(QuickViewScreen.defaultDelay * 2);
+      await tester.pump(QuickViewHost.defaultDelay * 2);
       await tester.pumpAndSettle();
 
       expect(find.text('Directory'), findsOneWidget);

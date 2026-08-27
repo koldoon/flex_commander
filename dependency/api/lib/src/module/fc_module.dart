@@ -1,6 +1,7 @@
 import '../app/application.dart';
 import '../commands/app_command.dart';
 import '../app/panel_viewport.dart';
+import '../app/viewer_spec.dart';
 import '../app/views.dart';
 import '../settings/module_settings.dart';
 import '../settings/settings_schema.dart';
@@ -97,6 +98,13 @@ abstract interface class FcRegistry {
 
   /// Чем рисовать содержимое панели для провайдеров, объявивших этот вид.
   void viewport(String kind, PanelViewportBuilder builder);
+
+  /// Просмотрщик: чем и для каких файлов открывать `F3`.
+  ///
+  /// Объявляет модуль, а выбирает оболочка просмотра — по убыванию приоритета.
+  /// Ядро только складывает объявленное, как складывает виды содержимого
+  /// панели: решать, кто возьмётся за файл, — не его дело.
+  void viewer(ViewerSpec spec);
 
   /// Чем рисовать состояние типа [S].
   ///

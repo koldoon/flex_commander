@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_text_viewer/fc_text_viewer.dart';
 import 'package:fc_viewer/fc_viewer.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -31,9 +32,9 @@ void main() {
     await command.executeWith();
   }
 
-  ViewerScreen? openViewer() {
+  TextViewerScreen? openViewer() {
     final screen = runtime.app.view.contentAt(ViewportPosition.fullscreen);
-    return screen is ViewerScreen ? screen : null;
+    return screen is TextViewerScreen ? screen : null;
   }
 
   group('открытие', () {
@@ -157,9 +158,9 @@ void main() {
     });
 
     test('предел лежит в разделе модуля', () {
-      final settings = runtime.app.moduleSettings('fc.viewer').section(ViewerSettings.new);
+      final settings = runtime.app.moduleSettings('fc.viewer').section(TextViewerSettings.new);
 
-      expect(settings.maxFileSize, ViewerSettings.defaultMaxFileSize);
+      expect(settings.maxFileSize, TextViewerSettings.defaultMaxFileSize);
       expect(settings.maxFileSize, 100 * 1024);
     });
   });

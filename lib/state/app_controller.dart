@@ -28,6 +28,7 @@ class AppController extends ChangeNotifier implements Application {
     required this.commands,
     this.providers,
     PanelViewports? viewports,
+    List<ViewerSpec> viewers = const [],
     Views? views,
     ThemeController? theme,
     ToastController? toasts,
@@ -43,6 +44,9 @@ class AppController extends ChangeNotifier implements Application {
        credentials = credentials ?? CredentialsController(),
        errors = errors ?? ErrorController(),
        viewports = viewports ?? const NoPanelViewports(),
+       // По убыванию приоритета — один раз при сборке: спрашивают этот список
+       // на каждое открытие файла, а меняться ему больше негде.
+       viewers = [...viewers]..sort((a, b) => b.priority.compareTo(a.priority)),
        views = views ?? const NoViews(),
        window = window ?? const NoopWindowService() {
     // Одна панель активна всегда, ещё до первого чтения каталогов.
@@ -88,6 +92,10 @@ class AppController extends ChangeNotifier implements Application {
   /// в тесте состояния или в сценарии рисовать нечем и незачем.
   @override
   final PanelViewports viewports;
+
+  /// Объявленные просмотрщики, по убыванию приоритета.
+  @override
+  final List<ViewerSpec> viewers;
 
   @override
   final Views views;

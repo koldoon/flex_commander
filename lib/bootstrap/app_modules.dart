@@ -8,6 +8,7 @@ import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_ssh/fc_ssh.dart';
 import 'package:fc_tar/fc_tar.dart';
 import 'package:fc_terminal/fc_terminal.dart';
+import 'package:fc_text_viewer/fc_text_viewer.dart';
 import 'package:fc_viewer/fc_viewer.dart';
 import 'package:fc_zip/fc_zip.dart';
 
@@ -41,7 +42,9 @@ List<FcModule> featureModules() => [
   const SevenZipArchiver(),
   const TarArchiver(),
   const SshFileSystem(),
-  // Просмотрщик после оболочки: он занимает место её заглушки на F3.
+  // Оболочка просмотра занимает место заглушки на F3; просмотрщики объявляют
+  // себя ей в реестр. Первая выбирает, вторые показывают.
+  const Viewer(),
   const TextViewer(),
   // Редактор после оболочки: он занимает место её заглушки на F4.
   const TextEditor(),

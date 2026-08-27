@@ -85,6 +85,27 @@ abstract interface class ViewportState implements Listenable {
   void close();
 }
 
+/// Содержимое, внутри которого стоит другое содержимое.
+///
+/// Так устроен быстрый просмотр: в области стоит он, а показывает он то, что
+/// выбрал просмотрщик, — и меняет это, когда курсор переходит на файл другого
+/// рода. Наследованием тут не обойтись: под курсором рядом с `readme.md`
+/// лежит `logo.png`, и меняется не файл, а сам показ.
+abstract interface class ViewportHost implements ViewportState {
+  /// Что показано внутри; null — показывать нечего (каталог, отказ, ошибка).
+  ViewportState? get inner;
+}
+
+/// Самое внутреннее содержимое: то, что человек и правда видит.
+///
+/// Спрашивают все, кому важно «что сейчас показано»: разбор привязок клавиш —
+/// иначе `F2` в быстром просмотре достался бы хозяину, который о переносе
+/// строк не знает, — и поиск, который ищет в показанном тексте.
+ViewportState innermost(ViewportState state) {
+  final inner = state is ViewportHost ? state.inner : null;
+  return inner == null ? state : innermost(inner);
+}
+
 /// Область на экране: что в ней показано сейчас.
 class ViewPort {
   const ViewPort({required this.position, required this.state});
@@ -146,6 +167,9 @@ abstract interface class ApplicationView implements Listenable {
   ViewportPosition? positionOf(ViewportState content);
 
   /// Достаются ли клавиши этому содержимому прямо сейчас.
+  ///
+  /// Спрашивать может и то, что стоит **внутри** хозяина: вид показа не знает,
+  /// в области он или в быстром просмотре, а фокус просить обязан одинаково.
   ///
   /// Один вопрос вместо трёх домыслов. До него каждый считал сам: панель
   /// сравнивала свой признак активности, быстрый просмотр искал себя по

@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_text_viewer/fc_text_viewer.dart';
 import 'package:fc_viewer/fc_viewer.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -30,9 +31,16 @@ void main() {
     await runtime.app.start();
   });
 
-  QuickViewScreen? quickView([ViewportPosition position = right]) {
+  QuickViewHost? quickView([ViewportPosition position = right]) {
     final content = runtime.app.view.contentAt(position);
-    return content is QuickViewScreen ? content : null;
+    return content is QuickViewHost ? content : null;
+  }
+
+  /// Что показано внутри хозяина: сам он ничего не показывает — он выбирает.
+  TextViewerScreen? shown() {
+    final host = quickView();
+    final content = host == null ? null : innermost(host);
+    return content is TextViewerScreen ? content : null;
   }
 
   /// Нажать `Shift-F3` — тем же путём, каким это делает клавиша.
@@ -43,7 +51,7 @@ void main() {
 
   /// Подождать паузу перед чтением и само чтение.
   Future<void> settle() async {
-    await Future<void>.delayed(QuickViewScreen.defaultDelay * 2);
+    await Future<void>.delayed(QuickViewHost.defaultDelay * 2);
     await pumpEventQueue();
   }
 
@@ -60,8 +68,8 @@ void main() {
       await settle();
 
       expect(quickView(), isNotNull);
-      expect(quickView()!.node.name, 'notes.txt');
-      expect(quickView()!.controller.text, 'раз\nдва\nтри');
+      expect(shown()!.node.name, 'notes.txt');
+      expect(shown()!.controller.text, 'раз\nдва\nтри');
     });
 
     test('шаг курсора меняет показанное', () async {
@@ -71,8 +79,8 @@ void main() {
 
       await cursorTo('other.txt');
 
-      expect(quickView()!.node.name, 'other.txt');
-      expect(quickView()!.controller.text, 'другое');
+      expect(shown()!.node.name, 'other.txt');
+      expect(shown()!.controller.text, 'другое');
     });
 
     test('быстрый перебор читает то, на чём остановились', () async {
@@ -87,8 +95,8 @@ void main() {
       runtime.app.left.setCursorToName('notes.txt');
       await settle();
 
-      expect(quickView()!.node.name, 'notes.txt');
-      expect(quickView()!.controller.text, 'раз\nдва\nтри');
+      expect(shown()!.node.name, 'notes.txt');
+      expect(shown()!.controller.text, 'раз\nдва\nтри');
     });
 
     test('Shift-F3 второй раз убирает просмотр', () async {
@@ -155,10 +163,10 @@ void main() {
 
       // Привязки объявлены `inState<ViewerScreen>`, а условие там `state is S`:
       // наследнику они достаются тем же объявлением.
-      final wrapped = quickView()!.wordWrap;
+      final wrapped = shown()!.wordWrap;
       expect(runtime.commands.dispatch(KeyCombination.parse('F2')), isTrue);
 
-      expect(quickView()!.wordWrap, !wrapped);
+      expect(shown()!.wordWrap, !wrapped);
     });
 
     test('Tab из просмотра возвращает ввод файлам', () async {
@@ -213,7 +221,7 @@ void main() {
       await cursorTo('notes.txt');
 
       expect(quickView()!.notice, isNull);
-      expect(quickView()!.controller.text, 'раз\nдва\nтри');
+      expect(shown()!.controller.text, 'раз\nдва\nтри');
     });
   });
 }

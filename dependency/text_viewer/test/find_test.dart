@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
+import 'package:fc_text_viewer/fc_text_viewer.dart';
 import 'package:fc_viewer/fc_viewer.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
@@ -39,10 +40,10 @@ void main() {
     await command.executeWith(parameters);
   }
 
-  Future<ViewerScreen> openViewer() async {
+  Future<TextViewerScreen> openViewer() async {
     runtime.app.left.setCursorToName('notes.txt');
     await (runtime.commands.create(ViewFileCommand.commandId)!).executeWith();
-    return runtime.app.view.contentAt(ViewportPosition.fullscreen)! as ViewerScreen;
+    return runtime.app.view.contentAt(ViewportPosition.fullscreen)! as TextViewerScreen;
   }
 
   group('клавиши', () {

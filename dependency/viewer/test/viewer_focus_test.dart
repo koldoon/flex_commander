@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_text_viewer/fc_text_viewer.dart';
 import 'package:fc_viewer/fc_viewer.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
@@ -39,7 +40,7 @@ void main() {
       runtime.app.left.setCursorToName('notes.txt');
       await (runtime.commands.create(ViewFileCommand.commandId)!).executeWith();
       await tester.pumpAndSettle();
-      expect(runtime.app.view.contentAt(ViewportPosition.fullscreen), isA<ViewerScreen>());
+      expect(runtime.app.view.contentAt(ViewportPosition.fullscreen), isA<TextViewerScreen>());
 
       runtime.commands.dispatch(KeyCombination.parse('Esc'));
       await tester.pumpAndSettle();

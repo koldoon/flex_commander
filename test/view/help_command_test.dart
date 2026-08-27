@@ -261,7 +261,7 @@ void main() {
       // `F3` и `F4` держали заглушки, пока не появились просмотрщик и
       // редактор: у команд те же идентификаторы, и клавиши достались им вместе
       // с местом в справке.
-      expect(rowOf(tester, 'View'), ['F3', 'Show the file under the cursor as text']);
+      expect(rowOf(tester, 'View'), ['F3', 'Show the file under the cursor']);
       expect(rowOf(tester, 'Edit'), ['F4', 'Open the file under the cursor for editing']);
     });
 

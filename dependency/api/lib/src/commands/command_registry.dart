@@ -252,7 +252,7 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
 
     final view = app.view;
     final active = view.activeArea;
-    final found = _lookup(combination, view.contentAt(active));
+    final found = _lookupChain(combination, _shownIn(view, active));
     if (found != null || active != ViewportPosition.bottom || !_beyondTextInput(combination)) {
       return found;
     }
@@ -269,7 +269,54 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
     // панели и букву — привязка любого символа требует, чтобы содержимым была
     // панель, а здесь мы ровно панель и подставляем, — и быстрый поиск ожил бы
     // посреди набора. То же с `Enter` и `Bsp`: это клавиши строки.
-    return _lookup(combination, view.contentAt(view.sourceArea));
+    return _lookupChain(combination, _shownIn(view, view.sourceArea));
+  }
+
+  /// Что показано в области — от самого внутреннего к внешнему.
+  ///
+  /// Клавиша принадлежит тому, что **видно**: в области может стоять хозяин
+  /// (быстрый просмотр), а видно то, что он показывает, — `F2` там переключает
+  /// перенос строк в тексте, а не в хозяине, который о переносе не знает.
+  ///
+  /// Но и хозяин не сторонний: `Tab` из быстрого просмотра — его клавиша, а не
+  /// текста, и ни один просмотрщик о ней знать не должен. Поэтому спрашивают по
+  /// цепочке: сперва видимое, потом того, кто его показывает.
+  static List<ViewportState> _shownIn(ApplicationView view, ViewportPosition position) {
+    final chain = <ViewportState>[];
+    for (
+      ViewportState? state = view.contentAt(position);
+      state != null;
+      state = state is ViewportHost ? state.inner : null
+    ) {
+      chain.insert(0, state);
+    }
+    return chain;
+  }
+
+  /// Первая подходящая привязка по цепочке, начиная с видимого.
+  ///
+  /// Выполнимая выигрывает у просто подходящей — и у всей цепочки сразу, а не
+  /// только внутри одного звена: иначе ряд кнопок показывал бы приглушённую
+  /// команду внутреннего там, где у хозяина есть рабочая.
+  KeyBinding? _lookupChain(KeyCombination combination, List<ViewportState> chain) {
+    KeyBinding? fallback;
+    for (final content in chain.isEmpty ? <ViewportState?>[null] : chain) {
+      final found = _lookup(combination, content);
+      if (found != null && _isExecutable(found, combination)) {
+        return found;
+      }
+      fallback ??= found;
+    }
+    return fallback;
+  }
+
+  bool _isExecutable(KeyBinding binding, KeyCombination combination) {
+    final command = _prototypes[binding.commandId];
+    if (command == null) {
+      return false;
+    }
+    final invocation = CommandInvocation(parameters: binding.parametersFor(combination));
+    return command.isExecutable(CommandContext.of(_app!, invocation));
   }
 
   /// Клавиша, которой в однострочном поле ввода делать нечего.

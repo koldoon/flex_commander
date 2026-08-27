@@ -139,23 +139,39 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
   @override
   ViewportPosition? positionOf(ViewportState content) {
     for (final entry in _stacks.entries) {
-      if (entry.value.any((state) => identical(state, content))) {
+      if (entry.value.any((state) => _holds(state, content))) {
         return entry.key;
       }
     }
     return null;
   }
 
+  /// Стоит ли [content] в [outer] — им самим или внутри него.
+  ///
+  /// Хозяин показывает не себя: в области стоит быстрый просмотр, а видно
+  /// текст внутри него. Спрашивают оба — и хозяин, и тот, кто внутри, — и
+  /// ответ им положен одинаковый.
+  static bool _holds(ViewportState outer, ViewportState content) {
+    for (ViewportState? state = outer; state != null; state = state is ViewportHost ? state.inner : null) {
+      if (identical(state, content)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   @override
   bool takesKeys(ViewportState content) {
     final active = activeArea;
-    if (identical(contentAt(active), content)) {
+    final shown = contentAt(active);
+    if (shown != null && _holds(shown, content)) {
       return true;
     }
     // Командная строка забирает ввод, но клавиши, которых у однострочного поля
     // нет, оставляет панели — `F1`…`F12` и стрелки. Значит панель ими и
     // распоряжается: курсор в ней ходит, и приглушать её нечестно.
-    return active == ViewportPosition.bottom && identical(contentAt(sourceArea), content);
+    final source = contentAt(sourceArea);
+    return active == ViewportPosition.bottom && source != null && _holds(source, content);
   }
 
   @override

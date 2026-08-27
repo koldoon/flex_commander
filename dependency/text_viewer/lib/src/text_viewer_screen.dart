@@ -1,10 +1,9 @@
 import 'package:fc_api/fc_api.dart';
-import 'package:flutter/foundation.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:flutter/widgets.dart';
 import 'package:re_editor/re_editor.dart';
 
-/// Открытый файл: сам текст и то, как его сейчас показывают.
+/// Показ текста: сам текст и то, как его сейчас показывают.
 ///
 /// Экран, а не окно команды: он занимает место панелей, оставляет ряд
 /// функциональных кнопок и живёт, пока его не закроют, — а не ровно один
@@ -12,40 +11,35 @@ import 'package:re_editor/re_editor.dart';
 ///
 /// [ChangeNotifier], потому что показ меняется по ходу дела: `F2` переключает
 /// перенос строк, и вид перерисовывается сам.
-class ViewerScreen extends ChangeNotifier implements ViewportState, FcSearchable {
-  ViewerScreen({
-    required FsNode node,
+class TextViewerScreen extends ChangeNotifier implements ViewerContent, FcSearchable {
+  TextViewerScreen({
+    required this.node,
     required String text,
+    this.place = ViewerPlace.fullscreen,
     bool wordWrap = false,
     bool showLineNumbers = false,
     this.onWrapChanged,
     this.onLineNumbersChanged,
   }) : controller = CodeLineEditingController.fromText(text),
-       _node = node,
        _wordWrap = wordWrap,
        _showLineNumbers = showLineNumbers;
 
-  /// Общеизвестное имя: к нему привязаны клавиши просмотрщика.
-  static const String screenId = 'viewer';
+  /// Общеизвестное имя: по нему поиск находит, чей текст искать.
+  static const String screenId = 'text';
+
+  /// Имя в реестре просмотрщиков.
+  static const String viewerId = 'text';
 
   /// Что показываем: из узла берётся и заголовок, и размер.
-  ///
-  /// Меняется у наследника: быстрый просмотр показывает то, что под курсором,
-  /// и курсор ходит. Во весь экран открывают один файл, и там он постоянен.
-  FsNode get node => _node;
-  FsNode _node;
+  @override
+  final FsNode node;
 
-  /// Показать другой файл в том же состоянии.
+  /// Где показываем: во весь экран или в области панели.
   ///
-  /// Не новое состояние на каждый файл: показ, поиск и переносы строк заведены
-  /// один раз и переживают смену файла — иначе перебор стрелками сбрасывал бы
-  /// их по десять раз в секунду.
-  @protected
-  void showNode(FsNode node, String text) {
-    _node = node;
-    controller.text = text;
-    notifyListeners();
-  }
+  /// Приходит при открытии и не меняется. Спросить потом неоткуда: в быстром
+  /// просмотре состояние стоит не в области, а внутри хозяина.
+  @override
+  final ViewerPlace place;
 
   /// Содержимое, курсор и выделение. Владеет им экран, а не вид: копирует
   /// команда, а она о виджетах ничего не знает.

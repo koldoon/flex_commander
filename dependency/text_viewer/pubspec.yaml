@@ -1,0 +1,45 @@
+name: fc_text_viewer
+description: "Просмотрщик текста: один из тех, что объявляют себя в реестре просмотрщиков."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  fc_ui_kit:
+    path: ../ui_kit
+
+  # Показ текста: поле, оформление, подсветка, поиск — общее с редактором.
+  fc_text_kit:
+    path: ../text_kit
+
+  # Ради `CodeLineEditingController`: содержимое, курсор и выделение держит
+  # экран, а не виджет. Сам показ собран в `fc_ui_kit` — там же и подсветка.
+  re_editor: ^0.10.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  fc_default_theme:
+    path: ../default_theme
+
+  flex_commander:
+    path: ../..
+
+  # Оболочка просмотра: без неё F3 некому обслужить, а тесты открывают файл
+  # так же, как это делает человек.
+  fc_viewer:
+    path: ../viewer

@@ -1,34 +1,25 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:flutter/foundation.dart';
 
-import 'text_document.dart';
-import 'viewer_screen.dart';
-import 'viewer_settings.dart';
+import 'viewer_choice.dart';
 
 /// Быстрый просмотр: содержимое того, что под курсором соседней панели.
 ///
-/// Наследник просмотрщика, а не свой экран, и это не экономия строк: клавиши
-/// объявлены `KeyBinding.inState<ViewerScreen>`, а условие там — `state is S`.
-/// Значит перенос строк, номера строк, поиск и копирование достаются быстрому
-/// просмотру **тем же самым объявлением**, и разойтись им негде.
+/// **Хозяин, а не просмотрщик.** Внутри стоит показ, выбранный реестром, и
+/// меняется он вместе с курсором: рядом с `readme.md` лежит `logo.png`, и
+/// меняется не файл, а сам просмотрщик. Наследованием, как было до реестра,
+/// этого не сделать.
+///
+/// За хозяином остаётся всё, что не про содержимое: подписка на панель, пауза
+/// перед чтением, отмена начатого и слова вместо показа, когда показывать
+/// нечего.
 ///
 /// Живёт наложением на область панели: под ним цела и панель, и её курсор, и
-/// аренда источника. Сама панель о просмотре не знает — это он слушает её, а
-/// не она его.
-class QuickViewScreen extends ViewerScreen {
-  QuickViewScreen({
-    required this.panel,
-    required this.settings,
-    required this.onSettingsChanged,
-    this.delay = defaultDelay,
-  }) : super(
-         node: panel.currentNode ?? _placeOf(panel),
-         text: '',
-         wordWrap: settings.wordWrap,
-         showLineNumbers: settings.showLineNumbers,
-       ) {
+/// аренда источника. Сама панель о просмотре не знает — это он слушает её.
+class QuickViewHost extends ChangeNotifier implements ViewportHost {
+  QuickViewHost({required this.app, required this.panel, this.delay = defaultDelay}) {
     panel.addListener(_onPanelChanged);
     _onPanelChanged(immediately: true);
   }
@@ -42,39 +33,38 @@ class QuickViewScreen extends ViewerScreen {
   /// на чём она остановилась.
   static const Duration defaultDelay = Duration(milliseconds: 150);
 
+  final Application app;
+
   /// Панель, за курсором которой идёт просмотр.
   final Panel panel;
 
-  final ViewerSettings settings;
-  final void Function() onSettingsChanged;
-
   final Duration delay;
 
-  /// Что показать вместо текста: каталог, слишком большой файл, ошибка чтения.
+  /// Что показано внутри; null — показывать нечего.
+  @override
+  ViewportState? get inner => _inner;
+  ViewportState? _inner;
+
+  /// Что сказать вместо показа: каталог, отказ просмотрщика, ошибка чтения.
   /// null — показан файл.
   String? get notice => _notice;
   String? _notice;
 
-  /// Узел, который сейчас показан или читается. Отличается от `panel.currentNode`
+  /// Узел, который показан или читается. Отличается от `panel.currentNode`
   /// ровно на время паузы и чтения.
   FsNode? _target;
 
   Timer? _waiting;
 
-  /// Поколение чтения: пришёл ответ не того поколения — курсор ушёл дальше, и
-  /// показывать его уже нельзя.
+  /// Поколение чтения: пришёл ответ не того поколения — курсор ушёл дальше.
   int _generation = 0;
 
   bool _disposed = false;
 
-  /// Чем назваться, когда под курсором ничего нет: сам каталог панели.
-  ///
-  /// Узел просмотрщику нужен всегда — из него берётся заголовок, — а в пустом
-  /// каталоге курсору стоять не на чем. Поддельного узла ради этого заводить
-  /// не приходится: каталог у панели есть, и он же честно отвечает на вопрос
-  /// «где мы».
-  static FsNode _placeOf(Panel panel) =>
-      panel.directory ?? DirectoryNode(provider: panel.provider, name: panel.provider.homePath);
+  /// Фокус хозяину не нужен: его берёт то, что внутри, — и только когда в
+  /// показ вошли.
+  @override
+  bool get takesKeyboard => _inner?.takesKeyboard ?? false;
 
   void _onPanelChanged({bool immediately = false}) {
     final node = panel.currentNode;
@@ -96,71 +86,82 @@ class QuickViewScreen extends ViewerScreen {
 
   Future<void> _show(FsNode? node, int generation) async {
     if (node == null) {
-      _say('Nothing to show', node);
+      _say('Nothing to show');
       return;
     }
     if (node is ParentDirNode) {
-      _say('Parent directory', node);
+      _say('Parent directory');
       return;
     }
     if (node is DirectoryNode) {
       // Сводку по каталогу — сколько в нём файлов и байт — здесь не считаем:
       // это обход дерева на каждый шаг курсора, и для него есть своя команда
       // (`Alt-Shift-Enter`).
-      _say('Directory', node);
-      return;
-    }
-
-    final source = node.provider;
-    if (source is! FileContentProvider) {
-      // Так выглядят результаты поиска: узлы есть, байтов за ними нет.
-      _say('No content', node);
-      return;
-    }
-    if (node.size > settings.maxFileSize) {
-      // Теми же словами, что говорит `F3`, но **в панели**, а не тостом: тост
-      // выскакивал бы на каждом шаге курсора и мигал бы всю дорогу.
-      _say('File is too large: ${formatBytesLong(node.size)}, limit is ${formatSize(settings.maxFileSize)}', node);
+      _say('Directory');
       return;
     }
 
     try {
-      final bytes = <int>[];
-      await for (final chunk in await (source as FileContentProvider).openRead(node)) {
-        // Курсор ушёл дальше — дочитывать незачем: `TextDocument.read` дочитал
-        // бы до конца, ни у кого не спросив, а здесь файл меняется чаще, чем
-        // читается.
-        if (generation != _generation || _disposed) {
-          return;
-        }
-        bytes.addAll(chunk);
-      }
+      final content = await openViewer(
+        app,
+        node,
+        ViewerPlace.panel,
+        // Курсор ушёл дальше — дочитывать незачем: просмотрщик спрашивает об
+        // этом сам, по ходу чтения.
+        checkpoint: () async {
+          if (generation != _generation || _disposed) {
+            throw const OperationCanceled();
+          }
+        },
+      );
       if (generation != _generation || _disposed) {
+        content.close();
         return;
       }
-      _notice = null;
-      showNode(node, TextDocument.parse(utf8.decode(bytes, allowMalformed: true)).text);
+      _replace(content, notice: null);
+    } on OperationCanceled {
+      // Ушли дальше по списку — это не ошибка, а обычный ход дела.
+    } on ViewerRefused catch (refusal) {
+      // Словами в самой панели, а не тостом: тост выскакивал бы на каждом шаге
+      // курсора и мигал бы всю дорогу.
+      if (generation == _generation) {
+        _say(refusal.reason);
+      }
     } on Object catch (error) {
-      if (generation == _generation && !_disposed) {
-        _say(error is FsError ? error.message : '$error', node);
+      if (generation == _generation) {
+        _say(error is FsError ? error.message : '$error');
       }
     }
   }
 
-  /// Показать словами вместо текста.
-  void _say(String message, FsNode? node) {
+  /// Показать словами вместо показа.
+  void _say(String message) {
     if (_disposed) {
       return;
     }
-    _notice = message;
-    showNode(node ?? _placeOf(panel), '');
+    _replace(null, notice: message);
   }
+
+  void _replace(ViewportState? content, {required String? notice}) {
+    // Прежнее закрывается: показ держит и текст, и поиск, и — у будущих
+    // просмотрщиков — распакованную картинку. Забыть его здесь значило бы
+    // копить их по одному на каждый шаг курсора.
+    _inner?.close();
+    _inner = content;
+    _notice = notice;
+    notifyListeners();
+  }
+
+  @override
+  void close() => dispose();
 
   @override
   void dispose() {
     _disposed = true;
     _waiting?.cancel();
     panel.removeListener(_onPanelChanged);
+    _inner?.close();
+    _inner = null;
     super.dispose();
   }
 }

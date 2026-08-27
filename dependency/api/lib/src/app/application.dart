@@ -5,6 +5,7 @@ import '../commands/command_service.dart';
 import 'errors.dart';
 import 'panel_viewport.dart';
 import 'viewport.dart';
+import 'viewer_spec.dart';
 import 'views.dart';
 import '../theme/theme_service.dart';
 import '../settings/app_settings.dart';
@@ -59,6 +60,13 @@ abstract interface class Application implements Listenable {
 
   /// Чем рисуется содержимое панелей.
   PanelViewports get viewports;
+
+  /// Объявленные просмотрщики, по убыванию приоритета.
+  ///
+  /// Список, а не «найди подходящий»: ядро складывает и упорядочивает, а
+  /// спрашивает `accepts` тот, кто открывает, — оболочка просмотра. Решать за
+  /// неё ядру нечем: про типы файлов оно не знает ничего.
+  List<ViewerSpec> get viewers;
 
   /// Чем рисуются состояния: панель, просмотрщик, заявка от работы.
   ///

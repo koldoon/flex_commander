@@ -17,7 +17,10 @@ mixin _ScreenFinder on AppCommand {
   /// Ищут в том, чему принадлежит ввод, а не всегда в полноэкранном: тот же
   /// показ текста бывает наложением на панель (быстрый просмотр).
   FcTextFinder? finderOf(Application app) {
-    final ViewportState? screen = app.view.contentAt(app.view.activeArea);
+    final shown = app.view.contentAt(app.view.activeArea);
+    // Разворот до внутреннего: показ бывает и внутри хозяина (быстрый
+    // просмотр), а искать надо в том, что видно.
+    final screen = shown == null ? null : innermost(shown);
     return screen is FcSearchable && screen.id == screenId ? screen.finder : null;
   }
 

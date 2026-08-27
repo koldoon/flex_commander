@@ -1,5 +1,5 @@
 name: fc_viewer
-description: "Просмотрщик текста: файл во весь экран, с подсветкой и переносом строк."
+description: "Оболочка просмотра: выбирает подходящий просмотрщик и ставит его в область."
 publish_to: 'none'
 version: 1.0.0
 
@@ -18,14 +18,6 @@ dependencies:
   fc_ui_kit:
     path: ../ui_kit
 
-  # Показ текста: поле, оформление, подсветка, поиск — общее с редактором.
-  fc_text_kit:
-    path: ../text_kit
-
-  # Ради `CodeLineEditingController`: содержимое, курсор и выделение держит
-  # экран, а не виджет. Сам показ собран в `fc_ui_kit` — там же и подсветка.
-  re_editor: ^0.10.0
-
 dev_dependencies:
   flutter_test:
     sdk: flutter
@@ -36,6 +28,11 @@ dev_dependencies:
   fc_default_theme:
     path: ../default_theme
 
+  # Тестам оболочки нужен хоть один настоящий просмотрщик: она сама не
+  # показывает ничего.
+  fc_text_viewer:
+    path: ../text_viewer
+
   flex_commander:
     path: ../..
 
@@ -43,3 +40,9 @@ dev_dependencies:
   # оба сразу: показ — наш, таблица — оттуда.
   fc_panels:
     path: ../panels
+
+  # Виджет-тест смотрит на показанный текст: это `FcTextView` из общего показа.
+  fc_text_kit:
+    path: ../text_kit
+
+  re_editor: ^0.10.0

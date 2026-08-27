@@ -90,6 +90,10 @@ class Registrations implements FcRegistry {
   /// Виды содержимого панели: имя вида → чем рисовать.
   final Map<String, PanelViewportBuilder> viewports = {};
 
+  /// Объявленные просмотрщики — в порядке объявления; по приоритету их
+  /// расставит приложение.
+  final List<ViewerSpec> viewers = [];
+
   /// Виды состояний: тип, на который объявлен, → сам вид.
   final Map<Type, StateView> views = {};
 
@@ -201,6 +205,18 @@ class Registrations implements FcRegistry {
 
   @override
   void viewport(String kind, PanelViewportBuilder builder) => viewports[kind] = builder;
+
+  @override
+  void viewer(ViewerSpec spec) {
+    final taken = viewers.indexWhere((declared) => declared.id == spec.id);
+    if (taken >= 0) {
+      // Два просмотрщика под одним именем — это не выбор, а недосмотр: имя
+      // уйдёт в настройки и в «открыть чем», и победа последнего сделала бы
+      // показ зависящим от порядка модулей в списке.
+      throw StateError('Просмотрщик «${spec.id}» уже объявлен');
+    }
+    viewers.add(spec);
+  }
 
   @override
   void view<S extends Object>(StateViewBuilder<S> builder) {

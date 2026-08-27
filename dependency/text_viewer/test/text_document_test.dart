@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:fc_viewer/fc_viewer.dart';
+import 'package:fc_text_viewer/fc_text_viewer.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Подготовка текста к показу: файлы приходят с разных машин и в разном виде.
