@@ -8,6 +8,15 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flex_commander/view/split_view.dart';
 import 'package:flex_commander/view/app_shell.dart';
+import 'package:flex_commander/view/function_bar/function_bar.dart';
+
+/// Размеры темы с полями по краям окна: остальное — как в теме по умолчанию.
+class _MetricsWithSides extends DefaultMetrics {
+  const _MetricsWithSides();
+
+  @override
+  double get windowSidePadding => 20;
+}
 
 /// Панели как экран: модуль ставит его при запуске, ядро о панелях не знает.
 void main() {
@@ -21,12 +30,17 @@ void main() {
     );
   });
 
-  Future<void> pumpScreen(WidgetTester tester) async {
+  Future<void> pumpScreen(WidgetTester tester, {FcMetrics metrics = const DefaultMetrics()}) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(
-          extensions: const [
-            FcTheme(colors: DefaultColors(), metrics: DefaultMetrics(), icons: DefaultIcons(), fonts: DefaultFonts()),
+          extensions: [
+            FcTheme(
+              colors: const DefaultColors(),
+              metrics: metrics,
+              icons: const DefaultIcons(),
+              fonts: const DefaultFonts(),
+            ),
           ],
         ),
         home: AppScope(controller: runtime.app, child: Scaffold(body: const AppShell())),
@@ -81,5 +95,22 @@ void main() {
 
     expect(frames.first.outerEdge, PanelOuterEdge.left);
     expect(frames.last.outerEdge, PanelOuterEdge.right);
+  });
+
+  testWidgets('поля по краям окна отступают, а не только панели', (tester) async {
+    await runtime.app.start();
+    await pumpScreen(tester, metrics: const _MetricsWithSides());
+
+    final window = tester.getRect(find.byType(AppShell));
+    final panels = tester.getRect(find.byType(SplitView));
+
+    expect(panels.left - window.left, 20);
+    expect(window.right - panels.right, 20);
+
+    // Ряд кнопок отступает вместе с панелями: он их подписывает и обязан
+    // кончаться там же, где они.
+    final bar = tester.getRect(find.byType(FunctionBar));
+    expect(bar.left, panels.left);
+    expect(bar.right, panels.right);
   });
 }

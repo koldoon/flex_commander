@@ -45,6 +45,12 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get windowTopPadding => ref(20);
 
+  /// Полей нет: содержимое занимает окно целиком, как в референсе. Захочется
+  /// рамку — крутится здесь, и разъезжаться нечему: величина одна на панели,
+  /// полосу и ряд кнопок.
+  @override
+  double get windowSidePadding => 0;
+
   @override
   double get panelGap => ref(15);
 

@@ -128,16 +128,22 @@ class AppShell extends StatelessWidget {
             child: ColoredBox(
               // Фон окна ровный: градиента в референсе нет.
               color: theme.colors.windowBackground,
-              child: Column(
-                children: [
-                  SizedBox(height: metrics.windowTopPadding),
-                  Expanded(
-                    child: ListenableBuilder(listenable: app.view, builder: (context, _) => _workArea(context, app)),
-                  ),
-                  ListenableBuilder(listenable: app.view, builder: (context, _) => _belowWorkArea(context, app)),
-                  const FunctionBar(),
-                  SizedBox(height: metrics.windowBottomPadding),
-                ],
+              // Поля по краям — на всё содержимое разом: панели, полосу под
+              // ними и ряд кнопок. Порознь они разъехались бы, а ряд кнопок
+              // обязан кончаться там же, где панели, которые он подписывает.
+              child: Padding(
+                padding: EdgeInsets.symmetric(horizontal: metrics.windowSidePadding),
+                child: Column(
+                  children: [
+                    SizedBox(height: metrics.windowTopPadding),
+                    Expanded(
+                      child: ListenableBuilder(listenable: app.view, builder: (context, _) => _workArea(context, app)),
+                    ),
+                    ListenableBuilder(listenable: app.view, builder: (context, _) => _belowWorkArea(context, app)),
+                    const FunctionBar(),
+                    SizedBox(height: metrics.windowBottomPadding),
+                  ],
+                ),
               ),
             ),
           ),
