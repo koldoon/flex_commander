@@ -214,8 +214,14 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
     final (item, match) = found;
     final colors = theme.colors;
     final metrics = theme.metrics;
-    final base = TextStyle(fontFamily: theme.fonts.ui, fontSize: metrics.fontSize, color: colors.dialogText);
-    final dim = base.copyWith(color: colors.dialogLabel);
+    // Яркое — название команды, приглушённое — модуль и клавиши.
+    //
+    // Роли легко перепутать местами: в теме по умолчанию `dialogLabel` белый, а
+    // `dialogText` — приглушённый синий. Взяв их по именам, я получил ровно
+    // обратное: модуль светился ярче команды, ради которой строку и читают.
+    final base = TextStyle(fontFamily: theme.fonts.ui, fontSize: metrics.fontSize);
+    final bright = base.copyWith(color: selected ? colors.cursorText : colors.dialogLabel);
+    final dim = base.copyWith(color: colors.dialogText);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -231,11 +237,7 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
               child: Text.rich(
                 TextSpan(
                   children: [
-                    ..._highlight(
-                      item.label,
-                      match.labelHits,
-                      selected ? base.copyWith(color: colors.cursorText) : base,
-                    ),
+                    ..._highlight(item.label, match.labelHits, bright),
                     // Модуль — сразу за названием и приглушённо: он уточняет,
                     // чей это «Copy», а не спорит с ним за внимание.
                     const TextSpan(text: '   '),
