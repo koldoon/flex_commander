@@ -52,48 +52,61 @@ class _SplitViewState extends State<SplitView> {
         final minRatio = (metrics.minPanelWidth / available).clamp(0.0, 0.5);
         final leftWidth = available * widget.ratio.clamp(minRatio, 1 - minRatio);
 
-        return Row(
+        // Ширина захвата: зазор бывает уже, чем палец, — тогда область шире его
+        // самого и заходит на края обеих панелей.
+        final handleWidth = math.max(metrics.resizeHandleWidth, metrics.panelGap);
+
+        return Stack(
           children: [
-            SizedBox(width: leftWidth, child: widget.left),
-            SizedBox(
-              width: metrics.panelGap,
-              height: double.infinity,
-              // Зазор между панелями узкий, поэтому область захвата шире его
-              // самого и заходит на края обеих панелей.
-              child: OverflowBox(
-                maxWidth: math.max(metrics.resizeHandleWidth, metrics.panelGap),
-                child: MouseRegion(
-                  cursor: SystemMouseCursors.resizeColumn,
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    // Доля считается от **положения курсора**, а не набегает
-                    // из его смещений.
-                    //
-                    // Смещения приходят чаще, чем рисуются кадры, и все
-                    // пришедшие за один кадр считались бы от одной и той же
-                    // ширины — уцелело бы только последнее. Снаружи это
-                    // выглядит так: разделитель ползёт в нужную сторону, но
-                    // отстаёт от курсора и на быстром движении отстаёт сильно.
-                    onHorizontalDragStart: (details) {
-                      final position = _positionOf(context, details.globalPosition);
-                      _grab = position == null ? 0 : position - leftWidth;
-                    },
-                    onHorizontalDragUpdate: (details) {
-                      final position = _positionOf(context, details.globalPosition);
-                      if (position != null) {
-                        widget.onRatioChanged((position - _grab) / available);
-                      }
-                    },
-                    // Двойной клик и щелчок средней кнопкой возвращают панели
-                    // к равной ширине: одно действие — один путь.
-                    onDoubleTap: widget.onCenter,
-                    onTertiaryTapUp: (_) => widget.onCenter(),
-                    child: const SizedBox.expand(),
-                  ),
+            Row(
+              children: [
+                SizedBox(width: leftWidth, child: widget.left),
+                SizedBox(width: metrics.panelGap, height: double.infinity),
+                Expanded(child: widget.right),
+              ],
+            ),
+            // Захват — **поверх** панелей, а не внутри зазора.
+            //
+            // Раньше он лежал внутри и расширялся `OverflowBox`: нарисовано
+            // шире, а нажатия за пределами зазора до него не доходили —
+            // проверка попадания идёт по размеру родителя, и всё, что вылезло,
+            // она отбрасывает. Пока зазор был в восемь точек, разницы никто не
+            // замечал; ужали до шести — и мимо стало попадать заметно.
+            Positioned(
+              left: leftWidth + (metrics.panelGap - handleWidth) / 2,
+              top: 0,
+              bottom: 0,
+              width: handleWidth,
+              child: MouseRegion(
+                cursor: SystemMouseCursors.resizeColumn,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  // Доля считается от **положения курсора**, а не набегает
+                  // из его смещений.
+                  //
+                  // Смещения приходят чаще, чем рисуются кадры, и все
+                  // пришедшие за один кадр считались бы от одной и той же
+                  // ширины — уцелело бы только последнее. Снаружи это
+                  // выглядит так: разделитель ползёт в нужную сторону, но
+                  // отстаёт от курсора и на быстром движении отстаёт сильно.
+                  onHorizontalDragStart: (details) {
+                    final position = _positionOf(context, details.globalPosition);
+                    _grab = position == null ? 0 : position - leftWidth;
+                  },
+                  onHorizontalDragUpdate: (details) {
+                    final position = _positionOf(context, details.globalPosition);
+                    if (position != null) {
+                      widget.onRatioChanged((position - _grab) / available);
+                    }
+                  },
+                  // Двойной клик и щелчок средней кнопкой возвращают панели
+                  // к равной ширине: одно действие — один путь.
+                  onDoubleTap: widget.onCenter,
+                  onTertiaryTapUp: (_) => widget.onCenter(),
+                  child: const SizedBox.expand(),
                 ),
               ),
             ),
-            Expanded(child: widget.right),
           ],
         );
       },
