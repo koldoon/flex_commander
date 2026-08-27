@@ -103,6 +103,10 @@ class ImageViewer implements FcModule {
 
     // Стрелки листают каталог, а не возят картинку: возить её мышью удобнее, а
     // вот сто раз выходить в панель ради следующего снимка — нет.
+    //
+    // Только во весь экран: в быстром просмотре они принадлежат панели, и
+    // следующая картинка появляется оттого, что курсор пошёл вниз. Решает это
+    // сама команда — привязка объявляется на тип, а мест у него два.
     registry.binding(KeyBinding.inState<ImageViewerScreen>('Right', StepImageCommand.nextCommandId));
     registry.binding(KeyBinding.inState<ImageViewerScreen>('Down', StepImageCommand.nextCommandId));
     registry.binding(KeyBinding.inState<ImageViewerScreen>('Left', StepImageCommand.previousCommandId));

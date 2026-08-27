@@ -42,6 +42,17 @@ void main() {
 
   ViewportState? shownFullscreen() => runtime.app.view.contentAt(ViewportPosition.fullscreen);
 
+  /// Ждёт, пока показ догонит нажатие.
+  ///
+  /// Листание идёт через распаковку следующей картинки — она асинхронная, и
+  /// одной прокрутки очереди событий ей мало.
+  Future<void> settle() async {
+    for (var i = 0; i < 20; i++) {
+      await pumpEventQueue();
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
   group('чем открывается', () {
     test('картинку открывает просмотрщик изображений', () async {
       await view('a.png');
@@ -73,7 +84,7 @@ void main() {
       final cursor = runtime.app.left.currentNode?.name;
 
       expect(runtime.commands.dispatch(KeyCombination.parse('Right')), isTrue);
-      await pumpEventQueue();
+      await settle();
 
       final screen = shownFullscreen()! as ImageViewerScreen;
       expect(screen.node.name, 'b.gif');
@@ -117,9 +128,41 @@ void main() {
       await view('b.gif');
 
       expect(runtime.commands.dispatch(KeyCombination.parse('Left')), isTrue);
-      await pumpEventQueue();
+      await settle();
 
       expect((shownFullscreen()! as ImageViewerScreen).node.name, 'a.png');
+    });
+  });
+
+  group('в панели стрелки не наши', () {
+    /// Открывает быстрый просмотр и уводит в него ввод.
+    Future<ImageViewerScreen> quickViewOn(String name) async {
+      runtime.app.left.setCursorToName(name);
+      runtime.commands.dispatch(KeyCombination.parse('Shift-F3'));
+      await Future<void>.delayed(QuickViewHost.defaultDelay * 2);
+      await pumpEventQueue();
+      runtime.app.toggleActivePanel();
+      return innermost(runtime.app.view.contentAt(right)!) as ImageViewerScreen;
+    }
+
+    test('стрелка не листает: показ следует за курсором, а не за собой', () async {
+      final screen = await quickViewOn('a.png');
+
+      expect(runtime.commands.dispatch(KeyCombination.parse('Right')), isFalse);
+      await pumpEventQueue();
+
+      expect(screen.node.name, 'a.png');
+    });
+
+    test('а курсор в панели по-прежнему меняет показанное', () async {
+      await quickViewOn('a.png');
+
+      runtime.app.left.setCursorToName('b.gif');
+      await Future<void>.delayed(QuickViewHost.defaultDelay * 2);
+      await pumpEventQueue();
+
+      final shown = innermost(runtime.app.view.contentAt(right)!) as ImageViewerScreen;
+      expect(shown.node.name, 'b.gif');
     });
   });
 

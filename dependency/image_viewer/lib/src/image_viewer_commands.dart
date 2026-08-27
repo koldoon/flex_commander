@@ -119,8 +119,14 @@ class StepImageCommand extends AppCommand {
   @override
   bool isExecutable(CommandContext context) {
     final screen = imageViewerInFocus(context.app);
+    if (screen == null || screen.place != ViewerPlace.fullscreen) {
+      // В панели стрелки не наши. Быстрый просмотр **следует за курсором** —
+      // это его единственное обещание, и листать в обход курсора значило бы
+      // показывать не то, на чём человек стоит.
+      return false;
+    }
     // В конце списка клавиша молчит: по кругу не ходим — конец есть конец.
-    return screen != null && (forward ? screen.hasNext : screen.hasPrevious);
+    return forward ? screen.hasNext : screen.hasPrevious;
   }
 
   @override
