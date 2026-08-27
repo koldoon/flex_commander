@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 
 import 'layout_commands.dart';
+import 'navigation_settings.dart';
 import 'navigation_commands.dart';
 import 'open_path_command.dart';
 import 'selection_commands.dart';
@@ -24,6 +25,11 @@ class Navigation implements FcModule {
 
   @override
   void install(FcRegistry registry) {
+    // Область забирается **сейчас**, пока идёт установка: позже имя раздела
+    // уже неизвестно, и настройки уехали бы в чужой.
+    final settings = registry.settings;
+    NavigationSettings settingsOf() => settings.section(NavigationSettings.new);
+
     // Курсор.
     registry.command((context) => MoveCursorUpCommand());
     registry.command((context) => MoveCursorDownCommand());
@@ -39,7 +45,7 @@ class Navigation implements FcModule {
     registry.command((context) => OpenNodeCommand(opener: context.resolve<SystemOpener>()));
     registry.command((context) => OpenWithSystemCommand(opener: context.resolve<SystemOpener>()));
     registry.command((context) => GoUpCommand());
-    registry.command((context) => OpenPathCommand());
+    registry.command((context) => OpenPathCommand(settings: settingsOf, save: settings.save));
     registry.command((context) => GoToRootCommand());
     registry.command((context) => ReloadCommand());
     registry.command((context) => ToggleHiddenCommand());
@@ -49,6 +55,21 @@ class Navigation implements FcModule {
     registry.command((context) => ClearSelectionCommand());
     registry.command((context) => ToggleMarkCommand());
     registry.command((context) => SelectAllCommand());
+
+    registry.settingsSchema(
+      () => SettingsSchema([
+        SettingsField.integer(
+          'recentPathsLimit',
+          title: 'Address history',
+          unit: 'entries',
+          min: 0,
+          max: 500,
+          description: 'How many visited addresses the Address window remembers',
+          read: () => settingsOf().recentPathsLimit,
+          write: (value) => settingsOf().recentPathsLimit = value,
+        ),
+      ], save: settings.save),
+    );
 
     _bindKeys(registry);
   }

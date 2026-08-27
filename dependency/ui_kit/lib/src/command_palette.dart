@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 
 import 'command_dialog.dart';
 import 'fc_theme.dart';
-import 'palette_search.dart';
+import 'pick_list.dart';
 
 /// Строка палитры: что показать и что запустить.
 class PaletteItem {
@@ -21,12 +21,18 @@ class PaletteItem {
   ///
   /// Палитра заодно учит: увидел раз — дальше жмёшь клавишу.
   final String keys;
+
+  FcPickRow get row => FcPickRow(id: id, title: label, subtitle: owner, trailing: keys);
 }
 
 /// Палитра команд: список всего, что можно сделать сейчас, с поиском.
 ///
 /// Показывается **только выполнимое**: палитра отвечает на вопрос «что мне
 /// доступно», а не «что бывает». Полный перечень остаётся в справке.
+///
+/// Список и отбор — общие с историей адресов ([FcPickList]); своё здесь одно:
+/// `Enter` **запускает** выбранное, а не вписывает его в поле. Поле тут только
+/// для поиска.
 class FcCommandPalette extends StatefulWidget {
   const FcCommandPalette({
     super.key,
@@ -52,7 +58,6 @@ class FcCommandPalette extends StatefulWidget {
 
 class _FcCommandPaletteState extends State<FcCommandPalette> {
   final TextEditingController _query = TextEditingController();
-  final ScrollController _scroll = ScrollController();
 
   /// Клавиши списка разбираются на самом поле ввода.
   ///
@@ -72,105 +77,35 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
   @override
   void dispose() {
     _query.dispose();
-    _scroll.dispose();
     _field.dispose();
     super.dispose();
   }
 
-  /// Отобранное и упорядоченное.
-  ///
-  /// При пустом запросе впереди идут недавние, а следом — всё остальное:
-  /// обычно человек открывает палитру ради того же, что делал вчера, но она
-  /// остаётся и каталогом.
-  List<(PaletteItem, PaletteMatch)> get _found {
-    final query = _query.text;
-    final found = <(PaletteItem, PaletteMatch)>[];
-    for (final item in widget.items) {
-      final match = matchCommand(query, label: item.label, owner: item.owner);
-      if (match != null) {
-        found.add((item, match));
-      }
-    }
-
-    found.sort((a, b) {
-      final byMatch = a.$2.compareTo(b.$2);
-      if (byMatch != 0 && query.trim().isNotEmpty) {
-        return byMatch;
-      }
-      // Недавность — последний довод при равном весе, а не самостоятельная
-      // сила: искали конкретное, а не привычное.
-      final left = widget.recent.indexOf(a.$1.id);
-      final right = widget.recent.indexOf(b.$1.id);
-      if (left != right) {
-        return (left < 0 ? widget.recent.length : left).compareTo(right < 0 ? widget.recent.length : right);
-      }
-      return byMatch != 0 ? byMatch : a.$1.label.compareTo(b.$1.label);
-    });
-
-    return found;
-  }
+  List<FcPickRow> get _found =>
+      FcPickList.filter([for (final item in widget.items) item.row], _query.text, recent: widget.recent);
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
-      return KeyEventResult.ignored;
-    }
-
-    final count = _found.length;
-    switch (event.logicalKey) {
-      case LogicalKeyboardKey.arrowDown:
-        _move(1, count);
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.arrowUp:
-        _move(-1, count);
-        return KeyEventResult.handled;
-      case LogicalKeyboardKey.enter:
-      case LogicalKeyboardKey.numpadEnter:
-        _run();
-        return KeyEventResult.handled;
-    }
-    return KeyEventResult.ignored;
-  }
-
-  void _move(int delta, int count) {
-    if (count == 0) {
-      return;
-    }
-    setState(() => _selected = (_selected + delta) % count);
-    if (_selected < 0) {
-      setState(() => _selected += count);
-    }
-    _showSelected();
-  }
-
-  /// Выбранное держится на виду: перебор стрелками не должен уезжать за край.
-  void _showSelected() {
-    if (!_scroll.hasClients) {
-      return;
-    }
-    final metrics = FcTheme.of(context).metrics;
-    final line = metrics.rowHeight + metrics.rowGap;
-    final top = _selected * line;
-    final position = _scroll.position;
-    if (top < position.pixels) {
-      _scroll.jumpTo(top);
-    } else if (top + line > position.pixels + position.viewportDimension) {
-      _scroll.jumpTo(top + line - position.viewportDimension);
-    }
-  }
-
-  void _run() {
     final found = _found;
-    if (found.isEmpty) {
-      return;
+    final moved = FcPickList.moveSelection(event, selected: _selected, count: found.length);
+    if (moved != null) {
+      setState(() => _selected = moved < 0 ? found.length - 1 : moved);
+      return KeyEventResult.handled;
     }
-    widget.onRun(found[_selected.clamp(0, found.length - 1)].$1.id);
+
+    final enter = event.logicalKey == LogicalKeyboardKey.enter || event.logicalKey == LogicalKeyboardKey.numpadEnter;
+    if (enter && (event is KeyDownEvent || event is KeyRepeatEvent)) {
+      if (found.isNotEmpty) {
+        widget.onRun(found[_selected.clamp(0, found.length - 1)].id);
+      }
+      return KeyEventResult.handled;
+    }
+
+    return KeyEventResult.ignored;
   }
 
   @override
   Widget build(BuildContext context) {
-    final theme = FcTheme.of(context);
-    final metrics = theme.metrics;
-    final found = _found;
+    final metrics = FcTheme.of(context).metrics;
 
     return ConstrainedBox(
       constraints: dialogContentLimits(context),
@@ -184,111 +119,11 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
               padding: dialogContentPadding(context),
               child: FcTextField(controller: _query, focusNode: _field, autofocus: true, hintText: 'Command'),
             ),
-            Flexible(
-              child:
-                  found.isEmpty
-                      ? Padding(
-                        padding: EdgeInsets.only(bottom: metrics.dialogPadding),
-                        child: Text('Nothing found', textAlign: TextAlign.center, style: theme.dialogLabelStyle),
-                      )
-                      // Не ленивый список: рама окна меряет содержимое
-                      // (`IntrinsicWidth`), а ленивый на такой вопрос отвечать
-                      // не умеет — да и команд полсотни, лень тут не нужна.
-                      : SingleChildScrollView(
-                        controller: _scroll,
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [for (var i = 0; i < found.length; i++) _row(theme, found[i], i == _selected)],
-                        ),
-                      ),
-            ),
+            Flexible(child: FcPickList(rows: _found, query: _query.text, selected: _selected, onTap: widget.onRun)),
             CommandDialogActions(actions: [FcButton(label: 'Close', onPressed: widget.onClose)]),
           ],
         ),
       ),
     );
-  }
-
-  Widget _row(FcTheme theme, (PaletteItem, PaletteMatch) found, bool selected) {
-    final (item, match) = found;
-    final colors = theme.colors;
-    final metrics = theme.metrics;
-    // Яркое — название команды, приглушённое — модуль и клавиши.
-    //
-    // Роли легко перепутать местами: в теме по умолчанию `dialogLabel` белый, а
-    // `dialogText` — приглушённый синий. Взяв их по именам, я получил ровно
-    // обратное: модуль светился ярче команды, ради которой строку и читают.
-    final base = TextStyle(fontFamily: theme.fonts.ui, fontSize: metrics.fontSize);
-    final bright = base.copyWith(color: selected ? colors.cursorText : colors.dialogLabel);
-    final dim = base.copyWith(color: colors.dialogText);
-
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTap: () => widget.onRun(item.id),
-      child: Container(
-        height: metrics.rowHeight + metrics.rowGap,
-        color: selected ? colors.cursorBackground : null,
-        padding: EdgeInsets.symmetric(horizontal: metrics.dialogHorizontalPadding),
-        alignment: Alignment.centerLeft,
-        child: Row(
-          children: [
-            Expanded(
-              child: Text.rich(
-                TextSpan(
-                  children: [
-                    ..._highlight(item.label, match.labelHits, bright),
-                    // Модуль — сразу за названием и приглушённо: он уточняет,
-                    // чей это «Copy», а не спорит с ним за внимание.
-                    const TextSpan(text: '   '),
-                    ..._highlight(item.owner, match.ownerHits, dim),
-                  ],
-                ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-              ),
-            ),
-            if (item.keys.isNotEmpty) ...[
-              SizedBox(width: metrics.columnGap),
-              Text(item.keys, style: dim.copyWith(fontFamily: theme.fonts.fixed)),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  /// Совпавшие буквы — жирным.
-  ///
-  /// Без этого непонятно, почему строка нашлась: `cpf` в `Copy File` со стороны
-  /// выглядит случайностью.
-  List<TextSpan> _highlight(String text, List<int> hits, TextStyle style) {
-    if (hits.isEmpty) {
-      return [TextSpan(text: text, style: style)];
-    }
-
-    final spans = <TextSpan>[];
-    final marked = hits.toSet();
-    final buffer = StringBuffer();
-    var bold = marked.contains(0);
-
-    void flush() {
-      if (buffer.isNotEmpty) {
-        spans.add(TextSpan(text: buffer.toString(), style: bold ? style.copyWith(fontWeight: FontWeight.bold) : style));
-        buffer.clear();
-      }
-    }
-
-    for (var i = 0; i < text.length; i++) {
-      final now = marked.contains(i);
-      if (now != bold) {
-        flush();
-        bold = now;
-      }
-      buffer.write(text[i]);
-    }
-    flush();
-
-    return spans;
   }
 }

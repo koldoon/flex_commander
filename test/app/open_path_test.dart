@@ -442,6 +442,155 @@ void main() {
     });
   });
 
+  group('история адресов', () {
+    /// Что панель уже успела запомнить.
+    List<String> historyOf(AppRuntime runtime) =>
+        runtime.app.moduleSettings(Navigation.commandId).section(NavigationSettings.new).recentPaths;
+
+    /// Заранее прожитая история — без хождения по каталогам ради неё.
+    void seed(AppRuntime runtime, List<String> paths) {
+      runtime.app.moduleSettings(Navigation.commandId).section(NavigationSettings.new).recentPaths = [...paths];
+    }
+
+    Future<void> openDialog(WidgetTester tester, AppRuntime runtime, {String panel = 'left'}) async {
+      runtime.commands.run(
+        OpenPathCommand.commandId,
+        CommandInvocation(parameters: {OpenPathCommand.panelParam: panel}),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('в историю попадает открытое, а неудачное — нет', (tester) async {
+      final runtime = await app();
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      await tester.pumpAndSettle();
+
+      await openDialog(tester, runtime);
+      await tester.enterText(dialogField(), '/nowhere');
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      // Адрес с опечаткой не должен всплывать в подсказках.
+      expect(historyOf(runtime), isEmpty);
+
+      await tester.enterText(dialogField(), '/etc');
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      expect(historyOf(runtime), ['/etc']);
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
+    testWidgets('история общая: открытое в левой видно в окне правой', (tester) async {
+      final runtime = await app();
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      await tester.pumpAndSettle();
+
+      await openDialog(tester, runtime);
+      await tester.enterText(dialogField(), '/etc');
+      await tester.tap(find.text('Open'));
+      await tester.pumpAndSettle();
+
+      // Ходят в одни и те же места обеими панелями.
+      await openDialog(tester, runtime, panel: 'right');
+      expect(find.text('/etc'), findsWidgets);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
+    testWidgets('стрелка вписывает адрес в поле, а не открывает его', (tester) async {
+      final runtime = await app();
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      seed(runtime, ['/etc', '/home/docs']);
+      await tester.pumpAndSettle();
+
+      await openDialog(tester, runtime);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+
+      // В поле написано то, что откроется, — окно ещё открыто, панель на месте.
+      expect(tester.widget<TextField>(dialogField()).controller?.text, '/etc');
+      expect(runtime.app.left.directory?.pathString, '/home');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(dialogField()).controller?.text, '/home/docs');
+
+      // И открывает всё равно `Enter` — то, что в поле.
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      expect(runtime.app.left.directory?.pathString, '/home/docs');
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
+    testWidgets('вверх с первой строки возвращает набранное руками', (tester) async {
+      final runtime = await app();
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      seed(runtime, ['/home/docs']);
+      await tester.pumpAndSettle();
+
+      await openDialog(tester, runtime);
+      await tester.enterText(dialogField(), '/ho');
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(dialogField()).controller?.text, '/home/docs');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+
+      // Заглянуть в историю не значит потерять то, что печатал.
+      expect(tester.widget<TextField>(dialogField()).controller?.text, '/ho');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
+    testWidgets('набранное отбирает список нечётко', (tester) async {
+      final runtime = await app();
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      seed(runtime, ['/home/docs', '/etc']);
+      await tester.pumpAndSettle();
+
+      await openDialog(tester, runtime);
+      // Тот же отбор, что в палитре: буквы по порядку, но не подряд.
+      await tester.enterText(dialogField(), 'hdo');
+      await tester.pumpAndSettle();
+
+      expect(find.text('/home/docs'), findsOneWidget);
+      expect(find.text('/etc'), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
+    testWidgets('пустая история окна не меняет', (tester) async {
+      final runtime = await app();
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      await tester.pumpAndSettle();
+
+      await openDialog(tester, runtime);
+
+      // Ни списка, ни «ничего не найдено»: поле и кнопки, как раньше.
+      expect(find.text('No matching address in history'), findsNothing);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+  });
+
   group('окно во время работы', () {
     /// Подключение, которое само не кончается: тест держит его открытым ровно
     /// столько, сколько нужно, чтобы посмотреть на окно.

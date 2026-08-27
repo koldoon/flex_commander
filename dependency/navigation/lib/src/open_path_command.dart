@@ -2,6 +2,8 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
+import 'navigation_settings.dart';
+
 /// Открыть в панели произвольный путь — включая адрес чужого источника.
 ///
 /// То же, чем в Norton Commander был выбор диска для панели, только вместо
@@ -15,6 +17,17 @@ import 'package:flutter/widgets.dart';
 /// привязки, а не отдельной командой на каждую: обе клавиши делают одно и то
 /// же.
 class OpenPathCommand extends AppCommand {
+  OpenPathCommand({required this.settings, required this.save});
+
+  /// Раздел модуля: из него берут историю и её предел.
+  ///
+  /// Функцией, а не значением: раздел живёт столько же, сколько приложение, а
+  /// команда пересоздаётся на каждый вызов.
+  final NavigationSettings Function() settings;
+
+  /// Попросить записать раздел на диск: история должна пережить перезапуск.
+  final VoidCallback save;
+
   static const String commandId = 'panel.openPath';
 
   /// Значение параметра [panelParam]: левая или правая.
@@ -72,7 +85,15 @@ class OpenPathCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final panel = panelOf(context);
-    final state = OpenPathDialogState(panel: panel, activate: () => context.app.activate(panel));
+    final history = settings();
+    final state = OpenPathDialogState(
+      panel: panel,
+      activate: () => context.app.activate(panel),
+      remember: (address) {
+        history.remember(address);
+        save();
+      },
+    );
 
     final given = (context.invocation.param<String>(pathParam) ?? '').trim();
     if (given.isNotEmpty) {
@@ -96,7 +117,7 @@ class OpenPathCommand extends AppCommand {
         title: titleOf(context),
         area: areaOf(context),
         takesFocus: true,
-        content: _OpenPathForm(state: state),
+        content: _OpenPathForm(state: state, history: history.shownPaths),
         onSubmit: state.submit,
         onDismiss: state.dismiss,
       ),
@@ -115,13 +136,19 @@ class OpenPathCommand extends AppCommand {
 /// Живёт, пока открыто окно: команда, показав его, уходит. Здесь же и отмена —
 /// прерывают открытие, а не команду.
 class OpenPathDialogState extends ChangeNotifier {
-  OpenPathDialogState({required this.panel, required this.activate});
+  OpenPathDialogState({required this.panel, required this.activate, required this.remember});
 
   final Panel panel;
 
   /// Панель, в которую открыли путь, становится активной: пользователь
   /// смотрит туда, куда только что пришёл.
   final VoidCallback activate;
+
+  /// Записать удавшийся адрес в историю.
+  ///
+  /// Зовётся **после** успеха, а не при отправке: адрес с опечаткой не должен
+  /// всплывать в подсказках.
+  final void Function(String address) remember;
 
   String path = '';
 
@@ -194,6 +221,7 @@ class OpenPathDialogState extends ChangeNotifier {
         error = (panel.error ?? FsError(target, FsErrorKind.notFound)).message;
         return;
       }
+      remember(addressWithoutPassword(target));
       activate();
       close?.call();
     } on FsError catch (failure) {
@@ -234,11 +262,14 @@ class OpenPathDialogState extends ChangeNotifier {
   }
 }
 
-/// Одно поле — путь, строка о ходе работы и две кнопки.
+/// Поле пути, история под ним, строка о ходе работы и две кнопки.
 class _OpenPathForm extends StatefulWidget {
-  const _OpenPathForm({required this.state});
+  const _OpenPathForm({required this.state, required this.history});
 
   final OpenPathDialogState state;
+
+  /// Куда уже ходили, свежие впереди. Пустая — окно выглядит как прежде.
+  final List<String> history;
 
   @override
   State<_OpenPathForm> createState() => _OpenPathFormState();
@@ -250,15 +281,70 @@ class _OpenPathFormState extends State<_OpenPathForm> {
     // правят — достаточно нажать стрелку.
     ..selection = TextSelection(baseOffset: 0, extentOffset: widget.state.path.length);
 
+  /// Клавиши списка разбираются на самом поле — как в палитре.
+  ///
+  /// Стрелки иначе достались бы полю: оно двигает ими курсор внутри строки.
+  late final FocusNode _field = FocusNode(debugLabel: 'open-path', onKeyEvent: _onKey);
+
+  /// Набранное руками — то, чем отбирается список.
+  ///
+  /// Отбирает **оно**, а не содержимое поля: выбранное стрелкой попадает в
+  /// поле целиком, и отбор по нему схлопнул бы список до одной строки — той
+  /// самой, на которой стоишь.
+  ///
+  /// Пустая в начале, хотя в поле уже стоит путь панели: история показывается
+  /// вся. Отбирать её текущим каталогом незачем — его как раз и заменяют.
+  String _typed = '';
+
+  /// Строка истории, на которой стоим; -1 — ни на какой, в поле набранное.
+  int _selected = -1;
+
   @override
   void dispose() {
     _path.dispose();
+    _field.dispose();
     super.dispose();
+  }
+
+  List<FcPickRow> get _found =>
+      FcPickList.filter([for (final path in widget.history) FcPickRow(id: path, title: path)], _typed);
+
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    final found = _found;
+    // Без истории клавиши списка ничего не значат: пусть достаются полю.
+    final moved = FcPickList.moveSelection(event, selected: _selected, count: found.length, wrap: false);
+    if (moved == null) {
+      return KeyEventResult.ignored;
+    }
+
+    setState(() {
+      _selected = moved;
+      // Уход вверх с первой строки возвращает набранное: заглянуть в историю
+      // не значит потерять то, что печатал.
+      _write(moved < 0 ? _typed : found[moved].id);
+    });
+    return KeyEventResult.handled;
+  }
+
+  /// Вписать строку в поле — вместе с курсором в её конце.
+  void _write(String value) {
+    _path.value = TextEditingValue(text: value, selection: TextSelection.collapsed(offset: value.length));
+    widget.state.path = value;
+  }
+
+  /// Набор руками — это и новый отбор, и выход из списка.
+  void _onChanged(String value) {
+    widget.state.path = value;
+    setState(() {
+      _typed = value;
+      _selected = -1;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
+    final theme = FcTheme.of(context);
 
     return ListenableBuilder(
       listenable: state,
@@ -276,15 +362,44 @@ class _OpenPathFormState extends State<_OpenPathForm> {
                 label: 'Path',
                 child: FcTextField(
                   controller: _path,
+                  focusNode: _field,
                   autofocus: true,
                   // Поле остаётся живым и во время работы: выключенное отдало бы
                   // фокус, а вернуть его после отмены было бы нечем — `autofocus`
                   // срабатывает один раз.
                   hintText: '/etc or ssh://user@host/srv',
-                  onChanged: (value) => state.path = value,
+                  onChanged: _onChanged,
                   onSubmitted: (_) => state.submit(),
                 ),
               ),
+              // История — под полем, как список в палитре. Нажатие мышью и
+              // стрелка делают одно и то же: вписывают адрес в поле. Открывает
+              // всегда `Enter`, и открывает он то, что в поле, — одно правило
+              // вместо двух.
+              if (widget.history.isNotEmpty)
+                CommandDialogField.wide(
+                  child: ConstrainedBox(
+                    // Окно не должно расти на всю историю: дальше список
+                    // прокручивается.
+                    constraints: BoxConstraints(
+                      maxWidth: MediaQuery.sizeOf(context).width * theme.metrics.dialogWidthFactor,
+                      maxHeight: (theme.metrics.rowHeight + theme.metrics.rowGap) * _visibleRows,
+                    ),
+                    child: FcPickList(
+                      rows: _found,
+                      query: _typed,
+                      selected: _selected,
+                      onTap: (address) {
+                        _field.requestFocus();
+                        setState(() {
+                          _selected = _found.indexWhere((row) => row.id == address);
+                          _write(address);
+                        });
+                      },
+                      emptyMessage: 'No matching address in history',
+                    ),
+                  ),
+                ),
               // Чем занята панель прямо сейчас. Без этой строки открытие адреса
               // через сервер и два архива выглядит зависшим приложением: сказать о
               // ходе работы есть что, но говорится это в строке состояния панели —
@@ -294,15 +409,16 @@ class _OpenPathFormState extends State<_OpenPathForm> {
                   label: 'Status',
                   // Одной строкой: адреса длинные, а окно не должно расти вниз на
                   // каждой вехе.
-                  child: Text(
-                    message,
-                    style: FcTheme.of(context).dialogTextStyle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
+                  child: Text(message, style: theme.dialogTextStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
                 ),
             ],
           ),
     );
   }
+
+  /// Сколько строк истории видно сразу.
+  ///
+  /// Десять — столько, чтобы список читался с одного взгляда и окно не
+  /// вытеснило собой панель под ним.
+  static const int _visibleRows = 10;
 }
