@@ -18,6 +18,14 @@ class _MetricsWithSides extends DefaultMetrics {
   double get windowSidePadding => 20;
 }
 
+/// И наоборот — без полей: содержимое прижато к краям окна.
+class _MetricsFlush extends DefaultMetrics {
+  const _MetricsFlush();
+
+  @override
+  double get windowSidePadding => 0;
+}
+
 /// Панели как экран: модуль ставит его при запуске, ядро о панелях не знает.
 void main() {
   late AppRuntime runtime;
@@ -110,7 +118,7 @@ void main() {
 
   testWidgets('без полей внешние края открыты: рамке не от чего отделять', (tester) async {
     await runtime.app.start();
-    await pumpScreen(tester);
+    await pumpScreen(tester, metrics: const _MetricsFlush());
 
     expect(borderOf(tester, 0).left.style, BorderStyle.none);
     expect(borderOf(tester, 1).right.style, BorderStyle.none);

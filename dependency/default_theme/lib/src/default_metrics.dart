@@ -49,7 +49,7 @@ class DefaultMetrics extends FcMetrics {
   /// рамку — крутится здесь, и разъезжаться нечему: величина одна на панели,
   /// полосу и ряд кнопок.
   @override
-  double get windowSidePadding => 0;
+  double get windowSidePadding => 5;
 
   @override
   double get panelGap => ref(15);
