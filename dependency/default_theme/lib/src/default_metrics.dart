@@ -46,10 +46,10 @@ class DefaultMetrics extends FcMetrics {
   double get windowTopPadding => ref(20);
 
   @override
-  double get panelGap => ref(20);
+  double get panelGap => ref(15);
 
   @override
-  double get functionBarGap => ref(15);
+  double get functionBarGap => ref(5);
 
   @override
   double get windowBottomPadding => ref(15);
