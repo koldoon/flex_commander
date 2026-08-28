@@ -62,6 +62,13 @@ class AppShell extends StatelessWidget {
     );
   }
 
+  /// Поле у ряда кнопок: общее поле окна за вычетом его собственного выступа.
+  ///
+  /// Ниже нуля не уходит: выступ больше поля означал бы, что ряд вылезает за
+  /// край окна, — а это уже не «ближе к краю», а мимо него.
+  static double _barSidePadding(FcMetrics metrics) =>
+      (metrics.windowSidePadding - metrics.functionBarSideOutset).clamp(0.0, metrics.windowSidePadding);
+
   /// Что стоит между рабочей областью и рядом кнопок.
   ///
   /// Пусто — просвет ставит шелл: это внешняя рамка окна, и полноэкранный
@@ -128,22 +135,32 @@ class AppShell extends StatelessWidget {
             child: ColoredBox(
               // Фон окна ровный: градиента в референсе нет.
               color: theme.colors.windowBackground,
-              // Поля по краям — на всё содержимое разом: панели, полосу под
-              // ними и ряд кнопок. Порознь они разъехались бы, а ряд кнопок
-              // обязан кончаться там же, где панели, которые он подписывает.
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: metrics.windowSidePadding),
-                child: Column(
-                  children: [
-                    SizedBox(height: metrics.windowTopPadding),
-                    Expanded(
+              child: Column(
+                children: [
+                  SizedBox(height: metrics.windowTopPadding),
+                  // Поля по краям — панелям и полосе под ними разом: порознь
+                  // они разъехались бы, а полоса стоит ровно под панелями.
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.symmetric(horizontal: metrics.windowSidePadding),
                       child: ListenableBuilder(listenable: app.view, builder: (context, _) => _workArea(context, app)),
                     ),
-                    ListenableBuilder(listenable: app.view, builder: (context, _) => _belowWorkArea(context, app)),
-                    const FunctionBar(),
-                    SizedBox(height: metrics.windowBottomPadding),
-                  ],
-                ),
+                  ),
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: metrics.windowSidePadding),
+                    child: ListenableBuilder(
+                      listenable: app.view,
+                      builder: (context, _) => _belowWorkArea(context, app),
+                    ),
+                  ),
+                  // Ряд кнопок стоит ближе к краям: он рисованная клавиатура, и
+                  // общая рамка ему ни к чему.
+                  Padding(
+                    padding: EdgeInsets.symmetric(horizontal: _barSidePadding(metrics)),
+                    child: const FunctionBar(),
+                  ),
+                  SizedBox(height: metrics.windowBottomPadding),
+                ],
               ),
             ),
           ),

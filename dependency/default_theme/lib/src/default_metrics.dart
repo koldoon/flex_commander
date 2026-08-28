@@ -140,6 +140,11 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get functionBarRightPadding => ref(30);
 
+  /// Пять точек: ровно столько, сколько отведено полям окна, — то есть ряд
+  /// прижат к краям, как в референсе, где полей не было вовсе.
+  @override
+  double get functionBarSideOutset => 5;
+
   // --- окна команд (TitledPopupPanelSkin) ---
 
   @override

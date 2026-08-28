@@ -148,10 +148,11 @@ void main() {
     expect(panels.left - window.left, 20);
     expect(window.right - panels.right, 20);
 
-    // Ряд кнопок отступает вместе с панелями: он их подписывает и обязан
-    // кончаться там же, где они.
+    // Ряд кнопок стоит ближе к краям — ровно на свой выступ: он рисованная
+    // клавиатура, и общая рамка окна ему ни к чему.
+    const outset = 5.0;
     final bar = tester.getRect(find.byType(FunctionBar));
-    expect(bar.left, panels.left);
-    expect(bar.right, panels.right);
+    expect(panels.left - bar.left, outset);
+    expect(bar.right - panels.right, outset);
   });
 }

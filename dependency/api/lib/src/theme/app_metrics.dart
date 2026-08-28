@@ -130,6 +130,13 @@ abstract class FcMetrics {
   /// Зазор между кнопками: `horizontalGap="20"`.
   double get functionButtonGap;
 
+  /// На сколько ряд кнопок шире остального содержимого — с каждой стороны.
+  ///
+  /// Ряд стоит ближе к краям окна, чем панели над ним: кнопки — рисованная
+  /// клавиатура, и им место у самого края, а не в общей рамке. Вычитается из
+  /// [windowSidePadding]; больше него не бывает — ряд не вылезает за окно.
+  double get functionBarSideOutset;
+
   /// Поле справа у ряда кнопок: `paddingRight="30"`.
   double get functionBarRightPadding;
 
