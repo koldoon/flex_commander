@@ -10,21 +10,21 @@ permissions:
 
 jobs:
   release:
-    runs-on: [self-hosted, macOS]
-    timeout-minutes: 60
+    # Обычный раннер GitHub. `macos-latest` — это arm64 (macOS 26), поэтому имя
+    # артефакта ниже говорит правду про архитектуру.
+    runs-on: macos-latest
+    timeout-minutes: 90
 
     steps:
       - uses: actions/checkout@v7
 
-      # Агент запускается службой и не читает ~/.zprofile, поэтому SDK добавляем в PATH сами.
-      # Путь можно переопределить переменной репозитория FLUTTER_ROOT.
-      - name: Flutter SDK в PATH
-        run: |
-          if ! command -v flutter >/dev/null 2>&1; then
-            echo "${FLUTTER_ROOT}/bin" >> "$GITHUB_PATH"
-          fi
-        env:
-          FLUTTER_ROOT: ${{ vars.FLUTTER_ROOT || '/Users/koldoon/Developer/Flutter' }}
+      # SDK ставит action, а не образ: на macOS-раннерах Flutter не предустановлен.
+      # Версия та же, что в CI, — выпуск должен собираться тем же, чем проверялся.
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.44.9
+          channel: stable
+          cache: true
 
       # Номер версии — из тега (v1.2.3 -> 1.2.3), номер сборки — счётчик прогонов.
       # pubspec.yaml при этом не трогаем.
@@ -35,7 +35,13 @@ jobs:
           echo "name=${tag#v}" >> "$GITHUB_OUTPUT"
           echo "tag=${tag}" >> "$GITHUB_OUTPUT"
 
-      # Релиз собираем с нуля: остатки от CI-прогонов в артефакт попасть не должны.
+      # Раннер и так одноразовый, но `flutter clean` оставлен намеренно: тот же
+      # workflow запускают вручную (workflow_dispatch), и там чистота не дана.
+      #
+      # Подписи у раннера нет: проект собирается ad-hoc
+      # (`CODE_SIGN_IDENTITY = "-"`). Значит, скачанное приложение нужно один раз
+      # выпустить из карантина — `xattr -dr com.apple.quarantine`, — пока у
+      # проекта нет сертификата разработчика и нотаризации.
       - name: Чистая сборка
         run: |
           flutter clean

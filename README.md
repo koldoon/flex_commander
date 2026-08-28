@@ -288,7 +288,8 @@ what you meant to change.
 Some tests need something real and skip themselves when it is missing: `FC_SSH_TEST_HOST`
 enables the live SSH tests, `FC_BENCH=1` enables the directory-listing benchmark, and the
 live 7z tests skip when the program is not installed. Workflows are in
-[`.github/workflows/`](.github/workflows/) and run on a self-hosted macOS runner.
+[`.github/workflows/`](.github/workflows/) and run on GitHub's own `macos-latest`
+runner (arm64), with the Flutter SDK pinned to the version used for development.
 
 ## Architecture
 
