@@ -221,6 +221,7 @@ class _FileTableState extends State<FileTable> {
                           columns: columns,
                           widths: widths,
                           color: theme.colors.columnDivider,
+                          inset: theme.metrics.strokeWidth,
                         ),
                       ),
                     ),
@@ -325,11 +326,18 @@ class _FileTableState extends State<FileTable> {
 /// Линейка не рисуется между именем и расширением: расширение — продолжение
 /// имени, а не отдельная величина (так же в макете).
 class _ColumnDividersPainter extends CustomPainter {
-  const _ColumnDividersPainter({required this.columns, required this.widths, required this.color});
+  const _ColumnDividersPainter({required this.columns, required this.widths, required this.color, required this.inset});
 
   final List<ColumnSpec> columns;
   final List<double> widths;
   final Color color;
+
+  /// На сколько линейка не доходит до низа.
+  ///
+  /// В референсе разделители колонок не сходятся с линейкой над строкой
+  /// состояния: между ними остаётся волосок фона. Сойдись они — получился бы
+  /// перекрёсток, и глаз читал бы его как рамку таблицы, которой нет.
+  final double inset;
 
   static const Set<FsColumn> _noLeftDivider = {FsColumn.icon, FsColumn.name, FsColumn.ext};
 
@@ -344,7 +352,7 @@ class _ColumnDividersPainter extends CustomPainter {
     for (var i = 0; i < columns.length; i++) {
       if (i > 0 && !_noLeftDivider.contains(columns[i].id)) {
         final dx = x.roundToDouble() + 0.5;
-        canvas.drawLine(Offset(dx, 0), Offset(dx, size.height), paint);
+        canvas.drawLine(Offset(dx, 0), Offset(dx, size.height - inset), paint);
       }
       x += widths[i];
     }
@@ -353,6 +361,7 @@ class _ColumnDividersPainter extends CustomPainter {
   @override
   bool shouldRepaint(_ColumnDividersPainter oldDelegate) =>
       oldDelegate.color != color ||
+      oldDelegate.inset != inset ||
       !identical(oldDelegate.columns, columns) ||
       !_sameWidths(oldDelegate.widths, widths);
 

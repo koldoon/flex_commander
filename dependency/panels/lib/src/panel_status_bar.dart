@@ -21,22 +21,38 @@ class PanelStatusBar extends StatelessWidget {
       listenable: Listenable.merge([panel, panel.selection]),
       builder: (context, _) {
         final error = panel.status == PanelStatus.error;
-        return Container(
+        final stroke = theme.metrics.strokeWidth;
+
+        return SizedBox(
           height: theme.metrics.statusBarHeight,
-          // Поле слева и справа: рамка полосы и текст не должны сходиться
-          // вплотную. Ролями, а не числом, — иначе отступ останется прежним
-          // при любом масштабе темы, а всё вокруг него уедет
-          // (`DefaultMetrics(scale: 0.8)` — это «крупная» тема).
-          padding: EdgeInsets.symmetric(horizontal: theme.metrics.labelPadding + theme.metrics.cellPadding),
-          alignment: Alignment.centerLeft,
-          decoration: BoxDecoration(
-            border: Border(top: BorderSide(color: theme.colors.columnDivider, width: theme.metrics.strokeWidth)),
-          ),
-          child: Text.rich(
-            _content(theme),
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: error ? theme.statusStyle.copyWith(color: theme.colors.error) : theme.statusStyle,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Линейка не доходит до рамки панели — ровно на её толщину, как в
+              // референсе. Дойди она до края, получился бы угол, и полоса
+              // читалась бы отдельной коробкой, а не низом той же панели.
+              Padding(
+                padding: EdgeInsets.symmetric(horizontal: stroke),
+                child: SizedBox(height: stroke, child: ColoredBox(color: theme.colors.columnDivider)),
+              ),
+              Expanded(
+                child: Container(
+                  // Поле слева и справа: рамка полосы и текст не должны
+                  // сходиться вплотную. Ролями, а не числом, — иначе отступ
+                  // останется прежним при любом масштабе темы, а всё вокруг
+                  // него уедет (`DefaultMetrics(scale: 0.8)` — это «крупная»
+                  // тема).
+                  padding: EdgeInsets.symmetric(horizontal: theme.metrics.labelPadding + theme.metrics.cellPadding),
+                  alignment: Alignment.centerLeft,
+                  child: Text.rich(
+                    _content(theme),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: error ? theme.statusStyle.copyWith(color: theme.colors.error) : theme.statusStyle,
+                  ),
+                ),
+              ),
+            ],
           ),
         );
       },
