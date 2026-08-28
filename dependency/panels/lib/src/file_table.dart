@@ -298,35 +298,36 @@ class _FileTableState extends State<FileTable> {
   }
 
   /// Подсветка того, куда попадёт брошенное: строка или вся панель.
+  ///
+  /// Строение дерева при этом **не меняется**: слой подсветки стоит всегда, а
+  /// подсветка живёт внутри него рисунком. Иначе появление подсветки означало
+  /// бы новое строение — список пересобирался бы заново, и прокрутка падала к
+  /// началу. Ровно это и случилось: стоило потащить файл наружу, как панель
+  /// перематывалась наверх, потому что указатель по дороге проходил над своим
+  /// же окном и зажигал подсветку.
   Widget _withHighlight(FcTheme theme, Widget content, DropSpot? hovered) {
-    if (hovered == null) {
-      return content;
-    }
-    final color = theme.colors.cursorBackground;
-    final width = theme.metrics.strokeWidth * 2;
-    final node = hovered.node;
+    final node = hovered?.node;
     final index = node == null ? -1 : widget.panel.nodes.indexOf(node);
     final offset = _scroll.hasClients ? _scroll.offset : 0.0;
 
     return Stack(
       children: [
         content,
-        if (index >= 0)
-          Positioned(
-            top: _headerHeight + index * _rowHeight - offset,
-            left: 0,
-            right: 0,
-            height: _rowHeight,
-            child: IgnorePointer(
-              child: DecoratedBox(decoration: BoxDecoration(border: Border.all(color: color, width: width))),
-            ),
-          )
-        else
-          Positioned.fill(
-            child: IgnorePointer(
-              child: DecoratedBox(decoration: BoxDecoration(border: Border.all(color: color, width: width))),
+        Positioned.fill(
+          child: IgnorePointer(
+            child: CustomPaint(
+              painter: _DropHighlightPainter(
+                // Ни строки, ни области — рисовать нечего: перетаскивания нет
+                // или оно не над нами.
+                top: hovered == null ? null : (index < 0 ? null : _headerHeight + index * _rowHeight - offset),
+                height: _rowHeight,
+                whole: hovered != null && index < 0,
+                color: theme.colors.cursorBackground,
+                width: theme.metrics.strokeWidth * 2,
+              ),
             ),
           ),
+        ),
       ],
     );
   }
@@ -495,4 +496,48 @@ class _ColumnDividersPainter extends CustomPainter {
     }
     return true;
   }
+}
+
+/// Рамка вокруг того, куда попадёт брошенное.
+///
+/// Рисунок, а не виджет с рамкой: подсветка появляется и гаснет посреди
+/// перетаскивания, и менять ради неё строение дерева нельзя — список
+/// пересобрался бы, а вместе с ним потерялась бы прокрутка.
+class _DropHighlightPainter extends CustomPainter {
+  const _DropHighlightPainter({
+    required this.top,
+    required this.height,
+    required this.whole,
+    required this.color,
+    required this.width,
+  });
+
+  /// Верх подсвечиваемой строки; null — строки нет.
+  final double? top;
+  final double height;
+
+  /// Подсвечивается вся область: бросили мимо строк.
+  final bool whole;
+
+  final Color color;
+  final double width;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final rect = whole ? Offset.zero & size : (top == null ? null : Rect.fromLTWH(0, top!, size.width, height));
+    if (rect == null) {
+      return;
+    }
+    canvas.drawRect(
+      rect.deflate(width / 2),
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = width
+        ..color = color,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_DropHighlightPainter old) =>
+      old.top != top || old.height != height || old.whole != whole || old.color != color || old.width != width;
 }

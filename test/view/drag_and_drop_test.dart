@@ -7,6 +7,7 @@ import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/modules/dnd/system_drag_and_drop.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -177,6 +178,50 @@ void main() {
 
       expect(asked, isEmpty);
     });
+  });
+
+  testWidgets('подсветка приёмника не трогает прокрутку', (tester) async {
+    // Найдено на живом: стоило потащить файл наружу, как панель перематывалась
+    // к началу списка. Указатель по дороге проходит над своим же окном и
+    // зажигает подсветку, а та меняла строение дерева — список пересобирался
+    // заново и терял прокрутку вместе с положением.
+    final long = await testApp(
+      provider: InMemoryTreeProvider([
+        FakeEntry.directory('/home'),
+        for (var i = 0; i < 60; i++) FakeEntry.file('/home/file-$i.txt', size: 10),
+      ])..home = '/home',
+      modules: featureModules(),
+    );
+    await long.app.start();
+
+    tester.view.physicalSize = const Size(802, 621);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(FlexCommanderApp(controller: long.app));
+    await tester.pumpAndSettle();
+
+    long.app.left.setCursorIndex(55);
+    await tester.pumpAndSettle();
+
+    final scrollable = find.descendant(of: find.byType(FileTable).first, matching: find.byType(Scrollable)).first;
+    final scrolled = tester.state<ScrollableState>(scrollable).position.pixels;
+    expect(scrolled, greaterThan(0), reason: 'список должен быть прокручен, иначе проверять нечего');
+
+    final table = tester.getRect(find.byType(FileTable).first);
+    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
+      SystemDropService.channelName,
+      const StandardMethodCodec().encodeMethodCall(
+        MethodCall('dragEntered', {
+          'x': table.left + table.width / 2,
+          'y': table.top + table.height / 2,
+          'paths': const <String>['/home/file-1.txt'],
+        }),
+      ),
+      (_) {},
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.state<ScrollableState>(scrollable).position.pixels, scrolled);
   });
 
   testWidgets('без модуля перетаскивания панели работают как раньше', (tester) async {
