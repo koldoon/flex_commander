@@ -241,7 +241,7 @@ class ProviderRegistry {
 ## 10. Ход работы
 
 Спецификация написана до того, как монтирование и подключение стали
-**операциями** с вехами и отменой (`660e9fc`, `2209b93`, `5215321`). Отсюда
+**операциями** с вехами и отменой (`c904938`, `e6cbd67`, `9237bb2`). Отсюда
 поправки к §3:
 
 * `acquire` и `acquireAddress` отдают `AsyncOperation<ProviderLease>`, а не
@@ -259,7 +259,7 @@ class ProviderRegistry {
 
 - [x] 1. Таблица, `ProviderLease`, `acquire`/`acquireAddress`/`leaseOf`;
       `mounted`, `disposeAll`. Тесты — группа «аренда смонтированного» в
-      `test/model/provider_registry_test.dart` (`dcf9a88`).
+      `test/model/provider_registry_test.dart` (`ed61177`).
 - [x] 2. `resolvePath`/`resolveDisplayPath` отдают `ResolvedNode`; `reuse:` и
       публичный `mount` исчезли, `openAddress` стал `acquireAddress`.
 - [x] 3. Панель живёт на двух арендах: своего корня (адрес) и текущего
