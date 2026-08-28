@@ -185,6 +185,12 @@ class ToggleTerminalCommand extends AppCommand {
 
   final ShellSession Function() shell;
 
+  /// Работающая команда, убранная с глаз этой же клавишей.
+  ///
+  /// Держится здесь, потому что вернуть её больше некому: в области её уже нет,
+  /// а процесс продолжает работать.
+  CommandRunScreen? _hidden;
+
   @override
   String get id => commandId;
 
@@ -205,8 +211,26 @@ class ToggleTerminalCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final view = context.app.view;
-    if (view.contentAt(ViewportPosition.fullscreen) is TerminalScreen) {
+    final content = view.contentAt(ViewportPosition.fullscreen);
+
+    // Над работающей командой вторая оболочка не встаёт: `Ctrl-O` — это «туда и
+    // обратно», а не «ещё один терминал». Экран убирается с глаз, процесс
+    // продолжает работать, и та же клавиша возвращает к нему.
+    if (content is CommandRunScreen) {
+      _hidden = content;
       view.popViewportContent(ViewportPosition.fullscreen);
+      return;
+    }
+    if (content is TerminalScreen) {
+      view.popViewportContent(ViewportPosition.fullscreen);
+      return;
+    }
+    // Обратно — туда же, откуда ушли: спрятанная команда возвращается прежде,
+    // чем заводится оболочка.
+    final hidden = _hidden;
+    if (hidden != null) {
+      _hidden = null;
+      view.pushViewportContent(ViewportPosition.fullscreen, hidden);
       return;
     }
     // Сессия заводится здесь и только здесь: приложение, в котором терминал ни

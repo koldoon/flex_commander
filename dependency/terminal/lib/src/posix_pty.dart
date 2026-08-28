@@ -19,11 +19,13 @@ import 'package:ffi/ffi.dart';
 /// не разветвляет процесс в пространстве пользователя вовсе: ядро само создаёт
 /// потомка и запускает в нём программу.
 ///
-/// Управляющий терминал потомок получает так же, без `fork`: `POSIX_SPAWN_SETSID`
-/// делает его главой сессии, а первое открытие терминала главой сессии без
-/// управляющего терминала (`addopen` на дескриптор 0) этот терминал ему и
-/// назначает — правило BSD, действующее и на macOS. Без этого `vim` и `htop`
-/// работали бы, а `/dev/tty`, управление заданиями и `Ctrl-C` — нет.
+/// **Управляющий терминал.** `POSIX_SPAWN_SETSID` делает потомка главой сессии,
+/// но терминала ему этим не назначает: открытие ведомой стороны файловым
+/// действием управляющим её не делает — проверено, `ps` показывает `??` вместо
+/// `ttys00N`. Поэтому терминал открывается ещё раз **изнутри сессии** — этим
+/// занята однострочная обёртка `/bin/sh`, которая тут же заменяет себя
+/// программой (см. `start`). Без управляющего терминала `vim` и `htop`
+/// работают, а `Ctrl-C`, `Ctrl-Z`, управление заданиями и `/dev/tty` — нет.
 class PosixPty {
   PosixPty._(this.master, this.pid, this.slavePath);
 
@@ -52,6 +54,14 @@ class PosixPty {
   }) {
     if (!supported) {
       throw PtyError('A pseudo-terminal is not supported on ${Platform.operatingSystem}');
+    }
+
+    // Программу ищет обёртка, а не мы, и «нет такой» она скажет уже своим
+    // выводом и кодом 127 — когда терминал уже открыт и запуск считается
+    // удавшимся. Полный путь поэтому проверяется здесь: несуществующая
+    // оболочка из настроек должна отвечать словами сразу, как и раньше.
+    if (executable.startsWith('/') && !File(executable).existsSync()) {
+      throw PtyError('Could not start $executable: ${_errorText(2)}');
     }
 
     final libc = _Libc.instance;
@@ -101,7 +111,25 @@ class PosixPty {
       // Ведущая сторона потомку не нужна вовсе, и оставлять её ему нельзя:
       // пока она открыта хоть кем-то, чтение не увидит конца.
       _check(libc.fileActionsAddClose(actions, master), 'posix_spawn_file_actions_addclose');
-      _check(libc.attrSetFlags(attributes, _posixSpawnSetsid), 'posix_spawnattr_setflags');
+      // Сигналы потомку достаются от нас, и это не то, чего хочется: часть из
+      // них виртуальная машина Dart ловит, часть держит закрытой в своих
+      // потоках, и `exec` это переживает — унаследованный `SIG_IGN` остаётся
+      // `SIG_IGN`, закрытая маска остаётся закрытой. Поэтому обработка
+      // сбрасывается на умолчание, а маска открывается: у запущенного из
+      // терминала должно быть ровно то, с чем он запускается из терминала.
+      //
+      // Само по себе это `Ctrl-C` не чинило — тому мешало другое (ниже, про
+      // управляющий терминал), — но остаётся здесь как условие правильного
+      // запуска, а не как догадка.
+      final signals = arena<Uint8>(_sigsetBytes);
+      _check(libc.sigfillset(signals.cast()), 'sigfillset');
+      _check(libc.attrSetSigDefault(attributes, signals.cast()), 'posix_spawnattr_setsigdefault');
+      _check(libc.sigemptyset(signals.cast()), 'sigemptyset');
+      _check(libc.attrSetSigMask(attributes, signals.cast()), 'posix_spawnattr_setsigmask');
+      _check(
+        libc.attrSetFlags(attributes, _posixSpawnSetsid | _posixSpawnSetSigDef | _posixSpawnSetSigMask),
+        'posix_spawnattr_setflags',
+      );
 
       if (workingDirectory != null) {
         // Каталога в файловых действиях нет на Linux со старой glibc, поэтому
@@ -112,13 +140,38 @@ class PosixPty {
         _check(libc.fileActionsAddChdir(actions, workingDirectory.toNativeUtf8(allocator: arena)), 'addchdir');
       }
 
-      final argv = _toArray(arena, [executable, ...arguments]);
+      // Управляющий терминал потомку **не достаётся сам**, и это стоило
+      // отладки: `POSIX_SPAWN_SETSID` делает его главой сессии, но открытие
+      // ведомой стороны файловым действием терминала ему не назначает — `ps`
+      // показывает `??` вместо `ttys00N`, а `TPGID` нулевой. Группы переднего
+      // плана у терминала нет, и `Ctrl-C` некому послать `SIGINT`: программа
+      // печатала `^C` и продолжала работать. Из под `bash` то же самое
+      // работало, из под `zsh` — нет: `bash` открывает терминал сам, `zsh` не
+      // открывает, и зависеть от этого нельзя.
+      //
+      // Поэтому между нами и программой встаёт `/bin/sh` — ровно на один
+      // вызов: он открывает терминал **изнутри сессии** (первое открытие
+      // главой сессии терминал ей и назначает — правило BSD и Linux) и тут же
+      // заменяет себя программой. Лишнего процесса не остаётся: `exec`.
+      //
+      // Вместе с управляющим терминалом заработало всё, что от него зависит:
+      // `Ctrl-C` и `Ctrl-Z`, управление заданиями в оболочке, `/dev/tty` —
+      // тот самый, у которого `ssh` и `sudo` спрашивают пароль.
+      final argv = _toArray(arena, [
+        _wrapper,
+        '-c',
+        r'exec 0<>"$1"; shift; exec "$@"',
+        'sh',
+        slavePath,
+        executable,
+        ...arguments,
+      ]);
       final envp = _toArray(arena, [
         for (final entry in _environmentFor(environment).entries) '${entry.key}=${entry.value}',
       ]);
       final pid = arena<Int32>();
 
-      final code = libc.spawnp(pid, executable.toNativeUtf8(allocator: arena).cast(), actions, attributes, argv, envp);
+      final code = libc.spawnp(pid, _wrapper.toNativeUtf8(allocator: arena).cast(), actions, attributes, argv, envp);
       libc.fileActionsDestroy(actions);
       libc.attrDestroy(attributes);
       if (slave >= 0) {
@@ -245,7 +298,19 @@ const int _oRdwr = 0x2;
 final int _oNoctty = Platform.isMacOS ? 0x20000 : 0x100;
 final int _tiocswinsz = Platform.isMacOS ? 0x80087467 : 0x5414;
 final int _posixSpawnSetsid = Platform.isMacOS ? 0x0400 : 0x80;
+
+/// Сбросить обработку сигналов на умолчание и открыть маску. Значения у macOS
+/// и Linux совпадают — в отличие от `SETSID`.
+const int _posixSpawnSetSigDef = 0x0004;
+const int _posixSpawnSetSigMask = 0x0008;
+
+/// Размер `sigset_t`: на macOS это четыре байта, на Linux — сто двадцать
+/// восемь. Берём больший: заполняют его сами `sigfillset` и `sigemptyset`.
+const int _sigsetBytes = 128;
 const int _sigterm = 15;
+
+/// Кем открывается терминал изнутри сессии — см. `start`.
+const String _wrapper = '/bin/sh';
 
 /// Что и с каким исходом ждать: `struct pollfd`.
 final class _PollFd extends Struct {
@@ -371,6 +436,21 @@ class _Libc {
       .lookupFunction<Int32 Function(Pointer<Pointer<Void>>), int Function(Pointer<Pointer<Void>>)>(
         'posix_spawnattr_destroy',
       );
+  late final attrSetSigDefault = _library.lookupFunction<
+    Int32 Function(Pointer<Pointer<Void>>, Pointer<Void>),
+    int Function(Pointer<Pointer<Void>>, Pointer<Void>)
+  >('posix_spawnattr_setsigdefault');
+  late final attrSetSigMask = _library.lookupFunction<
+    Int32 Function(Pointer<Pointer<Void>>, Pointer<Void>),
+    int Function(Pointer<Pointer<Void>>, Pointer<Void>)
+  >('posix_spawnattr_setsigmask');
+  late final sigfillset = _library.lookupFunction<Int32 Function(Pointer<Void>), int Function(Pointer<Void>)>(
+    'sigfillset',
+  );
+  late final sigemptyset = _library.lookupFunction<Int32 Function(Pointer<Void>), int Function(Pointer<Void>)>(
+    'sigemptyset',
+  );
+
   late final attrSetFlags = _library
       .lookupFunction<Int32 Function(Pointer<Pointer<Void>>, Int16), int Function(Pointer<Pointer<Void>>, int)>(
         'posix_spawnattr_setflags',

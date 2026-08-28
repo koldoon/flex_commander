@@ -29,6 +29,15 @@ class _CommandLineViewState extends State<CommandLineView> {
     super.initState();
     view.addListener(_syncFocus);
     _node.addListener(_onFocusChanged);
+    // Строку могли собрать **заново уже с вводом за ней**: под полноэкранным её
+    // нет вовсе, и когда оно уходит — это новый виджет с новым узлом фокуса.
+    // Слушатель тут не поможет, менять больше нечего: область и была `bottom`.
+    //
+    // Без этого курсора не оказывалось нигде. Состояние говорило «ввод у
+    // строки», поле было пустым и не мигало, а `Cmd-T` — привязка панельная —
+    // до команды не доходила вовсе: короткий сигнал и ничего. Выбраться можно
+    // было только `Esc`.
+    WidgetsBinding.instance.addPostFrameCallback((_) => _syncFocus());
   }
 
   @override
@@ -80,6 +89,9 @@ class _CommandLineViewState extends State<CommandLineView> {
   }
 
   void _syncFocus() {
+    if (!mounted) {
+      return;
+    }
     final mine = view.activeArea == ViewportPosition.bottom;
     if (mine && !_node.hasFocus) {
       _node.requestFocus();

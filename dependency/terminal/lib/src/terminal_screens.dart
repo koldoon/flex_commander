@@ -43,8 +43,15 @@ class CommandRunScreen extends ChangeNotifier implements ViewportState {
   @override
   bool get takesKeyboard => true;
 
+  /// Убрана с глаз, но работает: `Ctrl-O` вернёт к ней.
+  ///
+  /// Различать это важно: `close` у области означает «состояние убрали», а
+  /// убрать с глаз работающую команду и прекратить её — не одно и то же.
   @override
   void close() {
+    if (!finished) {
+      return;
+    }
     session.removeListener(notifyListeners);
     session.dispose();
   }

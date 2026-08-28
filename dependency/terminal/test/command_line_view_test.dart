@@ -108,6 +108,37 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('экран отработавшей команды ушёл — курсор вернулся в строку', (tester) async {
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    runtime.commands.dispatch(KeyCombination.parse('Cmd-T'));
+    await tester.pumpAndSettle();
+    await tester.enterText(lineField(), 'ls');
+    await tester.pumpAndSettle();
+
+    runtime.commands.dispatch(KeyCombination.parse('Enter'));
+    await tester.pumpAndSettle();
+    pty.session.emit('alpha.txt\r\n');
+    pty.session.exit(0);
+    await tester.pumpAndSettle();
+
+    // Под полноэкранным экраном строки нет вовсе — она собирается заново, когда
+    // он уходит, и это новый узел фокуса.
+    expect(find.byType(CommandLineView), findsNothing);
+
+    runtime.commands.dispatch(KeyCombination.parse('Esc'));
+    await tester.pumpAndSettle();
+
+    // Ввод по-прежнему числится за строкой — значит и курсор должен быть в ней.
+    // Разъедься они, `Cmd-T` (привязка панельная) до команды бы не дошла:
+    // короткий сигнал и ничего, выбраться только `Esc`.
+    expect(runtime.app.view.activeArea, ViewportPosition.bottom);
+    expect(FocusManager.instance.primaryFocus?.debugLabel, 'command line');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('фокус увели мимо нас — ввод возвращается панели', (tester) async {
     await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
     await tester.pumpAndSettle();

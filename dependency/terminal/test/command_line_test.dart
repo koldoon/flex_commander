@@ -103,6 +103,36 @@ void main() {
       expect(app.view.activeArea, ViewportPosition.bottom);
     });
 
+    test('Ctrl-O убирает работающую команду с глаз, а не ставит вторую оболочку', () async {
+      press('Cmd-T');
+      type('tail -f log');
+      press('Enter');
+      await pumpEventQueue();
+      pty.session.emit('первая строка\r\n');
+      await pumpEventQueue();
+
+      final screen = app.view.contentAt(ViewportPosition.fullscreen);
+      expect(screen, isA<CommandRunScreen>());
+
+      // Раньше поверх работающей команды вставал второй полноэкранный терминал:
+      // выглядело это как два одинаковых экрана, между которыми и переключаешься.
+      expect(press('Ctrl-O'), isTrue);
+      await pumpEventQueue();
+      expect(app.view.contentAt(ViewportPosition.fullscreen), isNull);
+      expect(pty.sessions, hasLength(1), reason: 'второй оболочки не заводится');
+      expect(pty.session.killed, isFalse, reason: 'процесс продолжает работать');
+
+      // Обратно — туда же, откуда ушли, и к тому же самому экрану.
+      expect(press('Ctrl-O'), isTrue);
+      await pumpEventQueue();
+      expect(app.view.contentAt(ViewportPosition.fullscreen), same(screen));
+
+      pty.session.exit(0);
+      await pumpEventQueue();
+      expect(press('Esc'), isTrue);
+      expect(app.view.contentAt(ViewportPosition.fullscreen), isNull);
+    });
+
     test('молчаливая успешная команда экрана не показывает', () async {
       press('Cmd-T');
       type('mkdir new');

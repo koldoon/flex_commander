@@ -131,7 +131,11 @@ through, and what there is to choose from is listed above the line. While that l
 path, not launching it — and `Esc` gives you back what you typed. Function keys and `↑`/`↓` still belong to the panels
 while you type, so `F5` copies and the cursor keeps moving. The pseudo-terminal is
 `posix_openpt` plus `posix_spawn` through `dart:ffi`: no native plugin, so the macOS build
-stays on Swift Package Manager, and a real shell can be driven from `flutter test`.
+stays on Swift Package Manager, and a real shell can be driven from `flutter test`. The
+program gets a real controlling terminal, so `Ctrl+C` and `Ctrl+Z` are signals rather than
+characters, job control works, and `/dev/tty` — the one `ssh` and `sudo` ask for a
+password on — is there. `Ctrl+O` over a running command puts it out of sight and brings it
+back, rather than stacking a second terminal on top.
 
 **Running programs.** `Enter` on a file with the `+x` bit does not hand it to the
 system — it **runs** it, in the terminal, in the panel's directory, with the same

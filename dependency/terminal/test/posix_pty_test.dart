@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:fc_terminal/fc_terminal.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -35,6 +36,23 @@ void main() {
 
     expect(text, contains('привет'));
     expect(code, 0);
+  });
+
+  test('Ctrl-C прерывает программу, а не только печатает ^C', () async {
+    final session = const SystemPtyLauncher().start(
+      executable: '/bin/cat',
+      environment: const {'TERM': 'dumb', 'LANG': 'en_US.UTF-8'},
+    );
+    // `cat` без аргументов ждёт ввода вечно — как раз то, из чего человек и
+    // выходит по `Ctrl-C`.
+    await Future<void>.delayed(const Duration(milliseconds: 300));
+    session.write(Uint8List.fromList([3]));
+
+    // Сигнал шлёт драйвер терминала — той группе процессов, что стоит у него на
+    // переднем плане. Пока у программы не было **управляющего** терминала,
+    // группы этой не существовало вовсе: `^C` исправно печатался, а `SIGINT`
+    // слать было некому, и выйти из `cat` было нельзя ничем, кроме `kill`.
+    await expectLater(session.exitCode.timeout(const Duration(seconds: 5)), completes);
   });
 
   test('код возврата доходит целым', () async {
