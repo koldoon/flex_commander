@@ -90,8 +90,21 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
       }
 
       // Архив внутри архива или на сервере: открыт через временную копию.
-      // Писать в неё бессмысленно — изменения ушли бы вместе с копией, — и
-      // потому такой архив остаётся только для чтения.
+      // Писать в неё можно — если есть кому вернуть: пересобранный архив
+      // уезжает обратно хозяину (`WriteBack`). Умения хозяина проверяются
+      // сразу: принять содержимое и переименовать. Не умеет — архив остаётся
+      // читающим, и панель честно показывает файловые операции недоступными.
+      if (WriteBack.possible(host)) {
+        return WritableZipTreeProvider._(
+          archivePath: path,
+          host: host,
+          index: index,
+          credentials: credentials,
+          staging: staging,
+          copy: session,
+        );
+      }
+
       return ZipTreeProvider._(archivePath: path, host: host, index: index, credentials: credentials, session: session);
     } on Object {
       // Битый архив или отмена: копия не должна пережить неудачу.

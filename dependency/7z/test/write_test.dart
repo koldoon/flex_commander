@@ -142,7 +142,7 @@ void main() {
 
       // Внутри работы: программу ещё не звали, а панель уже должна показывать
       // то, что в архив кладут, — иначе копирование выглядит бездействием.
-      await provider.beginWrites();
+      await provider.beginWrites(FakeOperationContext());
       final sink = await provider.openWrite(provider.rootDirectory, 'added.txt');
       sink.add(utf8.encode('12345'));
       await sink.close();
@@ -150,7 +150,7 @@ void main() {
       final node = await provider.resolvePath().run('/added.txt');
       expect((node! as FileNode).size, 5);
 
-      await provider.endWrites();
+      await provider.endWrites(FakeOperationContext());
     });
 
     test('после работы дерево берётся у программы, а не из своих догадок', () async {
@@ -222,12 +222,12 @@ void main() {
     test('удалённое исчезает из панели сразу', () async {
       final provider = await open();
 
-      await provider.beginWrites();
+      await provider.beginWrites(FakeOperationContext());
       await provider.deleteEntry((await provider.resolvePath().run('/docs/readme.txt'))!);
 
       expect(await provider.resolvePath().run('/docs/readme.txt'), isNull);
 
-      await provider.endWrites();
+      await provider.endWrites(FakeOperationContext());
     });
   });
 
@@ -236,7 +236,7 @@ void main() {
       final provider = await open();
       final root = provider.rootDirectory;
 
-      await provider.beginWrites();
+      await provider.beginWrites(FakeOperationContext());
       for (final name in ['one.txt', 'two.txt', 'three.txt']) {
         final sink = await provider.openWrite(root, name);
         sink.add(utf8.encode(name));
@@ -244,7 +244,7 @@ void main() {
       }
       expect(runner.callsOf('a'), isEmpty, reason: 'работа ещё идёт');
 
-      await provider.endWrites();
+      await provider.endWrites(FakeOperationContext());
 
       expect(runner.callsOf('a'), hasLength(1));
       expect(lists['a']!..sort(), ['one.txt', 'three.txt', 'two.txt']);
@@ -253,12 +253,12 @@ void main() {
     test('удаление и добавление в одной пачке: сперва удаления', () async {
       final provider = await open();
 
-      await provider.beginWrites();
+      await provider.beginWrites(FakeOperationContext());
       await provider.deleteEntry((await provider.resolvePath().run('/docs/readme.txt'))!);
       final sink = await provider.openWrite(provider.rootDirectory, 'new.txt');
       sink.add(utf8.encode('новое'));
       await sink.close();
-      await provider.endWrites();
+      await provider.endWrites(FakeOperationContext());
 
       final calls = runner.calls.map((call) => call.command).where((command) => command == 'a' || command == 'd');
       expect(calls, ['d', 'a']);
@@ -267,15 +267,15 @@ void main() {
     test('вложенные границы работы: программа зовётся на самой внешней', () async {
       final provider = await open();
 
-      await provider.beginWrites();
-      await provider.beginWrites();
+      await provider.beginWrites(FakeOperationContext());
+      await provider.beginWrites(FakeOperationContext());
       final sink = await provider.openWrite(provider.rootDirectory, 'one.txt');
       sink.add(utf8.encode('1'));
       await sink.close();
-      await provider.endWrites();
+      await provider.endWrites(FakeOperationContext());
       expect(runner.callsOf('a'), isEmpty);
 
-      await provider.endWrites();
+      await provider.endWrites(FakeOperationContext());
       expect(runner.callsOf('a'), hasLength(1));
     });
 
@@ -320,7 +320,7 @@ void main() {
             )
             as WritableSevenZipTreeProvider;
 
-    await provider.beginWrites();
+    await provider.beginWrites(FakeOperationContext());
     final sink = await provider.openWrite(provider.rootDirectory, 'last.txt');
     sink.add(utf8.encode('не пропади'));
     await sink.close();

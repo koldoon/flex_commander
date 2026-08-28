@@ -8,10 +8,11 @@ part of 'seven_zip_tree_provider.dart';
 /// работу. Границы работы сообщает движок операций ([BatchedWrites]); одиночное
 /// действие вроде `F8` границ не имеет, и архив меняется сразу.
 ///
-/// Пишущий вариант появляется только у архива, лежащего в настоящей файловой
-/// системе. Архив внутри архива открывается через временную копию, и записать
-/// в него значило бы потерять изменения вместе с ней — такой остаётся только
-/// для чтения, и панель честно показывает файловые операции недоступными.
+/// Архив, лежащий не на диске, открыт через временную копию — и всё равно
+/// пишущий, если копию есть кому вернуть: обновлённый архив уезжает обратно
+/// хозяину (`WriteBack`). Хозяин, не умеющий принять содержимое или
+/// переименовать, оставляет архив читающим, и панель честно показывает файловые
+/// операции недоступными.
 class WritableSevenZipTreeProvider extends SevenZipTreeProvider
     implements NodeEditor, FileContentReceiver, BatchedWrites {
   WritableSevenZipTreeProvider({
@@ -22,9 +23,16 @@ class WritableSevenZipTreeProvider extends SevenZipTreeProvider
     required super.credentials,
     required StagingArea staging,
     super.password,
-  }) : _staging = staging;
+    LocalCopySession? copy,
+  }) : _staging = staging,
+       _copy = copy;
 
   final StagingArea _staging;
+
+  /// Сессия, которой архив скачали; null — он и так лежал на диске.
+  final LocalCopySession? _copy;
+
+  bool get _returnsToHost => _copy != null;
 
   /// Каталог, где содержимое ждёт своей очереди. Раскладка в нём повторяет
   /// пути внутри архива: программа сохраняет имена такими, какими их получила,
@@ -55,24 +63,37 @@ class WritableSevenZipTreeProvider extends SevenZipTreeProvider
   /// Обновление архива программой `7z`: она перекладывает его целиком, и на
   /// большом архиве это дольше самой записи.
   @override
-  String get writesStageName => 'updating archive';
+  String get writesStageName => _returnsToHost ? 'updating and sending archive' : 'updating archive';
+
+  /// О цене говорится **до** начала: архив перекладывается целиком, а лежащий
+  /// не на диске ещё и уезжает обратно.
+  @override
+  String? get writesWarning {
+    final name = _host.name;
+    if (!_returnsToHost) {
+      return 'Writing to «$name» rewrites the whole archive. Continue?';
+    }
+    final size = _host.size;
+    final volume = size >= 0 ? ' (${(size / (1024 * 1024)).toStringAsFixed(1)} MB)' : '';
+    return 'Writing to «$name» rewrites the whole archive and sends it back$volume. Continue?';
+  }
 
   @override
-  Future<void> beginWrites() async => _batchDepth++;
+  Future<void> beginWrites(OperationContext op) async => _batchDepth++;
 
   @override
-  Future<void> endWrites() async {
+  Future<void> endWrites(OperationContext op) async {
     _batchDepth = _batchDepth > 0 ? _batchDepth - 1 : 0;
     if (_batchDepth == 0 && _dirty) {
-      await _flush();
+      await _flush(op);
     }
   }
 
   /// Отдаёт накопленное программе, если работа закончилась. Внутри работы —
   /// копит.
-  Future<void> _settle() async {
+  Future<void> _settle([OperationContext? op]) async {
     if (_batchDepth == 0 && _dirty) {
-      await _flush();
+      await _flush(op);
     }
   }
 
@@ -290,7 +311,7 @@ class WritableSevenZipTreeProvider extends SevenZipTreeProvider
   /// Списки уходят файлом, а не аргументами: работа на тысячу файлов иначе
   /// упёрлась бы в предел длины командной строки — а это ровно тот случай,
   /// когда пачка и нужна.
-  Future<void> _flush() async {
+  Future<void> _flush([OperationContext? op]) async {
     final removed = _removed.toList();
     final added = _added.toList();
     _removed.clear();
@@ -303,6 +324,18 @@ class WritableSevenZipTreeProvider extends SevenZipTreeProvider
       if (added.isNotEmpty) {
         final incoming = await _incomingDirectory();
         await cli.add(archivePath, workingDirectory: incoming.path, listFile: await _writeList('add', added));
+      }
+      // Архив жил на копии — значит оригинал ждёт его обратно. Тем же общим
+      // способом, что и у zip: заливка рядом, замена переименованием.
+      if (_returnsToHost) {
+        final file = File(archivePath);
+        await WriteBack.send(
+          host: _host,
+          bytes: file.openRead,
+          size: await file.length(),
+          op: op,
+          stageName: 'sending archive',
+        );
       }
     } finally {
       // Оглавление перечитывается в любом случае: программа могла успеть

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:archive/archive.dart';
 import 'package:fc_api/fc_api.dart';
@@ -116,11 +117,11 @@ void main() {
       final destination = await inArchive(zip, '/');
 
       // Границы работы движок сообщает сам: внутри них архив не трогается.
-      await zip.beginWrites();
+      await zip.beginWrites(FakeOperationContext());
       await engine.copy().run(TransferParams([await onDisk('notes.txt')], destination));
       expect(await archiveOnDisk(), isNot(contains('notes.txt')), reason: 'внутри работы архив не пересобирается');
 
-      await zip.endWrites();
+      await zip.endWrites(FakeOperationContext());
       expect(await archiveOnDisk(), containsPair('notes.txt', 'заметки'));
     });
 
@@ -179,8 +180,40 @@ void main() {
     });
   });
 
+  group('о цене предупреждают заранее', () {
+    test('копирование в архив спрашивает — и отказ ничего не меняет', () async {
+      final zip = await mounted();
+      final before = await archiveOnDisk();
+
+      final questions = <String>[];
+      final operation = engine.copy();
+      operation.requests.listen((request) {
+        questions.add(request.message);
+        request.respond(TransferAnswers.cancel);
+      });
+      operation.start(TransferParams([await onDisk('notes.txt')], await inArchive(zip, '/')));
+      await operation.result.then((_) => null, onError: (_) => null);
+
+      // Вопрос задаётся **до** работы: дописать запись в zip нельзя, архив
+      // пересобирается целиком, и знать об этом человек должен заранее.
+      expect(questions.single, contains('repacks the whole archive'));
+      expect(await archiveOnDisk(), before, reason: 'отказ означает, что работы не было вовсе');
+    });
+
+    test('согласие делает работу', () async {
+      final zip = await mounted();
+
+      final operation = engine.copy();
+      operation.requests.listen((request) => request.respond(TransferAnswers.proceed));
+      operation.start(TransferParams([await onDisk('notes.txt')], await inArchive(zip, '/')));
+      await operation.result;
+
+      expect(await archiveOnDisk(), containsPair('notes.txt', 'заметки'));
+    });
+  });
+
   group('архив внутри архива', () {
-    test('открытый через временную копию остаётся только для чтения', () async {
+    test('остаётся читающим: внешний архив не умеет заменить его одним действием', () async {
       // Внешний архив с вложенным внутри.
       final inner = ZipEncoder().encodeBytes(Archive()..add(ArchiveFile.string('inside.txt', 'внутри')));
       final outerPath = p.join(root, 'outer.zip');
@@ -193,10 +226,54 @@ void main() {
       final nestedHost = (await outer.resolvePath().run('/nested.zip'))!;
       final nested = (await registry.acquire().run(AcquireParams(ZipTreeProvider.schemeName, nestedHost))).provider;
 
-      // Писать в копию бессмысленно: изменения ушли бы вместе с ней.
+      // Вернуть копию хозяину можно только заменой **одним действием**, то
+      // есть переименованием, — а zip переименовывать не умеет вовсе. Значит
+      // обрыв на середине оставил бы вместо архива обрубок, и такой архив
+      // остаётся читающим, как и был.
+      expect(outer.canWrite, isTrue);
+      expect(outer.capabilities.canRename, isFalse);
       expect(nested.canWrite, isFalse);
       expect(nested.canReceive, isFalse);
-      expect(outer.canWrite, isTrue);
+    });
+  });
+
+  group('архив не на диске', () {
+    test('пишется и уезжает обратно хозяину', () async {
+      // Источник, ведущий себя как сервер: настоящих путей нет, а принять файл
+      // и переименовать умеет. Ровно на таком архив и был read-only.
+      final server = InMemoryContentProvider([FakeEntry.directory('/srv')])..home = '/srv';
+      server.capabilities = const ProviderCapabilities(canRename: true, maxConcurrency: 1);
+      final bytes = ZipEncoder().encodeBytes(Archive()..add(ArchiveFile.string('inside.txt', 'внутри')));
+      server.add(FakeEntry.file('/srv/remote.zip', content: bytes));
+
+      final remotes = ProviderRegistry(root: server)..register(
+        ZipTreeProvider.schemeName,
+        () => TaskOperation<FsNode, TreeProvider>(
+          (op, host) => ZipTreeProvider.open(host, credentials: FakeCredentials(), staging: const LocalStagingArea()),
+        ),
+        extensions: ZipTreeProvider.extensions,
+      );
+
+      final host = (await server.resolvePath().run('/srv/remote.zip'))!;
+      final archive = (await remotes.acquire().run(AcquireParams(ZipTreeProvider.schemeName, host))).provider;
+
+      // Копию есть кому вернуть — значит в архив можно писать.
+      expect(archive.canWrite, isTrue);
+
+      final operation = engine.copy();
+      operation.start(
+        TransferParams([
+          (await disk.resolvePath().run(p.join(root, 'notes.txt')))!,
+        ], (await archive.resolvePath().run('/'))! as DirectoryNode),
+      );
+      await operation.result;
+
+      // На «сервере» лежит уже пересобранный архив — с прежней записью и новой.
+      final updated = server.entryAt('/srv/remote.zip')!.content;
+      final entries = ZipDecoder().decodeBytes(Uint8List.fromList(updated));
+      expect(entries.files.map((file) => file.name), containsAll(<String>['inside.txt', 'notes.txt']));
+      // И ничего лишнего рядом: временное имя убрано переименованием.
+      expect(server.entryAt('/srv/.remote.zip.fc-part'), isNull);
     });
   });
 

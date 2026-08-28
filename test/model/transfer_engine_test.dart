@@ -975,10 +975,14 @@ class _BatchingProvider extends InMemoryContentProvider implements BatchedWrites
   String get writesStageName => 'repacking archive';
 
   @override
-  Future<void> beginWrites() async => calls.add('begin');
+  @override
+  String? get writesWarning => null;
 
   @override
-  Future<void> endWrites() async => calls.add('end');
+  Future<void> beginWrites(OperationContext op) async => calls.add('begin');
+
+  @override
+  Future<void> endWrites(OperationContext op) async => calls.add('end');
 }
 
 class _ReadOnlyProvider implements TreeProvider {

@@ -19,10 +19,21 @@ class WritableZipTreeProvider extends ZipTreeProvider implements NodeEditor, Fil
     required super.index,
     required super.credentials,
     required StagingArea staging,
+    LocalCopySession? copy,
   }) : _staging = staging,
-       super._();
+       _copy = copy,
+       super._(session: copy);
 
   final StagingArea _staging;
+
+  /// Сессия, которой архив скачали, — null, если он и так лежал на диске.
+  ///
+  /// По ней и видно, надо ли возвращать пересобранный архив хозяину: копия
+  /// есть — значит оригинал где-то ещё, и без отправки изменения умрут вместе
+  /// с ней.
+  final LocalCopySession? _copy;
+
+  bool get _returnsToHost => _copy != null;
 
   /// Каталог, куда ложится содержимое, пока архив не пересобран.
   StagedDirectory? _incoming;
@@ -51,23 +62,43 @@ class WritableZipTreeProvider extends ZipTreeProvider implements NodeEditor, Fil
   /// архиве это дольше самой записи, поэтому окно операции показывает её
   /// отдельным этапом.
   @override
-  String get writesStageName => 'repacking archive';
+  String get writesStageName => _returnsToHost ? 'repacking and sending archive' : 'repacking archive';
+
+  /// О цене говорится **до** начала: дописать запись в zip нельзя, архив
+  /// пересобирается целиком — а лежащий не на диске ещё и уезжает обратно
+  /// целиком. Знать это по счётчику байт, когда работа уже пошла, поздно.
+  @override
+  String? get writesWarning {
+    final name = _host.name;
+    if (!_returnsToHost) {
+      return 'Writing to «$name» repacks the whole archive. Continue?';
+    }
+    final size = _host.size;
+    final volume = size >= 0 ? ' (${_megabytes(size)} MB)' : '';
+    return 'Writing to «$name» repacks the whole archive and sends it back$volume. Continue?';
+  }
+
+  static String _megabytes(int bytes) => (bytes / (1024 * 1024)).toStringAsFixed(1);
 
   @override
-  Future<void> beginWrites() async => _batchDepth++;
+  Future<void> beginWrites(OperationContext op) async => _batchDepth++;
 
   @override
-  Future<void> endWrites() async {
+  Future<void> endWrites(OperationContext op) async {
     _batchDepth = _batchDepth > 0 ? _batchDepth - 1 : 0;
     if (_batchDepth == 0 && _dirty) {
-      await _repack();
+      await _repack(op);
     }
   }
 
   /// Пересобирает архив, если работа закончилась. Внутри работы — копит.
-  Future<void> _settle() async {
+  ///
+  /// Работы может не быть вовсе: `F7` внутри архива — одиночное действие, у
+  /// него нет ни полосы, ни вопросов. Тогда пересборка и отправка идут молча, а
+  /// неудача просто бросает ошибку.
+  Future<void> _settle([OperationContext? op]) async {
     if (_batchDepth == 0 && _dirty) {
-      await _repack();
+      await _repack(op);
     }
   }
 
@@ -264,7 +295,7 @@ class WritableZipTreeProvider extends ZipTreeProvider implements NodeEditor, Fil
   /// в `archive` синхронные, а идёт пересборка после записи, когда счётчик уже
   /// показал «готово». Замереть на ней значит выглядеть зависшим ровно тогда,
   /// когда человек ждёт конца работы.
-  Future<void> _repack() async {
+  Future<void> _repack([OperationContext? op]) async {
     final directory = await _incomingDirectory();
     final target = p.join(directory.path, 'repacked.zip');
 
@@ -281,9 +312,30 @@ class WritableZipTreeProvider extends ZipTreeProvider implements NodeEditor, Fil
 
     await File(target).rename(archivePath);
 
+    // Архив жил на копии — значит оригинал ждёт его обратно.
+    if (_returnsToHost) {
+      await _sendBack(op);
+    }
+
     _added.clear();
     _addedDirs.clear();
     _removed.clear();
+  }
+
+  /// Возвращает пересобранный архив хозяину — общим для всех архиваторов
+  /// способом: заливка рядом, замена переименованием, вопрос о повторе.
+  ///
+  /// Содержимое отдаётся потоком: `WriteBack` живёт в API, где `dart:io` нет и
+  /// быть не должно, а читать локальный файл — наше дело.
+  Future<void> _sendBack(OperationContext? op) async {
+    final file = File(archivePath);
+    await WriteBack.send(
+      host: _host,
+      bytes: file.openRead,
+      size: await file.length(),
+      op: op,
+      stageName: 'sending archive',
+    );
   }
 }
 

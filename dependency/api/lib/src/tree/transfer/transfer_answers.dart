@@ -25,6 +25,13 @@ abstract final class TransferAnswers {
   /// Пропускать дальше, не спрашивая.
   static const skipAll = OperationRequestOption('skipAll', 'Skip all');
 
+  /// Начать работу, о цене которой предупредили.
+  static const proceed = OperationRequestOption('proceed', 'Proceed');
+
+  /// Повторить то, что не вышло с первого раза, — например отправку архива,
+  /// оборвавшуюся посреди сети.
+  static const retry = OperationRequestOption('retry', 'Retry');
+
   /// Бросить работу целиком.
   ///
   /// Не то же, что [CancelAnswers.abort]: там прерывают работу по своей воле,

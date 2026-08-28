@@ -34,6 +34,7 @@ export 'src/tree/staging.dart';
 export 'src/tree/transfer/local_copy_session.dart';
 export 'src/tree/transfer/transfer_answers.dart';
 export 'src/tree/transfer/transfer_engine.dart';
+export 'src/tree/transfer/write_back.dart';
 export 'src/tree/tree_provider.dart';
 
 // --- Длительные операции ---

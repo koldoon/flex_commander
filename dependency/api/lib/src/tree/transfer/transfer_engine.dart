@@ -88,7 +88,10 @@ class TreeTransferEngine implements TreeEditor {
       // Именно `if`, а не `await batch?.…`: ожидание пустого значения — это
       // всё равно пауза, и она сдвигала бы начало работы у всех остальных.
       if (batch != null) {
-        await batch.beginWrites();
+        // О цене спрашивают **до** начала: работа, переписывающая архив
+        // целиком, не должна начинаться молча — а начавшись, она уже сделана.
+        await _warnAbout(batch, op);
+        await batch.beginWrites(op);
         // Плечи есть только у приёмника, который применяет накопленное разом:
         // у обычного копирования этапов нет, и окно о них молчит.
         progress.beginStage(move ? 'moving' : 'copying', index: 1, count: 2);
@@ -258,7 +261,7 @@ class TreeTransferEngine implements TreeEditor {
           // Второе плечо. Сколько в нём работы, не знает никто: доля не
           // показывается, зато видно, что работа идёт.
           progress.beginStage(batch.writesStageName, index: 2, count: 2, sized: false);
-          await batch.endWrites();
+          await batch.endWrites(op);
         }
       }
 
@@ -284,7 +287,8 @@ class TreeTransferEngine implements TreeEditor {
       final batch =
           provider != null && nodes.every((node) => identical(node.provider, provider)) ? _batchOf(provider) : null;
       if (batch != null) {
-        await batch.beginWrites();
+        await _warnAbout(batch, op);
+        await batch.beginWrites(op);
         progress.beginStage('deleting', index: 1, count: 2);
       }
 
@@ -332,7 +336,7 @@ class TreeTransferEngine implements TreeEditor {
         progress.stop();
         if (batch != null) {
           progress.beginStage(batch.writesStageName, index: 2, count: 2, sized: false);
-          await batch.endWrites();
+          await batch.endWrites(op);
         }
       }
 
@@ -907,6 +911,31 @@ class TreeTransferEngine implements TreeEditor {
 
   /// Границы работы; null — провайдеру они не нужны.
   BatchedWrites? _batchOf(TreeProvider provider) => provider is BatchedWrites ? provider as BatchedWrites : null;
+
+  /// Предупреждает о цене работы и, получив отказ, не даёт ей начаться.
+  ///
+  /// Спрашивает движок, а не провайдер: разговор с человеком принадлежит
+  /// работе, и второго заводить незачем. Молчать провайдер вправе — тогда и
+  /// вопроса нет.
+  static Future<void> _warnAbout(BatchedWrites batch, OperationContext op) async {
+    final warning = batch.writesWarning;
+    if (warning == null) {
+      return;
+    }
+    final answer = await op.ask(
+      OperationRequest(
+        message: warning,
+        options: const [TransferAnswers.proceed, TransferAnswers.cancel],
+        // Умолчание — «начать»: человек уже сказал, чего хочет, нажав `F5`.
+        // Отказ отдельным нажатием, как и всюду.
+        enterOption: TransferAnswers.proceed,
+        escapeOption: TransferAnswers.cancel,
+      ),
+    );
+    if (answer == TransferAnswers.cancel) {
+      throw const OperationCanceled();
+    }
+  }
 
   /// Байтовая запись; null — принять содержимое он не может.
   FileContentReceiver? _writerOf(TreeProvider provider) =>

@@ -22,6 +22,36 @@ abstract final class CancelAnswers {
   static const resume = OperationRequestOption('resume', 'Cancel');
 }
 
+/// Работа с точки зрения того, кто выполняет её часть.
+///
+/// Провайдеру, пересобирающему архив, нужна не вся работа — заводить, отменять
+/// и завершать её не ему, — а ровно три вещи: сказать о ходе, спросить человека
+/// и проверить, не пора ли бросить. Отдельный взгляд вместо целой операции и
+/// пишется честнее, и не даёт лишнего.
+abstract interface class OperationContext {
+  /// Бросает [OperationCanceled], если работу просили прекратить.
+  void checkCanceled();
+
+  /// Рассказывает о ходе. Имена те же, что у полного отчёта работы.
+  void report({
+    String message,
+    double? percent,
+    bool indeterminate,
+    int bytesTransferred,
+    int? bytesTotal,
+    String itemName,
+    int itemBytesTransferred,
+    int? itemBytesTotal,
+    int stage,
+    int stageCount,
+    String stageName,
+  });
+
+  /// Спрашивает человека и ждёт ответа — тем же разговором, которым идут все
+  /// вопросы работы.
+  Future<OperationRequestOption> ask(OperationRequest request);
+}
+
 /// Операция отменена вызовом [AsyncOperation.cancel].
 class OperationCanceled implements Exception {
   const OperationCanceled();
@@ -102,7 +132,7 @@ extension StartAndWait<P, R> on Operation<P, R> {
 /// Базовая реализация [Operation] для работ, выполняемых в текущем изоляте.
 /// Тело получает саму работу — чтобы сообщать о ходе дела, задавать вопросы и
 /// проверять отмену, — и её параметры.
-class TaskOperation<P, R> implements Operation<P, R> {
+class TaskOperation<P, R> implements Operation<P, R>, OperationContext {
   /// Создаёт работу, **не** начиная её: тело ждёт [start].
   ///
   /// Раньше тело стартовало следующим шагом цикла событий, и на этом держался
@@ -153,6 +183,7 @@ class TaskOperation<P, R> implements Operation<P, R> {
 
   /// Бросает [OperationCanceled], если операцию успели отменить.
   /// Вызывается телом операции между шагами.
+  @override
   void checkCanceled() {
     if (isCanceled) {
       throw const OperationCanceled();
@@ -282,6 +313,7 @@ class TaskOperation<P, R> implements Operation<P, R> {
   ///
   /// Имена — те же, какими ход работы читают: подтипы [OperationStatus] и
   /// отчёт говорят на одном языке, и переводить между ними больше не нужно.
+  @override
   void report({
     String message = '',
     double? percent,
@@ -371,6 +403,7 @@ class TaskOperation<P, R> implements Operation<P, R> {
   /// «пропустить все» один раз, и спрашивать его о том же ещё десять раз —
   /// издевательство. Такой вопрос не показывается вовсе, а вместо ответа
   /// берётся [OperationRequest.enterOption].
+  @override
   Future<OperationRequestOption> ask(OperationRequest request, {bool Function()? stillNeeded}) {
     // Спрашивают **по одному**. Работа идёт не в один поток: файлы переносятся
     // разом, и вопрос — «уже существует», «ссылку сохранить нечем» — может

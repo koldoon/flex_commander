@@ -66,8 +66,9 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
       final path = await session.localPathOf(host, onBytes: onBytes);
       final unlocked = await _list(path, cli: cli, credentials: credentials, name: host.name);
 
-      if (session.copied == 0) {
-        // Архив лежит в настоящей файловой системе: в него можно и писать.
+      // Архив не на диске пишущий, если копию есть кому вернуть: обновлённый
+      // архив уезжает обратно хозяину (`WriteBack`).
+      if (session.copied == 0 || WriteBack.possible(host)) {
         return WritableSevenZipTreeProvider(
           archivePath: path,
           host: host,
@@ -76,6 +77,7 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
           credentials: credentials,
           password: unlocked.password,
           staging: staging,
+          copy: session.copied == 0 ? null : session,
         );
       }
 
