@@ -164,6 +164,37 @@ void main() {
       expect((asked.single.arguments as Map)['paths'], containsAll(<String>['/home/note.txt', '/home/docs']));
     });
 
+    testWidgets('после неудачного броска тянется снова, не отпуская кнопки', (tester) async {
+      // Найдено на живом. Как только система начинает перетаскивание, мышь
+      // переходит к ней, и отпускания кнопки Flutter не видит: он считает её
+      // нажатой и дальше, а следующее настоящее нажатие приходит к нам уже
+      // движением. Пока источник ждал именно нажатия, потянуть второй раз было
+      // нельзя — приходилось отпускать кнопку и брать заново.
+      await pumpApp(tester);
+
+      final gesture = await tester.startGesture(
+        rowCenter(tester, 'note.txt'),
+        kind: PointerDeviceKind.mouse,
+        buttons: kPrimaryMouseButton,
+      );
+      await gesture.moveBy(const Offset(24, 0));
+      await tester.pumpAndSettle();
+      expect(asked.length, 1);
+
+      // Сессия кончилась — бросили мимо, работы не вышло. Об этом сообщает
+      // раннер; отпускания кнопки при этом никто не видел.
+      await sendDrop(tester, 'dragEnded');
+
+      await gesture.moveBy(const Offset(24, 0));
+      await tester.pumpAndSettle();
+      await gesture.moveBy(const Offset(24, 0));
+      await tester.pumpAndSettle();
+
+      expect(asked.length, 2, reason: 'вторая попытка — в том же нажатии, без отпускания кнопки');
+      await gesture.up();
+      await tester.pumpAndSettle();
+    });
+
     testWidgets('система отказала — следующее движение пробует снова', (tester) async {
       // Найдено на живом: перетаскивание начиналось через раз. Одна неудача
       // убивала всё нажатие целиком, и тащить приходилось, отпустив и взяв
@@ -184,7 +215,11 @@ void main() {
         kind: PointerDeviceKind.mouse,
         buttons: kPrimaryMouseButton,
       );
+      // Первая попытка — и отказ. Отсчёт после него начинается заново, поэтому
+      // движений нужно два: одно задаёт начало, второе выходит за порог.
       await gesture.moveBy(const Offset(24, 0));
+      await tester.pumpAndSettle();
+      await gesture.moveBy(const Offset(4, 0));
       await tester.pumpAndSettle();
       await gesture.moveBy(const Offset(24, 0));
       await tester.pumpAndSettle();

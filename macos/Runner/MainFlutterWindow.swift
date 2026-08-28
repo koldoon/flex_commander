@@ -199,7 +199,13 @@ final class FileDrag {
     // Конец своей сессии виден только источнику — от него Dart и узнаёт, что
     // тащить перестали. Иначе «мы сейчас тащим» пришлось бы угадывать: наружу
     // бросают в чужом окне, и никаких событий оттуда к нам не приходит.
-    source.onEnded = { [weak self] in self?.channel.invokeMethod("dragEnded", arguments: nil) }
+    source.onEnded = { [weak self] in
+      // Отпускание кнопки прошло мимо окна — сессия забрала мышь себе. Значит
+      // и запомненное событие устарело: до следующего настоящего нажатия
+      // тащить нечем.
+      self?.lastMouseEvent = nil
+      self?.channel.invokeMethod("dragEnded", arguments: nil)
+    }
     view.beginDraggingSession(with: items, event: event, source: source)
     channel.invokeMethod("dragBegan", arguments: nil)
     return true

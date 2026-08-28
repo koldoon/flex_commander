@@ -92,6 +92,12 @@ class SystemDropService implements DragAndDrop {
 
   final DragAndDropSettings Function() _settings;
 
+  /// Идёт ли своя сессия перетаскивания.
+  ///
+  /// Пока идёт, источники молчат: система уже тащит, и просить её об этом
+  /// второй раз нечего.
+  bool get dragging => _draggingFrom != null;
+
   /// Место, из которого тащат прямо сейчас; null — тащат не у нас.
   ///
   /// Держится от начала своей сессии до её конца — о том и о другом сообщает
@@ -329,32 +335,39 @@ class _DragSourceState extends State<_DragSource> {
   /// Порог в точках: меньше — это дрожание руки при щелчке, а не перетаскивание.
   static const double _threshold = 4;
 
+  /// Откуда ведут. Ставится нажатием — **или первым же движением с зажатой
+  /// кнопкой**, если нажатия мы не видели.
+  ///
+  /// Видеть его мы обязаны не всегда, и это не мелочь: как только система
+  /// начинает перетаскивание, мышь переходит к ней, и отпускания кнопки Flutter
+  /// не получает вовсе. Он продолжает считать кнопку нажатой — а следующее
+  /// **настоящее** нажатие приходит к нам уже движением, потому что для него
+  /// кнопка и так была нажата. Отсюда и был дефект: после неудачного броска
+  /// потянуть снова не выходило, пока не отпустишь и не нажмёшь заново.
   Offset? _origin;
-  bool _started = false;
 
   void _down(PointerDownEvent event) {
-    // Только левая кнопка и только мышь: правая once станет меню, а к
+    // Только левая кнопка и только мышь: правая когда-нибудь станет меню, а к
     // сенсорному экрану у файлового менеджера свои вопросы.
-    if (event.kind != PointerDeviceKind.mouse || event.buttons != kPrimaryMouseButton) {
-      _origin = null;
-      return;
-    }
-    _origin = event.position;
-    _started = false;
+    _origin = _isDrag(event.kind, event.buttons) ? event.position : null;
   }
 
+  static bool _isDrag(PointerDeviceKind kind, int buttons) =>
+      kind == PointerDeviceKind.mouse && buttons == kPrimaryMouseButton;
+
   Future<void> _move(PointerMoveEvent event) async {
-    final origin = _origin;
-    if (_started || origin == null || (event.position - origin).distance < _threshold) {
+    // Система уже тащит — просить её об этом второй раз нечего.
+    if (widget.service.dragging || !_isDrag(event.kind, event.buttons)) {
       return;
     }
-    // Пока система не ответила, второй просьбы не шлём: за время ответа
-    // придёт ещё десяток движений.
-    _started = true;
-    // Не начала — значит и не начиналось: пусть следующее движение попробует
-    // снова. Иначе одна неудача убивала бы всё нажатие целиком, и тащить
-    // приходилось бы, отпустив и взяв заново.
-    _started = await widget.service.beginDrag(widget.owner, widget.nodes());
+    final origin = _origin ??= event.position;
+    if ((event.position - origin).distance < _threshold) {
+      return;
+    }
+    // Попытка израсходована: удастся — тащим, не удастся — отсчёт начнётся
+    // заново со следующего движения. Так одна неудача не убивает всё нажатие.
+    _origin = null;
+    await widget.service.beginDrag(widget.owner, widget.nodes());
   }
 
   @override
