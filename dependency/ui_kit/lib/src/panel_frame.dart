@@ -211,6 +211,11 @@ class FcPanelFrame extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
+    final border = _border(theme);
+    // Скругление — только у замкнутой рамки. Дело не в красоте: `BoxDecoration`
+    // с разными сторонами и радиусом не рисуется вовсе, а у прижатой к краю
+    // панели одна сторона не рисуется.
+    final radius = border.isUniform && metrics.panelRadius > 0 ? BorderRadius.circular(metrics.panelRadius) : null;
 
     return Stack(
       children: [
@@ -218,7 +223,10 @@ class FcPanelFrame extends StatelessWidget {
           // Верхняя половина «плашки» лежит над рамкой.
           padding: EdgeInsets.only(top: metrics.pathHeaderHeight / 2),
           child: Container(
-            decoration: BoxDecoration(color: theme.colors.panelBackground, border: _border(theme)),
+            // Содержимое обрезается по той же дуге: строка под курсором иначе
+            // вылезала бы за угол прямым краем.
+            clipBehavior: radius == null ? Clip.none : Clip.antiAlias,
+            decoration: BoxDecoration(color: theme.colors.panelBackground, border: border, borderRadius: radius),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [

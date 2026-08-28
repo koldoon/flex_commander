@@ -76,6 +76,11 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get pathHeaderMinInset => ref(50);
 
+  /// Пять точек: столько же, сколько у полей окна, — рамка и её отступ читаются
+  /// как одно целое.
+  @override
+  double get panelRadius => 5;
+
   @override
   double get panelTopPadding => ref(50);
 
@@ -89,7 +94,10 @@ class DefaultMetrics extends FcMetrics {
   double get rowGap => ref(2);
 
   @override
-  double get statusBarHeight => ref(60);
+  /// Двадцать восемь точек. В референсе линейка над строкой стояла на
+  /// `bottom="60"`, то есть двадцать четыре точки, — на них строка сидела
+  /// впритык.
+  double get statusBarHeight => 28;
 
   @override
   double get panelLeftPadding => ref(30);
