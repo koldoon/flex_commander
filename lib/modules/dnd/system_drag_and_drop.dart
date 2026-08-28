@@ -58,6 +58,11 @@ class SystemDragAndDrop implements FcModule {
       (services) => SystemDropService(settings: settingsOf, staging: services.resolve<StagingArea>()),
     );
 
+    // Приложение службе нужно ровно для одного: сказать человеку, если
+    // обещанное выложить не вышло. Молчать тут нельзя — со стороны это
+    // выглядит как «перетащил, и ничего не произошло».
+    registry.startup((context) => _TellFailuresCommand(context));
+
     registry.settingsSchema(
       () => SettingsSchema([
         SettingsField.flag(
@@ -69,6 +74,30 @@ class SystemDragAndDrop implements FcModule {
         ),
       ], save: settings.save),
     );
+  }
+}
+
+/// Отдаёт службе приложение — чтобы было кому пожаловаться.
+class _TellFailuresCommand extends AppCommand {
+  _TellFailuresCommand(this.context);
+
+  final FcContext context;
+
+  @override
+  String get id => 'dnd.install';
+
+  @override
+  String get label => 'Install drag and drop';
+
+  @override
+  bool isExecutable(CommandContext context) => true;
+
+  @override
+  Future<void> execute(CommandContext _) async {
+    final service = context.resolve<DragAndDrop>();
+    if (service is SystemDropService) {
+      service.tellFailuresTo(context.app);
+    }
   }
 }
 
@@ -146,7 +175,11 @@ class SystemDropService implements DragAndDrop {
       case 'dragEnded':
         _draggingFrom = null;
         _hover(null);
-        await _endSession();
+        // Убирать обещанное здесь **нельзя**: система просит содержимое уже
+        // после конца сессии, и порядок этих двух событий ничем не закреплён.
+        // Пока убирали — работало через раз, и «через раз» тут худшее из
+        // возможного: человек не понимает, от чего это зависит.
+        await _releaseSource();
       case 'writePromise':
         // Система попросила обещанное: только теперь его и выкладываем.
         return _writePromise(call);
@@ -216,6 +249,11 @@ class SystemDropService implements DragAndDrop {
     await winner.onDrop(spot, DropPayload(paths: paths, moves: moves));
   }
 
+  /// Кому жаловаться, если обещанное выложить не вышло.
+  Application? _app;
+
+  void tellFailuresTo(Application app) => _app = app;
+
   /// Выкладывает обещанное во временный файл и отвечает путём к нему.
   ///
   /// Пока никто не попросил, ничего и не читается: перетащить файл из архива
@@ -230,18 +268,38 @@ class SystemDropService implements DragAndDrop {
       return null;
     }
     final copies = _copies ??= LocalCopySession(staging, prefix: 'flex_commander_drag');
-    return copies.localPathOf(node);
+    try {
+      return await copies.localPathOf(node);
+    } catch (error) {
+      // Со стороны неудача выглядит как «перетащил, и ничего не произошло»:
+      // система молча бросает то, чего ей не дали. Сказать об этом обязаны мы.
+      _app?.toasts.show('Could not hand over «${node.name}»: $error');
+      return null;
+    }
   }
 
-  /// Конец сессии: копии убираются, источник отпускается.
-  Future<void> _endSession() async {
+  /// Конец сессии: источник отпускается, обещанное — нет.
+  ///
+  /// Аренда держалась ради чтения содержимого, а его к этому времени уже
+  /// прочитали (или не спросили вовсе). Держать её дольше значило бы держать
+  /// смонтированным архив, из которого давно ушли.
+  Future<void> _releaseSource() async {
+    final lease = _lease;
+    _lease = null;
+    await lease?.release();
+  }
+
+  /// Убирает всё, что осталось от прошлого перетаскивания.
+  ///
+  /// Зовётся **началом следующего**, а не концом прошлого: система вправе
+  /// попросить обещанное после того, как сессия кончилась, и до этой просьбы
+  /// ни копии, ни список обещаний трогать нельзя. Заодно так временные файлы
+  /// не переживают приложение больше, чем на одно перетаскивание.
+  Future<void> _forgetPrevious() async {
     _promised.clear();
     final copies = _copies;
-    final lease = _lease;
     _copies = null;
-    _lease = null;
     await copies?.purge();
-    await lease?.release();
   }
 
   /// Имя, под которым обещан объект. Совпадения разводятся числом: система
@@ -284,9 +342,10 @@ class SystemDropService implements DragAndDrop {
   /// (`spec/drag-and-drop.md`, §7). Пока таких объектов в пачке нет, тащить
   /// нечего, и жест просто ничего не делает.
   Future<bool> beginDrag(Object owner, List<FsNode> nodes, {ProviderLease? Function()? hold}) async {
+    await _forgetPrevious();
+
     final paths = <String>[];
     final promises = <Map<String, Object?>>[];
-    _promised.clear();
 
     for (final node in nodes) {
       if (node is ParentDirNode) {
@@ -319,7 +378,8 @@ class SystemDropService implements DragAndDrop {
     final started = await _channel.invokeMethod<bool>('beginDrag', {'paths': paths, 'promises': promises}) ?? false;
     if (!started) {
       _draggingFrom = null;
-      await _endSession();
+      await _releaseSource();
+      await _forgetPrevious();
     }
     return started;
   }

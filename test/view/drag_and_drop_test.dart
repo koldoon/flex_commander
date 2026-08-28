@@ -406,26 +406,56 @@ void main() {
       );
     });
 
-    testWidgets('файл без настоящего пути уходит обещанием, а не путём', (tester) async {
+    Future<void> pumpArchive(WidgetTester tester) async {
       tester.view.physicalSize = const Size(802, 621);
       tester.view.devicePixelRatio = 1;
       addTearDown(tester.view.reset);
       await tester.pumpWidget(FlexCommanderApp(controller: archive.app));
       await tester.pumpAndSettle();
+    }
 
+    /// Тянет строку архива — до того мгновения, когда система просит содержимое.
+    Future<void> dragOut(WidgetTester tester, String name) async {
       final table = tester.getRect(find.byType(FileTable).first);
       final metrics = FcTheme.of(tester.element(find.byType(FileTable).first)).metrics;
-      final index = archive.app.left.nodes.indexWhere((node) => node.name == 'inside.txt');
+      final index = archive.app.left.nodes.indexWhere((node) => node.name == name);
       final row = Offset(
         table.left + table.width / 2,
         table.top + metrics.headerRowHeight + index * metrics.rowHeight + metrics.rowHeight / 2,
       );
-
       final gesture = await tester.startGesture(row, kind: PointerDeviceKind.mouse, buttons: kPrimaryMouseButton);
       await gesture.moveBy(const Offset(24, 0));
       await tester.pumpAndSettle();
       await gesture.up();
       await tester.pumpAndSettle();
+    }
+
+    /// Просьба системы выложить обещанное — тем же каналом, что и всё остальное.
+    Future<String?> askPromise(WidgetTester tester, String id) async {
+      String? staged;
+      await tester.runAsync(() async {
+        await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
+          SystemDropService.channelName,
+          const StandardMethodCodec().encodeMethodCall(MethodCall('writePromise', {'id': id})),
+          (reply) => staged = const StandardMethodCodec().decodeEnvelope(reply!) as String?,
+        );
+      });
+      return staged;
+    }
+
+    Future<void> endSession(WidgetTester tester) async {
+      await tester.runAsync(() async {
+        await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
+          SystemDropService.channelName,
+          const StandardMethodCodec().encodeMethodCall(const MethodCall('dragEnded')),
+          (_) {},
+        );
+      });
+    }
+
+    testWidgets('файл без настоящего пути уходит обещанием, а не путём', (tester) async {
+      await pumpArchive(tester);
+      await dragOut(tester, 'inside.txt');
 
       final arguments = asked.single.arguments as Map;
       expect(arguments['paths'], isEmpty, reason: 'настоящего пути у него нет');
@@ -434,53 +464,41 @@ void main() {
       expect((promises.single as Map)['name'], 'inside.txt');
     });
 
-    testWidgets('содержимое выкладывается, только когда его попросят', (tester) async {
-      tester.view.physicalSize = const Size(802, 621);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-      await tester.pumpWidget(FlexCommanderApp(controller: archive.app));
-      await tester.pumpAndSettle();
+    testWidgets('содержимое выкладывается и после конца сессии', (tester) async {
+      // Найдено на живом: работало примерно раз из десяти. Система просит
+      // обещанное **после** того, как сессия кончилась, — порядок этих двух
+      // событий ничем не закреплён, — а уборка по концу сессии успевала
+      // забыть, что мы вообще обещали.
+      await pumpArchive(tester);
+      await dragOut(tester, 'inside.txt');
+      await endSession(tester);
 
-      final table = tester.getRect(find.byType(FileTable).first);
-      final metrics = FcTheme.of(tester.element(find.byType(FileTable).first)).metrics;
-      final index = archive.app.left.nodes.indexWhere((node) => node.name == 'inside.txt');
-      final row = Offset(
-        table.left + table.width / 2,
-        table.top + metrics.headerRowHeight + index * metrics.rowHeight + metrics.rowHeight / 2,
-      );
-      final gesture = await tester.startGesture(row, kind: PointerDeviceKind.mouse, buttons: kPrimaryMouseButton);
-      await gesture.moveBy(const Offset(24, 0));
-      await tester.pumpAndSettle();
-      await gesture.up();
-      await tester.pumpAndSettle();
+      final staged = await askPromise(tester, 'inside.txt');
+      expect(staged, isNotNull, reason: 'обещанное должно пережить конец сессии');
+      expect(File(staged!).readAsStringSync(), 'из архива');
+    });
 
-      // Выкладка — настоящая работа с диском, а в виджет-тесте она идёт только
-      // внутри `runAsync`: снаружи время поддельное, и файл не дописался бы
-      // никогда.
-      String? staged;
-      await tester.runAsync(() async {
-        // Просьба приходит из раннера — тем же каналом, что и всё остальное.
-        await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
-          SystemDropService.channelName,
-          const StandardMethodCodec().encodeMethodCall(const MethodCall('writePromise', {'id': 'inside.txt'})),
-          (reply) {
-            staged = const StandardMethodCodec().decodeEnvelope(reply!) as String?;
-          },
-        );
-      });
+    testWidgets('до просьбы ничего не читается, а копия живёт до следующего жеста', (tester) async {
+      await pumpArchive(tester);
+      await dragOut(tester, 'inside.txt');
 
+      final staged = await askPromise(tester, 'inside.txt');
       expect(staged, isNotNull, reason: 'обещанное должно выложиться по требованию');
       expect(File(staged!).readAsStringSync(), 'из архива');
 
-      // Сессия кончилась — временных копий больше нет.
+      // Конец сессии копию не трогает: её ещё могут попросить.
+      await endSession(tester);
+      expect(File(staged).existsSync(), isTrue);
+
+      // Убирает её следующее перетаскивание — там уже точно никто не спросит.
+      // Зовём службу напрямую: жест сюда ничего не добавляет, а настоящая
+      // работа с диском требует настоящего времени.
+      final service = archive.app.dragAndDrop! as SystemDropService;
       await tester.runAsync(() async {
-        await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
-          SystemDropService.channelName,
-          const StandardMethodCodec().encodeMethodCall(const MethodCall('dragEnded')),
-          (_) {},
-        );
+        await service.beginDrag(archive.app.left, [archive.app.left.nodes.firstWhere((n) => n.name == 'inside.txt')]);
       });
-      expect(File(staged!).existsSync(), isFalse, reason: 'копии живут ровно столько, сколько жест');
+
+      expect(File(staged).existsSync(), isFalse, reason: 'мусор не переживает больше одного жеста');
     });
   });
 
