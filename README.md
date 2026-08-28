@@ -78,8 +78,7 @@ copying *into* a panel that shows a file is simply not offered.
 
 **Viewer (`F3`) and editor (`F4`).** What `F3` opens is decided by a registry: a
 module declares a viewer — which files it takes and what it opens — and the
-viewing shell picks the first Today the only
-viewer that accepts, by priority. Pictures came that way — a module declaring
+viewing shell picks the first one that accepts, by priority. Pictures came that way — a module declaring
 itself, with not a line changed in the shell or in the text viewer — and they
 show up in `F3` and in the quick view alike. A file nobody takes is answered in
 words, not by a dead key.
@@ -138,7 +137,11 @@ stays on Swift Package Manager, and a real shell can be driven from `flutter tes
 icons and fonts all come from a module, and every size in it is a named value rather than
 a number spelled into a widget — the gap between the panels, the window margins, the
 splitter's grab width. Changing how the window breathes is editing that list, not hunting
-through the layout.
+through the layout. The window has no system title bar: the application fills it edge to
+edge, and a strip of its own at the top is what you drag it by (double-click to zoom).
+The traffic lights stay — closing, minimising and zooming are habits worth keeping — and
+so does everything else the system does well: the shadow, the rounded corners, resizing
+by the edges and snapping.
 
 **Interface and plumbing.** The function-key row asks the command registry what is bound
 to each key, so a button and its key can never disagree; it follows the visible screen
