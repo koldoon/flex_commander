@@ -88,6 +88,31 @@ void main() {
     expect(provider.entryAt('/outside/dropped.txt'), isNotNull);
   });
 
+  testWidgets('бросок показывает то же окно работы, что и F5', (tester) async {
+    // Найдено на живом: работа шла, панель обновлялась, а окна не было вовсе —
+    // приёмник, заданный параметром, уводил команду мимо него. Для сценария
+    // это верно, для жеста нет: человек начал работу сам и вправе видеть ход,
+    // вопросы и отмену.
+    await pumpApp(tester);
+
+    // Окно ловится подпиской, а не взглядом в нужный кадр: в памяти работа
+    // успевает кончиться раньше, чем тест успевает посмотреть.
+    var raised = false;
+    void watch() {
+      raised = raised || app.view.dialogs.isNotEmpty;
+    }
+
+    app.view.addListener(watch);
+    addTearDown(() => app.view.removeListener(watch));
+
+    final target = rowCenter(tester, 'docs');
+    await sendDrop(tester, 'drop', at: target, paths: const ['/outside/dropped.txt']);
+    await tester.pumpAndSettle();
+
+    expect(raised, isTrue, reason: 'окно хода работы должно подняться, как по F5');
+    expect(provider.entryAt('/home/docs/dropped.txt'), isNotNull);
+  });
+
   testWidgets('брошенное мимо строк копируется в каталог панели', (tester) async {
     await pumpApp(tester);
 

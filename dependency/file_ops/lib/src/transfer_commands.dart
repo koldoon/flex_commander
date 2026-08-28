@@ -188,7 +188,10 @@ abstract class TransferCommandBase extends AppCommand {
     // заданный приёмник, просто негодный, и сказать об этом надо, а не
     // показывать окно, которого сценарий не увидит.
     final given = context.invocation.param<String>(destinationParam);
-    if (given != null) {
+    // Приёмник из сценария — молча: параметром зовут не люди, и окно там
+    // некому смотреть. Приёмник от мыши — с окном: человек начал работу жестом
+    // и вправе видеть ход, вопросы и отмену ровно так же, как по `F5`.
+    if (given != null && !givenJob(context)) {
       await transfer(editor, given, context.invocation.param<bool>(followLinksParam) ?? false);
       return;
     }
@@ -219,12 +222,19 @@ abstract class TransferCommandBase extends AppCommand {
       failureMessage: '$label failed',
       show: present,
       sourcePath: _sourcePathOf(context),
-      // Каталог пассивной панели — разумный ответ на вопрос «куда».
-      destination: _defaultDestinationOf(context) ?? '',
+      // Сказанное жестом важнее умолчания: бросили в каталог под курсором —
+      // туда и пойдёт, а не в тот, что открыт в панели.
+      destination: given ?? _defaultDestinationOf(context) ?? '',
     );
     run.onStart = () => transfer(editor, run.destination, run.followLinks, run);
 
     present();
+
+    // Куда — уже сказано жестом, спрашивать нечего: окно открывается сразу
+    // ходом работы, а не формой.
+    if (given != null) {
+      await run.submit();
+    }
   }
 
   /// Каталог-приёмник по пути из параметра — вместе с арендой.
@@ -292,9 +302,23 @@ abstract class TransferCommandBase extends AppCommand {
 
   /// Заголовок собирается как в референсе: действие и то, над чем оно идёт.
   String titleOf(CommandContext context) {
+    // Задание могло прийти готовым — тогда считать надо его объекты, а не
+    // пометку в панели: у брошенного мышью с ней ничего общего.
+    final given = context.invocation.param<List<String>>(sourcesParam);
+    if (given != null) {
+      final what = given.length == 1 ? '«${_nameOf(given.single)}»' : '${given.length} items';
+      return '$label $what';
+    }
     final targets = targetsOf(context);
     final what = targets.length == 1 ? '«${targets.single.name}»' : '${targets.length} items';
     return '$label $what';
+  }
+
+  /// Имя объекта из пути — для заголовка работы.
+  static String _nameOf(String path) {
+    final trimmed = path.endsWith('/') ? path.substring(0, path.length - 1) : path;
+    final slash = trimmed.lastIndexOf('/');
+    return slash < 0 ? trimmed : trimmed.substring(slash + 1);
   }
 
   /// Каталог, из которого идёт работа: показывается в окне.
