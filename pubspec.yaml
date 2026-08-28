@@ -146,19 +146,19 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # Шрифты референсного приложения: интерфейс — Ubuntu, списки файлов —
-  # Consolas, иконки — FontAwesome. Ими же приложение выглядит одинаково
-  # на любой системе, а не только там, где эти шрифты установлены.
+  # Шрифты приложения: интерфейс — Ubuntu, иконки — FontAwesome. Оба свободные
+  # (Ubuntu Font Licence 1.0 и SIL OFL 1.1), поэтому лежат здесь и приложение
+  # выглядит одинаково на любой системе.
+  #
+  # Моноширинного шрифта здесь нет намеренно: список файлов набирается тем, что
+  # стоит у пользователя (`DefaultFonts.fixed`). Референсный Consolas —
+  # проприетарный шрифт Microsoft, лицензированный только вместе с продуктом, в
+  # котором он поставлен; класть его в чужой дистрибутив нельзя.
   fonts:
     - family: Ubuntu
       fonts:
         - asset: assets/fonts/Ubuntu-R.ttf
         - asset: assets/fonts/Ubuntu-B.ttf
-          weight: 700
-    - family: Consolas
-      fonts:
-        - asset: assets/fonts/consola.ttf
-        - asset: assets/fonts/consolab.ttf
           weight: 700
     - family: FontAwesome
       fonts:

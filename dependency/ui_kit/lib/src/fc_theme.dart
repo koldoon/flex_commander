@@ -25,7 +25,7 @@ class FcTheme extends ThemeExtension<FcTheme> {
   TextStyle get rowStyle =>
       TextStyle(fontFamily: fonts.fixed, fontSize: metrics.fontSize, color: colors.rowText, height: 1.2);
 
-  /// Колонки с числами и датами. Consolas моноширинный, поэтому отдельная
+  /// Колонки с числами и датами. Шрифт списка моноширинный, поэтому отдельная
   /// настройка цифр не нужна — столбец и так не «прыгает».
   TextStyle get numericStyle => rowStyle;
 

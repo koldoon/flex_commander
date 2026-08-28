@@ -73,8 +73,8 @@ void main() {
   testWidgets('текст строки опущен относительно иконки', (tester) async {
     await pumpApp(tester);
 
-    // У Consolas на некоторых кеглях смещена базовая линия, поэтому текст
-    // сдвинут вниз — иначе он не стоит на одной линии с иконкой.
+    // У моноширинных шрифтов на некоторых кеглях смещена базовая линия,
+    // поэтому текст сдвинут вниз — иначе он не стоит на одной линии с иконкой.
     final row = find.byType(FileTableRow).first;
     final icon = tester.getCenter(find.descendant(of: row, matching: find.byType(FileTypeIcon)).first);
     final name = tester.getCenter(find.descendant(of: row, matching: find.text('..')).first);

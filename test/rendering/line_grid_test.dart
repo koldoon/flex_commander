@@ -21,17 +21,26 @@ import 'package:flutter_test/flutter_test.dart';
 /// Меряется настоящими шрифтами приложения: у тестового шрифта метрики свои, и
 /// на нём расхождения не видно вовсе.
 void main() {
-  // Оба шрифта, что лежат в проекте: моноширинный для текста и обычный — на
-  // случай, если однажды тему переведут на него. Согласованность сетки от
-  // шрифта зависеть не должна, и этот перебор проверяет именно её.
-  const Map<String, String> fonts = {'Consolas': 'consola.ttf', 'Ubuntu': 'Ubuntu-R.ttf'};
+  // Два шрифта: моноширинный, которым набран список, и обычный — на случай,
+  // если однажды тему переведут на него. Согласованность сетки от шрифта
+  // зависеть не должна, и этот перебор проверяет именно её.
+  //
+  // Моноширинный приходится брать из системы: приложение его больше не возит с
+  // собой (`DefaultFonts`), а на тестовом шрифте расхождения не видно вовсе.
+  // Единственный тест, которому нужна настоящая машина, — и если шрифта на ней
+  // нет, он честно пропускается, а не притворяется пройденным.
+  const String fixedFamily = 'Menlo';
+  const String fixedPath = '/System/Library/Fonts/Menlo.ttc';
+  final bool hasFixed = File(fixedPath).existsSync();
+
+  final Map<String, String> fonts = {if (hasFixed) fixedFamily: fixedPath, 'Ubuntu': 'assets/fonts/Ubuntu-R.ttf'};
   final double fontSize = const DefaultMetrics().fontSize;
 
   setUpAll(() async {
     TestWidgetsFlutterBinding.ensureInitialized();
     for (final MapEntry<String, String> entry in fonts.entries) {
       final FontLoader loader = FontLoader(entry.key)
-        ..addFont(File('assets/fonts/${entry.value}').readAsBytes().then(ByteData.sublistView));
+        ..addFont(File(entry.value).readAsBytes().then(ByteData.sublistView));
       await loader.load();
     }
   });
@@ -70,9 +79,8 @@ void main() {
 
       test('глифы не убегают из строки сетки', () {
         // Прямоугольник выделения наша копия растягивает на всю строку сетки, и
-        // важно, что глифы держатся в ней: у Consolas — с запасом
-        // ([0.11..18.00] в сетке [0..18]), у Ubuntu — с выходом на 0.43 точки
-        // вверх. Выход в доли точки безобиден и, главное, **не копится**: он
+        // важно, что глифы держатся в ней: у моноширинного — с запасом, у
+        // Ubuntu — с выходом на 0.43 точки вверх. Выход в доли точки безобиден и, главное, **не копится**: он
         // одинаков в каждой строке. Копилось бы — поехала бы вся раскладка, и
         // это ловит соседний тест.
         final ui.Paragraph paragraph = paragraphWith(family, textLineHeight);
@@ -101,12 +109,17 @@ void main() {
     });
   }
 
-  test('интервал остался прежним: тот же шаг, что до починки', () {
-    // Как шаг мерился в апстриме: без струны и с его умолчанием `1.4`.
-    final double before =
-        (TextPainter(textDirection: TextDirection.ltr)
-          ..text = TextSpan(text: '0', style: styleWith('Consolas', 1.4))).preferredLineHeight;
-
-    expect(gridStep('Consolas', textLineHeight), before);
+  test('интервал остался прежним: 21 точка, и она одна на все шрифты', () {
+    // `textLineHeight` подобрана так, чтобы шаг сошёлся с тем, что давал
+    // апстрим на Consolas, — 21 точка при кегле 13.09. Сверяется теперь сама
+    // величина, а не сравнение с умолчанием библиотеки: `forceStrutHeight`
+    // делает шаг равным «кегль × высота» и от шрифта не зависящим, а вот
+    // умолчание апстрима (`1.4` без струны) у каждого шрифта своё — на Menlo
+    // оно дало бы 18 там, где на Consolas давало 21. Ради этой независимости
+    // починка и делалась, и проверять её сравнением с зависимой величиной
+    // значило бы проверять шрифт, а не сетку.
+    for (final String family in fonts.keys) {
+      expect(gridStep(family, textLineHeight), 21.0, reason: family);
+    }
   });
 }

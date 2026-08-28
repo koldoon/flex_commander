@@ -46,9 +46,9 @@ void main() {
       fonts: DefaultFonts(),
     );
 
-    test('интерфейс набран Ubuntu, список файлов — Consolas', () {
+    test('интерфейс набран Ubuntu, список файлов — системным моноширинным', () {
       expect(theme.uiStyle.fontFamily, 'Ubuntu');
-      expect(theme.rowStyle.fontFamily, 'Consolas');
+      expect(theme.rowStyle.fontFamily, 'Menlo');
       expect(theme.headerStyle.fontFamily, 'Ubuntu');
       expect(theme.buttonStyle.fontFamily, 'Ubuntu');
     });

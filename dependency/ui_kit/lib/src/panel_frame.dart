@@ -62,8 +62,8 @@ class FcPathPlate extends StatelessWidget {
             final scaler = MediaQuery.textScalerOf(context);
             final suffix = trailing;
 
-            // Сдвига, как в строках списка, здесь нет: он нужен Consolas,
-            // а путь набран Ubuntu — у него базовая линия обычная.
+            // Сдвига, как в строках списка, здесь нет: он нужен моноширинному
+            // шрифту, а путь набран Ubuntu — у него базовая линия обычная.
             final pathText = Text(
               _trimHead(
                 path,
