@@ -142,8 +142,8 @@ void main() {
         await op.ask(
           OperationRequest(
             message: 'File exists',
-            options: const [OperationRequestOption.skip, OperationRequestOption.overwrite],
-            enterOption: OperationRequestOption.skip,
+            options: const [TransferAnswers.skip, TransferAnswers.overwrite],
+            enterOption: TransferAnswers.skip,
           ),
         );
       }),

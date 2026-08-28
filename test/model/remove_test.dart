@@ -194,7 +194,7 @@ void main() {
       final operation = editor.remove();
       operation.requests.listen((request) {
         questions.add(request.message);
-        request.respond(OperationRequestOption.skipAll);
+        request.respond(TransferAnswers.skipAll);
       });
 
       operation.start(RemoveParams([nodes['notes.txt']!, nodes['report.txt']!], toTrash: false));
@@ -209,7 +209,7 @@ void main() {
       final nodes = await listRoot();
 
       final operation = editor.remove();
-      operation.requests.listen((request) => request.respond(OperationRequestOption.cancel));
+      operation.requests.listen((request) => request.respond(TransferAnswers.cancel));
 
       operation.start(RemoveParams([missing, nodes['report.txt']!], toTrash: false));
       await expectLater(operation.result, throwsA(isA<OperationCanceled>()));

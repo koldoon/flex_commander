@@ -89,7 +89,7 @@ void main() {
     final questions = <String>[];
     operation.requests.listen((request) {
       questions.add(request.message);
-      request.respond(OperationRequestOption.abort);
+      request.respond(CancelAnswers.abort);
     });
 
     await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
@@ -103,7 +103,7 @@ void main() {
       op.requestCancel();
       await encodeZipArchive(archivePath: archivePath, entries: entries(), level: 6, op: op);
     });
-    operation.requests.listen((request) => request.respond(OperationRequestOption.resume));
+    operation.requests.listen((request) => request.respond(CancelAnswers.resume));
 
     await operation.result;
 

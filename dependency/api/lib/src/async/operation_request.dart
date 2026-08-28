@@ -1,6 +1,19 @@
 import 'dart:async';
 
 /// Вариант ответа на [OperationRequest].
+///
+/// Только значение: имя для кода и подпись для кнопки. **Списка готовых
+/// вариантов здесь нет и быть не должно** — «перезаписать» и «пропустить все»
+/// это словарь переноса файлов, а не свойство самого вопроса. Заводит варианты
+/// тот, кто спрашивает, рядом со своим протоколом: конфликты имён — движок
+/// переноса ([TransferAnswers]), подтверждение отмены — сама работа
+/// ([CancelAnswers]), а модуль со своим вопросом объявляет свои и ни у кого
+/// не спрашивается.
+///
+/// Раньше словарь лежал здесь, и это было видно по составу: `retry` не
+/// пользовался никто, а `abort` с `resume` относились ровно к одному вопросу
+/// из ядра. Общий тип обрастал частностями тех, кто им пользуется, — а модулю
+/// со своим вопросом всё равно пришлось бы объявлять своё.
 class OperationRequestOption {
   const OperationRequestOption(this.id, this.label);
 
@@ -9,23 +22,6 @@ class OperationRequestOption {
 
   /// Подпись кнопки в диалоге.
   final String label;
-
-  static const overwrite = OperationRequestOption('overwrite', 'Overwrite');
-  static const overwriteAll = OperationRequestOption('overwriteAll', 'Overwrite all');
-  static const skip = OperationRequestOption('skip', 'Skip');
-  static const skipAll = OperationRequestOption('skipAll', 'Skip all');
-  static const retry = OperationRequestOption('retry', 'Retry');
-  static const cancel = OperationRequestOption('cancel', 'Cancel');
-
-  /// Прервать работу целиком — ответ на подтверждение отмены.
-  static const abort = OperationRequestOption('abort', 'Abort');
-
-  /// Продолжить работу: отменяется не операция, а сам вопрос о её отмене.
-  ///
-  /// Подпись поэтому «Cancel» — пользователь отказывается от прерывания, — а
-  /// идентификатор `resume`: в коде «cancel» уже значит «прервать операцию»,
-  /// и второе значение того же слова читалось бы наоборот.
-  static const resume = OperationRequestOption('resume', 'Cancel');
 
   @override
   String toString() => 'OperationRequestOption($id)';

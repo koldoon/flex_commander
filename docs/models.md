@@ -600,10 +600,19 @@ abstract class Operation<P, R> {
 /// Запрос из середины операции. Аналог IInteraction/IMessage референса.
 class UserActionRequest {
   final String message;
-  final List<OperationRequestOption> options;   // Overwrite / Skip / Skip all / Cancel
+  final List<OperationRequestOption> options;   // те, что дал спрашивающий
   void answer(OperationRequestOption option);
 }
 ```
+
+**Варианты ответа объявляет тот, кто спрашивает.** `OperationRequestOption` —
+только значение (имя для кода и подпись для кнопки), списка готовых вариантов в
+нём нет: «перезаписать» и «пропустить все» — это словарь переноса файлов, а не
+свойство самого вопроса. Поэтому они лежат рядом со своими протоколами —
+`TransferAnswers` у движка переноса (им же пользуется упаковка в архив: то же
+самое «работа по многим объектам споткнулась об один»), `CancelAnswers` у
+подтверждения отмены, — а модуль со своим вопросом объявляет свои и ни у кого не
+спрашивается. Окно при этом не знает по имени ни одного: рисует те, что дали.
 
 Правила:
 

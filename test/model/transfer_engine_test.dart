@@ -153,7 +153,7 @@ void main() {
       final questions = <String>[];
       operation.requests.listen((request) {
         questions.add(request.message);
-        request.respond(OperationRequestOption.overwriteAll);
+        request.respond(TransferAnswers.overwriteAll);
       });
 
       operation.start(TransferParams([await docs()], await box()));
@@ -170,7 +170,7 @@ void main() {
       final questions = <String>[];
       operation.requests.listen((request) {
         questions.add(request.message);
-        request.respond(OperationRequestOption.overwriteAll);
+        request.respond(TransferAnswers.overwriteAll);
       });
 
       operation.start(TransferParams([await docs()], await box()));
@@ -183,7 +183,7 @@ void main() {
 
     test('пропущенный файл остаётся нетронутым', () async {
       final operation = engine.copy();
-      operation.requests.listen((request) => request.respond(OperationRequestOption.skip));
+      operation.requests.listen((request) => request.respond(TransferAnswers.skip));
 
       operation.start(TransferParams([await docs()], await box()));
       await operation.result;
@@ -195,7 +195,7 @@ void main() {
 
     test('перенос не убирает из источника то, что пропустили', () async {
       final operation = engine.move();
-      operation.requests.listen((request) => request.respond(OperationRequestOption.skip));
+      operation.requests.listen((request) => request.respond(TransferAnswers.skip));
 
       operation.start(TransferParams([await docs()], await box()));
       await operation.result;
@@ -211,7 +211,7 @@ void main() {
 
     test('перенос без пропусков забирает источник целиком', () async {
       final operation = engine.move();
-      operation.requests.listen((request) => request.respond(OperationRequestOption.overwriteAll));
+      operation.requests.listen((request) => request.respond(TransferAnswers.overwriteAll));
 
       operation.start(TransferParams([await docs()], await box()));
       await operation.result;
@@ -313,7 +313,7 @@ void main() {
     final messages = <String>[];
     operation.requests.listen((request) {
       messages.add(request.message);
-      request.respond(OperationRequestOption.skip);
+      request.respond(TransferAnswers.skip);
     });
     return messages;
   }
@@ -346,7 +346,7 @@ void main() {
       // окно показало бы последний, а три первых повисли бы навсегда — и с
       // ними вся работа, дошедшая по счётчикам до конца.
       expect(questions, hasLength(1));
-      questions.single.respond(OperationRequestOption.skipAll);
+      questions.single.respond(TransferAnswers.skipAll);
 
       await operation.result;
 
@@ -453,7 +453,7 @@ void main() {
       final questions = <String>[];
       operation.requests.listen((request) {
         questions.add(request.message);
-        request.respond(OperationRequestOption.skipAll);
+        request.respond(TransferAnswers.skipAll);
       });
 
       operation.start(TransferParams([await dir('/home/src')], target));
@@ -575,7 +575,7 @@ void main() {
     test('отмена посреди файла убирает недописанное', () async {
       provider.copyChunkBytes = 1;
       final operation = engine.copy();
-      operation.requests.listen((request) => request.respond(OperationRequestOption.abort));
+      operation.requests.listen((request) => request.respond(CancelAnswers.abort));
 
       // Просьба приходит, когда копия уже пошла: между объектами её перехватила
       // бы обычная контрольная точка, и до файла дело бы не дошло.
@@ -815,12 +815,12 @@ void main() {
       await pumpEventQueue();
 
       expect(questions, hasLength(1));
-      expect(questions.single.options, [OperationRequestOption.abort, OperationRequestOption.resume]);
+      expect(questions.single.options, [CancelAnswers.abort, CancelAnswers.resume]);
       // Enter прерывает, Esc — отказывается прерывать.
-      expect(questions.single.enterOption, OperationRequestOption.abort);
-      expect(questions.single.escapeOption, OperationRequestOption.resume);
+      expect(questions.single.enterOption, CancelAnswers.abort);
+      expect(questions.single.escapeOption, CancelAnswers.resume);
 
-      questions.single.respond(OperationRequestOption.abort);
+      questions.single.respond(CancelAnswers.abort);
       await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
     });
 
@@ -840,13 +840,13 @@ void main() {
       expect(disk.copied.length, done, reason: 'работа продолжилась, не дождавшись ответа');
       expect(done, lessThan(20), reason: 'задание успело кончиться — проверять нечего');
 
-      question!.respond(OperationRequestOption.resume);
+      question!.respond(CancelAnswers.resume);
       await operation.result;
     });
 
     test('«Cancel» возвращает к работе, и она доходит до конца', () async {
       final (operation, disk) = await startCopy();
-      operation.requests.listen((request) => request.respond(OperationRequestOption.resume));
+      operation.requests.listen((request) => request.respond(CancelAnswers.resume));
 
       operation.requestCancel();
       await operation.result;
@@ -857,7 +857,7 @@ void main() {
 
     test('«Abort» прекращает работу на том, что успели', () async {
       final (operation, disk) = await startCopy();
-      operation.requests.listen((request) => request.respond(OperationRequestOption.abort));
+      operation.requests.listen((request) => request.respond(CancelAnswers.abort));
 
       operation.requestCancel();
       await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
@@ -887,7 +887,7 @@ void main() {
       await pumpEventQueue();
 
       expect(questions.single.message, 'Abort the operation?');
-      questions.single.respond(OperationRequestOption.abort);
+      questions.single.respond(CancelAnswers.abort);
       await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
     });
 

@@ -31,6 +31,7 @@ export 'src/tree/provider_lease.dart';
 export 'src/tree/provider_registry.dart';
 export 'src/tree/staging.dart';
 export 'src/tree/transfer/local_copy_session.dart';
+export 'src/tree/transfer/transfer_answers.dart';
 export 'src/tree/transfer/transfer_engine.dart';
 export 'src/tree/tree_provider.dart';
 

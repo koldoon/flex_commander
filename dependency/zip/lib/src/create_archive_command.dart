@@ -376,15 +376,15 @@ class CreateZipArchiveCommand extends AppCommand {
           _LinkTrouble.recursive => 'The link «${node.name}» points into the directory being packed',
           _LinkTrouble.broken => 'The link «${node.name}» leads nowhere',
         },
-        options: const [OperationRequestOption.skip, OperationRequestOption.skipAll, OperationRequestOption.cancel],
-        enterOption: OperationRequestOption.skip,
+        options: const [TransferAnswers.skip, TransferAnswers.skipAll, TransferAnswers.cancel],
+        enterOption: TransferAnswers.skip,
       ),
     );
 
-    if (answer == OperationRequestOption.cancel) {
+    if (answer == TransferAnswers.cancel) {
       throw const OperationCanceled();
     }
-    if (answer == OperationRequestOption.skipAll) {
+    if (answer == TransferAnswers.skipAll) {
       links.skipAll = true;
     }
   }

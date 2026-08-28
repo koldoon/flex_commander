@@ -5,6 +5,12 @@ import 'package:flutter/foundation.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+/// Варианты ответа у теста свои: их объявляет тот, кто спрашивает, — здесь это
+/// работа-подставка. Общего словаря на все вопросы в ядре нет.
+const _overwrite = OperationRequestOption('overwrite', 'Overwrite');
+const _skip = OperationRequestOption('skip', 'Skip');
+const _cancel = OperationRequestOption('cancel', 'Cancel');
+
 void main() {
   group('TaskOperation', () {
     test('возвращает результат и завершается', () async {
@@ -85,15 +91,11 @@ void main() {
       op = startedTask<String>((operation) async {
         await Future<void>.delayed(Duration.zero);
         final answer = await operation.ask(
-          OperationRequest(
-            message: 'Overwrite file?',
-            options: const [OperationRequestOption.overwrite, OperationRequestOption.skip],
-            enterOption: OperationRequestOption.skip,
-          ),
+          OperationRequest(message: 'Overwrite file?', options: const [_overwrite, _skip], enterOption: _skip),
         );
         return answer.id;
       });
-      op.requests.listen((request) => request.respond(OperationRequestOption.skip));
+      op.requests.listen((request) => request.respond(_skip));
 
       expect(await op.result, 'skip');
     });
@@ -101,11 +103,7 @@ void main() {
     test('без подписчиков применяется вариант по умолчанию', () async {
       final op = startedTask<String>((operation) async {
         final answer = await operation.ask(
-          OperationRequest(
-            message: 'Overwrite file?',
-            options: const [OperationRequestOption.overwrite, OperationRequestOption.cancel],
-            enterOption: OperationRequestOption.cancel,
-          ),
+          OperationRequest(message: 'Overwrite file?', options: const [_overwrite, _cancel], enterOption: _cancel),
         );
         return answer.id;
       });
@@ -114,17 +112,13 @@ void main() {
     });
 
     test('повторный ответ игнорируется', () {
-      final request = OperationRequest(
-        message: 'Overwrite?',
-        options: const [OperationRequestOption.overwrite, OperationRequestOption.skip],
-        enterOption: OperationRequestOption.skip,
-      );
+      final request = OperationRequest(message: 'Overwrite?', options: const [_overwrite, _skip], enterOption: _skip);
 
-      request.respond(OperationRequestOption.overwrite);
-      request.respond(OperationRequestOption.skip);
+      request.respond(_overwrite);
+      request.respond(_skip);
 
       expect(request.isAnswered, isTrue);
-      expect(request.answer, completion(OperationRequestOption.overwrite));
+      expect(request.answer, completion(_overwrite));
     });
   });
 
@@ -149,20 +143,8 @@ void main() {
       final asked = <String>[];
       final op = TaskOperation<void, void>((op, _) async {
         await Future.wait([
-          op.ask(
-            OperationRequest(
-              message: 'first',
-              options: const [OperationRequestOption.skip],
-              enterOption: OperationRequestOption.skip,
-            ),
-          ),
-          op.ask(
-            OperationRequest(
-              message: 'second',
-              options: const [OperationRequestOption.skip],
-              enterOption: OperationRequestOption.skip,
-            ),
-          ),
+          op.ask(OperationRequest(message: 'first', options: const [_skip], enterOption: _skip)),
+          op.ask(OperationRequest(message: 'second', options: const [_skip], enterOption: _skip)),
         ]);
       });
 
@@ -176,11 +158,11 @@ void main() {
 
       // Поднят ровно один: второй ждёт ответа на первый.
       expect(asked, ['first']);
-      questions.single.respond(OperationRequestOption.skip);
+      questions.single.respond(_skip);
       await pumpEventQueue();
 
       expect(asked, ['first', 'second']);
-      questions.last.respond(OperationRequestOption.skip);
+      questions.last.respond(_skip);
       await op.result;
     });
 
@@ -188,17 +170,11 @@ void main() {
       final op = TaskOperation<void, void>((op, _) async {
         await Future.wait([
           for (var i = 0; i < 3; i++)
-            op.ask(
-              OperationRequest(
-                message: 'q$i',
-                options: const [OperationRequestOption.skip],
-                enterOption: OperationRequestOption.skip,
-              ),
-            ),
+            op.ask(OperationRequest(message: 'q$i', options: const [_skip], enterOption: _skip)),
         ]);
       });
 
-      op.requests.listen((request) => request.respond(OperationRequestOption.skip));
+      op.requests.listen((request) => request.respond(_skip));
       op.start(null);
 
       // Без очереди здесь было бы вечное ожидание: показан один вопрос, а
@@ -254,7 +230,7 @@ void main() {
 
       // Тело бесконечное: если бы оно работало, шагов стало бы больше.
       expect(steps.length, done);
-      question!.respond(OperationRequestOption.resume);
+      question!.respond(CancelAnswers.resume);
       await pumpEventQueue();
       expect(steps.length, greaterThan(done));
       op.cancel();
@@ -267,7 +243,7 @@ void main() {
 
       op.requestCancel();
       await pumpEventQueue();
-      questions.single.respond(OperationRequestOption.resume);
+      questions.single.respond(CancelAnswers.resume);
       await pumpEventQueue();
 
       // Просьба не «залипает»: продолжив работу, её надо просить заново.
@@ -291,7 +267,7 @@ void main() {
 
     test('«Abort» завершает операцию отменой', () async {
       final (op, _) = counting();
-      op.requests.listen((request) => request.respond(OperationRequestOption.abort));
+      op.requests.listen((request) => request.respond(CancelAnswers.abort));
 
       op.requestCancel();
       await pumpEventQueue();
@@ -360,7 +336,7 @@ void main() {
 
       op.requestCancel();
       await pumpEventQueue();
-      questions.single.respond(OperationRequestOption.resume);
+      questions.single.respond(CancelAnswers.resume);
       await pumpEventQueue();
       final done = chunks.length;
 
@@ -378,7 +354,7 @@ void main() {
 
     test('«Abort» доходит следующим куском', () async {
       final (op, _) = chunking();
-      op.requests.listen((request) => request.respond(OperationRequestOption.abort));
+      op.requests.listen((request) => request.respond(CancelAnswers.abort));
 
       op.requestCancel();
       await pumpEventQueue();
@@ -522,11 +498,7 @@ void main() {
       late final OperationRequestOption answer;
       final inner = startedTask<int>((op) async {
         answer = await op.ask(
-          OperationRequest(
-            message: 'Overwrite?',
-            options: const [OperationRequestOption.overwrite, OperationRequestOption.skip],
-            enterOption: OperationRequestOption.skip,
-          ),
+          OperationRequest(message: 'Overwrite?', options: const [_overwrite, _skip], enterOption: _skip),
         );
         return 1;
       });
@@ -537,7 +509,7 @@ void main() {
 
       expect(await outer.result, 1);
       expect(questions, isEmpty);
-      expect(answer, OperationRequestOption.skip);
+      expect(answer, _skip);
     });
 
     test('просьба прервать вниз не идёт', () async {

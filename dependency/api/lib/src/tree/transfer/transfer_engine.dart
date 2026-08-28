@@ -7,6 +7,7 @@ import '../../async/transfer_progress.dart';
 import '../fs_node.dart';
 import '../tree_provider.dart';
 import '../operation_params.dart';
+import 'transfer_answers.dart';
 
 /// Как переносится один объект. Порядок — по убыванию скорости.
 enum TransferStrategy {
@@ -209,10 +210,10 @@ class TreeTransferEngine implements TreeEditor {
               continue;
             }
             final answer = await _askAboutFailure(op, error.message);
-            if (answer == OperationRequestOption.cancel) {
+            if (answer == TransferAnswers.cancel) {
               throw const OperationCanceled();
             }
-            if (answer == OperationRequestOption.skipAll) {
+            if (answer == TransferAnswers.skipAll) {
               overwrite.skipAll = true;
             }
           }
@@ -238,10 +239,10 @@ class TreeTransferEngine implements TreeEditor {
             throw error;
           }
           final answer = await _askAboutFailure(op, error.message);
-          if (answer == OperationRequestOption.cancel) {
+          if (answer == TransferAnswers.cancel) {
             throw const OperationCanceled();
           }
-          if (answer == OperationRequestOption.skipAll) {
+          if (answer == TransferAnswers.skipAll) {
             overwrite.skipAll = true;
           }
         }
@@ -319,10 +320,10 @@ class TreeTransferEngine implements TreeEditor {
             }
 
             final answer = await _askAboutFailure(op, error.message);
-            if (answer == OperationRequestOption.cancel) {
+            if (answer == TransferAnswers.cancel) {
               throw const OperationCanceled();
             }
-            if (answer == OperationRequestOption.skipAll) {
+            if (answer == TransferAnswers.skipAll) {
               skipAll = true;
             }
           }
@@ -537,28 +538,28 @@ class TreeTransferEngine implements TreeEditor {
       OperationRequest(
         message: FsError(existing.pathString, FsErrorKind.alreadyExists).message,
         options: const [
-          OperationRequestOption.overwrite,
-          OperationRequestOption.overwriteAll,
-          OperationRequestOption.skip,
-          OperationRequestOption.skipAll,
-          OperationRequestOption.cancel,
+          TransferAnswers.overwrite,
+          TransferAnswers.overwriteAll,
+          TransferAnswers.skip,
+          TransferAnswers.skipAll,
+          TransferAnswers.cancel,
         ],
         // Молча затирать чужие файлы нельзя.
-        enterOption: OperationRequestOption.skip,
+        enterOption: TransferAnswers.skip,
       ),
     );
 
-    if (answer == OperationRequestOption.cancel) {
+    if (answer == TransferAnswers.cancel) {
       throw const OperationCanceled();
     }
-    if (answer == OperationRequestOption.skipAll) {
+    if (answer == TransferAnswers.skipAll) {
       overwrite.skipAll = true;
       return false;
     }
-    if (answer == OperationRequestOption.skip) {
+    if (answer == TransferAnswers.skip) {
       return false;
     }
-    if (answer == OperationRequestOption.overwriteAll) {
+    if (answer == TransferAnswers.overwriteAll) {
       overwrite.overwriteAll = true;
     }
     return true;
@@ -663,10 +664,10 @@ class TreeTransferEngine implements TreeEditor {
             recursive
                 ? 'The link «${node.name}» points into the directory being copied'
                 : 'Cannot store the link «${node.name}» as a link here',
-        options: const [OperationRequestOption.skip, OperationRequestOption.skipAll, OperationRequestOption.cancel],
+        options: const [TransferAnswers.skip, TransferAnswers.skipAll, TransferAnswers.cancel],
         // Подменять ссылку её содержимым молча нельзя: это разные вещи и по
         // размеру, и по смыслу.
-        enterOption: OperationRequestOption.skip,
+        enterOption: TransferAnswers.skip,
       ),
       // Ссылок в дереве бывает много, и идут они разом. Ответ «пропустить все»
       // на первую снимает и те вопросы, что уже встали в очередь: человек
@@ -674,10 +675,10 @@ class TreeTransferEngine implements TreeEditor {
       stillNeeded: () => !links.skipAll,
     );
 
-    if (answer == OperationRequestOption.cancel) {
+    if (answer == TransferAnswers.cancel) {
       throw const OperationCanceled();
     }
-    if (answer == OperationRequestOption.skipAll) {
+    if (answer == TransferAnswers.skipAll) {
       links.skipAll = true;
     }
   }
@@ -894,8 +895,8 @@ class TreeTransferEngine implements TreeEditor {
     return op.ask(
       OperationRequest(
         message: message,
-        options: const [OperationRequestOption.skip, OperationRequestOption.skipAll, OperationRequestOption.cancel],
-        enterOption: OperationRequestOption.skip,
+        options: const [TransferAnswers.skip, TransferAnswers.skipAll, TransferAnswers.cancel],
+        enterOption: TransferAnswers.skip,
       ),
     );
   }

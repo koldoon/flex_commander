@@ -5,6 +5,23 @@ import 'package:flutter/foundation.dart';
 import 'operation_request.dart';
 import 'operation_status.dart';
 
+/// Ответы на подтверждение отмены — вопрос, который задаёт сама работа.
+///
+/// Живут здесь, а рядом с [AsyncOperation.checkpoint], который их и
+/// показывает: вариант ответа принадлежит тому, кто спрашивает, а не типу
+/// вопроса.
+abstract final class CancelAnswers {
+  /// Прервать работу целиком.
+  static const abort = OperationRequestOption('abort', 'Abort');
+
+  /// Продолжить работу: отменяется не операция, а сам вопрос о её отмене.
+  ///
+  /// Подпись поэтому «Cancel» — человек отказывается от прерывания, — а
+  /// идентификатор `resume`: в коде «cancel» уже значит «прервать операцию», и
+  /// второе значение того же слова читалось бы наоборот.
+  static const resume = OperationRequestOption('resume', 'Cancel');
+}
+
 /// Операция отменена вызовом [AsyncOperation.cancel].
 class OperationCanceled implements Exception {
   const OperationCanceled();
@@ -173,13 +190,13 @@ class TaskOperation<P, R> implements Operation<P, R> {
     final answer = await ask(
       OperationRequest(
         message: 'Abort the operation?',
-        options: const [OperationRequestOption.abort, OperationRequestOption.resume],
-        enterOption: OperationRequestOption.abort,
-        escapeOption: OperationRequestOption.resume,
+        options: const [CancelAnswers.abort, CancelAnswers.resume],
+        enterOption: CancelAnswers.abort,
+        escapeOption: CancelAnswers.resume,
       ),
     );
 
-    if (answer == OperationRequestOption.abort) {
+    if (answer == CancelAnswers.abort) {
       cancel();
     }
     checkCanceled();

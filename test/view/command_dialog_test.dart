@@ -16,6 +16,13 @@ const _defaultTheme = FcThemeSpec(
   fonts: DefaultFonts(),
 );
 
+/// Свои варианты ответа: окно рисует те, что ему дали, и ни одного не знает
+/// по имени — потому тест и объявляет их сам.
+const _overwrite = OperationRequestOption('overwrite', 'Overwrite');
+const _skip = OperationRequestOption('skip', 'Skip');
+const _retry = OperationRequestOption('retry', 'Retry');
+const _cancel = OperationRequestOption('cancel', 'Cancel');
+
 void main() {
   Future<void> pumpProgress(
     WidgetTester tester, {
@@ -137,8 +144,8 @@ void main() {
 
     OperationRequest passwordRequest({bool secret = true}) => OperationRequest(
       message: 'archive.zip is encrypted',
-      options: const [OperationRequestOption.retry, OperationRequestOption.cancel],
-      enterOption: OperationRequestOption.retry,
+      options: const [_retry, _cancel],
+      enterOption: _retry,
       inputLabel: 'Password:',
       secret: secret,
     );
@@ -146,11 +153,7 @@ void main() {
     testWidgets('вопрос без поля остаётся набором кнопок', (tester) async {
       await pumpQuestion(
         tester,
-        OperationRequest(
-          message: 'Already exists',
-          options: const [OperationRequestOption.skip, OperationRequestOption.cancel],
-          enterOption: OperationRequestOption.skip,
-        ),
+        OperationRequest(message: 'Already exists', options: const [_skip, _cancel], enterOption: _skip),
       );
 
       expect(find.byType(TextField), findsNothing);
@@ -179,7 +182,7 @@ void main() {
       await tester.enterText(find.byType(TextField), 'secret');
       await tester.tap(find.widgetWithText(FcButton, 'Retry'));
 
-      expect(await request.answer, OperationRequestOption.retry);
+      expect(await request.answer, _retry);
       expect(request.text, 'secret');
     });
 
@@ -189,7 +192,7 @@ void main() {
       await tester.enterText(find.byType(TextField), 'secret');
       await tester.testTextInput.receiveAction(TextInputAction.done);
 
-      expect(await request.answer, OperationRequestOption.retry);
+      expect(await request.answer, _retry);
       expect(request.text, 'secret');
     });
 
@@ -199,17 +202,13 @@ void main() {
       await tester.enterText(find.byType(TextField), 'secret');
       await tester.tap(find.widgetWithText(FcButton, 'Cancel'));
 
-      expect(await request.answer, OperationRequestOption.cancel);
+      expect(await request.answer, _cancel);
     });
 
     testWidgets('подсвечена та кнопка, которую нажмёт Enter', (tester) async {
       await pumpQuestion(
         tester,
-        OperationRequest(
-          message: 'Already exists',
-          options: const [OperationRequestOption.overwrite, OperationRequestOption.skip, OperationRequestOption.cancel],
-          enterOption: OperationRequestOption.skip,
-        ),
+        OperationRequest(message: 'Already exists', options: const [_overwrite, _skip, _cancel], enterOption: _skip),
       );
 
       // Не первая по порядку: молча затирать чужие файлы нельзя.
