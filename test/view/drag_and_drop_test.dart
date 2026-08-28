@@ -180,6 +180,80 @@ void main() {
     });
   });
 
+  group('в свою же панель не бросают', () {
+    setUp(() {
+      // Система отвечает «перетаскивание началось» — с этого мгновения служба
+      // знает, откуда тащат.
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel(SystemDropService.channelName),
+        (call) async => true,
+      );
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel(SystemDropService.channelName),
+        null,
+      );
+    });
+
+    /// Тянет строку левой панели и ведёт указатель в заданную точку.
+    Future<void> dragFromLeft(WidgetTester tester, String name, Offset to) async {
+      final gesture = await tester.startGesture(
+        rowCenter(tester, name),
+        kind: PointerDeviceKind.mouse,
+        buttons: kPrimaryMouseButton,
+      );
+      await gesture.moveBy(const Offset(24, 0));
+      await tester.pumpAndSettle();
+      // Дальше мышь у системы, и события приходят каналом — как из раннера.
+      await sendDrop(tester, 'dragUpdated', at: to, paths: const ['/home/note.txt']);
+      await gesture.cancel();
+    }
+
+    testWidgets('панель-источник не подсвечивается и не принимает', (tester) async {
+      await pumpApp(tester);
+      final table = tester.getRect(find.byType(FileTable).first);
+      final inside = Offset(table.left + table.width / 2, table.bottom - 4);
+
+      await dragFromLeft(tester, 'note.txt', inside);
+      await sendDrop(tester, 'drop', at: inside, paths: const ['/home/note.txt']);
+
+      expect(
+        provider.entryAt('/home/note.txt'),
+        isNotNull,
+        reason: 'файл на месте — но копии в той же панели быть не должно',
+      );
+      expect(app.left.nodes.where((node) => node.name.contains('note')).length, 1);
+    });
+
+    testWidgets('в соседнюю панель — принимает', (tester) async {
+      await app.right.openPath('/home/docs');
+      await pumpApp(tester);
+
+      final right = tester.getRect(find.byType(FileTable).at(1));
+      final into = Offset(right.left + right.width / 2, right.bottom - 4);
+      await dragFromLeft(tester, 'note.txt', into);
+      await sendDrop(tester, 'drop', at: into, paths: const ['/home/note.txt']);
+      await tester.pumpAndSettle();
+
+      expect(provider.entryAt('/home/docs/note.txt'), isNotNull);
+    });
+
+    testWidgets('с настройкой принимает и в свою — в каталог под курсором', (tester) async {
+      // Ради этого её и включают: перетащить в подкаталог, не уходя из панели.
+      app.moduleSettings('fc.dnd').section(DragAndDropSettings.new).dropIntoSamePanel = true;
+      await pumpApp(tester);
+
+      final onDocs = rowCenter(tester, 'docs');
+      await dragFromLeft(tester, 'note.txt', onDocs);
+      await sendDrop(tester, 'drop', at: onDocs, paths: const ['/home/note.txt']);
+      await tester.pumpAndSettle();
+
+      expect(provider.entryAt('/home/docs/note.txt'), isNotNull);
+    });
+  });
+
   testWidgets('подсветка приёмника не трогает прокрутку', (tester) async {
     // Найдено на живом: стоило потащить файл наружу, как панель перематывалась
     // к началу списка. Указатель по дороге проходит над своим же окном и

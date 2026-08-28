@@ -171,7 +171,12 @@ final class FileDrag {
       items.append(item)
     }
 
+    // Конец своей сессии виден только источнику — от него Dart и узнаёт, что
+    // тащить перестали. Иначе «мы сейчас тащим» пришлось бы угадывать: наружу
+    // бросают в чужом окне, и никаких событий оттуда к нам не приходит.
+    source.onEnded = { [weak self] in self?.channel.invokeMethod("dragEnded", arguments: nil) }
     view.beginDraggingSession(with: items, event: event, source: source)
+    channel.invokeMethod("dragBegan", arguments: nil)
     return true
   }
 
@@ -182,6 +187,13 @@ final class FileDrag {
 
 /// Источник перетаскивания: что позволено делать с тем, что мы отдали.
 final class DragSource: NSObject, NSDraggingSource {
+  /// Сессия кончилась — где бы её ни отпустили, в своём окне или в чужом.
+  var onEnded: (() -> Void)?
+
+  func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
+    onEnded?()
+  }
+
   /// Только копирование — и только наружу.
   ///
   /// Не перенос: у переноса приёмник обязан сообщить, что забрал объект, и

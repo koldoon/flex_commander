@@ -40,6 +40,12 @@ class DropSpot {
 
 /// Перетаскивание мышью. Нет службы — нет и перетаскивания.
 ///
+/// **Хозяин** ([target] и [source] принимают его одинаковым) — это место, из
+/// которого тащат и в которое бросают: у нас это панель. Место, где жест
+/// начался, себе же приёмником не бывает: перетащить из панели в неё саму
+/// значит скопировать каталог сам в себя, а рамка вокруг источника только
+/// сбивает с толку — она обещает работу, которой не будет.
+///
 /// Лежит среди контрактов приложения, а не платформенных служб, хотя приносит
 /// её платформенный модуль: разговор здесь идёт **о виджетах** — обернуть
 /// область приёмником, строку источником, — а платформенное всё осталось по ту
@@ -56,6 +62,7 @@ abstract interface class DragAndDrop {
   /// координатах области; [builder] рисует содержимое и получает то, что над
   /// ним, — null, когда над ним ничего не тащат.
   Widget target({
+    required Object owner,
     required DropSpot? Function(Offset local) spotAt,
     required Future<void> Function(DropSpot spot, DropPayload payload) onDrop,
     required Widget Function(BuildContext context, DropSpot? hovered) builder,
@@ -65,5 +72,5 @@ abstract interface class DragAndDrop {
   ///
   /// Узлы спрашиваются **в момент захвата**, а не при сборке виджета: пометка
   /// меняется, а строка списка от этого не пересобирается.
-  Widget source({required Widget child, required List<FsNode> Function() nodes});
+  Widget source({required Object owner, required Widget child, required List<FsNode> Function() nodes});
 }

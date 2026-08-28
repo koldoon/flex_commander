@@ -152,8 +152,11 @@ questions about existing names, same cancellation. Dragging the other way works 
 a row into Finder or any other application and it is copied out, with the system's own
 file icons following the cursor; drag a marked row and the whole marking goes. Files
 inside archives and on servers cannot be dragged out yet — that needs promised files.
-Both directions are AppKit in the runner rather than a plugin, so the macOS build stays
-free of CocoaPods.
+Between the two panels it works as well, and a panel is never a target for its own
+drag: dropping files where they already are does nothing, so it does not pretend
+otherwise — one setting turns that into an allowance for dropping into a subdirectory
+without leaving the panel. Both directions are AppKit in the runner rather than a plugin,
+so the macOS build stays free of CocoaPods.
 
 **Appearance.** One dark theme, taken from the reference application: palette, metrics,
 icons and fonts all come from a module, and every size in it is a named value rather than

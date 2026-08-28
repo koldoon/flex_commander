@@ -248,6 +248,9 @@ class _FileTableState extends State<FileTable> {
                 return content;
               }
               return dnd.target(
+                // Хозяин места — сама панель: из неё тащат, в неё бросают, и в
+                // себя же бросать нельзя.
+                owner: panel,
                 spotAt: _spotAt,
                 onDrop: (spot, payload) => _handleDrop(app, spot, payload),
                 builder: (context, hovered) => _withHighlight(theme, content, hovered),
@@ -395,7 +398,7 @@ class _FileTableState extends State<FileTable> {
             );
             // Строку можно утащить наружу — если есть кому тащить.
             final dnd = app.dragAndDrop;
-            return dnd == null ? row : dnd.source(child: row, nodes: () => _dragNodes(node));
+            return dnd == null ? row : dnd.source(owner: panel, child: row, nodes: () => _dragNodes(node));
           },
         );
       },
