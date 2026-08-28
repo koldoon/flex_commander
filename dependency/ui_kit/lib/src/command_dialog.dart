@@ -596,6 +596,13 @@ class CommandDialogField {
 /// ячеек нет вовсе, поэтому такая строка выходит из таблицы: форма — это
 /// череда таблиц и широких строк между ними. Выравнивание от этого не
 /// страдает, потому что мера столбца общая и посчитана заранее.
+///
+/// Начинаются они всё же **там, где значения**, а не у самого края: в
+/// референсе флаг стоит под полем ввода, а не под его подписью. Слева им
+/// отводится ровно столбец подписей с зазором — и тогда флаг читается как
+/// продолжение поля, к которому относится. Просвет над такой строкой
+/// отдельный ([FcMetrics.dialogWideRowGap]) и больше обычного: она стоит под
+/// полями, а не в их ряду.
 class FcForm extends StatelessWidget {
   const FcForm({super.key, required this.rows, this.labelWidth, this.horizontalPadding = 0});
 
@@ -617,10 +624,12 @@ class FcForm extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
-    final gap = theme.metrics.dialogGap;
+    final metrics = theme.metrics;
     final width = labelWidth ?? widestLabel(context, [for (final row in rows) row.label]);
 
     final parts = <Widget>[];
+    // Просвет **перед** каждой частью; у первой его нет.
+    final gaps = <double>[];
     var run = <CommandDialogField>[];
 
     Widget inset(Widget part) =>
@@ -628,18 +637,30 @@ class FcForm extends StatelessWidget {
             ? part
             : Padding(padding: EdgeInsets.symmetric(horizontal: horizontalPadding), child: part);
 
+    void add(Widget part, double gap) {
+      gaps.add(parts.isEmpty ? 0 : gap);
+      parts.add(part);
+    }
+
     void flush() {
       if (run.isEmpty) {
         return;
       }
-      parts.add(inset(_table(theme, width, run)));
+      add(inset(_table(theme, width, run)), metrics.dialogGap);
       run = [];
     }
 
     for (final row in rows) {
       if (row.isWide) {
         flush();
-        parts.add(row.bleeds ? row.content(theme) : inset(row.content(theme)));
+        // Строка без подписи начинается там же, где значения: под полем ввода,
+        // а не под его подписью. Кроме той, что выходит к самым краям окна, —
+        // ей поля не отводятся вовсе.
+        final content =
+            row.bleeds
+                ? row.content(theme)
+                : inset(Padding(padding: EdgeInsets.only(left: width + metrics.dialogGap), child: row.content(theme)));
+        add(content, metrics.dialogWideRowGap);
         continue;
       }
       run.add(row);
@@ -650,7 +671,7 @@ class FcForm extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var i = 0; i < parts.length; i++) ...[if (i > 0) SizedBox(height: gap), parts[i]],
+        for (var i = 0; i < parts.length; i++) ...[if (gaps[i] > 0) SizedBox(height: gaps[i]), parts[i]],
       ],
     );
   }

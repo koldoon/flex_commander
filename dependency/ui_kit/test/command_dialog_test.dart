@@ -90,11 +90,28 @@ void main() {
     final second = tester.getRect(find.byKey(const ValueKey('two')));
     final third = tester.getRect(find.byKey(const ValueKey('three')));
 
-    expect(second.top - first.bottom, closeTo(metrics.dialogGap, 0.01));
-    expect(third.top - second.bottom, closeTo(metrics.dialogGap, 0.01));
+    // Над строкой без подписи просвет свой и больше: она стоит **под** полями,
+    // а не в их ряду, и с общим зазором читалась бы как ещё одно поле, у
+    // которого забыли подпись.
+    expect(second.top - first.bottom, closeTo(metrics.dialogWideRowGap, 0.01));
+    expect(third.top - second.bottom, closeTo(metrics.dialogWideRowGap, 0.01));
   });
 
-  testWidgets('сообщение об ошибке отделено тем же зазором', (tester) async {
+  testWidgets('строка без подписи начинается там, где значения', (tester) async {
+    // В референсе флаг стоит под полем ввода, а не под его подписью: у левого
+    // края он читается как что-то отдельное от формы.
+    await pump(tester, const [
+      CommandDialogField(label: 'One', child: SizedBox(key: ValueKey('one'), height: 24)),
+      CommandDialogField.wide(child: SizedBox(key: ValueKey('two'), height: 24)),
+    ]);
+
+    final field = tester.getRect(find.byKey(const ValueKey('one')));
+    final flag = tester.getRect(find.byKey(const ValueKey('two')));
+
+    expect(flag.left, closeTo(field.left, 0.01));
+  });
+
+  testWidgets('сообщение об ошибке отделено просветом строки без подписи', (tester) async {
     await pump(tester, const [
       CommandDialogField(label: 'One', child: SizedBox(key: ValueKey('one'), height: 24)),
     ], error: 'не вышло');
@@ -102,6 +119,7 @@ void main() {
     final field = tester.getRect(find.byKey(const ValueKey('one')));
     final message = tester.getRect(find.text('не вышло'));
 
-    expect(message.top - field.bottom, closeTo(metrics.dialogGap, 0.01));
+    expect(message.top - field.bottom, closeTo(metrics.dialogWideRowGap, 0.01));
+    expect(message.left, closeTo(field.left, 0.01));
   });
 }
