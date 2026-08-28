@@ -151,7 +151,9 @@ target outlined while you hold them. The copy is the ordinary `F5` job: same win
 questions about existing names, same cancellation. Dragging the other way works too: pull
 a row into Finder or any other application and it is copied out, with the system's own
 file icons following the cursor; drag a marked row and the whole marking goes. Files
-inside archives and on servers cannot be dragged out yet — that needs promised files.
+inside archives and on servers travel out as promises: nothing is unpacked until the
+receiving application actually asks for the bytes, so changing your mind halfway costs
+nothing. Directories out of an archive are the one thing still missing.
 Between the two panels it works as well, and holding `Shift` while you drop moves
 instead of copying — the system decides that and draws the usual badge on the cursor, so
 there is nothing of ours to learn. Dragging *out* is always a copy: a move out would mean

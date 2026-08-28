@@ -1,3 +1,6 @@
+import 'dart:convert';
+import 'dart:io';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
@@ -368,6 +371,116 @@ void main() {
       await startWork(tester, 'Copy');
 
       expect(provider.entryAt('/home/docs/note.txt'), isNotNull);
+    });
+  });
+
+  group('обещанное', () {
+    late List<MethodCall> asked;
+    late AppRuntime archive;
+
+    setUp(() async {
+      asked = [];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel(SystemDropService.channelName),
+        (call) async {
+          asked.add(call);
+          return true;
+        },
+      );
+
+      // Источник без настоящих путей — как архив или сервер: содержимое есть,
+      // а показать системе нечего.
+      final inside = InMemoryContentProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.file('/home/inside.txt', content: utf8.encode('из архива')),
+      ])..home = '/home';
+      inside.capabilities = archiveCapabilities;
+      archive = await testApp(provider: inside, modules: featureModules());
+      await archive.app.start();
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel(SystemDropService.channelName),
+        null,
+      );
+    });
+
+    testWidgets('файл без настоящего пути уходит обещанием, а не путём', (tester) async {
+      tester.view.physicalSize = const Size(802, 621);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(FlexCommanderApp(controller: archive.app));
+      await tester.pumpAndSettle();
+
+      final table = tester.getRect(find.byType(FileTable).first);
+      final metrics = FcTheme.of(tester.element(find.byType(FileTable).first)).metrics;
+      final index = archive.app.left.nodes.indexWhere((node) => node.name == 'inside.txt');
+      final row = Offset(
+        table.left + table.width / 2,
+        table.top + metrics.headerRowHeight + index * metrics.rowHeight + metrics.rowHeight / 2,
+      );
+
+      final gesture = await tester.startGesture(row, kind: PointerDeviceKind.mouse, buttons: kPrimaryMouseButton);
+      await gesture.moveBy(const Offset(24, 0));
+      await tester.pumpAndSettle();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      final arguments = asked.single.arguments as Map;
+      expect(arguments['paths'], isEmpty, reason: 'настоящего пути у него нет');
+      final promises = arguments['promises'] as List;
+      expect(promises, hasLength(1));
+      expect((promises.single as Map)['name'], 'inside.txt');
+    });
+
+    testWidgets('содержимое выкладывается, только когда его попросят', (tester) async {
+      tester.view.physicalSize = const Size(802, 621);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+      await tester.pumpWidget(FlexCommanderApp(controller: archive.app));
+      await tester.pumpAndSettle();
+
+      final table = tester.getRect(find.byType(FileTable).first);
+      final metrics = FcTheme.of(tester.element(find.byType(FileTable).first)).metrics;
+      final index = archive.app.left.nodes.indexWhere((node) => node.name == 'inside.txt');
+      final row = Offset(
+        table.left + table.width / 2,
+        table.top + metrics.headerRowHeight + index * metrics.rowHeight + metrics.rowHeight / 2,
+      );
+      final gesture = await tester.startGesture(row, kind: PointerDeviceKind.mouse, buttons: kPrimaryMouseButton);
+      await gesture.moveBy(const Offset(24, 0));
+      await tester.pumpAndSettle();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      // Выкладка — настоящая работа с диском, а в виджет-тесте она идёт только
+      // внутри `runAsync`: снаружи время поддельное, и файл не дописался бы
+      // никогда.
+      String? staged;
+      await tester.runAsync(() async {
+        // Просьба приходит из раннера — тем же каналом, что и всё остальное.
+        await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
+          SystemDropService.channelName,
+          const StandardMethodCodec().encodeMethodCall(const MethodCall('writePromise', {'id': 'inside.txt'})),
+          (reply) {
+            staged = const StandardMethodCodec().decodeEnvelope(reply!) as String?;
+          },
+        );
+      });
+
+      expect(staged, isNotNull, reason: 'обещанное должно выложиться по требованию');
+      expect(File(staged!).readAsStringSync(), 'из архива');
+
+      // Сессия кончилась — временных копий больше нет.
+      await tester.runAsync(() async {
+        await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
+          SystemDropService.channelName,
+          const StandardMethodCodec().encodeMethodCall(const MethodCall('dragEnded')),
+          (_) {},
+        );
+      });
+      expect(File(staged!).existsSync(), isFalse, reason: 'копии живут ровно столько, сколько жест');
     });
   });
 

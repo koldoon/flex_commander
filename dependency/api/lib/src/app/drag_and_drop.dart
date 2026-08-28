@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import '../tree/fs_node.dart';
+import '../tree/provider_lease.dart';
 
 /// Что тащат: пути из системы или узлы дерева изнутри приложения.
 ///
@@ -79,5 +80,13 @@ abstract interface class DragAndDrop {
   ///
   /// Узлы спрашиваются **в момент захвата**, а не при сборке виджета: пометка
   /// меняется, а строка списка от этого не пересобирается.
-  Widget source({required Object owner, required Widget child, required List<FsNode> Function() nodes});
+  /// [hold] удерживает источник живым на время перетаскивания: пока файл едет
+  /// в чужое окно, панель вправе уйти куда угодно — хоть выйти из архива, — а
+  /// содержимое у неё спросят уже после. Null — держать нечего.
+  Widget source({
+    required Object owner,
+    required Widget child,
+    required List<FsNode> Function() nodes,
+    ProviderLease? Function()? hold,
+  });
 }

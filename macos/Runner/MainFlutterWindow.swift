@@ -1,5 +1,6 @@
 import Cocoa
 import FlutterMacOS
+import UniformTypeIdentifiers
 import window_manager
 
 class MainFlutterWindow: NSWindow, NSDraggingDestination {
@@ -129,7 +130,7 @@ class MainFlutterWindow: NSWindow, NSDraggingDestination {
 /// ответить синхронно, а канал асинхронный, и ждать Dart тут нечем. Если
 /// бросили не туда, Dart просто ничего не сделает; человек это видит заранее —
 /// подсветку рисует он же, и её отсутствие и есть «сюда нельзя».
-final class FileDrag {
+final class FileDrag: NSObject, NSFilePromiseProviderDelegate {
   static let channelName = "flex_commander/drop"
 
   private let channel: FlutterMethodChannel
@@ -141,6 +142,7 @@ final class FileDrag {
   init(messenger: FlutterBinaryMessenger, window: NSWindow) {
     self.channel = FlutterMethodChannel(name: FileDrag.channelName, binaryMessenger: messenger)
     self.window = window
+    super.init()
     // Канал один на обе стороны: сюда приходят просьбы Dart, отсюда уходят
     // события системы. Два канала ради двух направлений были бы двумя именами,
     // о которых надо помнить.
@@ -210,8 +212,13 @@ final class FileDrag {
   func handle(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
     switch call.method {
     case "beginDrag":
-      let paths = (call.arguments as? [String: Any])?["paths"] as? [String] ?? []
-      result(beginDrag(paths: paths))
+      let arguments = call.arguments as? [String: Any]
+      result(
+        beginDrag(
+          paths: arguments?["paths"] as? [String] ?? [],
+          promises: arguments?["promises"] as? [[String: Any]] ?? []
+        )
+      )
     default:
       result(FlutterMethodNotImplemented)
     }
@@ -223,8 +230,8 @@ final class FileDrag {
   /// жест как раз идёт — палец на кнопке, и это то самое событие, которого
   /// ждёт `beginDraggingSession`. Нет события или оно не мышиное — тащить
   /// нечего, и Dart об этом узнаёт по ответу.
-  private func beginDrag(paths: [String]) -> Bool {
-    guard !paths.isEmpty,
+  private func beginDrag(paths: [String], promises: [[String: Any]]) -> Bool {
+    guard !paths.isEmpty || !promises.isEmpty,
           let view = window.contentView,
           // Своё запомненное событие, а не «текущее» у приложения: см.
           // `MainFlutterWindow.sendEvent`.
@@ -260,9 +267,98 @@ final class FileDrag {
       self.releaseMouse(at: endPoint)
       self.channel.invokeMethod("dragEnded", arguments: nil)
     }
+    // Обещанное: у него нет настоящего пути, и содержимое мы отдадим, только
+    // когда его попросят. До тех пор из архива ничего не читается — передумать
+    // по дороге человек вправе, и распаковка ради этого была бы напрасной.
+    for (index, promise) in promises.enumerated() {
+      guard let id = promise["id"] as? String, let name = promise["name"] as? String else {
+        continue
+      }
+      let provider = NSFilePromiseProvider(fileType: fileType(of: name), delegate: self)
+      provider.userInfo = [FileDrag.promiseKey: id, FileDrag.nameKey: name]
+      let item = NSDraggingItem(pasteboardWriter: provider)
+      let step = CGFloat(min(paths.count + index, 4)) * 4
+      let frame = CGRect(x: origin.x - 16 + step, y: origin.y - 16 - step, width: 32, height: 32)
+      item.setDraggingFrame(frame, contents: icon(of: name))
+      items.append(item)
+    }
+
+    guard !items.isEmpty else { return false }
+
     view.beginDraggingSession(with: items, event: event, source: source)
     channel.invokeMethod("dragBegan", arguments: nil)
     return true
+  }
+
+  static let promiseKey = "id"
+  static let nameKey = "name"
+
+  /// Чем считать обещанное. По расширению имени: настоящего файла, у которого
+  /// можно было бы спросить, ещё нет.
+  private func fileType(of name: String) -> String {
+    let ext = (name as NSString).pathExtension
+    if #available(macOS 11.0, *) {
+      return (UTType(filenameExtension: ext) ?? .data).identifier
+    }
+    return "public.data"
+  }
+
+  /// Значок для обещанного — системный, по тому же расширению.
+  private func icon(of name: String) -> NSImage {
+    let ext = (name as NSString).pathExtension
+    if #available(macOS 11.0, *) {
+      return NSWorkspace.shared.icon(for: UTType(filenameExtension: ext) ?? .data)
+    }
+    return NSWorkspace.shared.icon(forFileType: ext)
+  }
+
+  /// Очередь, на которой выкладывается обещанное: работа с диском не должна
+  /// стоять в главном потоке.
+  private lazy var promises: OperationQueue = {
+    let queue = OperationQueue()
+    queue.qualityOfService = .userInitiated
+    return queue
+  }()
+
+  // MARK: - NSFilePromiseProviderDelegate
+
+  func filePromiseProvider(_ provider: NSFilePromiseProvider, fileNameForType fileType: String) -> String {
+    (provider.userInfo as? [String: Any])?[FileDrag.nameKey] as? String ?? "file"
+  }
+
+  func operationQueue(for provider: NSFilePromiseProvider) -> OperationQueue {
+    promises
+  }
+
+  /// Система просит обещанное — вот теперь и выкладываем.
+  ///
+  /// Dart отвечает путём к временной копии, а перекладывает её на место сама
+  /// нативная часть: имя приёмник вправе поменять (совпадения он разводит
+  /// сам), и записывать надо ровно туда, куда сказали.
+  func filePromiseProvider(
+    _ provider: NSFilePromiseProvider,
+    writePromiseTo url: URL,
+    completionHandler: @escaping (Error?) -> Void
+  ) {
+    guard let id = (provider.userInfo as? [String: Any])?[FileDrag.promiseKey] as? String else {
+      completionHandler(FileDragError.noSource)
+      return
+    }
+    // Канал живёт в главном потоке, а зовут нас со своей очереди.
+    DispatchQueue.main.async {
+      self.channel.invokeMethod("writePromise", arguments: [FileDrag.promiseKey: id]) { reply in
+        guard let path = reply as? String else {
+          completionHandler(FileDragError.noSource)
+          return
+        }
+        do {
+          try FileManager.default.copyItem(at: URL(fileURLWithPath: path), to: url)
+          completionHandler(nil)
+        } catch {
+          completionHandler(error)
+        }
+      }
+    }
   }
 
   /// Досылает отпускание кнопки, которого не было.
@@ -325,4 +421,11 @@ final class DragSource: NSObject, NSDraggingSource {
   ) -> NSDragOperation {
     context == .outsideApplication ? .copy : [.copy, .move]
   }
+}
+
+/// Что могло пойти не так с обещанным.
+enum FileDragError: Error {
+  /// Содержимого не дали: приложение уже забыло, что обещало, или прочитать
+  /// его не вышло.
+  case noSource
 }

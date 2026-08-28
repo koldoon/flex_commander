@@ -401,7 +401,17 @@ class _FileTableState extends State<FileTable> {
             );
             // Строку можно утащить наружу — если есть кому тащить.
             final dnd = app.dragAndDrop;
-            return dnd == null ? row : dnd.source(owner: panel, child: row, nodes: () => _dragNodes(node));
+            return dnd == null
+                ? row
+                : dnd.source(
+                  owner: panel,
+                  child: row,
+                  nodes: () => _dragNodes(node),
+                  // Пока объект едет в чужое окно, панель вправе уйти куда
+                  // угодно — хоть выйти из архива, — а содержимое у неё
+                  // спросят уже после.
+                  hold: panel.leaseProvider,
+                );
           },
         );
       },

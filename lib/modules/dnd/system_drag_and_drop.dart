@@ -51,7 +51,12 @@ class SystemDragAndDrop implements FcModule {
     final settings = registry.settings;
     DragAndDropSettings settingsOf() => settings.section(DragAndDropSettings.new);
 
-    registry.service<DragAndDrop>((services) => SystemDropService(settings: settingsOf));
+    registry.service<DragAndDrop>(
+      // Место под временные копии — то же, которым пользуются просмотрщик и
+      // открытие внешней программой: файл из архива сперва оказывается на
+      // диске, иначе отдавать наружу нечего.
+      (services) => SystemDropService(settings: settingsOf, staging: services.resolve<StagingArea>()),
+    );
 
     registry.settingsSchema(
       () => SettingsSchema([
@@ -86,9 +91,23 @@ class _Target {
 
 /// Служба перетаскивания поверх канала раннера.
 class SystemDropService implements DragAndDrop {
-  SystemDropService({MethodChannel? channel, DragAndDropSettings Function()? settings})
+  SystemDropService({MethodChannel? channel, DragAndDropSettings Function()? settings, StagingArea? staging})
     : _channel = channel ?? const MethodChannel(channelName),
-      _settings = settings ?? DragAndDropSettings.new;
+      _settings = settings ?? DragAndDropSettings.new,
+      _staging = staging;
+
+  /// Где заводить временные копии; null — заводить негде, и наружу поедет
+  /// только то, у чего есть настоящий путь.
+  final StagingArea? _staging;
+
+  /// Обещанное: что именно система попросит выложить, когда оно ей
+  /// понадобится. Ключ — имя, под которым обещали.
+  final Map<String, FsNode> _promised = {};
+
+  /// Копии этого перетаскивания и аренда источника: и то и другое живёт ровно
+  /// столько, сколько сессия.
+  LocalCopySession? _copies;
+  ProviderLease? _lease;
 
   final DragAndDropSettings Function() _settings;
 
@@ -127,6 +146,10 @@ class SystemDropService implements DragAndDrop {
       case 'dragEnded':
         _draggingFrom = null;
         _hover(null);
+        await _endSession();
+      case 'writePromise':
+        // Система попросила обещанное: только теперь его и выкладываем.
+        return _writePromise(call);
       case 'drop':
         await _drop(_pointOf(call), _pathsOf(call), moves: _flagOf(call, 'move'));
     }
@@ -193,6 +216,49 @@ class SystemDropService implements DragAndDrop {
     await winner.onDrop(spot, DropPayload(paths: paths, moves: moves));
   }
 
+  /// Выкладывает обещанное во временный файл и отвечает путём к нему.
+  ///
+  /// Пока никто не попросил, ничего и не читается: перетащить файл из архива
+  /// на рабочий стол и передумать по дороге — обычное дело, и распаковывать
+  /// ради этого незачем.
+  Future<String?> _writePromise(MethodCall call) async {
+    final arguments = call.arguments;
+    final id = arguments is Map ? arguments['id'] : null;
+    final node = id is String ? _promised[id] : null;
+    final staging = _staging;
+    if (node == null || staging == null) {
+      return null;
+    }
+    final copies = _copies ??= LocalCopySession(staging, prefix: 'flex_commander_drag');
+    return copies.localPathOf(node);
+  }
+
+  /// Конец сессии: копии убираются, источник отпускается.
+  Future<void> _endSession() async {
+    _promised.clear();
+    final copies = _copies;
+    final lease = _lease;
+    _copies = null;
+    _lease = null;
+    await copies?.purge();
+    await lease?.release();
+  }
+
+  /// Имя, под которым обещан объект. Совпадения разводятся числом: система
+  /// различает обещания по имени файла, и двух одинаковых ей давать нельзя.
+  String _uniqueName(String name) {
+    if (!_promised.containsKey(name)) {
+      return name;
+    }
+    for (var i = 2; ; i++) {
+      final candidate = '$i-$name';
+      if (!_promised.containsKey(candidate)) {
+        return candidate;
+      }
+    }
+  }
+
+  @override
   @override
   Widget target({
     required Object owner,
@@ -204,8 +270,12 @@ class SystemDropService implements DragAndDrop {
   }
 
   @override
-  Widget source({required Object owner, required Widget child, required List<FsNode> Function() nodes}) =>
-      _DragSource(service: this, owner: owner, nodes: nodes, child: child);
+  Widget source({
+    required Object owner,
+    required Widget child,
+    required List<FsNode> Function() nodes,
+    ProviderLease? Function()? hold,
+  }) => _DragSource(service: this, owner: owner, nodes: nodes, hold: hold, child: child);
 
   /// Просит систему потащить объекты наружу.
   ///
@@ -213,20 +283,43 @@ class SystemDropService implements DragAndDrop {
   /// оттуда нужно обещанные файлы — это отдельная работа
   /// (`spec/drag-and-drop.md`, §7). Пока таких объектов в пачке нет, тащить
   /// нечего, и жест просто ничего не делает.
-  Future<bool> beginDrag(Object owner, List<FsNode> nodes) async {
-    final paths = [
-      for (final node in nodes)
-        if (node is! ParentDirNode && node.provider.capabilities.realFileSystem) node.pathString,
-    ];
-    if (paths.isEmpty) {
+  Future<bool> beginDrag(Object owner, List<FsNode> nodes, {ProviderLease? Function()? hold}) async {
+    final paths = <String>[];
+    final promises = <Map<String, Object?>>[];
+    _promised.clear();
+
+    for (final node in nodes) {
+      if (node is ParentDirNode) {
+        continue;
+      }
+      if (node.provider.capabilities.realFileSystem) {
+        paths.add(node.pathString);
+        continue;
+      }
+      // Настоящего пути нет — отдаём обещание. Каталоги пока не обещаем: их
+      // выкладка это целый обход, и делается она не здесь
+      // (`spec/drag-and-drop.md`, §7).
+      if (_staging == null || node is DirectoryNode || node is! FileNode) {
+        continue;
+      }
+      final name = _uniqueName(node.name);
+      _promised[name] = node;
+      promises.add({'id': name, 'name': name});
+    }
+
+    if (paths.isEmpty && promises.isEmpty) {
       return false;
     }
     // Запоминается **до** вызова: система начинает перетаскивание сразу, и
     // первое же `dragUpdated` придёт раньше, чем сюда вернётся ответ.
     _draggingFrom = owner;
-    final started = await _channel.invokeMethod<bool>('beginDrag', {'paths': paths}) ?? false;
+    // Источник держится всё время жеста: пока файл едет в чужое окно, панель
+    // вправе уйти куда угодно, а содержимое у неё спросят уже после.
+    _lease = hold?.call();
+    final started = await _channel.invokeMethod<bool>('beginDrag', {'paths': paths, 'promises': promises}) ?? false;
     if (!started) {
       _draggingFrom = null;
+      await _endSession();
     }
     return started;
   }
@@ -325,10 +418,17 @@ class _DropAreaState extends State<_DropArea> {
 /// движения больше не дойдут: прокрутка, если и успела начаться, дальше не
 /// поедет.
 class _DragSource extends StatefulWidget {
-  const _DragSource({required this.service, required this.owner, required this.nodes, required this.child});
+  const _DragSource({
+    required this.service,
+    required this.owner,
+    required this.nodes,
+    required this.hold,
+    required this.child,
+  });
 
   final SystemDropService service;
   final Object owner;
+  final ProviderLease? Function()? hold;
   final List<FsNode> Function() nodes;
   final Widget child;
 
@@ -372,7 +472,7 @@ class _DragSourceState extends State<_DragSource> {
     // Попытка израсходована: удастся — тащим, не удастся — отсчёт начнётся
     // заново со следующего движения. Так одна неудача не убивает всё нажатие.
     _origin = null;
-    await widget.service.beginDrag(widget.owner, widget.nodes());
+    await widget.service.beginDrag(widget.owner, widget.nodes(), hold: widget.hold);
   }
 
   @override
