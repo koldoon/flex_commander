@@ -251,16 +251,46 @@ final class FileDrag {
     // Конец своей сессии виден только источнику — от него Dart и узнаёт, что
     // тащить перестали. Иначе «мы сейчас тащим» пришлось бы угадывать: наружу
     // бросают в чужом окне, и никаких событий оттуда к нам не приходит.
-    source.onEnded = { [weak self] in
+    source.onEnded = { [weak self] endPoint in
+      guard let self = self else { return }
       // Отпускание кнопки прошло мимо окна — сессия забрала мышь себе. Значит
       // и запомненное событие устарело: до следующего настоящего нажатия
       // тащить нечем.
-      self?.lastMouseEvent = nil
-      self?.channel.invokeMethod("dragEnded", arguments: nil)
+      self.lastMouseEvent = nil
+      self.releaseMouse(at: endPoint)
+      self.channel.invokeMethod("dragEnded", arguments: nil)
     }
     view.beginDraggingSession(with: items, event: event, source: source)
     channel.invokeMethod("dragBegan", arguments: nil)
     return true
+  }
+
+  /// Досылает отпускание кнопки, которого не было.
+  ///
+  /// Пока идёт перетаскивание, мышь принадлежит системе, и настоящего
+  /// `leftMouseUp` приложение не получает вовсе. Flutter от этого продолжает
+  /// считать кнопку нажатой — а следующее нажатие для него уже не нажатие, а
+  /// движение: **первый щелчок после перетаскивания пропадает**, и первая
+  /// попытка потянуть снова тоже. Своё событие ставит всё на место.
+  ///
+  /// Ставится в начало очереди (`atStart`), чтобы попасть в приложение раньше
+  /// того, что человек успеет сделать дальше.
+  private func releaseMouse(at screenPoint: NSPoint) {
+    let location = window.convertPoint(fromScreen: screenPoint)
+    guard let event = NSEvent.mouseEvent(
+      with: .leftMouseUp,
+      location: location,
+      modifierFlags: [],
+      timestamp: ProcessInfo.processInfo.systemUptime,
+      windowNumber: window.windowNumber,
+      context: nil,
+      eventNumber: 0,
+      clickCount: 1,
+      pressure: 0
+    ) else {
+      return
+    }
+    NSApp.postEvent(event, atStart: true)
   }
 
   /// Кто тащит. Отдельным объектом, потому что окно уже занято приёмом: одна и
@@ -271,10 +301,12 @@ final class FileDrag {
 /// Источник перетаскивания: что позволено делать с тем, что мы отдали.
 final class DragSource: NSObject, NSDraggingSource {
   /// Сессия кончилась — где бы её ни отпустили, в своём окне или в чужом.
-  var onEnded: (() -> Void)?
+  /// Точка нужна, чтобы досланное отпускание кнопки пришло туда же, где оно и
+  /// случилось.
+  var onEnded: ((NSPoint) -> Void)?
 
   func draggingSession(_ session: NSDraggingSession, endedAt screenPoint: NSPoint, operation: NSDragOperation) {
-    onEnded?()
+    onEnded?(screenPoint)
   }
 
   /// Внутри приложения — копия и перенос, наружу — только копия.

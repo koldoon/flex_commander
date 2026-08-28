@@ -189,8 +189,10 @@ abstract class TransferCommandBase extends AppCommand {
     // показывать окно, которого сценарий не увидит.
     final given = context.invocation.param<String>(destinationParam);
     // Приёмник из сценария — молча: параметром зовут не люди, и окно там
-    // некому смотреть. Приёмник от мыши — с окном: человек начал работу жестом
-    // и вправе видеть ход, вопросы и отмену ровно так же, как по `F5`.
+    // некому смотреть. Приёмник от мыши — с окном, и **не начиная работу**:
+    // жест говорит, что и куда, но не «поехали». Дальше всё как по `F5` —
+    // человек видит приёмник, может поменять его, включить проход по ссылкам и
+    // сам нажать «Copy». Жест здесь ровно то же, что нажатая клавиша.
     if (given != null && !givenJob(context)) {
       await transfer(editor, given, context.invocation.param<bool>(followLinksParam) ?? false);
       return;
@@ -229,12 +231,6 @@ abstract class TransferCommandBase extends AppCommand {
     run.onStart = () => transfer(editor, run.destination, run.followLinks, run);
 
     present();
-
-    // Куда — уже сказано жестом, спрашивать нечего: окно открывается сразу
-    // ходом работы, а не формой.
-    if (given != null) {
-      await run.submit();
-    }
   }
 
   /// Каталог-приёмник по пути из параметра — вместе с арендой.
@@ -322,7 +318,20 @@ abstract class TransferCommandBase extends AppCommand {
   }
 
   /// Каталог, из которого идёт работа: показывается в окне.
+  ///
+  /// У готового задания он свой: брошенное мышью приехало откуда угодно — из
+  /// соседней панели, из Finder, — и панель-приёмник о нём ничего не знает.
   String _sourcePathOf(CommandContext context) {
+    final given = context.invocation.param<List<String>>(sourcesParam);
+    if (given != null && given.isNotEmpty) {
+      final first = given.first;
+      final slash = first.lastIndexOf('/');
+      return slash <= 0 ? first : first.substring(0, slash);
+    }
+    return _panelSourcePathOf(context);
+  }
+
+  String _panelSourcePathOf(CommandContext context) {
     final panel = context.panel;
     final directory = panel.directory;
     return directory?.displayPath ?? '';

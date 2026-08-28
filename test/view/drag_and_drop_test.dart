@@ -66,6 +66,16 @@ void main() {
     );
   }
 
+  /// Подтверждает окно работы — то самое, что открывается по `F5` и `F6`.
+  ///
+  /// Жест не начинает работу сам: он говорит, что и куда, а «поехали» говорит
+  /// человек — успев при этом поменять приёмник или включить проход по ссылкам.
+  Future<void> startWork(WidgetTester tester, String button) async {
+    expect(find.widgetWithText(FcButton, button), findsOneWidget, reason: 'бросок должен открыть окно работы');
+    await tester.tap(find.widgetWithText(FcButton, button));
+    await tester.pumpAndSettle();
+  }
+
   Future<void> pumpApp(WidgetTester tester) async {
     tester.view.physicalSize = const Size(802, 621);
     tester.view.devicePixelRatio = 1;
@@ -81,35 +91,30 @@ void main() {
     final target = rowCenter(tester, 'docs');
     await sendDrop(tester, 'dragEntered', at: target, paths: const ['/outside/dropped.txt']);
     await sendDrop(tester, 'drop', at: target, paths: const ['/outside/dropped.txt']);
-    await tester.pumpAndSettle();
+    await startWork(tester, 'Copy');
 
     expect(provider.entryAt('/home/docs/dropped.txt'), isNotNull, reason: 'файл должен лечь в каталог под курсором');
     // Копия, а не перенос: из Finder объекты не исчезают.
     expect(provider.entryAt('/outside/dropped.txt'), isNotNull);
   });
 
-  testWidgets('бросок показывает то же окно работы, что и F5', (tester) async {
+  testWidgets('бросок открывает окно работы и сам её не начинает', (tester) async {
     // Найдено на живом: работа шла, панель обновлялась, а окна не было вовсе —
     // приёмник, заданный параметром, уводил команду мимо него. Для сценария
     // это верно, для жеста нет: человек начал работу сам и вправе видеть ход,
     // вопросы и отмену.
     await pumpApp(tester);
 
-    // Окно ловится подпиской, а не взглядом в нужный кадр: в памяти работа
-    // успевает кончиться раньше, чем тест успевает посмотреть.
-    var raised = false;
-    void watch() {
-      raised = raised || app.view.dialogs.isNotEmpty;
-    }
-
-    app.view.addListener(watch);
-    addTearDown(() => app.view.removeListener(watch));
-
     final target = rowCenter(tester, 'docs');
     await sendDrop(tester, 'drop', at: target, paths: const ['/outside/dropped.txt']);
-    await tester.pumpAndSettle();
 
-    expect(raised, isTrue, reason: 'окно хода работы должно подняться, как по F5');
+    // Окно открылось, приёмник в нём — тот, куда бросили, а работа стоит и
+    // ждёт человека: он ещё может поменять приёмник или включить ссылки.
+    expect(find.widgetWithText(FcButton, 'Copy'), findsOneWidget);
+    expect(find.text('/home/docs'), findsWidgets);
+    expect(provider.entryAt('/home/docs/dropped.txt'), isNull, reason: 'сама работа не начинается');
+
+    await startWork(tester, 'Copy');
     expect(provider.entryAt('/home/docs/dropped.txt'), isNotNull);
   });
 
@@ -119,7 +124,7 @@ void main() {
     final table = tester.getRect(find.byType(FileTable).first);
     final empty = Offset(table.left + table.width / 2, table.bottom - 4);
     await sendDrop(tester, 'drop', at: empty, paths: const ['/outside/dropped.txt']);
-    await tester.pumpAndSettle();
+    await startWork(tester, 'Copy');
 
     expect(provider.entryAt('/home/dropped.txt'), isNotNull);
   });
@@ -285,7 +290,8 @@ void main() {
     // Признак приносит система: она же спрашивает у источника, позволено ли
     // ему расставаться с объектами, и рисует у курсора стрелку вместо плюса.
     await sendDrop(tester, 'drop', at: into, paths: const ['/outside/dropped.txt'], moves: true);
-    await tester.pumpAndSettle();
+    // Окно то же самое, только за ним команда переноса, а не копирования.
+    await startWork(tester, 'Move');
 
     expect(provider.entryAt('/home/docs/dropped.txt'), isNotNull, reason: 'объект на новом месте');
     expect(provider.entryAt('/outside/dropped.txt'), isNull, reason: 'и его больше нет на старом');
@@ -346,7 +352,7 @@ void main() {
       final into = Offset(right.left + right.width / 2, right.bottom - 4);
       await dragFromLeft(tester, 'note.txt', into);
       await sendDrop(tester, 'drop', at: into, paths: const ['/home/note.txt']);
-      await tester.pumpAndSettle();
+      await startWork(tester, 'Copy');
 
       expect(provider.entryAt('/home/docs/note.txt'), isNotNull);
     });
@@ -359,7 +365,7 @@ void main() {
       final onDocs = rowCenter(tester, 'docs');
       await dragFromLeft(tester, 'note.txt', onDocs);
       await sendDrop(tester, 'drop', at: onDocs, paths: const ['/home/note.txt']);
-      await tester.pumpAndSettle();
+      await startWork(tester, 'Copy');
 
       expect(provider.entryAt('/home/docs/note.txt'), isNotNull);
     });
