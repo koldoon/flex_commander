@@ -202,13 +202,13 @@ class SystemDropService implements DragAndDrop {
   /// оттуда нужно обещанные файлы — это отдельная работа
   /// (`spec/drag-and-drop.md`, §7). Пока таких объектов в пачке нет, тащить
   /// нечего, и жест просто ничего не делает.
-  Future<void> beginDrag(Object owner, List<FsNode> nodes) async {
+  Future<bool> beginDrag(Object owner, List<FsNode> nodes) async {
     final paths = [
       for (final node in nodes)
         if (node is! ParentDirNode && node.provider.capabilities.realFileSystem) node.pathString,
     ];
     if (paths.isEmpty) {
-      return;
+      return false;
     }
     // Запоминается **до** вызова: система начинает перетаскивание сразу, и
     // первое же `dragUpdated` придёт раньше, чем сюда вернётся ответ.
@@ -217,6 +217,7 @@ class SystemDropService implements DragAndDrop {
     if (!started) {
       _draggingFrom = null;
     }
+    return started;
   }
 
   /// Слушать канал начинаем с появлением первого приёмника и перестаём с
@@ -342,13 +343,18 @@ class _DragSourceState extends State<_DragSource> {
     _started = false;
   }
 
-  void _move(PointerMoveEvent event) {
+  Future<void> _move(PointerMoveEvent event) async {
     final origin = _origin;
     if (_started || origin == null || (event.position - origin).distance < _threshold) {
       return;
     }
+    // Пока система не ответила, второй просьбы не шлём: за время ответа
+    // придёт ещё десяток движений.
     _started = true;
-    widget.service.beginDrag(widget.owner, widget.nodes());
+    // Не начала — значит и не начиналось: пусть следующее движение попробует
+    // снова. Иначе одна неудача убивала бы всё нажатие целиком, и тащить
+    // приходилось бы, отпустив и взяв заново.
+    _started = await widget.service.beginDrag(widget.owner, widget.nodes());
   }
 
   @override

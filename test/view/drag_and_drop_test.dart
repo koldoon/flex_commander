@@ -164,6 +164,36 @@ void main() {
       expect((asked.single.arguments as Map)['paths'], containsAll(<String>['/home/note.txt', '/home/docs']));
     });
 
+    testWidgets('система отказала — следующее движение пробует снова', (tester) async {
+      // Найдено на живом: перетаскивание начиналось через раз. Одна неудача
+      // убивала всё нажатие целиком, и тащить приходилось, отпустив и взяв
+      // заново.
+      var answers = 0;
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel(SystemDropService.channelName),
+        (call) async {
+          asked.add(call);
+          answers += 1;
+          return answers > 1;
+        },
+      );
+
+      await pumpApp(tester);
+      final gesture = await tester.startGesture(
+        rowCenter(tester, 'note.txt'),
+        kind: PointerDeviceKind.mouse,
+        buttons: kPrimaryMouseButton,
+      );
+      await gesture.moveBy(const Offset(24, 0));
+      await tester.pumpAndSettle();
+      await gesture.moveBy(const Offset(24, 0));
+      await tester.pumpAndSettle();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(asked.length, 2, reason: 'вторая попытка — в том же нажатии');
+    });
+
     testWidgets('за «..» не тянут', (tester) async {
       await pumpApp(tester);
       await dragRow(tester, '..');

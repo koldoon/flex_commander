@@ -23,6 +23,27 @@ class MainFlutterWindow: NSWindow, NSDraggingDestination {
     super.awakeFromNib()
   }
 
+  /// Последнее мышиное событие с зажатой левой кнопкой — им и начинается
+  /// перетаскивание.
+  ///
+  /// `NSApp.currentEvent` для этого не годится, и это стоило поимки живого
+  /// дефекта: просьба тащить приходит из Dart **отдельным сообщением**, уже
+  /// после того, как событие обработано, и «текущим» к этому мгновению
+  /// оказывается то одно, то другое — то самая протяжка, то движение мыши.
+  /// Отсюда и перетаскивание, начинавшееся через раз.
+  override func sendEvent(_ event: NSEvent) {
+    switch event.type {
+    case .leftMouseDown, .leftMouseDragged:
+      fileDrag?.lastMouseEvent = event
+    case .leftMouseUp:
+      // Кнопку отпустили — тащить больше нечем: событие устарело.
+      fileDrag?.lastMouseEvent = nil
+    default:
+      break
+    }
+    super.sendEvent(event)
+  }
+
   // --- приём перетаскивания (`NSDraggingDestination`) ---
   //
   // Ни одного `override`: `NSWindow` этих методов не объявляет, они приходят
@@ -77,6 +98,9 @@ final class FileDrag {
 
   private let channel: FlutterMethodChannel
   private unowned let window: NSWindow
+
+  /// Событие, которым начинают перетаскивание. Кладёт его окно (`sendEvent`).
+  var lastMouseEvent: NSEvent?
 
   init(messenger: FlutterBinaryMessenger, window: NSWindow) {
     self.channel = FlutterMethodChannel(name: FileDrag.channelName, binaryMessenger: messenger)
@@ -150,8 +174,9 @@ final class FileDrag {
   private func beginDrag(paths: [String]) -> Bool {
     guard !paths.isEmpty,
           let view = window.contentView,
-          let event = NSApp.currentEvent,
-          event.type == .leftMouseDragged || event.type == .leftMouseDown
+          // Своё запомненное событие, а не «текущее» у приложения: см.
+          // `MainFlutterWindow.sendEvent`.
+          let event = lastMouseEvent
     else {
       return false
     }
