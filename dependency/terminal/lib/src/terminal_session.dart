@@ -35,7 +35,7 @@ class TerminalSession extends ChangeNotifier {
     // угодно, и падать на этом терминал не вправе.
     _output = _pty.output.cast<List<int>>().transform(const Utf8Decoder(allowMalformed: true)).listen(_onOutput);
 
-    terminal.onOutput = (data) => _pty.write(utf8.encode(data));
+    terminal.onOutput = _send;
     terminal.onResize = (width, height, _, _) => _pty.resize(columns: width, rows: height);
 
     unawaited(_pty.exitCode.then(_onExit, onError: (_) => _onExit(-1)));
@@ -57,6 +57,15 @@ class TerminalSession extends ChangeNotifier {
   /// успешная команда не должна мигать чёрным (`spec/terminal.md`, §8).
   bool get producedOutput => _producedOutput;
   bool _producedOutput = false;
+
+  /// Человек послал программе `Ctrl-C`.
+  ///
+  /// Не то же, что «завершилась с ошибкой»: прекратил её он сам, и знать об
+  /// этом нужно **до** кода возврата — код у прерванной бывает какой угодно,
+  /// от `130` у оболочки до собственного у программы, которая обработала
+  /// сигнал по-своему.
+  bool get interrupted => _interrupted;
+  bool _interrupted = false;
 
   /// Программа завершилась.
   bool get finished => _exitCode != null;
@@ -87,7 +96,16 @@ class TerminalSession extends ChangeNotifier {
   }
 
   /// Отправить программе ввод так, будто его набрали с клавиатуры.
-  void input(String data) => _pty.write(utf8.encode(data));
+  void input(String data) => _send(data);
+
+  void _send(String data) {
+    // `\x03` — не просто байт, а просьба прекратить: разовый запуск по ней
+    // решает, что экран больше не нужен (`spec/terminal.md`, §8).
+    if (data.contains('\x03')) {
+      _interrupted = true;
+    }
+    _pty.write(utf8.encode(data));
+  }
 
   @override
   void dispose() {

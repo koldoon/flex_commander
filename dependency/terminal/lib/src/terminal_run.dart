@@ -85,11 +85,23 @@ class TerminalRun {
     waiting.cancel();
     session.removeListener(onOutput);
 
-    // Молча и успешно — экран не показывается вовсе. Сказала хоть слово или
-    // провалилась — остаётся до нажатия клавиши.
-    if (session.producedOutput || code != 0) {
+    // Прервал человек — экран уходит сам, и ждать от него ещё одного нажатия
+    // незачем: `Ctrl-C` и было тем нажатием, которым сказали «хватит».
+    //
+    // Иначе выходил ритуал из двух клавиш: `Ctrl-C` убивал программу, но экран
+    // оставался — на нём же и вывод, и `^C`, — а закрывался только следующим
+    // `Enter`. Со стороны это читалось как «`Ctrl-C` не сработал».
+    if (session.interrupted) {
+      if (app.view.positionOf(screen) != null) {
+        app.view.popViewportContent(ViewportPosition.fullscreen);
+      } else {
+        screen.close();
+      }
+    } else if (session.producedOutput || code != 0) {
+      // Сказала хоть слово или провалилась — остаётся до нажатия клавиши.
       show();
     } else if (!shown) {
+      // Молча и успешно — экрана не было вовсе.
       screen.close();
     }
 

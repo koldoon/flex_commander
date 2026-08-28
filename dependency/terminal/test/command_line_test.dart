@@ -103,6 +103,28 @@ void main() {
       expect(app.view.activeArea, ViewportPosition.bottom);
     });
 
+    test('прерванная человеком команда уходит с экрана сама', () async {
+      press('Cmd-T');
+      type('tail -f log');
+      press('Enter');
+      await pumpEventQueue();
+      pty.session.emit('первая строка\r\n');
+      await pumpEventQueue();
+
+      final screen = app.view.contentAt(ViewportPosition.fullscreen)! as CommandRunScreen;
+
+      // Тем же путём, что и с клавиатуры: `xterm` зовёт `onOutput`, а сессия
+      // отправляет байт программе.
+      screen.session.terminal.onOutput!('\x03');
+      pty.session.emit('^C');
+      pty.session.exit(130);
+      await pumpEventQueue();
+
+      // Раньше здесь оставался экран с `^C` и ждал ещё одного нажатия: со
+      // стороны это выглядело как «`Ctrl-C` не сработал».
+      expect(app.view.contentAt(ViewportPosition.fullscreen), isNull);
+    });
+
     test('Ctrl-O убирает работающую команду с глаз, а не ставит вторую оболочку', () async {
       press('Cmd-T');
       type('tail -f log');
