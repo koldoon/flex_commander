@@ -34,6 +34,14 @@ class PluginWindowService with WindowListener implements WindowService {
       if (target.maximized) {
         await windowManager.maximize();
       }
+      // Системной полосы заголовка нет: её место занимает содержимое окна, а
+      // двигают окно за полосу, которую рисует шелл. Светофор остаётся —
+      // закрытие, сворачивание и разворот привычнее системные, и своих кнопок
+      // для них заводить незачем.
+      //
+      // Стиль назначается, пока окно спрятано: сделай это позже — при запуске
+      // мелькнёт системная полоса.
+      await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: true);
       await windowManager.show();
       await windowManager.focus();
     });
@@ -49,6 +57,18 @@ class PluginWindowService with WindowListener implements WindowService {
       height: bounds.height,
       maximized: await windowManager.isMaximized(),
     );
+  }
+
+  @override
+  Future<void> startDrag() => windowManager.startDragging();
+
+  @override
+  Future<void> toggleMaximized() async {
+    if (await windowManager.isMaximized()) {
+      await windowManager.unmaximize();
+    } else {
+      await windowManager.maximize();
+    }
   }
 
   @override

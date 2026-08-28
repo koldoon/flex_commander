@@ -14,6 +14,17 @@ abstract interface class WindowService {
   /// Текущая геометрия окна.
   Future<WindowGeometry?> current();
 
+  /// Начало перетаскивания окна за содержимое.
+  ///
+  /// Системной полосы заголовка у окна нет, и хвататься не за что: полосу
+  /// рисует шелл, а нажатие на ней передаёт сюда. Зовётся один раз, в начале
+  /// жеста, — дальше окно ведёт система.
+  Future<void> startDrag();
+
+  /// Развернуть на весь экран или вернуть прежний размер — то, что делало
+  /// двойное нажатие на системной полосе.
+  Future<void> toggleMaximized();
+
   /// Подписка на перемещение, изменение размера и разворот окна.
   void addListener(void Function() listener);
 
@@ -31,6 +42,12 @@ class NoopWindowService implements WindowService {
 
   @override
   Future<WindowGeometry?> current() async => null;
+
+  @override
+  Future<void> startDrag() async {}
+
+  @override
+  Future<void> toggleMaximized() async {}
 
   @override
   void addListener(void Function() listener) {}

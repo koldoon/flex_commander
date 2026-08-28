@@ -124,6 +124,7 @@ class AppController extends ChangeNotifier implements Application {
   final CredentialsController credentials;
 
   /// Окно приложения. Без управления окном (в тестах) — заглушка.
+  @override
   final WindowService window;
 
   /// Задержка перед записью настроек. Настройки пишутся и при выходе, но

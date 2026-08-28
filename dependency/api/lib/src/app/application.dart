@@ -13,6 +13,7 @@ import '../settings/app_settings.dart';
 import '../settings/module_settings.dart';
 import '../settings/window_geometry.dart';
 import '../os/credentials.dart';
+import '../os/window_service.dart';
 import 'panel.dart';
 import 'toasts.dart';
 
@@ -99,6 +100,12 @@ abstract interface class Application implements Listenable {
 
   /// Последняя известная геометрия окна.
   WindowGeometry? get windowGeometry;
+
+  /// Само окно: подвинуть, развернуть.
+  ///
+  /// Нужно шеллу: системной полосы заголовка у окна нет, полосу рисует он, и
+  /// жесты на ней доводить до окна — его дело.
+  WindowService get window;
 
   /// Текущее состояние приложения в виде сохраняемых настроек.
   AppSettings get settings;

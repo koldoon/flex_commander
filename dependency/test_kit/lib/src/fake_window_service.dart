@@ -24,6 +24,16 @@ class FakeWindowService implements WindowService {
   @override
   Future<WindowGeometry?> current() async => geometry;
 
+  /// Сколько раз окно принимались двигать за полосу.
+  int dragCount = 0;
+  bool maximized = false;
+
+  @override
+  Future<void> startDrag() async => dragCount++;
+
+  @override
+  Future<void> toggleMaximized() async => maximized = !maximized;
+
   /// Пользователь подвинул окно или изменил его размер.
   void moveTo(WindowGeometry value) {
     geometry = value;

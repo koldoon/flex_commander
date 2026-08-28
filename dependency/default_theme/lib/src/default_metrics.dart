@@ -42,6 +42,11 @@ class DefaultMetrics extends FcMetrics {
 
   // --- окно (Main.mxml) ---
 
+  /// Двадцать восемь точек — ровно системная полоса macOS: светофор стоит на
+  /// привычном месте, и окно не выглядит съехавшим.
+  @override
+  double get windowTitleBarHeight => 28;
+
   @override
   double get windowTopPadding => ref(20);
 

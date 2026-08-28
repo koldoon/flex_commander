@@ -7,6 +7,7 @@ import 'dialogs/credentials_layer.dart';
 import 'dialogs/error_layer.dart';
 import 'keyboard_handler.dart';
 import 'split_view.dart';
+import 'window_title_bar.dart';
 import 'function_bar/function_bar.dart';
 import 'toast_layer.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
@@ -137,6 +138,9 @@ class AppShell extends StatelessWidget {
               color: theme.colors.windowBackground,
               child: Column(
                 children: [
+                  // Системной полосы заголовка у окна нет — вместо неё эта: за
+                  // неё окно двигают, и в ней стоит светофор macOS.
+                  const WindowTitleBar(),
                   SizedBox(height: metrics.windowTopPadding),
                   // Поля по краям — панелям и полосе под ними разом: порознь
                   // они разъехались бы, а полоса стоит ровно под панелями.
