@@ -35,6 +35,9 @@ CodeEditorStyle textViewStyle(FcTheme theme, TextStyle base, String? language) {
 
   return CodeEditorStyle(
     fontFamily: base.fontFamily,
+    // Запасные семейства едут вместе со шрифтом: в просмотрщике и редакторе
+    // подстановка нужна ровно та же, что в списке файлов.
+    fontFamilyFallback: base.fontFamilyFallback,
     fontSize: base.fontSize,
     // Высота строки — своя, а не умолчание библиотеки: см. `textLineHeight`.
     fontHeight: textLineHeight,

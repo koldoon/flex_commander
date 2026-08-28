@@ -12,7 +12,7 @@ void main() {
     icons: DefaultIcons(),
     fonts: DefaultFonts(),
   );
-  const base = TextStyle(fontFamily: 'Menlo', fontSize: 13);
+  const base = TextStyle(fontFamily: 'Consolas', fontFamilyFallback: ['Menlo'], fontSize: 13);
 
   test('своего фона у показа нет: его рисует рамка', () {
     // Фон панели — белый с прозрачностью пять процентов поверх фона окна.

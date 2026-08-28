@@ -46,9 +46,12 @@ void main() {
       fonts: DefaultFonts(),
     );
 
-    test('интерфейс набран Ubuntu, список файлов — системным моноширинным', () {
+    test('интерфейс набран Ubuntu, список файлов — системным Consolas', () {
       expect(theme.uiStyle.fontFamily, 'Ubuntu');
-      expect(theme.rowStyle.fontFamily, 'Menlo');
+      expect(theme.rowStyle.fontFamily, 'Consolas');
+      // Свой Consolas приложение не возит: где его нет, подставляется
+      // моноширинный из системы, а не что придётся.
+      expect(theme.rowStyle.fontFamilyFallback, ['Menlo']);
       expect(theme.headerStyle.fontFamily, 'Ubuntu');
       expect(theme.buttonStyle.fontFamily, 'Ubuntu');
     });

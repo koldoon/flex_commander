@@ -22,8 +22,17 @@ class FcTheme extends ThemeExtension<FcTheme> {
       TextStyle(fontFamily: fonts.ui, fontSize: metrics.fontSize, color: colors.rowText, height: 1.2);
 
   /// Строка списка файлов.
-  TextStyle get rowStyle =>
-      TextStyle(fontFamily: fonts.fixed, fontSize: metrics.fontSize, color: colors.rowText, height: 1.2);
+  ///
+  /// С запасными семействами: шрифт списка берётся из системы, и на машине, где
+  /// его нет, подстановку надо назвать самим — иначе список набирается
+  /// пропорциональным, и столбцы разъезжаются.
+  TextStyle get rowStyle => TextStyle(
+    fontFamily: fonts.fixed,
+    fontFamilyFallback: fonts.fixedFallback,
+    fontSize: metrics.fontSize,
+    color: colors.rowText,
+    height: 1.2,
+  );
 
   /// Колонки с числами и датами. Шрифт списка моноширинный, поэтому отдельная
   /// настройка цифр не нужна — столбец и так не «прыгает».
