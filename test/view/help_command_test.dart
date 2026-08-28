@@ -133,12 +133,14 @@ void main() {
     Size frameSize(WidgetTester tester) =>
         tester.getSize(find.ancestor(of: find.byType(FcKeyValueTable), matching: find.byType(Container)).last);
 
-    testWidgets('окно не выходит за поля в 120 точек от краёв', (tester) async {
+    testWidgets('окно не занимает больше трёх четвертей ширины и не выходит за поля по высоте', (tester) async {
       const screen = Size(1400, 900);
       await openHelp(tester, size: screen);
 
       final size = frameSize(tester);
-      expect(size.width, lessThanOrEqualTo(screen.width - 240));
+      // Ширина — долей окна: поля дали бы предел, зависящий от того, как далеко
+      // отодвинуты края, и на широком экране окно растянулось бы во всю ширину.
+      expect(size.width, lessThanOrEqualTo(screen.width * 0.75));
       expect(size.height, lessThanOrEqualTo(screen.height - 240));
     });
 
@@ -149,10 +151,12 @@ void main() {
       expect(frameSize(tester).width, lessThan(1900 - 240));
     });
 
-    testWidgets('на тесном экране окно упирается в поля, а не вылезает', (tester) async {
+    testWidgets('на тесном экране окно упирается в свою долю, а не вылезает', (tester) async {
       await openHelp(tester, size: const Size(700, 600));
 
-      expect(frameSize(tester).width, lessThanOrEqualTo(700 - 240));
+      // Панелям под окном остаётся видимый край с обеих сторон — по нему и
+      // понятно, что окно временное.
+      expect(frameSize(tester).width, lessThanOrEqualTo(700 * 0.75));
     });
 
     testWidgets('на маленьком экране таблица прокручивается, а не обрезается', (tester) async {

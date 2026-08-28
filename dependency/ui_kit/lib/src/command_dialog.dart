@@ -387,7 +387,10 @@ BoxConstraints dialogContentLimits(BuildContext context) {
   final metrics = FcTheme.of(context).metrics;
   final screen = MediaQuery.sizeOf(context);
   final inset = metrics.dialogScreenInset;
-  final width = screen.width - inset * 2;
+  // Доля окна, а не поля по краям: поля дают предел, зависящий от того, как
+  // далеко отодвинуты края, — и на широком экране окно растягивалось бы во всю
+  // ширину, оставляя от панелей две узкие полоски.
+  final width = screen.width * metrics.dialogMaxScreenFactor;
   final height = screen.height - inset * 2 - metrics.dialogTitleHeight;
 
   return BoxConstraints(maxWidth: width < 0 ? 0 : width, maxHeight: height < 0 ? 0 : height);
@@ -656,7 +659,11 @@ class FcForm extends StatelessWidget {
     final metrics = theme.metrics;
 
     return Table(
-      columnWidths: {0: FixedColumnWidth(width), 1: const FlexColumnWidth()},
+      // Значение меряется по себе **и** забирает остаток: по себе — чтобы окно
+      // выросло под длинное поле (рама облегает содержимое, а `FlexColumnWidth`
+      // в замере отвечает нулём и ширины окну не прибавляет); остаток — чтобы
+      // на широком окне поле занимало всё место.
+      columnWidths: {0: FixedColumnWidth(width), 1: const IntrinsicColumnWidth(flex: 1)},
       children: [
         for (var i = 0; i < rows.length; i++)
           TableRow(

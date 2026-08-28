@@ -200,6 +200,11 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get dialogScreenInset => 120;
 
+  /// Три четверти: окну есть куда вырасти, а панелям под ним остаётся видимый
+  /// край — по нему и понятно, что окно временное.
+  @override
+  double get dialogMaxScreenFactor => 0.75;
+
   @override
   double get dialogShadowOffset => ref(5);
 

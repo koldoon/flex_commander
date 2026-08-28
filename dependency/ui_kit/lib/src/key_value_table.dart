@@ -91,9 +91,47 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
     return KeyEventResult.handled;
   }
 
+  /// Сколько столбцов нужно — по самому полному разделу.
+  int get _columns => widget.sections.fold(1, (count, section) => section.columns > count ? section.columns : count);
+
+  /// Ширины столбцов, кроме последнего, — **по всем разделам сразу**.
+  ///
+  /// Одна таблица, а не таблица на раздел: подписи разных разделов описывают
+  /// один и тот же объект, и стоять они обязаны на одной глубине. Последний
+  /// столбец здесь не меряется — ему достаётся весь остаток, и переносится он
+  /// по краю окна, а не раньше.
+  List<double> _widths(BuildContext context) {
+    final theme = FcTheme.of(context);
+    final scaler = MediaQuery.textScalerOf(context);
+    final widths = List<double>.filled(_columns, 0);
+
+    for (final section in widget.sections) {
+      for (final row in section.rows) {
+        final cells = row.cells;
+        for (var i = 0; i < cells.length && i < _columns - 1; i++) {
+          final painter = TextPainter(
+            text: TextSpan(text: cells[i], style: i == 0 ? theme.dialogLabelStyle : theme.dialogTextStyle),
+            textDirection: TextDirection.ltr,
+            textScaler: scaler,
+            maxLines: 1,
+          )..layout();
+          final width = painter.width > theme.metrics.helpCellMaxWidth ? theme.metrics.helpCellMaxWidth : painter.width;
+          if (width > widths[i]) {
+            widths[i] = width;
+          }
+          painter.dispose();
+        }
+      }
+    }
+    return widths;
+  }
+
   @override
   Widget build(BuildContext context) {
-    final metrics = FcTheme.of(context).metrics;
+    final theme = FcTheme.of(context);
+    final metrics = theme.metrics;
+    final widths = _widths(context);
+    final columns = _columns;
 
     return Focus(
       autofocus: widget.autofocus,
@@ -108,11 +146,56 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
           children: [
             for (var i = 0; i < widget.sections.length; i++) ...[
               if (i > 0) SizedBox(height: metrics.dialogGap),
-              _SectionTable(section: widget.sections[i]),
+              // Заголовок раздела — строкой во всю ширину: столбцы под ним те
+              // же, что и у соседних разделов.
+              Padding(
+                padding: EdgeInsets.only(bottom: metrics.dialogPadding / 2),
+                child: Text(widget.sections[i].title, style: theme.dialogTitleStyle),
+              ),
+              _rows(theme, widget.sections[i], widths, columns),
             ],
           ],
         ),
       ),
+    );
+  }
+
+  /// Строки раздела — таблицей с **общими** ширинами столбцов.
+  ///
+  /// Таблица на раздел, а ширины общие: со стороны это и есть одна таблица, у
+  /// которой заголовки разделов идут во всю ширину. Собственный `Row` с
+  /// `Expanded` тут не годится — рама окна меряет содержимое (`IntrinsicWidth`),
+  /// а `Expanded` в такой замер не укладывается и переполняет строку.
+  Widget _rows(FcTheme theme, FcTableSection section, List<double> widths, int columns) {
+    final metrics = theme.metrics;
+
+    return Table(
+      columnWidths: {
+        for (var i = 0; i < columns - 1; i++) i: FixedColumnWidth(widths[i] + metrics.dialogGap),
+        // Последний столбец меряется по себе **и** забирает остаток.
+        //
+        // Оба разом: по себе — чтобы окно выросло под длинное значение (рама
+        // облегает содержимое, а `FlexColumnWidth` в замере отвечает нулём и
+        // ширины окну не прибавляет); остаток — чтобы на широком окне значение
+        // занимало всё место, а не половину.
+        columns - 1: const IntrinsicColumnWidth(flex: 1),
+      },
+      defaultVerticalAlignment: TableCellVerticalAlignment.top,
+      children: [
+        for (final row in section.rows)
+          TableRow(
+            children: [
+              for (var i = 0; i < columns; i++)
+                Padding(
+                  padding: EdgeInsets.only(bottom: metrics.dialogPadding / 4),
+                  child: Text(
+                    i < row.cells.length ? row.cells[i] : '',
+                    style: i == 0 ? theme.dialogLabelStyle : theme.dialogTextStyle,
+                  ),
+                ),
+            ],
+          ),
+      ],
     );
   }
 }
@@ -169,67 +252,6 @@ class _FcKeyValueTableState extends State<FcKeyValueTable> {
           ],
         ),
       ),
-    );
-  }
-}
-
-/// Раздел справки таблицей: столбцы по своему содержимому.
-///
-/// У каждого раздела таблица своя, потому что и столбцы у них разные: в
-/// настройках их два, в списке команд — три. Ширина столбца — по самой длинной
-/// строке в нём (`IntrinsicColumnWidth`), поэтому окно получается ровно таким,
-/// каким его делает содержимое.
-///
-/// Ячейка при этом не растёт бесконечно: длинный путь или описание упираются в
-/// [FcMetrics.helpCellMaxWidth] и переносятся по строкам. Без этого одна
-/// длинная строка растянула бы окно до полей экрана, а таблица с
-/// `IntrinsicColumnWidth` под тесной разметкой не ужимается, а вылезает наружу.
-class _SectionTable extends StatelessWidget {
-  const _SectionTable({required this.section});
-
-  final FcTableSection section;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = FcTheme.of(context);
-    final metrics = theme.metrics;
-    final columns = section.columns;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Padding(
-          padding: EdgeInsets.only(bottom: metrics.dialogPadding / 2),
-          child: Text(section.title, style: theme.dialogTitleStyle),
-        ),
-        Table(
-          columnWidths: {for (var i = 0; i < columns; i++) i: const IntrinsicColumnWidth()},
-          defaultVerticalAlignment: TableCellVerticalAlignment.top,
-          children: [
-            for (final row in section.rows)
-              TableRow(
-                children: [
-                  for (var i = 0; i < columns; i++)
-                    Padding(
-                      // Последний столбец без правого поля: за ним край окна.
-                      padding: EdgeInsets.only(
-                        right: i == columns - 1 ? 0 : metrics.dialogGap,
-                        bottom: metrics.dialogPadding / 4,
-                      ),
-                      child: ConstrainedBox(
-                        constraints: BoxConstraints(maxWidth: metrics.helpCellMaxWidth),
-                        child: Text(
-                          i < row.cells.length ? row.cells[i] : '',
-                          style: i == 0 ? theme.dialogLabelStyle : theme.dialogTextStyle,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-          ],
-        ),
-      ],
     );
   }
 }
