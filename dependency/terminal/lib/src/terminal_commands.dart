@@ -6,8 +6,8 @@ import 'command_line_state.dart';
 import 'completion.dart';
 import 'shell_command.dart';
 import 'shell_session.dart';
+import 'terminal_run.dart';
 import 'terminal_screens.dart';
-import 'terminal_session.dart';
 import 'terminal_settings.dart';
 
 /// Строка, стоящая внизу, — или null, если модуля там нет.
@@ -440,16 +440,13 @@ class CompletePathCommand extends AppCommand {
 
 /// Выполнить набранное.
 class RunCommandLineCommand extends AppCommand {
-  RunCommandLineCommand({required this.launcher, required this.settings, this.showDelay = defaultShowDelay});
+  RunCommandLineCommand({
+    required this.launcher,
+    required this.settings,
+    this.showDelay = TerminalRun.defaultShowDelay,
+  });
 
   static const String commandId = 'terminal.run';
-
-  /// Сколько ждать, прежде чем показать экран молчащей команды.
-  ///
-  /// Молчаливая и быстрая (`mkdir`, `chmod`) не должна мигать чёрным вовсе, а
-  /// молчаливая и долгая (`sleep`, `make -s`) не должна выглядеть как «ничего
-  /// не произошло».
-  static const Duration defaultShowDelay = Duration(milliseconds: 300);
 
   final PtyLauncher Function() launcher;
   final TerminalSettings Function() settings;
@@ -515,64 +512,21 @@ class RunCommandLineCommand extends AppCommand {
       return;
     }
 
-    final options = settings();
-    final shell = ShellCommand.line(options.shell.isEmpty ? ShellCommand.defaultShell() : options.shell, command);
-
-    final TerminalSession session;
-    try {
-      session = TerminalSession.start(
-        launcher(),
-        executable: shell.executable,
-        arguments: shell.arguments,
-        workingDirectory: directory,
-        maxLines: options.maxLines,
-      );
-    } catch (error) {
-      // Псевдотерминала на этой платформе может не быть вовсе. Молчать нельзя,
-      // но и окна ради этого не ставим: сообщения хватает.
-      app.toasts.show('Shell did not start: $error');
-      return;
-    }
-
-    line.remember(command);
-    line.clear();
-    final screen = CommandRunScreen(command: command, session: session);
-
-    var shown = false;
-    void show() {
-      if (shown) {
-        return;
-      }
-      shown = true;
-      app.view.pushViewportContent(ViewportPosition.fullscreen, screen);
-    }
-
-    void onOutput() {
-      if (session.producedOutput) {
-        show();
-      }
-    }
-
-    session.addListener(onOutput);
-    final waiting = Timer(showDelay, () {
-      if (!session.finished) {
-        show();
-      }
-    });
-
-    final code = await session.exited;
-    waiting.cancel();
-    session.removeListener(onOutput);
-
-    // Молча и успешно — экран не показывается вовсе. Сказала хоть слово или
-    // провалилась — остаётся до нажатия клавиши.
-    if (session.producedOutput || code != 0) {
-      show();
-    } else if (!shown) {
-      screen.close();
-    }
-
-    await _reloadPanels(app);
+    // Запуск и показ — общие с запуском файла под курсором: `TerminalRun`.
+    await TerminalRun.start(
+      app: app,
+      launcher: launcher(),
+      options: settings(),
+      command: command,
+      workingDirectory: directory,
+      showDelay: showDelay,
+      // Строка помнит и очищается, только когда процесс уже пошёл: не
+      // запустилось — набранное остаётся на месте.
+      onStarted: () {
+        line.remember(command);
+        line.clear();
+      },
+    );
   }
 
   /// Строка вида `cd` или `cd <путь>` — и ничего больше.
@@ -615,18 +569,82 @@ class RunCommandLineCommand extends AppCommand {
     final base = directory.endsWith('/') ? directory : '$directory/';
     return '$base$target';
   }
+}
 
-  /// Перечитать панели: команда могла создать, удалить и переименовать что
-  /// угодно, и показывать после неё прежний список нельзя.
-  ///
-  /// Только те, что стоят на настоящей файловой системе: перечитывать `ssh://`
-  /// из-за локальной команды — лишний поход по сети.
-  static Future<void> _reloadPanels(Application app) async {
-    for (final position in const [ViewportPosition.left, ViewportPosition.right]) {
-      final panel = app.view.panelAt(position);
-      if (panel != null && panel.provider.capabilities.realFileSystem) {
-        await panel.reload();
-      }
+/// Запустить файл под курсором во внутреннем терминале.
+///
+/// Живёт здесь, а не в навигации, и ничего в ней не меняет: модуль терминала
+/// объявлен раньше, а невыполнимая команда клавишу не забирает. Отсюда весь
+/// порядок разбора `Enter` в панели складывается сам собой — набранная строка,
+/// потом исполняемый файл, потом вход в каталог (`spec/run-executables.md`, §4).
+class RunNodeCommand extends AppCommand {
+  RunNodeCommand({required this.launcher, required this.settings, this.showDelay = TerminalRun.defaultShowDelay});
+
+  static const String commandId = 'terminal.runNode';
+
+  final PtyLauncher Function() launcher;
+  final TerminalSettings Function() settings;
+  final Duration showDelay;
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => 'Run in terminal';
+
+  @override
+  String get description => 'Run the executable under the cursor in the internal terminal';
+
+  @override
+  Set<String> get keywords => const {'execute', 'launch', 'exec', 'script', 'binary', 'shell'};
+
+  @override
+  bool isExecutable(CommandContext context) =>
+      settings().runExecutables && !context.panel.busy && _runnable(context.node) != null;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final node = _runnable(context.node);
+    final directory = context.panel.directory;
+    if (node == null || directory == null) {
+      return;
     }
+
+    // Полный путь в кавычках, а не `./имя`: не приходится гадать, совпадает ли
+    // каталог панели с каталогом файла, а имя с пробелом или кавычкой не
+    // разваливается на куски. Он же виден заголовком экрана.
+    final command = ShellCommand.quote(node.pathString);
+
+    await TerminalRun.start(
+      app: context.app,
+      launcher: launcher(),
+      options: settings(),
+      command: command,
+      workingDirectory: directory.pathString,
+      showDelay: showDelay,
+      // В историю строки — как и набранное руками: это команда, выполненная в
+      // этом каталоге, и повторяют её тем же `Cmd-Up`.
+      onStarted: () => _lineOf(context.app)?.remember(command),
+    );
+  }
+
+  /// Файл, который можно запустить, — или null.
+  ///
+  /// Каталог отсеивается **отдельной строкой**, и это не перестраховка:
+  /// `+x` у каталога есть почти всегда (право входить в него), а
+  /// `DirectoryNode` — наследник `FileNode`, и проверка «это файл» молча
+  /// пропускает каталоги. Заодно отсюда следует, что `.app` на macOS
+  /// открывается как каталог, каким и является.
+  static FileNode? _runnable(FsNode? node) {
+    if (node is! FileNode || node is DirectoryNode) {
+      return null;
+    }
+    // Запускать можно только настоящий путь: внутри архива запускать нечего, а
+    // на сервере — нечем, наш терминал местный.
+    if (!node.provider.capabilities.realFileSystem) {
+      return null;
+    }
+    // Битая ссылка исполняемой числится, но вести ей некуда.
+    return node.executable && !node.broken ? node : null;
   }
 }

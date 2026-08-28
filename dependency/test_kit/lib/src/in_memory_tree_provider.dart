@@ -27,9 +27,13 @@ class FakeEntry {
     : type = FileType.directory,
       size = FsNode.unknownSize,
       linkTarget = null,
+      // Право входить в каталог, а не запускать его: `+x` у каталога есть
+      // почти всегда, и подставное дерево врать об этом не должно — на нём
+      // проверяется, что `Enter` на каталоге по-прежнему входит внутрь.
+      executable = true,
       content = const [];
 
-  FakeEntry.file(this.path, {int? size, this.modified, List<int>? content})
+  FakeEntry.file(this.path, {int? size, this.modified, List<int>? content, this.executable = false})
     : type = FileType.regular,
       linkTarget = null,
       content = content ?? List.filled(size ?? 0, 0),
@@ -38,6 +42,7 @@ class FakeEntry {
   FakeEntry.link(this.path, this.linkTarget)
     : type = FileType.symbolicLink,
       size = FsNode.unknownSize,
+      executable = false,
       content = const [];
 
   final String path;
@@ -45,6 +50,9 @@ class FakeEntry {
   final int size;
   final String? linkTarget;
   DateTime? modified;
+
+  /// Бит `+x`. У каталогов он есть всегда, у файлов — только если так сказали.
+  final bool executable;
 
   /// Содержимое файла. У каталогов и ссылок пустое: содержимого у них нет.
   final List<int> content;
@@ -303,6 +311,7 @@ class InMemoryReadOnlyProvider implements TreeProvider {
         parent: parent,
         modified: entry.modified,
         attributes: attributes,
+        executable: entry.executable,
       ),
       FileType.symbolicLink => LinkNode(
         provider: this,
@@ -320,6 +329,7 @@ class InMemoryReadOnlyProvider implements TreeProvider {
         size: entry.size,
         modified: entry.modified,
         attributes: attributes,
+        executable: entry.executable,
       ),
     };
   }

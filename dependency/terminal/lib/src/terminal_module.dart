@@ -56,6 +56,13 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
           read: () => settingsOf().typingGoesToLine,
           write: (value) => settingsOf().typingGoesToLine = value,
         ),
+        SettingsField.flag(
+          'runExecutables',
+          title: 'Enter runs executable files',
+          description: 'A file with the +x bit runs in the terminal instead of going to the system',
+          read: () => settingsOf().runExecutables,
+          write: (value) => settingsOf().runExecutables = value,
+        ),
         SettingsField.text(
           'shell',
           title: 'Shell',
@@ -91,6 +98,7 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
     registry.command(
       (context) => RunCommandLineCommand(launcher: () => context.resolve<PtyLauncher>(), settings: settingsOf),
     );
+    registry.command((context) => RunNodeCommand(launcher: () => context.resolve<PtyLauncher>(), settings: settingsOf));
     registry.command((context) => HistoryCommand(id: HistoryCommand.previousId, label: 'Previous command', back: true));
     registry.command((context) => HistoryCommand(id: HistoryCommand.nextId, label: 'Next command', back: false));
     registry.command(
@@ -134,6 +142,9 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
     registry.binding(KeyBinding.anyCharacter(TypeIntoLineCommand.commandId));
     registry.binding(KeyBinding('Space', TypeSpaceCommand.commandId));
     registry.binding(KeyBinding('Enter', RunCommandLineCommand.commandId));
+    // После строки, а не до неё: набранное выигрывает у файла под курсором —
+    // человек уже начал печатать команду, и `Enter` относится к ней.
+    registry.binding(KeyBinding('Enter', RunNodeCommand.commandId));
     registry.binding(KeyBinding('Bsp', EraseInLineCommand.commandId));
     registry.binding(KeyBinding('Esc', ClearLineCommand.commandId));
     registry.binding(KeyBinding('Cmd-V', PasteIntoLineCommand.commandId));

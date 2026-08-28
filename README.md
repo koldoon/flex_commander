@@ -133,6 +133,14 @@ while you type, so `F5` copies and the cursor keeps moving. The pseudo-terminal 
 `posix_openpt` plus `posix_spawn` through `dart:ffi`: no native plugin, so the macOS build
 stays on Swift Package Manager, and a real shell can be driven from `flutter test`.
 
+**Running programs.** `Enter` on a file with the `+x` bit does not hand it to the
+system — it **runs** it, in the terminal, in the panel's directory, with the same
+screen a typed command gets: a silent success shows nothing and simply re-reads the
+panels, anything printed stays until you press a key. A directory of scripts becomes a
+place to work rather than a list of documents that open in an editor. Directories keep
+opening as directories (they carry `+x` too, and so do `.app` bundles), `Cmd+O` still
+hands anything to the system, and one setting turns the whole thing off.
+
 **Appearance.** One dark theme, taken from the reference application: palette, metrics,
 icons and fonts all come from a module, and every size in it is a named value rather than
 a number spelled into a widget — the gap between the panels, the window margins, the
@@ -162,7 +170,7 @@ On Windows and Linux `Cmd` reads as `Ctrl`.
 |---|---|
 | `↑` `↓` `PgUp` `PgDn` | move the cursor |
 | `Home` / `Left`, `End` / `Right` | first / last entry |
-| `Enter` | enter a directory or archive, open a file with the system |
+| `Enter` | enter a directory or archive; run an executable in the terminal; open anything else with the system |
 | `Bsp`, `Cmd-↑` | go up one level |
 | `Cmd-/` | go to the root of the current source |
 | `Cmd-R` | re-read the directory |

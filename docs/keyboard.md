@@ -141,7 +141,7 @@ CommandRegistry.dispatch(combination, app)
 | `Home` / `Left` | `panel.cursor.first` | курсор на первый элемент |
 | `End` / `Right` | `panel.cursor.last` | курсор на последний элемент |
 | `Tab` | `app.togglePanel` | переключить активную панель |
-| `Enter` | `panel.open` | каталог — войти; ссылка — разрешить и войти; файл — открыть системой |
+| `Enter` | `terminal.runNode`, `panel.open` | каталог — войти; ссылка — разрешить и войти; файл с `+x` — выполнить в терминале; прочее — открыть системой |
 | `Backspace` | `panel.up` | на уровень вверх, курсор на объект, через который вошли |
 | `Cmd-↑` | `panel.up` | то же |
 | `Cmd-/` | `panel.root` | в корень провайдера |
@@ -152,6 +152,13 @@ CommandRegistry.dispatch(combination, app)
 
 `Left`/`Right` заняты переходом к первому/последнему элементу — это решение референса
 (`GoToFirstNodeCommand` / `GoToLastNodeCommand`), панели переключаются только `Tab`.
+
+За `Enter` в панели стоят **три** команды, и порядок между ними никто не
+задаёт — он складывается из порядка модулей и выполнимости: набранная
+командная строка (режим `mc`), потом исполняемый файл под курсором
+(`terminal.runNode`), потом `panel.open`. Обе первые приносит модуль терминала;
+выключен он — остаётся третья, и `Enter` ведёт себя как до всего этого
+(`spec/run-executables.md`).
 
 ### Пометка объектов (MVP)
 
@@ -215,6 +222,7 @@ CommandRegistry.dispatch(combination, app)
 | `Cmd-T` | `terminal.focusLine` | отдать ввод командной строке под панелями |
 | `Esc` | `terminal.leaveLine` | вернуть ввод панели; набранное остаётся |
 | `Enter` | `terminal.run` | выполнить набранное в каталоге панели |
+| `Enter` (в панели) | `terminal.runNode` | выполнить файл с битом `+x` под курсором |
 | `Ctrl-O` | `terminal.toggle` | развернуть постоянную сессию оболочки и обратно |
 | `Cmd-↑` / `Cmd-↓` | `terminal.historyPrevious` / `terminal.historyNext` | история команд |
 | `Tab` / `Shift-Tab` | `terminal.complete` | дополнить путь; дальше перебор кандидатов |
@@ -433,6 +441,7 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 | `panel.cursor.last` | `End`, `Right` | список не пуст |
 | `panel.goToName` | любой печатный символ | панель не занята и список не пуст |
 | `app.togglePanel` | — | `Tab` | всегда |
+| `terminal.runNode` | `Enter` | под курсором файл с `+x` на настоящей ФС, настройка включена |
 | `panel.open` | `Enter` | есть объект под курсором |
 | `panel.openWithSystem` | — | `Cmd-O` | есть объект под курсором |
 | `panel.up` | `Bsp`, `Cmd-Up` | у каталога есть родитель |
