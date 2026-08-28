@@ -219,6 +219,8 @@ dependency/
                                    один из объявленных в реестре
   image_viewer/                    fc_image_viewer — картинки: png, jpeg,
                                    gif, webp, bmp
+  file_info/                       fc_file_info — сведения об объекте:
+                                   окно, показ и провайдеры разделов
   editor/                          fc_editor — редактор текста (F4)
   navigation/                      fc_navigation — курсор, дерево, пометка
   file_ops/                        fc_file_ops — создать, удалить, копировать

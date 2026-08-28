@@ -101,6 +101,20 @@ the images of the same directory without leaving the viewer. Two limits guard
 memory — file size and pixel count — and both are read from the header before
 anything is decoded; over either one, the viewer says so and points at `Cmd+O`.
 
+**File info (`Cmd+I`, `Alt+Enter`).** Everything known about the object: name,
+full path, type, size, dates, permissions, where it is opened from — and, for a
+directory, a button that counts its size rather than walking the disk uninvited.
+Marked objects give a summary instead of a window per file. The content comes
+from **providers** declared by modules — the image viewer contributes dimensions
+and format, the archive modules will contribute the compression method — and the
+window itself knows none of it. A provider that declared it reads such files and
+then failed says so in its own section: that is a fact about the file, not about
+the application.
+
+The same sections are what `F3` falls back to. Nothing else takes a `.bin`, so
+it opens as information rather than as bytes pretending to be text, and the
+quick view shows a directory the same way.
+
 **Terminal and command line.** A shell in the same window: a command line under the
 panels, and a full-screen session over them on `Ctrl+O` — the key `mc` uses. `Cmd+T`
 hands the input to the line; it has to be a key, because a printable character in a panel
@@ -160,6 +174,7 @@ On Windows and Linux `Cmd` reads as `Ctrl`.
 | `F2`, `Cmd-,` | settings: everything you choose, in one window |
 | `Cmd-Shift-P` | the command palette: everything the app can do right now, by name or synonym |
 | `F3` / `F4` | view / edit the file under the cursor |
+| `Cmd-I`, `Alt-Enter` | everything known about the object |
 | `Shift-F3` | quick view in the other panel; `Tab` hands the input to it |
 | `F5` / `F6` | copy / move to the other panel |
 | `F7`, `Shift-Cmd-N` | make a directory |
@@ -290,6 +305,7 @@ takes and saying in words when nothing does.
 | `dependency/panels` | the file panels screen |
 | `dependency/viewer` | the viewing shell: `F3`, `Shift+F3` and choosing a viewer |
 | `dependency/text_viewer`, `dependency/image_viewer` | viewers: text and images |
+| `dependency/file_info` | file info: the window, the fallback viewer, section providers |
 | `dependency/editor` | the text editor (`F4`) |
 | `dependency/navigation` | cursor, tree walking, marking |
 | `dependency/file_ops` | create, delete, copy, move |
