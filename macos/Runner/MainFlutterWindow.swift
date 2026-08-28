@@ -41,7 +41,43 @@ class MainFlutterWindow: NSWindow, NSDraggingDestination {
     default:
       break
     }
+
+    // Первый щелчок по неактивному окну обычно тратится на его пробуждение:
+    // AppKit спрашивает у представления `acceptsFirstMouse:`, представление
+    // Flutter отвечает «нет», и щелчок пропадает. В файловом менеджере это
+    // особенно заметно — вернулся из Finder, ткнул в файл, а попал в пустоту и
+    // тыкаешь второй раз.
+    //
+    // Поэтому доносим его сами. Представление Flutter подменить нечем (в
+    // расширении метод не переопределить, а подменять реализацию на ходу —
+    // цена, которой это не стоит), но окно вправе передать событие содержимому
+    // напрямую.
+    if event.type == .leftMouseDown,
+       !isKeyWindow,
+       // Если представление однажды научится принимать первый щелчок само,
+       // доносить его будет уже некому: пришёл бы второй такой же.
+       contentView?.acceptsFirstMouse(for: event) == false,
+       landedInContent(event) {
+      super.sendEvent(event)
+      contentView?.mouseDown(with: event)
+      return
+    }
+
     super.sendEvent(event)
+  }
+
+  /// Щелчок пришёлся именно в содержимое, а не в светофор.
+  ///
+  /// Проверяется попаданием по всему окну, а не по `contentView`: у окна без
+  /// полосы заголовка содержимое занимает его целиком, и кнопки окна лежат
+  /// **поверх** — по координатам они внутри, а по дереву представлений нет.
+  private func landedInContent(_ event: NSEvent) -> Bool {
+    guard let content = contentView,
+          let hit = content.superview?.hitTest(event.locationInWindow)
+    else {
+      return false
+    }
+    return hit == content || hit.isDescendant(of: content)
   }
 
   // --- приём перетаскивания (`NSDraggingDestination`) ---
