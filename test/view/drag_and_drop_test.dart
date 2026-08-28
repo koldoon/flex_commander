@@ -6,10 +6,11 @@ import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/modules/dnd/system_drag_and_drop.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Файлы, брошенные в панель из системы.
+/// Перетаскивание файлов мышью — в обе стороны.
 ///
 /// Нативной части здесь нет — она в раннере, — но весь путь после неё
 /// настоящий: событие приходит тем же каналом и теми же значениями, что шлёт
@@ -105,6 +106,77 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(app.left.active, isTrue, reason: 'работа идёт в ту панель, в которую бросили — её и видно активной');
+  });
+
+  group('наружу', () {
+    late List<MethodCall> asked;
+
+    setUp(() {
+      asked = [];
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel(SystemDropService.channelName),
+        (call) async {
+          asked.add(call);
+          return true;
+        },
+      );
+    });
+
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.setMockMethodCallHandler(
+        const MethodChannel(SystemDropService.channelName),
+        null,
+      );
+    });
+
+    /// Тянет за строку так, как это делает мышь: нажали и повели.
+    Future<void> dragRow(WidgetTester tester, String name) async {
+      final gesture = await tester.startGesture(
+        rowCenter(tester, name),
+        kind: PointerDeviceKind.mouse,
+        buttons: kPrimaryMouseButton,
+      );
+      await gesture.moveBy(const Offset(24, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('строку тащат наружу настоящим путём', (tester) async {
+      await pumpApp(tester);
+      await dragRow(tester, 'note.txt');
+
+      expect(asked.map((call) => call.method), ['beginDrag']);
+      expect((asked.single.arguments as Map)['paths'], ['/home/note.txt']);
+    });
+
+    testWidgets('тянут помеченное — едет вся пометка', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('note.txt');
+      app.left.selection.toggle(app.left.currentNode!);
+      app.left.setCursorToName('docs');
+      app.left.selection.toggle(app.left.currentNode!);
+      await tester.pumpAndSettle();
+
+      await dragRow(tester, 'note.txt');
+
+      expect((asked.single.arguments as Map)['paths'], containsAll(<String>['/home/note.txt', '/home/docs']));
+    });
+
+    testWidgets('за «..» не тянут', (tester) async {
+      await pumpApp(tester);
+      await dragRow(tester, '..');
+
+      expect(asked, isEmpty, reason: '«..» — не объект');
+    });
+
+    testWidgets('щелчок без движения перетаскивания не начинает', (tester) async {
+      await pumpApp(tester);
+      await tester.tapAt(rowCenter(tester, 'note.txt'));
+      await tester.pumpAndSettle();
+
+      expect(asked, isEmpty);
+    });
   });
 
   testWidgets('без модуля перетаскивания панели работают как раньше', (tester) async {

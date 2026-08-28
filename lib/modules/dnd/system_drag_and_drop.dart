@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -126,13 +127,26 @@ class SystemDropService implements DragAndDrop {
     return _DropArea(service: this, spotAt: spotAt, onDrop: onDrop, builder: builder);
   }
 
-  /// Отдача наружу ещё не сделана: пока это просто содержимое.
-  ///
-  /// Возвращать здесь заглушку честнее, чем не иметь метода вовсе: панели
-  /// объявят себя источником один раз, а научится он позже
-  /// (`spec/drag-and-drop.md`, §8).
   @override
-  Widget source({required Widget child, required List<FsNode> Function() nodes}) => child;
+  Widget source({required Widget child, required List<FsNode> Function() nodes}) =>
+      _DragSource(service: this, nodes: nodes, child: child);
+
+  /// Просит систему потащить объекты наружу.
+  ///
+  /// Наружу отдаётся **настоящий путь**: у архива и `ssh` его нет, и отдавать
+  /// оттуда нужно обещанные файлы — это отдельная работа
+  /// (`spec/drag-and-drop.md`, §7). Пока таких объектов в пачке нет, тащить
+  /// нечего, и жест просто ничего не делает.
+  Future<void> beginDrag(List<FsNode> nodes) async {
+    final paths = [
+      for (final node in nodes)
+        if (node is! ParentDirNode && node.provider.capabilities.realFileSystem) node.pathString,
+    ];
+    if (paths.isEmpty) {
+      return;
+    }
+    await _channel.invokeMethod<bool>('beginDrag', {'paths': paths});
+  }
 
   /// Слушать канал начинаем с появлением первого приёмника и перестаём с
   /// уходом последнего.
@@ -205,6 +219,67 @@ class _DropAreaState extends State<_DropArea> {
     return ValueListenableBuilder<DropSpot?>(
       valueListenable: _target.hovered,
       builder: (context, hovered, _) => widget.builder(context, hovered),
+    );
+  }
+}
+
+/// Источник перетаскивания: строка, которую можно утащить.
+///
+/// Слушает **события указателя**, а не жест. Жест здесь не годится: список
+/// прокручивается вертикально, и вертикальную протяжку арена отдаёт прокрутке —
+/// файл нельзя было бы утащить ни вверх, ни вниз. События указателя в арене не
+/// участвуют вовсе, поэтому решение принимается здесь: сдвинулись дальше порога
+/// с зажатой кнопкой — значит тащат.
+///
+/// Как только система начнёт перетаскивание, мышь перейдёт к ней, и до Flutter
+/// движения больше не дойдут: прокрутка, если и успела начаться, дальше не
+/// поедет.
+class _DragSource extends StatefulWidget {
+  const _DragSource({required this.service, required this.nodes, required this.child});
+
+  final SystemDropService service;
+  final List<FsNode> Function() nodes;
+  final Widget child;
+
+  @override
+  State<_DragSource> createState() => _DragSourceState();
+}
+
+class _DragSourceState extends State<_DragSource> {
+  /// Порог в точках: меньше — это дрожание руки при щелчке, а не перетаскивание.
+  static const double _threshold = 4;
+
+  Offset? _origin;
+  bool _started = false;
+
+  void _down(PointerDownEvent event) {
+    // Только левая кнопка и только мышь: правая once станет меню, а к
+    // сенсорному экрану у файлового менеджера свои вопросы.
+    if (event.kind != PointerDeviceKind.mouse || event.buttons != kPrimaryMouseButton) {
+      _origin = null;
+      return;
+    }
+    _origin = event.position;
+    _started = false;
+  }
+
+  void _move(PointerMoveEvent event) {
+    final origin = _origin;
+    if (_started || origin == null || (event.position - origin).distance < _threshold) {
+      return;
+    }
+    _started = true;
+    widget.service.beginDrag(widget.nodes());
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Listener(
+      onPointerDown: _down,
+      onPointerMove: _move,
+      onPointerUp: (_) => _origin = null,
+      onPointerCancel: (_) => _origin = null,
+      child: widget.child,
     );
   }
 }

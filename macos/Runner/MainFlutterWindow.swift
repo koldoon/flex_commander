@@ -3,8 +3,8 @@ import FlutterMacOS
 import window_manager
 
 class MainFlutterWindow: NSWindow, NSDraggingDestination {
-  /// Приём файлов из системы. Живёт столько же, сколько окно.
-  private var fileDrop: FileDrop?
+  /// Перетаскивание файлов в обе стороны. Живёт столько же, сколько окно.
+  private var fileDrag: FileDrag?
 
   override func awakeFromNib() {
     let flutterViewController = FlutterViewController()
@@ -17,7 +17,7 @@ class MainFlutterWindow: NSWindow, NSDraggingDestination {
     // Перетаскивание файлов из Finder. Подписывается окно, а не представление
     // Flutter: своих типов оно не регистрирует, и события всё равно дошли бы
     // сюда — а окно живёт столько же, сколько канал.
-    fileDrop = FileDrop(messenger: flutterViewController.engine.binaryMessenger, window: self)
+    fileDrag = FileDrag(messenger: flutterViewController.engine.binaryMessenger, window: self)
     registerForDraggedTypes([.fileURL])
 
     super.awakeFromNib()
@@ -33,23 +33,23 @@ class MainFlutterWindow: NSWindow, NSDraggingDestination {
   // координатам.
 
   func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
-    guard let drop = fileDrop, drop.carriesFiles(sender) else { return [] }
+    guard let drop = fileDrag, drop.carriesFiles(sender) else { return [] }
     drop.send("dragEntered", sender)
     return .copy
   }
 
   func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-    guard let drop = fileDrop, drop.carriesFiles(sender) else { return [] }
+    guard let drop = fileDrag, drop.carriesFiles(sender) else { return [] }
     drop.send("dragUpdated", sender)
     return .copy
   }
 
   func draggingExited(_ sender: NSDraggingInfo?) {
-    fileDrop?.send("dragExited", nil)
+    fileDrag?.send("dragExited", nil)
   }
 
   @objc func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
-    guard let drop = fileDrop, drop.carriesFiles(sender) else { return false }
+    guard let drop = fileDrag, drop.carriesFiles(sender) else { return false }
     drop.send("drop", sender)
     return true
   }
@@ -62,7 +62,7 @@ class MainFlutterWindow: NSWindow, NSDraggingDestination {
   }
 }
 
-/// Приём файлов, брошенных в окно из системы.
+/// Перетаскивание файлов между окном и системой — в обе стороны.
 ///
 /// Нативного здесь ровно столько, сколько нельзя сделать из Flutter: подписка
 /// на перетаскивание и перевод его в события канала. **Куда** попадут файлы,
@@ -72,15 +72,25 @@ class MainFlutterWindow: NSWindow, NSDraggingDestination {
 /// ответить синхронно, а канал асинхронный, и ждать Dart тут нечем. Если
 /// бросили не туда, Dart просто ничего не сделает; человек это видит заранее —
 /// подсветку рисует он же, и её отсутствие и есть «сюда нельзя».
-final class FileDrop {
+final class FileDrag {
   static let channelName = "flex_commander/drop"
 
   private let channel: FlutterMethodChannel
   private unowned let window: NSWindow
 
   init(messenger: FlutterBinaryMessenger, window: NSWindow) {
-    self.channel = FlutterMethodChannel(name: FileDrop.channelName, binaryMessenger: messenger)
+    self.channel = FlutterMethodChannel(name: FileDrag.channelName, binaryMessenger: messenger)
     self.window = window
+    // Канал один на обе стороны: сюда приходят просьбы Dart, отсюда уходят
+    // события системы. Два канала ради двух направлений были бы двумя именами,
+    // о которых надо помнить.
+    channel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      self.handle(call, result)
+    }
   }
 
   /// Событие перетаскивания уходит в Dart вместе с точкой и путями.
@@ -116,5 +126,71 @@ final class FileDrop {
   /// перетаскивание текста окно отвечает отказом, и курсор сразу это покажет.
   func carriesFiles(_ info: NSDraggingInfo) -> Bool {
     !paths(of: info).isEmpty
+  }
+
+  // --- отдача наружу ---
+
+  /// Просьбы из Dart: пока одна — «начни тащить вот эти файлы».
+  func handle(_ call: FlutterMethodCall, _ result: @escaping FlutterResult) {
+    switch call.method {
+    case "beginDrag":
+      let paths = (call.arguments as? [String: Any])?["paths"] as? [String] ?? []
+      result(beginDrag(paths: paths))
+    default:
+      result(FlutterMethodNotImplemented)
+    }
+  }
+
+  /// Начинает перетаскивание файлов из окна.
+  ///
+  /// Событие берётся у приложения (`NSApp.currentEvent`): своего у Dart нет, а
+  /// жест как раз идёт — палец на кнопке, и это то самое событие, которого
+  /// ждёт `beginDraggingSession`. Нет события или оно не мышиное — тащить
+  /// нечего, и Dart об этом узнаёт по ответу.
+  private func beginDrag(paths: [String]) -> Bool {
+    guard !paths.isEmpty,
+          let view = window.contentView,
+          let event = NSApp.currentEvent,
+          event.type == .leftMouseDragged || event.type == .leftMouseDown
+    else {
+      return false
+    }
+
+    let origin = view.convert(event.locationInWindow, from: nil)
+    var items: [NSDraggingItem] = []
+    for (index, path) in paths.enumerated() {
+      let url = URL(fileURLWithPath: path)
+      let item = NSDraggingItem(pasteboardWriter: url as NSURL)
+      // Значок берётся у системы — тот самый, что человек видит в Finder, — и
+      // стопкой, если объектов несколько: рисовать своё, когда у системы уже
+      // есть привычное, незачем.
+      let icon = NSWorkspace.shared.icon(forFile: path)
+      let step = CGFloat(min(index, 4)) * 4
+      let frame = CGRect(x: origin.x - 16 + step, y: origin.y - 16 - step, width: 32, height: 32)
+      item.setDraggingFrame(frame, contents: icon)
+      items.append(item)
+    }
+
+    view.beginDraggingSession(with: items, event: event, source: source)
+    return true
+  }
+
+  /// Кто тащит. Отдельным объектом, потому что окно уже занято приёмом: одна и
+  /// та же роль в обе стороны читалась бы вдвое хуже.
+  private lazy var source = DragSource()
+}
+
+/// Источник перетаскивания: что позволено делать с тем, что мы отдали.
+final class DragSource: NSObject, NSDraggingSource {
+  /// Только копирование — и только наружу.
+  ///
+  /// Не перенос: у переноса приёмник обязан сообщить, что забрал объект, и
+  /// удалять его должны мы. Пока этого нет, «перенёс» означало бы потерю
+  /// файла при первой же осечке — а копия не теряет ничего.
+  func draggingSession(
+    _ session: NSDraggingSession,
+    sourceOperationMaskFor context: NSDraggingContext
+  ) -> NSDragOperation {
+    context == .outsideApplication ? .copy : []
   }
 }

@@ -148,9 +148,12 @@ hands anything to the system, and one setting turns the whole thing off.
 **Drag and drop.** Files dropped from Finder land in the panel — in the directory
 under the cursor if you aim at one, in the panel's own directory otherwise, with the
 target outlined while you hold them. The copy is the ordinary `F5` job: same window, same
-questions about existing names, same cancellation. Dragging *out* of a panel is not there
-yet. The receiving side is about eighty lines of AppKit in the runner rather than a
-plugin, so the macOS build stays free of CocoaPods.
+questions about existing names, same cancellation. Dragging the other way works too: pull
+a row into Finder or any other application and it is copied out, with the system's own
+file icons following the cursor; drag a marked row and the whole marking goes. Files
+inside archives and on servers cannot be dragged out yet — that needs promised files.
+Both directions are AppKit in the runner rather than a plugin, so the macOS build stays
+free of CocoaPods.
 
 **Appearance.** One dark theme, taken from the reference application: palette, metrics,
 icons and fonts all come from a module, and every size in it is a named value rather than

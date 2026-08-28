@@ -257,6 +257,16 @@ class _FileTableState extends State<FileTable> {
     );
   }
 
+  /// Что поедет, если потянуть за эту строку.
+  ///
+  /// Тянут помеченное — едет вся пометка; тянут непомеченную строку — едет она
+  /// одна, и пометка не трогается вовсе. Правило всех коммандеров, и оно же
+  /// единственное, которое не удивляет: человек видит, что схватил.
+  List<FsNode> _dragNodes(FsNode node) {
+    final selection = widget.panel.selection;
+    return selection.contains(node) ? selection.nodes : [node];
+  }
+
   /// Что под курсором при перетаскивании — строка-каталог или сама панель.
   ///
   /// null означает «сюда нельзя», и это же гасит подсветку: человек видит отказ
@@ -373,7 +383,7 @@ class _FileTableState extends State<FileTable> {
           primary: false,
           itemBuilder: (context, index) {
             final node = panel.nodes[index];
-            return FileTableRow(
+            final row = FileTableRow(
               node: node,
               columns: columns,
               widths: widths,
@@ -382,6 +392,9 @@ class _FileTableState extends State<FileTable> {
               panelActive: panel.active,
               onTap: () => _handleRowTap(app, index),
             );
+            // Строку можно утащить наружу — если есть кому тащить.
+            final dnd = app.dragAndDrop;
+            return dnd == null ? row : dnd.source(child: row, nodes: () => _dragNodes(node));
           },
         );
       },
