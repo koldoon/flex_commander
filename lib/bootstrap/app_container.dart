@@ -208,6 +208,12 @@ class AppContainer extends DI {
           nodeInfoProviders: [for (final factory in registrations.nodeInfoFactories) factory(_context)],
           views: c.get<Views>(),
           window: c.get<WindowService>(),
+          // Необязательная: нет модуля перетаскивания — панели просто не умеют
+          // принимать файлы мышью, и ничего больше не меняется.
+          //
+          // Спрашивается по объявлениям, а не у контейнера: мы **внутри** его
+          // фабрики, и обращение к нему отсюда рушит разбор зависимостей.
+          dragAndDrop: registrations.serviceBindings.containsKey(DragAndDrop) ? c.get<DragAndDrop>() : null,
           saveDelay: overrides.saveDelay ?? const Duration(seconds: 1),
           toasts: ToastController(duration: overrides.toastDuration ?? ToastController.defaultDuration),
           credentials: c.get<CredentialsController>(),

@@ -32,6 +32,9 @@ void main() {
       'lib/src/app/screen.dart',
       'lib/src/app/panel_viewport.dart',
       'lib/src/app/views.dart',
+      // Перетаскивание — это обёртки: источник и приёмник. Платформенное живёт
+      // по ту сторону службы, а сам контракт говорит о виджетах.
+      'lib/src/app/drag_and_drop.dart',
       'lib/src/commands/app_command.dart',
       'lib/src/commands/key_combination.dart',
       'lib/src/theme/fc_icons.dart',

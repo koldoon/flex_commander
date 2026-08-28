@@ -145,6 +145,13 @@ place to work rather than a list of documents that open in an editor. Directorie
 opening as directories (they carry `+x` too, and so do `.app` bundles), `Cmd+O` still
 hands anything to the system, and one setting turns the whole thing off.
 
+**Drag and drop.** Files dropped from Finder land in the panel — in the directory
+under the cursor if you aim at one, in the panel's own directory otherwise, with the
+target outlined while you hold them. The copy is the ordinary `F5` job: same window, same
+questions about existing names, same cancellation. Dragging *out* of a panel is not there
+yet. The receiving side is about eighty lines of AppKit in the runner rather than a
+plugin, so the macOS build stays free of CocoaPods.
+
 **Appearance.** One dark theme, taken from the reference application: palette, metrics,
 icons and fonts all come from a module, and every size in it is a named value rather than
 a number spelled into a widget — the gap between the panels, the window margins, the

@@ -16,6 +16,7 @@ export 'src/app/panel_selection.dart';
 export 'src/app/panel_viewport.dart';
 export 'src/app/node_info.dart';
 export 'src/app/viewer_spec.dart';
+export 'src/app/drag_and_drop.dart';
 export 'src/app/views.dart';
 export 'src/app/viewport.dart';
 export 'src/app/errors.dart';

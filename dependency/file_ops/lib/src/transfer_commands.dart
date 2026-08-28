@@ -61,6 +61,18 @@ abstract class TransferCommandBase extends AppCommand {
   /// Путь каталога, куда идёт работа.
   static const String destinationParam = 'destination';
 
+  /// Что переносить — списком путей.
+  ///
+  /// Пусто — как раньше: помеченное в активной панели или объект под курсором.
+  /// Задано — задание пришло **готовым**, и панели тут ни при чём: так работает
+  /// перетаскивание мышью, где и объекты, и приёмник указаны жестом
+  /// (`spec/drag-and-drop.md`, §5).
+  ///
+  /// Путями, а не узлами, по той же причине, по какой путём задан приёмник: их
+  /// разбирает панель через всю цепочку провайдеров, и аренда всего, что ради
+  /// этого смонтируют, достаётся команде — той, что доживёт до конца работы.
+  static const String sourcesParam = 'sources';
+
   /// Идти ли по символическим ссылкам.
   ///
   /// По умолчанию нет — как в mc: ссылка переносится ссылкой. Приёмник,
@@ -76,6 +88,14 @@ abstract class TransferCommandBase extends AppCommand {
     final panel = context.panel;
     if (panel.busy) {
       return false;
+    }
+    // Задание пришло готовым: что переносить и куда — уже решено, и судить
+    // надо по нему, а не по панелям. Иначе бросок мышью в панель зависел бы от
+    // того, где стоит курсор в соседней.
+    final sources = context.invocation.param<List<String>>(sourcesParam);
+    if (sources != null) {
+      final destination = context.invocation.param<String>(destinationParam);
+      return sources.isNotEmpty && destination != null && panel.provider.canWrite;
     }
     // Принимать должен приёмник; терять объекты источник обязан только при
     // переносе — копировать из архива, открытого на просмотр, ничто не мешает.
@@ -93,6 +113,9 @@ abstract class TransferCommandBase extends AppCommand {
   /// Объекты, с которыми работает команда: помеченные или тот, что под курсором.
   List<FsNode> targetsOf(CommandContext context) => context.targets.where((node) => node is! ParentDirNode).toList();
 
+  /// Пришло ли задание готовым — со своими объектами и приёмником.
+  static bool givenJob(CommandContext context) => context.invocation.param<List<String>>(sourcesParam) != null;
+
   /// Перенести — или сперва спросить, куда.
   ///
   /// Путь задают либо параметром, либо человеком в окне. Первый случай идёт
@@ -106,16 +129,26 @@ abstract class TransferCommandBase extends AppCommand {
     // копировать из него.
     final destination = _destinationPanelOf(context);
     final editor = destination?.editor;
+    final givenSources = context.invocation.param<List<String>>(sourcesParam);
     final targets = targetsOf(context);
-    if (editor == null || targets.isEmpty) {
+    if (editor == null || (givenSources == null && targets.isEmpty)) {
       return;
     }
 
     Future<void> transfer(TreeEditor editor, String path, bool followLinks, [FcAsyncRun? run]) async {
       final resolved = await _resolveDestination(context, path);
-      final destination = resolved.node! as DirectoryNode;
+      // Источники приходят путями, и разбирает их та же панель, что и приёмник:
+      // путь может вести внутрь архива, который ради этого и смонтируют.
+      final sources = <ResolvedNode>[];
+      if (givenSources != null) {
+        for (final source in givenSources) {
+          sources.add(await destination!.resolvePath().run(source));
+        }
+      }
+      final nodes = givenSources == null ? targets : [for (final source in sources) source.node!];
+      final destinationNode = resolved.node! as DirectoryNode;
       final operation = moves ? editor.move() : editor.copy();
-      final params = TransferParams(targets, destination, followLinks: followLinks);
+      final params = TransferParams(nodes, destinationNode, followLinks: followLinks);
 
       // Аренда источника — на всё время работы, а не на каждое чтение: между
       // чтениями панель успевает уйти, а работа, отправленная в фон,
@@ -130,13 +163,22 @@ abstract class TransferCommandBase extends AppCommand {
           await operation.run(params);
         }
       } finally {
-        // Отпускаются обе — и после отмены, и после ошибки: `finally` для того
+        // Отпускаются все — и после отмены, и после ошибки: `finally` для того
         // здесь и стоит.
         await resolved.release();
+        for (final source in sources) {
+          await source.release();
+        }
         await source?.release();
         // Обе панели теперь показывают не то, что на диске: в приёмнике
         // объекты появились, из источника при переносе исчезли.
-        panel.selection.clear();
+        //
+        // Пометку снимает только та работа, которая по ней и шла: задание,
+        // пришедшее готовым, о пометке ничего не знает, и стирать чужую
+        // разметку ему не за что.
+        if (givenSources == null) {
+          panel.selection.clear();
+        }
         await panel.reload();
         await _reloadDestination(context);
       }
@@ -225,7 +267,12 @@ abstract class TransferCommandBase extends AppCommand {
 
   /// Панель, в которую идёт работа: та, что показана напротив источника.
   /// null — напротив не панель, и работать не с чем.
-  Panel? _destinationPanelOf(CommandContext context) => context.target;
+  /// Куда идёт работа.
+  ///
+  /// Обычно это панель напротив — привычка двухпанельного менеджера. Но когда
+  /// задание пришло готовым (перетаскивание), приёмник — **та панель, в которую
+  /// бросили**: она же активная, и панель напротив тут ни при чём.
+  Panel? _destinationPanelOf(CommandContext context) => givenJob(context) ? context.panel : context.target;
 
   String? _defaultDestinationOf(CommandContext context) {
     final directory = _destinationPanelOf(context)?.directory;

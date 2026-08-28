@@ -6,6 +6,7 @@ import 'errors.dart';
 import 'panel_viewport.dart';
 import 'viewport.dart';
 import 'node_info.dart';
+import 'drag_and_drop.dart';
 import 'viewer_spec.dart';
 import 'views.dart';
 import '../theme/theme_service.dart';
@@ -100,6 +101,13 @@ abstract interface class Application implements Listenable {
 
   /// Последняя известная геометрия окна.
   WindowGeometry? get windowGeometry;
+
+  /// Перетаскивание мышью; null — модуля нет, и мышью ничего не таскают.
+  ///
+  /// Необязательная возможность, поэтому и тип необязательный: панели
+  /// спрашивают её перед тем, как объявить себя приёмником, и без неё работают
+  /// ровно как раньше.
+  DragAndDrop? get dragAndDrop;
 
   /// Само окно: подвинуть, развернуть.
   ///

@@ -15,6 +15,7 @@ import 'package:fc_viewer/fc_viewer.dart';
 import 'package:fc_zip/fc_zip.dart';
 
 import '../modules/app_shell.dart';
+import '../modules/dnd/system_drag_and_drop.dart';
 import '../modules/local_fs/local_file_system.dart';
 
 /// Из чего собрано приложение.
@@ -40,6 +41,9 @@ List<FcModule> featureModules() => [
   ShellTerminal(),
   const Navigation(),
   const FileOps(),
+  // Перетаскивание мышью. Платформенного в дартовой части нет — только имя
+  // канала; без своего раннера канал молчит, и это ровно «перетаскивания нет».
+  const SystemDragAndDrop(),
   const ZipArchiver(),
   const SevenZipArchiver(),
   const TarArchiver(),

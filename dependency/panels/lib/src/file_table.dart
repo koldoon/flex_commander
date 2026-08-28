@@ -35,6 +35,17 @@ class _FileTableState extends State<FileTable> {
   double _listHeight = 0;
   double _rowHeight = 0;
 
+  /// Высота строки заголовков: от неё считается, какая строка под курсором при
+  /// перетаскивании. Запоминается там же, где и остальные размеры, — при
+  /// разметке.
+  double _headerHeight = 0;
+
+  /// Команда копирования и её параметры — по именам, а не по классам: работа
+  /// живёт в модуле файловых операций, а панели обязаны собираться без него.
+  static const String copyCommandId = 'file.copy';
+  static const String sourcesParam = 'sources';
+  static const String destinationParam = 'destination';
+
   int _lastCursorIndex = -1;
 
   int _lastTapIndex = -1;
@@ -177,6 +188,7 @@ class _FileTableState extends State<FileTable> {
               // до разметки: запоминаем то, что известно сейчас.
               _listHeight = listHeight;
               _rowHeight = theme.metrics.rowHeight;
+              _headerHeight = theme.metrics.headerRowHeight;
 
               final table = SizedBox(
                 width: contentWidth,
@@ -202,7 +214,7 @@ class _FileTableState extends State<FileTable> {
                 ),
               );
 
-              return Stack(
+              final content = Stack(
                 children: [
                   if (contentWidth > constraints.maxWidth)
                     SingleChildScrollView(scrollDirection: Axis.horizontal, child: table)
@@ -228,8 +240,102 @@ class _FileTableState extends State<FileTable> {
                   ),
                 ],
               );
+
+              // Перетаскивания может не быть вовсе — тогда таблица такая же,
+              // как была: панель про мышь снаружи ничего не знает.
+              final dnd = app.dragAndDrop;
+              if (dnd == null) {
+                return content;
+              }
+              return dnd.target(
+                spotAt: _spotAt,
+                onDrop: (spot, payload) => _handleDrop(app, spot, payload),
+                builder: (context, hovered) => _withHighlight(theme, content, hovered),
+              );
             },
           ),
+    );
+  }
+
+  /// Что под курсором при перетаскивании — строка-каталог или сама панель.
+  ///
+  /// null означает «сюда нельзя», и это же гасит подсветку: человек видит отказ
+  /// до того, как отпустит кнопку.
+  DropSpot? _spotAt(Offset local) {
+    final panel = widget.panel;
+    final directory = panel.directory;
+    if (directory == null || !panel.provider.canWrite) {
+      return null;
+    }
+    final node = _nodeAt(local);
+    // Бросок на строку-каталог кладёт **в неё**; на файл, на `..` и мимо строк
+    // — в каталог, открытый в панели.
+    if (node is DirectoryNode && node is! ParentDirNode) {
+      return DropSpot(destination: node.pathString, node: node);
+    }
+    return DropSpot(destination: directory.pathString);
+  }
+
+  /// Строка под точкой — с поправкой на заголовки и прокрутку.
+  FsNode? _nodeAt(Offset local) {
+    if (_rowHeight <= 0 || local.dy < _headerHeight) {
+      return null;
+    }
+    final offset = _scroll.hasClients ? _scroll.offset : 0.0;
+    final index = ((local.dy - _headerHeight + offset) / _rowHeight).floor();
+    final nodes = widget.panel.nodes;
+    return index >= 0 && index < nodes.length ? nodes[index] : null;
+  }
+
+  /// Подсветка того, куда попадёт брошенное: строка или вся панель.
+  Widget _withHighlight(FcTheme theme, Widget content, DropSpot? hovered) {
+    if (hovered == null) {
+      return content;
+    }
+    final color = theme.colors.cursorBackground;
+    final width = theme.metrics.strokeWidth * 2;
+    final node = hovered.node;
+    final index = node == null ? -1 : widget.panel.nodes.indexOf(node);
+    final offset = _scroll.hasClients ? _scroll.offset : 0.0;
+
+    return Stack(
+      children: [
+        content,
+        if (index >= 0)
+          Positioned(
+            top: _headerHeight + index * _rowHeight - offset,
+            left: 0,
+            right: 0,
+            height: _rowHeight,
+            child: IgnorePointer(
+              child: DecoratedBox(decoration: BoxDecoration(border: Border.all(color: color, width: width))),
+            ),
+          )
+        else
+          Positioned.fill(
+            child: IgnorePointer(
+              child: DecoratedBox(decoration: BoxDecoration(border: Border.all(color: color, width: width))),
+            ),
+          ),
+      ],
+    );
+  }
+
+  /// Брошенное копируется той же командой, что работает за `F5`.
+  ///
+  /// По идентификатору, а не по классу: копирование живёт в модуле файловых
+  /// операций, а приложение обязано собираться без него — тогда бросок просто
+  /// ничего не сделает.
+  Future<void> _handleDrop(Application app, DropSpot spot, DropPayload payload) async {
+    if (payload.paths.isEmpty) {
+      return;
+    }
+    // Бросок делает панель активной — как и клик по ней: работа пойдёт **в
+    // неё**, и человек должен видеть, где он теперь.
+    app.activate(widget.panel);
+    app.commands.run(
+      copyCommandId,
+      CommandInvocation(parameters: {sourcesParam: payload.paths, destinationParam: spot.destination}),
     );
   }
 

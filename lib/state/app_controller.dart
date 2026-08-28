@@ -36,6 +36,7 @@ class AppController extends ChangeNotifier implements Application {
     CredentialsController? credentials,
     ErrorController? errors,
     WindowService? window,
+    this.dragAndDrop,
     this.saveDelay = const Duration(seconds: 1),
   }) : _splitRatio = settings.splitRatio,
        _windowGeometry = settings.window,
@@ -126,6 +127,10 @@ class AppController extends ChangeNotifier implements Application {
   /// Окно приложения. Без управления окном (в тестах) — заглушка.
   @override
   final WindowService window;
+
+  /// Перетаскивание мышью; null — модуля нет.
+  @override
+  final DragAndDrop? dragAndDrop;
 
   /// Задержка перед записью настроек. Настройки пишутся и при выходе, но
   /// отложенная запись бережёт их и при аварийном завершении.
