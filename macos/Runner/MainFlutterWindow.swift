@@ -292,6 +292,7 @@ final class FileDrag: NSObject, NSFilePromiseProviderDelegate {
 
   static let promiseKey = "id"
   static let nameKey = "name"
+  static let pathKey = "path"
 
   /// Чем считать обещанное. По расширению имени: настоящего файла, у которого
   /// можно было бы спросить, ещё нет.
@@ -332,9 +333,14 @@ final class FileDrag: NSObject, NSFilePromiseProviderDelegate {
 
   /// Система просит обещанное — вот теперь и выкладываем.
   ///
-  /// Dart отвечает путём к временной копии, а перекладывает её на место сама
-  /// нативная часть: имя приёмник вправе поменять (совпадения он разводит
-  /// сам), и записывать надо ровно туда, куда сказали.
+  /// Путь назначения даёт **приёмник**, и он у всех разный: Finder называет ту
+  /// папку, куда бросили, а редактор или мессенджер — свой временный каталог,
+  /// из которого потом втянет содержимое к себе. Наше дело одно: написать файл
+  /// ровно туда, куда сказали.
+  ///
+  /// Пишет его Dart — сразу в цель, без временной копии по дороге: на большом
+  /// файле лишний проход по диску стоил бы столько же, сколько сама работа.
+  /// Здесь не остаётся ничего тяжёлого, поэтому и главный поток свободен.
   func filePromiseProvider(
     _ provider: NSFilePromiseProvider,
     writePromiseTo url: URL,
@@ -346,17 +352,11 @@ final class FileDrag: NSObject, NSFilePromiseProviderDelegate {
     }
     // Канал живёт в главном потоке, а зовут нас со своей очереди.
     DispatchQueue.main.async {
-      self.channel.invokeMethod("writePromise", arguments: [FileDrag.promiseKey: id]) { reply in
-        guard let path = reply as? String else {
-          completionHandler(FileDragError.noSource)
-          return
-        }
-        do {
-          try FileManager.default.copyItem(at: URL(fileURLWithPath: path), to: url)
-          completionHandler(nil)
-        } catch {
-          completionHandler(error)
-        }
+      self.channel.invokeMethod(
+        "writePromise",
+        arguments: [FileDrag.promiseKey: id, FileDrag.pathKey: url.path]
+      ) { reply in
+        completionHandler(reply as? Bool == true ? nil : FileDragError.noSource)
       }
     }
   }

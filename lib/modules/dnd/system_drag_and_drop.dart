@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -51,12 +53,7 @@ class SystemDragAndDrop implements FcModule {
     final settings = registry.settings;
     DragAndDropSettings settingsOf() => settings.section(DragAndDropSettings.new);
 
-    registry.service<DragAndDrop>(
-      // Место под временные копии — то же, которым пользуются просмотрщик и
-      // открытие внешней программой: файл из архива сперва оказывается на
-      // диске, иначе отдавать наружу нечего.
-      (services) => SystemDropService(settings: settingsOf, staging: services.resolve<StagingArea>()),
-    );
+    registry.service<DragAndDrop>((services) => SystemDropService(settings: settingsOf));
 
     // Приложение службе нужно ровно для одного: сказать человеку, если
     // обещанное выложить не вышло. Молчать тут нельзя — со стороны это
@@ -120,14 +117,9 @@ class _Target {
 
 /// Служба перетаскивания поверх канала раннера.
 class SystemDropService implements DragAndDrop {
-  SystemDropService({MethodChannel? channel, DragAndDropSettings Function()? settings, StagingArea? staging})
+  SystemDropService({MethodChannel? channel, DragAndDropSettings Function()? settings})
     : _channel = channel ?? const MethodChannel(channelName),
-      _settings = settings ?? DragAndDropSettings.new,
-      _staging = staging;
-
-  /// Где заводить временные копии; null — заводить негде, и наружу поедет
-  /// только то, у чего есть настоящий путь.
-  final StagingArea? _staging;
+      _settings = settings ?? DragAndDropSettings.new;
 
   /// Обещанное: что именно система попросит выложить, когда оно ей
   /// понадобится. Ключ — имя, под которым обещали.
@@ -140,10 +132,14 @@ class SystemDropService implements DragAndDrop {
   /// пришла просьба и когда бы она ни пришла.
   final Set<String> _unread = {};
 
-  /// Копии этого перетаскивания и аренда источника: и то и другое живёт ровно
-  /// столько, сколько сессия.
-  LocalCopySession? _copies;
+  /// Аренда источника: держится, пока обещанное не прочитано.
   ProviderLease? _lease;
+
+  /// Область, из которой тащат: под ней и показывается полоса работы, если
+  /// выкладка окажется долгой.
+  ViewportPosition? _sourceArea;
+
+  var _nextRun = 0;
 
   final DragAndDropSettings Function() _settings;
 
@@ -265,33 +261,103 @@ class SystemDropService implements DragAndDrop {
 
   void tellFailuresTo(Application app) => _app = app;
 
-  /// Выкладывает обещанное во временный файл и отвечает путём к нему.
+  /// Выкладывает обещанное — **сразу туда, куда просит приёмник**.
   ///
-  /// Пока никто не попросил, ничего и не читается: перетащить файл из архива
-  /// на рабочий стол и передумать по дороге — обычное дело, и распаковывать
-  /// ради этого незачем.
-  Future<String?> _writePromise(MethodCall call) async {
+  /// Пока никто не попросил, ничего не читается: перетащить файл из архива на
+  /// рабочий стол и передумать по дороге — обычное дело, и распаковывать ради
+  /// этого незачем.
+  ///
+  /// Путь назначения приходит от системы, и он у всех разный: Finder называет
+  /// папку, куда бросили, а редактор или мессенджер — свой временный каталог.
+  /// Писать через свою временную копию было бы вторым проходом по диску — на
+  /// большом файле это ровно вдвое дольше и ни за чем.
+  Future<bool> _writePromise(MethodCall call) async {
     final arguments = call.arguments;
     final id = arguments is Map ? arguments['id'] : null;
+    final path = arguments is Map ? arguments['path'] : null;
     final node = id is String ? _promised[id] : null;
-    final staging = _staging;
-    if (node == null || staging == null) {
-      return null;
+    if (node == null || path is! String) {
+      return false;
     }
-    final copies = _copies ??= LocalCopySession(staging, prefix: 'flex_commander_drag');
+
     try {
-      final path = await copies.localPathOf(node);
-      // Прочитано — держать источник больше незачем, даже если жест давно
-      // кончился.
-      _unread.remove(id);
-      await _releaseIfRead();
-      return path;
+      await _extract(node, path);
+      return true;
+    } on OperationCanceled {
+      // Отменил человек — сказать ему об этом было бы странно.
+      return false;
     } catch (error) {
       // Со стороны неудача выглядит как «перетащил, и ничего не произошло»:
       // система молча бросает то, чего ей не дали. Сказать об этом обязаны мы.
       _app?.toasts.show('Could not hand over «${node.name}»: $error');
-      return null;
+      return false;
+    } finally {
+      // Прочитано (или не вышло) — держать источник больше незачем, даже если
+      // жест давно кончился.
+      _unread.remove(id);
+      await _releaseIfRead();
     }
+  }
+
+  /// Читает объект в файл, показывая это обычной работой.
+  ///
+  /// Работа настоящая: у неё полоса под панелью-источником и отмена. Распаковка
+  /// гигабайта из архива идёт заметное время, и молчать о ней нельзя — со
+  /// стороны молчание неотличимо от зависания.
+  Future<void> _extract(FsNode node, String path) async {
+    final operation = TaskOperation<void, void>((op, _) => _copyInto(node, path, op));
+    final app = _app;
+    final area = _sourceArea;
+    final runId = 'dnd.promise#${_nextRun++}';
+
+    if (app != null) {
+      app.operations.register(OperationRun(runId: runId, operation: operation, title: 'Extracting «${node.name}»'));
+      if (area != null) {
+        app.operations.sendToBackground(runId, owner: area);
+      }
+    }
+    try {
+      await operation.run(null);
+    } finally {
+      app?.operations.forget(runId);
+    }
+  }
+
+  /// Поток из провайдера в файл — с отчётом о байтах и проверкой отмены.
+  Future<void> _copyInto(FsNode node, String path, TaskOperation<void, void> op) async {
+    final provider = node.provider;
+    if (provider is! FileContentProvider) {
+      throw FsError(node.pathString, FsErrorKind.notSupported);
+    }
+
+    final source = await (provider as FileContentProvider).openRead(node);
+    final file = File(path);
+    final sink = file.openWrite();
+    var written = 0;
+    try {
+      await for (final chunk in source) {
+        op.checkCanceled();
+        sink.add(chunk);
+        written += chunk.length;
+        op.report(
+          itemName: node.name,
+          bytesTransferred: written,
+          bytesTotal: node.size >= 0 ? node.size : null,
+          itemBytesTransferred: written,
+          itemBytesTotal: node.size >= 0 ? node.size : null,
+        );
+      }
+      await sink.flush();
+    } catch (_) {
+      // Недописанный файл выглядит как целый: отменили или сорвалось — убираем
+      // сразу, иначе в чужой папке останется обрубок.
+      await sink.close();
+      if (file.existsSync()) {
+        await file.delete();
+      }
+      rethrow;
+    }
+    await sink.close();
   }
 
   /// Отпускает источник, если всё обещанное уже прочитано.
@@ -312,19 +378,32 @@ class SystemDropService implements DragAndDrop {
     await lease?.release();
   }
 
-  /// Убирает всё, что осталось от прошлого перетаскивания.
+  /// Забывает прошлое перетаскивание.
   ///
   /// Зовётся **началом следующего**, а не концом прошлого: система вправе
   /// попросить обещанное после того, как сессия кончилась, и до этой просьбы
-  /// ни копии, ни список обещаний трогать нельзя. Заодно так временные файлы
-  /// не переживают приложение больше, чем на одно перетаскивание.
+  /// список обещаний трогать нельзя.
+  ///
+  /// Убирать при этом нечего: пишем мы сразу в цель, и своих временных файлов
+  /// у перетаскивания не остаётся вовсе.
   Future<void> _forgetPrevious() async {
     _promised.clear();
     _unread.clear();
     await _releaseSource();
-    final copies = _copies;
-    _copies = null;
-    await copies?.purge();
+  }
+
+  /// Под какой панелью показывать полосу работы; null — источник не панель.
+  ViewportPosition? _areaOf(Object owner) {
+    final view = _app?.view;
+    if (view == null) {
+      return null;
+    }
+    for (final position in const [ViewportPosition.left, ViewportPosition.right]) {
+      if (identical(view.panelAt(position), owner)) {
+        return position;
+      }
+    }
+    return null;
   }
 
   /// Имя, под которым обещан объект. Совпадения разводятся числом: система
@@ -383,7 +462,7 @@ class SystemDropService implements DragAndDrop {
       // Настоящего пути нет — отдаём обещание. Каталоги пока не обещаем: их
       // выкладка это целый обход, и делается она не здесь
       // (`spec/drag-and-drop.md`, §7).
-      if (_staging == null || node is DirectoryNode || node is! FileNode) {
+      if (node is DirectoryNode || node is! FileNode) {
         continue;
       }
       final name = _uniqueName(node.name);
@@ -398,6 +477,7 @@ class SystemDropService implements DragAndDrop {
     // Запоминается **до** вызова: система начинает перетаскивание сразу, и
     // первое же `dragUpdated` придёт раньше, чем сюда вернётся ответ.
     _draggingFrom = owner;
+    _sourceArea = _areaOf(owner);
     // Источник держится всё время жеста: пока файл едет в чужое окно, панель
     // вправе уйти куда угодно, а содержимое у неё спросят уже после.
     _lease = hold?.call();

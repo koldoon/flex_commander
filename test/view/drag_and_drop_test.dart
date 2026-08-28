@@ -430,17 +430,26 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    /// Просьба системы выложить обещанное — тем же каналом, что и всё остальное.
-    Future<String?> askPromise(WidgetTester tester, String id) async {
-      String? staged;
+    /// Просьба системы выложить обещанное — тем же каналом и с тем же путём
+    /// назначения, какой даёт приёмник.
+    Future<bool> askPromise(WidgetTester tester, String id, String into) async {
+      var written = false;
       await tester.runAsync(() async {
         await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
           SystemDropService.channelName,
-          const StandardMethodCodec().encodeMethodCall(MethodCall('writePromise', {'id': id})),
-          (reply) => staged = const StandardMethodCodec().decodeEnvelope(reply!) as String?,
+          const StandardMethodCodec().encodeMethodCall(MethodCall('writePromise', {'id': id, 'path': into})),
+          (reply) => written = const StandardMethodCodec().decodeEnvelope(reply!) == true,
         );
       });
-      return staged;
+      return written;
+    }
+
+    /// Куда «приёмник» просит положить: у Finder это папка броска, у редактора
+    /// — свой временный каталог. Нам всё равно, и тесту тоже.
+    String destination(String name) {
+      final directory = Directory.systemTemp.createTempSync('fc_drag_test');
+      addTearDown(() => directory.deleteSync(recursive: true));
+      return '${directory.path}/$name';
     }
 
     Future<void> endSession(WidgetTester tester) async {
@@ -464,6 +473,15 @@ void main() {
       expect((promises.single as Map)['name'], 'inside.txt');
     });
 
+    testWidgets('обещанное пишется сразу в цель, без копии по дороге', (tester) async {
+      await pumpArchive(tester);
+      await dragOut(tester, 'inside.txt');
+
+      final into = destination('inside.txt');
+      expect(await askPromise(tester, 'inside.txt', into), isTrue);
+      expect(File(into).readAsStringSync(), 'из архива');
+    });
+
     testWidgets('аренда источника живёт до чтения, а не до конца жеста', (tester) async {
       // Пока обещанное не прочитано, архив обязан оставаться смонтированным —
       // даже если жест давно кончился, а человек успел из архива выйти. Ради
@@ -481,8 +499,7 @@ void main() {
       await endSession(tester);
       expect(lease.released, isFalse, reason: 'содержимое ещё не спрашивали');
 
-      final staged = await askPromise(tester, 'inside.txt');
-      expect(staged, isNotNull);
+      expect(await askPromise(tester, 'inside.txt', destination('inside.txt')), isTrue);
       expect(lease.released, isTrue, reason: 'прочитали — держать больше незачем');
     });
 
@@ -495,32 +512,20 @@ void main() {
       await dragOut(tester, 'inside.txt');
       await endSession(tester);
 
-      final staged = await askPromise(tester, 'inside.txt');
-      expect(staged, isNotNull, reason: 'обещанное должно пережить конец сессии');
-      expect(File(staged!).readAsStringSync(), 'из архива');
+      final into = destination('inside.txt');
+      expect(await askPromise(tester, 'inside.txt', into), isTrue, reason: 'обещанное должно пережить конец сессии');
+      expect(File(into).readAsStringSync(), 'из архива');
     });
 
-    testWidgets('до просьбы ничего не читается, а копия живёт до следующего жеста', (tester) async {
+    testWidgets('до просьбы не читается ничего', (tester) async {
       await pumpArchive(tester);
       await dragOut(tester, 'inside.txt');
 
-      final staged = await askPromise(tester, 'inside.txt');
-      expect(staged, isNotNull, reason: 'обещанное должно выложиться по требованию');
-      expect(File(staged!).readAsStringSync(), 'из архива');
+      final into = destination('inside.txt');
+      expect(File(into).existsSync(), isFalse, reason: 'никто ещё не просил — и читать незачем');
 
-      // Конец сессии копию не трогает: её ещё могут попросить.
-      await endSession(tester);
-      expect(File(staged).existsSync(), isTrue);
-
-      // Убирает её следующее перетаскивание — там уже точно никто не спросит.
-      // Зовём службу напрямую: жест сюда ничего не добавляет, а настоящая
-      // работа с диском требует настоящего времени.
-      final service = archive.app.dragAndDrop! as SystemDropService;
-      await tester.runAsync(() async {
-        await service.beginDrag(archive.app.left, [archive.app.left.nodes.firstWhere((n) => n.name == 'inside.txt')]);
-      });
-
-      expect(File(staged).existsSync(), isFalse, reason: 'мусор не переживает больше одного жеста');
+      expect(await askPromise(tester, 'inside.txt', into), isTrue);
+      expect(File(into).existsSync(), isTrue);
     });
   });
 
