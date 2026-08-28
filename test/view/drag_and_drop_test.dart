@@ -37,11 +37,17 @@ void main() {
 
   /// То же, что шлёт раннер: имя события, точка в логических координатах и
   /// пути.
-  Future<void> sendDrop(WidgetTester tester, String event, {Offset? at, List<String> paths = const []}) async {
+  Future<void> sendDrop(
+    WidgetTester tester,
+    String event, {
+    Offset? at,
+    List<String> paths = const [],
+    bool moves = false,
+  }) async {
     await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
       SystemDropService.channelName,
       const StandardMethodCodec().encodeMethodCall(
-        MethodCall(event, at == null ? null : {'x': at.dx, 'y': at.dy, 'paths': paths}),
+        MethodCall(event, at == null ? null : {'x': at.dx, 'y': at.dy, 'paths': paths, 'move': moves}),
       ),
       (_) {},
     );
@@ -243,6 +249,21 @@ void main() {
 
       expect(asked, isEmpty);
     });
+  });
+
+  testWidgets('с Shift — перенос, а не копия', (tester) async {
+    await app.right.openPath('/home/docs');
+    await pumpApp(tester);
+
+    final right = tester.getRect(find.byType(FileTable).at(1));
+    final into = Offset(right.left + right.width / 2, right.bottom - 4);
+    // Признак приносит система: она же спрашивает у источника, позволено ли
+    // ему расставаться с объектами, и рисует у курсора стрелку вместо плюса.
+    await sendDrop(tester, 'drop', at: into, paths: const ['/outside/dropped.txt'], moves: true);
+    await tester.pumpAndSettle();
+
+    expect(provider.entryAt('/home/docs/dropped.txt'), isNotNull, reason: 'объект на новом месте');
+    expect(provider.entryAt('/outside/dropped.txt'), isNull, reason: 'и его больше нет на старом');
   });
 
   group('в свою же панель не бросают', () {

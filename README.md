@@ -152,7 +152,10 @@ questions about existing names, same cancellation. Dragging the other way works 
 a row into Finder or any other application and it is copied out, with the system's own
 file icons following the cursor; drag a marked row and the whole marking goes. Files
 inside archives and on servers cannot be dragged out yet — that needs promised files.
-Between the two panels it works as well, and a panel is never a target for its own
+Between the two panels it works as well, and holding `Shift` while you drop moves
+instead of copying — the system decides that and draws the usual badge on the cursor, so
+there is nothing of ours to learn. Dragging *out* is always a copy: a move out would mean
+deleting the original on someone else's word. A panel is never a target for its own
 drag: dropping files where they already are does nothing, so it does not pretend
 otherwise — one setting turns that into an allowance for dropping into a subdirectory
 without leaving the panel. Both directions are AppKit in the runner rather than a plugin,

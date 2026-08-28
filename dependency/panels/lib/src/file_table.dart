@@ -40,9 +40,11 @@ class _FileTableState extends State<FileTable> {
   /// разметке.
   double _headerHeight = 0;
 
-  /// Команда копирования и её параметры — по именам, а не по классам: работа
-  /// живёт в модуле файловых операций, а панели обязаны собираться без него.
+  /// Команды переноса и копирования и их параметры — по именам, а не по
+  /// классам: работа живёт в модуле файловых операций, а панели обязаны
+  /// собираться без него.
   static const String copyCommandId = 'file.copy';
+  static const String moveCommandId = 'file.move';
   static const String sourcesParam = 'sources';
   static const String destinationParam = 'destination';
 
@@ -335,11 +337,12 @@ class _FileTableState extends State<FileTable> {
     );
   }
 
-  /// Брошенное копируется той же командой, что работает за `F5`.
+  /// Брошенное идёт теми же командами, что работают за `F5` и `F6`.
   ///
-  /// По идентификатору, а не по классу: копирование живёт в модуле файловых
-  /// операций, а приложение обязано собираться без него — тогда бросок просто
-  /// ничего не сделает.
+  /// С `Shift` — перенос, без него — копия: так принято везде, и решает это
+  /// система, а не мы (она же и значок у курсора рисует). По идентификатору, а
+  /// не по классу: работа живёт в модуле файловых операций, а приложение
+  /// обязано собираться без него — тогда бросок просто ничего не сделает.
   Future<void> _handleDrop(Application app, DropSpot spot, DropPayload payload) async {
     if (payload.paths.isEmpty) {
       return;
@@ -348,7 +351,7 @@ class _FileTableState extends State<FileTable> {
     // неё**, и человек должен видеть, где он теперь.
     app.activate(widget.panel);
     app.commands.run(
-      copyCommandId,
+      payload.moves ? moveCommandId : copyCommandId,
       CommandInvocation(parameters: {sourcesParam: payload.paths, destinationParam: spot.destination}),
     );
   }

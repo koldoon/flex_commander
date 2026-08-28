@@ -92,13 +92,13 @@ class MainFlutterWindow: NSWindow, NSDraggingDestination {
   func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
     guard let drop = fileDrag, drop.carriesFiles(sender) else { return [] }
     drop.send("dragEntered", sender)
-    return .copy
+    return drop.operation(for: sender)
   }
 
   func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
     guard let drop = fileDrag, drop.carriesFiles(sender) else { return [] }
     drop.send("dragUpdated", sender)
-    return .copy
+    return drop.operation(for: sender)
   }
 
   func draggingExited(_ sender: NSDraggingInfo?) {
@@ -163,6 +163,7 @@ final class FileDrag {
       "x": point(of: info).x,
       "y": point(of: info).y,
       "paths": paths(of: info),
+      "move": movesRatherThanCopies(info),
     ])
   }
 
@@ -180,6 +181,21 @@ final class FileDrag {
     let options: [NSPasteboard.ReadingOptionKey: Any] = [.urlReadingFileURLsOnly: true]
     let urls = info.draggingPasteboard.readObjects(forClasses: [NSURL.self], options: options) as? [URL]
     return urls?.map { $0.path } ?? []
+  }
+
+  /// Переносить, а не копировать: человек держит `Shift`.
+  ///
+  /// Спрашивается **и у источника**: он объявляет, что вообще позволено делать
+  /// с тем, что тащит. Наружу мы, например, отдаём только копию — и никакой
+  /// `Shift` этого не изменит.
+  func movesRatherThanCopies(_ info: NSDraggingInfo) -> Bool {
+    NSEvent.modifierFlags.contains(.shift) && info.draggingSourceOperationMask.contains(.move)
+  }
+
+  /// Что мы отвечаем системе: этим же выбирается значок у курсора — «плюс» у
+  /// копии, стрелка у переноса.
+  func operation(for info: NSDraggingInfo) -> NSDragOperation {
+    movesRatherThanCopies(info) ? .move : .copy
   }
 
   /// Есть ли в пачке хоть один файл. Пустую систему тревожить незачем: на
@@ -261,15 +277,20 @@ final class DragSource: NSObject, NSDraggingSource {
     onEnded?()
   }
 
-  /// Только копирование — и только наружу.
+  /// Внутри приложения — копия и перенос, наружу — только копия.
   ///
-  /// Не перенос: у переноса приёмник обязан сообщить, что забрал объект, и
-  /// удалять его должны мы. Пока этого нет, «перенёс» означало бы потерю
-  /// файла при первой же осечке — а копия не теряет ничего.
+  /// Наружу не переносим потому, что удалять исходное пришлось бы нам по
+  /// сообщению от чужого приложения, и «перенёс» означало бы потерю файла при
+  /// первой же осечке. Внутри приложения обе стороны наши: перенос делает тот
+  /// же движок, что и `F6`, — с вопросами, отменой и откатом на копию там, где
+  /// переименовать нельзя.
+  ///
+  /// Пустой ответ для своего окна был ошибкой: он запрещал перетаскивание
+  /// панель-в-панель вовсе, хотя работать оно должно именно так.
   func draggingSession(
     _ session: NSDraggingSession,
     sourceOperationMaskFor context: NSDraggingContext
   ) -> NSDragOperation {
-    context == .outsideApplication ? .copy : []
+    context == .outsideApplication ? .copy : [.copy, .move]
   }
 }

@@ -128,7 +128,7 @@ class SystemDropService implements DragAndDrop {
         _draggingFrom = null;
         _hover(null);
       case 'drop':
-        await _drop(_pointOf(call), _pathsOf(call));
+        await _drop(_pointOf(call), _pathsOf(call), moves: _flagOf(call, 'move'));
     }
     return null;
   }
@@ -141,6 +141,11 @@ class SystemDropService implements DragAndDrop {
     final x = arguments['x'];
     final y = arguments['y'];
     return x is num && y is num ? Offset(x.toDouble(), y.toDouble()) : null;
+  }
+
+  static bool _flagOf(MethodCall call, String name) {
+    final arguments = call.arguments;
+    return arguments is Map && arguments[name] == true;
   }
 
   static List<String> _pathsOf(MethodCall call) {
@@ -176,7 +181,7 @@ class SystemDropService implements DragAndDrop {
     return winner;
   }
 
-  Future<void> _drop(Offset? point, List<String> paths) async {
+  Future<void> _drop(Offset? point, List<String> paths, {required bool moves}) async {
     final winner = _hover(point);
     final spot = winner?.hovered.value;
     // Подсветка гаснет **до** работы: окно хода работы поднимется поверх, и
@@ -185,7 +190,7 @@ class SystemDropService implements DragAndDrop {
     if (winner == null || spot == null || paths.isEmpty) {
       return;
     }
-    await winner.onDrop(spot, DropPayload(paths: paths));
+    await winner.onDrop(spot, DropPayload(paths: paths, moves: moves));
   }
 
   @override
