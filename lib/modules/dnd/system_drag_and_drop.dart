@@ -133,6 +133,13 @@ class SystemDropService implements DragAndDrop {
   /// понадобится. Ключ — имя, под которым обещали.
   final Map<String, FsNode> _promised = {};
 
+  /// Обещанное, которого ещё не спрашивали.
+  ///
+  /// По нему и живёт аренда источника: пока здесь пусто, держать архив
+  /// смонтированным незачем, а пока не пусто — нельзя отпускать, откуда бы ни
+  /// пришла просьба и когда бы она ни пришла.
+  final Set<String> _unread = {};
+
   /// Копии этого перетаскивания и аренда источника: и то и другое живёт ровно
   /// столько, сколько сессия.
   LocalCopySession? _copies;
@@ -179,7 +186,11 @@ class SystemDropService implements DragAndDrop {
         // после конца сессии, и порядок этих двух событий ничем не закреплён.
         // Пока убирали — работало через раз, и «через раз» тут худшее из
         // возможного: человек не понимает, от чего это зависит.
-        await _releaseSource();
+        //
+        // Аренда — по тому же правилу: отпускаем, только если спрашивать уже
+        // нечего. Иначе человек, вышедший из архива, пока файл ехал, остался
+        // бы с пустой копией.
+        await _releaseIfRead();
       case 'writePromise':
         // Система попросила обещанное: только теперь его и выкладываем.
         return _writePromise(call);
@@ -269,7 +280,12 @@ class SystemDropService implements DragAndDrop {
     }
     final copies = _copies ??= LocalCopySession(staging, prefix: 'flex_commander_drag');
     try {
-      return await copies.localPathOf(node);
+      final path = await copies.localPathOf(node);
+      // Прочитано — держать источник больше незачем, даже если жест давно
+      // кончился.
+      _unread.remove(id);
+      await _releaseIfRead();
+      return path;
     } catch (error) {
       // Со стороны неудача выглядит как «перетащил, и ничего не произошло»:
       // система молча бросает то, чего ей не дали. Сказать об этом обязаны мы.
@@ -278,11 +294,18 @@ class SystemDropService implements DragAndDrop {
     }
   }
 
-  /// Конец сессии: источник отпускается, обещанное — нет.
+  /// Отпускает источник, если всё обещанное уже прочитано.
   ///
-  /// Аренда держалась ради чтения содержимого, а его к этому времени уже
-  /// прочитали (или не спросили вовсе). Держать её дольше значило бы держать
-  /// смонтированным архив, из которого давно ушли.
+  /// Аренда держится ради одного — чтения содержимого, — и живёт ровно
+  /// столько, сколько эта надобность. Не до конца жеста: просьба приходит уже
+  /// после него. И не до выхода из архива: ради этого случая она и заведена —
+  /// панель вправе уйти, а прочитать мы обязаны.
+  Future<void> _releaseIfRead() async {
+    if (_unread.isEmpty) {
+      await _releaseSource();
+    }
+  }
+
   Future<void> _releaseSource() async {
     final lease = _lease;
     _lease = null;
@@ -297,6 +320,8 @@ class SystemDropService implements DragAndDrop {
   /// не переживают приложение больше, чем на одно перетаскивание.
   Future<void> _forgetPrevious() async {
     _promised.clear();
+    _unread.clear();
+    await _releaseSource();
     final copies = _copies;
     _copies = null;
     await copies?.purge();
@@ -363,6 +388,7 @@ class SystemDropService implements DragAndDrop {
       }
       final name = _uniqueName(node.name);
       _promised[name] = node;
+      _unread.add(name);
       promises.add({'id': name, 'name': name});
     }
 
@@ -378,7 +404,6 @@ class SystemDropService implements DragAndDrop {
     final started = await _channel.invokeMethod<bool>('beginDrag', {'paths': paths, 'promises': promises}) ?? false;
     if (!started) {
       _draggingFrom = null;
-      await _releaseSource();
       await _forgetPrevious();
     }
     return started;

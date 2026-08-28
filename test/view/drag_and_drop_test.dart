@@ -464,6 +464,28 @@ void main() {
       expect((promises.single as Map)['name'], 'inside.txt');
     });
 
+    testWidgets('аренда источника живёт до чтения, а не до конца жеста', (tester) async {
+      // Пока обещанное не прочитано, архив обязан оставаться смонтированным —
+      // даже если жест давно кончился, а человек успел из архива выйти. Ради
+      // этого случая аренда и берётся: панельная тут не спасёт, она уходит
+      // вместе с панелью.
+      await pumpArchive(tester);
+      final service = archive.app.dragAndDrop! as SystemDropService;
+      final lease = _CountingLease(archive.app.left.provider);
+      final node = archive.app.left.nodes.firstWhere((n) => n.name == 'inside.txt');
+
+      await tester.runAsync(() async {
+        await service.beginDrag(archive.app.left, [node], hold: () => lease);
+      });
+
+      await endSession(tester);
+      expect(lease.released, isFalse, reason: 'содержимое ещё не спрашивали');
+
+      final staged = await askPromise(tester, 'inside.txt');
+      expect(staged, isNotNull);
+      expect(lease.released, isTrue, reason: 'прочитали — держать больше незачем');
+    });
+
     testWidgets('содержимое выкладывается и после конца сессии', (tester) async {
       // Найдено на живом: работало примерно раз из десяти. Система просит
       // обещанное **после** того, как сессия кончилась, — порядок этих двух
@@ -563,4 +585,17 @@ void main() {
     expect(plain.app.dragAndDrop, isNull);
     expect(find.byType(FileTable), findsWidgets);
   });
+}
+
+/// Аренда, которая помнит, отпустили ли её.
+class _CountingLease implements ProviderLease {
+  _CountingLease(this.provider);
+
+  @override
+  final TreeProvider provider;
+
+  bool released = false;
+
+  @override
+  Future<void> release() async => released = true;
 }
