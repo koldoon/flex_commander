@@ -72,8 +72,14 @@ void main() {
 
   test('переход по набранному символу не перехватывает обычные клавиши', () {
     final bindings = runtime.commands.bindings;
-    final anyCharacter = bindings.indexWhere((binding) => binding.keys == KeyCombination.anyCharacter);
+    // «Любой символ» объявлен дважды. Первым — печать в командную строку
+    // (режим `mc`): она невыполнима, пока режим выключен, и тогда клавиша
+    // достаётся тому, кто объявлен следом, — в том числе пометке по маске на
+    // `+` и `-`. Вторым — переход к имени: он исполним всегда, и вот после
+    // него привязке к символу делать уже нечего.
+    final anyCharacter = bindings.lastIndexWhere((binding) => binding.keys == KeyCombination.anyCharacter);
     expect(anyCharacter, isNot(-1));
+    expect(bindings[anyCharacter].commandId, 'panel.goToName');
 
     // Привязка к конкретному символу должна стоять раньше «любого символа»,
     // иначе набор имени перехватил бы её. Клавиши без символа (F5, Tab)

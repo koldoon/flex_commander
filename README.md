@@ -207,6 +207,7 @@ On Windows and Linux `Cmd` reads as `Ctrl`.
 | `Tab` | switch the active panel |
 | `Space`, `Ins` | mark the object under the cursor |
 | `Cmd-A`, `Esc` | mark everything, clear the marking |
+| `+` / `-` | mark or unmark by mask, e.g. `*.dart;!*.g.dart` |
 | `Esc` | cancel a running operation |
 | `Cmd-F1`, `Cmd-F2` | open a path or address in the left / right panel |
 | `Cmd-O` | open the selected objects with the system |

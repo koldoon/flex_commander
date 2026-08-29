@@ -20,6 +20,30 @@ class NavigationSettings implements Serializable {
 
   int recentPathsLimit;
 
+  /// Сколько масок помнится.
+  ///
+  /// Настройкой не становится, в отличие от предела адресов: длина этого списка
+  /// ни о чём не спорит — масок у человека немного, и все они короткие.
+  static const int maskLimit = 20;
+
+  /// Маски, которыми уже помечали, свежие впереди.
+  List<String> recentMasks = <String>[];
+
+  /// Запоминает применённую маску — тем же правилом, что и адрес: повтор
+  /// поднимается наверх, а не ложится вторым.
+  void rememberMask(String mask) {
+    final value = mask.trim();
+    if (value.isEmpty) {
+      return;
+    }
+    recentMasks
+      ..remove(value)
+      ..insert(0, value);
+    if (recentMasks.length > maskLimit) {
+      recentMasks.removeRange(maskLimit, recentMasks.length);
+    }
+  }
+
   /// Запоминает успешно открытый адрес.
   ///
   /// Повтор поднимается наверх, а не ложится вторым: список коротких походов по
@@ -52,12 +76,14 @@ class NavigationSettings implements Serializable {
   void fromMap(Map<String, dynamic> m) {
     recentPathsLimit = extract(recentPathsLimit, m['recentPathsLimit']);
     recentPaths = extractList<String>(m['recentPaths']);
+    recentMasks = extractList<String>(m['recentMasks']);
   }
 
   @override
   void toMap(Map<String, dynamic> m) {
     m['recentPathsLimit'] = recentPathsLimit;
     m['recentPaths'] = recentPaths;
+    m['recentMasks'] = recentMasks;
   }
 }
 

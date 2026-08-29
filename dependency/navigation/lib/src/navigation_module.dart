@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 
 import 'layout_commands.dart';
+import 'mask_selection_commands.dart';
 import 'navigation_settings.dart';
 import 'navigation_commands.dart';
 import 'open_path_command.dart';
@@ -46,6 +47,8 @@ class Navigation implements FcModule {
     registry.command((context) => OpenWithSystemCommand(opener: context.resolve<SystemOpener>()));
     registry.command((context) => GoUpCommand());
     registry.command((context) => OpenPathCommand(settings: settingsOf, save: settings.save));
+    registry.command((context) => SelectByMaskCommand(settings: settingsOf, save: settings.save));
+    registry.command((context) => DeselectByMaskCommand(settings: settingsOf, save: settings.save));
     registry.command((context) => GoToRootCommand());
     registry.command((context) => ReloadCommand());
     registry.command((context) => ToggleHiddenCommand());
@@ -127,6 +130,12 @@ class Navigation implements FcModule {
     registry.binding(KeyBinding('Space', ToggleMarkCommand.commandId));
     registry.binding(KeyBinding('Ins', ToggleMarkCommand.commandId));
     registry.binding(KeyBinding('Cmd-A', SelectAllCommand.commandId));
+    // Пометка по маске. На маке `+` — это `Shift-=`: отдельной клавиши `+` на
+    // основной клавиатуре нет, а на цифровом блоке есть своя. В справке пишется
+    // `+` — то, что человек нажимает, а не то, как это называется внутри.
+    registry.binding(KeyBinding('Shift-=', SelectByMaskCommand.commandId));
+    registry.binding(KeyBinding('+', SelectByMaskCommand.commandId));
+    registry.binding(KeyBinding('-', DeselectByMaskCommand.commandId));
 
     // Переход к имени по набранному символу. Стоит после привязок к конкретным
     // символам: иначе набор имени перехватывал бы их.
