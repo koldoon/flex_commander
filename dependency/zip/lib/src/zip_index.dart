@@ -62,9 +62,14 @@ class ZipEntry {
 
 /// Оглавление архива деревом.
 class ZipIndex {
-  ZipIndex(this.root);
+  ZipIndex(this.root, {this.raw = const {}});
 
   final ZipEntry root;
+
+  /// Сырые сведения о записях по их именам в архиве — то, чем содержимое
+  /// читается потоком, минуя библиотеку (`spec/zip-streaming.md`). Пусто:
+  /// оглавление разобрать не вышло, и читать надо прежним путём.
+  final Map<String, ZipRawEntry> raw;
 
   /// Запись по разобранному на части пути; null — такой в архиве нет.
   ZipEntry? at(List<String> segments) {
@@ -101,7 +106,13 @@ Future<ZipIndex> readZipIndex(String archivePath) async {
     throw FsError(archivePath, FsErrorKind.io);
   }
 
-  final encrypted = await readEncryptedNames(archivePath);
+  // Один проход по оглавлению на всё: и признак шифрования, и сведения для
+  // потокового чтения.
+  final rawEntries = await readRawEntries(archivePath);
+  final encrypted = {
+    for (final entry in rawEntries.entries)
+      if (entry.value.encrypted) entry.key,
+  };
   final input = InputFileStream(archivePath);
 
   try {
@@ -146,7 +157,7 @@ Future<ZipIndex> readZipIndex(String archivePath) async {
       );
     }
 
-    return ZipIndex(root);
+    return ZipIndex(root, raw: rawEntries);
   } on ArchiveException catch (error) {
     // Битый архив — это отказ открыть, а не пустой каталог.
     throw FsError(archivePath, FsErrorKind.io, error);
@@ -170,7 +181,14 @@ const int _endOfCentralRecord = 0x06054b50;
 /// Разбор бережный: не нашли конец оглавления, не сошлась подпись, встретился
 /// zip64 — возвращается пустое множество. Это значит «не знаем», и провайдер
 /// поведёт себя как раньше; врать про шифрование хуже, чем промолчать.
-Future<Set<String>> readEncryptedNames(String archivePath) async {
+Future<Set<String>> readEncryptedNames(String archivePath) async => {
+  for (final entry in (await readRawEntries(archivePath)).entries)
+    if (entry.value.encrypted) entry.key,
+};
+
+/// Сырые сведения обо всех записях — по именам. Пусто: оглавление не разобрано
+/// (zip64, комментарий не на месте, битый файл), и читать надо прежним путём.
+Future<Map<String, ZipRawEntry>> readRawEntries(String archivePath) async {
   final file = await File(archivePath).open();
 
   try {
@@ -195,7 +213,7 @@ Future<Set<String>> readEncryptedNames(String archivePath) async {
     }
 
     await file.setPosition(offset);
-    return _encryptedIn(await file.read(size), count);
+    return _entriesIn(await file.read(size), count);
   } on FileSystemException {
     return const {};
   } finally {
@@ -203,8 +221,8 @@ Future<Set<String>> readEncryptedNames(String archivePath) async {
   }
 }
 
-Set<String> _encryptedIn(Uint8List central, int count) {
-  final names = <String>{};
+Map<String, ZipRawEntry> _entriesIn(Uint8List central, int count) {
+  final entries = <String, ZipRawEntry>{};
   final view = ByteData.sublistView(central);
   var at = 0;
 
@@ -214,22 +232,62 @@ Set<String> _encryptedIn(Uint8List central, int count) {
     }
 
     final flags = view.getUint16(at + 8, Endian.little);
+    final method = view.getUint16(at + 10, Endian.little);
+    final compressedSize = view.getUint32(at + 20, Endian.little);
     final nameLength = view.getUint16(at + 28, Endian.little);
     final extraLength = view.getUint16(at + 30, Endian.little);
     final commentLength = view.getUint16(at + 32, Endian.little);
+    final headerOffset = view.getUint32(at + 42, Endian.little);
     if (at + 46 + nameLength > central.length) {
       break;
     }
 
-    // Первый бит общих признаков и означает «содержимое зашифровано».
-    if (flags & 0x1 != 0) {
-      names.add(utf8.decode(central.sublist(at + 46, at + 46 + nameLength), allowMalformed: true));
-    }
+    final name = utf8.decode(central.sublist(at + 46, at + 46 + nameLength), allowMalformed: true);
+    entries[name] = ZipRawEntry(
+      method: method,
+      compressedSize: compressedSize,
+      headerOffset: headerOffset,
+      // Первый бит общих признаков и означает «содержимое зашифровано».
+      encrypted: flags & 0x1 != 0,
+    );
 
     at += 46 + nameLength + extraLength + commentLength;
   }
 
-  return names;
+  return entries;
+}
+
+/// Сырые сведения о записи — то, чем её можно прочитать самим, без библиотеки.
+///
+/// Берутся из оглавления тем же проходом, что и признак шифрования: четыре
+/// числа на запись, и по ним содержимое читается прямо из файла — сжатые байты
+/// лежат подряд, а разжимает их системный zlib по мере запроса
+/// (`spec/zip-streaming.md`).
+class ZipRawEntry {
+  const ZipRawEntry({
+    required this.method,
+    required this.compressedSize,
+    required this.headerOffset,
+    required this.encrypted,
+  });
+
+  /// Метод сжатия: 0 — как есть, 8 — deflate. Остальное нам не по зубам.
+  final int method;
+
+  /// Сколько сжатых байт лежит в файле.
+  final int compressedSize;
+
+  /// Где начинается **локальный заголовок** записи. Данные идут за ним, а
+  /// длина его переменная — считается при чтении.
+  final int headerOffset;
+
+  final bool encrypted;
+
+  /// Умеем ли мы прочитать такую запись сами.
+  bool get readable => !encrypted && (method == 0 || method == 8);
+
+  static const int stored = 0;
+  static const int deflate = 8;
 }
 
 /// Последнее вхождение подписи; -1 — не нашлось.

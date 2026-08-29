@@ -284,6 +284,23 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
       throw FsError(node.pathString, FsErrorKind.notFound);
     }
 
+    // Закрытым архивом пользоваться нельзя — и раньше об этом говорил сам
+    // архив, когда его пробовали открыть. Потоковое чтение до него не доходит
+    // (байты берутся прямо из файла), поэтому спрашивается это здесь: у архива
+    // на сервере файл к этому времени уже убран вместе с временной копией.
+    if (_disposed) {
+      throw FsError(archivePath, FsErrorKind.notSupported);
+    }
+
+    // Быстрый путь: сжатые байты лежат в файле подряд, а разжимает их системный
+    // zlib по мере того, как их просят. Ни памяти в размер файла, ни временных
+    // копий (`spec/zip-streaming.md`).
+    final raw = _index.raw[entry.entryName];
+    if (raw != null && raw.readable) {
+      return _streamEntry(raw, offset);
+    }
+
+    // Зашифрованное и редкие методы сжатия читает библиотека — и читает целиком.
     final bytes = await _readEntry(entry);
     final start = offset.clamp(0, bytes.length);
 
@@ -291,6 +308,94 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
       for (var i = start; i < bytes.length; i += _chunk)
         Uint8List.sublistView(bytes, i, (i + _chunk).clamp(i, bytes.length)),
     ]);
+  }
+
+  /// Содержимое записи потоком, прямо из файла архива.
+  ///
+  /// Разжатие идёт **по требованию**: `await for` у читателя останавливает и
+  /// чтение файла, и работу zlib. Поэтому медленный приёмник — сеть, архив на
+  /// сервере — больше не заставляет держать распакованное в памяти.
+  Future<Stream<List<int>>> _streamEntry(ZipRawEntry raw, int offset) async {
+    final start = await _dataStartOf(raw);
+    final compressed = File(archivePath).openRead(start, start + raw.compressedSize);
+
+    if (raw.method == ZipRawEntry.stored) {
+      // Лежит как есть: разжимать нечего, остаётся пропустить начало.
+      return _skip(compressed, offset);
+    }
+    return _skip(_inflate(compressed), offset);
+  }
+
+  /// Где начинаются данные записи.
+  ///
+  /// Оглавление указывает на **локальный заголовок**, а он переменной длины:
+  /// тридцать байт плюс имя плюс дополнительное поле. Их длины лежат в самом
+  /// заголовке — по два байта на каждую, — и ошибиться здесь легче всего:
+  /// промах на пару байт даст мусор вместо содержимого.
+  Future<int> _dataStartOf(ZipRawEntry raw) async {
+    final file = await File(archivePath).open();
+    try {
+      await file.setPosition(raw.headerOffset);
+      final header = await file.read(30);
+      if (header.length < 30) {
+        throw FsError(archivePath, FsErrorKind.io);
+      }
+      final view = ByteData.sublistView(header);
+      final nameLength = view.getUint16(26, Endian.little);
+      final extraLength = view.getUint16(28, Endian.little);
+      return raw.headerOffset + 30 + nameLength + extraLength;
+    } finally {
+      await file.close();
+    }
+  }
+
+  /// Разжимает поток сжатых байт кусок за куском.
+  ///
+  /// `RawZLibFilter` — системный zlib: ему скармливают сжатое и забирают
+  /// разжатое, сколько получилось. Ровно это и даёт обратный ход, которого нет
+  /// у распаковки «всё разом».
+  static Stream<List<int>> _inflate(Stream<List<int>> compressed) async* {
+    final filter = RawZLibFilter.inflateFilter(raw: true);
+    var closed = false;
+    try {
+      await for (final chunk in compressed) {
+        filter.process(chunk is Uint8List ? chunk : Uint8List.fromList(chunk), 0, chunk.length);
+        for (List<int>? out = filter.processed(); out != null; out = filter.processed()) {
+          yield out;
+        }
+      }
+      for (List<int>? out = filter.processed(end: true); out != null; out = filter.processed(end: true)) {
+        yield out;
+      }
+      closed = true;
+    } finally {
+      if (!closed) {
+        // Читатель ушёл раньше времени (отмена, ошибка): фильтр надо закрыть,
+        // иначе он останется висеть с недочитанным состоянием.
+        try {
+          filter.processed(end: true);
+        } on Object {
+          // Закрытие недочитанного фильтра — не ошибка работы.
+        }
+      }
+    }
+  }
+
+  /// Пропускает начало потока: разжать середину, не разжав начала, нельзя.
+  static Stream<List<int>> _skip(Stream<List<int>> source, int offset) async* {
+    var left = offset;
+    await for (final chunk in source) {
+      if (left <= 0) {
+        yield chunk;
+        continue;
+      }
+      if (chunk.length <= left) {
+        left -= chunk.length;
+        continue;
+      }
+      yield chunk.sublist(left);
+      left = 0;
+    }
   }
 
   /// Читает одну запись из открытого архива.
