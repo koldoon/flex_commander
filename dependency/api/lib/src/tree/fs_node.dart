@@ -153,6 +153,28 @@ class FileNode extends AbstractFsNode {
   bool get hidden => name.startsWith('.');
 }
 
+/// Имя без пробелов по краям — и по краям основы.
+///
+/// Первое привычно, второе про то, как правят имя в поле: человек стирает
+/// основу и оставляет пробел перед точкой. В списке такой пробел не виден
+/// вовсе, а файл получается другой — `«отчёт .txt»` вместо `«отчёт.txt»`.
+///
+/// Где кончается основа, решает [FileNode.fileExtensionRe] — **то же правило,
+/// что рисует колонку расширения**. Иначе поле, список и колонка разошлись бы
+/// в понимании того, что такое расширение: у `.gitignore` его нет, у
+/// `архив.tar.gz` оно `gz`.
+String trimmedFileName(String name) {
+  final trimmed = name.trim();
+  final match = FileNode.fileExtensionRe.firstMatch(trimmed);
+  if (match == null) {
+    return trimmed;
+  }
+  final base = match.group(1)!.trimRight();
+  // Основа, состоявшая из одних пробелов, оставила бы имя без имени: пусть
+  // такое сохранится как есть и отвергнется проверкой имени.
+  return base.isEmpty ? trimmed : '$base.${match.group(2)}';
+}
+
 /// Каталог: может содержать другие узлы.
 class DirectoryNode extends FileNode {
   DirectoryNode({

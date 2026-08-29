@@ -197,6 +197,7 @@ CommandRegistry.dispatch(combination, app)
 |---|---|---|
 | `F5` | `file.copy` | копировать выбранное в каталог пассивной панели |
 | `F6` | `file.move` | перенести |
+| `Shift-F6` | `file.rename` | переименовать объект под курсором |
 | `F7`, `Shift-Cmd-N` | `file.mkdir` | создать каталог (в просмотрщике и редакторе `F7` — поиск: клавиша принадлежит экрану) |
 | `F8`, `Cmd-Backspace` | `file.remove` | удалить в корзину |
 | `Shift-F8`, `Shift-Cmd-Backspace` | `file.removePermanently` | удалить мимо корзины |
@@ -459,6 +460,7 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 | `panel.selection.clear` | `Esc` | есть пометка |
 | `panel.selection.all` | `Cmd-A` | список не пуст |
 | `panel.cancel` | `Esc` | панель занята длительной операцией |
+| `file.rename` | `Shift-F6` | под курсором объект (не `..`), и провайдер умеет переименовывать |
 | `file.mkdir` | `F7`, `Shift-Cmd-N` | панель не занята и провайдер умеет писать |
 | `file.remove` | `F8`, `Cmd-Bsp` | выбран объект, отличный от «..» |
 | `file.removePermanently` | `Shift-F8`, `Shift-Cmd-Bsp` | то же |
@@ -493,7 +495,7 @@ implemented yet».
 кто и где её показывает. Пустое описание допустимо — объяснять «Cursor up»
 нечем, и придумывать текст ради заполненной колонки незачем.
 
-Файловые операции — `file.mkdir`, `file.remove`, `file.removePermanently`,
+Файловые операции — `file.mkdir`, `file.rename`, `file.remove`, `file.removePermanently`,
 `file.copy`, `file.move` — работают. У каждой длительной есть:
 
 - `TreeEditor`-работа с прогрессом (`Operation.status`);

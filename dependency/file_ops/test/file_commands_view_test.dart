@@ -21,11 +21,13 @@ class _SlowCopyProvider extends InMemoryTreeProvider {
   /// работа идёт объект за объектом. Проверка «не просили ли прервать» стоит
   /// между ними, и на нескольких сразу проверять было бы уже негде — а речь
   /// здесь именно о ней.
+  /// Переименование объявлено: подставка это умеет, и команда переименования
+  /// спрашивает именно объявленное умение.
   @override
   ProviderCapabilities get capabilities =>
       parallelEverything
-          ? const ProviderCapabilities(maxConcurrency: 4)
-          : const ProviderCapabilities(maxConcurrency: 1);
+          ? const ProviderCapabilities(canRename: true, maxConcurrency: 4)
+          : const ProviderCapabilities(canRename: true, maxConcurrency: 1);
 
   bool parallelEverything = false;
 
@@ -107,6 +109,61 @@ void main() {
   }
 
   List<String> namesOf() => app.left.nodes.map((node) => node.name).toList();
+
+  group('переименование', () {
+    /// Нажимает `Shift-F6` — так, как это делает клавиатура.
+    Future<void> pressShiftF6(WidgetTester tester) async {
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.f6);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('Shift-F6 открывает окно с именем и выделенной основой', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pumpAndSettle();
+
+      await pressShiftF6(tester);
+
+      expect(find.text('Rename'), findsWidgets);
+      final field = tester.widget<TextField>(input);
+      expect(field.controller?.text, 'notes.txt');
+      // Правят основу, а не расширение: `.txt` дописывать заново обидно.
+      expect(field.controller?.selection.textInside('notes.txt'), 'notes');
+    });
+
+    testWidgets('имя меняется, курсор остаётся на объекте', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pumpAndSettle();
+
+      await pressShiftF6(tester);
+      await tester.enterText(input, 'заметки.txt');
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FcButton, 'Rename'));
+      await settle(tester);
+
+      expect(namesOf(), contains('заметки.txt'));
+      expect(app.left.currentNode?.name, 'заметки.txt');
+      expect(input, findsNothing, reason: 'окно закрылось');
+    });
+
+    testWidgets('занятое имя оставляет окно открытым и говорит, что не так', (tester) async {
+      await pumpApp(tester);
+      app.left.setCursorToName('notes.txt');
+      await tester.pumpAndSettle();
+
+      await pressShiftF6(tester);
+      await tester.enterText(input, 'report.xlsx');
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FcButton, 'Rename'));
+      await settle(tester);
+
+      expect(input, findsOneWidget, reason: 'имя правят тут же, а не набирают заново');
+      expect(namesOf(), containsAll(<String>['notes.txt', 'report.xlsx']));
+    });
+  });
 
   group('создание каталога', () {
     testWidgets('F7 открывает окно команды с полем ввода', (tester) async {

@@ -201,6 +201,15 @@ abstract interface class TreeEditor {
   Operation<RemoveParams, void> remove();
 
   Operation<MakeDirectoryParams, DirectoryNode> makeDirectory();
+
+  /// Меняет имя объекта, не трогая содержимого.
+  ///
+  /// Делается **одним действием** провайдера ([NodeEditor.renameEntry]) — тем
+  /// же, которым движок переносит внутри источника. Провайдер, который так не
+  /// умеет (архив: `canRename: false`), переименовывать не даёт вовсе: там это
+  /// означало бы пересборку целиком, а о ней полагается спрашивать заранее
+  /// (`spec/rename.md`, §4).
+  Operation<RenameParams, FsNode> rename();
 }
 
 /// Примитивы изменения дерева: один объект, без рекурсии, без вопросов и без

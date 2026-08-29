@@ -23,6 +23,7 @@ class FileOps implements FcModule {
   @override
   void install(FcRegistry registry) {
     registry.command((context) => MakeDirectoryCommand());
+    registry.command((context) => RenameCommand());
     registry.command((context) => RemoveCommand());
     registry.command((context) => RemovePermanentlyCommand());
     registry.command((context) => CopyCommand());
@@ -31,6 +32,9 @@ class FileOps implements FcModule {
     registry.binding(KeyBinding('F5', CopyCommand.commandId));
     registry.binding(KeyBinding('F6', MoveCommand.commandId));
     registry.binding(KeyBinding('F7', MakeDirectoryCommand.commandId));
+    // Shift-F6 — там же, где переименование во всех коммандерах: рядом с
+    // переносом, потому что это его ближайший родственник.
+    registry.binding(KeyBinding('Shift-F6', RenameCommand.commandId));
     // На macOS F-клавиши по умолчанию отданы системе (F7 — «предыдущий трек»),
     // и до приложения нажатие не доходит. Привычное сочетание из Finder
     // работает без настройки клавиатуры.

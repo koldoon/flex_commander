@@ -61,7 +61,7 @@ class MakeDirectoryCommand extends AppCommand {
     // заданное имя, просто негодное.
     final given = context.invocation.param<String>(nameParam);
     if (given != null) {
-      final trimmed = given.trim();
+      final trimmed = trimmedFileName(given);
       if (trimmed.isEmpty) {
         throw const FsError('', FsErrorKind.invalidName);
       }
@@ -114,7 +114,9 @@ class MakeDirectoryDialogState extends ChangeNotifier {
 
   Future<void> submit() async {
     error = null;
-    final trimmed = name.trim();
+    // Края имени и края основы — по одному правилу с переименованием: два
+    // окна, спрашивающих имя, обязаны понимать его одинаково.
+    final trimmed = trimmedFileName(name);
     if (trimmed.isEmpty) {
       error = const FsError('', FsErrorKind.invalidName).message;
       notifyListeners();
@@ -358,5 +360,186 @@ abstract class RemoveCommandBase extends AppCommand {
   String _confirmationMessageOf(CommandContext context) {
     final what = _whatOf(context);
     return toTrash ? 'Move $what to Trash?' : 'Delete $what permanently? This cannot be undone.';
+  }
+}
+
+/// Переименование объекта под курсором.
+///
+/// Отдельная команда, а не свойство переноса: у `F6` приёмником может быть
+/// только каталог, и другого имени ему не задать. Поэтому переименования в
+/// приложении не было вовсе — а примитив у провайдеров был давно
+/// (`spec/rename.md`).
+class RenameCommand extends AppCommand {
+  /// Новое имя.
+  static const String nameParam = 'name';
+
+  static const String commandId = 'file.rename';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => 'Rename';
+
+  @override
+  String get description => 'Rename the item under the cursor';
+
+  /// «name» в синонимах нет: оно и так внутри названия, а сторож в списке
+  /// команд справедливо считает такие слова мёртвым грузом. «move» — есть:
+  /// переименование ищут там же, где перенос, и найти стоит оба.
+  @override
+  Set<String> get keywords => const {'change name', 'move'};
+
+  @override
+  bool isExecutable(CommandContext context) {
+    final panel = context.panel;
+    if (panel.busy || panel.editor == null) {
+      return false;
+    }
+    // Переименовать можно только то, что провайдер умеет переименовывать одним
+    // действием: в архиве за этим пряталась бы пересборка целиком, а о ней
+    // полагается спрашивать (`spec/rename.md`, §4).
+    if (!panel.provider.capabilities.canRename) {
+      return false;
+    }
+    final node = context.node;
+    // «..» — не объект, а способ выйти наверх.
+    return node != null && node is! ParentDirNode;
+  }
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final panel = context.panel;
+    final node = context.node;
+    final editor = panel.editor;
+    if (node == null || node is ParentDirNode || editor == null) {
+      return;
+    }
+
+    Future<void> rename(String name) async {
+      final renamed = await editor.rename().run(RenameParams(node, name));
+      // Объект на месте, но в панели ещё под прежним именем: перечитываем и
+      // ищем его по **новому** — иначе курсор прыгает в начало ровно тогда,
+      // когда человек смотрит на результат.
+      await panel.reload();
+      panel.setCursorToName(renamed.name);
+    }
+
+    final given = context.invocation.param<String>(nameParam);
+    if (given != null) {
+      await rename(given);
+      return;
+    }
+
+    final view = context.app.view;
+    final state = RenameDialogState(original: node.name, rename: rename);
+
+    late final String dialogId;
+    state.close = () => view.closeDialog(dialogId);
+    dialogId = view.showDialog(
+      DialogSpec(
+        title: 'Rename',
+        takesFocus: true,
+        content: _RenameForm(state: state),
+        onSubmit: state.submit,
+        onDismiss: state.close,
+      ),
+    );
+  }
+}
+
+/// Что набрано в окне переименования и что из этого вышло.
+class RenameDialogState extends ChangeNotifier {
+  RenameDialogState({required this.original, required this.rename}) : name = original;
+
+  /// Имя, с которого начали: в поле оно уже стоит.
+  final String original;
+
+  final Future<void> Function(String name) rename;
+
+  String name;
+  String? error;
+
+  VoidCallback? close;
+
+  Future<void> submit() async {
+    error = null;
+    final trimmed = trimmedFileName(name);
+    if (trimmed.isEmpty) {
+      error = const FsError('', FsErrorKind.invalidName).message;
+      notifyListeners();
+      return;
+    }
+    if (trimmed == original) {
+      // Имя не менялось: закрываем окно, работы нет.
+      close?.call();
+      return;
+    }
+
+    try {
+      await rename(trimmed);
+      close?.call();
+    } on FsError catch (failure) {
+      // Ошибка остаётся здесь же: имя правят тут же, а не набирают заново.
+      error = failure.message;
+      notifyListeners();
+    }
+  }
+}
+
+/// Поле с именем — и выделенной основой.
+class _RenameForm extends StatefulWidget {
+  const _RenameForm({required this.state});
+
+  final RenameDialogState state;
+
+  @override
+  State<_RenameForm> createState() => _RenameFormState();
+}
+
+class _RenameFormState extends State<_RenameForm> {
+  late final TextEditingController _name = TextEditingController(text: widget.state.original)
+    ..selection = _baseSelection(widget.state.original);
+
+  /// Выделяется основа без расширения: правят обычно её, а `.tar.gz`
+  /// дописывать по десятому разу обидно. Где кончается основа, решает то же
+  /// правило, что рисует колонку расширения.
+  static TextSelection _baseSelection(String name) {
+    final match = FileNode.fileExtensionRe.firstMatch(name);
+    final end = match == null ? name.length : match.group(1)!.length;
+    return TextSelection(baseOffset: 0, extentOffset: end);
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final state = widget.state;
+
+    return ListenableBuilder(
+      listenable: state,
+      builder:
+          (context, _) => CommandDialogForm(
+            error: state.error,
+            onCancel: state.close ?? () {},
+            onSubmit: state.submit,
+            submitLabel: 'Rename',
+            children: [
+              CommandDialogField(
+                label: 'New name',
+                child: FcTextField(
+                  controller: _name,
+                  autofocus: true,
+                  onChanged: (value) => state.name = value,
+                  onSubmitted: (_) => state.submit(),
+                ),
+              ),
+            ],
+          ),
+    );
   }
 }

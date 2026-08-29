@@ -43,6 +43,49 @@ class TreeTransferEngine implements TreeEditor {
   final DateTime Function() clock;
 
   @override
+  @override
+  Operation<RenameParams, FsNode> rename() {
+    return TaskOperation<RenameParams, FsNode>((op, params) async {
+      final node = params.node;
+      final parent = node.parentDirectory;
+      final editor = node.provider is NodeEditor ? node.provider as NodeEditor : null;
+      if (parent == null || editor == null) {
+        throw FsError(node.pathString, FsErrorKind.notSupported);
+      }
+
+      final name = trimmedFileName(params.name);
+      if (name.isEmpty || name == '.' || name == '..') {
+        throw FsError(name, FsErrorKind.invalidName);
+      }
+      if (name == node.name) {
+        // Имя не менялось: работы нет, и ошибки тоже.
+        return node;
+      }
+
+      // Имя занято — отказ, а не вопрос: согласие здесь означало бы потерю
+      // чужого файла, о котором человек мог и не знать
+      // (`spec/rename.md`, §5).
+      final taken = await editor.lookup(parent, name);
+      // Найденное может быть тем же самым объектом: на файловой системе, не
+      // различающей регистр, `readme.md` и `README.md` — один файл. Сравниваем
+      // объекты, а не строки.
+      if (taken != null && taken.pathString != node.pathString) {
+        throw FsError(name, FsErrorKind.alreadyExists);
+      }
+
+      op.checkCanceled();
+      // Только одним действием: провайдер, который так не умеет, переименовывать
+      // не даёт — иначе за переименованием пряталась бы пересборка архива.
+      if (!await editor.renameEntry(node, parent, name)) {
+        throw FsError(node.pathString, FsErrorKind.notSupported);
+      }
+
+      final renamed = await editor.lookup(parent, name);
+      return renamed ?? node;
+    });
+  }
+
+  @override
   Operation<MakeDirectoryParams, DirectoryNode> makeDirectory() {
     return TaskOperation<MakeDirectoryParams, DirectoryNode>((op, params) async {
       final parent = params.parent;

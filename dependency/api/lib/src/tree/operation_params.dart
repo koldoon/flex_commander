@@ -52,6 +52,16 @@ class MakeDirectoryParams {
   final String name;
 }
 
+/// Что переименовать и во что.
+class RenameParams {
+  const RenameParams(this.node, this.name);
+
+  final FsNode node;
+
+  /// Новое имя — только имя, без пути: переименование не переносит.
+  final String name;
+}
+
 /// Что монтировать и над чем.
 class AcquireParams {
   const AcquireParams(this.scheme, this.host);

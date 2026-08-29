@@ -49,7 +49,9 @@ layout, sorting and hidden-file flag are stored per panel and survive restarts.
 shows how many objects are marked and their total size — and directory sizes are counted
 in the background by a bounded pool of scans, growing in the Size column as they go.
 
-**File operations.** Copy, move, make directory, delete to Trash, delete permanently.
+**File operations.** Copy, move, rename (`Shift+F6`, with the name already in the field
+and its base — everything before the extension — selected, since that is the part people
+change), make directory, delete to Trash, delete permanently.
 Every long operation shows two progress bars (the current object and the whole job),
 object and byte counters, transfer speed and estimated time; it asks what to do about an
 existing name (overwrite / all / skip / all / cancel), survives errors on single objects
@@ -215,6 +217,7 @@ On Windows and Linux `Cmd` reads as `Ctrl`.
 | `Cmd-I`, `Alt-Enter` | everything known about the object |
 | `Shift-F3` | quick view in the other panel; `Tab` hands the input to it |
 | `F5` / `F6` | copy / move to the other panel |
+| `Shift-F6` | rename the item under the cursor |
 | `F7`, `Shift-Cmd-N` | make a directory |
 | `F8`, `Cmd-Bsp` | delete to Trash |
 | `Shift-F8`, `Shift-Cmd-Bsp` | delete permanently |
