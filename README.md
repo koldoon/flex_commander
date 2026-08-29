@@ -60,7 +60,12 @@ the background to keep running in the bar above the function keys.
 read, write, and create with `Shift+F7`, using the external `7z` program; tar, gz, tar.gz
 and tgz — read, and create from the command palette («Mk Tar» and «Mk Gz»); SSH/SFTP — read
 and write, authenticating with the keys in `~/.ssh` (asking for a passphrase only when one
-is actually needed) or with a password. Archives nest: an archive inside an archive, an
+is actually needed) or with a password. An archive that does not live on disk — one on a
+server — can be written to as well: it is opened through a local copy, and the repacked
+copy travels back to its owner, replacing the original in one move so that a broken
+connection leaves the old archive rather than a stump. Since a zip cannot be appended to,
+any write repacks it whole, and you are told that before the work starts rather than by a
+progress bar afterwards. Archives nest: an archive inside an archive, an
 archive on a server, addressed by a chain of paths such as `fs:/a.zip:zip:/inner` — and
 `.tar.gz` is that same nesting rather than a special case: the `gz` source holds one
 entry, the `.tar` inside it, and entering that opens the `tar` source. Permissions and
