@@ -95,6 +95,27 @@ void main() {
     expect(namesOf(), contains('документы'));
   });
 
+  test('вторая панель, стоящая здесь же, тоже видит новое имя', () async {
+    // Найдено на живом: обе панели смотрят в один каталог, а перечитывалась
+    // только та, в которой работали.
+    expect(app.right.directory?.pathString, '/home', reason: 'обе панели в одном каталоге');
+    app.left.setCursorToName('notes.txt');
+
+    await renameCursorTo('заметки.txt');
+
+    expect(app.right.nodes.map((node) => node.name), contains('заметки.txt'));
+    expect(app.right.nodes.map((node) => node.name), isNot(contains('notes.txt')));
+  });
+
+  test('панель в другом каталоге не перечитывается зря', () async {
+    await app.right.openPath('/home/docs');
+    app.left.setCursorToName('notes.txt');
+
+    await renameCursorTo('заметки.txt');
+
+    expect(app.right.directory?.pathString, '/home/docs');
+  });
+
   group('когда команда невыполнима', () {
     test('на «..»', () async {
       app.left.setCursorToName('..');

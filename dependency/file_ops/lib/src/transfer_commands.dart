@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
+import 'panels_at.dart';
+
 /// Копирование выбранных объектов в другой каталог.
 class CopyCommand extends TransferCommandBase {
   static const String commandId = 'file.copy';
@@ -187,8 +189,15 @@ abstract class TransferCommandBase extends AppCommand {
         if (givenSources == null) {
           panel.selection.clear();
         }
-        await panel.reload();
-        await _reloadDestination(context);
+        // Перечитываются все панели, которые смотрят на эти два каталога —
+        // откуда и куда, — и каждая по одному разу: обе могут стоять в одном и
+        // том же.
+        await reloadPanelsAt(context.app, [
+          panel.directory?.pathString,
+          // Панель могла за это время уйти в другой каталог: перечитывать имеет
+          // смысл только то, куда действительно копировали.
+          _destinationPanelOf(context)?.directory?.pathString,
+        ]);
       }
     }
 
@@ -293,15 +302,6 @@ abstract class TransferCommandBase extends AppCommand {
     // Полный путь: приёмник может оказаться внутри архива, и часть про
     // локальную ФС из строки выкидывать нельзя.
     return directory?.pathString;
-  }
-
-  Future<void> _reloadDestination(CommandContext context) async {
-    final panel = _destinationPanelOf(context);
-    // Панель могла за это время уйти в другой каталог — перечитывать имеет смысл
-    // только то, куда действительно копировали.
-    if (panel != null && panel.directory != null) {
-      await panel.reload();
-    }
   }
 
   /// Заголовок собирается как в референсе: действие и то, над чем оно идёт.

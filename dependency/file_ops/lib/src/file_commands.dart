@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
+import 'panels_at.dart';
+
 /// Создание каталога в активной панели.
 ///
 /// Работает и без интерфейса: задать имя параметром и вызвать [execute].
@@ -53,7 +55,9 @@ class MakeDirectoryCommand extends AppCommand {
       final created = await editor.makeDirectory().run(MakeDirectoryParams(parent, name));
       // Каталог создан на диске, но в панели его ещё нет: перечитываем и
       // ставим курсор на новый каталог, чтобы с ним можно было сразу работать.
-      await panel.reload();
+      // Перечитываются **обе** панели, если обе стоят здесь же: вторая тоже
+      // смотрит на этот каталог.
+      await reloadPanelsAt(context.app, [parent.pathString]);
       panel.setCursorToName(created.name);
     }
 
@@ -286,7 +290,7 @@ abstract class RemoveCommandBase extends AppCommand {
         // Часть объектов могла исчезнуть, часть остаться: список в панели
         // больше не совпадает с диском.
         panel.selection.clear();
-        await panel.reload();
+        await reloadPanelsAt(context.app, [panel.directory?.pathString]);
       }
     }
 
@@ -342,7 +346,7 @@ abstract class RemoveCommandBase extends AppCommand {
       } finally {
         await source?.release();
         panel.selection.clear();
-        await panel.reload();
+        await reloadPanelsAt(context.app, [panel.directory?.pathString]);
       }
     };
 
@@ -420,8 +424,9 @@ class RenameCommand extends AppCommand {
       final renamed = await editor.rename().run(RenameParams(node, name));
       // Объект на месте, но в панели ещё под прежним именем: перечитываем и
       // ищем его по **новому** — иначе курсор прыгает в начало ровно тогда,
-      // когда человек смотрит на результат.
-      await panel.reload();
+      // когда человек смотрит на результат. Вторая панель, стоящая здесь же,
+      // показывала бы прежнее имя, поэтому перечитываются обе.
+      await reloadPanelsAt(context.app, [node.parentDirectory?.pathString]);
       panel.setCursorToName(renamed.name);
     }
 
