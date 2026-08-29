@@ -137,12 +137,20 @@ abstract class TransferCommandBase extends AppCommand {
 
     Future<void> transfer(TreeEditor editor, String path, bool followLinks, [FcAsyncRun? run]) async {
       final resolved = await _resolveDestination(context, path);
-      // Источники приходят путями, и разбирает их та же панель, что и приёмник:
-      // путь может вести внутрь архива, который ради этого и смонтируют.
+      // Источники приходят путями, и разбирает их **корень дерева**, а не
+      // панель: путь пришёл со стороны — из системы, из сценария, — и к тому
+      // месту, где стоит панель, отношения не имеет. Разбор панелью тут уже
+      // соврал однажды: `/Users/…`, брошенный в архив на сервере, искался на
+      // сервере, и работа падала на пустом узле.
       final sources = <ResolvedNode>[];
       if (givenSources != null) {
         for (final source in givenSources) {
-          sources.add(await destination!.resolvePath().run(source));
+          final resolved = await context.app.resolvePath().run(source);
+          if (resolved.node == null) {
+            await resolved.release();
+            throw FsError(source, FsErrorKind.notFound);
+          }
+          sources.add(resolved);
         }
       }
       final nodes = givenSources == null ? targets : [for (final source in sources) source.node!];

@@ -374,6 +374,53 @@ void main() {
     });
   });
 
+  testWidgets('брошенное в панель на чужом источнике находится по месту, а не у неё', (tester) async {
+    // Поймано на живом: файл из Finder, брошенный в архив на сервере, ронял
+    // работу. Путь-источник разбирала панель-приёмник — а она стоит на
+    // сервере, и `/home/note.txt` искался **там**.
+    final server = InMemoryContentProvider([FakeEntry.directory('/srv')])..home = '/srv';
+    server.capabilities = const ProviderCapabilities(canRename: true, maxConcurrency: 1);
+
+    final split = await testApp(
+      // Содержимое у источника настоящее: копирование между провайдерами идёт
+      // байтами, и провайдер без них не источник вовсе.
+      provider: InMemoryContentProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.file('/home/note.txt', content: utf8.encode('заметки')),
+      ])..home = '/home',
+      rightProvider: server,
+      modules: featureModules(),
+    );
+    await split.app.start();
+
+    tester.view.physicalSize = const Size(802, 621);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(FlexCommanderApp(controller: split.app));
+    await tester.pumpAndSettle();
+
+    final right = tester.getRect(find.byType(FileTable).at(1));
+    await TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger.handlePlatformMessage(
+      SystemDropService.channelName,
+      const StandardMethodCodec().encodeMethodCall(
+        MethodCall('drop', {
+          'x': right.left + right.width / 2,
+          'y': right.bottom - 4,
+          'paths': const ['/home/note.txt'],
+          'move': false,
+        }),
+      ),
+      (_) {},
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(FcButton, 'Copy'), findsOneWidget, reason: 'бросок открыл окно работы');
+    await tester.tap(find.widgetWithText(FcButton, 'Copy'));
+    await tester.pumpAndSettle();
+
+    expect(server.entryAt('/srv/note.txt'), isNotNull, reason: 'источник ищется там, где он есть');
+  });
+
   group('обещанное', () {
     late List<MethodCall> asked;
     late AppRuntime archive;

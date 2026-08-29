@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+import '../async/async_operation.dart';
 import '../background/operations.dart';
+import '../tree/provider_lease.dart';
 import '../commands/command_service.dart';
 import 'errors.dart';
 import 'panel_viewport.dart';
@@ -101,6 +103,18 @@ abstract interface class Application implements Listenable {
 
   /// Последняя известная геометрия окна.
   WindowGeometry? get windowGeometry;
+
+  /// Разбор пути **от корня дерева**, а не от места, где стоит панель.
+  ///
+  /// Нужен там, где путь пришёл со стороны: из системы (перетаскивание), из
+  /// сценария, из буфера обмена. Панельный разбор для этого не годится и
+  /// однажды уже соврал: `/Users/koldoon/note.txt`, разобранный панелью,
+  /// стоящей на сервере, искался **на сервере** — и работа падала на пустом
+  /// узле.
+  ///
+  /// Узел приходит вместе с арендой всего, что смонтировано ради него, и
+  /// отпустить её обязан тот, кто просил.
+  Operation<String, ResolvedNode> resolvePath();
 
   /// Перетаскивание мышью; null — модуля нет, и мышью ничего не таскают.
   ///

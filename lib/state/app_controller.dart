@@ -263,6 +263,19 @@ class AppController extends ChangeNotifier implements Application {
   /// `providers.mounted` отвечает на вопрос «что осталось открытым».
   final ProviderRegistry? providers;
 
+  /// Разбор пути от корня дерева — мимо панелей и того, где они стоят.
+  @override
+  Operation<String, ResolvedNode> resolvePath() {
+    final registry = providers;
+    if (registry == null) {
+      // Дерева нет вовсе (сборка без источников): разбирать нечего.
+      return CompletedOperation<String, ResolvedNode>(const ResolvedNode.none());
+    }
+    return TaskOperation<String, ResolvedNode>(
+      (op, path) => op.delegate(registry.resolveDisplayPath(), ResolvePathParams(path, from: registry.root)),
+    );
+  }
+
   /// Сохраняет настройки и останавливает незавершённые операции.
   @override
   Future<void> shutdown() async {
