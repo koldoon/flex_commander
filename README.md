@@ -45,7 +45,10 @@ to the home directory *of that source*, not of the local machine.
 to reorder, drag borders to resize, right-click for a visibility menu, click to sort. The
 layout, sorting and hidden-file flag are stored per panel and survive restarts.
 
-**Marking.** Space or Insert marks, `Cmd+A` marks everything, `Esc` clears. `+` and `-`
+**Marking.** Space or Insert marks, `Cmd+A` marks everything, `Esc` clears. The right
+mouse button marks too: a click toggles a row, dragging marks the whole run you drag
+across — and dragging back unmarks what the same gesture just marked; near the edges the
+list scrolls by itself. `+` and `-`
 mark and unmark by mask — `*.dart;!*.g.dart`, several patterns through `;`, `!` excluding,
 case ignored — with the recent masks under the field and a live count of what matches
 while you type. Marking adds to what is already marked rather than replacing it. The status bar

@@ -617,8 +617,9 @@ class _DragSourceState extends State<_DragSource> {
   Offset? _origin;
 
   void _down(PointerDownEvent event) {
-    // Только левая кнопка и только мышь: правая когда-нибудь станет меню, а к
-    // сенсорному экрану у файлового менеджера свои вопросы.
+    // Только левая кнопка и только мышь: правая помечает
+    // (`spec/mouse-marking.md`), а к сенсорному экрану у файлового менеджера
+    // свои вопросы.
     _origin = _isDrag(event.kind, event.buttons) ? event.position : null;
   }
 
