@@ -321,7 +321,14 @@ class _OpenPathFormState extends State<_OpenPathForm> {
     // Без истории клавиши списка ничего не значат: пусть достаются полю.
     final moved = FcPickList.moveSelection(event, selected: _selected, count: found.length, wrap: false, page: _page);
     if (moved == null) {
+      // Не клавиша списка — пусть идёт дальше. В том числе `Esc`: во время
+      // работы он значит «прервать», и глотать его здесь нельзя.
       return KeyEventResult.ignored;
+    }
+    if (widget.state.running) {
+      // Пока идёт работа, по истории не ходят: адрес уже выбран и
+      // открывается. Клавишу при этом съедаем — до поля ей дела нет.
+      return KeyEventResult.handled;
     }
 
     setState(() {
@@ -378,9 +385,12 @@ class _OpenPathFormState extends State<_OpenPathForm> {
                 controller: _path,
                 focusNode: _field,
                 autofocus: true,
-                // Поле остаётся живым и во время работы: выключенное отдало бы
-                // фокус, а вернуть его после отмены было бы нечем — `autofocus`
-                // срабатывает один раз.
+                // Правка на время работы запрещена, но фокус остаётся: адрес
+                // уже открывается, и менять его на ходу значит показывать одно,
+                // а открывать другое. Именно `readOnly`, а не `enabled: false`:
+                // выключенное отдало бы фокус, а вернуть его после отмены было
+                // бы нечем — `autofocus` срабатывает один раз.
+                readOnly: state.running,
                 hintText: '/etc or ssh://user@host/srv',
                 onChanged: _onChanged,
                 onSubmitted: (_) => state.submit(),
@@ -409,6 +419,11 @@ class _OpenPathFormState extends State<_OpenPathForm> {
                     page: _page,
                     textInset: inset,
                     onTap: (address) {
+                      // Мышью — то же правило, что и клавишами: пока идёт
+                      // работа, выбирать нечего, адрес уже открывается.
+                      if (state.running) {
+                        return;
+                      }
                       _field.requestFocus();
                       setState(() {
                         _selected = _found.indexWhere((row) => row.id == address);

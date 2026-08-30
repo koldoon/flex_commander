@@ -749,6 +749,64 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
     });
 
+    testWidgets('поле во время работы не принимает ввод, но фокус держит', (tester) async {
+      await connecting(tester);
+
+      final field = tester.widget<TextField>(dialogField());
+      // Именно `readOnly`: выключенное поле отдало бы фокус, а вернуть его
+      // после отмены было бы нечем.
+      expect(field.readOnly, isTrue);
+      expect(field.enabled, isTrue);
+      expect(field.controller?.text, 'slow://alpha/srv');
+
+      // Набранное не меняется: показывать одно, а открывать другое нельзя.
+      await tester.enterText(dialogField(), 'slow://beta/srv');
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(dialogField()).controller?.text, 'slow://alpha/srv');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
+    testWidgets('по истории во время работы не походить', (tester) async {
+      final runtime = await connecting(tester);
+      // История нужна, чтобы стрелке было куда ходить: без неё проверка
+      // прошла бы вхолостую.
+      runtime.app.moduleSettings(Navigation.commandId).section(NavigationSettings.new).recentPaths = [
+        '/home/docs',
+        '/etc',
+      ];
+      await tester.pumpAndSettle();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+
+      // Адрес уже выбран и открывается — подменять его в поле стрелкой нельзя.
+      expect(tester.widget<TextField>(dialogField()).controller?.text, 'slow://alpha/srv');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
+    testWidgets('после отмены поле снова принимает ввод, и фокус на месте', (tester) async {
+      await connecting(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      expect(tester.widget<TextField>(dialogField()).readOnly, isFalse);
+      // Ради этого и `readOnly`: уговаривать фокус вернуться не приходится.
+      await tester.enterText(dialogField(), '/home/docs');
+      await tester.pumpAndSettle();
+      expect(tester.widget<TextField>(dialogField()).controller?.text, '/home/docs');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
     testWidgets('Enter во время работы не начинает вторую попытку', (tester) async {
       await connecting(tester);
 

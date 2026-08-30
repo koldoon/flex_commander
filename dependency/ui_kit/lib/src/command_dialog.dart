@@ -875,6 +875,7 @@ class FcTextField extends StatefulWidget {
     this.hintText,
     this.autofocus = false,
     this.enabled = true,
+    this.readOnly = false,
     this.obscureText = false,
     this.onChanged,
     this.onSubmitted,
@@ -894,6 +895,14 @@ class FcTextField extends StatefulWidget {
   /// Выключенное поле не принимает ни ввод, ни фокус: обходя окно клавишей
   /// табуляции, на нём останавливаться незачем.
   final bool enabled;
+
+  /// Поле показывает, но не принимает ввод — и **фокус при этом держит**.
+  ///
+  /// Не то же, что [enabled]: выключенное отдаёт фокус, и вернуть его потом
+  /// нечем — `autofocus` срабатывает один раз. Поэтому окно, которое запретило
+  /// правку на время работы, после отмены снова принимает ввод само, без
+  /// уговоров.
+  final bool readOnly;
 
   final ValueChanged<String>? onChanged;
   final ValueChanged<String>? onSubmitted;
@@ -936,6 +945,7 @@ class _FcTextFieldState extends State<FcTextField> {
         focusNode: _node,
         autofocus: widget.autofocus,
         enabled: enabled,
+        readOnly: widget.readOnly,
         obscureText: widget.obscureText,
         onChanged: widget.onChanged,
         onSubmitted: widget.onSubmitted,
