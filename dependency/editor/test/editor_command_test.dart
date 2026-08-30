@@ -192,6 +192,25 @@ void main() {
       expect(runtime.commands.commandFor(KeyCombination.parse('F2'))?.id, SaveFileCommand.commandId);
     });
 
+    test('не записалось — окно остаётся и говорит почему', () async {
+      // Живой случай: `/etc/squid/squid.conf` по ssh. Раньше неудача записи
+      // уходила в журнал, то есть мимо человека, а из колбэка окна — и вовсе
+      // в отчёт о падении.
+      await edit('notes.txt');
+      openEditor()!.controller.text = 'некуда деть';
+      if (!await makeReadOnly('notes.txt')) {
+        return;
+      }
+
+      await (runtime.commands.create(SaveFileCommand.commandId)!).executeWith();
+      await answer();
+      await waitUntil(() => openEditor()?.modified == false || runtime.app.view.dialogs.isEmpty);
+
+      expect(runtime.app.view.dialogs, isNotEmpty, reason: 'окно осталось — в нём ошибка');
+      expect(openEditor(), isNotNull);
+      expect(openEditor()!.modified, isTrue, reason: 'правки целы');
+    });
+
     test('временный файл после себя не оставляется', () async {
       await edit('notes.txt');
       openEditor()!.controller.text = 'иначе';

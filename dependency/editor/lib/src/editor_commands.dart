@@ -213,27 +213,50 @@ class SaveFileCommand extends AppCommand {
     }
 
     final view = context.app.view;
+    final state = _WriteState();
     late final String dialogId;
-    void close() => view.closeDialog(dialogId);
+    void close() {
+      view.closeDialog(dialogId);
+      state.dispose();
+    }
 
     Future<void> save() async {
-      // Окно уходит до записи: неудача покажется как есть, слоем ошибок, а
-      // держать поверх него ещё и вопрос, на который уже ответили, незачем.
+      if (state.busy) {
+        return;
+      }
+      state.started();
+      try {
+        await saveEditor(screen);
+      } on FsError catch (error) {
+        // Окно остаётся и говорит, почему не вышло. Улететь исключению нельзя:
+        // ошибка команды уходит в журнал, а из колбэка окна — и вовсе мимо
+        // всего, в отчёт о падении.
+        state.failed(error.message);
+        return;
+      } on Object catch (error) {
+        state.failed('$error');
+        return;
+      }
       close();
-      await saveEditor(screen);
       context.app.toasts.show('Saved ${screen.node.name}');
     }
 
     dialogId = view.showDialog(
       DialogSpec(
         title: dialogTitle,
-        content: CommandDialogConfirm(
-          // Полный путь, а не одно имя: соглашаются на конкретный файл, и в
-          // системном каталоге это важнее всего.
-          message: 'Save changes to ${screen.node.displayPath}?',
-          confirmLabel: 'Save',
-          onCancel: close,
-          onConfirm: () => unawaited(save()),
+        content: ListenableBuilder(
+          listenable: state,
+          builder:
+              (context, _) => CommandDialogConfirm(
+                // Полный путь, а не одно имя: соглашаются на конкретный файл,
+                // и в системном каталоге это важнее всего.
+                message: 'Save changes to ${screen.node.displayPath}?',
+                confirmLabel: 'Save',
+                onCancel: close,
+                onConfirm: () => unawaited(save()),
+                error: state.error,
+                busy: state.busy,
+              ),
         ),
         onSubmit: () => unawaited(save()),
         onDismiss: close,
@@ -438,7 +461,7 @@ class CloseEditorCommand extends AppCommand {
       return;
     }
 
-    final state = _QuitState();
+    final state = _WriteState();
     late final String dialogId;
     void close() {
       view.closeDialog(dialogId);
@@ -496,12 +519,16 @@ class CloseEditorCommand extends AppCommand {
   }
 }
 
-/// Состояние окна выхода: идёт ли запись и чем она кончилась.
+/// Состояние окна, которое спросило про запись: идёт ли она и чем кончилась.
 ///
-/// Своё состояние окну нужно потому, что «сохранить и выйти» может не
-/// получиться. Пока идёт запись, кнопки приглушены; неудача остаётся в этом же
-/// окне, и экран редактора не закрывается.
-class _QuitState extends ChangeNotifier {
+/// Своё состояние окну нужно потому, что запись может не получиться. Пока она
+/// идёт, кнопки приглушены; неудача остаётся **в этом же окне**, и экран
+/// редактора не закрывается.
+///
+/// Где ещё её показать, места нет: ошибка команды уходит в журнал
+/// (`app_container.dart`), то есть мимо человека. Окно уже открыто и уже про
+/// эту самую запись — ему и говорить.
+class _WriteState extends ChangeNotifier {
   bool busy = false;
   String? error;
 
