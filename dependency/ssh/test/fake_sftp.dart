@@ -197,6 +197,13 @@ class FakeSftp implements SftpApi {
   }
 
   @override
+  Future<bool> canWriteTo(String path) async {
+    calls.add('canWriteTo $path');
+    // Проба отвечает `false`, а не бросает: вопрос как раз о том, откажут ли.
+    return denied[_norm(path)] == null;
+  }
+
+  @override
   Future<StreamSink<List<int>>> openWrite(String path) async {
     calls.add('write $path');
     _checkDenied(path);

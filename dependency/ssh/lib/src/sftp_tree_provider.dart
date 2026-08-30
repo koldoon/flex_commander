@@ -21,7 +21,14 @@ import 'ssh_connection.dart';
 /// сервер, а удаление и переименование он к последней ссылке в пути не
 /// применяет — то есть ровно то поведение, которое нам и нужно.
 class SftpTreeProvider
-    implements TreeProvider, NodeEditor, LinkEditor, FileContentProvider, FileContentReceiver, ProviderLifecycle {
+    implements
+        TreeProvider,
+        NodeEditor,
+        LinkEditor,
+        FileContentProvider,
+        FileContentReceiver,
+        WriteAccessCheck,
+        ProviderLifecycle {
   SftpTreeProvider({required this.target, required SftpApi sftp, required this.homePath, SshConnection? connection})
     : _sftp = sftp,
       _connection = connection;
@@ -326,6 +333,11 @@ class SftpTreeProvider
   @override
   Future<StreamSink<List<int>>> openWrite(DirectoryNode parent, String name, {int? length}) =>
       _sftp.openWrite(p.posix.join(remotePathOf(parent), name));
+
+  /// Пустят ли записать в этот объект — спрашиваем у сервера, а не гадаем по
+  /// правам владельца: ими файл описан, а пишет тот, кем мы вошли.
+  @override
+  Future<bool> canWriteTo(FsNode node) => _sftp.canWriteTo(remotePathOf(node));
 
   @override
   Future<void> dispose() async {

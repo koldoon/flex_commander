@@ -68,8 +68,18 @@ class EditFileCommand extends AppCommand {
       return;
     }
 
+    // Права спрашиваются **до чтения**, а не после: узнать об отказе на `F2`,
+    // после часа работы, значит остаться с текстом, который некуда деть — «Save
+    // As» у редактора нет. И до чтения же, а не после него: незачем тянуть с
+    // сервера целый файл, чтобы затем спросить, открывать ли его вообще.
+    final bool readOnly;
     final TextFile file;
     try {
+      readOnly = !await _canWrite(context, node);
+      if (readOnly && !await _agreesToReadOnly(context, node)) {
+        return;
+      }
+
       // Чтение ведёт панель: на медленном источнике оно небыстрое, и всё это
       // время должно быть видно, что идёт работа, а `Esc` — её бросать.
       file = await context.panel.runWork(TextFile.reading(source as FileContentProvider), node);
@@ -85,14 +95,6 @@ class EditFileCommand extends AppCommand {
         return;
       }
       rethrow;
-    }
-
-    // Права спрашиваются до открытия: узнать об отказе на `F2`, после часа
-    // работы, значит остаться с текстом, который некуда деть, — «Save As» у
-    // редактора нет.
-    final readOnly = !await _canWrite(node);
-    if (readOnly && !await _agreesToReadOnly(context, node)) {
-      return;
     }
 
     context.app.view.pushViewportContent(
@@ -120,19 +122,31 @@ class EditFileCommand extends AppCommand {
 
   /// Пустят ли писать. Провайдер, который отвечать не умеет, не обещает
   /// ничего — тогда всё как раньше: узнаем при сохранении.
-  Future<bool> _canWrite(FsNode node) async {
+  ///
+  /// Спрашивается это работой панели, потому что спрашивать бывает далеко: по
+  /// ssh проба — поход на сервер, и без занятости он был бы вторым немым
+  /// замиранием, ради избавления от которого затевался Г9.
+  Future<bool> _canWrite(CommandContext context, FsNode node) async {
     final provider = node.provider;
     if (provider is! WriteAccessCheck) {
       return true;
     }
+    // Каст, а не продвижение типа: `WriteAccessCheck` наследником
+    // `TreeProvider` не является, а Dart сужает тип только до подтипа — ровно
+    // поэтому касты стоят и у соседних умений провайдера.
+    final check = provider as WriteAccessCheck;
+
     try {
-      // Каст, а не продвижение типа: `WriteAccessCheck` наследником
-      // `TreeProvider` не является, а Dart сужает тип только до подтипа —
-      // ровно поэтому касты стоят и у соседних умений провайдера.
-      return await (provider as WriteAccessCheck).canWriteTo(node);
+      return await context.panel.runWork(
+        TaskOperation<FsNode, bool>((op, target) async {
+          op.report(message: 'Checking ${target.name}…');
+          return check.canWriteTo(target);
+        }),
+        node,
+      );
     } on FsError {
-      // Не смогли выяснить — не выдумываем: молчим, как провайдер без
-      // проверки вовсе.
+      // Не смогли выяснить — не выдумываем: молчим, как провайдер без проверки
+      // вовсе. Отмену не глотаем: её разбирает вызывающий.
       return true;
     }
   }

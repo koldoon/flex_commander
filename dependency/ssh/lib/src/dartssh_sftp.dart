@@ -146,6 +146,24 @@ class DartsshSftp implements SftpApi {
   }
 
   @override
+  Future<bool> canWriteTo(String path) async {
+    SftpFile? file;
+    try {
+      // Ни `create`, ни `truncate`: спрашиваем, пустят ли, а не пишем.
+      file = await _sftp.open(path, mode: SftpFileOpenMode.write);
+      return true;
+    } on SftpError {
+      return false;
+    } finally {
+      try {
+        await file?.close();
+      } on Object {
+        // Закрытие пробы уже неважно: ответ получен.
+      }
+    }
+  }
+
+  @override
   Future<String> absolute(String path) async {
     try {
       return await _sftp.absolute(path);

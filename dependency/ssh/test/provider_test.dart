@@ -351,6 +351,32 @@ void main() {
       expect(server.calls.where((call) => call.startsWith('rename')), hasLength(1));
     });
   });
+
+  group('право записи', () {
+    Future<FsNode> fileAt(String path) async {
+      final node = await provider.resolvePath().run(path);
+      return node!;
+    }
+
+    test('спрашивается у сервера, а не выводится из прав владельца', () async {
+      final node = await fileAt('/srv/notes.txt');
+      server.calls.clear();
+
+      expect(await provider.canWriteTo(node), isTrue);
+      expect(server.calls, contains('canWriteTo /srv/notes.txt'));
+    });
+
+    test('отказ сервера — это «нельзя», а не исключение', () async {
+      final node = await fileAt('/srv/notes.txt');
+      server.denied['/srv/notes.txt'] = FsErrorKind.permissionDenied;
+
+      expect(await provider.canWriteTo(node), isFalse);
+    });
+
+    test('провайдер объявляет это умение — иначе о нём никто не спросит', () {
+      expect(provider, isA<WriteAccessCheck>());
+    });
+  });
 }
 
 Future<List<int>> _collect(Stream<List<int>> stream) async {
