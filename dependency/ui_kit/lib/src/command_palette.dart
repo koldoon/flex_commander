@@ -170,7 +170,9 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
     return ConstrainedBox(
       constraints: limits,
       child: SizedBox(
-        width: MediaQuery.sizeOf(context).width * metrics.dialogWidthFactor,
+        // Своя доля, шире прочих окон: палитра это список, и в строке у неё
+        // название, описание и клавиши разом.
+        width: MediaQuery.sizeOf(context).width * metrics.paletteWidthFactor,
         child: Column(
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,

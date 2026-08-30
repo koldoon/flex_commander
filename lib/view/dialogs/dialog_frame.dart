@@ -27,6 +27,7 @@ class DialogFrame extends StatefulWidget {
     required this.child,
     this.takesFocus = false,
     this.area = DialogArea.window,
+    this.ownWidth = false,
   });
 
   final String title;
@@ -41,6 +42,10 @@ class DialogFrame extends StatefulWidget {
   /// Часть окна приложения, над которой встаёт окно. Обычно всё окно, но окно
   /// про названную панель встаёт над ней самой.
   final DialogArea area;
+
+  /// Окно назначает ширину само — верхний предел рамы к нему не применяется
+  /// (`DialogSpec.ownWidth`).
+  final bool ownWidth;
 
   final Widget child;
 
@@ -174,9 +179,15 @@ class _DialogFrameState extends State<DialogFrame> {
                 skipTraversal: true,
                 // Ширину рамка не назначает: окно облегает содержимое в пределах
                 // `minWidth`/`maxWidth`. Нужен определённый размер — команда
-                // задаёт его сама в том, что вернула из `dialogSpec`.
+                // задаёт его сама в том, что вернула из `dialogSpec`, и тогда
+                // же снимает верхний предел (`ownWidth`): он в точках, а такая
+                // ширина в долях экрана, и на широком экране предел обрезал бы
+                // её тем сильнее, чем экран шире.
                 child: ConstrainedBox(
-                  constraints: BoxConstraints(minWidth: metrics.dialogMinWidth, maxWidth: metrics.dialogMaxWidth),
+                  constraints: BoxConstraints(
+                    minWidth: metrics.dialogMinWidth,
+                    maxWidth: widget.ownWidth ? double.infinity : metrics.dialogMaxWidth,
+                  ),
                   child: IntrinsicWidth(
                     child: Container(
                       decoration: BoxDecoration(

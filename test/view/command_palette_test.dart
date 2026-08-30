@@ -134,6 +134,22 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('палитра занимает три четверти ширины — и на широком экране тоже', (tester) async {
+    // Экран нарочно широкий: предел рамы задан в точках
+    // (`dialogMaxWidth` — 800), и раньше он обрезал бы долю тем сильнее, чем
+    // экран шире. Палитра назначает ширину сама (`DialogSpec.ownWidth`), и
+    // предел к ней не применяется.
+    await openPalette(tester, size: const Size(1600, 900));
+
+    final metrics = FcTheme.of(tester.element(find.byType(FcPickList))).metrics;
+    final window = tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(IntrinsicWidth)));
+
+    expect(window.width, moreOrLessEquals(1600 * metrics.paletteWidthFactor, epsilon: 0.5));
+    expect(window.width, greaterThan(metrics.dialogMaxWidth), reason: 'предел в точках палитре не указ');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('строка выбора идёт до краёв окна, а текст стоит под набранным', (tester) async {
     await openPalette(tester);
     await tester.enterText(field(), 'mkd');

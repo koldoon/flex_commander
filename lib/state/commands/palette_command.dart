@@ -46,6 +46,10 @@ class CommandPaletteCommand extends AppCommand {
       DialogSpec(
         title: 'Commands',
         takesFocus: true,
+        // Ширину палитра назначает сама, долей экрана: верхний предел рамы —
+        // в точках, и на широком экране он обрезал бы долю тем сильнее, чем
+        // экран шире.
+        ownWidth: true,
         content: FcCommandPalette(
           items: _items(registry, context),
           recent: recent(),

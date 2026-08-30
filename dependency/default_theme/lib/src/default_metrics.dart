@@ -168,6 +168,15 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get dialogWidthFactor => 0.5;
 
+  /// Три четверти — столько же, сколько окну команды дозволено вообще
+  /// ([dialogMaxScreenFactor]): палитра берёт всю разрешённую ширину.
+  ///
+  /// Числа совпадают, но знак равенства между ними не ставится: предел — про
+  /// все окна разом (справка с длинными описаниями иначе растянулась бы от
+  /// края до края), а это — ширина одного, и двигать их порознь надо уметь.
+  @override
+  double get paletteWidthFactor => 0.75;
+
   @override
   double get dialogMinWidth => ref(1000);
 
