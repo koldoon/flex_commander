@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:flex_commander/state/panel_controller.dart';
@@ -387,6 +389,120 @@ void main() {
 
       await panel.openPath('/home');
       expect(panel.currentNode?.name, 'report.xlsx');
+    });
+  });
+
+  group('работа от имени панели', () {
+    /// Работа, которой можно управлять из теста: держится, пока её не отпустят.
+    (TaskOperation<String, String>, Completer<String>) held() {
+      final gate = Completer<String>();
+      final operation = TaskOperation<String, String>((op, params) async {
+        op.report(message: 'Reading $params…');
+        final value = await gate.future;
+        op.checkCanceled();
+        return value;
+      });
+      return (operation, gate);
+    }
+
+    test('пока работа идёт, панель занята и говорит о ней', () async {
+      await panel.openPath('/home');
+      final (operation, gate) = held();
+
+      final work = panel.runWork(operation, 'notes.txt', status: 'Loading…');
+      await pumpEventQueue(times: 1);
+
+      expect(panel.busy, isTrue);
+      expect(panel.statusText, 'Reading notes.txt…', reason: 'веха работы вытеснила начальное слово');
+      // Список файлов на виду: читается один файл, а не каталог.
+      expect(panel.nodes, isNotEmpty);
+
+      gate.complete('готово');
+      expect(await work, 'готово');
+      expect(panel.busy, isFalse);
+      expect(panel.statusText, isNull);
+    });
+
+    test('до первой вехи видно то, что сказал заказчик', () async {
+      await panel.openPath('/home');
+      final operation = TaskOperation<String, String>((op, params) async => params);
+
+      final work = panel.runWork(operation, 'x', status: 'Reading…');
+      expect(panel.statusText, 'Reading…');
+
+      await work;
+    });
+
+    test('отмена приходит OperationCanceled и освобождает панель', () async {
+      await panel.openPath('/home');
+      final (operation, gate) = held();
+
+      final work = panel.runWork(operation, 'notes.txt');
+      // Ожидание вешается заранее: `cancel` отклоняет работу немедленно, и
+      // отказ без слушателя ушёл бы в необработанные.
+      final canceled = expectLater(work, throwsA(isA<OperationCanceled>()));
+      await pumpEventQueue(times: 1);
+
+      panel.cancel();
+      gate.complete('поздно');
+      await canceled;
+
+      expect(panel.busy, isFalse);
+      expect(panel.statusText, isNull);
+      expect(panel.currentNode, isNotNull, reason: 'панель осталась там же, где была');
+    });
+
+    test('отказ работы тоже снимает занятость', () async {
+      await panel.openPath('/home');
+      final operation = TaskOperation<String, String>((op, params) async {
+        throw const FsError('/home/notes.txt', FsErrorKind.permissionDenied);
+      });
+
+      final work = panel.runWork(operation, 'x');
+      await expectLater(work, throwsA(isA<FsError>()));
+
+      expect(panel.busy, isFalse);
+      // Ошибку в строке не оставляем: о неудаче говорит заказчик.
+      expect(panel.statusText, isNull);
+    });
+
+    test('вторая работа отменяет первую, а занятость остаётся её', () async {
+      await panel.openPath('/home');
+      final (first, firstGate) = held();
+      final (second, secondGate) = held();
+
+      final firstWork = panel.runWork(first, 'первый');
+      final firstCanceled = expectLater(firstWork, throwsA(isA<OperationCanceled>()));
+      await pumpEventQueue(times: 1);
+
+      final secondWork = panel.runWork(second, 'второй');
+      await pumpEventQueue(times: 1);
+
+      firstGate.complete('не нужен');
+      await firstCanceled;
+      // Первая ушла, но занятость теперь второй, и снимать её первой нельзя.
+      expect(panel.busy, isTrue);
+      expect(panel.statusText, 'Reading второй…');
+
+      secondGate.complete('готово');
+      expect(await secondWork, 'готово');
+      expect(panel.busy, isFalse);
+    });
+
+    test('чтение каталога отменяет чужую работу', () async {
+      await panel.openPath('/home');
+      final (operation, gate) = held();
+
+      final work = panel.runWork(operation, 'notes.txt');
+      final canceled = expectLater(work, throwsA(isA<OperationCanceled>()));
+      await pumpEventQueue(times: 1);
+
+      await panel.openPath('/home/docs');
+      gate.complete('поздно');
+      await canceled;
+
+      expect(panel.busy, isFalse);
+      expect(panel.directory?.pathString, '/home/docs');
     });
   });
 }

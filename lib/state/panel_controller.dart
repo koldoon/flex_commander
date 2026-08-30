@@ -228,6 +228,11 @@ class PanelController extends ChangeNotifier implements Panel {
 
   @override
   Future<bool> openPath(String path, {bool allowConnect = true}) async {
+    // Прежняя работа панели уступает место: без этого она осталась бы читать
+    // впустую — номер запроса не даст применить её итог, но сама она про это
+    // не знает и продолжит тянуть байты с сервера. Так же начинает и `_load`.
+    _operation?.cancel();
+
     // Разбор пути тоже обращается к провайдеру и может быть небыстрым,
     // поэтому панель занята уже на этом шаге, а не только на чтении каталога.
     final requestId = ++_requestId;
@@ -550,6 +555,40 @@ class PanelController extends ChangeNotifier implements Panel {
   /// вместе с ней (`AsyncOperation.delegate`).
   @override
   void cancel() => _operation?.cancel();
+
+  @override
+  Future<R> runWork<P, R>(Operation<P, R> operation, P params, {String status = 'Loading…'}) async {
+    // Прежняя работа уступает место, а не отказывает новой: правило то же, что
+    // у чтения каталога, — последнее сказанное человеком главнее.
+    _operation?.cancel();
+
+    final requestId = ++_requestId;
+    _busy = true;
+    _statusText = status;
+    _operation = operation;
+    // `PanelStatus` нарочно не трогается: панель не перечитывается, и список
+    // файлов обязан остаться на виду — читается один файл, а не каталог.
+    final release = _followProgress(operation, requestId);
+    notifyListeners();
+
+    operation.start(params);
+    try {
+      return await operation.result;
+    } finally {
+      release();
+      if (identical(_operation, operation)) {
+        _operation = null;
+      }
+      // Занятость снимается чем бы дело ни кончилось — иначе панель осталась бы
+      // глухой к клавиатуре навсегда. Но только если за это время не началась
+      // работа поновее: строка состояния и занятость теперь её.
+      if (requestId == _requestId) {
+        _busy = false;
+        _statusText = null;
+      }
+      notifyListeners();
+    }
+  }
 
   /// Фокус панелям не нужен: какая область активна, знает приложение, а
   /// нажатия разбирает ранний обработчик клавиатуры.
