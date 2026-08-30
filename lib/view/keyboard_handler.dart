@@ -34,6 +34,16 @@ class KeyboardHandler extends StatefulWidget {
   /// Пока панель занята длительной операцией, работает только отмена.
   static const String cancelKey = 'Esc';
 
+  /// Уйти с занятой панели можно всегда.
+  ///
+  /// Занятость — свойство **панели**, а не приложения: соседняя живёт своей
+  /// жизнью, и запирать человека в читающей панели незачем. Ушли — активной
+  /// стала свободная, и там снова работает всё.
+  static const String leaveKey = 'Tab';
+
+  /// Что проходит сквозь занятость: прервать работу и уйти от неё.
+  static const Set<String> keysWhileBusy = {cancelKey, leaveKey};
+
   @override
   State<KeyboardHandler> createState() => _KeyboardHandlerState();
 }
@@ -121,9 +131,11 @@ class _KeyboardHandlerState extends State<KeyboardHandler> {
     // Занятость глушит клавиши только там, где стоит занятая панель: чужое
     // содержимое читает свой файл и о чтении каталога ничего не знает.
     final panel = app.view.panelAt(app.view.activeArea);
-    if (panel != null && panel.busy && combination.key != KeyboardHandler.cancelKey) {
+    if (panel != null && panel.busy && !KeyboardHandler.keysWhileBusy.contains(combination.key)) {
       // Событие считается обработанным: пока идёт чтение, клавиши не должны
-      // проваливаться дальше и, например, уводить фокус по Tab.
+      // проваливаться дальше — ни в поле ввода, ни в обход фокуса. Уводит
+      // отсюда только `Tab`, и уводит он не фокусом, а сменой активной панели:
+      // команда за ним стоит и занятости не спрашивает.
       return KeyEventResult.handled;
     }
 

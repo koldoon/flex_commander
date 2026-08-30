@@ -40,6 +40,9 @@ class EditFileCommand extends AppCommand {
     // байтов нет вовсе, а архив, открытый через временную копию, принять их
     // не может — изменения уехали бы вместе с копией.
     return node != null &&
+        // Занятая панель второго чтения не начинает: она уже читает — либо
+        // каталог, либо файл, — и говорить об этом ей нечем дважды.
+        !context.panel.busy &&
         node is! DirectoryNode &&
         node is! ParentDirNode &&
         node.provider is FileContentProvider &&
@@ -67,7 +70,13 @@ class EditFileCommand extends AppCommand {
 
     final TextFile file;
     try {
-      file = await TextFile.read(node, source as FileContentProvider);
+      // Чтение ведёт панель: на медленном источнике оно небыстрое, и всё это
+      // время должно быть видно, что идёт работа, а `Esc` — её бросать.
+      file = await context.panel.runWork(TextFile.reading(source as FileContentProvider), node);
+    } on OperationCanceled {
+      // Передумали — это обычный ход дела, а не беда: экран не открывается, и
+      // говорить не о чем.
+      return;
     } on FsError catch (error) {
       if (error.kind == FsErrorKind.notSupported) {
         // Не текст в UTF-8: правка и сохранение записали бы знаки замены

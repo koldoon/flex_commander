@@ -105,7 +105,9 @@ abstract class TransferCommandBase extends AppCommand {
     // (быстрый просмотр). Копировать туда нечего — того, что видит человек,
     // файлы не примут.
     final target = context.target;
-    if (target == null || !target.provider.canWrite || (moves && !panel.provider.canWrite)) {
+    // Занятая цель принять ничего не может: она сама сейчас читает. Проверять
+    // надо обе панели — источник проверен выше, а копируем мы в соседнюю.
+    if (target == null || target.busy || !target.provider.canWrite || (moves && !panel.provider.canWrite)) {
       return false;
     }
     // Псевдоузел «..» объектом не считается.

@@ -44,26 +44,40 @@ class TextFile {
 
   /// Читает файл, отказываясь от того, что правкой испортишь.
   ///
+  /// **Работа, а не голое чтение**: файл может лежать на сервере, и тогда между
+  /// нажатием `F4` и появлением редактора проходят секунды. Человеку нужно и
+  /// видеть, что идёт чтение, и уметь его бросить, — а для того и другого нужна
+  /// [Operation]. Кто её ведёт и кому показывает, решает вызывающий: панель
+  /// берёт её себе (`Panel.runWork`).
+  ///
   /// Кодировка проверяется **строго**, в отличие от просмотрщика: тот заменяет
   /// битые байты знаком замены, и это честно — он показывает. Сохранить такой
   /// текст обратно значило бы записать знаки замены вместо исходных байтов, то
   /// есть испортить файл молча.
-  static Future<TextFile> read(FsNode node, FileContentProvider source) async {
-    final bytes = <int>[];
-    await for (final chunk in await source.openRead(node)) {
-      bytes.addAll(chunk);
-    }
+  static Operation<FsNode, TextFile> reading(FileContentProvider source) {
+    return TaskOperation<FsNode, TextFile>((op, node) async {
+      op.report(message: 'Reading ${node.name}…');
 
-    final String decoded;
-    try {
-      decoded = utf8.decode(bytes);
-    } on FormatException {
-      throw FsError(node.pathString, FsErrorKind.notSupported);
-    }
+      final bytes = <int>[];
+      await for (final chunk in await source.openRead(node)) {
+        // Между кусками, а не после: файл может быть большим, а сервер
+        // медленным, и ждать конца чтения ради отмены незачем.
+        op.checkCanceled();
+        bytes.addAll(chunk);
+      }
+      op.checkCanceled();
 
-    return TextFile(
-      text: decoded.replaceAll('\r\n', '\n').replaceAll('\r', '\n'),
-      lineBreak: LineBreak.detect(decoded),
-    );
+      final String decoded;
+      try {
+        decoded = utf8.decode(bytes);
+      } on FormatException {
+        throw FsError(node.pathString, FsErrorKind.notSupported);
+      }
+
+      return TextFile(
+        text: decoded.replaceAll('\r\n', '\n').replaceAll('\r', '\n'),
+        lineBreak: LineBreak.detect(decoded),
+      );
+    });
   }
 }

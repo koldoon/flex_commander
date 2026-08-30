@@ -95,8 +95,10 @@ class CreateTarArchiveCommand extends AppCommand {
     }
     // Класть архив некуда, если приёмника нет вовсе (панель накрыта показом)
     // или он не умеет принимать содержимое.
-    final destination = context.target?.directory;
-    return destination != null && destination.provider.canReceive;
+    // Занятый приёмник принять ничего не может: он сам сейчас читает.
+    final target = context.target;
+    final destination = target?.directory;
+    return target != null && !target.busy && destination != null && destination.provider.canReceive;
   }
 
   List<FsNode> _sourcesOf(CommandContext context) => context.targets.where((node) => node is! ParentDirNode).toList();

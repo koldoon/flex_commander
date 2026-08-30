@@ -80,10 +80,11 @@ class CreateZipArchiveCommand extends AppCommand {
     if (context.panel.busy || _sourcesOf(context).isEmpty) {
       return false;
     }
-    // Класть архив некуда, если приёмника нет вовсе (панель накрыта показом)
-    // или он не умеет принимать содержимое.
-    final destination = context.target?.directory;
-    return destination != null && destination.provider.canReceive;
+    // Класть архив некуда, если приёмника нет вовсе (панель накрыта показом),
+    // если он занят своим чтением или если он не умеет принимать содержимое.
+    final target = context.target;
+    final destination = target?.directory;
+    return target != null && !target.busy && destination != null && destination.provider.canReceive;
   }
 
   List<FsNode> _sourcesOf(CommandContext context) => context.targets.where((node) => node is! ParentDirNode).toList();

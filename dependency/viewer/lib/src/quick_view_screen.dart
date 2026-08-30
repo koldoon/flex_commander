@@ -95,6 +95,12 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
       return;
     }
 
+    // Пока читаем — говорим об этом сами, своей же строкой. Занять панель
+    // здесь нечем: быстрый просмотр её и заменил, панели в этой области нет.
+    // А чужую, активную, занимать нельзя — по ней в это время водят курсором,
+    // ради чего быстрый просмотр и открывают.
+    _say('Reading ${node.name}…');
+
     try {
       final content = await openViewer(
         app,

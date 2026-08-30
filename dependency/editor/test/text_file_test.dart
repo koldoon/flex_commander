@@ -14,7 +14,7 @@ void main() {
 
   Future<TextFile> read(List<int> content) async {
     final node = await nodeWith(content);
-    return TextFile.read(node, node.provider as FileContentProvider);
+    return TextFile.reading(node.provider as FileContentProvider).run(node);
   }
 
   group('переводы строк помнятся', () {

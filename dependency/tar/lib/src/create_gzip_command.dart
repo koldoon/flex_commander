@@ -58,8 +58,10 @@ class CreateGzipCommand extends AppCommand {
       return false;
     }
 
-    final destination = context.target?.directory;
-    return destination != null && destination.provider.canReceive;
+    // Занятый приёмник принять ничего не может: он сам сейчас читает.
+    final target = context.target;
+    final destination = target?.directory;
+    return target != null && !target.busy && destination != null && destination.provider.canReceive;
   }
 
   List<FsNode> _sourcesOf(CommandContext context) => context.targets.where((node) => node is! ParentDirNode).toList();

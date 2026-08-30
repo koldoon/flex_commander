@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:flex_commander/state/app_controller.dart';
@@ -233,5 +235,33 @@ void main() {
     expect(commands().find('file.move')?.label, 'Move');
     expect(commands().bindingsOf('file.copy').map((b) => b.keys.toString()), contains('F5'));
     expect(commands().bindingsOf('file.move').map((b) => b.keys.toString()), contains('F6'));
+  });
+
+  group('занятая цель', () {
+    /// Работа, которая держится, пока её не отпустят.
+    (TaskOperation<String, String>, Completer<String>) held() {
+      final gate = Completer<String>();
+      return (TaskOperation<String, String>((op, _) => gate.future), gate);
+    }
+
+    test('копировать в панель, которая сама сейчас читает, нельзя', () async {
+      app.left.setCursorToName('notes.txt');
+      final copy = commands().find('file.copy')!;
+      expect(commands().isExecutable(copy), isTrue, reason: 'обычно — можно');
+
+      // Занимаем **цель**: источник свободен, а принимать некому.
+      final (operation, gate) = held();
+      final work = app.right.runWork(operation, 'x');
+      final canceled = expectLater(work, throwsA(isA<OperationCanceled>()));
+      await pumpEventQueue(times: 1);
+
+      expect(commands().isExecutable(copy), isFalse);
+
+      app.right.cancel();
+      gate.complete('поздно');
+      await canceled;
+
+      expect(commands().isExecutable(copy), isTrue, reason: 'освободилась — снова можно');
+    });
   });
 }

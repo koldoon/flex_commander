@@ -34,7 +34,9 @@ class ViewFileCommand extends AppCommand {
     // Каталог показывать нечем, псевдоузел «..» — тем более. А вот «есть ли
     // кому взяться» здесь не спрашивается нарочно: команда работает, просто не
     // с этим файлом, и сказать об этом словами честнее, чем потухшей кнопкой.
-    return node != null && node is! DirectoryNode && node is! ParentDirNode;
+    // Занятая панель второго чтения не начинает: она уже читает — либо каталог,
+    // либо файл.
+    return node != null && !context.panel.busy && node is! DirectoryNode && node is! ParentDirNode;
   }
 
   @override
@@ -44,9 +46,20 @@ class ViewFileCommand extends AppCommand {
       return;
     }
 
+    // Открытие ведёт панель: файл может лежать на сервере, и до появления
+    // экрана проходят секунды. Точка прерывания у просмотрщиков уже есть — ею
+    // пользуется быстрый просмотр, — и отдаётся она прямо из работы.
+    final reading = TaskOperation<FsNode, ViewportState>((op, target) async {
+      op.report(message: 'Reading ${target.name}…');
+      return openViewer(context.app, target, ViewerPlace.fullscreen, checkpoint: op.checkpoint);
+    });
+
     try {
-      final content = await openViewer(context.app, node, ViewerPlace.fullscreen);
+      final content = await context.panel.runWork(reading, node);
       context.app.view.pushViewportContent(ViewportPosition.fullscreen, content);
+    } on OperationCanceled {
+      // Передумали — обычный ход дела: экран не открывается, говорить не о чем.
+      return;
     } on ViewerRefused catch (refusal) {
       // Одно нажатие — одно сообщение: во весь экран отказ говорится тостом,
       // как и раньше. В быстром просмотре он же показывается словами в панели.
