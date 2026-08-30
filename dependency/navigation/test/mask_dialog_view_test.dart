@@ -63,14 +63,17 @@ void main() {
     await pumpApp(tester);
     await pressPlus(tester);
 
-    // Пока пусто — молчит: «0 of 5» на пустом поле было бы ложной тревогой.
+    // Пока пусто — «0 of 5» было бы ложной тревогой, а пустое место под полем
+    // сбивает с толку; поэтому там приглушённое «ничего не выбрано».
     expect(find.textContaining(' of '), findsNothing);
+    expect(find.text('No files selected'), findsOneWidget);
 
     await tester.enterText(input, '*.dart');
     await tester.pumpAndSettle();
 
     // Пять объектов без «..»: каталог и четыре файла.
     expect(find.text('2 of 5'), findsOneWidget);
+    expect(find.text('No files selected'), findsNothing);
   });
 
   testWidgets('Enter помечает совпавшее и закрывает окно', (tester) async {

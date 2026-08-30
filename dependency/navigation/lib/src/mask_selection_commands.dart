@@ -149,8 +149,16 @@ class MaskDialogState extends ChangeNotifier {
   String mask = '';
   VoidCallback? close;
 
-  /// Что показать под полем: «12 of 40». Пусто — маска ещё не набрана.
-  String get matched => mask.trim().isEmpty ? '' : '${count(mask)} of $total';
+  /// Набрана ли маска: пока нет, счётчику нечего считать.
+  bool get typing => mask.trim().isNotEmpty;
+
+  /// Что показать под полем: «12 of 40», а пока маска не набрана — «No files
+  /// selected».
+  ///
+  /// Пустая строка на этом месте оставляла бы дыру между полем и недавними
+  /// масками, и человек искал бы в ней смысл. Приглушённо — потому что это
+  /// ещё не ответ, а его отсутствие.
+  String get matched => typing ? '${count(mask)} of $total' : 'No files selected';
 
   void typed(String value) {
     mask = value;
@@ -242,7 +250,15 @@ class _MaskDialogFormState extends State<MaskDialogForm> {
               ),
             ),
             // Сколько совпало — видно до нажатия, а не после.
-            CommandDialogField.wide(child: Text(state.matched, style: theme.dialogLabelStyle)),
+            CommandDialogField.wide(
+              child: Text(
+                state.matched,
+                style:
+                    state.typing
+                        ? theme.dialogLabelStyle
+                        : theme.dialogLabelStyle.copyWith(color: theme.colors.inputHint),
+              ),
+            ),
             if (found.isNotEmpty)
               CommandDialogField.wide(
                 child: ConstrainedBox(
