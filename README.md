@@ -45,7 +45,10 @@ to the home directory *of that source*, not of the local machine.
 to reorder, drag borders to resize, right-click for a visibility menu, click to sort. The
 layout, sorting and hidden-file flag are stored per panel and survive restarts.
 
-**Marking.** Space or Insert marks, `Cmd+A` marks everything, `Esc` clears. The status bar
+**Marking.** Space or Insert marks, `Cmd+A` marks everything, `Esc` clears. `+` and `-`
+mark and unmark by mask — `*.dart;!*.g.dart`, several patterns through `;`, `!` excluding,
+case ignored — with the recent masks under the field and a live count of what matches
+while you type. Marking adds to what is already marked rather than replacing it. The status bar
 shows how many objects are marked and their total size — and directory sizes are counted
 in the background by a bounded pool of scans, growing in the Size column as they go.
 
