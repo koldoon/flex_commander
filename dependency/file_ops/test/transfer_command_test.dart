@@ -238,10 +238,10 @@ void main() {
   });
 
   group('занятая цель', () {
-    /// Работа, которая держится, пока её не отпустят.
-    (TaskOperation<String, String>, Completer<String>) held() {
+    /// Тело, которое держится, пока его не отпустят.
+    (Future<String> Function(TaskOperation<void, String>), Completer<String>) held() {
       final gate = Completer<String>();
-      return (TaskOperation<String, String>((op, _) => gate.future), gate);
+      return ((op) => gate.future, gate);
     }
 
     test('копировать в панель, которая сама сейчас читает, нельзя', () async {
@@ -250,8 +250,8 @@ void main() {
       expect(commands().isExecutable(copy), isTrue, reason: 'обычно — можно');
 
       // Занимаем **цель**: источник свободен, а принимать некому.
-      final (operation, gate) = held();
-      final work = app.right.runWork(operation, 'x');
+      final (body, gate) = held();
+      final work = app.right.runWork(body);
       final canceled = expectLater(work, throwsA(isA<OperationCanceled>()));
       await pumpEventQueue(times: 1);
 

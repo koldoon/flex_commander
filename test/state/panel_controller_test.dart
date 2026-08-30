@@ -393,23 +393,26 @@ void main() {
   });
 
   group('работа от имени панели', () {
-    /// Работа, которой можно управлять из теста: держится, пока её не отпустят.
-    (TaskOperation<String, String>, Completer<String>) held() {
+    /// Тело, которым можно управлять из теста: держится, пока не отпустят.
+    ///
+    /// Возвращает и саму заслонку, и тело: одно без другого тесту бесполезно.
+    (Future<String> Function(TaskOperation<void, String>), Completer<String>) held(String name) {
       final gate = Completer<String>();
-      final operation = TaskOperation<String, String>((op, params) async {
-        op.report(message: 'Reading $params…');
+      Future<String> body(TaskOperation<void, String> op) async {
+        op.report(message: 'Reading $name…');
         final value = await gate.future;
         op.checkCanceled();
         return value;
-      });
-      return (operation, gate);
+      }
+
+      return (body, gate);
     }
 
     test('пока работа идёт, панель занята и говорит о ней', () async {
       await panel.openPath('/home');
-      final (operation, gate) = held();
+      final (body, gate) = held('notes.txt');
 
-      final work = panel.runWork(operation, 'notes.txt', status: 'Loading…');
+      final work = panel.runWork(body, status: 'Loading…');
       await pumpEventQueue(times: 1);
 
       expect(panel.busy, isTrue);
@@ -425,9 +428,7 @@ void main() {
 
     test('до первой вехи видно то, что сказал заказчик', () async {
       await panel.openPath('/home');
-      final operation = TaskOperation<String, String>((op, params) async => params);
-
-      final work = panel.runWork(operation, 'x', status: 'Reading…');
+      final work = panel.runWork((op) async => 'x', status: 'Reading…');
       expect(panel.statusText, 'Reading…');
 
       await work;
@@ -435,9 +436,9 @@ void main() {
 
     test('отмена приходит OperationCanceled и освобождает панель', () async {
       await panel.openPath('/home');
-      final (operation, gate) = held();
+      final (body, gate) = held('notes.txt');
 
-      final work = panel.runWork(operation, 'notes.txt');
+      final work = panel.runWork(body);
       // Ожидание вешается заранее: `cancel` отклоняет работу немедленно, и
       // отказ без слушателя ушёл бы в необработанные.
       final canceled = expectLater(work, throwsA(isA<OperationCanceled>()));
@@ -454,11 +455,9 @@ void main() {
 
     test('отказ работы тоже снимает занятость', () async {
       await panel.openPath('/home');
-      final operation = TaskOperation<String, String>((op, params) async {
+      final work = panel.runWork<String>((op) async {
         throw const FsError('/home/notes.txt', FsErrorKind.permissionDenied);
       });
-
-      final work = panel.runWork(operation, 'x');
       await expectLater(work, throwsA(isA<FsError>()));
 
       expect(panel.busy, isFalse);
@@ -468,14 +467,14 @@ void main() {
 
     test('вторая работа отменяет первую, а занятость остаётся её', () async {
       await panel.openPath('/home');
-      final (first, firstGate) = held();
-      final (second, secondGate) = held();
+      final (first, firstGate) = held('первый');
+      final (second, secondGate) = held('второй');
 
-      final firstWork = panel.runWork(first, 'первый');
+      final firstWork = panel.runWork(first);
       final firstCanceled = expectLater(firstWork, throwsA(isA<OperationCanceled>()));
       await pumpEventQueue(times: 1);
 
-      final secondWork = panel.runWork(second, 'второй');
+      final secondWork = panel.runWork(second);
       await pumpEventQueue(times: 1);
 
       firstGate.complete('не нужен');
@@ -489,11 +488,70 @@ void main() {
       expect(panel.busy, isFalse);
     });
 
+    test('цепочка — одна занятость: между звеньями панель не освобождается', () async {
+      // Ради этого тело и принимается вместо готовой работы: шагов у дела
+      // бывает несколько, а занятость и цель для `Esc` должны быть одни.
+      await panel.openPath('/home');
+      final first = Completer<String>();
+      final second = Completer<String>();
+
+      // Все значения занятости по ходу дела: провала в `false` быть не должно.
+      final seen = <bool>[];
+      void watch() => seen.add(panel.busy);
+      panel.addListener(watch);
+      addTearDown(() => panel.removeListener(watch));
+
+      final work = panel.runWork<String>((op) async {
+        await op.delegate(TaskOperation<void, String>((_, _) => first.future), null);
+        return op.delegate(TaskOperation<void, String>((_, _) => second.future), null);
+      });
+
+      await pumpEventQueue(times: 1);
+      first.complete('звено');
+      await pumpEventQueue(times: 1);
+
+      expect(panel.busy, isTrue, reason: 'первое звено кончилось, дело — нет');
+      second.complete('готово');
+      expect(await work, 'готово');
+
+      expect(panel.busy, isFalse);
+      expect(seen.sublist(0, seen.length - 1), everyElement(isTrue), reason: 'освободилась только в конце');
+    });
+
+    test('отмена доходит до вложенного звена', () async {
+      await panel.openPath('/home');
+      final inner = Completer<String>();
+      var innerFinished = false;
+
+      final work = panel.runWork<String>((op) async {
+        return op.delegate(
+          TaskOperation<void, String>((child, _) async {
+            final value = await inner.future;
+            // Проверка отмены — то самое место, где вложенная узнаёт о ней.
+            child.checkCanceled();
+            innerFinished = true;
+            return value;
+          }),
+          null,
+        );
+      });
+      final canceled = expectLater(work, throwsA(isA<OperationCanceled>()));
+      await pumpEventQueue(times: 1);
+
+      // Прерывают снаружи, а работает самая вложенная — отмена идёт встречно.
+      panel.cancel();
+      inner.complete('поздно');
+      await canceled;
+
+      expect(innerFinished, isFalse, reason: 'вложенная встала на проверке отмены, а не дошла до конца');
+      expect(panel.busy, isFalse);
+    });
+
     test('чтение каталога отменяет чужую работу', () async {
       await panel.openPath('/home');
-      final (operation, gate) = held();
+      final (body, gate) = held('notes.txt');
 
-      final work = panel.runWork(operation, 'notes.txt');
+      final work = panel.runWork(body);
       final canceled = expectLater(work, throwsA(isA<OperationCanceled>()));
       await pumpEventQueue(times: 1);
 

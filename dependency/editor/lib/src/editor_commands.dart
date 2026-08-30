@@ -68,21 +68,26 @@ class EditFileCommand extends AppCommand {
       return;
     }
 
-    // Права спрашиваются **до чтения**, а не после: узнать об отказе на `F2`,
-    // после часа работы, значит остаться с текстом, который некуда деть — «Save
-    // As» у редактора нет. И до чтения же, а не после него: незачем тянуть с
-    // сервера целый файл, чтобы затем спросить, открывать ли его вообще.
-    final bool readOnly;
+    // Открытие ведёт панель — цепочкой, одной занятостью на всё: спросить
+    // права, при отказе спросить человека, прочитать. Одна работа значит и одну
+    // цель для `Esc`: между шагами панель не освобождается ни на миг.
+    var readOnly = false;
     final TextFile file;
     try {
-      readOnly = !await _canWrite(context, node);
-      if (readOnly && !await _agreesToReadOnly(context, node)) {
-        return;
-      }
+      file = await context.panel.runWork<TextFile>((op) async {
+        // Права спрашиваются **до чтения**: узнать об отказе на `F2`, после
+        // часа работы, значит остаться с текстом, который некуда деть — «Save
+        // As» у редактора нет. И до чтения же, а не после: незачем тянуть с
+        // сервера целый файл, чтобы затем спросить, открывать ли его вообще.
+        readOnly = !await _canWrite(op, node);
+        if (readOnly && !await _agreesToReadOnly(context, node)) {
+          throw const OperationCanceled();
+        }
 
-      // Чтение ведёт панель: на медленном источнике оно небыстрое, и всё это
-      // время должно быть видно, что идёт работа, а `Esc` — её бросать.
-      file = await context.panel.runWork(TextFile.reading(source as FileContentProvider), node);
+        // Вложенной работой: ход дела она отдаёт наверх сама, а отмена идёт к
+        // ней встречно — `Esc` прерывает чтение, а не ждёт его конца.
+        return op.delegate(TextFile.reading(source as FileContentProvider), node);
+      }, status: 'Opening ${node.name}…');
     } on OperationCanceled {
       // Передумали — это обычный ход дела, а не беда: экран не открывается, и
       // говорить не о чем.
@@ -123,10 +128,10 @@ class EditFileCommand extends AppCommand {
   /// Пустят ли писать. Провайдер, который отвечать не умеет, не обещает
   /// ничего — тогда всё как раньше: узнаем при сохранении.
   ///
-  /// Спрашивается это работой панели, потому что спрашивать бывает далеко: по
-  /// ssh проба — поход на сервер, и без занятости он был бы вторым немым
-  /// замиранием, ради избавления от которого затевался Г9.
-  Future<bool> _canWrite(CommandContext context, FsNode node) async {
+  /// Спрашивается это звеном общей цепочки, потому что спрашивать бывает
+  /// далеко: по ssh проба — поход на сервер, и сама по себе она была бы вторым
+  /// немым замиранием, ради избавления от которого затевался Г9.
+  Future<bool> _canWrite(TaskOperation<void, TextFile> op, FsNode node) async {
     final provider = node.provider;
     if (provider is! WriteAccessCheck) {
       return true;
@@ -136,14 +141,9 @@ class EditFileCommand extends AppCommand {
     // поэтому касты стоят и у соседних умений провайдера.
     final check = provider as WriteAccessCheck;
 
+    op.report(message: 'Checking ${node.name}…');
     try {
-      return await context.panel.runWork(
-        TaskOperation<FsNode, bool>((op, target) async {
-          op.report(message: 'Checking ${target.name}…');
-          return check.canWriteTo(target);
-        }),
-        node,
-      );
+      return await check.canWriteTo(node);
     } on FsError {
       // Не смогли выяснить — не выдумываем: молчим, как провайдер без проверки
       // вовсе. Отмену не глотаем: её разбирает вызывающий.

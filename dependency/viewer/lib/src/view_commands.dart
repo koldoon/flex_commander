@@ -46,16 +46,14 @@ class ViewFileCommand extends AppCommand {
       return;
     }
 
-    // Открытие ведёт панель: файл может лежать на сервере, и до появления
-    // экрана проходят секунды. Точка прерывания у просмотрщиков уже есть — ею
-    // пользуется быстрый просмотр, — и отдаётся она прямо из работы.
-    final reading = TaskOperation<FsNode, ViewportState>((op, target) async {
-      op.report(message: 'Reading ${target.name}…');
-      return openViewer(context.app, target, ViewerPlace.fullscreen, checkpoint: op.checkpoint);
-    });
-
     try {
-      final content = await context.panel.runWork(reading, node);
+      // Открытие ведёт панель: файл может лежать на сервере, и до появления
+      // экрана проходят секунды. Точка прерывания у просмотрщиков уже есть —
+      // ею пользуется быстрый просмотр, — и отдаётся она прямо из работы.
+      final content = await context.panel.runWork<ViewportState>((op) async {
+        op.report(message: 'Reading ${node.name}…');
+        return openViewer(context.app, node, ViewerPlace.fullscreen, checkpoint: op.checkpoint);
+      });
       context.app.view.pushViewportContent(ViewportPosition.fullscreen, content);
     } on OperationCanceled {
       // Передумали — обычный ход дела: экран не открывается, говорить не о чем.

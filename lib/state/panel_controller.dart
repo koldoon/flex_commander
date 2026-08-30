@@ -557,7 +557,9 @@ class PanelController extends ChangeNotifier implements Panel {
   void cancel() => _operation?.cancel();
 
   @override
-  Future<R> runWork<P, R>(Operation<P, R> operation, P params, {String status = 'Loading…'}) async {
+  Future<R> runWork<R>(Future<R> Function(TaskOperation<void, R> op) body, {String status = 'Loading…'}) async {
+    final operation = TaskOperation<void, R>((op, _) => body(op));
+
     // Прежняя работа уступает место, а не отказывает новой: правило то же, что
     // у чтения каталога, — последнее сказанное человеком главнее.
     _operation?.cancel();
@@ -571,7 +573,7 @@ class PanelController extends ChangeNotifier implements Panel {
     final release = _followProgress(operation, requestId);
     notifyListeners();
 
-    operation.start(params);
+    operation.start(null);
     try {
       return await operation.result;
     } finally {
