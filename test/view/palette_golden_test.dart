@@ -5,7 +5,8 @@ import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Снимок палитры команд: список с поиском, модуль за названием, клавиши справа.
+/// Снимок палитры команд: список с поиском, описание за названием, клавиши
+/// справа.
 ///
 /// Обновление: `flutter test --update-goldens`.
 void main() {

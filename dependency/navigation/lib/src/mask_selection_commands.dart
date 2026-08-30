@@ -191,6 +191,9 @@ class _MaskDialogFormState extends State<MaskDialogForm> {
   final FocusNode _focus = FocusNode(debugLabel: 'mask');
   int _selected = -1;
 
+  /// Размер страницы для `PgUp`/`PgDn`: список меряет обзор и кладёт его сюда.
+  final FcPickPage _page = FcPickPage();
+
   @override
   void dispose() {
     _field.dispose();
@@ -203,7 +206,7 @@ class _MaskDialogFormState extends State<MaskDialogForm> {
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     final found = _found;
-    final moved = FcPickList.moveSelection(event, selected: _selected, count: found.length, wrap: false);
+    final moved = FcPickList.moveSelection(event, selected: _selected, count: found.length, wrap: false, page: _page);
     if (moved == null) {
       return KeyEventResult.ignored;
     }
@@ -267,6 +270,7 @@ class _MaskDialogFormState extends State<MaskDialogForm> {
                     rows: found,
                     query: _field.text,
                     selected: _selected,
+                    page: _page,
                     onTap: (mask) {
                       setState(() => _write(mask));
                       state.submit();

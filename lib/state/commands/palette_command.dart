@@ -74,6 +74,9 @@ class CommandPaletteCommand extends AppCommand {
           PaletteItem(
             id: command.id,
             label: command.label,
+            // Что команда делает — её же словами: описание объявлено рядом с
+            // названием и в справке стоит то же самое.
+            description: command.description,
             owner: registry.ownerOf(command.id),
             // Клавиши берутся у реестра, поэтому переназначение видно сразу и
             // разойтись с действительностью не может.

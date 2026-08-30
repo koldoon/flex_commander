@@ -13,6 +13,7 @@ class PaletteItem {
     required this.label,
     required this.owner,
     required this.keys,
+    this.description = '',
     this.keywords = const [],
   });
 
@@ -21,7 +22,18 @@ class PaletteItem {
 
   final String label;
 
+  /// Что команда делает — одним коротким предложением, рядом с названием.
+  ///
+  /// Ровно тот вопрос, ради которого в палитру заходят с полузнакомой командой.
+  /// Пустое — пустое место: у «Cursor up» объяснять нечего, и подставлять туда
+  /// модуль ради заполненной колонки нельзя.
+  final String description;
+
   /// Название модуля: «Copy» бывает и у файловых операций, и у просмотрщика.
+  ///
+  /// В строке его не видно — там стоит [description], — но искать по нему
+  /// по-прежнему можно: `term` находит команды терминала. Поэтому модуль и
+  /// уходит к синонимам, в невидимые признаки.
   final String owner;
 
   /// Клавиши, за которыми команда закреплена, — уже строками.
@@ -34,7 +46,13 @@ class PaletteItem {
   /// нечего.
   final List<String> keywords;
 
-  FcPickRow get row => FcPickRow(id: id, title: label, subtitle: owner, trailing: keys, keywords: keywords);
+  FcPickRow get row => FcPickRow(
+    id: id,
+    title: label,
+    subtitle: description,
+    trailing: keys,
+    keywords: [...keywords, if (owner.isNotEmpty) owner],
+  );
 }
 
 /// Палитра команд: список всего, что можно сделать сейчас, с поиском.
@@ -78,6 +96,9 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
   /// их истолковать.
   late final FocusNode _field = FocusNode(debugLabel: 'palette', onKeyEvent: _onKey);
 
+  /// Размер страницы для `PgUp`/`PgDn`: список меряет обзор и кладёт его сюда.
+  final FcPickPage _page = FcPickPage();
+
   int _selected = 0;
 
   @override
@@ -120,7 +141,7 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     final found = _found;
-    final moved = FcPickList.moveSelection(event, selected: _selected, count: found.length);
+    final moved = FcPickList.moveSelection(event, selected: _selected, count: found.length, page: _page);
     if (moved != null) {
       setState(() => _selected = moved < 0 ? found.length - 1 : moved);
       return KeyEventResult.handled;
@@ -160,7 +181,13 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
             ),
             ConstrainedBox(
               constraints: BoxConstraints(maxHeight: _listHeight(metrics, limits.maxHeight - bottom)),
-              child: FcPickList(rows: _found, query: _query.text, selected: _selected, onTap: widget.onRun),
+              child: FcPickList(
+                rows: _found,
+                query: _query.text,
+                selected: _selected,
+                page: _page,
+                onTap: widget.onRun,
+              ),
             ),
             SizedBox(height: bottom),
           ],

@@ -3,14 +3,14 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Отбор палитры: буквы запроса ищутся по порядку, но не подряд.
 void main() {
-  PaletteMatch? match(String query, String label, {String owner = 'Module'}) =>
-      matchCommand(query, label: label, owner: owner);
+  PaletteMatch? match(String query, String label, {List<String> keywords = const []}) =>
+      matchCommand(query, label: label, keywords: keywords);
 
   /// Порядок, в котором палитра покажет эти названия по этому запросу.
-  List<String> order(String query, List<(String, String)> commands) {
+  List<String> order(String query, List<String> labels) {
     final found = [
-      for (final (label, owner) in commands)
-        if (match(query, label, owner: owner) case final result?) (label, result),
+      for (final label in labels)
+        if (match(query, label) case final result?) (label, result),
     ]..sort((a, b) => a.$2.compareTo(b.$2));
     return [for (final (label, _) in found) label];
   }
@@ -43,14 +43,15 @@ void main() {
   });
 
   test('при равном весе выигрывает короткое название', () {
-    expect(order('copy', [('Copy path to clipboard', 'M'), ('Copy', 'M')]), ['Copy', 'Copy path to clipboard']);
+    expect(order('copy', ['Copy path to clipboard', 'Copy']), ['Copy', 'Copy path to clipboard']);
   });
 
-  test('ищется и по модулю, но весит меньше', () {
-    final byOwner = match('term', 'Toggle typing', owner: 'Terminal')!;
-    final byLabel = match('term', 'Terminal session', owner: 'Shell')!;
+  test('ищется и по модулю — синонимом, — но весит меньше', () {
+    // Модуля в строке не видно (там описание команды), а находить по нему
+    // по-прежнему надо: `term` должен приводить к командам терминала.
+    final byOwner = match('term', 'Toggle typing', keywords: const ['Terminal'])!;
+    final byLabel = match('term', 'Terminal session', keywords: const ['Shell'])!;
 
-    expect(byOwner.ownerHits, isNotEmpty);
     expect(byOwner.labelHits, isEmpty);
     expect(byLabel.score, greaterThan(byOwner.score), reason: 'название ближе к делу, чем то, кем команда принесена');
   });
@@ -61,39 +62,39 @@ void main() {
       // вовсе: команда есть, делает ровно то, что просят, а на запрос не
       // отзывается.
       expect(match('gz', 'Mk Tar'), isNull);
-      expect(matchCommand('gz', label: 'Mk Tar', owner: 'Tar', keywords: const ['tar.gz', 'tgz']), isNotNull);
+      expect(matchCommand('gz', label: 'Mk Tar', keywords: const ['tar.gz', 'tgz']), isNotNull);
     });
 
     test('весят меньше названия', () {
-      final byKeyword = matchCommand('tgz', label: 'Mk Tar', owner: 'Tar', keywords: const ['tgz'])!;
-      final byLabel = matchCommand('tgz', label: 'Mk Tgz', owner: 'Tar')!;
+      final byKeyword = matchCommand('tgz', label: 'Mk Tar', keywords: const ['tgz'])!;
+      final byLabel = matchCommand('tgz', label: 'Mk Tgz')!;
 
       expect(byLabel.score, greaterThan(byKeyword.score));
     });
 
     test('подсвечивать в них нечего: в списке их не видно', () {
-      final found = matchCommand('gzip', label: 'Mk Tar', owner: 'Tar', keywords: const ['gzip'])!;
+      final found = matchCommand('gzip', label: 'Mk Tar', keywords: const ['gzip'])!;
 
       expect(found.labelHits, isEmpty);
-      expect(found.ownerHits, isEmpty);
     });
 
     test('в счёт идёт лучший синоним, а не первый совпавший', () {
       // Порядок объявления — не мера того, насколько слово подошло: `set` с
       // начала слова весит больше, чем из середины, где бы оно ни стояло в
       // списке.
-      final first = matchCommand('set', label: 'X', owner: 'M', keywords: const ['reset', 'settings'])!;
-      final reversed = matchCommand('set', label: 'X', owner: 'M', keywords: const ['settings', 'reset'])!;
+      final first = matchCommand('set', label: 'X', keywords: const ['reset', 'settings'])!;
+      final reversed = matchCommand('set', label: 'X', keywords: const ['settings', 'reset'])!;
 
       expect(first.score, reversed.score);
     });
 
-    test('спрашиваются раньше модуля: синоним про дело, модуль про принёсшего', () {
-      final byKeyword = matchCommand('gz', label: 'Mk Tar', owner: 'Gz archives', keywords: const ['gz'])!;
+    test('модуль стоит среди них и спорит с ними на равных', () {
+      // Модуль переехал к синонимам, и лучший из них берётся общим правилом:
+      // «Gz archives» отзовётся на `gz` не хуже самого синонима `gz`.
+      final withOwner = matchCommand('gz', label: 'Mk Tar', keywords: const ['tgz', 'Gz archives'])!;
+      final keywordOnly = matchCommand('gz', label: 'Mk Tar', keywords: const ['gz'])!;
 
-      // Совпало и там, и там, но совпадение по модулю подсветилось бы в чужом
-      // месте — а веса у них одинаковые, и разрешает спор порядок.
-      expect(byKeyword.ownerHits, isEmpty);
+      expect(withOwner.score, keywordOnly.score);
     });
   });
 

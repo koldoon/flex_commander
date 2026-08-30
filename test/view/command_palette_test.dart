@@ -51,11 +51,11 @@ void main() {
 
     /// Кто найдётся по такому запросу тем же отбором, каким ищет палитра.
     ///
-    /// Модуль нарочно пуст: проверяются синонимы, и попадание по названию
-    /// модуля здесь только запутало бы ответ.
+    /// Модуль нарочно не подаётся: проверяются синонимы, и попадание по
+    /// названию модуля здесь только запутало бы ответ.
     List<String> foundBy(String query) => [
       for (final command in installed())
-        if (matchCommand(query, label: command.label, owner: '', keywords: command.keywords) != null) command.label,
+        if (matchCommand(query, label: command.label, keywords: command.keywords) != null) command.label,
     ];
 
     test('синоним, который и так находится по названию, — мёртвый груз', () {
@@ -64,7 +64,7 @@ void main() {
         for (final keyword in command.keywords) {
           // Тот же отбор, но без синонимов: нашлось — значит слово ничего не
           // добавляет, а список синонимов растёт и вводит в заблуждение.
-          if (matchCommand(keyword, label: command.label, owner: '') != null) {
+          if (matchCommand(keyword, label: command.label) != null) {
             dead.add('${command.label}: $keyword');
           }
         }
@@ -217,6 +217,86 @@ void main() {
     final recent = runtime.app.settings.modules.scope('fc.shell').section(ShellSettings.new).recentCommands;
     expect(recent, isNotEmpty);
     expect(first, isNot(contains(recent.first)));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('рядом с названием стоит описание команды, а не модуль', (tester) async {
+    await openPalette(tester);
+    await tester.enterText(field(), 'hidden');
+    await tester.pumpAndSettle();
+
+    final command = runtime.commands.find('panel.toggleHidden')!;
+    expect(command.description, isNotEmpty, reason: 'иначе проверять нечего');
+    expect(rows(tester).first, contains(command.description));
+    // Модуль в строке не показывается: он сообщал ровно то, что и так видно по
+    // названию.
+    expect(rows(tester).first, isNot(contains(runtime.resolve<CommandRegistry>().ownerOf(command.id))));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('команда без описания показывается одним названием', (tester) async {
+    await openPalette(tester);
+    // У «Cursor up» объяснять нечего, и подставлять туда модуль ради
+    // заполненной колонки нельзя.
+    final command = runtime.commands.find('panel.cursor.up')!;
+    expect(command.description, isEmpty, reason: 'иначе проверять нечего');
+
+    await tester.enterText(field(), command.label);
+    await tester.pumpAndSettle();
+
+    expect(rows(tester).first.trim(), command.label);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('по названию модуля команда по-прежнему находится', (tester) async {
+    // Модуль переехал в невидимые признаки, к синонимам: читать его в строке
+    // нечего, а искать по нему надо.
+    await openPalette(tester);
+    await tester.enterText(field(), 'navigation');
+    await tester.pumpAndSettle();
+
+    expect(rows(tester), isNotEmpty);
+    expect(find.textContaining('Nothing found'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('PgDn двигает выбор на страницу, PgUp у края упирается в первую', (tester) async {
+    await openPalette(tester);
+
+    final theme = FcTheme.of(tester.element(find.byType(FcPickList)));
+    final line = theme.metrics.rowHeight + theme.metrics.rowGap;
+    // Строк в обзоре — столько же, сколько намерил себе сам список.
+    final visible = (tester.getRect(find.byType(FcPickList)).height / line).round();
+    expect(visible, greaterThan(3), reason: 'иначе страницы не отличить от строки');
+
+    /// Которая строка подсвечена.
+    int selected() {
+      final rows = tester.widgetList<Container>(
+        find.descendant(of: find.byType(FcPickList), matching: find.byType(Container)),
+      );
+      return rows.toList().indexWhere((row) => row.color == theme.colors.cursorBackground);
+    }
+
+    expect(selected(), 0);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+    await tester.pumpAndSettle();
+    // Видимые строки минус одна: перекрытие не даёт потерять место, где
+    // остановился взгляд.
+    expect(selected(), visible - 1);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageUp);
+    await tester.pumpAndSettle();
+    expect(selected(), 0);
+
+    // И ещё раз вверх — упор, а не заворот в конец списка.
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageUp);
+    await tester.pumpAndSettle();
+    expect(selected(), 0);
 
     await tester.pump(const Duration(milliseconds: 20));
   });

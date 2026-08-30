@@ -9,7 +9,7 @@ import 'palette_search.dart';
 ///
 /// Три части, и все необязательны, кроме первой: имя, приглушённое уточнение
 /// рядом с ним и приглушённое же примечание справа. У палитры это команда,
-/// модуль и клавиши; у истории адресов — только адрес.
+/// её описание и клавиши; у истории адресов — только адрес.
 class FcPickRow {
   const FcPickRow({
     required this.id,
@@ -24,8 +24,11 @@ class FcPickRow {
 
   final String title;
 
-  /// Уточнение сразу за именем: «Copy» бывает у файловых операций и у
-  /// просмотрщика.
+  /// Уточнение сразу за именем: у палитры — что команда делает.
+  ///
+  /// Показывается, но **не ищется**: уточнение — это предложение, и поиск по
+  /// нему выдавал бы всё сразу на любом общем слове. Для «нашлось не по
+  /// названию» есть [keywords].
   final String subtitle;
 
   /// Справа, приглушённо: клавиши, дата, размер — что угодно, что не спорит с
@@ -33,16 +36,34 @@ class FcPickRow {
   final String trailing;
 
   /// Слова, по которым строка находится, но которых в ней не видно: `gz` у
-  /// «Mk Tar». У истории адресов их нет — там ищут по самому пути.
+  /// «Mk Tar», название модуля у любой команды палитры. У истории адресов их
+  /// нет — там ищут по самому пути.
   final List<String> keywords;
 }
 
-/// Список с нечётким отбором, подсветкой совпавшего и ходом стрелками.
+/// Сколько строк помещается в обзоре списка; от этого считается шаг
+/// `PgUp`/`PgDn`.
 ///
-/// Общий у палитры команд и истории адресов: показ строки и отбор у них
-/// одинаковые, и держать это в двух местах — верный способ разойтись. А вот
-/// смысл `Enter` у них разный (запустить против «вписать в поле»), поэтому
-/// нажатие список не толкует: он сообщает о выборе, а решает вызывающий.
+/// Записка на двоих: заполняет её сам список — высоту ему даёт рама окна, и до
+/// первой раскладки её не знает никто, — а читает [FcPickList.moveSelection],
+/// которую зовут снаружи, из разбора клавиш. Так же устроен и шаг страницы в
+/// панели: число видимых строк выставляет таблица, а пользуется им команда
+/// (`panel.pageSize`).
+///
+/// Вызывающему остаётся одно: завести её и отдать в оба места.
+class FcPickPage {
+  /// Строк в обзоре; 0 — списка на экране ещё нет.
+  int size = 0;
+}
+
+/// Список с нечётким отбором, подсветкой совпавшего и ходом стрелками и
+/// страницами.
+///
+/// Общий у палитры команд, истории адресов и окна масок: показ строки, отбор и
+/// ход по списку у них одинаковые, и держать это в трёх местах — верный способ
+/// разойтись. А вот смысл `Enter` у них разный (запустить против «вписать в
+/// поле»), поэтому нажатие список не толкует: он сообщает о выборе, а решает
+/// вызывающий.
 class FcPickList extends StatefulWidget {
   const FcPickList({
     super.key,
@@ -52,6 +73,7 @@ class FcPickList extends StatefulWidget {
     required this.onTap,
     this.emptyMessage = 'Nothing found',
     this.textInset,
+    this.page,
   });
 
   final List<FcPickRow> rows;
@@ -72,6 +94,9 @@ class FcPickList extends StatefulWidget {
   /// за подписью, и список обязан встать под ним, а не под подписью.
   final double? textInset;
 
+  /// Куда сообщать размер страницы. Пусто — `PgUp`/`PgDn` списку не нужны.
+  final FcPickPage? page;
+
   @override
   State<FcPickList> createState() => _FcPickListState();
 
@@ -82,7 +107,7 @@ class FcPickList extends StatefulWidget {
   static List<FcPickRow> filter(List<FcPickRow> rows, String query, {List<String> recent = const []}) {
     final found = <(FcPickRow, PaletteMatch)>[];
     for (final row in rows) {
-      final match = matchCommand(query, label: row.title, owner: row.subtitle, keywords: row.keywords);
+      final match = matchCommand(query, label: row.title, keywords: row.keywords);
       if (match != null) {
         found.add((row, match));
       }
@@ -110,14 +135,41 @@ class FcPickList extends StatefulWidget {
   ///
   /// Здесь же и правило края: с первой строки вверх — «никуда» (-1), чтобы
   /// вызывающий мог вернуть набранное руками.
-  static int? moveSelection(KeyEvent event, {required int selected, required int count, bool wrap = true}) {
+  ///
+  /// [page] нужна только для `PgUp`/`PgDn`: без неё страница не пройдена и обе
+  /// клавиши остаются вызывающему.
+  static int? moveSelection(
+    KeyEvent event, {
+    required int selected,
+    required int count,
+    bool wrap = true,
+    FcPickPage? page,
+  }) {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return null;
     }
-    final down = event.logicalKey == LogicalKeyboardKey.arrowDown;
-    final up = event.logicalKey == LogicalKeyboardKey.arrowUp;
-    if (!down && !up || count == 0) {
+    final key = event.logicalKey;
+    final down = key == LogicalKeyboardKey.arrowDown;
+    final up = key == LogicalKeyboardKey.arrowUp;
+    final pageDown = page != null && key == LogicalKeyboardKey.pageDown;
+    final pageUp = page != null && key == LogicalKeyboardKey.pageUp;
+    if (count == 0 || !(down || up || pageDown || pageUp)) {
       return null;
+    }
+
+    if (pageDown || pageUp) {
+      // Страница — видимые строки минус одна, как в панели: перекрытие в одну
+      // строку не даёт потерять место, где остановился взгляд. Пока список не
+      // раскладывали, страницы нет — тогда шаг в строку, как у стрелки.
+      final step = (page.size - 1).clamp(1, count);
+      // Из поля вверх страницей идти некуда: наверху списка ничего не выбрано и
+      // так.
+      if (pageUp && selected < 0) {
+        return null;
+      }
+      // У края — упор, а не заворот: стрелка по кругу читается как ход, а
+      // страница с конца в начало от одного нажатия — как потеря места.
+      return (selected + (pageDown ? step : -step)).clamp(0, count - 1);
     }
 
     final next = selected + (down ? 1 : -1);
@@ -150,6 +202,24 @@ class _FcPickListState extends State<FcPickList> {
     }
   }
 
+  /// Сколько строк видно — вызывающему, для шага страницы.
+  ///
+  /// Меряется после раскладки и по обзору прокрутки, а не `LayoutBuilder`ом:
+  /// тот не умеет отвечать на вопрос о собственной ширине — тот самый, который
+  /// рама окна задаёт каждому окну (`IntrinsicWidth`).
+  void _measurePage() {
+    final page = widget.page;
+    if (page == null || !mounted) {
+      return;
+    }
+    if (!_scroll.hasClients) {
+      page.size = 0;
+      return;
+    }
+    final metrics = FcTheme.of(context).metrics;
+    page.size = (_scroll.position.viewportDimension / (metrics.rowHeight + metrics.rowGap)).floor();
+  }
+
   void _showSelected() {
     if (!_scroll.hasClients || widget.selected < 0) {
       return;
@@ -169,6 +239,12 @@ class _FcPickListState extends State<FcPickList> {
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
+
+    if (widget.page != null) {
+      // Обзор известен только после раскладки: до неё у прокрутки нет ни
+      // высоты, ни самой позиции.
+      WidgetsBinding.instance.addPostFrameCallback((_) => _measurePage());
+    }
 
     if (widget.rows.isEmpty) {
       return Padding(
@@ -201,7 +277,7 @@ class _FcPickListState extends State<FcPickList> {
     final base = TextStyle(fontFamily: theme.fonts.ui, fontSize: metrics.fontSize);
     final bright = base.copyWith(color: current ? colors.cursorText : colors.dialogLabel);
     final dim = base.copyWith(color: colors.dialogText);
-    final match = matchCommand(widget.query, label: row.title, owner: row.subtitle);
+    final match = matchCommand(widget.query, label: row.title);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -221,10 +297,9 @@ class _FcPickListState extends State<FcPickList> {
                 TextSpan(
                   children: [
                     ...highlightMatch(row.title, match?.labelHits ?? const [], bright),
-                    if (row.subtitle.isNotEmpty) ...[
-                      const TextSpan(text: '   '),
-                      ...highlightMatch(row.subtitle, match?.ownerHits ?? const [], dim),
-                    ],
+                    // Уточнение без подсветки: по нему не ищут, и подсвечивать
+                    // в нём нечего.
+                    if (row.subtitle.isNotEmpty) TextSpan(text: '   ${row.subtitle}', style: dim),
                   ],
                 ),
                 maxLines: 1,

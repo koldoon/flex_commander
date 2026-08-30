@@ -554,6 +554,39 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
     });
 
+    testWidgets('PgUp и PgDn ходят по истории страницами', (tester) async {
+      // Список у истории тот же, что у палитры, и повадкой им расходиться
+      // незачем: страницы живут в самом списке.
+      final runtime = await app();
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      seed(runtime, [for (var i = 1; i <= 12; i++) '/a${i.toString().padLeft(2, '0')}']);
+      await tester.pumpAndSettle();
+
+      await openDialog(tester, runtime);
+
+      String typed() => tester.widget<TextField>(dialogField()).controller?.text ?? '';
+
+      // В обзоре десять строк, значит страница — девять: из поля вниз попадаем
+      // на девятую по счёту.
+      await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+      await tester.pumpAndSettle();
+      expect(typed(), '/a09');
+
+      // У нижнего края — упор, а не заворот в начало.
+      await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+      await tester.pumpAndSettle();
+      expect(typed(), '/a12');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.pageUp);
+      await tester.pumpAndSettle();
+      expect(typed(), '/a03');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
     testWidgets('набранное отбирает список нечётко', (tester) async {
       final runtime = await app();
       await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));

@@ -6,7 +6,7 @@ library;
 
 /// Что нашлось в одной строке списка.
 class PaletteMatch implements Comparable<PaletteMatch> {
-  const PaletteMatch({required this.score, required this.labelHits, required this.ownerHits, required this.length});
+  const PaletteMatch({required this.score, required this.labelHits, required this.length});
 
   /// Вес совпадения; больше — выше в списке.
   final double score;
@@ -16,9 +16,6 @@ class PaletteMatch implements Comparable<PaletteMatch> {
   /// Без подсветки непонятно, почему строка вообще нашлась: `cpf` в `Copy File`
   /// со стороны выглядит случайностью.
   final List<int> labelHits;
-
-  /// То же для названия модуля.
-  final List<int> ownerHits;
 
   /// Длина названия: при равном весе выигрывает короткое — `Copy` перед
   /// `Copy path to clipboard`.
@@ -41,28 +38,21 @@ class PaletteMatch implements Comparable<PaletteMatch> {
 /// вразбивку; при равном весе выигрывает короткое название (это уже в
 /// [PaletteMatch.compareTo]).
 ///
-/// Совпадение по модулю весит вдвое меньше: `term` должен находить команды
-/// терминала, но название всё же ближе к делу, чем то, кем команда принесена.
-///
 /// [keywords] — слова, которых в названии нет, а искать по ним будут: `gz` для
-/// «Mk Tar», умеющей `.tar.gz`. Весят они столько же, сколько модуль, но
-/// спрашиваются раньше: синоним — про само дело, а модуль лишь про то, кем
-/// команда принесена. Подсвечивать в них нечего — в списке их не видно, и
-/// подсветка указывала бы на буквы, которых там нет.
-PaletteMatch? matchCommand(
-  String query, {
-  required String label,
-  required String owner,
-  Iterable<String> keywords = const [],
-}) {
+/// «Mk Tar», умеющей `.tar.gz`, и название модуля у любой команды палитры
+/// (`term` должен находить команды терминала). Весят они вдвое меньше названия:
+/// название всё же ближе к делу, чем синоним или то, кем команда принесена.
+/// Подсвечивать в них нечего — в списке их не видно, и подсветка указывала бы
+/// на буквы, которых там нет.
+PaletteMatch? matchCommand(String query, {required String label, Iterable<String> keywords = const []}) {
   final trimmed = query.trim();
   if (trimmed.isEmpty) {
-    return PaletteMatch(score: 0, labelHits: const [], ownerHits: const [], length: label.length);
+    return PaletteMatch(score: 0, labelHits: const [], length: label.length);
   }
 
   final byLabel = _match(trimmed, label);
   if (byLabel != null) {
-    return PaletteMatch(score: byLabel.score, labelHits: byLabel.hits, ownerHits: const [], length: label.length);
+    return PaletteMatch(score: byLabel.score, labelHits: byLabel.hits, length: label.length);
   }
 
   // Лучший из синонимов, а не первый совпавший: их у команды несколько, и
@@ -75,12 +65,7 @@ PaletteMatch? matchCommand(
     }
   }
   if (best != null) {
-    return PaletteMatch(score: best / 2, labelHits: const [], ownerHits: const [], length: label.length);
-  }
-
-  final byOwner = _match(trimmed, owner);
-  if (byOwner != null) {
-    return PaletteMatch(score: byOwner.score / 2, labelHits: const [], ownerHits: byOwner.hits, length: label.length);
+    return PaletteMatch(score: best / 2, labelHits: const [], length: label.length);
   }
 
   return null;

@@ -303,6 +303,9 @@ class _OpenPathFormState extends State<_OpenPathForm> {
   /// Строка истории, на которой стоим; -1 — ни на какой, в поле набранное.
   int _selected = -1;
 
+  /// Размер страницы для `PgUp`/`PgDn`: список меряет обзор и кладёт его сюда.
+  final FcPickPage _page = FcPickPage();
+
   @override
   void dispose() {
     _path.dispose();
@@ -316,7 +319,7 @@ class _OpenPathFormState extends State<_OpenPathForm> {
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     final found = _found;
     // Без истории клавиши списка ничего не значат: пусть достаются полю.
-    final moved = FcPickList.moveSelection(event, selected: _selected, count: found.length, wrap: false);
+    final moved = FcPickList.moveSelection(event, selected: _selected, count: found.length, wrap: false, page: _page);
     if (moved == null) {
       return KeyEventResult.ignored;
     }
@@ -403,6 +406,7 @@ class _OpenPathFormState extends State<_OpenPathForm> {
                     rows: _found,
                     query: _typed,
                     selected: _selected,
+                    page: _page,
                     textInset: inset,
                     onTap: (address) {
                       _field.requestFocus();
