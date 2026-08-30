@@ -22,7 +22,8 @@ import 'local_listing.dart';
 /// одним объектом. Байты для того же движка — обе половины сразу
 /// ([FileContentProvider] и [FileContentReceiver]): локальная ФС и отдаёт
 /// содержимое, и принимает.
-class LocalTreeProvider implements TreeProvider, NodeEditor, LinkEditor, FileContentProvider, FileContentReceiver {
+class LocalTreeProvider
+    implements TreeProvider, NodeEditor, LinkEditor, FileContentProvider, FileContentReceiver, WriteAccessCheck {
   LocalTreeProvider({String? homePath, this.readInIsolate = true, this.settings})
     : homePath = homePath ?? _detectHomePath();
 
@@ -501,6 +502,41 @@ class LocalTreeProvider implements TreeProvider, NodeEditor, LinkEditor, FileCon
       return File(path).openWrite();
     } on FileSystemException catch (error) {
       throw fsErrorFrom(path, error);
+    }
+  }
+
+  /// Пустят ли записать — попыткой, а не по битам режима.
+  ///
+  /// Биты описывают права владельца, а пишет тот, кто запустил приложение:
+  /// ответ по ним выходил бы то ложным, то пропущенным. Настоящий ответ даёт
+  /// открытие на дозапись — оно не обрезает файл, не меняет ни содержимого, ни
+  /// дат, и сразу закрывается.
+  ///
+  /// Каталог так не проверить: открыть его как файл нельзя. Для него вопрос
+  /// значит «можно ли создать в нём запись», и отвечает на это попытка
+  /// завести временное имя.
+  @override
+  Future<bool> canWriteTo(FsNode node) async {
+    final path = physicalPathOf(node);
+    if (node is DirectoryNode) {
+      final probe = File(p.join(path, '.fc-write-probe-${DateTime.now().microsecondsSinceEpoch}'));
+      try {
+        await probe.create(exclusive: true);
+        await probe.delete();
+        return true;
+      } on FileSystemException {
+        return false;
+      }
+    }
+
+    RandomAccessFile? handle;
+    try {
+      handle = await File(path).open(mode: FileMode.append);
+      return true;
+    } on FileSystemException {
+      return false;
+    } finally {
+      await handle?.close();
     }
   }
 

@@ -78,6 +78,13 @@ void main() {
       await tester.sendKeyEvent(LogicalKeyboardKey.f2);
       await tester.pumpAndSettle();
 
+      // Запись — единственное необратимое действие редактора, и она
+      // спрашивает: `Enter` в окне соглашается. Ищем именно окно: «Save»
+      // подписана и кнопка `F2` в ряду внизу.
+      expect(runtime.app.view.dialogs.single.title, 'Save changes');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
       expect(await contentOf('/home/notes.txt'), 'новое содержимое');
       expect(screen.modified, isFalse);
       await disposeScreen(tester);

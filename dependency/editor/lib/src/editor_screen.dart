@@ -21,6 +21,7 @@ class EditorScreen extends ChangeNotifier implements ViewportState, FcSearchable
     required TextFile file,
     required bool wordWrap,
     bool showLineNumbers = true,
+    this.readOnly = false,
     this.lease,
     this.onWrapChanged,
     this.onLineNumbersChanged,
@@ -36,6 +37,14 @@ class EditorScreen extends ChangeNotifier implements ViewportState, FcSearchable
 
   /// Что правим: из узла берётся и заголовок, и куда сохранять.
   final FsNode node;
+
+  /// Файл открыт только на чтение: писать в него не пустили, а показать и
+  /// поискать по нему всё равно надо.
+  ///
+  /// Правка выключена (`FcTextView.readOnly`), `editor.save` невыполнима, а в
+  /// заголовке вместо знака несохранённого стоит `read-only`. Спорить им не о
+  /// чем: в файле, который нельзя записать, несохранённому взяться неоткуда.
+  final bool readOnly;
 
   /// Аренда источника, из которого правим; null — общий корень.
   ///

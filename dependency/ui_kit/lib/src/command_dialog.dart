@@ -51,6 +51,12 @@ class CommandDialogForm extends StatelessWidget {
 }
 
 /// Подтверждение действия.
+///
+/// Утвердительных ответов бывает два: у выхода из редактора с несохранённым это
+/// «сохранить и выйти» и «выйти, потеряв правки». Второй объявляется через
+/// [alternativeLabel] и встаёт **между** отменой и основной кнопкой: слева
+/// направо ряд идёт от самого безобидного ответа к самому охотному, и `Enter`
+/// достаётся тому, что стоит последним.
 class CommandDialogConfirm extends StatelessWidget {
   const CommandDialogConfirm({
     super.key,
@@ -58,21 +64,38 @@ class CommandDialogConfirm extends StatelessWidget {
     required this.confirmLabel,
     required this.onCancel,
     required this.onConfirm,
+    this.alternativeLabel,
+    this.onAlternative,
     this.error,
-  });
+    this.busy = false,
+  }) : assert((alternativeLabel == null) == (onAlternative == null), 'Вторая кнопка — это подпись и обработчик разом');
 
   final String message;
   final String confirmLabel;
   final VoidCallback onCancel;
   final VoidCallback onConfirm;
+
+  /// Второй утвердительный ответ; пусто — окно остаётся двухкнопочным.
+  final String? alternativeLabel;
+  final VoidCallback? onAlternative;
+
   final String? error;
+
+  /// Ответ принят, и он оказался долгим: кнопки приглушены, пока идёт работа.
+  ///
+  /// Отмена при этом живой не остаётся: у окна, которое уже пишет файл, «не
+  /// надо» означало бы обрыв записи на середине, а обрывать её нечем.
+  final bool busy;
 
   @override
   Widget build(BuildContext context) {
+    final alternative = alternativeLabel;
+
     return CommandDialogBody(
       actions: [
-        FcButton(label: 'Cancel', onPressed: onCancel),
-        FcButton(label: confirmLabel, onPressed: onConfirm, primary: true),
+        FcButton(label: 'Cancel', onPressed: busy ? null : onCancel),
+        if (alternative != null) FcButton(label: alternative, onPressed: busy ? null : onAlternative),
+        FcButton(label: confirmLabel, onPressed: busy ? null : onConfirm, primary: true),
       ],
       children: [
         CommandDialogField.wide(child: Text(message, style: FcTheme.of(context).dialogTextStyle)),

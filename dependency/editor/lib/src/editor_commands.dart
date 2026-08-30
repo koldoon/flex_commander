@@ -1,7 +1,9 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:flutter/widgets.dart';
 
 import 'editor_screen.dart';
 import 'editor_settings.dart';
@@ -76,11 +78,20 @@ class EditFileCommand extends AppCommand {
       rethrow;
     }
 
+    // Права спрашиваются до открытия: узнать об отказе на `F2`, после часа
+    // работы, значит остаться с текстом, который некуда деть, — «Save As» у
+    // редактора нет.
+    final readOnly = !await _canWrite(node);
+    if (readOnly && !await _agreesToReadOnly(context, node)) {
+      return;
+    }
+
     context.app.view.pushViewportContent(
       ViewportPosition.fullscreen,
       EditorScreen(
         node: node,
         file: file,
+        readOnly: readOnly,
         // Правку архива не закончить, если панель из него выйдет: аренда
         // держится до закрытия экрана.
         lease: context.panel.leaseProvider(),
@@ -96,6 +107,58 @@ class EditFileCommand extends AppCommand {
         },
       ),
     );
+  }
+
+  /// Пустят ли писать. Провайдер, который отвечать не умеет, не обещает
+  /// ничего — тогда всё как раньше: узнаем при сохранении.
+  Future<bool> _canWrite(FsNode node) async {
+    final provider = node.provider;
+    if (provider is! WriteAccessCheck) {
+      return true;
+    }
+    try {
+      // Каст, а не продвижение типа: `WriteAccessCheck` наследником
+      // `TreeProvider` не является, а Dart сужает тип только до подтипа —
+      // ровно поэтому касты стоят и у соседних умений провайдера.
+      return await (provider as WriteAccessCheck).canWriteTo(node);
+    } on FsError {
+      // Не смогли выяснить — не выдумываем: молчим, как провайдер без
+      // проверки вовсе.
+      return true;
+    }
+  }
+
+  /// Спросить, открывать ли то, что нельзя будет записать.
+  ///
+  /// Открыть — можно: файл показывается, поиск по нему работает, правка
+  /// выключена. Молчаливое открытие «как обычно» хуже: час работы упёрся бы в
+  /// отказ на `F2`.
+  Future<bool> _agreesToReadOnly(CommandContext context, FsNode node) {
+    final view = context.app.view;
+    final answer = Completer<bool>();
+    late final String dialogId;
+    void reply(bool value) {
+      view.closeDialog(dialogId);
+      if (!answer.isCompleted) {
+        answer.complete(value);
+      }
+    }
+
+    dialogId = view.showDialog(
+      DialogSpec(
+        title: 'Read-only file',
+        content: CommandDialogConfirm(
+          message: '${node.displayPath} cannot be written. Open it for reading?',
+          confirmLabel: 'Open read-only',
+          onCancel: () => reply(false),
+          onConfirm: () => reply(true),
+        ),
+        onSubmit: () => reply(true),
+        onDismiss: () => reply(false),
+      ),
+    );
+
+    return answer.future;
   }
 }
 
@@ -127,19 +190,58 @@ class SaveFileCommand extends AppCommand {
 
   /// Сохранять нечего, пока ничего не меняли: кнопка приглушена, а не делает
   /// вид, что сработала.
+  ///
+  /// В файле, открытом только на чтение, сохранять нечего никогда: правки в нём
+  /// взяться неоткуда, а обещать запись, которой не будет, — хуже отказа.
   @override
-  bool isExecutable(CommandContext context) => _editorOf(context.app)?.modified ?? false;
+  bool isExecutable(CommandContext context) {
+    final screen = _editorOf(context.app);
+    return screen != null && screen.modified && !screen.readOnly;
+  }
 
+  /// Спрашивает перед записью — единственным необратимым действием редактора.
+  ///
+  /// Спрашивает **всегда**, на какой бы клавише её ни позвали: `F2` соседствует
+  /// с `F3` и `F5`, а `Cmd-S` — нет, но команда одна, и разное поведение у
+  /// одной команды запрещено сквозным правилом. К тому же о клавише
+  /// [CommandContext] и не знает.
   @override
   Future<void> execute(CommandContext context) async {
     final screen = _editorOf(context.app) ?? _editorOf(_app);
-    if (screen == null || !screen.modified) {
+    if (screen == null || !screen.modified || screen.readOnly) {
       return;
     }
 
-    await saveEditor(screen);
-    context.app.toasts.show('Saved ${screen.node.name}');
+    final view = context.app.view;
+    late final String dialogId;
+    void close() => view.closeDialog(dialogId);
+
+    Future<void> save() async {
+      // Окно уходит до записи: неудача покажется как есть, слоем ошибок, а
+      // держать поверх него ещё и вопрос, на который уже ответили, незачем.
+      close();
+      await saveEditor(screen);
+      context.app.toasts.show('Saved ${screen.node.name}');
+    }
+
+    dialogId = view.showDialog(
+      DialogSpec(
+        title: dialogTitle,
+        content: CommandDialogConfirm(
+          // Полный путь, а не одно имя: соглашаются на конкретный файл, и в
+          // системном каталоге это важнее всего.
+          message: 'Save changes to ${screen.node.displayPath}?',
+          confirmLabel: 'Save',
+          onCancel: close,
+          onConfirm: () => unawaited(save()),
+        ),
+        onSubmit: () => unawaited(save()),
+        onDismiss: close,
+      ),
+    );
   }
+
+  String get dialogTitle => 'Save changes';
 }
 
 /// Записывает содержимое экрана в файл.
@@ -316,8 +418,11 @@ class CloseEditorCommand extends AppCommand {
   /// Закрыть — и спросить по дороге, если есть что терять.
   ///
   /// Вопрос задаётся не всегда, и решает это сама команда: снаружи «есть ли у
-  /// неё окно» больше никого не касается. Состояния прогона у неё нет — окно
-  /// живёт само, а команда, показав его, уходит.
+  /// неё окно» больше никого не касается.
+  ///
+  /// Ответов три, и основной — «сохранить». `Enter` раньше доставался
+  /// `Discard`, то есть самое частое «да, я закончил» стирало работу; теперь он
+  /// сохраняет, а потерять правки можно только явно нажав `Discard`.
   @override
   Future<void> execute(CommandContext context) async {
     final view = context.app.view;
@@ -326,32 +431,89 @@ class CloseEditorCommand extends AppCommand {
       return;
     }
 
-    void discard() => view.popViewportContent(ViewportPosition.fullscreen);
+    void leave() => view.popViewportContent(ViewportPosition.fullscreen);
 
     if (!screen.modified) {
-      discard();
+      leave();
       return;
     }
 
+    final state = _QuitState();
     late final String dialogId;
-    void close() => view.closeDialog(dialogId);
-    void confirm() {
+    void close() {
+      view.closeDialog(dialogId);
+      state.dispose();
+    }
+
+    void discard() {
       close();
-      discard();
+      leave();
+    }
+
+    Future<void> save() async {
+      if (state.busy) {
+        return;
+      }
+      state.started();
+      try {
+        // То же самое сохранение, что и на `F2`, — и подтверждения оно не
+        // просит: согласие уже дано, вопрос был ровно про это.
+        await saveEditor(screen);
+      } on FsError catch (error) {
+        // Не записалось — экран остаётся открытым, а ошибка живёт в этом же
+        // окне: уйти, унеся правки, это ровно то, чего просили не делать.
+        state.failed(error.message);
+        return;
+      } on Object catch (error) {
+        state.failed('$error');
+        return;
+      }
+      close();
+      leave();
     }
 
     dialogId = view.showDialog(
       DialogSpec(
         title: dialogTitle,
-        content: CommandDialogConfirm(
-          message: '${screen.node.name} has unsaved changes. Close and lose them?',
-          confirmLabel: 'Discard',
-          onCancel: close,
-          onConfirm: confirm,
+        content: ListenableBuilder(
+          listenable: state,
+          builder:
+              (context, _) => CommandDialogConfirm(
+                message: '${screen.node.name} has unsaved changes.',
+                confirmLabel: 'Save',
+                alternativeLabel: 'Discard',
+                onAlternative: discard,
+                onCancel: close,
+                onConfirm: () => unawaited(save()),
+                error: state.error,
+                busy: state.busy,
+              ),
         ),
-        onSubmit: confirm,
+        onSubmit: () => unawaited(save()),
         onDismiss: close,
       ),
     );
+  }
+}
+
+/// Состояние окна выхода: идёт ли запись и чем она кончилась.
+///
+/// Своё состояние окну нужно потому, что «сохранить и выйти» может не
+/// получиться. Пока идёт запись, кнопки приглушены; неудача остаётся в этом же
+/// окне, и экран редактора не закрывается.
+class _QuitState extends ChangeNotifier {
+  bool busy = false;
+  String? error;
+
+  void started() {
+    busy = true;
+    error = null;
+    notifyListeners();
+  }
+
+  void failed(String message) {
+    busy = false;
+    error = message;
+    notifyListeners();
   }
 }

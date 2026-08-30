@@ -24,8 +24,15 @@ class EditorView extends StatelessWidget {
             path: screen.node.displayPath,
             fileName: screen.node.name,
             // Звёздочка — общепринятый знак несохранённого; ничего своего
-            // выдумывать не нужно.
-            trailing: screen.modified ? '•' : null,
+            // выдумывать не нужно. У файла только на чтение её место занимает
+            // прямая надпись: несохранённому там взяться неоткуда.
+            trailing:
+                screen.readOnly
+                    ? 'read-only'
+                    : screen.modified
+                    ? '•'
+                    : null,
+            readOnly: screen.readOnly,
             wordWrap: screen.wordWrap,
             showLineNumbers: screen.showLineNumbers,
           ),

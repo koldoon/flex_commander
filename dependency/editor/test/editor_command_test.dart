@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -19,6 +20,7 @@ import 'package:path/path.dart' as p;
 void main() {
   late Directory temp;
   late AppRuntime runtime;
+  late LocalTreeProvider provider;
 
   setUp(() async {
     temp = await Directory.systemTemp.createTemp('fc_editor');
@@ -27,8 +29,9 @@ void main() {
     await File(p.join(root, 'windows.txt')).writeAsString('раз\r\nдва\r\n');
     await File(p.join(root, 'binary.bin')).writeAsBytes([0xC3, 0x28, 0xFF, 0x00]);
 
+    provider = LocalTreeProvider(homePath: root, readInIsolate: false);
     runtime = await testApp(
-      provider: LocalTreeProvider(homePath: root, readInIsolate: false),
+      provider: provider,
       modules: featureModules(),
       settings: AppSettings(left: PanelSettings.defaults(root), right: PanelSettings.defaults(root)),
     );
@@ -37,6 +40,9 @@ void main() {
 
   tearDown(() async {
     if (await temp.exists()) {
+      // Права возвращаются перед уборкой: у каталога, с которого сняли `w`,
+      // содержимое не удалить.
+      await Process.run('chmod', ['-R', 'u+w', temp.path]);
       await temp.delete(recursive: true);
     }
   });
@@ -52,6 +58,49 @@ void main() {
   }
 
   String fileText(String name) => File(p.join(temp.path, name)).readAsStringSync();
+
+  /// Дождаться, пока случится ожидаемое.
+  ///
+  /// Запись идёт своим чередом, и окно уходит **до** неё: одного оборота
+  /// очереди не хватает, а сколько именно их нужно — зависит от диска. Ждём
+  /// самого исхода, а не заданного числа оборотов.
+  Future<void> waitUntil(bool Function() done) async {
+    for (var i = 0; i < 200 && !done(); i++) {
+      await pumpEventQueue(times: 1);
+    }
+  }
+
+  /// Ответить на единственное открытое окно: согласиться или отказаться.
+  ///
+  /// Кнопки в чистом тесте не нажать, а `Enter` и `Esc` окна — это ровно
+  /// `onSubmit` и `onDismiss` его описания.
+  Future<void> answer({bool yes = true}) async {
+    final dialog = runtime.app.view.dialogs.single;
+    (yes ? dialog.onSubmit : dialog.onDismiss)!();
+    await pumpEventQueue();
+  }
+
+  /// Сохранить и согласиться: запись теперь спрашивает.
+  Future<void> save() async {
+    await (runtime.commands.create(SaveFileCommand.commandId)!).executeWith();
+    await answer();
+    await waitUntil(() => openEditor()?.modified == false);
+  }
+
+  /// Сделать файл по-настоящему недоступным для записи.
+  ///
+  /// Права снимаются и с каталога: атомарная запись подменяет файл
+  /// переименованием, а на это нужны права на каталог, а не на сам файл, —
+  /// с одного файла снять их мало.
+  ///
+  /// false — снять не вышло: под `root` прав не отнять, ему можно всё, и
+  /// проверять нечего.
+  Future<bool> makeReadOnly(String name) async {
+    await Process.run('chmod', ['a-w', p.join(temp.path, name)]);
+    await Process.run('chmod', ['a-w', temp.path]);
+    final node = runtime.app.left.nodes.firstWhere((entry) => entry.name == name);
+    return !await provider.canWriteTo(node);
+  }
 
   group('открытие', () {
     test('F4 ставит редактор поверх панелей', () async {
@@ -90,7 +139,7 @@ void main() {
       openEditor()!.controller.text = 'раз\nдва\nтри\n';
 
       expect(openEditor()!.modified, isTrue);
-      await (runtime.commands.create(SaveFileCommand.commandId)!).executeWith();
+      await save();
 
       expect(fileText('notes.txt'), 'раз\nдва\nтри\n');
       expect(openEditor()!.modified, isFalse);
@@ -101,15 +150,52 @@ void main() {
       await edit('windows.txt');
       openEditor()!.controller.text = 'раз\nдва\nтри\n';
 
-      await (runtime.commands.create(SaveFileCommand.commandId)!).executeWith();
+      await save();
 
       expect(File(p.join(temp.path, 'windows.txt')).readAsBytesSync(), utf8.encode('раз\r\nдва\r\nтри\r\n'));
+    });
+
+    test('без подтверждения не пишет ничего', () async {
+      // Единственное необратимое действие редактора: нажатая по ошибке `F2`
+      // соседствует с `F3` и `F5`, а отмены записи нет.
+      await edit('notes.txt');
+      openEditor()!.controller.text = 'мимо';
+
+      await (runtime.commands.create(SaveFileCommand.commandId)!).executeWith();
+      expect(runtime.app.view.dialogs.single.title, 'Save changes');
+      expect(fileText('notes.txt'), 'раз\nдва\n', reason: 'пока не ответили — не записано');
+
+      await answer(yes: false);
+
+      expect(fileText('notes.txt'), 'раз\nдва\n');
+      expect(openEditor()!.modified, isTrue, reason: 'правки на месте, отказались только от записи');
+    });
+
+    test('в сообщении — полный путь, а не одно имя', () async {
+      // Соглашаются на конкретный файл, и в системном каталоге это важнее
+      // всего.
+      await edit('notes.txt');
+      openEditor()!.controller.text = 'иначе';
+
+      await (runtime.commands.create(SaveFileCommand.commandId)!).executeWith();
+
+      expect(openEditor()!.node.displayPath, contains('notes.txt'));
+      await answer(yes: false);
+    });
+
+    test('Cmd-S спрашивает то же самое, что и F2', () async {
+      // Одна команда — одна повадка: `Cmd-S` соседей по ряду не имеет, но
+      // разное поведение у одной команды запрещено сквозным правилом.
+      await edit('notes.txt');
+
+      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-S'))?.id, SaveFileCommand.commandId);
+      expect(runtime.commands.commandFor(KeyCombination.parse('F2'))?.id, SaveFileCommand.commandId);
     });
 
     test('временный файл после себя не оставляется', () async {
       await edit('notes.txt');
       openEditor()!.controller.text = 'иначе';
-      await (runtime.commands.create(SaveFileCommand.commandId)!).executeWith();
+      await save();
 
       final names = temp.listSync().map((entity) => p.basename(entity.path));
       expect(names.where((name) => name.contains('fc-save')), isEmpty);
@@ -138,6 +224,131 @@ void main() {
       expect(runtime.app.view.dialogs.single.title, 'Unsaved changes');
       // Экран при этом ещё открыт: вопрос задан, ответа нет.
       expect(openEditor(), isNotNull);
+    });
+
+    test('Enter в окне выхода сохраняет, а не теряет', () async {
+      // Раньше `Enter` стоял на `Discard`: самое частое «да, я закончил»
+      // стирало работу.
+      await edit('notes.txt');
+      openEditor()!.controller.text = 'сохранить и выйти';
+
+      await (runtime.commands.create(CloseEditorCommand.commandId)!).executeWith();
+      await answer();
+      await waitUntil(() => openEditor() == null);
+
+      expect(fileText('notes.txt'), 'сохранить и выйти');
+      expect(openEditor(), isNull, reason: 'записалось — можно и закрывать');
+    });
+
+    test('второго вопроса про запись при выходе нет', () async {
+      // Согласие уже дано, вопрос был ровно про это.
+      await edit('notes.txt');
+      openEditor()!.controller.text = 'раз и всё';
+
+      await (runtime.commands.create(CloseEditorCommand.commandId)!).executeWith();
+      await answer();
+      await waitUntil(() => openEditor() == null);
+
+      expect(runtime.app.view.dialogs, isEmpty);
+    });
+
+    test('Esc в окне выхода оставляет экран открытым', () async {
+      await edit('notes.txt');
+      openEditor()!.controller.text = 'ещё поработаю';
+
+      await (runtime.commands.create(CloseEditorCommand.commandId)!).executeWith();
+      await answer(yes: false);
+
+      expect(openEditor(), isNotNull);
+      expect(fileText('notes.txt'), 'раз\nдва\n');
+    });
+
+    test('не записалось — экран остаётся открытым и с ошибкой', () async {
+      await edit('notes.txt');
+      openEditor()!.controller.text = 'некуда деть';
+      if (!await makeReadOnly('notes.txt')) {
+        return;
+      }
+
+      await (runtime.commands.create(CloseEditorCommand.commandId)!).executeWith();
+      await answer();
+      await waitUntil(() => runtime.app.view.dialogs.isEmpty);
+
+      // Уйти, унеся правки, — ровно то, чего просили не делать.
+      expect(openEditor(), isNotNull, reason: 'экран не закрылся');
+      expect(openEditor()!.modified, isTrue, reason: 'правки целы');
+      expect(runtime.app.view.dialogs, isNotEmpty, reason: 'окно осталось — в нём ошибка');
+    });
+  });
+
+  group('права', () {
+    test('файл без права записи открывается с вопросом', () async {
+      if (!await makeReadOnly('notes.txt')) {
+        return;
+      }
+
+      runtime.app.left.setCursorToName('notes.txt');
+      unawaited((runtime.commands.create(EditFileCommand.commandId)!).executeWith());
+      await pumpEventQueue();
+
+      expect(runtime.app.view.dialogs.single.title, 'Read-only file');
+      // Пока не ответили, экрана нет: спрашивают до открытия, а не после часа
+      // работы.
+      expect(openEditor(), isNull);
+    });
+
+    test('открытый на чтение помечен, и сохранять в нём нечего', () async {
+      if (!await makeReadOnly('notes.txt')) {
+        return;
+      }
+
+      runtime.app.left.setCursorToName('notes.txt');
+      unawaited((runtime.commands.create(EditFileCommand.commandId)!).executeWith());
+      await pumpEventQueue();
+      await answer();
+      await waitUntil(() => openEditor() != null);
+
+      expect(openEditor(), isNotNull);
+      expect(openEditor()!.readOnly, isTrue);
+      expect(
+        runtime.commands.isExecutable(runtime.commands.find(SaveFileCommand.commandId)!),
+        isFalse,
+        reason: 'обещать запись, которой не будет, хуже отказа',
+      );
+    });
+
+    test('отказ от вопроса не открывает ничего', () async {
+      if (!await makeReadOnly('notes.txt')) {
+        return;
+      }
+
+      runtime.app.left.setCursorToName('notes.txt');
+      unawaited((runtime.commands.create(EditFileCommand.commandId)!).executeWith());
+      await pumpEventQueue();
+      await answer(yes: false);
+      await pumpEventQueue();
+
+      expect(openEditor(), isNull);
+    });
+
+    test('обычный файл открывается молча', () async {
+      await edit('notes.txt');
+
+      expect(runtime.app.view.dialogs, isEmpty);
+      expect(openEditor()!.readOnly, isFalse);
+    });
+
+    test('canWriteTo отвечает попыткой, а не битами режима', () async {
+      final node = runtime.app.left.nodes.firstWhere((entry) => entry.name == 'notes.txt');
+      expect(await provider.canWriteTo(node), isTrue);
+
+      if (!await makeReadOnly('notes.txt')) {
+        return;
+      }
+      expect(await provider.canWriteTo(node), isFalse);
+
+      // И файла эта проверка не трогает: ни содержимого, ни длины.
+      expect(fileText('notes.txt'), 'раз\nдва\n');
     });
   });
 
