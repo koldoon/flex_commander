@@ -7,6 +7,7 @@ import 'package:fc_api/fc_api.dart';
 
 import 'local_file_copy.dart';
 import 'local_fs_settings.dart';
+import 'local_mode.dart';
 import 'local_shell.dart';
 import 'system_pty.dart';
 import 'local_mapping.dart';
@@ -32,6 +33,7 @@ class LocalTreeProvider
         FileContentProvider,
         FileContentReceiver,
         WriteAccessCheck,
+        NodeAttributesWriter,
         ShellHost {
   LocalTreeProvider({
     String? homePath,
@@ -76,6 +78,25 @@ class LocalTreeProvider
   /// лениво, на каждой копии, а не подставляется в конструктор. null — в
   /// тестах: берутся умолчания.
   final LocalFsSettings Function()? settings;
+
+  /// Переносит режим доступа. Нечем (Windows) или нечего (объекта уже нет) —
+  /// молча ничего не делает: это сохранность прав, а не само сохранение файла,
+  /// и ронять из-за неё записанное нельзя.
+  @override
+  Future<void> carryMode({required FsNode from, required FsNode to}) async {
+    final chmod = LocalMode.instance;
+    if (chmod == null) {
+      return;
+    }
+    try {
+      final mode = (await File(physicalPathOf(from)).stat()).mode & 0xFFF;
+      if (mode != 0) {
+        chmod.apply(physicalPathOf(to), mode);
+      }
+    } on FileSystemException {
+      // Источника уже нет — переносить нечего.
+    }
+  }
 
   @override
   String get shellLabel => _shell.shellLabel;

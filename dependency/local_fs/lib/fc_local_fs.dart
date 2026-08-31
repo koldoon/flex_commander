@@ -11,6 +11,7 @@ export 'src/local_file_system.dart';
 export 'src/local_fs_settings.dart';
 export 'src/local_listing.dart';
 export 'src/local_mapping.dart';
+export 'src/local_mode.dart';
 export 'src/local_process_runner.dart';
 export 'src/local_shell.dart';
 export 'src/local_staging_area.dart';

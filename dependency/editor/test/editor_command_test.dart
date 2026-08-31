@@ -211,6 +211,22 @@ void main() {
       expect(openEditor()!.modified, isTrue, reason: 'правки целы');
     });
 
+    test('права файла переживают сохранение', () async {
+      // Атомарная запись подменяет файл переименованием, и временный приносит
+      // с собой права по умолчанию: без переноса `600` молча стало бы `644`.
+      await Process.run('chmod', ['600', p.join(temp.path, 'notes.txt')]);
+      final before = File(p.join(temp.path, 'notes.txt')).statSync().mode & 0x1FF;
+      expect(before, 0x180, reason: 'иначе проверять нечего');
+
+      await edit('notes.txt');
+      openEditor()!.controller.text = 'правленое';
+      await save();
+
+      final after = File(p.join(temp.path, 'notes.txt')).statSync().mode & 0x1FF;
+      expect(after, before, reason: 'заметить смену прав можно очень нескоро');
+      expect(fileText('notes.txt'), 'правленое');
+    });
+
     test('временный файл после себя не оставляется', () async {
       await edit('notes.txt');
       openEditor()!.controller.text = 'иначе';

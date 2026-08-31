@@ -326,6 +326,18 @@ Future<void> saveEditor(EditorScreen screen) async {
     if (written == null) {
       throw FsError(node.pathString, FsErrorKind.io);
     }
+
+    // Режим цели переносится на временный **до** переименования: иначе новый
+    // файл встал бы на её место со своими правами по умолчанию, и `600`
+    // молча превратилось бы в `644`. Заметить такое можно очень нескоро.
+    //
+    // Владельца это не переносит и не может: сменить его без прав
+    // администратора нельзя. Там, где владелец чужой, запись и так идёт через
+    // повышение, а `cp` пишет в существующий файл и сохраняет обоих.
+    if (provider is NodeAttributesWriter) {
+      await (provider as NodeAttributesWriter).carryMode(from: node, to: written);
+    }
+
     if (!await editor.renameEntry(written, parent, node.name)) {
       throw FsError(node.pathString, FsErrorKind.io);
     }
