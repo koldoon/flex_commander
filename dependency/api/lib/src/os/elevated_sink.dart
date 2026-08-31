@@ -1,10 +1,17 @@
 import 'dart:async';
-import 'dart:io';
 
-import 'package:fc_api/fc_api.dart';
+import '../tree/tree_provider.dart';
+import 'elevation.dart';
+import 'pty.dart';
 
 /// Приёмник, который пишет во временный файл, а на месте цели оказывается
 /// через `sudo`.
+///
+/// Общий для обеих сторон: чем открыть временный файл и чем его убрать, знает
+/// провайдер — у диска это `dart:io`, у сервера SFTP, — а всё остальное у них
+/// одинаково. Тонкие места (отказ как `FsError`, уборка в любом исходе, второй
+/// канал `done`) стоят дорого, и держать их в двух копиях верный способ
+/// разойтись.
 ///
 /// Заводится там, где обычная запись отказала бы по правам, и только когда
 /// повышение разрешено. Снаружи он неотличим от обычного приёмника: тот, кто
@@ -17,10 +24,12 @@ class ElevatedSink implements StreamSink<List<int>> {
     required this.elevation,
     required this.host,
     required this.target,
-    required File temporary,
+    required this.temporary,
     required this.about,
-  }) : _temporary = temporary,
-       _sink = temporary.openWrite() {
+    required StreamSink<List<int>> into,
+    required Future<void> Function() removeTemporary,
+  }) : _sink = into,
+       _remove = removeTemporary {
     // Неудача приходит вызывающему из `close()`; `done` — второй, необязательный
     // канал той же новости. Без этого отказ, на который никто не подписался,
     // всплывал бы необработанным и ронял приложение мимо всех обработчиков.
@@ -37,8 +46,14 @@ class ElevatedSink implements StreamSink<List<int>> {
 
   final ElevationRequest about;
 
-  final File _temporary;
-  final IOSink _sink;
+  /// Куда пишем, пока не дошло до `sudo`, — путь **на той же стороне**, что и
+  /// цель: `cp` выполняется там, и путь ему нужен тамошний.
+  final String temporary;
+
+  final StreamSink<List<int>> _sink;
+
+  /// Как убрать временный: у диска и у сервера это разные действия.
+  final Future<void> Function() _remove;
   final Completer<void> _done = Completer<void>();
 
   @override
@@ -57,7 +72,7 @@ class ElevatedSink implements StreamSink<List<int>> {
   Future<void> close() async {
     try {
       await _sink.close();
-      final moved = await elevation.copyOver(host: host, temporary: _temporary.path, target: target, about: about);
+      final moved = await elevation.copyOver(host: host, temporary: temporary, target: target, about: about);
       if (!moved) {
         // Отказались — значит отказ и есть: тот же, что был бы без повышения.
         throw FsError(target, FsErrorKind.permissionDenied);
@@ -74,11 +89,10 @@ class ElevatedSink implements StreamSink<List<int>> {
       // Временного за собой не оставляем ни в каком исходе: он лежит в общем
       // каталоге и содержит то, что человек только что писал.
       try {
-        if (await _temporary.exists()) {
-          await _temporary.delete();
-        }
-      } on FileSystemException {
-        // Не убрался — не беда, за него отвечает система уборки временных.
+        await _remove();
+      } on Object {
+        // Не убрался — не беда: за общий каталог отвечает система уборки
+        // временных, а ронять из-за этого запись, которая уже прошла, нельзя.
       }
     }
   }

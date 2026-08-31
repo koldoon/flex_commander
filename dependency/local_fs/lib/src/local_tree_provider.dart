@@ -7,7 +7,6 @@ import 'package:fc_api/fc_api.dart';
 
 import 'local_file_copy.dart';
 import 'local_fs_settings.dart';
-import 'elevated_sink.dart';
 import 'local_shell.dart';
 import 'system_pty.dart';
 import 'local_mapping.dart';
@@ -550,12 +549,19 @@ class LocalTreeProvider
     // платим за неё только при разрешённом повышении.
     final elevation = _elevation();
     if (elevation != null && elevation.enabled && !await _mayWritePath(path)) {
+      final temporary = File(p.join(Directory.systemTemp.path, 'fc-elevated-${DateTime.now().microsecondsSinceEpoch}'));
       return ElevatedSink(
         elevation: elevation,
         host: this,
         target: path,
-        temporary: File(p.join(Directory.systemTemp.path, 'fc-elevated-${DateTime.now().microsecondsSinceEpoch}')),
+        temporary: temporary.path,
         about: ElevationRequest(action: 'Write', path: path, where: shellLabel),
+        into: temporary.openWrite(),
+        removeTemporary: () async {
+          if (await temporary.exists()) {
+            await temporary.delete();
+          }
+        },
       );
     }
 

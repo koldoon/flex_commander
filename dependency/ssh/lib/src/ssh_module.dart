@@ -32,7 +32,13 @@ class SshFileSystem implements FcModule {
           op.message('Connecting to $scheme://${address.host}…');
           return ProviderRegistry.keepUnlessCanceled(
             op,
-            SftpTreeProvider.open(address, credentials: registry.services.resolve<Credentials>()),
+            SftpTreeProvider.open(
+              address,
+              credentials: registry.services.resolve<Credentials>(),
+              // Необязательно и лениво: службу объявляет ядро, а спрашивают её
+              // только тогда, когда сервер отказал в записи.
+              elevation: () => registry.services.resolveAll<Elevation>().firstOrNull,
+            ),
           );
         }),
       );

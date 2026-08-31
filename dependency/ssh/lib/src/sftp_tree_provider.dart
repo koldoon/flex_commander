@@ -30,15 +30,33 @@ class SftpTreeProvider
         WriteAccessCheck,
         ShellHost,
         ProviderLifecycle {
-  SftpTreeProvider({required this.target, required SftpApi sftp, required this.homePath, SshConnection? connection})
-    : _sftp = sftp,
-      _connection = connection;
+  SftpTreeProvider({
+    required this.target,
+    required SftpApi sftp,
+    required this.homePath,
+    SshConnection? connection,
+    Elevation? Function()? elevation,
+  }) : _sftp = sftp,
+       _connection = connection,
+       _elevation = elevation ?? _noElevation;
+
+  /// Повышать нечем: так собирается провайдер в тестах.
+  static Elevation? _noElevation() => null;
+
+  /// Служба повышения — **способом спросить**: она живёт в ядре и появляется
+  /// не раньше провайдера.
+  final Elevation? Function() _elevation;
 
   /// Схема пути. `sftp` — её же второе имя: модуль объявляет оба.
   static const String schemeName = 'ssh';
 
   /// Подключается по адресу и отдаёт дерево сервера.
-  static Future<TreeProvider> open(Uri address, {required Credentials credentials, String? sshDirectory}) async {
+  static Future<TreeProvider> open(
+    Uri address, {
+    required Credentials credentials,
+    String? sshDirectory,
+    Elevation? Function()? elevation,
+  }) async {
     final target = SshTarget.parse(address);
     if (target.host.isEmpty || target.user.isEmpty) {
       // Ни хоста, ни имени пользователя взять неоткуда: это не адрес.
@@ -52,6 +70,7 @@ class SftpTreeProvider
       sftp: connection.sftp,
       homePath: connection.homePath,
       connection: connection,
+      elevation: elevation,
     );
   }
 
@@ -332,8 +351,39 @@ class SftpTreeProvider
 
   /// [length] серверу не нужен: место под файл SFTP не резервирует.
   @override
-  Future<StreamSink<List<int>>> openWrite(DirectoryNode parent, String name, {int? length}) =>
-      _sftp.openWrite(p.posix.join(remotePathOf(parent), name));
+  Future<StreamSink<List<int>>> openWrite(DirectoryNode parent, String name, {int? length}) async {
+    final path = p.posix.join(remotePathOf(parent), name);
+    try {
+      return await _sftp.openWrite(path);
+    } on FsError catch (refusal) {
+      // Отказ приходит **сразу**, а не на закрытии: SFTP открывает файл на той
+      // стороне и ждёт ответа. Поэтому пробы, как у локальной ФС, здесь не
+      // нужно — довольно поймать отказ.
+      final elevation = _elevation();
+      if (refusal.kind != FsErrorKind.permissionDenied || elevation == null || !elevation.enabled) {
+        rethrow;
+      }
+      return _elevatedWrite(path, elevation);
+    }
+  }
+
+  /// Запись через повышение: временный файл кладётся **на сервер**, туда же,
+  /// где будет выполняться `sudo`.
+  ///
+  /// `/tmp`, а не рядом с целью: рядом с целью писать как раз и не дают — с
+  /// этого всё и началось.
+  Future<StreamSink<List<int>>> _elevatedWrite(String path, Elevation elevation) async {
+    final temporary = p.posix.join('/tmp', 'fc-elevated-${DateTime.now().microsecondsSinceEpoch}');
+    return ElevatedSink(
+      elevation: elevation,
+      host: this,
+      target: path,
+      temporary: temporary,
+      about: ElevationRequest(action: 'Write', path: path, where: shellLabel),
+      into: await _sftp.openWrite(temporary),
+      removeTemporary: () => _sftp.removeFile(temporary),
+    );
+  }
 
   /// Пустят ли записать в этот объект — спрашиваем у сервера, а не гадаем по
   /// правам владельца: ими файл описан, а пишет тот, кем мы вошли.

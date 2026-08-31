@@ -1,6 +1,8 @@
 import 'dart:convert';
+import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:flutter/foundation.dart';
 import 'package:fc_ssh/fc_ssh.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +16,8 @@ void main() {
   setUp(() {
     server = FakeSftp();
     server.directory('/srv');
+    // На настоящем сервере он есть всегда; повышение кладёт туда временный.
+    server.directory('/tmp');
     server.directory('/srv/www');
     server.file('/srv/www/index.html', '<html/>');
     server.file('/srv/notes.txt', 'заметки');
@@ -402,6 +406,107 @@ void main() {
       expect(SftpTreeProvider.commandIn('-rf', 'ls'), startsWith('cd -- '));
     });
   });
+
+  group('запись через повышение', () {
+    /// Повышение, которое запоминает, о чём просили.
+    _FakeElevation elevation({bool enabled = true, bool succeeds = true}) =>
+        _FakeElevation(enabled: enabled, succeeds: succeeds);
+
+    Future<StreamSink<List<int>>> write(SftpTreeProvider provider, String name) async {
+      final root = await provider.resolvePath().run('/srv');
+      return provider.openWrite(root! as DirectoryNode, name);
+    }
+
+    SftpTreeProvider providerWith(_FakeElevation service) => SftpTreeProvider(
+      target: SshTarget.parse(Uri.parse('ssh://tester@example.org/')),
+      sftp: server,
+      homePath: server.home,
+      elevation: () => service,
+    );
+
+    test('сервер отказал — байты уходят во временный файл на нём же', () async {
+      // Живой случай: /etc/squid/squid.conf по ssh.
+      server.denied['/srv/squid.conf'] = FsErrorKind.permissionDenied;
+      final service = elevation();
+
+      final sink = await write(providerWith(service), 'squid.conf');
+      sink.add(utf8.encode('правленое'));
+      await sink.close();
+
+      expect(service.asked, hasLength(1));
+      expect(service.asked.single.where, 'tester@example.org', reason: 'место — тот самый сервер');
+      expect(service.asked.single.path, '/srv/squid.conf');
+      // Временный лежит **на сервере**: sudo выполняется там, и путь ему нужен
+      // тамошний.
+      expect(service.temporary, startsWith('/tmp/fc-elevated-'));
+    });
+
+    test('отказались — это отказ по правам, а не тишина', () async {
+      server.denied['/srv/squid.conf'] = FsErrorKind.permissionDenied;
+      final sink = await write(providerWith(elevation(succeeds: false)), 'squid.conf');
+      sink.add(utf8.encode('мимо'));
+
+      await expectLater(sink.close(), throwsA(isA<FsError>()));
+    });
+
+    test('выключенное повышение оставляет отказ как был', () async {
+      server.denied['/srv/squid.conf'] = FsErrorKind.permissionDenied;
+
+      await expectLater(
+        write(providerWith(elevation(enabled: false)), 'squid.conf'),
+        throwsA(isA<FsError>()),
+        reason: 'отказ приходит сразу, из самого openWrite',
+      );
+    });
+
+    test('там, где прав хватило, повышения не трогаем', () async {
+      final service = elevation();
+      final sink = await write(providerWith(service), 'plain.txt');
+      sink.add(utf8.encode('обычная запись'));
+      await sink.close();
+
+      expect(service.asked, isEmpty);
+    });
+  });
+}
+
+/// Повышение, которое запоминает, о чём просили, и ничего не делает.
+class _FakeElevation implements Elevation {
+  _FakeElevation({required this.enabled, required this.succeeds});
+
+  @override
+  final bool enabled;
+
+  final bool succeeds;
+
+  final List<ElevationRequest> asked = [];
+
+  /// Куда провайдер положил временный файл.
+  String? temporary;
+
+  @override
+  Future<bool> copyOver({
+    required ShellHost host,
+    required String temporary,
+    required String target,
+    required ElevationRequest about,
+  }) async {
+    asked.add(about);
+    this.temporary = temporary;
+    return succeeds;
+  }
+
+  @override
+  ElevationRequest? get pending => null;
+
+  @override
+  void answer(bool agreed) {}
+
+  @override
+  void addListener(VoidCallback listener) {}
+
+  @override
+  void removeListener(VoidCallback listener) {}
 }
 
 Future<List<int>> _collect(Stream<List<int>> stream) async {
