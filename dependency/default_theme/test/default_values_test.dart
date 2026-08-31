@@ -57,7 +57,7 @@ void main() {
     });
 
     test('кегль один на всё приложение: `h5` референса', () {
-      final expected = 34 * const DefaultMetrics().fontScale;
+      const expected = 13.09;
       expect(theme.metrics.fontSize, expected);
       for (final style in [theme.uiStyle, theme.rowStyle, theme.headerStyle, theme.pathStyle, theme.buttonStyle]) {
         expect(style.fontSize, expected);
@@ -77,18 +77,21 @@ void main() {
   group('размеры', () {
     const metrics = DefaultMetrics();
 
-    test('выведены из исходников референса одним коэффициентом', () {
+    test('стоят числами, а не выводятся из коэффициента', () {
+      // Пропорции референса сохранены — но проверяется теперь то, что человек
+      // прочитает в наборе, а не то, что получится после умножения.
       // `height="50"` у строки, `height="60"` у плашки пути и кнопки.
-      expect(metrics.rowHeight, 50 * const DefaultMetrics().scale);
-      expect(metrics.pathHeaderHeight, 60 * const DefaultMetrics().scale);
-      expect(metrics.buttonHeight, 60 * const DefaultMetrics().scale);
+      expect(metrics.rowHeight, 20);
+      expect(metrics.pathHeaderHeight, 24);
+      expect(metrics.buttonHeight, 24);
     });
 
-    test('кегль мельче, чем даёт коэффициент разметки', () {
+    test('кегль мельче, чем даёт геометрия разметки', () {
       // Замер снимка работающего референса: текст там мельче, чем следует из
       // отношения 34 к 50 в исходниках. Геометрия при этом совпадает.
-      expect(const DefaultMetrics().fontScale, lessThan(const DefaultMetrics().scale));
-      expect(metrics.fontSize, lessThan(34 * const DefaultMetrics().scale));
+      //
+      // Отношение 34/50 от высоты строки дало бы 13.6; замер дал 13.09.
+      expect(metrics.fontSize, lessThan(metrics.rowHeight * 34 / 50));
       // Иконка — глиф того же кегля, что и текст.
       expect(metrics.iconSize, metrics.fontSize);
     });

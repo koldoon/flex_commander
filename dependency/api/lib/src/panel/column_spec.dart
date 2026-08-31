@@ -202,9 +202,9 @@ class ColumnLayout {
 
   /// Раскладка по умолчанию — как в макете: иконка, имя, расширение, размер, дата.
   static ColumnLayout get defaults => ColumnLayout(const [
-    // Ширины — по референсу с тем же коэффициентом, что и остальные размеры
-    // (см. `FcMetrics.scale`): колонка иконки вмещает отступ, глиф и просвет
-    // до имени, размер — `width="160"`, дата — `width="220"`.
+    // Ширины — по референсу, в тех же точках экрана, что и остальные размеры:
+    // колонка иконки вмещает отступ, глиф и просвет до имени, размер —
+    // `width="160"`, дата — `width="220"`.
     // Иконка: отступ слева, глиф и просвет до имени — `FcMetrics.iconColumnWidth`.
     ColumnSpec(id: FsColumn.icon, width: 28, minWidth: 28, pinned: true),
     ColumnSpec(id: FsColumn.name, width: 0, minWidth: 90, pinned: true),

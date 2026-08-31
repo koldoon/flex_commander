@@ -97,15 +97,24 @@ void main() {
       id: 'big',
       title: 'Big',
       colors: DefaultColors(),
-      metrics: DefaultMetrics(scale: 0.8, fontScale: 0.7),
+      metrics: _BigMetrics(),
       icons: DefaultIcons(fontFamily: 'OtherIcons'),
       fonts: DefaultFonts(ui: 'Inter', fixed: 'Menlo'),
     );
 
-    // Масштаб — одно число на весь интерфейс: это и есть «крупная» тема.
-    expect(spec.metrics.rowHeight, 50 * 0.8);
+    // Свои размеры тема объявляет числами: общего коэффициента у набора нет, и
+    // «крупная» тема переопределяет то, что ей нужно, а не множит всё разом.
+    expect(spec.metrics.rowHeight, 40);
     expect(spec.theme.uiStyle.fontFamily, 'Inter');
     expect(spec.theme.rowStyle.fontFamily, 'Menlo');
     expect(spec.icons.folder.fontFamily, 'OtherIcons');
   });
+}
+
+/// Тема с крупной строкой: своё значение вместо унаследованного.
+class _BigMetrics extends DefaultMetrics {
+  const _BigMetrics();
+
+  @override
+  double get rowHeight => 40;
 }

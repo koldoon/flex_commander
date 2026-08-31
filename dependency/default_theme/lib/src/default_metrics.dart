@@ -1,46 +1,20 @@
 import 'package:fc_api/fc_api.dart';
-import 'package:flutter/foundation.dart';
 
 /// Размеры оформления по умолчанию — по референсному приложению.
 ///
-/// Все значения выведены из исходных чисел MXML через единый коэффициент
-/// [scale], поэтому пропорции референса сохранены точно, а общий размер
-/// интерфейса меняется одной строкой. Рядом с каждым значением указан его
-/// исходник, чтобы сверка с референсом была построчной.
+/// Значения стоят **числами**, а не вычисляются из общего коэффициента. Раньше
+/// они выводились из исходных чисел MXML умножением, и это выглядело точным:
+/// пропорции референса сохранялись сами. Но польза оказалась мнимой — за
+/// разные dpi отвечает Flutter, а не мы, — а вреда вышло два. Часть значений
+/// всё равно стояла числом (полоса заголовка — ровно системные 28 точек), и
+/// набор читался вперемешку. И главное: тому, кто пишет свою тему, приходилось
+/// держать в голове коэффициент, чтобы понять, сколько же на экране получится
+/// `ref(15)`.
+///
+/// Рядом с каждым значением указан его исходник в референсе — так сверка
+/// остаётся построчной, а число видно глазами.
 class DefaultMetrics extends FcMetrics {
-  const DefaultMetrics({this.scale = defaultScale, this.fontScale = defaultFontScale});
-
-  /// Во сколько раз интерфейс мельче исходных чисел референса.
-  ///
-  /// Референс нарисован в координатах `applicationDPI="320"`, и простое деление
-  /// пополам даёт заметно более крупный интерфейс, чем он выглядел на экране.
-  /// Коэффициент подобран по живому приложению: шаг строк выходит 20 точек,
-  /// кегль — 13.6.
-  static const double defaultScale = 0.4;
-
-  /// Отдельный коэффициент для кегля.
-  ///
-  /// По разметке кегль должен был бы получаться из [scale], но на снимке
-  /// работающего референса видно, что текст там мельче: при шаге строк
-  /// 19.4 точки кегль ≈ 12.7, тогда как отношение из CSS (34 к 50) дало бы
-  /// 13.2. Замер сделан по ширине символа Consolas — шрифт моноширинный, и
-  /// его шаг связан с кеглем жёстко (0.55 em), поэтому это надёжнее, чем
-  /// мерить высоту букв со сглаживанием. Сам Consolas приложение больше не
-  /// возит с собой (`DefaultFonts`), но кегль остаётся выведенным из него:
-  /// величина получена один раз и от нынешнего шрифта не зависит.
-  static const double defaultFontScale = 0.385;
-
-  @override
-  final double scale;
-
-  @override
-  final double fontScale;
-
-  /// Число референса в точках экрана. Наследнику оно нужно так же, как и
-  /// самому набору: тема со своими размерами переопределяет отдельные
-  /// значения, а не переписывает все пятьдесят.
-  @protected
-  double ref(double value) => value * scale;
+  const DefaultMetrics();
 
   // --- окно (Main.mxml) ---
 
@@ -50,7 +24,7 @@ class DefaultMetrics extends FcMetrics {
   double get windowTitleBarHeight => 28;
 
   @override
-  double get windowTopPadding => ref(20);
+  double get windowTopPadding => 8;
 
   /// Полей нет: содержимое занимает окно целиком, как в референсе. Захочется
   /// рамку — крутится здесь, и разъезжаться нечему: величина одна на панели,
@@ -59,29 +33,29 @@ class DefaultMetrics extends FcMetrics {
   double get windowSidePadding => 5;
 
   @override
-  double get panelGap => ref(15);
+  double get panelGap => 6;
 
   @override
-  double get functionBarGap => ref(15);
+  double get functionBarGap => 6;
 
   /// Меньше, чем просвет до кнопок: над строкой воздух даёт ещё и её
   /// собственная высота — текст в ней стоит по центру.
   @override
-  double get commandLineGap => ref(5);
+  double get commandLineGap => 2;
 
   @override
-  double get windowBottomPadding => ref(15);
+  double get windowBottomPadding => 6;
 
   // --- панель (FilesPanel.mxml) ---
 
   @override
-  double get pathHeaderHeight => ref(60);
+  double get pathHeaderHeight => 24;
 
   @override
   double get pathHeaderRadius => 5;
 
   @override
-  double get pathHeaderMinInset => ref(50);
+  double get pathHeaderMinInset => 20;
 
   /// Пять точек: столько же, сколько у полей окна, — рамка и её отступ читаются
   /// как одно целое.
@@ -89,16 +63,16 @@ class DefaultMetrics extends FcMetrics {
   double get panelRadius => 5;
 
   @override
-  double get panelTopPadding => ref(50);
+  double get panelTopPadding => 20;
 
   @override
-  double get headerRowHeight => ref(55);
+  double get headerRowHeight => 22;
 
   @override
-  double get rowHeight => ref(50);
+  double get rowHeight => 20;
 
   @override
-  double get rowGap => ref(2);
+  double get rowGap => 0.8;
 
   @override
   /// Двадцать восемь точек. В референсе линейка над строкой стояла на
@@ -107,30 +81,30 @@ class DefaultMetrics extends FcMetrics {
   double get statusBarHeight => 28;
 
   @override
-  double get panelLeftPadding => ref(30);
+  double get panelLeftPadding => 12;
 
   @override
-  double get panelRightPadding => ref(30);
+  double get panelRightPadding => 12;
 
   @override
-  double get labelPadding => ref(20);
+  double get labelPadding => 8;
 
   /// 230 точек при обычном масштабе: столько вмещает разумно длинную подпись
   /// («Show progress inside a file from»), не отбирая места у значений.
   @override
-  double get dialogLabelMaxWidth => ref(575);
+  double get dialogLabelMaxWidth => 230;
 
   @override
-  double get columnGap => ref(20);
+  double get columnGap => 8;
 
   @override
-  double get markedBarWidth => ref(8);
+  double get markedBarWidth => 3.2;
 
   @override
-  double get iconLeftPadding => ref(30);
+  double get iconLeftPadding => 12;
 
   @override
-  double get iconGap => ref(19);
+  double get iconGap => 7.6;
 
   @override
   double get iconColumnWidth => iconLeftPadding + iconSize + iconGap - cellPadding;
@@ -138,22 +112,22 @@ class DefaultMetrics extends FcMetrics {
   // --- нижняя панель (FunctionKeyRenderer) ---
 
   @override
-  double get functionButtonHeight => ref(55);
+  double get functionButtonHeight => 22;
 
   @override
   double get functionButtonRadius => 5;
 
   @override
-  double get functionKeyNumberWidth => ref(75);
+  double get functionKeyNumberWidth => 30;
 
   @override
-  double get functionKeyNumberGap => ref(5);
+  double get functionKeyNumberGap => 2;
 
   @override
-  double get functionButtonGap => ref(20);
+  double get functionButtonGap => 8;
 
   @override
-  double get functionBarRightPadding => ref(30);
+  double get functionBarRightPadding => 12;
 
   /// Пять точек: ровно столько, сколько отведено полям окна, — то есть ряд
   /// прижат к краям, как в референсе, где полей не было вовсе.
@@ -163,7 +137,7 @@ class DefaultMetrics extends FcMetrics {
   // --- окна команд (TitledPopupPanelSkin) ---
 
   @override
-  double get dialogRadius => ref(10);
+  double get dialogRadius => 4;
 
   @override
   double get dialogWidthFactor => 0.5;
@@ -178,56 +152,56 @@ class DefaultMetrics extends FcMetrics {
   double get paletteWidthFactor => 0.75;
 
   @override
-  double get dialogMinWidth => ref(1000);
+  double get dialogMinWidth => 400;
 
   @override
-  double get dialogMaxWidth => ref(2000);
+  double get dialogMaxWidth => 800;
 
   @override
-  double get dialogTitlePadding => ref(20);
+  double get dialogTitlePadding => 8;
 
   @override
-  double get dialogTitleHeight => ref(84);
+  double get dialogTitleHeight => 33.6;
 
   @override
   double get dialogDragKeepVisible => 96;
 
   @override
-  double get dialogPadding => ref(20);
+  double get dialogPadding => 8;
 
   @override
-  double get dialogHorizontalPadding => ref(40);
+  double get dialogHorizontalPadding => 16;
 
   @override
-  double get dialogContentTopPadding => ref(30);
+  double get dialogContentTopPadding => 12;
 
   @override
-  double get dialogGap => ref(20);
+  double get dialogGap => 8;
 
   @override
-  double get dialogLineGap => ref(10);
+  double get dialogLineGap => 4;
 
   @override
-  double get dialogWideRowGap => ref(30);
+  double get dialogWideRowGap => 12;
 
   @override
   double get dialogDividerHeight => 1;
 
   @override
-  double get dialogLabelWidth => ref(250);
+  double get dialogLabelWidth => 100;
 
   @override
-  double get toastPadding => ref(14);
+  double get toastPadding => 5.6;
 
   @override
-  double get toastHorizontalPadding => ref(24);
+  double get toastHorizontalPadding => 9.6;
 
   /// Над рядом кнопок: его высота плюс поля окна снизу и небольшой просвет.
   @override
-  double get toastBottomOffset => functionButtonHeight + windowBottomPadding + ref(20);
+  double get toastBottomOffset => functionButtonHeight + windowBottomPadding + 8;
 
   @override
-  double get helpCellMaxWidth => ref(900);
+  double get helpCellMaxWidth => 360;
 
   @override
   double get dialogScreenInset => 120;
@@ -238,21 +212,21 @@ class DefaultMetrics extends FcMetrics {
   double get dialogMaxScreenFactor => 0.75;
 
   @override
-  double get dialogShadowOffset => ref(5);
+  double get dialogShadowOffset => 2;
 
   @override
-  double get dialogShadowBlur => ref(15);
+  double get dialogShadowBlur => 6;
 
   // --- кнопка окна команды (RegularButtonSkin) ---
 
   @override
-  double get buttonHeight => ref(60);
+  double get buttonHeight => 24;
 
   @override
-  double get buttonRadius => ref(8);
+  double get buttonRadius => 3.2;
 
   @override
-  double get buttonHorizontalPadding => ref(40);
+  double get buttonHorizontalPadding => 16;
 
   @override
   double get buttonShadowOffset => 1;
@@ -263,27 +237,27 @@ class DefaultMetrics extends FcMetrics {
   // --- поле ввода (TextInputBorderedSkin) ---
 
   @override
-  double get checkboxSize => ref(40);
+  double get checkboxSize => 16;
 
   @override
-  double get checkboxGap => ref(16);
+  double get checkboxGap => 6.4;
 
   @override
-  double get inputHeight => ref(70);
+  double get inputHeight => 28;
 
   @override
-  double get inputRadius => ref(8);
+  double get inputRadius => 3.2;
 
   @override
-  double get inputHorizontalPadding => ref(22);
+  double get inputHorizontalPadding => 8.8;
 
   // --- полоса хода работы (ProgressBar.mxml) ---
 
   @override
-  double get progressHeight => ref(30);
+  double get progressHeight => 12;
 
   @override
-  double get progressInset => ref(4);
+  double get progressInset => 1.6;
 
   // --- общее ---
 
@@ -294,13 +268,13 @@ class DefaultMetrics extends FcMetrics {
   double get scrollbarInset => 2;
 
   @override
-  double get fontSize => 34 * fontScale;
+  double get fontSize => 13.09;
 
   @override
   double get iconSize => fontSize;
 
   @override
-  double get cellPadding => ref(10);
+  double get cellPadding => 4;
 
   // Не через `ref`: поправка оптическая, ей незачем меняться вместе
   // с масштабом интерфейса. Полточки — на экране с удвоенной плотностью это
@@ -309,7 +283,7 @@ class DefaultMetrics extends FcMetrics {
   double get rowContentVerticalNudge => 0.5;
 
   @override
-  double get rowTextVerticalNudge => ref(2);
+  double get rowTextVerticalNudge => 0.8;
 
   @override
   double get resizeHandleWidth => 10;
