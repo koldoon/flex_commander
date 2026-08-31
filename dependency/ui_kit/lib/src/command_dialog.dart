@@ -623,9 +623,10 @@ class CommandDialogField {
 /// Начинаются они всё же **там, где значения**, а не у самого края: в
 /// референсе флаг стоит под полем ввода, а не под его подписью. Слева им
 /// отводится ровно столбец подписей с зазором — и тогда флаг читается как
-/// продолжение поля, к которому относится. Просвет над такой строкой
+/// продолжение поля, к которому относится. Просвет вокруг такой строки
 /// отдельный ([FcMetrics.dialogWideRowGap]) и больше обычного: она стоит под
-/// полями, а не в их ряду.
+/// полями, а не в их ряду. **С обеих сторон**, а не только сверху: отбитая
+/// лишь сверху, она прижимается к строке под собой и читается как её часть.
 class FcForm extends StatelessWidget {
   const FcForm({super.key, required this.rows, this.labelWidth, this.horizontalPadding = 0});
 
@@ -654,22 +655,30 @@ class FcForm extends StatelessWidget {
     // Просвет **перед** каждой частью; у первой его нет.
     final gaps = <double>[];
     var run = <CommandDialogField>[];
+    var lastWide = false;
 
     Widget inset(Widget part) =>
         horizontalPadding == 0
             ? part
             : Padding(padding: EdgeInsets.symmetric(horizontal: horizontalPadding), child: part);
 
-    void add(Widget part, double gap) {
-      gaps.add(parts.isEmpty ? 0 : gap);
+    /// Просвет между соседями — по тому из них, кому нужен больший.
+    ///
+    /// Широкая строка отбита с **обеих** сторон, а не только сверху: она стоит
+    /// под полями, а не в их ряду, и отделять её от того, что ниже, нужно ровно
+    /// так же. С просветом только сверху флажок прижимался к строке под собой и
+    /// читался как её часть.
+    void add(Widget part, {required bool wide}) {
+      gaps.add(parts.isEmpty ? 0 : (wide || lastWide ? metrics.dialogWideRowGap : metrics.dialogGap));
       parts.add(part);
+      lastWide = wide;
     }
 
     void flush() {
       if (run.isEmpty) {
         return;
       }
-      add(inset(_table(theme, width, run)), metrics.dialogGap);
+      add(inset(_table(theme, width, run)), wide: false);
       run = [];
     }
 
@@ -683,7 +692,7 @@ class FcForm extends StatelessWidget {
             row.bleeds
                 ? row.content(theme)
                 : inset(Padding(padding: EdgeInsets.only(left: width + metrics.dialogGap), child: row.content(theme)));
-        add(content, metrics.dialogWideRowGap);
+        add(content, wide: true);
         continue;
       }
       run.add(row);

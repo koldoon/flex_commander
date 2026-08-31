@@ -97,6 +97,23 @@ void main() {
     expect(third.top - second.bottom, closeTo(metrics.dialogWideRowGap, 0.01));
   });
 
+  testWidgets('строка без подписи отбита с обеих сторон, а не только сверху', (tester) async {
+    // Иначе флажок висит близко к строке под собой и читается как её часть:
+    // в окне упаковки «Follow symlinks» прижимался к «Compression».
+    await pump(tester, const [
+      CommandDialogField(label: 'One', child: SizedBox(key: ValueKey('one'), height: 24)),
+      CommandDialogField.wide(child: SizedBox(key: ValueKey('two'), height: 24)),
+      CommandDialogField(label: 'Three', child: SizedBox(key: ValueKey('three'), height: 24)),
+    ]);
+
+    final first = tester.getRect(find.byKey(const ValueKey('one')));
+    final second = tester.getRect(find.byKey(const ValueKey('two')));
+    final third = tester.getRect(find.byKey(const ValueKey('three')));
+
+    expect(second.top - first.bottom, closeTo(metrics.dialogWideRowGap, 0.01));
+    expect(third.top - second.bottom, closeTo(metrics.dialogWideRowGap, 0.01), reason: 'снизу столько же');
+  });
+
   testWidgets('строка без подписи начинается там, где значения', (tester) async {
     // В референсе флаг стоит под полем ввода, а не под его подписью: у левого
     // края он читается как что-то отдельное от формы.
