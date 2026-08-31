@@ -8,6 +8,7 @@ import 'dartssh_sftp.dart';
 import 'sftp_api.dart';
 import 'ssh_address.dart';
 import 'ssh_authenticator.dart';
+import 'ssh_shell.dart';
 
 /// Живое соединение с сервером: канал SFTP и дом пользователя на той стороне.
 class SshConnection {
@@ -51,6 +52,20 @@ class SshConnection {
 
     final identities = [...keys.ready, ...await keys.unlock(credentials)];
     return await _connect(target: target, identities: identities, credentials: credentials, timeout: timeout);
+  }
+
+  /// Ещё один канал в том же соединении — с псевдотерминалом.
+  ///
+  /// Второго входа на сервер не происходит: канал открывается в уже
+  /// установленном соединении, которое держит панель. Ни пароля, ни вопроса о
+  /// парольной фразе тут не будет.
+  ///
+  /// [command] пусто — постоянная оболочка (`Ctrl-O`); иначе одна команда,
+  /// после которой канал закрывается сам, и код возврата известен точно.
+  Future<PtySession> openShell({String? command, required int columns, required int rows}) async {
+    final pty = SSHPtyConfig(width: columns, height: rows);
+    final session = command == null ? await _client.shell(pty: pty) : await _client.execute(command, pty: pty);
+    return SshPtySession(session);
   }
 
   Future<void> close() async {

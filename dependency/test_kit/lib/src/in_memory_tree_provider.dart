@@ -366,11 +366,13 @@ class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEdito
   /// [ShellHost], и командная строка над ним приглушена, как в жизни.
   final FakePty pty;
 
+  /// Чьей оболочкой притворяемся. `localhost` — своя машина; поменяй на
+  /// `user@host`, и строка станет вести себя как на сервере.
   @override
-  String get shellLabel => 'localhost';
+  String shellLabel = 'localhost';
 
   @override
-  PtySession run(String command, {String? directory, int columns = 80, int rows = 24}) => pty.start(
+  Future<PtySession> run(String command, {String? directory, int columns = 80, int rows = 24}) async => pty.start(
     executable: 'sh',
     arguments: ['-lic', command],
     workingDirectory: directory,
@@ -379,7 +381,7 @@ class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEdito
   );
 
   @override
-  PtySession shell({String? directory, int columns = 80, int rows = 24}) => pty.start(
+  Future<PtySession> shell({String? directory, int columns = 80, int rows = 24}) async => pty.start(
     executable: 'sh',
     arguments: const ['-l', '-i'],
     workingDirectory: directory,

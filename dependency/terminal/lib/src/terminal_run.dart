@@ -41,7 +41,10 @@ class TerminalRun {
     try {
       // Чем запускать и как оказаться в нужном каталоге, решает та сторона:
       // на своей машине это `$SHELL` с `-lic`, на сервере — оболочка сервера.
-      session = TerminalSession.around(host.run(command, directory: workingDirectory), maxLines: options.maxLines);
+      session = TerminalSession.around(
+        await host.run(command, directory: workingDirectory),
+        maxLines: options.maxLines,
+      );
     } catch (error) {
       // Псевдотерминала на этой платформе может не быть вовсе. Молчать нельзя,
       // но и окна ради этого не ставим: сообщения хватает.

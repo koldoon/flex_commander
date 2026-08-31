@@ -32,16 +32,16 @@ class ShellSession {
   ///
   /// [directory] — откуда оболочка начнёт, и учитывается он только при первом
   /// запуске: дальше её каталог принадлежит ей самой.
-  TerminalSession sessionIn(ShellHost host, String? directory) {
+  Future<TerminalSession> sessionIn(ShellHost host, String? directory) async {
     final current = _sessions[host.shellLabel];
     if (current != null) {
       return current;
     }
 
-    return _sessions[host.shellLabel] = TerminalSession.around(
-      host.shell(directory: directory),
-      maxLines: settings().maxLines,
-    );
+    // Открытие ждём: на сервере это поход по сети, и не удаться оно вполне
+    // может. Записываем в таблицу только то, что открылось.
+    final opened = TerminalSession.around(await host.shell(directory: directory), maxLines: settings().maxLines);
+    return _sessions[host.shellLabel] = opened;
   }
 
   /// Место закрылось — закрылась и его оболочка.

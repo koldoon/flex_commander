@@ -6,6 +6,7 @@ import 'command_line_state.dart';
 import 'completion.dart';
 import 'shell_command.dart';
 import 'shell_session.dart';
+import 'terminal_session.dart';
 import 'terminal_run.dart';
 import 'terminal_screens.dart';
 import 'terminal_settings.dart';
@@ -253,10 +254,17 @@ class ToggleTerminalCommand extends AppCommand {
       return;
     }
 
-    view.pushViewportContent(
-      ViewportPosition.fullscreen,
-      TerminalScreen(shell().sessionIn(host, line?.workingDirectory)),
-    );
+    final TerminalSession session;
+    try {
+      session = await shell().sessionIn(host, line?.workingDirectory);
+    } on Object catch (error) {
+      // На сервере открытие канала — поход по сети, и не удаться оно может.
+      // Молчать нельзя: клавиша нажата, а экрана нет.
+      context.app.toasts.show('Shell did not start: $error');
+      return;
+    }
+
+    view.pushViewportContent(ViewportPosition.fullscreen, TerminalScreen(session));
   }
 }
 

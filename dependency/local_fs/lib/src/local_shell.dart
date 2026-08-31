@@ -83,8 +83,9 @@ class LocalShellHost implements ShellHost {
   }
 
   @override
-  PtySession run(String command, {String? directory, int columns = 80, int rows = 24}) {
+  Future<PtySession> run(String command, {String? directory, int columns = 80, int rows = 24}) async {
     final shell = LocalShellCommand.line(_shell, command);
+    // На своей машине ждать нечего: процесс запускаем мы сами.
     return launcher.start(
       executable: shell.executable,
       arguments: shell.arguments,
@@ -97,7 +98,7 @@ class LocalShellHost implements ShellHost {
   }
 
   @override
-  PtySession shell({String? directory, int columns = 80, int rows = 24}) {
+  Future<PtySession> shell({String? directory, int columns = 80, int rows = 24}) async {
     final shell = LocalShellCommand.interactive(_shell);
     return launcher.start(
       executable: shell.executable,

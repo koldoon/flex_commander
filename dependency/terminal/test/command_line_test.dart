@@ -13,6 +13,7 @@ import 'terminal_modules.dart';
 /// говорит то, что велит тест.
 late AppRuntime runtime;
 late FakePty pty;
+late InMemoryTreeProvider provider;
 
 Application get app => runtime.app;
 
@@ -30,18 +31,19 @@ void main() {
     // людям, а не то, во что это превращается в подставной платформе теста.
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
     pty = FakePty();
+    provider = InMemoryTreeProvider(
+      [
+        FakeEntry.directory('/home'),
+        FakeEntry.directory('/home/docs'),
+        FakeEntry.file('/home/my report.txt', size: 10),
+      ],
+      null,
+      pty,
+    )..home = '/home';
     runtime = await testApp(
-      provider: InMemoryTreeProvider(
-        [
-          FakeEntry.directory('/home'),
-          FakeEntry.directory('/home/docs'),
-          FakeEntry.file('/home/my report.txt', size: 10),
-        ],
-        null,
-        pty,
-      )..home = '/home',
-      // Свой модуль вместо того, что стоит в приложении: у этого псевдотерминал
-      // подставной. Два одинаковых модуля спорили бы за одну и ту же службу.
+      provider: provider,
+      // Псевдотерминал здесь подставной — его даёт сам провайдер: оболочка
+      // это умение источника, а не служба приложения.
       modules: modulesWithTerminal(),
     );
     await runtime.app.start();
@@ -360,20 +362,41 @@ void main() {
     expect(pty.started, isFalse);
   });
 
+  group('приглашение', () {
+    test('на своей машине — просто путь', () {
+      expect(line.prompt, '/home');
+    });
+
+    test('на сервере видно, где выполнится набранное', () async {
+      // Иначе `rm` на сервере не отличить от `rm` у себя — а это ровно тот
+      // случай, когда ошибиться нельзя.
+      provider.shellLabel = 'tester@example.org';
+      await pumpEventQueue();
+
+      expect(line.prompt, 'tester@example.org:/home');
+      expect(line.enabled, isTrue);
+    });
+  });
+
   group('терминал', () {
-    test('Ctrl-O разворачивает сессию и сворачивает обратно', () {
+    test('Ctrl-O разворачивает сессию и сворачивает обратно', () async {
       expect(pty.started, isFalse, reason: 'оболочка не должна заводиться при сборке');
 
+      // Открытие ждут: на сервере это поход по сети, и оттого асинхронно даже
+      // на своей машине — повадка у оболочек одна.
       expect(press('Ctrl-O'), isTrue);
+      await pumpEventQueue();
       final screen = app.view.contentAt(ViewportPosition.fullscreen);
       expect(screen, isA<TerminalScreen>());
       expect(pty.started, isTrue);
 
       press('Ctrl-O');
+      await pumpEventQueue();
       expect(app.view.contentAt(ViewportPosition.fullscreen), isNull);
 
       // Та же сессия, а не вторая: свернули вид, а не оболочку.
       press('Ctrl-O');
+      await pumpEventQueue();
       expect(pty.sessions, hasLength(1));
       expect(
         (app.view.contentAt(ViewportPosition.fullscreen)! as TerminalScreen).session,
@@ -381,8 +404,9 @@ void main() {
       );
     });
 
-    test('оболочка начинает там, где стояла панель', () {
+    test('оболочка начинает там, где стояла панель', () async {
       press('Ctrl-O');
+      await pumpEventQueue();
 
       expect(pty.session.workingDirectory, '/home');
       expect(pty.session.arguments, contains('-i'));

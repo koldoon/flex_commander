@@ -377,6 +377,31 @@ void main() {
       expect(provider, isA<WriteAccessCheck>());
     });
   });
+
+  group('оболочка на той стороне', () {
+    test('умение объявлено, и место названо человеку понятно', () {
+      expect(provider, isA<ShellHost>());
+      expect(provider.shellLabel, 'tester@example.org');
+    });
+
+    test('каталог уходит обёрткой, а не досылкой', () {
+      // Ошибочный `cd` виден сразу: команда не выполнится молча не там.
+      expect(SftpTreeProvider.commandIn('/srv/www', 'ls'), "cd -- '/srv/www' && ls");
+    });
+
+    test('без каталога команда идёт как есть', () {
+      expect(SftpTreeProvider.commandIn(null, 'ls'), 'ls');
+    });
+
+    test('каталог с кавычкой не разваливает команду', () {
+      expect(SftpTreeProvider.quoteForShell("it's"), r"'it'\''s'");
+    });
+
+    test('каталог, похожий на ключ, остаётся каталогом', () {
+      // Без `--` каталог `-rf` стал бы ключом `cd`.
+      expect(SftpTreeProvider.commandIn('-rf', 'ls'), startsWith('cd -- '));
+    });
+  });
 }
 
 Future<List<int>> _collect(Stream<List<int>> stream) async {

@@ -9,3 +9,4 @@ export 'src/ssh_address.dart';
 export 'src/ssh_authenticator.dart';
 export 'src/ssh_connection.dart';
 export 'src/ssh_module.dart';
+export 'src/ssh_shell.dart';

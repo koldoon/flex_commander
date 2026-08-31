@@ -28,6 +28,7 @@ class SftpTreeProvider
         FileContentProvider,
         FileContentReceiver,
         WriteAccessCheck,
+        ShellHost,
         ProviderLifecycle {
   SftpTreeProvider({required this.target, required SftpApi sftp, required this.homePath, SshConnection? connection})
     : _sftp = sftp,
@@ -338,6 +339,53 @@ class SftpTreeProvider
   /// правам владельца: ими файл описан, а пишет тот, кем мы вошли.
   @override
   Future<bool> canWriteTo(FsNode node) => _sftp.canWriteTo(remotePathOf(node));
+
+  /// Кому принадлежит оболочка — `user@host` того сервера, где стоит панель.
+  ///
+  /// Он же приглашение в строке: где выполнится набранное, видно до нажатия, и
+  /// `rm` на сервере не спутать с `rm` у себя.
+  @override
+  String get shellLabel => target.display;
+
+  @override
+  Future<PtySession> run(String command, {String? directory, int columns = 80, int rows = 24}) {
+    return _openShell(command: commandIn(directory, command), columns: columns, rows: rows);
+  }
+
+  /// Команда вместе с каталогом, в котором ей положено выполниться.
+  ///
+  /// Каталог остаётся **параметром**, а не досылается отдельной строкой: канал
+  /// `ssh` начинается в домашнем, и сказать об этом можно только самой
+  /// оболочке. Обёрткой, потому что тогда ошибочный `cd` виден сразу — команда
+  /// не выполнится молча не там.
+  ///
+  /// `--` перед путём обязательно: каталог с именем `-rf` иначе стал бы
+  /// ключом.
+  static String commandIn(String? directory, String command) =>
+      directory == null ? command : 'cd -- ${quoteForShell(directory)} && $command';
+
+  @override
+  Future<PtySession> shell({String? directory, int columns = 80, int rows = 24}) =>
+      _openShell(columns: columns, rows: rows);
+
+  Future<PtySession> _openShell({String? command, required int columns, required int rows}) async {
+    final connection = _connection;
+    if (connection == null) {
+      // Провайдер собран без живого соединения — так бывает только в тестах,
+      // где оболочку и не спрашивают.
+      throw FsError(target.display, FsErrorKind.notSupported);
+    }
+    return connection.openShell(command: command, columns: columns, rows: rows);
+  }
+
+  /// Путь в кавычках для оболочки той стороны.
+  ///
+  /// Своя копия, а не заимствование у терминала: правила кавычек — про
+  /// оболочку, а модуль ssh о модуле терминала знать не должен.
+  ///
+  /// Одинарные кавычки не толкуются вовсе — кроме самих себя, и закрыть их
+  /// ради одной кавычки приходится по всем правилам: `'\''`.
+  static String quoteForShell(String value) => "'${value.replaceAll("'", r"'\''")}'";
 
   @override
   Future<void> dispose() async {

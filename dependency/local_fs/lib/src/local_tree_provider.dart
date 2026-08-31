@@ -72,11 +72,11 @@ class LocalTreeProvider
   String get shellLabel => _shell.shellLabel;
 
   @override
-  PtySession run(String command, {String? directory, int columns = 80, int rows = 24}) =>
+  Future<PtySession> run(String command, {String? directory, int columns = 80, int rows = 24}) =>
       _shell.run(command, directory: directory, columns: columns, rows: rows);
 
   @override
-  PtySession shell({String? directory, int columns = 80, int rows = 24}) =>
+  Future<PtySession> shell({String? directory, int columns = 80, int rows = 24}) =>
       _shell.shell(directory: directory, columns: columns, rows: rows);
 
   /// Умолчания на случай, когда настроек нет вовсе.
