@@ -155,6 +155,36 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('подсветка не пробегает по разделам, пока идёт ход к выбранному', (tester) async {
+    await openSettings(tester);
+
+    final toc = find.byType(FcPickList);
+    final pages = runtime.resolve<SettingsCatalog>().pages;
+    final last = pages.length - 1;
+    int selected() => tester.widget<FcPickList>(toc).selected;
+
+    await tester.tap(find.descendant(of: toc, matching: find.text(pages.last.title, findRichText: true)));
+    await tester.pump();
+    expect(selected(), last);
+
+    // Середина хода. Прокрутка идёт плавно, и под верхом обзора сейчас стоит
+    // какой-то промежуточный раздел — но выбран не он: щелчок в оглавлении
+    // это намерение, а не следствие геометрии. Иначе подсветка пробегала бы по
+    // всем разделам разом, а оглавление дёргалось следом за ней.
+    await tester.pump(const Duration(milliseconds: 60));
+    expect(selected(), last, reason: 'подсветка держится на выбранном, пока список едет');
+
+    await tester.pumpAndSettle();
+    expect(selected(), last, reason: 'и остаётся на нём, даже если раздел не доехал до верха');
+
+    // А тронули список — и подсветка снова следит за прокруткой.
+    await tester.drag(find.byType(FcSettingsForm), const Offset(0, 2000), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(selected(), 0);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('прокрутка сама подсвечивает раздел в оглавлении', (tester) async {
     await openSettings(tester);
 

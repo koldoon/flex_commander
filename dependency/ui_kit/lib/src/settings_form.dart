@@ -78,6 +78,19 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   /// Раздел, подсвеченный в оглавлении, — номер в [_found].
   int _section = 0;
 
+  /// Раздел, выбранный щелчком в оглавлении, — пока его держат.
+  ///
+  /// Без этого подсветка дёргается дважды. Прокрутка к разделу идёт плавно, и
+  /// на каждом кадре под верхом обзора оказывается очередной раздел — подсветка
+  /// пробегает по всем промежуточным, а оглавление уезжает следом за ней,
+  /// потому что держит выбранное на виду. И это ещё не всё: раздел у самого низа
+  /// до верха обзора вообще не доезжает, список упирается в конец, и подсветка
+  /// возвращается на предыдущий — щелчок выглядит отменённым.
+  ///
+  /// Поэтому щелчок в оглавлении — это **намерение**, а не следствие
+  /// геометрии: выбранное держится, пока человек сам не тронет список.
+  int? _pinned;
+
   @override
   void initState() {
     super.initState();
@@ -113,6 +126,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
             (index, title, schema, fields),
       ];
       _section = 0;
+      _pinned = null;
     });
     if (_scroll.hasClients) {
       _scroll.jumpTo(0);
@@ -178,6 +192,10 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   }
 
   void _followScroll() {
+    // Пока держим выбранное — за прокруткой не следим: она сейчас наша.
+    if (_pinned != null) {
+      return;
+    }
     final current = _sectionInView();
     if (current != _section) {
       setState(() => _section = current);
@@ -190,7 +208,18 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       return;
     }
     _scroll.animateTo(start.clamp(0, _scroll.position.maxScrollExtent), duration: _scrollTo, curve: Curves.easeOut);
-    setState(() => _section = index);
+    setState(() {
+      _section = index;
+      _pinned = index;
+    });
+  }
+
+  /// Тронули список — подсветка снова следит за прокруткой.
+  void _unpin([Object? _]) {
+    if (_pinned != null) {
+      setState(() => _pinned = null);
+      _followScroll();
+    }
   }
 
   TextEditingController _editorFor(String id, String initial) =>
@@ -263,26 +292,32 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                             ),
                           ),
                           Expanded(
-                            child: SingleChildScrollView(
-                              controller: _scroll,
-                              // Те же поля, что и у справки: окна не должны
-                              // быть отбиты по-разному.
-                              padding: padding,
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  for (final (position, (index, title, schema, fields)) in _found.indexed) ...[
-                                    // Просвет **перед** заголовком, а не после
-                                    // каждого раздела: у первого сверху уже
-                                    // есть поле окна.
-                                    if (position > 0) SizedBox(height: metrics.settingsSectionGap),
-                                    _heading(theme, title, key: _headings[index]),
-                                    for (final field in fields) ...[
-                                      SizedBox(height: metrics.settingsBlockGap),
-                                      _block(theme, schema, title, field),
+                            // Любое касание списка снимает удержание: колесо,
+                            // перетаскивание полосы, щелчок по самой настройке.
+                            child: Listener(
+                              onPointerDown: _unpin,
+                              onPointerSignal: _unpin,
+                              child: SingleChildScrollView(
+                                controller: _scroll,
+                                // Те же поля, что и у справки: окна не должны
+                                // быть отбиты по-разному.
+                                padding: padding,
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    for (final (position, (index, title, schema, fields)) in _found.indexed) ...[
+                                      // Просвет **перед** заголовком, а не
+                                      // после каждого раздела: у первого сверху
+                                      // уже есть поле окна.
+                                      if (position > 0) SizedBox(height: metrics.settingsSectionGap),
+                                      _heading(theme, title, key: _headings[index]),
+                                      for (final field in fields) ...[
+                                        SizedBox(height: metrics.settingsBlockGap),
+                                        _block(theme, schema, title, field),
+                                      ],
                                     ],
                                   ],
-                                ],
+                                ),
                               ),
                             ),
                           ),
