@@ -292,31 +292,41 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                             ),
                           ),
                           Expanded(
-                            // Любое касание списка снимает удержание: колесо,
-                            // перетаскивание полосы, щелчок по самой настройке.
-                            child: Listener(
-                              onPointerDown: _unpin,
-                              onPointerSignal: _unpin,
-                              child: SingleChildScrollView(
-                                controller: _scroll,
-                                // Те же поля, что и у справки: окна не должны
-                                // быть отбиты по-разному.
-                                padding: padding,
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    for (final (position, (index, title, schema, fields)) in _found.indexed) ...[
-                                      // Просвет **перед** заголовком, а не
-                                      // после каждого раздела: у первого сверху
-                                      // уже есть поле окна.
-                                      if (position > 0) SizedBox(height: metrics.settingsSectionGap),
-                                      _heading(theme, title, key: _headings[index]),
-                                      for (final field in fields) ...[
-                                        SizedBox(height: metrics.settingsBlockGap),
-                                        _block(theme, schema, title, field),
+                            // Отступ от поля поиска — **снаружи** прокрутки, как
+                            // у оглавления: внутри он уезжал бы вместе с
+                            // содержимым, и настройки подлезали бы под поле.
+                            child: Padding(
+                              padding: EdgeInsets.only(top: padding.top),
+                              // Любое касание списка снимает удержание: колесо,
+                              // перетаскивание полосы, щелчок по настройке.
+                              child: Listener(
+                                onPointerDown: _unpin,
+                                onPointerSignal: _unpin,
+                                child: SingleChildScrollView(
+                                  controller: _scroll,
+                                  // Те же поля, что и у справки: окна не должны
+                                  // быть отбиты по-разному.
+                                  padding: EdgeInsets.only(
+                                    left: padding.left,
+                                    right: padding.right,
+                                    bottom: padding.bottom,
+                                  ),
+                                  child: Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      for (final (position, (index, title, schema, fields)) in _found.indexed) ...[
+                                        // Просвет **перед** заголовком, а не
+                                        // после каждого раздела: у первого
+                                        // сверху уже есть поле окна.
+                                        if (position > 0) SizedBox(height: metrics.settingsSectionGap),
+                                        _heading(theme, title, key: _headings[index]),
+                                        for (final field in fields) ...[
+                                          SizedBox(height: metrics.settingsBlockGap),
+                                          _block(theme, schema, field),
+                                        ],
                                       ],
                                     ],
-                                  ],
+                                  ),
                                 ),
                               ),
                             ),
@@ -338,12 +348,16 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     return count == 1 ? '1 setting' : '$count settings';
   }
 
+  /// Заголовок раздела.
+  ///
+  /// Крупнее остального текста, а не только жирнее: это единственное, что
+  /// говорит, чьи это настройки, — приставки с названием модуля у подписей нет.
   Widget _heading(FcTheme theme, String title, {Key? key}) => Text(
     title,
     key: key,
     style: TextStyle(
       fontFamily: theme.fonts.ui,
-      fontSize: theme.metrics.fontSize,
+      fontSize: theme.metrics.settingsHeadingFontSize,
       fontWeight: FontWeight.bold,
       color: theme.colors.dialogTitleText,
     ),
@@ -355,12 +369,14 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   /// всегда, хотя заголовок раздела виден рядом: одинаковые подписи у разных
   /// модулей иначе неразличимы — «Wrap long lines» есть и у редактора, и у
   /// просмотрщика текста.
-  InlineSpan _titleSpan(FcTheme theme, String category, String title) => TextSpan(
-    children: [
-      TextSpan(text: '$category: ', style: _secondaryStyle(theme)),
-      ..._marked(theme, title, _labelStyle(theme).copyWith(fontWeight: FontWeight.bold)),
-    ],
-  );
+  /// Подпись настройки.
+  ///
+  /// Без приставки с названием модуля: раздел всегда идёт под своим
+  /// заголовком — и при отборе тоже, — поэтому в каждой строке она была не
+  /// уточнением, а шумом. Отличать «Wrap long lines» редактора от такого же у
+  /// просмотрщика текста берётся заголовок, а не двадцать повторов над ним.
+  InlineSpan _titleSpan(FcTheme theme, String title) =>
+      TextSpan(children: _marked(theme, title, _labelStyle(theme).copyWith(fontWeight: FontWeight.bold)));
 
   /// Текст с выделенным найденным.
   ///
@@ -379,7 +395,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   /// У флага порядок другой: квадрат встаёт **на строку подписи**, потому что у
   /// него подпись и есть управление. Поставь его как у всех — и подпись
   /// повторилась бы дважды: заголовком и меткой рядом с квадратом.
-  Widget _block(FcTheme theme, SettingsSchema schema, String category, SettingsField field) {
+  Widget _block(FcTheme theme, SettingsSchema schema, SettingsField field) {
     final metrics = theme.metrics;
     final explanations = [
       if (field.description.isNotEmpty)
@@ -395,7 +411,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _control(theme, schema, category, field),
+          _control(theme, schema, field),
           // Объяснение равняется по подписи, а не по квадрату: оно относится к
           // настройке, а не к галочке.
           if (explanations.isNotEmpty)
@@ -415,15 +431,15 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       crossAxisAlignment: CrossAxisAlignment.start,
       mainAxisSize: MainAxisSize.min,
       children: [
-        Text.rich(_titleSpan(theme, category, field.title)),
+        Text.rich(_titleSpan(theme, field.title)),
         for (final line in explanations) ...[SizedBox(height: metrics.dialogLineGap), line],
         SizedBox(height: metrics.dialogLineGap),
-        _control(theme, schema, category, field),
+        _control(theme, schema, field),
       ],
     );
   }
 
-  Widget _control(FcTheme theme, SettingsSchema schema, String category, SettingsField field) {
+  Widget _control(FcTheme theme, SettingsSchema schema, SettingsField field) {
     void changed() {
       schema.save();
       setState(() {});
@@ -432,7 +448,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     return switch (field) {
       SettingsFlag flag => FcCheckbox(
         label: flag.title,
-        richLabel: _titleSpan(theme, category, flag.title),
+        richLabel: _titleSpan(theme, flag.title),
         value: flag.read(),
         onChanged: (value) {
           flag.write(value);

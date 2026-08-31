@@ -34,12 +34,12 @@ void main() {
 
   TerminalSettings terminal() => (runtime.app.view.contentAt(ViewportPosition.bottom)! as CommandLineState).settings;
 
-  /// Подпись настройки целиком: «Категория: Имя».
+  /// Подпись настройки.
   ///
-  /// Набрана разметкой — приставка с названием модуля приглушена, имя жирное, —
-  /// поэтому обычный `find.text` её не видит: он сверяет строку целиком, а
-  /// `Text.rich` отдаёт её только через `findRichText`.
-  Finder setting(String category, String title) => find.text('$category: $title', findRichText: true);
+  /// Набрана разметкой — найденное в ней выделяется подложкой, — поэтому
+  /// обычный `find.text` её не видит: `Text.rich` отдаёт строку только через
+  /// `findRichText`.
+  Finder setting(String title) => find.text(title, findRichText: true);
 
   testWidgets('F2 открывает настройки, разделы — по модулям', (tester) async {
     await openSettings(tester);
@@ -48,12 +48,12 @@ void main() {
     // Заголовки — названия модулей, как в справке.
     expect(find.text('Terminal'), findsWidgets);
     expect(find.text('Text viewer'), findsWidgets);
-    // И поля под ними — с приставкой модуля в подписи. Она там не для красоты:
-    // «Wrap long lines» есть и у редактора, и у просмотрщика текста, и без
-    // приставки эти две настройки в окне неразличимы.
-    expect(setting('Terminal', 'Typing goes to the command line'), findsOneWidget);
-    expect(setting('Text editor', 'Wrap long lines'), findsOneWidget);
-    expect(setting('Text viewer', 'Wrap long lines'), findsOneWidget);
+    // И поля под ними. Приставки с названием модуля в подписи нет: раздел и так
+    // всегда идёт под своим заголовком, и «Wrap long lines» у редактора от
+    // такого же у просмотрщика текста отличает заголовок, а не повтор в каждой
+    // строке.
+    expect(setting('Typing goes to the command line'), findsOneWidget);
+    expect(setting('Wrap long lines'), findsNWidgets(2));
 
     await tester.pump(const Duration(milliseconds: 20));
   });
@@ -61,7 +61,7 @@ void main() {
   testWidgets('настройка — блок: подпись, объяснение, оговорка, управление', (tester) async {
     await openSettings(tester);
 
-    final title = tester.getRect(setting('Terminal', 'Shell'));
+    final title = tester.getRect(setting('Shell'));
     final description = tester.getRect(find.text('Empty means the shell you work in'));
     final note = tester.getRect(find.text('Applies to the next session (⌃O)').first);
     final field = tester.getRect(find.ancestor(of: find.text(r'$SHELL'), matching: find.byType(FcTextField)).first);
@@ -85,7 +85,7 @@ void main() {
   testWidgets('у флага квадрат стоит на строке подписи', (tester) async {
     await openSettings(tester);
 
-    final label = setting('Terminal', 'Typing goes to the command line');
+    final label = setting('Typing goes to the command line');
     final title = tester.getRect(label);
     final box = tester.getRect(find.ancestor(of: label, matching: find.byType(FcCheckbox)).first);
     final description = tester.getRect(find.text('The mc habit: no jump-to-name by the first letter'));
@@ -107,7 +107,7 @@ void main() {
     await openSettings(tester);
     expect(terminal().typingGoesToLine, isFalse);
 
-    await tester.tap(setting('Terminal', 'Typing goes to the command line'));
+    await tester.tap(setting('Typing goes to the command line'));
     await tester.pumpAndSettle();
 
     expect(terminal().typingGoesToLine, isTrue, reason: 'применяется сразу, без кнопки «Применить»');
@@ -143,13 +143,16 @@ void main() {
     // Последний раздел лежит ниже обзора; щелчок по нему в оглавлении должен
     // поднять его наверх, а не просто подсветить строку.
     final last = pages.last;
-    final field = last.build().fields.first;
-    final before = tester.getRect(setting(last.title, field.title)).top;
+    // Последнее совпадение: подпись в последнем разделе может повторять подпись
+    // в раннем («Wrap long lines» есть и у редактора, и у просмотрщика), а
+    // разделы идут в списке по порядку.
+    final field = setting(last.build().fields.first.title).last;
+    final before = tester.getRect(field).top;
 
     await tester.tap(find.descendant(of: toc, matching: find.text(last.title, findRichText: true)));
     await tester.pumpAndSettle();
 
-    expect(tester.getRect(setting(last.title, field.title)).top, lessThan(before));
+    expect(tester.getRect(field).top, lessThan(before));
     expect(tester.widget<FcPickList>(toc).selected, pages.length - 1);
 
     await tester.pump(const Duration(milliseconds: 20));
@@ -210,10 +213,10 @@ void main() {
     await openSettings(tester);
     await search(tester, 'wrap');
 
-    // «Wrap long lines» есть у двоих — обе и остаются.
-    expect(setting('Text editor', 'Wrap long lines'), findsOneWidget);
-    expect(setting('Text viewer', 'Wrap long lines'), findsOneWidget);
-    expect(setting('Terminal', 'Shell'), findsNothing);
+    // «Wrap long lines» есть у двоих — обе и остаются, каждая под своим
+    // заголовком.
+    expect(setting('Wrap long lines'), findsNWidgets(2));
+    expect(setting('Shell'), findsNothing);
     expect(find.text('2 settings'), findsOneWidget);
 
     // И оглавление показывает только те разделы, где что-то нашлось.
@@ -230,11 +233,11 @@ void main() {
     // Слова из объяснения человек помнит точно, а вот в какой оно подписи —
     // нет.
     await search(tester, 'administrator');
-    expect(setting('Application shell', 'Allow elevated writes'), findsOneWidget);
+    expect(setting('Allow elevated writes'), findsOneWidget);
     expect(find.text('1 setting'), findsOneWidget);
 
     await search(tester, 'sizeScanConcurrency');
-    expect(setting('Application shell', 'Directory size scans'), findsOneWidget);
+    expect(setting('Directory size scans'), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 20));
   });
@@ -245,9 +248,9 @@ void main() {
 
     // Спросили про терминал — значит про все его настройки, а не про те, где
     // это слово ещё раз написано в подписи.
-    expect(setting('Terminal', 'Shell'), findsOneWidget);
-    expect(setting('Terminal', 'Scrollback'), findsOneWidget);
-    expect(setting('Text editor', 'Wrap long lines'), findsNothing);
+    expect(setting('Shell'), findsOneWidget);
+    expect(setting('Scrollback'), findsOneWidget);
+    expect(setting('Wrap long lines'), findsNothing);
 
     await tester.pump(const Duration(milliseconds: 20));
   });
@@ -259,6 +262,21 @@ void main() {
     expect(find.text('Nothing found'), findsOneWidget);
     expect(find.byType(FcPickList), findsNothing);
     expect(find.text('0 settings'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('прокрученные настройки не подлезают под поиск', (tester) async {
+    await openSettings(tester);
+
+    // Обе прокрутки: сперва оглавление, за ним настройки.
+    final viewports = find.descendant(of: find.byType(FcSettingsForm), matching: find.byType(SingleChildScrollView));
+    expect(viewports, findsNWidgets(2));
+
+    // Отступ от поля поиска стоит **снаружи** прокрутки — как у оглавления.
+    // Внутри он уезжал бы вместе с содержимым, и настройки подлезали бы под
+    // поле, пока оглавление рядом держало бы свой отступ.
+    expect(tester.getRect(viewports.last).top, closeTo(tester.getRect(viewports.first).top, 0.5));
 
     await tester.pump(const Duration(milliseconds: 20));
   });

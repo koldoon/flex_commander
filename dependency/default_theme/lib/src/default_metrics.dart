@@ -188,6 +188,9 @@ class DefaultMetrics extends FcMetrics {
   double get settingsWidthFactor => 0.75;
 
   @override
+  double get settingsHeadingFontSize => 17;
+
+  @override
   double get settingsTocWidth => 180;
 
   @override
