@@ -39,9 +39,24 @@ class FcText extends StatelessWidget {
 /// растягивающей колонкой, и без этого флажок растянулся бы во всю ширину,
 /// а щелчок ловился бы далеко за меткой.
 class FcCheckbox extends StatefulWidget {
-  const FcCheckbox({super.key, required this.label, required this.value, required this.onChanged, this.focusNode});
+  const FcCheckbox({
+    super.key,
+    required this.label,
+    this.richLabel,
+    required this.value,
+    required this.onChanged,
+    this.focusNode,
+  });
 
   final String label;
+
+  /// Подпись разметкой — когда простой строки мало.
+  ///
+  /// В настройках у неё приглушённая приставка с названием модуля: «*Text
+  /// editor:* **Wrap long lines**». Дана — рисуется вместо [label]; сам [label]
+  /// при этом обязателен и остаётся: он и подпись по умолчанию, и то, что
+  /// прочитает озвучка.
+  final InlineSpan? richLabel;
   final bool value;
 
   /// null — флажок показан, но не меняется.
@@ -137,7 +152,12 @@ class _FcCheckboxState extends State<FcCheckbox> {
                   // Подпись уступает, если места мало: в форме флаг стоит в
                   // столбце значений, а тот бывает узким. Раньше флаг занимал
                   // всю ширину окна и упереться ему было не во что.
-                  Flexible(child: FcText(label)),
+                  Flexible(
+                    child:
+                        widget.richLabel == null
+                            ? FcText(label)
+                            : Text.rich(widget.richLabel!, style: theme.dialogTextStyle),
+                  ),
                 ],
               ),
             ),

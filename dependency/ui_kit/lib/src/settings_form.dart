@@ -12,6 +12,12 @@ import 'fc_theme.dart';
 /// выглядит одинаково, а подпись «подействует со следующего запуска» стоит там
 /// же, где и у соседа.
 ///
+/// **Настройка — блок, а не строка формы:** подпись, объяснение, управление —
+/// сверху вниз, по одной левой границе. Столбца подписей нет нарочно: с ним
+/// подпись стояла бы справа, управление слева, а объяснение под управлением, и
+/// читать приходилось бы по диагонали. Подробности и образец —
+/// `docs/spec/settings-editor.md`.
+///
 /// Изменение применяется сразу и сразу же просит запись: кнопки «Применить»
 /// нет, потому что отменять нечего — приложение и так живёт мгновенным
 /// применением темы, колонок и скрытых файлов.
@@ -52,14 +58,6 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
 
-    // Подписи всех разделов разом: столбец у них общий.
-    final labelWidth = widestLabel(context, [
-      for (final (_, schema) in _pages)
-        for (final field in schema.fields)
-          // Флаг подписи слева не занимает — она у него справа от квадрата.
-          if (field is! SettingsFlag) field.title,
-    ]);
-
     return ConstrainedBox(
       // Предел по высоте — то же правило, что у справки: без него прокрутка не
       // работает, `Flexible` получает бесконечность, и форма вылезает за экран.
@@ -74,22 +72,17 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
               // по-разному.
               padding: dialogContentPadding(context),
               child: Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Разделы — отдельные формы, но столбец подписей у них один
-                  // на всё окно: на одной странице они читаются как одна форма,
-                  // и ступенька между разделами выглядела бы недосмотром.
-                  //
-                  // Заголовок раздела при этом идёт во всю ширину — он не
-                  // строка формы. У `Table` в Flutter объединения ячеек нет
-                  // вовсе, поэтому заголовки живут между таблицами, а не в них.
-                  for (final (title, schema) in _pages) ...[
+                  for (final (index, (title, schema)) in _pages.indexed) ...[
+                    // Просвет **перед** заголовком, а не после каждого раздела:
+                    // у первого заголовка сверху уже есть поле окна.
+                    if (index > 0) SizedBox(height: metrics.settingsSectionGap),
                     _heading(theme, title),
-                    FcForm(
-                      labelWidth: labelWidth,
-                      rows: [for (final field in schema.fields) _row(theme, schema, field)],
-                    ),
-                    SizedBox(height: metrics.dialogGap),
+                    for (final field in schema.fields) ...[
+                      SizedBox(height: metrics.settingsBlockGap),
+                      _block(theme, schema, title, field),
+                    ],
                   ],
                 ],
               ),
@@ -102,28 +95,37 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     );
   }
 
-  Widget _heading(FcTheme theme, String title) => Padding(
-    padding: EdgeInsets.only(bottom: theme.metrics.dialogLineGap),
-    child: Text(
-      title,
-      style: TextStyle(
-        fontFamily: theme.fonts.ui,
-        fontSize: theme.metrics.fontSize,
-        fontWeight: FontWeight.bold,
-        color: theme.colors.dialogTitleText,
-      ),
+  Widget _heading(FcTheme theme, String title) => Text(
+    title,
+    style: TextStyle(
+      fontFamily: theme.fonts.ui,
+      fontSize: theme.metrics.fontSize,
+      fontWeight: FontWeight.bold,
+      color: theme.colors.dialogTitleText,
     ),
   );
 
-  /// Поле целиком: управление, подпись и оговорки под ним.
-  /// Строка формы: подпись, управление и оговорки под ним.
+  /// Подпись настройки: «*Категория:* **Имя**».
   ///
-  /// Флаг подписи слева не занимает — она у него справа от квадрата; такая
-  /// строка идёт во всю ширину столбца значений.
-  CommandDialogField _row(FcTheme theme, SettingsSchema schema, SettingsField field) {
-    final control = _control(theme, schema, field);
-    final explained = [
-      control,
+  /// Категория — название модуля, тем же цветом, что и объяснения. Она стоит
+  /// всегда, хотя заголовок раздела виден рядом: одинаковые подписи у разных
+  /// модулей иначе неразличимы — «Wrap long lines» есть и у редактора, и у
+  /// просмотрщика текста.
+  InlineSpan _titleSpan(FcTheme theme, String category, String title) => TextSpan(
+    children: [
+      TextSpan(text: '$category: ', style: _secondaryStyle(theme)),
+      TextSpan(text: title, style: _labelStyle(theme).copyWith(fontWeight: FontWeight.bold)),
+    ],
+  );
+
+  /// Настройка целиком: подпись, объяснение, оговорка, управление.
+  ///
+  /// У флага порядок другой: квадрат встаёт **на строку подписи**, потому что у
+  /// него подпись и есть управление. Поставь его как у всех — и подпись
+  /// повторилась бы дважды: заголовком и меткой рядом с квадратом.
+  Widget _block(FcTheme theme, SettingsSchema schema, String category, SettingsField field) {
+    final metrics = theme.metrics;
+    final explanations = [
       if (field.description.isNotEmpty) Text(field.description, style: _secondaryStyle(theme)),
       // Оговорка отдельной строкой и другим цветом: это не объяснение, а
       // предупреждение — «сейчас ничего не произойдёт».
@@ -132,21 +134,39 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     ];
 
     if (field is SettingsFlag) {
-      return CommandDialogField.wide(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
-          children: explained,
-        ),
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _control(theme, schema, category, field),
+          // Объяснение равняется по подписи, а не по квадрату: оно относится к
+          // настройке, а не к галочке.
+          if (explanations.isNotEmpty)
+            Padding(
+              padding: EdgeInsets.only(top: metrics.dialogLineGap, left: metrics.checkboxSize + metrics.checkboxGap),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: explanations,
+              ),
+            ),
+        ],
       );
     }
 
-    return explained.length == 1
-        ? CommandDialogField(label: field.title, child: control)
-        : CommandDialogField.column(label: field.title, children: explained);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text.rich(_titleSpan(theme, category, field.title)),
+        for (final line in explanations) ...[SizedBox(height: metrics.dialogLineGap), line],
+        SizedBox(height: metrics.dialogLineGap),
+        _control(theme, schema, category, field),
+      ],
+    );
   }
 
-  Widget _control(FcTheme theme, SettingsSchema schema, SettingsField field) {
+  Widget _control(FcTheme theme, SettingsSchema schema, String category, SettingsField field) {
     void changed() {
       schema.save();
       setState(() {});
@@ -155,6 +175,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     return switch (field) {
       SettingsFlag flag => FcCheckbox(
         label: flag.title,
+        richLabel: _titleSpan(theme, category, flag.title),
         value: flag.read(),
         onChanged: (value) {
           flag.write(value);
@@ -171,9 +192,8 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       ),
       SettingsNumber number => Row(
         children: [
-          // Поле числа короткое — ему хватает ширины подписи, — но уступает,
-          // когда столбец значений узок: иначе единица измерения рядом с ним
-          // вылезает за край.
+          // Поле числа короткое — числа коротки, — но уступает, когда окно
+          // узко: иначе единица измерения рядом с ним вылезает за край.
           Flexible(
             child: SizedBox(
               width: theme.metrics.dialogLabelWidth,

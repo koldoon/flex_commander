@@ -34,6 +34,13 @@ void main() {
 
   TerminalSettings terminal() => (runtime.app.view.contentAt(ViewportPosition.bottom)! as CommandLineState).settings;
 
+  /// Подпись настройки целиком: «Категория: Имя».
+  ///
+  /// Набрана разметкой — приставка с названием модуля приглушена, имя жирное, —
+  /// поэтому обычный `find.text` её не видит: он сверяет строку целиком, а
+  /// `Text.rich` отдаёт её только через `findRichText`.
+  Finder setting(String category, String title) => find.text('$category: $title', findRichText: true);
+
   testWidgets('F2 открывает настройки, разделы — по модулям', (tester) async {
     await openSettings(tester);
 
@@ -41,9 +48,57 @@ void main() {
     // Заголовки — названия модулей, как в справке.
     expect(find.text('Terminal'), findsWidgets);
     expect(find.text('Text viewer'), findsWidgets);
-    // И поля под ними.
-    expect(find.text('Typing goes to the command line'), findsOneWidget);
-    expect(find.text('Wrap long lines'), findsWidgets);
+    // И поля под ними — с приставкой модуля в подписи. Она там не для красоты:
+    // «Wrap long lines» есть и у редактора, и у просмотрщика текста, и без
+    // приставки эти две настройки в окне неразличимы.
+    expect(setting('Terminal', 'Typing goes to the command line'), findsOneWidget);
+    expect(setting('Text editor', 'Wrap long lines'), findsOneWidget);
+    expect(setting('Text viewer', 'Wrap long lines'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('настройка — блок: подпись, объяснение, оговорка, управление', (tester) async {
+    await openSettings(tester);
+
+    final title = tester.getRect(setting('Terminal', 'Shell'));
+    final description = tester.getRect(find.text('Empty means the shell you work in'));
+    final note = tester.getRect(find.text('Applies to the next session (⌃O)').first);
+    final field = tester.getRect(find.ancestor(of: find.text(r'$SHELL'), matching: find.byType(FcTextField)).first);
+
+    // Сверху вниз и в одном порядке: сначала что это, потом что оно значит,
+    // потом оговорка, и только потом — чем это менять.
+    expect(description.top, greaterThan(title.top));
+    expect(note.top, greaterThan(description.top));
+    expect(field.top, greaterThan(note.top));
+
+    // И всё по одной левой границе. Столбца подписей больше нет — с ним
+    // подпись стояла бы справа, управление слева, а объяснение под
+    // управлением, и читать пришлось бы по диагонали.
+    expect(description.left, closeTo(title.left, 0.5));
+    expect(note.left, closeTo(title.left, 0.5));
+    expect(field.left, closeTo(title.left, 0.5));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('у флага квадрат стоит на строке подписи', (tester) async {
+    await openSettings(tester);
+
+    final label = setting('Terminal', 'Typing goes to the command line');
+    final title = tester.getRect(label);
+    final box = tester.getRect(find.ancestor(of: label, matching: find.byType(FcCheckbox)).first);
+    final description = tester.getRect(find.text('The mc habit: no jump-to-name by the first letter'));
+
+    // У флага подпись и есть управление: поставь квадрат под подписью — и она
+    // повторится дважды, заголовком и меткой рядом с квадратом.
+    expect(box.left, lessThan(title.left));
+    expect(title.center.dy, closeTo(box.center.dy, 2));
+
+    // А объяснение равняется по подписи, а не по квадрату: оно относится к
+    // настройке, а не к галочке.
+    expect(description.top, greaterThan(title.bottom));
+    expect(description.left, closeTo(title.left, 0.5));
 
     await tester.pump(const Duration(milliseconds: 20));
   });
@@ -52,7 +107,7 @@ void main() {
     await openSettings(tester);
     expect(terminal().typingGoesToLine, isFalse);
 
-    await tester.tap(find.text('Typing goes to the command line'));
+    await tester.tap(setting('Terminal', 'Typing goes to the command line'));
     await tester.pumpAndSettle();
 
     expect(terminal().typingGoesToLine, isTrue, reason: 'применяется сразу, без кнопки «Применить»');
