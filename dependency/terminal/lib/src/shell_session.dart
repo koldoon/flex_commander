@@ -78,7 +78,19 @@ class ShellSession {
       // неё, — уже жизнь человека.
       opened.input('$setup\nclear\n');
     }
-    return _sessions[host.shellLabel] = opened;
+    // Оболочка смертна: `exit`, `kill`, обрыв `ssh`. Умерла — уходит из
+    // таблицы, и следующая команда заводит новую; держать мёртвую значило бы
+    // слать команды в никуда.
+    final label = host.shellLabel;
+    unawaited(
+      opened.exited.then((_) {
+        if (identical(_sessions[label], opened)) {
+          _sessions.remove(label);
+        }
+      }),
+    );
+
+    return _sessions[label] = opened;
   }
 
   /// Место закрылось — закрылась и его оболочка.

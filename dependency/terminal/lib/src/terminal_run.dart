@@ -40,6 +40,7 @@ class TerminalRun {
     required TerminalSettings options,
     required String command,
     required String workingDirectory,
+    Panel? panel,
     ProviderLease? lease,
     Duration showDelay = defaultShowDelay,
     void Function()? onStarted,
@@ -120,12 +121,20 @@ class TerminalRun {
     // Иначе выходил ритуал из двух клавиш: `Ctrl-C` убивал программу, но экран
     // оставался — на нём же и вывод, и `^C`, — а закрывался только следующим
     // `Enter`. Со стороны это читалось как «`Ctrl-C` не сработал».
-    if (session.interrupted) {
+    void hide() {
       if (app.view.positionOf(screen) != null) {
         app.view.popViewportContent(ViewportPosition.fullscreen);
       } else {
         screen.close();
       }
+    }
+
+    if (session.interrupted) {
+      hide();
+    } else if (code == 0 && options.afterCommand == TerminalSettings.hideAfterCommand) {
+      // Успешная — уходит сама, если так велели. Провалившаяся ждёт клавиши
+      // всегда: код возврата — единственное, о чём точно нужно сказать.
+      hide();
     } else if (session.commandOutput || code != 0) {
       // Сказала хоть слово или провалилась — остаётся до нажатия клавиши.
       show();
@@ -134,6 +143,7 @@ class TerminalRun {
       screen.close();
     }
 
+    await _followShell(panel, workingDirectory, session.lastMark?.directory);
     await _reloadPanels(app);
   }
 
@@ -148,6 +158,24 @@ class TerminalRun {
       return command;
     }
     return 'cd ${ShellCommand.quote(directory)} && $command';
+  }
+
+  /// Панель идёт за оболочкой, если та ушла сама.
+  ///
+  /// `cd /tmp && make` — строка с продолжением, и толковать её мы не беремся
+  /// (`spec/terminal.md`, §7): она уходит оболочке как есть. Но куда оболочка
+  /// в итоге встала, метка говорит точно, и оставлять панель позади незачем.
+  ///
+  /// Только на настоящей файловой системе: каталог оболочки на сервере — путь
+  /// **там**, и панели он ничего не говорит.
+  static Future<void> _followShell(Panel? panel, String from, String? to) async {
+    if (panel == null || to == null || to.isEmpty || to == from) {
+      return;
+    }
+    if (!panel.provider.capabilities.realFileSystem) {
+      return;
+    }
+    await panel.openPath(to);
   }
 
   /// Перечитать панели: команда могла создать, удалить и переименовать что

@@ -579,6 +579,7 @@ class RunCommandLineCommand extends AppCommand {
       options: settings(),
       command: command,
       workingDirectory: directory,
+      panel: line.panel,
       lease: line.panel?.leaseProvider(),
       showDelay: showDelay,
       // Строка помнит и очищается, только когда процесс уже пошёл: не
@@ -690,6 +691,7 @@ class RunNodeCommand extends AppCommand {
       options: settings(),
       command: command,
       workingDirectory: directory.pathString,
+      panel: context.panel,
       lease: context.panel.leaseProvider(),
       showDelay: showDelay,
       // В историю строки — как и набранное руками: это команда, выполненная в

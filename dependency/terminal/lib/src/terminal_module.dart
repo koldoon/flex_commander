@@ -70,6 +70,18 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
           read: () => settingsOf().shell,
           write: (value) => settingsOf().shell = value,
         ),
+        SettingsField.choice(
+          'afterCommand',
+          title: 'When a command ends',
+          description: 'What to do with the terminal screen once the command is done',
+          options: const {
+            TerminalSettings.waitAfterCommand: 'Wait for a key',
+            TerminalSettings.hideAfterCommand: 'Hide it',
+          },
+          defaultValue: TerminalSettings.defaultAfterCommand,
+          read: () => settingsOf().afterCommand,
+          write: (value) => settingsOf().afterCommand = value,
+        ),
         SettingsField.integer(
           'maxLines',
           defaultValue: TerminalSettings.defaultMaxLines,

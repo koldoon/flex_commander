@@ -33,13 +33,17 @@ AgreeingShell get shell => _shell ??= AgreeingShell(pty.session);
 
 /// Нажать `Enter` и довести отправку до оболочки.
 ///
-/// Два оборота очереди не для красоты: сперва заводится сессия, и только увидев
-/// её первое приглашение, строка отправляет команду.
+/// Первое приглашение подставная оболочка печатает только один раз — при
+/// запуске. Второе было бы враньём и, хуже того, сошло бы за конец команды,
+/// которую только что отправили.
 Future<void> submit() async {
+  final fresh = _shell == null;
   press('Enter');
   await pumpEventQueue();
-  shell.greet();
-  await pumpEventQueue();
+  if (fresh) {
+    shell.greet();
+    await pumpEventQueue();
+  }
 }
 
 void main() {
@@ -283,6 +287,70 @@ void main() {
 
       expect(pty.session.written, contains('cd docs && make\n'));
       expect(app.left.directory?.pathString, '/home');
+    });
+
+    test('оболочка ушла сама — панель идёт следом', () async {
+      press('Cmd-T');
+      type('cd docs && make');
+      await submit();
+
+      // Строку с продолжением мы не толкуем, но куда оболочка встала, метка
+      // говорит точно: оставлять панель позади незачем.
+      shell.finish(directory: '/home/docs');
+      await pumpEventQueue();
+
+      expect(app.left.directory?.pathString, '/home/docs');
+    });
+
+    test('оболочка стоит там же — панель не трогают', () async {
+      press('Cmd-T');
+      type('make');
+      await submit();
+
+      shell.finish();
+      await pumpEventQueue();
+
+      expect(app.left.directory?.pathString, '/home');
+    });
+
+    test('«убрать сразу» уносит экран успешной команды, но не провалившейся', () async {
+      line.settings.afterCommand = TerminalSettings.hideAfterCommand;
+
+      press('Cmd-T');
+      type('git status');
+      await submit();
+      shell.finish(output: 'On branch master\r\n');
+      await pumpEventQueue();
+
+      expect(app.view.contentAt(ViewportPosition.fullscreen), isNull, reason: 'успешная уходит сама');
+
+      press('Cmd-T');
+      type('false');
+      await submit();
+      shell.finish(code: 3);
+      await pumpEventQueue();
+
+      // Код возврата — единственное, о чём точно нужно сказать, и убирать его
+      // с глаз по настройке нельзя.
+      final screen = app.view.contentAt(ViewportPosition.fullscreen);
+      expect(screen, isA<CommandRunScreen>());
+      expect((screen! as CommandRunScreen).exitCode, 3);
+    });
+
+    test('оболочка умерла — следующая команда заводит новую', () async {
+      press('Cmd-T');
+      type('exit');
+      await submit();
+      pty.session.exit(0);
+      await pumpEventQueue();
+
+      _shell = null;
+      press('Cmd-T');
+      type('ls');
+      press('Enter');
+      await pumpEventQueue();
+
+      expect(pty.sessions, hasLength(2), reason: 'мёртвую держать незачем');
     });
   });
 

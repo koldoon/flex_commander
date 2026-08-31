@@ -7,6 +7,7 @@ class TerminalSettings implements Serializable {
     this.maxLines = defaultMaxLines,
     this.typingGoesToLine = false,
     this.runExecutables = true,
+    this.afterCommand = defaultAfterCommand,
     List<String>? history,
   }) : history = history ?? <String>[];
 
@@ -19,6 +20,23 @@ class TerminalSettings implements Serializable {
   /// Сколько команд помнится. Больше сотни никто не пролистывает, а файл
   /// настроек — не журнал.
   static const int historyLimit = 100;
+
+  /// Экран уходит по концу команды.
+  static const String hideAfterCommand = 'hide';
+
+  /// Экран ждёт клавиши.
+  static const String waitAfterCommand = 'wait';
+
+  /// Ждать клавиши: так было всегда, и человек, читавший вывод, его не теряет.
+  static const String defaultAfterCommand = waitAfterCommand;
+
+  /// Что делать с экраном, когда команда закончилась.
+  ///
+  /// Правильного ответа нет: одному вывод нужен ровно на то мгновение, пока
+  /// команда идёт, другому — прочитать его спокойно. На **провалившуюся**
+  /// команду не действует: код возврата — единственное, о чём точно нужно
+  /// сказать, и убирать его с глаз по таймеру нельзя.
+  String afterCommand;
 
   /// Чем запускать команды; пусто — тем, чем работает человек (`$SHELL`).
   ///
@@ -55,6 +73,7 @@ class TerminalSettings implements Serializable {
     maxLines = extract(maxLines, m['maxLines']);
     typingGoesToLine = extract(typingGoesToLine, m['typingGoesToLine']);
     runExecutables = extract(runExecutables, m['runExecutables']);
+    afterCommand = extract(afterCommand, m['afterCommand']);
     history = extractList<String>(m['history']);
   }
 
@@ -64,6 +83,7 @@ class TerminalSettings implements Serializable {
     m['maxLines'] = maxLines;
     m['typingGoesToLine'] = typingGoesToLine;
     m['runExecutables'] = runExecutables;
+    m['afterCommand'] = afterCommand;
     m['history'] = history;
   }
 }
