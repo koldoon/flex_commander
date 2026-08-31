@@ -6,6 +6,7 @@
 /// файла системой, окно приложения.
 library;
 
+export 'src/elevated_sink.dart';
 export 'src/local_file_copy.dart';
 export 'src/local_file_system.dart';
 export 'src/local_fs_settings.dart';

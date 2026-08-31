@@ -50,6 +50,9 @@ class LocalFileSystem implements FcModule {
         // настройках терминала. Спрашивается необязательно и лениво: без
         // модуля терминала объявить её некому, и тогда берётся `$SHELL`.
         shellName: () => services.resolveAll<ShellPreference>().firstOrNull?.shell ?? '',
+        // Повышение прав — тоже необязательно и тоже лениво: службу объявляет
+        // ядро, а провайдер создаётся раньше него.
+        elevation: () => services.resolveAll<Elevation>().firstOrNull,
       ),
     );
 

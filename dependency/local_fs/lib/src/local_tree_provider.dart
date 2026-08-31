@@ -7,6 +7,7 @@ import 'package:fc_api/fc_api.dart';
 
 import 'local_file_copy.dart';
 import 'local_fs_settings.dart';
+import 'elevated_sink.dart';
 import 'local_shell.dart';
 import 'system_pty.dart';
 import 'local_mapping.dart';
@@ -39,8 +40,17 @@ class LocalTreeProvider
     this.settings,
     PtyLauncher pty = const SystemPtyLauncher(),
     String Function()? shellName,
+    Elevation? Function()? elevation,
   }) : homePath = homePath ?? _detectHomePath(),
+       _elevation = elevation ?? _noElevation,
        _shell = LocalShellHost(launcher: pty, shellName: shellName ?? _noPreference);
+
+  /// Повышать нечем: так собирается провайдер в тестах и там, где службы нет.
+  static Elevation? _noElevation() => null;
+
+  /// Служба повышения — **способом спросить**: она появляется позже провайдера,
+  /// и держать её значением здесь нельзя.
+  final Elevation? Function() _elevation;
 
   /// Оболочки нет предпочтения — берётся `$SHELL`.
   static String _noPreference() => '';
@@ -533,6 +543,22 @@ class LocalTreeProvider
   @override
   Future<StreamSink<List<int>>> openWrite(DirectoryNode parent, String name, {int? length}) async {
     final path = p.join(physicalPathOf(parent), name);
+
+    // Спрашиваем **до** записи, а не ловим отказ после. `File.openWrite`
+    // отдаёт приёмник сразу и молча, а «нельзя» приходит только на `close()` —
+    // когда байты уже отданы и деть их некуда. Проба стоит одного открытия, и
+    // платим за неё только при разрешённом повышении.
+    final elevation = _elevation();
+    if (elevation != null && elevation.enabled && !await _mayWritePath(path)) {
+      return ElevatedSink(
+        elevation: elevation,
+        host: this,
+        target: path,
+        temporary: File(p.join(Directory.systemTemp.path, 'fc-elevated-${DateTime.now().microsecondsSinceEpoch}')),
+        about: ElevationRequest(action: 'Write', path: path, where: shellLabel),
+      );
+    }
+
     try {
       return File(path).openWrite();
     } on FileSystemException catch (error) {
@@ -551,19 +577,22 @@ class LocalTreeProvider
   /// значит «можно ли создать в нём запись», и отвечает на это попытка
   /// завести временное имя.
   @override
-  Future<bool> canWriteTo(FsNode node) async {
-    final path = physicalPathOf(node);
-    if (node is DirectoryNode) {
-      final probe = File(p.join(path, '.fc-write-probe-${DateTime.now().microsecondsSinceEpoch}'));
-      try {
-        await probe.create(exclusive: true);
-        await probe.delete();
-        return true;
-      } on FileSystemException {
-        return false;
-      }
-    }
+  Future<bool> canWriteTo(FsNode node) =>
+      node is DirectoryNode ? _mayCreateIn(physicalPathOf(node)) : _mayWriteFile(physicalPathOf(node));
 
+  /// Пустят ли записать в **этот путь**: файл есть — дозаписью, нет — попыткой
+  /// завести его рядом.
+  ///
+  /// Нужно там, где узла ещё нет: `openWrite` заводит новый файл, и спросить о
+  /// нём как об объекте нельзя.
+  Future<bool> _mayWritePath(String path) async {
+    if (await File(path).exists()) {
+      return _mayWriteFile(path);
+    }
+    return _mayCreateIn(p.dirname(path));
+  }
+
+  Future<bool> _mayWriteFile(String path) async {
     RandomAccessFile? handle;
     try {
       handle = await File(path).open(mode: FileMode.append);
@@ -572,6 +601,17 @@ class LocalTreeProvider
       return false;
     } finally {
       await handle?.close();
+    }
+  }
+
+  Future<bool> _mayCreateIn(String directory) async {
+    final probe = File(p.join(directory, '.fc-write-probe-${DateTime.now().microsecondsSinceEpoch}'));
+    try {
+      await probe.create(exclusive: true);
+      await probe.delete();
+      return true;
+    } on FileSystemException {
+      return false;
     }
   }
 
