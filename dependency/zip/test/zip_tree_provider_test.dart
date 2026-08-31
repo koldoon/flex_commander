@@ -424,8 +424,10 @@ void main() {
 
       // Наружу одним прыжком: закрыться должны оба.
       expect(await panel.openPath(root), isTrue);
-      // Закрытие асинхронное: панель не ждёт его, чтобы показать каталог.
-      await pumpEventQueue();
+      // Закрытие асинхронное: панель не ждёт его, чтобы показать каталог. А
+      // уборка временной копии идёт на диск — оборотами очереди её не
+      // ускорить, и на сборочной машине их не хватало.
+      await waitUntilAsync(() async => !await File(inner.archivePath).exists());
 
       expect(panel.provider, same(disk));
       expect(await File(inner.archivePath).exists(), isFalse);
