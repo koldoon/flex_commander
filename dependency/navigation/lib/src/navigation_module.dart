@@ -63,6 +63,7 @@ class Navigation implements FcModule {
       () => SettingsSchema([
         SettingsField.integer(
           'recentPathsLimit',
+          defaultValue: NavigationSettings.defaultLimit,
           title: 'Address history',
           unit: 'entries',
           min: 0,

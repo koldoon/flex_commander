@@ -86,6 +86,7 @@ class AppShell implements FcModule {
         // модуль темы: тот объявляет только себя.
         SettingsField.choice(
           'themeId',
+          defaultValue: app.theme.available.first.id,
           title: 'Theme',
           options: {for (final theme in app.theme.available) theme.id: theme.title},
           read: () => app.theme.current.id,
@@ -93,12 +94,15 @@ class AppShell implements FcModule {
         ),
         SettingsField.integer(
           'sizeScanConcurrency',
+          defaultValue: AppSettings.defaultSizeScanConcurrency,
           title: 'Directory size scans',
           description: 'How many directories are measured at once',
           min: 1,
           max: 64,
           read: () => app.settings.sizeScanConcurrency,
-          write: (value) => app.settings.sizeScanConcurrency = value,
+          // Через `app.settings` записать нельзя: он собирает новый объект на
+          // каждый запрос, и правка уходила бы в одноразовую копию.
+          write: app.setSizeScanConcurrency,
         ),
         SettingsField.text(
           'compoundExtensions',
@@ -112,6 +116,7 @@ class AppShell implements FcModule {
         ),
         SettingsField.flag(
           'useBuiltinExtensions',
+          defaultValue: true,
           title: 'Use the built-in list',
           description: 'tar.gz, tar.bz2, spec.ts, min.js and a few more',
           read: () => settings.section(ShellSettings.new).useBuiltinExtensions,
@@ -119,6 +124,7 @@ class AppShell implements FcModule {
         ),
         SettingsField.flag(
           'allowElevatedWrites',
+          defaultValue: true,
           title: 'Allow elevated writes',
           description: 'Offer to save as administrator where ordinary rights are not enough',
           read: () => settings.section(ShellSettings.new).allowElevatedWrites,

@@ -4,11 +4,17 @@ import 'package:fc_api/fc_api.dart';
 class TerminalSettings implements Serializable {
   TerminalSettings({
     this.shell = '',
-    this.maxLines = 10000,
+    this.maxLines = defaultMaxLines,
     this.typingGoesToLine = false,
     this.runExecutables = true,
     List<String>? history,
   }) : history = history ?? <String>[];
+
+  /// Сколько строк держится в прокрутке терминала.
+  ///
+  /// Имя, а не число в конструкторе: то же умолчание называет схема настроек,
+  /// и расходиться им нельзя.
+  static const int defaultMaxLines = 10000;
 
   /// Сколько команд помнится. Больше сотни никто не пролистывает, а файл
   /// настроек — не журнал.

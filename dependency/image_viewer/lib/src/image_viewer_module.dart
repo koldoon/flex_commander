@@ -37,12 +37,14 @@ class ImageViewer implements FcModule {
       () => SettingsSchema([
         SettingsField.flag(
           'fitToWindow',
+          defaultValue: true,
           title: 'Fit images into the window',
           read: () => settingsOf().fitToWindow,
           write: (value) => settingsOf().fitToWindow = value,
         ),
         SettingsField.integer(
           'maxFileSize',
+          defaultValue: ImageViewerSettings.defaultMaxFileSize,
           title: 'Largest image to open',
           unit: 'bytes',
           min: 1024,
@@ -52,6 +54,7 @@ class ImageViewer implements FcModule {
         ),
         SettingsField.integer(
           'maxPixels',
+          defaultValue: ImageViewerSettings.defaultMaxPixels,
           title: 'Largest image to decode',
           unit: 'pixels',
           min: 1000 * 1000,

@@ -47,6 +47,7 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
       () => SettingsSchema([
         SettingsField.flag(
           'typingGoesToLine',
+          defaultValue: false,
           title: 'Typing goes to the command line',
           description: 'The mc habit: no jump-to-name by the first letter',
           read: () => settingsOf().typingGoesToLine,
@@ -54,6 +55,7 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
         ),
         SettingsField.flag(
           'runExecutables',
+          defaultValue: true,
           title: 'Enter runs executable files',
           description: 'A file with the +x bit runs in the terminal instead of going to the system',
           read: () => settingsOf().runExecutables,
@@ -70,6 +72,7 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
         ),
         SettingsField.integer(
           'maxLines',
+          defaultValue: TerminalSettings.defaultMaxLines,
           title: 'Scrollback',
           unit: 'lines',
           min: 100,

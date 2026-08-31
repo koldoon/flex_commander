@@ -116,6 +116,13 @@ abstract interface class Application implements Listenable {
 
   void setSplitRatio(double value);
 
+  /// Сколько каталогов обходится за раз при подсчёте размеров.
+  ///
+  /// Настройка ядра, а не модуля, — и потому у неё свой доступ. Через
+  /// [settings] её не записать: тот собирает **новый** объект на каждый
+  /// запрос, и правка уходила бы в одноразовую копию.
+  void setSizeScanConcurrency(int value);
+
   /// Последняя известная геометрия окна.
   WindowGeometry? get windowGeometry;
 

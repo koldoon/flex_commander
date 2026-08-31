@@ -151,7 +151,7 @@ class AppContainer extends DI {
           (c) => PanelControllerFactory(
             registry: c.get<ProviderRegistry>(),
             editor: c.get<TreeEditor>(),
-            sizeScanConcurrency: c.get<AppSettings>().sizeScanConcurrency,
+            sizeScanConcurrency: () => c.get<AppSettings>().sizeScanConcurrency,
             naming: c.get<FileNaming>(),
           ),
     );
@@ -227,7 +227,7 @@ class AppContainer extends DI {
                 : PanelControllerFactory(
                   registry: ProviderRegistry(root: rightProvider),
                   editor: c.get<TreeEditor>(),
-                  sizeScanConcurrency: settings.sizeScanConcurrency,
+                  sizeScanConcurrency: () => settings.sizeScanConcurrency,
                 );
 
         return AppController(

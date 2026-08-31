@@ -2,7 +2,11 @@ import 'package:fc_api/fc_api.dart';
 
 /// Что модуль локальной ФС помнит между запусками.
 class LocalFsSettings implements Serializable {
-  LocalFsSettings({this.copyProgressMinBytes = 1 << 20});
+  LocalFsSettings({this.copyProgressMinBytes = defaultCopyProgressMinBytes});
+
+  /// Мегабайт. Имя, а не число в конструкторе: то же умолчание называет схема
+  /// настроек, и расходиться им нельзя.
+  static const int defaultCopyProgressMinBytes = 1 << 20;
 
   /// С какого размера файл копируется с показом хода внутри него.
   ///

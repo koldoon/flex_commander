@@ -335,6 +335,19 @@ class AppController extends ChangeNotifier implements Application {
     modules: _initialSettings.modules,
   );
 
+  /// Пишет туда, откуда [settings] его и берёт, — в прочитанное с диска.
+  ///
+  /// Панели спрашивают это значение на каждый обход, поэтому правка действует
+  /// сразу, без перезапуска.
+  @override
+  void setSizeScanConcurrency(int value) {
+    if (_initialSettings.sizeScanConcurrency == value) {
+      return;
+    }
+    _initialSettings.sizeScanConcurrency = value;
+    _scheduleSave();
+  }
+
   Future<void> save() async {
     if (_snapshot() == _savedSnapshot) {
       return;

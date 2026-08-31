@@ -12,11 +12,14 @@ export 'package:fc_api/fc_api.dart' show Panel, PanelStatus;
 ///
 /// Панелей две, и они одного типа, поэтому контейнер не может выдать «ту самую»:
 /// он отдаёт фабрику, а кто именно левая, а кто правая, решает [AppController].
+/// Предел обхода, когда его не назвали, — тот же, что в настройках.
+int _defaultConcurrency() => AppSettings.defaultSizeScanConcurrency;
+
 class PanelControllerFactory {
   PanelControllerFactory({
     required this.registry,
     required this.editor,
-    this.sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
+    this.sizeScanConcurrency = _defaultConcurrency,
     this.naming = const ReferenceFileNaming(),
   });
 
@@ -30,7 +33,10 @@ class PanelControllerFactory {
 
   /// Размер пула обхода каталогов — общая для приложения настройка, поэтому
   /// приходит сюда, а не в [PanelSettings].
-  final int sizeScanConcurrency;
+  ///
+  /// Способ узнать, а не значение: настройку правят в окне, и следующий же
+  /// обход должен идти по новому пределу, а не по тому, что было при запуске.
+  final int Function() sizeScanConcurrency;
 
   /// Правило показа имени: по нему же идёт сортировка по расширению.
   final FileNaming naming;
@@ -62,7 +68,7 @@ class PanelController extends ChangeNotifier implements Panel {
     required PanelSettings settings,
     required ProviderRegistry registry,
     required TreeEditor editor,
-    this.sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
+    this.sizeScanConcurrency = _defaultConcurrency,
     this.naming = const ReferenceFileNaming(),
   }) : _registry = registry,
        _editor = editor,
@@ -118,7 +124,7 @@ class PanelController extends ChangeNotifier implements Panel {
   /// Сколько каталогов панель обходит одновременно, считая их размер, —
   /// настройка приложения. Настоящий предел меньше, если провайдер объявил
   /// свой: см. [_scanConcurrency].
-  final int sizeScanConcurrency;
+  final int Function() sizeScanConcurrency;
 
   final TreeEditor _editor;
 
@@ -1096,7 +1102,7 @@ class PanelController extends ChangeNotifier implements Panel {
   /// Настройка говорит, сколько обходов сразу нужно **пользователю**;
   /// провайдер — сколько он **выдерживает**. Локальному диску десяток только
   /// на пользу, а FTP-серверу столько же обходов — способ получить отказ.
-  int get _scanConcurrency => math.min(sizeScanConcurrency, provider.capabilities.maxConcurrency);
+  int get _scanConcurrency => math.min(sizeScanConcurrency(), provider.capabilities.maxConcurrency);
 
   /// Добирает обходы из очереди, пока пул не заполнен.
   ///

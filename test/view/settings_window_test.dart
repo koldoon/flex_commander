@@ -127,6 +127,49 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('тронутая настройка помечена и возвращается к умолчанию', (tester) async {
+    await openSettings(tester);
+
+    // Нетронутому «Reset» предлагал бы ничего не делать, поэтому его нет вовсе.
+    expect(find.text('Reset'), findsNothing);
+    expect(terminal().typingGoesToLine, isFalse);
+
+    await tester.tap(setting('Typing goes to the command line'));
+    await tester.pumpAndSettle();
+    expect(terminal().typingGoesToLine, isTrue);
+    expect(find.text('Reset'), findsOneWidget);
+
+    await tester.tap(find.text('Reset'));
+    await tester.pumpAndSettle();
+
+    expect(terminal().typingGoesToLine, isFalse, reason: 'вернулось умолчание');
+    expect(find.text('Reset'), findsNothing, reason: 'и пометка снялась вместе с ним');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('«Reset» возвращает умолчание и в поле ввода, а не только в настройку', (tester) async {
+    await openSettings(tester);
+
+    final scans =
+        find.ancestor(of: find.text('How many directories are measured at once'), matching: find.byType(Column)).first;
+    final input = find.descendant(of: scans, matching: find.byType(TextField));
+    await tester.enterText(input, '20');
+    await tester.pumpAndSettle();
+    expect(runtime.app.settings.sizeScanConcurrency, 20);
+
+    await tester.tap(find.text('Reset'));
+    await tester.pumpAndSettle();
+
+    // Поле ввода живёт столько же, сколько окно, и о том, что значение
+    // сменилось помимо набора, само не узнает: пометка снималась бы, а в поле
+    // оставалось набранное.
+    expect(runtime.app.settings.sizeScanConcurrency, AppSettings.defaultSizeScanConcurrency);
+    expect(tester.widget<TextField>(input).controller?.text, '${AppSettings.defaultSizeScanConcurrency}');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('оглавление перечисляет разделы и уводит к ним', (tester) async {
     await openSettings(tester);
 
@@ -281,6 +324,32 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('настройка ядра доживает до закрытия окна и попадает в запись', (tester) async {
+    await openSettings(tester);
+    expect(runtime.app.settings.sizeScanConcurrency, AppSettings.defaultSizeScanConcurrency);
+
+    // Поле числа стоит под своей подписью — единственное в этом блоке.
+    final scans =
+        find.ancestor(of: find.text('How many directories are measured at once'), matching: find.byType(Column)).first;
+    await tester.enterText(find.descendant(of: scans, matching: find.byType(TextField)), '20');
+    await tester.pumpAndSettle();
+
+    // Записать надо туда, откуда `settings` его и берёт. Через сам `settings`
+    // не выйдет: он собирает новый объект на каждый запрос, и правка ушла бы в
+    // одноразовую копию — окно закрылось, и от неё ничего не осталось.
+    expect(runtime.app.settings.sizeScanConcurrency, 20);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.f2);
+    await tester.pumpAndSettle();
+
+    expect(find.text('20'), findsOneWidget, reason: 'окно открылось заново и показывает своё же значение');
+    expect(runtime.app.settings.sizeScanConcurrency, 20);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('состояние в настройках не показывается', (tester) async {
     terminal().history.add('ls -la');
     await openSettings(tester);
@@ -350,6 +419,18 @@ void main() {
           keys,
           contains(field.id),
           reason: 'поле «${field.title}» пишет в ${field.id}, а такого ключа в настройках нет',
+        );
+        // Умолчание схема называет сама, а раздел настроек — своим
+        // конструктором. Разойдись они, окно помечало бы тронутой настройку,
+        // которой никто не касался, и предлагало бы «вернуть» то, что и так
+        // стоит. Приложение только что запустилось на пустых настройках —
+        // значит, всё до одного поля стоит на умолчании.
+        expect(
+          field.isDefault,
+          isTrue,
+          reason:
+              'поле «${field.title}» (${field.id}) на свежих настройках не равно своему умолчанию: '
+              'схема и раздел разошлись',
         );
       }
     }

@@ -18,6 +18,6 @@ PanelController testPanel({
     settings: settings,
     registry: registry ?? ProviderRegistry(root: provider),
     editor: editor,
-    sizeScanConcurrency: sizeScanConcurrency,
+    sizeScanConcurrency: () => sizeScanConcurrency,
   );
 }

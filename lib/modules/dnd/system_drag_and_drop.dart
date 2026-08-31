@@ -64,6 +64,7 @@ class SystemDragAndDrop implements FcModule {
       () => SettingsSchema([
         SettingsField.flag(
           'dropIntoSamePanel',
+          defaultValue: false,
           title: 'Drop into the same panel',
           description: 'Allow dropping files back into the panel they are dragged from',
           read: () => settingsOf().dropIntoSamePanel,

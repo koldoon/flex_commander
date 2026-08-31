@@ -29,6 +29,7 @@ class LocalFileSystem implements FcModule {
       () => SettingsSchema([
         SettingsField.integer(
           'copyProgressMinBytes',
+          defaultValue: LocalFsSettings.defaultCopyProgressMinBytes,
           title: 'Show progress inside a file from',
           unit: 'bytes',
           description: 'Below this size a copy is counted whole: the progress costs more than the copy',

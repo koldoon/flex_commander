@@ -146,18 +146,21 @@ class TextViewer implements FcModule {
       () => SettingsSchema([
         SettingsField.flag(
           'wordWrap',
+          defaultValue: false,
           title: 'Wrap long lines',
           read: () => settingsOf().wordWrap,
           write: (value) => settingsOf().wordWrap = value,
         ),
         SettingsField.flag(
           'showLineNumbers',
+          defaultValue: false,
           title: 'Show line numbers',
           read: () => settingsOf().showLineNumbers,
           write: (value) => settingsOf().showLineNumbers = value,
         ),
         SettingsField.integer(
           'maxFileSize',
+          defaultValue: TextViewerSettings.defaultMaxFileSize,
           title: 'Largest file to open',
           unit: 'bytes',
           min: 1024,

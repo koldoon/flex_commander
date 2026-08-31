@@ -46,15 +46,34 @@ sealed class SettingsField {
   /// оболочки». Пусто — подействует сразу.
   final String note;
 
+  /// Стоит ли сейчас умолчание.
+  ///
+  /// По этому окно решает, помечать ли настройку тронутой и предлагать ли
+  /// вернуть умолчание. Спрашивается у поля, а не считается снаружи: значение
+  /// у каждого вида своего типа, и сравнивать их одним способом нечем.
+  bool get isDefault;
+
+  /// Вернуть умолчание — и записать, как при обычной правке.
+  void resetToDefault();
+
   /// Флаг.
   static SettingsFlag flag(
     String id, {
     required String title,
     String description = '',
     String note = '',
+    required bool defaultValue,
     required bool Function() read,
     required void Function(bool value) write,
-  }) => SettingsFlag(id, title: title, description: description, note: note, read: read, write: write);
+  }) => SettingsFlag(
+    id,
+    title: title,
+    description: description,
+    note: note,
+    defaultValue: defaultValue,
+    read: read,
+    write: write,
+  );
 
   /// Целое число с пределами.
   static SettingsNumber integer(
@@ -65,6 +84,7 @@ sealed class SettingsField {
     required int min,
     required int max,
     String unit = '',
+    required int defaultValue,
     required int Function() read,
     required void Function(int value) write,
   }) => SettingsNumber(
@@ -75,6 +95,7 @@ sealed class SettingsField {
     min: min,
     max: max,
     unit: unit,
+    defaultValue: defaultValue,
     read: read,
     write: write,
   );
@@ -86,9 +107,19 @@ sealed class SettingsField {
     String description = '',
     String note = '',
     String hint = '',
+    String defaultValue = '',
     required String Function() read,
     required void Function(String value) write,
-  }) => SettingsText(id, title: title, description: description, note: note, hint: hint, read: read, write: write);
+  }) => SettingsText(
+    id,
+    title: title,
+    description: description,
+    note: note,
+    hint: hint,
+    defaultValue: defaultValue,
+    read: read,
+    write: write,
+  );
 
   /// Выбор из готового списка.
   static SettingsChoice choice(
@@ -97,6 +128,7 @@ sealed class SettingsField {
     String description = '',
     String note = '',
     required Map<String, String> options,
+    required String defaultValue,
     required String Function() read,
     required void Function(String value) write,
   }) => SettingsChoice(
@@ -105,6 +137,7 @@ sealed class SettingsField {
     description: description,
     note: note,
     options: options,
+    defaultValue: defaultValue,
     read: read,
     write: write,
   );
@@ -116,12 +149,22 @@ class SettingsFlag extends SettingsField {
     required super.title,
     super.description,
     super.note,
+    required this.defaultValue,
     required this.read,
     required this.write,
   });
 
+  /// Что стоит, пока не выбрали своего.
+  final bool defaultValue;
+
   final bool Function() read;
   final void Function(bool value) write;
+
+  @override
+  bool get isDefault => read() == defaultValue;
+
+  @override
+  void resetToDefault() => write(defaultValue);
 }
 
 class SettingsNumber extends SettingsField {
@@ -133,6 +176,7 @@ class SettingsNumber extends SettingsField {
     required this.min,
     required this.max,
     this.unit = '',
+    required this.defaultValue,
     required this.read,
     required this.write,
   });
@@ -140,11 +184,20 @@ class SettingsNumber extends SettingsField {
   final int min;
   final int max;
 
+  /// Что стоит, пока не выбрали своего.
+  final int defaultValue;
+
   /// Единица измерения — подпись справа от поля: `bytes`, `lines`.
   final String unit;
 
   final int Function() read;
   final void Function(int value) write;
+
+  @override
+  bool get isDefault => read() == defaultValue;
+
+  @override
+  void resetToDefault() => write(defaultValue);
 
   /// Приводит набранное к допустимому; null — это не число вовсе.
   int? parse(String value) {
@@ -159,6 +212,7 @@ class SettingsText extends SettingsField {
     super.description,
     super.note,
     this.hint = '',
+    this.defaultValue = '',
     required this.read,
     required this.write,
   });
@@ -166,8 +220,18 @@ class SettingsText extends SettingsField {
   /// Что показать в пустом поле — обычно объяснение умолчания.
   final String hint;
 
+  /// Что стоит, пока не выбрали своего; обычно пусто — и подсказка объясняет,
+  /// что будет в этом случае.
+  final String defaultValue;
+
   final String Function() read;
   final void Function(String value) write;
+
+  @override
+  bool get isDefault => read() == defaultValue;
+
+  @override
+  void resetToDefault() => write(defaultValue);
 }
 
 class SettingsChoice extends SettingsField {
@@ -177,6 +241,7 @@ class SettingsChoice extends SettingsField {
     super.description,
     super.note,
     required this.options,
+    required this.defaultValue,
     required this.read,
     required this.write,
   });
@@ -184,8 +249,17 @@ class SettingsChoice extends SettingsField {
   /// Значение → подпись.
   final Map<String, String> options;
 
+  /// Что стоит, пока не выбрали своего.
+  final String defaultValue;
+
   final String Function() read;
   final void Function(String value) write;
+
+  @override
+  bool get isDefault => read() == defaultValue;
+
+  @override
+  void resetToDefault() => write(defaultValue);
 }
 
 /// Раздел окна настроек: чьи это поля и как их получить.

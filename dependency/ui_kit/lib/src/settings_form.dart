@@ -352,14 +352,19 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   ///
   /// Крупнее остального текста, а не только жирнее: это единственное, что
   /// говорит, чьи это настройки, — приставки с названием модуля у подписей нет.
-  Widget _heading(FcTheme theme, String title, {Key? key}) => Text(
-    title,
-    key: key,
-    style: TextStyle(
-      fontFamily: theme.fonts.ui,
-      fontSize: theme.metrics.settingsHeadingFontSize,
-      fontWeight: FontWeight.bold,
-      color: theme.colors.dialogTitleText,
+  Widget _heading(FcTheme theme, String title, {Key? key}) => Padding(
+    // По той же левой границе, что и настройки: под ними стоит место под
+    // полосу пометки, и без отступа заголовок висел бы левее столбца.
+    padding: EdgeInsets.only(left: theme.metrics.markedBarWidth + theme.metrics.columnGap),
+    child: Text(
+      title,
+      key: key,
+      style: TextStyle(
+        fontFamily: theme.fonts.ui,
+        fontSize: theme.metrics.settingsHeadingFontSize,
+        fontWeight: FontWeight.bold,
+        color: theme.colors.dialogTitleText,
+      ),
     ),
   );
 
@@ -397,6 +402,11 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   /// повторилась бы дважды: заголовком и меткой рядом с квадратом.
   Widget _block(FcTheme theme, SettingsSchema schema, SettingsField field) {
     final metrics = theme.metrics;
+    // Тронутое видно полосой слева — тем же цветом, каким помечена строка в
+    // панели: «это тронуто» в приложении уже значит именно это. Место под
+    // полосу занято всегда, иначе подписи ездили бы вправо-влево на каждую
+    // правку.
+    final touched = !field.isDefault;
     final explanations = [
       if (field.description.isNotEmpty)
         Text.rich(TextSpan(children: _marked(theme, field.description, _secondaryStyle(theme)))),
@@ -407,37 +417,114 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     ];
 
     if (field is SettingsFlag) {
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _control(theme, schema, field),
-          // Объяснение равняется по подписи, а не по квадрату: оно относится к
-          // настройке, а не к галочке.
-          if (explanations.isNotEmpty)
-            Padding(
-              padding: EdgeInsets.only(top: metrics.dialogLineGap, left: metrics.checkboxSize + metrics.checkboxGap),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: explanations,
+      return _withMarker(
+        theme,
+        touched,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _titleLine(theme, schema, field, _control(theme, schema, field)),
+            // Объяснение равняется по подписи, а не по квадрату: оно относится
+            // к настройке, а не к галочке.
+            if (explanations.isNotEmpty)
+              Padding(
+                padding: EdgeInsets.only(top: metrics.dialogLineGap, left: metrics.checkboxSize + metrics.checkboxGap),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: explanations,
+                ),
               ),
-            ),
-        ],
+          ],
+        ),
       );
     }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Text.rich(_titleSpan(theme, field.title)),
-        for (final line in explanations) ...[SizedBox(height: metrics.dialogLineGap), line],
-        SizedBox(height: metrics.dialogLineGap),
-        _control(theme, schema, field),
-      ],
+    return _withMarker(
+      theme,
+      touched,
+      Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _titleLine(theme, schema, field, Text.rich(_titleSpan(theme, field.title))),
+          for (final line in explanations) ...[SizedBox(height: metrics.dialogLineGap), line],
+          SizedBox(height: metrics.dialogLineGap),
+          _control(theme, schema, field),
+        ],
+      ),
     );
   }
+
+  /// Блок с полосой слева — или с пустым местом той же ширины.
+  ///
+  /// Полоса — рамкой, а не соседом в ряду: сосед не знает высоты блока, а
+  /// растягивать его нечем — блок стоит в прокрутке, и высота там не задана.
+  /// Рамка же ровно такой высоты, какой вышел блок.
+  Widget _withMarker(FcTheme theme, bool touched, Widget block) {
+    final metrics = theme.metrics;
+    return Container(
+      decoration: BoxDecoration(
+        border: Border(
+          left: BorderSide(
+            // Прозрачная, но той же ширины: иначе подписи ездили бы
+            // вправо-влево на каждую правку.
+            color: touched ? theme.colors.markedBar : const Color(0x00000000),
+            width: metrics.markedBarWidth,
+          ),
+        ),
+      ),
+      padding: EdgeInsets.only(left: metrics.columnGap),
+      child: block,
+    );
+  }
+
+  /// Строка подписи: сама подпись (у флага — вместе с квадратом) и «Reset».
+  ///
+  /// «Reset» появляется только у тронутого: у настройки, стоящей на умолчании,
+  /// он предлагал бы ничего не делать.
+  Widget _titleLine(FcTheme theme, SettingsSchema schema, SettingsField field, Widget title) {
+    if (field.isDefault) {
+      return title;
+    }
+    return Row(
+      children: [Flexible(child: title), SizedBox(width: theme.metrics.columnGap), _reset(theme, schema, field)],
+    );
+  }
+
+  /// Показать в поле ввода то, что стоит в настройке сейчас.
+  ///
+  /// Нужно после возврата к умолчанию: контроллер живёт столько же, сколько
+  /// окно, и о том, что значение сменилось помимо набора, сам не узнает —
+  /// пометка снималась бы, а в поле оставалось набранное.
+  void _refreshEditor(SettingsField field) {
+    final editor = _editors[field.id];
+    if (editor == null) {
+      return;
+    }
+    final value = switch (field) {
+      SettingsNumber number => '${number.read()}',
+      SettingsText text => text.read(),
+      _ => null,
+    };
+    if (value != null) {
+      editor.value = TextEditingValue(text: value, selection: TextSelection.collapsed(offset: value.length));
+    }
+  }
+
+  Widget _reset(FcTheme theme, SettingsSchema schema, SettingsField field) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      onTap: () {
+        field.resetToDefault();
+        _refreshEditor(field);
+        schema.save();
+        setState(() {});
+      },
+      child: Text('Reset', style: _secondaryStyle(theme).copyWith(color: theme.colors.markedBar)),
+    ),
+  );
 
   Widget _control(FcTheme theme, SettingsSchema schema, SettingsField field) {
     void changed() {
@@ -479,7 +566,10 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                   final parsed = number.parse(value);
                   if (parsed != null) {
                     number.write(parsed);
-                    schema.save();
+                    // Через `changed`, а не просто записью: набранное могло
+                    // сойти с умолчания или вернуться на него, и пометка с
+                    // «Reset» должны появиться сразу, а не с чужой перерисовки.
+                    changed();
                   }
                 },
               ),
@@ -496,7 +586,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
         hintText: text.hint,
         onChanged: (value) {
           text.write(value);
-          schema.save();
+          changed();
         },
       ),
     };
