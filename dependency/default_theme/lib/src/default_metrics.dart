@@ -78,7 +78,7 @@ class DefaultMetrics extends FcMetrics {
   double get pathHeaderHeight => ref(60);
 
   @override
-  double get pathHeaderRadius => ref(5);
+  double get pathHeaderRadius => 5;
 
   @override
   double get pathHeaderMinInset => ref(50);
@@ -141,7 +141,7 @@ class DefaultMetrics extends FcMetrics {
   double get functionButtonHeight => ref(55);
 
   @override
-  double get functionButtonRadius => ref(5);
+  double get functionButtonRadius => 5;
 
   @override
   double get functionKeyNumberWidth => ref(75);
