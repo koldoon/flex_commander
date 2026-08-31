@@ -99,6 +99,9 @@ class LocalTreeProvider
   String get shellLabel => _shell.shellLabel;
 
   @override
+  String? get shellProgram => _shell.shellProgram;
+
+  @override
   Future<PtySession> run(String command, {String? directory, int columns = 80, int rows = 24}) =>
       _shell.run(command, directory: directory, columns: columns, rows: rows);
 

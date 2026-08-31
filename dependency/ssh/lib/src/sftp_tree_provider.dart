@@ -397,6 +397,11 @@ class SftpTreeProvider
   @override
   String get shellLabel => target.display;
 
+  /// Чем сервер встретит входящего, решает сервер: `$SHELL` там свой, и узнать
+  /// его до запуска нечем.
+  @override
+  String? get shellProgram => null;
+
   @override
   Future<PtySession> run(String command, {String? directory, int columns = 80, int rows = 24}) {
     return _openShell(command: commandIn(directory, command), columns: columns, rows: rows);

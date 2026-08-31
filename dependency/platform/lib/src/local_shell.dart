@@ -77,6 +77,10 @@ class LocalShellHost implements ShellHost {
   @override
   String get shellLabel => 'localhost';
 
+  /// На своей машине оболочка известна: настройка или `$SHELL`.
+  @override
+  String? get shellProgram => _shell;
+
   String get _shell {
     final chosen = shellName();
     return chosen.isEmpty ? LocalShellCommand.defaultShell() : chosen;

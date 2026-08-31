@@ -12,6 +12,9 @@ class _RecordingHost implements ShellHost {
   @override
   String get shellLabel => 'tester@shark';
 
+  @override
+  String? get shellProgram => null;
+
   /// Нужен ли пароль: от этого зависит исход `sudo -n true`.
   final bool needsPassword;
 

@@ -84,6 +84,25 @@ void main() {
       shells.close();
     });
 
+    test('свежая оболочка встречает уговор о метках, и его не видно', () async {
+      final shells = ShellSession(settings: options);
+      final host = InMemoryTreeProvider([FakeEntry.directory('/home')], null, pty);
+
+      await shells.sessionIn(host, '/home');
+      await pumpEventQueue();
+
+      // Уговор уходит в **уже запущенную** сессию, а не в чужой конфиг: живёт
+      // он ровно столько, сколько она.
+      final sent = pty.session.written;
+      expect(sent, contains('777;fc;'), reason: 'метка с числом этой сессии');
+      expect(sent, contains(r'$BASH_VERSION'), reason: 'общая строка разбирается изнутри');
+      // Сама строка уговора в ленте не нужна — всё, что после неё, уже жизнь
+      // человека.
+      expect(sent, endsWith('clear\n'));
+
+      shells.close();
+    });
+
     test('не открылась — аренду не держим', () async {
       final shells = ShellSession(settings: options);
       final host = _RefusingHost();
@@ -98,6 +117,9 @@ void main() {
 class _RefusingHost implements ShellHost {
   @override
   String get shellLabel => 'tester@example.org';
+
+  @override
+  String? get shellProgram => null;
 
   @override
   Future<PtySession> run(String command, {String? directory, int columns = 80, int rows = 24}) =>

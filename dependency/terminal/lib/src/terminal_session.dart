@@ -5,6 +5,8 @@ import 'package:fc_api/fc_api.dart';
 import 'package:flutter/foundation.dart';
 import 'package:xterm/xterm.dart';
 
+import 'shell_marks.dart';
+
 /// Программа в псевдотерминале вместе с разбором её вывода.
 ///
 /// Связывает две половины: [PtySession] — сам процесс, [Terminal] из `xterm` —
@@ -25,10 +27,20 @@ class TerminalSession extends ChangeNotifier {
   ///
   /// Размер окна оболочке сообщает вызывающий: он у неё спрашивается **до**
   /// запуска, а буфер разбора заводится здесь.
-  TerminalSession.around(PtySession pty, {int maxLines = defaultMaxLines, ProviderLease? lease})
-    : _lease = lease,
-      terminal = Terminal(maxLines: maxLines) {
+  TerminalSession.around(
+    PtySession pty, {
+    int maxLines = defaultMaxLines,
+    ProviderLease? lease,
+    ShellAgreement? agreement,
+  }) : _lease = lease,
+       _agreement = agreement,
+       terminal = Terminal(maxLines: maxLines) {
     _pty = pty;
+
+    // Метку разбирает не поток, а сам терминал: она управляющая
+    // последовательность, и до текста ей ещё дойти надо. Незнакомый OSC `xterm`
+    // отдаёт сюда, нарисовать его он и не пытался.
+    terminal.onPrivateOSC = _onPrivateOsc;
 
     // `allowMalformed` — не небрежность: `cat` на двоичном файле выдаёт что
     // угодно, и падать на этом терминал не вправе.
@@ -46,6 +58,30 @@ class TerminalSession extends ChangeNotifier {
 
   /// Что видно на экране и что было до этого.
   final Terminal terminal;
+
+  /// Уговор с оболочкой; null — сессия без уговора (разовый запуск, тест).
+  final ShellAgreement? _agreement;
+
+  /// Последнее, что оболочка сообщила о законченной команде.
+  ///
+  /// Здесь же, а не в отдельной службе: сообщает о себе сессия, а слушают её
+  /// разные — строка ждёт конца своей команды, панель смотрит на каталог.
+  ShellMark? get lastMark => _lastMark;
+  ShellMark? _lastMark;
+
+  /// Оболочка отметилась. Зовётся перед каждым приглашением — в том числе
+  /// первым, ещё до всякой команды.
+  void Function(ShellMark mark)? onMark;
+
+  void _onPrivateOsc(String code, List<String> parts) {
+    final mark = _agreement?.parse(code, parts);
+    if (mark == null) {
+      return;
+    }
+    _lastMark = mark;
+    onMark?.call(mark);
+    notifyListeners();
+  }
 
   /// Аренда источника, в котором живёт оболочка; null — своя машина.
   ///

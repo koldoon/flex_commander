@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
 
+import 'shell_marks.dart';
 import 'terminal_session.dart';
 import 'terminal_settings.dart';
 
@@ -56,7 +57,16 @@ class ShellSession {
       rethrow;
     }
 
-    final opened = TerminalSession.around(pty, maxLines: settings().maxLines, lease: lease);
+    // Уговор о метках — первой же строкой в свежую оболочку. Без него конец
+    // команды из строки останется незамеченным (`spec/single-shell-session.md`).
+    final agreement = ShellAgreement();
+    final opened = TerminalSession.around(pty, maxLines: settings().maxLines, lease: lease, agreement: agreement);
+    final setup = agreement.setupFor(host.shellProgram);
+    if (setup.isNotEmpty) {
+      // `clear` следом: сама строка уговора в ленте не нужна, а всё, что после
+      // неё, — уже жизнь человека.
+      opened.input('$setup\nclear\n');
+    }
     return _sessions[host.shellLabel] = opened;
   }
 

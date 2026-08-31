@@ -371,6 +371,11 @@ class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEdito
   @override
   String shellLabel = 'localhost';
 
+  /// Чем запускается оболочка; тест вправе назвать своё — от этого зависит,
+  /// какой строкой уговора её встретят.
+  @override
+  String? shellProgram;
+
   @override
   Future<PtySession> run(String command, {String? directory, int columns = 80, int rows = 24}) async => pty.start(
     executable: 'sh',
