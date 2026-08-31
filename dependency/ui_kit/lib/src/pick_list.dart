@@ -321,10 +321,14 @@ class _FcPickListState extends State<FcPickList> {
 ///
 /// Без подсветки непонятно, почему строка нашлась: `cpf` в `Copy File` со
 /// стороны выглядит случайностью.
-List<TextSpan> highlightMatch(String text, List<int> hits, TextStyle style) {
+///
+/// [matched] — чем выделять, если жирным нельзя: в окне настроек имя настройки
+/// и так набрано жирным, и выделять его тем же нечем.
+List<TextSpan> highlightMatch(String text, List<int> hits, TextStyle style, {TextStyle? matched}) {
   if (hits.isEmpty) {
     return [TextSpan(text: text, style: style)];
   }
+  final mark = matched ?? style.copyWith(fontWeight: FontWeight.bold);
 
   final spans = <TextSpan>[];
   final marked = hits.toSet();
@@ -333,7 +337,7 @@ List<TextSpan> highlightMatch(String text, List<int> hits, TextStyle style) {
 
   void flush() {
     if (buffer.isNotEmpty) {
-      spans.add(TextSpan(text: buffer.toString(), style: bold ? style.copyWith(fontWeight: FontWeight.bold) : style));
+      spans.add(TextSpan(text: buffer.toString(), style: bold ? mark : style));
       buffer.clear();
     }
   }

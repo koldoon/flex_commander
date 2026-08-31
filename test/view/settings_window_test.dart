@@ -170,6 +170,69 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  /// Набрать в поиске: он стоит первым полем ввода в окне.
+  Future<void> search(WidgetTester tester, String query) async {
+    await tester.enterText(find.byType(FcTextField).first, query);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('поиск отбирает по подписи и считает найденное', (tester) async {
+    await openSettings(tester);
+    await search(tester, 'wrap');
+
+    // «Wrap long lines» есть у двоих — обе и остаются.
+    expect(setting('Text editor', 'Wrap long lines'), findsOneWidget);
+    expect(setting('Text viewer', 'Wrap long lines'), findsOneWidget);
+    expect(setting('Terminal', 'Shell'), findsNothing);
+    expect(find.text('2 settings'), findsOneWidget);
+
+    // И оглавление показывает только те разделы, где что-то нашлось.
+    final toc = find.byType(FcPickList);
+    expect(find.descendant(of: toc, matching: find.text('Text editor', findRichText: true)), findsOneWidget);
+    expect(find.descendant(of: toc, matching: find.text('Terminal', findRichText: true)), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('поиск смотрит и в объяснение, и в ключ', (tester) async {
+    await openSettings(tester);
+
+    // Слова из объяснения человек помнит точно, а вот в какой оно подписи —
+    // нет.
+    await search(tester, 'administrator');
+    expect(setting('Application shell', 'Allow elevated writes'), findsOneWidget);
+    expect(find.text('1 setting'), findsOneWidget);
+
+    await search(tester, 'sizeScanConcurrency');
+    expect(setting('Application shell', 'Directory size scans'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('совпало название раздела — раздел показан целиком', (tester) async {
+    await openSettings(tester);
+    await search(tester, 'terminal');
+
+    // Спросили про терминал — значит про все его настройки, а не про те, где
+    // это слово ещё раз написано в подписи.
+    expect(setting('Terminal', 'Shell'), findsOneWidget);
+    expect(setting('Terminal', 'Scrollback'), findsOneWidget);
+    expect(setting('Text editor', 'Wrap long lines'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('ничего не нашлось — одно сообщение, а не два пустых столбца', (tester) async {
+    await openSettings(tester);
+    await search(tester, 'квакозябра');
+
+    expect(find.text('Nothing found'), findsOneWidget);
+    expect(find.byType(FcPickList), findsNothing);
+    expect(find.text('0 settings'), findsOneWidget);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('состояние в настройках не показывается', (tester) async {
     terminal().history.add('ls -la');
     await openSettings(tester);

@@ -23,6 +23,10 @@ import 'pick_list.dart';
 /// **Слева оглавление** — заголовки разделов. Подсвечен тот, чьё начало сейчас
 /// вверху обзора; щелчок прокручивает к разделу.
 ///
+/// **Сверху поиск.** Отбирает по подписи, названию раздела, объяснению и ключу;
+/// раздел, в котором ничего не совпало, пропадает и из списка, и из
+/// оглавления.
+///
 /// Изменение применяется сразу и сразу же просит запись: кнопки «Применить»
 /// нет, потому что отменять нечего — приложение и так живёт мгновенным
 /// применением темы, колонок и скрытых файлов.
@@ -59,22 +63,75 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
 
   final ScrollController _scroll = ScrollController();
 
-  /// Раздел, подсвеченный в оглавлении.
+  /// Набранное в поиске.
+  final TextEditingController _query = TextEditingController();
+
+  /// Что показано сейчас: номер раздела в [_pages], его заголовок, схема и
+  /// поля, прошедшие отбор.
+  ///
+  /// Номер нужен ключам заголовков: они заведены на все разделы разом, а отбор
+  /// оставляет не все.
+  late List<(int, String, SettingsSchema, List<SettingsField>)> _found = [
+    for (final (index, (title, schema)) in _pages.indexed) (index, title, schema, schema.fields),
+  ];
+
+  /// Раздел, подсвеченный в оглавлении, — номер в [_found].
   int _section = 0;
 
   @override
   void initState() {
     super.initState();
     _scroll.addListener(_followScroll);
+    _query.addListener(_onQuery);
   }
 
   @override
   void dispose() {
     _scroll.dispose();
+    _query.dispose();
     for (final editor in _editors.values) {
       editor.dispose();
     }
     super.dispose();
+  }
+
+  /// Отбор по набранному.
+  ///
+  /// Подстрока, а не нечёткое совпадение: ключей человек не помнит, а слова из
+  /// объяснения помнит точно. Совпало **название раздела** — раздел показан
+  /// целиком: спросили «terminal», значит спросили про все его настройки, а не
+  /// про те, у которых это слово ещё раз написано в подписи.
+  void _onQuery() {
+    final query = _query.text.trim().toLowerCase();
+    setState(() {
+      _found = [
+        for (final (index, (title, schema)) in _pages.indexed)
+          if (query.isEmpty || title.toLowerCase().contains(query))
+            (index, title, schema, schema.fields)
+          else if (schema.fields.where((field) => _matches(field, query)).toList() case final fields
+              when fields.isNotEmpty)
+            (index, title, schema, fields),
+      ];
+      _section = 0;
+    });
+    if (_scroll.hasClients) {
+      _scroll.jumpTo(0);
+    }
+  }
+
+  static bool _matches(SettingsField field, String query) =>
+      field.title.toLowerCase().contains(query) ||
+      field.description.toLowerCase().contains(query) ||
+      field.id.toLowerCase().contains(query);
+
+  /// Где в строке стоит найденное — чтобы его выделить.
+  List<int> _hits(String text) {
+    final query = _query.text.trim().toLowerCase();
+    if (query.isEmpty) {
+      return const [];
+    }
+    final at = text.toLowerCase().indexOf(query);
+    return at < 0 ? const [] : [for (var i = 0; i < query.length; i++) at + i];
   }
 
   /// Где начинается раздел, считая от начала прокрутки.
@@ -82,8 +139,8 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   /// Спрашивается у самой прокрутки, а не считается сложением просветов:
   /// высота блока зависит от того, как перенеслось объяснение, и повторить этот
   /// счёт в уме — верный способ разойтись с тем, что на экране.
-  double? _startOf(int index) {
-    final context = _headings[index].currentContext;
+  double? _startOf(int section) {
+    final context = _headings[_found[section].$1].currentContext;
     final box = context?.findRenderObject();
     if (box is! RenderBox || !_scroll.hasClients) {
       return null;
@@ -102,7 +159,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     }
     final position = _scroll.position;
     if (position.pixels >= position.maxScrollExtent - 1) {
-      for (var i = _pages.length - 1; i >= 0; i--) {
+      for (var i = _found.length - 1; i >= 0; i--) {
         final start = _startOf(i);
         if (start != null && start <= position.pixels + position.viewportDimension) {
           return i;
@@ -111,7 +168,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     }
 
     var current = 0;
-    for (var i = 0; i < _pages.length; i++) {
+    for (var i = 0; i < _found.length; i++) {
       final start = _startOf(i);
       if (start != null && start <= position.pixels + 1) {
         current = i;
@@ -158,57 +215,79 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           mainAxisSize: MainAxisSize.min,
           children: [
+            Padding(
+              padding: EdgeInsets.only(left: padding.left, right: padding.right, top: padding.top),
+              child: Row(
+                children: [
+                  Expanded(child: FcTextField(controller: _query, autofocus: true, hintText: 'Search settings')),
+                  // Счёт — только пока отбирают: «22 settings» при пустом поле
+                  // отвечает на вопрос, которого никто не задавал, а вот
+                  // «5 settings» объясняет, почему список вдруг короткий.
+                  if (_query.text.trim().isNotEmpty) ...[
+                    SizedBox(width: metrics.columnGap),
+                    Text(_countLabel, style: _secondaryStyle(theme)),
+                  ],
+                ],
+              ),
+            ),
             Flexible(
               // Растяжкой, а не по содержимому: обе колонки прокручиваются
               // сами, и высоту им должен задать ряд, иначе мерить её будет
               // нечем.
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  SizedBox(
-                    width: metrics.settingsTocWidth,
-                    child: Padding(
-                      padding: EdgeInsets.only(left: padding.left, top: padding.top, bottom: padding.bottom),
-                      child: FcPickList(
-                        rows: [for (final (title, _) in _pages) FcPickRow(id: title, title: title)],
-                        // Оглавление не отбирают — по нему ходят: подсветка
-                        // совпавшего здесь была бы ответом на незаданный
-                        // вопрос.
-                        query: '',
-                        // Свой отступ: по умолчанию строка списка равняется по
-                        // тексту в поле ввода над ней, а над оглавлением поля
-                        // нет — есть край окна.
-                        textInset: metrics.dialogPadding,
-                        selected: _section,
-                        onTap: (id) => _goToSection(_pages.indexWhere((page) => page.$1 == id)),
-                      ),
-                    ),
-                  ),
-                  Expanded(
-                    child: SingleChildScrollView(
-                      controller: _scroll,
-                      // Те же поля, что и у справки: окна не должны быть отбиты
-                      // по-разному.
-                      padding: padding,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
+              child:
+                  _found.isEmpty
+                      // Одним сообщением на оба столбца: пустое оглавление
+                      // рядом с пустым списком сказало бы то же самое дважды.
+                      ? Center(child: Text('Nothing found', style: theme.dialogLabelStyle))
+                      : Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
-                          for (final (index, (title, schema)) in _pages.indexed) ...[
-                            // Просвет **перед** заголовком, а не после каждого
-                            // раздела: у первого сверху уже есть поле окна.
-                            if (index > 0) SizedBox(height: metrics.settingsSectionGap),
-                            _heading(theme, title, key: _headings[index]),
-                            for (final field in schema.fields) ...[
-                              SizedBox(height: metrics.settingsBlockGap),
-                              _block(theme, schema, title, field),
-                            ],
-                          ],
+                          SizedBox(
+                            width: metrics.settingsTocWidth,
+                            child: Padding(
+                              padding: EdgeInsets.only(left: padding.left, top: padding.top, bottom: padding.bottom),
+                              child: FcPickList(
+                                rows: [for (final (_, title, _, _) in _found) FcPickRow(id: title, title: title)],
+                                // Оглавление отбирают снаружи, а не изнутри:
+                                // раздел, в котором ничего не совпало, из него
+                                // уже пропал, и подсвечивать в оставшихся
+                                // нечего.
+                                query: '',
+                                // Свой отступ: по умолчанию строка списка
+                                // равняется по тексту в поле ввода над ней, а
+                                // над оглавлением поля нет — есть край окна.
+                                textInset: metrics.dialogPadding,
+                                selected: _section,
+                                onTap: (id) => _goToSection(_found.indexWhere((section) => section.$2 == id)),
+                              ),
+                            ),
+                          ),
+                          Expanded(
+                            child: SingleChildScrollView(
+                              controller: _scroll,
+                              // Те же поля, что и у справки: окна не должны
+                              // быть отбиты по-разному.
+                              padding: padding,
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  for (final (position, (index, title, schema, fields)) in _found.indexed) ...[
+                                    // Просвет **перед** заголовком, а не после
+                                    // каждого раздела: у первого сверху уже
+                                    // есть поле окна.
+                                    if (position > 0) SizedBox(height: metrics.settingsSectionGap),
+                                    _heading(theme, title, key: _headings[index]),
+                                    for (final field in fields) ...[
+                                      SizedBox(height: metrics.settingsBlockGap),
+                                      _block(theme, schema, title, field),
+                                    ],
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
                         ],
                       ),
-                    ),
-                  ),
-                ],
-              ),
             ),
             SizedBox(height: metrics.dialogGap),
             CommandDialogActions(actions: [FcButton(label: 'Close', onPressed: widget.onClose)]),
@@ -216,6 +295,12 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
         ),
       ),
     );
+  }
+
+  /// Сколько настроек осталось после отбора.
+  String get _countLabel {
+    final count = _found.fold(0, (sum, section) => sum + section.$4.length);
+    return count == 1 ? '1 setting' : '$count settings';
   }
 
   Widget _heading(FcTheme theme, String title, {Key? key}) => Text(
@@ -238,9 +323,21 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   InlineSpan _titleSpan(FcTheme theme, String category, String title) => TextSpan(
     children: [
       TextSpan(text: '$category: ', style: _secondaryStyle(theme)),
-      TextSpan(text: title, style: _labelStyle(theme).copyWith(fontWeight: FontWeight.bold)),
+      ..._marked(theme, title, _labelStyle(theme).copyWith(fontWeight: FontWeight.bold)),
     ],
   );
+
+  /// Текст с выделенным найденным.
+  ///
+  /// Выделяется подложкой, а не жирным, как в палитре: имя настройки и так
+  /// набрано жирным, и выделить его тем же нечем.
+  ///
+  /// Нужно оно здесь по той же причине, что и там, только повод другой: в
+  /// палитре непонятно, почему строка нашлась (`cpf` в `Copy File`), а тут —
+  /// **где** она нашлась. Настройка, совпавшая объяснением или ключом, иначе
+  /// выглядит попавшей в список случайно.
+  List<TextSpan> _marked(FcTheme theme, String text, TextStyle style) =>
+      highlightMatch(text, _hits(text), style, matched: style.copyWith(backgroundColor: theme.colors.markedBackground));
 
   /// Настройка целиком: подпись, объяснение, оговорка, управление.
   ///
@@ -250,7 +347,8 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   Widget _block(FcTheme theme, SettingsSchema schema, String category, SettingsField field) {
     final metrics = theme.metrics;
     final explanations = [
-      if (field.description.isNotEmpty) Text(field.description, style: _secondaryStyle(theme)),
+      if (field.description.isNotEmpty)
+        Text.rich(TextSpan(children: _marked(theme, field.description, _secondaryStyle(theme)))),
       // Оговорка отдельной строкой и другим цветом: это не объяснение, а
       // предупреждение — «сейчас ничего не произойдёт».
       if (field.note.isNotEmpty)
