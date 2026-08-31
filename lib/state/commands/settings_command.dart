@@ -42,6 +42,10 @@ class SettingsCommand extends AppCommand {
       DialogSpec(
         title: 'Settings',
         takesFocus: true,
+        // Ширину окно задаёт само — долей экрана, а не точками: с общим
+        // верхним пределом на широком экране оно обрезалось бы тем сильнее,
+        // чем экран шире.
+        ownWidth: true,
         content: FcSettingsForm(pages: _catalog().pages, onClose: close),
         // Подтверждать нечего: изменение уже применилось, `Enter` просто
         // закрывает.

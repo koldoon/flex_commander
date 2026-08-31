@@ -1,9 +1,11 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import 'command_dialog.dart';
 import 'controls.dart';
 import 'fc_theme.dart';
+import 'pick_list.dart';
 
 /// Настройки списком: разделы модулей, под каждым — его поля.
 ///
@@ -17,6 +19,9 @@ import 'fc_theme.dart';
 /// подпись стояла бы справа, управление слева, а объяснение под управлением, и
 /// читать приходилось бы по диагонали. Подробности и образец —
 /// `docs/spec/settings-editor.md`.
+///
+/// **Слева оглавление** — заголовки разделов. Подсвечен тот, чьё начало сейчас
+/// вверху обзора; щелчок прокручивает к разделу.
 ///
 /// Изменение применяется сразу и сразу же просит запись: кнопки «Применить»
 /// нет, потому что отменять нечего — приложение и так живёт мгновенным
@@ -34,20 +39,101 @@ class FcSettingsForm extends StatefulWidget {
 }
 
 class _FcSettingsFormState extends State<FcSettingsForm> {
+  /// Насколько плавно оглавление уводит к разделу.
+  ///
+  /// Прыжком нельзя: человек щёлкнул по названию, а не «перенеси меня» — по
+  /// движению видно, что список тот же самый и куда он уехал.
+  static const Duration _scrollTo = Duration(milliseconds: 120);
+
   /// Схемы строятся один раз на открытие: они держат замыкания к разделам, и
   /// пересобирать их на каждый кадр незачем.
   late final List<(String, SettingsSchema)> _pages = [for (final page in widget.pages) (page.title, page.build())];
+
+  /// Заголовки разделов — по ключу на каждый: по ним считается, где раздел
+  /// начинается, и для оглавления, и для прокрутки к нему.
+  late final List<GlobalKey> _headings = [for (final _ in _pages) GlobalKey()];
 
   /// Поля ввода живут столько же, сколько окно: контроллер помнит набранное и
   /// положение курсора, а пересозданный терял бы и то и другое.
   final Map<String, TextEditingController> _editors = {};
 
+  final ScrollController _scroll = ScrollController();
+
+  /// Раздел, подсвеченный в оглавлении.
+  int _section = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    _scroll.addListener(_followScroll);
+  }
+
   @override
   void dispose() {
+    _scroll.dispose();
     for (final editor in _editors.values) {
       editor.dispose();
     }
     super.dispose();
+  }
+
+  /// Где начинается раздел, считая от начала прокрутки.
+  ///
+  /// Спрашивается у самой прокрутки, а не считается сложением просветов:
+  /// высота блока зависит от того, как перенеслось объяснение, и повторить этот
+  /// счёт в уме — верный способ разойтись с тем, что на экране.
+  double? _startOf(int index) {
+    final context = _headings[index].currentContext;
+    final box = context?.findRenderObject();
+    if (box is! RenderBox || !_scroll.hasClients) {
+      return null;
+    }
+    return RenderAbstractViewport.of(box).getOffsetToReveal(box, 0).offset;
+  }
+
+  /// Какой раздел считать текущим.
+  ///
+  /// Тот, чьё начало последним осталось выше верха обзора. Исключение — самый
+  /// низ списка: там короткий последний раздел не подсветить вовсе, и щелчок по
+  /// нему в оглавлении оставался бы без отклика.
+  int _sectionInView() {
+    if (!_scroll.hasClients) {
+      return 0;
+    }
+    final position = _scroll.position;
+    if (position.pixels >= position.maxScrollExtent - 1) {
+      for (var i = _pages.length - 1; i >= 0; i--) {
+        final start = _startOf(i);
+        if (start != null && start <= position.pixels + position.viewportDimension) {
+          return i;
+        }
+      }
+    }
+
+    var current = 0;
+    for (var i = 0; i < _pages.length; i++) {
+      final start = _startOf(i);
+      if (start != null && start <= position.pixels + 1) {
+        current = i;
+      }
+    }
+    return current;
+  }
+
+  void _followScroll() {
+    final current = _sectionInView();
+    if (current != _section) {
+      setState(() => _section = current);
+    }
+  }
+
+  void _goToSection(int index) {
+    final start = _startOf(index);
+    if (start == null) {
+      return;
+    }
+    _scroll.animateTo(start.clamp(0, _scroll.position.maxScrollExtent), duration: _scrollTo, curve: Curves.easeOut);
+    setState(() => _section = index);
   }
 
   TextEditingController _editorFor(String id, String initial) =>
@@ -58,45 +144,83 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
 
-    return ConstrainedBox(
-      // Предел по высоте — то же правило, что у справки: без него прокрутка не
-      // работает, `Flexible` получает бесконечность, и форма вылезает за экран.
-      constraints: dialogContentLimits(context),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Flexible(
-            child: SingleChildScrollView(
-              // Те же поля, что и у справки: окна не должны быть отбиты
-              // по-разному.
-              padding: dialogContentPadding(context),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
+    final padding = dialogContentPadding(context);
+
+    return SizedBox(
+      // Своя доля, шире прочих окон: колонок здесь две, и обе с текстом.
+      width: MediaQuery.sizeOf(context).width * metrics.settingsWidthFactor,
+      child: ConstrainedBox(
+        // Предел по высоте — то же правило, что у справки: без него прокрутка
+        // не работает, `Flexible` получает бесконечность, и форма вылезает за
+        // экран.
+        constraints: dialogContentLimits(context),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              // Растяжкой, а не по содержимому: обе колонки прокручиваются
+              // сами, и высоту им должен задать ряд, иначе мерить её будет
+              // нечем.
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  for (final (index, (title, schema)) in _pages.indexed) ...[
-                    // Просвет **перед** заголовком, а не после каждого раздела:
-                    // у первого заголовка сверху уже есть поле окна.
-                    if (index > 0) SizedBox(height: metrics.settingsSectionGap),
-                    _heading(theme, title),
-                    for (final field in schema.fields) ...[
-                      SizedBox(height: metrics.settingsBlockGap),
-                      _block(theme, schema, title, field),
-                    ],
-                  ],
+                  SizedBox(
+                    width: metrics.settingsTocWidth,
+                    child: Padding(
+                      padding: EdgeInsets.only(left: padding.left, top: padding.top, bottom: padding.bottom),
+                      child: FcPickList(
+                        rows: [for (final (title, _) in _pages) FcPickRow(id: title, title: title)],
+                        // Оглавление не отбирают — по нему ходят: подсветка
+                        // совпавшего здесь была бы ответом на незаданный
+                        // вопрос.
+                        query: '',
+                        // Свой отступ: по умолчанию строка списка равняется по
+                        // тексту в поле ввода над ней, а над оглавлением поля
+                        // нет — есть край окна.
+                        textInset: metrics.dialogPadding,
+                        selected: _section,
+                        onTap: (id) => _goToSection(_pages.indexWhere((page) => page.$1 == id)),
+                      ),
+                    ),
+                  ),
+                  Expanded(
+                    child: SingleChildScrollView(
+                      controller: _scroll,
+                      // Те же поля, что и у справки: окна не должны быть отбиты
+                      // по-разному.
+                      padding: padding,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          for (final (index, (title, schema)) in _pages.indexed) ...[
+                            // Просвет **перед** заголовком, а не после каждого
+                            // раздела: у первого сверху уже есть поле окна.
+                            if (index > 0) SizedBox(height: metrics.settingsSectionGap),
+                            _heading(theme, title, key: _headings[index]),
+                            for (final field in schema.fields) ...[
+                              SizedBox(height: metrics.settingsBlockGap),
+                              _block(theme, schema, title, field),
+                            ],
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
                 ],
               ),
             ),
-          ),
-          SizedBox(height: metrics.dialogGap),
-          CommandDialogActions(actions: [FcButton(label: 'Close', onPressed: widget.onClose)]),
-        ],
+            SizedBox(height: metrics.dialogGap),
+            CommandDialogActions(actions: [FcButton(label: 'Close', onPressed: widget.onClose)]),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _heading(FcTheme theme, String title) => Text(
+  Widget _heading(FcTheme theme, String title, {Key? key}) => Text(
     title,
+    key: key,
     style: TextStyle(
       fontFamily: theme.fonts.ui,
       fontSize: theme.metrics.fontSize,

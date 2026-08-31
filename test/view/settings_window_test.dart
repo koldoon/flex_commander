@@ -127,6 +127,49 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('оглавление перечисляет разделы и уводит к ним', (tester) async {
+    await openSettings(tester);
+
+    final toc = find.byType(FcPickList);
+    final pages = runtime.resolve<SettingsCatalog>().pages;
+    expect(pages.length, greaterThan(1));
+
+    // Все разделы на месте и в том же порядке, что и в списке.
+    for (final page in pages) {
+      expect(find.descendant(of: toc, matching: find.text(page.title, findRichText: true)), findsOneWidget);
+    }
+    expect(tester.widget<FcPickList>(toc).selected, 0, reason: 'открылось на первом разделе');
+
+    // Последний раздел лежит ниже обзора; щелчок по нему в оглавлении должен
+    // поднять его наверх, а не просто подсветить строку.
+    final last = pages.last;
+    final field = last.build().fields.first;
+    final before = tester.getRect(setting(last.title, field.title)).top;
+
+    await tester.tap(find.descendant(of: toc, matching: find.text(last.title, findRichText: true)));
+    await tester.pumpAndSettle();
+
+    expect(tester.getRect(setting(last.title, field.title)).top, lessThan(before));
+    expect(tester.widget<FcPickList>(toc).selected, pages.length - 1);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('прокрутка сама подсвечивает раздел в оглавлении', (tester) async {
+    await openSettings(tester);
+
+    final toc = find.byType(FcPickList);
+    expect(tester.widget<FcPickList>(toc).selected, 0);
+
+    // Прокручивают список настроек, а не оглавление: подсветка идёт следом.
+    await tester.drag(find.byType(FcSettingsForm), const Offset(0, -600), warnIfMissed: false);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<FcPickList>(toc).selected, greaterThan(0), reason: 'подсвечен раздел, до которого добрались');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('состояние в настройках не показывается', (tester) async {
     terminal().history.add('ls -la');
     await openSettings(tester);
