@@ -5,8 +5,22 @@ import 'package:fc_api/fc_api.dart';
 /// Своего модуля у ядра нет, а помнить есть что: раздел называется `fc.shell` и
 /// живёт по тем же правилам, что и разделы модулей.
 class ShellSettings implements Serializable {
-  ShellSettings({this.allowElevatedWrites = true, List<String>? recentCommands})
-    : recentCommands = recentCommands ?? <String>[];
+  ShellSettings({
+    this.allowElevatedWrites = true,
+    this.useBuiltinExtensions = true,
+    List<String>? compoundExtensions,
+    List<String>? recentCommands,
+  }) : compoundExtensions = compoundExtensions ?? <String>[],
+       recentCommands = recentCommands ?? <String>[];
+
+  /// Составные расширения, дописанные человеком: `cfg.json`, `story.tsx`.
+  ///
+  /// Идут **впереди** встроенных: своё можно поставить над общим, а не спорить
+  /// с ним.
+  List<String> compoundExtensions;
+
+  /// Учитывать ли встроенный список (`tar.gz`, `spec.ts`, `min.js`…).
+  bool useBuiltinExtensions;
 
   /// Предлагать ли запись от администратора там, где обычных прав не хватило.
   ///
@@ -24,12 +38,16 @@ class ShellSettings implements Serializable {
   @override
   void fromMap(Map<String, dynamic> m) {
     allowElevatedWrites = extract(allowElevatedWrites, m['allowElevatedWrites']);
+    useBuiltinExtensions = extract(useBuiltinExtensions, m['useBuiltinExtensions']);
+    compoundExtensions = extractList<String>(m['compoundExtensions']);
     recentCommands = extractList<String>(m['recentCommands']);
   }
 
   @override
   void toMap(Map<String, dynamic> m) {
     m['allowElevatedWrites'] = allowElevatedWrites;
+    m['useBuiltinExtensions'] = useBuiltinExtensions;
+    m['compoundExtensions'] = compoundExtensions;
     m['recentCommands'] = recentCommands;
   }
 }

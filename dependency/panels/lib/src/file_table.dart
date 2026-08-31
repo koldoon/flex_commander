@@ -444,6 +444,9 @@ class _FileTableState extends State<FileTable> {
               marked: panel.selection.contains(node),
               underCursor: index == panel.cursorIndex,
               panelActive: panel.active,
+              // Правило показа одно на приложение: две панели, делящие имя
+              // по-разному, — не гибкость, а недосмотр.
+              naming: app.fileNaming,
               onTap: () => _handleRowTap(app, index),
             );
             // Строку можно утащить наружу — если есть кому тащить.

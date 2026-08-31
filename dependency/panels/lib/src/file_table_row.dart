@@ -142,7 +142,10 @@ class FileTableRow extends StatelessWidget {
       return column.id == FsColumn.name ? node.name : '';
     }
 
-    final file = node is FileNode ? node as FileNode : null;
+    // Каталог — тоже `FileNode`, но расширения у него нет: `my.backup` это не
+    // «файл .backup». Раньше за это отвечало переопределение в самом узле,
+    // теперь — тот, кто показывает.
+    final file = node is FileNode && node is! DirectoryNode ? node as FileNode : null;
     return switch (column.id) {
       // Расширение показывается отдельной колонкой, поэтому из имени убирается.
       FsColumn.name => _showExtension && file != null ? naming.split(node.name).base : node.name,

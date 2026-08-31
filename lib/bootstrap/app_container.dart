@@ -8,6 +8,7 @@ import '../state/panel_controller.dart';
 import '../state/panel_viewport_registry.dart';
 import '../state/view_registry.dart';
 import '../state/theme_controller.dart';
+import '../state/compound_file_naming.dart';
 import '../state/credentials_controller.dart';
 import '../state/shell_settings.dart';
 import '../state/elevation_controller.dart';
@@ -151,11 +152,31 @@ class AppContainer extends DI {
             registry: c.get<ProviderRegistry>(),
             editor: c.get<TreeEditor>(),
             sizeScanConcurrency: c.get<AppSettings>().sizeScanConcurrency,
+            naming: c.get<FileNaming>(),
           ),
     );
 
     // Наружу приложение отдаётся интерфейсом: команды и всё, что пишется
     // против API, не должны видеть реализацию.
+    // Словарь составных расширений — правило **показа**: им пользуются колонки
+    // и сортировка. Тот, кто спрашивает «что это за файл», берёт `extensionOf`.
+    //
+    // Раздел берётся **сразу**, а не при первом обращении из отрисовки: он
+    // попадает в снимок настроек, по которому ядро решает, нужна ли запись.
+    // Появись он позже — первая же перерисовка разошлась бы со снимком, и
+    // приложение планировало бы запись на каждое движение курсора. А вот
+    // значения спрашиваются каждый раз: правку словаря в окне настроек должна
+    // показать следующая же перерисовка.
+    bind<FileNaming>(
+      to: (c) {
+        final shell = c.get<AppSettings>().modules.scope('fc.shell').section(ShellSettings.new);
+        return CompoundFileNaming(
+          compound: () => shell.compoundExtensions,
+          useBuiltin: () => shell.useBuiltinExtensions,
+        );
+      },
+    );
+
     // Секреты — одна служба на приложение: спрошенный пароль должен быть
     // виден и той панели, которая спросила, и той, что откроет тот же архив.
     bind<CredentialsController>(to: (c) => CredentialsController());
@@ -236,6 +257,7 @@ class AppContainer extends DI {
           saveDelay: overrides.saveDelay ?? const Duration(seconds: 1),
           toasts: ToastController(duration: overrides.toastDuration ?? ToastController.defaultDuration),
           credentials: c.get<CredentialsController>(),
+          fileNaming: c.get<FileNaming>(),
           // Та же, что раздаётся модулям службой: иначе приложение спрашивало
           // бы согласие у одной, а провайдер повышал права через другую — и
           // выключенная по умолчанию запасная молчала бы всегда.

@@ -43,7 +43,11 @@ to the home directory *of that source*, not of the local machine.
 
 **Columns.** Name, extension, size, modified, created, accessed, attributes. Drag headers
 to reorder, drag borders to resize, right-click for a visibility menu, click to sort. The
-layout, sorting and hidden-file flag are stored per panel and survive restarts.
+layout, sorting and hidden-file flag are stored per panel and survive restarts. Compound
+extensions come from a dictionary rather than a guess: `archive.tar.gz` is `archive` plus
+`tar.gz`, `button.spec.ts` is `button` plus `spec.ts`, and sorting groups them the same
+way — while `readme.v2.txt` keeps its version in the name. Add your own in the settings,
+or hide the extension column and names show whole.
 
 **Marking.** Space or Insert marks, `Cmd+A` marks everything, `Esc` clears. The right
 mouse button marks too: a click toggles a row, dragging marks the whole run you drag

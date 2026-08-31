@@ -36,6 +36,7 @@ class AppController extends ChangeNotifier implements Application {
     ToastController? toasts,
     CredentialsController? credentials,
     ElevationController? elevation,
+    FileNaming? fileNaming,
     ErrorController? errors,
     WindowService? window,
     this.dragAndDrop,
@@ -48,6 +49,7 @@ class AppController extends ChangeNotifier implements Application {
        credentials = credentials ?? CredentialsController(),
        // Своё, если не дали: подставке в тестах повышать нечем и незачем.
        _elevation = elevation,
+       fileNaming = fileNaming ?? const ReferenceFileNaming(),
        errors = errors ?? ErrorController(),
        viewports = viewports ?? const NoPanelViewports(),
        // По убыванию приоритета — один раз при сборке: спрашивают этот список
@@ -127,6 +129,10 @@ class AppController extends ChangeNotifier implements Application {
   /// Пароли и прочие секреты: спросить то, без чего дальше нельзя.
   @override
   final CredentialsController credentials;
+
+  /// Правило показа имени; не дали — прежнее, без словаря.
+  @override
+  final FileNaming fileNaming;
 
   final ElevationController? _elevation;
 

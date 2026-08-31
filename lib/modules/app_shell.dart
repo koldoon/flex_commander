@@ -100,6 +100,23 @@ class AppShell implements FcModule {
           read: () => app.settings.sizeScanConcurrency,
           write: (value) => app.settings.sizeScanConcurrency = value,
         ),
+        SettingsField.text(
+          'compoundExtensions',
+          title: 'Compound extensions',
+          description: 'Names ending in these are shown as one extension: archive.tar.gz is tar.gz',
+          hint: 'cfg.json; story.tsx',
+          read: () => settings.section(ShellSettings.new).compoundExtensions.join('; '),
+          // Через точку с запятой — как маски в окне пометки: разделитель у
+          // приложения уже свой, и заводить второй незачем.
+          write: (value) => settings.section(ShellSettings.new).compoundExtensions = _splitExtensions(value),
+        ),
+        SettingsField.flag(
+          'useBuiltinExtensions',
+          title: 'Use the built-in list',
+          description: 'tar.gz, tar.bz2, spec.ts, min.js and a few more',
+          read: () => settings.section(ShellSettings.new).useBuiltinExtensions,
+          write: (value) => settings.section(ShellSettings.new).useBuiltinExtensions = value,
+        ),
         SettingsField.flag(
           'allowElevatedWrites',
           title: 'Allow elevated writes',
@@ -111,3 +128,12 @@ class AppShell implements FcModule {
     });
   }
 }
+
+/// Разбирает список составных расширений из строки настройки.
+///
+/// Точка с запятой или пробел — человек напишет как привычнее, а точку в начале
+/// («.tar.gz») отбрасываем: в словаре хранится хвост, а не имя файла.
+List<String> _splitExtensions(String value) => [
+  for (final part in value.split(RegExp(r'[;\s]+')))
+    if (part.trim().isNotEmpty) part.trim().replaceFirst(RegExp(r'^\.+'), ''),
+];

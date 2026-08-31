@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../async/async_operation.dart';
 import '../background/operations.dart';
 import '../tree/provider_lease.dart';
+import '../util/file_name.dart';
 import '../commands/command_service.dart';
 import 'errors.dart';
 import 'panel_viewport.dart';
@@ -69,6 +70,13 @@ abstract interface class Application implements Listenable {
   /// Рядом с секретами и по той же причине: спросить может только тот, у кого
   /// есть экран, а обнаруживает нужду тот, кто до экрана не дотягивается.
   Elevation get elevation;
+
+  /// Как имя делится на имя и расширение — **для показа**.
+  ///
+  /// Одно на приложение: две панели, показывающие одно имя по-разному, — это не
+  /// гибкость, а недосмотр. Тот, кто спрашивает «что это за файл», берёт
+  /// `extensionOf` и этой службы не касается.
+  FileNaming get fileNaming;
 
   /// Чем рисуется содержимое панелей.
   PanelViewports get viewports;

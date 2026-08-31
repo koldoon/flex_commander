@@ -17,6 +17,7 @@ class PanelControllerFactory {
     required this.registry,
     required this.editor,
     this.sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
+    this.naming = const ReferenceFileNaming(),
   });
 
   /// Реестр провайдеров: с какого панель начинает и чем открываются вложенные
@@ -31,8 +32,16 @@ class PanelControllerFactory {
   /// приходит сюда, а не в [PanelSettings].
   final int sizeScanConcurrency;
 
-  PanelController create(PanelSettings settings) =>
-      PanelController(registry: registry, editor: editor, settings: settings, sizeScanConcurrency: sizeScanConcurrency);
+  /// Правило показа имени: по нему же идёт сортировка по расширению.
+  final FileNaming naming;
+
+  PanelController create(PanelSettings settings) => PanelController(
+    registry: registry,
+    editor: editor,
+    settings: settings,
+    sizeScanConcurrency: sizeScanConcurrency,
+    naming: naming,
+  );
 }
 
 /// Состояние одной панели — реализация [Panel].
@@ -54,6 +63,7 @@ class PanelController extends ChangeNotifier implements Panel {
     required ProviderRegistry registry,
     required TreeEditor editor,
     this.sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
+    this.naming = const ReferenceFileNaming(),
   }) : _registry = registry,
        _editor = editor,
        _columns = settings.columns,
@@ -69,6 +79,9 @@ class PanelController extends ChangeNotifier implements Panel {
     }
     selection.addListener(_onSelectionChanged);
   }
+
+  /// Правило показа имени: по нему же идёт сортировка по расширению.
+  final FileNaming naming;
 
   final ProviderRegistry _registry;
 
@@ -876,7 +889,9 @@ class PanelController extends ChangeNotifier implements Panel {
   }
 
   void _applySort() {
-    final sorted = _nodes.toList()..sort(comparatorFor(_sort));
+    // Тем же правилом, что рисует колонку: иначе имя стояло бы под одним
+    // расширением, а сортировалось по другому.
+    final sorted = _nodes.toList()..sort(comparatorFor(_sort, naming: naming));
     _nodes = List.unmodifiable(sorted);
   }
 
