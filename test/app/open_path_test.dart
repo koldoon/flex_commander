@@ -587,6 +587,57 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
     });
 
+    testWidgets('свежий адрес стоит первым, а не по алфавиту', (tester) async {
+      final runtime = await app();
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      // Хранится свежим вперёд; по алфавиту вышло бы наоборот — и последний
+      // открытый, за которым сюда и приходят, оказался бы внизу.
+      seed(runtime, ['/srv/www', '/etc', '/home/docs']);
+      await tester.pumpAndSettle();
+
+      await openDialog(tester, runtime);
+
+      final rows = tester.widgetList<Text>(find.descendant(of: find.byType(FcPickList), matching: find.byType(Text)));
+      final shown = [
+        for (final text in rows)
+          if (text.textSpan?.toPlainText().trim().isNotEmpty ?? false) text.textSpan!.toPlainText(),
+      ];
+
+      expect(shown, ['/srv/www', '/etc', '/home/docs']);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
+    testWidgets('открытое поднимается наверх и показывается первым', (tester) async {
+      final runtime = await app();
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      seed(runtime, ['/srv/www', '/home/docs']);
+      await tester.pumpAndSettle();
+
+      // Открываем то, что лежало вторым.
+      await openDialog(tester, runtime);
+      await tester.enterText(dialogField(), '/home/docs');
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      await openDialog(tester, runtime);
+      final first = tester
+          .widgetList<Text>(find.descendant(of: find.byType(FcPickList), matching: find.byType(Text)))
+          .map((text) => text.textSpan?.toPlainText().trim() ?? '')
+          .firstWhere((line) => line.isNotEmpty);
+
+      expect(first, '/home/docs');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
     testWidgets('набранное отбирает список нечётко', (tester) async {
       final runtime = await app();
       await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));

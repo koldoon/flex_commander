@@ -313,8 +313,14 @@ class _OpenPathFormState extends State<_OpenPathForm> {
     super.dispose();
   }
 
-  List<FcPickRow> get _found =>
-      FcPickList.filter([for (final path in widget.history) FcPickRow(id: path, title: path)], _typed);
+  List<FcPickRow> get _found => FcPickList.filter(
+    [for (final path in widget.history) FcPickRow(id: path, title: path)],
+    _typed,
+    // История уже лежит свежим вперёд, и показывать её надо так же: без
+    // этого список сортировался по алфавиту, и последний открытый адрес
+    // оказывался где придётся — а идут в это окно чаще всего именно за ним.
+    recent: widget.history,
+  );
 
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     final found = _found;
