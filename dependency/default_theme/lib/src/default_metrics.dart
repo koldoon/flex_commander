@@ -35,9 +35,6 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get panelGap => 6;
 
-  @override
-  double get functionBarGap => 6;
-
   /// Меньше, чем просвет до кнопок: над строкой воздух даёт ещё и её
   /// собственная высота — текст в ней стоит по центру.
   @override

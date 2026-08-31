@@ -1,11 +1,13 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_terminal/fc_terminal.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xterm/xterm.dart';
 
 import 'terminal_modules.dart';
 
@@ -35,6 +37,38 @@ void main() {
   });
 
   Finder lineField() => find.descendant(of: find.byType(CommandLineView), matching: find.byType(TextField));
+
+  testWidgets('терминал кончается там же, где строка: приглашение не прыгает', (tester) async {
+    // Командная строка — тот же терминал, выглядывающий из-под панелей. В его
+    // последней строке стоит то же приглашение, что и в ней, и при `Ctrl-O`
+    // оно обязано остаться на месте.
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    final theme = FcTheme.of(tester.element(find.byType(CommandLineView)));
+    final line = tester.getRect(find.byType(CommandLineView));
+
+    runtime.commands.dispatch(KeyCombination.parse('Ctrl-O'));
+    await tester.pumpAndSettle();
+    AgreeingShell(pty.session).greet();
+    await tester.pumpAndSettle();
+
+    final terminal = tester.getRect(find.byType(TerminalView));
+
+    // Низ сетки терминала совпадает с низом строки ввода — а он отбит от края
+    // полосы тем же просветом.
+    expect(terminal.bottom, closeTo(line.bottom - theme.metrics.commandLineGap, 0.01));
+
+    // Строк у терминала целое число, поэтому остаток высоты уходит наверх:
+    // лёжа снизу, он уводил бы последнюю строку вверх на сколько придётся.
+    expect(terminal.top, greaterThan(0));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
 
   testWidgets('строка видна внизу и показывает каталог панели', (tester) async {
     await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));

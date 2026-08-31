@@ -80,7 +80,7 @@ class AppShell extends StatelessWidget {
   /// его собственному воздуху прибавлялась бы ещё и рамка, и текст командной
   /// строки отходил бы от кнопок дальше, чем от панелей.
   Widget _belowWorkArea(BuildContext context, Application app) =>
-      _bottomStrip(context, app) ?? SizedBox(height: FcTheme.of(context).metrics.functionBarGap);
+      _bottomStrip(context, app) ?? SizedBox(height: FcTheme.of(context).metrics.commandLineGap);
 
   /// Полоса под панелями и над рядом кнопок: командная строка.
   ///

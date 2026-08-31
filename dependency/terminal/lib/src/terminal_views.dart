@@ -87,39 +87,91 @@ class _TerminalFrame extends StatelessWidget {
           Expanded(
             child: Padding(
               padding: EdgeInsets.symmetric(horizontal: metrics.panelLeftPadding),
-              child: TerminalView(
-                session.terminal,
-                autofocus: true,
-                backgroundOpacity: 0,
-                // Только железная клавиатура — без подключения к системному
-                // текстовому вводу.
-                //
-                // Иначе на macOS система забирает нажатия себе: `Backspace`
-                // уходит в `deleteBackward:` текстового поля, которого у нас
-                // нет, и до терминала не доходит вовсе, а буквы приезжают
-                // разбором ввода, который на чужой раскладке врёт. Здесь же
-                // клавиша приходит как есть: служебные разбирает таблица
-                // `xterm` (`Backspace` — `\x7f`, `Tab` — `\x9`, `Ctrl-A` —
-                // `\x1`), а печатные берутся из `event.character` — того
-                // самого символа, который дала раскладка.
-                //
-                // Цена — составной ввод (китайский, японский, мёртвые клавиши):
-                // в терминале его не будет. Для оболочки это меньшая потеря,
-                // чем неработающий `Backspace`.
-                hardwareKeyboardOnly: true,
-                // С запасными семействами: без них `xterm` подставляет свои,
-                // и один и тот же текст в терминале и в строке выходит разными
-                // шрифтами.
-                textStyle: TerminalStyle(
-                  fontFamily: theme.fonts.fixed,
-                  fontFamilyFallback: theme.fonts.fixedFallback,
-                  fontSize: metrics.fontSize,
+              // Сетка прижата к низу, остаток высоты — наверх.
+              //
+              // Строк у терминала целое число, и остаток есть почти всегда.
+              // Лёжа снизу, он уводил последнюю строку вверх на сколько
+              // придётся — а последняя строка это приглашение, то самое, что
+              // видно в командной строке под панелями. Она обязана остаться на
+              // месте: командная строка — тот же терминал, выглядывающий
+              // из-под них.
+              child: _BottomAligned(
+                lineHeight: _lineHeight(context, theme),
+                child: TerminalView(
+                  session.terminal,
+                  autofocus: true,
+                  backgroundOpacity: 0,
+                  // Только железная клавиатура — без подключения к системному
+                  // текстовому вводу.
+                  //
+                  // Иначе на macOS система забирает нажатия себе: `Backspace`
+                  // уходит в `deleteBackward:` текстового поля, которого у нас
+                  // нет, и до терминала не доходит вовсе, а буквы приезжают
+                  // разбором ввода, который на чужой раскладке врёт. Здесь же
+                  // клавиша приходит как есть: служебные разбирает таблица
+                  // `xterm` (`Backspace` — `\x7f`, `Tab` — `\x9`, `Ctrl-A` —
+                  // `\x1`), а печатные берутся из `event.character` — того
+                  // самого символа, который дала раскладка.
+                  //
+                  // Цена — составной ввод (китайский, японский, мёртвые клавиши):
+                  // в терминале его не будет. Для оболочки это меньшая потеря,
+                  // чем неработающий `Backspace`.
+                  hardwareKeyboardOnly: true,
+                  // С запасными семействами: без них `xterm` подставляет свои,
+                  // и один и тот же текст в терминале и в строке выходит разными
+                  // шрифтами.
+                  textStyle: TerminalStyle(
+                    fontFamily: theme.fonts.fixed,
+                    fontFamilyFallback: theme.fonts.fixedFallback,
+                    fontSize: metrics.fontSize,
+                  ),
                 ),
               ),
             ),
           ),
         ],
       ),
+    );
+  }
+
+  /// Высота строки терминала — тем же счётом, каким её меряет `xterm`.
+  ///
+  /// Своим замером, а не заимствованным числом: `xterm` считает её по десятку
+  /// букв в том же стиле, и повторить этот счёт надёжнее, чем угадать
+  /// произведение кегля на межстрочную — округляет их движок, а не мы.
+  static double _lineHeight(BuildContext context, FcTheme theme) {
+    final painter = TextPainter(
+      text: TextSpan(text: 'mmmmmmmmmm', style: theme.fixedStyle),
+      textDirection: TextDirection.ltr,
+      textScaler: MediaQuery.textScalerOf(context),
+    )..layout();
+    final height = painter.height;
+    painter.dispose();
+    return height;
+  }
+}
+
+/// Столько строк, сколько влезло целиком, — и прижаты они к низу.
+class _BottomAligned extends StatelessWidget {
+  const _BottomAligned({required this.lineHeight, required this.child});
+
+  final double lineHeight;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final rows = (constraints.maxHeight / lineHeight).floor();
+        // Не влезла ни одна — отдаём что есть: пустой терминал хуже кривого.
+        if (rows < 1 || !constraints.hasBoundedHeight) {
+          return child;
+        }
+        return Align(
+          alignment: Alignment.bottomLeft,
+          child: SizedBox(width: constraints.maxWidth, height: rows * lineHeight, child: child),
+        );
+      },
     );
   }
 }
