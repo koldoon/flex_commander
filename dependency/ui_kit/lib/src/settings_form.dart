@@ -542,7 +542,9 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
           changed();
         },
       ),
-      SettingsChoice choice => FcRadioGroup<String>(
+      // Выпадающим списком, а не переключателем: темы приносят модули, и
+      // строка на каждый вариант росла бы вместе с их числом.
+      SettingsChoice choice => FcSelect<String>(
         options: choice.options,
         value: choice.read(),
         onChanged: (value) {

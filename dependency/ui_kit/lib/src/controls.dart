@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
@@ -342,6 +344,156 @@ class _FcRadioOption<T> extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+/// Выпадающий список: ровно один вариант из нескольких.
+///
+/// Выглядит как поле ввода — та же рамка, высота и отступы: и то и другое
+/// отвечает на вопрос «что здесь стоит», и выглядеть они должны одинаково.
+/// Отличает его только галочка справа.
+///
+/// Пришёл на смену [FcRadioGroup] там, где вариантов может стать много: темы
+/// приносят модули, и переключатель рос бы вместе с их числом, занимая строку
+/// на каждый. У списка вид не зависит от того, сколько в нём вариантов.
+///
+/// Варианты задаются картой «значение → метка»: порядок в ней и есть порядок в
+/// списке.
+class FcSelect<T> extends StatefulWidget {
+  const FcSelect({super.key, required this.options, required this.value, required this.onChanged, this.focusNode});
+
+  final Map<T, String> options;
+
+  /// Выбранное; null — не выбрано ничего, и поле пусто.
+  final T? value;
+
+  /// null — выбирать нельзя: список приглушён и фокуса не берёт.
+  final ValueChanged<T>? onChanged;
+
+  final FocusNode? focusNode;
+
+  @override
+  State<FcSelect<T>> createState() => _FcSelectState<T>();
+}
+
+class _FcSelectState<T> extends State<FcSelect<T>> {
+  bool _focused = false;
+
+  bool get _enabled => widget.onChanged != null;
+
+  List<T> get _values => widget.options.keys.toList();
+
+  /// `Space` и стрелка вниз раскрывают список, стрелки — переключают, не
+  /// раскрывая.
+  ///
+  /// `Enter` не берётся: он подтверждает окно целиком, и отбирать его у формы
+  /// ради списка нельзя — по той же причине, что и у флажка.
+  KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
+    if (!_enabled || event is! KeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+    final values = _values;
+    final at = values.indexOf(widget.value as T);
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.space:
+        unawaited(_open(context));
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowDown when at >= 0 && at + 1 < values.length:
+        widget.onChanged!(values[at + 1]);
+        return KeyEventResult.handled;
+      case LogicalKeyboardKey.arrowUp when at > 0:
+        widget.onChanged!(values[at - 1]);
+        return KeyEventResult.handled;
+    }
+    return KeyEventResult.ignored;
+  }
+
+  /// Раскрывает список **под полем**, а не у курсора: список продолжает поле, и
+  /// появиться он должен там, где поле кончилось.
+  Future<void> _open(BuildContext context) async {
+    final box = context.findRenderObject();
+    final overlay = Overlay.of(context).context.findRenderObject();
+    if (box is! RenderBox || overlay is! RenderBox) {
+      return;
+    }
+    final top = box.localToGlobal(Offset(0, box.size.height), ancestor: overlay);
+    final chosen = await showMenu<T>(
+      context: context,
+      position: RelativeRect.fromRect(top & box.size, Offset.zero & overlay.size),
+      initialValue: widget.value,
+      items: [for (final entry in widget.options.entries) PopupMenuItem<T>(value: entry.key, child: Text(entry.value))],
+    );
+    if (chosen != null && _enabled) {
+      widget.onChanged!(chosen);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FcTheme.of(context);
+    final metrics = theme.metrics;
+    final colors = theme.colors;
+    final enabled = _enabled;
+
+    return Focus(
+      focusNode: widget.focusNode,
+      canRequestFocus: enabled,
+      skipTraversal: !enabled,
+      onKeyEvent: _handleKey,
+      onFocusChange: (focused) => setState(() => _focused = focused),
+      child: Builder(
+        builder:
+            (context) => Opacity(
+              opacity: enabled ? 1 : 0.5,
+              child: MouseRegion(
+                cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: enabled ? () => unawaited(_open(context)) : null,
+                  child: Container(
+                    height: metrics.inputHeight,
+                    padding: EdgeInsets.symmetric(horizontal: metrics.inputHorizontalPadding),
+                    decoration: BoxDecoration(
+                      color: colors.inputBackground,
+                      border: Border.all(color: colors.inputBorder, width: metrics.strokeWidth),
+                      borderRadius: BorderRadius.circular(metrics.inputRadius),
+                    ),
+                    // Поверх, а не рамкой: рамка входит в размер и сдвигала бы
+                    // соседей при появлении.
+                    foregroundDecoration: BoxDecoration(
+                      border: Border.all(
+                        color: _focused ? colors.focusRing : const Color(0x00000000),
+                        width: metrics.focusRingWidth,
+                      ),
+                      borderRadius: BorderRadius.circular(metrics.inputRadius),
+                    ),
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: Text(
+                            widget.options[widget.value] ?? '',
+                            style: theme.inputStyle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        SizedBox(width: metrics.columnGap),
+                        Text(
+                          theme.icons.glyph(theme.icons.caretDown),
+                          style: TextStyle(
+                            fontFamily: theme.icons.fontFamily,
+                            fontSize: metrics.fontSize,
+                            color: colors.inputText,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+            ),
       ),
     );
   }

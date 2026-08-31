@@ -98,6 +98,65 @@ void main() {
     });
   });
 
+  group('выпадающий список', () {
+    testWidgets('раскрывается и выбирает вариант', (tester) async {
+      var choice = 'copy';
+      await pumpInDialogColumn(
+        tester,
+        StatefulBuilder(
+          builder:
+              (context, setState) => FcSelect<String>(
+                options: const {'copy': 'Copy', 'move': 'Move'},
+                value: choice,
+                onChanged: (next) => setState(() => choice = next),
+              ),
+        ),
+      );
+
+      // Пока не раскрыт — видно только выбранное: в этом и разница с
+      // переключателем, у которого на экране все варианты разом.
+      expect(find.text('Copy'), findsOneWidget);
+      expect(find.text('Move'), findsNothing);
+
+      await tester.tap(find.byType(FcSelect<String>));
+      await tester.pumpAndSettle();
+      expect(find.text('Move'), findsOneWidget);
+
+      await tester.tap(find.text('Move'));
+      await tester.pumpAndSettle();
+      expect(choice, 'move');
+      expect(find.text('Copy'), findsNothing, reason: 'в поле стоит выбранное, а не первое из списка');
+    });
+
+    testWidgets('выглядит как поле ввода', (tester) async {
+      // Оба отвечают на вопрос «что здесь стоит», и выглядеть должны
+      // одинаково: та же высота, та же рамка.
+      await pumpInDialogColumn(
+        tester,
+        Column(
+          children: [
+            FcSelect<String>(options: const {'copy': 'Copy'}, value: 'copy', onChanged: (_) {}),
+            FcTextField(controller: TextEditingController(text: 'Copy')),
+          ],
+        ),
+      );
+
+      expect(tester.getSize(find.byType(FcSelect<String>)).height, tester.getSize(find.byType(FcTextField)).height);
+    });
+
+    testWidgets('без обработчика не берёт фокус', (tester) async {
+      await pumpInDialogColumn(
+        tester,
+        const FcSelect<String>(options: {'copy': 'Copy', 'move': 'Move'}, value: 'copy', onChanged: null),
+      );
+
+      final focus = tester.widget<Focus>(
+        find.descendant(of: find.byType(FcSelect<String>), matching: find.byType(Focus)).first,
+      );
+      expect(focus.canRequestFocus, isFalse);
+    });
+  });
+
   group('переключатель', () {
     testWidgets('выбирается ровно один вариант', (tester) async {
       var choice = 'copy';
