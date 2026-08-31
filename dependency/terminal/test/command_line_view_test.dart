@@ -1,7 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_terminal/fc_terminal.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
-import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flutter/material.dart';
@@ -49,8 +48,11 @@ void main() {
     await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
     await tester.pumpAndSettle();
 
-    final theme = FcTheme.of(tester.element(find.byType(CommandLineView)));
-    final line = tester.getRect(find.byType(CommandLineView));
+    // Само приглашение, а не полоса вокруг него: совпасть должны строки
+    // текста, а не коробки. Текст в поле ввода стоит по середине, и коробка
+    // выступает под ним на половину разницы — выровняй коробки, и терминал
+    // окажется ровно на эту половину ниже.
+    final prompt = tester.getRect(find.descendant(of: find.byType(CommandLineView), matching: find.byType(Text)).first);
 
     runtime.commands.dispatch(KeyCombination.parse('Ctrl-O'));
     await tester.pumpAndSettle();
@@ -59,9 +61,9 @@ void main() {
 
     final terminal = tester.getRect(find.byType(TerminalView));
 
-    // Низ сетки терминала совпадает с низом строки ввода — а он отбит от края
-    // полосы тем же просветом.
-    expect(terminal.bottom, closeTo(line.bottom - theme.metrics.commandLineGap, 0.01));
+    // Последняя строка терминала кончается там же, где строка приглашения.
+    expect(terminal.bottom, closeTo(prompt.bottom, 0.01));
+    expect(terminal.left, closeTo(prompt.left, 0.01), reason: 'и начинается с того же места');
 
     // Строк у терминала целое число, поэтому остаток высоты уходит наверх:
     // лёжа снизу, он уводил бы последнюю строку вверх на сколько придётся.

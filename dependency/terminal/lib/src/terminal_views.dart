@@ -66,6 +66,7 @@ class _TerminalFrame extends StatelessWidget {
     final metrics = theme.metrics;
 
     final label = theme.fixedStyle.copyWith(color: colors.pathText);
+    final lineHeight = _lineHeight(context, theme);
 
     return ColoredBox(
       // Фон окна: терминал занимает всё окно и панелью не притворяется.
@@ -86,17 +87,27 @@ class _TerminalFrame extends StatelessWidget {
           ),
           Expanded(
             child: Padding(
-              padding: EdgeInsets.symmetric(horizontal: metrics.panelLeftPadding),
+              // Снизу — ровно столько, на сколько поле ввода выше своей строки
+              // текста.
+              //
+              // Командная строка — тот же терминал, выглядывающий из-под
+              // панелей, и её приглашение обязано остаться на месте при
+              // `Ctrl-O`. Совпасть должны **строки текста**, а не коробки:
+              // текст в поле ввода стоит по середине, и коробка выступает под
+              // ним на половину разницы. Выровняй коробки — и терминал окажется
+              // ровно на эту половину ниже.
+              padding: EdgeInsets.only(
+                left: metrics.panelLeftPadding,
+                right: metrics.panelLeftPadding,
+                bottom: ((metrics.inputHeight - lineHeight) / 2).clamp(0.0, metrics.inputHeight),
+              ),
               // Сетка прижата к низу, остаток высоты — наверх.
               //
               // Строк у терминала целое число, и остаток есть почти всегда.
               // Лёжа снизу, он уводил последнюю строку вверх на сколько
-              // придётся — а последняя строка это приглашение, то самое, что
-              // видно в командной строке под панелями. Она обязана остаться на
-              // месте: командная строка — тот же терминал, выглядывающий
-              // из-под них.
+              // придётся.
               child: _BottomAligned(
-                lineHeight: _lineHeight(context, theme),
+                lineHeight: lineHeight,
                 child: TerminalView(
                   session.terminal,
                   autofocus: true,
