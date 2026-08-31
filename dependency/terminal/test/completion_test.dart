@@ -29,22 +29,28 @@ Future<void> tab() async {
 }
 
 void main() {
+  final pty = FakePty();
+
   setUp(() async {
     runtime = await testApp(
-      provider: InMemoryTreeProvider([
-        FakeEntry.directory('/home'),
-        FakeEntry.directory('/home/docs'),
-        FakeEntry.directory('/home/docs/deep'),
-        FakeEntry.file('/home/docs/deep/inner.txt', size: 1),
-        FakeEntry.directory('/home/downloads'),
-        FakeEntry.directory('/home/.ssh'),
-        FakeEntry.file('/home/dossier.txt', size: 1),
-        FakeEntry.file('/home/notes.txt', size: 1),
-        FakeEntry.file('/home/my report.txt', size: 1),
-        FakeEntry.directory('/etc'),
-        FakeEntry.file('/etc/passwd', size: 1),
-      ])..home = '/home',
-      modules: modulesWithTerminal(FakePty()),
+      provider: InMemoryTreeProvider(
+        [
+          FakeEntry.directory('/home'),
+          FakeEntry.directory('/home/docs'),
+          FakeEntry.directory('/home/docs/deep'),
+          FakeEntry.file('/home/docs/deep/inner.txt', size: 1),
+          FakeEntry.directory('/home/downloads'),
+          FakeEntry.directory('/home/.ssh'),
+          FakeEntry.file('/home/dossier.txt', size: 1),
+          FakeEntry.file('/home/notes.txt', size: 1),
+          FakeEntry.file('/home/my report.txt', size: 1),
+          FakeEntry.directory('/etc'),
+          FakeEntry.file('/etc/passwd', size: 1),
+        ],
+        null,
+        pty,
+      )..home = '/home',
+      modules: modulesWithTerminal(),
     );
     await runtime.app.start();
     press('Cmd-T');

@@ -17,15 +17,19 @@ void main() {
   setUp(() async {
     pty = FakePty();
     runtime = await testApp(
-      provider: InMemoryTreeProvider([
-        FakeEntry.directory('/home'),
-        FakeEntry.file('/home/alpha.txt', size: 10),
-        FakeEntry.file('/home/beta.txt', size: 10),
-        FakeEntry.directory('/home/Developer'),
-        FakeEntry.directory('/home/Developer/Petrosoft'),
-        FakeEntry.directory('/home/Developer/Petrosoft/go-loyalty-service'),
-      ])..home = '/home',
-      modules: modulesWithTerminal(pty),
+      provider: InMemoryTreeProvider(
+        [
+          FakeEntry.directory('/home'),
+          FakeEntry.file('/home/alpha.txt', size: 10),
+          FakeEntry.file('/home/beta.txt', size: 10),
+          FakeEntry.directory('/home/Developer'),
+          FakeEntry.directory('/home/Developer/Petrosoft'),
+          FakeEntry.directory('/home/Developer/Petrosoft/go-loyalty-service'),
+        ],
+        null,
+        pty,
+      )..home = '/home',
+      modules: modulesWithTerminal(),
     );
     await runtime.app.start();
   });

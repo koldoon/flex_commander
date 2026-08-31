@@ -16,20 +16,17 @@ import 'package:xterm/xterm.dart';
 /// оболочка под `Ctrl-O` и разовый запуск команды из строки. Разница только в
 /// том, кто их заводит и когда убивает.
 class TerminalSession extends ChangeNotifier {
-  TerminalSession.start(
-    PtyLauncher launcher, {
-    required String executable,
-    List<String> arguments = const [],
-    String? workingDirectory,
-    int maxLines = defaultMaxLines,
-  }) : terminal = Terminal(maxLines: maxLines) {
-    _pty = launcher.start(
-      executable: executable,
-      arguments: arguments,
-      workingDirectory: workingDirectory,
-      columns: terminal.viewWidth,
-      rows: terminal.viewHeight,
-    );
+  /// Заводит разбор вокруг уже запущенной программы.
+  ///
+  /// Запускает её [ShellHost] — тот, что у провайдера активной панели: на
+  /// локальной панели это `$SHELL` на этой машине, на `ssh://` — оболочка
+  /// сервера. Здесь же остаётся то, что от места не зависит: разбор вывода,
+  /// буфер прокрутки и обратная дорога для клавиш.
+  ///
+  /// Размер окна оболочке сообщает вызывающий: он у неё спрашивается **до**
+  /// запуска, а буфер разбора заводится здесь.
+  TerminalSession.around(PtySession pty, {int maxLines = defaultMaxLines}) : terminal = Terminal(maxLines: maxLines) {
+    _pty = pty;
 
     // `allowMalformed` — не небрежность: `cat` на двоичном файле выдаёт что
     // угодно, и падать на этом терминал не вправе.

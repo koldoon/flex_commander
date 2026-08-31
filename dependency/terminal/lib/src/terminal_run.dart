@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
 
-import 'shell_command.dart';
 import 'terminal_screens.dart';
 import 'terminal_session.dart';
 import 'terminal_settings.dart';
@@ -31,24 +30,18 @@ class TerminalRun {
   /// Не запустилось — не зовётся вовсе, и набранное остаётся на месте.
   static Future<void> start({
     required Application app,
-    required PtyLauncher launcher,
+    required ShellHost host,
     required TerminalSettings options,
     required String command,
     required String workingDirectory,
     Duration showDelay = defaultShowDelay,
     void Function()? onStarted,
   }) async {
-    final shell = ShellCommand.line(options.shell.isEmpty ? ShellCommand.defaultShell() : options.shell, command);
-
     final TerminalSession session;
     try {
-      session = TerminalSession.start(
-        launcher,
-        executable: shell.executable,
-        arguments: shell.arguments,
-        workingDirectory: workingDirectory,
-        maxLines: options.maxLines,
-      );
+      // Чем запускать и как оказаться в нужном каталоге, решает та сторона:
+      // на своей машине это `$SHELL` с `-lic`, на сервере — оболочка сервера.
+      session = TerminalSession.around(host.run(command, directory: workingDirectory), maxLines: options.maxLines);
     } catch (error) {
       // Псевдотерминала на этой платформе может не быть вовсе. Молчать нельзя,
       // но и окна ради этого не ставим: сообщения хватает.

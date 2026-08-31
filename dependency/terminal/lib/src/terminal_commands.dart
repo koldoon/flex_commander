@@ -178,6 +178,15 @@ class ToggleTypingCommand extends AppCommand {
 ///
 /// Одна команда на оба направления: это переключатель, и `Ctrl-O` работает
 /// везде — из панелей, из строки, из самого терминала.
+/// Оболочка того места, где стоит панель; null — выполнять здесь негде.
+///
+/// Спрашивается у **провайдера**, а не у реестра служб: на локальной панели это
+/// своя машина, на `ssh://` — сервер, а внутри архива оболочки нет вовсе.
+ShellHost? shellHostOf(Panel? panel) {
+  final provider = panel?.directory?.provider;
+  return provider is ShellHost ? provider as ShellHost : null;
+}
+
 class ToggleTerminalCommand extends AppCommand {
   ToggleTerminalCommand(this.shell);
 
@@ -235,9 +244,18 @@ class ToggleTerminalCommand extends AppCommand {
     }
     // Сессия заводится здесь и только здесь: приложение, в котором терминал ни
     // разу не открывали, лишнего процесса не держит.
+    final line = _lineOf(context.app);
+    final host = shellHostOf(line?.panel);
+    if (host == null) {
+      // Внутри архива выполнять негде, и молчать об этом нельзя: клавиша
+      // нажата, а ничего не произошло.
+      context.app.toasts.show('No shell here');
+      return;
+    }
+
     view.pushViewportContent(
       ViewportPosition.fullscreen,
-      TerminalScreen(shell().sessionIn(_lineOf(context.app)?.workingDirectory)),
+      TerminalScreen(shell().sessionIn(host, line?.workingDirectory)),
     );
   }
 }
@@ -464,15 +482,10 @@ class CompletePathCommand extends AppCommand {
 
 /// Выполнить набранное.
 class RunCommandLineCommand extends AppCommand {
-  RunCommandLineCommand({
-    required this.launcher,
-    required this.settings,
-    this.showDelay = TerminalRun.defaultShowDelay,
-  });
+  RunCommandLineCommand({required this.settings, this.showDelay = TerminalRun.defaultShowDelay});
 
   static const String commandId = 'terminal.run';
 
-  final PtyLauncher Function() launcher;
   final TerminalSettings Function() settings;
   final Duration showDelay;
 
@@ -537,9 +550,14 @@ class RunCommandLineCommand extends AppCommand {
     }
 
     // Запуск и показ — общие с запуском файла под курсором: `TerminalRun`.
+    final host = shellHostOf(line.panel);
+    if (host == null) {
+      return;
+    }
+
     await TerminalRun.start(
       app: app,
-      launcher: launcher(),
+      host: host,
       options: settings(),
       command: command,
       workingDirectory: directory,
@@ -602,11 +620,10 @@ class RunCommandLineCommand extends AppCommand {
 /// порядок разбора `Enter` в панели складывается сам собой — набранная строка,
 /// потом исполняемый файл, потом вход в каталог (`spec/run-executables.md`, §4).
 class RunNodeCommand extends AppCommand {
-  RunNodeCommand({required this.launcher, required this.settings, this.showDelay = TerminalRun.defaultShowDelay});
+  RunNodeCommand({required this.settings, this.showDelay = TerminalRun.defaultShowDelay});
 
   static const String commandId = 'terminal.runNode';
 
-  final PtyLauncher Function() launcher;
   final TerminalSettings Function() settings;
   final Duration showDelay;
 
@@ -639,9 +656,14 @@ class RunNodeCommand extends AppCommand {
     // разваливается на куски. Он же виден заголовком экрана.
     final command = ShellCommand.quote(node.pathString);
 
+    final host = shellHostOf(context.panel);
+    if (host == null) {
+      return;
+    }
+
     await TerminalRun.start(
       app: context.app,
-      launcher: launcher(),
+      host: host,
       options: settings(),
       command: command,
       workingDirectory: directory.pathString,

@@ -7,6 +7,8 @@ import 'package:fc_api/fc_api.dart';
 
 import 'local_file_copy.dart';
 import 'local_fs_settings.dart';
+import 'local_shell.dart';
+import 'system_pty.dart';
 import 'local_mapping.dart';
 import 'local_listing.dart';
 
@@ -23,9 +25,31 @@ import 'local_listing.dart';
 /// ([FileContentProvider] и [FileContentReceiver]): локальная ФС и отдаёт
 /// содержимое, и принимает.
 class LocalTreeProvider
-    implements TreeProvider, NodeEditor, LinkEditor, FileContentProvider, FileContentReceiver, WriteAccessCheck {
-  LocalTreeProvider({String? homePath, this.readInIsolate = true, this.settings})
-    : homePath = homePath ?? _detectHomePath();
+    implements
+        TreeProvider,
+        NodeEditor,
+        LinkEditor,
+        FileContentProvider,
+        FileContentReceiver,
+        WriteAccessCheck,
+        ShellHost {
+  LocalTreeProvider({
+    String? homePath,
+    this.readInIsolate = true,
+    this.settings,
+    PtyLauncher pty = const SystemPtyLauncher(),
+    String Function()? shellName,
+  }) : homePath = homePath ?? _detectHomePath(),
+       _shell = LocalShellHost(launcher: pty, shellName: shellName ?? _noPreference);
+
+  /// Оболочки нет предпочтения — берётся `$SHELL`.
+  static String _noPreference() => '';
+
+  /// Оболочка этой машины: приложение на ней и запущено, значит выполнять есть
+  /// где. Отсюда и [ShellHost] в списке умений — командная строка на локальной
+  /// панели работает потому, что это умеет **источник**, а не потому, что у
+  /// приложения особый случай для «своих» путей.
+  final LocalShellHost _shell;
 
   /// Домашний каталог пользователя — сюда открываются панели, если сохранённый
   /// путь недоступен.
@@ -43,6 +67,17 @@ class LocalTreeProvider
   /// лениво, на каждой копии, а не подставляется в конструктор. null — в
   /// тестах: берутся умолчания.
   final LocalFsSettings Function()? settings;
+
+  @override
+  String get shellLabel => _shell.shellLabel;
+
+  @override
+  PtySession run(String command, {String? directory, int columns = 80, int rows = 24}) =>
+      _shell.run(command, directory: directory, columns: columns, rows: rows);
+
+  @override
+  PtySession shell({String? directory, int columns = 80, int rows = 24}) =>
+      _shell.shell(directory: directory, columns: columns, rows: rows);
 
   /// Умолчания на случай, когда настроек нет вовсе.
   late final LocalFsSettings _defaults = LocalFsSettings();

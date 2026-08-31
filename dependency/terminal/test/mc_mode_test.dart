@@ -29,15 +29,21 @@ void typeKeys(String value) {
 }
 
 void main() {
+  final pty = FakePty();
+
   setUp(() async {
     runtime = await testApp(
-      provider: InMemoryTreeProvider([
-        FakeEntry.directory('/home'),
-        FakeEntry.directory('/home/docs'),
-        FakeEntry.file('/home/alpha.txt', size: 1),
-        FakeEntry.file('/home/beta.txt', size: 1),
-      ])..home = '/home',
-      modules: modulesWithTerminal(FakePty()),
+      provider: InMemoryTreeProvider(
+        [
+          FakeEntry.directory('/home'),
+          FakeEntry.directory('/home/docs'),
+          FakeEntry.file('/home/alpha.txt', size: 1),
+          FakeEntry.file('/home/beta.txt', size: 1),
+        ],
+        null,
+        pty,
+      )..home = '/home',
+      modules: modulesWithTerminal(),
     );
     await runtime.app.start();
     settings = line.settings;
@@ -145,9 +151,10 @@ void main() {
 
     test('на источнике без настоящих путей печать по-прежнему ведёт к имени', () async {
       runtime = await testApp(
+        // Без оболочки: `ShellHost` это дерево не объявляет.
         provider: InMemoryReadOnlyProvider([FakeEntry.directory('/home'), FakeEntry.file('/home/beta.txt', size: 1)])
           ..home = '/home',
-        modules: modulesWithTerminal(FakePty()),
+        modules: modulesWithTerminal(),
       );
       await runtime.app.start();
       line.settings.typingGoesToLine = true;

@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
+
+import 'fake_pty.dart';
 import 'package:path/path.dart' as p;
 
 /// Умения локальной ФС: с ними фейк заменяет настоящий провайдер в тестах
@@ -351,10 +353,39 @@ class InMemoryReadOnlyProvider implements TreeProvider {
 ///
 /// Байтов не отдаёт — так выглядит источник, у которого есть дерево, но нет
 /// содержимого. Тот, у которого есть и оно, — [InMemoryContentProvider].
-class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEditor {
-  InMemoryTreeProvider([super.entries, super.host]) {
+class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEditor, ShellHost {
+  InMemoryTreeProvider([super.entries, super.host, FakePty? pty]) : pty = pty ?? FakePty() {
     capabilities = localCapabilities;
   }
+
+  /// Псевдотерминал подставной оболочки: все запуски видны тесту.
+  ///
+  /// Оболочка здесь есть потому, что это дерево изображает **настоящую**
+  /// файловую систему (`localCapabilities`), а на настоящей машине выполнять
+  /// есть где. Архив её не объявляет — [InMemoryReadOnlyProvider] не
+  /// [ShellHost], и командная строка над ним приглушена, как в жизни.
+  final FakePty pty;
+
+  @override
+  String get shellLabel => 'localhost';
+
+  @override
+  PtySession run(String command, {String? directory, int columns = 80, int rows = 24}) => pty.start(
+    executable: 'sh',
+    arguments: ['-lic', command],
+    workingDirectory: directory,
+    columns: columns,
+    rows: rows,
+  );
+
+  @override
+  PtySession shell({String? directory, int columns = 80, int rows = 24}) => pty.start(
+    executable: 'sh',
+    arguments: const ['-l', '-i'],
+    workingDirectory: directory,
+    columns: columns,
+    rows: rows,
+  );
 
   /// Умеет ли провайдер переименовывать и есть ли у него корзина: так тест
   /// заставляет движок пойти запасной стратегией.

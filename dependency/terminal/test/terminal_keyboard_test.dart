@@ -22,8 +22,8 @@ void main() {
   Future<void> openTerminal(WidgetTester tester) async {
     pty = FakePty();
     runtime = await testApp(
-      provider: InMemoryTreeProvider([FakeEntry.directory('/home')])..home = '/home',
-      modules: modulesWithTerminal(pty),
+      provider: InMemoryTreeProvider([FakeEntry.directory('/home')], null, pty)..home = '/home',
+      modules: modulesWithTerminal(),
     );
     await runtime.app.start();
     await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));

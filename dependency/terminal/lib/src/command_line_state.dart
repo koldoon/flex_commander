@@ -29,21 +29,40 @@ class CommandLineState extends ChangeNotifier implements ViewportState {
   /// строка.
   Panel? get panel => app.view.panelAt(app.view.sourceArea);
 
+  /// Оболочка того места, где стоит панель; null — выполнять здесь негде.
+  ///
+  /// Спрашивается у **провайдера**: на локальной панели это своя машина, на
+  /// `ssh://` — сервер, а внутри архива оболочки нет вовсе.
+  ShellHost? get shellHost {
+    final provider = panel?.directory?.provider;
+    return provider is ShellHost ? provider as ShellHost : null;
+  }
+
   /// Каталог, в котором выполнится команда; null — выполнять нельзя.
   ///
   /// Настоящий путь или ничего: молча выполнить команду не в том каталоге, о
-  /// котором думает человек, — худшее, что строка может сделать. В архиве и на
-  /// `ssh://` она приглушена и говорит, почему.
+  /// котором думает человек, — худшее, что строка может сделать. В архиве она
+  /// приглушена и говорит, почему.
+  ///
+  /// Спрашивается умение источника, а не `realFileSystem`: на `ssh://` путей
+  /// этой машины нет, а выполнять есть где — на той стороне.
   String? get workingDirectory {
     final directory = panel?.directory;
-    if (directory == null) {
+    if (directory == null || shellHost == null) {
       return null;
     }
-    return directory.provider.capabilities.realFileSystem ? directory.pathString : null;
+    return directory.pathString;
   }
 
   /// Что показано слева от ввода: путь, в котором всё и произойдёт.
-  String get prompt => panel?.directory?.pathString ?? '';
+  ///
+  /// Вместе с местом, если оно не своя машина: где выполнится набранное, видно
+  /// **до** нажатия — иначе `rm` на сервере не отличить от `rm` у себя.
+  String get prompt {
+    final path = panel?.directory?.pathString ?? '';
+    final label = shellHost?.shellLabel;
+    return label == null || label == 'localhost' ? path : '$label:$path';
+  }
 
   /// Строку можно выполнить здесь.
   bool get enabled => workingDirectory != null;

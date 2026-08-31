@@ -27,14 +27,18 @@ bool press(String keys) => runtime.commands.dispatch(KeyCombination.parse(keys))
 void main() {
   setUp(() async {
     pty = FakePty();
-    provider = InMemoryTreeProvider([
-      FakeEntry.directory('/home'),
-      FakeEntry.directory('/home/docs'),
-      FakeEntry.file('/home/build.sh', size: 10, executable: true),
-      FakeEntry.file('/home/notes.txt', size: 10),
-      FakeEntry.file("/home/my script (2).sh", size: 10, executable: true),
-    ])..home = '/home';
-    runtime = await testApp(provider: provider, modules: modulesWithTerminal(pty));
+    provider = InMemoryTreeProvider(
+      [
+        FakeEntry.directory('/home'),
+        FakeEntry.directory('/home/docs'),
+        FakeEntry.file('/home/build.sh', size: 10, executable: true),
+        FakeEntry.file('/home/notes.txt', size: 10),
+        FakeEntry.file("/home/my script (2).sh", size: 10, executable: true),
+      ],
+      null,
+      pty,
+    )..home = '/home';
+    runtime = await testApp(provider: provider, modules: modulesWithTerminal());
     await runtime.app.start();
     settings = line.settings;
   });
@@ -142,12 +146,13 @@ void main() {
 
   test('без модуля терминала Enter ведёт себя как раньше', () async {
     final plain = await testApp(
-      provider: InMemoryTreeProvider([
-        FakeEntry.directory('/home'),
-        FakeEntry.file('/home/build.sh', size: 10, executable: true),
-      ])..home = '/home',
+      provider: InMemoryTreeProvider(
+        [FakeEntry.directory('/home'), FakeEntry.file('/home/build.sh', size: 10, executable: true)],
+        null,
+        pty,
+      )..home = '/home',
       modules: [
-        for (final module in modulesWithTerminal(FakePty()))
+        for (final module in modulesWithTerminal())
           if (module.id != 'fc.terminal') module,
       ],
     );

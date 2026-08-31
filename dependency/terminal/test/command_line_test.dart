@@ -31,14 +31,18 @@ void main() {
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
     pty = FakePty();
     runtime = await testApp(
-      provider: InMemoryTreeProvider([
-        FakeEntry.directory('/home'),
-        FakeEntry.directory('/home/docs'),
-        FakeEntry.file('/home/my report.txt', size: 10),
-      ])..home = '/home',
+      provider: InMemoryTreeProvider(
+        [
+          FakeEntry.directory('/home'),
+          FakeEntry.directory('/home/docs'),
+          FakeEntry.file('/home/my report.txt', size: 10),
+        ],
+        null,
+        pty,
+      )..home = '/home',
       // Свой модуль вместо того, что стоит в приложении: у этого псевдотерминал
       // подставной. Два одинаковых модуля спорили бы за одну и ту же службу.
-      modules: modulesWithTerminal(pty),
+      modules: modulesWithTerminal(),
     );
     await runtime.app.start();
   });
@@ -339,8 +343,10 @@ void main() {
     // `testApp`, он это делает сам после теста.
     pty = FakePty();
     runtime = await testApp(
+      // Обычное дерево, без оболочки: `ShellHost` оно не объявляет — как не
+      // объявляет его архив.
       provider: InMemoryReadOnlyProvider([FakeEntry.directory('/home')])..home = '/home',
-      modules: modulesWithTerminal(pty),
+      modules: modulesWithTerminal(),
     );
     await runtime.app.start();
 

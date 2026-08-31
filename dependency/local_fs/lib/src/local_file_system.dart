@@ -43,7 +43,15 @@ class LocalFileSystem implements FcModule {
         ),
       ], save: settings.save),
     );
-    registry.rootProvider((services) => LocalTreeProvider(settings: () => settings.section(LocalFsSettings.new)));
+    registry.rootProvider(
+      (services) => LocalTreeProvider(
+        settings: () => settings.section(LocalFsSettings.new),
+        // Чем запускать оболочку — вещь пользовательская, и живёт она в
+        // настройках терминала. Спрашивается необязательно и лениво: без
+        // модуля терминала объявить её некому, и тогда берётся `$SHELL`.
+        shellName: () => services.resolveAll<ShellPreference>().firstOrNull?.shell ?? '',
+      ),
+    );
 
     // Место для временных файлов: им пользуются те, кому нужен настоящий файл
     // на диске, — архиватор и будущие сетевые источники.

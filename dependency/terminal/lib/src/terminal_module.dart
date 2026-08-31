@@ -3,7 +3,6 @@ import 'package:fc_api/fc_api.dart';
 import 'command_line_state.dart';
 import 'command_line_view.dart';
 import 'shell_session.dart';
-import 'system_pty.dart';
 import 'terminal_commands.dart';
 import 'terminal_screens.dart';
 import 'terminal_settings.dart';
@@ -20,9 +19,7 @@ import 'terminal_views.dart';
 class ShellTerminal implements FcModule, FcModuleLifecycle {
   /// [pty] подставляют тесты. Умолчание — настоящий псевдотерминал: службу
   /// приносит модуль, потому что нужна она только ему.
-  ShellTerminal({PtyLauncher? pty}) : _pty = pty;
-
-  final PtyLauncher? _pty;
+  ShellTerminal();
 
   /// Постоянная сессия: держится здесь, чтобы было чем закрыть её при выходе.
   ShellSession? _shell;
@@ -40,12 +37,11 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
     final settings = registry.settings;
     TerminalSettings settingsOf() => settings.section(TerminalSettings.new);
 
-    // Псевдотерминал пригодится не одному терминалу — но владеет им тот, кто
-    // его принёс.
-    registry.service<PtyLauncher>((services) => _pty ?? const SystemPtyLauncher());
-    registry.service<ShellSession>(
-      (services) => _shell ??= ShellSession(launcher: services.resolve<PtyLauncher>(), settings: settingsOf),
-    );
+    // Чем запускать оболочку **здесь** — вещь пользовательская, и живёт она в
+    // настройках терминала. А нужна тому, кто запускает, то есть локальной
+    // файловой системе: службой они и сообщаются, не зная друг о друге.
+    registry.service<ShellPreference>((services) => _ChosenShell(settingsOf));
+    registry.service<ShellSession>((services) => _shell ??= ShellSession(settings: settingsOf));
 
     registry.settingsSchema(
       () => SettingsSchema([
@@ -95,10 +91,8 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
 
     registry.command((context) => FocusCommandLineCommand());
     registry.command((context) => LeaveCommandLineCommand());
-    registry.command(
-      (context) => RunCommandLineCommand(launcher: () => context.resolve<PtyLauncher>(), settings: settingsOf),
-    );
-    registry.command((context) => RunNodeCommand(launcher: () => context.resolve<PtyLauncher>(), settings: settingsOf));
+    registry.command((context) => RunCommandLineCommand(settings: settingsOf));
+    registry.command((context) => RunNodeCommand(settings: settingsOf));
     registry.command((context) => HistoryCommand(id: HistoryCommand.previousId, label: 'Previous command', back: true));
     registry.command((context) => HistoryCommand(id: HistoryCommand.nextId, label: 'Next command', back: false));
     registry.command(
@@ -189,4 +183,14 @@ class InstallCommandLineCommand extends AppCommand {
       CommandLineState(app: context.app, settings: settings(), save: save),
     );
   }
+}
+
+/// Выбранная оболочка — настройкой терминала, а спрашивают её снаружи.
+class _ChosenShell implements ShellPreference {
+  const _ChosenShell(this._settings);
+
+  final TerminalSettings Function() _settings;
+
+  @override
+  String get shell => _settings().shell;
 }
