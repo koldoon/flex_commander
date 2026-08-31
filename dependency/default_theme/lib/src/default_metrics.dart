@@ -137,7 +137,7 @@ class DefaultMetrics extends FcMetrics {
   // --- окна команд (TitledPopupPanelSkin) ---
 
   @override
-  double get dialogRadius => 4;
+  double get dialogRadius => 5;
 
   @override
   double get dialogWidthFactor => 0.5;
