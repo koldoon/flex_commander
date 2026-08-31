@@ -1,23 +1,39 @@
 import 'dart:math';
 
-/// Что оболочка сообщила о законченной команде.
-///
-/// Приходит перед каждым приглашением, а не после каждой команды: приглашение —
-/// единственное, что оболочка печатает предсказуемо.
-class ShellMark {
-  const ShellMark({required this.exitCode, required this.directory});
+/// О чём оболочка отметилась.
+enum ShellMarkKind {
+  /// Печатает приглашение: прошлая команда кончилась, вот её код и каталог.
+  prompt,
 
-  /// Код возврата последней команды.
+  /// Сейчас выполнит набранное.
+  ///
+  /// Нужна ровно для одного — отличить **вывод команды** от отражения самой
+  /// команды. Оболочка отражает набранное, как отражала бы в любом терминале,
+  /// и без этой метки «молча и успешно» не определить: вывод есть всегда.
+  running,
+}
+
+/// Что оболочка сообщила о себе.
+///
+/// Приходит не после команды, а перед приглашением и перед запуском:
+/// приглашение и запуск — единственное, что оболочка печатает предсказуемо.
+class ShellMark {
+  const ShellMark({required this.kind, this.exitCode = 0, this.directory = ''});
+
+  final ShellMarkKind kind;
+
+  /// Код возврата последней команды; у [ShellMarkKind.running] бессмыслен.
   final int exitCode;
 
   /// Где оболочка оказалась. Пусто — не сказала.
   final String directory;
 
   @override
-  String toString() => 'ShellMark($exitCode, $directory)';
+  String toString() => 'ShellMark(${kind.name}, $exitCode, $directory)';
 }
 
-/// Уговор с оболочкой: отмечать каждое приглашение кодом возврата и каталогом.
+/// Уговор с оболочкой: отмечаться дважды — перед запуском команды и перед
+/// приглашением, кодом возврата и каталогом.
 ///
 /// **Зачем.** В постоянной сессии конец команды перестаёт быть событием:
 /// процесс не завершается, оболочка просто печатает приглашение, а отличить
@@ -48,6 +64,10 @@ class ShellAgreement {
   static const String _code = '777';
   static const String _name = 'fc';
 
+  /// О чём метка: приглашение или запуск.
+  static const String _prompt = 'p';
+  static const String _running = 'r';
+
   static String _randomNonce() {
     final random = Random();
     return List.generate(4, (_) => random.nextInt(1 << 16).toRadixString(16).padLeft(4, '0')).join();
@@ -65,20 +85,30 @@ class ShellAgreement {
   /// `dash` — ошибка разбора, а разбирает он всю строку целиком, ещё до того
   /// как выполнить хоть что-то из неё.
   String setupFor(String? shell) {
-    final printf = "printf '\\e]$_code;$_name;$nonce;%s;%s\\a'";
+    final prompt = "printf '\\e]$_code;$_name;$nonce;$_prompt;%s;%s\\a'";
+    final running = "\\e]$_code;$_name;$nonce;$_running\\a";
 
     if (shell != null && shell.split('/').last == 'fish') {
-      return 'function __fc_mark --on-event fish_prompt; $printf \$status "\$PWD"; end';
+      return [
+        'function __fc_prompt --on-event fish_prompt; $prompt \$status "\$PWD"; end',
+        "function __fc_running --on-event fish_preexec; printf '$running'; end",
+      ].join('; ');
     }
 
     return [
-      '__fc_mark() { $printf "\$1" "\$PWD"; }',
+      '__fc_mark() { $prompt "\$1" "\$PWD"; }',
       'if [ -n "\$ZSH_VERSION" ]',
-      "then eval '__fc_precmd() { __fc_mark \$?; }; precmd_functions=(__fc_precmd \$precmd_functions)'",
+      "then eval '__fc_precmd() { __fc_mark \$?; }; __fc_preexec() { printf \"$running\"; }; "
+          "precmd_functions=(__fc_precmd \$precmd_functions); preexec_functions=(__fc_preexec \$preexec_functions)'",
       'elif [ -n "\$BASH_VERSION" ]',
       // Своим впереди чужого: `$?` должен достаться нам не тронутым — чужой
       // `PROMPT_COMMAND` вправе запустить что угодно и сбить его.
-      'then PROMPT_COMMAND=\'__fc_mark \$?\'"\${PROMPT_COMMAND:+; \$PROMPT_COMMAND}"',
+      //
+      // `PS0` печатается перед запуском — после того, как оболочка отразила
+      // набранное. Старый `bash` (3.2, тот, что стоит в macOS) его не знает:
+      // метки о запуске не будет, и вывод команды не отличить от её отражения.
+      // Не ломается — показывается чаще, чем нужно.
+      'then PROMPT_COMMAND=\'__fc_mark \$?\'"\${PROMPT_COMMAND:+; \$PROMPT_COMMAND}"; PS0="$running\$PS0"',
       'fi',
     ].join('; ');
   }
@@ -89,13 +119,19 @@ class ShellAgreement {
   /// разрешена, и разбор OSC режет по ней наравне с настоящими разделителями.
   /// Поэтому каталог и стоит последним.
   ShellMark? parse(String code, List<String> parts) {
-    if (code != _code || parts.length < 4 || parts[0] != _name || parts[1] != nonce) {
+    if (code != _code || parts.length < 3 || parts[0] != _name || parts[1] != nonce) {
       return null;
     }
-    final exitCode = int.tryParse(parts[2].trim());
-    if (exitCode == null) {
-      return null;
+    switch (parts[2]) {
+      case _running:
+        return const ShellMark(kind: ShellMarkKind.running);
+      case _prompt when parts.length >= 5:
+        final exitCode = int.tryParse(parts[3].trim());
+        return exitCode == null
+            ? null
+            : ShellMark(kind: ShellMarkKind.prompt, exitCode: exitCode, directory: parts.sublist(4).join(';'));
+      default:
+        return null;
     }
-    return ShellMark(exitCode: exitCode, directory: parts.sublist(3).join(';'));
   }
 }

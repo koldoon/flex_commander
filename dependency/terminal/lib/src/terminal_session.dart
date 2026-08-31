@@ -73,10 +73,41 @@ class TerminalSession extends ChangeNotifier {
   /// первым, ещё до всякой команды.
   void Function(ShellMark mark)? onMark;
 
+  /// Идёт ли команда: между меткой о запуске и следующим приглашением.
+  bool get running => _running;
+  bool _running = false;
+
+  /// Команда что-то вывела — она сама, а не её отражение.
+  ///
+  /// От этого зависит, показывать ли экран: молчаливая успешная команда не
+  /// должна мигать чёрным. Отличить одно от другого можно только по меткам:
+  /// оболочка отражает набранное, и байты приходят всегда.
+  ///
+  /// Меряется **положением курсора**, а не счётом байтов: метка о запуске
+  /// приходит посреди разбора, и в тот миг курсор стоит ровно там, где начнётся
+  /// вывод. Сдвинулся к приглашению — значит что-то напечатали.
+  bool get commandOutput => _commandOutput;
+  bool _commandOutput = false;
+
+  int _outputStart = 0;
+
+  int get _cursorLine => terminal.buffer.absoluteCursorY;
+
   void _onPrivateOsc(String code, List<String> parts) {
     final mark = _agreement?.parse(code, parts);
     if (mark == null) {
       return;
+    }
+    switch (mark.kind) {
+      case ShellMarkKind.running:
+        _running = true;
+        _commandOutput = false;
+        _outputStart = _cursorLine;
+      case ShellMarkKind.prompt:
+        if (_running) {
+          _commandOutput = _cursorLine != _outputStart;
+        }
+        _running = false;
     }
     _lastMark = mark;
     onMark?.call(mark);

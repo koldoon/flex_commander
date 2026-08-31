@@ -11,30 +11,39 @@ void main() {
     final agreement = ShellAgreement(nonce: 'abcd');
 
     test('код возврата и каталог доходят как есть', () {
-      final mark = agreement.parse('777', ['fc', 'abcd', '0', '/home/koldoon']);
+      final mark = agreement.parse('777', ['fc', 'abcd', 'p', '0', '/home/koldoon']);
+      expect(mark?.kind, ShellMarkKind.prompt);
       expect(mark?.exitCode, 0);
       expect(mark?.directory, '/home/koldoon');
+    });
+
+    test('метка о запуске приходит своим видом', () {
+      // Без неё вывод команды не отличить от её отражения: оболочка отражает
+      // набранное, и «молча и успешно» не бывает никогда.
+      final mark = agreement.parse('777', ['fc', 'abcd', 'r']);
+      expect(mark?.kind, ShellMarkKind.running);
     });
 
     test('чужая метка не наша', () {
       // Двоичный файл в `cat` печатает что угодно, и принять его вывод за
       // метку нельзя.
-      expect(agreement.parse('777', ['fc', 'ffff', '0', '/tmp']), isNull);
-      expect(agreement.parse('133', ['fc', 'abcd', '0', '/tmp']), isNull);
-      expect(agreement.parse('777', ['other', 'abcd', '0', '/tmp']), isNull);
+      expect(agreement.parse('777', ['fc', 'ffff', 'p', '0', '/tmp']), isNull);
+      expect(agreement.parse('133', ['fc', 'abcd', 'p', '0', '/tmp']), isNull);
+      expect(agreement.parse('777', ['other', 'abcd', 'p', '0', '/tmp']), isNull);
+      expect(agreement.parse('777', ['fc', 'abcd', 'x']), isNull, reason: 'вид метки незнакомый');
     });
 
     test('точка с запятой в имени каталога не ломает разбор', () {
       // Разбор OSC режет по ней наравне с настоящими разделителями — потому
       // каталог и стоит последним, а хвост собирается обратно.
-      final mark = agreement.parse('777', ['fc', 'abcd', '1', '/tmp/a', 'b']);
+      final mark = agreement.parse('777', ['fc', 'abcd', 'p', '1', '/tmp/a', 'b']);
       expect(mark?.directory, '/tmp/a;b');
       expect(mark?.exitCode, 1);
     });
 
     test('без кода возврата метки нет', () {
-      expect(agreement.parse('777', ['fc', 'abcd', 'нет', '/tmp']), isNull);
-      expect(agreement.parse('777', ['fc', 'abcd']), isNull);
+      expect(agreement.parse('777', ['fc', 'abcd', 'p', 'нет', '/tmp']), isNull);
+      expect(agreement.parse('777', ['fc', 'abcd', 'p']), isNull);
     });
 
     test('у каждой сессии своё число', () {
@@ -48,6 +57,7 @@ void main() {
     test('fish узнаётся по имени и получает своё', () {
       final setup = agreement.setupFor('/opt/homebrew/bin/fish');
       expect(setup, contains('--on-event fish_prompt'));
+      expect(setup, contains('--on-event fish_preexec'), reason: 'и метка о запуске');
       expect(setup, isNot(contains('PROMPT_COMMAND')));
     });
 
@@ -58,6 +68,8 @@ void main() {
         final setup = agreement.setupFor(shell);
         expect(setup, contains(r'$ZSH_VERSION'), reason: 'ветка zsh');
         expect(setup, contains(r'$BASH_VERSION'), reason: 'ветка bash');
+        expect(setup, contains('preexec_functions='), reason: 'запуск в zsh');
+        expect(setup, contains(r'PS0='), reason: 'запуск в bash');
       }
     });
 
@@ -76,7 +88,8 @@ void main() {
     });
 
     test('в метку зашито число этой сессии', () {
-      expect(agreement.setupFor(null), contains('777;fc;abcd;'));
+      expect(agreement.setupFor(null), contains('777;fc;abcd;p;'));
+      expect(agreement.setupFor(null), contains('777;fc;abcd;r'));
     });
   });
 }
