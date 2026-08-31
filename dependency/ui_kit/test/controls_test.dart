@@ -118,14 +118,93 @@ void main() {
       expect(find.text('Copy'), findsOneWidget);
       expect(find.text('Move'), findsNothing);
 
-      await tester.tap(find.byType(FcSelect<String>));
+      await tester.tap(find.descendant(of: find.byType(FcSelect<String>), matching: find.byType(Opacity)));
       await tester.pumpAndSettle();
-      expect(find.text('Move'), findsOneWidget);
 
-      await tester.tap(find.text('Move'));
+      // Строка списка набрана разметкой — тем же `FcPickList`, что в палитре и
+      // в оглавлении настроек, — поэтому ищется через `findRichText`.
+      final option = find.text('Move', findRichText: true);
+      expect(option, findsOneWidget);
+
+      await tester.tap(option);
       await tester.pumpAndSettle();
       expect(choice, 'move');
       expect(find.text('Copy'), findsNothing, reason: 'в поле стоит выбранное, а не первое из списка');
+    });
+
+    testWidgets('раскрытая часть ровно по ширине рамки', (tester) async {
+      await pumpInDialogColumn(
+        tester,
+        FcSelect<String>(
+          options: const {'copy': 'Copy', 'move': 'Move to another panel'},
+          value: 'copy',
+          onChanged: (_) {},
+        ),
+      );
+
+      // Видимая рамка, а не внешний бокс: тот растянут колонкой окна.
+      final frame = find.descendant(of: find.byType(FcSelect<String>), matching: find.byType(Opacity));
+      final field = tester.getRect(frame);
+      await tester.tap(frame);
+      await tester.pumpAndSettle();
+
+      // Раскрытая часть ровно по ширине рамки.
+      expect(tester.getSize(find.byType(CompositedTransformFollower)).width, field.width);
+
+      // И встаёт **под** полем, а не рядом. Место спрашивается у списка, а не у
+      // самой раскрытой части: та стоит в наложении и о том, куда её сдвинули
+      // вслед за полем, узнаёт только при отрисовке.
+      final border = const DefaultMetrics().strokeWidth;
+      final list = tester.getRect(find.byType(FcPickList));
+      expect(list.left, field.left + border);
+      expect(list.width, field.width - border * 2);
+      expect(list.top, greaterThan(field.bottom));
+    });
+
+    testWidgets('щелчок мимо закрывает список, ничего не выбрав', (tester) async {
+      var choice = 'copy';
+      await pumpInDialogColumn(
+        tester,
+        StatefulBuilder(
+          builder:
+              (context, setState) => FcSelect<String>(
+                options: const {'copy': 'Copy', 'move': 'Move'},
+                value: choice,
+                onChanged: (next) => setState(() => choice = next),
+              ),
+        ),
+      );
+
+      await tester.tap(find.descendant(of: find.byType(FcSelect<String>), matching: find.byType(Opacity)));
+      await tester.pumpAndSettle();
+      expect(find.byType(FcPickList), findsOneWidget);
+
+      // Как затенение закрывает окно: мимо — значит передумал, а не выбрал
+      // первое попавшееся.
+      await tester.tapAt(const Offset(20, 20));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FcPickList), findsNothing);
+      expect(choice, 'copy');
+    });
+
+    testWidgets('ширина — по самому длинному варианту, а не во всю строку', (tester) async {
+      await pumpInDialogColumn(
+        tester,
+        FcSelect<String>(
+          options: const {'copy': 'Copy', 'move': 'Move to another panel'},
+          value: 'copy',
+          onChanged: (_) {},
+        ),
+        width: 400,
+      );
+
+      // Ни во всю колонку (иначе обещало бы место, которому нечем заполниться),
+      // ни по выбранному (иначе поле прыгало бы при смене варианта).
+      final width =
+          tester.getSize(find.descendant(of: find.byType(FcSelect<String>), matching: find.byType(Opacity))).width;
+      expect(width, lessThan(300));
+      expect(width, greaterThan(120));
     });
 
     testWidgets('выглядит как поле ввода', (tester) async {

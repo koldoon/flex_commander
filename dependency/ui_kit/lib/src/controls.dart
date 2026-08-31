@@ -1,10 +1,10 @@
-import 'dart:async';
-
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 
 import 'package:fc_api/fc_api.dart';
+import 'command_dialog.dart';
 import 'fc_theme.dart';
+import 'pick_list.dart';
 
 /// Подпись поля в окне команды.
 ///
@@ -171,6 +171,12 @@ class _FcCheckboxState extends State<FcCheckbox> {
 }
 
 /// Переключатель: ровно один вариант из нескольких.
+///
+/// **Для нового выбора берите [FcSelect].** Переключатель занимает строку на
+/// каждый вариант, и окно растёт вместе с их числом — а числа этого никто не
+/// знает заранее: темы приносят модули, уровни сжатия зависят от упаковщика.
+/// Здесь он остаётся только там, куда до выпадающего списка ещё не дошли руки
+/// (степень сжатия в окнах создания архивов), — см. `docs/widgets.md`.
 ///
 /// Варианты задаются картой «значение → метка»: порядок в ней и есть порядок
 /// на экране.
@@ -353,11 +359,19 @@ class _FcRadioOption<T> extends StatelessWidget {
 ///
 /// Выглядит как поле ввода — та же рамка, высота и отступы: и то и другое
 /// отвечает на вопрос «что здесь стоит», и выглядеть они должны одинаково.
-/// Отличает его только галочка справа.
+/// Отличает его галочка справа.
+///
+/// **Ширина — по самому длинному варианту**, а не во всю строку: список
+/// показывает одно значение, и растянутый на полокна он обещал бы место,
+/// которому там нечем заполниться.
+///
+/// **Раскрывается своим списком** ([FcPickList]) — тем же, что в палитре
+/// команд, истории адресов и оглавлении настроек. Системное меню выглядело бы
+/// здесь чужим: в приложении уже есть свой вид списка, и второй ему не нужен.
 ///
 /// Пришёл на смену [FcRadioGroup] там, где вариантов может стать много: темы
 /// приносят модули, и переключатель рос бы вместе с их числом, занимая строку
-/// на каждый. У списка вид не зависит от того, сколько в нём вариантов.
+/// на каждый. У списка вид от числа вариантов не зависит.
 ///
 /// Варианты задаются картой «значение → метка»: порядок в ней и есть порядок в
 /// списке.
@@ -379,26 +393,74 @@ class FcSelect<T> extends StatefulWidget {
 }
 
 class _FcSelectState<T> extends State<FcSelect<T>> {
+  /// Сколько вариантов видно, пока список не начнёт прокручиваться.
+  static const int _visibleRows = 10;
+
+  final LayerLink _link = LayerLink();
+
+  /// Сама рамка — не весь контрол.
+  ///
+  /// Содержимое окна выкладывается растягивающей колонкой, поэтому внешний бокс
+  /// у списка во всю её ширину, а видимая рамка облегает содержимое. Раскрытую
+  /// часть надо мерить по рамке: иначе она вылезала бы из-под поля во всю
+  /// колонку.
+  final GlobalKey _frame = GlobalKey();
+
   bool _focused = false;
+  OverlayEntry? _menu;
+
+  /// На чём стоит выбор в раскрытом списке — номер в [_values].
+  int _highlighted = 0;
 
   bool get _enabled => widget.onChanged != null;
 
+  bool get _open => _menu != null;
+
   List<T> get _values => widget.options.keys.toList();
 
-  /// `Space` и стрелка вниз раскрывают список, стрелки — переключают, не
-  /// раскрывая.
+  @override
+  void dispose() {
+    _menu?.remove();
+    _menu = null;
+    super.dispose();
+  }
+
+  /// Клавиши раскрытого и закрытого списка — разные.
   ///
-  /// `Enter` не берётся: он подтверждает окно целиком, и отбирать его у формы
-  /// ради списка нельзя — по той же причине, что и у флажка.
+  /// Закрытый переключает стрелками, не раскрываясь: так соседнее значение
+  /// берут, не глядя. Раскрытый ими ходит по списку, а берёт по `Enter`.
+  ///
+  /// `Enter` у закрытого не отнимается: он подтверждает окно целиком, и
+  /// забирать его у формы ради контрола нельзя — то же правило, что у флажка.
   KeyEventResult _handleKey(FocusNode node, KeyEvent event) {
     if (!_enabled || event is! KeyDownEvent) {
       return KeyEventResult.ignored;
     }
     final values = _values;
+    final key = event.logicalKey;
+
+    if (_open) {
+      switch (key) {
+        case LogicalKeyboardKey.escape:
+          _close();
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.enter || LogicalKeyboardKey.numpadEnter:
+          _choose(values[_highlighted]);
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.arrowDown when _highlighted + 1 < values.length:
+          _moveTo(_highlighted + 1);
+          return KeyEventResult.handled;
+        case LogicalKeyboardKey.arrowUp when _highlighted > 0:
+          _moveTo(_highlighted - 1);
+          return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+
     final at = values.indexOf(widget.value as T);
-    switch (event.logicalKey) {
+    switch (key) {
       case LogicalKeyboardKey.space:
-        unawaited(_open(context));
+        _openMenu();
         return KeyEventResult.handled;
       case LogicalKeyboardKey.arrowDown when at >= 0 && at + 1 < values.length:
         widget.onChanged!(values[at + 1]);
@@ -410,24 +472,88 @@ class _FcSelectState<T> extends State<FcSelect<T>> {
     return KeyEventResult.ignored;
   }
 
-  /// Раскрывает список **под полем**, а не у курсора: список продолжает поле, и
-  /// появиться он должен там, где поле кончилось.
-  Future<void> _open(BuildContext context) async {
-    final box = context.findRenderObject();
-    final overlay = Overlay.of(context).context.findRenderObject();
-    if (box is! RenderBox || overlay is! RenderBox) {
+  void _moveTo(int index) {
+    _highlighted = index;
+    _menu?.markNeedsBuild();
+  }
+
+  void _choose(T value) {
+    _close();
+    widget.onChanged?.call(value);
+  }
+
+  void _close() {
+    _menu?.remove();
+    setState(() => _menu = null);
+  }
+
+  /// Раскрывает список **под полем**: он продолжает поле, а не всплывает у
+  /// курсора.
+  void _openMenu() {
+    if (_open) {
       return;
     }
-    final top = box.localToGlobal(Offset(0, box.size.height), ancestor: overlay);
-    final chosen = await showMenu<T>(
-      context: context,
-      position: RelativeRect.fromRect(top & box.size, Offset.zero & overlay.size),
-      initialValue: widget.value,
-      items: [for (final entry in widget.options.entries) PopupMenuItem<T>(value: entry.key, child: Text(entry.value))],
-    );
-    if (chosen != null && _enabled) {
-      widget.onChanged!(chosen);
+    final box = _frame.currentContext?.findRenderObject();
+    if (box is! RenderBox) {
+      return;
     }
+    _highlighted = _values.indexOf(widget.value as T).clamp(0, _values.length - 1);
+    final width = box.size.width;
+    final entry = OverlayEntry(builder: (context) => _dropdown(context, width));
+    Overlay.of(context).insert(entry);
+    setState(() => _menu = entry);
+  }
+
+  Widget _dropdown(BuildContext context, double width) {
+    final theme = FcTheme.of(context);
+    final metrics = theme.metrics;
+    final colors = theme.colors;
+    final values = _values;
+    final line = metrics.rowHeight + metrics.rowGap;
+
+    return Stack(
+      children: [
+        // Щелчок мимо закрывает — так же, как затенение закрывает окно.
+        Positioned.fill(child: GestureDetector(behavior: HitTestBehavior.opaque, onTap: _close)),
+        CompositedTransformFollower(
+          link: _link,
+          targetAnchor: Alignment.bottomLeft,
+          followerAnchor: Alignment.topLeft,
+          offset: Offset(0, metrics.dialogLineGap),
+          // Без выравнивания вокруг: оно растянуло бы раскрытую часть на весь
+          // экран, а ширину ей задаёт рамка поля.
+          child: Material(
+            type: MaterialType.transparency,
+            child: Container(
+              width: width,
+              constraints: BoxConstraints(maxHeight: line * _visibleRows),
+              decoration: BoxDecoration(
+                color: colors.dialogBackground,
+                border: Border.all(color: colors.inputBorder, width: metrics.strokeWidth),
+                borderRadius: BorderRadius.circular(metrics.inputRadius),
+                boxShadow: [
+                  BoxShadow(
+                    color: colors.shadow,
+                    offset: Offset(0, metrics.dialogShadowOffset),
+                    blurRadius: metrics.dialogShadowBlur,
+                  ),
+                ],
+              ),
+              padding: EdgeInsets.symmetric(vertical: metrics.rowGap),
+              child: FcPickList(
+                rows: [for (final entry in widget.options.entries) FcPickRow(id: '${entry.key}', title: entry.value)],
+                // Отбирать нечего: варианты уже перечислены, и подсветка
+                // совпавшего была бы ответом на незаданный вопрос.
+                query: '',
+                textInset: metrics.inputHorizontalPadding,
+                selected: _highlighted,
+                onTap: (id) => _choose(values.firstWhere((value) => '$value' == id)),
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
   }
 
   @override
@@ -437,63 +563,76 @@ class _FcSelectState<T> extends State<FcSelect<T>> {
     final colors = theme.colors;
     final enabled = _enabled;
 
-    return Focus(
-      focusNode: widget.focusNode,
-      canRequestFocus: enabled,
-      skipTraversal: !enabled,
-      onKeyEvent: _handleKey,
-      onFocusChange: (focused) => setState(() => _focused = focused),
-      child: Builder(
-        builder:
-            (context) => Opacity(
-              opacity: enabled ? 1 : 0.5,
-              child: MouseRegion(
-                cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
-                child: GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: enabled ? () => unawaited(_open(context)) : null,
-                  child: Container(
-                    height: metrics.inputHeight,
-                    padding: EdgeInsets.symmetric(horizontal: metrics.inputHorizontalPadding),
-                    decoration: BoxDecoration(
-                      color: colors.inputBackground,
-                      border: Border.all(color: colors.inputBorder, width: metrics.strokeWidth),
-                      borderRadius: BorderRadius.circular(metrics.inputRadius),
+    return CompositedTransformTarget(
+      link: _link,
+      child: Focus(
+        focusNode: widget.focusNode,
+        canRequestFocus: enabled,
+        skipTraversal: !enabled,
+        onKeyEvent: _handleKey,
+        onFocusChange: (focused) => setState(() => _focused = focused),
+        // Облегает содержимое, как кнопка и флажок: содержимое окна
+        // выкладывается растягивающей колонкой, и без этого список занял бы всю
+        // её ширину.
+        child: Align(
+          alignment: Alignment.centerLeft,
+          widthFactor: 1,
+          heightFactor: 1,
+          child: Opacity(
+            opacity: enabled ? 1 : 0.5,
+            child: MouseRegion(
+              cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTap: enabled ? (_open ? _close : _openMenu) : null,
+                child: Container(
+                  key: _frame,
+                  height: metrics.inputHeight,
+                  padding: EdgeInsets.symmetric(horizontal: metrics.inputHorizontalPadding),
+                  decoration: BoxDecoration(
+                    color: colors.inputBackground,
+                    border: Border.all(color: colors.inputBorder, width: metrics.strokeWidth),
+                    borderRadius: BorderRadius.circular(metrics.inputRadius),
+                  ),
+                  // Поверх, а не рамкой: рамка входит в размер и сдвигала бы
+                  // соседей при появлении.
+                  foregroundDecoration: BoxDecoration(
+                    border: Border.all(
+                      color: _focused ? colors.focusRing : const Color(0x00000000),
+                      width: metrics.focusRingWidth,
                     ),
-                    // Поверх, а не рамкой: рамка входит в размер и сдвигала бы
-                    // соседей при появлении.
-                    foregroundDecoration: BoxDecoration(
-                      border: Border.all(
-                        color: _focused ? colors.focusRing : const Color(0x00000000),
-                        width: metrics.focusRingWidth,
+                    borderRadius: BorderRadius.circular(metrics.inputRadius),
+                  ),
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      // Ширина — по самому длинному варианту, чтобы поле не
+                      // прыгало при смене выбранного.
+                      SizedBox(
+                        width: widestLabel(context, widget.options.values),
+                        child: Text(
+                          widget.options[widget.value] ?? '',
+                          style: theme.inputStyle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                      borderRadius: BorderRadius.circular(metrics.inputRadius),
-                    ),
-                    child: Row(
-                      children: [
-                        Expanded(
-                          child: Text(
-                            widget.options[widget.value] ?? '',
-                            style: theme.inputStyle,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                          ),
+                      SizedBox(width: metrics.columnGap),
+                      Text(
+                        theme.icons.glyph(theme.icons.caretDown),
+                        style: TextStyle(
+                          fontFamily: theme.icons.fontFamily,
+                          fontSize: metrics.fontSize,
+                          color: colors.inputText,
                         ),
-                        SizedBox(width: metrics.columnGap),
-                        Text(
-                          theme.icons.glyph(theme.icons.caretDown),
-                          style: TextStyle(
-                            fontFamily: theme.icons.fontFamily,
-                            fontSize: metrics.fontSize,
-                            color: colors.inputText,
-                          ),
-                        ),
-                      ],
-                    ),
+                      ),
+                    ],
                   ),
                 ),
               ),
             ),
+          ),
+        ),
       ),
     );
   }
