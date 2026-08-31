@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fc_api/fc_api.dart';
 
 import 'terminal_session.dart';
@@ -32,15 +34,29 @@ class ShellSession {
   ///
   /// [directory] — откуда оболочка начнёт, и учитывается он только при первом
   /// запуске: дальше её каталог принадлежит ей самой.
-  Future<TerminalSession> sessionIn(ShellHost host, String? directory) async {
+  /// [lease] — аренда источника, в котором живёт оболочка; null — своя машина.
+  /// Держит её сессия, а лишнюю — когда оболочка уже была — отпускаем сразу.
+  Future<TerminalSession> sessionIn(ShellHost host, String? directory, {ProviderLease? lease}) async {
     final current = _sessions[host.shellLabel];
     if (current != null) {
+      // Аренда уже есть у живой сессии: вторая ни к чему, и держать её значило
+      // бы не отпустить сервер никогда.
+      unawaited(lease?.release());
       return current;
     }
 
-    // Открытие ждём: на сервере это поход по сети, и не удаться оно вполне
-    // может. Записываем в таблицу только то, что открылось.
-    final opened = TerminalSession.around(await host.shell(directory: directory), maxLines: settings().maxLines);
+    final PtySession pty;
+    try {
+      // Открытие ждём: на сервере это поход по сети, и не удаться оно вполне
+      // может. Записываем в таблицу только то, что открылось.
+      pty = await host.shell(directory: directory);
+    } on Object {
+      // Не открылось — держать источник нечем и незачем.
+      unawaited(lease?.release());
+      rethrow;
+    }
+
+    final opened = TerminalSession.around(pty, maxLines: settings().maxLines, lease: lease);
     return _sessions[host.shellLabel] = opened;
   }
 

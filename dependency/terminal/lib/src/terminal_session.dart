@@ -25,7 +25,9 @@ class TerminalSession extends ChangeNotifier {
   ///
   /// Размер окна оболочке сообщает вызывающий: он у неё спрашивается **до**
   /// запуска, а буфер разбора заводится здесь.
-  TerminalSession.around(PtySession pty, {int maxLines = defaultMaxLines}) : terminal = Terminal(maxLines: maxLines) {
+  TerminalSession.around(PtySession pty, {int maxLines = defaultMaxLines, ProviderLease? lease})
+    : _lease = lease,
+      terminal = Terminal(maxLines: maxLines) {
     _pty = pty;
 
     // `allowMalformed` — не небрежность: `cat` на двоичном файле выдаёт что
@@ -44,6 +46,20 @@ class TerminalSession extends ChangeNotifier {
 
   /// Что видно на экране и что было до этого.
   final Terminal terminal;
+
+  /// Аренда источника, в котором живёт оболочка; null — своя машина.
+  ///
+  /// Пока сессия жива, живо и соединение: панель вправе уйти с сервера хоть
+  /// сразу, а `htop`, запущенный там, обязан дожить до своего конца. Отпускаем
+  /// в двух местах — когда оболочка кончилась сама и когда её закрыли, —
+  /// поэтому отпускание одноразовое.
+  ProviderLease? _lease;
+
+  void _releaseLease() {
+    final lease = _lease;
+    _lease = null;
+    unawaited(lease?.release());
+  }
 
   late final PtySession _pty;
   late final StreamSubscription<String> _output;
@@ -86,6 +102,8 @@ class TerminalSession extends ChangeNotifier {
       return;
     }
     _exitCode = code;
+    // Оболочка кончилась — держать сервер больше незачем.
+    _releaseLease();
     if (!_exited.isCompleted) {
       _exited.complete(code);
     }
@@ -111,6 +129,7 @@ class TerminalSession extends ChangeNotifier {
     // обычно кончается сама.
     unawaited(_pty.kill());
     _onExit(_exitCode ?? -1);
+    _releaseLease();
     super.dispose();
   }
 }

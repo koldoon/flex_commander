@@ -34,6 +34,7 @@ class TerminalRun {
     required TerminalSettings options,
     required String command,
     required String workingDirectory,
+    ProviderLease? lease,
     Duration showDelay = defaultShowDelay,
     void Function()? onStarted,
   }) async {
@@ -44,8 +45,12 @@ class TerminalRun {
       session = TerminalSession.around(
         await host.run(command, directory: workingDirectory),
         maxLines: options.maxLines,
+        // Панель вправе уйти с сервера, пока команда работает: источник обязан
+        // дожить до её конца.
+        lease: lease,
       );
     } catch (error) {
+      unawaited(lease?.release());
       // Псевдотерминала на этой платформе может не быть вовсе. Молчать нельзя,
       // но и окна ради этого не ставим: сообщения хватает.
       app.toasts.show('Shell did not start: $error');

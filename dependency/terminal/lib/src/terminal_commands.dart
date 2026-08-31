@@ -256,7 +256,13 @@ class ToggleTerminalCommand extends AppCommand {
 
     final TerminalSession session;
     try {
-      session = await shell().sessionIn(host, line?.workingDirectory);
+      session = await shell().sessionIn(
+        host,
+        line?.workingDirectory,
+        // Пока живёт оболочка, живёт и соединение: уйти с сервера панель
+        // вправе хоть сразу, а `htop` там обязан дожить до своего конца.
+        lease: line?.panel?.leaseProvider(),
+      );
     } on Object catch (error) {
       // На сервере открытие канала — поход по сети, и не удаться оно может.
       // Молчать нельзя: клавиша нажата, а экрана нет.
@@ -569,6 +575,7 @@ class RunCommandLineCommand extends AppCommand {
       options: settings(),
       command: command,
       workingDirectory: directory,
+      lease: line.panel?.leaseProvider(),
       showDelay: showDelay,
       // Строка помнит и очищается, только когда процесс уже пошёл: не
       // запустилось — набранное остаётся на месте.
@@ -675,6 +682,7 @@ class RunNodeCommand extends AppCommand {
       options: settings(),
       command: command,
       workingDirectory: directory.pathString,
+      lease: context.panel.leaseProvider(),
       showDelay: showDelay,
       // В историю строки — как и набранное руками: это команда, выполненная в
       // этом каталоге, и повторяют её тем же `Cmd-Up`.
