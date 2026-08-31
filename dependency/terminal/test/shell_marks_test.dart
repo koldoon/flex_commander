@@ -1,5 +1,7 @@
 import 'package:fc_terminal/fc_terminal.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:xterm/xterm.dart';
 
 /// Уговор с оболочкой и разбор метки.
 ///
@@ -7,6 +9,14 @@ import 'package:flutter_test/flutter_test.dart';
 /// возврата и каталог. Без неё все правила показа экрана рассыпаются —
 /// `docs/spec/single-shell-session.md`, §3.
 void main() {
+  test('межстрочная у нас и у xterm одна и та же', () {
+    // Приложение подстраивается под терминал, а не наоборот: у него строка
+    // обязана попадать в клетку, у остальных — нет. Разойдись эти двое, и одно
+    // и то же приглашение в терминале и в командной строке встанет на пару
+    // пикселей врозь.
+    expect(FcTheme.terminalLineHeight, const TerminalStyle().height);
+  });
+
   group('разбор метки', () {
     final agreement = ShellAgreement(nonce: 'abcd');
 

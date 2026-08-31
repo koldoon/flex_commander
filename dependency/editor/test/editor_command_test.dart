@@ -319,7 +319,10 @@ void main() {
 
       runtime.app.left.setCursorToName('notes.txt');
       unawaited((runtime.commands.create(EditFileCommand.commandId)!).executeWith());
-      await pumpEventQueue();
+      // Временем, а не оборотами очереди: право на запись выясняется попыткой
+      // записать, то есть походом на диск, и сколько очередь ни крути, быстрее
+      // диск не станет.
+      await waitUntil(() => runtime.app.view.dialogs.isNotEmpty);
 
       expect(runtime.app.view.dialogs.single.title, 'Read-only file');
       // Пока не ответили, экрана нет: спрашивают до открытия, а не после часа
@@ -358,7 +361,10 @@ void main() {
       }
       runtime.app.left.setCursorToName('notes.txt');
       unawaited((runtime.commands.create(EditFileCommand.commandId)!).executeWith());
-      await pumpEventQueue();
+      // Временем, а не оборотами очереди: право на запись выясняется попыткой
+      // записать, то есть походом на диск, и сколько очередь ни крути, быстрее
+      // диск не станет.
+      await waitUntil(() => runtime.app.view.dialogs.isNotEmpty);
 
       expect(runtime.app.view.dialogs.single.title, 'Read-only file');
       await answer(yes: false);
