@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'status_area.dart';
 import 'dialogs/command_dialog_layer.dart';
 import 'dialogs/credentials_layer.dart';
+import 'dialogs/elevation_layer.dart';
 import 'dialogs/error_layer.dart';
 import 'keyboard_handler.dart';
 import 'split_view.dart';
@@ -174,6 +175,9 @@ class AppShell extends StatelessWidget {
           // Вопрос о пароле — там же и по той же причине. Задаёт его не
           // команда, а тот, кто наткнулся на защищённое.
           CredentialsLayer(credentials: app.credentials),
+          // Согласие на запись от администратора — там же: спрашивает его тот,
+          // кому отказали в правах, а показать может только ядро.
+          ElevationLayer(elevation: app.elevation),
 
           // Ошибка, которую никто не поймал, — поверх окон: пока о ней не
           // сказали, продолжать всё равно нечего.

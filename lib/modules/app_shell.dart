@@ -5,6 +5,7 @@ import '../state/commands/palette_command.dart';
 import '../state/commands/settings_command.dart';
 import '../state/shell_settings.dart';
 import '../state/credentials_controller.dart';
+import '../state/elevation_controller.dart';
 
 /// Оболочка приложения: то, что есть у файлового менеджера всегда.
 ///
@@ -36,6 +37,9 @@ class AppShell implements FcModule {
     // паролем. Модуль просит службу так же, как любую другую, — и не знает,
     // ни как её спрашивают, ни где она помнит ответ.
     registry.service<Credentials>((services) => services.resolve<CredentialsController>());
+    // Повышение прав — служба того же рода, что и секреты: обнаруживает нужду
+    // тот, кто до экрана не дотягивается, а спросить может только ядро.
+    registry.service<Elevation>((services) => services.resolve<ElevationController>());
 
     // Справка показывает содержимое реестра, а реестра во время объявления
     // ещё нет: команда получает не его, а способ его спросить.
@@ -95,6 +99,13 @@ class AppShell implements FcModule {
           max: 64,
           read: () => app.settings.sizeScanConcurrency,
           write: (value) => app.settings.sizeScanConcurrency = value,
+        ),
+        SettingsField.flag(
+          'allowElevatedWrites',
+          title: 'Allow elevated writes',
+          description: 'Offer to save as administrator where ordinary rights are not enough',
+          read: () => settings.section(ShellSettings.new).allowElevatedWrites,
+          write: (value) => settings.section(ShellSettings.new).allowElevatedWrites = value,
         ),
       ], save: settings.save);
     });

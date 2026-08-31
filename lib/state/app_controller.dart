@@ -10,6 +10,7 @@ import 'panel_viewport_registry.dart';
 import 'app_view_controller.dart';
 import 'view_registry.dart';
 import 'credentials_controller.dart';
+import 'elevation_controller.dart';
 import 'theme_controller.dart';
 import 'error_controller.dart';
 import 'toast_controller.dart';
@@ -34,6 +35,7 @@ class AppController extends ChangeNotifier implements Application {
     ThemeController? theme,
     ToastController? toasts,
     CredentialsController? credentials,
+    ElevationController? elevation,
     ErrorController? errors,
     WindowService? window,
     this.dragAndDrop,
@@ -44,6 +46,8 @@ class AppController extends ChangeNotifier implements Application {
        theme = theme ?? ThemeController(),
        toasts = toasts ?? ToastController(),
        credentials = credentials ?? CredentialsController(),
+       // Своё, если не дали: подставке в тестах повышать нечем и незачем.
+       _elevation = elevation,
        errors = errors ?? ErrorController(),
        viewports = viewports ?? const NoPanelViewports(),
        // По убыванию приоритета — один раз при сборке: спрашивают этот список
@@ -123,6 +127,18 @@ class AppController extends ChangeNotifier implements Application {
   /// Пароли и прочие секреты: спросить то, без чего дальше нельзя.
   @override
   final CredentialsController credentials;
+
+  final ElevationController? _elevation;
+
+  /// Повышение прав; не дали — своё, выключенное: подставке в тестах повышать
+  /// нечем и незачем.
+  ///
+  /// Ленивое, а не в списке инициализации: ему нужны **те самые** секреты, что
+  /// у приложения, а до конца списка поля ещё нет — вторая копия
+  /// `CredentialsController` помнила бы пароли мимо всех.
+  @override
+  late final ElevationController elevation =
+      _elevation ?? ElevationController(credentials: credentials, allowed: () => false);
 
   /// Окно приложения. Без управления окном (в тестах) — заглушка.
   @override
@@ -391,6 +407,7 @@ class AppController extends ChangeNotifier implements Application {
     _saveTimer?.cancel();
     toasts.dispose();
     credentials.dispose();
+    elevation.dispose();
     left.removeListener(_onPanelChanged);
     right.removeListener(_onPanelChanged);
     window.removeListener(_onWindowChanged);

@@ -16,6 +16,7 @@ import '../settings/app_settings.dart';
 import '../settings/module_settings.dart';
 import '../settings/window_geometry.dart';
 import '../os/credentials.dart';
+import '../os/elevation.dart';
 import '../os/window_service.dart';
 import 'panel.dart';
 import 'toasts.dart';
@@ -62,6 +63,12 @@ abstract interface class Application implements Listenable {
   /// Пароли и прочие секреты: спросить у пользователя то, без чего дальше
   /// нельзя. Модули получают ту же службу через `services.resolve<Credentials>()`.
   Credentials get credentials;
+
+  /// Повышение прав: сделать то, на что обычных прав не хватило.
+  ///
+  /// Рядом с секретами и по той же причине: спросить может только тот, у кого
+  /// есть экран, а обнаруживает нужду тот, кто до экрана не дотягивается.
+  Elevation get elevation;
 
   /// Чем рисуется содержимое панелей.
   PanelViewports get viewports;

@@ -5,7 +5,15 @@ import 'package:fc_api/fc_api.dart';
 /// Своего модуля у ядра нет, а помнить есть что: раздел называется `fc.shell` и
 /// живёт по тем же правилам, что и разделы модулей.
 class ShellSettings implements Serializable {
-  ShellSettings({List<String>? recentCommands}) : recentCommands = recentCommands ?? <String>[];
+  ShellSettings({this.allowElevatedWrites = true, List<String>? recentCommands})
+    : recentCommands = recentCommands ?? <String>[];
+
+  /// Предлагать ли запись от администратора там, где обычных прав не хватило.
+  ///
+  /// Выключенная — предложения нет вовсе, и отказ остаётся отказом. На общей
+  /// машине это единственный честный ответ. Живёт здесь, а не у локальной ФС:
+  /// повышение работает и на той стороне `ssh`, и настройка у него общая.
+  bool allowElevatedWrites;
 
   /// Недавно запущенные команды, свежие впереди.
   ///
@@ -14,8 +22,14 @@ class ShellSettings implements Serializable {
   List<String> recentCommands;
 
   @override
-  void fromMap(Map<String, dynamic> m) => recentCommands = extractList<String>(m['recentCommands']);
+  void fromMap(Map<String, dynamic> m) {
+    allowElevatedWrites = extract(allowElevatedWrites, m['allowElevatedWrites']);
+    recentCommands = extractList<String>(m['recentCommands']);
+  }
 
   @override
-  void toMap(Map<String, dynamic> m) => m['recentCommands'] = recentCommands;
+  void toMap(Map<String, dynamic> m) {
+    m['allowElevatedWrites'] = allowElevatedWrites;
+    m['recentCommands'] = recentCommands;
+  }
 }

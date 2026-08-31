@@ -9,6 +9,8 @@ import '../state/panel_viewport_registry.dart';
 import '../state/view_registry.dart';
 import '../state/theme_controller.dart';
 import '../state/credentials_controller.dart';
+import '../state/shell_settings.dart';
+import '../state/elevation_controller.dart';
 import '../state/error_controller.dart';
 import '../state/toast_controller.dart';
 import 'app_runtime.dart';
@@ -157,6 +159,23 @@ class AppContainer extends DI {
     // Секреты — одна служба на приложение: спрошенный пароль должен быть
     // виден и той панели, которая спросила, и той, что откроет тот же архив.
     bind<CredentialsController>(to: (c) => CredentialsController());
+    bind<ElevationController>(
+      to:
+          (c) => ElevationController(
+            credentials: c.get<CredentialsController>(),
+            // Настройка спрашивается лениво: раздел читается с диска позже, чем
+            // собирается граф.
+            allowed:
+                () =>
+                    c
+                        .get<AppController>()
+                        .settings
+                        .modules
+                        .scope('fc.shell')
+                        .section(ShellSettings.new)
+                        .allowElevatedWrites,
+          ),
+    );
 
     // Сборщик непойманных ошибок — одна служба на приложение: ловушки ставятся
     // до первого кадра, а показывать пойманное будет окно, когда появится.
