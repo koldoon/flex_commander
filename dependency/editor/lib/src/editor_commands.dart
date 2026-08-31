@@ -79,9 +79,17 @@ class EditFileCommand extends AppCommand {
         // часа работы, значит остаться с текстом, который некуда деть — «Save
         // As» у редактора нет. И до чтения же, а не после: незачем тянуть с
         // сервера целый файл, чтобы затем спросить, открывать ли его вообще.
-        readOnly = !await _canWrite(op, node);
-        if (readOnly && !await _agreesToReadOnly(context, node)) {
-          throw const OperationCanceled();
+        if (!await _canWrite(op, node)) {
+          switch (await _askReadOnly(context, node)) {
+            case _ReadOnlyChoice.cancel:
+              throw const OperationCanceled();
+            case _ReadOnlyChoice.readOnly:
+              readOnly = true;
+            case _ReadOnlyChoice.elevate:
+              // Правим как обычно: о том, что записать не дадут, узнает сама
+              // запись — и предложит повышение.
+              readOnly = false;
+          }
         }
 
         // Вложенной работой: ход дела она отдаёт наверх сама, а отмена идёт к
@@ -151,38 +159,66 @@ class EditFileCommand extends AppCommand {
     }
   }
 
-  /// Спросить, открывать ли то, что нельзя будет записать.
+  /// Спросить, что делать с файлом, в который писать не дают.
   ///
   /// Открыть — можно: файл показывается, поиск по нему работает, правка
   /// выключена. Молчаливое открытие «как обычно» хуже: час работы упёрся бы в
   /// отказ на `F2`.
-  Future<bool> _agreesToReadOnly(CommandContext context, FsNode node) {
+  ///
+  /// Третий ответ — «править всё равно» — появляется только там, где повышать
+  /// есть чем. Пароля он не просит: спросит его сохранение, когда до него
+  /// дойдёт.
+  ///
+  /// `Enter` при этом остаётся на «только чтение»: соглашаться вслепую на путь,
+  /// который потом спросит пароль администратора, человек не должен.
+  Future<_ReadOnlyChoice> _askReadOnly(CommandContext context, FsNode node) {
     final view = context.app.view;
-    final answer = Completer<bool>();
+    final answer = Completer<_ReadOnlyChoice>();
     late final String dialogId;
-    void reply(bool value) {
+    void reply(_ReadOnlyChoice value) {
       view.closeDialog(dialogId);
       if (!answer.isCompleted) {
         answer.complete(value);
       }
     }
 
+    final elevation = context.app.elevation;
+    final mayElevate = elevation.enabled && node.provider is ShellHost;
+
     dialogId = view.showDialog(
       DialogSpec(
         title: 'Read-only file',
         content: CommandDialogConfirm(
-          message: '${node.displayPath} cannot be written. Open it for reading?',
+          message:
+              mayElevate
+                  ? '${node.displayPath} cannot be written.\n'
+                      'Open it for reading, or edit it anyway and save as administrator?'
+                  : '${node.displayPath} cannot be written. Open it for reading?',
           confirmLabel: 'Open read-only',
-          onCancel: () => reply(false),
-          onConfirm: () => reply(true),
+          alternativeLabel: mayElevate ? 'Edit anyway' : null,
+          onAlternative: mayElevate ? () => reply(_ReadOnlyChoice.elevate) : null,
+          onCancel: () => reply(_ReadOnlyChoice.cancel),
+          onConfirm: () => reply(_ReadOnlyChoice.readOnly),
         ),
-        onSubmit: () => reply(true),
-        onDismiss: () => reply(false),
+        onSubmit: () => reply(_ReadOnlyChoice.readOnly),
+        onDismiss: () => reply(_ReadOnlyChoice.cancel),
       ),
     );
 
     return answer.future;
   }
+}
+
+/// Что человек выбрал, узнав, что писать в файл не дают.
+enum _ReadOnlyChoice {
+  /// Передумал открывать вовсе.
+  cancel,
+
+  /// Открыть на чтение: показать и дать поискать, правку выключить.
+  readOnly,
+
+  /// Править всё равно — а записать потом от администратора.
+  elevate,
 }
 
 /// Записать правки в файл.

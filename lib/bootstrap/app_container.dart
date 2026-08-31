@@ -236,6 +236,10 @@ class AppContainer extends DI {
           saveDelay: overrides.saveDelay ?? const Duration(seconds: 1),
           toasts: ToastController(duration: overrides.toastDuration ?? ToastController.defaultDuration),
           credentials: c.get<CredentialsController>(),
+          // Та же, что раздаётся модулям службой: иначе приложение спрашивало
+          // бы согласие у одной, а провайдер повышал права через другую — и
+          // выключенная по умолчанию запасная молчала бы всегда.
+          elevation: c.get<ElevationController>(),
           errors: c.get<ErrorController>(),
         );
       },

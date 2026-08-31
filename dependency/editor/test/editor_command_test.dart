@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_editor/fc_editor.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:fc_local_fs/fc_local_fs.dart';
@@ -350,6 +351,46 @@ void main() {
         isFalse,
         reason: 'обещать запись, которой не будет, хуже отказа',
       );
+    });
+
+    test('повышение разрешено — в окне есть третий ответ', () async {
+      // Служба берётся у приложения, и она должна быть **той самой**, что
+      // раздаётся модулям: запасная выключена всегда, и с ней третьей кнопки
+      // не появилось бы никогда.
+      expect(runtime.app.elevation.enabled, isTrue, reason: 'по умолчанию повышение разрешено');
+
+      if (!await makeReadOnly('notes.txt')) {
+        return;
+      }
+      runtime.app.left.setCursorToName('notes.txt');
+      unawaited((runtime.commands.create(EditFileCommand.commandId)!).executeWith());
+      await pumpEventQueue();
+
+      expect(runtime.app.view.dialogs.single.title, 'Read-only file');
+      await answer(yes: false);
+    });
+
+    test('согласились править всё равно — экран открыт и правится', () async {
+      if (!await makeReadOnly('notes.txt')) {
+        return;
+      }
+      runtime.app.left.setCursorToName('notes.txt');
+      unawaited((runtime.commands.create(EditFileCommand.commandId)!).executeWith());
+      await pumpEventQueue();
+
+      // Третий ответ живёт в самом окне: `Enter` по-прежнему открывает на
+      // чтение, и соглашаться вслепую на путь с паролем администратора не
+      // приходится.
+      final content = runtime.app.view.dialogs.single.content;
+      expect(content, isA<CommandDialogConfirm>());
+      final confirm = content as CommandDialogConfirm;
+      expect(confirm.alternativeLabel, 'Edit anyway');
+
+      confirm.onAlternative!();
+      await waitUntil(() => openEditor() != null);
+
+      expect(openEditor(), isNotNull);
+      expect(openEditor()!.readOnly, isFalse, reason: 'правим как обычно — откажет сама запись');
     });
 
     test('отказ от вопроса не открывает ничего', () async {
