@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ssh/fc_ssh.dart';
@@ -119,6 +120,39 @@ void main() {
     expect(provider!.homePath, startsWith('/'));
     // Ни одного вопроса: вошли по ключу.
     expect(credentials.asked, isEmpty);
+  });
+
+  test('одиночное нажатие доходит до сервера сразу', () async {
+    final provider = await connect();
+    if (provider == null) {
+      markTestSkipped('$hostSpec не пускает по ключу');
+      return;
+    }
+
+    // Спрашиваем **терминал сервера**, а не оболочку: `cat` ввод не толкует, а
+    // драйвер терминала отражает нажатое сразу — `Esc` виден как `^[`.
+    //
+    // Проверка появилась из жалобы «`Esc` на удалённом приходится нажимать
+    // дважды». Оболочка на это не ответчик: `bash` держит `Esc` как приставку и
+    // ждёт продолжения, а `zsh` на своей машине по своему сроку его отпускает —
+    // отсюда и разница, которую видно глазами. Здесь проверяется наше: байт
+    // ушёл один и ушёл сразу.
+    final pty = await provider.run('cat', directory: '/tmp');
+    final seen = StringBuffer();
+    final output = pty.output.listen((chunk) => seen.write(utf8.decode(chunk, allowMalformed: true)));
+    addTearDown(() async {
+      await output.cancel();
+      await pty.kill();
+    });
+
+    // Дать оболочке сервера открыться и утихнуть.
+    await Future<void>.delayed(const Duration(seconds: 2));
+    seen.clear();
+
+    pty.write(Uint8List.fromList([0x1b]));
+    await Future<void>.delayed(const Duration(seconds: 2));
+
+    expect(seen.toString(), '^[', reason: 'один байт, и сразу — без второго нажатия');
   });
 
   test('панель видит дерево так же, как сервер', () async {
