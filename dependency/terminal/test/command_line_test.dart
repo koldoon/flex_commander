@@ -23,6 +23,25 @@ bool press(String keys) => runtime.commands.dispatch(KeyCombination.parse(keys))
 
 void type(String command) => line.text.text = command;
 
+/// Подставная оболочка, которая держит уговор: без неё приложение не узнает ни
+/// конца команды, ни её кода.
+///
+/// Одна на прогон: она помнит, отметилась ли уже о запуске, — настоящая тоже
+/// не отмечается дважды.
+AgreeingShell? _shell;
+AgreeingShell get shell => _shell ??= AgreeingShell(pty.session);
+
+/// Нажать `Enter` и довести отправку до оболочки.
+///
+/// Два оборота очереди не для красоты: сперва заводится сессия, и только увидев
+/// её первое приглашение, строка отправляет команду.
+Future<void> submit() async {
+  press('Enter');
+  await pumpEventQueue();
+  shell.greet();
+  await pumpEventQueue();
+}
+
 void main() {
   setUp(() async {
     // Приложение живёт на macOS, и клавиши разбираются по-разному: там, где
@@ -31,6 +50,7 @@ void main() {
     // людям, а не то, во что это превращается в подставной платформе теста.
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
     pty = FakePty();
+    _shell = null;
     provider = InMemoryTreeProvider(
       [
         FakeEntry.directory('/home'),
@@ -74,24 +94,31 @@ void main() {
   });
 
   group('запуск', () {
-    test('команда уходит оболочке в каталоге панели — и без всякого cd', () async {
+    test('команда уходит в ту же оболочку строкой, а не своим процессом', () async {
       press('Cmd-T');
       type('ls -la');
-      expect(press('Enter'), isTrue);
-      await pumpEventQueue();
+      await submit();
 
       final session = pty.session;
-      expect(session.arguments.last, 'ls -la');
-      expect(session.workingDirectory, '/home');
-      // Каталог — параметр запуска, а не строка, отправленная оболочке.
-      expect(session.written, isEmpty);
+      expect(session.arguments.last, '-i', reason: 'сессия — оболочка, а не наша команда');
+      expect(session.written, contains('ls -la\n'));
+      expect(pty.sessions, hasLength(1), reason: 'на команду вторая оболочка не заводится');
+    });
+
+    test('каталог не досылается, пока оболочка стоит там же', () async {
+      press('Cmd-T');
+      type('ls');
+      await submit();
+
+      // Где стоит оболочка, известно точно — из метки; гонять её туда-сюда на
+      // каждую команду незачем.
+      expect(pty.session.written, isNot(contains('cd ')));
     });
 
     test('строка очищается и помнит выполненное', () async {
       press('Cmd-T');
       type('ls');
-      press('Enter');
-      await pumpEventQueue();
+      await submit();
 
       expect(line.text.text, isEmpty);
       expect(line.history, ['ls']);
@@ -112,8 +139,8 @@ void main() {
     test('прерванная человеком команда уходит с экрана сама', () async {
       press('Cmd-T');
       type('tail -f log');
-      press('Enter');
-      await pumpEventQueue();
+      await submit();
+      shell.start();
       pty.session.emit('первая строка\r\n');
       await pumpEventQueue();
 
@@ -123,7 +150,7 @@ void main() {
       // отправляет байт программе.
       screen.session.terminal.onOutput!('\x03');
       pty.session.emit('^C');
-      pty.session.exit(130);
+      shell.finish(code: 130);
       await pumpEventQueue();
 
       // Раньше здесь оставался экран с `^C` и ждал ещё одного нажатия: со
@@ -134,8 +161,8 @@ void main() {
     test('Ctrl-O убирает работающую команду с глаз, а не ставит вторую оболочку', () async {
       press('Cmd-T');
       type('tail -f log');
-      press('Enter');
-      await pumpEventQueue();
+      await submit();
+      shell.start();
       pty.session.emit('первая строка\r\n');
       await pumpEventQueue();
 
@@ -155,7 +182,7 @@ void main() {
       await pumpEventQueue();
       expect(app.view.contentAt(ViewportPosition.fullscreen), same(screen));
 
-      pty.session.exit(0);
+      shell.finish();
       await pumpEventQueue();
       expect(press('Esc'), isTrue);
       expect(app.view.contentAt(ViewportPosition.fullscreen), isNull);
@@ -164,10 +191,9 @@ void main() {
     test('молчаливая успешная команда экрана не показывает', () async {
       press('Cmd-T');
       type('mkdir new');
-      press('Enter');
-      await pumpEventQueue();
+      await submit();
 
-      pty.session.exit(0);
+      shell.finish();
       await pumpEventQueue();
 
       expect(app.view.contentAt(ViewportPosition.fullscreen), isNull);
@@ -176,9 +202,9 @@ void main() {
     test('сказавшая хоть слово — показывает и остаётся', () async {
       press('Cmd-T');
       type('git status');
-      press('Enter');
-      await pumpEventQueue();
+      await submit();
 
+      shell.start();
       pty.session.emit('On branch master\r\n');
       await pumpEventQueue();
 
@@ -186,7 +212,7 @@ void main() {
       expect(screen, isA<CommandRunScreen>());
       expect((screen! as CommandRunScreen).session.terminal.buffer.getText(), contains('On branch master'));
 
-      pty.session.exit(0);
+      shell.finish();
       await pumpEventQueue();
 
       // Вывод прочитать не успели бы, закройся экран сам.
@@ -196,10 +222,9 @@ void main() {
     test('провалившаяся показывает код, даже если промолчала', () async {
       press('Cmd-T');
       type('false');
-      press('Enter');
-      await pumpEventQueue();
+      await submit();
 
-      pty.session.exit(3);
+      shell.finish(code: 3);
       await pumpEventQueue();
 
       final screen = app.view.contentAt(ViewportPosition.fullscreen);
@@ -210,8 +235,8 @@ void main() {
     test('экран убирается клавишей — но только после конца команды', () async {
       press('Cmd-T');
       type('cat');
-      press('Enter');
-      await pumpEventQueue();
+      await submit();
+      shell.start();
       pty.session.emit('ждём\r\n');
       await pumpEventQueue();
 
@@ -220,7 +245,7 @@ void main() {
       expect(press('Enter'), isFalse);
       expect(app.view.contentAt(ViewportPosition.fullscreen), isA<CommandRunScreen>());
 
-      pty.session.exit(0);
+      shell.finish();
       await pumpEventQueue();
 
       expect(press('Enter'), isTrue);
@@ -254,10 +279,9 @@ void main() {
     test('cd с продолжением толковать не беремся — уходит оболочке', () async {
       press('Cmd-T');
       type('cd docs && make');
-      press('Enter');
-      await pumpEventQueue();
+      await submit();
 
-      expect(pty.session.arguments.last, 'cd docs && make');
+      expect(pty.session.written, contains('cd docs && make\n'));
       expect(app.left.directory?.pathString, '/home');
     });
   });
@@ -311,9 +335,8 @@ void main() {
     test('история ходит вверх и вниз и возвращает набранное', () async {
       press('Cmd-T');
       type('first');
-      press('Enter');
-      await pumpEventQueue();
-      pty.session.exit(0);
+      await submit();
+      shell.finish();
       await pumpEventQueue();
 
       type('набранное');
@@ -328,9 +351,8 @@ void main() {
       for (var i = 0; i < 2; i++) {
         press('Cmd-T');
         type('make');
-        press('Enter');
-        await pumpEventQueue();
-        pty.sessions.last.exit(0);
+        await submit();
+        shell.finish();
         await pumpEventQueue();
       }
 

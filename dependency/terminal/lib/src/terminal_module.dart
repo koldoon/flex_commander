@@ -94,8 +94,10 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
 
     registry.command((context) => FocusCommandLineCommand());
     registry.command((context) => LeaveCommandLineCommand());
-    registry.command((context) => RunCommandLineCommand(settings: settingsOf));
-    registry.command((context) => RunNodeCommand(settings: settingsOf));
+    registry.command(
+      (context) => RunCommandLineCommand(settings: settingsOf, shells: () => context.resolve<ShellSession>()),
+    );
+    registry.command((context) => RunNodeCommand(settings: settingsOf, shells: () => context.resolve<ShellSession>()));
     registry.command((context) => HistoryCommand(id: HistoryCommand.previousId, label: 'Previous command', back: true));
     registry.command((context) => HistoryCommand(id: HistoryCommand.nextId, label: 'Next command', back: false));
     registry.command(

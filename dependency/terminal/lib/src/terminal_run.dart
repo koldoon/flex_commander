@@ -2,12 +2,17 @@ import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
 
+import 'shell_command.dart';
+import 'shell_session.dart';
 import 'terminal_screens.dart';
 import 'terminal_session.dart';
 import 'terminal_settings.dart';
 
-/// Выполнить команду во внутреннем терминале — и показать её так, как в
-/// приложении принято.
+/// Выполнить команду в оболочке — и показать её так, как в приложении принято.
+///
+/// Оболочка **одна на место** и та же, что под `Ctrl-O`: команда уходит в неё
+/// строкой, а не запускается своим процессом. Отсюда и история — всё, что
+/// запускали, лежит в одной ленте (`spec/single-shell-session.md`).
 ///
 /// Общее место для двух команд: набранной в строке (`terminal.run`) и запуска
 /// файла под курсором (`terminal.runNode`). Запускается всё одинаково — своим
@@ -25,11 +30,12 @@ class TerminalRun {
   /// не произошло».
   static const Duration defaultShowDelay = Duration(milliseconds: 300);
 
-  /// [onStarted] зовётся, когда процесс уже пошёл, но ждать его конца ещё
-  /// долго: строке в это мгновение пора запомнить команду и очиститься.
-  /// Не запустилось — не зовётся вовсе, и набранное остаётся на месте.
+  /// [onStarted] зовётся, когда команда уже ушла в оболочку: строке в это
+  /// мгновение пора запомнить её и очиститься. Не ушла — не зовётся вовсе, и
+  /// набранное остаётся на месте.
   static Future<void> start({
     required Application app,
+    required ShellSession shells,
     required ShellHost host,
     required TerminalSettings options,
     required String command,
@@ -40,15 +46,7 @@ class TerminalRun {
   }) async {
     final TerminalSession session;
     try {
-      // Чем запускать и как оказаться в нужном каталоге, решает та сторона:
-      // на своей машине это `$SHELL` с `-lic`, на сервере — оболочка сервера.
-      session = TerminalSession.around(
-        await host.run(command, directory: workingDirectory),
-        maxLines: options.maxLines,
-        // Панель вправе уйти с сервера, пока команда работает: источник обязан
-        // дожить до её конца.
-        lease: lease,
-      );
+      session = await shells.sessionIn(host, workingDirectory, lease: lease);
     } catch (error) {
       unawaited(lease?.release());
       // Псевдотерминала на этой платформе может не быть вовсе. Молчать нельзя,
@@ -57,7 +55,20 @@ class TerminalRun {
       return;
     }
 
+    // До первого приглашения команду слать нельзя: её концом окажется
+    // приглашение, напечатанное оболочкой самой.
+    await session.settled.timeout(ShellSession.settleTimeout, onTimeout: () {});
+
+    if (session.running) {
+      // Вторая строка ушла бы не в приглашение, а на ввод работающей
+      // программы, и человек этого не увидел бы вовсе.
+      app.toasts.show('The shell is busy');
+      return;
+    }
+
+    final done = session.run(_lineFor(session, command, workingDirectory));
     onStarted?.call();
+
     final screen = CommandRunScreen(command: command, session: session);
 
     var shown = false;
@@ -70,19 +81,36 @@ class TerminalRun {
     }
 
     void onOutput() {
-      if (session.producedOutput) {
+      if (session.commandOutput) {
         show();
       }
     }
 
     session.addListener(onOutput);
     final waiting = Timer(showDelay, () {
-      if (!session.finished) {
+      if (!screen.finished) {
         show();
       }
     });
 
-    final code = await session.exited;
+    // Метки нет — конца команды мы не узнаем: экран показывается и ждёт
+    // клавиши, а решает человек (`spec/single-shell-session.md`, §3).
+    if (done == null) {
+      waiting.cancel();
+      session.removeListener(onOutput);
+      show();
+      return;
+    }
+
+    int code;
+    try {
+      code = (await done).exitCode;
+    } on Object {
+      // Оболочка закрылась посреди команды: конца у неё нет, и молчать об этом
+      // нельзя.
+      code = -1;
+    }
+    screen.finish(code);
     waiting.cancel();
     session.removeListener(onOutput);
 
@@ -98,7 +126,7 @@ class TerminalRun {
       } else {
         screen.close();
       }
-    } else if (session.producedOutput || code != 0) {
+    } else if (session.commandOutput || code != 0) {
       // Сказала хоть слово или провалилась — остаётся до нажатия клавиши.
       show();
     } else if (!shown) {
@@ -107,6 +135,19 @@ class TerminalRun {
     }
 
     await _reloadPanels(app);
+  }
+
+  /// Строка, которая уйдёт в оболочку.
+  ///
+  /// Каталог досылается **только когда разошёлся**: оболочка одна, и гонять её
+  /// туда-сюда на каждую команду незачем. Где она стоит, известно точно — из
+  /// метки; не известно вовсе (метки нет) — досылаем на всякий случай.
+  static String _lineFor(TerminalSession session, String command, String directory) {
+    final at = session.lastMark?.directory;
+    if (at == directory) {
+      return command;
+    }
+    return 'cd ${ShellCommand.quote(directory)} && $command';
   }
 
   /// Перечитать панели: команда могла создать, удалить и переименовать что

@@ -123,8 +123,13 @@ void main() {
 
     runtime.commands.dispatch(KeyCombination.parse('Enter'));
     await tester.pumpAndSettle();
-    pty.session.emit('alpha.txt\r\n');
-    pty.session.exit(0);
+
+    // Оболочка одна, и о конце команды она сообщает меткой: сперва первое
+    // приглашение, потом сама команда с выводом.
+    final shell = AgreeingShell(pty.session);
+    shell.greet();
+    await tester.pumpAndSettle();
+    shell.finish(output: 'alpha.txt\r\n');
     await tester.pumpAndSettle();
 
     // Под полноэкранным экраном строки нет вовсе — она собирается заново, когда

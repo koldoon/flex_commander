@@ -24,6 +24,19 @@ CommandLineState get line => app.view.contentAt(ViewportPosition.bottom)! as Com
 
 bool press(String keys) => runtime.commands.dispatch(KeyCombination.parse(keys));
 
+/// Подставная оболочка, которая держит уговор, — одна на прогон.
+AgreeingShell? _shell;
+AgreeingShell get shell => _shell ??= AgreeingShell(pty.session);
+
+/// Нажать `Enter` и довести отправку до оболочки: команда уходит в неё только
+/// после первого приглашения.
+Future<void> submit() async {
+  press('Enter');
+  await pumpEventQueue();
+  shell.greet();
+  await pumpEventQueue();
+}
+
 void main() {
   setUp(() async {
     pty = FakePty();
@@ -38,6 +51,7 @@ void main() {
       null,
       pty,
     )..home = '/home';
+    _shell = null;
     runtime = await testApp(provider: provider, modules: modulesWithTerminal());
     await runtime.app.start();
     settings = line.settings;
@@ -47,26 +61,25 @@ void main() {
     app.left.setCursorToName('build.sh');
     expect(press('Enter'), isTrue);
     await pumpEventQueue();
+    shell.greet();
+    await pumpEventQueue();
 
     expect(pty.started, isTrue);
-    expect(pty.session.arguments.last, '/home/build.sh');
-    expect(pty.session.workingDirectory, '/home');
-    // Каталог — параметр запуска, а не строка, отправленная оболочке.
-    expect(pty.session.written, isEmpty);
+    // Уходит в ту же оболочку строкой, а не запускается своим процессом.
+    expect(pty.session.written, contains('/home/build.sh\n'));
+    expect(pty.sessions, hasLength(1));
   });
 
   test('имя с пробелом и скобками уходит целиком, а не кусками', () async {
     app.left.setCursorToName('my script (2).sh');
-    press('Enter');
-    await pumpEventQueue();
+    await submit();
 
-    expect(pty.session.arguments.last, "'/home/my script (2).sh'");
+    expect(pty.session.written, contains("'/home/my script (2).sh'\n"));
   });
 
   test('запуск помнится строкой: повторяют его тем же Cmd-Up', () async {
     app.left.setCursorToName('build.sh');
-    press('Enter');
-    await pumpEventQueue();
+    await submit();
 
     expect(line.history, ['/home/build.sh']);
   });
@@ -110,19 +123,17 @@ void main() {
     settings.typingGoesToLine = true;
     app.left.setCursorToName('build.sh');
     line.text.text = 'ls -la';
-    press('Enter');
-    await pumpEventQueue();
+    await submit();
 
-    expect(pty.session.arguments.last, 'ls -la');
+    expect(pty.session.written, contains('ls -la\n'));
   });
 
   group('показ — тот же, что у команды из строки', () {
     test('молча и успешно — экрана нет вовсе', () async {
       app.left.setCursorToName('build.sh');
-      press('Enter');
-      await pumpEventQueue();
+      await submit();
 
-      pty.session.exit(0);
+      shell.finish();
       await pumpEventQueue();
 
       expect(app.view.contentAt(ViewportPosition.fullscreen), isNull);
@@ -130,12 +141,9 @@ void main() {
 
     test('сказала слово — экран остаётся', () async {
       app.left.setCursorToName('build.sh');
-      press('Enter');
-      await pumpEventQueue();
+      await submit();
 
-      pty.session.emit('done\r\n');
-      await pumpEventQueue();
-      pty.session.exit(0);
+      shell.finish(output: 'done\r\n');
       await pumpEventQueue();
 
       final screen = app.view.contentAt(ViewportPosition.fullscreen);

@@ -496,7 +496,10 @@ class CompletePathCommand extends AppCommand {
 
 /// Выполнить набранное.
 class RunCommandLineCommand extends AppCommand {
-  RunCommandLineCommand({required this.settings, this.showDelay = TerminalRun.defaultShowDelay});
+  RunCommandLineCommand({required this.settings, required this.shells, this.showDelay = TerminalRun.defaultShowDelay});
+
+  /// Оболочки — способом их спросить: команда создаётся раньше служб.
+  final ShellSession Function() shells;
 
   static const String commandId = 'terminal.run';
 
@@ -571,6 +574,7 @@ class RunCommandLineCommand extends AppCommand {
 
     await TerminalRun.start(
       app: app,
+      shells: shells(),
       host: host,
       options: settings(),
       command: command,
@@ -635,7 +639,10 @@ class RunCommandLineCommand extends AppCommand {
 /// порядок разбора `Enter` в панели складывается сам собой — набранная строка,
 /// потом исполняемый файл, потом вход в каталог (`spec/run-executables.md`, §4).
 class RunNodeCommand extends AppCommand {
-  RunNodeCommand({required this.settings, this.showDelay = TerminalRun.defaultShowDelay});
+  RunNodeCommand({required this.settings, required this.shells, this.showDelay = TerminalRun.defaultShowDelay});
+
+  /// Оболочки — способом их спросить: команда создаётся раньше служб.
+  final ShellSession Function() shells;
 
   static const String commandId = 'terminal.runNode';
 
@@ -678,6 +685,7 @@ class RunNodeCommand extends AppCommand {
 
     await TerminalRun.start(
       app: context.app,
+      shells: shells(),
       host: host,
       options: settings(),
       command: command,

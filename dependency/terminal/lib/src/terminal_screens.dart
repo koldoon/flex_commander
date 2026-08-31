@@ -20,10 +20,14 @@ class TerminalScreen extends ChangeNotifier implements ViewportState {
   void close() {}
 }
 
-/// Работающая (или уже отработавшая) команда из строки.
+/// Команда из строки, пока на неё смотрят.
 ///
-/// В отличие от постоянной сессии — своя на каждый запуск, и вместе с экраном
-/// уходит процесс: убрать её с глаз, оставив работать, в первой версии нельзя.
+/// Показывает **ту же** сессию, что и `Ctrl-O`: оболочка одна, и команда ушла в
+/// неё строкой. Отсюда следует главное — экран сессией **не владеет**. Раньше
+/// владел: у каждого запуска был свой процесс, и вместе с экраном уходил он.
+///
+/// Конец команды экрану сообщают снаружи ([finish]): сессия жива и после неё,
+/// и спросить у неё «ты закончилась?» больше нельзя — она и не начиналась.
 class CommandRunScreen extends ChangeNotifier implements ViewportState {
   CommandRunScreen({required this.command, required this.session}) {
     session.addListener(notifyListeners);
@@ -36,23 +40,30 @@ class CommandRunScreen extends ChangeNotifier implements ViewportState {
 
   /// Команда закончилась: с этого мгновения экран можно закрыть клавишей, а до
   /// того клавиши принадлежат ей самой.
-  bool get finished => session.finished;
+  bool get finished => _exitCode != null;
 
-  int? get exitCode => session.exitCode;
+  int? get exitCode => _exitCode;
+  int? _exitCode;
+
+  /// Команда кончилась — с таким кодом.
+  void finish(int code) {
+    if (_exitCode != null) {
+      return;
+    }
+    _exitCode = code;
+    notifyListeners();
+  }
 
   @override
   bool get takesKeyboard => true;
 
-  /// Убрана с глаз, но работает: `Ctrl-O` вернёт к ней.
-  ///
-  /// Различать это важно: `close` у области означает «состояние убрали», а
-  /// убрать с глаз работающую команду и прекратить её — не одно и то же.
+  /// Убран с глаз; оболочка при этом остаётся жить — `Ctrl-O` вернёт к ней со
+  /// всей историей.
   @override
   void close() {
     if (!finished) {
       return;
     }
     session.removeListener(notifyListeners);
-    session.dispose();
   }
 }

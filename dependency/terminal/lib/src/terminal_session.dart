@@ -93,6 +93,37 @@ class TerminalSession extends ChangeNotifier {
 
   int get _cursorLine => terminal.buffer.absoluteCursorY;
 
+  /// Оболочка о себе рассказывает: уговор подошёл.
+  ///
+  /// Пока хоть одна метка не пришла, конца команды мы не знаем — и обещать его
+  /// нельзя (`spec/single-shell-session.md`, §3).
+  bool get marksWork => _marksWork;
+  bool _marksWork = false;
+
+  /// Первое приглашение: с него оболочка готова принимать команды.
+  ///
+  /// Ждать его обязательно. Отправишь команду раньше — и её концом окажется
+  /// приглашение, которое оболочка напечатала сама, ещё до неё.
+  Future<void> get settled => _settled.future;
+  final Completer<void> _settled = Completer<void>();
+
+  Completer<ShellMark>? _waiting;
+
+  /// Выполнить строку в этой оболочке и дождаться её конца.
+  ///
+  /// null — оболочка о себе не рассказывает: строка отправлена, но конца её мы
+  /// не узнаем, и решать за неё придётся человеку.
+  Future<ShellMark>? run(String line) {
+    if (!_marksWork) {
+      input('$line\n');
+      return null;
+    }
+    final done = Completer<ShellMark>();
+    _waiting = done;
+    input('$line\n');
+    return done.future;
+  }
+
   void _onPrivateOsc(String code, List<String> parts) {
     final mark = _agreement?.parse(code, parts);
     if (mark == null) {
@@ -102,12 +133,22 @@ class TerminalSession extends ChangeNotifier {
       case ShellMarkKind.running:
         _running = true;
         _commandOutput = false;
+        // Прекратил человек или нет — вопрос про эту команду, а не про сессию:
+        // прошлый `Ctrl-C` к новой отношения не имеет.
+        _interrupted = false;
         _outputStart = _cursorLine;
       case ShellMarkKind.prompt:
-        if (_running) {
-          _commandOutput = _cursorLine != _outputStart;
+        if (_running && _cursorLine != _outputStart) {
+          _commandOutput = true;
         }
         _running = false;
+        final waiting = _waiting;
+        _waiting = null;
+        waiting?.complete(mark);
+    }
+    _marksWork = true;
+    if (!_settled.isCompleted) {
+      _settled.complete();
     }
     _lastMark = mark;
     onMark?.call(mark);
@@ -161,6 +202,11 @@ class TerminalSession extends ChangeNotifier {
   void _onOutput(String data) {
     _producedOutput = true;
     terminal.write(data);
+    // Считается **по ходу**, а не в конце: экран молчащей команды показывается
+    // по первому же её слову, а не когда она уже закончилась.
+    if (_running && _cursorLine != _outputStart) {
+      _commandOutput = true;
+    }
     notifyListeners();
   }
 
@@ -191,6 +237,12 @@ class TerminalSession extends ChangeNotifier {
 
   @override
   void dispose() {
+    // Ждущего конца команды бросать нельзя: оболочка кончилась, конца не будет.
+    final waiting = _waiting;
+    _waiting = null;
+    if (waiting != null && !waiting.isCompleted) {
+      waiting.completeError(StateError('Оболочка закрылась'));
+    }
     unawaited(_output.cancel());
     // Убить уже мёртвое — не ошибка, а обычный случай: команда из строки
     // обычно кончается сама.
