@@ -52,13 +52,17 @@ class AppShell implements FcModule {
     registry.binding(KeyBinding('F3', viewCommand));
     registry.binding(KeyBinding('F4', editCommand));
 
-    // Настройки на `F2` — вместо заглушки «Menu», которой там больше нет.
+    // Настройки на `F9` — там, где в `mc` меню.
     //
     // Меню в этом приложении не появится: строка меню macOS остаётся системной,
     // а всё, что предложило бы меню приложения, лучше делает палитра команд —
-    // она ищет по названию, показывает клавиши и не требует мыши.
+    // она ищет по названию, показывает клавиши и не требует мыши. Настройки —
+    // ближайшее к меню из того, что здесь есть, и рука ищет их там же.
+    //
+    // `F2` при этом освобождается: в референсе за ним «переименовать», и в
+    // панельных менеджерах это самая привычная из функциональных клавиш.
     registry.command((context) => SettingsCommand(catalog: () => context.resolve<SettingsCatalog>()));
-    registry.binding(KeyBinding('F2', SettingsCommand.commandId));
+    registry.binding(KeyBinding('F9', SettingsCommand.commandId));
     // Привычка macOS. Действует и в просмотрщике, и в редакторе: настройки —
     // не про то, что сейчас на экране.
     registry.binding(KeyBinding.anywhere('Cmd-,', SettingsCommand.commandId));

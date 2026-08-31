@@ -308,7 +308,10 @@ class _FcPickListState extends State<FcPickList> {
             ),
             if (row.trailing.isNotEmpty) ...[
               SizedBox(width: metrics.columnGap),
-              Text(row.trailing, style: dim.copyWith(fontFamily: theme.fonts.fixed)),
+              Text(
+                row.trailing,
+                style: dim.copyWith(fontFamily: theme.fonts.fixed, fontFamilyFallback: theme.fonts.fixedFallback),
+              ),
             ],
           ],
         ),

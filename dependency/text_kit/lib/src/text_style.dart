@@ -60,5 +60,4 @@ CodeEditorStyle textViewStyle(FcTheme theme, TextStyle base, String? language) {
 }
 
 /// Основной стиль текста: моноширинный шрифт темы её же кеглем и цветом.
-TextStyle textBaseStyle(FcTheme theme) =>
-    TextStyle(fontFamily: theme.fonts.fixed, fontSize: theme.metrics.fontSize, color: theme.colors.rowText);
+TextStyle textBaseStyle(FcTheme theme) => theme.fixedStyle.copyWith(color: theme.colors.rowText);

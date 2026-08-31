@@ -5,6 +5,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:flutter/foundation.dart';
 import 'package:xterm/xterm.dart';
 
+import 'shell_keys.dart';
 import 'shell_marks.dart';
 
 /// Программа в псевдотерминале вместе с разбором её вывода.
@@ -36,6 +37,10 @@ class TerminalSession extends ChangeNotifier {
        _agreement = agreement,
        terminal = Terminal(maxLines: maxLines) {
     _pty = pty;
+
+    // Свой обработчик впереди стандартного: `xterm` не смотрит на прикладной
+    // режим курсорных клавиш, и `mc` не видит стрелок вовсе.
+    terminal.inputHandler = CascadeInputHandler([AppCursorKeys(terminal), defaultInputHandler]);
 
     // Метку разбирает не поток, а сам терминал: она управляющая
     // последовательность, и до текста ей ещё дойти надо. Незнакомый OSC `xterm`

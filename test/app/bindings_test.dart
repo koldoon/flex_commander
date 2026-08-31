@@ -130,8 +130,11 @@ void main() {
     expect(ids.toSet(), hasLength(ids.length));
   });
 
-  test('F9 и F10 пока ни за кем не закреплены', () {
-    expect(runtime.commands.commandFor(KeyCombination.parse('F9')), isNull);
+  test('F9 открывает настройки — там, где в mc меню', () {
+    expect(runtime.commands.commandFor(KeyCombination.parse('F9'))?.id, 'app.settings');
+  });
+
+  test('F10 пока ни за кем не закреплён', () {
     expect(runtime.commands.commandFor(KeyCombination.parse('F10')), isNull);
   });
 }

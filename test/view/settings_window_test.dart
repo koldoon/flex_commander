@@ -28,7 +28,7 @@ void main() {
 
     await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
     await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.f2);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f9);
     await tester.pumpAndSettle();
   }
 
@@ -41,7 +41,7 @@ void main() {
   /// `findRichText`.
   Finder setting(String title) => find.text(title, findRichText: true);
 
-  testWidgets('F2 открывает настройки, разделы — по модулям', (tester) async {
+  testWidgets('F9 открывает настройки, разделы — по модулям', (tester) async {
     await openSettings(tester);
 
     expect(find.byType(FcSettingsForm), findsOneWidget);
@@ -341,7 +341,7 @@ void main() {
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.f2);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f9);
     await tester.pumpAndSettle();
 
     expect(find.text('20'), findsOneWidget, reason: 'окно открылось заново и показывает своё же значение');

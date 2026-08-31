@@ -26,13 +26,17 @@ class FcTheme extends ThemeExtension<FcTheme> {
   /// С запасными семействами: шрифт списка берётся из системы, и на машине, где
   /// его нет, подстановку надо назвать самим — иначе список набирается
   /// пропорциональным, и столбцы разъезжаются.
-  TextStyle get rowStyle => TextStyle(
-    fontFamily: fonts.fixed,
-    fontFamilyFallback: fonts.fixedFallback,
-    fontSize: metrics.fontSize,
-    color: colors.rowText,
-    height: 1.2,
-  );
+  TextStyle get rowStyle => fixedStyle.copyWith(color: colors.rowText, height: 1.2);
+
+  /// Моноширинный набор: семейство **вместе с запасными**.
+  ///
+  /// Порознь их брать нельзя. Шрифт списка берётся из системы, и на машине, где
+  /// его нет, подстановку выбирает тот, кто рисует: Flutter возьмёт свою,
+  /// `xterm` — свою. Один и тот же текст выходит тогда разными шрифтами, и это
+  /// видно: приглашение в терминале и приглашение в командной строке стоят на
+  /// пару пикселей врозь.
+  TextStyle get fixedStyle =>
+      TextStyle(fontFamily: fonts.fixed, fontFamilyFallback: fonts.fixedFallback, fontSize: metrics.fontSize);
 
   /// Колонки с числами и датами. Шрифт списка моноширинный, поэтому отдельная
   /// настройка цифр не нужна — столбец и так не «прыгает».

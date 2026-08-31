@@ -104,7 +104,6 @@ class _CommandLineViewState extends State<CommandLineView> {
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
     final colors = theme.colors;
-    final metrics = theme.metrics;
     final state = widget.state;
 
     return ListenableBuilder(
@@ -113,11 +112,7 @@ class _CommandLineViewState extends State<CommandLineView> {
       listenable: Listenable.merge([state, view, state.panel, state.text]),
       builder: (context, _) {
         final enabled = state.enabled;
-        final style = TextStyle(
-          fontFamily: theme.fonts.fixed,
-          fontSize: metrics.fontSize,
-          color: enabled ? colors.rowText : colors.secondaryText,
-        );
+        final style = theme.fixedStyle.copyWith(color: enabled ? colors.rowText : colors.secondaryText);
 
         // Ряд подсказок стоит **всегда**, даже когда он пуст.
         //
@@ -152,7 +147,7 @@ class _CommandLineViewState extends State<CommandLineView> {
   Widget _suggestions(FcTheme theme, CommandLineState state) {
     final colors = theme.colors;
     final metrics = theme.metrics;
-    final base = TextStyle(fontFamily: theme.fonts.fixed, fontSize: metrics.fontSize, color: colors.secondaryText);
+    final base = theme.fixedStyle.copyWith(color: colors.secondaryText);
     if (!state.isCompleting || state.suggestions.length < 2) {
       return const SizedBox.shrink();
     }

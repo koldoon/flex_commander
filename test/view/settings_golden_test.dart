@@ -26,7 +26,7 @@ void main() {
     await app.start();
     await tester.pumpAndSettle();
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.f2);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f9);
     await tester.pumpAndSettle();
 
     await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/settings_dialog.png'));

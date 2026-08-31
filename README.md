@@ -222,7 +222,7 @@ On Windows and Linux `Cmd` reads as `Ctrl`.
 | `Cmd-F1`, `Cmd-F2` | open a path or address in the left / right panel |
 | `Cmd-O` | open the selected objects with the system |
 | `F1` | help: settings and every command with its keys |
-| `F2`, `Cmd-,` | settings: everything you choose, in one window |
+| `F9`, `Cmd-,` | settings: everything you choose, in one window |
 | `Cmd-Shift-P` | the command palette: everything the app can do right now, by name or synonym, each with what it does |
 | `F3` / `F4` | view / edit the file under the cursor |
 | `Cmd-I`, `Alt-Enter` | everything known about the object |

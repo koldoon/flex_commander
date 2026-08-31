@@ -65,7 +65,7 @@ class _TerminalFrame extends StatelessWidget {
     final colors = theme.colors;
     final metrics = theme.metrics;
 
-    final label = TextStyle(fontFamily: theme.fonts.fixed, fontSize: metrics.fontSize, color: colors.pathText);
+    final label = theme.fixedStyle.copyWith(color: colors.pathText);
 
     return ColoredBox(
       // Фон окна: терминал занимает всё окно и панелью не притворяется.
@@ -107,7 +107,14 @@ class _TerminalFrame extends StatelessWidget {
                 // в терминале его не будет. Для оболочки это меньшая потеря,
                 // чем неработающий `Backspace`.
                 hardwareKeyboardOnly: true,
-                textStyle: TerminalStyle(fontFamily: theme.fonts.fixed, fontSize: metrics.fontSize),
+                // С запасными семействами: без них `xterm` подставляет свои,
+                // и один и тот же текст в терминале и в строке выходит разными
+                // шрифтами.
+                textStyle: TerminalStyle(
+                  fontFamily: theme.fonts.fixed,
+                  fontFamilyFallback: theme.fonts.fixedFallback,
+                  fontSize: metrics.fontSize,
+                ),
               ),
             ),
           ),

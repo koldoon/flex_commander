@@ -110,6 +110,46 @@ void main() {
     });
   });
 
+  testWidgets('Esc уходит программе с первого нажатия', (tester) async {
+    await onMacOs(tester, () async {
+      await openTerminal(tester);
+
+      // Внутри терминала `Esc` принадлежит программе: у неё он и меню, и
+      // отмена. Приложение его себе не забирает.
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      expect(sent(), [0x1b]);
+
+      pty.session.writes.clear();
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      expect(sent(), [0x1b], reason: 'и со второго — тот же байт');
+    });
+  });
+
+  testWidgets('в прикладном режиме стрелка уходит как ESC O A', (tester) async {
+    await onMacOs(tester, () async {
+      await openTerminal(tester);
+
+      // Так просят `mc`, `vim` и `less`: `ESC [ ? 1 h` — и стрелки переходят в
+      // прикладной режим. Именно `ESC O A` стоит у них в описании терминала, и
+      // по обычному `ESC [ A` они стрелку не узнают — в `mc` курсор просто не
+      // двигается.
+      pty.session.emit('\x1b[?1h');
+      await tester.pumpAndSettle();
+      pty.session.writes.clear();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      expect(sent(), [0x1b, 0x4f, 0x41], reason: 'ESC O A');
+
+      // Выключили — снова обычная.
+      pty.session.emit('\x1b[?1l');
+      await tester.pumpAndSettle();
+      pty.session.writes.clear();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      expect(sent(), [0x1b, 0x5b, 0x41], reason: 'ESC [ A');
+    });
+  });
+
   testWidgets('Ctrl-C прерывает то, что внутри', (tester) async {
     await onMacOs(tester, () async {
       await openTerminal(tester);

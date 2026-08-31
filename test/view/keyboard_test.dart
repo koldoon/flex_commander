@@ -369,13 +369,13 @@ void main() {
 
       // Так команду ставит модуль: приложение уже собрано и нарисовано.
       app.commands.install(() => PlaceholderCommand(id: 'test.later', label: 'Later'));
-      app.commands.bind(KeyBinding('F9', 'test.later'));
+      app.commands.bind(KeyBinding('F10', 'test.later'));
       await tester.pump();
 
-      final f9 = tester.widget<FunctionButton>(
+      final button = tester.widget<FunctionButton>(
         find.ancestor(of: find.text('Later'), matching: find.byType(FunctionButton)),
       );
-      expect(f9.number, 9);
+      expect(button.number, 10);
     });
   });
 
@@ -541,13 +541,13 @@ void main() {
     }
 
     testWidgets('клавиша без команды уходит дальше — к системе', (tester) async {
-      // F9 ни за кем не закреплена. Съедать такое нельзя: `Cmd+Q`, `Cmd+W` и
+      // F10 ни за кем не закреплена. Съедать такое нельзя: `Cmd+Q`, `Cmd+W` и
       // прочие сочетания меню Flutter спрашивает у приложения раньше, чем
       // строку меню, и «обработано» их отменяет — приложение перестаёт
       // закрываться по Cmd+Q.
       await pumpApp(tester);
 
-      expect(await press(tester, LogicalKeyboardKey.f9), isFalse);
+      expect(await press(tester, LogicalKeyboardKey.f10), isFalse);
     });
 
     testWidgets('клавиша с командой дальше не идёт', (tester) async {
