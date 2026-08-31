@@ -561,8 +561,10 @@ class _CreateArchiveFormState extends State<_CreateArchiveForm> {
         ),
         CommandDialogField(
           label: 'Compression',
-          child: FcRadioGroup<ZipCompression>(
-            direction: Axis.horizontal,
+          // Выпадающим списком, а не переключателем: степеней сжатия столько,
+          // сколько их у упаковщика, и строка на каждую растила бы окно вместе
+          // с их числом (`docs/widgets.md`).
+          child: FcSelect<ZipCompression>(
             options: {for (final value in ZipCompression.values) value: value.title},
             value: run.compression,
             onChanged: run.setCompression,

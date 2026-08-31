@@ -70,6 +70,10 @@ void main() {
     return command;
   }
 
+  /// Сама рамка списка сжатия, а не весь контрол: внешний бокс растянут
+  /// столбцом значений, и щелчок по его середине уходит мимо рамки.
+  Finder compression() => find.descendant(of: find.byType(FcSelect<ZipCompression>), matching: find.byType(Opacity));
+
   testWidgets('форма показывает имя, приёмник, сжатие и две кнопки', (tester) async {
     await pumpDialog(tester);
 
@@ -80,11 +84,24 @@ void main() {
     expect(find.text('Create in'), findsOneWidget);
     expect(find.text(target), findsOneWidget);
 
-    // Степень сжатия: все уровни и обе кнопки.
+    // Степень сжатия: пока список не раскрыт, видно только выбранное — в этом
+    // и разница с прежним переключателем, у которого все уровни стояли разом.
     expect(find.text('Compression'), findsOneWidget);
+    expect(find.text('Normal'), findsOneWidget);
+    expect(find.text('Store'), findsNothing);
+
+    await tester.tap(compression());
+    await tester.pumpAndSettle();
     for (final title in ['Store', 'Fast', 'Normal', 'Best']) {
-      expect(find.text(title), findsOneWidget);
+      // Внутри самого списка: строка в нём набрана разметкой, и искать её
+      // приходится через `findRichText`, а тот заодно видит и подпись в поле.
+      expect(
+        find.descendant(of: find.byType(FcPickList), matching: find.text(title, findRichText: true)),
+        findsOneWidget,
+      );
     }
+    await tester.tapAt(const Offset(5, 5));
+    await tester.pumpAndSettle();
     expect(find.text('Create'), findsOneWidget);
     expect(find.text('Cancel'), findsOneWidget);
   });
@@ -105,10 +122,7 @@ void main() {
   testWidgets('по умолчанию выбрано среднее сжатие', (tester) async {
     await pumpDialog(tester);
 
-    expect(
-      tester.widget<FcRadioGroup<ZipCompression>>(find.byType(FcRadioGroup<ZipCompression>)).value,
-      ZipCompression.normal,
-    );
+    expect(tester.widget<FcSelect<ZipCompression>>(find.byType(FcSelect<ZipCompression>)).value, ZipCompression.normal);
   });
 
   testWidgets('имя из поля доходит до работы, а не остаётся в нём', (tester) async {
@@ -129,13 +143,12 @@ void main() {
   testWidgets('выбранное сжатие доходит до работы', (tester) async {
     await pumpDialog(tester);
 
-    await tester.tap(find.text('Best'));
-    await tester.pump();
+    await tester.tap(compression());
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of: find.byType(FcPickList), matching: find.text('Best', findRichText: true)));
+    await tester.pumpAndSettle();
 
-    expect(
-      tester.widget<FcRadioGroup<ZipCompression>>(find.byType(FcRadioGroup<ZipCompression>)).value,
-      ZipCompression.best,
-    );
+    expect(tester.widget<FcSelect<ZipCompression>>(find.byType(FcSelect<ZipCompression>)).value, ZipCompression.best);
   });
 
   testWidgets('Cancel закрывает окно, ничего не создавая', (tester) async {
