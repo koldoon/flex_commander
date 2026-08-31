@@ -34,6 +34,7 @@ workspace:
   - dependency/local_fs
   - dependency/navigation
   - dependency/panels
+  - dependency/platform
   # Своя копия re_editor: в ней две правки, без которых выделение в редакторе и
   # просмотрщике разрывается между строками. Членство в воркспейсе и есть
   # подмена — все, кто просит re_editor, получают её.
@@ -81,6 +82,9 @@ dependencies:
 
   fc_navigation:
     path: dependency/navigation
+
+  fc_platform:
+    path: dependency/platform
 
   fc_panels:
     path: dependency/panels

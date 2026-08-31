@@ -1,7 +1,7 @@
 import 'dart:convert';
 import 'dart:typed_data';
 
-import 'package:fc_local_fs/fc_local_fs.dart';
+import 'package:fc_platform/fc_platform.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Псевдотерминал по-настоящему: не подставка, а `/bin/sh` в живом pty.

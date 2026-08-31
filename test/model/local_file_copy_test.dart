@@ -2,7 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_local_fs/fc_local_fs.dart';
+import 'package:fc_platform/fc_platform.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 

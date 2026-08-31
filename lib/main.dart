@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
+import 'package:fc_platform/fc_platform.dart';
 import 'package:flutter/widgets.dart';
 import 'package:logecom/logecom.dart';
 
@@ -8,7 +9,6 @@ import 'app.dart';
 import 'bootstrap/app_modules.dart';
 import 'bootstrap/bootstrap.dart';
 import 'bootstrap/error_traps.dart';
-import 'package:fc_local_fs/fc_local_fs.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

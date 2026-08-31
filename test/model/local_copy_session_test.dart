@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:flutter_test/flutter_test.dart';

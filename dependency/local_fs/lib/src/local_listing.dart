@@ -4,6 +4,7 @@ import 'dart:isolate';
 import 'package:path/path.dart' as p;
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_platform/fc_platform.dart';
 
 import 'local_mapping.dart';
 
@@ -150,24 +151,4 @@ RawEntry _describeBlocking(FileSystemEntity entity, String name) {
     linkTarget: linkTarget,
     linkTargetType: linkTargetType,
   );
-}
-
-/// Переводит ошибку `dart:io` в ошибку дерева.
-FsError fsErrorFrom(String path, FileSystemException error) {
-  final code = error.osError?.errorCode;
-  final kind =
-      Platform.isWindows
-          ? switch (code) {
-            2 || 3 => FsErrorKind.notFound, // ERROR_FILE_NOT_FOUND, ERROR_PATH_NOT_FOUND
-            5 => FsErrorKind.permissionDenied, // ERROR_ACCESS_DENIED
-            267 => FsErrorKind.notADirectory, // ERROR_DIRECTORY
-            _ => FsErrorKind.io,
-          }
-          : switch (code) {
-            2 => FsErrorKind.notFound, // ENOENT
-            13 => FsErrorKind.permissionDenied, // EACCES
-            20 => FsErrorKind.notADirectory, // ENOTDIR
-            _ => FsErrorKind.io,
-          };
-  return FsError(path, kind, error);
 }

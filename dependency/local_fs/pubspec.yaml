@@ -16,6 +16,11 @@ dependencies:
   fc_api:
     path: ../api
 
+  # Всё, что умеет только настоящая машина: провайдер дерева пользуется её
+  # примитивами, но сам к ним не сводится.
+  fc_platform:
+    path: ../platform
+
   path: ^1.9.1            # basename/extension/join/normalize
   ffi: ^2.1.4             # calloc и строки для copyfile(3)
   window_manager: ^0.5.2  # положение и размер окна между запусками

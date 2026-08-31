@@ -41,3 +41,7 @@ dependencies:
     sdk: flutter
 
   path: ^1.9.1
+
+  # Платформенное: временные каталоги и запуск программ.
+  fc_platform:
+    path: ../platform

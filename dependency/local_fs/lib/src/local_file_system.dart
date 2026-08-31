@@ -1,12 +1,8 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_platform/fc_platform.dart';
 
 import 'local_fs_settings.dart';
-import 'local_process_runner.dart';
-import 'local_staging_area.dart';
 import 'local_tree_provider.dart';
-import 'plugin_window_service.dart';
-import 'system_clipboard.dart';
-import 'system_open.dart';
 
 /// Локальная файловая система: корневой источник, окно и всё платформенное.
 ///

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:math';
 
 import 'package:archive/archive.dart';
+import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_zip/fc_zip.dart';

@@ -6,7 +6,7 @@ import 'package:ffi/ffi.dart';
 
 import 'package:fc_api/fc_api.dart';
 
-import 'local_listing.dart';
+import 'system_errors.dart';
 
 /// Константы `/usr/include/copyfile.h`.
 ///

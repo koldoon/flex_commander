@@ -40,3 +40,7 @@ dev_dependencies:
   # локальная файловая система.
   fc_local_fs:
     path: ../local_fs
+
+  # Платформенное: временные каталоги и запуск программ.
+  fc_platform:
+    path: ../platform

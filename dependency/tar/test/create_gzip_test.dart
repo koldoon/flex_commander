@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_tar/fc_tar.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/state/app_controller.dart';

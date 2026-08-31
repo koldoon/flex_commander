@@ -4,12 +4,9 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_platform/fc_platform.dart';
 
-import 'local_file_copy.dart';
 import 'local_fs_settings.dart';
-import 'local_mode.dart';
-import 'local_shell.dart';
-import 'system_pty.dart';
 import 'local_mapping.dart';
 import 'local_listing.dart';
 
