@@ -1,0 +1,25 @@
+name: fc_local_fs
+description: "Локальная файловая система и всё платформенное: диск, буфер обмена, запуск программ, окно."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Модуль знает только API — ни о ядре, ни о других модулях он не подозревает.
+  fc_api:
+    path: ../api
+
+  path: ^1.9.1            # basename/extension/join/normalize
+  ffi: ^2.1.4             # calloc и строки для copyfile(3)
+  window_manager: ^0.5.2  # положение и размер окна между запусками
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

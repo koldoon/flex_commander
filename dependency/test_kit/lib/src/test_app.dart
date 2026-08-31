@@ -3,7 +3,7 @@ import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/bootstrap/bootstrap.dart';
 import 'package:flex_commander/modules/app_shell.dart';
-import 'package:flex_commander/modules/local_fs/local_staging_area.dart';
+import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_clipboard.dart';

@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:flex_commander/modules/local_fs/local_process_runner.dart';
+import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Запуск программ — единственное место, где проверять подставку бессмысленно:

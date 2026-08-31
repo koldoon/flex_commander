@@ -16,7 +16,7 @@ import 'package:fc_zip/fc_zip.dart';
 
 import '../modules/app_shell.dart';
 import '../modules/dnd/system_drag_and_drop.dart';
-import '../modules/local_fs/local_file_system.dart';
+import 'package:fc_local_fs/fc_local_fs.dart';
 
 /// Из чего собрано приложение.
 ///

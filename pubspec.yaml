@@ -31,6 +31,7 @@ workspace:
   - dependency/file_info
   - dependency/file_ops
   - dependency/image_viewer
+  - dependency/local_fs
   - dependency/navigation
   - dependency/panels
   # Своя копия re_editor: в ней две правки, без которых выделение в редакторе и
@@ -74,6 +75,9 @@ dependencies:
 
   fc_file_ops:
     path: dependency/file_ops
+
+  fc_local_fs:
+    path: dependency/local_fs
 
   fc_navigation:
     path: dependency/navigation

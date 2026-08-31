@@ -8,7 +8,7 @@ import 'app.dart';
 import 'bootstrap/app_modules.dart';
 import 'bootstrap/bootstrap.dart';
 import 'bootstrap/error_traps.dart';
-import 'modules/local_fs/plugin_window_service.dart';
+import 'package:fc_local_fs/fc_local_fs.dart';
 
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();

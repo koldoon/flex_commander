@@ -7,7 +7,7 @@ import 'package:fc_editor/fc_editor.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
-import 'package:flex_commander/modules/local_fs/local_tree_provider.dart';
+import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 

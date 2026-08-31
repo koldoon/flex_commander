@@ -11,8 +11,11 @@ void main() {
   final sources = Directory('lib').listSync(recursive: true).whereType<File>().where((f) => f.path.endsWith('.dart'));
 
   test('модули упоминаются только в списке модулей', () {
-    // Единственное место, которому положено знать имена: там список и лежит.
-    const allowed = 'lib/bootstrap/app_modules.dart';
+    // Места, которым положено знать имена: там, где список, и там, где
+    // приложение поднимается. `main.dart` зовёт подготовку окна **до** того,
+    // как появятся и модули, и граф служб, — контрактом это не закрыть, а
+    // локальная ФС и без того особая (см. ниже).
+    const allowed = ['lib/bootstrap/app_modules.dart', 'lib/main.dart'];
 
     // Два пакета ядру знать положено, и оба — не модули: `fc_api` объявляет
     // контракты, `fc_ui_kit` даёт то, чем рисуют. Регистрировать в них нечего,
@@ -21,7 +24,7 @@ void main() {
 
     final offenders = [
       for (final file in sources)
-        if (!file.path.endsWith(allowed))
+        if (!allowed.any(file.path.endsWith))
           for (final import in RegExp("import 'package:fc_[a-z_]+/").allMatches(file.readAsStringSync()))
             if (!libraries.any((library) => import[0]!.contains(library))) file.path,
     ];
