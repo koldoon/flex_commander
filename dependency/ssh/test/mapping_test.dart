@@ -17,6 +17,26 @@ void main() {
     parent = provider.rootDirectory;
   });
 
+  group('путь для оболочки сервера', () {
+    test('адрес панели уходит, остаётся путь', () {
+      // Оболочка стоит **на сервере** и про наши адреса не слышала: пришли ей
+      // `ssh://tester@host/srv` — и получишь `No such file or directory`.
+      expect(provider.shellPath('ssh://tester@host/srv/www'), '/srv/www');
+      expect(provider.shellPath('ssh://tester@host/'), '/');
+    });
+
+    test('схему тоже режем', () {
+      // Путь панели несёт её, а `authority` — нет: срезанное с начала не
+      // совпало бы никогда, и в `cd` уезжал бы адрес целиком.
+      expect(provider.shellPath('ssh://tester@host'), '/');
+    });
+
+    test('путь без адреса остаётся собой', () {
+      // По дереву ходят уже без адреса — трогать такой путь нечего.
+      expect(provider.shellPath('/etc'), '/etc');
+    });
+  });
+
   group('права из режима доступа', () {
     test('обычный файл', () => expect(permissionsOf(0x1A4), 'rw-r--r--')); // 0644
     test('каталог', () => expect(permissionsOf(0x1ED), 'rwxr-xr-x')); // 0755

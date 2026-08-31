@@ -403,13 +403,14 @@ class SftpTreeProvider
   String? get shellProgram => null;
 
   /// Адрес панели оболочке сервера ничего не говорит: у неё есть только путь.
+  ///
+  /// Ищется, а не отрезается с начала: путь панели несёт ещё и схему
+  /// (`ssh://user@host/srv`), а `authority` — только `//user@host`. Отрезанное
+  /// с начала не совпало бы никогда, и в `cd` уезжал бы адрес целиком.
   @override
   String shellPath(String panelPath) {
-    if (!panelPath.startsWith(target.authority)) {
-      return panelPath;
-    }
-    final path = panelPath.substring(target.authority.length);
-    return path.isEmpty ? '/' : path;
+    final at = panelPath.indexOf(target.authority);
+    return at < 0 ? panelPath : target.stripAuthority(panelPath.substring(at));
   }
 
   @override
