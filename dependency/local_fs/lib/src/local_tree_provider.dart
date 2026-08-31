@@ -102,6 +102,9 @@ class LocalTreeProvider
   String? get shellProgram => _shell.shellProgram;
 
   @override
+  String shellPath(String panelPath) => _shell.shellPath(panelPath);
+
+  @override
   Future<PtySession> run(String command, {String? directory, int columns = 80, int rows = 24}) =>
       _shell.run(command, directory: directory, columns: columns, rows: rows);
 

@@ -122,6 +122,9 @@ class _RefusingHost implements ShellHost {
   String? get shellProgram => null;
 
   @override
+  String shellPath(String panelPath) => panelPath;
+
+  @override
   Future<PtySession> run(String command, {String? directory, int columns = 80, int rows = 24}) =>
       throw StateError('нет связи');
 

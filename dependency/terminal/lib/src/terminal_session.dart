@@ -107,6 +107,15 @@ class TerminalSession extends ChangeNotifier {
   Future<void> get settled => _settled.future;
   final Completer<void> _settled = Completer<void>();
 
+  /// Оболочку можно **показывать**: уговор заключён и убран с глаз.
+  ///
+  /// Отличается от [settled] на одну команду. Оболочка отражает всё, что ей
+  /// присылают, — и строку уговора тоже; следом уходит `clear`, но между ними
+  /// есть кадры, в которые видно чужую кухню. Ждём приглашения **после**
+  /// команды: первое приглашение — от уговора, второе — от `clear`.
+  Future<void> get ready => _ready.future;
+  final Completer<void> _ready = Completer<void>();
+
   Completer<ShellMark>? _waiting;
 
   /// Выполнить строку в этой оболочке и дождаться её конца.
@@ -149,6 +158,8 @@ class TerminalSession extends ChangeNotifier {
     _marksWork = true;
     if (!_settled.isCompleted) {
       _settled.complete();
+    } else if (mark.kind == ShellMarkKind.prompt && !_ready.isCompleted) {
+      _ready.complete();
     }
     _lastMark = mark;
     onMark?.call(mark);
@@ -237,7 +248,14 @@ class TerminalSession extends ChangeNotifier {
 
   @override
   void dispose() {
-    // Ждущего конца команды бросать нельзя: оболочка кончилась, конца не будет.
+    // Ждущих бросать нельзя: оболочка кончилась, ни конца команды, ни готовности
+    // больше не будет.
+    if (!_settled.isCompleted) {
+      _settled.complete();
+    }
+    if (!_ready.isCompleted) {
+      _ready.complete();
+    }
     final waiting = _waiting;
     _waiting = null;
     if (waiting != null && !waiting.isCompleted) {

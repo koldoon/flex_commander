@@ -31,6 +31,11 @@ void main() {
 
     runtime.commands.dispatch(KeyCombination.parse('Ctrl-O'));
     await tester.pumpAndSettle();
+
+    // Экран показывается только после того, как оболочка ответила на уговор:
+    // до этого на нём видна его же строка.
+    AgreeingShell(pty.session).greet();
+    await tester.pumpAndSettle();
     pty.session.writes.clear();
   }
 

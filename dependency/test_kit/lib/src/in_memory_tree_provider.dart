@@ -377,6 +377,9 @@ class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEdito
   String? shellProgram;
 
   @override
+  String shellPath(String panelPath) => panelPath;
+
+  @override
   Future<PtySession> run(String command, {String? directory, int columns = 80, int rows = 24}) async => pty.start(
     executable: 'sh',
     arguments: ['-lic', command],

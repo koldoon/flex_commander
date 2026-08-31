@@ -476,6 +476,12 @@ void main() {
       // на своей машине — повадка у оболочек одна.
       expect(press('Ctrl-O'), isTrue);
       await pumpEventQueue();
+
+      // И показывают не раньше, чем оболочка убрала с глаз строку уговора.
+      expect(app.view.contentAt(ViewportPosition.fullscreen), isNull, reason: 'пока уговор на экране — не показываем');
+      shell.greet();
+      await pumpEventQueue();
+
       final screen = app.view.contentAt(ViewportPosition.fullscreen);
       expect(screen, isA<TerminalScreen>());
       expect(pty.started, isTrue);

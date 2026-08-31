@@ -48,10 +48,13 @@ class CommandLineState extends ChangeNotifier implements ViewportState {
   /// этой машины нет, а выполнять есть где — на той стороне.
   String? get workingDirectory {
     final directory = panel?.directory;
-    if (directory == null || shellHost == null) {
+    final host = shellHost;
+    if (directory == null || host == null) {
       return null;
     }
-    return directory.pathString;
+    // Так, как этот путь назовёт сама оболочка: на `ssh://` путь панели — это
+    // адрес, а оболочка стоит на сервере и про адреса не слышала.
+    return host.shellPath(directory.pathString);
   }
 
   /// Что показано слева от ввода: путь, в котором всё и произойдёт.

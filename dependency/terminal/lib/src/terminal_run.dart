@@ -58,7 +58,7 @@ class TerminalRun {
 
     // До первого приглашения команду слать нельзя: её концом окажется
     // приглашение, напечатанное оболочкой самой.
-    await session.settled.timeout(ShellSession.settleTimeout, onTimeout: () {});
+    await session.ready.timeout(ShellSession.settleTimeout, onTimeout: () {});
 
     if (session.running) {
       // Вторая строка ушла бы не в приглашение, а на ввод работающей

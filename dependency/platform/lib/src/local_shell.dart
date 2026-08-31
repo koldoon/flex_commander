@@ -81,6 +81,10 @@ class LocalShellHost implements ShellHost {
   @override
   String? get shellProgram => _shell;
 
+  /// Путь этой машины оболочка этой же машины назовёт так же.
+  @override
+  String shellPath(String panelPath) => panelPath;
+
   String get _shell {
     final chosen = shellName();
     return chosen.isEmpty ? LocalShellCommand.defaultShell() : chosen;

@@ -270,6 +270,11 @@ class ToggleTerminalCommand extends AppCommand {
       return;
     }
 
+    // Показываем не раньше, чем оболочка убрала с глаз строку уговора: она
+    // отражает всё, что ей присылают, и без этой паузы человек видит на кадр
+    // чужую кухню (`spec/single-shell-session.md`, §3).
+    await session.ready.timeout(ShellSession.settleTimeout, onTimeout: () {});
+
     view.pushViewportContent(ViewportPosition.fullscreen, TerminalScreen(session));
   }
 }
@@ -674,15 +679,18 @@ class RunNodeCommand extends AppCommand {
       return;
     }
 
-    // Полный путь в кавычках, а не `./имя`: не приходится гадать, совпадает ли
-    // каталог панели с каталогом файла, а имя с пробелом или кавычкой не
-    // разваливается на куски. Он же виден заголовком экрана.
-    final command = ShellCommand.quote(node.pathString);
-
     final host = shellHostOf(context.panel);
     if (host == null) {
       return;
     }
+
+    // Полный путь в кавычках, а не `./имя`: не приходится гадать, совпадает ли
+    // каталог панели с каталогом файла, а имя с пробелом или кавычкой не
+    // разваливается на куски. Он же виден заголовком экрана.
+    //
+    // Путь — тот, которым его назовёт оболочка: на сервере она про адрес
+    // `ssh://` не слышала.
+    final command = ShellCommand.quote(host.shellPath(node.pathString));
 
     await TerminalRun.start(
       app: context.app,
@@ -690,7 +698,7 @@ class RunNodeCommand extends AppCommand {
       host: host,
       options: settings(),
       command: command,
-      workingDirectory: directory.pathString,
+      workingDirectory: host.shellPath(directory.pathString),
       panel: context.panel,
       lease: context.panel.leaseProvider(),
       showDelay: showDelay,

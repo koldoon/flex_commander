@@ -15,6 +15,9 @@ class _RecordingHost implements ShellHost {
   @override
   String? get shellProgram => null;
 
+  @override
+  String shellPath(String panelPath) => panelPath;
+
   /// Нужен ли пароль: от этого зависит исход `sudo -n true`.
   final bool needsPassword;
 

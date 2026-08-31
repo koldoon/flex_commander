@@ -402,6 +402,16 @@ class SftpTreeProvider
   @override
   String? get shellProgram => null;
 
+  /// Адрес панели оболочке сервера ничего не говорит: у неё есть только путь.
+  @override
+  String shellPath(String panelPath) {
+    if (!panelPath.startsWith(target.authority)) {
+      return panelPath;
+    }
+    final path = panelPath.substring(target.authority.length);
+    return path.isEmpty ? '/' : path;
+  }
+
   @override
   Future<PtySession> run(String command, {String? directory, int columns = 80, int rows = 24}) {
     return _openShell(command: commandIn(directory, command), columns: columns, rows: rows);
