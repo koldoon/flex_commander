@@ -73,7 +73,7 @@ void main() {
       expect(node.size, 2048);
       expect(node.modified, isNotNull);
       expect(node.attributes.modeString, startsWith('-'));
-      expect(node.extension, 'txt');
+      expect(extensionOf(node.name), 'txt');
       expect(node.broken, isFalse);
     });
 

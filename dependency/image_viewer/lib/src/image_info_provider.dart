@@ -26,7 +26,9 @@ class ImageInfoProvider implements NodeInfoProvider {
   /// сведения о картинке там, где картинки нет.
   @override
   bool accepts(FsNode node, ContentType? type) =>
-      node is FileNode && node is! DirectoryNode && ImageViewer.extensions.contains(node.extension.toLowerCase());
+      node is FileNode &&
+      node is! DirectoryNode &&
+      ImageViewer.extensions.contains(extensionOf(node.name).toLowerCase());
 
   @override
   Future<List<NodeInfoSection>> describe(FsNode node) async {

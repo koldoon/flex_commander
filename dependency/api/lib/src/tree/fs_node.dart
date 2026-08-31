@@ -1,4 +1,5 @@
 import '../async/async_operation.dart';
+import '../util/file_name.dart';
 import 'file_attributes.dart';
 import 'file_type.dart';
 import 'node_path.dart';
@@ -116,22 +117,7 @@ class FileNode extends AbstractFsNode {
     this.accessed,
     this.executable = false,
     this.broken = false,
-  }) : _extension = _extensionOf(name);
-
-  /// Расширение считается «настоящим», только если оно не длиннее 12 символов
-  /// и не содержит пробелов: имя `.gitignore` расширения не имеет, а
-  /// `archive.tar.gz` имеет расширение `gz`. Правило взято из референса.
-  static final RegExp fileExtensionRe = RegExp(r'^([^\/*?|]+)\.([^\/*?|\s]{1,12})$');
-
-  static String _extensionOf(String name) {
-    final match = fileExtensionRe.firstMatch(name);
-    return match?.group(2) ?? '';
-  }
-
-  final String _extension;
-
-  /// Расширение без точки. Пустое, если его нет.
-  String get extension => _extension;
+  });
 
   FileType fileType;
 
@@ -146,10 +132,6 @@ class FileNode extends AbstractFsNode {
   /// Узел не удалось прочитать целиком: нет прав или он исчез во время чтения.
   bool broken;
 
-  /// Имя без расширения. Показывается в колонке «Имя», когда расширение
-  /// вынесено в отдельную колонку.
-  String get baseName => extension.isEmpty ? name : name.substring(0, name.length - extension.length - 1);
-
   bool get hidden => name.startsWith('.');
 }
 
@@ -159,20 +141,20 @@ class FileNode extends AbstractFsNode {
 /// основу и оставляет пробел перед точкой. В списке такой пробел не виден
 /// вовсе, а файл получается другой — `«отчёт .txt»` вместо `«отчёт.txt»`.
 ///
-/// Где кончается основа, решает [FileNode.fileExtensionRe] — **то же правило,
-/// что рисует колонку расширения**. Иначе поле, список и колонка разошлись бы
-/// в понимании того, что такое расширение: у `.gitignore` его нет, у
+/// Где кончается основа, решает [ReferenceFileNaming] — **то же правило, что
+/// рисует колонку расширения**. Иначе поле, список и колонка разошлись бы в
+/// понимании того, что такое расширение: у `.gitignore` его нет, у
 /// `архив.tar.gz` оно `gz`.
 String trimmedFileName(String name) {
   final trimmed = name.trim();
-  final match = FileNode.fileExtensionRe.firstMatch(trimmed);
-  if (match == null) {
+  final (:base, :extension) = const ReferenceFileNaming().split(trimmed);
+  if (extension.isEmpty) {
     return trimmed;
   }
-  final base = match.group(1)!.trimRight();
+  final trimmedBase = base.trimRight();
   // Основа, состоявшая из одних пробелов, оставила бы имя без имени: пусть
   // такое сохранится как есть и отвергнется проверкой имени.
-  return base.isEmpty ? trimmed : '$base.${match.group(2)}';
+  return trimmedBase.isEmpty ? trimmed : '$trimmedBase.$extension';
 }
 
 /// Каталог: может содержать другие узлы.
@@ -197,13 +179,6 @@ class DirectoryNode extends FileNode {
   List<FsNode> get nodes => _nodes;
 
   set nodes(List<FsNode> value) => _nodes = List.unmodifiable(value);
-
-  /// У каталога расширения нет: `my.backup` — это не «файл .backup».
-  @override
-  String get extension => '';
-
-  @override
-  String get baseName => name;
 
   /// Перечитать содержимое каталога: работа заведена и уже идёт.
   Operation<ListingParams, List<FsNode>> refresh() => provider.getDirectoryListing()..start(ListingParams(this));

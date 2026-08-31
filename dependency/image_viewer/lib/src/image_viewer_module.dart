@@ -75,7 +75,7 @@ class ImageViewer implements FcModule {
         // картинку.
         accepts:
             (node, type) =>
-                node is FileNode && node is! DirectoryNode && extensions.contains(node.extension.toLowerCase()),
+                node is FileNode && node is! DirectoryNode && extensions.contains(extensionOf(node.name).toLowerCase()),
         open: (request) => _open(request, settingsOf(), settings.save),
       ),
     );
@@ -162,7 +162,7 @@ class ImageViewer implements FcModule {
       final children = await node.provider.listChildren(directory);
       return [
         for (final child in children)
-          if (child is FileNode && extensions.contains(child.extension.toLowerCase())) child,
+          if (child is FileNode && extensions.contains(extensionOf(child.name).toLowerCase())) child,
       ];
     } on Object {
       return const [];

@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import '../async/async_operation.dart';
+import '../util/file_name.dart';
 import 'fs_node.dart';
 import 'node_path.dart';
 import 'provider_lease.dart';
@@ -110,7 +111,9 @@ class ProviderRegistry {
     if (node is! FileNode || node is DirectoryNode) {
       return null;
     }
-    return _extensions[node.extension.toLowerCase()];
+    // Последнее расширение, а не составное: `a.tar.gz` монтируется как `gz`,
+    // а `tar` разбирается уже внутри — цепочкой.
+    return _extensions[extensionOf(node.name).toLowerCase()];
   }
 
   // --- Смонтированное и его арендаторы ---

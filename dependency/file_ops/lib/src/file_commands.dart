@@ -510,9 +510,8 @@ class _RenameFormState extends State<_RenameForm> {
   /// дописывать по десятому разу обидно. Где кончается основа, решает то же
   /// правило, что рисует колонку расширения.
   static TextSelection _baseSelection(String name) {
-    final match = FileNode.fileExtensionRe.firstMatch(name);
-    final end = match == null ? name.length : match.group(1)!.length;
-    return TextSelection(baseOffset: 0, extentOffset: end);
+    final (:base, :extension) = const ReferenceFileNaming().split(name);
+    return TextSelection(baseOffset: 0, extentOffset: extension.isEmpty ? name.length : base.length);
   }
 
   @override

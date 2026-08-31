@@ -7,41 +7,7 @@ void main() {
 
   setUp(() => provider = InMemoryTreeProvider());
 
-  group('расширение и имя', () {
-    test('обычное имя разбирается на имя и расширение', () {
-      final node = FileNode(provider: provider, name: 'report.xlsx');
-      expect(node.extension, 'xlsx');
-      expect(node.baseName, 'report');
-    });
-
-    test('берётся последнее расширение', () {
-      final node = FileNode(provider: provider, name: 'archive.tar.gz');
-      expect(node.extension, 'gz');
-      expect(node.baseName, 'archive.tar');
-    });
-
-    test('точка в начале — не расширение', () {
-      final node = FileNode(provider: provider, name: '.gitignore');
-      expect(node.extension, '');
-      expect(node.baseName, '.gitignore');
-    });
-
-    test('слишком длинный хвост не считается расширением', () {
-      final node = FileNode(provider: provider, name: 'file.superlongending');
-      expect(node.extension, '');
-    });
-
-    test('хвост с пробелом не считается расширением', () {
-      final node = FileNode(provider: provider, name: 'Some file.doc backup');
-      expect(node.extension, '');
-    });
-
-    test('у каталога расширения нет', () {
-      final node = DirectoryNode(provider: provider, name: 'my.backup');
-      expect(node.extension, '');
-      expect(node.baseName, 'my.backup');
-    });
-
+  group('имя узла', () {
     test('скрытым считается имя с точки', () {
       expect(FileNode(provider: provider, name: '.zshrc').hidden, isTrue);
       expect(FileNode(provider: provider, name: 'zshrc').hidden, isFalse);

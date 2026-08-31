@@ -117,7 +117,7 @@ class TextViewer implements FcModule {
     if (node is! FileNode || node is DirectoryNode) {
       return false;
     }
-    final extension = node.extension.toLowerCase();
+    final extension = extensionOf(node.name).toLowerCase();
     if (extension.isEmpty) {
       // Без расширения — почти всегда текст: `Makefile`, `LICENSE`, `README`,
       // `.gitignore`. Двоичное без расширения встречается куда реже, и о нём

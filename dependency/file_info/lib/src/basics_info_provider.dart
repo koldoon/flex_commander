@@ -34,7 +34,9 @@ class BasicsInfoProvider implements NodeInfoProvider {
       NodeInfoRow('Name', node.name),
       NodeInfoRow('Path', node.displayPath),
       NodeInfoRow('Type', _typeOf(node)),
-      if (file != null && file.extension.isNotEmpty) NodeInfoRow('Extension', file.extension),
+      // Спрашивают «что это», а не «как показать»: правило показа с его
+      // ограничением длины тут ни при чём.
+      if (file != null && extensionOf(node.name).isNotEmpty) NodeInfoRow('Extension', extensionOf(node.name)),
       // У каталога размер не пишем вовсе: считать его — обойти дерево, и
       // делать это молча при открытии окна нельзя. Для этого есть кнопка.
       if (node is! DirectoryNode && node.size >= 0) NodeInfoRow('Size', formatBytesLong(node.size)),

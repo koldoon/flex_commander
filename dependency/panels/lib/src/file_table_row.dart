@@ -17,6 +17,7 @@ class FileTableRow extends StatelessWidget {
     required this.marked,
     required this.underCursor,
     required this.panelActive,
+    this.naming = const ReferenceFileNaming(),
     this.onTap,
   });
 
@@ -26,6 +27,14 @@ class FileTableRow extends StatelessWidget {
   final bool marked;
   final bool underCursor;
   final bool panelActive;
+
+  /// Чем имя делится на имя и расширение.
+  ///
+  /// Расширения у файла нет — есть имя, а расширение это его толкование, и оно
+  /// принадлежит тому, кто показывает. Здесь толкует **эта** реализация панели,
+  /// у которой есть колонка `Ext`; дерево или миниатюры покажут имя иначе, и
+  /// спрашивать их о расширении будет бессмысленно.
+  final FileNaming naming;
 
   final VoidCallback? onTap;
 
@@ -136,8 +145,8 @@ class FileTableRow extends StatelessWidget {
     final file = node is FileNode ? node as FileNode : null;
     return switch (column.id) {
       // Расширение показывается отдельной колонкой, поэтому из имени убирается.
-      FsColumn.name => _showExtension ? (file?.baseName ?? node.name) : node.name,
-      FsColumn.ext => _showExtension ? (file?.extension ?? '') : '',
+      FsColumn.name => _showExtension && file != null ? naming.split(node.name).base : node.name,
+      FsColumn.ext => _showExtension && file != null ? naming.split(node.name).extension : '',
       FsColumn.size => formatSize(node.size),
       FsColumn.modified => formatDate(file?.modified),
       FsColumn.created => formatDate(file?.created),

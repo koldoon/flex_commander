@@ -1,3 +1,4 @@
+import '../util/file_name.dart';
 import '../serialization.dart';
 import '../tree/fs_node.dart';
 import 'column_spec.dart';
@@ -67,7 +68,7 @@ class SortSpec {
 /// Порядок проверок: псевдоузел «..» всегда первый, затем — каталоги перед
 /// файлами, и только после этого сравнение по колонке. Первые два правила
 /// не переворачиваются направлением сортировки.
-int Function(FsNode, FsNode) comparatorFor(SortSpec spec) {
+int Function(FsNode, FsNode) comparatorFor(SortSpec spec, {FileNaming naming = const ReferenceFileNaming()}) {
   return (a, b) {
     if (a is ParentDirNode) {
       return b is ParentDirNode ? 0 : -1;
@@ -84,7 +85,7 @@ int Function(FsNode, FsNode) comparatorFor(SortSpec spec) {
       }
     }
 
-    var result = _compareByColumn(a, b, spec.column);
+    var result = _compareByColumn(a, b, spec.column, naming);
     if (result == 0) {
       // Доводчик по имени: без него порядок «плавает» между перечитываниями.
       result = naturalCompare(a.name, b.name);
@@ -96,10 +97,10 @@ int Function(FsNode, FsNode) comparatorFor(SortSpec spec) {
 
 bool _isDirectory(FsNode node) => node is DirectoryNode || (node is LinkNode && node.isDirectoryLink);
 
-int _compareByColumn(FsNode a, FsNode b, FsColumn column) {
+int _compareByColumn(FsNode a, FsNode b, FsColumn column, FileNaming naming) {
   return switch (column) {
     FsColumn.name => naturalCompare(a.name, b.name),
-    FsColumn.ext => naturalCompare(_extensionOf(a), _extensionOf(b)),
+    FsColumn.ext => naturalCompare(_extensionOf(a, naming), _extensionOf(b, naming)),
     FsColumn.attributes => naturalCompare(_attributesOf(a), _attributesOf(b)),
     FsColumn.size => a.size.compareTo(b.size),
     FsColumn.modified => _compareDates(_fileOf(a)?.modified, _fileOf(b)?.modified),
@@ -111,7 +112,11 @@ int _compareByColumn(FsNode a, FsNode b, FsColumn column) {
 
 FileNode? _fileOf(FsNode node) => node is FileNode ? node : null;
 
-String _extensionOf(FsNode node) => _fileOf(node)?.extension ?? '';
+/// Расширение для сортировки — тем же правилом, что рисует колонку.
+///
+/// Иначе показ и порядок разойдутся: имя стояло бы в списке под одним
+/// расширением, а сортировалось по другому.
+String _extensionOf(FsNode node, FileNaming naming) => _fileOf(node) == null ? '' : naming.split(node.name).extension;
 
 String _attributesOf(FsNode node) => _fileOf(node)?.attributes.modeString ?? '';
 
