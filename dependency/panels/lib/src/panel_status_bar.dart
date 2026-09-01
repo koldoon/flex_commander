@@ -60,6 +60,19 @@ class PanelStatusBar extends StatelessWidget {
   }
 
   InlineSpan _content(FcTheme theme) {
+    // Быстрый поиск — впереди всего: пока набирают имя, строка состояния
+    // показывает набранное, а не то, что под курсором. Оно и так видно —
+    // курсор стоит на нём.
+    final search = panel.quickSearch;
+    if (search != null) {
+      return TextSpan(
+        children: [
+          TextSpan(text: 'Search: ', style: TextStyle(color: theme.colors.secondaryText)),
+          TextSpan(text: search),
+        ],
+      );
+    }
+
     final status = panel.statusText;
     if (status != null && status.isNotEmpty) {
       return TextSpan(text: status);

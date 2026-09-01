@@ -179,6 +179,7 @@ CommandRegistry.dispatch(combination, app)
 | `Space` | `panel.selection.toggle` | инвертировать пометку и сдвинуть курсор вниз |
 | `Ins` | `panel.selection.toggle` | то же (для внешних клавиатур) |
 | `Esc` | `panel.cancel` / `panel.selection.clear` | прервать операцию, а если панель свободна — снять пометку |
+| `Ctrl-S` | `panel.quickSearch` | быстрый поиск: курсор идёт за набранным; повторно — к следующему |
 | `Cmd-A` | `panel.selection.all` | пометить всё, кроме `..` |
 | `Cmd-Shift-A` | `panel.selection.files` | пометить файлы, не трогая каталоги |
 | `+` | `panel.selection.selectByMask` | пометить по маске — открывает окно |
@@ -487,6 +488,10 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 | `panel.toggleHidden` | `Cmd-Shift-H`, `Cmd-H` | всегда |
 | `panel.selection.toggle` | `Space`, `Ins` | под курсором не `..` |
 | `panel.selection.clear` | `Esc` | есть пометка |
+| `panel.quickSearch` | `Ctrl-S` | список не пуст |
+| `panel.quickSearch.type` | любая буква | идёт быстрый поиск |
+| `panel.quickSearch.erase` | `Backspace` | идёт быстрый поиск и что-то набрано |
+| `panel.quickSearch.stop` | `Esc` | идёт быстрый поиск |
 | `panel.selection.all` | `Cmd-A` | список не пуст |
 | `panel.selection.files` | `Cmd-Shift-A` | в списке есть хоть один файл |
 | `panel.selection.selectByMask` | `+`, `Shift-=` | список не пуст, панель не занята |

@@ -67,9 +67,19 @@ void main() {
     }
   });
 
-  test('пометка пробелом не перехвачена переходом к имени', () {
+  test('пометка пробелом не перехвачена переходом к имени', () async {
+    await app.start();
+
     expect(commands.commandFor(KeyCombination.parse('Space'))?.id, 'panel.selection.toggle');
     expect(commands.commandFor(const KeyCombination('D'))?.id, 'panel.goToName');
+  });
+
+  test('в быстром поиске буква достаётся ему, а не переходу к имени', () async {
+    await app.start();
+
+    app.left.setQuickSearch('');
+
+    expect(commands.commandFor(const KeyCombination('D'))?.id, 'panel.quickSearch.type');
   });
 
   test('показ скрытых объектов доступен и на macOS', () {

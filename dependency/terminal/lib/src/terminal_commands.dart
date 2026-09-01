@@ -343,8 +343,14 @@ class TypeIntoLineCommand extends AppCommand {
   @override
   String get label => 'Type into command line';
 
+  /// Пока идёт быстрый поиск в панели, буквы принадлежат ему.
+  ///
+  /// Режим включают явно (`Ctrl-S`), и перехватывать у него набор было бы
+  /// худшим из возможного: человек набирает имя, а оно уезжает в командную
+  /// строку.
   @override
-  bool isExecutable(CommandContext context) => _lineOf(context.app)?.typingGoesToLine ?? false;
+  bool isExecutable(CommandContext context) =>
+      context.panel.quickSearch == null && (_lineOf(context.app)?.typingGoesToLine ?? false);
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -437,8 +443,14 @@ class PasteIntoLineCommand extends AppCommand {
   @override
   String get label => 'Paste into command line';
 
+  /// Пока идёт быстрый поиск в панели, буквы принадлежат ему.
+  ///
+  /// Режим включают явно (`Ctrl-S`), и перехватывать у него набор было бы
+  /// худшим из возможного: человек набирает имя, а оно уезжает в командную
+  /// строку.
   @override
-  bool isExecutable(CommandContext context) => _lineOf(context.app)?.typingGoesToLine ?? false;
+  bool isExecutable(CommandContext context) =>
+      context.panel.quickSearch == null && (_lineOf(context.app)?.typingGoesToLine ?? false);
 
   @override
   Future<void> execute(CommandContext context) async {

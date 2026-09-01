@@ -5,6 +5,7 @@ import 'mask_selection_commands.dart';
 import 'navigation_settings.dart';
 import 'navigation_commands.dart';
 import 'open_path_command.dart';
+import 'quick_search_commands.dart';
 import 'selection_commands.dart';
 
 /// Перемещение по дереву и пометка объектов.
@@ -59,6 +60,10 @@ class Navigation implements FcModule {
     registry.command((context) => ToggleMarkCommand());
     registry.command((context) => SelectAllCommand());
     registry.command((context) => SelectFilesCommand());
+    registry.command((context) => QuickSearchCommand());
+    registry.command((context) => QuickSearchTypeCommand());
+    registry.command((context) => QuickSearchEraseCommand());
+    registry.command((context) => QuickSearchStopCommand());
 
     registry.settingsSchema(
       () => SettingsSchema([
@@ -125,6 +130,19 @@ class Navigation implements FcModule {
     // `Cmd-H` остаётся ради Windows и Linux, где он разбирается как `Ctrl-H`.
     registry.binding(KeyBinding('Cmd-Shift-H', ToggleHiddenCommand.commandId));
     registry.binding(KeyBinding('Cmd-H', ToggleHiddenCommand.commandId));
+
+    // Быстрый поиск — из `mc`. Его `Esc` и `Backspace` идут **раньше** всех
+    // прочих: пока набирают имя, эти клавиши принадлежат набору, а невыполнимы
+    // они ровно тогда, когда режим выключен.
+    registry.binding(KeyBinding('Ctrl-S', QuickSearchCommand.commandId));
+    registry.binding(KeyBinding('Esc', QuickSearchStopCommand.commandId));
+    registry.binding(KeyBinding('Backspace', QuickSearchEraseCommand.commandId));
+    registry.binding(
+      const KeyBinding.anyCharacter(
+        QuickSearchTypeCommand.commandId,
+        characterParam: QuickSearchTypeCommand.characterParam,
+      ),
+    );
 
     // Пометка объектов. Отмена операции идёт раньше сброса пометки.
     registry.binding(KeyBinding('Esc', CancelCommand.commandId));

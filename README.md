@@ -33,7 +33,9 @@ release to release is in [`docs/release-notes.md`](docs/release-notes.md).
 or middle-click centres it). Enter directories and archives, go up, jump to the root of
 the current source, re-read a directory, toggle hidden files. The cursor position is
 remembered per directory, going up puts the cursor back on the directory you came from,
-and typing any printable character jumps to the next name starting with it. Sorting is
+and typing any printable character jumps to the next name starting with it. `Ctrl+S`
+starts a quick search where the cursor follows the whole name as you type it — a letter
+that leads nowhere is simply not taken, so one typo does not leave you deleting blindly. Sorting is
 natural (`file2` before `file10`), directories first, symbolic links resolved without
 losing the path you walked.
 
@@ -218,6 +220,7 @@ On Windows and Linux `Cmd` reads as `Ctrl`.
 | `Cmd-Shift-H` | show or hide hidden files |
 | `Tab` | switch the active panel |
 | `Space`, `Ins` | mark the object under the cursor |
+| `Ctrl-S` | quick search: the cursor follows what you type |
 | `Cmd-A`, `Esc` | mark everything, clear the marking |
 | `Cmd-Shift-A` | mark files only, leaving directories alone |
 | `+` / `-` | mark or unmark by mask, e.g. `*.dart;!*.g.dart` |

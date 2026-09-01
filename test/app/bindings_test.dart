@@ -43,7 +43,16 @@ void main() {
     // она невыполнима, пока строка пуста, пока выключен режим `mc` и пока
     // панель занята: отмена работы важнее уборки, и это условие записано в
     // самой команде, а не в порядке.
-    expect(forEsc.map((binding) => binding.commandId), ['terminal.clearLine', 'panel.cancel', 'panel.selection.clear']);
+    //
+    // Выход из быстрого поиска стоит перед отменой работы: пока набирают имя,
+    // `Esc` принадлежит набору, а невыполним он ровно тогда, когда режим
+    // выключен, — и тогда всё идёт как прежде.
+    expect(forEsc.map((binding) => binding.commandId), [
+      'terminal.clearLine',
+      'panel.quickSearch.stop',
+      'panel.cancel',
+      'panel.selection.clear',
+    ]);
   });
 
   test('Esc чужого содержимого панелям не мешает', () {
