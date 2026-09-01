@@ -238,6 +238,81 @@ void main() {
     expect(app.left.currentNode?.name, 'util.dart');
   });
 
+  testWidgets('до поиска между формой и кнопками нет пустой строки', (tester) async {
+    // Строка хода работы стоит на своём месте, только когда ей есть что
+    // сказать. Пустая занимала место, и между формой и кнопками зияла дыра
+    // непонятно подо что.
+    await pumpApp(tester);
+    await openWindow(tester);
+
+    double gap() =>
+        tester.getRect(find.byType(CommandDialogActions)).top -
+        tester.getRect(find.text('Include hidden files')).bottom;
+
+    final before = gap();
+    final metrics = FcTheme.of(tester.element(find.byType(FindFilesForm))).metrics;
+    expect(before, lessThan(metrics.inputHeight), reason: 'лишней строки нет');
+
+    // Искали и не нашли — вот теперь строке есть что сказать.
+    await search(tester, '*.zip');
+
+    expect(find.text('Nothing found'), findsOneWidget);
+    expect(gap(), greaterThan(before), reason: 'строка появилась только сейчас');
+  });
+
+  testWidgets('находок больше, чем показывает список: сказано сколько', (tester) async {
+    // Список в окне не ленивый, и тысячи строк собирались бы на каждую
+    // перерисовку — из-за этого приложение и вставало. Окно показывает первые,
+    // а разглядывать находки идут в панель.
+    final many = <FakeEntry>[FakeEntry.directory('/big')];
+    for (var i = 0; i < FindFilesState.shownLimit + 50; i++) {
+      many.add(FakeEntry.file('/big/file$i.dart', size: 1));
+    }
+    app =
+        (await testApp(
+          provider: InMemoryTreeProvider(many),
+          modules: featureModules(),
+          settings: AppSettings(left: PanelSettings.defaults('/big'), right: PanelSettings.defaults('/big')),
+        )).app;
+
+    await pumpApp(tester);
+    await openWindow(tester);
+    await search(tester, '*.dart');
+
+    final state = tester.widget<FindFilesForm>(find.byType(FindFilesForm)).state;
+    expect(state.found, hasLength(FindFilesState.shownLimit + 50));
+    expect(state.shown, hasLength(FindFilesState.shownLimit));
+    expect(find.text('Found 250 items, first 200 shown'), findsOneWidget);
+  });
+
+  testWidgets('перерисовок меньше, чем находок', (tester) async {
+    // Уведомление на каждую находку означало перерисовку окна на каждый файл, а
+    // вместе с ней — сборку всего списка заново. Отсюда и «зависло»: работа
+    // шла, но кадров между ней не оставалось.
+    final many = <FakeEntry>[FakeEntry.directory('/big')];
+    for (var i = 0; i < 300; i++) {
+      many.add(FakeEntry.file('/big/file$i.dart', size: 1));
+    }
+    app =
+        (await testApp(
+          provider: InMemoryTreeProvider(many),
+          modules: featureModules(),
+          settings: AppSettings(left: PanelSettings.defaults('/big'), right: PanelSettings.defaults('/big')),
+        )).app;
+
+    await pumpApp(tester);
+    await openWindow(tester);
+
+    final state = tester.widget<FindFilesForm>(find.byType(FindFilesForm)).state;
+    var redraws = 0;
+    state.addListener(() => redraws++);
+
+    await search(tester, '*.dart');
+
+    expect(state.found, hasLength(300));
+    expect(redraws, lessThan(50), reason: 'сообщений о находках 300, а перерисовок — единицы');
+  });
+
   testWidgets('Esc закрывает окно, ничего не тронув', (tester) async {
     await pumpApp(tester);
     await openWindow(tester);

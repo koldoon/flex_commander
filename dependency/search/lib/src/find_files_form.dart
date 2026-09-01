@@ -47,7 +47,9 @@ class _FindFilesFormState extends State<FindFilesForm> {
     final moved = FcPickList.moveSelection(
       event,
       selected: state.selected,
-      count: state.found.length,
+      // По показанному, а не по всему найденному: за строкой, которой нет на
+      // экране, курсор ушёл бы в никуда.
+      count: state.shown.length,
       wrap: false,
       page: _page,
     );
@@ -126,18 +128,19 @@ class _FindFilesFormState extends State<FindFilesForm> {
                 onChanged: state.busy ? null : state.setHidden,
               ),
             ),
-            // Ход работы и итог — на одном и том же месте: иначе строка то
-            // появляется, то исчезает, и окно дёргается под курсором.
-            CommandDialogField.wide(
-              child: Text(
-                _summary(state),
-                style:
-                    state.searched
-                        ? theme.dialogLabelStyle
-                        : theme.dialogLabelStyle.copyWith(color: theme.colors.inputHint),
-                overflow: TextOverflow.ellipsis,
+            // Ход работы и итог — на одном и том же месте: пока идёт обход,
+            // здесь виден каталог, в котором он сейчас; кончился — сколько
+            // нашлось. Строки нет вовсе, пока сказать нечего: пустая занимала
+            // место, и между формой и кнопками зияла дыра непонятно подо что.
+            if (state.busy || state.searched)
+              CommandDialogField.wide(
+                child: Text(
+                  _summary(state),
+                  style: theme.dialogLabelStyle,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
               ),
-            ),
             if (state.found.isNotEmpty)
               CommandDialogField.bleed(
                 child: ConstrainedBox(
@@ -146,7 +149,7 @@ class _FindFilesFormState extends State<FindFilesForm> {
                   ),
                   child: FcPickList(
                     rows: [
-                      for (final node in state.found)
+                      for (final node in state.shown)
                         FcPickRow(id: node.pathString, title: node.name, trailing: state.whereOf(node)),
                     ],
                     // Отбирать нечего: список и есть ответ на заданный вопрос,
@@ -182,6 +185,12 @@ class _FindFilesFormState extends State<FindFilesForm> {
       return '';
     }
     final count = state.found.length;
-    return count == 0 ? 'Nothing found' : 'Found $count ${count == 1 ? 'item' : 'items'}';
+    if (count == 0) {
+      return 'Nothing found';
+    }
+    final total = 'Found $count ${count == 1 ? 'item' : 'items'}';
+    // Показано не всё — об этом говорят прямо: молча обрезанный список
+    // заставил бы искать пропажу.
+    return state.allShown ? total : '$total, first ${FindFilesState.shownLimit} shown';
   }
 }

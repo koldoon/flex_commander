@@ -77,6 +77,26 @@ void main() {
     expect(asFound, names, reason: 'по ходу пришло то же и в том же порядке');
   });
 
+  test('обход называет каталог, в котором он сейчас', () async {
+    // То, что показывает строка хода работы: где идём. Как в `mc` — человек
+    // видит, что работа не встала, и по каталогу понимает, куда её занесло.
+    // Путь при этом человеческий: машинный несёт схемы провайдеров
+    // (`…/a.zip:zip:/inner`), и читать их в этой строке незачем.
+    final run = SearchRun.from(await home(), onFound: (_) {});
+    final seen = <String>[];
+    run.status.addListener(() {
+      final at = run.status.message;
+      if (at.isNotEmpty) {
+        seen.add(at);
+      }
+    });
+
+    run.start(const SearchQuery(mask: '*.txt'));
+    await run.result;
+
+    expect(seen, containsAll(<String>['/home', '/home/docs', '/home/docs/deep']));
+  });
+
   test('каталог, в который не пустили, поиск не прекращает', () async {
     provider.denied['/home/docs'] = const FsError('/home/docs', FsErrorKind.permissionDenied);
 

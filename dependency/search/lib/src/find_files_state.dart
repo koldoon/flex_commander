@@ -23,6 +23,33 @@ class FindFilesState extends ChangeNotifier {
   /// Найденное — в том порядке, в каком находилось.
   final List<FsNode> found = [];
 
+  /// Сколько находок показывать списком.
+  ///
+  /// Список в окне **не ленивый** — рама меряет содержимое (`IntrinsicWidth`),
+  /// а ленивый на такой вопрос отвечать не умеет (`FcPickList`), — и каждая
+  /// перерисовка собирает столько строк, сколько им отдали. На `*.dart` в
+  /// рабочем каталоге находок тысячи, и окно вставало намертво вместе со всем
+  /// приложением.
+  ///
+  /// Окно и не для того, чтобы разглядывать в нём тысячи имён: за этим идут в
+  /// панель («To panel»), где список ленивый и живёт по правилам панели. Здесь
+  /// видно первые — этого хватает, чтобы понять, то ли нашлось.
+  static const int shownLimit = 200;
+
+  /// Первые находки — те, что показываются списком.
+  List<FsNode> get shown => found.length <= shownLimit ? found : found.sublist(0, shownLimit);
+
+  /// Все ли находки видно списком.
+  bool get allShown => found.length <= shownLimit;
+
+  /// Перерисовка не чаще, чем имеет смысл смотреть.
+  ///
+  /// Находки приходят по одной и быстрее, чем экран успевает обновиться:
+  /// уведомление на каждую означало перерисовку окна на каждый файл, а вместе
+  /// с ней — сборку всего списка заново. Отсюда и «зависло»: работа шла, но
+  /// кадров между ней не оставалось.
+  late final Throttle _redraw = Throttle(notifyListeners);
+
   /// Где обход сейчас; пусто — не идёт.
   String get at => _at;
   String _at = '';
@@ -100,7 +127,7 @@ class FindFilesState extends ChangeNotifier {
 
     run.status.addListener(() {
       _at = run.status.message;
-      notifyListeners();
+      _redraw();
     });
 
     try {
@@ -114,7 +141,10 @@ class FindFilesState extends ChangeNotifier {
     } finally {
       _run = null;
       _at = '';
-      notifyListeners();
+      // Работа кончилась — итог показывается сразу, не дожидаясь окна
+      // ограничителя. Заодно отложенное уведомление не переживёт окна: висящий
+      // таймер роняет виджет-тест, и правильно делает.
+      _redraw.flush();
     }
   }
 
@@ -166,6 +196,6 @@ class FindFilesState extends ChangeNotifier {
 
   void _add(FsNode node) {
     found.add(node);
-    notifyListeners();
+    _redraw();
   }
 }

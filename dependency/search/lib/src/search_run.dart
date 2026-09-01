@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import 'package:fc_api/fc_api.dart';
 
 import 'search_query.dart';
@@ -21,15 +23,20 @@ class SearchRun {
         return found;
       }
 
-      final queue = <DirectoryNode>[where];
+      // Очередь, а не список: `removeAt(0)` сдвигает весь хвост, а каталогов
+      // в большом дереве десятки тысяч.
+      final queue = Queue<DirectoryNode>()..add(where);
       while (queue.isNotEmpty) {
         // Прерывание проверяется на каждом каталоге, а не на каждом файле:
         // между каталогами и есть настоящее ожидание — чтение с диска или из
         // сети.
         await op.checkpoint();
 
-        final dir = queue.removeAt(0);
-        op.report(message: dir.pathString, indeterminate: true, itemsTransferred: found.length);
+        final dir = queue.removeFirst();
+        // Путь **для человека**: в строке хода работы он и стоит. Машинный
+        // (`pathString`) несёт схемы провайдеров — `…/a.zip:zip:/inner`, — и
+        // читать их в этой строке незачем.
+        op.report(message: dir.displayPath, indeterminate: true, itemsTransferred: found.length);
 
         final List<FsNode> children;
         try {
