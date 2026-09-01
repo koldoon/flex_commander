@@ -490,7 +490,7 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 | `panel.selection.clear` | `Esc` | есть пометка |
 | `panel.quickSearch` | `Ctrl-S` | список не пуст |
 | `panel.quickSearch.type` | любая буква | идёт быстрый поиск |
-| `panel.quickSearch.erase` | `Backspace` | идёт быстрый поиск и что-то набрано |
+| `panel.quickSearch.erase` | `Bsp` | идёт быстрый поиск и что-то набрано |
 | `panel.quickSearch.stop` | `Esc` | идёт быстрый поиск |
 | `panel.selection.all` | `Cmd-A` | список не пуст |
 | `panel.selection.files` | `Cmd-Shift-A` | в списке есть хоть один файл |

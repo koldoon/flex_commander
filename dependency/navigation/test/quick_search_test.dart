@@ -85,14 +85,41 @@ void main() {
     expect(cursor(), 'docs', reason: 'по кругу');
   });
 
-  test('Backspace укорачивает образец, режим остаётся', () {
+  test('Bsp укорачивает образец, а курсор не прыгает назад', () {
     press('Ctrl-S');
     type('dow');
     expect(cursor(), 'downloads');
 
-    expect(press('Backspace'), isTrue);
+    expect(press('Bsp'), isTrue);
+
     expect(panel().quickSearch, 'do');
-    expect(panel().quickSearch, isNotNull, reason: 'стирают, чтобы набрать иначе, а не чтобы выйти');
+    // Укороченному образцу это имя всё ещё подходит — уводить с него незачем:
+    // стирают, чтобы дописать иначе, и прыжок назад тут только мешал бы.
+    expect(cursor(), 'downloads');
+  });
+
+  test('стёрли всё — режим остаётся, наверх не уходим', () {
+    // Стирают, чтобы набрать иначе, а не чтобы выйти. И уж точно не затем,
+    // чтобы уехать в родительский каталог: `Bsp` принадлежит набору, пока он
+    // идёт.
+    press('Ctrl-S');
+    type('do');
+
+    expect(press('Bsp'), isTrue);
+    expect(press('Bsp'), isTrue);
+
+    expect(panel().quickSearch, '');
+    expect(panel().directory?.pathString, '/home', reason: 'наверх не ушли');
+  });
+
+  test('без режима Bsp по-прежнему уводит наверх', () async {
+    await panel().openPath('/home/docs');
+    expect(panel().directory?.pathString, '/home/docs');
+
+    expect(press('Bsp'), isTrue);
+    await pumpEventQueue();
+
+    expect(panel().directory?.pathString, '/home');
   });
 
   test('Esc выходит, курсор остаётся где стоял', () {
