@@ -32,13 +32,10 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get windowSidePadding => 5;
 
+  /// Шесть точек — то же расстояние, что стояло между панелями и над полосой
+  /// поиска. Им отбиты друг от друга **все** области окна, и ставит его шелл.
   @override
-  double get panelGap => 6;
-
-  /// Меньше, чем просвет до кнопок: над строкой воздух даёт ещё и её
-  /// собственная высота — текст в ней стоит по центру.
-  @override
-  double get commandLineGap => 2;
+  double get areaGap => 6;
 
   @override
   double get windowBottomPadding => 6;
@@ -70,12 +67,6 @@ class DefaultMetrics extends FcMetrics {
 
   @override
   double get rowGap => 0.8;
-
-  @override
-  /// Двадцать восемь точек. В референсе линейка над строкой стояла на
-  /// `bottom="60"`, то есть двадцать четыре точки, — на них строка сидела
-  /// впритык.
-  double get statusStripGap => 6;
 
   @override
   double get statusBarHeight => 28;

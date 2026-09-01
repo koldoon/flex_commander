@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_navigation/fc_navigation.dart';
+import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/view/status_area.dart';
@@ -121,6 +124,60 @@ void main() {
     expect(runtime.app.operations.at(ViewportPosition.right), isEmpty);
     // Заголовок — тот, что задал заводивший работу, а не имя команды.
     expect(find.text('Copy 3 items: '), findsOneWidget);
+
+    done = true;
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('панель, полоса поиска и полоса работ отбиты одним зазором', (tester) async {
+    // Полосы под панелью своих отступов не отмеряют: зазоры между областями
+    // ставит шелл, одной величиной (`spec/layout-gaps.md`). Раньше поиск
+    // отбивался сверху сам, а работа — толщиной обводки, и одно и то же место
+    // выходило то шесть точек, то две, то ноль.
+    tester.view.physicalSize = const Size(802, 621);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    var done = false;
+    final operation = TaskOperation<void, void>((op, _) async {
+      while (!done) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+        await op.checkpoint();
+      }
+    });
+    addTearDown(() => done = true);
+    final command = _SlowCommand(operation);
+
+    final runtime = await testApp(
+      provider: InMemoryTreeProvider([FakeEntry.directory('/home'), FakeEntry.file('/home/notes.txt', size: 10)])
+        ..home = '/home',
+      modules: [...featureModules(), _SlowModule(command)],
+    );
+    await runtime.app.start();
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    expect(runtime.commands.run('test.slow'), isTrue);
+    final run = command.lastRun!;
+    unawaited(run.submit());
+    await tester.pump(const Duration(milliseconds: 5));
+    run.sendToBackground();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+
+    // Под той же панелью — ещё и полоса поиска: областей под ней сразу две, и
+    // проверяется как раз ряд из них.
+    runtime.commands.dispatch(KeyCombination.parse('Ctrl-S'));
+    await tester.pumpAndSettle();
+
+    final gap = FcTheme.of(tester.element(find.byType(QuickSearchView))).metrics.areaGap;
+    final panel = tester.getRect(find.byType(PanelView).first);
+    final search = tester.getRect(find.byType(QuickSearchView));
+    final work = tester.getRect(find.byType(StatusArea));
+
+    expect(search.top - panel.bottom, closeTo(gap, 0.01), reason: 'панель — поиск');
+    expect(work.top - search.bottom, closeTo(gap, 0.01), reason: 'поиск — работа');
 
     done = true;
     await tester.pump(const Duration(milliseconds: 20));

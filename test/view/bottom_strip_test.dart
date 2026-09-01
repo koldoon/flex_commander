@@ -1,5 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -82,6 +83,53 @@ void main() {
 
       // Полоса возвращается сама: её никто не убирал, она была закрыта.
       expect(find.text('Stub line'), findsOneWidget);
+    });
+  });
+
+  /// Зазоры внизу окна ставит шелл, и величина у них одна на все случаи.
+  ///
+  /// Меряются они **друг против друга**, а не против числа: правило в том, что
+  /// они равны, а какое там число — дело темы (`spec/layout-gaps.md`).
+  group('зазоры', () {
+    double gapOf(WidgetTester tester) => FcTheme.of(tester.element(find.byType(FunctionBar))).metrics.areaGap;
+
+    testWidgets('полоса отбита с обеих сторон одинаково', (tester) async {
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await tester.pumpAndSettle();
+      showLine();
+      await tester.pumpAndSettle();
+
+      final gap = gapOf(tester);
+      final panels = tester.getRect(find.byType(SplitView));
+      final strip = tester.getRect(find.text('Stub line'));
+      final buttons = tester.getRect(find.byType(FunctionBar));
+
+      expect(strip.top - panels.bottom, closeTo(gap, 0.01));
+      expect(buttons.top - strip.bottom, closeTo(gap, 0.01));
+    });
+
+    testWidgets('полосы нет — до кнопок тот же зазор', (tester) async {
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await tester.pumpAndSettle();
+
+      final panels = tester.getRect(find.byType(SplitView));
+      final buttons = tester.getRect(find.byType(FunctionBar));
+
+      expect(buttons.top - panels.bottom, closeTo(gapOf(tester), 0.01));
+    });
+
+    testWidgets('под полноэкранным содержимым — он же', (tester) async {
+      // Ровно то место, где зазор ужимался до двух точек: величина под
+      // полноэкранным была подобрана под воздух вокруг командной строки.
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await tester.pumpAndSettle();
+      view.pushViewportContent(ViewportPosition.fullscreen, _StubScreen());
+      await tester.pumpAndSettle();
+
+      final screen = tester.getRect(find.text('Stub screen'));
+      final buttons = tester.getRect(find.byType(FunctionBar));
+
+      expect(buttons.top - screen.bottom, closeTo(gapOf(tester), 0.01));
     });
   });
 

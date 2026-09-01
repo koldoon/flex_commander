@@ -48,20 +48,20 @@ class _SplitViewState extends State<SplitView> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final available = constraints.maxWidth - metrics.panelGap;
+        final available = constraints.maxWidth - metrics.areaGap;
         final minRatio = (metrics.minPanelWidth / available).clamp(0.0, 0.5);
         final leftWidth = available * widget.ratio.clamp(minRatio, 1 - minRatio);
 
         // Ширина захвата: зазор бывает уже, чем палец, — тогда область шире его
         // самого и заходит на края обеих панелей.
-        final handleWidth = math.max(metrics.resizeHandleWidth, metrics.panelGap);
+        final handleWidth = math.max(metrics.resizeHandleWidth, metrics.areaGap);
 
         return Stack(
           children: [
             Row(
               children: [
                 SizedBox(width: leftWidth, child: widget.left),
-                SizedBox(width: metrics.panelGap, height: double.infinity),
+                SizedBox(width: metrics.areaGap, height: double.infinity),
                 Expanded(child: widget.right),
               ],
             ),
@@ -73,7 +73,7 @@ class _SplitViewState extends State<SplitView> {
             // она отбрасывает. Пока зазор был в восемь точек, разницы никто не
             // замечал; ужали до шести — и мимо стало попадать заметно.
             Positioned(
-              left: leftWidth + (metrics.panelGap - handleWidth) / 2,
+              left: leftWidth + (metrics.areaGap - handleWidth) / 2,
               top: 0,
               bottom: 0,
               width: handleWidth,

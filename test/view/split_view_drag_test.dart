@@ -8,7 +8,7 @@ import 'package:flex_commander/view/split_view.dart';
 void main() {
   const double width = 800;
   const metrics = DefaultMetrics();
-  final double available = width - metrics.panelGap;
+  final double available = width - metrics.areaGap;
 
   double? reported;
 
@@ -43,7 +43,7 @@ void main() {
   /// Точка захвата: середина зазора между панелями.
   Offset handleOf(WidgetTester tester, double ratio) {
     final split = tester.getRect(find.byType(SplitView));
-    return Offset(split.left + available * ratio + metrics.panelGap / 2, split.center.dy);
+    return Offset(split.left + available * ratio + metrics.areaGap / 2, split.center.dy);
   }
 
   /// Берётся за разделитель и преодолевает порог, с которого перетаскивание

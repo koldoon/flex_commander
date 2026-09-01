@@ -19,6 +19,14 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 /// у [ApplicationView]. Чем рисовать содержимое, он не знает вовсе: за этим
 /// идёт в реестр видов.
 ///
+/// **Зазоры между областями ставит тоже он один** — одной величиной
+/// ([FcMetrics.areaGap]) и по обеим осям. Область рисует содержимое от края до
+/// края отведённого места и о соседях не знает: ни «есть ли что-то надо мной»,
+/// ни «стою ли я последней над кнопками». Пока зазор принадлежал области,
+/// одно и то же расстояние внизу окна выходило разным у каждого виджета, а
+/// подгонка под один случай уезжала во все остальные
+/// (`spec/layout-gaps.md`).
+///
 /// Что именно показано выше кнопок, ядро не решает: в областях лежат состояния,
 /// а чем их рисовать, объявляют модули. Ряд кнопок остаётся на месте всегда —
 /// он показывает команды того, что сейчас видно.
@@ -48,45 +56,56 @@ class AppShell extends StatelessWidget {
     );
   }
 
-  /// Панель и её статусная область — столбец из двух виджетов.
+  /// Панель и всё, что стоит под ней, — столбец областей через зазор.
   ///
-  /// Область показывает **работу**: только ту, что явно отправили в фон с этой
-  /// панели. Место она занимает, лишь когда есть что показать. Про
+  /// Зазор ставит шелл, а не сами области: каждая рисует своё содержимое от
+  /// края до края отведённого места и о соседях не знает вовсе. Иначе полосе
+  /// пришлось бы вычислять, что над ней и что под ней, — а меняется это на
+  /// ходу.
+  ///
+  /// Статусная область показывает **работу**: только ту, что явно отправили в
+  /// фон с этой панели. Место она занимает, лишь когда есть что показать. Про
   /// **содержимое** — объект под курсором, сводку по пометке — говорит строка
   /// внутри самой панели, а не эта область.
   Widget _column(BuildContext context, Application app, ViewportPosition position) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Expanded(child: _place(context, app, app.view.contentAt(position))),
-        _statusStack(context, app, position),
-        StatusArea(tasks: app.operations, owner: position),
-      ],
+    final gap = FcTheme.of(context).metrics.areaGap;
+    // Слушать работы приходится здесь: есть ли под панелью полоса работ —
+    // решает шелл, потому что вместе с полосой появляется и зазор до неё.
+    return ListenableBuilder(
+      listenable: app.operations,
+      builder: (context, _) {
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(child: _place(context, app, app.view.contentAt(position))),
+            for (final area in _below(context, app, position)) ...[SizedBox(height: gap), area],
+          ],
+        );
+      },
     );
   }
 
-  /// Что стоит под панелью: вся стопка её статусной области, последнее сверху.
+  /// Что стоит под панелью: стопка её статусной области, последнее сверху, и
+  /// полоса работ под ними.
+  ///
+  /// Пустых областей в списке нет — ни виджета, ни зазора. Решается это здесь,
+  /// а не внутри вида: вид, вернувший пустую коробку нулевой высоты, оставил бы
+  /// после себя зазор в никуда.
   ///
   /// **Столбцом, а не наложением** — этим статусная область и отличается от
   /// остальных. Наложение прячет то, что под ним; здесь же каждое сообщение
-  /// про своё, и прятать одно другим незачем: идёт работа, а под ней — поиск.
+  /// про своё, и прятать одно другим незачем: идёт работа, а над ней — поиск.
   ///
   /// Последнее — сверху, ближе к панели: свежее оказывается там, куда и так
   /// смотрят.
-  Widget _statusStack(BuildContext context, Application app, ViewportPosition panel) {
+  List<Widget> _below(BuildContext context, Application app, ViewportPosition panel) {
     final position = panel.status;
-    if (position == null) {
-      return const SizedBox.shrink();
-    }
-    final stack = app.view.stackAt(position);
-    if (stack.isEmpty) {
-      return const SizedBox.shrink();
-    }
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [for (final state in stack.reversed) _place(context, app, state)],
-    );
+    final stack = position == null ? const <ViewportState>[] : app.view.stackAt(position);
+
+    return [
+      for (final state in stack.reversed) _place(context, app, state),
+      if (app.operations.at(panel).isNotEmpty) StatusArea(tasks: app.operations, owner: panel),
+    ];
   }
 
   /// Поле у ряда кнопок: общее поле окна за вычетом его собственного выступа.
@@ -96,16 +115,26 @@ class AppShell extends StatelessWidget {
   static double _barSidePadding(FcMetrics metrics) =>
       (metrics.windowSidePadding - metrics.functionBarSideOutset).clamp(0.0, metrics.windowSidePadding);
 
-  /// Что стоит между рабочей областью и рядом кнопок.
+  /// Что стоит между рабочей областью и рядом кнопок: зазор, полоса — если она
+  /// есть, — и ещё зазор.
   ///
-  /// Пусто — просвет ставит шелл: это внешняя рамка окна, и полноэкранный
-  /// просмотрщик отбит от кнопок ровно так же, как панели.
-  ///
-  /// Занято — просветы отмеряет **само содержимое**, с обеих сторон. Иначе к
-  /// его собственному воздуху прибавлялась бы ещё и рамка, и текст командной
-  /// строки отходил бы от кнопок дальше, чем от панелей.
-  Widget _belowWorkArea(BuildContext context, Application app) =>
-      _bottomStrip(context, app) ?? SizedBox(height: FcTheme.of(context).metrics.commandLineGap);
+  /// Величина одна на оба случая и выбирать её по наличию полосы не нужно: это
+  /// тот же зазор между областями, что и везде. Отсюда же берётся то, ради чего
+  /// величины когда-то сводили: полноэкранный терминал кончается там же, где
+  /// кончалась бы командная строка, и приглашение при `Ctrl-O` не прыгает
+  /// (`spec/terminal.md`, §12).
+  Widget _belowWorkArea(BuildContext context, Application app) {
+    final gap = FcTheme.of(context).metrics.areaGap;
+    final strip = _bottomStrip(context, app);
+    if (strip == null) {
+      return SizedBox(height: gap);
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [SizedBox(height: gap), strip, SizedBox(height: gap)],
+    );
+  }
 
   /// Полоса под панелями и над рядом кнопок: командная строка.
   ///
@@ -128,8 +157,8 @@ class AppShell extends StatelessWidget {
     if (content == null) {
       return null;
     }
-    // Просветов вокруг полосы шелл не ставит: сколько воздуха ей нужно, знает
-    // она сама — у командной строки это `commandLineGap`, сверху и снизу.
+    // Своего воздуха полоса не отмеряет: зазоры до панелей и до ряда кнопок
+    // стоят снаружи, их ставит `_belowWorkArea`.
     return app.views.builderFor(content)?.call(context, content);
   }
 
