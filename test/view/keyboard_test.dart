@@ -347,6 +347,21 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       await tester.pumpAndSettle();
     });
+
+    testWidgets('Cmd-Shift-A помечает файлы, не трогая каталоги', (tester) async {
+      await pumpApp(tester);
+
+      await press(tester, LogicalKeyboardKey.keyA, modifiers: const [commandKey, LogicalKeyboardKey.shiftLeft]);
+
+      final marked = app.left.selection.nodes;
+      expect(marked, isNotEmpty);
+      expect(marked.whereType<DirectoryNode>(), isEmpty, reason: 'каталоги остались нетронутыми');
+      expect(app.left.selection.names, isNot(contains('..')));
+
+      // Каталоги в списке есть — значит помечено не всё подряд.
+      expect(app.left.nodes.whereType<DirectoryNode>(), isNotEmpty);
+      expect(marked.length, lessThan(app.left.nodes.length - 1));
+    });
   });
 
   group('нижняя панель', () {

@@ -58,6 +58,7 @@ class Navigation implements FcModule {
     registry.command((context) => ClearSelectionCommand());
     registry.command((context) => ToggleMarkCommand());
     registry.command((context) => SelectAllCommand());
+    registry.command((context) => SelectFilesCommand());
 
     registry.settingsSchema(
       () => SettingsSchema([
@@ -131,6 +132,7 @@ class Navigation implements FcModule {
     registry.binding(KeyBinding('Space', ToggleMarkCommand.commandId));
     registry.binding(KeyBinding('Ins', ToggleMarkCommand.commandId));
     registry.binding(KeyBinding('Cmd-A', SelectAllCommand.commandId));
+    registry.binding(KeyBinding('Cmd-Shift-A', SelectFilesCommand.commandId));
     // Пометка по маске. На маке `+` — это `Shift-=`: отдельной клавиши `+` на
     // основной клавиатуре нет, а на цифровом блоке есть своя. В справке пишется
     // `+` — то, что человек нажимает, а не то, как это называется внутри.

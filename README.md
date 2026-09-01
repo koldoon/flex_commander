@@ -49,7 +49,9 @@ extensions come from a dictionary rather than a guess: `archive.tar.gz` is `arch
 way — while `readme.v2.txt` keeps its version in the name. Add your own in the settings,
 or hide the extension column and names show whole.
 
-**Marking.** Space or Insert marks, `Cmd+A` marks everything, `Esc` clears. The right
+**Marking.** Space or Insert marks, `Cmd+A` marks everything and `Cmd+Shift+A` marks
+files only — the one you want before `chmod +x` or packing, where walking around
+directories by hand is the tiresome part. `Esc` clears. The right
 mouse button marks too: a click toggles a row, dragging marks the whole run you drag
 across — and dragging back unmarks what the same gesture just marked; near the edges the
 list scrolls by itself. `+` and `-`
@@ -217,6 +219,7 @@ On Windows and Linux `Cmd` reads as `Ctrl`.
 | `Tab` | switch the active panel |
 | `Space`, `Ins` | mark the object under the cursor |
 | `Cmd-A`, `Esc` | mark everything, clear the marking |
+| `Cmd-Shift-A` | mark files only, leaving directories alone |
 | `+` / `-` | mark or unmark by mask, e.g. `*.dart;!*.g.dart` |
 | `Esc` | cancel a running operation |
 | `Cmd-F1`, `Cmd-F2` | open a path or address in the left / right panel |

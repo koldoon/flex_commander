@@ -180,6 +180,7 @@ CommandRegistry.dispatch(combination, app)
 | `Ins` | `panel.selection.toggle` | то же (для внешних клавиатур) |
 | `Esc` | `panel.cancel` / `panel.selection.clear` | прервать операцию, а если панель свободна — снять пометку |
 | `Cmd-A` | `panel.selection.all` | пометить всё, кроме `..` |
+| `Cmd-Shift-A` | `panel.selection.files` | пометить файлы, не трогая каталоги |
 | `+` | `panel.selection.selectByMask` | пометить по маске — открывает окно |
 | `-` | `panel.selection.deselectByMask` | снять пометку по маске |
 
@@ -487,6 +488,7 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 | `panel.selection.toggle` | `Space`, `Ins` | под курсором не `..` |
 | `panel.selection.clear` | `Esc` | есть пометка |
 | `panel.selection.all` | `Cmd-A` | список не пуст |
+| `panel.selection.files` | `Cmd-Shift-A` | в списке есть хоть один файл |
 | `panel.selection.selectByMask` | `+`, `Shift-=` | список не пуст, панель не занята |
 | `panel.selection.deselectByMask` | `-` | то же и есть пометка |
 | `panel.cancel` | `Esc` | панель занята длительной операцией |
