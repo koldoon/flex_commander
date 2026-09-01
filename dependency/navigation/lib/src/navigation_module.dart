@@ -107,9 +107,10 @@ class Navigation implements FcModule {
     // Размеры всех каталогов — как в Total Commander.
     registry.command((context) => CalculateSizesCommand());
     registry.binding(KeyBinding('Alt-Shift-Enter', CalculateSizesCommand.commandId));
-    // Стирание в быстром поиске — **раньше** перехода наверх: пока набирают
-    // имя, `Bsp` принадлежит набору. Невыполнимо, когда режим выключен или
-    // стирать нечего, и тогда `Bsp` уводит наверх, как и всегда.
+    // Стирание в быстром поиске — **раньше** перехода наверх: пока полоса
+    // набора на экране, `Bsp` принадлежит ей целиком, и стёртый до конца
+    // образец клавишу не отпускает. Невыполнимо только когда режима нет вовсе,
+    // и тогда `Bsp` уводит наверх, как и всегда.
     registry.binding(KeyBinding('Bsp', QuickSearchEraseCommand.commandId));
     registry.binding(KeyBinding('Bsp', GoUpCommand.commandId));
     registry.binding(KeyBinding('Cmd-Up', GoUpCommand.commandId));

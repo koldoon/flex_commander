@@ -137,6 +137,13 @@ class QuickSearchTypeCommand extends AppCommand {
 ///
 /// Стёрли всё — полоса остаётся: стирают, чтобы набрать иначе, а не чтобы
 /// выйти. И уж точно не затем, чтобы уехать в родительский каталог.
+///
+/// **Выполнима, пока идёт набор, — даже когда стирать уже нечего.** Условие
+/// «и что-то набрано» выглядело безобидным: команда невыполнима, клавиша
+/// достаётся следующей привязке, а следующая у `Bsp` — переход наверх. Живьём
+/// это значило, что стёртая до конца строка уводит панель из каталога, и
+/// набирать заново приходится уже не там. Пока полоса на экране, `Bsp`
+/// принадлежит ей, а выходят из набора одним `Esc`.
 class QuickSearchEraseCommand extends AppCommand {
   static const String commandId = 'panel.quickSearch.erase';
 
@@ -150,7 +157,7 @@ class QuickSearchEraseCommand extends AppCommand {
   String get description => 'Remove the last letter from the quick search';
 
   @override
-  bool isExecutable(CommandContext context) => QuickSearchCommand.searchIn(context.app)?.pattern.isNotEmpty ?? false;
+  bool isExecutable(CommandContext context) => QuickSearchCommand.searchIn(context.app) != null;
 
   @override
   Future<void> execute(CommandContext context) async {
