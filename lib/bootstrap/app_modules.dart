@@ -7,6 +7,7 @@ import 'package:fc_file_ops/fc_file_ops.dart';
 import 'package:fc_image_viewer/fc_image_viewer.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_panels/fc_panels.dart';
+import 'package:fc_search/fc_search.dart';
 import 'package:fc_ssh/fc_ssh.dart';
 import 'package:fc_tar/fc_tar.dart';
 import 'package:fc_terminal/fc_terminal.dart';
@@ -41,6 +42,7 @@ List<FcModule> featureModules() => [
   ShellTerminal(),
   const Navigation(),
   const FileOps(),
+  const FileSearch(),
   // Перетаскивание мышью. Платформенного в дартовой части нет — только имя
   // канала; без своего раннера канал молчит, и это ровно «перетаскивания нет».
   const SystemDragAndDrop(),

@@ -90,6 +90,9 @@ dependencies:
   fc_panels:
     path: dependency/panels
 
+  fc_search:
+    path: dependency/search
+
   fc_ssh:
     path: dependency/ssh
 

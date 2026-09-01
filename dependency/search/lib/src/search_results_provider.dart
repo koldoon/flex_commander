@@ -12,8 +12,8 @@ import 'package:fc_api/fc_api.dart';
 /// отвечать нечем и незачем. Панель об этом не спотыкается: она просит список
 /// каталога, а он готов заранее.
 class SearchResultsProvider implements TreeProvider {
-  SearchResultsProvider({required String title, required List<FsNode> found}) {
-    _root = DirectoryNode(provider: this, name: title);
+  SearchResultsProvider({required String title, required List<FsNode> found, DirectoryNode? parent}) {
+    _root = DirectoryNode(provider: this, name: title, parent: parent);
     _root.nodes = found;
   }
 
@@ -40,8 +40,12 @@ class SearchResultsProvider implements TreeProvider {
   ///
   /// В плоском списке одни имена бесполезны: `main.dart` там будет десяток, и
   /// откуда каждый — единственное, что их различает.
+  ///
+  /// Сам список зовётся маской, по которой сложился: в шапке панели это
+  /// читается как «`*.dart` под `/home`» — так же, как читается архив,
+  /// открытый внутри каталога.
   @override
-  String pathOf(FsNode node) => identical(node, _root) ? '/' : node.pathString;
+  String pathOf(FsNode node) => identical(node, _root) ? '/${_root.name}' : node.pathString;
 
   @override
   Operation<ListingParams, List<FsNode>> getDirectoryListing() =>

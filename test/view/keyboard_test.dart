@@ -447,14 +447,32 @@ void main() {
       await pumpApp(tester);
       expect(labelOf(tester, 5), 'Copy');
 
-      // За Alt нет ни одной F-привязки: ряд из десяти прочерков ничего не
-      // сообщает, а выглядит как поломка.
+      // За Alt-Shift нет ни одной F-привязки: ряд из десяти прочерков ничего
+      // не сообщает, а выглядит как поломка. Показывается базовый слой — и
+      // именно базовый, а не слой Shift, который под ним же и зажат.
+      await hold(tester, LogicalKeyboardKey.shift);
+      expect(labelOf(tester, 5), 'Mk Zip');
+
       await hold(tester, LogicalKeyboardKey.alt);
 
       expect(labelOf(tester, 5), 'Copy');
       expect(labelOf(tester, 1), 'Help');
 
       await release(tester, LogicalKeyboardKey.alt);
+      await release(tester, LogicalKeyboardKey.shift);
+    });
+
+    testWidgets('слой Alt показывает поиск', (tester) async {
+      await pumpApp(tester);
+
+      await hold(tester, LogicalKeyboardKey.alt);
+
+      // `Alt-F7` — привычка Total Commander; ставит её модуль поиска.
+      expect(labelOf(tester, 7), 'Find files');
+      expect(labelOf(tester, 5), '-');
+
+      await release(tester, LogicalKeyboardKey.alt);
+      expect(labelOf(tester, 5), 'Copy');
     });
 
     testWidgets('слой командной клавиши показывает открытие пути', (tester) async {
@@ -473,20 +491,22 @@ void main() {
 
     testWidgets('первая же привязка в слое показывает его целиком', (tester) async {
       await pumpApp(tester);
+      await hold(tester, LogicalKeyboardKey.shift);
       await hold(tester, LogicalKeyboardKey.alt);
       expect(labelOf(tester, 5), 'Copy', reason: 'слоя ещё нет');
 
-      // Модуль поставил команду на Alt-F9 — слой появился, и остальные
+      // Модуль поставил команду на Alt-Shift-F9 — слой появился, и остальные
       // клавиши в нём честно пустые.
       app.commands
         ..install(() => _RecordingCommand(id: 'test.layered', label: 'Layered', runs: []))
-        ..bind(KeyBinding('Alt-F9', 'test.layered'));
+        ..bind(KeyBinding('Alt-Shift-F9', 'test.layered'));
       await tester.pumpAndSettle();
 
       expect(labelOf(tester, 9), 'Layered');
       expect(labelOf(tester, 5), '-');
 
       await release(tester, LogicalKeyboardKey.alt);
+      await release(tester, LogicalKeyboardKey.shift);
       expect(labelOf(tester, 5), 'Copy');
     });
 
