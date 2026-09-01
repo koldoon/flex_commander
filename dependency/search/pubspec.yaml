@@ -1,0 +1,32 @@
+name: fc_search
+description: "Поиск файлов: окно, обход дерева и найденное как содержимое панели."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  fc_ui_kit:
+    path: ../ui_kit
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  fc_default_theme:
+    path: ../default_theme
+
+  flex_commander:
+    path: ../..

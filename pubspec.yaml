@@ -39,6 +39,7 @@ workspace:
   # просмотрщике разрывается между строками. Членство в воркспейсе и есть
   # подмена — все, кто просит re_editor, получают её.
   - dependency/re_editor
+  - dependency/search
   - dependency/ssh
   - dependency/tar
   - dependency/terminal
