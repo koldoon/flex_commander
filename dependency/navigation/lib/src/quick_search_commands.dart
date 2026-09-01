@@ -35,7 +35,9 @@ class QuickSearchCommand extends AppCommand {
   Future<void> execute(CommandContext context) async {
     final search = searchIn(context.app);
     if (search != null) {
-      // Повторное нажатие — к следующему такому же, по кругу.
+      // Повторное нажатие — к следующему такому же, по кругу. Образец с
+      // ненайденным хвостом никуда не ведёт, и курсор остаётся на месте сам:
+      // отдельного условия для этого не нужно.
       moveTo(search.panel, search.pattern, from: search.panel.cursorIndex + 1);
       return;
     }
@@ -97,9 +99,15 @@ class QuickSearchCommand extends AppCommand {
 
 /// Набранная буква уточняет образец быстрого поиска.
 ///
-/// **Не совпало — буква не принимается.** Курсор остаётся, образец не растёт:
-/// иначе после первой же опечатки не находится ничего, и стирать приходится
-/// вслепую.
+/// **Печатать можно всё и всегда.** Не совпало — буква всё равно встаёт в поле,
+/// только уже в хвост: курсор остаётся там, где стоял, а хвост показывается
+/// выделенным и стирается одним `Bsp`.
+///
+/// Раньше такая буква молча не принималась. Довод был про опечатку — «иначе
+/// после первой же не находится ничего», — но живьём это оборачивалось хуже:
+/// поле на экране, курсор в нём, нажатия уходят в никуда, и никакого ответа
+/// (звонка у нас нет). Обычная причина — не опечатка, а **раскладка**, и
+/// понять это можно только увидев набранное.
 class QuickSearchTypeCommand extends AppCommand {
   static const String commandId = 'panel.quickSearch.type';
   static const String characterParam = 'character';
@@ -124,16 +132,24 @@ class QuickSearchTypeCommand extends AppCommand {
       return;
     }
 
-    final wider = '${search.pattern}$character';
+    // Пока хвост пуст, буква ещё может найтись. Появился — искать больше
+    // незачем: имени, начинающегося с `ab`, нет, значит нет и с `abc`.
+    final wider = '${search.matched}$character';
     // Ищем **с текущего места**, а не со следующего: уточнение образца не повод
     // уходить с имени, которое ему и так подходит.
-    if (QuickSearchCommand.moveTo(search.panel, wider, from: search.panel.cursorIndex)) {
-      search.setPattern(wider);
+    if (search.tail.isEmpty && QuickSearchCommand.moveTo(search.panel, wider, from: search.panel.cursorIndex)) {
+      search.setPattern(matched: wider, tail: '');
+      return;
     }
+    search.setPattern(matched: search.matched, tail: '${search.tail}$character');
   }
 }
 
-/// `Bsp` укорачивает образец.
+/// `Bsp` укорачивает образец — а ненайденный хвост стирает целиком.
+///
+/// Хвост стирается **разом**, потому что он и набран разом: человек напечатал
+/// слово не в той раскладке и хочет вернуться к последней букве, на которой
+/// поиск ещё что-то находил, а не выбивать промах по одному нажатию.
 ///
 /// Стёрли всё — полоса остаётся: стирают, чтобы набрать иначе, а не чтобы
 /// выйти. И уж точно не затем, чтобы уехать в родительский каталог.
@@ -154,7 +170,7 @@ class QuickSearchEraseCommand extends AppCommand {
   String get label => 'Quick search: erase';
 
   @override
-  String get description => 'Remove the last letter from the quick search';
+  String get description => 'Remove the last letter from the quick search, or all of what did not match';
 
   @override
   bool isExecutable(CommandContext context) => QuickSearchCommand.searchIn(context.app) != null;
@@ -162,11 +178,20 @@ class QuickSearchEraseCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final search = QuickSearchCommand.searchIn(context.app);
-    if (search == null || search.pattern.isEmpty) {
+    if (search == null) {
       return;
     }
-    final shorter = search.pattern.substring(0, search.pattern.length - 1);
-    search.setPattern(shorter);
+    // Ненайденное уходит целиком, до последней буквы, на которой поиск ещё
+    // что-то находил. Курсор при этом не двигается: он и стоял на ней.
+    if (search.tail.isNotEmpty) {
+      search.setPattern(matched: search.matched, tail: '');
+      return;
+    }
+    if (search.matched.isEmpty) {
+      return;
+    }
+    final shorter = search.matched.substring(0, search.matched.length - 1);
+    search.setPattern(matched: shorter, tail: '');
     if (shorter.isNotEmpty) {
       // Курсор не прыгает назад, пока имя подходит и укороченному образцу.
       QuickSearchCommand.moveTo(search.panel, shorter, from: search.panel.cursorIndex);

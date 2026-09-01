@@ -47,4 +47,44 @@ void main() {
     expect(find.text('Search'), findsNothing, reason: 'вышли — поле убрано');
     await tester.pump(const Duration(milliseconds: 20));
   });
+
+  testWidgets('ненайденное показывается выделением, а найденное — нет', (tester) async {
+    // Ответ на нажатие обязан быть виден: звонка у нас нет, и молчащее поле
+    // выглядит сломанным приложением. Чаще всего виновата раскладка.
+    final runtime = await testApp(
+      provider: InMemoryTreeProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.directory('/home/docs'),
+        FakeEntry.file('/home/notes.txt', size: 10),
+      ])..home = '/home',
+      modules: featureModules(),
+    );
+    await runtime.app.start();
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    runtime.commands.dispatch(KeyCombination.parse('Ctrl-S'));
+    runtime.commands.dispatch(const KeyCombination('D'));
+    runtime.commands.dispatch(const KeyCombination('Z'));
+    await tester.pumpAndSettle();
+
+    final state = QuickSearchCommand.searchIn(runtime.app)!;
+    expect(state.matched, isNotEmpty, reason: 'первая буква нашлась');
+    expect(state.tail, isNotEmpty, reason: 'вторая — нет');
+
+    final colors = FcTheme.of(tester.element(find.byType(QuickSearchView))).colors;
+    final field = tester
+        .widgetList<Text>(find.descendant(of: find.byType(QuickSearchView), matching: find.byType(Text)))
+        .firstWhere((text) => text.textSpan != null);
+    final parts = (field.textSpan! as TextSpan).children!.cast<TextSpan>();
+
+    expect(parts.first.text, state.matched);
+    expect(parts.first.style?.backgroundColor, isNull, reason: 'найденное — обычным текстом');
+    expect(parts.last.text, state.tail);
+    // Тем же красным, каким выделяют текст в настоящих полях: это и есть
+    // выделение, только ставит его поиск, а не человек.
+    expect(parts.last.style?.backgroundColor, colors.inputSelection);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
 }

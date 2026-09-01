@@ -22,16 +22,39 @@ class QuickSearchState extends ChangeNotifier implements ViewportState {
   /// сменила каталог.
   final void Function() onLeave;
 
-  String get pattern => _pattern;
-  String _pattern = '';
+  /// Набранное целиком — и то, что нашлось, и то, что нет.
+  String get pattern => '$_matched$_tail';
+
+  /// Часть образца, которой отвечает имя в списке: по ней и стоит курсор.
+  String get matched => _matched;
+
+  /// Набранное сверх найденного: ни одно имя так не начинается.
+  ///
+  /// Хвост показывается выделенным и стирается **разом**, одним `Bsp`. Раньше
+  /// такая буква просто не принималась, и человек оставался без ответа: поле
+  /// на экране, курсор в нём, нажатия уходят в никуда — а звонка у нас нет.
+  /// Чаще всего виновата раскладка, и увидеть это надо глазами.
+  ///
+  /// Длиннее одной буквы хвост бывает потому, что печатать мы не мешаем:
+  /// набравший вслепую целое слово увидит его целиком и сотрёт одним нажатием.
+  String get tail => _tail;
+
+  String _matched = '';
+  String _tail = '';
 
   String? _directory;
 
-  void setPattern(String value) {
-    if (_pattern == value) {
+  /// Меняет образец целиком: найденную часть и хвост сразу.
+  ///
+  /// Двумя кусками, а не одной строкой с числом: рассогласовать «сколько
+  /// нашлось» и «что набрано» так невозможно, а показ и стирание смотрят ровно
+  /// на эти два поля.
+  void setPattern({required String matched, required String tail}) {
+    if (_matched == matched && _tail == tail) {
       return;
     }
-    _pattern = value;
+    _matched = matched;
+    _tail = tail;
     notifyListeners();
   }
 

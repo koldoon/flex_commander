@@ -492,7 +492,7 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 | `panel.selection.clear` | `Esc` | есть пометка |
 | `panel.quickSearch` | `Ctrl-S` | список не пуст |
 | `panel.quickSearch.type` | любая буква | идёт быстрый поиск |
-| `panel.quickSearch.erase` | `Bsp` | идёт быстрый поиск |
+| `panel.quickSearch.erase` | `Bsp` | идёт быстрый поиск (ненайденное стирает разом) |
 | `panel.quickSearch.stop` | `Esc` | идёт быстрый поиск |
 | `search.findFiles` | `Alt-F7` | панель стоит в каталоге и не занята |
 | `search.goToFound` | `Enter` | панель показывает находки, и под курсором не `..` |

@@ -16,6 +16,8 @@ void main() {
   /// нет, есть само содержимое статусной области.
   QuickSearchState? search() => QuickSearchCommand.searchIn(runtime.app);
   String? pattern() => search()?.pattern;
+  String? matched() => search()?.matched;
+  String? tail() => search()?.tail;
   String? cursor() => panel().currentNode?.name;
 
   bool press(String keys) => runtime.commands.dispatch(KeyCombination.parse(keys));
@@ -65,15 +67,40 @@ void main() {
     expect(cursor(), 'downloads');
   });
 
-  test('буква, которая никуда не ведёт, не принимается', () {
-    // Иначе после первой же опечатки не находится ничего, и стирать
-    // приходится вслепую.
+  test('буква, которая никуда не ведёт, принимается — но хвостом', () {
+    // Печатать не мешаем ничему: молчание в ответ на нажатие — худший из
+    // ответов, особенно когда виновата раскладка. Ненайденное показывается
+    // выделенным, курсор остаётся там, где стоял.
     press('Ctrl-S');
     type('do');
     type('z');
 
-    expect(pattern(), 'do', reason: 'образец не вырос');
-    expect(cursor(), 'docs', reason: 'и курсор остался');
+    expect(pattern(), 'doz', reason: 'набранное видно целиком');
+    expect(matched(), 'do', reason: 'нашлось столько');
+    expect(tail(), 'z', reason: 'а это ушло в хвост');
+    expect(cursor(), 'docs', reason: 'курсор остался на найденном');
+  });
+
+  test('хвост не ищется дальше и стирается разом', () {
+    press('Ctrl-S');
+    type('do');
+    // Набрано вслепую целое слово — например, не в той раскладке.
+    type('zzz');
+
+    expect(pattern(), 'dozzz');
+    expect(tail(), 'zzz');
+    expect(cursor(), 'docs', reason: 'курсор всё это время не двигался');
+
+    // Один `Bsp` возвращает к последней букве, на которой что-то находилось.
+    expect(press('Bsp'), isTrue);
+
+    expect(pattern(), 'do');
+    expect(tail(), '');
+    expect(cursor(), 'docs');
+
+    // Дальше стирание идёт по букве, как и раньше.
+    expect(press('Bsp'), isTrue);
+    expect(pattern(), 'd');
   });
 
   test('повторный Ctrl-S идёт к следующему такому же и по кругу', () {
@@ -152,7 +179,10 @@ void main() {
     press('Ctrl-S');
     type('.');
 
-    expect(pattern(), '', reason: 'точка никуда не ведёт: «..» — не имя файла');
+    // Точка набирается, как и любой другой знак, но никуда не ведёт: «..» —
+    // не имя файла, и совпадением оно не считается ни здесь, ни при пометке.
+    expect(matched(), '', reason: 'ничего не нашлось');
+    expect(tail(), '.', reason: 'и точка ушла в хвост');
     expect(cursor(), '..');
   });
 

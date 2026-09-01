@@ -50,9 +50,22 @@ class QuickSearchView extends StatelessWidget {
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
+                      // Найденное — обычным текстом, ненайденное — выделением.
+                      //
+                      // Тем же красным, каким выделяют текст в настоящих полях
+                      // (`inputSelection`): это и есть выделение, только ставит
+                      // его не человек, а поиск — «вот отсюда ничего нет».
+                      // Стирается такой кусок тоже как выделенный: одним `Bsp`
+                      // целиком.
                       Flexible(
-                        child: Text(
-                          state.pattern,
+                        child: Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(text: state.matched),
+                              if (state.tail.isNotEmpty)
+                                TextSpan(text: state.tail, style: TextStyle(backgroundColor: colors.inputSelection)),
+                            ],
+                          ),
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.inputStyle,
