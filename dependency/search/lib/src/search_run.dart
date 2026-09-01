@@ -1,6 +1,7 @@
 import 'dart:collection';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:flutter/foundation.dart';
 
 import 'search_query.dart';
 
@@ -17,7 +18,13 @@ class SearchRun {
   ///
   /// Восемь миллисекунд — половина кадра при шестидесяти в секунду: реже
   /// незачем, чаще дороже пользы.
-  static const Duration breath = Duration(milliseconds: 8);
+  ///
+  /// Не `const` затем, чтобы замер мог спросить «а сколько стоит дышать»:
+  /// сравнивать вдох с его отсутствием надо на одном и том же коде, иначе в
+  /// разницу попадает всё остальное — сборка узлов, например
+  /// (`test/performance/heavy_work_bench_test.dart`).
+  @visibleForTesting
+  static Duration breath = const Duration(milliseconds: 8);
 
   /// Работа, которую остаётся запустить: `start` — и она пойдёт.
   static Operation<SearchQuery, List<FsNode>> from(DirectoryNode where, {required void Function(FsNode) onFound}) {
