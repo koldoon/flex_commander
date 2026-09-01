@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fc_api/fc_api.dart';
 
 import 'command_line_state.dart';
@@ -104,6 +106,13 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
     // ни приложения, ни настроек.
     registry.startup((context) => InstallCommandLineCommand(settings: settingsOf, save: settings.save));
     registry.startup((context) => _FollowShellCommand(() => context.resolve<ShellSession>()));
+    registry.startup(
+      (context) => _WarmShellCommand(
+        shells: () => context.resolve<ShellSession>(),
+        // Необязательно: без модуля локальной ФС греть нечего, и это не ошибка.
+        host: () => context.resolveAll<ShellHost>().firstOrNull,
+      ),
+    );
 
     registry.command((context) => FocusCommandLineCommand());
     registry.command((context) => LeaveCommandLineCommand());
@@ -227,6 +236,55 @@ class _FollowShellCommand extends AppCommand {
   Future<void> execute(CommandContext context) async {
     final app = context.app;
     shells().onDirectory = (label, directory) => followShell(app, label, directory);
+  }
+}
+
+/// Заводит оболочку своей машины заранее — один раз, при запуске.
+///
+/// Первый `Ctrl-O` и первая команда иначе ждут её запуска, чтения `.zshrc`,
+/// уговора о метках и `clear`. На тяжёлой настройке это заметная пауза, и вся
+/// она приходится ровно на тот миг, когда человек уже нажал клавишу.
+///
+/// **Только своя машина**, и берётся она службой, а не у панели. Панели к
+/// этому времени ещё не открыты — стартовые команды идут раньше, — да и сервер
+/// за прогрев платил бы походом по сети и, случается, вопросом о пароле;
+/// спрашивать его у того, кто терминала не просил, нельзя.
+///
+/// Не удалось — молчим. Псевдотерминала на этой платформе может не быть вовсе,
+/// но узнать об этом человек должен тогда, когда попросит терминал, а не при
+/// запуске приложения.
+class _WarmShellCommand extends AppCommand {
+  _WarmShellCommand({required this.shells, required this.host});
+
+  final ShellSession Function() shells;
+  final ShellHost? Function() host;
+
+  @override
+  String get id => 'terminal.warm';
+
+  @override
+  String get label => 'Start the shell';
+
+  @override
+  bool isExecutable(CommandContext context) => true;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final local = host();
+    if (local == null) {
+      return;
+    }
+    // Не ждём: запуск оболочки — не часть запуска приложения, и держать первый
+    // кадр ради неё незачем.
+    unawaited(_warm(local));
+  }
+
+  Future<void> _warm(ShellHost host) async {
+    try {
+      await shells().sessionIn(host, null);
+    } on Object {
+      // Молчим: терминала никто не просил.
+    }
   }
 }
 

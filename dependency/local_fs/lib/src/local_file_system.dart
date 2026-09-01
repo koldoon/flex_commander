@@ -53,6 +53,19 @@ class LocalFileSystem implements FcModule {
       ),
     );
 
+    // Оболочка **этой машины** — службой, отдельно от провайдера.
+    //
+    // Провайдер её тоже умеет (панель на локальной ФС), но спросить его можно
+    // только через панель, а панели открываются позже служб. Терминалу же она
+    // нужна как раз до всяких панелей — чтобы завести оболочку заранее, а не в
+    // тот миг, когда человек уже нажал `Ctrl-O`.
+    registry.service<ShellHost>(
+      (services) => LocalShellHost(
+        launcher: const SystemPtyLauncher(),
+        shellName: () => services.resolveAll<ShellPreference>().firstOrNull?.shell ?? '',
+      ),
+    );
+
     // Место для временных файлов: им пользуются те, кому нужен настоящий файл
     // на диске, — архиватор и будущие сетевые источники.
     registry.service<StagingArea>((services) => const LocalStagingArea());
