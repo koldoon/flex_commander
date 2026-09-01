@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_search/fc_search.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
@@ -97,6 +99,40 @@ void main() {
     expect(seen, containsAll(<String>['/home', '/home/docs', '/home/docs/deep']));
   });
 
+  test('обход отдаёт управление циклу событий, а не занимает его целиком', () async {
+    // Это не про вежливость, а про то, работает ли приложение во время поиска.
+    // Локальный провайдер читает каталог синхронно, а `await` над готовым —
+    // микрозадача; микрозадачи выполняются **до** кадра. Без вдоха весь обход
+    // укладывается в один оборот цикла: ни кадра, ни таймера, пока он не
+    // кончится, и прервать его тоже нечем.
+    //
+    // Дерево здесь нарочно медленное: вдох делается по времени, и на мгновенных
+    // каталогах его могло бы не случиться вовсе.
+    final slow = _BlockingProvider([
+      FakeEntry.directory('/home'),
+      for (var i = 0; i < 40; i++) FakeEntry.directory('/home/dir$i'),
+    ])..home = '/home';
+    final root = (await slow.resolvePath().run('/home'))! as DirectoryNode;
+
+    var breathed = false;
+    var breathedDuringWork = false;
+
+    final run = SearchRun.from(root, onFound: (_) {});
+    // Обычный таймер, заведённый до начала обхода: если обход не отдаёт
+    // управление, он не сработает до самого его конца.
+    unawaited(Future<void>.delayed(Duration.zero, () => breathed = true));
+    run.status.addListener(() {
+      if (breathed) {
+        breathedDuringWork = true;
+      }
+    });
+
+    run.start(const SearchQuery(mask: '*.txt'));
+    await run.result;
+
+    expect(breathedDuringWork, isTrue, reason: 'таймер сработал по ходу обхода, а не после него');
+  });
+
   test('каталог, в который не пустили, поиск не прекращает', () async {
     provider.denied['/home/docs'] = const FsError('/home/docs', FsErrorKind.permissionDenied);
 
@@ -104,4 +140,21 @@ void main() {
 
     expect(names, contains('readme.md'), reason: 'непрочитанный каталог посреди дерева — обычное дело');
   });
+}
+
+/// Дерево, которое читается **синхронно и небыстро** — как настоящий диск.
+///
+/// Ровно то, на чём приложение и вставало: `listChildren` локального провайдера
+/// не ждёт ничего, а считает, и без вдоха обход не отдаёт поток никому.
+class _BlockingProvider extends InMemoryTreeProvider {
+  _BlockingProvider(super.entries);
+
+  @override
+  Future<List<FsNode>> listChildren(DirectoryNode dir) async {
+    final busy = Stopwatch()..start();
+    while (busy.elapsed < const Duration(milliseconds: 1)) {
+      // Занято: именно занято, а не ждём.
+    }
+    return super.listChildren(dir);
+  }
 }
