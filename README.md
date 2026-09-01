@@ -63,6 +63,15 @@ while you type. Marking adds to what is already marked rather than replacing it.
 shows how many objects are marked and their total size — and directory sizes are counted
 in the background by a bounded pool of scans, growing in the Size column as they go.
 
+**Search.** `Alt+F7` searches the tree below the current directory by the same mask
+engine that marks files — `*.dart;!*.g.dart` — and results come in while the walk is
+still going, so on a big tree the first hits are there long before the last. It walks
+through the source, not the disk, so an archive and an `ssh://` directory are searched the
+same way. «To panel» makes the results the panel's content: real nodes, so the cursor,
+marking, copying, deleting and `F3` work on them as usual, with a Path column saying where
+each came from. `Enter` leaves the results for the directory the file lies in, and `..`
+returns to where the search started.
+
 **File operations.** Copy, move, rename (`Shift+F6`, with the name already in the field
 and its base — everything before the extension — selected, since that is the part people
 change), make directory, delete to Trash, delete permanently.
@@ -221,6 +230,7 @@ On Windows and Linux `Cmd` reads as `Ctrl`.
 | `Tab` | switch the active panel |
 | `Space`, `Ins` | mark the object under the cursor |
 | `Ctrl-S` | quick search: the cursor follows what you type |
+| `Alt-F7` | find files by mask below the current directory |
 | `Cmd-A`, `Esc` | mark everything, clear the marking |
 | `Cmd-Shift-A` | mark files only, leaving directories alone |
 | `+` / `-` | mark or unmark by mask, e.g. `*.dart;!*.g.dart` |

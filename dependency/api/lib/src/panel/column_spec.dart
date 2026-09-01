@@ -13,6 +13,7 @@ extension FsColumnTitle on FsColumn {
   String get title => switch (this) {
     FsColumn.icon => '',
     FsColumn.name => 'Name',
+    FsColumn.path => 'Path',
     FsColumn.ext => 'Ext',
     FsColumn.size => 'Size',
     FsColumn.modified => 'Modified',
@@ -25,6 +26,12 @@ extension FsColumnTitle on FsColumn {
 enum FsColumn {
   icon,
   name,
+
+  /// Каталог, в котором объект лежит.
+  ///
+  /// В обычном каталоге он у всех один и потому спрятан; список находок им и
+  /// живёт: `main.dart` там будет десяток, и различает их только это.
+  path,
   ext,
   size,
   modified,
@@ -208,6 +215,7 @@ class ColumnLayout {
     // Иконка: отступ слева, глиф и просвет до имени — `FcMetrics.iconColumnWidth`.
     ColumnSpec(id: FsColumn.icon, width: 28, minWidth: 28, pinned: true),
     ColumnSpec(id: FsColumn.name, width: 0, minWidth: 90, pinned: true),
+    ColumnSpec(id: FsColumn.path, width: 160, visible: false),
     ColumnSpec(id: FsColumn.ext, width: 40, align: ColumnAlign.end),
     ColumnSpec(id: FsColumn.size, width: 64, align: ColumnAlign.end),
     ColumnSpec(id: FsColumn.modified, width: 88, align: ColumnAlign.end),

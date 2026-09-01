@@ -695,8 +695,16 @@ class PanelController extends ChangeNotifier implements Panel {
 
   // --- вид ---
 
+  /// Раскладка колонок: своя у панели, но источник вправе попросить другую.
+  ///
+  /// Просит только тот, кто не каталог (`PanelColumns`): найденному нужна
+  /// колонка пути. Настройку панели это не меняет — уйдя из находок, человек
+  /// видит те же колонки, что настраивал.
   @override
-  ColumnLayout get columns => _columns;
+  ColumnLayout get columns {
+    final current = provider;
+    return current is PanelColumns ? (current as PanelColumns).columns : _columns;
+  }
 
   @override
   void setColumnLayout(ColumnLayout layout) {

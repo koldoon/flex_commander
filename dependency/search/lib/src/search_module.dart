@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 
 import 'find_files_command.dart';
+import 'go_to_found_command.dart';
 
 /// Поиск по дереву и работа с найденным.
 ///
@@ -21,7 +22,13 @@ class FileSearch implements FcModule {
   @override
   void install(FcRegistry registry) {
     registry.command((context) => FindFilesCommand());
+    registry.command((context) => GoToFoundCommand());
+
     // Привычка Total Commander.
     registry.binding(KeyBinding('Alt-F7', FindFilesCommand.commandId));
+    // `Enter` — **раньше** навигации, потому и модуль объявлен раньше неё.
+    // Вне списка находок команда невыполнима, и `Enter` открывает объект, как
+    // и всегда.
+    registry.binding(KeyBinding('Enter', GoToFoundCommand.commandId));
   }
 }

@@ -209,8 +209,8 @@ void main() {
         FsColumn.icon,
         FsColumn.name,
         FsColumn.modified,
+        FsColumn.path,
         FsColumn.ext,
-        FsColumn.size,
       ]);
     });
 

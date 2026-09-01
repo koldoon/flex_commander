@@ -715,7 +715,14 @@ class RunNodeCommand extends AppCommand {
 
   @override
   bool isExecutable(CommandContext context) =>
-      settings().runExecutables && !context.panel.busy && _runnable(context.node) != null;
+      settings().runExecutables &&
+      !context.panel.busy &&
+      // Запускают **из каталога панели**, а он не всегда настоящий: в списке
+      // находок узлы свои, а каталога у них общего нет. Раньше это выяснялось
+      // уже в `execute`, и `Enter` там молча пропадал — клавишу забирала
+      // команда, которой нечего было делать.
+      shellHostOf(context.panel) != null &&
+      _runnable(context.node) != null;
 
   @override
   Future<void> execute(CommandContext context) async {

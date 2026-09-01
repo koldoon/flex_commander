@@ -11,7 +11,7 @@ import 'package:fc_api/fc_api.dart';
 /// подсчёт размеров — вопросы к тому, кому узел принадлежит; здесь на них
 /// отвечать нечем и незачем. Панель об этом не спотыкается: она просит список
 /// каталога, а он готов заранее.
-class SearchResultsProvider implements TreeProvider {
+class SearchResultsProvider implements TreeProvider, PanelColumns {
   SearchResultsProvider({required String title, required List<FsNode> found, DirectoryNode? parent}) {
     _root = DirectoryNode(provider: this, name: title, parent: parent);
     _root.nodes = found;
@@ -24,6 +24,17 @@ class SearchResultsProvider implements TreeProvider {
 
   @override
   String get scheme => 'found';
+
+  /// Колонки списка находок: к обычным добавлена колонка пути.
+  ///
+  /// Без неё список нечитаем: имена в нём повторяются, а различает строки
+  /// только то, откуда каждая. Настройку панели это не трогает — раскладку
+  /// просит источник, и уходит она вместе с ним.
+  @override
+  ColumnLayout get columns => ColumnLayout([
+    for (final column in ColumnLayout.defaults.columns)
+      column.id == FsColumn.path ? column.copyWith(visible: true) : column,
+  ]);
 
   @override
   DirectoryNode get rootDirectory => _root;

@@ -148,7 +148,7 @@ CommandRegistry.dispatch(combination, app)
 | `Home` / `Left` | `panel.cursor.first` | курсор на первый элемент |
 | `End` / `Right` | `panel.cursor.last` | курсор на последний элемент |
 | `Tab` | `app.togglePanel` | переключить активную панель |
-| `Enter` | `terminal.runNode`, `panel.open` | каталог — войти; ссылка — разрешить и войти; файл с `+x` — выполнить в терминале; прочее — открыть системой |
+| `Enter` | `search.goToFound`, `terminal.runNode`, `panel.open` | в списке находок — перейти к объекту в его каталоге; иначе каталог — войти; ссылка — разрешить и войти; файл с `+x` — выполнить в терминале; прочее — открыть системой |
 | `Backspace` | `panel.up` | на уровень вверх, курсор на объект, через который вошли |
 | `Cmd-↑` | `panel.up` | то же |
 | `Cmd-/` | `panel.root` | в корень провайдера |
@@ -156,6 +156,7 @@ CommandRegistry.dispatch(combination, app)
 | `Cmd-R` | `panel.reload` | перечитать текущий каталог |
 | `Alt-Shift-Enter` | `panel.calculateSizes` | посчитать размеры всех каталогов здесь |
 | `Cmd-Shift-H`, `Cmd-H` | `panel.toggleHidden` | показать/скрыть скрытые объекты |
+| `Alt-F7` | `search.findFiles` | искать по дереву от текущего каталога — открывает окно |
 
 `Left`/`Right` заняты переходом к первому/последнему элементу — это решение референса
 (`GoToFirstNodeCommand` / `GoToLastNodeCommand`), панели переключаются только `Tab`.
@@ -165,12 +166,13 @@ CommandRegistry.dispatch(combination, app)
 рисует привычный значок у курсора, — а наружу отдаётся только копия
 (`spec/drag-and-drop.md`, §6).
 
-За `Enter` в панели стоят **три** команды, и порядок между ними никто не
+За `Enter` в панели стоят **четыре** команды, и порядок между ними никто не
 задаёт — он складывается из порядка модулей и выполнимости: набранная
-командная строка (режим `mc`), потом исполняемый файл под курсором
-(`terminal.runNode`), потом `panel.open`. Обе первые приносит модуль терминала;
-выключен он — остаётся третья, и `Enter` ведёт себя как до всего этого
-(`spec/run-executables.md`).
+командная строка (режим `mc`), потом список находок (`search.goToFound`), потом
+исполняемый файл под курсором (`terminal.runNode`), потом `panel.open`. Первую
+и третью приносит модуль терминала, вторую — модуль поиска; выключены они —
+остаётся последняя, и `Enter` ведёт себя как до всего этого
+(`spec/run-executables.md`, `spec/file-search.md`).
 
 ### Пометка объектов
 
@@ -492,6 +494,8 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 | `panel.quickSearch.type` | любая буква | идёт быстрый поиск |
 | `panel.quickSearch.erase` | `Bsp` | идёт быстрый поиск и что-то набрано |
 | `panel.quickSearch.stop` | `Esc` | идёт быстрый поиск |
+| `search.findFiles` | `Alt-F7` | панель стоит в каталоге и не занята |
+| `search.goToFound` | `Enter` | панель показывает находки, и под курсором не `..` |
 | `panel.selection.all` | `Cmd-A` | список не пуст |
 | `panel.selection.files` | `Cmd-Shift-A` | в списке есть хоть один файл |
 | `panel.selection.selectByMask` | `+`, `Shift-=` | список не пуст, панель не занята |

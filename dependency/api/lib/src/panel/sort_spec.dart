@@ -97,9 +97,13 @@ int Function(FsNode, FsNode) comparatorFor(SortSpec spec, {FileNaming naming = c
 
 bool _isDirectory(FsNode node) => node is DirectoryNode || (node is LinkNode && node.isDirectoryLink);
 
+/// Каталог объекта — тем же текстом, каким он показан в колонке пути.
+String _directoryOf(FsNode node) => node.parentDirectory?.displayPath ?? '';
+
 int _compareByColumn(FsNode a, FsNode b, FsColumn column, FileNaming naming) {
   return switch (column) {
     FsColumn.name => naturalCompare(a.name, b.name),
+    FsColumn.path => naturalCompare(_directoryOf(a), _directoryOf(b)),
     FsColumn.ext => naturalCompare(_extensionOf(a, naming), _extensionOf(b, naming)),
     FsColumn.attributes => naturalCompare(_attributesOf(a), _attributesOf(b)),
     FsColumn.size => a.size.compareTo(b.size),

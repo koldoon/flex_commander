@@ -21,6 +21,7 @@ void main() {
       FakeEntry.file('/home/main.dart', size: 1),
       FakeEntry.file('/home/lib/main.dart', size: 1),
       FakeEntry.file('/home/lib/src/util.dart', size: 1),
+      FakeEntry.file('/home/lib/build.sh', size: 1, executable: true),
       FakeEntry.file('/home/readme.md', size: 1),
     ]);
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
@@ -120,6 +121,58 @@ void main() {
     expect(app.left.nodes.map((node) => node.name), containsAll(['main.dart', 'util.dart']));
     // Окно ушло: смотреть на список удобнее в панели.
     expect(find.widgetWithText(FcButton, 'To panel'), findsNothing);
+  });
+
+  testWidgets('в найденном видна колонка пути, а раскладка панели цела', (tester) async {
+    await pumpApp(tester);
+    final before = app.left.columns;
+    expect(before.find(FsColumn.path)?.visible, isFalse, reason: 'в обычном каталоге путь у всех один');
+
+    await openWindow(tester);
+    await search(tester, '*.dart');
+    await press(tester, 'To panel');
+
+    // Иначе список нечитаем: `main.dart` в нём два, и различает их только это.
+    expect(app.left.columns.find(FsColumn.path)?.visible, isTrue);
+    expect(find.text('/home/lib/src'), findsOneWidget);
+
+    // Раскладку просит источник, и уходит она вместе с ним: настройку панели
+    // это не переписывает.
+    await app.left.goUp();
+    await tester.pumpAndSettle();
+    expect(app.left.columns.find(FsColumn.path)?.visible, isFalse);
+  });
+
+  testWidgets('Enter в найденном ведёт к файлу, а не открывает его', (tester) async {
+    await pumpApp(tester);
+    await openWindow(tester);
+    await search(tester, '*.dart');
+    await press(tester, 'To panel');
+
+    app.left.setCursorToName('util.dart');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    expect(app.left.directory?.pathString, '/home/lib/src');
+    expect(app.left.currentNode?.name, 'util.dart');
+  });
+
+  testWidgets('Enter в найденном не запускает исполняемый файл', (tester) async {
+    await pumpApp(tester);
+    await openWindow(tester);
+    await search(tester, '*.sh');
+    await press(tester, 'To panel');
+
+    app.left.setCursorToName('build.sh');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    // Запускают из каталога панели, а у находок его нет. `Enter` тут значит
+    // «покажи, где он лежит».
+    expect(app.left.directory?.pathString, '/home/lib');
+    expect(app.left.currentNode?.name, 'build.sh');
   });
 
   testWidgets('из найденного «..» возвращает прежний каталог', (tester) async {

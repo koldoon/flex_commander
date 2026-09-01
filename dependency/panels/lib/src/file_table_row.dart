@@ -150,6 +150,8 @@ class FileTableRow extends StatelessWidget {
       // Расширение показывается отдельной колонкой, поэтому из имени убирается.
       FsColumn.name => _showExtension && file != null ? naming.split(node.name).base : node.name,
       FsColumn.ext => _showExtension && file != null ? naming.split(node.name).extension : '',
+      // Каталог объекта, а не его собственный путь: имя уже показано рядом.
+      FsColumn.path => node.parentDirectory?.displayPath ?? '',
       FsColumn.size => formatSize(node.size),
       FsColumn.modified => formatDate(file?.modified),
       FsColumn.created => formatDate(file?.created),
