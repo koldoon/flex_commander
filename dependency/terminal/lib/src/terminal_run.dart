@@ -40,7 +40,6 @@ class TerminalRun {
     required TerminalSettings options,
     required String command,
     required String workingDirectory,
-    Panel? panel,
     ProviderLease? lease,
     Duration showDelay = defaultShowDelay,
     void Function()? onStarted,
@@ -143,8 +142,11 @@ class TerminalRun {
       screen.close();
     }
 
-    await _followShell(panel, workingDirectory, session.lastMark?.directory);
-    await _reloadPanels(app);
+    // Панель, которая сейчас уходит за оболочкой, перечитывать не надо — и
+    // нельзя: переход уже начался, а перечитывание его отменит и вернёт на
+    // прежнее место. Сам переход и есть перечитывание, только нового каталога.
+    final moved = session.lastMark?.directory;
+    await _reloadPanels(app, skip: moved != null && moved != workingDirectory ? app.activePanel : null);
   }
 
   /// Строка, которая уйдёт в оболочку.
@@ -160,33 +162,15 @@ class TerminalRun {
     return 'cd ${ShellCommand.quote(directory)} && $command';
   }
 
-  /// Панель идёт за оболочкой, если та ушла сама.
-  ///
-  /// `cd /tmp && make` — строка с продолжением, и толковать её мы не беремся
-  /// (`spec/terminal.md`, §7): она уходит оболочке как есть. Но куда оболочка
-  /// в итоге встала, метка говорит точно, и оставлять панель позади незачем.
-  ///
-  /// Только на настоящей файловой системе: каталог оболочки на сервере — путь
-  /// **там**, и панели он ничего не говорит.
-  static Future<void> _followShell(Panel? panel, String from, String? to) async {
-    if (panel == null || to == null || to.isEmpty || to == from) {
-      return;
-    }
-    if (!panel.provider.capabilities.realFileSystem) {
-      return;
-    }
-    await panel.openPath(to);
-  }
-
   /// Перечитать панели: команда могла создать, удалить и переименовать что
   /// угодно, и показывать после неё прежний список нельзя.
   ///
   /// Только те, что стоят на настоящей файловой системе: перечитывать `ssh://`
   /// из-за локальной команды — лишний поход по сети.
-  static Future<void> _reloadPanels(Application app) async {
+  static Future<void> _reloadPanels(Application app, {Panel? skip}) async {
     for (final position in const [ViewportPosition.left, ViewportPosition.right]) {
       final panel = app.view.panelAt(position);
-      if (panel != null && panel.provider.capabilities.realFileSystem) {
+      if (panel != null && panel != skip && panel.provider.capabilities.realFileSystem) {
         await panel.reload();
       }
     }

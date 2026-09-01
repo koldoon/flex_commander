@@ -23,6 +23,13 @@ class ShellSession {
 
   final TerminalSettings Function() settings;
 
+  /// Оболочка сообщила, где она теперь стоит.
+  ///
+  /// Зовётся на **каждое** приглашение — и после команды из строки, и после
+  /// набранной руками в развёрнутом терминале. Что с этим делать, решает не
+  /// таблица оболочек: она про сессии, а не про панели.
+  void Function(String shellLabel, String directory)? onDirectory;
+
   /// Сколько ждать первого приглашения от свежей оболочки.
   ///
   /// Ждёт **тот, кто шлёт команду**, а не тот, кто открывает оболочку: `Ctrl-O`
@@ -82,6 +89,11 @@ class ShellSession {
     // таблицы, и следующая команда заводит новую; держать мёртвую значило бы
     // слать команды в никуда.
     final label = host.shellLabel;
+    opened.onMark = (mark) {
+      if (mark.kind == ShellMarkKind.prompt && mark.directory.isNotEmpty) {
+        onDirectory?.call(label, mark.directory);
+      }
+    };
     unawaited(
       opened.exited.then((_) {
         if (identical(_sessions[label], opened)) {

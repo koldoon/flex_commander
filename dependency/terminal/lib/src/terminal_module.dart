@@ -103,6 +103,7 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
     // Полоса ставится стартовой командой, а не здесь: во время объявления нет
     // ни приложения, ни настроек.
     registry.startup((context) => InstallCommandLineCommand(settings: settingsOf, save: settings.save));
+    registry.startup((context) => _FollowShellCommand(() => context.resolve<ShellSession>()));
 
     registry.command((context) => FocusCommandLineCommand());
     registry.command((context) => LeaveCommandLineCommand());
@@ -199,6 +200,33 @@ class InstallCommandLineCommand extends AppCommand {
       ViewportPosition.bottom,
       CommandLineState(app: context.app, settings: settings(), save: save),
     );
+  }
+}
+
+/// Панель идёт за оболочкой — один раз, при запуске.
+///
+/// Стартовой командой, а не из фабрики службы: приложения в тот миг ещё нет, и
+/// это не придирка — так устроен модуль нарочно ([FcContext]). А связать надо
+/// именно приложение с таблицей оболочек: куда ушла оболочка, знает она, а
+/// какой панели за этим идти — знает оно.
+class _FollowShellCommand extends AppCommand {
+  _FollowShellCommand(this.shells);
+
+  final ShellSession Function() shells;
+
+  @override
+  String get id => 'terminal.followShell';
+
+  @override
+  String get label => 'Follow the shell';
+
+  @override
+  bool isExecutable(CommandContext context) => true;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final app = context.app;
+    shells().onDirectory = (label, directory) => followShell(app, label, directory);
   }
 }
 

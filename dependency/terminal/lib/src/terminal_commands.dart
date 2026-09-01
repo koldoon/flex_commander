@@ -183,6 +183,26 @@ class ToggleTypingCommand extends AppCommand {
 ///
 /// Спрашивается у **провайдера**, а не у реестра служб: на локальной панели это
 /// своя машина, на `ssh://` — сервер, а внутри архива оболочки нет вовсе.
+/// Панель идёт за оболочкой, если та ушла сама.
+///
+/// Идёт **активная**, а не всякая на этом месте: две панели могут стоять на
+/// одной и той же машине, и `cd` в оболочке не повод дёргать обе. Активная —
+/// та, из которой команду и запускали: и из строки, и из развёрнутого
+/// терминала.
+///
+/// Только на настоящей файловой системе: каталог оболочки на сервере — путь
+/// **там**, и панели он ничего не говорит.
+void followShell(Application app, String shellLabel, String directory) {
+  final panel = app.activePanel;
+  if (shellHostOf(panel)?.shellLabel != shellLabel) {
+    return;
+  }
+  if (!panel.provider.capabilities.realFileSystem || panel.directory?.pathString == directory) {
+    return;
+  }
+  unawaited(panel.openPath(directory));
+}
+
 ShellHost? shellHostOf(Panel? panel) {
   final provider = panel?.directory?.provider;
   return provider is ShellHost ? provider as ShellHost : null;
@@ -584,7 +604,6 @@ class RunCommandLineCommand extends AppCommand {
       options: settings(),
       command: command,
       workingDirectory: directory,
-      panel: line.panel,
       lease: line.panel?.leaseProvider(),
       showDelay: showDelay,
       // Строка помнит и очищается, только когда процесс уже пошёл: не
@@ -699,7 +718,6 @@ class RunNodeCommand extends AppCommand {
       options: settings(),
       command: command,
       workingDirectory: host.shellPath(directory.pathString),
-      panel: context.panel,
       lease: context.panel.leaseProvider(),
       showDelay: showDelay,
       // В историю строки — как и набранное руками: это команда, выполненная в

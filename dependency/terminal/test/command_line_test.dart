@@ -302,6 +302,23 @@ void main() {
       expect(app.left.directory?.pathString, '/home/docs');
     });
 
+    test('cd внутри развёрнутого терминала тоже ведёт панель', () async {
+      // Ради этого метки и заводились: приложение узнаёт каталог оболочки на
+      // каждом приглашении, а не только после команды из строки.
+      expect(press('Ctrl-O'), isTrue);
+      await pumpEventQueue();
+      shell.greet();
+      await pumpEventQueue();
+      expect(app.view.contentAt(ViewportPosition.fullscreen), isA<TerminalScreen>());
+
+      // Набрали руками прямо в терминале — приложение об этом ничего не знает,
+      // кроме метки.
+      shell.finish(directory: '/home/docs');
+      await pumpEventQueue();
+
+      expect(app.left.directory?.pathString, '/home/docs');
+    });
+
     test('оболочка стоит там же — панель не трогают', () async {
       press('Cmd-T');
       type('make');
