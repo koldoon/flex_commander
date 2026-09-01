@@ -81,7 +81,9 @@ class PanelStatusBar extends StatelessWidget {
         SizedBox(width: metrics.columnGap),
         Flexible(
           child: Container(
-            height: metrics.inputHeight - metrics.cellPadding * 2,
+            // Той же высоты, что поля в окнах: поле должно выглядеть полем, а
+            // не сжатой его копией. Ради этого и подросла сама полоса.
+            height: metrics.inputHeight,
             padding: EdgeInsets.symmetric(horizontal: metrics.inputHorizontalPadding),
             alignment: Alignment.centerLeft,
             decoration: BoxDecoration(
@@ -89,7 +91,25 @@ class PanelStatusBar extends StatelessWidget {
               border: Border.all(color: colors.focusRing, width: metrics.strokeWidth),
               borderRadius: BorderRadius.circular(metrics.inputRadius),
             ),
-            child: Text(pattern, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.inputStyle),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Flexible(child: Text(pattern, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.inputStyle)),
+                // Курсор — чтобы ввод был виден сразу, а не угадывался по
+                // рамке. Не мигает нарочно: мигание — бесконечная анимация, и
+                // `pumpAndSettle` в тестах не дождался бы её никогда.
+                Padding(
+                  padding: EdgeInsets.only(left: metrics.strokeWidth),
+                  child: SizedBox(
+                    // Вдвое толще линии: волосяной курсор на общем фоне не
+                    // виден, а толще — уже похож на знак.
+                    width: metrics.strokeWidth * 2,
+                    height: metrics.fontSize,
+                    child: ColoredBox(color: colors.inputText),
+                  ),
+                ),
+              ],
+            ),
           ),
         ),
         SizedBox(width: metrics.columnGap),

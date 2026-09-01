@@ -1,5 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -30,6 +32,14 @@ void main() {
     // В поле стоит то, что набрали, — как набрали.
     expect(find.text(runtime.app.left.quickSearch!), findsOneWidget);
     expect(find.text('Esc to leave'), findsOneWidget);
+
+    // Поле той же высоты, что поля в окнах: иначе оно читается как что-то
+    // другое, ненастоящее.
+    final theme = FcTheme.of(tester.element(find.text('Search')));
+    final field = tester.getRect(
+      find.ancestor(of: find.text(runtime.app.left.quickSearch!), matching: find.byType(Container)).first,
+    );
+    expect(field.height, greaterThanOrEqualTo(theme.metrics.inputHeight));
 
     runtime.commands.dispatch(KeyCombination.parse('Esc'));
     await tester.pumpAndSettle();
