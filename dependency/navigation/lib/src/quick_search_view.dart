@@ -22,10 +22,18 @@ class QuickSearchView extends StatelessWidget {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
     final colors = theme.colors;
+    final app = AppScope.of(context);
 
     return ListenableBuilder(
-      listenable: state,
+      // И на рабочую область тоже: полос набора на экране бывает две — своя у
+      // каждой панели, — а клавиши в любой момент достаются ровно одной.
+      listenable: Listenable.merge([state, app.view]),
       builder: (context, _) {
+        // Обводка и курсор — только там, куда попадёт следующее нажатие. Вопрос
+        // задаётся общий, тот же, которым панель решает, светить ли плашке:
+        // считать это самому — верный способ разойтись с соседом.
+        final takesKeys = app.view.takesKeys(state);
+
         return Padding(
           // Только по бокам, и это внутренний отступ содержимого — как у полосы
           // хода работы: она стоит тут же, под той же панелью. Сверху и снизу
@@ -48,11 +56,13 @@ class QuickSearchView extends StatelessWidget {
                     borderRadius: BorderRadius.circular(metrics.inputRadius),
                   ),
                   // Обводка фокуса — та же и той же толщины, что у настоящих
-                  // полей, и так же **поверх**, а не рамкой: клавиши
-                  // принадлежат этому полю, пока полоса на экране, и выглядеть
-                  // это должно как везде. Своей рамкой она была вдвое тоньше.
+                  // полей, и так же **поверх**, а не рамкой: выглядеть это
+                  // должно как везде. Своей рамкой она была вдвое тоньше.
                   foregroundDecoration: BoxDecoration(
-                    border: Border.all(color: colors.focusRing, width: metrics.focusRingWidth),
+                    border: Border.all(
+                      color: takesKeys ? colors.focusRing : const Color(0x00000000),
+                      width: metrics.focusRingWidth,
+                    ),
                     borderRadius: BorderRadius.circular(metrics.inputRadius),
                   ),
                   child: Row(
@@ -82,10 +92,15 @@ class QuickSearchView extends StatelessWidget {
                       // Курсор — общий на всё приложение: та же толщина, те же
                       // скруглённые торцы, то же мигание. Набор его сбрасывает:
                       // пока печатают, курсор виден.
-                      Padding(
-                        padding: EdgeInsets.only(left: metrics.strokeWidth),
-                        child: FcCaret(style: theme.inputStyle, resetOn: state.pattern),
-                      ),
+                      //
+                      // И его нет вовсе там, где нет клавиш: курсор — это
+                      // обещание, что сюда попадёт нажатие, и в полосе под
+                      // соседней панелью оно ложное.
+                      if (takesKeys)
+                        Padding(
+                          padding: EdgeInsets.only(left: metrics.strokeWidth),
+                          child: FcCaret(style: theme.inputStyle, resetOn: state.pattern),
+                        ),
                     ],
                   ),
                 ),

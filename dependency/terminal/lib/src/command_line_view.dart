@@ -3,6 +3,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
 
 import 'command_line_state.dart';
+import 'terminal_commands.dart';
 
 /// Строка под панелями: приглашение и ввод.
 ///
@@ -193,7 +194,13 @@ class _CommandLineViewState extends State<CommandLineView> {
   /// режиме `mc` клавиши разбирают привязки, а не система. Мигает он при этом
   /// так же, как настоящий, и с тем же полупериодом: человек судит о том, куда
   /// уходит набор, по курсору, а неподвижный курсор об этом не говорит ничего.
-  Widget _typed(FcTheme theme, CommandLineState state, TextStyle style) {
+  ///
+  /// [takesKeys] — достанутся ли буквы **строке**. Полоса под панелью
+  /// (быстрый поиск) забирает их себе, и курсор в этот момент обязан быть
+  /// там, а не здесь: двух курсоров на экране не бывает. Место он при этом
+  /// не отпускает — прячется цветом, иначе набранное дёргалось бы вбок каждый
+  /// раз, когда открывают и закрывают поиск.
+  Widget _typed(FcTheme theme, CommandLineState state, TextStyle style, {required bool takesKeys}) {
     return Align(
       alignment: Alignment.centerLeft,
       child: FcCursorBlink(
@@ -209,7 +216,9 @@ class _CommandLineViewState extends State<CommandLineView> {
                   // менял бы её длину.
                   TextSpan(
                     text: '\u2588',
-                    style: style.copyWith(color: visible ? theme.colors.cursorBackground : const Color(0x00000000)),
+                    style: style.copyWith(
+                      color: visible && takesKeys ? theme.colors.cursorBackground : const Color(0x00000000),
+                    ),
                   ),
                 ],
               ),
@@ -279,7 +288,11 @@ class _CommandLineViewState extends State<CommandLineView> {
                         // рисует сама — иначе человеку неоткуда узнать, что печать
                         // уходит сюда.
                         : state.typingGoesToLine && view.activeArea != ViewportPosition.bottom
-                        ? _typed(theme, state, style)
+                        // Клавиши строке достаются не всегда: полоса под
+                        // панелью может забрать их себе. Условие то же, что у
+                        // самой команды печати, — иначе показ и разбор
+                        // разойдутся.
+                        ? _typed(theme, state, style, takesKeys: !statusTakesKeys(state.app))
                         : TextField(
                           // Ключ — чтобы поле оставалось тем же самым, что бы ни
                           // происходило вокруг: пересозданное, оно теряет связь с
