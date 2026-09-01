@@ -7,6 +7,7 @@ import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Обводка и курсор стоят там, куда попадёт следующее нажатие, — и только там.
@@ -98,6 +99,35 @@ void main() {
     expect(litRings(tester), 1, reason: 'по-прежнему одна');
     final left = tester.getRect(find.byType(FcCaret));
     expect(left.left, lessThan(right.left), reason: 'курсор уехал к левой панели');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('открытое окно забирает обводку и курсор себе', (tester) async {
+    await pumpApp(tester);
+    // Курсор на файле: копировать «..» нечего, и окно бы не открылось.
+    app().left.setCursorToName('alpha.txt');
+
+    press('Ctrl-S');
+    await tester.pumpAndSettle();
+    expect(litRings(tester), 1);
+
+    // `F5` поверх открытого поиска: окно забирает клавиши целиком, и печатать
+    // человек будет в него, а не в полосу под панелью.
+    press('F5');
+    await tester.pumpAndSettle();
+    expect(app().view.dialogs, hasLength(1), reason: 'окно открылось');
+
+    expect(litRings(tester), 0, reason: 'полоса погасила обводку');
+    expect(find.byType(FcCaret), findsNothing, reason: 'и курсор');
+
+    // Окно ушло — всё вернулось: поиск никуда не девался.
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    expect(app().view.dialogs, isEmpty);
+    expect(litRings(tester), 1);
+    expect(find.byType(FcCaret), findsOneWidget);
 
     await tester.pump(const Duration(milliseconds: 20));
   });

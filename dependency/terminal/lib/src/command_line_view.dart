@@ -289,10 +289,11 @@ class _CommandLineViewState extends State<CommandLineView> {
                         // уходит сюда.
                         : state.typingGoesToLine && view.activeArea != ViewportPosition.bottom
                         // Клавиши строке достаются не всегда: полоса под
-                        // панелью может забрать их себе. Условие то же, что у
+                        // панелью может забрать их себе, а открытое окно
+                        // забирает их целиком у всех. Условие то же, что у
                         // самой команды печати, — иначе показ и разбор
                         // разойдутся.
-                        ? _typed(theme, state, style, takesKeys: !statusTakesKeys(state.app))
+                        ? _typed(theme, state, style, takesKeys: !statusTakesKeys(state.app) && view.dialogs.isEmpty)
                         : TextField(
                           // Ключ — чтобы поле оставалось тем же самым, что бы ни
                           // происходило вокруг: пересозданное, оно теряет связь с
