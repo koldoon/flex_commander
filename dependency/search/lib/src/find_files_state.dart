@@ -45,6 +45,24 @@ class FindFilesState extends ChangeNotifier {
   /// Есть куда перейти: строка выбрана и у неё есть каталог.
   bool get canGoTo => _selected >= 0 && _selected < found.length && found[_selected].parentDirectory != null;
 
+  /// Есть что искать: маска непустая и обход не идёт.
+  bool get canStart => !busy && !query.isEmpty;
+
+  /// Что делает `Enter`.
+  ///
+  /// Правил два, и оба про то, чего человек ждёт в эту минуту: выбрана
+  /// находка — идём к ней, не выбрана — ищем. Отдаётся это окну
+  /// ([DialogSpec.onSubmit]), потому что `Enter` в открытом окне разбирает
+  /// рама, а не поле ввода: у поля он до недавнего и не спрашивался — окно
+  /// молчало на `Enter` вовсе, и запустить поиск было нечем.
+  Future<void> submit() async {
+    if (canGoTo) {
+      await goTo();
+      return;
+    }
+    await start();
+  }
+
   void select(int index) {
     if (index == _selected) {
       return;

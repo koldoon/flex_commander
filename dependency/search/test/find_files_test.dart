@@ -51,11 +51,16 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  /// Набирает маску и запускает поиск, дождавшись обхода.
+  /// Набирает маску и запускает поиск **настоящим `Enter`**, дождавшись обхода.
+  ///
+  /// Не `receiveAction(done)`: тот дёргает `onSubmitted` поля напрямую и минует
+  /// то, что делает живое нажатие. А в открытом окне `Enter` разбирает рама и
+  /// отдаёт окну — и ровно этого у окна поиска не было: тесты проходили, а
+  /// человек не мог начать поиск вовсе.
   Future<void> search(WidgetTester tester, String mask) async {
     await tester.enterText(input, mask);
     await tester.pumpAndSettle();
-    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
   }
 
@@ -86,6 +91,37 @@ void main() {
     // Одни имена в плоском списке бесполезны: рядом сказано, откуда каждое.
     expect(find.text('util.dart'), findsOneWidget);
     expect(find.text('lib/src'), findsOneWidget);
+  });
+
+  testWidgets('кнопка «Begin» ищет то же, что и Enter', (tester) async {
+    await pumpApp(tester);
+    await openWindow(tester);
+
+    // Пока маски нет, начинать нечего — и кнопка это показывает.
+    expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Begin')).onPressed, isNull);
+
+    await tester.enterText(input, '*.dart');
+    await tester.pumpAndSettle();
+    await press(tester, 'Begin');
+
+    expect(find.text('Found 3 items'), findsOneWidget);
+  });
+
+  testWidgets('кнопки про находки до первого поиска не показываются', (tester) async {
+    await pumpApp(tester);
+    await openWindow(tester);
+
+    // Мёртвая кнопка, у которой ещё и смысл неочевиден, — это вопрос без
+    // ответа: показывать её до находок незачем.
+    expect(find.widgetWithText(FcButton, 'Go to file'), findsNothing);
+    expect(find.widgetWithText(FcButton, 'To panel'), findsNothing);
+    // И подсказки про `Enter` нет: он значит «сделать» во всех окнах разом.
+    expect(find.text('Press Enter to search'), findsNothing);
+
+    await search(tester, '*.dart');
+
+    expect(find.widgetWithText(FcButton, 'Go to file'), findsOneWidget);
+    expect(find.widgetWithText(FcButton, 'To panel'), findsOneWidget);
   });
 
   testWidgets('до первого поиска молчит, а не говорит «ничего не нашлось»', (tester) async {
@@ -188,7 +224,7 @@ void main() {
     expect(app.left.directory?.pathString, '/home');
   });
 
-  testWidgets('«Go to» ведёт панель в каталог находки и ставит на неё курсор', (tester) async {
+  testWidgets('«Go to file» ведёт панель в каталог находки и ставит на неё курсор', (tester) async {
     await pumpApp(tester);
     await openWindow(tester);
     // Маска не 'util.dart': набранное стоит в поле, и `find.text` нашёл бы

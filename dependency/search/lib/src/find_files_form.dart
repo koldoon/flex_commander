@@ -67,16 +67,26 @@ class _FindFilesFormState extends State<FindFilesForm> {
       listenable: state,
       builder: (context, _) {
         return CommandDialogBody(
+          // Кнопки идут слева направо к главной, а главная меняется вместе с
+          // делом: пока не искали — это «Begin», как только нашлось — «To
+          // panel». Обе кнопки про находки до первого поиска не показываются
+          // вовсе: мёртвая кнопка, у которой ещё и смысл неочевиден, — это
+          // вопрос без ответа.
           actions: [
             // Пока идёт обход, «Закрыть» становится «Стоп»: прекратить нужнее,
             // чем уйти, а найденное при этом остаётся на месте.
             FcButton(label: state.busy ? 'Stop' : 'Close', onPressed: state.busy ? state.stop : state.close),
-            FcButton(label: 'Go to', onPressed: state.canGoTo ? () => unawaited(state.goTo()) : null),
             FcButton(
-              label: 'To panel',
-              primary: true,
-              onPressed: state.found.isEmpty ? null : () => unawaited(state.toPanel()),
+              label: 'Begin',
+              primary: state.found.isEmpty,
+              onPressed: state.canStart ? () => unawaited(state.start()) : null,
             ),
+            if (state.found.isNotEmpty) ...[
+              // «К файлу», а не просто «перейти»: рядом стоит «весь список в
+              // панель», и по одному имени их было не различить.
+              FcButton(label: 'Go to file', onPressed: state.canGoTo ? () => unawaited(state.goTo()) : null),
+              FcButton(label: 'To panel', primary: true, onPressed: () => unawaited(state.toPanel())),
+            ],
           ],
           children: [
             CommandDialogField(
@@ -84,12 +94,15 @@ class _FindFilesFormState extends State<FindFilesForm> {
               child: Focus(
                 focusNode: _focus,
                 onKeyEvent: _onKey,
+                // `Enter` полю не отдаётся: в открытом окне его разбирает рама
+                // и отдаёт окну (`DialogSpec.onSubmit`). Два пути к одному
+                // действию разошлись бы в первый же день, когда одному из них
+                // добавят условие.
                 child: FcTextField(
                   controller: _mask,
                   autofocus: true,
                   hintText: '*.dart;!*.g.dart',
                   onChanged: state.typed,
-                  onSubmitted: (_) => unawaited(state.start()),
                 ),
               ),
             ),
@@ -156,14 +169,17 @@ class _FindFilesFormState extends State<FindFilesForm> {
 
   /// Строка под полями: где идём или что нашли.
   ///
-  /// До первого поиска молчит подсказкой, а не пустотой: пустая строка на этом
-  /// месте оставляла бы дыру, в которой человек искал бы смысл.
+  /// До первого поиска — пусто. Здесь стояла подсказка «Press Enter to
+  /// search», и она лишняя: `Enter` в окне значит «сделать» всегда и везде,
+  /// и объяснять это в одном окне — значит намекать, что в остальных иначе.
+  /// Место при этом остаётся занятым: строка та же, просто без текста, и окно
+  /// не дёргается, когда ей есть что сказать.
   String _summary(FindFilesState state) {
     if (state.busy) {
       return state.at.isEmpty ? 'Searching…' : 'Searching ${state.at}';
     }
     if (!state.searched) {
-      return 'Press Enter to search';
+      return '';
     }
     final count = state.found.length;
     return count == 0 ? 'Nothing found' : 'Found $count ${count == 1 ? 'item' : 'items'}';

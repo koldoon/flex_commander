@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fc_api/fc_api.dart';
 
 import 'find_files_form.dart';
@@ -49,6 +51,9 @@ class FindFilesCommand extends AppCommand {
         title: label,
         takesFocus: true,
         content: FindFilesForm(state: state),
+        // `Enter` в открытом окне разбирает рама, а не поле ввода: без этого
+        // окно на него не отвечало вовсе, и оставалось только закрыть его.
+        onSubmit: () => unawaited(state.submit()),
         // `Esc` во время обхода прекращает его, а не закрывает окно: найденное
         // при этом остаётся, и уйти можно вторым нажатием.
         onDismiss: () {
