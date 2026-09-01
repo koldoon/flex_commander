@@ -75,6 +75,9 @@ class DefaultMetrics extends FcMetrics {
   /// Двадцать восемь точек. В референсе линейка над строкой стояла на
   /// `bottom="60"`, то есть двадцать четыре точки, — на них строка сидела
   /// впритык.
+  double get statusStripGap => 6;
+
+  @override
   double get statusBarHeight => 28;
 
   @override
