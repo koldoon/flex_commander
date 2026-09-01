@@ -1,4 +1,6 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_default_theme/fc_default_theme.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:fc_terminal/fc_terminal.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
@@ -30,7 +32,7 @@ void main() {
         null,
         pty,
       )..home = '/home',
-      modules: modulesWithTerminal(),
+      modules: [...modulesWithTerminal(), const TallLineTheme()],
     );
     await runtime.app.start();
   });
@@ -68,6 +70,35 @@ void main() {
     // Строк у терминала целое число, поэтому остаток высоты уходит наверх:
     // лёжа снизу, он уводил бы последнюю строку вверх на сколько придётся.
     expect(terminal.top, greaterThan(0));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('своя высота строки — и приглашение всё равно не прыгает', (tester) async {
+    // Высота полосы — величина отдельная от полей ввода, и назначить её должно
+    // быть можно, не сломав главного: при `Ctrl-O` приглашение обязано остаться
+    // ровно там, где стояло. Держится это на том, что низ терминала считается
+    // **по той же величине**; подставь туда `inputHeight` — и тест упадёт.
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    runtime.app.theme.use(_tallLineTheme);
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    // Полоса и правда стала выше поля ввода — иначе проверять было бы нечего.
+    final theme = FcTheme.of(tester.element(find.byType(CommandLineView)));
+    expect(theme.metrics.commandLineHeight, greaterThan(theme.metrics.inputHeight));
+
+    final prompt = tester.getRect(find.descendant(of: find.byType(CommandLineView), matching: find.byType(Text)).first);
+
+    runtime.commands.dispatch(KeyCombination.parse('Ctrl-O'));
+    await tester.pumpAndSettle();
+    AgreeingShell(pty.session).greet();
+    await tester.pumpAndSettle();
+
+    expect(tester.getRect(find.byType(TerminalView)).bottom, closeTo(prompt.bottom, 0.01));
 
     await tester.pump(const Duration(milliseconds: 20));
   });
@@ -265,4 +296,41 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 20));
   });
+}
+
+/// Тема, у которой полоса командной строки выше поля ввода.
+///
+/// Нужна ровно затем, чтобы две величины разошлись: пока они равны, ошибку
+/// «взяли не ту» не видно вовсе.
+const String _tallLineTheme = 'tall-line';
+
+class _TallLineMetrics extends DefaultMetrics {
+  const _TallLineMetrics();
+
+  @override
+  double get commandLineHeight => 44;
+}
+
+class TallLineTheme implements FcModule {
+  const TallLineTheme();
+
+  @override
+  String get id => 'test.tall_line';
+
+  @override
+  String get title => 'Tall command line';
+
+  @override
+  void install(FcRegistry registry) {
+    registry.theme(
+      const FcThemeSpec(
+        id: _tallLineTheme,
+        title: 'Tall line',
+        colors: DefaultColors(),
+        metrics: _TallLineMetrics(),
+        icons: DefaultIcons(),
+        fonts: DefaultFonts(),
+      ),
+    );
+  }
 }

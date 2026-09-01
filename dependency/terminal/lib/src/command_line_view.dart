@@ -153,7 +153,7 @@ class _CommandLineViewState extends State<CommandLineView> {
       // две полосы одной строки, и рядом друг с другом они обязаны стоять
       // одинаково. Без этого кандидаты липли к рамке панели, а поле — нет:
       // воздух ему давала высота, а им не давал никто.
-      height: metrics.inputHeight,
+      height: metrics.commandLineHeight,
       alignment: Alignment.centerLeft,
       color: colors.windowBackground,
       padding: EdgeInsets.symmetric(horizontal: metrics.labelPadding + metrics.cellPadding),
@@ -241,7 +241,7 @@ class _CommandLineViewState extends State<CommandLineView> {
     final metrics = theme.metrics;
 
     return Container(
-      height: metrics.inputHeight,
+      height: metrics.commandLineHeight,
       // Фон окна, а не панели: `panelBackground` — это белый пятипроцентный
       // поверх окна, и кладёт его рамка панели. Строка рамки не имеет и стоит
       // под панелями, а не внутри: взяв панельный цвет, она притворялась бы

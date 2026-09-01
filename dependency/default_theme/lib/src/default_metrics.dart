@@ -251,6 +251,13 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get inputHeight => 28;
 
+  /// Столько же, сколько у поля ввода: командная строка и есть поле, просто
+  /// стоит она внизу окна. Число здесь своё, чтобы правилась она отдельно от
+  /// полей в окнах, — но правится не в одиночку: от него же считается низ
+  /// полноэкранного терминала, иначе приглашение прыгнет при `Ctrl-O`.
+  @override
+  double get commandLineHeight => 28;
+
   @override
   double get inputRadius => 3.2;
 
