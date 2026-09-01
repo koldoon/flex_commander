@@ -30,7 +30,6 @@ class QuickSearchView extends StatelessWidget {
           // По бокам — как у полосы хода работы: она стоит тут же, под той же
           // панелью. Сверху и снизу — воздух полосы: она вплотную к списку, и
           // поле ввода не должно к нему липнуть.
-          // padding: EdgeInsets.symmetric(horizontal: metrics.dialogGap, vertical: metrics.statusStripGap),
           padding: EdgeInsets.only(left: metrics.dialogGap, right: metrics.dialogGap, top: metrics.statusStripGap),
           child: Row(
             children: [
