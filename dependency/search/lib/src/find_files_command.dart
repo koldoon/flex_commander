@@ -1,16 +1,28 @@
 import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:flutter/widgets.dart';
 
 import 'find_files_form.dart';
+import 'find_files_results.dart';
 import 'find_files_state.dart';
 
-/// Окно поиска по дереву.
+/// Окно поиска по дереву — в две фазы.
+///
+/// Сперва спрашивают, что искать; потом показывают, что нашлось. Это два разных
+/// окна, и команда их показывает: строить окна — её дело, а решать, когда
+/// какое, — дело состояния (`spec/file-search.md`, §3).
 class FindFilesCommand extends AppCommand {
   static const String commandId = 'search.findFiles';
 
-  /// Маска: задают параметром — окно тогда не открывается вовсе.
+  /// Маска: задают параметром — окно параметров тогда не показывается вовсе.
   static const String maskParam = 'mask';
+
+  /// Сколько поисков уже заводили: из этого собирается имя работы.
+  ///
+  /// Поисков может идти сколько угодно — ровно как копирований, — и у каждого
+  /// своя полоска в статусной области. Разводит их этот счётчик.
+  static int _runs = 0;
 
   @override
   String get id => commandId;
@@ -37,28 +49,54 @@ class FindFilesCommand extends AppCommand {
       return;
     }
 
-    final view = context.app.view;
-    final state = FindFilesState(panel: panel, where: where);
+    final app = context.app;
+    final state = FindFilesState(app: app, panel: panel, where: where, runId: '$commandId#${++_runs}');
+
+    // Окна показывает команда, а состояние их только зовёт. Каждое закрывает
+    // за собой предыдущее: два окна поиска разом на экране — это два вопроса,
+    // на которые человек отвечает одновременно.
+    state.showParams =
+        () => _show(app, state, title: label, content: FindFilesForm(state: state), onSubmit: state.begin);
+    state.showResults =
+        () => _show(
+          app,
+          state,
+          title: '$label: "${state.query.mask}"',
+          content: FindFilesResults(state: state),
+          onSubmit: () => unawaited(state.submit()),
+        );
+
     final given = context.invocation.param<String>(maskParam);
-    if (given != null) {
-      state.typed(given);
+    if (given == null) {
+      state.showParams!();
+      return;
     }
 
+    // Маску дали параметром — спрашивать не о чем: сразу находки и обход.
+    state.typed(given);
+    await state.begin();
+  }
+
+  /// Показывает окно фазы и запоминает, чем его закрыть.
+  void _show(
+    Application app,
+    FindFilesState state, {
+    required String title,
+    required Widget content,
+    required VoidCallback onSubmit,
+  }) {
     late final String dialogId;
-    state.close = () => view.closeDialog(dialogId);
-    dialogId = view.showDialog(
+    state.close = () => app.view.closeDialog(dialogId);
+    dialogId = app.view.showDialog(
       DialogSpec(
-        title: label,
+        title: title,
         takesFocus: true,
-        // Ширину окно назначает себе само — долей экрана, как окно копирования.
-        // Иначе рама мерила бы содержимое, а вместе с ним и таблицу находок: от
-        // длинных путей окно прыгало бы на каждой пачке находок, а ленивый
-        // список на вопрос о своей ширине не отвечает вовсе.
+        // Ширину окна назначают сами фазы, долей экрана: иначе рама мерила бы
+        // содержимое, а ленивый список находок на вопрос о своей ширине не
+        // отвечает вовсе.
         ownWidth: true,
-        content: FindFilesForm(state: state),
-        // `Enter` в открытом окне разбирает рама, а не поле ввода: без этого
-        // окно на него не отвечало вовсе, и оставалось только закрыть его.
-        onSubmit: () => unawaited(state.submit()),
+        content: content,
+        onSubmit: onSubmit,
         // `Esc` во время обхода прекращает его, а не закрывает окно: найденное
         // при этом остаётся, и уйти можно вторым нажатием.
         onDismiss: () {
@@ -66,15 +104,9 @@ class FindFilesCommand extends AppCommand {
             state.stop();
             return;
           }
-          state.close?.call();
+          state.finish();
         },
       ),
     );
-
-    // Маску дали параметром — искать сразу: окно открыли не затем, чтобы её
-    // ещё раз подтверждать.
-    if (given != null) {
-      await state.start();
-    }
   }
 }

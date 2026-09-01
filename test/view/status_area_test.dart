@@ -184,6 +184,52 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('щелчок по полоске возвращает окно работы', (tester) async {
+    // Целятся именно в полоску, а не в мелкий знак вопроса рядом: она и есть
+    // то, что видно на экране от ушедшей в фон работы.
+    tester.view.physicalSize = const Size(802, 621);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    var done = false;
+    final operation = TaskOperation<void, void>((op, _) async {
+      while (!done) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+        await op.checkpoint();
+      }
+    });
+    addTearDown(() => done = true);
+    final command = _SlowCommand(operation);
+
+    final runtime = await testApp(
+      provider: InMemoryTreeProvider([FakeEntry.directory('/home')])..home = '/home',
+      modules: [...featureModules(), _SlowModule(command)],
+    );
+    await runtime.app.start();
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    expect(runtime.commands.run('test.slow'), isTrue);
+    final run = command.lastRun!;
+    unawaited(run.submit());
+    await tester.pump(const Duration(milliseconds: 5));
+    run.sendToBackground();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 60));
+
+    expect(runtime.app.view.dialogs, isEmpty, reason: 'окно ушло в фон');
+
+    await tester.tap(find.text('Copy 3 items: '));
+    await tester.pump();
+
+    expect(runtime.app.view.dialogs, hasLength(1), reason: 'и вернулось по щелчку');
+    expect(runtime.app.operations.at(ViewportPosition.left), isEmpty, reason: 'из фона — значит из полоски');
+
+    done = true;
+    await tester.pump(const Duration(milliseconds: 20));
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('крестик возвращает окно сразу, а не через «нужен ответ»', (tester) async {
     tester.view.physicalSize = const Size(802, 621);
     tester.view.devicePixelRatio = 1;

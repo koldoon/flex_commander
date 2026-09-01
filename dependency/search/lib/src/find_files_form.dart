@@ -4,7 +4,6 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
 import 'find_files_state.dart';
-import 'found_table.dart';
 
 /// Окно поиска: маска, флаги, ход работы и то, что нашлось.
 class FindFilesForm extends StatefulWidget {
@@ -18,13 +17,13 @@ class FindFilesForm extends StatefulWidget {
 
 class _FindFilesFormState extends State<FindFilesForm> {
   final TextEditingController _mask = TextEditingController();
+
+  /// Поля, которых пока нет: каталоги-исключения и поиск по содержимому.
+  /// Свои контроллеры им нужны затем же, зачем и живому полю, — чтобы поле
+  /// было полем, а не картинкой поля.
+  final TextEditingController _ignore = TextEditingController();
+  final TextEditingController _content = TextEditingController();
   final FocusNode _focus = FocusNode(debugLabel: 'find files mask');
-
-  /// Размер страницы для `PgUp`/`PgDn`: список меряет обзор и кладёт его сюда.
-  final FcPickPage _page = FcPickPage();
-
-  /// Сколько строк находок показывать: дальше окно росло бы вслед за деревом.
-  static const int _visibleRows = 8;
 
   @override
   void initState() {
@@ -34,29 +33,11 @@ class _FindFilesFormState extends State<FindFilesForm> {
 
   @override
   void dispose() {
+    _ignore.dispose();
+    _content.dispose();
     _mask.dispose();
     _focus.dispose();
     super.dispose();
-  }
-
-  /// Стрелки водят по находкам, не уводя набор из поля маски.
-  ///
-  /// Так же, как в окне пометки: поле держит ввод, а список — выбор, и
-  /// переключаться между ними табуляцией ради одной стрелки незачем.
-  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
-    final state = widget.state;
-    final moved = FcPickList.moveSelection(
-      event,
-      selected: state.selected,
-      count: state.found.length,
-      wrap: false,
-      page: _page,
-    );
-    if (moved == null) {
-      return KeyEventResult.ignored;
-    }
-    state.select(moved);
-    return KeyEventResult.handled;
   }
 
   @override
@@ -79,96 +60,39 @@ class _FindFilesFormState extends State<FindFilesForm> {
             // panel». Обе кнопки про находки до первого поиска не показываются
             // вовсе: мёртвая кнопка, у которой ещё и смысл неочевиден, — это
             // вопрос без ответа.
+            // Две кнопки, как в `mc`: спросить и уйти. Всё остальное — дело
+            // второго окна, и появляется оно вместе с ним.
             actions: [
-              // Пока идёт обход, «Закрыть» становится «Стоп»: прекратить нужнее,
-              // чем уйти, а найденное при этом остаётся на месте.
-              FcButton(label: state.busy ? 'Stop' : 'Close', onPressed: state.busy ? state.stop : state.close),
-              FcButton(
-                label: 'Begin',
-                primary: state.found.isEmpty,
-                onPressed: state.canStart ? () => unawaited(state.start()) : null,
-              ),
-              if (state.found.isNotEmpty) ...[
-                // «К файлу», а не просто «перейти»: рядом стоит «весь список в
-                // панель», и по одному имени их было не различить.
-                FcButton(label: 'Go to file', onPressed: state.canGoTo ? () => unawaited(state.goTo()) : null),
-                FcButton(label: 'To panel', primary: true, onPressed: () => unawaited(state.toPanel())),
-              ],
+              FcButton(label: 'Cancel', onPressed: state.close),
+              FcButton(label: 'OK', primary: true, onPressed: state.canStart ? () => unawaited(state.begin()) : null),
             ],
             children: [
-              CommandDialogField(
-                label: 'Mask',
-                child: Focus(
-                  focusNode: _focus,
-                  onKeyEvent: _onKey,
-                  // `Enter` полю не отдаётся: в открытом окне его разбирает рама
-                  // и отдаёт окну (`DialogSpec.onSubmit`). Два пути к одному
-                  // действию разошлись бы в первый же день, когда одному из них
-                  // добавят условие.
-                  child: FcTextField(
-                    controller: _mask,
-                    autofocus: true,
-                    hintText: '*.dart;!*.g.dart',
-                    onChanged: state.typed,
+              // Раскладка — как в «Find File» у `mc`: сперва откуда искать,
+              // потом два столбца — «по имени» и «по содержимому», — и всё это
+              // подписями **над** полями, а не слева от них. Слева подпись
+              // отняла бы у двух столбцов ту самую ширину, ради которой их и
+              // ставят рядом.
+              CommandDialogField.wide(
+                child: _group(theme, [
+                  _labeled(theme, 'Start at:', _startAt(theme, state)),
+                  SizedBox(height: theme.metrics.dialogLineGap),
+                  // Не наше пока: каталоги-исключения (Д3).
+                  FcCheckbox(label: 'Enable ignore directories:', value: false, onChanged: null),
+                  SizedBox(height: theme.metrics.dialogLineGap),
+                  FcTextField(controller: _ignore, enabled: false),
+                ]),
+              ),
+              CommandDialogField.wide(
+                child: _group(theme, [
+                  Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(child: _byName(theme, state)),
+                      SizedBox(width: theme.metrics.dialogHorizontalPadding),
+                      Expanded(child: _byContent(theme)),
+                    ],
                   ),
-                ),
-              ),
-              // Где ищем — показано, но не правится: чтобы искать в другом месте,
-              // туда переходят панелью.
-              CommandDialogField(
-                label: 'In',
-                child: Text(state.where.pathString, style: theme.dialogTextStyle, overflow: TextOverflow.ellipsis),
-              ),
-              CommandDialogField.wide(
-                child: FcCheckbox(
-                  label: 'Look inside subdirectories',
-                  value: state.query.recursive,
-                  onChanged: state.busy ? null : state.setRecursive,
-                ),
-              ),
-              CommandDialogField.wide(
-                child: FcCheckbox(
-                  label: 'Include hidden files',
-                  value: state.query.hidden,
-                  onChanged: state.busy ? null : state.setHidden,
-                ),
-              ),
-              // Ход работы и итог — на одном и том же месте, и место это занято
-              // **всегда**: пока идёт обход, здесь виден каталог, в котором он
-              // сейчас; кончился — сколько нашлось; до первого поиска пусто.
-              //
-              // Строка, то появляющаяся, то исчезающая, двигала бы таблицу под
-              // курсором ровно в тот миг, когда в неё смотрят. Дырой пустая
-              // строка не выглядит: под ней стоит рамка таблицы, и видно, что
-              // место занято делом.
-              CommandDialogField.wide(
-                child: Text(
-                  _summary(state),
-                  style: theme.dialogLabelStyle,
-                  // Высота строки постоянная, что бы в ней ни стояло: у пустого
-                  // текста нет ни одного глифа, и без этого он на пару точек
-                  // ниже — а на эти пару точек ездила бы таблица под ним.
-                  strutStyle: StrutStyle.fromTextStyle(theme.dialogLabelStyle, forceStrutHeight: true),
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              // Таблица стоит **всегда**, и размер у неё постоянный: пустая
-              // рамка читается как «сюда придут находки», а список, растущий по
-              // ходу работы, дёргал бы окно под курсором на каждой пачке.
-              CommandDialogField.wide(
-                child: FoundTable(
-                  nodes: state.found,
-                  selected: state.selected,
-                  whereOf: state.whereOf,
-                  rows: _visibleRows,
-                  page: _page,
-                  emptyMessage: state.searched ? 'Nothing found' : '',
-                  onTap: (index) {
-                    state.select(index);
-                    unawaited(state.goTo());
-                  },
-                ),
+                ]),
               ),
             ],
           ),
@@ -177,26 +101,129 @@ class _FindFilesFormState extends State<FindFilesForm> {
     );
   }
 
-  /// Строка под полями: где идём или что нашли.
+  /// Рамка вокруг группы полей — как секции в окне `mc`.
   ///
-  /// До первого поиска — пусто. Здесь стояла подсказка «Press Enter to
-  /// search», и она лишняя: `Enter` в окне значит «сделать» всегда и везде,
-  /// и объяснять это в одном окне — значит намекать, что в остальных иначе.
-  /// Место при этом остаётся занятым: строка та же, просто без текста, и окно
-  /// не дёргается, когда ей есть что сказать.
-  String _summary(FindFilesState state) {
-    if (state.busy) {
-      return state.at.isEmpty ? 'Searching…' : 'Searching ${state.at}';
-    }
-    if (!state.searched) {
-      return '';
-    }
-    final count = state.found.length;
-    if (count == 0) {
-      // Про «ничего не нашлось» говорит сама таблица — своей пустотой и
-      // словами в ней. Повторять это второй строкой незачем.
-      return '';
-    }
-    return 'Found $count ${count == 1 ? 'item' : 'items'}';
+  /// Рамка та же, что у полей ввода и у таблицы находок: группа — такая же
+  /// часть окна, и заводить ей свой вид незачем.
+  Widget _group(FcTheme theme, List<Widget> children) {
+    final metrics = theme.metrics;
+    return Container(
+      padding: EdgeInsets.all(metrics.dialogPadding),
+      decoration: BoxDecoration(
+        border: Border.all(color: theme.colors.inputBorder, width: metrics.strokeWidth),
+        borderRadius: BorderRadius.circular(metrics.inputRadius),
+      ),
+      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
+    );
+  }
+
+  /// Подпись **над** полем, как в `mc`.
+  Widget _labeled(FcTheme theme, String label, Widget child) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [Text(label, style: theme.dialogLabelStyle), SizedBox(height: theme.metrics.dialogLineGap), child],
+    );
+  }
+
+  /// Откуда искать: каталог активной панели.
+  ///
+  /// Показан полем, но не правится: чтобы искать в другом месте, туда переходят
+  /// панелью — так не бывает поиска «не там, где думает человек». Кнопок `[^]`
+  /// и `[ Tree ]` из `mc` поэтому нет вовсе: выбирать здесь не из чего, и
+  /// рисовать мёртвые кнопки, которые никогда не оживут, незачем.
+  Widget _startAt(FcTheme theme, FindFilesState state) {
+    final metrics = theme.metrics;
+    return Container(
+      height: metrics.inputHeight,
+      alignment: Alignment.centerLeft,
+      padding: EdgeInsets.symmetric(horizontal: metrics.inputHorizontalPadding),
+      decoration: BoxDecoration(
+        color: theme.colors.inputBackground,
+        border: Border.all(color: theme.colors.inputBorder, width: metrics.strokeWidth),
+        borderRadius: BorderRadius.circular(metrics.inputRadius),
+      ),
+      child: Text(
+        state.where.displayPath,
+        style: theme.inputStyle.copyWith(color: theme.colors.inputHint),
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+      ),
+    );
+  }
+
+  /// Левый столбец: поиск по имени — то, что уже работает.
+  Widget _byName(FcTheme theme, FindFilesState state) {
+    final gap = SizedBox(height: theme.metrics.dialogLineGap);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _labeled(
+          theme,
+          'File name:',
+          // `Enter` полю не отдаётся: в открытом окне его разбирает рама и
+          // отдаёт окну (`DialogSpec.onSubmit`). Два пути к одному действию
+          // разошлись бы в первый же день, когда одному из них добавят условие.
+          FcTextField(
+            controller: _mask,
+            focusNode: _focus,
+            autofocus: true,
+            hintText: '*.dart;!*.g.dart',
+            onChanged: state.typed,
+          ),
+        ),
+        gap,
+        FcCheckbox(
+          label: 'Find recursively',
+          value: state.query.recursive,
+          onChanged: state.busy ? null : state.setRecursive,
+        ),
+        gap,
+        // Ссылки не разыменовываются — Д3.
+        const FcCheckbox(label: 'Follow symlinks', value: false, onChanged: null),
+        gap,
+        // Маски у нас всегда «шелловые» — тот же движок, что у пометки, — и
+        // выключить это нечем. Стоит отмеченным и приглушённым: так видно, по
+        // каким правилам разбирается набранное.
+        const FcCheckbox(label: 'Using shell patterns', value: true, onChanged: null),
+        gap,
+        // Маска сличается без учёта регистра (`FileMask`), и выбора здесь пока
+        // нет.
+        const FcCheckbox(label: 'Case sensitive', value: false, onChanged: null),
+        gap,
+        const FcCheckbox(label: 'All charsets', value: false, onChanged: null),
+        gap,
+        // У `mc` этот флаг перевёрнут относительно нашего: там «пропускать
+        // скрытые», у нас в запросе — «брать скрытые». Показываем как в `mc`.
+        FcCheckbox(
+          label: 'Skip hidden',
+          value: !state.query.hidden,
+          onChanged: state.busy ? null : (skip) => state.setHidden(!skip),
+        ),
+      ],
+    );
+  }
+
+  /// Правый столбец: поиск по содержимому — второй шаг Д2, целиком приглушён.
+  Widget _byContent(FcTheme theme) {
+    final gap = SizedBox(height: theme.metrics.dialogLineGap);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _labeled(theme, 'Content:', FcTextField(controller: _content, enabled: false)),
+        gap,
+        const FcCheckbox(label: 'Whole words', value: false, onChanged: null),
+        gap,
+        const FcCheckbox(label: 'Regular expression', value: false, onChanged: null),
+        gap,
+        const FcCheckbox(label: 'Case sensitive', value: false, onChanged: null),
+        gap,
+        const FcCheckbox(label: 'All charsets', value: false, onChanged: null),
+        gap,
+        const FcCheckbox(label: 'First hit', value: false, onChanged: null),
+      ],
+    );
   }
 }

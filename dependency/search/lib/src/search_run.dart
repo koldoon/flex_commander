@@ -63,6 +63,10 @@ class SearchRun {
         }
       }
 
+      // Последнее слово работы — итог: с ним она и остаётся в полоске фоновых
+      // работ, если окно закрыли. «Ищу в таком-то каталоге» у законченной
+      // работы читалось бы как «всё ещё ищу».
+      op.report(message: 'Found ${found.length}', itemsTransferred: found.length);
       return found;
     });
   }

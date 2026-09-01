@@ -5,10 +5,10 @@ import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flutter/services.dart';
-import 'package:flutter/widgets.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Снимок окна поиска: таблица находок в рамке, постоянного размера.
+/// Снимки обеих фаз окна поиска: сперва спрашивают, потом показывают.
 ///
 /// Обновление: `flutter test --update-goldens`.
 void main() {
@@ -49,24 +49,28 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('окно поиска до первого поиска совпадает с эталоном', (tester) async {
+  testWidgets('окно параметров совпадает с эталоном', (tester) async {
     await appWith(tester);
     await openWindow(tester);
 
-    // Пустая рамка на своём месте: сюда придут находки, и окно уже такого
-    // размера, каким останется.
-    await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/find_files_empty.png'));
+    // Раскладка `mc`: две группы в рамках, два столбца, нереализованное
+    // приглушено.
+    await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/find_files_params.png'));
 
     await tester.pump(const Duration(milliseconds: 20));
   });
 
-  testWidgets('окно поиска с находками совпадает с эталоном', (tester) async {
+  testWidgets('окно находок совпадает с эталоном', (tester) async {
     await appWith(tester);
     await openWindow(tester);
 
-    // Поле именно этого окна: внизу экрана стоит ещё и командная строка.
+    // Поле маски: в окне есть ещё два, приглушённых, и командная строка внизу
+    // экрана. Живое поле здесь одно.
     await tester.enterText(
-      find.descendant(of: find.byType(FindFilesForm), matching: find.byType(EditableText)),
+      find.descendant(
+        of: find.byType(FindFilesForm),
+        matching: find.byWidgetPredicate((widget) => widget is TextField && widget.enabled != false),
+      ),
       '*.dart',
     );
     await tester.pumpAndSettle();

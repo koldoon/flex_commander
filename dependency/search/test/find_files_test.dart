@@ -87,63 +87,82 @@ void main() {
 
     await search(tester, '*.dart');
 
-    expect(find.text('Found 3 items'), findsOneWidget);
-    // Одни имена в плоском списке бесполезны: рядом сказано, откуда каждое.
+    expect(find.text('Found: 3'), findsOneWidget);
+    // Раскладка `mc`: каталог заголовком, находки под ним.
     expect(find.text('util.dart'), findsOneWidget);
-    expect(find.text('lib/src'), findsOneWidget);
+    expect(find.text('/home/lib/src'), findsOneWidget);
   });
 
-  testWidgets('кнопка «Begin» ищет то же, что и Enter', (tester) async {
+  testWidgets('кнопка «OK» ищет то же, что и Enter', (tester) async {
     await pumpApp(tester);
     await openWindow(tester);
 
     // Пока маски нет, начинать нечего — и кнопка это показывает.
-    expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Begin')).onPressed, isNull);
+    expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'OK')).onPressed, isNull);
 
     await tester.enterText(input, '*.dart');
     await tester.pumpAndSettle();
-    await press(tester, 'Begin');
+    await press(tester, 'OK');
 
-    expect(find.text('Found 3 items'), findsOneWidget);
+    expect(find.text('Found: 3'), findsOneWidget);
   });
 
-  testWidgets('кнопки про находки до первого поиска не показываются', (tester) async {
+  testWidgets('фазы: сперва спрашивают, потом показывают', (tester) async {
     await pumpApp(tester);
     await openWindow(tester);
 
-    // Мёртвая кнопка, у которой ещё и смысл неочевиден, — это вопрос без
-    // ответа: показывать её до находок незачем.
-    expect(find.widgetWithText(FcButton, 'Go to file'), findsNothing);
+    // Первое окно — только вопрос: поля и две кнопки.
+    expect(find.byType(FindFilesForm), findsOneWidget);
+    expect(find.byType(FindFilesResults), findsNothing);
+    expect(find.widgetWithText(FcButton, 'OK'), findsOneWidget);
     expect(find.widgetWithText(FcButton, 'To panel'), findsNothing);
-    // И подсказки про `Enter` нет: он значит «сделать» во всех окнах разом.
-    expect(find.text('Press Enter to search'), findsNothing);
 
     await search(tester, '*.dart');
 
-    expect(find.widgetWithText(FcButton, 'Go to file'), findsOneWidget);
+    // Второе — только находки: полей ввода в нём нет вовсе.
+    expect(find.byType(FindFilesForm), findsNothing, reason: 'параметры своё отработали');
+    expect(find.byType(FindFilesResults), findsOneWidget);
+    expect(find.text('File name:'), findsNothing);
     expect(find.widgetWithText(FcButton, 'To panel'), findsOneWidget);
+    expect(find.widgetWithText(FcButton, 'Again'), findsOneWidget);
   });
 
-  testWidgets('до первого поиска молчит, а не говорит «ничего не нашлось»', (tester) async {
+  testWidgets('«Again» возвращает вопрос с прежней маской', (tester) async {
+    await pumpApp(tester);
+    await openWindow(tester);
+    await search(tester, '*.dart');
+
+    await press(tester, 'Again');
+
+    expect(find.byType(FindFilesForm), findsOneWidget);
+    expect(find.byType(FindFilesResults), findsNothing);
+    // Маска на месте: спрашивают заново, а не с чистого листа.
+    expect(tester.widget<TextField>(input).controller!.text, '*.dart');
+  });
+
+  testWidgets('пока идёт обход, «ничего не нашлось» не говорится', (tester) async {
     await pumpApp(tester);
     await openWindow(tester);
 
+    // В окне параметров об этом речи нет вовсе: там ещё спрашивают.
     expect(find.text('Nothing found'), findsNothing);
 
     await search(tester, '*.zip');
 
     expect(find.text('Nothing found'), findsOneWidget);
+    expect(find.text('Found: 0'), findsOneWidget);
+    expect(find.text('Done'), findsOneWidget);
   });
 
   testWidgets('«во вложенных» выключается — и находится только своё', (tester) async {
     await pumpApp(tester);
     await openWindow(tester);
 
-    await tester.tap(find.text('Look inside subdirectories'));
+    await tester.tap(find.text('Find recursively'));
     await tester.pumpAndSettle();
     await search(tester, '*.dart');
 
-    expect(find.text('Found 1 item'), findsOneWidget);
+    expect(find.text('Found: 1'), findsOneWidget);
   });
 
   testWidgets('«To panel» делает найденное содержимым панели', (tester) async {
@@ -231,41 +250,37 @@ void main() {
     // сразу два.
     await search(tester, '*.dart');
 
+    // Щелчок выбирает, ведёт — кнопка: так же, как в `mc`, где по списку
+    // ходят, а `Chdir` нажимают.
     await tester.tap(find.text('util.dart'));
     await tester.pumpAndSettle();
+    await press(tester, 'Go to file');
 
     expect(app.left.directory?.pathString, '/home/lib/src');
     expect(app.left.currentNode?.name, 'util.dart');
+    // Поиск при этом не пропал: сходить к одной находке — не повод потерять
+    // остальные.
+    expect(app.operations.at(ViewportPosition.left), hasLength(1));
   });
 
-  testWidgets('таблица находок стоит всегда и не меняет размера', (tester) async {
-    // Пустая рамка читается как «сюда придут находки», а не как дыра непонятно
-    // подо что. И размер у неё постоянный: список, растущий по ходу работы,
-    // дёргал бы окно под курсором на каждой пачке.
-    // Окно пошире: в тесном ряд кнопок не влезает и ужимается целиком
-    // (`FittedBox` в `CommandDialogActions`), а от его высоты едет и всё
-    // остальное — окно стоит по центру экрана.
+  testWidgets('таблица находок не меняет размера, пока они прибывают', (tester) async {
+    // Список, растущий по ходу работы, дёргал бы окно под курсором на каждой
+    // пачке. Окно пошире: в тесном ряд кнопок ужимается целиком (`FittedBox` в
+    // `CommandDialogActions`), а от его высоты едет и всё остальное.
     await pumpApp(tester, size: const Size(1200, 800));
     await openWindow(tester);
-
-    final empty = tester.getRect(find.byType(FoundTable));
-    final window = tester.getRect(find.byType(FindFilesForm));
-    expect(find.text('Nothing found'), findsNothing, reason: 'ещё не искали — и молчим');
-
     await search(tester, '*.dart');
 
+    final table = tester.getRect(find.byType(FoundTable));
+    final window = tester.getRect(find.byType(FindFilesResults));
     expect(find.text('util.dart'), findsOneWidget);
-    expect(tester.getRect(find.byType(FoundTable)), empty, reason: 'таблица там же и того же размера');
-    expect(tester.getRect(find.byType(FindFilesForm)), window, reason: 'и окно не поехало');
-  });
 
-  testWidgets('искали и не нашли — таблица говорит об этом сама', (tester) async {
-    await pumpApp(tester);
-    await openWindow(tester);
+    // Ещё один поиск в том же окне: находок другое число, размеры те же.
+    await press(tester, 'Again');
+    await search(tester, '*.md');
 
-    await search(tester, '*.zip');
-
-    expect(find.text('Nothing found'), findsOneWidget);
+    expect(tester.getRect(find.byType(FoundTable)), table, reason: 'таблица там же и того же размера');
+    expect(tester.getRect(find.byType(FindFilesResults)), window, reason: 'и окно не поехало');
   });
 
   testWidgets('тысяча находок — строк собрано столько, сколько видно', (tester) async {
@@ -287,9 +302,9 @@ void main() {
     await openWindow(tester);
     await search(tester, '*.dart');
 
-    final state = tester.widget<FindFilesForm>(find.byType(FindFilesForm)).state;
+    final state = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state;
     expect(state.found, hasLength(1000), reason: 'нашлось всё');
-    expect(find.text('Found 1000 items'), findsOneWidget);
+    expect(find.text('Found: 1000'), findsOneWidget);
 
     // А построено — по числу видимых строк, а не по числу находок.
     final built = tester.widgetList(find.descendant(of: find.byType(FoundTable), matching: find.byType(Row))).length;
@@ -322,6 +337,72 @@ void main() {
 
     expect(state.found, hasLength(300));
     expect(redraws, lessThan(50), reason: 'сообщений о находках 300, а перерисовок — единицы');
+  });
+
+  group('фон', () {
+    testWidgets('«Background» убирает окно, а работа остаётся полоской', (tester) async {
+      await pumpApp(tester);
+      await openWindow(tester);
+      await search(tester, '*.dart');
+
+      // Кнопка жива, только пока есть что оставлять идти.
+      final state = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state;
+      expect(state.busy, isFalse, reason: 'на подставном дереве обход кончается мгновенно');
+
+      // Полоска у законченного поиска всё равно есть: результат и есть вся его
+      // работа, и выбросить её молча нельзя.
+      state.toBackground();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FindFilesResults), findsNothing, reason: 'окно ушло');
+      expect(app.operations.at(ViewportPosition.left), hasLength(1), reason: 'а работа осталась');
+      expect(find.textContaining('Find "*.dart"'), findsOneWidget, reason: 'полоска называет поиск');
+      expect(find.text('Found 3'), findsOneWidget, reason: 'и говорит, чем он кончился');
+    });
+
+    testWidgets('щелчок по полоске возвращает то же окно с теми же находками', (tester) async {
+      await pumpApp(tester);
+      await openWindow(tester);
+      await search(tester, '*.dart');
+      tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state.toBackground();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.textContaining('Find "*.dart"'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(FindFilesResults), findsOneWidget);
+      expect(find.text('Found: 3'), findsOneWidget, reason: 'находки те же, искать заново не пришлось');
+      expect(app.operations.at(ViewportPosition.left), isEmpty, reason: 'из фона работа вернулась');
+    });
+
+    testWidgets('крестик у законченного поиска его забывает', (tester) async {
+      await pumpApp(tester);
+      await openWindow(tester);
+      await search(tester, '*.dart');
+      tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state.toBackground();
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('✕'));
+      await tester.pumpAndSettle();
+
+      expect(app.operations.at(ViewportPosition.left), isEmpty);
+      expect(find.byType(FindFilesResults), findsNothing, reason: 'забыли — и не открылось');
+    });
+
+    testWidgets('поисков может идти сколько угодно', (tester) async {
+      await pumpApp(tester);
+      for (final mask in ['*.dart', '*.md']) {
+        await openWindow(tester);
+        await search(tester, mask);
+        tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state.toBackground();
+        await tester.pumpAndSettle();
+      }
+
+      // По полоске на каждый — ровно как у копирований.
+      expect(app.operations.at(ViewportPosition.left), hasLength(2));
+      expect(find.textContaining('Find "*.dart"'), findsOneWidget);
+      expect(find.textContaining('Find "*.md"'), findsOneWidget);
+    });
   });
 
   testWidgets('Esc закрывает окно, ничего не тронув', (tester) async {

@@ -57,6 +57,14 @@ class _RunRow extends StatelessWidget {
     task.operation.requestCancel();
   }
 
+  /// Крестик у **законченной** работы означает «забыть».
+  ///
+  /// Прерывать там нечего, а полоска может пережить работу: поиск, кончившийся
+  /// в фоне, остаётся на виду со своим итогом — результат и есть вся его
+  /// работа, и выбросить его молча нельзя. Копирование до сих пор забывало себя
+  /// само, и такого состояния попросту не бывало.
+  void _forget(OperationRun task) => operations.forget(task.runId);
+
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
@@ -65,30 +73,42 @@ class _RunRow extends StatelessWidget {
     return ListenableBuilder(
       listenable: task.status,
       builder: (context, _) {
-        return Padding(
-          padding: EdgeInsets.symmetric(horizontal: metrics.dialogGap, vertical: metrics.strokeWidth * 2),
-          child: Row(
-            children: [
-              Text('${task.title}: ', style: theme.statusStyle),
-              Expanded(child: Text(task.status.message, style: theme.statusStyle, overflow: TextOverflow.ellipsis)),
-              SizedBox(width: metrics.dialogGap),
-              SizedBox(
-                width: metrics.dialogLabelWidth / 2,
-                child: FcProgressBar(
-                  value:
-                      task.status is ComputableOperationStatus
-                          ? (task.status as ComputableOperationStatus).percentProgress
-                          : null,
-                ),
+        final finished = task.status.state.isFinished;
+
+        // Щелчок по самой полоске возвращает окно работы: целятся именно в
+        // неё, а не в мелкий знак вопроса рядом. Он же и остаётся — им
+        // отвечают на вставший вопрос, и это другое дело.
+        return MouseRegion(
+          cursor: SystemMouseCursors.click,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: () => operations.bringToFront(task.runId),
+            child: Padding(
+              padding: EdgeInsets.symmetric(horizontal: metrics.dialogGap, vertical: metrics.strokeWidth * 2),
+              child: Row(
+                children: [
+                  Text('${task.title}: ', style: theme.statusStyle),
+                  Expanded(child: Text(task.status.message, style: theme.statusStyle, overflow: TextOverflow.ellipsis)),
+                  SizedBox(width: metrics.dialogGap),
+                  SizedBox(
+                    width: metrics.dialogLabelWidth / 2,
+                    child: FcProgressBar(
+                      value:
+                          task.status is ComputableOperationStatus
+                              ? (task.status as ComputableOperationStatus).percentProgress
+                              : null,
+                    ),
+                  ),
+                  SizedBox(width: metrics.dialogGap),
+                  // Вопрос, возникший сам собой — конфликт имён, недоступный
+                  // каталог, — окна не выдёргивает: человек занят другим. Кнопка
+                  // ждёт, пока он сам решит вернуться.
+                  if (task.status.state == OperationState.userActionRequired)
+                    _AttentionButton(onPressed: () => operations.bringToFront(task.runId), theme: theme),
+                  _CancelButton(onPressed: finished ? () => _forget(task) : () => _requestCancel(task), theme: theme),
+                ],
               ),
-              SizedBox(width: metrics.dialogGap),
-              // Вопрос, возникший сам собой — конфликт имён, недоступный
-              // каталог, — окна не выдёргивает: человек занят другим. Кнопка
-              // ждёт, пока он сам решит вернуться.
-              if (task.status.state == OperationState.userActionRequired)
-                _AttentionButton(onPressed: () => operations.bringToFront(task.runId), theme: theme),
-              _CancelButton(onPressed: task.status.state.isFinished ? null : () => _requestCancel(task), theme: theme),
-            ],
+            ),
           ),
         );
       },
