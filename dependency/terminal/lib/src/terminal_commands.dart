@@ -203,6 +203,19 @@ void followShell(Application app, String shellLabel, String directory) {
   unawaited(panel.openPath(directory));
 }
 
+/// Забирает ли клавиши то, что стоит **под** активной панелью.
+///
+/// Статусная область — место для полос под панелью: ход работы, быстрый поиск.
+/// Работа клавиш не берёт, поиск берёт, и различает их само содержимое
+/// ([ViewportState.takesKeyboard]), а не тот, кто спрашивает.
+bool statusTakesKeys(Application app) {
+  final position = app.view.activeArea.status;
+  if (position == null) {
+    return false;
+  }
+  return app.view.contentAt(position)?.takesKeyboard ?? false;
+}
+
 ShellHost? shellHostOf(Panel? panel) {
   final provider = panel?.directory?.provider;
   return provider is ShellHost ? provider as ShellHost : null;
@@ -343,14 +356,15 @@ class TypeIntoLineCommand extends AppCommand {
   @override
   String get label => 'Type into command line';
 
-  /// Пока идёт быстрый поиск в панели, буквы принадлежат ему.
+  /// Пока под панелью стоит что-то, забирающее клавиши, буквы принадлежат ему.
   ///
-  /// Режим включают явно (`Ctrl-S`), и перехватывать у него набор было бы
-  /// худшим из возможного: человек набирает имя, а оно уезжает в командную
-  /// строку.
+  /// Так устроен быстрый поиск: его включают явно (`Ctrl-S`), и перехватывать у
+  /// него набор было бы худшим из возможного — человек набирает имя, а оно
+  /// уезжает в командную строку. Спрашивается **свойство содержимого**, а не
+  /// «идёт ли поиск»: терминал про модуль навигации не знает и знать не должен.
   @override
   bool isExecutable(CommandContext context) =>
-      context.panel.quickSearch == null && (_lineOf(context.app)?.typingGoesToLine ?? false);
+      !statusTakesKeys(context.app) && (_lineOf(context.app)?.typingGoesToLine ?? false);
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -443,14 +457,15 @@ class PasteIntoLineCommand extends AppCommand {
   @override
   String get label => 'Paste into command line';
 
-  /// Пока идёт быстрый поиск в панели, буквы принадлежат ему.
+  /// Пока под панелью стоит что-то, забирающее клавиши, буквы принадлежат ему.
   ///
-  /// Режим включают явно (`Ctrl-S`), и перехватывать у него набор было бы
-  /// худшим из возможного: человек набирает имя, а оно уезжает в командную
-  /// строку.
+  /// Так устроен быстрый поиск: его включают явно (`Ctrl-S`), и перехватывать у
+  /// него набор было бы худшим из возможного — человек набирает имя, а оно
+  /// уезжает в командную строку. Спрашивается **свойство содержимого**, а не
+  /// «идёт ли поиск»: терминал про модуль навигации не знает и знать не должен.
   @override
   bool isExecutable(CommandContext context) =>
-      context.panel.quickSearch == null && (_lineOf(context.app)?.typingGoesToLine ?? false);
+      !statusTakesKeys(context.app) && (_lineOf(context.app)?.typingGoesToLine ?? false);
 
   @override
   Future<void> execute(CommandContext context) async {

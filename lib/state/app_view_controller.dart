@@ -31,12 +31,17 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
   /// в редакторе несохранённое, выделено ли что-нибудь в просмотрщике.
   Listenable? _watched;
 
-  /// Стопка области снизу вверх — для тестов и отладки.
+  /// Стопка области снизу вверх.
+  @override
   List<ViewportState> stackAt(ViewportPosition position) => List.unmodifiable(_stacks[position]!);
 
-  /// Пустой может быть только стопка `fullscreen`: панель убрать нельзя,
+  /// Пустой может быть любая область, кроме панельной: панель убрать нельзя,
   /// её можно лишь заменить.
-  bool _canEmpty(ViewportPosition position) => position == ViewportPosition.fullscreen;
+  ///
+  /// Раньше здесь стояло «только `fullscreen`», и это было не правилом, а
+  /// перечислением: статусная область под панелью тоже начинается пустой и
+  /// обязана пустеть обратно — полоса быстрого поиска приходит и уходит.
+  bool _canEmpty(ViewportPosition position) => !position.isPanelArea;
 
   @override
   ViewportState? contentAt(ViewportPosition position) {

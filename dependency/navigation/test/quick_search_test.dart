@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -10,6 +11,11 @@ void main() {
   late AppRuntime runtime;
 
   Panel panel() => runtime.app.left;
+
+  /// Идущий поиск — он же признак того, что режим включён: отдельного флага
+  /// нет, есть само содержимое статусной области.
+  QuickSearchState? search() => QuickSearchCommand.searchIn(runtime.app);
+  String? pattern() => search()?.pattern;
   String? cursor() => panel().currentNode?.name;
 
   bool press(String keys) => runtime.commands.dispatch(KeyCombination.parse(keys));
@@ -39,11 +45,11 @@ void main() {
   tearDown(() => debugDefaultTargetPlatformOverride = null);
 
   test('Ctrl-S включает режим, но курсор не двигает', () {
-    expect(panel().quickSearch, isNull);
+    expect(search(), isNull);
 
     expect(press('Ctrl-S'), isTrue);
 
-    expect(panel().quickSearch, '', reason: 'включён, но ничего не набрано');
+    expect(pattern(), '', reason: 'включён, но ничего не набрано');
     expect(cursor(), '..', reason: 'искать ещё нечего');
   });
 
@@ -51,11 +57,11 @@ void main() {
     press('Ctrl-S');
     type('do');
 
-    expect(panel().quickSearch, 'do');
+    expect(pattern(), 'do');
     expect(cursor(), 'docs');
 
     type('w');
-    expect(panel().quickSearch, 'dow');
+    expect(pattern(), 'dow');
     expect(cursor(), 'downloads');
   });
 
@@ -66,7 +72,7 @@ void main() {
     type('do');
     type('z');
 
-    expect(panel().quickSearch, 'do', reason: 'образец не вырос');
+    expect(pattern(), 'do', reason: 'образец не вырос');
     expect(cursor(), 'docs', reason: 'и курсор остался');
   });
 
@@ -92,7 +98,7 @@ void main() {
 
     expect(press('Bsp'), isTrue);
 
-    expect(panel().quickSearch, 'do');
+    expect(pattern(), 'do');
     // Укороченному образцу это имя всё ещё подходит — уводить с него незачем:
     // стирают, чтобы дописать иначе, и прыжок назад тут только мешал бы.
     expect(cursor(), 'downloads');
@@ -108,7 +114,7 @@ void main() {
     expect(press('Bsp'), isTrue);
     expect(press('Bsp'), isTrue);
 
-    expect(panel().quickSearch, '');
+    expect(pattern(), '');
     expect(panel().directory?.pathString, '/home', reason: 'наверх не ушли');
   });
 
@@ -129,7 +135,7 @@ void main() {
 
     expect(press('Esc'), isTrue);
 
-    expect(panel().quickSearch, isNull);
+    expect(search(), isNull);
     expect(cursor(), 'downloads');
   });
 
@@ -137,18 +143,18 @@ void main() {
     press('Ctrl-S');
     type('.');
 
-    expect(panel().quickSearch, '', reason: 'точка никуда не ведёт: «..» — не имя файла');
+    expect(pattern(), '', reason: 'точка никуда не ведёт: «..» — не имя файла');
     expect(cursor(), '..');
   });
 
   test('уход в другой каталог выключает режим', () async {
     press('Ctrl-S');
     type('do');
-    expect(panel().quickSearch, 'do');
+    expect(pattern(), 'do');
 
     await panel().openPath('/home/docs');
 
-    expect(panel().quickSearch, isNull, reason: 'образец относится к прежнему списку');
+    expect(search(), isNull, reason: 'образец относится к прежнему списку');
   });
 
   test('без режима буква по-прежнему прыгает по первой букве', () {
@@ -156,7 +162,7 @@ void main() {
     // делась, и быстрый поиск её не заменяет.
     type('n');
 
-    expect(panel().quickSearch, isNull);
+    expect(search(), isNull);
     expect(cursor(), 'notes.txt');
   });
 }

@@ -6,6 +6,8 @@ import 'navigation_settings.dart';
 import 'navigation_commands.dart';
 import 'open_path_command.dart';
 import 'quick_search_commands.dart';
+import 'quick_search_state.dart';
+import 'quick_search_view.dart';
 import 'selection_commands.dart';
 
 /// Перемещение по дереву и пометка объектов.
@@ -60,6 +62,7 @@ class Navigation implements FcModule {
     registry.command((context) => ToggleMarkCommand());
     registry.command((context) => SelectAllCommand());
     registry.command((context) => SelectFilesCommand());
+    registry.view<QuickSearchState>((context, state) => QuickSearchView(state: state));
     registry.command((context) => QuickSearchCommand());
     registry.command((context) => QuickSearchTypeCommand());
     registry.command((context) => QuickSearchEraseCommand());

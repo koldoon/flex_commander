@@ -59,8 +59,33 @@ class AppShell extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(child: _place(context, app, app.view.contentAt(position))),
+        _statusStack(context, app, position),
         StatusArea(tasks: app.operations, owner: position),
       ],
+    );
+  }
+
+  /// Что стоит под панелью: вся стопка её статусной области, последнее сверху.
+  ///
+  /// **Столбцом, а не наложением** — этим статусная область и отличается от
+  /// остальных. Наложение прячет то, что под ним; здесь же каждое сообщение
+  /// про своё, и прятать одно другим незачем: идёт работа, а под ней — поиск.
+  ///
+  /// Последнее — сверху, ближе к панели: свежее оказывается там, куда и так
+  /// смотрят.
+  Widget _statusStack(BuildContext context, Application app, ViewportPosition panel) {
+    final position = panel.status;
+    if (position == null) {
+      return const SizedBox.shrink();
+    }
+    final stack = app.view.stackAt(position);
+    if (stack.isEmpty) {
+      return const SizedBox.shrink();
+    }
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [for (final state in stack.reversed) _place(context, app, state)],
     );
   }
 

@@ -693,21 +693,6 @@ class PanelController extends ChangeNotifier implements Panel {
   @override
   void markAll() => selection.addAll(_nodes);
 
-  // --- быстрый поиск ---
-
-  @override
-  String? get quickSearch => _quickSearch;
-  String? _quickSearch;
-
-  @override
-  void setQuickSearch(String? pattern) {
-    if (_quickSearch == pattern) {
-      return;
-    }
-    _quickSearch = pattern;
-    notifyListeners();
-  }
-
   // --- вид ---
 
   @override
@@ -811,9 +796,6 @@ class PanelController extends ChangeNotifier implements Panel {
   }) async {
     _rememberCursor();
     _operation?.cancel();
-    // Образец быстрого поиска относится к **этому** списку: в новом каталоге
-    // он ничего не значит и вводил бы в заблуждение.
-    _quickSearch = null;
 
     final requestId = ++_requestId;
     _busy = true;

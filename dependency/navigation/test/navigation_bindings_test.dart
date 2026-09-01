@@ -77,7 +77,7 @@ void main() {
   test('в быстром поиске буква достаётся ему, а не переходу к имени', () async {
     await app.start();
 
-    app.left.setQuickSearch('');
+    commands.run(QuickSearchCommand.commandId);
 
     expect(commands.commandFor(const KeyCombination('D'))?.id, 'panel.quickSearch.type');
   });

@@ -1,5 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 
+import 'quick_search_state.dart';
+
 /// Быстрый поиск в панели: курсор идёт за набранным.
 ///
 /// Клавиша из `mc` (`Ctrl-S`), и повадка та же: совпадение **с начала имени**,
@@ -7,9 +9,10 @@ import 'package:fc_api/fc_api.dart';
 /// «вести курсор за набранным» — каталог тот же, список тот же, меняется только
 /// положение курсора.
 ///
-/// Правило поиска живёт здесь, а не в панели: панель держит образец
-/// ([Panel.quickSearch]) и показывает его, а куда идти курсору — решение того,
-/// кто разбирает клавиши. Подробности — `docs/spec/file-search.md`, §2.
+/// Полоса набора живёт в **статусной области** под панелью: там для такого и
+/// заведено место, и стопка в нём выкладывается столбцом — идёт работа, под ней
+/// поиск, и одно другого не прячет. Само присутствие состояния и есть «режим
+/// включён». Подробности — `docs/spec/file-search.md`, §2.
 class QuickSearchCommand extends AppCommand {
   static const String commandId = 'panel.quickSearch';
 
@@ -30,16 +33,39 @@ class QuickSearchCommand extends AppCommand {
 
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
-    final pattern = panel.quickSearch;
-    if (pattern == null) {
-      // Первое нажатие только включает режим: курсор не двигается, потому что
-      // искать ещё нечего.
-      panel.setQuickSearch('');
+    final search = searchIn(context.app);
+    if (search != null) {
+      // Повторное нажатие — к следующему такому же, по кругу.
+      moveTo(search.panel, search.pattern, from: search.panel.cursorIndex + 1);
       return;
     }
-    // Повторное — к следующему такому же, по кругу.
-    moveTo(panel, pattern, from: panel.cursorIndex + 1);
+
+    final view = context.app.view;
+    final position = view.activeArea.status;
+    if (position == null) {
+      return;
+    }
+    // Первое нажатие только открывает полосу: курсор не двигается, потому что
+    // искать ещё нечего.
+    view.pushViewportContent(position, QuickSearchState(panel: context.panel, onLeave: () => leave(context.app)));
+  }
+
+  /// Идущий сейчас поиск активной панели; null — режима нет.
+  static QuickSearchState? searchIn(Application app) {
+    final position = app.view.activeArea.status;
+    if (position == null) {
+      return null;
+    }
+    final content = app.view.contentAt(position);
+    return content is QuickSearchState ? content : null;
+  }
+
+  /// Убрать полосу.
+  static void leave(Application app) {
+    final position = app.view.activeArea.status;
+    if (position != null && app.view.contentAt(position) is QuickSearchState) {
+      app.view.popViewportContent(position);
+    }
   }
 
   /// Ведёт курсор к первому имени, начинающемуся с [pattern]; false — такого
@@ -88,30 +114,29 @@ class QuickSearchTypeCommand extends AppCommand {
   String get description => 'Add a letter to what the quick search is looking for';
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.quickSearch != null;
+  bool isExecutable(CommandContext context) => QuickSearchCommand.searchIn(context.app) != null;
 
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
+    final search = QuickSearchCommand.searchIn(context.app);
     final character = context.invocation.param<String>(characterParam) ?? '';
-    final pattern = panel.quickSearch;
-    if (character.isEmpty || pattern == null) {
+    if (search == null || character.isEmpty) {
       return;
     }
 
-    final wider = '$pattern$character';
+    final wider = '${search.pattern}$character';
     // Ищем **с текущего места**, а не со следующего: уточнение образца не повод
     // уходить с имени, которое ему и так подходит.
-    if (QuickSearchCommand.moveTo(panel, wider, from: panel.cursorIndex)) {
-      panel.setQuickSearch(wider);
+    if (QuickSearchCommand.moveTo(search.panel, wider, from: search.panel.cursorIndex)) {
+      search.setPattern(wider);
     }
   }
 }
 
-/// `Backspace` укорачивает образец.
+/// `Bsp` укорачивает образец.
 ///
-/// Укоротили до пустого — режим остаётся включённым: человек стирает, чтобы
-/// набрать иначе, а не чтобы выйти.
+/// Стёрли всё — полоса остаётся: стирают, чтобы набрать иначе, а не чтобы
+/// выйти. И уж точно не затем, чтобы уехать в родительский каталог.
 class QuickSearchEraseCommand extends AppCommand {
   static const String commandId = 'panel.quickSearch.erase';
 
@@ -125,24 +150,24 @@ class QuickSearchEraseCommand extends AppCommand {
   String get description => 'Remove the last letter from the quick search';
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.quickSearch?.isNotEmpty ?? false;
+  bool isExecutable(CommandContext context) => QuickSearchCommand.searchIn(context.app)?.pattern.isNotEmpty ?? false;
 
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
-    final pattern = panel.quickSearch;
-    if (pattern == null || pattern.isEmpty) {
+    final search = QuickSearchCommand.searchIn(context.app);
+    if (search == null || search.pattern.isEmpty) {
       return;
     }
-    final shorter = pattern.substring(0, pattern.length - 1);
-    panel.setQuickSearch(shorter);
+    final shorter = search.pattern.substring(0, search.pattern.length - 1);
+    search.setPattern(shorter);
     if (shorter.isNotEmpty) {
-      QuickSearchCommand.moveTo(panel, shorter, from: panel.cursorIndex);
+      // Курсор не прыгает назад, пока имя подходит и укороченному образцу.
+      QuickSearchCommand.moveTo(search.panel, shorter, from: search.panel.cursorIndex);
     }
   }
 }
 
-/// `Esc` выходит из режима; курсор остаётся там, куда дошёл.
+/// `Esc` убирает полосу; курсор остаётся там, куда дошёл.
 class QuickSearchStopCommand extends AppCommand {
   static const String commandId = 'panel.quickSearch.stop';
 
@@ -156,8 +181,8 @@ class QuickSearchStopCommand extends AppCommand {
   String get description => 'Leave the quick search, keeping the cursor where it is';
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.quickSearch != null;
+  bool isExecutable(CommandContext context) => QuickSearchCommand.searchIn(context.app) != null;
 
   @override
-  Future<void> execute(CommandContext context) async => context.panel.setQuickSearch(null);
+  Future<void> execute(CommandContext context) async => QuickSearchCommand.leave(context.app);
 }

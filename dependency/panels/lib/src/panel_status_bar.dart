@@ -44,79 +44,18 @@ class PanelStatusBar extends StatelessWidget {
                   // тема).
                   padding: EdgeInsets.symmetric(horizontal: theme.metrics.labelPadding + theme.metrics.cellPadding),
                   alignment: Alignment.centerLeft,
-                  child:
-                      panel.quickSearch == null
-                          ? Text.rich(
-                            _content(theme),
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: error ? theme.statusStyle.copyWith(color: theme.colors.error) : theme.statusStyle,
-                          )
-                          : _search(theme, panel.quickSearch!),
+                  child: Text.rich(
+                    _content(theme),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: error ? theme.statusStyle.copyWith(color: theme.colors.error) : theme.statusStyle,
+                  ),
                 ),
               ),
             ],
           ),
         );
       },
-    );
-  }
-
-  /// Набранное в быстром поиске — **полем ввода**, а не строкой текста.
-  ///
-  /// Рамка здесь не украшение: пока идёт поиск, клавиши принадлежат ему, и
-  /// человек должен видеть, куда они уходят. Строкой текста это выглядело бы
-  /// как сообщение, а сообщения ввод не забирают.
-  ///
-  /// Поле ненастоящее: клавиши разбирает приложение, а не текстовое поле
-  /// системы. Настоящее пришлось бы ещё и фокусировать, отбирая его у панели, —
-  /// а курсор при этом обязан оставаться на своём месте в списке.
-  Widget _search(FcTheme theme, String pattern) {
-    final metrics = theme.metrics;
-    final colors = theme.colors;
-
-    return Row(
-      children: [
-        Text('Search', style: theme.statusStyle.copyWith(color: colors.secondaryText)),
-        SizedBox(width: metrics.columnGap),
-        Flexible(
-          child: Container(
-            // Той же высоты, что поля в окнах: поле должно выглядеть полем, а
-            // не сжатой его копией. Ради этого и подросла сама полоса.
-            height: metrics.inputHeight,
-            padding: EdgeInsets.symmetric(horizontal: metrics.inputHorizontalPadding),
-            alignment: Alignment.centerLeft,
-            decoration: BoxDecoration(
-              color: colors.inputBackground,
-              border: Border.all(color: colors.focusRing, width: metrics.strokeWidth),
-              borderRadius: BorderRadius.circular(metrics.inputRadius),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Flexible(child: Text(pattern, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.inputStyle)),
-                // Курсор — чтобы ввод был виден сразу, а не угадывался по
-                // рамке. Не мигает нарочно: мигание — бесконечная анимация, и
-                // `pumpAndSettle` в тестах не дождался бы её никогда.
-                Padding(
-                  padding: EdgeInsets.only(left: metrics.strokeWidth),
-                  child: SizedBox(
-                    // Вдвое толще линии: волосяной курсор на общем фоне не
-                    // виден, а толще — уже похож на знак.
-                    width: metrics.strokeWidth * 2,
-                    height: metrics.fontSize,
-                    child: ColoredBox(color: colors.inputText),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-        SizedBox(width: metrics.columnGap),
-        // Выход только по `Esc` — и об этом сказано прямо: пока поле на экране,
-        // клавиши не вернутся к панели сами.
-        Text('Esc to leave', style: theme.statusStyle.copyWith(color: colors.secondaryText)),
-      ],
     );
   }
 
