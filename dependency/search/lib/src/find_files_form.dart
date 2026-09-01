@@ -4,6 +4,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
 import 'find_files_state.dart';
+import 'found_table.dart';
 
 /// Окно поиска: маска, флаги, ход работы и то, что нашлось.
 class FindFilesForm extends StatefulWidget {
@@ -47,9 +48,7 @@ class _FindFilesFormState extends State<FindFilesForm> {
     final moved = FcPickList.moveSelection(
       event,
       selected: state.selected,
-      // По показанному, а не по всему найденному: за строкой, которой нет на
-      // экране, курсор ушёл бы в никуда.
-      count: state.shown.length,
+      count: state.found.length,
       wrap: false,
       page: _page,
     );
@@ -68,103 +67,111 @@ class _FindFilesFormState extends State<FindFilesForm> {
     return ListenableBuilder(
       listenable: state,
       builder: (context, _) {
-        return CommandDialogBody(
-          // Кнопки идут слева направо к главной, а главная меняется вместе с
-          // делом: пока не искали — это «Begin», как только нашлось — «To
-          // panel». Обе кнопки про находки до первого поиска не показываются
-          // вовсе: мёртвая кнопка, у которой ещё и смысл неочевиден, — это
-          // вопрос без ответа.
-          actions: [
-            // Пока идёт обход, «Закрыть» становится «Стоп»: прекратить нужнее,
-            // чем уйти, а найденное при этом остаётся на месте.
-            FcButton(label: state.busy ? 'Stop' : 'Close', onPressed: state.busy ? state.stop : state.close),
-            FcButton(
-              label: 'Begin',
-              primary: state.found.isEmpty,
-              onPressed: state.canStart ? () => unawaited(state.start()) : null,
-            ),
-            if (state.found.isNotEmpty) ...[
-              // «К файлу», а не просто «перейти»: рядом стоит «весь список в
-              // панель», и по одному имени их было не различить.
-              FcButton(label: 'Go to file', onPressed: state.canGoTo ? () => unawaited(state.goTo()) : null),
-              FcButton(label: 'To panel', primary: true, onPressed: () => unawaited(state.toPanel())),
+        // Ширина — доля экрана, а не размер содержимого: пути находок бывают
+        // длинными и разными, и от них окно прыгало бы на каждой пачке. Тем же
+        // ответом снимается вопрос рамы о ширине — а ленивая таблица находок
+        // отвечать на него и не умеет.
+        return SizedBox(
+          width: MediaQuery.sizeOf(context).width * theme.metrics.dialogWidthFactor,
+          child: CommandDialogBody(
+            // Кнопки идут слева направо к главной, а главная меняется вместе с
+            // делом: пока не искали — это «Begin», как только нашлось — «To
+            // panel». Обе кнопки про находки до первого поиска не показываются
+            // вовсе: мёртвая кнопка, у которой ещё и смысл неочевиден, — это
+            // вопрос без ответа.
+            actions: [
+              // Пока идёт обход, «Закрыть» становится «Стоп»: прекратить нужнее,
+              // чем уйти, а найденное при этом остаётся на месте.
+              FcButton(label: state.busy ? 'Stop' : 'Close', onPressed: state.busy ? state.stop : state.close),
+              FcButton(
+                label: 'Begin',
+                primary: state.found.isEmpty,
+                onPressed: state.canStart ? () => unawaited(state.start()) : null,
+              ),
+              if (state.found.isNotEmpty) ...[
+                // «К файлу», а не просто «перейти»: рядом стоит «весь список в
+                // панель», и по одному имени их было не различить.
+                FcButton(label: 'Go to file', onPressed: state.canGoTo ? () => unawaited(state.goTo()) : null),
+                FcButton(label: 'To panel', primary: true, onPressed: () => unawaited(state.toPanel())),
+              ],
             ],
-          ],
-          children: [
-            CommandDialogField(
-              label: 'Mask',
-              child: Focus(
-                focusNode: _focus,
-                onKeyEvent: _onKey,
-                // `Enter` полю не отдаётся: в открытом окне его разбирает рама
-                // и отдаёт окну (`DialogSpec.onSubmit`). Два пути к одному
-                // действию разошлись бы в первый же день, когда одному из них
-                // добавят условие.
-                child: FcTextField(
-                  controller: _mask,
-                  autofocus: true,
-                  hintText: '*.dart;!*.g.dart',
-                  onChanged: state.typed,
+            children: [
+              CommandDialogField(
+                label: 'Mask',
+                child: Focus(
+                  focusNode: _focus,
+                  onKeyEvent: _onKey,
+                  // `Enter` полю не отдаётся: в открытом окне его разбирает рама
+                  // и отдаёт окну (`DialogSpec.onSubmit`). Два пути к одному
+                  // действию разошлись бы в первый же день, когда одному из них
+                  // добавят условие.
+                  child: FcTextField(
+                    controller: _mask,
+                    autofocus: true,
+                    hintText: '*.dart;!*.g.dart',
+                    onChanged: state.typed,
+                  ),
                 ),
               ),
-            ),
-            // Где ищем — показано, но не правится: чтобы искать в другом месте,
-            // туда переходят панелью.
-            CommandDialogField(
-              label: 'In',
-              child: Text(state.where.pathString, style: theme.dialogTextStyle, overflow: TextOverflow.ellipsis),
-            ),
-            CommandDialogField.wide(
-              child: FcCheckbox(
-                label: 'Look inside subdirectories',
-                value: state.query.recursive,
-                onChanged: state.busy ? null : state.setRecursive,
+              // Где ищем — показано, но не правится: чтобы искать в другом месте,
+              // туда переходят панелью.
+              CommandDialogField(
+                label: 'In',
+                child: Text(state.where.pathString, style: theme.dialogTextStyle, overflow: TextOverflow.ellipsis),
               ),
-            ),
-            CommandDialogField.wide(
-              child: FcCheckbox(
-                label: 'Include hidden files',
-                value: state.query.hidden,
-                onChanged: state.busy ? null : state.setHidden,
+              CommandDialogField.wide(
+                child: FcCheckbox(
+                  label: 'Look inside subdirectories',
+                  value: state.query.recursive,
+                  onChanged: state.busy ? null : state.setRecursive,
+                ),
               ),
-            ),
-            // Ход работы и итог — на одном и том же месте: пока идёт обход,
-            // здесь виден каталог, в котором он сейчас; кончился — сколько
-            // нашлось. Строки нет вовсе, пока сказать нечего: пустая занимала
-            // место, и между формой и кнопками зияла дыра непонятно подо что.
-            if (state.busy || state.searched)
+              CommandDialogField.wide(
+                child: FcCheckbox(
+                  label: 'Include hidden files',
+                  value: state.query.hidden,
+                  onChanged: state.busy ? null : state.setHidden,
+                ),
+              ),
+              // Ход работы и итог — на одном и том же месте, и место это занято
+              // **всегда**: пока идёт обход, здесь виден каталог, в котором он
+              // сейчас; кончился — сколько нашлось; до первого поиска пусто.
+              //
+              // Строка, то появляющаяся, то исчезающая, двигала бы таблицу под
+              // курсором ровно в тот миг, когда в неё смотрят. Дырой пустая
+              // строка не выглядит: под ней стоит рамка таблицы, и видно, что
+              // место занято делом.
               CommandDialogField.wide(
                 child: Text(
                   _summary(state),
                   style: theme.dialogLabelStyle,
+                  // Высота строки постоянная, что бы в ней ни стояло: у пустого
+                  // текста нет ни одного глифа, и без этого он на пару точек
+                  // ниже — а на эти пару точек ездила бы таблица под ним.
+                  strutStyle: StrutStyle.fromTextStyle(theme.dialogLabelStyle, forceStrutHeight: true),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-            if (state.found.isNotEmpty)
-              CommandDialogField.bleed(
-                child: ConstrainedBox(
-                  constraints: BoxConstraints(
-                    maxHeight: (theme.metrics.rowHeight + theme.metrics.rowGap) * _visibleRows,
-                  ),
-                  child: FcPickList(
-                    rows: [
-                      for (final node in state.shown)
-                        FcPickRow(id: node.pathString, title: node.name, trailing: state.whereOf(node)),
-                    ],
-                    // Отбирать нечего: список и есть ответ на заданный вопрос,
-                    // а подсвечивать в именах маску нельзя — она не подстрока.
-                    query: '',
-                    selected: state.selected,
-                    page: _page,
-                    onTap: (path) {
-                      state.select(state.found.indexWhere((node) => node.pathString == path));
-                      unawaited(state.goTo());
-                    },
-                  ),
+              // Таблица стоит **всегда**, и размер у неё постоянный: пустая
+              // рамка читается как «сюда придут находки», а список, растущий по
+              // ходу работы, дёргал бы окно под курсором на каждой пачке.
+              CommandDialogField.wide(
+                child: FoundTable(
+                  nodes: state.found,
+                  selected: state.selected,
+                  whereOf: state.whereOf,
+                  rows: _visibleRows,
+                  page: _page,
+                  emptyMessage: state.searched ? 'Nothing found' : '',
+                  onTap: (index) {
+                    state.select(index);
+                    unawaited(state.goTo());
+                  },
                 ),
               ),
-          ],
+            ],
+          ),
         );
       },
     );
@@ -186,11 +193,10 @@ class _FindFilesFormState extends State<FindFilesForm> {
     }
     final count = state.found.length;
     if (count == 0) {
-      return 'Nothing found';
+      // Про «ничего не нашлось» говорит сама таблица — своей пустотой и
+      // словами в ней. Повторять это второй строкой незачем.
+      return '';
     }
-    final total = 'Found $count ${count == 1 ? 'item' : 'items'}';
-    // Показано не всё — об этом говорят прямо: молча обрезанный список
-    // заставил бы искать пропажу.
-    return state.allShown ? total : '$total, first ${FindFilesState.shownLimit} shown';
+    return 'Found $count ${count == 1 ? 'item' : 'items'}';
   }
 }

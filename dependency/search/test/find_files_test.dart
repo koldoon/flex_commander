@@ -34,8 +34,8 @@ void main() {
     matching: find.byWidgetPredicate((widget) => widget is TextField && widget.enabled != false),
   );
 
-  Future<void> pumpApp(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(802, 621);
+  Future<void> pumpApp(WidgetTester tester, {Size size = const Size(802, 621)}) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
@@ -238,34 +238,42 @@ void main() {
     expect(app.left.currentNode?.name, 'util.dart');
   });
 
-  testWidgets('до поиска между формой и кнопками нет пустой строки', (tester) async {
-    // Строка хода работы стоит на своём месте, только когда ей есть что
-    // сказать. Пустая занимала место, и между формой и кнопками зияла дыра
-    // непонятно подо что.
+  testWidgets('таблица находок стоит всегда и не меняет размера', (tester) async {
+    // Пустая рамка читается как «сюда придут находки», а не как дыра непонятно
+    // подо что. И размер у неё постоянный: список, растущий по ходу работы,
+    // дёргал бы окно под курсором на каждой пачке.
+    // Окно пошире: в тесном ряд кнопок не влезает и ужимается целиком
+    // (`FittedBox` в `CommandDialogActions`), а от его высоты едет и всё
+    // остальное — окно стоит по центру экрана.
+    await pumpApp(tester, size: const Size(1200, 800));
+    await openWindow(tester);
+
+    final empty = tester.getRect(find.byType(FoundTable));
+    final window = tester.getRect(find.byType(FindFilesForm));
+    expect(find.text('Nothing found'), findsNothing, reason: 'ещё не искали — и молчим');
+
+    await search(tester, '*.dart');
+
+    expect(find.text('util.dart'), findsOneWidget);
+    expect(tester.getRect(find.byType(FoundTable)), empty, reason: 'таблица там же и того же размера');
+    expect(tester.getRect(find.byType(FindFilesForm)), window, reason: 'и окно не поехало');
+  });
+
+  testWidgets('искали и не нашли — таблица говорит об этом сама', (tester) async {
     await pumpApp(tester);
     await openWindow(tester);
 
-    double gap() =>
-        tester.getRect(find.byType(CommandDialogActions)).top -
-        tester.getRect(find.text('Include hidden files')).bottom;
-
-    final before = gap();
-    final metrics = FcTheme.of(tester.element(find.byType(FindFilesForm))).metrics;
-    expect(before, lessThan(metrics.inputHeight), reason: 'лишней строки нет');
-
-    // Искали и не нашли — вот теперь строке есть что сказать.
     await search(tester, '*.zip');
 
     expect(find.text('Nothing found'), findsOneWidget);
-    expect(gap(), greaterThan(before), reason: 'строка появилась только сейчас');
   });
 
-  testWidgets('находок больше, чем показывает список: сказано сколько', (tester) async {
-    // Список в окне не ленивый, и тысячи строк собирались бы на каждую
-    // перерисовку — из-за этого приложение и вставало. Окно показывает первые,
-    // а разглядывать находки идут в панель.
+  testWidgets('тысяча находок — строк собрано столько, сколько видно', (tester) async {
+    // То, ради чего таблица своя: общий список окон собирает все строки разом,
+    // и на тысячах находок приложение вставало намертво. Здесь строится только
+    // видимое.
     final many = <FakeEntry>[FakeEntry.directory('/big')];
-    for (var i = 0; i < FindFilesState.shownLimit + 50; i++) {
+    for (var i = 0; i < 1000; i++) {
       many.add(FakeEntry.file('/big/file$i.dart', size: 1));
     }
     app =
@@ -280,9 +288,12 @@ void main() {
     await search(tester, '*.dart');
 
     final state = tester.widget<FindFilesForm>(find.byType(FindFilesForm)).state;
-    expect(state.found, hasLength(FindFilesState.shownLimit + 50));
-    expect(state.shown, hasLength(FindFilesState.shownLimit));
-    expect(find.text('Found 250 items, first 200 shown'), findsOneWidget);
+    expect(state.found, hasLength(1000), reason: 'нашлось всё');
+    expect(find.text('Found 1000 items'), findsOneWidget);
+
+    // А построено — по числу видимых строк, а не по числу находок.
+    final built = tester.widgetList(find.descendant(of: find.byType(FoundTable), matching: find.byType(Row))).length;
+    expect(built, lessThan(50), reason: 'список ленивый: строк собрано столько, сколько влезло в обзор');
   });
 
   testWidgets('перерисовок меньше, чем находок', (tester) async {
