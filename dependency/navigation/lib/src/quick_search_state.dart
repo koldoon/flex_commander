@@ -11,12 +11,21 @@ import 'package:flutter/foundation.dart';
 ///
 /// Само присутствие этого состояния и есть «режим включён»: отдельного признака
 /// нет, и рассогласовать их поэтому невозможно.
-class QuickSearchState extends ChangeNotifier implements ViewportState {
-  QuickSearchState({required this.panel, required this.onLeave}) : _directory = panel.directory?.pathString {
+class QuickSearchState extends ChangeNotifier implements TransientContent {
+  QuickSearchState({required this.panel, required this.onLeave, required Set<String> keeps})
+    : _keeps = keeps,
+      _directory = panel.directory?.pathString {
     panel.addListener(_watchPanel);
   }
 
   final Panel panel;
+
+  /// Команды, при которых полоса остаётся, — её собственные.
+  ///
+  /// Приходят снаружи, а не спрашиваются у команд: список составляет тот, кто
+  /// эти команды и объявил, — модуль. Иначе состоянию пришлось бы знать о
+  /// командах, которые знают о нём.
+  final Set<String> _keeps;
 
   /// Как уйти: убрать себя из области. Зовётся и по `Esc`, и когда панель
   /// сменила каталог.
@@ -69,6 +78,14 @@ class QuickSearchState extends ChangeNotifier implements ViewportState {
       onLeave();
     }
   }
+
+  /// Любая чужая команда снимает полосу — стрелка, `Tab`, `F5`, что угодно.
+  ///
+  /// Так ведёт себя `mc`, и так правило остаётся простым: полоса живёт, пока
+  /// идут её собственные команды. Помнить, какие клавиши её оставляют, а какие
+  /// нет, человеку не приходится.
+  @override
+  bool survivesCommand(String commandId) => _keeps.contains(commandId);
 
   /// Клавиши принадлежат поиску, пока полоса на экране.
   ///

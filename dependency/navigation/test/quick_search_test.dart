@@ -186,6 +186,67 @@ void main() {
     expect(cursor(), '..');
   });
 
+  group('чужая команда закрывает полосу', () {
+    // Так ведёт себя `mc`: набирают имя — полоса на экране, нажали что угодно
+    // другое — её нет. Правило простое и потому предсказуемое: полоса живёт,
+    // пока идут её собственные команды.
+    test('стрелка закрывает — и курсор при этом двигается', () {
+      press('Ctrl-S');
+      type('do');
+      expect(cursor(), 'docs');
+
+      expect(press('Down'), isTrue);
+
+      expect(search(), isNull, reason: 'полосы больше нет');
+      expect(cursor(), 'downloads', reason: 'а стрелка сделала своё дело');
+    });
+
+    test('Tab закрывает', () {
+      press('Ctrl-S');
+      type('d');
+
+      press('Tab');
+
+      expect(search(), isNull);
+    });
+
+    test('команда, запущенная не с клавиатуры, — тоже', () {
+      // Из палитры, кнопкой, из меню: путь один и тот же, и правило одно.
+      press('Ctrl-S');
+      type('d');
+
+      expect(runtime.commands.run('panel.selection.all'), isTrue);
+
+      expect(search(), isNull);
+    });
+
+    test('свои команды полосу оставляют', () {
+      press('Ctrl-S');
+      expect(search(), isNotNull);
+
+      // Буква, повтор поиска и стирание — всё это сам поиск.
+      type('d');
+      expect(search(), isNotNull);
+      press('Ctrl-S');
+      expect(search(), isNotNull);
+      press('Bsp');
+      expect(search(), isNotNull);
+      expect(pattern(), '');
+    });
+
+    test('невыполнимая команда полосы не трогает', () {
+      // Клавиша, под которой ничего не выполнилось, — это не «другая команда»,
+      // а несостоявшееся нажатие: снимать по нему полосу не за что.
+      press('Ctrl-S');
+      expect(cursor(), '..', reason: 'курсор там же, где был');
+
+      // Удалять «..» нечего — команда невыполнима, и окно не откроется.
+      expect(press('F8'), isFalse);
+
+      expect(search(), isNotNull, reason: 'полоса на месте');
+    });
+  });
+
   test('уход в другой каталог выключает режим', () async {
     press('Ctrl-S');
     type('do');

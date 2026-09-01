@@ -2,6 +2,18 @@ import 'package:fc_api/fc_api.dart';
 
 import 'quick_search_state.dart';
 
+/// Команды самого поиска: при них полоса остаётся, при любой другой — уходит.
+///
+/// Список живёт рядом с командами, а не внутри состояния: объявляет их модуль,
+/// и он же знает, что здесь перечислено всё. Ядру он отдаётся при открытии
+/// полосы ([QuickSearchState.survivesCommand]).
+const Set<String> quickSearchCommands = {
+  QuickSearchCommand.commandId,
+  QuickSearchTypeCommand.commandId,
+  QuickSearchEraseCommand.commandId,
+  QuickSearchStopCommand.commandId,
+};
+
 /// Быстрый поиск в панели: курсор идёт за набранным.
 ///
 /// Клавиша из `mc` (`Ctrl-S`), и повадка та же: совпадение **с начала имени**,
@@ -49,7 +61,10 @@ class QuickSearchCommand extends AppCommand {
     }
     // Первое нажатие только открывает полосу: курсор не двигается, потому что
     // искать ещё нечего.
-    view.pushViewportContent(position, QuickSearchState(panel: context.panel, onLeave: () => leave(context.app)));
+    view.pushViewportContent(
+      position,
+      QuickSearchState(panel: context.panel, onLeave: () => leave(context.app), keeps: quickSearchCommands),
+    );
   }
 
   /// Идущий сейчас поиск активной панели; null — режима нет.

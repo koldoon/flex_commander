@@ -391,10 +391,33 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
       return false;
     }
 
+    // Полоса, живущая до первой чужой команды, снимается **здесь** — раньше
+    // самой команды и раньше, чем та успеет сменить активную область.
+    //
+    // `Tab` — ровно тот случай: он уводит ввод на другую сторону, и спроси мы
+    // после, снимать было бы уже нечего (или не то). Место единственное: сюда
+    // приходят и клавиша, и кнопка, и палитра — значит правило одно на всех.
+    _dismissTransient(app, commandId);
+
     // Запуск не ждут: нажатие клавиши не может стоять и ждать конца работы.
     // Но исход разбирается — раньше ошибка команды без окна пропадала совсем.
     unawaited(runToCompletion(command, invocation));
     return true;
+  }
+
+  /// Снимает полосу активной панели, если эта команда ей чужая.
+  ///
+  /// Что «своё», а что «чужое», решает сама полоса ([TransientContent]): ядро
+  /// не знает ни про быстрый поиск, ни про его команды.
+  void _dismissTransient(Application app, String commandId) {
+    final position = app.view.activeArea.status;
+    if (position == null) {
+      return;
+    }
+    final content = app.view.contentAt(position);
+    if (content is TransientContent && !content.survivesCommand(commandId)) {
+      app.view.popViewportContent(position);
+    }
   }
 
   /// Выполняет уже созданную команду и разбирает исход: закрывает окно, если

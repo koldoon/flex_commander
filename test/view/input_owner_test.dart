@@ -7,7 +7,6 @@ import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Обводка и курсор стоят там, куда попадёт следующее нажатие, — и только там.
@@ -56,15 +55,23 @@ void main() {
         .length;
   }
 
+  /// Открывает поиск в обеих панелях.
+  ///
+  /// Стороны переключаются **мышью** (`activate`), а не `Tab`: `Tab` — это
+  /// команда, и полосу она снимает. Мышь командой не является, и две полосы
+  /// разом получаются именно так.
+  Future<void> searchInBothPanels(WidgetTester tester) async {
+    press('Ctrl-S');
+    await tester.pumpAndSettle();
+    app().activate(app().right);
+    await tester.pumpAndSettle();
+    press('Ctrl-S');
+    await tester.pumpAndSettle();
+  }
+
   testWidgets('поиск открыт в обеих панелях — обводка и курсор одни', (tester) async {
     await pumpApp(tester);
-
-    press('Ctrl-S');
-    await tester.pumpAndSettle();
-    press('Tab');
-    await tester.pumpAndSettle();
-    press('Ctrl-S');
-    await tester.pumpAndSettle();
+    await searchInBothPanels(tester);
 
     // Полосы две — это правда, каждая про свою панель.
     expect(find.byType(QuickSearchView), findsNWidgets(2));
@@ -75,57 +82,49 @@ void main() {
 
     // Курсор — под активной панелью, то есть под правой.
     final caret = tester.getRect(find.byType(FcCaret));
-    final split = tester.getRect(find.byType(QuickSearchView).first);
-    expect(caret.left, greaterThan(split.right), reason: 'ввод у правой панели');
+    final left = tester.getRect(find.byType(QuickSearchView).first);
+    expect(caret.left, greaterThan(left.right), reason: 'ввод у правой панели');
 
     await tester.pump(const Duration(milliseconds: 20));
   });
 
-  testWidgets('Tab переносит обводку на другую сторону', (tester) async {
+  testWidgets('переключение стороны переносит обводку', (tester) async {
     await pumpApp(tester);
-
-    press('Ctrl-S');
-    await tester.pumpAndSettle();
-    press('Tab');
-    await tester.pumpAndSettle();
-    press('Ctrl-S');
-    await tester.pumpAndSettle();
+    await searchInBothPanels(tester);
 
     final right = tester.getRect(find.byType(FcCaret));
 
-    press('Tab');
+    app().activate(app().left);
     await tester.pumpAndSettle();
 
     expect(litRings(tester), 1, reason: 'по-прежнему одна');
-    final left = tester.getRect(find.byType(FcCaret));
-    expect(left.left, lessThan(right.left), reason: 'курсор уехал к левой панели');
+    expect(tester.getRect(find.byType(FcCaret)).left, lessThan(right.left), reason: 'курсор уехал к левой');
 
     await tester.pump(const Duration(milliseconds: 20));
   });
 
   testWidgets('открытое окно забирает обводку и курсор себе', (tester) async {
     await pumpApp(tester);
-    // Курсор на файле: копировать «..» нечего, и окно бы не открылось.
-    app().left.setCursorToName('alpha.txt');
 
     press('Ctrl-S');
     await tester.pumpAndSettle();
     expect(litRings(tester), 1);
 
-    // `F5` поверх открытого поиска: окно забирает клавиши целиком, и печатать
-    // человек будет в него, а не в полосу под панелью.
-    press('F5');
+    // Окно открывается **не командой**: команда сняла бы полосу сама. Так
+    // приходят вопрос о пароле, ошибка и вопрос вставшей фоновой работы —
+    // поверх всего, что было на экране.
+    final dialog = app().view.showDialog(
+      DialogSpec(title: 'Question', content: const SizedBox.shrink(), onSubmit: () async => true),
+    );
     await tester.pumpAndSettle();
-    expect(app().view.dialogs, hasLength(1), reason: 'окно открылось');
 
     expect(litRings(tester), 0, reason: 'полоса погасила обводку');
     expect(find.byType(FcCaret), findsNothing, reason: 'и курсор');
 
     // Окно ушло — всё вернулось: поиск никуда не девался.
-    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    app().view.closeDialog(dialog);
     await tester.pumpAndSettle();
 
-    expect(app().view.dialogs, isEmpty);
     expect(litRings(tester), 1);
     expect(find.byType(FcCaret), findsOneWidget);
 
