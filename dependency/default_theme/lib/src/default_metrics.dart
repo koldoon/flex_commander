@@ -256,7 +256,7 @@ class DefaultMetrics extends FcMetrics {
   /// полей в окнах, — но правится не в одиночку: от него же считается низ
   /// полноэкранного терминала, иначе приглашение прыгнет при `Ctrl-O`.
   @override
-  double get commandLineHeight => 28;
+  double get commandLineHeight => 20;
 
   @override
   double get inputRadius => 3.2;
