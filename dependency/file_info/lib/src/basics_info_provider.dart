@@ -39,7 +39,9 @@ class BasicsInfoProvider implements NodeInfoProvider {
       if (file != null && extensionOf(node.name).isNotEmpty) NodeInfoRow('Extension', extensionOf(node.name)),
       // У каталога размер не пишем вовсе: считать его — обойти дерево, и
       // делать это молча при открытии окна нельзя. Для этого есть кнопка.
-      if (node is! DirectoryNode && node.size >= 0) NodeInfoRow('Size', formatBytesLong(node.size)),
+      // До последнего байта, а не сокращённо, как в колонке панели: здесь
+      // спрашивают «сколько именно».
+      if (node is! DirectoryNode && node.size >= 0) NodeInfoRow('Size', formatBytesExact(node.size)),
       // Откуда открыт файл: диск, архив, сервер. По схеме источника — того
       // самого провайдера дерева, в котором узел живёт.
       NodeInfoRow('Where', node.provider.scheme),

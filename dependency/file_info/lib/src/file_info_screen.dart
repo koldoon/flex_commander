@@ -61,7 +61,10 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
   List<NodeInfoRow> get summary => [
     NodeInfoRow('Items', '${_nodes.length}'),
     NodeInfoRow('Directories', '${_nodes.whereType<DirectoryNode>().length}'),
-    NodeInfoRow('Size', formatBytesLong(_nodes.where((node) => node.size > 0).fold(0, (sum, node) => sum + node.size))),
+    NodeInfoRow(
+      'Size',
+      formatBytesExact(_nodes.where((node) => node.size > 0).fold(0, (sum, node) => sum + node.size)),
+    ),
   ];
 
   /// Размер каталога: null — ещё не считали.

@@ -185,16 +185,16 @@ class DefaultMetrics extends FcMetrics {
   double get settingsWidthFactor => 0.75;
 
   @override
-  double get settingsHeadingFontSize => 17;
+  double get sectionHeadingFontSize => 17;
 
   @override
   double get settingsTocWidth => 180;
 
   @override
-  double get settingsBlockGap => 14;
+  double get sectionEntryGap => 14;
 
   @override
-  double get settingsSectionGap => 24;
+  double get sectionGap => 24;
 
   @override
   double get dialogDividerHeight => 1;

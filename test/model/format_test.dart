@@ -37,6 +37,24 @@ void main() {
     });
   });
 
+  group('formatBytesExact', () {
+    test('до последнего байта, с разбивкой по тысячам', () {
+      // В сведениях об объекте спрашивают «сколько именно», а не «примерно
+      // сколько»: по `2.0 GB` не сверить два файла и не сложить.
+      // Пробелы неразрывные и записаны кодом: от обычных они в исходнике не
+      // отличаются глазом.
+      expect(formatBytesExact(2147483648), '2\u00a0147\u00a0483\u00a0648\u00a0B');
+      expect(formatBytesExact(914), '914\u00a0B');
+      expect(formatBytesExact(1000), '1\u00a0000\u00a0B');
+      expect(formatBytesExact(0), '0\u00a0B');
+    });
+
+    test('размера нет — и строки нет', () {
+      // У каталога и у псевдоузла «..» размера нет вовсе.
+      expect(formatBytesExact(FsNode.unknownSize), '');
+    });
+  });
+
   group('formatDate', () {
     test('формат макета: дд-мм-гггг', () {
       expect(formatDate(DateTime(2018, 2, 19)), '19-02-2018');

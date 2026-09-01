@@ -145,12 +145,17 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             for (var i = 0; i < widget.sections.length; i++) ...[
-              if (i > 0) SizedBox(height: metrics.dialogGap),
+              if (i > 0) SizedBox(height: metrics.sectionGap),
               // Заголовок раздела — строкой во всю ширину: столбцы под ним те
-              // же, что и у соседних разделов.
+              // же, что и у соседних разделов. И крупнее подписей, а не только
+              // жирнее: разделов много, и на общем кегле заголовок теряется
+              // среди них — то же решение, что в окне настроек.
               Padding(
-                padding: EdgeInsets.only(bottom: metrics.dialogPadding / 2),
-                child: Text(widget.sections[i].title, style: theme.dialogTitleStyle),
+                padding: EdgeInsets.only(bottom: metrics.sectionEntryGap),
+                child: Text(
+                  widget.sections[i].title,
+                  style: theme.dialogTitleStyle.copyWith(fontSize: metrics.sectionHeadingFontSize),
+                ),
               ),
               _rows(theme, widget.sections[i], widths, columns),
             ],

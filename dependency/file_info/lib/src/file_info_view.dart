@@ -37,7 +37,7 @@ List<FcTableSection> sectionsOf(FileInfoScreen screen) {
   // Размер каталога сам не считается; в окне для этого кнопка, а здесь строка
   // с ответом, когда его уже посчитали.
   if (screen.directorySize case final size?) {
-    sections.add(FcTableSection('Contents', [FcTableRow('Size', formatBytesLong(size))]));
+    sections.add(FcTableSection('Contents', [FcTableRow('Size', formatBytesExact(size))]));
   }
 
   return sections;

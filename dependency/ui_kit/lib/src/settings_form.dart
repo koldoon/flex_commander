@@ -318,10 +318,10 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                                         // Просвет **перед** заголовком, а не
                                         // после каждого раздела: у первого
                                         // сверху уже есть поле окна.
-                                        if (position > 0) SizedBox(height: metrics.settingsSectionGap),
+                                        if (position > 0) SizedBox(height: metrics.sectionGap),
                                         _heading(theme, title, key: _headings[index]),
                                         for (final field in fields) ...[
-                                          SizedBox(height: metrics.settingsBlockGap),
+                                          SizedBox(height: metrics.sectionEntryGap),
                                           _block(theme, schema, field),
                                         ],
                                       ],
@@ -361,7 +361,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       key: key,
       style: TextStyle(
         fontFamily: theme.fonts.ui,
-        fontSize: theme.metrics.settingsHeadingFontSize,
+        fontSize: theme.metrics.sectionHeadingFontSize,
         fontWeight: FontWeight.bold,
         color: theme.colors.dialogTitleText,
       ),
