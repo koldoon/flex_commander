@@ -133,8 +133,11 @@ void main() {
 
     // Наружу одним прыжком: закрыться должны оба звена.
     expect(await panel.openPath(root), isTrue);
-    // Закрытие асинхронное: панель не ждёт его, чтобы показать каталог.
-    await pumpEventQueue();
+    // Закрытие асинхронное: панель не ждёт его, чтобы показать каталог. А
+    // уборка временной копии идёт на диск — оборотами очереди её не ускорить,
+    // и на сборочной машине их не хватало (упал CI выпуска v0.0.50). Тот же
+    // случай и то же лекарство, что в `zip_tree_provider_test.dart`.
+    await waitUntilAsync(() async => !await File(provider.archivePath).exists());
 
     expect(File(provider.archivePath).existsSync(), isFalse, reason: 'копия живёт не дольше архива');
   });
