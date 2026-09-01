@@ -27,7 +27,11 @@ class QuickSearchView extends StatelessWidget {
       listenable: state,
       builder: (context, _) {
         return Padding(
-          padding: EdgeInsets.only(top: metrics.rowGap),
+          // Поля те же, что у соседей по этой области: по бокам — как у полосы
+          // хода работы (она стоит тут же, под той же панелью), сверху и снизу —
+          // как воздух вокруг командной строки: там такое же поле ввода в
+          // полосе, и отбито оно должно быть так же.
+          padding: EdgeInsets.symmetric(horizontal: metrics.dialogGap, vertical: metrics.commandLineGap),
           child: Row(
             children: [
               Text('Search', style: theme.statusStyle.copyWith(color: colors.secondaryText)),
