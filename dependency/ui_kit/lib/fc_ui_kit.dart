@@ -16,6 +16,7 @@ export 'src/command_dialog.dart';
 export 'src/drag_slop.dart';
 export 'src/command_palette.dart';
 export 'src/controls.dart';
+export 'src/cursor_blink.dart';
 export 'src/fc_theme.dart';
 export 'src/key_value_table.dart';
 export 'src/palette_search.dart';

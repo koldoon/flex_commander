@@ -87,4 +87,43 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 20));
   });
+
+  testWidgets('курсор и обводка — общие, а не свои', (tester) async {
+    // Полоса поиска выглядит как поле ввода и обязана выглядеть **как
+    // остальные**: своя обводка была вдвое тоньше, а курсор рисовался мимо
+    // общей меры.
+    final runtime = await testApp(
+      provider: InMemoryTreeProvider([FakeEntry.directory('/home'), FakeEntry.directory('/home/docs')])..home = '/home',
+      modules: featureModules(),
+    );
+    await runtime.app.start();
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    runtime.commands.dispatch(KeyCombination.parse('Ctrl-S'));
+    await tester.pumpAndSettle();
+
+    final theme = FcTheme.of(tester.element(find.byType(QuickSearchView)));
+
+    // Курсор — тот же, что рисуют все, кто рисует его сам.
+    final caret = tester.getSize(find.byType(FcCaret));
+    expect(caret.width, theme.metrics.caretWidth);
+
+    // И **ростом со строку**, как курсор настоящего поля, а не с кегль: взяв
+    // кегль, полоска выходит заметно ниже, чем в соседних полях.
+    expect(caret.height, greaterThan(theme.metrics.fontSize));
+    expect(caret.height, FcCaret.lineHeightOf(tester.element(find.byType(FcCaret)), theme.inputStyle));
+
+    // Обводка фокуса — поверх, а не рамкой, и той же толщины, что у полей в
+    // окнах: рамка входит в размер и сдвигала бы содержимое.
+    final field = tester
+        .widgetList<Container>(find.descendant(of: find.byType(QuickSearchView), matching: find.byType(Container)))
+        .firstWhere((box) => box.foregroundDecoration != null);
+    final ring = (field.foregroundDecoration! as BoxDecoration).border!.top;
+
+    expect(ring.width, theme.metrics.focusRingWidth);
+    expect(ring.color, theme.colors.focusRing);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
 }

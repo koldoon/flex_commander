@@ -960,6 +960,10 @@ class _FcTextFieldState extends State<FcTextField> {
         onSubmitted: widget.onSubmitted,
         style: theme.inputStyle,
         cursorColor: colors.inputText,
+        // Толщина и скругление — общие: курсор в окне, в командной строке и в
+        // нарисованных полях должен выглядеть одинаково.
+        cursorWidth: metrics.caretWidth,
+        cursorRadius: Radius.circular(metrics.caretRadius),
         decoration: InputDecoration(
           isDense: true,
           border: InputBorder.none,

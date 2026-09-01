@@ -44,7 +44,15 @@ class QuickSearchView extends StatelessWidget {
                   alignment: Alignment.centerLeft,
                   decoration: BoxDecoration(
                     color: colors.inputBackground,
-                    border: Border.all(color: colors.focusRing, width: metrics.strokeWidth),
+                    border: Border.all(color: colors.inputBorder, width: metrics.strokeWidth),
+                    borderRadius: BorderRadius.circular(metrics.inputRadius),
+                  ),
+                  // Обводка фокуса — та же и той же толщины, что у настоящих
+                  // полей, и так же **поверх**, а не рамкой: клавиши
+                  // принадлежат этому полю, пока полоса на экране, и выглядеть
+                  // это должно как везде. Своей рамкой она была вдвое тоньше.
+                  foregroundDecoration: BoxDecoration(
+                    border: Border.all(color: colors.focusRing, width: metrics.focusRingWidth),
                     borderRadius: BorderRadius.circular(metrics.inputRadius),
                   ),
                   child: Row(
@@ -71,18 +79,12 @@ class QuickSearchView extends StatelessWidget {
                           style: theme.inputStyle,
                         ),
                       ),
-                      // Курсор не мигает нарочно: мигание — бесконечная
-                      // анимация, и `pumpAndSettle` в тестах не дождался бы её
-                      // никогда.
+                      // Курсор — общий на всё приложение: та же толщина, те же
+                      // скруглённые торцы, то же мигание. Набор его сбрасывает:
+                      // пока печатают, курсор виден.
                       Padding(
                         padding: EdgeInsets.only(left: metrics.strokeWidth),
-                        child: SizedBox(
-                          // Вдвое толще линии: волосяной курсор на общем фоне
-                          // не виден, а толще — уже похож на знак.
-                          width: metrics.strokeWidth * 2,
-                          height: metrics.fontSize,
-                          child: ColoredBox(color: colors.inputText),
-                        ),
+                        child: FcCaret(style: theme.inputStyle, resetOn: state.pattern),
                       ),
                     ],
                   ),

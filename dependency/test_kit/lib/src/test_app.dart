@@ -1,9 +1,11 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_platform/fc_platform.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/bootstrap/bootstrap.dart';
 import 'package:flex_commander/modules/app_shell.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_clipboard.dart';
@@ -85,6 +87,17 @@ Future<AppRuntime> testApp({
   InMemorySettingsStore? store,
   String homePath = '/home',
 }) async {
+  // Курсор в прогоне не мигает — ни наш, ни системный.
+  //
+  // Мигание это кадр каждые полсекунды, а `pumpAndSettle` ждёт, пока кадры
+  // кончатся: с ним он не дождался бы никогда. Выключается оно **здесь**, один
+  // раз и за все тесты, — а не отменяется в самом приложении: показ не обязан
+  // становиться хуже ради прогона. У Flutter это устроено ровно так же
+  // (`EditableText.debugDeterministicCursor`), и его поля выключаются тем же
+  // движением.
+  FcCursorBlink.debugDeterministicCursor = true;
+  EditableText.debugDeterministicCursor = true;
+
   // Настройки в памяти: в виджет-тестах время поддельное, и настоящее чтение
   // с диска не завершилось бы никогда.
   final settingsStore = store ?? InMemorySettingsStore(settings: settings, homePath: homePath);

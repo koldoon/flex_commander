@@ -188,20 +188,34 @@ class _CommandLineViewState extends State<CommandLineView> {
   }
 
   /// Набранное в режиме `mc`: текст и нарисованный курсор.
+  ///
+  /// Курсор здесь рисуется сам, потому что поля ввода под ним нет вовсе: в
+  /// режиме `mc` клавиши разбирают привязки, а не система. Мигает он при этом
+  /// так же, как настоящий, и с тем же полупериодом: человек судит о том, куда
+  /// уходит набор, по курсору, а неподвижный курсор об этом не говорит ничего.
   Widget _typed(FcTheme theme, CommandLineState state, TextStyle style) {
     return Align(
       alignment: Alignment.centerLeft,
-      child: Text.rich(
-        TextSpan(
-          children: [
-            TextSpan(text: state.text.text, style: style),
-            // Курсор блоком, как в терминале: мигать ему незачем — системного
-            // фокуса здесь всё равно нет.
-            TextSpan(text: '\u2588', style: style.copyWith(color: theme.colors.cursorBackground)),
-          ],
-        ),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
+      child: FcCursorBlink(
+        // Набор сбрасывает мигание: пока печатают, курсор виден.
+        resetOn: state.text.text,
+        builder:
+            (context, visible) => Text.rich(
+              TextSpan(
+                children: [
+                  TextSpan(text: state.text.text, style: style),
+                  // Курсор блоком, как в терминале, — но прячется он цветом, а
+                  // не отсутствием: пропав из строки, блок дважды в секунду
+                  // менял бы её длину.
+                  TextSpan(
+                    text: '\u2588',
+                    style: style.copyWith(color: visible ? theme.colors.cursorBackground : const Color(0x00000000)),
+                  ),
+                ],
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
       ),
     );
   }
@@ -275,7 +289,8 @@ class _CommandLineViewState extends State<CommandLineView> {
                           focusNode: _node,
                           style: style,
                           cursorColor: colors.rowText,
-                          cursorWidth: metrics.strokeWidth * 2,
+                          cursorWidth: metrics.caretWidth,
+                          cursorRadius: Radius.circular(metrics.caretRadius),
                           decoration: const InputDecoration.collapsed(hintText: null),
                         ),
               ),

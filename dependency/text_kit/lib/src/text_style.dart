@@ -43,6 +43,8 @@ CodeEditorStyle textViewStyle(FcTheme theme, TextStyle base, String? language) {
     fontHeight: textLineHeight,
     textColor: colors.rowText,
     cursorColor: colors.markedBar,
+    // Толщина курсора общая на всё приложение — своей у редактора нет.
+    cursorWidth: theme.metrics.caretWidth,
     selectionColor: colors.inputSelection,
     // Язык не опознан — темы подсветки нет вовсе, а не пустая.
     //
