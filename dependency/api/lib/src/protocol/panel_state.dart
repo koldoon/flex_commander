@@ -19,7 +19,7 @@ class PanelState {
     this.phase = PanelPhase.idle,
     this.error,
     this.busy = false,
-    this.progressText,
+    this.statusText,
     this.cursorIndex = 0,
     this.generation = 0,
     this.sort = const SortSpec(),
@@ -42,12 +42,15 @@ class PanelState {
   /// Идёт длительная работа: клавиатура панели больше не принадлежит.
   final bool busy;
 
-  /// Что ядро рассказывает о ходе дела: «Loading…», «Opening a.zip…».
+  /// Строка состояния панели: «Loading…», «Opening a.zip…», текст ошибки — и
+  /// то, что выставила команда.
   ///
-  /// Не `statusText` панели: тот складывается из этого и того, что выставила
-  /// команда. Своё команда держит у себя — иначе каждая буква быстрого поиска
-  /// стоила бы оборота границы.
-  final String? progressText;
+  /// Одна на всех, как и было: пишут в неё и ядро, и команды, и выигрывает
+  /// последний сказавший. Разделить её на «ход дела» и «слово команды» стоит
+  /// того лишь тогда, когда обход границы на каждую букву быстрого поиска
+  /// станет заметен, — а до тех пор второе поле было бы усложнением без
+  /// причины.
+  final String? statusText;
 
   final int cursorIndex;
 
@@ -74,8 +77,8 @@ class PanelState {
     FsError? error,
     bool clearError = false,
     bool? busy,
-    String? progressText,
-    bool clearProgress = false,
+    String? statusText,
+    bool clearStatus = false,
     int? cursorIndex,
     int? generation,
     SortSpec? sort,
@@ -90,7 +93,7 @@ class PanelState {
     phase: phase ?? this.phase,
     error: clearError ? null : (error ?? this.error),
     busy: busy ?? this.busy,
-    progressText: clearProgress ? null : (progressText ?? this.progressText),
+    statusText: clearStatus ? null : (statusText ?? this.statusText),
     cursorIndex: cursorIndex ?? this.cursorIndex,
     generation: generation ?? this.generation,
     sort: sort ?? this.sort,

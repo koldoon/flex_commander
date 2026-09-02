@@ -1,5 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
+import 'package:flex_commander/core/panel_session.dart';
 import 'package:flex_commander/state/panel_controller.dart';
 
 /// Панель на подставном провайдере.
@@ -16,9 +17,11 @@ PanelController testPanel({
   int sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
 }) {
   return PanelController(
-    settings: settings,
-    registry: registry ?? ProviderRegistry(root: provider),
-    editor: editor,
-    sizeScanConcurrency: () => sizeScanConcurrency,
+    PanelSession(
+      settings: settings,
+      registry: registry ?? ProviderRegistry(root: provider),
+      editor: editor,
+      sizeScanConcurrency: () => sizeScanConcurrency,
+    ),
   );
 }

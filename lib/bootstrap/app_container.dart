@@ -6,6 +6,7 @@ import 'package:logecom/logecom.dart';
 
 import '../settings/settings_store.dart';
 import '../state/app_controller.dart';
+import '../core/panel_session.dart';
 import '../state/panel_controller.dart';
 import '../state/panel_viewport_registry.dart';
 import '../state/view_registry.dart';
@@ -171,9 +172,9 @@ class AppContainer extends DI {
   }
 
   void _bindApp() {
-    bind<PanelControllerFactory>(
+    bind<PanelSessionFactory>(
       to:
-          (c) => PanelControllerFactory(
+          (c) => PanelSessionFactory(
             registry: c.get<ProviderRegistry>(),
             editor: c.get<TreeEditor>(),
             sizeScanConcurrency: () => c.get<AppSettings>().sizeScanConcurrency,
@@ -241,7 +242,7 @@ class AppContainer extends DI {
     bind<AppController>(
       to: (c) {
         final settings = c.get<AppSettings>();
-        final panels = c.get<PanelControllerFactory>();
+        final panels = c.get<PanelSessionFactory>();
 
         // Правая панель может стоять на своём источнике: так тест проверяет
         // перенос между провайдерами, не проходя весь путь через монтирование.
@@ -249,15 +250,15 @@ class AppContainer extends DI {
         final rightPanels =
             rightProvider == null
                 ? panels
-                : PanelControllerFactory(
+                : PanelSessionFactory(
                   registry: ProviderRegistry(root: rightProvider),
                   editor: c.get<TreeEditor>(),
                   sizeScanConcurrency: () => settings.sizeScanConcurrency,
                 );
 
         return AppController(
-          left: panels.create(settings.left),
-          right: rightPanels.create(settings.right),
+          left: PanelController(panels.create(settings.left)),
+          right: PanelController(rightPanels.create(settings.right)),
           store: c.get<SettingsStore>(),
           settings: settings,
           commands: c.get<CommandRegistry>(),
