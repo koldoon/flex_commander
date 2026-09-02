@@ -107,8 +107,7 @@ void main() {
   Future<Operation<Object?, void>> packed(String name) async {
     final command = runtime.commands.create(CreateSevenZipArchiveCommand.commandId)! as CreateSevenZipArchiveCommand;
     final panel = runtime.app.left;
-    final sources =
-        panel.selection.isEmpty ? [panel.currentNode!] : panel.nodes.where(panel.selection.contains).toList();
+    final sources = [for (final entry in panel.targets) panel.nodeOf(entry)!];
 
     final operation =
         command.packOperation()..start(
@@ -203,7 +202,7 @@ void main() {
 
       await pack(name: 'fresh');
 
-      expect(runtime.app.right.nodes.map((node) => node.name), contains('fresh.7z'));
+      expect(runtime.app.right.entries.map((node) => node.name), contains('fresh.7z'));
     });
   });
 
@@ -358,7 +357,7 @@ void main() {
       final operation =
           command.packOperation()..start(
             SevenZipPackParams(
-              [runtime.app.left.currentNode!],
+              [runtime.app.left.nodeOf(runtime.app.left.currentEntry!)!],
               runtime.app.right.directory!,
               'huge.7z',
               compression: SevenZipCompression.normal,

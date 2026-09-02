@@ -118,7 +118,7 @@ void main() {
       addTearDown(second.dispose);
       await second.start();
 
-      expect(second.left.currentNode?.name, 'notes.txt');
+      expect(second.left.currentEntry?.name, 'notes.txt');
     });
 
     test('недоступный путь заменяется каталогом по умолчанию', () async {

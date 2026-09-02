@@ -56,7 +56,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
     await tester.pump();
 
-    expect(app.left.currentNode?.name, 'dir-59');
+    expect(app.left.currentEntry?.name, 'dir-59');
     expect(offsetOf(tester), greaterThan(0));
 
     // Отложенная запись настроек не должна остаться висеть после теста.

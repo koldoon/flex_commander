@@ -174,7 +174,7 @@ void main() {
     await press(tester, 'To panel');
 
     expect(app.left.provider, isA<SearchResultsProvider>());
-    expect(app.left.nodes.map((node) => node.name), containsAll(['main.dart', 'util.dart']));
+    expect(app.left.entries.map((node) => node.name), containsAll(['main.dart', 'util.dart']));
     // Окно ушло: смотреть на список удобнее в панели.
     expect(find.widgetWithText(FcButton, 'To panel'), findsNothing);
   });
@@ -211,7 +211,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(app.left.directory?.pathString, '/home/lib/src');
-    expect(app.left.currentNode?.name, 'util.dart');
+    expect(app.left.currentEntry?.name, 'util.dart');
   });
 
   testWidgets('Enter в найденном не запускает исполняемый файл', (tester) async {
@@ -228,7 +228,7 @@ void main() {
     // Запускают из каталога панели, а у находок его нет. `Enter` тут значит
     // «покажи, где он лежит».
     expect(app.left.directory?.pathString, '/home/lib');
-    expect(app.left.currentNode?.name, 'build.sh');
+    expect(app.left.currentEntry?.name, 'build.sh');
   });
 
   testWidgets('из найденного «..» возвращает прежний каталог', (tester) async {
@@ -258,7 +258,7 @@ void main() {
     await press(tester, 'Go to file');
 
     expect(app.left.directory?.pathString, '/home/lib/src');
-    expect(app.left.currentNode?.name, 'util.dart');
+    expect(app.left.currentEntry?.name, 'util.dart');
     // Поиск при этом не пропал: сходить к одной находке — не повод потерять
     // остальные.
     expect(app.operations.at(ViewportPosition.left), hasLength(1));

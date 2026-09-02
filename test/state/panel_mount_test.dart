@@ -45,7 +45,7 @@ void main() {
     panel = await panelOn(registry);
   });
 
-  List<String> namesOf(PanelController of) => of.nodes.map((node) => node.name).toList();
+  List<String> namesOf(PanelController of) => of.session.nodes.map((node) => node.name).toList();
 
   test('Enter на архиве показывает его содержимое', () async {
     panel.setCursorToName('archive.arc');
@@ -81,7 +81,7 @@ void main() {
     await panel.goUp();
 
     expect(panel.directory?.pathString, '/home');
-    expect(panel.currentNode?.name, 'archive.arc');
+    expect(panel.currentEntry?.name, 'archive.arc');
     expect(panel.provider, same(disk));
   });
 
@@ -123,14 +123,14 @@ void main() {
     expect(await it.enterCurrent(), isNull);
 
     expect(it.directory?.pathString, '/home');
-    expect(it.status, PanelStatus.error);
+    expect(it.phase, PanelPhase.error);
     expect(it.error?.kind, FsErrorKind.io);
   });
 
   test('копирование из архива наружу идёт потоком', () async {
     panel.setCursorToName('archive.arc');
     await panel.enterCurrent();
-    final inside = panel.nodes.firstWhere((node) => node.name == 'readme.md');
+    final inside = panel.session.nodes.firstWhere((node) => node.name == 'readme.md');
     final outside = (await disk.resolvePath().run('/home'))! as DirectoryNode;
 
     // Источник и приёмник разных провайдеров: ни переименования, ни копии

@@ -136,11 +136,11 @@ class InsertNodeCommand extends AppCommand {
   /// Объект берётся из панели-источника, а не из активной области: активна
   /// сейчас строка, а курсор стоит в панели.
   String? _valueOf(Application app) {
-    final node = _lineOf(app)?.panel?.currentNode;
-    if (node == null) {
+    final entry = _lineOf(app)?.panel?.currentEntry;
+    if (entry == null) {
       return null;
     }
-    return fullPath ? node.pathString : node.name;
+    return fullPath ? entry.path : entry.name;
   }
 }
 
@@ -724,13 +724,13 @@ class RunNodeCommand extends AppCommand {
       // уже в `execute`, и `Enter` там молча пропадал — клавишу забирала
       // команда, которой нечего было делать.
       shellHostOf(context.panel) != null &&
-      _runnable(context.node) != null;
+      _runnable(context) != null;
 
   @override
   Future<void> execute(CommandContext context) async {
-    final node = _runnable(context.node);
+    final entry = _runnable(context);
     final directory = context.panel.directory;
-    if (node == null || directory == null) {
+    if (entry == null || directory == null) {
       return;
     }
 
@@ -745,7 +745,7 @@ class RunNodeCommand extends AppCommand {
     //
     // Путь — тот, которым его назовёт оболочка: на сервере она про адрес
     // `ssh://` не слышала.
-    final command = ShellCommand.quote(host.shellPath(node.pathString));
+    final command = ShellCommand.quote(host.shellPath(entry.path));
 
     await TerminalRun.start(
       app: context.app,
@@ -769,16 +769,17 @@ class RunNodeCommand extends AppCommand {
   /// `DirectoryNode` — наследник `FileNode`, и проверка «это файл» молча
   /// пропускает каталоги. Заодно отсюда следует, что `.app` на macOS
   /// открывается как каталог, каким и является.
-  static FileNode? _runnable(FsNode? node) {
-    if (node is! FileNode || node is DirectoryNode) {
+  static FileEntry? _runnable(CommandContext context) {
+    final entry = context.entry;
+    if (entry == null || entry.isDirectory || entry.isParent) {
       return null;
     }
     // Запускать можно только настоящий путь: внутри архива запускать нечего, а
     // на сервере — нечем, наш терминал местный.
-    if (!node.provider.capabilities.realFileSystem) {
+    if (!context.panel.source.capabilities.realFileSystem) {
       return null;
     }
     // Битая ссылка исполняемой числится, но вести ей некуда.
-    return node.executable && !node.broken ? node : null;
+    return entry.executable && !entry.broken ? entry : null;
   }
 }

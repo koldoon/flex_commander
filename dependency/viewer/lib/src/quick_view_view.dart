@@ -33,7 +33,10 @@ class QuickViewView extends StatelessWidget {
         return FcPanelFrame(
           outerEdge: _edgeOf(app),
           header: FcPathPlate(
-            path: host.panel.currentNode?.displayPath ?? host.panel.directory?.displayPath ?? '/',
+            path:
+                host.panel.currentEntry?.path.isNotEmpty == true
+                    ? host.panel.currentEntry!.path
+                    : (host.panel.path.isEmpty ? '/' : host.panel.path),
             active: app.view.takesKeys(host),
           ),
           child: Center(

@@ -330,14 +330,14 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
   /// осталась приглушённой.
   KeyBinding? _lookup(KeyCombination combination, ViewportState? content) {
     final app = _app!;
-    final node = app.activePanel.currentNode;
+    final entry = app.activePanel.currentEntry;
     KeyBinding? fallback;
 
     for (final binding in _bindings) {
       // Клавиша принадлежит тому, что сейчас на экране: `F5` не должен
       // копировать файлы из-под открытого просмотрщика, а ряд кнопок —
       // обещать то, чего по нажатию не будет.
-      if (!binding.matches(combination, node, content: content)) {
+      if (!binding.matches(combination, entry, content: content)) {
         continue;
       }
       final command = _prototypes[binding.commandId];

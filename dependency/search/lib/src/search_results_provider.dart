@@ -24,7 +24,10 @@ class SearchResultsProvider implements TreeProvider, PanelColumns {
   List<FsNode> get found => _root.nodes;
 
   @override
-  String get scheme => 'found';
+  String get scheme => schemeName;
+
+  /// Схема находок: по ней их узнают снаружи — снимок источника её и везёт.
+  static const String schemeName = 'found';
 
   /// Колонки списка находок: к обычным добавлена колонка пути.
   ///

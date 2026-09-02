@@ -53,7 +53,7 @@ void main() {
     test('буква ведёт к имени, как раньше', () {
       expect(press('B'), isTrue);
 
-      expect(app.left.currentNode?.name, 'beta.txt');
+      expect(app.left.currentEntry?.name, 'beta.txt');
       expect(line.text.text, isEmpty);
     });
 
@@ -69,7 +69,7 @@ void main() {
 
       app.left.setCursorToName('alpha.txt');
       press('Space');
-      expect(app.left.selection.names, contains('alpha.txt'));
+      expect(app.left.marked, contains('alpha.txt'));
     });
   });
 
@@ -77,18 +77,18 @@ void main() {
     setUp(() => settings.typingGoesToLine = true);
 
     test('буква уходит в строку, а курсор панели стоит на месте', () {
-      final before = app.left.currentNode?.name;
+      final before = app.left.currentEntry?.name;
       typeKeys('ls');
 
       expect(line.text.text, 'ls');
-      expect(app.left.currentNode?.name, before, reason: 'перехода к имени быть не должно');
+      expect(app.left.currentEntry?.name, before, reason: 'перехода к имени быть не должно');
     });
 
     test('пусто — клавиши панели, не пусто — строки', () async {
       // Пустая строка: панель работает как обычно.
       app.left.setCursorToName('alpha.txt');
       press('Space');
-      expect(app.left.selection.names, contains('alpha.txt'));
+      expect(app.left.marked, contains('alpha.txt'));
 
       typeKeys('ls');
       // Теперь в строке что-то есть — те же клавиши достаются ей.
@@ -160,7 +160,7 @@ void main() {
       line.settings.typingGoesToLine = true;
 
       expect(press('B'), isTrue);
-      expect(app.left.currentNode?.name, 'beta.txt');
+      expect(app.left.currentEntry?.name, 'beta.txt');
       expect(line.text.text, isEmpty);
     });
   });

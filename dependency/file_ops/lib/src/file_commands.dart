@@ -257,11 +257,19 @@ abstract class RemoveCommandBase extends AppCommand {
       return false;
     }
     // Псевдоузел «..» объектом не считается.
-    return context.targets.any((node) => node is! ParentDirNode);
+    return context.targets.any((entry) => !entry.isParent);
   }
 
   /// Объекты, с которыми работает команда: помеченные или тот, что под курсором.
-  List<FsNode> targetsOf(CommandContext context) => context.targets.where((node) => node is! ParentDirNode).toList();
+  ///
+  /// ВРЕМЕННО узлами: цели приезжают строками списка, а работа пока идёт по эту
+  /// сторону границы и требует живых узлов. Уйдёт вместе с переездом операций
+  /// в ядро (`docs/spec/client-server.md`, Э4).
+  List<FsNode> targetsOf(CommandContext context) => [
+    for (final entry in context.targets)
+      if (!entry.isParent)
+        if (context.panel.nodeOf(entry) case final node?) node,
+  ];
 
   /// «Delete !» в заголовке разбора читалось бы как опечатка: восклицательный
   /// знак в названии команды отличает её от удаления в корзину, а не от чего-то
@@ -291,8 +299,8 @@ abstract class RemoveCommandBase extends AppCommand {
         await source?.release();
         // Часть объектов могла исчезнуть, часть остаться: список в панели
         // больше не совпадает с диском.
-        panel.selection.clear();
-        await reloadPanelsAt(context.app, [panel.directory?.pathString]);
+        panel.clearMarks();
+        await reloadPanelsAt(context.app, [panel.path]);
       }
     }
 
@@ -347,8 +355,8 @@ abstract class RemoveCommandBase extends AppCommand {
         await run.run(editor.remove(), RemoveParams(targets, toTrash: toTrash), message: 'Deleting…');
       } finally {
         await source?.release();
-        panel.selection.clear();
-        await reloadPanelsAt(context.app, [panel.directory?.pathString]);
+        panel.clearMarks();
+        await reloadPanelsAt(context.app, [panel.path]);
       }
     };
 
@@ -405,20 +413,21 @@ class RenameCommand extends AppCommand {
     // Переименовать можно только то, что провайдер умеет переименовывать одним
     // действием: в архиве за этим пряталась бы пересборка целиком, а о ней
     // полагается спрашивать (`spec/rename.md`, §4).
-    if (!panel.provider.capabilities.canRename) {
+    if (!panel.source.capabilities.canRename) {
       return false;
     }
-    final node = context.node;
+    final entry = context.entry;
     // «..» — не объект, а способ выйти наверх.
-    return node != null && node is! ParentDirNode;
+    return entry != null && !entry.isParent;
   }
 
   @override
   Future<void> execute(CommandContext context) async {
     final panel = context.panel;
-    final node = context.node;
+    final entry = context.entry;
+    final node = entry == null || entry.isParent ? null : panel.nodeOf(entry);
     final editor = panel.editor;
-    if (node == null || node is ParentDirNode || editor == null) {
+    if (node == null || editor == null) {
       return;
     }
 

@@ -1,5 +1,4 @@
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'quick_view_screen.dart';
@@ -32,18 +31,21 @@ class ViewFileCommand extends AppCommand {
 
   @override
   bool isExecutable(CommandContext context) {
-    final node = context.node;
-    // Каталог показывать нечем, псевдоузел «..» — тем более. А вот «есть ли
+    final entry = context.entry;
+    // Каталог показывать нечем, псевдострока «..» — тем более. А вот «есть ли
     // кому взяться» здесь не спрашивается нарочно: команда работает, просто не
     // с этим файлом, и сказать об этом словами честнее, чем потухшей кнопкой.
     // Занятая панель второго чтения не начинает: она уже читает — либо каталог,
     // либо файл.
-    return node != null && !context.panel.busy && node is! DirectoryNode && node is! ParentDirNode;
+    return entry != null && !context.panel.busy && !entry.isDirectory && !entry.isParent;
   }
 
   @override
   Future<void> execute(CommandContext context) async {
-    final node = context.node;
+    final entry = context.entry;
+    // ВРЕМЕННО: показ читает байты по эту сторону границы и держит живой узел
+    // (`docs/spec/client-server.md`, Э5).
+    final node = entry == null ? null : context.panel.nodeOf(entry);
     if (node == null) {
       return;
     }

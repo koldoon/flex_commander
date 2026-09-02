@@ -139,14 +139,20 @@ void main() {
 
     test('на нескольких файлах — нет: в один .gz они не складываются', () {
       app.left.setCursorToName('dump.sql');
-      app.left.selection.addAll(app.left.nodes.where((node) => node.name != '..'));
+      app.left.setMarks({
+        for (final entry in app.left.entries)
+          if (!entry.isParent) entry.name,
+      });
 
       expect(executable(), isFalse);
     });
 
     test('а Mk Tar на тех же нескольких — да', () {
       app.left.setCursorToName('dump.sql');
-      app.left.selection.addAll(app.left.nodes.where((node) => node.name != '..'));
+      app.left.setMarks({
+        for (final entry in app.left.entries)
+          if (!entry.isParent) entry.name,
+      });
 
       // Ровно то различие, ради которого команды две: набор файлов — это tar.
       expect(app.commands.isExecutable(app.commands.find(CreateTarArchiveCommand.commandId)!), isTrue);

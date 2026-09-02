@@ -172,7 +172,7 @@ void main() {
 
       await pack(name: 'fresh');
 
-      expect(runtime.app.right.nodes.map((node) => node.name), contains('fresh.zip'));
+      expect(runtime.app.right.entries.map((node) => node.name), contains('fresh.zip'));
     });
 
     test('созданный архив открывается как дерево', () async {
@@ -185,7 +185,7 @@ void main() {
       await runtime.app.right.enterCurrent();
 
       expect(runtime.app.right.provider, isA<ZipTreeProvider>());
-      expect(runtime.app.right.nodes.map((node) => node.name), containsAll(['..', 'docs']));
+      expect(runtime.app.right.entries.map((node) => node.name), containsAll(['..', 'docs']));
     });
   });
 
@@ -249,10 +249,8 @@ void main() {
     /// окно и уходит. Поэтому проверяется операция.
     Future<Operation<Object?, void>> packed(String name) async {
       final command = runtime.commands.create(CreateZipArchiveCommand.commandId)! as CreateZipArchiveCommand;
-      final sources =
-          runtime.app.left.selection.isEmpty
-              ? [runtime.app.left.currentNode!]
-              : runtime.app.left.nodes.where(runtime.app.left.selection.contains).toList();
+      final panel = runtime.app.left;
+      final sources = [for (final entry in panel.targets) panel.nodeOf(entry)!];
 
       final operation =
           command.packOperation()..start(
@@ -291,7 +289,7 @@ void main() {
       final log = ProgressLog.of(operation);
       operation.start(
         ZipPackParams(
-          [runtime.app.left.currentNode!],
+          [runtime.app.left.nodeOf(runtime.app.left.currentEntry!)!],
           runtime.app.right.directory!,
           'docs.zip',
           compression: ZipCompression.normal,

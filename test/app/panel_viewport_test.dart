@@ -45,7 +45,7 @@ void main() {
     await runtime.app.start();
     await tester.pumpAndSettle();
 
-    expect(runtime.app.left.contentKind, 'search');
+    expect(runtime.app.left.source.contentKind, 'search');
     expect(find.text('Результаты поиска'), findsNWidgets(2));
     // Таблицы файлов в панели нет вовсе: вид содержимого заменяет её целиком.
     expect(find.text('Name'), findsNothing);
@@ -73,6 +73,6 @@ void main() {
   test('обычный провайдер показывает файлы', () async {
     final runtime = await testApp(provider: InMemoryTreeProvider([FakeEntry.directory('/home')]));
 
-    expect(runtime.app.left.contentKind, PanelViewports.files);
+    expect(runtime.app.left.source.contentKind, PanelViewports.files);
   });
 }

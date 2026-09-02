@@ -1,4 +1,3 @@
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'quick_search_state.dart';
@@ -42,7 +41,7 @@ class QuickSearchCommand extends AppCommand {
   Set<String> get keywords => const {'incremental search', 'find in panel', 'jump to name'};
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -92,19 +91,19 @@ class QuickSearchCommand extends AppCommand {
   /// Ищет от [from] и по кругу: перебор одним и тем же образцом не должен
   /// топтаться на первом попавшемся.
   static bool moveTo(Panel panel, String pattern, {required int from}) {
-    final nodes = panel.nodes;
-    if (nodes.isEmpty) {
+    final entries = panel.entries;
+    if (entries.isEmpty) {
       return false;
     }
     final needle = pattern.toLowerCase();
-    for (var offset = 0; offset < nodes.length; offset++) {
-      final index = (from + offset) % nodes.length;
-      final node = nodes[index];
+    for (var offset = 0; offset < entries.length; offset++) {
+      final index = (from + offset) % entries.length;
+      final entry = entries[index];
       // «..» — не имя файла: то же правило, что у печати буквы и у пометки.
-      if (node is ParentDirNode) {
+      if (entry.isParent) {
         continue;
       }
-      if (node.name.toLowerCase().startsWith(needle)) {
+      if (entry.name.toLowerCase().startsWith(needle)) {
         panel.setCursorIndex(index);
         return true;
       }

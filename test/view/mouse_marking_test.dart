@@ -39,10 +39,10 @@ void main() {
   /// одному имени нашлись бы две строки.
   Finder row(String name) => find.descendant(
     of: find.byType(FileTable).first,
-    matching: find.byWidgetPredicate((widget) => widget is FileTableRow && widget.node.name == name),
+    matching: find.byWidgetPredicate((widget) => widget is FileTableRow && widget.entry.name == name),
   );
 
-  Set<String> marked() => app.left.selection.names;
+  Set<String> marked() => app.left.marked;
 
   /// Нажать правой на строке, провести по перечисленным и отпустить.
   Future<void> markThrough(WidgetTester tester, String from, {List<String> through = const []}) async {
@@ -67,7 +67,7 @@ void main() {
     await markThrough(tester, 'file-03.txt');
 
     expect(marked(), {'file-03.txt'});
-    expect(app.left.currentNode?.name, 'file-03.txt');
+    expect(app.left.currentEntry?.name, 'file-03.txt');
 
     // Второй щелчок по той же строке пометку снимает.
     await markThrough(tester, 'file-03.txt');
@@ -83,7 +83,7 @@ void main() {
     // Обе крайние строки входят, пропущенные по дороге — тоже: считается
     // отрезок, а не след указателя.
     expect(marked(), {'file-02.txt', 'file-03.txt', 'file-04.txt', 'file-05.txt', 'file-06.txt'});
-    expect(app.left.currentNode?.name, 'file-06.txt');
+    expect(app.left.currentEntry?.name, 'file-06.txt');
   });
 
   testWidgets('ход назад возвращает лишние строки как было', (tester) async {
@@ -113,7 +113,7 @@ void main() {
     await markThrough(tester, '..', through: ['inside.txt']);
 
     expect(marked(), {'inside.txt'});
-    expect(app.left.selection.length, 1);
+    expect(app.left.marked.length, 1);
   });
 
   testWidgets('правая по заголовку колонки пометку не трогает', (tester) async {

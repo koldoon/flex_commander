@@ -257,8 +257,8 @@ class AppContainer extends DI {
                 );
 
         return AppController(
-          left: PanelController(panels.create(settings.left)),
-          right: PanelController(rightPanels.create(settings.right)),
+          left: PanelController(PanelId.left, panels.create(settings.left)),
+          right: PanelController(PanelId.right, rightPanels.create(settings.right)),
           store: c.get<SettingsStore>(),
           settings: settings,
           commands: c.get<CommandRegistry>(),

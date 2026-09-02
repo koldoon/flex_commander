@@ -35,7 +35,7 @@ void main() {
     await command.executeWith({GoToNameCommand.characterParam: character});
   }
 
-  String? cursorName() => app.left.currentNode?.name;
+  String? cursorName() => app.left.currentEntry?.name;
 
   test('курсор встаёт на первое имя с этой буквы', () async {
     await goTo('n');
@@ -85,7 +85,7 @@ void main() {
 
     await goTo('n');
 
-    expect(app.right.currentNode?.name, 'notes.txt');
+    expect(app.right.currentEntry?.name, 'notes.txt');
     expect(app.left.cursorIndex, 0);
   });
 

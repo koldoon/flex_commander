@@ -144,7 +144,7 @@ void main() {
     // Пока ввод у панели, печать — это переход к имени. Отнять её нельзя.
     await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
     await tester.pumpAndSettle();
-    expect(runtime.app.left.currentNode?.name, 'beta.txt');
+    expect(runtime.app.left.currentEntry?.name, 'beta.txt');
 
     runtime.commands.dispatch(KeyCombination.parse('Cmd-T'));
     await tester.pumpAndSettle();
@@ -157,7 +157,7 @@ void main() {
 
     expect(find.text('echo привет'), findsOneWidget);
     // И курсор панели остался там, где стоял.
-    expect(runtime.app.left.currentNode?.name, 'beta.txt');
+    expect(runtime.app.left.currentEntry?.name, 'beta.txt');
 
     await tester.pump(const Duration(milliseconds: 20));
   });
@@ -292,7 +292,7 @@ void main() {
 
     await tester.sendKeyEvent(LogicalKeyboardKey.keyA);
     await tester.pumpAndSettle();
-    expect(runtime.app.left.currentNode?.name, 'alpha.txt');
+    expect(runtime.app.left.currentEntry?.name, 'alpha.txt');
 
     await tester.pump(const Duration(milliseconds: 20));
   });

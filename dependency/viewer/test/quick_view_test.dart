@@ -114,7 +114,10 @@ void main() {
     test('цела: тот же каталог, курсор и пометка', () async {
       final panel = runtime.app.right;
       await panel.openPath('/home/docs');
-      panel.selection.addAll(panel.nodes.where((node) => node.name != '..'));
+      panel.setMarks({
+        for (final entry in panel.entries)
+          if (!entry.isParent) entry.name,
+      });
       final directory = panel.directory;
 
       await toggle();

@@ -89,7 +89,13 @@ class CreateZipArchiveCommand extends AppCommand {
     return target != null && !target.busy && destination != null && destination.provider.canReceive;
   }
 
-  List<FsNode> _sourcesOf(CommandContext context) => context.targets.where((node) => node is! ParentDirNode).toList();
+  /// ВРЕМЕННО узлами: цели приезжают строками списка, а работа пока идёт по эту
+  /// сторону границы (`docs/spec/client-server.md`, Э4 и Э5).
+  List<FsNode> _sourcesOf(CommandContext context) => [
+    for (final entry in context.targets)
+      if (!entry.isParent)
+        if (context.panel.nodeOf(entry) case final node?) node,
+  ];
 
   /// Упаковать — или сперва спросить, как назвать и как жать.
   ///

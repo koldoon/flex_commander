@@ -149,7 +149,7 @@ void main() {
       await pumpApp(tester);
 
       await press(tester, LogicalKeyboardKey.end);
-      expect(app.left.cursorIndex, app.left.nodes.length - 1);
+      expect(app.left.cursorIndex, app.left.entries.length - 1);
 
       await press(tester, LogicalKeyboardKey.home);
       expect(app.left.cursorIndex, 0);
@@ -159,7 +159,7 @@ void main() {
       await pumpApp(tester);
 
       await press(tester, LogicalKeyboardKey.arrowRight);
-      expect(app.left.cursorIndex, app.left.nodes.length - 1);
+      expect(app.left.cursorIndex, app.left.entries.length - 1);
 
       await press(tester, LogicalKeyboardKey.arrowLeft);
       expect(app.left.cursorIndex, 0);
@@ -171,7 +171,7 @@ void main() {
       await press(tester, LogicalKeyboardKey.pageDown);
 
       expect(app.left.pageSize, greaterThan(1));
-      expect(app.left.cursorIndex, app.left.nodes.length - 1);
+      expect(app.left.cursorIndex, app.left.entries.length - 1);
     });
   });
 
@@ -181,17 +181,17 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.keyN);
 
-      expect(app.left.currentNode?.name, 'notes.txt');
+      expect(app.left.currentEntry?.name, 'notes.txt');
     });
 
     testWidgets('разные буквы ведут к разным именам', (tester) async {
       await pumpApp(tester);
 
       await press(tester, LogicalKeyboardKey.keyD);
-      expect(app.left.currentNode?.name, 'docs');
+      expect(app.left.currentEntry?.name, 'docs');
 
       await press(tester, LogicalKeyboardKey.keyR);
-      expect(app.left.currentNode?.name, 'report.xlsx');
+      expect(app.left.currentEntry?.name, 'report.xlsx');
     });
 
     testWidgets('пробел по-прежнему помечает, а не ищет', (tester) async {
@@ -201,7 +201,7 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.space);
 
-      expect(app.left.selection.names, contains('notes.txt'));
+      expect(app.left.marked, contains('notes.txt'));
     });
   });
 
@@ -277,7 +277,7 @@ void main() {
       await press(tester, LogicalKeyboardKey.backspace);
 
       expect(app.left.directory?.pathString, '/home');
-      expect(app.left.currentNode?.name, 'docs');
+      expect(app.left.currentEntry?.name, 'docs');
     });
 
     testWidgets('Enter на ".." эквивалентен Backspace', (tester) async {
@@ -293,17 +293,17 @@ void main() {
 
     testWidgets('Cmd-Shift-H показывает скрытые объекты', (tester) async {
       await pumpApp(tester);
-      expect(app.left.nodes.map((node) => node.name), isNot(contains('.hidden')));
+      expect(app.left.entries.map((node) => node.name), isNot(contains('.hidden')));
 
       await press(tester, LogicalKeyboardKey.keyH, modifiers: const [commandKey, LogicalKeyboardKey.shiftLeft]);
 
       expect(app.left.showHidden, isTrue);
-      expect(app.left.nodes.map((node) => node.name), contains('.hidden'));
+      expect(app.left.entries.map((node) => node.name), contains('.hidden'));
 
       await press(tester, LogicalKeyboardKey.keyH, modifiers: const [commandKey, LogicalKeyboardKey.shiftLeft]);
 
       expect(app.left.showHidden, isFalse);
-      expect(app.left.nodes.map((node) => node.name), isNot(contains('.hidden')));
+      expect(app.left.entries.map((node) => node.name), isNot(contains('.hidden')));
     });
   });
 
@@ -314,8 +314,8 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.space);
 
-      expect(app.left.selection.names, {'notes.txt'});
-      expect(app.left.currentNode?.name, 'report.xlsx');
+      expect(app.left.marked, {'notes.txt'});
+      expect(app.left.currentEntry?.name, 'report.xlsx');
     });
 
     testWidgets('Space на ".." ничего не помечает', (tester) async {
@@ -324,7 +324,7 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.space);
 
-      expect(app.left.selection.isEmpty, isTrue);
+      expect(app.left.marked.isEmpty, isTrue);
     });
 
     testWidgets('Esc снимает пометку', (tester) async {
@@ -334,7 +334,7 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.escape);
 
-      expect(app.left.selection.isEmpty, isTrue);
+      expect(app.left.marked.isEmpty, isTrue);
     });
 
     testWidgets('Cmd-A помечает всё, кроме ".."', (tester) async {
@@ -342,8 +342,8 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.keyA, modifiers: const [commandKey]);
 
-      expect(app.left.selection.length, app.left.nodes.length - 1);
-      expect(app.left.selection.names, isNot(contains('..')));
+      expect(app.left.marked.length, app.left.entries.length - 1);
+      expect(app.left.marked, isNot(contains('..')));
 
       // Пометка каталогов запускает фоновый подсчёт их размера — даём ему
       // отработать, иначе тест закончится с недоделанной работой.
@@ -356,14 +356,18 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.keyA, modifiers: const [commandKey, LogicalKeyboardKey.shiftLeft]);
 
-      final marked = app.left.selection.nodes;
+      final marked = app.left.marked;
       expect(marked, isNotEmpty);
-      expect(marked.whereType<DirectoryNode>(), isEmpty, reason: 'каталоги остались нетронутыми');
-      expect(app.left.selection.names, isNot(contains('..')));
+      final directories = {
+        for (final entry in app.left.entries)
+          if (entry.isDirectory) entry.name,
+      };
+      expect(marked.intersection(directories), isEmpty, reason: 'каталоги остались нетронутыми');
+      expect(app.left.marked, isNot(contains('..')));
 
       // Каталоги в списке есть — значит помечено не всё подряд.
-      expect(app.left.nodes.whereType<DirectoryNode>(), isNotEmpty);
-      expect(marked.length, lessThan(app.left.nodes.length - 1));
+      expect(directories, isNotEmpty);
+      expect(marked.length, lessThan(app.left.entries.length - 1));
     });
   });
 

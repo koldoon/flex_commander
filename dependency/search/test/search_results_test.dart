@@ -35,25 +35,25 @@ void main() {
     final found = await nodesAt('/home/docs');
     final results = SearchResultsProvider(title: '*.txt', found: found);
 
-    await panel().open(results.rootDirectory);
+    await panel().openDirectory(results.rootDirectory);
 
     // Панель берёт провайдера у узла, которым её открыли, — отдельного «покажи
     // вот этот источник» заводить не пришлось.
     expect(panel().provider, same(results));
-    expect(panel().nodes.map((node) => node.name), containsAll(['notes.txt', 'plan.txt']));
+    expect(panel().entries.map((node) => node.name), containsAll(['notes.txt', 'plan.txt']));
   });
 
   test('узлы настоящие: они принадлежат своему источнику', () async {
     final found = await nodesAt('/home/docs');
     final results = SearchResultsProvider(title: '*.txt', found: found);
-    await panel().open(results.rootDirectory);
+    await panel().openDirectory(results.rootDirectory);
 
-    final notes = panel().nodes.firstWhere((node) => node.name == 'notes.txt');
+    final notes = panel().entries.firstWhere((node) => node.name == 'notes.txt');
 
     // На этом держится всё остальное: копирование, удаление и просмотр
     // спрашивают узел, а не панель.
-    expect(notes.provider, same(provider));
-    expect(notes.pathString, contains('/home/docs/notes.txt'));
+    expect(notes.path, contains('/home/docs/notes.txt'));
+    expect(notes.directoryPath, contains('/home/docs'));
   });
 
   test('путь узла показывает, откуда он', () async {

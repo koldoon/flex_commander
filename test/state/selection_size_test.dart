@@ -102,7 +102,7 @@ void main() {
 
   /// Узел панели по имени: размеры каталогов живут в узлах, а не отдельно.
   DirectoryNode nodeNamed(String name, [PanelController? of]) =>
-      (of ?? panel).nodes.whereType<DirectoryNode>().firstWhere((node) => node.name == name);
+      (of ?? panel).session.nodes.whereType<DirectoryNode>().firstWhere((node) => node.name == name);
 
   /// Панель на своём провайдере — для тестов, которым нужен особый обход.
   Future<PanelController> panelOn(TreeProvider source, {int concurrency = 1}) async {
@@ -115,18 +115,18 @@ void main() {
   test('размер файла виден сразу', () async {
     mark('notes.txt');
 
-    expect(panel.selectionSize, 50);
-    expect(panel.selectionSizeIsFinal, isTrue);
+    expect(panel.markedSize, 50);
+    expect(panel.markedSizeIsFinal, isTrue);
   });
 
   test('каталог добавляет в сумму своё содержимое', () async {
     mark('docs');
-    expect(panel.selectionSizeIsFinal, isFalse);
+    expect(panel.markedSizeIsFinal, isFalse);
 
     await settle();
 
-    expect(panel.selectionSize, 300);
-    expect(panel.selectionSizeIsFinal, isTrue);
+    expect(panel.markedSize, 300);
+    expect(panel.markedSizeIsFinal, isTrue);
   });
 
   test('файлы и каталоги складываются', () async {
@@ -135,35 +135,35 @@ void main() {
 
     await settle();
 
-    expect(panel.selectionSize, 350);
+    expect(panel.markedSize, 350);
   });
 
   test('известное показывается сразу, каталоги досчитываются потом', () async {
     final seen = <int>[];
-    panel.addListener(() => seen.add(panel.selectionSize));
+    panel.addListener(() => seen.add(panel.markedSize));
 
     mark('notes.txt');
     mark('docs');
 
     // Обход ещё не начинался, но размер файла уже виден: ждать подсчёта
     // каталога, чтобы показать хоть что-то, незачем.
-    expect(panel.selectionSize, 50);
-    expect(panel.selectionSizeIsFinal, isFalse);
+    expect(panel.markedSize, 50);
+    expect(panel.markedSizeIsFinal, isFalse);
 
     await settle();
 
-    expect(panel.selectionSize, 350);
+    expect(panel.markedSize, 350);
     expect(seen.last, 350);
   });
 
   test('снятие пометки прекращает подсчёт', () async {
     mark('docs');
-    panel.selection.clear();
+    panel.clearMarks();
 
     await settle();
 
-    expect(panel.selectionSize, 0);
-    expect(panel.selectionSizeIsFinal, isTrue);
+    expect(panel.markedSize, 0);
+    expect(panel.markedSizeIsFinal, isTrue);
   });
 
   test('новый каталог встаёт в очередь, не прерывая начатое', () async {
@@ -174,43 +174,43 @@ void main() {
     await settle();
 
     // Оба посчитаны: второй не отменил обход первого, а дождался очереди.
-    expect(panel.selectionSize, 700);
-    expect(panel.selectionSizeIsFinal, isTrue);
+    expect(panel.markedSize, 700);
+    expect(panel.markedSizeIsFinal, isTrue);
   });
 
   test('снятая пометка уходит из суммы и из очереди', () async {
     mark('docs');
     mark('bin');
     await settle();
-    expect(panel.selectionSize, 700);
+    expect(panel.markedSize, 700);
 
     panel.setCursorToName('bin');
     panel.toggleCurrentMark();
     await settle();
 
-    expect(panel.selectionSize, 300);
+    expect(panel.markedSize, 300);
   });
 
   test('новая пометка считается заново, а не поверх старой', () async {
     mark('docs');
     await settle();
-    expect(panel.selectionSize, 300);
+    expect(panel.markedSize, 300);
 
-    panel.selection.clear();
+    panel.clearMarks();
     mark('bin');
     await settle();
 
-    expect(panel.selectionSize, 400);
+    expect(panel.markedSize, 400);
   });
 
   test('пока подсчёт идёт, сумма не выдаётся за окончательную', () async {
     mark('docs');
 
     // Обход ещё не закончился: показывать эту сумму как итог нельзя.
-    expect(panel.selectionSizeIsFinal, isFalse);
+    expect(panel.markedSizeIsFinal, isFalse);
 
     await settle();
-    expect(panel.selectionSizeIsFinal, isTrue);
+    expect(panel.markedSizeIsFinal, isTrue);
   });
 
   group('размер в узле', () {
@@ -242,13 +242,13 @@ void main() {
       mark('docs');
       await settle();
 
-      panel.selection.clear();
+      panel.clearMarks();
       await settle();
 
       // В колонке размер остаётся: он всё ещё верен. В сумму не идёт — сумма
       // считает только помеченное.
       expect(nodeNamed('docs').size, 300);
-      expect(panel.selectionSize, 0);
+      expect(panel.markedSize, 0);
     });
 
     test('прерванный обход не оставляет частичного размера', () async {
@@ -261,7 +261,7 @@ void main() {
       // Обход дошёл до середины и сообщил частичную сумму.
       expect(nodeNamed('docs', panel).size, _HeldSizeProvider.partial);
 
-      panel.selection.clear();
+      panel.clearMarks();
       await settle();
 
       // Частичная сумма, застывшая как итог, была бы ложью.
@@ -281,19 +281,19 @@ void main() {
 
       panel.setCursorToName('notes.txt');
       panel.toggleCurrentMark();
-      expect(panel.selectionSizeIsFinal, isTrue);
+      expect(panel.markedSizeIsFinal, isTrue);
     });
 
     test('повторная пометка посчитанного каталога обходится без обхода', () async {
       mark('docs');
       await settle();
 
-      panel.selection.clear();
+      panel.clearMarks();
       mark('docs');
 
       // Синхронно, без ожидания: значение в узле авторитетно.
-      expect(panel.selectionSizeIsFinal, isTrue);
-      expect(panel.selectionSize, 300);
+      expect(panel.markedSizeIsFinal, isTrue);
+      expect(panel.markedSize, 300);
     });
 
     test('пустой каталог получает ноль, а не остаётся неизвестным', () async {
@@ -304,7 +304,7 @@ void main() {
 
       // Ноль — это «посчитан», поэтому второй раз в очередь он не встаёт.
       mark('notes.txt');
-      expect(panel.selectionSizeIsFinal, isTrue);
+      expect(panel.markedSizeIsFinal, isTrue);
     });
   });
 
@@ -343,7 +343,7 @@ void main() {
 
       // Третий ждёт в очереди: сотня одновременных обходов завалила бы диск.
       expect(counting.peak, 2);
-      expect(panel.selectionSizeIsFinal, isFalse);
+      expect(panel.markedSizeIsFinal, isFalse);
       counting.release.complete();
     });
 
@@ -373,8 +373,8 @@ void main() {
 
       // Пул из одного — это прежняя последовательная очередь, и она доходит
       // до конца.
-      expect(panel.selectionSize, 700);
-      expect(panel.selectionSizeIsFinal, isTrue);
+      expect(panel.markedSize, 700);
+      expect(panel.markedSizeIsFinal, isTrue);
     });
   });
 
@@ -385,10 +385,10 @@ void main() {
       await panel.reload();
 
       // Обход перезапущен на новых узлах, а не выброшен молча.
-      expect(panel.selectionSizeIsFinal, isFalse);
+      expect(panel.markedSizeIsFinal, isFalse);
 
       await settle();
-      expect(panel.selectionSize, 300);
+      expect(panel.markedSize, 300);
       expect(nodeNamed('docs').size, 300);
     });
 
@@ -413,7 +413,7 @@ void main() {
       await settle();
 
       // На экране остались прежние узлы, и обход над ними правомерен.
-      expect(panel.selectionSize, 300);
+      expect(panel.markedSize, 300);
     });
 
     test('уход в другой каталог обход отменяет', () async {
@@ -421,8 +421,8 @@ void main() {
       await panel.openPath('/home/bin');
       await settle();
 
-      expect(panel.selectionSize, 0);
-      expect(panel.selectionSizeIsFinal, isTrue);
+      expect(panel.markedSize, 0);
+      expect(panel.markedSizeIsFinal, isTrue);
     });
   });
 }

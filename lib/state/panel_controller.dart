@@ -6,7 +6,7 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 
 import '../core/panel_session.dart';
 
-export 'package:fc_ui_api/fc_ui_api.dart' show Panel, PanelStatus;
+export 'package:fc_ui_api/fc_ui_api.dart' show Panel;
 
 /// Панель со стороны экрана — [Panel] поверх сеанса ядра.
 ///
@@ -21,7 +21,7 @@ export 'package:fc_ui_api/fc_ui_api.dart' show Panel, PanelStatus;
 /// начнёт получать значения (`docs/spec/client-server.md`, §7). Пока стороны в
 /// одном изоляте, и переходник честнее, чем вторая копия той же тысячи строк.
 class PanelController extends ChangeNotifier implements Panel {
-  PanelController(this.session) {
+  PanelController(this.id, this.session) {
     session.onChanged = notifyListeners;
     // Список и размеры на этой стороне не пересылаются: узлы те же самые, и
     // перерисовки хватает.
@@ -29,34 +29,27 @@ class PanelController extends ChangeNotifier implements Panel {
     session.onSized = (_) => notifyListeners();
   }
 
+  @override
+  final PanelId id;
+
   /// Панель со стороны ядра — всё, что она на самом деле делает.
   final PanelSession session;
 
   // --- источник ---
 
   @override
-  TreeProvider get provider => session.provider;
-
-  @override
-  TreeEditor? get editor => session.editor;
-
-  @override
-  String get contentKind => session.contentKind;
+  SourceInfo get source => session.sourceInfo;
 
   // --- каталог ---
 
   @override
-  DirectoryNode? get directory => session.directory;
+  String get path => session.directory?.displayPath ?? '';
 
   @override
-  List<FsNode> get nodes => session.nodes;
+  List<FileEntry> get entries => session.entries;
 
   @override
-  PanelStatus get status => switch (session.status) {
-    PanelPhase.idle => PanelStatus.idle,
-    PanelPhase.loading => PanelStatus.loading,
-    PanelPhase.error => PanelStatus.error,
-  };
+  PanelPhase get phase => session.status;
 
   @override
   FsError? get error => session.error;
@@ -77,19 +70,23 @@ class PanelController extends ChangeNotifier implements Panel {
   void setHeaderText(String? text) => session.setHeaderText(text);
 
   @override
-  Future<void> open(DirectoryNode dir) => session.open(dir);
-
-  @override
   Future<bool> openPath(String path, {bool allowConnect = true}) => session.openPath(path, allowConnect: allowConnect);
 
   @override
-  ProviderLease? leaseProvider() => session.leaseProvider();
+  Future<FileEntry?> enter(FileEntry entry) async {
+    final index = session.entries.indexWhere((candidate) => candidate.name == entry.name);
+    if (index < 0) {
+      return null;
+    }
+    session.setCursorIndex(index);
+    return enterCurrent();
+  }
 
   @override
-  Operation<String, ResolvedNode> resolvePath() => session.resolvePath();
-
-  @override
-  Future<FsNode?> enterCurrent() => session.enterCurrent();
+  Future<FileEntry?> enterCurrent() async {
+    final blocked = await session.enterCurrent();
+    return blocked == null ? null : session.entryOf(blocked);
+  }
 
   @override
   Future<void> goUp() => session.goUp();
@@ -99,10 +96,6 @@ class PanelController extends ChangeNotifier implements Panel {
 
   @override
   void cancel() => session.cancel();
-
-  @override
-  Future<R> runWork<R>(Future<R> Function(TaskOperation<void, R> op) body, {String status = 'Loading…'}) =>
-      session.runWork(body, status: status);
 
   // --- курсор ---
 
@@ -117,7 +110,10 @@ class PanelController extends ChangeNotifier implements Panel {
   int get cursorIndex => session.cursorIndex;
 
   @override
-  FsNode? get currentNode => session.currentNode;
+  FileEntry? get currentEntry {
+    final node = session.currentNode;
+    return node == null ? null : session.entryOf(node);
+  }
 
   @override
   void moveCursor(int delta) => session.setCursorIndex(session.cursorIndex + delta);
@@ -140,19 +136,47 @@ class PanelController extends ChangeNotifier implements Panel {
   // --- пометка ---
 
   @override
-  PanelSelection get selection => session.selection;
+  Set<String> get marked => session.selection.names;
 
   @override
-  int get selectionSize => session.selectionSize;
+  bool isMarked(FileEntry entry) => session.selection.names.contains(entry.name);
 
   @override
-  bool get selectionSizeIsFinal => session.selectionSizeIsFinal;
+  void setMarks(Set<String> names) => session.setMarks(names);
 
   @override
-  void toggleCurrentMark() => session.toggleCurrentMark();
+  void mark(FileEntry entry) => setMarks({...marked, entry.name});
+
+  @override
+  void unmark(FileEntry entry) => setMarks({...marked}..remove(entry.name));
 
   @override
   void markAll() => session.markAll();
+
+  @override
+  void clearMarks() => setMarks(const {});
+
+  @override
+  List<FileEntry> get targets {
+    if (marked.isEmpty) {
+      final current = currentEntry;
+      return current == null || current.isParent ? const [] : [current];
+    }
+    final names = marked;
+    return [
+      for (final entry in entries)
+        if (names.contains(entry.name)) entry,
+    ];
+  }
+
+  @override
+  int get markedSize => session.selectionSize;
+
+  @override
+  bool get markedSizeIsFinal => session.selectionSizeIsFinal;
+
+  @override
+  void toggleCurrentMark() => session.toggleCurrentMark();
 
   @override
   void measureDirectories() => session.measureDirectories();
@@ -179,6 +203,40 @@ class PanelController extends ChangeNotifier implements Panel {
 
   @override
   PanelSettings get settings => session.settings;
+
+  // --- долг: узлы и живые источники ---
+
+  @override
+  TreeProvider get provider => session.provider;
+
+  @override
+  TreeEditor? get editor => session.editor;
+
+  @override
+  DirectoryNode? get directory => session.directory;
+
+  @override
+  Future<void> openDirectory(DirectoryNode dir) => session.open(dir);
+
+  @override
+  FsNode? nodeOf(FileEntry entry) {
+    for (final node in session.nodes) {
+      if (node.name == entry.name) {
+        return node;
+      }
+    }
+    return null;
+  }
+
+  @override
+  ProviderLease? leaseProvider() => session.leaseProvider();
+
+  @override
+  Operation<String, ResolvedNode> resolvePath() => session.resolvePath();
+
+  @override
+  Future<R> runWork<R>(Future<R> Function(TaskOperation<void, R> op) body, {String status = 'Loading…'}) =>
+      session.runWork(body, status: status);
 
   // --- область ---
 

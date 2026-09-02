@@ -42,7 +42,7 @@ void main() {
         if (followLinks) TransferCommandBase.followLinksParam: true,
       });
 
-  List<String> namesOf(PanelController panel) => panel.nodes.map((node) => node.name).toList();
+  List<String> namesOf(PanelController panel) => panel.entries.map((node) => node.name).toList();
 
   test('копирует в каталог пассивной панели', () async {
     app.left.setCursorToName('notes.txt');
@@ -133,7 +133,7 @@ void main() {
 
     await transfer(move: true);
 
-    expect(app.left.selection.isEmpty, isTrue);
+    expect(app.left.marked.isEmpty, isTrue);
     expect(namesOf(app.left), isNot(contains('notes.txt')));
     expect(namesOf(app.right), contains('notes.txt'));
   });
@@ -219,7 +219,7 @@ void main() {
 
       await app.commands.create('file.copy')!.executeWith({'destination': '/backup'});
 
-      expect(app.right.nodes.map((node) => node.name), contains('inside.txt'));
+      expect(app.right.entries.map((node) => node.name), contains('inside.txt'));
     });
 
     test('без содержимого копировать нечем, и команда об этом не врёт', () async {
@@ -228,7 +228,7 @@ void main() {
 
       await app.commands.create('file.copy')!.executeWith({'destination': '/backup'});
 
-      expect(app.right.nodes.map((node) => node.name), isNot(contains('inside.txt')));
+      expect(app.right.entries.map((node) => node.name), isNot(contains('inside.txt')));
     });
   });
 

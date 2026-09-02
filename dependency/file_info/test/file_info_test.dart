@@ -102,7 +102,10 @@ void main() {
     });
 
     test('о помеченном — одно окно со сводкой, а не десять подряд', () async {
-      runtime.app.left.selection.addAll(runtime.app.left.nodes.where((node) => node is! ParentDirNode));
+      runtime.app.left.setMarks({
+        for (final entry in runtime.app.left.entries)
+          if (!entry.isParent) entry.name,
+      });
       await runtime.commands.create(FileInfoCommand.commandId)!.executeWith();
 
       expect(runtime.app.view.dialogs, hasLength(1));

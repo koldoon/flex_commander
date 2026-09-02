@@ -84,7 +84,7 @@ void main() {
       expect(await runtime.app.left.openPath('mem://alpha/srv'), isTrue);
 
       expect(opened.single.host, 'alpha');
-      expect(runtime.app.left.nodes.map((node) => node.name), contains('alpha.txt'));
+      expect(runtime.app.left.entries.map((node) => node.name), contains('alpha.txt'));
     });
   });
 
@@ -96,7 +96,7 @@ void main() {
       expect(await runtime.app.left.openPath('mem://alpha/srv'), isTrue);
 
       expect(opened.single.host, 'alpha');
-      expect(runtime.app.left.nodes.map((node) => node.name), contains('alpha.txt'));
+      expect(runtime.app.left.entries.map((node) => node.name), contains('alpha.txt'));
       // Вторая панель осталась там, где стояла: корень у каждой свой.
       expect(runtime.app.right.directory?.pathString, '/home');
     });
@@ -151,8 +151,8 @@ void main() {
       await runtime.app.left.openPath('mem://alpha/srv');
       await runtime.app.right.openPath('mem://beta/srv');
 
-      expect(runtime.app.left.nodes.map((n) => n.name), contains('alpha.txt'));
-      expect(runtime.app.right.nodes.map((n) => n.name), contains('beta.txt'));
+      expect(runtime.app.left.entries.map((n) => n.name), contains('alpha.txt'));
+      expect(runtime.app.right.entries.map((n) => n.name), contains('beta.txt'));
       expect(created.every((provider) => !provider.closed), isTrue);
     });
 
@@ -363,7 +363,7 @@ void main() {
       await runtime.app.start();
       await tester.pumpAndSettle();
 
-      final before = runtime.app.left.nodes.map((node) => node.name).toList();
+      final before = runtime.app.left.entries.map((node) => node.name).toList();
       expect(before, isNotEmpty);
 
       runtime.commands.run(
@@ -377,8 +377,8 @@ void main() {
 
       // Панель меняется только после успешного открытия: за опечатку не
       // наказывают потерей того, на что человек смотрел.
-      expect(runtime.app.left.nodes.map((node) => node.name), before);
-      expect(runtime.app.left.status, PanelStatus.idle);
+      expect(runtime.app.left.entries.map((node) => node.name), before);
+      expect(runtime.app.left.phase, PanelPhase.idle);
       // Имя в таблице разложено по колонкам, поэтому ищется каталог: у него
       // расширения нет.
       expect(find.text('docs'), findsWidgets, reason: 'список файлов на месте');

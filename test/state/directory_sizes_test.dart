@@ -1,9 +1,9 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
-import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Размеры всех каталогов одним нажатием.
@@ -31,12 +31,12 @@ void main() {
     await runtime.app.start();
   });
 
-  Panel panel() => runtime.app.left;
+  PanelController panel() => runtime.app.left;
 
-  DirectoryNode dir(String name) => panel().nodes.firstWhere((node) => node.name == name) as DirectoryNode;
+  DirectoryNode dir(String name) => panel().session.nodes.firstWhere((node) => node.name == name) as DirectoryNode;
 
   Future<void> settle() async {
-    for (var i = 0; i < 20 && !panel().selectionSizeIsFinal; i++) {
+    for (var i = 0; i < 20 && !panel().session.selectionSizeIsFinal; i++) {
       await pumpEventQueue();
     }
   }
@@ -51,7 +51,7 @@ void main() {
     expect(dir('mid').size, 500);
     expect(dir('small').size, 10);
     // `..` — это дерево выше, его по нажатию не считают.
-    final parent = panel().nodes.whereType<ParentDirNode>().firstOrNull;
+    final parent = panel().session.nodes.whereType<ParentDirNode>().firstOrNull;
     expect(parent?.size ?? FsNode.unknownSize, FsNode.unknownSize);
   });
 
@@ -78,34 +78,34 @@ void main() {
 
   test('уход из каталога подсчёт прекращает', () async {
     panel().measureDirectories();
-    await panel().open(dir('big'));
+    await panel().session.open(dir('big'));
     await settle();
 
     expect(panel().statusText, isNull);
-    expect(panel().directory?.pathString, '/home/big');
+    expect(panel().session.directory?.pathString, '/home/big');
   });
 
   test('по опустошению очереди список пересортируется, а курсор остаётся на объекте', () async {
     panel().sortBy(FsColumn.size);
     panel().setCursorToName('small');
-    final before = [for (final node in panel().nodes) node.name];
+    final before = [for (final node in panel().session.nodes) node.name];
 
     panel().measureDirectories();
     await settle();
 
-    final after = [for (final node in panel().nodes) node.name];
+    final after = [for (final node in panel().session.nodes) node.name];
     expect(after, isNot(before), reason: 'колонка изменилась целиком — порядок обязан её догнать');
-    expect(panel().currentNode?.name, 'small', reason: 'курсор держится за объект, а не за место');
+    expect(panel().session.currentNode?.name, 'small', reason: 'курсор держится за объект, а не за место');
   });
 
   test('при сортировке по имени порядок не трогается', () async {
     panel().sortBy(FsColumn.name);
-    final before = [for (final node in panel().nodes) node.name];
+    final before = [for (final node in panel().session.nodes) node.name];
 
     panel().measureDirectories();
     await settle();
 
-    expect([for (final node in panel().nodes) node.name], before);
+    expect([for (final node in panel().session.nodes) node.name], before);
   });
 
   test('команда невыполнима, пока панель занята', () {

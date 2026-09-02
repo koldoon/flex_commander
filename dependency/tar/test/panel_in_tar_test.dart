@@ -75,7 +75,7 @@ void main() {
     expect(await panel.enterCurrent(), isNull);
 
     expect(panel.provider, isA<TarTreeProvider>());
-    expect(panel.nodes.map((node) => node.name), containsAll(['..', 'src']));
+    expect(panel.entries.map((node) => node.name), containsAll(['..', 'src']));
   });
 
   test('в .tar.gz входят дважды: сперва в сжатое, потом в архив', () async {
@@ -85,7 +85,7 @@ void main() {
     expect(await panel.enterCurrent(), isNull);
     // Первое звено: сжатый поток показывает ровно одну запись — сам архив.
     expect(panel.provider, isA<GzipTreeProvider>());
-    expect(panel.nodes.map((node) => node.name), containsAll(['..', 'src.tar']));
+    expect(panel.entries.map((node) => node.name), containsAll(['..', 'src.tar']));
 
     panel.setCursorToName('src.tar');
     expect(await panel.enterCurrent(), isNull);
@@ -95,7 +95,7 @@ void main() {
     expect(panel.provider, isA<TarTreeProvider>());
     panel.setCursorToName('src');
     expect(await panel.enterCurrent(), isNull);
-    expect(panel.nodes.map((node) => node.name), containsAll(['lib', 'readme.md']));
+    expect(panel.entries.map((node) => node.name), containsAll(['lib', 'readme.md']));
   });
 
   test('.tgz открывается так же', () async {
@@ -104,7 +104,7 @@ void main() {
 
     expect(await panel.enterCurrent(), isNull);
 
-    expect(panel.nodes.map((node) => node.name), containsAll(['..', 'src.tar']));
+    expect(panel.entries.map((node) => node.name), containsAll(['..', 'src.tar']));
   });
 
   test('путь внутри архива переживает перезапуск', () async {
@@ -119,7 +119,7 @@ void main() {
     addTearDown(restored.dispose);
 
     expect(await restored.openPath(saved), isTrue);
-    expect(restored.nodes.map((node) => node.name), contains('readme.md'));
+    expect(restored.entries.map((node) => node.name), contains('readme.md'));
   });
 
   test('выход из архива убирает временную копию', () async {

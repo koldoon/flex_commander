@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
@@ -20,9 +19,9 @@ class PanelStatusBar extends StatelessWidget {
     final theme = FcTheme.of(context);
 
     return ListenableBuilder(
-      listenable: Listenable.merge([panel, panel.selection]),
+      listenable: panel,
       builder: (context, _) {
-        final error = panel.status == PanelStatus.error;
+        final error = panel.phase == PanelPhase.error;
         final stroke = theme.metrics.strokeWidth;
 
         return SizedBox(
@@ -67,32 +66,32 @@ class PanelStatusBar extends StatelessWidget {
       return TextSpan(text: status);
     }
 
-    final selection = panel.selection;
-    if (selection.isNotEmpty) {
-      final size = panel.selectionSize;
-      final items = 'Selected ${selection.length} ${selection.length == 1 ? 'item' : 'items'}';
+    final marked = panel.marked;
+    if (marked.isNotEmpty) {
+      final size = panel.markedSize;
+      final items = 'Selected ${marked.length} ${marked.length == 1 ? 'item' : 'items'}';
       // Каталоги обходятся фоном, и пока обход идёт, сумма неполная —
       // сказать об этом надо прямо, иначе растущее число выглядит ошибкой.
-      final scanning = panel.selectionSizeIsFinal ? '' : ' (Scanning…)';
+      final scanning = panel.markedSizeIsFinal ? '' : ' (Scanning…)';
       return TextSpan(text: size > 0 ? '$items, ${formatBytesLong(size)}$scanning' : '$items$scanning');
     }
 
-    final node = panel.currentNode;
-    if (node is LinkNode) {
+    final entry = panel.currentEntry;
+    if (entry != null && entry.isLink) {
       // Стрелка — глиф шрифта иконок, а не пара знаков «->»: рисованная
       // стрелка не рассыпается на разные шрифты и выглядит как стрелка.
       return TextSpan(
         children: [
-          TextSpan(text: node.name),
+          TextSpan(text: entry.name),
           TextSpan(
             text: ' ${theme.icons.glyph(theme.icons.angleRight)} ',
             style: TextStyle(fontFamily: theme.icons.fontFamily),
           ),
-          TextSpan(text: node.reference),
+          TextSpan(text: entry.reference),
         ],
       );
     }
 
-    return TextSpan(text: node?.name ?? '-');
+    return TextSpan(text: entry?.name ?? '-');
   }
 }

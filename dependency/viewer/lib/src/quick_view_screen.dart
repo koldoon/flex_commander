@@ -69,7 +69,8 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
   bool get takesKeyboard => _inner?.takesKeyboard ?? false;
 
   void _onPanelChanged({bool immediately = false}) {
-    final node = panel.currentNode;
+    final entry = panel.currentEntry;
+    final node = entry == null ? null : panel.nodeOf(entry);
     if (identical(node, _target)) {
       // Панель сообщает и о своих делах — о чтении каталога, о пометке. Файл
       // при этом тот же, и перечитывать его незачем.

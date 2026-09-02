@@ -1,4 +1,3 @@
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'search_results_provider.dart';
@@ -27,20 +26,25 @@ class GoToFoundCommand extends AppCommand {
   @override
   bool isExecutable(CommandContext context) {
     final panel = context.panel;
-    return panel.provider is SearchResultsProvider &&
-        panel.currentNode is! ParentDirNode &&
-        panel.currentNode?.parentDirectory != null;
+    final entry = panel.currentEntry;
+    // Находки узнаются по схеме источника, а не по его типу: типа этой стороне
+    // не видно, а схема приезжает снимком.
+    return panel.source.scheme == SearchResultsProvider.schemeName &&
+        entry != null &&
+        !entry.isParent &&
+        entry.directoryPath.isNotEmpty;
   }
 
   @override
   Future<void> execute(CommandContext context) async {
     final panel = context.panel;
-    final node = panel.currentNode;
-    final directory = node?.parentDirectory;
-    if (node == null || directory == null) {
+    final entry = panel.currentEntry;
+    if (entry == null || entry.directoryPath.isEmpty) {
       return;
     }
-    await panel.open(directory);
-    panel.setCursorToName(node.name);
+    // Каталог находки — её же поле: складывать путь умеет только источник, и
+    // он это уже сделал.
+    await panel.openPath(entry.directoryPath);
+    panel.setCursorToName(entry.name);
   }
 }

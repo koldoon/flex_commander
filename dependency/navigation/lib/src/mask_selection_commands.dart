@@ -1,5 +1,4 @@
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
@@ -23,7 +22,7 @@ abstract class MaskSelectionCommandBase extends AppCommand {
   bool get marks;
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty && !context.panel.busy;
+  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty && !context.panel.busy;
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -36,15 +35,18 @@ abstract class MaskSelectionCommandBase extends AppCommand {
       }
       // «..» не помечается никакой маской: это не объект, а способ выйти
       // наверх.
-      final matched = panel.nodes.where((node) => node is! ParentDirNode && mask.matches(node.name));
+      final matched = {
+        for (final entry in panel.entries)
+          if (!entry.isParent && mask.matches(entry.name)) entry.name,
+      };
+      // Одной просьбой на всю маску: до ядра пометка едет именами, и слать по
+      // сообщению на файл значило бы гнать их сотнями.
       if (marks) {
         // Пометка **дополняется**, а не заменяется: `+` дважды с разными
         // масками помечает и то, и другое. Так же ведёт себя mc.
-        panel.selection.addAll(matched);
+        panel.setMarks({...panel.marked, ...matched});
       } else {
-        for (final node in matched) {
-          panel.selection.remove(node);
-        }
+        panel.setMarks({...panel.marked}..removeAll(matched));
       }
       settings().rememberMask(patterns.trim());
       save();
@@ -66,9 +68,9 @@ abstract class MaskSelectionCommandBase extends AppCommand {
         if (mask.isEmpty) {
           return 0;
         }
-        return panel.nodes.where((node) => node is! ParentDirNode && mask.matches(node.name)).length;
+        return panel.entries.where((entry) => !entry.isParent && mask.matches(entry.name)).length;
       },
-      total: panel.nodes.where((node) => node is! ParentDirNode).length,
+      total: panel.entries.where((entry) => !entry.isParent).length,
       apply: apply,
     );
 
@@ -130,7 +132,7 @@ class DeselectByMaskCommand extends MaskSelectionCommandBase {
   bool get marks => false;
 
   @override
-  bool isExecutable(CommandContext context) => super.isExecutable(context) && context.panel.selection.isNotEmpty;
+  bool isExecutable(CommandContext context) => super.isExecutable(context) && context.panel.marked.isNotEmpty;
 }
 
 /// Что набрано в окне маски и что из этого выйдет.

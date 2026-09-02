@@ -15,8 +15,10 @@ PanelController testPanel({
   ProviderRegistry? registry,
   TreeEditor editor = const TreeTransferEngine(),
   int sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
+  PanelId id = PanelId.left,
 }) {
   return PanelController(
+    id,
     PanelSession(
       settings: settings,
       registry: registry ?? ProviderRegistry(root: provider),

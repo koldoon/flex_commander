@@ -81,7 +81,7 @@ void main() {
   group('листание каталога', () {
     test('стрелка показывает соседнюю картинку, не трогая курсор панели', () async {
       await view('a.png');
-      final cursor = runtime.app.left.currentNode?.name;
+      final cursor = runtime.app.left.currentEntry?.name;
 
       expect(runtime.commands.dispatch(KeyCombination.parse('Right')), isTrue);
       await settle();
@@ -89,7 +89,7 @@ void main() {
       final screen = shownFullscreen()! as ImageViewerScreen;
       expect(screen.node.name, 'b.gif');
       expect(screen.document.format, 'GIF');
-      expect(runtime.app.left.currentNode?.name, cursor, reason: 'показ — не навигация');
+      expect(runtime.app.left.currentEntry?.name, cursor, reason: 'показ — не навигация');
     });
 
     test('следующая распакована до подмены: чужих пропорций не мелькает', () async {

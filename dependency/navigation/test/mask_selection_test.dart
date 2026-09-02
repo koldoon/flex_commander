@@ -35,7 +35,7 @@ void main() {
 
   Future<void> unmark(String mask) => deselect().executeWith({MaskSelectionCommandBase.maskParam: mask});
 
-  Set<String> marked() => app.left.selection.names;
+  Set<String> marked() => app.left.marked;
 
   test('помечает совпавшее', () async {
     await mark('*.dart');

@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
@@ -11,9 +11,9 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 /// начинались с одной позиции. Здесь то же самое, только пустым местом той же
 /// ширины.
 class FileTypeIcon extends StatelessWidget {
-  const FileTypeIcon({super.key, required this.node, required this.selected});
+  const FileTypeIcon({super.key, required this.entry, required this.selected});
 
-  final FsNode node;
+  final FileEntry entry;
 
   /// Строка под курсором: иконка перекрашивается в цвет текста курсора.
   final bool selected;
@@ -21,7 +21,7 @@ class FileTypeIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
-    final icon = _iconFor(node, theme.icons);
+    final icon = _iconFor(entry, theme.icons);
     if (icon == null) {
       return SizedBox(width: theme.metrics.iconSize);
     }
@@ -29,20 +29,20 @@ class FileTypeIcon extends StatelessWidget {
     return Icon(icon, size: theme.metrics.iconSize, color: selected ? theme.colors.iconSelected : theme.colors.icon);
   }
 
-  IconData? _iconFor(FsNode node, FcIcons icons) {
-    if (node is ParentDirNode) {
+  IconData? _iconFor(FileEntry entry, FcIcons icons) {
+    if (entry.isParent) {
       return icons.folder;
     }
-    if (node is FileNode && node.broken) {
+    if (entry.broken) {
       return icons.exclamation;
     }
-    if (node is DirectoryNode) {
+    if (entry.isDirectory) {
       return icons.folder;
     }
-    if (node is LinkNode) {
+    if (entry.isLink) {
       return icons.link;
     }
-    if (node is FileNode && node.executable) {
+    if (entry.executable) {
       return icons.asterisk;
     }
     return null;

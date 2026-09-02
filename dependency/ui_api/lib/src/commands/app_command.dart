@@ -1,4 +1,4 @@
-import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter/widgets.dart';
 
 import '../app/application.dart';
@@ -98,7 +98,7 @@ class KeyBinding {
   /// сценарий, будущая командная строка. Ограничивать там нечем, и привязка
   /// действует: содержимое — это про то, кому принадлежит клавиша, а не про
   /// то, можно ли выполнить команду.
-  bool matches(KeyCombination combination, FsNode? node, {ViewportState? content}) {
+  bool matches(KeyCombination combination, FileEntry? entry, {ViewportState? content}) {
     final test = inContent;
     if (test != null && content != null && !test(content)) {
       return false;
@@ -111,7 +111,7 @@ class KeyBinding {
       return false;
     }
     final pattern = nameMatch;
-    return pattern == null || (node != null && pattern.hasMatch(node.name));
+    return pattern == null || (entry != null && pattern.hasMatch(entry.name));
   }
 
   /// Значения для запуска по этой комбинации.
@@ -146,7 +146,7 @@ class CommandContext {
   const CommandContext({
     required this.app,
     required this.panel,
-    this.node,
+    this.entry,
     this.targets = const [],
     this.invocation = const CommandInvocation(),
   });
@@ -157,15 +157,14 @@ class CommandContext {
   /// работы приложения, и запомненный контекст к следующему запуску устарел бы.
   factory CommandContext.of(Application app, [CommandInvocation invocation = const CommandInvocation()]) {
     final panel = app.activePanel;
-    final node = panel.currentNode;
-    final marked = panel.selection.nodes;
 
     return CommandContext(
       app: app,
       panel: panel,
-      node: node,
-      // Если пометки нет, операция работает с объектом под курсором.
-      targets: marked.isNotEmpty ? marked : [if (node != null) node],
+      entry: panel.currentEntry,
+      // Помеченное, а если пометки нет — объект под курсором. Разворачивает
+      // это сама панель: список у неё на руках.
+      targets: panel.targets,
       invocation: invocation,
     );
   }
@@ -182,12 +181,12 @@ class CommandContext {
   /// Активная панель — источник операции.
   final Panel panel;
 
-  /// Объект под курсором.
-  final FsNode? node;
+  /// Строка под курсором.
+  final FileEntry? entry;
 
   /// Помеченные объекты, а если пометки нет — объект под курсором.
   /// Именно с этим списком работают файловые операции.
-  final List<FsNode> targets;
+  final List<FileEntry> targets;
 
   /// Панель-приёмник: та, что **показана** напротив источника.
   ///

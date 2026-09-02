@@ -342,7 +342,7 @@ void main() {
     // Панель стоит на сервере: её корень — не общий.
     expect(panel.provider.scheme, 'ssh');
     expect(panel.directory!.pathString, startsWith('ssh://'));
-    expect(panel.nodes, isNotEmpty);
+    expect(panel.entries, isNotEmpty);
 
     // Путь без схемы возвращает на общий корень, а соединение закрывается:
     // держать его больше некому.
@@ -400,7 +400,7 @@ void main() {
     expect(await panel.openPath(shown), isTrue);
 
     expect(panel.provider.scheme, 'zip');
-    expect(panel.nodes.map((node) => node.name), contains('guide.txt'));
+    expect(panel.entries.map((node) => node.name), contains('guide.txt'));
     // И круг замыкается: показанное совпадает с тем, что открывали.
     expect(panel.directory?.displayPath, shown);
   });

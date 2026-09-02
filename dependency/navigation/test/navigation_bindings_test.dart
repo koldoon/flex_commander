@@ -42,7 +42,7 @@ void main() {
     expect(app.left.cursorIndex, 1);
 
     expect(commands.run('panel.cursor.last'), isTrue);
-    expect(app.left.cursorIndex, app.left.nodes.length - 1);
+    expect(app.left.cursorIndex, app.left.entries.length - 1);
 
     expect(commands.run('panel.cursor.first'), isTrue);
     expect(app.left.cursorIndex, 0);
@@ -103,11 +103,11 @@ void main() {
     await opening;
 
     expect(app.left.directory?.pathString, '/home');
-    expect(app.left.selection.names, {'notes.txt'});
+    expect(app.left.marked, {'notes.txt'});
 
     // Панель свободна — теперь Esc снимает пометку.
     commands.dispatch(KeyCombination.parse('Esc'));
-    expect(app.left.selection.isEmpty, isTrue);
+    expect(app.left.marked.isEmpty, isTrue);
   });
 
   test('приложение собирается и без модуля навигации', () async {

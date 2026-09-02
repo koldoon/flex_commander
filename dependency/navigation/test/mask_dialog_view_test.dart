@@ -46,7 +46,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Set<String> marked() => app.left.selection.names;
+  Set<String> marked() => app.left.marked;
 
   testWidgets('«+» открывает окно с пустым полем в фокусе', (tester) async {
     await pumpApp(tester);

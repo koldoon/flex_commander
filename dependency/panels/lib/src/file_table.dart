@@ -69,7 +69,7 @@ class _FileTableState extends State<FileTable> {
 
   /// Пометка, какой она была до жеста: по ней восстанавливаются строки,
   /// выпавшие из отрезка при ходе назад.
-  Set<FsNode> _markBefore = const {};
+  Set<String> _markBefore = const {};
 
   /// Где указатель сейчас — нужно автопрокрутке: она едет по таймеру, а не по
   /// движениям, и своей координаты у неё нет.
@@ -161,7 +161,7 @@ class _FileTableState extends State<FileTable> {
     }
 
     final bottom = (widget.panel.cursorIndex + 1) * _rowHeight;
-    final total = widget.panel.nodes.length * _rowHeight;
+    final total = widget.panel.entries.length * _rowHeight;
     return (bottom - _listHeight).clamp(0.0, math.max(0.0, total - _listHeight));
   }
 
@@ -310,9 +310,16 @@ class _FileTableState extends State<FileTable> {
   /// Тянут помеченное — едет вся пометка; тянут непомеченную строку — едет она
   /// одна, и пометка не трогается вовсе. Правило всех коммандеров, и оно же
   /// единственное, которое не удивляет: человек видит, что схватил.
-  List<FsNode> _dragNodes(FsNode node) {
-    final selection = widget.panel.selection;
-    return selection.contains(node) ? selection.nodes : [node];
+  List<FsNode> _dragNodes(FileEntry entry) {
+    final panel = widget.panel;
+    // Тянут помеченное — едет вся пометка; тянут непомеченную строку — едет она
+    // одна. Узлы берутся у панели: наружу поедет живое, и это последнее место,
+    // где перетаскивание об этом знает (`spec/client-server.md`, Э4).
+    final dragged = panel.isMarked(entry) ? panel.targets : [entry];
+    return [
+      for (final one in dragged)
+        if (panel.nodeOf(one) case final node?) node,
+    ];
   }
 
   /// Что под курсором при перетаскивании — строка-каталог или сама панель.
@@ -321,23 +328,22 @@ class _FileTableState extends State<FileTable> {
   /// до того, как отпустит кнопку.
   DropSpot? _spotAt(Offset local) {
     final panel = widget.panel;
-    final directory = panel.directory;
-    if (directory == null || !panel.provider.canWrite) {
+    if (panel.path.isEmpty || !panel.source.canWrite) {
       return null;
     }
-    final node = _nodeAt(local);
+    final entry = _entryAt(local);
     // Бросок на строку-каталог кладёт **в неё**; на файл, на `..` и мимо строк
     // — в каталог, открытый в панели.
-    if (node is DirectoryNode && node is! ParentDirNode) {
-      return DropSpot(destination: node.pathString, node: node);
+    if (entry != null && entry.isDirectory) {
+      return DropSpot(destination: entry.path, entry: entry);
     }
-    return DropSpot(destination: directory.pathString);
+    return DropSpot(destination: widget.panel.path);
   }
 
   /// Строка под точкой — с поправкой на заголовки и прокрутку.
-  FsNode? _nodeAt(Offset local) {
+  FileEntry? _entryAt(Offset local) {
     final index = _indexAt(local);
-    return index == null ? null : widget.panel.nodes[index];
+    return index == null ? null : widget.panel.entries[index];
   }
 
   /// Номер строки под точкой; null — точка не на строке: выше списка
@@ -348,7 +354,7 @@ class _FileTableState extends State<FileTable> {
     }
     final offset = _scroll.hasClients ? _scroll.offset : 0.0;
     final index = ((local.dy - _headerHeight + offset) / _rowHeight).floor();
-    return index >= 0 && index < widget.panel.nodes.length ? index : null;
+    return index >= 0 && index < widget.panel.entries.length ? index : null;
   }
 
   /// Подсветка того, куда попадёт брошенное: строка или вся панель.
@@ -360,8 +366,8 @@ class _FileTableState extends State<FileTable> {
   /// перематывалась наверх, потому что указатель по дороге проходил над своим
   /// же окном и зажигал подсветку.
   Widget _withHighlight(FcTheme theme, Widget content, DropSpot? hovered) {
-    final node = hovered?.node;
-    final index = node == null ? -1 : widget.panel.nodes.indexOf(node);
+    final entry = hovered?.entry;
+    final index = entry == null ? -1 : widget.panel.entries.indexOf(entry);
     final offset = _scroll.hasClients ? _scroll.offset : 0.0;
 
     return Stack(
@@ -416,7 +422,7 @@ class _FileTableState extends State<FileTable> {
     return ListenableBuilder(
       // Строки перерисовываются и при движении курсора, и при изменении
       // пометки; ListView строит только видимые, поэтому это дёшево.
-      listenable: Listenable.merge([panel, panel.selection]),
+      listenable: panel,
       builder: (context, _) {
         _prepareScroll();
 
@@ -425,7 +431,7 @@ class _FileTableState extends State<FileTable> {
         // Стереть их значило бы отнять и `..`, и всё, чем отсюда уходят:
         // человек, ткнувшийся в чужой каталог, оказывался запертым в
         // сообщении. Про неудачу говорит строка состояния, и этого довольно.
-        if (panel.nodes.isEmpty) {
+        if (panel.entries.isEmpty) {
           return const SizedBox.shrink();
         }
 
@@ -435,15 +441,15 @@ class _FileTableState extends State<FileTable> {
           key: ValueKey(_scrolledDirectory),
           controller: _scroll,
           itemExtent: theme.metrics.rowHeight,
-          itemCount: panel.nodes.length,
+          itemCount: panel.entries.length,
           primary: false,
           itemBuilder: (context, index) {
-            final node = panel.nodes[index];
+            final entry = panel.entries[index];
             final row = FileTableRow(
-              node: node,
+              entry: entry,
               columns: columns,
               widths: widths,
-              marked: panel.selection.contains(node),
+              marked: panel.isMarked(entry),
               underCursor: index == panel.cursorIndex,
               panelActive: panel.active,
               // Правило показа одно на приложение: две панели, делящие имя
@@ -458,7 +464,7 @@ class _FileTableState extends State<FileTable> {
                 : dnd.source(
                   owner: panel,
                   child: row,
-                  nodes: () => _dragNodes(node),
+                  nodes: () => _dragNodes(entry),
                   // Пока объект едет в чужое окно, панель вправе уйти куда
                   // угодно — хоть выйти из архива, — а содержимое у неё
                   // спросят уже после.
@@ -501,8 +507,8 @@ class _FileTableState extends State<FileTable> {
 
     _markAnchor = index;
     _markTo = index;
-    _markBefore = panel.selection.nodes.toSet();
-    _markAdds = !panel.selection.contains(panel.nodes[index]);
+    _markBefore = panel.marked;
+    _markAdds = !panel.isMarked(panel.entries[index]);
     _markPointer = event.localPosition;
     _markSegment(index);
   }
@@ -540,7 +546,7 @@ class _FileTableState extends State<FileTable> {
     final dy = local.dy.clamp(_headerHeight, math.max(_headerHeight, bottom - 1));
     final offset = _scroll.hasClients ? _scroll.offset : 0.0;
     final index = ((dy - _headerHeight + offset) / _rowHeight).floor();
-    return index.clamp(0, widget.panel.nodes.length - 1);
+    return index.clamp(0, widget.panel.entries.length - 1);
   }
 
   /// Приводит к нужному виду отрезок от начальной строки до [to], а всё, что
@@ -549,7 +555,7 @@ class _FileTableState extends State<FileTable> {
   /// Отрезок, а не след: ход назад снимает то, что жест сам же и пометил.
   void _markSegment(int to) {
     final panel = widget.panel;
-    final nodes = panel.nodes;
+    final entries = panel.entries;
     final from = _markAnchor;
 
     final low = math.min(from, math.min(to, _markTo));
@@ -557,17 +563,25 @@ class _FileTableState extends State<FileTable> {
     final segmentLow = math.min(from, to);
     final segmentHigh = math.max(from, to);
 
+    // Пометка меняется одной просьбой на весь отрезок: до ядра она едет
+    // именами, и слать по сообщению на строку значило бы гнать сотню
+    // сообщений за один взмах мыши.
+    final marked = {...panel.marked};
     for (var i = low; i <= high; i++) {
-      final node = nodes[i];
-      final wanted = i >= segmentLow && i <= segmentHigh ? _markAdds : _markBefore.contains(node);
+      final entry = entries[i];
       // «..» не помечается никогда — это правило самой пометки, и жесту
       // достаточно его не обходить.
+      if (entry.isParent) {
+        continue;
+      }
+      final wanted = i >= segmentLow && i <= segmentHigh ? _markAdds : _markBefore.contains(entry.name);
       if (wanted) {
-        panel.selection.add(node);
+        marked.add(entry.name);
       } else {
-        panel.selection.remove(node);
+        marked.remove(entry.name);
       }
     }
+    panel.setMarks(marked);
 
     _markTo = to;
     // Курсор идёт за жестом: иначе после пометки полутора экранов он остаётся

@@ -83,7 +83,7 @@ void main() {
     expect(runtime.app.left.busy, isTrue);
     expect(runtime.app.left.statusText, 'Reading a-notes.txt…');
     // Список файлов на виду: читается один файл, а не каталог.
-    expect(runtime.app.left.nodes, isNotEmpty);
+    expect(runtime.app.left.entries, isNotEmpty);
     expect(editor(), isNull, reason: 'экрана ещё нет');
 
     await finishReading(tester);

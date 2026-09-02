@@ -31,7 +31,13 @@ class FileInfoCommand extends AppCommand {
   /// Помеченное, а нет пометки — то, что под курсором. Псевдоузел «..» не в
   /// счёт: сведения о нём — это сведения о каталоге, куда он ведёт, и
   /// показывать их под его именем значило бы путать.
-  List<FsNode> _targetsOf(CommandContext context) => context.targets.where((node) => node is! ParentDirNode).toList();
+  /// ВРЕМЕННО узлами: цели приезжают строками списка, а работа пока идёт по эту
+  /// сторону границы (`docs/spec/client-server.md`, Э4 и Э5).
+  List<FsNode> _targetsOf(CommandContext context) => [
+    for (final entry in context.targets)
+      if (!entry.isParent)
+        if (context.panel.nodeOf(entry) case final node?) node,
+  ];
 
   @override
   Future<void> execute(CommandContext context) async {

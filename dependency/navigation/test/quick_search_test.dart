@@ -18,7 +18,7 @@ void main() {
   String? pattern() => search()?.pattern;
   String? matched() => search()?.matched;
   String? tail() => search()?.tail;
-  String? cursor() => panel().currentNode?.name;
+  String? cursor() => panel().currentEntry?.name;
 
   bool press(String keys) => runtime.commands.dispatch(KeyCombination.parse(keys));
 

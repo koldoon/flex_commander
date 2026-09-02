@@ -59,17 +59,17 @@ void main() {
       await run('panel.root');
 
       expect(app.left.directory, provider.rootDirectory);
-      expect(app.left.nodes.map((node) => node.name), containsAll(['home', 'usr']));
+      expect(app.left.entries.map((node) => node.name), containsAll(['home', 'usr']));
     });
 
     test('пометка снимается: она относилась к прежнему каталогу', () async {
       app.left.setCursorToName('notes.txt');
       app.left.toggleCurrentMark();
-      expect(app.left.selection.isEmpty, isFalse);
+      expect(app.left.marked.isEmpty, isFalse);
 
       await run('panel.root');
 
-      expect(app.left.selection.isEmpty, isTrue);
+      expect(app.left.marked.isEmpty, isTrue);
     });
 
     test('курсор встаёт в начало списка', () async {

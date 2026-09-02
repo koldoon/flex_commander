@@ -93,7 +93,7 @@ void main() {
     // Порядок по расширению: `gz`, `json`, `tar.gz`. Составное стоит своим
     // расширением, а не сливается с `gz`, — иначе `archive.tar.gz` оказался бы
     // рядом с `photo.gz`, показываясь при этом как `tar.gz`.
-    expect(app.left.nodes.map((node) => node.name).toList(), ['..', 'photo.gz', 'server.cfg.json', 'archive.tar.gz']);
+    expect(app.left.entries.map((node) => node.name).toList(), ['..', 'photo.gz', 'server.cfg.json', 'archive.tar.gz']);
   });
 
   test('реестр провайдеров словаря не видит', () {

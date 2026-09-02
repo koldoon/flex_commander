@@ -299,7 +299,7 @@ void main() {
       }
       await panel.reload();
 
-      expect(panel.nodes.map((node) => node.name), contains('notes.txt'));
+      expect(panel.entries.map((node) => node.name), contains('notes.txt'));
       // Второго экземпляра поверх того же файла не завелось: панель и приёмник
       // — это один и тот же открытый архив.
       expect(destination.node!.provider, same(panel.provider));

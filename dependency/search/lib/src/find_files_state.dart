@@ -261,7 +261,7 @@ class FindFilesState extends ChangeNotifier {
     // Каталог поиска — родитель списка: `..` из находок возвращает туда, где
     // панель стояла, и никакого «запомненного места» для этого не нужно.
     final results = SearchResultsProvider(title: query.mask, found: List.of(found), parent: where);
-    await panel.open(results.rootDirectory);
+    await panel.openDirectory(results.rootDirectory);
   }
 
   /// Перейти к найденному: панель открывает его каталог, курсор встаёт на нём.
@@ -278,7 +278,7 @@ class FindFilesState extends ChangeNotifier {
     }
     final node = found[_selected];
     toBackground();
-    await panel.open(node.parentDirectory!);
+    await panel.openDirectory(node.parentDirectory!);
     panel.setCursorToName(node.name);
   }
 

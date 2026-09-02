@@ -212,7 +212,7 @@ void main() {
 
       expect(await panel.enterCurrent(), isNull);
 
-      expect(panel.nodes.map((node) => node.name), containsAll(['docs', 'readme.md']));
+      expect(panel.entries.map((node) => node.name), containsAll(['docs', 'readme.md']));
       expect(panel.provider, isA<ZipTreeProvider>());
       // В архив на диске можно писать: файловые команды остаются доступными.
       expect(panel.editor, isNotNull);
@@ -233,7 +233,7 @@ void main() {
       await panel.goUp();
 
       expect(panel.directory?.pathString, root);
-      expect(panel.currentNode?.name, 'sample.zip');
+      expect(panel.currentEntry?.name, 'sample.zip');
       expect(panel.provider, same(disk));
     });
 
@@ -248,7 +248,7 @@ void main() {
       addTearDown(restored.dispose);
 
       expect(await restored.openPath(saved), isTrue);
-      expect(restored.nodes.map((node) => node.name), contains('guide.txt'));
+      expect(restored.entries.map((node) => node.name), contains('guide.txt'));
     });
 
     test('круг замкнулся: показанный путь открывается обратно', () async {
@@ -265,7 +265,7 @@ void main() {
 
       expect(await panel.openPath(shown), isTrue);
       expect(panel.directory?.displayPath, shown);
-      expect(panel.nodes.map((node) => node.name), contains('guide.txt'));
+      expect(panel.entries.map((node) => node.name), contains('guide.txt'));
     });
 
     test('и корень архива тоже — иначе круг рвался бы на нём', () async {
@@ -279,7 +279,7 @@ void main() {
       // то же самое, что Enter.
       expect(await panel.openPath(shown), isTrue);
       expect(panel.provider, isA<ZipTreeProvider>());
-      expect(panel.nodes.map((node) => node.name), containsAll(['docs', 'readme.md']));
+      expect(panel.entries.map((node) => node.name), containsAll(['docs', 'readme.md']));
     });
   });
 

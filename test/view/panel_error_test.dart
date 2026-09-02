@@ -1,5 +1,4 @@
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
@@ -40,7 +39,7 @@ void main() {
 
     await enterSecret(tester);
 
-    expect(runtime.app.left.status, PanelStatus.error);
+    expect(runtime.app.left.phase, PanelPhase.error);
     // Список на месте — вместе с `..`, которым отсюда и уходят.
     expect(find.text('notes'), findsWidgets);
     expect(find.text('secret'), findsWidgets);
@@ -60,22 +59,22 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(runtime.app.left.directory?.pathString, '/');
-    expect(runtime.app.left.status, PanelStatus.idle);
+    expect(runtime.app.left.phase, PanelPhase.idle);
 
     await tester.pump(const Duration(milliseconds: 20));
   });
 
   test('панель остаётся в прежнем каталоге, с содержимым и курсором', () async {
     final panel = runtime.app.left;
-    final before = [for (final node in panel.nodes) node.name];
+    final before = [for (final node in panel.entries) node.name];
 
     panel.setCursorToName('secret');
-    await panel.open(panel.nodes.firstWhere((node) => node.name == 'secret') as DirectoryNode);
+    await panel.enter(panel.entries.firstWhere((entry) => entry.name == 'secret'));
 
-    expect(panel.directory?.pathString, '/home');
-    expect([for (final node in panel.nodes) node.name], before);
+    expect(panel.path, '/home');
+    expect([for (final node in panel.entries) node.name], before);
     // Курсор там же, откуда входили: повторить попытку — одно нажатие.
-    expect(panel.currentNode?.name, 'secret');
+    expect(panel.currentEntry?.name, 'secret');
     expect(panel.statusText, contains('Permission denied'));
     expect(panel.busy, isFalse);
   });

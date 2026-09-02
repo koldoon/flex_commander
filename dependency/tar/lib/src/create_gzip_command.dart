@@ -66,7 +66,12 @@ class CreateGzipCommand extends AppCommand {
     return target != null && !target.busy && destination != null && destination.provider.canReceive;
   }
 
-  List<FsNode> _sourcesOf(CommandContext context) => context.targets.where((node) => node is! ParentDirNode).toList();
+  /// ВРЕМЕННО узлами — см. `docs/spec/client-server.md`, Э4.
+  List<FsNode> _sourcesOf(CommandContext context) => [
+    for (final entry in context.targets)
+      if (!entry.isParent)
+        if (context.panel.nodeOf(entry) case final node?) node,
+  ];
 
   @override
   Future<void> execute(CommandContext context) async {

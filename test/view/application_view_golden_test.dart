@@ -44,7 +44,7 @@ void main() {
     // Курсор в активной панели и пара помеченных объектов в пассивной —
     // на снимке должны быть видны все состояния строки.
     app.left.setCursorToName('INSTALL');
-    app.right.selection.addAll(app.right.nodes.where((node) => node.name == 'LICENSE' || node.name == 'fetch.xml'));
+    app.right.setMarks({'LICENSE', 'fetch.xml'});
     await tester.pump();
 
     await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/application_view.png'));

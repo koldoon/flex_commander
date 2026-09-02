@@ -26,7 +26,7 @@ void main() {
 
   RenameCommand rename() => app.commands.create('file.rename')! as RenameCommand;
 
-  List<String> namesOf() => app.left.nodes.map((node) => node.name).toList();
+  List<String> namesOf() => app.left.entries.map((node) => node.name).toList();
 
   Future<void> renameCursorTo(String name) async {
     await rename().executeWith({RenameCommand.nameParam: name});
@@ -48,7 +48,7 @@ void main() {
 
     await renameCursorTo('заметки.txt');
 
-    expect(app.left.currentNode?.name, 'заметки.txt');
+    expect(app.left.currentEntry?.name, 'заметки.txt');
   });
 
   test('пробелы по краям имени и по краям основы срезаются', () async {
@@ -104,8 +104,8 @@ void main() {
 
     await renameCursorTo('заметки.txt');
 
-    expect(app.right.nodes.map((node) => node.name), contains('заметки.txt'));
-    expect(app.right.nodes.map((node) => node.name), isNot(contains('notes.txt')));
+    expect(app.right.entries.map((node) => node.name), contains('заметки.txt'));
+    expect(app.right.entries.map((node) => node.name), isNot(contains('notes.txt')));
   });
 
   test('панель в другом каталоге не перечитывается зря', () async {

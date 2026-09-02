@@ -26,14 +26,14 @@ void main() {
 
   tearDown(() => panel.dispose());
 
-  List<String> namesOf(PanelController panel) => panel.nodes.map((n) => n.name).toList();
+  List<String> namesOf(PanelController panel) => panel.entries.map((n) => n.name).toList();
 
   group('открытие каталога', () {
     test('читает содержимое и сортирует его', () async {
       expect(await panel.openPath('/home'), isTrue);
 
-      expect(panel.status, PanelStatus.idle);
-      expect(panel.directory?.pathString, '/home');
+      expect(panel.phase, PanelPhase.idle);
+      expect(panel.session.directory?.pathString, '/home');
       // "..", затем каталоги (ссылка на каталог тоже), затем файлы.
       expect(namesOf(panel), ['..', 'bin', 'docs', 'link-to-bin', 'notes.txt', 'report.xlsx']);
       expect(panel.cursorIndex, 0);
@@ -49,7 +49,7 @@ void main() {
 
     test('несуществующий путь не открывается', () async {
       expect(await panel.openPath('/nowhere'), isFalse);
-      expect(panel.directory, isNull);
+      expect(panel.session.directory, isNull);
     });
 
     test('путь к файлу не открывается', () async {
@@ -60,12 +60,12 @@ void main() {
       await panel.openPath('/home');
       provider.denied['/home/docs'] = const FsError('/home/docs', FsErrorKind.permissionDenied);
 
-      final docs = panel.nodes.firstWhere((n) => n.name == 'docs') as DirectoryNode;
-      await panel.open(docs);
+      final docs = panel.session.nodes.firstWhere((n) => n.name == 'docs') as DirectoryNode;
+      await panel.session.open(docs);
 
-      expect(panel.status, PanelStatus.error);
+      expect(panel.phase, PanelPhase.error);
       expect(panel.error?.kind, FsErrorKind.permissionDenied);
-      expect(panel.directory?.pathString, '/home');
+      expect(panel.session.directory?.pathString, '/home');
       expect(panel.statusText, contains('Permission denied'));
       expect(panel.busy, isFalse);
     });
@@ -82,14 +82,14 @@ void main() {
 
     test('результат устаревшего чтения не применяется', () async {
       await panel.openPath('/home');
-      final docs = panel.nodes.firstWhere((n) => n.name == 'docs') as DirectoryNode;
-      final bin = panel.nodes.firstWhere((n) => n.name == 'bin') as DirectoryNode;
+      final docs = panel.session.nodes.firstWhere((n) => n.name == 'docs') as DirectoryNode;
+      final bin = panel.session.nodes.firstWhere((n) => n.name == 'bin') as DirectoryNode;
 
-      final first = panel.open(docs);
-      final second = panel.open(bin);
+      final first = panel.session.open(docs);
+      final second = panel.session.open(bin);
       await Future.wait([first, second]);
 
-      expect(panel.directory?.pathString, '/home/bin');
+      expect(panel.session.directory?.pathString, '/home/bin');
       expect(panel.busy, isFalse);
     });
   });
@@ -101,7 +101,7 @@ void main() {
       panel.setCursorToName('docs');
       expect(await panel.enterCurrent(), isNull);
 
-      expect(panel.directory?.pathString, '/home/docs');
+      expect(panel.session.directory?.pathString, '/home/docs');
       expect(namesOf(panel), ['..', 'readme.md']);
     });
 
@@ -111,7 +111,7 @@ void main() {
 
       // Содержимое берётся из цели, но пользователь пришёл через ссылку —
       // её и должен видеть в заголовке панели.
-      expect(panel.directory?.pathString, '/home/link-to-bin');
+      expect(panel.session.directory?.pathString, '/home/link-to-bin');
     });
 
     test('из каталога, открытого по ссылке, наверх ведёт к самой ссылке', () async {
@@ -122,8 +122,8 @@ void main() {
 
       // Не в /home/bin/.. и не в физического родителя цели, а туда,
       // откуда пользователь пришёл.
-      expect(panel.directory?.pathString, '/home');
-      expect(panel.currentNode?.name, 'link-to-bin');
+      expect(panel.session.directory?.pathString, '/home');
+      expect(panel.currentEntry?.name, 'link-to-bin');
     });
 
     test('".." внутри ссылки работает так же, как переход наверх', () async {
@@ -131,17 +131,17 @@ void main() {
       await panel.enterCurrent();
 
       panel.setCursorToFirst();
-      expect(panel.currentNode, isA<ParentDirNode>());
+      expect(panel.currentEntry?.isParent, isTrue);
       await panel.enterCurrent();
 
-      expect(panel.directory?.pathString, '/home');
-      expect(panel.currentNode?.name, 'link-to-bin');
+      expect(panel.session.directory?.pathString, '/home');
+      expect(panel.currentEntry?.name, 'link-to-bin');
     });
 
     test('путь через ссылку восстанавливается из настроек', () async {
       expect(await panel.openPath('/home/link-to-bin'), isTrue);
 
-      expect(panel.directory?.pathString, '/home/link-to-bin');
+      expect(panel.session.directory?.pathString, '/home/link-to-bin');
       expect(panel.settings.path, '/home/link-to-bin');
     });
 
@@ -150,16 +150,16 @@ void main() {
       final node = await panel.enterCurrent();
 
       expect(node?.name, 'notes.txt');
-      expect(panel.directory?.pathString, '/home');
+      expect(panel.session.directory?.pathString, '/home');
     });
 
     test('".." поднимает на уровень вверх', () async {
       await panel.openPath('/home/docs');
       panel.setCursorIndex(0);
-      expect(panel.currentNode, isA<ParentDirNode>());
+      expect(panel.currentEntry?.isParent, isTrue);
 
       await panel.enterCurrent();
-      expect(panel.directory?.pathString, '/home');
+      expect(panel.session.directory?.pathString, '/home');
     });
 
     test('после подъёма курсор стоит на покинутом каталоге', () async {
@@ -167,14 +167,14 @@ void main() {
       await panel.enterCurrent();
       await panel.goUp();
 
-      expect(panel.currentNode?.name, 'docs');
+      expect(panel.currentEntry?.name, 'docs');
     });
 
     test('в корне подниматься некуда', () async {
       await panel.openPath('/');
       await panel.goUp();
 
-      expect(panel.directory?.pathString, '/');
+      expect(panel.session.directory?.pathString, '/');
     });
 
     test('возврат в посещённый каталог восстанавливает курсор', () async {
@@ -182,19 +182,19 @@ void main() {
       await panel.openPath('/home/docs');
       await panel.openPath('/home');
 
-      expect(panel.currentNode?.name, 'report.xlsx');
+      expect(panel.currentEntry?.name, 'report.xlsx');
     });
 
     test('подъём наверх важнее запомненного курсора', () async {
       // Курсор был на файле, но пользователь ушёл в каталог и вернулся "вверх":
       // ожидание в таком случае — курсор на покинутом каталоге.
       panel.setCursorToName('report.xlsx');
-      final docs = panel.nodes.firstWhere((n) => n.name == 'docs') as DirectoryNode;
+      final docs = panel.session.nodes.firstWhere((n) => n.name == 'docs') as DirectoryNode;
 
-      await panel.open(docs);
+      await panel.session.open(docs);
       await panel.goUp();
 
-      expect(panel.currentNode?.name, 'docs');
+      expect(panel.currentEntry?.name, 'docs');
     });
   });
 
@@ -206,7 +206,7 @@ void main() {
       expect(panel.cursorIndex, 0);
 
       panel.moveCursor(100);
-      expect(panel.cursorIndex, panel.nodes.length - 1);
+      expect(panel.cursorIndex, panel.entries.length - 1);
     });
 
     test('страница считается от числа видимых строк', () {
@@ -220,16 +220,16 @@ void main() {
 
     test('первый и последний', () {
       panel.setCursorToLast();
-      expect(panel.currentNode?.name, 'report.xlsx');
+      expect(panel.currentEntry?.name, 'report.xlsx');
 
       panel.setCursorToFirst();
-      expect(panel.currentNode?.name, '..');
+      expect(panel.currentEntry?.name, '..');
     });
 
     test('несуществующее имя не двигает курсор', () {
       panel.setCursorToName('docs');
       panel.setCursorToName('нет такого файла');
-      expect(panel.currentNode?.name, 'docs');
+      expect(panel.currentEntry?.name, 'docs');
     });
   });
 
@@ -240,32 +240,32 @@ void main() {
       panel.setCursorToName('notes.txt');
       panel.toggleCurrentMark();
 
-      expect(panel.selection.names, {'notes.txt'});
-      expect(panel.currentNode?.name, 'report.xlsx');
+      expect(panel.marked, {'notes.txt'});
+      expect(panel.currentEntry?.name, 'report.xlsx');
     });
 
     test('".." не помечается', () {
       panel.setCursorToFirst();
       panel.toggleCurrentMark();
 
-      expect(panel.selection.isEmpty, isTrue);
+      expect(panel.marked.isEmpty, isTrue);
     });
 
     test('суммарный размер считает только известные размеры', () {
       panel.markAll();
 
-      expect(panel.selection.length, panel.nodes.length - 1); // без ".."
+      expect(panel.marked.length, panel.entries.length - 1); // без ".."
       // Каталоги пока не в счёт: их размер считается фоном, а проверка идёт
       // синхронно, до первого шага подсчёта. Появится рядом `await` — числа
       // поедут, и это будет не поломка, а досчитанные каталоги.
-      expect(panel.selection.totalSize, 2148); // 100 + 2048
+      expect(panel.session.selection.totalSize, 2148); // 100 + 2048
     });
 
     test('открытие другого каталога снимает пометку', () async {
       panel.markAll();
       await panel.openPath('/home/docs');
 
-      expect(panel.selection.isEmpty, isTrue);
+      expect(panel.marked.isEmpty, isTrue);
     });
   });
 
@@ -274,14 +274,14 @@ void main() {
 
     test('сохраняет курсор и пометку по именам', () async {
       panel.setCursorToName('notes.txt');
-      panel.selection.add(panel.nodes.firstWhere((n) => n.name == 'report.xlsx'));
+      panel.session.selection.add(panel.session.nodes.firstWhere((n) => n.name == 'report.xlsx'));
 
       await panel.reload();
 
-      expect(panel.currentNode?.name, 'notes.txt');
-      expect(panel.selection.names, {'report.xlsx'});
+      expect(panel.currentEntry?.name, 'notes.txt');
+      expect(panel.marked, {'report.xlsx'});
       // Узлы после перечитывания — новые экземпляры.
-      expect(panel.selection.nodes.first, same(panel.nodes.firstWhere((n) => n.name == 'report.xlsx')));
+      expect(panel.session.selection.nodes.first, same(panel.session.nodes.firstWhere((n) => n.name == 'report.xlsx')));
     });
 
     test('исчезнувший объект под курсором заменяется соседним', () async {
@@ -291,7 +291,7 @@ void main() {
 
       await panel.reload();
 
-      expect(panel.currentNode?.name, isNot('report.xlsx'));
+      expect(panel.currentEntry?.name, isNot('report.xlsx'));
       expect(panel.cursorIndex, lessThanOrEqualTo(index));
     });
 
@@ -301,7 +301,7 @@ void main() {
 
       await panel.reload();
 
-      expect(panel.selection.names, isNot(contains('notes.txt')));
+      expect(panel.marked, isNot(contains('notes.txt')));
     });
   });
 
@@ -320,7 +320,7 @@ void main() {
       panel.setCursorToName('notes.txt');
       panel.sortBy(FsColumn.size);
 
-      expect(panel.currentNode?.name, 'notes.txt');
+      expect(panel.currentEntry?.name, 'notes.txt');
     });
 
     test('по колонке иконки сортировать нельзя', () {
@@ -356,7 +356,7 @@ void main() {
 
       await restored.openPath('/home');
 
-      expect(restored.currentNode?.name, 'report.xlsx');
+      expect(restored.session.currentNode?.name, 'report.xlsx');
     });
 
     test('исчезнувший объект ставит курсор в начало, а не мимо', () async {
@@ -369,7 +369,7 @@ void main() {
       await restored.openPath('/home');
 
       expect(restored.cursorIndex, 0);
-      expect(restored.currentNode, isNotNull);
+      expect(restored.session.currentNode, isNotNull);
     });
 
     test('запомненное не теряется, пока каталог не прочитан', () {
@@ -389,7 +389,7 @@ void main() {
       expect(panel.settings.cursor, isNot('report.xlsx'));
 
       await panel.openPath('/home');
-      expect(panel.currentNode?.name, 'report.xlsx');
+      expect(panel.currentEntry?.name, 'report.xlsx');
     });
   });
 
@@ -419,7 +419,7 @@ void main() {
       expect(panel.busy, isTrue);
       expect(panel.statusText, 'Reading notes.txt…', reason: 'веха работы вытеснила начальное слово');
       // Список файлов на виду: читается один файл, а не каталог.
-      expect(panel.nodes, isNotEmpty);
+      expect(panel.entries, isNotEmpty);
 
       gate.complete('готово');
       expect(await work, 'готово');
@@ -451,7 +451,7 @@ void main() {
 
       expect(panel.busy, isFalse);
       expect(panel.statusText, isNull);
-      expect(panel.currentNode, isNotNull, reason: 'панель осталась там же, где была');
+      expect(panel.currentEntry, isNotNull, reason: 'панель осталась там же, где была');
     });
 
     test('отказ работы тоже снимает занятость', () async {
@@ -561,7 +561,7 @@ void main() {
       await canceled;
 
       expect(panel.busy, isFalse);
-      expect(panel.directory?.pathString, '/home/docs');
+      expect(panel.session.directory?.pathString, '/home/docs');
     });
   });
 }

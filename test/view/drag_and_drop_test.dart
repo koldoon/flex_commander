@@ -63,7 +63,7 @@ void main() {
   Offset rowCenter(WidgetTester tester, String name) {
     final table = tester.getRect(find.byType(FileTable).first);
     final metrics = FcTheme.of(tester.element(find.byType(FileTable).first)).metrics;
-    final index = runtime.app.left.nodes.indexWhere((node) => node.name == name);
+    final index = runtime.app.left.entries.indexWhere((node) => node.name == name);
     expect(index, isNonNegative, reason: 'в панели нет строки «$name»');
     return Offset(
       table.left + table.width / 2,
@@ -195,9 +195,9 @@ void main() {
     testWidgets('тянут помеченное — едет вся пометка', (tester) async {
       await pumpApp(tester);
       app.left.setCursorToName('note.txt');
-      app.left.selection.toggle(app.left.currentNode!);
+      app.left.mark(app.left.currentEntry!);
       app.left.setCursorToName('docs');
-      app.left.selection.toggle(app.left.currentNode!);
+      app.left.mark(app.left.currentEntry!);
       await tester.pumpAndSettle();
 
       await dragRow(tester, 'note.txt');
@@ -346,7 +346,7 @@ void main() {
         isNotNull,
         reason: 'файл на месте — но копии в той же панели быть не должно',
       );
-      expect(app.left.nodes.where((node) => node.name.contains('note')).length, 1);
+      expect(app.left.entries.where((node) => node.name.contains('note')).length, 1);
     });
 
     testWidgets('в соседнюю панель — принимает', (tester) async {
@@ -467,7 +467,7 @@ void main() {
     Future<void> dragOut(WidgetTester tester, String name) async {
       final table = tester.getRect(find.byType(FileTable).first);
       final metrics = FcTheme.of(tester.element(find.byType(FileTable).first)).metrics;
-      final index = archive.app.left.nodes.indexWhere((node) => node.name == name);
+      final index = archive.app.left.entries.indexWhere((node) => node.name == name);
       final row = Offset(
         table.left + table.width / 2,
         table.top + metrics.headerRowHeight + index * metrics.rowHeight + metrics.rowHeight / 2,
@@ -539,7 +539,8 @@ void main() {
       await pumpArchive(tester);
       final service = archive.app.dragAndDrop! as SystemDropService;
       final lease = _CountingLease(archive.app.left.provider);
-      final node = archive.app.left.nodes.firstWhere((n) => n.name == 'inside.txt');
+      final entry = archive.app.left.entries.firstWhere((n) => n.name == 'inside.txt');
+      final node = archive.app.left.nodeOf(entry)!;
 
       await tester.runAsync(() async {
         await service.beginDrag(archive.app.left, [node], hold: () => lease);

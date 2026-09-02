@@ -32,7 +32,7 @@ void main() {
   /// его самого.
   Future<void> create(String name) => makeDirectory().executeWith({MakeDirectoryCommand.nameParam: name});
 
-  List<String> namesOf() => app.left.nodes.map((node) => node.name).toList();
+  List<String> namesOf() => app.left.entries.map((node) => node.name).toList();
 
   test('создаёт каталог по заданному параметру', () async {
     final command = makeDirectory();
@@ -47,7 +47,7 @@ void main() {
 
     await command.executeWith({MakeDirectoryCommand.nameParam: 'docs'});
 
-    expect(app.left.currentNode?.name, 'docs');
+    expect(app.left.currentEntry?.name, 'docs');
   });
 
   test('лишние пробелы в имени отбрасываются', () async {
@@ -87,7 +87,7 @@ void main() {
 
     await command.executeWith({MakeDirectoryCommand.nameParam: 'tools'});
 
-    expect(app.right.nodes.map((node) => node.name), contains('tools'));
+    expect(app.right.entries.map((node) => node.name), contains('tools'));
     expect(namesOf(), isNot(contains('tools')));
   });
 

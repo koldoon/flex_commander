@@ -37,23 +37,27 @@ class EditFileCommand extends AppCommand {
 
   @override
   bool isExecutable(CommandContext context) {
-    final node = context.node;
+    final entry = context.entry;
+    final source = context.panel.source;
     // Править можно то, что умеют и отдать, и принять: у результатов поиска
     // байтов нет вовсе, а архив, открытый через временную копию, принять их
     // не может — изменения уехали бы вместе с копией.
-    return node != null &&
+    return entry != null &&
         // Занятая панель второго чтения не начинает: она уже читает — либо
         // каталог, либо файл, — и говорить об этом ей нечем дважды.
         !context.panel.busy &&
-        node is! DirectoryNode &&
-        node is! ParentDirNode &&
-        node.provider is FileContentProvider &&
-        node.provider is FileContentReceiver;
+        !entry.isDirectory &&
+        !entry.isParent &&
+        source.canStream &&
+        source.canReceive;
   }
 
   @override
   Future<void> execute(CommandContext context) async {
-    final node = context.node;
+    final entry = context.entry;
+    // ВРЕМЕННО: правка идёт по эту сторону границы и держит живой узел
+    // (`docs/spec/client-server.md`, Э5).
+    final node = entry == null ? null : context.panel.nodeOf(entry);
     if (node == null) {
       return;
     }

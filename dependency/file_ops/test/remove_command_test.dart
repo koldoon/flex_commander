@@ -33,7 +33,7 @@ void main() {
       .create(permanently ? 'file.removePermanently' : 'file.remove')!
       .executeWith({RemoveCommandBase.confirmedParam: true});
 
-  List<String> namesOf() => app.left.nodes.map((node) => node.name).toList();
+  List<String> namesOf() => app.left.entries.map((node) => node.name).toList();
 
   test('удаляет объект под курсором', () async {
     app.left.setCursorToName('notes.txt');
@@ -61,7 +61,7 @@ void main() {
 
     await remove();
 
-    expect(app.left.selection.isEmpty, isTrue);
+    expect(app.left.marked.isEmpty, isTrue);
   });
 
   test('на «..» команда недоступна', () {
@@ -95,7 +95,7 @@ void main() {
     );
 
     app.left.setCursorToName('notes.txt');
-    final node = app.left.currentNode!;
+    final node = app.left.nodeOf(app.left.currentEntry!)!;
     final done = run.run(app.left.editor!.remove(), RemoveParams([node]), message: 'Deleting…');
 
     expect(run.isRunning, isTrue);
@@ -117,7 +117,7 @@ void main() {
     run.onStart = () async => started++;
 
     app.left.setCursorToName('notes.txt');
-    final node = app.left.currentNode!;
+    final node = app.left.nodeOf(app.left.currentEntry!)!;
     final running = run.run(app.left.editor!.remove(), RemoveParams([node]), message: 'Deleting…');
     expect(run.isRunning, isTrue);
 

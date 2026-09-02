@@ -109,15 +109,21 @@ abstract class TransferCommandBase extends AppCommand {
     final target = context.target;
     // Занятая цель принять ничего не может: она сама сейчас читает. Проверять
     // надо обе панели — источник проверен выше, а копируем мы в соседнюю.
-    if (target == null || target.busy || !target.provider.canWrite || (moves && !panel.provider.canWrite)) {
+    if (target == null || target.busy || !target.source.canWrite || (moves && !panel.source.canWrite)) {
       return false;
     }
     // Псевдоузел «..» объектом не считается.
-    return context.targets.any((node) => node is! ParentDirNode);
+    return context.targets.any((entry) => !entry.isParent);
   }
 
   /// Объекты, с которыми работает команда: помеченные или тот, что под курсором.
-  List<FsNode> targetsOf(CommandContext context) => context.targets.where((node) => node is! ParentDirNode).toList();
+  ///
+  /// ВРЕМЕННО узлами — см. `FileOpCommand.targetsOf`.
+  List<FsNode> targetsOf(CommandContext context) => [
+    for (final entry in context.targets)
+      if (!entry.isParent)
+        if (context.panel.nodeOf(entry) case final node?) node,
+  ];
 
   /// Пришло ли задание готовым — со своими объектами и приёмником.
   static bool givenJob(CommandContext context) => context.invocation.param<List<String>>(sourcesParam) != null;
@@ -191,13 +197,13 @@ abstract class TransferCommandBase extends AppCommand {
         // пришедшее готовым, о пометке ничего не знает, и стирать чужую
         // разметку ему не за что.
         if (givenSources == null) {
-          panel.selection.clear();
+          panel.clearMarks();
         }
         // Перечитываются все панели, которые смотрят на эти два каталога —
         // откуда и куда, — и каждая по одному разу: обе могут стоять в одном и
         // том же.
         await reloadPanelsAt(context.app, [
-          panel.directory?.pathString,
+          panel.path,
           // Панель могла за это время уйти в другой каталог: перечитывать имеет
           // смысл только то, куда действительно копировали.
           _destinationPanelOf(context)?.directory?.pathString,

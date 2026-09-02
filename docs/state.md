@@ -1,8 +1,14 @@
 # Управление состоянием
 
-Всё изменяемое состояние приложения живёт в двух контроллерах — `AppController`
-и `PanelController` — и в реестре команд. Виджеты состояния не хранят
-(кроме позиции скролла и локальных анимаций).
+Доменное состояние приложения живёт в **ядре**: каталог, список, курсор,
+пометка, сортировка — всё это держит `PanelSession` (`lib/core/`), и он же
+работает с деревом. Экранная сторона его зеркалит: `PanelController`
+(`lib/state/`) отдаёт наружу значения — строки списка ([FileEntry]), снимок
+источника, состояние панели, — а по границе они ходят языком протокола
+(`spec/client-server.md`).
+
+Остальное изменяемое состояние — `AppController` и реестр команд. Виджеты
+состояния не хранят (кроме позиции скролла и локальных анимаций).
 
 ## 0. Слой интерфейсов — API приложения
 
@@ -12,8 +18,7 @@
 | Интерфейс | Реализация | Аналог в референсе |
 |---|---|---|
 | `Application` | `AppController` | `IApplication` / `ApplicationImpl` |
-| `Panel` | `PanelController` | `IPanel` / `FilesPanel` |
-| `PanelSelection` | `SelectionController` | `IPanelSelection` / `PanelSelection` |
+| `Panel` | `PanelController` над `PanelSession` | `IPanel` / `FilesPanel` |
 | `TreeProvider` | `LocalTreeProvider` | `ITreeProvider` |
 | `Operation<P, R>` | `TaskOperation` | `IAsyncOperation` |
 
@@ -43,69 +48,73 @@
 Внешние пакеты (`provider`, `riverpod`, `bloc`) не используются: контроллеров всего три,
 их время жизни равно времени жизни приложения, а перерисовка нужна точечная.
 
-Правило гранулярности: подписываться на **самый узкий** источник. Строка файла
-подписана на `PanelSelection`, а не на весь `PanelController`, — иначе перемещение
-курсора перерисовывает всю таблицу (в референсе `FileItemRenderer` тоже слушал только
-`selection.change`).
+Правило гранулярности осталось прежним по духу, но источник теперь один:
+панель уведомляет обо всём, а `ListView` строит только видимые строки — этого
+достаточно. Отдельной подписки на пометку больше нет: пометка приезжает частью
+состояния панели, и разделять их значило бы возить одно и то же дважды.
 
-## 2. `PanelSelection`
+## 2. Пометка
 
-Пометка объектов, вынесенная из панели отдельным объектом — как `IPanelSelection`.
+Пометка — **имена**, а не объекты:
 
 ```dart
-class PanelSelection extends ChangeNotifier {
-  bool contains(FsNode node);
-  void add(FsNode node);        // ParentDirNode игнорируется
-  void remove(FsNode node);
-  void toggle(FsNode node);
-  void clear();
+Set<String> get marked;
+bool isMarked(FileEntry entry);
+void setMarks(Set<String> names);   // заменяет целиком
+void markAll();
+void clearMarks();
 
-  List<FsNode> get nodes;
-  int get length;
-
-  /// Суммарный размер помеченных объектов — для строки состояния.
-  int get totalSize;
-}
+/// Помеченное, а без пометки — строка под курсором. «..» целью не бывает.
+List<FileEntry> get targets;
 ```
 
-Хранение — `LinkedHashSet<FsNode>` по идентичности узлов, порядок пометки сохраняется
-(он же становится порядком обработки в файловых операциях).
+Именами, потому что список перечитывают: связывать пометку с местом в нём
+значило бы терять её на каждом обновлении каталога. И одной просьбой на всю
+пометку сразу — пометка по маске или взмахом мыши меняет сотни строк, и слать
+по сообщению на каждую было бы расточительством.
 
-## 3. `PanelController`
+Хранение на стороне ядра — по узлам, порядок пометки сохраняется (он же
+становится порядком обработки в файловых операциях); наружу уезжают имена.
 
-Состояние одной панели. Ничего не знает ни о второй панели, ни о виджетах.
+## 3. Панель: сеанс и зеркало
+
+Панель — это две вещи по разные стороны границы.
+
+`PanelSession` (`lib/core/panel_session.dart`) — ядро: читает каталоги,
+монтирует архивы, держит аренду, обходит размеры, помнит, где стоял курсор.
+Экрана у него нет: вместо перерисовки он говорит `onChanged`, `onListed` и
+`onSized`, а наружу отдаёт значения — `state` и `entries`.
+
+`PanelController` (`lib/state/panel_controller.dart`) — реализация `Panel` над
+сеансом. Пока стороны в одном изоляте, это переходник; когда переезд
+кончится, на его место встанет `PanelMirror` поверх линка — интерфейс `Panel`
+у них общий, и виджеты с командами разницы не увидят.
 
 ```dart
-enum PanelStatus { idle, loading, error }
+abstract interface class Panel {
+  PanelId get id;
 
-class PanelController extends ChangeNotifier {
-  PanelController({required TreeProvider provider, required PanelSettings settings});
+  /// Откуда панель берёт содержимое сейчас: схема, умения, вид содержимого.
+  SourceInfo get source;
 
   // --- каталог ---
 
-  DirectoryNode? get directory;
+  String get path;
 
   /// Отсортированное содержимое — то, что рисует таблица.
-  List<FsNode> get nodes;
+  List<FileEntry> get entries;
 
-  PanelStatus get status;
+  PanelPhase get phase;
   FsError? get error;
 
-  /// Открыть каталог: читает содержимое и только после успеха меняет directory.
-  /// Отменяет предыдущее незавершённое открытие этой панели.
-  Future<void> open(DirectoryNode dir);
+  /// Открыть по строке пути. false — путь недоступен или это не каталог;
+  /// куда открывать панель в этом случае, решает вызывающий код.
+  Future<bool> openPath(String path, {bool allowConnect});
 
-  /// Открыть по строке пути (используется при старте и восстановлении настроек).
-  /// false — путь недоступен или это не каталог; куда открывать панель в этом
-  /// случае, решает вызывающий код. Панель занята уже на разборе пути:
-  /// он тоже идёт через провайдера и может быть небыстрым.
-  Future<bool> openPath(String path);
-
-  /// Войти в объект под курсором: каталог — открыть, ссылку — разрешить и открыть
-  /// цель, «..» — подняться наверх. Возвращает узел, в который войти нельзя
-  /// (обычный файл) — открывать его системой будет команда; null, если переход
-  /// выполнен.
-  Future<FsNode?> enterCurrent();
+  /// Войти в строку: каталог — открыть, ссылку — развернуть, «..» — наверх.
+  /// Возвращает то, во что войти нельзя (обычный файл); null — вошли.
+  Future<FileEntry?> enter(FileEntry entry);
+  Future<FileEntry?> enterCurrent();
 
   /// На уровень вверх; курсор встаёт на покинутый каталог.
   Future<void> goUp();
@@ -116,7 +125,7 @@ class PanelController extends ChangeNotifier {
   // --- курсор ---
 
   int get cursorIndex;
-  FsNode? get currentNode;
+  FileEntry? get currentEntry;
 
   void moveCursor(int delta);          // ±1, ±страница
   void setCursorIndex(int index);      // с клампом в границы списка
@@ -124,7 +133,8 @@ class PanelController extends ChangeNotifier {
 
   // --- пометка ---
 
-  PanelSelection get selection;
+  Set<String> get marked;
+  List<FileEntry> get targets;
 
   // --- вид ---
 
@@ -154,6 +164,11 @@ class PanelController extends ChangeNotifier {
 }
 ```
 
+Сверх этого у `Panel` есть короткий раздел **долга** — живые узлы и источник:
+им пока пользуются файловые операции, просмотр, правка, оболочка и сборка
+архивов. Список нарочно короткий: он и есть мера оставшегося переезда
+(`spec/client-server.md`, Э4 и Э5).
+
 ### Поток данных при открытии каталога
 
 ```
@@ -166,7 +181,7 @@ CommandRegistry.dispatch("Enter")
 OpenNodeCommand.execute()
    │  panel.busy = true; statusText = "Loading…"
    ▼
-PanelController.open(dir)
+PanelSession.open(dir)
    │
    ▼
 dir.refresh() → TreeProvider.getDirectoryListing()      [Operation, изолят]

@@ -1,4 +1,4 @@
-import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 /// Инвертировать пометку объекта под курсором и сдвинуть курсор вниз — так
@@ -20,8 +20,8 @@ class ToggleMarkCommand extends AppCommand {
 
   @override
   bool isExecutable(CommandContext context) {
-    final node = context.node;
-    return node != null && node is! ParentDirNode;
+    final entry = context.entry;
+    return entry != null && !entry.isParent;
   }
 
   @override
@@ -45,10 +45,10 @@ class ClearSelectionCommand extends AppCommand {
   Set<String> get keywords => const {'deselect', 'clear selection', 'none'};
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.selection.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.panel.marked.isNotEmpty;
 
   @override
-  Future<void> execute(CommandContext context) async => context.panel.selection.clear();
+  Future<void> execute(CommandContext context) async => context.panel.clearMarks();
 }
 
 /// Пометить файлы, не трогая каталоги.
@@ -78,14 +78,20 @@ class SelectFilesCommand extends AppCommand {
   Set<String> get keywords => const {'select files', 'only files'};
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.nodes.any(_isFile);
+  bool isExecutable(CommandContext context) => context.panel.entries.any(_isFile);
 
   @override
-  Future<void> execute(CommandContext context) async =>
-      context.panel.selection.addAll(context.panel.nodes.where(_isFile));
+  Future<void> execute(CommandContext context) async {
+    final panel = context.panel;
+    panel.setMarks({
+      ...panel.marked,
+      for (final entry in panel.entries)
+        if (_isFile(entry)) entry.name,
+    });
+  }
 
   /// «..» отсеивать не нужно: его не берёт сама пометка.
-  static bool _isFile(FsNode node) => node is FileNode && node is! DirectoryNode;
+  static bool _isFile(FileEntry entry) => !entry.isDirectory && !entry.isParent;
 }
 
 /// Пометить всё, кроме «..».
@@ -105,7 +111,7 @@ class SelectAllCommand extends AppCommand {
   Set<String> get keywords => const {'select all', 'everything'};
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) async => context.panel.markAll();

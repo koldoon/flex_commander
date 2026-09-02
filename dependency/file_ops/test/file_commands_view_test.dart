@@ -109,7 +109,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  List<String> namesOf() => app.left.nodes.map((node) => node.name).toList();
+  List<String> namesOf() => app.left.entries.map((node) => node.name).toList();
 
   group('переименование', () {
     /// Нажимает `Shift-F6` — так, как это делает клавиатура.
@@ -146,7 +146,7 @@ void main() {
       await settle(tester);
 
       expect(namesOf(), contains('заметки.txt'));
-      expect(app.left.currentNode?.name, 'заметки.txt');
+      expect(app.left.currentEntry?.name, 'заметки.txt');
       expect(input, findsNothing, reason: 'окно закрылось');
     });
 
@@ -208,7 +208,7 @@ void main() {
 
       expect(input, findsNothing);
       expect(namesOf(), contains('docs'));
-      expect(app.left.currentNode?.name, 'docs');
+      expect(app.left.currentEntry?.name, 'docs');
     });
 
     testWidgets('Enter подтверждает ввод', (tester) async {
@@ -318,7 +318,7 @@ void main() {
 
       expect(namesOf(), isNot(contains('notes.txt')));
       expect(namesOf(), isNot(contains('report.xlsx')));
-      expect(app.left.selection.isEmpty, isTrue);
+      expect(app.left.marked.isEmpty, isTrue);
     });
 
     testWidgets('Shift-F8 предупреждает, что удаление безвозвратное', (tester) async {

@@ -1,5 +1,4 @@
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 /// Курсор на строку вверх.
@@ -13,7 +12,7 @@ class MoveCursorUpCommand extends AppCommand {
   String get label => 'Cursor up';
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) async => context.panel.moveCursor(-1);
@@ -30,7 +29,7 @@ class MoveCursorDownCommand extends AppCommand {
   String get label => 'Cursor down';
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) async => context.panel.moveCursor(1);
@@ -60,7 +59,7 @@ class GoToNameCommand extends AppCommand {
   Set<String> get keywords => const {'search', 'filter', 'jump', 'quick search', 'find file'};
 
   @override
-  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.nodes.isNotEmpty;
+  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.entries.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -70,18 +69,18 @@ class GoToNameCommand extends AppCommand {
     }
 
     final panel = context.panel;
-    final nodes = panel.nodes;
+    final entries = panel.entries;
 
     // Поиск идёт от курсора вниз и по кругу: повторное нажатие той же буквы
     // переходит к следующему такому имени, а не топчется на первом.
-    for (var offset = 1; offset <= nodes.length; offset++) {
-      final index = (panel.cursorIndex + offset) % nodes.length;
-      final node = nodes[index];
+    for (var offset = 1; offset <= entries.length; offset++) {
+      final index = (panel.cursorIndex + offset) % entries.length;
+      final entry = entries[index];
       // «..» — это не имя файла.
-      if (node is ParentDirNode) {
+      if (entry.isParent) {
         continue;
       }
-      if (node.name.toLowerCase().startsWith(character)) {
+      if (entry.name.toLowerCase().startsWith(character)) {
         panel.setCursorIndex(index);
         return;
       }
@@ -100,7 +99,7 @@ class PageUpCommand extends AppCommand {
   String get label => 'Page up';
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) async => context.panel.moveCursorPage(-1);
@@ -117,7 +116,7 @@ class PageDownCommand extends AppCommand {
   String get label => 'Page down';
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) async => context.panel.moveCursorPage(1);
@@ -137,7 +136,7 @@ class GoToFirstNodeCommand extends AppCommand {
   String get label => 'First item';
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) async => context.panel.setCursorToFirst();
@@ -154,7 +153,7 @@ class GoToLastNodeCommand extends AppCommand {
   String get label => 'Last item';
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.nodes.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) async => context.panel.setCursorToLast();
@@ -204,7 +203,7 @@ class OpenNodeCommand extends AppCommand {
   String get description => 'Enter a directory or an archive; other files go to the system';
 
   @override
-  bool isExecutable(CommandContext context) => context.node != null && !context.panel.busy;
+  bool isExecutable(CommandContext context) => context.entry != null && !context.panel.busy;
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -216,8 +215,8 @@ class OpenNodeCommand extends AppCommand {
     }
     // Отдавать системе можно только настоящий путь: внутри архива или на
     // сервере открывать нечего, там понадобится свой просмотрщик (F3).
-    if (rest.provider.capabilities.realFileSystem) {
-      await _open(rest.pathString);
+    if (context.panel.source.capabilities.realFileSystem) {
+      await _open(rest.path);
     }
   }
 }
@@ -251,17 +250,16 @@ class OpenWithSystemCommand extends AppCommand {
   /// у архива и удалённой ФС таких путей не бывает (`OPIF_REALNAMES` в Far —
   /// про то же самое).
   @override
-  bool isExecutable(CommandContext context) {
-    final node = context.node;
-    return node != null && node.provider.capabilities.realFileSystem;
-  }
+  bool isExecutable(CommandContext context) =>
+      context.entry != null && context.panel.source.capabilities.realFileSystem;
 
   @override
   Future<void> execute(CommandContext context) async {
-    for (final node in context.targets) {
-      if (node.provider.capabilities.realFileSystem) {
-        await _open(node.pathString);
-      }
+    if (!context.panel.source.capabilities.realFileSystem) {
+      return;
+    }
+    for (final entry in context.targets) {
+      await _open(entry.path);
     }
   }
 }
@@ -304,10 +302,10 @@ class GoToRootCommand extends AppCommand {
 
   @override
   bool isExecutable(CommandContext context) =>
-      !context.panel.busy && context.panel.directory != context.panel.provider.rootDirectory;
+      !context.panel.busy && context.panel.path != context.panel.source.rootPath;
 
   @override
-  Future<void> execute(CommandContext context) => context.panel.open(context.panel.provider.rootDirectory);
+  Future<void> execute(CommandContext context) => context.panel.openPath(context.panel.source.rootPath);
 }
 
 /// Посчитать размеры всех каталогов текущего каталога.

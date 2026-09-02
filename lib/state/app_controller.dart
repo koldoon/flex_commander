@@ -367,10 +367,10 @@ class AppController extends ChangeNotifier implements Application {
     if (path.isNotEmpty && await panel.openPath(path, allowConnect: false)) {
       return;
     }
-    if (await panel.openPath(panel.provider.homePath)) {
+    if (await panel.openPath(panel.source.homePath)) {
       return;
     }
-    await panel.open(panel.provider.rootDirectory);
+    await panel.openPath(panel.source.rootPath);
   }
 
   /// Панели уведомляют обо всём, включая движение курсора, поэтому запись

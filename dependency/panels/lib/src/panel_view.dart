@@ -55,7 +55,7 @@ class PanelView extends StatelessWidget {
           // Не таблица файлов, а то, чем рисуется вид содержимого панели:
           // результаты поиска и просмотрщики — такие же жильцы панели, как и
           // файлы.
-          child: app.viewports.builderFor(panel.contentKind)(context, panel),
+          child: app.viewports.builderFor(panel.source.contentKind)(context, panel),
         ),
       ),
     );

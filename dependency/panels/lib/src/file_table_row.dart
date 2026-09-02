@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'file_type_icon.dart';
 
@@ -12,7 +11,7 @@ import 'file_type_icon.dart';
 class FileTableRow extends StatelessWidget {
   const FileTableRow({
     super.key,
-    required this.node,
+    required this.entry,
     required this.columns,
     required this.widths,
     required this.marked,
@@ -22,7 +21,8 @@ class FileTableRow extends StatelessWidget {
     this.onTap,
   });
 
-  final FsNode node;
+  /// Строка значением: узлы живут в ядре, а рисуют по эту сторону.
+  final FileEntry entry;
   final List<ColumnSpec> columns;
   final List<double> widths;
   final bool marked;
@@ -101,7 +101,7 @@ class FileTableRow extends StatelessWidget {
       // Иконка прижата к левому краю строки: `left="30"` у `iconLabel`.
       return Padding(
         padding: EdgeInsets.only(left: metrics.iconLeftPadding),
-        child: Align(alignment: Alignment.centerLeft, child: FileTypeIcon(node: node, selected: _selected)),
+        child: Align(alignment: Alignment.centerLeft, child: FileTypeIcon(entry: entry, selected: _selected)),
       );
     }
 
@@ -137,27 +137,27 @@ class FileTableRow extends StatelessWidget {
   }
 
   String _textFor(ColumnSpec column) {
-    if (node is ParentDirNode) {
+    if (entry.isParent) {
       // У «..» есть только имя: размер и даты родительского каталога здесь
       // ничего не значат.
-      return column.id == FsColumn.name ? node.name : '';
+      return column.id == FsColumn.name ? entry.name : '';
     }
 
-    // Каталог — тоже `FileNode`, но расширения у него нет: `my.backup` это не
-    // «файл .backup». Раньше за это отвечало переопределение в самом узле,
-    // теперь — тот, кто показывает.
-    final file = node is FileNode && node is! DirectoryNode ? node as FileNode : null;
+    // У каталога расширения нет: `my.backup` это не «файл .backup». Решает это
+    // тот, кто показывает, — расширение вообще не свойство файла, а толкование
+    // имени.
+    final splittable = !entry.isDirectory;
     return switch (column.id) {
       // Расширение показывается отдельной колонкой, поэтому из имени убирается.
-      FsColumn.name => _showExtension && file != null ? naming.split(node.name).base : node.name,
-      FsColumn.ext => _showExtension && file != null ? naming.split(node.name).extension : '',
+      FsColumn.name => _showExtension && splittable ? naming.split(entry.name).base : entry.name,
+      FsColumn.ext => _showExtension && splittable ? naming.split(entry.name).extension : '',
       // Каталог объекта, а не его собственный путь: имя уже показано рядом.
-      FsColumn.path => node.parentDirectory?.displayPath ?? '',
-      FsColumn.size => formatSize(node.size),
-      FsColumn.modified => formatDate(file?.modified),
-      FsColumn.created => formatDate(file?.created),
-      FsColumn.accessed => formatDate(file?.accessed),
-      FsColumn.attributes => file?.attributes.modeString ?? '',
+      FsColumn.path => entry.directoryPath,
+      FsColumn.size => formatSize(entry.size),
+      FsColumn.modified => formatDate(entry.modified),
+      FsColumn.created => formatDate(entry.created),
+      FsColumn.accessed => formatDate(entry.accessed),
+      FsColumn.attributes => entry.attributes.modeString,
       FsColumn.icon => '',
     };
   }
