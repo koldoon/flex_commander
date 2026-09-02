@@ -291,7 +291,7 @@ void main() {
 
       // Путь приёмника команда разбирает панелью — так же, как F5, и держит
       // аренду всё время работы: панель за это время вправе уйти куда угодно.
-      final destination = await panel.resolvePath().run('$archivePath:zip:/');
+      final destination = await panel.session.resolvePath().run('$archivePath:zip:/');
       try {
         await engine.copy().run(TransferParams([await onDisk('notes.txt')], destination.node! as DirectoryNode));
       } finally {

@@ -231,7 +231,7 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.enter);
 
-      expect(app.left.directory?.pathString, '/home/bin');
+      expect(app.left.path, '/home/bin');
       expect(opened, isEmpty);
     });
 
@@ -242,7 +242,7 @@ void main() {
       await press(tester, LogicalKeyboardKey.enter);
 
       expect(opened, ['/home/notes.txt']);
-      expect(app.left.directory?.pathString, '/home');
+      expect(app.left.path, '/home');
     });
 
     testWidgets('файл из источника без настоящих путей системе не отдаётся', (tester) async {
@@ -256,12 +256,12 @@ void main() {
 
       expect(opened, isEmpty);
       // Панель осталась на месте: войти в файл всё равно нельзя.
-      expect(app.left.directory?.pathString, '/home');
+      expect(app.left.path, '/home');
     });
 
     testWidgets('Cmd-/ уводит в корень из любого каталога', (tester) async {
       await pumpApp(tester);
-      expect(app.left.directory?.pathString, '/home');
+      expect(app.left.path, '/home');
 
       await press(tester, LogicalKeyboardKey.slash, modifiers: [commandKey]);
 
@@ -272,11 +272,11 @@ void main() {
       await pumpApp(tester);
       app.left.setCursorToName('docs');
       await press(tester, LogicalKeyboardKey.enter);
-      expect(app.left.directory?.pathString, '/home/docs');
+      expect(app.left.path, '/home/docs');
 
       await press(tester, LogicalKeyboardKey.backspace);
 
-      expect(app.left.directory?.pathString, '/home');
+      expect(app.left.path, '/home');
       expect(app.left.currentEntry?.name, 'docs');
     });
 
@@ -288,7 +288,7 @@ void main() {
       app.left.setCursorToFirst();
       await press(tester, LogicalKeyboardKey.enter);
 
-      expect(app.left.directory?.pathString, '/home');
+      expect(app.left.path, '/home');
     });
 
     testWidgets('Cmd-Shift-H показывает скрытые объекты', (tester) async {

@@ -43,7 +43,13 @@ class PanelController extends ChangeNotifier implements Panel {
   // --- каталог ---
 
   @override
-  String get path => session.directory?.displayPath ?? '';
+  String get path => session.path;
+
+  @override
+  String get directoryName => session.directoryName;
+
+  @override
+  bool get canGoUp => session.canGoUp;
 
   @override
   List<FileEntry> get entries => session.entries;
@@ -210,10 +216,10 @@ class PanelController extends ChangeNotifier implements Panel {
   TreeProvider get provider => session.provider;
 
   @override
-  TreeEditor? get editor => session.editor;
+  DirectoryNode? get directory => session.directory;
 
   @override
-  DirectoryNode? get directory => session.directory;
+  TreeEditor? get editor => session.editor;
 
   @override
   Future<void> openDirectory(DirectoryNode dir) => session.open(dir);
@@ -230,9 +236,6 @@ class PanelController extends ChangeNotifier implements Panel {
 
   @override
   ProviderLease? leaseProvider() => session.leaseProvider();
-
-  @override
-  Operation<String, ResolvedNode> resolvePath() => session.resolvePath();
 
   @override
   Future<R> runWork<R>(Future<R> Function(TaskOperation<void, R> op) body, {String status = 'Loading…'}) =>

@@ -82,7 +82,7 @@ void main() {
     await settle();
 
     expect(panel().statusText, isNull);
-    expect(panel().session.directory?.pathString, '/home/big');
+    expect(panel().session.path, '/home/big');
   });
 
   test('по опустошению очереди список пересортируется, а курсор остаётся на объекте', () async {

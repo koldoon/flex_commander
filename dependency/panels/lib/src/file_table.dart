@@ -32,7 +32,7 @@ class _FileTableState extends State<FileTable> {
   ScrollController _scroll = ScrollController();
 
   /// Каталог, под который построена нынешняя прокрутка.
-  DirectoryNode? _scrolledDirectory;
+  String? _scrolledDirectory;
 
   /// Высота видимой части списка и высота строки из последней разметки: по ним
   /// считается, докуда прокручивать новый список ещё до того, как он появится.
@@ -102,7 +102,7 @@ class _FileTableState extends State<FileTable> {
 
   void _onPanelChanged() {
     final panel = widget.panel;
-    if (!identical(panel.directory, _scrolledDirectory)) {
+    if (panel.path != _scrolledDirectory) {
       // Каталог сменился — прокрутку поставит сборка списка. Здесь этого
       // делать нельзя: сообщения приходят и до того, как курсор встанет на
       // место, и посчитанное смещение оказалось бы от старого курсора.
@@ -136,12 +136,12 @@ class _FileTableState extends State<FileTable> {
   /// каталога перетекла бы в новый.
   void _prepareScroll() {
     final panel = widget.panel;
-    if (identical(panel.directory, _scrolledDirectory)) {
+    if (panel.path == _scrolledDirectory) {
       return;
     }
 
     final previous = _scroll;
-    _scrolledDirectory = panel.directory;
+    _scrolledDirectory = panel.path;
     _lastCursorIndex = panel.cursorIndex;
     _scroll = ScrollController(initialScrollOffset: _cursorOffset());
 

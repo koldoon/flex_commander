@@ -98,7 +98,7 @@ void main() {
     await pumpEventQueue();
 
     expect(pty.started, isFalse);
-    expect(app.left.directory?.pathString, '/home/docs');
+    expect(app.left.path, '/home/docs');
   });
 
   test('без настоящего пути не запускается ничего: внутри архива запускать нечем', () async {

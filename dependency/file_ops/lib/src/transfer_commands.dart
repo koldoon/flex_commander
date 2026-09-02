@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
@@ -99,7 +98,7 @@ abstract class TransferCommandBase extends AppCommand {
     final sources = context.invocation.param<List<String>>(sourcesParam);
     if (sources != null) {
       final destination = context.invocation.param<String>(destinationParam);
-      return sources.isNotEmpty && destination != null && panel.provider.canWrite;
+      return sources.isNotEmpty && destination != null && panel.source.canWrite;
     }
     // Принимать должен приёмник; терять объекты источник обязан только при
     // переносе — копировать из архива, открытого на просмотр, ничто не мешает.
@@ -251,10 +250,9 @@ abstract class TransferCommandBase extends AppCommand {
   Panel? _destinationPanelOf(CommandContext context) => givenJob(context) ? context.panel : context.target;
 
   String? _defaultDestinationOf(CommandContext context) {
-    final directory = _destinationPanelOf(context)?.directory;
     // Полный путь: приёмник может оказаться внутри архива, и часть про
     // локальную ФС из строки выкидывать нельзя.
-    return directory?.pathString;
+    return _destinationPanelOf(context)?.path;
   }
 
   /// Заголовок собирается как в референсе: действие и то, над чем оно идёт.
@@ -296,9 +294,7 @@ abstract class TransferCommandBase extends AppCommand {
   }
 
   String _panelSourcePathOf(CommandContext context) {
-    final panel = context.panel;
-    final directory = panel.directory;
-    return directory?.displayPath ?? '';
+    return context.panel.path;
   }
 }
 

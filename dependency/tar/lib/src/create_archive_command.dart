@@ -183,8 +183,8 @@ class CreateTarArchiveCommand extends AppCommand {
     if (sources.length == 1) {
       return '${sources.single.name}${TarFormat.gzip.extension}';
     }
-    final directory = context.panel.directory;
-    final name = directory == null || directory.name == '/' ? 'archive' : directory.name;
+    final directory = context.panel.directoryName;
+    final name = directory.isEmpty || directory == '/' ? 'archive' : directory;
     return '$name${TarFormat.gzip.extension}';
   }
 

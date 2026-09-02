@@ -171,7 +171,7 @@ class TerminalRun {
   static Future<void> _reloadPanels(Application app, {Panel? skip}) async {
     for (final position in const [ViewportPosition.left, ViewportPosition.right]) {
       final panel = app.view.panelAt(position);
-      if (panel != null && panel != skip && panel.provider.capabilities.realFileSystem) {
+      if (panel != null && panel != skip && panel.source.capabilities.realFileSystem) {
         await panel.reload();
       }
     }

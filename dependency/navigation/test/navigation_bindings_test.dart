@@ -102,7 +102,7 @@ void main() {
     commands.dispatch(KeyCombination.parse('Esc'));
     await opening;
 
-    expect(app.left.directory?.pathString, '/home');
+    expect(app.left.path, '/home');
     expect(app.left.marked, {'notes.txt'});
 
     // Панель свободна — теперь Esc снимает пометку.

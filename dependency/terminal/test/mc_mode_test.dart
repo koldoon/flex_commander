@@ -61,11 +61,11 @@ void main() {
       app.left.setCursorToName('docs');
       press('Enter');
       await pumpEventQueue();
-      expect(app.left.directory?.pathString, '/home/docs');
+      expect(app.left.path, '/home/docs');
 
       press('Bsp');
       await pumpEventQueue();
-      expect(app.left.directory?.pathString, '/home');
+      expect(app.left.path, '/home');
 
       app.left.setCursorToName('alpha.txt');
       press('Space');
@@ -104,7 +104,7 @@ void main() {
       // И снова панель: строка опять пуста.
       press('Bsp');
       await pumpEventQueue();
-      expect(app.left.directory?.pathString, '/');
+      expect(app.left.path, '/');
     });
 
     test('Enter выполняет набранное, а на пустой строке входит в каталог', () async {
@@ -114,7 +114,7 @@ void main() {
       await pumpEventQueue();
 
       // `cd` ведёт панель — значит она и переехала, а команда запомнилась.
-      expect(app.left.directory?.pathString, '/home/docs');
+      expect(app.left.path, '/home/docs');
       expect(line.history, ['cd docs']);
       expect(line.text.text, isEmpty);
 
@@ -123,7 +123,7 @@ void main() {
       app.left.setCursorToName('docs');
       press('Enter');
       await pumpEventQueue();
-      expect(app.left.directory?.pathString, '/home/docs');
+      expect(app.left.path, '/home/docs');
     });
 
     test('ввод остаётся у панели — стрелки и Tab по-прежнему её', () {

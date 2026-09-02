@@ -199,7 +199,7 @@ void followShell(Application app, String shellLabel, String directory) {
   if (shellHostOf(panel)?.shellLabel != shellLabel) {
     return;
   }
-  if (!panel.provider.capabilities.realFileSystem || panel.directory?.pathString == directory) {
+  if (!panel.source.capabilities.realFileSystem || panel.path == directory) {
     return;
   }
   unawaited(panel.openPath(directory));

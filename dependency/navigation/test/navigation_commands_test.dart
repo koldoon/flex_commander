@@ -54,11 +54,11 @@ void main() {
 
   group('переход в корень', () {
     test('панель открывает корневой каталог провайдера', () async {
-      expect(app.left.directory?.name, 'home');
+      expect(app.left.directoryName, 'home');
 
       await run('panel.root');
 
-      expect(app.left.directory, provider.rootDirectory);
+      expect(app.left.path, provider.rootDirectory.pathString);
       expect(app.left.entries.map((node) => node.name), containsAll(['home', 'usr']));
     });
 
@@ -85,8 +85,8 @@ void main() {
 
       await run('panel.root');
 
-      expect(app.right.directory, provider.rootDirectory);
-      expect(app.left.directory?.name, 'home');
+      expect(app.right.path, provider.rootDirectory.pathString);
+      expect(app.left.directoryName, 'home');
     });
 
     test('в самом корне команда недоступна', () async {

@@ -281,7 +281,7 @@ class GoUpCommand extends AppCommand {
   Set<String> get keywords => const {'parent', 'back', 'go up'};
 
   @override
-  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.directory?.parentDirectory != null;
+  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.canGoUp;
 
   @override
   Future<void> execute(CommandContext context) => context.panel.goUp();
@@ -330,7 +330,7 @@ class CalculateSizesCommand extends AppCommand {
 
   /// Занятой панели считать нечего: список ещё читается, и обходить пока некого.
   @override
-  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.directory != null;
+  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.path.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) async => context.panel.measureDirectories();
@@ -353,7 +353,7 @@ class ReloadCommand extends AppCommand {
   Set<String> get keywords => const {'refresh', 'rescan', 'update'};
 
   @override
-  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.directory != null;
+  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.path.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) => context.panel.reload();

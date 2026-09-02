@@ -264,7 +264,7 @@ void main() {
       press('Enter');
       await pumpEventQueue();
 
-      expect(app.left.directory?.pathString, '/home/docs');
+      expect(app.left.path, '/home/docs');
       expect(pty.started, isFalse);
       expect(line.history, ['cd docs']);
     });
@@ -276,7 +276,7 @@ void main() {
       press('Enter');
       await pumpEventQueue();
 
-      expect(app.left.directory?.pathString, '/home');
+      expect(app.left.path, '/home');
       expect(pty.started, isFalse);
     });
 
@@ -286,7 +286,7 @@ void main() {
       await submit();
 
       expect(pty.session.written, contains('cd docs && make\n'));
-      expect(app.left.directory?.pathString, '/home');
+      expect(app.left.path, '/home');
     });
 
     test('оболочка ушла сама — панель идёт следом', () async {
@@ -299,7 +299,7 @@ void main() {
       shell.finish(directory: '/home/docs');
       await pumpEventQueue();
 
-      expect(app.left.directory?.pathString, '/home/docs');
+      expect(app.left.path, '/home/docs');
     });
 
     test('cd внутри развёрнутого терминала тоже ведёт панель', () async {
@@ -316,7 +316,7 @@ void main() {
       shell.finish(directory: '/home/docs');
       await pumpEventQueue();
 
-      expect(app.left.directory?.pathString, '/home/docs');
+      expect(app.left.path, '/home/docs');
     });
 
     test('оболочка стоит там же — панель не трогают', () async {
@@ -327,7 +327,7 @@ void main() {
       shell.finish();
       await pumpEventQueue();
 
-      expect(app.left.directory?.pathString, '/home');
+      expect(app.left.path, '/home');
     });
 
     test('«убрать сразу» уносит экран успешной команды, но не провалившейся', () async {

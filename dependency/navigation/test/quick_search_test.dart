@@ -151,17 +151,17 @@ void main() {
 
     expect(pattern(), '');
     expect(search(), isNotNull, reason: 'режим не выключился');
-    expect(panel().directory?.pathString, '/home', reason: 'наверх не ушли');
+    expect(panel().path, '/home', reason: 'наверх не ушли');
   });
 
   test('без режима Bsp по-прежнему уводит наверх', () async {
     await panel().openPath('/home/docs');
-    expect(panel().directory?.pathString, '/home/docs');
+    expect(panel().path, '/home/docs');
 
     expect(press('Bsp'), isTrue);
     await pumpEventQueue();
 
-    expect(panel().directory?.pathString, '/home');
+    expect(panel().path, '/home');
   });
 
   test('Esc выходит, курсор остаётся где стоял', () {

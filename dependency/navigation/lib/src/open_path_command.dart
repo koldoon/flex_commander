@@ -113,7 +113,7 @@ class OpenPathCommand extends AppCommand {
     }
 
     final view = context.app.view;
-    state.path = panel.directory?.displayPath ?? '';
+    state.path = panel.path;
 
     late final String dialogId;
     state.close = () => view.closeDialog(dialogId);

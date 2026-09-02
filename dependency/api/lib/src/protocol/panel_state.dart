@@ -16,6 +16,8 @@ class PanelState {
   const PanelState({
     required this.source,
     this.path = '',
+    this.directoryName = '',
+    this.canGoUp = false,
     this.phase = PanelPhase.idle,
     this.error,
     this.busy = false,
@@ -37,6 +39,15 @@ class PanelState {
 
   /// Путь показанного каталога — он же заголовок панели по умолчанию.
   final String path;
+
+  /// Имя показанного каталога — последнее звено пути.
+  ///
+  /// Значением, а не выкусыванием из [path]: разделители у каждого источника
+  /// свои, и знает их только он.
+  final String directoryName;
+
+  /// Есть ли куда подниматься. У корня источника — нет.
+  final bool canGoUp;
 
   final PanelPhase phase;
   final FsError? error;
@@ -88,6 +99,8 @@ class PanelState {
   PanelState copyWith({
     SourceInfo? source,
     String? path,
+    String? directoryName,
+    bool? canGoUp,
     PanelPhase? phase,
     FsError? error,
     bool clearError = false,
@@ -108,6 +121,8 @@ class PanelState {
   }) => PanelState(
     source: source ?? this.source,
     path: path ?? this.path,
+    directoryName: directoryName ?? this.directoryName,
+    canGoUp: canGoUp ?? this.canGoUp,
     phase: phase ?? this.phase,
     error: clearError ? null : (error ?? this.error),
     busy: busy ?? this.busy,

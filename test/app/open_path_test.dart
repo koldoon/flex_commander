@@ -66,7 +66,7 @@ void main() {
       // бы с вопроса о пароле поверх пустых панелей, а недоступный сервер
       // задерживал бы его до истечения времени подключения.
       expect(opened, isEmpty);
-      expect(runtime.app.left.directory?.pathString, '/home');
+      expect(runtime.app.left.path, '/home');
     });
 
     test('обычный сохранённый путь по-прежнему открывается', () async {
@@ -74,7 +74,7 @@ void main() {
 
       await runtime.app.start();
 
-      expect(runtime.app.left.directory?.pathString, '/home/docs');
+      expect(runtime.app.left.path, '/home/docs');
     });
 
     test('а руками адрес открывается сразу же', () async {
@@ -98,7 +98,7 @@ void main() {
       expect(opened.single.host, 'alpha');
       expect(runtime.app.left.entries.map((node) => node.name), contains('alpha.txt'));
       // Вторая панель осталась там, где стояла: корень у каждой свой.
-      expect(runtime.app.right.directory?.pathString, '/home');
+      expect(runtime.app.right.path, '/home');
     });
 
     test('путь без схемы возвращает панель на общий корень', () async {
@@ -108,7 +108,7 @@ void main() {
 
       expect(await runtime.app.left.openPath('/etc'), isTrue);
 
-      expect(runtime.app.left.directory?.pathString, '/etc');
+      expect(runtime.app.left.path, '/etc');
       // Ушли с адреса — источник закрыт: соединение держать больше некому.
       expect(created.single.closed, isTrue);
     });
@@ -141,7 +141,7 @@ void main() {
       await runtime.app.start();
 
       expect(await runtime.app.left.openPath('ftp://host/pub'), isFalse);
-      expect(runtime.app.left.directory?.pathString, '/home', reason: 'панель осталась где была');
+      expect(runtime.app.left.path, '/home', reason: 'панель осталась где была');
     });
 
     test('обе панели могут стоять на своих адресах', () async {
@@ -297,7 +297,7 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(runtime.app.right.directory?.pathString, '/etc');
+      expect(runtime.app.right.path, '/etc');
       expect(runtime.app.activePanel, runtime.app.right, reason: 'пользователь смотрит туда, куда пришёл');
       expect(find.text('Open path (right panel)'), findsNothing);
 
@@ -347,7 +347,7 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(runtime.app.left.directory?.pathString, '/home/docs');
+      expect(runtime.app.left.path, '/home/docs');
 
       await tester.pump(const Duration(milliseconds: 20));
     });
@@ -439,7 +439,7 @@ void main() {
       // Путь правится тут же: окно осталось и говорит, что не так.
       expect(find.text('Open path (left panel)'), findsOneWidget);
       expect(find.textContaining('Not found'), findsOneWidget);
-      expect(runtime.app.left.directory?.pathString, '/home');
+      expect(runtime.app.left.path, '/home');
 
       await tester.pump(const Duration(milliseconds: 20));
     });
@@ -518,7 +518,7 @@ void main() {
 
       // В поле написано то, что откроется, — окно ещё открыто, панель на месте.
       expect(tester.widget<TextField>(dialogField()).controller?.text, '/etc');
-      expect(runtime.app.left.directory?.pathString, '/home');
+      expect(runtime.app.left.path, '/home');
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pumpAndSettle();
@@ -527,7 +527,7 @@ void main() {
       // И открывает всё равно `Enter` — то, что в поле.
       await tester.sendKeyEvent(LogicalKeyboardKey.enter);
       await tester.pumpAndSettle();
-      expect(runtime.app.left.directory?.pathString, '/home/docs');
+      expect(runtime.app.left.path, '/home/docs');
       await tester.pump(const Duration(milliseconds: 20));
     });
 
@@ -777,7 +777,7 @@ void main() {
       // Отмена — не отказ: «Not found» здесь был бы враньём.
       expect(find.textContaining('Not found'), findsNothing);
       expect(find.text('Status'), findsNothing, reason: 'работа кончилась — говорить не о чем');
-      expect(runtime.app.left.directory?.pathString, '/home', reason: 'панель осталась где была');
+      expect(runtime.app.left.path, '/home', reason: 'панель осталась где была');
       expect(runtime.app.left.busy, isFalse);
 
       // А второй Esc закрывает: прерывать больше нечего.
@@ -795,7 +795,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Open path (left panel)'), findsOneWidget);
-      expect(runtime.app.left.directory?.pathString, '/home');
+      expect(runtime.app.left.path, '/home');
       expect(runtime.app.left.busy, isFalse);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);

@@ -62,7 +62,7 @@ void main() {
 
     // Им займётся система: панель не знает, что с ним делать.
     expect((await panel.enterCurrent())?.name, 'notes.txt');
-    expect(panel.directory?.pathString, '/home');
+    expect(panel.path, '/home');
   });
 
   test('путь панели показывает всю цепочку', () async {
@@ -71,7 +71,10 @@ void main() {
     panel.setCursorToName('inner');
     await panel.enterCurrent();
 
-    expect(panel.directory?.pathString, '/home/archive.arc:arc:/inner');
+    // Панель показывает путь **человеку**: архив в нём стоит на своём месте,
+    // но схемой не размечен — её видно только внутри, у самого узла.
+    expect(panel.path, '/home/archive.arc/inner');
+    expect(panel.session.directory?.pathString, '/home/archive.arc:arc:/inner');
   });
 
   test('«..» из архива возвращает туда, где он лежит, и ставит на него курсор', () async {
@@ -80,7 +83,7 @@ void main() {
 
     await panel.goUp();
 
-    expect(panel.directory?.pathString, '/home');
+    expect(panel.path, '/home');
     expect(panel.currentEntry?.name, 'archive.arc');
     expect(panel.provider, same(disk));
   });
@@ -122,7 +125,7 @@ void main() {
 
     expect(await it.enterCurrent(), isNull);
 
-    expect(it.directory?.pathString, '/home');
+    expect(it.path, '/home');
     expect(it.phase, PanelPhase.error);
     expect(it.error?.kind, FsErrorKind.io);
   });
@@ -263,7 +266,7 @@ void main() {
         // архив по дороге монтируется ради работы, и отпустить его больше
         // некому.
         final onDisk = await panelOn(tracking);
-        final resolved = await onDisk.resolvePath().run('/home/archive.arc/inner');
+        final resolved = await onDisk.session.resolvePath().run('/home/archive.arc/inner');
 
         expect(resolved.node?.name, 'inner');
         expect(mounted.single.closed, isFalse);
@@ -335,7 +338,7 @@ void main() {
       it.cancel();
 
       expect(await opening, isFalse);
-      expect(it.directory?.pathString, '/home');
+      expect(it.path, '/home');
       expect(it.busy, isFalse);
       door.complete();
     });
@@ -352,7 +355,7 @@ void main() {
       it.cancel();
       await entering;
 
-      expect(it.directory?.pathString, '/home');
+      expect(it.path, '/home');
       expect(it.busy, isFalse);
       door.complete();
     });

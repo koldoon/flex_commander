@@ -94,9 +94,7 @@ class MakeDirectoryCommand extends AppCommand {
 
   /// Каталог, в котором появится новый: показывается в окне.
   String _parentPathOf(CommandContext context) {
-    final panel = context.panel;
-    final directory = panel.directory;
-    return directory?.displayPath ?? '';
+    return context.panel.path;
   }
 }
 

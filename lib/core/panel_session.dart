@@ -224,6 +224,15 @@ class PanelSession {
 
   DirectoryNode? get directory => _directory;
 
+  /// Путь показанного каталога — тем же текстом, каким его видят на экране.
+  String get path => _directory?.displayPath ?? '';
+
+  /// Имя показанного каталога: последнее звено пути.
+  String get directoryName => _directory?.name ?? '';
+
+  /// Есть ли куда подниматься. У корня источника — нет.
+  bool get canGoUp => _directory?.parentDirectory != null;
+
   /// Отсортированное содержимое каталога — то, что рисует таблица.
   List<FsNode> get nodes => _nodes;
 
@@ -845,7 +854,9 @@ class PanelSession {
   /// Состояние панели значением — всё, кроме списка.
   PanelState get state => PanelState(
     source: sourceInfo,
-    path: _directory?.displayPath ?? '',
+    path: path,
+    directoryName: directoryName,
+    canGoUp: canGoUp,
     phase: _status,
     error: _error,
     busy: _busy,

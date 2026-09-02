@@ -172,14 +172,14 @@ class CreateZipArchiveCommand extends AppCommand {
     if (sources.length == 1) {
       return '${sources.single.name}.zip';
     }
-    final directory = context.panel.directory;
-    final name = directory == null || directory.name == '/' ? 'archive' : directory.name;
+    final directory = context.panel.directoryName;
+    final name = directory.isEmpty || directory == '/' ? 'archive' : directory;
     return '$name.zip';
   }
 
   /// Куда ляжет архив — показывается в окне, чтобы «в какую панель» не
   /// приходилось угадывать.
-  String destinationPathOf(CommandContext context) => context.target?.directory?.pathString ?? '';
+  String destinationPathOf(CommandContext context) => context.target?.path ?? '';
 }
 
 /// Прогон упаковки вместе с тем, что спрашивают до её начала.

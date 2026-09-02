@@ -22,7 +22,7 @@ Future<void> reloadPanelsAt(Application app, Iterable<String?> paths) async {
   }
   for (final position in const [ViewportPosition.left, ViewportPosition.right]) {
     final panel = app.view.panelAt(position);
-    final at = panel?.directory?.pathString;
+    final at = panel?.path;
     if (panel != null && at != null && wanted.contains(at)) {
       await panel.reload();
     }

@@ -100,8 +100,8 @@ void main() {
 
       await app.start();
 
-      expect(app.left.directory?.pathString, '/home/docs');
-      expect(app.right.directory?.pathString, '/work');
+      expect(app.left.path, '/home/docs');
+      expect(app.right.path, '/work');
       expect(app.activePanel, app.right);
     });
 
@@ -129,7 +129,7 @@ void main() {
 
       await app.start();
 
-      expect(app.left.directory?.pathString, provider.homePath);
+      expect(app.left.path, provider.homePath);
     });
   });
 

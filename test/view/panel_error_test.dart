@@ -58,7 +58,7 @@ void main() {
     runtime.commands.dispatch(KeyCombination.parse('Bsp'));
     await tester.pumpAndSettle();
 
-    expect(runtime.app.left.directory?.pathString, '/');
+    expect(runtime.app.left.path, '/');
     expect(runtime.app.left.phase, PanelPhase.idle);
 
     await tester.pump(const Duration(milliseconds: 20));

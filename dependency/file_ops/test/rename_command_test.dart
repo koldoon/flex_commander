@@ -99,7 +99,7 @@ void main() {
   test('вторая панель, стоящая здесь же, тоже видит новое имя', () async {
     // Найдено на живом: обе панели смотрят в один каталог, а перечитывалась
     // только та, в которой работали.
-    expect(app.right.directory?.pathString, '/home', reason: 'обе панели в одном каталоге');
+    expect(app.right.path, '/home', reason: 'обе панели в одном каталоге');
     app.left.setCursorToName('notes.txt');
 
     await renameCursorTo('заметки.txt');
@@ -114,7 +114,7 @@ void main() {
 
     await renameCursorTo('заметки.txt');
 
-    expect(app.right.directory?.pathString, '/home/docs');
+    expect(app.right.path, '/home/docs');
   });
 
   group('когда команда невыполнима', () {

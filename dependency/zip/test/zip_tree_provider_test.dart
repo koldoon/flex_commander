@@ -224,15 +224,16 @@ void main() {
       panel.setCursorToName('docs');
       await panel.enterCurrent();
 
+      // Пользователю — без схемы: в архив входят как в каталог, и путь панели
+      // показывает ровно это.
+      expect(panel.path, '$archivePath/docs');
       // Машине — со схемой: этот путь сохраняется и разбирается обратно.
-      expect(panel.directory?.pathString, '$archivePath:zip:/docs');
-      // Пользователю — без неё: в архив входят как в каталог.
-      expect(panel.directory?.displayPath, '$archivePath/docs');
+      expect(panel.session.directory?.pathString, '$archivePath:zip:/docs');
 
       await panel.goUp();
       await panel.goUp();
 
-      expect(panel.directory?.pathString, root);
+      expect(panel.path, root);
       expect(panel.currentEntry?.name, 'sample.zip');
       expect(panel.provider, same(disk));
     });
