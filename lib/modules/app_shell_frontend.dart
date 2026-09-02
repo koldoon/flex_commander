@@ -1,4 +1,8 @@
 import 'package:fc_api/fc_api.dart';
+// ВРЕМЕННО, до Э4: повышение прав объявлено в API ядра, потому что исполняется
+// оно там — `copyOver` берёт живую оболочку. Спрашивает же согласие и пароль
+// эта сторона, у которой есть экран. Разъедется это вместе с секретами:
+// вопрос — сюда, исполнение — туда (`docs/spec/client-server.md`, §5.4).
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
@@ -9,13 +13,17 @@ import '../state/shell_settings.dart';
 import '../state/credentials_controller.dart';
 import '../state/elevation_controller.dart';
 
-/// Оболочка приложения: то, что есть у файлового менеджера всегда.
+/// Оболочка приложения — экранная половина: то, что есть у файлового
+/// менеджера всегда.
 ///
-/// Движок файловых операций, справка и обещания клавиш: `F3` и `F4` заняты
+/// Справка, настройки, палитра и обещания клавиш: `F3` и `F4` заняты
 /// заглушками, потому что просмотрщик и редактор появятся модулями, а
 /// пользователь должен видеть, что место за ними закреплено.
-class AppShell implements FcModule {
-  const AppShell();
+///
+/// Движок файловых операций объявляет ядровая половина ([AppShellBackend]):
+/// работает он там, где живут источники.
+class AppShellFrontend implements FcFrontendModule {
+  const AppShellFrontend();
 
   /// Обещания клавиш: команды за ними появятся модулями, а сами клавиши
   /// заняты уже сейчас. Идентификаторы объявлены здесь — своих классов у
@@ -30,11 +38,7 @@ class AppShell implements FcModule {
   String get title => 'Application shell';
 
   @override
-  void install(FcRegistry registry) {
-    // Движок один на приложение: состояния у него нет, а провайдеров узлы
-    // приносят с собой — в том числе разных у источника и приёмника.
-    registry.service<TreeEditor>((services) => const TreeTransferEngine());
-
+  void installFrontend(FrontendRegistry registry) {
     // Пароль нужен файловому менеджеру всегда: архив под паролем, сервер с
     // паролем. Модуль просит службу так же, как любую другую, — и не знает,
     // ни как её спрашивают, ни где она помнит ответ.

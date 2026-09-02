@@ -14,7 +14,7 @@ import 'image_viewer_view.dart';
 /// Про то, какой клавишей его открывают и куда ставят показ, модуль не знает
 /// вовсе: он объявляет `ViewerSpec` в общий реестр, а выбирает оболочка
 /// просмотра. Выключите его — картинки перестанут открываться, и только они.
-class ImageViewer implements FcModule {
+class ImageViewer implements FcFrontendModule {
   const ImageViewer();
 
   /// Расширения, за которые берётся. Всё это декодирует сам Flutter (Skia);
@@ -29,7 +29,7 @@ class ImageViewer implements FcModule {
   String get title => 'Image viewer';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.view<ImageViewerScreen>((context, state) => ImageViewerView(screen: state));
 
     final settings = registry.settings;

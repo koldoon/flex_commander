@@ -21,7 +21,7 @@ import 'text_viewer_view.dart';
 ///
 /// Выключите его — пропадёт **только текст**: `F3` останется на месте и
 /// откроет то, за что возьмётся кто-то другой.
-class TextViewer implements FcModule {
+class TextViewer implements FcFrontendModule {
   const TextViewer();
 
   /// Поиск: команды общие с редактором, а идентификаторы свои — в панелях за
@@ -136,7 +136,7 @@ class TextViewer implements FcModule {
   String get title => 'Text viewer';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.view<TextViewerScreen>((context, state) => TextViewerView(screen: state));
 
     // Область забирается **сейчас**, пока идёт установка: позже имя раздела

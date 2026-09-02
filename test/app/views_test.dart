@@ -1,4 +1,5 @@
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:flex_commander/bootstrap/frontend_registrations.dart';
 import 'package:flex_commander/bootstrap/registrations.dart';
 import 'package:flex_commander/state/view_registry.dart';
 import 'package:flutter/widgets.dart';
@@ -20,7 +21,7 @@ class _Other {
 }
 
 /// Модуль, объявляющий вид для [_Question].
-class _QuestionModule implements FcModule {
+class _QuestionModule implements FcFrontendModule {
   const _QuestionModule();
 
   @override
@@ -30,13 +31,13 @@ class _QuestionModule implements FcModule {
   String get title => 'Question';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.view<_Question>((context, state) => const SizedBox.shrink());
   }
 }
 
 /// Модуль с видом ровно на [_Password].
-class _PasswordModule implements FcModule {
+class _PasswordModule implements FcFrontendModule {
   const _PasswordModule();
 
   @override
@@ -46,14 +47,14 @@ class _PasswordModule implements FcModule {
   String get title => 'Password';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.view<_Password>((context, state) => const SizedBox.shrink());
   }
 }
 
 /// Модуль с видом на второй интерфейс того же состояния: выбирать между ним и
 /// видом на базу — значит выбирать по порядку модулей.
-class _MarkerModule implements FcModule {
+class _MarkerModule implements FcFrontendModule {
   const _MarkerModule();
 
   @override
@@ -63,13 +64,13 @@ class _MarkerModule implements FcModule {
   String get title => 'Marker';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.view<_Secret>((context, state) => const SizedBox.shrink());
   }
 }
 
 /// Второй модуль на тот же тип: так делать нельзя.
-class _SecondQuestionModule implements FcModule {
+class _SecondQuestionModule implements FcFrontendModule {
   const _SecondQuestionModule();
 
   @override
@@ -79,12 +80,13 @@ class _SecondQuestionModule implements FcModule {
   String get title => 'Question again';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.view<_Question>((context, state) => const SizedBox.shrink());
   }
 }
 
-Registrations _install(List<FcModule> modules) => Registrations(LazyServices())..installAll(modules);
+FrontendRegistrations _install(List<FcFrontendModule> modules) =>
+    FrontendRegistrations(LazyServices())..installAll(modules);
 
 void main() {
   test('вид находится по точному типу состояния', () {

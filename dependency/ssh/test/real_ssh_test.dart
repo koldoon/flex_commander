@@ -7,7 +7,7 @@ import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ssh/fc_ssh.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
-import 'package:fc_local_fs/fc_local_fs.dart';
+import 'package:fc_local_fs/backend.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 

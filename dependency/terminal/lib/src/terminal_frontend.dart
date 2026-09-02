@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'dart:async';
 
 import 'package:fc_core_api/fc_core_api.dart';
@@ -11,7 +12,7 @@ import 'terminal_screens.dart';
 import 'terminal_settings.dart';
 import 'terminal_views.dart';
 
-/// Оболочка в том же окне.
+/// Оболочка в том же окне — экранная половина.
 ///
 /// Две вещи, а не одна: командная строка под панелями — выполнить одну команду
 /// вот здесь — и полноэкранная сессия под `Ctrl-O` — поработать в оболочке.
@@ -19,10 +20,13 @@ import 'terminal_views.dart';
 ///
 /// Класс называется так, а не `Terminal`: последнее занято `xterm`, и два
 /// `Terminal` в одном модуле путали бы и человека, и импорт.
-class ShellTerminal implements FcModule, FcModuleLifecycle {
+///
+/// Чем запускать оболочку, объявляет ядровая половина
+/// ([ShellTerminalBackend]): спрашивает это тот, кто запускает.
+class ShellTerminalFrontend implements FcFrontendModule, FcModuleLifecycle {
   /// [pty] подставляют тесты. Умолчание — настоящий псевдотерминал: службу
   /// приносит модуль, потому что нужна она только ему.
-  ShellTerminal();
+  ShellTerminalFrontend();
 
   /// Постоянная сессия: держится здесь, чтобы было чем закрыть её при выходе.
   ShellSession? _shell;
@@ -34,16 +38,12 @@ class ShellTerminal implements FcModule, FcModuleLifecycle {
   String get title => 'Terminal';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     // Область забирается **сейчас**, пока идёт установка: позже имя раздела
     // уже неизвестно, и настройки уехали бы в чужой.
     final settings = registry.settings;
     TerminalSettings settingsOf() => settings.section(TerminalSettings.new);
 
-    // Чем запускать оболочку **здесь** — вещь пользовательская, и живёт она в
-    // настройках терминала. А нужна тому, кто запускает, то есть локальной
-    // файловой системе: службой они и сообщаются, не зная друг о друге.
-    registry.service<ShellPreference>((services) => _ChosenShell(settingsOf));
     registry.service<ShellSession>((services) => _shell ??= ShellSession(settings: settingsOf));
 
     registry.settingsSchema(
@@ -287,14 +287,4 @@ class _WarmShellCommand extends AppCommand {
       // Молчим: терминала никто не просил.
     }
   }
-}
-
-/// Выбранная оболочка — настройкой терминала, а спрашивают её снаружи.
-class _ChosenShell implements ShellPreference {
-  const _ChosenShell(this._settings);
-
-  final TerminalSettings Function() _settings;
-
-  @override
-  String get shell => _settings().shell;
 }

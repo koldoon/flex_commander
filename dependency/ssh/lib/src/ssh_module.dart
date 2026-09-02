@@ -1,6 +1,5 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
-import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'sftp_tree_provider.dart';
 
@@ -9,7 +8,7 @@ import 'sftp_tree_provider.dart';
 /// Первый источник, открываемый по адресу: панель встаёт на сервер целиком,
 /// а не монтирует его звеном пути. Ядру знать об этом нечего — модуль
 /// объявляет схему, а всё остальное делают общие команды.
-class SshFileSystem implements FcModule {
+class SshFileSystem implements FcBackendModule {
   const SshFileSystem();
 
   @override
@@ -19,7 +18,7 @@ class SshFileSystem implements FcModule {
   String get title => 'SSH file system';
 
   @override
-  void install(FcRegistry registry) {
+  void installBackend(BackendRegistry registry) {
     // Два имени одного и того же: `ssh://` привычнее по командной строке,
     // `sftp://` — по файловым менеджерам. Разводить их незачем — работа идёт
     // по одному и тому же протоколу.

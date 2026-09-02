@@ -28,7 +28,7 @@ export 'src/commands/key_combination.dart';
 export 'src/background/operations.dart';
 
 // --- Модули ---
-export 'src/module/fc_module.dart';
+export 'src/module/frontend_module.dart';
 
 // --- Настройки ---
 export 'src/settings/settings_schema.dart';
@@ -42,5 +42,4 @@ export 'src/theme/theme_service.dart';
 
 // --- Службы с экраном ---
 export 'src/os/clipboard.dart';
-export 'src/os/credentials.dart';
 export 'src/os/window_service.dart';

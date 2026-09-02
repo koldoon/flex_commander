@@ -83,7 +83,7 @@ class _StubScreen extends ChangeNotifier implements ViewportState {
   void close() {}
 }
 
-class _StubScreenModule implements FcModule {
+class _StubScreenModule implements FcFrontendModule {
   const _StubScreenModule();
 
   @override
@@ -93,7 +93,7 @@ class _StubScreenModule implements FcModule {
   String get title => 'Stub screen';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.view<_StubScreen>((context, state) => const Center(child: Text('Stub screen content')));
     registry.command((context) => _StubCommand());
     registry.binding(KeyBinding.inState<_StubScreen>('F2', 'stub.wrap'));

@@ -1,22 +1,20 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
-import 'package:fc_ui_api/fc_ui_api.dart';
 
-import 'create_archive_command.dart';
 import 'seven_zip_cli.dart';
 import 'seven_zip_settings.dart';
 import 'seven_zip_tree_provider.dart';
 
-/// Архив 7z как дерево.
+/// Архив 7z как дерево — ядровая половина.
 ///
 /// Ядру про архивы знать нечего: модуль объявляет схему пути и расширения, по
-/// которым файл открывается как каталог, и команду упаковки на `Shift-F7`.
+/// которым файл открывается как каталог.
 ///
 /// Модуль ставится и там, где программы 7-Zip нет: схема остаётся, а обращение
 /// к архиву кончается внятной ошибкой. Молчаливое «ничего не происходит» было
 /// бы хуже — пользователю неоткуда узнать, чего не хватает.
-class SevenZipArchiver implements FcModule {
-  const SevenZipArchiver();
+class SevenZipArchiverBackend implements FcBackendModule {
+  const SevenZipArchiverBackend();
 
   @override
   String get id => 'fc.7z_archiver';
@@ -25,25 +23,11 @@ class SevenZipArchiver implements FcModule {
   String get title => '7z archives';
 
   @override
-  void install(FcRegistry registry) {
+  void installBackend(BackendRegistry registry) {
     // Раздел настроек берётся здесь, а не в фабрике: реестр отдаёт раздел
     // тому, кто устанавливается сейчас, и спрошенный позже он оказался бы
     // чужим. Содержимое раздела к моменту вызова фабрики уже прочитано.
     final settings = registry.settings;
-
-    registry.settingsSchema(
-      () => SettingsSchema([
-        SettingsField.text(
-          'binary',
-          title: '7z program',
-          hint: 'found on PATH',
-          description: 'Full path — for when it is installed somewhere unusual',
-          note: 'Applies to the next archive opened',
-          read: () => settings.section(SevenZipSettings.new).binary,
-          write: (value) => settings.section(SevenZipSettings.new).binary = value,
-        ),
-      ], save: settings.save),
-    );
 
     // Программа одна на приложение: она запоминает, где лежит и какие ключи
     // понимает, и выяснять это заново на каждом архиве незачем.
@@ -77,13 +61,5 @@ class SevenZipArchiver implements FcModule {
       }),
       extensions: SevenZipTreeProvider.extensions,
     );
-
-    // Упаковка — такое же действие, как копирование, и живёт там же, где
-    // формат: про 7z знает только этот модуль.
-    registry.command(
-      (context) =>
-          CreateSevenZipArchiveCommand(staging: context.resolve<StagingArea>(), cli: context.resolve<SevenZipCli>()),
-    );
-    registry.binding(KeyBinding('Shift-F7', CreateSevenZipArchiveCommand.commandId));
   }
 }

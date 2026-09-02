@@ -14,7 +14,7 @@ class _SearchProvider extends InMemoryTreeProvider implements PanelContent {
 }
 
 /// Модуль, который приносит своё содержимое панели.
-class _SearchModule implements FcModule {
+class _SearchModule implements FcFrontendModule {
   const _SearchModule();
 
   @override
@@ -24,7 +24,7 @@ class _SearchModule implements FcModule {
   String get title => 'Search results';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.viewport('search', (context, panel) => const Center(child: Text('Результаты поиска')));
   }
 }

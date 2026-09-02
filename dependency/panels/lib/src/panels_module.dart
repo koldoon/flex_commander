@@ -11,7 +11,7 @@ import 'panel_view.dart';
 ///
 /// Без него приложение соберётся и запустится — просто выше ряда кнопок будет
 /// пусто. Так же честно, как сейчас без корневого провайдера.
-class Panels implements FcModule {
+class Panels implements FcFrontendModule {
   const Panels();
 
   @override
@@ -21,7 +21,7 @@ class Panels implements FcModule {
   String get title => 'File panels';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     // Таблица файлов — штатный вид содержимого панели. Остальные виды
     // (результаты поиска, дерево) объявляются так же, своими модулями.
     registry.viewport(PanelViewports.files, (context, panel) => FileTable(panel: panel));

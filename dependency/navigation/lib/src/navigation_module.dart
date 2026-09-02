@@ -17,7 +17,7 @@ import 'selection_commands.dart';
 /// наверх, перечитывание, пометка. Отдельным модулем — потому что это не
 /// «часть ядра», а один из наборов действий: приложение обязано собираться и
 /// без него, просто ходить по дереву будет нечем.
-class Navigation implements FcModule {
+class Navigation implements FcFrontendModule {
   const Navigation();
 
   static const String commandId = 'fc.navigation';
@@ -29,7 +29,7 @@ class Navigation implements FcModule {
   String get title => 'Navigation';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     // Область забирается **сейчас**, пока идёт установка: позже имя раздела
     // уже неизвестно, и настройки уехали бы в чужой.
     final settings = registry.settings;
@@ -89,7 +89,7 @@ class Navigation implements FcModule {
   }
 
   /// Клавиши. Порядок задаёт приоритет — он и есть содержание этого метода.
-  void _bindKeys(FcRegistry registry) {
+  void _bindKeys(FrontendRegistry registry) {
     // Курсор.
     registry.binding(KeyBinding('Up', MoveCursorUpCommand.commandId));
     registry.binding(KeyBinding('Down', MoveCursorDownCommand.commandId));

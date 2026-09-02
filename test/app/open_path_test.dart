@@ -25,7 +25,7 @@ void main() {
   late List<InMemoryAddressProvider> created;
 
   /// Модуль с источником по адресу: `mem://имя/путь`.
-  FcModule memoryAddresses() => _AddressModule((address) {
+  FcBackendModule memoryAddresses() => _AddressModule((address) {
     opened.add(address);
     final provider = InMemoryAddressProvider(
       address: address,
@@ -40,7 +40,7 @@ void main() {
     created = [];
   });
 
-  Future<AppRuntime> app({List<FcModule> extra = const [], String leftPath = '/home'}) async {
+  Future<AppRuntime> app({List<FcBackendModule> extra = const [], String leftPath = '/home'}) async {
     final local = InMemoryTreeProvider([
       FakeEntry.directory('/home'),
       FakeEntry.directory('/home/docs'),
@@ -50,7 +50,8 @@ void main() {
 
     return testApp(
       provider: local,
-      modules: [...featureModules(), ...extra],
+      modules: featureModules(),
+      backend: extra,
       settings: AppSettings(left: PanelSettings.defaults(leftPath), right: PanelSettings.defaults('/home')),
     );
   }
@@ -876,7 +877,7 @@ void main() {
 }
 
 /// Модуль, объявляющий источник по схеме `mem`.
-class _AddressModule implements FcModule {
+class _AddressModule implements FcBackendModule {
   const _AddressModule(this.factory);
 
   final TreeProvider Function(Uri address) factory;
@@ -888,7 +889,7 @@ class _AddressModule implements FcModule {
   String get title => 'Memory addresses';
 
   @override
-  void install(FcRegistry registry) {
+  void installBackend(BackendRegistry registry) {
     registry.addressProvider('mem', () => TaskOperation<Uri, TreeProvider>((op, address) async => factory(address)));
   }
 }
@@ -897,7 +898,7 @@ class _AddressModule implements FcModule {
 ///
 /// Настоящее подключение — это секунды ожидания, а с недоступным сервером и
 /// минуты; `Completer` даёт ровно это, не заводя в тесте ни сети, ни таймеров.
-class _SlowAddressModule implements FcModule {
+class _SlowAddressModule implements FcBackendModule {
   const _SlowAddressModule({required this.gate, required this.opened});
 
   final Completer<void> gate;
@@ -912,7 +913,7 @@ class _SlowAddressModule implements FcModule {
   String get title => 'Slow addresses';
 
   @override
-  void install(FcRegistry registry) {
+  void installBackend(BackendRegistry registry) {
     registry.addressProvider(
       'slow',
       () => TaskOperation<Uri, TreeProvider>((op, address) async {

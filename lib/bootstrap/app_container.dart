@@ -17,17 +17,30 @@ import '../state/elevation_controller.dart';
 import '../state/error_controller.dart';
 import '../state/toast_controller.dart';
 import 'app_runtime.dart';
+import 'backend_registrations.dart';
+import 'frontend_registrations.dart';
 import 'registrations.dart';
 
 /// Граф зависимостей приложения, собранный по объявлениям модулей.
 ///
 /// Здесь нет ни одного имени конкретной возможности: что будет корневым
 /// источником, какие есть команды и чем открывается zip — приходит из
-/// [Registrations]. Раньше всё это было записано прямо в контейнере, и добавить
-/// возможность значило поправить ядро.
+/// объявлений модулей. Раньше всё это было записано прямо в контейнере, и
+/// добавить возможность значило поправить ядро.
+///
+/// Реестра объявлений два, по одному на сторону, а контейнер пока один: службы
+/// разрешаются по типу, и кто их объявил — ядровая половина модуля или
+/// экранная — на сборке ещё не сказывается. Разъедутся они на Э2
+/// (`docs/spec/client-server.md`).
 class AppContainer extends DI {
-  AppContainer(this.registrations, {this.overrides = const AppOverrides(), FcContext? context}) {
-    _context = context ?? RuntimeContext(registrations.services);
+  AppContainer(
+    this.backend,
+    this.frontend,
+    this.services, {
+    this.overrides = const AppOverrides(),
+    FcContext? context,
+  }) {
+    _context = context ?? RuntimeContext(services);
 
     // Логгер с категорией по имени класса, который его запросил: контейнер
     // знает текущее дерево зависимостей, а предпоследний его элемент — как раз
@@ -40,10 +53,18 @@ class AppContainer extends DI {
     _bindSettings();
     _bindApp();
 
-    registrations.services.bindTo(this);
+    services.bindTo(this);
   }
 
-  final Registrations registrations;
+  /// Что объявили ядровые половины модулей.
+  final BackendRegistrations backend;
+
+  /// Что объявили экранные половины модулей.
+  final FrontendRegistrations frontend;
+
+  /// Службы, общие обеим сторонам, пока контейнер один.
+  final LazyServices services;
+
   final AppOverrides overrides;
   late final FcContext _context;
 
@@ -55,7 +76,9 @@ class AppContainer extends DI {
     // но с подставным окном и хранилищем.
     final overridden = <Type>{if (overrides.window != null) WindowService, if (overrides.store != null) SettingsStore};
 
-    for (final entry in registrations.serviceBindings.entries) {
+    // Обе стороны в один контейнер: экранная объявляется после ядровой,
+    // поэтому подменить службу ядра своей может она, а не наоборот.
+    for (final entry in [...backend.serviceBindings.entries, ...frontend.serviceBindings.entries]) {
       if (overridden.contains(entry.key)) {
         continue;
       }
@@ -69,21 +92,21 @@ class AppContainer extends DI {
   }
 
   void _bindTree() {
-    final root = registrations.rootProviderFactory;
+    final root = backend.rootProviderFactory;
     final provider = overrides.provider;
     if (root == null && provider == null) {
       throw StateError('Ни один модуль не объявил корневой источник дерева');
     }
 
-    bind<TreeProvider>(to: (c) => provider ?? root!(registrations.services));
+    bind<TreeProvider>(to: (c) => provider ?? root!(services));
 
     bind<ProviderRegistry>(
       to: (c) {
         final registry = ProviderRegistry(root: c.get<TreeProvider>());
-        for (final declared in registrations.providers) {
+        for (final declared in backend.providers) {
           registry.register(declared.scheme, declared.factory, extensions: declared.extensions);
         }
-        for (final declared in registrations.addresses) {
+        for (final declared in backend.addresses) {
           registry.registerAddress(declared.scheme, declared.factory);
         }
         return registry;
@@ -98,38 +121,38 @@ class AppContainer extends DI {
         return CommandRegistry(
           // Фабрика модуля просит окружение, реестру нужна фабрика без
           // аргументов: окружение подставляется здесь, при сборке.
-          [for (final factory in registrations.commands) () => factory(_context)],
-          registrations.bindings,
+          [for (final factory in frontend.commands) () => factory(_context)],
+          frontend.bindings,
           // У команды с окном ошибка остаётся в окне. У команды без окна
           // показать её негде — до появления общего места для фоновых работ
           // она хотя бы попадает в журнал, а не пропадает совсем.
           (error, command) => logger.error('Command failed: $command', error),
-          registrations.commandOwners,
+          frontend.commandOwners,
         );
       },
     );
 
-    if (registrations.themes.isEmpty) {
+    if (frontend.themes.isEmpty) {
       throw StateError('Ни один модуль не объявил оформление');
     }
-    bind<ThemeController>(to: (c) => ThemeController(registrations.themes));
+    bind<ThemeController>(to: (c) => ThemeController(frontend.themes));
 
     bind<PanelViewports>(
       to: (c) {
         // Таблица файлов — вид по умолчанию: её ядро умеет всегда, остальное
         // приносят модули.
         final viewports = PanelViewportRegistry();
-        for (final entry in registrations.viewports.entries) {
+        for (final entry in frontend.viewports.entries) {
           viewports.register(entry.key, entry.value);
         }
         return viewports;
       },
     );
 
-    bind<Views>(to: (c) => ViewRegistry(registrations.views));
+    bind<Views>(to: (c) => ViewRegistry(frontend.views));
 
     // Разделы окна настроек: собраны при объявлении, строятся при открытии.
-    bind<SettingsCatalog>(to: (c) => _Catalog(registrations.settingsPages));
+    bind<SettingsCatalog>(to: (c) => _Catalog(frontend.settingsPages));
   }
 
   void _bindSettings() {
@@ -243,11 +266,11 @@ class AppContainer extends DI {
           viewports: c.get<PanelViewports>(),
           // Списком, а не службой: складывать и упорядочивать — вся работа
           // ядра с просмотрщиками. Кто возьмётся за файл, спрашивает оболочка.
-          viewers: registrations.viewers,
+          viewers: frontend.viewers,
           // Фабрики зовутся здесь, когда приложение уже собрано: провайдеру
           // сведений может понадобиться служба, а во время объявления её ещё
           // нет.
-          nodeInfoProviders: [for (final factory in registrations.nodeInfoFactories) factory(_context)],
+          nodeInfoProviders: [for (final factory in frontend.nodeInfoFactories) factory(_context)],
           views: c.get<Views>(),
           window: c.get<WindowService>(),
           // Необязательная: нет модуля перетаскивания — панели просто не умеют
@@ -255,7 +278,7 @@ class AppContainer extends DI {
           //
           // Спрашивается по объявлениям, а не у контейнера: мы **внутри** его
           // фабрики, и обращение к нему отсюда рушит разбор зависимостей.
-          dragAndDrop: registrations.serviceBindings.containsKey(DragAndDrop) ? c.get<DragAndDrop>() : null,
+          dragAndDrop: frontend.serviceBindings.containsKey(DragAndDrop) ? c.get<DragAndDrop>() : null,
           saveDelay: overrides.saveDelay ?? const Duration(seconds: 1),
           toasts: ToastController(duration: overrides.toastDuration ?? ToastController.defaultDuration),
           credentials: c.get<CredentialsController>(),

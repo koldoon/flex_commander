@@ -1,11 +1,12 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Открытие объекта системой — платформенная служба, и в тестах она подставная.
-class _SystemOpenerModule implements FcModule {
+class _SystemOpenerModule implements FcBackendModule {
   _SystemOpenerModule();
 
   final List<String> opened = [];
@@ -17,13 +18,15 @@ class _SystemOpenerModule implements FcModule {
   String get title => 'Fake opener';
 
   @override
-  void install(FcRegistry registry) => registry.service<SystemOpener>((services) => (path) async => opened.add(path));
+  void installBackend(BackendRegistry registry) =>
+      registry.service<SystemOpener>((services) => (path) async => opened.add(path));
 }
 
 /// Переходы по дереву: команды, которым не нужен ни диалог, ни клавиатура.
 void main() {
   late InMemoryTreeProvider provider;
   late Application app;
+  final opener = _SystemOpenerModule();
 
   setUp(() async {
     provider = InMemoryTreeProvider([
@@ -37,7 +40,8 @@ void main() {
     // так видно, что модуль самодостаточен.
     final runtime = await testApp(
       provider: provider,
-      modules: [const Navigation(), _SystemOpenerModule()],
+      modules: [const Navigation()],
+      backend: [opener],
       settings: AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home')),
     );
     app = runtime.app;

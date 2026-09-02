@@ -8,7 +8,7 @@ import 'go_to_found_command.dart';
 /// Быстрый поиск в панели живёт не здесь, а в навигации: он водит курсор по
 /// списку, который и так на экране, и общего с обходом дерева у него нет
 /// ничего (`spec/file-search.md`, §8).
-class FileSearch implements FcModule {
+class FileSearch implements FcFrontendModule {
   const FileSearch();
 
   static const String moduleId = 'fc.search';
@@ -20,7 +20,7 @@ class FileSearch implements FcModule {
   String get title => 'File search';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.command((context) => FindFilesCommand());
     registry.command((context) => GoToFoundCommand());
 

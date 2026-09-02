@@ -1,29 +1,44 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import '../settings/settings_store.dart';
 import '../state/app_controller.dart';
 import 'app_container.dart';
 import 'app_runtime.dart';
+import 'backend_registrations.dart';
+import 'frontend_registrations.dart';
 import 'registrations.dart';
 
-/// Сборка приложения из списка модулей.
+/// Сборка приложения из двух списков модулей.
 ///
 /// Пять шагов подряд, и каждый следующий пользуется сделанным до него: модули
-/// объявляют, что предлагают; по объявлениям собирается граф зависимостей;
-/// читаются настройки; создаётся приложение; выполняются стартовые команды
-/// модулей.
+/// объявляют, что предлагают — каждая половина своё; по объявлениям собирается
+/// граф зависимостей; читаются настройки; создаётся приложение; выполняются
+/// стартовые команды.
 ///
 /// Порядок здесь — не украшение, а условие: контейнер нельзя собрать раньше
 /// объявлений, настройки читаются до создания приложения (иначе панели встанут
 /// на умолчаниях, а не там, где их оставили), а стартовые команды идут
 /// последними — им нужно готовое приложение.
-Future<AppRuntime> initModules(List<FcModule> modules, {AppOverrides overrides = const AppOverrides()}) async {
+///
+/// Стороны две ([backend] и [frontend]), а сборка пока одна: разъедутся они
+/// вместе с контейнерами (`docs/spec/client-server.md`, Э2).
+Future<AppRuntime> initModules(
+  List<FcBackendModule> backend,
+  List<FcFrontendModule> frontend, {
+  AppOverrides overrides = const AppOverrides(),
+}) async {
   // Шаг 1: модули объявляют, что они предлагают.
-  final registrations = Registrations(LazyServices())..installAll(modules);
+  //
+  // Службы пока общие: контейнер один, и разрешаются они по типу независимо от
+  // того, какая сторона их объявила.
+  final services = LazyServices();
+  final backendRegistrations = BackendRegistrations(services)..installAll(backend);
+  final frontendRegistrations = FrontendRegistrations(services)..installAll(frontend);
 
   // Шаг 2: по объявлениям собирается граф зависимостей.
-  final container = AppContainer(registrations, overrides: overrides);
+  final container = AppContainer(backendRegistrations, frontendRegistrations, services, overrides: overrides);
 
   // Шаг 3: настройки читаются с диска.
   //
@@ -31,8 +46,9 @@ Future<AppRuntime> initModules(List<FcModule> modules, {AppOverrides overrides =
   // синхронные: готовое значение связывается уже после чтения.
   final settings = await container.get<SettingsStore>().load();
   container.bind<AppSettings>(to: (c) => settings);
-  // С этого момента разделы настроек модулей есть где искать.
-  registrations.settingsSource = settings;
+  // С этого момента разделы настроек модулей есть где искать — у обеих сторон.
+  backendRegistrations.settingsSource = settings;
+  frontendRegistrations.settingsSource = settings;
 
   // Шаг 4: создаётся само приложение.
   final app = container.get<AppController>();
@@ -40,10 +56,14 @@ Future<AppRuntime> initModules(List<FcModule> modules, {AppOverrides overrides =
   if (container.context case final RuntimeContext context) {
     context.app = app;
   }
-  final runtime = AppRuntime(app: app, modules: registrations.modules, services: registrations.services);
+  final runtime = AppRuntime(
+    app: app,
+    modules: [...backendRegistrations.modules, ...frontendRegistrations.modules],
+    services: services,
+  );
 
   // Шаг 5: выполняются стартовые команды модулей.
-  await _runStartupCommands(container, registrations);
+  await _runStartupCommands(container, frontendRegistrations);
 
   return runtime;
 }
@@ -54,7 +74,7 @@ Future<AppRuntime> initModules(List<FcModule> modules, {AppOverrides overrides =
 /// их с запуском и разбирает исход. Поэтому ошибка одной из них не роняет
 /// запуск, а уходит в журнал — модуль темы не смог восстановить оформление,
 /// приложение всё равно должно открыться.
-Future<void> _runStartupCommands(AppContainer container, Registrations registrations) async {
+Future<void> _runStartupCommands(AppContainer container, FrontendRegistrations registrations) async {
   if (registrations.startupCommands.isEmpty) {
     return;
   }

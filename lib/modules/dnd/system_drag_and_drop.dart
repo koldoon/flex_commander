@@ -41,7 +41,7 @@ class DragAndDropSettings implements Serializable {
 /// Модуль платформенный, поэтому и стоит рядом с локальной файловой системой, а
 /// не в `dependency/`: без своего раннера канала не существует. Выключишь его —
 /// пропадёт возможность, и ничего больше: панели про перетаскивание не знают.
-class SystemDragAndDrop implements FcModule {
+class SystemDragAndDrop implements FcFrontendModule {
   const SystemDragAndDrop();
 
   @override
@@ -51,7 +51,7 @@ class SystemDragAndDrop implements FcModule {
   String get title => 'Drag and drop';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     final settings = registry.settings;
     DragAndDropSettings settingsOf() => settings.section(DragAndDropSettings.new);
 

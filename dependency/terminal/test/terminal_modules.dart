@@ -7,4 +7,4 @@ import 'package:flex_commander/bootstrap/app_modules.dart';
 /// (`InMemoryShellProvider`), а не служба, и подменять модуль ради неё не
 /// нужно. Порядок модулей при этом важен по-прежнему: терминал объявлен раньше
 /// навигации, и на этом держится перехват печати в режиме `mc`.
-List<FcModule> modulesWithTerminal() => featureModules();
+List<FcFrontendModule> modulesWithTerminal() => featureModules();

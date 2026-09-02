@@ -3,10 +3,11 @@ import 'dart:io';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_platform/fc_platform.dart';
-import 'package:fc_tar/fc_tar.dart';
+import 'package:fc_tar/backend.dart';
+import 'package:fc_tar/frontend.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/state/app_controller.dart';
-import 'package:fc_local_fs/fc_local_fs.dart';
+import 'package:fc_local_fs/backend.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -112,7 +113,13 @@ void main() {
         FakeEntry.file('/home/notes.txt', size: 10),
       ]);
       final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
-      app = (await testApp(provider: memory, modules: [const TarArchiver()], settings: settings)).app;
+      app =
+          (await testApp(
+            provider: memory,
+            modules: [const TarArchiverFrontend()],
+            backend: [const TarArchiverBackend()],
+            settings: settings,
+          )).app;
       await app.start();
     });
 

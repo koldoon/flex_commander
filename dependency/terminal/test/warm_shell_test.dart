@@ -14,10 +14,11 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   late FakePty pty;
 
-  Future<AppRuntime> start(List<FcModule> modules) async {
+  Future<AppRuntime> start(List<FcFrontendModule> modules, {List<FcBackendModule> backend = const []}) async {
     final runtime = await testApp(
       provider: InMemoryTreeProvider([FakeEntry.directory('/home')], null, pty)..home = '/home',
       modules: modules,
+      backend: backend,
     );
     await runtime.app.start();
     return runtime;
@@ -26,7 +27,7 @@ void main() {
   setUp(() => pty = FakePty());
 
   test('оболочка заводится при запуске, а не по первой просьбе', () async {
-    await start([_LocalShell(pty), ...modulesWithTerminal()]);
+    await start(modulesWithTerminal(), backend: [_LocalShell(pty)]);
     await pumpEventQueue();
 
     expect(pty.started, isTrue, reason: 'греется заранее');
@@ -45,7 +46,7 @@ void main() {
 }
 
 /// Оболочка «этой машины» — подставная: настоящую прогон трогать не должен.
-class _LocalShell implements FcModule {
+class _LocalShell implements FcBackendModule {
   const _LocalShell(this.pty);
 
   final FakePty pty;
@@ -57,7 +58,7 @@ class _LocalShell implements FcModule {
   String get title => 'Local shell';
 
   @override
-  void install(FcRegistry registry) {
+  void installBackend(BackendRegistry registry) {
     registry.service<ShellHost>((services) => _FakeHost(pty));
   }
 }

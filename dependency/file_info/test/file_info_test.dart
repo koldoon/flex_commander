@@ -42,7 +42,7 @@ class _SilentProvider implements NodeInfoProvider {
 }
 
 /// Модуль, объявляющий обоих: так это делает любой чужой модуль.
-class _TestSources implements FcModule {
+class _TestSources implements FcFrontendModule {
   const _TestSources();
 
   @override
@@ -52,7 +52,7 @@ class _TestSources implements FcModule {
   String get title => 'Test sources';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.nodeInfo((context) => _BrokenProvider());
     registry.nodeInfo((context) => _SilentProvider());
   }

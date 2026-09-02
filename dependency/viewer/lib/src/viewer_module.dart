@@ -14,7 +14,7 @@ import 'view_commands.dart';
 /// Выключите её — просмотра не будет вовсе, кто бы что ни объявил. Выключите
 /// отдельный просмотрщик — пропадёт только он: `F3` останется и ответит
 /// отказом там, где взяться теперь некому.
-class Viewer implements FcModule {
+class Viewer implements FcFrontendModule {
   const Viewer();
 
   @override
@@ -24,7 +24,7 @@ class Viewer implements FcModule {
   String get title => 'Viewer';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.view<QuickViewHost>((context, state) => QuickViewView(host: state));
 
     registry.command((context) => ViewFileCommand());

@@ -24,7 +24,7 @@ Future<void> main() async {
 
   // Единственное место в ядре, которое знает модули по именам. Всё остальное
   // работает с тем, что модули объявили, и не подозревает об их существовании.
-  final runtime = await initModules(appModules());
+  final runtime = await initModules(backendModules(), frontendModules());
   traps.attach(runtime.app.errors);
 
   runApp(FlexCommanderApp(controller: runtime.app));

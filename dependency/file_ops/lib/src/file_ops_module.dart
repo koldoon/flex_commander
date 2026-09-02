@@ -10,7 +10,7 @@ import 'transfer_commands.dart';
 /// причине, что и навигация: это набор действий, а не устройство приложения.
 /// Работают они через [TreeEditor], поэтому источник и приёмник могут быть
 /// из разных провайдеров, и модулю это безразлично.
-class FileOps implements FcModule {
+class FileOps implements FcFrontendModule {
   const FileOps();
 
   static const String commandId = 'fc.file_ops';
@@ -22,7 +22,7 @@ class FileOps implements FcModule {
   String get title => 'File operations';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.command((context) => MakeDirectoryCommand());
     registry.command((context) => RenameCommand());
     registry.command((context) => RemoveCommand());

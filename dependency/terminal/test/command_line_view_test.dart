@@ -1,7 +1,7 @@
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
-import 'package:fc_terminal/fc_terminal.dart';
+import 'package:fc_terminal/frontend.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -311,7 +311,7 @@ class _TallLineMetrics extends DefaultMetrics {
   double get commandLineHeight => 44;
 }
 
-class TallLineTheme implements FcModule {
+class TallLineTheme implements FcFrontendModule {
   const TallLineTheme();
 
   @override
@@ -321,7 +321,7 @@ class TallLineTheme implements FcModule {
   String get title => 'Tall command line';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.theme(
       const FcThemeSpec(
         id: _tallLineTheme,

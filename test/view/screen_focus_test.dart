@@ -84,7 +84,7 @@ void main() {
 }
 
 /// Приносит вид для содержимого-подставки: в ядре своих видов нет.
-class _FocusModule implements FcModule {
+class _FocusModule implements FcFrontendModule {
   const _FocusModule();
 
   @override
@@ -94,7 +94,7 @@ class _FocusModule implements FcModule {
   String get title => 'Focus stub';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.view<_EditorLikeScreen>((context, state) => const _EditorLikeField());
   }
 }

@@ -1,12 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fc_7z/fc_7z.dart';
+import 'package:fc_7z/backend.dart';
+import 'package:fc_7z/frontend.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
-import 'package:fc_local_fs/fc_local_fs.dart';
+import 'package:fc_local_fs/backend.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -74,7 +75,8 @@ void main() {
 
     runtime = await testApp(
       provider: LocalTreeProvider(homePath: root, readInIsolate: false),
-      modules: [const SevenZipArchiver()],
+      modules: [const SevenZipArchiverFrontend()],
+      backend: [const SevenZipArchiverBackend()],
       processes: runner,
       settings: AppSettings(left: PanelSettings.defaults(source), right: PanelSettings.defaults(target)),
     );
@@ -250,7 +252,8 @@ void main() {
 
       runtime = await testApp(
         provider: LocalTreeProvider(homePath: root, readInIsolate: false),
-        modules: [const SevenZipArchiver()],
+        modules: [const SevenZipArchiverFrontend()],
+        backend: [const SevenZipArchiverBackend()],
         processes: runner,
         settings: AppSettings(left: PanelSettings.defaults(source), right: PanelSettings.defaults(target)),
       );
@@ -313,7 +316,8 @@ void main() {
     runtime = await testApp(
       provider: memory,
       rightProvider: LocalTreeProvider(homePath: root, readInIsolate: false),
-      modules: [const SevenZipArchiver()],
+      modules: [const SevenZipArchiverFrontend()],
+      backend: [const SevenZipArchiverBackend()],
       processes: runner,
       settings: AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults(target)),
     );
@@ -341,7 +345,8 @@ void main() {
 
       runtime = await testApp(
         provider: LocalTreeProvider(homePath: root, readInIsolate: false),
-        modules: [const SevenZipArchiver()],
+        modules: [const SevenZipArchiverFrontend()],
+        backend: [const SevenZipArchiverBackend()],
         processes: runner,
         settings: AppSettings(left: PanelSettings.defaults(source), right: PanelSettings.defaults(target)),
       );

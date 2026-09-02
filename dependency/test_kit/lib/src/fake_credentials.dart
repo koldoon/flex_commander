@@ -1,4 +1,4 @@
-import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter/foundation.dart';
 
 /// Подставные секреты: отвечает заготовленным и записывает, о чём спрашивали.

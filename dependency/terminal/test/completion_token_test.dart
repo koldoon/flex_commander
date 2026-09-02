@@ -1,4 +1,4 @@
-import 'package:fc_terminal/fc_terminal.dart';
+import 'package:fc_terminal/frontend.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Разбор последнего токена: чистая работа со строкой, и вариантов у неё

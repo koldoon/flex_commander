@@ -11,7 +11,7 @@ import 'editor_view.dart';
 /// Третий экран приложения — и первый, которому фокус нужен по-настоящему:
 /// печатать командами нельзя. Всё остальное устроено как у просмотрщика:
 /// клавиша принадлежит экрану, ряд кнопок показывает его команды.
-class TextEditor implements FcModule {
+class TextEditor implements FcFrontendModule {
   const TextEditor();
 
   /// Поиск: команды общие с просмотрщиком, идентификаторы свои.
@@ -26,7 +26,7 @@ class TextEditor implements FcModule {
   String get title => 'Text editor';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     // Что рисует состояние, объявляет тот же модуль, который его завёл.
     registry.view<EditorScreen>((context, state) => EditorView(screen: state));
     // Область забирается **сейчас**, пока идёт установка: позже имя раздела

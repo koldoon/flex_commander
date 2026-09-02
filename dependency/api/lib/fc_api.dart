@@ -33,7 +33,16 @@ export 'src/settings/app_settings.dart';
 export 'src/settings/module_settings.dart';
 export 'src/settings/window_geometry.dart';
 
+// --- Модули ---
+export 'src/module/fc_module.dart';
+
 // --- Система ---
+//
+// Службы, которые **зовёт** одна сторона, а **исполняет** другая: секреты
+// спрашивает источник, а показывает окно интерфейс; открыть файл системой
+// просит команда, а запускает ядро. Интерфейс у таких служб общий, а кто по
+// какую сторону — решает сборка.
+export 'src/os/credentials.dart';
 export 'src/os/system_opener.dart';
 
 // --- Форматирование и утилиты ---

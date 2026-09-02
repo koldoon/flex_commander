@@ -14,7 +14,7 @@ import 'file_info_view.dart';
 /// Второе дело модуля — быть **последним просмотрщиком**. За что не взялся
 /// никто, берётся он: вместо мусора из байтов человек видит имя, размер, тип и
 /// даты. Ради этого текстовый просмотрщик и перестал брать всё подряд.
-class FileInfo implements FcModule {
+class FileInfo implements FcFrontendModule {
   const FileInfo();
 
   @override
@@ -24,7 +24,7 @@ class FileInfo implements FcModule {
   String get title => 'File info';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.view<FileInfoScreen>((context, state) => FileInfoView(screen: state));
 
     registry.nodeInfo((context) => const BasicsInfoProvider());

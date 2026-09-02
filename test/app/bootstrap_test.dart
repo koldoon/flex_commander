@@ -1,20 +1,22 @@
 import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/bootstrap/bootstrap.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
-import 'package:flex_commander/modules/app_shell.dart';
+import 'package:flex_commander/modules/app_shell_backend.dart';
+import 'package:flex_commander/modules/app_shell_frontend.dart';
 import 'package:flex_commander/settings/settings_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
 /// Модуль, который объявляет всё сразу: службу, команду, клавишу, тему и
 /// стартовую команду. По нему и проверяется, что сборка ничего не теряет.
-class ProbeModule implements FcModule, FcModuleLifecycle {
+class ProbeModule implements FcFrontendModule, FcModuleLifecycle {
   ProbeModule({this.startupLog});
 
   final List<String>? startupLog;
@@ -27,7 +29,7 @@ class ProbeModule implements FcModule, FcModuleLifecycle {
   String get title => 'Probe';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.service<ProbeService>((services) => const ProbeService('собрана'));
     registry.command((context) => ProbeCommand(context));
     registry.binding(KeyBinding('F9', 'test.probe'));
@@ -103,7 +105,7 @@ class StartupCommand extends AppCommand {
 }
 
 /// Модуль, который падает при запуске.
-class BrokenStartupModule implements FcModule {
+class BrokenStartupModule implements FcFrontendModule {
   const BrokenStartupModule();
 
   @override
@@ -113,7 +115,7 @@ class BrokenStartupModule implements FcModule {
   String get title => 'Broken';
 
   @override
-  void install(FcRegistry registry) => registry.startup((context) => _BrokenCommand());
+  void installFrontend(FrontendRegistry registry) => registry.startup((context) => _BrokenCommand());
 }
 
 class _BrokenCommand extends AppCommand {
@@ -146,14 +148,14 @@ void main() {
   tearDown(() => temp.delete(recursive: true));
 
   /// Приложение целиком, но на подставных службах.
-  Future<AppRuntime> build([List<FcModule> extra = const []]) async {
-    final runtime = await initModules([
+  Future<AppRuntime> build([List<FcFrontendModule> extra = const []]) async {
+    final runtime = await initModules(
       // Платформенное подставное: настоящий модуль локальной ФС открывал бы
       // файлы системой прямо из теста.
-      const TestPlatform(),
-      ...featureModules(),
-      ...extra,
-    ], overrides: AppOverrides(provider: provider, store: store, window: window));
+      [const AppShellBackend(), const TestPlatformBackend(), ...featureBackendModules()],
+      [const TestPlatformFrontend(), ...featureModules(), ...extra],
+      overrides: AppOverrides(provider: provider, store: store, window: window),
+    );
     addTearDown(runtime.dispose);
     return runtime;
   }
@@ -172,17 +174,24 @@ void main() {
     test('без оформления сборка не начинается', () async {
       // Красить нечем: значений оформления в API нет вовсе, их приносит модуль.
       await expectLater(
-        initModules([
-          const AppShell(),
-          const TestPlatform(),
-        ], overrides: AppOverrides(provider: provider, store: store, window: window)),
+        initModules(
+          [const AppShellBackend(), const TestPlatformBackend()],
+          [const AppShellFrontend(), const TestPlatformFrontend()],
+          overrides: AppOverrides(provider: provider, store: store, window: window),
+        ),
         throwsA(isA<StateError>()),
       );
     });
 
     test('без корневого источника сборка не начинается', () async {
       // Ошибка внятная и сразу: приложение без дерева бессмысленно.
-      await expectLater(initModules([const AppShell(), const TestPlatform()]), throwsA(isA<StateError>()));
+      await expectLater(
+        initModules(
+          [const AppShellBackend(), const TestPlatformBackend()],
+          [const AppShellFrontend(), const TestPlatformFrontend()],
+        ),
+        throwsA(isA<StateError>()),
+      );
     });
 
     test('настройки читаются до создания приложения', () async {
@@ -238,7 +247,10 @@ void main() {
 
     test('второй корневой источник — ошибка сборки, а не тихая замена', () async {
       await expectLater(
-        initModules([const AppShell(), const _SecondRootModule(), const _SecondRootModule()]),
+        initModules(
+          [const AppShellBackend(), const _SecondRootModule(), const _OtherRootModule()],
+          [const AppShellFrontend()],
+        ),
         throwsA(isA<StateError>()),
       );
     });
@@ -247,11 +259,11 @@ void main() {
   group('закрытие', () {
     test('модули закрываются вместе с приложением', () async {
       final probe = ProbeModule();
-      final runtime = await initModules([
-        const TestPlatform(),
-        ...featureModules(),
-        probe,
-      ], overrides: AppOverrides(provider: provider, store: store, window: window));
+      final runtime = await initModules(
+        [const AppShellBackend(), const TestPlatformBackend(), ...featureBackendModules()],
+        [const TestPlatformFrontend(), ...featureModules(), probe],
+        overrides: AppOverrides(provider: provider, store: store, window: window),
+      );
 
       await runtime.dispose();
 
@@ -271,7 +283,7 @@ void main() {
   });
 }
 
-class _SecondRootModule implements FcModule {
+class _SecondRootModule implements FcBackendModule {
   const _SecondRootModule();
 
   @override
@@ -281,5 +293,20 @@ class _SecondRootModule implements FcModule {
   String get title => 'Root';
 
   @override
-  void install(FcRegistry registry) => registry.rootProvider((services) => InMemoryTreeProvider([]));
+  void installBackend(BackendRegistry registry) => registry.rootProvider((services) => InMemoryTreeProvider([]));
+}
+
+/// Второй корень объявляет **другой** модуль: одинаковые устанавливаются один
+/// раз, и спор о корне при этом не начинался бы вовсе.
+class _OtherRootModule implements FcBackendModule {
+  const _OtherRootModule();
+
+  @override
+  String get id => 'test.root.other';
+
+  @override
+  String get title => 'Another root';
+
+  @override
+  void installBackend(BackendRegistry registry) => registry.rootProvider((services) => InMemoryTreeProvider([]));
 }

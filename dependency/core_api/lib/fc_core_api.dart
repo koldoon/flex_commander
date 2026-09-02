@@ -24,6 +24,9 @@ export 'src/tree/transfer/transfer_answers.dart';
 export 'src/tree/transfer/transfer_engine.dart';
 export 'src/tree/transfer/write_back.dart';
 
+// --- Модули ---
+export 'src/module/backend_module.dart';
+
 // --- Система ---
 export 'src/os/elevated_sink.dart';
 export 'src/os/elevation.dart';

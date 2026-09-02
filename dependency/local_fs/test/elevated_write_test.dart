@@ -5,7 +5,7 @@ import 'dart:io';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:flutter/foundation.dart';
-import 'package:fc_local_fs/fc_local_fs.dart';
+import 'package:fc_local_fs/backend.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Повышение, которое запоминает, о чём его просили, и делает вид, что смогло.

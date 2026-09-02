@@ -12,7 +12,7 @@ import 'theme_commands.dart';
 /// выведенные из его же чисел, глифы и шрифты. API их не знает — он описывает
 /// только роли, — поэтому вторая тема наследуется от [DefaultColors] и
 /// переопределяет нужное, а не переписывает всё заново.
-class DefaultTheme implements FcModule {
+class DefaultTheme implements FcFrontendModule {
   const DefaultTheme();
 
   /// Имя темы: под ним она попадает в настройки.
@@ -27,7 +27,7 @@ class DefaultTheme implements FcModule {
   String get title => 'Default theme';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.theme(
       const FcThemeSpec(
         id: themeId,

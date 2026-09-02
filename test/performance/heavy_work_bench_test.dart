@@ -4,11 +4,11 @@ import 'dart:isolate';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
-import 'package:fc_local_fs/fc_local_fs.dart';
+import 'package:fc_local_fs/backend.dart';
 import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_search/fc_search.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
-import 'package:fc_zip/fc_zip.dart';
+import 'package:fc_zip/backend.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 

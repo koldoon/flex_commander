@@ -259,7 +259,7 @@ class _StubScreen extends ChangeNotifier implements ViewportState {
   void close() {}
 }
 
-class _StubLineModule implements FcModule {
+class _StubLineModule implements FcFrontendModule {
   const _StubLineModule();
 
   @override
@@ -269,7 +269,7 @@ class _StubLineModule implements FcModule {
   String get title => 'Stub line';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.view<_StubLine>((context, state) => const Text('Stub line'));
     registry.view<_StubScreen>((context, state) => const Text('Stub screen'));
     registry.command((context) => _StubLineCommand());

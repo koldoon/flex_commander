@@ -55,7 +55,7 @@ class _SlowCommand extends AppCommand {
   }
 }
 
-class _SlowModule implements FcModule {
+class _SlowModule implements FcFrontendModule {
   _SlowModule(this.command);
 
   final _SlowCommand command;
@@ -67,7 +67,7 @@ class _SlowModule implements FcModule {
   String get title => 'Slow work';
 
   @override
-  void install(FcRegistry registry) => registry.command((context) => command);
+  void installFrontend(FrontendRegistry registry) => registry.command((context) => command);
 }
 
 void main() {

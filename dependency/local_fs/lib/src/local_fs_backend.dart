@@ -1,18 +1,17 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
-import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_platform/fc_platform.dart';
 
 import 'local_fs_settings.dart';
 import 'local_tree_provider.dart';
 
-/// Локальная файловая система: корневой источник, окно и всё платформенное.
+/// Локальная файловая система — ядровая половина: корневой источник и всё
+/// платформенное, что нужно там, где живут источники.
 ///
-/// Оформлен модулем, как и остальное, но живёт в ядре: без локальной ФС нельзя
-/// прочитать даже собственные настройки приложения. Раскладка каталога такая,
-/// чтобы вынос в отдельный пакет свёлся к переносу файлов.
-class LocalFileSystem implements FcModule {
-  const LocalFileSystem();
+/// Оформлена модулем, как и остальное, но особого положения: без локальной ФС
+/// нельзя прочитать даже собственные настройки приложения.
+class LocalFileSystemBackend implements FcBackendModule {
+  const LocalFileSystemBackend();
 
   @override
   String get id => 'fc.local_fs';
@@ -21,27 +20,12 @@ class LocalFileSystem implements FcModule {
   String get title => 'Local file system';
 
   @override
-  void install(FcRegistry registry) {
+  void installBackend(BackendRegistry registry) {
     // Раздел настроек берётся не сейчас, а по надобности: сам файл настроек
     // лежит в домашнем каталоге, а где он — знает провайдер, который здесь
     // только создаётся.
     final settings = registry.settings;
 
-    registry.settingsSchema(
-      () => SettingsSchema([
-        SettingsField.integer(
-          'copyProgressMinBytes',
-          defaultValue: LocalFsSettings.defaultCopyProgressMinBytes,
-          title: 'Show progress inside a file from',
-          unit: 'bytes',
-          description: 'Below this size a copy is counted whole: the progress costs more than the copy',
-          min: 0,
-          max: 1024 * 1024 * 1024,
-          read: () => settings.section(LocalFsSettings.new).copyProgressMinBytes,
-          write: (value) => settings.section(LocalFsSettings.new).copyProgressMinBytes = value,
-        ),
-      ], save: settings.save),
-    );
     registry.rootProvider(
       (services) => LocalTreeProvider(
         settings: () => settings.section(LocalFsSettings.new),
@@ -77,10 +61,5 @@ class LocalFileSystem implements FcModule {
     registry.service<ProcessRunner>((services) => const LocalProcessRunner());
 
     registry.service<SystemOpener>((services) => openWithSystem);
-
-    // Буфер обмена: им пользуется просмотрщик, а дальше — команды «скопировать
-    // путь» и «скопировать список имён».
-    registry.service<ClipboardService>((services) => const SystemClipboard());
-    registry.service<WindowService>((services) => PluginWindowService());
   }
 }

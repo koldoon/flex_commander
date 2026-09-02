@@ -17,7 +17,7 @@ class _ProbeSettings implements Serializable {
 }
 
 /// Модуль, который читает своё при запуске и сохраняет по просьбе.
-class _ProbeModule implements FcModule {
+class _ProbeModule implements FcFrontendModule {
   _ProbeModule();
 
   late final SettingsScope scope;
@@ -30,7 +30,7 @@ class _ProbeModule implements FcModule {
   String get title => 'Probe';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     // Раздел получен во время объявления, а прочитан будет позже — к запуску
     // стартовой команды настройки уже с диска.
     scope = registry.settings;

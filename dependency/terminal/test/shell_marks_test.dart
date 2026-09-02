@@ -1,4 +1,4 @@
-import 'package:fc_terminal/fc_terminal.dart';
+import 'package:fc_terminal/frontend.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:xterm/xterm.dart';

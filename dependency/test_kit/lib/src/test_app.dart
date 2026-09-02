@@ -5,8 +5,10 @@ import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/bootstrap.dart';
-import 'package:flex_commander/modules/app_shell.dart';
+import 'package:flex_commander/modules/app_shell_backend.dart';
+import 'package:flex_commander/modules/app_shell_frontend.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -15,18 +17,42 @@ import 'fake_process_runner.dart';
 import 'fake_window_service.dart';
 import 'in_memory_settings_store.dart';
 
-/// Платформенные службы для тестов.
+/// Платформенные службы ядра для тестов.
 ///
 /// Приложение собирается без модуля локальной файловой системы — дерево
 /// подставное, — но кому-то из модулей платформенная служба всё же нужна.
 /// Здесь она есть и ничего не делает; модуль, установленный после, заменит её
 /// своей: службы разрешаются по типу, и последнее объявление выигрывает.
-class TestPlatform implements FcModule {
-  const TestPlatform({this.processes, this.clipboard});
+class TestPlatformBackend implements FcBackendModule {
+  const TestPlatformBackend({this.processes});
 
   /// Подставная программа для тех, кто стоит над внешним инструментом.
   /// Пусто — запускатель, у которого не установлено ничего.
   final ProcessRunner? processes;
+
+  @override
+  String get id => 'test.platform';
+
+  @override
+  String get title => 'Test platform';
+
+  @override
+  void installBackend(BackendRegistry registry) {
+    registry.service<SystemOpener>((services) => (path) async {});
+
+    // Место под временные файлы — настоящее: тем, кому оно нужно (архиватор),
+    // нужен и настоящий файл, по которому можно ходить.
+    registry.service<StagingArea>((services) => const LocalStagingArea());
+
+    // Внешних программ в тестах нет: по умолчанию запускатель отвечает
+    // «не установлено», а тест модуля подставляет свой сценарий.
+    registry.service<ProcessRunner>((services) => processes ?? FakeProcessRunner(executables: const {}));
+  }
+}
+
+/// Платформенные службы интерфейса для тестов.
+class TestPlatformFrontend implements FcFrontendModule {
+  const TestPlatformFrontend({this.clipboard});
 
   /// Буфер обмена. Пусто — свой, в памяти: настоящий буфер машины прогон
   /// трогать не должен.
@@ -39,17 +65,7 @@ class TestPlatform implements FcModule {
   String get title => 'Test platform';
 
   @override
-  void install(FcRegistry registry) {
-    registry.service<SystemOpener>((services) => (path) async {});
-
-    // Место под временные файлы — настоящее: тем, кому оно нужно (архиватор),
-    // нужен и настоящий файл, по которому можно ходить.
-    registry.service<StagingArea>((services) => const LocalStagingArea());
-
-    // Внешних программ в тестах нет: по умолчанию запускатель отвечает
-    // «не установлено», а тест модуля подставляет свой сценарий.
-    registry.service<ProcessRunner>((services) => processes ?? FakeProcessRunner(executables: const {}));
-
+  void installFrontend(FrontendRegistry registry) {
     // Буфер обмена — в памяти: человек за машиной в это время тоже что-то
     // копирует, и стирать ему это прогоном нельзя.
     final clipboard = this.clipboard ?? FakeClipboard();
@@ -64,7 +80,7 @@ class TestPlatform implements FcModule {
 /// модулем: команда, поставленная модулем, доходит до реестра, привязка — до
 /// клавиатуры, а всё вместе живёт по тем же правилам, что и в настоящем запуске.
 ///
-/// Оболочка ([AppShell]), подставная платформа ([TestPlatform]) и оформление
+/// Оболочка ([AppShellFrontend]), подставная платформа ([TestPlatformFrontend]) и оформление
 /// по умолчанию ([DefaultTheme]) добавляются всегда: без движка файловых
 /// операций панель не собрать, без темы — не покрасить, а модуль не обязан
 /// знать ни о том, ни о другом. Приложение закрывается вместе с тестом.
@@ -73,7 +89,15 @@ Future<AppRuntime> testApp({
 
   /// Источник правой панели, если он должен отличаться от левой.
   TreeProvider? rightProvider,
-  List<FcModule> modules = const [],
+  List<FcFrontendModule> modules = const [],
+
+  /// Ядровые половины **сверх** обычных.
+  ///
+  /// Ядровые половины настоящих модулей ставятся всегда — те же, что и в
+  /// приложении: без них команда упаковки не найдёт своей службы, а печать в
+  /// строке не узнает, какой оболочкой запускать. Сюда добавляют своё:
+  /// подставной источник по адресу, подставное открытие файла системой.
+  List<FcBackendModule> backend = const [],
   AppSettings? settings,
   WindowService? window,
 
@@ -105,7 +129,8 @@ Future<AppRuntime> testApp({
   final settingsStore = store ?? InMemorySettingsStore(settings: settings, homePath: homePath);
 
   final runtime = await initModules(
-    [const AppShell(), TestPlatform(processes: processes, clipboard: clipboard), const DefaultTheme(), ...modules],
+    [const AppShellBackend(), TestPlatformBackend(processes: processes), ...featureBackendModules(), ...backend],
+    [const AppShellFrontend(), TestPlatformFrontend(clipboard: clipboard), const DefaultTheme(), ...modules],
     overrides: AppOverrides(
       provider: provider,
       rightProvider: rightProvider,

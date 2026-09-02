@@ -35,7 +35,7 @@ class _RecordingCommand extends AppCommand {
 }
 
 /// Открытие объекта системой: в тесте вместо запуска программы — запись в список.
-class _RecordingOpener implements FcModule {
+class _RecordingOpener implements FcBackendModule {
   const _RecordingOpener(this.opened);
 
   final List<String> opened;
@@ -47,7 +47,7 @@ class _RecordingOpener implements FcModule {
   String get title => 'Recording opener';
 
   @override
-  void install(FcRegistry registry) {
+  void installBackend(BackendRegistry registry) {
     registry.service<SystemOpener>((services) => (path) async => opened.add(path));
   }
 }
@@ -83,7 +83,8 @@ void main() {
     app =
         (await testApp(
           provider: provider,
-          modules: [...featureModules(), _RecordingOpener(opened)],
+          modules: featureModules(),
+          backend: [_RecordingOpener(opened)],
           settings: settings,
         )).app;
   });

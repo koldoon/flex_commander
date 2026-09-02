@@ -1,16 +1,16 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
-import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/bootstrap/bootstrap.dart';
-import 'package:flex_commander/modules/app_shell.dart';
+import 'package:flex_commander/modules/app_shell_backend.dart';
+import 'package:flex_commander/modules/app_shell_frontend.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Модуль с архивом: `.arc` открывается как дерево.
-class _ArchiveModule implements FcModule {
+class _ArchiveModule implements FcBackendModule {
   _ArchiveModule(this.opened);
 
   /// Всё, что смонтировали за прогон: по ним видно, что закрылось, а что нет.
@@ -23,7 +23,7 @@ class _ArchiveModule implements FcModule {
   String get title => 'Archives';
 
   @override
-  void install(FcRegistry registry) {
+  void installBackend(BackendRegistry registry) {
     registry.provider(
       'arc',
       () => TaskOperation<FsNode, TreeProvider>((op, host) async {
@@ -60,7 +60,8 @@ void main() {
     ])..home = '/home';
 
     final runtime = await initModules(
-      [const AppShell(), const TestPlatform(), const DefaultTheme(), ...featureModules(), _ArchiveModule(opened)],
+      [const AppShellBackend(), const TestPlatformBackend(), ...featureBackendModules(), _ArchiveModule(opened)],
+      [const AppShellFrontend(), const TestPlatformFrontend(), const DefaultTheme(), ...featureModules()],
       overrides: AppOverrides(
         provider: disk,
         store: InMemorySettingsStore(

@@ -6,7 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Вторая тема — чтобы было между чем переключаться.
-class _NightTheme implements FcModule {
+class _NightTheme implements FcFrontendModule {
   const _NightTheme();
 
   @override
@@ -16,7 +16,7 @@ class _NightTheme implements FcModule {
   String get title => 'Night';
 
   @override
-  void install(FcRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     // Своя палитра — наследованием: переопределяется одно, остальное берётся
     // у оформления по умолчанию.
     registry.theme(

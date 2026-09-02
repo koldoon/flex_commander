@@ -12,7 +12,7 @@ import 'drag_and_drop.dart';
 import 'viewer_spec.dart';
 import 'views.dart';
 import '../theme/theme_service.dart';
-import '../os/credentials.dart';
+
 import '../os/window_service.dart';
 import 'panel.dart';
 import 'toasts.dart';
