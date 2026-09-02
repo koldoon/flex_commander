@@ -1,0 +1,40 @@
+name: fc_ui_api
+description: "API интерфейса Flex Commander: приложение, панели, команды с их реестром, виды и оформление."
+publish_to: 'none'
+version: 1.0.0
+
+# Пакет собирается вместе с приложением: одна разрешённая версия зависимостей
+# на весь воркспейс.
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  # Flutter здесь неизбежен: команда описывает своё окно виджетом, тема —
+  # ThemeExtension, а подписка на изменения — Listenable.
+  flutter:
+    sdk: flutter
+
+  # Общее обеим сторонам: значения границы, работы, форматы, настройки.
+  fc_api:
+    path: ../api
+
+  # ВРЕМЕННО. Интерфейс не должен видеть ядро — в этом и смысл разреза, — но
+  # до Э3 узловые подписи ещё живут в `Panel`, `CommandContext`, `ViewerSpec`,
+  # `NodeInfoProvider`, `PanelSelection` и перетаскивании. Список мест, которые
+  # эту зависимость держат, и есть план Э3; вместе с ней уйдёт и эта строка, а
+  # на её место встанет проверка чистоты (`spec/client-server.md`, §14).
+  fc_core_api:
+    path: ../core_api
+
+  path: ^1.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Набор элементов проверяется на настоящем оформлении: своих значений у API
+  # нет и не должно быть, а рисовать тесту чем-то надо.
+  fc_default_theme:
+    path: ../default_theme

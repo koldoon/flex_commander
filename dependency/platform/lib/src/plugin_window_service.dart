@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:window_manager/window_manager.dart';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 
 /// Реализация [WindowService] поверх `window_manager`.
 class PluginWindowService with WindowListener implements WindowService {

@@ -16,7 +16,9 @@ void main() {
     // Реестр работ — другое дело: он как раз знает, под какой панелью
     // показывать полоску. Проверяется контракт самой работы: сама Operation и
     // типы её параметров — то, из чего работа узнаёт, что ей делать.
-    const contracts = ['lib/src/async/async_operation.dart', 'lib/src/tree/operation_params.dart'];
+    // Параметры работ уехали в API ядра — там же и проверяются: тот же
+    // греп лежит в `fc_core_api/test/operation_contract_test.dart`.
+    const contracts = ['lib/src/async/async_operation.dart'];
     const forbidden = ['Application', 'ApplicationView', 'Panel'];
 
     final code = [

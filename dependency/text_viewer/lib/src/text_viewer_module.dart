@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
 
 import 'text_document.dart';

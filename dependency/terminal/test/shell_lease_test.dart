@@ -1,4 +1,4 @@
-import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_terminal/fc_terminal.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flutter_test/flutter_test.dart';

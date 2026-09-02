@@ -368,7 +368,9 @@ takes and saying in words when nothing does.
 
 | Package | What it is |
 |---|---|
-| `dependency/api` | `fc_api` — what modules are written against |
+| `dependency/api` | `fc_api` — values that cross the boundary, works, formats, settings |
+| `dependency/core_api` | `fc_core_api` — the core's API: node tree, sources, transfer engine |
+| `dependency/ui_api` | `fc_ui_api` — the interface's API: application, panels, commands, views |
 | `dependency/ui_kit` | shared widgets: panel frame, dialogs, buttons, fields |
 | `dependency/text_kit` | text display shared by the viewer and the editor |
 | `dependency/panels` | the file panels screen |

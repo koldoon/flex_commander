@@ -14,15 +14,22 @@ void main() {
     // Единственное место, которому положено знать имена: там список и лежит.
     const allowed = ['lib/bootstrap/app_modules.dart'];
 
-    // Три пакета ядру знать положено, и ни один не модуль: `fc_api` объявляет
-    // контракты, `fc_ui_kit` даёт то, чем рисуют, `fc_platform` — то, что умеет
-    // только настоящая машина. Регистрировать в них нечего, убрать их из списка
-    // нельзя, и необязательными они никогда не были.
+    // Эти пакеты ядру знать положено, и ни один не модуль: три API объявляют
+    // контракты — общий, ядра и интерфейса, — `fc_ui_kit` даёт то, чем рисуют,
+    // `fc_platform` — то, что умеет только настоящая машина. Регистрировать в
+    // них нечего, убрать их из списка нельзя, и необязательными они никогда не
+    // были.
     //
     // `fc_platform` попал сюда не ради поблажки: подготовку окна `main.dart`
     // зовёт **до** того, как появятся модули и граф служб, и пока она лежала в
     // модуле локальной ФС, ядру приходилось знать модуль по имени.
-    const libraries = ["package:fc_api/", "package:fc_ui_kit/", "package:fc_platform/"];
+    const libraries = [
+      "package:fc_api/",
+      "package:fc_core_api/",
+      "package:fc_ui_api/",
+      "package:fc_ui_kit/",
+      "package:fc_platform/",
+    ];
 
     final offenders = [
       for (final file in sources)
@@ -36,10 +43,12 @@ void main() {
 
   test('ядро пишется против API, а не против его внутренностей', () {
     // `package:fc_api/src/...` — обход барабана: так в ядро протекают
-    // подробности, которые API не обещал.
+    // подробности, которые API не обещал. Проверяются все три пакета API.
+    const internals = ["package:fc_api/src/", "package:fc_core_api/src/", "package:fc_ui_api/src/"];
     final offenders = [
       for (final file in sources)
-        if (file.readAsStringSync().contains("package:fc_api/src/")) file.path,
+        for (final internal in internals)
+          if (file.readAsStringSync().contains(internal)) file.path,
     ];
 
     expect(offenders, isEmpty);

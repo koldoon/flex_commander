@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_zip/fc_zip.dart';

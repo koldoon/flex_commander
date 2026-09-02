@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 
 /// Один запуск программы: что позвали и с чем.
 class ProcessCall {

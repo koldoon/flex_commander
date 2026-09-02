@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:path/path.dart' as p;
 
 /// Реализация [ProcessRunner] для настоящей системы: `dart:io` живёт здесь, а

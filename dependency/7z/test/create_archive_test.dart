@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:fc_7z/fc_7z.dart';
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:fc_local_fs/fc_local_fs.dart';

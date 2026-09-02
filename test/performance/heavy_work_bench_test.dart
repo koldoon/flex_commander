@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:isolate';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_search/fc_search.dart';

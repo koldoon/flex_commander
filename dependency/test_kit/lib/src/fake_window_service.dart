@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 
 /// Окно в памяти: помнит, что ему велели восстановить, и умеет изображать
 /// перемещение пользователем.

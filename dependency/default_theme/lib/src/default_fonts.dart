@@ -1,4 +1,4 @@
-import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 
 /// Шрифты оформления по умолчанию — те же, что в референсе
 /// (`resources/styles/typo.css`), но возит приложение с собой не все.

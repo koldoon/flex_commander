@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 
 /// Оформление: палитра, метрики, иконки, шрифты и стили текста.
 ///

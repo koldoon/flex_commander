@@ -17,6 +17,12 @@ dependencies:
   fc_api:
     path: ../api
 
+  fc_core_api:
+    path: ../core_api
+
+  fc_ui_api:
+    path: ../ui_api
+
   path: ^1.9.1            # basename/extension/join/normalize
   ffi: ^2.1.4             # calloc и строки для copyfile(3) и chmod(2)
   window_manager: ^0.5.2  # положение и размер окна между запусками

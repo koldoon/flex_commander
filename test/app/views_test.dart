@@ -1,4 +1,4 @@
-import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flex_commander/bootstrap/registrations.dart';
 import 'package:flex_commander/state/view_registry.dart';
 import 'package:flutter/widgets.dart';

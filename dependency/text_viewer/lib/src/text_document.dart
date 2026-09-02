@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 
 /// Текст файла, готовый к показу.
 ///

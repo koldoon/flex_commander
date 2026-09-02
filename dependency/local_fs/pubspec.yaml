@@ -16,6 +16,12 @@ dependencies:
   fc_api:
     path: ../api
 
+  fc_core_api:
+    path: ../core_api
+
+  fc_ui_api:
+    path: ../ui_api
+
   # Всё, что умеет только настоящая машина: провайдер дерева пользуется её
   # примитивами, но сам к ним не сводится.
   fc_platform:

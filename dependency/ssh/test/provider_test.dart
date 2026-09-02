@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:flutter/foundation.dart';
 import 'package:fc_ssh/fc_ssh.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';

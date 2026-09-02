@@ -18,6 +18,12 @@ dependencies:
   fc_api:
     path: ../api
 
+  fc_core_api:
+    path: ../core_api
+
+  fc_ui_api:
+    path: ../ui_api
+
   fc_ui_kit:
     path: ../ui_kit
 

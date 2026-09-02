@@ -26,6 +26,7 @@ environment:
 workspace:
   - dependency/7z
   - dependency/api
+  - dependency/core_api
   - dependency/default_theme
   - dependency/editor
   - dependency/file_info
@@ -46,6 +47,7 @@ workspace:
   - dependency/test_kit
   - dependency/text_kit
   - dependency/text_viewer
+  - dependency/ui_api
   - dependency/ui_kit
   - dependency/viewer
   - dependency/zip
@@ -60,10 +62,17 @@ dependencies:
   flutter:
     sdk: flutter
 
-  # API приложения: модели, интерфейсы, командный фреймворк. Модули зависят
-  # только от него, ядро — от него же плюс своя реализация.
+  # API приложения — три пакета. Общее обеим сторонам, API ядра и API
+  # интерфейса; ядро и интерфейс друг друга не видят
+  # (`docs/spec/client-server.md`, §3).
   fc_api:
     path: dependency/api
+
+  fc_core_api:
+    path: dependency/core_api
+
+  fc_ui_api:
+    path: dependency/ui_api
 
   # Модули приложения: ядро знает их только по этому списку.
   fc_7z:

@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:dartssh2/dartssh2.dart';
-import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:path/path.dart' as p;
 
 /// Ключи пользователя из `~/.ssh`.

@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import '../settings/settings_store.dart';
 import 'panel_controller.dart';
 import 'panel_viewport_registry.dart';

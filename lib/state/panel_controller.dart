@@ -4,9 +4,12 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
+
 import 'selection_controller.dart';
 
-export 'package:fc_api/fc_api.dart' show Panel, PanelStatus;
+export 'package:fc_ui_api/fc_ui_api.dart' show Panel, PanelStatus;
 
 /// Создаёт панели.
 ///

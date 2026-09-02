@@ -1,6 +1,6 @@
 import 'dart:async';
 
-import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/foundation.dart';
 
 /// Реализация [Toasts]: одно сообщение и таймер под ним.

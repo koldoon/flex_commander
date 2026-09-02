@@ -1,0 +1,28 @@
+name: fc_core_api
+description: "API ядра Flex Commander: дерево узлов, источники, движок переноса и системные службы."
+publish_to: 'none'
+version: 1.0.0
+
+# Пакет собирается вместе с приложением: одна разрешённая версия зависимостей
+# на весь воркспейс.
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  # Flutter здесь — только ради `foundation`: подписка на изменения и
+  # `VoidCallback`. Виджетов в ядре нет и быть не может, а `dart:io` живёт в
+  # модулях, а не в API (см. purity_test).
+  flutter:
+    sdk: flutter
+
+  # Общее обеим сторонам: значения границы, работы, форматы, настройки.
+  fc_api:
+    path: ../api
+
+  path: ^1.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

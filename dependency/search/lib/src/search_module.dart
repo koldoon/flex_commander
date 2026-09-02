@@ -1,4 +1,4 @@
-import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'find_files_command.dart';
 import 'go_to_found_command.dart';

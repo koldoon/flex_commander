@@ -1,4 +1,4 @@
-import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
 
 import 'editor_commands.dart';

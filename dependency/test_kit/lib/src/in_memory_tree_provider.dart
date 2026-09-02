@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 
 import 'fake_pty.dart';
 import 'package:path/path.dart' as p;

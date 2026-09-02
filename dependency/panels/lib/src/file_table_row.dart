@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'file_type_icon.dart';
 
