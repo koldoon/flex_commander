@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_image_viewer/fc_image_viewer.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
@@ -23,8 +24,14 @@ void main() {
   Future<ImageViewerScreen> screenOf(String name, {bool fitToWindow = true}) async {
     final node = (await disk.resolvePath().run('/home/$name'))!;
     final settings = ImageViewerSettings(fitToWindow: fitToWindow);
-    final document = await ImageDocument.read(node, settings, checkpoint: () async {});
-    return ImageViewerScreen(node: node, document: document, settings: settings, onSettingsChanged: () {});
+    final document = await ImageDocument.read(entryValueOf(node), NodeContent(node), settings, checkpoint: () async {});
+    return ImageViewerScreen(
+      entry: entryValueOf(node),
+      contentOf: (entry) => NodeContent(node),
+      document: document,
+      settings: settings,
+      onSettingsChanged: () {},
+    );
   }
 
   /// Окно вдвое меньше картинки: на таком и видно разницу между «вписать» и

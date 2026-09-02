@@ -276,8 +276,8 @@ class AppContainer extends DI {
         final link = LoopbackLink(core);
 
         return AppController(
-          left: PanelController(PanelId.left, leftSession),
-          right: PanelController(PanelId.right, rightSession),
+          left: PanelController(PanelId.left, leftSession, link: link),
+          right: PanelController(PanelId.right, rightSession, link: link),
           core: core,
           link: link,
           store: c.get<SettingsStore>(),

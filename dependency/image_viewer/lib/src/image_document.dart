@@ -3,7 +3,6 @@ import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/widgets.dart';
 
@@ -39,23 +38,20 @@ class ImageDocument {
   /// Отказ — [ViewerRefused] с причиной словами; каждая называет и выход:
   /// системный просмотр открывает то, чего не умеем мы.
   static Future<ImageDocument> read(
-    FsNode node,
+    FileEntry entry,
+    Content content,
     ImageViewerSettings settings, {
     required Future<void> Function() checkpoint,
   }) async {
-    final source = node.provider;
-    if (source is! FileContentProvider) {
-      throw const ViewerRefused('No content here to show');
-    }
-    if (node.size > settings.maxFileSize) {
+    if (entry.size > settings.maxFileSize) {
       throw ViewerRefused(
-        'Image is too large: ${formatBytesLong(node.size)}, '
+        'Image is too large: ${formatBytesLong(entry.size)}, '
         'limit is ${formatSize(settings.maxFileSize)} — open it with the system (Cmd-O)',
       );
     }
 
     final chunks = <int>[];
-    await for (final chunk in await (source as FileContentProvider).openRead(node)) {
+    await for (final chunk in content.read()) {
       // Курсор в быстром просмотре мог уйти дальше: дочитывать незачем.
       await checkpoint();
       chunks.addAll(chunk);

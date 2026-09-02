@@ -64,9 +64,9 @@ class TextViewerView extends StatelessWidget {
             finder: screen.finder,
             // Полный адрес, а не одно имя: файл может лежать в архиве или на
             // сервере, и по имени этого не видно. Размер — припиской.
-            path: screen.node.displayPath,
-            fileName: screen.node.name,
-            trailing: formatBytesLong(screen.node.size),
+            path: screen.entry.path,
+            fileName: screen.entry.name,
+            trailing: formatBytesLong(screen.entry.size),
             readOnly: true,
             wordWrap: screen.wordWrap,
             showLineNumbers: screen.showLineNumbers,

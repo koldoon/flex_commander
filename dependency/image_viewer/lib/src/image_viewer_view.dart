@@ -36,11 +36,11 @@ class ImageViewerView extends StatelessWidget {
           // место показа.
           fillsFrame: true,
           header: FcPathPlate(
-            path: screen.node.displayPath,
+            path: screen.entry.path,
             // Про картинку стоит знать три вещи, и все три — в плашке.
             trailing:
                 '${document.width}×${document.height} · ${document.format} · '
-                '${formatBytesLong(screen.node.size)}',
+                '${formatBytesLong(screen.entry.size)}',
             active: app == null || app.view.takesKeys(screen),
           ),
           child: ClipRect(

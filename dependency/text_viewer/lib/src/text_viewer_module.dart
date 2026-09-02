@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
 
@@ -111,15 +110,13 @@ class TextViewer implements FcFrontendModule {
 
   /// Имена без расширения, которые всё равно текст: `Makefile`, `LICENSE`.
   ///
-  /// Каталог отсеивается **отдельной** строкой, и это не перестраховка:
-  /// `DirectoryNode` — наследник `FileNode`, так что проверка типа его
-  /// пропускает, а расширения у него обычно нет — то есть он выглядел бы
-  /// текстом без имени.
-  static bool looksLikeText(FsNode node) {
-    if (node is! FileNode || node is DirectoryNode) {
+  /// Каталог отсеивается **отдельной** строкой: расширения у него обычно нет,
+  /// то есть он выглядел бы текстом без имени.
+  static bool looksLikeText(FileEntry entry) {
+    if (entry.isDirectory || entry.isParent) {
       return false;
     }
-    final extension = extensionOf(node.name).toLowerCase();
+    final extension = extensionOf(entry.name).toLowerCase();
     if (extension.isEmpty) {
       // Без расширения — почти всегда текст: `Makefile`, `LICENSE`, `README`,
       // `.gitignore`. Двоичное без расширения встречается куда реже, и о нём
@@ -180,7 +177,7 @@ class TextViewer implements FcFrontendModule {
         // Ниже картинок, но выше сведений: сведения стоят последними и
         // берутся за то, за что не взялся никто.
         priority: -100,
-        accepts: (node, type) => looksLikeText(node),
+        accepts: (entry, type) => looksLikeText(entry),
         open: (request) => _open(request, settingsOf(), settings.save),
       ),
     );
@@ -221,21 +218,17 @@ class TextViewer implements FcFrontendModule {
     TextViewerSettings settings,
     void Function() onSettingsChanged,
   ) async {
-    final node = request.node;
-    final source = node.provider;
-    if (source is! FileContentProvider) {
-      throw ViewerRefused('No content here to show');
-    }
-    if (node.size > settings.maxFileSize) {
+    final entry = request.entry;
+    if (entry.size > settings.maxFileSize) {
       // Отказ, а не начало файла: показывать кусок и называть его файлом —
       // значит врать о содержимом.
       throw ViewerRefused(
-        'File is too large: ${formatBytesLong(node.size)}, limit is ${formatSize(settings.maxFileSize)}',
+        'File is too large: ${formatBytesLong(entry.size)}, limit is ${formatSize(settings.maxFileSize)}',
       );
     }
 
     final bytes = <int>[];
-    await for (final chunk in await (source as FileContentProvider).openRead(node)) {
+    await for (final chunk in request.content.read()) {
       // Курсор в быстром просмотре мог уйти дальше: дочитывать незачем.
       await request.checkpoint();
       bytes.addAll(chunk);
@@ -243,7 +236,7 @@ class TextViewer implements FcFrontendModule {
     await request.checkpoint();
 
     return TextViewerScreen(
-      node: node,
+      entry: entry,
       place: request.place,
       text: TextDocument.parse(utf8.decode(bytes, allowMalformed: true)).text,
       wordWrap: settings.wordWrap,

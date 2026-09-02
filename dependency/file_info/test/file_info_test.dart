@@ -20,10 +20,11 @@ class _BrokenProvider implements NodeInfoProvider {
   int get priority => 10;
 
   @override
-  bool accepts(FsNode node, ContentType? type) => node.name.endsWith('.broken');
+  bool accepts(FileEntry entry, ContentType? type) => entry.name.endsWith('.broken');
 
   @override
-  Future<List<NodeInfoSection>> describe(FsNode node) async => throw const FsError('x', FsErrorKind.io);
+  Future<List<NodeInfoSection>> describe(FileEntry entry, Content content) async =>
+      throw const FsError('x', FsErrorKind.io);
 }
 
 /// Провайдер, которому сказать нечего.
@@ -35,10 +36,10 @@ class _SilentProvider implements NodeInfoProvider {
   int get priority => 5;
 
   @override
-  bool accepts(FsNode node, ContentType? type) => true;
+  bool accepts(FileEntry entry, ContentType? type) => true;
 
   @override
-  Future<List<NodeInfoSection>> describe(FsNode node) async => const [];
+  Future<List<NodeInfoSection>> describe(FileEntry entry, Content content) async => const [];
 }
 
 /// Модуль, объявляющий обоих: так это делает любой чужой модуль.
@@ -82,7 +83,11 @@ void main() {
   /// сведений.
   Future<FileInfoScreen> infoOf(String name) async {
     final node = (await runtime.app.left.provider.resolvePath().run('/home/$name'))!;
-    final screen = FileInfoScreen(app: runtime.app, nodes: [node]);
+    final screen = FileInfoScreen(
+      app: runtime.app,
+      entries: [entryValueOf(node)],
+      contentOf: (entry) => NodeContent(node),
+    );
     await pumpEventQueue();
     return screen;
   }

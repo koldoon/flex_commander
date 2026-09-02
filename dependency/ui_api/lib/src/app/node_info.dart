@@ -1,4 +1,4 @@
-import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_api/fc_api.dart';
 
 import 'viewer_spec.dart';
 
@@ -44,11 +44,11 @@ abstract interface class NodeInfoProvider {
   /// От ответа зависит не только показ, но и смысл ошибки: не взялся — раздела
   /// нет вовсе; взялся и не смог — это **сведение о файле**, а не о
   /// приложении.
-  bool accepts(FsNode node, ContentType? type);
+  bool accepts(FileEntry entry, ContentType? type);
 
   /// Что известно об узле. Пусто — сказать нечего, и раздела не будет.
   ///
   /// Исключение отсюда — законный ответ: «взялся и не смог». Оно доходит до
   /// человека строкой в разделе этого провайдера.
-  Future<List<NodeInfoSection>> describe(FsNode node);
+  Future<List<NodeInfoSection>> describe(FileEntry entry, Content content);
 }

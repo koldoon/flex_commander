@@ -18,6 +18,7 @@ export 'src/values/fs_error.dart';
 export 'src/values/provider_capabilities.dart';
 
 // --- Протокол границы ---
+export 'src/protocol/content.dart';
 export 'src/protocol/core_message.dart';
 export 'src/protocol/entry_ref.dart';
 export 'src/protocol/operation_spec.dart';

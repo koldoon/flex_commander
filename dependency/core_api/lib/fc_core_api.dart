@@ -9,6 +9,7 @@
 library;
 
 // --- Дерево и источники ---
+export 'src/tree/entry_value.dart';
 export 'src/tree/fs_node.dart';
 export 'src/tree/node_path.dart';
 export 'src/tree/node_sorting.dart';

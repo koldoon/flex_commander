@@ -19,6 +19,7 @@ export 'src/fake_operation_context.dart';
 export 'src/fake_window_service.dart';
 export 'src/in_memory_settings_store.dart';
 export 'src/in_memory_tree_provider.dart';
+export 'src/node_content.dart';
 export 'src/test_app.dart';
 export 'src/test_panel.dart';
 export 'src/test_screen.dart';

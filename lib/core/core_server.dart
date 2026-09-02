@@ -1,9 +1,12 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 
 import '../link/link.dart';
+import 'content_hub.dart';
 import 'operation_hub.dart';
 import 'panel_session.dart';
 
@@ -25,6 +28,7 @@ class CoreServer implements CoreHandler {
     FcServices services = const _NoServices(),
     Map<String, OperationFactory> operations = const {},
   }) : _panels = {PanelId.left: left, PanelId.right: right} {
+    _content = ContentHub(registry: registry, sessionOf: session, say: _say);
     _operations = OperationHub(
       factories: operations,
       services: services,
@@ -55,24 +59,30 @@ class CoreServer implements CoreHandler {
   /// Заведённые работы: копирование, упаковка, подсчёт.
   late final OperationHub _operations;
 
-  /// Синхронно — и это важное свойство, а не мелочь настройки.
+  /// Идущие чтения: просмотр, правка, сведения об объекте.
+  late final ContentHub _content;
+
+  /// Кто слушает события ядра.
   ///
-  /// События уходят в линк **в тот момент, когда случились**, то есть внутри
-  /// исполнения просьбы, а ответ добавляется после её конца. Канал один и
-  /// порядок в нём сохраняется, значит к приходу ответа та сторона уже знает
-  /// всё, что ядро о себе рассказало: дождавшись «открылось», зеркало найдёт у
-  /// себя и новый список. Через порт это верно ровно так же — сообщения
-  /// приходят в порядке отправки.
-  final StreamController<CoreEvent> _events = StreamController<CoreEvent>.broadcast(sync: true);
+  /// Прямыми вызовами, а не потоком: событие уходит слушателю **в тот момент,
+  /// когда случилось**, то есть внутри исполнения просьбы, а ответ добавляется
+  /// после её конца. Значит, к приходу ответа та сторона уже знает всё, что
+  /// ядро о себе рассказало: дождавшись «открылось», зеркало найдёт у себя и
+  /// новый список. Через порт это верно ровно так же — сообщения приходят в
+  /// порядке отправки.
+  final List<void Function(CoreEvent event)> _listeners = [];
 
   @override
-  Stream<CoreEvent> get events => _events.stream;
+  VoidCallback listen(void Function(CoreEvent event) onEvent) {
+    _listeners.add(onEvent);
+    return () => _listeners.remove(onEvent);
+  }
 
   PanelSession session(PanelId panel) => _panels[panel]!;
 
   void _say(CoreEvent event) {
-    if (!_events.isClosed) {
-      _events.add(event);
+    for (final listener in _listeners.toList()) {
+      listener(event);
     }
   }
 
@@ -152,7 +162,17 @@ class CoreServer implements CoreHandler {
 
       case TellOperation(:final runId, :final input):
         _operations.tell(runId, input);
+        // Отмена относится и к чтению: имя разговора одно, а кто им занят —
+        // работа или чтение, — той стороне знать незачем.
+        if (input is CancelInput) {
+          _content.stop(runId);
+        }
         return null;
+
+      case ReadContent(:final runId, :final entry, :final offset):
+        // Не ждём: байты поедут событиями, а очередь просьб держать нельзя.
+        unawaited(_content.read(runId, entry, offset: offset));
+        return const CoreDone();
     }
   }
 
@@ -184,11 +204,12 @@ class CoreServer implements CoreHandler {
   }
 
   Future<void> dispose() async {
+    _content.dispose();
     _operations.dispose();
     for (final session in _panels.values) {
       session.dispose();
     }
-    await _events.close();
+    _listeners.clear();
   }
 }
 

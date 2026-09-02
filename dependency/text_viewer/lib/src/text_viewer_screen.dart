@@ -1,4 +1,4 @@
-import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:flutter/widgets.dart';
@@ -14,7 +14,7 @@ import 'package:re_editor/re_editor.dart';
 /// перенос строк, и вид перерисовывается сам.
 class TextViewerScreen extends ChangeNotifier implements ViewerContent, FcSearchable {
   TextViewerScreen({
-    required this.node,
+    required this.entry,
     required String text,
     this.place = ViewerPlace.fullscreen,
     bool wordWrap = false,
@@ -33,7 +33,8 @@ class TextViewerScreen extends ChangeNotifier implements ViewerContent, FcSearch
 
   /// Что показываем: из узла берётся и заголовок, и размер.
   @override
-  final FsNode node;
+  @override
+  final FileEntry entry;
 
   /// Где показываем: во весь экран или в области панели.
   ///

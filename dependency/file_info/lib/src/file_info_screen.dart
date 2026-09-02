@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/widgets.dart';
 
@@ -34,8 +33,13 @@ class NodeInfoPart {
 /// Одно состояние на оба места — окно и показ. Разное у них только рама, а
 /// разделы одни и те же: два показа одного и того же однажды разойдутся.
 class FileInfoScreen extends ChangeNotifier implements ViewerContent {
-  FileInfoScreen({required this.app, required List<FsNode> nodes, this.place = ViewerPlace.fullscreen})
-    : _nodes = nodes {
+  FileInfoScreen({
+    required this.app,
+    required List<FileEntry> entries,
+    required Content Function(FileEntry entry) contentOf,
+    this.place = ViewerPlace.fullscreen,
+  }) : _entries = entries,
+       _contentOf = contentOf {
     _ask();
   }
 
@@ -44,16 +48,20 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
 
   final Application app;
 
-  final List<FsNode> _nodes;
+  final List<FileEntry> _entries;
+
+  /// Чем прочесть содержимое: сведения о картинке разбирают её заголовок.
+  final Content Function(FileEntry entry) _contentOf;
 
   @override
   final ViewerPlace place;
 
   /// Об одном узле — сведения; о нескольких — сводка (§5 спеки).
-  bool get isSummary => _nodes.length > 1;
+  bool get isSummary => _entries.length > 1;
 
   @override
-  FsNode get node => _nodes.first;
+  @override
+  FileEntry get entry => _entries.first;
 
   /// Разделы по провайдерам, сверху вниз.
   List<NodeInfoPart> get parts => List.unmodifiable(_parts);
@@ -61,11 +69,11 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
 
   /// Сводка по помеченному: считается сразу, обхода дерева не требует.
   List<NodeInfoRow> get summary => [
-    NodeInfoRow('Items', '${_nodes.length}'),
-    NodeInfoRow('Directories', '${_nodes.whereType<DirectoryNode>().length}'),
+    NodeInfoRow('Items', '${_entries.length}'),
+    NodeInfoRow('Directories', '${_entries.where((entry) => entry.isDirectory).length}'),
     NodeInfoRow(
       'Size',
-      formatBytesExact(_nodes.where((node) => node.size > 0).fold(0, (sum, node) => sum + node.size)),
+      formatBytesExact(_entries.where((entry) => entry.size > 0).fold(0, (sum, entry) => sum + entry.size)),
     ),
   ];
 
@@ -77,32 +85,39 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
   bool _counting = false;
 
   /// Есть ли что считать: у каталога размер сам не берётся.
-  bool get canCount => !isSummary && node is DirectoryNode;
+  bool get canCount => !isSummary && entry.isDirectory;
 
   /// Посчитать размер каталога — тем же обходом, что и `Alt-Shift-Enter`.
   ///
   /// По кнопке, а не при открытии: сведения о `/` не должны означать обход
   /// диска.
   Future<void> count() async {
-    final directory = node;
-    if (_counting || directory is! DirectoryNode) {
+    if (_counting || !entry.isDirectory) {
       return;
     }
     _counting = true;
     notifyListeners();
 
-    var total = 0;
+    // Обход — работа ядра: дерево живёт там. Сумма растёт по ходу, и последняя
+    // и есть итог; не сосчиталось — покажем, сколько успели, это честнее
+    // пустоты.
+    final operation = app.runOperation();
+    void grow() {
+      final status = operation.status;
+      if (status is MultipleTransferOperationStatus) {
+        _directorySize = status.itemsTransferred;
+        notifyListeners();
+      }
+    }
+
+    operation.status.addListener(grow);
     try {
-      await directory.provider.countEntries(directory, (size) {
-        if (size > 0) {
-          total += size;
-        }
-      });
-      _directorySize = total;
+      await operation.run(OperationSpec(kind: FileOperations.measure, targets: Targets.paths([entry.path])));
     } on Object {
-      // Не сосчиталось — покажем, сколько успели: это честнее пустоты.
-      _directorySize = total;
+      // Молча: показанное число — то, до чего дошли.
     } finally {
+      operation.status.removeListener(grow);
+      grow();
       _counting = false;
       notifyListeners();
     }
@@ -121,7 +136,7 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
     for (final provider in app.nodeInfoProviders) {
       // Тип по содержимому появится в Б6; пока его нет, провайдер решает по
       // имени — как и просмотрщики.
-      if (!provider.accepts(node, null)) {
+      if (!provider.accepts(entry, null)) {
         // Не взялся — раздела нет вовсе: ни пустого заголовка, ни ошибки.
         continue;
       }
@@ -134,7 +149,7 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
 
   Future<void> _fill(NodeInfoPart part, NodeInfoProvider provider) async {
     try {
-      final sections = await provider.describe(node);
+      final sections = await provider.describe(entry, _contentOf(entry));
       part.sections = sections;
       part.error = null;
     } on Object catch (error) {

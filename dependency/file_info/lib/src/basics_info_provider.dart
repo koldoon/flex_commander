@@ -1,5 +1,4 @@
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 /// Поля самой модели: имя, путь, тип, размер, даты, права, ссылка, откуда.
@@ -18,35 +17,35 @@ class BasicsInfoProvider implements NodeInfoProvider {
 
   /// Берётся за всё: у любого узла есть имя и путь.
   @override
-  bool accepts(FsNode node, ContentType? type) => true;
+  bool accepts(FileEntry entry, ContentType? type) => true;
 
   @override
-  Future<List<NodeInfoSection>> describe(FsNode node) async {
+  Future<List<NodeInfoSection>> describe(FileEntry entry, Content content) async {
     return [
-      NodeInfoSection(title: 'General', rows: _general(node)),
-      if (_dates(node) case final rows when rows.isNotEmpty) NodeInfoSection(title: 'Dates', rows: rows),
-      if (_access(node) case final rows when rows.isNotEmpty) NodeInfoSection(title: 'Access', rows: rows),
-      if (node is LinkNode) NodeInfoSection(title: 'Link', rows: _link(node)),
+      NodeInfoSection(title: 'General', rows: _general(entry)),
+      if (_dates(entry) case final rows when rows.isNotEmpty) NodeInfoSection(title: 'Dates', rows: rows),
+      if (_access(entry) case final rows when rows.isNotEmpty) NodeInfoSection(title: 'Access', rows: rows),
+      if (entry.isLink) NodeInfoSection(title: 'Link', rows: _link(entry)),
     ];
   }
 
-  List<NodeInfoRow> _general(FsNode node) {
-    final file = node is FileNode ? node : null;
+  List<NodeInfoRow> _general(FileEntry entry) {
+    final file = entry.isParent ? null : entry;
     return [
-      NodeInfoRow('Name', node.name),
-      NodeInfoRow('Path', node.displayPath),
-      NodeInfoRow('Type', _typeOf(node)),
+      NodeInfoRow('Name', entry.name),
+      NodeInfoRow('Path', entry.path),
+      NodeInfoRow('Type', _typeOf(entry)),
       // Спрашивают «что это», а не «как показать»: правило показа с его
       // ограничением длины тут ни при чём.
-      if (file != null && extensionOf(node.name).isNotEmpty) NodeInfoRow('Extension', extensionOf(node.name)),
+      if (file != null && extensionOf(entry.name).isNotEmpty) NodeInfoRow('Extension', extensionOf(entry.name)),
       // У каталога размер не пишем вовсе: считать его — обойти дерево, и
       // делать это молча при открытии окна нельзя. Для этого есть кнопка.
       // До последнего байта, а не сокращённо, как в колонке панели: здесь
       // спрашивают «сколько именно».
-      if (node is! DirectoryNode && node.size >= 0) NodeInfoRow('Size', formatBytesExact(node.size)),
+      if (!entry.isDirectory && entry.size >= 0) NodeInfoRow('Size', formatBytesExact(entry.size)),
       // Откуда открыт файл: диск, архив, сервер. По схеме источника — того
       // самого провайдера дерева, в котором узел живёт.
-      NodeInfoRow('Where', node.provider.scheme),
+      NodeInfoRow('Where', entry.scheme),
     ];
   }
 
@@ -54,8 +53,8 @@ class BasicsInfoProvider implements NodeInfoProvider {
   ///
   /// Прочерки вместо неизвестного хуже пустоты: они выглядят так, будто дата
   /// есть и она никакая.
-  List<NodeInfoRow> _dates(FsNode node) {
-    final file = node is FileNode ? node : null;
+  List<NodeInfoRow> _dates(FileEntry entry) {
+    final file = entry.isParent ? null : entry;
     if (file == null) {
       return const [];
     }
@@ -66,9 +65,8 @@ class BasicsInfoProvider implements NodeInfoProvider {
     ];
   }
 
-  List<NodeInfoRow> _access(FsNode node) {
-    final file = node is FileNode ? node : null;
-    final attributes = file?.attributes;
+  List<NodeInfoRow> _access(FileEntry entry) {
+    final attributes = entry.isParent ? null : entry.attributes;
     if (attributes == null || attributes.modeString.isEmpty) {
       return const [];
     }
@@ -78,16 +76,16 @@ class BasicsInfoProvider implements NodeInfoProvider {
     ];
   }
 
-  List<NodeInfoRow> _link(LinkNode node) => [
-    NodeInfoRow('Points to', node.reference.isEmpty ? 'unknown' : node.reference),
-    if (node.targetType case final type?) NodeInfoRow('Target', type.name),
+  List<NodeInfoRow> _link(FileEntry entry) => [
+    NodeInfoRow('Points to', entry.reference.isEmpty ? 'unknown' : entry.reference),
+    if (entry.linkToDirectory) const NodeInfoRow('Target', 'directory'),
   ];
 
-  String _typeOf(FsNode node) => switch (node) {
-    ParentDirNode() => 'Parent directory',
-    DirectoryNode() => 'Directory',
-    LinkNode() => node.isDirectoryLink ? 'Link to a directory' : 'Link',
-    _ => 'File',
+  String _typeOf(FileEntry entry) => switch (entry.kind) {
+    EntryKind.parent => 'Parent directory',
+    EntryKind.directory => 'Directory',
+    EntryKind.link => entry.linkToDirectory ? 'Link to a directory' : 'Link',
+    EntryKind.file => 'File',
   };
 
   /// Дата целиком: в сведениях сокращать её незачем — здесь как раз и смотрят

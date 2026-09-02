@@ -38,7 +38,10 @@ void main() {
       final wasActive = runtime.app.activePanel;
 
       runtime.app.left.setCursorToName('notes.txt');
-      await (runtime.commands.create(ViewFileCommand.commandId)!).executeWith();
+      // Приложение собрано в `setUp`, то есть в настоящем времени, а тело
+      // виджет-теста идёт в поддельном. Чтение содержимого — разговор с ядром,
+      // и ждать его надо там, где оно на самом деле идёт.
+      await tester.runAsync(() => (runtime.commands.create(ViewFileCommand.commandId)!).executeWith());
       await tester.pumpAndSettle();
       expect(runtime.app.view.contentAt(ViewportPosition.fullscreen), isA<TextViewerScreen>());
 

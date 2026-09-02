@@ -59,7 +59,7 @@ class FileInfoView extends StatelessWidget {
       builder:
           (context, _) => FcPanelFrame(
             outerEdge: _edgeOf(app),
-            header: FcPathPlate(path: screen.node.displayPath, active: app == null || app.view.takesKeys(screen)),
+            header: FcPathPlate(path: screen.entry.path, active: app == null || app.view.takesKeys(screen)),
             child: Padding(
               padding: EdgeInsets.all(FcTheme.of(context).metrics.labelPadding),
               // Фокуса не просит: сведения в панели читают, а ввод в это время

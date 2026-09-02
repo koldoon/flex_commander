@@ -1,4 +1,4 @@
-import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_api/fc_api.dart';
 
 import 'application.dart';
 import 'viewport.dart';
@@ -18,7 +18,15 @@ enum ViewerPlace {
 
 /// Что показать и куда.
 class ViewerRequest {
-  const ViewerRequest({required this.app, required this.node, required this.place, required this.checkpoint});
+  const ViewerRequest({
+    required this.app,
+    required this.entry,
+    required this.content,
+    required this.place,
+    required this.checkpoint,
+    this.siblings = const [],
+    Content Function(FileEntry entry)? contentOf,
+  }) : _contentOf = contentOf;
 
   /// Приложение: показу бывает нужно спросить у него объявленное другими.
   ///
@@ -27,10 +35,33 @@ class ViewerRequest {
   /// без него, и это правильный порядок вещей: даётся, но не требуется.
   final Application app;
 
-  /// Файл, который открывают.
-  final FsNode node;
+  /// Файл, который открывают, — строкой списка.
+  final FileEntry entry;
+
+  /// Его содержимое: байты живут за границей и едут потоком
+  /// (`docs/spec/client-server.md`, §6.2).
+  final Content content;
 
   final ViewerPlace place;
+
+  /// Соседи по списку — то, что показано в панели рядом.
+  ///
+  /// Листать альбом стрелками умеет просмотрщик картинок, и берёт он их
+  /// отсюда, а не из каталога: список уже на руках, он отсортирован так же,
+  /// как видит человек, и лишнего похода за границу не стоит. Пусто —
+  /// листать нечем: показ открыли не из панели.
+  final List<FileEntry> siblings;
+
+  final Content Function(FileEntry entry)? _contentOf;
+
+  /// Содержимое соседа — чтобы листать, не выходя в панель.
+  Content contentFor(FileEntry entry) {
+    final read = _contentOf;
+    if (read == null || entry.name == this.entry.name) {
+      return content;
+    }
+    return read(entry);
+  }
 
   /// Пауза и отмена: открытие может идти долго — файл читается с сервера или из
   /// архива, — а курсор в быстром просмотре к тому времени уже ушёл дальше.
@@ -44,8 +75,8 @@ class ViewerRequest {
 /// один раз — `KeyBinding.inState<ViewerContent>`. Своё каждый объявляет на
 /// свой тип.
 abstract interface class ViewerContent implements ViewportState {
-  /// Что показано: из узла берутся заголовок и размер.
-  FsNode get node;
+  /// Что показано: из строки берутся заголовок и размер.
+  FileEntry get entry;
 
   /// Где показано. Приходит при открытии и не меняется: спросить потом
   /// неоткуда — состояние стоит не в области, а внутри хозяина.
@@ -85,12 +116,12 @@ class ViewerSpec {
   /// Больше — раньше спрашивают. При равном порядок объявления модулей.
   final int priority;
 
-  /// Берётся ли за такой узел.
+  /// Берётся ли за такую строку.
   ///
   /// [type] — тип по содержимому, когда он будет известен (Б6). Пока его нет,
   /// приходит null, и решать приходится по имени — тем же способом, каким
   /// выбирается провайдер архива.
-  final bool Function(FsNode node, ContentType? type) accepts;
+  final bool Function(FileEntry entry, ContentType? type) accepts;
 
   /// Открыть: прочитать столько, сколько нужно, и отдать показ.
   ///

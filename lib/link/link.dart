@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:fc_api/fc_api.dart';
 
 /// Что ходит по линку.
@@ -77,8 +79,14 @@ abstract interface class CoreHandler {
   /// Исполнить просьбу. `null` — отвечать нечего (просьба без ответа).
   Future<CoreReply?> handle(CoreRequest request);
 
-  /// То, что ядро рассказывает само.
-  Stream<CoreEvent> get events;
+  /// Слушать то, что ядро рассказывает само. Возвращает то, чем отписаться.
+  ///
+  /// Прямым вызовом, а не потоком, и это не мелочь. Подписка на поток
+  /// запоминает **тот поток исполнения, в котором её завели**, и зовёт
+  /// обработчик там же. Приложение в прогоне собирают до начала теста, вне его
+  /// поддельного времени, — и события ядра уходили бы в чужую очередь, которую
+  /// прогон не крутит. Прямой вызов исполняется там, откуда сказали.
+  VoidCallback listen(void Function(CoreEvent event) onEvent);
 }
 
 /// Клиентская половина линка: имена просьб, ожидание ответов, смерть той
@@ -86,13 +94,11 @@ abstract interface class CoreHandler {
 ///
 /// Общая для петли и порта — вся разница между ними в том, чем послать
 /// сообщение и откуда его получить.
-class CoreLink implements Link {
-  CoreLink({required void Function(LinkMessage message) send, required Stream<LinkMessage> incoming}) : _send = send {
-    _incoming = incoming.listen(_receive, onDone: () => _die('связь с ядром закрыта'));
-  }
-
-  final void Function(LinkMessage message) _send;
-  late final StreamSubscription<LinkMessage> _incoming;
+abstract class CoreLink implements Link {
+  /// Как отправить сообщение той стороне. Всё остальное — имена просьб,
+  /// ожидание ответов, смерть той стороны — написано здесь один раз.
+  @protected
+  void send(LinkMessage message);
 
   final Map<int, Completer<CoreReply>> _waiting = {};
 
@@ -117,7 +123,7 @@ class CoreLink implements Link {
     final id = ++_nextId;
     final completer = Completer<CoreReply>();
     _waiting[id] = completer;
-    _send(LinkRequest(id, request));
+    send(LinkRequest(id, request));
     return completer.future;
   }
 
@@ -128,10 +134,12 @@ class CoreLink implements Link {
       // держало (`docs/spec/client-server.md`, §11, урок 8).
       return;
     }
-    _send(LinkRequest(0, request));
+    send(LinkRequest(0, request));
   }
 
-  void _receive(LinkMessage message) {
+  /// Сообщение с той стороны. Зовёт доставка — петля прямо, порт из своего
+  /// слушателя.
+  void receive(LinkMessage message) {
     switch (message) {
       case LinkReply(:final id, :final reply):
         _waiting.remove(id)?.complete(reply);
@@ -162,7 +170,6 @@ class CoreLink implements Link {
   @override
   Future<void> dispose() async {
     _die('связь с ядром закрыта');
-    await _incoming.cancel();
     await _events.close();
   }
 }

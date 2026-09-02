@@ -1,4 +1,4 @@
-import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/widgets.dart';
 
@@ -12,13 +12,14 @@ import 'image_viewer_settings.dart';
 /// из будущего поиска, где панели нет вовсе.
 class ImageViewerScreen extends ChangeNotifier implements ViewerContent {
   ImageViewerScreen({
-    required FsNode node,
+    required FileEntry entry,
     required ImageDocument document,
+    required this.contentOf,
     required this.settings,
     required this.onSettingsChanged,
     this.place = ViewerPlace.fullscreen,
-    List<FsNode> siblings = const [],
-  }) : _node = node,
+    List<FileEntry> siblings = const [],
+  }) : _entry = entry,
        _document = document,
        _siblings = siblings;
 
@@ -35,14 +36,17 @@ class ImageViewerScreen extends ChangeNotifier implements ViewerContent {
 
   /// Что показано сейчас. Меняется, когда листают соседей.
   @override
-  FsNode get node => _node;
-  FsNode _node;
+  FileEntry get entry => _entry;
+  FileEntry _entry;
 
   ImageDocument get document => _document;
   ImageDocument _document;
 
   /// Картинки того же каталога, в порядке панели; сюда входит и текущая.
-  final List<FsNode> _siblings;
+  final List<FileEntry> _siblings;
+
+  /// Чем прочесть соседа по списку.
+  final Content Function(FileEntry entry) contentOf;
 
   /// Вписывать в окно или показывать точка в точку.
   bool get fitToWindow => settings.fitToWindow && _zoom == null;
@@ -73,7 +77,7 @@ class ImageViewerScreen extends ChangeNotifier implements ViewerContent {
   /// второе нажатие целилось бы в того же соседа, что и первое.
   int get _cursor => _targetIndex ?? _indexOfCurrent;
 
-  int get _indexOfCurrent => _siblings.indexWhere((sibling) => sibling.pathString == _node.pathString);
+  int get _indexOfCurrent => _siblings.indexWhere((sibling) => sibling.path == _entry.path);
 
   /// Куда идём, пока читается; null — пришли.
   int? _targetIndex;
@@ -135,8 +139,8 @@ class ImageViewerScreen extends ChangeNotifier implements ViewerContent {
 
     _targetIndex = next;
     final generation = ++_generation;
-    final node = _siblings[next];
-    final document = await ImageDocument.read(node, settings, checkpoint: () async {});
+    final sibling = _siblings[next];
+    final document = await ImageDocument.read(sibling, contentOf(sibling), settings, checkpoint: () async {});
     // Распаковка до подмены: иначе на месте новой картинки видна прежняя.
     await document.warmUp();
     if (generation != _generation) {
@@ -149,7 +153,7 @@ class ImageViewerScreen extends ChangeNotifier implements ViewerContent {
     // верный способ съесть память за минуту листания.
     _document.release();
     _targetIndex = null;
-    _node = node;
+    _entry = sibling;
     _document = document;
     // Масштаб и смещение сбрасываются: следующая картинка другого размера, и
     // унаследованный масштаб показал бы её углом.

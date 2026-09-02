@@ -58,6 +58,13 @@ abstract final class FileOperations {
   static const String makeDirectory = 'file.makeDirectory';
   static const String rename = 'file.rename';
 
+  /// Посчитать размер: обойти дерево и сложить байты.
+  ///
+  /// Ход дела и есть ответ: сумма растёт в `itemsTransferred`, а последняя —
+  /// итог. Отдельного «результата» у работы нет, и заводить его ради одного
+  /// числа значило бы городить второй способ рассказать о себе.
+  static const String measure = 'file.measure';
+
   /// Идти ли по символическим ссылкам. По умолчанию нет: ссылка переносится
   /// ссылкой, как в mc.
   static const String followLinks = 'followLinks';

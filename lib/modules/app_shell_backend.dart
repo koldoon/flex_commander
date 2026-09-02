@@ -52,6 +52,17 @@ class AppShellBackend implements FcBackendModule {
     );
 
     registry.operation(
+      FileOperations.measure,
+      (services) => TaskOperation<OperationInputs, void>((op, inputs) async {
+        final node = inputs.targets.firstOrNull;
+        if (node == null) {
+          return;
+        }
+        await op.delegate(node.provider.calculateSize(), inputs.targets);
+      }),
+    );
+
+    registry.operation(
       FileOperations.rename,
       (services) => TaskOperation<OperationInputs, void>((op, inputs) async {
         final node = inputs.targets.firstOrNull;

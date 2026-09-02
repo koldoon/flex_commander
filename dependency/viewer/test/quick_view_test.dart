@@ -68,7 +68,7 @@ void main() {
       await settle();
 
       expect(quickView(), isNotNull);
-      expect(shown()!.node.name, 'notes.txt');
+      expect(shown()!.entry.name, 'notes.txt');
       expect(shown()!.controller.text, 'раз\nдва\nтри');
     });
 
@@ -79,7 +79,7 @@ void main() {
 
       await cursorTo('other.txt');
 
-      expect(shown()!.node.name, 'other.txt');
+      expect(shown()!.entry.name, 'other.txt');
       expect(shown()!.controller.text, 'другое');
     });
 
@@ -95,7 +95,7 @@ void main() {
       runtime.app.left.setCursorToName('notes.txt');
       await settle();
 
-      expect(shown()!.node.name, 'notes.txt');
+      expect(shown()!.entry.name, 'notes.txt');
       expect(shown()!.controller.text, 'раз\nдва\nтри');
     });
 

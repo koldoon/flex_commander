@@ -87,7 +87,7 @@ void main() {
       await settle();
 
       final screen = shownFullscreen()! as ImageViewerScreen;
-      expect(screen.node.name, 'b.gif');
+      expect(screen.entry.name, 'b.gif');
       expect(screen.document.format, 'GIF');
       expect(runtime.app.left.currentEntry?.name, cursor, reason: 'показ — не навигация');
     });
@@ -121,7 +121,7 @@ void main() {
       await Future.wait([first, second]);
       await settle();
 
-      expect(screen.node.name, 'c.bmp');
+      expect(screen.entry.name, 'c.bmp');
     });
 
     test('прежняя картинка отпускается: память не копится', () async {
@@ -148,7 +148,7 @@ void main() {
       await view('c.bmp');
 
       expect(runtime.commands.dispatch(KeyCombination.parse('Right')), isFalse);
-      expect((shownFullscreen()! as ImageViewerScreen).node.name, 'c.bmp');
+      expect((shownFullscreen()! as ImageViewerScreen).entry.name, 'c.bmp');
     });
 
     test('назад — та же дорога', () async {
@@ -157,7 +157,7 @@ void main() {
       expect(runtime.commands.dispatch(KeyCombination.parse('Left')), isTrue);
       await settle();
 
-      expect((shownFullscreen()! as ImageViewerScreen).node.name, 'a.png');
+      expect((shownFullscreen()! as ImageViewerScreen).entry.name, 'a.png');
     });
   });
 
@@ -178,7 +178,7 @@ void main() {
       expect(runtime.commands.dispatch(KeyCombination.parse('Right')), isFalse);
       await pumpEventQueue();
 
-      expect(screen.node.name, 'a.png');
+      expect(screen.entry.name, 'a.png');
     });
 
     test('а курсор в панели по-прежнему меняет показанное', () async {
@@ -189,7 +189,7 @@ void main() {
       await pumpEventQueue();
 
       final shown = innermost(runtime.app.view.contentAt(right)!) as ImageViewerScreen;
-      expect(shown.node.name, 'b.gif');
+      expect(shown.entry.name, 'b.gif');
     });
   });
 

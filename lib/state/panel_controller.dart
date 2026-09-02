@@ -5,6 +5,8 @@ import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import '../core/panel_session.dart';
+import '../link/link.dart';
+import '../ui/remote_content.dart';
 
 export 'package:fc_ui_api/fc_ui_api.dart' show Panel;
 
@@ -21,7 +23,7 @@ export 'package:fc_ui_api/fc_ui_api.dart' show Panel;
 /// начнёт получать значения (`docs/spec/client-server.md`, §7). Пока стороны в
 /// одном изоляте, и переходник честнее, чем вторая копия той же тысячи строк.
 class PanelController extends ChangeNotifier implements Panel {
-  PanelController(this.id, this.session) {
+  PanelController(this.id, this.session, {Link? link}) : _link = link {
     // Список и размеры на этой стороне не пересылаются: узлы те же самые, и
     // перерисовки хватает.
     _unwatch = session.watch(onChanged: notifyListeners, onListed: notifyListeners, onSized: (_) => notifyListeners());
@@ -34,6 +36,19 @@ class PanelController extends ChangeNotifier implements Panel {
 
   /// Панель со стороны ядра — всё, что она на самом деле делает.
   final PanelSession session;
+
+  /// Дверь к ядру: через неё едут байты содержимого.
+  final Link? _link;
+
+  @override
+  Content contentOf(FileEntry entry) {
+    final door = _link;
+    final index = session.entries.indexWhere((candidate) => candidate.name == entry.name);
+    if (door == null || index < 0) {
+      return const _NoContent();
+    }
+    return RemoteContent(door, EntryRef.inPanel(id, index, session.generation), length: entry.size);
+  }
 
   // --- источник ---
 
@@ -273,4 +288,15 @@ class PanelController extends ChangeNotifier implements Panel {
     session.dispose();
     super.dispose();
   }
+}
+
+/// Содержимого нет вовсе: панель собрана без ядра или строка уже не та.
+class _NoContent implements Content {
+  const _NoContent();
+
+  @override
+  int get length => FileEntry.unknownSize;
+
+  @override
+  Stream<List<int>> read({int offset = 0}) => const Stream.empty();
 }

@@ -42,7 +42,7 @@ void main() {
       await view('notes.txt');
 
       expect(openViewer(), isNotNull);
-      expect(openViewer()!.node.name, 'notes.txt');
+      expect(openViewer()!.entry.name, 'notes.txt');
       expect(openViewer()!.controller.text, 'раз\nдва\nтри');
       // Панели никуда не делись — они под ним, в своих областях.
       expect(runtime.app.view.stackAt(ViewportPosition.fullscreen), hasLength(1));

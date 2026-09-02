@@ -1,4 +1,4 @@
-import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
@@ -31,12 +31,10 @@ class FileInfoCommand extends AppCommand {
   /// Помеченное, а нет пометки — то, что под курсором. Псевдоузел «..» не в
   /// счёт: сведения о нём — это сведения о каталоге, куда он ведёт, и
   /// показывать их под его именем значило бы путать.
-  /// ВРЕМЕННО узлами: цели приезжают строками списка, а работа пока идёт по эту
-  /// сторону границы (`docs/spec/client-server.md`, Э4 и Э5).
-  List<FsNode> _targetsOf(CommandContext context) => [
+  /// Помеченное, а нет пометки — то, что под курсором.
+  List<FileEntry> _targetsOf(CommandContext context) => [
     for (final entry in context.targets)
-      if (!entry.isParent)
-        if (context.panel.nodeOf(entry) case final node?) node,
+      if (!entry.isParent) entry,
   ];
 
   @override
@@ -47,7 +45,7 @@ class FileInfoCommand extends AppCommand {
     }
 
     final view = context.app.view;
-    final screen = FileInfoScreen(app: context.app, nodes: targets);
+    final screen = FileInfoScreen(app: context.app, entries: targets, contentOf: context.panel.contentOf);
     late final String dialogId;
     void close() {
       view.closeDialog(dialogId);

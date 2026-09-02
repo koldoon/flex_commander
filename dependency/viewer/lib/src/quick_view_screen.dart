@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/foundation.dart';
 
@@ -54,7 +53,7 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
 
   /// Узел, который показан или читается. Отличается от `panel.currentNode`
   /// ровно на время паузы и чтения.
-  FsNode? _target;
+  FileEntry? _target;
 
   Timer? _waiting;
 
@@ -70,29 +69,29 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
 
   void _onPanelChanged({bool immediately = false}) {
     final entry = panel.currentEntry;
-    final node = entry == null ? null : panel.nodeOf(entry);
-    if (identical(node, _target)) {
-      // Панель сообщает и о своих делах — о чтении каталога, о пометке. Файл
-      // при этом тот же, и перечитывать его незачем.
+    // Строка та же — перечитывать нечего: панель сообщает и о своих делах, о
+    // чтении каталога и о пометке. Сравниваются имя и путь: значения между
+    // собой ссылкой не сравнить.
+    if (entry?.name == _target?.name && entry?.path == _target?.path) {
       return;
     }
-    _target = node;
+    _target = entry;
     _waiting?.cancel();
     _generation++;
 
     if (immediately) {
-      unawaited(_show(node, _generation));
+      unawaited(_show(entry, _generation));
       return;
     }
-    _waiting = Timer(delay, () => unawaited(_show(node, _generation)));
+    _waiting = Timer(delay, () => unawaited(_show(entry, _generation)));
   }
 
-  Future<void> _show(FsNode? node, int generation) async {
-    if (node == null) {
+  Future<void> _show(FileEntry? entry, int generation) async {
+    if (entry == null) {
       _say('Nothing to show');
       return;
     }
-    if (node is ParentDirNode) {
+    if (entry.isParent) {
       // Про «..» сказать нечего: это не объект, а дорога наверх.
       _say('Parent directory');
       return;
@@ -102,13 +101,16 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
     // здесь нечем: быстрый просмотр её и заменил, панели в этой области нет.
     // А чужую, активную, занимать нельзя — по ней в это время водят курсором,
     // ради чего быстрый просмотр и открывают.
-    _say('Reading ${node.name}…');
+    _say('Reading ${entry.name}…');
 
     try {
       final content = await openViewer(
         app,
-        node,
+        entry,
+        panel.contentOf(entry),
         ViewerPlace.panel,
+        siblings: panel.entries,
+        contentOf: panel.contentOf,
         // Курсор ушёл дальше — дочитывать незачем: просмотрщик спрашивает об
         // этом сам, по ходу чтения.
         checkpoint: () async {

@@ -122,7 +122,10 @@ void main() {
       (tester) async => withDesktopPlatform(() async {
         await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
         await tester.pump();
-        await openViewer();
+        // Приложение собрано в `setUp`, то есть в настоящем времени, а тело
+        // виджет-теста идёт в поддельном. Чтение содержимого — разговор с
+        // ядром, и ждать его надо там, где оно на самом деле идёт.
+        await tester.runAsync(openViewer);
         await tester.pump();
         await tester.pump(const Duration(milliseconds: 50));
 

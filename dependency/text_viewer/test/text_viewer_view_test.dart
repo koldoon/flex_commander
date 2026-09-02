@@ -22,7 +22,7 @@ void main() {
   Future<FsNode> node() async => (await disk.resolvePath().run('/home/notes.txt'))!;
 
   Future<TextViewerScreen> screenWith(String text, {bool wordWrap = false}) async =>
-      TextViewerScreen(node: await node(), text: text, wordWrap: wordWrap);
+      TextViewerScreen(entry: entryValueOf(await node()), text: text, wordWrap: wordWrap);
 
   testWidgets(
     'заголовок — та же плашка, что у панели, с адресом и размером',

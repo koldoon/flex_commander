@@ -78,7 +78,10 @@ void main() {
     'копирование отпущено команде, а не виджету',
     (tester) async => withDesktopPlatform(() async {
       // Иначе `Cmd-C` сработала бы дважды: своя команда и встроенное сочетание.
-      final screen = await openViewer();
+      // Приложение собрано в `setUp`, то есть в настоящем времени, а тело
+      // виджет-теста идёт в поддельном. Чтение содержимого — разговор с ядром,
+      // и ждать его надо там, где оно на самом деле идёт.
+      final screen = (await tester.runAsync(openViewer))!;
       await pumpScreen(tester, TextViewerView(screen: screen), app: runtime.app);
 
       final view = tester.widget<FcTextView>(find.byType(FcTextView));

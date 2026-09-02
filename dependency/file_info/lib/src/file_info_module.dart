@@ -43,8 +43,14 @@ class FileInfo implements FcFrontendModule {
         priority: -1000,
         // Берётся за всё, включая каталоги: о них тоже есть что сказать, и в
         // быстром просмотре это лучше слова «Directory».
-        accepts: (node, type) => true,
-        open: (request) async => FileInfoScreen(app: request.app, nodes: [request.node], place: request.place),
+        accepts: (entry, type) => true,
+        open:
+            (request) async => FileInfoScreen(
+              app: request.app,
+              entries: [request.entry],
+              contentOf: request.contentFor,
+              place: request.place,
+            ),
       ),
     );
   }

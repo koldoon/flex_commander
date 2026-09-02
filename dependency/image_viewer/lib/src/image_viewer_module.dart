@@ -1,5 +1,4 @@
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'image_document.dart';
@@ -79,8 +78,8 @@ class ImageViewer implements FcFrontendModule {
         // `FileNode`, и каталог с именем `shots.png` иначе сошёл бы за
         // картинку.
         accepts:
-            (node, type) =>
-                node is FileNode && node is! DirectoryNode && extensions.contains(extensionOf(node.name).toLowerCase()),
+            (entry, type) =>
+                !entry.isDirectory && !entry.isParent && extensions.contains(extensionOf(entry.name).toLowerCase()),
         open: (request) => _open(request, settingsOf(), settings.save),
       ),
     );
@@ -135,14 +134,14 @@ class ImageViewer implements FcFrontendModule {
     ImageViewerSettings settings,
     void Function() onSettingsChanged,
   ) async {
-    final node = request.node;
-    final document = await ImageDocument.read(node, settings, checkpoint: request.checkpoint);
+    final entry = request.entry;
+    final document = await ImageDocument.read(entry, request.content, settings, checkpoint: request.checkpoint);
     // Распаковать сразу: показ должен появиться картинкой, а не пустым местом,
     // которое через миг сменится картинкой.
     await document.warmUp();
 
     return ImageViewerScreen(
-      node: node,
+      entry: entry,
       document: document,
       settings: settings,
       onSettingsChanged: onSettingsChanged,
@@ -150,27 +149,14 @@ class ImageViewer implements FcFrontendModule {
       // Соседи — один раз при открытии: каталог за это время не изменится, а
       // перечитывать его на каждую стрелку значило бы ходить по диску вместо
       // показа.
-      siblings: await _siblingsOf(node),
+      // Соседи — те, что показаны в панели: список уже на руках и
+      // отсортирован так же, как видит человек.
+      siblings: [
+        for (final sibling in request.siblings)
+          if (!sibling.isDirectory && !sibling.isParent && extensions.contains(extensionOf(sibling.name).toLowerCase()))
+            sibling,
+      ],
+      contentOf: request.contentFor,
     );
-  }
-
-  /// Картинки того же каталога, в порядке источника.
-  ///
-  /// Пусто — листать нечем: узел без каталога (результаты поиска) или каталог
-  /// не прочитался. Это не ошибка показа: картинка уже открыта.
-  static Future<List<FsNode>> _siblingsOf(FsNode node) async {
-    final directory = node.parentDirectory;
-    if (directory == null) {
-      return const [];
-    }
-    try {
-      final children = await node.provider.listChildren(directory);
-      return [
-        for (final child in children)
-          if (child is FileNode && extensions.contains(extensionOf(child.name).toLowerCase())) child,
-      ];
-    } on Object {
-      return const [];
-    }
   }
 }

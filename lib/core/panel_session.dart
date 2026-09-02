@@ -900,33 +900,7 @@ class PanelSession {
   }
 
   /// Узел значением.
-  ///
-  /// Путь у «..» пустой нарочно: псевдострока показывает **чужой** каталог —
-  /// тот, куда ведёт, — и запомненная по его пути подменяла бы собой настоящий.
-  /// За этот урок уже заплачено (`spec/isolated-core.md`, §4.3.2).
-  FileEntry entryOf(FsNode node) {
-    final file = node is FileNode ? node : null;
-    return FileEntry(
-      name: node.name,
-      kind: switch (node) {
-        ParentDirNode() => EntryKind.parent,
-        DirectoryNode() => EntryKind.directory,
-        LinkNode() => EntryKind.link,
-        _ => EntryKind.file,
-      },
-      path: node is ParentDirNode ? '' : node.pathString,
-      directoryPath: node.parentDirectory?.displayPath ?? '',
-      size: node.size,
-      modified: file?.modified,
-      created: file?.created,
-      accessed: file?.accessed,
-      attributes: file?.attributes ?? const FileAttributes.unknown(),
-      executable: file?.executable ?? false,
-      broken: file?.broken ?? false,
-      linkToDirectory: node is LinkNode && node.isDirectoryLink,
-      reference: node is LinkNode ? node.reference : '',
-    );
-  }
+  FileEntry entryOf(FsNode node) => entryValueOf(node);
 
   void _changed() {
     for (final listener in _onChanged.toList()) {

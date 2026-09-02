@@ -27,8 +27,12 @@ void main() {
 
   Future<FsNode> nodeAt(String path) async => (await disk.resolvePath().run(path))!;
 
-  Future<ImageDocument> read(String name, {ImageViewerSettings? settings}) async =>
-      ImageDocument.read(await nodeAt('/home/$name'), settings ?? ImageViewerSettings(), checkpoint: () async {});
+  Future<ImageDocument> read(String name, {ImageViewerSettings? settings}) async => ImageDocument.read(
+    entryValueOf(await nodeAt('/home/$name')),
+    NodeContent(await nodeAt('/home/$name')),
+    settings ?? ImageViewerSettings(),
+    checkpoint: () async {},
+  );
 
   test('размеры берутся из заголовка', () async {
     final document = await read('shot.png');

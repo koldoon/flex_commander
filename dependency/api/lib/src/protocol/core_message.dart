@@ -154,6 +154,22 @@ final class RunOperation extends CoreRequest {
   final OperationSpec spec;
 }
 
+/// Открыть содержимое файла и читать его потоком.
+///
+/// Разговор, а не ответ: файл бывает больше памяти, и показывать ход дела
+/// нужно по ходу, а не в конце. Куски едут событиями, конец — тоже.
+final class ReadContent extends CoreRequest {
+  const ReadContent(this.runId, this.entry, {this.offset = 0});
+
+  /// Имя разговора даёт эта сторона — как и у работ: подписка встаёт раньше,
+  /// чем поедет первый кусок.
+  final String runId;
+  final EntryRef entry;
+
+  /// Сколько байт пропустить от начала.
+  final int offset;
+}
+
 /// Сказать в идущую работу: отмена, ответ на вопрос.
 final class TellOperation extends CoreRequest {
   const TellOperation(this.runId, this.input);
@@ -240,6 +256,27 @@ final class PanelListed extends CoreEvent {
 
   final PanelId panel;
   final PanelListing listing;
+}
+
+/// Кусок содержимого.
+final class ContentChunk extends CoreEvent {
+  const ContentChunk(this.runId, this.bytes);
+
+  final String runId;
+  final List<int> bytes;
+}
+
+/// Содержимое кончилось — или не пошло вовсе.
+final class ContentEnded extends CoreEvent {
+  const ContentEnded(this.runId, {this.error, this.message = ''});
+
+  final String runId;
+
+  /// Отказ источника — как есть; null — дочитали до конца.
+  final FsError? error;
+
+  /// Чужая беда — текстом.
+  final String message;
 }
 
 /// Работа рассказывает о себе.

@@ -1,6 +1,6 @@
-import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flex_commander/link/link.dart';
 import 'package:flex_commander/link/loopback_link.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -8,13 +8,16 @@ import 'package:flutter_test/flutter_test.dart';
 /// Подставное ядро: помнит, о чём его просили, и отвечает как велено.
 class _Core implements CoreHandler {
   final List<CoreRequest> seen = [];
-  final StreamController<CoreEvent> _events = StreamController<CoreEvent>.broadcast();
+  final List<void Function(CoreEvent event)> _listeners = [];
 
   /// Чем отвечать; по умолчанию — «сделано».
   Future<CoreReply?> Function(CoreRequest request)? answer;
 
   @override
-  Stream<CoreEvent> get events => _events.stream;
+  VoidCallback listen(void Function(CoreEvent event) onEvent) {
+    _listeners.add(onEvent);
+    return () => _listeners.remove(onEvent);
+  }
 
   @override
   Future<CoreReply?> handle(CoreRequest request) async {
@@ -26,9 +29,13 @@ class _Core implements CoreHandler {
     return const CoreDone();
   }
 
-  void say(CoreEvent event) => _events.add(event);
+  void say(CoreEvent event) {
+    for (final listener in _listeners.toList()) {
+      listener(event);
+    }
+  }
 
-  Future<void> close() => _events.close();
+  Future<void> close() async => _listeners.clear();
 }
 
 void main() {

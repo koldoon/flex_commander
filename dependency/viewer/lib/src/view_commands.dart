@@ -43,20 +43,27 @@ class ViewFileCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final entry = context.entry;
-    // ВРЕМЕННО: показ читает байты по эту сторону границы и держит живой узел
-    // (`docs/spec/client-server.md`, Э5).
-    final node = entry == null ? null : context.panel.nodeOf(entry);
-    if (node == null) {
+    if (entry == null) {
       return;
     }
+    // Байты живут за границей: сюда приезжает то, чем их читают.
+    final bytes = context.panel.contentOf(entry);
 
     try {
       // Открытие ведёт панель: файл может лежать на сервере, и до появления
       // экрана проходят секунды. Точка прерывания у просмотрщиков уже есть —
       // ею пользуется быстрый просмотр, — и отдаётся она прямо из работы.
       final content = await context.panel.runWork<ViewportState>((op) async {
-        op.report(message: 'Reading ${node.name}…');
-        return openViewer(context.app, node, ViewerPlace.fullscreen, checkpoint: op.checkpoint);
+        op.report(message: 'Reading ${entry.name}…');
+        return openViewer(
+          context.app,
+          entry,
+          bytes,
+          ViewerPlace.fullscreen,
+          checkpoint: op.checkpoint,
+          siblings: context.panel.entries,
+          contentOf: context.panel.contentOf,
+        );
       });
       context.app.view.pushViewportContent(ViewportPosition.fullscreen, content);
     } on OperationCanceled {

@@ -29,6 +29,19 @@ void main() {
     await runtime.app.start();
   });
 
+  /// Даёт быстрому просмотру прочитать файл.
+  ///
+  /// Настоящее время и кадры вперемежку: байты идут разговором с ядром, а
+  /// приложение собрано в `setUp` — то есть в настоящем времени
+  /// (`docs/spec/client-server.md`, §5.1.3).
+  Future<void> settleQuickView(WidgetTester tester) async {
+    await tester.pump(QuickViewHost.defaultDelay * 2);
+    for (var turn = 0; turn < 5; turn++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 10)));
+      await tester.pumpAndSettle();
+    }
+  }
+
   Future<void> pumpApp(WidgetTester tester) async {
     tester.view.physicalSize = const Size(1000, 700);
     tester.view.devicePixelRatio = 1;
@@ -45,8 +58,7 @@ void main() {
       runtime.app.left.setCursorToName('notes.txt');
 
       runtime.commands.dispatch(KeyCombination.parse('Shift-F3'));
-      await tester.pump(QuickViewHost.defaultDelay * 2);
-      await tester.pumpAndSettle();
+      await settleQuickView(tester);
 
       // Список файлов на месте — просмотр занял только соседнюю область.
       expect(find.byType(FileTable), findsOneWidget);
@@ -72,8 +84,7 @@ void main() {
       await pumpApp(tester);
       runtime.app.left.setCursorToName('notes.txt');
       runtime.commands.dispatch(KeyCombination.parse('Shift-F3'));
-      await tester.pump(QuickViewHost.defaultDelay * 2);
-      await tester.pumpAndSettle();
+      await settleQuickView(tester);
 
       /// Плашка по адресу в ней: у панели — каталог, у показа — файл.
       bool bright(String path) =>
@@ -99,8 +110,7 @@ void main() {
       await pumpApp(tester);
       runtime.app.left.setCursorToName('notes.txt');
       runtime.commands.dispatch(KeyCombination.parse('Shift-F3'));
-      await tester.pump(QuickViewHost.defaultDelay * 2);
-      await tester.pumpAndSettle();
+      await settleQuickView(tester);
 
       runtime.app.toggleActivePanel();
       await tester.pumpAndSettle();
@@ -121,8 +131,7 @@ void main() {
       runtime.app.left.setCursorToName('docs');
 
       runtime.commands.dispatch(KeyCombination.parse('Shift-F3'));
-      await tester.pump(QuickViewHost.defaultDelay * 2);
-      await tester.pumpAndSettle();
+      await settleQuickView(tester);
 
       // Заглушка «Directory» была временной — до модуля сведений. Текста в
       // каталоге нет, а сведения есть: имя, путь, тип. Кто именно их

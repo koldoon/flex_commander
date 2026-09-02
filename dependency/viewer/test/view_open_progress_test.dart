@@ -51,14 +51,22 @@ void main() {
     await tester.pump();
   }
 
+  /// Отпускает чтение и даёт ему доиграть.
+  ///
+  /// Настоящее время **и** кадры, вперемежку: байты идут разговором с ядром,
+  /// и у разговора несколько оборотов — часть из них живёт в настоящем
+  /// времени (приложение собрано в `setUp`), часть в поддельном
+  /// (`docs/spec/client-server.md`, §5.1.3).
   Future<void> finishReading(WidgetTester tester) async {
-    await tester.runAsync(() async {
-      if (!disk.gate.isCompleted) {
-        disk.gate.complete();
-      }
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-    });
-    await tester.pumpAndSettle();
+    for (var turn = 0; turn < 5; turn++) {
+      await tester.runAsync(() async {
+        if (!disk.gate.isCompleted) {
+          disk.gate.complete();
+        }
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      });
+      await tester.pumpAndSettle();
+    }
   }
 
   ViewportState? shown() => runtime.app.view.contentAt(ViewportPosition.fullscreen);

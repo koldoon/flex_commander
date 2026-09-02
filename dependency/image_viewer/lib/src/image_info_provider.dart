@@ -1,5 +1,4 @@
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'image_document.dart';
@@ -27,16 +26,14 @@ class ImageInfoProvider implements NodeInfoProvider {
   /// Берётся за то же, за что берётся и показ, — иначе окно обещало бы
   /// сведения о картинке там, где картинки нет.
   @override
-  bool accepts(FsNode node, ContentType? type) =>
-      node is FileNode &&
-      node is! DirectoryNode &&
-      ImageViewer.extensions.contains(extensionOf(node.name).toLowerCase());
+  bool accepts(FileEntry entry, ContentType? type) =>
+      !entry.isDirectory && !entry.isParent && ImageViewer.extensions.contains(extensionOf(entry.name).toLowerCase());
 
   @override
-  Future<List<NodeInfoSection>> describe(FsNode node) async {
+  Future<List<NodeInfoSection>> describe(FileEntry entry, Content content) async {
     // Читает целиком — иначе заголовок не разобрать. Предел тот же, что у
     // показа: сведения не должны стоить дороже открытия.
-    final document = await ImageDocument.read(node, settings, checkpoint: () async {});
+    final document = await ImageDocument.read(entry, content, settings, checkpoint: () async {});
 
     return [
       NodeInfoSection(

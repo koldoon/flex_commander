@@ -37,6 +37,7 @@ class FileEntry {
     this.broken = false,
     this.linkToDirectory = false,
     this.reference = '',
+    this.scheme = '',
   });
 
   /// Размер неизвестен: у каталога, пока его не обошли, и у того, о чьём
@@ -77,6 +78,12 @@ class FileEntry {
   /// На что указывает ссылка — как записано в ней самой.
   final String reference;
 
+  /// Откуда объект: `fs`, `zip`, `sftp`.
+  ///
+  /// У строки, а не только у панели: список находок собран из разных
+  /// источников, и «откуда это» у каждой строки своё.
+  final String scheme;
+
   /// То же значение с новым размером.
   ///
   /// Нужно посчитанным каталогам: их размер приезжает отдельным событием, и
@@ -95,6 +102,7 @@ class FileEntry {
     broken: broken,
     linkToDirectory: linkToDirectory,
     reference: reference,
+    scheme: scheme,
   );
 
   bool get isDirectory => kind == EntryKind.directory;
