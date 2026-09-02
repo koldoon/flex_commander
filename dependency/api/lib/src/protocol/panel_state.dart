@@ -20,6 +20,7 @@ class PanelState {
     this.error,
     this.busy = false,
     this.statusText,
+    this.headerText,
     this.cursorIndex = 0,
     this.cursorSeq = 0,
     this.generation = 0,
@@ -52,6 +53,12 @@ class PanelState {
   /// станет заметен, — а до тех пор второе поле было бы усложнением без
   /// причины.
   final String? statusText;
+
+  /// Заголовок, выставленный командой; null — показывается путь каталога.
+  ///
+  /// Нужен тому, кто заполняет панель не каталогом: находкам, ветке
+  /// соединения, списку закладок.
+  final String? headerText;
 
   final int cursorIndex;
 
@@ -87,6 +94,8 @@ class PanelState {
     bool? busy,
     String? statusText,
     bool clearStatus = false,
+    String? headerText,
+    bool clearHeader = false,
     int? cursorIndex,
     int? cursorSeq,
     int? generation,
@@ -103,6 +112,7 @@ class PanelState {
     error: clearError ? null : (error ?? this.error),
     busy: busy ?? this.busy,
     statusText: clearStatus ? null : (statusText ?? this.statusText),
+    headerText: clearHeader ? null : (headerText ?? this.headerText),
     cursorIndex: cursorIndex ?? this.cursorIndex,
     cursorSeq: cursorSeq ?? this.cursorSeq,
     generation: generation ?? this.generation,

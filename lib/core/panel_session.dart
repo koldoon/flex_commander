@@ -816,6 +816,7 @@ class PanelSession {
     error: _error,
     busy: _busy,
     statusText: _statusText,
+    headerText: _headerText,
     cursorIndex: _cursorIndex,
     cursorSeq: _cursorSeq,
     generation: _generation,

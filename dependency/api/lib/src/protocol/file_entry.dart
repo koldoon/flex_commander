@@ -77,6 +77,26 @@ class FileEntry {
   /// На что указывает ссылка — как записано в ней самой.
   final String reference;
 
+  /// То же значение с новым размером.
+  ///
+  /// Нужно посчитанным каталогам: их размер приезжает отдельным событием, и
+  /// строка обновляется на месте, без пересылки всего списка.
+  FileEntry withSize(int value) => FileEntry(
+    name: name,
+    kind: kind,
+    path: path,
+    directoryPath: directoryPath,
+    size: value,
+    modified: modified,
+    created: created,
+    accessed: accessed,
+    attributes: attributes,
+    executable: executable,
+    broken: broken,
+    linkToDirectory: linkToDirectory,
+    reference: reference,
+  );
+
   bool get isDirectory => kind == EntryKind.directory;
 
   bool get isParent => kind == EntryKind.parent;

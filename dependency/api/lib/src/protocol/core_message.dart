@@ -115,6 +115,27 @@ final class MeasureDirectories extends CoreRequest {
   final PanelId panel;
 }
 
+/// Строка состояния панели, выставленная командой.
+///
+/// Строка одна на всех — пишут в неё и ядро, и команды, — поэтому и живёт она
+/// там же, где остальное состояние. Уходит просьба не дожидаясь ответа, а
+/// зеркало пишет к себе сразу: текст должен появиться в тот же кадр, в котором
+/// команда его выставила.
+final class SetStatusText extends CoreRequest {
+  const SetStatusText(this.panel, this.text);
+
+  final PanelId panel;
+  final String? text;
+}
+
+/// Заголовок панели, выставленный командой; null — показывается путь.
+final class SetHeaderText extends CoreRequest {
+  const SetHeaderText(this.panel, this.text);
+
+  final PanelId panel;
+  final String? text;
+}
+
 /// Прервать то, чем панель занята.
 final class CancelWork extends CoreRequest {
   const CancelWork(this.panel);

@@ -107,6 +107,14 @@ class CoreServer implements CoreHandler {
         }
         return const CoreDone();
 
+      case SetStatusText(:final panel, :final text):
+        session(panel).setStatusText(text);
+        return null;
+
+      case SetHeaderText(:final panel, :final text):
+        session(panel).setHeaderText(text);
+        return null;
+
       case MeasureDirectories(:final panel):
         session(panel).measureDirectories();
         return null;
