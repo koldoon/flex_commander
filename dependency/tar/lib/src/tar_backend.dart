@@ -2,6 +2,8 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 
 import 'gzip_tree_provider.dart';
+import 'gzip_pack.dart';
+import 'tar_pack.dart';
 import 'tar_tree_provider.dart';
 
 /// Архивы tar, gz и tar.gz — ядровая половина.
@@ -20,6 +22,13 @@ class TarArchiverBackend implements FcBackendModule {
 
   @override
   void installBackend(BackendRegistry registry) {
+    // Упаковка — работа ядра: обход дерева и байты по эту сторону границы.
+    registry.operation(
+      GzipPacking.kind,
+      (services) => GzipPacking(staging: services.resolve<StagingArea>()).operation(),
+    );
+    registry.operation(TarPacking.kind, (services) => TarPacking(staging: services.resolve<StagingArea>()).operation());
+
     registry.provider(
       TarTreeProvider.schemeName,
       () => TaskOperation<FsNode, TreeProvider>((op, host) {

@@ -3,6 +3,7 @@ import 'package:fc_core_api/fc_core_api.dart';
 
 import 'seven_zip_cli.dart';
 import 'seven_zip_settings.dart';
+import 'seven_zip_pack.dart';
 import 'seven_zip_tree_provider.dart';
 
 /// Архив 7z как дерево — ядровая половина.
@@ -36,6 +37,14 @@ class SevenZipArchiverBackend implements FcBackendModule {
         processes: services.resolve<ProcessRunner>(),
         executable: settings.section(SevenZipSettings.new).binary,
       ),
+    );
+
+    // Упаковка — работа ядра: обход дерева и запуск программы по эту сторону
+    // границы.
+    registry.operation(
+      SevenZipPacking.kind,
+      (services) =>
+          SevenZipPacking(staging: services.resolve<StagingArea>(), cli: services.resolve<SevenZipCli>()).operation(),
     );
 
     registry.provider(

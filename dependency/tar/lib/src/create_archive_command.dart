@@ -1,45 +1,12 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
-import 'package:path/path.dart' as p;
 
-import 'archive_output.dart';
-import 'tar_writer.dart';
-
-/// Что получится на выходе.
-///
-/// Выбор из двух, а не степень сжатия: у tar её нет вовсе — сжимает не он, а
-/// gzip поверх него, и уровень там почти ни на что не влияет.
-enum TarFormat {
-  plain('.tar', 'tar'),
-  gzip('.tar.gz', 'tar.gz'),
-
-  /// То же, что [gzip], и отличается только именем файла.
-  ///
-  /// Отдельным пунктом, а не догадкой по набранному расширению: `.tgz` живёт
-  /// там, где длинные имена неудобны, и человек, которому нужен именно он,
-  /// иначе получал бы `.tar.gz` молча.
-  tgz('.tgz', 'tgz');
-
-  const TarFormat(this.extension, this.title);
-
-  /// Чем кончается имя архива.
-  final String extension;
-
-  /// Название для человека.
-  final String title;
-
-  /// Заворачивается ли архив в gzip. У `.tar` — нет, у остальных — да.
-  bool get compressed => this != TarFormat.plain;
-
-  static TarFormat byName(String? name) =>
-      values.firstWhere((value) => value.name == name, orElse: () => TarFormat.gzip);
-}
+import 'tar_format.dart';
+import 'tar_pack.dart';
 
 /// Расширения, которые считаются уже написанным именем архива.
 ///
@@ -58,7 +25,7 @@ const List<String> _tarExtensions = ['.tar.gz', '.tgz', '.tar'];
 /// Команда живёт в палитре, ровно тот случай, ради которого палитра и
 /// заводилась.
 class CreateTarArchiveCommand extends AppCommand {
-  CreateTarArchiveCommand({required StagingArea staging}) : _staging = staging;
+  CreateTarArchiveCommand();
 
   static const String commandId = 'tar.create';
 
@@ -71,8 +38,6 @@ class CreateTarArchiveCommand extends AppCommand {
   /// Идти ли по символическим ссылкам. По умолчанию нет: ссылка ложится в
   /// архив ссылкой — tar это умеет, и ради этого им и пользуются.
   static const String followLinksParam = 'followLinks';
-
-  final StagingArea _staging;
 
   @override
   String get id => commandId;
@@ -99,24 +64,19 @@ class CreateTarArchiveCommand extends AppCommand {
     // или он не умеет принимать содержимое.
     // Занятый приёмник принять ничего не может: он сам сейчас читает.
     final target = context.target;
-    final destination = target?.directory;
-    return target != null && !target.busy && destination != null && destination.provider.canReceive;
+    return target != null && !target.busy && target.path.isNotEmpty && target.source.canReceive;
   }
 
-  /// ВРЕМЕННО узлами: цели приезжают строками списка, а работа пока идёт по эту
-  /// сторону границы (`docs/spec/client-server.md`, Э4 и Э5).
-  List<FsNode> _sourcesOf(CommandContext context) => [
+  /// Что паковать: помеченное, а без пометки — то, что под курсором.
+  List<FileEntry> _sourcesOf(CommandContext context) => [
     for (final entry in context.targets)
-      if (!entry.isParent)
-        if (context.panel.nodeOf(entry) case final node?) node,
+      if (!entry.isParent) entry,
   ];
 
   @override
   Future<void> execute(CommandContext context) async {
-    final sources = _sourcesOf(context);
     final target = context.target;
-    final destination = target?.directory;
-    if (sources.isEmpty || target == null || destination == null) {
+    if (_sourcesOf(context).isEmpty || target == null) {
       return;
     }
 
@@ -126,29 +86,24 @@ class CreateTarArchiveCommand extends AppCommand {
         throw FsError(name, FsErrorKind.invalidName);
       }
 
-      final provider = destination.provider;
-      if (provider is NodeEditor && await (provider as NodeEditor).lookup(destination, name) != null) {
-        // Молча затирать существующий архив нельзя: имя можно поправить прямо
-        // в окне и повторить.
-        throw FsError('${destination.pathString}/$name', FsErrorKind.alreadyExists);
-      }
+      // Аренда обоих концов и проверка занятого имени — дело ядра: там живут
+      // узлы, и там же идёт работа.
+      final spec = OperationSpec(
+        kind: TarPacking.kind,
+        targets: Targets.marked(context.panel.id),
+        destination: target.id,
+        options: {
+          TarPacking.nameOption: name,
+          TarPacking.formatOption: format.name,
+          TarPacking.followLinksOption: followLinks,
+        },
+      );
 
-      // Аренда обоих концов на всё время работы: упаковку можно отправить в
-      // фон, и любая из панелей за это время вправе уйти из своего архива.
-      final from = context.panel.leaseProvider();
-      final into = target.leaseProvider();
-
-      try {
-        final operation = packOperation();
-        final params = TarPackParams(sources, destination, name, format: format, followLinks: followLinks);
-        if (run != null) {
-          await run.run(operation, params, message: 'Packing…');
-        } else {
-          await operation.run(params);
-        }
-      } finally {
-        await from?.release();
-        await into?.release();
+      final operation = context.app.runOperation();
+      if (run != null) {
+        await run.run(operation, spec, message: 'Packing…');
+      } else {
+        await operation.run(spec);
       }
 
       // Приёмник теперь показывает не то, что на диске: там появился архив.
@@ -221,183 +176,6 @@ class CreateTarArchiveCommand extends AppCommand {
     return typed;
   }
 
-  /// Упаковка: сборка архива во временном файле и передача его приёмнику.
-  ///
-  /// Через временный файл, а не прямо в приёмник: размер архива до конца работы
-  /// неизвестен, а приёмник вправе его требовать. Прерванная работа при этом не
-  /// оставляет полуархива на месте назначения.
-  ///
-  /// Сжатие идёт **в один проход**: gzip навешивается на тот же поток, которым
-  /// собирается tar, и промежуточного несжатого файла не появляется.
-  @visibleForTesting
-  Operation<TarPackParams, void> packOperation() {
-    return TaskOperation<TarPackParams, void>((op, params) async {
-      final sources = params.sources;
-      final destination = params.destination;
-      final progress = TransferProgress(op);
-      // Плечи: сперва архив собирается, потом уходит приёмнику. Второе бывает
-      // и дольше первого — по сети, например.
-      progress.beginStage('packing', index: 1, count: 2);
-      // Считаем рядом с работой, а не перед ней: обойти дерево стоит почти
-      // столько же, сколько его упаковать.
-      unawaited(_count(sources, progress));
-
-      final staged = await _staging.open('flex_commander_tar_create');
-      final archivePath = p.join(staged.path, params.name);
-      int? entryItem;
-
-      try {
-        final items = _itemsOf(sources, op, progress, followLinks: params.followLinks);
-        final bytes = writeTarStream(
-          items,
-          checkpoint: op.checkpoint,
-          onEntry: (item) {
-            progress.startSource(_sourceOf(item.name));
-            entryItem = progress.startItem(item.name, bytes: item.size);
-          },
-          // Байты приходят по мере того, как читается запись: так видно
-          // движение и внутри одного большого файла, а не только между ними.
-          onBytes: (count) => progress.advanceBytes(count, entryItem),
-        );
-
-        final out = params.format.compressed ? gzip.encoder.bind(bytes) : bytes;
-        final sink = File(archivePath).openWrite();
-        try {
-          await sink.addStream(out);
-        } finally {
-          await sink.close();
-        }
-
-        await op.checkpoint();
-
-        // Второе плечо: готовый архив уходит приёмнику. Его размер до этого
-        // момента неизвестен, поэтому работа прирастает здесь — бар при этом не
-        // прыгает назад, а лишь пересчитывает оставшееся.
-        final packed = await File(archivePath).length();
-        progress.countBytes(packed);
-        progress.beginStage('storing archive', index: 2, count: 2);
-        await deliverArchive(archivePath, destination, params.name, op, progress);
-      } finally {
-        progress.stop();
-        await staged.dispose();
-      }
-
-      progress.finish();
-    });
-  }
-
-  /// Записи архива — потоком, по мере обхода дерева.
-  ///
-  /// Потоком, а не списком: содержимое каждой записи читается прямо из своего
-  /// провайдера в тот момент, когда её пишут. Ни временных копий, ни памяти под
-  /// файл — tar пишется подряд, и держать в руках нечего.
-  Stream<TarItem> _itemsOf(
-    List<FsNode> sources,
-    TaskOperation<Object?, void> op,
-    TransferProgress progress, {
-    required bool followLinks,
-  }) async* {
-    for (final source in sources) {
-      await op.checkpoint();
-      progress.startSource(source.name);
-      yield* _itemsOfNode(source, source.name, op, progress, followLinks: followLinks);
-    }
-  }
-
-  Stream<TarItem> _itemsOfNode(
-    FsNode node,
-    String entryName,
-    TaskOperation<Object?, void> op,
-    TransferProgress progress, {
-    required bool followLinks,
-  }) async* {
-    await op.checkpoint();
-
-    // Ссылка разбирается до того, как узел сочтут файлом: ссылка на каталог
-    // файлом не является, и поток по ней не открыть.
-    if (node is LinkNode && !followLinks) {
-      // Ссылкой — то, ради чего мир Unix и пользуется tar.
-      yield TarItem.link(name: entryName, linkTarget: node.reference, modified: node.modified);
-      progress.advance();
-      return;
-    }
-
-    final resolved = node is LinkNode ? await node.resolve().run(node) ?? node : node;
-
-    if (resolved is DirectoryNode) {
-      yield TarItem.directory(name: '$entryName/', mode: _modeOf(resolved, 0x1ed), modified: resolved.modified);
-      progress.advance();
-
-      final children = await resolved.provider.listChildren(resolved);
-      for (final child in children) {
-        if (child is ParentDirNode) {
-          continue;
-        }
-        yield* _itemsOfNode(child, '$entryName/${child.name}', op, progress, followLinks: followLinks);
-      }
-      return;
-    }
-
-    final provider = resolved.provider;
-    if (provider is! FileContentProvider) {
-      throw FsError(resolved.pathString, FsErrorKind.notSupported);
-    }
-
-    // Размер объявляется в заголовке **до** содержимого, поэтому он обязан
-    // быть известен заранее. Источник, который его не знает (бывает у чужих
-    // серверов), пришлось бы сперва вычитать целиком — а это отдельная цена, и
-    // платить её молча неправильно.
-    if (resolved.size < 0) {
-      throw FsError(resolved.pathString, FsErrorKind.notSupported);
-    }
-
-    yield TarItem.file(
-      name: entryName,
-      size: resolved.size,
-      mode: _modeOf(resolved, 0x1a4),
-      modified: resolved is FileNode ? resolved.modified : null,
-      content: await (provider as FileContentProvider).openRead(resolved),
-    );
-    progress.advance();
-  }
-
-  /// Права из источника; их нет — обычные для файла или каталога.
-  static int _modeOf(FsNode node, int fallback) {
-    final mode = node is FileNode ? node.attributes.mode : 0;
-    return mode == 0 ? fallback : mode;
-  }
-
-  /// Первое звено пути записи — тот источник, из которого она пришла.
-  static String _sourceOf(String entryName) {
-    final slash = entryName.indexOf('/');
-    return slash < 0 ? entryName : entryName.substring(0, slash);
-  }
-
-  /// Считает объекты и байты — рядом с работой, а не перед ней.
-  Future<void> _count(List<FsNode> sources, TransferProgress progress) async {
-    for (var i = 0; i < sources.length; i++) {
-      if (progress.stopped) {
-        return;
-      }
-
-      var counted = 0;
-      var bytes = 0;
-      try {
-        await sources[i].provider.countEntries(sources[i], (size) {
-          counted++;
-          bytes += size;
-          progress.countOne(size);
-        });
-      } on FsError {
-        // Каталог мог исчезнуть или оказаться закрытым — считаем дальше.
-      }
-      progress.sourceCounted(i, counted, bytes);
-      // Второй проход по тем же байтам — такая же работа, как первый.
-      progress.countBytes(bytes);
-    }
-    progress.countingFinished();
-  }
-
   /// Имя, предложенное по умолчанию: по единственному объекту или по каталогу,
   /// из которого пакуем, — как в референсных менеджерах.
   String defaultNameOf(CommandContext context) {
@@ -412,24 +190,7 @@ class CreateTarArchiveCommand extends AppCommand {
 
   /// Куда ляжет архив — показывается в окне, чтобы «в какую панель» не
   /// приходилось угадывать.
-  String destinationPathOf(CommandContext context) => context.target?.directory?.pathString ?? '';
-}
-
-/// Что упаковать, куда и в каком виде.
-class TarPackParams {
-  const TarPackParams(
-    this.sources,
-    this.destination,
-    this.name, {
-    this.format = TarFormat.gzip,
-    this.followLinks = false,
-  });
-
-  final List<FsNode> sources;
-  final DirectoryNode destination;
-  final String name;
-  final TarFormat format;
-  final bool followLinks;
+  String destinationPathOf(CommandContext context) => context.target?.path ?? '';
 }
 
 /// Прогон упаковки вместе с тем, что спрашивают до её начала.

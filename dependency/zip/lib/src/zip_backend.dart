@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 
+import 'zip_pack.dart';
 import 'zip_tree_provider.dart';
 
 /// Zip-архив как дерево — ядровая половина.
@@ -18,6 +19,10 @@ class ZipArchiverBackend implements FcBackendModule {
 
   @override
   void installBackend(BackendRegistry registry) {
+    // Упаковка — такое же дело, как копирование, и живёт там же, где формат.
+    // Работой, а не командой: обход дерева и байты — по эту сторону границы.
+    registry.operation(ZipPacking.kind, (services) => ZipPacking(staging: services.resolve<StagingArea>()).operation());
+
     registry.provider(
       ZipTreeProvider.schemeName,
       // Архив внутри архива сперва оказывается на диске, но где именно —

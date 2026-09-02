@@ -1,4 +1,3 @@
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'create_archive_command.dart';
@@ -20,11 +19,11 @@ class TarArchiverFrontend implements FcFrontendModule {
     // формат. Клавиши ей не досталось: `Shift-F5` у zip, `Shift-F7` у 7z, а
     // `Shift-F6` встал бы поперёк привычки — `F6` это перенос. Место команды
     // без клавиши — палитра.
-    registry.command((context) => CreateTarArchiveCommand(staging: context.resolve<StagingArea>()));
+    registry.command((context) => CreateTarArchiveCommand());
 
     // Сжатие одного файла — отдельная команда, а не пункт в окне упаковки:
     // gzip жмёт поток, а не набор файлов, и «сложить три файла в один .gz» —
     // просьба, которую формат не выполняет.
-    registry.command((context) => CreateGzipCommand(staging: context.resolve<StagingArea>()));
+    registry.command((context) => CreateGzipCommand());
   }
 }

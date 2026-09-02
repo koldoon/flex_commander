@@ -44,11 +44,20 @@ void main() {
 
   /// Пакует `from/src` в `to/<name>`.
   Future<String> pack(String name, {TarFormat format = TarFormat.gzip, bool followLinks = false}) async {
-    final command = CreateTarArchiveCommand(staging: LocalStagingArea(root: work));
+    // Работа ядра: доводы приходят заявкой, а цели и приёмник ей уже
+    // развернули — здесь это делает сам тест.
     final destination = await nodeAt(target) as DirectoryNode;
-
-    await command.packOperation().run(
-      TarPackParams([await nodeAt(p.join(source, 'src'))], destination, name, format: format, followLinks: followLinks),
+    await TarPacking(staging: LocalStagingArea(root: work)).operation().run(
+      OperationInputs(
+        targets: [await nodeAt(p.join(source, 'src'))],
+        destination: destination,
+        editor: const TreeTransferEngine(),
+        options: {
+          TarPacking.nameOption: name,
+          TarPacking.formatOption: format.name,
+          TarPacking.followLinksOption: followLinks,
+        },
+      ),
     );
 
     final path = p.join(target, name);

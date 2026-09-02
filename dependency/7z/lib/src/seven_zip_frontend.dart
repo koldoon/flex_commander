@@ -1,8 +1,6 @@
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'create_archive_command.dart';
-import 'seven_zip_cli.dart';
 import 'seven_zip_settings.dart';
 
 /// Архив 7z как дерево — экранная половина: упаковка на `Shift-F7` и раздел
@@ -38,10 +36,7 @@ class SevenZipArchiverFrontend implements FcFrontendModule {
 
     // Упаковка — такое же действие, как копирование, и живёт там же, где
     // формат: про 7z знает только этот модуль.
-    registry.command(
-      (context) =>
-          CreateSevenZipArchiveCommand(staging: context.resolve<StagingArea>(), cli: context.resolve<SevenZipCli>()),
-    );
+    registry.command((context) => CreateSevenZipArchiveCommand());
     registry.binding(KeyBinding('Shift-F7', CreateSevenZipArchiveCommand.commandId));
   }
 }

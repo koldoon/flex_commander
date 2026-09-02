@@ -6,6 +6,8 @@ library;
 
 export 'src/seven_zip_backend.dart';
 export 'src/seven_zip_cli.dart';
+export 'src/seven_zip_compression.dart';
 export 'src/seven_zip_listing.dart';
+export 'src/seven_zip_pack.dart';
 export 'src/seven_zip_settings.dart';
 export 'src/seven_zip_tree_provider.dart';

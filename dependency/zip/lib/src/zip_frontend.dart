@@ -1,4 +1,3 @@
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'create_archive_command.dart';
@@ -18,7 +17,7 @@ class ZipArchiverFrontend implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.command((context) => CreateZipArchiveCommand(staging: context.resolve<StagingArea>()));
+    registry.command((context) => CreateZipArchiveCommand());
     registry.binding(KeyBinding('Shift-F5', CreateZipArchiveCommand.commandId));
   }
 }

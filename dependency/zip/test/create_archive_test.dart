@@ -247,21 +247,21 @@ void main() {
   group('ход работы', () {
     /// Ход работы — свойство самой операции, а не команды: команда показывает
     /// окно и уходит. Поэтому проверяется операция.
+    /// Работа заводится заявкой — как её заводит команда.
     Future<Operation<Object?, void>> packed(String name) async {
-      final command = runtime.commands.create(CreateZipArchiveCommand.commandId)! as CreateZipArchiveCommand;
-      final panel = runtime.app.left;
-      final sources = [for (final entry in panel.targets) panel.nodeOf(entry)!];
-
-      final operation =
-          command.packOperation()..start(
-            ZipPackParams(
-              sources,
-              runtime.app.right.directory!,
-              '$name.zip',
-              compression: ZipCompression.normal,
-              followLinks: false,
-            ),
-          );
+      final operation = runtime.app.runOperation();
+      operation.start(
+        OperationSpec(
+          kind: ZipPacking.kind,
+          targets: Targets.marked(PanelId.left),
+          destination: PanelId.right,
+          options: {
+            ZipPacking.nameOption: '$name.zip',
+            ZipPacking.compressionOption: ZipCompression.normal.name,
+            ZipPacking.followLinksOption: false,
+          },
+        ),
+      );
       await operation.result;
       return operation;
     }
@@ -284,16 +284,18 @@ void main() {
     test('в строке источника стоит объект задания, а имя файла — в своей строке', () async {
       runtime.app.left.setCursorToName('docs');
 
-      final command = runtime.commands.create(CreateZipArchiveCommand.commandId)! as CreateZipArchiveCommand;
-      final operation = command.packOperation();
+      final operation = runtime.app.runOperation();
       final log = ProgressLog.of(operation);
       operation.start(
-        ZipPackParams(
-          [runtime.app.left.nodeOf(runtime.app.left.currentEntry!)!],
-          runtime.app.right.directory!,
-          'docs.zip',
-          compression: ZipCompression.normal,
-          followLinks: false,
+        OperationSpec(
+          kind: ZipPacking.kind,
+          targets: Targets.current(PanelId.left),
+          destination: PanelId.right,
+          options: {
+            ZipPacking.nameOption: 'docs.zip',
+            ZipPacking.compressionOption: ZipCompression.normal.name,
+            ZipPacking.followLinksOption: false,
+          },
         ),
       );
       await operation.result;

@@ -43,10 +43,17 @@ void main() {
 
   /// Сжимает `from/<name>` в `to/<archive>`.
   Future<String> compress(String name, String archive) async {
-    final command = CreateGzipCommand(staging: LocalStagingArea(root: work));
+    // Работа ядра: доводы приходят заявкой, а цели и приёмник ей уже
+    // развернули — здесь это делает сам тест.
     final destination = await nodeAt(target) as DirectoryNode;
-
-    await command.packOperation().run(GzipPackParams(await nodeAt(p.join(source, name)), destination, archive));
+    await GzipPacking(staging: LocalStagingArea(root: work)).operation().run(
+      OperationInputs(
+        targets: [await nodeAt(p.join(source, name))],
+        destination: destination,
+        editor: const TreeTransferEngine(),
+        options: {GzipPacking.nameOption: archive},
+      ),
+    );
 
     final path = p.join(target, archive);
     expect(File(path).existsSync(), isTrue, reason: 'файл не появился');
@@ -162,6 +169,9 @@ void main() {
   test('имя по умолчанию — исходное плюс .gz', () async {
     // Расширение исходного файла остаётся на месте: по нему и понятно, что
     // внутри, а провайдер `gz` покажет ровно это имя.
-    expect(CreateGzipCommand.defaultNameOf(await nodeAt(p.join(source, 'dump.sql'))), 'dump.sql.gz');
+    expect(
+      CreateGzipCommand.defaultNameOf(const FileEntry(name: 'dump.sql', kind: EntryKind.file, path: '/dump.sql')),
+      'dump.sql.gz',
+    );
   });
 }

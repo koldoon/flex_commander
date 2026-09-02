@@ -1,13 +1,9 @@
-import 'dart:io';
-
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
-import 'package:path/path.dart' as p;
 
-import 'archive_output.dart';
+import 'gzip_pack.dart';
 
 /// Сжать один файл в `.gz`.
 ///
@@ -23,14 +19,12 @@ import 'archive_output.dart';
 /// Клавиши нет, как и у `Mk Tar`: свободных в ряду не осталось, а место
 /// команды без клавиши — палитра.
 class CreateGzipCommand extends AppCommand {
-  CreateGzipCommand({required StagingArea staging}) : _staging = staging;
+  CreateGzipCommand();
 
   static const String commandId = 'gz.create';
 
   /// Имя будущего файла.
   static const String nameParam = 'name';
-
-  final StagingArea _staging;
 
   @override
   String get id => commandId;
@@ -56,32 +50,28 @@ class CreateGzipCommand extends AppCommand {
     // Ссылка сюда проходит — куда она ведёт, выяснится при работе, и вести она
     // может как раз в файл.
     final sources = _sourcesOf(context);
-    if (sources.length != 1 || sources.single is DirectoryNode) {
+    if (sources.length != 1 || sources.single.isDirectory) {
       return false;
     }
 
     // Занятый приёмник принять ничего не может: он сам сейчас читает.
     final target = context.target;
-    final destination = target?.directory;
-    return target != null && !target.busy && destination != null && destination.provider.canReceive;
+    return target != null && !target.busy && target.path.isNotEmpty && target.source.canReceive;
   }
 
-  /// ВРЕМЕННО узлами — см. `docs/spec/client-server.md`, Э4.
-  List<FsNode> _sourcesOf(CommandContext context) => [
+  /// Что сжимать: помеченное, а без пометки — то, что под курсором.
+  List<FileEntry> _sourcesOf(CommandContext context) => [
     for (final entry in context.targets)
-      if (!entry.isParent)
-        if (context.panel.nodeOf(entry) case final node?) node,
+      if (!entry.isParent) entry,
   ];
 
   @override
   Future<void> execute(CommandContext context) async {
     final sources = _sourcesOf(context);
     final target = context.target;
-    final destination = target?.directory;
-    if (sources.length != 1 || target == null || destination == null) {
+    if (sources.length != 1 || target == null) {
       return;
     }
-    final source = sources.single;
 
     Future<void> compress(String typed, [FcAsyncRun? run]) async {
       final name = typed.trim();
@@ -89,28 +79,19 @@ class CreateGzipCommand extends AppCommand {
         throw FsError(name, FsErrorKind.invalidName);
       }
 
-      final provider = destination.provider;
-      if (provider is NodeEditor && await (provider as NodeEditor).lookup(destination, name) != null) {
-        // Молча затирать существующий файл нельзя: имя правится тут же в окне.
-        throw FsError('${destination.pathString}/$name', FsErrorKind.alreadyExists);
-      }
+      // Аренда обоих концов и проверка занятого имени — дело ядра.
+      final spec = OperationSpec(
+        kind: GzipPacking.kind,
+        targets: Targets.current(context.panel.id),
+        destination: target.id,
+        options: {GzipPacking.nameOption: name},
+      );
 
-      // Аренда обоих концов: работу можно убрать в фон, и любая из панелей за
-      // это время вправе уйти из своего архива.
-      final from = context.panel.leaseProvider();
-      final into = target.leaseProvider();
-
-      try {
-        final operation = packOperation();
-        final params = GzipPackParams(source, destination, name);
-        if (run != null) {
-          await run.run(operation, params, message: 'Compressing…');
-        } else {
-          await operation.run(params);
-        }
-      } finally {
-        await from?.release();
-        await into?.release();
+      final operation = context.app.runOperation();
+      if (run != null) {
+        await run.run(operation, spec, message: 'Compressing…');
+      } else {
+        await operation.run(spec);
       }
 
       await target.reload();
@@ -145,8 +126,8 @@ class CreateGzipCommand extends AppCommand {
       title: dialogTitle,
       failureMessage: '$label failed',
       show: present,
-      name: defaultNameOf(source),
-      destinationPath: destination.pathString,
+      name: defaultNameOf(sources.single),
+      destinationPath: target.path,
     );
     run.onStart = () => compress(run.name, run);
 
@@ -159,91 +140,7 @@ class CreateGzipCommand extends AppCommand {
   /// что внутри: `dump.sql.gz` разжимается в `dump.sql`, и провайдер `gz`
   /// показывает ровно это имя.
   @visibleForTesting
-  static String defaultNameOf(FsNode source) => '${source.name}.gz';
-
-  /// Сжатие: поток источника через gzip во временный файл и оттуда приёмнику.
-  ///
-  /// Через временный файл, а не прямо в приёмник, по той же причине, что и у
-  /// tar: сколько байт получится, до конца работы неизвестно, а приёмник вправе
-  /// знать размер заранее.
-  @visibleForTesting
-  Operation<GzipPackParams, void> packOperation() {
-    return TaskOperation<GzipPackParams, void>((op, params) async {
-      final destination = params.destination;
-      final progress = TransferProgress(op);
-      progress.beginStage('compressing', index: 1, count: 2);
-
-      final source = await _fileOf(params.source);
-      final provider = source.provider;
-      if (provider is! FileContentProvider) {
-        throw FsError(source.pathString, FsErrorKind.notSupported);
-      }
-
-      // Объект здесь ровно один, и считать нечего: размер известен сразу.
-      // Неизвестен он бывает у файла на сервере, который о нём не сказал, — и
-      // тогда полоса идёт по байтам, а доли не показывает.
-      progress.countOne(source.size);
-      progress.countingFinished();
-
-      final staged = await _staging.open('flex_commander_gz_create');
-      final archivePath = p.join(staged.path, params.name);
-
-      try {
-        progress.startSource(source.name);
-        final item = progress.startItem(source.name, bytes: source.size);
-
-        final bytes = (await (provider as FileContentProvider).openRead(source)).asyncMap((chunk) async {
-          await op.checkpoint();
-          progress.advanceBytes(chunk.length, item);
-          return chunk;
-        });
-
-        final sink = File(archivePath).openWrite();
-        try {
-          await sink.addStream(gzip.encoder.bind(bytes));
-        } finally {
-          await sink.close();
-        }
-        progress.finishItem(item);
-
-        await op.checkpoint();
-
-        // Второе плечо: сжатые байты уходят приёмнику. Их количество до этого
-        // момента неизвестно, поэтому работа прирастает здесь.
-        final packed = await File(archivePath).length();
-        progress.countBytes(packed);
-        progress.beginStage('storing file', index: 2, count: 2);
-        await deliverArchive(archivePath, destination, params.name, op, progress);
-      } finally {
-        progress.stop();
-        await staged.dispose();
-      }
-
-      progress.finish();
-    });
-  }
-
-  /// Файл, который сжимаем: ссылку разбираем, каталог отвергаем.
-  ///
-  /// Каталог сюда доходит только вызовом со значением, мимо окна: команда без
-  /// параметра его не предлагает вовсе. Но соврать всё равно нельзя — каталог в
-  /// `.gz` не кладётся ни при каком способе вызова.
-  static Future<FsNode> _fileOf(FsNode source) async {
-    final resolved = source is LinkNode ? await source.resolve().run(source) ?? source : source;
-    if (resolved is DirectoryNode) {
-      throw FsError(resolved.pathString, FsErrorKind.notSupported);
-    }
-    return resolved;
-  }
-}
-
-/// Что сжать, куда и под каким именем.
-class GzipPackParams {
-  const GzipPackParams(this.source, this.destination, this.name);
-
-  final FsNode source;
-  final DirectoryNode destination;
-  final String name;
+  static String defaultNameOf(FileEntry source) => '${source.name}.gz';
 }
 
 /// Прогон сжатия вместе с тем, что спрашивают до его начала.

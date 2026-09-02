@@ -105,20 +105,20 @@ void main() {
   /// Ход работы — свойство самой операции, а не команды: команда показывает
   /// окно и уходит. Поэтому проверяется операция.
   Future<Operation<Object?, void>> packed(String name) async {
-    final command = runtime.commands.create(CreateSevenZipArchiveCommand.commandId)! as CreateSevenZipArchiveCommand;
-    final panel = runtime.app.left;
-    final sources = [for (final entry in panel.targets) panel.nodeOf(entry)!];
-
-    final operation =
-        command.packOperation()..start(
-          SevenZipPackParams(
-            sources,
-            runtime.app.right.directory!,
-            '$name.7z',
-            compression: SevenZipCompression.normal,
-            followLinks: false,
-          ),
-        );
+    // Работа заводится заявкой — как её заводит команда.
+    final operation = runtime.app.runOperation();
+    operation.start(
+      OperationSpec(
+        kind: SevenZipPacking.kind,
+        targets: Targets.marked(PanelId.left),
+        destination: PanelId.right,
+        options: {
+          SevenZipPacking.nameOption: '$name.7z',
+          SevenZipPacking.compressionOption: SevenZipCompression.normal.name,
+          SevenZipPacking.followLinksOption: false,
+        },
+      ),
+    );
     await operation.result;
     return operation;
   }
@@ -353,17 +353,19 @@ void main() {
       runtime.app.left.setCursorToName('notes.txt');
 
       // Прерывают саму работу, а не команду: команда показала окно и ушла.
-      final command = runtime.commands.create(CreateSevenZipArchiveCommand.commandId)! as CreateSevenZipArchiveCommand;
-      final operation =
-          command.packOperation()..start(
-            SevenZipPackParams(
-              [runtime.app.left.nodeOf(runtime.app.left.currentEntry!)!],
-              runtime.app.right.directory!,
-              'huge.7z',
-              compression: SevenZipCompression.normal,
-              followLinks: false,
-            ),
-          );
+      final operation = runtime.app.runOperation();
+      operation.start(
+        OperationSpec(
+          kind: SevenZipPacking.kind,
+          targets: Targets.current(PanelId.left),
+          destination: PanelId.right,
+          options: {
+            SevenZipPacking.nameOption: 'huge.7z',
+            SevenZipPacking.compressionOption: SevenZipCompression.normal.name,
+            SevenZipPacking.followLinksOption: false,
+          },
+        ),
+      );
 
       // Ход работы уже пошёл — программа назвала первую запись.
       await Future<void>.delayed(const Duration(milliseconds: 50));
