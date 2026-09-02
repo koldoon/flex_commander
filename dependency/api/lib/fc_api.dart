@@ -17,6 +17,13 @@ export 'src/values/file_type.dart';
 export 'src/values/fs_error.dart';
 export 'src/values/provider_capabilities.dart';
 
+// --- Протокол границы ---
+export 'src/protocol/core_message.dart';
+export 'src/protocol/entry_ref.dart';
+export 'src/protocol/file_entry.dart';
+export 'src/protocol/panel_state.dart';
+export 'src/protocol/source_info.dart';
+
 // --- Длительные работы ---
 export 'src/async/async_operation.dart';
 export 'src/async/operation_request.dart';
