@@ -1,8 +1,10 @@
 import '../panel/column_spec.dart';
 import '../panel/sort_spec.dart';
+import '../async/progress_report.dart';
 import '../values/fs_error.dart';
 import 'entry_ref.dart';
 import 'file_entry.dart';
+import 'operation_spec.dart';
 import 'panel_state.dart';
 
 /// О чём интерфейс просит ядро.
@@ -136,6 +138,30 @@ final class SetHeaderText extends CoreRequest {
   final String? text;
 }
 
+/// Завести работу и запустить её.
+///
+/// Ответом приходит её имя ([CoreRunning]); дальше о ней рассказывают события,
+/// а говорят с ней [TellOperation].
+final class RunOperation extends CoreRequest {
+  const RunOperation(this.runId, this.spec);
+
+  /// Имя работы даёт **эта** сторона, а не ядро.
+  ///
+  /// Иначе между просьбой и ответом с именем есть промежуток, в котором работа
+  /// уже идёт, уже рассказывает о себе — а слушателю нечем узнать, что это она.
+  /// С именем на руках подписка встаёт до запуска.
+  final String runId;
+  final OperationSpec spec;
+}
+
+/// Сказать в идущую работу: отмена, ответ на вопрос.
+final class TellOperation extends CoreRequest {
+  const TellOperation(this.runId, this.input);
+
+  final String runId;
+  final OperationInput input;
+}
+
 /// Прервать то, чем панель занята.
 final class CancelWork extends CoreRequest {
   const CancelWork(this.panel);
@@ -214,6 +240,52 @@ final class PanelListed extends CoreEvent {
 
   final PanelId panel;
   final PanelListing listing;
+}
+
+/// Работа рассказывает о себе.
+final class OperationProgress extends CoreEvent {
+  const OperationProgress(this.runId, this.report);
+
+  final String runId;
+  final ProgressReport report;
+}
+
+/// Работа встала и ждёт человека.
+///
+/// Вопрос уезжает **описанием**: `Completer` через границу не поедет, а имя
+/// варианта — поедет. Ответ приходит обратно [AnswerInput] по тому же имени
+/// работы.
+final class OperationAsked extends CoreEvent {
+  const OperationAsked(this.runId, this.ask);
+
+  final String runId;
+  final AskSpec ask;
+}
+
+/// Вопрос снят: на него ответили или работа кончилась.
+///
+/// Без него окно вопроса осталось бы висеть после отмены работы: спрашивать
+/// уже нечего, а закрыть его некому.
+final class OperationAskCanceled extends CoreEvent {
+  const OperationAskCanceled(this.runId);
+
+  final String runId;
+}
+
+/// Работа кончилась — и вот чем.
+final class OperationEnded extends CoreEvent {
+  const OperationEnded(this.runId, this.outcome, {this.error, this.message = ''});
+
+  final String runId;
+  final OperationOutcome outcome;
+
+  /// Отказ источника — как есть: «нет такого пути» и «нет прав» показывают
+  /// по-разному.
+  final FsError? error;
+
+  /// Чужая беда — текстом: тип через границу не поедет, а текст это всё, что
+  /// скажут человеку.
+  final String message;
 }
 
 /// У посчитанных каталогов появился размер: строка списка → новое число.

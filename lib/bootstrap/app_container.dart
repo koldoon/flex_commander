@@ -6,7 +6,9 @@ import 'package:logecom/logecom.dart';
 
 import '../settings/settings_store.dart';
 import '../state/app_controller.dart';
+import '../core/core_server.dart';
 import '../core/panel_session.dart';
+import '../link/loopback_link.dart';
 import '../state/panel_controller.dart';
 import '../state/panel_viewport_registry.dart';
 import '../state/view_registry.dart';
@@ -256,9 +258,28 @@ class AppContainer extends DI {
                   sizeScanConcurrency: () => settings.sizeScanConcurrency,
                 );
 
+        final leftSession = panels.create(settings.left);
+        final rightSession = rightPanels.create(settings.right);
+
+        // Ядро и линк собираются здесь же — единственное место, где стороны
+        // встречаются (`docs/spec/client-server.md`, §6). Панели пока ходят к
+        // сеансу напрямую переходником, а работы уже идут разговором: рождаются
+        // они там, где источники.
+        final core = CoreServer(
+          left: leftSession,
+          right: rightSession,
+          registry: c.get<ProviderRegistry>(),
+          editor: c.get<TreeEditor>(),
+          services: services,
+          operations: backend.operations,
+        );
+        final link = LoopbackLink(core);
+
         return AppController(
-          left: PanelController(PanelId.left, panels.create(settings.left)),
-          right: PanelController(PanelId.right, rightPanels.create(settings.right)),
+          left: PanelController(PanelId.left, leftSession),
+          right: PanelController(PanelId.right, rightSession),
+          core: core,
+          link: link,
           store: c.get<SettingsStore>(),
           settings: settings,
           commands: c.get<CommandRegistry>(),

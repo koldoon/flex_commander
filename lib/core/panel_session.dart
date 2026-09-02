@@ -90,25 +90,44 @@ class PanelSession {
     selection.addListener(_onSelectionChanged);
   }
 
-  /// Что-то изменилось: состояние стоит разослать.
+  /// Кто слушает перемены.
   ///
-  /// Одним словом на все перемены — курсор, пометка, ход дела: состояние без
-  /// списка это десяток чисел, и разбирать, какое именно поле сменилось, дороже,
-  /// чем отдать всё.
-  void Function()? onChanged;
+  /// Слушателей несколько: сервер рассылает события за границу, а переходник
+  /// перерисовывает экран. Пока стороны в одном изоляте, они оба смотрят на
+  /// один и тот же сеанс, и одним обработчиком тут не обойтись.
+  final List<VoidCallback> _onChanged = [];
+  final List<VoidCallback> _onListed = [];
+  final List<void Function(Map<int, int> sizes)> _onSized = [];
 
-  /// Список сменился — вот он.
+  /// Подписаться на перемены. Возвращает то, чем подписку снять.
   ///
-  /// Отдельно, потому что он большой и меняется много реже прочего.
-  void Function()? onListed;
-
-  /// У посчитанных каталогов появился размер: строка списка → новое число.
-  ///
-  /// Отдельно от списка, и это не мелочь: обход помеченного меняет по одному
-  /// числу в строке, а список бывает в десять тысяч строк. Слать его целиком
-  /// на каждый посчитанный каталог значило бы возить мегабайты ради восьми
-  /// байт.
-  void Function(Map<int, int> sizes)? onSized;
+  /// Три события, а не одно, и это не дробление ради дробления. Состояние без
+  /// списка — десяток чисел, и разбирать, какое поле сменилось, дороже, чем
+  /// отдать всё. Список — другое дело: он большой и меняется много реже. А
+  /// размеры каталогов меняются по одному числу в строке, и слать ради них
+  /// список целиком значило бы возить мегабайты ради восьми байт.
+  VoidCallback watch({VoidCallback? onChanged, VoidCallback? onListed, void Function(Map<int, int> sizes)? onSized}) {
+    if (onChanged != null) {
+      _onChanged.add(onChanged);
+    }
+    if (onListed != null) {
+      _onListed.add(onListed);
+    }
+    if (onSized != null) {
+      _onSized.add(onSized);
+    }
+    return () {
+      if (onChanged != null) {
+        _onChanged.remove(onChanged);
+      }
+      if (onListed != null) {
+        _onListed.remove(onListed);
+      }
+      if (onSized != null) {
+        _onSized.remove(onSized);
+      }
+    };
+  }
 
   /// Правило показа имени: по нему же идёт сортировка по расширению.
   final FileNaming naming;
@@ -692,6 +711,21 @@ class PanelSession {
 
   void markAll() => selection.addAll(_nodes);
 
+  /// Помеченное, а если не помечено ничего — объект под курсором.
+  ///
+  /// То самое правило, по которому работают все файловые операции. Псевдоузел
+  /// «..» целью не бывает: это не объект, а способ выйти наверх.
+  List<FsNode> get targetNodes {
+    if (selection.isNotEmpty) {
+      return [
+        for (final node in selection.nodes)
+          if (node is! ParentDirNode) node,
+      ];
+    }
+    final node = currentNode;
+    return node == null || node is ParentDirNode ? const [] : [node];
+  }
+
   /// Заменить пометку целиком — именами.
   ///
   /// Именами, а не строками: список могли перечитать, и узлы теперь другие
@@ -883,7 +917,11 @@ class PanelSession {
     );
   }
 
-  void _changed() => onChanged?.call();
+  void _changed() {
+    for (final listener in _onChanged.toList()) {
+      listener();
+    }
+  }
 
   /// Посчитанные размеры, ещё не уехавшие наружу.
   final Map<int, int> _sizeUpdates = {};
@@ -902,8 +940,11 @@ class PanelSession {
   /// она должна не раньше тех размеров, из которых сложилась.
   void _flushSizes() {
     if (_sizeUpdates.isNotEmpty) {
-      onSized?.call(Map.of(_sizeUpdates));
+      final sizes = Map.of(_sizeUpdates);
       _sizeUpdates.clear();
+      for (final listener in _onSized.toList()) {
+        listener(sizes);
+      }
     }
     _changed();
   }
@@ -911,7 +952,9 @@ class PanelSession {
   /// Список сменился: номер вперёд, и о нём стоит рассказать.
   void _listed() {
     _generation++;
-    onListed?.call();
+    for (final listener in _onListed.toList()) {
+      listener();
+    }
   }
 
   // --- внутреннее ---
@@ -1372,8 +1415,9 @@ class PanelSession {
     unawaited(_releaseRoot());
     selection.removeListener(_onSelectionChanged);
     selection.dispose();
-    onChanged = null;
-    onListed = null;
+    _onChanged.clear();
+    _onListed.clear();
+    _onSized.clear();
   }
 }
 

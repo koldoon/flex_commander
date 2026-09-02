@@ -116,14 +116,15 @@ abstract class TransferCommandBase extends AppCommand {
     return context.targets.any((entry) => !entry.isParent);
   }
 
-  /// Объекты, с которыми работает команда: помеченные или тот, что под курсором.
+  /// Над чем работать — именем набора: разворачивает его ядро.
   ///
-  /// ВРЕМЕННО узлами — см. `FileOpCommand.targetsOf`.
-  List<FsNode> targetsOf(CommandContext context) => [
-    for (final entry in context.targets)
-      if (!entry.isParent)
-        if (context.panel.nodeOf(entry) case final node?) node,
-  ];
+  /// Задание, пришедшее готовым, приносит свои пути: их разбирает корень
+  /// дерева, а не панель, — путь пришёл со стороны и к тому месту, где стоит
+  /// панель, отношения не имеет.
+  Targets targetsOf(CommandContext context) {
+    final given = context.invocation.param<List<String>>(sourcesParam);
+    return given == null ? Targets.marked(context.panel.id) : Targets.paths(given);
+  }
 
   /// Пришло ли задание готовым — со своими объектами и приёмником.
   static bool givenJob(CommandContext context) => context.invocation.param<List<String>>(sourcesParam) != null;
@@ -135,61 +136,41 @@ abstract class TransferCommandBase extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final panel = context.panel;
-    // Редактор берётся у приёмника, а не у источника: операцию выполняет
-    // движок, один на все провайдеры, и получить его нужно там, где заведомо
-    // умеют принимать. У источника его может не быть вовсе — это не мешает
-    // копировать из него.
+    // Приёмник нужен и для проверки, и для разбора пути: путь может проходить
+    // через несколько источников, и разбирает его та панель, которая там
+    // стоит. Движок при этом берёт ядро — у приёмника, где заведомо умеют
+    // принимать.
     final destination = _destinationPanelOf(context);
-    final editor = destination?.editor;
     final givenSources = context.invocation.param<List<String>>(sourcesParam);
-    final targets = targetsOf(context);
-    if (editor == null || (givenSources == null && targets.isEmpty)) {
+    if (destination == null || !destination.source.canWrite) {
+      return;
+    }
+    if (givenSources == null && context.targets.every((entry) => entry.isParent)) {
       return;
     }
 
-    Future<void> transfer(TreeEditor editor, String path, bool followLinks, [FcAsyncRun? run]) async {
-      final resolved = await _resolveDestination(context, path);
-      // Источники приходят путями, и разбирает их **корень дерева**, а не
-      // панель: путь пришёл со стороны — из системы, из сценария, — и к тому
-      // месту, где стоит панель, отношения не имеет. Разбор панелью тут уже
-      // соврал однажды: `/Users/…`, брошенный в архив на сервере, искался на
-      // сервере, и работа падала на пустом узле.
-      final sources = <ResolvedNode>[];
-      if (givenSources != null) {
-        for (final source in givenSources) {
-          final resolved = await context.app.resolvePath().run(source);
-          if (resolved.node == null) {
-            await resolved.release();
-            throw FsError(source, FsErrorKind.notFound);
-          }
-          sources.add(resolved);
-        }
-      }
-      final nodes = givenSources == null ? targets : [for (final source in sources) source.node!];
-      final destinationNode = resolved.node! as DirectoryNode;
-      final operation = moves ? editor.move() : editor.copy();
-      final params = TransferParams(nodes, destinationNode, followLinks: followLinks);
-
-      // Аренда источника — на всё время работы, а не на каждое чтение: между
-      // чтениями панель успевает уйти, а работа, отправленная в фон,
-      // продолжает читать оттуда, откуда она ушла.
-      final source = panel.leaseProvider();
+    Future<void> transfer(String path, bool followLinks, [FcAsyncRun? run]) async {
+      // Всё, что раньше делала команда — разбор пути приёмника, разбор
+      // исходных путей, аренда источника и приёмника на время работы, — теперь
+      // делает ядро: там живут узлы, и там же работа идёт
+      // (`docs/spec/client-server.md`, §5.4).
+      final spec = OperationSpec(
+        kind: moves ? FileOperations.move : FileOperations.copy,
+        targets: targetsOf(context),
+        destination: destination.id,
+        destinationPath: path,
+        options: {FileOperations.followLinks: followLinks},
+      );
 
       try {
         final message = moves ? 'Moving…' : 'Copying…';
+        final operation = context.app.runOperation();
         if (run != null) {
-          await run.run(operation, params, message: message);
+          await run.run(operation, spec, message: message);
         } else {
-          await operation.run(params);
+          await operation.run(spec);
         }
       } finally {
-        // Отпускаются все — и после отмены, и после ошибки: `finally` для того
-        // здесь и стоит.
-        await resolved.release();
-        for (final source in sources) {
-          await source.release();
-        }
-        await source?.release();
         // Обе панели теперь показывают не то, что на диске: в приёмнике
         // объекты появились, из источника при переносе исчезли.
         //
@@ -206,7 +187,7 @@ abstract class TransferCommandBase extends AppCommand {
           panel.path,
           // Панель могла за это время уйти в другой каталог: перечитывать имеет
           // смысл только то, куда действительно копировали.
-          _destinationPanelOf(context)?.directory?.pathString,
+          _destinationPanelOf(context)?.path,
         ]);
       }
     }
@@ -221,7 +202,7 @@ abstract class TransferCommandBase extends AppCommand {
     // человек видит приёмник, может поменять его, включить проход по ссылкам и
     // сам нажать «Copy». Жест здесь ровно то же, что нажатая клавиша.
     if (given != null && !givenJob(context)) {
-      await transfer(editor, given, context.invocation.param<bool>(followLinksParam) ?? false);
+      await transfer(given, context.invocation.param<bool>(followLinksParam) ?? false);
       return;
     }
 
@@ -255,47 +236,9 @@ abstract class TransferCommandBase extends AppCommand {
       // туда и пойдёт, а не в тот, что открыт в панели.
       destination: given ?? _defaultDestinationOf(context) ?? '',
     );
-    run.onStart = () => transfer(editor, run.destination, run.followLinks, run);
+    run.onStart = () => transfer(run.destination, run.followLinks, run);
 
     present();
-  }
-
-  /// Каталог-приёмник по пути из параметра — вместе с арендой.
-  ///
-  /// Аренда здесь не формальность: приёмник задают строкой, и она может вести
-  /// не туда, где панель стоит. Тогда архив по дороге монтируется ради этой
-  /// работы, и отпустить его, кроме неё, некому.
-  Future<ResolvedNode> _resolveDestination(CommandContext context, String raw) async {
-    final path = raw.trim();
-    if (path.isEmpty) {
-      throw const FsError('', FsErrorKind.invalidName);
-    }
-
-    // Путь разбирает панель-приёмник: он может проходить через несколько
-    // провайдеров («…/archive.zip:zip:/inner»), и одному провайдеру такое
-    // не по силам.
-    final destination = _destinationPanelOf(context);
-    if (destination == null) {
-      // Приёмника нет: панель напротив накрыта показом. Дотуда доходят только
-      // вызовы со значением — клавиша до этого места не добирается, команда
-      // невыполнима.
-      throw FsError(path, FsErrorKind.notSupported);
-    }
-    final resolved = await destination.resolvePath().run(path);
-    var node = resolved.node;
-    if (node is LinkNode) {
-      // Ссылка на каталог — тоже каталог: копировать «в неё» можно.
-      node = await node.provider.resolveLink().run(node);
-    }
-    if (node == null) {
-      await resolved.release();
-      throw FsError(path, FsErrorKind.notFound);
-    }
-    if (node is! DirectoryNode) {
-      await resolved.release();
-      throw FsError(path, FsErrorKind.notADirectory);
-    }
-    return ResolvedNode(node, resolved.lease);
   }
 
   /// Панель, в которую идёт работа: та, что показана напротив источника.
@@ -323,7 +266,10 @@ abstract class TransferCommandBase extends AppCommand {
       final what = given.length == 1 ? '«${_nameOf(given.single)}»' : '${given.length} items';
       return '$label $what';
     }
-    final targets = targetsOf(context);
+    final targets = [
+      for (final entry in context.targets)
+        if (!entry.isParent) entry,
+    ];
     final what = targets.length == 1 ? '«${targets.single.name}»' : '${targets.length} items';
     return '$label $what';
   }

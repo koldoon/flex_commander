@@ -36,8 +36,8 @@ class MakeDirectoryCommand extends AppCommand {
   @override
   bool isExecutable(CommandContext context) {
     final panel = context.panel;
-    // Провайдер может уметь только читать — тогда создавать нечем.
-    return !panel.busy && panel.directory != null && panel.editor != null;
+    // Источник может уметь только читать — тогда создавать нечем.
+    return !panel.busy && panel.path.isNotEmpty && panel.source.canWrite;
   }
 
   /// Создать каталог — или сперва спросить, как его назвать.
@@ -47,20 +47,21 @@ class MakeDirectoryCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final panel = context.panel;
-    final parent = panel.directory;
-    final editor = panel.editor;
-    if (parent == null || editor == null) {
+    final parent = panel.path;
+    if (parent.isEmpty || !panel.source.canWrite) {
       return;
     }
 
     Future<void> create(String name) async {
-      final created = await editor.makeDirectory().run(MakeDirectoryParams(parent, name));
+      await context.app.runOperation().run(
+        OperationSpec(kind: FileOperations.makeDirectory, destination: panel.id, options: {FileOperations.name: name}),
+      );
       // Каталог создан на диске, но в панели его ещё нет: перечитываем и
       // ставим курсор на новый каталог, чтобы с ним можно было сразу работать.
       // Перечитываются **обе** панели, если обе стоят здесь же: вторая тоже
       // смотрит на этот каталог.
-      await reloadPanelsAt(context.app, [parent.pathString]);
-      panel.setCursorToName(created.name);
+      await reloadPanelsAt(context.app, [parent]);
+      panel.setCursorToName(name);
     }
 
     // «Задано» — значит параметр есть, а не «есть и непустой»: пробелы это
@@ -253,23 +254,19 @@ abstract class RemoveCommandBase extends AppCommand {
   @override
   bool isExecutable(CommandContext context) {
     final panel = context.panel;
-    if (panel.busy || panel.editor == null) {
+    if (panel.busy || !panel.source.canWrite) {
       return false;
     }
-    // Псевдоузел «..» объектом не считается.
+    // Псевдострока «..» объектом не считается.
     return context.targets.any((entry) => !entry.isParent);
   }
 
-  /// Объекты, с которыми работает команда: помеченные или тот, что под курсором.
+  /// Объекты, с которыми работает команда: помеченные или тот, что под
+  /// курсором.
   ///
-  /// ВРЕМЕННО узлами: цели приезжают строками списка, а работа пока идёт по эту
-  /// сторону границы и требует живых узлов. Уйдёт вместе с переездом операций
-  /// в ядро (`docs/spec/client-server.md`, Э4).
-  List<FsNode> targetsOf(CommandContext context) => [
-    for (final entry in context.targets)
-      if (!entry.isParent)
-        if (context.panel.nodeOf(entry) case final node?) node,
-  ];
+  /// Именем набора, а не перечислением: разворачивает его ядро — пометка живёт
+  /// там же, где дерево.
+  Targets targetsOf(CommandContext context) => Targets.marked(context.panel.id);
 
   /// «Delete !» в заголовке разбора читалось бы как опечатка: восклицательный
   /// знак в названии команды отличает её от удаления в корзину, а не от чего-то
@@ -283,20 +280,23 @@ abstract class RemoveCommandBase extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final panel = context.panel;
-    final editor = panel.editor;
-    final targets = targetsOf(context);
-    if (editor == null || targets.isEmpty) {
+    if (!panel.source.canWrite || context.targets.every((entry) => entry.isParent)) {
       return;
     }
 
+    // Аренду на время работы берёт ядро: удаление можно отправить в фон, и
+    // панель за это время вправе выйти из архива, в котором оно идёт. Держать
+    // источник живым — дело той стороны, где он и живёт.
+    final spec = OperationSpec(
+      kind: FileOperations.remove,
+      targets: targetsOf(context),
+      options: {FileOperations.toTrash: toTrash},
+    );
+
     Future<void> remove() async {
-      // Аренда — на всё время работы: удаление можно отправить в фон, и панель
-      // за это время вправе выйти из архива, в котором оно идёт.
-      final source = panel.leaseProvider();
       try {
-        await editor.remove().run(RemoveParams(targets, toTrash: toTrash));
+        await context.app.runOperation().run(spec);
       } finally {
-        await source?.release();
         // Часть объектов могла исчезнуть, часть остаться: список в панели
         // больше не совпадает с диском.
         panel.clearMarks();
@@ -350,11 +350,9 @@ abstract class RemoveCommandBase extends AppCommand {
     );
 
     run.onStart = () async {
-      final source = panel.leaseProvider();
       try {
-        await run.run(editor.remove(), RemoveParams(targets, toTrash: toTrash), message: 'Deleting…');
+        await run.run(context.app.runOperation(), spec, message: 'Deleting…');
       } finally {
-        await source?.release();
         panel.clearMarks();
         await reloadPanelsAt(context.app, [panel.path]);
       }
@@ -367,7 +365,10 @@ abstract class RemoveCommandBase extends AppCommand {
   String titleOf(CommandContext context) => '$label ${_whatOf(context)}';
 
   String _whatOf(CommandContext context) {
-    final targets = targetsOf(context);
+    final targets = [
+      for (final entry in context.targets)
+        if (!entry.isParent) entry,
+    ];
     return targets.length == 1 ? '«${targets.single.name}»' : '${targets.length} items';
   }
 
@@ -407,7 +408,7 @@ class RenameCommand extends AppCommand {
   @override
   bool isExecutable(CommandContext context) {
     final panel = context.panel;
-    if (panel.busy || panel.editor == null) {
+    if (panel.busy || !panel.source.canWrite) {
       return false;
     }
     // Переименовать можно только то, что провайдер умеет переименовывать одним
@@ -425,20 +426,24 @@ class RenameCommand extends AppCommand {
   Future<void> execute(CommandContext context) async {
     final panel = context.panel;
     final entry = context.entry;
-    final node = entry == null || entry.isParent ? null : panel.nodeOf(entry);
-    final editor = panel.editor;
-    if (node == null || editor == null) {
+    if (entry == null || entry.isParent || !panel.source.canWrite) {
       return;
     }
 
     Future<void> rename(String name) async {
-      final renamed = await editor.rename().run(RenameParams(node, name));
+      await context.app.runOperation().run(
+        OperationSpec(
+          kind: FileOperations.rename,
+          targets: Targets.current(panel.id),
+          options: {FileOperations.name: name},
+        ),
+      );
       // Объект на месте, но в панели ещё под прежним именем: перечитываем и
       // ищем его по **новому** — иначе курсор прыгает в начало ровно тогда,
       // когда человек смотрит на результат. Вторая панель, стоящая здесь же,
       // показывала бы прежнее имя, поэтому перечитываются обе.
-      await reloadPanelsAt(context.app, [node.parentDirectory?.pathString]);
-      panel.setCursorToName(renamed.name);
+      await reloadPanelsAt(context.app, [entry.directoryPath]);
+      panel.setCursorToName(name);
     }
 
     final given = context.invocation.param<String>(nameParam);
@@ -448,7 +453,7 @@ class RenameCommand extends AppCommand {
     }
 
     final view = context.app.view;
-    final state = RenameDialogState(original: node.name, rename: rename);
+    final state = RenameDialogState(original: entry.name, rename: rename);
 
     late final String dialogId;
     state.close = () => view.closeDialog(dialogId);

@@ -22,12 +22,12 @@ export 'package:fc_ui_api/fc_ui_api.dart' show Panel;
 /// одном изоляте, и переходник честнее, чем вторая копия той же тысячи строк.
 class PanelController extends ChangeNotifier implements Panel {
   PanelController(this.id, this.session) {
-    session.onChanged = notifyListeners;
     // Список и размеры на этой стороне не пересылаются: узлы те же самые, и
     // перерисовки хватает.
-    session.onListed = notifyListeners;
-    session.onSized = (_) => notifyListeners();
+    _unwatch = session.watch(onChanged: notifyListeners, onListed: notifyListeners, onSized: (_) => notifyListeners());
   }
+
+  late final VoidCallback _unwatch;
 
   @override
   final PanelId id;
@@ -266,6 +266,7 @@ class PanelController extends ChangeNotifier implements Panel {
 
   @override
   void dispose() {
+    _unwatch();
     session.dispose();
     super.dispose();
   }

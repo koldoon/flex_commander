@@ -100,10 +100,26 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
     _requests = operation.requests.listen(_onRequest);
     operation.start(params);
 
+    var refused = false;
     try {
       await operation.result;
     } on OperationCanceled {
       // Прервано пользователем.
+    } on FsError catch (failure) {
+      // **Работа, упавшая до первого слова о ходе дела, — это отказ, а не
+      // неудача.** Значит, ввод негодный: путь ведёт не туда, имя занято,
+      // источник не умеет принимать. Окно возвращается к форме с сообщением,
+      // и набранное можно поправить.
+      //
+      // Раньше это выходило само собой: путь разбирала команда, и до работы
+      // дело не доходило. Теперь разбор идёт там же, где работа, — и отличать
+      // отказ от неудачи приходится по тому, начиналось ли дело
+      // (`docs/spec/client-server.md`, §5.3).
+      if (_progressed) {
+        rethrow;
+      }
+      refused = true;
+      error = failure.message;
     } finally {
       // Подписка снимается, а сам статус остаётся: работа кончилась, но окно
       // ещё открыто, и на её последние цифры смотрят. Забыть их значило бы
@@ -116,10 +132,18 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
       // Иначе оно на весь хвост — отпустить аренду, перечитать панели —
       // откатилось бы к форме с параметрами.
       _question = null;
-      _finishRun();
+      // Отказ до начала дела возвращает окно к форме: работы не было.
+      if (refused) {
+        _operation = null;
+      } else {
+        _finishRun();
+      }
       notifyListeners();
     }
   }
+
+  /// Работа успела сказать о себе хоть слово — то есть дело началось.
+  bool _progressed = false;
 
   void _onRequest(OperationRequest request) {
     if (app.operations.byId(runId)?.isInBackground ?? false) {
@@ -133,7 +157,13 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
     notifyListeners();
   }
 
-  void _onStatusChanged() => _redraw();
+  void _onStatusChanged() {
+    // «Слово о ходе дела» — это именно слово: работа назвала, чем занята.
+    // Смена состояния таковым не считается — её шлёт и та работа, что
+    // отказалась начаться.
+    _progressed = _progressed || (_watched?.message.isNotEmpty ?? false);
+    _redraw();
+  }
 
   /// Что набрано в поле вопроса — если у вопроса есть поле.
   ///

@@ -7,6 +7,9 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import '../settings/settings_store.dart';
+import '../core/core_server.dart';
+import '../link/link.dart';
+import '../ui/remote_operation.dart';
 import 'panel_controller.dart';
 import 'panel_viewport_registry.dart';
 import 'app_view_controller.dart';
@@ -27,6 +30,8 @@ class AppController extends ChangeNotifier implements Application {
     required this.left,
     required this.right,
     required this.store,
+    this.core,
+    this.link,
     required AppSettings settings,
     required this.commands,
     this.providers,
@@ -286,6 +291,26 @@ class AppController extends ChangeNotifier implements Application {
   /// соединение пережить процесс не должны. Наружу отдаётся ради проверок:
   /// `providers.mounted` отвечает на вопрос «что осталось открытым».
   final ProviderRegistry? providers;
+
+  /// Ядро приложения; null — приложение собрано без него (подставка в тесте).
+  ///
+  /// Держится здесь, потому что здесь же его и закрывают: ядро переживает
+  /// панели и работы, а уходит вместе с приложением.
+  final CoreServer? core;
+
+  /// Дверь к ядру. Через неё уходят работы: рождаются они там, где источники
+  /// (`docs/spec/client-server.md`, §5.4).
+  final Link? link;
+
+  @override
+  Operation<OperationSpec, void> runOperation() {
+    final door = link;
+    if (door == null) {
+      // Ядра нет вовсе: работать некому, и молчать об этом нельзя.
+      throw StateError('Приложение собрано без ядра: работу заводить негде');
+    }
+    return RemoteOperation(door);
+  }
 
   /// Разбор пути от корня дерева — мимо панелей и того, где они стоят.
   @override

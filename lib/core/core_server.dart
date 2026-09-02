@@ -1,8 +1,10 @@
 import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 
 import '../link/link.dart';
+import 'operation_hub.dart';
 import 'panel_session.dart';
 
 /// Ядро приложения со стороны линка.
@@ -15,24 +17,43 @@ import 'panel_session.dart';
 /// Экрана у этой стороны нет и быть не может: ни окна, ни команды, ни виджета
 /// здесь не встретится — их типов эта сторона попросту не видит.
 class CoreServer implements CoreHandler {
-  CoreServer({required PanelSession left, required PanelSession right})
-    : _panels = {PanelId.left: left, PanelId.right: right} {
+  CoreServer({
+    required PanelSession left,
+    required PanelSession right,
+    ProviderRegistry? registry,
+    TreeEditor editor = const TreeTransferEngine(),
+    FcServices services = const _NoServices(),
+    Map<String, OperationFactory> operations = const {},
+  }) : _panels = {PanelId.left: left, PanelId.right: right} {
+    _operations = OperationHub(
+      factories: operations,
+      services: services,
+      editor: editor,
+      registry: registry,
+      sessionOf: session,
+      say: _say,
+    );
     for (final entry in _panels.entries) {
       final panel = entry.key;
       final session = entry.value;
-      session.onChanged = () => _say(PanelChanged(panel, session.state));
-      session.onListed = () {
-        // Список и состояние уезжают вместе: в состоянии лежит номер списка, и
-        // приехать оно должно **после** самого списка — иначе та сторона
-        // увидит номер, которому ещё нечего соответствовать.
-        _say(PanelListed(panel, PanelListing(generation: session.generation, entries: session.entries)));
-        _say(PanelChanged(panel, session.state));
-      };
-      session.onSized = (sizes) => _say(PanelSized(panel, session.generation, sizes));
+      session.watch(
+        onChanged: () => _say(PanelChanged(panel, session.state)),
+        onListed: () {
+          // Список и состояние уезжают вместе: в состоянии лежит номер списка,
+          // и приехать оно должно **после** самого списка — иначе та сторона
+          // увидит номер, которому ещё нечего соответствовать.
+          _say(PanelListed(panel, PanelListing(generation: session.generation, entries: session.entries)));
+          _say(PanelChanged(panel, session.state));
+        },
+        onSized: (sizes) => _say(PanelSized(panel, session.generation, sizes)),
+      );
     }
   }
 
   final Map<PanelId, PanelSession> _panels;
+
+  /// Заведённые работы: копирование, упаковка, подсчёт.
+  late final OperationHub _operations;
 
   /// Синхронно — и это важное свойство, а не мелочь настройки.
   ///
@@ -122,6 +143,16 @@ class CoreServer implements CoreHandler {
       case CancelWork(:final panel):
         session(panel).cancel();
         return null;
+
+      case RunOperation(:final runId, :final spec):
+        // Не ждём: работа живёт своей жизнью, а о ходе дела рассказывает
+        // событиями. Ждать её здесь значило бы держать очередь просьб.
+        unawaited(_operations.run(runId, spec));
+        return const CoreDone();
+
+      case TellOperation(:final runId, :final input):
+        _operations.tell(runId, input);
+        return null;
     }
   }
 
@@ -153,9 +184,21 @@ class CoreServer implements CoreHandler {
   }
 
   Future<void> dispose() async {
+    _operations.dispose();
     for (final session in _panels.values) {
       session.dispose();
     }
     await _events.close();
   }
+}
+
+/// Служб нет вовсе: так собирают ядро в проверках, где работ не объявлено.
+class _NoServices implements FcServices {
+  const _NoServices();
+
+  @override
+  T resolve<T>() => throw StateError('Ядро собрано без служб');
+
+  @override
+  List<T> resolveAll<T>() => const [];
 }

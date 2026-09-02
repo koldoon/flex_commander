@@ -1,5 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 
+import '../tree/operation_kind.dart';
 import '../tree/provider_registry.dart';
 import '../tree/tree_provider.dart';
 
@@ -51,6 +52,15 @@ abstract interface class BackendRegistry {
   /// В отличие от вложенного, такому не над чем монтироваться — он сам себе
   /// корень, и панель встаёт на него целиком.
   void addressProvider(String scheme, AddressFactory factory);
+
+  /// Длительная работа, которую умеет этот модуль: упаковка, распаковка,
+  /// проверка.
+  ///
+  /// Работа живёт **здесь**, где источники, а зовут её с той стороны заявкой
+  /// (`OperationSpec`) — по имени [kind] и с доводами значениями. Команда при
+  /// этом остаётся мелким мутатором: собрать заявку и отправить
+  /// (`docs/spec/client-server.md`, §5.4).
+  void operation(String kind, OperationFactory factory);
 
   /// Служба для ядра и других модулей: разрешается по типу через [FcServices].
   void service<T extends Object>(T Function(FcServices services) factory);

@@ -494,7 +494,14 @@ void main() {
       expect(outer.state, OperationState.error);
     });
 
-    test('вопрос вложенной наверх не идёт: берётся вариант по умолчанию', () async {
+    test('вопрос вложенной идёт наверх — той же заявкой', () async {
+      // Вложенная работа перестала быть подробностью внешней: работа ядра —
+      // это и есть делегированная, а внешняя переводит ей доводы. Вопрос
+      // «перезаписать?» задаёт движок, а показать его должно окно, которое
+      // видит только обёртку (`docs/spec/client-server.md`, §5.3).
+      //
+      // Заявкой той же, а не копией: ответчик у неё внутри, и ответ дойдёт до
+      // того, кто спрашивал.
       late final OperationRequestOption answer;
       final inner = startedTask<int>((op) async {
         answer = await op.ask(
@@ -506,26 +513,55 @@ void main() {
 
       final questions = <OperationRequest>[];
       outer.requests.listen(questions.add);
+      await pumpEventQueue();
+
+      expect(questions, hasLength(1), reason: 'спрашивают того, у кого экран');
+      questions.single.respond(_overwrite);
 
       expect(await outer.result, 1);
-      expect(questions, isEmpty);
-      expect(answer, _skip);
+      expect(answer, _overwrite, reason: 'ответ вернулся тому, кто спрашивал');
     });
 
-    test('просьба прервать вниз не идёт', () async {
-      // Мягкая отмена — это вопрос, а задать его вложенной некому: её вопросы
-      // наверх не идут, и «спросить» молча превратилось бы в «прервать».
+    test('вопрос без слушателя решается сам собой', () async {
+      // Спросить некого — работу запустили без окна. Правило то же, что было:
+      // берётся вариант по умолчанию. Просто решается это теперь на краю
+      // цепочки, а не на каждом её звене.
+      late final OperationRequestOption answer;
       final inner = startedTask<int>((op) async {
-        await Future<void>.delayed(const Duration(milliseconds: 50));
+        answer = await op.ask(
+          OperationRequest(message: 'Overwrite?', options: const [_overwrite, _skip], enterOption: _skip),
+        );
         return 1;
       });
       final outer = startedTask<int>((op) => op.delegate(inner, null));
+
+      expect(await outer.result, 1);
+      expect(answer, _skip);
+    });
+
+    test('просьба прервать идёт вниз — туда, где идёт дело', () async {
+      // Раньше она вниз не шла: вопрос вложенной наверх не поднимался, и
+      // «спросить» молча превратилось бы в «прервать». Теперь поднимается —
+      // значит и спросить есть кого, а прерывать надо ту работу, которая
+      // действительно идёт: снаружи видна одна обёртка.
+      OperationRequest? asked;
+      // Ворота вместо задержки: проверяется порядок, а не расписание.
+      final gate = Completer<void>();
+      final inner = startedTask<int>((op) async {
+        await gate.future;
+        await op.checkpoint();
+        return 1;
+      });
+      final outer = startedTask<int>((op) => op.delegate(inner, null));
+      outer.requests.listen((request) => asked = request);
       await pumpEventQueue();
 
       outer.requestCancel();
+      gate.complete();
       await pumpEventQueue();
 
-      expect(inner.state, OperationState.processing);
+      expect(asked?.message, isNotEmpty, reason: 'спрашивает та работа, которая идёт');
+      asked!.respond(CancelAnswers.resume);
       expect(await outer.result, 1);
     });
 

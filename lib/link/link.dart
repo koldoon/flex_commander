@@ -95,7 +95,10 @@ class CoreLink implements Link {
   late final StreamSubscription<LinkMessage> _incoming;
 
   final Map<int, Completer<CoreReply>> _waiting = {};
-  final StreamController<CoreEvent> _events = StreamController<CoreEvent>.broadcast();
+
+  /// Синхронный по той же причине, что и петля: события должны доходить туда,
+  /// откуда их ждут, не заводя собственной очереди в чужом потоке.
+  final StreamController<CoreEvent> _events = StreamController<CoreEvent>.broadcast(sync: true);
 
   int _nextId = 0;
   bool _dead = false;

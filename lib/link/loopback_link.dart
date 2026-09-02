@@ -7,68 +7,68 @@ import 'link.dart';
 /// Смысл не в том, чтобы сэкономить изолят, а в том, что **весь прогон идёт
 /// через язык границы**. Логика при этом настоящая: петля подменяет только
 /// доставку, а не то, что за ней. Это и есть причина, по которой линк вынесен
-/// отдельно, а не спрятан внутрь изолята
-/// (`docs/spec/client-server.md`, §10).
+/// отдельно, а не спрятан внутрь изолята (`docs/spec/client-server.md`, §10).
 ///
-/// Доставка **асинхронная**, и это тоже не мелочь: через порт сообщение всегда
-/// приходит следующим оборотом очереди, и петля обязана вести себя так же —
-/// иначе порядок, сложившийся на прямых вызовах, развалится на изоляте.
+/// **Доставка синхронная**, и это решение, а не упрощение. Асинхронная петля
+/// заводит собственную очередь микрозадач, и та живёт в том потоке, где
+/// **создан** контроллер, — а приложение в прогоне собирают до начала теста,
+/// вне его поддельного времени. Работа тогда идёт не тогда, когда прогон
+/// крутит кадры, а когда ему случится подождать по-настоящему: проверки
+/// становятся шаткими, а причина — невидимой. Синхронная петля исполняет
+/// просьбу там же, откуда её сказали, и порядок остаётся тем же, каким его
+/// увидит порт: событие уходит раньше ответа, потому что случается раньше.
 class LoopbackLink extends CoreLink {
-  LoopbackLink._(this._toCore, this._fromCore, this._subscriptions)
-    : super(send: _toCore.add, incoming: _fromCore.stream);
+  LoopbackLink._(CoreHandler core, this._incoming, this._events)
+    : super(send: _dispatch(core, _incoming), incoming: _incoming.stream);
 
   factory LoopbackLink(CoreHandler core) {
-    final toCore = StreamController<LinkMessage>();
-    final fromCore = StreamController<LinkMessage>();
-    final subscriptions = <StreamSubscription<Object?>>[];
-
-    // Та сторона слушает просьбы и отвечает по тому же имени. Очередь одна,
-    // поэтому порядок сохраняется: «поставь курсор» не обгонит «открой
-    // каталог», даже если первое не ждёт ответа.
-    subscriptions.add(
-      toCore.stream
-          .asyncMap((message) async {
-            if (message is! LinkRequest) {
-              return;
-            }
-            try {
-              final reply = await core.handle(message.request);
-              if (reply != null && message.id != 0 && !fromCore.isClosed) {
-                fromCore.add(LinkReply(message.id, reply));
-              }
-            } on Object catch (error, stack) {
-              // Беда переносится текстом и исходным стеком: иначе искать причину
-              // станет вдвое дороже (`docs/spec/client-server.md`, §11, урок 4).
-              if (!fromCore.isClosed) {
-                fromCore.add(LinkCrashed(message.id, error.toString(), stack.toString()));
-              }
-            }
-          })
-          .listen(null),
-    );
-
-    subscriptions.add(
-      core.events.listen((event) {
-        if (!fromCore.isClosed) {
-          fromCore.add(LinkEvent(event));
-        }
-      }),
-    );
-
-    return LoopbackLink._(toCore, fromCore, subscriptions);
+    // Синхронный: `add` доставляет сообщение сразу, в том же потоке, где его
+    // сказали, — без собственной очереди и без чужого потока.
+    final incoming = StreamController<LinkMessage>.broadcast(sync: true);
+    final events = core.events.listen((event) {
+      if (!incoming.isClosed) {
+        incoming.add(LinkEvent(event));
+      }
+    });
+    return LoopbackLink._(core, incoming, events);
   }
 
-  final StreamController<LinkMessage> _toCore;
-  final StreamController<LinkMessage> _fromCore;
-  final List<StreamSubscription<Object?>> _subscriptions;
+  final StreamController<LinkMessage> _incoming;
+  final StreamSubscription<Object?> _events;
+
+  /// Просьба уходит прямо в ядро; ответ возвращается по тому же имени.
+  ///
+  /// Событий, случившихся по ходу исполнения, это не обгоняет: они уходят
+  /// синхронно, изнутри самого исполнения, а ответ добавляется после его
+  /// конца.
+  static void Function(LinkMessage message) _dispatch(CoreHandler core, StreamController<LinkMessage> incoming) {
+    return (message) {
+      if (message is! LinkRequest) {
+        return;
+      }
+      unawaited(
+        core
+            .handle(message.request)
+            .then((reply) {
+              if (reply != null && message.id != 0 && !incoming.isClosed) {
+                incoming.add(LinkReply(message.id, reply));
+              }
+            })
+            .catchError((Object error, StackTrace stack) {
+              // Беда переносится текстом и исходным стеком: иначе искать
+              // причину станет вдвое дороже.
+              if (!incoming.isClosed) {
+                incoming.add(LinkCrashed(message.id, error.toString(), stack.toString()));
+              }
+            }),
+      );
+    };
+  }
 
   @override
   Future<void> dispose() async {
     await super.dispose();
-    for (final subscription in _subscriptions) {
-      await subscription.cancel();
-    }
-    await _toCore.close();
-    await _fromCore.close();
+    await _events.cancel();
+    await _incoming.close();
   }
 }

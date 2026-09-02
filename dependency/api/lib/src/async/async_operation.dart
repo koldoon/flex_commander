@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import 'operation_request.dart';
 import 'operation_status.dart';
+import 'progress_report.dart';
 
 /// Ответы на подтверждение отмены — вопрос, который задаёт сама работа.
 ///
@@ -154,7 +155,7 @@ class TaskOperation<P, R> implements Operation<P, R>, OperationContext {
   @override
   late final OperationStatus status = _status;
 
-  final _TaskOperationStatus _status = _TaskOperationStatus();
+  final MutableOperationStatus _status = MutableOperationStatus();
 
   @override
   Future<R> get result => _completer.future;
@@ -196,6 +197,12 @@ class TaskOperation<P, R> implements Operation<P, R>, OperationContext {
       return;
     }
     _cancelRequested = true;
+    // И вложенным тоже: спрашивает «прервать?» та работа, которая идёт, а
+    // снаружи видна только обёртка. Без этого просьба прервать копирование
+    // упиралась в неё и до движка не доходила.
+    for (final inner in _delegated.toList()) {
+      inner.requestCancel();
+    }
   }
 
   /// Проверка между шагами работы: отмена и просьба прервать.
@@ -385,6 +392,21 @@ class TaskOperation<P, R> implements Operation<P, R>, OperationContext {
     // а видно должно быть работу целиком. Подписка до запуска — потому запуск
     // и отделён от создания.
     final stopRelay = relayFrom(inner);
+    // Вопросы — тоже наружу, и той же заявкой: у неё свой ответчик внутри, и
+    // ответ дойдёт до того, кто спрашивал. Без этого вопрос вложенной работы —
+    // «перезаписать?» — не видел никто, а сама она ждала бы ответа, которого
+    // некому дать.
+    final relayAsks = inner.requests.listen((request) {
+      if (_requests.hasListener) {
+        _requests.add(request);
+        return;
+      }
+      // Спросить некого — правило то же, что и у своего вопроса: берётся
+      // вариант по умолчанию. Решается это на **краю** цепочки, а не на каждом
+      // её звене: иначе вложенная отвечала бы себе сама, не дав внешней и шанса
+      // показать вопрос.
+      request.respond(request.enterOption);
+    });
     _delegated.add(inner);
     try {
       inner.start(params);
@@ -393,6 +415,7 @@ class TaskOperation<P, R> implements Operation<P, R>, OperationContext {
       _delegated.remove(inner);
       // Отписка мгновенная: это Listenable, а не поток.
       stopRelay();
+      unawaited(relayAsks.cancel());
     }
   }
 
@@ -521,7 +544,7 @@ class CompletedOperation<P, R> implements Operation<P, R> {
   OperationState get state => _state;
 
   @override
-  late final OperationStatus status = _TaskOperationStatus()..setState(_state);
+  late final OperationStatus status = MutableOperationStatus()..setState(_state);
 
   @override
   Stream<OperationRequest> get requests => const Stream.empty();
@@ -545,7 +568,14 @@ class CompletedOperation<P, R> implements Operation<P, R> {
 /// текущего, и бывает многоэтапным. Чего у него нет прямо сейчас, сказано
 /// значением `null`, а не отсутствием типа: «скорость ещё не посчитана» — факт
 /// времени выполнения, а не свойство класса.
-class _TaskOperationStatus extends ChangeNotifier
+/// Ход работы, который кто-то ведёт: плоские поля и способ их обновить.
+///
+/// Публичный, потому что ведут его двое: сама работа ([TaskOperation]) и
+/// зеркало работы, идущей за границей, — оно складывает то же самое из
+/// приехавших отчётов (`docs/spec/client-server.md`, §5.3). Второй такой класс
+/// был бы копией со всеми её последствиями: разошлись бы они не сразу и не
+/// заметно.
+class MutableOperationStatus extends ChangeNotifier
     implements
         MeasurableOperationStatus,
         SingleTransferOperationStatus,
@@ -657,6 +687,47 @@ class _TaskOperationStatus extends ChangeNotifier
 
   @override
   UserActionRequest? get request => _request;
+
+  /// Применить приехавший отчёт: те же поля, только пачкой.
+  void apply(ProgressReport report) {
+    update(
+      message: report.message,
+      percent: report.percent,
+      indeterminate: report.indeterminate,
+      itemsTransferred: report.itemsTransferred,
+      itemsTotal: report.itemsTotal,
+      totalIsFinal: report.totalIsFinal,
+      bytesTransferred: report.bytesTransferred,
+      bytesTotal: report.bytesTotal,
+      speed: report.speed,
+      itemName: report.itemName,
+      itemBytesTransferred: report.itemBytesTransferred,
+      itemBytesTotal: report.itemBytesTotal,
+      stage: report.stage,
+      stageCount: report.stageCount,
+      stageName: report.stageName,
+    );
+  }
+
+  /// Рассказать о себе отчётом — то, что уедет через границу.
+  ProgressReport get report => ProgressReport(
+    state: _state,
+    message: message,
+    percent: _percent,
+    indeterminate: _indeterminate,
+    itemsTransferred: itemsTransferred,
+    itemsTotal: itemsTotal,
+    totalIsFinal: totalIsFinal,
+    bytesTransferred: bytesTransferred,
+    bytesTotal: bytesTotal,
+    speed: speed,
+    itemName: itemName,
+    itemBytesTransferred: itemBytesTransferred,
+    itemBytesTotal: itemBytesTotal,
+    stage: _stage,
+    stageCount: _stageCount,
+    stageName: _stageName,
+  );
 
   void update({
     required String message,

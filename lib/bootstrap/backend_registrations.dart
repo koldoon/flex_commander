@@ -35,6 +35,9 @@ class BackendRegistrations extends ModuleRegistrations<FcBackendModule> implemen
   final List<ProviderRegistration> providers = [];
   final List<AddressRegistration> addresses = [];
 
+  /// Работы по именам: `file.copy`, `zip.pack`.
+  final Map<String, OperationFactory> operations = {};
+
   @override
   void install(FcBackendModule module) => module.installBackend(this);
 
@@ -56,6 +59,17 @@ class BackendRegistrations extends ModuleRegistrations<FcBackendModule> implemen
   @override
   void addressProvider(String scheme, AddressFactory factory) {
     addresses.add(AddressRegistration(scheme, factory));
+  }
+
+  @override
+  void operation(String kind, OperationFactory factory) {
+    if (operations.containsKey(kind)) {
+      // Две работы под одним именем — это не выбор, а недосмотр: имя уходит в
+      // заявку, и победа последнего сделала бы дело зависящим от порядка
+      // модулей в списке.
+      throw StateError('Работа «$kind» уже объявлена');
+    }
+    operations[kind] = factory;
   }
 
   @override

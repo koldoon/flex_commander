@@ -12,6 +12,7 @@ library;
 export 'src/tree/fs_node.dart';
 export 'src/tree/node_path.dart';
 export 'src/tree/node_sorting.dart';
+export 'src/tree/operation_kind.dart';
 export 'src/tree/operation_params.dart';
 export 'src/tree/panel_presentation.dart';
 export 'src/tree/provider_lease.dart';

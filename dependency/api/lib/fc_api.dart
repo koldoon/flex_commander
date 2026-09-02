@@ -20,6 +20,7 @@ export 'src/values/provider_capabilities.dart';
 // --- Протокол границы ---
 export 'src/protocol/core_message.dart';
 export 'src/protocol/entry_ref.dart';
+export 'src/protocol/operation_spec.dart';
 export 'src/protocol/file_entry.dart';
 export 'src/protocol/panel_state.dart';
 export 'src/protocol/source_info.dart';
@@ -28,6 +29,7 @@ export 'src/protocol/source_info.dart';
 export 'src/async/async_operation.dart';
 export 'src/async/operation_request.dart';
 export 'src/async/operation_status.dart';
+export 'src/async/progress_report.dart';
 export 'src/async/transfer_progress.dart';
 
 // --- Вид списка ---
