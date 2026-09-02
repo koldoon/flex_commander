@@ -647,7 +647,16 @@ class PanelSession {
   /// Сдвинуть курсор на страницу: `direction` равен -1 или 1.
   void moveCursorPage(int direction) => moveCursor(direction * (pageSize - 1).clamp(1, pageSize));
 
-  void setCursorIndex(int index) {
+  /// Поставить курсор на строку.
+  ///
+  /// [seq] — номер заявки той стороны. Зеркало двигает курсор у себя сразу,
+  /// не дожидаясь ответа, а по номеру отличает свежее подтверждение от
+  /// опоздавшего: иначе при удержании стрелки курсор дёргался бы назад
+  /// (`docs/spec/client-server.md`, §5.5).
+  void setCursorIndex(int index, {int seq = 0}) {
+    if (seq != 0) {
+      _cursorSeq = seq;
+    }
     if (_nodes.isEmpty) {
       _setCursor(0);
       return;
@@ -683,6 +692,13 @@ class PanelSession {
 
   void markAll() => selection.addAll(_nodes);
 
+  /// Заменить пометку целиком — именами.
+  ///
+  /// Именами, а не строками: список могли перечитать, и узлы теперь другие
+  /// экземпляры. Это то же самое, что делает перечитывание каталога, — и
+  /// делается тем же способом.
+  void setMarks(Set<String> names) => _restoreSelection(names);
+
   // --- вид ---
 
   /// Раскладка колонок: своя у панели, но источник вправе попросить другую.
@@ -703,12 +719,19 @@ class PanelSession {
   SortSpec get sort => _sort;
 
   /// Сортировка по колонке: та же колонка меняет направление.
-  /// Курсор остаётся на том же объекте, а не на том же индексе.
   void sortBy(FsColumn column) {
     if (!column.sortable) {
       return;
     }
-    _sort = _sort.toggled(column);
+    sortTo(_sort.toggled(column));
+  }
+
+  /// Сортировать по готовому правилу.
+  ///
+  /// Курсор остаётся на том же **объекте**, а не на том же месте: строка
+  /// уедет, и следить надо за тем, на чём стоял курсор.
+  void sortTo(SortSpec sort) {
+    _sort = sort;
     final name = currentNode?.name;
     _applySort();
     if (name != null) {
@@ -779,6 +802,12 @@ class PanelSession {
 
   int get generation => _generation;
 
+  /// Номер последней заявки на курсор, пришедшей с той стороны.
+  ///
+  /// Едет обратно в состоянии: по нему зеркало узнаёт своё подтверждение и
+  /// отбрасывает опоздавшие.
+  int _cursorSeq = 0;
+
   /// Состояние панели значением — всё, кроме списка.
   PanelState get state => PanelState(
     source: sourceInfo,
@@ -788,6 +817,7 @@ class PanelSession {
     busy: _busy,
     statusText: _statusText,
     cursorIndex: _cursorIndex,
+    cursorSeq: _cursorSeq,
     generation: _generation,
     sort: _sort,
     columns: columns,

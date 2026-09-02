@@ -21,6 +21,7 @@ class PanelState {
     this.busy = false,
     this.statusText,
     this.cursorIndex = 0,
+    this.cursorSeq = 0,
     this.generation = 0,
     this.sort = const SortSpec(),
     required this.columns,
@@ -54,6 +55,13 @@ class PanelState {
 
   final int cursorIndex;
 
+  /// Номер заявки, на которую этот курсор — ответ.
+  ///
+  /// Зеркало двигает курсор у себя сразу и запоминает номер своей просьбы.
+  /// Подтверждение с меньшим номером — опоздавшее, и слушать его нельзя:
+  /// при удержании стрелки курсор дёргался бы назад.
+  final int cursorSeq;
+
   /// Номер списка: растёт с каждым новым. По нему ядро отвергает заявки на
   /// строки того списка, которого уже нет.
   final int generation;
@@ -80,6 +88,7 @@ class PanelState {
     String? statusText,
     bool clearStatus = false,
     int? cursorIndex,
+    int? cursorSeq,
     int? generation,
     SortSpec? sort,
     ColumnLayout? columns,
@@ -95,6 +104,7 @@ class PanelState {
     busy: busy ?? this.busy,
     statusText: clearStatus ? null : (statusText ?? this.statusText),
     cursorIndex: cursorIndex ?? this.cursorIndex,
+    cursorSeq: cursorSeq ?? this.cursorSeq,
     generation: generation ?? this.generation,
     sort: sort ?? this.sort,
     columns: columns ?? this.columns,

@@ -155,20 +155,19 @@ final class CoreEntered extends CoreReply {
 }
 
 /// Ответ на рукопожатие: что у ядра есть прямо сейчас.
+///
+/// Панели и их списки — и ничего больше. Схемы архивов и адресов сюда не
+/// поехали нарочно: решает, что делать с файлом, на котором нажали `Enter`,
+/// **ядро**, и знать это интерфейсу незачем. Понадобится — приедет; заранее
+/// возить то, чего никто не спрашивает, значит городить язык впрок.
 final class CoreReady extends CoreReply {
-  const CoreReady({required this.states, required this.listings, required this.schemes, required this.addresses});
+  const CoreReady({required this.states, required this.listings});
 
   /// Состояние каждой панели.
   final Map<PanelId, PanelState> states;
 
   /// И её список.
   final Map<PanelId, PanelListing> listings;
-
-  /// Расширения, которыми открываются вложенные источники, и схемы адресов:
-  /// то, что известно **до всякого разговора**. Спрашивать их сообщением
-  /// значило бы сделать асинхронным то, что готово раньше первой панели.
-  final Map<String, String> schemes;
-  final Set<String> addresses;
 }
 
 /// О чём ядро рассказывает само.
@@ -194,4 +193,18 @@ final class PanelListed extends CoreEvent {
 
   final PanelId panel;
   final PanelListing listing;
+}
+
+/// У посчитанных каталогов появился размер: строка списка → новое число.
+///
+/// Отдельно от списка, и это не мелочь: обход помеченного меняет по одному
+/// числу в строке, а список бывает в десять тысяч строк. Номер списка нужен
+/// затем же, зачем и в ссылке на строку: пока сообщение шло, каталог могли
+/// перечитать, и числа тогда уже не про эти строки.
+final class PanelSized extends CoreEvent {
+  const PanelSized(this.panel, this.generation, this.sizes);
+
+  final PanelId panel;
+  final int generation;
+  final Map<int, int> sizes;
 }
