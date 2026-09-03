@@ -9,6 +9,7 @@ import '../link/link.dart';
 import 'content_hub.dart';
 import 'operation_hub.dart';
 import 'panel_session.dart';
+import 'shell_hub.dart';
 
 /// Ядро приложения со стороны линка.
 ///
@@ -29,6 +30,7 @@ class CoreServer implements CoreHandler {
     Map<String, OperationFactory> operations = const {},
   }) : _panels = {PanelId.left: left, PanelId.right: right} {
     _content = ContentHub(registry: registry, sessionOf: session, say: _say);
+    _shells = ShellHub(services: services, sessionOf: session, say: _say);
     _operations = OperationHub(
       factories: operations,
       services: services,
@@ -61,6 +63,9 @@ class CoreServer implements CoreHandler {
 
   /// Идущие чтения: просмотр, правка, сведения об объекте.
   late final ContentHub _content;
+
+  /// Оболочки мест: своя машина и каждый сервер, куда зашла панель.
+  late final ShellHub _shells;
 
   /// Кто слушает события ядра.
   ///
@@ -161,6 +166,11 @@ class CoreServer implements CoreHandler {
         return const CoreDone();
 
       case TellOperation(:final runId, :final input):
+        // Оболочке — первой: имя разговора у неё своё, и работой она не
+        // притворяется.
+        if (_shells.tell(runId, input)) {
+          return null;
+        }
         _operations.tell(runId, input);
         // Отмена относится и к чтению: имя разговора одно, а кто им занят —
         // работа или чтение, — той стороне знать незачем.
@@ -171,6 +181,12 @@ class CoreServer implements CoreHandler {
 
       case CheckWriteAccess(:final entry):
         return CoreFlag(await _content.canWrite(entry));
+
+      case ListNames(:final panel, :final path):
+        return CoreEntries(await session(panel).namesIn(path));
+
+      case OpenShell():
+        return _shells.open(request);
 
       case ReadContent(:final runId, :final entry, :final offset):
         // Не ждём: байты поедут событиями, а очередь просьб держать нельзя.
@@ -209,6 +225,7 @@ class CoreServer implements CoreHandler {
   Future<void> dispose() async {
     _content.dispose();
     _operations.dispose();
+    _shells.dispose();
     for (final session in _panels.values) {
       session.dispose();
     }

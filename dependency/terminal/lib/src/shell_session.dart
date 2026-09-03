@@ -1,6 +1,7 @@
 import 'dart:async';
 
-import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'shell_marks.dart';
 import 'terminal_session.dart';
@@ -10,6 +11,12 @@ import 'terminal_settings.dart';
 ///
 /// Служба, а не поле экрана: экран открывают и закрывают, а оболочка живёт всё
 /// время работы приложения.
+///
+/// Сама оболочка живёт **в ядре**: там псевдотерминал и там же аренда места —
+/// `htop`, запущенный на сервере, обязан дожить до своего конца, даже если
+/// панель ушла оттуда сразу. Здесь остаётся то, что принадлежит экрану: разбор
+/// вывода, лента прокрутки и клавиши обратно
+/// (`docs/spec/client-server.md`, §5.1.5).
 ///
 /// **Своя заводится заранее, серверная — по надобности.** Лень была общей и
 /// стоила заметного: первый `Ctrl-O` и первая команда ждали запуска оболочки,
@@ -55,37 +62,30 @@ class ShellSession {
   /// Хоть какая-то оболочка жива.
   bool get started => _sessions.isNotEmpty;
 
-  /// Сессия этого места; заводит её, если ещё не заводили.
+  /// Сессия того места, где стоит панель; заводит её, если ещё не заводили.
   ///
+  /// [panel] null — своя машина: так её греют заранее, когда панелей ещё нет.
   /// [directory] — откуда оболочка начнёт, и учитывается он только при первом
   /// запуске: дальше её каталог принадлежит ей самой.
-  /// [lease] — аренда источника, в котором живёт оболочка; null — своя машина.
-  /// Держит её сессия, а лишнюю — когда оболочка уже была — отпускаем сразу.
-  Future<TerminalSession> sessionIn(ShellHost host, String? directory, {ProviderLease? lease}) async {
-    final current = _sessions[host.shellLabel];
+  ///
+  /// Аренды здесь больше нет: место держит ядро, пока жива оболочка.
+  Future<TerminalSession> sessionIn(Application app, {Panel? panel, String? directory}) async {
+    // Ждём: на сервере открытие канала — поход по сети, и не удаться оно
+    // вполне может. Отказ уходит бедой тому, кто просил.
+    final channel = await app.openShell(panel: panel, directory: directory);
+    final label = channel.label;
+    final current = _sessions[label];
     if (current != null) {
-      // Аренда уже есть у живой сессии: вторая ни к чему, и держать её значило
-      // бы не отпустить сервер никогда.
-      unawaited(lease?.release());
       return current;
-    }
-
-    final PtySession pty;
-    try {
-      // Открытие ждём: на сервере это поход по сети, и не удаться оно вполне
-      // может. Записываем в таблицу только то, что открылось.
-      pty = await host.shell(directory: directory);
-    } on Object {
-      // Не открылось — держать источник нечем и незачем.
-      unawaited(lease?.release());
-      rethrow;
     }
 
     // Уговор о метках — первой же строкой в свежую оболочку. Без него конец
     // команды из строки останется незамеченным (`spec/single-shell-session.md`).
+    // Уже жившей второй раз не шлём: она о себе и так рассказывает, а лишняя
+    // строка встала бы поперёк того, что человек в ней делает.
     final agreement = ShellAgreement();
-    final opened = TerminalSession.around(pty, maxLines: settings().maxLines, lease: lease, agreement: agreement);
-    final setup = agreement.setupFor(host.shellProgram);
+    final opened = TerminalSession.around(channel.pty, maxLines: settings().maxLines, agreement: agreement);
+    final setup = channel.fresh ? agreement.setupFor(channel.program.isEmpty ? null : channel.program) : '';
     if (setup.isNotEmpty) {
       // `clear` следом: сама строка уговора в ленте не нужна, а всё, что после
       // неё, — уже жизнь человека.
@@ -94,7 +94,6 @@ class ShellSession {
     // Оболочка смертна: `exit`, `kill`, обрыв `ssh`. Умерла — уходит из
     // таблицы, и следующая команда заводит новую; держать мёртвую значило бы
     // слать команды в никуда.
-    final label = host.shellLabel;
     opened.onMark = (mark) {
       if (mark.kind == ShellMarkKind.prompt && mark.directory.isNotEmpty) {
         onDirectory?.call(label, mark.directory);

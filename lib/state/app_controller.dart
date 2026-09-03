@@ -9,6 +9,7 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import '../settings/settings_store.dart';
 import '../core/core_server.dart';
 import '../link/link.dart';
+import '../ui/remote_shell.dart';
 import '../ui/remote_operation.dart';
 import 'panel_controller.dart';
 import 'panel_viewport_registry.dart';
@@ -311,6 +312,31 @@ class AppController extends ChangeNotifier implements Application {
     }
     return RemoteOperation(door);
   }
+
+  @override
+  Future<ShellChannel> openShell({Panel? panel, String? directory, int columns = 80, int rows = 24}) async {
+    final door = link;
+    if (door == null) {
+      throw const FsError('', FsErrorKind.notSupported);
+    }
+    final reply = await door.call(
+      OpenShell(panel: panel is PanelController ? panel.id : null, directory: directory, columns: columns, rows: rows),
+    );
+    if (reply is! ShellOpened) {
+      // Отказ приходит бедой: клавишу нажали, и сказать, почему ничего не
+      // вышло, обязательно.
+      throw reply is CoreFailed ? reply.error : const FsError('', FsErrorKind.notSupported);
+    }
+    // Канал на разговор один, как и оболочка на место: второй означал бы
+    // вторую подписку на те же байты — и ленту, в которой каждый символ
+    // напечатан дважды.
+    final channel = _shells[reply.runId] ??= RemoteShell(door, reply.runId);
+    unawaited(channel.exitCode.then((_) => _shells.remove(reply.runId)));
+    return ShellChannel(pty: channel, label: reply.label, program: reply.program, fresh: reply.fresh);
+  }
+
+  /// Открытые каналы оболочек — по имени разговора.
+  final Map<String, RemoteShell> _shells = {};
 
   /// Разбор пути от корня дерева — мимо панелей и того, где они стоят.
   @override

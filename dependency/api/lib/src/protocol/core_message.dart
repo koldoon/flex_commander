@@ -181,6 +181,42 @@ final class ReadContent extends CoreRequest {
   final int offset;
 }
 
+/// Имена в каталоге по пути — не открывая его в панели.
+///
+/// Ровно для дополнения по `Tab`: строка спрашивает, что лежит рядом, а панель
+/// при этом остаётся там, где стояла. Скрытые не отсеиваются — кто спросил, тот
+/// и решает, показывать ли их: `s` не должен предлагать `.ssh`, а `.s` обязан.
+///
+/// Путь считается **от панели**: `~` у сервера свой, и подставлять вместо него
+/// местный было бы враньём.
+final class ListNames extends CoreRequest {
+  const ListNames(this.panel, this.path);
+
+  final PanelId panel;
+  final String path;
+}
+
+/// Завести оболочку там, где стоит панель, — или отдать уже заведённую.
+///
+/// Оболочка **одна на место**, и хозяин ей — ядро: там живёт псевдотерминал,
+/// там же берётся аренда источника (`htop`, запущенный на сервере, обязан
+/// дожить до своего конца, даже если панель ушла оттуда сразу). Экрану
+/// достаётся разбор вывода и клавиши обратно.
+///
+/// [panel] null — своя машина: греют оболочку заранее, когда панелей ещё нет.
+final class OpenShell extends CoreRequest {
+  const OpenShell({this.panel, this.directory, this.columns = 80, this.rows = 24});
+
+  final PanelId? panel;
+
+  /// Откуда оболочка начнёт; учитывается только при первом запуске.
+  final String? directory;
+
+  /// Размер окна: без него `vim` и `htop` считают, что перед ними 80×24.
+  final int columns;
+  final int rows;
+}
+
 /// Сказать в идущую работу: отмена, ответ на вопрос.
 final class TellOperation extends CoreRequest {
   const TellOperation(this.runId, this.input);
@@ -233,6 +269,33 @@ final class CoreFlag extends CoreReply {
   const CoreFlag(this.value);
 
   final bool value;
+}
+
+/// Список значениями — ответ на просьбу, а не событие панели.
+final class CoreEntries extends CoreReply {
+  const CoreEntries(this.entries);
+
+  final List<FileEntry> entries;
+}
+
+/// Оболочка есть — вот её разговор.
+final class ShellOpened extends CoreReply {
+  const ShellOpened(this.runId, {required this.label, this.program = '', required this.fresh});
+
+  /// Имя разговора. Даёт его **ядро**, а не эта сторона: оболочка одна на
+  /// место, и второе имя означало бы вторую.
+  final String runId;
+
+  /// Как место называется: `localhost` или `user@host`.
+  final String label;
+
+  /// Чем оболочка запущена; пусто — не знаем (так на той стороне `ssh`).
+  /// Нужно ровно уговору о метках: он у каждой оболочки свой.
+  final String program;
+
+  /// Только что запустилась. Уже жившей уговор второй раз не шлют — и ленту её
+  /// не заводят заново: она у экрана и так есть.
+  final bool fresh;
 }
 
 /// Ответ на рукопожатие: что у ядра есть прямо сейчас.
@@ -295,6 +358,26 @@ final class ContentEnded extends CoreEvent {
 
   /// Чужая беда — текстом.
   final String message;
+}
+
+/// Оболочка что-то вывела — байтами, как они пришли.
+///
+/// Байтами, а не строками: в терминале ходит не текст, а поток с управляющими
+/// последовательностями, и многобайтный символ вполне может приехать разорванным
+/// между двумя порциями.
+final class ShellOutput extends CoreEvent {
+  const ShellOutput(this.runId, this.bytes);
+
+  final String runId;
+  final List<int> bytes;
+}
+
+/// Оболочка кончилась: `exit`, `kill`, обрыв соединения.
+final class ShellExited extends CoreEvent {
+  const ShellExited(this.runId, this.exitCode);
+
+  final String runId;
+  final int exitCode;
 }
 
 /// Работа рассказывает о себе.

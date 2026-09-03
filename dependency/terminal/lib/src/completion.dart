@@ -1,5 +1,5 @@
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_api/fc_api.dart';
 
 import 'shell_command.dart';
 
@@ -153,11 +153,15 @@ class CompletionCandidate {
 /// Отдельно от команды: команда — прототип, а это чистая работа с деревом,
 /// которую хочется проверять без приложения.
 class CompletionSource {
-  const CompletionSource({required this.provider, required this.directory});
+  const CompletionSource({required this.lookup, required this.directory, required this.homePath});
 
-  /// Источник панели. Он же знает свой домашний каталог — `~` разбирает не
-  /// строка, а он.
-  final TreeProvider provider;
+  /// Чем спросить имена в каталоге. За границей это ядро: дерева по эту
+  /// сторону нет, а имена — обычные значения.
+  final Future<List<FileEntry>> Function(String path) lookup;
+
+  /// Домашний каталог источника — им разбирается `~`. У сервера он свой, и
+  /// подставлять вместо него местный было бы враньём.
+  final String homePath;
 
   /// Каталог панели: от него считается всё, что набрано без косой черты в
   /// начале.
@@ -168,39 +172,28 @@ class CompletionSource {
   /// Скрытые объекты попадают в список, **только если** начало имени
   /// начинается с точки: `s` не должен предлагать `.ssh`, а `.s` — обязан.
   Future<List<CompletionCandidate>> candidates(CompletionToken token) async {
-    final node = await provider.resolvePath().run(pathOf(token.directory));
-    if (node is! DirectoryNode) {
-      return const [];
-    }
-
-    // `listChildren`, а не `getDirectoryListing`: тот складывает список в узел
-    // и подменил бы то, что показывает панель, а нам нужны просто имена — со
-    // скрытыми и без «..».
-    final children = await provider.listChildren(node);
+    final children = await lookup(pathOf(token.directory));
     final hidden = token.prefix.startsWith('.');
 
     final found = [
       for (final child in children)
         if (child.name.startsWith(token.prefix) && (hidden || !child.name.startsWith('.')))
-          CompletionCandidate(child.name, isDirectory: child is DirectoryNode),
+          CompletionCandidate(child.name, isDirectory: child.isDirectory),
     ]..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
 
     return found;
   }
 
   /// Путь каталога, в котором искать.
-  ///
-  /// `~` разбирается здесь, потому что домашний каталог — свойство источника:
-  /// у сервера он свой, и подставлять локальный было бы враньём.
   String pathOf(String tokenDirectory) {
     if (tokenDirectory.isEmpty) {
       return directory;
     }
     if (tokenDirectory == '~' || tokenDirectory == '~/') {
-      return provider.homePath;
+      return homePath;
     }
     if (tokenDirectory.startsWith('~/')) {
-      return _join(provider.homePath, tokenDirectory.substring(2));
+      return _join(homePath, tokenDirectory.substring(2));
     }
     if (tokenDirectory.startsWith('/')) {
       return tokenDirectory;

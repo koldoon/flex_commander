@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'command_line_state.dart';
@@ -196,7 +195,7 @@ class ToggleTypingCommand extends AppCommand {
 /// **там**, и панели он ничего не говорит.
 void followShell(Application app, String shellLabel, String directory) {
   final panel = app.activePanel;
-  if (shellHostOf(panel)?.shellLabel != shellLabel) {
+  if (panel.source.shellLabel != shellLabel) {
     return;
   }
   if (!panel.source.capabilities.realFileSystem || panel.path == directory) {
@@ -218,10 +217,21 @@ bool statusTakesKeys(Application app) {
   return app.view.contentAt(position)?.takesKeyboard ?? false;
 }
 
-ShellHost? shellHostOf(Panel? panel) {
-  final provider = panel?.directory?.provider;
-  return provider is ShellHost ? provider as ShellHost : null;
-}
+/// Есть ли у панели где выполнять команды.
+///
+/// Спрашивается у снимка источника, а не у провайдера: самого источника по эту
+/// сторону нет вовсе, и это не потеря — «есть ли здесь оболочка» и так вопрос
+/// про место, а не про объект.
+bool hasShell(Panel? panel) => panel != null && panel.source.isShellHost;
+
+/// Путь объекта так, как назовёт его **оболочка** панели.
+///
+/// Считается, а не спрашивается: объект лежит в каталоге панели, а её каталог
+/// оболочка уже назвала — остаётся приставить имя тем же разделителем, каким
+/// приставил его сам источник. Лишнего похода за границу на каждый `Enter` это
+/// стоить не должно.
+String shellPathOf(Panel panel, FileEntry entry) =>
+    entry.path.startsWith(panel.path) ? panel.shellDirectory + entry.path.substring(panel.path.length) : entry.path;
 
 class ToggleTerminalCommand extends AppCommand {
   ToggleTerminalCommand(this.shell);
@@ -281,8 +291,7 @@ class ToggleTerminalCommand extends AppCommand {
     // Сессия заводится здесь и только здесь: приложение, в котором терминал ни
     // разу не открывали, лишнего процесса не держит.
     final line = _lineOf(context.app);
-    final host = shellHostOf(line?.panel);
-    if (host == null) {
+    if (!hasShell(line?.panel)) {
       // Внутри архива выполнять негде, и молчать об этом нельзя: клавиша
       // нажата, а ничего не произошло.
       context.app.toasts.show('No shell here');
@@ -291,13 +300,10 @@ class ToggleTerminalCommand extends AppCommand {
 
     final TerminalSession session;
     try {
-      session = await shell().sessionIn(
-        host,
-        line?.workingDirectory,
-        // Пока живёт оболочка, живёт и соединение: уйти с сервера панель
-        // вправе хоть сразу, а `htop` там обязан дожить до своего конца.
-        lease: line?.panel?.leaseProvider(),
-      );
+      // Аренду места берёт ядро: пока живёт оболочка, живо и соединение —
+      // уйти с сервера панель вправе хоть сразу, а `htop` там обязан дожить до
+      // своего конца.
+      session = await shell().sessionIn(context.app, panel: line?.panel, directory: line?.workingDirectory);
     } on Object catch (error) {
       // На сервере открытие канала — поход по сети, и не удаться оно может.
       // Молчать нельзя: клавиша нажата, а экрана нет.
@@ -512,8 +518,7 @@ class CompletePathCommand extends AppCommand {
   Future<void> execute(CommandContext context) async {
     final line = _lineOf(context.app);
     final panel = line?.panel;
-    final directory = panel?.directory;
-    if (line == null || panel == null || directory == null || !line.enabled) {
+    if (line == null || panel == null || !line.enabled) {
       return;
     }
 
@@ -529,7 +534,7 @@ class CompletePathCommand extends AppCommand {
     final caret = selection.isValid ? selection.start : before.length;
     final token = CompletionToken.parse(before, caret);
 
-    final source = CompletionSource(provider: panel.provider, directory: directory.pathString);
+    final source = CompletionSource(lookup: panel.namesIn, directory: panel.path, homePath: panel.source.homePath);
     final List<CompletionCandidate> candidates;
     try {
       candidates = await source.candidates(token);
@@ -621,19 +626,18 @@ class RunCommandLineCommand extends AppCommand {
     }
 
     // Запуск и показ — общие с запуском файла под курсором: `TerminalRun`.
-    final host = shellHostOf(line.panel);
-    if (host == null) {
+    final panel = line.panel;
+    if (!hasShell(panel)) {
       return;
     }
 
     await TerminalRun.start(
       app: app,
       shells: shells(),
-      host: host,
+      panel: panel,
       options: settings(),
       command: command,
       workingDirectory: directory,
-      lease: line.panel?.leaseProvider(),
       showDelay: showDelay,
       // Строка помнит и очищается, только когда процесс уже пошёл: не
       // запустилось — набранное остаётся на месте.
@@ -723,19 +727,14 @@ class RunNodeCommand extends AppCommand {
       // находок узлы свои, а каталога у них общего нет. Раньше это выяснялось
       // уже в `execute`, и `Enter` там молча пропадал — клавишу забирала
       // команда, которой нечего было делать.
-      shellHostOf(context.panel) != null &&
+      hasShell(context.panel) &&
       _runnable(context) != null;
 
   @override
   Future<void> execute(CommandContext context) async {
+    final panel = context.panel;
     final entry = _runnable(context);
-    final directory = context.panel.directory;
-    if (entry == null || directory == null) {
-      return;
-    }
-
-    final host = shellHostOf(context.panel);
-    if (host == null) {
+    if (entry == null || !hasShell(panel)) {
       return;
     }
 
@@ -745,16 +744,15 @@ class RunNodeCommand extends AppCommand {
     //
     // Путь — тот, которым его назовёт оболочка: на сервере она про адрес
     // `ssh://` не слышала.
-    final command = ShellCommand.quote(host.shellPath(entry.path));
+    final command = ShellCommand.quote(shellPathOf(panel, entry));
 
     await TerminalRun.start(
       app: context.app,
       shells: shells(),
-      host: host,
+      panel: panel,
       options: settings(),
       command: command,
-      workingDirectory: host.shellPath(directory.pathString),
-      lease: context.panel.leaseProvider(),
+      workingDirectory: panel.shellDirectory,
       showDelay: showDelay,
       // В историю строки — как и набранное руками: это команда, выполненная в
       // этом каталоге, и повторяют её тем же `Cmd-Up`.

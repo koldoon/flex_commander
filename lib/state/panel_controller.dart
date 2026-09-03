@@ -64,6 +64,19 @@ class PanelController extends ChangeNotifier implements Panel {
   String get directoryName => session.directoryName;
 
   @override
+  String get shellDirectory => session.shellDirectory;
+
+  @override
+  Future<List<FileEntry>> namesIn(String path) async {
+    final door = _link;
+    if (door == null) {
+      return const [];
+    }
+    final reply = await door.call(ListNames(id, path));
+    return reply is CoreEntries ? reply.entries : const [];
+  }
+
+  @override
   bool get canGoUp => session.canGoUp;
 
   @override

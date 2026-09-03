@@ -1,7 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
-import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter/foundation.dart';
 import 'package:xterm/xterm.dart';
 
@@ -21,21 +21,16 @@ import 'shell_marks.dart';
 class TerminalSession extends ChangeNotifier {
   /// Заводит разбор вокруг уже запущенной программы.
   ///
-  /// Запускает её [ShellHost] — тот, что у провайдера активной панели: на
-  /// локальной панели это `$SHELL` на этой машине, на `ssh://` — оболочка
-  /// сервера. Здесь же остаётся то, что от места не зависит: разбор вывода,
-  /// буфер прокрутки и обратная дорога для клавиш.
+  /// Запускает её **ядро** — там, где стоит панель: на локальной это `$SHELL`
+  /// этой машины, на `ssh://` — оболочка сервера. Здесь же остаётся то, что от
+  /// места не зависит: разбор вывода, буфер прокрутки и обратная дорога для
+  /// клавиш.
   ///
   /// Размер окна оболочке сообщает вызывающий: он у неё спрашивается **до**
   /// запуска, а буфер разбора заводится здесь.
-  TerminalSession.around(
-    PtySession pty, {
-    int maxLines = defaultMaxLines,
-    ProviderLease? lease,
-    ShellAgreement? agreement,
-  }) : _lease = lease,
-       _agreement = agreement,
-       terminal = Terminal(maxLines: maxLines) {
+  TerminalSession.around(PtySession pty, {int maxLines = defaultMaxLines, ShellAgreement? agreement})
+    : _agreement = agreement,
+      terminal = Terminal(maxLines: maxLines) {
     _pty = pty;
 
     // Свой обработчик впереди стандартного: `xterm` не смотрит на прикладной
@@ -171,20 +166,6 @@ class TerminalSession extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Аренда источника, в котором живёт оболочка; null — своя машина.
-  ///
-  /// Пока сессия жива, живо и соединение: панель вправе уйти с сервера хоть
-  /// сразу, а `htop`, запущенный там, обязан дожить до своего конца. Отпускаем
-  /// в двух местах — когда оболочка кончилась сама и когда её закрыли, —
-  /// поэтому отпускание одноразовое.
-  ProviderLease? _lease;
-
-  void _releaseLease() {
-    final lease = _lease;
-    _lease = null;
-    unawaited(lease?.release());
-  }
-
   late final PtySession _pty;
   late final StreamSubscription<String> _output;
 
@@ -231,8 +212,6 @@ class TerminalSession extends ChangeNotifier {
       return;
     }
     _exitCode = code;
-    // Оболочка кончилась — держать сервер больше незачем.
-    _releaseLease();
     if (!_exited.isCompleted) {
       _exited.complete(code);
     }
@@ -271,7 +250,6 @@ class TerminalSession extends ChangeNotifier {
     // обычно кончается сама.
     unawaited(_pty.kill());
     _onExit(_exitCode ?? -1);
-    _releaseLease();
     super.dispose();
   }
 }

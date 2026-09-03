@@ -1,4 +1,3 @@
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/widgets.dart';
 
@@ -30,32 +29,17 @@ class CommandLineState extends ChangeNotifier implements ViewportState {
   /// строка.
   Panel? get panel => app.view.panelAt(app.view.sourceArea);
 
-  /// Оболочка того места, где стоит панель; null — выполнять здесь негде.
-  ///
-  /// Спрашивается у **провайдера**: на локальной панели это своя машина, на
-  /// `ssh://` — сервер, а внутри архива оболочки нет вовсе.
-  ShellHost? get shellHost {
-    final provider = panel?.directory?.provider;
-    return provider is ShellHost ? provider as ShellHost : null;
-  }
-
   /// Каталог, в котором выполнится команда; null — выполнять нельзя.
   ///
   /// Настоящий путь или ничего: молча выполнить команду не в том каталоге, о
   /// котором думает человек, — худшее, что строка может сделать. В архиве она
   /// приглушена и говорит, почему.
   ///
-  /// Спрашивается умение источника, а не `realFileSystem`: на `ssh://` путей
-  /// этой машины нет, а выполнять есть где — на той стороне.
+  /// Приезжает готовым, тем самым, каким назовёт его сама оболочка: на `ssh://`
+  /// путь панели — адрес, а оболочка стоит на сервере и про адреса не слышала.
   String? get workingDirectory {
-    final directory = panel?.directory;
-    final host = shellHost;
-    if (directory == null || host == null) {
-      return null;
-    }
-    // Так, как этот путь назовёт сама оболочка: на `ssh://` путь панели — это
-    // адрес, а оболочка стоит на сервере и про адреса не слышала.
-    return host.shellPath(directory.pathString);
+    final directory = panel?.shellDirectory ?? '';
+    return directory.isEmpty ? null : directory;
   }
 
   /// Что показано слева от ввода: путь, в котором всё и произойдёт.
@@ -63,9 +47,9 @@ class CommandLineState extends ChangeNotifier implements ViewportState {
   /// Вместе с местом, если оно не своя машина: где выполнится набранное, видно
   /// **до** нажатия — иначе `rm` на сервере не отличить от `rm` у себя.
   String get prompt {
-    final path = panel?.directory?.pathString ?? '';
-    final label = shellHost?.shellLabel;
-    return label == null || label == 'localhost' ? path : '$label:$path';
+    final path = panel?.path ?? '';
+    final label = panel?.source.shellLabel ?? '';
+    return label.isEmpty || label == 'localhost' ? path : '$label:$path';
   }
 
   /// Строку можно выполнить здесь.

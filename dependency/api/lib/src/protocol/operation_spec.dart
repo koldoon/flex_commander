@@ -100,6 +100,21 @@ final class SoftCancelInput extends OperationInput {
   const SoftCancelInput();
 }
 
+/// Ввод в оболочку: то, что она увидит как набранное с клавиатуры.
+final class ShellInput extends OperationInput {
+  const ShellInput(this.bytes);
+
+  final List<int> bytes;
+}
+
+/// Окно сменило размер: программа внутри о нём спрашивает и по нему верстает.
+final class ShellResize extends OperationInput {
+  const ShellResize({required this.columns, required this.rows});
+
+  final int columns;
+  final int rows;
+}
+
 /// Ответ на вопрос, заданный по ходу дела.
 final class AnswerInput extends OperationInput {
   const AnswerInput(this.optionId, {this.text = ''});

@@ -99,6 +99,10 @@ class OperationHub {
         run.operation.requestCancel();
       case AnswerInput(:final optionId, :final text):
         run.answer(optionId, text);
+      case ShellInput():
+      case ShellResize():
+        // Не сюда: у оболочки свои разговоры, и сервер отдаёт их ей раньше.
+        break;
     }
   }
 

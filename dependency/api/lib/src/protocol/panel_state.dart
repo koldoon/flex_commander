@@ -17,6 +17,7 @@ class PanelState {
     required this.source,
     this.path = '',
     this.directoryName = '',
+    this.shellDirectory = '',
     this.canGoUp = false,
     this.phase = PanelPhase.idle,
     this.error,
@@ -45,6 +46,14 @@ class PanelState {
   /// Значением, а не выкусыванием из [path]: разделители у каждого источника
   /// свои, и знает их только он.
   final String directoryName;
+
+  /// Тот же каталог так, как его назовёт **сама оболочка**; пусто —
+  /// выполнять здесь негде.
+  ///
+  /// На своей машине это [path] и есть. На `ssh://` путь панели — адрес
+  /// (`ssh://user@host/etc`), а оболочка стоит на сервере и про наши адреса не
+  /// слышала. Считает его источник: как выглядит его путь, знает только он.
+  final String shellDirectory;
 
   /// Есть ли куда подниматься. У корня источника — нет.
   final bool canGoUp;
@@ -100,6 +109,7 @@ class PanelState {
     SourceInfo? source,
     String? path,
     String? directoryName,
+    String? shellDirectory,
     bool? canGoUp,
     PanelPhase? phase,
     FsError? error,
@@ -122,6 +132,7 @@ class PanelState {
     source: source ?? this.source,
     path: path ?? this.path,
     directoryName: directoryName ?? this.directoryName,
+    shellDirectory: shellDirectory ?? this.shellDirectory,
     canGoUp: canGoUp ?? this.canGoUp,
     phase: phase ?? this.phase,
     error: clearError ? null : (error ?? this.error),

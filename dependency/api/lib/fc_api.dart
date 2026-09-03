@@ -53,6 +53,7 @@ export 'src/module/fc_module.dart';
 // просит команда, а запускает ядро. Интерфейс у таких служб общий, а кто по
 // какую сторону — решает сборка.
 export 'src/os/credentials.dart';
+export 'src/os/pty_session.dart';
 export 'src/os/system_opener.dart';
 
 // --- Форматирование и утилиты ---

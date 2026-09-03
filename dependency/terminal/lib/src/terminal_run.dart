@@ -1,6 +1,5 @@
 import 'dart:async';
 
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'shell_command.dart';
@@ -37,19 +36,17 @@ class TerminalRun {
   static Future<void> start({
     required Application app,
     required ShellSession shells,
-    required ShellHost host,
+    required Panel? panel,
     required TerminalSettings options,
     required String command,
     required String workingDirectory,
-    ProviderLease? lease,
     Duration showDelay = defaultShowDelay,
     void Function()? onStarted,
   }) async {
     final TerminalSession session;
     try {
-      session = await shells.sessionIn(host, workingDirectory, lease: lease);
+      session = await shells.sessionIn(app, panel: panel, directory: workingDirectory);
     } catch (error) {
-      unawaited(lease?.release());
       // Псевдотерминала на этой платформе может не быть вовсе. Молчать нельзя,
       // но и окна ради этого не ставим: сообщения хватает.
       app.toasts.show('Shell did not start: $error');

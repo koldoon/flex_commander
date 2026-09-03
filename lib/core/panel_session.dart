@@ -272,6 +272,24 @@ class PanelSession {
   /// аренда, и уход панели её не касается.
   ProviderLease? leaseProvider() => _registry.leaseOf(provider);
 
+  /// Имена в каталоге по пути — не трогая того, что показано.
+  ///
+  /// `listChildren`, а не `getDirectoryListing`: тот складывает список в узел и
+  /// подменил бы показанное панелью, а спрашивают здесь просто имена — со
+  /// скрытыми и без «..».
+  ///
+  /// `~` разбирает **источник**: домашний каталог у сервера свой. Ошибку не
+  /// прячем — каталога нет или в него не пускают, и решать это тому, кто
+  /// спросил.
+  Future<List<FileEntry>> namesIn(String path) async {
+    final here = provider;
+    final node = await here.resolvePath().run(path == '~' || path == '~/' ? here.homePath : path);
+    if (node is! DirectoryNode) {
+      return const [];
+    }
+    return [for (final child in await here.listChildren(node)) entryOf(child)];
+  }
+
   /// Разбирает путь от корня этой панели и отдаёт узел вместе с арендой.
   ///
   /// Аренду обязан отпустить тот, кто просил: путь может пройти через архив,
@@ -856,6 +874,7 @@ class PanelSession {
     source: sourceInfo,
     path: path,
     directoryName: directoryName,
+    shellDirectory: shellDirectory,
     canGoUp: canGoUp,
     phase: _status,
     error: _error,
@@ -875,6 +894,17 @@ class PanelSession {
 
   /// Список значениями — то, чем та сторона рисует таблицу.
   List<FileEntry> get entries => [for (final node in _nodes) entryOf(node)];
+
+  /// Каталог панели так, как его назовёт сама оболочка; пусто — выполнять
+  /// здесь негде (внутри архива оболочки нет вовсе).
+  String get shellDirectory {
+    final current = provider;
+    final here = directory;
+    if (current is! ShellHost || here == null) {
+      return '';
+    }
+    return (current as ShellHost).shellPath(here.pathString);
+  }
 
   /// Снимок источника, в котором панель стоит сейчас.
   ///

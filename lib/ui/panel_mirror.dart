@@ -46,6 +46,13 @@ class PanelMirror extends ChangeNotifier {
 
   String get path => _state.path;
 
+  String get shellDirectory => _state.shellDirectory;
+
+  Future<List<FileEntry>> namesIn(String path) async {
+    final reply = await _link.call(ListNames(id, path));
+    return reply is CoreEntries ? reply.entries : const [];
+  }
+
   PanelPhase get phase => _state.phase;
 
   FsError? get error => _state.error;
