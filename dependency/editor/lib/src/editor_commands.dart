@@ -1,12 +1,11 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
+import 'editor_saving.dart';
 import 'editor_screen.dart';
 import 'editor_settings.dart';
 import 'text_file.dart';
@@ -55,24 +54,23 @@ class EditFileCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final entry = context.entry;
-    // ВРЕМЕННО: правка идёт по эту сторону границы и держит живой узел
-    // (`docs/spec/client-server.md`, Э5).
-    final node = entry == null ? null : context.panel.nodeOf(entry);
-    if (node == null) {
+    final panel = context.panel;
+    if (entry == null) {
       return;
     }
 
-    final source = node.provider;
-    if (source is! FileContentProvider || node.provider is! FileContentReceiver) {
-      throw FsError(node.pathString, FsErrorKind.notSupported);
+    if (!panel.source.canStream || !panel.source.canReceive) {
+      throw FsError(entry.path, FsErrorKind.notSupported);
     }
 
-    if (node.size > settings.maxFileSize) {
+    if (entry.size > settings.maxFileSize) {
       context.app.toasts.show(
-        'File is too large: ${formatBytesLong(node.size)}, limit is ${formatSize(settings.maxFileSize)}',
+        'File is too large: ${formatBytesLong(entry.size)}, limit is ${formatSize(settings.maxFileSize)}',
       );
       return;
     }
+
+    final bytes = panel.contentOf(entry);
 
     // Открытие ведёт панель — цепочкой, одной занятостью на всё: спросить
     // права, при отказе спросить человека, прочитать. Одна работа значит и одну
@@ -85,8 +83,8 @@ class EditFileCommand extends AppCommand {
         // часа работы, значит остаться с текстом, который некуда деть — «Save
         // As» у редактора нет. И до чтения же, а не после: незачем тянуть с
         // сервера целый файл, чтобы затем спросить, открывать ли его вообще.
-        if (!await _canWrite(op, node)) {
-          switch (await _askReadOnly(context, node)) {
+        if (!await _canWrite(op, panel, entry)) {
+          switch (await _askReadOnly(context, entry)) {
             case _ReadOnlyChoice.cancel:
               throw const OperationCanceled();
             case _ReadOnlyChoice.readOnly:
@@ -100,8 +98,8 @@ class EditFileCommand extends AppCommand {
 
         // Вложенной работой: ход дела она отдаёт наверх сама, а отмена идёт к
         // ней встречно — `Esc` прерывает чтение, а не ждёт его конца.
-        return op.delegate(TextFile.reading(source as FileContentProvider), node);
-      }, status: 'Opening ${node.name}…');
+        return op.delegate(TextFile.reading(bytes), entry);
+      }, status: 'Opening ${entry.name}…');
     } on OperationCanceled {
       // Передумали — это обычный ход дела, а не беда: экран не открывается, и
       // говорить не о чем.
@@ -110,7 +108,7 @@ class EditFileCommand extends AppCommand {
       if (error.kind == FsErrorKind.notSupported) {
         // Не текст в UTF-8: правка и сохранение записали бы знаки замены
         // вместо исходных байтов, то есть испортили бы файл молча.
-        context.app.toasts.show('Not a UTF-8 text file: ${node.name}');
+        context.app.toasts.show('Not a UTF-8 text file: ${entry.name}');
         return;
       }
       rethrow;
@@ -119,12 +117,9 @@ class EditFileCommand extends AppCommand {
     context.app.view.pushViewportContent(
       ViewportPosition.fullscreen,
       EditorScreen(
-        node: node,
+        entry: entry,
         file: file,
         readOnly: readOnly,
-        // Правку архива не закончить, если панель из него выйдет: аренда
-        // держится до закрытия экрана.
-        lease: context.panel.leaseProvider(),
         wordWrap: settings.wordWrap,
         showLineNumbers: settings.showLineNumbers,
         onWrapChanged: (value) {
@@ -145,21 +140,13 @@ class EditFileCommand extends AppCommand {
   /// Спрашивается это звеном общей цепочки, потому что спрашивать бывает
   /// далеко: по ssh проба — поход на сервер, и сама по себе она была бы вторым
   /// немым замиранием, ради избавления от которого затевался Г9.
-  Future<bool> _canWrite(TaskOperation<void, TextFile> op, FsNode node) async {
-    final provider = node.provider;
-    if (provider is! WriteAccessCheck) {
-      return true;
-    }
-    // Каст, а не продвижение типа: `WriteAccessCheck` наследником
-    // `TreeProvider` не является, а Dart сужает тип только до подтипа — ровно
-    // поэтому касты стоят и у соседних умений провайдера.
-    final check = provider as WriteAccessCheck;
-
-    op.report(message: 'Checking ${node.name}…');
+  Future<bool> _canWrite(TaskOperation<void, TextFile> op, Panel panel, FileEntry entry) async {
+    op.report(message: 'Checking ${entry.name}…');
     try {
-      return await check.canWriteTo(node);
+      // Спрашивает ядро: права знает та сторона, где лежит файл.
+      return await panel.canWriteTo(entry);
     } on FsError {
-      // Не смогли выяснить — не выдумываем: молчим, как провайдер без проверки
+      // Не смогли выяснить — не выдумываем: молчим, как источник без проверки
       // вовсе. Отмену не глотаем: её разбирает вызывающий.
       return true;
     }
@@ -177,7 +164,7 @@ class EditFileCommand extends AppCommand {
   ///
   /// `Enter` при этом остаётся на «только чтение»: соглашаться вслепую на путь,
   /// который потом спросит пароль администратора, человек не должен.
-  Future<_ReadOnlyChoice> _askReadOnly(CommandContext context, FsNode node) {
+  Future<_ReadOnlyChoice> _askReadOnly(CommandContext context, FileEntry entry) {
     final view = context.app.view;
     final answer = Completer<_ReadOnlyChoice>();
     late final String dialogId;
@@ -189,7 +176,7 @@ class EditFileCommand extends AppCommand {
     }
 
     final elevation = context.app.elevation;
-    final mayElevate = elevation.enabled && node.provider is ShellHost;
+    final mayElevate = elevation.enabled && context.panel.source.isShellHost;
 
     dialogId = view.showDialog(
       DialogSpec(
@@ -197,9 +184,9 @@ class EditFileCommand extends AppCommand {
         content: CommandDialogConfirm(
           message:
               mayElevate
-                  ? '${node.displayPath} cannot be written.\n'
+                  ? '${entry.path} cannot be written.\n'
                       'Open it for reading, or edit it anyway and save as administrator?'
-                  : '${node.displayPath} cannot be written. Open it for reading?',
+                  : '${entry.path} cannot be written. Open it for reading?',
           confirmLabel: 'Open read-only',
           alternativeLabel: mayElevate ? 'Edit anyway' : null,
           onAlternative: mayElevate ? () => reply(_ReadOnlyChoice.elevate) : null,
@@ -291,7 +278,14 @@ class SaveFileCommand extends AppCommand {
       }
       state.started();
       try {
-        await saveEditor(screen);
+        await context.app.runOperation().run(
+          OperationSpec(
+            kind: EditorSaving.kind,
+            targets: Targets.paths([screen.entry.path]),
+            options: {EditorSaving.textOption: screen.textToSave},
+          ),
+        );
+        screen.markSaved();
       } on FsError catch (error) {
         // Окно остаётся и говорит, почему не вышло. Улететь исключению нельзя:
         // ошибка команды уходит в журнал, а из колбэка окна — и вовсе мимо
@@ -303,7 +297,7 @@ class SaveFileCommand extends AppCommand {
         return;
       }
       close();
-      context.app.toasts.show('Saved ${screen.node.name}');
+      context.app.toasts.show('Saved ${screen.entry.name}');
     }
 
     dialogId = view.showDialog(
@@ -315,7 +309,7 @@ class SaveFileCommand extends AppCommand {
               (context, _) => CommandDialogConfirm(
                 // Полный путь, а не одно имя: соглашаются на конкретный файл,
                 // и в системном каталоге это важнее всего.
-                message: 'Save changes to ${screen.node.displayPath}?',
+                message: 'Save changes to ${screen.entry.path}?',
                 confirmLabel: 'Save',
                 onCancel: close,
                 onConfirm: () => unawaited(save()),
@@ -330,75 +324,6 @@ class SaveFileCommand extends AppCommand {
   }
 
   String get dialogTitle => 'Save changes';
-}
-
-/// Записывает содержимое экрана в файл.
-///
-/// Через временный файл и переименование там, где источник — настоящая
-/// файловая система: `openWrite` обрезает файл сразу, и обрыв на середине
-/// оставил бы половину вместо целого. Там, где переименования нет (архив
-/// пересобирается целиком, сервер пишет потоком), запись идёт напрямую — там
-/// целостность обеспечивает сам источник.
-Future<void> saveEditor(EditorScreen screen) async {
-  final node = screen.node;
-  final parent = node.parentDirectory;
-  final provider = node.provider;
-
-  if (parent == null || provider is! FileContentReceiver) {
-    throw FsError(node.pathString, FsErrorKind.notSupported);
-  }
-
-  final bytes = utf8.encode(screen.textToSave);
-  final atomic = provider.capabilities.realFileSystem && provider is NodeEditor;
-
-  if (!atomic) {
-    await _write(provider as FileContentReceiver, parent, node.name, bytes);
-    screen.markSaved();
-    return;
-  }
-
-  // Имя со скрывающей точкой: временный файл не должен мозолить глаза в
-  // панели, если сохранение всё же оборвётся.
-  final temporary = '.${node.name}.fc-save';
-  final editor = provider as NodeEditor;
-
-  await _write(provider as FileContentReceiver, parent, temporary, bytes);
-  try {
-    final written = await editor.lookup(parent, temporary);
-    if (written == null) {
-      throw FsError(node.pathString, FsErrorKind.io);
-    }
-
-    // Режим цели переносится на временный **до** переименования: иначе новый
-    // файл встал бы на её место со своими правами по умолчанию, и `600`
-    // молча превратилось бы в `644`. Заметить такое можно очень нескоро.
-    //
-    // Владельца это не переносит и не может: сменить его без прав
-    // администратора нельзя. Там, где владелец чужой, запись и так идёт через
-    // повышение, а `cp` пишет в существующий файл и сохраняет обоих.
-    if (provider is NodeAttributesWriter) {
-      await (provider as NodeAttributesWriter).carryMode(from: node, to: written);
-    }
-
-    if (!await editor.renameEntry(written, parent, node.name)) {
-      throw FsError(node.pathString, FsErrorKind.io);
-    }
-  } on Object {
-    // Недописанное под своим именем выглядело бы как целый файл.
-    final leftover = await editor.lookup(parent, temporary);
-    if (leftover != null) {
-      await editor.deleteEntry(leftover);
-    }
-    rethrow;
-  }
-
-  screen.markSaved();
-}
-
-Future<void> _write(FileContentReceiver receiver, DirectoryNode parent, String name, List<int> bytes) async {
-  final sink = await receiver.openWrite(parent, name, length: bytes.length);
-  await sink.addStream(Stream<List<int>>.value(bytes));
-  await sink.close();
 }
 
 /// Переключить перенос строк.
@@ -558,7 +483,14 @@ class CloseEditorCommand extends AppCommand {
       try {
         // То же самое сохранение, что и на `F2`, — и подтверждения оно не
         // просит: согласие уже дано, вопрос был ровно про это.
-        await saveEditor(screen);
+        await context.app.runOperation().run(
+          OperationSpec(
+            kind: EditorSaving.kind,
+            targets: Targets.paths([screen.entry.path]),
+            options: {EditorSaving.textOption: screen.textToSave},
+          ),
+        );
+        screen.markSaved();
       } on FsError catch (error) {
         // Не записалось — экран остаётся открытым, а ошибка живёт в этом же
         // окне: уйти, унеся правки, это ровно то, чего просили не делать.
@@ -579,7 +511,7 @@ class CloseEditorCommand extends AppCommand {
           listenable: state,
           builder:
               (context, _) => CommandDialogConfirm(
-                message: '${screen.node.name} has unsaved changes.',
+                message: '${screen.entry.name} has unsaved changes.',
                 confirmLabel: 'Save',
                 alternativeLabel: 'Discard',
                 onAlternative: discard,

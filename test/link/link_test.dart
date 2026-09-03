@@ -1,4 +1,3 @@
-
 import 'package:fc_api/fc_api.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flex_commander/link/link.dart';

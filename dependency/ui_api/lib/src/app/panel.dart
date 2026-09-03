@@ -91,6 +91,12 @@ abstract interface class Panel implements ViewportState {
   /// (`SourceInfo.canStream`).
   Content contentOf(FileEntry entry);
 
+  /// Дадут ли записать в эту строку.
+  ///
+  /// Спрашивают до правки: узнать об отказе после часа работы значит остаться
+  /// с текстом, который некуда деть.
+  Future<bool> canWriteTo(FileEntry entry);
+
   /// Войти в строку списка: каталог, архив, ссылка на каталог.
   ///
   /// Возвращает то, во что войти нельзя (обычный файл), — им займётся команда;

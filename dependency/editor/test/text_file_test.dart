@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
-import 'package:fc_editor/fc_editor.dart';
+import 'package:fc_editor/frontend.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -15,7 +15,7 @@ void main() {
 
   Future<TextFile> read(List<int> content) async {
     final node = await nodeWith(content);
-    return TextFile.reading(node.provider as FileContentProvider).run(node);
+    return TextFile.reading(NodeContent(node)).run(entryValueOf(node));
   }
 
   group('переводы строк помнятся', () {

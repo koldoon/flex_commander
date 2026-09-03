@@ -11,8 +11,8 @@ import 'editor_view.dart';
 /// Третий экран приложения — и первый, которому фокус нужен по-настоящему:
 /// печатать командами нельзя. Всё остальное устроено как у просмотрщика:
 /// клавиша принадлежит экрану, ряд кнопок показывает его команды.
-class TextEditor implements FcFrontendModule {
-  const TextEditor();
+class TextEditorFrontend implements FcFrontendModule {
+  const TextEditorFrontend();
 
   /// Поиск: команды общие с просмотрщиком, идентификаторы свои.
   static const String findCommandId = 'editor.find';

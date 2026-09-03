@@ -1,7 +1,6 @@
 import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 
 /// Каким переводом строки написан файл.
 ///
@@ -55,12 +54,12 @@ class TextFile {
   /// битые байты знаком замены, и это честно — он показывает. Сохранить такой
   /// текст обратно значило бы записать знаки замены вместо исходных байтов, то
   /// есть испортить файл молча.
-  static Operation<FsNode, TextFile> reading(FileContentProvider source) {
-    return TaskOperation<FsNode, TextFile>((op, node) async {
-      op.report(message: 'Reading ${node.name}…');
+  static Operation<FileEntry, TextFile> reading(Content source) {
+    return TaskOperation<FileEntry, TextFile>((op, entry) async {
+      op.report(message: 'Reading ${entry.name}…');
 
       final bytes = <int>[];
-      await for (final chunk in await source.openRead(node)) {
+      await for (final chunk in source.read()) {
         // Между кусками, а не после: файл может быть большим, а сервер
         // медленным, и ждать конца чтения ради отмены незачем.
         op.checkCanceled();
@@ -72,7 +71,7 @@ class TextFile {
       try {
         decoded = utf8.decode(bytes);
       } on FormatException {
-        throw FsError(node.pathString, FsErrorKind.notSupported);
+        throw FsError(entry.path, FsErrorKind.notSupported);
       }
 
       return TextFile(

@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
-import 'package:fc_editor/fc_editor.dart';
+import 'package:fc_editor/frontend.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
@@ -65,16 +65,19 @@ void main() {
 
   /// Отпустить чтение и дать ему дойти до конца.
   ///
-  /// Через `runAsync`: `pump` крутит поддельное время, а поток чтения идёт по
-  /// настоящему циклу событий, и внутри подделки он не двигается вовсе.
+  /// Чередуя настоящее время с поддельным, и это не перестраховка. Чтение идёт
+  /// по обе стороны границы: ядро двигается на `pump` (поддельное время), а
+  /// команда фронта заведена в настоящей зоне `setUp` и двигается только в
+  /// `runAsync`. Каждый переезд границы поэтому стоит одного оборота той
+  /// стороны, а их у чтения несколько: просьба, куски, конец.
   Future<void> finishReading(WidgetTester tester) async {
-    await tester.runAsync(() async {
-      if (!disk.gate.isCompleted) {
-        disk.gate.complete();
-      }
-      await Future<void>.delayed(const Duration(milliseconds: 50));
-    });
-    await tester.pumpAndSettle();
+    if (!disk.gate.isCompleted) {
+      disk.gate.complete();
+    }
+    for (var turn = 0; turn < 5; turn++) {
+      await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 5)));
+      await tester.pumpAndSettle();
+    }
   }
 
   testWidgets('пока файл читается, панель занята и говорит об этом', (tester) async {

@@ -169,6 +169,9 @@ class CoreServer implements CoreHandler {
         }
         return null;
 
+      case CheckWriteAccess(:final entry):
+        return CoreFlag(await _content.canWrite(entry));
+
       case ReadContent(:final runId, :final entry, :final offset):
         // Не ждём: байты поедут событиями, а очередь просьб держать нельзя.
         unawaited(_content.read(runId, entry, offset: offset));

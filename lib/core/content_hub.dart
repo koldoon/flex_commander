@@ -59,6 +59,32 @@ class ContentHub {
     }
   }
 
+  /// Дадут ли записать в этот файл.
+  ///
+  /// Источник без проверки молчит согласием: спрашивать о правах умеет не
+  /// всякий, и выдумывать за него отказ нельзя.
+  Future<bool> canWrite(EntryRef entry) async {
+    final leases = <ProviderLease>[];
+    try {
+      final node = await _nodeOf(entry, leases);
+      if (node == null) {
+        return false;
+      }
+      final provider = node.provider;
+      if (provider is! WriteAccessCheck) {
+        return true;
+      }
+      return await (provider as WriteAccessCheck).canWriteTo(node);
+    } on FsError {
+      // Не смогли выяснить — не выдумываем: молчим, как источник без проверки.
+      return true;
+    } finally {
+      for (final lease in leases) {
+        unawaited(lease.release());
+      }
+    }
+  }
+
   /// Читать больше не нужно: показ закрыли.
   void stop(String runId) => _reading[runId]?.stopped = true;
 

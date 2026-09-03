@@ -1,6 +1,4 @@
-import 'dart:async';
-
-import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:flutter/widgets.dart';
@@ -18,12 +16,11 @@ import 'text_file.dart';
 /// `KeyboardHandler` — см. `docs/screens.md`.
 class EditorScreen extends ChangeNotifier implements ViewportState, FcSearchable {
   EditorScreen({
-    required this.node,
+    required this.entry,
     required TextFile file,
     required bool wordWrap,
     bool showLineNumbers = true,
     this.readOnly = false,
-    this.lease,
     this.onWrapChanged,
     this.onLineNumbersChanged,
   }) : _lineBreak = file.lineBreak,
@@ -37,7 +34,8 @@ class EditorScreen extends ChangeNotifier implements ViewportState, FcSearchable
   static const String screenId = 'editor';
 
   /// Что правим: из узла берётся и заголовок, и куда сохранять.
-  final FsNode node;
+  /// Что правят — строкой списка: узлы живут в ядре.
+  final FileEntry entry;
 
   /// Файл открыт только на чтение: писать в него не пустили, а показать и
   /// поискать по нему всё равно надо.
@@ -46,13 +44,6 @@ class EditorScreen extends ChangeNotifier implements ViewportState, FcSearchable
   /// заголовке вместо знака несохранённого стоит `read-only`. Спорить им не о
   /// чем: в файле, который нельзя записать, несохранённому взяться неоткуда.
   final bool readOnly;
-
-  /// Аренда источника, из которого правим; null — общий корень.
-  ///
-  /// Держится всё время, пока экран открыт: между открытием и сохранением
-  /// проходит сколько угодно времени, и панель за это время вправе выйти из
-  /// архива. Закрылся бы он — сохранять стало бы некуда.
-  final ProviderLease? lease;
 
   /// Содержимое и курсор. Владеет им экран: сохранять просит команда, а она о
   /// виджетах ничего не знает.
@@ -124,7 +115,6 @@ class EditorScreen extends ChangeNotifier implements ViewportState, FcSearchable
   void close() {
     // Отпускания не ждут: дальше экран не используется, а закрытие архива —
     // уборка за ним.
-    unawaited(lease?.release());
     dispose();
   }
 

@@ -2,7 +2,8 @@ import 'package:fc_7z/backend.dart';
 import 'package:fc_7z/frontend.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
-import 'package:fc_editor/fc_editor.dart';
+import 'package:fc_editor/backend.dart';
+import 'package:fc_editor/frontend.dart';
 import 'package:fc_file_info/fc_file_info.dart';
 import 'package:fc_file_ops/fc_file_ops.dart';
 import 'package:fc_image_viewer/fc_image_viewer.dart';
@@ -48,6 +49,7 @@ List<FcBackendModule> backendModules() => [
 /// настоящем запуске, — иначе команда упаковки не найдёт своей службы.
 List<FcBackendModule> featureBackendModules() => [
   const ShellTerminalBackend(),
+  const TextEditorBackend(),
   const ZipArchiverBackend(),
   const SevenZipArchiverBackend(),
   const TarArchiverBackend(),
@@ -94,5 +96,5 @@ List<FcFrontendModule> featureModules() => [
   // Последним в очереди просмотрщиков: берётся за то, за что не взялся никто.
   const FileInfo(),
   // Редактор после оболочки: он занимает место её заглушки на F4.
-  const TextEditor(),
+  const TextEditorFrontend(),
 ];

@@ -43,11 +43,11 @@ class PanelController extends ChangeNotifier implements Panel {
   @override
   Content contentOf(FileEntry entry) {
     final door = _link;
-    final index = session.entries.indexWhere((candidate) => candidate.name == entry.name);
-    if (door == null || index < 0) {
+    final ref = _refTo(entry);
+    if (door == null || ref == null) {
       return const _NoContent();
     }
-    return RemoteContent(door, EntryRef.inPanel(id, index, session.generation), length: entry.size);
+    return RemoteContent(door, ref, length: entry.size);
   }
 
   // --- источник ---
@@ -92,6 +92,23 @@ class PanelController extends ChangeNotifier implements Panel {
 
   @override
   Future<bool> openPath(String path, {bool allowConnect = true}) => session.openPath(path, allowConnect: allowConnect);
+
+  @override
+  Future<bool> canWriteTo(FileEntry entry) async {
+    final door = _link;
+    final ref = _refTo(entry);
+    if (door == null || ref == null) {
+      return false;
+    }
+    final reply = await door.call(CheckWriteAccess(ref));
+    return reply is CoreFlag && reply.value;
+  }
+
+  /// Ссылка на строку: место в списке и его номер.
+  EntryRef? _refTo(FileEntry entry) {
+    final index = session.entries.indexWhere((candidate) => candidate.name == entry.name);
+    return index < 0 ? null : EntryRef.inPanel(id, index, session.generation);
+  }
 
   @override
   Future<FileEntry?> enter(FileEntry entry) async {

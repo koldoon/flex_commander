@@ -2,7 +2,7 @@ import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
-import 'package:fc_editor/fc_editor.dart';
+import 'package:fc_editor/frontend.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
@@ -37,8 +37,7 @@ void main() {
     await tester.pumpAndSettle();
 
     runtime.app.left.setCursorToName(name);
-    await (runtime.commands.create(EditFileCommand.commandId)!).executeWith();
-    await tester.pumpAndSettle();
+    await tester.runCommand(runtime.commands.create(EditFileCommand.commandId)!);
 
     return runtime.app.view.contentAt(ViewportPosition.fullscreen)! as EditorScreen;
   }

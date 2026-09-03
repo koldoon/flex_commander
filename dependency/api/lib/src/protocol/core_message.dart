@@ -154,6 +154,17 @@ final class RunOperation extends CoreRequest {
   final OperationSpec spec;
 }
 
+/// Дадут ли записать в этот файл.
+///
+/// Спрашивают **до** работы: узнать об отказе после часа правки значит остаться
+/// с текстом, который некуда деть. Ответ — да или нет, и ходить за ним больше
+/// некуда: права знает только та сторона.
+final class CheckWriteAccess extends CoreRequest {
+  const CheckWriteAccess(this.entry);
+
+  final EntryRef entry;
+}
+
 /// Открыть содержимое файла и читать его потоком.
 ///
 /// Разговор, а не ответ: файл бывает больше памяти, и показывать ход дела
@@ -215,6 +226,13 @@ final class CoreEntered extends CoreReply {
   const CoreEntered(this.entry);
 
   final FileEntry? entry;
+}
+
+/// Да или нет.
+final class CoreFlag extends CoreReply {
+  const CoreFlag(this.value);
+
+  final bool value;
 }
 
 /// Ответ на рукопожатие: что у ядра есть прямо сейчас.

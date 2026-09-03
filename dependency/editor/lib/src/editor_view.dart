@@ -21,8 +21,8 @@ class EditorView extends StatelessWidget {
           (context, _) => FcTextView(
             controller: screen.controller,
             finder: screen.finder,
-            path: screen.node.displayPath,
-            fileName: screen.node.name,
+            path: screen.entry.path,
+            fileName: screen.entry.name,
             // Звёздочка — общепринятый знак несохранённого; ничего своего
             // выдумывать не нужно. У файла только на чтение её место занимает
             // прямая надпись: несохранённому там взяться неоткуда.
