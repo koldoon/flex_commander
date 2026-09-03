@@ -8,8 +8,7 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/bootstrap/bootstrap.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
-import 'package:flex_commander/modules/app_shell_backend.dart';
-import 'package:flex_commander/modules/app_shell_frontend.dart';
+import 'package:flex_commander/modules/app_shell.dart';
 import 'package:flex_commander/core/settings_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -152,12 +151,13 @@ void main() {
   tearDown(() => temp.delete(recursive: true));
 
   /// Приложение целиком, но на подставных службах.
-  Future<AppRuntime> build([List<FcFrontendModule> extra = const []]) async {
+  Future<AppRuntime> build([List<FcModule> extra = const []]) async {
+    // Платформенное подставное: настоящий модуль локальной ФС открывал бы
+    // файлы системой прямо из теста.
+    final all = <FcModule>[const TestPlatformBackend(), const TestPlatformFrontend(), ...featureModules(), ...extra];
     final runtime = await initModules(
-      // Платформенное подставное: настоящий модуль локальной ФС открывал бы
-      // файлы системой прямо из теста.
-      [const AppShellBackend(), const TestPlatformBackend(), ...featureBackendModules()],
-      [const TestPlatformFrontend(), ...featureModules(), ...extra],
+      all.whereType<FcBackendModule>().toList(),
+      all.whereType<FcFrontendModule>().toList(),
       overrides: AppOverrides(provider: provider, store: store, window: window),
     );
     addTearDown(runtime.dispose);
@@ -178,8 +178,8 @@ void main() {
       // Красить нечем: значений оформления в API нет вовсе, их приносит модуль.
       await expectLater(
         initModules(
-          [const AppShellBackend(), const TestPlatformBackend()],
-          [const AppShellFrontend(), const TestPlatformFrontend()],
+          [const AppShell(), const TestPlatformBackend()],
+          [const AppShell(), const TestPlatformFrontend()],
           overrides: AppOverrides(provider: provider, store: store, window: window),
         ),
         throwsA(isA<StateError>()),
@@ -189,10 +189,7 @@ void main() {
     test('без корневого источника сборка не начинается', () async {
       // Ошибка внятная и сразу: приложение без дерева бессмысленно.
       await expectLater(
-        initModules(
-          [const AppShellBackend(), const TestPlatformBackend()],
-          [const AppShellFrontend(), const TestPlatformFrontend()],
-        ),
+        initModules([const AppShell(), const TestPlatformBackend()], [const AppShell(), const TestPlatformFrontend()]),
         throwsA(isA<StateError>()),
       );
     });
@@ -250,10 +247,7 @@ void main() {
 
     test('второй корневой источник — ошибка сборки, а не тихая замена', () async {
       await expectLater(
-        initModules(
-          [const AppShellBackend(), const _SecondRootModule(), const _OtherRootModule()],
-          [const AppShellFrontend()],
-        ),
+        initModules([const AppShell(), const _SecondRootModule(), const _OtherRootModule()], [const AppShell()]),
         throwsA(isA<StateError>()),
       );
     });
@@ -262,11 +256,7 @@ void main() {
   group('закрытие', () {
     test('модули закрываются вместе с приложением', () async {
       final probe = ProbeModule();
-      final runtime = await initModules(
-        [const AppShellBackend(), const TestPlatformBackend(), ...featureBackendModules()],
-        [const TestPlatformFrontend(), ...featureModules(), probe],
-        overrides: AppOverrides(provider: provider, store: store, window: window),
-      );
+      final runtime = await build([probe]);
 
       await runtime.dispose();
 

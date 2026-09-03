@@ -13,8 +13,8 @@ import '../theme/theme_service.dart';
 ///
 /// Источника у этой стороны нет, и объявить здесь провайдер невозможно — таких
 /// методов у [FrontendRegistry] попросту не существует. Модуль, которому нужно
-/// и то и другое, реализует ещё и `FcBackendModule`, но **другим классом и в
-/// другой библиотеке** (`docs/spec/client-server.md`, §8).
+/// и то и другое, реализует **тем же классом** ещё и `FcBackendModule`: модуль
+/// — одна вещь, у которой две половины (`docs/modules.md`).
 abstract interface class FcFrontendModule implements FcModule {
   /// Объявление того, что модуль даёт интерфейсу.
   ///

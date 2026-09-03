@@ -1,18 +1,21 @@
-import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'editor_commands.dart';
+import 'editor_saving.dart';
 import 'editor_screen.dart';
 import 'editor_settings.dart';
 import 'editor_view.dart';
+import 'editor_work.dart';
 
-/// Редактор текста.
+/// Редактор текста: экран правки и запись файла.
 ///
-/// Третий экран приложения — и первый, которому фокус нужен по-настоящему:
-/// печатать командами нельзя. Всё остальное устроено как у просмотрщика:
-/// клавиша принадлежит экрану, ряд кнопок показывает его команды.
-class TextEditorFrontend implements FcFrontendModule {
-  const TextEditorFrontend();
+/// Один класс на обе стороны. Половины у него разные по существу: буфер, его
+/// отмены и поиск по тексту — на экране, а запись — там, где лежит файл, и
+/// иначе быть не может.
+class TextEditor implements FcBackendModule, FcFrontendModule {
+  const TextEditor();
 
   /// Поиск: команды общие с просмотрщиком, идентификаторы свои.
   static const String findCommandId = 'editor.find';
@@ -24,6 +27,11 @@ class TextEditorFrontend implements FcFrontendModule {
 
   @override
   String get title => 'Text editor';
+
+  @override
+  void installBackend(BackendRegistry registry) {
+    registry.operation(EditorWork.kind, (services) => EditorSaving.operation());
+  }
 
   @override
   void installFrontend(FrontendRegistry registry) {

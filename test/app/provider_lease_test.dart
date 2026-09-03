@@ -1,12 +1,10 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
-import 'package:fc_default_theme/fc_default_theme.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/bootstrap/bootstrap.dart';
-import 'package:flex_commander/modules/app_shell_backend.dart';
-import 'package:flex_commander/modules/app_shell_frontend.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Модуль с архивом: `.arc` открывается как дерево.
@@ -59,9 +57,10 @@ void main() {
       FakeEntry.file('/home/notes.txt', size: 3),
     ])..home = '/home';
 
+    final all = <FcModule>[const TestPlatformBackend(), const TestPlatformFrontend(), ...featureModules()];
     final runtime = await initModules(
-      [const AppShellBackend(), const TestPlatformBackend(), ...featureBackendModules(), _ArchiveModule(opened)],
-      [const AppShellFrontend(), const TestPlatformFrontend(), const DefaultTheme(), ...featureModules()],
+      [...all.whereType<FcBackendModule>(), _ArchiveModule(opened)],
+      all.whereType<FcFrontendModule>().toList(),
       overrides: AppOverrides(
         provider: disk,
         store: InMemorySettingsStore(

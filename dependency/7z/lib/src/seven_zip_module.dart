@@ -1,21 +1,22 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
-
+import 'package:fc_ui_api/fc_ui_api.dart';
+import 'create_archive_command.dart';
 import 'seven_zip_cli.dart';
-import 'seven_zip_settings.dart';
 import 'seven_zip_pack.dart';
+import 'seven_zip_settings.dart';
 import 'seven_zip_tree_provider.dart';
 
-/// Архив 7z как дерево — ядровая половина.
+/// Архивы 7z как дерево — и то, чем их упаковывают.
 ///
-/// Ядру про архивы знать нечего: модуль объявляет схему пути и расширения, по
-/// которым файл открывается как каталог.
+/// Один класс на обе стороны: половины у модуля разные, а модуль один — тот же
+/// идентификатор, тот же раздел настроек, та же строка в справке.
 ///
 /// Модуль ставится и там, где программы 7-Zip нет: схема остаётся, а обращение
 /// к архиву кончается внятной ошибкой. Молчаливое «ничего не происходит» было
 /// бы хуже — пользователю неоткуда узнать, чего не хватает.
-class SevenZipArchiverBackend implements FcBackendModule {
-  const SevenZipArchiverBackend();
+class SevenZipArchiver implements FcBackendModule, FcFrontendModule {
+  const SevenZipArchiver();
 
   @override
   String get id => 'fc.7z_archiver';
@@ -70,5 +71,31 @@ class SevenZipArchiverBackend implements FcBackendModule {
       }),
       extensions: SevenZipTreeProvider.extensions,
     );
+  }
+
+  @override
+  void installFrontend(FrontendRegistry registry) {
+    // Раздел тот же, что у ядровой половины: имя одно на модуль, а файл
+    // настроек принадлежит ядру.
+    final settings = registry.settings;
+
+    registry.settingsSchema(
+      () => SettingsSchema([
+        SettingsField.text(
+          'binary',
+          title: '7z program',
+          hint: 'found on PATH',
+          description: 'Full path — for when it is installed somewhere unusual',
+          note: 'Applies to the next archive opened',
+          read: () => settings.section(SevenZipSettings.new).binary,
+          write: (value) => settings.section(SevenZipSettings.new).binary = value,
+        ),
+      ], save: settings.save),
+    );
+
+    // Упаковка — такое же действие, как копирование, и живёт там же, где
+    // формат: про 7z знает только этот модуль.
+    registry.command((context) => CreateSevenZipArchiveCommand());
+    registry.binding(KeyBinding('Shift-F7', CreateSevenZipArchiveCommand.commandId));
   }
 }

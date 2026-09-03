@@ -1,6 +1,7 @@
-import 'package:fc_api/fc_api.dart';
 import 'dart:async';
 
+import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'command_line_state.dart';
@@ -11,23 +12,26 @@ import 'terminal_screens.dart';
 import 'terminal_settings.dart';
 import 'terminal_views.dart';
 
-/// Оболочка в том же окне — экранная половина.
+/// Оболочка в том же окне.
 ///
 /// Две вещи, а не одна: командная строка под панелями — выполнить одну команду
 /// вот здесь — и полноэкранная сессия под `Ctrl-O` — поработать в оболочке.
 /// Почему их две и чем за это плачено, написано в `docs/spec/terminal.md`, §8.
 ///
+/// Один класс на обе стороны, и делятся они здесь ровно посередине: сама
+/// оболочка — процесс и соединение — живёт в ядре, а разбор её вывода, лента и
+/// клавиши обратно — на экране (`docs/spec/client-server.md`, §5.1.5).
+///
 /// Класс называется так, а не `Terminal`: последнее занято `xterm`, и два
 /// `Terminal` в одном модуле путали бы и человека, и импорт.
-///
-/// Чем запускать оболочку, объявляет ядровая половина
-/// ([ShellTerminalBackend]): спрашивает это тот, кто запускает.
-class ShellTerminalFrontend implements FcFrontendModule, FcModuleLifecycle {
-  /// [pty] подставляют тесты. Умолчание — настоящий псевдотерминал: службу
-  /// приносит модуль, потому что нужна она только ему.
-  ShellTerminalFrontend();
+class ShellTerminal implements FcBackendModule, FcFrontendModule, FcModuleLifecycle {
+  ShellTerminal();
 
   /// Постоянная сессия: держится здесь, чтобы было чем закрыть её при выходе.
+  ///
+  /// Поле — то немногое, чего у модуля обычно нет. Держать его можно ровно
+  /// потому, что оно принадлежит **одной** стороне: экземпляров модуля два,
+  /// по одному на изолят, и общего состояния у них быть не должно.
   ShellSession? _shell;
 
   @override
@@ -35,6 +39,20 @@ class ShellTerminalFrontend implements FcFrontendModule, FcModuleLifecycle {
 
   @override
   String get title => 'Terminal';
+
+  /// От ядровой половины здесь одна вещь: чем запускать оболочку. Настройка
+  /// эта пользовательская и живёт у терминала, а нужна тому, кто запускает, —
+  /// то есть локальной файловой системе. Службой они и сообщаются, не зная
+  /// друг о друге.
+  @override
+  void installBackend(BackendRegistry registry) {
+    // Область забирается **сейчас**, пока идёт установка: позже имя раздела
+    // уже неизвестно, и настройки уехали бы в чужой.
+    final settings = registry.settings;
+    TerminalSettings settingsOf() => settings.section(TerminalSettings.new);
+
+    registry.service<ShellPreference>((services) => _ChosenShell(settingsOf));
+  }
 
   @override
   void installFrontend(FrontendRegistry registry) {
@@ -177,6 +195,16 @@ class ShellTerminalFrontend implements FcFrontendModule, FcModuleLifecycle {
 
   @override
   Future<void> dispose() async => _shell?.close();
+}
+
+/// Выбранная оболочка — настройкой терминала, а спрашивают её снаружи.
+class _ChosenShell implements ShellPreference {
+  const _ChosenShell(this._settings);
+
+  final TerminalSettings Function() _settings;
+
+  @override
+  String get shell => _settings().shell;
 }
 
 /// Ставит командную строку в полосу под панелями — один раз, при запуске.

@@ -1,5 +1,5 @@
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_search/frontend.dart';
+import 'package:fc_search/fc_search.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';

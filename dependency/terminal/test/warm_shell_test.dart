@@ -15,7 +15,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   late FakePty pty;
 
-  Future<AppRuntime> start(List<FcFrontendModule> modules, {List<FcBackendModule> backend = const []}) async {
+  Future<AppRuntime> start(List<FcModule> modules, {List<FcBackendModule> backend = const []}) async {
     final runtime = await testApp(
       provider: InMemoryTreeProvider([FakeEntry.directory('/home')], null, pty)..home = '/home',
       modules: modules,

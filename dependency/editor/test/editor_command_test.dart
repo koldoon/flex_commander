@@ -4,12 +4,12 @@ import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
-import 'package:fc_editor/frontend.dart';
+import 'package:fc_editor/fc_editor.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
-import 'package:fc_local_fs/backend.dart';
+import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -467,14 +467,11 @@ void main() {
     test('поиск в редакторе — на тех же клавишах, что в просмотрщике', () async {
       await edit('notes.txt');
 
-      expect(runtime.commands.commandFor(KeyCombination.parse('F7'))?.id, TextEditorFrontend.findCommandId);
-      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-F'))?.id, TextEditorFrontend.findCommandId);
-      expect(runtime.commands.commandFor(KeyCombination.parse('Shift-F7'))?.id, TextEditorFrontend.findNextCommandId);
-      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-G'))?.id, TextEditorFrontend.findNextCommandId);
-      expect(
-        runtime.commands.commandFor(KeyCombination.parse('Shift-Cmd-G'))?.id,
-        TextEditorFrontend.findPreviousCommandId,
-      );
+      expect(runtime.commands.commandFor(KeyCombination.parse('F7'))?.id, TextEditor.findCommandId);
+      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-F'))?.id, TextEditor.findCommandId);
+      expect(runtime.commands.commandFor(KeyCombination.parse('Shift-F7'))?.id, TextEditor.findNextCommandId);
+      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-G'))?.id, TextEditor.findNextCommandId);
+      expect(runtime.commands.commandFor(KeyCombination.parse('Shift-Cmd-G'))?.id, TextEditor.findPreviousCommandId);
     });
 
     test('панельные клавиши в редакторе молчат', () async {

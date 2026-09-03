@@ -8,9 +8,9 @@ import '../tree/tree_provider.dart';
 ///
 /// Экрана у этой стороны нет, и объявить здесь окно, команду или вид
 /// невозможно — таких методов у [BackendRegistry] попросту не существует.
-/// Модуль, которому нужно и то и другое, реализует ещё и `FcFrontendModule`,
-/// но **другим классом и в другой библиотеке**: `package:fc_zip/backend.dart`
-/// и `package:fc_zip/frontend.dart` (`docs/spec/client-server.md`, §8).
+/// Модуль, которому нужно и то и другое, реализует **тем же классом** ещё и
+/// `FcFrontendModule`: модуль — одна вещь, у которой две половины, а не две
+/// вещи с общим именем (`docs/modules.md`).
 abstract interface class FcBackendModule implements FcModule {
   /// Объявление того, что модуль даёт ядру.
   ///

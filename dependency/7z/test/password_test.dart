@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'dart:io';
 
-import 'package:fc_7z/backend.dart';
+import 'package:fc_7z/fc_7z.dart';
 import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
-import 'package:fc_local_fs/backend.dart';
+import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Архив под паролем: кто спрашивает, что запоминается и что бывает при отказе.

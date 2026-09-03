@@ -1,18 +1,22 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
-
-import 'gzip_tree_provider.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
+import 'create_archive_command.dart';
+import 'create_gzip_command.dart';
 import 'gzip_pack.dart';
+import 'gzip_tree_provider.dart';
 import 'tar_pack.dart';
 import 'tar_tree_provider.dart';
 
-/// Архивы tar, gz и tar.gz — ядровая половина.
+/// Архивы tar, gz и tar.gz — и то, чем их упаковывают.
+///
+/// Один класс на обе стороны: половины у модуля разные, а модуль один.
 ///
 /// Провайдера два, потому что форматы разные по сути: tar — контейнер без
 /// сжатия, gz — сжатие одного потока. `.tar.gz` получается их цепочкой, и
 /// особого случая для двойного расширения писать не приходится.
-class TarArchiverBackend implements FcBackendModule {
-  const TarArchiverBackend();
+class TarArchiver implements FcBackendModule, FcFrontendModule {
+  const TarArchiver();
 
   @override
   String get id => 'fc.tar_archiver';
@@ -61,5 +65,19 @@ class TarArchiverBackend implements FcBackendModule {
       () => TaskOperation<FsNode, TreeProvider>((op, host) => GzipTreeProvider.open(host)),
       extensions: GzipTreeProvider.extensions,
     );
+  }
+
+  @override
+  void installFrontend(FrontendRegistry registry) {
+    // Упаковка — такое же действие, как копирование, и живёт там же, где
+    // формат. Клавиши ей не досталось: `Shift-F5` у zip, `Shift-F7` у 7z, а
+    // `Shift-F6` встал бы поперёк привычки — `F6` это перенос. Место команды
+    // без клавиши — палитра.
+    registry.command((context) => CreateTarArchiveCommand());
+
+    // Сжатие одного файла — отдельная команда, а не пункт в окне упаковки:
+    // gzip жмёт поток, а не набор файлов, и «сложить три файла в один .gz» —
+    // просьба, которую формат не выполняет.
+    registry.command((context) => CreateGzipCommand());
   }
 }

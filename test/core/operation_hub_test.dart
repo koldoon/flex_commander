@@ -6,7 +6,7 @@ import 'package:flex_commander/core/panel_session.dart';
 import 'package:flex_commander/link/link.dart';
 import 'package:flex_commander/link/loopback_link.dart';
 import 'package:flex_commander/ui/remote_operation.dart';
-import 'package:flex_commander/modules/app_shell_backend.dart';
+import 'package:flex_commander/modules/app_shell.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Работы через границу: заявка туда, ход дела и вопросы обратно.
@@ -58,7 +58,7 @@ void main() {
       left: sessionFor('/home'),
       right: sessionFor('/home'),
       registry: registry,
-      operations: {'test.probe': probe, ...const AppShellBackendKinds().kinds},
+      operations: {'test.probe': probe, ...const AppShellKinds().kinds},
     );
     link = LoopbackLink(core);
   });
@@ -164,12 +164,12 @@ void main() {
 }
 
 /// Работы оболочки приложения — те же, что в настоящей сборке.
-class AppShellBackendKinds {
-  const AppShellBackendKinds();
+class AppShellKinds {
+  const AppShellKinds();
 
   Map<String, OperationFactory> get kinds {
     final collected = <String, OperationFactory>{};
-    const AppShellBackend().installBackend(_Collector(collected));
+    const AppShell().installBackend(_Collector(collected));
     return collected;
   }
 }

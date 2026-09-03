@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import '../state/commands/help_command.dart';
@@ -8,17 +9,18 @@ import '../state/shell_settings.dart';
 import '../ui/credentials_prompt.dart';
 import '../ui/elevation_prompt.dart';
 
-/// Оболочка приложения — экранная половина: то, что есть у файлового
-/// менеджера всегда.
+/// Оболочка приложения — то, что есть у файлового менеджера всегда.
 ///
-/// Справка, настройки, палитра и обещания клавиш: `F3` и `F4` заняты
-/// заглушками, потому что просмотрщик и редактор появятся модулями, а
-/// пользователь должен видеть, что место за ними закреплено.
+/// Не модуль в смысле «можно выключить»: без движка переноса не скопировать, а
+/// без справки и палитры приложение осталось бы без собственного лица. Оформлен
+/// он всё равно модулем — чтобы правила были одни для всех и чтобы видно было,
+/// что именно оболочка приносит.
 ///
-/// Движок файловых операций объявляет ядровая половина ([AppShellBackend]):
-/// работает он там, где живут источники.
-class AppShellFrontend implements FcFrontendModule {
-  const AppShellFrontend();
+/// Ядровая половина — движок и файловые работы: обход дерева и байты живут
+/// там, где источники. Экранная — справка, палитра, окно настроек и вопросы о
+/// секретах (`docs/spec/client-server.md`, §5.4).
+class AppShell implements FcBackendModule, FcFrontendModule {
+  const AppShell();
 
   /// Обещания клавиш: команды за ними появятся модулями, а сами клавиши
   /// заняты уже сейчас. Идентификаторы объявлены здесь — своих классов у
@@ -31,6 +33,61 @@ class AppShellFrontend implements FcFrontendModule {
 
   @override
   String get title => 'Application shell';
+
+  @override
+  void installBackend(BackendRegistry registry) {
+    // Движок один на приложение: состояния у него нет, а источники узлы
+    // приносят с собой — в том числе разные у источника и приёмника.
+    registry.service<TreeEditor>((services) => const TreeTransferEngine());
+
+    registry.operation(FileOperations.copy, (services) => _transfer(moves: false));
+    registry.operation(FileOperations.move, (services) => _transfer(moves: true));
+
+    registry.operation(
+      FileOperations.remove,
+      (services) => TaskOperation<OperationInputs, void>(
+        (op, inputs) => op.delegate(
+          inputs.editor.remove(),
+          RemoveParams(inputs.targets, toTrash: inputs.option<bool>(FileOperations.toTrash) ?? true),
+        ),
+      ),
+    );
+
+    registry.operation(
+      FileOperations.makeDirectory,
+      (services) => TaskOperation<OperationInputs, void>((op, inputs) async {
+        final parent = inputs.destination;
+        final name = inputs.option<String>(FileOperations.name) ?? '';
+        if (parent == null || name.isEmpty) {
+          throw FsError(name, FsErrorKind.invalidName);
+        }
+        await op.delegate(inputs.editor.makeDirectory(), MakeDirectoryParams(parent, name));
+      }),
+    );
+
+    registry.operation(
+      FileOperations.measure,
+      (services) => TaskOperation<OperationInputs, void>((op, inputs) async {
+        final node = inputs.targets.firstOrNull;
+        if (node == null) {
+          return;
+        }
+        await op.delegate(node.provider.calculateSize(), inputs.targets);
+      }),
+    );
+
+    registry.operation(
+      FileOperations.rename,
+      (services) => TaskOperation<OperationInputs, void>((op, inputs) async {
+        final node = inputs.targets.firstOrNull;
+        final name = inputs.option<String>(FileOperations.name) ?? '';
+        if (node == null || name.isEmpty) {
+          throw FsError(name, FsErrorKind.invalidName);
+        }
+        await op.delegate(inputs.editor.rename(), RenameParams(node, name));
+      }),
+    );
+  }
 
   @override
   void installFrontend(FrontendRegistry registry) {
@@ -138,6 +195,27 @@ class AppShellFrontend implements FcFrontendModule {
       ], save: settings.save);
     });
   }
+
+  /// Копирование и перенос — одна работа с одним отличием.
+  ///
+  /// Движок берётся у **приёмника**: выполняет дело он, один на все источники,
+  /// и получить его нужно там, где заведомо умеют принимать. У источника его
+  /// может не быть вовсе — это не мешает копировать из него.
+  static Operation<OperationInputs, void> _transfer({required bool moves}) =>
+      TaskOperation<OperationInputs, void>((op, inputs) async {
+        final destination = inputs.destination;
+        if (destination == null) {
+          throw const FsError('', FsErrorKind.notSupported);
+        }
+        await op.delegate(
+          moves ? inputs.editor.move() : inputs.editor.copy(),
+          TransferParams(
+            inputs.targets,
+            destination,
+            followLinks: inputs.option<bool>(FileOperations.followLinks) ?? false,
+          ),
+        );
+      });
 }
 
 /// Разбирает список составных расширений из строки настройки.

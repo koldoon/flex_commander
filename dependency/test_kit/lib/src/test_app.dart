@@ -5,10 +5,8 @@ import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
-import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/bootstrap.dart';
-import 'package:flex_commander/modules/app_shell_backend.dart';
-import 'package:flex_commander/modules/app_shell_frontend.dart';
+import 'package:flex_commander/modules/app_shell.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -81,23 +79,25 @@ class TestPlatformFrontend implements FcFrontendModule {
 /// модулем: команда, поставленная модулем, доходит до реестра, привязка — до
 /// клавиатуры, а всё вместе живёт по тем же правилам, что и в настоящем запуске.
 ///
-/// Оболочка ([AppShellFrontend]), подставная платформа ([TestPlatformFrontend]) и оформление
-/// по умолчанию ([DefaultTheme]) добавляются всегда: без движка файловых
-/// операций панель не собрать, без темы — не покрасить, а модуль не обязан
-/// знать ни о том, ни о другом. Приложение закрывается вместе с тестом.
+/// Оболочка ([AppShell]), подставная платформа и оформление по умолчанию
+/// ([DefaultTheme]) добавляются всегда: без движка файловых операций панель не
+/// собрать, без темы — не покрасить, а модуль не обязан знать ни о том, ни о
+/// другом. Приложение закрывается вместе с тестом.
 Future<AppRuntime> testApp({
   required TreeProvider provider,
 
   /// Источник правой панели, если он должен отличаться от левой.
   TreeProvider? rightProvider,
-  List<FcFrontendModule> modules = const [],
+
+  /// Модули сверх обычных — списком, как и в приложении: у какого половина
+  /// ядровая, у какого экранная, знает он сам.
+  List<FcModule> modules = const [],
 
   /// Ядровые половины **сверх** обычных.
   ///
-  /// Ядровые половины настоящих модулей ставятся всегда — те же, что и в
-  /// приложении: без них команда упаковки не найдёт своей службы, а печать в
-  /// строке не узнает, какой оболочкой запускать. Сюда добавляют своё:
-  /// подставной источник по адресу, подставное открытие файла системой.
+  /// Отдельным списком только ради тех подставок, у которых экранной половины
+  /// нет вовсе: подставной источник по адресу, подставное открытие файла
+  /// системой. Настоящие модули приходят через [modules].
   List<FcBackendModule> backend = const [],
   AppSettings? settings,
   WindowService? window,
@@ -129,9 +129,19 @@ Future<AppRuntime> testApp({
   // с диска не завершилось бы никогда.
   final settingsStore = store ?? InMemorySettingsStore(settings: settings, homePath: homePath);
 
+  // Список один, стороны выбираются по типу — то же правило, что и в
+  // приложении (`docs/modules.md`).
+  final all = <FcModule>[
+    const AppShell(),
+    TestPlatformBackend(processes: processes),
+    TestPlatformFrontend(clipboard: clipboard),
+    const DefaultTheme(),
+    ...modules,
+  ];
+
   final runtime = await initModules(
-    [const AppShellBackend(), TestPlatformBackend(processes: processes), ...featureBackendModules(), ...backend],
-    [const AppShellFrontend(), TestPlatformFrontend(clipboard: clipboard), const DefaultTheme(), ...modules],
+    [...all.whereType<FcBackendModule>(), ...backend],
+    all.whereType<FcFrontendModule>().toList(),
     overrides: AppOverrides(
       provider: provider,
       rightProvider: rightProvider,

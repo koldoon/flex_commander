@@ -1,13 +1,12 @@
 import 'dart:io';
-import 'package:fc_7z/backend.dart';
-import 'package:fc_7z/frontend.dart';
+import 'package:fc_7z/fc_7z.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
-import 'package:fc_local_fs/backend.dart';
+import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -35,8 +34,8 @@ void main() {
 
     runtime = await testApp(
       provider: LocalTreeProvider(homePath: root, readInIsolate: false),
-      modules: [const SevenZipArchiverFrontend()],
-      backend: [const SevenZipArchiverBackend()],
+      modules: [const SevenZipArchiver()],
+      backend: [const SevenZipArchiver()],
       settings: AppSettings(left: PanelSettings.defaults(source), right: PanelSettings.defaults(target)),
     );
     await runtime.app.start();
