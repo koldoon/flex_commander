@@ -678,9 +678,28 @@ class _CodeFieldRender extends RenderBox implements MouseTrackerAnnotation {
         : Offset(cursorOffset.dx, min(max(0, cursorOffset.dy), size.height - _preferredLineHeight));
       final CodeLinePosition? landed = calculateTextPosition(target);
       if (landed != null) {
-        onCursorLanded(landed);
+        onCursorLanded(_fullyVisible(landed, target) ?? landed);
       }
     });
+  }
+
+  /// FLEX COMMANDER: keeps the landed caret inside the viewport. See README.md.
+  ///
+  /// A page is almost never a whole number of rows, so the row covering the top
+  /// of the new screen usually starts above it: only its bottom pixels show,
+  /// and the caret is painted off-screen. Found on the live app — open a file
+  /// and page down at once, while the caret is still on the topmost row.
+  ///
+  /// The probe point is pushed down by exactly how far the row pokes out, which
+  /// lands on the next one. One step is enough for wrapped lines too: the
+  /// distance is measured on the row we actually got, not assumed from a line
+  /// height.
+  CodeLinePosition? _fullyVisible(CodeLinePosition landed, Offset target) {
+    final Offset? at = calculateTextPositionViewportOffset(landed);
+    if (at == null || at.dy >= 0) {
+      return landed;
+    }
+    return calculateTextPosition(Offset(target.dx, target.dy - at.dy));
   }
 
   void makePositionVisible(CodeLinePosition position, [int tryCount = 0]) {

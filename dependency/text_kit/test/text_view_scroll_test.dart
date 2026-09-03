@@ -116,6 +116,25 @@ void main() {
       });
     });
 
+    testWidgets('курсор после листания виден целиком, а не торчит за верхний край', (tester) async {
+      // Поймано на живом: открыть файл и сразу нажать `PgDn`. Курсор стоит на
+      // первой строке, то есть в самом верхнем ряду экрана, — и держится за
+      // этот ряд. Но страница почти никогда не кратна строке, и ряд, покрывший
+      // верхнюю точку нового экрана, **начинается выше** неё: видны только его
+      // нижние пиксели, а сам курсор рисуется над краем.
+      await onDesktop(tester, () async {
+        final CodeLineEditingController controller = await pump(tester, readOnly: false, scrollsByArrows: false);
+        final ScrollPosition position = scroll(tester);
+
+        await press(tester, LogicalKeyboardKey.pageDown);
+        final double page = position.pixels;
+        final double line = position.viewportDimension - page;
+
+        // Верх строки, на которую сел курсор, — не выше верха экрана.
+        expect(controller.selection.extentIndex * line, greaterThanOrEqualTo(position.pixels));
+      });
+    });
+
     testWidgets('каждое следующее нажатие листает на столько же', (tester) async {
       // Отставание на страницу выглядело именно так: первое нажатие не двигало
       // экран, а дальше шаг был правильный.
