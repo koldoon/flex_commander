@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
-import 'package:flex_commander/settings/settings_store.dart';
+import 'package:flex_commander/core/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -100,11 +100,10 @@ void main() {
   AppController build(CommandRegistry registry) {
     appBuilt = true;
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home/docs'));
-    return app = AppController(
-      left: testPanel(provider: provider, settings: settings.left),
-      right: testPanel(provider: provider, settings: settings.right),
-      store: SettingsStore(filePath: p.join(temp.path, 'settings.json')),
+    return app = testCore(
+      provider: provider,
       settings: settings,
+      store: SettingsStore(filePath: p.join(temp.path, 'settings.json')),
       commands: registry,
       saveDelay: const Duration(milliseconds: 5),
     );

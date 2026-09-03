@@ -2,7 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:flex_commander/settings/settings_store.dart';
+import 'package:flex_commander/core/settings_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 

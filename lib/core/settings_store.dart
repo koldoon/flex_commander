@@ -10,6 +10,10 @@ import 'package:fc_api/fc_api.dart';
 /// Файл лежит в домашнем каталоге пользователя (`~/.flex-commander/settings.json`),
 /// как и в референсной реализации: его удобно править руками, и он одинаково
 /// работает на всех платформах.
+///
+/// **Принадлежит ядру.** Это ввод-вывод, и делать его там, где диска нет,
+/// неоткуда: экран своих настроек не пишет, он их правит и просит записать
+/// (`docs/spec/client-server.md`, §9).
 class SettingsStore {
   SettingsStore({required this.filePath, this.fallbackPath = '', this.onError});
 

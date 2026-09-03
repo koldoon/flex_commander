@@ -6,6 +6,7 @@ import 'entry_ref.dart';
 import 'file_entry.dart';
 import 'operation_spec.dart';
 import 'panel_state.dart';
+import 'ui_settings.dart';
 
 /// О чём интерфейс просит ядро.
 ///
@@ -181,6 +182,33 @@ final class ReadContent extends CoreRequest {
   final int offset;
 }
 
+/// Экранная половина настроек изменилась: окно подвинули, разделитель
+/// потянули, панель переключили.
+///
+/// Не ответ, а сообщение: запись отложенная, и подряд идущие правки сливаются
+/// в одну. Записать **сейчас** просит [SaveSettings] — этого ждут при выходе.
+final class ChangeSettings extends CoreRequest {
+  const ChangeSettings(this.ui);
+
+  final UiSettings ui;
+}
+
+/// Записать настройки на диск и дождаться записи.
+///
+/// Ровно для выхода: там ждать обязательно — процесс уходит, и отложенному
+/// таймеру сработать будет уже негде.
+final class SaveSettings extends CoreRequest {
+  const SaveSettings();
+}
+
+/// Начать: открыть панели там, где их оставили.
+///
+/// Первым делом и до всякого экрана: интерфейс подписывается на готовое, а не
+/// смотрит, как оно собирается (`docs/spec/client-server.md`, §9).
+final class StartCore extends CoreRequest {
+  const StartCore();
+}
+
 /// Показать находки панелью — списком, смонтированным в ядре.
 ///
 /// Список находок — источник, а не выдумка интерфейса: узлы в нём настоящие и
@@ -321,13 +349,19 @@ final class ShellOpened extends CoreReply {
 /// **ядро**, и знать это интерфейсу незачем. Понадобится — приедет; заранее
 /// возить то, чего никто не спрашивает, значит городить язык впрок.
 final class CoreReady extends CoreReply {
-  const CoreReady({required this.states, required this.listings});
+  const CoreReady({required this.states, required this.listings, this.ui = const UiSettings()});
 
   /// Состояние каждой панели.
   final Map<PanelId, PanelState> states;
 
   /// И её список.
   final Map<PanelId, PanelListing> listings;
+
+  /// Экранная половина настроек: место окна, разделитель, активная панель.
+  ///
+  /// Приезжает рукопожатием, а не читается вторым экземпляром файла: файл один
+  /// и принадлежит ядру (`docs/spec/client-server.md`, §9).
+  final UiSettings ui;
 }
 
 /// О чём ядро рассказывает само.

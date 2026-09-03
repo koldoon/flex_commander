@@ -1,5 +1,4 @@
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_api/fc_api.dart';
 
 import 'shell_command.dart';
 

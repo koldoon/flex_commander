@@ -192,8 +192,9 @@ flex_commander/                    корень воркспейса и само
       app_runtime.dart             собранное приложение и подмена служб
     modules/
       app_shell.dart               оболочка: движок операций, справка, заглушки
-    settings/
+    core/
       settings_store.dart          чтение и запись settings.json
+      settings_hub.dart            чей это файл и когда он пишется
     state/
       app_controller.dart          реализация Application
       panel_controller.dart        реализация Panel

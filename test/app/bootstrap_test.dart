@@ -10,7 +10,7 @@ import 'package:flex_commander/bootstrap/bootstrap.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/modules/app_shell_backend.dart';
 import 'package:flex_commander/modules/app_shell_frontend.dart';
-import 'package:flex_commander/settings/settings_store.dart';
+import 'package:flex_commander/core/settings_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -166,7 +166,6 @@ void main() {
 
       expect(runtime.app.left, isNot(same(runtime.app.right)));
       expect(runtime.app.left.provider, same(provider));
-      expect(runtime.app.store, same(store));
       expect(runtime.app.window, same(window));
       expect(runtime.commands.installed, isNotEmpty);
     });

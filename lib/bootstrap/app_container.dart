@@ -4,7 +4,8 @@ import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:logecom/logecom.dart';
 
-import '../settings/settings_store.dart';
+import '../core/settings_hub.dart';
+import '../core/settings_store.dart';
 import '../state/app_controller.dart';
 import '../core/core_server.dart';
 import '../core/panel_session.dart';
@@ -265,6 +266,9 @@ class AppContainer extends DI {
         // встречаются (`docs/spec/client-server.md`, §6). Панели пока ходят к
         // сеансу напрямую переходником, а работы уже идут разговором: рождаются
         // они там, где источники.
+        // Настройки принадлежат ядру: файл читает и пишет оно, панельная
+        // половина и так его собственная (`spec/client-server.md`, §9).
+        final sessions = {PanelId.left: leftSession, PanelId.right: rightSession};
         final core = CoreServer(
           left: leftSession,
           right: rightSession,
@@ -272,6 +276,12 @@ class AppContainer extends DI {
           editor: c.get<TreeEditor>(),
           services: services,
           operations: backend.operations,
+          settings: SettingsHub(
+            store: c.get<SettingsStore>(),
+            stored: settings,
+            panelSettings: (panel) => sessions[panel]!.settings,
+            saveDelay: overrides.saveDelay ?? SettingsHub.defaultSaveDelay,
+          ),
         );
         final link = LoopbackLink(core);
 
@@ -280,7 +290,6 @@ class AppContainer extends DI {
           right: PanelController(PanelId.right, rightSession, link: link),
           core: core,
           link: link,
-          store: c.get<SettingsStore>(),
           settings: settings,
           commands: c.get<CommandRegistry>(),
           providers: c.get<ProviderRegistry>(),
@@ -301,7 +310,6 @@ class AppContainer extends DI {
           // Спрашивается по объявлениям, а не у контейнера: мы **внутри** его
           // фабрики, и обращение к нему отсюда рушит разбор зависимостей.
           dragAndDrop: frontend.serviceBindings.containsKey(DragAndDrop) ? c.get<DragAndDrop>() : null,
-          saveDelay: overrides.saveDelay ?? const Duration(seconds: 1),
           toasts: ToastController(duration: overrides.toastDuration ?? ToastController.defaultDuration),
           credentials: c.get<CredentialsController>(),
           fileNaming: c.get<FileNaming>(),

@@ -1,12 +1,10 @@
 import 'dart:async';
-import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
-import '../settings/settings_store.dart';
 import '../core/core_server.dart';
 import '../link/link.dart';
 import '../ui/remote_shell.dart';
@@ -30,7 +28,6 @@ class AppController extends ChangeNotifier implements Application {
   AppController({
     required this.left,
     required this.right,
-    required this.store,
     this.core,
     this.link,
     required AppSettings settings,
@@ -48,7 +45,6 @@ class AppController extends ChangeNotifier implements Application {
     ErrorController? errors,
     WindowService? window,
     this.dragAndDrop,
-    this.saveDelay = const Duration(seconds: 1),
   }) : _splitRatio = settings.splitRatio,
        _windowGeometry = settings.window,
        _initialSettings = settings,
@@ -69,11 +65,8 @@ class AppController extends ChangeNotifier implements Application {
     // Одна панель активна всегда, ещё до первого чтения каталогов.
     left.setActive(settings.activePanel != 1);
     right.setActive(settings.activePanel == 1);
-    left.addListener(_onPanelChanged);
-    right.addListener(_onPanelChanged);
-    // Модуль просит сохранить свой раздел тем же способом, что и панель:
-    // отложенной записью, которая сливает подряд идущие изменения.
-    _initialSettings.modules.onSave = _scheduleSave;
+    // Слушать панели ради записи больше незачем: их настройки — это состояние
+    // сеанса, и ядро видит его раньше и точнее (`spec/client-server.md`, §9).
     this.window.addListener(_onWindowChanged);
     commands.attach(this);
   }
@@ -93,7 +86,6 @@ class AppController extends ChangeNotifier implements Application {
 
   @override
   final PanelController right;
-  final SettingsStore store;
 
   /// Действия приложения: за кнопкой нижней панели и за горячей клавишей
   /// стоит одна и та же команда.
@@ -162,22 +154,17 @@ class AppController extends ChangeNotifier implements Application {
   @override
   final DragAndDrop? dragAndDrop;
 
-  /// Задержка перед записью настроек. Настройки пишутся и при выходе, но
-  /// отложенная запись бережёт их и при аварийном завершении.
-  final Duration saveDelay;
-
+  /// Прочитанное с диска — ради разделов модулей и того, чем экран не
+  /// заведует.
+  ///
+  /// **Временно общий объект.** Файл принадлежит ядру, и пока стороны в одном
+  /// контейнере, это тот же экземпляр, что держит ядро: модуль правит свой
+  /// раздел на месте, а записывает его та сторона. Разъедутся они вместе с
+  /// контейнерами (`docs/spec/client-server.md`, Э7).
   final AppSettings _initialSettings;
 
   double _splitRatio;
   WindowGeometry? _windowGeometry;
-  Timer? _saveTimer;
-
-  /// Записанное состояние целиком — по нему решается, нужна ли запись вообще.
-  String? _savedSnapshot;
-
-  /// Оно же без положения курсора — по нему решается, планировать ли
-  /// отложенную запись: ходьба по панели сама по себе на диск не пишет.
-  String? _savedQuietSnapshot;
 
   /// Активная панель: в ней курсор и ввод с клавиатуры.
   @override
@@ -211,7 +198,7 @@ class AppController extends ChangeNotifier implements Application {
       return;
     }
     _windowGeometry = updated;
-    _scheduleSave();
+    _settingsChanged();
   }
 
   @override
@@ -265,25 +252,38 @@ class AppController extends ChangeNotifier implements Application {
     }
     _splitRatio = clamped;
     notifyListeners();
-    _scheduleSave();
+    _settingsChanged();
   }
 
-  /// Открывает сохранённые каталоги и активирует панель, которая была активной
-  /// в прошлый раз. Недоступный путь заменяется корнем провайдера, чтобы
-  /// приложение всегда стартовало в рабочем состоянии.
+  /// Запуск в два приёма: сперва ядро, потом экран.
+  ///
+  /// Ядро поднимает панели там, где их оставили, и здоровается — рукопожатие
+  /// везёт и экранную половину настроек. Только после этого восстанавливается
+  /// окно и выбирается активная панель: интерфейс подписывается на готовое, а
+  /// не смотрит, как оно собирается (`docs/spec/client-server.md`, §9).
   @override
   Future<void> start() async {
-    _rememberSaved();
-    await window.restore(_initialSettings.window);
+    final door = link;
+    if (door == null) {
+      // Ядра нет вовсе (подставка в тесте состояния): поднимать нечего.
+      await window.restore(_windowGeometry);
+      return;
+    }
 
-    await Future.wait([_openPanel(left, _initialSettings.left.path), _openPanel(right, _initialSettings.right.path)]);
+    await door.call(const StartCore());
+    if (await door.call(const Handshake()) case final CoreReady ready) {
+      _splitRatio = ready.ui.splitRatio;
+      _windowGeometry = ready.ui.window;
+      _activePanel = ready.ui.activePanel;
+    }
 
-    activate(_initialSettings.activePanel == 1 ? right : left);
-    // Первый кадр показывается уже с восстановленным состоянием, поэтому
-    // отложенную запись, вызванную открытием каталогов, отменяем.
-    _saveTimer?.cancel();
-    _rememberSaved();
+    await window.restore(_windowGeometry);
+    activate(_activePanel == 1 ? right : left);
   }
+
+  /// Какая панель была активной. Держится отдельно от самих панелей: до
+  /// рукопожатия их спрашивать не о чем.
+  int _activePanel = 0;
 
   /// Реестр провайдеров; null — приложение собрано без него (тест состояния).
   ///
@@ -351,10 +351,13 @@ class AppController extends ChangeNotifier implements Application {
     );
   }
 
-  /// Сохраняет настройки и останавливает незавершённые операции.
+  /// Выключение в обратном порядке: сперва экран, потом ядро.
+  ///
+  /// Экран отдаёт своё — место окна, разделитель, активную панель, — а
+  /// записывает настройки и закрывает источники ядро
+  /// (`docs/spec/client-server.md`, §9).
   @override
   Future<void> shutdown() async {
-    _saveTimer?.cancel();
     left.cancel();
     right.cancel();
     await commands.shutdown();
@@ -398,34 +401,31 @@ class AppController extends ChangeNotifier implements Application {
       return;
     }
     _initialSettings.sizeScanConcurrency = value;
-    _scheduleSave();
+    _settingsChanged();
   }
 
+  /// Записать настройки сейчас и дождаться записи.
+  ///
+  /// Ждать обязательно при выходе: процесс уходит, и отложенному таймеру
+  /// сработать будет уже негде.
   Future<void> save() async {
-    if (_snapshot() == _savedSnapshot) {
+    final door = link;
+    if (door == null) {
       return;
     }
-    _rememberSaved();
-    await store.save(settings);
+    door.tell(ChangeSettings(_ui));
+    await door.call(const SaveSettings());
   }
 
-  Future<void> _openPanel(PanelController panel, String path) async {
-    // Без подключения: восстановление состояния не должно ходить в сеть.
-    // Сохранённый адрес сервера означал бы вопрос о пароле поверх ещё пустых
-    // панелей, а недоступный сервер — ожидание до истечения времени
-    // подключения при каждом запуске. На сервер человек возвращается сам —
-    // так же ведут себя Total Commander и Far.
-    if (path.isNotEmpty && await panel.openPath(path, allowConnect: false)) {
-      return;
-    }
-    if (await panel.openPath(panel.source.homePath)) {
-      return;
-    }
-    await panel.openPath(panel.source.rootPath);
-  }
+  /// Экранная половина настроек — то, что знает только эта сторона.
+  UiSettings get _ui => UiSettings(activePanel: left.active ? 0 : 1, splitRatio: _splitRatio, window: _windowGeometry);
 
-  /// Панели уведомляют обо всём, включая движение курсора, поэтому запись
-  /// планируется только при изменении того, что действительно сохраняется.
+  /// Сказать ядру, что экранная половина изменилась.
+  ///
+  /// Не ответ, а сообщение: запись отложенная, и решает её ядро — оно же
+  /// видит и панели. Сравнивать снимки по эту сторону больше незачем.
+  void _settingsChanged() => link?.tell(ChangeSettings(_ui));
+
   /// Спрашивает у окна его текущую геометрию и запоминает её.
   ///
   /// Вызывается на изменения окна и при уходе приложения на второй план —
@@ -436,52 +436,11 @@ class AppController extends ChangeNotifier implements Application {
 
   void _onWindowChanged() => unawaited(captureWindowGeometry());
 
-  void _onPanelChanged() {
-    // Курсор из сравнения исключён намеренно: иначе каждый шаг стрелкой заводил
-    // бы таймер записи, а ходят по панели постоянно. В файл он всё равно
-    // попадёт — вместе со следующей настоящей причиной записать и при выходе,
-    // где `save` сравнивает снимки целиком.
-    if (_snapshotWithoutCursor() != _savedQuietSnapshot) {
-      _scheduleSave();
-    }
-  }
-
-  void _scheduleSave() {
-    _saveTimer?.cancel();
-    _saveTimer = Timer(saveDelay, () => unawaited(save()));
-  }
-
-  String _snapshot() => jsonEncode(serialize(settings));
-
-  /// Тот же снимок, но без положения курсора.
-  String _snapshotWithoutCursor() {
-    final map = serialize(settings);
-    final panels = map['panels'];
-    if (panels is List) {
-      for (final panel in panels) {
-        if (panel is Map) {
-          panel.remove('cursor');
-        }
-      }
-    }
-    return jsonEncode(map);
-  }
-
-  /// Запоминает записанное состояние — оба снимка разом: полный, по которому
-  /// решается сама запись, и тихий, по которому решается её планирование.
-  void _rememberSaved() {
-    _savedSnapshot = _snapshot();
-    _savedQuietSnapshot = _snapshotWithoutCursor();
-  }
-
   @override
   void dispose() {
-    _saveTimer?.cancel();
     toasts.dispose();
     credentials.dispose();
     elevation.dispose();
-    left.removeListener(_onPanelChanged);
-    right.removeListener(_onPanelChanged);
     window.removeListener(_onWindowChanged);
     super.dispose();
   }

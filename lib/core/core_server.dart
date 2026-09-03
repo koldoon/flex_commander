@@ -9,6 +9,7 @@ import '../link/link.dart';
 import 'content_hub.dart';
 import 'operation_hub.dart';
 import 'panel_session.dart';
+import 'settings_hub.dart';
 import 'search_results.dart';
 import 'shell_hub.dart';
 
@@ -29,7 +30,9 @@ class CoreServer implements CoreHandler {
     TreeEditor editor = const TreeTransferEngine(),
     FcServices services = const _NoServices(),
     Map<String, OperationFactory> operations = const {},
-  }) : _panels = {PanelId.left: left, PanelId.right: right} {
+    SettingsHub? settings,
+  }) : _panels = {PanelId.left: left, PanelId.right: right},
+       _settings = settings {
     _content = ContentHub(registry: registry, sessionOf: session, say: _say);
     _shells = ShellHub(services: services, sessionOf: session, say: _say);
     _operations = OperationHub(
@@ -44,7 +47,12 @@ class CoreServer implements CoreHandler {
       final panel = entry.key;
       final session = entry.value;
       session.watch(
-        onChanged: () => _say(PanelChanged(panel, session.state)),
+        onChanged: () {
+          // Настройки панели — её же состояние: каталог, курсор, колонки,
+          // сортировка. Спрашивать их у экрана было бы кругом.
+          _settings?.panelsChanged();
+          _say(PanelChanged(panel, session.state));
+        },
         onListed: () {
           // Список и состояние уезжают вместе: в состоянии лежит номер списка,
           // и приехать оно должно **после** самого списка — иначе та сторона
@@ -58,6 +66,9 @@ class CoreServer implements CoreHandler {
   }
 
   final Map<PanelId, PanelSession> _panels;
+
+  /// Настройки приложения; null — ядро собрано без них (проверка границы).
+  final SettingsHub? _settings;
 
   /// Заведённые работы: копирование, упаковка, подсчёт.
   late final OperationHub _operations;
@@ -102,7 +113,20 @@ class CoreServer implements CoreHandler {
             for (final entry in _panels.entries)
               entry.key: PanelListing(generation: entry.value.generation, entries: entry.value.entries),
           },
+          ui: _settings?.ui ?? const UiSettings(),
         );
+
+      case StartCore():
+        await start();
+        return const CoreDone();
+
+      case ChangeSettings(:final ui):
+        _settings?.applyUi(ui);
+        return null;
+
+      case SaveSettings():
+        await _settings?.save();
+        return const CoreDone();
 
       case OpenPath(:final panel, :final path, :final allowConnect):
         final opened = await session(panel).openPath(path, allowConnect: allowConnect);
@@ -235,7 +259,38 @@ class CoreServer implements CoreHandler {
     }
   }
 
+  /// Открыть панели там, где их оставили.
+  ///
+  /// Первым делом и до всякого экрана: интерфейс подписывается на готовое, а
+  /// не смотрит, как оно собирается. Обе разом — вторая не должна ждать первую.
+  Future<void> start() async {
+    await Future.wait([for (final entry in _panels.entries) _restore(entry.value)]);
+    // Открытие панелей — не изменение настроек: там ровно то, что в файле и
+    // лежало, и записывать это заново незачем.
+    _settings?.remember();
+  }
+
+  /// Панель встаёт туда, где её оставили; не вышло — домой, не вышло — в
+  /// корень.
+  ///
+  /// Без подключения: восстановление состояния не должно ходить в сеть.
+  /// Сохранённый адрес сервера означал бы вопрос о пароле поверх ещё пустых
+  /// панелей, а недоступный сервер — ожидание до истечения времени подключения
+  /// при каждом запуске. На сервер человек возвращается сам — так же ведут
+  /// себя Total Commander и Far.
+  Future<void> _restore(PanelSession session) async {
+    final path = session.savedPath;
+    if (path.isNotEmpty && await session.openPath(path, allowConnect: false)) {
+      return;
+    }
+    if (await session.openPath(session.provider.homePath)) {
+      return;
+    }
+    await session.openPath(session.provider.rootDirectory.pathString);
+  }
+
   Future<void> dispose() async {
+    _settings?.dispose();
     _content.dispose();
     _operations.dispose();
     _shells.dispose();

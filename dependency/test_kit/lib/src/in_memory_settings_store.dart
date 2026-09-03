@@ -1,5 +1,5 @@
 import 'package:fc_api/fc_api.dart';
-import 'package:flex_commander/settings/settings_store.dart';
+import 'package:flex_commander/core/settings_store.dart';
 
 /// Настройки в памяти вместо файла на диске.
 ///
@@ -18,6 +18,10 @@ class InMemorySettingsStore extends SettingsStore {
 
   /// Что лежит в хранилище сейчас.
   AppSettings? get saved => _settings;
+
+  /// Забыть записанное: так проверка отличает «записали второй раз» от
+  /// «записали однажды и с тех пор молчим».
+  void forget() => _settings = null;
 
   @override
   Future<AppSettings> load() async => _settings ?? AppSettings.defaults(fallbackPath);

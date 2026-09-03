@@ -2,8 +2,7 @@ import 'dart:io';
 
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_ui_api/fc_ui_api.dart';
-import 'package:flex_commander/settings/settings_store.dart';
+import 'package:flex_commander/core/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
@@ -30,18 +29,8 @@ void main() {
     await temp.delete(recursive: true);
   });
 
-  AppController build(AppSettings settings) {
-    return app = AppController(
-      left: testPanel(provider: provider, settings: settings.left),
-      right: testPanel(provider: provider, settings: settings.right),
-      // Команды здесь ни при чём: проверяется само приложение.
-      commands: CommandRegistry(),
-      store: store,
-      settings: settings,
-      window: window,
-      saveDelay: saveDelay,
-    );
-  }
+  AppController build(AppSettings settings) =>
+      app = testCore(provider: provider, settings: settings, store: store, window: window, saveDelay: saveDelay);
 
   Future<AppSettings> waitForSaved() async {
     final file = File(store.filePath);

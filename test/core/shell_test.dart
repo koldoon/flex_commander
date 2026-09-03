@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -55,7 +54,7 @@ void main() {
   Future<ShellOpened> open({PanelId? panel = PanelId.left}) async {
     final reply = await link.call(OpenShell(panel: panel));
     expect(reply, isA<ShellOpened>(), reason: 'оболочка должна была открыться');
-    return reply! as ShellOpened;
+    return reply as ShellOpened;
   }
 
   test('оболочка заводится там, где стоит панель', () async {

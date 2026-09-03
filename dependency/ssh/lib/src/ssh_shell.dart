@@ -3,7 +3,6 @@ import 'dart:typed_data';
 
 import 'package:dartssh2/dartssh2.dart';
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 
 /// Оболочка на той стороне — [PtySession] поверх канала `dartssh2`.
 ///

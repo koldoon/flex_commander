@@ -839,9 +839,16 @@ class PanelSession {
 
   // --- настройки ---
 
+  /// Каталог, в котором панель оставили: с него она и начнёт.
+  ///
+  /// До первого чтения это то, что пришло из файла; после — тот, где она
+  /// стоит. Одно поле на оба случая: восстановление после запуска — это тот же
+  /// возврат в каталог, где уже были.
+  String get savedPath => _directory?.pathString ?? _lastPath;
+
   /// Текущее состояние панели в виде сохраняемых настроек.
   PanelSettings get settings {
-    final path = _directory?.pathString ?? _lastPath;
+    final path = savedPath;
     return PanelSettings(
       path: path,
       // Пока каталог не прочитан, курсора нет — но и терять запомненное

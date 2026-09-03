@@ -2,7 +2,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
-import '../settings/settings_store.dart';
+import '../core/settings_store.dart';
 import '../state/app_controller.dart';
 
 /// Подмена служб при сборке: провайдер, хранилище настроек, окно.

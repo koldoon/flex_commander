@@ -25,6 +25,7 @@ export 'src/protocol/operation_spec.dart';
 export 'src/protocol/file_entry.dart';
 export 'src/protocol/panel_state.dart';
 export 'src/protocol/source_info.dart';
+export 'src/protocol/ui_settings.dart';
 
 // --- Длительные работы ---
 export 'src/async/async_operation.dart';
