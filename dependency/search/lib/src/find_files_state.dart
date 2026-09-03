@@ -1,13 +1,11 @@
 import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/foundation.dart';
 
 import 'search_query.dart';
-import 'search_results_provider.dart';
-import 'search_run.dart';
+import 'search_work.dart';
 
 /// Строка списка находок: заголовок каталога или сама находка под ним.
 ///
@@ -16,19 +14,19 @@ import 'search_run.dart';
 /// высоты и он знает, сколько их. Дерево ни того, ни другого не даёт
 /// (`spec/file-search.md`, §3.2).
 class FoundRow {
-  const FoundRow.header(this.path) : node = null, index = -1;
-  const FoundRow.item(FsNode this.node, this.index) : path = '';
+  const FoundRow.header(this.path) : entry = null, index = -1;
+  const FoundRow.item(FileEntry this.entry, this.index) : path = '';
 
   /// Путь каталога — у заголовка; у находки пусто.
   final String path;
 
   /// Сама находка; null — это заголовок.
-  final FsNode? node;
+  final FileEntry? entry;
 
   /// Номер находки в [FindFilesState.found]; -1 у заголовка.
   final int index;
 
-  bool get isHeader => node == null;
+  bool get isHeader => entry == null;
 }
 
 /// Состояние окна поиска: о чём спросили, что нашлось и идёт ли обход.
@@ -44,14 +42,17 @@ class FindFilesState extends ChangeNotifier {
   /// Панель, в каталоге которой ищут и в которую отдают найденное.
   final Panel panel;
 
-  /// Где искать. Не поле окна: чтобы искать в другом месте, туда переходят
-  /// панелью — так не бывает поиска «не там, где думает человек».
-  final DirectoryNode where;
+  /// Где искать — путём. Не поле окна: чтобы искать в другом месте, туда
+  /// переходят панелью, — так не бывает поиска «не там, где думает человек».
+  final String where;
 
   SearchQuery query = const SearchQuery(mask: '');
 
   /// Найденное — в том порядке, в каком находилось.
-  final List<FsNode> found = [];
+  ///
+  /// Значениями: узлы остались в ядре, где живут их источники, и показать
+  /// находки панелью можно оттуда же ([toPanel]).
+  final List<FileEntry> found = [];
 
   /// Строки списка: заголовки каталогов и находки под ними.
   ///
@@ -84,7 +85,7 @@ class FindFilesState extends ChangeNotifier {
   String _at = '';
 
   bool get busy => _run != null;
-  Operation<SearchQuery, List<FsNode>>? _run;
+  Operation<OperationSpec, void>? _run;
 
   /// Искали хоть раз: до первого поиска «ничего не нашлось» — не ответ, а
   /// молчание.
@@ -105,7 +106,7 @@ class FindFilesState extends ChangeNotifier {
   int _selected = -1;
 
   /// Есть куда перейти: строка выбрана и у неё есть каталог.
-  bool get canGoTo => _selected >= 0 && _selected < found.length && found[_selected].parentDirectory != null;
+  bool get canGoTo => _selected >= 0 && _selected < found.length && found[_selected].directoryPath.isNotEmpty;
 
   /// Есть что искать: маска непустая и обход не идёт.
   bool get canStart => !busy && !query.isEmpty;
@@ -196,7 +197,9 @@ class FindFilesState extends ChangeNotifier {
     _selected = -1;
     _searched = true;
     _stopped = false;
-    final run = SearchRun.from(where, onFound: _add);
+    // Работа заводится в ядре: обход дерева — это `listChildren`, то есть
+    // поход на диск, в архив или по сети, а источники живут там.
+    final run = app.runOperation(runId: runId, onFound: _addAll);
     _run = run;
     // Работа заводится в общем реестре — том же, где копирование. С этого
     // момента её можно отправить в фон и вернуть щелчком по полоске, а
@@ -217,7 +220,17 @@ class FindFilesState extends ChangeNotifier {
     });
 
     try {
-      run.start(query);
+      run.start(
+        OperationSpec(
+          kind: SearchWork.kind,
+          targets: Targets.paths([where]),
+          options: {
+            SearchWork.maskOption: query.mask,
+            SearchWork.recursiveOption: query.recursive,
+            SearchWork.hiddenOption: query.hidden,
+          },
+        ),
+      );
       await run.result;
     } on OperationCanceled {
       // Прекратили — найденное остаётся: половина ответа лучше, чем ничего.
@@ -257,11 +270,12 @@ class FindFilesState extends ChangeNotifier {
     if (found.isEmpty) {
       return;
     }
-    finish();
-    // Каталог поиска — родитель списка: `..` из находок возвращает туда, где
-    // панель стояла, и никакого «запомненного места» для этого не нужно.
-    final results = SearchResultsProvider(title: query.mask, found: List.of(found), parent: where);
-    await panel.openDirectory(results.rootDirectory);
+    close?.call();
+    // Список складывает **ядро**: узлы в нём настоящие и принадлежат своим
+    // источникам, а источники живут там. Забирает оно их у той же работы,
+    // поэтому имя её здесь и пригодилось.
+    await panel.showFound(runId, title: query.mask);
+    app.operations.forget(runId);
   }
 
   /// Перейти к найденному: панель открывает его каталог, курсор встаёт на нём.
@@ -276,10 +290,10 @@ class FindFilesState extends ChangeNotifier {
     if (!canGoTo) {
       return;
     }
-    final node = found[_selected];
+    final entry = found[_selected];
     toBackground();
-    await panel.openDirectory(node.parentDirectory!);
-    panel.setCursorToName(node.name);
+    await panel.openPath(entry.directoryPath);
+    panel.setCursorToName(entry.name);
   }
 
   /// `F3` и `F4` над находкой: встать на неё и открыть.
@@ -295,17 +309,19 @@ class FindFilesState extends ChangeNotifier {
     app.commands.run(commandId);
   }
 
-  void _add(FsNode node) {
-    // Каталог называется один раз на пачку — как в `mc`: обход идёт каталогами,
-    // и находки из одного приходят подряд.
-    final directory = node.parentDirectory?.displayPath ?? '';
-    if (directory != _lastDirectory) {
-      _lastDirectory = directory;
-      rows.add(FoundRow.header(directory));
+  void _addAll(List<FileEntry> entries) {
+    for (final entry in entries) {
+      // Каталог называется один раз на пачку — как в `mc`: обход идёт
+      // каталогами, и находки из одного приходят подряд.
+      final directory = entry.directoryPath;
+      if (directory != _lastDirectory) {
+        _lastDirectory = directory;
+        rows.add(FoundRow.header(directory));
+      }
+      found.add(entry);
+      _rowOfFound.add(rows.length);
+      rows.add(FoundRow.item(entry, found.length - 1));
     }
-    found.add(node);
-    _rowOfFound.add(rows.length);
-    rows.add(FoundRow.item(node, found.length - 1));
     _redraw();
   }
 }

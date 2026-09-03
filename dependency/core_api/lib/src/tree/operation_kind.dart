@@ -9,7 +9,13 @@ import 'tree_provider.dart';
 /// получает **живое**, потому что живёт по эту сторону границы. Всё остальное
 /// приехало значениями и лежит в [options] как есть.
 class OperationInputs {
-  const OperationInputs({required this.targets, required this.editor, this.destination, this.options = const {}});
+  const OperationInputs({
+    required this.targets,
+    required this.editor,
+    this.destination,
+    this.options = const {},
+    this.onFound = _nothingFound,
+  });
 
   /// Над чем работать — узлами. Псевдострока «..» сюда не попадает: ядро
   /// отсеивает её, разворачивая набор.
@@ -24,6 +30,19 @@ class OperationInputs {
 
   /// Доводы, приехавшие в заявке.
   final Map<String, Object?> options;
+
+  /// Куда работа складывает найденное — **по ходу дела**, а не в конце.
+  ///
+  /// Ради одной работы: поиск. У остальных ответ один — исход, и звать это
+  /// некому. Тому же, кто ищет, ответ нужен по частям: на большом дереве
+  /// первые попадания видны сразу, и обычно этого довольно, — а держать их до
+  /// конца обхода значило бы показывать пустое окно всё время работы.
+  ///
+  /// Пачками, а не по одной: находки приходят быстрее, чем экран успевает
+  /// обновиться.
+  final void Function(List<FsNode> found) onFound;
+
+  static void _nothingFound(List<FsNode> found) {}
 
   T? option<T>(String name) {
     final value = options[name];

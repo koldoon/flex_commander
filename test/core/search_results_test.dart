@@ -1,9 +1,9 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
-import 'package:fc_search/fc_search.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
+import 'package:flex_commander/core/search_results.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -33,7 +33,7 @@ void main() {
 
   test('найденное становится списком панели, а прежний каталог помнится', () async {
     final found = await nodesAt('/home/docs');
-    final results = SearchResultsProvider(title: '*.txt', found: found);
+    final results = SearchResults(title: '*.txt', found: found);
 
     await panel().openDirectory(results.rootDirectory);
 
@@ -45,7 +45,7 @@ void main() {
 
   test('узлы настоящие: они принадлежат своему источнику', () async {
     final found = await nodesAt('/home/docs');
-    final results = SearchResultsProvider(title: '*.txt', found: found);
+    final results = SearchResults(title: '*.txt', found: found);
     await panel().openDirectory(results.rootDirectory);
 
     final notes = panel().entries.firstWhere((node) => node.name == 'notes.txt');
@@ -58,7 +58,7 @@ void main() {
 
   test('путь узла показывает, откуда он', () async {
     final found = await nodesAt('/home/docs');
-    final results = SearchResultsProvider(title: '*.txt', found: found);
+    final results = SearchResults(title: '*.txt', found: found);
 
     final notes = found.firstWhere((node) => node.name == 'notes.txt');
 
@@ -67,7 +67,7 @@ void main() {
   });
 
   test('в списке находок нечего писать', () async {
-    final results = SearchResultsProvider(title: 'ничего', found: const []);
+    final results = SearchResults(title: 'ничего', found: const []);
 
     expect(results.capabilities.realFileSystem, isFalse);
     expect(results is NodeEditor, isFalse, reason: 'править нечего: узлы принадлежат чужим источникам');

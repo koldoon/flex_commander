@@ -1,6 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
-import 'package:fc_search/fc_search.dart';
+import 'package:fc_search/frontend.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
@@ -173,7 +173,7 @@ void main() {
 
     await press(tester, 'To panel');
 
-    expect(app.left.provider, isA<SearchResultsProvider>());
+    expect(app.left.source.scheme, SourceInfo.foundScheme);
     expect(app.left.entries.map((node) => node.name), containsAll(['main.dart', 'util.dart']));
     // Окно ушло: смотреть на список удобнее в панели.
     expect(find.widgetWithText(FcButton, 'To panel'), findsNothing);
@@ -240,7 +240,7 @@ void main() {
     await app.left.goUp();
     await tester.pumpAndSettle();
 
-    expect(app.left.provider, isNot(isA<SearchResultsProvider>()));
+    expect(app.left.source.scheme, isNot(SourceInfo.foundScheme));
     expect(app.left.path, '/home');
   });
 

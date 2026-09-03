@@ -44,8 +44,8 @@ class FindFilesCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final panel = context.panel;
-    final where = panel.directory;
-    if (where == null) {
+    final where = panel.path;
+    if (where.isEmpty) {
       return;
     }
 

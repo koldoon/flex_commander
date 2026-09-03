@@ -172,7 +172,7 @@ class _FoundTableState extends State<FoundTable> {
         ),
         alignment: Alignment.centerLeft,
         child: Text(
-          row.node!.name,
+          row.entry!.name,
           style: base.copyWith(color: current ? colors.cursorText : colors.dialogLabel),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,

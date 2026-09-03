@@ -6,7 +6,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_local_fs/backend.dart';
 import 'package:fc_platform/fc_platform.dart';
-import 'package:fc_search/fc_search.dart';
+import 'package:fc_search/backend.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_zip/backend.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -119,7 +119,7 @@ void main() {
 
     var found = 0;
     final walk = await cost(() async {
-      final run = SearchRun.from(root, onFound: (_) => found++);
+      final run = SearchRun.from(root, onFound: (batch) => found += batch.length);
       run.start(const SearchQuery(mask: '*.txt'));
       await run.result;
     });

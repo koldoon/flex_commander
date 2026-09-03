@@ -11,7 +11,8 @@ import 'package:fc_local_fs/backend.dart';
 import 'package:fc_local_fs/frontend.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_panels/fc_panels.dart';
-import 'package:fc_search/fc_search.dart';
+import 'package:fc_search/backend.dart';
+import 'package:fc_search/frontend.dart';
 import 'package:fc_ssh/fc_ssh.dart';
 import 'package:fc_tar/backend.dart';
 import 'package:fc_tar/frontend.dart';
@@ -50,6 +51,7 @@ List<FcBackendModule> backendModules() => [
 List<FcBackendModule> featureBackendModules() => [
   const ShellTerminalBackend(),
   const TextEditorBackend(),
+  const FileSearchBackend(),
   const ZipArchiverBackend(),
   const SevenZipArchiverBackend(),
   const TarArchiverBackend(),

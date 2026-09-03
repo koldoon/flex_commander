@@ -9,6 +9,7 @@ import '../link/link.dart';
 import 'content_hub.dart';
 import 'operation_hub.dart';
 import 'panel_session.dart';
+import 'search_results.dart';
 import 'shell_hub.dart';
 
 /// Ядро приложения со стороны линка.
@@ -181,6 +182,18 @@ class CoreServer implements CoreHandler {
 
       case CheckWriteAccess(:final entry):
         return CoreFlag(await _content.canWrite(entry));
+
+      case ShowFound(:final panel, :final runId, :final title):
+        final found = _operations.takeFound(runId);
+        if (found.isEmpty) {
+          return const CoreOpened(false);
+        }
+        // Каталог поиска — родитель списка: `..` из находок возвращает туда,
+        // где панель стояла, и никакого «запомненного места» для этого не
+        // нужно.
+        final results = SearchResults(title: title, found: found, parent: session(panel).directory);
+        await session(panel).open(results.rootDirectory);
+        return const CoreOpened(true);
 
       case ListNames(:final panel, :final path):
         return CoreEntries(await session(panel).namesIn(path));

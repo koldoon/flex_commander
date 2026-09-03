@@ -67,6 +67,16 @@ class PanelController extends ChangeNotifier implements Panel {
   String get shellDirectory => session.shellDirectory;
 
   @override
+  Future<bool> showFound(String runId, {String title = ''}) async {
+    final door = _link;
+    if (door == null) {
+      return false;
+    }
+    final reply = await door.call(ShowFound(id, runId, title: title));
+    return reply is CoreOpened && reply.opened;
+  }
+
+  @override
   Future<List<FileEntry>> namesIn(String path) async {
     final door = _link;
     if (door == null) {

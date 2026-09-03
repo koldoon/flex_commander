@@ -14,6 +14,11 @@ import 'search_query.dart';
 /// Найденное отдаётся **по ходу** ([onFound]), а не в конце: на большом дереве
 /// первые попадания видны сразу, и обычно этого довольно. Итог работы — тот же
 /// список целиком, для тех, кому нужен только он.
+///
+/// Пачками, а не по одной: находки приходят быстрее, чем экран успевает
+/// обновиться, а за границей каждая была бы ещё и отдельным сообщением. Пачка
+/// уходит на том же вдохе, которым обход отдаёт управление циклу событий, —
+/// чаще смотреть всё равно незачем.
 class SearchRun {
   /// Как часто обход отдаёт управление интерфейсу.
   ///
@@ -28,10 +33,21 @@ class SearchRun {
   static Duration breath = const Duration(milliseconds: 8);
 
   /// Работа, которую остаётся запустить: `start` — и она пойдёт.
-  static Operation<SearchQuery, List<FsNode>> from(DirectoryNode where, {required void Function(FsNode) onFound}) {
+  static Operation<SearchQuery, List<FsNode>> from(
+    DirectoryNode where, {
+    required void Function(List<FsNode>) onFound,
+  }) {
     return TaskOperation<SearchQuery, List<FsNode>>((op, query) async {
       final mask = FileMask.parse(query.mask);
       final found = <FsNode>[];
+      final batch = <FsNode>[];
+      void flush() {
+        if (batch.isNotEmpty) {
+          onFound(List.of(batch));
+          batch.clear();
+        }
+      }
+
       if (mask.isEmpty) {
         // Пустая маска не совпадает ни с чем — обходить дерево незачем.
         return found;
@@ -67,6 +83,7 @@ class SearchRun {
           sinceBreath
             ..reset()
             ..start();
+          flush();
           await Future<void>.delayed(Duration.zero);
         }
 
@@ -91,7 +108,7 @@ class SearchRun {
           }
           if (mask.matches(node.name)) {
             found.add(node);
-            onFound(node);
+            batch.add(node);
           }
           // Каталог может и сам подойти под маску, и содержать подходящее:
           // одно другому не мешает.
@@ -100,6 +117,10 @@ class SearchRun {
           }
         }
       }
+
+      // Последняя пачка — до итога: «нашлось столько-то» не должно опережать
+      // самих находок.
+      flush();
 
       // Последнее слово работы — итог: с ним она и остаётся в полоске фоновых
       // работ, если окно закрыли. «Ищу в таком-то каталоге» у законченной

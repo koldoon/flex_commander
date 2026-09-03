@@ -5,7 +5,7 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
-import 'editor_saving.dart';
+import 'editor_work.dart';
 import 'editor_screen.dart';
 import 'editor_settings.dart';
 import 'text_file.dart';
@@ -280,9 +280,9 @@ class SaveFileCommand extends AppCommand {
       try {
         await context.app.runOperation().run(
           OperationSpec(
-            kind: EditorSaving.kind,
+            kind: EditorWork.kind,
             targets: Targets.paths([screen.entry.path]),
-            options: {EditorSaving.textOption: screen.textToSave},
+            options: {EditorWork.textOption: screen.textToSave},
           ),
         );
         screen.markSaved();
@@ -485,9 +485,9 @@ class CloseEditorCommand extends AppCommand {
         // просит: согласие уже дано, вопрос был ровно про это.
         await context.app.runOperation().run(
           OperationSpec(
-            kind: EditorSaving.kind,
+            kind: EditorWork.kind,
             targets: Targets.paths([screen.entry.path]),
-            options: {EditorSaving.textOption: screen.textToSave},
+            options: {EditorWork.textOption: screen.textToSave},
           ),
         );
         screen.markSaved();

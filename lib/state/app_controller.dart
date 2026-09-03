@@ -304,13 +304,13 @@ class AppController extends ChangeNotifier implements Application {
   final Link? link;
 
   @override
-  Operation<OperationSpec, void> runOperation() {
+  Operation<OperationSpec, void> runOperation({String? runId, void Function(List<FileEntry> entries)? onFound}) {
     final door = link;
     if (door == null) {
       // Ядра нет вовсе: работать некому, и молчать об этом нельзя.
       throw StateError('Приложение собрано без ядра: работу заводить негде');
     }
-    return RemoteOperation(door);
+    return RemoteOperation(door, runId: runId, onFound: onFound);
   }
 
   @override

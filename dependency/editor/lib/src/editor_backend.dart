@@ -1,6 +1,7 @@
 import 'package:fc_core_api/fc_core_api.dart';
 
 import 'editor_saving.dart';
+import 'editor_work.dart';
 
 /// Редактор — ядровая половина: сохранение текста.
 ///
@@ -17,6 +18,6 @@ class TextEditorBackend implements FcBackendModule {
 
   @override
   void installBackend(BackendRegistry registry) {
-    registry.operation(EditorSaving.kind, (services) => EditorSaving.operation());
+    registry.operation(EditorWork.kind, (services) => EditorSaving.operation());
   }
 }

@@ -2,7 +2,7 @@ import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
-import 'package:fc_search/fc_search.dart';
+import 'package:fc_search/backend.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -27,7 +27,7 @@ void main() {
   Future<DirectoryNode> home() async => await provider.resolvePath().run('/home') as DirectoryNode;
 
   Future<List<String>> search(SearchQuery query, {List<String>? asFound}) async {
-    final run = SearchRun.from(await home(), onFound: (node) => asFound?.add(node.name));
+    final run = SearchRun.from(await home(), onFound: (found) => asFound?.addAll(found.map((node) => node.name)));
     final found = await run.run(query);
     return found.map((node) => node.name).toList();
   }

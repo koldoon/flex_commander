@@ -3,23 +3,16 @@ import 'dart:convert';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 
+import 'editor_work.dart';
+
 /// Сохранение текста — работа ядра.
 ///
 /// Живёт там, где файл: временный файл, перенос прав и переименование — всё это
 /// про источник, и решать, как правильно писать, полагается той стороне, где он
 /// живёт. Экран приносит только текст (`docs/spec/client-server.md`, §6.2).
 ///
-/// Текст целиком, а не кусками: правят его в памяти, и редактор всё равно
-/// держит весь файл. Кусочная запись с подтверждением понадобится тому, кто
-/// пишет больше, чем помещается, — а такой сегодня один, сборка архивов, и она
-/// целиком по эту сторону границы.
+/// Как её зовут и что ей подают — в [EditorWork]: имена нужны обеим сторонам.
 abstract final class EditorSaving {
-  /// Имя работы: под ним её и зовут из команды.
-  static const String kind = 'editor.save';
-
-  /// Что записать.
-  static const String textOption = 'text';
-
   static Operation<OperationInputs, void> operation() =>
       TaskOperation<OperationInputs, void>((op, inputs) => _save(inputs));
 }
@@ -43,7 +36,7 @@ Future<void> _save(OperationInputs inputs) async {
     throw FsError(node.pathString, FsErrorKind.notSupported);
   }
 
-  final bytes = utf8.encode(inputs.option<String>(EditorSaving.textOption) ?? '');
+  final bytes = utf8.encode(inputs.option<String>(EditorWork.textOption) ?? '');
   final atomic = provider.capabilities.realFileSystem && provider is NodeEditor;
 
   if (!atomic) {

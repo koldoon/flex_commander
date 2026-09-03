@@ -11,7 +11,7 @@ import '../link/link.dart';
 /// идёт не тут: они написаны против [Operation], и переучивать их было бы
 /// ошибкой — окно работы одно на приложение (`docs/spec/client-server.md`, §7).
 class RemoteOperation implements Operation<OperationSpec, void> {
-  RemoteOperation(this._link) {
+  RemoteOperation(this._link, {String? runId, this.onFound}) : runId = runId ?? 'run#${_nextRun++}' {
     _events = _link.events.listen(_apply);
   }
 
@@ -22,7 +22,13 @@ class RemoteOperation implements Operation<OperationSpec, void> {
 
   /// Имя даёт **эта** сторона, до запуска: подписка встаёт раньше, и первое же
   /// событие не проходит мимо.
-  late final String runId = 'run#${_nextRun++}';
+  ///
+  /// Своё имя подаёт тот, кому оно нужно и потом: поиск показывает находки той
+  /// же работы, а полоска в статусной области зовёт её так же, как ядро.
+  final String runId;
+
+  /// Работа нашла — пачкой, по ходу дела; null — за находками никто не пришёл.
+  final void Function(List<FileEntry> entries)? onFound;
 
   @override
   late final MutableOperationStatus status = MutableOperationStatus();
@@ -74,6 +80,9 @@ class RemoteOperation implements Operation<OperationSpec, void> {
 
       case OperationAsked(runId: final id, :final ask) when id == runId:
         _ask(ask);
+
+      case OperationFound(runId: final id, :final entries) when id == runId:
+        onFound?.call(entries);
 
       case OperationAskCanceled(runId: final id) when id == runId:
         // Вопрос снят вместе с работой: окно закрывается, а не ждёт ответа,

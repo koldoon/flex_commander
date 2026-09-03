@@ -48,6 +48,11 @@ class PanelMirror extends ChangeNotifier {
 
   String get shellDirectory => _state.shellDirectory;
 
+  Future<bool> showFound(String runId, {String title = ''}) async {
+    final reply = await _link.call(ShowFound(id, runId, title: title));
+    return reply is CoreOpened && reply.opened;
+  }
+
   Future<List<FileEntry>> namesIn(String path) async {
     final reply = await _link.call(ListNames(id, path));
     return reply is CoreEntries ? reply.entries : const [];

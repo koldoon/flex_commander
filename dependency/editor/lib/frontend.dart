@@ -7,3 +7,4 @@ export 'src/editor_screen.dart';
 export 'src/editor_settings.dart';
 export 'src/editor_view.dart';
 export 'src/text_file.dart';
+export 'src/editor_work.dart';

@@ -3,6 +3,10 @@ import 'package:fc_core_api/fc_core_api.dart';
 
 /// Найденное — как содержимое панели.
 ///
+/// Живёт в ядре, а не у окна поиска, и это не переезд ради переезда: узлы в нём
+/// **настоящие** и принадлежат своим провайдерам, а провайдеры бывают только по
+/// эту сторону границы (`docs/spec/client-server.md`, §5.1.6).
+///
 /// Источник над **плоским списком**: каталогов в нём нет, вложенности нет,
 /// корень один. Узлы в нём **настоящие** и принадлежат своим провайдерам —
 /// поэтому копирование, удаление, `F3` и `F4` работают над ними без единой
@@ -12,8 +16,8 @@ import 'package:fc_core_api/fc_core_api.dart';
 /// подсчёт размеров — вопросы к тому, кому узел принадлежит; здесь на них
 /// отвечать нечем и незачем. Панель об этом не спотыкается: она просит список
 /// каталога, а он готов заранее.
-class SearchResultsProvider implements TreeProvider, PanelColumns {
-  SearchResultsProvider({required String title, required List<FsNode> found, DirectoryNode? parent}) {
+class SearchResults implements TreeProvider, PanelColumns {
+  SearchResults({required String title, required List<FsNode> found, DirectoryNode? parent}) {
     _root = DirectoryNode(provider: this, name: title, parent: parent);
     _root.nodes = found;
   }
@@ -24,10 +28,7 @@ class SearchResultsProvider implements TreeProvider, PanelColumns {
   List<FsNode> get found => _root.nodes;
 
   @override
-  String get scheme => schemeName;
-
-  /// Схема находок: по ней их узнают снаружи — снимок источника её и везёт.
-  static const String schemeName = 'found';
+  String get scheme => SourceInfo.foundScheme;
 
   /// Колонки списка находок: к обычным добавлена колонка пути.
   ///

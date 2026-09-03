@@ -1,6 +1,5 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
-
-import 'search_results_provider.dart';
 
 /// `Enter` в списке находок: перейти к объекту в его каталоге.
 ///
@@ -29,7 +28,7 @@ class GoToFoundCommand extends AppCommand {
     final entry = panel.currentEntry;
     // Находки узнаются по схеме источника, а не по его типу: типа этой стороне
     // не видно, а схема приезжает снимком.
-    return panel.source.scheme == SearchResultsProvider.schemeName &&
+    return panel.source.scheme == SourceInfo.foundScheme &&
         entry != null &&
         !entry.isParent &&
         entry.directoryPath.isNotEmpty;

@@ -144,7 +144,7 @@ class _FindFilesFormState extends State<FindFilesForm> {
         borderRadius: BorderRadius.circular(metrics.inputRadius),
       ),
       child: Text(
-        state.where.displayPath,
+        state.where,
         style: theme.inputStyle.copyWith(color: theme.colors.inputHint),
         maxLines: 1,
         overflow: TextOverflow.ellipsis,

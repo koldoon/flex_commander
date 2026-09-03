@@ -30,6 +30,10 @@ class SourceInfo {
   /// Обычная таблица файлов — то, чем панель показывает каталог.
   static const String files = 'files';
 
+  /// Схема списка находок: по ней его узнают снаружи — например, `Enter` над
+  /// находкой, который уводит к ней в её каталог.
+  static const String foundScheme = 'found';
+
   /// Схема путей: `fs`, `zip`, `sftp`.
   final String scheme;
 

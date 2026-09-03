@@ -39,6 +39,17 @@ class OperationHub {
 
   final Map<String, _Run> _running = {};
 
+  /// Найденное — по имени работы, пока его не показали панелью.
+  ///
+  /// Узлами, а не значениями: показывают их **списком-источником**, а он живёт
+  /// здесь и работает с настоящими узлами. Значения из них складываются на
+  /// границе и едут той стороне по ходу дела.
+  ///
+  /// Держится до `showFound`; поиск, чьё окно закрыли не показав, отпускается
+  /// вместе с ядром. Это и вся его цена: узлы уже живут в дереве панели,
+  /// список ссылается на них.
+  final Map<String, List<FsNode>> _found = {};
+
   /// Заводит работу и ведёт её до конца.
   ///
   /// Имя работы даёт та сторона: подписка у неё встаёт раньше запуска, и
@@ -58,6 +69,7 @@ class OperationHub {
       final operation = factory(_services);
       final run = _Run(operation, leases);
       _running[runId] = run;
+      _found.remove(runId);
 
       // Сперва подписки, потом запуск: до `start` не происходит ничего, и
       // потерять нечего, — а после первый же вопрос мог бы пройти мимо.
@@ -67,7 +79,13 @@ class OperationHub {
       );
 
       operation.start(
-        OperationInputs(targets: targets, destination: destination, editor: _editor, options: spec.options),
+        OperationInputs(
+          targets: targets,
+          destination: destination,
+          editor: _editor,
+          options: spec.options,
+          onFound: (found) => _collect(runId, found),
+        ),
       );
 
       await operation.result;
@@ -106,6 +124,18 @@ class OperationHub {
     }
   }
 
+  /// Найденное — той стороне значениями, а узлы остаются здесь.
+  void _collect(String runId, List<FsNode> found) {
+    if (found.isEmpty) {
+      return;
+    }
+    (_found[runId] ??= []).addAll(found);
+    _say(OperationFound(runId, [for (final node in found) entryValueOf(node)]));
+  }
+
+  /// Узлы, найденные этой работой; забирает их тот, кто показывает.
+  List<FsNode> takeFound(String runId) => _found.remove(runId) ?? const [];
+
   /// Прекращает всё: приложение уходит.
   void dispose() {
     for (final run in _running.values.toList()) {
@@ -113,6 +143,7 @@ class OperationHub {
       run.release();
     }
     _running.clear();
+    _found.clear();
   }
 
   void _ask(String runId, _Run run, OperationRequest request) {
