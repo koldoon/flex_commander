@@ -31,12 +31,11 @@ class UiContainer extends DI {
     this.frontend,
     this.services, {
     required this.link,
-    required AppSettings settings,
     required CoreReady ready,
     this.core,
     this.overrides = const AppOverrides(),
     FcContext? context,
-  }) : _settings = settings,
+  }) : _settings = settingsFrom(ready.ui),
        _handshake = ready {
     _context = context ?? RuntimeContext(services);
 
@@ -63,6 +62,9 @@ class UiContainer extends DI {
     services.bindTo(this);
   }
 
+  /// Настройки этой стороны — те, что приехали рукопожатием.
+  AppSettings get settings => _settings;
+
   /// Что объявили экранные половины модулей.
   final FrontendRegistrations frontend;
 
@@ -80,9 +82,27 @@ class UiContainer extends DI {
 
   final AppOverrides overrides;
 
-  /// Настройки — **общий пока** объект с ядром: разделы модулей правятся на
-  /// месте, а записывает их та сторона (`docs/spec/client-server.md`, §9.1).
+  /// Своя половина настроек — та, что приехала рукопожатием.
+  ///
+  /// Свой экземпляр, а не общий с ядром: с изолятом общего объекта не бывает
+  /// вовсе, а до него он был последней ниточкой между сторонами
+  /// (`docs/spec/client-server.md`, §9).
   final AppSettings _settings;
+
+  /// Настройки этой стороны из того, что приехало.
+  ///
+  /// Панельные разделы сюда не попадают: их держит ядро, и экрану они не
+  /// нужны — панель рассказывает о себе состоянием.
+  static AppSettings settingsFrom(UiSettings ui) {
+    final settings = AppSettings(
+      activePanel: ui.activePanel,
+      splitRatio: ui.splitRatio,
+      sizeScanConcurrency: ui.sizeScanConcurrency,
+      window: ui.window,
+    );
+    settings.modules.fromMap(ui.modules);
+    return settings;
+  }
 
   /// Рукопожатие: начальный снимок панелей и экранная половина настроек.
   ///

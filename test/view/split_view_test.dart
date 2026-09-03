@@ -87,7 +87,7 @@ void main() {
     await settle(tester);
 
     // Разделитель — часть сохраняемого состояния, как и всё остальное в окне.
-    expect(app.settings.splitRatio, 0.5);
+    expect(app.core!.settings!.splitRatio, 0.5);
   });
 
   testWidgets('команда видна в списке команд и приглушена, когда двигать нечего', (tester) async {

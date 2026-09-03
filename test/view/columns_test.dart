@@ -103,7 +103,7 @@ void main() {
       // Саму запись на диск проверяет тест AppController: обращаться к файловой
       // системе внутри widget-теста нельзя — его поддельное асинхронное окружение
       // такого не переживает.
-      expect(app.settings.left.sort.column, FsColumn.modified);
+      expect(app.core!.settings!.left.sort.column, FsColumn.modified);
     });
   });
 
@@ -135,7 +135,7 @@ void main() {
       final sizeHeader = tester.getRect(headerOf('Size'));
       await dragBy(tester, Offset(sizeHeader.left, sizeHeader.center.dy), -10);
 
-      expect(app.settings.left.columns.find(FsColumn.size)?.width, app.left.columns.find(FsColumn.size)?.width);
+      expect(app.core!.settings!.left.columns.find(FsColumn.size)?.width, app.left.columns.find(FsColumn.size)?.width);
     });
   });
 

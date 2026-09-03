@@ -57,20 +57,22 @@ Future<AppRuntime> initModules(
   // Шаг 5: интерфейс объявляет своё и собирается — уже по готовому снимку.
   final uiServices = LazyServices();
   final frontendRegistrations = FrontendRegistrations(uiServices)..installAll(frontend);
-  // ВРЕМЕННО: разделы модулей — один объект на обе стороны. Уедут рукопожатием
-  // вместе с изолятом (`docs/spec/client-server.md`, §9.1).
-  frontendRegistrations.settingsSource = settings;
   final uiContainer = UiContainer(
     frontendRegistrations,
     uiServices,
     link: link,
-    settings: settings,
     ready: ready,
     core: core,
     overrides: overrides,
   );
+  // Разделы модулей — **свои**, приехавшие рукопожатием: общего объекта между
+  // сторонами больше нет. Правку экран отправляет обратно сообщением.
+  frontendRegistrations.settingsSource = uiContainer.settings;
 
   final app = uiContainer.get<AppController>();
+  // Раздел модуля просит записать себя — снимок собирает приложение: место
+  // окна и разделитель знает оно, а не контейнер.
+  uiContainer.settings.modules.onSave = app.settingsChanged;
   // С этого момента командам модулей есть у кого спросить про приложение.
   if (uiContainer.context case final RuntimeContext context) {
     context.app = app;

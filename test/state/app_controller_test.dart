@@ -190,9 +190,9 @@ void main() {
       app.toggleActivePanel();
       app.setSplitRatio(0.35);
 
-      expect(app.settings.activePanel, 1);
-      expect(app.settings.splitRatio, 0.35);
-      expect(app.settings.left.path, '/home');
+      expect(app.core!.settings!.activePanel, 1);
+      expect(app.core!.settings!.splitRatio, 0.35);
+      expect(app.core!.settings!.left.path, '/home');
     });
   });
 

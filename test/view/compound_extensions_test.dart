@@ -24,8 +24,10 @@ void main() {
     ]);
 
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
-    shell = settings.modules.scope('fc.shell').section(ShellSettings.new);
     app = (await testApp(provider: provider, modules: featureModules(), settings: settings)).app;
+    // Раздел спрашивается **у приложения**: свой экземпляр настроек у каждой
+    // стороны, и правка чужого не значит ничего.
+    shell = app.moduleSettings('fc.shell').section(ShellSettings.new);
   });
 
   Future<void> pumpApp(WidgetTester tester) async {

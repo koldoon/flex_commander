@@ -154,13 +154,10 @@ class AppController extends ChangeNotifier implements Application {
   @override
   final DragAndDrop? dragAndDrop;
 
-  /// Прочитанное с диска — ради разделов модулей и того, чем экран не
-  /// заведует.
+  /// Своя половина настроек: разделы модулей и то, чем экран не заведует.
   ///
-  /// **Временно общий объект.** Файл принадлежит ядру, и пока стороны в одном
-  /// контейнере, это тот же экземпляр, что держит ядро: модуль правит свой
-  /// раздел на месте, а записывает его та сторона. Разъедутся они вместе с
-  /// контейнерами (`docs/spec/client-server.md`, Э7).
+  /// Свой экземпляр, а не общий с ядром: приехал рукопожатием, правится здесь
+  /// и уезжает обратно сообщением (`docs/spec/client-server.md`, §9).
   final AppSettings _initialSettings;
 
   double _splitRatio;
@@ -198,7 +195,7 @@ class AppController extends ChangeNotifier implements Application {
       return;
     }
     _windowGeometry = updated;
-    _settingsChanged();
+    settingsChanged();
   }
 
   @override
@@ -252,7 +249,7 @@ class AppController extends ChangeNotifier implements Application {
     }
     _splitRatio = clamped;
     notifyListeners();
-    _settingsChanged();
+    settingsChanged();
   }
 
   /// Запуск в два приёма: сперва ядро, потом экран.
@@ -368,11 +365,12 @@ class AppController extends ChangeNotifier implements Application {
   @override
   int get sizeScanConcurrency => _initialSettings.sizeScanConcurrency;
 
-  /// Настройки целиком — у того, кто ими владеет.
+  /// Настройки **этой** стороны: разделы модулей и то, чем экран не заведует.
   ///
-  /// Не часть [Application]: экран своих настроек не собирает, он их правит.
-  /// Наружу — ради проверок; без ядра остаётся прочитанное.
-  AppSettings get settings => core?.settings ?? _initialSettings;
+  /// Не часть [Application]: своё модуль спрашивает разделом
+  /// ([moduleSettings]), а целиком это нужно только сборке и проверкам. То,
+  /// что уйдёт в файл, знает ядро — у него и своя половина, и панельная.
+  AppSettings get settings => _initialSettings;
 
   /// Пишет в прочитанное с диска — тот же объект, что держит ядро.
   ///
@@ -384,7 +382,7 @@ class AppController extends ChangeNotifier implements Application {
       return;
     }
     _initialSettings.sizeScanConcurrency = value;
-    _settingsChanged();
+    settingsChanged();
   }
 
   /// Записать настройки сейчас и дождаться записи.
@@ -400,14 +398,26 @@ class AppController extends ChangeNotifier implements Application {
     await door.call(const SaveSettings());
   }
 
-  /// Экранная половина настроек — то, что знает только эта сторона.
-  UiSettings get _ui => UiSettings(activePanel: left.active ? 0 : 1, splitRatio: _splitRatio, window: _windowGeometry);
+  /// То, что держит и правит эта сторона.
+  ///
+  /// Разделы модулей собираются на каждую отправку: их правят окна настроек, и
+  /// уехать они должны такими, какие есть сейчас.
+  UiSettings get _ui => UiSettings(
+    activePanel: left.active ? 0 : 1,
+    splitRatio: _splitRatio,
+    window: _windowGeometry,
+    sizeScanConcurrency: _initialSettings.sizeScanConcurrency,
+    modules: serialize(_initialSettings.modules) as Map<String, dynamic>,
+  );
 
-  /// Сказать ядру, что экранная половина изменилась.
+  /// Сказать ядру, что эта половина настроек изменилась.
   ///
   /// Не ответ, а сообщение: запись отложенная, и решает её ядро — оно же
   /// видит и панели. Сравнивать снимки по эту сторону больше незачем.
-  void _settingsChanged() => link?.tell(ChangeSettings(_ui));
+  ///
+  /// Наружу — потому что зовёт её и раздел модуля: «сохрани меня» приходит от
+  /// окна настроек, а собрать снимок целиком может только приложение.
+  void settingsChanged() => link?.tell(ChangeSettings(_ui));
 
   /// Спрашивает у окна его текущую геометрию и запоминает её.
   ///

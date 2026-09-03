@@ -230,7 +230,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Запустилась вторая, а не первая: значит стрелка сдвинула выбор.
-    final recent = runtime.app.settings.modules.scope('fc.shell').section(ShellSettings.new).recentCommands;
+    final recent = runtime.app.moduleSettings('fc.shell').section(ShellSettings.new).recentCommands;
     expect(recent, isNotEmpty);
     expect(first, isNot(contains(recent.first)));
 
@@ -328,7 +328,7 @@ void main() {
   });
 
   testWidgets('недавние идут первыми, а следом всё остальное', (tester) async {
-    runtime.app.settings.modules.scope('fc.shell').section(ShellSettings.new).recentCommands.add('panel.toggleHidden');
+    runtime.app.moduleSettings('fc.shell').section(ShellSettings.new).recentCommands.add('panel.toggleHidden');
     await openPalette(tester);
 
     expect(rows(tester).first, contains('Hidden'));
@@ -342,7 +342,7 @@ void main() {
     expect(command, isNotNull);
 
     final saved = <String, dynamic>{};
-    runtime.app.settings.modules.scope('fc.shell').section(ShellSettings.new).recentCommands.add('panel.up');
+    runtime.app.moduleSettings('fc.shell').section(ShellSettings.new).recentCommands.add('panel.up');
     runtime.app.settings.toMap(saved);
 
     expect((saved['modules'] as Map)['fc.shell'], containsPair('recentCommands', ['panel.up']));

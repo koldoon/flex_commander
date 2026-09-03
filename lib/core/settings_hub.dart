@@ -23,7 +23,12 @@ class SettingsHub {
     this.saveDelay = defaultSaveDelay,
   }) : _stored = stored,
        _panelSettings = panelSettings,
-       _ui = UiSettings(activePanel: stored.activePanel, splitRatio: stored.splitRatio, window: stored.window) {
+       _ui = UiSettings(
+         activePanel: stored.activePanel,
+         splitRatio: stored.splitRatio,
+         window: stored.window,
+         sizeScanConcurrency: stored.sizeScanConcurrency,
+       ) {
     // Раздел модуля просит записать себя сам — тем же отложенным путём.
     _stored.modules.onSave = schedule;
     remember();
@@ -46,8 +51,11 @@ class SettingsHub {
   String? _savedSnapshot;
   String? _savedQuietSnapshot;
 
-  /// То, что принадлежит экрану: рукопожатие везёт именно это.
-  UiSettings get ui => _ui;
+  /// То, что держит и правит экран: рукопожатие везёт именно это.
+  ///
+  /// Разделы модулей собираются на каждый вопрос: их правят по обе стороны, и
+  /// снимок должен быть свежим, а не тем, с которым мы начинали.
+  UiSettings get ui => _ui.copyWith(modules: serialize(_stored.modules));
 
   /// Настройки целиком — такими, какими они уйдут в файл.
   ///
@@ -58,15 +66,23 @@ class SettingsHub {
     right: _panelSettings(PanelId.right),
     activePanel: _ui.activePanel,
     splitRatio: _ui.splitRatio,
-    sizeScanConcurrency: _stored.sizeScanConcurrency,
+    sizeScanConcurrency: _ui.sizeScanConcurrency,
     window: _ui.window,
     modules: _stored.modules,
   );
 
   /// Правка с той стороны: окно подвинули, разделитель потянули, панель
-  /// переключили.
+  /// переключили, поправили раздел модуля.
+  ///
+  /// Разделы дочитываются в **живые** объекты, а не подменяют их: ими
+  /// пользуется и эта сторона — оболочка спрашивает, чем себя запускать, — и
+  /// подмена оставила бы её со старым экземпляром.
   void applyUi(UiSettings values) {
-    if (_ui == values) {
+    final same = _ui == values;
+    if (values.modules.isNotEmpty) {
+      _stored.modules.fromMap(values.modules);
+    }
+    if (same && values.modules.isEmpty) {
       return;
     }
     _ui = values;

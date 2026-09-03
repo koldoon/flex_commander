@@ -63,8 +63,12 @@ class ModuleSettings implements Serializable {
     _raw.clear();
     for (final entry in m.entries) {
       final value = entry.value;
-      if (value is Map<String, dynamic>) {
-        _raw[entry.key] = value;
+      // Любой словарь, а не только `Map<String, dynamic>`: из файла разделы
+      // приходят разобранным JSON, а через границу — своей же сериализацией, и
+      // та отдаёт `Map<dynamic, dynamic>`. Проверка на точный тип молча теряла
+      // бы половину случаев — и потеряла: разделы не доехали до экрана вовсе.
+      if (value is Map) {
+        _raw[entry.key] = value.map((key, item) => MapEntry('$key', item));
       }
     }
 

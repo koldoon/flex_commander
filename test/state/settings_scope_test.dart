@@ -23,17 +23,21 @@ void main() {
     final line = runtime.app.view.contentAt(ViewportPosition.bottom)! as CommandLineState;
     line.settings.typingGoesToLine = true;
     line.settings.history.add('ls');
-    runtime.app.settings.modules.scope('fc.terminal').save();
+    runtime.app.moduleSettings('fc.terminal').save();
     await Future<void>.delayed(const Duration(milliseconds: 20));
 
+    // Смотрим у **ядра**: раздел правит экран, а держит и пишет его та
+    // сторона. Проверять надо, что он туда доехал и лёг в свой раздел; сама
+    // запись отложена и проверяется отдельно.
     final saved = <String, dynamic>{};
-    runtime.app.settings.toMap(saved);
+    runtime.app.core!.settings!.toMap(saved);
     final modules = saved['modules'] as Map<String, dynamic>;
 
     expect(modules['fc.terminal'], containsPair('typingGoesToLine', true));
     expect(modules['fc.terminal'], containsPair('history', ['ls']));
     // И ничего своего в чужом разделе: редактор объявлен последним, и прежде
-    // всё уезжало к нему.
-    expect(modules['fc.editor'], isNot(contains('typingGoesToLine')));
+    // всё уезжало к нему. Раздела может не быть вовсе — модуль своих настроек
+    // не трогал, — и это тот же ответ, только короче.
+    expect(modules['fc.editor'] ?? const <String, dynamic>{}, isNot(contains('typingGoesToLine')));
   });
 }
