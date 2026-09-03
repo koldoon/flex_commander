@@ -99,18 +99,23 @@ class Credential {
 ///   request = request.retrying();
 /// }
 /// ```
-/// Служба сама и спрашивает, и помнит ответ, поэтому [Listenable]: окно
-/// вопроса рисует ядро, подписавшись на [pending]. Устройство то же, что у
-/// [Toasts], — производитель зовёт `obtain`, а тот, у кого есть экран, следит
-/// за тем, что нужно показать.
-abstract interface class Credentials implements Listenable {
+/// Половин у секрета две, и разрезаны они по границе: **спрашивает** тот, кто
+/// работает с источником, — то есть ядро; **показывает** тот, у кого есть
+/// экран. Здесь первая половина, [CredentialPrompt] — вторая.
+abstract interface class Credentials {
   /// Запомненное — или спрошенное, если запомненного нет.
   /// null — пользователь отказался отвечать.
   Future<Credential?> obtain(CredentialRequest request);
 
   /// Забыть запомненное для этого [CredentialRequest.realm].
   void forget(String realm);
+}
 
+/// Секрет со стороны экрана: что спрашивают и что ответил человек.
+///
+/// Устройство то же, что у [Toasts] и у повышения прав: производитель зовёт
+/// `obtain`, а тот, у кого есть экран, следит за [pending] и отвечает.
+abstract interface class CredentialPrompt implements Listenable {
   /// Запрос, на который сейчас ждут ответа; null — ничего не спрашивается.
   CredentialRequest? get pending;
 

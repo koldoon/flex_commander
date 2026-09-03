@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import '../core/core_server.dart';
 import '../link/link.dart';
@@ -14,8 +13,8 @@ import '../ui/panel_mirror.dart';
 import 'panel_viewport_registry.dart';
 import 'app_view_controller.dart';
 import 'view_registry.dart';
-import 'credentials_controller.dart';
-import 'elevation_controller.dart';
+import '../ui/credentials_prompt.dart';
+import '../ui/elevation_prompt.dart';
 import 'theme_controller.dart';
 import 'error_controller.dart';
 import 'toast_controller.dart';
@@ -33,7 +32,6 @@ class AppController extends ChangeNotifier implements Application {
     this.link,
     required AppSettings settings,
     required this.commands,
-    this.providers,
     PanelViewports? viewports,
     List<ViewerSpec> viewers = const [],
     List<NodeInfoProvider> nodeInfoProviders = const [],
@@ -41,7 +39,7 @@ class AppController extends ChangeNotifier implements Application {
     ThemeController? theme,
     ToastController? toasts,
     CredentialsController? credentials,
-    ElevationController? elevation,
+    ElevationPrompt? elevation,
     FileNaming? fileNaming,
     ErrorController? errors,
     WindowService? window,
@@ -51,8 +49,8 @@ class AppController extends ChangeNotifier implements Application {
        _initialSettings = settings,
        theme = theme ?? ThemeController(),
        toasts = toasts ?? ToastController(),
-       credentials = credentials ?? CredentialsController(),
-       // Своё, если не дали: подставке в тестах повышать нечем и незачем.
+       // Своё, если не дали: подставке в тестах спрашивать некому и незачем.
+       credentials = credentials ?? CredentialsController(onAnswer: _noAnswer),
        _elevation = elevation,
        fileNaming = fileNaming ?? const ReferenceFileNaming(),
        errors = errors ?? ErrorController(),
@@ -135,17 +133,18 @@ class AppController extends ChangeNotifier implements Application {
   @override
   final FileNaming fileNaming;
 
-  final ElevationController? _elevation;
+  final ElevationPrompt? _elevation;
 
   /// Повышение прав; не дали — своё, выключенное: подставке в тестах повышать
   /// нечем и незачем.
-  ///
-  /// Ленивое, а не в списке инициализации: ему нужны **те самые** секреты, что
-  /// у приложения, а до конца списка поля ещё нет — вторая копия
-  /// `CredentialsController` помнила бы пароли мимо всех.
   @override
-  late final ElevationController elevation =
-      _elevation ?? ElevationController(credentials: credentials, allowed: () => false);
+  late final ElevationPrompt elevation =
+      _elevation ?? ElevationPrompt(onAnswer: _noElevationAnswer, allowed: () => false);
+
+  /// Отвечать некому: приложение собрано без ядра.
+  static void _noAnswer(String askId, String realm, Credential? credential) {}
+
+  static void _noElevationAnswer(String askId, bool agreed) {}
 
   /// Окно приложения. Без управления окном (в тестах) — заглушка.
   @override
@@ -286,14 +285,6 @@ class AppController extends ChangeNotifier implements Application {
   /// рукопожатия их спрашивать не о чем.
   int _activePanel = 0;
 
-  /// Реестр провайдеров; null — приложение собрано без него (тест состояния).
-  ///
-  /// Нужен ровно для одного: на выходе закрыть всё смонтированное, не
-  /// спрашивая счётчиков. Спорить там не с кем, а открытый файл или живое
-  /// соединение пережить процесс не должны. Наружу отдаётся ради проверок:
-  /// `providers.mounted` отвечает на вопрос «что осталось открытым».
-  final ProviderRegistry? providers;
-
   /// Ядро приложения; null — приложение собрано без него (подставка в тесте).
   ///
   /// Держится здесь, потому что здесь же его и закрывают: ядро переживает
@@ -369,9 +360,9 @@ class AppController extends ChangeNotifier implements Application {
     // captureWindowGeometry.
     await save();
 
-    // Последним — источники: до этого момента фоновые работы ещё могли из них
-    // читать, а панели — сохранять свои пути.
-    await providers?.disposeAll();
+    // Ядро последним: до этого момента фоновые работы ещё могли читать из
+    // источников, а панели — сохранять свои пути. Оно же и закроет их.
+    await core?.dispose();
   }
 
   @override

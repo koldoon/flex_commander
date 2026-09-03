@@ -38,8 +38,6 @@ class TestPlatformBackend implements FcBackendModule {
 
   @override
   void installBackend(BackendRegistry registry) {
-    registry.service<SystemOpener>((services) => (path) async {});
-
     // Место под временные файлы — настоящее: тем, кому оно нужно (архиватор),
     // нужен и настоящий файл, по которому можно ходить.
     registry.service<StagingArea>((services) => const LocalStagingArea());
@@ -70,6 +68,9 @@ class TestPlatformFrontend implements FcFrontendModule {
     // копирует, и стирать ему это прогоном нельзя.
     final clipboard = this.clipboard ?? FakeClipboard();
     registry.service<ClipboardService>((services) => clipboard);
+
+    // Отдавать файл системе прогон не должен: открылось бы окно поверх всего.
+    registry.service<SystemOpener>((services) => (path) async {});
   }
 }
 

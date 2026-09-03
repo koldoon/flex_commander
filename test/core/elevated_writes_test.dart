@@ -3,7 +3,7 @@ import 'dart:async';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
-import 'package:flex_commander/state/elevation_controller.dart';
+import 'package:flex_commander/core/elevated_writes.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Оболочка, у которой видно каждую запущенную команду и назначен её исход.
@@ -77,21 +77,31 @@ void main() {
   /// Подставные секреты с заданными ответами.
   void answering(List<String?> answers) => credentials = FakeCredentials(answers: answers);
 
-  ElevationController controller({bool allowed = true}) =>
-      ElevationController(credentials: credentials, allowed: () => allowed);
+  /// Заданный вопрос: тот, что уехал бы за границу.
+  Completer<bool>? asked;
+
+  CoreElevation controller({bool allowed = true}) => CoreElevation(
+    credentials: credentials,
+    allowed: () => allowed,
+    ask: (about) => (asked = Completer<bool>()).future,
+  );
 
   /// Согласиться на предложение, как только его зададут.
-  Future<void> agree(ElevationController elevation, {bool yes = true}) async {
+  ///
+  /// Отвечает за экран: сама эта сторона не спрашивает никого — она только
+  /// делает (`docs/spec/client-server.md`, §7.3).
+  Future<void> agree(CoreElevation elevation, {bool yes = true}) async {
     await pumpEventQueue();
-    expect(elevation.pending, isNotNull, reason: 'согласие спрашивается всегда');
-    elevation.answer(yes);
+    expect(asked, isNotNull, reason: 'согласие спрашивается всегда');
+    asked!.complete(yes);
+    asked = null;
   }
 
   test('выключенное повышение не спрашивает и не выполняет ничего', () async {
     final elevation = controller(allowed: false);
 
     expect(await elevation.copyOver(host: host, temporary: '/tmp/x', target: '/etc/x', about: about), isFalse);
-    expect(elevation.pending, isNull);
+    expect(asked, isNull);
     expect(host.commands, isEmpty, reason: 'на общей машине это единственный честный ответ');
   });
 

@@ -83,9 +83,12 @@ abstract interface class Application implements Listenable {
   /// Всплывающие сообщения: сказать о том, что случилось и уже закончилось.
   Toasts get toasts;
 
-  /// Пароли и прочие секреты: спросить у пользователя то, без чего дальше
-  /// нельзя. Модули получают ту же службу через `services.resolve<Credentials>()`.
-  Credentials get credentials;
+  /// Вопрос о секрете, который сейчас на экране, и ответ на него.
+  ///
+  /// Спрашивает **ядро** — секрет нужен тому, кто работает с источником, — а
+  /// здесь только показ (`docs/spec/client-server.md`, §7.3). Модуль получает
+  /// ту же службу через `services.resolve<CredentialPrompt>()`.
+  CredentialPrompt get credentials;
 
   /// Повышение прав: сделать то, на что обычных прав не хватило.
   ///

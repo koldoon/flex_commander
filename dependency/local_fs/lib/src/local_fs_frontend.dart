@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
@@ -40,6 +41,10 @@ class LocalFileSystemFrontend implements FcFrontendModule {
     // Буфер обмена: им пользуется просмотрщик, а дальше — команды «скопировать
     // путь» и «скопировать список имён».
     registry.service<ClipboardService>((services) => const SystemClipboard());
+
+    // Отдать файл системной программе — действие экранное: за ним человек
+    // уходит из приложения. Дереву оно ни к чему, а путь ему приносят готовым.
+    registry.service<SystemOpener>((services) => openWithSystem);
     registry.service<WindowService>((services) => PluginWindowService());
   }
 }

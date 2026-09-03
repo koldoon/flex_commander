@@ -16,7 +16,7 @@ import 'dialog_frame.dart';
 class CredentialsLayer extends StatelessWidget {
   const CredentialsLayer({super.key, required this.credentials});
 
-  final Credentials credentials;
+  final CredentialPrompt credentials;
 
   @override
   Widget build(BuildContext context) {

@@ -5,6 +5,8 @@ import '../values/fs_error.dart';
 import 'entry_ref.dart';
 import 'file_entry.dart';
 import 'operation_spec.dart';
+import '../os/credentials.dart';
+import '../os/elevation.dart';
 import 'panel_state.dart';
 import 'ui_settings.dart';
 
@@ -180,6 +182,30 @@ final class ReadContent extends CoreRequest {
 
   /// Сколько байт пропустить от начала.
   final int offset;
+}
+
+/// Ответ на вопрос о секрете; null — отказались отвечать.
+///
+/// Помнит ответ **ядро**: помнит тот, кто спрашивает, — иначе за запомненным
+/// пришлось бы ходить через границу на каждое чтение записи из архива.
+final class AnswerCredential extends CoreRequest {
+  const AnswerCredential(this.askId, this.credential, {required this.realm});
+
+  /// Какой именно вопрос: их бывает несколько подряд, а окно одно.
+  final String askId;
+
+  /// К чему он был: под этим именем ответ и запомнится.
+  final String realm;
+
+  final Credential? credential;
+}
+
+/// Ответ на предложение сделать что-то от администратора.
+final class AnswerElevation extends CoreRequest {
+  const AnswerElevation(this.askId, {required this.agreed});
+
+  final String askId;
+  final bool agreed;
 }
 
 /// Экранная половина настроек изменилась: окно подвинули, разделитель
@@ -418,6 +444,30 @@ final class ContentEnded extends CoreEvent {
 
   /// Чужая беда — текстом.
   final String message;
+}
+
+/// Ядру нужен секрет: пароль к архиву, к серверу, к `sudo`.
+///
+/// Спрашивает тот, кто работает с источником, — а показать вопрос может только
+/// тот, у кого есть экран. Отсюда и событие: ядро зовёт, экран отвечает
+/// [AnswerCredential] (`docs/spec/client-server.md`, §7.3).
+final class CredentialAsked extends CoreEvent {
+  const CredentialAsked(this.askId, this.request);
+
+  final String askId;
+  final CredentialRequest request;
+}
+
+/// Ядро предлагает сделать что-то от администратора.
+///
+/// Согласие спрашивается **всегда**, даже когда пароль не нужен: запомненный
+/// ответ или `NOPASSWD` не должны превращать запись в системный каталог в
+/// незаметное действие.
+final class ElevationAsked extends CoreEvent {
+  const ElevationAsked(this.askId, this.request);
+
+  final String askId;
+  final ElevationRequest request;
 }
 
 /// Работа нашла — пачкой, по ходу дела.

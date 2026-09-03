@@ -5,7 +5,12 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:flutter/foundation.dart';
 
-/// Реализация [ElevatedWrites]: спрашивает согласие, берёт пароль и зовёт `sudo`.
+/// Повышение прав со стороны ядра: спрашивает согласие, берёт пароль и зовёт
+/// `sudo`.
+///
+/// Живёт здесь, потому что делает: ему нужны и оболочка той стороны, и
+/// псевдотерминал. А спрашивать — не его дело: и согласие, и пароль приходят
+/// с экрана, через границу (`docs/spec/client-server.md`, §7.3).
 ///
 /// Выполняет она **через оболочку той стороны** ([ShellHost]) — ту самую, что
 /// открывает `Ctrl-O`. Отсюда и главное свойство: разницы между «повысить
@@ -15,22 +20,23 @@ import 'package:flutter/foundation.dart';
 /// Псевдотерминал выбран не случайно: `sudo` спрашивает пароль у `/dev/tty`, а
 /// не из обычного ввода, — и именно поэтому запуск программ ([ProcessRunner])
 /// для этого не годится.
-class ElevationController extends ChangeNotifier implements ElevatedWrites {
-  ElevationController({required Credentials credentials, required bool Function() allowed})
+class CoreElevation extends ChangeNotifier implements ElevatedWrites {
+  CoreElevation({required Credentials credentials, required bool Function() allowed, required this.ask})
     : _credentials = credentials,
       _allowed = allowed;
 
   final Credentials _credentials;
   final bool Function() _allowed;
 
-  ElevationRequest? _pending;
-  Completer<bool>? _answer;
+  /// Спросить у человека согласие. Отвечает та сторона, где есть экран.
+  final Future<bool> Function(ElevationRequest about) ask;
 
   @override
   bool get enabled => _allowed();
 
+  /// Ничего не спрашивается: вопрос ушёл за границу, и ждут его там.
   @override
-  ElevationRequest? get pending => _pending;
+  ElevationRequest? get pending => null;
 
   @override
   Future<bool> copyOver({
@@ -78,24 +84,11 @@ class ElevationController extends ChangeNotifier implements ElevatedWrites {
     throw FsError(target, FsErrorKind.permissionDenied);
   }
 
+  /// Отвечает экран, а не эта сторона: сюда ответ приходит уже готовым.
   @override
-  void answer(bool agreed) {
-    final waiting = _answer;
-    if (waiting == null) {
-      return;
-    }
-    _pending = null;
-    _answer = null;
-    waiting.complete(agreed);
-    notifyListeners();
-  }
+  void answer(bool agreed) {}
 
-  Future<bool> _agreed(ElevationRequest about) {
-    _pending = about;
-    final answer = _answer = Completer<bool>();
-    notifyListeners();
-    return answer.future;
-  }
+  Future<bool> _agreed(ElevationRequest about) => ask(about);
 
   /// Копирование от администратора.
   ///
@@ -137,14 +130,4 @@ class ElevationController extends ChangeNotifier implements ElevatedWrites {
   /// Одинарные кавычки не толкуются вовсе — кроме самих себя, и закрыть их
   /// ради одной кавычки приходится по всем правилам: `'\''`.
   static String _quote(String value) => "'${value.replaceAll("'", r"'\''")}'";
-
-  @override
-  void dispose() {
-    // Незаконченный вопрос закрывается отказом: иначе тот, кто ждёт ответа,
-    // остался бы висеть навсегда.
-    _answer?.complete(false);
-    _answer = null;
-    _pending = null;
-    super.dispose();
-  }
 }

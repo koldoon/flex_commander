@@ -9,8 +9,8 @@ import '../state/commands/help_command.dart';
 import '../state/commands/palette_command.dart';
 import '../state/commands/settings_command.dart';
 import '../state/shell_settings.dart';
-import '../state/credentials_controller.dart';
-import '../state/elevation_controller.dart';
+import '../ui/credentials_prompt.dart';
+import '../ui/elevation_prompt.dart';
 
 /// Оболочка приложения — экранная половина: то, что есть у файлового
 /// менеджера всегда.
@@ -48,10 +48,10 @@ class AppShellFrontend implements FcFrontendModule {
     // получит посредника, который спросит через границу, а память об уже
     // названном останется здесь, у того, у кого экран
     // (`docs/spec/client-server.md`, Э7). То же и с повышением прав ниже.
-    registry.service<Credentials>((services) => services.resolve<CredentialsController>());
+    registry.service<CredentialPrompt>((services) => services.resolve<CredentialsController>());
     // Повышение прав — служба того же рода, что и секреты: обнаруживает нужду
     // тот, кто до экрана не дотягивается, а спросить может только ядро.
-    registry.service<Elevation>((services) => services.resolve<ElevationController>());
+    registry.service<Elevation>((services) => services.resolve<ElevationPrompt>());
 
     // Справка показывает содержимое реестра, а реестра во время объявления
     // ещё нет: команда получает не его, а способ его спросить.

@@ -34,8 +34,12 @@ class _RecordingCommand extends AppCommand {
   Future<void> execute(CommandContext context) async => runs.add(id);
 }
 
-/// Открытие объекта системой: в тесте вместо запуска программы — запись в список.
-class _RecordingOpener implements FcBackendModule {
+/// Открытие объекта системой: в тесте вместо запуска программы — запись в
+/// список.
+///
+/// Экранный модуль: отдать файл системе — действие, за которым человек уходит
+/// из приложения, и дереву оно ни к чему.
+class _RecordingOpener implements FcFrontendModule {
   const _RecordingOpener(this.opened);
 
   final List<String> opened;
@@ -47,7 +51,7 @@ class _RecordingOpener implements FcBackendModule {
   String get title => 'Recording opener';
 
   @override
-  void installBackend(BackendRegistry registry) {
+  void installFrontend(FrontendRegistry registry) {
     registry.service<SystemOpener>((services) => (path) async => opened.add(path));
   }
 }
@@ -83,8 +87,7 @@ void main() {
     app =
         (await testApp(
           provider: provider,
-          modules: featureModules(),
-          backend: [_RecordingOpener(opened)],
+          modules: [...featureModules(), _RecordingOpener(opened)],
           settings: settings,
         )).app;
   });

@@ -1,4 +1,3 @@
-import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_platform/fc_platform.dart';
 
@@ -59,7 +58,5 @@ class LocalFileSystemBackend implements FcBackendModule {
     // Запуск программ: им пользуются модули, которые стоят над внешним
     // инструментом, — архиватор 7z и будущие сетевые источники.
     registry.service<ProcessRunner>((services) => const LocalProcessRunner());
-
-    registry.service<SystemOpener>((services) => openWithSystem);
   }
 }

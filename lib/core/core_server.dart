@@ -11,6 +11,7 @@ import 'operation_hub.dart';
 import 'panel_session.dart';
 import 'settings_hub.dart';
 import 'search_results.dart';
+import 'secrets_hub.dart';
 import 'shell_hub.dart';
 
 /// Ядро приложения со стороны линка.
@@ -31,8 +32,14 @@ class CoreServer implements CoreHandler {
     FcServices services = const _NoServices(),
     Map<String, OperationFactory> operations = const {},
     SettingsHub? settings,
+    SecretsHub? secrets,
   }) : _panels = {PanelId.left: left, PanelId.right: right},
-       _settings = settings {
+       _registry = registry,
+       _settings = settings,
+       _secrets = secrets {
+    // Вопросы уходят тем же каналом, что и события: спрашивающие заведены
+    // раньше сервера, а рассылает он.
+    secrets?.connect(_say);
     _content = ContentHub(registry: registry, sessionOf: session, say: _say);
     _shells = ShellHub(services: services, sessionOf: session, say: _say);
     _operations = OperationHub(
@@ -67,8 +74,13 @@ class CoreServer implements CoreHandler {
 
   final Map<PanelId, PanelSession> _panels;
 
+  final ProviderRegistry? _registry;
+
   /// Настройки приложения; null — ядро собрано без них (проверка границы).
   final SettingsHub? _settings;
+
+  /// Вопросы, на которые отвечает экран: секреты и повышение прав.
+  final SecretsHub? _secrets;
 
   /// Заведённые работы: копирование, упаковка, подсчёт.
   late final OperationHub _operations;
@@ -97,6 +109,19 @@ class CoreServer implements CoreHandler {
 
   PanelSession session(PanelId panel) => _panels[panel]!;
 
+  /// Реестр провайдеров: чем открываются архивы и адреса, и что открыто
+  /// сейчас.
+  ///
+  /// Наружу — ради проверок: `providers.mounted` отвечает на вопрос «что
+  /// осталось открытым». Закрывает всё тоже ядро, на выходе.
+  ProviderRegistry? get providers => _registry;
+
+  /// Вопросы, на которые отвечает экран; null — ядро собрано без них.
+  ///
+  /// Наружу — ради проверок и ради тех, кто спрашивает: секрет нужен тому, кто
+  /// работает с источником.
+  SecretsHub? get secrets => _secrets;
+
   /// Настройки такими, какими они уйдут в файл; null — ядро собрано без них.
   ///
   /// Наружу — ради проверок и справки: спрашивают их у того, кто ими и владеет.
@@ -124,6 +149,14 @@ class CoreServer implements CoreHandler {
       case StartCore():
         await start();
         return const CoreDone();
+
+      case AnswerCredential(:final askId, :final credential, :final realm):
+        _secrets?.answerCredential(askId, credential, realm: realm);
+        return null;
+
+      case AnswerElevation(:final askId, :final agreed):
+        _secrets?.answerElevation(askId, agreed: agreed);
+        return null;
 
       case ChangeSettings(:final ui):
         _settings?.applyUi(ui);
@@ -299,6 +332,7 @@ class CoreServer implements CoreHandler {
   }
 
   Future<void> dispose() async {
+    _secrets?.dispose();
     _settings?.dispose();
     _content.dispose();
     _operations.dispose();
@@ -307,6 +341,9 @@ class CoreServer implements CoreHandler {
       session.dispose();
     }
     _listeners.clear();
+    // Последним — источники: до этого момента фоновые работы ещё могли из них
+    // читать, а панели — сохранять свои пути.
+    await _registry?.disposeAll();
   }
 }
 

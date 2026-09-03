@@ -43,11 +43,4 @@ class FakeCredentials extends ChangeNotifier implements Credentials {
 
   @override
   void forget(String realm) => known.remove(realm);
-
-  /// Окна в тестах нет, спрашивать некому.
-  @override
-  CredentialRequest? get pending => null;
-
-  @override
-  void answer(Credential? credential) {}
 }

@@ -65,7 +65,6 @@ AppController testCore({
     link: link,
     settings: settings,
     commands: commands ?? CommandRegistry(),
-    providers: registry,
     window: window,
   );
 }

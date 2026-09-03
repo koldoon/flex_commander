@@ -67,7 +67,7 @@ class AppRuntime {
   CommandService get commands => app.commands;
 
   /// Реестр провайдеров: чем открываются архивы и адреса, и что открыто сейчас.
-  ProviderRegistry? get providers => app.providers;
+  ProviderRegistry? get providers => app.core?.providers;
 
   ThemeService get theme => app.theme;
 
