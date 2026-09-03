@@ -36,7 +36,7 @@ Future<void> coreMain(CoreStartup startup) async {
 
   final services = LazyServices();
   final registrations = BackendRegistrations(services)..installAll(backendModules());
-  final container = CoreContainer(registrations, services);
+  final container = CoreContainer(registrations, services, settingsPath: startup.settingsPath);
 
   final settings = await container.get<SettingsStore>().load();
   container.bind<AppSettings>(to: (c) => settings);
@@ -80,8 +80,15 @@ Future<void> _answer(CoreServer core, LinkRequest incoming, SendPort back) async
 /// Пропуск снимается **в главном изоляте** и едет вместе с портом: в
 /// порождённом спросить его уже не у кого.
 class CoreStartup {
-  const CoreStartup(this.back, this.token);
+  const CoreStartup(this.back, this.token, {this.settingsPath = ''});
 
   final SendPort back;
   final RootIsolateToken? token;
+
+  /// Куда писать настройки; пусто — туда, куда пишет приложение.
+  ///
+  /// Строка, а не хранилище: подставить объект через порт нельзя, а путь —
+  /// это данные. Нужно замеру и живой проверке: настоящий файл человека они
+  /// трогать не должны.
+  final String settingsPath;
 }

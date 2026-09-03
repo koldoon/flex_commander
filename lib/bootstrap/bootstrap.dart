@@ -111,8 +111,15 @@ Future<AppRuntime> _frontend(
 Future<AppRuntime> initIsolated(
   List<FcFrontendModule> frontend, {
   AppOverrides overrides = const AppOverrides(),
+  String settingsPath = '',
 }) async {
-  final link = await IsolateLink.spawn(coreMain, (back) => CoreStartup(back, RootIsolateToken.instance));
+  // Путь к настройкам — единственное, что уезжает в изолят кроме порта: замеру
+  // и живой проверке настоящий файл человека трогать нельзя, а подставить
+  // объект через порт невозможно.
+  final link = await IsolateLink.spawn(
+    coreMain,
+    (back) => CoreStartup(back, RootIsolateToken.instance, settingsPath: settingsPath),
+  );
   final ready = await link.call(const Handshake()) as CoreReady;
 
   // Подмены доходят только экранные: дерево и хранилище живут по ту сторону

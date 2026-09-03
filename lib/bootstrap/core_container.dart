@@ -22,7 +22,7 @@ import 'registrations.dart';
 /// третий ответ на «где граница», после разреза пакетов и двух списков модулей
 /// (`docs/spec/client-server.md`, §3).
 class CoreContainer extends DI {
-  CoreContainer(this.backend, this.services, {this.overrides = const AppOverrides()}) {
+  CoreContainer(this.backend, this.services, {this.overrides = const AppOverrides(), this.settingsPath = ''}) {
     // Логгер с категорией по имени класса, который его запросил: контейнер
     // знает текущее дерево зависимостей, а предпоследний его элемент — как раз
     // потребитель логгера.
@@ -46,6 +46,12 @@ class CoreContainer extends DI {
   final LazyServices services;
 
   final AppOverrides overrides;
+
+  /// Куда писать настройки; пусто — туда, куда пишет приложение.
+  ///
+  /// Путь, а не хранилище: подменить объект можно только по эту сторону порта,
+  /// а путь уезжает в изолят как есть.
+  final String settingsPath;
 
   void _bindServices() {
     // Подмена важнее объявления модуля: тесты собирают настоящее приложение,
@@ -87,6 +93,9 @@ class CoreContainer extends DI {
     bind<SettingsStore>(
       to: (c) {
         final logger = c.get<Logger>();
+        if (settingsPath.isNotEmpty) {
+          return SettingsStore(filePath: settingsPath, fallbackPath: c.get<TreeProvider>().homePath);
+        }
         return overrides.store ??
             SettingsStore.forHome(
               c.get<TreeProvider>().homePath,
