@@ -61,6 +61,8 @@ class AppRuntime {
     return services.resolve<T>();
   }
 
+  bool _closed = false;
+
   /// Модули в порядке установки.
   List<FcModule> get modules => List.unmodifiable(_modules);
 
@@ -76,6 +78,12 @@ class AppRuntime {
   /// Порядок важен: модуль может держать соединение или временный файл, и
   /// закрывать их нужно, пока приложение ещё живо.
   Future<void> dispose() async {
+    if (_closed) {
+      // Закрывать закрытое можно: уход бывает и по кнопке, и по концу
+      // процесса, и порядок этих двух ничем не закреплён.
+      return;
+    }
+    _closed = true;
     for (final module in _modules) {
       if (module is FcModuleLifecycle) {
         await (module as FcModuleLifecycle).dispose();

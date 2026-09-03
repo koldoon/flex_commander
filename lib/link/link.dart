@@ -68,6 +68,12 @@ abstract interface class Link {
   /// То, что ядро рассказывает само.
   Stream<CoreEvent> get events;
 
+  /// Дверь ещё открыта: ядро живо и разговаривает.
+  ///
+  /// Спрашивают перед уходом: закрытая дверь — не ошибка, а состояние, и
+  /// молчать в неё осмысленнее, чем ловить исключение.
+  bool get isOpen;
+
   Future<void> dispose();
 }
 
@@ -113,6 +119,9 @@ abstract class CoreLink implements Link {
   Stream<CoreEvent> get events => _events.stream;
 
   @override
+  bool get isOpen => !_dead;
+
+  @override
   Future<CoreReply> call(CoreRequest request) {
     if (_dead) {
       // С мёртвым ядром разговор кончается сразу, а не молчанием: молчаливый
@@ -155,7 +164,14 @@ abstract class CoreLink implements Link {
     }
   }
 
-  /// Та сторона замолчала: все, кто ждал, получают беду.
+  /// Та сторона замолчала: все, кто ждал, получают беду, и новых разговоров
+  /// больше не будет.
+  ///
+  /// Наружу — для порта: смерть изолята видит он, а разбирать её положено
+  /// здесь, одинаково для обеих доставок.
+  @protected
+  void dieWith(String reason) => _die(reason);
+
   void _die(String reason) {
     if (_dead) {
       return;

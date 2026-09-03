@@ -166,6 +166,10 @@ class CoreServer implements CoreHandler {
         await _settings?.save();
         return const CoreDone();
 
+      case Shutdown():
+        await dispose();
+        return const CoreDone();
+
       case OpenPath(:final panel, :final path, :final allowConnect):
         final opened = await session(panel).openPath(path, allowConnect: allowConnect);
         return CoreOpened(opened);

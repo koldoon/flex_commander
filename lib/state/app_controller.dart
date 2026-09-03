@@ -358,8 +358,17 @@ class AppController extends ChangeNotifier implements Application {
     await save();
 
     // Ядро последним: до этого момента фоновые работы ещё могли читать из
-    // источников, а панели — сохранять свои пути. Оно же и закроет их.
-    await core?.dispose();
+    // источников, а панели — сохранять свои пути. Оно же и закроет их —
+    // просьбой, а не вызовом: за портом его отсюда не достать.
+    final door = link;
+    if (door == null || !door.isOpen) {
+      return;
+    }
+    await door.call(const Shutdown());
+    // И закрыть дверь: иначе просьба, отправленная после ухода, ждала бы
+    // ответа, которого больше некому дать
+    // (`docs/spec/client-server.md`, §11, урок 2).
+    await door.dispose();
   }
 
   @override
@@ -391,7 +400,8 @@ class AppController extends ChangeNotifier implements Application {
   /// сработать будет уже негде.
   Future<void> save() async {
     final door = link;
-    if (door == null) {
+    if (door == null || !door.isOpen) {
+      // Ядра нет или оно уже ушло — записывать некому и нечем.
       return;
     }
     door.tell(ChangeSettings(_ui));

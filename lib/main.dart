@@ -22,9 +22,15 @@ Future<void> main() async {
   final logger = Logecom.createLogger('App');
   final traps = ErrorTraps(log: (error, stack) => logger.error('Unhandled', [error, stack]))..install();
 
-  // Единственное место в ядре, которое знает модули по именам. Всё остальное
-  // работает с тем, что модули объявили, и не подозревает об их существовании.
-  final runtime = await initModules(backendModules(), frontendModules());
+  // Единственное место, которое знает модули по именам. Всё остальное работает
+  // с тем, что модули объявили, и не подозревает об их существовании.
+  //
+  // Где живёт ядро — здесь и решается, и это ровно одна строка: в изоляте
+  // (`initIsolated`) или в этом же (`initModules`). Всё остальное о выборе не
+  // знает: разница между портом и петлёй кончается на сборке интерфейса
+  // (`docs/spec/client-server.md`, §10).
+  final runtime =
+      _isolatedCore ? await initIsolated(frontendModules()) : await initModules(backendModules(), frontendModules());
   traps.attach(runtime.app.errors);
 
   runApp(FlexCommanderApp(controller: runtime.app));
@@ -34,6 +40,16 @@ Future<void> main() async {
   // по мере чтения.
   unawaited(runtime.app.start());
 }
+
+/// Поднимать ли ядро отдельным изолятом.
+///
+/// Переменной сборки, а не настройкой: выбор делается один раз при запуске, и
+/// менять его на ходу нечему — с ним меняется всё, что ядро держит.
+///
+/// Пока по умолчанию петля: изолят проверен отдельным набором и живьём, но
+/// боевым он становится тогда, когда это подтвердит замер
+/// (`docs/spec/client-server.md`, §13).
+const bool _isolatedCore = bool.fromEnvironment('FC_ISOLATED_CORE');
 
 void _setUpLogging() {
   Logecom.instance.pipeline = [

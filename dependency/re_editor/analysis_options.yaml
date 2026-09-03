@@ -8,3 +8,5 @@ analyzer:
     unused_element: ignore
     unused_field: ignore
     todo: ignore
+  exclude:
+    - build/**
