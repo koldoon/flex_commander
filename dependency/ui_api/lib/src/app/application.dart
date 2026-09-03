@@ -140,9 +140,9 @@ abstract interface class Application implements Listenable {
 
   /// Сколько каталогов обходится за раз при подсчёте размеров.
   ///
-  /// Настройка ядра, а не модуля, — и потому у неё свой доступ. Через
-  /// [settings] её не записать: тот собирает **новый** объект на каждый
-  /// запрос, и правка уходила бы в одноразовую копию.
+  /// Настройка ядра, а не модуля, — и потому у неё свой доступ, а не раздел.
+  int get sizeScanConcurrency;
+
   void setSizeScanConcurrency(int value);
 
   /// Последняя известная геометрия окна.
@@ -173,9 +173,6 @@ abstract interface class Application implements Listenable {
   /// Нужно шеллу: системной полосы заголовка у окна нет, полосу рисует он, и
   /// жесты на ней доводить до окна — его дело.
   WindowService get window;
-
-  /// Текущее состояние приложения в виде сохраняемых настроек.
-  AppSettings get settings;
 
   /// Раздел настроек модуля. Имя — идентификатор модуля.
   SettingsScope moduleSettings(String namespace);

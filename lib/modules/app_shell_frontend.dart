@@ -115,9 +115,7 @@ class AppShellFrontend implements FcFrontendModule {
           description: 'How many directories are measured at once',
           min: 1,
           max: 64,
-          read: () => app.settings.sizeScanConcurrency,
-          // Через `app.settings` записать нельзя: он собирает новый объект на
-          // каждый запрос, и правка уходила бы в одноразовую копию.
+          read: () => app.sizeScanConcurrency,
           write: app.setSizeScanConcurrency,
         ),
         SettingsField.text(

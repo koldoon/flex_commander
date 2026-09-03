@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
-import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Панель во вложенном источнике.
@@ -13,7 +12,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   late InMemoryContentProvider disk;
   late ProviderRegistry registry;
-  late PanelController panel;
+  late TestPanel panel;
 
   List<FakeEntry> archiveEntries() => [
     FakeEntry.directory('/inner'),
@@ -22,7 +21,7 @@ void main() {
   ];
 
   /// [disposed] — тест закрывает панель сам, и второй раз её закрывать нельзя.
-  Future<PanelController> panelOn(ProviderRegistry source, {String path = '/home', bool disposed = false}) async {
+  Future<TestPanel> panelOn(ProviderRegistry source, {String path = '/home', bool disposed = false}) async {
     final it = testPanel(provider: source.root, registry: source, settings: PanelSettings.defaults(path));
     if (!disposed) {
       addTearDown(it.dispose);
@@ -45,7 +44,7 @@ void main() {
     panel = await panelOn(registry);
   });
 
-  List<String> namesOf(PanelController of) => of.session.nodes.map((node) => node.name).toList();
+  List<String> namesOf(TestPanel of) => of.session.nodes.map((node) => node.name).toList();
 
   test('Enter на архиве показывает его содержимое', () async {
     panel.setCursorToName('archive.arc');
@@ -104,7 +103,7 @@ void main() {
     panel.setCursorToName('inner');
     await panel.enterCurrent();
 
-    final saved = panel.settings.path;
+    final saved = panel.session.settings.path;
     expect(saved, '/home/archive.arc:arc:/inner');
 
     // Другая панель, тот же реестр: архив монтируется заново по строке пути.
@@ -160,7 +159,7 @@ void main() {
       );
     });
 
-    Future<PanelController> panelInArchive({bool disposed = false}) async {
+    Future<TestPanel> panelInArchive({bool disposed = false}) async {
       final it = await panelOn(tracking, disposed: disposed);
       it.setCursorToName('archive.arc');
       await it.enterCurrent();
@@ -319,7 +318,10 @@ void main() {
       final it = await panelOn(source);
 
       final opening = it.openPath('/home/archive.arc/inner');
-      await pumpEventQueue();
+      // Ждём саму строку, а не заданное число оборотов: ход дела ядро
+      // рассказывает с ограничителем частоты — чаще, чем имеет смысл смотреть,
+      // через границу его возить незачем.
+      await waitUntil(() => it.statusText == 'Unpacking archive.arc');
 
       // «Loading…» ничего не говорит о том, чего ждать: путь может идти через
       // сервер и два архива.

@@ -265,7 +265,7 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.slash, modifiers: [commandKey]);
 
-      expect(app.left.session.directory, provider.rootDirectory);
+      expect(app.leftSession.directory, provider.rootDirectory);
     });
 
     testWidgets('Backspace поднимает наверх и ставит курсор на покинутый каталог', (tester) async {

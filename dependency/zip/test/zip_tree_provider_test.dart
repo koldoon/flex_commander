@@ -8,7 +8,6 @@ import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_zip/backend.dart';
 import 'package:fc_local_fs/backend.dart';
-import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -199,7 +198,7 @@ void main() {
   });
 
   group('панель в архиве', () {
-    late PanelController panel;
+    late TestPanel panel;
 
     setUp(() async {
       panel = testPanel(provider: disk, registry: registry, settings: PanelSettings.defaults(root));
@@ -244,7 +243,7 @@ void main() {
       panel.setCursorToName('docs');
       await panel.enterCurrent();
 
-      final saved = panel.settings.path;
+      final saved = panel.session.settings.path;
       final restored = testPanel(provider: disk, registry: registry, settings: PanelSettings.defaults(saved));
       addTearDown(restored.dispose);
 

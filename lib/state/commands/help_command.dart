@@ -62,18 +62,17 @@ class HelpCommand extends AppCommand {
   /// Настройки — то, что приложение помнит между запусками.
   FcTableSection _settings(CommandContext context) {
     final app = context.app;
-    final settings = app.settings;
 
     return FcTableSection('Settings', [
       FcTableRow('Left panel', _pathOf(app.left)),
       FcTableRow('Right panel', _pathOf(app.right)),
       FcTableRow('Active panel', identical(app.activePanel, app.left) ? 'Left' : 'Right'),
-      FcTableRow('Split', '${(settings.splitRatio * 100).round()}% left'),
-      FcTableRow('Hidden files', _bothPanels(settings, (panel) => panel.showHidden ? 'shown' : 'hidden')),
-      FcTableRow('Sort', _bothPanels(settings, (panel) => _sortOf(panel.sort))),
-      FcTableRow('Columns', _bothPanels(settings, _columnsOf)),
-      FcTableRow('Directory scans', '${settings.sizeScanConcurrency} at a time'),
-      FcTableRow('Window', _windowOf(settings)),
+      FcTableRow('Split', '${(app.splitRatio * 100).round()}% left'),
+      FcTableRow('Hidden files', _bothPanels(app, (panel) => panel.showHidden ? 'shown' : 'hidden')),
+      FcTableRow('Sort', _bothPanels(app, (panel) => _sortOf(panel.sort))),
+      FcTableRow('Columns', _bothPanels(app, _columnsOf)),
+      FcTableRow('Directory scans', '${app.sizeScanConcurrency} at a time'),
+      FcTableRow('Window', _windowOf(app.windowGeometry)),
     ]);
   }
 
@@ -137,9 +136,9 @@ class HelpCommand extends AppCommand {
 
   /// Настройка у каждой панели своя, и различие важнее общего вида: показываем
   /// обе, а совпадающие значения не удваиваем.
-  String _bothPanels(AppSettings settings, String Function(PanelSettings panel) valueOf) {
-    final left = valueOf(settings.left);
-    final right = valueOf(settings.right);
+  String _bothPanels(Application app, String Function(Panel panel) valueOf) {
+    final left = valueOf(app.left);
+    final right = valueOf(app.right);
     return left == right ? left : 'left — $left, right — $right';
   }
 
@@ -148,13 +147,12 @@ class HelpCommand extends AppCommand {
     return '${sort.column.title} $direction';
   }
 
-  String _columnsOf(PanelSettings panel) => panel.columns.visibleColumns
+  String _columnsOf(Panel panel) => panel.columns.visibleColumns
       .where((column) => column.id.title.isNotEmpty)
       .map((column) => column.id.title)
       .join(', ');
 
-  String _windowOf(AppSettings settings) {
-    final window = settings.window;
+  String _windowOf(WindowGeometry? window) {
     if (window == null) {
       return 'not saved yet';
     }

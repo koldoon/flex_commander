@@ -95,8 +95,8 @@ void main() {
     );
 
     app.left.setCursorToName('notes.txt');
-    final node = app.left.session.nodeOf(app.left.currentEntry!)!;
-    final done = run.run(app.left.session.editor!.remove(), RemoveParams([node]), message: 'Deleting…');
+    final node = app.leftSession.nodeOf(app.left.currentEntry!)!;
+    final done = run.run(app.leftSession.editor!.remove(), RemoveParams([node]), message: 'Deleting…');
 
     expect(run.isRunning, isTrue);
     await done;
@@ -117,8 +117,8 @@ void main() {
     run.onStart = () async => started++;
 
     app.left.setCursorToName('notes.txt');
-    final node = app.left.session.nodeOf(app.left.currentEntry!)!;
-    final running = run.run(app.left.session.editor!.remove(), RemoveParams([node]), message: 'Deleting…');
+    final node = app.leftSession.nodeOf(app.left.currentEntry!)!;
+    final running = run.run(app.leftSession.editor!.remove(), RemoveParams([node]), message: 'Deleting…');
     expect(run.isRunning, isTrue);
 
     // Рама окна зовёт эти методы по Enter и Esc — во время работы они молчат.

@@ -10,7 +10,7 @@ import '../link/link.dart';
 import '../ui/remote_content.dart';
 import '../ui/remote_shell.dart';
 import '../ui/remote_operation.dart';
-import 'panel_controller.dart';
+import '../ui/panel_mirror.dart';
 import 'panel_viewport_registry.dart';
 import 'app_view_controller.dart';
 import 'view_registry.dart';
@@ -83,10 +83,10 @@ class AppController extends ChangeNotifier implements Application {
   late final AppViewController view = AppViewController(this);
 
   @override
-  final PanelController left;
+  final PanelMirror left;
 
   @override
-  final PanelController right;
+  final PanelMirror right;
 
   /// Действия приложения: за кнопкой нижней панели и за горячей клавишей
   /// стоит одна и та же команда.
@@ -169,11 +169,11 @@ class AppController extends ChangeNotifier implements Application {
 
   /// Активная панель: в ней курсор и ввод с клавиатуры.
   @override
-  PanelController get activePanel => left.active ? left : right;
+  PanelMirror get activePanel => left.active ? left : right;
 
   /// Пассивная панель — приёмник операций копирования и перемещения.
   @override
-  PanelController get passivePanel => left.active ? right : left;
+  PanelMirror get passivePanel => left.active ? right : left;
 
   /// Доля ширины окна под левой панелью.
   @override
@@ -321,7 +321,7 @@ class AppController extends ChangeNotifier implements Application {
       throw const FsError('', FsErrorKind.notSupported);
     }
     final reply = await door.call(
-      OpenShell(panel: panel is PanelController ? panel.id : null, directory: directory, columns: columns, rows: rows),
+      OpenShell(panel: panel is PanelMirror ? panel.id : null, directory: directory, columns: columns, rows: rows),
     );
     if (reply is! ShellOpened) {
       // Отказ приходит бедой: клавишу нажали, и сказать, почему ничего не
@@ -374,25 +374,16 @@ class AppController extends ChangeNotifier implements Application {
     await providers?.disposeAll();
   }
 
-  /// Текущее состояние приложения в виде сохраняемых настроек.
-  /// Текущее состояние приложения в виде сохраняемых настроек.
-  ///
-  /// Собирается заново на каждый запрос — панели и окно рассказывают о себе
-  /// сами. А то, чем приложение не заведует, переносится из прочитанного:
-  /// разделы модулей и размер пула обхода каталогов ядро не меняет, но и
-  /// терять их при записи не должно.
   @override
-  AppSettings get settings => AppSettings(
-    left: left.settings,
-    right: right.settings,
-    activePanel: left.active ? 0 : 1,
-    splitRatio: _splitRatio,
-    sizeScanConcurrency: _initialSettings.sizeScanConcurrency,
-    window: _windowGeometry,
-    modules: _initialSettings.modules,
-  );
+  int get sizeScanConcurrency => _initialSettings.sizeScanConcurrency;
 
-  /// Пишет туда, откуда [settings] его и берёт, — в прочитанное с диска.
+  /// Настройки целиком — у того, кто ими владеет.
+  ///
+  /// Не часть [Application]: экран своих настроек не собирает, он их правит.
+  /// Наружу — ради проверок; без ядра остаётся прочитанное.
+  AppSettings get settings => core?.settings ?? _initialSettings;
+
+  /// Пишет в прочитанное с диска — тот же объект, что держит ядро.
   ///
   /// Панели спрашивают это значение на каждый обход, поэтому правка действует
   /// сразу, без перезапуска.

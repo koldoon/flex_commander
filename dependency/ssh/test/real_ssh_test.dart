@@ -337,18 +337,19 @@ void main() {
     await runtime.app.start();
 
     final panel = runtime.app.left;
+    final session = runtime.app.leftSession;
     expect(await panel.openPath('ssh://$hostSpec/'), isTrue);
 
     // Панель стоит на сервере: её корень — не общий.
-    expect(panel.session.provider.scheme, 'ssh');
-    expect(panel.session.directory!.pathString, startsWith('ssh://'));
+    expect(session.provider.scheme, 'ssh');
+    expect(session.directory!.pathString, startsWith('ssh://'));
     expect(panel.entries, isNotEmpty);
 
     // Путь без схемы возвращает на общий корень, а соединение закрывается:
     // держать его больше некому.
-    final server = panel.session.provider;
+    final server = session.provider;
     expect(await panel.openPath('/home'), isTrue);
-    expect(panel.session.provider.scheme, isNot('ssh'));
+    expect(session.provider.scheme, isNot('ssh'));
     expect(
       () => (server as SftpTreeProvider).getDirectoryListing().run(ListingParams(server.rootDirectory)),
       throwsA(anything),
@@ -395,14 +396,15 @@ void main() {
     await runtime.app.start();
 
     final panel = runtime.app.left;
+    final session = runtime.app.leftSession;
     final shown = 'ssh://$hostSpec${remote(dir)}/sample.zip/docs';
 
     expect(await panel.openPath(shown), isTrue);
 
-    expect(panel.session.provider.scheme, 'zip');
+    expect(session.provider.scheme, 'zip');
     expect(panel.entries.map((node) => node.name), contains('guide.txt'));
     // И круг замыкается: показанное совпадает с тем, что открывали.
-    expect(panel.session.directory?.displayPath, shown);
+    expect(session.directory?.displayPath, shown);
   });
 
   test('чего нет — того нет, а закрытое закрыто', () async {

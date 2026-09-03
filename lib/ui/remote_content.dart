@@ -59,3 +59,14 @@ class RemoteContent implements Content {
     return out.stream;
   }
 }
+
+/// Содержимого нет вовсе: приложение собрано без ядра или строка уже не та.
+class NoContent implements Content {
+  const NoContent();
+
+  @override
+  int get length => FileEntry.unknownSize;
+
+  @override
+  Stream<List<int>> read({int offset = 0}) => const Stream.empty();
+}

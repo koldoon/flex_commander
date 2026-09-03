@@ -225,9 +225,6 @@ abstract interface class Panel implements ViewportState {
 
   Future<void> setShowHidden(bool value);
 
-  /// Текущее состояние панели в виде сохраняемых настроек.
-  PanelSettings get settings;
-
   /// Выполнить работу от имени панели.
   ///
   /// Панель на это время становится занятой ([busy]): клавиатура ей больше не

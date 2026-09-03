@@ -8,7 +8,7 @@ import 'package:flex_commander/core/settings_store.dart';
 import 'package:flex_commander/link/link.dart';
 import 'package:flex_commander/link/loopback_link.dart';
 import 'package:flex_commander/state/app_controller.dart';
-import 'package:flex_commander/state/panel_controller.dart';
+import 'package:flex_commander/ui/panel_mirror.dart';
 
 /// Приложение с обеими сторонами — но без модулей.
 ///
@@ -51,9 +51,16 @@ AppController testCore({
   );
   final Link link = LoopbackLink(core);
 
+  PanelMirror mirror(PanelId id, PanelSession session) => PanelMirror(
+    id: id,
+    link: link,
+    state: session.state,
+    listing: PanelListing(generation: session.generation, entries: session.entries),
+  );
+
   return AppController(
-    left: PanelController(PanelId.left, left, link: link),
-    right: PanelController(PanelId.right, right, link: link),
+    left: mirror(PanelId.left, left),
+    right: mirror(PanelId.right, right),
     core: core,
     link: link,
     settings: settings,
@@ -61,4 +68,17 @@ AppController testCore({
     providers: registry,
     window: window,
   );
+}
+
+/// Сеансы панелей — со стороны ядра.
+///
+/// Для проверок, которые говорят об узлах, провайдерах и монтировании: всё это
+/// живёт по ту сторону границы, и спрашивать о нём зеркало бессмысленно — у
+/// него есть только то, о чём ядро рассказало.
+extension CoreSessions on AppController {
+  PanelSession sessionOf(PanelId panel) => core!.session(panel);
+
+  PanelSession get leftSession => sessionOf(PanelId.left);
+
+  PanelSession get rightSession => sessionOf(PanelId.right);
 }

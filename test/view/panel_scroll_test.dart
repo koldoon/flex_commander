@@ -51,7 +51,7 @@ void main() {
     // Вошли в каталог в конце длинного списка и сразу вернулись.
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
-    expect(app.left.session.directory?.name, 'dir-59');
+    expect(app.leftSession.directory?.name, 'dir-59');
 
     await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
     await tester.pump();

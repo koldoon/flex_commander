@@ -7,7 +7,6 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_file_ops/fc_file_ops.dart';
-import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Копирование и перенос работают без интерфейса: задать параметр и выполнить.
@@ -38,11 +37,11 @@ void main() {
   /// «F5 открывает окно с каталогом пассивной панели».
   Future<void> transfer({bool move = false, String? destination, bool followLinks = false}) =>
       commands().create(move ? 'file.move' : 'file.copy')!.executeWith({
-        TransferCommandBase.destinationParam: destination ?? app.right.session.directory!.pathString,
+        TransferCommandBase.destinationParam: destination ?? app.rightSession.directory!.pathString,
         if (followLinks) TransferCommandBase.followLinksParam: true,
       });
 
-  List<String> namesOf(PanelController panel) => panel.entries.map((node) => node.name).toList();
+  List<String> namesOf(Panel panel) => panel.entries.map((node) => node.name).toList();
 
   test('копирует в каталог пассивной панели', () async {
     app.left.setCursorToName('notes.txt');

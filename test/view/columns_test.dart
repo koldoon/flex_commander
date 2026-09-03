@@ -2,8 +2,8 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/app.dart';
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flex_commander/state/app_controller.dart';
-import 'package:flex_commander/state/panel_controller.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -42,7 +42,7 @@ void main() {
     matching: find.ancestor(of: find.text(title), matching: find.byType(FileTableHeaderCell)),
   );
 
-  List<String> namesOf(PanelController panel) => panel.entries.map((node) => node.name).toList();
+  List<String> namesOf(Panel panel) => panel.entries.map((node) => node.name).toList();
 
   /// Перетаскивание с учётом порога распознавания: первый сдвиг уходит на то,
   /// чтобы жест был признан перетаскиванием, и до обработчика не доходит.

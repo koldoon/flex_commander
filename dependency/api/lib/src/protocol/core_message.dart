@@ -269,6 +269,16 @@ final class TellOperation extends CoreRequest {
   final OperationInput input;
 }
 
+/// Панель убрали из области: отпустить всё, что она держала.
+///
+/// Не то же, что «прервать»: работу можно прервать и остаться на месте, а
+/// здесь панели больше нет — и смонтированный ради неё архив держать незачем.
+final class ClosePanel extends CoreRequest {
+  const ClosePanel(this.panel);
+
+  final PanelId panel;
+}
+
 /// Прервать то, чем панель занята.
 final class CancelWork extends CoreRequest {
   const CancelWork(this.panel);

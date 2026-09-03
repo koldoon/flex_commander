@@ -2,8 +2,8 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
+import 'package:flex_commander/core/panel_session.dart';
 import 'package:flex_commander/core/search_results.dart';
-import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -12,7 +12,7 @@ void main() {
   late AppRuntime runtime;
   late InMemoryTreeProvider provider;
 
-  PanelController panel() => runtime.app.left;
+  PanelSession panel() => runtime.app.leftSession;
 
   setUp(() async {
     provider = InMemoryTreeProvider([
@@ -35,18 +35,18 @@ void main() {
     final found = await nodesAt('/home/docs');
     final results = SearchResults(title: '*.txt', found: found);
 
-    await panel().session.open(results.rootDirectory);
+    await panel().open(results.rootDirectory);
 
     // Панель берёт провайдера у узла, которым её открыли, — отдельного «покажи
     // вот этот источник» заводить не пришлось.
-    expect(panel().session.provider, same(results));
+    expect(panel().provider, same(results));
     expect(panel().entries.map((node) => node.name), containsAll(['notes.txt', 'plan.txt']));
   });
 
   test('узлы настоящие: они принадлежат своему источнику', () async {
     final found = await nodesAt('/home/docs');
     final results = SearchResults(title: '*.txt', found: found);
-    await panel().session.open(results.rootDirectory);
+    await panel().open(results.rootDirectory);
 
     final notes = panel().entries.firstWhere((node) => node.name == 'notes.txt');
 

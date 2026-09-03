@@ -162,7 +162,7 @@ void main() {
       await runtime.app.left.openPath('mem://alpha/srv');
 
       // Панель сохраняет полный путь — вместе со схемой и хостом.
-      expect(runtime.app.left.settings.path, startsWith('mem://alpha'));
+      expect(runtime.app.leftSession.settings.path, startsWith('mem://alpha'));
     });
   });
 
@@ -276,7 +276,7 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(runtime.app.left.session.directory?.displayPath, 'mem://alpha/srv');
+      expect(runtime.app.leftSession.directory?.displayPath, 'mem://alpha/srv');
       await tester.pump(const Duration(milliseconds: 20));
     });
 

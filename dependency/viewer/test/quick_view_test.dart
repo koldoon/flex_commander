@@ -118,13 +118,13 @@ void main() {
         for (final entry in panel.entries)
           if (!entry.isParent) entry.name,
       });
-      final directory = panel.session.directory;
+      final directory = runtime.app.rightSession.directory;
 
       await toggle();
       await settle();
 
       expect(runtime.app.view.panelAt(right), isNull, reason: 'наложение скрывает панель целиком');
-      expect(panel.session.directory, same(directory), reason: 'панель под наложением живёт');
+      expect(runtime.app.rightSession.directory, same(directory), reason: 'панель под наложением живёт');
     });
 
     test('копировать в неё нечего: панели там сейчас нет', () async {

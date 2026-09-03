@@ -98,9 +98,13 @@ class StartupCommand extends AppCommand {
 
   @override
   Future<void> execute(CommandContext context) async {
-    // Приложение к этому моменту собрано: стартовая команда работает с ним,
-    // а не с полуготовым контейнером.
-    log.add(env.app.activePanel.settings.path);
+    // Приложение к этому моменту собрано: стартовая команда работает с ним, а
+    // не с полуготовым контейнером.
+    //
+    // Спрашивается снимок источника, а не путь: каталоги открывает **ядро** на
+    // запуске, а стартовые команды идут раньше — панель в этот миг ещё пуста, и
+    // так и должно быть (`spec/client-server.md`, §9).
+    log.add(env.app.activePanel.source.rootPath);
   }
 }
 
@@ -165,7 +169,7 @@ void main() {
       final runtime = await build();
 
       expect(runtime.app.left, isNot(same(runtime.app.right)));
-      expect(runtime.app.left.session.provider, same(provider));
+      expect(runtime.app.leftSession.provider, same(provider));
       expect(runtime.app.window, same(window));
       expect(runtime.commands.installed, isNotEmpty);
     });
@@ -233,7 +237,7 @@ void main() {
       final log = <String>[];
       await build([ProbeModule(startupLog: log)]);
 
-      expect(log, ['/home']);
+      expect(log, ['/'], reason: 'приложение и его источник уже на руках');
     });
 
     test('упавшая стартовая команда не роняет запуск', () async {

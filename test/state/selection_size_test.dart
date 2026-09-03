@@ -3,7 +3,6 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'dart:async';
 
-import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 List<FakeEntry> _entries() => [
@@ -78,7 +77,7 @@ class _FailingSizeProvider extends InMemoryTreeProvider {
 /// Размер помеченного: файлы известны сразу, каталоги считаются фоном.
 void main() {
   late InMemoryTreeProvider provider;
-  late PanelController panel;
+  late TestPanel panel;
 
   setUp(() async {
     provider = InMemoryTreeProvider(_entries());
@@ -101,11 +100,11 @@ void main() {
   }
 
   /// Узел панели по имени: размеры каталогов живут в узлах, а не отдельно.
-  DirectoryNode nodeNamed(String name, [PanelController? of]) =>
+  DirectoryNode nodeNamed(String name, [TestPanel? of]) =>
       (of ?? panel).session.nodes.whereType<DirectoryNode>().firstWhere((node) => node.name == name);
 
   /// Панель на своём провайдере — для тестов, которым нужен особый обход.
-  Future<PanelController> panelOn(TreeProvider source, {int concurrency = 1}) async {
+  Future<TestPanel> panelOn(TreeProvider source, {int concurrency = 1}) async {
     final it = testPanel(provider: source, settings: PanelSettings.defaults('/home'), sizeScanConcurrency: concurrency);
     addTearDown(it.dispose);
     await it.openPath('/home');

@@ -10,7 +10,7 @@ import '../state/app_controller.dart';
 import '../core/core_server.dart';
 import '../core/panel_session.dart';
 import '../link/loopback_link.dart';
-import '../state/panel_controller.dart';
+import '../ui/panel_mirror.dart';
 import '../state/panel_viewport_registry.dart';
 import '../state/view_registry.dart';
 import '../state/theme_controller.dart';
@@ -216,14 +216,7 @@ class AppContainer extends DI {
             // Настройка спрашивается лениво: раздел читается с диска позже, чем
             // собирается граф.
             allowed:
-                () =>
-                    c
-                        .get<AppController>()
-                        .settings
-                        .modules
-                        .scope('fc.shell')
-                        .section(ShellSettings.new)
-                        .allowElevatedWrites,
+                () => c.get<AppSettings>().modules.scope('fc.shell').section(ShellSettings.new).allowElevatedWrites,
           ),
     );
 
@@ -285,9 +278,20 @@ class AppContainer extends DI {
         );
         final link = LoopbackLink(core);
 
+        // Экран видит зеркала, а не сеансы: своего состояния у них нет — есть
+        // последнее, о чём рассказало ядро (`spec/client-server.md`, §7).
+        // Начальное берётся у сеансов прямо здесь: рукопожатие спрашивают
+        // позже, при запуске, а панели должны быть на руках уже сейчас.
+        PanelMirror mirror(PanelId id, PanelSession session) => PanelMirror(
+          id: id,
+          link: link,
+          state: session.state,
+          listing: PanelListing(generation: session.generation, entries: session.entries),
+        );
+
         return AppController(
-          left: PanelController(PanelId.left, leftSession, link: link),
-          right: PanelController(PanelId.right, rightSession, link: link),
+          left: mirror(PanelId.left, leftSession),
+          right: mirror(PanelId.right, rightSession),
           core: core,
           link: link,
           settings: settings,

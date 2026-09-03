@@ -6,7 +6,6 @@ import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_tar/backend.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_local_fs/backend.dart';
-import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -61,7 +60,7 @@ void main() {
     await work.delete(recursive: true);
   });
 
-  Future<PanelController> panelAtRoot() async {
+  Future<TestPanel> panelAtRoot() async {
     final panel = testPanel(provider: disk, registry: registry, settings: PanelSettings.defaults(root));
     addTearDown(panel.dispose);
     await panel.openPath(root);
@@ -114,7 +113,7 @@ void main() {
     panel.setCursorToName('src');
     await panel.enterCurrent();
 
-    final saved = panel.settings.path;
+    final saved = panel.session.settings.path;
     final restored = testPanel(provider: disk, registry: registry, settings: PanelSettings.defaults(saved));
     addTearDown(restored.dispose);
 

@@ -2,13 +2,13 @@ import 'dart:async';
 
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
-import 'package:flex_commander/state/panel_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   late InMemoryTreeProvider provider;
-  late PanelController panel;
+  late TestPanel panel;
 
   setUp(() {
     provider = InMemoryTreeProvider([
@@ -26,7 +26,7 @@ void main() {
 
   tearDown(() => panel.dispose());
 
-  List<String> namesOf(PanelController panel) => panel.entries.map((n) => n.name).toList();
+  List<String> namesOf(Panel panel) => panel.entries.map((n) => n.name).toList();
 
   group('открытие каталога', () {
     test('читает содержимое и сортирует его', () async {
@@ -142,7 +142,7 @@ void main() {
       expect(await panel.openPath('/home/link-to-bin'), isTrue);
 
       expect(panel.session.path, '/home/link-to-bin');
-      expect(panel.settings.path, '/home/link-to-bin');
+      expect(panel.session.settings.path, '/home/link-to-bin');
     });
 
     test('файл возвращается вызывающему коду', () async {
@@ -336,7 +336,7 @@ void main() {
     panel.sortBy(FsColumn.size);
     panel.setColumnLayout(panel.columns.toggleVisible(FsColumn.attributes));
 
-    final settings = panel.settings;
+    final settings = panel.session.settings;
     expect(settings.path, '/home/docs');
     expect(settings.sort.column, FsColumn.size);
     expect(settings.columns.find(FsColumn.attributes)?.visible, isTrue);
@@ -347,7 +347,7 @@ void main() {
       await panel.openPath('/home');
       panel.setCursorToName('report.xlsx');
 
-      expect(panel.settings.cursor, 'report.xlsx');
+      expect(panel.session.settings.cursor, 'report.xlsx');
     });
 
     test('прочитанное из настроек ставит курсор при открытии', () async {
@@ -378,7 +378,7 @@ void main() {
       final restored = testPanel(provider: provider, settings: PanelSettings(path: '/home', cursor: 'report.xlsx'));
       addTearDown(restored.dispose);
 
-      expect(restored.settings.cursor, 'report.xlsx');
+      expect(restored.session.settings.cursor, 'report.xlsx');
     });
 
     test('курсор помнится для каждого каталога свой', () async {
@@ -386,7 +386,7 @@ void main() {
       panel.setCursorToName('report.xlsx');
 
       await panel.openPath('/home/docs');
-      expect(panel.settings.cursor, isNot('report.xlsx'));
+      expect(panel.session.settings.cursor, isNot('report.xlsx'));
 
       await panel.openPath('/home');
       expect(panel.currentEntry?.name, 'report.xlsx');

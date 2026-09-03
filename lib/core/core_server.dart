@@ -97,6 +97,11 @@ class CoreServer implements CoreHandler {
 
   PanelSession session(PanelId panel) => _panels[panel]!;
 
+  /// Настройки такими, какими они уйдут в файл; null — ядро собрано без них.
+  ///
+  /// Наружу — ради проверок и справки: спрашивают их у того, кто ими и владеет.
+  AppSettings? get settings => _settings?.settings;
+
   void _say(CoreEvent event) {
     for (final listener in _listeners.toList()) {
       listener(event);
@@ -178,6 +183,10 @@ class CoreServer implements CoreHandler {
 
       case MeasureDirectories(:final panel):
         session(panel).measureDirectories();
+        return null;
+
+      case ClosePanel(:final panel):
+        session(panel).close();
         return null;
 
       case CancelWork(:final panel):

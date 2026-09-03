@@ -103,7 +103,7 @@ void main() {
 
   test('вид на интерфейс подходит его реализации', () {
     // Иначе объявить вид на `Panel` было бы невозможно: придёт
-    // `PanelController`, и по типу они не совпадут никогда.
+    // `Panel`, и по типу они не совпадут никогда.
     final views = ViewRegistry(_install([const _QuestionModule()]).views);
 
     expect(views.builderFor(const _Password()), isNotNull);
