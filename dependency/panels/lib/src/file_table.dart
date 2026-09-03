@@ -5,7 +5,6 @@ import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'file_table_header.dart';
@@ -310,16 +309,12 @@ class _FileTableState extends State<FileTable> {
   /// Тянут помеченное — едет вся пометка; тянут непомеченную строку — едет она
   /// одна, и пометка не трогается вовсе. Правило всех коммандеров, и оно же
   /// единственное, которое не удивляет: человек видит, что схватил.
-  List<FsNode> _dragNodes(FileEntry entry) {
+  ///
+  /// Строками, а не узлами: у строки есть свой путь, по которому ядро найдёт
+  /// объект заново, — и держать источник живым ради жеста больше не нужно.
+  List<FileEntry> _dragEntries(FileEntry entry) {
     final panel = widget.panel;
-    // Тянут помеченное — едет вся пометка; тянут непомеченную строку — едет она
-    // одна. Узлы берутся у панели: наружу поедет живое, и это последнее место,
-    // где перетаскивание об этом знает (`spec/client-server.md`, Э4).
-    final dragged = panel.isMarked(entry) ? panel.targets : [entry];
-    return [
-      for (final one in dragged)
-        if (panel.nodeOf(one) case final node?) node,
-    ];
+    return panel.isMarked(entry) ? panel.targets : [entry];
   }
 
   /// Что под курсором при перетаскивании — строка-каталог или сама панель.
@@ -459,17 +454,7 @@ class _FileTableState extends State<FileTable> {
             );
             // Строку можно утащить наружу — если есть кому тащить.
             final dnd = app.dragAndDrop;
-            return dnd == null
-                ? row
-                : dnd.source(
-                  owner: panel,
-                  child: row,
-                  nodes: () => _dragNodes(entry),
-                  // Пока объект едет в чужое окно, панель вправе уйти куда
-                  // угодно — хоть выйти из архива, — а содержимое у неё
-                  // спросят уже после.
-                  hold: panel.leaseProvider,
-                );
+            return dnd == null ? row : dnd.source(owner: panel, child: row, entries: () => _dragEntries(entry));
           },
         );
       },

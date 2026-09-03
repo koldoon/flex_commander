@@ -37,7 +37,7 @@ class ElevatedSink implements StreamSink<List<int>> {
     _done.future.ignore();
   }
 
-  final Elevation elevation;
+  final ElevatedWrites elevation;
 
   /// Где выполнять `sudo`: та же сторона, где лежит цель.
   final ShellHost host;

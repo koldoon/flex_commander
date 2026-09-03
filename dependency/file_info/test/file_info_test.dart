@@ -82,7 +82,7 @@ void main() {
   /// а лезть в потроха показанного окна — значит проверять разметку вместо
   /// сведений.
   Future<FileInfoScreen> infoOf(String name) async {
-    final node = (await runtime.app.left.provider.resolvePath().run('/home/$name'))!;
+    final node = (await runtime.app.left.session.provider.resolvePath().run('/home/$name'))!;
     final screen = FileInfoScreen(
       app: runtime.app,
       entries: [entryValueOf(node)],

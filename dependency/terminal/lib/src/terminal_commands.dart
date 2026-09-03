@@ -680,7 +680,7 @@ class RunCommandLineCommand extends AppCommand {
   /// Путь для панели: относительный считается от каталога, в котором стоим.
   static String _resolve(String directory, String target, Application app) {
     if (target == '~') {
-      return app.activePanel.provider.homePath;
+      return app.activePanel.source.homePath;
     }
     if (target.startsWith('/') || target.contains(':')) {
       return target;

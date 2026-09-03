@@ -3,7 +3,6 @@ import 'package:fc_api/fc_api.dart';
 // оно там — `copyOver` берёт живую оболочку. Спрашивает же согласие и пароль
 // эта сторона, у которой есть экран. Разъедется это вместе с секретами:
 // вопрос — сюда, исполнение — туда (`docs/spec/client-server.md`, §5.4).
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import '../state/commands/help_command.dart';

@@ -29,5 +29,8 @@ FileEntry entryValueOf(FsNode node) {
     linkToDirectory: node is LinkNode && node.isDirectoryLink,
     reference: node is LinkNode ? node.reference : '',
     scheme: node is ParentDirNode ? '' : node.provider.scheme,
+    // Настоящий путь есть только у настоящей файловой системы: внутри архива
+    // и на сервере имя объекта вне приложения ничего не значит.
+    realPath: node is ParentDirNode || !node.provider.capabilities.realFileSystem ? '' : node.pathString,
   );
 }

@@ -25,9 +25,6 @@ dependencies:
   # `NodeInfoProvider`, `PanelSelection` и перетаскивании. Список мест, которые
   # эту зависимость держат, и есть план Э3; вместе с ней уйдёт и эта строка, а
   # на её место встанет проверка чистоты (`spec/client-server.md`, §14).
-  fc_core_api:
-    path: ../core_api
-
   path: ^1.9.1
 
 dev_dependencies:

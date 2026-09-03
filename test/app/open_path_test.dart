@@ -276,7 +276,7 @@ void main() {
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
-      expect(runtime.app.left.directory?.displayPath, 'mem://alpha/srv');
+      expect(runtime.app.left.session.directory?.displayPath, 'mem://alpha/srv');
       await tester.pump(const Duration(milliseconds: 20));
     });
 

@@ -38,7 +38,7 @@ void main() {
   /// «F5 открывает окно с каталогом пассивной панели».
   Future<void> transfer({bool move = false, String? destination, bool followLinks = false}) =>
       commands().create(move ? 'file.move' : 'file.copy')!.executeWith({
-        TransferCommandBase.destinationParam: destination ?? app.right.directory!.pathString,
+        TransferCommandBase.destinationParam: destination ?? app.right.session.directory!.pathString,
         if (followLinks) TransferCommandBase.followLinksParam: true,
       });
 

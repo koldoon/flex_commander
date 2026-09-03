@@ -131,7 +131,7 @@ void main() {
 
     // Два экземпляра поверх одного файла разошлись бы состоянием.
     expect(opened, hasLength(1));
-    expect(runtime.app.right.provider, same(runtime.app.left.provider));
+    expect(runtime.app.right.session.provider, same(runtime.app.left.session.provider));
     expect(runtime.providers?.mounted.single.tenants, 2);
 
     await runtime.dispose();

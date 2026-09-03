@@ -287,7 +287,7 @@ void main() {
 
       panel.setCursorToName('sample.zip');
       await panel.enterCurrent();
-      expect(panel.provider, isA<WritableZipTreeProvider>());
+      expect(panel.session.provider, isA<WritableZipTreeProvider>());
 
       // Путь приёмника команда разбирает панелью — так же, как F5, и держит
       // аренду всё время работы: панель за это время вправе уйти куда угодно.
@@ -302,7 +302,7 @@ void main() {
       expect(panel.entries.map((node) => node.name), contains('notes.txt'));
       // Второго экземпляра поверх того же файла не завелось: панель и приёмник
       // — это один и тот же открытый архив.
-      expect(destination.node!.provider, same(panel.provider));
+      expect(destination.node!.provider, same(panel.session.provider));
     });
   });
 }

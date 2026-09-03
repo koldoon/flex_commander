@@ -184,7 +184,7 @@ void main() {
         ..pageSize = 20;
       await runtime.app.right.enterCurrent();
 
-      expect(runtime.app.right.provider, isA<ZipTreeProvider>());
+      expect(runtime.app.right.session.provider, isA<ZipTreeProvider>());
       expect(runtime.app.right.entries.map((node) => node.name), containsAll(['..', 'docs']));
     });
   });

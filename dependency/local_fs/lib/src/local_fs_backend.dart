@@ -35,7 +35,7 @@ class LocalFileSystemBackend implements FcBackendModule {
         shellName: () => services.resolveAll<ShellPreference>().firstOrNull?.shell ?? '',
         // Повышение прав — тоже необязательно и тоже лениво: службу объявляет
         // ядро, а провайдер создаётся раньше него.
-        elevation: () => services.resolveAll<Elevation>().firstOrNull,
+        elevation: () => services.resolveAll<ElevatedWrites>().firstOrNull,
       ),
     );
 

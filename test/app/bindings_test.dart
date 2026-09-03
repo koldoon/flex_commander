@@ -107,7 +107,7 @@ void main() {
   test('модуль архива добавил свою схему, а не команду', () {
     // Zip виден приложению только как источник: ни одной команды он не ставит.
     expect(runtime.commands.installed.map((command) => command.id), isNot(contains('zip')));
-    expect(runtime.app.left.provider, isNotNull);
+    expect(runtime.app.left.session.provider, isNotNull);
   });
 
   test('упаковка разведена по клавишам: zip на Shift-F5, 7z на Shift-F7', () {

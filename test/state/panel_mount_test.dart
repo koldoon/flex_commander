@@ -54,7 +54,7 @@ void main() {
 
     expect(namesOf(panel), containsAll(['inner', 'readme.md']));
     // Панель ушла в чужой провайдер, не зная о нём ничего.
-    expect(panel.provider, isA<InMemoryArchiveProvider>());
+    expect(panel.session.provider, isA<InMemoryArchiveProvider>());
   });
 
   test('файл, который открывать нечем, возвращается наверх', () async {
@@ -85,17 +85,17 @@ void main() {
 
     expect(panel.path, '/home');
     expect(panel.currentEntry?.name, 'archive.arc');
-    expect(panel.provider, same(disk));
+    expect(panel.session.provider, same(disk));
   });
 
   test('внутри архива менять нечем, и панель это признаёт', () async {
-    expect(panel.editor, isNotNull);
+    expect(panel.session.editor, isNotNull);
 
     panel.setCursorToName('archive.arc');
     await panel.enterCurrent();
 
     // Примитивов изменения у архива нет — команды выключатся сами.
-    expect(panel.editor, isNull);
+    expect(panel.session.editor, isNull);
   });
 
   test('сохранённый путь внутри архива открывается снова', () async {
@@ -111,7 +111,7 @@ void main() {
     final restored = await panelOn(registry, path: saved);
 
     expect(namesOf(restored), contains('doc.txt'));
-    expect(restored.provider, isA<InMemoryArchiveProvider>());
+    expect(restored.session.provider, isA<InMemoryArchiveProvider>());
   });
 
   test('битый архив оставляет панель на месте и говорит почему', () async {
@@ -164,7 +164,7 @@ void main() {
       final it = await panelOn(tracking, disposed: disposed);
       it.setCursorToName('archive.arc');
       await it.enterCurrent();
-      expect(it.provider, isA<InMemoryArchiveProvider>());
+      expect(it.session.provider, isA<InMemoryArchiveProvider>());
       return it;
     }
 
@@ -175,7 +175,7 @@ void main() {
       await panel.goUp();
 
       expect(mounted.single.closed, isTrue);
-      expect(panel.provider, same(disk));
+      expect(panel.session.provider, same(disk));
     });
 
     test('переходы внутри архива его не закрывают', () async {
@@ -227,7 +227,7 @@ void main() {
         // Два экземпляра поверх одного файла разошлись бы состоянием:
         // записанное через один не увидел бы другой.
         expect(mounted, hasLength(1));
-        expect(second.provider, same(first.provider));
+        expect(second.session.provider, same(first.session.provider));
         expect(tracking.mounted.single.tenants, 2);
       });
 
@@ -249,7 +249,7 @@ void main() {
 
         // Так делает длительная команда: берёт аренду на всё время работы,
         // потому что панель за это время вправе уйти куда угодно.
-        final work = panel.leaseProvider()!;
+        final work = panel.session.leaseProvider()!;
         await panel.goUp();
 
         // Раньше здесь провайдер закрывался, а работа продолжала из него

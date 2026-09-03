@@ -165,7 +165,7 @@ void main() {
       final runtime = await build();
 
       expect(runtime.app.left, isNot(same(runtime.app.right)));
-      expect(runtime.app.left.provider, same(provider));
+      expect(runtime.app.left.session.provider, same(provider));
       expect(runtime.app.window, same(window));
       expect(runtime.commands.installed, isNotEmpty);
     });

@@ -472,7 +472,7 @@ void main() {
 }
 
 /// Повышение, которое запоминает, о чём просили, и ничего не делает.
-class _FakeElevation implements Elevation {
+class _FakeElevation implements ElevatedWrites {
   _FakeElevation({required this.enabled, required this.succeeds});
 
   @override

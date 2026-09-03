@@ -74,7 +74,7 @@ void main() {
 
     expect(await panel.enterCurrent(), isNull);
 
-    expect(panel.provider, isA<TarTreeProvider>());
+    expect(panel.session.provider, isA<TarTreeProvider>());
     expect(panel.entries.map((node) => node.name), containsAll(['..', 'src']));
   });
 
@@ -84,7 +84,7 @@ void main() {
 
     expect(await panel.enterCurrent(), isNull);
     // Первое звено: сжатый поток показывает ровно одну запись — сам архив.
-    expect(panel.provider, isA<GzipTreeProvider>());
+    expect(panel.session.provider, isA<GzipTreeProvider>());
     expect(panel.entries.map((node) => node.name), containsAll(['..', 'src.tar']));
 
     panel.setCursorToName('src.tar');
@@ -92,7 +92,7 @@ void main() {
 
     // Второе звено: здесь поток и разжимается на диск — ровно один раз, и
     // делает это тот, кому нужен настоящий файл.
-    expect(panel.provider, isA<TarTreeProvider>());
+    expect(panel.session.provider, isA<TarTreeProvider>());
     panel.setCursorToName('src');
     expect(await panel.enterCurrent(), isNull);
     expect(panel.entries.map((node) => node.name), containsAll(['lib', 'readme.md']));
@@ -129,7 +129,7 @@ void main() {
     panel.setCursorToName('src.tar');
     await panel.enterCurrent();
 
-    final provider = panel.provider as TarTreeProvider;
+    final provider = panel.session.provider as TarTreeProvider;
     expect(File(provider.archivePath).existsSync(), isTrue, reason: 'поток разжат во временный файл');
 
     // Наружу одним прыжком: закрыться должны оба звена.

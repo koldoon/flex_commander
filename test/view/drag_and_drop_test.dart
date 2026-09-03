@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
@@ -531,26 +530,22 @@ void main() {
       expect(File(into).readAsStringSync(), 'из архива');
     });
 
-    testWidgets('аренда источника живёт до чтения, а не до конца жеста', (tester) async {
-      // Пока обещанное не прочитано, архив обязан оставаться смонтированным —
-      // даже если жест давно кончился, а человек успел из архива выйти. Ради
-      // этого случая аренда и берётся: панельная тут не спасёт, она уходит
-      // вместе с панелью.
+    testWidgets('обещанное читается, даже если панель ушла из архива', (tester) async {
+      // Жест давно кончился, а человек успел выйти — и всё равно должен
+      // получить файл. Прежде это держалось арендой источника; теперь
+      // обещанное читается **по пути**, и ядро само откроет то, из чего
+      // читает (`spec/client-server.md`, §7).
       await pumpArchive(tester);
-      final service = archive.app.dragAndDrop! as SystemDropService;
-      final lease = _CountingLease(archive.app.left.provider);
-      final entry = archive.app.left.entries.firstWhere((n) => n.name == 'inside.txt');
-      final node = archive.app.left.nodeOf(entry)!;
-
-      await tester.runAsync(() async {
-        await service.beginDrag(archive.app.left, [node], hold: () => lease);
-      });
-
+      await dragOut(tester, 'inside.txt');
       await endSession(tester);
-      expect(lease.released, isFalse, reason: 'содержимое ещё не спрашивали');
 
-      expect(await askPromise(tester, 'inside.txt', destination('inside.txt')), isTrue);
-      expect(lease.released, isTrue, reason: 'прочитали — держать больше незачем');
+      await tester.runAsync(() => archive.app.left.goUp());
+      await tester.pumpAndSettle();
+      expect(archive.app.left.source.scheme, isNot('arc'), reason: 'из архива вышли');
+
+      final into = destination('inside.txt');
+      expect(await askPromise(tester, 'inside.txt', into), isTrue);
+      expect(File(into).readAsStringSync(), 'из архива');
     });
 
     testWidgets('содержимое выкладывается и после конца сессии', (tester) async {
@@ -640,17 +635,4 @@ void main() {
     expect(plain.app.dragAndDrop, isNull);
     expect(find.byType(FileTable), findsWidgets);
   });
-}
-
-/// Аренда, которая помнит, отпустили ли её.
-class _CountingLease implements ProviderLease {
-  _CountingLease(this.provider);
-
-  @override
-  final TreeProvider provider;
-
-  bool released = false;
-
-  @override
-  Future<void> release() async => released = true;
 }

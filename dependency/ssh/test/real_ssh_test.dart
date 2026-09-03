@@ -340,15 +340,15 @@ void main() {
     expect(await panel.openPath('ssh://$hostSpec/'), isTrue);
 
     // Панель стоит на сервере: её корень — не общий.
-    expect(panel.provider.scheme, 'ssh');
-    expect(panel.directory!.pathString, startsWith('ssh://'));
+    expect(panel.session.provider.scheme, 'ssh');
+    expect(panel.session.directory!.pathString, startsWith('ssh://'));
     expect(panel.entries, isNotEmpty);
 
     // Путь без схемы возвращает на общий корень, а соединение закрывается:
     // держать его больше некому.
-    final server = panel.provider;
+    final server = panel.session.provider;
     expect(await panel.openPath('/home'), isTrue);
-    expect(panel.provider.scheme, isNot('ssh'));
+    expect(panel.session.provider.scheme, isNot('ssh'));
     expect(
       () => (server as SftpTreeProvider).getDirectoryListing().run(ListingParams(server.rootDirectory)),
       throwsA(anything),
@@ -399,10 +399,10 @@ void main() {
 
     expect(await panel.openPath(shown), isTrue);
 
-    expect(panel.provider.scheme, 'zip');
+    expect(panel.session.provider.scheme, 'zip');
     expect(panel.entries.map((node) => node.name), contains('guide.txt'));
     // И круг замыкается: показанное совпадает с тем, что открывали.
-    expect(panel.directory?.displayPath, shown);
+    expect(panel.session.directory?.displayPath, shown);
   });
 
   test('чего нет — того нет, а закрытое закрыто', () async {

@@ -39,17 +39,17 @@ class LocalTreeProvider
     this.settings,
     PtyLauncher pty = const SystemPtyLauncher(),
     String Function()? shellName,
-    Elevation? Function()? elevation,
+    ElevatedWrites? Function()? elevation,
   }) : homePath = homePath ?? _detectHomePath(),
        _elevation = elevation ?? _noElevation,
        _shell = LocalShellHost(launcher: pty, shellName: shellName ?? _noPreference);
 
   /// Повышать нечем: так собирается провайдер в тестах и там, где службы нет.
-  static Elevation? _noElevation() => null;
+  static ElevatedWrites? _noElevation() => null;
 
   /// Служба повышения — **способом спросить**: она появляется позже провайдера,
   /// и держать её значением здесь нельзя.
-  final Elevation? Function() _elevation;
+  final ElevatedWrites? Function() _elevation;
 
   /// Оболочки нет предпочтения — берётся `$SHELL`.
   static String _noPreference() => '';

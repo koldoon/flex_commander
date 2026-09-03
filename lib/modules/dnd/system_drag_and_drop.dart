@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
@@ -126,17 +125,12 @@ class SystemDropService implements DragAndDrop {
 
   /// Обещанное: что именно система попросит выложить, когда оно ей
   /// понадобится. Ключ — имя, под которым обещали.
-  final Map<String, FsNode> _promised = {};
-
-  /// Обещанное, которого ещё не спрашивали.
   ///
-  /// По нему и живёт аренда источника: пока здесь пусто, держать архив
-  /// смонтированным незачем, а пока не пусто — нельзя отпускать, откуда бы ни
-  /// пришла просьба и когда бы она ни пришла.
-  final Set<String> _unread = {};
-
-  /// Аренда источника: держится, пока обещанное не прочитано.
-  ProviderLease? _lease;
+  /// Строками, а не узлами: читается обещанное **по пути**, и ядро само
+  /// откроет то, из чего читает, — даже если панель за это время ушла из
+  /// архива. Аренды здесь поэтому нет вовсе
+  /// (`docs/spec/client-server.md`, §7).
+  final Map<String, FileEntry> _promised = {};
 
   /// Область, из которой тащат: под ней и показывается полоса работы, если
   /// выкладка окажется долгой.
@@ -181,15 +175,10 @@ class SystemDropService implements DragAndDrop {
       case 'dragEnded':
         _draggingFrom = null;
         _hover(null);
-        // Убирать обещанное здесь **нельзя**: система просит содержимое уже
-        // после конца сессии, и порядок этих двух событий ничем не закреплён.
-        // Пока убирали — работало через раз, и «через раз» тут худшее из
-        // возможного: человек не понимает, от чего это зависит.
-        //
-        // Аренда — по тому же правилу: отпускаем, только если спрашивать уже
-        // нечего. Иначе человек, вышедший из архива, пока файл ехал, остался
-        // бы с пустой копией.
-        await _releaseIfRead();
+      // Убирать обещанное здесь **нельзя**: система просит содержимое уже
+      // после конца сессии, и порядок этих двух событий ничем не закреплён.
+      // Пока убирали — работало через раз, и «через раз» тут худшее из
+      // возможного: человек не понимает, от чего это зависит.
       case 'writePromise':
         // Система попросила обещанное: только теперь его и выкладываем.
         return _writePromise(call);
@@ -278,13 +267,13 @@ class SystemDropService implements DragAndDrop {
     final arguments = call.arguments;
     final id = arguments is Map ? arguments['id'] : null;
     final path = arguments is Map ? arguments['path'] : null;
-    final node = id is String ? _promised[id] : null;
-    if (node == null || path is! String) {
+    final entry = id is String ? _promised[id] : null;
+    if (entry == null || path is! String) {
       return false;
     }
 
     try {
-      await _extract(node, path);
+      await _extract(entry, path);
       return true;
     } on OperationCanceled {
       // Отменил человек — сказать ему об этом было бы странно.
@@ -292,13 +281,8 @@ class SystemDropService implements DragAndDrop {
     } catch (error) {
       // Со стороны неудача выглядит как «перетащил, и ничего не произошло»:
       // система молча бросает то, чего ей не дали. Сказать об этом обязаны мы.
-      _app?.toasts.show('Could not hand over «${node.name}»: $error');
+      _app?.toasts.show('Could not hand over «${entry.name}»: $error');
       return false;
-    } finally {
-      // Прочитано (или не вышло) — держать источник больше незачем, даже если
-      // жест давно кончился.
-      _unread.remove(id);
-      await _releaseIfRead();
     }
   }
 
@@ -307,14 +291,14 @@ class SystemDropService implements DragAndDrop {
   /// Работа настоящая: у неё полоса под панелью-источником и отмена. Распаковка
   /// гигабайта из архива идёт заметное время, и молчать о ней нельзя — со
   /// стороны молчание неотличимо от зависания.
-  Future<void> _extract(FsNode node, String path) async {
-    final operation = TaskOperation<void, void>((op, _) => _copyInto(node, path, op));
+  Future<void> _extract(FileEntry entry, String path) async {
+    final operation = TaskOperation<void, void>((op, _) => _copyInto(entry, path, op));
     final app = _app;
     final area = _sourceArea;
     final runId = 'dnd.promise#${_nextRun++}';
 
     if (app != null) {
-      app.operations.register(OperationRun(runId: runId, operation: operation, title: 'Extracting «${node.name}»'));
+      app.operations.register(OperationRun(runId: runId, operation: operation, title: 'Extracting «${entry.name}»'));
       if (area != null) {
         app.operations.sendToBackground(runId, owner: area);
       }
@@ -326,14 +310,18 @@ class SystemDropService implements DragAndDrop {
     }
   }
 
-  /// Поток из провайдера в файл — с отчётом о байтах и проверкой отмены.
-  Future<void> _copyInto(FsNode node, String path, TaskOperation<void, void> op) async {
-    final provider = node.provider;
-    if (provider is! FileContentProvider) {
-      throw FsError(node.pathString, FsErrorKind.notSupported);
+  /// Поток из ядра в файл — с отчётом о байтах и проверкой отмены.
+  ///
+  /// Читается **по пути**: жест давно кончился, и панель за это время вправе
+  /// была уйти хоть из архива. Ядро разберёт путь заново и само подержит то,
+  /// из чего читает, — ровно на время чтения.
+  Future<void> _copyInto(FileEntry entry, String path, TaskOperation<void, void> op) async {
+    final app = _app;
+    if (app == null) {
+      throw FsError(entry.path, FsErrorKind.notSupported);
     }
 
-    final source = await (provider as FileContentProvider).openRead(node);
+    final source = app.contentAt(entry).read();
     final file = File(path);
     final sink = file.openWrite();
     var written = 0;
@@ -343,11 +331,11 @@ class SystemDropService implements DragAndDrop {
         sink.add(chunk);
         written += chunk.length;
         op.report(
-          itemName: node.name,
+          itemName: entry.name,
           bytesTransferred: written,
-          bytesTotal: node.size >= 0 ? node.size : null,
+          bytesTotal: entry.size >= 0 ? entry.size : null,
           itemBytesTransferred: written,
-          itemBytesTotal: node.size >= 0 ? node.size : null,
+          itemBytesTotal: entry.size >= 0 ? entry.size : null,
         );
       }
       await sink.flush();
@@ -363,24 +351,6 @@ class SystemDropService implements DragAndDrop {
     await sink.close();
   }
 
-  /// Отпускает источник, если всё обещанное уже прочитано.
-  ///
-  /// Аренда держится ради одного — чтения содержимого, — и живёт ровно
-  /// столько, сколько эта надобность. Не до конца жеста: просьба приходит уже
-  /// после него. И не до выхода из архива: ради этого случая она и заведена —
-  /// панель вправе уйти, а прочитать мы обязаны.
-  Future<void> _releaseIfRead() async {
-    if (_unread.isEmpty) {
-      await _releaseSource();
-    }
-  }
-
-  Future<void> _releaseSource() async {
-    final lease = _lease;
-    _lease = null;
-    await lease?.release();
-  }
-
   /// Забывает прошлое перетаскивание.
   ///
   /// Зовётся **началом следующего**, а не концом прошлого: система вправе
@@ -389,11 +359,7 @@ class SystemDropService implements DragAndDrop {
   ///
   /// Убирать при этом нечего: пишем мы сразу в цель, и своих временных файлов
   /// у перетаскивания не остаётся вовсе.
-  Future<void> _forgetPrevious() async {
-    _promised.clear();
-    _unread.clear();
-    await _releaseSource();
-  }
+  void _forgetPrevious() => _promised.clear();
 
   /// Под какой панелью показывать полосу работы; null — источник не панель.
   ViewportPosition? _areaOf(Object owner) {
@@ -435,12 +401,8 @@ class SystemDropService implements DragAndDrop {
   }
 
   @override
-  Widget source({
-    required Object owner,
-    required Widget child,
-    required List<FsNode> Function() nodes,
-    ProviderLease? Function()? hold,
-  }) => _DragSource(service: this, owner: owner, nodes: nodes, hold: hold, child: child);
+  Widget source({required Object owner, required Widget child, required List<FileEntry> Function() entries}) =>
+      _DragSource(service: this, owner: owner, entries: entries, child: child);
 
   /// Просит систему потащить объекты наружу.
   ///
@@ -448,29 +410,28 @@ class SystemDropService implements DragAndDrop {
   /// оттуда нужно обещанные файлы — это отдельная работа
   /// (`spec/drag-and-drop.md`, §7). Пока таких объектов в пачке нет, тащить
   /// нечего, и жест просто ничего не делает.
-  Future<bool> beginDrag(Object owner, List<FsNode> nodes, {ProviderLease? Function()? hold}) async {
-    await _forgetPrevious();
+  Future<bool> beginDrag(Object owner, List<FileEntry> entries) async {
+    _forgetPrevious();
 
     final paths = <String>[];
     final promises = <Map<String, Object?>>[];
 
-    for (final node in nodes) {
-      if (node is ParentDirNode) {
+    for (final entry in entries) {
+      if (entry.isParent) {
         continue;
       }
-      if (node.provider.capabilities.realFileSystem) {
-        paths.add(node.pathString);
+      if (entry.realPath.isNotEmpty) {
+        paths.add(entry.realPath);
         continue;
       }
       // Настоящего пути нет — отдаём обещание. Каталоги пока не обещаем: их
       // выкладка это целый обход, и делается она не здесь
       // (`spec/drag-and-drop.md`, §7).
-      if (node is DirectoryNode || node is! FileNode) {
+      if (entry.isDirectory) {
         continue;
       }
-      final name = _uniqueName(node.name);
-      _promised[name] = node;
-      _unread.add(name);
+      final name = _uniqueName(entry.name);
+      _promised[name] = entry;
       promises.add({'id': name, 'name': name});
     }
 
@@ -481,13 +442,10 @@ class SystemDropService implements DragAndDrop {
     // первое же `dragUpdated` придёт раньше, чем сюда вернётся ответ.
     _draggingFrom = owner;
     _sourceArea = _areaOf(owner);
-    // Источник держится всё время жеста: пока файл едет в чужое окно, панель
-    // вправе уйти куда угодно, а содержимое у неё спросят уже после.
-    _lease = hold?.call();
     final started = await _channel.invokeMethod<bool>('beginDrag', {'paths': paths, 'promises': promises}) ?? false;
     if (!started) {
       _draggingFrom = null;
-      await _forgetPrevious();
+      _forgetPrevious();
     }
     return started;
   }
@@ -586,18 +544,11 @@ class _DropAreaState extends State<_DropArea> {
 /// движения больше не дойдут: прокрутка, если и успела начаться, дальше не
 /// поедет.
 class _DragSource extends StatefulWidget {
-  const _DragSource({
-    required this.service,
-    required this.owner,
-    required this.nodes,
-    required this.hold,
-    required this.child,
-  });
+  const _DragSource({required this.service, required this.owner, required this.entries, required this.child});
 
   final SystemDropService service;
   final Object owner;
-  final ProviderLease? Function()? hold;
-  final List<FsNode> Function() nodes;
+  final List<FileEntry> Function() entries;
   final Widget child;
 
   @override
@@ -641,7 +592,7 @@ class _DragSourceState extends State<_DragSource> {
     // Попытка израсходована: удастся — тащим, не удастся — отсчёт начнётся
     // заново со следующего движения. Так одна неудача не убивает всё нажатие.
     _origin = null;
-    await widget.service.beginDrag(widget.owner, widget.nodes(), hold: widget.hold);
+    await widget.service.beginDrag(widget.owner, widget.entries());
   }
 
   @override

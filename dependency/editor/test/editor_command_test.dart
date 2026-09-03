@@ -94,7 +94,7 @@ void main() {
   Future<bool> makeReadOnly(String name) async {
     await Process.run('chmod', ['a-w', p.join(temp.path, name)]);
     await Process.run('chmod', ['a-w', temp.path]);
-    final node = runtime.app.left.nodeOf(runtime.app.left.entries.firstWhere((entry) => entry.name == name))!;
+    final node = runtime.app.left.session.nodeOf(runtime.app.left.entries.firstWhere((entry) => entry.name == name))!;
     return !await provider.canWriteTo(node);
   }
 
@@ -416,7 +416,8 @@ void main() {
     });
 
     test('canWriteTo отвечает попыткой, а не битами режима', () async {
-      final node = runtime.app.left.nodeOf(runtime.app.left.entries.firstWhere((entry) => entry.name == 'notes.txt'))!;
+      final node =
+          runtime.app.left.session.nodeOf(runtime.app.left.entries.firstWhere((entry) => entry.name == 'notes.txt'))!;
       expect(await provider.canWriteTo(node), isTrue);
 
       if (!await makeReadOnly('notes.txt')) {

@@ -9,7 +9,7 @@ import 'package:fc_local_fs/backend.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Повышение, которое запоминает, о чём его просили, и делает вид, что смогло.
-class _FakeElevation implements Elevation {
+class _FakeElevation implements ElevatedWrites {
   _FakeElevation({this.enabled = true, this.succeeds = true});
 
   @override

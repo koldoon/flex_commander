@@ -6,7 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 
-import '../state/selection_controller.dart';
+import '../core/selection_controller.dart';
 
 /// Создаёт сеансы панелей.
 ///
@@ -938,6 +938,19 @@ class PanelSession {
 
   /// Узел значением.
   FileEntry entryOf(FsNode node) => entryValueOf(node);
+
+  /// Живой узел за строкой списка; null — такой строки в списке нет.
+  ///
+  /// По имени, а не по номеру: строка приезжает значением, а список за это
+  /// время мог быть перечитан.
+  FsNode? nodeOf(FileEntry entry) {
+    for (final node in _nodes) {
+      if (node.name == entry.name) {
+        return node;
+      }
+    }
+    return null;
+  }
 
   void _changed() {
     for (final listener in _onChanged.toList()) {

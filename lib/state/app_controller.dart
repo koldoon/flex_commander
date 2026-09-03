@@ -7,6 +7,7 @@ import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import '../core/core_server.dart';
 import '../link/link.dart';
+import '../ui/remote_content.dart';
 import '../ui/remote_shell.dart';
 import '../ui/remote_operation.dart';
 import 'panel_controller.dart';
@@ -338,17 +339,17 @@ class AppController extends ChangeNotifier implements Application {
   /// Открытые каналы оболочек — по имени разговора.
   final Map<String, RemoteShell> _shells = {};
 
-  /// Разбор пути от корня дерева — мимо панелей и того, где они стоят.
+  /// Содержимое объекта по его пути — мимо панелей и того, где они стоят.
+  ///
+  /// Разбор ведёт корень дерева, и аренду на время чтения берёт **ядро**: тот,
+  /// кто читает после жеста, не обязан держать источник сам.
   @override
-  Operation<String, ResolvedNode> resolvePath() {
-    final registry = providers;
-    if (registry == null) {
-      // Дерева нет вовсе (сборка без источников): разбирать нечего.
-      return CompletedOperation<String, ResolvedNode>(const ResolvedNode.none());
+  Content contentAt(FileEntry entry) {
+    final door = link;
+    if (door == null || entry.path.isEmpty) {
+      return const NoContent();
     }
-    return TaskOperation<String, ResolvedNode>(
-      (op, path) => op.delegate(registry.resolveDisplayPath(), ResolvePathParams(path, from: registry.root)),
-    );
+    return RemoteContent(door, EntryRef.path(entry.path), length: entry.size);
   }
 
   /// Выключение в обратном порядке: сперва экран, потом ядро.

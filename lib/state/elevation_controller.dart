@@ -5,7 +5,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:flutter/foundation.dart';
 
-/// Реализация [Elevation]: спрашивает согласие, берёт пароль и зовёт `sudo`.
+/// Реализация [ElevatedWrites]: спрашивает согласие, берёт пароль и зовёт `sudo`.
 ///
 /// Выполняет она **через оболочку той стороны** ([ShellHost]) — ту самую, что
 /// открывает `Ctrl-O`. Отсюда и главное свойство: разницы между «повысить
@@ -15,7 +15,7 @@ import 'package:flutter/foundation.dart';
 /// Псевдотерминал выбран не случайно: `sudo` спрашивает пароль у `/dev/tty`, а
 /// не из обычного ввода, — и именно поэтому запуск программ ([ProcessRunner])
 /// для этого не годится.
-class ElevationController extends ChangeNotifier implements Elevation {
+class ElevationController extends ChangeNotifier implements ElevatedWrites {
   ElevationController({required Credentials credentials, required bool Function() allowed})
     : _credentials = credentials,
       _allowed = allowed;

@@ -1,7 +1,6 @@
 import 'package:flutter/foundation.dart';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import '../core/panel_session.dart';
@@ -45,7 +44,7 @@ class PanelController extends ChangeNotifier implements Panel {
     final door = _link;
     final ref = _refTo(entry);
     if (door == null || ref == null) {
-      return const _NoContent();
+      return const NoContent();
     }
     return RemoteContent(door, ref, length: entry.size);
   }
@@ -265,33 +264,6 @@ class PanelController extends ChangeNotifier implements Panel {
   @override
   PanelSettings get settings => session.settings;
 
-  // --- долг: узлы и живые источники ---
-
-  @override
-  TreeProvider get provider => session.provider;
-
-  @override
-  DirectoryNode? get directory => session.directory;
-
-  @override
-  TreeEditor? get editor => session.editor;
-
-  @override
-  Future<void> openDirectory(DirectoryNode dir) => session.open(dir);
-
-  @override
-  FsNode? nodeOf(FileEntry entry) {
-    for (final node in session.nodes) {
-      if (node.name == entry.name) {
-        return node;
-      }
-    }
-    return null;
-  }
-
-  @override
-  ProviderLease? leaseProvider() => session.leaseProvider();
-
   @override
   Future<R> runWork<R>(Future<R> Function(TaskOperation<void, R> op) body, {String status = 'Loading…'}) =>
       session.runWork(body, status: status);
@@ -330,9 +302,9 @@ class PanelController extends ChangeNotifier implements Panel {
   }
 }
 
-/// Содержимого нет вовсе: панель собрана без ядра или строка уже не та.
-class _NoContent implements Content {
-  const _NoContent();
+/// Содержимого нет вовсе: приложение собрано без ядра или строка уже не та.
+class NoContent implements Content {
+  const NoContent();
 
   @override
   int get length => FileEntry.unknownSize;

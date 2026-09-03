@@ -213,9 +213,9 @@ void main() {
       expect(await panel.enterCurrent(), isNull);
 
       expect(panel.entries.map((node) => node.name), containsAll(['docs', 'readme.md']));
-      expect(panel.provider, isA<ZipTreeProvider>());
+      expect(panel.session.provider, isA<ZipTreeProvider>());
       // В архив на диске можно писать: файловые команды остаются доступными.
-      expect(panel.editor, isNotNull);
+      expect(panel.session.editor, isNotNull);
     });
 
     test('путь показывает цепочку, а «..» выводит наружу', () async {
@@ -235,7 +235,7 @@ void main() {
 
       expect(panel.path, root);
       expect(panel.currentEntry?.name, 'sample.zip');
-      expect(panel.provider, same(disk));
+      expect(panel.session.provider, same(disk));
     });
 
     test('сохранённый путь внутри архива открывается снова', () async {
@@ -261,11 +261,11 @@ void main() {
       // То, что человек видит в заголовке и правит в окне `Cmd-F1`. Схемы
       // архива в нём нет, и разобрать его можно только спросив источник о типе
       // каждого звена.
-      final shown = panel.directory!.displayPath;
+      final shown = panel.session.directory!.displayPath;
       expect(shown, '$archivePath/docs');
 
       expect(await panel.openPath(shown), isTrue);
-      expect(panel.directory?.displayPath, shown);
+      expect(panel.session.directory?.displayPath, shown);
       expect(panel.entries.map((node) => node.name), contains('guide.txt'));
     });
 
@@ -273,13 +273,13 @@ void main() {
       panel.setCursorToName('sample.zip');
       await panel.enterCurrent();
 
-      final shown = panel.directory!.displayPath;
+      final shown = panel.session.directory!.displayPath;
       expect(shown, archivePath);
 
       // Строка кончается файлом архива, а панель ждёт каталог: вход в него —
       // то же самое, что Enter.
       expect(await panel.openPath(shown), isTrue);
-      expect(panel.provider, isA<ZipTreeProvider>());
+      expect(panel.session.provider, isA<ZipTreeProvider>());
       expect(panel.entries.map((node) => node.name), containsAll(['docs', 'readme.md']));
     });
   });
@@ -419,10 +419,10 @@ void main() {
       await panel.enterCurrent();
 
       // Два архива в стопке; внутренний живёт временной копией внешнего.
-      final inner = panel.provider as ZipTreeProvider;
+      final inner = panel.session.provider as ZipTreeProvider;
       expect(inner.archivePath, isNot(outerPath));
       expect(await File(inner.archivePath).exists(), isTrue);
-      expect(panel.directory?.displayPath, '$outerPath/nested/sample.zip');
+      expect(panel.session.directory?.displayPath, '$outerPath/nested/sample.zip');
 
       // Наружу одним прыжком: закрыться должны оба.
       expect(await panel.openPath(root), isTrue);
@@ -431,7 +431,7 @@ void main() {
       // ускорить, и на сборочной машине их не хватало.
       await waitUntilAsync(() async => !await File(inner.archivePath).exists());
 
-      expect(panel.provider, same(disk));
+      expect(panel.session.provider, same(disk));
       expect(await File(inner.archivePath).exists(), isFalse);
     });
   });

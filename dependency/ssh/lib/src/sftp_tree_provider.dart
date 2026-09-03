@@ -36,17 +36,17 @@ class SftpTreeProvider
     required SftpApi sftp,
     required this.homePath,
     SshConnection? connection,
-    Elevation? Function()? elevation,
+    ElevatedWrites? Function()? elevation,
   }) : _sftp = sftp,
        _connection = connection,
        _elevation = elevation ?? _noElevation;
 
   /// Повышать нечем: так собирается провайдер в тестах.
-  static Elevation? _noElevation() => null;
+  static ElevatedWrites? _noElevation() => null;
 
   /// Служба повышения — **способом спросить**: она живёт в ядре и появляется
   /// не раньше провайдера.
-  final Elevation? Function() _elevation;
+  final ElevatedWrites? Function() _elevation;
 
   /// Схема пути. `sftp` — её же второе имя: модуль объявляет оба.
   static const String schemeName = 'ssh';
@@ -56,7 +56,7 @@ class SftpTreeProvider
     Uri address, {
     required Credentials credentials,
     String? sshDirectory,
-    Elevation? Function()? elevation,
+    ElevatedWrites? Function()? elevation,
   }) async {
     final target = SshTarget.parse(address);
     if (target.host.isEmpty || target.user.isEmpty) {
@@ -373,7 +373,7 @@ class SftpTreeProvider
   ///
   /// `/tmp`, а не рядом с целью: рядом с целью писать как раз и не дают — с
   /// этого всё и началось.
-  Future<StreamSink<List<int>>> _elevatedWrite(String path, Elevation elevation) async {
+  Future<StreamSink<List<int>>> _elevatedWrite(String path, ElevatedWrites elevation) async {
     final temporary = p.posix.join('/tmp', 'fc-elevated-${DateTime.now().microsecondsSinceEpoch}');
     return ElevatedSink(
       elevation: elevation,
