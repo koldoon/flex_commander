@@ -30,3 +30,7 @@ linter:
 # Ширина строки для dart format. Совпадает с настройкой форматирования в IDE.
 formatter:
   page_width: 120
+analyzer:
+  exclude:
+    - build/**
+    - macos/**
