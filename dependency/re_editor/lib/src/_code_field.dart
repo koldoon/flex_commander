@@ -650,7 +650,7 @@ class _CodeFieldRender extends RenderBox implements MouseTrackerAnnotation {
     // paragraph may no longer be laid out.
     final Offset? cursorOffset = calculateTextPositionViewportOffset(_selection.extent);
     final double before = _verticalViewport.pixels;
-    _jumpVerticallyTo(before + delta);
+    _jumpVerticallyTo(_alignedToRow(before + delta));
     final bool scrolled = _verticalViewport.pixels != before;
 
     SchedulerBinding.instance.addPostFrameCallback((timeStamp) {
@@ -681,6 +681,28 @@ class _CodeFieldRender extends RenderBox implements MouseTrackerAnnotation {
         onCursorLanded(_fullyVisible(landed, target) ?? landed);
       }
     });
+  }
+
+  /// FLEX COMMANDER: puts the top of the screen on a whole row. See README.md.
+  ///
+  /// Rows are a uniform grid measured from the top of the document — a wrapped
+  /// line simply takes several of them — so an offset lands on a row boundary
+  /// when it divides by the line height. Off the grid the top row is cut in
+  /// half, and the leftovers of the row above show as a strip of clipped
+  /// glyphs.
+  ///
+  /// Rounds **down**: the extra fraction turns into overlap, and overlap is
+  /// what paging wants anyway. Rounding up would eat a row.
+  ///
+  /// The end of the document is the one place where the screen may still start
+  /// mid-row: there is nothing below to scroll, and refusing to reach the last
+  /// line would be worse than a cut row. [_jumpVerticallyTo] clamps it.
+  double _alignedToRow(double offset) {
+    final double row = _preferredLineHeight;
+    if (row <= 0) {
+      return offset;
+    }
+    return (offset / row).floorToDouble() * row;
   }
 
   /// FLEX COMMANDER: keeps the landed caret inside the viewport. See README.md.

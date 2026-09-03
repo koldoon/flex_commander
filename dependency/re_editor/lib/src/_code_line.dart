@@ -539,7 +539,12 @@ class _CodeLineEditingControllerImpl extends ValueNotifier<CodeLineEditingValue>
       return;
     }
 
-    final double page = max(render.lineHeight, render.size.height - render.lineHeight);
+    // Целое число строк, а не «экран минус строка»: экран почти никогда не
+    // кратен строке, и шаг в точках уводил бы верх страницы с сетки строк на
+    // каждом нажатии. Перекрытием тогда становится строка плюс остаток —
+    // нижняя строка уходящей страницы целиком видна наверху пришедшей.
+    final double rows = max(1, (render.size.height / render.lineHeight).floorToDouble() - 1);
+    final double page = rows * render.lineHeight;
     _scrollVerticallyBy(render, forward ? page : -page);
   }
 

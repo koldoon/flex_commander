@@ -96,14 +96,13 @@ void main() {
   }
 
   group('страница', () {
-    testWidgets('первый PgDn листает на экран без одной строки', (tester) async {
+    testWidgets('первый PgDn листает на целое число строк — экран без одной', (tester) async {
       await onDesktop(tester, () async {
         await pump(tester, readOnly: true, scrollsByArrows: true);
         final ScrollPosition position = scroll(tester);
 
         // Шаг строки меряем стрелкой — она крутит ровно на строку, — и
-        // возвращаемся к началу. Так «страница» проверяется тем, чем она
-        // задана: экраном без одной строки перекрытия.
+        // возвращаемся к началу.
         await press(tester, LogicalKeyboardKey.arrowDown);
         final double line = position.pixels;
         await press(tester, LogicalKeyboardKey.arrowUp);
@@ -112,7 +111,56 @@ void main() {
 
         await press(tester, LogicalKeyboardKey.pageDown);
 
-        expect(position.pixels, position.viewportDimension - line);
+        // Экран почти никогда не кратен строке, поэтому страница — не «экран
+        // минус строка» в точках, а столько **целых** строк, сколько влезает,
+        // без одной. Остаток уходит в перекрытие: нижняя строка уходящей
+        // страницы видна наверху пришедшей целиком.
+        final double rows = (position.viewportDimension / line).floorToDouble() - 1;
+        expect(position.pixels, rows * line);
+      });
+    });
+
+    testWidgets('верх экрана после листания стоит на границе строки', (tester) async {
+      // Иначе верхняя строка срезана, а над ней видны хвосты предыдущей —
+      // полоска обрубленных букв. Поймано на живом.
+      await onDesktop(tester, () async {
+        await pump(tester, readOnly: true, scrollsByArrows: true);
+        final ScrollPosition position = scroll(tester);
+
+        await press(tester, LogicalKeyboardKey.arrowDown);
+        final double line = position.pixels;
+        await press(tester, LogicalKeyboardKey.arrowUp);
+
+        for (var i = 0; i < 3; i++) {
+          await press(tester, LogicalKeyboardKey.pageDown);
+          expect(position.pixels % line, 0, reason: 'экран начинается с целой строки');
+        }
+        for (var i = 0; i < 2; i++) {
+          await press(tester, LogicalKeyboardKey.pageUp);
+          expect(position.pixels % line, 0, reason: 'и вверх тоже');
+        }
+      });
+    });
+
+    testWidgets('листание с накрученного колесом места ставит экран на сетку строк', (tester) async {
+      // Колесо крутит свободно и на сетку не смотрит — это его право. А вот
+      // страница обязана вернуть экран на строку, иначе обрубки наверху
+      // остаются навсегда.
+      await onDesktop(tester, () async {
+        await pump(tester, readOnly: true, scrollsByArrows: true);
+        final ScrollPosition position = scroll(tester);
+
+        await press(tester, LogicalKeyboardKey.arrowDown);
+        final double line = position.pixels;
+        await press(tester, LogicalKeyboardKey.arrowUp);
+
+        // 400 не кратно строке — колесо оставило экран посреди неё.
+        await wheel(tester, 400);
+        expect(position.pixels % line, isNot(0));
+
+        await press(tester, LogicalKeyboardKey.pageDown);
+
+        expect(position.pixels % line, 0);
       });
     });
 
@@ -182,7 +230,11 @@ void main() {
 
         await press(tester, LogicalKeyboardKey.pageDown);
 
-        expect(position.pixels, 400 + page);
+        // От накрученного места, а не от курсора: страница прибавляется к тому,
+        // где стоит экран. Садится он при этом на границу строки, поэтому
+        // сравнение с точностью до строки.
+        expect(position.pixels, closeTo(400 + page, page / 2));
+        expect(position.pixels, greaterThan(400));
       });
     });
 
