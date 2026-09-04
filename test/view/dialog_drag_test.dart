@@ -6,6 +6,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flex_commander/state/commands/palette_command.dart';
 import 'package:flex_commander/view/dialogs/dialog_frame.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -150,6 +151,34 @@ void main() {
     await tester.pumpAndSettle();
     expect(runtime.app.left.path, '/home');
 
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('у окна без заголовка нет полосы — и двигать его нечем', (tester) async {
+    // Палитра команд открывается без заголовка: она называет себя сама — полем
+    // ввода и списком. Полосы нет, а с ней нет и ручки: единственное место, за
+    // которое окно тянут, — это она.
+    await openDialog(tester);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    runtime.commands.run(CommandPaletteCommand.commandId, const CommandInvocation());
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FcCommandPalette), findsOneWidget);
+    // Полосы нет: в раме не осталось ни одного текста высотой в заголовок.
+    final frame = tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(IntrinsicWidth)));
+    final palette = tester.getRect(find.byType(FcCommandPalette));
+    expect(palette.top, moreOrLessEquals(frame.top, epsilon: 0.5), reason: 'содержимое начинается у самого верха окна');
+
+    // Тянуть не за что: там, где была бы полоса, лежит содержимое палитры, и
+    // окно от протяжки по нему не двигается.
+    await drag(tester, find.byType(FcCommandPalette), const Offset(120, -60));
+
+    expect(tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(IntrinsicWidth))), frame);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 20));
   });
 

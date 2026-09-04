@@ -161,10 +161,11 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
   @override
   Widget build(BuildContext context) {
     final metrics = FcTheme.of(context).metrics;
-    final limits = dialogContentLimits(context);
-    // Отступ снизу — такой же, каким поле отбито от полосы заголовка: ряда
-    // кнопок под списком нет, и без него окно кончалось бы строкой впритык к
-    // краю.
+    // Полосы заголовка у палитры нет, и высоту она не отнимает: окно называет
+    // себя первой же строкой — полем ввода с подсказкой.
+    final limits = dialogContentLimits(context, titled: false);
+    // Отступ снизу — такой же, как сверху: ряда кнопок под списком нет, и без
+    // него окно кончалось бы строкой впритык к краю.
     final bottom = metrics.dialogContentTopPadding;
 
     return ConstrainedBox(

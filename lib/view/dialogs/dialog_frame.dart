@@ -21,16 +21,17 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 class DialogFrame extends StatefulWidget {
   const DialogFrame({
     super.key,
-    required this.title,
     required this.onSubmit,
     required this.onDismiss,
     required this.child,
+    this.title,
     this.takesFocus = false,
     this.area = DialogArea.window,
     this.ownWidth = false,
   });
 
-  final String title;
+  /// Заголовок; null — полосы нет, и окно **не двигается**: ручка была ею.
+  final String? title;
 
   /// Enter и Esc соответственно.
   final VoidCallback onSubmit;
@@ -107,12 +108,14 @@ class _DialogFrameState extends State<DialogFrame> {
   /// Полоса заголовка — она же ручка, за которую окно отодвигают.
   ///
   /// Только она: за содержимое окно не тянут — там поля, кнопки и списки, и
-  /// движение по ним значит своё. В macOS ровно так же.
+  /// движение по ним значит своё. В macOS ровно так же. **Отсюда и следствие
+  /// у окна без заголовка: двигать его нечем**, и это не недоделка — второй
+  /// ручки у окна нет и заводить её незачем.
   ///
   /// Порога у протяжки нет: окно едет с первой же точки. Порог нужен там, где
   /// с протяжкой спорит щелчок (заголовки колонок — `drag_slop.dart`), а здесь
   /// щелчок по заголовку не значит ничего.
-  Widget _titleBar(FcTheme theme, FcColors colors, FcMetrics metrics) {
+  Widget _titleBar(FcTheme theme, FcColors colors, FcMetrics metrics, String title) {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       // Отсчёт от нажатия, а не от того места, где протяжка признана протяжкой:
@@ -137,7 +140,7 @@ class _DialogFrameState extends State<DialogFrame> {
             ),
           ],
         ),
-        child: Text(widget.title, style: theme.dialogTitleStyle),
+        child: Text(title, style: theme.dialogTitleStyle),
       ),
     );
   }
@@ -207,7 +210,10 @@ class _DialogFrameState extends State<DialogFrame> {
                       child: Column(
                         mainAxisSize: MainAxisSize.min,
                         crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [_titleBar(theme, colors, metrics), widget.child],
+                        children: [
+                          if (widget.title case final title?) _titleBar(theme, colors, metrics, title),
+                          widget.child,
+                        ],
                       ),
                     ),
                   ),

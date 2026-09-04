@@ -382,8 +382,8 @@ abstract interface class AsyncCommand {
 @immutable
 class DialogSpec {
   const DialogSpec({
-    required this.title,
     required this.content,
+    this.title,
     this.area = DialogArea.window,
     this.takesFocus = false,
     this.ownWidth = false,
@@ -391,8 +391,17 @@ class DialogSpec {
     this.onDismiss,
   });
 
-  /// Заголовок в раме.
-  final String title;
+  /// Заголовок в раме; null — полосы заголовка нет вовсе.
+  ///
+  /// Не пустая строка, а её отсутствие: пустая полоса — это по-прежнему полоса,
+  /// она занимает место и берёт нажатия. Окну без заголовка полоса не нужна и
+  /// не полагается: палитра команд сама говорит, что она такое, — первой же
+  /// строкой поля ввода.
+  ///
+  /// **Такое окно не двигают.** Тянут за полосу заголовка, и другой ручки у
+  /// окна нет: за содержимое не тянут — там поля, кнопки и списки, и движение
+  /// по ним значит своё.
+  final String? title;
 
   final Widget content;
 
