@@ -27,6 +27,7 @@ class DialogFrame extends StatefulWidget {
     this.title,
     this.takesFocus = false,
     this.area = DialogArea.window,
+    this.placement = DialogPlacement.center,
     this.ownWidth = false,
   });
 
@@ -43,6 +44,9 @@ class DialogFrame extends StatefulWidget {
   /// Часть окна приложения, над которой встаёт окно. Обычно всё окно, но окно
   /// про названную панель встаёт над ней самой.
   final DialogArea area;
+
+  /// Где окно стоит по высоте: посередине или под верхним краем.
+  final DialogPlacement placement;
 
   /// Окно назначает ширину само — верхний предел рамы к нему не применяется
   /// (`DialogSpec.ownWidth`).
@@ -158,7 +162,15 @@ class _DialogFrameState extends State<DialogFrame> {
         // Затемнение: пока окно открыто, работать с панелями нельзя.
         Positioned.fill(child: ModalBarrier(dismissible: false, color: colors.dialogBarrier)),
         CustomSingleChildLayout(
-          delegate: _OverArea(widget.area, metrics.dialogMinWidth, _shift, metrics.dialogDragKeepVisible),
+          delegate: _OverArea(
+            widget.area,
+            metrics.dialogMinWidth,
+            _shift,
+            metrics.dialogDragKeepVisible,
+            // Отступ сверху берётся из темы здесь, а не в команде: команда
+            // говорит «под верхним краем», а сколько это точек — оформление.
+            widget.placement == DialogPlacement.top ? metrics.dialogTopInset : null,
+          ),
           child: FocusScope(
             autofocus: true,
             // Обработчик стоит на самой области окна: если внутри есть поле
@@ -235,10 +247,17 @@ class _DialogFrameState extends State<DialogFrame> {
 /// поместится, как ни выравнивай, — но не ниже [minWidth]: на узком экране
 /// важнее прочитать окно, чем попасть точно над панелью.
 class _OverArea extends SingleChildLayoutDelegate {
-  const _OverArea(this.area, this.minWidth, this.shift, this.keepVisible);
+  const _OverArea(this.area, this.minWidth, this.shift, this.keepVisible, this.topInset);
 
   final DialogArea area;
   final double minWidth;
+
+  /// Сколько сверху до окна; null — окно стоит посередине по высоте.
+  ///
+  /// Прибитому к верху окну середина не годится: содержимое палитры меняется
+  /// прямо во время набора, и окно, растущее вокруг своей середины, дёргает
+  /// обе границы разом — а смотрят в этот момент в поле ввода у верхней.
+  final double? topInset;
 
   /// Куда окно отодвинули руками.
   final Offset shift;
@@ -258,7 +277,8 @@ class _OverArea extends SingleChildLayoutDelegate {
     // держать его точно над панелью.
     final free = math.max(0.0, size.width - childSize.width);
     final x = (size.width * area.center - childSize.width / 2).clamp(0.0, free).toDouble();
-    final y = (size.height - childSize.height) / 2;
+    final freeHeight = math.max(0.0, size.height - childSize.height);
+    final y = topInset == null ? freeHeight / 2 : math.min(topInset!, freeHeight);
 
     // Отодвинутое руками окно уехать совсем не может: тянут за полосу
     // заголовка, и спрятанное под край не вернуть ничем.
@@ -270,7 +290,7 @@ class _OverArea extends SingleChildLayoutDelegate {
     return Offset(
       (x + shift.dx).clamp(visible - childSize.width, size.width - visible),
       // По вертикали полоса заголовка видна целиком: за неё и тянут.
-      (y + shift.dy).clamp(0.0, math.max(0.0, size.height - childSize.height)),
+      (y + shift.dy).clamp(0.0, freeHeight),
     );
   }
 
@@ -279,5 +299,6 @@ class _OverArea extends SingleChildLayoutDelegate {
       oldDelegate.area != area ||
       oldDelegate.minWidth != minWidth ||
       oldDelegate.shift != shift ||
-      oldDelegate.keepVisible != keepVisible;
+      oldDelegate.keepVisible != keepVisible ||
+      oldDelegate.topInset != topInset;
 }

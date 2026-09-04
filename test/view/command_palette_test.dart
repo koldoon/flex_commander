@@ -134,6 +134,34 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('палитра стоит под верхним краем и с места не сходит', (tester) async {
+    await openPalette(tester);
+
+    final theme = FcTheme.of(tester.element(find.byType(FcCommandPalette)));
+    Rect window() =>
+        tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(IntrinsicWidth)));
+
+    final before = window();
+    final fieldTop = tester.getRect(field()).top;
+    expect(before.top, moreOrLessEquals(theme.metrics.dialogTopInset, epsilon: 0.5));
+
+    // Набранное отбирает строки, и список становится короче. Прежде окно
+    // росло и сжималось вокруг своей середины — на каждую букву дёргались обе
+    // границы, и поле ввода, в которое смотрят, уезжало вместе с ними.
+    await tester.enterText(field(), 'co');
+    await tester.pumpAndSettle();
+    final fewer = rows(tester).length;
+    expect(window().top, moreOrLessEquals(before.top, epsilon: 0.5), reason: 'верх на месте');
+
+    await tester.enterText(field(), 'copy');
+    await tester.pumpAndSettle();
+    expect(rows(tester).length, lessThan(fewer), reason: 'находок и правда стало меньше');
+    expect(window().top, moreOrLessEquals(before.top, epsilon: 0.5));
+    expect(tester.getRect(field()).top, moreOrLessEquals(fieldTop, epsilon: 0.5), reason: 'поле ввода не уехало');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('палитра занимает три четверти ширины — и на широком экране тоже', (tester) async {
     // Экран нарочно широкий: предел рамы задан в точках
     // (`dialogMaxWidth` — 800), и раньше он обрезал бы долю тем сильнее, чем

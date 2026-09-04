@@ -162,8 +162,10 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
   Widget build(BuildContext context) {
     final metrics = FcTheme.of(context).metrics;
     // Полосы заголовка у палитры нет, и высоту она не отнимает: окно называет
-    // себя первой же строкой — полем ввода с подсказкой.
-    final limits = dialogContentLimits(context, titled: false);
+    // себя первой же строкой — полем ввода с подсказкой. А сверху у неё не
+    // поле, а место (`dialogTopInset`): палитра стоит под верхним краем и с
+    // него не сходит, поэтому и высота меряется от него.
+    final limits = dialogContentLimits(context, titled: false, topInset: metrics.dialogTopInset);
     // Отступ снизу — такой же, как сверху: ряда кнопок под списком нет, и без
     // него окно кончалось бы строкой впритык к краю.
     final bottom = metrics.dialogContentTopPadding;

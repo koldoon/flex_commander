@@ -412,7 +412,13 @@ class CommandDialogBody extends StatelessWidget {
 /// Полоса заголовка вычитается: её рисует рама, а поля считаются для окна
 /// целиком. У окна без заголовка полосы нет вовсе ([titled]) — и вычитать
 /// нечего: место, отведённое под то, чего не рисуют, окно бы просто потеряло.
-BoxConstraints dialogContentLimits(BuildContext context, {bool titled = true}) {
+///
+/// [topInset] — для окна, прибитого к верхнему краю
+/// ([DialogPlacement.top]): сверху у него не поле, а назначенное место, и
+/// считать высоту от середины нельзя. Переросшее свой предел окно раскладка
+/// подняла бы выше назначенного — то самое дрожание, ради избавления от
+/// которого его туда и прибили.
+BoxConstraints dialogContentLimits(BuildContext context, {bool titled = true, double? topInset}) {
   final metrics = FcTheme.of(context).metrics;
   final screen = MediaQuery.sizeOf(context);
   final inset = metrics.dialogScreenInset;
@@ -420,7 +426,7 @@ BoxConstraints dialogContentLimits(BuildContext context, {bool titled = true}) {
   // далеко отодвинуты края, — и на широком экране окно растягивалось бы во всю
   // ширину, оставляя от панелей две узкие полоски.
   final width = screen.width * metrics.dialogMaxScreenFactor;
-  final height = screen.height - inset * 2 - (titled ? metrics.dialogTitleHeight : 0);
+  final height = screen.height - (topInset ?? inset) - inset - (titled ? metrics.dialogTitleHeight : 0);
 
   return BoxConstraints(maxWidth: width < 0 ? 0 : width, maxHeight: height < 0 ? 0 : height);
 }
