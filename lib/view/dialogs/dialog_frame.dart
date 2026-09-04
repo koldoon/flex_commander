@@ -131,7 +131,9 @@ class _DialogFrameState extends State<DialogFrame> {
         width: double.infinity,
         height: metrics.dialogTitleHeight,
         alignment: Alignment.centerLeft,
-        padding: EdgeInsets.symmetric(horizontal: metrics.dialogTitlePadding),
+        // Тем же полем, что и содержимое: заголовок и подписи под ним стоят на
+        // одной вертикали, и левый край окна читается прямым.
+        padding: EdgeInsets.symmetric(horizontal: metrics.dialogHorizontalPadding),
         decoration: BoxDecoration(
           color: colors.dialogTitleBackground,
           // Полоса заголовка отбрасывает тень на содержимое — тот же фильтр,

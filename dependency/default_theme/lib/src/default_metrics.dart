@@ -149,9 +149,6 @@ class DefaultMetrics extends FcMetrics {
   double get dialogMaxWidth => 800;
 
   @override
-  double get dialogTitlePadding => 8;
-
-  @override
   double get dialogTitleHeight => 33.6;
 
   @override
@@ -229,7 +226,7 @@ class DefaultMetrics extends FcMetrics {
   double get buttonHeight => 24;
 
   @override
-  double get buttonRadius => 3.2;
+  double get buttonRadius => 4;
 
   @override
   double get buttonHorizontalPadding => 16;
@@ -246,7 +243,7 @@ class DefaultMetrics extends FcMetrics {
   double get checkboxSize => 16;
 
   @override
-  double get checkboxGap => 6.4;
+  double get checkboxGap => 8;
 
   @override
   double get inputHeight => 28;
@@ -259,10 +256,10 @@ class DefaultMetrics extends FcMetrics {
   double get commandLineHeight => 20;
 
   @override
-  double get inputRadius => 3.2;
+  double get inputRadius => 4;
 
   @override
-  double get inputHorizontalPadding => 8.8;
+  double get inputHorizontalPadding => 8;
 
   // --- полоса хода работы (ProgressBar.mxml) ---
 
@@ -270,7 +267,7 @@ class DefaultMetrics extends FcMetrics {
   double get progressHeight => 12;
 
   @override
-  double get progressInset => 1.6;
+  double get progressInset => 1;
 
   // --- общее ---
 
