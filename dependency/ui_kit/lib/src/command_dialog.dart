@@ -12,7 +12,11 @@ import 'fc_theme.dart';
 /// ввода, подтверждение, ход выполнения и вопрос по ходу работы.
 ///
 /// Вид взят у референса: содержимое с полями `padding="20" paddingLeft="40"`,
-/// под ним линия и ряд кнопок, прижатых вправо (`TitledPopupPanelSkin`).
+/// под ним ряд кнопок, прижатых вправо (`TitledPopupPanelSkin`).
+///
+/// Линии над кнопками, которая была в референсе, у нас нет: на тёмном фоне она
+/// вышла едва различимой — не граница, а грязь на стекле. Отделяет ряд от
+/// содержимого воздух, и его довольно.
 
 /// Форма: произвольное содержимое, кнопки «отмена» и подтверждение.
 ///
@@ -355,7 +359,7 @@ class _CommandDialogQuestionState extends State<CommandDialogQuestion> {
   }
 }
 
-/// Содержимое окна: строки с полями и ряд кнопок под линией.
+/// Содержимое окна: строки с полями и ряд кнопок под ними.
 class CommandDialogBody extends StatelessWidget {
   const CommandDialogBody({super.key, required this.children, required this.actions});
 
@@ -387,7 +391,7 @@ class CommandDialogBody extends StatelessWidget {
   }
 }
 
-/// Ряд кнопок внизу окна: линия, отступы и сами кнопки.
+/// Ряд кнопок внизу окна: отступы и сами кнопки.
 ///
 /// Общий для **всех** окон, и это не удобство, а необходимость: кнопка
 /// (`FcButton`) — это `Container` с `alignment`, а такой контейнер под
@@ -508,7 +512,6 @@ class CommandDialogActions extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Container(height: metrics.dialogDividerHeight, color: theme.colors.dialogDivider),
         Padding(
           padding: EdgeInsets.symmetric(horizontal: metrics.dialogHorizontalPadding, vertical: metrics.dialogPadding),
           // Ширина окна задана содержимым и от кнопок не зависит, поэтому пять
@@ -689,10 +692,21 @@ class FcForm extends StatelessWidget {
         // Строка без подписи начинается там же, где значения: под полем ввода,
         // а не под его подписью. Кроме той, что выходит к самым краям окна, —
         // ей поля не отводятся вовсе.
+        //
+        // **Столбца подписей может не быть вовсе** — окно поиска целиком собрано
+        // из широких строк. Тогда и отступать не от чего: отведённый под пустой
+        // столбец зазор сдвигал бы всё содержимое вправо, и поле слева
+        // оказывалось шире правого ровно на него. Окно от этого выглядело
+        // косым, а причина не находилась ни в нём самом, ни в теме.
+        final indent = width == 0 ? 0.0 : width + metrics.dialogGap;
         final content =
             row.bleeds
                 ? row.content(theme)
-                : inset(Padding(padding: EdgeInsets.only(left: width + metrics.dialogGap), child: row.content(theme)));
+                : inset(
+                  indent == 0
+                      ? row.content(theme)
+                      : Padding(padding: EdgeInsets.only(left: indent), child: row.content(theme)),
+                );
         add(content, wide: true);
         continue;
       }

@@ -128,8 +128,14 @@ class _FindFilesResultsState extends State<FindFilesResults> {
                 // Обе стоят всегда — строка, то появляющаяся, то исчезающая,
                 // двигала бы список под курсором ровно тогда, когда в него
                 // смотрят.
-                CommandDialogField.wide(child: _line(theme, 'Found: ${state.found.length}')),
-                CommandDialogField.wide(child: _line(theme, _progress(state))),
+                //
+                // Одной строкой формы из двух строк, а не двумя строками: это
+                // одна сводка о поиске, и отбивать её половины друг от друга
+                // так же, как от списка, значило бы читать их как разное.
+                CommandDialogField.column(
+                  label: '',
+                  children: [_line(theme, 'Found: ${state.found.length}'), _line(theme, _progress(state))],
+                ),
               ],
             ),
           ),

@@ -53,8 +53,9 @@ void main() {
     await appWith(tester);
     await openWindow(tester);
 
-    // Раскладка `mc`: две группы в рамках, два столбца, нереализованное
-    // приглушено.
+    // Раскладка `mc`: подписи над полями, два столбца, нереализованное
+    // приглушено. Отступы и зазоры — общие для всех окон: своих рамок и своих
+    // полей у окна поиска нет.
     await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/find_files_params.png'));
 
     await tester.pump(const Duration(milliseconds: 20));

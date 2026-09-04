@@ -128,6 +128,23 @@ void main() {
     expect(flag.left, closeTo(field.left, 0.01));
   });
 
+  testWidgets('форма без подписей не сдвигает содержимое вправо', (tester) async {
+    // Столбца подписей нет вовсе — так собраны оба окна поиска. Отступать
+    // широкой строке не от чего, и поля по краям обязаны выйти одинаковыми:
+    // отведённый под пустой столбец зазор делал окно косым.
+    await pump(tester, const [
+      CommandDialogField.wide(child: SizedBox(key: ValueKey('one'), height: 24)),
+      CommandDialogField.wide(child: SizedBox(key: ValueKey('two'), height: 24)),
+    ]);
+
+    final form = tester.getRect(find.byType(FcForm));
+    for (final key in ['one', 'two']) {
+      final row = tester.getRect(find.byKey(ValueKey(key)));
+      expect(row.left - form.left, closeTo(metrics.dialogHorizontalPadding, 0.01), reason: key);
+      expect(form.right - row.right, closeTo(metrics.dialogHorizontalPadding, 0.01), reason: key);
+    }
+  });
+
   testWidgets('сообщение об ошибке отделено просветом строки без подписи', (tester) async {
     await pump(tester, const [
       CommandDialogField(label: 'One', child: SizedBox(key: ValueKey('one'), height: 24)),

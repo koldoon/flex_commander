@@ -22,6 +22,24 @@ abstract final class FcPalette {
   static const Color blue1 = Color(0xFF3B5A96);
   static const Color blue0 = Color(0xFF9AA7C1);
 
+  /// Фон файловой панели — **явным цветом, а не прозрачностью**.
+  ///
+  /// Он и был этим цветом: белый пятипроцентный поверх [blue3] даёт ровно
+  /// его. Но пока он складывался из двух слоёв, всякий, кто клал панельный фон
+  /// ещё раз — внутри содержимого, в окне поверх другого фона, — получал
+  /// полтона разницы с панелью: видно глазом, не видно в коде. Дважды на этом
+  /// спотыкались (редактор, окно находок), и оба раза причина находилась не
+  /// там, где искали.
+  static const Color panel = Color(0xFF0E1D3B);
+
+  /// Область списка в окне команды и её обводка.
+  ///
+  /// Своя пара, а не панельная: окно команды стоит на [sea2], который светлее
+  /// фона приложения, и [panel] рядом с ним выглядит чужим — подобран он под
+  /// другое соседство.
+  static const Color dialogList = Color(0xFF011629);
+  static const Color dialogListEdge = Color(0xFF01111F);
+
   static const Color sea = Color(0xFF04345B);
   static const Color sea2 = Color(0xFF011E37);
 
@@ -30,9 +48,6 @@ abstract final class FcPalette {
 
   /// Подписи нижней панели (`FunctionKeyRenderer`, `#95ABBD`).
   static const Color functionKey = Color(0xFF95ABBD);
-
-  /// Разделительная линия в окне команды (`TitledPopupPanelSkin`, `#191d25`).
-  static const Color dialogDivider = Color(0xFF191D25);
 }
 
 /// Цвета интерфейса по их роли.
@@ -56,7 +71,7 @@ class DefaultColors extends FcColors {
   // --- панель ---
 
   @override
-  Color get panelBackground => FcPalette.white.withValues(alpha: 0.05);
+  Color get panelBackground => FcPalette.panel;
 
   @override
   Color get panelBorder => FcPalette.white.withValues(alpha: 0.15);
@@ -133,13 +148,16 @@ class DefaultColors extends FcColors {
   Color get dialogBackground => FcPalette.sea2;
 
   @override
+  Color get dialogListBackground => FcPalette.dialogList;
+
+  @override
+  Color get dialogListBorder => FcPalette.dialogListEdge;
+
+  @override
   Color get dialogTitleBackground => FcPalette.sea;
 
   @override
   Color get dialogTitleText => FcPalette.white;
-
-  @override
-  Color get dialogDivider => FcPalette.dialogDivider;
 
   @override
   Color get dialogLabel => FcPalette.white;

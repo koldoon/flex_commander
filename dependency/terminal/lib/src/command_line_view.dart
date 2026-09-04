@@ -242,10 +242,9 @@ class _CommandLineViewState extends State<CommandLineView> {
 
     return Container(
       height: metrics.commandLineHeight,
-      // Фон окна, а не панели: `panelBackground` — это белый пятипроцентный
-      // поверх окна, и кладёт его рамка панели. Строка рамки не имеет и стоит
-      // под панелями, а не внутри: взяв панельный цвет, она притворялась бы
-      // куском панели и вылезала бы полутоном на общем фоне.
+      // Фон окна, а не панели: строка рамки не имеет и стоит под панелями, а не
+      // внутри. Взяв панельный цвет, она притворялась бы куском панели —
+      // светлой полосой поперёк общего фона.
       color: colors.windowBackground,
       padding: EdgeInsets.symmetric(horizontal: metrics.panelLeftPadding),
       child: LayoutBuilder(

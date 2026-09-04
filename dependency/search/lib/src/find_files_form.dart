@@ -29,6 +29,17 @@ class _FindFilesFormState extends State<FindFilesForm> {
   void initState() {
     super.initState();
     _mask.text = widget.state.query.mask;
+    // Фокус в маске — и не только просьбой `autofocus`. Просьба разбирается
+    // в тот же кадр, в который окно появляется, а в этот кадр фокуса просят и
+    // другие: командная строка возвращает его себе, когда ввод числится за ней
+    // (`command_line_view.dart`), и всякий, кто слушает `view`. Кто окажется
+    // последним, зависит от порядка слушателей, а маска обязана получить фокус
+    // всегда: окно затем и открывают, чтобы набрать её.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && !_focus.hasFocus) {
+        _focus.requestFocus();
+      }
+    });
   }
 
   @override
@@ -66,54 +77,41 @@ class _FindFilesFormState extends State<FindFilesForm> {
               FcButton(label: 'Cancel', onPressed: state.close),
               FcButton(label: 'OK', primary: true, onPressed: state.canStart ? () => unawaited(state.begin()) : null),
             ],
+            // Строки формы — те же, что у всех окон: поля по краям, зазоры
+            // между строками и просвет от заголовка ставит `CommandDialogBody`,
+            // а не окно поиска своими руками. Своих рамок вокруг групп здесь
+            // нет: в `mc` рамка отделяет группу от соседней в текстовом экране,
+            // где отделить нечем больше, а у нас группы отбиты воздухом — как
+            // во всех остальных окнах.
+            //
+            // Раскладка при этом остаётся из `mc`: подписи **над** полями и два
+            // столбца — «по имени» и «по содержимому». Слева подпись отняла бы
+            // у двух столбцов ту самую ширину, ради которой их и ставят рядом.
             children: [
-              // Раскладка — как в «Find File» у `mc`: сперва откуда искать,
-              // потом два столбца — «по имени» и «по содержимому», — и всё это
-              // подписями **над** полями, а не слева от них. Слева подпись
-              // отняла бы у двух столбцов ту самую ширину, ради которой их и
-              // ставят рядом.
-              CommandDialogField.wide(
-                child: _group(theme, [
-                  _labeled(theme, 'Start at:', _startAt(theme, state)),
-                  SizedBox(height: theme.metrics.dialogLineGap),
-                  // Не наше пока: каталоги-исключения (Д3).
-                  FcCheckbox(label: 'Enable ignore directories:', value: false, onChanged: null),
-                  SizedBox(height: theme.metrics.dialogLineGap),
-                  FcTextField(controller: _ignore, enabled: false),
-                ]),
+              CommandDialogField.wide(child: _labeled(theme, 'Start at:', _startAt(theme, state))),
+              // Не наше пока: каталоги-исключения (Д3). Флаг и поле под ним —
+              // две строки формы, отбитые как все остальные: свой, более тесный
+              // зазор делал бы из них блок, каких в других окнах нет.
+              const CommandDialogField.wide(
+                child: FcCheckbox(label: 'Ignore directories:', value: false, onChanged: null),
               ),
+              CommandDialogField.wide(child: FcTextField(controller: _ignore, enabled: false)),
               CommandDialogField.wide(
-                child: _group(theme, [
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(child: _byName(theme, state)),
-                      SizedBox(width: theme.metrics.dialogHorizontalPadding),
-                      Expanded(child: _byContent(theme)),
-                    ],
-                  ),
-                ]),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Expanded(child: _byName(theme, state)),
+                    // Просвет между столбцами — по полю окна: тогда средний
+                    // просвет читается так же, как боковые.
+                    SizedBox(width: theme.metrics.dialogHorizontalPadding),
+                    Expanded(child: _byContent(theme)),
+                  ],
+                ),
               ),
             ],
           ),
         );
       },
-    );
-  }
-
-  /// Рамка вокруг группы полей — как секции в окне `mc`.
-  ///
-  /// Рамка та же, что у полей ввода и у таблицы находок: группа — такая же
-  /// часть окна, и заводить ей свой вид незачем.
-  Widget _group(FcTheme theme, List<Widget> children) {
-    final metrics = theme.metrics;
-    return Container(
-      padding: EdgeInsets.all(metrics.dialogPadding),
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colors.inputBorder, width: metrics.strokeWidth),
-        borderRadius: BorderRadius.circular(metrics.inputRadius),
-      ),
-      child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: children),
     );
   }
 
@@ -154,7 +152,10 @@ class _FindFilesFormState extends State<FindFilesForm> {
 
   /// Левый столбец: поиск по имени — то, что уже работает.
   Widget _byName(FcTheme theme, FindFilesState state) {
-    final gap = SizedBox(height: theme.metrics.dialogLineGap);
+    // Зазор между флагами — тот же, что форма ставит между своими строками
+    // (`FcOptions` разделяет им же варианты одного переключателя): столбец
+    // флагов читается столбцом, а не слипшейся стопкой.
+    final gap = SizedBox(height: theme.metrics.dialogGap);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -207,7 +208,7 @@ class _FindFilesFormState extends State<FindFilesForm> {
 
   /// Правый столбец: поиск по содержимому — второй шаг Д2, целиком приглушён.
   Widget _byContent(FcTheme theme) {
-    final gap = SizedBox(height: theme.metrics.dialogLineGap);
+    final gap = SizedBox(height: theme.metrics.dialogGap);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,

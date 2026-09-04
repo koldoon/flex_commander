@@ -247,9 +247,6 @@ abstract class FcMetrics {
   /// самая крупная граница в окне.
   double get sectionGap;
 
-  /// Линия над рядом кнопок: `height="2"`.
-  double get dialogDividerHeight;
-
   /// Ширина колонки подписей в форме окна.
   double get dialogLabelWidth;
 

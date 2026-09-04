@@ -113,12 +113,24 @@ class _FoundTableState extends State<FoundTable> {
     // Страница для `PgUp`/`PgDn` известна заранее: строк столько, сколько видно.
     widget.page?.size = widget.visibleRows;
 
+    // Область находок — место файловой панели, и устроена она как панель:
+    // скругление `panelRadius`, шаг строк и цвета текста те же. Цвет области
+    // при этом **свой** (`dialogListBackground`, `dialogListBorder`), а не
+    // панельный: панель стоит на фоне приложения, а список — в окне команды,
+    // фон у которого светлее, и панельная пара рядом с ним выглядит чужой.
+    // Поле ввода тут тем более ни при чём: в нём набирают, а здесь ходят
+    // курсором по файлам.
+    //
+    // Не `FcPanelFrame`, хотя рамку панели рисует она: рама отводит место под
+    // «плашку» с путём, наполовину заходящую на верхний край. Плашки здесь нет
+    // и быть не может — что искали, сказано в заголовке окна, — а место под
+    // неё осталось бы пустой полосой.
     return Container(
       height: line * widget.visibleRows + metrics.strokeWidth * 2,
       decoration: BoxDecoration(
-        color: colors.inputBackground,
-        border: Border.all(color: colors.inputBorder, width: metrics.strokeWidth),
-        borderRadius: BorderRadius.circular(metrics.inputRadius),
+        color: colors.dialogListBackground,
+        border: Border.all(color: colors.dialogListBorder, width: metrics.strokeWidth),
+        borderRadius: BorderRadius.circular(metrics.panelRadius),
       ),
       clipBehavior: Clip.antiAlias,
       child:
@@ -142,10 +154,17 @@ class _FoundTableState extends State<FoundTable> {
     final colors = theme.colors;
     final metrics = theme.metrics;
     final base = TextStyle(fontFamily: theme.fonts.ui, fontSize: metrics.fontSize);
+    // Найденное красится как в панели, и это не сходство ради сходства: здесь
+    // тот же список файлов, только собранный обходом. Обычная строка —
+    // `rowText`, под курсором — `cursorText`, ровно как решает `FileTableRow`.
+    // Пока имя стояло цветом подписи окна (белым), оно и цветом не отличалось
+    // от заголовка каталога, и под курсором не менялось вовсе.
 
     if (row.isHeader) {
       // Заголовок каталога: тем же цветом, каким пути показаны везде, и без
-      // отступа — от него отступают находки.
+      // отступа — от него отступают находки. Белый остаётся белым при любом
+      // положении курсора: заголовок не файл, курсор по нему не ходит, и
+      // «выбранным» он не бывает.
       return Container(
         padding: EdgeInsets.symmetric(horizontal: metrics.inputHorizontalPadding),
         alignment: Alignment.centerLeft,
@@ -173,7 +192,7 @@ class _FoundTableState extends State<FoundTable> {
         alignment: Alignment.centerLeft,
         child: Text(
           row.entry!.name,
-          style: base.copyWith(color: current ? colors.cursorText : colors.dialogLabel),
+          style: base.copyWith(color: current ? colors.cursorText : colors.rowText),
           maxLines: 1,
           overflow: TextOverflow.ellipsis,
         ),

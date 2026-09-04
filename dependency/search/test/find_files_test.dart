@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_search/fc_search.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
@@ -80,6 +81,20 @@ void main() {
     expect(editable.focusNode.hasFocus, isTrue);
     // Где ищем — видно, и правится это только переходом панели.
     expect(find.text('/home'), findsWidgets);
+  });
+
+  testWidgets('фокус достаётся маске, даже когда ввод был у командной строки', (tester) async {
+    await pumpApp(tester);
+    // Ввод у строки внизу — обычное состояние в режиме `mc`. Строка возвращает
+    // себе фокус, когда область числится за ней, и делает это в тот же кадр, в
+    // который открывается окно: маска обязана победить в этой гонке.
+    app.view.setFocus(ViewportPosition.bottom);
+    await tester.pumpAndSettle();
+
+    await openWindow(tester);
+
+    final editable = tester.widget<EditableText>(find.descendant(of: input, matching: find.byType(EditableText)));
+    expect(editable.focusNode.hasFocus, isTrue);
   });
 
   testWidgets('маска отбирает по всему дереву, а не по одному каталогу', (tester) async {
@@ -282,6 +297,59 @@ void main() {
 
     expect(tester.getRect(find.byType(FoundTable)), table, reason: 'таблица там же и того же размера');
     expect(tester.getRect(find.byType(FindFilesResults)), window, reason: 'и окно не поехало');
+  });
+
+  testWidgets('находки красятся как в панели, заголовок каталога — всегда белым', (tester) async {
+    await pumpApp(tester, size: const Size(1200, 800));
+    await openWindow(tester);
+    await search(tester, '*.dart');
+
+    const colors = DefaultColors();
+    // Строки списка по порядку: имя и цвет, каким оно набрано. Имена в
+    // находках повторяются (`main.dart` лежит в двух каталогах) — различает их
+    // только место в списке.
+    List<(String, Color?)> rows() => [
+      for (final text in tester.widgetList<Text>(
+        find.descendant(of: find.byType(FoundTable), matching: find.byType(Text)),
+      ))
+        (text.data ?? '', text.style?.color),
+    ];
+
+    // Курсора ещё нет: обход только кончился, по списку не ходили.
+    expect(rows(), [
+      ('/home', colors.pathText),
+      ('main.dart', colors.rowText),
+      ('/home/lib', colors.pathText),
+      ('main.dart', colors.rowText),
+      ('/home/lib/src', colors.pathText),
+      ('util.dart', colors.rowText),
+    ]);
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+
+    expect(rows(), [
+      ('/home', colors.pathText),
+      ('main.dart', colors.cursorText),
+      ('/home/lib', colors.pathText),
+      ('main.dart', colors.rowText),
+      ('/home/lib/src', colors.pathText),
+      ('util.dart', colors.rowText),
+    ], reason: 'под курсором — как в панели, белым');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+
+    // Курсор ушёл дальше: белой стала следующая находка, а заголовки не
+    // шелохнулись — курсор по ним не ходит вовсе.
+    expect(rows(), [
+      ('/home', colors.pathText),
+      ('main.dart', colors.rowText),
+      ('/home/lib', colors.pathText),
+      ('main.dart', colors.cursorText),
+      ('/home/lib/src', colors.pathText),
+      ('util.dart', colors.rowText),
+    ]);
   });
 
   testWidgets('тысяча находок — строк собрано столько, сколько видно', (tester) async {

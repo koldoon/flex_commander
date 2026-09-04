@@ -13,8 +13,19 @@ void main() {
   group('палитра', () {
     test('фон окна и панели — цвета референса', () {
       expect(colors.windowBackground, FcPalette.blue3);
-      expect(colors.panelBackground, FcPalette.white.withValues(alpha: 0.05));
+      // Непрозрачным цветом, а не прозрачностью поверх окна: слои
+      // складывались у всякого, кто клал панельный фон вторым.
+      expect(colors.panelBackground, FcPalette.panel);
+      expect(colors.panelBackground.a, 1.0);
       expect(colors.panelBorder, FcPalette.white.withValues(alpha: 0.15));
+    });
+
+    test('область списка в окне команды — своя пара, не панельная', () {
+      // Окно команды светлее фона приложения, и панельный цвет рядом с ним
+      // выглядит чужим: у списка находок своя пара ролей.
+      expect(colors.dialogListBackground, FcPalette.dialogList);
+      expect(colors.dialogListBorder, FcPalette.dialogListEdge);
+      expect(colors.dialogListBackground, isNot(colors.panelBackground));
     });
 
     test('курсор, пометка и текст строки', () {
