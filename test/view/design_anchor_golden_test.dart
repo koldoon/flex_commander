@@ -142,10 +142,13 @@ Future<bool> _loadFonts() async {
   const assets = 'assets/fonts';
   final ui = await _load('Ubuntu', ['$assets/Ubuntu-R.ttf', '$assets/Ubuntu-B.ttf']);
   final icons = await _load('FontAwesome', ['$assets/fontawesome-webfont.ttf']);
+  // Только Consolas, без подмены. Эталон снят им, и Menlo вместо него — это не
+  // «почти то же самое», а другой снимок: на раннере GitHub, где Consolas нет,
+  // подмена делала `fontsReady` истинным, тесты шли и падали расхождением в
+  // 3–9 %. Нет нужного шрифта — сверять нечем, и снимок пропускается, как и
+  // обещано в `spec/design-system.md`.
   final home = Platform.environment['HOME'] ?? '';
-  final fixed =
-      await _load('Consolas', ['$home/Library/Fonts/CONSOLA.TTF', '$home/Library/Fonts/CONSOLAB.TTF']) ||
-      await _load('Menlo', ['/System/Library/Fonts/Menlo.ttc']);
+  final fixed = await _load('Consolas', ['$home/Library/Fonts/CONSOLA.TTF', '$home/Library/Fonts/CONSOLAB.TTF']);
   return ui && icons && fixed;
 }
 
