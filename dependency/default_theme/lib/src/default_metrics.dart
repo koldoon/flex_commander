@@ -89,13 +89,13 @@ class DefaultMetrics extends FcMetrics {
   double get columnGap => 8;
 
   @override
-  double get markedBarWidth => 3.2;
+  double get markedBarWidth => 3;
 
   @override
   double get iconLeftPadding => 12;
 
   @override
-  double get iconGap => 7.6;
+  double get iconGap => 8;
 
   @override
   double get iconColumnWidth => iconLeftPadding + iconSize + iconGap - cellPadding;
@@ -149,7 +149,7 @@ class DefaultMetrics extends FcMetrics {
   double get dialogMaxWidth => 800;
 
   @override
-  double get dialogTitleHeight => 33.6;
+  double get dialogTitleHeight => 30;
 
   @override
   double get dialogDragKeepVisible => 96;
@@ -191,10 +191,10 @@ class DefaultMetrics extends FcMetrics {
   double get dialogLabelWidth => 100;
 
   @override
-  double get toastPadding => 5.6;
+  double get toastPadding => 6;
 
   @override
-  double get toastHorizontalPadding => 9.6;
+  double get toastHorizontalPadding => 10;
 
   /// Над рядом кнопок: его высота плюс поля окна снизу и небольшой просвет.
   @override
@@ -278,7 +278,7 @@ class DefaultMetrics extends FcMetrics {
   double get scrollbarInset => 2;
 
   @override
-  double get fontSize => 13.09;
+  double get fontSize => 13;
 
   @override
   double get iconSize => fontSize;
@@ -286,9 +286,6 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get cellPadding => 4;
 
-  // Не через `ref`: поправка оптическая, ей незачем меняться вместе
-  // с масштабом интерфейса. Полточки — на экране с удвоенной плотностью это
-  // ровно один аппаратный пиксель, целая точка сдвигает уже заметно.
   @override
   double get rowContentVerticalNudge => 0.5;
 

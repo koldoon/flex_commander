@@ -68,7 +68,10 @@ void main() {
     });
 
     test('кегль один на всё приложение: `h5` референса', () {
-      const expected = 13.09;
+      // Число здесь — зеркало темы, а проверяется не оно: кегль обязан быть
+      // **один** на все стили. Замер работающего референса дал 13.09, в теме
+      // он округлён до целого.
+      const expected = 13.0;
       expect(theme.metrics.fontSize, expected);
       for (final style in [theme.uiStyle, theme.rowStyle, theme.headerStyle, theme.pathStyle, theme.buttonStyle]) {
         expect(style.fontSize, expected);
@@ -101,7 +104,8 @@ void main() {
       // Замер снимка работающего референса: текст там мельче, чем следует из
       // отношения 34 к 50 в исходниках. Геометрия при этом совпадает.
       //
-      // Отношение 34/50 от высоты строки дало бы 13.6; замер дал 13.09.
+      // Отношение 34/50 от высоты строки дало бы 13.6; замер дал 13.09, в
+      // теме округлено до 13.
       expect(metrics.fontSize, lessThan(metrics.rowHeight * 34 / 50));
       // Иконка — глиф того же кегля, что и текст.
       expect(metrics.iconSize, metrics.fontSize);
