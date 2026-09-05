@@ -126,15 +126,13 @@ abstract final class FileIconSize {
     return grown > metrics.rowHeight ? grown : metrics.rowHeight;
   }
 
-  /// Ширина колонки иконки: объявленная плюс то, на сколько иконка выросла.
+  /// Ширина колонки иконки: отступ слева, сама иконка и просвет до имени
+  /// **минус** поле ячейки имени — оно часть того же просвета.
   ///
-  /// Приростом, а не счётом заново (`iconLeftPadding + iconSize + iconGap -
-  /// cellPadding`): та формула даёт 29 против объявленных в раскладке 28, и на
-  /// умолчании список поехал бы на пиксель вместе со всеми эталонами. Разницу в
-  /// единицу оставил округлённый кегль — она известна и допущена тестом темы, и
-  /// платить за неё сдвигом разметки незачем.
-  static double columnWidth(FcMetrics metrics, double iconSize, double declared) {
-    final grown = declared + (iconSize - metrics.iconSize);
-    return grown > declared ? grown : declared;
-  }
+  /// Считается, а не берётся из раскладки. Раньше там стояла константа 28, и
+  /// `iconColumnWidth` объяснял, откуда она взялась, но ни на что не влиял:
+  /// покрути `iconGap` — и в окне не менялось ничего. Метрика, которую нельзя
+  /// подвигать, — это не метрика, а комментарий.
+  static double columnWidth(FcMetrics metrics, double iconSize) =>
+      metrics.iconLeftPadding + iconSize + metrics.iconGap - metrics.cellPadding;
 }

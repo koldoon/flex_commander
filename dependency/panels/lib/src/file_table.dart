@@ -659,10 +659,9 @@ class _FileTableState extends State<FileTable> {
   List<double> _columnWidths(List<ColumnSpec> columns, double available, double iconSize, FcMetrics metrics) {
     // Ширину закреплённых колонок задаёт приложение, а не файл настроек
     // (`models.md`), и у иконки она складывается из отступа, самой иконки и
-    // просвета до имени. Раньше это была константа в раскладке; теперь —
-    // счёт от размера иконки, потому что размер стал настраиваемым.
+    // просвета до имени — то есть из метрик темы, а не из константы раскладки.
     double widthOf(ColumnSpec column) =>
-        column.id == FsColumn.icon ? FileIconSize.columnWidth(metrics, iconSize, column.width) : column.width;
+        column.id == FsColumn.icon ? FileIconSize.columnWidth(metrics, iconSize) : column.width;
 
     var fixed = 0.0;
     for (final column in columns) {
