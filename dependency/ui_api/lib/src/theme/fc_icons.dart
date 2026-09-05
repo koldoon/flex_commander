@@ -43,6 +43,27 @@ abstract class FcIcons {
   IconData get exclamation;
 }
 
+/// Роль по имени — для правил, приехавших из файла настроек.
+///
+/// Имена те же, что у геттеров: `glyph:folder` в правиле иконки означает
+/// [FcIcons.folder]. Незнакомое имя даёт null, и правило с ним пропускается —
+/// файл настроек правят руками (`docs/spec/file-icons.md`, §4).
+extension FcIconRoles on FcIcons {
+  IconData? byRole(String role) => switch (role) {
+    'folder' => folder,
+    'folderOpen' => folderOpen,
+    'link' => link,
+    'asterisk' => asterisk,
+    'check' => check,
+    'angleRight' => angleRight,
+    'caretUp' => caretUp,
+    'caretDown' => caretDown,
+    'circleOutline' => circleOutline,
+    'exclamation' => exclamation,
+    _ => null,
+  };
+}
+
 /// Глиф строкой — для мест, где иконка идёт внутри текста, а не отдельным
 /// виджетом: например, стрелка в описании ссылки.
 extension FcIconGlyph on FcIcons {

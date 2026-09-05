@@ -30,6 +30,7 @@ workspace:
   - dependency/core_api
   - dependency/default_theme
   - dependency/editor
+  - dependency/file_icons
   - dependency/file_info
   - dependency/file_ops
   - dependency/image_viewer
@@ -126,6 +127,9 @@ dependencies:
 
   fc_image_viewer:
     path: dependency/image_viewer
+
+  fc_file_icons:
+    path: dependency/file_icons
 
   fc_file_info:
     path: dependency/file_info

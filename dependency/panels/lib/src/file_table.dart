@@ -200,20 +200,25 @@ class _FileTableState extends State<FileTable> {
             builder: (context, constraints) {
               final app = AppScope.read(context);
               final columns = panel.columns.visibleColumns;
+              // Размер иконки задаёт и высоту строки, и ширину колонки под
+              // ней: величина одна, и считается она в одном месте, иначе
+              // иконка вылезет из строки или в колонке останется дыра.
+              final iconSize = FileIconSize.of(theme.metrics, app.fileIcons);
               // Поле справа принадлежит содержимому, а не подсветке строки:
               // `right="40"` у содержимого строки при рамке панели, идущей
               // до самого края.
               final inset = theme.metrics.panelRightPadding;
-              final widths = _columnWidths(columns, constraints.maxWidth - inset);
+              final widths = _columnWidths(columns, constraints.maxWidth - inset, iconSize, theme.metrics);
               final contentWidth = widths.fold<double>(0, (sum, width) => sum + width) + inset;
 
               // Сколько строк видно — от этого считается шаг PgUp/PgDn.
               final listHeight = constraints.maxHeight - theme.metrics.headerRowHeight;
-              panel.pageSize = (listHeight / theme.metrics.rowHeight).floor().clamp(1, 1000);
+              final rowHeight = FileIconSize.rowHeight(theme.metrics, iconSize);
+              panel.pageSize = (listHeight / rowHeight).floor().clamp(1, 1000);
               // Те же размеры нужны прокрутке нового каталога, а она считается
               // до разметки: запоминаем то, что известно сейчас.
               _listHeight = listHeight;
-              _rowHeight = theme.metrics.rowHeight;
+              _rowHeight = rowHeight;
               _headerHeight = theme.metrics.headerRowHeight;
 
               final table = SizedBox(
@@ -408,7 +413,6 @@ class _FileTableState extends State<FileTable> {
 
   Widget _buildList(List<ColumnSpec> columns, List<double> widths) {
     final panel = widget.panel;
-    final theme = FcTheme.of(context);
     // Контроллер берётся из контекста таблицы, а не из контекста строки:
     // строки пересобираются, и к моменту обработки клика элемент строки
     // может быть уже отсоединён от дерева.
@@ -435,7 +439,9 @@ class _FileTableState extends State<FileTable> {
           // переносится.
           key: ValueKey(_scrolledDirectory),
           controller: _scroll,
-          itemExtent: theme.metrics.rowHeight,
+          // Тем же шагом, что и всё остальное: `_rowHeight` посчитан выше, в
+          // разметке, и учитывает крупные иконки.
+          itemExtent: _rowHeight,
           itemCount: panel.entries.length,
           primary: false,
           itemBuilder: (context, index) {
@@ -450,6 +456,9 @@ class _FileTableState extends State<FileTable> {
               // Правило показа одно на приложение: две панели, делящие имя
               // по-разному, — не гибкость, а недосмотр.
               naming: app.fileNaming,
+              // Байты — для правил иконок по содержимому. Спрашивают их у
+              // панели: строка принадлежит ей, и она же знает, откуда читать.
+              contentOf: panel.contentOf,
               onTap: () => _handleRowTap(app, index),
             );
             // Строку можно утащить наружу — если есть кому тащить.
@@ -647,18 +656,25 @@ class _FileTableState extends State<FileTable> {
   /// Фиксированные колонки получают свою ширину, «резиновая» — весь остаток.
   /// Если остатка не хватает, она сжимается до минимума, а таблица начинает
   /// прокручиваться по горизонтали.
-  List<double> _columnWidths(List<ColumnSpec> columns, double available) {
+  List<double> _columnWidths(List<ColumnSpec> columns, double available, double iconSize, FcMetrics metrics) {
+    // Ширину закреплённых колонок задаёт приложение, а не файл настроек
+    // (`models.md`), и у иконки она складывается из отступа, самой иконки и
+    // просвета до имени. Раньше это была константа в раскладке; теперь —
+    // счёт от размера иконки, потому что размер стал настраиваемым.
+    double widthOf(ColumnSpec column) =>
+        column.id == FsColumn.icon ? FileIconSize.columnWidth(metrics, iconSize, column.width) : column.width;
+
     var fixed = 0.0;
     for (final column in columns) {
       if (!column.flexible) {
-        fixed += column.width;
+        fixed += widthOf(column);
       }
     }
 
     final rest = available - fixed;
     return [
       for (final column in columns)
-        if (column.flexible) (rest < column.minWidth ? column.minWidth : rest) else column.width,
+        if (column.flexible) (rest < column.minWidth ? column.minWidth : rest) else widthOf(column),
     ];
   }
 }

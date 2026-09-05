@@ -18,6 +18,7 @@ class FileTableRow extends StatelessWidget {
     required this.underCursor,
     required this.panelActive,
     this.naming = const ReferenceFileNaming(),
+    this.contentOf,
     this.onTap,
   });
 
@@ -36,6 +37,9 @@ class FileTableRow extends StatelessWidget {
   /// у которой есть колонка `Ext`; дерево или миниатюры покажут имя иначе, и
   /// спрашивать их о расширении будет бессмысленно.
   final FileNaming naming;
+
+  /// Чем открыть байты строки — иконке, если правило спрашивает о содержимом.
+  final Content Function(FileEntry entry)? contentOf;
 
   final VoidCallback? onTap;
 
@@ -101,7 +105,10 @@ class FileTableRow extends StatelessWidget {
       // Иконка прижата к левому краю строки: `left="30"` у `iconLabel`.
       return Padding(
         padding: EdgeInsets.only(left: metrics.iconLeftPadding),
-        child: Align(alignment: Alignment.centerLeft, child: FileTypeIcon(entry: entry, selected: _selected)),
+        child: Align(
+          alignment: Alignment.centerLeft,
+          child: FileTypeIcon(entry: entry, selected: _selected, contentOf: contentOf),
+        ),
       );
     }
 

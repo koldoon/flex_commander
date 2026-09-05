@@ -252,6 +252,7 @@ class UiContainer extends DI {
           // Так же необязательна: нет модуля типов — показ обходится тем, что
           // знает по имени.
           contentTypes: frontend.serviceBindings.containsKey(ContentTypes) ? c.get<ContentTypes>() : null,
+          fileIcons: frontend.serviceBindings.containsKey(FileIcons) ? c.get<FileIcons>() : null,
           toasts: ToastController(duration: overrides.toastDuration ?? ToastController.defaultDuration),
           credentials: c.get<CredentialsController>(),
           fileNaming: c.get<FileNaming>(),

@@ -36,6 +36,8 @@ export 'src/async/transfer_progress.dart';
 
 // --- Вид списка ---
 export 'src/panel/column_spec.dart';
+export 'src/panel/entry_condition.dart';
+export 'src/panel/file_icon_rule.dart';
 export 'src/panel/sort_spec.dart';
 
 // --- Настройки ---

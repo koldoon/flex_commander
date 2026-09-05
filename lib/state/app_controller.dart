@@ -45,6 +45,7 @@ class AppController extends ChangeNotifier implements Application {
     WindowService? window,
     this.dragAndDrop,
     this.contentTypes,
+    this.fileIcons,
   }) : _splitRatio = settings.splitRatio,
        _windowGeometry = settings.window,
        _initialSettings = settings,
@@ -158,6 +159,10 @@ class AppController extends ChangeNotifier implements Application {
   /// Что за файл по его содержимому; null — модуля нет.
   @override
   final ContentTypes? contentTypes;
+
+  /// Чем рисовать иконку строки; null — модуля нет.
+  @override
+  final FileIcons? fileIcons;
 
   /// Своя половина настроек: разделы модулей и то, чем экран не заведует.
   ///

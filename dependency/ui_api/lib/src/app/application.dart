@@ -8,6 +8,7 @@ import 'panel_viewport.dart';
 import 'viewport.dart';
 import 'node_info.dart';
 import 'content_types.dart';
+import 'file_icons.dart';
 import 'drag_and_drop.dart';
 import 'viewer_spec.dart';
 import 'views.dart';
@@ -179,6 +180,10 @@ abstract interface class Application implements Listenable {
   /// без неё показ обходится тем, что знает по имени
   /// (`docs/spec/content-types.md`).
   ContentTypes? get contentTypes;
+
+  /// Чем рисовать иконку строки; null — модуля нет, и панель рисует их сама,
+  /// теми же глифами, что и всегда (`docs/spec/file-icons.md`).
+  FileIcons? get fileIcons;
 
   /// Само окно: подвинуть, развернуть.
   ///

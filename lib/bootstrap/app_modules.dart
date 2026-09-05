@@ -5,6 +5,7 @@ import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_editor/fc_editor.dart';
+import 'package:fc_file_icons/fc_file_icons.dart';
 import 'package:fc_file_info/fc_file_info.dart';
 import 'package:fc_file_ops/fc_file_ops.dart';
 import 'package:fc_image_viewer/fc_image_viewer.dart';
@@ -21,6 +22,7 @@ import 'package:fc_zip/fc_zip.dart';
 
 import '../modules/app_shell.dart';
 import '../modules/dnd/system_drag_and_drop.dart';
+import '../modules/icons/system_icons.dart';
 
 /// Из чего собрано приложение.
 ///
@@ -61,6 +63,11 @@ List<FcModule> featureModules() => [
   // Тип по содержимому: службу спрашивает показ, а модуль не приносит ни
   // колонки, ни команды — только ответ на вопрос «что это за файл».
   const ContentTypeDetection(),
+  // Иконки строк по правилам. Стоит после типов и значков системы не по
+  // необходимости — службы разбираются лениво, — а потому что читается сверху
+  // вниз: сперва то, что он спрашивает, потом он сам.
+  const SystemFileIcons(),
+  const FileIconRules(),
   const ZipArchiver(),
   const SevenZipArchiver(),
   const TarArchiver(),
