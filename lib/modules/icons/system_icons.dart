@@ -1,5 +1,6 @@
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/services.dart';
+import 'package:logecom/logecom.dart';
 
 /// Значки, которые об объектах знает система.
 ///
@@ -46,13 +47,37 @@ class ChannelSystemIcons implements SystemIcons {
   ///
   /// Канала может не быть вовсе — на другой платформе или в тесте, — и это не
   /// ошибка: [MissingPluginException] значит ровно «спросить некого».
+  ///
+  /// **Но сказать об этом надо.** Молча вернуть null здесь значит показать
+  /// человеку список без единой системной иконки и не дать ни одной зацепки,
+  /// почему включённая настройка ничего не изменила. Особенно на живой правке:
+  /// горячая перезагрузка обновляет Dart, но не раннер, и канала в уже
+  /// запущенном приложении просто нет.
   Future<Uint8List?> _ask(String method, Map<String, Object?> arguments) async {
     try {
       return await _channel.invokeMethod<Uint8List>(method, arguments);
     } on MissingPluginException {
+      _complainOnce(
+        'Канала «$channelName» в этом приложении нет: системные иконки '
+        'показать нечем. Раннер собирается заново — горячей перезагрузки '
+        'для него мало.',
+      );
       return null;
-    } on PlatformException {
+    } on PlatformException catch (error) {
+      _complainOnce('Раннер отказал в значке ($method): ${error.message}');
       return null;
     }
   }
+
+  /// Жаловаться один раз за сеанс: строк в каталоге тысячи, и жалоба на каждую
+  /// превратила бы журнал в шум, в котором её же и не найти.
+  void _complainOnce(String message) {
+    if (_complained) {
+      return;
+    }
+    _complained = true;
+    Logecom.createLogger('SystemIcons').warn(message);
+  }
+
+  bool _complained = false;
 }
