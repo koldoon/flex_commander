@@ -95,7 +95,7 @@ class DefaultMetrics extends FcMetrics {
   double get iconLeftPadding => 12;
 
   @override
-  double get iconGap => 8;
+  double get iconGap => 7;
 
   @override
   double get iconColumnWidth => iconLeftPadding + iconSize + iconGap - cellPadding;
