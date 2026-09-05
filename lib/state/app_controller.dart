@@ -44,6 +44,7 @@ class AppController extends ChangeNotifier implements Application {
     ErrorController? errors,
     WindowService? window,
     this.dragAndDrop,
+    this.contentTypes,
   }) : _splitRatio = settings.splitRatio,
        _windowGeometry = settings.window,
        _initialSettings = settings,
@@ -153,6 +154,10 @@ class AppController extends ChangeNotifier implements Application {
   /// Перетаскивание мышью; null — модуля нет.
   @override
   final DragAndDrop? dragAndDrop;
+
+  /// Что за файл по его содержимому; null — модуля нет.
+  @override
+  final ContentTypes? contentTypes;
 
   /// Своя половина настроек: разделы модулей и то, чем экран не заведует.
   ///

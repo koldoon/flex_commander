@@ -26,6 +26,7 @@ environment:
 workspace:
   - dependency/7z
   - dependency/api
+  - dependency/content_types
   - dependency/core_api
   - dependency/default_theme
   - dependency/editor
@@ -77,6 +78,9 @@ dependencies:
   # Модули приложения: ядро знает их только по этому списку.
   fc_7z:
     path: dependency/7z
+
+  fc_content_types:
+    path: dependency/content_types
 
   fc_default_theme:
     path: dependency/default_theme

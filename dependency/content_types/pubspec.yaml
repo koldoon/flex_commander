@@ -1,0 +1,26 @@
+name: fc_content_types
+description: "Что за файл на самом деле: тип по первым байтам, а не по имени."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  fc_ui_api:
+    path: ../ui_api
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit

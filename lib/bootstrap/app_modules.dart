@@ -1,5 +1,6 @@
 import 'package:fc_7z/fc_7z.dart';
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_content_types/fc_content_types.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
@@ -57,6 +58,9 @@ List<FcModule> featureModules() => [
   // Перетаскивание мышью. Платформенного в дартовой части нет — только имя
   // канала; без своего раннера канал молчит, и это ровно «перетаскивания нет».
   const SystemDragAndDrop(),
+  // Тип по содержимому: службу спрашивает показ, а модуль не приносит ни
+  // колонки, ни команды — только ответ на вопрос «что это за файл».
+  const ContentTypeDetection(),
   const ZipArchiver(),
   const SevenZipArchiver(),
   const TarArchiver(),

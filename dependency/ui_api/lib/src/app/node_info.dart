@@ -1,5 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 
+import 'content_types.dart';
 import 'viewer_spec.dart';
 
 /// Строка сведений: подпись и значение.

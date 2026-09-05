@@ -249,6 +249,9 @@ class UiContainer extends DI {
           // Спрашивается по объявлениям, а не у контейнера: мы **внутри** его
           // фабрики, и обращение к нему отсюда рушит разбор зависимостей.
           dragAndDrop: frontend.serviceBindings.containsKey(DragAndDrop) ? c.get<DragAndDrop>() : null,
+          // Так же необязательна: нет модуля типов — показ обходится тем, что
+          // знает по имени.
+          contentTypes: frontend.serviceBindings.containsKey(ContentTypes) ? c.get<ContentTypes>() : null,
           toasts: ToastController(duration: overrides.toastDuration ?? ToastController.defaultDuration),
           credentials: c.get<CredentialsController>(),
           fileNaming: c.get<FileNaming>(),

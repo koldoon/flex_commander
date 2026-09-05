@@ -7,6 +7,7 @@ import 'errors.dart';
 import 'panel_viewport.dart';
 import 'viewport.dart';
 import 'node_info.dart';
+import 'content_types.dart';
 import 'drag_and_drop.dart';
 import 'viewer_spec.dart';
 import 'views.dart';
@@ -170,6 +171,14 @@ abstract interface class Application implements Listenable {
   /// спрашивают её перед тем, как объявить себя приёмником, и без неё работают
   /// ровно как раньше.
   DragAndDrop? get dragAndDrop;
+
+  /// Что за файл — по его содержимому; null — модуля нет, и никто ничего не
+  /// читает.
+  ///
+  /// Необязательная возможность рядом с перетаскиванием и по той же причине:
+  /// без неё показ обходится тем, что знает по имени
+  /// (`docs/spec/content-types.md`).
+  ContentTypes? get contentTypes;
 
   /// Само окно: подвинуть, развернуть.
   ///

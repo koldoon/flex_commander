@@ -298,6 +298,8 @@ dependency/
                                    gif, webp, bmp
   file_info/                       fc_file_info — сведения об объекте:
                                    окно, показ и провайдеры разделов
+  content_types/                   fc_content_types — что за файл на самом
+                                   деле: тип по первым байтам, а не по имени
   editor/                          fc_editor — редактор текста (F4)
   navigation/                      fc_navigation — курсор, дерево, пометка
   search/                          fc_search — поиск по дереву и найденное

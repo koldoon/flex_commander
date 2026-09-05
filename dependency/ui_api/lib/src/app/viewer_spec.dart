@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 
 import 'application.dart';
+import 'content_types.dart';
 import 'viewport.dart';
 
 /// Где показывают файл.
@@ -118,8 +119,8 @@ class ViewerSpec {
 
   /// Берётся ли за такую строку.
   ///
-  /// [type] — тип по содержимому, когда он будет известен (Б6). Пока его нет,
-  /// приходит null, и решать приходится по имени — тем же способом, каким
+  /// [type] — тип по содержимому; null — его ещё не определяли или модуля
+  /// типов нет вовсе, и решать приходится по имени — тем же способом, каким
   /// выбирается провайдер архива.
   final bool Function(FileEntry entry, ContentType? type) accepts;
 
@@ -132,14 +133,4 @@ class ViewerSpec {
   ///
   /// Отказ — [ViewerRefused]; ошибка чтения — обычное исключение источника.
   final Future<ViewerContent> Function(ViewerRequest request) open;
-}
-
-/// Тип содержимого файла — то, что принесёт Б6.
-///
-/// Заведён сейчас и намеренно пуст: без него `accepts` пришлось бы менять всем
-/// просмотрщикам, когда тип появится. Пустой типозаменитель дешевле правки в
-/// каждом модуле.
-abstract interface class ContentType {
-  /// `image/png`, `text/plain`.
-  String get mime;
 }
