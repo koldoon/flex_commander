@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_file_icons/fc_file_icons.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_panels/fc_panels.dart';
@@ -94,7 +95,7 @@ void main() {
 
   tearDown(() => done = true);
 
-  Future<void> pumpApp(WidgetTester tester, {List<FakeEntry> entries = const []}) async {
+  Future<void> pumpApp(WidgetTester tester, {List<FakeEntry> entries = const [], int iconSize = 0}) async {
     // Работа заводится **внутри** теста: созданная в `setUp`, она осталась бы
     // вне поддельного времени прогона, и её проверки не двигались бы вовсе.
     command = _SlowCommand(slowWork());
@@ -102,9 +103,13 @@ void main() {
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
+    final settings = AppSettings();
+    settings.modules.scope('fc.icons').section(FileIconSettings.new).size = iconSize;
+
     runtime = await testApp(
       provider: InMemoryTreeProvider([FakeEntry.directory('/home'), ...entries])..home = '/home',
       modules: [...featureModules(), _SlowModule(command)],
+      settings: settings,
     );
     await runtime.app.start();
     await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
@@ -277,8 +282,10 @@ void main() {
 
     expect(runtime.app.operations.at(ViewportPosition.left), hasLength(6));
 
+    // Шаг строки берётся там же, где его берёт список файлов, — одной величиной
+    // на оба списка.
     final theme = FcTheme.of(tester.element(find.byType(BackgroundTasksView)));
-    final line = theme.metrics.rowHeight + theme.metrics.rowGap;
+    final line = FileIconSize.listRow(theme.metrics, runtime.app.fileIcons);
     final list = find.descendant(of: find.byType(BackgroundTasksView), matching: find.byType(ListView));
 
     expect(tester.getRect(list).height, closeTo(line * BackgroundTasksView.visibleRows, 0.01));
@@ -300,6 +307,24 @@ void main() {
     await press(tester, 'Down');
 
     await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/background_tasks.png'));
+
+    await settle(tester);
+  });
+
+  testWidgets('шаг строк совпадает со списком файлов и при крупной иконке', (tester) async {
+    // Величина одна на оба списка: они видны разом, в двух точках друг от
+    // друга. Со своей формулой ритм совпадал бы только при размере иконки по
+    // умолчанию — а его как раз и меняют.
+    await pumpApp(tester, entries: [FakeEntry.file('/home/notes.txt', size: 10)], iconSize: 24);
+    await sendToBackground(tester);
+
+    final lists = find.byType(ListView);
+    final panel = tester.widget<ListView>(lists.first);
+    final tasks = tester.widget<ListView>(find.descendant(of: find.byType(BackgroundTasksView), matching: lists));
+    final metrics = FcTheme.of(tester.element(find.byType(BackgroundTasksView))).metrics;
+
+    expect(panel.itemExtent, greaterThan(metrics.rowHeight), reason: 'крупная иконка подняла строку панели');
+    expect(tasks.itemExtent, panel.itemExtent, reason: 'а список работ пошёл за ней');
 
     await settle(tester);
   });

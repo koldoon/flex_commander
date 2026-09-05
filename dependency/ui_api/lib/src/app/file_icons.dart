@@ -120,6 +120,14 @@ abstract final class FileIconSize {
     return size <= 0 ? metrics.iconSize : size.clamp(metrics.iconSize, max);
   }
 
+  /// Шаг строки списка — **один на все списки приложения**.
+  ///
+  /// Спрашивают его и список файлов, и список фоновых работ под ним: они видны
+  /// разом, в двух точках друг от друга, и ритм у них обязан совпадать всегда,
+  /// а не только при размере иконки по умолчанию. Считается он в одном месте
+  /// именно поэтому.
+  static double listRow(FcMetrics metrics, FileIcons? icons) => rowHeight(metrics, of(metrics, icons));
+
   /// Высота строки: не ниже обычной, а выше — с тем же просветом, что у глифа.
   static double rowHeight(FcMetrics metrics, double iconSize) {
     final grown = iconSize + (metrics.rowHeight - metrics.iconSize);

@@ -57,7 +57,11 @@ class _BackgroundTasksViewState extends State<BackgroundTasksView> {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
     final app = AppScope.of(context);
-    final line = metrics.rowHeight + metrics.rowGap;
+    // Шаг строк — тот же, которым размечен список файлов над ним, и берётся он
+    // оттуда же: просвет `rowGap` лежит **внутри** шага, а сам шаг растёт
+    // вместе с размером иконки. Считай мы его здесь своей формулой — ритм
+    // совпадал бы только при размере по умолчанию.
+    final line = FileIconSize.listRow(metrics, app.fileIcons);
 
     return ListenableBuilder(
       // И на рабочую область тоже: курсор горит только там, куда попадёт
@@ -144,34 +148,39 @@ class _RunRow extends StatelessWidget {
           child: GestureDetector(
             behavior: HitTestBehavior.opaque,
             onTap: onTap,
-            child: DecoratedBox(
-              decoration: BoxDecoration(color: underCursor ? theme.colors.cursorBackground : null),
-              child: Padding(
-                padding: EdgeInsets.symmetric(horizontal: metrics.dialogGap),
-                child: Row(
-                  children: [
-                    Text('${task.title}: ', style: theme.statusStyle),
-                    Expanded(
-                      child: Text(task.status.message, style: theme.statusStyle, overflow: TextOverflow.ellipsis),
-                    ),
-                    SizedBox(width: metrics.dialogGap),
-                    SizedBox(
-                      width: metrics.dialogLabelWidth / 2,
-                      child: FcProgressBar(
-                        value:
-                            task.status is ComputableOperationStatus
-                                ? (task.status as ComputableOperationStatus).percentProgress
-                                : null,
+            // Просвет между строками: подсветка курсора не смыкается со
+            // следующей — то же правило, что в списке файлов.
+            child: Padding(
+              padding: EdgeInsets.only(bottom: metrics.rowGap),
+              child: DecoratedBox(
+                decoration: BoxDecoration(color: underCursor ? theme.colors.cursorBackground : null),
+                child: Padding(
+                  padding: EdgeInsets.symmetric(horizontal: metrics.dialogGap),
+                  child: Row(
+                    children: [
+                      Text('${task.title}: ', style: theme.statusStyle),
+                      Expanded(
+                        child: Text(task.status.message, style: theme.statusStyle, overflow: TextOverflow.ellipsis),
                       ),
-                    ),
-                    SizedBox(width: metrics.dialogGap),
-                    // Вопрос, возникший сам собой — конфликт имён, недоступный
-                    // каталог, — окна не выдёргивает: человек занят другим.
-                    // Кнопка ждёт, пока он сам решит вернуться.
-                    if (task.status.state == OperationState.userActionRequired)
-                      _AttentionButton(onPressed: () => operations.bringToFront(task.runId), theme: theme),
-                    _CancelButton(onPressed: () => cancelOrForgetTask(operations, task), theme: theme),
-                  ],
+                      SizedBox(width: metrics.dialogGap),
+                      SizedBox(
+                        width: metrics.dialogLabelWidth / 2,
+                        child: FcProgressBar(
+                          value:
+                              task.status is ComputableOperationStatus
+                                  ? (task.status as ComputableOperationStatus).percentProgress
+                                  : null,
+                        ),
+                      ),
+                      SizedBox(width: metrics.dialogGap),
+                      // Вопрос, возникший сам собой — конфликт имён, недоступный
+                      // каталог, — окна не выдёргивает: человек занят другим.
+                      // Кнопка ждёт, пока он сам решит вернуться.
+                      if (task.status.state == OperationState.userActionRequired)
+                        _AttentionButton(onPressed: () => operations.bringToFront(task.runId), theme: theme),
+                      _CancelButton(onPressed: () => cancelOrForgetTask(operations, task), theme: theme),
+                    ],
+                  ),
                 ),
               ),
             ),

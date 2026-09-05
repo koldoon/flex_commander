@@ -217,7 +217,7 @@ class _FileTableState extends State<FileTable> {
 
               // Сколько строк видно — от этого считается шаг PgUp/PgDn.
               final listHeight = constraints.maxHeight - theme.metrics.headerRowHeight;
-              final rowHeight = FileIconSize.rowHeight(theme.metrics, iconSize);
+              final rowHeight = FileIconSize.listRow(theme.metrics, app.fileIcons);
               panel.pageSize = (listHeight / rowHeight).floor().clamp(1, 1000);
               // Те же размеры нужны прокрутке нового каталога, а она считается
               // до разметки: запоминаем то, что известно сейчас.
