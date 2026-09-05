@@ -2,6 +2,7 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/app.dart';
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/view/function_bar/function_button.dart';
@@ -237,28 +238,26 @@ void main() {
       expect(opened, isEmpty);
     });
 
-    testWidgets('Enter на файле отдаёт его системе', (tester) async {
-      await pumpApp(tester);
-      app.left.setCursorToName('notes.txt');
-
-      await press(tester, LogicalKeyboardKey.enter);
-
-      expect(opened, ['/home/notes.txt']);
-      expect(app.left.path, '/home');
-    });
-
-    testWidgets('файл из источника без настоящих путей системе не отдаётся', (tester) async {
-      // Так выглядит файл внутри архива или на сервере: пути, который поймёт
-      // внешняя программа, у него нет, и открывать его будет свой просмотрщик.
-      provider.capabilities = readOnlyCapabilities;
+    testWidgets('Enter на файле не отдаёт его системе — это дело Cmd-O', (tester) async {
+      // `Enter` значит «войти». Раньше файл уходил системе тем же `open`, что и
+      // `Cmd-O`, и на текстовом файле открывался редактор, которого никто не
+      // звал.
       await pumpApp(tester);
       app.left.setCursorToName('notes.txt');
 
       await press(tester, LogicalKeyboardKey.enter);
 
       expect(opened, isEmpty);
-      // Панель осталась на месте: войти в файл всё равно нельзя.
       expect(app.left.path, '/home');
+
+      // Клавишей эту команду здесь не позвать: в прогоне `Cmd` изображает
+      // `Control`, а `Ctrl-O` принадлежит терминалу (`keyboard.md`, «Занятые
+      // системой сочетания»). Зовём её саму — проверяется, что путь к системе
+      // остался у неё.
+      expect(app.commands.run(OpenWithSystemCommand.commandId), isTrue);
+      await tester.pumpAndSettle();
+
+      expect(opened, ['/home/notes.txt'], reason: 'а вот это — прямая просьба');
     });
 
     testWidgets('Cmd-/ уводит в корень из любого каталога', (tester) async {

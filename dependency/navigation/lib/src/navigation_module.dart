@@ -47,7 +47,7 @@ class Navigation implements FcFrontendModule {
     // Панели и дерево.
     registry.command((context) => TogglePanelCommand());
     registry.command((context) => CenterSplitCommand());
-    registry.command((context) => OpenNodeCommand(opener: context.resolve<SystemOpener>()));
+    registry.command((context) => OpenNodeCommand());
     registry.command((context) => OpenWithSystemCommand(opener: context.resolve<SystemOpener>()));
     registry.command((context) => GoUpCommand());
     registry.command((context) => OpenPathCommand(settings: settingsOf, save: settings.save));

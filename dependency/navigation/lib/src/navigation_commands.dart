@@ -187,9 +187,7 @@ class TogglePanelCommand extends AppCommand {
 /// Каталог открывается в панели, ссылка разрешается, обычный файл отдаётся
 /// системе.
 class OpenNodeCommand extends AppCommand {
-  OpenNodeCommand({required SystemOpener opener}) : _open = opener;
-
-  final SystemOpener _open;
+  OpenNodeCommand();
 
   static const String commandId = 'panel.open';
 
@@ -200,24 +198,22 @@ class OpenNodeCommand extends AppCommand {
   String get label => 'Open';
 
   @override
-  String get description => 'Enter a directory or an archive; other files go to the system';
+  String get description => 'Enter a directory or an archive';
 
   @override
   bool isExecutable(CommandContext context) => context.entry != null && !context.panel.busy;
 
   @override
   Future<void> execute(CommandContext context) async {
-    // Панель сама решает, куда можно войти, и возвращает то, что каталогом
-    // не является: такой объект открывает система.
-    final rest = await context.panel.enterCurrent();
-    if (rest == null) {
-      return;
-    }
-    // Отдавать системе можно только настоящий путь: внутри архива или на
-    // сервере открывать нечего, там понадобится свой просмотрщик (F3).
-    if (context.panel.source.capabilities.realFileSystem) {
-      await _open(rest.path);
-    }
+    // Панель сама решает, куда можно войти. То, что каталогом не является, она
+    // возвращает обратно — и **на этом всё**.
+    //
+    // Раньше такой объект уходил системе, тем же `open`, что и `Cmd-O`. Это
+    // оказалось неожиданным: `Enter` в файловом менеджере значит «войти», а
+    // запускал он чужое приложение — на текстовом файле открывался редактор,
+    // которого никто не звал. Отдать файл системе по-прежнему можно, но
+    // сказав это прямо: `Cmd-O` (`panel.openWithSystem`).
+    await context.panel.enterCurrent();
   }
 }
 
