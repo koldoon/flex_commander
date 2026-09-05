@@ -149,9 +149,12 @@ class _RunRow extends StatelessWidget {
             behavior: HitTestBehavior.opaque,
             onTap: onTap,
             // Просвет между строками: подсветка курсора не смыкается со
-            // следующей — то же правило, что в списке файлов.
+            // следующей. Поровну сверху и снизу, а не только снизу, как в
+            // списке файлов: там первую строку прикрывает заголовок колонок, а
+            // здесь она сразу под рамой — и курсор прилегал к ней вплотную,
+            // оставляя просвет только внизу.
             child: Padding(
-              padding: EdgeInsets.only(bottom: metrics.rowGap),
+              padding: EdgeInsets.symmetric(vertical: metrics.rowGap / 2),
               child: DecoratedBox(
                 decoration: BoxDecoration(color: underCursor ? theme.colors.cursorBackground : null),
                 child: Padding(

@@ -311,6 +311,45 @@ void main() {
     await settle(tester);
   });
 
+  testWidgets('ввод ушёл в список — курсор панели погас', (tester) async {
+    // Курсор горит там, куда попадёт следующее нажатие. Пока он горел у панели
+    // и в списке разом, было непонятно, кому достанутся стрелки.
+    await pumpApp(tester, entries: [FakeEntry.file('/home/notes.txt', size: 10)]);
+    await sendToBackground(tester);
+
+    expect(tester.widget<FileTableRow>(find.byType(FileTableRow).first).panelActive, isTrue);
+
+    await press(tester, 'Cmd-B');
+    expect(
+      tester.widget<FileTableRow>(find.byType(FileTableRow).first).panelActive,
+      isFalse,
+      reason: 'клавиши у списка работ, а курсор панели всё ещё горит',
+    );
+
+    await press(tester, 'Esc');
+    expect(tester.widget<FileTableRow>(find.byType(FileTableRow).first).panelActive, isTrue);
+
+    await settle(tester);
+  });
+
+  testWidgets('у единственной строки просвет сверху и снизу одинаков', (tester) async {
+    // Первая строка стоит сразу под рамой: подсветка прилегала к ней вплотную,
+    // а просвет оставался только снизу.
+    await pumpApp(tester);
+    await sendToBackground(tester);
+    await press(tester, 'Cmd-B');
+
+    final list = tester.getRect(find.descendant(of: find.byType(BackgroundTasksView), matching: find.byType(ListView)));
+    final cursor = tester.getRect(
+      find.descendant(of: find.byType(BackgroundTasksView), matching: find.byType(DecoratedBox)).last,
+    );
+
+    expect(cursor.top - list.top, closeTo(list.bottom - cursor.bottom, 0.01));
+    expect(cursor.top - list.top, greaterThan(0));
+
+    await settle(tester);
+  });
+
   testWidgets('шаг строк совпадает со списком файлов и при крупной иконке', (tester) async {
     // Величина одна на оба списка: они видны разом, в двух точках друг от
     // друга. Со своей формулой ритм совпадал бы только при размере иконки по
