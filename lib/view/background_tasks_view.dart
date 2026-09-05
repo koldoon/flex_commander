@@ -157,8 +157,12 @@ class _RunRow extends StatelessWidget {
               padding: EdgeInsets.symmetric(vertical: metrics.rowGap / 2),
               child: DecoratedBox(
                 decoration: BoxDecoration(color: underCursor ? theme.colors.cursorBackground : null),
+                // Поля — те же, что у строки списка файлов: слева отступ до
+                // иконки, справа поле панели, за которым стоит полоса
+                // прокрутки. Списки идут один под другим, и их содержимое
+                // обязано стоять на одной вертикали.
                 child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: metrics.dialogGap),
+                  padding: EdgeInsets.only(left: metrics.iconLeftPadding, right: metrics.panelRightPadding),
                   child: Row(
                     children: [
                       Text('${task.title}: ', style: theme.statusStyle),
