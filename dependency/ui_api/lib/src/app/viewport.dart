@@ -195,6 +195,17 @@ abstract interface class ApplicationView implements Listenable {
   /// недосмотр.
   void pushViewportContent(ViewportPosition position, ViewportState state);
 
+  /// Убирает **именно это** содержимое, где бы в стопке оно ни лежало.
+  ///
+  /// Нужно долгоживущему. Полоса фоновых работ уходит, когда забыли последнюю
+  /// работу, — а к этой минуте поверх неё может лежать полоса быстрого поиска,
+  /// и [popViewportContent] снял бы её, хотя убрать просили не её.
+  ///
+  /// Такого содержимого в области нет — не происходит ничего: убрать уже
+  /// убранное не ошибка. Дно панельной области не убирается и так: панель
+  /// заменяют, а не снимают.
+  void removeViewportContent(ViewportPosition position, ViewportState state);
+
   /// Снимает верхнее наложение и закрывает его. На дне не снимает ничего.
   void popViewportContent(ViewportPosition position);
 

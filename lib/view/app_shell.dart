@@ -1,7 +1,6 @@
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/material.dart';
 
-import 'status_area.dart';
 import 'dialogs/command_dialog_layer.dart';
 import 'dialogs/credentials_layer.dart';
 import 'dialogs/elevation_layer.dart';
@@ -102,10 +101,7 @@ class AppShell extends StatelessWidget {
     final position = panel.status;
     final stack = position == null ? const <ViewportState>[] : app.view.stackAt(position);
 
-    return [
-      for (final state in stack.reversed) _place(context, app, state),
-      if (app.operations.at(panel).isNotEmpty) StatusArea(tasks: app.operations, owner: panel),
-    ];
+    return [for (final state in stack.reversed) _place(context, app, state)];
   }
 
   /// Поле у ряда кнопок: общее поле окна за вычетом его собственного выступа.

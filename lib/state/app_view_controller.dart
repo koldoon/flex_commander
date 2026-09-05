@@ -95,6 +95,24 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
   }
 
   @override
+  void removeViewportContent(ViewportPosition position, ViewportState state) {
+    final stack = _stacks[position]!;
+    // По тождеству, а не по равенству: состояние — это оно само, и двух
+    // одинаковых не бывает.
+    final index = stack.indexWhere((shown) => identical(shown, state));
+    if (index < 0 || (index == 0 && !_canEmpty(position))) {
+      return;
+    }
+
+    stack.removeAt(index).close();
+    // Ввод держался за область, в которой больше ничего нет.
+    if (_focused == position && stack.isEmpty) {
+      _focused = null;
+    }
+    _afterChange();
+  }
+
+  @override
   void popViewportContent(ViewportPosition position) {
     final stack = _stacks[position]!;
     if (!_hasOverlay(position)) {

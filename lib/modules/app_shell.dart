@@ -2,12 +2,16 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
+import '../state/background_tasks.dart';
+import '../state/background_tasks_state.dart';
+import '../state/commands/background_commands.dart';
 import '../state/commands/help_command.dart';
 import '../state/commands/palette_command.dart';
 import '../state/commands/settings_command.dart';
 import '../state/shell_settings.dart';
 import '../ui/credentials_prompt.dart';
 import '../ui/elevation_prompt.dart';
+import '../view/background_tasks_view.dart';
 
 /// Оболочка приложения — то, что есть у файлового менеджера всегда.
 ///
@@ -127,6 +131,31 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     // не про то, что сейчас на экране.
     registry.binding(KeyBinding.anywhere('Cmd-,', SettingsCommand.commandId));
 
+    // Список фоновых работ под панелью: обычная область со своим курсором и
+    // клавишами (`docs/spec/background-operations.md`).
+    registry.view<BackgroundTasksState>((context, state) => BackgroundTasksView(state: state));
+    registry.command((context) => FocusBackgroundCommand());
+    registry.command((context) => LeaveBackgroundCommand());
+    registry.command((context) => MoveBackgroundCursorCommand(down: false));
+    registry.command((context) => MoveBackgroundCursorCommand(down: true));
+    registry.command((context) => ShowBackgroundTaskCommand());
+    registry.command((context) => CancelBackgroundTaskCommand());
+    // `Cmd-B` действует везде: список работ не про то, что сейчас на экране.
+    registry.binding(KeyBinding.anywhere('Cmd-B', FocusBackgroundCommand.commandId));
+    // Остальное — только когда клавиши у списка. Иначе `Bsp` в панели значил бы
+    // «наверх», а `Enter` — «войти», и отнимать их у панели нельзя.
+    registry.binding(KeyBinding.inState<BackgroundTasksState>('Up', MoveBackgroundCursorCommand.upId));
+    registry.binding(KeyBinding.inState<BackgroundTasksState>('Down', MoveBackgroundCursorCommand.downId));
+    registry.binding(KeyBinding.inState<BackgroundTasksState>('Enter', ShowBackgroundTaskCommand.commandId));
+    registry.binding(KeyBinding.inState<BackgroundTasksState>('Esc', LeaveBackgroundCommand.commandId));
+    // Две клавиши на одно действие: на маленькой клавиатуре `Del` нет вовсе, а
+    // на большой рука тянется к нему.
+    registry.binding(KeyBinding.inState<BackgroundTasksState>('Bsp', CancelBackgroundTaskCommand.commandId));
+    registry.binding(KeyBinding.inState<BackgroundTasksState>('Del', CancelBackgroundTaskCommand.commandId));
+    // Сторож, который держит список в области ровно тогда, когда работы есть.
+    // Стартовой командой, потому что приложение к этому времени уже собрано.
+    registry.startup((context) => _WatchBackgroundTasksCommand(context));
+
     final settings = registry.settings;
 
     // Палитра команд: всё, что приложение умеет сейчас, по названию.
@@ -226,3 +255,27 @@ List<String> _splitExtensions(String value) => [
   for (final part in value.split(RegExp(r'[;\s]+')))
     if (part.trim().isNotEmpty) part.trim().replaceFirst(RegExp(r'^\.+'), ''),
 ];
+
+/// Заводит сторожа списка фоновых работ.
+///
+/// Стартовой командой и по той же причине, что у перетаскивания: службе нужно
+/// собранное приложение, а во время объявления модуля его ещё нет.
+class _WatchBackgroundTasksCommand extends AppCommand {
+  _WatchBackgroundTasksCommand(this.context);
+
+  final FcContext context;
+
+  @override
+  String get id => 'background.watch';
+
+  @override
+  String get label => 'Watch background tasks';
+
+  @override
+  bool isExecutable(CommandContext context) => true;
+
+  @override
+  Future<void> execute(CommandContext _) async {
+    BackgroundTasks(context.app);
+  }
+}
