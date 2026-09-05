@@ -43,6 +43,10 @@ class ChannelSystemIcons implements SystemIcons {
   Future<Uint8List?> forExtension(String extension, {required int pixels}) =>
       _ask('iconForExtension', {'extension': extension, 'pixels': pixels});
 
+  @override
+  Future<Uint8List?> forKind(SystemIconKind kind, {required int pixels}) =>
+      _ask('iconForKind', {'kind': kind.name, 'pixels': pixels});
+
   /// Спросить раннер. Молчание — тоже ответ: значка нет.
   ///
   /// Канала может не быть вовсе — на другой платформе или в тесте, — и это не

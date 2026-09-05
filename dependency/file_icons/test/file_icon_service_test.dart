@@ -23,6 +23,12 @@ class FakeSystemIcons implements SystemIcons {
     asked.add('ext:$extension@$pixels');
     return answers ? Uint8List.fromList([4, 5, 6]) : null;
   }
+
+  @override
+  Future<Uint8List?> forKind(SystemIconKind kind, {required int pixels}) async {
+    asked.add('kind:${kind.name}@$pixels');
+    return answers ? Uint8List.fromList([7, 8, 9]) : null;
+  }
 }
 
 /// Тип по содержимому, который отвечает по команде теста.
@@ -205,19 +211,24 @@ void main() {
       expect(system.asked, ['path:/Applications/Safari.app@26']);
     });
 
-    test('без пути, что-то значащего для системы, правило не совпадает', () {
+    test('без настоящего пути — по расширению: значок тот же, что у файла на диске', () async {
       final system = FakeSystemIcons();
-      final settings = FileIconSettings(
-        rules: [
-          FileIconRule(when: EntryCondition(), icon: const SystemIconSource()),
-          FileIconRule(when: EntryCondition(), icon: const GlyphRoleSource('check')),
-        ],
-      );
-      // Строка из архива: `realPath` пуст.
+      final settings = FileIconSettings(system: true);
+      // Строка с сервера или из архива: `realPath` пуст.
       final answer = serviceOf(settings, system: system).resolve(file('a.txt'), pixels: 26);
-      expect(answer.now, isA<IconRole>().having((i) => i.role, 'role', 'check'));
-      expect(answer.later, isNull);
-      expect(system.asked, isEmpty);
+
+      expect(await answer.later, isA<IconPicture>());
+      expect(system.asked, ['ext:txt@26']);
+    });
+
+    test('без пути и без расширения спрашивают род', () async {
+      final system = FakeSystemIcons();
+      final settings = FileIconSettings(system: true);
+      final service = serviceOf(settings, system: system);
+
+      expect(await service.resolve(directory('src'), pixels: 26).later, isA<IconPicture>());
+      expect(await service.resolve(file('README'), pixels: 26).later, isA<IconPicture>());
+      expect(system.asked, ['kind:folder@26', 'kind:file@26']);
     });
 
     test('система молчит — работает следующее правило', () async {

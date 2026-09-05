@@ -490,6 +490,12 @@ final class SystemIcons {
       }
       result(png(of: icon(forExtension: ext), pixels: pixels))
 
+    // Род — последнее, что остаётся: о строке с сервера или из архива известно
+    // только то, папка это или файл.
+    case "iconForKind":
+      let folder = (arguments?["kind"] as? String) == "folder"
+      result(png(of: NSWorkspace.shared.icon(for: folder ? .folder : .data), pixels: pixels))
+
     default:
       result(FlutterMethodNotImplemented)
     }

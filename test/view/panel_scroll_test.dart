@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_file_icons/fc_file_icons.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
@@ -42,6 +43,35 @@ void main() {
 
   /// Смещение списка левой панели.
   double offsetOf(WidgetTester tester) => tester.widget<ListView>(find.byType(ListView).first).controller!.offset;
+
+  /// Живой дефект: при крупных иконках курсор уезжал за нижний край.
+  ///
+  /// Прокрутку к курсору считали кеглем темы, а список размечен шагом, который
+  /// зависит от размера иконки, — и промах рос вместе с ним.
+  testWidgets('крупные иконки не роняют курсор за нижний край', (tester) async {
+    final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
+    settings.modules.scope('fc.icons').section(FileIconSettings.new).size = 24;
+    app = (await testApp(provider: provider, modules: featureModules(), settings: settings)).app;
+
+    await pumpApp(tester);
+    for (var i = 0; i < 40; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    }
+    await tester.pumpAndSettle();
+
+    final list = find.byType(ListView).first;
+    final row = find.descendant(of: list, matching: find.text(app.left.currentEntry!.name));
+    expect(row, findsOneWidget, reason: 'строки под курсором нет на экране вовсе');
+
+    final viewport = tester.getRect(list);
+    expect(
+      tester.getRect(row).bottom,
+      lessThanOrEqualTo(viewport.bottom),
+      reason: 'строка под курсором вылезла за нижний край списка',
+    );
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
 
   testWidgets('возврат наверх ставит список туда, где стоит курсор', (tester) async {
     await pumpApp(tester);

@@ -170,7 +170,11 @@ class _FileTableState extends State<FileTable> {
     if (!mounted || !_scroll.hasClients) {
       return;
     }
-    final rowHeight = FcTheme.of(context).metrics.rowHeight;
+    // Шаг строк — тот самый, которым размечен список: он зависит от размера
+    // иконки (`FileIconSize.rowHeight`). Мерить прокрутку кеглем темы значило
+    // бы промахиваться мимо курсора тем сильнее, чем крупнее иконки, — и на
+    // живой проверке курсор уезжал за нижний край.
+    final rowHeight = _rowHeight > 0 ? _rowHeight : FcTheme.of(context).metrics.rowHeight;
     final position = _scroll.position;
     final top = widget.panel.cursorIndex * rowHeight;
     final bottom = top + rowHeight;

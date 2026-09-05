@@ -133,59 +133,82 @@ class FileIconService implements FileIcons {
   }
 
   FileIcon? _systemIcon(FileEntry entry, int pixels, List<Future<void>> needs) {
-    // Внутри архива и на сервере у строки нет имени, которое что-то значит для
-    // системы, — спрашивать не о чем.
-    if (_systemIcons == null || entry.realPath.isEmpty) {
+    if (_systemIcons == null) {
       return null;
     }
 
-    final key = _keyOf(entry, pixels);
-    if (_system.containsKey(key)) {
-      final image = _system[key];
+    final question = _questionOf(entry, pixels);
+    if (_system.containsKey(question.key)) {
+      final image = _system[question.key];
       return image == null ? null : IconPicture(image);
     }
 
-    needs.add(_ask(key, entry, pixels));
+    needs.add(_ask(question, pixels));
     return null;
   }
 
-  Future<void> _ask(String key, FileEntry entry, int pixels) {
-    final asking = _asking[key];
+  Future<void> _ask(_Question question, int pixels) {
+    final asking = _asking[question.key];
     if (asking != null) {
       return asking;
     }
-    final future = _fetch(key, entry, pixels);
-    _asking[key] = future;
+    final future = _fetch(question, pixels);
+    _asking[question.key] = future;
     return future;
   }
 
-  Future<void> _fetch(String key, FileEntry entry, int pixels) async {
+  Future<void> _fetch(_Question question, int pixels) async {
     Uint8List? bytes;
     try {
-      bytes =
-          _byPath(entry)
-              ? await _systemIcons!.forPath(entry.realPath, pixels: pixels)
-              : await _systemIcons!.forExtension(extensionOf(entry.name), pixels: pixels);
+      final icons = _systemIcons!;
+      bytes = switch (question.ask) {
+        _Ask.path => await icons.forPath(question.about, pixels: pixels),
+        _Ask.extension => await icons.forExtension(question.about, pixels: pixels),
+        _Ask.folder => await icons.forKind(SystemIconKind.folder, pixels: pixels),
+        _Ask.file => await icons.forKind(SystemIconKind.file, pixels: pixels),
+      };
     } on Object {
       // Канала нет, платформа не умеет, путь исчез — иконка возьмётся
       // следующим правилом, и это не повод падать.
       bytes = null;
     }
 
-    _asking.remove(key);
-    _remember(key, bytes == null ? null : MemoryImage(bytes));
+    _asking.remove(question.key);
+    _remember(question.key, bytes == null ? null : MemoryImage(bytes));
   }
 
-  /// Спрашивать по пути или по расширению.
+  /// О чём спросить систему — по убыванию точности и по возрастанию цены.
   ///
-  /// Свой значок бывает у каталогов (пакеты `*.app`), исполняемых файлов и
-  /// файлов без расширения; у остальных он зависит только от расширения — и
-  /// тогда тысяча `.txt` в каталоге стоит одного вопроса системе, а не тысячи.
+  /// **Путь** знает всё: своё лицо пакета (`*.app`), тома, назначенную иконку.
+  /// Но стоит вопроса на каждую строку, и есть он только у настоящей файловой
+  /// системы.
+  ///
+  /// **Расширение** отвечает за обычный файл целиком, и пути для этого не
+  /// нужно: тысяча `.txt` в каталоге — один вопрос вместо тысячи, и тем же
+  /// вопросом спрашивают про файл на сервере и в архиве. Значок при этом
+  /// здешний — чужих сопоставлений нам никто не расскажет, да человек и
+  /// смотрит на свой экран.
+  ///
+  /// **Род** — последнее, что остаётся: папка или просто файл.
+  static _Question _questionOf(FileEntry entry, int pixels) {
+    if (entry.realPath.isNotEmpty && _byPath(entry)) {
+      return _Question(_Ask.path, 'p:${entry.realPath}@$pixels', entry.realPath);
+    }
+
+    final extension = extensionOf(entry.name).toLowerCase();
+    if (!entry.canEnter && extension.isNotEmpty) {
+      return _Question(_Ask.extension, 'e:$extension@$pixels', extension);
+    }
+
+    return entry.canEnter ? _Question(_Ask.folder, 'k:folder@$pixels', '') : _Question(_Ask.file, 'k:file@$pixels', '');
+  }
+
+  /// Спрашивать ли по пути — при условии, что путь вообще есть.
+  ///
+  /// Свой значок бывает у каталогов, исполняемых файлов и файлов без
+  /// расширения; у остальных он зависит только от расширения.
   static bool _byPath(FileEntry entry) =>
       entry.kind != EntryKind.file || entry.executable || extensionOf(entry.name).isEmpty;
-
-  static String _keyOf(FileEntry entry, int pixels) =>
-      _byPath(entry) ? 'p:${entry.realPath}@$pixels' : 'e:${extensionOf(entry.name).toLowerCase()}@$pixels';
 
   void _remember(String key, ImageProvider? image) {
     _system[key] = image;
@@ -223,4 +246,17 @@ class FileIconService implements FileIcons {
 
     return icon;
   }
+}
+
+/// Чем спрашивают систему.
+enum _Ask { path, extension, folder, file }
+
+/// Вопрос к системе: чем спрашивать, под каким ключом помнить ответ и о чём
+/// именно речь — путь или расширение; у рода это пусто.
+class _Question {
+  const _Question(this.ask, this.key, this.about);
+
+  final _Ask ask;
+  final String key;
+  final String about;
 }
