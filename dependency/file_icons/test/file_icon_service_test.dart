@@ -187,6 +187,15 @@ void main() {
       expect(system.asked, ['ext:txt@26']);
     });
 
+    test('«..» спрашивается по пути того каталога, куда ведёт', () async {
+      final system = FakeSystemIcons();
+      final settings = FileIconSettings(system: true);
+      final parent = FileEntry(name: '..', kind: EntryKind.parent, path: '', realPath: '/Users');
+
+      await serviceOf(settings, system: system).resolve(parent, pixels: 26).later;
+      expect(system.asked, ['path:/Users@26']);
+    });
+
     test('пакет спрашивается по пути', () async {
       final system = FakeSystemIcons();
       final settings = FileIconSettings(rules: [FileIconRule(when: EntryCondition(), icon: const SystemIconSource())]);

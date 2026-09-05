@@ -212,7 +212,10 @@ class ColumnLayout {
     // Ширины — по референсу, в тех же точках экрана, что и остальные размеры:
     // колонка иконки вмещает отступ, глиф и просвет до имени, размер —
     // `width="160"`, дата — `width="220"`.
-    // Иконка: отступ слева, глиф и просвет до имени — `FcMetrics.iconColumnWidth`.
+    // Иконка: отступ слева, глиф и просвет до имени. Настоящую ширину считает
+    // тот, кто рисует, — по метрикам темы (`FileIconSize.columnWidth`): она
+    // зависит и от размера иконки, который настраивается. Здесь — значение для
+    // тех, у кого темы под рукой нет: разбора раскладки и тестов.
     ColumnSpec(id: FsColumn.icon, width: 28, minWidth: 28, pinned: true),
     ColumnSpec(id: FsColumn.name, width: 0, minWidth: 90, pinned: true),
     ColumnSpec(id: FsColumn.path, width: 160, visible: false),

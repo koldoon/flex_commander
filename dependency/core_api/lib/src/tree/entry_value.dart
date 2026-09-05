@@ -31,6 +31,13 @@ FileEntry entryValueOf(FsNode node) {
     scheme: node is ParentDirNode ? '' : node.provider.scheme,
     // Настоящий путь есть только у настоящей файловой системы: внутри архива
     // и на сервере имя объекта вне приложения ничего не значит.
-    realPath: node is ParentDirNode || !node.provider.capabilities.realFileSystem ? '' : node.pathString,
+    //
+    // У «..» он **есть**, в отличие от [FileEntry.path]. Разница не в
+    // придирчивости: пустой `path` бережёт опознание строки — по нему её
+    // запоминают, и чужой адрес подменял бы настоящий каталог. `realPath` же
+    // ничего не опознаёт, он отвечает на другой вопрос — «что эта строка
+    // значит вне приложения», — а «..» ведёт во вполне настоящий каталог, и
+    // система знает о нём столько же, сколько о любом другом.
+    realPath: !node.provider.capabilities.realFileSystem ? '' : node.pathString,
   );
 }

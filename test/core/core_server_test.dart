@@ -73,6 +73,11 @@ void main() {
       expect(listing.entries.map((entry) => entry.name), containsAll(['docs', 'notes.txt', 'report.txt']));
       expect(listing.entries.first.kind, EntryKind.parent, reason: '«..» всегда первая');
       expect(listing.entries.first.path, isEmpty, reason: '«..» показывает чужой каталог — адреса у неё нет');
+      expect(
+        listing.entries.first.realPath,
+        '/',
+        reason: 'а вот вне приложения «..» значит вполне настоящий каталог — тот, куда ведёт',
+      );
     });
 
     test('в списке едут значения, а не узлы', () async {
