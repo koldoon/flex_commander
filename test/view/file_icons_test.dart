@@ -1,12 +1,54 @@
+import 'dart:typed_data';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_file_icons/fc_file_icons.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// Значки системы, за которыми видно, о чём и сколько раз спрашивали.
+class ProbeIcons implements SystemIcons {
+  final List<String> asked = [];
+
+  @override
+  Future<Uint8List?> forPath(String path, {required int pixels}) async {
+    asked.add('path:$path');
+    return null;
+  }
+
+  @override
+  Future<Uint8List?> forExtension(String extension, {required int pixels}) async {
+    asked.add('ext:$extension');
+    return null;
+  }
+
+  @override
+  Future<Uint8List?> forKind(SystemIconKind kind, {required int pixels}) async {
+    asked.add('kind:${kind.name}');
+    return null;
+  }
+}
+
+/// Подставляет [ProbeIcons] вместо канала раннера.
+class ProbeIconsModule implements FcFrontendModule {
+  const ProbeIconsModule(this.icons);
+
+  final ProbeIcons icons;
+
+  @override
+  String get id => 'test.systemIcons';
+
+  @override
+  String get title => 'Probe icons';
+
+  @override
+  void installFrontend(FrontendRegistry registry) => registry.service<SystemIcons>((services) => icons);
+}
 
 /// Иконки строк по правилам — то, что видно на экране.
 ///
@@ -39,6 +81,36 @@ void main() {
     final icons = find.descendant(of: row, matching: find.byType(Icon));
     return icons.evaluate().isEmpty ? null : tester.widget<Icon>(icons.first).icon?.codePoint;
   }
+
+  testWidgets('кэш значков — один на приложение, а не на панель', (tester) async {
+    final probe = ProbeIcons();
+    final provider = InMemoryTreeProvider([
+      FakeEntry.directory('/home'),
+      FakeEntry.directory('/home/src'),
+      FakeEntry.file('/home/main.dart', size: 128),
+      FakeEntry.file('/home/notes.txt', size: 64),
+    ]);
+
+    final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
+    settings.modules.scope('fc.icons').section(FileIconSettings.new).system = true;
+
+    // Настоящий модуль значков заменён подставным: канала раннера в тесте нет.
+    final modules = [...featureModules().where((module) => module.id != 'fc.systemIcons'), ProbeIconsModule(probe)];
+    final app = (await testApp(provider: provider, modules: modules, settings: settings)).app;
+    await tester.pumpWidget(FlexCommanderApp(controller: app));
+    await app.start();
+    await tester.pumpAndSettle();
+
+    // Сперва убедимся, что панели **обе** нарисованы: иначе тест ниже сойдётся
+    // и на одной, ничего не проверив.
+    expect(find.text('notes'), findsNWidgets(2), reason: 'нарисована только одна панель');
+
+    // Обе панели показывают один каталог: восемь строк на экране, но вопросов
+    // к системе ровно столько, сколько **разных**. Совпади кэш с панелью —
+    // спросили бы вдвое больше; спроси каждая строка за себя — вчетверо.
+    expect(probe.asked.toSet(), {'path:/', 'path:/home/src', 'ext:dart', 'ext:txt'});
+    expect(probe.asked.length, 4, reason: 'один и тот же вопрос задан дважды');
+  });
 
   testWidgets('без правил всё как было: у каталога папка, у файла ничего', (tester) async {
     await open(tester);
