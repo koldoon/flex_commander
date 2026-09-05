@@ -90,7 +90,9 @@ void main() {
 
     final list = tester.widget<ListView>(find.byType(ListView).first);
     expect(list.itemExtent, 20);
-    expect(tester.widget<SizedBox>(_iconCell(tester)).width, 28);
+    // Ширина колонки — по метрикам темы: отступ слева 12, иконка 13, просвет
+    // до имени 8, минус поле ячейки имени 4.
+    expect(tester.widget<SizedBox>(_iconCell(tester)).width, 12 + 13 + 8 - 4);
   });
 
   testWidgets('крупная иконка поднимает и строку, и колонку под собой', (tester) async {
@@ -99,7 +101,8 @@ void main() {
     // Тот же просвет, что у глифа: 20 - 13 = 7.
     final list = tester.widget<ListView>(find.byType(ListView).first);
     expect(list.itemExtent, 24 + 7);
-    expect(tester.widget<SizedBox>(_iconCell(tester)).width, 28 + (24 - 13));
+    // И та же формула ширины — с новым размером иконки.
+    expect(tester.widget<SizedBox>(_iconCell(tester)).width, 12 + 24 + 8 - 4);
   });
 }
 

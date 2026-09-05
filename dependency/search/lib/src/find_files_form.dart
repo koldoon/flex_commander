@@ -90,12 +90,22 @@ class _FindFilesFormState extends State<FindFilesForm> {
             children: [
               CommandDialogField.wide(child: _labeled(theme, 'Start at:', _startAt(theme, state))),
               // Не наше пока: каталоги-исключения (Д3). Флаг и поле под ним —
-              // две строки формы, отбитые как все остальные: свой, более тесный
-              // зазор делал бы из них блок, каких в других окнах нет.
-              const CommandDialogField.wide(
-                child: FcCheckbox(label: 'Ignore directories:', value: false, onChanged: null),
+              // **один** блок, а не две строки формы: флаг здесь работает
+              // подписью к полю, и зазор между ними тот же, что между строками
+              // левого столбца. Двумя строками их разделял бы широкий зазор
+              // между строками формы, и пара разрывалась — на живой проверке
+              // это и было первым, что бросилось в глаза.
+              CommandDialogField.wide(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const FcCheckbox(label: 'Ignore directories:', value: false, onChanged: null),
+                    SizedBox(height: theme.metrics.dialogGap),
+                    FcTextField(controller: _ignore, enabled: false),
+                  ],
+                ),
               ),
-              CommandDialogField.wide(child: FcTextField(controller: _ignore, enabled: false)),
               CommandDialogField.wide(
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
