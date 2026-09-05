@@ -495,11 +495,10 @@ final class SystemIcons {
     }
   }
 
+  /// Расширение опознаётся системой само: `txt` → `public.plain-text`.
+  /// Не опознала — значок «просто данных», и это честный ответ.
   private func icon(forExtension ext: String) -> NSImage {
-    if #available(macOS 11.0, *) {
-      return NSWorkspace.shared.icon(for: UTType(filenameExtension: ext) ?? .data)
-    }
-    return NSWorkspace.shared.icon(forFileType: ext)
+    NSWorkspace.shared.icon(for: UTType(filenameExtension: ext) ?? .data)
   }
 
   /// `NSImage` в `png` ровно того размера, который попросили.
