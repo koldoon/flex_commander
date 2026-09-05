@@ -25,7 +25,7 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 /// `Liberation Mono`). Настоящий же ответ — этап В3 дорожной карты: тема
 /// станет редактируемой, шрифт выберет человек, и гадать за него не придётся.
 class DefaultFonts extends FcFonts {
-  const DefaultFonts({this.ui = 'Ubuntu', this.fixed = 'Consolasntgt', this.fixedFallback = const ['Menlo']});
+  const DefaultFonts({this.ui = 'Ubuntu', this.fixed = 'Consolas', this.fixedFallback = const ['Menlo']});
 
   @override
   final String ui;
