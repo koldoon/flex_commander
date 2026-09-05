@@ -287,6 +287,10 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                                 // над оглавлением поля нет — есть край окна.
                                 textInset: metrics.dialogPadding,
                                 selected: _section,
+                                // Оглавление не выбирают — оно показывает, где
+                                // вы сейчас, и курсору здесь не обо что
+                                // упереться: ни рамки, ни фона у столбца нет.
+                                mark: FcPickMark.weight,
                                 onTap: (id) => _goToSection(_found.indexWhere((section) => section.$2 == id)),
                               ),
                             ),

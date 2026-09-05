@@ -74,6 +74,7 @@ class FcPickList extends StatefulWidget {
     this.emptyMessage = 'Nothing found',
     this.textInset,
     this.page,
+    this.mark = FcPickMark.cursor,
   });
 
   final List<FcPickRow> rows;
@@ -96,6 +97,9 @@ class FcPickList extends StatefulWidget {
 
   /// Куда сообщать размер страницы. Пусто — `PgUp`/`PgDn` списку не нужны.
   final FcPickPage? page;
+
+  /// Чем показано выбранное.
+  final FcPickMark mark;
 
   @override
   State<FcPickList> createState() => _FcPickListState();
@@ -181,6 +185,23 @@ class FcPickList extends StatefulWidget {
     }
     return next;
   }
+}
+
+/// Чем показано выбранное в списке.
+enum FcPickMark {
+  /// Курсором: подсветка во всю ширину, как в панели.
+  ///
+  /// Годится там, где по списку **ходят** и выбирают: палитра команд, окна
+  /// выбора. У таких списков есть во что упереться — поле ввода сверху, рамка
+  /// окна по краям.
+  cursor,
+
+  /// Начертанием: выбранное набрано жирным и светлым, остальное — приглушённым.
+  ///
+  /// Для списков, которые не выбирают, а **показывают**, где вы сейчас:
+  /// оглавление настроек. Курсор там висел бы в воздухе — ни рамки, ни фона,
+  /// обо что ему упереться, у оглавления нет.
+  weight,
 }
 
 class _FcPickListState extends State<FcPickList> {
@@ -275,7 +296,17 @@ class _FcPickListState extends State<FcPickList> {
     // Роли легко перепутать местами: в теме по умолчанию `dialogLabel` белый, а
     // `dialogText` — приглушённый синий.
     final base = TextStyle(fontFamily: theme.fonts.ui, fontSize: metrics.fontSize);
-    final bright = base.copyWith(color: current ? colors.cursorText : colors.dialogLabel);
+    final byWeight = widget.mark == FcPickMark.weight;
+    final bright =
+        byWeight
+            // Выбранное отличается только набором: светлое и жирное против
+            // приглушённого. Тот же приглушённый цвет, каким набран список
+            // файлов, — роль здесь своя (`dialogText`), а значение общее.
+            ? base.copyWith(
+              color: current ? colors.dialogLabel : colors.dialogText,
+              fontWeight: current ? FontWeight.bold : null,
+            )
+            : base.copyWith(color: current ? colors.cursorText : colors.dialogLabel);
     final dim = base.copyWith(color: colors.dialogText);
     final match = matchCommand(widget.query, label: row.title);
 
@@ -284,7 +315,7 @@ class _FcPickListState extends State<FcPickList> {
       onTap: () => widget.onTap(row.id),
       child: Container(
         height: metrics.rowHeight + metrics.rowGap,
-        color: current ? colors.cursorBackground : null,
+        color: current && !byWeight ? colors.cursorBackground : null,
         // Подсветка — во всю ширину, отбит только текст: строка выбора обязана
         // доходить до краёв, иначе читается не как «эта строка», а как «эта
         // плитка». А текст стоит ровно под набранным в поле.
