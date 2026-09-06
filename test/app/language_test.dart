@@ -1,7 +1,9 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
+import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/state/shell_settings.dart';
 import 'package:flutter/widgets.dart';
@@ -106,6 +108,45 @@ void main() {
 
     expect(runtime.app.strings.language, 'ru');
     expect(greetIn(runtime).label, 'Приветствовать');
+  });
+
+  testWidgets('всё приложение по-русски: ряд кнопок, панель и палитра', (tester) async {
+    final runtime = await testApp(provider: provider(), modules: featureModules(), language: 'ru');
+    await runtime.app.start();
+
+    tester.view.physicalSize = const Size(1000, 700);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    // Ряд функциональных кнопок — самое видное место в окне.
+    expect(find.text('Смотреть'), findsOneWidget);
+    expect(find.text('Править'), findsOneWidget);
+    expect(find.text('Копировать'), findsOneWidget);
+    expect(find.text('Удалить'), findsOneWidget);
+
+    // Заголовки колонок панели.
+    expect(find.text('Имя'), findsWidgets);
+    expect(find.text('Размер'), findsWidgets);
+
+    // И палитра команд — тем же языком: ищут в ней по русскому названию, а не
+    // по английскому, которое человеку и не показывали.
+    runtime.commands.dispatch(KeyCombination.parse('Cmd-Shift-P'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(FcTextField).first, 'наверх');
+    await tester.pumpAndSettle();
+    final rows = [
+      for (final text in tester.widgetList<Text>(
+        find.descendant(of: find.byType(FcCommandPalette), matching: find.byType(Text)),
+      ))
+        text.textSpan?.toPlainText() ?? text.data ?? '',
+    ];
+    // Строка палитры — название и описание разом; оба по-русски.
+    expect(rows, contains('Наверх   Выйти в родительский каталог'));
+    // И подсказка поля ввода тоже.
+    expect(rows, contains('Команда'));
   });
 
   testWidgets('смена языка перерисовывает окно без перезапуска', (tester) async {
