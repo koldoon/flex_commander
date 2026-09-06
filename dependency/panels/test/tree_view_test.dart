@@ -317,6 +317,37 @@ void main() {
     expect(markedRows(tester), 2, reason: 'обе ветви показывают пометку');
   });
 
+  testWidgets('пометка из двух ветвей доходит до окна копирования', (tester) async {
+    final runtime = await open(tester, at: '/home/lib');
+    final panel = runtime.app.left;
+
+    // Помечаем `src` в `lib` и `panel_test.dart` в `test` — как в проверке
+    // выше, но теперь спрашиваем окно (`docs/spec/operation-targets.md`, §7).
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Space'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Enter'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Space'));
+    await tester.pumpAndSettle();
+    expect(panel.markedPaths, {'/home/lib/src', '/home/test/panel_test.dart'});
+
+    runtime.commands.dispatch(KeyCombination.parse('F5'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Copy 2 items'), findsOneWidget, reason: 'считается всё помеченное');
+
+    // «Откуда» дописывается после показа окна: каталогов два, и вместо пути
+    // сказано их число.
+    final source = tester.widgetList<FcTextField>(find.byType(FcTextField)).firstWhere((field) => !field.enabled);
+    expect(source.controller.text, '2 sources');
+  });
+
   testWidgets('скрытые каталоги приходят вместе с Cmd-H', (tester) async {
     final runtime = await open(tester);
     expect(branches(tester), isNot(contains('.git')));

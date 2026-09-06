@@ -93,4 +93,8 @@ const Map<String, String> _russian = {
 };
 
 /// Множественные формы: ключ — та форма, которую называют на месте.
-const Map<String, PluralForms> _plurals = {'{n} items': (one: '{n} объект', few: '{n} объекта', many: '{n} объектов')};
+const Map<String, PluralForms> _plurals = {
+  '{n} items': (one: '{n} объект', few: '{n} объекта', many: '{n} объектов'),
+  // «Откуда», когда цели лежат в разных каталогах: перечислять их негде.
+  '{n} sources': (one: '{n} источник', few: '{n} источника', many: '{n} источников'),
+};

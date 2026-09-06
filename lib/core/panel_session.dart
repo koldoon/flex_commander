@@ -849,7 +849,11 @@ class PanelSession {
     // спросить — и клавишей, и просьбой (`docs/spec/operation-targets.md`, §3).
     final marking = _mark(paths);
     _marking = marking;
-    return marking;
+    return marking.whenComplete(() {
+      if (identical(_marking, marking)) {
+        _marking = null;
+      }
+    });
   }
 
   /// Пометка дособралась.
@@ -857,9 +861,16 @@ class PanelSession {
   /// Ждут её те, кто берёт цели: просьбы ядром не сериализуются, и пометил
   /// ветвь в дереве — тут же нажал `F8` значило бы прочитать пометку
   /// недособранной (`docs/spec/operation-targets.md`, §3).
-  Future<void> get marksSettled => _marking;
+  ///
+  /// Готового обещания здесь нарочно не лежит: `Future`, созданный при сборке
+  /// панели, достаётся вместе с **зоной**, в которой его создали, и ждущий в
+  /// другой зоне ждёт её оборота, а не своего. Один раз это уже стоило
+  /// сорванной проверки: работа начиналась через полсекунды после клавиши. Пока
+  /// разбора нет, обещание создаётся здесь и сейчас — в зоне того, кто спросил.
+  Future<void> get marksSettled => _marking ?? Future<void>.value();
 
-  Future<void> _marking = Future.value();
+  /// Идущий разбор пометки; null — разбирать нечего.
+  Future<void>? _marking;
 
   Future<void> _mark(Set<String> paths) async {
     final known = {for (final node in _nodes) node.pathString, for (final node in selection.nodes) node.pathString};

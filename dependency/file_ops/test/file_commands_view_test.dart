@@ -73,6 +73,7 @@ void main() {
     provider = _SlowCopyProvider([
       FakeEntry.directory('/home'),
       FakeEntry.directory('/home/bin'),
+      FakeEntry.file('/home/bin/tool', size: 5),
       FakeEntry.file('/home/notes.txt', size: 10),
       FakeEntry.file('/home/report.xlsx', size: 20),
       FakeEntry.file('/home/a-very-long-name-that-would-have-stretched-the-dialog.txt', size: 30),
@@ -289,6 +290,32 @@ void main() {
       await settle(tester);
 
       expect(namesOf(), isNot(contains('notes.txt')));
+    });
+
+    testWidgets('помеченное в другом каталоге считается и удаляется', (tester) async {
+      await pumpApp(tester);
+      // Так помечают из дерева: строки чужого каталога в списке нет вовсе
+      // (`docs/spec/operation-targets.md`, §1).
+      app.left.setMarks({'/home/notes.txt', '/home/bin/tool'});
+      // Правая панель стоит в том самом чужом каталоге — ей полагается
+      // перечитаться вместе с левой.
+      await app.right.openPath('/home/bin');
+      await tester.pumpAndSettle();
+
+      await press(tester, LogicalKeyboardKey.f8);
+
+      expect(find.textContaining('Move 2 items to Trash?'), findsOneWidget, reason: 'обещано ровно то, что будет');
+
+      await tester.tap(find.widgetWithText(FcButton, 'Delete'));
+      await settle(tester);
+
+      expect(namesOf(), isNot(contains('notes.txt')));
+      expect(await provider.resolvePath().run('/home/bin/tool'), isNull, reason: 'удалено и чужое');
+      expect(
+        app.right.entries.map((entry) => entry.name),
+        isNot(contains('tool')),
+        reason: 'панель, стоявшая в задетом каталоге, перечитана',
+      );
     });
 
     testWidgets('отказ оставляет объект на месте', (tester) async {

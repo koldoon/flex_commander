@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:fc_api/fc_api.dart';
@@ -111,8 +113,10 @@ abstract class TransferCommandBase extends AppCommand {
     if (target == null || target.busy || !target.source.canWrite || (moves && !panel.source.canWrite)) {
       return false;
     }
-    // Псевдоузел «..» объектом не считается.
-    return context.targets.any((entry) => !entry.isParent);
+    // Помеченное считается **всё**, где бы оно ни лежало: пометить можно и из
+    // дерева, в соседней ветви, и клавиша от этого умирать не должна
+    // (`docs/spec/operation-targets.md`, §1).
+    return panel.hasTargets;
   }
 
   /// Над чем работать — именем набора: разворачивает его ядро.
@@ -144,9 +148,14 @@ abstract class TransferCommandBase extends AppCommand {
     if (destination == null || !destination.source.canWrite) {
       return;
     }
-    if (givenSources == null && context.targets.every((entry) => entry.isParent)) {
+    if (givenSources == null && !panel.hasTargets) {
       return;
     }
+
+    // Каталоги, из которых идёт работа. Спрашиваются **до** её начала: после
+    // переноса объектов там уже нет, и спросить их каталог будет не у кого
+    // (`docs/spec/operation-targets.md`, §6).
+    final sources = <String>{};
 
     Future<void> transfer(String path, bool followLinks, [FcAsyncRun? run]) async {
       // Всё, что раньше делала команда — разбор пути приёмника, разбор
@@ -179,10 +188,12 @@ abstract class TransferCommandBase extends AppCommand {
         if (givenSources == null) {
           panel.clearMarks();
         }
-        // Перечитываются все панели, которые смотрят на эти два каталога —
+        // Перечитываются все панели, которые смотрят на задетые каталоги —
         // откуда и куда, — и каждая по одному разу: обе могут стоять в одном и
-        // том же.
+        // том же. Каталогов-источников бывает несколько: помеченное приходит и
+        // из соседних ветвей дерева (`docs/spec/operation-targets.md`, §6).
         await reloadPanelsAt(context.app, [
+          ...sources,
           panel.path,
           // Панель могла за это время уйти в другой каталог: перечитывать имеет
           // смысл только то, куда действительно копировали.
@@ -201,19 +212,23 @@ abstract class TransferCommandBase extends AppCommand {
     // человек видит приёмник, может поменять его, включить проход по ссылкам и
     // сам нажать «Copy». Жест здесь ровно то же, что нажатая клавиша.
     if (given != null && !givenJob(context)) {
+      sources.addAll(await _sourceDirectoriesOf(context));
       await transfer(given, context.invocation.param<bool>(followLinksParam) ?? false);
       return;
     }
 
     final view = context.app.view;
     late final _TransferRun run;
+    // Один раз: `present` зовут ещё и при возврате работы из фона, а панель за
+    // это время уходит куда угодно — заголовок обязан остаться тем же.
+    final title = titleOf(context);
 
     void present() {
       late final String dialogId;
       run.close = () => view.closeDialog(dialogId);
       dialogId = view.showDialog(
         DialogSpec(
-          title: titleOf(context),
+          title: title,
           takesFocus: true,
           // Вопрос по ходу работы, ход дела и разбор ошибки — общие для всех
           // длительных работ, их берёт на себя окно. Своё здесь одно: куда.
@@ -227,7 +242,7 @@ abstract class TransferCommandBase extends AppCommand {
     run = _TransferRun(
       app: context.app,
       commandId: id,
-      title: titleOf(context),
+      title: title,
       failureMessage: '$label failed',
       show: present,
       sourcePath: _sourcePathOf(context),
@@ -238,6 +253,14 @@ abstract class TransferCommandBase extends AppCommand {
     run.onStart = () => transfer(run.destination, run.followLinks, run);
 
     present();
+    // Окно уже стоит — теперь можно и спросить, откуда на самом деле цели
+    // (`docs/spec/operation-targets.md`, §2).
+    unawaited(
+      _sourceDirectoriesOf(context).then((directories) {
+        sources.addAll(directories);
+        run.setSourcePath(_sourcesText({...directories}, run.sourcePath));
+      }),
+    );
   }
 
   /// Панель, в которую идёт работа: та, что показана напротив источника.
@@ -256,21 +279,28 @@ abstract class TransferCommandBase extends AppCommand {
   }
 
   /// Заголовок собирается как в референсе: действие и то, над чем оно идёт.
-  String titleOf(CommandContext context) {
-    // Задание могло прийти готовым — тогда считать надо его объекты, а не
-    // пометку в панели: у брошенного мышью с ней ничего общего.
-    final given = context.invocation.param<List<String>>(sourcesParam);
-    if (given != null) {
-      final what = given.length == 1 ? '«${_nameOf(given.single)}»' : '${given.length} items';
-      return '$label $what';
+  ///
+  /// Считается по **путям** целей: помеченное бывает из разных каталогов, и
+  /// строк своего списка на всех не хватит — а пути приезжают полными
+  /// (`docs/spec/operation-targets.md`, §2). Задание, пришедшее готовым, несёт
+  /// свои пути, и обе ветви сходятся в одном счёте.
+  String titleOf(CommandContext context) => '$label ${_whatOf(context)}';
+
+  String _whatOf(CommandContext context) {
+    final paths = pathsOf(context);
+    if (paths.length == 1) {
+      // Имя берётся у видимой строки, а её нет — последним звеном пути: у
+      // помеченного в соседней ветви значения по эту сторону не лежит.
+      final path = paths.single;
+      final seen = context.panel.entries.where((entry) => entry.path == path).firstOrNull;
+      return '«${seen?.name ?? _nameOf(path)}»';
     }
-    final targets = [
-      for (final entry in context.targets)
-        if (!entry.isParent) entry,
-    ];
-    final what = targets.length == 1 ? '«${targets.single.name}»' : '${targets.length} items';
-    return '$label $what';
+    return plural(paths.length, one: '{n} item', other: '{n} items');
   }
+
+  /// Пути целей: у готового задания свои, иначе — пометка панели.
+  static List<String> pathsOf(CommandContext context) =>
+      context.invocation.param<List<String>>(sourcesParam) ?? context.panel.targetPaths.toList();
 
   /// Имя объекта из пути — для заголовка работы.
   static String _nameOf(String path) {
@@ -279,22 +309,56 @@ abstract class TransferCommandBase extends AppCommand {
     return slash < 0 ? trimmed : trimmed.substring(slash + 1);
   }
 
-  /// Каталог, из которого идёт работа: показывается в окне.
+  /// Каталог, из которого идёт работа: показывается в окне сразу.
   ///
-  /// У готового задания он свой: брошенное мышью приехало откуда угодно — из
-  /// соседней панели, из Finder, — и панель-приёмник о нём ничего не знает.
+  /// Каталог панели — то, что известно **немедленно**; настоящие каталоги целей
+  /// приезжают следом, [_tellSources] их и подставит. Окно при этом уже стоит:
+  /// ждать ядро до показа нельзя (`docs/spec/operation-targets.md`, §2).
+  ///
+  /// У готового задания каталог свой: брошенное мышью приехало откуда угодно —
+  /// из соседней панели, из Finder, — и панель-приёмник о нём ничего не знает.
+  /// Пути там от системы, значений у них нет, и каталог отделяется строкой.
   String _sourcePathOf(CommandContext context) {
     final given = context.invocation.param<List<String>>(sourcesParam);
     if (given != null && given.isNotEmpty) {
-      final first = given.first;
-      final slash = first.lastIndexOf('/');
-      return slash <= 0 ? first : first.substring(0, slash);
+      return _sourcesText({for (final path in given) _directoryOf(path)}, context.panel.path);
     }
-    return _panelSourcePathOf(context);
+    return context.panel.path;
   }
 
-  String _panelSourcePathOf(CommandContext context) {
-    return context.panel.path;
+  /// Каталоги, из которых идёт работа.
+  ///
+  /// Значениями от ядра: каталог цели приезжает готовым
+  /// (`FileEntry.directoryPath`), и резать путь строкой не надо — разделители у
+  /// источника свои. Готовое задание — исключение: там пути от системы, и
+  /// значений у них нет вовсе.
+  ///
+  /// Спрашивается **после** показа окна: ждать оборот границы до `showDialog`
+  /// значит оставить щель, в которую провалится удержанная клавиша
+  /// (`docs/spec/operation-targets.md`, §2).
+  Future<Set<String>> _sourceDirectoriesOf(CommandContext context) async {
+    final given = context.invocation.param<List<String>>(sourcesParam);
+    if (given != null) {
+      return {for (final path in given) _directoryOf(path)};
+    }
+    return {for (final entry in await context.panel.allTargets()) entry.directoryPath};
+  }
+
+  /// Один каталог — он и написан; несколько — их число: перечислять негде, а
+  /// сказать правду надо.
+  String _sourcesText(Set<String> directories, String fallback) {
+    directories.remove('');
+    return switch (directories.length) {
+      0 => fallback,
+      1 => directories.single,
+      _ => plural(directories.length, one: '{n} source', other: '{n} sources'),
+    };
+  }
+
+  static String _directoryOf(String path) {
+    final trimmed = path.endsWith('/') ? path.substring(0, path.length - 1) : path;
+    final slash = trimmed.lastIndexOf('/');
+    return slash <= 0 ? trimmed : trimmed.substring(0, slash);
   }
 }
 
@@ -314,7 +378,18 @@ class _TransferRun extends FcAsyncRun {
   });
 
   /// Откуда идёт работа. Не редактируется — источник задан выбором в панели.
-  final String sourcePath;
+  ///
+  /// Меняется один раз: окно встаёт с каталогом панели, а настоящие каталоги
+  /// целей приезжают следом (`docs/spec/operation-targets.md`, §5).
+  String sourcePath;
+
+  void setSourcePath(String value) {
+    if (value == sourcePath) {
+      return;
+    }
+    sourcePath = value;
+    notifyListeners();
+  }
 
   String destination;
 
@@ -354,6 +429,12 @@ class _TransferFormState extends State<_TransferForm> {
   @override
   Widget build(BuildContext context) {
     final run = widget.run;
+    // «Откуда» дописывается после показа окна: настоящие каталоги целей
+    // приезжают от ядра (`docs/spec/operation-targets.md`, §5). Поле выключено,
+    // и подменить в нём текст можно без оглядки на курсор и выделение.
+    if (_source.text != run.sourcePath) {
+      _source.text = run.sourcePath;
+    }
 
     return CommandDialogForm(
       error: run.error,

@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import 'package:fc_api/fc_api.dart';
@@ -258,8 +260,9 @@ abstract class RemoveCommandBase extends AppCommand {
     if (panel.busy || !panel.source.canWrite) {
       return false;
     }
-    // Псевдострока «..» объектом не считается.
-    return context.targets.any((entry) => !entry.isParent);
+    // Помеченное считается **всё**, где бы оно ни лежало: пометить можно и из
+    // дерева, в соседней ветви (`docs/spec/operation-targets.md`, §1).
+    return panel.hasTargets;
   }
 
   /// Объекты, с которыми работает команда: помеченные или тот, что под
@@ -281,7 +284,7 @@ abstract class RemoveCommandBase extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final panel = context.panel;
-    if (!panel.source.canWrite || context.targets.every((entry) => entry.isParent)) {
+    if (!panel.source.canWrite || !panel.hasTargets) {
       return;
     }
 
@@ -294,6 +297,14 @@ abstract class RemoveCommandBase extends AppCommand {
       options: {FileOperations.toTrash: toTrash},
     );
 
+    // Каталоги, из которых удаляют. Спрашиваются **до** работы: после неё
+    // объектов уже нет, и спросить их каталог будет не у кого
+    // (`docs/spec/operation-targets.md`, §6).
+    final sources = <String>{};
+    Future<void> askSources() async {
+      sources.addAll({for (final entry in await panel.allTargets()) entry.directoryPath});
+    }
+
     Future<void> remove() async {
       try {
         await context.app.runOperation().run(spec);
@@ -301,12 +312,13 @@ abstract class RemoveCommandBase extends AppCommand {
         // Часть объектов могла исчезнуть, часть остаться: список в панели
         // больше не совпадает с диском.
         panel.clearMarks();
-        await reloadPanelsAt(context.app, [panel.path]);
+        await reloadPanelsAt(context.app, [...sources, panel.path]);
       }
     }
 
     if (context.invocation.param<bool>(confirmedParam) == true) {
       // Согласие уже дано — спрашивать некого и незачем.
+      await askSources();
       await remove();
       return;
     }
@@ -314,6 +326,9 @@ abstract class RemoveCommandBase extends AppCommand {
     final view = context.app.view;
     // Считается до окна: внутри `form` в имени `context` уже BuildContext.
     final confirmation = _confirmationMessageOf(context);
+    // Один раз: `present` зовут ещё и при возврате работы из фона, а пометку к
+    // тому времени уже сняли.
+    final title = titleOf(context);
     late final FcAsyncRun run;
 
     void present() {
@@ -321,7 +336,7 @@ abstract class RemoveCommandBase extends AppCommand {
       run.close = () => view.closeDialog(dialogId);
       dialogId = view.showDialog(
         DialogSpec(
-          title: titleOf(context),
+          title: title,
           takesFocus: true,
           // Вопрос по ходу работы, ход дела и разбор ошибки — общие для всех
           // длительных работ, их берёт на себя окно. Своё здесь только одно:
@@ -342,37 +357,46 @@ abstract class RemoveCommandBase extends AppCommand {
       );
     }
 
-    run = FcAsyncRun(
-      app: context.app,
-      commandId: id,
-      title: titleOf(context),
-      failureMessage: failureMessage,
-      show: present,
-    );
+    run = FcAsyncRun(app: context.app, commandId: id, title: title, failureMessage: failureMessage, show: present);
 
     run.onStart = () async {
       try {
         await run.run(context.app.runOperation(), spec, message: tr('Deleting…'));
       } finally {
         panel.clearMarks();
-        await reloadPanelsAt(context.app, [panel.path]);
+        await reloadPanelsAt(context.app, [...sources, panel.path]);
       }
     };
 
     present();
+    // Окно уже стоит — теперь можно и спросить, откуда цели: ждать оборот
+    // границы до показа значит оставить щель для удержанной клавиши
+    // (`docs/spec/operation-targets.md`, §2).
+    unawaited(askSources());
   }
 
   /// Заголовок собирается как в референсе: действие и то, над чем оно идёт.
   String titleOf(CommandContext context) => '$label ${_whatOf(context)}';
 
+  /// Считается по **путям** целей, а не по строкам списка: помеченное бывает из
+  /// разных каталогов, и подтверждение, обещающее удалить два, а стирающее
+  /// пять, — худший случай этой лжи (`docs/spec/operation-targets.md`, §1).
   String _whatOf(CommandContext context) {
-    final targets = [
-      for (final entry in context.targets)
-        if (!entry.isParent) entry,
-    ];
-    return targets.length == 1
-        ? '«${targets.single.name}»'
-        : plural(targets.length, one: '{n} item', other: '{n} items');
+    final paths = context.panel.targetPaths;
+    if (paths.length == 1) {
+      final path = paths.single;
+      final seen = context.panel.entries.where((entry) => entry.path == path).firstOrNull;
+      return '«${seen?.name ?? _nameOf(path)}»';
+    }
+    return plural(paths.length, one: '{n} item', other: '{n} items');
+  }
+
+  /// Имя объекта из пути: у помеченного в соседней ветви значения по эту
+  /// сторону не лежит.
+  static String _nameOf(String path) {
+    final trimmed = path.endsWith('/') ? path.substring(0, path.length - 1) : path;
+    final slash = trimmed.lastIndexOf('/');
+    return slash < 0 ? trimmed : trimmed.substring(slash + 1);
   }
 
   String _confirmationMessageOf(CommandContext context) {
