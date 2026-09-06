@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'dart:async';
 
 import 'package:fc_ui_kit/fc_ui_kit.dart';
@@ -94,20 +95,23 @@ class _FindFilesResultsState extends State<FindFilesResults> {
             onKeyEvent: _onKey,
             child: CommandDialogBody(
               actions: [
-                FcButton(label: 'Close', onPressed: state.finish),
-                FcButton(label: 'Again', onPressed: state.again),
-                FcButton(label: 'Background', onPressed: state.busy ? state.toBackground : null),
+                FcButton(label: context.strings.tr('Close'), onPressed: state.finish),
+                FcButton(label: context.strings.tr('Again'), onPressed: state.again),
+                FcButton(label: context.strings.tr('Background'), onPressed: state.busy ? state.toBackground : null),
                 FcButton(
-                  label: 'View · F3',
+                  label: context.strings.tr('View · F3'),
                   onPressed: state.canGoTo ? () => unawaited(state.open(_viewCommand)) : null,
                 ),
                 FcButton(
-                  label: 'Edit · F4',
+                  label: context.strings.tr('Edit · F4'),
                   onPressed: state.canGoTo ? () => unawaited(state.open(_editCommand)) : null,
                 ),
-                FcButton(label: 'Go to file', onPressed: state.canGoTo ? () => unawaited(state.goTo()) : null),
                 FcButton(
-                  label: 'To panel',
+                  label: context.strings.tr('Go to file'),
+                  onPressed: state.canGoTo ? () => unawaited(state.goTo()) : null,
+                ),
+                FcButton(
+                  label: context.strings.tr('To panel'),
                   primary: true,
                   onPressed: state.found.isEmpty ? null : () => unawaited(state.toPanel()),
                 ),
@@ -120,7 +124,7 @@ class _FindFilesResultsState extends State<FindFilesResults> {
                     rowOfFound: state.rowOfFound,
                     visibleRows: _visibleRows,
                     page: _page,
-                    emptyMessage: state.busy ? '' : 'Nothing found',
+                    emptyMessage: state.busy ? '' : context.strings.tr('Nothing found'),
                     onTap: state.select,
                   ),
                 ),
@@ -134,7 +138,10 @@ class _FindFilesResultsState extends State<FindFilesResults> {
                 // так же, как от списка, значило бы читать их как разное.
                 CommandDialogField.column(
                   label: '',
-                  children: [_line(theme, 'Found: ${state.found.length}'), _line(theme, _progress(state))],
+                  children: [
+                    _line(theme, context.strings.tr('Found: {count}', args: {'count': state.found.length})),
+                    _line(theme, _progress(context.strings, state)),
+                  ],
                 ),
               ],
             ),
@@ -155,10 +162,10 @@ class _FindFilesResultsState extends State<FindFilesResults> {
   );
 
   /// Ход работы: где обход сейчас, а по окончании — чем он кончился.
-  String _progress(FindFilesState state) {
+  String _progress(Strings strings, FindFilesState state) {
     if (state.busy) {
-      return state.at.isEmpty ? 'Searching…' : 'Searching ${state.at}';
+      return state.at.isEmpty ? strings.tr('Searching…') : strings.tr('Searching {where}', args: {'where': state.at});
     }
-    return state.stopped ? 'Stopped' : 'Done';
+    return state.stopped ? strings.tr('Stopped') : strings.tr('Done');
   }
 }

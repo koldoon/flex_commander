@@ -208,7 +208,7 @@ class FindFilesState extends ChangeNotifier {
       OperationRun(
         runId: runId,
         operation: run,
-        title: 'Find "${query.mask}"',
+        title: app.strings.tr('Find "{mask}"', args: {'mask': query.mask}),
         bringToFront: () => showResults?.call(),
       ),
     );

@@ -216,7 +216,7 @@ const Map<String, String> _russian = {
   'Show or hide the items whose names start with a dot': 'Показать или скрыть объекты, чьи имена начинаются с точки',
   'Show hidden files: On': 'Скрытые файлы: показаны',
   'Show hidden files: Off': 'Скрытые файлы: спрятаны',
-  'Cancel': 'Прервать',
+  'panel|Cancel': 'Прервать',
   'Stop what the panel is doing right now': 'Остановить то, чем панель занята сейчас',
 
   // Пометка.

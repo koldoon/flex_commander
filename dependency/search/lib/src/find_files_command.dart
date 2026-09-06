@@ -28,10 +28,10 @@ class FindFilesCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Find files';
+  String get label => tr('Find files');
 
   @override
-  String get description => 'Search the tree below the current directory by name mask';
+  String get description => tr('Search the tree below the current directory by name mask');
 
   @override
   Set<String> get keywords => const {'search', 'locate', 'mask', 'wildcard'};

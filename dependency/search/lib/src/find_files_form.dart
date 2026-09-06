@@ -74,7 +74,7 @@ class _FindFilesFormState extends State<FindFilesForm> {
             // Две кнопки, как в `mc`: спросить и уйти. Всё остальное — дело
             // второго окна, и появляется оно вместе с ним.
             actions: [
-              FcButton(label: 'Cancel', onPressed: state.close),
+              FcButton(label: context.strings.tr('Cancel'), onPressed: state.close),
               FcButton(label: 'OK', primary: true, onPressed: state.canStart ? () => unawaited(state.begin()) : null),
             ],
             // Строки формы — те же, что у всех окон: поля по краям, зазоры
@@ -88,7 +88,7 @@ class _FindFilesFormState extends State<FindFilesForm> {
             // столбца — «по имени» и «по содержимому». Слева подпись отняла бы
             // у двух столбцов ту самую ширину, ради которой их и ставят рядом.
             children: [
-              CommandDialogField.wide(child: _labeled(theme, 'Start at:', _startAt(theme, state))),
+              CommandDialogField.wide(child: _labeled(theme, context.strings.tr('Start at:'), _startAt(theme, state))),
               // Не наше пока: каталоги-исключения (Д3). Флаг и поле под ним —
               // **один** блок, а не две строки формы: флаг здесь работает
               // подписью к полю, и зазор между ними тот же, что между строками
@@ -100,7 +100,7 @@ class _FindFilesFormState extends State<FindFilesForm> {
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const FcCheckbox(label: 'Ignore directories:', value: false, onChanged: null),
+                    FcCheckbox(label: context.strings.tr('Ignore directories:'), value: false, onChanged: null),
                     SizedBox(height: theme.metrics.dialogGap),
                     FcTextField(controller: _ignore, enabled: false),
                   ],
@@ -110,7 +110,7 @@ class _FindFilesFormState extends State<FindFilesForm> {
                 child: Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Expanded(child: _byName(theme, state)),
+                    Expanded(child: _byName(context, theme, state)),
                     // Просвет между столбцами — по полю окна: тогда средний
                     // просвет читается так же, как боковые.
                     SizedBox(width: theme.metrics.dialogHorizontalPadding),
@@ -161,7 +161,7 @@ class _FindFilesFormState extends State<FindFilesForm> {
   }
 
   /// Левый столбец: поиск по имени — то, что уже работает.
-  Widget _byName(FcTheme theme, FindFilesState state) {
+  Widget _byName(BuildContext context, FcTheme theme, FindFilesState state) {
     // Зазор между флагами — тот же, что форма ставит между своими строками
     // (`FcOptions` разделяет им же варианты одного переключателя): столбец
     // флагов читается столбцом, а не слипшейся стопкой.
@@ -172,7 +172,7 @@ class _FindFilesFormState extends State<FindFilesForm> {
       children: [
         _labeled(
           theme,
-          'File name:',
+          context.strings.tr('File name:'),
           // `Enter` полю не отдаётся: в открытом окне его разбирает рама и
           // отдаёт окну (`DialogSpec.onSubmit`). Два пути к одному действию
           // разошлись бы в первый же день, когда одному из них добавят условие.
@@ -186,29 +186,29 @@ class _FindFilesFormState extends State<FindFilesForm> {
         ),
         gap,
         FcCheckbox(
-          label: 'Find recursively',
+          label: context.strings.tr('Find recursively'),
           value: state.query.recursive,
           onChanged: state.busy ? null : state.setRecursive,
         ),
         gap,
         // Ссылки не разыменовываются — Д3.
-        const FcCheckbox(label: 'Follow symlinks', value: false, onChanged: null),
+        FcCheckbox(label: context.strings.tr('Follow symlinks'), value: false, onChanged: null),
         gap,
         // Маски у нас всегда «шелловые» — тот же движок, что у пометки, — и
         // выключить это нечем. Стоит отмеченным и приглушённым: так видно, по
         // каким правилам разбирается набранное.
-        const FcCheckbox(label: 'Using shell patterns', value: true, onChanged: null),
+        FcCheckbox(label: context.strings.tr('Using shell patterns'), value: true, onChanged: null),
         gap,
         // Маска сличается без учёта регистра (`FileMask`), и выбора здесь пока
         // нет.
-        const FcCheckbox(label: 'Case sensitive', value: false, onChanged: null),
+        FcCheckbox(label: context.strings.tr('Case sensitive'), value: false, onChanged: null),
         gap,
-        const FcCheckbox(label: 'All charsets', value: false, onChanged: null),
+        FcCheckbox(label: context.strings.tr('All charsets'), value: false, onChanged: null),
         gap,
         // У `mc` этот флаг перевёрнут относительно нашего: там «пропускать
         // скрытые», у нас в запросе — «брать скрытые». Показываем как в `mc`.
         FcCheckbox(
-          label: 'Skip hidden',
+          label: context.strings.tr('Skip hidden'),
           value: !state.query.hidden,
           onChanged: state.busy ? null : (skip) => state.setHidden(!skip),
         ),

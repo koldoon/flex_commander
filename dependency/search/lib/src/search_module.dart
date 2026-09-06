@@ -31,7 +31,10 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
 
   @override
   void installBackend(BackendRegistry registry) {
-    registry.operation(SearchWork.kind, (services) => searching());
+    // Итог работы виден в списке фоновых работ, а пишет его эта сторона.
+    registry.strings('ru', _russian);
+
+    registry.operation(SearchWork.kind, (services) => searching(services.resolve<Strings>()));
   }
 
   @override
@@ -50,7 +53,7 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
   }
 
   /// Работа: где искать — единственная цель заявки, о чём — её доводы.
-  static Operation<OperationInputs, void> searching() {
+  static Operation<OperationInputs, void> searching([Strings? strings]) {
     return TaskOperation<OperationInputs, void>((op, inputs) async {
       final where = inputs.targets.whereType<DirectoryNode>().firstOrNull;
       if (where == null) {
@@ -62,7 +65,46 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
         recursive: inputs.option<bool>(SearchWork.recursiveOption) ?? true,
         hidden: inputs.option<bool>(SearchWork.hiddenOption) ?? false,
       );
-      await op.delegate(SearchRun.from(where, onFound: inputs.onFound), query);
+      await op.delegate(SearchRun.from(where, onFound: inputs.onFound, strings: strings), query);
     });
   }
 }
+
+/// Русские строки поиска файлов.
+const Map<String, String> _russian = {
+  'File search': 'Поиск файлов',
+
+  // Команды.
+  'Find files': 'Найти файлы',
+  'Search the tree below the current directory by name mask': 'Искать по дереву от текущего каталога по маске имени',
+  'Go to found file': 'Перейти к найденному',
+  'Leave the search results for the directory the file lies in': 'Уйти из находок в каталог, где лежит файл',
+
+  // Окно поиска.
+  'Find "{mask}"': 'Поиск «{mask}»',
+  'File name:': 'Имя файла:',
+  'Start at:': 'Начать с:',
+  'Find recursively': 'Искать по всему дереву',
+  'Follow symlinks': 'Идти по ссылкам',
+  'Using shell patterns': 'Маски как в оболочке',
+  'Case sensitive': 'Различать регистр',
+  'All charsets': 'Любые кодировки',
+  'Skip hidden': 'Пропускать скрытые',
+  'Ignore directories:': 'Пропускать каталоги:',
+  'Cancel': 'Отмена',
+
+  // Окно находок.
+  'Close': 'Закрыть',
+  'Again': 'Ещё раз',
+  'Background': 'В фон',
+  'View · F3': 'Смотреть · F3',
+  'Edit · F4': 'Править · F4',
+  'Go to file': 'К файлу',
+  'To panel': 'В панель',
+  'Nothing found': 'Ничего не найдено',
+  'Found: {count}': 'Найдено: {count}',
+  'Searching…': 'Идёт поиск…',
+  'Searching {where}': 'Поиск в {where}',
+  'Stopped': 'Прервано',
+  'Done': 'Готово',
+};

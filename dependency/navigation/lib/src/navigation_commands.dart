@@ -397,7 +397,9 @@ class CancelCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => tr('Cancel');
+  // С оговоркой: «Cancel» на кнопке окна — это «Отмена», а здесь «прервать
+  // то, чем панель занята» (`docs/spec/localization.md`, §3).
+  String get label => tr('Cancel', context: 'panel');
 
   @override
   String get description => tr('Stop what the panel is doing right now');

@@ -12,10 +12,10 @@ class GoToFoundCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Go to found file';
+  String get label => tr('Go to found file');
 
   @override
-  String get description => 'Leave the search results for the directory the file lies in';
+  String get description => tr('Leave the search results for the directory the file lies in');
 
   @override
   Set<String> get keywords => const {'reveal', 'locate', 'results'};
