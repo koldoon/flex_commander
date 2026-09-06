@@ -426,7 +426,9 @@ void main() {
       expect(find.byType(FindFilesResults), findsNothing, reason: 'окно ушло');
       expect(app.operations.at(ViewportPosition.left), hasLength(1), reason: 'а работа осталась');
       expect(find.textContaining('Find "*.dart"'), findsOneWidget, reason: 'полоска называет поиск');
-      expect(find.text('Found 3'), findsOneWidget, reason: 'и говорит, чем он кончился');
+      // Той же строкой, что и окно находок: итог у работы один, и говорить его
+      // двумя разными способами незачем.
+      expect(find.text('Found: 3'), findsOneWidget, reason: 'и говорит, чем он кончился');
     });
 
     testWidgets('щелчок по полоске возвращает то же окно с теми же находками', (tester) async {
