@@ -192,7 +192,6 @@ class PanelMirror extends ChangeNotifier implements Panel {
     _marksSeq++;
     _state = _state.copyWith(markedPaths: paths, marksSeq: _marksSeq);
     _link.tell(SetMarks(id, paths, _marksSeq));
-    traceMarks(() => 'ui   ${id.name} seq=$_marksSeq count=${paths.length}');
     notifyListeners();
   }
 
@@ -521,15 +520,9 @@ class PanelMirror extends ChangeNotifier implements Panel {
         if (state.cursorSeq < _cursorSeq) {
           next = next.copyWith(cursorIndex: _state.cursorIndex, cursorSeq: _cursorSeq);
         }
-        final staleMarks = state.marksSeq < _marksSeq;
-        if (staleMarks) {
+        if (state.marksSeq < _marksSeq) {
           next = next.copyWith(markedPaths: _state.markedPaths, marksSeq: _marksSeq);
         }
-        traceMarks(
-          () =>
-              'echo ${id.name} seq=${state.marksSeq} count=${state.markedPaths.length} '
-              '${staleMarks ? 'опоздало, своих ${_state.markedPaths.length}' : 'принято'} path=${state.path}',
-        );
         _state = next;
         notifyListeners();
 

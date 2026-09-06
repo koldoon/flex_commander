@@ -404,11 +404,6 @@ class TreeViewState extends State<TreeView> {
       return;
     }
     final panel = widget.panel;
-    traceMarks(
-      () =>
-          'tree помечаю ${branch.name} было=${panel.markedPaths.length} '
-          'курсор=$_cursor каталог=${panel.path} ждём=${_following ?? '—'}',
-    );
     if (panel.isMarked(branch.entry)) {
       panel.unmark(branch.entry);
     } else {
@@ -603,7 +598,6 @@ class TreeViewState extends State<TreeView> {
         } else if (panel.path == _following) {
           _following = null;
         } else if (_following == null && panel.path != _revealed) {
-          traceMarks(() => 'tree разворот на ${panel.path} (ждали ${_revealed ?? '—'})');
           WidgetsBinding.instance.addPostFrameCallback(
             (_) => unawaited(_reveal(panel.path, name: panel.currentEntry?.name)),
           );
