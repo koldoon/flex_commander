@@ -6,6 +6,7 @@ import 'brief_view_options.dart';
 import 'file_table.dart';
 import 'panels_settings.dart';
 import 'tree_view.dart';
+import 'tree_view_options.dart';
 import 'view_commands.dart';
 import 'panel_view.dart';
 
@@ -70,7 +71,8 @@ class Panels implements FcFrontendModule {
         id: TreeView.viewId,
         title: 'Tree',
         description: 'Everything as branches — where you are and what lies where',
-        build: (context, panel) => TreeView(panel: panel),
+        build: (context, panel) => TreeView(panel: panel, settings: settingsOf),
+        options: (context) => TreeViewOptions(settings: settingsOf, save: settings.save),
       ),
     );
 
@@ -183,6 +185,7 @@ const Map<String, String> _russian = {
       'Свернуть ветвь, а сворачивать нечего — перевести курсор в каталог, где она лежит',
   'Toggle branch': 'Раскрыть или свернуть',
   'Expand the branch, or collapse it back': 'Раскрыть ветвь или свернуть обратно',
+  'Show sizes': 'Показывать размер',
   'Mark branch': 'Пометить ветвь',
   'Mark or unmark the branch under the cursor and step down':
       'Пометить или снять пометку с ветви под курсором и шагнуть вниз',

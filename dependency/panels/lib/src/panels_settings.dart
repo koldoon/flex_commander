@@ -6,7 +6,7 @@ import 'package:fc_api/fc_api.dart';
 /// кратком виде выглядели бы поломкой, а не настройкой
 /// (`docs/spec/panel-views.md`, §7).
 class PanelsSettings implements Serializable {
-  PanelsSettings({this.briefColumns = autoColumns});
+  PanelsSettings({this.briefColumns = autoColumns, this.treeSize = true});
 
   /// «Сколько влезет»: число столбцов краткого вида считается по самому
   /// длинному имени в каталоге.
@@ -19,13 +19,21 @@ class PanelsSettings implements Serializable {
   /// Сколько столбцов у краткого вида; [autoColumns] — сколько влезет.
   int briefColumns;
 
+  /// Показывать ли размер в дереве.
+  ///
+  /// Включено: размер — то, ради чего каталог и помечают
+  /// (`docs/spec/panel-view-tree.md`, §4).
+  bool treeSize;
+
   @override
   void fromMap(Map<String, dynamic> m) {
     briefColumns = extract(briefColumns, m['briefColumns']).clamp(autoColumns, maxColumns);
+    treeSize = extract(treeSize, m['treeSize']);
   }
 
   @override
   void toMap(Map<String, dynamic> m) {
     m['briefColumns'] = briefColumns;
+    m['treeSize'] = treeSize;
   }
 }

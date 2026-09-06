@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 
 import 'file_type_icon.dart';
 import 'panel_drag.dart';
+import 'panels_settings.dart';
 
 /// Ветвь дерева каталогов.
 ///
@@ -82,12 +83,16 @@ abstract final class PanelTrees {
 /// панель — иначе плашка пути говорила бы про один каталог, а подсвеченная
 /// ветвь про другой.
 class TreeView extends StatefulWidget {
-  const TreeView({super.key, required this.panel});
+  const TreeView({super.key, required this.panel, required this.settings});
 
   /// Имя вида — оно же ключ настройки панели.
   static const String viewId = 'tree';
 
   final Panel panel;
+
+  /// Настройки видов: показывать ли размер. Способом узнать, а не значением —
+  /// флажок правят в окне выбора вида, и следующий же кадр обязан его учесть.
+  final PanelsSettings Function() settings;
 
   @override
   State<TreeView> createState() => TreeViewState();
@@ -207,6 +212,41 @@ class TreeViewState extends State<TreeView> {
       branch.expanded = true;
       _flatten();
     });
+  }
+
+  /// Размеры помеченного, спрошенные у ядра; пусто — спрашивать нечего.
+  ///
+  /// Помеченное в **других** ветвях панель не показывает, и её список о таких
+  /// каталогах молчит. Пока идёт счёт, дерево спрашивает их само — тем же
+  /// `allTargets()`, каким спрашивают цели окна операций
+  /// (`docs/spec/panel-view-tree.md`, §5).
+  Map<String, int> _markedSizes = const {};
+
+  /// Вопрос уже задан: второго, пока не ответили, не будет.
+  bool _asking = false;
+
+  /// Спросить размеры помеченного, если счёт ещё идёт.
+  void _askMarkedSizes() {
+    final panel = widget.panel;
+    if (_asking || panel.markedSizeIsFinal || panel.markedPaths.isEmpty) {
+      return;
+    }
+    _asking = true;
+    unawaited(
+      panel.allTargets().then((targets) {
+        _asking = false;
+        if (!mounted) {
+          return;
+        }
+        final sizes = {
+          for (final entry in targets)
+            if (entry.size >= 0) entry.path: entry.size,
+        };
+        if (sizes.length != _markedSizes.length || sizes.entries.any((e) => _markedSizes[e.key] != e.value)) {
+          setState(() => _markedSizes = sizes);
+        }
+      }),
+    );
   }
 
   /// Ветвь по пути — среди прочитанных; null — такой не показано.
@@ -610,6 +650,19 @@ class TreeViewState extends State<TreeView> {
         final app = AppScope.read(context);
         final step = theme.metrics.rowHeight + theme.metrics.rowGap;
         _step = step;
+
+        // Размер приходит тремя дорогами, и все три — уже здесь: своё чтение
+        // ветви, список панели (он же обновляется по ходу счёта) и ответ про
+        // помеченное в других ветвях (`docs/spec/panel-view-tree.md`, §5).
+        final showSize = widget.settings().treeSize;
+        if (showSize) {
+          _askMarkedSizes();
+        }
+        final listed = {
+          for (final entry in panel.entries)
+            if (entry.size >= 0) entry.path: entry.size,
+        };
+        int sizeOf(TreeBranch branch) => listed[branch.path] ?? _markedSizes[branch.path] ?? branch.entry.size;
         final list = ListView.builder(
           controller: _scroll,
           itemExtent: step,
@@ -620,6 +673,7 @@ class TreeViewState extends State<TreeView> {
               branch: branch,
               underCursor: index == _cursor,
               marked: panel.isMarked(branch.entry),
+              size: showSize ? sizeOf(branch) : FileEntry.unknownSize,
               panelActive: app.view.takesKeys(panel),
               onTap: () => _onTap(index),
               onToggle: () {
@@ -669,6 +723,7 @@ class _BranchRow extends StatelessWidget {
     required this.branch,
     required this.underCursor,
     required this.marked,
+    required this.size,
     required this.panelActive,
     required this.onTap,
     required this.onToggle,
@@ -681,6 +736,10 @@ class _BranchRow extends StatelessWidget {
   /// панели одна, и выглядеть она обязана одинаково
   /// (`docs/spec/panel-view-tree.md`, §7).
   final bool marked;
+
+  /// Размер объекта; [FileEntry.unknownSize] — показывать нечего: у каталога
+  /// его ещё не считали, а колонку могли и выключить.
+  final int size;
 
   final bool panelActive;
   final VoidCallback onTap;
@@ -773,14 +832,25 @@ class _BranchRow extends StatelessWidget {
                       FileTypeIcon(entry: branch.entry, selected: _selected),
                       SizedBox(width: metrics.iconGap),
                       Expanded(
-                        child: Padding(
-                          padding: EdgeInsets.only(right: metrics.panelRightPadding),
-                          child: Transform.translate(
-                            offset: Offset(0, metrics.rowTextVerticalNudge),
-                            child: Text(branch.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
-                          ),
+                        child: Transform.translate(
+                          offset: Offset(0, metrics.rowTextVerticalNudge),
+                          child: Text(branch.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
                         ),
                       ),
+                      // Размер прижат к правому краю: ширины у колонки нет, и
+                      // числа сходятся правыми краями — читать их так и надо
+                      // (`docs/spec/panel-view-tree.md`, §4). Просвет перед ним
+                      // тот же, что между значком и именем: в дереве колонка
+                      // одна, и делить её на ячейки, как в таблице, незачем.
+                      if (formatSize(size).isNotEmpty)
+                        Padding(
+                          padding: EdgeInsets.only(left: metrics.iconGap),
+                          child: Transform.translate(
+                            offset: Offset(0, metrics.rowTextVerticalNudge),
+                            child: Text(formatSize(size), maxLines: 1, style: style),
+                          ),
+                        ),
+                      SizedBox(width: metrics.panelRightPadding),
                     ],
                   ),
                 ),

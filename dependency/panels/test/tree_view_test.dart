@@ -92,7 +92,7 @@ void main() {
     FakeEntry.directory('/home/lib/src'),
     FakeEntry.directory('/home/test'),
     FakeEntry.directory('/home/.git'),
-    FakeEntry.file('/home/main.dart', size: 1),
+    FakeEntry.file('/home/main.dart', size: 2048),
     FakeEntry.file('/home/lib/app.dart', size: 1),
     FakeEntry.file('/home/lib/src/panel.dart', size: 1),
     FakeEntry.file('/home/test/panel_test.dart', size: 1),
@@ -528,6 +528,56 @@ void main() {
     // сказано их число.
     final source = tester.widgetList<FcTextField>(find.byType(FcTextField)).firstWhere((field) => !field.enabled);
     expect(source.controller.text, '2 sources');
+  });
+
+  /// Что написано в строке ветви справа от имени; '' — ничего.
+  String sizeOf(WidgetTester tester, String name) {
+    final row = find.ancestor(of: find.text(name), matching: find.byType(Row)).first;
+    final texts = [
+      for (final text in tester.widgetList<Text>(find.descendant(of: row, matching: find.byType(Text))))
+        text.data ?? '',
+    ];
+    // Последняя строка — размер, если он есть: имя стоит перед ним.
+    final at = texts.indexOf(name);
+    return at >= 0 && at + 1 < texts.length ? texts[at + 1] : '';
+  }
+
+  testWidgets('размер файла виден сразу, а непосчитанного каталога — нет', (tester) async {
+    await open(tester);
+
+    expect(sizeOf(tester, 'main.dart'), '2K');
+    expect(sizeOf(tester, 'lib'), '', reason: 'каталог не считали — и числа нет');
+  });
+
+  testWidgets('пометил каталог — размер посчитался', (tester) async {
+    final runtime = await open(tester);
+
+    // Курсор на `lib`; помечаем — и очередь панели идёт считать
+    // (`docs/spec/directory-sizes.md`).
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Space'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    expect(sizeOf(tester, 'lib'), isNotEmpty, reason: 'посчитанный каталог показывает размер');
+  });
+
+  testWidgets('колонку размера выключают в настройках вида', (tester) async {
+    final runtime = await open(tester);
+    expect(sizeOf(tester, 'main.dart'), '2K');
+
+    // Тем же путём, каким это делает человек: окно выбора вида, флажок под
+    // списком, «Show» (`docs/spec/panel-views.md`, §8).
+    runtime.commands.dispatch(KeyCombination.parse('Alt-F1'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Show sizes'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(FcButton, 'Show'));
+    await tester.pumpAndSettle();
+
+    expect(sizeOf(tester, 'main.dart'), '', reason: 'выключенной колонки нет вовсе');
   });
 
   testWidgets('скрытые каталоги приходят вместе с Cmd-H', (tester) async {
