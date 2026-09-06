@@ -239,7 +239,9 @@ void main() {
     expect(tester.widget<FcPickList>(toc).selected, 0);
 
     // Прокручивают список настроек, а не оглавление: подсветка идёт следом.
-    await tester.drag(find.byType(FcSettingsForm), const Offset(0, -600), warnIfMissed: false);
+    // Заведомо дальше первого раздела: сколько в нём полей, тест знать не
+    // должен — их прибавляется с каждой настройкой приложения.
+    await tester.drag(find.byType(FcSettingsForm), const Offset(0, -2000), warnIfMissed: false);
     await tester.pumpAndSettle();
 
     expect(tester.widget<FcPickList>(toc).selected, greaterThan(0), reason: 'подсвечен раздел, до которого добрались');

@@ -6,6 +6,7 @@ import 'package:flutter/foundation.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 
+import '../core/listing_cache.dart';
 import '../core/selection_controller.dart';
 
 /// Создаёт сеансы панелей.
@@ -21,6 +22,7 @@ class PanelSessionFactory {
     required this.editor,
     this.sizeScanConcurrency = _defaultConcurrency,
     this.naming = const ReferenceFileNaming(),
+    this.cache,
   });
 
   /// Реестр провайдеров: с какого панель начинает и чем открываются вложенные
@@ -41,12 +43,18 @@ class PanelSessionFactory {
   /// Правило показа имени: по нему же идёт сортировка по расширению.
   final FileNaming naming;
 
+  /// Списки уже прочитанных каталогов — один на приложение, поэтому приходит
+  /// сюда, а не заводится панелью. null — кеша нет вовсе, и панель читает так
+  /// же, как читала до него.
+  final ListingCache? cache;
+
   PanelSession create(PanelSettings settings) => PanelSession(
     registry: registry,
     editor: editor,
     settings: settings,
     sizeScanConcurrency: sizeScanConcurrency,
     naming: naming,
+    cache: cache,
   );
 }
 
@@ -74,6 +82,7 @@ class PanelSession {
     required TreeEditor editor,
     this.sizeScanConcurrency = _defaultConcurrency,
     this.naming = const ReferenceFileNaming(),
+    this.cache,
   }) : _registry = registry,
        _editor = editor,
        _columns = settings.columns,
@@ -131,6 +140,12 @@ class PanelSession {
 
   /// Правило показа имени: по нему же идёт сортировка по расширению.
   final FileNaming naming;
+
+  /// Списки уже прочитанных каталогов; null — читать всегда заново.
+  ///
+  /// Общий на обе панели: каталог, прочитанный соседкой, достаётся даром
+  /// (`docs/spec/listing-cache.md`).
+  final ListingCache? cache;
 
   final ProviderRegistry _registry;
 
@@ -609,12 +624,23 @@ class PanelSession {
   }
 
   /// Перечитать текущий каталог, сохранив курсор и пометку.
+  ///
+  /// **Мимо памяти**: это ответ на «показалось не то», и показывать в ответ то
+  /// же самое было бы издевательством. Запись выбрасывается, а не подменяется
+  /// молча: чтение может и не выйти вовсе.
   Future<void> reload() async {
     final dir = _directory;
     if (dir == null) {
       return;
     }
-    await _load(dir, cursorName: currentNode?.name, cursorFallbackIndex: _cursorIndex, markedNames: selection.names);
+    cache?.forget(dir);
+    await _load(
+      dir,
+      cursorName: currentNode?.name,
+      cursorFallbackIndex: _cursorIndex,
+      markedNames: selection.names,
+      useCache: false,
+    );
   }
 
   /// Прервать текущую работу панели.
@@ -1005,26 +1031,59 @@ class PanelSession {
     String? cursorName,
     int? cursorFallbackIndex,
     Set<String>? markedNames,
+    bool useCache = true,
   }) async {
     _rememberCursor();
     _operation?.cancel();
 
     final requestId = ++_requestId;
-    _busy = true;
-    _status = PanelPhase.loading;
-    _error = null;
-    _statusText = 'Loading…';
-    _changed();
+
+    // Список, который панель уже видела. Он всего лишь подсказка: чтение
+    // пойдёт следом в любом случае и подменит его, если каталог изменился
+    // (`docs/spec/listing-cache.md`, §3).
+    final shown = useCache ? cache?.take(dir, includeHidden: _showHidden) : null;
+    var adopted = false;
+
+    if (shown != null) {
+      _directory = dir;
+      _lastPath = dir.pathString;
+      _adoptLease(lease, dir);
+      adopted = true;
+      _nodes = shown;
+      _applySort();
+      _stopSizeScan();
+      _restoreSelection(markedNames);
+      _restoreCursor(cursorName, cursorFallbackIndex);
+      // Занятости нет: панель уже что-то показала, и отнимать у неё клавиши
+      // ради чтения, которого никто не ждёт, незачем. Этим фоновое обновление
+      // и отличается от `runWork`, где ждут нового экрана.
+      _busy = false;
+      _status = PanelPhase.idle;
+      _error = null;
+      _statusText = null;
+      _changed();
+    } else {
+      _busy = true;
+      _status = PanelPhase.loading;
+      _error = null;
+      _statusText = 'Loading…';
+      _changed();
+    }
 
     final operation = dir.provider.getDirectoryListing();
     _operation = operation;
     operation.start(ListingParams(dir, includeHidden: _showHidden));
 
-    var adopted = false;
     try {
       final nodes = await operation.result;
       if (requestId != _requestId) {
         // Пользователь уже запросил другой каталог — этот результат не нужен.
+        return;
+      }
+      cache?.put(dir, nodes, includeHidden: _showHidden);
+
+      if (shown != null) {
+        _refresh(nodes);
         return;
       }
 
@@ -1057,6 +1116,14 @@ class PanelSession {
       }
     } on FsError catch (error) {
       if (requestId != _requestId) {
+        return;
+      }
+      // Каталог уже на экране, и человек в нём работает: оборвавшееся соединение
+      // — это сообщение в строке состояния, а не пустая панель. Запись при этом
+      // выбрасывается, чтобы следующий приход не показал её опять.
+      if (shown != null && error.kind != FsErrorKind.notFound) {
+        cache?.forget(dir);
+        _finish(statusText: error.message);
         return;
       }
       _status = PanelPhase.error;
@@ -1104,6 +1171,60 @@ class PanelSession {
     _statusText = statusText;
     _operation = null;
     _changed();
+  }
+
+  /// Пришло чтение того каталога, который уже показан из памяти.
+  ///
+  /// Курсор и пометка берутся **сейчас**, а не с показа: между ними человек
+  /// успевает нажать пару стрелок, и отыгрывать их назад нельзя.
+  void _refresh(List<FsNode> nodes) {
+    final cursorName = currentNode?.name;
+    final marked = selection.names;
+    final cursorIndex = _cursorIndex;
+
+    final sorted = List<FsNode>.unmodifiable(nodes.toList()..sort(comparatorFor(_sort, naming: naming)));
+    if (_sameListing(sorted)) {
+      // Ничего не изменилось — и таблицу не пересобираем: иначе каждый подъём
+      // наверх ронял бы её на ровном месте, а вместе с ней пометку, которая
+      // живёт узлами.
+      _finish();
+      return;
+    }
+
+    _nodes = sorted;
+    _listed();
+    _stopSizeScan();
+    _restoreSelection(marked);
+    _restoreCursor(cursorName, cursorIndex);
+    _finish();
+  }
+
+  /// Тот же ли это список, что на экране.
+  ///
+  /// Сравнивается видимое: имя, вид узла, время и — у файлов — размер. Размер
+  /// каталога нарочно не в счёт: его дописывает обход помеченного, и у только
+  /// что прочитанного узла его ещё нет.
+  bool _sameListing(List<FsNode> fresh) {
+    if (fresh.length != _nodes.length) {
+      return false;
+    }
+    for (var i = 0; i < fresh.length; i++) {
+      final was = _nodes[i];
+      final now = fresh[i];
+      if (was.name != now.name || was.runtimeType != now.runtimeType) {
+        return false;
+      }
+      if (was is DirectoryNode) {
+        continue;
+      }
+      if (was.size != now.size) {
+        return false;
+      }
+      if (was is FileNode && now is FileNode && was.modified != now.modified) {
+        return false;
+      }
+    }
+    return true;
   }
 
   void _applySort() {

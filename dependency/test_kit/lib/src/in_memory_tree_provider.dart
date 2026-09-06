@@ -88,6 +88,13 @@ class InMemoryReadOnlyProvider implements TreeProvider {
   /// Каталоги, чтение которых заканчивается ошибкой.
   final Map<String, FsError> denied = {};
 
+  /// Сколько раз у провайдера просили содержимое каталога.
+  ///
+  /// Иначе «показ из памяти стоил одного чтения» проверить нечем: со стороны
+  /// панели кеш не виден вовсе — в том и смысл
+  /// (`docs/spec/listing-cache.md`, §13).
+  int listings = 0;
+
   void add(FakeEntry entry) {
     _entries[p.normalize(entry.path)] = entry;
   }
@@ -173,6 +180,7 @@ class InMemoryReadOnlyProvider implements TreeProvider {
       final dir = params.dir;
       final includeHidden = params.includeHidden;
       final path = physicalPathOf(dir);
+      listings++;
       final error = denied[path];
       if (error != null) {
         throw error;

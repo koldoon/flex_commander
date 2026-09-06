@@ -153,7 +153,7 @@ CommandRegistry.dispatch(combination, app)
 | `Cmd-↑` | `panel.up` | то же |
 | `Cmd-/` | `panel.root` | в корень провайдера |
 | `Cmd-O` | `panel.openWithSystem` | открыть выбранные объекты системой, не входя в них |
-| `Cmd-R` | `panel.reload` | перечитать текущий каталог |
+| `Cmd-R` | `panel.reload` | перечитать текущий каталог — мимо запомненного списка |
 | `Alt-Shift-Enter` | `panel.calculateSizes` | посчитать размеры всех каталогов здесь |
 | `Cmd-Shift-H`, `Cmd-H` | `panel.toggleHidden` | показать/скрыть скрытые объекты |
 | `Alt-F7` | `search.findFiles` | искать по дереву от текущего каталога — открывает окно |

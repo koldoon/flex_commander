@@ -5,6 +5,7 @@ import 'package:logecom/logecom.dart';
 
 import '../core/core_server.dart';
 import '../core/elevated_writes.dart';
+import '../core/listing_cache.dart';
 import '../core/panel_session.dart';
 import '../core/secrets_hub.dart';
 import '../core/settings_hub.dart';
@@ -143,6 +144,28 @@ class CoreContainer extends DI {
     );
     bind<Credentials>(to: (c) => c.get<SecretsHub>());
 
+    // Списки уже прочитанных каталогов — один на приложение: каталог,
+    // прочитанный левой панелью, достаётся правой даром
+    // (`docs/spec/listing-cache.md`).
+    bind<ListingCache>(
+      to: (c) {
+        // Раздел спрашивается лениво и каждый раз — как и у повышения прав:
+        // с диска он читается позже, чем собирается граф, а правку в окне
+        // настроек должен показать следующий же переход.
+        ShellSettings shell() => c.get<AppSettings>().modules.scope('fc.shell').section(ShellSettings.new);
+        final cache = ListingCache(
+          enabled: () => shell().listingCache,
+          limit: () => shell().listingCacheLimit,
+          ttl: () => Duration(seconds: shell().listingCacheTtl),
+        );
+        // Закрыли архив — записи о его каталогах стали ссылками на мертвеца.
+        // Подписка здесь, а не в кеше: аренды он не берёт нарочно, иначе не
+        // дал бы закрыться архиву, в который заглянули один раз.
+        c.get<ProviderRegistry>().onProviderClosed(cache.forgetProvider);
+        return cache;
+      },
+    );
+
     bind<PanelSessionFactory>(
       to:
           (c) => PanelSessionFactory(
@@ -150,6 +173,7 @@ class CoreContainer extends DI {
             editor: c.get<TreeEditor>(),
             sizeScanConcurrency: () => c.get<AppSettings>().sizeScanConcurrency,
             naming: c.get<FileNaming>(),
+            cache: c.get<ListingCache>(),
           ),
     );
 
@@ -168,6 +192,10 @@ class CoreContainer extends DI {
                   registry: ProviderRegistry(root: rightProvider),
                   editor: c.get<TreeEditor>(),
                   sizeScanConcurrency: () => settings.sizeScanConcurrency,
+                  // Кеш тот же: он и заведён общим. Одинаковые пути в двух
+                  // источниках он не путает — список отдаётся только своему
+                  // провайдеру.
+                  cache: c.get<ListingCache>(),
                 );
 
         final left = panels.create(settings.left);

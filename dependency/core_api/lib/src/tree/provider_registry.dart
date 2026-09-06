@@ -211,6 +211,22 @@ class ProviderRegistry {
     return null;
   }
 
+  /// Кому сказать, что провайдер закрылся.
+  final List<void Function(TreeProvider provider)> _onClosed = [];
+
+  /// Узнавать о закрытии провайдеров.
+  ///
+  /// Нужно тому, кто держит у себя узлы, а аренды не берёт: кеш каталогов
+  /// помнит списки вместе с провайдером, и после закрытия архива это ссылки на
+  /// мертвеца (`docs/spec/listing-cache.md`, §8). Арендовать ради этого нельзя:
+  /// арендатор не дал бы архиву закрыться вовсе.
+  ///
+  /// Возвращает то, чем подписку снять.
+  void Function() onProviderClosed(void Function(TreeProvider provider) listener) {
+    _onClosed.add(listener);
+    return () => _onClosed.remove(listener);
+  }
+
   /// Закрывает всё, не спрашивая счётчиков. Только выход из приложения: спорить
   /// там не с кем, а открытый файл пережить процесс не должен.
   Future<void> disposeAll() async {
@@ -220,6 +236,7 @@ class ProviderRegistry {
       final provider = entry.provider;
       if (provider != null) {
         await disposeProvider(provider);
+        _closed(provider);
       } else {
         entry.open.cancel();
       }
@@ -286,6 +303,7 @@ class ProviderRegistry {
     final provider = entry.provider;
     if (provider != null) {
       await disposeProvider(provider);
+      _closed(provider);
     } else {
       // Ещё открывается, а ждать больше некому — незачем и открывать.
       // Опоздавший провайдер закроет сама фабрика (`keepUnlessCanceled`).
@@ -298,6 +316,17 @@ class ProviderRegistry {
     // Внешний отпускается после внутреннего: пока внутренний закрывается, он
     // ещё читает файл внешнего.
     await entry.host?.release();
+  }
+
+  /// Сказать подписчикам, что провайдера больше нет.
+  ///
+  /// После закрытия, а не до: подписчик выбрасывает своё, и делать это, пока
+  /// провайдер ещё читает, незачем. Копией списка — подписчик вправе отписаться
+  /// прямо в ответ.
+  void _closed(TreeProvider provider) {
+    for (final listener in _onClosed.toList()) {
+      listener(provider);
+    }
   }
 
   /// Фабрике: отдать созданное, только если её не отменили.

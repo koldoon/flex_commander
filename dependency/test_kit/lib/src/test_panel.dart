@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:flex_commander/core/core_server.dart';
+import 'package:flex_commander/core/listing_cache.dart';
 import 'package:flex_commander/core/panel_session.dart';
 import 'package:flex_commander/link/link.dart';
 import 'package:flex_commander/link/loopback_link.dart';
@@ -43,6 +44,10 @@ class TestPanel extends PanelMirror {
 
 /// Панель на подставном провайдере — вместе с ядром, которое её держит.
 ///
+/// [cache] — списки уже прочитанных каталогов; по умолчанию его нет вовсе, и
+/// панель читает каждый раз заново: так проверки, которым кеш безразличен,
+/// видят ровно то же, что видели до него.
+///
 /// Реестр провайдеров и движок файловых операций панель себе не подставляет:
 /// чем открываются вложенные источники и каким движком выполняются операции —
 /// решение сборки приложения, а не панели. Тесту это решение обычно
@@ -53,6 +58,7 @@ TestPanel testPanel({
   ProviderRegistry? registry,
   TreeEditor editor = const TreeTransferEngine(),
   int sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
+  ListingCache? cache,
   PanelId id = PanelId.left,
 }) {
   final providers = registry ?? ProviderRegistry(root: provider);
@@ -61,6 +67,7 @@ TestPanel testPanel({
     registry: providers,
     editor: editor,
     sizeScanConcurrency: () => sizeScanConcurrency,
+    cache: cache,
   );
   // Вторая панель ядру нужна всегда — оно про две, — но проверке она не мешает:
   // стоит на том же источнике и никем не трогается.
