@@ -8,6 +8,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'file_table_header.dart';
+import 'panel_drag.dart';
 import 'file_table_row.dart';
 
 /// Таблица файлов: заголовки колонок, вертикальные линейки на всю высоту и
@@ -42,14 +43,6 @@ class _FileTableState extends State<FileTable> {
   /// перетаскивании. Запоминается там же, где и остальные размеры, — при
   /// разметке.
   double _headerHeight = 0;
-
-  /// Команды переноса и копирования и их параметры — по именам, а не по
-  /// классам: работа живёт в модуле файловых операций, а панели обязаны
-  /// собираться без него.
-  static const String copyCommandId = 'file.copy';
-  static const String moveCommandId = 'file.move';
-  static const String sourcesParam = 'sources';
-  static const String destinationParam = 'destination';
 
   int _lastCursorIndex = -1;
 
@@ -285,21 +278,10 @@ class _FileTableState extends State<FileTable> {
                 ],
               );
 
-              // Перетаскивания может не быть вовсе — тогда таблица такая же,
-              // как была: панель про мышь снаружи ничего не знает.
-              final dnd = app.dragAndDrop;
-              if (dnd == null) {
-                return _withMarking(content);
-              }
+              // Приём брошенного — общий на все виды: своё у таблицы только
+              // геометрия (`panel_drag.dart`).
               return _withMarking(
-                dnd.target(
-                  // Хозяин места — сама панель: из неё тащат, в неё бросают, и
-                  // в себя же бросать нельзя.
-                  owner: panel,
-                  spotAt: _spotAt,
-                  onDrop: (spot, payload) => _handleDrop(app, spot, payload),
-                  builder: (context, hovered) => _withHighlight(theme, content, hovered),
-                ),
+                PanelDropArea(panel: panel, spotAt: _spotAt, highlightOf: _highlightOf, child: content),
               );
             },
           ),
@@ -320,36 +302,6 @@ class _FileTableState extends State<FileTable> {
       onPointerCancel: _markUp,
       child: content,
     );
-  }
-
-  /// Что поедет, если потянуть за эту строку.
-  ///
-  /// Тянут помеченное — едет вся пометка; тянут непомеченную строку — едет она
-  /// одна, и пометка не трогается вовсе. Правило всех коммандеров, и оно же
-  /// единственное, которое не удивляет: человек видит, что схватил.
-  ///
-  /// Строками, а не узлами: у строки есть свой путь, по которому ядро найдёт
-  /// объект заново, — и держать источник живым ради жеста больше не нужно.
-  ///
-  /// Обещанием: помеченное бывает и в соседних ветвях дерева, а значений их
-  /// строк по эту сторону нет — тогда за ними идут в ядро
-  /// (`docs/spec/drag-and-drop.md`, §4).
-  Future<List<FileEntry>> _dragEntries(FileEntry entry) async {
-    final panel = widget.panel;
-    if (!panel.isMarked(entry)) {
-      return [entry];
-    }
-    final seen = panel.targets;
-    // Всё помеченное на виду — спрашивать ядро незачем: у жеста считанные
-    // мгновения до того, как система заберёт мышь, и лишний оборот границы тут
-    // ни к чему. Считается это по путям, и разойтись они не могут: `targets` —
-    // ровно те строки списка, чей путь помечен.
-    if (seen.length == panel.targetPaths.length) {
-      return seen;
-    }
-    // А помечено и в других каталогах — значений их строк здесь нет вовсе, и
-    // за ними идут в ядро (`docs/spec/operation-targets.md`, §4).
-    return panel.allTargets();
   }
 
   /// Что под курсором при перетаскивании — строка-каталог или сама панель.
@@ -387,58 +339,15 @@ class _FileTableState extends State<FileTable> {
     return index >= 0 && index < widget.panel.entries.length ? index : null;
   }
 
-  /// Подсветка того, куда попадёт брошенное: строка или вся панель.
-  ///
-  /// Строение дерева при этом **не меняется**: слой подсветки стоит всегда, а
-  /// подсветка живёт внутри него рисунком. Иначе появление подсветки означало
-  /// бы новое строение — список пересобирался бы заново, и прокрутка падала к
-  /// началу. Ровно это и случилось: стоило потащить файл наружу, как панель
-  /// перематывалась наверх, потому что указатель по дороге проходил над своим
-  /// же окном и зажигал подсветку.
-  Widget _withHighlight(FcTheme theme, Widget content, DropSpot? hovered) {
-    final entry = hovered?.entry;
+  /// Что обвести: строку-каталог, в которую бросают; null — всю панель.
+  Rect? _highlightOf(DropSpot spot) {
+    final entry = spot.entry;
     final index = entry == null ? -1 : widget.panel.entries.indexOf(entry);
-    final offset = _scroll.hasClients ? _scroll.offset : 0.0;
-
-    return Stack(
-      children: [
-        content,
-        Positioned.fill(
-          child: IgnorePointer(
-            child: CustomPaint(
-              painter: _DropHighlightPainter(
-                // Ни строки, ни области — рисовать нечего: перетаскивания нет
-                // или оно не над нами.
-                top: hovered == null ? null : (index < 0 ? null : _headerHeight + index * _rowHeight - offset),
-                height: _rowHeight,
-                whole: hovered != null && index < 0,
-                color: theme.colors.cursorBackground,
-                width: theme.metrics.strokeWidth * 2,
-              ),
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  /// Брошенное идёт теми же командами, что работают за `F5` и `F6`.
-  ///
-  /// С `Shift` — перенос, без него — копия: так принято везде, и решает это
-  /// система, а не мы (она же и значок у курсора рисует). По идентификатору, а
-  /// не по классу: работа живёт в модуле файловых операций, а приложение
-  /// обязано собираться без него — тогда бросок просто ничего не сделает.
-  Future<void> _handleDrop(Application app, DropSpot spot, DropPayload payload) async {
-    if (payload.paths.isEmpty) {
-      return;
+    if (index < 0) {
+      return null;
     }
-    // Бросок делает панель активной — как и клик по ней: работа пойдёт **в
-    // неё**, и человек должен видеть, где он теперь.
-    app.activate(widget.panel);
-    app.commands.run(
-      payload.moves ? moveCommandId : copyCommandId,
-      CommandInvocation(parameters: {sourcesParam: payload.paths, destinationParam: spot.destination}),
-    );
+    final offset = _scroll.hasClients ? _scroll.offset : 0.0;
+    return Rect.fromLTWH(0, _headerHeight + index * _rowHeight - offset, double.infinity, _rowHeight);
   }
 
   Widget _buildList(List<ColumnSpec> columns, List<double> widths) {
@@ -497,8 +406,7 @@ class _FileTableState extends State<FileTable> {
               onTap: () => _handleRowTap(app, index),
             );
             // Строку можно утащить наружу — если есть кому тащить.
-            final dnd = app.dragAndDrop;
-            return dnd == null ? row : dnd.source(owner: panel, child: row, entries: () => _dragEntries(entry));
+            return panelDragSource(context: context, panel: panel, entry: entry, child: row);
           },
         );
       },
@@ -775,41 +683,3 @@ class _ColumnDividersPainter extends CustomPainter {
 /// Рисунок, а не виджет с рамкой: подсветка появляется и гаснет посреди
 /// перетаскивания, и менять ради неё строение дерева нельзя — список
 /// пересобрался бы, а вместе с ним потерялась бы прокрутка.
-class _DropHighlightPainter extends CustomPainter {
-  const _DropHighlightPainter({
-    required this.top,
-    required this.height,
-    required this.whole,
-    required this.color,
-    required this.width,
-  });
-
-  /// Верх подсвечиваемой строки; null — строки нет.
-  final double? top;
-  final double height;
-
-  /// Подсвечивается вся область: бросили мимо строк.
-  final bool whole;
-
-  final Color color;
-  final double width;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final rect = whole ? Offset.zero & size : (top == null ? null : Rect.fromLTWH(0, top!, size.width, height));
-    if (rect == null) {
-      return;
-    }
-    canvas.drawRect(
-      rect.deflate(width / 2),
-      Paint()
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = width
-        ..color = color,
-    );
-  }
-
-  @override
-  bool shouldRepaint(_DropHighlightPainter old) =>
-      old.top != top || old.height != height || old.whole != whole || old.color != color || old.width != width;
-}

@@ -6,6 +6,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
 import 'file_type_icon.dart';
+import 'panel_drag.dart';
 
 /// Ветвь дерева каталогов.
 ///
@@ -113,6 +114,22 @@ class TreeViewState extends State<TreeView> {
   /// Показ скрытых, с которым читали: `Cmd-H` перечитывает раскрытое.
   bool _hidden = false;
 
+  /// Окно, в пределах которого два щелчка по одной ветви считаются двойным.
+  static const Duration _doubleTapWindow = Duration(milliseconds: 400);
+
+  int _lastTapIndex = -1;
+  DateTime _lastTapTime = DateTime.fromMillisecondsSinceEpoch(0);
+
+  /// Ветвь, в которую бросили: её раскрывают сразу, а перечитывают, когда
+  /// работа кончится (`docs/spec/drag-and-drop.md`, §4).
+  String? _dropped;
+
+  /// Работа после броска и правда началась: без этого первая же кончившаяся
+  /// чужая работа перечитала бы ветвь впустую.
+  bool _sawWork = false;
+
+  Operations? _operations;
+
   @override
   void initState() {
     super.initState();
@@ -121,10 +138,82 @@ class TreeViewState extends State<TreeView> {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Работы слушаются ради брошенного: каталог раскрыт сразу, а появившееся в
+    // нём видно только после перечитывания.
+    final operations = AppScope.read(context).operations;
+    if (identical(operations, _operations)) {
+      return;
+    }
+    _operations?.removeListener(_onOperations);
+    _operations = operations..addListener(_onOperations);
+  }
+
+  @override
   void dispose() {
     PanelTrees.forget(widget.panel.id, this);
+    _operations?.removeListener(_onOperations);
     _scroll.dispose();
     super.dispose();
+  }
+
+  /// Работа кончилась — перечитать ветвь, в которую бросили.
+  ///
+  /// Дерево показывает много каталогов разом, и перечитывание панелей до него
+  /// не доходит: панель стоит там, где курсор, а бросали куда указали.
+  void _onOperations() {
+    if (_dropped == null) {
+      return;
+    }
+    if (_operations?.all.isNotEmpty ?? false) {
+      _sawWork = true;
+      return;
+    }
+    if (!_sawWork) {
+      return;
+    }
+    final path = _dropped;
+    _dropped = null;
+    _sawWork = false;
+    unawaited(refresh(path!));
+  }
+
+  /// Перечитать ветвь по пути и оставить её раскрытой.
+  ///
+  /// Прочитанное дерево помнит (`docs/spec/panel-view-tree.md`, §5), а после
+  /// работы память врёт: в каталоге появилось или исчезло.
+  Future<void> refresh(String path) async {
+    final branch = _branchAt(path);
+    if (branch == null) {
+      return;
+    }
+    branch.children = null;
+    await _open(branch);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      branch.expanded = true;
+      _flatten();
+    });
+  }
+
+  /// Ветвь по пути — среди прочитанных; null — такой не показано.
+  TreeBranch? _branchAt(String path) {
+    TreeBranch? found;
+    void walk(List<TreeBranch> branches) {
+      for (final branch in branches) {
+        if (branch.path == path) {
+          found = branch;
+          return;
+        }
+        walk(branch.children ?? const []);
+      }
+    }
+
+    walk(_roots);
+    return found;
   }
 
   /// Ветвь под курсором; null — дерево ещё пусто.
@@ -392,6 +481,94 @@ class TreeViewState extends State<TreeView> {
     return at <= 0 ? path : path.substring(at + 1);
   }
 
+  /// Высота строки дерева вместе с просветом; 0 — разметки ещё не было.
+  double _step = 0;
+
+  /// Ветвь под точкой — в местных координатах области.
+  TreeBranch? _branchUnder(Offset local) {
+    if (_step <= 0) {
+      return null;
+    }
+    final offset = _scroll.hasClients ? _scroll.offset : 0.0;
+    final index = ((local.dy + offset) / _step).floor();
+    return index >= 0 && index < _visible.length ? _visible[index] : null;
+  }
+
+  /// Куда попадёт брошенное: в каталог под указателем, а указали на файл — в
+  /// тот, где он лежит.
+  ///
+  /// В дереве каталогов видно много разом, и «каталог панели» тут — случайное
+  /// место, где стоит курсор. Поэтому мимо ветвей бросать некуда: подсветки
+  /// нет, отпускание ничего не делает (`docs/spec/drag-and-drop.md`, §4).
+  DropSpot? _spotAt(Offset local) {
+    final panel = widget.panel;
+    if (!panel.source.canWrite) {
+      return null;
+    }
+    final under = _branchUnder(local);
+    final directory =
+        under == null
+            ? null
+            : under.isDirectory
+            ? under
+            : under.parent;
+    if (directory == null) {
+      return null;
+    }
+    return DropSpot(destination: directory.path, entry: directory.entry);
+  }
+
+  /// Обводится **та ветвь, в которую ляжет**: указали на файл — горит его
+  /// каталог, и видно, куда именно попадёт брошенное.
+  Rect? _highlightOf(DropSpot spot) {
+    final at = _visible.indexWhere((branch) => branch.path == spot.destination);
+    if (at < 0 || _step <= 0) {
+      return null;
+    }
+    final offset = _scroll.hasClients ? _scroll.offset : 0.0;
+    return Rect.fromLTWH(0, at * _step - offset, double.infinity, _step);
+  }
+
+  /// Бросили — раскрываем: в закрытую ветвь файл уедет молча, и человек не
+  /// увидит, что он там появился. Перечитается она, когда работа кончится.
+  void _onDropped(DropSpot spot) {
+    _dropped = spot.destination;
+    _sawWork = false;
+    final branch = _branchAt(spot.destination);
+    if (branch == null || branch.expanded) {
+      return;
+    }
+    unawaited(
+      _open(branch).then((_) {
+        if (mounted) {
+          setState(() {
+            branch.expanded = true;
+            _flatten();
+          });
+        }
+      }),
+    );
+  }
+
+  /// Щелчок ставит курсор, двойной — раскрывает ветвь или сворачивает её.
+  ///
+  /// То же, что делает `Enter`: вид со своей навигацией обязан отвечать и на
+  /// двойной щелчок (`docs/spec/panel-views.md`, §9). Распознаётся вручную —
+  /// как в таблице: штатный `onDoubleTap` заставляет ждать окно двойного
+  /// щелчка перед **первым**, и курсор начинает опаздывать.
+  void _onTap(int index) {
+    final now = DateTime.now();
+    final again = index == _lastTapIndex && now.difference(_lastTapTime) < _doubleTapWindow;
+    _lastTapIndex = index;
+    _lastTapTime = now;
+
+    AppScope.read(context).activate(widget.panel);
+    _moveTo(index);
+    if (again) {
+      unawaited(toggle());
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final panel = widget.panel;
@@ -415,21 +592,19 @@ class TreeViewState extends State<TreeView> {
 
         final app = AppScope.read(context);
         final step = theme.metrics.rowHeight + theme.metrics.rowGap;
-        return ListView.builder(
+        _step = step;
+        final list = ListView.builder(
           controller: _scroll,
           itemExtent: step,
           itemCount: _visible.length,
           itemBuilder: (context, index) {
             final branch = _visible[index];
-            return _BranchRow(
+            final row = _BranchRow(
               branch: branch,
               underCursor: index == _cursor,
               marked: panel.isMarked(branch.entry),
               panelActive: app.view.takesKeys(panel),
-              onTap: () {
-                app.activate(panel);
-                _moveTo(index);
-              },
+              onTap: () => _onTap(index),
               onToggle: () {
                 app.activate(panel);
                 if (branch.expanded) {
@@ -451,7 +626,20 @@ class TreeViewState extends State<TreeView> {
                 }
               },
             );
+            // Тянут за ветвь то же, что тянут за строку списка: объект, а не
+            // картинку (`panel_drag.dart`).
+            return panelDragSource(context: context, panel: panel, entry: branch.entry, child: row);
           },
+        );
+
+        // Бросают в каталог под указателем, а не в каталог панели: дерево
+        // показывает много каталогов разом.
+        return PanelDropArea(
+          panel: panel,
+          spotAt: _spotAt,
+          highlightOf: _highlightOf,
+          onDropped: _onDropped,
+          child: list,
         );
       },
     );

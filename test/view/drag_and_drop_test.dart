@@ -31,6 +31,7 @@ void main() {
     provider = InMemoryTreeProvider([
       FakeEntry.directory('/home'),
       FakeEntry.directory('/home/docs'),
+      FakeEntry.file('/home/docs/inside.txt', size: 4),
       FakeEntry.file('/home/note.txt', size: 4),
       FakeEntry.directory('/outside'),
       FakeEntry.file('/outside/dropped.txt', size: 7),
@@ -149,6 +150,75 @@ void main() {
     expect(app.left.active, isTrue, reason: 'работа идёт в ту панель, в которую бросили — её и видно активной');
   });
 
+  group('дерево', () {
+    /// Левая панель показывает дерево: жест обязан работать в любом виде, а не
+    /// только в таблице (`docs/spec/drag-and-drop.md`, §4).
+    Future<void> pumpTree(WidgetTester tester) async {
+      await pumpApp(tester);
+      await app.left.setView(TreeView.viewId);
+      await tester.pumpAndSettle();
+    }
+
+    /// Середина ветви с таким именем — в дереве, а не в соседней панели.
+    Offset branchCenter(WidgetTester tester, String name) {
+      final row = find.descendant(of: find.byType(TreeView), matching: find.text(name));
+      expect(row, findsOneWidget, reason: 'в дереве нет ветви «$name»');
+      return tester.getCenter(row);
+    }
+
+    /// Что видно в дереве, сверху вниз.
+    List<String> branches(WidgetTester tester) => [
+      for (final text in tester.widgetList<Text>(
+        find.descendant(of: find.byType(TreeView), matching: find.byType(Text)),
+      ))
+        if ((text.data ?? '').isNotEmpty && (text.data ?? '').codeUnitAt(0) < 0xE000) text.data!,
+    ];
+
+    testWidgets('брошенное на ветвь ложится в неё, и она раскрывается', (tester) async {
+      await pumpTree(tester);
+      expect(branches(tester), isNot(contains('dropped.txt')));
+
+      await sendDrop(tester, 'drop', at: branchCenter(tester, 'docs'), paths: const ['/outside/dropped.txt']);
+      await startWork(tester, 'Copy');
+
+      expect(await provider.resolvePath().run('/home/docs/dropped.txt'), isNotNull);
+      // Каталог раскрыт броском, а перечитан по концу работы — иначе о
+      // появившемся файле человек узнал бы только сам открыв ветвь.
+      expect(branches(tester), contains('dropped.txt'));
+    });
+
+    testWidgets('брошенное на ветвь-файл ложится в его каталог', (tester) async {
+      await pumpTree(tester);
+
+      await sendDrop(tester, 'drop', at: branchCenter(tester, 'note.txt'), paths: const ['/outside/dropped.txt']);
+      await startWork(tester, 'Copy');
+
+      expect(await provider.resolvePath().run('/home/dropped.txt'), isNotNull, reason: 'каталог самой ветви');
+    });
+
+    testWidgets('двойной щелчок раскрывает ветвь и сворачивает обратно', (tester) async {
+      /// Два щелчка подряд по одной ветви. Пауза перед ними — настоящая:
+      /// окно двойного щелчка меряется часами, а не кадрами, и без паузы
+      /// третий щелчок сошёл бы за второй.
+      Future<void> doubleTap(String name) async {
+        await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 450)));
+        await tester.tapAt(branchCenter(tester, name));
+        await tester.pump();
+        await tester.tapAt(branchCenter(tester, name));
+        await tester.pumpAndSettle();
+      }
+
+      await pumpTree(tester);
+      final was = branches(tester).length;
+
+      await doubleTap('docs');
+      expect(branches(tester).length, greaterThan(was), reason: 'ветвь раскрылась');
+
+      await doubleTap('docs');
+      expect(branches(tester).length, was, reason: 'и свернулась обратно');
+    });
+  });
+
   group('наружу', () {
     late List<MethodCall> asked;
 
@@ -202,6 +272,26 @@ void main() {
       await dragRow(tester, 'note.txt');
 
       expect((asked.single.arguments as Map)['paths'], containsAll(<String>['/home/note.txt', '/home/docs']));
+    });
+
+    testWidgets('ветвь дерева тащится так же, как строка списка', (tester) async {
+      await pumpApp(tester);
+      await app.left.setView(TreeView.viewId);
+      await tester.pumpAndSettle();
+
+      final branch = find.descendant(of: find.byType(TreeView), matching: find.text('note.txt'));
+      final gesture = await tester.startGesture(
+        tester.getCenter(branch),
+        kind: PointerDeviceKind.mouse,
+        buttons: kPrimaryMouseButton,
+      );
+      await gesture.moveBy(const Offset(24, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(asked.map((call) => call.method), ['beginDrag']);
+      expect((asked.single.arguments as Map)['paths'], ['/home/note.txt']);
     });
 
     testWidgets('помеченное в другом каталоге едет вместе со всеми', (tester) async {

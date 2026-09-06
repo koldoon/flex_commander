@@ -6,6 +6,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
 import 'file_table_row.dart';
+import 'panel_drag.dart';
 import 'panels_settings.dart';
 
 /// Краткий вид: одни имена, столбцами сверху вниз и дальше вправо.
@@ -42,6 +43,9 @@ class _BriefViewState extends State<BriefView> {
   double _columnWidth = 0;
   double _viewWidth = 0;
   int _rows = 1;
+
+  /// Высота строки последней отрисовки: по ней ищут строку под указателем.
+  double _rowHeight = 0;
 
   int _lastCursorIndex = -1;
   int _lastTapIndex = -1;
@@ -125,6 +129,53 @@ class _BriefViewState extends State<BriefView> {
     _revealCursor();
   }
 
+  /// Номер строки под точкой — в местных координатах области; null — мимо.
+  ///
+  /// Столбцы едут вбок, строки идут сверху вниз: место в списке складывается из
+  /// того и другого.
+  int? _indexAt(Offset local) {
+    if (_columnWidth <= 0 || _rowHeight <= 0 || _rows <= 0) {
+      return null;
+    }
+    final offset = _scroll.hasClients ? _scroll.offset : 0.0;
+    final column = ((local.dx + offset) / _columnWidth).floor();
+    final row = (local.dy / _rowHeight).floor();
+    if (column < 0 || row < 0 || row >= _rows) {
+      return null;
+    }
+    final index = column * _rows + row;
+    return index >= 0 && index < widget.panel.entries.length ? index : null;
+  }
+
+  /// Куда попадёт брошенное: в каталог под указателем, а мимо каталогов — в
+  /// каталог панели. То же правило, что у таблицы.
+  DropSpot? _spotAt(Offset local) {
+    final panel = widget.panel;
+    if (panel.path.isEmpty || !panel.source.canWrite) {
+      return null;
+    }
+    final index = _indexAt(local);
+    final entry = index == null ? null : panel.entries[index];
+    if (entry != null && entry.isDirectory && !entry.isParent) {
+      return DropSpot(destination: entry.path, entry: entry);
+    }
+    return DropSpot(destination: panel.path);
+  }
+
+  /// Обводится **ячейка**: у краткого вида строка занимает столбец, а не всю
+  /// ширину области.
+  Rect? _highlightOf(DropSpot spot) {
+    final entry = spot.entry;
+    final index = entry == null ? -1 : widget.panel.entries.indexOf(entry);
+    if (index < 0 || _columnWidth <= 0 || _rows <= 0) {
+      return null;
+    }
+    final offset = _scroll.hasClients ? _scroll.offset : 0.0;
+    final column = index ~/ _rows;
+    final row = index % _rows;
+    return Rect.fromLTWH(column * _columnWidth - offset, row * _rowHeight, _columnWidth, _rowHeight);
+  }
+
   void _onTap(int index) {
     final panel = widget.panel;
     final now = DateTime.now();
@@ -183,6 +234,7 @@ class _BriefViewState extends State<BriefView> {
               // точках и указывает уже не туда: содержимое «плывёт» под
               // обзором. Держимся за курсор — он и есть то место, на которое
               // человек смотрит (`docs/spec/panel-view-brief.md`, §7).
+              _rowHeight = rowHeight;
               final resized = _rows != rows || _columnWidth != columnWidth || _viewWidth != available;
               final wasCursorAt = _cursorColumnOnScreen();
               _rows = rows;
@@ -202,7 +254,7 @@ class _BriefViewState extends State<BriefView> {
 
               final widths = <double>[iconWidth, math.max(columnWidth - iconWidth, 1)];
 
-              return ListView.builder(
+              final list = ListView.builder(
                 controller: _scroll,
                 scrollDirection: Axis.horizontal,
                 itemExtent: columnWidth,
@@ -215,24 +267,33 @@ class _BriefViewState extends State<BriefView> {
                       for (var row = 0; row < rows && first + row < entries.length; row++)
                         SizedBox(
                           height: rowHeight,
-                          child: FileTableRow(
+                          // Строку можно утащить — тем же жестом и по тому же
+                          // правилу, что в таблице (`panel_drag.dart`).
+                          child: panelDragSource(
+                            context: context,
+                            panel: panel,
                             entry: entries[first + row],
-                            columns: _briefColumns,
-                            widths: widths,
-                            marked: panel.isMarked(entries[first + row]),
-                            underCursor: panel.cursorIndex == first + row,
-                            // Тот же вопрос, что задаёт плашка пути: горит
-                            // курсор там, где сейчас клавиши.
-                            panelActive: app.view.takesKeys(panel),
-                            naming: app.fileNaming,
-                            contentOf: panel.contentOf,
-                            onTap: () => _onTap(first + row),
+                            child: FileTableRow(
+                              entry: entries[first + row],
+                              columns: _briefColumns,
+                              widths: widths,
+                              marked: panel.isMarked(entries[first + row]),
+                              underCursor: panel.cursorIndex == first + row,
+                              // Тот же вопрос, что задаёт плашка пути: горит
+                              // курсор там, где сейчас клавиши.
+                              panelActive: app.view.takesKeys(panel),
+                              naming: app.fileNaming,
+                              contentOf: panel.contentOf,
+                              onTap: () => _onTap(first + row),
+                            ),
                           ),
                         ),
                     ],
                   );
                 },
               );
+
+              return PanelDropArea(panel: panel, spotAt: _spotAt, highlightOf: _highlightOf, child: list);
             },
           ),
     );
