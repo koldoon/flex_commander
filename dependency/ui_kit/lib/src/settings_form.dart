@@ -255,7 +255,13 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
               padding: EdgeInsets.only(left: padding.left, right: padding.right, top: padding.top),
               child: Row(
                 children: [
-                  Expanded(child: FcTextField(controller: _query, autofocus: true, hintText: 'Search settings')),
+                  Expanded(
+                    child: FcTextField(
+                      controller: _query,
+                      autofocus: true,
+                      hintText: context.strings.tr('Search settings'),
+                    ),
+                  ),
                   // Счёт — только пока отбирают: «22 settings» при пустом поле
                   // отвечает на вопрос, которого никто не задавал, а вот
                   // «5 settings» объясняет, почему список вдруг короткий.
@@ -274,7 +280,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                   _found.isEmpty
                       // Одним сообщением на оба столбца: пустое оглавление
                       // рядом с пустым списком сказало бы то же самое дважды.
-                      ? Center(child: Text('Nothing found', style: theme.dialogLabelStyle))
+                      ? Center(child: Text(context.strings.tr('Nothing found'), style: theme.dialogLabelStyle))
                       : Row(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -346,7 +352,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                       ),
             ),
             SizedBox(height: metrics.dialogGap),
-            CommandDialogActions(actions: [FcButton(label: 'Close', onPressed: widget.onClose)]),
+            CommandDialogActions(actions: [FcButton(label: context.strings.tr('Close'), onPressed: widget.onClose)]),
           ],
         ),
       ),
@@ -533,7 +539,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
         schema.save();
         setState(() {});
       },
-      child: Text('Reset', style: _secondaryStyle(theme).copyWith(color: theme.colors.markedBar)),
+      child: Text(context.strings.tr('Reset'), style: _secondaryStyle(theme).copyWith(color: theme.colors.markedBar)),
     ),
   );
 

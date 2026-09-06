@@ -28,7 +28,7 @@ class DefaultTheme implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.strings('ru', {'Default theme': 'Оформление по умолчанию'});
+    registry.strings('ru', _russian);
 
     registry.theme(
       const FcThemeSpec(
@@ -46,3 +46,9 @@ class DefaultTheme implements FcFrontendModule {
     registry.startup((context) => RestoreThemeCommand(context, settings));
   }
 }
+
+/// Русские строки оформления.
+///
+/// Название темы приходит значением (`FcThemeSpec.title`) — переводит его тот,
+/// кто показывает, а объявляет тот, чья тема.
+const Map<String, String> _russian = {'Default theme': 'Оформление по умолчанию', 'Default': 'Обычное'};

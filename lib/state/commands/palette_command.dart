@@ -27,10 +27,10 @@ class CommandPaletteCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Commands';
+  String get label => tr('Commands');
 
   @override
-  String get description => 'Everything the application can do right now, by name';
+  String get description => tr('Everything the application can do right now, by name');
 
   @override
   bool isExecutable(CommandContext context) => true;

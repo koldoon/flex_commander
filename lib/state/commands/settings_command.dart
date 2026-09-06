@@ -19,10 +19,10 @@ class SettingsCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Settings';
+  String get label => tr('Settings');
 
   @override
-  String get description => 'Everything the application remembers by your choice';
+  String get description => tr('Everything the application remembers by your choice');
 
   /// `Preferences` — то же самое словом другой школы; `config` — привычка из
   /// терминала.
@@ -40,7 +40,7 @@ class SettingsCommand extends AppCommand {
 
     dialogId = view.showDialog(
       DialogSpec(
-        title: 'Settings',
+        title: tr('Settings'),
         takesFocus: true,
         // Ширину окно задаёт само — долей экрана, а не точками: с общим
         // верхним пределом на широком экране оно обрезалось бы тем сильнее,

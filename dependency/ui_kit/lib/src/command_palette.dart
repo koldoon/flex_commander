@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'command_dialog.dart';
+import 'app_scope.dart';
 import 'fc_theme.dart';
 import 'pick_list.dart';
 
@@ -182,7 +183,12 @@ class _FcCommandPaletteState extends State<FcCommandPalette> {
           children: [
             Padding(
               padding: dialogContentPadding(context),
-              child: FcTextField(controller: _query, focusNode: _field, autofocus: true, hintText: 'Command'),
+              child: FcTextField(
+                controller: _query,
+                focusNode: _field,
+                autofocus: true,
+                hintText: context.strings.tr('Command'),
+              ),
             ),
             ConstrainedBox(
               constraints: BoxConstraints(maxHeight: _listHeight(metrics, limits.maxHeight - bottom)),

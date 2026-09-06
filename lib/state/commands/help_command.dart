@@ -21,7 +21,7 @@ class HelpCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Help';
+  String get label => tr('Help');
 
   /// В справке лежит перечень клавиш — по нему её и ищут.
   @override
@@ -63,16 +63,16 @@ class HelpCommand extends AppCommand {
   FcTableSection _settings(CommandContext context) {
     final app = context.app;
 
-    return FcTableSection('Settings', [
-      FcTableRow('Left panel', _pathOf(app.left)),
-      FcTableRow('Right panel', _pathOf(app.right)),
-      FcTableRow('Active panel', identical(app.activePanel, app.left) ? 'Left' : 'Right'),
-      FcTableRow('Split', '${(app.splitRatio * 100).round()}% left'),
-      FcTableRow('Hidden files', _bothPanels(app, (panel) => panel.showHidden ? 'shown' : 'hidden')),
-      FcTableRow('Sort', _bothPanels(app, (panel) => _sortOf(panel.sort))),
-      FcTableRow('Columns', _bothPanels(app, _columnsOf)),
-      FcTableRow('Directory scans', '${app.sizeScanConcurrency} at a time'),
-      FcTableRow('Window', _windowOf(app.windowGeometry)),
+    return FcTableSection(tr('Settings'), [
+      FcTableRow(tr('Left panel'), _pathOf(app.left)),
+      FcTableRow(tr('Right panel'), _pathOf(app.right)),
+      FcTableRow(tr('Active panel'), identical(app.activePanel, app.left) ? tr('Left') : tr('Right')),
+      FcTableRow(tr('Split'), tr('{percent}% left', args: {'percent': (app.splitRatio * 100).round()})),
+      FcTableRow(tr('Hidden files'), _bothPanels(app, (panel) => panel.showHidden ? tr('shown') : tr('hidden'))),
+      FcTableRow(tr('Sort'), _bothPanels(app, (panel) => _sortOf(panel.sort))),
+      FcTableRow(tr('Columns'), _bothPanels(app, _columnsOf)),
+      FcTableRow(tr('Directory scans'), tr('{count} at a time', args: {'count': app.sizeScanConcurrency})),
+      FcTableRow(tr('Window'), _windowOf(app.windowGeometry)),
     ]);
   }
 
@@ -94,8 +94,8 @@ class HelpCommand extends AppCommand {
   List<FcTableSection> _commands(CommandContext context) {
     final registry = _registry?.call();
     if (registry == null) {
-      return const [
-        FcTableSection('Commands', [FcTableRow('', 'Command list is not available')]),
+      return [
+        FcTableSection(tr('Commands'), [FcTableRow('', tr('Command list is not available'))]),
       ];
     }
 

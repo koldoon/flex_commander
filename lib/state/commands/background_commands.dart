@@ -48,10 +48,10 @@ class FocusBackgroundCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Background tasks';
+  String get label => tr('Background tasks');
 
   @override
-  String get description => 'Move the input to the list of tasks running in background';
+  String get description => tr('Move the input to the list of tasks running in background');
 
   @override
   Set<String> get keywords => const {'jobs', 'progress', 'cancel'};
@@ -79,7 +79,7 @@ class LeaveBackgroundCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Back to panel';
+  String get label => tr('Back to panel');
 
   @override
   bool isExecutable(CommandContext context) => _focusedList(context.app) != null;
@@ -131,7 +131,7 @@ class ShowBackgroundTaskCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Show task';
+  String get label => tr('Show task');
 
   @override
   bool isExecutable(CommandContext context) => _focusedList(context.app)?.current != null;
@@ -155,10 +155,10 @@ class CancelBackgroundTaskCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Cancel task';
+  String get label => tr('Cancel task');
 
   @override
-  String get description => 'Stop the selected background task; a finished one is dismissed';
+  String get description => tr('Stop the selected background task; a finished one is dismissed');
 
   @override
   bool isExecutable(CommandContext context) => _focusedList(context.app)?.current != null;

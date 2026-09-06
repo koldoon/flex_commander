@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'command_dialog.dart';
+import 'app_scope.dart';
 import 'fc_theme.dart';
 
 /// Строка таблицы: название и одно или два значения.
@@ -252,7 +253,10 @@ class _FcKeyValueTableState extends State<FcKeyValueTable> {
             // прижата вправо. Своей разметкой её обходить нельзя — `FcButton`
             // под ограниченной шириной растягивается во всю её ширину.
             CommandDialogActions(
-              actions: [...widget.actions, FcButton(label: 'Close', onPressed: widget.onClose, primary: true)],
+              actions: [
+                ...widget.actions,
+                FcButton(label: context.strings.tr('Close'), onPressed: widget.onClose, primary: true),
+              ],
             ),
           ],
         ),

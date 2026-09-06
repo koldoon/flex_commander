@@ -63,18 +63,19 @@ class SystemDragAndDrop implements FcFrontendModule {
     // выглядит как «перетащил, и ничего не произошло».
     registry.startup((context) => _TellFailuresCommand(context));
 
-    registry.settingsSchema(
-      () => SettingsSchema([
+    registry.settingsSchema(() {
+      final strings = registry.services.resolve<Strings>();
+      return SettingsSchema([
         SettingsField.flag(
           'dropIntoSamePanel',
           defaultValue: false,
-          title: 'Drop into the same panel',
-          description: 'Allow dropping files back into the panel they are dragged from',
+          title: strings.tr('Drop into the same panel'),
+          description: strings.tr('Allow dropping files back into the panel they are dragged from'),
           read: () => settingsOf().dropIntoSamePanel,
           write: (value) => settingsOf().dropIntoSamePanel = value,
         ),
-      ], save: settings.save),
-    );
+      ], save: settings.save);
+    });
   }
 }
 
@@ -88,7 +89,7 @@ class _TellFailuresCommand extends AppCommand {
   String get id => 'dnd.install';
 
   @override
-  String get label => 'Install drag and drop';
+  String get label => tr('Install drag and drop');
 
   @override
   bool isExecutable(CommandContext context) => true;
@@ -283,7 +284,9 @@ class SystemDropService implements DragAndDrop {
     } catch (error) {
       // Со стороны неудача выглядит как «перетащил, и ничего не произошло»:
       // система молча бросает то, чего ей не дали. Сказать об этом обязаны мы.
-      _app?.toasts.show('Could not hand over «${entry.name}»: $error');
+      _app?.toasts.show(
+        _app!.strings.tr('Could not hand over «{name}»: {error}', args: {'name': entry.name, 'error': error}),
+      );
       return false;
     }
   }
@@ -300,7 +303,13 @@ class SystemDropService implements DragAndDrop {
     final runId = 'dnd.promise#${_nextRun++}';
 
     if (app != null) {
-      app.operations.register(OperationRun(runId: runId, operation: operation, title: 'Extracting «${entry.name}»'));
+      app.operations.register(
+        OperationRun(
+          runId: runId,
+          operation: operation,
+          title: app.strings.tr('Extracting «{name}»', args: {'name': entry.name}),
+        ),
+      );
       if (area != null) {
         app.operations.sendToBackground(runId, owner: area);
       }

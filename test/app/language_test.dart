@@ -23,6 +23,7 @@ class _Probe implements FcFrontendModule {
   @override
   void installFrontend(FrontendRegistry registry) {
     registry.command((context) => _GreetCommand());
+    registry.command((context) => _SilentCommand());
     // Клавиша — чтобы подпись было видно в ряду кнопок: перерисовку проверяют
     // на экране, а не на геттере.
     registry.binding(KeyBinding('F5', _GreetCommand.commandId));
@@ -41,6 +42,23 @@ class _GreetCommand extends AppCommand {
 
   @override
   String get description => tr('Say hello to everyone');
+
+  @override
+  bool isExecutable(CommandContext context) => true;
+
+  @override
+  Future<void> execute(CommandContext context) async {}
+}
+
+/// Команда, перевода которой никто не объявил.
+class _SilentCommand extends AppCommand {
+  static const String commandId = 'test.silent';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => tr('Untranslated probe');
 
   @override
   bool isExecutable(CommandContext context) => true;
@@ -75,7 +93,7 @@ void main() {
 
     // Пустая надпись хуже непереведённой: перевода нет — берётся то, что
     // написано в коде.
-    expect(runtime.commands.installed.firstWhere((c) => c.id == 'app.help').label, 'Help');
+    expect(runtime.commands.installed.firstWhere((c) => c.id == _SilentCommand.commandId).label, 'Untranslated probe');
   });
 
   test('язык берётся из настроек', () async {

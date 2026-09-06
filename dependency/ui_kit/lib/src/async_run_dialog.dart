@@ -1,5 +1,6 @@
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/widgets.dart';
+import 'app_scope.dart';
 
 import 'command_dialog.dart';
 
@@ -40,7 +41,7 @@ class FcAsyncRunDialog extends StatelessWidget {
           final failure = run.error;
           // Ошибка после начала работы форму не воскрешает: править ввод уже
           // поздно, работа была начата. Остаётся сказать, что не вышло.
-          return failure != null ? _failure(failure) : _progress();
+          return failure != null ? _failure(context, failure) : _progress();
         }
 
         return form(context);
@@ -74,10 +75,10 @@ class FcAsyncRunDialog extends StatelessWidget {
     );
   }
 
-  Widget _failure(String message) => CommandDialogConfirm(
+  Widget _failure(BuildContext context, String message) => CommandDialogConfirm(
     message: run.failureMessage,
     error: message,
-    confirmLabel: 'Close',
+    confirmLabel: context.strings.tr('Close'),
     onCancel: run.dismiss,
     onConfirm: run.dismiss,
   );

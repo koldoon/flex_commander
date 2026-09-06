@@ -101,6 +101,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
   @override
   void installFrontend(FrontendRegistry registry) {
     registry.strings('ru', _russian);
+    registry.plurals('ru', _plurals);
 
     // Пароль нужен файловому менеджеру всегда: архив под паролем, сервер с
     // паролем. Здесь объявлена **экранная** половина: показать вопрос и
@@ -181,14 +182,16 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     // Настройки самого приложения: своего модуля у ядра нет, а выбор есть.
     registry.settingsSchema(() {
       final app = registry.services.resolve<Application>();
+      final strings = registry.services.resolve<Strings>();
       return SettingsSchema([
         // Тема — выбор из установленных, и знает их служба оформления, а не
         // модуль темы: тот объявляет только себя.
         SettingsField.choice(
           'themeId',
           defaultValue: app.theme.available.first.id,
-          title: 'Theme',
-          options: {for (final theme in app.theme.available) theme.id: theme.title},
+          title: strings.tr('Theme'),
+          // Название темы приходит значением — переводит его тот, кто показывает.
+          options: {for (final theme in app.theme.available) theme.id: strings.tr(theme.title)},
           read: () => app.theme.current.id,
           write: (value) => app.theme.use(value),
         ),
@@ -196,9 +199,9 @@ class AppShell implements FcBackendModule, FcFrontendModule {
         SettingsField.choice(
           'language',
           defaultValue: systemLanguage,
-          title: 'Language',
-          description: 'Interface language; «System» follows the machine',
-          options: {systemLanguage: 'System', 'en': 'English', 'ru': 'Русский'},
+          title: strings.tr('Language'),
+          description: strings.tr('Interface language; «System» follows the machine'),
+          options: {systemLanguage: strings.tr('System'), 'en': 'English', 'ru': 'Русский'},
           read: () => settings.section(ShellSettings.new).language,
           write: (value) {
             settings.section(ShellSettings.new).language = value;
@@ -210,8 +213,8 @@ class AppShell implements FcBackendModule, FcFrontendModule {
         SettingsField.integer(
           'sizeScanConcurrency',
           defaultValue: AppSettings.defaultSizeScanConcurrency,
-          title: 'Directory size scans',
-          description: 'How many directories are measured at once',
+          title: strings.tr('Directory size scans'),
+          description: strings.tr('How many directories are measured at once'),
           min: 1,
           max: 64,
           read: () => app.sizeScanConcurrency,
@@ -219,8 +222,8 @@ class AppShell implements FcBackendModule, FcFrontendModule {
         ),
         SettingsField.text(
           'compoundExtensions',
-          title: 'Compound extensions',
-          description: 'Names ending in these are shown as one extension: archive.tar.gz is tar.gz',
+          title: strings.tr('Compound extensions'),
+          description: strings.tr('Names ending in these are shown as one extension: archive.tar.gz is tar.gz'),
           hint: 'cfg.json; story.tsx',
           read: () => settings.section(ShellSettings.new).compoundExtensions.join('; '),
           // Через точку с запятой — как маски в окне пометки: разделитель у
@@ -230,24 +233,24 @@ class AppShell implements FcBackendModule, FcFrontendModule {
         SettingsField.flag(
           'useBuiltinExtensions',
           defaultValue: true,
-          title: 'Use the built-in list',
-          description: 'tar.gz, tar.bz2, spec.ts, min.js and a few more',
+          title: strings.tr('Use the built-in list'),
+          description: strings.tr('tar.gz, tar.bz2, spec.ts, min.js and a few more'),
           read: () => settings.section(ShellSettings.new).useBuiltinExtensions,
           write: (value) => settings.section(ShellSettings.new).useBuiltinExtensions = value,
         ),
         SettingsField.flag(
           'listingCache',
           defaultValue: true,
-          title: 'Remember directory listings',
-          description: 'A directory you have already visited shows at once and reloads in the background',
+          title: strings.tr('Remember directory listings'),
+          description: strings.tr('A directory you have already visited shows at once and reloads in the background'),
           read: () => settings.section(ShellSettings.new).listingCache,
           write: (value) => settings.section(ShellSettings.new).listingCache = value,
         ),
         SettingsField.integer(
           'listingCacheLimit',
           defaultValue: ShellSettings.defaultListingCacheLimit,
-          title: 'Listings remembered',
-          description: 'How many directories are kept in memory',
+          title: strings.tr('Listings remembered'),
+          description: strings.tr('How many directories are kept in memory'),
           min: 1,
           max: 1024,
           read: () => settings.section(ShellSettings.new).listingCacheLimit,
@@ -256,8 +259,8 @@ class AppShell implements FcBackendModule, FcFrontendModule {
         SettingsField.integer(
           'listingCacheTtl',
           defaultValue: ShellSettings.defaultListingCacheTtl,
-          title: 'Listing kept for',
-          description: 'Seconds after which a remembered listing is no longer shown',
+          title: strings.tr('Listing kept for'),
+          description: strings.tr('Seconds after which a remembered listing is no longer shown'),
           min: 1,
           max: 86400,
           read: () => settings.section(ShellSettings.new).listingCacheTtl,
@@ -266,8 +269,8 @@ class AppShell implements FcBackendModule, FcFrontendModule {
         SettingsField.flag(
           'allowElevatedWrites',
           defaultValue: true,
-          title: 'Allow elevated writes',
-          description: 'Offer to save as administrator where ordinary rights are not enough',
+          title: strings.tr('Allow elevated writes'),
+          description: strings.tr('Offer to save as administrator where ordinary rights are not enough'),
           read: () => settings.section(ShellSettings.new).allowElevatedWrites,
           write: (value) => settings.section(ShellSettings.new).allowElevatedWrites = value,
         ),
@@ -319,7 +322,7 @@ class _WatchBackgroundTasksCommand extends AppCommand {
   String get id => 'background.watch';
 
   @override
-  String get label => 'Watch background tasks';
+  String get label => tr('Watch background tasks');
 
   @override
   bool isExecutable(CommandContext context) => true;
@@ -331,21 +334,108 @@ class _WatchBackgroundTasksCommand extends AppCommand {
 }
 
 /// Русские строки оболочки — экранная половина.
+///
+/// Здесь же живут подписи общих частей окон (`fc_ui_kit`): своего модуля у них
+/// нет, а показывает их оболочка.
 const Map<String, String> _russian = {
   'Application shell': 'Оболочка приложения',
   'Other': 'Прочее',
 
-  // Окно пароля.
-  'Password': 'Пароль',
-  'User name': 'Имя пользователя',
+  // Команды оболочки.
+  'Help': 'Справка',
+  'Everything the application remembers by your choice': 'Всё, что приложение помнит по вашему выбору',
+  'Settings': 'Настройки',
+  'Commands': 'Команды',
+  'Everything the application can do right now, by name': 'Всё, что приложение умеет сейчас, — по названию',
+  'Command': 'Команда',
+  'Command list is not available': 'Список команд недоступен',
+  'Background tasks': 'Фоновые работы',
+  'Move the input to the list of tasks running in background': 'Перевести ввод в список работ, ушедших в фон',
+  'Show task': 'Показать работу',
+  'Cancel task': 'Прервать работу',
+  'Stop the selected background task; a finished one is dismissed':
+      'Прервать выбранную фоновую работу; законченную — забыть',
+  'Watch background tasks': 'Следить за фоновыми работами',
+
+  // Справка.
+  'Left panel': 'Левая панель',
+  'Right panel': 'Правая панель',
+  'Active panel': 'Активная панель',
+  'Left': 'Левая',
+  'Right': 'Правая',
+  'Split': 'Разделитель',
+  '{percent}% left': '{percent}% слева',
+  'shown': 'показаны',
+  'hidden': 'скрыты',
+  'Sort': 'Сортировка',
+  'Columns': 'Колонки',
+  'Directory scans': 'Обход каталогов',
+  '{count} at a time': 'по {count} за раз',
+  'Window': 'Окно',
+
+  // Окно ошибки.
+  'Unexpected error': 'Непредвиденная ошибка',
+  'Unexpected error (1 of {count})': 'Непредвиденная ошибка (1 из {count})',
+  'Report': 'Отчёт',
+  'Error report copied': 'Отчёт скопирован',
+  'Message': 'Сообщение',
+  'Time': 'Время',
+  'Repeated': 'Повторилась',
+  'While': 'При',
+  'Stack': 'Стек',
+  'No stack trace': 'Стека нет',
+
+  // Общие части окон.
+  'Stage': 'Этап',
+  'Item': 'Объект',
+  'Speed': 'Скорость',
+  'Total': 'Всего',
+  'Reset': 'Вернуть',
+  'Search settings': 'Искать настройку',
   'Unlock': 'Открыть',
   'Wrong password': 'Пароль не подошёл',
-
-  // Права администратора.
+  'Password': 'Пароль',
+  'User name': 'Имя пользователя',
   'Administrator rights': 'Права администратора',
   '{action} {path}\non {where} as administrator?': '{action} {path}\nна {where} от администратора?',
   'Continue': 'Продолжить',
+
+  // Перетаскивание.
+  'Drag and drop': 'Перетаскивание',
+  'Install drag and drop': 'Включить перетаскивание',
+  'Drop into the same panel': 'Бросать в ту же панель',
+  'Allow dropping files back into the panel they are dragged from':
+      'Разрешить бросать файлы обратно в ту панель, откуда их тянут',
+  'Could not hand over «{name}»: {error}': 'Не удалось отдать «{name}»: {error}',
+  'Extracting «{name}»': 'Распаковка «{name}»',
+
+  // Настройки приложения.
+  'Theme': 'Оформление',
+  'Language': 'Язык',
+  'Interface language; «System» follows the machine': 'Язык интерфейса; «Системный» — как у машины',
+  'System': 'Системный',
+  'Directory size scans': 'Обходов каталогов разом',
+  'How many directories are measured at once': 'Сколько каталогов считается одновременно',
+  'Compound extensions': 'Составные расширения',
+  'Names ending in these are shown as one extension: archive.tar.gz is tar.gz':
+      'Имена с таким концом показываются одним расширением: archive.tar.gz — это tar.gz',
+  'Use the built-in list': 'Пользоваться встроенным списком',
+  'tar.gz, tar.bz2, spec.ts, min.js and a few more': 'tar.gz, tar.bz2, spec.ts, min.js и ещё несколько',
+  'Allow elevated writes': 'Разрешать запись от администратора',
+  'Offer to save as administrator where ordinary rights are not enough':
+      'Предлагать сохранить от администратора там, где обычных прав не хватило',
+  'Remember directory listings': 'Помнить содержимое каталогов',
+  'A directory you have already visited shows at once and reloads in the background':
+      'Каталог, где вы уже были, показывается сразу и перечитывается фоном',
+  'Listings remembered': 'Каталогов в памяти',
+  'How many directories are kept in memory': 'Сколько каталогов держать в памяти',
+  'Listing kept for': 'Запись годна',
+  'Seconds after which a remembered listing is no longer shown':
+      'Через сколько секунд запомненный список перестаёт показываться',
 };
+
+/// Множественные формы оболочки.
+const Map<String, PluralForms> _plurals = {'{n} times': (one: '{n} раз', few: '{n} раза', many: '{n} раз')};
 
 /// Русские строки оболочки — ядровая половина.
 const Map<String, String> _coreRussian = {

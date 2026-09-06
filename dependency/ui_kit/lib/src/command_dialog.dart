@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'app_scope.dart';
 import 'fc_theme.dart';
 
 /// Готовые куски содержимого окна команды.
@@ -47,7 +48,7 @@ class CommandDialogForm extends StatelessWidget {
   Widget build(BuildContext context) {
     return CommandDialogBody(
       actions: [
-        FcButton(label: 'Cancel', onPressed: onCancel),
+        FcButton(label: context.strings.tr('Cancel'), onPressed: onCancel),
         FcButton(label: submitLabel, onPressed: busy ? null : onSubmit, primary: true),
       ],
       children: [...children, if (error != null) CommandDialogField.wide(child: FcErrorText(message: error!))],
@@ -98,7 +99,7 @@ class CommandDialogConfirm extends StatelessWidget {
 
     return CommandDialogBody(
       actions: [
-        FcButton(label: 'Cancel', onPressed: busy ? null : onCancel),
+        FcButton(label: context.strings.tr('Cancel'), onPressed: busy ? null : onCancel),
         if (alternative != null) FcButton(label: alternative, onPressed: busy ? null : onAlternative),
         FcButton(label: confirmLabel, onPressed: busy ? null : onConfirm, primary: true),
       ],
@@ -203,30 +204,32 @@ class CommandDialogProgress extends StatelessWidget {
         actions: [
           // «В фон» стоит слева от отмены: уводит работу с глаз, а не
           // прекращает её, — и путать эти две кнопки нельзя.
-          if (canBackground || onBackground != null) FcButton(label: 'Background', onPressed: onBackground),
-          FcButton(label: 'Cancel', onPressed: onCancel),
+          if (canBackground || onBackground != null)
+            FcButton(label: context.strings.tr('Background'), onPressed: onBackground),
+          FcButton(label: context.strings.tr('Cancel'), onPressed: onCancel),
         ],
         children: [
           // Этап — первой строкой: он объясняет, почему счёт объектов уже
           // полон, а работа всё идёт.
-          if (stageLabel case final stage?) CommandDialogField(label: 'Stage', child: _line(theme, stage)),
-          CommandDialogField(label: 'Item', child: _line(theme, message)),
+          if (stageLabel case final stage?)
+            CommandDialogField(label: context.strings.tr('Stage'), child: _line(theme, stage)),
+          CommandDialogField(label: context.strings.tr('Item'), child: _line(theme, message)),
           // Про текущий объект — три строки под одной подписью: имя, объём,
           // своя полоса. Полоса не украшение: работа из тысячи мелких файлов и
           // работа из одного файла на четыре гигабайта в общем счёте выглядят
           // одинаково, а это ровно тот случай, когда кажется, что всё зависло.
           if (fileName != null)
             CommandDialogField.column(
-              label: 'File',
+              label: context.strings.tr('File'),
               children: [
                 _line(theme, fileName),
                 if (itemSize != null) _line(theme, itemSize),
                 if (itemProgress != null) FcProgressBar(value: itemProgress),
               ],
             ),
-          if (speed != null) CommandDialogField(label: 'Speed', child: _line(theme, speed)),
+          if (speed != null) CommandDialogField(label: context.strings.tr('Speed'), child: _line(theme, speed)),
           CommandDialogField.column(
-            label: 'Total',
+            label: context.strings.tr('Total'),
             children: [
               if (counter != null) _line(theme, counter),
               if (size != null) _line(theme, size),
