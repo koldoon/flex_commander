@@ -185,7 +185,8 @@ const Map<String, String> _russian = {
       'Свернуть ветвь, а сворачивать нечего — перевести курсор в каталог, где она лежит',
   'Toggle branch': 'Раскрыть или свернуть',
   'Expand the branch, or collapse it back': 'Раскрыть ветвь или свернуть обратно',
-  'Show sizes': 'Показывать размер',
+  'tree|Columns': 'Колонки',
+  'Modified (not implemented)': 'Дата (ещё не сделана)',
   'Mark branch': 'Пометить ветвь',
   'Mark or unmark the branch under the cursor and step down':
       'Пометить или снять пометку с ветви под курсором и шагнуть вниз',

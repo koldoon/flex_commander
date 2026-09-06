@@ -572,7 +572,9 @@ void main() {
     // списком, «Show» (`docs/spec/panel-views.md`, §8).
     runtime.commands.dispatch(KeyCombination.parse('Alt-F1'));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Show sizes'));
+    // По подписи флажка: «Size» есть и в шапке таблицы соседней панели, а
+    // попасть надо в тот, что в окне.
+    await tester.tap(find.descendant(of: find.byType(FcCheckbox), matching: find.text('Size')));
     await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FcButton, 'Show'));
     await tester.pumpAndSettle();
