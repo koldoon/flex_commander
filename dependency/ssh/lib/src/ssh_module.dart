@@ -56,7 +56,7 @@ class SshFileSystem implements FcBackendModule {
 /// Заголовки окон пароля приходят значением (`CredentialRequest.title`), а не
 /// литералом в вызове: спрашивает эта сторона, а показывает та.
 const Map<String, String> _russian = {
-  'SSH file system': 'Файловая система по SSH',
+  'SSH file system': 'Файлы по SSH',
   'Reading {path}…': 'Чтение {path}…',
   'Connecting to {where}…': 'Подключение к {where}…',
   'Write': 'Записать',

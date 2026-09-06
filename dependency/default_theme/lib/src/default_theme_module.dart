@@ -55,6 +55,6 @@ const Map<String, String> _russian = {
   'Switch theme': 'Сменить оформление',
   'Choose the application appearance': 'Выбрать внешний вид приложения',
   'Restore theme': 'Вернуть оформление',
-  'Default theme': 'Оформление по умолчанию',
+  'Default theme': 'Оформление',
   'Default': 'Обычное',
 };

@@ -172,7 +172,7 @@ class ImageViewer implements FcFrontendModule {
 
 /// Русские строки просмотра изображений.
 const Map<String, String> _russian = {
-  'Image viewer': 'Просмотр изображений',
+  'Image viewer': 'Картинки',
   'Zoom': 'Масштаб',
   'Zoom the image in or out': 'Приблизить или отдалить картинку',
   'Fit': 'Вписать',

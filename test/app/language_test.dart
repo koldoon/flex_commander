@@ -185,6 +185,49 @@ void main() {
     expect(find.text('Language', findRichText: true), findsNothing);
   });
 
+  testWidgets('оглавление настроек шире самого длинного названия', (tester) async {
+    final runtime = await testApp(
+      provider: provider(),
+      modules: featureModules(),
+      settings: settingsIn('ru'),
+      language: null,
+    );
+    await runtime.app.start();
+
+    tester.view.physicalSize = const Size(900, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.f9);
+    await tester.pumpAndSettle();
+
+    final toc = find.byType(FcPickList).first;
+    final theme = FcTheme.of(tester.element(toc));
+    // Текст отбит от краёв столбца с обеих сторон.
+    final available = tester.getSize(toc).width - 2 * theme.metrics.dialogPadding;
+
+    for (final text in tester.widgetList<Text>(find.descendant(of: toc, matching: find.byType(Text)))) {
+      final title = text.textSpan!.toPlainText();
+      // Меряется жирным: выбранный раздел набран им, и он же самый широкий.
+      final painter = TextPainter(
+        text: TextSpan(
+          text: title,
+          style: TextStyle(fontFamily: theme.fonts.ui, fontSize: theme.metrics.fontSize, fontWeight: FontWeight.bold),
+        ),
+        textDirection: TextDirection.ltr,
+        maxLines: 1,
+      )..layout();
+      final needed = painter.maxIntrinsicWidth;
+      painter.dispose();
+
+      expect(needed, lessThanOrEqualTo(available), reason: 'обрезается: «$title»');
+    }
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('смена языка перерисовывает окно без перезапуска', (tester) async {
     final runtime = await testApp(
       provider: provider(),

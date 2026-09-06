@@ -450,10 +450,15 @@ BoxConstraints dialogContentLimits(BuildContext context, {bool titled = true, do
 /// нелатинские. И тем же стилем, каким текст нарисуют: `Text` смешивает
 /// переданный стиль с наследуемым, и без этого замер расходится с
 /// действительностью.
-double widestLabel(BuildContext context, Iterable<String> labels) {
+///
+/// [style] — для тех, кто рисует не подписью формы: оглавление настроек
+/// набрано своим стилем, и мерить его чужим значит промахнуться.
+/// [limit] — свой предел вместо темного: у оглавления он считается от ширины
+/// окна.
+double widestLabel(BuildContext context, Iterable<String> labels, {TextStyle? style, double? limit}) {
   final theme = FcTheme.of(context);
   final scaler = MediaQuery.textScalerOf(context);
-  final style = DefaultTextStyle.of(context).style.merge(theme.dialogLabelStyle);
+  final style0 = DefaultTextStyle.of(context).style.merge(style ?? theme.dialogLabelStyle);
   var widest = 0.0;
 
   for (final label in labels) {
@@ -461,7 +466,7 @@ double widestLabel(BuildContext context, Iterable<String> labels) {
       continue;
     }
     final painter = TextPainter(
-      text: TextSpan(text: label, style: style),
+      text: TextSpan(text: label, style: style0),
       textDirection: TextDirection.ltr,
       textScaler: scaler,
       maxLines: 1,
@@ -476,7 +481,7 @@ double widestLabel(BuildContext context, Iterable<String> labels) {
 
   // Округление вверх: доли точки в раскладке дают дрожание на границе, а
   // выиграть на них нечего.
-  return widest.ceilToDouble().clamp(0, theme.metrics.dialogLabelMaxWidth);
+  return widest.ceilToDouble().clamp(0, limit ?? theme.metrics.dialogLabelMaxWidth);
 }
 
 /// Как отбивается содержимое окна от его краёв.

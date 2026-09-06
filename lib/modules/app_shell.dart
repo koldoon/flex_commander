@@ -342,7 +342,7 @@ const Map<String, String> _russian = {
   'Previous task': 'Предыдущая работа',
   'Abort the operation?': 'Прервать работу?',
   'Abort': 'Прервать',
-  'Application shell': 'Оболочка приложения',
+  'Application shell': 'Оболочка',
   'Other': 'Прочее',
 
   // Команды оболочки.

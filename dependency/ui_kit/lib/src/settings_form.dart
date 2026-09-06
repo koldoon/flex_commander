@@ -183,6 +183,40 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     return at < 0 ? const [] : [for (var i = 0; i < query.length; i++) at + i];
   }
 
+  /// Ширина оглавления — по самому длинному названию раздела.
+  ///
+  /// Числом её не задать: по-русски названия длиннее английских, а у чужой темы
+  /// ещё и шрифт другой. Метрика темы остаётся **нижней** границей — узкое
+  /// оглавление рядом с широким списком читалось бы обрывком, — а верхняя не
+  /// даёт ему съесть сами настройки.
+  ///
+  /// Меряются **все** разделы, а не только показанные: иначе оглавление
+  /// дёргалось бы по ширине на каждую букву в поиске.
+  ///
+  /// Набор — тот же, каким список рисует выбранную строку: она жирная и потому
+  /// самая широкая (`FcPickMark.weight`), и мерить по обычной значит промазать
+  /// ровно на ней.
+  double _tocWidth(BuildContext context, FcTheme theme, double dialogWidth, double outerPadding) {
+    final metrics = theme.metrics;
+    // Поле столбца снаружи списка, а внутри него текст отбит с обеих сторон:
+    // считать надо всё три, иначе последняя буква упрётся в край.
+    final around = outerPadding + 2 * metrics.dialogPadding;
+    final needed =
+        widestLabel(
+          context,
+          [for (final (title, _) in _pages) title],
+          style: TextStyle(fontFamily: theme.fonts.ui, fontSize: metrics.fontSize, fontWeight: FontWeight.bold),
+          limit: dialogWidth * _tocMaxShare - around,
+        ) +
+        around;
+    return needed > metrics.settingsTocWidth ? needed : metrics.settingsTocWidth;
+  }
+
+  /// Больше сорока пяти сотых окна оглавление не занимает: за ним стоят сами
+  /// настройки, и они здесь главные. Упёршись в предел, длинное название
+  /// обрежется многоточием — так же, как обрезалось бы в любом списке.
+  static const double _tocMaxShare = 0.45;
+
   /// Где начинается раздел, считая от начала прокрутки.
   ///
   /// Спрашивается у самой прокрутки, а не считается сложением просветов:
@@ -266,10 +300,11 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     final metrics = theme.metrics;
 
     final padding = dialogContentPadding(context);
+    final width = MediaQuery.sizeOf(context).width * metrics.settingsWidthFactor;
 
     return SizedBox(
       // Своя доля, шире прочих окон: колонок здесь две, и обе с текстом.
-      width: MediaQuery.sizeOf(context).width * metrics.settingsWidthFactor,
+      width: width,
       child: ConstrainedBox(
         // Предел по высоте — то же правило, что у справки: без него прокрутка
         // не работает, `Flexible` получает бесконечность, и форма вылезает за
@@ -313,7 +348,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           SizedBox(
-                            width: metrics.settingsTocWidth,
+                            width: _tocWidth(context, theme, width, padding.left),
                             child: Padding(
                               padding: EdgeInsets.only(left: padding.left, top: padding.top, bottom: padding.bottom),
                               child: FcPickList(

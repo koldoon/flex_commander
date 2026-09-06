@@ -108,6 +108,10 @@ void main() {
     await openSettings(tester);
     expect(terminal().typingGoesToLine, isFalse);
 
+    // Долистать до настройки: сколько их влезает разом, зависит от ширины
+    // столбца, а она — от длины названий разделов.
+    await tester.ensureVisible(setting('Typing goes to the command line'));
+    await tester.pumpAndSettle();
     await tester.tap(setting('Typing goes to the command line'));
     await tester.pumpAndSettle();
 
@@ -135,6 +139,8 @@ void main() {
     expect(find.text('Reset'), findsNothing);
     expect(terminal().typingGoesToLine, isFalse);
 
+    await tester.ensureVisible(setting('Typing goes to the command line'));
+    await tester.pumpAndSettle();
     await tester.tap(setting('Typing goes to the command line'));
     await tester.pumpAndSettle();
     expect(terminal().typingGoesToLine, isTrue);

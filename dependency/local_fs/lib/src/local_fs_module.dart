@@ -107,7 +107,7 @@ const Map<String, String> _russian = {
   'Below this size a copy is counted whole: the progress costs more than the copy':
       'Меньше этого размера файл считается целиком: показ хода дороже самого копирования',
   'bytes': 'байт',
-  'Local file system': 'Локальная файловая система',
+  'Local file system': 'Локальные файлы',
   'Reading {path}…': 'Чтение {path}…',
   'Write': 'Записать',
 };

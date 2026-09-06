@@ -277,7 +277,7 @@ const Map<String, String> _russian = {
   'Not a valid expression': 'Это не выражение',
   'Not found: {what}': 'Не найдено: {what}',
   'Match {index} of {count}': 'Совпадение {index} из {count}',
-  'Text viewer': 'Просмотр текста',
+  'Text viewer': 'Просмотр',
   'Copy': 'Копировать',
   'Copy the selected text to the clipboard': 'Скопировать выделенный текст в буфер обмена',
   'Wrap': 'Переносить',

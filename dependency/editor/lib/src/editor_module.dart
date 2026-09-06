@@ -121,7 +121,7 @@ const Map<String, String> _russian = {
   'Match {index} of {count}': 'Совпадение {index} из {count}',
   'Save changes': 'Сохранение изменений',
   'Unsaved changes': 'Несохранённые изменения',
-  'Text editor': 'Редактор текста',
+  'Text editor': 'Редактор',
   'Edit': 'Править',
   'Open the file under the cursor for editing': 'Открыть файл под курсором на правку',
   'Save': 'Сохранить',
