@@ -23,6 +23,8 @@ class SystemFileIcons implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'System icons': 'Системные значки'});
+
     registry.service<SystemIcons>((services) => ChannelSystemIcons());
   }
 }

@@ -51,6 +51,8 @@ class SystemDragAndDrop implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'Drag and drop': 'Перетаскивание'});
+
     final settings = registry.settings;
     DragAndDropSettings settingsOf() => settings.section(DragAndDropSettings.new);
 

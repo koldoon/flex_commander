@@ -69,21 +69,25 @@ class Navigation implements FcFrontendModule {
     registry.command((context) => QuickSearchEraseCommand());
     registry.command((context) => QuickSearchStopCommand());
 
-    registry.settingsSchema(
-      () => SettingsSchema([
+    registry.settingsSchema(() {
+      // Службы к этому времени уже есть: схему строят, когда окно открывают.
+      final strings = registry.services.resolve<Strings>();
+      return SettingsSchema([
         SettingsField.integer(
           'recentPathsLimit',
           defaultValue: NavigationSettings.defaultLimit,
-          title: 'Address history',
-          unit: 'entries',
+          title: strings.tr('Address history'),
+          unit: strings.tr('entries'),
           min: 0,
           max: 500,
-          description: 'How many visited addresses the Address window remembers',
+          description: strings.tr('How many visited addresses the Address window remembers'),
           read: () => settingsOf().recentPathsLimit,
           write: (value) => settingsOf().recentPathsLimit = value,
         ),
-      ], save: settings.save),
-    );
+      ], save: settings.save);
+    });
+
+    registry.strings('ru', _russian);
 
     _bindKeys(registry);
   }
@@ -173,3 +177,92 @@ class Navigation implements FcFrontendModule {
     );
   }
 }
+
+/// Русские строки навигации.
+///
+/// Ключ — английский текст, как он написан в коде: он же и запасное значение
+/// (`docs/spec/localization.md`, §3).
+const Map<String, String> _russian = {
+  'Navigation': 'Навигация',
+
+  // Курсор.
+  'Cursor up': 'Курсор вверх',
+  'Cursor down': 'Курсор вниз',
+  'Page up': 'Страница вверх',
+  'Page down': 'Страница вниз',
+  'First item': 'В начало',
+  'Last item': 'В конец',
+  'Go to name': 'К имени',
+  'Jump to the first item starting with the typed letter': 'Перейти к первому имени на набранную букву',
+
+  // Панели и дерево.
+  'Switch panel': 'Другая панель',
+  'Make the other panel active': 'Сделать активной соседнюю панель',
+  'Center split': 'Поровну',
+  'Give both panels the same width': 'Дать панелям одинаковую ширину',
+  'Open': 'Открыть',
+  'Enter a directory or an archive': 'Войти в каталог или архив',
+  'Open with system': 'Открыть системой',
+  'Hand the selected items to the system, without entering them': 'Отдать выбранное системе, не входя внутрь',
+  'Up': 'Наверх',
+  'Leave for the parent directory': 'Выйти в родительский каталог',
+  'Root': 'В корень',
+  'Go to the root of the current source': 'Перейти в корень текущего источника',
+  'Sizes': 'Размеры',
+  'Measure every directory here, not just the marked ones': 'Посчитать размеры всех каталогов, а не только помеченных',
+  'Reload': 'Перечитать',
+  'Read the current directory again': 'Перечитать текущий каталог',
+  'Hidden files': 'Скрытые файлы',
+  'Show or hide the items whose names start with a dot': 'Показать или скрыть объекты, чьи имена начинаются с точки',
+  'Show hidden files: On': 'Скрытые файлы: показаны',
+  'Show hidden files: Off': 'Скрытые файлы: спрятаны',
+  'Cancel': 'Прервать',
+  'Stop what the panel is doing right now': 'Остановить то, чем панель занята сейчас',
+
+  // Пометка.
+  'Mark': 'Пометить',
+  'Unmark': 'Снять пометку',
+  'Mark or unmark the item under the cursor and step down': 'Пометить или снять пометку под курсором и шагнуть вниз',
+  'Unmark all': 'Снять все пометки',
+  'Drop the marks, leaving the cursor where it is': 'Снять пометки, оставив курсор на месте',
+  'Mark files': 'Пометить файлы',
+  'Mark files in the current directory, leaving directories alone':
+      'Пометить файлы в текущем каталоге, не трогая каталоги',
+  'Mark all': 'Пометить всё',
+  'Mark everything in the current directory': 'Пометить всё в текущем каталоге',
+  'Select by mask': 'Пометить по маске',
+  'Mark everything matching a mask like «*.dart;*.md»': 'Пометить всё, что подходит под маску вроде «*.dart;*.md»',
+  'Deselect by mask': 'Снять пометку по маске',
+  'Unmark everything matching a mask like «*.dart;*.md»':
+      'Снять пометку со всего, что подходит под маску вроде «*.dart;*.md»',
+  'Mask': 'Маска',
+  'No files selected': 'Ничего не выбрано',
+  '{count} of {total}': '{count} из {total}',
+
+  // Быстрый поиск.
+  'Quick search': 'Быстрый поиск',
+  'Move the cursor as you type the beginning of a name': 'Вести курсор за набранным началом имени',
+  'Quick search: type': 'Быстрый поиск: буква',
+  'Add a letter to what the quick search is looking for': 'Добавить букву к тому, что ищет быстрый поиск',
+  'Quick search: erase': 'Быстрый поиск: стереть',
+  'Remove the last letter from the quick search, or all of what did not match':
+      'Убрать последнюю букву, а ненайденное — целиком',
+  'Quick search: stop': 'Быстрый поиск: выйти',
+  'Leave the quick search, keeping the cursor where it is': 'Выйти из быстрого поиска, оставив курсор на месте',
+  'Search': 'Поиск',
+  'Esc to leave': 'Esc — выйти',
+
+  // Окно адреса.
+  'Address': 'Адрес',
+  'Open any path or address in the left or right panel': 'Открыть любой путь или адрес в левой или правой панели',
+  'Open path (left panel)': 'Открыть путь (левая панель)',
+  'Open path (right panel)': 'Открыть путь (правая панель)',
+  'Path': 'Путь',
+  'Status': 'Ход дела',
+  'No matching address in history': 'В истории нет подходящего адреса',
+
+  // Настройки.
+  'Address history': 'История адресов',
+  'How many visited addresses the Address window remembers': 'Сколько посещённых адресов помнит окно «Адрес»',
+  'entries': 'записей',
+};

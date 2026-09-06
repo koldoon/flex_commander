@@ -48,7 +48,7 @@ class QuickSearchView extends StatelessWidget {
           padding: EdgeInsets.symmetric(horizontal: metrics.dialogGap),
           child: Row(
             children: [
-              Text('Search', style: theme.statusStyle.copyWith(color: colors.secondaryText)),
+              Text(context.strings.tr('Search'), style: theme.statusStyle.copyWith(color: colors.secondaryText)),
               SizedBox(width: metrics.columnGap),
               Expanded(
                 child: Container(
@@ -113,7 +113,7 @@ class QuickSearchView extends StatelessWidget {
               SizedBox(width: metrics.columnGap),
               // Выход только по `Esc` — и об этом сказано прямо: пока поле на
               // экране, клавиши не вернутся к панели сами.
-              Text('Esc to leave', style: theme.statusStyle.copyWith(color: colors.secondaryText)),
+              Text(context.strings.tr('Esc to leave'), style: theme.statusStyle.copyWith(color: colors.secondaryText)),
             ],
           ),
         );

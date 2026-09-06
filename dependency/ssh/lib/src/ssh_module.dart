@@ -19,6 +19,8 @@ class SshFileSystem implements FcBackendModule {
 
   @override
   void installBackend(BackendRegistry registry) {
+    registry.strings('ru', {'SSH file system': 'Файловая система по SSH'});
+
     // Два имени одного и того же: `ssh://` привычнее по командной строке,
     // `sftp://` — по файловым менеджерам. Разводить их незачем — работа идёт
     // по одному и тому же протоколу.

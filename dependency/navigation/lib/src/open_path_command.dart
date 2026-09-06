@@ -48,10 +48,10 @@ class OpenPathCommand extends AppCommand {
   /// название — в заголовке окна, места там хватает.
   ///
   /// «Адрес», а не «путь»: вводят и `ssh://user@host/srv`, и `~/Downloads`.
-  String get label => 'Address';
+  String get label => tr('Address');
 
   @override
-  String get description => 'Open any path or address in the left or right panel';
+  String get description => tr('Open any path or address in the left or right panel');
 
   /// Ею же открывают сервер, поэтому `ssh` и `connect` — тоже про неё.
   @override
@@ -62,7 +62,8 @@ class OpenPathCommand extends AppCommand {
 
   bool _isLeft(CommandContext context) => context.invocation.param<String>(panelParam) != rightPanel;
 
-  String titleOf(CommandContext context) => 'Open path (${_isLeft(context) ? 'left' : 'right'} panel)';
+  String titleOf(CommandContext context) =>
+      _isLeft(context) ? tr('Open path (left panel)') : tr('Open path (right panel)');
 
   /// Окно встаёт над своей панелью.
   ///
@@ -374,7 +375,7 @@ class _OpenPathFormState extends State<_OpenPathForm> {
         // должен встать текстом ровно под ним, а поле стоит в столбце значений
         // — за подписью. Меряется тот же набор строк, что форма и покажет,
         // поэтому список и поле съезжают вместе или не съезжают вовсе.
-        final labels = ['Path', if (state.statusMessage != null) 'Status'];
+        final labels = [context.strings.tr('Path'), if (state.statusMessage != null) context.strings.tr('Status')];
         final inset = dialogInputTextInset(context, labelWidth: widestLabel(context, labels));
 
         return CommandDialogForm(
@@ -384,10 +385,10 @@ class _OpenPathFormState extends State<_OpenPathForm> {
           busy: state.running,
           onCancel: state.dismiss,
           onSubmit: state.submit,
-          submitLabel: 'Open',
+          submitLabel: context.strings.tr('Open'),
           children: [
             CommandDialogField(
-              label: 'Path',
+              label: context.strings.tr('Path'),
               child: FcTextField(
                 controller: _path,
                 focusNode: _field,
@@ -437,7 +438,7 @@ class _OpenPathFormState extends State<_OpenPathForm> {
                         _write(address);
                       });
                     },
-                    emptyMessage: 'No matching address in history',
+                    emptyMessage: context.strings.tr('No matching address in history'),
                   ),
                 ),
               ),
@@ -447,7 +448,7 @@ class _OpenPathFormState extends State<_OpenPathForm> {
             // под затенением этого самого окна.
             if (state.statusMessage case final message?)
               CommandDialogField(
-                label: 'Status',
+                label: context.strings.tr('Status'),
                 // Одной строкой: адреса длинные, а окно не должно расти вниз на
                 // каждой вехе.
                 child: Text(message, style: theme.dialogTextStyle, maxLines: 1, overflow: TextOverflow.ellipsis),

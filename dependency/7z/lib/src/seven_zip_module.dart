@@ -75,6 +75,8 @@ class SevenZipArchiver implements FcBackendModule, FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'7z archives': 'Архивы 7z'});
+
     // Раздел тот же, что у ядровой половины: имя одно на модуль, а файл
     // настроек принадлежит ядру.
     final settings = registry.settings;

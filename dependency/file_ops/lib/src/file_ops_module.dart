@@ -23,6 +23,8 @@ class FileOps implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'File operations': 'Файловые операции'});
+
     registry.command((context) => MakeDirectoryCommand());
     registry.command((context) => RenameCommand());
     registry.command((context) => RemoveCommand());

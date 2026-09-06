@@ -22,6 +22,8 @@ class ContentTypeDetection implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'Content types': 'Типы содержимого'});
+
     final settings = registry.settings;
     ContentTypesSettings settingsOf() => settings.section(ContentTypesSettings.new);
 

@@ -25,6 +25,8 @@ class FileIconRules implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'File icons': 'Значки файлов'});
+
     final settings = registry.settings;
     FileIconSettings settingsOf() => settings.section(FileIconSettings.new);
 

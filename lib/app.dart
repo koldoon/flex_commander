@@ -47,17 +47,22 @@ class _FlexCommanderAppState extends State<FlexCommanderApp> {
   Widget build(BuildContext context) {
     return AppScope(
       controller: widget.controller,
-      child: ListenableBuilder(
-        // Оформление и язык меняются отдельно от остального состояния: их
-        // выбирает команда, а не панель, — поэтому подписки три.
-        listenable: Listenable.merge([widget.controller, widget.controller.theme, widget.controller.strings]),
-        builder:
-            (context, child) => MaterialApp(
-              title: 'Flex Commander',
-              debugShowCheckedModeBanner: false,
-              theme: buildThemeData(widget.controller.theme.current),
-              home: const AppShell(),
-            ),
+      child: StringsScope(
+        // Над `MaterialApp`: окна живут в накладке под ним, и надписи в них
+        // обязаны меняться вместе с остальными.
+        strings: widget.controller.strings,
+        child: ListenableBuilder(
+          // Оформление и язык меняются отдельно от остального состояния: их
+          // выбирает команда, а не панель, — поэтому подписки три.
+          listenable: Listenable.merge([widget.controller, widget.controller.theme, widget.controller.strings]),
+          builder:
+              (context, child) => MaterialApp(
+                title: 'Flex Commander',
+                debugShowCheckedModeBanner: false,
+                theme: buildThemeData(widget.controller.theme.current),
+                home: const AppShell(),
+              ),
+        ),
       ),
     );
   }

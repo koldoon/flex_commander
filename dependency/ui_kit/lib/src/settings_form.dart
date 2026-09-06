@@ -2,6 +2,7 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
+import 'app_scope.dart';
 import 'command_dialog.dart';
 import 'controls.dart';
 import 'fc_theme.dart';
@@ -51,7 +52,13 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
 
   /// Схемы строятся один раз на открытие: они держат замыкания к разделам, и
   /// пересобирать их на каждый кадр незачем.
-  late final List<(String, SettingsSchema)> _pages = [for (final page in widget.pages) (page.title, page.build())];
+  ///
+  /// Название раздела — это название модуля, и приходит оно английским: у
+  /// модуля служб нет, а перевод его названия объявлен им самим
+  /// (`docs/spec/localization.md`, §6).
+  late final List<(String, SettingsSchema)> _pages = [
+    for (final page in widget.pages) (context.strings.tr(page.title), page.build()),
+  ];
 
   /// Заголовки разделов — по ключу на каждый: по ним считается, где раздел
   /// начинается, и для оглавления, и для прокрутки к нему.

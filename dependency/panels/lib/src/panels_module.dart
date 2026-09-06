@@ -22,6 +22,8 @@ class Panels implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'File panels': 'Файловые панели'});
+
     // Таблица файлов — штатный вид содержимого панели. Остальные виды
     // (результаты поиска, дерево) объявляются так же, своими модулями.
     registry.viewport(PanelViewports.files, (context, panel) => FileTable(panel: panel));

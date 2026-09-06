@@ -56,6 +56,8 @@ class ShellTerminal implements FcBackendModule, FcFrontendModule, FcModuleLifecy
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'Terminal': 'Терминал'});
+
     // Область забирается **сейчас**, пока идёт установка: позже имя раздела
     // уже неизвестно, и настройки уехали бы в чужой.
     final settings = registry.settings;

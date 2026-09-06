@@ -32,10 +32,10 @@ class QuickSearchCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Quick search';
+  String get label => tr('Quick search');
 
   @override
-  String get description => 'Move the cursor as you type the beginning of a name';
+  String get description => tr('Move the cursor as you type the beginning of a name');
 
   @override
   Set<String> get keywords => const {'incremental search', 'find in panel', 'jump to name'};
@@ -131,10 +131,10 @@ class QuickSearchTypeCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Quick search: type';
+  String get label => tr('Quick search: type');
 
   @override
-  String get description => 'Add a letter to what the quick search is looking for';
+  String get description => tr('Add a letter to what the quick search is looking for');
 
   @override
   bool isExecutable(CommandContext context) => QuickSearchCommand.searchIn(context.app) != null;
@@ -182,10 +182,10 @@ class QuickSearchEraseCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Quick search: erase';
+  String get label => tr('Quick search: erase');
 
   @override
-  String get description => 'Remove the last letter from the quick search, or all of what did not match';
+  String get description => tr('Remove the last letter from the quick search, or all of what did not match');
 
   @override
   bool isExecutable(CommandContext context) => QuickSearchCommand.searchIn(context.app) != null;
@@ -222,10 +222,10 @@ class QuickSearchStopCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Quick search: stop';
+  String get label => tr('Quick search: stop');
 
   @override
-  String get description => 'Leave the quick search, keeping the cursor where it is';
+  String get description => tr('Leave the quick search, keeping the cursor where it is');
 
   @override
   bool isExecutable(CommandContext context) => QuickSearchCommand.searchIn(context.app) != null;

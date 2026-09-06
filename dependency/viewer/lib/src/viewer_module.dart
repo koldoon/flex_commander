@@ -25,6 +25,8 @@ class Viewer implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'Viewer': 'Просмотрщик'});
+
     registry.view<QuickViewHost>((context, state) => QuickViewView(host: state));
 
     registry.command((context) => ViewFileCommand());

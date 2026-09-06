@@ -25,6 +25,8 @@ class FileInfo implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'File info': 'Сведения о файле'});
+
     registry.view<FileInfoScreen>((context, state) => FileInfoView(screen: state));
 
     registry.nodeInfo((context) => const BasicsInfoProvider());

@@ -10,10 +10,10 @@ class ToggleMarkCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Mark';
+  String get label => tr('Mark');
 
   @override
-  String get description => 'Mark or unmark the item under the cursor and step down';
+  String get description => tr('Mark or unmark the item under the cursor and step down');
 
   @override
   Set<String> get keywords => const {'select', 'toggle selection'};
@@ -36,10 +36,10 @@ class ClearSelectionCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Unmark all';
+  String get label => tr('Unmark all');
 
   @override
-  String get description => 'Drop the marks, leaving the cursor where it is';
+  String get description => tr('Drop the marks, leaving the cursor where it is');
 
   @override
   Set<String> get keywords => const {'deselect', 'clear selection', 'none'};
@@ -69,10 +69,10 @@ class SelectFilesCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Mark files';
+  String get label => tr('Mark files');
 
   @override
-  String get description => 'Mark files in the current directory, leaving directories alone';
+  String get description => tr('Mark files in the current directory, leaving directories alone');
 
   @override
   Set<String> get keywords => const {'select files', 'only files'};
@@ -102,10 +102,10 @@ class SelectAllCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Mark all';
+  String get label => tr('Mark all');
 
   @override
-  String get description => 'Mark everything in the current directory';
+  String get description => tr('Mark everything in the current directory');
 
   @override
   Set<String> get keywords => const {'select all', 'everything'};

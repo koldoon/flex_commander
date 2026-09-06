@@ -35,6 +35,8 @@ class TextEditor implements FcBackendModule, FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'Text editor': 'Редактор текста'});
+
     // Что рисует состояние, объявляет тот же модуль, который его завёл.
     registry.view<EditorScreen>((context, state) => EditorView(screen: state));
     // Область забирается **сейчас**, пока идёт установка: позже имя раздела

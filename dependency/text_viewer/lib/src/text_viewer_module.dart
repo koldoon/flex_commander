@@ -134,6 +134,8 @@ class TextViewer implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'Text viewer': 'Просмотр текста'});
+
     registry.view<TextViewerScreen>((context, state) => TextViewerView(screen: state));
 
     // Область забирается **сейчас**, пока идёт установка: позже имя раздела

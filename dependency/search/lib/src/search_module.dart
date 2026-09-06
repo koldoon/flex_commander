@@ -36,6 +36,8 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'File search': 'Поиск файлов'});
+
     registry.command((context) => FindFilesCommand());
     registry.command((context) => GoToFoundCommand());
 

@@ -104,7 +104,9 @@ class HelpCommand extends AppCommand {
       final owner = registry.ownerOf(command.id);
       // Пустое — команда пришла не модулем: в приложении такого нет, а в
       // тесте бывает. Своя строка лучше, чем пропажа.
-      final title = owner.isEmpty ? 'Other' : owner;
+      // Название модуля приходит английским — переводит его тот, кто
+      // показывает: у модуля служб нет.
+      final title = owner.isEmpty ? tr('Other') : tr(owner);
       grouped
           .putIfAbsent(title, () => [])
           .add(FcTableRow(command.label, _keysOf(registry, command.id), command.description));
@@ -114,7 +116,7 @@ class HelpCommand extends AppCommand {
     // занявший место чужой заглушки (просмотрщик встаёт на `F3` оболочки),
     // иначе всплывал бы наверх.
     return [
-      for (final title in [...registry.owners, 'Other'])
+      for (final title in [for (final owner in registry.owners) tr(owner), tr('Other')])
         if (grouped[title] case final rows?) FcTableSection(title, rows),
     ];
   }

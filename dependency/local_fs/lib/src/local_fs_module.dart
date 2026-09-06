@@ -68,6 +68,8 @@ class LocalFileSystem implements FcBackendModule, FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'Local file system': 'Локальная файловая система'});
+
     final settings = registry.settings;
 
     registry.settingsSchema(

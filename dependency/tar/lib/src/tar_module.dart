@@ -69,6 +69,8 @@ class TarArchiver implements FcBackendModule, FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'Tar archives': 'Архивы tar'});
+
     // Упаковка — такое же действие, как копирование, и живёт там же, где
     // формат. Клавиши ей не досталось: `Shift-F5` у zip, `Shift-F7` у 7z, а
     // `Shift-F6` встал бы поперёк привычки — `F6` это перенос. Место команды

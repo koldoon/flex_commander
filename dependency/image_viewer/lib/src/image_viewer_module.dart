@@ -29,6 +29,8 @@ class ImageViewer implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'Image viewer': 'Просмотр изображений'});
+
     registry.view<ImageViewerScreen>((context, state) => ImageViewerView(screen: state));
 
     final settings = registry.settings;

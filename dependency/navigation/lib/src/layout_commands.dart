@@ -20,10 +20,10 @@ class CenterSplitCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Center split';
+  String get label => tr('Center split');
 
   @override
-  String get description => 'Give both panels the same width';
+  String get description => tr('Give both panels the same width');
 
   @override
   Set<String> get keywords => const {'equal width', 'balance', 'layout'};

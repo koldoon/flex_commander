@@ -28,6 +28,8 @@ class DefaultTheme implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'Default theme': 'Оформление по умолчанию'});
+
     registry.theme(
       const FcThemeSpec(
         id: themeId,

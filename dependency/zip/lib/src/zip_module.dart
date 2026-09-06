@@ -57,6 +57,8 @@ class ZipArchiver implements FcBackendModule, FcFrontendModule {
   /// про zip знает только этот модуль.
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'Zip archives': 'Архивы zip'});
+
     registry.command((context) => CreateZipArchiveCommand());
     registry.binding(KeyBinding('Shift-F5', CreateZipArchiveCommand.commandId));
   }

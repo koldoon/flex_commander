@@ -18,8 +18,9 @@ const _definitions = [
   'dependency/ui_api/lib/src/commands/app_command.dart',
 ];
 
-/// Чужой код, живущий в репозитории копией: его строки не наши.
-const _foreign = ['dependency/re_editor/'];
+/// Чужой код, живущий в репозитории копией, и подставки для прогона: их строки
+/// человек не увидит никогда.
+const _foreign = ['dependency/re_editor/', 'dependency/test_kit/'];
 
 /// Вызов `tr('…')` или `plural(…, other: '…')` в исходниках.
 ///
@@ -27,6 +28,11 @@ const _foreign = ['dependency/re_editor/'];
 /// подобные; точка перед ним, наоборот, обычна: строки спрашивают у службы.
 final _trCall = RegExp(r"(?<![A-Za-z0-9_$])tr\(\s*'((?:[^'\\]|\\.)*)'");
 final _pluralOther = RegExp(r"other:\s*'((?:[^'\\]|\\.)*)'");
+
+/// Название модуля: оно видно в оглавлении настроек и в справке, а переводит
+/// его тот, кто показывает, — у модуля служб нет. В коде это обычный литерал,
+/// и найти его иначе нечем.
+final _moduleTitle = RegExp(r"String get title => '((?:[^'\\]|\\.)*)'");
 
 /// Ключ, собранный из литерала с интерполяцией: перевести его нельзя вовсе.
 final _interpolated = RegExp(r"(?<![A-Za-z0-9_$])(?:tr|plural)\(\s*'[^']*\$");
@@ -60,6 +66,9 @@ Set<String> _keysInSources() {
       keys.add(match.group(1)!);
     }
     for (final match in _pluralOther.allMatches(source)) {
+      keys.add(match.group(1)!);
+    }
+    for (final match in _moduleTitle.allMatches(source)) {
       keys.add(match.group(1)!);
     }
   }

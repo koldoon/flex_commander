@@ -9,7 +9,7 @@ class MoveCursorUpCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Cursor up';
+  String get label => tr('Cursor up');
 
   @override
   bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
@@ -26,7 +26,7 @@ class MoveCursorDownCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Cursor down';
+  String get label => tr('Cursor down');
 
   @override
   bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
@@ -49,10 +49,10 @@ class GoToNameCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Go to name';
+  String get label => tr('Go to name');
 
   @override
-  String get description => 'Jump to the first item starting with the typed letter';
+  String get description => tr('Jump to the first item starting with the typed letter');
 
   /// Ищут её как поиск по панели — этим она и является.
   @override
@@ -96,7 +96,7 @@ class PageUpCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Page up';
+  String get label => tr('Page up');
 
   @override
   bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
@@ -113,7 +113,7 @@ class PageDownCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Page down';
+  String get label => tr('Page down');
 
   @override
   bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
@@ -133,7 +133,7 @@ class GoToFirstNodeCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'First item';
+  String get label => tr('First item');
 
   @override
   bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
@@ -150,7 +150,7 @@ class GoToLastNodeCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Last item';
+  String get label => tr('Last item');
 
   @override
   bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
@@ -167,10 +167,10 @@ class TogglePanelCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Switch panel';
+  String get label => tr('Switch panel');
 
   @override
-  String get description => 'Make the other panel active';
+  String get description => tr('Make the other panel active');
 
   @override
   Set<String> get keywords => const {'other panel', 'toggle panel', 'focus'};
@@ -195,10 +195,10 @@ class OpenNodeCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Open';
+  String get label => tr('Open');
 
   @override
-  String get description => 'Enter a directory or an archive';
+  String get description => tr('Enter a directory or an archive');
 
   @override
   bool isExecutable(CommandContext context) => context.entry != null && !context.panel.busy;
@@ -232,10 +232,10 @@ class OpenWithSystemCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Open with system';
+  String get label => tr('Open with system');
 
   @override
-  String get description => 'Hand the selected items to the system, without entering them';
+  String get description => tr('Hand the selected items to the system, without entering them');
 
   /// «Открыть в Finder», «внешней программой», «по умолчанию» — три способа
   /// назвать одно и то же, и ни одного из них нет в названии.
@@ -268,10 +268,10 @@ class GoUpCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Up';
+  String get label => tr('Up');
 
   @override
-  String get description => 'Leave for the parent directory';
+  String get description => tr('Leave for the parent directory');
 
   @override
   Set<String> get keywords => const {'parent', 'back', 'go up'};
@@ -291,10 +291,10 @@ class GoToRootCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Root';
+  String get label => tr('Root');
 
   @override
-  String get description => 'Go to the root of the current source';
+  String get description => tr('Go to the root of the current source');
 
   @override
   bool isExecutable(CommandContext context) =>
@@ -315,10 +315,10 @@ class CalculateSizesCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Sizes';
+  String get label => tr('Sizes');
 
   @override
-  String get description => 'Measure every directory here, not just the marked ones';
+  String get description => tr('Measure every directory here, not just the marked ones');
 
   /// `du` — привычка из терминала, «disk usage» — то же словами.
   @override
@@ -340,10 +340,10 @@ class ReloadCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Reload';
+  String get label => tr('Reload');
 
   @override
-  String get description => 'Read the current directory again';
+  String get description => tr('Read the current directory again');
 
   @override
   Set<String> get keywords => const {'refresh', 'rescan', 'update'};
@@ -363,10 +363,10 @@ class ToggleHiddenCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Hidden files';
+  String get label => tr('Hidden files');
 
   @override
-  String get description => 'Show or hide the items whose names start with a dot';
+  String get description => tr('Show or hide the items whose names start with a dot');
 
   /// «Dotfiles» — то же самое одним словом, и в названии его нет.
   @override
@@ -382,7 +382,7 @@ class ToggleHiddenCommand extends AppCommand {
 
     // Сказать вслух: в каталоге без скрытых файлов переключение ничего не
     // меняет на экране, и понять, сработало ли оно, иначе неоткуда.
-    context.app.toasts.show('Show hidden files: ${showing ? 'On' : 'Off'}');
+    context.app.toasts.show(showing ? tr('Show hidden files: On') : tr('Show hidden files: Off'));
   }
 }
 
@@ -397,10 +397,10 @@ class CancelCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Cancel';
+  String get label => tr('Cancel');
 
   @override
-  String get description => 'Stop what the panel is doing right now';
+  String get description => tr('Stop what the panel is doing right now');
 
   @override
   Set<String> get keywords => const {'stop', 'abort', 'interrupt'};

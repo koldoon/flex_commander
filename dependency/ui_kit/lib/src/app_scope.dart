@@ -1,5 +1,6 @@
 import 'package:flutter/widgets.dart';
 
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 /// Доступ к состоянию приложения из дерева виджетов.
@@ -25,6 +26,30 @@ class AppScope extends InheritedNotifier<Application> {
     assert(scope != null, 'AppScope не найден выше по дереву');
     return scope!.notifier!;
   }
+}
+
+/// Строки на языке человека — для дерева виджетов.
+///
+/// Свой [InheritedNotifier], а не поле приложения: язык меняется отдельно от
+/// состояния, и подписаться на него должны ровно те виджеты, которые показывают
+/// надписи. Ставится над `MaterialApp`, поэтому его видят и окна: они живут в
+/// накладке под ним.
+///
+/// Области нет вовсе — значит английский, тот же, что написан в коде: так
+/// проверке отдельного виджета не приходится поднимать приложение целиком
+/// (`docs/spec/localization.md`).
+class StringsScope extends InheritedNotifier<Strings> {
+  const StringsScope({super.key, required Strings strings, required super.child}) : super(notifier: strings);
+
+  static Strings of(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<StringsScope>()?.notifier ?? _plain;
+
+  static final Strings _plain = StringsRegistry();
+}
+
+/// Строки там, где есть дерево виджетов: `context.strings.tr('Search')`.
+extension FcStrings on BuildContext {
+  Strings get strings => StringsScope.of(this);
 }
 
 /// Доступ к панели, внутри которой находится виджет.

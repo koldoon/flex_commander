@@ -60,6 +60,7 @@ abstract class MaskSelectionCommandBase extends AppCommand {
 
     final view = context.app.view;
     final state = MaskDialogState(
+      strings: context.app.strings,
       recent: List.of(settings().recentMasks),
       // Считает совпадения, пока набирают: единственное место, где маска
       // молчала бы до самого `Enter`, а ошибиться в ней легко.
@@ -80,7 +81,7 @@ abstract class MaskSelectionCommandBase extends AppCommand {
       DialogSpec(
         title: label,
         takesFocus: true,
-        content: MaskDialogForm(state: state, submitLabel: marks ? 'Mark' : 'Unmark'),
+        content: MaskDialogForm(state: state, submitLabel: marks ? tr('Mark') : tr('Unmark')),
         onSubmit: state.submit,
         onDismiss: state.close,
       ),
@@ -98,10 +99,10 @@ class SelectByMaskCommand extends MaskSelectionCommandBase {
   String get id => commandId;
 
   @override
-  String get label => 'Select by mask';
+  String get label => tr('Select by mask');
 
   @override
-  String get description => 'Mark everything matching a mask like «*.dart;*.md»';
+  String get description => tr('Mark everything matching a mask like «*.dart;*.md»');
 
   @override
   Set<String> get keywords => const {'mark', 'wildcard', 'pattern', 'select files'};
@@ -120,10 +121,10 @@ class DeselectByMaskCommand extends MaskSelectionCommandBase {
   String get id => commandId;
 
   @override
-  String get label => 'Deselect by mask';
+  String get label => tr('Deselect by mask');
 
   @override
-  String get description => 'Unmark everything matching a mask like «*.dart;*.md»';
+  String get description => tr('Unmark everything matching a mask like «*.dart;*.md»');
 
   @override
   Set<String> get keywords => const {'unmark', 'wildcard', 'pattern'};
@@ -137,7 +138,17 @@ class DeselectByMaskCommand extends MaskSelectionCommandBase {
 
 /// Что набрано в окне маски и что из этого выйдет.
 class MaskDialogState extends ChangeNotifier {
-  MaskDialogState({required this.recent, required this.count, required this.total, required this.apply});
+  MaskDialogState({
+    required this.strings,
+    required this.recent,
+    required this.count,
+    required this.total,
+    required this.apply,
+  });
+
+  /// Строки: счётчик под полем складывается здесь, а не в виджете — и складывать
+  /// его надо на языке человека.
+  final Strings strings;
 
   /// Недавние маски, свежие впереди.
   final List<String> recent;
@@ -162,7 +173,10 @@ class MaskDialogState extends ChangeNotifier {
   /// Пустая строка на этом месте оставляла бы дыру между полем и недавними
   /// масками, и человек искал бы в ней смысл. Приглушённо — потому что это
   /// ещё не ответ, а его отсутствие.
-  String get matched => typing ? '${count(mask)} of $total' : 'No files selected';
+  String get matched =>
+      typing
+          ? strings.tr('{count} of {total}', args: {'count': count(mask), 'total': total})
+          : strings.tr('No files selected');
 
   void typed(String value) {
     mask = value;
@@ -243,7 +257,7 @@ class _MaskDialogFormState extends State<MaskDialogForm> {
           submitLabel: widget.submitLabel,
           children: [
             CommandDialogField(
-              label: 'Mask',
+              label: context.strings.tr('Mask'),
               child: Focus(
                 focusNode: _focus,
                 onKeyEvent: _onKey,

@@ -96,6 +96,8 @@ class AppShell implements FcBackendModule, FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    registry.strings('ru', {'Application shell': 'Оболочка приложения', 'Other': 'Прочее'});
+
     // Пароль нужен файловому менеджеру всегда: архив под паролем, сервер с
     // паролем. Здесь объявлена **экранная** половина: показать вопрос и
     // принять ответ. Спрашивает же его тот, кто работает с источником, — ядро,
