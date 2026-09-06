@@ -241,10 +241,10 @@ class _FileTableHeaderState extends State<FileTableHeader> {
             checked: column.visible,
             // Иконку и имя скрывать нельзя: без них строка нечитаема.
             enabled: !column.pinned,
-            child: Text(FileTableHeaderCell.titleOf(column.id)),
+            child: Text(context.strings.tr(FileTableHeaderCell.titleOf(column.id))),
           ),
         const PopupMenuDivider(),
-        const PopupMenuItem<Object>(value: _resetLayout, child: Text('Reset columns')),
+        PopupMenuItem<Object>(value: _resetLayout, child: Text(context.strings.tr('Reset columns'))),
       ],
     );
 
@@ -279,7 +279,9 @@ class FileTableHeaderCell extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
-    final title = titleOf(column.id);
+    // Название колонки приходит значением (`FsColumn.title`) — английским, как
+    // и всё в коде; переводит его тот, кто показывает.
+    final title = context.strings.tr(titleOf(column.id));
     if (column.id == FsColumn.icon) {
       return const SizedBox.shrink();
     }

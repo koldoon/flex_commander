@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'file_table.dart';
@@ -22,7 +23,8 @@ class Panels implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.strings('ru', {'File panels': 'Файловые панели'});
+    registry.strings('ru', _russian);
+    registry.plurals('ru', _plurals);
 
     // Таблица файлов — штатный вид содержимого панели. Остальные виды
     // (результаты поиска, дерево) объявляются так же, своими модулями.
@@ -32,3 +34,31 @@ class Panels implements FcFrontendModule {
     registry.view<Panel>((context, panel) => PanelView(panel: panel));
   }
 }
+
+/// Русские строки файловых панелей.
+///
+/// Названия колонок приходят значениями (`FsColumn.title`), а не литералами в
+/// вызове: переводит их тот, кто показывает, — но объявлены они здесь, у того,
+/// кто эти колонки рисует.
+const Map<String, String> _russian = {
+  'File panels': 'Файловые панели',
+
+  // Заголовки колонок.
+  'Name': 'Имя',
+  'Path': 'Путь',
+  'Ext': 'Расш',
+  'Size': 'Размер',
+  'Modified': 'Изменён',
+  'Created': 'Создан',
+  'Accessed': 'Открыт',
+  'Attributes': 'Атрибуты',
+  'Reset columns': 'Вернуть колонки',
+
+  // Строка состояния.
+  '(Scanning…)': '(идёт подсчёт…)',
+};
+
+/// Множественные формы.
+const Map<String, PluralForms> _plurals = {
+  'Selected {n} items': (one: 'Выбран {n} объект', few: 'Выбрано {n} объекта', many: 'Выбрано {n} объектов'),
+};

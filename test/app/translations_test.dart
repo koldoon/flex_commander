@@ -75,6 +75,20 @@ Set<String> _keysInSources() {
   return keys;
 }
 
+/// Все одинарные литералы исходников — что угодно в кавычках.
+///
+/// Грубее, чем поиск вызовов, и нарочно: строка, пришедшая значением, вызова не
+/// имеет, но в коде она всё равно написана.
+Set<String> _literalsInSources() {
+  final all = <String>{};
+  for (final file in _sources()) {
+    all.addAll(_literal.allMatches(file.readAsStringSync()).map((m) => m.group(1)!));
+  }
+  return all;
+}
+
+final _literal = RegExp(r"'((?:[^'\\\n]|\\.)*)'");
+
 /// Переводы, собранные так же, как их собирает сборка приложения.
 StringsRegistry _declared() {
   final frontend = FrontendRegistrations(LazyServices())..installAll(appModules().whereType<FcFrontendModule>());
@@ -126,6 +140,11 @@ void main() {
   test('в словарях нет строк, которых больше нет в коде', () {
     final declared = _declared();
     final used = _keysInSources();
+    // Строка попадает на экран не только вызовом `tr`: названия колонок и
+    // модулей приходят значениями, а переводит их тот, кто показывает. Поэтому
+    // лишним считается перевод, ключа которого в коде **нет вовсе**, — а не
+    // тот, у которого не нашлось вызова.
+    final literals = _literalsInSources();
 
     String withoutContext(String key) {
       final bar = key.indexOf('|');
@@ -134,7 +153,7 @@ void main() {
 
     final stale = [
       for (final key in [...declared.wordsOf('ru').keys, ...declared.pluralsOf('ru').keys])
-        if (!used.contains(withoutContext(key))) key,
+        if (!used.contains(withoutContext(key)) && !literals.contains(withoutContext(key))) key,
     ]..sort();
 
     expect(stale, isEmpty, reason: 'перевод есть, а строки нет: ${stale.join(', ')}');

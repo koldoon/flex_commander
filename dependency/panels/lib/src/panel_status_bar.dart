@@ -46,7 +46,7 @@ class PanelStatusBar extends StatelessWidget {
                   padding: EdgeInsets.symmetric(horizontal: theme.metrics.labelPadding + theme.metrics.cellPadding),
                   alignment: Alignment.centerLeft,
                   child: Text.rich(
-                    _content(theme),
+                    _content(theme, context.strings),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: error ? theme.statusStyle.copyWith(color: theme.colors.error) : theme.statusStyle,
@@ -60,7 +60,7 @@ class PanelStatusBar extends StatelessWidget {
     );
   }
 
-  InlineSpan _content(FcTheme theme) {
+  InlineSpan _content(FcTheme theme, Strings strings) {
     final status = panel.statusText;
     if (status != null && status.isNotEmpty) {
       return TextSpan(text: status);
@@ -69,10 +69,10 @@ class PanelStatusBar extends StatelessWidget {
     final marked = panel.marked;
     if (marked.isNotEmpty) {
       final size = panel.markedSize;
-      final items = 'Selected ${marked.length} ${marked.length == 1 ? 'item' : 'items'}';
+      final items = strings.plural(marked.length, one: 'Selected {n} item', other: 'Selected {n} items');
       // Каталоги обходятся фоном, и пока обход идёт, сумма неполная —
       // сказать об этом надо прямо, иначе растущее число выглядит ошибкой.
-      final scanning = panel.markedSizeIsFinal ? '' : ' (Scanning…)';
+      final scanning = panel.markedSizeIsFinal ? '' : ' ${strings.tr('(Scanning…)')}';
       return TextSpan(text: size > 0 ? '$items, ${formatBytesLong(size)}$scanning' : '$items$scanning');
     }
 

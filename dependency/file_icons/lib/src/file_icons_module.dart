@@ -25,7 +25,7 @@ class FileIconRules implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.strings('ru', {'File icons': 'Значки файлов'});
+    registry.strings('ru', _russian);
 
     final settings = registry.settings;
     FileIconSettings settingsOf() => settings.section(FileIconSettings.new);
@@ -38,28 +38,31 @@ class FileIconRules implements FcFrontendModule {
       ),
     );
 
-    registry.settingsSchema(
-      () => SettingsSchema([
+    registry.settingsSchema(() {
+      final strings = registry.services.resolve<Strings>();
+      return SettingsSchema([
         SettingsField.integer(
           'size',
           min: 0,
           max: FileIconSettings.maxSize,
           defaultValue: 0,
-          title: 'Icon size',
-          description: 'Row icon size in points; 0 keeps the size the theme sets. Bigger icons make rows taller',
+          title: strings.tr('Icon size'),
+          description: strings.tr(
+            'Row icon size in points; 0 keeps the size the theme sets. Bigger icons make rows taller',
+          ),
           read: () => settingsOf().size,
           write: (value) => settingsOf().size = value,
         ),
         SettingsField.flag(
           'system',
           defaultValue: false,
-          title: 'System icons',
-          description: 'Show the icon the system knows for files and folders on disk',
+          title: strings.tr('System icons'),
+          description: strings.tr('Show the icon the system knows for files and folders on disk'),
           read: () => settingsOf().system,
           write: (value) => settingsOf().system = value,
         ),
-      ], save: settings.save),
-    );
+      ], save: settings.save);
+    });
   }
 
   /// Служба, которой может не быть вовсе.
@@ -71,3 +74,14 @@ class FileIconRules implements FcFrontendModule {
     return found.isEmpty ? null : found.first;
   }
 }
+
+/// Русские строки значков файлов.
+const Map<String, String> _russian = {
+  'File icons': 'Значки файлов',
+  'Icon size': 'Размер значка',
+  'Row icon size in points; 0 keeps the size the theme sets. Bigger icons make rows taller':
+      'Размер значка в строке, в точках; 0 — как задано темой. Крупные значки делают строки выше',
+  'System icons': 'Системные значки',
+  'Show the icon the system knows for files and folders on disk':
+      'Показывать значок, который система знает для файла или папки на диске',
+};
