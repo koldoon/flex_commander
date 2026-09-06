@@ -326,7 +326,9 @@ class TreeBranchCommand extends AppCommand {
 
   @override
   String get description =>
-      expand ? tr('Expand the branch under the cursor') : tr('Collapse the branch under the cursor');
+      expand
+          ? tr('Expand the branch under the cursor')
+          : tr('Collapse the branch, or step out to the directory it lies in');
 
   /// Дерево спрашивается у того, кто его рисует: команда не знает, какой сейчас
   /// вид, — она знает, что перед ней дерево.

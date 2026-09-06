@@ -225,6 +225,33 @@ void main() {
     expect(branches(tester).length, before, reason: 'и свернулась обратно');
   });
 
+  testWidgets('Left на файле уводит в его каталог, а следующий — сворачивает', (tester) async {
+    final runtime = await open(tester, at: '/home/lib');
+    final panel = runtime.app.left;
+
+    // Курсор на ветви `lib`; спускаемся на файл внутри неё.
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    expect(panel.currentEntry?.name, 'app.dart');
+
+    // Первый `Left` — к каталогу, в котором файл лежит.
+    runtime.commands.dispatch(KeyCombination.parse('Left'));
+    await tester.pumpAndSettle();
+
+    expect(panel.currentEntry?.name, 'lib', reason: 'курсор ушёл на саму ветвь');
+    expect(panel.path, '/home', reason: 'а `lib` лежит в корне');
+    expect(branches(tester), contains('app.dart'), reason: 'ветвь при этом не свернулась');
+
+    // Второй — сворачивает её.
+    runtime.commands.dispatch(KeyCombination.parse('Left'));
+    await tester.pumpAndSettle();
+
+    expect(branches(tester), isNot(contains('app.dart')));
+    expect(panel.currentEntry?.name, 'lib', reason: 'курсор остался на ней же');
+  });
+
   testWidgets('Right и Left делают то же самое', (tester) async {
     final runtime = await open(tester);
 

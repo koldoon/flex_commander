@@ -179,7 +179,8 @@ const Map<String, String> _russian = {
   'Expand branch': 'Раскрыть ветвь',
   'Collapse branch': 'Свернуть ветвь',
   'Expand the branch under the cursor': 'Раскрыть ветвь под курсором',
-  'Collapse the branch under the cursor': 'Свернуть ветвь под курсором',
+  'Collapse the branch, or step out to the directory it lies in':
+      'Свернуть ветвь, а сворачивать нечего — перевести курсор в каталог, где она лежит',
   'Toggle branch': 'Раскрыть или свернуть',
   'Expand the branch, or collapse it back': 'Раскрыть ветвь или свернуть обратно',
   'Mark branch': 'Пометить ветвь',

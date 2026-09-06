@@ -306,16 +306,32 @@ class TreeViewState extends State<TreeView> {
     moveCursor(_cursor + 1);
   }
 
-  /// Свернуть ветвь под курсором.
+  /// Свернуть ветвь под курсором, а сворачивать нечего — уйти к родителю.
+  ///
+  /// Два шага одной клавишей, и порядок у них привычный по редакторам кода:
+  /// `Left` на файле или сложенной ветви поднимает курсор в каталог, где она
+  /// лежит, а следующий `Left` — уже на раскрытом каталоге — сворачивает его
+  /// (`docs/spec/panel-view-tree.md`, §6). Так из глубины выходят той же
+  /// клавишей, которой закрывают, и думать, какая из двух нужна сейчас, не
+  /// приходится.
   void collapse() {
     final branch = current;
-    if (branch == null || !branch.expanded) {
+    if (branch == null) {
       return;
     }
-    setState(() {
-      branch.expanded = false;
-      _flatten();
-    });
+    if (branch.expanded) {
+      setState(() {
+        branch.expanded = false;
+        _flatten();
+      });
+      return;
+    }
+    // Родитель на виду всегда: раз ветвь видна, то видна и та, из которой её
+    // раскрыли. У корня родителя нет — там `Left` не делает ничего.
+    final at = branch.parent == null ? -1 : _visible.indexOf(branch.parent!);
+    if (at >= 0) {
+      _moveTo(at);
+    }
   }
 
   /// Курсор на строку — и **только**: панель за ним не идёт.

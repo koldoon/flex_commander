@@ -201,7 +201,8 @@ CommandRegistry.dispatch(combination, app)
 | `Left` / `Right` | `panel.cursor.columnLeft` / `columnRight` | краткий вид: курсор на столбец вбок |
 | `Up`, `Down`, `PgUp`, `PgDn`, `Home`, `End` | `panel.tree.up`…`panel.tree.last` | дерево: курсор по ветвям — и **только** |
 | `Enter` | `panel.tree.toggle` | дерево: раскрыть ветвь под курсором, раскрытую — свернуть |
-| `Right` / `Left` | `panel.tree.expand` / `panel.tree.collapse` | дерево: то же самое |
+| `Right` | `panel.tree.expand` | дерево: раскрыть ветвь под курсором |
+| `Left` | `panel.tree.collapse` | дерево: свернуть раскрытую, а свернуть нечего — курсор к её каталогу |
 | `Space` / `Ins` | `panel.tree.toggleMark` | дерево: пометить ветвь под курсором и шагнуть вниз |
 
 Никаких «если вид такой-то» внутри команды: где вида нет, команда сообщает о
