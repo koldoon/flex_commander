@@ -21,10 +21,10 @@ class MakeDirectoryCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Mk Dir';
+  String get label => tr('Mk Dir');
 
   @override
-  String get description => 'Create a directory in the active panel';
+  String get description => tr('Create a directory in the active panel');
 
   /// «Folder» — то же самое словом другой школы, и набирают его не реже.
   @override
@@ -170,16 +170,19 @@ class _MakeDirectoryFormState extends State<_MakeDirectoryForm> {
             error: state.error,
             onCancel: state.close ?? () {},
             onSubmit: state.submit,
-            submitLabel: 'Create',
+            submitLabel: context.strings.tr('Create'),
             // Поля те же, что в референсе: имя и каталог, в котором создаём.
             children: [
-              CommandDialogField(label: 'Inside', child: FcTextField(controller: _inside, enabled: false)),
               CommandDialogField(
-                label: 'Make directory',
+                label: context.strings.tr('Inside'),
+                child: FcTextField(controller: _inside, enabled: false),
+              ),
+              CommandDialogField(
+                label: context.strings.tr('Make directory'),
                 child: FcTextField(
                   controller: _name,
                   autofocus: true,
-                  hintText: 'Directory name',
+                  hintText: context.strings.tr('Directory name'),
                   onChanged: (value) => state.name = value,
                   onSubmitted: (_) => state.submit(),
                 ),
@@ -198,10 +201,10 @@ class RemoveCommand extends RemoveCommandBase {
   String get id => commandId;
 
   @override
-  String get label => 'Delete';
+  String get label => tr('Delete');
 
   @override
-  String get description => 'Move the selected items to the trash';
+  String get description => tr('Move the selected items to the trash');
 
   /// `rm` — привычка из терминала; «trash» и «bin» — то, куда объекты уходят.
   @override
@@ -222,10 +225,10 @@ class RemovePermanentlyCommand extends RemoveCommandBase {
   String get id => commandId;
 
   @override
-  String get label => 'Delete !';
+  String get label => tr('Delete !');
 
   @override
-  String get description => 'Delete the selected items without the trash';
+  String get description => tr('Delete the selected items without the trash');
 
   /// Ищут её обычно словами про необратимость, а не по имени.
   @override
@@ -328,7 +331,7 @@ abstract class RemoveCommandBase extends AppCommand {
             form:
                 (_) => CommandDialogConfirm(
                   message: confirmation,
-                  confirmLabel: toTrash ? 'Delete' : 'Delete permanently',
+                  confirmLabel: toTrash ? tr('Delete') : tr('Delete permanently'),
                   onCancel: run.dismiss,
                   onConfirm: run.submit,
                 ),
@@ -349,7 +352,7 @@ abstract class RemoveCommandBase extends AppCommand {
 
     run.onStart = () async {
       try {
-        await run.run(context.app.runOperation(), spec, message: 'Deleting…');
+        await run.run(context.app.runOperation(), spec, message: tr('Deleting…'));
       } finally {
         panel.clearMarks();
         await reloadPanelsAt(context.app, [panel.path]);
@@ -367,12 +370,16 @@ abstract class RemoveCommandBase extends AppCommand {
       for (final entry in context.targets)
         if (!entry.isParent) entry,
     ];
-    return targets.length == 1 ? '«${targets.single.name}»' : '${targets.length} items';
+    return targets.length == 1
+        ? '«${targets.single.name}»'
+        : plural(targets.length, one: '{n} item', other: '{n} items');
   }
 
   String _confirmationMessageOf(CommandContext context) {
     final what = _whatOf(context);
-    return toTrash ? 'Move $what to Trash?' : 'Delete $what permanently? This cannot be undone.';
+    return toTrash
+        ? tr('Move {what} to Trash?', args: {'what': what})
+        : tr('Delete {what} permanently? This cannot be undone.', args: {'what': what});
   }
 }
 
@@ -392,10 +399,10 @@ class RenameCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Rename';
+  String get label => tr('Rename');
 
   @override
-  String get description => 'Rename the item under the cursor';
+  String get description => tr('Rename the item under the cursor');
 
   /// «name» в синонимах нет: оно и так внутри названия, а сторож в списке
   /// команд справедливо считает такие слова мёртвым грузом. «move» — есть:
@@ -457,7 +464,7 @@ class RenameCommand extends AppCommand {
     state.close = () => view.closeDialog(dialogId);
     dialogId = view.showDialog(
       DialogSpec(
-        title: 'Rename',
+        title: tr('Rename'),
         takesFocus: true,
         content: _RenameForm(state: state),
         onSubmit: state.submit,
@@ -545,10 +552,10 @@ class _RenameFormState extends State<_RenameForm> {
             error: state.error,
             onCancel: state.close ?? () {},
             onSubmit: state.submit,
-            submitLabel: 'Rename',
+            submitLabel: context.strings.tr('Rename'),
             children: [
               CommandDialogField(
-                label: 'New name',
+                label: context.strings.tr('New name'),
                 child: FcTextField(
                   controller: _name,
                   autofocus: true,

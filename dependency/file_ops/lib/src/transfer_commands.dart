@@ -14,10 +14,10 @@ class CopyCommand extends TransferCommandBase {
   String get id => commandId;
 
   @override
-  String get label => 'Copy';
+  String get label => tr('Copy');
 
   @override
-  String get description => 'Copy the selected items to the other panel';
+  String get description => tr('Copy the selected items to the other panel');
 
   @override
   bool get moves => false;
@@ -34,10 +34,10 @@ class MoveCommand extends TransferCommandBase {
   String get id => commandId;
 
   @override
-  String get label => 'Move';
+  String get label => tr('Move');
 
   @override
-  String get description => 'Move the selected items to the other panel';
+  String get description => tr('Move the selected items to the other panel');
 
   /// `rename` в синонимах **нет**, хотя в коммандерах `F6` переименовывает:
   /// приёмником здесь может быть только каталог, и другого имени команде не
@@ -162,7 +162,7 @@ abstract class TransferCommandBase extends AppCommand {
       );
 
       try {
-        final message = moves ? 'Moving…' : 'Copying…';
+        final message = moves ? tr('Moving…') : tr('Copying…');
         final operation = context.app.runOperation();
         if (run != null) {
           await run.run(operation, spec, message: message);
@@ -363,19 +363,23 @@ class _TransferFormState extends State<_TransferForm> {
       // Поля те же, что в референсе: откуда и куда. Зазор между строками
       // ставит сама форма.
       children: [
-        CommandDialogField(label: 'From', child: FcTextField(controller: _source, enabled: false)),
+        CommandDialogField(label: context.strings.tr('From'), child: FcTextField(controller: _source, enabled: false)),
         CommandDialogField(
-          label: 'To',
+          label: context.strings.tr('To'),
           child: FcTextField(
             controller: _destination,
             autofocus: true,
-            hintText: 'Destination path',
+            hintText: context.strings.tr('Destination path'),
             onChanged: (value) => run.destination = value,
             onSubmitted: (_) => run.submit(),
           ),
         ),
         CommandDialogField.wide(
-          child: FcCheckbox(label: 'Follow symlinks', value: run.followLinks, onChanged: run.setFollowLinks),
+          child: FcCheckbox(
+            label: context.strings.tr('Follow symlinks'),
+            value: run.followLinks,
+            onChanged: run.setFollowLinks,
+          ),
         ),
       ],
     );

@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
@@ -23,7 +24,8 @@ class FileOps implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.strings('ru', {'File operations': 'Файловые операции'});
+    registry.strings('ru', _russian);
+    registry.plurals('ru', _plurals);
 
     registry.command((context) => MakeDirectoryCommand());
     registry.command((context) => RenameCommand());
@@ -48,3 +50,46 @@ class FileOps implements FcFrontendModule {
     registry.binding(KeyBinding('Shift-Cmd-Bsp', RemovePermanentlyCommand.commandId));
   }
 }
+
+/// Русские строки файловых операций.
+const Map<String, String> _russian = {
+  'File operations': 'Файловые операции',
+
+  // Перенос.
+  'Copy': 'Копировать',
+  'Copy the selected items to the other panel': 'Копировать выбранное в соседнюю панель',
+  'Copying…': 'Копирование…',
+  'Move': 'Перенести',
+  'Move the selected items to the other panel': 'Перенести выбранное в соседнюю панель',
+  'Moving…': 'Перенос…',
+  'From': 'Откуда',
+  'To': 'Куда',
+  'Destination path': 'Путь назначения',
+  'Follow symlinks': 'Идти по ссылкам',
+
+  // Каталог.
+  'Mk Dir': 'Каталог',
+  'Create a directory in the active panel': 'Создать каталог в активной панели',
+  'Create': 'Создать',
+  'Inside': 'Внутри',
+  'Make directory': 'Создать каталог',
+  'Directory name': 'Имя каталога',
+
+  // Удаление.
+  'Delete': 'Удалить',
+  'Move the selected items to the trash': 'Отправить выбранное в корзину',
+  'Delete !': 'Удалить !',
+  'Delete the selected items without the trash': 'Удалить выбранное мимо корзины',
+  'Delete permanently': 'Удалить навсегда',
+  'Deleting…': 'Удаление…',
+  'Move {what} to Trash?': 'Отправить {what} в корзину?',
+  'Delete {what} permanently? This cannot be undone.': 'Удалить {what} навсегда? Это не отменить.',
+
+  // Переименование.
+  'Rename': 'Переименовать',
+  'Rename the item under the cursor': 'Переименовать объект под курсором',
+  'New name': 'Новое имя',
+};
+
+/// Множественные формы: ключ — та форма, которую называют на месте.
+const Map<String, PluralForms> _plurals = {'{n} items': (one: '{n} объект', few: '{n} объекта', many: '{n} объектов')};
