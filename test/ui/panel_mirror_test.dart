@@ -90,12 +90,12 @@ void main() {
   });
 
   test('пометка ставится сразу и подтверждается ядром', () async {
-    panel.setMarks({'notes.txt', 'report.txt'});
-    expect(panel.marked, {'notes.txt', 'report.txt'});
+    panel.setMarks({'/home/notes.txt', '/home/report.txt'});
+    expect(panel.markedPaths, {'/home/notes.txt', '/home/report.txt'});
 
     await pumpEventQueue();
 
-    expect(panel.marked, {'notes.txt', 'report.txt'});
+    expect(panel.markedPaths, {'/home/notes.txt', '/home/report.txt'});
     expect(panel.markedSize, 30, reason: 'сумму считает ядро');
   });
 
@@ -104,7 +104,7 @@ void main() {
     await pumpEventQueue();
     expect(panel.targets.map((entry) => entry.name), ['notes.txt']);
 
-    panel.setMarks({'report.txt'});
+    panel.setMarks({'/home/report.txt'});
     await pumpEventQueue();
 
     expect(panel.targets.map((entry) => entry.name), ['report.txt']);

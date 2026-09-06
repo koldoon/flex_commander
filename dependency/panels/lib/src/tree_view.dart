@@ -12,10 +12,17 @@ import 'file_type_icon.dart';
 /// Значение в памяти вида, а не узел ядра: узлов по эту сторону границы не
 /// бывает, а дерево спрашивает только имена (`Panel.namesIn`).
 class TreeBranch {
-  TreeBranch({required this.path, required this.entry, required this.depth});
+  TreeBranch({required this.path, required this.entry, required this.depth, this.parent});
 
   /// Машинный путь: он же ключ, он же то, чем ветвь находят.
   final String path;
+
+  /// Ветвь, в которой эта лежит; null — корень источника.
+  ///
+  /// Ею и отвечает дерево на вопрос «в каком каталоге курсор»: каталог панели
+  /// идёт за курсором, а складывать путь из строки нельзя — у архива и сервера
+  /// он свой (`docs/spec/panel-view-tree.md`, §3).
+  final TreeBranch? parent;
 
   /// Сам объект — значением: по нему рисуются значок и имя, теми же правилами,
   /// что в списке файлов.
@@ -142,14 +149,18 @@ class TreeViewState extends State<TreeView> {
         ),
       );
     _flatten();
-    await _reveal(panel.path);
+    // До объекта под курсором панели, а не только до её каталога: вид со своей
+    // навигацией обязан встать там же, где стоял курсор
+    // (`docs/spec/panel-views.md`, §5), — и тогда каталог панели уже тот,
+    // который под курсором дерева, и идти никуда не надо.
+    await _reveal(panel.path, name: panel.currentEntry?.name);
   }
 
   /// Раскрыть дерево до этого пути и поставить на него курсор.
   ///
   /// Спускается по одной ветви: путь ребёнка складывает источник, и повторить
   /// его сложением строк нельзя — у архива и сервера он свой.
-  Future<void> _reveal(String path) async {
+  Future<void> _reveal(String path, {String? name}) async {
     _revealed = path;
     var branch = _roots.first;
     while (branch.path != path) {
@@ -172,10 +183,31 @@ class TreeViewState extends State<TreeView> {
     }
     setState(() {
       _flatten();
-      final at = _visible.indexWhere((visible) => visible.path == branch.path);
+      // Курсор на объект, если он назван и виден: иначе — на сам каталог. «..»
+      // в дереве нет, и по имени он не находится, что и требуется.
+      final wanted =
+          name == null ? -1 : _visible.indexWhere((visible) => visible.parent == branch && visible.name == name);
+      final at = wanted >= 0 ? wanted : _visible.indexWhere((visible) => visible.path == branch.path);
       _cursor = at < 0 ? 0 : at;
     });
     _revealCursor();
+  }
+
+  /// Каталог панели — тот, в котором лежит ветвь под курсором.
+  ///
+  /// Не открытие: панель не занята, пометка остаётся, а тот же каталог не
+  /// перечитывается (`docs/spec/panel-view-tree.md`, §3). Корень источника ни в
+  /// чём не лежит — на нём панель остаётся там, где стояла.
+  void _followCursor() {
+    final branch = current;
+    final parent = branch?.parent;
+    if (branch == null || parent == null) {
+      return;
+    }
+    // Панель уходит туда сама, и обратной волной дерево разворачивать незачем:
+    // оно уже там, где надо.
+    _revealed = parent.path;
+    widget.panel.follow(parent.path, name: branch.name);
   }
 
   /// Ведёт ли ветвь к этому пути: сам путь или его начало.
@@ -212,7 +244,9 @@ class TreeViewState extends State<TreeView> {
       }
       return a.name.toLowerCase().compareTo(b.name.toLowerCase());
     });
-    branch.children = [for (final entry in kept) TreeBranch(path: entry.path, entry: entry, depth: branch.depth + 1)];
+    branch.children = [
+      for (final entry in kept) TreeBranch(path: entry.path, entry: entry, depth: branch.depth + 1, parent: branch),
+    ];
     if (mounted) {
       setState(_flatten);
     }
@@ -252,6 +286,26 @@ class TreeViewState extends State<TreeView> {
 
   int get cursor => _cursor;
 
+  /// Пометить ветвь под курсором и шагнуть вниз — та же клавиша и та же
+  /// привычка, что в списке (`docs/spec/panel-view-tree.md`, §7).
+  ///
+  /// Помечается **объект**, а не строка: пометка едет путём, и панель к этому
+  /// времени уже стоит в каталоге ветви (§3). Корень источника не помечается —
+  /// он ни в каком каталоге не лежит.
+  void toggleMark() {
+    final branch = current;
+    if (branch == null || branch.parent == null) {
+      return;
+    }
+    final panel = widget.panel;
+    if (panel.isMarked(branch.entry)) {
+      panel.unmark(branch.entry);
+    } else {
+      panel.mark(branch.entry);
+    }
+    moveCursor(_cursor + 1);
+  }
+
   /// Свернуть ветвь под курсором.
   void collapse() {
     final branch = current;
@@ -273,6 +327,7 @@ class TreeViewState extends State<TreeView> {
       return;
     }
     setState(() => _cursor = index);
+    _followCursor();
     _revealCursor();
   }
 
@@ -333,7 +388,9 @@ class TreeViewState extends State<TreeView> {
         if (panel.source.scheme + panel.source.rootPath != _source || panel.showHidden != _hidden) {
           WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_build()));
         } else if (panel.path != _revealed) {
-          WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_reveal(panel.path)));
+          WidgetsBinding.instance.addPostFrameCallback(
+            (_) => unawaited(_reveal(panel.path, name: panel.currentEntry?.name)),
+          );
         }
 
         // Столбцов у дерева нет: `Left` и `Right` здесь свои
@@ -351,6 +408,7 @@ class TreeViewState extends State<TreeView> {
             return _BranchRow(
               branch: branch,
               underCursor: index == _cursor,
+              marked: panel.isMarked(branch.entry),
               panelActive: app.view.takesKeys(panel),
               onTap: () {
                 app.activate(panel);
@@ -389,6 +447,7 @@ class _BranchRow extends StatelessWidget {
   const _BranchRow({
     required this.branch,
     required this.underCursor,
+    required this.marked,
     required this.panelActive,
     required this.onTap,
     required this.onToggle,
@@ -396,6 +455,12 @@ class _BranchRow extends StatelessWidget {
 
   final TreeBranch branch;
   final bool underCursor;
+
+  /// Помечена ли ветвь. Показывается теми же цветами, что в списке: пометка в
+  /// панели одна, и выглядеть она обязана одинаково
+  /// (`docs/spec/panel-view-tree.md`, §7).
+  final bool marked;
+
   final bool panelActive;
   final VoidCallback onTap;
   final VoidCallback onToggle;
@@ -444,49 +509,72 @@ class _BranchRow extends StatelessWidget {
       child: Padding(
         padding: EdgeInsets.only(bottom: metrics.rowGap),
         child: DecoratedBox(
-          decoration: BoxDecoration(color: _selected ? colors.cursorBackground : null),
-          child: Padding(
-            // Слева — то же поле, что у строки списка: панели рядом, и их
-            // содержимое обязано начинаться на одной вертикали.
-            padding: EdgeInsets.only(left: metrics.iconLeftPadding + branch.depth * indent),
-            // Те же две поправки, что у строки списка: содержимое опущено
-            // относительно подсветки, а имя — относительно значка. Панели
-            // стоят рядом, и строка дерева обязана совпадать со строкой списка
-            // до точки (`FcMetrics.rowContentVerticalNudge`,
-            // `rowTextVerticalNudge`).
-            child: Transform.translate(
-              offset: Offset(0, metrics.rowContentVerticalNudge),
-              child: Row(
-                children: [
-                  GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTap: onToggle,
-                    child: SizedBox(
-                      width: square,
-                      // По середине квадрата, а не по левому его краю: глиф
-                      // угла узкий, и прижатый влево он отходил бы от значка
-                      // на полквадрата.
-                      child: Center(child: Text(_mark(icons), style: branch.loading ? style : glyph)),
-                    ),
-                  ),
-                  SizedBox(width: metrics.treeMarkGap),
-                  // Значок тот же, что в списке: у каталога папка, у файла его
-                  // собственный — правило одно на приложение
-                  // (`docs/spec/file-icons.md`).
-                  FileTypeIcon(entry: branch.entry, selected: _selected),
-                  SizedBox(width: metrics.iconGap),
-                  Expanded(
-                    child: Padding(
-                      padding: EdgeInsets.only(right: metrics.panelRightPadding),
-                      child: Transform.translate(
-                        offset: Offset(0, metrics.rowTextVerticalNudge),
-                        child: Text(branch.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+          // Слоями снизу вверх, как в списке: обычная → помеченная → под
+          // курсором (`FileTableRow`).
+          decoration: BoxDecoration(
+            color:
+                _selected
+                    ? colors.cursorBackground
+                    : marked
+                    ? colors.markedBackground
+                    : null,
+          ),
+          child: Stack(
+            children: [
+              Padding(
+                // Слева — то же поле, что у строки списка: панели рядом, и их
+                // содержимое обязано начинаться на одной вертикали.
+                padding: EdgeInsets.only(left: metrics.iconLeftPadding + branch.depth * indent),
+                // Те же две поправки, что у строки списка: содержимое опущено
+                // относительно подсветки, а имя — относительно значка. Панели
+                // стоят рядом, и строка дерева обязана совпадать со строкой списка
+                // до точки (`FcMetrics.rowContentVerticalNudge`,
+                // `rowTextVerticalNudge`).
+                child: Transform.translate(
+                  offset: Offset(0, metrics.rowContentVerticalNudge),
+                  child: Row(
+                    children: [
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: onToggle,
+                        child: SizedBox(
+                          width: square,
+                          // По середине квадрата, а не по левому его краю: глиф
+                          // угла узкий, и прижатый влево он отходил бы от значка
+                          // на полквадрата.
+                          child: Center(child: Text(_mark(icons), style: branch.loading ? style : glyph)),
+                        ),
                       ),
-                    ),
+                      SizedBox(width: metrics.treeMarkGap),
+                      // Значок тот же, что в списке: у каталога папка, у файла его
+                      // собственный — правило одно на приложение
+                      // (`docs/spec/file-icons.md`).
+                      FileTypeIcon(entry: branch.entry, selected: _selected),
+                      SizedBox(width: metrics.iconGap),
+                      Expanded(
+                        child: Padding(
+                          padding: EdgeInsets.only(right: metrics.panelRightPadding),
+                          child: Transform.translate(
+                            offset: Offset(0, metrics.rowTextVerticalNudge),
+                            child: Text(branch.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
-            ),
+              // Полоса пометки поверх фона: она должна читаться и тогда, когда
+              // ветвь вдобавок под курсором.
+              if (marked)
+                Positioned(
+                  left: 0,
+                  top: 0,
+                  bottom: 0,
+                  width: metrics.markedBarWidth,
+                  child: ColoredBox(color: colors.markedBar),
+                ),
+            ],
           ),
         ),
       ),

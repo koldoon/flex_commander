@@ -288,7 +288,7 @@ void main() {
       // наверх ронял бы её на ровном месте, а вместе с ней пометку, которая
       // живёт узлами.
       expect(panel.session.generation, generation);
-      expect(panel.marked, contains('notes.txt'));
+      expect(panel.markedPaths, contains('/home/notes.txt'));
     });
 
     test('изменившийся список таблицу пересобирает', () async {

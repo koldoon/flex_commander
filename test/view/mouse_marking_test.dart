@@ -42,7 +42,11 @@ void main() {
     matching: find.byWidgetPredicate((widget) => widget is FileTableRow && widget.entry.name == name),
   );
 
-  Set<String> marked() => app.left.marked;
+  /// Имена помеченного: пометка живёт путями, а читается тест именами.
+  Set<String> marked() => {
+    for (final entry in app.left.entries)
+      if (app.left.isMarked(entry)) entry.name,
+  };
 
   /// Нажать правой на строке, провести по перечисленным и отпустить.
   Future<void> markThrough(WidgetTester tester, String from, {List<String> through = const []}) async {
@@ -113,7 +117,7 @@ void main() {
     await markThrough(tester, '..', through: ['inside.txt']);
 
     expect(marked(), {'inside.txt'});
-    expect(app.left.marked.length, 1);
+    expect(app.left.markedPaths.length, 1);
   });
 
   testWidgets('правая по заголовку колонки пометку не трогает', (tester) async {

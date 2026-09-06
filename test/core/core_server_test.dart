@@ -171,11 +171,11 @@ void main() {
       expect(lastState()!.cursorSeq, 7, reason: 'зеркало узнаёт своё подтверждение');
     });
 
-    test('пометка едет именами', () async {
-      link.tell(const SetMarks(PanelId.left, {'notes.txt', 'report.txt'}));
+    test('пометка едет путями', () async {
+      link.tell(const SetMarks(PanelId.left, {'/home/notes.txt', '/home/report.txt'}));
       await pumpEventQueue();
 
-      expect(lastState()!.marked, {'notes.txt', 'report.txt'});
+      expect(lastState()!.markedPaths, {'/home/notes.txt', '/home/report.txt'});
       expect(lastState()!.markedSize, 30);
     });
 
@@ -188,17 +188,17 @@ void main() {
       link.tell(const ToggleMark(PanelId.left));
       await pumpEventQueue();
 
-      expect(lastState()!.marked, {'notes.txt'});
+      expect(lastState()!.markedPaths, {'/home/notes.txt'});
       expect(lastState()!.cursorIndex, notes + 1);
     });
 
     test('пометка переживает перечитывание каталога', () async {
-      link.tell(const SetMarks(PanelId.left, {'notes.txt'}));
+      link.tell(const SetMarks(PanelId.left, {'/home/notes.txt'}));
       await pumpEventQueue();
 
       await link.call(const Reload(PanelId.left));
 
-      expect(lastState()!.marked, {'notes.txt'});
+      expect(lastState()!.markedPaths, {'/home/notes.txt'});
     });
   });
 

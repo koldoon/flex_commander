@@ -189,8 +189,12 @@ class CoreServer implements CoreHandler {
         session(panel).setCursorIndex(index, seq: seq);
         return null;
 
-      case SetMarks(:final panel, :final names):
-        session(panel).setMarks(names);
+      case SetMarks(:final panel, :final paths):
+        await session(panel).setMarks(paths);
+        return null;
+
+      case FollowCursor(:final panel, :final directory, :final name):
+        await session(panel).follow(directory, name: name);
         return null;
 
       case ToggleMark(:final panel):

@@ -32,7 +32,7 @@ class PanelState {
     required this.columns,
     this.showHidden = false,
     this.view = PanelSettings.defaultView,
-    this.marked = const {},
+    this.markedPaths = const {},
     this.markedSize = 0,
     this.markedSizeIsFinal = true,
   });
@@ -104,9 +104,13 @@ class PanelState {
   /// (`docs/spec/panel-views.md`, §3).
   final String view;
 
-  /// Помеченное — именами: список приезжает отдельно, и связывать пометку с
-  /// его порядком нельзя, иначе перечитывание каталога сдвинуло бы её.
-  final Set<String> marked;
+  /// Помеченное — путями объектов, в порядке пометки.
+  ///
+  /// Не порядковыми номерами: список приезжает отдельно, и связывать пометку с
+  /// его порядком нельзя — перечитывание каталога сдвинуло бы её. И не именами:
+  /// помеченное бывает из разных ветвей дерева, а имя опознаёт объект только
+  /// внутри одного каталога (`docs/spec/panel-view-tree.md`, §7).
+  final Set<String> markedPaths;
 
   /// Суммарный размер помеченного. Растёт по ходу обхода каталогов.
   final int markedSize;
@@ -133,7 +137,7 @@ class PanelState {
     ColumnLayout? columns,
     bool? showHidden,
     String? view,
-    Set<String>? marked,
+    Set<String>? markedPaths,
     int? markedSize,
     bool? markedSizeIsFinal,
   }) => PanelState(
@@ -154,7 +158,7 @@ class PanelState {
     columns: columns ?? this.columns,
     view: view ?? this.view,
     showHidden: showHidden ?? this.showHidden,
-    marked: marked ?? this.marked,
+    markedPaths: markedPaths ?? this.markedPaths,
     markedSize: markedSize ?? this.markedSize,
     markedSizeIsFinal: markedSizeIsFinal ?? this.markedSizeIsFinal,
   );

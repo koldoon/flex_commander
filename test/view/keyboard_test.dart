@@ -102,6 +102,12 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Имена помеченного: пометка живёт путями, а читается тест именами.
+  Set<String> markedNames() => {
+    for (final entry in app.left.entries)
+      if (app.left.isMarked(entry)) entry.name,
+  };
+
   /// Возвращает, взял ли каркас нажатие себе.
   ///
   /// `false` означает «ушло дальше, в систему»: именно этого ответа ждёт
@@ -204,7 +210,7 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.space);
 
-      expect(app.left.marked, contains('notes.txt'));
+      expect(markedNames(), contains('notes.txt'));
     });
   });
 
@@ -315,7 +321,7 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.space);
 
-      expect(app.left.marked, {'notes.txt'});
+      expect(markedNames(), {'notes.txt'});
       expect(app.left.currentEntry?.name, 'report.xlsx');
     });
 
@@ -325,7 +331,7 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.space);
 
-      expect(app.left.marked.isEmpty, isTrue);
+      expect(app.left.markedPaths.isEmpty, isTrue);
     });
 
     testWidgets('Esc снимает пометку', (tester) async {
@@ -335,7 +341,7 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.escape);
 
-      expect(app.left.marked.isEmpty, isTrue);
+      expect(app.left.markedPaths.isEmpty, isTrue);
     });
 
     testWidgets('Cmd-A помечает всё, кроме ".."', (tester) async {
@@ -343,8 +349,8 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.keyA, modifiers: const [commandKey]);
 
-      expect(app.left.marked.length, app.left.entries.length - 1);
-      expect(app.left.marked, isNot(contains('..')));
+      expect(app.left.markedPaths.length, app.left.entries.length - 1);
+      expect(markedNames(), isNot(contains('..')));
 
       // Пометка каталогов запускает фоновый подсчёт их размера — даём ему
       // отработать, иначе тест закончится с недоделанной работой.
@@ -357,14 +363,14 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.keyA, modifiers: const [commandKey, LogicalKeyboardKey.shiftLeft]);
 
-      final marked = app.left.marked;
+      final marked = markedNames();
       expect(marked, isNotEmpty);
       final directories = {
         for (final entry in app.left.entries)
           if (entry.isDirectory) entry.name,
       };
       expect(marked.intersection(directories), isEmpty, reason: 'каталоги остались нетронутыми');
-      expect(app.left.marked, isNot(contains('..')));
+      expect(marked, isNot(contains('..')));
 
       // Каталоги в списке есть — значит помечено не всё подряд.
       expect(directories, isNotEmpty);

@@ -519,7 +519,7 @@ class _FileTableState extends State<FileTable> {
 
     _markAnchor = index;
     _markTo = index;
-    _markBefore = panel.marked;
+    _markBefore = panel.markedPaths;
     _markAdds = !panel.isMarked(panel.entries[index]);
     _markPointer = event.localPosition;
     _markSegment(index);
@@ -576,9 +576,9 @@ class _FileTableState extends State<FileTable> {
     final segmentHigh = math.max(from, to);
 
     // Пометка меняется одной просьбой на весь отрезок: до ядра она едет
-    // именами, и слать по сообщению на строку значило бы гнать сотню
+    // путями, и слать по сообщению на строку значило бы гнать сотню
     // сообщений за один взмах мыши.
-    final marked = {...panel.marked};
+    final marked = {...panel.markedPaths};
     for (var i = low; i <= high; i++) {
       final entry = entries[i];
       // «..» не помечается никогда — это правило самой пометки, и жесту
@@ -586,11 +586,11 @@ class _FileTableState extends State<FileTable> {
       if (entry.isParent) {
         continue;
       }
-      final wanted = i >= segmentLow && i <= segmentHigh ? _markAdds : _markBefore.contains(entry.name);
+      final wanted = i >= segmentLow && i <= segmentHigh ? _markAdds : _markBefore.contains(entry.path);
       if (wanted) {
-        marked.add(entry.name);
+        marked.add(entry.path);
       } else {
-        marked.remove(entry.name);
+        marked.remove(entry.path);
       }
     }
     panel.setMarks(marked);

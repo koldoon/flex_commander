@@ -147,7 +147,7 @@ void main() {
       app.left.setCursorToName('dump.sql');
       app.left.setMarks({
         for (final entry in app.left.entries)
-          if (!entry.isParent) entry.name,
+          if (!entry.isParent) entry.path,
       });
 
       expect(executable(), isFalse);
@@ -157,7 +157,7 @@ void main() {
       app.left.setCursorToName('dump.sql');
       app.left.setMarks({
         for (final entry in app.left.entries)
-          if (!entry.isParent) entry.name,
+          if (!entry.isParent) entry.path,
       });
 
       // Ровно то различие, ради которого команды две: набор файлов — это tar.

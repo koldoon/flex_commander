@@ -103,11 +103,17 @@ void main() {
     await opening;
 
     expect(app.left.path, '/home');
-    expect(app.left.marked, {'notes.txt'});
+    expect(
+      {
+        for (final entry in app.left.entries)
+          if (app.left.isMarked(entry)) entry.name,
+      },
+      {'notes.txt'},
+    );
 
     // Панель свободна — теперь Esc снимает пометку.
     commands.dispatch(KeyCombination.parse('Esc'));
-    expect(app.left.marked.isEmpty, isTrue);
+    expect(app.left.markedPaths.isEmpty, isTrue);
   });
 
   test('приложение собирается и без модуля навигации', () async {

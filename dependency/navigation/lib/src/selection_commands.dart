@@ -45,7 +45,7 @@ class ClearSelectionCommand extends AppCommand {
   Set<String> get keywords => const {'deselect', 'clear selection', 'none'};
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.marked.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.panel.markedPaths.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) async => context.panel.clearMarks();
@@ -84,9 +84,9 @@ class SelectFilesCommand extends AppCommand {
   Future<void> execute(CommandContext context) async {
     final panel = context.panel;
     panel.setMarks({
-      ...panel.marked,
+      ...panel.markedPaths,
       for (final entry in panel.entries)
-        if (_isFile(entry)) entry.name,
+        if (_isFile(entry)) entry.path,
     });
   }
 

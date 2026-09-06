@@ -110,7 +110,7 @@ class PanelMirror extends ChangeNotifier implements Panel {
   bool get showHidden => _state.showHidden;
 
   @override
-  Set<String> get marked => _state.marked;
+  Set<String> get markedPaths => _state.markedPaths;
 
   @override
   int get markedSize => _state.markedSize;
@@ -173,26 +173,33 @@ class PanelMirror extends ChangeNotifier implements Panel {
 
   // --- пометка ---
 
+  /// Помечен ли объект — **путём**: у «..» пути нет, и помеченным он не бывает.
   @override
-  bool isMarked(FileEntry entry) => _state.marked.contains(entry.name);
+  bool isMarked(FileEntry entry) => entry.path.isNotEmpty && _state.markedPaths.contains(entry.path);
 
   @override
-  void setMarks(Set<String> names) {
-    _state = _state.copyWith(marked: names);
-    _link.tell(SetMarks(id, names));
+  void setMarks(Set<String> paths) {
+    _state = _state.copyWith(markedPaths: paths);
+    _link.tell(SetMarks(id, paths));
     notifyListeners();
   }
 
+  /// «..» не помечается никогда — пути у него нет вовсе.
   @override
-  void mark(FileEntry entry) => setMarks({..._state.marked, entry.name});
+  void mark(FileEntry entry) {
+    if (entry.isParent) {
+      return;
+    }
+    setMarks({..._state.markedPaths, entry.path});
+  }
 
   @override
-  void unmark(FileEntry entry) => setMarks({..._state.marked}..remove(entry.name));
+  void unmark(FileEntry entry) => setMarks({..._state.markedPaths}..remove(entry.path));
 
   @override
   void markAll() => setMarks({
     for (final entry in entries)
-      if (!entry.isParent) entry.name,
+      if (!entry.isParent) entry.path,
   });
 
   @override
@@ -207,16 +214,20 @@ class PanelMirror extends ChangeNotifier implements Panel {
 
   /// Помеченное, а если не помечено ничего — объект под курсором.
   ///
-  /// То самое правило, по которому работают все файловые операции.
+  /// То самое правило, по которому работают все файловые операции. Строками, а
+  /// значит **только своего каталога**: помеченное в другой ветви дерева у этой
+  /// стороны значением не лежит вовсе. Файловым операциям это не мешает —
+  /// они называют набор именем (`Targets.marked`), и разворачивает его ядро,
+  /// у которого узлы на руках (`docs/spec/client-server.md`, §4.3).
   @override
   List<FileEntry> get targets {
-    if (_state.marked.isEmpty) {
+    if (_state.markedPaths.isEmpty) {
       final current = currentEntry;
       return current == null || current.isParent ? const [] : [current];
     }
     return [
       for (final entry in entries)
-        if (_state.marked.contains(entry.name)) entry,
+        if (_state.markedPaths.contains(entry.path)) entry,
     ];
   }
 
@@ -256,6 +267,17 @@ class PanelMirror extends ChangeNotifier implements Panel {
     final reply = await _link.call(OpenPath(id, path, allowConnect: allowConnect));
     return reply is CoreOpened && reply.opened;
   }
+
+  /// Идти за курсором вида: показать каталог, не открывая его.
+  ///
+  /// Просьбой без ответа (`tell`), а не вызовом: за курсором дерева это делается
+  /// на каждую стрелку, и ждать оборота границы тут нечего — плашка сменится
+  /// тем же событием, каким ядро расскажет о новом каталоге
+  /// (`docs/spec/panel-view-tree.md`, §3).
+  ///
+  /// Свою работу переход не прерывает: это ход курсора, а не уход человека.
+  @override
+  void follow(String directory, {String name = ''}) => _link.tell(FollowCursor(id, directory, name));
 
   /// Войти в строку списка. Возвращает то, во что войти нельзя; null — вошли.
   @override

@@ -109,7 +109,7 @@ void main() {
     test('о помеченном — одно окно со сводкой, а не десять подряд', () async {
       runtime.app.left.setMarks({
         for (final entry in runtime.app.left.entries)
-          if (!entry.isParent) entry.name,
+          if (!entry.isParent) entry.path,
       });
       await runtime.commands.create(FileInfoCommand.commandId)!.executeWith();
 

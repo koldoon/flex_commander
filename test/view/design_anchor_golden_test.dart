@@ -90,7 +90,7 @@ void main() {
 
       final app = await openApp(tester);
       app.left.setCursorToName('LICENSE');
-      app.left.setMarks({'LICENSE', 'fetch.xml'});
+      app.left.setMarks({'/Users/koldoon/Developer/LICENSE', '/Users/koldoon/Developer/fetch.xml'});
       await tester.pump();
 
       app.commands.dispatch(KeyCombination.parse(keys));
@@ -110,7 +110,7 @@ void main() {
 
     final app = await openApp(tester, rightPath: '/Users/koldoon/Developer');
     app.left.setCursorToName('INSTALL');
-    app.right.setMarks({'LICENSE', 'fetch.xml'});
+    app.right.setMarks({'/Users/koldoon/Developer/LICENSE', '/Users/koldoon/Developer/fetch.xml'});
     await tester.pump();
 
     await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/design_anchor.png'));

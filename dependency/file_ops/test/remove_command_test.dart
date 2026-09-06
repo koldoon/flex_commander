@@ -61,7 +61,7 @@ void main() {
 
     await remove();
 
-    expect(app.left.marked.isEmpty, isTrue);
+    expect(app.left.markedPaths.isEmpty, isTrue);
   });
 
   test('на «..» команда недоступна', () {

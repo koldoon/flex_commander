@@ -21,6 +21,8 @@ void main() {
     FakeEntry.directory('/home/.git'),
     FakeEntry.file('/home/main.dart', size: 1),
     FakeEntry.file('/home/lib/app.dart', size: 1),
+    FakeEntry.file('/home/lib/src/panel.dart', size: 1),
+    FakeEntry.file('/home/test/panel_test.dart', size: 1),
   ])..home = '/home';
 
   Future<AppRuntime> open(WidgetTester tester, {String at = '/home'}) async {
@@ -37,6 +39,24 @@ void main() {
     await runtime.app.left.setView(TreeView.viewId);
     await tester.pumpAndSettle();
     return runtime;
+  }
+
+  /// Что показывает плашка над панелью с деревом.
+  String plate(WidgetTester tester) =>
+      tester
+          .widgetList<FcPathPlate>(
+            find.descendant(of: find.byType(PanelView).first, matching: find.byType(FcPathPlate)),
+          )
+          .first
+          .path;
+
+  /// Помеченные ветви — по полосе пометки, которой строка и отличается на вид.
+  int markedRows(WidgetTester tester) {
+    final colors = FcTheme.of(tester.element(find.byType(TreeView))).colors;
+    return tester
+        .widgetList<ColoredBox>(find.descendant(of: find.byType(TreeView), matching: find.byType(ColoredBox)))
+        .where((box) => box.color == colors.markedBar)
+        .length;
   }
 
   /// Что видно в дереве, сверху вниз.
@@ -141,16 +161,52 @@ void main() {
     expect(branches(tester), contains('main.dart'), reason: 'половина ответа «что где лежит» — это файлы');
   });
 
-  testWidgets('стрелка водит курсор и больше ничего', (tester) async {
+  testWidgets('стрелка водит курсор и больше ничего не трогает', (tester) async {
     final runtime = await open(tester);
-    final panel = runtime.app.left;
     final before = branches(tester);
 
     runtime.commands.dispatch(KeyCombination.parse('Down'));
     await tester.pumpAndSettle();
 
-    expect(panel.path, '/home', reason: 'панель за курсором не идёт');
-    expect(branches(tester), before, reason: 'и ветвь сама не раскрылась');
+    expect(branches(tester), before, reason: 'ветвь сама не раскрылась');
+    expect(runtime.app.left.view, TreeView.viewId, reason: 'и вид остался деревом');
+  });
+
+  testWidgets('каталог панели идёт за курсором', (tester) async {
+    final runtime = await open(tester, at: '/home/lib');
+    final panel = runtime.app.left;
+    expect(panel.path, '/home/lib');
+
+    // Курсор на самой ветви `lib` — под ним `src`. Спускаемся, раскрываем и
+    // уходим курсором внутрь.
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Enter'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+
+    expect(panel.path, '/home/lib/src', reason: 'каталог панели — тот, в котором ветвь под курсором');
+    expect(plate(tester), '/home/lib/src', reason: 'и плашка говорит о нём же');
+    expect(panel.currentEntry?.name, 'panel.dart', reason: 'курсор панели — на том же объекте');
+    expect(panel.busy, isFalse, reason: 'панель за это не платит занятостью');
+
+    // И обратно: курсор вышел из ветви — панель вышла с ним.
+    runtime.commands.dispatch(KeyCombination.parse('Up'));
+    await tester.pumpAndSettle();
+
+    expect(panel.path, '/home/lib', reason: 'курсор вернулся на `src`, а тот лежит в `lib`');
+  });
+
+  testWidgets('на корне панель остаётся там, где стояла', (tester) async {
+    final runtime = await open(tester, at: '/home/lib');
+    final panel = runtime.app.left;
+
+    runtime.commands.dispatch(KeyCombination.parse('Home'));
+    await tester.pumpAndSettle();
+
+    expect(branches(tester).first, '/', reason: 'курсор на корне источника');
+    expect(panel.path, '/home/lib', reason: 'корень ни в каком каталоге не лежит');
   });
 
   testWidgets('Enter раскрывает ветвь и сворачивает обратно', (tester) async {
@@ -183,6 +239,55 @@ void main() {
     runtime.commands.dispatch(KeyCombination.parse('Left'));
     await tester.pumpAndSettle();
     expect(branches(tester).length, before);
+  });
+
+  testWidgets('Space помечает ветвь под курсором и шагает вниз', (tester) async {
+    final runtime = await open(tester, at: '/home/lib');
+    final panel = runtime.app.left;
+
+    // Курсор на ветви `lib`; спускаемся на `src` и помечаем его.
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Space'));
+    await tester.pumpAndSettle();
+
+    expect(panel.markedPaths, {'/home/lib/src'}, reason: 'помечена ветвь под курсором');
+    expect(markedRows(tester), 1, reason: 'и это видно в дереве');
+
+    // Обратно вверх и ещё раз — пометка снимается.
+    runtime.commands.dispatch(KeyCombination.parse('Up'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Space'));
+    await tester.pumpAndSettle();
+
+    expect(panel.markedPaths, isEmpty);
+    expect(markedRows(tester), 0);
+  });
+
+  testWidgets('пометка из разных ветвей складывается', (tester) async {
+    final runtime = await open(tester, at: '/home/lib');
+    final panel = runtime.app.left;
+
+    // Помечаем `src` в `lib` — курсор от пометки уходит на `app.dart`…
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Space'));
+    await tester.pumpAndSettle();
+
+    // …уходим курсором в соседнюю ветвь и помечаем там.
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Enter'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    expect(panel.path, '/home/test', reason: 'курсор ушёл в соседнюю ветвь');
+
+    runtime.commands.dispatch(KeyCombination.parse('Space'));
+    await tester.pumpAndSettle();
+
+    expect(panel.markedPaths, {'/home/lib/src', '/home/test/panel_test.dart'});
+    expect(markedRows(tester), 2, reason: 'обе ветви показывают пометку');
   });
 
   testWidgets('скрытые каталоги приходят вместе с Cmd-H', (tester) async {

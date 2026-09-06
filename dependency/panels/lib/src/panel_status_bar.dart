@@ -66,7 +66,7 @@ class PanelStatusBar extends StatelessWidget {
       return TextSpan(text: status);
     }
 
-    final marked = panel.marked;
+    final marked = panel.markedPaths;
     if (marked.isNotEmpty) {
       final size = panel.markedSize;
       final items = strings.plural(marked.length, one: 'Selected {n} item', other: 'Selected {n} items');

@@ -69,7 +69,10 @@ void main() {
 
       app.left.setCursorToName('alpha.txt');
       press('Space');
-      expect(app.left.marked, contains('alpha.txt'));
+      expect({
+        for (final entry in app.left.entries)
+          if (app.left.isMarked(entry)) entry.name,
+      }, contains('alpha.txt'));
     });
   });
 
@@ -88,7 +91,10 @@ void main() {
       // Пустая строка: панель работает как обычно.
       app.left.setCursorToName('alpha.txt');
       press('Space');
-      expect(app.left.marked, contains('alpha.txt'));
+      expect({
+        for (final entry in app.left.entries)
+          if (app.left.isMarked(entry)) entry.name,
+      }, contains('alpha.txt'));
 
       typeKeys('ls');
       // Теперь в строке что-то есть — те же клавиши достаются ей.

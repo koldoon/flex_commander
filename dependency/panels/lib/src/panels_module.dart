@@ -130,6 +130,12 @@ class Panels implements FcFrontendModule {
     registry.binding(KeyBinding('Right', TreeBranchCommand.expandId));
     registry.binding(KeyBinding('Enter', ToggleTreeBranchCommand.commandId));
 
+    // Пометка в дереве — своя: помечается ветвь под курсором дерева, а не
+    // строка списка, которого не видно (`docs/spec/panel-view-tree.md`, §7).
+    registry.command((context) => ToggleTreeMarkCommand());
+    registry.binding(KeyBinding('Space', ToggleTreeMarkCommand.commandId));
+    registry.binding(KeyBinding('Ins', ToggleTreeMarkCommand.commandId));
+
     registry.command((context) => MoveCursorColumnCommand(right: false));
     registry.command((context) => MoveCursorColumnCommand(right: true));
     registry.binding(KeyBinding('Left', MoveCursorColumnCommand.leftId));
@@ -176,6 +182,9 @@ const Map<String, String> _russian = {
   'Collapse the branch under the cursor': 'Свернуть ветвь под курсором',
   'Toggle branch': 'Раскрыть или свернуть',
   'Expand the branch, or collapse it back': 'Раскрыть ветвь или свернуть обратно',
+  'Mark branch': 'Пометить ветвь',
+  'Mark or unmark the branch under the cursor and step down':
+      'Пометить или снять пометку с ветви под курсором и шагнуть вниз',
   'Column left': 'Столбец левее',
   'Column right': 'Столбец правее',
   'Move the cursor one column aside': 'Перевести курсор на столбец вбок',

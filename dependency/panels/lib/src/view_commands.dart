@@ -376,6 +376,37 @@ class ToggleTreeBranchCommand extends AppCommand {
   }
 }
 
+/// Пометить ветвь под курсором и шагнуть вниз.
+///
+/// Своя команда, а не панельная: помечается ветвь под курсором **дерева**, и
+/// вниз идёт он же. Панельная пометила бы строку списка, которого в дереве не
+/// видно, — счётчик в строке состояния рос бы, а на экране не менялось ничего
+/// (`docs/spec/panel-view-tree.md`, §7).
+class ToggleTreeMarkCommand extends AppCommand {
+  static const String commandId = 'panel.tree.toggleMark';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => tr('Mark branch');
+
+  @override
+  String get description => tr('Mark or unmark the branch under the cursor and step down');
+
+  @override
+  Set<String> get keywords => const {'select', 'toggle selection', 'tree'};
+
+  /// Выполнима при всяком дереве — в том числе на корне, где помечать нечего.
+  /// Иначе клавиша досталась бы панельной пометке, и та пометила бы строку
+  /// невидимого списка: «ничего не произошло» честнее, чем «произошло не то».
+  @override
+  bool isExecutable(CommandContext context) => PanelTrees.of(context.panel) != null;
+
+  @override
+  Future<void> execute(CommandContext context) async => PanelTrees.of(context.panel)?.toggleMark();
+}
+
 /// Курсор по ветвям дерева.
 ///
 /// Свои команды, а не панельные: в дереве курсор свой — он ходит по ветвям, а

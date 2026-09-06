@@ -65,11 +65,11 @@ void main() {
     test('пометка снимается: она относилась к прежнему каталогу', () async {
       app.left.setCursorToName('notes.txt');
       app.left.toggleCurrentMark();
-      expect(app.left.marked.isEmpty, isFalse);
+      expect(app.left.markedPaths.isEmpty, isFalse);
 
       await run('panel.root');
 
-      expect(app.left.marked.isEmpty, isTrue);
+      expect(app.left.markedPaths.isEmpty, isTrue);
     });
 
     test('курсор встаёт в начало списка', () async {

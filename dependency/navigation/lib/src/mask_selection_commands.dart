@@ -35,18 +35,21 @@ abstract class MaskSelectionCommandBase extends AppCommand {
       }
       // «..» не помечается никакой маской: это не объект, а способ выйти
       // наверх.
+      // Маска смотрит на имя, а пометка живёт путями: маска — про то, как
+      // объект называется, а пометка — про то, какой он
+      // (`docs/spec/panel-view-tree.md`, §7).
       final matched = {
         for (final entry in panel.entries)
-          if (!entry.isParent && mask.matches(entry.name)) entry.name,
+          if (!entry.isParent && mask.matches(entry.name)) entry.path,
       };
-      // Одной просьбой на всю маску: до ядра пометка едет именами, и слать по
+      // Одной просьбой на всю маску: до ядра пометка едет путями, и слать по
       // сообщению на файл значило бы гнать их сотнями.
       if (marks) {
         // Пометка **дополняется**, а не заменяется: `+` дважды с разными
         // масками помечает и то, и другое. Так же ведёт себя mc.
-        panel.setMarks({...panel.marked, ...matched});
+        panel.setMarks({...panel.markedPaths, ...matched});
       } else {
-        panel.setMarks({...panel.marked}..removeAll(matched));
+        panel.setMarks({...panel.markedPaths}..removeAll(matched));
       }
       settings().rememberMask(patterns.trim());
       save();
@@ -133,7 +136,7 @@ class DeselectByMaskCommand extends MaskSelectionCommandBase {
   bool get marks => false;
 
   @override
-  bool isExecutable(CommandContext context) => super.isExecutable(context) && context.panel.marked.isNotEmpty;
+  bool isExecutable(CommandContext context) => super.isExecutable(context) && context.panel.markedPaths.isNotEmpty;
 }
 
 /// Что набрано в окне маски и что из этого выйдет.

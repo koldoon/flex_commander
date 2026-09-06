@@ -240,7 +240,7 @@ void main() {
       panel.setCursorToName('notes.txt');
       panel.toggleCurrentMark();
 
-      expect(panel.marked, {'notes.txt'});
+      expect(panel.markedPaths, {'/home/notes.txt'});
       expect(panel.currentEntry?.name, 'report.xlsx');
     });
 
@@ -248,38 +248,67 @@ void main() {
       panel.setCursorToFirst();
       panel.toggleCurrentMark();
 
-      expect(panel.marked.isEmpty, isTrue);
+      expect(panel.markedPaths.isEmpty, isTrue);
     });
 
     test('суммарный размер считает только известные размеры', () {
       panel.markAll();
 
-      expect(panel.marked.length, panel.entries.length - 1); // без ".."
+      expect(panel.markedPaths.length, panel.entries.length - 1); // без ".."
       // Каталоги пока не в счёт: их размер считается фоном, а проверка идёт
       // синхронно, до первого шага подсчёта. Появится рядом `await` — числа
       // поедут, и это будет не поломка, а досчитанные каталоги.
       expect(panel.session.selection.totalSize, 2148); // 100 + 2048
     });
 
+    test('один и тот же объект дважды не помечается', () async {
+      final selection = panel.session.selection;
+      final was = panel.session.nodes.firstWhere((node) => node.name == 'notes.txt');
+      selection.add(was);
+
+      // После перечитывания узлы — другие экземпляры того же самого. Пометка
+      // опознаёт объект путём, и ни новый экземпляр, ни забытый старый второй
+      // пометки не дают (`docs/spec/panel-view-tree.md`, §7).
+      await panel.reload();
+      final now = panel.session.nodes.firstWhere((node) => node.name == 'notes.txt');
+      expect(identical(was, now), isFalse, reason: 'экземпляр после перечитывания новый');
+
+      selection.add(now);
+      selection.add(was);
+
+      expect(selection.length, 1);
+      expect(panel.markedPaths, {'/home/notes.txt'});
+    });
+
+    test('пометить можно и то, чего в каталоге панели нет', () async {
+      // Так помечают из дерева: курсор ушёл в соседнюю ветвь, а список каталога
+      // ещё подтягивается — путь тогда разбирается сам
+      // (`docs/spec/panel-view-tree.md`, §7).
+      await panel.session.setMarks({'/home/docs/readme.md'});
+
+      expect(panel.markedPaths, {'/home/docs/readme.md'});
+      expect(panel.session.selection.nodes.single.name, 'readme.md');
+    });
+
     test('открытие другого каталога снимает пометку', () async {
       panel.markAll();
       await panel.openPath('/home/docs');
 
-      expect(panel.marked.isEmpty, isTrue);
+      expect(panel.markedPaths.isEmpty, isTrue);
     });
   });
 
   group('перечитывание', () {
     setUp(() => panel.openPath('/home'));
 
-    test('сохраняет курсор и пометку по именам', () async {
+    test('сохраняет курсор и пометку по путям', () async {
       panel.setCursorToName('notes.txt');
       panel.session.selection.add(panel.session.nodes.firstWhere((n) => n.name == 'report.xlsx'));
 
       await panel.reload();
 
       expect(panel.currentEntry?.name, 'notes.txt');
-      expect(panel.marked, {'report.xlsx'});
+      expect(panel.markedPaths, {'/home/report.xlsx'});
       // Узлы после перечитывания — новые экземпляры.
       expect(panel.session.selection.nodes.first, same(panel.session.nodes.firstWhere((n) => n.name == 'report.xlsx')));
     });
@@ -301,7 +330,7 @@ void main() {
 
       await panel.reload();
 
-      expect(panel.marked, isNot(contains('notes.txt')));
+      expect(panel.markedPaths, isNot(contains('/home/notes.txt')));
     });
   });
 

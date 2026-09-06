@@ -46,7 +46,11 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Set<String> marked() => app.left.marked;
+  /// Имена помеченного: пометка живёт путями, а читается тест именами.
+  Set<String> marked() => {
+    for (final entry in app.left.entries)
+      if (app.left.isMarked(entry)) entry.name,
+  };
 
   testWidgets('«+» открывает окно с пустым полем в фокусе', (tester) async {
     await pumpApp(tester);

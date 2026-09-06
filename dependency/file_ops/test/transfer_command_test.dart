@@ -132,7 +132,7 @@ void main() {
 
     await transfer(move: true);
 
-    expect(app.left.marked.isEmpty, isTrue);
+    expect(app.left.markedPaths.isEmpty, isTrue);
     expect(namesOf(app.left), isNot(contains('notes.txt')));
     expect(namesOf(app.right), contains('notes.txt'));
   });

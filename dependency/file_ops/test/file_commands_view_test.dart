@@ -318,7 +318,7 @@ void main() {
 
       expect(namesOf(), isNot(contains('notes.txt')));
       expect(namesOf(), isNot(contains('report.xlsx')));
-      expect(app.left.marked.isEmpty, isTrue);
+      expect(app.left.markedPaths.isEmpty, isTrue);
     });
 
     testWidgets('Shift-F8 предупреждает, что удаление безвозвратное', (tester) async {

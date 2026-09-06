@@ -414,6 +414,44 @@ class PanelSession {
     return _status != PanelPhase.error;
   }
 
+  /// Показать каталог, **не открывая** его: курсор вида встал на объект, и
+  /// каталог панели теперь тот, в котором объект лежит.
+  ///
+  /// Просит вид со своей навигацией — дерево (`docs/spec/panel-view-tree.md`,
+  /// §3). От [openPath] отличается тремя вещами, и все три существенные:
+  ///
+  /// * **панель не занята** — иначе стрелка в дереве отнимала бы клавиши у
+  ///   самого дерева, и каждый шаг вниз кончался бы ожиданием;
+  /// * **пометка остаётся** — ушёл курсор, а не человек, и помеченное в
+  ///   соседней ветви никуда не девается;
+  /// * **тот же каталог не перечитывается** — курсор ходит по строкам одного
+  ///   каталога чаще, чем переходит в другой.
+  Future<void> follow(String directory, {String name = ''}) async {
+    final here = _directory;
+    if (here != null && here.pathString == directory) {
+      if (name.isNotEmpty) {
+        setCursorToName(name);
+      }
+      return;
+    }
+
+    final resolved = await resolvePath().run(directory);
+    final dir = resolved.node;
+    if (dir is! DirectoryNode) {
+      // Каталога нет — панель остаётся там, где стояла: это ход курсора, а не
+      // просьба человека, и отвечать на него пустой панелью не за что.
+      await resolved.release();
+      return;
+    }
+    await _load(
+      dir,
+      lease: resolved.lease,
+      cursorName: name.isEmpty ? null : name,
+      markedPaths: selection.paths,
+      quiet: true,
+    );
+  }
+
   /// Корень, от которого разбирать этот путь.
   ///
   /// Правило простое и в обе стороны одинаковое: **путь без схемы — это общий
@@ -654,7 +692,7 @@ class PanelSession {
       dir,
       cursorName: currentNode?.name,
       cursorFallbackIndex: _cursorIndex,
-      markedNames: selection.names,
+      markedPaths: selection.paths,
       useCache: false,
     );
   }
@@ -795,12 +833,38 @@ class PanelSession {
     return node == null || node is ParentDirNode ? const [] : [node];
   }
 
-  /// Заменить пометку целиком — именами.
+  /// Заменить пометку целиком — путями.
   ///
-  /// Именами, а не строками: список могли перечитать, и узлы теперь другие
-  /// экземпляры. Это то же самое, что делает перечитывание каталога, — и
+  /// Путями, а не порядковыми номерами: список могли перечитать, и узлы теперь
+  /// другие экземпляры. Это то же самое, что делает перечитывание каталога, — и
   /// делается тем же способом.
-  void setMarks(Set<String> names) => _restoreSelection(names);
+  ///
+  /// Путь, которого нет ни в каталоге, ни в прежней пометке, **разбирается**:
+  /// помечают и из дерева, где видно соседние ветви, а курсор туда мог ещё не
+  /// дойти — список каталога подтягивается тихо, и нажатая в тот же миг
+  /// клавиша пометки не должна пропасть (`docs/spec/panel-view-tree.md`, §7).
+  /// Не разобралось — объекта нет, и пометке его взять неоткуда.
+  Future<void> setMarks(Set<String> paths) async {
+    final known = {for (final node in _nodes) node.pathString, for (final node in selection.nodes) node.pathString};
+    final strangers = <String, FsNode>{};
+    for (final path in paths) {
+      if (known.contains(path)) {
+        continue;
+      }
+      try {
+        final resolved = await resolvePath().run(path);
+        if (resolved.node case final node?) {
+          strangers[path] = node;
+        }
+        // Аренда отпускается сразу: пометка ничего не держит открытым — за
+        // источник отвечает панель, которая в нём стоит.
+        await resolved.release();
+      } on FsError {
+        // Объекта нет — путь просто выпадает из пометки.
+      }
+    }
+    _restoreSelection(paths, strangers: strangers);
+  }
 
   // --- вид ---
 
@@ -963,7 +1027,7 @@ class PanelSession {
     columns: columns,
     showHidden: _showHidden,
     view: _view,
-    marked: selection.names,
+    markedPaths: selection.paths,
     markedSize: selection.totalSize,
     markedSizeIsFinal: selectionSizeIsFinal,
   );
@@ -1073,8 +1137,9 @@ class PanelSession {
     ProviderLease? lease,
     String? cursorName,
     int? cursorFallbackIndex,
-    Set<String>? markedNames,
+    Set<String>? markedPaths,
     bool useCache = true,
+    bool quiet = false,
   }) async {
     _rememberCursor();
     _operation?.cancel();
@@ -1095,7 +1160,7 @@ class PanelSession {
       _nodes = shown;
       _applySort();
       _stopSizeScan();
-      _restoreSelection(markedNames);
+      _restoreSelection(markedPaths);
       _restoreCursor(cursorName, cursorFallbackIndex);
       // Занятости нет: панель уже что-то показала, и отнимать у неё клавиши
       // ради чтения, которого никто не ждёт, незачем. Этим фоновое обновление
@@ -1104,6 +1169,17 @@ class PanelSession {
       _status = PanelPhase.idle;
       _error = null;
       _statusText = null;
+      _changed();
+    } else if (quiet) {
+      // Каталог выставлен сразу, а список подтянется чтением: за курсором вида
+      // идёт каталог, а не ожидание, и плашка обязана смениться тем же кадром,
+      // что и курсор (`docs/spec/panel-view-tree.md`, §3). Занятости нет —
+      // иначе стрелка в дереве отнимала бы клавиши у самого дерева.
+      _directory = dir;
+      _lastPath = dir.pathString;
+      _adoptLease(lease, dir);
+      adopted = true;
+      _error = null;
       _changed();
     } else {
       _busy = true;
@@ -1147,7 +1223,7 @@ class PanelSession {
       // будет. И только в этой ветке — при ошибке или отмене чтения на экране
       // остаются прежние узлы, и обход над ними по-прежнему правомерен.
       _stopSizeScan();
-      _restoreSelection(markedNames);
+      _restoreSelection(markedPaths);
       _restoreCursor(cursorName, cursorFallbackIndex);
 
       _status = PanelPhase.idle;
@@ -1222,7 +1298,7 @@ class PanelSession {
   /// успевает нажать пару стрелок, и отыгрывать их назад нельзя.
   void _refresh(List<FsNode> nodes) {
     final cursorName = currentNode?.name;
-    final marked = selection.names;
+    final marked = selection.paths;
     final cursorIndex = _cursorIndex;
 
     final sorted = List<FsNode>.unmodifiable(nodes.toList()..sort(comparatorFor(_sort, naming: naming)));
@@ -1280,14 +1356,37 @@ class PanelSession {
     _listed();
   }
 
-  /// После перечитывания узлы — новые экземпляры, поэтому пометка переносится
-  /// по именам; исчезнувшие объекты отбрасываются.
-  void _restoreSelection(Set<String>? markedNames) {
+  /// Собрать пометку заново по путям — в том порядке, в каком их назвали.
+  ///
+  /// Узел каталога берётся **свежий**: после перечитывания это другой
+  /// экземпляр того же объекта. Путь, которого в каталоге нет, ищется среди
+  /// уже помеченного и остаётся прежним узлом: помечают и из соседних ветвей
+  /// дерева, и уход курсора в другой каталог чужую пометку не трогает
+  /// (`docs/spec/panel-view-tree.md`, §7). [strangers] — то, что для этого
+  /// разобрал [setMarks]: путь назвали, а панель его никогда не видела. Всё
+  /// остальное отбрасывается — объект исчез.
+  void _restoreSelection(Set<String>? markedPaths, {Map<String, FsNode> strangers = const {}}) {
+    final was = {for (final node in selection.nodes) node.pathString: node};
     selection.clear();
-    if (markedNames == null || markedNames.isEmpty) {
+    if (markedPaths == null || markedPaths.isEmpty) {
       return;
     }
-    selection.addAll(_nodes.where((node) => markedNames.contains(node.name)));
+    final here = {for (final node in _nodes) node.pathString: node};
+    final directory = _directory?.pathString;
+    for (final path in markedPaths) {
+      var node = here[path];
+      // Прежний узел годится, только если он **не отсюда**: объект этого
+      // каталога после перечитывания обязан найтись в новом списке, а не
+      // найдясь — исчез, и держать его пометкой значило бы обещать несбыточное.
+      node ??= switch (was[path]) {
+        final was? when was.parent?.pathString != directory => was,
+        _ => null,
+      };
+      node ??= strangers[path];
+      if (node != null) {
+        selection.add(node);
+      }
+    }
   }
 
   /// Курсор ищется по имени; если объект исчез — встаёт на ближайший индекс

@@ -35,7 +35,11 @@ void main() {
 
   Future<void> unmark(String mask) => deselect().executeWith({MaskSelectionCommandBase.maskParam: mask});
 
-  Set<String> marked() => app.left.marked;
+  /// Имена помеченного: пометка живёт путями, а читается тест именами.
+  Set<String> marked() => {
+    for (final entry in app.left.entries)
+      if (app.left.isMarked(entry)) entry.name,
+  };
 
   test('помечает совпавшее', () async {
     await mark('*.dart');
