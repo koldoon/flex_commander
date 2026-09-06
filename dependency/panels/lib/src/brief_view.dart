@@ -98,6 +98,33 @@ class _BriefViewState extends State<BriefView> {
     }
   }
 
+  /// Где на экране левый край столбца с курсором; null — прокрутки ещё нет.
+  ///
+  /// Считается **до** новой раскладки, по прежним числам: после неё столбец у
+  /// курсора другой, и вернуть его на место можно только зная, где он был.
+  double? _cursorColumnOnScreen() {
+    if (!_scroll.hasClients || _columnWidth <= 0 || _rows <= 0) {
+      return null;
+    }
+    final column = widget.panel.cursorIndex ~/ _rows;
+    return column * _columnWidth - _scroll.offset;
+  }
+
+  /// Вернуть столбец с курсором туда же, где он стоял на экране.
+  ///
+  /// Не влез — обычная докрутка: обещание «ничего не поехало» кончается там,
+  /// где столбец перестал помещаться.
+  void _pinCursorColumn(double? was) {
+    if (!_scroll.hasClients || was == null || _columnWidth <= 0) {
+      _revealCursor();
+      return;
+    }
+    final column = widget.panel.cursorIndex ~/ _rows;
+    final target = column * _columnWidth - was;
+    _scroll.jumpTo(target.clamp(0, _scroll.position.maxScrollExtent));
+    _revealCursor();
+  }
+
   void _onTap(int index) {
     final panel = widget.panel;
     final now = DateTime.now();
@@ -150,9 +177,20 @@ class _BriefViewState extends State<BriefView> {
               panel.pageSize = (rows * visible).clamp(1, 10000);
               // Столбцы есть — значит, `Left`/`Right` ходят по ним.
               panel.columnRows = rows;
+
+              // Окно изменили — раскладка другая: столбцов стало больше или
+              // меньше, ширина у них новая. Прокрутка при этом остаётся в
+              // точках и указывает уже не туда: содержимое «плывёт» под
+              // обзором. Держимся за курсор — он и есть то место, на которое
+              // человек смотрит (`docs/spec/panel-view-brief.md`, §7).
+              final resized = _rows != rows || _columnWidth != columnWidth || _viewWidth != available;
+              final wasCursorAt = _cursorColumnOnScreen();
               _rows = rows;
               _columnWidth = columnWidth;
               _viewWidth = available;
+              if (resized) {
+                WidgetsBinding.instance.addPostFrameCallback((_) => _pinCursorColumn(wasCursorAt));
+              }
 
               // Курсор мог уехать за край чужими руками — стрелкой, поиском,
               // сменой каталога. Проверяется после разметки: до неё прокрутки

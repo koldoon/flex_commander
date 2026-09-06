@@ -2,7 +2,10 @@ import 'dart:async';
 
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter/widgets.dart';
+
+import 'tree_view.dart';
 
 /// Показать каталог другим видом.
 ///
@@ -26,7 +29,7 @@ class SetPanelViewCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => tr('Panel view');
+  String get label => tr('Set panel view');
 
   @override
   String get description => tr('Show the directory another way');
@@ -58,8 +61,26 @@ class SetPanelViewCommand extends AppCommand {
     if (view.isEmpty) {
       return;
     }
-    await panelOf(context).setView(view);
+    await switchTo(panelOf(context), view);
   }
+
+  /// Сменить вид, запомнив прежний.
+  ///
+  /// Помнится ради дерева: `Enter` в нём открывает каталог и уходит в список —
+  /// в тот, который человек выбрал сам, а не в таблицу заодно
+  /// (`docs/spec/panel-view-tree.md`, §6). Это состояние сеанса, а не
+  /// настройка: помнить его между запусками незачем.
+  static Future<void> switchTo(Panel panel, String view) async {
+    if (panel.view != view) {
+      _previous[panel.id] = panel.view;
+    }
+    await panel.setView(view);
+  }
+
+  /// Вид, который стоял в этой панели до нынешнего; null — не меняли.
+  static String? previousOf(Panel panel) => _previous[panel.id];
+
+  static final Map<PanelId, String> _previous = {};
 }
 
 /// Выбрать вид панели из объявленных — окном.
@@ -72,8 +93,11 @@ class ChoosePanelViewCommand extends AppCommand {
   @override
   String get id => commandId;
 
+  // Без многоточия: оно значит «спросит и откроет окно» в **меню**, а здесь
+  // им же названо само окно — открытому окну обещать нечего. Прочие команды с
+  // окнами у нас тоже без него: «Address», «Find files», «Copy».
   @override
-  String get label => tr('Panel view…');
+  String get label => tr('Panel view');
 
   @override
   String get description => tr('Choose how this panel shows the directory');
@@ -105,7 +129,7 @@ class ChoosePanelViewCommand extends AppCommand {
     void close() => app.view.closeDialog(dialogId);
     void apply() {
       close();
-      unawaited(panel.setView(state.selected.id));
+      unawaited(SetPanelViewCommand.switchTo(panel, state.selected.id));
     }
 
     state.apply = apply;
@@ -299,3 +323,129 @@ class MoveCursorColumnCommand extends AppCommand {
     panel.setCursorIndex(target.clamp(0, panel.entries.length - 1));
   }
 }
+
+/// Раскрыть или свернуть ветвь дерева — и шагнуть внутрь или наружу.
+///
+/// Свои команды, а не ход по столбцам: смысл другой, а `Left` и `Right` те же.
+/// Там, где дерева нет, они невыполнимы, и клавиша достаётся объявленным
+/// следом (`docs/spec/panel-view-tree.md`, §6).
+class TreeBranchCommand extends AppCommand {
+  TreeBranchCommand({required this.expand});
+
+  static const String expandId = 'panel.tree.expand';
+  static const String collapseId = 'panel.tree.collapse';
+
+  final bool expand;
+
+  @override
+  String get id => expand ? expandId : collapseId;
+
+  @override
+  String get label => expand ? tr('Expand branch') : tr('Collapse branch');
+
+  @override
+  String get description => expand ? tr('Open the branch, or step into it') : tr('Close the branch, or step out of it');
+
+  /// Дерево спрашивается у того, кто его рисует: команда не знает, какой сейчас
+  /// вид, — она знает, что перед ней дерево.
+  @override
+  bool isExecutable(CommandContext context) => treeOf(context.app, context.panel) != null;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final tree = treeOf(context.app, context.panel);
+    if (tree == null) {
+      return;
+    }
+    if (expand) {
+      await tree.expand();
+    } else {
+      tree.collapse();
+    }
+  }
+
+  /// Дерево этой панели, если оно сейчас на экране.
+  static TreeViewState? treeOf(Application app, Panel panel) => PanelTrees.of(panel);
+}
+
+/// Открыть каталог под курсором дерева и уйти в список.
+class OpenTreeBranchCommand extends AppCommand {
+  static const String commandId = 'panel.tree.open';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => tr('Open branch');
+
+  @override
+  String get description => tr('Open the directory and go back to the list');
+
+  @override
+  bool isExecutable(CommandContext context) => PanelTrees.of(context.panel) != null;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final tree = PanelTrees.of(context.panel);
+    // Возвращаемся к тому виду, который стоял до дерева: человек выбрал его
+    // сам, и подменять его таблицей было бы самоуправством.
+    tree?.submit(SetPanelViewCommand.previousOf(context.panel) ?? PanelSettings.defaultView);
+  }
+}
+
+/// Курсор по ветвям дерева.
+///
+/// Свои команды, а не панельные: в дереве курсор свой — он ходит по ветвям, а
+/// не по строкам списка. Объявлены раньше панельных, и там, где дерева нет,
+/// невыполнимы (`docs/spec/panel-view-tree.md`, §6).
+class MoveTreeCursorCommand extends AppCommand {
+  MoveTreeCursorCommand(this.step);
+
+  /// Куда шагнуть; шаг страницы и края — те же клавиши, что в списке.
+  final TreeStep step;
+
+  @override
+  String get id => switch (step) {
+    TreeStep.up => 'panel.tree.cursorUp',
+    TreeStep.down => 'panel.tree.cursorDown',
+    TreeStep.pageUp => 'panel.tree.pageUp',
+    TreeStep.pageDown => 'panel.tree.pageDown',
+    TreeStep.first => 'panel.tree.first',
+    TreeStep.last => 'panel.tree.last',
+  };
+
+  @override
+  String get label => switch (step) {
+    TreeStep.up => tr('Branch up'),
+    TreeStep.down => tr('Branch down'),
+    TreeStep.pageUp => tr('Branches page up'),
+    TreeStep.pageDown => tr('Branches page down'),
+    TreeStep.first => tr('First branch'),
+    TreeStep.last => tr('Last branch'),
+  };
+
+  @override
+  bool isExecutable(CommandContext context) => PanelTrees.of(context.panel) != null;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final tree = PanelTrees.of(context.panel);
+    if (tree == null) {
+      return;
+    }
+    // Страница — то, что видно, минус строка перекрытия: то же правило, что у
+    // списка файлов.
+    final page = (context.panel.pageSize - 1).clamp(1, context.panel.pageSize);
+    tree.moveCursor(switch (step) {
+      TreeStep.up => tree.cursor - 1,
+      TreeStep.down => tree.cursor + 1,
+      TreeStep.pageUp => tree.cursor - page,
+      TreeStep.pageDown => tree.cursor + page,
+      TreeStep.first => 0,
+      TreeStep.last => tree.visibleRows - 1,
+    });
+  }
+}
+
+/// Куда шагает курсор дерева.
+enum TreeStep { up, down, pageUp, pageDown, first, last }

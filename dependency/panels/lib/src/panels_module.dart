@@ -5,6 +5,8 @@ import 'brief_view.dart';
 import 'brief_view_options.dart';
 import 'file_table.dart';
 import 'panels_settings.dart';
+import 'tree_view.dart';
+import 'tree_view_options.dart';
 import 'view_commands.dart';
 import 'panel_view.dart';
 
@@ -64,6 +66,16 @@ class Panels implements FcFrontendModule {
       ),
     );
 
+    registry.panelView(
+      PanelViewSpec(
+        id: TreeView.viewId,
+        title: 'Tree',
+        description: 'Directories as branches — where you are and what is next to it',
+        build: (context, panel) => TreeView(panel: panel, settings: settingsOf),
+        options: (context) => TreeViewOptions(settings: settingsOf, save: settings.save),
+      ),
+    );
+
     registry.command((context) => SetPanelViewCommand());
     registry.command((context) => ChoosePanelViewCommand());
 
@@ -96,8 +108,30 @@ class Panels implements FcFrontendModule {
       KeyBinding('Cmd-2', SetPanelViewCommand.commandId, parameters: {SetPanelViewCommand.viewParam: BriefView.viewId}),
     );
 
-    // Ход по столбцам — **раньше** «в начало» и «в конец»: там, где столбцов
-    // нет, команда невыполнима, и клавиша достаётся им.
+    registry.binding(
+      KeyBinding('Cmd-3', SetPanelViewCommand.commandId, parameters: {SetPanelViewCommand.viewParam: TreeView.viewId}),
+    );
+
+    // Порядок привязок и есть выбор команды: дерево раньше столбцов, столбцы
+    // раньше «в начало» и «в конец». Где дерева нет — команда невыполнима, и
+    // клавиша идёт дальше (`docs/spec/panel-views.md`, §10).
+    for (final step in TreeStep.values) {
+      registry.command((context) => MoveTreeCursorCommand(step));
+    }
+    registry.binding(KeyBinding('Up', MoveTreeCursorCommand(TreeStep.up).id));
+    registry.binding(KeyBinding('Down', MoveTreeCursorCommand(TreeStep.down).id));
+    registry.binding(KeyBinding('PgUp', MoveTreeCursorCommand(TreeStep.pageUp).id));
+    registry.binding(KeyBinding('PgDn', MoveTreeCursorCommand(TreeStep.pageDown).id));
+    registry.binding(KeyBinding('Home', MoveTreeCursorCommand(TreeStep.first).id));
+    registry.binding(KeyBinding('End', MoveTreeCursorCommand(TreeStep.last).id));
+
+    registry.command((context) => TreeBranchCommand(expand: false));
+    registry.command((context) => TreeBranchCommand(expand: true));
+    registry.command((context) => OpenTreeBranchCommand());
+    registry.binding(KeyBinding('Left', TreeBranchCommand.collapseId));
+    registry.binding(KeyBinding('Right', TreeBranchCommand.expandId));
+    registry.binding(KeyBinding('Enter', OpenTreeBranchCommand.commandId));
+
     registry.command((context) => MoveCursorColumnCommand(right: false));
     registry.command((context) => MoveCursorColumnCommand(right: true));
     registry.binding(KeyBinding('Left', MoveCursorColumnCommand.leftId));
@@ -130,13 +164,28 @@ const Map<String, String> _russian = {
   'Names only, in columns': 'Одни имена, столбцами',
   'brief|Columns': 'Столбцов',
   'As many as fit': 'Сколько влезет',
+  'Tree': 'Дерево',
+  'Directories as branches — where you are and what is next to it': 'Каталоги ветвями — где вы сейчас и что рядом',
+  'Panel follows the cursor': 'Панель идёт за курсором',
+  'Branch up': 'Ветвь выше',
+  'Branch down': 'Ветвь ниже',
+  'Branches page up': 'Ветви страницей вверх',
+  'Branches page down': 'Ветви страницей вниз',
+  'First branch': 'Первая ветвь',
+  'Last branch': 'Последняя ветвь',
+  'Expand branch': 'Раскрыть ветвь',
+  'Collapse branch': 'Свернуть ветвь',
+  'Open the branch, or step into it': 'Раскрыть ветвь или шагнуть внутрь',
+  'Close the branch, or step out of it': 'Свернуть ветвь или шагнуть наружу',
+  'Open branch': 'Открыть каталог',
+  'Open the directory and go back to the list': 'Открыть каталог и вернуться к списку',
   'Column left': 'Столбец левее',
   'Column right': 'Столбец правее',
   'Move the cursor one column aside': 'Перевести курсор на столбец вбок',
   'Name, size, date — everything in columns': 'Имя, размер, дата — всё колонками',
-  'Panel view': 'Вид панели',
+  'Set panel view': 'Задать вид панели',
   'Show the directory another way': 'Показать каталог по-другому',
-  'Panel view…': 'Вид панели…',
+  'Panel view': 'Вид панели',
   'Choose how this panel shows the directory': 'Выбрать, чем эта панель показывает каталог',
   'Show': 'Показать',
 

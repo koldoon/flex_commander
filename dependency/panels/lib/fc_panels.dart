@@ -5,6 +5,8 @@ export 'src/brief_view.dart';
 export 'src/brief_view_options.dart';
 export 'src/file_table.dart';
 export 'src/panels_settings.dart';
+export 'src/tree_view.dart';
+export 'src/tree_view_options.dart';
 export 'src/file_table_header.dart';
 export 'src/file_table_row.dart';
 export 'src/file_type_icon.dart';

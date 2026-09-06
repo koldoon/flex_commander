@@ -120,6 +120,26 @@ void main() {
     expect(panel.cursorIndex, panel.entries.length - 1, reason: 'в таблице Right — в конец списка');
   });
 
+  testWidgets('окно изменили — столбец с курсором остался на месте', (tester) async {
+    final runtime = await open(tester, size: const Size(700, 300));
+    final panel = runtime.app.left;
+
+    // Уходим вправо, за пределы первого экрана.
+    panel.setCursorToName('file20.txt');
+    await tester.pumpAndSettle();
+    final before = tester.getTopLeft(find.text('file20.txt').first);
+
+    // Высота меняет число строк в столбце — а значит, и то, в каком столбце
+    // окажется каждое имя: раскладка пересобирается целиком.
+    tester.view.physicalSize = const Size(700, 240);
+    await tester.pumpAndSettle();
+
+    // Столбец с курсором стоит там же, где стоял: раскладка изменилась, а
+    // место, на которое человек смотрит, — нет.
+    final after = tester.getTopLeft(find.text('file20.txt').first);
+    expect(after.dx, closeTo(before.dx, 2), reason: 'столбец не поплыл');
+  });
+
   testWidgets('смена вида оставляет курсор на том же имени', (tester) async {
     final runtime = await open(tester);
     final panel = runtime.app.left;

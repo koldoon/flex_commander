@@ -35,6 +35,12 @@ abstract class FcIcons {
 
   IconData get caretDown;
 
+  /// Свёрнутая ветвь дерева каталогов; раскрытая берёт [caretDown].
+  ///
+  /// Своя роль, а не `angleRight`: стрелка и треугольник — разные знаки, и
+  /// ветвь, отмеченная то тем, то другим, читается как две разные вещи.
+  IconData get caretRight;
+
   /// Кружок, которым в референсе **измеряли** ширину места под иконку: у
   /// обычного файла иконки нет, но колонка имён должна начинаться одинаково.
   IconData get circleOutline;
@@ -58,6 +64,7 @@ extension FcIconRoles on FcIcons {
     'angleRight' => angleRight,
     'caretUp' => caretUp,
     'caretDown' => caretDown,
+    'caretRight' => caretRight,
     'circleOutline' => circleOutline,
     'exclamation' => exclamation,
     _ => null,
