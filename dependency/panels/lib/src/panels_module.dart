@@ -6,7 +6,6 @@ import 'brief_view_options.dart';
 import 'file_table.dart';
 import 'panels_settings.dart';
 import 'tree_view.dart';
-import 'tree_view_options.dart';
 import 'view_commands.dart';
 import 'panel_view.dart';
 
@@ -70,9 +69,8 @@ class Panels implements FcFrontendModule {
       PanelViewSpec(
         id: TreeView.viewId,
         title: 'Tree',
-        description: 'Directories as branches — where you are and what is next to it',
-        build: (context, panel) => TreeView(panel: panel, settings: settingsOf),
-        options: (context) => TreeViewOptions(settings: settingsOf, save: settings.save),
+        description: 'Everything as branches — where you are and what lies where',
+        build: (context, panel) => TreeView(panel: panel),
       ),
     );
 
@@ -127,10 +125,10 @@ class Panels implements FcFrontendModule {
 
     registry.command((context) => TreeBranchCommand(expand: false));
     registry.command((context) => TreeBranchCommand(expand: true));
-    registry.command((context) => OpenTreeBranchCommand());
+    registry.command((context) => ToggleTreeBranchCommand());
     registry.binding(KeyBinding('Left', TreeBranchCommand.collapseId));
     registry.binding(KeyBinding('Right', TreeBranchCommand.expandId));
-    registry.binding(KeyBinding('Enter', OpenTreeBranchCommand.commandId));
+    registry.binding(KeyBinding('Enter', ToggleTreeBranchCommand.commandId));
 
     registry.command((context) => MoveCursorColumnCommand(right: false));
     registry.command((context) => MoveCursorColumnCommand(right: true));
@@ -165,8 +163,7 @@ const Map<String, String> _russian = {
   'brief|Columns': 'Столбцов',
   'As many as fit': 'Сколько влезет',
   'Tree': 'Дерево',
-  'Directories as branches — where you are and what is next to it': 'Каталоги ветвями — где вы сейчас и что рядом',
-  'Panel follows the cursor': 'Панель идёт за курсором',
+  'Everything as branches — where you are and what lies where': 'Всё ветвями — где вы сейчас и что где лежит',
   'Branch up': 'Ветвь выше',
   'Branch down': 'Ветвь ниже',
   'Branches page up': 'Ветви страницей вверх',
@@ -175,10 +172,10 @@ const Map<String, String> _russian = {
   'Last branch': 'Последняя ветвь',
   'Expand branch': 'Раскрыть ветвь',
   'Collapse branch': 'Свернуть ветвь',
-  'Open the branch, or step into it': 'Раскрыть ветвь или шагнуть внутрь',
-  'Close the branch, or step out of it': 'Свернуть ветвь или шагнуть наружу',
-  'Open branch': 'Открыть каталог',
-  'Open the directory and go back to the list': 'Открыть каталог и вернуться к списку',
+  'Expand the branch under the cursor': 'Раскрыть ветвь под курсором',
+  'Collapse the branch under the cursor': 'Свернуть ветвь под курсором',
+  'Toggle branch': 'Раскрыть или свернуть',
+  'Expand the branch, or collapse it back': 'Раскрыть ветвь или свернуть обратно',
   'Column left': 'Столбец левее',
   'Column right': 'Столбец правее',
   'Move the cursor one column aside': 'Перевести курсор на столбец вбок',

@@ -47,24 +47,48 @@ void main() {
   testWidgets('дерево открывается раскрытым до текущего каталога', (tester) async {
     await open(tester, at: '/home/lib');
 
-    // Корень, его дети и путь до текущего каталога — файлов среди них нет.
-    expect(branches(tester), contains('lib'));
+    // Путь до текущего каталога развёрнут, а он сам раскрыт: видно и соседей,
+    // и то, что внутри.
+    expect(branches(tester), containsAllInOrder(['home', 'lib', 'src', 'app.dart']));
     expect(branches(tester), contains('test'));
-    expect(branches(tester), isNot(contains('main.dart')));
   });
 
-  testWidgets('курсор ведёт панель за собой', (tester) async {
+  testWidgets('в дереве и каталоги, и файлы', (tester) async {
+    await open(tester);
+
+    expect(branches(tester), contains('lib'));
+    expect(branches(tester), contains('main.dart'), reason: 'половина ответа «что где лежит» — это файлы');
+  });
+
+  testWidgets('стрелка водит курсор и больше ничего', (tester) async {
     final runtime = await open(tester);
     final panel = runtime.app.left;
-    expect(panel.path, '/home');
+    final before = branches(tester);
 
     runtime.commands.dispatch(KeyCombination.parse('Down'));
     await tester.pumpAndSettle();
 
-    expect(panel.path, isNot('/home'), reason: 'панель пошла за курсором');
+    expect(panel.path, '/home', reason: 'панель за курсором не идёт');
+    expect(branches(tester), before, reason: 'и ветвь сама не раскрылась');
   });
 
-  testWidgets('Right раскрывает, Left сворачивает', (tester) async {
+  testWidgets('Enter раскрывает ветвь и сворачивает обратно', (tester) async {
+    final runtime = await open(tester);
+
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    final before = branches(tester).length;
+
+    runtime.commands.dispatch(KeyCombination.parse('Enter'));
+    await tester.pumpAndSettle();
+    expect(branches(tester).length, greaterThan(before), reason: 'ветвь раскрылась');
+
+    runtime.commands.dispatch(KeyCombination.parse('Enter'));
+    await tester.pumpAndSettle();
+    expect(branches(tester).length, before, reason: 'и свернулась обратно');
+  });
+
+  testWidgets('Right и Left делают то же самое', (tester) async {
     final runtime = await open(tester);
 
     runtime.commands.dispatch(KeyCombination.parse('Down'));
@@ -73,26 +97,11 @@ void main() {
 
     runtime.commands.dispatch(KeyCombination.parse('Right'));
     await tester.pumpAndSettle();
-    expect(branches(tester).length, greaterThan(before), reason: 'ветвь раскрылась');
+    expect(branches(tester).length, greaterThan(before));
 
     runtime.commands.dispatch(KeyCombination.parse('Left'));
     await tester.pumpAndSettle();
-    expect(branches(tester).length, before, reason: 'и свернулась обратно');
-  });
-
-  testWidgets('Enter открывает каталог и возвращает список', (tester) async {
-    final runtime = await open(tester);
-    final panel = runtime.app.left;
-
-    runtime.commands.dispatch(KeyCombination.parse('Down'));
-    await tester.pumpAndSettle();
-    final at = panel.path;
-
-    runtime.commands.dispatch(KeyCombination.parse('Enter'));
-    await tester.pumpAndSettle();
-
-    expect(panel.view, PanelSettings.defaultView, reason: 'вернулись к тому виду, что был до дерева');
-    expect(panel.path, at);
+    expect(branches(tester).length, before);
   });
 
   testWidgets('скрытые каталоги приходят вместе с Cmd-H', (tester) async {

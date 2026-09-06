@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
-import 'package:fc_api/fc_api.dart';
 import 'package:flutter/widgets.dart';
 
 import 'tree_view.dart';
@@ -61,26 +60,8 @@ class SetPanelViewCommand extends AppCommand {
     if (view.isEmpty) {
       return;
     }
-    await switchTo(panelOf(context), view);
+    await panelOf(context).setView(view);
   }
-
-  /// Сменить вид, запомнив прежний.
-  ///
-  /// Помнится ради дерева: `Enter` в нём открывает каталог и уходит в список —
-  /// в тот, который человек выбрал сам, а не в таблицу заодно
-  /// (`docs/spec/panel-view-tree.md`, §6). Это состояние сеанса, а не
-  /// настройка: помнить его между запусками незачем.
-  static Future<void> switchTo(Panel panel, String view) async {
-    if (panel.view != view) {
-      _previous[panel.id] = panel.view;
-    }
-    await panel.setView(view);
-  }
-
-  /// Вид, который стоял в этой панели до нынешнего; null — не меняли.
-  static String? previousOf(Panel panel) => _previous[panel.id];
-
-  static final Map<PanelId, String> _previous = {};
 }
 
 /// Выбрать вид панели из объявленных — окном.
@@ -129,7 +110,7 @@ class ChoosePanelViewCommand extends AppCommand {
     void close() => app.view.closeDialog(dialogId);
     void apply() {
       close();
-      unawaited(SetPanelViewCommand.switchTo(panel, state.selected.id));
+      unawaited(panel.setView(state.selected.id));
     }
 
     state.apply = apply;
@@ -324,7 +305,7 @@ class MoveCursorColumnCommand extends AppCommand {
   }
 }
 
-/// Раскрыть или свернуть ветвь дерева — и шагнуть внутрь или наружу.
+/// Раскрыть или свернуть ветвь дерева.
 ///
 /// Свои команды, а не ход по столбцам: смысл другой, а `Left` и `Right` те же.
 /// Там, где дерева нет, они невыполнимы, и клавиша достаётся объявленным
@@ -344,7 +325,8 @@ class TreeBranchCommand extends AppCommand {
   String get label => expand ? tr('Expand branch') : tr('Collapse branch');
 
   @override
-  String get description => expand ? tr('Open the branch, or step into it') : tr('Close the branch, or step out of it');
+  String get description =>
+      expand ? tr('Expand the branch under the cursor') : tr('Collapse the branch under the cursor');
 
   /// Дерево спрашивается у того, кто его рисует: команда не знает, какой сейчас
   /// вид, — она знает, что перед ней дерево.
@@ -368,28 +350,29 @@ class TreeBranchCommand extends AppCommand {
   static TreeViewState? treeOf(Application app, Panel panel) => PanelTrees.of(panel);
 }
 
-/// Открыть каталог под курсором дерева и уйти в список.
-class OpenTreeBranchCommand extends AppCommand {
-  static const String commandId = 'panel.tree.open';
+/// Раскрыть ветвь под курсором; раскрытую — свернуть.
+///
+/// `Enter` привычен по спискам, `Right` и `Left` — по деревьям, и спорить с
+/// обеими привычками незачем: делают они одно и то же
+/// (`docs/spec/panel-view-tree.md`, §6).
+class ToggleTreeBranchCommand extends AppCommand {
+  static const String commandId = 'panel.tree.toggle';
 
   @override
   String get id => commandId;
 
   @override
-  String get label => tr('Open branch');
+  String get label => tr('Toggle branch');
 
   @override
-  String get description => tr('Open the directory and go back to the list');
+  String get description => tr('Expand the branch, or collapse it back');
 
   @override
   bool isExecutable(CommandContext context) => PanelTrees.of(context.panel) != null;
 
   @override
   Future<void> execute(CommandContext context) async {
-    final tree = PanelTrees.of(context.panel);
-    // Возвращаемся к тому виду, который стоял до дерева: человек выбрал его
-    // сам, и подменять его таблицей было бы самоуправством.
-    tree?.submit(SetPanelViewCommand.previousOf(context.panel) ?? PanelSettings.defaultView);
+    await PanelTrees.of(context.panel)?.toggle();
   }
 }
 

@@ -5,20 +5,28 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
-import 'panels_settings.dart';
+import 'file_type_icon.dart';
 
 /// Ветвь дерева каталогов.
 ///
 /// Значение в памяти вида, а не узел ядра: узлов по эту сторону границы не
 /// бывает, а дерево спрашивает только имена (`Panel.namesIn`).
 class TreeBranch {
-  TreeBranch({required this.path, required this.name, required this.depth});
+  TreeBranch({required this.path, required this.entry, required this.depth});
 
-  /// Машинный путь: он же ключ, он же то, что откроет панель.
+  /// Машинный путь: он же ключ, он же то, чем ветвь находят.
   final String path;
 
-  final String name;
+  /// Сам объект — значением: по нему рисуются значок и имя, теми же правилами,
+  /// что в списке файлов.
+  final FileEntry entry;
+
   final int depth;
+
+  String get name => entry.name;
+
+  /// Раскрывать можно только каталог: у файла внутри ничего нет.
+  bool get isDirectory => entry.isDirectory;
 
   /// Раскрыта ли ветвь. Читается она при первом раскрытии и потом помнится.
   bool expanded = false;
@@ -66,15 +74,12 @@ abstract final class PanelTrees {
 /// панель — иначе плашка пути говорила бы про один каталог, а подсвеченная
 /// ветвь про другой.
 class TreeView extends StatefulWidget {
-  const TreeView({super.key, required this.panel, required this.settings});
+  const TreeView({super.key, required this.panel});
 
   /// Имя вида — оно же ключ настройки панели.
   static const String viewId = 'tree';
 
   final Panel panel;
-
-  /// Способ узнать настройки, а не их значение: их правят в окне выбора вида.
-  final PanelsSettings Function() settings;
 
   @override
   State<TreeView> createState() => TreeViewState();
@@ -125,7 +130,17 @@ class TreeViewState extends State<TreeView> {
     _hidden = panel.showHidden;
     _roots
       ..clear()
-      ..add(TreeBranch(path: panel.source.rootPath, name: _nameOf(panel.source.rootPath), depth: 0));
+      ..add(
+        TreeBranch(
+          path: panel.source.rootPath,
+          entry: FileEntry(
+            name: _nameOf(panel.source.rootPath),
+            kind: EntryKind.directory,
+            path: panel.source.rootPath,
+          ),
+          depth: 0,
+        ),
+      );
     _flatten();
     await _reveal(panel.path);
   }
@@ -186,11 +201,18 @@ class TreeViewState extends State<TreeView> {
     }
     final entries = await widget.panel.namesIn(branch.path);
     branch.loading = false;
-    branch.children = [
+    // Каталоги вперёд файлов, и то и другое по имени: тот же порядок, каким
+    // список показывает каталог.
+    final kept = [
       for (final entry in entries)
-        if (entry.isDirectory && !entry.isParent && (widget.panel.showHidden || !entry.name.startsWith('.')))
-          TreeBranch(path: entry.path, name: entry.name, depth: branch.depth + 1),
-    ];
+        if (!entry.isParent && (widget.panel.showHidden || !entry.name.startsWith('.'))) entry,
+    ]..sort((a, b) {
+      if (a.isDirectory != b.isDirectory) {
+        return a.isDirectory ? -1 : 1;
+      }
+      return a.name.toLowerCase().compareTo(b.name.toLowerCase());
+    });
+    branch.children = [for (final entry in kept) TreeBranch(path: entry.path, entry: entry, depth: branch.depth + 1)];
     if (mounted) {
       setState(_flatten);
     }
@@ -213,23 +235,13 @@ class TreeViewState extends State<TreeView> {
     widget.panel.pageSize = _visible.isEmpty ? 1 : _visible.length;
   }
 
-  /// Раскрыть ветвь под курсором; уже раскрыта — шаг внутрь.
+  /// Раскрыть ветвь под курсором.
   Future<void> expand() async {
     final branch = current;
-    if (branch == null) {
+    if (branch == null || !branch.isDirectory || branch.expanded) {
       return;
     }
-    if (!branch.expanded) {
-      await _open(branch);
-      setState(() {
-        branch.expanded = true;
-        _flatten();
-      });
-      return;
-    }
-    if ((branch.children ?? const []).isNotEmpty) {
-      _moveTo(_cursor + 1);
-    }
+    await toggle();
   }
 
   /// Сколько ветвей видно разом: от этого шаг страницы.
@@ -240,55 +252,48 @@ class TreeViewState extends State<TreeView> {
 
   int get cursor => _cursor;
 
-  /// Свернуть ветвь под курсором; уже свёрнута — шаг наружу.
+  /// Свернуть ветвь под курсором.
   void collapse() {
     final branch = current;
-    if (branch == null) {
+    if (branch == null || !branch.expanded) {
       return;
     }
-    if (branch.expanded) {
-      setState(() {
-        branch.expanded = false;
-        _flatten();
-      });
-      return;
-    }
-    final parent = _visible.lastIndexWhere((other) => other.depth < branch.depth, _cursor);
-    if (parent >= 0) {
-      _moveTo(parent);
-    }
+    setState(() {
+      branch.expanded = false;
+      _flatten();
+    });
   }
 
-  /// Курсор на строку списка — и панель следом, если так настроено.
+  /// Курсор на строку — и **только**: панель за ним не идёт.
+  ///
+  /// Дерево здесь показывает, а работает с найденным следующий вид — дерево с
+  /// содержимым рядом (`docs/spec/panel-view-tree.md`, §3).
   void _moveTo(int index) {
     if (index < 0 || index >= _visible.length || index == _cursor) {
       return;
     }
     setState(() => _cursor = index);
     _revealCursor();
-    if (widget.settings().treeFollowsCursor) {
-      _follow(_visible[index]);
-    }
   }
 
-  /// Открыть каталог ветви в своей панели.
-  void _follow(TreeBranch branch) {
-    if (widget.panel.path == branch.path) {
-      return;
-    }
-    _revealed = branch.path;
-    unawaited(widget.panel.openPath(branch.path));
-  }
-
-  /// `Enter`: открыть каталог и уйти в список — дерево способ дойти, а не
-  /// место, где живут.
-  void submit(String backTo) {
+  /// Раскрыть ветвь под курсором; раскрытую — свернуть.
+  Future<void> toggle() async {
     final branch = current;
-    if (branch == null) {
+    if (branch == null || !branch.isDirectory) {
       return;
     }
-    _follow(branch);
-    unawaited(widget.panel.setView(backTo));
+    if (branch.expanded) {
+      collapse();
+      return;
+    }
+    await _open(branch);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      branch.expanded = true;
+      _flatten();
+    });
   }
 
   void _revealCursor() {
@@ -440,7 +445,10 @@ class _BranchRow extends StatelessWidget {
                   ),
                 ),
                 SizedBox(width: metrics.iconGap),
-                Text(String.fromCharCode(icons.folder.codePoint), style: glyph),
+                // Значок тот же, что в списке: у каталога папка, у файла его
+                // собственный — правило одно на приложение
+                // (`docs/spec/file-icons.md`).
+                FileTypeIcon(entry: branch.entry, selected: _selected),
                 SizedBox(width: metrics.iconGap),
                 Expanded(
                   child: Padding(

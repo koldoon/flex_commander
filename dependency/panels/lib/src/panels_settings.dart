@@ -6,7 +6,7 @@ import 'package:fc_api/fc_api.dart';
 /// кратком виде выглядели бы поломкой, а не настройкой
 /// (`docs/spec/panel-views.md`, §7).
 class PanelsSettings implements Serializable {
-  PanelsSettings({this.briefColumns = autoColumns, this.treeFollowsCursor = true});
+  PanelsSettings({this.briefColumns = autoColumns});
 
   /// «Сколько влезет»: число столбцов краткого вида считается по самому
   /// длинному имени в каталоге.
@@ -19,22 +19,13 @@ class PanelsSettings implements Serializable {
   /// Сколько столбцов у краткого вида; [autoColumns] — сколько влезет.
   int briefColumns;
 
-  /// Идёт ли панель за курсором дерева.
-  ///
-  /// Выключают на медленном источнике: каждый шаг стрелкой — это чтение
-  /// каталога по сети, и лучше пройти дерево молча, а прочитать один раз
-  /// (`docs/spec/panel-view-tree.md`, §7).
-  bool treeFollowsCursor;
-
   @override
   void fromMap(Map<String, dynamic> m) {
     briefColumns = extract(briefColumns, m['briefColumns']).clamp(autoColumns, maxColumns);
-    treeFollowsCursor = extract(treeFollowsCursor, m['treeFollowsCursor']);
   }
 
   @override
   void toMap(Map<String, dynamic> m) {
     m['briefColumns'] = briefColumns;
-    m['treeFollowsCursor'] = treeFollowsCursor;
   }
 }
