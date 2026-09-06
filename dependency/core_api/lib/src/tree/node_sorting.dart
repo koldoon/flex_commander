@@ -44,6 +44,8 @@ String _directoryOf(FsNode node) => node.parentDirectory?.displayPath ?? '';
 
 int _compareByColumn(FsNode a, FsNode b, FsColumn column, FileNaming naming) {
   return switch (column) {
+    // Ветвь сортировке не поддаётся: порядок в дереве задаёт само дерево.
+    FsColumn.tree => naturalCompare(a.name, b.name),
     FsColumn.name => naturalCompare(a.name, b.name),
     FsColumn.path => naturalCompare(_directoryOf(a), _directoryOf(b)),
     FsColumn.ext => naturalCompare(_extensionOf(a, naming), _extensionOf(b, naming)),

@@ -156,6 +156,9 @@ class FileTableRow extends StatelessWidget {
     final splittable = !entry.isDirectory;
     return switch (column.id) {
       // Расширение показывается отдельной колонкой, поэтому из имени убирается.
+      // Ветвь рисует дерево — со своим отступом и знаком раскрытия; строка
+      // списка про неё ничего не знает (`docs/spec/panel-view-tree.md`, §4).
+      FsColumn.tree => entry.name,
       FsColumn.name => _showExtension && splittable ? naming.split(entry.name).base : entry.name,
       FsColumn.ext => _showExtension && splittable ? naming.split(entry.name).extension : '',
       // Каталог объекта, а не его собственный путь: имя уже показано рядом.

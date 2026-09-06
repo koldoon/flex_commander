@@ -5,6 +5,7 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
+import 'file_table_header.dart';
 import 'file_type_icon.dart';
 import 'panel_drag.dart';
 import 'panels_settings.dart';
@@ -517,8 +518,9 @@ class TreeViewState extends State<TreeView> {
     if (!_scroll.hasClients) {
       return;
     }
-    final theme = FcTheme.of(context);
-    final step = theme.metrics.rowHeight + theme.metrics.rowGap;
+    // Тот же шаг, каким нарисованы строки: считать его вторым способом значит
+    // однажды разъехаться с самим собой.
+    final step = _step > 0 ? _step : FcTheme.of(context).metrics.rowHeight;
     final top = _cursor * step;
     final bottom = top + step;
     final offset = _scroll.offset;
@@ -536,13 +538,17 @@ class TreeViewState extends State<TreeView> {
   /// Высота строки дерева вместе с просветом; 0 — разметки ещё не было.
   double _step = 0;
 
+  /// Высота шапки: она входит в область, но не в список, и попадание броском
+  /// считается от первой строки, а не от верха области.
+  double _headerHeight = 0;
+
   /// Ветвь под точкой — в местных координатах области.
   TreeBranch? _branchUnder(Offset local) {
-    if (_step <= 0) {
+    if (_step <= 0 || local.dy < _headerHeight) {
       return null;
     }
     final offset = _scroll.hasClients ? _scroll.offset : 0.0;
-    final index = ((local.dy + offset) / _step).floor();
+    final index = ((local.dy - _headerHeight + offset) / _step).floor();
     return index >= 0 && index < _visible.length ? _visible[index] : null;
   }
 
@@ -578,7 +584,7 @@ class TreeViewState extends State<TreeView> {
       return null;
     }
     final offset = _scroll.hasClients ? _scroll.offset : 0.0;
-    return Rect.fromLTWH(0, at * _step - offset, double.infinity, _step);
+    return Rect.fromLTWH(0, _headerHeight + at * _step - offset, double.infinity, _step);
   }
 
   /// Бросили — раскрываем: в закрытую ветвь файл уедет молча, и человек не
@@ -648,13 +654,26 @@ class TreeViewState extends State<TreeView> {
         panel.columnRows = 0;
 
         final app = AppScope.read(context);
-        final step = theme.metrics.rowHeight + theme.metrics.rowGap;
+        // Шаг строки — тот же, что в списке: панели стоят рядом, и строки
+        // обязаны сходиться. Считается он одним местом на оба вида
+        // (`FileIconSize.listRow`), иначе значок настроят покрупнее — и
+        // разъедутся (`docs/spec/panel-view-tree.md`, §4).
+        final step = FileIconSize.listRow(theme.metrics, app.fileIcons);
         _step = step;
+        _headerHeight = theme.metrics.headerRowHeight;
+
+        // Колонки те же, что у таблицы, и ширина у размера та же: дерево
+        // показывает то же самое, и мерить это другой меркой незачем
+        // (`docs/spec/panel-view-tree.md`, §4).
+        final showSize = widget.settings().treeSize;
+        final sizeWidth = _sizeColumn.width;
+        // Поле справа принадлежит содержимому, а не подсветке строки, — как и
+        // в таблице.
+        final inset = theme.metrics.panelRightPadding;
 
         // Размер приходит тремя дорогами, и все три — уже здесь: своё чтение
         // ветви, список панели (он же обновляется по ходу счёта) и ответ про
         // помеченное в других ветвях (`docs/spec/panel-view-tree.md`, §5).
-        final showSize = widget.settings().treeSize;
         if (showSize) {
           _askMarkedSizes();
         }
@@ -674,6 +693,8 @@ class TreeViewState extends State<TreeView> {
               underCursor: index == _cursor,
               marked: panel.isMarked(branch.entry),
               size: showSize ? sizeOf(branch) : FileEntry.unknownSize,
+              sizeWidth: showSize ? sizeWidth : 0,
+              inset: inset,
               panelActive: app.view.takesKeys(panel),
               onTap: () => _onTap(index),
               onToggle: () {
@@ -703,6 +724,29 @@ class TreeViewState extends State<TreeView> {
           },
         );
 
+        final content = Stack(
+          children: [
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [_TreeHeader(showSize: showSize, sizeWidth: sizeWidth, inset: inset), Expanded(child: list)],
+            ),
+            // Линейка идёт от шапки и поверх строк — как в таблице, где она
+            // объявлена после списка, чтобы подсветка курсора её не закрывала.
+            if (showSize)
+              Positioned.fill(
+                child: IgnorePointer(
+                  child: CustomPaint(
+                    painter: _SizeDividerPainter(
+                      right: sizeWidth + inset,
+                      color: theme.colors.columnDivider,
+                      inset: theme.metrics.strokeWidth,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        );
+
         // Бросают в каталог под указателем, а не в каталог панели: дерево
         // показывает много каталогов разом.
         return PanelDropArea(
@@ -710,11 +754,83 @@ class TreeViewState extends State<TreeView> {
           spotAt: _spotAt,
           highlightOf: _highlightOf,
           onDropped: _onDropped,
-          child: list,
+          child: content,
         );
       },
     );
   }
+}
+
+/// Колонки дерева: сама ветвь и размер.
+///
+/// Те же `ColumnSpec`, что у таблицы, и та же ширина у размера: дерево
+/// показывает то же самое, и мерить это другой меркой незачем. Здесь их две; с
+/// датой станет три (`docs/spec/panel-view-tree.md`, §4).
+const ColumnSpec _treeColumn = ColumnSpec(id: FsColumn.tree, width: 0, pinned: true);
+const ColumnSpec _sizeColumn = ColumnSpec(id: FsColumn.size, width: 64, align: ColumnAlign.end);
+
+/// Шапка дерева: те же заголовки, что у таблицы.
+///
+/// Своя, а не `FileTableHeader`: у того три жеста — сортировка, перестановка
+/// колонок и тяга ширины, — и все три дереву обещать нечем. Ячейка при этом та
+/// же самая, чтобы набор и середина совпадали до точки.
+class _TreeHeader extends StatelessWidget {
+  const _TreeHeader({required this.showSize, required this.sizeWidth, required this.inset});
+
+  final bool showSize;
+  final double sizeWidth;
+  final double inset;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FcTheme.of(context);
+    return SizedBox(
+      height: theme.metrics.headerRowHeight,
+      child: Row(
+        children: [
+          const Expanded(
+            child: FileTableHeaderCell(column: _treeColumn, sorted: false, direction: SortDirection.ascending),
+          ),
+          if (showSize)
+            SizedBox(
+              width: sizeWidth,
+              child: const FileTableHeaderCell(column: _sizeColumn, sorted: false, direction: SortDirection.ascending),
+            ),
+          SizedBox(width: inset),
+        ],
+      ),
+    );
+  }
+}
+
+/// Линейка слева от колонки размера.
+///
+/// Одна на всё дерево: колонок здесь две, и разделять больше нечего. Не доходит
+/// до низа на толщину линии — по той же причине, что в таблице: сойдись она с
+/// линейкой над строкой состояния, получился бы перекрёсток, и глаз читал бы
+/// его как рамку, которой нет.
+class _SizeDividerPainter extends CustomPainter {
+  const _SizeDividerPainter({required this.right, required this.color, required this.inset});
+
+  /// На сколько линейка отстоит от правого края области.
+  final double right;
+  final Color color;
+  final double inset;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final dx = (size.width - right).roundToDouble() + 0.5;
+    canvas.drawLine(
+      Offset(dx, 0),
+      Offset(dx, size.height - inset),
+      Paint()
+        ..color = color
+        ..strokeWidth = 1,
+    );
+  }
+
+  @override
+  bool shouldRepaint(_SizeDividerPainter old) => old.right != right || old.color != color || old.inset != inset;
 }
 
 /// Одна ветвь: отступ по глубине, знак раскрытия, значок папки, имя.
@@ -724,6 +840,8 @@ class _BranchRow extends StatelessWidget {
     required this.underCursor,
     required this.marked,
     required this.size,
+    required this.sizeWidth,
+    required this.inset,
     required this.panelActive,
     required this.onTap,
     required this.onToggle,
@@ -740,6 +858,11 @@ class _BranchRow extends StatelessWidget {
   /// Размер объекта; [FileEntry.unknownSize] — показывать нечего: у каталога
   /// его ещё не считали, а колонку могли и выключить.
   final int size;
+
+  /// Ширина колонки размера и поле справа — те же, что у шапки: колонка на то и
+  /// колонка, чтобы числа стояли под своим заголовком.
+  final double sizeWidth;
+  final double inset;
 
   final bool panelActive;
   final VoidCallback onTap;
@@ -837,20 +960,21 @@ class _BranchRow extends StatelessWidget {
                           child: Text(branch.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
                         ),
                       ),
-                      // Размер прижат к правому краю: ширины у колонки нет, и
-                      // числа сходятся правыми краями — читать их так и надо
-                      // (`docs/spec/panel-view-tree.md`, §4). Просвет перед ним
-                      // тот же, что между значком и именем: в дереве колонка
-                      // одна, и делить её на ячейки, как в таблице, незачем.
-                      if (formatSize(size).isNotEmpty)
-                        Padding(
-                          padding: EdgeInsets.only(left: metrics.iconGap),
-                          child: Transform.translate(
-                            offset: Offset(0, metrics.rowTextVerticalNudge),
-                            child: Text(formatSize(size), maxLines: 1, style: style),
+                      // Колонка размера — своей ширины и под своим заголовком:
+                      // число прижато к правому её краю, как в таблице
+                      // (`docs/spec/panel-view-tree.md`, §4).
+                      if (sizeWidth > 0)
+                        SizedBox(
+                          width: sizeWidth,
+                          child: Padding(
+                            padding: EdgeInsets.symmetric(horizontal: metrics.cellPadding),
+                            child: Transform.translate(
+                              offset: Offset(0, metrics.rowTextVerticalNudge),
+                              child: Text(formatSize(size), maxLines: 1, textAlign: TextAlign.right, style: style),
+                            ),
                           ),
                         ),
-                      SizedBox(width: metrics.panelRightPadding),
+                      SizedBox(width: inset),
                     ],
                   ),
                 ),

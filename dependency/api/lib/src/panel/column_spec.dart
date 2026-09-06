@@ -13,6 +13,7 @@ extension FsColumnTitle on FsColumn {
   String get title => switch (this) {
     FsColumn.icon => '',
     FsColumn.name => 'Name',
+    FsColumn.tree => 'Tree',
     FsColumn.path => 'Path',
     FsColumn.ext => 'Ext',
     FsColumn.size => 'Size',
@@ -26,6 +27,17 @@ extension FsColumnTitle on FsColumn {
 enum FsColumn {
   icon,
   name,
+
+  /// Ветвь дерева: отступ по глубине, знак раскрытия, значок и имя.
+  ///
+  /// Колонка, а не особый вид строки: дерево показывает то же, что список, — и
+  /// рядом с ним встают те же размер и дата (`docs/spec/panel-view-tree.md`,
+  /// §4). Сортировке не поддаётся: порядок в дереве задаёт само дерево.
+  ///
+  /// В раскладку панели ([ColumnLayout.defaults]) не входит: таблица ветвей не
+  /// рисует, и предлагать её в меню видимости колонок было бы обещанием
+  /// несбыточного.
+  tree,
 
   /// Каталог, в котором объект лежит.
   ///
@@ -48,8 +60,9 @@ enum FsColumn {
     return null;
   }
 
-  /// По колонке можно сортировать.
-  bool get sortable => this != icon;
+  /// По колонке можно сортировать. Значок нечем, а порядок в дереве задаёт
+  /// само дерево.
+  bool get sortable => this != icon && this != tree;
 }
 
 enum ColumnAlign { start, end }

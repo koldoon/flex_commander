@@ -134,9 +134,15 @@ void main() {
         .length;
   }
 
-  /// Что видно в дереве, сверху вниз.
+  /// Что видно в дереве, сверху вниз. Шапка в счёт не идёт — это заголовки
+  /// колонок, а не ветви.
   List<String> branches(WidgetTester tester) => [
-    for (final text in tester.widgetList<Text>(find.descendant(of: find.byType(TreeView), matching: find.byType(Text))))
+    for (final text in tester.widgetList<Text>(
+      find.descendant(
+        of: find.descendant(of: find.byType(TreeView), matching: find.byType(ListView)),
+        matching: find.byType(Text),
+      ),
+    ))
       if ((text.data ?? '').isNotEmpty && (text.data ?? '').codeUnitAt(0) < 0xE000) text.data!,
   ];
 
@@ -149,9 +155,10 @@ void main() {
     expect(branches(tester), contains('test'));
   });
 
-  testWidgets('строка дерева стоит по вертикали как строка списка', (tester) async {
-    // Слева дерево, справа обычная таблица — и там и там есть `lib`. Панели
-    // видны разом, и совпадать они обязаны до точки.
+  testWidgets('строка дерева идёт тем же шагом, что строка списка', (tester) async {
+    // Слева дерево, справа обычная таблица. Панели видны разом, и шаг строк у
+    // них обязан совпадать: иначе рядом стоят два списка, которые не сходятся
+    // ни одной строкой (`docs/spec/panel-view-tree.md`, §4).
     final settings = AppSettings(
       left: PanelSettings(path: '/home', view: TreeView.viewId),
       right: PanelSettings.defaults('/home'),
@@ -164,22 +171,17 @@ void main() {
     await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
     await tester.pumpAndSettle();
 
-    final names = find.text('lib');
-    expect(names, findsNWidgets(2), reason: 'одно имя в дереве, другое в списке');
+    double stepBetween(String above, String below) {
+      final tops = [above, below].map((name) => tester.getRect(find.text(name).first).top).toList();
+      return tops[1] - tops[0];
+    }
 
-    double centreOfIcon(int i) =>
-        tester
-            .getRect(
-              find.descendant(
-                of: find.ancestor(of: names.at(i), matching: find.byType(Row)).first,
-                matching: find.byType(FileTypeIcon),
-              ),
-            )
-            .center
-            .dy;
+    // В дереве: `lib` и следующая за ней `test`. В списке: `lib` и `test` же.
+    final inTree = stepBetween('lib', 'test');
+    final inList = tester.getRect(find.text('test').last).top - tester.getRect(find.text('lib').last).top;
 
-    expect(tester.getRect(names.at(0)).top, closeTo(tester.getRect(names.at(1)).top, 0.01));
-    expect(centreOfIcon(0), closeTo(centreOfIcon(1), 0.01));
+    expect(inTree, greaterThan(0));
+    expect(inTree, closeTo(inList, 0.01), reason: 'шаг строк один и тот же');
   });
 
   testWidgets('знак раскрытия только у каталогов', (tester) async {

@@ -174,7 +174,10 @@ void main() {
       ]);
 
       expect(layout.columns.first.id, FsColumn.name);
-      expect(layout.columns.map((c) => c.id), containsAll(FsColumn.values));
+      // Все колонки **таблицы**: ветвь дерева в раскладку панели не входит —
+      // её рисует свой вид (`docs/spec/panel-view-tree.md`, §4).
+      expect(layout.columns.map((c) => c.id), containsAll(ColumnLayout.defaults.columns.map((c) => c.id)));
+      expect(layout.columns.map((c) => c.id), isNot(contains(FsColumn.tree)));
     });
 
     test('неизвестные колонки игнорируются', () {
@@ -183,7 +186,7 @@ void main() {
         {'id': 'name', 'width': 0, 'visible': true},
       ]);
 
-      expect(layout.columns.length, FsColumn.values.length);
+      expect(layout.columns.length, ColumnLayout.defaults.columns.length);
       expect(layout.columns.first.id, FsColumn.name);
     });
 
