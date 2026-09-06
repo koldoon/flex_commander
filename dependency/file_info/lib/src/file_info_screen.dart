@@ -69,10 +69,10 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
 
   /// Сводка по помеченному: считается сразу, обхода дерева не требует.
   List<NodeInfoRow> get summary => [
-    NodeInfoRow('Items', '${_entries.length}'),
-    NodeInfoRow('Directories', '${_entries.where((entry) => entry.isDirectory).length}'),
+    NodeInfoRow(app.strings.tr('Items'), '${_entries.length}'),
+    NodeInfoRow(app.strings.tr('Directories'), '${_entries.where((entry) => entry.isDirectory).length}'),
     NodeInfoRow(
-      'Size',
+      app.strings.tr('Size'),
       formatBytesExact(_entries.where((entry) => entry.size > 0).fold(0, (sum, entry) => sum + entry.size)),
     ),
   ];

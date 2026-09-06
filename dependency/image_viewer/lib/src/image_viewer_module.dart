@@ -29,27 +29,28 @@ class ImageViewer implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.strings('ru', {'Image viewer': 'Просмотр изображений'});
+    registry.strings('ru', _russian);
 
     registry.view<ImageViewerScreen>((context, state) => ImageViewerView(screen: state));
 
     final settings = registry.settings;
     ImageViewerSettings settingsOf() => settings.section(ImageViewerSettings.new);
 
-    registry.settingsSchema(
-      () => SettingsSchema([
+    registry.settingsSchema(() {
+      final strings = registry.services.resolve<Strings>();
+      return SettingsSchema([
         SettingsField.flag(
           'fitToWindow',
           defaultValue: true,
-          title: 'Fit images into the window',
+          title: strings.tr('Fit images into the window'),
           read: () => settingsOf().fitToWindow,
           write: (value) => settingsOf().fitToWindow = value,
         ),
         SettingsField.integer(
           'maxFileSize',
           defaultValue: ImageViewerSettings.defaultMaxFileSize,
-          title: 'Largest image to open',
-          unit: 'bytes',
+          title: strings.tr('Largest image to open'),
+          unit: strings.tr('bytes'),
           min: 1024,
           max: 1024 * 1024 * 1024,
           read: () => settingsOf().maxFileSize,
@@ -58,15 +59,15 @@ class ImageViewer implements FcFrontendModule {
         SettingsField.integer(
           'maxPixels',
           defaultValue: ImageViewerSettings.defaultMaxPixels,
-          title: 'Largest image to decode',
-          unit: 'pixels',
+          title: strings.tr('Largest image to decode'),
+          unit: strings.tr('pixels'),
           min: 1000 * 1000,
           max: 512 * 1000 * 1000,
           read: () => settingsOf().maxPixels,
           write: (value) => settingsOf().maxPixels = value,
         ),
-      ], save: settings.save),
-    );
+      ], save: settings.save);
+    });
 
     registry.viewer(
       ViewerSpec(
@@ -89,7 +90,7 @@ class ImageViewer implements FcFrontendModule {
     // Сведения о картинке — тому окну, которое их показывает. Ему про
     // картинки знать неоткуда, а нам про окно — незачем: между нами общий
     // контракт и ни одной правки в чужом модуле.
-    registry.nodeInfo((context) => ImageInfoProvider(settingsOf()));
+    registry.nodeInfo((context) => ImageInfoProvider(settingsOf(), context.resolve<Strings>()));
 
     registry.command((context) => ToggleImageFitCommand());
     registry.command((context) => ZoomImageCommand());
@@ -137,7 +138,13 @@ class ImageViewer implements FcFrontendModule {
     void Function() onSettingsChanged,
   ) async {
     final entry = request.entry;
-    final document = await ImageDocument.read(entry, request.content, settings, checkpoint: request.checkpoint);
+    final document = await ImageDocument.read(
+      entry,
+      request.content,
+      settings,
+      checkpoint: request.checkpoint,
+      strings: request.app.strings,
+    );
     // Распаковать сразу: показ должен появиться картинкой, а не пустым местом,
     // которое через миг сменится картинкой.
     await document.warmUp();
@@ -162,3 +169,40 @@ class ImageViewer implements FcFrontendModule {
     );
   }
 }
+
+/// Русские строки просмотра изображений.
+const Map<String, String> _russian = {
+  'Image viewer': 'Просмотр изображений',
+  'Zoom': 'Масштаб',
+  'Zoom the image in or out': 'Приблизить или отдалить картинку',
+  'Fit': 'Вписать',
+  '1:1': '1:1',
+  'Fit the image into the window or show it pixel for pixel': 'Вписать картинку в окно или показать пиксель в пиксель',
+  'Fit to window': 'Вписано в окно',
+  'Actual size': 'Настоящий размер',
+  'Next': 'Следующая',
+  'Previous': 'Предыдущая',
+  'Show the next image in the same directory': 'Показать следующую картинку в том же каталоге',
+  'Show the previous one': 'Показать предыдущую',
+
+  // Отказы.
+  'Image is too large: {size}, limit is {limit} — open it with the system (Cmd-O)':
+      'Картинка слишком велика: {size}, предел — {limit}; откройте её системой (Cmd-O)',
+  'Image is {width}×{height}, limit is {limit} MP — open it with the system (Cmd-O)':
+      'Картинка {width}×{height}, предел — {limit} Мпикс; откройте её системой (Cmd-O)',
+  'Not an image, or the format is not supported (Cmd-O opens it with the system)':
+      'Это не картинка или формат не поддерживается (Cmd-O откроет её системой)',
+
+  // Сведения о файле.
+  'Image': 'Картинка',
+  'Dimensions': 'Размеры',
+  'Format': 'Формат',
+  'Pixels': 'Пикселей',
+
+  // Настройки.
+  'Fit images into the window': 'Вписывать картинки в окно',
+  'Largest image to open': 'Наибольшая открываемая картинка',
+  'Largest image to decode': 'Наибольшая распаковываемая картинка',
+  'bytes': 'байт',
+  'pixels': 'пикселей',
+};

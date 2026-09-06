@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'basics_info_provider.dart';
@@ -25,11 +26,11 @@ class FileInfo implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.strings('ru', {'File info': 'Сведения о файле'});
+    registry.strings('ru', _russian);
 
     registry.view<FileInfoScreen>((context, state) => FileInfoView(screen: state));
 
-    registry.nodeInfo((context) => const BasicsInfoProvider());
+    registry.nodeInfo((context) => BasicsInfoProvider(context.resolve<Strings>()));
 
     registry.command((context) => FileInfoCommand());
 
@@ -57,3 +58,48 @@ class FileInfo implements FcFrontendModule {
     );
   }
 }
+
+/// Русские строки окна сведений.
+const Map<String, String> _russian = {
+  'File info': 'Сведения о файле',
+  'Info': 'Сведения',
+  'Everything known about the object under the cursor': 'Всё, что известно об объекте под курсором',
+
+  // Разделы.
+  'General': 'Основное',
+  'Dates': 'Даты',
+  'Access': 'Доступ',
+  'Link': 'Ссылка',
+  'Selection': 'Выбранное',
+  'Contents': 'Содержимое',
+  'Error': 'Ошибка',
+
+  // Строки.
+  'Name': 'Имя',
+  'Path': 'Путь',
+  'Type': 'Тип',
+  'Extension': 'Расширение',
+  'Size': 'Размер',
+  'Where': 'Источник',
+  'Modified': 'Изменён',
+  'Created': 'Создан',
+  'Accessed': 'Открыт',
+  'Permissions': 'Права',
+  'Mode': 'Восьмеричные права',
+  'Points to': 'Ведёт на',
+  'Target': 'Цель',
+  'Items': 'Объектов',
+  'Directories': 'Каталогов',
+
+  // Значения.
+  'Parent directory': 'Родительский каталог',
+  'Directory': 'Каталог',
+  'File': 'Файл',
+  'Link to a directory': 'Ссылка на каталог',
+  'unknown': 'неизвестно',
+  'directory': 'каталог',
+
+  // Кнопка подсчёта размера.
+  'Calculate': 'Посчитать',
+  'Counting…': 'Считаю…',
+};

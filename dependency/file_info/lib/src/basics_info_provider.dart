@@ -6,7 +6,10 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 /// Такой же провайдер, как остальные, и без привилегий: живёт он рядом с окном
 /// лишь потому, что описывает не чужое знание, а то, что у узла уже есть.
 class BasicsInfoProvider implements NodeInfoProvider {
-  const BasicsInfoProvider();
+  const BasicsInfoProvider(this.strings);
+
+  /// Подписи строк — на языке человека: их читают в окне сведений.
+  final Strings strings;
 
   @override
   String get id => 'basics';
@@ -22,30 +25,31 @@ class BasicsInfoProvider implements NodeInfoProvider {
   @override
   Future<List<NodeInfoSection>> describe(FileEntry entry, Content content) async {
     return [
-      NodeInfoSection(title: 'General', rows: _general(entry)),
-      if (_dates(entry) case final rows when rows.isNotEmpty) NodeInfoSection(title: 'Dates', rows: rows),
-      if (_access(entry) case final rows when rows.isNotEmpty) NodeInfoSection(title: 'Access', rows: rows),
-      if (entry.isLink) NodeInfoSection(title: 'Link', rows: _link(entry)),
+      NodeInfoSection(title: strings.tr('General'), rows: _general(entry)),
+      if (_dates(entry) case final rows when rows.isNotEmpty) NodeInfoSection(title: strings.tr('Dates'), rows: rows),
+      if (_access(entry) case final rows when rows.isNotEmpty) NodeInfoSection(title: strings.tr('Access'), rows: rows),
+      if (entry.isLink) NodeInfoSection(title: strings.tr('Link'), rows: _link(entry)),
     ];
   }
 
   List<NodeInfoRow> _general(FileEntry entry) {
     final file = entry.isParent ? null : entry;
     return [
-      NodeInfoRow('Name', entry.name),
-      NodeInfoRow('Path', entry.path),
-      NodeInfoRow('Type', _typeOf(entry)),
+      NodeInfoRow(strings.tr('Name'), entry.name),
+      NodeInfoRow(strings.tr('Path'), entry.path),
+      NodeInfoRow(strings.tr('Type'), _typeOf(entry)),
       // Спрашивают «что это», а не «как показать»: правило показа с его
       // ограничением длины тут ни при чём.
-      if (file != null && extensionOf(entry.name).isNotEmpty) NodeInfoRow('Extension', extensionOf(entry.name)),
+      if (file != null && extensionOf(entry.name).isNotEmpty)
+        NodeInfoRow(strings.tr('Extension'), extensionOf(entry.name)),
       // У каталога размер не пишем вовсе: считать его — обойти дерево, и
       // делать это молча при открытии окна нельзя. Для этого есть кнопка.
       // До последнего байта, а не сокращённо, как в колонке панели: здесь
       // спрашивают «сколько именно».
-      if (!entry.isDirectory && entry.size >= 0) NodeInfoRow('Size', formatBytesExact(entry.size)),
+      if (!entry.isDirectory && entry.size >= 0) NodeInfoRow(strings.tr('Size'), formatBytesExact(entry.size)),
       // Откуда открыт файл: диск, архив, сервер. По схеме источника — того
       // самого провайдера дерева, в котором узел живёт.
-      NodeInfoRow('Where', entry.scheme),
+      NodeInfoRow(strings.tr('Where'), entry.scheme),
     ];
   }
 
@@ -59,9 +63,9 @@ class BasicsInfoProvider implements NodeInfoProvider {
       return const [];
     }
     return [
-      if (file.modified case final at?) NodeInfoRow('Modified', _formatDate(at)),
-      if (file.created case final at?) NodeInfoRow('Created', _formatDate(at)),
-      if (file.accessed case final at?) NodeInfoRow('Accessed', _formatDate(at)),
+      if (file.modified case final at?) NodeInfoRow(strings.tr('Modified'), _formatDate(at)),
+      if (file.created case final at?) NodeInfoRow(strings.tr('Created'), _formatDate(at)),
+      if (file.accessed case final at?) NodeInfoRow(strings.tr('Accessed'), _formatDate(at)),
     ];
   }
 
@@ -71,21 +75,21 @@ class BasicsInfoProvider implements NodeInfoProvider {
       return const [];
     }
     return [
-      NodeInfoRow('Permissions', attributes.modeString),
-      if (attributes.mode != 0) NodeInfoRow('Mode', attributes.mode.toRadixString(8).padLeft(4, '0')),
+      NodeInfoRow(strings.tr('Permissions'), attributes.modeString),
+      if (attributes.mode != 0) NodeInfoRow(strings.tr('Mode'), attributes.mode.toRadixString(8).padLeft(4, '0')),
     ];
   }
 
   List<NodeInfoRow> _link(FileEntry entry) => [
-    NodeInfoRow('Points to', entry.reference.isEmpty ? 'unknown' : entry.reference),
-    if (entry.linkToDirectory) const NodeInfoRow('Target', 'directory'),
+    NodeInfoRow(strings.tr('Points to'), entry.reference.isEmpty ? strings.tr('unknown') : entry.reference),
+    if (entry.linkToDirectory) NodeInfoRow(strings.tr('Target'), strings.tr('directory')),
   ];
 
   String _typeOf(FileEntry entry) => switch (entry.kind) {
-    EntryKind.parent => 'Parent directory',
-    EntryKind.directory => 'Directory',
-    EntryKind.link => entry.linkToDirectory ? 'Link to a directory' : 'Link',
-    EntryKind.file => 'File',
+    EntryKind.parent => strings.tr('Parent directory'),
+    EntryKind.directory => strings.tr('Directory'),
+    EntryKind.link => entry.linkToDirectory ? strings.tr('Link to a directory') : strings.tr('Link'),
+    EntryKind.file => strings.tr('File'),
   };
 
   /// Дата целиком: в сведениях сокращать её незачем — здесь как раз и смотрят

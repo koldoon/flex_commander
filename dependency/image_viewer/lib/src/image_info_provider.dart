@@ -12,9 +12,12 @@ import 'image_viewer_settings.dart';
 ///
 /// Позже сюда же встанет EXIF: снято тогда-то, тем-то, с такой выдержкой.
 class ImageInfoProvider implements NodeInfoProvider {
-  const ImageInfoProvider(this.settings);
+  const ImageInfoProvider(this.settings, this.strings);
 
   final ImageViewerSettings settings;
+
+  /// Подписи строк — на языке человека: их читают в окне сведений.
+  final Strings strings;
 
   @override
   String get id => 'image';
@@ -33,15 +36,15 @@ class ImageInfoProvider implements NodeInfoProvider {
   Future<List<NodeInfoSection>> describe(FileEntry entry, Content content) async {
     // Читает целиком — иначе заголовок не разобрать. Предел тот же, что у
     // показа: сведения не должны стоить дороже открытия.
-    final document = await ImageDocument.read(entry, content, settings, checkpoint: () async {});
+    final document = await ImageDocument.read(entry, content, settings, checkpoint: () async {}, strings: strings);
 
     return [
       NodeInfoSection(
-        title: 'Image',
+        title: strings.tr('Image'),
         rows: [
-          NodeInfoRow('Dimensions', '${document.width} × ${document.height}'),
-          NodeInfoRow('Format', document.format),
-          NodeInfoRow('Pixels', '${(document.pixels / 1000000).toStringAsFixed(1)} MP'),
+          NodeInfoRow(strings.tr('Dimensions'), '${document.width} × ${document.height}'),
+          NodeInfoRow(strings.tr('Format'), document.format),
+          NodeInfoRow(strings.tr('Pixels'), '${(document.pixels / 1000000).toStringAsFixed(1)} MP'),
         ],
       ),
     ];

@@ -88,12 +88,12 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
 
   Future<void> _show(FileEntry? entry, int generation) async {
     if (entry == null) {
-      _say('Nothing to show');
+      _say(app.strings.tr('Nothing to show'));
       return;
     }
     if (entry.isParent) {
       // Про «..» сказать нечего: это не объект, а дорога наверх.
-      _say('Parent directory');
+      _say(app.strings.tr('Parent directory'));
       return;
     }
 
@@ -101,7 +101,7 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
     // здесь нечем: быстрый просмотр её и заменил, панели в этой области нет.
     // А чужую, активную, занимать нельзя — по ней в это время водят курсором,
     // ради чего быстрый просмотр и открывают.
-    _say('Reading ${entry.name}…');
+    _say(app.strings.tr('Reading {name}…', args: {'name': entry.name}));
 
     try {
       final content = await openViewer(

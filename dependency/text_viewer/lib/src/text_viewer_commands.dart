@@ -36,14 +36,14 @@ class ToggleWordWrapCommand extends AppCommand {
 
   /// Подпись говорит, что клавиша сделает **сейчас**, — как и везде в ряду.
   @override
-  String get label => _viewerOf(_app)?.wordWrap == true ? 'Unwrap' : 'Wrap';
+  String get label => _viewerOf(_app)?.wordWrap == true ? tr('Unwrap') : tr('Wrap');
 
   /// Название меняется по состоянию, а ищут всегда одним словом.
   @override
   Set<String> get keywords => const {'word wrap', 'line wrap'};
 
   @override
-  String get description => 'Wrap long lines in the viewer';
+  String get description => tr('Wrap long lines in the viewer');
 
   static TextViewerScreen? _viewerOf(Application? app) => textViewerInFocus(app);
 
@@ -61,7 +61,7 @@ class ToggleWordWrapCommand extends AppCommand {
     // Переключилось и закончилось — о таком говорят всплывающим сообщением.
     // На узком файле подписи в ряду мало: она меняется, а текст на экране —
     // нет, и непонятно, сработала клавиша или нет.
-    context.app.toasts.show('Wrap: ${screen.wordWrap ? 'On' : 'Off'}');
+    context.app.toasts.show(screen.wordWrap ? tr('Wrap: On') : tr('Wrap: Off'));
   }
 }
 
@@ -78,13 +78,13 @@ class ToggleLineNumbersCommand extends AppCommand {
   /// этому не добавляет, а мельтешит. О том, что переключилось, говорит
   /// всплывающее сообщение.
   @override
-  String get label => 'Line Num';
+  String get label => tr('Line Num');
 
   @override
   Set<String> get keywords => const {'line numbers', 'gutter'};
 
   @override
-  String get description => 'Show line numbers in the viewer';
+  String get description => tr('Show line numbers in the viewer');
 
   static TextViewerScreen? _viewerOf(Application? app) => textViewerInFocus(app);
 
@@ -99,7 +99,7 @@ class ToggleLineNumbersCommand extends AppCommand {
     }
 
     screen.toggleLineNumbers();
-    context.app.toasts.show('Show line numbers: ${screen.showLineNumbers ? 'On' : 'Off'}');
+    context.app.toasts.show(screen.showLineNumbers ? tr('Show line numbers: On') : tr('Show line numbers: Off'));
   }
 }
 
@@ -115,10 +115,10 @@ class CopySelectionCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Copy';
+  String get label => tr('Copy');
 
   @override
-  String get description => 'Copy the selected text to the clipboard';
+  String get description => tr('Copy the selected text to the clipboard');
 
   static TextViewerScreen? _viewerOf(Application app) => textViewerInFocus(app);
 
@@ -137,6 +137,6 @@ class CopySelectionCommand extends AppCommand {
     await clipboard.writeText(text);
     // Случилось и закончилось — ровно то, о чём говорят всплывающим
     // сообщением.
-    context.app.toasts.show('Copied ${text.length} characters');
+    context.app.toasts.show(plural(text.length, one: 'Copied {n} character', other: 'Copied {n} characters'));
   }
 }

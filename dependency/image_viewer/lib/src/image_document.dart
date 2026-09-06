@@ -42,11 +42,15 @@ class ImageDocument {
     Content content,
     ImageViewerSettings settings, {
     required Future<void> Function() checkpoint,
+    Strings? strings,
   }) async {
+    final said = strings ?? StringsRegistry();
     if (entry.size > settings.maxFileSize) {
       throw ViewerRefused(
-        'Image is too large: ${formatBytesLong(entry.size)}, '
-        'limit is ${formatSize(settings.maxFileSize)} — open it with the system (Cmd-O)',
+        said.tr(
+          'Image is too large: {size}, limit is {limit} — open it with the system (Cmd-O)',
+          args: {'size': formatBytesLong(entry.size), 'limit': formatSize(settings.maxFileSize)},
+        ),
       );
     }
 
@@ -64,14 +68,16 @@ class ImageDocument {
       // Заголовок не разобрался — значит, это не картинка или формат не наш.
       // Сказать об этом надо здесь, а не после того, как распаковка съест
       // память.
-      throw const ViewerRefused('Not an image, or the format is not supported (Cmd-O opens it with the system)');
+      throw ViewerRefused(said.tr('Not an image, or the format is not supported (Cmd-O opens it with the system)'));
     }
 
     final pixels = size.$1 * size.$2;
     if (pixels > settings.maxPixels) {
       throw ViewerRefused(
-        'Image is ${size.$1}×${size.$2}, limit is ${settings.maxPixels ~/ 1000000} MP '
-        '— open it with the system (Cmd-O)',
+        said.tr(
+          'Image is {width}×{height}, limit is {limit} MP — open it with the system (Cmd-O)',
+          args: {'width': size.$1, 'height': size.$2, 'limit': settings.maxPixels ~/ 1000000},
+        ),
       );
     }
 

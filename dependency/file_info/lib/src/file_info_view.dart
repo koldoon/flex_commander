@@ -10,18 +10,20 @@ import 'file_info_screen.dart';
 /// Своей разметки у сведений нет: она общая с справкой и настройками
 /// (`FcKeyValueSections`). Здесь только перевод: что рассказали провайдеры — в
 /// строки таблицы.
-List<FcTableSection> sectionsOf(FileInfoScreen screen) {
+List<FcTableSection> sectionsOf(FileInfoScreen screen, Strings strings) {
   final sections = <FcTableSection>[];
 
   if (screen.isSummary) {
-    sections.add(FcTableSection('Selection', [for (final row in screen.summary) FcTableRow(row.label, row.value)]));
+    sections.add(
+      FcTableSection(strings.tr('Selection'), [for (final row in screen.summary) FcTableRow(row.label, row.value)]),
+    );
   }
 
   for (final part in screen.parts) {
     if (part.error case final error?) {
       // Взялся и не смог: это сведение о файле, и место ему здесь же, рядом с
       // остальными сведениями.
-      sections.add(FcTableSection(part.title, [FcTableRow('Error', error)]));
+      sections.add(FcTableSection(part.title, [FcTableRow(strings.tr('Error'), error)]));
       continue;
     }
     if (part.loading) {
@@ -38,7 +40,7 @@ List<FcTableSection> sectionsOf(FileInfoScreen screen) {
   // Размер каталога сам не считается; в окне для этого кнопка, а здесь строка
   // с ответом, когда его уже посчитали.
   if (screen.directorySize case final size?) {
-    sections.add(FcTableSection('Contents', [FcTableRow('Size', formatBytesExact(size))]));
+    sections.add(FcTableSection(strings.tr('Contents'), [FcTableRow(strings.tr('Size'), formatBytesExact(size))]));
   }
 
   return sections;
@@ -64,7 +66,7 @@ class FileInfoView extends StatelessWidget {
               padding: EdgeInsets.all(FcTheme.of(context).metrics.labelPadding),
               // Фокуса не просит: сведения в панели читают, а ввод в это время
               // принадлежит списку файлов.
-              child: FcKeyValueSections(sections: sectionsOf(screen), autofocus: false, padded: false),
+              child: FcKeyValueSections(sections: sectionsOf(screen, context.strings), autofocus: false, padded: false),
             ),
           ),
     );

@@ -17,13 +17,13 @@ class FileInfoCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Info';
+  String get label => tr('Info');
 
   @override
   Set<String> get keywords => const {'properties', 'details', 'about', 'attributes'};
 
   @override
-  String get description => 'Everything known about the object under the cursor';
+  String get description => tr('Everything known about the object under the cursor');
 
   @override
   bool isExecutable(CommandContext context) => _targetsOf(context).isNotEmpty;
@@ -61,14 +61,14 @@ class FileInfoCommand extends AppCommand {
           listenable: screen,
           builder:
               (context, _) => FcKeyValueTable(
-                sections: sectionsOf(screen),
+                sections: sectionsOf(screen, context.strings),
                 onClose: close,
                 // Размер каталога — кнопкой, рядом с «Close»: обход дерева при
                 // открытии окна недопустим.
                 actions: [
                   if (screen.canCount && screen.directorySize == null)
                     FcButton(
-                      label: screen.counting ? 'Counting…' : 'Calculate',
+                      label: screen.counting ? tr('Counting…') : tr('Calculate'),
                       onPressed: screen.counting ? null : screen.count,
                     ),
                 ],

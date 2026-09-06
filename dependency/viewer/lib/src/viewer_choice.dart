@@ -33,7 +33,7 @@ Future<ViewerContent> openViewer(
 }) async {
   final spec = viewerFor(app, entry);
   if (spec == null) {
-    throw const ViewerRefused('Nothing here can show this file');
+    throw ViewerRefused(app.strings.tr('Nothing here can show this file'));
   }
   return spec.open(
     ViewerRequest(

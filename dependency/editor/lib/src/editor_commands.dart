@@ -26,13 +26,13 @@ class EditFileCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Edit';
+  String get label => tr('Edit');
 
   @override
   Set<String> get keywords => const {'editor', 'modify', 'change file'};
 
   @override
-  String get description => 'Open the file under the cursor for editing';
+  String get description => tr('Open the file under the cursor for editing');
 
   @override
   bool isExecutable(CommandContext context) {
@@ -65,7 +65,10 @@ class EditFileCommand extends AppCommand {
 
     if (entry.size > settings.maxFileSize) {
       context.app.toasts.show(
-        'File is too large: ${formatBytesLong(entry.size)}, limit is ${formatSize(settings.maxFileSize)}',
+        tr(
+          'File is too large: {size}, limit is {limit}',
+          args: {'size': formatBytesLong(entry.size), 'limit': formatSize(settings.maxFileSize)},
+        ),
       );
       return;
     }
@@ -98,8 +101,8 @@ class EditFileCommand extends AppCommand {
 
         // Вложенной работой: ход дела она отдаёт наверх сама, а отмена идёт к
         // ней встречно — `Esc` прерывает чтение, а не ждёт его конца.
-        return op.delegate(TextFile.reading(bytes), entry);
-      }, status: 'Opening ${entry.name}…');
+        return op.delegate(TextFile.reading(bytes, strings: context.app.strings), entry);
+      }, status: tr('Opening {name}…', args: {'name': entry.name}));
     } on OperationCanceled {
       // Передумали — это обычный ход дела, а не беда: экран не открывается, и
       // говорить не о чем.
@@ -108,7 +111,7 @@ class EditFileCommand extends AppCommand {
       if (error.kind == FsErrorKind.notSupported) {
         // Не текст в UTF-8: правка и сохранение записали бы знаки замены
         // вместо исходных байтов, то есть испортили бы файл молча.
-        context.app.toasts.show('Not a UTF-8 text file: ${entry.name}');
+        context.app.toasts.show(tr('Not a UTF-8 text file: {name}', args: {'name': entry.name}));
         return;
       }
       rethrow;
@@ -141,7 +144,7 @@ class EditFileCommand extends AppCommand {
   /// далеко: по ssh проба — поход на сервер, и сама по себе она была бы вторым
   /// немым замиранием, ради избавления от которого затевался Г9.
   Future<bool> _canWrite(TaskOperation<void, TextFile> op, Panel panel, FileEntry entry) async {
-    op.report(message: 'Checking ${entry.name}…');
+    op.report(message: tr('Checking {name}…', args: {'name': entry.name}));
     try {
       // Спрашивает ядро: права знает та сторона, где лежит файл.
       return await panel.canWriteTo(entry);
@@ -180,15 +183,17 @@ class EditFileCommand extends AppCommand {
 
     dialogId = view.showDialog(
       DialogSpec(
-        title: 'Read-only file',
+        title: tr('Read-only file'),
         content: CommandDialogConfirm(
           message:
               mayElevate
-                  ? '${entry.path} cannot be written.\n'
-                      'Open it for reading, or edit it anyway and save as administrator?'
-                  : '${entry.path} cannot be written. Open it for reading?',
-          confirmLabel: 'Open read-only',
-          alternativeLabel: mayElevate ? 'Edit anyway' : null,
+                  ? tr(
+                    '{path} cannot be written.\nOpen it for reading, or edit it anyway and save as administrator?',
+                    args: {'path': entry.path},
+                  )
+                  : tr('{path} cannot be written. Open it for reading?', args: {'path': entry.path}),
+          confirmLabel: tr('Open read-only'),
+          alternativeLabel: mayElevate ? tr('Edit anyway') : null,
           onAlternative: mayElevate ? () => reply(_ReadOnlyChoice.elevate) : null,
           onCancel: () => reply(_ReadOnlyChoice.cancel),
           onConfirm: () => reply(_ReadOnlyChoice.readOnly),
@@ -230,10 +235,10 @@ class SaveFileCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Save';
+  String get label => tr('Save');
 
   @override
-  String get description => 'Write the changes back to the file';
+  String get description => tr('Write the changes back to the file');
 
   static EditorScreen? _editorOf(Application? app) {
     final screen = app?.view.contentAt(ViewportPosition.fullscreen);
@@ -297,7 +302,7 @@ class SaveFileCommand extends AppCommand {
         return;
       }
       close();
-      context.app.toasts.show('Saved ${screen.entry.name}');
+      context.app.toasts.show(tr('Saved {name}', args: {'name': screen.entry.name}));
     }
 
     dialogId = view.showDialog(
@@ -309,8 +314,8 @@ class SaveFileCommand extends AppCommand {
               (context, _) => CommandDialogConfirm(
                 // Полный путь, а не одно имя: соглашаются на конкретный файл,
                 // и в системном каталоге это важнее всего.
-                message: 'Save changes to ${screen.entry.path}?',
-                confirmLabel: 'Save',
+                message: tr('Save changes to {path}?', args: {'path': screen.entry.path}),
+                confirmLabel: tr('Save'),
                 onCancel: close,
                 onConfirm: () => unawaited(save()),
                 error: state.error,
@@ -345,14 +350,14 @@ class ToggleEditorWrapCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => _editorOf(_app)?.wordWrap == true ? 'Unwrap' : 'Wrap';
+  String get label => _editorOf(_app)?.wordWrap == true ? tr('Unwrap') : tr('Wrap');
 
   /// Название меняется по состоянию, а ищут всегда одним словом.
   @override
   Set<String> get keywords => const {'word wrap', 'line wrap'};
 
   @override
-  String get description => 'Wrap long lines in the editor';
+  String get description => tr('Wrap long lines in the editor');
 
   static EditorScreen? _editorOf(Application? app) {
     final screen = app?.view.contentAt(ViewportPosition.fullscreen);
@@ -371,7 +376,7 @@ class ToggleEditorWrapCommand extends AppCommand {
 
     screen.toggleWordWrap();
     // Переключилось и закончилось — о таком говорят всплывающим сообщением.
-    context.app.toasts.show('Wrap: ${screen.wordWrap ? 'On' : 'Off'}');
+    context.app.toasts.show(screen.wordWrap ? tr('Wrap: On') : tr('Wrap: Off'));
   }
 }
 
@@ -386,13 +391,13 @@ class ToggleEditorNumbersCommand extends AppCommand {
   /// номера строк видно на самом экране. Что переключилось, говорит
   /// всплывающее сообщение.
   @override
-  String get label => 'Line Num';
+  String get label => tr('Line Num');
 
   @override
   Set<String> get keywords => const {'line numbers', 'gutter'};
 
   @override
-  String get description => 'Show line numbers in the editor';
+  String get description => tr('Show line numbers in the editor');
 
   static EditorScreen? _editorOf(Application? app) {
     final screen = app?.view.contentAt(ViewportPosition.fullscreen);
@@ -410,7 +415,7 @@ class ToggleEditorNumbersCommand extends AppCommand {
     }
 
     screen.toggleLineNumbers();
-    context.app.toasts.show('Show line numbers: ${screen.showLineNumbers ? 'On' : 'Off'}');
+    context.app.toasts.show(screen.showLineNumbers ? tr('Show line numbers: On') : tr('Show line numbers: Off'));
   }
 }
 
@@ -422,13 +427,13 @@ class CloseEditorCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Quit';
+  String get label => tr('Quit');
 
   @override
   Set<String> get keywords => const {'close', 'exit', 'back'};
 
   @override
-  String get description => 'Close the editor';
+  String get description => tr('Close the editor');
 
   EditorScreen? _screenOf(CommandContext context) {
     final screen = context.app.view.contentAt(ViewportPosition.fullscreen);
@@ -511,9 +516,9 @@ class CloseEditorCommand extends AppCommand {
           listenable: state,
           builder:
               (context, _) => CommandDialogConfirm(
-                message: '${screen.entry.name} has unsaved changes.',
-                confirmLabel: 'Save',
-                alternativeLabel: 'Discard',
+                message: tr('{name} has unsaved changes.', args: {'name': screen.entry.name}),
+                confirmLabel: tr('Save'),
+                alternativeLabel: tr('Discard'),
                 onAlternative: discard,
                 onCancel: close,
                 onConfirm: () => unawaited(save()),

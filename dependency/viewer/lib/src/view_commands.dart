@@ -21,13 +21,13 @@ class ViewFileCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'View';
+  String get label => tr('View');
 
   @override
   Set<String> get keywords => const {'viewer', 'preview', 'read', 'open file'};
 
   @override
-  String get description => 'Show the file under the cursor';
+  String get description => tr('Show the file under the cursor');
 
   @override
   bool isExecutable(CommandContext context) {
@@ -54,7 +54,7 @@ class ViewFileCommand extends AppCommand {
       // экрана проходят секунды. Точка прерывания у просмотрщиков уже есть —
       // ею пользуется быстрый просмотр, — и отдаётся она прямо из работы.
       final content = await context.panel.runWork<ViewportState>((op) async {
-        op.report(message: 'Reading ${entry.name}…');
+        op.report(message: tr('Reading {name}…', args: {'name': entry.name}));
         return openViewer(
           context.app,
           entry,
@@ -88,13 +88,13 @@ class CloseViewerCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Quit';
+  String get label => tr('Quit');
 
   @override
   Set<String> get keywords => const {'close', 'exit', 'back'};
 
   @override
-  String get description => 'Close the viewer';
+  String get description => tr('Close the viewer');
 
   @override
   bool isExecutable(CommandContext context) {
@@ -130,10 +130,10 @@ class QuickViewCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Quick View';
+  String get label => tr('Quick View');
 
   @override
-  String get description => 'Show what is under the cursor in the other panel';
+  String get description => tr('Show what is under the cursor in the other panel');
 
   @override
   Set<String> get keywords => const {'preview', 'side by side', 'other panel', 'lister'};

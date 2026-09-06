@@ -25,7 +25,7 @@ class Viewer implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.strings('ru', {'Viewer': 'Просмотрщик'});
+    registry.strings('ru', _russian);
 
     registry.view<QuickViewHost>((context, state) => QuickViewView(host: state));
 
@@ -53,3 +53,18 @@ class Viewer implements FcFrontendModule {
     registry.binding(KeyBinding.inState<QuickViewHost>('Tab', 'app.togglePanel'));
   }
 }
+
+/// Русские строки просмотра.
+const Map<String, String> _russian = {
+  'Viewer': 'Просмотрщик',
+  'View': 'Смотреть',
+  'Show the file under the cursor': 'Показать файл под курсором',
+  'Close the viewer': 'Закрыть просмотрщик',
+  'Quit': 'Выйти',
+  'Quick View': 'Быстрый просмотр',
+  'Show what is under the cursor in the other panel': 'Показывать в соседней панели то, что под курсором',
+  'Reading {name}…': 'Чтение {name}…',
+  'Nothing to show': 'Показывать нечего',
+  'Parent directory': 'Родительский каталог',
+  'Nothing here can show this file': 'Этот файл здесь показать нечем',
+};

@@ -134,7 +134,8 @@ class TextViewer implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.strings('ru', {'Text viewer': 'Просмотр текста'});
+    registry.strings('ru', _russian);
+    registry.plurals('ru', _plurals);
 
     registry.view<TextViewerScreen>((context, state) => TextViewerView(screen: state));
 
@@ -143,34 +144,35 @@ class TextViewer implements FcFrontendModule {
     final settings = registry.settings;
     TextViewerSettings settingsOf() => settings.section(TextViewerSettings.new);
 
-    registry.settingsSchema(
-      () => SettingsSchema([
+    registry.settingsSchema(() {
+      final strings = registry.services.resolve<Strings>();
+      return SettingsSchema([
         SettingsField.flag(
           'wordWrap',
           defaultValue: false,
-          title: 'Wrap long lines',
+          title: strings.tr('Wrap long lines'),
           read: () => settingsOf().wordWrap,
           write: (value) => settingsOf().wordWrap = value,
         ),
         SettingsField.flag(
           'showLineNumbers',
           defaultValue: false,
-          title: 'Show line numbers',
+          title: strings.tr('Show line numbers'),
           read: () => settingsOf().showLineNumbers,
           write: (value) => settingsOf().showLineNumbers = value,
         ),
         SettingsField.integer(
           'maxFileSize',
           defaultValue: TextViewerSettings.defaultMaxFileSize,
-          title: 'Largest file to open',
-          unit: 'bytes',
+          title: strings.tr('Largest file to open'),
+          unit: strings.tr('bytes'),
           min: 1024,
           max: 100 * 1024 * 1024,
           read: () => settingsOf().maxFileSize,
           write: (value) => settingsOf().maxFileSize = value,
         ),
-      ], save: settings.save),
-    );
+      ], save: settings.save);
+    });
 
     registry.viewer(
       ViewerSpec(
@@ -225,7 +227,10 @@ class TextViewer implements FcFrontendModule {
       // Отказ, а не начало файла: показывать кусок и называть его файлом —
       // значит врать о содержимом.
       throw ViewerRefused(
-        'File is too large: ${formatBytesLong(entry.size)}, limit is ${formatSize(settings.maxFileSize)}',
+        request.app.strings.tr(
+          'File is too large: {size}, limit is {limit}',
+          args: {'size': formatBytesLong(entry.size), 'limit': formatSize(settings.maxFileSize)},
+        ),
       );
     }
 
@@ -254,3 +259,31 @@ class TextViewer implements FcFrontendModule {
     );
   }
 }
+
+/// Русские строки просмотра текста.
+const Map<String, String> _russian = {
+  'Text viewer': 'Просмотр текста',
+  'Copy': 'Копировать',
+  'Copy the selected text to the clipboard': 'Скопировать выделенный текст в буфер обмена',
+  'Wrap': 'Переносить',
+  'Unwrap': 'Не переносить',
+  'Wrap long lines in the viewer': 'Переносить длинные строки в просмотрщике',
+  'Wrap: On': 'Перенос строк: включён',
+  'Wrap: Off': 'Перенос строк: выключен',
+  'Line Num': 'Номера',
+  'Show line numbers in the viewer': 'Показывать номера строк в просмотрщике',
+  'Show line numbers: On': 'Номера строк: показаны',
+  'Show line numbers: Off': 'Номера строк: скрыты',
+  'File is too large: {size}, limit is {limit}': 'Файл слишком велик: {size}, предел — {limit}',
+
+  // Настройки.
+  'Wrap long lines': 'Переносить длинные строки',
+  'Show line numbers': 'Показывать номера строк',
+  'Largest file to open': 'Наибольший открываемый файл',
+  'bytes': 'байт',
+};
+
+/// Множественные формы.
+const Map<String, PluralForms> _plurals = {
+  'Copied {n} characters': (one: 'Скопирован {n} знак', few: 'Скопировано {n} знака', many: 'Скопировано {n} знаков'),
+};

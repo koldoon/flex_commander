@@ -54,9 +54,10 @@ class TextFile {
   /// битые байты знаком замены, и это честно — он показывает. Сохранить такой
   /// текст обратно значило бы записать знаки замены вместо исходных байтов, то
   /// есть испортить файл молча.
-  static Operation<FileEntry, TextFile> reading(Content source) {
+  static Operation<FileEntry, TextFile> reading(Content source, {Strings? strings}) {
+    final said = strings ?? StringsRegistry();
     return TaskOperation<FileEntry, TextFile>((op, entry) async {
-      op.report(message: 'Reading ${entry.name}…');
+      op.report(message: said.tr('Reading {name}…', args: {'name': entry.name}));
 
       final bytes = <int>[];
       await for (final chunk in source.read()) {

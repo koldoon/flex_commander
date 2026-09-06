@@ -35,13 +35,13 @@ class ToggleImageFitCommand extends AppCommand {
 
   /// Подпись говорит, что клавиша сделает **сейчас**, — как и везде в ряду.
   @override
-  String get label => imageViewerInFocus(_app)?.fitToWindow == true ? '1:1' : 'Fit';
+  String get label => imageViewerInFocus(_app)?.fitToWindow == true ? tr('1:1') : tr('Fit');
 
   @override
   Set<String> get keywords => const {'zoom', 'actual size', 'fit to window'};
 
   @override
-  String get description => 'Fit the image into the window or show it pixel for pixel';
+  String get description => tr('Fit the image into the window or show it pixel for pixel');
 
   @override
   bool isExecutable(CommandContext context) => imageViewerInFocus(context.app) != null;
@@ -55,7 +55,7 @@ class ToggleImageFitCommand extends AppCommand {
     screen.toggleFit();
     // Переключилось и закончилось — о таком говорят всплывающим сообщением: на
     // картинке, которая и так помещалась, разницы не видно.
-    context.app.toasts.show(screen.fitToWindow ? 'Fit to window' : 'Actual size');
+    context.app.toasts.show(screen.fitToWindow ? tr('Fit to window') : tr('Actual size'));
   }
 }
 
@@ -70,13 +70,13 @@ class ZoomImageCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Zoom';
+  String get label => tr('Zoom');
 
   @override
   Set<String> get keywords => const {'scale', 'bigger', 'smaller'};
 
   @override
-  String get description => 'Zoom the image in or out';
+  String get description => tr('Zoom the image in or out');
 
   @override
   bool isExecutable(CommandContext context) => imageViewerInFocus(context.app) != null;
@@ -108,13 +108,13 @@ class StepImageCommand extends AppCommand {
   String get id => forward ? nextCommandId : previousCommandId;
 
   @override
-  String get label => forward ? 'Next' : 'Previous';
+  String get label => forward ? tr('Next') : tr('Previous');
 
   @override
   Set<String> get keywords => const {'image', 'album', 'browse'};
 
   @override
-  String get description => forward ? 'Show the next image in the same directory' : 'Show the previous one';
+  String get description => forward ? tr('Show the next image in the same directory') : tr('Show the previous one');
 
   @override
   bool isExecutable(CommandContext context) {
