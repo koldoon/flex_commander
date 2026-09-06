@@ -22,7 +22,7 @@ description: Дизайн-система Flex Commander в Sketch — файл d
 | `Foundations` | шапка, 52 плашки ролей, 20 образцов набора, линейки 83 метрик, таблица `FcTheme → стиль + цвет` |
 | `Components` | витрина: `Controls`, `Panel parts`, `Surfaces`, `Dialogs` |
 | `Screens` | главное окно 1216 × 700 и оно же с окном команды |
-| `Symbols` | 54 мастера |
+| `Symbols` | 55 мастеров |
 
 Рядом: `docs/design/design.png` — светлый референс исходного приложения,
 и `~/Documents/Flex Commander Theme.sketch` — его же исходник в Sketch, годится
@@ -165,7 +165,9 @@ swatch (см. `sketch-mcp-traps` §12).
   `Screens` (названы `macOS chrome — traffic light`) и заголовок страницы
   `Foundations` без стиля текста;
 - шрифтом набрано только тремя: `Ubuntu`, `Consolas`, `FontAwesome` — проверять
-  обходом `sketch.find('Text', page)` и `style.fontFamily`.
+  обходом `sketch.find('Text', page)` и `style.fontFamily`. Исключение —
+  подстановка: `✕` в `Background Tasks` резолвится в `Zapf Dingbats`, потому что
+  в `Ubuntu` такого знака нет; в приложении происходит ровно то же.
 
 После правок — `doc.save()` и отметка в §8 `docs/spec/design-system.md`.
 
