@@ -814,7 +814,17 @@ class PanelSession {
     return current is PanelColumns ? (current as PanelColumns).columns : _columns;
   }
 
+  /// Своя раскладка колонок; чужую не трогаем.
+  ///
+  /// Пока источник просит собственные колонки (`PanelColumns` — список
+  /// находок), на экране не панельная раскладка, а его. Записать её в
+  /// настройки панели значило бы сделать выбор источника выбором человека: уйдя
+  /// из находок, панель осталась бы с колонкой пути навсегда — и это не
+  /// выдумка, а поймано живьём.
   void setColumnLayout(ColumnLayout layout) {
+    if (provider is PanelColumns) {
+      return;
+    }
     _columns = layout;
     _changed();
   }

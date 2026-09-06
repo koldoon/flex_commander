@@ -242,10 +242,16 @@ class _FileTableState extends State<FileTable> {
                         app.activate(panel);
                         panel.sortBy(column);
                       },
-                      onLayoutChanged: (layout) {
-                        app.activate(panel);
-                        panel.setColumnLayout(layout);
-                      },
+                      // Колонки правятся, только когда они панельные: у
+                      // списка находок раскладку просит источник, и менять в
+                      // ней нечего — уйдёт она вместе с ним.
+                      onLayoutChanged:
+                          panel.source.columns != null
+                              ? null
+                              : (layout) {
+                                app.activate(panel);
+                                panel.setColumnLayout(layout);
+                              },
                     ),
                     Expanded(child: _buildList(columns, widths)),
                   ],

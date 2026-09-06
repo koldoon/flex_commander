@@ -214,6 +214,27 @@ void main() {
     expect(app.left.columns.find(FsColumn.path)?.visible, isFalse);
   });
 
+  testWidgets('правка колонок в находках не переписывает настройку панели', (tester) async {
+    await pumpApp(tester);
+    await openWindow(tester);
+    await search(tester, '*.dart');
+    await press(tester, 'To panel');
+
+    // То же самое делает заголовок таблицы, когда в нём двигают или
+    // переключают колонку. На экране в этот момент раскладка **источника**, и
+    // записать её в настройки панели значило бы оставить её там навсегда:
+    // поймано живьём — панель после находок показывала колонку пути в любом
+    // каталоге, и убрать её было нечем.
+    app.left.setColumnLayout(app.left.columns);
+    await tester.pumpAndSettle();
+
+    await app.left.goUp();
+    await tester.pumpAndSettle();
+
+    expect(app.left.source.scheme, isNot(SourceInfo.foundScheme));
+    expect(app.left.columns.find(FsColumn.path)?.visible, isFalse, reason: 'колонка пути ушла вместе с находками');
+  });
+
   testWidgets('Enter в найденном ведёт к файлу, а не открывает его', (tester) async {
     await pumpApp(tester);
     await openWindow(tester);
