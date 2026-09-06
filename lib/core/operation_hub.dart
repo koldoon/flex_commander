@@ -191,6 +191,10 @@ class OperationHub {
       case MarkedTargets(:final panel):
         final session = _sessionOf(panel);
         _hold(session, leases);
+        // Пометка чужого каталога разбирается асинхронно, а просьбы ядром не
+        // сериализуются: пометил ветвь в дереве — тут же нажал `F8`, и работа
+        // прочитала бы недособранное (`docs/spec/operation-targets.md`, §3).
+        await session.marksSettled;
         return session.targetNodes;
       case CurrentTargets(:final panel):
         final session = _sessionOf(panel);

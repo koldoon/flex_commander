@@ -275,6 +275,13 @@ class CoreServer implements CoreHandler {
       case ListNames(:final panel, :final path):
         return CoreEntries(await session(panel).namesIn(path));
 
+      case ListTargets(:final panel):
+        final asked = session(panel);
+        // Сперва пометка дособерётся: спрашивают её сразу после того, как
+        // пометили (`docs/spec/operation-targets.md`, §3).
+        await asked.marksSettled;
+        return CoreEntries(asked.targetEntries);
+
       case OpenShell():
         return _shells.open(request);
 

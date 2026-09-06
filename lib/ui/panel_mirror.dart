@@ -214,11 +214,10 @@ class PanelMirror extends ChangeNotifier implements Panel {
 
   /// Помеченное, а если не помечено ничего — объект под курсором.
   ///
-  /// То самое правило, по которому работают все файловые операции. Строками, а
-  /// значит **только своего каталога**: помеченное в другой ветви дерева у этой
-  /// стороны значением не лежит вовсе. Файловым операциям это не мешает —
-  /// они называют набор именем (`Targets.marked`), и разворачивает его ядро,
-  /// у которого узлы на руках (`docs/spec/client-server.md`, §4.3).
+  /// Строками, а значит **только своего каталога**: помеченное в другой ветви
+  /// дерева у этой стороны значением не лежит вовсе. Так и задумано — строку
+  /// рисуют и тянут мышью, а для этого нужен видимый объект. Кому нужны все
+  /// цели, тот зовёт [allTargets] (`docs/spec/operation-targets.md`, §4).
   @override
   List<FileEntry> get targets {
     if (_state.markedPaths.isEmpty) {
@@ -229,6 +228,32 @@ class PanelMirror extends ChangeNotifier implements Panel {
       for (final entry in entries)
         if (_state.markedPaths.contains(entry.path)) entry,
     ];
+  }
+
+  /// Пути всех целей — они приезжают полными, где бы цели ни лежали.
+  ///
+  /// Отсюда счёт в заголовках окон: ходить за границу ради числа значило бы
+  /// задерживать окно ради того, что уже в руках
+  /// (`docs/spec/operation-targets.md`, §2).
+  @override
+  Set<String> get targetPaths {
+    if (_state.markedPaths.isNotEmpty) {
+      return _state.markedPaths;
+    }
+    // У «..» пути нет вовсе — и целью он не бывает.
+    final current = currentEntry;
+    return current == null || current.path.isEmpty ? const {} : {current.path};
+  }
+
+  @override
+  bool get hasTargets => targetPaths.isNotEmpty;
+
+  /// Цели значениями — все, включая чужие каталоги: спрашиваются у ядра, где
+  /// живут узлы.
+  @override
+  Future<List<FileEntry>> allTargets() async {
+    final reply = await _link.call(ListTargets(id));
+    return reply is CoreEntries ? reply.entries : const [];
   }
 
   // --- подписи ---
@@ -419,9 +444,18 @@ class PanelMirror extends ChangeNotifier implements Panel {
   }
 
   /// Ссылка на строку: место в списке и его номер.
+  ///
+  /// Место ищется **по пути**, а не по имени: цели бывают из других каталогов,
+  /// а одноимённая строка своего каталога — это другой файл, и прочитать вместо
+  /// спрошенного его было бы подменой (`docs/spec/operation-targets.md`, §4).
+  /// Не нашлось здесь — говорим адресом: разбирать пути ядро умеет.
   EntryRef? _refTo(FileEntry entry) {
-    final index = entries.indexWhere((candidate) => candidate.name == entry.name);
-    return index < 0 ? null : EntryRef.inPanel(id, index, _listing.generation);
+    if (entry.path.isEmpty) {
+      // Путь есть у всего, кроме «..», а его читать нечем.
+      return null;
+    }
+    final index = entries.indexWhere((candidate) => candidate.path == entry.path);
+    return index < 0 ? EntryRef.path(entry.path) : EntryRef.inPanel(id, index, _listing.generation);
   }
 
   // --- область ---

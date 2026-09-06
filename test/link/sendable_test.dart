@@ -94,6 +94,7 @@ void main() {
     sendable('права на запись', const LinkRequest(1, CheckWriteAccess(ref)));
     sendable('оболочка', const LinkRequest(1, OpenShell(panel: PanelId.left)));
     sendable('имена в каталоге', const LinkRequest(1, ListNames(PanelId.left, '/home')));
+    sendable('цели значениями', const LinkRequest(1, ListTargets(PanelId.left)));
     sendable('показать находки', const LinkRequest(1, ShowFound(PanelId.left, 'run#1', title: '*.dart')));
     sendable('секрет', LinkRequest(0, AnswerCredential('secret#1', Credential.password('тайна'), realm: '7z:/a.7z')));
     sendable('повышение', const LinkRequest(0, AnswerElevation('sudo#1', agreed: true)));

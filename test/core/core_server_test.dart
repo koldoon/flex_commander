@@ -192,6 +192,42 @@ void main() {
       expect(lastState()!.cursorIndex, notes + 1);
     });
 
+    test('цели едут значениями, и в них есть помеченное из соседней ветви', () async {
+      link.tell(const SetMarks(PanelId.left, {'/home/notes.txt', '/home/docs/deep.txt'}));
+      await pumpEventQueue();
+
+      final reply = await link.call(const ListTargets(PanelId.left)) as CoreEntries;
+
+      expect(reply.entries.map((entry) => entry.name), containsAll(['notes.txt', 'deep.txt']));
+      expect(
+        {for (final entry in reply.entries) entry.directoryPath},
+        {'/home', '/home/docs'},
+        reason: 'каталог приезжает значением — резать путь строкой не надо',
+      );
+    });
+
+    test('цели дожидаются пометки, которую ещё разбирают', () async {
+      // Чужой путь панель никогда не показывала: ядро разбирает его само, и
+      // просьба, пришедшая в тот же миг, обязана дождаться
+      // (`docs/spec/operation-targets.md`, §3).
+      link.tell(const SetMarks(PanelId.left, {'/home/docs/deep.txt'}));
+
+      final reply = await link.call(const ListTargets(PanelId.left)) as CoreEntries;
+
+      expect(reply.entries.map((entry) => entry.name), ['deep.txt']);
+    });
+
+    test('без пометки цель — строка под курсором', () async {
+      final listing = lastListing()!;
+      final notes = listing.entries.indexWhere((entry) => entry.name == 'notes.txt');
+      link.tell(MoveCursor(PanelId.left, notes, 1));
+      await pumpEventQueue();
+
+      final reply = await link.call(const ListTargets(PanelId.left)) as CoreEntries;
+
+      expect(reply.entries.map((entry) => entry.name), ['notes.txt']);
+    });
+
     test('пометка переживает перечитывание каталога', () async {
       link.tell(const SetMarks(PanelId.left, {'/home/notes.txt'}));
       await pumpEventQueue();

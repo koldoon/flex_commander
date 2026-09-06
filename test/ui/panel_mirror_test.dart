@@ -6,6 +6,7 @@ import 'package:flex_commander/core/panel_session.dart';
 import 'package:flex_commander/link/link.dart';
 import 'package:flex_commander/link/loopback_link.dart';
 import 'package:flex_commander/ui/panel_mirror.dart';
+import 'package:flex_commander/ui/remote_content.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Зеркало: панель на экране — это последнее, о чём рассказало ядро.
@@ -22,7 +23,13 @@ void main() {
   );
 
   Future<void> start() async {
-    core = CoreServer(left: sessionFor('/home'), right: sessionFor('/home'));
+    core = CoreServer(
+      left: sessionFor('/home'),
+      right: sessionFor('/home'),
+      // Реестр нужен ссылке на строку по пути: чужую строку разбирает корень
+      // дерева, а не панель. В сборке приложения он есть всегда.
+      registry: ProviderRegistry(root: provider),
+    );
     link = LoopbackLink(core);
     final ready = await link.call(const Handshake()) as CoreReady;
     panel = PanelMirror(
@@ -39,6 +46,8 @@ void main() {
       FakeEntry.directory('/home'),
       FakeEntry.directory('/home/docs'),
       FakeEntry.file('/home/docs/deep.txt', size: 40),
+      // Тёзка в соседнем каталоге: по имени их не различить, по пути — да.
+      FakeEntry.file('/home/docs/notes.txt', size: 50),
       FakeEntry.file('/home/notes.txt', size: 10),
       FakeEntry.file('/home/report.txt', size: 20),
     ])..home = '/home';
@@ -110,6 +119,35 @@ void main() {
     expect(panel.targets.map((entry) => entry.name), ['report.txt']);
   });
 
+  test('targets — строки этого списка, allTargets — всё помеченное', () async {
+    panel.setMarks({'/home/notes.txt', '/home/docs/deep.txt'});
+    await pumpEventQueue();
+
+    expect(panel.targets.map((entry) => entry.name), ['notes.txt'], reason: 'чужой строки в этом списке нет');
+    expect(panel.targetPaths, {'/home/notes.txt', '/home/docs/deep.txt'}, reason: 'а путь есть у обеих');
+    expect(panel.hasTargets, isTrue);
+
+    final all = await panel.allTargets();
+
+    expect(all.map((entry) => entry.name), containsAll(['notes.txt', 'deep.txt']));
+    expect({for (final entry in all) entry.directoryPath}, {'/home', '/home/docs'});
+  });
+
+  test('содержимое строки берётся по её пути, а не по тёзке из своего каталога', () async {
+    final all = await () async {
+      panel.setMarks({'/home/docs/notes.txt'});
+      await pumpEventQueue();
+      return panel.allTargets();
+    }();
+    final foreign = all.single;
+    expect(foreign.path, '/home/docs/notes.txt');
+
+    // В каталоге панели лежит свой `notes.txt` — и раньше читался именно он.
+    expect(panel.entries.any((entry) => entry.name == 'notes.txt'), isTrue);
+    expect(await panel.canWriteTo(foreign), isTrue, reason: 'спрошена чужая строка, а не тёзка');
+    expect(panel.contentOf(foreign), isA<RemoteContent>(), reason: 'читать чужую строку есть чем');
+  });
+
   test('«..» целью не бывает', () async {
     panel.setCursorIndex(0);
     await pumpEventQueue();
@@ -154,7 +192,7 @@ void main() {
     await pumpEventQueue();
 
     final docs = panel.entries.firstWhere((entry) => entry.name == 'docs');
-    expect(docs.size, 40);
+    expect(docs.size, 90, reason: 'deep.txt и тёзка notes.txt');
     expect(panel.entries.length, before.length);
   });
 

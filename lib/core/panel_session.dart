@@ -844,7 +844,24 @@ class PanelSession {
   /// дойти — список каталога подтягивается тихо, и нажатая в тот же миг
   /// клавиша пометки не должна пропасть (`docs/spec/panel-view-tree.md`, §7).
   /// Не разобралось — объекта нет, и пометке его взять неоткуда.
-  Future<void> setMarks(Set<String> paths) async {
+  Future<void> setMarks(Set<String> paths) {
+    // Работа запоминается: пока чужой путь разбирается, о пометке уже могут
+    // спросить — и клавишей, и просьбой (`docs/spec/operation-targets.md`, §3).
+    final marking = _mark(paths);
+    _marking = marking;
+    return marking;
+  }
+
+  /// Пометка дособралась.
+  ///
+  /// Ждут её те, кто берёт цели: просьбы ядром не сериализуются, и пометил
+  /// ветвь в дереве — тут же нажал `F8` значило бы прочитать пометку
+  /// недособранной (`docs/spec/operation-targets.md`, §3).
+  Future<void> get marksSettled => _marking;
+
+  Future<void> _marking = Future.value();
+
+  Future<void> _mark(Set<String> paths) async {
     final known = {for (final node in _nodes) node.pathString, for (final node in selection.nodes) node.pathString};
     final strangers = <String, FsNode>{};
     for (final path in paths) {
@@ -1034,6 +1051,13 @@ class PanelSession {
 
   /// Список значениями — то, чем та сторона рисует таблицу.
   List<FileEntry> get entries => [for (final node in _nodes) entryOf(node)];
+
+  /// Цели значениями — то самое, что развернёт `Targets.marked`.
+  ///
+  /// Тем же [targetNodes], а не своим отбором: окно, считающее по своему
+  /// списку, однажды разойдётся с операцией, а по общему — не может
+  /// (`docs/spec/operation-targets.md`, §3).
+  List<FileEntry> get targetEntries => [for (final node in targetNodes) entryOf(node)];
 
   /// Каталог панели так, как его назовёт сама оболочка; пусто — выполнять
   /// здесь негде (внутри архива оболочки нет вовсе).
