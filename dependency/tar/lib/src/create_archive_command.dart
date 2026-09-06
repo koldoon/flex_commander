@@ -43,10 +43,10 @@ class CreateTarArchiveCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Mk Tar';
+  String get label => tr('Mk Tar');
 
   @override
-  String get description => 'Pack the selected items into a new tar, tar.gz or tgz archive';
+  String get description => tr('Pack the selected items into a new tar, tar.gz or tgz archive');
 
   /// Ищут её и по тому, что она умеет: `.tar.gz` в названии не помещается, а
   /// набирают в палитре чаще всего именно `gz`.
@@ -101,7 +101,7 @@ class CreateTarArchiveCommand extends AppCommand {
 
       final operation = context.app.runOperation();
       if (run != null) {
-        await run.run(operation, spec, message: 'Packing…');
+        await run.run(operation, spec, message: tr('Packing…'));
       } else {
         await operation.run(spec);
       }
@@ -262,11 +262,14 @@ class _CreateArchiveFormState extends State<_CreateArchiveForm> {
       error: run.error,
       onCancel: run.dismiss,
       onSubmit: run.submit,
-      submitLabel: 'Create',
+      submitLabel: context.strings.tr('Create'),
       children: [
-        CommandDialogField(label: 'Create in', child: FcTextField(controller: _destination, enabled: false)),
         CommandDialogField(
-          label: 'Archive name',
+          label: context.strings.tr('Create in'),
+          child: FcTextField(controller: _destination, enabled: false),
+        ),
+        CommandDialogField(
+          label: context.strings.tr('Archive name'),
           child: FcTextField(
             controller: _name,
             autofocus: true,
@@ -276,16 +279,22 @@ class _CreateArchiveFormState extends State<_CreateArchiveForm> {
           ),
         ),
         CommandDialogField(
-          label: 'Format',
+          label: context.strings.tr('Format'),
           child: FcRadioGroup<TarFormat>(
             direction: Axis.horizontal,
-            options: {for (final value in TarFormat.values) value: value.title},
+            // Названия уровней приходят значением — переводит их тот, кто
+            // показывает.
+            options: {for (final value in TarFormat.values) value: context.strings.tr(value.title)},
             value: run.format,
             onChanged: run.setFormat,
           ),
         ),
         CommandDialogField.wide(
-          child: FcCheckbox(label: 'Follow symlinks', value: run.followLinks, onChanged: run.setFollowLinks),
+          child: FcCheckbox(
+            label: context.strings.tr('Follow symlinks'),
+            value: run.followLinks,
+            onChanged: run.setFollowLinks,
+          ),
         ),
       ],
     );

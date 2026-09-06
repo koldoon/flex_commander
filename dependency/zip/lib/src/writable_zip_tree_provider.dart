@@ -20,6 +20,7 @@ class WritableZipTreeProvider extends ZipTreeProvider implements NodeEditor, Fil
     required super.credentials,
     required StagingArea staging,
     LocalCopySession? copy,
+    super.strings,
   }) : _staging = staging,
        _copy = copy,
        super._(session: copy);
@@ -62,7 +63,8 @@ class WritableZipTreeProvider extends ZipTreeProvider implements NodeEditor, Fil
   /// архиве это дольше самой записи, поэтому окно операции показывает её
   /// отдельным этапом.
   @override
-  String get writesStageName => _returnsToHost ? 'repacking and sending archive' : 'repacking archive';
+  String get writesStageName =>
+      _returnsToHost ? strings.tr('repacking and sending archive') : strings.tr('repacking archive');
 
   /// О цене говорится **до** начала: дописать запись в zip нельзя, архив
   /// пересобирается целиком — а лежащий не на диске ещё и уезжает обратно
@@ -71,11 +73,14 @@ class WritableZipTreeProvider extends ZipTreeProvider implements NodeEditor, Fil
   String? get writesWarning {
     final name = _host.name;
     if (!_returnsToHost) {
-      return 'Writing to «$name» repacks the whole archive. Continue?';
+      return strings.tr('Writing to «{name}» repacks the whole archive. Continue?', args: {'name': name});
     }
     final size = _host.size;
     final volume = size >= 0 ? ' (${_megabytes(size)} MB)' : '';
-    return 'Writing to «$name» repacks the whole archive and sends it back$volume. Continue?';
+    return strings.tr(
+      'Writing to «{name}» repacks the whole archive and sends it back{volume}. Continue?',
+      args: {'name': name, 'volume': volume},
+    );
   }
 
   static String _megabytes(int bytes) => (bytes / (1024 * 1024)).toStringAsFixed(1);

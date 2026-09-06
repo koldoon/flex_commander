@@ -24,6 +24,7 @@ class WritableSevenZipTreeProvider extends SevenZipTreeProvider
     required StagingArea staging,
     super.password,
     LocalCopySession? copy,
+    super.strings,
   }) : _staging = staging,
        _copy = copy;
 
@@ -71,11 +72,14 @@ class WritableSevenZipTreeProvider extends SevenZipTreeProvider
   String? get writesWarning {
     final name = _host.name;
     if (!_returnsToHost) {
-      return 'Writing to «$name» rewrites the whole archive. Continue?';
+      return strings.tr('Writing to «{name}» rewrites the whole archive. Continue?', args: {'name': name});
     }
     final size = _host.size;
     final volume = size >= 0 ? ' (${(size / (1024 * 1024)).toStringAsFixed(1)} MB)' : '';
-    return 'Writing to «$name» rewrites the whole archive and sends it back$volume. Continue?';
+    return strings.tr(
+      'Writing to «{name}» rewrites the whole archive and sends it back{volume}. Continue?',
+      args: {'name': name, 'volume': volume},
+    );
   }
 
   @override

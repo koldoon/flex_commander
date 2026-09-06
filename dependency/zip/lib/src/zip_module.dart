@@ -34,7 +34,8 @@ class ZipArchiver implements FcBackendModule, FcFrontendModule {
       // Архив внутри архива сперва оказывается на диске, но где именно —
       // знает не архиватор: место под временные файлы даёт приложение.
       () => TaskOperation<FsNode, TreeProvider>((op, host) {
-        op.message('Reading ${host.name}…');
+        final strings = registry.services.resolve<Strings>();
+        op.message(strings.tr('Reading {name}…', args: {'name': host.name}));
         return ProviderRegistry.keepUnlessCanceled(
           op,
           ZipTreeProvider.open(
@@ -45,7 +46,12 @@ class ZipArchiver implements FcBackendModule, FcFrontendModule {
             credentials: registry.services.resolve<Credentials>(),
             // Архив с сервера сперва копируется целиком, и это самая долгая
             // часть открытия: молчать о ней нельзя.
-            onBytes: (bytes) => op.report(message: 'Reading ${host.name}…', bytesTransferred: bytes),
+            onBytes:
+                (bytes) => op.report(
+                  message: strings.tr('Reading {name}…', args: {'name': host.name}),
+                  bytesTransferred: bytes,
+                ),
+            strings: strings,
           ),
         );
       }),
@@ -57,9 +63,37 @@ class ZipArchiver implements FcBackendModule, FcFrontendModule {
   /// про zip знает только этот модуль.
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.strings('ru', {'Zip archives': 'Архивы zip'});
+    registry.strings('ru', _russian);
 
     registry.command((context) => CreateZipArchiveCommand());
     registry.binding(KeyBinding('Shift-F5', CreateZipArchiveCommand.commandId));
   }
 }
+
+/// Русские строки архивов zip.
+///
+/// Названия уровней сжатия приходят значением (`ZipCompression.title`), а
+/// заголовок окна пароля — вопросом от ядра: переводит их тот, кто показывает.
+const Map<String, String> _russian = {
+  'Zip archives': 'Архивы zip',
+  'Mk Zip': 'Zip',
+  'Pack the selected items into a new zip archive': 'Упаковать выбранное в новый архив zip',
+  'Packing…': 'Упаковка…',
+  'Create': 'Создать',
+  'Create in': 'Создать в',
+  'Archive name': 'Имя архива',
+  'Follow symlinks': 'Идти по ссылкам',
+  'Compression': 'Сжатие',
+  'Store': 'Без сжатия',
+  'Fast': 'Быстро',
+  'Normal': 'Обычно',
+  'Best': 'Плотно',
+  'Reading {name}…': 'Чтение {name}…',
+  'Encrypted archive': 'Зашифрованный архив',
+  'repacking archive': 'пересборка архива',
+  'repacking and sending archive': 'пересборка и отправка архива',
+  'Writing to «{name}» repacks the whole archive. Continue?':
+      'Запись в «{name}» пересобирает архив целиком. Продолжить?',
+  'Writing to «{name}» repacks the whole archive and sends it back{volume}. Continue?':
+      'Запись в «{name}» пересобирает архив целиком и отправляет его обратно{volume}. Продолжить?',
+};

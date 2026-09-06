@@ -30,10 +30,10 @@ class CreateGzipCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Mk Gz';
+  String get label => tr('Mk Gz');
 
   @override
-  String get description => 'Compress a single file into a new gz file';
+  String get description => tr('Compress a single file into a new gz file');
 
   @override
   Set<String> get keywords => const {'gzip', 'compress', 'archive', 'pack'};
@@ -89,7 +89,7 @@ class CreateGzipCommand extends AppCommand {
 
       final operation = context.app.runOperation();
       if (run != null) {
-        await run.run(operation, spec, message: 'Compressing…');
+        await run.run(operation, spec, message: tr('Compressing…'));
       } else {
         await operation.run(spec);
       }
@@ -193,11 +193,14 @@ class _CompressFormState extends State<_CompressForm> {
       error: run.error,
       onCancel: run.dismiss,
       onSubmit: run.submit,
-      submitLabel: 'Create',
+      submitLabel: context.strings.tr('Create'),
       children: [
-        CommandDialogField(label: 'Create in', child: FcTextField(controller: _destination, enabled: false)),
         CommandDialogField(
-          label: 'File name',
+          label: context.strings.tr('Create in'),
+          child: FcTextField(controller: _destination, enabled: false),
+        ),
+        CommandDialogField(
+          label: context.strings.tr('File name'),
           child: FcTextField(
             controller: _name,
             autofocus: true,

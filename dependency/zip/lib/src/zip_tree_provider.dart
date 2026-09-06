@@ -42,9 +42,14 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
     required ZipIndex index,
     required this.credentials,
     LocalCopySession? session,
+    Strings? strings,
   }) : _host = host,
        _index = index,
-       _session = session;
+       _session = session,
+       strings = strings ?? StringsRegistry();
+
+  /// Строки на языке человека: об архиве рассказывают ещё до начала работы.
+  final Strings strings;
 
   /// Схема для строк пути: `…/archive.zip:zip:/inner/doc.txt`.
   static const String schemeName = 'zip';
@@ -71,6 +76,7 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
     required StagingArea staging,
     required Credentials credentials,
     void Function(int bytes)? onBytes,
+    Strings? strings,
   }) async {
     final session = LocalCopySession(staging, prefix: 'flex_commander_zip');
 
@@ -87,6 +93,7 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
           index: index,
           credentials: credentials,
           staging: staging,
+          strings: strings,
         );
       }
 
@@ -103,10 +110,18 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
           credentials: credentials,
           staging: staging,
           copy: session,
+          strings: strings,
         );
       }
 
-      return ZipTreeProvider._(archivePath: path, host: host, index: index, credentials: credentials, session: session);
+      return ZipTreeProvider._(
+        archivePath: path,
+        host: host,
+        index: index,
+        credentials: credentials,
+        session: session,
+        strings: strings,
+      );
     } on Object {
       // Битый архив или отмена: копия не должна пережить неудачу.
       await session.purge();
@@ -403,7 +418,11 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
   Future<Uint8List> _readEntry(ZipEntry entry) async {
     final name = entry.entryName;
     final path = '$archivePath:$schemeName:/$name';
-    var request = CredentialRequest(realm: realmOf(archivePath), title: 'Encrypted archive', message: _host.name);
+    var request = CredentialRequest(
+      realm: realmOf(archivePath),
+      title: strings.tr('Encrypted archive'),
+      message: _host.name,
+    );
 
     while (true) {
       try {

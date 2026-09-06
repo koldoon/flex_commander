@@ -38,10 +38,15 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
     required this.credentials,
     String? password,
     LocalCopySession? session,
+    Strings? strings,
   }) : _host = host,
        _listing = listing,
        _password = password,
-       _session = session;
+       _session = session,
+       strings = strings ?? StringsRegistry();
+
+  /// Строки на языке человека: об архиве рассказывают ещё до начала работы.
+  final Strings strings;
 
   /// Схема для строк пути: `…/archive.7z:7z:/inner/doc.txt`.
   static const String schemeName = '7z';
@@ -60,12 +65,13 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
     required SevenZipCli cli,
     required Credentials credentials,
     void Function(int bytes)? onBytes,
+    Strings? strings,
   }) async {
     final session = LocalCopySession(staging, prefix: 'flex_commander_7z');
 
     try {
       final path = await session.localPathOf(host, onBytes: onBytes);
-      final unlocked = await _list(path, cli: cli, credentials: credentials, name: host.name);
+      final unlocked = await _list(path, cli: cli, credentials: credentials, name: host.name, strings: strings);
 
       // Архив не на диске пишущий, если копию есть кому вернуть: обновлённый
       // архив уезжает обратно хозяину (`WriteBack`).
@@ -79,6 +85,7 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
           password: unlocked.password,
           staging: staging,
           copy: session.copied == 0 ? null : session,
+          strings: strings,
         );
       }
 
@@ -93,6 +100,7 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
         credentials: credentials,
         password: unlocked.password,
         session: session,
+        strings: strings,
       );
     } on Object {
       // Битый архив, нет программы, отмена: копия не должна пережить неудачу.
@@ -112,8 +120,13 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
     required SevenZipCli cli,
     required Credentials credentials,
     required String name,
+    Strings? strings,
   }) async {
-    var request = CredentialRequest(realm: realmOf(path), title: 'Encrypted archive', message: name);
+    var request = CredentialRequest(
+      realm: realmOf(path),
+      title: (strings ?? StringsRegistry()).tr('Encrypted archive'),
+      message: name,
+    );
     String? password;
 
     while (true) {
@@ -287,7 +300,7 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
       // Записи бывают зашифрованы поодиночке — оглавление при этом читается без
       // пароля. Спрашиваем до чтения: поток иначе сорвался бы на первом байте.
       final credential = await credentials.obtain(
-        CredentialRequest(realm: realmOf(archivePath), title: 'Encrypted archive', message: _host.name),
+        CredentialRequest(realm: realmOf(archivePath), title: strings.tr('Encrypted archive'), message: _host.name),
       );
       _password = credential?.password;
       if (_password == null) {

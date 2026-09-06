@@ -53,7 +53,8 @@ class SevenZipArchiver implements FcBackendModule, FcFrontendModule {
       // Архив внутри архива сперва оказывается на диске, но где именно —
       // знает не архиватор: место под временные файлы даёт приложение.
       () => TaskOperation<FsNode, TreeProvider>((op, host) {
-        op.message('Reading ${host.name}…');
+        final strings = registry.services.resolve<Strings>();
+        op.message(strings.tr('Reading {name}…', args: {'name': host.name}));
         return ProviderRegistry.keepUnlessCanceled(
           op,
           SevenZipTreeProvider.open(
@@ -65,7 +66,12 @@ class SevenZipArchiver implements FcBackendModule, FcFrontendModule {
             credentials: registry.services.resolve<Credentials>(),
             // Копирование архива во временный файл — самая долгая часть
             // открытия, и о ней стоит рассказывать.
-            onBytes: (bytes) => op.report(message: 'Reading ${host.name}…', bytesTransferred: bytes),
+            onBytes:
+                (bytes) => op.report(
+                  message: strings.tr('Reading {name}…', args: {'name': host.name}),
+                  bytesTransferred: bytes,
+                ),
+            strings: strings,
           ),
         );
       }),
@@ -75,25 +81,26 @@ class SevenZipArchiver implements FcBackendModule, FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.strings('ru', {'7z archives': 'Архивы 7z'});
+    registry.strings('ru', _russian);
 
     // Раздел тот же, что у ядровой половины: имя одно на модуль, а файл
     // настроек принадлежит ядру.
     final settings = registry.settings;
 
-    registry.settingsSchema(
-      () => SettingsSchema([
+    registry.settingsSchema(() {
+      final strings = registry.services.resolve<Strings>();
+      return SettingsSchema([
         SettingsField.text(
           'binary',
-          title: '7z program',
-          hint: 'found on PATH',
-          description: 'Full path — for when it is installed somewhere unusual',
-          note: 'Applies to the next archive opened',
+          title: strings.tr('7z program'),
+          hint: strings.tr('found on PATH'),
+          description: strings.tr('Full path — for when it is installed somewhere unusual'),
+          note: strings.tr('Applies to the next archive opened'),
           read: () => settings.section(SevenZipSettings.new).binary,
           write: (value) => settings.section(SevenZipSettings.new).binary = value,
         ),
-      ], save: settings.save),
-    );
+      ], save: settings.save);
+    });
 
     // Упаковка — такое же действие, как копирование, и живёт там же, где
     // формат: про 7z знает только этот модуль.
@@ -101,3 +108,28 @@ class SevenZipArchiver implements FcBackendModule, FcFrontendModule {
     registry.binding(KeyBinding('Shift-F7', CreateSevenZipArchiveCommand.commandId));
   }
 }
+
+/// Русские строки архивов 7z.
+const Map<String, String> _russian = {
+  '7z archives': 'Архивы 7z',
+  'Mk 7z': '7z',
+  'Pack the selected items into a new 7z archive': 'Упаковать выбранное в новый архив 7z',
+  'Packing…': 'Упаковка…',
+  'Create': 'Создать',
+  'Create in': 'Создать в',
+  'Archive name': 'Имя архива',
+  'Follow symlinks': 'Идти по ссылкам',
+  'Compression': 'Сжатие',
+  'Reading {name}…': 'Чтение {name}…',
+  'Encrypted archive': 'Зашифрованный архив',
+  'Writing to «{name}» rewrites the whole archive. Continue?':
+      'Запись в «{name}» перезаписывает архив целиком. Продолжить?',
+  'Writing to «{name}» rewrites the whole archive and sends it back{volume}. Continue?':
+      'Запись в «{name}» перезаписывает архив целиком и отправляет его обратно{volume}. Продолжить?',
+
+  // Настройки.
+  '7z program': 'Программа 7z',
+  'found on PATH': 'найдена в PATH',
+  'Full path — for when it is installed somewhere unusual': 'Полный путь — если она стоит в необычном месте',
+  'Applies to the next archive opened': 'Подействует на следующий открытый архив',
+};

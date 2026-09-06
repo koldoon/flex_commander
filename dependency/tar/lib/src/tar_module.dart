@@ -36,7 +36,8 @@ class TarArchiver implements FcBackendModule, FcFrontendModule {
     registry.provider(
       TarTreeProvider.schemeName,
       () => TaskOperation<FsNode, TreeProvider>((op, host) {
-        op.message('Reading ${host.name}…');
+        final strings = registry.services.resolve<Strings>();
+        op.message(strings.tr('Reading {name}…', args: {'name': host.name}));
         return ProviderRegistry.keepUnlessCanceled(
           op,
           TarTreeProvider.open(
@@ -46,12 +47,19 @@ class TarArchiver implements FcBackendModule, FcFrontendModule {
             staging: registry.services.resolve<StagingArea>(),
             // Для `.tar.gz` это и есть распаковка: самая долгая часть
             // открытия, и молчать о ней нельзя.
-            onBytes: (bytes) => op.report(message: 'Reading ${host.name}…', bytesTransferred: bytes),
+            onBytes:
+                (bytes) => op.report(
+                  message: strings.tr('Reading {name}…', args: {'name': host.name}),
+                  bytesTransferred: bytes,
+                ),
             // Оглавления у формата нет, и открытие стоит прохода по всему
             // файлу: на большом архиве это единственное, что говорит о работе,
             // и единственное место, где слышно `Esc`.
             checkpoint: op.checkpoint,
-            onEntries: (entries) => op.message('Reading ${host.name}… $entries entries'),
+            onEntries:
+                (entries) => op.message(
+                  strings.tr('Reading {name}… {count} entries', args: {'name': host.name, 'count': entries}),
+                ),
           ),
         );
       }),
@@ -69,7 +77,7 @@ class TarArchiver implements FcBackendModule, FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.strings('ru', {'Tar archives': 'Архивы tar'});
+    registry.strings('ru', _russian);
 
     // Упаковка — такое же действие, как копирование, и живёт там же, где
     // формат. Клавиши ей не досталось: `Shift-F5` у zip, `Shift-F7` у 7z, а
@@ -83,3 +91,25 @@ class TarArchiver implements FcBackendModule, FcFrontendModule {
     registry.command((context) => CreateGzipCommand());
   }
 }
+
+/// Русские строки архивов tar.
+///
+/// Названия форматов приходят значением (`TarFormat.title`) — переводит их тот,
+/// кто показывает; здесь они и объявлены.
+const Map<String, String> _russian = {
+  'Tar archives': 'Архивы tar',
+  'Mk Tar': 'Tar',
+  'Pack the selected items into a new tar, tar.gz or tgz archive': 'Упаковать выбранное в новый tar, tar.gz или tgz',
+  'Mk Gz': 'Gz',
+  'Compress a single file into a new gz file': 'Сжать один файл в новый gz',
+  'Packing…': 'Упаковка…',
+  'Compressing…': 'Сжатие…',
+  'Create': 'Создать',
+  'Create in': 'Создать в',
+  'Archive name': 'Имя архива',
+  'File name': 'Имя файла',
+  'Follow symlinks': 'Идти по ссылкам',
+  'Format': 'Формат',
+  'Reading {name}…': 'Чтение {name}…',
+  'Reading {name}… {count} entries': 'Чтение {name}… записей: {count}',
+};
