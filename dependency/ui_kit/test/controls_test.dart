@@ -236,69 +236,7 @@ void main() {
     });
   });
 
-  group('переключатель', () {
-    testWidgets('выбирается ровно один вариант', (tester) async {
-      var choice = 'copy';
-      await pumpInDialogColumn(
-        tester,
-        StatefulBuilder(
-          builder:
-              (context, setState) => FcRadioGroup<String>(
-                options: const {'copy': 'Copy', 'move': 'Move'},
-                value: choice,
-                onChanged: (next) => setState(() => choice = next),
-              ),
-        ),
-      );
-
-      await tester.tap(find.text('Move'));
-      await tester.pump();
-      expect(choice, 'move');
-
-      await tester.tap(find.text('Copy'));
-      await tester.pump();
-      expect(choice, 'copy');
-    });
-
-    testWidgets('варианты разделены общим зазором окна', (tester) async {
-      // `checkboxGap` здесь не годится: он про расстояние от знака до его
-      // метки, внутри варианта. Между вариантами — то же, что между строками
-      // окна и кнопками в его ряду.
-      await pumpInDialogColumn(
-        tester,
-        const FcRadioGroup<String>(
-          options: {'copy': 'Copy', 'move': 'Move'},
-          value: 'copy',
-          onChanged: null,
-          direction: Axis.horizontal,
-        ),
-      );
-
-      final Rect first = tester.getRect(find.text('Copy'));
-      final Rect second = tester.getRect(find.text('Move'));
-      final double gap = const DefaultMetrics().dialogGap;
-
-      // Между вариантами: конец подписи, знак второго и зазоры вокруг него.
-      expect(second.left - first.right, greaterThanOrEqualTo(gap));
-    });
-
-    testWidgets('порядок вариантов — порядок карты', (tester) async {
-      await pumpInDialogColumn(
-        tester,
-        const FcRadioGroup<String>(
-          options: {'copy': 'Copy', 'move': 'Move', 'link': 'Link'},
-          value: 'copy',
-          onChanged: null,
-        ),
-      );
-
-      final copy = tester.getTopLeft(find.text('Copy')).dy;
-      final move = tester.getTopLeft(find.text('Move')).dy;
-      final link = tester.getTopLeft(find.text('Link')).dy;
-      expect(copy, lessThan(move));
-      expect(move, lessThan(link));
-    });
-  });
+  group('переключатель', () {});
 
   group('текст', () {
     testWidgets('подпись и значение набираются разными стилями', (tester) async {
@@ -317,25 +255,5 @@ void main() {
     });
   });
 
-  group('переключатель в ряд', () {
-    testWidgets('переносится, а не вылезает за край', (tester) async {
-      // Сколько места дадут — модуль не знает, и ряд с длинными подписями
-      // должен переноситься, а не рисовать полосатую «переполненность».
-      await pumpInDialogColumn(
-        tester,
-        const FcRadioGroup<String>(
-          direction: Axis.horizontal,
-          options: {'a': 'Store', 'b': 'Fast', 'c': 'Normal', 'd': 'Best'},
-          value: 'a',
-          onChanged: null,
-        ),
-        width: 200,
-      );
-
-      expect(tester.takeException(), isNull);
-      for (final title in ['Store', 'Fast', 'Normal', 'Best']) {
-        expect(find.text(title), findsOneWidget);
-      }
-    });
-  });
+  group('переключатель в ряд', () {});
 }

@@ -79,32 +79,4 @@ void main() {
 
     expect(tester.getSize(find.byType(FcCheckbox)), before);
   });
-
-  testWidgets('переключатель не растёт от фокуса', (tester) async {
-    final node = FocusNode();
-    addTearDown(node.dispose);
-
-    await tester.pumpWidget(
-      MaterialApp(
-        theme: buildThemeData(_theme),
-        home: Scaffold(
-          body: Center(
-            child: FcRadioGroup<String>(
-              options: const {'store': 'Store', 'normal': 'Normal'},
-              value: 'normal',
-              onChanged: (_) {},
-              focusNode: node,
-            ),
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    final before = tester.getSize(find.byType(FcRadioGroup<String>));
-
-    node.requestFocus();
-    await tester.pumpAndSettle();
-
-    expect(tester.getSize(find.byType(FcRadioGroup<String>)), before);
-  });
 }

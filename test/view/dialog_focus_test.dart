@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Окно команды заполняется с клавиатуры: `Tab` обходит его элементы, `Space`
-/// нажимает, стрелки ходят по переключателю.
+/// нажимает, стрелки ходят по вариантам выпадающего списка.
 ///
 /// Проверяется рама вместе с контролами: обход — это их общее свойство, и
 /// поодиночке его не увидеть.
@@ -72,7 +72,7 @@ void main() {
                       ),
                       CommandDialogField(
                         label: 'Compression',
-                        child: FcRadioGroup<String>(
+                        child: FcSelect<String>(
                           options: const {'store': 'Store', 'normal': 'Normal', 'max': 'Max'},
                           value: choice,
                           onChanged: (value) => setState(() => choice = value),
@@ -104,7 +104,7 @@ void main() {
     if (context == null) {
       return null;
     }
-    for (final type in [FcTextField, FcCheckbox, FcRadioGroup<String>, FcButton]) {
+    for (final type in [FcTextField, FcCheckbox, FcSelect<String>, FcButton]) {
       final found = find.ancestor(of: find.byWidget(context.widget), matching: find.byType(type));
       if (found.evaluate().isNotEmpty) {
         return type;
@@ -124,7 +124,7 @@ void main() {
     expect(focusedType(), FcCheckbox);
 
     await tab(tester);
-    expect(focusedType(), FcRadioGroup<String>, reason: 'переключатель — одна остановка, а не три');
+    expect(focusedType(), FcSelect<String>, reason: 'переключатель — одна остановка, а не три');
 
     await tab(tester);
     expect(focusedType(), FcButton, reason: 'Cancel');
@@ -148,7 +148,7 @@ void main() {
     expect(focusedType(), FcButton);
 
     await tab(tester, back: true);
-    expect(focusedType(), FcRadioGroup<String>);
+    expect(focusedType(), FcSelect<String>);
   });
 
   testWidgets('выключенное поле обход пропускает', (tester) async {
@@ -232,26 +232,23 @@ void main() {
     expect(dismisses, 2, reason: 'и с кнопки: Esc — это выход, он не зависит от фокуса');
   });
 
-  testWidgets('стрелки ходят по переключателю и не уводят фокус наружу', (tester) async {
+  testWidgets('стрелки ходят по вариантам списка и не уводят фокус наружу', (tester) async {
     await pumpDialog(tester);
     await tester.pumpAndSettle();
     await tab(tester);
     await tab(tester);
-    expect(focusedType(), FcRadioGroup<String>);
+    expect(focusedType(), FcSelect<String>);
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    // Вниз и вверх меняют значение, не раскрывая список: выбор соседнего
+    // варианта — самое частое дело, и лишнего нажатия оно не стоит.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
     expect(choice, 'max');
 
-    // По кругу: за последним снова первый.
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
     await tester.pumpAndSettle();
-    expect(choice, 'store');
+    expect(choice, 'normal');
 
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowLeft);
-    await tester.pumpAndSettle();
-    expect(choice, 'max');
-
-    expect(focusedType(), FcRadioGroup<String>, reason: 'стрелка не выводит из группы');
+    expect(focusedType(), FcSelect<String>, reason: 'стрелка не выводит из списка');
   });
 }

@@ -27,7 +27,7 @@ Compression   ( ) Store (•) Normal ( ) Max   ← только мышь
 ## 2. Почему
 
 **Контролы фокуса не знают вовсе.** `FcCheckbox`
-(`dependency/ui_kit/lib/src/controls.dart:40`) и `FcRadioGroup` (там же, `:106`)
+(`dependency/ui_kit/lib/src/controls.dart:40`) и `FcSelect` (там же)
 — это `GestureDetector` вокруг `Row`; ни `FocusNode`, ни обработчика клавиш у
 них нет. `FcButton` (`command_dialog.dart:473`) устроен так же: `StatefulWidget`
 ради подсветки нажатия, но фокуса у него тоже нет.
@@ -67,7 +67,7 @@ Compression   ( ) Store (•) Normal ( ) Max   ← только мышь
 
 ### 4.2. Фокус у контролов
 
-`FcCheckbox`, `FcRadioGroup`, `FcButton` получают:
+`FcCheckbox`, `FcSelect`, `FcButton` получают:
 
 * необязательный `focusNode` — на случай, когда узел нужен снаружи (окно хочет
   поставить фокус именно сюда);
@@ -132,7 +132,7 @@ Compression   ( ) Store (•) Normal ( ) Max   ← только мышь
 |---|---|
 | `dependency/api/lib/src/theme/app_colors.dart` | роль `focusRing` с умолчанием |
 | `dependency/default_theme/lib/src/default_colors.dart` | значение роли |
-| `dependency/ui_kit/lib/src/controls.dart` | фокус и клавиши у `FcCheckbox`, `FcRadioGroup` |
+| `dependency/ui_kit/lib/src/controls.dart` | фокус и клавиши у `FcCheckbox`, `FcSelect` |
 | `dependency/ui_kit/lib/src/command_dialog.dart` | то же у `FcButton`, обводка у `FcTextField` |
 | `lib/view/dialogs/dialog_frame.dart` | `FocusTraversalGroup`, `skipTraversal` у узла рамы |
 | `docs/widgets.md` | раздел про фокус в окне — туда же, где остальное про окна |

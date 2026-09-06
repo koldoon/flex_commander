@@ -32,13 +32,11 @@ class _BriefViewOptionsState extends State<BriefViewOptions> {
           // С оговоркой: «Columns» в справке — это колонки таблицы, а здесь
           // столбцы имён (`docs/spec/localization.md`, §3).
           label: strings.tr('Columns', context: 'brief'),
-          child: FcRadioGroup<int>(
-            // В ряд: вариантов немного, и все они короткие.
-            direction: Axis.horizontal,
+          child: FcSelect<int>(
             value: settings.briefColumns,
             options: {
               PanelsSettings.autoColumns: strings.tr('As many as fit'),
-              for (var count = 2; count <= 5; count++) count: '$count',
+              for (var count = 2; count <= PanelsSettings.maxColumns; count++) count: '$count',
             },
             onChanged: (value) {
               setState(() => settings.briefColumns = value);

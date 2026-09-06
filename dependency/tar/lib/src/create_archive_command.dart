@@ -280,9 +280,8 @@ class _CreateArchiveFormState extends State<_CreateArchiveForm> {
         ),
         CommandDialogField(
           label: context.strings.tr('Format'),
-          child: FcRadioGroup<TarFormat>(
-            direction: Axis.horizontal,
-            // Названия уровней приходят значением — переводит их тот, кто
+          child: FcSelect<TarFormat>(
+            // Названия форматов приходят значением — переводит их тот, кто
             // показывает.
             options: {for (final value in TarFormat.values) value: context.strings.tr(value.title)},
             value: run.format,
