@@ -281,6 +281,29 @@ void main() {
       expect(lastState()!.markedPaths, {'/home/docs/deep.txt', '/home/notes.txt', '/home/report.txt'});
     });
 
+    test('пометка приезжает целиком, а не по одному объекту', () async {
+      // Найдено трассировкой на живом. Пометка собиралась поштучно —
+      // `clear` и по `add` на путь, — и каждое изменение уносило стейт: на
+      // десять помеченных десяток событий, и первое из них с **пустым**
+      // набором. Нажатие, пришедшееся на этот миг, собирало новый набор поверх
+      // пустого — так и пропадало помеченное (`docs/spec/client-server.md`,
+      // §5.5).
+      heard.clear();
+      link.tell(const SetMarks(PanelId.left, {'/home/notes.txt', '/home/report.txt', '/home/docs'}, 4));
+      await pumpEventQueue();
+
+      final counts = [
+        for (final event in heard)
+          if (event is PanelChanged && event.panel == PanelId.left && event.state.marksSeq == 4)
+            event.state.markedPaths.length,
+      ];
+
+      // Событий может быть и несколько — обход размеров помеченного каталога
+      // шлёт свои, — но ни одно не вправе унести **недособранную** пометку.
+      expect(counts, isNotEmpty);
+      expect(counts, everyElement(3), reason: 'пометка уезжает целой, а не по дороге');
+    });
+
     test('номер заявки не появляется раньше самой пометки', () async {
       // Пока ядро разбирает чужой путь, случается всё остальное: обход
       // размеров, движение курсора, приход списка. Каждое такое событие уносит

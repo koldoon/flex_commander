@@ -1446,12 +1446,16 @@ class PanelSession {
   /// остальное отбрасывается — объект исчез.
   void _restoreSelection(Set<String>? markedPaths, {Map<String, FsNode> strangers = const {}}) {
     final was = {for (final node in selection.nodes) node.pathString: node};
-    selection.clear();
     if (markedPaths == null || markedPaths.isEmpty) {
+      selection.clear();
       return;
     }
     final here = {for (final node in _nodes) node.pathString: node};
     final directory = _directory?.pathString;
+    // Собирается **сначала**, а кладётся одним разом: пометка, меняющаяся по
+    // одному объекту, на миг пуста — и этот миг видно и строке состояния, и
+    // той стороне границы (`PanelSelection.replaceWith`).
+    final replacement = <FsNode>[];
     for (final path in markedPaths) {
       var node = here[path];
       // Прежний узел годится, только если он **не отсюда**: объект этого
@@ -1463,9 +1467,10 @@ class PanelSession {
       };
       node ??= strangers[path];
       if (node != null) {
-        selection.add(node);
+        replacement.add(node);
       }
     }
+    selection.replaceWith(replacement);
   }
 
   /// Курсор ищется по имени; если объект исчез — встаёт на ближайший индекс

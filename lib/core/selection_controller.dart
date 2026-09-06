@@ -98,6 +98,44 @@ class SelectionController extends ChangeNotifier implements PanelSelection {
     }
   }
 
+  /// Заменить пометку целиком, уведомив один раз.
+  ///
+  /// Порядок — тот, в котором пришли узлы: он же порядок обработки в файловых
+  /// операциях.
+  @override
+  void replaceWith(Iterable<FsNode> nodes) {
+    final replacement = <String, FsNode>{};
+    for (final node in nodes) {
+      if (node is! ParentDirNode) {
+        replacement[node.pathString] = node;
+      }
+    }
+    if (_same(replacement)) {
+      // Ничего не изменилось — и молчим: лишнее уведомление пересобирает
+      // очередь обхода размеров и уносит стейт за границу впустую.
+      return;
+    }
+    _nodes
+      ..clear()
+      ..addAll(replacement);
+    notifyListeners();
+  }
+
+  /// Тот же ли это набор — и в том же ли порядке.
+  bool _same(Map<String, FsNode> other) {
+    if (other.length != _nodes.length) {
+      return false;
+    }
+    final mine = _nodes.keys.iterator;
+    final theirs = other.keys.iterator;
+    while (mine.moveNext() && theirs.moveNext()) {
+      if (mine.current != theirs.current || !identical(_nodes[mine.current], other[theirs.current])) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   @override
   void clear() {
     if (_nodes.isEmpty) {
