@@ -47,13 +47,13 @@ class CreateSevenZipArchiveCommand extends AppCommand {
   @override
   Set<String> get keywords => const {'7zip', 'seven zip', 'archive', 'compress', 'pack', 'lzma'};
 
-  String get dialogTitle => 'Create 7z archive';
+  String get dialogTitle => tr('Create 7z archive');
 
   /// Окно начинается с формы, и фокус нужен полю имени.
 
   @override
   bool isExecutable(CommandContext context) {
-    if (context.panel.busy || _sourcesOf(context).isEmpty) {
+    if (context.panel.busy || !context.panel.hasTargets) {
       return false;
     }
     // Класть архив некуда, если приёмника нет вовсе (панель накрыта показом)
@@ -64,10 +64,34 @@ class CreateSevenZipArchiveCommand extends AppCommand {
   }
 
   /// Что паковать: помеченное, а без пометки — то, что под курсором.
-  List<FileEntry> _sourcesOf(CommandContext context) => [
-    for (final entry in context.targets)
-      if (!entry.isParent) entry,
-  ];
+  ///
+  /// Путями, а не строками списка: помеченное бывает из разных каталогов, и
+  /// строк на всех не хватит (`docs/spec/operation-targets.md`, §4).
+  Set<String> _sourcesOf(CommandContext context) => context.panel.targetPaths;
+
+  /// Имя объекта: у видимой строки — её собственное, у помеченного в соседней
+  /// ветви — последнее звено пути.
+  String _nameOf(CommandContext context, String path) {
+    final seen = context.panel.entries.where((entry) => entry.path == path).firstOrNull;
+    if (seen != null) {
+      return seen.name;
+    }
+    final trimmed = path.endsWith('/') ? path.substring(0, path.length - 1) : path;
+    final slash = trimmed.lastIndexOf('/');
+    return slash < 0 ? trimmed : trimmed.substring(slash + 1);
+  }
+
+  /// Заголовок окна: что делается и над сколькими объектами.
+  ///
+  /// Считается по путям — до показа окна и без обращения к ядру
+  /// (`docs/spec/operation-targets.md`, §2).
+  String titleOf(CommandContext context) {
+    final sources = _sourcesOf(context);
+    if (sources.length == 1) {
+      return '$dialogTitle «${_nameOf(context, sources.single)}»';
+    }
+    return plural(sources.length, one: 'Create 7z archive of {n} item', other: 'Create 7z archive of {n} items');
+  }
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -118,13 +142,16 @@ class CreateSevenZipArchiveCommand extends AppCommand {
 
     final view = context.app.view;
     late final _CreateArchiveRun run;
+    // Один раз: `present` зовут ещё и при возврате работы из фона, а пометку к
+    // тому времени уже сняли.
+    final title = titleOf(context);
 
     void present() {
       late final String dialogId;
       run.close = () => view.closeDialog(dialogId);
       dialogId = view.showDialog(
         DialogSpec(
-          title: dialogTitle,
+          title: title,
           takesFocus: true,
           content: FcAsyncRunDialog(run: run, form: (_) => _CreateArchiveForm(run: run)),
           onSubmit: run.submit,
@@ -136,7 +163,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
     run = _CreateArchiveRun(
       app: context.app,
       commandId: id,
-      title: dialogTitle,
+      title: title,
       failureMessage: '$label failed',
       show: present,
       name: defaultNameOf(context),
@@ -167,7 +194,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
   String defaultNameOf(CommandContext context) {
     final sources = _sourcesOf(context);
     if (sources.length == 1) {
-      return '${sources.single.name}.7z';
+      return '${_nameOf(context, sources.single)}.7z';
     }
     final directory = context.panel.directoryName;
     final name = directory.isEmpty || directory == '/' ? 'archive' : directory;

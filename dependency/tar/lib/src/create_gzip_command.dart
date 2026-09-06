@@ -49,8 +49,13 @@ class CreateGzipCommand extends AppCommand {
     // Ровно один, и не каталог: сжимается **поток**, а не набор файлов.
     // Ссылка сюда проходит — куда она ведёт, выяснится при работе, и вести она
     // может как раз в файл.
-    final sources = _sourcesOf(context);
-    if (sources.length != 1 || sources.single.isDirectory) {
+    final source = _sourceOf(context);
+    if (source == null || source.isDirectory) {
+      return false;
+    }
+    // Пометка при этом должна быть либо пустой, либо той же одной строкой:
+    // помечено несколько — это к `Mk Tar`.
+    if (context.panel.targetPaths.length > 1) {
       return false;
     }
 
@@ -59,17 +64,21 @@ class CreateGzipCommand extends AppCommand {
     return target != null && !target.busy && target.path.isNotEmpty && target.source.canReceive;
   }
 
-  /// Что сжимать: помеченное, а без пометки — то, что под курсором.
-  List<FileEntry> _sourcesOf(CommandContext context) => [
-    for (final entry in context.targets)
-      if (!entry.isParent) entry,
-  ];
+  /// Что сжимать — строка под курсором.
+  ///
+  /// Именно она, а не пометка: работа идёт `Targets.current`, и спрашивать надо
+  /// то же, чем она пойдёт, — иначе проверка и работа говорят о разном
+  /// (`docs/spec/operation-targets.md`, §3).
+  FileEntry? _sourceOf(CommandContext context) {
+    final entry = context.entry;
+    return entry == null || entry.isParent ? null : entry;
+  }
 
   @override
   Future<void> execute(CommandContext context) async {
-    final sources = _sourcesOf(context);
+    final source = _sourceOf(context);
     final target = context.target;
-    if (sources.length != 1 || target == null) {
+    if (source == null || target == null) {
       return;
     }
 
@@ -126,7 +135,7 @@ class CreateGzipCommand extends AppCommand {
       title: dialogTitle,
       failureMessage: '$label failed',
       show: present,
-      name: defaultNameOf(sources.single),
+      name: defaultNameOf(source),
       destinationPath: target.path,
     );
     run.onStart = () => compress(run.name, run);

@@ -27,6 +27,7 @@ class FileInfo implements FcFrontendModule {
   @override
   void installFrontend(FrontendRegistry registry) {
     registry.strings('ru', _russian);
+    registry.plurals('ru', _plurals);
 
     registry.view<FileInfoScreen>((context, state) => FileInfoView(screen: state));
 
@@ -60,6 +61,9 @@ class FileInfo implements FcFrontendModule {
 }
 
 /// Русские строки окна сведений.
+/// Заголовок окна, когда сведения о нескольких объектах сразу.
+const Map<String, PluralForms> _plurals = {'{n} items': (one: '{n} объект', few: '{n} объекта', many: '{n} объектов')};
+
 const Map<String, String> _russian = {
   'File info': 'Сведения о файле',
   'Info': 'Сведения',

@@ -68,6 +68,7 @@ class ZipArchiver implements FcBackendModule, FcFrontendModule {
   @override
   void installFrontend(FrontendRegistry registry) {
     registry.strings('ru', _russian);
+    registry.plurals('ru', _plurals);
 
     registry.command((context) => CreateZipArchiveCommand());
     registry.binding(KeyBinding('Shift-F5', CreateZipArchiveCommand.commandId));
@@ -78,6 +79,16 @@ class ZipArchiver implements FcBackendModule, FcFrontendModule {
 ///
 /// Названия уровней сжатия приходят значением (`ZipCompression.title`), а
 /// заголовок окна пароля — вопросом от ядра: переводит их тот, кто показывает.
+/// Заголовок окна, когда пакуется несколько объектов: их число говорится
+/// честно, а склейкой строк по-русски это не сказать.
+const Map<String, PluralForms> _plurals = {
+  'Create ZIP archive of {n} items': (
+    one: 'Создать архив ZIP из {n} объекта',
+    few: 'Создать архив ZIP из {n} объектов',
+    many: 'Создать архив ZIP из {n} объектов',
+  ),
+};
+
 const Map<String, String> _russian = {
   'Create ZIP archive': 'Создать архив ZIP',
   'Cannot store the link «{name}» in a zip archive': 'Ссылку «{name}» нельзя сохранить в архиве zip',

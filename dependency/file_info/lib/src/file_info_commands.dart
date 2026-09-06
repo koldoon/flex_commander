@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
@@ -26,7 +28,7 @@ class FileInfoCommand extends AppCommand {
   String get description => tr('Everything known about the object under the cursor');
 
   @override
-  bool isExecutable(CommandContext context) => _targetsOf(context).isNotEmpty;
+  bool isExecutable(CommandContext context) => context.panel.hasTargets;
 
   /// Помеченное, а нет пометки — то, что под курсором. Псевдоузел «..» не в
   /// счёт: сведения о нём — это сведения о каталоге, куда он ведёт, и
@@ -39,13 +41,17 @@ class FileInfoCommand extends AppCommand {
 
   @override
   Future<void> execute(CommandContext context) async {
+    final panel = context.panel;
     final targets = _targetsOf(context);
-    if (targets.isEmpty) {
+    if (!panel.hasTargets) {
       return;
     }
 
     final view = context.app.view;
-    final screen = FileInfoScreen(app: context.app, entries: targets, contentOf: context.panel.contentOf);
+    // Окно встаёт с тем, что видно, и дополняется целиком, когда ядро ответит:
+    // помеченного в других каталогах у этой стороны значением нет вовсе
+    // (`docs/spec/operation-targets.md`, §2).
+    final screen = FileInfoScreen(app: context.app, entries: targets, contentOf: panel.contentOf);
     late final String dialogId;
     void close() {
       view.closeDialog(dialogId);
@@ -54,7 +60,8 @@ class FileInfoCommand extends AppCommand {
 
     dialogId = view.showDialog(
       DialogSpec(
-        title: targets.length == 1 ? targets.single.name : '${targets.length} items',
+        // Счёт — по путям: они приезжают полными, и ждать ради числа нечего.
+        title: _titleOf(context),
         takesFocus: true,
         // Разделы те же, что в панели: разметка одна, рама разная.
         content: ListenableBuilder(
@@ -78,5 +85,28 @@ class FileInfoCommand extends AppCommand {
         onDismiss: close,
       ),
     );
+
+    // Окно уже стоит — теперь можно и спросить, что помечено на самом деле.
+    unawaited(panel.allTargets().then(screen.adopt));
+  }
+
+  /// Заголовок: одна вещь — её имя, несколько — их число.
+  ///
+  /// Считается по путям целей: помеченное бывает из разных каталогов, а строк
+  /// своего списка на всех не хватит (`docs/spec/operation-targets.md`, §2).
+  String _titleOf(CommandContext context) {
+    final paths = context.panel.targetPaths;
+    if (paths.length == 1) {
+      final path = paths.single;
+      final seen = context.panel.entries.where((entry) => entry.path == path).firstOrNull;
+      return seen?.name ?? _nameOf(path);
+    }
+    return plural(paths.length, one: '{n} item', other: '{n} items');
+  }
+
+  static String _nameOf(String path) {
+    final trimmed = path.endsWith('/') ? path.substring(0, path.length - 1) : path;
+    final slash = trimmed.lastIndexOf('/');
+    return slash < 0 ? trimmed : trimmed.substring(slash + 1);
   }
 }

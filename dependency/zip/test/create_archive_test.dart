@@ -221,6 +221,26 @@ void main() {
       expect(await File(p.join(target, 'taken.zip')).readAsString(), 'чужое');
     });
 
+    test('имя по умолчанию — из единственной пометки, даже из другого каталога', () async {
+      // Так помечают из дерева: строки чужого каталога в списке панели нет
+      // вовсе (`docs/spec/operation-targets.md`, §5).
+      runtime.app.left.setMarks({p.join(source, 'docs', 'guide.txt')});
+
+      final command = runtime.commands.find(CreateZipArchiveCommand.commandId)! as CreateZipArchiveCommand;
+      final context = CommandContext.of(runtime.app);
+
+      expect(command.defaultNameOf(context), 'guide.txt.zip');
+      expect(command.titleOf(context), 'Create ZIP archive «guide.txt»');
+    });
+
+    test('заголовок говорит, сколько объектов пакуется', () async {
+      runtime.app.left.setMarks({p.join(source, 'notes.txt'), p.join(source, 'docs', 'guide.txt')});
+
+      final command = runtime.commands.find(CreateZipArchiveCommand.commandId)! as CreateZipArchiveCommand;
+
+      expect(command.titleOf(CommandContext.of(runtime.app)), 'Create ZIP archive of 2 items');
+    });
+
     test('пустое имя не проходит', () async {
       runtime.app.left.setCursorToName('notes.txt');
 

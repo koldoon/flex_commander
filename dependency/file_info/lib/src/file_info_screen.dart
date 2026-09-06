@@ -38,7 +38,7 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
     required List<FileEntry> entries,
     required Content Function(FileEntry entry) contentOf,
     this.place = ViewerPlace.fullscreen,
-  }) : _entries = entries,
+  }) : _entries = List.of(entries),
        _contentOf = contentOf {
     _ask();
   }
@@ -48,7 +48,39 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
 
   final Application app;
 
-  final List<FileEntry> _entries;
+  List<FileEntry> _entries;
+
+  /// Принять полный список целей: помеченное в других каталогах у той стороны
+  /// значением не лежит, и оно приезжает от ядра **после** показа окна
+  /// (`docs/spec/operation-targets.md`, §2).
+  ///
+  /// Сводка от этого меняется — она про число объектов и их общий размер, — а
+  /// разделы об одном объекте пересобираются, только если объект и правда стал
+  /// другим: у одной цели окно уже показало о ней всё.
+  void adopt(List<FileEntry> entries) {
+    if (entries.isEmpty || _sameAs(entries)) {
+      return;
+    }
+    final single = entries.length == 1 && (_entries.length != 1 || _entries.single.path != entries.single.path);
+    _entries = List.of(entries);
+    if (single) {
+      _parts.clear();
+      _ask();
+    }
+    notifyListeners();
+  }
+
+  bool _sameAs(List<FileEntry> entries) {
+    if (entries.length != _entries.length) {
+      return false;
+    }
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i].path != _entries[i].path) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   /// Чем прочесть содержимое: сведения о картинке разбирают её заголовок.
   final Content Function(FileEntry entry) _contentOf;

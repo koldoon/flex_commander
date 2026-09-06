@@ -78,6 +78,7 @@ class TarArchiver implements FcBackendModule, FcFrontendModule {
   @override
   void installFrontend(FrontendRegistry registry) {
     registry.strings('ru', _russian);
+    registry.plurals('ru', _plurals);
 
     // Упаковка — такое же действие, как копирование, и живёт там же, где
     // формат. Клавиши ей не досталось: `Shift-F5` у zip, `Shift-F7` у 7z, а
@@ -96,6 +97,15 @@ class TarArchiver implements FcBackendModule, FcFrontendModule {
 ///
 /// Названия форматов приходят значением (`TarFormat.title`) — переводит их тот,
 /// кто показывает; здесь они и объявлены.
+/// Заголовок окна, когда пакуется несколько объектов.
+const Map<String, PluralForms> _plurals = {
+  'Create TAR archive of {n} items': (
+    one: 'Создать архив TAR из {n} объекта',
+    few: 'Создать архив TAR из {n} объектов',
+    many: 'Создать архив TAR из {n} объектов',
+  ),
+};
+
 const Map<String, String> _russian = {
   'Create TAR archive': 'Создать архив TAR',
   'Compress into gz': 'Сжать в gz',

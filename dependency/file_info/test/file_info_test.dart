@@ -67,6 +67,7 @@ void main() {
       provider: InMemoryContentProvider([
         FakeEntry.directory('/home'),
         FakeEntry.directory('/home/docs'),
+        FakeEntry.file('/home/docs/guide.txt', content: utf8.encode('пять'), size: 5),
         FakeEntry.file('/home/notes.txt', content: utf8.encode('раз'), size: 3),
         FakeEntry.file('/home/data.bin', size: 1024),
         FakeEntry.file('/home/half.broken', size: 10),
@@ -115,6 +116,30 @@ void main() {
 
       expect(runtime.app.view.dialogs, hasLength(1));
       expect(runtime.app.view.dialogs.single.title, contains('items'));
+    });
+
+    test('помеченное в другом каталоге видно в заголовке сразу', () async {
+      // Так помечают из дерева: строки чужого каталога в списке нет вовсе
+      // (`docs/spec/operation-targets.md`, §2).
+      runtime.app.left.setMarks({'/home/notes.txt', '/home/docs/guide.txt'});
+      await runtime.commands.create(FileInfoCommand.commandId)!.executeWith();
+
+      expect(runtime.app.view.dialogs, hasLength(1));
+      expect(runtime.app.view.dialogs.single.title, '2 items', reason: 'счёт по путям, ждать его не надо');
+    });
+
+    test('сводка пересчитывается, когда цели приезжают целиком', () async {
+      final screen = await infoOf('notes.txt');
+      expect(screen.isSummary, isFalse);
+
+      final notes = (await runtime.app.leftSession.provider.resolvePath().run('/home/notes.txt'))!;
+      final guide = (await runtime.app.leftSession.provider.resolvePath().run('/home/docs/guide.txt'))!;
+      screen.adopt([entryValueOf(notes), entryValueOf(guide)]);
+
+      expect(screen.isSummary, isTrue);
+      final summary = {for (final row in screen.summary) row.label: row.value};
+      expect(summary['Items'], '2');
+      expect(summary['Size'], contains('8'), reason: '3 и 5 байт из разных каталогов');
     });
   });
 

@@ -82,6 +82,7 @@ class SevenZipArchiver implements FcBackendModule, FcFrontendModule {
   @override
   void installFrontend(FrontendRegistry registry) {
     registry.strings('ru', _russian);
+    registry.plurals('ru', _plurals);
 
     // Раздел тот же, что у ядровой половины: имя одно на модуль, а файл
     // настроек принадлежит ядру.
@@ -110,7 +111,17 @@ class SevenZipArchiver implements FcBackendModule, FcFrontendModule {
 }
 
 /// Русские строки архивов 7z.
+/// Заголовок окна, когда пакуется несколько объектов.
+const Map<String, PluralForms> _plurals = {
+  'Create 7z archive of {n} items': (
+    one: 'Создать архив 7z из {n} объекта',
+    few: 'Создать архив 7z из {n} объектов',
+    many: 'Создать архив 7z из {n} объектов',
+  ),
+};
+
 const Map<String, String> _russian = {
+  'Create 7z archive': 'Создать архив 7z',
   '7z archives': 'Архивы 7z',
   'Mk 7z': '7z',
   'Pack the selected items into a new 7z archive': 'Упаковать выбранное в новый архив 7z',
