@@ -314,11 +314,42 @@ class PanelSession {
   /// спросил.
   Future<List<FileEntry>> namesIn(String path) async {
     final here = provider;
-    final node = await here.resolvePath().run(path == '~' || path == '~/' ? here.homePath : path);
-    if (node is! DirectoryNode) {
-      return const [];
+    final asked = path == '~' || path == '~/' ? here.homePath : path;
+
+    // Спрашивают двое, и спрашивают разное.
+    //
+    // **Строка** набирает путь руками, стоя в источнике: `/srv/da`, `~`. Такой
+    // путь разбирает сам источник — у сервера и дом свой, и корень свой.
+    //
+    // **Вид** говорит путями строк (`FileEntry.path`), а это адреса: у всего,
+    // что не местная файловая система, в них есть схема — `sftp:...`,
+    // `/home/a.zip:zip:/inner`. Источнику такой адрес незнаком: он видел бы в
+    // схеме имя каталога и не нашёл ничего. Дерево на сервере из-за этого не
+    // показывало ни одной ветви (`docs/spec/panel-view-tree.md`, §5).
+    final ResolvedNode? resolved = _isAddress(asked) ? await resolvePath().run(asked) : null;
+    try {
+      final node = resolved != null ? resolved.node : await here.resolvePath().run(asked);
+      if (node is! DirectoryNode) {
+        return const [];
+      }
+      // Читается тем провайдером, которому узел принадлежит, а не тем, в
+      // котором стоит панель: адрес мог увести в другой источник.
+      return [for (final child in await node.provider.listChildren(node)) entryOf(child)];
+    } finally {
+      // Аренда, взятая разбором, тут не нужна: спросили имена, а держит
+      // источник живым панель, которая в нём стоит.
+      await resolved?.release();
     }
-    return [for (final child in await here.listChildren(node)) entryOf(child)];
+  }
+
+  /// Адрес это или путь источника.
+  ///
+  /// Адрес — то, у чего есть чужая схема или несколько частей: `sftp:/srv`,
+  /// `/home/a.zip:zip:/inner`. Всё остальное — путь внутри источника, каким его
+  /// набирает человек.
+  static bool _isAddress(String path) {
+    final parsed = NodePath.parse(path);
+    return parsed.parts.length > 1 || parsed.scheme != NodePath.defaultScheme;
   }
 
   /// Разбирает путь от корня этой панели и отдаёт узел вместе с арендой.

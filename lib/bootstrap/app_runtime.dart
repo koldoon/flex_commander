@@ -3,6 +3,7 @@ import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import '../core/settings_store.dart';
+import '../link/link.dart';
 import '../state/app_controller.dart';
 
 /// Подмена служб при сборке: провайдер, хранилище настроек, окно.
@@ -18,6 +19,7 @@ class AppOverrides {
     this.saveDelay,
     this.toastDuration,
     this.language,
+    this.door,
   });
 
   final TreeProvider? provider;
@@ -49,6 +51,15 @@ class AppOverrides {
   /// его запустили: сотни проверок ищут по английскому тексту
   /// (`docs/spec/localization.md`, §13).
   final String? language;
+
+  /// Обёртка над дверью: чем прогон подменяет линк.
+  ///
+  /// Заведено ради одного — **придержать подтверждения**. На петле ядро
+  /// отвечает в том же кадре, а на порту отстаёт: этой стороне уже помечено
+  /// пятнадцать объектов, а подтверждение идёт про первый. Ошибки этого рода
+  /// на петле не воспроизводятся вовсе, и ловились они только живьём
+  /// (`docs/spec/client-server.md`, §5.5).
+  final Link Function(Link link)? door;
 }
 
 /// Собранное приложение.

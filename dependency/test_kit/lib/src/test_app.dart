@@ -5,6 +5,7 @@ import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flex_commander/link/link.dart';
 import 'package:flex_commander/bootstrap/bootstrap.dart';
 import 'package:flex_commander/modules/app_shell.dart';
 import 'package:flutter/widgets.dart';
@@ -118,6 +119,10 @@ Future<AppRuntime> testApp({
   /// написаны проверки; null — как сказано в настройках, и тогда язык можно
   /// менять на ходу.
   String? language = StringsRegistry.defaultLanguage,
+
+  /// Чем подменить дверь: прогону нужно уметь придержать подтверждения ядра —
+  /// на порту они отстают от нажатий (`AppOverrides.door`).
+  Link Function(Link link)? door,
 }) async {
   // Курсор в прогоне не мигает — ни наш, ни системный.
   //
@@ -162,6 +167,7 @@ Future<AppRuntime> testApp({
       // по английскому тексту (`docs/spec/localization.md`, §13). Русский
       // проверяется там, где проверяется именно он, — своей сборкой.
       language: language,
+      door: door,
     ),
   );
   addTearDown(runtime.dispose);

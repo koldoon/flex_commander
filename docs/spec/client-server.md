@@ -177,7 +177,7 @@ tell(runId, OperationInput)           отмена, ответ, кусок ба�
 openContent(EntryRef, mode)           → разговор: куски содержимого
 checkWriteAccess(EntryRef)            → дадут ли писать (правка спрашивает до чтения)
 openShell(panel, {directory, размер}) → разговор с оболочкой места
-listNames(panel, path)                → имена в каталоге (дополнение по `Tab`)
+listNames(panel, path)                → имена в каталоге (адрес — корню дерева, путь — источнику)
 listTargets(panel)                    → цели значениями (то же, что развернёт `Targets.marked`)
 showFound(panel, runId, {title})      → показать находки работы списком
 startCore()                           → поднять панели там, где их оставили

@@ -54,7 +54,9 @@ Future<AppRuntime> initModules(
 
   // Шаг 3: ядро поднято — открывается дверь.
   final core = coreContainer.get<CoreServer>();
-  final link = LoopbackLink(core);
+  // Дверь может быть подменена прогоном — придержать подтверждения иначе
+  // нечем (`AppOverrides.door`).
+  final Link link = overrides.door?.call(LoopbackLink(core)) ?? LoopbackLink(core);
 
   // Шаг 4: рукопожатие. До него дверь закрыта: тот, кто спросил раньше, ждёт.
   final ready = await link.call(const Handshake()) as CoreReady;

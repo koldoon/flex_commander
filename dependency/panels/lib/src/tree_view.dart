@@ -108,6 +108,16 @@ class TreeViewState extends State<TreeView> {
   /// окно адреса), и дерево обязано идти за ней.
   String? _revealed;
 
+  /// Каталог, за которым панель идёт **по нашей просьбе**; null — дошла.
+  ///
+  /// Пока она идёт, она говорит про **прежний** каталог: на медленном
+  /// источнике — несколько кадров, на сервере — заметно дольше.
+  /// Разворачиваться на это нельзя. Дерево уводило курсор назад, к тому месту,
+  /// откуда его только что подвинули, — и следующий `Space` снимал пометку,
+  /// которую сам же и поставил. Отсюда и мерцание: разворот, шаг курсора,
+  /// новая просьба — и всё сначала (`docs/spec/panel-view-tree.md`, §3).
+  String? _following;
+
   /// Источник, для которого построено дерево: сменился — строить заново.
   String _source = '';
 
@@ -222,6 +232,7 @@ class TreeViewState extends State<TreeView> {
   /// Собрать дерево заново: корень источника и путь до текущего каталога.
   Future<void> _build() async {
     final panel = widget.panel;
+    _following = null;
     _source = panel.source.scheme + panel.source.rootPath;
     _hidden = panel.showHidden;
     _roots
@@ -296,6 +307,7 @@ class TreeViewState extends State<TreeView> {
     // Панель уходит туда сама, и обратной волной дерево разворачивать незачем:
     // оно уже там, где надо.
     _revealed = parent.path;
+    _following = parent.path;
     widget.panel.follow(parent.path, name: branch.name);
   }
 
@@ -578,9 +590,14 @@ class TreeViewState extends State<TreeView> {
       listenable: panel,
       builder: (context, _) {
         // Панель ушла сама — окном адреса, `Bsp`, историей: дерево идёт за ней.
+        // Но сперва надо отличить «ушла сама» от «ещё не дошла туда, куда мы
+        // её послали»: пока она догоняет курсор, она говорит про прежний
+        // каталог, и разворот на него увёл бы курсор назад.
         if (panel.source.scheme + panel.source.rootPath != _source || panel.showHidden != _hidden) {
           WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_build()));
-        } else if (panel.path != _revealed) {
+        } else if (panel.path == _following) {
+          _following = null;
+        } else if (_following == null && panel.path != _revealed) {
           WidgetsBinding.instance.addPostFrameCallback(
             (_) => unawaited(_reveal(panel.path, name: panel.currentEntry?.name)),
           );

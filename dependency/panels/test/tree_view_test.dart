@@ -1,4 +1,6 @@
+import 'dart:async';
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
@@ -6,14 +8,85 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flex_commander/link/link.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// Дверь, придерживающая подтверждения ядра.
+///
+/// На петле ядро отвечает в том же кадре, и такого не бывает; на порту —
+/// бывает всегда: этой стороне помечено уже пятнадцать объектов, а
+/// подтверждение идёт про первый (`docs/spec/client-server.md`, §5.5).
+/// Задержка поддельная, как и время в прогоне: кадр её и двигает.
+class _LaggingDoor implements Link {
+  _LaggingDoor(this._link);
+
+  static const Duration delay = Duration(milliseconds: 100);
+
+  final Link _link;
+  final StreamController<CoreEvent> _events = StreamController<CoreEvent>.broadcast();
+  StreamSubscription<CoreEvent>? _listening;
+
+  @override
+  Stream<CoreEvent> get events {
+    _listening ??= _link.events.listen((event) {
+      Future<void>.delayed(delay, () {
+        if (!_events.isClosed) {
+          _events.add(event);
+        }
+      });
+    });
+    return _events.stream;
+  }
+
+  @override
+  Future<CoreReply> call(CoreRequest request) => _link.call(request);
+
+  @override
+  void tell(CoreRequest request) => _link.tell(request);
+
+  @override
+  bool get isOpen => _link.isOpen;
+
+  @override
+  Future<void> dispose() async {
+    await _listening?.cancel();
+    await _events.close();
+    await _link.dispose();
+  }
+}
+
+/// Источник со **своей схемой** — как сервер по `ssh` или архив.
+///
+/// Всё, что не местная файловая система, называет свои объекты адресами со
+/// схемой: `sftp:/srv/data`. Дерево спрашивает содержимое именно такими
+/// адресами, и это единственное, чем сервер отличается здесь от диска.
+class _RemoteProvider extends InMemoryTreeProvider {
+  _RemoteProvider(super.entries);
+
+  @override
+  String get scheme => 'sftp';
+
+  /// Свой **адрес** источник не понимает — и это не придирка подделки, а то,
+  /// как устроены настоящие: `pathOf` отдаёт путь **без схемы**, и разбирает
+  /// провайдер тоже путь без схемы. Разбирать адреса умеет корень дерева.
+  @override
+  Operation<String, FsNode?> resolvePath() {
+    final inner = super.resolvePath();
+    return TaskOperation<String, FsNode?>((op, path) async {
+      if (path.startsWith('$scheme:')) {
+        return null;
+      }
+      return inner.run(path);
+    });
+  }
+}
 
 /// Дерево каталогов.
 ///
 /// Спецификация — `docs/spec/panel-view-tree.md`.
 void main() {
-  InMemoryTreeProvider provider() => InMemoryTreeProvider([
+  List<FakeEntry> entries() => [
     FakeEntry.directory('/home'),
     FakeEntry.directory('/home/lib'),
     FakeEntry.directory('/home/lib/src'),
@@ -23,7 +96,9 @@ void main() {
     FakeEntry.file('/home/lib/app.dart', size: 1),
     FakeEntry.file('/home/lib/src/panel.dart', size: 1),
     FakeEntry.file('/home/test/panel_test.dart', size: 1),
-  ])..home = '/home';
+  ];
+
+  InMemoryTreeProvider provider() => InMemoryTreeProvider(entries())..home = '/home';
 
   Future<AppRuntime> open(WidgetTester tester, {String at = '/home'}) async {
     final settings = AppSettings(left: PanelSettings.defaults(at), right: PanelSettings.defaults('/home'));
@@ -315,6 +390,82 @@ void main() {
 
     expect(panel.markedPaths, {'/home/lib/src', '/home/test/panel_test.dart'});
     expect(markedRows(tester), 2, reason: 'обе ветви показывают пометку');
+  });
+
+  testWidgets('дерево работает и на источнике со своей схемой', (tester) async {
+    // Найдено на живом: на `ssh` дерево не показывало ничего. Ядро тут ни при
+    // чём — контракт один; расходились **пути**: вид спрашивает адресами
+    // строк, а источник понимает свои пути, и схема в начале была для него
+    // именем каталога (`docs/spec/panel-view-tree.md`, §5).
+    final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
+    final runtime = await testApp(
+      provider: _RemoteProvider(entries())..home = '/home',
+      modules: featureModules(),
+      settings: settings,
+    );
+    await runtime.app.start();
+    tester.view.physicalSize = const Size(900, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+    await runtime.app.left.setView(TreeView.viewId);
+    await tester.pumpAndSettle();
+
+    expect(branches(tester), containsAll(['home', 'lib', 'main.dart']), reason: 'ветви прочитались');
+
+    // И ходит по нему так же: раскрытие читает следующую ветвь.
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Right'));
+    await tester.pumpAndSettle();
+
+    expect(branches(tester), contains('app.dart'), reason: 'ветвь раскрылась и прочиталась');
+  });
+
+  testWidgets('пометка не теряется, пока панель догоняет курсор', (tester) async {
+    // Найдено на живом: в дереве помечают каталоги, удерживая `Space`, и после
+    // полутора десятков помеченное начинает гаснуть, а дерево мерцать.
+    //
+    // Причина — в отставании подтверждений. Каталог панели идёт за курсором
+    // дерева, и пока панель туда добирается, она говорит про **прежний**
+    // каталог. Дерево принимало это за «панель ушла сама» и разворачивалось
+    // обратно, уводя курсор назад, — а следующий `Space` снимал пометку,
+    // которую сам же и поставил (`docs/spec/panel-view-tree.md`, §3).
+    final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
+    final runtime = await testApp(
+      provider: provider(),
+      modules: featureModules(),
+      settings: settings,
+      door: _LaggingDoor.new,
+    );
+    await runtime.app.start();
+    tester.view.physicalSize = const Size(900, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+    await runtime.app.left.setView(TreeView.viewId);
+    await tester.pumpAndSettle();
+
+    final panel = runtime.app.left;
+    // Раскрываем `lib`: дальше курсор пойдёт через границу каталогов, и каждый
+    // шаг заставит панель догонять.
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Right'));
+    await tester.pumpAndSettle();
+
+    const presses = 4;
+    for (var i = 0; i < presses; i++) {
+      runtime.commands.dispatch(KeyCombination.parse('Space'));
+      // Кадр — и следующее нажатие: клавиша повторяется быстрее, чем ядро
+      // успевает подтвердить.
+      await tester.pump(const Duration(milliseconds: 16));
+    }
+    await tester.pumpAndSettle();
+
+    expect(panel.markedPaths, hasLength(presses), reason: 'сколько нажали, столько и помечено');
   });
 
   testWidgets('зажатый Space помечает подряд и ничего не теряет', (tester) async {
