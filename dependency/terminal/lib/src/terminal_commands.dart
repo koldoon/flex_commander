@@ -29,10 +29,10 @@ class FocusCommandLineCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Command line';
+  String get label => tr('Command line');
 
   @override
-  String get description => 'Move the input to the command line below the panels';
+  String get description => tr('Move the input to the command line below the panels');
 
   @override
   Set<String> get keywords => const {'shell', 'prompt', 'type command'};
@@ -60,7 +60,7 @@ class LeaveCommandLineCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Back to panel';
+  String get label => tr('Back to panel');
 
   @override
   bool isExecutable(CommandContext context) => _lineOf(context.app) != null;
@@ -159,10 +159,10 @@ class ToggleTypingCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Typing goes to command line';
+  String get label => tr('Typing goes to command line');
 
   @override
-  String get description => 'Typing in a panel goes to the command line instead of jumping to a name';
+  String get description => tr('Typing in a panel goes to the command line instead of jumping to a name');
 
   @override
   bool isExecutable(CommandContext context) => _lineOf(context.app) != null;
@@ -172,7 +172,9 @@ class ToggleTypingCommand extends AppCommand {
     final options = settings();
     options.typingGoesToLine = !options.typingGoesToLine;
     save();
-    context.app.toasts.show('Typing goes to command line: ${options.typingGoesToLine ? 'On' : 'Off'}');
+    context.app.toasts.show(
+      options.typingGoesToLine ? tr('Typing goes to command line: On') : tr('Typing goes to command line: Off'),
+    );
   }
 }
 
@@ -250,10 +252,10 @@ class ToggleTerminalCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Terminal';
+  String get label => tr('Terminal');
 
   @override
-  String get description => 'The shell, full screen';
+  String get description => tr('The shell, full screen');
 
   /// Оболочку ищут по имени той оболочки, которой пользуются, — или просто
   /// «консоль».
@@ -294,7 +296,7 @@ class ToggleTerminalCommand extends AppCommand {
     if (!hasShell(line?.panel)) {
       // Внутри архива выполнять негде, и молчать об этом нельзя: клавиша
       // нажата, а ничего не произошло.
-      context.app.toasts.show('No shell here');
+      context.app.toasts.show(tr('No shell here'));
       return;
     }
 
@@ -307,7 +309,7 @@ class ToggleTerminalCommand extends AppCommand {
     } on Object catch (error) {
       // На сервере открытие канала — поход по сети, и не удаться оно может.
       // Молчать нельзя: клавиша нажата, а экрана нет.
-      context.app.toasts.show('Shell did not start: $error');
+      context.app.toasts.show(tr('Shell did not start: {error}', args: {'error': error}));
       return;
     }
 
@@ -332,7 +334,7 @@ class CloseRunCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Panels';
+  String get label => tr('Panels');
 
   @override
   bool isExecutable(CommandContext context) {
@@ -362,7 +364,7 @@ class TypeIntoLineCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Type into command line';
+  String get label => tr('Type into command line');
 
   /// Пока под панелью стоит что-то, забирающее клавиши, буквы принадлежат ему.
   ///
@@ -394,7 +396,7 @@ class TypeSpaceCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Space into command line';
+  String get label => tr('Space into command line');
 
   @override
   bool isExecutable(CommandContext context) {
@@ -414,7 +416,7 @@ class EraseInLineCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Erase in command line';
+  String get label => tr('Erase in command line');
 
   @override
   bool isExecutable(CommandContext context) {
@@ -434,7 +436,7 @@ class ClearLineCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Clear command line';
+  String get label => tr('Clear command line');
 
   @override
   bool isExecutable(CommandContext context) {
@@ -463,7 +465,7 @@ class PasteIntoLineCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Paste into command line';
+  String get label => tr('Paste into command line');
 
   /// Пока под панелью стоит что-то, забирающее клавиши, буквы принадлежат ему.
   ///
@@ -502,10 +504,10 @@ class CompletePathCommand extends AppCommand {
   String get id => forward ? commandId : backCommandId;
 
   @override
-  String get label => forward ? 'Complete path' : 'Previous match';
+  String get label => forward ? tr('Complete path') : tr('Previous match');
 
   @override
-  String get description => 'Completes a path by the beginning of a name';
+  String get description => tr('Completes a path by the beginning of a name');
 
   /// Выполнима всегда, пока строка есть — как и `Enter`.
   ///
@@ -569,7 +571,7 @@ class RunCommandLineCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Run';
+  String get label => tr('Run');
 
   /// Пока ввод у строки — выполнима всегда; пока у панели — только в режиме
   /// `mc` и только если есть что выполнять.
@@ -711,10 +713,10 @@ class RunNodeCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Run in terminal';
+  String get label => tr('Run in terminal');
 
   @override
-  String get description => 'Run the executable under the cursor in the internal terminal';
+  String get description => tr('Run the executable under the cursor in the internal terminal');
 
   @override
   Set<String> get keywords => const {'execute', 'launch', 'exec', 'script', 'binary', 'shell'};

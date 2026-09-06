@@ -14,10 +14,10 @@ class TerminalScreenView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return _TerminalFrame(
-      title: 'Terminal',
+      title: context.strings.tr('Terminal'),
       // Выход показан словами, а не клавишей ряда: `F10` внутри принадлежит
       // тому, что там запущено, — `htop` и `mc` им и живут.
-      hint: '⌃O panels',
+      hint: context.strings.tr('⌃O panels'),
       session: screen.session,
     );
   }
@@ -38,9 +38,9 @@ class CommandRunView extends StatelessWidget {
         return _TerminalFrame(
           title: '\$ ${screen.command}',
           hint: switch (code) {
-            null => 'running — ⌃C to interrupt',
-            0 => 'done — press any key',
-            final failed => 'exit $failed — press any key',
+            null => context.strings.tr('running — ⌃C to interrupt'),
+            0 => context.strings.tr('done — press any key'),
+            final failed => context.strings.tr('exit {code} — press any key', args: {'code': failed}),
           },
           failed: code != null && code != 0,
           session: screen.session,

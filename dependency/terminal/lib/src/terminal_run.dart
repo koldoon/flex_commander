@@ -49,7 +49,7 @@ class TerminalRun {
     } catch (error) {
       // Псевдотерминала на этой платформе может не быть вовсе. Молчать нельзя,
       // но и окна ради этого не ставим: сообщения хватает.
-      app.toasts.show('Shell did not start: $error');
+      app.toasts.show(app.strings.tr('Shell did not start: {error}', args: {'error': error}));
       return;
     }
 
@@ -60,7 +60,7 @@ class TerminalRun {
     if (session.running) {
       // Вторая строка ушла бы не в приглашение, а на ввод работающей
       // программы, и человек этого не увидел бы вовсе.
-      app.toasts.show('The shell is busy');
+      app.toasts.show(app.strings.tr('The shell is busy'));
       return;
     }
 

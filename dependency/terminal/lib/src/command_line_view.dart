@@ -182,7 +182,11 @@ class _CommandLineViewState extends State<CommandLineView> {
           SizedBox(width: metrics.columnGap),
           // Что делать дальше — словами: из ряда имён это не очевидно, а
           // догадываться человек не должен.
-          Text('Tab next · Enter accept · Esc cancel', maxLines: 1, style: base.copyWith(color: colors.pathText)),
+          Text(
+            context.strings.tr('Tab next · Enter accept · Esc cancel'),
+            maxLines: 1,
+            style: base.copyWith(color: colors.pathText),
+          ),
         ],
       ),
     );
@@ -278,7 +282,7 @@ class _CommandLineViewState extends State<CommandLineView> {
                 child:
                     !enabled
                         ? Text(
-                          'Shell does not work here',
+                          context.strings.tr('Shell does not work here'),
                           maxLines: 1,
                           style: style.copyWith(color: colors.secondaryText),
                         )

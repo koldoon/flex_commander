@@ -56,7 +56,7 @@ class ShellTerminal implements FcBackendModule, FcFrontendModule, FcModuleLifecy
 
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.strings('ru', {'Terminal': 'Терминал'});
+    registry.strings('ru', _russian);
 
     // Область забирается **сейчас**, пока идёт установка: позже имя раздела
     // уже неизвестно, и настройки уехали бы в чужой.
@@ -65,40 +65,41 @@ class ShellTerminal implements FcBackendModule, FcFrontendModule, FcModuleLifecy
 
     registry.service<ShellSession>((services) => _shell ??= ShellSession(settings: settingsOf));
 
-    registry.settingsSchema(
-      () => SettingsSchema([
+    registry.settingsSchema(() {
+      final strings = registry.services.resolve<Strings>();
+      return SettingsSchema([
         SettingsField.flag(
           'typingGoesToLine',
           defaultValue: false,
-          title: 'Typing goes to the command line',
-          description: 'The mc habit: no jump-to-name by the first letter',
+          title: strings.tr('Typing goes to the command line'),
+          description: strings.tr('The mc habit: no jump-to-name by the first letter'),
           read: () => settingsOf().typingGoesToLine,
           write: (value) => settingsOf().typingGoesToLine = value,
         ),
         SettingsField.flag(
           'runExecutables',
           defaultValue: true,
-          title: 'Enter runs executable files',
-          description: 'A file with the +x bit runs in the terminal instead of going to the system',
+          title: strings.tr('Enter runs executable files'),
+          description: strings.tr('A file with the +x bit runs in the terminal instead of going to the system'),
           read: () => settingsOf().runExecutables,
           write: (value) => settingsOf().runExecutables = value,
         ),
         SettingsField.text(
           'shell',
-          title: 'Shell',
+          title: strings.tr('Shell'),
           hint: r'$SHELL',
-          description: 'Empty means the shell you work in',
-          note: 'Applies to the next session (⌃O)',
+          description: strings.tr('Empty means the shell you work in'),
+          note: strings.tr('Applies to the next session (⌃O)'),
           read: () => settingsOf().shell,
           write: (value) => settingsOf().shell = value,
         ),
         SettingsField.choice(
           'afterCommand',
-          title: 'When a command ends',
-          description: 'What to do with the terminal screen once the command is done',
-          options: const {
-            TerminalSettings.waitAfterCommand: 'Wait for a key',
-            TerminalSettings.hideAfterCommand: 'Hide it',
+          title: strings.tr('When a command ends'),
+          description: strings.tr('What to do with the terminal screen once the command is done'),
+          options: {
+            TerminalSettings.waitAfterCommand: strings.tr('Wait for a key'),
+            TerminalSettings.hideAfterCommand: strings.tr('Hide it'),
           },
           defaultValue: TerminalSettings.defaultAfterCommand,
           read: () => settingsOf().afterCommand,
@@ -107,16 +108,16 @@ class ShellTerminal implements FcBackendModule, FcFrontendModule, FcModuleLifecy
         SettingsField.integer(
           'maxLines',
           defaultValue: TerminalSettings.defaultMaxLines,
-          title: 'Scrollback',
-          unit: 'lines',
+          title: strings.tr('Scrollback'),
+          unit: strings.tr('lines'),
           min: 100,
           max: 200000,
-          note: 'Applies to the next session (⌃O)',
+          note: strings.tr('Applies to the next session (⌃O)'),
           read: () => settingsOf().maxLines,
           write: (value) => settingsOf().maxLines = value,
         ),
-      ], save: settings.save),
-    );
+      ], save: settings.save);
+    });
 
     registry.view<CommandLineState>((context, state) => CommandLineView(state: state));
     registry.view<TerminalScreen>((context, state) => TerminalScreenView(screen: state));
@@ -222,7 +223,7 @@ class InstallCommandLineCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Install command line';
+  String get label => tr('Install command line');
 
   @override
   bool isExecutable(CommandContext context) => true;
@@ -251,7 +252,7 @@ class _FollowShellCommand extends AppCommand {
   String get id => 'terminal.followShell';
 
   @override
-  String get label => 'Follow the shell';
+  String get label => tr('Follow the shell');
 
   @override
   bool isExecutable(CommandContext context) => true;
@@ -286,7 +287,7 @@ class _WarmShellCommand extends AppCommand {
   String get id => 'terminal.warm';
 
   @override
-  String get label => 'Start the shell';
+  String get label => tr('Start the shell');
 
   @override
   bool isExecutable(CommandContext context) => true;
@@ -308,3 +309,62 @@ class _WarmShellCommand extends AppCommand {
     }
   }
 }
+
+/// Русские строки терминала и командной строки.
+const Map<String, String> _russian = {
+  'Terminal': 'Терминал',
+
+  // Команды.
+  'Run': 'Запустить',
+  'Run in terminal': 'Запустить в терминале',
+  'Run the executable under the cursor in the internal terminal': 'Запустить файл под курсором во внутреннем терминале',
+  'Start the shell': 'Открыть оболочку',
+  'The shell, full screen': 'Оболочка на весь экран',
+  'Follow the shell': 'Идти за оболочкой',
+  'Panels': 'Панели',
+  'Back to panel': 'Вернуться к панелям',
+  'Command line': 'Командная строка',
+  'Install command line': 'Показать командную строку',
+  'Move the input to the command line below the panels': 'Перевести ввод в командную строку под панелями',
+  'Type into command line': 'Буква в командную строку',
+  'Space into command line': 'Пробел в командную строку',
+  'Paste into command line': 'Вставить в командную строку',
+  'Erase in command line': 'Стереть в командной строке',
+  'Clear command line': 'Очистить командную строку',
+  'Complete path': 'Дополнить путь',
+  'Previous match': 'Предыдущее совпадение',
+  'Completes a path by the beginning of a name': 'Дополняет путь по началу имени',
+  'Typing goes to command line': 'Печать — в командную строку',
+  'Typing in a panel goes to the command line instead of jumping to a name':
+      'Печать в панели уходит в командную строку, а не ведёт курсор к имени',
+  'Typing goes to command line: On': 'Печать в командную строку: включена',
+  'Typing goes to command line: Off': 'Печать в командную строку: выключена',
+
+  // Сообщения.
+  'No shell here': 'Здесь нет оболочки',
+  'Shell did not start: {error}': 'Оболочка не запустилась: {error}',
+  'The shell is busy': 'Оболочка занята',
+  'Shell does not work here': 'Оболочка здесь не работает',
+  'Tab next · Enter accept · Esc cancel': 'Tab — дальше · Enter — принять · Esc — отмена',
+  '⌃O panels': '⌃O — панели',
+  'running — ⌃C to interrupt': 'идёт — ⌃C прерывает',
+  'done — press any key': 'готово — нажмите любую клавишу',
+  'exit {code} — press any key': 'код {code} — нажмите любую клавишу',
+
+  // Настройки.
+  'Typing goes to the command line': 'Печать уходит в командную строку',
+  'The mc habit: no jump-to-name by the first letter': 'Привычка mc: переход к имени по первой букве не работает',
+  'Enter runs executable files': 'Enter запускает исполняемые файлы',
+  'A file with the +x bit runs in the terminal instead of going to the system':
+      'Файл с битом +x запускается в терминале, а не уходит системе',
+  'Shell': 'Оболочка',
+  'Empty means the shell you work in': 'Пусто — та оболочка, в которой вы работаете',
+  'Applies to the next session (⌃O)': 'Подействует со следующего сеанса (⌃O)',
+  'When a command ends': 'Когда команда закончилась',
+  'What to do with the terminal screen once the command is done':
+      'Что делать с экраном терминала, когда команда отработала',
+  'Wait for a key': 'Ждать клавишу',
+  'Hide it': 'Убрать его',
+  'Scrollback': 'Память экрана',
+  'lines': 'строк',
+};
