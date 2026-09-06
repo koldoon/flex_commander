@@ -181,6 +181,8 @@ class UiContainer extends DI {
       },
     );
 
+    bind<PanelViews>(to: (c) => PanelViewRegistry(frontend.panelViews));
+
     bind<Views>(to: (c) => ViewRegistry(frontend.views));
 
     // Разделы окна настроек: собраны при объявлении, строятся при открытии.
@@ -248,6 +250,7 @@ class UiContainer extends DI {
           theme: c.get<ThemeController>(),
           strings: c.get<Strings>() as StringsRegistry,
           viewports: c.get<PanelViewports>(),
+          panelViews: c.get<PanelViews>(),
           // Списком, а не службой: складывать и упорядочивать — вся работа
           // оболочки с просмотрщиками. Кто возьмётся за файл, спрашивает она.
           viewers: frontend.viewers,

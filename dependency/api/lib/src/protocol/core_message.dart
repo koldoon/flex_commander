@@ -105,12 +105,15 @@ final class ToggleMark extends CoreRequest {
 
 /// Как показывать список: сортировка, колонки, скрытые.
 final class Arrange extends CoreRequest {
-  const Arrange(this.panel, {this.sort, this.columns, this.showHidden});
+  const Arrange(this.panel, {this.sort, this.columns, this.showHidden, this.view});
 
   final PanelId panel;
   final SortSpec? sort;
   final ColumnLayout? columns;
   final bool? showHidden;
+
+  /// Чем показывать каталог; null — вид не трогаем.
+  final String? view;
 }
 
 /// Посчитать размеры всех каталогов текущего каталога.

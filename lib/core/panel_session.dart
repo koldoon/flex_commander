@@ -93,6 +93,7 @@ class PanelSession {
        _registry = registry,
        _editor = editor,
        _columns = settings.columns,
+       _view = settings.view,
        _sort = settings.sort,
        _showHidden = settings.showHidden,
        _lastPath = settings.path {
@@ -226,6 +227,7 @@ class PanelSession {
   String _lastPath;
 
   ColumnLayout _columns;
+  String _view;
   SortSpec _sort;
   bool _showHidden;
 
@@ -817,6 +819,21 @@ class PanelSession {
     _changed();
   }
 
+  /// Чем панель показывает каталог.
+  ///
+  /// Ядро об этом ничего не знает: строка приходит с той стороны, хранится
+  /// здесь и возвращается обратно вместе с состоянием
+  /// (`docs/spec/panel-views.md`, §7).
+  String get view => _view;
+
+  void setView(String value) {
+    if (_view == value) {
+      return;
+    }
+    _view = value;
+    _changed();
+  }
+
   SortSpec get sort => _sort;
 
   /// Сортировка по колонке: та же колонка меняет направление.
@@ -897,6 +914,7 @@ class PanelSession {
       columns: _columns,
       sort: _sort,
       showHidden: _showHidden,
+      view: _view,
     );
   }
 
@@ -934,6 +952,7 @@ class PanelSession {
     sort: _sort,
     columns: columns,
     showHidden: _showHidden,
+    view: _view,
     marked: selection.names,
     markedSize: selection.totalSize,
     markedSizeIsFinal: selectionSizeIsFinal,

@@ -39,3 +39,26 @@ class NoPanelViewports implements PanelViewports {
   @override
   PanelViewportBuilder builderFor(String kind) => (context, panel) => const SizedBox.shrink();
 }
+
+/// Виды панели, объявленные модулями.
+///
+/// Список, а не карта: порядок объявления — это и порядок в окне выбора, а имя
+/// в нём заодно и ключ настройки (`docs/spec/panel-views.md`, §6).
+class PanelViewRegistry implements PanelViews {
+  PanelViewRegistry([List<PanelViewSpec> views = const []]) : _views = List.unmodifiable(views);
+
+  final List<PanelViewSpec> _views;
+
+  @override
+  List<PanelViewSpec> get available => _views;
+
+  @override
+  PanelViewSpec? byId(String id) {
+    for (final view in _views) {
+      if (view.id == id) {
+        return view;
+      }
+    }
+    return null;
+  }
+}

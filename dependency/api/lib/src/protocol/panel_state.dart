@@ -1,4 +1,5 @@
 import '../panel/column_spec.dart';
+import '../settings/app_settings.dart';
 import '../panel/sort_spec.dart';
 import '../values/fs_error.dart';
 import 'file_entry.dart';
@@ -30,6 +31,7 @@ class PanelState {
     this.sort = const SortSpec(),
     required this.columns,
     this.showHidden = false,
+    this.view = PanelSettings.defaultView,
     this.marked = const {},
     this.markedSize = 0,
     this.markedSizeIsFinal = true,
@@ -97,6 +99,11 @@ class PanelState {
   final ColumnLayout columns;
   final bool showHidden;
 
+  /// Чем панель показывает каталог. Выбор человека, а не источника: что
+  /// показано, говорит `SourceInfo.contentKind`
+  /// (`docs/spec/panel-views.md`, §3).
+  final String view;
+
   /// Помеченное — именами: список приезжает отдельно, и связывать пометку с
   /// его порядком нельзя, иначе перечитывание каталога сдвинуло бы её.
   final Set<String> marked;
@@ -125,6 +132,7 @@ class PanelState {
     SortSpec? sort,
     ColumnLayout? columns,
     bool? showHidden,
+    String? view,
     Set<String>? marked,
     int? markedSize,
     bool? markedSizeIsFinal,
@@ -144,6 +152,7 @@ class PanelState {
     generation: generation ?? this.generation,
     sort: sort ?? this.sort,
     columns: columns ?? this.columns,
+    view: view ?? this.view,
     showHidden: showHidden ?? this.showHidden,
     marked: marked ?? this.marked,
     markedSize: markedSize ?? this.markedSize,

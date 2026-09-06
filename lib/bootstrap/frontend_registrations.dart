@@ -29,6 +29,10 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
   /// Виды содержимого панели: имя вида → чем рисовать.
   final Map<String, PanelViewportBuilder> viewports = {};
 
+  /// Виды панели — в порядке объявления модулей: в этом же порядке их и
+  /// показывает окно выбора.
+  final List<PanelViewSpec> panelViews = [];
+
   /// Объявленные просмотрщики — в порядке объявления; по приоритету их
   /// расставит приложение.
   final List<ViewerSpec> viewers = [];
@@ -42,6 +46,9 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
 
   @override
   void install(FcFrontendModule module) => module.installFrontend(this);
+
+  @override
+  void panelView(PanelViewSpec spec) => panelViews.add(spec);
 
   @override
   void strings(String language, Map<String, String> words) => translations.add(language, words);

@@ -16,7 +16,11 @@ class PanelSettings implements Serializable {
     ColumnLayout? columns,
     this.sort = const SortSpec(),
     this.showHidden = false,
+    this.view = defaultView,
   }) : columns = columns ?? ColumnLayout.defaults;
+
+  /// Вид, которым панель показывает каталог, пока не выбрали другой.
+  static const String defaultView = 'table';
 
   static PanelSettings defaults(String path) => PanelSettings(path: path);
 
@@ -34,11 +38,20 @@ class PanelSettings implements Serializable {
   SortSpec sort;
   bool showHidden;
 
+  /// Чем панель показывает каталог: `table`, `brief`, `tree`…
+  ///
+  /// Строка, а не перечислимое: виды приносят модули, и ядру о них знать нечего
+  /// — оно эту строку хранит и возвращает (`docs/spec/panel-views.md`, §7).
+  /// Незнакомое имя не стирается: выключили модуль на один запуск — вид
+  /// вернётся, когда его включат обратно.
+  String view;
+
   @override
   void toMap(Map<String, dynamic> m) {
     m['path'] = path;
     m['cursor'] = cursor;
     m['showHidden'] = showHidden;
+    m['view'] = view;
     // Раскладка колонок и правило сортировки — значения, а не документы:
     // `Serializable` устроен вокруг словаря, а колонки хранятся списком.
     m['sort'] = sort.toJson();
@@ -57,6 +70,7 @@ class PanelSettings implements Serializable {
 
     cursor = extract(cursor, m['cursor']);
     showHidden = extract(showHidden, m['showHidden']);
+    view = extract(view, m['view']);
     sort = SortSpec.fromJson(m['sort']);
     columns = ColumnLayout.fromJson(m['columns']);
   }

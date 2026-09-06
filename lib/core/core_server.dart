@@ -197,10 +197,13 @@ class CoreServer implements CoreHandler {
         session(panel).toggleCurrentMark();
         return null;
 
-      case Arrange(:final panel, :final sort, :final columns, :final showHidden):
+      case Arrange(:final panel, :final sort, :final columns, :final showHidden, :final view):
         final target = session(panel);
         if (columns != null) {
           target.setColumnLayout(columns);
+        }
+        if (view != null) {
+          target.setView(view);
         }
         if (sort != null) {
           target.sortTo(sort);

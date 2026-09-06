@@ -8,3 +8,4 @@ export 'src/file_type_icon.dart';
 export 'src/panel_status_bar.dart';
 export 'src/panel_view.dart';
 export 'src/panels_module.dart';
+export 'src/view_commands.dart';

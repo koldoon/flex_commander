@@ -33,6 +33,7 @@ class AppController extends ChangeNotifier implements Application {
     required AppSettings settings,
     required this.commands,
     PanelViewports? viewports,
+    PanelViews? panelViews,
     List<ViewerSpec> viewers = const [],
     List<NodeInfoProvider> nodeInfoProviders = const [],
     Views? views,
@@ -60,6 +61,9 @@ class AppController extends ChangeNotifier implements Application {
        fileNaming = fileNaming ?? const ReferenceFileNaming(),
        errors = errors ?? ErrorController(),
        viewports = viewports ?? const NoPanelViewports(),
+       // Ни одного вида — панель рисует таблицей: так собирают приложение без
+       // модуля панелей, и это не ошибка.
+       panelViews = panelViews ?? PanelViewRegistry(),
        // По убыванию приоритета — один раз при сборке: спрашивают этот список
        // на каждое открытие файла, а меняться ему больше негде.
        viewers = [...viewers]..sort((a, b) => b.priority.compareTo(a.priority)),
@@ -109,6 +113,10 @@ class AppController extends ChangeNotifier implements Application {
   /// в тесте состояния или в сценарии рисовать нечем и незачем.
   @override
   final PanelViewports viewports;
+
+  /// Виды, которыми человек может показать каталог.
+  @override
+  final PanelViews panelViews;
 
   /// Объявленные просмотрщики, по убыванию приоритета.
   @override

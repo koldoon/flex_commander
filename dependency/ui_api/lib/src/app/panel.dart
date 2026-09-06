@@ -225,6 +225,15 @@ abstract interface class Panel implements ViewportState {
 
   Future<void> setShowHidden(bool value);
 
+  /// Чем панель показывает каталог: имя вида из объявленных модулями.
+  ///
+  /// Выбор человека и настройка **этой** панели. Что показано — каталог,
+  /// находки, просмотрщик — говорит `source.contentKind`, и оно главнее
+  /// (`docs/spec/panel-views.md`, §3).
+  String get view;
+
+  Future<void> setView(String view);
+
   /// Выполнить работу от имени панели.
   ///
   /// Панель на это время становится занятой ([busy]): клавиатура ей больше не

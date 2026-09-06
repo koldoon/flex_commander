@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 
 import '../app/application.dart';
 import '../app/node_info.dart';
+import '../app/panel_view_spec.dart';
 import '../app/panel_viewport.dart';
 import '../app/viewer_spec.dart';
 import '../app/views.dart';
@@ -78,6 +79,12 @@ abstract interface class FrontendRegistry {
 
   /// Чем рисовать содержимое панели для источников, объявивших этот вид.
   void viewport(String kind, PanelViewportBuilder builder);
+
+  /// Вид панели: чем человек может показать каталог.
+  ///
+  /// Не путать с [viewport]: там — что показано (решает источник), здесь — как
+  /// показано (решает человек, `docs/spec/panel-views.md`, §3).
+  void panelView(PanelViewSpec spec);
 
   /// Провайдер сведений об узле: что этот модуль знает о файле.
   ///

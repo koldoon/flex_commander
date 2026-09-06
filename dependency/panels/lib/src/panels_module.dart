@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'file_table.dart';
+import 'view_commands.dart';
 import 'panel_view.dart';
 
 /// Файловые панели.
@@ -32,6 +33,47 @@ class Panels implements FcFrontendModule {
     // Панель — тоже состояние области, и рисуется тем же механизмом, что всё
     // остальное: ядро не знает, чем показывают файлы.
     registry.view<Panel>((context, panel) => PanelView(panel: panel));
+
+    // Таблица — вид по умолчанию, и объявляется она так же, как остальные:
+    // отдельного «встроенного» вида нет, иначе виды делились бы на свои и
+    // чужие (`docs/spec/panel-views.md`, §6).
+    registry.panelView(
+      PanelViewSpec(
+        id: PanelSettings.defaultView,
+        title: 'Table',
+        description: 'Name, size, date — everything in columns',
+        build: (context, panel) => FileTable(panel: panel),
+      ),
+    );
+
+    registry.command((context) => SetPanelViewCommand());
+    registry.command((context) => ChoosePanelViewCommand());
+
+    // Выбор вида — для той панели, которую назвали: слева и справа он свой.
+    // Привычка `mc`, где этими же клавишами меняют диск.
+    registry.binding(
+      KeyBinding(
+        'Alt-F1',
+        ChoosePanelViewCommand.commandId,
+        parameters: {SetPanelViewCommand.panelParam: SetPanelViewCommand.leftPanel},
+      ),
+    );
+    registry.binding(
+      KeyBinding(
+        'Alt-F2',
+        ChoosePanelViewCommand.commandId,
+        parameters: {SetPanelViewCommand.panelParam: SetPanelViewCommand.rightPanel},
+      ),
+    );
+    // Быстрая клавиша своего вида: каждый вид привязывает её сам, и таблица —
+    // не исключение.
+    registry.binding(
+      KeyBinding(
+        'Cmd-1',
+        SetPanelViewCommand.commandId,
+        parameters: {SetPanelViewCommand.viewParam: PanelSettings.defaultView},
+      ),
+    );
   }
 }
 
@@ -53,6 +95,15 @@ const Map<String, String> _russian = {
   'Accessed': 'Открыт',
   'Attributes': 'Атрибуты',
   'Reset columns': 'Вернуть колонки',
+
+  // Виды панели.
+  'Table': 'Таблица',
+  'Name, size, date — everything in columns': 'Имя, размер, дата — всё колонками',
+  'Panel view': 'Вид панели',
+  'Show the directory another way': 'Показать каталог по-другому',
+  'Panel view…': 'Вид панели…',
+  'Choose how this panel shows the directory': 'Выбрать, чем эта панель показывает каталог',
+  'Show': 'Показать',
 
   // Строка состояния.
   '(Scanning…)': '(идёт подсчёт…)',

@@ -312,6 +312,12 @@ class PanelMirror extends ChangeNotifier implements Panel {
   @override
   Future<void> setShowHidden(bool value) => _link.call(Arrange(id, showHidden: value));
 
+  @override
+  String get view => _state.view;
+
+  @override
+  Future<void> setView(String view) => _link.call(Arrange(id, view: view));
+
   // --- своя работа ---
 
   /// Работа, которую ведёт экран; null — панель занята чем-то ядровым или

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../background/operations.dart';
 import '../commands/command_service.dart';
 import 'errors.dart';
+import 'panel_view_spec.dart';
 import 'panel_viewport.dart';
 import 'viewport.dart';
 import 'node_info.dart';
@@ -114,6 +115,10 @@ abstract interface class Application implements Listenable {
 
   /// Чем рисуется содержимое панелей.
   PanelViewports get viewports;
+
+  /// Виды, которыми человек может показать каталог
+  /// (`docs/spec/panel-views.md`).
+  PanelViews get panelViews;
 
   /// Объявленные провайдеры сведений, по убыванию приоритета.
   ///

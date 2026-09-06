@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter/material.dart';
 
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -54,10 +55,25 @@ class PanelView extends StatelessWidget {
           footer: PanelStatusBar(panel: panel),
           // Не таблица файлов, а то, чем рисуется вид содержимого панели:
           // результаты поиска и просмотрщики — такие же жильцы панели, как и
-          // файлы.
-          child: app.viewports.builderFor(panel.source.contentKind)(context, panel),
+          // файлы. Каталог же человек показывает как хочет — своим видом
+          // (`docs/spec/panel-views.md`, §3).
+          child: _content(context, app, panel),
         ),
       ),
     );
   }
+}
+
+/// Чем рисовать то, что в панели сейчас.
+///
+/// Источник со своим видом содержимого главнее выбора человека: список находок
+/// останется списком находок, чем бы его ни просили рисовать. Каталог рисуется
+/// выбранным видом, а незнакомый вид — таблицей: модуль, объявивший вид, могли
+/// выключить, а показать каталог панель обязана.
+Widget _content(BuildContext context, Application app, Panel panel) {
+  if (panel.source.contentKind != SourceInfo.files) {
+    return app.viewports.builderFor(panel.source.contentKind)(context, panel);
+  }
+  final view = app.panelViews.byId(panel.view);
+  return view != null ? view.build(context, panel) : app.viewports.builderFor(SourceInfo.files)(context, panel);
 }
