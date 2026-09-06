@@ -153,6 +153,7 @@ class CoreContainer extends DI {
           // Настройка спрашивается лениво: раздел читается с диска позже, чем
           // собирается граф.
           allowed: () => c.get<AppSettings>().modules.scope('fc.shell').section(ShellSettings.new).allowElevatedWrites,
+          strings: c.get<Strings>(),
         );
       },
     );
@@ -188,6 +189,7 @@ class CoreContainer extends DI {
             sizeScanConcurrency: () => c.get<AppSettings>().sizeScanConcurrency,
             naming: c.get<FileNaming>(),
             cache: c.get<ListingCache>(),
+            strings: c.get<Strings>(),
           ),
     );
 

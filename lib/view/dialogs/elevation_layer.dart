@@ -30,7 +30,7 @@ class ElevationLayer extends StatelessWidget {
 
         return DialogFrame(
           key: ValueKey('${request.realm}#${request.path}'),
-          title: 'Administrator rights',
+          title: context.strings.tr('Administrator rights'),
           takesFocus: false,
           onSubmit: () => elevation.answer(true),
           onDismiss: () => elevation.answer(false),
@@ -38,8 +38,11 @@ class ElevationLayer extends StatelessWidget {
             // Место названо всегда, даже когда это своя машина: записать
             // `/etc/hosts` от администратора здесь и на чужом сервере — разные
             // по последствиям вещи, и различать их надо глазами.
-            message: '${request.action} ${request.path}\non ${request.where} as administrator?',
-            confirmLabel: 'Continue',
+            message: context.strings.tr(
+              '{action} {path}\non {where} as administrator?',
+              args: {'action': context.strings.tr(request.action), 'path': request.path, 'where': request.where},
+            ),
+            confirmLabel: context.strings.tr('Continue'),
             onCancel: () => elevation.answer(false),
             onConfirm: () => elevation.answer(true),
           ),

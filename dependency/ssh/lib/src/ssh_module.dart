@@ -19,7 +19,7 @@ class SshFileSystem implements FcBackendModule {
 
   @override
   void installBackend(BackendRegistry registry) {
-    registry.strings('ru', {'SSH file system': 'Файловая система по SSH'});
+    registry.strings('ru', _russian);
 
     // Два имени одного и того же: `ssh://` привычнее по командной строке,
     // `sftp://` — по файловым менеджерам. Разводить их незачем — работа идёт
@@ -32,7 +32,8 @@ class SshFileSystem implements FcBackendModule {
         () => TaskOperation<Uri, TreeProvider>((op, address) {
           // Ни адреса целиком, ни authority: в них бывает пароль, набранный
           // прямо в строке. Хост и протокол говорят ровно то, что нужно.
-          op.message('Connecting to $scheme://${address.host}…');
+          final strings = registry.services.resolve<Strings>();
+          op.message(strings.tr('Connecting to {where}…', args: {'where': '$scheme://${address.host}'}));
           return ProviderRegistry.keepUnlessCanceled(
             op,
             SftpTreeProvider.open(
@@ -41,6 +42,7 @@ class SshFileSystem implements FcBackendModule {
               // Необязательно и лениво: службу объявляет ядро, а спрашивают её
               // только тогда, когда сервер отказал в записи.
               elevation: () => registry.services.resolveAll<ElevatedWrites>().firstOrNull,
+              strings: strings,
             ),
           );
         }),
@@ -48,3 +50,16 @@ class SshFileSystem implements FcBackendModule {
     }
   }
 }
+
+/// Русские строки источника по SSH.
+///
+/// Заголовки окон пароля приходят значением (`CredentialRequest.title`), а не
+/// литералом в вызове: спрашивает эта сторона, а показывает та.
+const Map<String, String> _russian = {
+  'SSH file system': 'Файловая система по SSH',
+  'Reading {path}…': 'Чтение {path}…',
+  'Connecting to {where}…': 'Подключение к {where}…',
+  'Write': 'Записать',
+  'SSH authentication': 'Вход по SSH',
+  'Encrypted key': 'Зашифрованный ключ',
+};

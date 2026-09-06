@@ -73,22 +73,25 @@ class _CredentialsDialogState extends State<_CredentialsDialog> {
     final request = widget.request;
 
     return DialogFrame(
-      title: request.title,
+      // Заголовок и подписи полей приходят значением — от того, кто спросил:
+      // он живёт в ядре и по-русски говорить не обязан. Переводит их тот, кто
+      // показывает (`docs/spec/localization.md`, §3).
+      title: context.strings.tr(request.title),
       // Фокус ставит первое поле: спрашивают пароль — значит, его сейчас и
       // будут набирать.
       takesFocus: true,
       onSubmit: _submit,
       onDismiss: _dismiss,
       child: CommandDialogForm(
-        error: request.retry ? 'Wrong password' : null,
+        error: request.retry ? context.strings.tr('Wrong password') : null,
         onCancel: _dismiss,
         onSubmit: _submit,
-        submitLabel: 'Unlock',
+        submitLabel: context.strings.tr('Unlock'),
         children: [
           CommandDialogField.wide(child: Text(request.message, style: theme.dialogTextStyle)),
           for (final field in request.fields)
             CommandDialogField(
-              label: field.label,
+              label: context.strings.tr(field.label),
               child: FcTextField(
                 controller: _inputs[field.name]!,
                 autofocus: field == request.fields.first,

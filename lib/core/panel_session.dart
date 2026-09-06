@@ -23,7 +23,8 @@ class PanelSessionFactory {
     this.sizeScanConcurrency = _defaultConcurrency,
     this.naming = const ReferenceFileNaming(),
     this.cache,
-  });
+    Strings? strings,
+  }) : strings = strings ?? StringsRegistry();
 
   /// Реестр провайдеров: с какого панель начинает и чем открываются вложенные
   /// источники.
@@ -48,6 +49,9 @@ class PanelSessionFactory {
   /// же, как читала до него.
   final ListingCache? cache;
 
+  /// Строки на языке человека: строку состояния пишет эта сторона.
+  final Strings strings;
+
   PanelSession create(PanelSettings settings) => PanelSession(
     registry: registry,
     editor: editor,
@@ -55,6 +59,7 @@ class PanelSessionFactory {
     sizeScanConcurrency: sizeScanConcurrency,
     naming: naming,
     cache: cache,
+    strings: strings,
   );
 }
 
@@ -83,7 +88,9 @@ class PanelSession {
     this.sizeScanConcurrency = _defaultConcurrency,
     this.naming = const ReferenceFileNaming(),
     this.cache,
-  }) : _registry = registry,
+    Strings? strings,
+  }) : strings = strings ?? StringsRegistry(),
+       _registry = registry,
        _editor = editor,
        _columns = settings.columns,
        _sort = settings.sort,
@@ -146,6 +153,13 @@ class PanelSession {
   /// Общий на обе панели: каталог, прочитанный соседкой, достаётся даром
   /// (`docs/spec/listing-cache.md`).
   final ListingCache? cache;
+
+  /// Строки на языке человека.
+  ///
+  /// Вехи работы формулирует тот, кто работает, — а работает здесь эта сторона
+  /// (`docs/spec/localization.md`, §5). Своих нет — значит английские, как в
+  /// коде.
+  final Strings strings;
 
   final ProviderRegistry _registry;
 
@@ -325,7 +339,7 @@ class PanelSession {
     final requestId = ++_requestId;
     _busy = true;
     _status = PanelPhase.loading;
-    _statusText = 'Loading…';
+    _statusText = strings.tr('Loading…');
     _changed();
 
     // Одна операция на весь разбор — вместе с подключением к адресу.
@@ -557,7 +571,7 @@ class PanelSession {
     final requestId = ++_requestId;
     _busy = true;
     _status = PanelPhase.loading;
-    _statusText = 'Opening ${node.name}…';
+    _statusText = strings.tr('Opening {name}…', args: {'name': node.name});
     _changed();
 
     // Монтирование — операция, и панель держит её у себя: Esc должен прерывать
@@ -585,7 +599,7 @@ class PanelSession {
       // на месте и говорит почему.
       _error = error;
       _status = PanelPhase.error;
-      _statusText = error.message;
+      _statusText = strings.describe(error);
     } finally {
       release();
       if (identical(_operation, mounting)) {
@@ -650,7 +664,7 @@ class PanelSession {
   /// вместе с ней (`AsyncOperation.delegate`).
   void cancel() => _operation?.cancel();
 
-  Future<R> runWork<R>(Future<R> Function(TaskOperation<void, R> op) body, {String status = 'Loading…'}) async {
+  Future<R> runWork<R>(Future<R> Function(TaskOperation<void, R> op) body, {String? status}) async {
     final operation = TaskOperation<void, R>((op, _) => body(op));
 
     // Прежняя работа уступает место, а не отказывает новой: правило то же, что
@@ -659,7 +673,7 @@ class PanelSession {
 
     final requestId = ++_requestId;
     _busy = true;
-    _statusText = status;
+    _statusText = status ?? strings.tr('Loading…');
     _operation = operation;
     // `PanelPhase` нарочно не трогается: панель не перечитывается, и список
     // файлов обязан остаться на виду — читается один файл, а не каталог.
@@ -1066,7 +1080,7 @@ class PanelSession {
       _busy = true;
       _status = PanelPhase.loading;
       _error = null;
-      _statusText = 'Loading…';
+      _statusText = strings.tr('Loading…');
       _changed();
     }
 
@@ -1123,12 +1137,12 @@ class PanelSession {
       // выбрасывается, чтобы следующий приход не показал её опять.
       if (shown != null && error.kind != FsErrorKind.notFound) {
         cache?.forget(dir);
-        _finish(statusText: error.message);
+        _finish(statusText: strings.describe(error));
         return;
       }
       _status = PanelPhase.error;
       _error = error;
-      _finish(statusText: error.message);
+      _finish(statusText: strings.describe(error));
     } finally {
       // Аренда, добытая ради этого каталога, панели не пригодилась: читать не
       // вышло, и держать открытый архив больше некому.
@@ -1382,7 +1396,7 @@ class PanelSession {
     }
 
     _fillPool();
-    _statusText = _scansRunning ? measuringStatus : _statusText;
+    _statusText = _scansRunning ? measuringStatus() : _statusText;
     _changed();
   }
 
@@ -1390,7 +1404,7 @@ class PanelSession {
   ///
   /// На медленном источнике прочерки сменяются числами не сразу, и без этой
   /// строки нажатие выглядит как «ничего не произошло».
-  static const String measuringStatus = 'Measuring directories…';
+  String measuringStatus() => strings.tr('Measuring directories…');
 
   bool get _scansRunning => _scans.isNotEmpty || _scanQueue.isNotEmpty;
 
@@ -1513,7 +1527,7 @@ class PanelSession {
       return;
     }
     _measuringAll = false;
-    if (_statusText == measuringStatus) {
+    if (_statusText == measuringStatus()) {
       _statusText = null;
     }
 
@@ -1555,7 +1569,7 @@ class PanelSession {
     // Уход из каталога подсчёт прекращает: считать то, на что уже не смотрят,
     // незачем.
     _measuringAll = false;
-    if (_statusText == measuringStatus) {
+    if (_statusText == measuringStatus()) {
       _statusText = null;
     }
   }

@@ -40,7 +40,9 @@ class LocalTreeProvider
     PtyLauncher pty = const SystemPtyLauncher(),
     String Function()? shellName,
     ElevatedWrites? Function()? elevation,
-  }) : homePath = homePath ?? _detectHomePath(),
+    Strings? strings,
+  }) : strings = strings ?? StringsRegistry(),
+       homePath = homePath ?? _detectHomePath(),
        _elevation = elevation ?? _noElevation,
        _shell = LocalShellHost(launcher: pty, shellName: shellName ?? _noPreference);
 
@@ -59,6 +61,9 @@ class LocalTreeProvider
   /// панели работает потому, что это умеет **источник**, а не потому, что у
   /// приложения особый случай для «своих» путей.
   final LocalShellHost _shell;
+
+  /// Строки на языке человека: вехи работы видно в строке состояния панели.
+  final Strings strings;
 
   /// Домашний каталог пользователя — сюда открываются панели, если сохранённый
   /// путь недоступен.
@@ -220,7 +225,7 @@ class LocalTreeProvider
       final dir = params.dir;
       final includeHidden = params.includeHidden;
       final path = physicalPathOf(dir);
-      op.report(message: 'Reading ${pathOf(dir)}…');
+      op.report(message: strings.tr('Reading {path}…', args: {'path': pathOf(dir)}));
 
       final entries =
           readInIsolate
@@ -580,7 +585,7 @@ class LocalTreeProvider
         host: this,
         target: path,
         temporary: temporary.path,
-        about: ElevationRequest(action: 'Write', path: path, where: shellLabel),
+        about: ElevationRequest(action: strings.tr('Write'), path: path, where: shellLabel),
         into: temporary.openWrite(),
         removeTemporary: () async {
           if (await temporary.exists()) {

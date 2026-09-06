@@ -24,10 +24,18 @@ import 'remote_content.dart';
 /// это время занята, и знать об этом надо здесь и сейчас — а ядру о том же
 /// говорится строкой состояния, чтобы обе стороны сходились.
 class PanelMirror extends ChangeNotifier implements Panel {
-  PanelMirror({required this.id, required Link link, required PanelState state, required PanelListing listing})
-    : _link = link,
-      _state = state,
-      _listing = listing {
+  PanelMirror({
+    required this.id,
+    required Link link,
+    required PanelState state,
+    required PanelListing listing,
+    Strings? strings,
+  }) : _link = link,
+       _state = state,
+       _listing = listing,
+       // Своя работа тоже рассказывает о себе — и на языке человека. Своих
+       // строк нет — значит английские, как в коде.
+       _strings = strings ?? StringsRegistry() {
     _events = link.events.listen(_apply);
   }
 
@@ -35,6 +43,7 @@ class PanelMirror extends ChangeNotifier implements Panel {
   final PanelId id;
 
   final Link _link;
+  final Strings _strings;
   late final StreamSubscription<CoreEvent> _events;
 
   PanelState _state;
@@ -311,18 +320,19 @@ class PanelMirror extends ChangeNotifier implements Panel {
   String? _workStatus;
 
   @override
-  Future<R> runWork<R>(Future<R> Function(TaskOperation<void, R> op) body, {String status = 'Loading…'}) async {
+  Future<R> runWork<R>(Future<R> Function(TaskOperation<void, R> op) body, {String? status}) async {
     final operation = TaskOperation<void, R>((op, _) => body(op));
+    final said = status ?? _strings.tr('Loading…');
 
     // Прежняя работа уступает место, а не отказывает новой: правило то же, что
     // у чтения каталога, — последнее сказанное человеком главнее.
     _work?.cancel();
 
     _work = operation;
-    _workStatus = status;
+    _workStatus = said;
     // Ядру говорим той же строкой: его половина состояния должна сходиться с
     // нашей, иначе следующее же `PanelChanged` сотрёт наш рассказ о себе.
-    _link.tell(SetStatusText(id, status));
+    _link.tell(SetStatusText(id, said));
     // Ход дела работы — та же строка состояния: человек видит, чем занята
     // панель, а не просто что она занята.
     void onProgress() {

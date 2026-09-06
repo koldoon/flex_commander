@@ -34,6 +34,15 @@ final _pluralOther = RegExp(r"other:\s*'((?:[^'\\]|\\.)*)'");
 /// и найти его иначе нечем.
 final _moduleTitle = RegExp(r"String get title => '((?:[^'\\]|\\.)*)'");
 
+/// Литерал исходника — это текст **с экранированием**, а в словаре лежит его
+/// значение: `\n` в коде и перевод строки в памяти должны сойтись.
+String _unescape(String literal) => literal
+    .replaceAll(r'\n', '\n')
+    .replaceAll(r'\t', '\t')
+    .replaceAll(r"\'", "'")
+    .replaceAll(r'\$', r'$')
+    .replaceAll(r'\\', r'\');
+
 /// Ключ, собранный из литерала с интерполяцией: перевести его нельзя вовсе.
 final _interpolated = RegExp(r"(?<![A-Za-z0-9_$])(?:tr|plural)\(\s*'[^']*\$");
 
@@ -63,13 +72,13 @@ Set<String> _keysInSources() {
   for (final file in _sources()) {
     final source = file.readAsStringSync();
     for (final match in _trCall.allMatches(source)) {
-      keys.add(match.group(1)!);
+      keys.add(_unescape(match.group(1)!));
     }
     for (final match in _pluralOther.allMatches(source)) {
-      keys.add(match.group(1)!);
+      keys.add(_unescape(match.group(1)!));
     }
     for (final match in _moduleTitle.allMatches(source)) {
-      keys.add(match.group(1)!);
+      keys.add(_unescape(match.group(1)!));
     }
   }
   return keys;
@@ -82,7 +91,7 @@ Set<String> _keysInSources() {
 Set<String> _literalsInSources() {
   final all = <String>{};
   for (final file in _sources()) {
-    all.addAll(_literal.allMatches(file.readAsStringSync()).map((m) => m.group(1)!));
+    all.addAll(_literal.allMatches(file.readAsStringSync()).map((m) => _unescape(m.group(1)!)));
   }
   return all;
 }

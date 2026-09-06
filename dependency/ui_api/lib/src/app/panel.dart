@@ -234,5 +234,5 @@ abstract interface class Panel implements ViewportState {
   ///
   /// Это для работы, которую человек **заказал явно** и от которой ждёт нового
   /// экрана: чтение файла на просмотр и на правку.
-  Future<R> runWork<R>(Future<R> Function(TaskOperation<void, R> op) body, {String status});
+  Future<R> runWork<R>(Future<R> Function(TaskOperation<void, R> op) body, {String? status});
 }

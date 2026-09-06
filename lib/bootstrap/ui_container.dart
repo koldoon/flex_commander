@@ -234,7 +234,7 @@ class UiContainer extends DI {
         c.get<SecretsClient>();
 
         PanelMirror mirror(PanelId id, PanelState state, PanelListing listing) =>
-            PanelMirror(id: id, link: link, state: state, listing: listing);
+            PanelMirror(id: id, link: link, state: state, listing: listing, strings: c.get<Strings>());
 
         final ready = _handshake;
 

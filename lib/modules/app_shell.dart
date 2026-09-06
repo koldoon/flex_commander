@@ -41,6 +41,10 @@ class AppShell implements FcBackendModule, FcFrontendModule {
 
   @override
   void installBackend(BackendRegistry registry) {
+    // Своя половина словаря: вехи работы панели пишет ядро, и переводит их оно
+    // же (`docs/spec/localization.md`, §5).
+    registry.strings('ru', _coreRussian);
+
     // Движок один на приложение: состояния у него нет, а источники узлы
     // приносят с собой — в том числе разные у источника и приёмника.
     registry.service<TreeEditor>((services) => const TreeTransferEngine());
@@ -96,7 +100,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.strings('ru', {'Application shell': 'Оболочка приложения', 'Other': 'Прочее'});
+    registry.strings('ru', _russian);
 
     // Пароль нужен файловому менеджеру всегда: архив под паролем, сервер с
     // паролем. Здесь объявлена **экранная** половина: показать вопрос и
@@ -325,3 +329,29 @@ class _WatchBackgroundTasksCommand extends AppCommand {
     BackgroundTasks(context.app);
   }
 }
+
+/// Русские строки оболочки — экранная половина.
+const Map<String, String> _russian = {
+  'Application shell': 'Оболочка приложения',
+  'Other': 'Прочее',
+
+  // Окно пароля.
+  'Password': 'Пароль',
+  'User name': 'Имя пользователя',
+  'Unlock': 'Открыть',
+  'Wrong password': 'Пароль не подошёл',
+
+  // Права администратора.
+  'Administrator rights': 'Права администратора',
+  '{action} {path}\non {where} as administrator?': '{action} {path}\nна {where} от администратора?',
+  'Continue': 'Продолжить',
+};
+
+/// Русские строки оболочки — ядровая половина.
+const Map<String, String> _coreRussian = {
+  'Loading…': 'Чтение…',
+  'Opening {name}…': 'Открывается {name}…',
+  'Measuring directories…': 'Считаются размеры каталогов…',
+  'Administrator rights': 'Права администратора',
+  '{action} {path} on {where} as administrator': '{action} {path} на {where} от администратора',
+};

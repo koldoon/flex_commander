@@ -41,6 +41,7 @@ class LocalFileSystem implements FcBackendModule, FcFrontendModule {
         // Повышение прав — тоже необязательно и тоже лениво: службу объявляет
         // ядро, а провайдер создаётся раньше него.
         elevation: () => services.resolveAll<ElevatedWrites>().firstOrNull,
+        strings: services.resolve<Strings>(),
       ),
     );
 
@@ -68,7 +69,7 @@ class LocalFileSystem implements FcBackendModule, FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.strings('ru', {'Local file system': 'Локальная файловая система'});
+    registry.strings('ru', _russian);
 
     final settings = registry.settings;
 
@@ -98,3 +99,10 @@ class LocalFileSystem implements FcBackendModule, FcFrontendModule {
     registry.service<WindowService>((services) => PluginWindowService());
   }
 }
+
+/// Русские строки локальной файловой системы.
+const Map<String, String> _russian = {
+  'Local file system': 'Локальная файловая система',
+  'Reading {path}…': 'Чтение {path}…',
+  'Write': 'Записать',
+};

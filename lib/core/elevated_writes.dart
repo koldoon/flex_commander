@@ -21,9 +21,17 @@ import 'package:flutter/foundation.dart';
 /// не из обычного ввода, — и именно поэтому запуск программ ([ProcessRunner])
 /// для этого не годится.
 class CoreElevation extends ChangeNotifier implements ElevatedWrites {
-  CoreElevation({required Credentials credentials, required bool Function() allowed, required this.ask})
-    : _credentials = credentials,
-      _allowed = allowed;
+  CoreElevation({
+    required Credentials credentials,
+    required bool Function() allowed,
+    required this.ask,
+    Strings? strings,
+  }) : _credentials = credentials,
+       _allowed = allowed,
+       _strings = strings ?? StringsRegistry();
+
+  /// Строки: окно пароля показывают на той стороне, а составляет вопрос эта.
+  final Strings _strings;
 
   final Credentials _credentials;
   final bool Function() _allowed;
@@ -63,8 +71,11 @@ class CoreElevation extends ChangeNotifier implements ElevatedWrites {
 
     var request = CredentialRequest(
       realm: about.realm,
-      title: 'Administrator rights',
-      message: '${about.action} ${about.path} on ${about.where} as administrator',
+      title: _strings.tr('Administrator rights'),
+      message: _strings.tr(
+        '{action} {path} on {where} as administrator',
+        args: {'action': about.action, 'path': about.path, 'where': about.where},
+      ),
     );
 
     // Повтор — забота спрашивающего: только он знает, подошёл ли пароль.

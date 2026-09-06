@@ -37,9 +37,14 @@ class SftpTreeProvider
     required this.homePath,
     SshConnection? connection,
     ElevatedWrites? Function()? elevation,
+    Strings? strings,
   }) : _sftp = sftp,
        _connection = connection,
-       _elevation = elevation ?? _noElevation;
+       _elevation = elevation ?? _noElevation,
+       strings = strings ?? StringsRegistry();
+
+  /// Строки на языке человека: вехи чтения видно в строке состояния панели.
+  final Strings strings;
 
   /// Повышать нечем: так собирается провайдер в тестах.
   static ElevatedWrites? _noElevation() => null;
@@ -57,6 +62,7 @@ class SftpTreeProvider
     required Credentials credentials,
     String? sshDirectory,
     ElevatedWrites? Function()? elevation,
+    Strings? strings,
   }) async {
     final target = SshTarget.parse(address);
     if (target.host.isEmpty || target.user.isEmpty) {
@@ -72,6 +78,7 @@ class SftpTreeProvider
       homePath: connection.homePath,
       connection: connection,
       elevation: elevation,
+      strings: strings,
     );
   }
 
@@ -174,7 +181,7 @@ class SftpTreeProvider
       final dir = params.dir;
       final includeHidden = params.includeHidden;
       final path = remotePathOf(dir);
-      op.report(message: 'Reading ${pathOf(dir)}…');
+      op.report(message: strings.tr('Reading {path}…', args: {'path': pathOf(dir)}));
 
       final entries = await _sftp.listDirectory(path);
       op.checkCanceled();
@@ -380,7 +387,7 @@ class SftpTreeProvider
       host: this,
       target: path,
       temporary: temporary,
-      about: ElevationRequest(action: 'Write', path: path, where: shellLabel),
+      about: ElevationRequest(action: strings.tr('Write'), path: path, where: shellLabel),
       into: await _sftp.openWrite(temporary),
       removeTemporary: () => _sftp.removeFile(temporary),
     );
