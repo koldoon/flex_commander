@@ -27,7 +27,6 @@ class DialogFrame extends StatefulWidget {
     this.title,
     this.takesFocus = false,
     this.area = DialogArea.window,
-    this.placement = DialogPlacement.center,
     this.ownWidth = false,
   });
 
@@ -44,9 +43,6 @@ class DialogFrame extends StatefulWidget {
   /// Часть окна приложения, над которой встаёт окно. Обычно всё окно, но окно
   /// про названную панель встаёт над ней самой.
   final DialogArea area;
-
-  /// Где окно стоит по высоте: посередине или под верхним краем.
-  final DialogPlacement placement;
 
   /// Окно назначает ширину само — верхний предел рамы к нему не применяется
   /// (`DialogSpec.ownWidth`).
@@ -172,9 +168,11 @@ class _DialogFrameState extends State<DialogFrame> {
             metrics.dialogMinWidth,
             _shift,
             metrics.dialogDragKeepVisible,
-            // Отступ сверху берётся из темы здесь, а не в команде: команда
-            // говорит «под верхним краем», а сколько это точек — оформление.
-            widget.placement == DialogPlacement.top ? metrics.dialogTopInset : null,
+            // Отступ сверху один на все окна и берётся из темы: окно, стоящее
+            // по середине высоты, дёргалось бы при каждой смене содержимого —
+            // палитра растёт по мере набора, окно выбора вида — вслед за
+            // настройками того вида, на котором курсор.
+            metrics.dialogTopInset,
           ),
           child: FocusScope(
             autofocus: true,
@@ -257,12 +255,14 @@ class _OverArea extends SingleChildLayoutDelegate {
   final DialogArea area;
   final double minWidth;
 
-  /// Сколько сверху до окна; null — окно стоит посередине по высоте.
+  /// Сколько сверху до окна — одно число на все окна.
   ///
-  /// Прибитому к верху окну середина не годится: содержимое палитры меняется
-  /// прямо во время набора, и окно, растущее вокруг своей середины, дёргает
-  /// обе границы разом — а смотрят в этот момент в поле ввода у верхней.
-  final double? topInset;
+  /// Середина по высоте не годится ни одному: содержимое меняется прямо на
+  /// глазах — палитра растёт по мере набора, окно выбора вида показывает
+  /// настройки выбранного, — а окно, растущее вокруг своей середины, дёргает
+  /// обе границы разом. По горизонтали середина остаётся: там ничего не
+  /// растёт.
+  final double topInset;
 
   /// Куда окно отодвинули руками.
   final Offset shift;
@@ -283,7 +283,9 @@ class _OverArea extends SingleChildLayoutDelegate {
     final free = math.max(0.0, size.width - childSize.width);
     final x = (size.width * area.center - childSize.width / 2).clamp(0.0, free).toDouble();
     final freeHeight = math.max(0.0, size.height - childSize.height);
-    final y = topInset == null ? freeHeight / 2 : math.min(topInset!, freeHeight);
+    // Высокое окно поднимается ровно настолько, чтобы поместиться: обещание
+    // «не дёргаться» кончается там, где начинается «не влезло».
+    final y = math.min(topInset, freeHeight);
 
     // Отодвинутое руками окно уехать совсем не может: тянут за полосу
     // заголовка, и спрятанное под край не вернуть ничем.

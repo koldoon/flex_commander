@@ -33,7 +33,6 @@ class CommandDialogLayer extends StatelessWidget {
                 title: spec.title,
                 takesFocus: spec.takesFocus,
                 area: spec.area,
-                placement: spec.placement,
                 ownWidth: spec.ownWidth,
                 onSubmit: spec.onSubmit ?? () {},
                 onDismiss: spec.onDismiss ?? () {},
