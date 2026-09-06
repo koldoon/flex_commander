@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
@@ -7,7 +8,7 @@ import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
-/// Подсчёт размера на настоящей файловой системе.
+/// Обход поддерева ради размера — на настоящей файловой системе.
 void main() {
   late Directory temp;
   late String root;
@@ -42,7 +43,7 @@ void main() {
   test('каталог считается вместе со всем содержимым', () async {
     final nodes = await listRoot();
 
-    final total = await provider.calculateSize().run([nodes['docs']!]);
+    final total = await sizeOperation().run([nodes['docs']!]);
 
     expect(total, 300);
   });
@@ -50,14 +51,14 @@ void main() {
   test('считаются все переданные объекты', () async {
     final nodes = await listRoot();
 
-    final total = await provider.calculateSize().run([nodes['docs']!, nodes['notes.txt']!]);
+    final total = await sizeOperation().run([nodes['docs']!, nodes['notes.txt']!]);
 
     expect(total, 350);
   });
 
   test('промежуточные суммы приходят по ходу обхода', () async {
     final nodes = await listRoot();
-    final operation = provider.calculateSize();
+    final operation = sizeOperation();
     final log = ProgressLog.of(operation);
 
     operation.start([nodes['docs']!]);
@@ -73,7 +74,7 @@ void main() {
 
   test('в сообщении видно, чей размер считают', () async {
     final nodes = await listRoot();
-    final operation = provider.calculateSize();
+    final operation = sizeOperation();
     final log = ProgressLog.of(operation);
 
     operation.start([nodes['docs']!]);
@@ -87,7 +88,7 @@ void main() {
     final nodes = await listRoot();
 
     // Иначе содержимое каталога попало бы в сумму дважды.
-    final total = await provider.calculateSize().run([nodes['link-to-docs']!]);
+    final total = await sizeOperation().run([nodes['link-to-docs']!]);
 
     expect(total, lessThan(300));
   });
@@ -100,7 +101,7 @@ void main() {
     await File(p.join(root, 'docs', '.cache', 'inside.bin')).writeAsBytes(List.filled(13, 0));
     final nodes = await listRoot();
 
-    final total = await provider.calculateSize().run([nodes['docs']!]);
+    final total = await sizeOperation().run([nodes['docs']!]);
 
     expect(total, 300 + 7 + 13);
   });
@@ -133,7 +134,7 @@ void main() {
     });
 
     final nodes = await listRoot();
-    final total = await provider.calculateSize().run([nodes['tree']!]);
+    final total = await sizeOperation().run([nodes['tree']!]);
 
     // Недоступное не посчитано — прочитать его нечем; всё остальное на месте.
     expect(total, expected);
@@ -168,7 +169,7 @@ void main() {
 
   test('операцию можно прервать', () async {
     final nodes = await listRoot();
-    final operation = provider.calculateSize();
+    final operation = sizeOperation();
 
     operation.cancel();
 
@@ -181,8 +182,79 @@ void main() {
     // Каталог исчез уже после того, как панель его показала.
     await Directory(p.join(root, 'docs')).delete(recursive: true);
 
-    final total = await provider.calculateSize().run([nodes['docs']!, nodes['notes.txt']!]);
+    final total = await sizeOperation().run([nodes['docs']!, nodes['notes.txt']!]);
 
     expect(total, 50);
+  });
+
+  test('сумма каждого пройденного каталога известна, а не только итог', () async {
+    final nodes = await listRoot();
+    final measured = <String, int>{};
+
+    final total = await sizeOperation(onDirectory: (path, bytes) => measured[path] = bytes).run([nodes['docs']!]);
+
+    // Обход и так проходит через подкаталоги — суммы по ним просто перестали
+    // выбрасываться.
+    expect(total, 300);
+    expect(measured[nodes['docs']!.pathString], 300);
+    expect(measured[p.join(nodes['docs']!.pathString, 'nested')], 200);
+  });
+
+  test('каталог приходит после своего содержимого', () async {
+    final nodes = await listRoot();
+
+    final walked = <String>[];
+    await for (final event in walkTree(nodes['docs']!)) {
+      switch (event) {
+        case WalkedNode(:final node):
+          walked.add(node.name);
+        case WalkedDirectory(:final directory):
+          walked.add('=${directory.name}');
+      }
+    }
+
+    // Пост-порядок: сумма каталога окончательна ровно потому, что приходит
+    // после всего, что в нём лежит.
+    expect(walked.indexOf('=nested'), lessThan(walked.indexOf('=docs')));
+    expect(walked.indexOf('b.txt'), lessThan(walked.indexOf('=nested')));
+    expect(walked.last, '=docs');
+  });
+
+  test('прерванный обход не оставляет частичных сумм', () async {
+    final nodes = await listRoot();
+    final measured = <String, int>{};
+    final operation = sizeOperation(onDirectory: (path, bytes) => measured[path] = bytes);
+
+    operation.start([nodes['docs']!]);
+    operation.cancel();
+    await expectLater(operation.result, throwsA(isA<OperationCanceled>()));
+
+    // Полуправда в колонке хуже прочерка: посчитанным считается только то,
+    // чьё поддерево пройдено целиком.
+    expect(measured[nodes['docs']!.pathString], isNull);
+  });
+
+  test('набор из разных источников считается целиком', () async {
+    // У находок узлы из разных провайдеров, и «провайдер первого узла» считал
+    // бы чужое поддерево своими средствами.
+    final other = InMemoryTreeProvider([FakeEntry.directory('/inside'), FakeEntry.file('/inside/data.bin', size: 42)]);
+    final inside = (await other.resolvePath().run('/inside'))! as DirectoryNode;
+    final nodes = await listRoot();
+
+    final total = await sizeOperation().run([nodes['docs']!, inside]);
+
+    expect(total, 300 + 42);
+  });
+
+  test('обход не съедает кадр', () async {
+    // Локальный провайдер читает каталог синхронно, и без передышки весь обход
+    // укладывается в один оборот цикла: ни кадра, ни таймера, ни отмены.
+    final nodes = await listRoot();
+
+    var ticked = false;
+    Timer.run(() => ticked = true);
+    await sizeOperation(breath: Duration.zero).run([nodes['docs']!]);
+
+    expect(ticked, isTrue);
   });
 }

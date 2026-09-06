@@ -19,6 +19,7 @@ export 'src/tree/operation_params.dart';
 export 'src/tree/panel_presentation.dart';
 export 'src/tree/provider_lease.dart';
 export 'src/tree/provider_registry.dart';
+export 'src/tree/size_walk.dart';
 export 'src/tree/staging.dart';
 export 'src/tree/tree_provider.dart';
 
