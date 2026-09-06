@@ -153,6 +153,16 @@ abstract interface class Panel implements ViewportState {
 
   set pageSize(int value);
 
+  /// Сколько строк в столбце, если вид раскладывает список столбцами;
+  /// `0` — столбцов нет вовсе.
+  ///
+  /// Выставляет вид, читает команда хода по столбцам: она не спрашивает «какой
+  /// сейчас вид», она спрашивает «есть ли тут столбцы»
+  /// (`docs/spec/panel-view-brief.md`, §6).
+  int get columnRows;
+
+  set columnRows(int value);
+
   void moveCursor(int delta);
 
   void moveCursorPage(int direction);

@@ -219,6 +219,9 @@ class _FileTableState extends State<FileTable> {
               final listHeight = constraints.maxHeight - theme.metrics.headerRowHeight;
               final rowHeight = FileIconSize.listRow(theme.metrics, app.fileIcons);
               panel.pageSize = (listHeight / rowHeight).floor().clamp(1, 1000);
+              // Столбцов у таблицы нет: `Left`/`Right` достаются «в начало» и
+              // «в конец» (`docs/spec/panel-views.md`, §10).
+              panel.columnRows = 0;
               // Те же размеры нужны прокрутке нового каталога, а она считается
               // до разметки: запоминаем то, что известно сейчас.
               _listHeight = listHeight;

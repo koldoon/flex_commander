@@ -126,6 +126,10 @@ class PanelMirror extends ChangeNotifier implements Panel {
   @override
   int pageSize = 20;
 
+  /// Столбцов у таблицы нет; вид, который ими раскладывает, скажет своё.
+  @override
+  int columnRows = 0;
+
   @override
   int get cursorIndex => _state.cursorIndex;
 

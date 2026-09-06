@@ -1,7 +1,10 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
+import 'brief_view.dart';
+import 'brief_view_options.dart';
 import 'file_table.dart';
+import 'panels_settings.dart';
 import 'view_commands.dart';
 import 'panel_view.dart';
 
@@ -27,6 +30,11 @@ class Panels implements FcFrontendModule {
     registry.strings('ru', _russian);
     registry.plurals('ru', _plurals);
 
+    // Область забирается **сейчас**, пока идёт установка: позже имя раздела уже
+    // неизвестно, и настройки уехали бы в чужой.
+    final settings = registry.settings;
+    PanelsSettings settingsOf() => settings.section(PanelsSettings.new);
+
     // Таблица файлов — штатный вид содержимого панели. Остальные виды
     // (результаты поиска, дерево) объявляются так же, своими модулями.
     registry.viewport(PanelViewports.files, (context, panel) => FileTable(panel: panel));
@@ -43,6 +51,16 @@ class Panels implements FcFrontendModule {
         title: 'Table',
         description: 'Name, size, date — everything in columns',
         build: (context, panel) => FileTable(panel: panel),
+      ),
+    );
+
+    registry.panelView(
+      PanelViewSpec(
+        id: BriefView.viewId,
+        title: 'Brief',
+        description: 'Names only, in columns',
+        build: (context, panel) => BriefView(panel: panel, settings: settingsOf),
+        options: (context) => BriefViewOptions(settings: settingsOf, save: settings.save),
       ),
     );
 
@@ -74,6 +92,16 @@ class Panels implements FcFrontendModule {
         parameters: {SetPanelViewCommand.viewParam: PanelSettings.defaultView},
       ),
     );
+    registry.binding(
+      KeyBinding('Cmd-2', SetPanelViewCommand.commandId, parameters: {SetPanelViewCommand.viewParam: BriefView.viewId}),
+    );
+
+    // Ход по столбцам — **раньше** «в начало» и «в конец»: там, где столбцов
+    // нет, команда невыполнима, и клавиша достаётся им.
+    registry.command((context) => MoveCursorColumnCommand(right: false));
+    registry.command((context) => MoveCursorColumnCommand(right: true));
+    registry.binding(KeyBinding('Left', MoveCursorColumnCommand.leftId));
+    registry.binding(KeyBinding('Right', MoveCursorColumnCommand.rightId));
   }
 }
 
@@ -98,6 +126,13 @@ const Map<String, String> _russian = {
 
   // Виды панели.
   'Table': 'Таблица',
+  'Brief': 'Кратко',
+  'Names only, in columns': 'Одни имена, столбцами',
+  'brief|Columns': 'Столбцов',
+  'As many as fit': 'Сколько влезет',
+  'Column left': 'Столбец левее',
+  'Column right': 'Столбец правее',
+  'Move the cursor one column aside': 'Перевести курсор на столбец вбок',
   'Name, size, date — everything in columns': 'Имя, размер, дата — всё колонками',
   'Panel view': 'Вид панели',
   'Show the directory another way': 'Показать каталог по-другому',

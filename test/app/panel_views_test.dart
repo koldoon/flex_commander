@@ -100,10 +100,8 @@ void main() {
       reason: 'вид пробы объявлен и потому предложен',
     );
 
-    // Стрелка вниз ведёт к пробе, Enter применяет — правой панели, а не левой.
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    // Щелчок по строке применяет вид — правой панели, а не левой.
+    await tester.tap(find.textContaining('Probe', findRichText: true));
     await tester.pumpAndSettle();
 
     expect(runtime.app.right.view, _ProbeViews.viewId);

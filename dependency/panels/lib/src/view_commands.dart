@@ -257,3 +257,45 @@ class _ViewPickerState extends State<_ViewPicker> {
     );
   }
 }
+
+/// Шаг курсора по столбцу — влево и вправо.
+///
+/// Отдельные команды, а не «если вид краткий» внутри хода по строке: там, где
+/// столбцов нет, команда невыполнима, и клавиша достаётся объявленным следом —
+/// нынешним «в начало» и «в конец» (`docs/spec/panel-views.md`, §10).
+class MoveCursorColumnCommand extends AppCommand {
+  MoveCursorColumnCommand({required this.right});
+
+  static const String leftId = 'panel.cursor.columnLeft';
+  static const String rightId = 'panel.cursor.columnRight';
+
+  final bool right;
+
+  @override
+  String get id => right ? rightId : leftId;
+
+  @override
+  String get label => right ? tr('Column right') : tr('Column left');
+
+  @override
+  String get description => tr('Move the cursor one column aside');
+
+  /// Спрашивается не вид, а его раскладка: столбцы объявляет сам вид
+  /// (`Panel.columnRows`), и команде всё равно, кто это — краткий вид или
+  /// будущие столбцы Finder.
+  @override
+  bool isExecutable(CommandContext context) => context.panel.columnRows > 0 && context.panel.entries.isNotEmpty;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final panel = context.panel;
+    final rows = panel.columnRows;
+    if (rows <= 0) {
+      return;
+    }
+    // У края список упирается, а не заворачивает: заворот выглядел бы скачком
+    // через весь экран.
+    final target = panel.cursorIndex + (right ? rows : -rows);
+    panel.setCursorIndex(target.clamp(0, panel.entries.length - 1));
+  }
+}
