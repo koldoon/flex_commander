@@ -98,6 +98,9 @@ class DefaultMetrics extends FcMetrics {
   double get iconGap => 7;
 
   @override
+  double get treeMarkGap => 2;
+
+  @override
   double get iconColumnWidth => iconLeftPadding + iconSize + iconGap - cellPadding;
 
   // --- нижняя панель (FunctionKeyRenderer) ---

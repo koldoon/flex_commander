@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
@@ -51,6 +52,86 @@ void main() {
     // и то, что внутри.
     expect(branches(tester), containsAllInOrder(['home', 'lib', 'src', 'app.dart']));
     expect(branches(tester), contains('test'));
+  });
+
+  testWidgets('строка дерева стоит по вертикали как строка списка', (tester) async {
+    // Слева дерево, справа обычная таблица — и там и там есть `lib`. Панели
+    // видны разом, и совпадать они обязаны до точки.
+    final settings = AppSettings(
+      left: PanelSettings(path: '/home', view: TreeView.viewId),
+      right: PanelSettings.defaults('/home'),
+    );
+    final runtime = await testApp(provider: provider(), modules: featureModules(), settings: settings);
+    await runtime.app.start();
+    tester.view.physicalSize = const Size(900, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    final names = find.text('lib');
+    expect(names, findsNWidgets(2), reason: 'одно имя в дереве, другое в списке');
+
+    double centreOfIcon(int i) =>
+        tester
+            .getRect(
+              find.descendant(
+                of: find.ancestor(of: names.at(i), matching: find.byType(Row)).first,
+                matching: find.byType(FileTypeIcon),
+              ),
+            )
+            .center
+            .dy;
+
+    expect(tester.getRect(names.at(0)).top, closeTo(tester.getRect(names.at(1)).top, 0.01));
+    expect(centreOfIcon(0), closeTo(centreOfIcon(1), 0.01));
+  });
+
+  testWidgets('знак раскрытия только у каталогов', (tester) async {
+    await open(tester);
+
+    List<String> glyphsIn(String name) => [
+      for (final text in tester.widgetList<Text>(
+        find.descendant(
+          of: find.ancestor(of: find.text(name), matching: find.byType(Row)).first,
+          matching: find.byType(Text),
+        ),
+      ))
+        if ((text.data ?? '').isNotEmpty && text.data!.codeUnitAt(0) >= 0xE000) text.data!,
+    ];
+
+    final icons = FcTheme.of(tester.element(find.byType(TreeView))).icons;
+    final closed = String.fromCharCode(icons.branchClosed.codePoint);
+
+    expect(glyphsIn('lib'), contains(closed), reason: 'у каталога знак есть');
+    expect(glyphsIn('main.dart'), isNot(contains(closed)), reason: 'у файла внутри ничего нет — и знака тоже');
+  });
+
+  testWidgets('знак ветви ложится на квадрат значка родителя', (tester) async {
+    await open(tester, at: '/home/lib');
+
+    // Значок объекта и знак раскрытия — один и тот же квадрат, а знак стоит
+    // вплотную слева. Значит, шаг вглубь равен этому квадрату: у дочерней
+    // ветви знак приходится ровно туда, где у родительской значок.
+    Rect iconOf(String name) => tester.getRect(
+      find.descendant(
+        of: find.ancestor(of: find.text(name), matching: find.byType(Row)).first,
+        matching: find.byType(FileTypeIcon),
+      ),
+    );
+
+    final metrics = FcTheme.of(tester.element(find.byType(TreeView))).metrics;
+    final parent = iconOf('lib');
+    final child = iconOf('src');
+
+    // Знак дочерней ветви стоит сразу перед её значком, на ширину квадрата
+    // с просветом: середина знака приходится на середину значка родителя.
+    expect(
+      child.left - parent.left,
+      closeTo(parent.width + metrics.treeMarkGap, 0.01),
+      reason: 'знак ребёнка встал на значок родителя',
+    );
+    expect(child.width, closeTo(parent.width, 0.01));
   });
 
   testWidgets('в дереве и каталоги, и файлы', (tester) async {

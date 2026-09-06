@@ -402,11 +402,20 @@ class _BranchRow extends StatelessWidget {
 
   bool get _selected => underCursor && panelActive;
 
-  /// Шаг вглубь: знак раскрытия со своим просветом.
+  /// Знак раскрытия: у каталога — шеврон, у файла ничего.
   ///
-  /// Считается, а не задаётся числом: любое другое число развалило бы
-  /// вертикаль «знак ребёнка под значком родителя».
-  static double _step(FcMetrics metrics) => metrics.fontSize + metrics.cellPadding;
+  /// Пусто, а не пропущенный квадрат: имена ветвей одного уровня начинаются с
+  /// одной вертикали независимо от того, есть внутри что-нибудь или нет
+  /// (`docs/spec/panel-view-tree.md`, §4).
+  String _mark(FcIcons icons) {
+    if (!branch.isDirectory) {
+      return '';
+    }
+    if (branch.loading) {
+      return '…';
+    }
+    return String.fromCharCode(branch.expanded ? icons.branchOpen.codePoint : icons.branchClosed.codePoint);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -414,6 +423,13 @@ class _BranchRow extends StatelessWidget {
     final colors = theme.colors;
     final metrics = theme.metrics;
     final icons = theme.icons;
+
+    // Знак раскрытия занимает **тот же квадрат**, что значок объекта, и отбит
+    // от него на `treeMarkGap`. Отсюда и шаг вглубь — квадрат вместе с этим
+    // просветом: знак дочерней ветви приходится серединой на середину значка
+    // родительской (`docs/spec/panel-view-tree.md`, §4).
+    final square = FileIconSize.of(metrics, AppScope.read(context).fileIcons);
+    final indent = square + metrics.treeMarkGap;
 
     final style = _selected ? theme.rowStyle.copyWith(color: colors.cursorText) : theme.rowStyle;
     final glyph = TextStyle(
@@ -431,43 +447,45 @@ class _BranchRow extends StatelessWidget {
           decoration: BoxDecoration(color: _selected ? colors.cursorBackground : null),
           child: Padding(
             // Слева — то же поле, что у строки списка: панели рядом, и их
-            // содержимое обязано начинаться на одной вертикали. Шаг вглубь —
-            // ровно знак раскрытия с его просветом, и оттого знак дочерней
-            // ветви встаёт **под значком родительской**
-            // (`docs/spec/panel-view-tree.md`, §4).
-            padding: EdgeInsets.only(left: metrics.iconLeftPadding + branch.depth * _step(metrics)),
-            child: Row(
-              children: [
-                GestureDetector(
-                  behavior: HitTestBehavior.opaque,
-                  onTap: onToggle,
-                  child: SizedBox(
-                    width: metrics.fontSize,
-                    child: Text(
-                      branch.loading
-                          ? '…'
-                          : branch.expanded
-                          ? String.fromCharCode(icons.branchOpen.codePoint)
-                          : String.fromCharCode(icons.branchClosed.codePoint),
-                      style: branch.loading ? style : glyph,
+            // содержимое обязано начинаться на одной вертикали.
+            padding: EdgeInsets.only(left: metrics.iconLeftPadding + branch.depth * indent),
+            // Те же две поправки, что у строки списка: содержимое опущено
+            // относительно подсветки, а имя — относительно значка. Панели
+            // стоят рядом, и строка дерева обязана совпадать со строкой списка
+            // до точки (`FcMetrics.rowContentVerticalNudge`,
+            // `rowTextVerticalNudge`).
+            child: Transform.translate(
+              offset: Offset(0, metrics.rowContentVerticalNudge),
+              child: Row(
+                children: [
+                  GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: onToggle,
+                    child: SizedBox(
+                      width: square,
+                      // По середине квадрата, а не по левому его краю: глиф
+                      // угла узкий, и прижатый влево он отходил бы от значка
+                      // на полквадрата.
+                      child: Center(child: Text(_mark(icons), style: branch.loading ? style : glyph)),
                     ),
                   ),
-                ),
-                // Знак льнёт к значку: между ними просвет ячейки, а не
-                // значковый, — врозь они читались бы как две колонки.
-                SizedBox(width: metrics.cellPadding),
-                // Значок тот же, что в списке: у каталога папка, у файла его
-                // собственный — правило одно на приложение
-                // (`docs/spec/file-icons.md`).
-                FileTypeIcon(entry: branch.entry, selected: _selected),
-                SizedBox(width: metrics.iconGap),
-                Expanded(
-                  child: Padding(
-                    padding: EdgeInsets.only(right: metrics.panelRightPadding),
-                    child: Text(branch.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+                  SizedBox(width: metrics.treeMarkGap),
+                  // Значок тот же, что в списке: у каталога папка, у файла его
+                  // собственный — правило одно на приложение
+                  // (`docs/spec/file-icons.md`).
+                  FileTypeIcon(entry: branch.entry, selected: _selected),
+                  SizedBox(width: metrics.iconGap),
+                  Expanded(
+                    child: Padding(
+                      padding: EdgeInsets.only(right: metrics.panelRightPadding),
+                      child: Transform.translate(
+                        offset: Offset(0, metrics.rowTextVerticalNudge),
+                        child: Text(branch.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+                      ),
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ),
         ),
