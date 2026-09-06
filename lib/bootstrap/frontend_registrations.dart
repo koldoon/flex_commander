@@ -44,6 +44,12 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
   void install(FcFrontendModule module) => module.installFrontend(this);
 
   @override
+  void strings(String language, Map<String, String> words) => translations.add(language, words);
+
+  @override
+  void plurals(String language, Map<String, PluralForms> forms) => translations.addPlurals(language, forms);
+
+  @override
   void command(FcCommandFactory factory) {
     commands.add(factory);
     commandOwners.add(ownerTitle);

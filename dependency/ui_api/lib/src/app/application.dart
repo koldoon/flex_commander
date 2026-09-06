@@ -47,6 +47,13 @@ abstract interface class Application implements Listenable {
   /// Оформление приложения: какое есть и какое выбрано.
   ThemeService get theme;
 
+  /// Строки интерфейса на языке человека.
+  ///
+  /// Спрашивают их при отрисовке и нигде не запоминают: язык меняется на лету,
+  /// а `Strings` — `Listenable`, как и оформление
+  /// (`docs/spec/localization.md`).
+  Strings get strings;
+
   /// Заведённые работы: их показывают статусные области.
   Operations get operations;
 

@@ -46,6 +46,9 @@ export 'src/settings/app_settings.dart';
 export 'src/settings/module_settings.dart';
 export 'src/settings/window_geometry.dart';
 
+// --- Строки интерфейса ---
+export 'src/l10n/strings.dart';
+
 // --- Модули ---
 export 'src/module/fc_module.dart';
 

@@ -18,6 +18,7 @@ import '../ui/elevation_prompt.dart';
 import '../ui/panel_mirror.dart';
 import '../ui/secrets_client.dart';
 import 'app_runtime.dart';
+import 'language.dart';
 import 'frontend_registrations.dart';
 import 'registrations.dart';
 
@@ -151,6 +152,18 @@ class UiContainer extends DI {
       },
     );
 
+    // Строки интерфейса: словари собраны при объявлении модулей, язык
+    // спрашивается у настроек на каждую надпись.
+    bind<Strings>(
+      to: (c) {
+        frontend.translations.languageSource =
+            () =>
+                overrides.language ??
+                languageOf(_settings.modules.scope('fc.shell').section(ShellSettings.new).language);
+        return frontend.translations;
+      },
+    );
+
     if (frontend.themes.isEmpty) {
       throw StateError('Ни один модуль не объявил оформление');
     }
@@ -233,6 +246,7 @@ class UiContainer extends DI {
           settings: _settings,
           commands: c.get<CommandRegistry>(),
           theme: c.get<ThemeController>(),
+          strings: c.get<Strings>() as StringsRegistry,
           viewports: c.get<PanelViewports>(),
           // Списком, а не службой: складывать и упорядочивать — вся работа
           // оболочки с просмотрщиками. Кто возьмётся за файл, спрашивает она.

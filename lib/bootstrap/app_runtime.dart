@@ -10,7 +10,15 @@ import '../state/app_controller.dart';
 /// Не «настройки приложения», а именно подмена: так тесты собирают настоящее
 /// приложение на подставных службах, ничего не зная о его внутреннем графе.
 class AppOverrides {
-  const AppOverrides({this.provider, this.rightProvider, this.store, this.window, this.saveDelay, this.toastDuration});
+  const AppOverrides({
+    this.provider,
+    this.rightProvider,
+    this.store,
+    this.window,
+    this.saveDelay,
+    this.toastDuration,
+    this.language,
+  });
 
   final TreeProvider? provider;
 
@@ -33,6 +41,14 @@ class AppOverrides {
   /// Сколько висит всплывающее сообщение. В тестах короче — по той же причине,
   /// что и [saveDelay]: таймер не должен пережить тест.
   final Duration? toastDuration;
+
+  /// Язык, на котором говорит собранное приложение; null — как сказано в
+  /// настройках.
+  ///
+  /// Прогон идёт по-английски и не должен зависеть от языка машины, на которой
+  /// его запустили: сотни проверок ищут по английскому тексту
+  /// (`docs/spec/localization.md`, §13).
+  final String? language;
 }
 
 /// Собранное приложение.

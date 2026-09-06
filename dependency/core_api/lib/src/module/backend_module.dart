@@ -62,6 +62,16 @@ abstract interface class BackendRegistry {
   /// (`docs/spec/client-server.md`, §5.4).
   void operation(String kind, OperationFactory factory);
 
+  /// Переводы строк этого модуля на язык [language].
+  ///
+  /// У ядра свои строки: вехи работы, которые видно в строке состояния панели,
+  /// — и переводятся они здесь, потому что формулирует их тот, кто работает
+  /// (`docs/spec/localization.md`, §5).
+  void strings(String language, Map<String, String> words);
+
+  /// Множественные формы: ключ — форма `other`, какой её назвали на месте.
+  void plurals(String language, Map<String, PluralForms> forms);
+
   /// Служба для ядра и других модулей: разрешается по типу через [FcServices].
   void service<T extends Object>(T Function(FcServices services) factory);
 }

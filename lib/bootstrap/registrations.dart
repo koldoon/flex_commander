@@ -53,6 +53,12 @@ abstract class ModuleRegistrations<M extends FcModule> {
   /// объявления, поэтому он захватывается замыканием.
   final Map<Type, void Function(DI container)> serviceBindings = {};
 
+  /// Переводы, объявленные модулями этой стороны.
+  ///
+  /// Реестр один на сторону, а не на модуль: `Cancel` во всех окнах
+  /// переводится одинаково (`docs/spec/localization.md`, §4).
+  final StringsRegistry translations = StringsRegistry();
+
   /// Настройки приложения, когда их прочитают. До этого раздел модуля просить
   /// не у кого — и это не ошибка сборки, а ошибка того, кто спросил слишком
   /// рано.

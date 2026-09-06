@@ -73,5 +73,11 @@ class BackendRegistrations extends ModuleRegistrations<FcBackendModule> implemen
   }
 
   @override
+  void strings(String language, Map<String, String> words) => translations.add(language, words);
+
+  @override
+  void plurals(String language, Map<String, PluralForms> forms) => translations.addPlurals(language, forms);
+
+  @override
   void service<T extends Object>(T Function(FcServices services) factory) => bindService<T>(factory);
 }

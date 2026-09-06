@@ -113,6 +113,11 @@ Future<AppRuntime> testApp({
   Duration? toastDuration,
   InMemorySettingsStore? store,
   String homePath = '/home',
+
+  /// Язык собранного приложения. По умолчанию английский — тот, на котором
+  /// написаны проверки; null — как сказано в настройках, и тогда язык можно
+  /// менять на ходу.
+  String? language = StringsRegistry.defaultLanguage,
 }) async {
   // Курсор в прогоне не мигает — ни наш, ни системный.
   //
@@ -153,6 +158,10 @@ Future<AppRuntime> testApp({
       // Сообщение живёт ровно столько, сколько нужно тесту, чтобы его увидеть:
       // висящий таймер роняет виджет-тест.
       toastDuration: toastDuration ?? const Duration(milliseconds: 5),
+      // Прогон идёт по-английски, каким бы ни был язык машины: проверки ищут
+      // по английскому тексту (`docs/spec/localization.md`, §13). Русский
+      // проверяется там, где проверяется именно он, — своей сборкой.
+      language: language,
     ),
   );
   addTearDown(runtime.dispose);

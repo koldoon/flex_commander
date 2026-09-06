@@ -6,6 +6,7 @@ import 'package:fc_api/fc_api.dart';
 /// живёт по тем же правилам, что и разделы модулей.
 class ShellSettings implements Serializable {
   ShellSettings({
+    this.language = 'system',
     this.allowElevatedWrites = true,
     this.useBuiltinExtensions = true,
     this.listingCache = true,
@@ -38,6 +39,13 @@ class ShellSettings implements Serializable {
   /// Сколько секунд запись годится к показу, когда срока не назвали.
   static const int defaultListingCacheTtl = 300;
 
+  /// Язык интерфейса: `system`, `en` или `ru`.
+  ///
+  /// `system` — не «неизвестно», а выбор: язык берётся у машины, и переехавшее
+  /// на другую машину приложение заговорит по-местному
+  /// (`docs/spec/localization.md`, §9).
+  String language;
+
   /// Показывать ли каталог, где панель уже была, сразу из памяти.
   ///
   /// Включён по умолчанию: выключенный никто бы не проверил, а выигрыш он даёт
@@ -62,6 +70,7 @@ class ShellSettings implements Serializable {
 
   @override
   void fromMap(Map<String, dynamic> m) {
+    language = extract(language, m['language']);
     allowElevatedWrites = extract(allowElevatedWrites, m['allowElevatedWrites']);
     listingCache = extract(listingCache, m['listingCache']);
     listingCacheLimit = extract(listingCacheLimit, m['listingCacheLimit']).clamp(1, 4096);
@@ -73,6 +82,7 @@ class ShellSettings implements Serializable {
 
   @override
   void toMap(Map<String, dynamic> m) {
+    m['language'] = language;
     m['allowElevatedWrites'] = allowElevatedWrites;
     m['listingCache'] = listingCache;
     m['listingCacheLimit'] = listingCacheLimit;

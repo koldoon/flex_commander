@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
+import '../bootstrap/language.dart';
 import '../state/background_tasks.dart';
 import '../state/background_tasks_state.dart';
 import '../state/commands/background_commands.dart';
@@ -184,6 +185,21 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           options: {for (final theme in app.theme.available) theme.id: theme.title},
           read: () => app.theme.current.id,
           write: (value) => app.theme.use(value),
+        ),
+        // Язык впереди темы: на нём написано всё остальное в этом окне.
+        SettingsField.choice(
+          'language',
+          defaultValue: systemLanguage,
+          title: 'Language',
+          description: 'Interface language; «System» follows the machine',
+          options: {systemLanguage: 'System', 'en': 'English', 'ru': 'Русский'},
+          read: () => settings.section(ShellSettings.new).language,
+          write: (value) {
+            settings.section(ShellSettings.new).language = value;
+            // Реестр за файлом настроек не следит, а перерисоваться должен весь
+            // экран разом (`docs/spec/localization.md`, §10).
+            (app.strings as StringsRegistry).refresh();
+          },
         ),
         SettingsField.integer(
           'sizeScanConcurrency',

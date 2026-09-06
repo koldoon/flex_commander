@@ -200,4 +200,10 @@ class _Collector implements BackendRegistry {
 
   @override
   void service<T extends Object>(T Function(FcServices services) factory) {}
+
+  @override
+  void strings(String language, Map<String, String> words) {}
+
+  @override
+  void plurals(String language, Map<String, PluralForms> forms) {}
 }

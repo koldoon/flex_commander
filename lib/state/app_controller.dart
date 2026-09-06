@@ -37,6 +37,7 @@ class AppController extends ChangeNotifier implements Application {
     List<NodeInfoProvider> nodeInfoProviders = const [],
     Views? views,
     ThemeController? theme,
+    StringsRegistry? strings,
     ToastController? toasts,
     CredentialsController? credentials,
     ElevationPrompt? elevation,
@@ -50,6 +51,8 @@ class AppController extends ChangeNotifier implements Application {
        _windowGeometry = settings.window,
        _initialSettings = settings,
        theme = theme ?? ThemeController(),
+       // Своих нет — значит английский, тот же, что написан в коде.
+       strings = strings ?? StringsRegistry(),
        toasts = toasts ?? ToastController(),
        // Своё, если не дали: подставке в тестах спрашивать некому и незачем.
        credentials = credentials ?? CredentialsController(onAnswer: _noAnswer),
@@ -97,6 +100,10 @@ class AppController extends ChangeNotifier implements Application {
   /// службой и закрывает её при выходе, остальным хватает [ThemeService].
   @override
   final ThemeController theme;
+
+  /// Строки интерфейса: словари принесли модули, язык лежит в настройках.
+  @override
+  final StringsRegistry strings;
 
   /// Чем рисуется содержимое панелей. Без интерфейса — ничем: приложению
   /// в тесте состояния или в сценарии рисовать нечем и незачем.

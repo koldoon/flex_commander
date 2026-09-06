@@ -286,6 +286,31 @@ abstract class AppCommand {
   Application? get appOrNull => _app;
   Application? _app;
 
+  /// Строка на языке человека.
+  ///
+  /// Английский текст пишется прямо здесь и служит ключом перевода:
+  /// `String get label => tr('Copy');`. Команда, созданная в обход сборки,
+  /// приложения не имеет — и получает английский, как в коде
+  /// (`docs/spec/localization.md`, §6).
+  ///
+  /// Спрашивается на каждом обращении, а не запоминается: язык меняется на
+  /// лету, и подпись обязана меняться вместе с ним.
+  String tr(String text, {Map<String, Object?> args = const {}, String? context}) =>
+      _app?.strings.tr(text, args: args, context: context) ?? _fill(text, args);
+
+  /// Множественное число — тем же правилом, что и [tr].
+  String plural(int count, {required String one, required String other, Map<String, Object?> args = const {}}) =>
+      _app?.strings.plural(count, one: one, other: other, args: args) ??
+      _fill(count == 1 ? one : other, {'n': count, ...args});
+
+  static String _fill(String template, Map<String, Object?> args) {
+    var result = template;
+    for (final entry in args.entries) {
+      result = result.replaceAll('{${entry.key}}', '${entry.value}');
+    }
+    return result;
+  }
+
   /// Только для ядра: связать команду с приложением.
   ///
   /// Всё остальное команда получает аргументом: условия запуска — в

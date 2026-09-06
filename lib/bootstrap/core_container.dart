@@ -13,6 +13,7 @@ import '../core/settings_store.dart';
 import '../state/compound_file_naming.dart';
 import '../state/shell_settings.dart';
 import 'app_runtime.dart';
+import 'language.dart';
 import 'backend_registrations.dart';
 import 'registrations.dart';
 
@@ -128,6 +129,19 @@ class CoreContainer extends DI {
   }
 
   void _bindCore() {
+    // Строки ядра: вехи работы, которые видно в строке состояния панели.
+    // Словари свои — те, что объявила ядровая половина модуля, — а язык тот же,
+    // и берётся он из тех же настроек (`docs/spec/localization.md`, §5).
+    bind<Strings>(
+      to: (c) {
+        backend.translations.languageSource =
+            () =>
+                overrides.language ??
+                languageOf(c.get<AppSettings>().modules.scope('fc.shell').section(ShellSettings.new).language);
+        return backend.translations;
+      },
+    );
+
     bind<SecretsHub>(to: (c) => SecretsHub());
 
     bind<ElevatedWrites>(

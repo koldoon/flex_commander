@@ -66,6 +66,16 @@ abstract interface class FrontendRegistry {
   /// Оформление.
   void theme(FcThemeSpec spec);
 
+  /// Переводы строк этого модуля на язык [language].
+  ///
+  /// Ключ — **английская строка, как она написана в коде**: она же и запасное
+  /// значение, поэтому английских словарей не бывает
+  /// (`docs/spec/localization.md`, §3).
+  void strings(String language, Map<String, String> words);
+
+  /// Множественные формы: ключ — форма `other`, какой её назвали на месте.
+  void plurals(String language, Map<String, PluralForms> forms);
+
   /// Чем рисовать содержимое панели для источников, объявивших этот вид.
   void viewport(String kind, PanelViewportBuilder builder);
 
