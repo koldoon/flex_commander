@@ -35,11 +35,15 @@ abstract class FcIcons {
 
   IconData get caretDown;
 
-  /// Свёрнутая ветвь дерева каталогов; раскрытая берёт [caretDown].
+  /// Свёрнутая ветвь дерева каталогов.
   ///
-  /// Своя роль, а не `angleRight`: стрелка и треугольник — разные знаки, и
-  /// ветвь, отмеченная то тем, то другим, читается как две разные вещи.
-  IconData get caretRight;
+  /// Шеврон, а не треугольник: залитый треугольник в дереве читается как
+  /// «сюда», хотя означает «здесь есть ещё». Так же он выглядит в редакторах,
+  /// откуда привычка и берётся (`docs/spec/panel-view-tree.md`, §4).
+  IconData get branchClosed;
+
+  /// Раскрытая ветвь — тот же шеврон, повёрнутый вниз.
+  IconData get branchOpen;
 
   /// Кружок, которым в референсе **измеряли** ширину места под иконку: у
   /// обычного файла иконки нет, но колонка имён должна начинаться одинаково.
@@ -64,7 +68,8 @@ extension FcIconRoles on FcIcons {
     'angleRight' => angleRight,
     'caretUp' => caretUp,
     'caretDown' => caretDown,
-    'caretRight' => caretRight,
+    'branchClosed' => branchClosed,
+    'branchOpen' => branchOpen,
     'circleOutline' => circleOutline,
     'exclamation' => exclamation,
     _ => null,

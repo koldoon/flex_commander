@@ -22,7 +22,7 @@ description: Дизайн-система Flex Commander в Sketch — файл d
 | `Foundations` | шапка, 52 плашки ролей, 20 образцов набора, линейки 83 метрик, таблица `FcTheme → стиль + цвет` |
 | `Components` | витрина: `Controls`, `Panel parts`, `Surfaces`, `Dialogs` |
 | `Screens` | главное окно 1216 × 700 и оно же с окном команды |
-| `Symbols` | 55 мастеров |
+| `Symbols` | 56 мастеров |
 
 Рядом: `docs/design/design.png` — светлый референс исходного приложения,
 и `~/Documents/Flex Commander Theme.sketch` — его же исходник в Sketch, годится

@@ -37,7 +37,10 @@ class DefaultIcons extends FcIcons {
   IconData get caretDown => _icon(0xf0d7);
 
   @override
-  IconData get caretRight => _icon(0xf0da);
+  IconData get branchClosed => _icon(0xf105);
+
+  @override
+  IconData get branchOpen => _icon(0xf107);
 
   @override
   IconData get circleOutline => _icon(0xf10c);

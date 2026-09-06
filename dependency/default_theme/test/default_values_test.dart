@@ -85,6 +85,11 @@ void main() {
       expect(const DefaultIcons().asterisk.codePoint, 0xf069);
       expect(const DefaultIcons().caretUp.codePoint, 0xf0d8);
       expect(const DefaultIcons().caretDown.codePoint, 0xf0d7);
+      // Ветвь дерева помечена шевроном, а не залитым треугольником: угол
+      // против каретки — разные знаки, и путать их нельзя
+      // (`docs/spec/panel-view-tree.md`, §4).
+      expect(const DefaultIcons().branchClosed.codePoint, 0xf105);
+      expect(const DefaultIcons().branchOpen.codePoint, 0xf107);
     });
   });
 

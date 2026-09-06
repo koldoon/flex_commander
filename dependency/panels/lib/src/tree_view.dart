@@ -402,6 +402,12 @@ class _BranchRow extends StatelessWidget {
 
   bool get _selected => underCursor && panelActive;
 
+  /// Шаг вглубь: знак раскрытия со своим просветом.
+  ///
+  /// Считается, а не задаётся числом: любое другое число развалило бы
+  /// вертикаль «знак ребёнка под значком родителя».
+  static double _step(FcMetrics metrics) => metrics.fontSize + metrics.cellPadding;
+
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
@@ -425,8 +431,11 @@ class _BranchRow extends StatelessWidget {
           decoration: BoxDecoration(color: _selected ? colors.cursorBackground : null),
           child: Padding(
             // Слева — то же поле, что у строки списка: панели рядом, и их
-            // содержимое обязано начинаться на одной вертикали.
-            padding: EdgeInsets.only(left: metrics.iconLeftPadding + branch.depth * metrics.dialogGap),
+            // содержимое обязано начинаться на одной вертикали. Шаг вглубь —
+            // ровно знак раскрытия с его просветом, и оттого знак дочерней
+            // ветви встаёт **под значком родительской**
+            // (`docs/spec/panel-view-tree.md`, §4).
+            padding: EdgeInsets.only(left: metrics.iconLeftPadding + branch.depth * _step(metrics)),
             child: Row(
               children: [
                 GestureDetector(
@@ -438,13 +447,15 @@ class _BranchRow extends StatelessWidget {
                       branch.loading
                           ? '…'
                           : branch.expanded
-                          ? String.fromCharCode(icons.caretDown.codePoint)
-                          : String.fromCharCode(icons.caretRight.codePoint),
+                          ? String.fromCharCode(icons.branchOpen.codePoint)
+                          : String.fromCharCode(icons.branchClosed.codePoint),
                       style: branch.loading ? style : glyph,
                     ),
                   ),
                 ),
-                SizedBox(width: metrics.iconGap),
+                // Знак льнёт к значку: между ними просвет ячейки, а не
+                // значковый, — врозь они читались бы как две колонки.
+                SizedBox(width: metrics.cellPadding),
                 // Значок тот же, что в списке: у каталога папка, у файла его
                 // собственный — правило одно на приложение
                 // (`docs/spec/file-icons.md`).
