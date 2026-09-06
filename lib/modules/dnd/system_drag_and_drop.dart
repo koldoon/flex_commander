@@ -412,7 +412,7 @@ class SystemDropService implements DragAndDrop {
   }
 
   @override
-  Widget source({required Object owner, required Widget child, required List<FileEntry> Function() entries}) =>
+  Widget source({required Object owner, required Widget child, required Future<List<FileEntry>> Function() entries}) =>
       _DragSource(service: this, owner: owner, entries: entries, child: child);
 
   /// Просит систему потащить объекты наружу.
@@ -559,7 +559,7 @@ class _DragSource extends StatefulWidget {
 
   final SystemDropService service;
   final Object owner;
-  final List<FileEntry> Function() entries;
+  final Future<List<FileEntry>> Function() entries;
   final Widget child;
 
   @override
@@ -580,6 +580,9 @@ class _DragSourceState extends State<_DragSource> {
   /// кнопка и так была нажата. Отсюда и был дефект: после неудачного броска
   /// потянуть снова не выходило, пока не отпустишь и не нажмёшь заново.
   Offset? _origin;
+
+  /// Идёт вопрос «что поедет»: до ответа второй попытки не будет.
+  bool _asking = false;
 
   void _down(PointerDownEvent event) {
     // Только левая кнопка и только мышь: правая помечает
@@ -603,7 +606,19 @@ class _DragSourceState extends State<_DragSource> {
     // Попытка израсходована: удастся — тащим, не удастся — отсчёт начнётся
     // заново со следующего движения. Так одна неудача не убивает всё нажатие.
     _origin = null;
-    await widget.service.beginDrag(widget.owner, widget.entries());
+    // Что поедет, спрашивают обещанием: помеченное в соседней ветви живёт в
+    // ядре (`docs/spec/drag-and-drop.md`, §4). Пока ответ идёт, приходят новые
+    // движения — и второй просьбы начать система не ждёт: `dragging` встанет
+    // только после её ответа, а до тех пор от повтора спасает этот замок.
+    if (_asking) {
+      return;
+    }
+    _asking = true;
+    try {
+      await widget.service.beginDrag(widget.owner, await widget.entries());
+    } finally {
+      _asking = false;
+    }
   }
 
   @override

@@ -81,8 +81,13 @@ abstract interface class DragAndDrop {
   /// Строки спрашиваются **в момент захвата**, а не при сборке виджета:
   /// пометка меняется, а строка списка от этого не пересобирается.
   ///
+  /// Обещанием, а не значением: помеченное бывает и в других каталогах, а их
+  /// строк у этой стороны нет — за ними идут в ядро
+  /// (`docs/spec/operation-targets.md`, §4). Ответа ждут перед тем, как просить
+  /// систему начать: жест — это одно движение, и дописать его на ходу нельзя.
+  ///
   /// Держать источник живым больше не нужно: содержимое обещанного объекта
   /// читается **по пути**, и ядро само откроет то, из чего читает, — даже
   /// если панель за это время ушла из архива.
-  Widget source({required Object owner, required Widget child, required List<FileEntry> Function() entries});
+  Widget source({required Object owner, required Widget child, required Future<List<FileEntry>> Function() entries});
 }

@@ -204,6 +204,18 @@ void main() {
       expect((asked.single.arguments as Map)['paths'], containsAll(<String>['/home/note.txt', '/home/docs']));
     });
 
+    testWidgets('помеченное в другом каталоге едет вместе со всеми', (tester) async {
+      await pumpApp(tester);
+      // Так помечают из дерева: строки чужого каталога в списке панели нет
+      // вовсе, и жест узнаёт о ней у ядра (`docs/spec/drag-and-drop.md`, §4).
+      app.left.setMarks({'/home/note.txt', '/outside/dropped.txt'});
+      await tester.pumpAndSettle();
+
+      await dragRow(tester, 'note.txt');
+
+      expect((asked.single.arguments as Map)['paths'], containsAll(<String>['/home/note.txt', '/outside/dropped.txt']));
+    });
+
     testWidgets('после неудачного броска тянется снова, не отпуская кнопки', (tester) async {
       // Найдено на живом. Как только система начинает перетаскивание, мышь
       // переходит к ней, и отпускания кнопки Flutter не видит: он считает её
