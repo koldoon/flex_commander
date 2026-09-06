@@ -52,11 +52,18 @@ abstract final class WriteBack {
     required Stream<List<int>> Function() bytes,
     required int size,
     OperationContext? op,
-    String stageName = 'sending back',
+    Strings? strings,
+    String? stageName,
   }) async {
     for (var attempt = 1; ; attempt++) {
       try {
-        await _once(host: host, bytes: bytes, size: size, op: op, stageName: stageName);
+        await _once(
+          host: host,
+          bytes: bytes,
+          size: size,
+          op: op,
+          stageName: stageName ?? (strings ?? StringsRegistry()).tr('sending back'),
+        );
         return;
       } on OperationCanceled {
         rethrow;
@@ -65,11 +72,11 @@ abstract final class WriteBack {
         if (error.kind == FsErrorKind.notSupported || attempt >= _attempts) {
           rethrow;
         }
-        if (!await _askRetry(host, error, op)) {
+        if (!await _askRetry(host, error, op, strings)) {
           rethrow;
         }
       } catch (error) {
-        if (attempt >= _attempts || !await _askRetry(host, error, op)) {
+        if (attempt >= _attempts || !await _askRetry(host, error, op, strings)) {
           rethrow;
         }
       }
@@ -78,13 +85,16 @@ abstract final class WriteBack {
 
   /// Спрашивает, повторять ли. Спросить некого — считаем, что да: моргнувшая
   /// сеть чинится сама, а число попыток ограничено.
-  static Future<bool> _askRetry(FsNode host, Object error, OperationContext? op) async {
+  static Future<bool> _askRetry(FsNode host, Object error, OperationContext? op, Strings? strings) async {
     if (op == null) {
       return true;
     }
     final answer = await op.ask(
       OperationRequest(
-        message: 'Could not send «${host.name}» back: $error',
+        message: (strings ?? StringsRegistry()).tr(
+          'Could not send «{name}» back: {error}',
+          args: {'name': host.name, 'error': error},
+        ),
         options: const [TransferAnswers.retry, TransferAnswers.cancel],
         enterOption: TransferAnswers.retry,
         escapeOption: TransferAnswers.cancel,

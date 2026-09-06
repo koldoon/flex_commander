@@ -89,6 +89,7 @@ const Map<String, String> _russian = {
   'Normal': 'Обычно',
   'Best': 'Плотно',
   'Reading {name}…': 'Чтение {name}…',
+  'sending archive': 'отправка архива',
   'Encrypted archive': 'Зашифрованный архив',
   'repacking archive': 'пересборка архива',
   'repacking and sending archive': 'пересборка и отправка архива',

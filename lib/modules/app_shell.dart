@@ -47,7 +47,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
 
     // Движок один на приложение: состояния у него нет, а источники узлы
     // приносят с собой — в том числе разные у источника и приёмника.
-    registry.service<TreeEditor>((services) => const TreeTransferEngine());
+    registry.service<TreeEditor>((services) => TreeTransferEngine(strings: services.resolve<Strings>()));
 
     registry.operation(FileOperations.copy, (services) => _transfer(moves: false));
     registry.operation(FileOperations.move, (services) => _transfer(moves: true));
@@ -444,4 +444,19 @@ const Map<String, String> _coreRussian = {
   'Measuring directories…': 'Считаются размеры каталогов…',
   'Administrator rights': 'Права администратора',
   '{action} {path} on {where} as administrator': '{action} {path} на {where} от администратора',
+
+  // Движок переноса: этапы работы и вопросы по её ходу.
+  'copying': 'копирование',
+  'moving': 'перенос',
+  'deleting': 'удаление',
+  'sending back': 'отправка обратно',
+  'Overwrite': 'Заменить',
+  'Overwrite all': 'Заменить все',
+  'Skip': 'Пропустить',
+  'Skip all': 'Пропустить все',
+  'Proceed': 'Начать',
+  'Retry': 'Повторить',
+  'The link «{name}» points into the directory being copied': 'Ссылка «{name}» ведёт внутрь копируемого каталога',
+  'Cannot store the link «{name}» as a link here': 'Здесь нельзя сохранить «{name}» ссылкой',
+  'Could not send «{name}» back: {error}': 'Не удалось отправить «{name}» обратно: {error}',
 };

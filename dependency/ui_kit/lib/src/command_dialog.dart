@@ -339,7 +339,9 @@ class _CommandDialogQuestionState extends State<CommandDialogQuestion> {
       actions: [
         for (final option in request.options)
           FcButton(
-            label: option.label,
+            // Варианты ответа приходят значением — от того, кто спросил: он
+            // живёт в ядре. Переводит их тот, кто показывает.
+            label: context.strings.tr(option.label),
             onPressed: () => widget.onAnswer(option),
             primary: option == request.enterOption,
           ),
@@ -348,7 +350,7 @@ class _CommandDialogQuestionState extends State<CommandDialogQuestion> {
         CommandDialogField.wide(child: Text(request.message, style: FcTheme.of(context).dialogTextStyle)),
         if (label != null)
           CommandDialogField(
-            label: label,
+            label: context.strings.tr(label),
             child: FcTextField(
               controller: _input,
               autofocus: true,

@@ -338,7 +338,8 @@ class WritableSevenZipTreeProvider extends SevenZipTreeProvider
           bytes: file.openRead,
           size: await file.length(),
           op: op,
-          stageName: 'sending archive',
+          strings: strings,
+          stageName: strings.tr('sending archive'),
         );
       }
     } finally {

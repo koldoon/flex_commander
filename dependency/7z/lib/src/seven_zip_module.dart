@@ -121,6 +121,7 @@ const Map<String, String> _russian = {
   'Follow symlinks': 'Идти по ссылкам',
   'Compression': 'Сжатие',
   'Reading {name}…': 'Чтение {name}…',
+  'sending archive': 'отправка архива',
   'Encrypted archive': 'Зашифрованный архив',
   'Writing to «{name}» rewrites the whole archive. Continue?':
       'Запись в «{name}» перезаписывает архив целиком. Продолжить?',

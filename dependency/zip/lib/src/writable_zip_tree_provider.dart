@@ -339,7 +339,8 @@ class WritableZipTreeProvider extends ZipTreeProvider implements NodeEditor, Fil
       bytes: file.openRead,
       size: await file.length(),
       op: op,
-      stageName: 'sending archive',
+      strings: strings,
+      stageName: strings.tr('sending archive'),
     );
   }
 }

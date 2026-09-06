@@ -35,7 +35,19 @@ enum TransferStrategy {
 ///
 /// Состояния у движка нет: он ничей и создаётся где угодно.
 class TreeTransferEngine implements TreeEditor {
-  const TreeTransferEngine({this.clock = DateTime.now});
+  const TreeTransferEngine({this.clock = DateTime.now, Strings? strings}) : _strings = strings;
+
+  /// Строки на языке человека: вопросы по ходу работы задаёт движок.
+  ///
+  /// null — английские, как в коде: движок собирают и без приложения
+  /// (`docs/spec/localization.md`, §5).
+  final Strings? _strings;
+
+  Strings get strings => _strings ?? _plain;
+
+  /// Один на всех, кому строк не дали: заводить реестр на каждый вопрос
+  /// незачем.
+  static final Strings _plain = StringsRegistry();
 
   /// Часы для скорости и оценки времени. Подменяются в тестах: настоящее время
   /// в них — источник случайных отказов.
@@ -136,7 +148,7 @@ class TreeTransferEngine implements TreeEditor {
         await batch.beginWrites(op);
         // Плечи есть только у приёмника, который применяет накопленное разом:
         // у обычного копирования этапов нет, и окно о них молчит.
-        progress.beginStage(move ? 'moving' : 'copying', index: 1, count: 2);
+        progress.beginStage(move ? strings.tr('moving') : strings.tr('copying'), index: 1, count: 2);
       }
       final overwrite = _OverwritePolicy();
       final links = _LinkPolicy(follow: followLinks);
@@ -331,7 +343,7 @@ class TreeTransferEngine implements TreeEditor {
       if (batch != null) {
         await _warnAbout(batch, op);
         await batch.beginWrites(op);
-        progress.beginStage('deleting', index: 1, count: 2);
+        progress.beginStage(strings.tr('deleting'), index: 1, count: 2);
       }
 
       // Считаем рядом с работой, а не перед ней: см. TransferProgress.
@@ -582,7 +594,7 @@ class TreeTransferEngine implements TreeEditor {
 
     final answer = await op.ask(
       OperationRequest(
-        message: FsError(existing.pathString, FsErrorKind.alreadyExists).message,
+        message: strings.describe(FsError(existing.pathString, FsErrorKind.alreadyExists)),
         options: const [
           TransferAnswers.overwrite,
           TransferAnswers.overwriteAll,
@@ -708,8 +720,8 @@ class TreeTransferEngine implements TreeEditor {
       OperationRequest(
         message:
             recursive
-                ? 'The link «${node.name}» points into the directory being copied'
-                : 'Cannot store the link «${node.name}» as a link here',
+                ? strings.tr('The link «{name}» points into the directory being copied', args: {'name': node.name})
+                : strings.tr('Cannot store the link «{name}» as a link here', args: {'name': node.name}),
         options: const [TransferAnswers.skip, TransferAnswers.skipAll, TransferAnswers.cancel],
         // Подменять ссылку её содержимым молча нельзя: это разные вещи и по
         // размеру, и по смыслу.
