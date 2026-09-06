@@ -55,7 +55,17 @@ class PanelMirror extends ChangeNotifier implements Panel {
   /// нажать стрелку ещё раз, и слушать его значит дёргать курсор назад.
   int _cursorSeq = 0;
 
+  /// Номер последней **своей** заявки на пометку — по той же причине, что и у
+  /// курсора: пометка ставится сразу, а подтверждения на первые заявки приходят,
+  /// когда помечено уже больше. Зажатый `Space` в дереве этим и отличается от
+  /// одиночного нажатия.
+  int _marksSeq = 0;
+
   PanelState get state => _state;
+
+  /// Список, каким его показывает зеркало сейчас. Нужен проверкам: собрать
+  /// второе зеркало на том же месте, где стоит это.
+  PanelListing get listing => _listing;
 
   @override
   List<FileEntry> get entries => _listing.entries;
@@ -179,8 +189,9 @@ class PanelMirror extends ChangeNotifier implements Panel {
 
   @override
   void setMarks(Set<String> paths) {
-    _state = _state.copyWith(markedPaths: paths);
-    _link.tell(SetMarks(id, paths));
+    _marksSeq++;
+    _state = _state.copyWith(markedPaths: paths, marksSeq: _marksSeq);
+    _link.tell(SetMarks(id, paths, _marksSeq));
     notifyListeners();
   }
 
@@ -502,10 +513,17 @@ class PanelMirror extends ChangeNotifier implements Panel {
   void _apply(CoreEvent event) {
     switch (event) {
       case PanelChanged(:final panel, :final state) when panel == id:
-        // Курсор берётся из ответа только если он про нашу последнюю заявку:
-        // опоздавший вернул бы его назад.
-        final stale = state.cursorSeq < _cursorSeq;
-        _state = stale ? state.copyWith(cursorIndex: _state.cursorIndex, cursorSeq: _cursorSeq) : state;
+        // Курсор и пометка берутся из ответа только если он про нашу
+        // последнюю заявку: опоздавший вернул бы курсор назад, а пометку —
+        // отобрал.
+        var next = state;
+        if (state.cursorSeq < _cursorSeq) {
+          next = next.copyWith(cursorIndex: _state.cursorIndex, cursorSeq: _cursorSeq);
+        }
+        if (state.marksSeq < _marksSeq) {
+          next = next.copyWith(markedPaths: _state.markedPaths, marksSeq: _marksSeq);
+        }
+        _state = next;
         notifyListeners();
 
       case PanelListed(:final panel, :final listing) when panel == id:

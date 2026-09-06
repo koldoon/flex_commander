@@ -91,11 +91,17 @@ final class MoveCursor extends CoreRequest {
 /// опознаёт не объект, а совпадение (`docs/spec/panel-view-tree.md`, §7).
 /// Названный путь ядро ищет среди узлов каталога, а не найденный оставляет
 /// прежним узлом пометки — так пометка соседней ветви переживает уход курсора.
+/// [seq] растёт с каждой заявкой этой стороны. Ядро возвращает его в стейте, и
+/// зеркало по нему отличает свежее подтверждение от опоздавшего: пометка
+/// применяется **сразу**, а подтверждения на первые заявки приходят, когда
+/// помечено уже больше, — и слушать их значит отбирать помеченное
+/// (`docs/spec/client-server.md`, §5.5).
 final class SetMarks extends CoreRequest {
-  const SetMarks(this.panel, this.paths);
+  const SetMarks(this.panel, this.paths, this.seq);
 
   final PanelId panel;
   final Set<String> paths;
+  final int seq;
 }
 
 /// Показать каталог, **не открывая** его: за курсором вида идёт каталог, а не

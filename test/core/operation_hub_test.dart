@@ -74,7 +74,7 @@ void main() {
 
   test('работа рождается в ядре и рассказывает о себе', () async {
     await openLeft();
-    link.tell(const SetMarks(PanelId.left, {'/home/notes.txt', '/home/report.txt'}));
+    link.tell(const SetMarks(PanelId.left, {'/home/notes.txt', '/home/report.txt'}, 1));
     await pumpEventQueue();
 
     final operation = RemoteOperation(link);
@@ -151,7 +151,7 @@ void main() {
 
   test('копирование идёт настоящей работой ядра', () async {
     await openLeft();
-    link.tell(const SetMarks(PanelId.left, {'/home/notes.txt'}));
+    link.tell(const SetMarks(PanelId.left, {'/home/notes.txt'}, 1));
     await link.call(const OpenPath(PanelId.right, '/home/docs'));
     await pumpEventQueue();
 

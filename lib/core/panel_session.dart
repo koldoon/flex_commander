@@ -443,13 +443,7 @@ class PanelSession {
       await resolved.release();
       return;
     }
-    await _load(
-      dir,
-      lease: resolved.lease,
-      cursorName: name.isEmpty ? null : name,
-      markedPaths: selection.paths,
-      quiet: true,
-    );
+    await _load(dir, lease: resolved.lease, cursorName: name.isEmpty ? null : name, keepMarks: true, quiet: true);
   }
 
   /// Корень, от которого разбирать этот путь.
@@ -692,7 +686,7 @@ class PanelSession {
       dir,
       cursorName: currentNode?.name,
       cursorFallbackIndex: _cursorIndex,
-      markedPaths: selection.paths,
+      keepMarks: true,
       useCache: false,
     );
   }
@@ -844,7 +838,10 @@ class PanelSession {
   /// дойти — список каталога подтягивается тихо, и нажатая в тот же миг
   /// клавиша пометки не должна пропасть (`docs/spec/panel-view-tree.md`, §7).
   /// Не разобралось — объекта нет, и пометке его взять неоткуда.
-  Future<void> setMarks(Set<String> paths) {
+  Future<void> setMarks(Set<String> paths, {int seq = 0}) {
+    // Номер заявки едет обратно в стейте: по нему зеркало отличает свежее
+    // подтверждение от опоздавшего (`docs/spec/client-server.md`, §5.5).
+    _marksSeq = seq;
     // Работа запоминается: пока чужой путь разбирается, о пометке уже могут
     // спросить — и клавишей, и просьбой (`docs/spec/operation-targets.md`, §3).
     final marking = _mark(paths);
@@ -871,6 +868,9 @@ class PanelSession {
 
   /// Идущий разбор пометки; null — разбирать нечего.
   Future<void>? _marking;
+
+  /// Номер последней применённой заявки на пометку.
+  int _marksSeq = 0;
 
   Future<void> _mark(Set<String> paths) async {
     final known = {for (final node in _nodes) node.pathString, for (final node in selection.nodes) node.pathString};
@@ -1056,6 +1056,7 @@ class PanelSession {
     showHidden: _showHidden,
     view: _view,
     markedPaths: selection.paths,
+    marksSeq: _marksSeq,
     markedSize: selection.totalSize,
     markedSizeIsFinal: selectionSizeIsFinal,
   );
@@ -1172,7 +1173,7 @@ class PanelSession {
     ProviderLease? lease,
     String? cursorName,
     int? cursorFallbackIndex,
-    Set<String>? markedPaths,
+    bool keepMarks = false,
     bool useCache = true,
     bool quiet = false,
   }) async {
@@ -1195,7 +1196,7 @@ class PanelSession {
       _nodes = shown;
       _applySort();
       _stopSizeScan();
-      _restoreSelection(markedPaths);
+      _restoreSelection(keepMarks ? selection.paths : null);
       _restoreCursor(cursorName, cursorFallbackIndex);
       // Занятости нет: панель уже что-то показала, и отнимать у неё клавиши
       // ради чтения, которого никто не ждёт, незачем. Этим фоновое обновление
@@ -1258,7 +1259,11 @@ class PanelSession {
       // будет. И только в этой ветке — при ошибке или отмене чтения на экране
       // остаются прежние узлы, и обход над ними по-прежнему правомерен.
       _stopSizeScan();
-      _restoreSelection(markedPaths);
+      // Пометка берётся **сейчас**, а не в миг заказа чтения: пока список шёл,
+      // человек успевает пометить ещё — в дереве это обычное дело, там каталог
+      // подтягивается тихо, а `Space` жмут дальше. Снимок, взятый до чтения,
+      // отменял бы всё, что сделано после него.
+      _restoreSelection(keepMarks ? selection.paths : null);
       _restoreCursor(cursorName, cursorFallbackIndex);
 
       _status = PanelPhase.idle;

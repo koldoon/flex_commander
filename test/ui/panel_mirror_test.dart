@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
@@ -10,6 +11,48 @@ import 'package:flex_commander/ui/remote_content.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Зеркало: панель на экране — это последнее, о чём рассказало ядро.
+/// Линк, придерживающий события: подтверждения ядра приходят тогда, когда их
+/// отпустит проверка.
+///
+/// Так и живёт настоящая сборка: ядро в своём изоляте, и пока оно считает
+/// размеры помеченных каталогов, подтверждения отстают от нажатий на несколько
+/// штук (`docs/spec/client-server.md`, §5.5).
+class _LaggingLink implements Link {
+  _LaggingLink(this._link) {
+    _link.events.listen(_held.add);
+  }
+
+  final Link _link;
+  final List<CoreEvent> _held = [];
+  final StreamController<CoreEvent> _events = StreamController<CoreEvent>.broadcast();
+
+  /// Отпустить одно придержанное подтверждение — самое старое.
+  Future<void> releaseOne() async {
+    if (_held.isNotEmpty) {
+      _events.add(_held.removeAt(0));
+    }
+    await pumpEventQueue();
+  }
+
+  @override
+  Stream<CoreEvent> get events => _events.stream;
+
+  @override
+  Future<CoreReply> call(CoreRequest request) => _link.call(request);
+
+  @override
+  void tell(CoreRequest request) => _link.tell(request);
+
+  @override
+  bool get isOpen => _link.isOpen;
+
+  @override
+  Future<void> dispose() async {
+    await _events.close();
+    await _link.dispose();
+  }
+}
+
 void main() {
   late InMemoryTreeProvider provider;
   late CoreServer core;
@@ -117,6 +160,25 @@ void main() {
     await pumpEventQueue();
 
     expect(panel.targets.map((entry) => entry.name), ['report.txt']);
+  });
+
+  test('опоздавшее подтверждение пометки не отбирает поставленное', () async {
+    // Так помечают в дереве, зажав `Space`: заявки уходят пачкой, а
+    // подтверждения на первые приходят, когда помечено уже больше. Слушать их
+    // значит терять пометку — и на глазах у человека.
+    final lagging = _LaggingLink(link);
+    final slow = PanelMirror(id: PanelId.left, link: lagging, state: panel.state, listing: panel.listing);
+    addTearDown(slow.dispose);
+
+    slow.setMarks({'/home/notes.txt'});
+    slow.setMarks({'/home/notes.txt', '/home/report.txt'});
+    // До оборота границы видно всё, что нажали.
+    expect(slow.markedPaths, hasLength(2));
+
+    // Приходит подтверждение **первой** заявки: помечено в нём одно.
+    await lagging.releaseOne();
+
+    expect(slow.markedPaths, {'/home/notes.txt', '/home/report.txt'}, reason: 'вторая пометка никуда не делась');
   });
 
   test('targets — строки этого списка, allTargets — всё помеченное', () async {

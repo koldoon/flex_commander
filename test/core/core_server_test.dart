@@ -9,13 +9,34 @@ import 'package:flex_commander/link/link.dart';
 import 'package:flex_commander/link/loopback_link.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+/// Провайдер с медленным чтением каталога.
+///
+/// Нужен там, где важно, что список идёт **не мгновенно**: пока он идёт,
+/// человек успевает нажать ещё.
+class _SlowListingProvider extends InMemoryTreeProvider {
+  _SlowListingProvider(super.entries);
+
+  bool slow = false;
+
+  @override
+  Operation<ListingParams, List<FsNode>> getDirectoryListing() {
+    if (!slow) {
+      return super.getDirectoryListing();
+    }
+    return TaskOperation<ListingParams, List<FsNode>>((op, params) async {
+      await Future<void>.delayed(const Duration(milliseconds: 40));
+      return super.getDirectoryListing().run(params);
+    });
+  }
+}
+
 /// Ядро через границу: то же самое приложение, но разговором.
 ///
 /// Проверяется здесь не панель — её проверяет весь остальной прогон, — а то,
 /// что через язык границы проходит всё, что панель умеет, и что наружу
 /// уезжают значения, а не живое.
 void main() {
-  late InMemoryTreeProvider provider;
+  late _SlowListingProvider provider;
   late CoreServer core;
   late Link link;
   late List<CoreEvent> heard;
@@ -28,7 +49,7 @@ void main() {
   );
 
   setUp(() {
-    provider = InMemoryTreeProvider([
+    provider = _SlowListingProvider([
       FakeEntry.directory('/home'),
       FakeEntry.directory('/home/docs'),
       FakeEntry.file('/home/docs/deep.txt', size: 40),
@@ -172,7 +193,7 @@ void main() {
     });
 
     test('пометка едет путями', () async {
-      link.tell(const SetMarks(PanelId.left, {'/home/notes.txt', '/home/report.txt'}));
+      link.tell(const SetMarks(PanelId.left, {'/home/notes.txt', '/home/report.txt'}, 1));
       await pumpEventQueue();
 
       expect(lastState()!.markedPaths, {'/home/notes.txt', '/home/report.txt'});
@@ -193,7 +214,7 @@ void main() {
     });
 
     test('цели едут значениями, и в них есть помеченное из соседней ветви', () async {
-      link.tell(const SetMarks(PanelId.left, {'/home/notes.txt', '/home/docs/deep.txt'}));
+      link.tell(const SetMarks(PanelId.left, {'/home/notes.txt', '/home/docs/deep.txt'}, 1));
       await pumpEventQueue();
 
       final reply = await link.call(const ListTargets(PanelId.left)) as CoreEntries;
@@ -210,7 +231,7 @@ void main() {
       // Чужой путь панель никогда не показывала: ядро разбирает его само, и
       // просьба, пришедшая в тот же миг, обязана дождаться
       // (`docs/spec/operation-targets.md`, §3).
-      link.tell(const SetMarks(PanelId.left, {'/home/docs/deep.txt'}));
+      link.tell(const SetMarks(PanelId.left, {'/home/docs/deep.txt'}, 1));
 
       final reply = await link.call(const ListTargets(PanelId.left)) as CoreEntries;
 
@@ -228,8 +249,40 @@ void main() {
       expect(reply.entries.map((entry) => entry.name), ['notes.txt']);
     });
 
+    test('пометка, поставленная во время чтения, не пропадает', () async {
+      // Так помечают в дереве: курсор ушёл в соседнюю ветвь — каталог панели
+      // тихо подтягивается, — а `Space` в это время жмут дальше. Список
+      // приходит и не вправе отменить сделанное после того, как он был
+      // заказан (`docs/spec/operation-targets.md`, §3).
+      provider.slow = true;
+      link.tell(const FollowCursor(PanelId.left, '/home/docs', 'deep.txt'));
+      // Пометка ставится, **пока список идёт**: чтение уже заказано, а человек
+      // всё ещё жмёт `Space`.
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      link.tell(const SetMarks(PanelId.left, {'/home/notes.txt'}, 1));
+      await pumpEventQueue();
+      expect(lastState()!.markedPaths, {'/home/notes.txt'}, reason: 'пометка встала сразу');
+
+      // Список приходит позже — и пометку, поставленную после его заказа, не
+      // трогает.
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      await pumpEventQueue();
+
+      expect(lastState()!.path, '/home/docs');
+      expect(lastState()!.markedPaths, {'/home/notes.txt'});
+    });
+
+    test('пометки, посланные подряд, применяются по порядку', () async {
+      link.tell(const SetMarks(PanelId.left, {'/home/docs/deep.txt'}, 1));
+      link.tell(const SetMarks(PanelId.left, {'/home/docs/deep.txt', '/home/notes.txt'}, 2));
+      link.tell(const SetMarks(PanelId.left, {'/home/docs/deep.txt', '/home/notes.txt', '/home/report.txt'}, 3));
+      await pumpEventQueue();
+
+      expect(lastState()!.markedPaths, {'/home/docs/deep.txt', '/home/notes.txt', '/home/report.txt'});
+    });
+
     test('пометка переживает перечитывание каталога', () async {
-      link.tell(const SetMarks(PanelId.left, {'/home/notes.txt'}));
+      link.tell(const SetMarks(PanelId.left, {'/home/notes.txt'}, 1));
       await pumpEventQueue();
 
       await link.call(const Reload(PanelId.left));

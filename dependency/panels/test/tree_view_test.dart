@@ -317,6 +317,34 @@ void main() {
     expect(markedRows(tester), 2, reason: 'обе ветви показывают пометку');
   });
 
+  testWidgets('зажатый Space помечает подряд и ничего не теряет', (tester) async {
+    // Найдено на живом: пометка ставится сразу, а подтверждения ядра приходят
+    // с отставанием — и собранный поверх опоздавшего набор терял уже
+    // помеченное (`docs/spec/client-server.md`, §5.5).
+    final runtime = await open(tester);
+    final panel = runtime.app.left;
+
+    // Раскрываем обе ветви, чтобы помечать было что.
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Right'));
+    await tester.pumpAndSettle();
+
+    // Курсор стоит на `lib`, ниже него — `src`, `app.dart`, `test`,
+    // `main.dart`: пять нажатий, пять пометок. Шестое пришлось бы на последнюю
+    // строку второй раз и сняло бы её.
+    const presses = 5;
+    for (var i = 0; i < presses; i++) {
+      runtime.commands.dispatch(KeyCombination.parse('Space'));
+      // Кадрами, а не с успокоением: клавиша повторяется быстрее, чем ядро
+      // успевает подтвердить.
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+
+    expect(panel.markedPaths, hasLength(presses), reason: 'сколько нажали, столько и помечено');
+  });
+
   testWidgets('пометка из двух ветвей доходит до окна копирования', (tester) async {
     final runtime = await open(tester, at: '/home/lib');
     final panel = runtime.app.left;

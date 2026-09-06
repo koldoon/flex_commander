@@ -33,6 +33,7 @@ class PanelState {
     this.showHidden = false,
     this.view = PanelSettings.defaultView,
     this.markedPaths = const {},
+    this.marksSeq = 0,
     this.markedSize = 0,
     this.markedSizeIsFinal = true,
   });
@@ -112,6 +113,13 @@ class PanelState {
   /// внутри одного каталога (`docs/spec/panel-view-tree.md`, §7).
   final Set<String> markedPaths;
 
+  /// Номер заявки на пометку, которую ядро применило последней.
+  ///
+  /// Тот же приём, что у курсора: пометка ставится этой стороной сразу, а
+  /// подтверждение приходит через оборот границы — и опоздавшее не вправе
+  /// отобрать помеченное после него (`docs/spec/client-server.md`, §5.5).
+  final int marksSeq;
+
   /// Суммарный размер помеченного. Растёт по ходу обхода каталогов.
   final int markedSize;
   final bool markedSizeIsFinal;
@@ -138,6 +146,7 @@ class PanelState {
     bool? showHidden,
     String? view,
     Set<String>? markedPaths,
+    int? marksSeq,
     int? markedSize,
     bool? markedSizeIsFinal,
   }) => PanelState(
@@ -159,6 +168,7 @@ class PanelState {
     view: view ?? this.view,
     showHidden: showHidden ?? this.showHidden,
     markedPaths: markedPaths ?? this.markedPaths,
+    marksSeq: marksSeq ?? this.marksSeq,
     markedSize: markedSize ?? this.markedSize,
     markedSizeIsFinal: markedSizeIsFinal ?? this.markedSizeIsFinal,
   );
