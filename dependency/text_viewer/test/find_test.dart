@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
@@ -150,6 +151,7 @@ void main() {
     test('не нашлось — ошибка в окне, а не закрытие', () async {
       final screen = await openViewer();
       final state = FcFindDialogState(
+        strings: StringsRegistry(),
         finder: screen.finder,
         pattern: 'кошка',
         caseSensitive: false,
@@ -166,6 +168,7 @@ void main() {
     test('нашлось — ошибки нет, счёт сказан', () async {
       final screen = await openViewer();
       final state = FcFindDialogState(
+        strings: StringsRegistry(),
         finder: screen.finder,
         pattern: 'строка',
         caseSensitive: false,
@@ -183,6 +186,7 @@ void main() {
     test('пустая строка — вопрос к вводу, а не поиск', () async {
       final screen = await openViewer();
       final state = FcFindDialogState(
+        strings: StringsRegistry(),
         finder: screen.finder,
         pattern: '',
         caseSensitive: false,
@@ -198,6 +202,7 @@ void main() {
     test('негодное выражение названо негодным', () async {
       final screen = await openViewer();
       final state = FcFindDialogState(
+        strings: StringsRegistry(),
         finder: screen.finder,
         pattern: '(',
         caseSensitive: false,

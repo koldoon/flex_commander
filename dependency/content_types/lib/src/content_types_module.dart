@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'content_type_service.dart';
@@ -22,26 +23,32 @@ class ContentTypeDetection implements FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.strings('ru', {'Content types': 'Типы содержимого'});
+    registry.strings('ru', {
+      'Files read at once': 'Файлов читается разом',
+      'How many files are read in parallel to tell what they are':
+          'Сколько файлов читается одновременно, чтобы понять их тип',
+      'Content types': 'Типы содержимого',
+    });
 
     final settings = registry.settings;
     ContentTypesSettings settingsOf() => settings.section(ContentTypesSettings.new);
 
     registry.service<ContentTypes>((services) => ContentTypeService(concurrency: () => settingsOf().concurrency));
 
-    registry.settingsSchema(
-      () => SettingsSchema([
+    registry.settingsSchema(() {
+      final strings = registry.services.resolve<Strings>();
+      return SettingsSchema([
         SettingsField.integer(
           'concurrency',
           min: 1,
           max: 16,
           defaultValue: ContentTypesSettings.defaultConcurrency,
-          title: 'Files read at once',
-          description: 'How many files are read in parallel to tell what they are',
+          title: strings.tr('Files read at once'),
+          description: strings.tr('How many files are read in parallel to tell what they are'),
           read: () => settingsOf().concurrency,
           write: (value) => settingsOf().concurrency = value,
         ),
-      ], save: settings.save),
-    );
+      ], save: settings.save);
+    });
   }
 }

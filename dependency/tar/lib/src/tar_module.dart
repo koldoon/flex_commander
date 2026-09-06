@@ -97,6 +97,8 @@ class TarArchiver implements FcBackendModule, FcFrontendModule {
 /// Названия форматов приходят значением (`TarFormat.title`) — переводит их тот,
 /// кто показывает; здесь они и объявлены.
 const Map<String, String> _russian = {
+  'Create TAR archive': 'Создать архив TAR',
+  'Compress into gz': 'Сжать в gz',
   'Tar archives': 'Архивы tar',
   'Mk Tar': 'Tar',
   'Pack the selected items into a new tar, tar.gz or tgz archive': 'Упаковать выбранное в новый tar, tar.gz или tgz',

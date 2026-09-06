@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/services.dart';
@@ -28,8 +29,9 @@ mixin _ScreenFinder on AppCommand {
   ///
   /// Постоянной панели поиска у нас нет, и счёт сказать больше негде; а знать
   /// его нужно, иначе непонятно, ходишь ты по кругу или стоишь на месте.
-  void reportMatch(Application app, FcTextFinder finder) =>
-      app.toasts.show('Match ${finder.currentIndex} of ${finder.matchCount}');
+  void reportMatch(Application app, FcTextFinder finder) => app.toasts.show(
+    app.strings.tr('Match {index} of {count}', args: {'index': finder.currentIndex, 'count': finder.matchCount}),
+  );
 }
 
 /// Найти строку в показанном тексте.
@@ -58,13 +60,13 @@ class FcFindTextCommand extends AppCommand with _ScreenFinder {
   String get id => _id;
 
   @override
-  String get label => 'Find';
+  String get label => tr('Find');
 
   @override
   Set<String> get keywords => const {'search', 'grep', 'look for'};
 
   @override
-  String get description => 'Find text in the document';
+  String get description => tr('Find text in the document');
 
   /// В заголовке места больше, чем на кнопке в ряду.
   String get dialogTitle => 'Find text';
@@ -88,7 +90,7 @@ class FcFindTextCommand extends AppCommand with _ScreenFinder {
     if (given != null) {
       final int count = await _run(context, finder, given);
       if (count == 0) {
-        context.app.toasts.show('Not found: $given');
+        context.app.toasts.show(tr('Not found: {what}', args: {'what': given}));
         return;
       }
       reportMatch(context.app, finder);
@@ -102,6 +104,7 @@ class FcFindTextCommand extends AppCommand with _ScreenFinder {
       caseSensitive: finder.caseSensitive,
       regex: finder.regex,
       onFound: () => reportMatch(context.app, finder),
+      strings: context.app.strings,
     );
 
     late final String dialogId;
@@ -141,7 +144,11 @@ class FcFindDialogState extends ChangeNotifier {
     required this.caseSensitive,
     required this.regex,
     required this.onFound,
+    required this.strings,
   });
+
+  /// Отказы окна складываются здесь — значит, и на языке человека.
+  final Strings strings;
 
   final FcTextFinder finder;
   final VoidCallback onFound;
@@ -170,19 +177,19 @@ class FcFindDialogState extends ChangeNotifier {
     error = null;
 
     if (pattern.isEmpty) {
-      error = 'Nothing to find';
+      error = strings.tr('Nothing to find');
       notifyListeners();
       return;
     }
     if (regex && !_isValidRegex(pattern)) {
-      error = 'Not a valid expression';
+      error = strings.tr('Not a valid expression');
       notifyListeners();
       return;
     }
 
     final int count = await finder.search(pattern, caseSensitive: caseSensitive, regex: regex);
     if (count == 0) {
-      error = 'Not found: $pattern';
+      error = strings.tr('Not found: {what}', args: {'what': pattern});
       notifyListeners();
       return;
     }
@@ -217,10 +224,10 @@ class FcFindNextCommand extends AppCommand with _ScreenFinder {
   String get id => _id;
 
   @override
-  String get label => 'Find Next';
+  String get label => tr('Find Next');
 
   @override
-  String get description => 'Go to the next match';
+  String get description => tr('Go to the next match');
 
   /// Пока не искали, ходить не по чему — кнопка в ряду приглушена.
   @override
@@ -249,10 +256,10 @@ class FcFindPreviousCommand extends AppCommand with _ScreenFinder {
   String get id => _id;
 
   @override
-  String get label => 'Find Previous';
+  String get label => tr('Find Previous');
 
   @override
-  String get description => 'Go to the previous match';
+  String get description => tr('Go to the previous match');
 
   @override
   bool isExecutable(CommandContext context) => (finderOf(context.app)?.matchCount ?? 0) > 0;
@@ -300,10 +307,10 @@ class _FindFormState extends State<_FindForm> {
             error: state.error,
             onCancel: state.close ?? () {},
             onSubmit: state.submit,
-            submitLabel: 'Find',
+            submitLabel: context.strings.tr('Find'),
             children: [
               CommandDialogField(
-                label: 'Text',
+                label: context.strings.tr('Text'),
                 // `Shift-Enter` ищет назад. Рама окна пропускает его мимо себя —
                 // она знает только про чистый `Enter`, — и он достаётся полю.
                 child: CallbackShortcuts(
@@ -321,14 +328,14 @@ class _FindFormState extends State<_FindForm> {
               ),
               CommandDialogField.wide(
                 child: FcCheckbox(
-                  label: 'Case sensitive',
+                  label: context.strings.tr('Case sensitive'),
                   value: state.caseSensitive,
                   onChanged: (value) => state.update(caseSensitive: value),
                 ),
               ),
               CommandDialogField.wide(
                 child: FcCheckbox(
-                  label: 'Regular expression',
+                  label: context.strings.tr('Regular expression'),
                   value: state.regex,
                   onChanged: (value) => state.update(regex: value),
                 ),

@@ -24,10 +24,10 @@ class SwitchThemeCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Switch theme';
+  String get label => tr('Switch theme');
 
   @override
-  String get description => 'Choose the application appearance';
+  String get description => tr('Choose the application appearance');
 
   /// «Тёмная тема» ищется словом `dark`, а не словом `switch`.
   @override
@@ -70,7 +70,7 @@ class RestoreThemeCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => 'Restore theme';
+  String get label => tr('Restore theme');
 
   @override
   bool isExecutable(CommandContext context) => true;

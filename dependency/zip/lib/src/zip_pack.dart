@@ -14,7 +14,12 @@ import 'zip_encoding.dart';
 /// архив приёмнику. Команда её только называет и приносит доводы заявкой
 /// (`docs/spec/client-server.md`, §5.4).
 class ZipPacking {
-  ZipPacking({required StagingArea staging}) : _staging = staging;
+  ZipPacking({required StagingArea staging, Strings? strings})
+    : _staging = staging,
+      strings = strings ?? StringsRegistry();
+
+  /// Строки: вопросы по ходу упаковки задаёт эта сторона.
+  final Strings strings;
 
   /// Имя работы: под ним её и зовут из команды.
   static const String kind = 'zip.pack';
@@ -225,9 +230,15 @@ class ZipPacking {
     final answer = await op.ask(
       OperationRequest(
         message: switch (kind) {
-          _LinkTrouble.cannotStore => 'Cannot store the link «${node.name}» in a zip archive',
-          _LinkTrouble.recursive => 'The link «${node.name}» points into the directory being packed',
-          _LinkTrouble.broken => 'The link «${node.name}» leads nowhere',
+          _LinkTrouble.cannotStore => strings.tr(
+            'Cannot store the link «{name}» in a zip archive',
+            args: {'name': node.name},
+          ),
+          _LinkTrouble.recursive => strings.tr(
+            'The link «{name}» points into the directory being packed',
+            args: {'name': node.name},
+          ),
+          _LinkTrouble.broken => strings.tr('The link «{name}» leads nowhere', args: {'name': node.name}),
         },
         options: const [TransferAnswers.skip, TransferAnswers.skipAll, TransferAnswers.cancel],
         enterOption: TransferAnswers.skip,

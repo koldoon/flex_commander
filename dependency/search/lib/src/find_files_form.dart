@@ -114,7 +114,7 @@ class _FindFilesFormState extends State<FindFilesForm> {
                     // Просвет между столбцами — по полю окна: тогда средний
                     // просвет читается так же, как боковые.
                     SizedBox(width: theme.metrics.dialogHorizontalPadding),
-                    Expanded(child: _byContent(theme)),
+                    Expanded(child: _byContent(context, theme)),
                   ],
                 ),
               ),
@@ -217,23 +217,23 @@ class _FindFilesFormState extends State<FindFilesForm> {
   }
 
   /// Правый столбец: поиск по содержимому — второй шаг Д2, целиком приглушён.
-  Widget _byContent(FcTheme theme) {
+  Widget _byContent(BuildContext context, FcTheme theme) {
     final gap = SizedBox(height: theme.metrics.dialogGap);
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _labeled(theme, 'Content:', FcTextField(controller: _content, enabled: false)),
+        _labeled(theme, context.strings.tr('Content:'), FcTextField(controller: _content, enabled: false)),
         gap,
-        const FcCheckbox(label: 'Whole words', value: false, onChanged: null),
+        FcCheckbox(label: context.strings.tr('Whole words'), value: false, onChanged: null),
         gap,
-        const FcCheckbox(label: 'Regular expression', value: false, onChanged: null),
+        FcCheckbox(label: context.strings.tr('Regular expression'), value: false, onChanged: null),
         gap,
-        const FcCheckbox(label: 'Case sensitive', value: false, onChanged: null),
+        FcCheckbox(label: context.strings.tr('Case sensitive'), value: false, onChanged: null),
         gap,
-        const FcCheckbox(label: 'All charsets', value: false, onChanged: null),
+        FcCheckbox(label: context.strings.tr('All charsets'), value: false, onChanged: null),
         gap,
-        const FcCheckbox(label: 'First hit', value: false, onChanged: null),
+        FcCheckbox(label: context.strings.tr('First hit'), value: false, onChanged: null),
       ],
     );
   }

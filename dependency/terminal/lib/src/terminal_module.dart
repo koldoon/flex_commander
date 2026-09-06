@@ -135,6 +135,8 @@ class ShellTerminal implements FcBackendModule, FcFrontendModule, FcModuleLifecy
       (context) => RunCommandLineCommand(settings: settingsOf, shells: () => context.resolve<ShellSession>()),
     );
     registry.command((context) => RunNodeCommand(settings: settingsOf, shells: () => context.resolve<ShellSession>()));
+    // Подпись — ключ перевода: команда не знает, кто её показывает, а её
+    // строку объявляет модуль (`docs/spec/localization.md`, §6).
     registry.command((context) => HistoryCommand(id: HistoryCommand.previousId, label: 'Previous command', back: true));
     registry.command((context) => HistoryCommand(id: HistoryCommand.nextId, label: 'Next command', back: false));
     registry.command(

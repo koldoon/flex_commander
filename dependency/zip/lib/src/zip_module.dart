@@ -27,7 +27,11 @@ class ZipArchiver implements FcBackendModule, FcFrontendModule {
   void installBackend(BackendRegistry registry) {
     // Упаковка — такое же дело, как копирование, и живёт там же, где формат.
     // Работой, а не командой: обход дерева и байты — по эту сторону границы.
-    registry.operation(ZipPacking.kind, (services) => ZipPacking(staging: services.resolve<StagingArea>()).operation());
+    registry.operation(
+      ZipPacking.kind,
+      (services) =>
+          ZipPacking(staging: services.resolve<StagingArea>(), strings: services.resolve<Strings>()).operation(),
+    );
 
     registry.provider(
       ZipTreeProvider.schemeName,
@@ -75,6 +79,10 @@ class ZipArchiver implements FcBackendModule, FcFrontendModule {
 /// Названия уровней сжатия приходят значением (`ZipCompression.title`), а
 /// заголовок окна пароля — вопросом от ядра: переводит их тот, кто показывает.
 const Map<String, String> _russian = {
+  'Create ZIP archive': 'Создать архив ZIP',
+  'Cannot store the link «{name}» in a zip archive': 'Ссылку «{name}» нельзя сохранить в архиве zip',
+  'The link «{name}» points into the directory being packed': 'Ссылка «{name}» ведёт внутрь упаковываемого каталога',
+  'The link «{name}» leads nowhere': 'Ссылка «{name}» никуда не ведёт',
   'Zip archives': 'Архивы zip',
   'Mk Zip': 'Zip',
   'Pack the selected items into a new zip archive': 'Упаковать выбранное в новый архив zip',

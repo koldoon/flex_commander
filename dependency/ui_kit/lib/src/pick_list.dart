@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'app_scope.dart';
 
 import 'command_dialog.dart';
 import 'fc_theme.dart';
@@ -71,7 +72,7 @@ class FcPickList extends StatefulWidget {
     required this.query,
     required this.selected,
     required this.onTap,
-    this.emptyMessage = 'Nothing found',
+    this.emptyMessage,
     this.textInset,
     this.page,
     this.mark = FcPickMark.cursor,
@@ -87,7 +88,8 @@ class FcPickList extends StatefulWidget {
 
   final void Function(String id) onTap;
 
-  final String emptyMessage;
+  /// Что сказать, когда показывать нечего; null — «ничего не найдено».
+  final String? emptyMessage;
 
   /// Отступ текста строки от края списка; пусто — как у поля ввода без подписи.
   ///
@@ -270,7 +272,11 @@ class _FcPickListState extends State<FcPickList> {
     if (widget.rows.isEmpty) {
       return Padding(
         padding: EdgeInsets.only(bottom: metrics.dialogPadding),
-        child: Text(widget.emptyMessage, textAlign: TextAlign.center, style: theme.dialogLabelStyle),
+        child: Text(
+          widget.emptyMessage ?? context.strings.tr('Nothing found'),
+          textAlign: TextAlign.center,
+          style: theme.dialogLabelStyle,
+        ),
       );
     }
 

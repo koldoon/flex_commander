@@ -106,7 +106,7 @@ class MoveBackgroundCursorCommand extends AppCommand {
   String get id => down ? downId : upId;
 
   @override
-  String get label => down ? 'Next task' : 'Previous task';
+  String get label => down ? tr('Next task') : tr('Previous task');
 
   @override
   bool isExecutable(CommandContext context) => (_focusedList(context.app)?.runs.length ?? 0) > 1;

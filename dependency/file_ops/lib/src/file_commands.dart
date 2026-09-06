@@ -31,7 +31,7 @@ class MakeDirectoryCommand extends AppCommand {
   Set<String> get keywords => const {'folder', 'directory', 'new folder', 'create'};
 
   /// В заголовке места больше, чем на кнопке в ряду, где стоит сжатое «Mk Dir».
-  String get dialogTitle => 'Make directory';
+  String get dialogTitle => tr('Make directory');
 
   @override
   bool isExecutable(CommandContext context) {
@@ -272,7 +272,7 @@ abstract class RemoveCommandBase extends AppCommand {
   /// «Delete !» в заголовке разбора читалось бы как опечатка: восклицательный
   /// знак в названии команды отличает её от удаления в корзину, а не от чего-то
   /// ещё.
-  String get failureMessage => 'Delete failed';
+  String get failureMessage => tr('Delete failed');
 
   /// Спросить, точно ли удалять, — и удалить.
   ///

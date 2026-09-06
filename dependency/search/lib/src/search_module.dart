@@ -72,6 +72,10 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
 
 /// Русские строки поиска файлов.
 const Map<String, String> _russian = {
+  'Content:': 'Содержимое:',
+  'Whole words': 'Слова целиком',
+  'Regular expression': 'Регулярное выражение',
+  'First hit': 'Только первое совпадение',
   'File search': 'Поиск файлов',
 
   // Команды.

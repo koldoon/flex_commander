@@ -47,7 +47,7 @@ class CreateZipArchiveCommand extends AppCommand {
   @override
   Set<String> get keywords => const {'archive', 'compress', 'pack'};
 
-  String get dialogTitle => 'Create ZIP archive';
+  String get dialogTitle => tr('Create ZIP archive');
 
   /// Окно начинается с формы, и фокус нужен полю имени.
 

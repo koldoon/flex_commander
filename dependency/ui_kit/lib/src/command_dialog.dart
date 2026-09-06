@@ -347,7 +347,11 @@ class _CommandDialogQuestionState extends State<CommandDialogQuestion> {
           ),
       ],
       children: [
-        CommandDialogField.wide(child: Text(request.message, style: FcTheme.of(context).dialogTextStyle)),
+        // Сообщение приходит от того, кто спросил: собранное из значений оно
+        // переводу не поддастся и вернётся как есть, а простое — переведётся.
+        CommandDialogField.wide(
+          child: Text(context.strings.tr(request.message), style: FcTheme.of(context).dialogTextStyle),
+        ),
         if (label != null)
           CommandDialogField(
             label: context.strings.tr(label),

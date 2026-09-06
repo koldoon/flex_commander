@@ -73,21 +73,22 @@ class LocalFileSystem implements FcBackendModule, FcFrontendModule {
 
     final settings = registry.settings;
 
-    registry.settingsSchema(
-      () => SettingsSchema([
+    registry.settingsSchema(() {
+      final strings = registry.services.resolve<Strings>();
+      return SettingsSchema([
         SettingsField.integer(
           'copyProgressMinBytes',
           defaultValue: LocalFsSettings.defaultCopyProgressMinBytes,
-          title: 'Show progress inside a file from',
-          unit: 'bytes',
-          description: 'Below this size a copy is counted whole: the progress costs more than the copy',
+          title: strings.tr('Show progress inside a file from'),
+          unit: strings.tr('bytes'),
+          description: strings.tr('Below this size a copy is counted whole: the progress costs more than the copy'),
           min: 0,
           max: 1024 * 1024 * 1024,
           read: () => settings.section(LocalFsSettings.new).copyProgressMinBytes,
           write: (value) => settings.section(LocalFsSettings.new).copyProgressMinBytes = value,
         ),
-      ], save: settings.save),
-    );
+      ], save: settings.save);
+    });
 
     // Буфер обмена: им пользуется просмотрщик, а дальше — команды «скопировать
     // путь» и «скопировать список имён».
@@ -102,6 +103,10 @@ class LocalFileSystem implements FcBackendModule, FcFrontendModule {
 
 /// Русские строки локальной файловой системы.
 const Map<String, String> _russian = {
+  'Show progress inside a file from': 'Показывать ход внутри файла от',
+  'Below this size a copy is counted whole: the progress costs more than the copy':
+      'Меньше этого размера файл считается целиком: показ хода дороже самого копирования',
+  'bytes': 'байт',
   'Local file system': 'Локальная файловая система',
   'Reading {path}…': 'Чтение {path}…',
   'Write': 'Записать',

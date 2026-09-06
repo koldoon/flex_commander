@@ -104,6 +104,22 @@ class TextEditor implements FcBackendModule, FcFrontendModule {
 
 /// Русские строки редактора.
 const Map<String, String> _russian = {
+  'Find': 'Найти',
+  'Find text': 'Найти текст',
+  'Find text in the document': 'Найти строку в показанном тексте',
+  'Find Next': 'Найти дальше',
+  'Go to the next match': 'Перейти к следующему совпадению',
+  'Find Previous': 'Найти раньше',
+  'Go to the previous match': 'Перейти к предыдущему совпадению',
+  'Text': 'Текст',
+  'Case sensitive': 'Различать регистр',
+  'Regular expression': 'Регулярное выражение',
+  'Nothing to find': 'Искать нечего',
+  'Not a valid expression': 'Это не выражение',
+  'Not found: {what}': 'Не найдено: {what}',
+  'Match {index} of {count}': 'Совпадение {index} из {count}',
+  'Save changes': 'Сохранение изменений',
+  'Unsaved changes': 'Несохранённые изменения',
   'Text editor': 'Редактор текста',
   'Edit': 'Править',
   'Open the file under the cursor for editing': 'Открыть файл под курсором на правку',

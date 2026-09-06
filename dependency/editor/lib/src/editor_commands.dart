@@ -328,7 +328,7 @@ class SaveFileCommand extends AppCommand {
     );
   }
 
-  String get dialogTitle => 'Save changes';
+  String get dialogTitle => tr('Save changes');
 }
 
 /// Переключить перенос строк.
@@ -443,7 +443,7 @@ class CloseEditorCommand extends AppCommand {
   @override
   bool isExecutable(CommandContext context) => context.app.view.contentAt(ViewportPosition.fullscreen) is EditorScreen;
 
-  String get dialogTitle => 'Unsaved changes';
+  String get dialogTitle => tr('Unsaved changes');
 
   /// Закрыть — и спросить по дороге, если есть что терять.
   ///

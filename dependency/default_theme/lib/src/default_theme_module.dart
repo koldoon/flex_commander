@@ -51,4 +51,10 @@ class DefaultTheme implements FcFrontendModule {
 ///
 /// Название темы приходит значением (`FcThemeSpec.title`) — переводит его тот,
 /// кто показывает, а объявляет тот, чья тема.
-const Map<String, String> _russian = {'Default theme': 'Оформление по умолчанию', 'Default': 'Обычное'};
+const Map<String, String> _russian = {
+  'Switch theme': 'Сменить оформление',
+  'Choose the application appearance': 'Выбрать внешний вид приложения',
+  'Restore theme': 'Вернуть оформление',
+  'Default theme': 'Оформление по умолчанию',
+  'Default': 'Обычное',
+};

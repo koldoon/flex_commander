@@ -338,6 +338,10 @@ class _WatchBackgroundTasksCommand extends AppCommand {
 /// Здесь же живут подписи общих частей окон (`fc_ui_kit`): своего модуля у них
 /// нет, а показывает их оболочка.
 const Map<String, String> _russian = {
+  'Next task': 'Следующая работа',
+  'Previous task': 'Предыдущая работа',
+  'Abort the operation?': 'Прервать работу?',
+  'Abort': 'Прервать',
   'Application shell': 'Оболочка приложения',
   'Other': 'Прочее',
 

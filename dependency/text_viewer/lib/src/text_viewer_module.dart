@@ -262,6 +262,20 @@ class TextViewer implements FcFrontendModule {
 
 /// Русские строки просмотра текста.
 const Map<String, String> _russian = {
+  'Find': 'Найти',
+  'Find text': 'Найти текст',
+  'Find text in the document': 'Найти строку в показанном тексте',
+  'Find Next': 'Найти дальше',
+  'Go to the next match': 'Перейти к следующему совпадению',
+  'Find Previous': 'Найти раньше',
+  'Go to the previous match': 'Перейти к предыдущему совпадению',
+  'Text': 'Текст',
+  'Case sensitive': 'Различать регистр',
+  'Regular expression': 'Регулярное выражение',
+  'Nothing to find': 'Искать нечего',
+  'Not a valid expression': 'Это не выражение',
+  'Not found: {what}': 'Не найдено: {what}',
+  'Match {index} of {count}': 'Совпадение {index} из {count}',
   'Text viewer': 'Просмотр текста',
   'Copy': 'Копировать',
   'Copy the selected text to the clipboard': 'Скопировать выделенный текст в буфер обмена',

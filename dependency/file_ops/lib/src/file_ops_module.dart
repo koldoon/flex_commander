@@ -53,6 +53,7 @@ class FileOps implements FcFrontendModule {
 
 /// Русские строки файловых операций.
 const Map<String, String> _russian = {
+  'Delete failed': 'Удалить не вышло',
   'File operations': 'Файловые операции',
 
   // Перенос.

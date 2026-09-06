@@ -53,7 +53,7 @@ class CreateTarArchiveCommand extends AppCommand {
   @override
   Set<String> get keywords => const {'tar.gz', 'tgz', 'gzip', 'archive', 'compress', 'pack'};
 
-  String get dialogTitle => 'Create TAR archive';
+  String get dialogTitle => tr('Create TAR archive');
 
   @override
   bool isExecutable(CommandContext context) {

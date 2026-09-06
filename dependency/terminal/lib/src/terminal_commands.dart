@@ -83,7 +83,7 @@ class LeaveCommandLineCommand extends AppCommand {
 
 /// Шаг по истории команд.
 class HistoryCommand extends AppCommand {
-  HistoryCommand({required this.id, required this.label, required this.back});
+  HistoryCommand({required this.id, required String label, required this.back}) : _label = label;
 
   static const String previousId = 'terminal.historyPrevious';
   static const String nextId = 'terminal.historyNext';
@@ -91,8 +91,11 @@ class HistoryCommand extends AppCommand {
   @override
   final String id;
 
+  /// Английская подпись — она же ключ перевода: команда одна, а имён у неё два.
+  final String _label;
+
   @override
-  final String label;
+  String get label => tr(_label);
 
   final bool back;
 
@@ -108,7 +111,7 @@ class HistoryCommand extends AppCommand {
 
 /// Вставить в строку имя объекта под курсором или его полный путь.
 class InsertNodeCommand extends AppCommand {
-  InsertNodeCommand({required this.id, required this.label, required this.fullPath});
+  InsertNodeCommand({required this.id, required String label, required this.fullPath}) : _label = label;
 
   static const String nameId = 'terminal.insertName';
   static const String pathId = 'terminal.insertPath';
@@ -116,8 +119,11 @@ class InsertNodeCommand extends AppCommand {
   @override
   final String id;
 
+  /// Английская подпись — она же ключ перевода.
+  final String _label;
+
   @override
-  final String label;
+  String get label => tr(_label);
 
   final bool fullPath;
 
