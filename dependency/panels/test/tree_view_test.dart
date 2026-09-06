@@ -413,6 +413,9 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(branches(tester), containsAll(['home', 'lib', 'main.dart']), reason: 'ветви прочитались');
+    // Корень сервера — такой же корень: у адреса последнее звено пусто, и без
+    // правила верхняя ветвь стояла безымянной.
+    expect(branches(tester).first, '/', reason: 'корень подписан');
 
     // И ходит по нему так же: раскрытие читает следующую ветвь.
     runtime.commands.dispatch(KeyCombination.parse('Down'));

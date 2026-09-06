@@ -870,12 +870,9 @@ class PanelSession {
   /// клавиша пометки не должна пропасть (`docs/spec/panel-view-tree.md`, §7).
   /// Не разобралось — объекта нет, и пометке его взять неоткуда.
   Future<void> setMarks(Set<String> paths, {int seq = 0}) {
-    // Номер заявки едет обратно в стейте: по нему зеркало отличает свежее
-    // подтверждение от опоздавшего (`docs/spec/client-server.md`, §5.5).
-    _marksSeq = seq;
     // Работа запоминается: пока чужой путь разбирается, о пометке уже могут
     // спросить — и клавишей, и просьбой (`docs/spec/operation-targets.md`, §3).
-    final marking = _mark(paths);
+    final marking = _mark(paths, seq);
     _marking = marking;
     return marking.whenComplete(() {
       if (identical(_marking, marking)) {
@@ -903,7 +900,7 @@ class PanelSession {
   /// Номер последней применённой заявки на пометку.
   int _marksSeq = 0;
 
-  Future<void> _mark(Set<String> paths) async {
+  Future<void> _mark(Set<String> paths, int seq) async {
     final known = {for (final node in _nodes) node.pathString, for (final node in selection.nodes) node.pathString};
     final strangers = <String, FsNode>{};
     for (final path in paths) {
@@ -922,6 +919,17 @@ class PanelSession {
         // Объекта нет — путь просто выпадает из пометки.
       }
     }
+    // Опоздавшая заявка новой не отменяет: пока эта разбирала чужой путь,
+    // человек нажал ещё, и та пометка свежее.
+    if (seq != 0 && seq < _marksSeq) {
+      return;
+    }
+    // Номер ставится **вместе с пометкой**, а не при получении заявки. Иначе
+    // всякое событие, случившееся за время разбора — а разбор идёт к
+    // источнику, — уезжало бы с новым номером и **старой** пометкой: зеркало
+    // приняло бы его за свежее подтверждение и отобрало у себя помеченное
+    // (`docs/spec/client-server.md`, §5.5).
+    _marksSeq = seq;
     _restoreSelection(paths, strangers: strangers);
   }
 

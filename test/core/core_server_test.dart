@@ -281,6 +281,37 @@ void main() {
       expect(lastState()!.markedPaths, {'/home/docs/deep.txt', '/home/notes.txt', '/home/report.txt'});
     });
 
+    test('номер заявки не появляется раньше самой пометки', () async {
+      // Пока ядро разбирает чужой путь, случается всё остальное: обход
+      // размеров, движение курсора, приход списка. Каждое такое событие уносит
+      // стейт — и если номер заявки уже стоит, а пометка ещё нет, зеркало
+      // примет это за свежее подтверждение и отберёт у себя помеченное
+      // (`docs/spec/client-server.md`, §5.5).
+      link.tell(const SetMarks(PanelId.left, {'/home/docs/deep.txt'}, 7));
+      link.tell(const MoveCursor(PanelId.left, 2, 1));
+      await pumpEventQueue();
+
+      final states = [
+        for (final event in heard)
+          if (event is PanelChanged && event.panel == PanelId.left) event.state,
+      ];
+      expect(
+        states.where((state) => state.marksSeq == 7).map((state) => state.markedPaths),
+        everyElement(isNotEmpty),
+        reason: 'номер седьмой заявки не едет с пустой пометкой',
+      );
+      expect(lastState()!.markedPaths, {'/home/docs/deep.txt'});
+    });
+
+    test('опоздавшая заявка на пометку не отменяет свежую', () async {
+      link.tell(const SetMarks(PanelId.left, {'/home/docs/deep.txt'}, 1));
+      link.tell(const SetMarks(PanelId.left, {'/home/notes.txt', '/home/report.txt'}, 2));
+      await pumpEventQueue();
+
+      expect(lastState()!.markedPaths, {'/home/notes.txt', '/home/report.txt'});
+      expect(lastState()!.marksSeq, 2);
+    });
+
     test('пометка переживает перечитывание каталога', () async {
       link.tell(const SetMarks(PanelId.left, {'/home/notes.txt'}, 1));
       await pumpEventQueue();

@@ -241,7 +241,12 @@ class TreeViewState extends State<TreeView> {
         TreeBranch(
           path: panel.source.rootPath,
           entry: FileEntry(
-            name: _nameOf(panel.source.rootPath),
+            // Корень источника подписан корнем — `/`. Имя из пути тут не
+            // добыть: у местной ФС это и правда `/`, а у сервера путь к корню
+            // выглядит адресом (`sftp:koldoon@shark/`), и последнее его звено
+            // либо пусто, либо вовсе не имя. Корень же у всех источников
+            // называется одинаково.
+            name: '/',
             kind: EntryKind.directory,
             path: panel.source.rootPath,
           ),
@@ -399,6 +404,11 @@ class TreeViewState extends State<TreeView> {
       return;
     }
     final panel = widget.panel;
+    traceMarks(
+      () =>
+          'tree помечаю ${branch.name} было=${panel.markedPaths.length} '
+          'курсор=$_cursor каталог=${panel.path} ждём=${_following ?? '—'}',
+    );
     if (panel.isMarked(branch.entry)) {
       panel.unmark(branch.entry);
     } else {
@@ -486,11 +496,6 @@ class TreeViewState extends State<TreeView> {
     if (target != offset) {
       _scroll.jumpTo(target.clamp(0, _scroll.position.maxScrollExtent));
     }
-  }
-
-  static String _nameOf(String path) {
-    final at = path.lastIndexOf('/');
-    return at <= 0 ? path : path.substring(at + 1);
   }
 
   /// Высота строки дерева вместе с просветом; 0 — разметки ещё не было.
@@ -598,6 +603,7 @@ class TreeViewState extends State<TreeView> {
         } else if (panel.path == _following) {
           _following = null;
         } else if (_following == null && panel.path != _revealed) {
+          traceMarks(() => 'tree разворот на ${panel.path} (ждали ${_revealed ?? '—'})');
           WidgetsBinding.instance.addPostFrameCallback(
             (_) => unawaited(_reveal(panel.path, name: panel.currentEntry?.name)),
           );
