@@ -146,7 +146,10 @@ class _DialogFrameState extends State<DialogFrame> {
             ),
           ],
         ),
-        child: Text(title, style: theme.dialogTitleStyle),
+        // Заголовок приходит значением — от того, кто окно открыл. Переводит
+        // его тот, кто показывает: иначе окно, открытое до смены языка,
+        // осталось бы с прежним заголовком (`docs/spec/localization.md`, §3).
+        child: Text(context.strings.tr(title), style: theme.dialogTitleStyle),
       ),
     );
   }

@@ -320,7 +320,7 @@ class _FindFormState extends State<_FindForm> {
                   child: FcTextField(
                     controller: _pattern,
                     autofocus: true,
-                    hintText: 'text to find',
+                    hintText: context.strings.tr('text to find'),
                     onChanged: (value) => state.pattern = value,
                     onSubmitted: (_) => state.submit(),
                   ),

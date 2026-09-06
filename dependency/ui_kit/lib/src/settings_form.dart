@@ -50,19 +50,26 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   /// движению видно, что список тот же самый и куда он уехал.
   static const Duration _scrollTo = Duration(milliseconds: 120);
 
-  /// Схемы строятся один раз на открытие: они держат замыкания к разделам, и
-  /// пересобирать их на каждый кадр незачем.
+  /// Схемы строятся один раз на язык, а не на каждый кадр: они держат
+  /// замыкания к разделам, и пересобирать их без причины незачем. Причина одна
+  /// — сменился язык: подписи полей схема несёт **строками**, а не способом их
+  /// узнать, и на новом языке их надо спросить заново.
   ///
   /// Название раздела — это название модуля, и приходит оно английским: у
   /// модуля служб нет, а перевод его названия объявлен им самим
   /// (`docs/spec/localization.md`, §6).
-  late final List<(String, SettingsSchema)> _pages = [
+  late List<(String, SettingsSchema)> _pages = _buildPages();
+
+  /// Язык, на котором собраны [_pages].
+  String? _language;
+
+  List<(String, SettingsSchema)> _buildPages() => [
     for (final page in widget.pages) (context.strings.tr(page.title), page.build()),
   ];
 
   /// Заголовки разделов — по ключу на каждый: по ним считается, где раздел
   /// начинается, и для оглавления, и для прокрутки к нему.
-  late final List<GlobalKey> _headings = [for (final _ in _pages) GlobalKey()];
+  late final List<GlobalKey> _headings = [for (final _ in widget.pages) GlobalKey()];
 
   /// Поля ввода живут столько же, сколько окно: контроллер помнит набранное и
   /// положение курсора, а пересозданный терял бы и то и другое.
@@ -105,6 +112,20 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     _query.addListener(_onQuery);
   }
 
+  /// Сменился язык — схемы пересобираются, а всё остальное остаётся: и
+  /// набранное в поиске, и место, до которого долистали.
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    final language = context.strings.language;
+    if (_language == language) {
+      return;
+    }
+    _language = language;
+    _pages = _buildPages();
+    _refilter();
+  }
+
   @override
   void dispose() {
     _scroll.dispose();
@@ -122,6 +143,16 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   /// целиком: спросили «terminal», значит спросили про все его настройки, а не
   /// про те, у которых это слово ещё раз написано в подписи.
   void _onQuery() {
+    _refilter();
+    // Набрали новое — смотреть его надо сначала. При смене языка список
+    // остаётся там, где стоял: человек не искал, он переключил язык.
+    if (_scroll.hasClients) {
+      _scroll.jumpTo(0);
+    }
+  }
+
+  /// Пересобрать показанное по тому, что набрано сейчас.
+  void _refilter() {
     final query = _query.text.trim().toLowerCase();
     setState(() {
       _found = [
@@ -135,9 +166,6 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       _section = 0;
       _pinned = null;
     });
-    if (_scroll.hasClients) {
-      _scroll.jumpTo(0);
-    }
   }
 
   static bool _matches(SettingsField field, String query) =>

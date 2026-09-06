@@ -32,14 +32,14 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
   @override
   void installBackend(BackendRegistry registry) {
     // Итог работы виден в списке фоновых работ, а пишет его эта сторона.
-    registry.strings('ru', _russian);
+    registry.strings('ru', {'Found: {count}': 'Найдено: {count}'});
 
     registry.operation(SearchWork.kind, (services) => searching(services.resolve<Strings>()));
   }
 
   @override
   void installFrontend(FrontendRegistry registry) {
-    registry.strings('ru', {'File search': 'Поиск файлов'});
+    registry.strings('ru', _russian);
 
     registry.command((context) => FindFilesCommand());
     registry.command((context) => GoToFoundCommand());
@@ -96,6 +96,7 @@ const Map<String, String> _russian = {
   'Skip hidden': 'Пропускать скрытые',
   'Ignore directories:': 'Пропускать каталоги:',
   'Cancel': 'Отмена',
+  'OK': 'ОК',
 
   // Окно находок.
   'Close': 'Закрыть',

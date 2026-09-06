@@ -6,6 +6,7 @@ import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/state/shell_settings.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -147,6 +148,41 @@ void main() {
     expect(rows, contains('Наверх   Выйти в родительский каталог'));
     // И подсказка поля ввода тоже.
     expect(rows, contains('Команда'));
+  });
+
+  testWidgets('окно настроек меняет язык не закрываясь', (tester) async {
+    final runtime = await testApp(
+      provider: provider(),
+      modules: featureModules(),
+      settings: settingsIn('en'),
+      language: null,
+    );
+    await runtime.app.start();
+
+    tester.view.physicalSize = const Size(900, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.f9);
+    await tester.pumpAndSettle();
+
+    // Подписи набраны разметкой — найденное в них выделяется подложкой.
+    expect(find.text('Language', findRichText: true), findsOneWidget);
+    expect(find.text('Terminal'), findsWidgets);
+
+    // Ровно то, что делает сама настройка языка.
+    runtime.app.settings.modules.scope('fc.shell').section(ShellSettings.new).language = 'ru';
+    runtime.app.strings.refresh();
+    await tester.pumpAndSettle();
+
+    // Схема пересобралась прямо в открытом окне: и подписи полей, и названия
+    // разделов, и заголовок самого окна.
+    expect(find.text('Язык', findRichText: true), findsOneWidget);
+    expect(find.text('Терминал'), findsWidgets);
+    expect(find.text('Настройки'), findsWidgets);
+    expect(find.text('Language', findRichText: true), findsNothing);
   });
 
   testWidgets('смена языка перерисовывает окно без перезапуска', (tester) async {

@@ -34,6 +34,14 @@ final _pluralOther = RegExp(r"other:\s*'((?:[^'\\]|\\.)*)'");
 /// и найти его иначе нечем.
 final _moduleTitle = RegExp(r"String get title => '((?:[^'\\]|\\.)*)'");
 
+/// Подпись, заданная при объявлении: одна команда с двумя именами
+/// (`HistoryCommand(label: 'Next command')`), заглушка, кнопка.
+///
+/// Такую подпись показывают ровно так же, как любую другую, а вызова `tr` у
+/// неё нет — есть литерал в чужом месте. Однажды это уже прошло мимо: четыре
+/// команды терминала остались английскими, и заметил их человек, а не тест.
+final _labelArgument = RegExp(r"label: '((?:[^'\\]|\\.)*)'");
+
 /// Литерал исходника — это текст **с экранированием**, а в словаре лежит его
 /// значение: `\n` в коде и перевод строки в памяти должны сойтись.
 String _unescape(String literal) => literal
@@ -79,6 +87,14 @@ Set<String> _keysInSources() {
     }
     for (final match in _moduleTitle.allMatches(source)) {
       keys.add(_unescape(match.group(1)!));
+    }
+    for (final match in _labelArgument.allMatches(source)) {
+      final label = _unescape(match.group(1)!);
+      // Пустая и односимвольная подпись — не текст: прочерк выключенной кнопки
+      // переводить не во что.
+      if (label.length > 1) {
+        keys.add(label);
+      }
     }
   }
   return keys;

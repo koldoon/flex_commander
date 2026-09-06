@@ -521,16 +521,20 @@ class DialogArea {
 /// внизу окна показана и приглушена. Так связка «кнопка ↔ команда ↔ клавиша»
 /// проверяется сейчас, а не переписывается вместе с файловыми операциями.
 class PlaceholderCommand extends AppCommand {
-  PlaceholderCommand({required this.id, required this.label});
+  PlaceholderCommand({required this.id, required String label}) : _label = label;
+
+  /// Английская подпись — она же ключ перевода: заглушку показывают в ряду
+  /// кнопок, и по-английски она там быть не должна.
+  final String _label;
 
   @override
-  String get description => 'Not implemented yet';
+  String get label => tr(_label);
+
+  @override
+  String get description => tr('Not implemented yet');
 
   @override
   final String id;
-
-  @override
-  final String label;
 
   @override
   bool isExecutable(CommandContext context) => false;

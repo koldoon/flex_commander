@@ -40,7 +40,9 @@ class SettingsCommand extends AppCommand {
 
     dialogId = view.showDialog(
       DialogSpec(
-        title: tr('Settings'),
+        // Английским: окно живёт долго, и заголовок переводит рама — на том
+        // языке, который выбран **сейчас**.
+        title: 'Settings',
         takesFocus: true,
         // Ширину окно задаёт само — долей экрана, а не точками: с общим
         // верхним пределом на широком экране оно обрезалось бы тем сильнее,

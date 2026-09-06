@@ -315,6 +315,10 @@ class _WarmShellCommand extends AppCommand {
 /// Русские строки терминала и командной строки.
 const Map<String, String> _russian = {
   'Terminal': 'Терминал',
+  'Previous command': 'Предыдущая команда',
+  'Next command': 'Следующая команда',
+  'Insert name': 'Вставить имя',
+  'Insert path': 'Вставить путь',
 
   // Команды.
   'Run': 'Запустить',

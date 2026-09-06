@@ -75,7 +75,11 @@ class _FindFilesFormState extends State<FindFilesForm> {
             // второго окна, и появляется оно вместе с ним.
             actions: [
               FcButton(label: context.strings.tr('Cancel'), onPressed: state.close),
-              FcButton(label: 'OK', primary: true, onPressed: state.canStart ? () => unawaited(state.begin()) : null),
+              FcButton(
+                label: context.strings.tr('OK'),
+                primary: true,
+                onPressed: state.canStart ? () => unawaited(state.begin()) : null,
+              ),
             ],
             // Строки формы — те же, что у всех окон: поля по краям, зазоры
             // между строками и просвет от заголовка ставит `CommandDialogBody`,

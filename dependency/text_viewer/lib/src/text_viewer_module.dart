@@ -270,6 +270,7 @@ const Map<String, String> _russian = {
   'Find Previous': 'Найти раньше',
   'Go to the previous match': 'Перейти к предыдущему совпадению',
   'Text': 'Текст',
+  'text to find': 'что найти',
   'Case sensitive': 'Различать регистр',
   'Regular expression': 'Регулярное выражение',
   'Nothing to find': 'Искать нечего',
