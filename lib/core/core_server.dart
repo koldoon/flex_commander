@@ -275,6 +275,9 @@ class CoreServer implements CoreHandler {
       case ListNames(:final panel, :final path):
         return CoreEntries(await session(panel).namesIn(path));
 
+      case AskSizes(:final panel, :final paths):
+        return CoreSizes(session(panel).measuredSizes(paths));
+
       case ListTargets(:final panel):
         final asked = session(panel);
         // Сперва пометка дособерётся: спрашивают её сразу после того, как

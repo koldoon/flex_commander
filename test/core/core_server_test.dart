@@ -391,6 +391,22 @@ void main() {
       expect(sized.last.sizes[docs], 40, reason: 'внутри docs лежит сорок байт');
       expect(heard.whereType<PanelListed>().length, listedBefore, reason: 'список ради восьми байт заново не возят');
     });
+
+    test('посчитанное спрашивают по путям — в том числе о чужих ветвях', () async {
+      await link.call(const OpenPath(PanelId.left, '/home'));
+
+      link.tell(const MeasureDirectories(PanelId.left));
+      await pumpEventQueue();
+      await Future<void>.delayed(const Duration(milliseconds: 20));
+      await pumpEventQueue();
+
+      // Так спрашивает дерево: оно видит сразу несколько ветвей, а список
+      // панели знает только текущий каталог.
+      final reply = await link.call(const AskSizes(PanelId.left, ['/home/docs', '/home/missing']));
+
+      expect(reply, isA<CoreSizes>());
+      expect((reply as CoreSizes).sizes, {'/home/docs': 40}, reason: 'непосчитанного в ответе нет');
+    });
   });
 
   group('две панели', () {

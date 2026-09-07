@@ -215,36 +215,52 @@ class TreeViewState extends State<TreeView> {
     });
   }
 
-  /// Размеры помеченного, спрошенные у ядра; пусто — спрашивать нечего.
+  /// Размеры каталогов, спрошенные у ядра; пусто — спрашивать нечего.
   ///
-  /// Помеченное в **других** ветвях панель не показывает, и её список о таких
-  /// каталогах молчит. Пока идёт счёт, дерево спрашивает их само — тем же
-  /// `allTargets()`, каким спрашивают цели окна операций
-  /// (`docs/spec/panel-view-tree.md`, §5).
-  Map<String, int> _markedSizes = const {};
+  /// Дерево видит сразу несколько ветвей, а список панели знает только текущий
+  /// каталог — про остальные он молчит. Посчитанное же ядро помнит по путям,
+  /// включая **каждый пройденный подкаталог**, и дерево спрашивает ровно те
+  /// пути, что показывает (`docs/spec/panel-view-tree.md`, §5).
+  Map<String, int> _sizes = const {};
 
   /// Вопрос уже задан: второго, пока не ответили, не будет.
   bool _asking = false;
 
-  /// Спросить размеры помеченного, если счёт ещё идёт.
-  void _askMarkedSizes() {
+  /// О чём спрашивали в прошлый раз и шёл ли тогда счёт.
+  String _askedFor = '';
+
+  /// Спросить размеры показанных ветвей.
+  ///
+  /// Пока счёт идёт — на каждый ответ панели: числа растут. Когда кончился —
+  /// один раз на смену показанного: раскрытая ветвь должна узнать о том, что
+  /// посчитали до неё.
+  void _askShownSizes() {
     final panel = widget.panel;
-    if (_asking || panel.markedSizeIsFinal || panel.markedPaths.isEmpty) {
+    final paths = [for (final branch in _visible) branch.path];
+    final asked = '${panel.markedSizeIsFinal}\n${paths.join('\n')}';
+    if (_asking || (panel.markedSizeIsFinal && asked == _askedFor)) {
       return;
     }
     _asking = true;
+    _askedFor = asked;
     unawaited(
-      panel.allTargets().then((targets) {
+      panel.sizesOf(paths).then((sizes) {
         _asking = false;
         if (!mounted) {
           return;
         }
-        final sizes = {
-          for (final entry in targets)
-            if (entry.size >= 0) entry.path: entry.size,
+        final shown = paths.toSet();
+        // Спрошенное берётся только из ответа: о чём ядро промолчало, того оно
+        // больше не знает — каталог перечитали, и вчерашнее число было бы
+        // ложью. Про непоказанные ветви никто не спрашивал: их числа остаются,
+        // чтобы не мигать при прокрутке.
+        final merged = <String, int>{
+          for (final known in _sizes.entries)
+            if (!shown.contains(known.key)) known.key: known.value,
+          ...sizes,
         };
-        if (sizes.length != _markedSizes.length || sizes.entries.any((e) => _markedSizes[e.key] != e.value)) {
-          setState(() => _markedSizes = sizes);
+        if (merged.length != _sizes.length || merged.entries.any((e) => _sizes[e.key] != e.value)) {
+          setState(() => _sizes = merged);
         }
       }),
     );
@@ -672,16 +688,16 @@ class TreeViewState extends State<TreeView> {
         final inset = theme.metrics.panelRightPadding;
 
         // Размер приходит тремя дорогами, и все три — уже здесь: своё чтение
-        // ветви, список панели (он же обновляется по ходу счёта) и ответ про
-        // помеченное в других ветвях (`docs/spec/panel-view-tree.md`, §5).
+        // ветви, список панели (он же обновляется по ходу счёта) и ответ ядра
+        // про показанные ветви (`docs/spec/panel-view-tree.md`, §5).
         if (showSize) {
-          _askMarkedSizes();
+          _askShownSizes();
         }
         final listed = {
           for (final entry in panel.entries)
             if (entry.size >= 0) entry.path: entry.size,
         };
-        int sizeOf(TreeBranch branch) => listed[branch.path] ?? _markedSizes[branch.path] ?? branch.entry.size;
+        int sizeOf(TreeBranch branch) => listed[branch.path] ?? _sizes[branch.path] ?? branch.entry.size;
         final list = ListView.builder(
           controller: _scroll,
           itemExtent: step,

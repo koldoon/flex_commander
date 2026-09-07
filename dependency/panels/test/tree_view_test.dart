@@ -566,6 +566,29 @@ void main() {
     expect(sizeOf(tester, 'lib'), isNotEmpty, reason: 'посчитанный каталог показывает размер');
   });
 
+  testWidgets('у подкаталогов посчитанного каталога размер тоже виден', (tester) async {
+    final runtime = await open(tester);
+
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Space'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    // Возвращаемся на `lib` и раскрываем её.
+    runtime.commands.dispatch(KeyCombination.parse('Up'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Right'));
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    // Обход и так прошёл через `src` — сумма по нему известна, и прятать её
+    // незачем.
+    expect(sizeOf(tester, 'src'), isNotEmpty);
+  });
+
   testWidgets('колонку размера выключают в настройках вида', (tester) async {
     final runtime = await open(tester);
     expect(sizeOf(tester, 'main.dart'), '2K');

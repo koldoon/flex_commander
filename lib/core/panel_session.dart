@@ -1601,6 +1601,14 @@ class PanelSession {
     _measuredFor = provider;
   }
 
+  /// Посчитанное для этих путей — то, что панель успела узнать.
+  ///
+  /// Непосчитанного в ответе нет: прочерк в колонке рисует тот, кто спросил.
+  Map<String, int> measuredSizes(Iterable<String> paths) => {
+    for (final path in paths)
+      if (_measured[path] case final size?) path: size,
+  };
+
   /// Забывает посчитанное для каталога и всего, что под ним.
   ///
   /// Зовётся, когда человек попросил перечитать: это ответ на «показалось не

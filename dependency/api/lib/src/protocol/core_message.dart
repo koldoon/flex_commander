@@ -308,6 +308,21 @@ final class ListNames extends CoreRequest {
   final String path;
 }
 
+/// Размеры каталогов, которые панель успела посчитать.
+///
+/// Просьбой, а не событием: суммы подкаталогов копятся по ходу одного обхода, и
+/// возить их все на каждое движение курсора было бы работой впустую
+/// (`docs/spec/client-server.md`, §4.3). Спрашивает тот, кто показывает дерево:
+/// ему нужны размеры ровно тех ветвей, что сейчас на экране.
+///
+/// Неизвестного в ответе нет: чего панель не считала, того в карте и не будет.
+final class AskSizes extends CoreRequest {
+  const AskSizes(this.panel, this.paths);
+
+  final PanelId panel;
+  final List<String> paths;
+}
+
 /// Цели значениями: помеченное, а без пометки — строка под курсором.
 ///
 /// То самое, что развернёт `Targets.marked`, — и спрашивается ровно затем,
@@ -413,6 +428,13 @@ final class CoreEntries extends CoreReply {
   const CoreEntries(this.entries);
 
   final List<FileEntry> entries;
+}
+
+/// Посчитанные размеры: путь каталога — сумма его содержимого.
+final class CoreSizes extends CoreReply {
+  const CoreSizes(this.sizes);
+
+  final Map<String, int> sizes;
 }
 
 /// Оболочка есть — вот её разговор.

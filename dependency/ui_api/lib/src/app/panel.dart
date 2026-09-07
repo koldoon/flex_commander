@@ -240,6 +240,13 @@ abstract interface class Panel implements ViewportState {
   /// окно вставало сразу (`docs/spec/operation-targets.md`, §2).
   Future<List<FileEntry>> allTargets();
 
+  /// Размеры каталогов, которые панель успела посчитать: путь — сумма.
+  ///
+  /// Спрашивают те, кто показывает не только текущий каталог: дерево видит
+  /// сразу несколько ветвей, а числа копятся по ходу одного обхода. Чего панель
+  /// не считала, того в ответе нет — прочерк рисует спросивший.
+  Future<Map<String, int>> sizesOf(List<String> paths);
+
   /// Инвертировать пометку объекта под курсором и сдвинуть курсор вниз.
   void toggleCurrentMark();
 

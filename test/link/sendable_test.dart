@@ -100,6 +100,7 @@ void main() {
     sendable('повышение', const LinkRequest(0, AnswerElevation('sudo#1', agreed: true)));
     sendable('настройки', const LinkRequest(0, ChangeSettings(UiSettings(splitRatio: 0.3))));
     sendable('записать настройки', const LinkRequest(1, SaveSettings()));
+    sendable('размеры каталогов', const LinkRequest(1, AskSizes(PanelId.left, ['/home/docs'])));
     sendable('выход', const LinkRequest(1, Shutdown()));
   });
 
@@ -110,6 +111,7 @@ void main() {
     sendable('вошли', const LinkReply(1, CoreEntered(entry)));
     sendable('флаг', const LinkReply(1, CoreFlag(true)));
     sendable('строки', const LinkReply(1, CoreEntries([entry])));
+    sendable('посчитанные размеры', const LinkReply(1, CoreSizes({'/home/docs': 300})));
     sendable('оболочка открыта', const LinkReply(1, ShellOpened('shell@localhost', label: 'localhost', fresh: true)));
     sendable(
       'рукопожатие',

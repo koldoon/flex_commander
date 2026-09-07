@@ -259,6 +259,15 @@ class PanelMirror extends ChangeNotifier implements Panel {
   @override
   bool get hasTargets => targetPaths.isNotEmpty;
 
+  @override
+  Future<Map<String, int>> sizesOf(List<String> paths) async {
+    if (paths.isEmpty) {
+      return const {};
+    }
+    final reply = await _link.call(AskSizes(id, paths));
+    return reply is CoreSizes ? reply.sizes : const {};
+  }
+
   /// Цели значениями — все, включая чужие каталоги: спрашиваются у ядра, где
   /// живут узлы.
   @override
