@@ -69,12 +69,30 @@ class TreeViewState extends State<TreeView> {
   int _shownCursor = -1;
   List<FileEntry>? _shownRows;
 
+  /// Сохранённую прокрутку уже поставили.
+  ///
+  /// Признак тратится не на первом кадре, а тогда, когда её и правда есть куда
+  /// ставить: строки стали древесными и список измерен. Живьём иначе выходило
+  /// «через раз» — на первом кадре строки ещё списочные, и восстанавливать
+  /// было нечего.
+  bool _restored = false;
+
+  /// Сколько кадров ждём список: он появляется не в том же кадре, что вид.
+  int _restoreTries = 0;
+
   @override
   void initState() {
     super.initState();
     // Вид говорит, что ему нужно; собирать строки — дело ядра
     // (`docs/spec/panel-node-list.md`, §3).
     unawaited(widget.panel.showRows(RowsKind.tree));
+    // Ждать строк начинаем сразу: они приходят позже вида, а восстановление
+    // прокрутки без них смысла не имеет.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        _revealCursor();
+      }
+    });
   }
 
   @override
@@ -128,14 +146,27 @@ class TreeViewState extends State<TreeView> {
   /// оказывается за краем. Правил два (`panel-view-tree.md`, §5): помещается
   /// ветвь вместе с курсором — она и становится первой строкой, и видно,
   /// **откуда** этот курсор; не помещается — курсор уводится к середине.
-  void _revealCursor({bool restoring = false}) {
-    if (!_scroll.hasClients || _step <= 0) {
-      return;
-    }
+  void _revealCursor() {
     final rows = _rows;
     final at = widget.panel.cursorIndex;
-    if (at < 0 || at >= rows.length) {
+    final ready = _scroll.hasClients && _step > 0 && at >= 0 && at < rows.length;
+
+    // Восстановление ждёт своего кадра: строки при запуске приходят позже
+    // вида, и признак тратить рано.
+    final restoring = !_restored && widget.panel.rows == RowsKind.tree;
+    if (!ready || (!_restored && !restoring)) {
+      if (!_restored && _restoreTries < _restoreLimit) {
+        _restoreTries++;
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) {
+            _revealCursor();
+          }
+        });
+      }
       return;
+    }
+    if (restoring) {
+      _restored = true;
     }
 
     final height = _scroll.position.viewportDimension;
@@ -173,6 +204,9 @@ class TreeViewState extends State<TreeView> {
       _scroll.jumpTo(target);
     }
   }
+
+  /// Сколько кадров ждать строк, прежде чем махнуть рукой.
+  static const int _restoreLimit = 20;
 
   /// Строка ветви, в которой лежит строка [at]; -1 — такой нет.
   int _parentIndexOf(int at) {
@@ -309,12 +343,11 @@ class TreeViewState extends State<TreeView> {
 
         final rows = _rows;
         if (panel.cursorIndex != _shownCursor || !identical(rows, _shownRows)) {
-          final restoring = _shownRows == null;
           _shownCursor = panel.cursorIndex;
           _shownRows = rows;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              _revealCursor(restoring: restoring);
+              _revealCursor();
             }
           });
         }

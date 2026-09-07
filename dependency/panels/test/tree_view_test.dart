@@ -733,6 +733,30 @@ void main() {
     expect(runtime.app.left.currentEntry?.name, 'file-59.txt');
   });
 
+  testWidgets('сохранённая прокрутка возвращает вид на то же место', (tester) async {
+    final deep = [
+      FakeEntry.directory('/home'),
+      for (var i = 0; i < 60; i++) FakeEntry.file('/home/file-$i.txt', size: 10),
+    ];
+    // Двадцать пять строк вниз: курсор при этом виден, и правила подмотки не
+    // нужны — вид просто встаёт там, где стоял.
+    final runtime = await open(
+      tester,
+      source: InMemoryTreeProvider(deep)..home = '/home',
+      left: PanelSettings(path: '/home', expanded: ['/', '/home'], cursorPath: '/home/file-30.txt', scroll: 25 * 20.0),
+    );
+    await tester.pumpAndSettle();
+
+    // Первой строкой — та, что была первой при закрытии.
+    final first = find.descendant(of: find.byType(TreeView), matching: find.text('file-23.txt'));
+    expect(first, findsOneWidget);
+    final list = tester.getRect(find.byType(ListView).first);
+    // С запасом на поправки внутри строки — но много меньше шага строки:
+    // соседнюю с ней так не спутать.
+    expect(tester.getRect(first).top, closeTo(list.top, 6));
+    expect(runtime.app.left.currentEntry?.name, 'file-30.txt');
+  });
+
   testWidgets('колонку размера выключают в настройках вида', (tester) async {
     final runtime = await open(tester);
     expect(sizeOf(tester, 'main.dart'), '2.0K');
