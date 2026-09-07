@@ -62,8 +62,9 @@ void main() {
       expect(openViewer(), isNull);
       // Назван и размер файла, и сам предел — видно, где его менять.
       expect(runtime.app.toasts.current?.message, contains('too large'));
-      expect(runtime.app.toasts.current?.message, contains('200'));
-      expect(runtime.app.toasts.current?.message, contains('100K'));
+      expect(runtime.app.toasts.current?.message, contains('200.0 KB'));
+      // Обе половины одной меркой: длинная форма и там, и там.
+      expect(runtime.app.toasts.current?.message, contains('100.0 KB'));
     });
   });
 

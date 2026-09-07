@@ -67,7 +67,7 @@ class EditFileCommand extends AppCommand {
       context.app.toasts.show(
         tr(
           'File is too large: {size}, limit is {limit}',
-          args: {'size': formatBytesLong(entry.size), 'limit': formatSize(settings.maxFileSize)},
+          args: {'size': formatBytesLong(entry.size), 'limit': formatBytesLong(settings.maxFileSize)},
         ),
       );
       return;

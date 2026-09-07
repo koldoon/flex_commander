@@ -229,7 +229,7 @@ class TextViewer implements FcFrontendModule {
       throw ViewerRefused(
         request.app.strings.tr(
           'File is too large: {size}, limit is {limit}',
-          args: {'size': formatBytesLong(entry.size), 'limit': formatSize(settings.maxFileSize)},
+          args: {'size': formatBytesLong(entry.size), 'limit': formatBytesLong(settings.maxFileSize)},
         ),
       );
     }

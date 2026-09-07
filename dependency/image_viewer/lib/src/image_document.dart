@@ -49,7 +49,7 @@ class ImageDocument {
       throw ViewerRefused(
         said.tr(
           'Image is too large: {size}, limit is {limit} — open it with the system (Cmd-O)',
-          args: {'size': formatBytesLong(entry.size), 'limit': formatSize(settings.maxFileSize)},
+          args: {'size': formatBytesLong(entry.size), 'limit': formatBytesLong(settings.maxFileSize)},
         ),
       );
     }

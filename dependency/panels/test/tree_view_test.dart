@@ -575,7 +575,7 @@ void main() {
   testWidgets('размер файла виден сразу, а непосчитанного каталога — нет', (tester) async {
     await open(tester);
 
-    expect(sizeOf(tester, 'main.dart'), '2K');
+    expect(sizeOf(tester, 'main.dart'), '2.0K');
     expect(sizeOf(tester, 'lib'), '', reason: 'каталог не считали — и числа нет');
   });
 
@@ -703,7 +703,7 @@ void main() {
 
   testWidgets('колонку размера выключают в настройках вида', (tester) async {
     final runtime = await open(tester);
-    expect(sizeOf(tester, 'main.dart'), '2K');
+    expect(sizeOf(tester, 'main.dart'), '2.0K');
 
     // Тем же путём, каким это делает человек: окно выбора вида, флажок под
     // списком, «Show» (`docs/spec/panel-views.md`, §8).
