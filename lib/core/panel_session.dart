@@ -1237,7 +1237,7 @@ class PanelSession {
       _nodes = shown;
       _applyMeasured(_nodes);
       _applySort();
-      _stopSizeScan();
+      _stopSizeScan(keepMarked: quiet);
       _restoreSelection(keepMarks ? selection.paths : null);
       _restoreCursor(cursorName, cursorFallbackIndex);
       // Занятости нет: панель уже что-то показала, и отнимать у неё клавиши
@@ -1302,7 +1302,7 @@ class PanelSession {
       // обход будет убит и заново не начнётся, ведь уведомлений больше не
       // будет. И только в этой ветке — при ошибке или отмене чтения на экране
       // остаются прежние узлы, и обход над ними по-прежнему правомерен.
-      _stopSizeScan();
+      _stopSizeScan(keepMarked: quiet);
       // Пометка берётся **сейчас**, а не в миг заказа чтения: пока список шёл,
       // человек успевает пометить ещё — в дереве это обычное дело, там каталог
       // подтягивается тихо, а `Space` жмут дальше. Снимок, взятый до чтения,
@@ -1886,14 +1886,31 @@ class PanelSession {
   ///
   /// Очередь чистится без сброса размеров: в неё попадают только каталоги
   /// с непосчитанным размером, сбрасывать там нечего.
-  void _stopSizeScan() {
+  ///
+  /// [keepMarked] — тихое чтение за курсором дерева: помеченное **продолжает
+  /// считаться**. Дерево водит панель по ветвям, и каждый шаг курсора менял бы
+  /// каталог; обрывая на нём обход, панель начинала бы счёт заново — а чаще не
+  /// начинала вовсе: пометка при этом не меняется, а без её уведомления никто
+  /// не поставит каталог в очередь снова. Помеченное живёт узлами, которые
+  /// пережили чтение, поэтому обход над ними по-прежнему правомерен.
+  void _stopSizeScan({bool keepMarked = false}) {
+    final marked = keepMarked ? selection.paths : const <String>{};
     for (final scan in _scans.values.toList()) {
+      if (marked.contains(scan.directory.pathString)) {
+        continue;
+      }
       _cancelScan(scan.directory);
     }
-    _scanQueue.clear();
+    _scanQueue.removeWhere((directory) => !marked.contains(directory.pathString));
     _sizeRedraw.cancel();
     // Уход из каталога подсчёт прекращает: считать то, на что уже не смотрят,
     // незачем.
+    if (_scansRunning) {
+      // Что-то помеченное считается дальше — общий подсчёт при этом всё равно
+      // кончился: его просили для **того** каталога, из которого ушли.
+      _measuringAll = false;
+      return;
+    }
     _measuringAll = false;
     if (_statusText == measuringStatus()) {
       _statusText = null;

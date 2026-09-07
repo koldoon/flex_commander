@@ -82,6 +82,24 @@ class _RemoteProvider extends InMemoryTreeProvider {
   }
 }
 
+/// Источник, обход которого идёт заметное время.
+///
+/// В памяти каталог считается быстрее кадра, и «пока считается» проверить
+/// нечем: число появляется сразу и окончательным.
+class _SlowWalkProvider extends InMemoryTreeProvider {
+  _SlowWalkProvider(super.entries);
+
+  /// Медленна только глубина: ветви, которые читает само дерево, приходят
+  /// сразу, а обход упирается во вложенный каталог и идёт заметное время.
+  @override
+  Future<List<FsNode>> listChildren(DirectoryNode dir) async {
+    if (dir.name == 'src') {
+      await Future<void>.delayed(const Duration(milliseconds: 400));
+    }
+    return super.listChildren(dir);
+  }
+}
+
 /// Дерево каталогов.
 ///
 /// Спецификация — `docs/spec/panel-view-tree.md`.
@@ -100,9 +118,9 @@ void main() {
 
   InMemoryTreeProvider provider() => InMemoryTreeProvider(entries())..home = '/home';
 
-  Future<AppRuntime> open(WidgetTester tester, {String at = '/home'}) async {
+  Future<AppRuntime> open(WidgetTester tester, {String at = '/home', TreeProvider? source}) async {
     final settings = AppSettings(left: PanelSettings.defaults(at), right: PanelSettings.defaults('/home'));
-    final runtime = await testApp(provider: provider(), modules: featureModules(), settings: settings);
+    final runtime = await testApp(provider: source ?? provider(), modules: featureModules(), settings: settings);
     await runtime.app.start();
 
     tester.view.physicalSize = const Size(900, 600);
@@ -564,6 +582,38 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(sizeOf(tester, 'lib'), isNotEmpty, reason: 'посчитанный каталог показывает размер');
+  });
+
+  testWidgets('помеченная ветвь считается на глазах, где бы ни стоял курсор', (tester) async {
+    final runtime = await open(tester, source: _SlowWalkProvider(entries())..home = '/home');
+
+    /// Кадры без `pumpAndSettle`: тот дождался бы конца обхода, а проверить
+    /// надо именно то, что видно **пока** он идёт.
+    Future<void> tick([int times = 3]) async {
+      for (var i = 0; i < times; i++) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+    }
+
+    // Помечаем `lib` и уходим курсором в другую ветвь: список панели теперь про
+    // `test`, и про `lib` он молчит.
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tick();
+    runtime.commands.dispatch(KeyCombination.parse('Space'));
+    await tick();
+    runtime.commands.dispatch(KeyCombination.parse('Right'));
+    await tick();
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tick();
+
+    expect(runtime.app.left.markedSizeIsFinal, isFalse, reason: 'обход ещё идёт — иначе стенд ни о чём');
+
+    await tick(60);
+
+    // Живой счётчик, а не прочерк до самого конца обхода.
+    expect(sizeOf(tester, 'lib'), isNotEmpty);
+
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
   });
 
   testWidgets('у подкаталогов посчитанного каталога размер тоже виден', (tester) async {
