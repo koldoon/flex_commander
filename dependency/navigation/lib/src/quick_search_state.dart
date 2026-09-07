@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/foundation.dart';
 
@@ -14,7 +15,7 @@ import 'package:flutter/foundation.dart';
 class QuickSearchState extends ChangeNotifier implements TransientContent {
   QuickSearchState({required this.panel, required this.onLeave, required Set<String> keeps})
     : _keeps = keeps,
-      _directory = panel.currentPath {
+      _shown = panel.entries {
     panel.addListener(_watchPanel);
   }
 
@@ -51,7 +52,12 @@ class QuickSearchState extends ChangeNotifier implements TransientContent {
   String _matched = '';
   String _tail = '';
 
-  String? _directory;
+  /// Список, в котором ищут.
+  ///
+  /// Списком, а не путём: в дереве путь меняется вместе с курсором — а курсор
+  /// двигает сам поиск, и полоса пропадала бы на второй же букве
+  /// (`docs/spec/panel-node-list.md`, §3).
+  List<FileEntry> _shown;
 
   /// Меняет образец целиком: найденную часть и хвост сразу.
   ///
@@ -67,14 +73,14 @@ class QuickSearchState extends ChangeNotifier implements TransientContent {
     notifyListeners();
   }
 
-  /// Панель ушла в другой каталог — искать больше не в чем.
+  /// Панель показывает другой список — искать больше не в чем.
   ///
   /// Образец относится к **тому** списку: в новом он ничего не значит и вводил
   /// бы в заблуждение.
   void _watchPanel() {
-    final now = panel.currentPath;
-    if (now != _directory) {
-      _directory = now;
+    final now = panel.entries;
+    if (!identical(now, _shown)) {
+      _shown = now;
       onLeave();
     }
   }

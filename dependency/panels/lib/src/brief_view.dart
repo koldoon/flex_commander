@@ -36,7 +36,15 @@ class _BriefViewState extends State<BriefView> {
   /// Окно, в пределах которого два щелчка по одной строке считаются двойным.
   static const Duration _doubleTapWindow = Duration(milliseconds: 400);
 
-  final ScrollController _scroll = ScrollController();
+  /// Список сразу встаёт туда, где стоял: начальное смещение задаётся при
+  /// создании контроллера, а не подмоткой следующим кадром.
+  ///
+  /// Иначе возврат из полноэкранного вида видно глазами: вид на миг
+  /// показывает начало и только потом прыгает на место.
+  late final ScrollController _scroll = ScrollController(initialScrollOffset: widget.panel.scrollOffset);
+
+  /// Прокрутку запомнили — можно о ней и рассказывать.
+  bool _shown = false;
 
   /// Раскладка последней отрисовки: по ней прокрутка держит курсор на виду ещё
   /// до того, как случится следующая.
@@ -293,7 +301,24 @@ class _BriefViewState extends State<BriefView> {
                 },
               );
 
-              return PanelDropArea(panel: panel, spotAt: _spotAt, highlightOf: _highlightOf, child: list);
+              return PanelDropArea(
+                panel: panel,
+                spotAt: _spotAt,
+                highlightOf: _highlightOf,
+                child: NotificationListener<ScrollEndNotification>(
+                  // Прокрутка запоминается, когда устоялась: с неё вид и
+                  // начнёт, когда его соберут заново — после полноэкранного
+                  // просмотра или перезапуска.
+                  onNotification: (notification) {
+                    if (_shown) {
+                      panel.setScrollOffset(notification.metrics.pixels);
+                    }
+                    _shown = true;
+                    return false;
+                  },
+                  child: list,
+                ),
+              );
             },
           ),
     );

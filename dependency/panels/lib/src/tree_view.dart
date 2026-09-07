@@ -36,7 +36,13 @@ class TreeView extends StatefulWidget {
 }
 
 class TreeViewState extends State<TreeView> {
-  final ScrollController _scroll = ScrollController();
+  /// Список сразу встаёт туда, где стоял: начальное смещение задаётся при
+  /// создании контроллера, а не подмоткой следующим кадром.
+  ///
+  /// Иначе возврат из полноэкранного вида — терминала, редактора,
+  /// просмотрщика — видно глазами: вид на миг показывает начало и только потом
+  /// прыгает на место. Так же устроена таблица (`file_table.dart`).
+  late final ScrollController _scroll = ScrollController(initialScrollOffset: widget.panel.scrollOffset);
 
   /// Окно, в пределах которого два щелчка по одной строке считаются двойным.
   static const Duration _doubleTapWindow = Duration(milliseconds: 400);
@@ -623,9 +629,14 @@ class _BranchRow extends StatelessWidget {
                       FileTypeIcon(entry: row, selected: _selected),
                       SizedBox(width: metrics.iconGap),
                       Expanded(
-                        child: Transform.translate(
-                          offset: Offset(0, metrics.rowTextVerticalNudge),
-                          child: Text(row.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+                        child: Padding(
+                          // Поле справа — то же, что у ячейки таблицы: имя не
+                          // должно упираться в линейку колонки.
+                          padding: EdgeInsets.only(right: metrics.cellPadding),
+                          child: Transform.translate(
+                            offset: Offset(0, metrics.rowTextVerticalNudge),
+                            child: Text(row.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+                          ),
                         ),
                       ),
                       // Колонка размера — своей ширины и под своим заголовком:

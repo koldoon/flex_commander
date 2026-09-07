@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
@@ -255,6 +256,32 @@ void main() {
     await panel().openPath('/home/docs');
 
     expect(search(), isNull, reason: 'образец относится к прежнему списку');
+  });
+
+  test('пробел набирается, а не помечает', () {
+    press('Ctrl-S');
+    type('do');
+    press('Space');
+
+    // Имена с пробелами — обычное дело, и полоса не вправе пропадать на
+    // середине слова.
+    expect(pattern(), 'do ');
+    expect(panel().markedPaths, isEmpty);
+  });
+
+  test('в дереве курсор не выключает режим', () async {
+    await panel().showRows(RowsKind.tree);
+    press('Ctrl-S');
+    type('d');
+    expect(search(), isNotNull);
+
+    // В дереве каталог панели идёт за курсором, а курсор двигает сам поиск:
+    // считать это уходом в другой каталог нельзя — полоса пропадала бы на
+    // второй же букве (`docs/spec/panel-node-list.md`, §3).
+    type('o');
+
+    expect(search(), isNotNull, reason: 'список тот же, ушёл только курсор');
+    expect(pattern(), 'do');
   });
 
   test('без режима буква по-прежнему прыгает по первой букве', () {

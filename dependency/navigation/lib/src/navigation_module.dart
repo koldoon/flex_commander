@@ -155,6 +155,13 @@ class Navigation implements FcFrontendModule {
         characterParam: QuickSearchTypeCommand.characterParam,
       ),
     );
+    // Пробел — тоже буква имени, и в наборе он должен набираться, а не
+    // помечать: «Program Files» иначе не наберёшь, а полоса пропадала на
+    // середине слова. Клавишей отдельно, потому что печатным символом пробел
+    // не считается: его имя длиннее одного знака.
+    registry.binding(
+      KeyBinding('Space', QuickSearchTypeCommand.commandId, parameters: {QuickSearchTypeCommand.characterParam: ' '}),
+    );
 
     // Пометка объектов. Отмена операции идёт раньше сброса пометки.
     registry.binding(KeyBinding('Esc', CancelCommand.commandId));

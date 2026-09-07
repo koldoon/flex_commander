@@ -70,9 +70,23 @@ void main() {
 
   test('пометка пробелом не перехвачена переходом к имени', () async {
     await app.start();
+    // Курсор на «..» пометить нечего, и клавиша досталась бы первой попавшейся
+    // привязке — проверяем на настоящем объекте.
+    app.left.setCursorToName('notes.txt');
 
     expect(commands.commandFor(KeyCombination.parse('Space'))?.id, 'panel.selection.toggle');
     expect(commands.commandFor(const KeyCombination('D'))?.id, 'panel.goToName');
+  });
+
+  test('в быстром поиске пробел набирается, а не помечает', () async {
+    await app.start();
+    app.left.setCursorToName('notes.txt');
+
+    commands.run(QuickSearchCommand.commandId);
+
+    // Пробел — такая же буква имени: «Program Files» иначе не наберёшь, а
+    // полоса пропадала на середине слова.
+    expect(commands.commandFor(KeyCombination.parse('Space'))?.id, 'panel.quickSearch.type');
   });
 
   test('в быстром поиске буква достаётся ему, а не переходу к имени', () async {
