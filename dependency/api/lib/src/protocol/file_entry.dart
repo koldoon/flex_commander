@@ -41,6 +41,7 @@ class FileEntry {
     this.realPath = '',
     this.level = 0,
     this.isOpen = false,
+    this.sizeIsFinal = true,
   });
 
   /// Размер неизвестен: у каталога, пока его не обошли, и у того, о чьём
@@ -107,7 +108,7 @@ class FileEntry {
   ///
   /// Нужно посчитанным каталогам: их размер приезжает отдельным событием, и
   /// строка обновляется на месте, без пересылки всего списка.
-  FileEntry withSize(int value) => FileEntry(
+  FileEntry withSize(int value, {bool isFinal = true}) => FileEntry(
     name: name,
     kind: kind,
     path: path,
@@ -125,6 +126,7 @@ class FileEntry {
     scheme: scheme,
     level: level,
     isOpen: isOpen,
+    sizeIsFinal: isFinal,
   );
 
   /// Глубина строки в списке: 0 у корневых, дальше по вложенности.
@@ -136,6 +138,14 @@ class FileEntry {
 
   /// Ветвь раскрыта: её содержимое стоит в списке следом.
   final bool isOpen;
+
+  /// Размер окончателен.
+  ///
+  /// false — это **половина**: обход каталога идёт прямо сейчас, и число
+  /// вырастет. Признак рядом с числом, а не догадка по другим полям: половина
+  /// и настоящее иначе неразличимы, и застывшую в колонке половину некому ни
+  /// узнать, ни убрать (`docs/spec/directory-sizes.md`).
+  final bool sizeIsFinal;
 
   bool get isDirectory => kind == EntryKind.directory;
 

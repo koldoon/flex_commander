@@ -461,10 +461,15 @@ final class CoreEntries extends CoreReply {
 }
 
 /// Посчитанные размеры: путь каталога — сумма его содержимого.
+///
+/// [partial] — те из них, чей обход ещё идёт: число вырастет. Без этого
+/// половина неотличима от настоящего, и остановленный подсчёт оставлял бы её
+/// в колонке навсегда.
 final class CoreSizes extends CoreReply {
-  const CoreSizes(this.sizes);
+  const CoreSizes(this.sizes, {this.partial = const {}});
 
   final Map<String, int> sizes;
+  final Set<String> partial;
 }
 
 /// Оболочка есть — вот её разговор.

@@ -287,7 +287,8 @@ class CoreServer implements CoreHandler {
         return CoreEntries(await session(panel).namesIn(path));
 
       case AskSizes(:final panel, :final paths):
-        return CoreSizes(session(panel).measuredSizes(paths));
+        final target = session(panel);
+        return CoreSizes(target.measuredSizes(paths), partial: target.partialSizes(paths));
 
       case ListTargets(:final panel):
         final asked = session(panel);

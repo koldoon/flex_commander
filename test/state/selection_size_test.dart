@@ -518,6 +518,30 @@ void main() {
       held.release.complete();
     });
 
+    test('остановленный подсчёт убирает число и со строки той стороны', () async {
+      final held = _HeldSizeProvider();
+      final panel = await panelOn(held);
+      panel.setCursorToName('docs');
+      panel.toggleCurrentMark();
+      // Ограничитель перерисовки держит числа до 50 мс: без настоящего
+      // ожидания сообщение о размере не уедет вовсе.
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      await settle();
+      expect(
+        panel.entries.firstWhere((entry) => entry.name == 'docs').size,
+        _HeldSizeProvider.partial,
+        reason: 'растущая сумма видна',
+      );
+
+      panel.clearMarks();
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      await settle();
+
+      // Остановили — числа нет: половина, застывшая в колонке, хуже прочерка.
+      expect(panel.entries.firstWhere((entry) => entry.name == 'docs').size, FsNode.unknownSize);
+      held.release.complete();
+    });
+
     test('размеры подкаталогов остаются от того же обхода', () async {
       mark('docs');
       await settle();

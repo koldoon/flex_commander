@@ -112,6 +112,7 @@ void main() {
     sendable('флаг', const LinkReply(1, CoreFlag(true)));
     sendable('строки', const LinkReply(1, CoreEntries([entry])));
     sendable('посчитанные размеры', const LinkReply(1, CoreSizes({'/home/docs': 300})));
+    sendable('половина размера', const LinkReply(1, CoreSizes({'/home/docs': 42}, partial: {'/home/docs'})));
     sendable('оболочка открыта', const LinkReply(1, ShellOpened('shell@localhost', label: 'localhost', fresh: true)));
     sendable(
       'рукопожатие',

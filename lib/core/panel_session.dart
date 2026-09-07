@@ -1383,7 +1383,7 @@ class PanelSession {
     // ни отличить, ни стереть — ровно так прерванный обход и оставлял на
     // экране своё вчерашнее.
     final growing = _running[entry.path];
-    return growing == null ? entry : entry.withSize(growing);
+    return growing == null ? entry : entry.withSize(growing, isFinal: false);
   }
 
   /// Живой узел за строкой списка; null — такой строки в списке нет.
@@ -1901,6 +1901,12 @@ class PanelSession {
         if (_measured[path] ?? _running[path] case final size?) path: size,
     };
   }
+
+  /// Какие из этих путей считаются прямо сейчас: их число — половина.
+  Set<String> partialSizes(Iterable<String> paths) => {
+    for (final path in paths)
+      if (_running.containsKey(path)) path,
+  };
 
   /// Забывает посчитанное для каталога и всего, что под ним.
   ///

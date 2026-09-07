@@ -270,6 +270,12 @@ class PanelMirror extends ChangeNotifier implements Panel {
   /// Пути, о которых сказали «изменилось», а значение ещё не спрошено.
   final Set<String> _stale = {};
 
+  /// Пути, чьё число — половина: обход идёт.
+  final Set<String> _partial = {};
+
+  /// Пути, о которых ядро больше не знает: строке пора вернуть прочерк.
+  final Set<String> _forgotten = {};
+
   /// Вопрос в пути: второго, пока не ответили, не будет.
   bool _pulling = false;
 
@@ -290,15 +296,23 @@ class PanelMirror extends ChangeNotifier implements Panel {
     unawaited(
       _link.call(AskSizes(id, asked)).then((reply) {
         _pulling = false;
-        final sizes = reply is CoreSizes ? reply.sizes : const <String, int>{};
+        final answer = reply is CoreSizes ? reply : const CoreSizes({});
         for (final path in asked) {
-          final size = sizes[path];
+          final size = answer.sizes[path];
           if (size == null) {
             // Ядро о нём больше не знает: обход оборвали или каталог
-            // перечитали. Частичная сумма, застывшая в колонке, — ложь.
+            // перечитали. Частичная сумма, застывшая в колонке, — ложь, и
+            // строке возвращается прочерк.
             _sizes.remove(path);
+            _forgotten.add(path);
           } else {
             _sizes[path] = size;
+            _forgotten.remove(path);
+            if (answer.partial.contains(path)) {
+              _partial.add(path);
+            } else {
+              _partial.remove(path);
+            }
           }
         }
         _listing = _withSizes(_listing);
@@ -313,13 +327,22 @@ class PanelMirror extends ChangeNotifier implements Panel {
   int? sizeOf(String path) => _sizes[path];
 
   /// Тот же список, но с числами из карты — после свежих чисел о путях.
-  PanelListing _withSizes(PanelListing listing) => PanelListing(
-    generation: listing.generation,
-    entries: [
+  ///
+  /// Забытое ядром возвращается к прочерку: половина, застывшая в колонке,
+  /// хуже пустоты.
+  PanelListing _withSizes(PanelListing listing) {
+    final entries = [
       for (final entry in listing.entries)
-        if (_sizes[entry.path] case final size? when size != entry.size) entry.withSize(size) else entry,
-    ],
-  );
+        if (_forgotten.contains(entry.path) && !entry.sizeIsFinal)
+          entry.withSize(FileEntry.unknownSize)
+        else if (_sizes[entry.path] case final size?)
+          entry.withSize(size, isFinal: !_partial.contains(entry.path))
+        else
+          entry,
+    ];
+    _forgotten.clear();
+    return PanelListing(generation: listing.generation, entries: entries);
+  }
 
   /// Цели значениями — все, включая чужие каталоги: спрашиваются у ядра, где
   /// живут узлы.
