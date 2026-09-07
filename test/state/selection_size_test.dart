@@ -462,6 +462,31 @@ void main() {
       await settle();
     });
 
+    test('прерванный обход не оставляет числа и в свежих узлах', () async {
+      final held = _HeldSizeProvider();
+      final panel = await panelOn(held);
+      panel.setCursorToName('docs');
+      panel.toggleCurrentMark();
+      for (var i = 0; i < 5; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      // Дерево водило панель по ветвям: узел в списке уже не тот, с которого
+      // начинался обход, но растущую сумму он получил.
+      await panel.session.follow('/home/bin');
+      await panel.session.follow('/home');
+      expect(nodeNamed('docs', panel).size, _HeldSizeProvider.partial);
+
+      // Esc: пометка снята, обход прекращён.
+      panel.clearMarks();
+      await settle();
+
+      // Ни в узле, ни в ответах — иначе число вернётся с ближайшим списком.
+      expect(nodeNamed('docs', panel).size, FsNode.unknownSize);
+      expect(panel.session.measuredSizes(['/home/docs']), isEmpty);
+      held.release.complete();
+    });
+
     test('размеры подкаталогов остаются от того же обхода', () async {
       mark('docs');
       await settle();

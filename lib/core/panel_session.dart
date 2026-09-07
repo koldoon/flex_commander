@@ -1897,15 +1897,27 @@ class PanelSession {
 
   /// Прекращает обход одного каталога, не трогая ни остальные, ни очередь.
   void _cancelScan(DirectoryNode directory) {
-    final scan = _scans.remove(directory.pathString);
+    final path = directory.pathString;
+    final scan = _scans.remove(path);
     if (scan == null) {
       return;
     }
-    // Частичная сумма уходит вместе с обходом — и из узла, и из ответов.
-    _running.remove(directory.pathString);
+    // Частичная сумма уходит вместе с обходом — и из ответов, и из узлов.
+    _running.remove(path);
     scan.cancel();
     // Частичная сумма, застывшая в колонке как итог, — ложь.
+    //
+    // Стирается она **по пути**, а не у одного узла: обход держит тот узел, с
+    // которого начинался, а список с тех пор перечитывался — и число, попавшее
+    // в свежий узел, пережило бы отмену и вернулось на экран с ближайшим
+    // списком. Живьём это выглядело так: остановил счёт — число пропало, повёл
+    // курсор — вернулось и осталось.
     directory.size = FsNode.unknownSize;
+    for (final node in _nodes) {
+      if (node is DirectoryNode && node.pathString == path) {
+        node.size = FsNode.unknownSize;
+      }
+    }
     _sizeChanged(directory);
   }
 
