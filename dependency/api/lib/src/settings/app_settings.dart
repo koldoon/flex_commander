@@ -17,7 +17,9 @@ class PanelSettings implements Serializable {
     this.sort = const SortSpec(),
     this.showHidden = false,
     this.view = defaultView,
-  }) : columns = columns ?? ColumnLayout.defaults;
+    List<String>? expanded,
+  }) : columns = columns ?? ColumnLayout.defaults,
+       expanded = expanded ?? const [];
 
   /// Вид, которым панель показывает каталог, пока не выбрали другой.
   static const String defaultView = 'table';
@@ -46,6 +48,17 @@ class PanelSettings implements Serializable {
   /// вернётся, когда его включат обратно.
   String view;
 
+  /// Раскрытые ветви дерева — путями.
+  ///
+  /// Путями, а не узлами: между запусками узлов не остаётся вовсе, а путь
+  /// переживает всё. Исчезнувшее при восстановлении пропускается молча
+  /// (`docs/spec/panel-node-list.md`, §3).
+  ///
+  /// Хранится у панели, а не у вида: раскрытое — это состояние **набора
+  /// строк**, и вернуться к нему панель должна независимо от того, каким видом
+  /// его показывали.
+  List<String> expanded;
+
   @override
   void toMap(Map<String, dynamic> m) {
     m['path'] = path;
@@ -56,6 +69,9 @@ class PanelSettings implements Serializable {
     // `Serializable` устроен вокруг словаря, а колонки хранятся списком.
     m['sort'] = sort.toJson();
     m['columns'] = columns.toJson();
+    if (expanded.isNotEmpty) {
+      m['expanded'] = expanded;
+    }
   }
 
   @override
@@ -73,6 +89,14 @@ class PanelSettings implements Serializable {
     view = extract(view, m['view']);
     sort = SortSpec.fromJson(m['sort']);
     columns = ColumnLayout.fromJson(m['columns']);
+    final saved = m['expanded'];
+    expanded =
+        saved is List
+            ? [
+              for (final path in saved)
+                if (path is String) path,
+            ]
+            : const [];
   }
 }
 

@@ -122,6 +122,36 @@ void main() {
     expect(panel.session.selection.paths, {'/home/main.dart'});
   });
 
+  test('раскрытое переживает смену вида и попадает в настройки', () async {
+    await panel.session.setRows(RowsKind.tree);
+    await panel.session.setExpanded('/home/lib', expanded: true);
+
+    // В список и обратно: раскрытое выбрал человек, и терять его незачем.
+    await panel.session.setRows(RowsKind.listing);
+    await panel.session.setRows(RowsKind.tree);
+    expect(rows(), contains('      app.dart'));
+
+    // И то же самое едет в настройки — путями: между запусками узлов не
+    // остаётся вовсе.
+    expect(panel.session.settings.expanded, contains('/home/lib'));
+  });
+
+  test('сохранённое раскрытое возвращается при запуске', () async {
+    final restored = testPanel(
+      provider: provider,
+      settings: PanelSettings(path: '/home', expanded: ['/home/lib', '/home/gone']),
+    );
+    addTearDown(restored.dispose);
+    await restored.openPath('/home');
+
+    await restored.session.setRows(RowsKind.tree);
+
+    // Ветвь раскрыта, а исчезнувший путь пропущен молча.
+    expect([
+      for (final entry in restored.session.entries) '${'  ' * entry.level}${entry.name}',
+    ], contains('      app.dart'));
+  });
+
   test('сортировка раскладывает ветви, а не мешает их с содержимым', () async {
     await panel.session.setRows(RowsKind.tree);
     await panel.session.setExpanded('/home/lib', expanded: true);

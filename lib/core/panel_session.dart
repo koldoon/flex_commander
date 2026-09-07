@@ -96,6 +96,7 @@ class PanelSession {
        _editor = editor,
        _columns = settings.columns,
        _view = settings.view,
+       _expanded = {...settings.expanded},
        _sort = settings.sort,
        _showHidden = settings.showHidden,
        _lastPath = settings.path {
@@ -244,6 +245,13 @@ class PanelSession {
   /// Чем набираются строки: говорит вид, а ядро о видах не знает
   /// (`docs/spec/panel-node-list.md`, §3).
   RowsKind _rows = RowsKind.listing;
+
+  /// Раскрытые ветви — то, что переживает и смену вида, и перезапуск.
+  ///
+  /// Здесь, а не только в наборе строк: набор живёт от чтения до чтения, а
+  /// раскрытое человек выбирал сам, и терять его при каждом перечитывании
+  /// нельзя.
+  Set<String> _expanded;
   SortSpec _sort;
   bool _showHidden;
 
@@ -1061,6 +1069,7 @@ class PanelSession {
     if (!changed) {
       return;
     }
+    _expanded = list.expandedPaths;
     await _rebuildRows();
   }
 
@@ -1074,12 +1083,16 @@ class PanelSession {
       return DirectoryNodeList(dir);
     }
     final previous = _list;
-    final expanded = <String>{
+    // Память панели, всё, что успел раскрыть нынешний набор, и цепочка до
+    // каталога — вместе. И **запоминается сразу**: иначе раскрытое цепочкой
+    // живёт до первого перечитывания и молча схлопывается.
+    _expanded = {
+      ..._expanded,
       if (previous is TreeNodeList) ...previous.expandedPaths,
       for (final node in dir.path)
         if (node is DirectoryNode) node.pathString,
     };
-    return TreeNodeList(roots: [dir.provider.rootDirectory], expanded: expanded);
+    return TreeNodeList(roots: [dir.provider.rootDirectory], expanded: _expanded);
   }
 
   /// Пересобрать строки текущим набором, ничего не читая сверх нужного.
@@ -1209,6 +1222,7 @@ class PanelSession {
       sort: _sort,
       showHidden: _showHidden,
       view: _view,
+      expanded: _expanded.toList(),
     );
   }
 
