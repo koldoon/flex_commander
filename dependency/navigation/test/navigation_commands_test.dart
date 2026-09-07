@@ -52,6 +52,46 @@ void main() {
 
   Future<void> run(String id) => commands().create(id)!.executeWith();
 
+  group('показать в соседней панели', () {
+    test('каталог под курсором открывается напротив', () async {
+      app.left.setCursorToName('docs');
+
+      await run('panel.openInOther');
+
+      expect(app.right.currentPath, '/home/docs');
+      expect(app.left.currentPath, '/home', reason: 'своя панель осталась где стояла');
+      expect(app.activePanel, same(app.left), reason: 'команда показывает, а не переводит взгляд');
+    });
+
+    test('на файле показывается его каталог', () async {
+      await app.left.openPath('/home/docs');
+      await app.left.openPath('/home');
+      app.left.setCursorToName('notes.txt');
+
+      await run('panel.openInOther');
+
+      expect(app.right.currentPath, '/home');
+    });
+
+    test('на «..» — тоже свой каталог', () async {
+      app.left.setCursorIndex(0);
+      expect(app.left.currentEntry?.isParent, isTrue, reason: 'стенд ни о чём, если это не «..»');
+
+      await run('panel.openInOther');
+
+      expect(app.right.currentPath, '/home');
+    });
+
+    test('работает из любой панели', () async {
+      app.toggleActivePanel();
+      app.right.setCursorToName('docs');
+
+      await run('panel.openInOther');
+
+      expect(app.left.currentPath, '/home/docs');
+    });
+  });
+
   group('переход в корень', () {
     test('панель открывает корневой каталог провайдера', () async {
       expect(app.left.directoryName, 'home');

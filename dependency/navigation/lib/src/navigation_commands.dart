@@ -182,6 +182,57 @@ class TogglePanelCommand extends AppCommand {
   Future<void> execute(CommandContext context) async => context.app.toggleActivePanel();
 }
 
+/// Показать в соседней панели то, на чём стоит курсор.
+///
+/// Привычка `mc`: `Alt-O` — быстрый способ развести две панели по нужным
+/// каталогам, не набирая путь. Курсор на каталоге — соседняя открывает **его**;
+/// на файле или на «..» — каталог этой панели: файл в панели не открыть, а
+/// показать рядом то, что рядом с ним, — ровно то, чего от команды и ждут.
+///
+/// Активной остаётся своя панель: команда показывает, а не переводит взгляд.
+/// Хотели бы перевести — для этого есть `Tab`.
+class OpenInOtherPanelCommand extends AppCommand {
+  static const String commandId = 'panel.openInOther';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => tr('Open in the other panel');
+
+  @override
+  String get description => tr('Show the directory under the cursor in the panel opposite');
+
+  @override
+  Set<String> get keywords => const {'sync panels', 'cd', 'same directory'};
+
+  /// Некуда показывать — нечего и делать: напротив бывает наложение (быстрый
+  /// просмотр, находки во весь экран), и панели там сейчас нет.
+  @override
+  bool isExecutable(CommandContext context) => context.target != null && _pathFor(context) != null;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final path = _pathFor(context);
+    final target = context.target;
+    if (path == null || target == null) {
+      return;
+    }
+    await target.openPath(path);
+  }
+
+  /// Что показать соседке: каталог под курсором, а иначе — свой каталог.
+  static String? _pathFor(CommandContext context) {
+    final entry = context.entry;
+    final here = context.panel.currentPath;
+    if (entry == null || entry.path.isEmpty) {
+      return here;
+    }
+    final directory = entry.isDirectory || (entry.isLink && entry.linkToDirectory);
+    return directory ? entry.path : here;
+  }
+}
+
 /// Вход в объект под курсором.
 ///
 /// Каталог открывается в панели, ссылка разрешается, обычный файл отдаётся

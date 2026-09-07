@@ -46,6 +46,7 @@ class Navigation implements FcFrontendModule {
 
     // Панели и дерево.
     registry.command((context) => TogglePanelCommand());
+    registry.command((context) => OpenInOtherPanelCommand());
     registry.command((context) => CenterSplitCommand());
     registry.command((context) => OpenNodeCommand());
     registry.command((context) => OpenWithSystemCommand(opener: context.resolve<SystemOpener>()));
@@ -107,6 +108,8 @@ class Navigation implements FcFrontendModule {
 
     // Навигация по дереву.
     registry.binding(KeyBinding('Tab', TogglePanelCommand.commandId));
+    // Привычка `mc`: показать соседке каталог под курсором, не сходя с места.
+    registry.binding(KeyBinding('Alt-O', OpenInOtherPanelCommand.commandId));
     registry.binding(KeyBinding('Enter', OpenNodeCommand.commandId));
     registry.binding(KeyBinding('Cmd-O', OpenWithSystemCommand.commandId));
 
@@ -207,6 +210,8 @@ const Map<String, String> _russian = {
 
   // Панели и дерево.
   'Switch panel': 'Другая панель',
+  'Open in the other panel': 'Открыть в соседней панели',
+  'Show the directory under the cursor in the panel opposite': 'Показать каталог под курсором в соседней панели',
   'Make the other panel active': 'Сделать активной соседнюю панель',
   'Center split': 'Поровну',
   'Give both panels the same width': 'Дать панелям одинаковую ширину',
