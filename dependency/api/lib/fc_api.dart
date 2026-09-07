@@ -38,6 +38,7 @@ export 'src/async/transfer_progress.dart';
 export 'src/panel/column_spec.dart';
 export 'src/panel/entry_condition.dart';
 export 'src/panel/file_icon_rule.dart';
+export 'src/panel/rows_kind.dart';
 export 'src/panel/sort_spec.dart';
 
 // --- Настройки ---

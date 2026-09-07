@@ -148,6 +148,10 @@ void main() {
 
     final lib = rows.firstWhere((node) => node.name == 'lib');
     expect(list.currentPathFor(lib), '/home', reason: 'ветвь лежит в своём каталоге');
-    expect(list.currentPathFor(null), '/home', reason: 'без курсора — корень');
+
+    // Корень ни в чём не лежит: каталога он не называет, и панель остаётся
+    // там, где стояла (`docs/spec/panel-view-tree.md`, §3).
+    expect(list.currentPathFor(rows.first), isNull);
+    expect(list.currentPathFor(null), isNull);
   });
 }

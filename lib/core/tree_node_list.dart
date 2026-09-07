@@ -55,12 +55,22 @@ class TreeNodeList implements NodeList {
   ///
   /// Не корень и не «показанный каталог»: в дереве видно много каталогов
   /// сразу, и единственный осмысленный ответ — тот, где стоит курсор.
+  ///
+  /// null — курсор на корне: он ни в чём не лежит, и панель остаётся там, где
+  /// стояла (`docs/spec/panel-view-tree.md`, §3).
   @override
-  String currentPathFor(FsNode? cursor) {
+  String? currentPathFor(FsNode? cursor) {
     if (cursor == null) {
-      return directory.displayPath;
+      return null;
     }
-    return (cursor.parentDirectory ?? directory).displayPath;
+    // Корень набора — тот, что человек выбрал, а не тот, у кого нет родителя:
+    // ветвь `/home` в файловой системе лежит в `/`, но если дерево начинается
+    // с неё, выше подниматься некуда.
+    final at = cursor.pathString;
+    if (_rootDirectories.any((root) => root.pathString == at)) {
+      return null;
+    }
+    return cursor.parentDirectory?.displayPath;
   }
 
   @override

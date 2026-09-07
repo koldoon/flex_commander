@@ -46,8 +46,9 @@ abstract interface class NodeList {
   ///
   /// У списка каталога это сам каталог, у дерева — каталог строки под
   /// курсором: там видно много каталогов сразу, и другого осмысленного ответа
-  /// нет.
-  String currentPathFor(FsNode? cursor);
+  /// нет. null — «не меняется»: так отвечает корень дерева, который ни в чём не
+  /// лежит (`docs/spec/panel-view-tree.md`, §3).
+  String? currentPathFor(FsNode? cursor);
 
   /// Строки, которые панель уже видела; null — таких нет.
   ///
@@ -83,7 +84,7 @@ class DirectoryNodeList implements NodeList {
   List<FsNode> get roots => [directory];
 
   @override
-  String currentPathFor(FsNode? cursor) => directory.displayPath;
+  String? currentPathFor(FsNode? cursor) => directory.displayPath;
 
   @override
   List<FsNode>? shown(ListingCache? cache, {required bool includeHidden}) =>

@@ -201,13 +201,20 @@ class CoreServer implements CoreHandler {
         session(panel).toggleCurrentMark();
         return null;
 
-      case Arrange(:final panel, :final sort, :final columns, :final showHidden, :final view):
+      case ExpandRow(:final panel, :final path, :final expanded):
+        await session(panel).setExpanded(path, expanded: expanded);
+        return null;
+
+      case Arrange(:final panel, :final sort, :final columns, :final showHidden, :final view, :final rows):
         final target = session(panel);
         if (columns != null) {
           target.setColumnLayout(columns);
         }
         if (view != null) {
           target.setView(view);
+        }
+        if (rows != null) {
+          await target.setRows(rows);
         }
         if (sort != null) {
           target.sortTo(sort);

@@ -1,4 +1,5 @@
 import '../panel/column_spec.dart';
+import '../panel/rows_kind.dart';
 import '../panel/sort_spec.dart';
 import '../async/progress_report.dart';
 import '../values/fs_error.dart';
@@ -136,7 +137,7 @@ final class ToggleMark extends CoreRequest {
 
 /// Как показывать список: сортировка, колонки, скрытые.
 final class Arrange extends CoreRequest {
-  const Arrange(this.panel, {this.sort, this.columns, this.showHidden, this.view});
+  const Arrange(this.panel, {this.sort, this.columns, this.showHidden, this.view, this.rows});
 
   final PanelId panel;
   final SortSpec? sort;
@@ -145,6 +146,24 @@ final class Arrange extends CoreRequest {
 
   /// Чем показывать каталог; null — вид не трогаем.
   final String? view;
+
+  /// Чем набирать строки; null — набор не трогаем.
+  ///
+  /// Говорит это **вид**: ядро не знает ни одного вида по имени, оно знает
+  /// набор строк (`docs/spec/panel-node-list.md`, §3).
+  final RowsKind? rows;
+}
+
+/// Раскрыть или свернуть ветвь по пути.
+///
+/// Сообщением, а не просьбой: ответа не ждут, новые строки приедут списком.
+/// Путь — потому что строки живут путями, а узлы после чтения другие.
+final class ExpandRow extends CoreRequest {
+  const ExpandRow(this.panel, this.path, {required this.expanded});
+
+  final PanelId panel;
+  final String path;
+  final bool expanded;
 }
 
 /// Посчитать размеры всех каталогов текущего каталога.

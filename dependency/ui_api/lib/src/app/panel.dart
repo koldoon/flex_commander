@@ -286,6 +286,20 @@ abstract interface class Panel implements ViewportState {
 
   void setColumnLayout(ColumnLayout layout);
 
+  /// Чем набираются строки: содержимое каталога или дерево.
+  ///
+  /// Говорит это **вид** ([showRows]): ядро не знает ни одного вида по имени,
+  /// оно знает набор строк (`docs/spec/panel-node-list.md`, §3).
+  RowsKind get rows;
+
+  /// Попросить набор строк — вид говорит это, когда встаёт.
+  Future<void> showRows(RowsKind kind);
+
+  /// Раскрыть или свернуть ветвь по пути.
+  ///
+  /// Путём, а не строкой: строки живут путями, а узлы после чтения другие.
+  void setExpanded(String path, {required bool expanded});
+
   SortSpec get sort;
 
   /// Сортировка по колонке: та же колонка меняет направление.

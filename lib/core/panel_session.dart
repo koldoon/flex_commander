@@ -8,6 +8,7 @@ import 'package:fc_core_api/fc_core_api.dart';
 
 import '../core/listing_cache.dart';
 import '../core/node_list.dart';
+import '../core/tree_node_list.dart';
 import '../core/selection_controller.dart';
 
 /// Создаёт сеансы панелей.
@@ -239,6 +240,10 @@ class PanelSession {
 
   ColumnLayout _columns;
   String _view;
+
+  /// Чем набираются строки: говорит вид, а ядро о видах не знает
+  /// (`docs/spec/panel-node-list.md`, §3).
+  RowsKind _rows = RowsKind.listing;
   SortSpec _sort;
   bool _showHidden;
 
@@ -268,7 +273,24 @@ class PanelSession {
 
   /// Путь показанного каталога — тем же текстом, каким его видят на экране.
   /// Куда пойдёт операция — путь под курсором (`panel-node-list.md`).
-  String get currentPath => _directory?.displayPath ?? '';
+  ///
+  /// Спрашивают **набор строк**: у списка каталога это сам каталог, у дерева —
+  /// каталог строки под курсором. Панель тут ничего не решает: что значит «где
+  /// я стою», знает тот, кто собрал строки.
+  String get currentPath => _standing.isEmpty ? (_directory?.displayPath ?? '') : _standing;
+
+  /// Где панель стоит **сейчас**: последнее, что сказал набор строк.
+  ///
+  /// Памятью, а не вычислением на месте: корень дерева ни в чём не лежит и
+  /// каталога не называет, а панель при этом обязана остаться там, где стояла.
+  String _standing = '';
+
+  void _updateStanding() {
+    final at = _list?.currentPathFor(currentNode);
+    if (at != null && at.isNotEmpty) {
+      _standing = at;
+    }
+  }
 
   /// Имя показанного каталога: последнее звено пути.
   String get directoryName => _directory?.name ?? '';
@@ -989,6 +1011,121 @@ class PanelSession {
     _changed();
   }
 
+  RowsKind get rows => _rows;
+
+  /// Сменить набор строк: каталог или дерево.
+  ///
+  /// Строки пересобираются сразу: вид, попросивший дерево, обязан увидеть
+  /// ветви тем же кадром, каким встал.
+  Future<void> setRows(RowsKind value) async {
+    if (_rows == value) {
+      return;
+    }
+    final at = currentPath;
+    final name = currentNode?.name;
+    _rows = value;
+
+    final dir = _directory;
+    if (dir == null) {
+      return;
+    }
+
+    if (value == RowsKind.tree) {
+      _list = _listFor(dir);
+      await _rebuildRows();
+      // Курсор встаёт на ветвь того каталога, где панель стояла: иначе она
+      // окажется на корне, в дереве длиной в весь диск.
+      _cursorToPath(dir.pathString);
+      _changed();
+      return;
+    }
+
+    // Обратно в список — тем каталогом, где стоял курсор, а не корнем дерева:
+    // в дереве стоят **на ветви**, и список должен показать её каталог.
+    final resolved = await resolvePath().run(at);
+    final target = resolved.node;
+    await resolved.release();
+    await _load(target is DirectoryNode ? target : dir, cursorName: name, keepMarks: true);
+  }
+
+  /// Раскрыть или свернуть ветвь по пути.
+  ///
+  /// Путём, а не строкой: строки живут путями, а узлы после чтения другие
+  /// (`docs/spec/panel-node-list.md`, §4).
+  Future<void> setExpanded(String path, {required bool expanded}) async {
+    final list = _list;
+    if (list is! TreeNodeList) {
+      return;
+    }
+    final changed = expanded ? list.expand(path) : list.collapse(path);
+    if (!changed) {
+      return;
+    }
+    await _rebuildRows();
+  }
+
+  /// Набор строк для этого каталога — тот, который попросил вид.
+  ///
+  /// У дерева корень — корень **источника**, а сам каталог раскрыт вместе со
+  /// всей цепочкой до него: иначе панель показала бы дерево, в котором её
+  /// самой не видно.
+  NodeList _listFor(DirectoryNode dir) {
+    if (_rows != RowsKind.tree) {
+      return DirectoryNodeList(dir);
+    }
+    final previous = _list;
+    final expanded = <String>{
+      if (previous is TreeNodeList) ...previous.expandedPaths,
+      for (final node in dir.path)
+        if (node is DirectoryNode) node.pathString,
+    };
+    return TreeNodeList(roots: [dir.provider.rootDirectory], expanded: expanded);
+  }
+
+  /// Пересобрать строки текущим набором, ничего не читая сверх нужного.
+  ///
+  /// Курсор держится за **строку**, а не за место: после раскрытия ветви
+  /// строки уезжают вниз, и следить надо за объектом.
+  Future<void> _rebuildRows() async {
+    final list = _list;
+    if (list == null) {
+      return;
+    }
+    final at = currentNode?.pathString;
+    final marked = selection.paths;
+
+    _operation?.cancel();
+    final operation = list.read(order: _order);
+    _operation = operation;
+    operation.start(null);
+
+    final List<FsNode> rows;
+    try {
+      rows = await operation.result;
+    } on OperationCanceled {
+      return;
+    } on FsError {
+      return;
+    }
+
+    _nodes = List.unmodifiable(rows);
+    _applyMeasured(_nodes);
+    _listed();
+    _restoreSelection(marked);
+    if (at != null) {
+      _cursorToPath(at);
+    }
+    _changed();
+  }
+
+  /// Ставит курсор на строку с этим путём; нет такой — оставляет как есть.
+  void _cursorToPath(String path) {
+    final index = _nodes.indexWhere((node) => node.pathString == path);
+    if (index >= 0) {
+      _cursorIndex = index;
+    }
+  }
+
   SortSpec get sort => _sort;
 
   /// Сортировка по колонке: та же колонка меняет направление.
@@ -1110,6 +1247,7 @@ class PanelSession {
     columns: columns,
     showHidden: _showHidden,
     view: _view,
+    rows: _rows,
     markedPaths: selection.paths,
     marksSeq: _marksSeq,
     markedSize: selection.totalSize,
@@ -1189,6 +1327,7 @@ class PanelSession {
   }
 
   void _changed() {
+    _updateStanding();
     for (final listener in _onChanged.toList()) {
       listener();
     }
@@ -1275,7 +1414,7 @@ class PanelSession {
     // Список, который панель уже видела. Он всего лишь подсказка: чтение
     // пойдёт следом в любом случае и подменит его, если каталог изменился
     // (`docs/spec/listing-cache.md`, §3).
-    final list = DirectoryNodeList(dir);
+    final list = _listFor(dir);
     final shown = useCache ? list.shown(cache, includeHidden: _showHidden) : null;
     var adopted = false;
 

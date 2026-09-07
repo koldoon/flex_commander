@@ -1,4 +1,5 @@
 import '../panel/column_spec.dart';
+import '../panel/rows_kind.dart';
 import '../settings/app_settings.dart';
 import '../panel/sort_spec.dart';
 import '../values/fs_error.dart';
@@ -28,6 +29,7 @@ class PanelState {
     this.cursorIndex = 0,
     this.cursorSeq = 0,
     this.generation = 0,
+    this.rows = RowsKind.listing,
     this.sort = const SortSpec(),
     required this.columns,
     this.showHidden = false,
@@ -100,6 +102,9 @@ class PanelState {
   /// строки того списка, которого уже нет.
   final int generation;
 
+  /// Чем набраны строки: содержимое каталога или дерево.
+  final RowsKind rows;
+
   final SortSpec sort;
   final ColumnLayout columns;
   final bool showHidden;
@@ -145,6 +150,7 @@ class PanelState {
     int? cursorIndex,
     int? cursorSeq,
     int? generation,
+    RowsKind? rows,
     SortSpec? sort,
     ColumnLayout? columns,
     bool? showHidden,
@@ -167,6 +173,7 @@ class PanelState {
     cursorIndex: cursorIndex ?? this.cursorIndex,
     cursorSeq: cursorSeq ?? this.cursorSeq,
     generation: generation ?? this.generation,
+    rows: rows ?? this.rows,
     sort: sort ?? this.sort,
     columns: columns ?? this.columns,
     view: view ?? this.view,

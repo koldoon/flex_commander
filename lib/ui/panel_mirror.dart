@@ -455,6 +455,15 @@ class PanelMirror extends ChangeNotifier implements Panel {
   @override
   Future<void> setView(String view) => _link.call(Arrange(id, view: view));
 
+  @override
+  RowsKind get rows => _state.rows;
+
+  @override
+  Future<void> showRows(RowsKind kind) => _link.call(Arrange(id, rows: kind));
+
+  @override
+  void setExpanded(String path, {required bool expanded}) => _link.tell(ExpandRow(id, path, expanded: expanded));
+
   // --- своя работа ---
 
   /// Работа, которую ведёт экран; null — панель занята чем-то ядровым или
