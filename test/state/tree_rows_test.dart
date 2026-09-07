@@ -1,6 +1,30 @@
+import 'dart:async';
+
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// Источник, чтение которого не заканчивается, пока его не отпустят.
+///
+/// При запуске вид встаёт раньше, чем панель дочитала восстановленный каталог,
+/// и порядок этих двух событий решает всё.
+class _HeldProvider extends InMemoryTreeProvider {
+  _HeldProvider(super.entries);
+
+  final Completer<void> release = Completer<void>();
+
+  @override
+  Operation<ListingParams, List<FsNode>> getDirectoryListing() {
+    final inner = super.getDirectoryListing();
+    return TaskOperation<ListingParams, List<FsNode>>((op, params) async {
+      if (!release.isCompleted) {
+        await release.future;
+      }
+      return op.delegate(inner, params);
+    });
+  }
+}
 
 /// Панель показывает дерево тем же способом, что и список: строками
 /// (`docs/spec/panel-node-list.md`, §3).
@@ -186,6 +210,40 @@ void main() {
     cursorTo('app.dart');
 
     expect(panel.session.settings.cursorPath, '/home/lib/app.dart');
+  });
+
+  test('вид попросил дерево, пока панель читала каталог', () async {
+    // Так бывает при запуске: вид встаёт раньше, чем панель дочитала
+    // восстановленный каталог. Живьём это выглядело так, что дерево иногда
+    // приходило нераскрытым и не раскрывалось вовсе.
+    final held = _HeldProvider([
+      FakeEntry.directory('/home'),
+      FakeEntry.directory('/home/lib'),
+      FakeEntry.file('/home/lib/app.dart', size: 20),
+      FakeEntry.directory('/other'),
+    ]);
+    final fresh = testPanel(provider: held, settings: PanelSettings(path: '/home', expanded: ['/home/lib']));
+    addTearDown(fresh.dispose);
+
+    // Чтение каталога уже началось — и вот тут вид просит дерево.
+    final opening = fresh.openPath('/home');
+    for (var i = 0; i < 5; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+    final asking = fresh.session.setRows(RowsKind.tree);
+    held.release.complete();
+    await opening;
+    await asking;
+    for (var i = 0; i < 10; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    final shown = [for (final entry in fresh.session.entries) '${'  ' * entry.level}${entry.name}'];
+    expect(shown, contains('      app.dart'), reason: 'дерево собрано и раскрыто');
+
+    // И раскрывается дальше руками: набор строк — тот, который просили.
+    await fresh.session.setExpanded('/other', expanded: true);
+    expect(fresh.session.entries.any((entry) => entry.name == 'other' && entry.isOpen), isTrue);
   });
 
   test('сортировка раскладывает ветви, а не мешает их с содержимым', () async {

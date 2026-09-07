@@ -1107,6 +1107,33 @@ class PanelSession {
     return TreeNodeList(roots: [dir.provider.rootDirectory], expanded: _expanded);
   }
 
+  /// Свести набор строк с тем, что просил вид.
+  ///
+  /// Чтение каталога начинается с одним набором, а пока оно идёт, вид успевает
+  /// попросить другой: при запуске он встаёт как раз в это время. Живьём это
+  /// выглядело так, что дерево **иногда** приходило нераскрытым и не
+  /// раскрывалось вовсе — набор-то был списочный, — а лечилось повторным
+  /// открытием пути.
+  Future<void> _reconcileRows() async {
+    final dir = _directory;
+    if (dir == null) {
+      return;
+    }
+    if ((_rows == RowsKind.tree) == (_list is TreeNodeList)) {
+      return;
+    }
+    _list = _listFor(dir);
+    await _rebuildRows();
+    if (_rows == RowsKind.tree) {
+      final saved = _savedCursor;
+      _savedCursor = '';
+      if (saved.isEmpty || !_cursorToPath(saved)) {
+        _cursorToPath(dir.pathString);
+      }
+    }
+    _changed();
+  }
+
   /// Пересобрать строки текущим набором, ничего не читая сверх нужного.
   ///
   /// Курсор держится за **строку**, а не за место: после раскрытия ветви
@@ -1532,6 +1559,7 @@ class PanelSession {
 
       _status = PanelPhase.idle;
       _finish();
+      await _reconcileRows();
     } on OperationCanceled {
       if (requestId == _requestId) {
         _status = PanelPhase.idle;
