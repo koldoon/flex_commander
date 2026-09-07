@@ -1601,12 +1601,25 @@ class PanelSession {
     _measuredFor = provider;
   }
 
-  /// Посчитанное для этих путей — то, что панель успела узнать.
+  /// Растущие суммы идущих обходов — по корню каждого.
+  ///
+  /// Отдельно от [_measured]: посчитанным это станет, только когда обход дойдёт
+  /// до конца. Прерванный обход своё число уносит с собой.
+  final Map<String, int> _running = {};
+
+  /// Размеры этих путей — и посчитанные, и те, что считаются прямо сейчас.
+  ///
+  /// Растущая сумма едет наружу наравне с итогом: в списке панели счётчик
+  /// живой, и в дереве он должен быть таким же — иначе помеченная ветвь молчит
+  /// прочерком, пока обход не кончится, и оживает, только если навести на неё
+  /// курсор (тогда её строка попадает в список панели). Ложью это не станет:
+  /// пока обход идёт, о нём спрашивают снова, а оборвался — число уходит
+  /// вместе с ответом.
   ///
   /// Непосчитанного в ответе нет: прочерк в колонке рисует тот, кто спросил.
   Map<String, int> measuredSizes(Iterable<String> paths) => {
     for (final path in paths)
-      if (_measured[path] case final size?) path: size,
+      if (_measured[path] ?? _running[path] case final size?) path: size,
   };
 
   /// Забывает посчитанное для каталога и всего, что под ним.
@@ -1773,6 +1786,7 @@ class PanelSession {
         return;
       }
       directory.size = status.itemsTransferred;
+      _running[path] = directory.size;
       _sizeChanged(directory);
       _sizeRedraw();
     }
@@ -1803,6 +1817,7 @@ class PanelSession {
     }
 
     directory.size = total < 0 ? 0 : total;
+    _running.remove(path);
     _remember(path, directory.size);
     _sizeChanged(directory);
     _scans.remove(path);
@@ -1859,6 +1874,8 @@ class PanelSession {
     if (scan == null) {
       return;
     }
+    // Частичная сумма уходит вместе с обходом — и из узла, и из ответов.
+    _running.remove(directory.pathString);
     scan.cancel();
     // Частичная сумма, застывшая в колонке как итог, — ложь.
     directory.size = FsNode.unknownSize;

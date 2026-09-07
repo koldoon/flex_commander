@@ -395,6 +395,27 @@ void main() {
       expect(panel.markedSizeIsFinal, isTrue);
     });
 
+    test('растущая сумма видна и снаружи, пока обход идёт', () async {
+      final held = _HeldSizeProvider();
+      final panel = await panelOn(held);
+      panel.setCursorToName('docs');
+      panel.toggleCurrentMark();
+      for (var i = 0; i < 5; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      // Так спрашивает дерево: помеченная ветвь бывает не в списке панели, и
+      // без этого она молчала бы прочерком до конца обхода.
+      expect(panel.session.measuredSizes(['/home/docs']), {'/home/docs': _HeldSizeProvider.partial});
+
+      panel.clearMarks();
+      await settle();
+
+      // Обход оборвался — число уходит вместе с ним.
+      expect(panel.session.measuredSizes(['/home/docs']), isEmpty);
+      held.release.complete();
+    });
+
     test('размеры подкаталогов остаются от того же обхода', () async {
       mark('docs');
       await settle();
