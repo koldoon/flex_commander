@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_search/fc_search.dart';
@@ -189,7 +190,15 @@ void main() {
     await press(tester, 'To panel');
 
     expect(app.left.source.scheme, SourceInfo.foundScheme);
-    expect(app.left.entries.map((node) => node.name), containsAll(['main.dart', 'util.dart']));
+
+    // Деревом, а не кучей: видно, где что нашлось. Вид просит сам источник, и
+    // раскрыто оно сразу — иначе находки прятались бы за нажатиями
+    // (`docs/spec/file-search.md`, §4).
+    expect(app.left.view, TreeView.viewId);
+    expect(
+      [for (final entry in app.left.entries) '${'  ' * entry.level}${entry.name}'],
+      ['*.dart', '  lib', '    src', '      util.dart', '    main.dart', '  main.dart'],
+    );
     // Окно ушло: смотреть на список удобнее в панели.
     expect(find.widgetWithText(FcButton, 'To panel'), findsNothing);
   });
@@ -205,7 +214,16 @@ void main() {
 
     // Иначе список нечитаем: `main.dart` в нём два, и различает их только это.
     expect(app.left.columns.find(FsColumn.path)?.visible, isTrue);
-    expect(find.text('/home/lib/src'), findsOneWidget);
+
+    // Дерево говорит это ветвями, а колонку видно в таблице — и посмотреть
+    // находки таблицей человек волен: просьба источника не запрет.
+    await app.left.setView(PanelSettings.defaultView);
+    await tester.pumpAndSettle();
+    expect(
+      find.descendant(of: find.byType(FileTable).first, matching: find.text('/home')),
+      findsWidgets,
+      reason: 'в таблице путь находки стоит колонкой',
+    );
 
     // Раскладку просит источник, и уходит она вместе с ним: настройку панели
     // это не переписывает.

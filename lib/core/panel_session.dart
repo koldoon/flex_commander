@@ -267,6 +267,33 @@ class PanelSession {
   /// нельзя.
   Set<String> _expanded;
 
+  /// Раскрытое **в чужом источнике**: живёт, пока его показывают.
+  ///
+  /// Отдельно от [_expanded] по той же причине, что и вид: находки раскрыты
+  /// потому, что иначе их не видно, а не потому, что человек их раскрывал. В
+  /// настройки панели такое не пишут — иначе там осели бы `found:`-пути и
+  /// цепочка предков, которую подмешивает `_listFor`.
+  Set<String> _expandedHere = {};
+
+  /// Что раскрыто сейчас — своё или источника.
+  Set<String> get _openBranches => provider is PanelPreferredView ? _expandedHere : _expanded;
+
+  /// Забыть всё, что относилось к прежнему источнику.
+  ///
+  /// Зовётся сменой источника: просьба источника — не выбор человека, и
+  /// пережить источник она не должна.
+  void _forgetSourceView(TreeProvider? source) {
+    final dictated = provider is PanelPreferredView || source is PanelPreferredView;
+    _viewHere = null;
+    _expandedHere = {if (source is PanelPreferredView) ...(source as PanelPreferredView).openBranches};
+    if (dictated) {
+      // Вид сейчас сменится — значит сменится и набор строк, который он просит.
+      // С чужим набором панель встала бы не в тот каталог: дерево привязано к
+      // корню источника, и уход из находок приводил её в корень диска.
+      _rows = RowsKind.listing;
+    }
+  }
+
   /// Строка, на которой стоял курсор в прошлый запуск, — путём.
   ///
   /// Одноразовая: как только строки собраны и курсор поставлен, память
@@ -1039,9 +1066,35 @@ class PanelSession {
   /// Ядро об этом ничего не знает: строка приходит с той стороны, хранится
   /// здесь и возвращается обратно вместе с состоянием
   /// (`docs/spec/panel-views.md`, §7).
-  String get view => _view;
+  ///
+  /// Источник вправе попросить свой вид (`PanelPreferredView`): найденное —
+  /// дерево, и плоским списком его не показать. Просьба живёт, пока его
+  /// показывают, — и уход из находок возвращает вид человека сам собой, потому
+  /// что вопрос задаётся каждый раз, а не запоминается. Поверх просьбы —
+  /// [setView] на месте: человек волен посмотреть находки и таблицей.
+  String get view {
+    final current = provider;
+    if (current is PanelPreferredView) {
+      return _viewHere ?? (current as PanelPreferredView).preferredView;
+    }
+    return _view;
+  }
+
+  /// Вид, выбранный **в этом источнике**: живёт, пока его показывают.
+  ///
+  /// Своей настройки человек этим не меняет: он смотрит находки, а не
+  /// перенастраивает панель, — то же правило, что у колонок.
+  String? _viewHere;
 
   void setView(String value) {
+    if (provider is PanelPreferredView) {
+      if (_viewHere == value) {
+        return;
+      }
+      _viewHere = value;
+      _changed();
+      return;
+    }
     if (_view == value) {
       return;
     }
@@ -1125,7 +1178,11 @@ class PanelSession {
     if (!changed) {
       return;
     }
-    _expanded = list.expandedPaths;
+    if (provider is PanelPreferredView) {
+      _expandedHere = list.expandedPaths;
+    } else {
+      _expanded = list.expandedPaths;
+    }
     await _rebuildRows();
   }
 
@@ -1142,13 +1199,21 @@ class PanelSession {
     // Память панели, всё, что успел раскрыть нынешний набор, и цепочка до
     // каталога — вместе. И **запоминается сразу**: иначе раскрытое цепочкой
     // живёт до первого перечитывания и молча схлопывается.
-    _expanded = {
-      ..._expanded,
+    //
+    // Чьё это раскрытое — своё или источника, — решает [_openBranches]: просьбу
+    // источника в настройки панели не пишут.
+    final open = {
+      ..._openBranches,
       if (previous is TreeNodeList) ...previous.expandedPaths,
       for (final node in dir.path)
         if (node is DirectoryNode) node.pathString,
     };
-    return TreeNodeList(roots: [dir.provider.rootDirectory], expanded: _expanded);
+    if (dir.provider is PanelPreferredView) {
+      _expandedHere = open;
+    } else {
+      _expanded = open;
+    }
+    return TreeNodeList(roots: [dir.provider.rootDirectory], expanded: open);
   }
 
   /// Свести набор строк с тем, что просил вид.
@@ -1355,7 +1420,9 @@ class PanelSession {
     sort: _sort,
     columns: columns,
     showHidden: _showHidden,
-    view: _view,
+    // Показанный, а не выбранный: пока показывают находки, это их дерево
+    // (`docs/spec/panel-views.md`, §7).
+    view: view,
     rows: _rows,
     scroll: _scrollOffset,
     markedPaths: selection.paths,
@@ -1517,6 +1584,11 @@ class PanelSession {
   }) async {
     _rememberCursor();
     _operation?.cancel();
+    // Сменился источник — забыли, о чём просил прежний: его вид и его
+    // раскрытое пережить его не должны.
+    if (!identical(dir.provider, provider)) {
+      _forgetSourceView(dir.provider);
+    }
 
     final requestId = ++_requestId;
 

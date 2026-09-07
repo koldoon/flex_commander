@@ -34,5 +34,10 @@ dev_dependencies:
   fc_default_theme:
     path: ../default_theme
 
+  # Только для проверок: находки показываются видами панелей, и тест смотрит на
+  # то, каким именно (`docs/spec/file-search.md`, §4).
+  fc_panels:
+    path: ../panels
+
   flex_commander:
     path: ../..

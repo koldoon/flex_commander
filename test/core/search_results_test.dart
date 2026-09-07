@@ -124,6 +124,40 @@ void main() {
     expect(panel().entries.map((node) => node.name), contains('..'), reason: '`..` возвращает туда, где стояли');
   });
 
+  test('находки открываются деревом, раскрытым до каждой', () async {
+    final search = await results(found: ['/home/docs/deep/plan.txt', '/home/readme.txt']);
+    expect(panel().view, PanelSettings.defaultView, reason: 'стенд ни о чём, если панель и так дерево');
+
+    await panel().open(search.rootDirectory);
+    await panel().setRows(RowsKind.tree);
+
+    // Вид просит источник: плоским списком дерева находок не показать.
+    expect(panel().view, 'tree');
+    expect(
+      [for (final entry in panel().entries) '${'  ' * entry.level}${entry.name}'],
+      ['*.txt', '  docs', '    deep', '      plan.txt', '  readme.txt'],
+    );
+  });
+
+  test('вид и раскрытое источника — не выбор человека', () async {
+    final search = await results(found: ['/home/docs/notes.txt']);
+    final was = panel().settings;
+
+    await panel().open(search.rootDirectory);
+    await panel().setRows(RowsKind.tree);
+    // Человек волен посмотреть находки и таблицей — своей настройки он этим не
+    // меняет.
+    panel().setView(PanelSettings.defaultView);
+    expect(panel().view, PanelSettings.defaultView);
+    expect(panel().settings.view, was.view);
+    expect(panel().settings.expanded, was.expanded, reason: '`found:`-пути в настройках панели не живут');
+
+    // Ушли из находок — вернулся вид человека, и просьба источника его не
+    // пережила.
+    await panel().goUp();
+    expect(panel().view, was.view);
+  });
+
   test('в списке находок нечего писать', () async {
     final search = await results();
 

@@ -22,7 +22,7 @@ import 'package:fc_core_api/fc_core_api.dart';
 /// Из этого же следует, чего источник **не** делает. Обход поддерева и подсчёт
 /// размеров — вопросы к тому, кому узел принадлежит; здесь на них отвечать
 /// нечем и незачем.
-class SearchResultsProvider implements TreeProvider, PanelColumns {
+class SearchResultsProvider implements TreeProvider, PanelColumns, PanelPreferredView {
   SearchResultsProvider({required String title, required List<FsNode> found, DirectoryNode? parent}) : _under = parent {
     _root = DirectoryNode(provider: this, name: title, parent: parent);
     _build(found);
@@ -44,10 +44,19 @@ class SearchResultsProvider implements TreeProvider, PanelColumns {
 
   List<FsNode> get found => List.unmodifiable(_found);
 
+  /// Найденное показывается деревом: плоским списком структуры не видно.
+  ///
+  /// Имя вида — то, под которым его объявил модуль панелей (`TreeView.viewId`).
+  /// Ядро видов не знает и знать не должно: для него это строка, как и та, что
+  /// лежит в настройках панели.
+  @override
+  String get preferredView => 'tree';
+
   /// Пути виртуальных ветвей: их дерево раскрывает сразу.
   ///
   /// Иначе находка, лежавшая на три каталога вглубь, пряталась бы за тремя
   /// нажатиями — а показать найденное и есть всё, зачем этот источник заведён.
+  @override
   Iterable<String> get openBranches => [_root.pathString, ..._branches.keys];
 
   /// Раскладывает находки по ветвям: каталоги между каталогом поиска и
