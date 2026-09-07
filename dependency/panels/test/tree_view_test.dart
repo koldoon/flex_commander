@@ -128,12 +128,18 @@ void main() {
 
   InMemoryTreeProvider provider() => InMemoryTreeProvider(entries())..home = '/home';
 
-  Future<AppRuntime> open(WidgetTester tester, {String at = '/home', TreeProvider? source, PanelSettings? left}) async {
+  Future<AppRuntime> open(
+    WidgetTester tester, {
+    String at = '/home',
+    TreeProvider? source,
+    PanelSettings? left,
+    double height = 600,
+  }) async {
     final settings = AppSettings(left: left ?? PanelSettings.defaults(at), right: PanelSettings.defaults('/home'));
     final runtime = await testApp(provider: source ?? provider(), modules: featureModules(), settings: settings);
     await runtime.app.start();
 
-    tester.view.physicalSize = const Size(900, 600);
+    tester.view.physicalSize = Size(900, height);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
@@ -755,6 +761,33 @@ void main() {
     // соседнюю с ней так не спутать.
     expect(tester.getRect(first).top, closeTo(list.top, 6));
     expect(runtime.app.left.currentEntry?.name, 'file-30.txt');
+  });
+
+  testWidgets('курсор доходит до нижнего края', (tester) async {
+    final deep = [
+      FakeEntry.directory('/home'),
+      for (var i = 0; i < 60; i++) FakeEntry.file('/home/file-$i.txt', size: 10),
+    ];
+    final runtime = await open(
+      tester,
+      source: InMemoryTreeProvider(deep)..home = '/home',
+      left: PanelSettings(path: '/home', expanded: ['/', '/home']),
+    );
+    await tester.pumpAndSettle();
+
+    // Ведём курсор вниз, пока он не уйдёт за край и не потянет вид за собой.
+    for (var i = 0; i < 30; i++) {
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+    }
+    await tester.pumpAndSettle();
+
+    final name = runtime.app.left.currentEntry!.name;
+    final row = find.descendant(of: find.byType(TreeView), matching: find.text(name));
+    final list = tester.getRect(find.byType(ListView).first);
+
+    // Строка под курсором стоит **у самого низа**: подмотка минимальная, и
+    // лишней строки под ней не остаётся.
+    expect(tester.getRect(row).bottom, closeTo(list.bottom, 6));
   });
 
   testWidgets('колонку размера выключают в настройках вида', (tester) async {

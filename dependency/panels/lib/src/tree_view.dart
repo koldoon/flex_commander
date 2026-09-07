@@ -176,37 +176,50 @@ class TreeViewState extends State<TreeView> {
     }
 
     final height = _scroll.position.viewportDimension;
-    // Целых строк в области; последняя, разрезанная, за строку не считается.
-    final visible = (height / _step).floor().clamp(1, rows.length);
-    final maxFirst = (rows.length - visible).clamp(0, rows.length);
+    // Предел считается по своим строкам, а не спрашивается у списка: строки
+    // могли только что смениться, и его мерки ещё от прежних — подмотка вышла
+    // бы на строку короче, и курсор остался бы под нижним краем.
+    final limit = (rows.length * _step - height).clamp(0.0, double.infinity);
+    final offset = _scroll.offset;
 
-    var first = (_scroll.offset / _step).round();
-
+    final double target;
     if (restoring) {
-      // Сначала — туда, где вид стоял при закрытии.
-      first = (widget.panel.scrollOffset / _step).round().clamp(0, maxFirst);
+      // Целых строк в области; последняя, разрезанная, за строку не считается:
+      // при восстановлении список стоит **целыми строками**, чтобы первая была
+      // видна полностью.
+      final visible = (height / _step).floor().clamp(1, rows.length);
+      final maxFirst = (rows.length - visible).clamp(0, rows.length);
 
+      // Сначала — туда, где вид стоял при закрытии.
+      var first = (widget.panel.scrollOffset / _step).round().clamp(0, maxFirst);
       if (at < first || at > first + visible - 1) {
         // Не подошло: пока приложение было закрыто, снаружи изменилось.
         final parent = _parentIndexOf(at);
         first = parent >= 0 && at - parent < visible - 1 ? parent : at - visible ~/ 2;
       }
+      first = first.clamp(0, maxFirst);
+      if (at < first) {
+        first = at;
+      } else if (at > first + visible - 1) {
+        first = at - visible + 1;
+      }
+      target = (first * _step).clamp(0.0, limit);
+    } else {
+      // Обычный ход курсора — подмотка **минимальная**, как в списке файлов:
+      // строка прижимается к тому краю, за который вышла, и курсор доходит до
+      // самого низа. Целыми строками тут нельзя: разрезанная нижним краем
+      // строка отнимала бы у курсора последнюю позицию, и он упирался бы в
+      // предпоследнюю, а вид дёргался на строку вверх.
+      final top = at * _step;
+      final bottom = top + _step;
+      target = switch (0) {
+        _ when top < offset => top,
+        _ when bottom > offset + height => (bottom - height).clamp(0.0, limit),
+        _ => offset,
+      };
     }
 
-    // Курсор обязан быть виден целиком, каким бы ни было правило.
-    first = first.clamp(0, maxFirst);
-    if (at < first) {
-      first = at;
-    } else if (at > first + visible - 1) {
-      first = at - visible + 1;
-    }
-
-    // Предел считается по своим строкам, а не спрашивается у списка: строки
-    // только что сменились, и его мерки ещё от прежних — подмотка вышла бы на
-    // строку короче, и курсор остался бы под нижним краем.
-    final limit = (rows.length * _step - height).clamp(0.0, double.infinity);
-    final target = (first * _step).clamp(0.0, limit);
-    if (target != _scroll.offset) {
+    if (target != offset) {
       _scroll.jumpTo(target);
     }
   }
