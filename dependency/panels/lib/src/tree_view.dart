@@ -215,53 +215,31 @@ class TreeViewState extends State<TreeView> {
     });
   }
 
-  /// Размеры каталогов, спрошенные у ядра; пусто — спрашивать нечего.
-  ///
-  /// Дерево видит сразу несколько ветвей, а список панели знает только текущий
-  /// каталог — про остальные он молчит. Посчитанное же ядро помнит по путям,
-  /// включая **каждый пройденный подкаталог**, и дерево спрашивает ровно те
-  /// пути, что показывает (`docs/spec/panel-view-tree.md`, §5).
-  Map<String, int> _sizes = const {};
-
   /// Вопрос уже задан: второго, пока не ответили, не будет.
   bool _asking = false;
 
-  /// О чём спрашивали в прошлый раз и шёл ли тогда счёт.
+  /// О чём спрашивали в прошлый раз.
   String _askedFor = '';
 
-  /// Спросить размеры показанных ветвей.
+  /// Спросить размеры показанных ветвей — один раз на смену показанного.
   ///
-  /// Пока счёт идёт — на каждый ответ панели: числа растут. Когда кончился —
-  /// один раз на смену показанного: раскрытая ветвь должна узнать о том, что
-  /// посчитали до неё.
+  /// Дальше числа приходят сами: панель везёт их событиями по путям, и дерево
+  /// берёт их оттуда же, откуда таблица (`docs/spec/panel-view-tree.md`, §5).
+  /// Вопрос нужен ровно затем, чтобы только что раскрытая ветвь узнала о том,
+  /// что посчитали до неё.
   void _askShownSizes() {
-    final panel = widget.panel;
     final paths = [for (final branch in _visible) branch.path];
-    final asked = '${panel.markedSizeIsFinal}\n${paths.join('\n')}';
-    if (_asking || (panel.markedSizeIsFinal && asked == _askedFor)) {
+    final asked = paths.join('\n');
+    if (_asking || asked == _askedFor) {
       return;
     }
     _asking = true;
     _askedFor = asked;
     unawaited(
-      panel.sizesOf(paths).then((sizes) {
+      widget.panel.sizesOf(paths).then((sizes) {
         _asking = false;
-        if (!mounted) {
-          return;
-        }
-        // Молчание ядра значит «не посчитано» только когда счёт **закончен**:
-        // тогда о чём не ответили — того больше нет, каталог перечитали, и
-        // вчерашнее число было бы ложью. Пока счёт идёт, молчание значит лишь
-        // «этой суммы ещё нет»: обход мог начаться заново, и первой суммы он
-        // ещё не насчитал. Забыв число в этот миг, ячейка мигала бы пустотой.
-        final forgotten = widget.panel.markedSizeIsFinal ? paths.toSet() : const <String>{};
-        final merged = <String, int>{
-          for (final known in _sizes.entries)
-            if (!forgotten.contains(known.key)) known.key: known.value,
-          ...sizes,
-        };
-        if (merged.length != _sizes.length || merged.entries.any((e) => _sizes[e.key] != e.value)) {
-          setState(() => _sizes = merged);
+        if (mounted && sizes.isNotEmpty) {
+          setState(() {});
         }
       }),
     );
@@ -688,17 +666,14 @@ class TreeViewState extends State<TreeView> {
         // в таблице.
         final inset = theme.metrics.panelRightPadding;
 
-        // Размер приходит тремя дорогами, и все три — уже здесь: своё чтение
-        // ветви, список панели (он же обновляется по ходу счёта) и ответ ядра
-        // про показанные ветви (`docs/spec/panel-view-tree.md`, §5).
+        // Размер у ветви один и берётся из одного места — из того же, откуда
+        // его берёт таблица. Двух источников тут уже было достаточно, чтобы
+        // число прыгало между свежим и вчерашним
+        // (`docs/spec/panel-view-tree.md`, §5).
         if (showSize) {
           _askShownSizes();
         }
-        final listed = {
-          for (final entry in panel.entries)
-            if (entry.size >= 0) entry.path: entry.size,
-        };
-        int sizeOf(TreeBranch branch) => listed[branch.path] ?? _sizes[branch.path] ?? branch.entry.size;
+        int sizeOf(TreeBranch branch) => panel.sizeOf(branch.path) ?? branch.entry.size;
 
         final list = ListView.builder(
           controller: _scroll,

@@ -114,7 +114,7 @@ class PanelSession {
   /// один и тот же сеанс, и одним обработчиком тут не обойтись.
   final List<VoidCallback> _onChanged = [];
   final List<VoidCallback> _onListed = [];
-  final List<void Function(Map<int, int> sizes)> _onSized = [];
+  final List<void Function(Map<String, int> sizes)> _onSized = [];
 
   /// Подписаться на перемены. Возвращает то, чем подписку снять.
   ///
@@ -123,7 +123,11 @@ class PanelSession {
   /// отдать всё. Список — другое дело: он большой и меняется много реже. А
   /// размеры каталогов меняются по одному числу в строке, и слать ради них
   /// список целиком значило бы возить мегабайты ради восьми байт.
-  VoidCallback watch({VoidCallback? onChanged, VoidCallback? onListed, void Function(Map<int, int> sizes)? onSized}) {
+  VoidCallback watch({
+    VoidCallback? onChanged,
+    VoidCallback? onListed,
+    void Function(Map<String, int> sizes)? onSized,
+  }) {
     if (onChanged != null) {
       _onChanged.add(onChanged);
     }
@@ -1168,16 +1172,16 @@ class PanelSession {
     }
   }
 
-  /// Посчитанные размеры, ещё не уехавшие наружу.
-  final Map<int, int> _sizeUpdates = {};
+  /// Посчитанные размеры, ещё не уехавшие наружу: путь → число.
+  final Map<String, int> _sizeUpdates = {};
 
   /// У каталога появился (или пропал) размер: запомнить, чтобы отдать пачкой.
-  void _sizeChanged(DirectoryNode directory) {
-    final index = _nodes.indexOf(directory);
-    if (index >= 0) {
-      _sizeUpdates[index] = directory.size;
-    }
-  }
+  ///
+  /// Адрес — путь, а не строка списка. Строку искать бесполезно: узел у обхода
+  /// свой, захваченный при старте, а список перечитывается на каждый шаг
+  /// курсора по дереву — `indexOf` после первого же чтения не находит ничего,
+  /// и числа переставали доходить вовсе.
+  void _sizeChanged(DirectoryNode directory) => _sizeUpdates[directory.pathString] = directory.size;
 
   /// Отдать накопленное: сперва числа, потом состояние.
   ///
@@ -1196,11 +1200,6 @@ class PanelSession {
 
   /// Список сменился: номер вперёд, и о нём стоит рассказать.
   void _listed() {
-    // Накопленные размеры — про **прежний** список: они записаны номерами
-    // строк, а строки сейчас другие. Отдать их с новым поколением значило бы
-    // приписать размер помеченного каталога чужой строке — ровно это и было
-    // видно живьём. Терять нечего: числа едут внутри самого списка.
-    _sizeUpdates.clear();
     _generation++;
     for (final listener in _onListed.toList()) {
       listener();
@@ -1636,6 +1635,24 @@ class PanelSession {
   void _forgetMeasured(String path) {
     final prefix = path.endsWith('/') ? path : '$path/';
     _measured.removeWhere((key, _) => key == path || key.startsWith(prefix));
+    // И та сторона забывает: числа живут по путям и в ней тоже, а перечитали
+    // как раз затем, чтобы увидеть нынешнее, а не вчерашнее.
+    for (final key in _forgetting(path, prefix)) {
+      _sizeUpdates[key] = FsNode.unknownSize;
+    }
+    // Сразу, а не с ближайшей пачкой: «забудь» обязано уйти **раньше** нового
+    // списка, иначе та сторона на миг подставит в него вчерашние числа.
+    _flushSizes();
+  }
+
+  /// Пути, о которых та сторона знает число, а мы его только что забыли.
+  Iterable<String> _forgetting(String path, String prefix) sync* {
+    for (final node in _nodes) {
+      final key = node.pathString;
+      if (node is DirectoryNode && node is! ParentDirNode && (key == path || key.startsWith(prefix))) {
+        yield key;
+      }
+    }
   }
 
   /// Возвращает посчитанное в свежие узлы — до сортировки, иначе список

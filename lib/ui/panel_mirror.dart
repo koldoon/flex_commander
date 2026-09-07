@@ -259,13 +259,37 @@ class PanelMirror extends ChangeNotifier implements Panel {
   @override
   bool get hasTargets => targetPaths.isNotEmpty;
 
+  /// Посчитанные размеры каталогов по путям — то, что панель успела узнать.
+  ///
+  /// Одно место на всех: и строки списка, и ветви дерева берут число отсюда.
+  /// Раньше их было два — числа в списке и ответ на вопрос через границу, — и
+  /// на быстром обходе они расходились: значение прыгало между свежим и
+  /// вчерашним.
+  final Map<String, int> _sizes = {};
+
+  @override
+  int? sizeOf(String path) => _sizes[path];
+
+  /// Тот же список, но с числами из карты — после свежих чисел о путях.
+  PanelListing _withSizes(PanelListing listing) => PanelListing(
+    generation: listing.generation,
+    entries: [
+      for (final entry in listing.entries)
+        if (_sizes[entry.path] case final size? when size != entry.size) entry.withSize(size) else entry,
+    ],
+  );
+
   @override
   Future<Map<String, int>> sizesOf(List<String> paths) async {
     if (paths.isEmpty) {
       return const {};
     }
     final reply = await _link.call(AskSizes(id, paths));
-    return reply is CoreSizes ? reply.sizes : const {};
+    final sizes = reply is CoreSizes ? reply.sizes : const <String, int>{};
+    // Спрошенное ложится в ту же карту: дальше числа приходят событиями, и
+    // второй памяти для них заводить незачем.
+    _sizes.addAll(sizes);
+    return sizes;
   }
 
   /// Цели значениями — все, включая чужие каталоги: спрашиваются у ядра, где
@@ -536,21 +560,30 @@ class PanelMirror extends ChangeNotifier implements Panel {
         notifyListeners();
 
       case PanelListed(:final panel, :final listing) when panel == id:
+        // Список собран ядром **сейчас**, и числа в нём свежее карты — значит
+        // не он подчиняется карте, а карта ему. Иначе строка шагала бы назад:
+        // карта отстаёт ровно на то, что придерживает ограничитель
+        // перерисовки.
+        for (final entry in listing.entries) {
+          if (entry.size >= 0) {
+            _sizes[entry.path] = entry.size;
+          }
+        }
         _listing = listing;
         notifyListeners();
 
-      case PanelSized(:final panel, :final generation, :final sizes) when panel == id:
-        if (generation != _listing.generation) {
-          // Числа не про этот список: пока они шли, каталог перечитали.
-          return;
-        }
-        final entries = _listing.entries.toList();
-        for (final entry in sizes.entries) {
-          if (entry.key >= 0 && entry.key < entries.length) {
-            entries[entry.key] = entries[entry.key].withSize(entry.value);
+      case PanelSized(:final panel, :final sizes) when panel == id:
+        for (final MapEntry(key: path, value: size) in sizes.entries) {
+          if (size == FileEntry.unknownSize) {
+            // Обход оборвали: частичная сумма, застывшая в колонке, — ложь.
+            _sizes.remove(path);
+          } else {
+            _sizes[path] = size;
           }
         }
-        _listing = PanelListing(generation: generation, entries: entries);
+        // Список чинится тут же: строка знает свой путь, и искать её место
+        // не нужно.
+        _listing = _withSizes(_listing);
         notifyListeners();
 
       case CoreEvent():

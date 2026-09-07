@@ -376,7 +376,6 @@ void main() {
   group('размеры', () {
     test('посчитанные каталоги едут числами, а не списком заново', () async {
       await link.call(const OpenPath(PanelId.left, '/home'));
-      final listing = lastListing()!;
       final listedBefore = heard.whereType<PanelListed>().length;
 
       link.tell(const MeasureDirectories(PanelId.left));
@@ -386,9 +385,9 @@ void main() {
 
       final sized = heard.whereType<PanelSized>().toList();
       expect(sized, isNotEmpty, reason: 'о посчитанном рассказывают');
-      expect(sized.last.generation, listing.generation);
-      final docs = listing.entries.indexWhere((entry) => entry.name == 'docs');
-      expect(sized.last.sizes[docs], 40, reason: 'внутри docs лежит сорок байт');
+      // Адрес — путь: размер принадлежит каталогу, а не месту в списке, и
+      // список под ним меняется на каждый шаг курсора по дереву.
+      expect(sized.last.sizes['/home/docs'], 40, reason: 'внутри docs лежит сорок байт');
       expect(heard.whereType<PanelListed>().length, listedBefore, reason: 'список ради восьми байт заново не возят');
     });
 
