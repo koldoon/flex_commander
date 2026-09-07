@@ -1196,6 +1196,11 @@ class PanelSession {
 
   /// Список сменился: номер вперёд, и о нём стоит рассказать.
   void _listed() {
+    // Накопленные размеры — про **прежний** список: они записаны номерами
+    // строк, а строки сейчас другие. Отдать их с новым поколением значило бы
+    // приписать размер помеченного каталога чужой строке — ровно это и было
+    // видно живьём. Терять нечего: числа едут внутри самого списка.
+    _sizeUpdates.clear();
     _generation++;
     for (final listener in _onListed.toList()) {
       listener();
@@ -1617,10 +1622,12 @@ class PanelSession {
   /// вместе с ответом.
   ///
   /// Непосчитанного в ответе нет: прочерк в колонке рисует тот, кто спросил.
-  Map<String, int> measuredSizes(Iterable<String> paths) => {
-    for (final path in paths)
-      if (_measured[path] ?? _running[path] case final size?) path: size,
-  };
+  Map<String, int> measuredSizes(Iterable<String> paths) {
+    return {
+      for (final path in paths)
+        if (_measured[path] ?? _running[path] case final size?) path: size,
+    };
+  }
 
   /// Забывает посчитанное для каталога и всего, что под ним.
   ///

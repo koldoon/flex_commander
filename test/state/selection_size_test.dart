@@ -23,10 +23,13 @@ List<FakeEntry> _entries() => [
 /// В памяти обход заканчивается быстрее, чем успевает пройти одна микрозадача,
 /// и прерывание на середине иначе не воспроизвести.
 class _HeldSizeProvider extends InMemoryTreeProvider {
-  _HeldSizeProvider() : super(_entries());
+  // Двух файлов достаточно, чтобы одна сумма ушла сразу, а вторая осталась
+  // ждать своей очереди у ограничителя перерисовки — там её и застаёт смена
+  // списка.
+  _HeldSizeProvider() : super([..._entries(), FakeEntry.file('/home/docs/b.bin', size: 7)]);
 
-  /// Что успело насчитаться до остановки: `/home/docs/a.txt`.
-  static const int partial = 100;
+  /// Что успело насчитаться до остановки: `a.txt` и `b.bin`.
+  static const int partial = 107;
 
   final Completer<void> release = Completer<void>();
 
@@ -414,6 +417,28 @@ void main() {
       // Обход оборвался — число уходит вместе с ним.
       expect(panel.session.measuredSizes(['/home/docs']), isEmpty);
       held.release.complete();
+    });
+
+    test('размер не приезжает на строку чужого списка', () async {
+      final held = _HeldSizeProvider();
+      final panel = await panelOn(held);
+      panel.setCursorToName('docs');
+      panel.toggleCurrentMark();
+      for (var i = 0; i < 5; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      // Дерево уводит панель внутрь помеченного каталога: строки сменились, а
+      // частичная сумма записана номером строки прежнего списка.
+      await panel.session.follow('/home/docs');
+      held.release.complete();
+      await settle();
+
+      // Число помеченного каталога, приписанное чужой строке, — то самое, что
+      // было видно живьём: у соседней ветви появлялся размер родителя.
+      for (final entry in panel.entries) {
+        expect(entry.size, isNot(_HeldSizeProvider.partial), reason: 'у ${entry.name} чужое число');
+      }
     });
 
     test('размеры подкаталогов остаются от того же обхода', () async {

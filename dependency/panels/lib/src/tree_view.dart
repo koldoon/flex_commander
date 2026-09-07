@@ -249,14 +249,15 @@ class TreeViewState extends State<TreeView> {
         if (!mounted) {
           return;
         }
-        final shown = paths.toSet();
-        // Спрошенное берётся только из ответа: о чём ядро промолчало, того оно
-        // больше не знает — каталог перечитали, и вчерашнее число было бы
-        // ложью. Про непоказанные ветви никто не спрашивал: их числа остаются,
-        // чтобы не мигать при прокрутке.
+        // Молчание ядра значит «не посчитано» только когда счёт **закончен**:
+        // тогда о чём не ответили — того больше нет, каталог перечитали, и
+        // вчерашнее число было бы ложью. Пока счёт идёт, молчание значит лишь
+        // «этой суммы ещё нет»: обход мог начаться заново, и первой суммы он
+        // ещё не насчитал. Забыв число в этот миг, ячейка мигала бы пустотой.
+        final forgotten = widget.panel.markedSizeIsFinal ? paths.toSet() : const <String>{};
         final merged = <String, int>{
           for (final known in _sizes.entries)
-            if (!shown.contains(known.key)) known.key: known.value,
+            if (!forgotten.contains(known.key)) known.key: known.value,
           ...sizes,
         };
         if (merged.length != _sizes.length || merged.entries.any((e) => _sizes[e.key] != e.value)) {
@@ -698,6 +699,7 @@ class TreeViewState extends State<TreeView> {
             if (entry.size >= 0) entry.path: entry.size,
         };
         int sizeOf(TreeBranch branch) => listed[branch.path] ?? _sizes[branch.path] ?? branch.entry.size;
+
         final list = ListView.builder(
           controller: _scroll,
           itemExtent: step,

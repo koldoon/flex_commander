@@ -90,11 +90,11 @@ class _SlowWalkProvider extends InMemoryTreeProvider {
   _SlowWalkProvider(super.entries);
 
   /// Медленна только глубина: ветви, которые читает само дерево, приходят
-  /// сразу, а обход упирается во вложенный каталог и идёт заметное время.
+  /// сразу, а обход идёт вглубь и рассказывает о себе всё это время.
   @override
   Future<List<FsNode>> listChildren(DirectoryNode dir) async {
-    if (dir.name == 'src') {
-      await Future<void>.delayed(const Duration(milliseconds: 400));
+    if (dir.name.startsWith('d') || dir.name == 'src') {
+      await Future<void>.delayed(const Duration(milliseconds: 20));
     }
     return super.listChildren(dir);
   }
@@ -114,6 +114,16 @@ void main() {
     FakeEntry.file('/home/lib/app.dart', size: 1),
     FakeEntry.file('/home/lib/src/panel.dart', size: 1),
     FakeEntry.file('/home/test/panel_test.dart', size: 1),
+  ];
+
+  /// То же дерево, но с глубокой ветвью: обход по ней идёт заметное время и всё
+  /// это время рассказывает о растущей сумме.
+  List<FakeEntry> deepEntries() => [
+    ...entries(),
+    for (var i = 0; i < 20; i++) ...[
+      FakeEntry.directory('/home/lib/d$i'),
+      FakeEntry.file('/home/lib/d$i/data.bin', size: 1024),
+    ],
   ];
 
   InMemoryTreeProvider provider() => InMemoryTreeProvider(entries())..home = '/home';
@@ -585,7 +595,7 @@ void main() {
   });
 
   testWidgets('помеченная ветвь считается на глазах, где бы ни стоял курсор', (tester) async {
-    final runtime = await open(tester, source: _SlowWalkProvider(entries())..home = '/home');
+    final runtime = await open(tester, source: _SlowWalkProvider(deepEntries())..home = '/home');
 
     /// Кадры без `pumpAndSettle`: тот дождался бы конца обхода, а проверить
     /// надо именно то, что видно **пока** он идёт.
@@ -612,6 +622,58 @@ void main() {
 
     // Живой счётчик, а не прочерк до самого конца обхода.
     expect(sizeOf(tester, 'lib'), isNotEmpty);
+
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
+  });
+
+  testWidgets('растущее число не сползает на соседнюю строку', (tester) async {
+    final runtime = await open(tester, source: _SlowWalkProvider(deepEntries())..home = '/home');
+
+    Future<void> tick([int times = 3]) async {
+      for (var i = 0; i < times; i++) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+    }
+
+    // Раскрываем `lib` и помечаем её: курсор шагает вниз, на её же ребёнка, и
+    // панель уходит внутрь — список под размерами меняется на ходу.
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tick();
+    runtime.commands.dispatch(KeyCombination.parse('Right'));
+    await tick();
+    runtime.commands.dispatch(KeyCombination.parse('Space'));
+    await tick(10);
+
+    expect(runtime.app.left.markedSizeIsFinal, isFalse, reason: 'обход ещё идёт — иначе стенд ни о чём');
+
+    // Размеры едут номерами строк, а список под ними сменился — число
+    // помеченного каталога легко приписывается чужой строке.
+    expect(sizeOf(tester, 'lib'), isNotEmpty, reason: 'помеченное считается');
+    expect(sizeOf(tester, 'd0'), isNot(sizeOf(tester, 'lib')), reason: 'у подкаталога своё число, а не сумма родителя');
+
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
+  });
+
+  testWidgets('число не мигает пустотой, пока идёт счёт', (tester) async {
+    final runtime = await open(tester, source: _SlowWalkProvider(deepEntries())..home = '/home');
+
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pump(const Duration(milliseconds: 10));
+    runtime.commands.dispatch(KeyCombination.parse('Space'));
+    for (var i = 0; i < 10; i++) {
+      await tester.pump(const Duration(milliseconds: 10));
+    }
+    expect(sizeOf(tester, 'lib'), isNotEmpty, reason: 'число появилось');
+
+    // Кадр за кадром: раз показав число, ветвь не имеет права показать пустоту
+    // до конца счёта — а ядро молчит о ней всякий раз, когда обход начинается
+    // заново.
+    for (var i = 0; i < 30; i++) {
+      await tester.pump(const Duration(milliseconds: 10));
+      if (!runtime.app.left.markedSizeIsFinal) {
+        expect(sizeOf(tester, 'lib'), isNotEmpty, reason: 'кадр $i');
+      }
+    }
 
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
   });
