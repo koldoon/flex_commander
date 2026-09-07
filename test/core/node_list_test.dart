@@ -42,6 +42,9 @@ void main() {
 
   Future<DirectoryNode> home(TreeProvider source) async => (await source.resolvePath().run('/home'))! as DirectoryNode;
 
+  NodeListOrder order({required bool includeHidden}) =>
+      NodeListOrder.of(const SortSpec(), includeHidden: includeHidden);
+
   setUp(() {
     provider = InMemoryTreeProvider(entries());
     cache = freshCache();
@@ -50,7 +53,7 @@ void main() {
   test('строки каталога собираются набором, а не панелью', () async {
     final list = DirectoryNodeList(await home(provider));
 
-    final rows = await list.read(includeHidden: false).run(null);
+    final rows = await list.read(order: order(includeHidden: false)).run(null);
 
     // Тот же список, что показывает панель: с «..» и без скрытых.
     expect(rows.map((node) => node.name), containsAll(['..', 'docs', 'notes.txt']));
@@ -60,7 +63,7 @@ void main() {
   test('скрытое приходит, если о нём попросили', () async {
     final list = DirectoryNodeList(await home(provider));
 
-    final rows = await list.read(includeHidden: true).run(null);
+    final rows = await list.read(order: order(includeHidden: true)).run(null);
 
     expect(rows.map((node) => node.name), contains('.hidden'));
   });
@@ -79,7 +82,7 @@ void main() {
     final list = DirectoryNodeList(await home(provider));
     expect(list.shown(cache, includeHidden: false), isNull, reason: 'ещё ничего не запоминали');
 
-    final rows = await list.read(includeHidden: false).run(null);
+    final rows = await list.read(order: order(includeHidden: false)).run(null);
     list.remember(cache, rows, includeHidden: false);
 
     expect(list.shown(cache, includeHidden: false)?.map((node) => node.name), rows.map((node) => node.name));
@@ -90,7 +93,7 @@ void main() {
   test('отмена доходит до чтения источника', () async {
     final held = _HeldProvider(entries());
     final list = DirectoryNodeList(await home(held));
-    final operation = list.read(includeHidden: false);
+    final operation = list.read(order: order(includeHidden: false));
 
     operation.start(null);
     operation.cancel();

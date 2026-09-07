@@ -1317,7 +1317,7 @@ class PanelSession {
       _changed();
     }
 
-    final operation = list.read(includeHidden: _showHidden);
+    final operation = list.read(order: _order);
     _operation = operation;
     operation.start(null);
 
@@ -1481,6 +1481,10 @@ class PanelSession {
     return true;
   }
 
+  /// Чем раскладывать строки: правило панели, сравнение колонки и скрытое.
+  NodeListOrder get _order =>
+      NodeListOrder.of(_sort, includeHidden: _showHidden, column: _columnComparator(_sort.column), naming: naming);
+
   /// Чем сравнивать по этой колонке: своим у источника или встроенным.
   ///
   /// Спрашивают **источник**, а не ядро: колонку, которой ядро не знает,
@@ -1491,9 +1495,11 @@ class PanelSession {
   }
 
   void _applySort() {
-    // Тем же правилом, что рисует колонку: иначе имя стояло бы под одним
-    // расширением, а сортировалось по другому.
-    final sorted = _nodes.toList()..sort(comparatorFor(_sort, naming: naming, column: _columnComparator(_sort.column)));
+    // Раскладывает **набор строк**: у каталога это обычная сортировка списка, у
+    // дерева — сортировка внутри ветвей. Правило одно на оба, разное только
+    // применение (`docs/spec/panel-node-list.md`, §3).
+    final list = _list;
+    final sorted = list == null ? (_nodes.toList()..sort(_order.compare)) : list.reorder(_nodes, _order);
     _nodes = List.unmodifiable(sorted);
     // Порядок сменился — значит сменился и список: строки те же, но их места
     // другие, а та сторона знает строки по местам.
