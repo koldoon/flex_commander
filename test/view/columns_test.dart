@@ -3,14 +3,17 @@ import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/app.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:fc_panels/fc_panels.dart';
-import 'package:flutter/gestures.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
   late InMemoryTreeProvider provider;
+  late AppRuntime runtime;
   late AppController app;
 
   setUp(() async {
@@ -23,7 +26,8 @@ void main() {
     ]);
 
     final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
-    app = (await testApp(provider: provider, modules: featureModules(), settings: settings)).app;
+    runtime = await testApp(provider: provider, modules: featureModules(), settings: settings);
+    app = runtime.app;
   });
 
   Future<void> pumpApp(WidgetTester tester) async {
@@ -176,22 +180,22 @@ void main() {
   });
 
   group('видимость колонок', () {
-    testWidgets('правый клик открывает меню, пункт скрывает колонку', (tester) async {
+    /// Окно выбора вида левой панели: там же, где человек их и меняет.
+    Future<void> openViewDialog(WidgetTester tester) async {
+      runtime.commands.dispatch(KeyCombination.parse('Alt-F1'));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('окно вида показывает колонки и скрывает выбранную', (tester) async {
       await pumpApp(tester);
       expect(find.text('Ext'), findsWidgets);
 
-      final gesture = await tester.startGesture(
-        tester.getCenter(headerOf('Size')),
-        kind: PointerDeviceKind.mouse,
-        buttons: kSecondaryMouseButton,
-      );
-      await gesture.up();
-      await tester.pumpAndSettle();
+      await openViewDialog(tester);
 
-      // В меню перечислены все колонки, включая скрытые.
-      expect(find.text('Attributes'), findsOneWidget);
+      // Перечислены все колонки, включая скрытые.
+      expect(find.descendant(of: find.byType(FcCheckbox), matching: find.text('Attributes')), findsOneWidget);
 
-      await tester.tap(find.widgetWithText(CheckedPopupMenuItem<Object>, 'Ext'));
+      await tester.tap(find.descendant(of: find.byType(FcCheckbox), matching: find.text('Ext')));
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 20));
 
@@ -199,25 +203,39 @@ void main() {
       expect(app.left.columns.visibleColumns.map((c) => c.id), isNot(contains(FsColumn.ext)));
     });
 
-    testWidgets('меню возвращает раскладку по умолчанию', (tester) async {
+    testWidgets('иконку и имя не выключить: без них строка нечитаема', (tester) async {
+      await pumpApp(tester);
+      await openViewDialog(tester);
+
+      final name = find.ancestor(of: find.text('Name'), matching: find.byType(FcCheckbox));
+      expect(tester.widget<FcCheckbox>(name).onChanged, isNull);
+      expect(tester.widget<FcCheckbox>(name).value, isTrue);
+    });
+
+    testWidgets('окно возвращает раскладку по умолчанию', (tester) async {
       await pumpApp(tester);
       app.left.setColumnLayout(app.left.columns.resize(FsColumn.size, 200).toggleVisible(FsColumn.ext));
       await tester.pumpAndSettle();
 
-      final gesture = await tester.startGesture(
-        tester.getCenter(headerOf('Size')),
-        kind: PointerDeviceKind.mouse,
-        buttons: kSecondaryMouseButton,
-      );
-      await gesture.up();
-      await tester.pumpAndSettle();
-
-      await tester.tap(find.widgetWithText(PopupMenuItem<Object>, 'Reset columns'));
+      await openViewDialog(tester);
+      await tester.tap(find.widgetWithText(FcButton, 'Reset columns'));
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 20));
 
       expect(app.left.columns.find(FsColumn.size)?.width, ColumnLayout.defaults.find(FsColumn.size)?.width);
       expect(app.left.columns.find(FsColumn.ext)?.visible, isTrue);
+    });
+
+    testWidgets('колонки правой панели — свои', (tester) async {
+      await pumpApp(tester);
+
+      // Окно открыто для левой: правая своей раскладки не теряет.
+      await openViewDialog(tester);
+      await tester.tap(find.descendant(of: find.byType(FcCheckbox), matching: find.text('Ext')));
+      await tester.pumpAndSettle();
+
+      expect(app.left.columns.find(FsColumn.ext)?.visible, isFalse);
+      expect(app.right.columns.find(FsColumn.ext)?.visible, isTrue);
     });
   });
 }

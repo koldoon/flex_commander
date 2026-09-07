@@ -1,0 +1,59 @@
+import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:flutter/widgets.dart';
+
+import 'file_table_header.dart';
+
+/// Настройки таблицы — то, что окно выбора вида показывает под списком.
+///
+/// Колонки: какие видны и как вернуть умолчание. Правит **панель**, а не раздел
+/// модуля: раскладка колонок у левой и правой своя, и окно открыто для одной из
+/// них (`docs/spec/panel-views.md`, §7).
+///
+/// Порядок и ширина колонок здесь не показаны: их двигают прямо в шапке
+/// таблицы, мышью, и второго способа тому же делу заводить незачем.
+class TableViewOptions extends StatelessWidget {
+  const TableViewOptions({super.key, required this.panel});
+
+  final Panel panel;
+
+  @override
+  Widget build(BuildContext context) {
+    // Своего состояния нет: раскладка живёт в панели, и перерисовка приходит
+    // оттуда же — тем же способом, каким её слушает сама таблица.
+    return ListenableBuilder(listenable: panel, builder: (context, _) => _form(context));
+  }
+
+  Widget _form(BuildContext context) {
+    final strings = context.strings;
+    final layout = panel.columns;
+
+    return FcForm(
+      rows: [
+        CommandDialogField.group(
+          label: strings.tr('Columns'),
+          children: [
+            for (final column in layout.columns)
+              FcCheckbox(
+                label: strings.tr(FileTableHeaderCell.titleOf(column.id)),
+                value: column.visible,
+                // Иконку и имя скрывать нельзя: без них строка нечитаема.
+                onChanged: column.pinned ? null : (_) => panel.setColumnLayout(panel.columns.toggleVisible(column.id)),
+              ),
+          ],
+        ),
+        CommandDialogField.wide(
+          child: Row(
+            children: [
+              FcButton(
+                label: strings.tr('Reset columns'),
+                onPressed: () => panel.setColumnLayout(ColumnLayout.defaults),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}

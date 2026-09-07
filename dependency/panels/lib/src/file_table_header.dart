@@ -1,4 +1,4 @@
-import 'package:flutter/material.dart';
+import 'package:flutter/widgets.dart';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
@@ -47,25 +47,21 @@ class _FileTableHeaderState extends State<FileTableHeader> {
 
     return SizedBox(
       height: theme.metrics.headerRowHeight,
-      child: GestureDetector(
-        behavior: HitTestBehavior.translucent,
-        onSecondaryTapDown: (details) => _showColumnsMenu(context, details.globalPosition),
-        child: Stack(
-          children: [
-            // Строка растягивается на всю высоту заголовка, иначе Stack
-            // прижмёт её к верхнему краю и текст съедет с середины.
-            Positioned.fill(
-              child: Row(
-                children: [
-                  for (var i = 0; i < widget.columns.length; i++)
-                    SizedBox(width: widget.widths[i], child: _cell(i, theme)),
-                ],
-              ),
+      child: Stack(
+        children: [
+          // Строка растягивается на всю высоту заголовка, иначе Stack
+          // прижмёт её к верхнему краю и текст съедет с середины.
+          Positioned.fill(
+            child: Row(
+              children: [
+                for (var i = 0; i < widget.columns.length; i++)
+                  SizedBox(width: widget.widths[i], child: _cell(i, theme)),
+              ],
             ),
-            if (_dropIndex >= 0) _dropMarker(theme),
-            ..._resizeHandles(theme),
-          ],
-        ),
+          ),
+          if (_dropIndex >= 0) _dropMarker(theme),
+          ..._resizeHandles(theme),
+        ],
       ),
     );
   }
@@ -221,41 +217,6 @@ class _FileTableHeaderState extends State<FileTableHeader> {
       _dropIndex = -1;
     });
   }
-
-  Future<void> _showColumnsMenu(BuildContext context, Offset position) async {
-    final onLayoutChanged = widget.onLayoutChanged;
-    if (onLayoutChanged == null) {
-      return;
-    }
-
-    final overlay = Overlay.of(context).context.findRenderObject()! as RenderBox;
-    final layout = widget.layout;
-
-    final selected = await showMenu<Object>(
-      context: context,
-      position: RelativeRect.fromRect(position & Size.zero, Offset.zero & overlay.size),
-      items: [
-        for (final column in layout.columns)
-          CheckedPopupMenuItem<Object>(
-            value: column.id,
-            checked: column.visible,
-            // Иконку и имя скрывать нельзя: без них строка нечитаема.
-            enabled: !column.pinned,
-            child: Text(context.strings.tr(FileTableHeaderCell.titleOf(column.id))),
-          ),
-        const PopupMenuDivider(),
-        PopupMenuItem<Object>(value: _resetLayout, child: Text(context.strings.tr('Reset columns'))),
-      ],
-    );
-
-    if (selected == _resetLayout) {
-      onLayoutChanged(ColumnLayout.defaults);
-    } else if (selected is FsColumn) {
-      onLayoutChanged(layout.toggleVisible(selected));
-    }
-  }
-
-  static const String _resetLayout = 'reset';
 }
 
 /// Заголовок одной колонки с индикатором сортировки.

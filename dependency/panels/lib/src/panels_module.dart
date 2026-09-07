@@ -5,6 +5,7 @@ import 'brief_view.dart';
 import 'brief_view_options.dart';
 import 'file_table.dart';
 import 'panels_settings.dart';
+import 'table_view_options.dart';
 import 'tree_view.dart';
 import 'tree_view_options.dart';
 import 'view_commands.dart';
@@ -70,6 +71,9 @@ class Panels implements FcFrontendModule {
         title: 'Table',
         description: 'Name, size, date — everything in columns',
         build: (context, panel) => FileTable(panel: panel, settings: settingsOf),
+        // Колонки — панельные: у левой и правой они свои, и правит их та
+        // панель, для которой окно открыли.
+        options: (context, panel) => TableViewOptions(panel: panel),
       ),
     );
 
@@ -79,7 +83,7 @@ class Panels implements FcFrontendModule {
         title: 'Brief',
         description: 'Names only, in columns',
         build: (context, panel) => BriefView(panel: panel, settings: settingsOf),
-        options: (context) => BriefViewOptions(settings: settingsOf, save: settings.save),
+        options: (context, panel) => BriefViewOptions(settings: settingsOf, save: settings.save),
       ),
     );
 
@@ -89,7 +93,7 @@ class Panels implements FcFrontendModule {
         title: 'Tree',
         description: 'Everything as branches — where you are and what lies where',
         build: (context, panel) => TreeView(panel: panel, settings: settingsOf),
-        options: (context) => TreeViewOptions(settings: settingsOf, save: settings.save),
+        options: (context, panel) => TreeViewOptions(settings: settingsOf, save: settings.save),
       ),
     );
 

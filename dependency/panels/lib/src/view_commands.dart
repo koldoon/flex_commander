@@ -103,7 +103,7 @@ class ChoosePanelViewCommand extends AppCommand {
   Future<void> execute(CommandContext context) async {
     final app = context.app;
     final panel = SetPanelViewCommand.panelOf(context);
-    final state = ViewPickerState(views: app.panelViews.available, current: panel.view);
+    final state = ViewPickerState(views: app.panelViews.available, current: panel.view, panel: panel);
 
     late final String dialogId;
     void close() => app.view.closeDialog(dialogId);
@@ -135,10 +135,14 @@ class ChoosePanelViewCommand extends AppCommand {
 /// ответа выбранное должно лежать там, откуда его возьмут, — то же правило, что
 /// у окна маски и окна адреса.
 class ViewPickerState extends ChangeNotifier {
-  ViewPickerState({required this.views, required String current})
+  ViewPickerState({required this.views, required String current, required this.panel})
     : _index = views.indexWhere((view) => view.id == current).clamp(0, views.isEmpty ? 0 : views.length - 1);
 
   final List<PanelViewSpec> views;
+
+  /// Панель, для которой открыли окно: её правят панельные настройки вида —
+  /// колонки таблицы (`docs/spec/panel-views.md`, §7).
+  final Panel panel;
 
   int _index;
 
@@ -254,7 +258,8 @@ class _ViewPickerState extends State<_ViewPicker> {
                 // Настройки выбранного вида — под списком, и меняются вместе с
                 // выбором: человек видит, что достанется тому, что он сейчас
                 // включит.
-                if (state.selected.options case final options?) CommandDialogField.wide(child: options(context)),
+                if (state.selected.options case final options?)
+                  CommandDialogField.wide(child: options(context, state.panel)),
               ],
             ),
       ),
