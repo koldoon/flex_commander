@@ -76,6 +76,7 @@ void main() {
     sendable('курсор', const LinkRequest(0, MoveCursor(PanelId.left, 3, 7)));
     sendable('пометка', LinkRequest(0, SetMarks(PanelId.left, const {'a', 'b'}, 3)));
     sendable('переключить пометку', const LinkRequest(0, ToggleMark(PanelId.left)));
+    sendable('пометка на месте', const LinkRequest(0, ToggleMark(PanelId.left, step: false)));
     sendable('вид', const LinkRequest(1, Arrange(PanelId.left, showHidden: true)));
     sendable('строка состояния', const LinkRequest(0, SetStatusText(PanelId.left, 'Loading…')));
     sendable('заголовок', const LinkRequest(0, SetHeaderText(PanelId.left, 'Found')));

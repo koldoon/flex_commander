@@ -78,6 +78,20 @@ void main() {
     expect(commands.commandFor(const KeyCombination('D'))?.id, 'panel.goToName');
   });
 
+  test('Shift-Space помечает, не сходя с места', () async {
+    await app.start();
+    app.left.setCursorToName('notes.txt');
+    final at = app.left.cursorIndex;
+
+    expect(commands.commandFor(KeyCombination.parse('Shift-Space'))?.id, 'panel.selection.toggleInPlace');
+
+    commands.dispatch(KeyCombination.parse('Shift-Space'));
+    await pumpEventQueue();
+
+    expect(app.left.markedPaths, contains(app.left.entries[at].path));
+    expect(app.left.cursorIndex, at, reason: 'курсор остался на помеченном');
+  });
+
   test('в быстром поиске пробел набирается, а не помечает', () async {
     await app.start();
     app.left.setCursorToName('notes.txt');

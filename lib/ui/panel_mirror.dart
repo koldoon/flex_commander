@@ -221,7 +221,7 @@ class PanelMirror extends ChangeNotifier implements Panel {
   /// Одной просьбой: пометка и курсор здесь — одно действие, и разложить его
   /// на две значило бы разрешить им разъехаться.
   @override
-  void toggleCurrentMark() => _link.tell(ToggleMark(id));
+  void toggleCurrentMark({bool step = true}) => _link.tell(ToggleMark(id, step: step));
 
   /// Помеченное, а если не помечено ничего — объект под курсором.
   ///

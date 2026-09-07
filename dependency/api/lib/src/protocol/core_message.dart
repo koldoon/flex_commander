@@ -130,9 +130,16 @@ final class FollowCursor extends CoreRequest {
 /// Отдельно от [SetMarks], потому что это одно действие: клавиша `Space`
 /// помечает и переходит к следующему, а курсор — ядровый.
 final class ToggleMark extends CoreRequest {
-  const ToggleMark(this.panel);
+  const ToggleMark(this.panel, {this.step = true});
 
   final PanelId panel;
+
+  /// Сдвинуть ли курсор вниз следом за пометкой.
+  ///
+  /// Обычная пометка шагает: так несколько файлов подряд помечаются одной
+  /// клавишей. Пометка на месте (`Shift-Space`) — нет: помечают **этот**
+  /// объект, а курсор нужен там, где он стоит.
+  final bool step;
 }
 
 /// Как показывать список: сортировка, колонки, скрытые.

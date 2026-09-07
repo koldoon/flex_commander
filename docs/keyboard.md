@@ -203,7 +203,7 @@ CommandRegistry.dispatch(combination, app)
 | `Enter` | `panel.tree.toggle` | дерево: раскрыть ветвь под курсором, раскрытую — свернуть |
 | `Right` | `panel.tree.expand` | дерево: раскрыть ветвь под курсором |
 | `Left` | `panel.tree.collapse` | дерево: свернуть раскрытую, а свернуть нечего — курсор к её каталогу |
-| `Space` / `Ins` | `panel.tree.toggleMark` | дерево: пометить ветвь под курсором и шагнуть вниз |
+| `Space` / `Ins` | `panel.selection.toggle` | пометить ветвь под курсором и шагнуть вниз — та же команда, что в списке |
 
 Никаких «если вид такой-то» внутри команды: где вида нет, команда сообщает о
 себе `isExecutable() == false`, и клавиша достаётся объявленным следом — «в
@@ -223,6 +223,7 @@ CommandRegistry.dispatch(combination, app)
 |---|---|---|
 | `Space` | `panel.selection.toggle` | инвертировать пометку и сдвинуть курсор вниз |
 | `Ins` | `panel.selection.toggle` | то же (для внешних клавиатур) |
+| `Shift-Space` | `panel.selection.toggleInPlace` | пометить, **не сходя с места**: курсор остаётся на помеченном |
 | `Esc` | `panel.cancel` / `panel.selection.clear` | прервать операцию, а если панель свободна — снять пометку |
 | `Ctrl-S` | `panel.quickSearch` | быстрый поиск: курсор идёт за набранным; повторно — к следующему |
 | `Cmd-A` | `panel.selection.all` | пометить всё, кроме `..` |

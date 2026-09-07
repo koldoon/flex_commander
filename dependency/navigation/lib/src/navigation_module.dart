@@ -61,6 +61,7 @@ class Navigation implements FcFrontendModule {
     // Пометка объектов.
     registry.command((context) => ClearSelectionCommand());
     registry.command((context) => ToggleMarkCommand());
+    registry.command((context) => ToggleMarkInPlaceCommand());
     registry.command((context) => SelectAllCommand());
     registry.command((context) => SelectFilesCommand());
     registry.view<QuickSearchState>((context, state) => QuickSearchView(state: state));
@@ -167,6 +168,8 @@ class Navigation implements FcFrontendModule {
     registry.binding(KeyBinding('Esc', CancelCommand.commandId));
     registry.binding(KeyBinding('Esc', ClearSelectionCommand.commandId));
     registry.binding(KeyBinding('Space', ToggleMarkCommand.commandId));
+    // Пометка на месте: тот же пробел, но курсор остаётся на помеченном.
+    registry.binding(KeyBinding('Shift-Space', ToggleMarkInPlaceCommand.commandId));
     registry.binding(KeyBinding('Ins', ToggleMarkCommand.commandId));
     registry.binding(KeyBinding('Cmd-A', SelectAllCommand.commandId));
     registry.binding(KeyBinding('Cmd-Shift-A', SelectFilesCommand.commandId));
@@ -228,6 +231,9 @@ const Map<String, String> _russian = {
 
   // Пометка.
   'Mark': 'Пометить',
+  'Mark in place': 'Пометить, не сходя с места',
+  'Mark or unmark the item under the cursor, leaving the cursor on it':
+      'Пометить объект под курсором или снять пометку, оставив курсор на нём',
   'Unmark': 'Снять пометку',
   'Mark or unmark the item under the cursor and step down': 'Пометить или снять пометку под курсором и шагнуть вниз',
   'Unmark all': 'Снять все пометки',

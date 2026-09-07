@@ -902,13 +902,17 @@ class PanelSession {
 
   /// Инвертировать пометку объекта под курсором и сдвинуть курсор вниз —
   /// так пометка нескольких файлов подряд делается одной клавишей.
-  void toggleCurrentMark() {
+  ///
+  /// [step] — шагать ли: пометка на месте курсор не двигает.
+  void toggleCurrentMark({bool step = true}) {
     final node = currentNode;
     if (node == null || node is ParentDirNode) {
       return;
     }
     selection.toggle(node);
-    moveCursor(1);
+    if (step) {
+      moveCursor(1);
+    }
   }
 
   void markAll() => selection.addAll(_nodes);

@@ -28,6 +28,38 @@ class ToggleMarkCommand extends AppCommand {
   Future<void> execute(CommandContext context) async => context.panel.toggleCurrentMark();
 }
 
+/// Инвертировать пометку объекта под курсором, **не двигая курсор**.
+///
+/// Отдельная команда, а не оговорка у [ToggleMarkCommand]: шаг вниз — половина
+/// смысла обычной пометки (несколько файлов подряд одной клавишей), и
+/// переключателем эти два намерения не свести. Пометить **этот** объект и
+/// остаться на нём нужно тогда, когда на него же смотрят: размер каталога,
+/// который считается по пометке, виден только пока курсор на нём.
+class ToggleMarkInPlaceCommand extends AppCommand {
+  static const String commandId = 'panel.selection.toggleInPlace';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => tr('Mark in place');
+
+  @override
+  String get description => tr('Mark or unmark the item under the cursor, leaving the cursor on it');
+
+  @override
+  Set<String> get keywords => const {'select', 'toggle selection', 'keep cursor'};
+
+  @override
+  bool isExecutable(CommandContext context) {
+    final entry = context.entry;
+    return entry != null && !entry.isParent;
+  }
+
+  @override
+  Future<void> execute(CommandContext context) async => context.panel.toggleCurrentMark(step: false);
+}
+
 /// Снять всю пометку.
 class ClearSelectionCommand extends AppCommand {
   static const String commandId = 'panel.selection.clear';
