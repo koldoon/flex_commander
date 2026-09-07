@@ -355,8 +355,14 @@ class TreeViewState extends State<TreeView> {
         final list = NotificationListener<ScrollEndNotification>(
           // Прокрутка запоминается, когда устоялась, — и только тогда:
           // сообщение на каждую точку было бы лентой сообщений через границу.
+          //
+          // И не раньше восстановления: список сообщает о покое и в самом
+          // начале, когда стоит на нуле, — а этот ноль затёр бы сохранённое
+          // прежде, чем мы успели им воспользоваться.
           onNotification: (notification) {
-            panel.setScrollOffset(notification.metrics.pixels);
+            if (_restored) {
+              panel.setScrollOffset(notification.metrics.pixels);
+            }
             return false;
           },
           child: LayoutBuilder(
