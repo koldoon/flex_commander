@@ -99,7 +99,13 @@ void main() {
     panel.toggleCurrentMark();
   }
 
-  /// Узел панели по имени: размеры каталогов живут в узлах, а не отдельно.
+  /// Что показывает строка списка. Растущая сумма в узел не пишется — её
+  /// подставляют при чтении, — поэтому спрашивать надо там же, где спрашивает
+  /// экран.
+  int shownSize(String name, [TestPanel? of]) =>
+      (of ?? panel).session.entries.firstWhere((entry) => entry.name == name).size;
+
+  /// Узел панели по имени: посчитанные размеры каталогов живут в узлах.
   DirectoryNode nodeNamed(String name, [TestPanel? of]) =>
       (of ?? panel).session.nodes.whereType<DirectoryNode>().firstWhere((node) => node.name == name);
 
@@ -261,13 +267,15 @@ void main() {
       }
 
       // Обход дошёл до середины и сообщил частичную сумму.
-      expect(nodeNamed('docs', panel).size, _HeldSizeProvider.partial);
+      expect(shownSize('docs', panel), _HeldSizeProvider.partial);
+      // В узле её при этом нет: узел хранит только известное окончательно.
+      expect(nodeNamed('docs', panel).size, FsNode.unknownSize);
 
       panel.clearMarks();
       await settle();
 
       // Частичная сумма, застывшая как итог, была бы ложью.
-      expect(nodeNamed('docs', panel).size, FsNode.unknownSize);
+      expect(shownSize('docs', panel), FsNode.unknownSize);
       held.release.complete();
     });
 
@@ -456,8 +464,7 @@ void main() {
 
       // Число на месте сразу, а не через сообщение обхода: их придерживает
       // ограничитель перерисовки, и всё это время строка стояла бы пустой.
-      final docs = panel.entries.firstWhere((entry) => entry.name == 'docs');
-      expect(docs.size, _HeldSizeProvider.partial);
+      expect(shownSize('docs', panel), _HeldSizeProvider.partial);
       held.release.complete();
       await settle();
     });
@@ -475,13 +482,15 @@ void main() {
       // начинался обход, но растущую сумму он получил.
       await panel.session.follow('/home/bin');
       await panel.session.follow('/home');
-      expect(nodeNamed('docs', panel).size, _HeldSizeProvider.partial);
+      expect(shownSize('docs', panel), _HeldSizeProvider.partial);
 
       // Esc: пометка снята, обход прекращён.
       panel.clearMarks();
       await settle();
 
-      // Ни в узле, ни в ответах — иначе число вернётся с ближайшим списком.
+      // Ни в строке, ни в узле, ни в ответах — иначе число вернётся с
+      // ближайшим списком.
+      expect(shownSize('docs', panel), FsNode.unknownSize);
       expect(nodeNamed('docs', panel).size, FsNode.unknownSize);
       expect(panel.session.measuredSizes(['/home/docs']), isEmpty);
       held.release.complete();

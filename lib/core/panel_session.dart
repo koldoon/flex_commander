@@ -1148,7 +1148,19 @@ class PanelSession {
   }
 
   /// Узел значением.
-  FileEntry entryOf(FsNode node) => entryValueOf(node);
+  FileEntry entryOf(FsNode node) {
+    final entry = entryValueOf(node);
+    if (entry.size >= 0) {
+      return entry;
+    }
+    // Растущая сумма подставляется **при чтении** и в узел не пишется: узел
+    // хранит только известное окончательно. Иначе «частичное» и «настоящее»
+    // становятся неразличимыми числами, и половину, застрявшую в узле, некому
+    // ни отличить, ни стереть — ровно так прерванный обход и оставлял на
+    // экране своё вчерашнее.
+    final growing = _running[entry.path];
+    return growing == null ? entry : entry.withSize(growing);
+  }
 
   /// Живой узел за строкой списка; null — такой строки в списке нет.
   ///
@@ -1182,7 +1194,16 @@ class PanelSession {
   /// свой, захваченный при старте, а список перечитывается на каждый шаг
   /// курсора по дереву — `indexOf` после первого же чтения не находит ничего,
   /// и числа переставали доходить вовсе.
-  void _sizeChanged(DirectoryNode directory) => _sizeUpdates.add(directory.pathString);
+  void _sizeChanged(String path) => _sizeUpdates.add(path);
+
+  /// Записывает окончательный размер в узлы этого пути.
+  void _setSize(String path, int size) {
+    for (final node in _nodes) {
+      if (node is DirectoryNode && node.pathString == path) {
+        node.size = size;
+      }
+    }
+  }
 
   /// Отдать накопленное: сперва числа, потом состояние.
   ///
@@ -1658,7 +1679,7 @@ class PanelSession {
   /// оказался бы разложен по вчерашним числам.
   void _applyMeasured(Iterable<FsNode> nodes) {
     _keepMeasuredWithSource();
-    if (_measured.isEmpty && _running.isEmpty) {
+    if (_measured.isEmpty) {
       return;
     }
     for (final node in nodes) {
@@ -1667,11 +1688,10 @@ class PanelSession {
       if (node is! DirectoryNode || node is ParentDirNode) {
         continue;
       }
-      // И растущая сумма тоже: обход идёт, а узел после перечитывания пуст, и
-      // до следующего его сообщения — а их придерживает ограничитель
-      // перерисовки — строка стояла бы с прочерком. Живьём это и было видно
-      // как мерцание: число пропадает на кадр-другой и возвращается.
-      final size = _measured[node.pathString] ?? _running[node.pathString];
+      // Только окончательное: растущее в узел не пишется вовсе, оно
+      // подставляется при чтении ([entryOf]) из очереди обхода — единственного
+      // места, которое знает, что эта сумма ещё половина.
+      final size = _measured[node.pathString];
       if (size != null) {
         node.size = size;
       }
@@ -1693,10 +1713,20 @@ class PanelSession {
   /// поэтому значение растёт по ходу обхода. Закончен ли подсчёт, говорит
   /// [selectionSizeIsFinal].
   ///
-  /// Отдельного счётчика здесь нет: посчитанное лежит в самих узлах, поэтому
-  /// сумма и колонка «Size» в таблице показывают одно и то же число и разойтись
-  /// не могут.
-  int get selectionSize => selection.totalSize;
+  /// Отдельного счётчика здесь нет: сумма складывается тем же правилом, каким
+  /// колонка «Size» берёт своё число, — известное из узла, растущее из очереди
+  /// обхода. Поэтому сумма и колонка показывают одно и то же и разойтись не
+  /// могут.
+  int get selectionSize {
+    var total = 0;
+    for (final node in selection.nodes) {
+      final size = node.size > 0 ? node.size : (_running[node.pathString] ?? 0);
+      if (size > 0) {
+        total += size;
+      }
+    }
+    return total;
+  }
 
   bool get selectionSizeIsFinal => _scans.isEmpty && _scanQueue.isEmpty;
 
@@ -1812,9 +1842,9 @@ class PanelSession {
       if (status.itemsTransferred <= 0) {
         return;
       }
-      directory.size = status.itemsTransferred;
-      _running[path] = directory.size;
-      _sizeChanged(directory);
+      // В узел не пишем: это половина, а узел хранит только известное.
+      _running[path] = status.itemsTransferred;
+      _sizeChanged(path);
       _sizeRedraw();
     }
 
@@ -1843,10 +1873,13 @@ class PanelSession {
       return;
     }
 
-    directory.size = total < 0 ? 0 : total;
+    final size = total < 0 ? 0 : total;
     _running.remove(path);
-    _remember(path, directory.size);
-    _sizeChanged(directory);
+    _remember(path, size);
+    // По пути: узел, с которого обход начинался, мог смениться при
+    // перечитывании списка, а число нужно тому, который на экране.
+    _setSize(path, size);
+    _sizeChanged(path);
     _scans.remove(path);
     scan.release();
     _fillPool();
@@ -1902,23 +1935,12 @@ class PanelSession {
     if (scan == null) {
       return;
     }
-    // Частичная сумма уходит вместе с обходом — и из ответов, и из узлов.
+    // Растущая сумма уходит вместе с обходом, и стирать её больше негде: в
+    // узлах её нет, она жила здесь. Частичная сумма, застывшая в колонке как
+    // итог, — ложь.
     _running.remove(path);
     scan.cancel();
-    // Частичная сумма, застывшая в колонке как итог, — ложь.
-    //
-    // Стирается она **по пути**, а не у одного узла: обход держит тот узел, с
-    // которого начинался, а список с тех пор перечитывался — и число, попавшее
-    // в свежий узел, пережило бы отмену и вернулось на экран с ближайшим
-    // списком. Живьём это выглядело так: остановил счёт — число пропало, повёл
-    // курсор — вернулось и осталось.
-    directory.size = FsNode.unknownSize;
-    for (final node in _nodes) {
-      if (node is DirectoryNode && node.pathString == path) {
-        node.size = FsNode.unknownSize;
-      }
-    }
-    _sizeChanged(directory);
+    _sizeChanged(path);
   }
 
   /// Забывает и идущие обходы, и очередь.
