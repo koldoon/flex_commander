@@ -77,11 +77,12 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     registry.operation(
       FileOperations.measure,
       (services) => TaskOperation<OperationInputs, void>((op, inputs) async {
-        final node = inputs.targets.firstOrNull;
-        if (node == null) {
+        if (inputs.targets.isEmpty) {
           return;
         }
-        await op.delegate(node.provider.calculateSize(), inputs.targets);
+        // Обход один на все источники и провайдера у каждого узла берёт сам,
+        // поэтому набор из разных источников — находки — считается целиком.
+        await op.delegate(sizeOperation(), inputs.targets);
       }),
     );
 

@@ -1675,7 +1675,7 @@ class PanelSession {
   }
 
   void _startScan(DirectoryNode directory) {
-    final operation = directory.provider.calculateSize();
+    final operation = sizeOperation();
     final scan = _SizeScan(operation);
     _scans[directory] = scan;
 

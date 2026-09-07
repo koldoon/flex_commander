@@ -17,33 +17,33 @@ List<FakeEntry> _entries() => [
   FakeEntry.file('/home/notes.txt', size: 50),
 ];
 
-/// Провайдер, обход которого останавливается посередине: сообщает частичную
-/// сумму и ждёт, пока его не отпустят.
+/// Провайдер, обход которого останавливается посередине: содержимое верхнего
+/// каталога он отдаёт, а во вложенный не пускает, пока его не отпустят.
 ///
 /// В памяти обход заканчивается быстрее, чем успевает пройти одна микрозадача,
 /// и прерывание на середине иначе не воспроизвести.
 class _HeldSizeProvider extends InMemoryTreeProvider {
   _HeldSizeProvider() : super(_entries());
 
-  static const int partial = 120;
+  /// Что успело насчитаться до остановки: `/home/docs/a.txt`.
+  static const int partial = 100;
 
   final Completer<void> release = Completer<void>();
 
   @override
-  Operation<List<FsNode>, int> calculateSize() {
-    return TaskOperation<List<FsNode>, int>((op, nodes) async {
-      op.report(itemsTransferred: partial);
+  Future<List<FsNode>> listChildren(DirectoryNode dir) async {
+    final children = await super.listChildren(dir);
+    if (dir.name == 'nested') {
       await release.future;
-      op.checkCanceled();
-      return 300;
-    });
+    }
+    return children;
   }
 }
 
 /// Провайдер, который считает, сколько обходов идёт одновременно.
 ///
-/// Каждый обход сообщает о себе и ждёт, пока его не отпустят, поэтому предел
-/// пула виден напрямую.
+/// Каждый обход останавливается на первом же каталоге и ждёт, пока его не
+/// отпустят, поэтому предел пула виден напрямую.
 class _CountingSizeProvider extends InMemoryTreeProvider {
   _CountingSizeProvider() : super(_entries());
 
@@ -53,25 +53,22 @@ class _CountingSizeProvider extends InMemoryTreeProvider {
   int peak = 0;
 
   @override
-  Operation<List<FsNode>, int> calculateSize() {
-    return TaskOperation<List<FsNode>, int>((op, nodes) async {
-      running++;
-      peak = running > peak ? running : peak;
-      await release.future;
-      running--;
-      return 0;
-    });
+  Future<List<FsNode>> listChildren(DirectoryNode dir) async {
+    running++;
+    peak = running > peak ? running : peak;
+    await release.future;
+    running--;
+    return super.listChildren(dir);
   }
 }
 
-/// Провайдер, у которого подсчёт размера не удаётся вовсе.
+/// Провайдер, у которого каталог не читается вовсе.
 class _FailingSizeProvider extends InMemoryTreeProvider {
   _FailingSizeProvider() : super(_entries());
 
   @override
-  Operation<List<FsNode>, int> calculateSize() => TaskOperation<List<FsNode>, int>(
-    (op, nodes) async => throw const FsError('/home/docs', FsErrorKind.permissionDenied),
-  );
+  Future<List<FsNode>> listChildren(DirectoryNode dir) async =>
+      throw const FsError('/home/docs', FsErrorKind.permissionDenied);
 }
 
 /// Размер помеченного: файлы известны сразу, каталоги считаются фоном.
@@ -255,7 +252,10 @@ void main() {
       final panel = await panelOn(held);
       panel.setCursorToName('docs');
       panel.toggleCurrentMark();
-      await Future<void>.delayed(Duration.zero);
+      // Столько, чтобы обход успел дойти до вложенного каталога и встать.
+      for (var i = 0; i < 5; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
 
       // Обход дошёл до середины и сообщил частичную сумму.
       expect(nodeNamed('docs', panel).size, _HeldSizeProvider.partial);

@@ -208,6 +208,10 @@ class InMemoryReadOnlyProvider implements TreeProvider {
   /// в [DirectoryNode.nodes] — обход не должен трогать то, что видит панель.
   @override
   Future<List<FsNode>> listChildren(DirectoryNode dir) async {
+    // Пауза между каталогами: чтение в памяти мгновенно, а на диске нет, и
+    // обход без единого ожидания проверял бы не то поведение. Микрозадача, а
+    // не таймер: тестам не приходится крутить часы.
+    await Future<void>.microtask(() {});
     final path = physicalPathOf(dir);
     final children =
         _entries.values.where((e) => p.dirname(e.path) == path && e.path != path).toList()
