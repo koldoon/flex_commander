@@ -423,7 +423,10 @@ class TreeViewState extends State<TreeView> {
           children: [
             Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [_TreeHeader(showSize: showSize, sizeWidth: sizeWidth, inset: inset), Expanded(child: list)],
+              children: [
+                _TreeHeader(panel: panel, showSize: showSize, sizeWidth: sizeWidth, inset: inset),
+                Expanded(child: list),
+              ],
             ),
             // Линейка идёт от шапки и поверх строк — как в таблице, где она
             // объявлена после списка, чтобы подсветка курсора её не закрывала.
@@ -470,11 +473,20 @@ const ColumnSpec _sizeColumn = ColumnSpec(id: FsColumn.size, width: 64, align: C
 /// колонок и тяга ширины, — и все три дереву обещать нечем. Ячейка при этом та
 /// же самая, чтобы набор и середина совпадали до точки.
 class _TreeHeader extends StatelessWidget {
-  const _TreeHeader({required this.showSize, required this.sizeWidth, required this.inset});
+  const _TreeHeader({required this.panel, required this.showSize, required this.sizeWidth, required this.inset});
 
+  final Panel panel;
   final bool showSize;
   final double sizeWidth;
   final double inset;
+
+  /// Правило сортировки — **панельное**: отсортировал в дереве, переключился в
+  /// список — тот же порядок (`docs/spec/panel-node-list.md`, §5).
+  ///
+  /// Колонка ветви сортирует по **имени**: колонка дерева и колонка имени —
+  /// одна и та же колонка, нарисованная по-разному. Каретка потому и стоит на
+  /// ней при любом из двух имён.
+  bool get _byName => panel.sort.column == FsColumn.name || panel.sort.column == FsColumn.tree;
 
   @override
   Widget build(BuildContext context) {
@@ -483,13 +495,23 @@ class _TreeHeader extends StatelessWidget {
       height: theme.metrics.headerRowHeight,
       child: Row(
         children: [
-          const Expanded(
-            child: FileTableHeaderCell(column: _treeColumn, sorted: false, direction: SortDirection.ascending),
+          Expanded(
+            child: FileTableHeaderCell(
+              column: _treeColumn,
+              sorted: _byName,
+              direction: panel.sort.direction,
+              onTap: () => panel.sortBy(FsColumn.name),
+            ),
           ),
           if (showSize)
             SizedBox(
               width: sizeWidth,
-              child: const FileTableHeaderCell(column: _sizeColumn, sorted: false, direction: SortDirection.ascending),
+              child: FileTableHeaderCell(
+                column: _sizeColumn,
+                sorted: panel.sort.column == FsColumn.size,
+                direction: panel.sort.direction,
+                onTap: () => panel.sortBy(FsColumn.size),
+              ),
             ),
           SizedBox(width: inset),
         ],

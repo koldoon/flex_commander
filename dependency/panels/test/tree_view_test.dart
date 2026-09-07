@@ -790,6 +790,56 @@ void main() {
     expect(tester.getRect(row).bottom, closeTo(list.bottom, 6));
   });
 
+  testWidgets('щелчок по заголовку сортирует дерево', (tester) async {
+    final runtime = await open(tester);
+    final panel = runtime.app.left;
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Right'));
+    await tester.pumpAndSettle();
+
+    final before = branches(tester);
+    expect(before, containsAllInOrder(['lib', 'test', 'main.dart']));
+
+    await tester.tap(find.descendant(of: find.byType(TreeView), matching: find.text('Tree')));
+    await tester.pumpAndSettle();
+
+    // Тот же порядок, только наоборот, — и внутри ветвей, а не вперемешку:
+    // каталоги остаются выше файлов.
+    expect(branches(tester), containsAllInOrder(['test', 'lib', 'main.dart']));
+    expect(panel.sort.column, FsColumn.name);
+    expect(panel.sort.direction, SortDirection.descending);
+  });
+
+  testWidgets('сортировка в дереве — та же, что в списке', (tester) async {
+    final runtime = await open(tester);
+    final panel = runtime.app.left;
+
+    await tester.tap(find.descendant(of: find.byType(TreeView), matching: find.text('Size')));
+    await tester.pumpAndSettle();
+
+    expect(panel.sort.column, FsColumn.size, reason: 'правило одно на панель');
+
+    // Переключились в список — порядок тот же: правило панельное.
+    await panel.setView('table');
+    await tester.pumpAndSettle();
+    expect(panel.sort.column, FsColumn.size);
+  });
+
+  testWidgets('курсор остаётся на той же ветви при смене порядка', (tester) async {
+    final runtime = await open(tester);
+    final panel = runtime.app.left;
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    expect(panel.currentEntry?.name, 'lib');
+
+    await tester.tap(find.descendant(of: find.byType(TreeView), matching: find.text('Tree')));
+    await tester.pumpAndSettle();
+
+    // Строка уехала — курсор остался на ней.
+    expect(panel.currentEntry?.name, 'lib');
+  });
+
   testWidgets('колонку размера выключают в настройках вида', (tester) async {
     final runtime = await open(tester);
     expect(sizeOf(tester, 'main.dart'), '2.0K');

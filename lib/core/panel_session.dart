@@ -1209,10 +1209,15 @@ class PanelSession {
   /// уедет, и следить надо за тем, на чём стоял курсор.
   void sortTo(SortSpec sort) {
     _sort = sort;
+    final at = currentNode?.pathString;
     final name = currentNode?.name;
     _applySort();
-    if (name != null) {
-      setCursorToName(name);
+    // Путём, а не именем: в дереве одинаковые имена лежат в разных ветвях, и
+    // курсор ушёл бы к первому попавшемуся (`docs/spec/panel-node-list.md`).
+    if (at == null || !_cursorToPath(at)) {
+      if (name != null) {
+        setCursorToName(name);
+      }
     }
     _changed();
   }
