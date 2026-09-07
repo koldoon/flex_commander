@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'cursor_pin.dart';
 import 'file_table_header.dart';
 import 'panel_drag.dart';
 import 'file_table_row.dart';
@@ -45,6 +46,9 @@ class _FileTableState extends State<FileTable> {
   double _headerHeight = 0;
 
   int _lastCursorIndex = -1;
+
+  /// Строка под курсором с прошлого показа — чтобы перестановка её не сдвинула.
+  final CursorPin _pin = CursorPin();
 
   int _lastTapIndex = -1;
   DateTime _lastTapTime = DateTime.fromMillisecondsSinceEpoch(0);
@@ -159,6 +163,10 @@ class _FileTableState extends State<FileTable> {
 
   /// Держит курсор в видимой части списка. Прокрутка мгновенная: в файловом
   /// менеджере анимация только мешает быстрому перебору клавишами.
+  ///
+  /// Перестановку списка — сортировкой или переименованием — курсор переживает
+  /// **не двигаясь по экрану**: строка под ним уезжает на другое место, и вид
+  /// уезжает вместе с ней (`docs/spec/panel-views.md`, §9).
   void _ensureCursorVisible() {
     if (!mounted || !_scroll.hasClients) {
       return;
@@ -169,14 +177,26 @@ class _FileTableState extends State<FileTable> {
     // живой проверке курсор уезжал за нижний край.
     final rowHeight = _rowHeight > 0 ? _rowHeight : FcTheme.of(context).metrics.rowHeight;
     final position = _scroll.position;
-    final top = widget.panel.cursorIndex * rowHeight;
+    final rows = widget.panel.entries;
+    final at = widget.panel.cursorIndex;
+
+    final from = _pin.movedFrom(rows, at);
+    _pin.remember(rows, at);
+    final base =
+        from == null
+            ? position.pixels
+            : (position.pixels + (at - from) * rowHeight).clamp(position.minScrollExtent, position.maxScrollExtent);
+
+    final top = at * rowHeight;
     final bottom = top + rowHeight;
 
     double? target;
-    if (top < position.pixels) {
+    if (top < base) {
       target = top;
-    } else if (bottom > position.pixels + position.viewportDimension) {
+    } else if (bottom > base + position.viewportDimension) {
       target = bottom - position.viewportDimension;
+    } else if (base != position.pixels) {
+      target = base;
     }
     if (target != null) {
       _scroll.jumpTo(target.clamp(position.minScrollExtent, position.maxScrollExtent));

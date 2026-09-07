@@ -5,6 +5,7 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
+import 'cursor_pin.dart';
 import 'file_table_header.dart';
 import 'file_type_icon.dart';
 import 'panel_drag.dart';
@@ -205,6 +206,11 @@ class TreeViewState extends State<TreeView> {
       }
       target = (first * _step).clamp(0.0, limit);
     } else {
+      // Список переставили — строка под курсором остаётся там же, где была на
+      // экране: она и есть то место, на которое человек смотрит.
+      final from = _pin.movedFrom(rows, at);
+      final base = from == null ? offset : (offset + (at - from) * _step).clamp(0.0, limit);
+
       // Обычный ход курсора — подмотка **минимальная**, как в списке файлов:
       // строка прижимается к тому краю, за который вышла, и курсор доходит до
       // самого низа. Целыми строками тут нельзя: разрезанная нижним краем
@@ -213,16 +219,20 @@ class TreeViewState extends State<TreeView> {
       final top = at * _step;
       final bottom = top + _step;
       target = switch (0) {
-        _ when top < offset => top,
-        _ when bottom > offset + height => (bottom - height).clamp(0.0, limit),
-        _ => offset,
+        _ when top < base => top,
+        _ when bottom > base + height => (bottom - height).clamp(0.0, limit),
+        _ => base,
       };
     }
 
+    _pin.remember(rows, at);
     if (target != offset) {
       _scroll.jumpTo(target);
     }
   }
+
+  /// Строка под курсором с прошлого показа — чтобы перестановка её не сдвинула.
+  final CursorPin _pin = CursorPin();
 
   /// Сколько кадров ждать строк, прежде чем махнуть рукой.
   static const int _restoreLimit = 20;

@@ -73,6 +73,46 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('перестановка не двигает строку под курсором', (tester) async {
+    // Имена и размеры расходятся нарочно: сортировка по размеру переставляет
+    // список наоборот, и строке под курсором есть куда уехать.
+    final sized = InMemoryTreeProvider([
+      FakeEntry.directory('/home'),
+      for (var i = 0; i < 60; i++)
+        FakeEntry.file('/home/file-${i.toString().padLeft(2, '0')}.txt', size: (60 - i) * 10),
+    ]);
+    final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
+    app = (await testApp(provider: sized, modules: featureModules(), settings: settings)).app;
+
+    await pumpApp(tester);
+    for (var i = 0; i < 30; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    }
+    await tester.pumpAndSettle();
+    // И назад от нижнего края: у края любая подмотка вернула бы строку на то
+    // же место сама, и проверять было бы нечего. По кадру на нажатие — пачкой
+    // они складываются в один ход, и вид доводит строку до края.
+    for (var i = 0; i < 5; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+    }
+
+    final name = app.left.currentEntry!.name;
+    // В таблице имя и расширение — разные колонки: ищется то, что нарисовано.
+    final label = name.substring(0, name.lastIndexOf('.'));
+    Finder row() => find.descendant(of: find.byType(ListView).first, matching: find.text(label));
+    final was = tester.getRect(row()).top;
+
+    await tester.tap(find.text('Size').first);
+    await tester.pumpAndSettle();
+
+    // Строка уехала на другое место в списке — но не на экране: вид уехал
+    // вместе с ней (`docs/spec/panel-views.md`, §9).
+    expect(app.left.sort.column, FsColumn.size);
+    expect(app.left.currentEntry?.name, name);
+    expect(tester.getRect(row()).top, closeTo(was, 1));
+  });
+
   testWidgets('возврат наверх ставит список туда, где стоит курсор', (tester) async {
     await pumpApp(tester);
     app.left.setCursorToName('dir-59');

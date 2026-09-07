@@ -280,6 +280,39 @@ void main() {
     expect(lib.size, 20, reason: 'ветвь под посчитанной тоже посчитана');
   });
 
+  test('обход кончился — дерево разложилось по новым числам', () async {
+    // Две соседние ветви, у которых порядок по размеру отличается от порядка
+    // по имени: иначе пересортировку не увидеть.
+    final sized = InMemoryTreeProvider([
+      FakeEntry.directory('/home'),
+      FakeEntry.directory('/home/big'),
+      FakeEntry.file('/home/big/a.bin', size: 500),
+      FakeEntry.directory('/home/small'),
+      FakeEntry.file('/home/small/b.bin', size: 10),
+    ]);
+    final fresh = testPanel(provider: sized, settings: PanelSettings.defaults('/home'));
+    addTearDown(fresh.dispose);
+    await fresh.openPath('/home');
+    await fresh.session.setRows(RowsKind.tree);
+    fresh.session.sortTo(const SortSpec(column: FsColumn.size));
+
+    List<String> shown() => [for (final entry in fresh.session.entries) '${'  ' * entry.level}${entry.name}'];
+    expect(shown(), ['/', '  home', '    big', '    small'], reason: 'размеры неизвестны — разводит имя');
+
+    fresh.session.setCursorToName('home');
+    fresh.session.toggleCurrentMark();
+    for (var i = 0; i < 60; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+
+    // Числа появились сразу у многих ветвей — порядок обязан их догнать сам,
+    // без второго щелчка по заголовку.
+    expect(shown(), ['/', '  home', '    small', '    big']);
+    // Пометка сдвинула курсор на `big` — он и остался на нём, съехав вниз
+    // вместе со строкой.
+    expect(fresh.session.currentNode?.name, 'big');
+  });
+
   test('посчитанный каталог встаёт по своему размеру', () async {
     await panel.session.setRows(RowsKind.tree);
 

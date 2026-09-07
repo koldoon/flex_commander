@@ -1221,6 +1221,7 @@ class PanelSession {
   /// уедет, и следить надо за тем, на чём стоял курсор.
   void sortTo(SortSpec sort) {
     _sort = sort;
+    _measuredSinceSort = false;
     final at = currentNode?.pathString;
     final name = currentNode?.name;
     _applySort();
@@ -2010,6 +2011,11 @@ class PanelSession {
   /// основание, по которому в ней держат каталог.
   bool _measuringAll = false;
 
+  /// Обход насчитал что-то, чего порядок ещё не видел.
+  ///
+  /// Порядок догоняет числа один раз — когда обход кончился (`_finishMeasuring`).
+  bool _measuredSinceSort = false;
+
   /// Посчитать размеры всех каталогов текущего каталога.
   void measureDirectories() {
     _measuringAll = true;
@@ -2163,33 +2169,52 @@ class PanelSession {
     }
   }
 
-  /// Очередь опустела: подвести итог общего подсчёта.
+  /// Очередь опустела: подвести итог подсчёта.
   ///
   /// Сортировка по ходу обхода не пересчитывается вовсе — иначе при сортировке
-  /// по размеру строки прыгали бы под курсором десятки раз в секунду. Но при
-  /// подсчёте **всех** каталогов колонка меняется целиком, и оставить прежний
-  /// порядок значило бы показать список, отсортированный по вчерашним числам.
-  /// Поэтому один пересчёт — здесь.
+  /// по размеру строки прыгали бы под курсором десятки раз в секунду. Момент
+  /// один, и он здесь: обход кончился, числа окончательные.
   void _finishMeasuring() {
-    if (!_measuringAll) {
-      return;
-    }
-    _measuringAll = false;
-    if (_statusText == measuringStatus()) {
-      _statusText = null;
-    }
-
-    if (_sort.column == FsColumn.size) {
-      // Курсор держится за **объект**, а не за место: строка уедет, и следить
-      // надо за тем, на чём стоял курсор.
-      final current = currentNode?.name;
-      _applySort();
-      if (current != null) {
-        setCursorToName(current);
+    final measuredAll = _measuringAll;
+    if (measuredAll) {
+      _measuringAll = false;
+      if (_statusText == measuringStatus()) {
+        _statusText = null;
       }
     }
 
-    _changed();
+    if (_resortMeasured() || measuredAll) {
+      _changed();
+    }
+  }
+
+  /// Разложить заново, если порядок стоял на размерах, которые обход изменил.
+  ///
+  /// Не только общий подсчёт: помеченный каталог обход проходит вместе со
+  /// всеми ветвями под ним, и в дереве числа появляются сразу у многих строк.
+  /// Оставить прежний порядок значило бы показать список, отсортированный по
+  /// вчерашним числам (`docs/spec/directory-sizes.md`, §3).
+  bool _resortMeasured() {
+    if (!_measuredSinceSort) {
+      return false;
+    }
+    _measuredSinceSort = false;
+    if (_sort.column != FsColumn.size) {
+      return false;
+    }
+
+    // Курсор держится за **объект**, а не за место: строка уедет, и следить
+    // надо за тем, на чём стоял курсор. Путём, а не именем: в дереве
+    // одинаковые имена лежат в разных ветвях.
+    final at = currentNode?.pathString;
+    final name = currentNode?.name;
+    _applySort();
+    if (at == null || !_cursorToPath(at)) {
+      if (name != null) {
+        setCursorToName(name);
+      }
+    }
+    return true;
   }
 
   /// Запоминает окончательную сумму каталога.
@@ -2199,6 +2224,7 @@ class PanelSession {
   void _remember(String path, int bytes) {
     _keepMeasuredWithSource();
     _measured[path] = bytes;
+    _measuredSinceSort = true;
 
     // Обход проходит через подкаталоги и суммы по ним считает по дороге —
     // отдать их строке ничего не стоит, а без этого дерево показывало число

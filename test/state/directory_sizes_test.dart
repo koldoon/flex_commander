@@ -101,6 +101,27 @@ void main() {
     expect(session().currentNode?.name, 'small', reason: 'курсор держится за объект, а не за место');
   });
 
+  test('посчитали помеченный каталог — порядок догнал его число', () async {
+    panel().sortBy(FsColumn.size);
+    // Пока все размеры неизвестны, каталоги разводит доводчик по имени.
+    expect([for (final node in session().nodes) node.name], ['..', 'big', 'mid', 'small', 'notes.txt']);
+
+    panel().setCursorToName('big');
+    panel().toggleCurrentMark();
+    for (var i = 0; i < 20 && dir('big').size == FsNode.unknownSize; i++) {
+      await pumpEventQueue();
+    }
+
+    // Обход кончился — и порядок его догнал сам, без второго щелчка по
+    // заголовку: посчитанный каталог тяжелее непосчитанных. Курсор при этом
+    // остался на том же объекте.
+    expect(dir('big').size, 3000);
+    expect([for (final node in session().nodes) node.name], ['..', 'mid', 'small', 'big', 'notes.txt']);
+    // Пометка сдвинула курсор на следующую строку — и он остался на **ней**,
+    // хотя место у неё теперь другое.
+    expect(session().currentNode?.name, 'mid');
+  });
+
   test('при сортировке по имени порядок не трогается', () async {
     panel().sortBy(FsColumn.name);
     final before = [for (final node in session().nodes) node.name];

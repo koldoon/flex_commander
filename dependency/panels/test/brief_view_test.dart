@@ -21,8 +21,8 @@ void main() {
     for (var i = 1; i <= count; i++) FakeEntry.file('/home/file${'$i'.padLeft(2, '0')}.txt', size: i),
   ])..home = '/home';
 
-  Future<AppRuntime> open(WidgetTester tester, {Size size = const Size(900, 300)}) async {
-    final runtime = await testApp(provider: provider(), modules: featureModules());
+  Future<AppRuntime> open(WidgetTester tester, {Size size = const Size(900, 300), InMemoryTreeProvider? source}) async {
+    final runtime = await testApp(provider: source ?? provider(), modules: featureModules());
     await runtime.app.start();
 
     tester.view.physicalSize = size;
@@ -138,6 +138,33 @@ void main() {
     // место, на которое человек смотрит, — нет.
     final after = tester.getTopLeft(find.text('file20.txt').first);
     expect(after.dx, closeTo(before.dx, 2), reason: 'столбец не поплыл');
+  });
+
+  testWidgets('перестановка не двигает столбец с курсором', (tester) async {
+    // Столбцов заведомо больше, чем помещается: закрепить столбец на месте
+    // можно только там, где вид умеет ехать в обе стороны.
+    final many = InMemoryTreeProvider([
+      FakeEntry.directory('/home'),
+      for (var i = 1; i <= 200; i++) FakeEntry.file('/home/file${'$i'.padLeft(3, '0')}.txt', size: 201 - i),
+    ])..home = '/home';
+    final runtime = await open(tester, size: const Size(700, 300), source: many);
+    final panel = runtime.app.left;
+
+    // Не середина: середина при развороте остаётся на месте, и проверять было
+    // бы нечего.
+    panel.setCursorToName('file060.txt');
+    await tester.pumpAndSettle();
+    final before = tester.getTopLeft(find.text('file060.txt').first);
+
+    // Размеры расходятся с именами наоборот: сортировка переставляет список
+    // целиком, и имени под курсором есть куда уехать.
+    await panel.sortBy(FsColumn.size);
+    await tester.pumpAndSettle();
+
+    // Столбец с курсором стоит там же, где стоял (`docs/spec/panel-views.md`,
+    // §9): список переставили, а место, на которое человек смотрит, — нет.
+    expect(panel.currentEntry?.name, 'file060.txt');
+    expect(tester.getTopLeft(find.text('file060.txt').first).dx, closeTo(before.dx, 2));
   });
 
   testWidgets('смена вида оставляет курсор на том же имени', (tester) async {

@@ -790,6 +790,44 @@ void main() {
     expect(tester.getRect(row).bottom, closeTo(list.bottom, 6));
   });
 
+  testWidgets('перестановка не двигает строку под курсором', (tester) async {
+    // Имена и размеры расходятся нарочно: сортировка по размеру переставляет
+    // список наоборот, и строке под курсором есть куда уехать.
+    final deep = [
+      FakeEntry.directory('/home'),
+      for (var i = 0; i < 60; i++)
+        FakeEntry.file('/home/file-${i.toString().padLeft(2, '0')}.txt', size: (60 - i) * 10),
+    ];
+    final runtime = await open(
+      tester,
+      source: InMemoryTreeProvider(deep)..home = '/home',
+      left: PanelSettings(path: '/home', expanded: ['/', '/home']),
+    );
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 30; i++) {
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+    }
+    await tester.pumpAndSettle();
+    // И назад от нижнего края: у края любая подмотка вернула бы строку на то
+    // же место сама, и проверять было бы нечего.
+    for (var i = 0; i < 5; i++) {
+      runtime.commands.dispatch(KeyCombination.parse('Up'));
+    }
+    await tester.pumpAndSettle();
+
+    final name = runtime.app.left.currentEntry!.name;
+    Finder row() => find.descendant(of: find.byType(TreeView), matching: find.text(name));
+    final was = tester.getRect(row()).top;
+
+    await tester.tap(find.descendant(of: find.byType(TreeView), matching: find.text('Size')));
+    await tester.pumpAndSettle();
+
+    // Строка уехала на другое место в списке — но не на экране: вид уехал
+    // вместе с ней (`docs/spec/panel-views.md`, §9).
+    expect(runtime.app.left.currentEntry?.name, name);
+    expect(tester.getRect(row()).top, closeTo(was, 1));
+  });
+
   testWidgets('щелчок по заголовку сортирует дерево', (tester) async {
     final runtime = await open(tester);
     final panel = runtime.app.left;
