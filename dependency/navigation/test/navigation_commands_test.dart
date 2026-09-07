@@ -58,7 +58,7 @@ void main() {
 
       await run('panel.root');
 
-      expect(app.left.path, provider.rootDirectory.pathString);
+      expect(app.left.currentPath, provider.rootDirectory.pathString);
       expect(app.left.entries.map((node) => node.name), containsAll(['home', 'usr']));
     });
 
@@ -85,7 +85,7 @@ void main() {
 
       await run('panel.root');
 
-      expect(app.right.path, provider.rootDirectory.pathString);
+      expect(app.right.currentPath, provider.rootDirectory.pathString);
       expect(app.left.directoryName, 'home');
     });
 

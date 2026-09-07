@@ -60,7 +60,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
     // или он не умеет принимать содержимое.
     // Занятый приёмник принять ничего не может: он сам сейчас читает.
     final target = context.target;
-    return target != null && !target.busy && target.path.isNotEmpty && target.source.canReceive;
+    return target != null && !target.busy && target.currentPath.isNotEmpty && target.source.canReceive;
   }
 
   /// Что паковать: помеченное, а без пометки — то, что под курсором.
@@ -203,7 +203,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
 
   /// Куда ляжет архив — показывается в окне, чтобы «в какую панель» не
   /// приходилось угадывать.
-  String destinationPathOf(CommandContext context) => context.target?.path ?? '';
+  String destinationPathOf(CommandContext context) => context.target?.currentPath ?? '';
 }
 
 /// Имя записи из строки вывода программы.

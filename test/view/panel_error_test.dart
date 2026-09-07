@@ -58,7 +58,7 @@ void main() {
     runtime.commands.dispatch(KeyCombination.parse('Bsp'));
     await tester.pumpAndSettle();
 
-    expect(runtime.app.left.path, '/');
+    expect(runtime.app.left.currentPath, '/');
     expect(runtime.app.left.phase, PanelPhase.idle);
 
     await tester.pump(const Duration(milliseconds: 20));
@@ -71,7 +71,7 @@ void main() {
     panel.setCursorToName('secret');
     await panel.enter(panel.entries.firstWhere((entry) => entry.name == 'secret'));
 
-    expect(panel.path, '/home');
+    expect(panel.currentPath, '/home');
     expect([for (final node in panel.entries) node.name], before);
     // Курсор там же, откуда входили: повторить попытку — одно нажатие.
     expect(panel.currentEntry?.name, 'secret');

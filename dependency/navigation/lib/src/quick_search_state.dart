@@ -14,7 +14,7 @@ import 'package:flutter/foundation.dart';
 class QuickSearchState extends ChangeNotifier implements TransientContent {
   QuickSearchState({required this.panel, required this.onLeave, required Set<String> keeps})
     : _keeps = keeps,
-      _directory = panel.path {
+      _directory = panel.currentPath {
     panel.addListener(_watchPanel);
   }
 
@@ -72,7 +72,7 @@ class QuickSearchState extends ChangeNotifier implements TransientContent {
   /// Образец относится к **тому** списку: в новом он ничего не значит и вводил
   /// бы в заблуждение.
   void _watchPanel() {
-    final now = panel.path;
+    final now = panel.currentPath;
     if (now != _directory) {
       _directory = now;
       onLeave();

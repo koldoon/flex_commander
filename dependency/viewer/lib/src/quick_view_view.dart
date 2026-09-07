@@ -36,7 +36,7 @@ class QuickViewView extends StatelessWidget {
             path:
                 host.panel.currentEntry?.path.isNotEmpty == true
                     ? host.panel.currentEntry!.path
-                    : (host.panel.path.isEmpty ? '/' : host.panel.path),
+                    : (host.panel.currentPath.isEmpty ? '/' : host.panel.currentPath),
             active: app.view.takesKeys(host),
           ),
           child: Center(

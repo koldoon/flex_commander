@@ -59,7 +59,7 @@ class CreateZipArchiveCommand extends AppCommand {
     // Класть архив некуда, если приёмника нет вовсе (панель накрыта показом),
     // если он занят своим чтением или если он не умеет принимать содержимое.
     final target = context.target;
-    return target != null && !target.busy && target.path.isNotEmpty && target.source.canReceive;
+    return target != null && !target.busy && target.currentPath.isNotEmpty && target.source.canReceive;
   }
 
   /// Что паковать: помеченное, а без пометки — то, что под курсором.
@@ -206,7 +206,7 @@ class CreateZipArchiveCommand extends AppCommand {
 
   /// Куда ляжет архив — показывается в окне, чтобы «в какую панель» не
   /// приходилось угадывать.
-  String destinationPathOf(CommandContext context) => context.target?.path ?? '';
+  String destinationPathOf(CommandContext context) => context.target?.currentPath ?? '';
 }
 
 /// Прогон упаковки вместе с тем, что спрашивают до её начала.

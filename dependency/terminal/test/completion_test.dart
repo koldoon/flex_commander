@@ -218,7 +218,7 @@ void main() {
       await pumpEventQueue();
 
       // `cd` ведёт панель — значит она и переехала.
-      expect(app.left.path, '/home/docs');
+      expect(app.left.currentPath, '/home/docs');
     });
 
     test('Esc возвращает набранное руками, а ввод оставляет в строке', () async {

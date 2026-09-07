@@ -226,7 +226,7 @@ void main() {
     await tester.pumpAndSettle();
     await tester.pump(const Duration(milliseconds: 20));
 
-    expect(app.left.path, '/home/bin');
+    expect(app.left.currentPath, '/home/bin');
   });
 
   testWidgets('курсор рисуется только в активной панели', (tester) async {

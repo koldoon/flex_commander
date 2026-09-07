@@ -294,7 +294,7 @@ class TreeViewState extends State<TreeView> {
     // навигацией обязан встать там же, где стоял курсор
     // (`docs/spec/panel-views.md`, §5), — и тогда каталог панели уже тот,
     // который под курсором дерева, и идти никуда не надо.
-    await _reveal(panel.path, name: panel.currentEntry?.name);
+    await _reveal(panel.currentPath, name: panel.currentEntry?.name);
   }
 
   /// Раскрыть дерево до этого пути и поставить на него курсор.
@@ -636,11 +636,11 @@ class TreeViewState extends State<TreeView> {
         // каталог, и разворот на него увёл бы курсор назад.
         if (panel.source.scheme + panel.source.rootPath != _source || panel.showHidden != _hidden) {
           WidgetsBinding.instance.addPostFrameCallback((_) => unawaited(_build()));
-        } else if (panel.path == _following) {
+        } else if (panel.currentPath == _following) {
           _following = null;
-        } else if (_following == null && panel.path != _revealed) {
+        } else if (_following == null && panel.currentPath != _revealed) {
           WidgetsBinding.instance.addPostFrameCallback(
-            (_) => unawaited(_reveal(panel.path, name: panel.currentEntry?.name)),
+            (_) => unawaited(_reveal(panel.currentPath, name: panel.currentEntry?.name)),
           );
         }
 

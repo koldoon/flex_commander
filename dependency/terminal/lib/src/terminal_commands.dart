@@ -206,7 +206,7 @@ void followShell(Application app, String shellLabel, String directory) {
   if (panel.source.shellLabel != shellLabel) {
     return;
   }
-  if (!panel.source.capabilities.realFileSystem || panel.path == directory) {
+  if (!panel.source.capabilities.realFileSystem || panel.currentPath == directory) {
     return;
   }
   unawaited(panel.openPath(directory));
@@ -239,7 +239,9 @@ bool hasShell(Panel? panel) => panel != null && panel.source.isShellHost;
 /// приставил его сам источник. Лишнего похода за границу на каждый `Enter` это
 /// стоить не должно.
 String shellPathOf(Panel panel, FileEntry entry) =>
-    entry.path.startsWith(panel.path) ? panel.shellDirectory + entry.path.substring(panel.path.length) : entry.path;
+    entry.path.startsWith(panel.currentPath)
+        ? panel.shellDirectory + entry.path.substring(panel.currentPath.length)
+        : entry.path;
 
 class ToggleTerminalCommand extends AppCommand {
   ToggleTerminalCommand(this.shell);
@@ -542,7 +544,11 @@ class CompletePathCommand extends AppCommand {
     final caret = selection.isValid ? selection.start : before.length;
     final token = CompletionToken.parse(before, caret);
 
-    final source = CompletionSource(lookup: panel.namesIn, directory: panel.path, homePath: panel.source.homePath);
+    final source = CompletionSource(
+      lookup: panel.namesIn,
+      directory: panel.currentPath,
+      homePath: panel.source.homePath,
+    );
     final List<CompletionCandidate> candidates;
     try {
       candidates = await source.candidates(token);

@@ -280,7 +280,7 @@ void main() {
   testWidgets('каталог панели идёт за курсором', (tester) async {
     final runtime = await open(tester, at: '/home/lib');
     final panel = runtime.app.left;
-    expect(panel.path, '/home/lib');
+    expect(panel.currentPath, '/home/lib');
 
     // Курсор на самой ветви `lib` — под ним `src`. Спускаемся, раскрываем и
     // уходим курсором внутрь.
@@ -291,7 +291,7 @@ void main() {
     runtime.commands.dispatch(KeyCombination.parse('Down'));
     await tester.pumpAndSettle();
 
-    expect(panel.path, '/home/lib/src', reason: 'каталог панели — тот, в котором ветвь под курсором');
+    expect(panel.currentPath, '/home/lib/src', reason: 'каталог панели — тот, в котором ветвь под курсором');
     expect(plate(tester), '/home/lib/src', reason: 'и плашка говорит о нём же');
     expect(panel.currentEntry?.name, 'panel.dart', reason: 'курсор панели — на том же объекте');
     expect(panel.busy, isFalse, reason: 'панель за это не платит занятостью');
@@ -300,7 +300,7 @@ void main() {
     runtime.commands.dispatch(KeyCombination.parse('Up'));
     await tester.pumpAndSettle();
 
-    expect(panel.path, '/home/lib', reason: 'курсор вернулся на `src`, а тот лежит в `lib`');
+    expect(panel.currentPath, '/home/lib', reason: 'курсор вернулся на `src`, а тот лежит в `lib`');
   });
 
   testWidgets('на корне панель остаётся там, где стояла', (tester) async {
@@ -311,7 +311,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(branches(tester).first, '/', reason: 'курсор на корне источника');
-    expect(panel.path, '/home/lib', reason: 'корень ни в каком каталоге не лежит');
+    expect(panel.currentPath, '/home/lib', reason: 'корень ни в каком каталоге не лежит');
   });
 
   testWidgets('Enter раскрывает ветвь и сворачивает обратно', (tester) async {
@@ -346,7 +346,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(panel.currentEntry?.name, 'lib', reason: 'курсор ушёл на саму ветвь');
-    expect(panel.path, '/home', reason: 'а `lib` лежит в корне');
+    expect(panel.currentPath, '/home', reason: 'а `lib` лежит в корне');
     expect(branches(tester), contains('app.dart'), reason: 'ветвь при этом не свернулась');
 
     // Второй — сворачивает её.
@@ -413,7 +413,7 @@ void main() {
     await tester.pumpAndSettle();
     runtime.commands.dispatch(KeyCombination.parse('Down'));
     await tester.pumpAndSettle();
-    expect(panel.path, '/home/test', reason: 'курсор ушёл в соседнюю ветвь');
+    expect(panel.currentPath, '/home/test', reason: 'курсор ушёл в соседнюю ветвь');
 
     runtime.commands.dispatch(KeyCombination.parse('Space'));
     await tester.pumpAndSettle();

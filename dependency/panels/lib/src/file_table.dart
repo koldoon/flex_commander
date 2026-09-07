@@ -94,7 +94,7 @@ class _FileTableState extends State<FileTable> {
 
   void _onPanelChanged() {
     final panel = widget.panel;
-    if (panel.path != _scrolledDirectory) {
+    if (panel.currentPath != _scrolledDirectory) {
       // Каталог сменился — прокрутку поставит сборка списка. Здесь этого
       // делать нельзя: сообщения приходят и до того, как курсор встанет на
       // место, и посчитанное смещение оказалось бы от старого курсора.
@@ -128,12 +128,12 @@ class _FileTableState extends State<FileTable> {
   /// каталога перетекла бы в новый.
   void _prepareScroll() {
     final panel = widget.panel;
-    if (panel.path == _scrolledDirectory) {
+    if (panel.currentPath == _scrolledDirectory) {
       return;
     }
 
     final previous = _scroll;
-    _scrolledDirectory = panel.path;
+    _scrolledDirectory = panel.currentPath;
     _lastCursorIndex = panel.cursorIndex;
     _scroll = ScrollController(initialScrollOffset: _cursorOffset());
 
@@ -310,7 +310,7 @@ class _FileTableState extends State<FileTable> {
   /// до того, как отпустит кнопку.
   DropSpot? _spotAt(Offset local) {
     final panel = widget.panel;
-    if (panel.path.isEmpty || !panel.source.canWrite) {
+    if (panel.currentPath.isEmpty || !panel.source.canWrite) {
       return null;
     }
     final entry = _entryAt(local);
@@ -319,7 +319,7 @@ class _FileTableState extends State<FileTable> {
     if (entry != null && entry.isDirectory) {
       return DropSpot(destination: entry.path, entry: entry);
     }
-    return DropSpot(destination: widget.panel.path);
+    return DropSpot(destination: widget.panel.currentPath);
   }
 
   /// Строка под точкой — с поправкой на заголовки и прокрутку.

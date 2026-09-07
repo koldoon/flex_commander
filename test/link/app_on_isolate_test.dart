@@ -38,7 +38,7 @@ void main() {
   test('запуск открывает панели там, где их оставили', () async {
     await runtime.app.start();
 
-    expect(runtime.app.left.path, isNotEmpty);
+    expect(runtime.app.left.currentPath, isNotEmpty);
     expect(runtime.app.left.entries, isNotEmpty, reason: 'список приехал через порт');
   });
 
@@ -56,7 +56,7 @@ void main() {
     await runtime.app.start();
     final panel = runtime.app.left;
 
-    final names = await panel.namesIn(panel.path);
+    final names = await panel.namesIn(panel.currentPath);
 
     expect(names, isNotEmpty, reason: 'имена приехали значениями');
   });

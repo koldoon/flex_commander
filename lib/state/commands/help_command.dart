@@ -134,7 +134,7 @@ class HelpCommand extends AppCommand {
     return keys.isEmpty ? '—' : keys.join(', ');
   }
 
-  String _pathOf(Panel panel) => panel.path.isEmpty ? '—' : panel.path;
+  String _pathOf(Panel panel) => panel.currentPath.isEmpty ? '—' : panel.currentPath;
 
   /// Настройка у каждой панели своя, и различие важнее общего вида: показываем
   /// обе, а совпадающие значения не удваиваем.

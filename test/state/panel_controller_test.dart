@@ -33,7 +33,7 @@ void main() {
       expect(await panel.openPath('/home'), isTrue);
 
       expect(panel.phase, PanelPhase.idle);
-      expect(panel.session.path, '/home');
+      expect(panel.session.currentPath, '/home');
       // "..", затем каталоги (ссылка на каталог тоже), затем файлы.
       expect(namesOf(panel), ['..', 'bin', 'docs', 'link-to-bin', 'notes.txt', 'report.xlsx']);
       expect(panel.cursorIndex, 0);
@@ -65,7 +65,7 @@ void main() {
 
       expect(panel.phase, PanelPhase.error);
       expect(panel.error?.kind, FsErrorKind.permissionDenied);
-      expect(panel.session.path, '/home');
+      expect(panel.session.currentPath, '/home');
       expect(panel.statusText, contains('Permission denied'));
       expect(panel.busy, isFalse);
     });
@@ -89,7 +89,7 @@ void main() {
       final second = panel.session.open(bin);
       await Future.wait([first, second]);
 
-      expect(panel.session.path, '/home/bin');
+      expect(panel.session.currentPath, '/home/bin');
       expect(panel.busy, isFalse);
     });
   });
@@ -101,7 +101,7 @@ void main() {
       panel.setCursorToName('docs');
       expect(await panel.enterCurrent(), isNull);
 
-      expect(panel.session.path, '/home/docs');
+      expect(panel.session.currentPath, '/home/docs');
       expect(namesOf(panel), ['..', 'readme.md']);
     });
 
@@ -111,7 +111,7 @@ void main() {
 
       // Содержимое берётся из цели, но пользователь пришёл через ссылку —
       // её и должен видеть в заголовке панели.
-      expect(panel.session.path, '/home/link-to-bin');
+      expect(panel.session.currentPath, '/home/link-to-bin');
     });
 
     test('из каталога, открытого по ссылке, наверх ведёт к самой ссылке', () async {
@@ -122,7 +122,7 @@ void main() {
 
       // Не в /home/bin/.. и не в физического родителя цели, а туда,
       // откуда пользователь пришёл.
-      expect(panel.session.path, '/home');
+      expect(panel.session.currentPath, '/home');
       expect(panel.currentEntry?.name, 'link-to-bin');
     });
 
@@ -134,14 +134,14 @@ void main() {
       expect(panel.currentEntry?.isParent, isTrue);
       await panel.enterCurrent();
 
-      expect(panel.session.path, '/home');
+      expect(panel.session.currentPath, '/home');
       expect(panel.currentEntry?.name, 'link-to-bin');
     });
 
     test('путь через ссылку восстанавливается из настроек', () async {
       expect(await panel.openPath('/home/link-to-bin'), isTrue);
 
-      expect(panel.session.path, '/home/link-to-bin');
+      expect(panel.session.currentPath, '/home/link-to-bin');
       expect(panel.session.settings.path, '/home/link-to-bin');
     });
 
@@ -150,7 +150,7 @@ void main() {
       final node = await panel.enterCurrent();
 
       expect(node?.name, 'notes.txt');
-      expect(panel.session.path, '/home');
+      expect(panel.session.currentPath, '/home');
     });
 
     test('".." поднимает на уровень вверх', () async {
@@ -159,7 +159,7 @@ void main() {
       expect(panel.currentEntry?.isParent, isTrue);
 
       await panel.enterCurrent();
-      expect(panel.session.path, '/home');
+      expect(panel.session.currentPath, '/home');
     });
 
     test('после подъёма курсор стоит на покинутом каталоге', () async {
@@ -174,7 +174,7 @@ void main() {
       await panel.openPath('/');
       await panel.goUp();
 
-      expect(panel.session.path, '/');
+      expect(panel.session.currentPath, '/');
     });
 
     test('возврат в посещённый каталог восстанавливает курсор', () async {
@@ -590,7 +590,7 @@ void main() {
       await canceled;
 
       expect(panel.busy, isFalse);
-      expect(panel.session.path, '/home/docs');
+      expect(panel.session.currentPath, '/home/docs');
     });
   });
 }

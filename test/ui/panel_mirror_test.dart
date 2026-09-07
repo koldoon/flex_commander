@@ -104,7 +104,7 @@ void main() {
   });
 
   test('зеркало показывает то, что открыло ядро', () {
-    expect(panel.path, '/home');
+    expect(panel.currentPath, '/home');
     expect(panel.entries.map((entry) => entry.name), containsAll(['docs', 'notes.txt']));
     expect(panel.source.canWrite, isTrue);
   });
@@ -114,7 +114,7 @@ void main() {
 
     // Ни одного лишнего ожидания: событие со списком опережает ответ, и это
     // свойство языка, а не удача расписания.
-    expect(panel.path, '/home/docs');
+    expect(panel.currentPath, '/home/docs');
     expect(panel.entries.map((entry) => entry.name), contains('deep.txt'));
   });
 
@@ -223,10 +223,10 @@ void main() {
 
     final blocked = await panel.enter(docs);
     expect(blocked, isNull);
-    expect(panel.path, '/home/docs');
+    expect(panel.currentPath, '/home/docs');
 
     await panel.goUp();
-    expect(panel.path, '/home');
+    expect(panel.currentPath, '/home');
     expect(panel.currentEntry?.name, 'docs', reason: 'курсор встаёт на то, через что вошли');
   });
 
@@ -236,7 +236,7 @@ void main() {
     final blocked = await panel.enter(notes);
 
     expect(blocked?.name, 'notes.txt');
-    expect(panel.path, '/home');
+    expect(panel.currentPath, '/home');
   });
 
   test('строка состояния появляется в том же кадре', () {
@@ -292,6 +292,6 @@ void main() {
     await link.call(const OpenPath(PanelId.right, '/home/docs'));
     await pumpEventQueue();
 
-    expect(panel.path, '/home', reason: 'левая осталась где была');
+    expect(panel.currentPath, '/home', reason: 'левая осталась где была');
   });
 }

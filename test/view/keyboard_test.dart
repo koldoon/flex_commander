@@ -240,7 +240,7 @@ void main() {
 
       await press(tester, LogicalKeyboardKey.enter);
 
-      expect(app.left.path, '/home/bin');
+      expect(app.left.currentPath, '/home/bin');
       expect(opened, isEmpty);
     });
 
@@ -254,7 +254,7 @@ void main() {
       await press(tester, LogicalKeyboardKey.enter);
 
       expect(opened, isEmpty);
-      expect(app.left.path, '/home');
+      expect(app.left.currentPath, '/home');
 
       // Клавишей эту команду здесь не позвать: в прогоне `Cmd` изображает
       // `Control`, а `Ctrl-O` принадлежит терминалу (`keyboard.md`, «Занятые
@@ -268,7 +268,7 @@ void main() {
 
     testWidgets('Cmd-/ уводит в корень из любого каталога', (tester) async {
       await pumpApp(tester);
-      expect(app.left.path, '/home');
+      expect(app.left.currentPath, '/home');
 
       await press(tester, LogicalKeyboardKey.slash, modifiers: [commandKey]);
 
@@ -279,11 +279,11 @@ void main() {
       await pumpApp(tester);
       app.left.setCursorToName('docs');
       await press(tester, LogicalKeyboardKey.enter);
-      expect(app.left.path, '/home/docs');
+      expect(app.left.currentPath, '/home/docs');
 
       await press(tester, LogicalKeyboardKey.backspace);
 
-      expect(app.left.path, '/home');
+      expect(app.left.currentPath, '/home');
       expect(app.left.currentEntry?.name, 'docs');
     });
 
@@ -295,7 +295,7 @@ void main() {
       app.left.setCursorToFirst();
       await press(tester, LogicalKeyboardKey.enter);
 
-      expect(app.left.path, '/home');
+      expect(app.left.currentPath, '/home');
     });
 
     testWidgets('Cmd-Shift-H показывает скрытые объекты', (tester) async {

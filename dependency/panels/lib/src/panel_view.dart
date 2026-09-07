@@ -45,7 +45,7 @@ class PanelView extends StatelessWidget {
             listenable: Listenable.merge([panel, app.view]),
             builder:
                 (context, _) => FcPathPlate(
-                  path: panel.headerText ?? (panel.path.isEmpty ? '/' : panel.path),
+                  path: panel.headerText ?? (panel.currentPath.isEmpty ? '/' : panel.currentPath),
                   // Не `panel.active`: та говорит, какая панель — **источник**
                   // операции, и остаётся собой, когда ввод ушёл в наложение
                   // напротив. Плашка говорит другое: где сейчас клавиши.

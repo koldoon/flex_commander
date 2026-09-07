@@ -127,11 +127,13 @@ abstract interface class Panel {
   /// Откуда панель берёт содержимое сейчас: схема, умения, вид содержимого.
   SourceInfo get source;
 
-  // --- каталог ---
+  // --- где панель стоит ---
 
-  String get path;
+  /// Куда пойдёт операция — путь под курсором, а не то, что показано
+  /// (`spec/panel-node-list.md`).
+  String get currentPath;
 
-  /// Отсортированное содержимое — то, что рисует таблица.
+  /// Строки вида — то, что панель показывает сейчас.
   List<FileEntry> get entries;
 
   PanelPhase get phase;

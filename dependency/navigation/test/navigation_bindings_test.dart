@@ -102,7 +102,7 @@ void main() {
     commands.dispatch(KeyCombination.parse('Esc'));
     await opening;
 
-    expect(app.left.path, '/home');
+    expect(app.left.currentPath, '/home');
     expect(
       {
         for (final entry in app.left.entries)

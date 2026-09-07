@@ -194,10 +194,10 @@ abstract class TransferCommandBase extends AppCommand {
         // из соседних ветвей дерева (`docs/spec/operation-targets.md`, §6).
         await reloadPanelsAt(context.app, [
           ...sources,
-          panel.path,
+          panel.currentPath,
           // Панель могла за это время уйти в другой каталог: перечитывать имеет
           // смысл только то, куда действительно копировали.
-          _destinationPanelOf(context)?.path,
+          _destinationPanelOf(context)?.currentPath,
         ]);
       }
     }
@@ -275,7 +275,7 @@ abstract class TransferCommandBase extends AppCommand {
   String? _defaultDestinationOf(CommandContext context) {
     // Полный путь: приёмник может оказаться внутри архива, и часть про
     // локальную ФС из строки выкидывать нельзя.
-    return _destinationPanelOf(context)?.path;
+    return _destinationPanelOf(context)?.currentPath;
   }
 
   /// Заголовок собирается как в референсе: действие и то, над чем оно идёт.
@@ -321,9 +321,9 @@ abstract class TransferCommandBase extends AppCommand {
   String _sourcePathOf(CommandContext context) {
     final given = context.invocation.param<List<String>>(sourcesParam);
     if (given != null && given.isNotEmpty) {
-      return _sourcesText({for (final path in given) _directoryOf(path)}, context.panel.path);
+      return _sourcesText({for (final path in given) _directoryOf(path)}, context.panel.currentPath);
     }
-    return context.panel.path;
+    return context.panel.currentPath;
   }
 
   /// Каталоги, из которых идёт работа.

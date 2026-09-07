@@ -61,7 +61,7 @@ void main() {
 
     // Им займётся система: панель не знает, что с ним делать.
     expect((await panel.enterCurrent())?.name, 'notes.txt');
-    expect(panel.path, '/home');
+    expect(panel.currentPath, '/home');
   });
 
   test('путь панели показывает всю цепочку', () async {
@@ -72,7 +72,7 @@ void main() {
 
     // Панель показывает путь **человеку**: архив в нём стоит на своём месте,
     // но схемой не размечен — её видно только внутри, у самого узла.
-    expect(panel.path, '/home/archive.arc/inner');
+    expect(panel.currentPath, '/home/archive.arc/inner');
     expect(panel.session.directory?.pathString, '/home/archive.arc:arc:/inner');
   });
 
@@ -82,7 +82,7 @@ void main() {
 
     await panel.goUp();
 
-    expect(panel.path, '/home');
+    expect(panel.currentPath, '/home');
     expect(panel.currentEntry?.name, 'archive.arc');
     expect(panel.session.provider, same(disk));
   });
@@ -124,7 +124,7 @@ void main() {
 
     expect(await it.enterCurrent(), isNull);
 
-    expect(it.path, '/home');
+    expect(it.currentPath, '/home');
     expect(it.phase, PanelPhase.error);
     expect(it.error?.kind, FsErrorKind.io);
   });
@@ -340,7 +340,7 @@ void main() {
       it.cancel();
 
       expect(await opening, isFalse);
-      expect(it.path, '/home');
+      expect(it.currentPath, '/home');
       expect(it.busy, isFalse);
       door.complete();
     });
@@ -357,7 +357,7 @@ void main() {
       it.cancel();
       await entering;
 
-      expect(it.path, '/home');
+      expect(it.currentPath, '/home');
       expect(it.busy, isFalse);
       door.complete();
     });

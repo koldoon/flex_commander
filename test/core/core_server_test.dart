@@ -116,7 +116,7 @@ void main() {
       await link.call(const OpenPath(PanelId.left, '/home'));
 
       final state = lastState()!;
-      expect(state.path, '/home');
+      expect(state.currentPath, '/home');
       expect(state.phase, PanelPhase.idle);
       expect(state.generation, lastListing()!.generation);
       expect(state.source.scheme, provider.scheme);
@@ -143,7 +143,7 @@ void main() {
       );
 
       expect((entered as CoreEntered).entry, isNull, reason: 'вошли');
-      expect(lastState()!.path, '/home/docs');
+      expect(lastState()!.currentPath, '/home/docs');
       expect(lastListing()!.generation, greaterThan(listing.generation));
       expect(lastListing()!.entries.map((entry) => entry.name), contains('deep.txt'));
     });
@@ -155,7 +155,7 @@ void main() {
       final entered = await link.call(OpenEntry(PanelId.left, EntryRef.inPanel(PanelId.left, 0, stale)));
 
       expect((entered as CoreEntered).entry, isNull);
-      expect(lastState()!.path, '/home', reason: 'никуда не пошли');
+      expect(lastState()!.currentPath, '/home', reason: 'никуда не пошли');
     });
 
     test('в файл войти нельзя — он и приезжает обратно', () async {
@@ -168,7 +168,7 @@ void main() {
               as CoreEntered;
 
       expect(entered.entry?.name, 'notes.txt');
-      expect(lastState()!.path, '/home', reason: 'панель осталась на месте');
+      expect(lastState()!.currentPath, '/home', reason: 'панель осталась на месте');
     });
 
     test('наверх — тем же разговором', () async {
@@ -176,7 +176,7 @@ void main() {
 
       await link.call(const GoUp(PanelId.left));
 
-      expect(lastState()!.path, '/home');
+      expect(lastState()!.currentPath, '/home');
       expect(lastState()!.cursorIndex, greaterThanOrEqualTo(0));
     });
   });
@@ -268,7 +268,7 @@ void main() {
       await Future<void>.delayed(const Duration(milliseconds: 80));
       await pumpEventQueue();
 
-      expect(lastState()!.path, '/home/docs');
+      expect(lastState()!.currentPath, '/home/docs');
       expect(lastState()!.markedPaths, {'/home/notes.txt'});
     });
 
@@ -418,8 +418,8 @@ void main() {
       await link.call(const OpenPath(PanelId.left, '/home/docs'));
       await link.call(const OpenPath(PanelId.right, '/home'));
 
-      expect(lastState(PanelId.left)!.path, '/home/docs');
-      expect(lastState(PanelId.right)!.path, '/home');
+      expect(lastState(PanelId.left)!.currentPath, '/home/docs');
+      expect(lastState(PanelId.right)!.currentPath, '/home');
       expect(lastListing(PanelId.right)!.entries.map((entry) => entry.name), contains('notes.txt'));
     });
   });

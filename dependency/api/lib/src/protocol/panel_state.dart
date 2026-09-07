@@ -16,7 +16,7 @@ enum PanelPhase { idle, loading, error }
 class PanelState {
   const PanelState({
     required this.source,
-    this.path = '',
+    this.currentPath = '',
     this.directoryName = '',
     this.shellDirectory = '',
     this.canGoUp = false,
@@ -41,19 +41,23 @@ class PanelState {
   /// Откуда панель берёт содержимое сейчас.
   final SourceInfo source;
 
-  /// Путь показанного каталога — он же заголовок панели по умолчанию.
-  final String path;
+  /// Куда пойдёт операция — путь под курсором; он же заголовок панели по
+  /// умолчанию.
+  ///
+  /// Не «показанный каталог»: панель показывает список узлов, и у дерева
+  /// каталог меняется вместе с курсором (`docs/spec/panel-node-list.md`).
+  final String currentPath;
 
   /// Имя показанного каталога — последнее звено пути.
   ///
-  /// Значением, а не выкусыванием из [path]: разделители у каждого источника
+  /// Значением, а не выкусыванием из [currentPath]: разделители у каждого источника
   /// свои, и знает их только он.
   final String directoryName;
 
   /// Тот же каталог так, как его назовёт **сама оболочка**; пусто —
   /// выполнять здесь негде.
   ///
-  /// На своей машине это [path] и есть. На `ssh://` путь панели — адрес
+  /// На своей машине это [currentPath] и есть. На `ssh://` путь панели — адрес
   /// (`ssh://user@host/etc`), а оболочка стоит на сервере и про наши адреса не
   /// слышала. Считает его источник: как выглядит его путь, знает только он.
   final String shellDirectory;
@@ -126,7 +130,7 @@ class PanelState {
 
   PanelState copyWith({
     SourceInfo? source,
-    String? path,
+    String? currentPath,
     String? directoryName,
     String? shellDirectory,
     bool? canGoUp,
@@ -151,7 +155,7 @@ class PanelState {
     bool? markedSizeIsFinal,
   }) => PanelState(
     source: source ?? this.source,
-    path: path ?? this.path,
+    currentPath: currentPath ?? this.currentPath,
     directoryName: directoryName ?? this.directoryName,
     shellDirectory: shellDirectory ?? this.shellDirectory,
     canGoUp: canGoUp ?? this.canGoUp,
@@ -174,7 +178,7 @@ class PanelState {
   );
 
   @override
-  String toString() => 'PanelState($path, ${phase.name}, cursor $cursorIndex)';
+  String toString() => 'PanelState($currentPath, ${phase.name}, cursor $cursorIndex)';
 }
 
 /// Список панели целиком.

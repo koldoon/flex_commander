@@ -246,7 +246,7 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
 
-    expect(app.left.path, '/home/lib/src');
+    expect(app.left.currentPath, '/home/lib/src');
     expect(app.left.currentEntry?.name, 'util.dart');
   });
 
@@ -263,7 +263,7 @@ void main() {
 
     // Запускают из каталога панели, а у находок его нет. `Enter` тут значит
     // «покажи, где он лежит».
-    expect(app.left.path, '/home/lib');
+    expect(app.left.currentPath, '/home/lib');
     expect(app.left.currentEntry?.name, 'build.sh');
   });
 
@@ -277,7 +277,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(app.left.source.scheme, isNot(SourceInfo.foundScheme));
-    expect(app.left.path, '/home');
+    expect(app.left.currentPath, '/home');
   });
 
   testWidgets('«Go to file» ведёт панель в каталог находки и ставит на неё курсор', (tester) async {
@@ -293,7 +293,7 @@ void main() {
     await tester.pumpAndSettle();
     await press(tester, 'Go to file');
 
-    expect(app.left.path, '/home/lib/src');
+    expect(app.left.currentPath, '/home/lib/src');
     expect(app.left.currentEntry?.name, 'util.dart');
     // Поиск при этом не пропал: сходить к одной находке — не повод потерять
     // остальные.
@@ -505,6 +505,6 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Find files'), findsNothing);
-    expect(app.left.path, '/home');
+    expect(app.left.currentPath, '/home');
   });
 }

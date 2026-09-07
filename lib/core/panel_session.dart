@@ -257,7 +257,8 @@ class PanelSession {
   DirectoryNode? get directory => _directory;
 
   /// Путь показанного каталога — тем же текстом, каким его видят на экране.
-  String get path => _directory?.displayPath ?? '';
+  /// Куда пойдёт операция — путь под курсором (`panel-node-list.md`).
+  String get currentPath => _directory?.displayPath ?? '';
 
   /// Имя показанного каталога: последнее звено пути.
   String get directoryName => _directory?.name ?? '';
@@ -1051,6 +1052,8 @@ class PanelSession {
   PanelSettings get settings {
     final path = savedPath;
     return PanelSettings(
+      // Настройки помнят **каталог**, куда панель вернётся при запуске, — и
+      // это не то же, что путь под курсором.
       path: path,
       // Пока каталог не прочитан, курсора нет — но и терять запомненное
       // нельзя: настройки могут сохраниться и до первого чтения.
@@ -1081,7 +1084,7 @@ class PanelSession {
   /// Состояние панели значением — всё, кроме списка.
   PanelState get state => PanelState(
     source: sourceInfo,
-    path: path,
+    currentPath: currentPath,
     directoryName: directoryName,
     shellDirectory: shellDirectory,
     canGoUp: canGoUp,

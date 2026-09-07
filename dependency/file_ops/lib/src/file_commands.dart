@@ -39,7 +39,7 @@ class MakeDirectoryCommand extends AppCommand {
   bool isExecutable(CommandContext context) {
     final panel = context.panel;
     // Источник может уметь только читать — тогда создавать нечем.
-    return !panel.busy && panel.path.isNotEmpty && panel.source.canWrite;
+    return !panel.busy && panel.currentPath.isNotEmpty && panel.source.canWrite;
   }
 
   /// Создать каталог — или сперва спросить, как его назвать.
@@ -49,7 +49,7 @@ class MakeDirectoryCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final panel = context.panel;
-    final parent = panel.path;
+    final parent = panel.currentPath;
     if (parent.isEmpty || !panel.source.canWrite) {
       return;
     }
@@ -96,7 +96,7 @@ class MakeDirectoryCommand extends AppCommand {
 
   /// Каталог, в котором появится новый: показывается в окне.
   String _parentPathOf(CommandContext context) {
-    return context.panel.path;
+    return context.panel.currentPath;
   }
 }
 
@@ -312,7 +312,7 @@ abstract class RemoveCommandBase extends AppCommand {
         // Часть объектов могла исчезнуть, часть остаться: список в панели
         // больше не совпадает с диском.
         panel.clearMarks();
-        await reloadPanelsAt(context.app, [...sources, panel.path]);
+        await reloadPanelsAt(context.app, [...sources, panel.currentPath]);
       }
     }
 
@@ -364,7 +364,7 @@ abstract class RemoveCommandBase extends AppCommand {
         await run.run(context.app.runOperation(), spec, message: tr('Deleting…'));
       } finally {
         panel.clearMarks();
-        await reloadPanelsAt(context.app, [...sources, panel.path]);
+        await reloadPanelsAt(context.app, [...sources, panel.currentPath]);
       }
     };
 

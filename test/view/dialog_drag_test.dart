@@ -149,7 +149,7 @@ void main() {
     // Поле осталось в фокусе — и принимает ввод дальше.
     await tester.enterText(dialogField(), '/home');
     await tester.pumpAndSettle();
-    expect(runtime.app.left.path, '/home');
+    expect(runtime.app.left.currentPath, '/home');
 
     await tester.pump(const Duration(milliseconds: 20));
   });

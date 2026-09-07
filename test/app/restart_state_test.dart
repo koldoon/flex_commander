@@ -64,8 +64,8 @@ void main() {
     expect(saved.splitRatio, 0.35, reason: 'разделитель записан');
 
     final second = await launch();
-    expect(second.app.left.path, '/home/docs');
-    expect(second.app.right.path, '/work');
+    expect(second.app.left.currentPath, '/home/docs');
+    expect(second.app.right.currentPath, '/work');
     expect(second.app.activePanel, second.app.right);
     expect(second.app.splitRatio, 0.35);
     await second.dispose();

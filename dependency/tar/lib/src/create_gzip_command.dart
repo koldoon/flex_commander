@@ -61,7 +61,7 @@ class CreateGzipCommand extends AppCommand {
 
     // Занятый приёмник принять ничего не может: он сам сейчас читает.
     final target = context.target;
-    return target != null && !target.busy && target.path.isNotEmpty && target.source.canReceive;
+    return target != null && !target.busy && target.currentPath.isNotEmpty && target.source.canReceive;
   }
 
   /// Что сжимать — строка под курсором.
@@ -136,7 +136,7 @@ class CreateGzipCommand extends AppCommand {
       failureMessage: '$label failed',
       show: present,
       name: defaultNameOf(source),
-      destinationPath: target.path,
+      destinationPath: target.currentPath,
     );
     run.onStart = () => compress(run.name, run);
 

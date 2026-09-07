@@ -151,7 +151,7 @@ class _BriefViewState extends State<BriefView> {
   /// каталог панели. То же правило, что у таблицы.
   DropSpot? _spotAt(Offset local) {
     final panel = widget.panel;
-    if (panel.path.isEmpty || !panel.source.canWrite) {
+    if (panel.currentPath.isEmpty || !panel.source.canWrite) {
       return null;
     }
     final index = _indexAt(local);
@@ -159,7 +159,7 @@ class _BriefViewState extends State<BriefView> {
     if (entry != null && entry.isDirectory && !entry.isParent) {
       return DropSpot(destination: entry.path, entry: entry);
     }
-    return DropSpot(destination: panel.path);
+    return DropSpot(destination: panel.currentPath);
   }
 
   /// Обводится **ячейка**: у краткого вида строка занимает столбец, а не всю

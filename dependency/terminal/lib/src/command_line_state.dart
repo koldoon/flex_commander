@@ -47,7 +47,7 @@ class CommandLineState extends ChangeNotifier implements ViewportState {
   /// Вместе с местом, если оно не своя машина: где выполнится набранное, видно
   /// **до** нажатия — иначе `rm` на сервере не отличить от `rm` у себя.
   String get prompt {
-    final path = panel?.path ?? '';
+    final path = panel?.currentPath ?? '';
     final label = panel?.source.shellLabel ?? '';
     return label.isEmpty || label == 'localhost' ? path : '$label:$path';
   }

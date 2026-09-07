@@ -74,7 +74,7 @@ class PanelMirror extends ChangeNotifier implements Panel {
   SourceInfo get source => _state.source;
 
   @override
-  String get path => _state.path;
+  String get currentPath => _state.currentPath;
 
   @override
   String get shellDirectory => _state.shellDirectory;

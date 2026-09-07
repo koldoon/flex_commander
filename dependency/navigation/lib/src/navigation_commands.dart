@@ -298,7 +298,7 @@ class GoToRootCommand extends AppCommand {
 
   @override
   bool isExecutable(CommandContext context) =>
-      !context.panel.busy && context.panel.path != context.panel.source.rootPath;
+      !context.panel.busy && context.panel.currentPath != context.panel.source.rootPath;
 
   @override
   Future<void> execute(CommandContext context) => context.panel.openPath(context.panel.source.rootPath);
@@ -326,7 +326,7 @@ class CalculateSizesCommand extends AppCommand {
 
   /// Занятой панели считать нечего: список ещё читается, и обходить пока некого.
   @override
-  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.path.isNotEmpty;
+  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.currentPath.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) async => context.panel.measureDirectories();
@@ -349,7 +349,7 @@ class ReloadCommand extends AppCommand {
   Set<String> get keywords => const {'refresh', 'rescan', 'update'};
 
   @override
-  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.path.isNotEmpty;
+  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.currentPath.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) => context.panel.reload();

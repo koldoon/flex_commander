@@ -52,12 +52,12 @@ void main() {
   }
 
   test('первое приглашение панель не уводит', () async {
-    expect(runtime.app.left.path, '/home/docs', reason: 'панель встала туда, где её оставили');
+    expect(runtime.app.left.currentPath, '/home/docs', reason: 'панель встала туда, где её оставили');
 
     // Оболочку грели при запуске, и начала она там, откуда запустили процесс.
     await promptAt('/home');
 
-    expect(runtime.app.left.path, '/home/docs', reason: 'оболочка никуда не ходила — и панель не должна');
+    expect(runtime.app.left.currentPath, '/home/docs', reason: 'оболочка никуда не ходила — и панель не должна');
   });
 
   test('панель идёт за cd, набранным в терминале', () async {
@@ -67,7 +67,7 @@ void main() {
     // каталог, и сделал это человек.
     await promptAt('/work');
 
-    expect(runtime.app.left.path, '/work');
+    expect(runtime.app.left.currentPath, '/work');
   });
 
   test('приглашение в том же каталоге панель не трогает', () async {
@@ -79,7 +79,7 @@ void main() {
     await promptAt('/work');
     await promptAt('/work');
 
-    expect(runtime.app.left.path, '/home/docs');
+    expect(runtime.app.left.currentPath, '/home/docs');
   });
 }
 

@@ -79,8 +79,8 @@ void main() {
 
       // До всякого экрана: интерфейс подписывается на готовое, а не смотрит,
       // как оно собирается.
-      expect(left.path, '/home/docs');
-      expect(right.path, '/work');
+      expect(left.currentPath, '/home/docs');
+      expect(right.currentPath, '/work');
     });
 
     test('недоступный путь заменяется домашним каталогом', () async {
@@ -88,7 +88,7 @@ void main() {
 
       await link.call(const StartCore());
 
-      expect(left.path, '/home');
+      expect(left.currentPath, '/home');
     });
 
     test('открытие панелей само по себе записи не требует', () async {

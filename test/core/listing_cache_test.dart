@@ -217,7 +217,7 @@ void main() {
       await pump();
 
       // Список уже на экране, и панель не занята: клавиши её, курсор ходит.
-      expect(panel.path, '/home');
+      expect(panel.currentPath, '/home');
       expect(panel.entries.map((e) => e.name), contains('notes.txt'));
       expect(panel.busy, isFalse);
       expect(panel.statusText, isNull);
@@ -369,11 +369,11 @@ void main() {
 
       // Ни одного показа до чтения: панель занята и стоит там, где стояла.
       expect(it.busy, isTrue);
-      expect(it.path, '/home/docs');
+      expect(it.currentPath, '/home/docs');
 
       source.release();
       await up;
-      expect(it.path, '/home');
+      expect(it.currentPath, '/home');
     });
 
     test('прочитанное одной панелью достаётся другой даром', () async {
