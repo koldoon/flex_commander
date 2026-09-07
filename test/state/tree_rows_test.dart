@@ -266,6 +266,20 @@ void main() {
     expect(rows(), ['/', '  other', '  home', '    lib', '      src', '      app.dart', '    main.dart']);
   });
 
+  test('посчитали ветвь — числа появились и у подкаталогов', () async {
+    await panel.session.setRows(RowsKind.tree);
+    await panel.session.setExpanded('/home/lib', expanded: true);
+
+    // Помечаем `home`: обход идёт через `lib` и `src`, и суммы по ним он
+    // считает по дороге — выбрасывать их незачем.
+    panel.session.setCursorToName('home');
+    panel.session.toggleCurrentMark();
+    await settle();
+
+    final lib = panel.session.entries.firstWhere((entry) => entry.name == 'lib');
+    expect(lib.size, 20, reason: 'ветвь под посчитанной тоже посчитана');
+  });
+
   test('посчитанный каталог встаёт по своему размеру', () async {
     await panel.session.setRows(RowsKind.tree);
 

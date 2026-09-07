@@ -232,6 +232,18 @@ class PanelSession {
   DirectoryNode? get _directory => _list?.directory;
 
   List<FsNode> _nodes = const [];
+
+  /// Строки по путям — чтобы обход мог отдать сумму подкаталога, не перебирая
+  /// весь список на каждую посчитанную ветвь.
+  Map<String, FsNode>? _byPath;
+
+  /// Строки сменились: указатель по путям пересобирается лениво.
+  void _setRows(List<FsNode> rows) {
+    _nodes = rows;
+    _byPath = null;
+  }
+
+  FsNode? _rowAt(String path) => (_byPath ??= {for (final node in _nodes) node.pathString: node})[path];
   PanelPhase _status = PanelPhase.idle;
   FsError? _error;
   int _cursorIndex = 0;
@@ -1173,7 +1185,7 @@ class PanelSession {
       return;
     }
 
-    _nodes = List.unmodifiable(rows);
+    _setRows(List.unmodifiable(rows));
     _applyMeasured(_nodes);
     _listed();
     _restoreSelection(marked);
@@ -1436,12 +1448,11 @@ class PanelSession {
     _sizeRedraw();
   }
 
-  /// Записывает окончательный размер в узлы этого пути.
+  /// Записывает окончательный размер в строку этого пути.
   void _setSize(String path, int size) {
-    for (final node in _nodes) {
-      if (node is DirectoryNode && node.pathString == path) {
-        node.size = size;
-      }
+    final row = _rowAt(path);
+    if (row is DirectoryNode) {
+      row.size = size;
     }
   }
 
@@ -1501,7 +1512,7 @@ class PanelSession {
       _lastPath = dir.pathString;
       _adoptLease(lease, dir);
       adopted = true;
-      _nodes = shown;
+      _setRows(shown);
       _applyMeasured(_nodes);
       _applySort();
       _stopSizeScan(keepMarked: quiet);
@@ -1558,7 +1569,7 @@ class PanelSession {
       // а место, где каталог сменился, одно.
       _adoptLease(lease, dir);
       adopted = true;
-      _nodes = nodes;
+      _setRows(nodes);
       // До сортировки: иначе список оказался бы разложен по вчерашним числам.
       _applyMeasured(_nodes);
       _applySort();
@@ -1663,7 +1674,7 @@ class PanelSession {
       return;
     }
 
-    _nodes = sorted;
+    _setRows(sorted);
     _listed();
     _stopSizeScan();
     _restoreSelection(marked);
@@ -1718,7 +1729,7 @@ class PanelSession {
     // применение (`docs/spec/panel-node-list.md`, §3).
     final list = _list;
     final sorted = list == null ? (_nodes.toList()..sort(_order.compare)) : list.reorder(_nodes, _order);
-    _nodes = List.unmodifiable(sorted);
+    _setRows(List.unmodifiable(sorted));
     // Порядок сменился — значит сменился и список: строки те же, но их места
     // другие, а та сторона знает строки по местам.
     _listed();
@@ -2188,6 +2199,15 @@ class PanelSession {
   void _remember(String path, int bytes) {
     _keepMeasuredWithSource();
     _measured[path] = bytes;
+
+    // Обход проходит через подкаталоги и суммы по ним считает по дороге —
+    // отдать их строке ничего не стоит, а без этого дерево показывало число
+    // только у той ветви, которую пометили (`docs/spec/directory-sizes.md`).
+    final row = _rowAt(path);
+    if (row is DirectoryNode && row.size != bytes) {
+      row.size = bytes;
+      _sizeChanged(path);
+    }
   }
 
   /// Прекращает обход одного каталога, не трогая ни остальные, ни очередь.
