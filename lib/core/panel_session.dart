@@ -1063,6 +1063,11 @@ class PanelSession {
     }
     final at = currentPath;
     final name = currentNode?.name;
+    // На чём стоял курсор — **объектом**: смена вида его не двигает. Кроме
+    // «..»: псевдострока показывает чужой каталог, и идти по ней в дереве
+    // значило бы уводить курсор вверх, чего человек не просил.
+    final was = currentNode;
+    final wasPath = was == null || was is ParentDirNode ? '' : was.pathString;
     _rows = value;
 
     final dir = _directory;
@@ -1073,20 +1078,30 @@ class PanelSession {
     if (value == RowsKind.tree) {
       _list = _listFor(dir);
       await _rebuildRows();
-      // Курсор встаёт туда, где стоял в прошлый запуск, — а нет такой строки,
-      // на ветвь своего каталога: иначе панель окажется на корне, в дереве
-      // длиной в весь диск.
+      // Курсор встаёт туда, где стоял в прошлый запуск; нет такой строки —
+      // на то, на чём он стоял в списке; нет и её — на ветвь своего каталога:
+      // иначе панель окажется на корне, в дереве длиной в весь диск.
+      //
+      // Именно на **том же объекте**: стояли в списке на `koldoon` — в дереве
+      // стоим на нём же, а не на каталоге, в котором он лежит.
       final saved = _savedCursor;
       _savedCursor = '';
-      if (saved.isEmpty || !_cursorToPath(saved)) {
+      if ((saved.isEmpty || !_cursorToPath(saved)) && (wasPath.isEmpty || !_cursorToPath(wasPath))) {
         _cursorToPath(dir.pathString);
       }
       _changed();
       return;
     }
 
-    // Обратно в список — тем каталогом, где стоял курсор, а не корнем дерева:
-    // в дереве стоят **на ветви**, и список должен показать её каталог.
+    // Обратно в список — тем каталогом, на который **указывал курсор**, а не
+    // корнем дерева. Курсор на ветви каталога значит «вот этот каталог»: в
+    // дереве им и ходят, и список продолжает ход, а не пятится на уровень
+    // выше. Для операций правило другое и остаётся прежним: там каталог ветви
+    // — тот, в котором она лежит (`docs/spec/panel-view-tree.md`, §3).
+    if (was is DirectoryNode) {
+      await _load(was, keepMarks: true);
+      return;
+    }
     final resolved = await resolvePath().run(at);
     final target = resolved.node;
     await resolved.release();

@@ -82,10 +82,7 @@ class _FileTableState extends State<FileTable> {
   void initState() {
     super.initState();
     widget.panel.addListener(_onPanelChanged);
-    // Вид говорит, что ему нужно: строки каталога. Молчание значило бы «сойдёт
-    // и то, что дали», а дали бы то, что просил прежний вид, — дерево
-    // (`docs/spec/panel-node-list.md`, §3).
-    unawaited(widget.panel.showRows(RowsKind.listing));
+    _askRows();
   }
 
   @override
@@ -94,7 +91,7 @@ class _FileTableState extends State<FileTable> {
     if (oldWidget.panel != widget.panel) {
       oldWidget.panel.removeListener(_onPanelChanged);
       widget.panel.addListener(_onPanelChanged);
-      unawaited(widget.panel.showRows(RowsKind.listing));
+      _askRows();
     }
   }
 
@@ -104,6 +101,21 @@ class _FileTableState extends State<FileTable> {
     widget.panel.removeListener(_onPanelChanged);
     _scroll.dispose();
     super.dispose();
+  }
+
+  /// Вид говорит, что ему нужно: строки каталога.
+  ///
+  /// Молчание значило бы «сойдёт и то, что дали», а дали бы то, что просил
+  /// прежний вид, — дерево (`docs/spec/panel-node-list.md`, §3).
+  ///
+  /// После кадра, а не посреди него: на петле ядро отвечает в том же обороте, и
+  /// смена набора строк перерисовывала бы дерево виджетов из чужой сборки.
+  void _askRows() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(widget.panel.showRows(RowsKind.listing));
+      }
+    });
   }
 
   void _onPanelChanged() {

@@ -75,18 +75,30 @@ class _BriefViewState extends State<BriefView> {
   @override
   void initState() {
     super.initState();
-    // Вид говорит, что ему нужно: строки каталога. Молчание значило бы «сойдёт
-    // и то, что дали», а дали бы то, что просил прежний вид, — дерево
-    // (`docs/spec/panel-node-list.md`, §3).
-    unawaited(widget.panel.showRows(RowsKind.listing));
+    _askRows();
   }
 
   @override
   void didUpdateWidget(BriefView oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.panel != widget.panel) {
-      unawaited(widget.panel.showRows(RowsKind.listing));
+      _askRows();
     }
+  }
+
+  /// Вид говорит, что ему нужно: строки каталога.
+  ///
+  /// Молчание значило бы «сойдёт и то, что дали», а дали бы то, что просил
+  /// прежний вид, — дерево (`docs/spec/panel-node-list.md`, §3).
+  ///
+  /// После кадра, а не посреди него: на петле ядро отвечает в том же обороте, и
+  /// смена набора строк перерисовывала бы дерево виджетов из чужой сборки.
+  void _askRows() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(widget.panel.showRows(RowsKind.listing));
+      }
+    });
   }
 
   @override

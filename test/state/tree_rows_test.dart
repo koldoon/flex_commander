@@ -73,6 +73,38 @@ void main() {
     expect(panel.session.currentNode?.name, 'home');
   });
 
+  test('из списка в дерево курсор встаёт на то же, на чём стоял', () async {
+    // Живой случай: в списке `/home` стоим на `lib` — в дереве стоим на нём
+    // же, а не на каталоге, в котором он лежит.
+    cursorTo('lib');
+
+    await panel.session.setRows(RowsKind.tree);
+
+    expect(panel.session.currentNode?.pathString, '/home/lib');
+  });
+
+  test('из дерева в список входим в каталог под курсором', () async {
+    await panel.session.setRows(RowsKind.tree);
+    cursorTo('lib');
+
+    await panel.session.setRows(RowsKind.listing);
+
+    // Курсор на ветви каталога значит «вот этот каталог»: список продолжает
+    // ход по дереву, а не пятится на уровень выше.
+    expect(panel.session.currentPath, '/home/lib');
+    expect(rows(), ['..', 'src', 'app.dart']);
+  });
+
+  test('каталог операции при этом прежний — тот, где ветвь лежит', () async {
+    await panel.session.setRows(RowsKind.tree);
+    cursorTo('lib');
+
+    // Для операций каталог ветви — тот, в котором она лежит: копирование
+    // помеченного каталога целится в панель, а не внутрь него
+    // (`docs/spec/panel-view-tree.md`, §3).
+    expect(panel.session.currentPath, '/home');
+  });
+
   test('обратно в список — каталог той ветви, где стоял курсор', () async {
     await panel.session.setRows(RowsKind.tree);
     await panel.session.setExpanded('/home/lib', expanded: true);
