@@ -568,13 +568,29 @@ class CommandDialogField {
   const CommandDialogField({required this.label, required Widget child})
     : _child = child,
       children = const [],
-      bleeds = false;
+      bleeds = false,
+      _tight = false;
 
   /// Несколько строк под одной подписью; подпись встаёт вровень с первой.
   ///
   /// Так связанное читается связанным: имя файла, его объём и его полоса —
   /// одно поле из трёх строк, а не три поля, из которых два безымянных.
-  const CommandDialogField.column({required this.label, required this.children}) : _child = null, bleeds = false;
+  const CommandDialogField.column({required this.label, required this.children})
+    : _child = null,
+      bleeds = false,
+      _tight = true;
+
+  /// Несколько **самостоятельных** строк под одной подписью — с обычным
+  /// просветом между ними.
+  ///
+  /// Отличие от [CommandDialogField.column] — в том, что это за строки. Там
+  /// одно поле, разложенное на три строки, и теснота их и связывает; здесь —
+  /// группа своих управлений (флажки колонок), и стоять они обязаны так же
+  /// просторно, как флажки в любом другом окне.
+  const CommandDialogField.group({required this.label, required this.children})
+    : _child = null,
+      bleeds = false,
+      _tight = false;
 
   /// Строка без подписи — во всю ширину столбца значений.
   ///
@@ -584,7 +600,8 @@ class CommandDialogField {
     : label = '',
       _child = child,
       children = const [],
-      bleeds = false;
+      bleeds = false,
+      _tight = false;
 
   /// Строка во всю ширину **окна** — мимо полей формы.
   ///
@@ -596,7 +613,8 @@ class CommandDialogField {
     : label = '',
       _child = child,
       children = const [],
-      bleeds = true;
+      bleeds = true,
+      _tight = false;
 
   final String label;
 
@@ -605,6 +623,9 @@ class CommandDialogField {
   final List<Widget> children;
   final Widget? _child;
 
+  /// Строки внутри блока стоят теснее обычного: они — одно поле.
+  final bool _tight;
+
   /// Содержимое строки — одно или столбцом.
   Widget content(FcTheme theme) {
     final single = _child;
@@ -612,7 +633,7 @@ class CommandDialogField {
       return single;
     }
 
-    final gap = theme.metrics.dialogLineGap;
+    final gap = _tight ? theme.metrics.dialogLineGap : theme.metrics.dialogGap;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,

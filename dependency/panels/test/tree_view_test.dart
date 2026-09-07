@@ -992,6 +992,23 @@ void main() {
     expect(sizeOf(tester, 'main.dart'), '', reason: 'выключенной колонки нет вовсе');
   });
 
+  testWidgets('флажки колонок стоят с обычным просветом', (tester) async {
+    final runtime = await open(tester);
+    runtime.commands.dispatch(KeyCombination.parse('Alt-F1'));
+    await tester.pumpAndSettle();
+
+    final boxes = find.byType(FcCheckbox);
+    expect(boxes, findsNWidgets(2));
+    final first = tester.getRect(boxes.at(0));
+    final second = tester.getRect(boxes.at(1));
+
+    // Тот же просвет, что между флажками в любом другом окне: это
+    // самостоятельные управления, а не строки одного поля
+    // (`docs/widgets.md`).
+    final metrics = FcTheme.of(tester.element(boxes.at(0))).metrics;
+    expect(second.top - first.bottom, closeTo(metrics.dialogGap, 0.5));
+  });
+
   testWidgets('скрытые каталоги приходят вместе с Cmd-H', (tester) async {
     final runtime = await open(tester);
     expect(branches(tester), isNot(contains('.git')));
