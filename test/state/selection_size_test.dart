@@ -441,6 +441,27 @@ void main() {
       }
     });
 
+    test('перечитывание не гасит растущую сумму', () async {
+      final held = _HeldSizeProvider();
+      final panel = await panelOn(held);
+      panel.setCursorToName('docs');
+      panel.toggleCurrentMark();
+      for (var i = 0; i < 5; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+
+      // Дерево водит панель по ветвям: ушли и вернулись, узлы новые.
+      await panel.session.follow('/home/bin');
+      await panel.session.follow('/home');
+
+      // Число на месте сразу, а не через сообщение обхода: их придерживает
+      // ограничитель перерисовки, и всё это время строка стояла бы пустой.
+      final docs = panel.entries.firstWhere((entry) => entry.name == 'docs');
+      expect(docs.size, _HeldSizeProvider.partial);
+      held.release.complete();
+      await settle();
+    });
+
     test('размеры подкаталогов остаются от того же обхода', () async {
       mark('docs');
       await settle();

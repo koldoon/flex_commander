@@ -1642,7 +1642,7 @@ class PanelSession {
   /// оказался бы разложен по вчерашним числам.
   void _applyMeasured(Iterable<FsNode> nodes) {
     _keepMeasuredWithSource();
-    if (_measured.isEmpty) {
+    if (_measured.isEmpty && _running.isEmpty) {
       return;
     }
     for (final node in nodes) {
@@ -1651,7 +1651,11 @@ class PanelSession {
       if (node is! DirectoryNode || node is ParentDirNode) {
         continue;
       }
-      final size = _measured[node.pathString];
+      // И растущая сумма тоже: обход идёт, а узел после перечитывания пуст, и
+      // до следующего его сообщения — а их придерживает ограничитель
+      // перерисовки — строка стояла бы с прочерком. Живьём это и было видно
+      // как мерцание: число пропадает на кадр-другой и возвращается.
+      final size = _measured[node.pathString] ?? _running[node.pathString];
       if (size != null) {
         node.size = size;
       }
