@@ -279,7 +279,7 @@ class CoreServer implements CoreHandler {
         // Каталог поиска — родитель списка: `..` из находок возвращает туда,
         // где панель стояла, и никакого «запомненного места» для этого не
         // нужно.
-        final results = SearchResults(title: title, found: found, parent: session(panel).directory);
+        final results = SearchResultsProvider(title: title, found: found, parent: session(panel).directory);
         await session(panel).open(results.rootDirectory);
         return const CoreOpened(true);
 
