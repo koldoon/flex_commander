@@ -314,15 +314,6 @@ class SftpTreeProvider
   );
 
   @override
-  Future<void> countEntries(FsNode node, void Function(int bytes) onEntry) async {
-    onEntry(node.size > 0 ? node.size : 0);
-    if (node is! DirectoryNode) {
-      return;
-    }
-    await _walk(remotePathOf(node), (entry, path) => onEntry(entry.size > 0 ? entry.size : 0));
-  }
-
-  @override
   Future<Stream<List<int>>> openRead(FsNode node, {int offset = 0}) =>
       _sftp.openRead(remotePathOf(node), offset: offset);
 
@@ -437,29 +428,6 @@ class SftpTreeProvider
       await connection.close();
     } else {
       await _sftp.close();
-    }
-  }
-
-  /// Обход поддерева на сервере.
-  ///
-  /// Недоступный подкаталог обход не прекращает: одна закрытая папка внутри не
-  /// должна уменьшать посчитанный размер всего дерева — так же ведёт себя `du`.
-  /// Исключение из [visit] наружу проходит: этим движок и отмена прекращают
-  /// подсчёт.
-  Future<void> _walk(String path, void Function(SftpEntry entry, String path) visit) async {
-    final List<SftpEntry> entries;
-    try {
-      entries = await _sftp.listDirectory(path);
-    } on FsError {
-      return;
-    }
-
-    for (final entry in entries) {
-      final childPath = p.posix.join(path, entry.name);
-      visit(entry, childPath);
-      if (entry.isDirectory) {
-        await _walk(childPath, visit);
-      }
     }
   }
 

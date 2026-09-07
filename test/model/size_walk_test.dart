@@ -157,7 +157,7 @@ void main() {
     final nodes = await listRoot();
     var entries = 0;
     var bytes = 0;
-    await provider.countEntries(nodes['tree']!, (size) {
+    await countEntries(nodes['tree']!, (size) {
       entries++;
       bytes += size;
     });
@@ -165,6 +165,40 @@ void main() {
     // Сам каталог, пять файлов и закрытый каталог; внутрь него не заглянуть.
     expect(entries, 7);
     expect(bytes, 50);
+  });
+
+  test('ссылка в задании байтов не переносит', () async {
+    final nodes = await listRoot();
+
+    var bytes = 0;
+    await countEntries(nodes['docs']!, (size) => bytes += size);
+    final withLink = <int>[];
+    await countEntries(nodes['link-to-docs']!, withLink.add);
+
+    // Внутри задания ссылка — объект работы, но байтов у неё нет: её копируют
+    // ссылкой. А названная сама, она считается тем, что есть.
+    expect(bytes, 300, reason: 'три файла docs');
+    expect(withLink, hasLength(1));
+    expect(withLink.single, lessThan(300));
+  });
+
+  test('исключение из счётчика прекращает подсчёт', () async {
+    // Этим движок переноса и останавливает счёт, когда работа кончилась раньше
+    // него: второго способа сказать «хватит» у колбэка нет.
+    final nodes = await listRoot();
+
+    var seen = 0;
+    await expectLater(
+      countEntries(nodes['docs']!, (size) {
+        seen++;
+        if (seen == 2) {
+          throw const FormatException('хватит');
+        }
+      }),
+      throwsA(isA<FormatException>()),
+    );
+
+    expect(seen, 2, reason: 'после броска обход не продолжается');
   });
 
   test('операцию можно прервать', () async {

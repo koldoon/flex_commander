@@ -131,6 +131,32 @@ class _Frame {
   int bytes = 0;
 }
 
+/// Объекты задания: сколько их и сколько в них байт.
+///
+/// Тот же обход, что и у размера, но сложка другая — и в этом всё дело: перенос
+/// считает **объекты работы**, а не занятое место, поэтому ссылка здесь байтов
+/// не переносит (её копируют ссылкой), а у каталога их нет. Правило живёт тут,
+/// у потребителя, а не в обходе.
+///
+/// [onEntry] зовётся на каждый объект поддерева, включая сам [root]. Исключение
+/// из него наружу не гасится — так движок переноса прекращает подсчёт, когда
+/// работа кончилась раньше него.
+Future<void> countEntries(FsNode root, void Function(int bytes) onEntry) async {
+  var isRoot = true;
+
+  await for (final event in walkTree(root)) {
+    if (event is! WalkedNode) {
+      continue;
+    }
+    final node = event.node;
+    // Сам корень считается тем, что он есть: сказали копировать ссылку —
+    // ссылка и есть объект работы, со своими байтами.
+    final counted = isRoot || (node is! DirectoryNode && node is! LinkNode);
+    isRoot = false;
+    onEntry(counted && node.size > 0 ? node.size : 0);
+  }
+}
+
 /// Куда обход отдаёт окончательную сумму каждого пройденного каталога.
 typedef DirectorySize = void Function(String path, int bytes);
 

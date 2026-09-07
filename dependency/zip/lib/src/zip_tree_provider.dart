@@ -259,15 +259,6 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
   @override
   Operation<LinkNode, FsNode?> resolveLink() => CompletedOperation<LinkNode, FsNode?>(null);
 
-  @override
-  Future<void> countEntries(FsNode node, void Function(int bytes) onEntry) async {
-    final entry = _entryOf(node);
-    if (entry == null) {
-      return;
-    }
-    _walk(entry, (child) => onEntry(child.isDirectory ? 0 : child.size));
-  }
-
   /// Содержимое файла из архива.
   ///
   /// Запись распаковывается целиком в память, и уже оттуда уходит кусками:
@@ -538,13 +529,6 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
     // хотя бы устойчивый.
     children.sort((a, b) => a.name.compareTo(b.name));
     return children;
-  }
-
-  void _walk(ZipEntry entry, void Function(ZipEntry entry) visit) {
-    visit(entry);
-    for (final child in entry.children.values) {
-      _walk(child, visit);
-    }
   }
 
   /// Путь внутри архива разбирается своими силами: разделитель здесь всегда

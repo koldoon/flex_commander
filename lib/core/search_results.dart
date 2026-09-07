@@ -78,7 +78,4 @@ class SearchResults implements TreeProvider, PanelColumns {
   @override
   Operation<LinkNode, FsNode?> resolveLink() =>
       TaskOperation<LinkNode, FsNode?>((op, link) async => link.provider.resolveLink().run(link));
-
-  @override
-  Future<void> countEntries(FsNode node, void Function(int bytes) onEntry) => node.provider.countEntries(node, onEntry);
 }

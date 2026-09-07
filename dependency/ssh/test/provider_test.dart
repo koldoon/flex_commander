@@ -277,7 +277,7 @@ void main() {
       final node = await provider.resolvePath().run('/srv/www');
       final sizes = <int>[];
 
-      await provider.countEntries(node!, sizes.add);
+      await countEntries(node!, sizes.add);
 
       expect(sizes, hasLength(2)); // сам каталог и index.html
       expect(sizes.reduce((a, b) => a + b), 7);

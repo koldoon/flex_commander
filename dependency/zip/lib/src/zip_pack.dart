@@ -297,7 +297,7 @@ class ZipPacking {
       var counted = 0;
       var bytes = 0;
       try {
-        await sources[i].provider.countEntries(sources[i], (size) {
+        await countEntries(sources[i], (size) {
           counted++;
           bytes += size;
           progress.countOne(size);

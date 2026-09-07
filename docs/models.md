@@ -235,6 +235,11 @@ Stream<WalkEvent> walkTree(FsNode root);
 /// Тот же обход работой: промежуточные суммы в itemsTransferred, итог —
 /// результат, onDirectory — сумма каждого пройденного каталога.
 Operation<List<FsNode>, int> sizeOperation({DirectorySize? onDirectory});
+
+/// Он же второй сложкой — объекты задания для движка переноса и упаковщиков.
+/// Правило здесь другое, и живёт оно у потребителя: перенос считает работу, а
+/// не место, поэтому ссылка байтов не переносит (её копируют ссылкой).
+Future<void> countEntries(FsNode root, void Function(int bytes) onEntry);
 ```
 
 ```dart
@@ -265,7 +270,6 @@ abstract interface class NodeEditor {
   Future<void> deleteEntry(FsNode node);                    // каталог уже пуст
   Future<bool> deleteTree(FsNode node);                     // поддерево одним действием
   Future<bool> trashEntry(FsNode node);
-  Future<void> countEntries(FsNode node, void Function() onEntry);
   bool isSameEntity(FsNode node, DirectoryNode destination);
   bool isInsideSource(FsNode node, DirectoryNode destination);
 }

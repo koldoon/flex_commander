@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:fc_api/fc_api.dart';
 
 import '../fs_node.dart';
+import '../size_walk.dart';
 import '../tree_provider.dart';
 import '../operation_params.dart';
 import 'transfer_answers.dart';
@@ -926,10 +927,11 @@ class TreeTransferEngine implements TreeEditor {
 
       var counted = 0;
       var countedBytes = 0;
-      final provider = nodes[i].provider;
 
       try {
-        await provider.countEntries(nodes[i], (bytes) {
+        // Обход один на все источники и провайдера у каждого узла берёт сам:
+        // набор из разных источников считается целиком.
+        await countEntries(nodes[i], (bytes) {
           if (progress.stopped) {
             throw const _CountingStopped();
           }

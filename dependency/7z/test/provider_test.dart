@@ -269,7 +269,7 @@ Encrypted = +
 
       final root = provider.rootDirectory;
       var count = 0;
-      await provider.countEntries(root, (bytes) => count++);
+      await countEntries(root, (bytes) => count++);
 
       expect(count, 4, reason: 'корень, docs, readme.txt и .hidden');
       expect(await sizeOperation().run([root]), 15);

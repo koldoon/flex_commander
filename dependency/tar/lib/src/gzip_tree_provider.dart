@@ -142,11 +142,6 @@ class GzipTreeProvider implements TreeProvider, FileContentProvider {
   @override
   Operation<LinkNode, FsNode?> resolveLink() => CompletedOperation<LinkNode, FsNode?>(null);
 
-  @override
-  Future<void> countEntries(FsNode node, void Function(int bytes) onEntry) async {
-    onEntry(_size == FsNode.unknownSize ? 0 : _size);
-  }
-
   /// Содержимое — потоком разжатия поверх байтов хозяина.
   ///
   /// Смещение отрабатывается честно, но дорого: прочитанное до него

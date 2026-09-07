@@ -258,15 +258,6 @@ class SevenZipTreeProvider implements TreeProvider, FileContentProvider, Provide
   @override
   Operation<LinkNode, FsNode?> resolveLink() => CompletedOperation<LinkNode, FsNode?>(null);
 
-  @override
-  Future<void> countEntries(FsNode node, void Function(int bytes) onEntry) async {
-    final entry = _entryOf(node);
-    if (entry == null) {
-      return;
-    }
-    _walk(entry, (child) => onEntry(child.isDirectory ? 0 : child.size));
-  }
-
   /// Содержимое файла из архива — потоком, прямо из программы.
   ///
   /// Это лучше, чем у zip, где запись распаковывается в память целиком: здесь

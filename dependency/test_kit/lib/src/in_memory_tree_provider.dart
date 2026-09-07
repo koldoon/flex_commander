@@ -272,14 +272,6 @@ class InMemoryReadOnlyProvider implements TreeProvider {
 
   String name(List<String> segments, int index) => segments[index];
 
-  @override
-  Future<void> countEntries(FsNode node, void Function(int bytes) onEntry) async {
-    for (final path in _subtreeOf(p.normalize(physicalPathOf(node)))) {
-      final entry = _entries[path]!;
-      onEntry(entry.type == FileType.regular && entry.size > 0 ? entry.size : 0);
-    }
-  }
-
   /// Пути объекта и всего, что под ним.
   List<String> _subtreeOf(String path) => [
     for (final key in _entries.keys)
