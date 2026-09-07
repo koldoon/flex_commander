@@ -713,6 +713,8 @@ class PanelSession {
       return;
     }
     cache?.forget(dir);
+    // И посчитанное тоже: перечитывание — ответ на «показалось не то».
+    _forgetMeasured(dir.pathString);
     await _load(
       dir,
       cursorName: currentNode?.name,
@@ -1233,6 +1235,7 @@ class PanelSession {
       _adoptLease(lease, dir);
       adopted = true;
       _nodes = shown;
+      _applyMeasured(_nodes);
       _applySort();
       _stopSizeScan();
       _restoreSelection(keepMarks ? selection.paths : null);
@@ -1289,6 +1292,8 @@ class PanelSession {
       _adoptLease(lease, dir);
       adopted = true;
       _nodes = nodes;
+      // До сортировки: иначе список оказался бы разложен по вчерашним числам.
+      _applyMeasured(_nodes);
       _applySort();
 
       // Обход размеров останавливается здесь, и место у вызова несущее в обе
@@ -1380,6 +1385,7 @@ class PanelSession {
     final marked = selection.paths;
     final cursorIndex = _cursorIndex;
 
+    _applyMeasured(nodes);
     final sorted = List<FsNode>.unmodifiable(nodes.toList()..sort(comparatorFor(_sort, naming: naming)));
     if (_sameListing(sorted)) {
       // Ничего не изменилось — и таблицу не пересобираем: иначе каждый подъём
@@ -1566,7 +1572,69 @@ class PanelSession {
 
   /// Каталоги, которые считают прямо сейчас, — не больше
   /// [sizeScanConcurrency] одновременно.
-  final Map<DirectoryNode, _SizeScan> _scans = {};
+  ///
+  /// Ключ — **путь**, а не узел: перечитывание каталога заменяет узлы новыми, и
+  /// по узлу один и тот же каталог вставал бы в очередь второй раз, а два
+  /// обхода наперегонки заканчивались бы разными числами.
+  final Map<String, _SizeScan> _scans = {};
+
+  /// Посчитанное — по путям, а не в узлах.
+  ///
+  /// Узлы живут до ближайшего перечитывания, в том числе тихого, за курсором
+  /// дерева; посчитанное переживает их и возвращается в новые узлы
+  /// ([_applyMeasured]). Иначе каждый шаг курсора по дереву стирал бы числа и
+  /// запускал обход заново — размер мерцал и пересчитывался.
+  ///
+  /// Сюда попадает и **каждый пройденный подкаталог**: обход и так проходит
+  /// через них, суммы просто перестали выбрасываться.
+  final Map<String, int> _measured = {};
+
+  /// Чьи это пути. Сменился источник — посчитанное относилось к прежнему.
+  TreeProvider? _measuredFor;
+
+  /// Забывает всё, если панель перешла в другой источник.
+  void _keepMeasuredWithSource() {
+    if (identical(_measuredFor, provider)) {
+      return;
+    }
+    _measured.clear();
+    _measuredFor = provider;
+  }
+
+  /// Забывает посчитанное для каталога и всего, что под ним.
+  ///
+  /// Зовётся, когда человек попросил перечитать: это ответ на «показалось не
+  /// то», и отвечать на него вчерашним числом было бы издевательством.
+  void _forgetMeasured(String path) {
+    final prefix = path.endsWith('/') ? path : '$path/';
+    _measured.removeWhere((key, _) => key == path || key.startsWith(prefix));
+  }
+
+  /// Возвращает посчитанное в свежие узлы — до сортировки, иначе список
+  /// оказался бы разложен по вчерашним числам.
+  void _applyMeasured(Iterable<FsNode> nodes) {
+    _keepMeasuredWithSource();
+    if (_measured.isEmpty) {
+      return;
+    }
+    for (final node in nodes) {
+      // «..» размера не получает: подсчёт родителя — это подсчёт всего дерева
+      // выше, и по нажатию в панели такого не ждут.
+      if (node is! DirectoryNode || node is ParentDirNode) {
+        continue;
+      }
+      final size = _measured[node.pathString];
+      if (size != null) {
+        node.size = size;
+      }
+    }
+  }
+
+  /// Путь каталога уже считают или вот-вот начнут.
+  bool _scanning(DirectoryNode directory) {
+    final path = directory.pathString;
+    return _scans.containsKey(path) || _scanQueue.any((queued) => queued.pathString == path);
+  }
 
   /// Строка состояния обновляется не на каждый посчитанный файл.
   late final Throttle _sizeRedraw = Throttle(_flushSizes);
@@ -1599,9 +1667,9 @@ class PanelSession {
       if (node is! DirectoryNode || node is ParentDirNode) {
         continue;
       }
-      // Посчитанный каталог второй раз не обходим: значение в узле авторитетно
-      // до перечитывания каталога.
-      if (node.size != FsNode.unknownSize || _scans.containsKey(node) || _scanQueue.contains(node)) {
+      // Посчитанный каталог второй раз не обходим: значение авторитетно до
+      // перечитывания каталога.
+      if (node.size != FsNode.unknownSize || _scanning(node)) {
         continue;
       }
       _scanQueue.add(node);
@@ -1635,17 +1703,18 @@ class PanelSession {
       // в узле остаётся: он всё ещё верен, и в колонке его видно.
       _scanQueue.removeWhere((directory) => !selected.contains(directory));
 
-      for (final directory in _scans.keys.toList()) {
-        if (!selected.contains(directory)) {
-          _cancelScan(directory);
+      final wanted = {for (final directory in selected) directory.pathString};
+      for (final scan in _scans.values.toList()) {
+        if (!wanted.contains(scan.directory.pathString)) {
+          _cancelScan(scan.directory);
         }
       }
     }
 
     for (final directory in selected) {
-      // Посчитанный каталог второй раз не обходим: значение в узле авторитетно
-      // до перечитывания каталога.
-      if (directory.size != FsNode.unknownSize || _scans.containsKey(directory) || _scanQueue.contains(directory)) {
+      // Посчитанный каталог второй раз не обходим: значение авторитетно до
+      // перечитывания каталога.
+      if (directory.size != FsNode.unknownSize || _scanning(directory)) {
         continue;
       }
       _scanQueue.add(directory);
@@ -1675,15 +1744,24 @@ class PanelSession {
   }
 
   void _startScan(DirectoryNode directory) {
-    final operation = sizeOperation();
-    final scan = _SizeScan(operation);
-    _scans[directory] = scan;
+    final path = directory.pathString;
+    // Суммы подкаталогов обход и так считает: пусть остаются, а не выбрасываются.
+    final operation = sizeOperation(onDirectory: _remember);
+    final scan = _SizeScan(operation, directory);
+    _scans[path] = scan;
 
     final status = operation.status;
     void onScanned() {
       // Обход могли отменить или заменить другим, пока этот ещё рассказывает
       // о себе. Без проверки итог сменился бы частичной суммой.
-      if (!identical(_scans[directory], scan) || status is! MultipleTransferOperationStatus) {
+      if (!identical(_scans[path], scan) || status is! MultipleTransferOperationStatus) {
+        return;
+      }
+      // Работа сообщает о себе и когда просто начинается, а ноль в этот миг —
+      // не «пусто», а «ещё ничего не насчитано»: показывать его вместо
+      // прочерка значило бы мигать нулём в начале каждого обхода. Настоящий
+      // ноль придёт итогом.
+      if (status.itemsTransferred <= 0) {
         return;
       }
       directory.size = status.itemsTransferred;
@@ -1710,14 +1788,16 @@ class PanelSession {
   /// [FsNode.unknownSize] в узле означает «не посчитан», и такой итог заставил
   /// бы обходить недоступный каталог заново на каждое нажатие.
   void _finishScan(DirectoryNode directory, _SizeScan scan, int total) {
-    if (!identical(_scans[directory], scan)) {
+    final path = directory.pathString;
+    if (!identical(_scans[path], scan)) {
       // Обход отменили, а результат опоздал — он уже ни о чём.
       return;
     }
 
     directory.size = total < 0 ? 0 : total;
+    _remember(path, directory.size);
     _sizeChanged(directory);
-    _scans.remove(directory);
+    _scans.remove(path);
     scan.release();
     _fillPool();
     _sizeRedraw.flush();
@@ -1756,9 +1836,18 @@ class PanelSession {
     _changed();
   }
 
+  /// Запоминает окончательную сумму каталога.
+  ///
+  /// Только окончательную: частичная, застывшая как итог, — ложь, и обход
+  /// рассказывает о каталоге лишь тогда, когда прошёл его целиком.
+  void _remember(String path, int bytes) {
+    _keepMeasuredWithSource();
+    _measured[path] = bytes;
+  }
+
   /// Прекращает обход одного каталога, не трогая ни остальные, ни очередь.
   void _cancelScan(DirectoryNode directory) {
-    final scan = _scans.remove(directory);
+    final scan = _scans.remove(directory.pathString);
     if (scan == null) {
       return;
     }
@@ -1773,8 +1862,8 @@ class PanelSession {
   /// Очередь чистится без сброса размеров: в неё попадают только каталоги
   /// с непосчитанным размером, сбрасывать там нечего.
   void _stopSizeScan() {
-    for (final directory in _scans.keys.toList()) {
-      _cancelScan(directory);
+    for (final scan in _scans.values.toList()) {
+      _cancelScan(scan.directory);
     }
     _scanQueue.clear();
     _sizeRedraw.cancel();
@@ -1805,9 +1894,12 @@ class PanelSession {
 
 /// Один идущий обход каталога: сама операция и подписка на её сообщения.
 class _SizeScan {
-  _SizeScan(this.operation);
+  _SizeScan(this.operation, this.directory);
 
   final Operation<List<FsNode>, int> operation;
+
+  /// Узел, с которого обход начат: по нему находят строку в списке.
+  final DirectoryNode directory;
 
   /// Чем прекратить слушать ход обхода; null — уже прекратили.
   void Function()? stopWatching;

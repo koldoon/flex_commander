@@ -377,6 +377,36 @@ void main() {
     });
   });
 
+  group('посчитанное живёт по путям', () {
+    test('тихое чтение за курсором дерева посчитанного не теряет', () async {
+      mark('docs');
+      await settle();
+      expect(nodeNamed('docs').size, 300);
+
+      // Так дерево водит панель за курсором: каталог меняется тихо, а узлы
+      // при этом заменяются новыми.
+      await panel.session.follow('/home/bin');
+      await panel.session.follow('/home');
+      await settle();
+
+      // Размер на месте, и обход заново не начинался — иначе число мигало бы
+      // прочерком на каждом шаге курсора по дереву.
+      expect(nodeNamed('docs').size, 300);
+      expect(panel.markedSizeIsFinal, isTrue);
+    });
+
+    test('размеры подкаталогов остаются от того же обхода', () async {
+      mark('docs');
+      await settle();
+
+      await panel.openPath('/home/docs');
+
+      // Обход и так проходил через `nested` — сумма просто перестала
+      // выбрасываться.
+      expect(nodeNamed('nested').size, 200);
+    });
+  });
+
   group('перечитывание и уход', () {
     test('перечитывание во время обхода подсчёт не теряет', () async {
       mark('docs');
