@@ -97,6 +97,7 @@ class PanelSession {
        _columns = settings.columns,
        _view = settings.view,
        _expanded = {...settings.expanded},
+       _savedCursor = settings.cursorPath,
        _sort = settings.sort,
        _showHidden = settings.showHidden,
        _lastPath = settings.path {
@@ -252,6 +253,12 @@ class PanelSession {
   /// раскрытое человек выбирал сам, и терять его при каждом перечитывании
   /// нельзя.
   Set<String> _expanded;
+
+  /// Строка, на которой стоял курсор в прошлый запуск, — путём.
+  ///
+  /// Одноразовая: как только строки собраны и курсор поставлен, память
+  /// уступает место живому курсору.
+  String _savedCursor;
   SortSpec _sort;
   bool _showHidden;
 
@@ -1041,9 +1048,14 @@ class PanelSession {
     if (value == RowsKind.tree) {
       _list = _listFor(dir);
       await _rebuildRows();
-      // Курсор встаёт на ветвь того каталога, где панель стояла: иначе она
-      // окажется на корне, в дереве длиной в весь диск.
-      _cursorToPath(dir.pathString);
+      // Курсор встаёт туда, где стоял в прошлый запуск, — а нет такой строки,
+      // на ветвь своего каталога: иначе панель окажется на корне, в дереве
+      // длиной в весь диск.
+      final saved = _savedCursor;
+      _savedCursor = '';
+      if (saved.isEmpty || !_cursorToPath(saved)) {
+        _cursorToPath(dir.pathString);
+      }
       _changed();
       return;
     }
@@ -1132,11 +1144,13 @@ class PanelSession {
   }
 
   /// Ставит курсор на строку с этим путём; нет такой — оставляет как есть.
-  void _cursorToPath(String path) {
+  bool _cursorToPath(String path) {
     final index = _nodes.indexWhere((node) => node.pathString == path);
-    if (index >= 0) {
-      _cursorIndex = index;
+    if (index < 0) {
+      return false;
     }
+    _cursorIndex = index;
+    return true;
   }
 
   SortSpec get sort => _sort;
@@ -1218,6 +1232,9 @@ class PanelSession {
       // Пока каталог не прочитан, курсора нет — но и терять запомненное
       // нельзя: настройки могут сохраниться и до первого чтения.
       cursor: currentNode?.name ?? _cursorMemory[path] ?? '',
+      // Путём — ради дерева: имя там не опознаёт строку, потому что видно
+      // много каталогов разом.
+      cursorPath: currentNode?.pathString ?? '',
       columns: _columns,
       sort: _sort,
       showHidden: _showHidden,

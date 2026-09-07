@@ -13,6 +13,7 @@ class PanelSettings implements Serializable {
   PanelSettings({
     this.path = '',
     this.cursor = '',
+    this.cursorPath = '',
     ColumnLayout? columns,
     this.sort = const SortSpec(),
     this.showHidden = false,
@@ -35,6 +36,14 @@ class PanelSettings implements Serializable {
   /// или убавится файлов, и номер привёл бы курсор не туда. Пропавшее имя
   /// ставит курсор в начало — это честнее, чем угадывать соседа.
   String cursor;
+
+  /// Путь строки под курсором — для видов, которым имени мало.
+  ///
+  /// В дереве видно много каталогов разом, и одинаковые имена в них — разные
+  /// объекты: `src` есть и в `lib`, и в `test`. Имя остаётся ради списка
+  /// (там оно честнее номера строки), а путь добавляется ради дерева
+  /// (`docs/spec/panel-node-list.md`, §3).
+  String cursorPath;
 
   ColumnLayout columns;
   SortSpec sort;
@@ -63,6 +72,9 @@ class PanelSettings implements Serializable {
   void toMap(Map<String, dynamic> m) {
     m['path'] = path;
     m['cursor'] = cursor;
+    if (cursorPath.isNotEmpty) {
+      m['cursorPath'] = cursorPath;
+    }
     m['showHidden'] = showHidden;
     m['view'] = view;
     // Раскладка колонок и правило сортировки — значения, а не документы:
@@ -85,6 +97,7 @@ class PanelSettings implements Serializable {
     }
 
     cursor = extract(cursor, m['cursor']);
+    cursorPath = extract(cursorPath, m['cursorPath']);
     showHidden = extract(showHidden, m['showHidden']);
     view = extract(view, m['view']);
     sort = SortSpec.fromJson(m['sort']);

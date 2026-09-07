@@ -152,6 +152,42 @@ void main() {
     ], contains('      app.dart'));
   });
 
+  test('курсор возвращается на ту же строку, что и был', () async {
+    final restored = testPanel(
+      provider: provider,
+      settings: PanelSettings(path: '/home', expanded: ['/home/lib'], cursorPath: '/home/lib/app.dart'),
+    );
+    addTearDown(restored.dispose);
+    await restored.openPath('/home');
+
+    await restored.session.setRows(RowsKind.tree);
+
+    // Путём, а не именем: в дереве видно много каталогов разом, и одинаковые
+    // имена в них — разные объекты.
+    expect(restored.session.currentNode?.pathString, '/home/lib/app.dart');
+  });
+
+  test('нет такой строки — курсор встаёт на свой каталог', () async {
+    final restored = testPanel(
+      provider: provider,
+      settings: PanelSettings(path: '/home', cursorPath: '/home/gone/deep.txt'),
+    );
+    addTearDown(restored.dispose);
+    await restored.openPath('/home');
+
+    await restored.session.setRows(RowsKind.tree);
+
+    expect(restored.session.currentNode?.name, 'home');
+  });
+
+  test('путь курсора уезжает в настройки', () async {
+    await panel.session.setRows(RowsKind.tree);
+    await panel.session.setExpanded('/home/lib', expanded: true);
+    cursorTo('app.dart');
+
+    expect(panel.session.settings.cursorPath, '/home/lib/app.dart');
+  });
+
   test('сортировка раскладывает ветви, а не мешает их с содержимым', () async {
     await panel.session.setRows(RowsKind.tree);
     await panel.session.setExpanded('/home/lib', expanded: true);

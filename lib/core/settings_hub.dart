@@ -139,7 +139,12 @@ class SettingsHub {
     if (panels is List) {
       for (final panel in panels) {
         if (panel is Map) {
-          panel.remove('cursor');
+          panel
+            ..remove('cursor')
+            // Путь курсора — то же положение, только для дерева: имени там
+            // мало (`docs/spec/panel-node-list.md`, §3). Ради движения курсора
+            // настройки на диск не пишутся.
+            ..remove('cursorPath');
         }
       }
     }
