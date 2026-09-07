@@ -986,10 +986,26 @@ void main() {
     // попасть надо в тот, что в окне.
     await tester.tap(find.descendant(of: find.byType(FcCheckbox), matching: find.text('Size')));
     await tester.pumpAndSettle();
-    await tester.tap(find.widgetWithText(FcButton, 'Show'));
+    await tester.tap(find.widgetWithText(FcButton, 'OK'));
     await tester.pumpAndSettle();
 
     expect(sizeOf(tester, 'main.dart'), '', reason: 'выключенной колонки нет вовсе');
+  });
+
+  testWidgets('строки списка видов отбиты как содержимое окна', (tester) async {
+    final runtime = await open(tester);
+    runtime.commands.dispatch(KeyCombination.parse('Alt-F1'));
+    await tester.pumpAndSettle();
+
+    // Список видов не дополняет никакого поля ввода — и отбит как всё
+    // остальное в окне: вровень с подписью настроек под ним.
+    // По списку, а не по подписи вообще: «Tree» — ещё и заголовок колонки имён
+    // в самом дереве.
+    // Первая строка списка: имя и пояснение набраны одной разметкой, и искать
+    // в ней по подписи нечего — берётся сам текст.
+    final title = tester.getRect(find.descendant(of: find.byType(FcPickList), matching: find.byType(RichText)).first);
+    final label = tester.getRect(find.text('Columns visible').first);
+    expect(title.left, closeTo(label.left, 0.5));
   });
 
   testWidgets('флажки колонок стоят с обычным просветом', (tester) async {

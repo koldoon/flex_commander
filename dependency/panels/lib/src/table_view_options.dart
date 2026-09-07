@@ -25,33 +25,33 @@ class TableViewOptions extends StatelessWidget {
     return ListenableBuilder(listenable: panel, builder: (context, _) => _form(context));
   }
 
+  /// Название колонки для списка: у значка своего нет.
+  static String _titleOf(FsColumn column) {
+    final title = FileTableHeaderCell.titleOf(column);
+    return title.isEmpty ? 'Icon' : title;
+  }
+
   Widget _form(BuildContext context) {
     final strings = context.strings;
     final layout = panel.columns;
 
     return FcForm(
       rows: [
-        CommandDialogField.group(
-          label: strings.tr('Columns'),
+        // Подписью **над** столбцом: колонок девять, и в столбце значений они
+        // встали бы отбитыми от левого края на ширину подписи.
+        CommandDialogField.stacked(
+          label: strings.tr('Columns visible'),
           children: [
             for (final column in layout.columns)
               FcCheckbox(
-                label: strings.tr(FileTableHeaderCell.titleOf(column.id)),
+                // У колонки значка заголовка нет — в шапке ему негде стоять, —
+                // но безымянный флажок в списке читался бы сбоем.
+                label: strings.tr(_titleOf(column.id)),
                 value: column.visible,
                 // Иконку и имя скрывать нельзя: без них строка нечитаема.
                 onChanged: column.pinned ? null : (_) => panel.setColumnLayout(panel.columns.toggleVisible(column.id)),
               ),
           ],
-        ),
-        CommandDialogField.wide(
-          child: Row(
-            children: [
-              FcButton(
-                label: strings.tr('Reset columns'),
-                onPressed: () => panel.setColumnLayout(ColumnLayout.defaults),
-              ),
-            ],
-          ),
         ),
       ],
     );

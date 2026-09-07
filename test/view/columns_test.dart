@@ -8,7 +8,6 @@ import 'package:flex_commander/state/app_controller.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -207,23 +206,35 @@ void main() {
       await pumpApp(tester);
       await openViewDialog(tester);
 
-      final name = find.ancestor(of: find.text('Name'), matching: find.byType(FcCheckbox));
+      // У колонки значка заголовка нет — в списке она названа «Icon», иначе
+      // первый флажок стоял бы безымянным.
+      final icon = find.ancestor(of: find.text('Icon'), matching: find.byType(FcCheckbox));
+      expect(tester.widget<FcCheckbox>(icon).onChanged, isNull);
+
+      final name = find.ancestor(
+        of: find.descendant(of: find.byType(TableViewOptions), matching: find.text('Name')),
+        matching: find.byType(FcCheckbox),
+      );
       expect(tester.widget<FcCheckbox>(name).onChanged, isNull);
       expect(tester.widget<FcCheckbox>(name).value, isTrue);
     });
 
-    testWidgets('окно возвращает раскладку по умолчанию', (tester) async {
+    testWidgets('колонки идут столбцом под подписью, по левому краю окна', (tester) async {
       await pumpApp(tester);
-      app.left.setColumnLayout(app.left.columns.resize(FsColumn.size, 200).toggleVisible(FsColumn.ext));
-      await tester.pumpAndSettle();
-
       await openViewDialog(tester);
-      await tester.tap(find.widgetWithText(FcButton, 'Reset columns'));
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 20));
 
-      expect(app.left.columns.find(FsColumn.size)?.width, ColumnLayout.defaults.find(FsColumn.size)?.width);
-      expect(app.left.columns.find(FsColumn.ext)?.visible, isTrue);
+      Rect inDialog(String text) =>
+          tester.getRect(find.descendant(of: find.byType(TableViewOptions), matching: find.text(text)));
+      final title = inDialog('Columns visible');
+      final icon = inDialog('Icon');
+      final name = inDialog('Name');
+
+      // Подпись над столбцом, флажки под ней — и всё по одной левой границе,
+      // той же, по которой отбито содержимое окна (список видов над ними).
+      final view = tester.getRect(find.descendant(of: find.byType(FcPickList), matching: find.byType(RichText)).first);
+      expect(name.top, greaterThan(icon.top), reason: 'столбиком, а не в строку');
+      expect(icon.top, greaterThan(title.top));
+      expect(title.left, closeTo(view.left, 0.5));
     });
 
     testWidgets('колонки правой панели — свои', (tester) async {

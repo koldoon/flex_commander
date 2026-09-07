@@ -31,9 +31,9 @@ class _TreeViewOptionsState extends State<TreeViewOptions> {
     // во всю ширину и в столбец подписей не входит.
     return FcForm(
       rows: [
-        CommandDialogField.group(
-          // Те же колонки, что у таблицы, — и слово то же.
-          label: strings.tr('Columns', context: 'tree'),
+        CommandDialogField.stacked(
+          // Тем же приёмом, что у таблицы: подпись над столбцом флажков.
+          label: strings.tr('Columns visible'),
           children: [
             FcCheckbox(
               label: strings.tr('Size'),

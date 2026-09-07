@@ -28,21 +28,25 @@ class _BriefViewOptionsState extends State<BriefViewOptions> {
     // столбец не входит.
     return FcForm(
       rows: [
-        CommandDialogField(
+        // Подписью над списком, а не слева: тем же приёмом, что у таблицы и
+        // дерева, — окна настроек вида устроены одинаково.
+        CommandDialogField.stacked(
           // С оговоркой: «Columns» в справке — это колонки таблицы, а здесь
           // столбцы имён (`docs/spec/localization.md`, §3).
           label: strings.tr('Columns', context: 'brief'),
-          child: FcSelect<int>(
-            value: settings.briefColumns,
-            options: {
-              PanelsSettings.autoColumns: strings.tr('As many as fit'),
-              for (var count = 2; count <= PanelsSettings.maxColumns; count++) count: '$count',
-            },
-            onChanged: (value) {
-              setState(() => settings.briefColumns = value);
-              widget.save();
-            },
-          ),
+          children: [
+            FcSelect<int>(
+              value: settings.briefColumns,
+              options: {
+                PanelsSettings.autoColumns: strings.tr('As many as fit'),
+                for (var count = 2; count <= PanelsSettings.maxColumns; count++) count: '$count',
+              },
+              onChanged: (value) {
+                setState(() => settings.briefColumns = value);
+                widget.save();
+              },
+            ),
+          ],
         ),
       ],
     );

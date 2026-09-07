@@ -164,6 +164,8 @@ const Map<String, String> _russian = {
   'File panels': 'Файловые панели',
 
   // Заголовки колонок.
+  // У колонки значка заголовка нет; имя ей нужно только в списке колонок.
+  'Icon': 'Значок',
   'Name': 'Имя',
   'Path': 'Путь',
   'Ext': 'Расш',
@@ -172,7 +174,7 @@ const Map<String, String> _russian = {
   'Created': 'Создан',
   'Accessed': 'Открыт',
   'Attributes': 'Атрибуты',
-  'Reset columns': 'Вернуть колонки',
+  'Columns visible': 'Видимые колонки',
 
   // Настройки панелей.
   'Sorting keeps the cursor row in place': 'Сортировка не двигает строку под курсором',
@@ -213,7 +215,7 @@ const Map<String, String> _russian = {
   'Show the directory another way': 'Показать каталог по-другому',
   'Panel view': 'Вид панели',
   'Choose how this panel shows the directory': 'Выбрать, чем эта панель показывает каталог',
-  'Show': 'Показать',
+  'OK': 'ОК',
 
   // Строка состояния.
   '(Scanning…)': '(идёт подсчёт…)',

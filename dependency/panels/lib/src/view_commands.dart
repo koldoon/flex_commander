@@ -227,7 +227,7 @@ class _ViewPickerState extends State<_ViewPicker> {
             (context, _) => CommandDialogForm(
               onCancel: state.close,
               onSubmit: state.apply,
-              submitLabel: strings.tr('Show'),
+              submitLabel: strings.tr('OK'),
               children: [
                 CommandDialogField.bleed(
                   child: SizedBox(
@@ -235,6 +235,12 @@ class _ViewPickerState extends State<_ViewPicker> {
                     // видов немного, и прокручиваться тут нечему.
                     height: (theme.metrics.rowHeight + theme.metrics.rowGap) * state.views.length,
                     child: FcPickList(
+                      // Обычный отступ содержимого окна, а не тот, что под
+                      // полем ввода: поля здесь нет вовсе. Увеличенный нужен
+                      // там, где список **дополняет** набранное и текст обязан
+                      // стоять единой колонкой с ним, — в палитре и в истории
+                      // адресов.
+                      textInset: theme.metrics.dialogHorizontalPadding,
                       rows: [
                         for (final view in state.views)
                           FcPickRow(

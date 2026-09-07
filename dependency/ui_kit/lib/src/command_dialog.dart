@@ -569,7 +569,8 @@ class CommandDialogField {
     : _child = child,
       children = const [],
       bleeds = false,
-      _tight = false;
+      _tight = false,
+      _stacked = false;
 
   /// Несколько строк под одной подписью; подпись встаёт вровень с первой.
   ///
@@ -578,7 +579,20 @@ class CommandDialogField {
   const CommandDialogField.column({required this.label, required this.children})
     : _child = null,
       bleeds = false,
-      _tight = true;
+      _tight = true,
+      _stacked = false;
+
+  /// Подпись **над** столбцом, а не слева от него.
+  ///
+  /// Так ставится группа, которой столбец значений тесен: девять флажков
+  /// колонок, отбитые вправо на ширину подписи, читались бы отступом в никуда.
+  /// Заголовок и содержимое идут по одной левой границе — той, по которой
+  /// отбито всё содержимое окна (`docs/widgets.md`).
+  const CommandDialogField.stacked({required this.label, required this.children})
+    : _child = null,
+      bleeds = false,
+      _tight = false,
+      _stacked = true;
 
   /// Несколько **самостоятельных** строк под одной подписью — с обычным
   /// просветом между ними.
@@ -590,7 +604,8 @@ class CommandDialogField {
   const CommandDialogField.group({required this.label, required this.children})
     : _child = null,
       bleeds = false,
-      _tight = false;
+      _tight = false,
+      _stacked = false;
 
   /// Строка без подписи — во всю ширину столбца значений.
   ///
@@ -601,7 +616,8 @@ class CommandDialogField {
       _child = child,
       children = const [],
       bleeds = false,
-      _tight = false;
+      _tight = false,
+      _stacked = false;
 
   /// Строка во всю ширину **окна** — мимо полей формы.
   ///
@@ -614,7 +630,8 @@ class CommandDialogField {
       _child = child,
       children = const [],
       bleeds = true,
-      _tight = false;
+      _tight = false,
+      _stacked = false;
 
   final String label;
 
@@ -626,6 +643,9 @@ class CommandDialogField {
   /// Строки внутри блока стоят теснее обычного: они — одно поле.
   final bool _tight;
 
+  /// Подпись стоит над содержимым, а не слева от него.
+  final bool _stacked;
+
   /// Содержимое строки — одно или столбцом.
   Widget content(FcTheme theme) {
     final single = _child;
@@ -636,15 +656,20 @@ class CommandDialogField {
     final gap = _tight ? theme.metrics.dialogLineGap : theme.metrics.dialogGap;
     return Column(
       mainAxisSize: MainAxisSize.min,
+      // Растяжкой и здесь: флажок и кнопка облегают подпись сами, а поле
+      // выбора обязано держать ширину — иначе оно прыгало бы вслед за длиной
+      // выбранного (`docs/widgets.md`).
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        if (_stacked) ...[Text(label, style: theme.dialogLabelStyle), SizedBox(height: gap)],
         for (var i = 0; i < children.length; i++) ...[if (i > 0) SizedBox(height: gap), children[i]],
       ],
     );
   }
 
-  /// Строка без подписи: идёт мимо столбцов, во всю ширину формы.
-  bool get isWide => label.isEmpty;
+  /// Строка идёт мимо столбцов, во всю ширину формы: без подписи слева — или с
+  /// подписью, поставленной над содержимым.
+  bool get isWide => label.isEmpty || _stacked;
 
   /// Одну строку подпись держит по середине — как рядом с полем ввода; столбец
   /// строк — по верхней, иначе она уедет в середину блока.
@@ -694,7 +719,15 @@ class FcForm extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
-    final width = labelWidth ?? widestLabel(context, [for (final row in rows) row.label]);
+    // Меряются подписи **строк со столбцами**: у широкой строки подпись если и
+    // есть, то стоит над содержимым, и столбец ей не нужен — а посчитанная
+    // вместе со всеми, она отодвигала бы вправо все остальные строки.
+    final width =
+        labelWidth ??
+        widestLabel(context, [
+          for (final row in rows)
+            if (!row.isWide) row.label,
+        ]);
 
     final parts = <Widget>[];
     // Просвет **перед** каждой частью; у первой его нет.
