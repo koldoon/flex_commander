@@ -20,6 +20,10 @@ FileEntry entryValueOf(FsNode node) {
     path: node is ParentDirNode ? '' : node.pathString,
     directoryPath: node.parentDirectory?.displayPath ?? '',
     size: node.size,
+    // Показ, а не узел: их проставил маппер вида, и читает их только тот, кто
+    // рисует ветви (`docs/spec/panel-node-list.md`, §4).
+    level: node.level,
+    isOpen: node.isOpen,
     modified: file?.modified,
     created: file?.created,
     accessed: file?.accessed,

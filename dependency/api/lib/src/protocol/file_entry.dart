@@ -39,6 +39,8 @@ class FileEntry {
     this.reference = '',
     this.scheme = '',
     this.realPath = '',
+    this.level = 0,
+    this.isOpen = false,
   });
 
   /// Размер неизвестен: у каталога, пока его не обошли, и у того, о чьём
@@ -121,7 +123,19 @@ class FileEntry {
     linkToDirectory: linkToDirectory,
     reference: reference,
     scheme: scheme,
+    level: level,
+    isOpen: isOpen,
   );
+
+  /// Глубина строки в списке: 0 у корневых, дальше по вложенности.
+  ///
+  /// Заполняет её маппер вида в ядре (`docs/spec/panel-node-list.md`, §4);
+  /// читает только тот вид, который рисует ветви. Прочим это ноль, и они его
+  /// не замечают.
+  final int level;
+
+  /// Ветвь раскрыта: её содержимое стоит в списке следом.
+  final bool isOpen;
 
   bool get isDirectory => kind == EntryKind.directory;
 

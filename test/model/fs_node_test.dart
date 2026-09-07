@@ -81,6 +81,46 @@ void main() {
     });
   });
 
+  group('глубина и раскрытость', () {
+    test('по умолчанию строка корневая и закрытая', () {
+      final dir = DirectoryNode(provider: provider, name: 'lib');
+
+      expect(dir.level, 0);
+      expect(dir.isOpen, isFalse);
+    });
+
+    test('проставляются после создания — как размер', () {
+      final dir = DirectoryNode(provider: provider, name: 'lib');
+
+      // Это свойства **показа**: их пишет тот, кто собирает строки списка
+      // (`docs/spec/panel-node-list.md`, §4). Узел при этом остаётся собой —
+      // каталогом, — и вход, пометка и операции работают на нём как раньше.
+      dir
+        ..level = 2
+        ..isOpen = true;
+
+      expect(dir, isA<DirectoryNode>());
+      expect(dir.level, 2);
+      expect(dir.isOpen, isTrue);
+    });
+
+    test('едут наружу в строке списка', () {
+      final dir =
+          DirectoryNode(provider: provider, name: 'lib')
+            ..level = 3
+            ..isOpen = true
+            ..size = 42;
+
+      final entry = entryValueOf(dir);
+
+      expect(entry.level, 3);
+      expect(entry.isOpen, isTrue);
+      // И переживают правку размера на месте: её делают посчитанным каталогам.
+      expect(entry.withSize(100).level, 3);
+      expect(entry.withSize(100).isOpen, isTrue);
+    });
+  });
+
   group('размер каталога', () {
     test('по умолчанию неизвестен', () {
       final dir = DirectoryNode(provider: provider, name: 'lib');

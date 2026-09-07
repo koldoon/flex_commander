@@ -19,6 +19,23 @@ abstract class FsNode {
   /// Размер в байтах или [FsNode.unknownSize], если размер неизвестен.
   int get size;
 
+  /// Глубина строки в списке вида: 0 у корневых, дальше по вложенности.
+  ///
+  /// Свойство **показа**, а не узла, и заполняет его тот, кто собирает строки
+  /// — маппер дерева (`docs/spec/panel-node-list.md`, §4). Виды, которым
+  /// вложенность не нужна, оставляют ноль и не замечают этого поля.
+  ///
+  /// Здесь, а не в отдельном подтипе узла: подтип перестал бы быть каталогом
+  /// или ссылкой, и вход, пометка, операции и перетаскивание сломались бы о
+  /// проверку типа. Рядом ровно по той же причине живёт [size] — его тоже
+  /// дописывают после создания узла.
+  int get level;
+
+  /// Ветвь раскрыта: её содержимое стоит в списке следом.
+  ///
+  /// Как и [level], это про показ и заполняет это маппер.
+  bool get isOpen;
+
   /// Полный путь строкой — через все провайдеры цепочки:
   /// `/home/archive.zip:zip:/inner/doc.txt`. Схема `fs` в начале не печатается,
   /// поэтому обычный путь выглядит обычно.
@@ -53,7 +70,14 @@ abstract class FsNode {
 
 /// Базовая реализация [FsNode]: имя, родитель, размер и обходы дерева вверх.
 abstract class AbstractFsNode implements FsNode {
-  AbstractFsNode({required this.provider, required this.name, this.parent, this.size = FsNode.unknownSize});
+  AbstractFsNode({
+    required this.provider,
+    required this.name,
+    this.parent,
+    this.size = FsNode.unknownSize,
+    this.level = 0,
+    this.isOpen = false,
+  });
 
   @override
   final TreeProvider provider;
@@ -70,6 +94,14 @@ abstract class AbstractFsNode implements FsNode {
   /// [FsNode.unknownSize] — «не посчитан»; см. там же про промежуточные суммы.
   @override
   int size;
+
+  /// Глубина и раскрытость проставляются маппером вида уже после создания —
+  /// как и [size], который дописывает обход.
+  @override
+  int level;
+
+  @override
+  bool isOpen;
 
   @override
   String get pathString => nodePathOf(this).toString();
