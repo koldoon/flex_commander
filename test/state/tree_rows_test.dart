@@ -49,6 +49,13 @@ void main() {
 
   List<String> rows() => [for (final entry in panel.session.entries) '${'  ' * entry.level}${entry.name}'];
 
+  /// Даёт фоновому подсчёту дойти до конца.
+  Future<void> settle() async {
+    for (var i = 0; i < 40; i++) {
+      await Future<void>.delayed(Duration.zero);
+    }
+  }
+
   void cursorTo(String name) => panel.setCursorToName(name);
 
   test('вид просит дерево — и получает строки с глубиной', () async {
@@ -244,6 +251,35 @@ void main() {
     // И раскрывается дальше руками: набор строк — тот, который просили.
     await fresh.session.setExpanded('/other', expanded: true);
     expect(fresh.session.entries.any((entry) => entry.name == 'other' && entry.isOpen), isTrue);
+  });
+
+  test('по размеру дерево раскладывается тоже', () async {
+    await panel.session.setRows(RowsKind.tree);
+    await panel.session.setExpanded('/home/lib', expanded: true);
+
+    panel.session.sortTo(const SortSpec(column: FsColumn.size));
+    expect(rows(), ['/', '  home', '    lib', '      src', '      app.dart', '    main.dart', '  other']);
+
+    panel.session.sortTo(const SortSpec(column: FsColumn.size, direction: SortDirection.descending));
+
+    // Перевернули — и ветви внутри своего уровня переставились.
+    expect(rows(), ['/', '  other', '  home', '    lib', '      src', '      app.dart', '    main.dart']);
+  });
+
+  test('посчитанный каталог встаёт по своему размеру', () async {
+    await panel.session.setRows(RowsKind.tree);
+
+    // Считаем `lib`: 20 байт против неизвестного у `other`.
+    panel.session.setCursorToName('lib');
+    panel.session.toggleCurrentMark();
+    await settle();
+    expect(panel.session.nodes.firstWhere((node) => node.name == 'lib').size, 20);
+
+    panel.session.sortTo(const SortSpec(column: FsColumn.size, direction: SortDirection.descending));
+
+    // Внутри `home` каталог остаётся выше файла, а `other` и `home` —
+    // оба неизвестны, и их разводит доводчик по имени.
+    expect(rows(), ['/', '  other', '  home', '    lib', '    main.dart']);
   });
 
   test('сортировка раскладывает ветви, а не мешает их с содержимым', () async {

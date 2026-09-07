@@ -840,6 +840,28 @@ void main() {
     expect(panel.currentEntry?.name, 'lib');
   });
 
+  testWidgets('щелчок по «Size» переставляет строки по размеру', (tester) async {
+    final sizes = [
+      FakeEntry.directory('/home'),
+      FakeEntry.file('/home/a.txt', size: 30),
+      FakeEntry.file('/home/b.txt', size: 10),
+      FakeEntry.file('/home/c.txt', size: 20),
+    ];
+    final runtime = await open(
+      tester,
+      source: InMemoryTreeProvider(sizes)..home = '/home',
+      left: PanelSettings(path: '/home', expanded: ['/', '/home']),
+    );
+    await tester.pumpAndSettle();
+    expect(branches(tester), containsAllInOrder(['a.txt', 'b.txt', 'c.txt']));
+
+    await tester.tap(find.descendant(of: find.byType(TreeView), matching: find.text('Size')));
+    await tester.pumpAndSettle();
+
+    expect(runtime.app.left.sort.column, FsColumn.size);
+    expect(branches(tester), containsAllInOrder(['b.txt', 'c.txt', 'a.txt']));
+  });
+
   testWidgets('колонку размера выключают в настройках вида', (tester) async {
     final runtime = await open(tester);
     expect(sizeOf(tester, 'main.dart'), '2.0K');

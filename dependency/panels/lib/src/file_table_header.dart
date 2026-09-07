@@ -300,9 +300,12 @@ class FileTableHeaderCell extends StatelessWidget {
             children: [
               // Треугольник стоит перед текстом — как в референсе, и теми же
               // глифами (`fa_caret_down` / `fa_caret_up`).
+              //
+              // Вверх — по возрастанию: остриё показывает, где меньшее, и это
+              // единственное прочтение, которое не приходится вспоминать.
               if (sorted) ...[
                 Icon(
-                  direction == SortDirection.ascending ? theme.icons.caretDown : theme.icons.caretUp,
+                  direction == SortDirection.ascending ? theme.icons.caretUp : theme.icons.caretDown,
                   size: theme.metrics.iconSize,
                   color: theme.colors.headerText,
                 ),
