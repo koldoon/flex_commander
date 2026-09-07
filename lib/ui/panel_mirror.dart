@@ -321,19 +321,6 @@ class PanelMirror extends ChangeNotifier implements Panel {
     ],
   );
 
-  @override
-  Future<Map<String, int>> sizesOf(List<String> paths) async {
-    if (paths.isEmpty) {
-      return const {};
-    }
-    final reply = await _link.call(AskSizes(id, paths));
-    final sizes = reply is CoreSizes ? reply.sizes : const <String, int>{};
-    // Спрошенное ложится в ту же карту: дальше числа приходят событиями, и
-    // второй памяти для них заводить незачем.
-    _sizes.addAll(sizes);
-    return sizes;
-  }
-
   /// Цели значениями — все, включая чужие каталоги: спрашиваются у ядра, где
   /// живут узлы.
   @override

@@ -1,10 +1,9 @@
 import 'dart:async';
 
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
-
-import 'tree_view.dart';
 
 /// Показать каталог другим видом.
 ///
@@ -330,26 +329,56 @@ class TreeBranchCommand extends AppCommand {
           ? tr('Expand the branch under the cursor')
           : tr('Collapse the branch, or step out to the directory it lies in');
 
-  /// Дерево спрашивается у того, кто его рисует: команда не знает, какой сейчас
-  /// вид, — она знает, что перед ней дерево.
+  /// Спрашивается **набор строк**, а не вид: строки собирает ядро, и команда
+  /// знает лишь то, что перед ней дерево (`docs/spec/panel-node-list.md`, §3).
   @override
-  bool isExecutable(CommandContext context) => treeOf(context.app, context.panel) != null;
+  bool isExecutable(CommandContext context) => context.panel.rows == RowsKind.tree;
 
   @override
   Future<void> execute(CommandContext context) async {
-    final tree = treeOf(context.app, context.panel);
-    if (tree == null) {
+    final panel = context.panel;
+    final row = panel.currentEntry;
+    if (row == null) {
       return;
     }
+
     if (expand) {
-      await tree.expand();
-    } else {
-      tree.collapse();
+      if (row.isDirectory && !row.isOpen) {
+        panel.setExpanded(row.path, expanded: true);
+      } else if (row.isOpen) {
+        // Раскрытая ветвь — шаг внутрь: следующая строка и есть её первый
+        // ребёнок.
+        panel.setCursorIndex(panel.cursorIndex + 1);
+      }
+      return;
+    }
+
+    if (row.isOpen) {
+      panel.setExpanded(row.path, expanded: false);
+      return;
+    }
+    // Свернуть нечего — выходим к ветви, в которой строка лежит: по глубине,
+    // потому что строки уже разложены деревом (`panel-view-tree.md`, §6).
+    final at = _parentRowOf(panel);
+    if (at >= 0) {
+      panel.setCursorIndex(at);
     }
   }
 
-  /// Дерево этой панели, если оно сейчас на экране.
-  static TreeViewState? treeOf(Application app, Panel panel) => PanelTrees.of(panel);
+  /// Строка ветви, в которой лежит строка под курсором; -1 — такой нет.
+  static int _parentRowOf(Panel panel) {
+    final rows = panel.entries;
+    final at = panel.cursorIndex;
+    if (at < 0 || at >= rows.length) {
+      return -1;
+    }
+    for (var i = at - 1; i >= 0; i--) {
+      if (rows[i].level < rows[at].level) {
+        return i;
+      }
+    }
+    return -1;
+  }
 }
 
 /// Раскрыть ветвь под курсором; раскрытую — свернуть.
@@ -370,98 +399,15 @@ class ToggleTreeBranchCommand extends AppCommand {
   String get description => tr('Expand the branch, or collapse it back');
 
   @override
-  bool isExecutable(CommandContext context) => PanelTrees.of(context.panel) != null;
+  bool isExecutable(CommandContext context) => context.panel.rows == RowsKind.tree;
 
   @override
   Future<void> execute(CommandContext context) async {
-    await PanelTrees.of(context.panel)?.toggle();
-  }
-}
-
-/// Пометить ветвь под курсором и шагнуть вниз.
-///
-/// Своя команда, а не панельная: помечается ветвь под курсором **дерева**, и
-/// вниз идёт он же. Панельная пометила бы строку списка, которого в дереве не
-/// видно, — счётчик в строке состояния рос бы, а на экране не менялось ничего
-/// (`docs/spec/panel-view-tree.md`, §7).
-class ToggleTreeMarkCommand extends AppCommand {
-  static const String commandId = 'panel.tree.toggleMark';
-
-  @override
-  String get id => commandId;
-
-  @override
-  String get label => tr('Mark branch');
-
-  @override
-  String get description => tr('Mark or unmark the branch under the cursor and step down');
-
-  @override
-  Set<String> get keywords => const {'select', 'toggle selection', 'tree'};
-
-  /// Выполнима при всяком дереве — в том числе на корне, где помечать нечего.
-  /// Иначе клавиша досталась бы панельной пометке, и та пометила бы строку
-  /// невидимого списка: «ничего не произошло» честнее, чем «произошло не то».
-  @override
-  bool isExecutable(CommandContext context) => PanelTrees.of(context.panel) != null;
-
-  @override
-  Future<void> execute(CommandContext context) async => PanelTrees.of(context.panel)?.toggleMark();
-}
-
-/// Курсор по ветвям дерева.
-///
-/// Свои команды, а не панельные: в дереве курсор свой — он ходит по ветвям, а
-/// не по строкам списка. Объявлены раньше панельных, и там, где дерева нет,
-/// невыполнимы (`docs/spec/panel-view-tree.md`, §6).
-class MoveTreeCursorCommand extends AppCommand {
-  MoveTreeCursorCommand(this.step);
-
-  /// Куда шагнуть; шаг страницы и края — те же клавиши, что в списке.
-  final TreeStep step;
-
-  @override
-  String get id => switch (step) {
-    TreeStep.up => 'panel.tree.cursorUp',
-    TreeStep.down => 'panel.tree.cursorDown',
-    TreeStep.pageUp => 'panel.tree.pageUp',
-    TreeStep.pageDown => 'panel.tree.pageDown',
-    TreeStep.first => 'panel.tree.first',
-    TreeStep.last => 'panel.tree.last',
-  };
-
-  @override
-  String get label => switch (step) {
-    TreeStep.up => tr('Branch up'),
-    TreeStep.down => tr('Branch down'),
-    TreeStep.pageUp => tr('Branches page up'),
-    TreeStep.pageDown => tr('Branches page down'),
-    TreeStep.first => tr('First branch'),
-    TreeStep.last => tr('Last branch'),
-  };
-
-  @override
-  bool isExecutable(CommandContext context) => PanelTrees.of(context.panel) != null;
-
-  @override
-  Future<void> execute(CommandContext context) async {
-    final tree = PanelTrees.of(context.panel);
-    if (tree == null) {
+    final panel = context.panel;
+    final row = panel.currentEntry;
+    if (row == null || !row.isDirectory) {
       return;
     }
-    // Страница — то, что видно, минус строка перекрытия: то же правило, что у
-    // списка файлов.
-    final page = (context.panel.pageSize - 1).clamp(1, context.panel.pageSize);
-    tree.moveCursor(switch (step) {
-      TreeStep.up => tree.cursor - 1,
-      TreeStep.down => tree.cursor + 1,
-      TreeStep.pageUp => tree.cursor - page,
-      TreeStep.pageDown => tree.cursor + page,
-      TreeStep.first => 0,
-      TreeStep.last => tree.visibleRows - 1,
-    });
+    panel.setExpanded(row.path, expanded: !row.isOpen);
   }
 }
-
-/// Куда шагает курсор дерева.
-enum TreeStep { up, down, pageUp, pageDown, first, last }

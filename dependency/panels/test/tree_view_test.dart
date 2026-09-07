@@ -280,7 +280,10 @@ void main() {
   testWidgets('каталог панели идёт за курсором', (tester) async {
     final runtime = await open(tester, at: '/home/lib');
     final panel = runtime.app.left;
-    expect(panel.currentPath, '/home/lib');
+    // Курсор стоит на ветви `lib`, а сама она лежит в `/home` — туда панель и
+    // встала: каталог выводится из курсора сразу, а не с первым его шагом
+    // (`docs/spec/panel-node-list.md`, §3).
+    expect(panel.currentPath, '/home');
 
     // Курсор на самой ветви `lib` — под ним `src`. Спускаемся, раскрываем и
     // уходим курсором внутрь.
@@ -306,6 +309,11 @@ void main() {
   testWidgets('на корне панель остаётся там, где стояла', (tester) async {
     final runtime = await open(tester, at: '/home/lib');
     final panel = runtime.app.left;
+
+    // Спускаемся внутрь, чтобы панель встала во вполне определённый каталог.
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    expect(panel.currentPath, '/home/lib');
 
     runtime.commands.dispatch(KeyCombination.parse('Home'));
     await tester.pumpAndSettle();

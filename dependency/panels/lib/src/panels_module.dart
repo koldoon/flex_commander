@@ -112,31 +112,20 @@ class Panels implements FcFrontendModule {
       KeyBinding('Cmd-3', SetPanelViewCommand.commandId, parameters: {SetPanelViewCommand.viewParam: TreeView.viewId}),
     );
 
+    // Курсор и пометка в дереве — **панельные**: строки собирает ядро, и
+    // ходить по ним нечем иным (`docs/spec/panel-node-list.md`, §3). Своими
+    // остались только раскрытие и сворачивание: смысл у `Left` и `Right` тут
+    // другой.
+    //
     // Порядок привязок и есть выбор команды: дерево раньше столбцов, столбцы
     // раньше «в начало» и «в конец». Где дерева нет — команда невыполнима, и
     // клавиша идёт дальше (`docs/spec/panel-views.md`, §10).
-    for (final step in TreeStep.values) {
-      registry.command((context) => MoveTreeCursorCommand(step));
-    }
-    registry.binding(KeyBinding('Up', MoveTreeCursorCommand(TreeStep.up).id));
-    registry.binding(KeyBinding('Down', MoveTreeCursorCommand(TreeStep.down).id));
-    registry.binding(KeyBinding('PgUp', MoveTreeCursorCommand(TreeStep.pageUp).id));
-    registry.binding(KeyBinding('PgDn', MoveTreeCursorCommand(TreeStep.pageDown).id));
-    registry.binding(KeyBinding('Home', MoveTreeCursorCommand(TreeStep.first).id));
-    registry.binding(KeyBinding('End', MoveTreeCursorCommand(TreeStep.last).id));
-
     registry.command((context) => TreeBranchCommand(expand: false));
     registry.command((context) => TreeBranchCommand(expand: true));
     registry.command((context) => ToggleTreeBranchCommand());
     registry.binding(KeyBinding('Left', TreeBranchCommand.collapseId));
     registry.binding(KeyBinding('Right', TreeBranchCommand.expandId));
     registry.binding(KeyBinding('Enter', ToggleTreeBranchCommand.commandId));
-
-    // Пометка в дереве — своя: помечается ветвь под курсором дерева, а не
-    // строка списка, которого не видно (`docs/spec/panel-view-tree.md`, §7).
-    registry.command((context) => ToggleTreeMarkCommand());
-    registry.binding(KeyBinding('Space', ToggleTreeMarkCommand.commandId));
-    registry.binding(KeyBinding('Ins', ToggleTreeMarkCommand.commandId));
 
     registry.command((context) => MoveCursorColumnCommand(right: false));
     registry.command((context) => MoveCursorColumnCommand(right: true));
