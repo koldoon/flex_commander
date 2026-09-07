@@ -128,7 +128,7 @@ void main() {
   group('события', () {
     sendable('панель', LinkEvent(PanelChanged(PanelId.left, state)));
     sendable('список', const LinkEvent(PanelListed(PanelId.left, listing)));
-    sendable('размеры', const LinkEvent(PanelSized(PanelId.left, {'/home/docs': 42})));
+    sendable('размеры', const LinkEvent(PanelSized(PanelId.left, {'/home/docs'})));
     sendable('кусок байт', const LinkEvent(ContentChunk('read#1', [1, 2, 3])));
     sendable('конец байтов', const LinkEvent(ContentEnded('read#1')));
     sendable('вывод оболочки', const LinkEvent(ShellOutput('shell@localhost', [104, 105])));

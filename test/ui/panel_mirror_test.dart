@@ -258,6 +258,28 @@ void main() {
     expect(panel.entries.length, before.length);
   });
 
+  test('число держится за путь, а не за место в списке', () async {
+    panel.measureDirectories();
+    await pumpEventQueue();
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    await pumpEventQueue();
+    expect(panel.sizeOf('/home/docs'), 90);
+
+    // Список сменился: другой каталог, другие строки, другой их порядок.
+    await panel.openPath('/home/docs');
+    await pumpEventQueue();
+
+    // Число всё то же и всё про тот же каталог: строка ему не хозяйка, а
+    // спрашивают о нём по пути — так его берут и ветви дерева.
+    expect(panel.sizeOf('/home/docs'), 90);
+    expect(panel.entries.any((entry) => entry.size == 90), isFalse, reason: 'чужой строке оно не досталось');
+
+    await panel.openPath('/home');
+    await pumpEventQueue();
+    final docs = panel.entries.firstWhere((entry) => entry.name == 'docs');
+    expect(docs.size, 90, reason: 'вернулись — число на месте, обход заново не нужен');
+  });
+
   test('сортировка меняет порядок', () async {
     final names = panel.entries.map((entry) => entry.name).toList();
 

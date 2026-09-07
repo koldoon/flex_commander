@@ -267,6 +267,48 @@ class PanelMirror extends ChangeNotifier implements Panel {
   /// вчерашним.
   final Map<String, int> _sizes = {};
 
+  /// Пути, о которых сказали «изменилось», а значение ещё не спрошено.
+  final Set<String> _stale = {};
+
+  /// Вопрос в пути: второго, пока не ответили, не будет.
+  bool _pulling = false;
+
+  /// Спрашивает значения для накопившихся путей — по одному вопросу за раз.
+  ///
+  /// Пока вопрос в пути, новые пути копятся и уходят следующим — одним. Отсюда
+  /// главное свойство: сколько бы сообщений ни пришло, оборотов через границу
+  /// не больше, чем успевает сделать сама граница, а показанное число всегда
+  /// то, какое ядро знает **на миг ответа**. Гонка тут безвредна: худшее, что
+  /// бывает, — лишняя перерисовка.
+  void _pullSizes() {
+    if (_pulling || _stale.isEmpty) {
+      return;
+    }
+    final asked = List.of(_stale);
+    _stale.clear();
+    _pulling = true;
+    unawaited(
+      _link.call(AskSizes(id, asked)).then((reply) {
+        _pulling = false;
+        final sizes = reply is CoreSizes ? reply.sizes : const <String, int>{};
+        for (final path in asked) {
+          final size = sizes[path];
+          if (size == null) {
+            // Ядро о нём больше не знает: обход оборвали или каталог
+            // перечитали. Частичная сумма, застывшая в колонке, — ложь.
+            _sizes.remove(path);
+          } else {
+            _sizes[path] = size;
+          }
+        }
+        _listing = _withSizes(_listing);
+        notifyListeners();
+        // Пока спрашивали, могло накопиться ещё.
+        _pullSizes();
+      }),
+    );
+  }
+
   @override
   int? sizeOf(String path) => _sizes[path];
 
@@ -572,19 +614,11 @@ class PanelMirror extends ChangeNotifier implements Panel {
         _listing = listing;
         notifyListeners();
 
-      case PanelSized(:final panel, :final sizes) when panel == id:
-        for (final MapEntry(key: path, value: size) in sizes.entries) {
-          if (size == FileEntry.unknownSize) {
-            // Обход оборвали: частичная сумма, застывшая в колонке, — ложь.
-            _sizes.remove(path);
-          } else {
-            _sizes[path] = size;
-          }
-        }
-        // Список чинится тут же: строка знает свой путь, и искать её место
-        // не нужно.
-        _listing = _withSizes(_listing);
-        notifyListeners();
+      case PanelSized(:final panel, :final paths) when panel == id:
+        // Событие говорит только «здесь изменилось». Значение спросим сами —
+        // к этому мигу обход уже ушёл вперёд.
+        _stale.addAll(paths);
+        _pullSizes();
 
       case CoreEvent():
         // Про другую панель — не наше дело.

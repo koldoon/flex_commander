@@ -67,7 +67,7 @@ class CoreServer implements CoreHandler {
           _say(PanelListed(panel, PanelListing(generation: session.generation, entries: session.entries)));
           _say(PanelChanged(panel, session.state));
         },
-        onSized: (sizes) => _say(PanelSized(panel, sizes)),
+        onSized: (paths) => _say(PanelSized(panel, paths)),
       );
     }
   }

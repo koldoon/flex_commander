@@ -170,7 +170,12 @@ void main() {
     app.left.toggleCurrentMark();
     await tester.pump(const Duration(milliseconds: 300));
     await tester.pumpAndSettle();
-
+    // Событие говорит только «изменилось», значение приезжает ответом — то
+    // есть оборотом через границу позже (`docs/spec/client-server.md`, §4.3а).
+    // Оборот идёт настоящим временем: приложение здесь собрано вне поддельного
+    // (`loopback_link.dart`), и кадрами его не сдвинуть.
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 20)));
+    await tester.pumpAndSettle();
     // Размер взялся из узла — той же величины, что и сумма внизу.
     expect(find.descendant(of: row, matching: find.text('384')), findsOneWidget);
   });

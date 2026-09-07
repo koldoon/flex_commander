@@ -385,9 +385,14 @@ void main() {
 
       final sized = heard.whereType<PanelSized>().toList();
       expect(sized, isNotEmpty, reason: 'о посчитанном рассказывают');
-      // Адрес — путь: размер принадлежит каталогу, а не месту в списке, и
-      // список под ним меняется на каждый шаг курсора по дереву.
-      expect(sized.last.sizes['/home/docs'], 40, reason: 'внутри docs лежит сорок байт');
+      // Событие говорит **факт**: вот этот каталог изменился. Адрес — путь:
+      // размер принадлежит каталогу, а не месту в списке, а список под ним
+      // меняется на каждый шаг курсора по дереву.
+      expect(sized.last.paths, contains('/home/docs'));
+
+      // Значение спрашивают — и получают то, какое ядро знает сейчас.
+      final reply = await link.call(const AskSizes(PanelId.left, ['/home/docs']));
+      expect((reply as CoreSizes).sizes['/home/docs'], 40, reason: 'внутри docs лежит сорок байт');
       expect(heard.whereType<PanelListed>().length, listedBefore, reason: 'список ради восьми байт заново не возят');
     });
 

@@ -114,20 +114,17 @@ class PanelSession {
   /// один и тот же сеанс, и одним обработчиком тут не обойтись.
   final List<VoidCallback> _onChanged = [];
   final List<VoidCallback> _onListed = [];
-  final List<void Function(Map<String, int> sizes)> _onSized = [];
+  final List<void Function(Set<String> paths)> _onSized = [];
 
   /// Подписаться на перемены. Возвращает то, чем подписку снять.
   ///
   /// Три события, а не одно, и это не дробление ради дробления. Состояние без
   /// списка — десяток чисел, и разбирать, какое поле сменилось, дороже, чем
-  /// отдать всё. Список — другое дело: он большой и меняется много реже. А
-  /// размеры каталогов меняются по одному числу в строке, и слать ради них
-  /// список целиком значило бы возить мегабайты ради восьми байт.
-  VoidCallback watch({
-    VoidCallback? onChanged,
-    VoidCallback? onListed,
-    void Function(Map<String, int> sizes)? onSized,
-  }) {
+  /// отдать всё. Список — другое дело: он большой и меняется много реже. А про
+  /// размеры каталогов говорится и вовсе одними путями: слать ради них список
+  /// целиком значило бы возить мегабайты ради восьми байт, а везти число —
+  /// везти вчерашнее.
+  VoidCallback watch({VoidCallback? onChanged, VoidCallback? onListed, void Function(Set<String> paths)? onSized}) {
     if (onChanged != null) {
       _onChanged.add(onChanged);
     }
@@ -1172,8 +1169,12 @@ class PanelSession {
     }
   }
 
-  /// Посчитанные размеры, ещё не уехавшие наружу: путь → число.
-  final Map<String, int> _sizeUpdates = {};
+  /// Каталоги, о чьём новом размере наружу ещё не сказали.
+  ///
+  /// Пути, а не числа: наружу едет **факт изменения**, а значение спрашивают —
+  /// пока сообщение идёт, обход уходит вперёд, и увезённое число оказалось бы
+  /// вчерашним.
+  final Set<String> _sizeUpdates = {};
 
   /// У каталога появился (или пропал) размер: запомнить, чтобы отдать пачкой.
   ///
@@ -1181,7 +1182,7 @@ class PanelSession {
   /// свой, захваченный при старте, а список перечитывается на каждый шаг
   /// курсора по дереву — `indexOf` после первого же чтения не находит ничего,
   /// и числа переставали доходить вовсе.
-  void _sizeChanged(DirectoryNode directory) => _sizeUpdates[directory.pathString] = directory.size;
+  void _sizeChanged(DirectoryNode directory) => _sizeUpdates.add(directory.pathString);
 
   /// Отдать накопленное: сперва числа, потом состояние.
   ///
@@ -1189,10 +1190,10 @@ class PanelSession {
   /// она должна не раньше тех размеров, из которых сложилась.
   void _flushSizes() {
     if (_sizeUpdates.isNotEmpty) {
-      final sizes = Map.of(_sizeUpdates);
+      final paths = Set.of(_sizeUpdates);
       _sizeUpdates.clear();
       for (final listener in _onSized.toList()) {
-        listener(sizes);
+        listener(paths);
       }
     }
     _changed();
@@ -1637,9 +1638,7 @@ class PanelSession {
     _measured.removeWhere((key, _) => key == path || key.startsWith(prefix));
     // И та сторона забывает: числа живут по путям и в ней тоже, а перечитали
     // как раз затем, чтобы увидеть нынешнее, а не вчерашнее.
-    for (final key in _forgetting(path, prefix)) {
-      _sizeUpdates[key] = FsNode.unknownSize;
-    }
+    _sizeUpdates.addAll(_forgetting(path, prefix));
     // Сразу, а не с ближайшей пачкой: «забудь» обязано уйти **раньше** нового
     // списка, иначе та сторона на миг подставит в него вчерашние числа.
     _flushSizes();
