@@ -651,52 +651,6 @@ class LocalTreeProvider
     }
   }
 
-  @override
-  Operation<List<FsNode>, int> calculateSize() {
-    return TaskOperation<List<FsNode>, int>((op, nodes) async {
-      var total = 0;
-
-      for (final node in nodes) {
-        op.checkCanceled();
-        // Путь самого объекта: ссылка должна остаться ссылкой, иначе
-        // содержимое каталога, на который она ведёт, попало бы в сумму дважды.
-        final path = entityPathOf(node);
-
-        if (FileSystemEntity.typeSync(path, followLinks: false) != FileSystemEntityType.directory) {
-          total += node.size > 0 ? node.size : 0;
-          op.report(itemsTransferred: total, message: node.name);
-          continue;
-        }
-
-        try {
-          // Обход асинхронный: между объектами управление возвращается циклу
-          // событий, поэтому интерфейс остаётся отзывчивым даже на большом
-          // дереве, а отмена срабатывает сразу. Скрытые объекты считаются
-          // наравне с остальными: размер каталога от того, показывает их
-          // панель или нет, не меняется.
-          await for (final entity in _walk(path)) {
-            op.checkCanceled();
-            if (entity is! File) {
-              continue;
-            }
-            try {
-              total += await entity.length();
-            } on FileSystemException {
-              // Файл исчез или закрыт — он просто не попадёт в сумму.
-              continue;
-            }
-            op.report(itemsTransferred: total, message: node.name);
-          }
-        } on FileSystemException {
-          // Сам каталог недоступен целиком: сумма останется без него.
-          continue;
-        }
-      }
-
-      return total;
-    });
-  }
-
   /// Ошибка «перенос между разными дисками» — единственный случай, когда
   /// переименование отвечает «не умею»: дальше движок скопирует объект
   /// и удалит исходный.

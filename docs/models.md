@@ -220,14 +220,24 @@ abstract interface class TreeProvider {
 
   /// Разрешение ссылки: заполняет link.target.
   Operation<LinkNode, FsNode?> resolveLink();
-
-  /// Суммарный размер объектов вместе с содержимым каталогов.
-  /// Промежуточные суммы идут в MultipleTransferOperationStatus.itemsTransferred.
-  /// Скрытое считается наравне с остальным, ссылки не разыменовываются,
-  /// а недоступное пропускается — но обход не прекращает.
-  Operation<List<FsNode>, int> calculateSize();
 }
+```
 
+Размера в контракте нет: обход поддерева **один на все источники** и живёт в ядре
+(`size_walk.dart`), а провайдер даёт ему только `listChildren`.
+
+```dart
+/// Событие обхода: очередной узел или каталог, поддерево которого пройдено
+/// целиком, — с окончательной суммой и только пост-порядком.
+sealed class WalkEvent {}
+Stream<WalkEvent> walkTree(FsNode root);
+
+/// Тот же обход работой: промежуточные суммы в itemsTransferred, итог —
+/// результат, onDirectory — сумма каждого пройденного каталога.
+Operation<List<FsNode>, int> sizeOperation({DirectorySize? onDirectory});
+```
+
+```dart
 /// Изменение дерева — то, чем пользуются команды: операция целиком, с обходом,
 /// конфликтами, вопросами и прогрессом. Провайдеры его не реализуют: реализация
 /// одна на всех — `TreeTransferEngine`.

@@ -751,7 +751,7 @@ abstract class Operation<P, R> {
 `AcquireParams`, `ResolvePathParams`, `ZipPackParams`, `SevenZipPackParams`.
 Где параметр один и он уже сам себе тип, отдельного класса нет:
 `Operation<String, FsNode?> resolvePath()`, `Operation<LinkNode, FsNode?>
-resolveLink()`, `Operation<List<FsNode>, int> calculateSize()`.
+resolveLink()`, `Operation<List<FsNode>, int> sizeOperation()`.
 
 Вызов на месте выглядит так:
 

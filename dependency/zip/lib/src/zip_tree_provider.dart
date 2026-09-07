@@ -268,24 +268,6 @@ class ZipTreeProvider implements TreeProvider, FileContentProvider, ProviderLife
     _walk(entry, (child) => onEntry(child.isDirectory ? 0 : child.size));
   }
 
-  /// Размер считается по оглавлению: обходить нечего, всё уже прочитано.
-  @override
-  Operation<List<FsNode>, int> calculateSize() {
-    return TaskOperation<List<FsNode>, int>((op, nodes) async {
-      var total = 0;
-      for (final node in nodes) {
-        op.checkCanceled();
-        final entry = _entryOf(node);
-        if (entry == null) {
-          continue;
-        }
-        _walk(entry, (child) => total += child.isDirectory ? 0 : child.size);
-        op.report(itemsTransferred: total, message: node.name);
-      }
-      return total;
-    });
-  }
-
   /// Содержимое файла из архива.
   ///
   /// Запись распаковывается целиком в память, и уже оттуда уходит кусками:

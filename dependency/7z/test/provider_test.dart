@@ -272,7 +272,7 @@ Encrypted = +
       await provider.countEntries(root, (bytes) => count++);
 
       expect(count, 4, reason: 'корень, docs, readme.txt и .hidden');
-      expect(await provider.calculateSize().run([root]), 15);
+      expect(await sizeOperation().run([root]), 15);
       expect(runner.calls.length, before, reason: 'всё уже прочитано при открытии');
     });
 

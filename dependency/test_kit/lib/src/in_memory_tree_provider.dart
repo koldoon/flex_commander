@@ -280,37 +280,6 @@ class InMemoryReadOnlyProvider implements TreeProvider {
     }
   }
 
-  /// Подсчёт размера в памяти: те же промежуточные суммы, что и на диске, —
-  /// иначе тесты проверяли бы не то поведение.
-  @override
-  Operation<List<FsNode>, int> calculateSize() {
-    return TaskOperation<List<FsNode>, int>((op, nodes) async {
-      var total = 0;
-
-      for (final node in nodes) {
-        op.checkCanceled();
-        final path = p.normalize(physicalPathOf(node));
-
-        for (final entry in _entries.values.toList()) {
-          final entryPath = p.normalize(entry.path);
-          if (entryPath != path && !entryPath.startsWith('$path/')) {
-            continue;
-          }
-          if (entry.size > 0) {
-            total += entry.size;
-          }
-          // Пауза между объектами: подсчёт идёт фоном и в памяти тоже.
-          // Микрозадача, а не таймер: тестам не приходится крутить часы.
-          await Future<void>.microtask(() {});
-          op.checkCanceled();
-          op.report(itemsTransferred: total, message: node.name);
-        }
-      }
-
-      return total;
-    });
-  }
-
   /// Пути объекта и всего, что под ним.
   List<String> _subtreeOf(String path) => [
     for (final key in _entries.keys)

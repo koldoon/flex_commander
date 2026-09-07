@@ -266,7 +266,7 @@ void main() {
     test('размер поддерева — только файлы', () async {
       final node = await provider.resolvePath().run('/srv');
 
-      final total = await provider.calculateSize().run([node!]);
+      final total = await sizeOperation().run([node!]);
 
       // <html/> (7) + заметки (14 байт в utf-8) + скрытое (14). Ссылки байтов
       // не переносят, у каталогов их нет.
@@ -289,7 +289,7 @@ void main() {
       server.denied['/srv/locked'] = FsErrorKind.permissionDenied;
 
       final node = await provider.resolvePath().run('/srv');
-      final total = await provider.calculateSize().run([node!]);
+      final total = await sizeOperation().run([node!]);
 
       expect(total, greaterThan(0));
     });

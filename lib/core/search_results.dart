@@ -81,13 +81,4 @@ class SearchResults implements TreeProvider, PanelColumns {
 
   @override
   Future<void> countEntries(FsNode node, void Function(int bytes) onEntry) => node.provider.countEntries(node, onEntry);
-
-  @override
-  Operation<List<FsNode>, int> calculateSize() => TaskOperation<List<FsNode>, int>((op, nodes) async {
-    var total = 0;
-    for (final node in nodes) {
-      total += await node.provider.calculateSize().run([node]);
-    }
-    return total;
-  });
 }

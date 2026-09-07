@@ -106,7 +106,7 @@ void main() {
       final zip = await mounted();
       final docs = (await zip.resolvePath().run('/docs'))!;
 
-      final size = await zip.calculateSize().run([docs]);
+      final size = await sizeOperation().run([docs]);
       expect(size, utf8.encode('руководство').length + utf8.encode('глубоко').length);
     });
   });

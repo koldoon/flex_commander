@@ -323,37 +323,6 @@ class SftpTreeProvider
   }
 
   @override
-  Operation<List<FsNode>, int> calculateSize() {
-    return TaskOperation<List<FsNode>, int>((op, nodes) async {
-      var total = 0;
-
-      for (final node in nodes) {
-        op.checkCanceled();
-
-        if (node is! DirectoryNode) {
-          total += node.size > 0 ? node.size : 0;
-          op.report(itemsTransferred: total, message: node.name);
-          continue;
-        }
-
-        await _walk(remotePathOf(node), (entry, path) {
-          // Отмена проверяется на каждом объекте: обход чужого дерева бывает
-          // долгим, и ждать его конца, чтобы прерваться, незачем.
-          op.checkCanceled();
-          if (entry.isDirectory || entry.isLink) {
-            // Ссылка уезжает ссылкой и байтов не переносит, у каталога их нет.
-            return;
-          }
-          total += entry.size > 0 ? entry.size : 0;
-          op.report(itemsTransferred: total, message: node.name);
-        });
-      }
-
-      return total;
-    });
-  }
-
-  @override
   Future<Stream<List<int>>> openRead(FsNode node, {int offset = 0}) =>
       _sftp.openRead(remotePathOf(node), offset: offset);
 
