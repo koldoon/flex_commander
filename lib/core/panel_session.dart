@@ -1194,7 +1194,17 @@ class PanelSession {
   /// свой, захваченный при старте, а список перечитывается на каждый шаг
   /// курсора по дереву — `indexOf` после первого же чтения не находит ничего,
   /// и числа переставали доходить вовсе.
-  void _sizeChanged(String path) => _sizeUpdates.add(path);
+  /// Число этого каталога изменилось — сказать наружу.
+  ///
+  /// Будит границу **само изменение**, а не тот, кто его сделал: отмена обхода
+  /// — тоже изменение, а сообщение обхода, которое будило прежде, к этому мигу
+  /// уже не придёт. Живьём это выглядело так: снял пометку — частичная сумма
+  /// осталась висеть в строке, и «через раз», потому что иногда её уносил
+  /// соседний обход.
+  void _sizeChanged(String path) {
+    _sizeUpdates.add(path);
+    _sizeRedraw();
+  }
 
   /// Записывает окончательный размер в узлы этого пути.
   void _setSize(String path, int size) {
@@ -1845,7 +1855,6 @@ class PanelSession {
       // В узел не пишем: это половина, а узел хранит только известное.
       _running[path] = status.itemsTransferred;
       _sizeChanged(path);
-      _sizeRedraw();
     }
 
     status.addListener(onScanned);
@@ -1954,7 +1963,7 @@ class PanelSession {
   /// начинала вовсе: пометка при этом не меняется, а без её уведомления никто
   /// не поставит каталог в очередь снова. Помеченное живёт узлами, которые
   /// пережили чтение, поэтому обход над ними по-прежнему правомерен.
-  void _stopSizeScan({bool keepMarked = false}) {
+  void _stopSizeScan({bool keepMarked = false, bool notify = true}) {
     final marked = keepMarked ? selection.paths : const <String>{};
     for (final scan in _scans.values.toList()) {
       if (marked.contains(scan.directory.pathString)) {
@@ -1963,7 +1972,14 @@ class PanelSession {
       _cancelScan(scan.directory);
     }
     _scanQueue.removeWhere((directory) => !marked.contains(directory.pathString));
-    _sizeRedraw.cancel();
+    // Не `cancel`: в очереди уведомлений лежат «забудь» от только что
+    // отменённых обходов, и бросить их значило бы оставить их частичные суммы
+    // висеть на экране навсегда. Кроме закрытия панели — там некому и слушать.
+    if (notify) {
+      _sizeRedraw.flush();
+    } else {
+      _sizeRedraw.cancel();
+    }
     // Уход из каталога подсчёт прекращает: считать то, на что уже не смотрят,
     // незачем.
     if (_scansRunning) {
@@ -1980,7 +1996,7 @@ class PanelSession {
 
   void dispose() {
     _operation?.cancel();
-    _stopSizeScan();
+    _stopSizeScan(notify: false);
     // Панель ушла — она больше не арендатор ни архива, ни своего сервера.
     // Закроются они, только если держать их больше некому: работа, ушедшая в
     // фон, продолжает читать то, из чего панель уже вышла.

@@ -496,6 +496,28 @@ void main() {
       held.release.complete();
     });
 
+    test('снятие пометки убирает растущую сумму и со строки, и с той стороны', () async {
+      final held = _HeldSizeProvider();
+      final panel = await panelOn(held);
+      panel.setCursorToName('docs');
+      panel.toggleCurrentMark();
+      for (var i = 0; i < 5; i++) {
+        await Future<void>.delayed(Duration.zero);
+      }
+      expect(shownSize('docs', panel), _HeldSizeProvider.partial);
+
+      // Тем же Space по тому же каталогу: пометка снята, обход прекращён.
+      panel.setCursorToName('docs');
+      panel.toggleCurrentMark();
+      await settle();
+
+      expect(shownSize('docs', panel), FsNode.unknownSize);
+      // И та сторона узнала: отмена обязана разбудить границу сама — обход,
+      // который её будил, уже мёртв.
+      expect(panel.entries.firstWhere((entry) => entry.name == 'docs').size, FsNode.unknownSize);
+      held.release.complete();
+    });
+
     test('размеры подкаталогов остаются от того же обхода', () async {
       mark('docs');
       await settle();
