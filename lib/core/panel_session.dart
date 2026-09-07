@@ -7,6 +7,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 
 import '../core/listing_cache.dart';
+import '../core/node_list.dart';
 import '../core/selection_controller.dart';
 
 /// Создаёт сеансы панелей.
@@ -216,7 +217,16 @@ class PanelSession {
   /// подписка на изменения есть и в нём.
   final SelectionController selection = SelectionController();
 
-  DirectoryNode? _directory;
+  /// Чем набираются строки панели: сегодня — каталог, завтра дерево и находки
+  /// (`docs/spec/panel-node-list.md`).
+  ///
+  /// Каталог живёт здесь же, а не отдельным полем: «где панель стоит» — это
+  /// свойство набора строк, и второй его копии заводить нельзя, иначе они
+  /// разойдутся.
+  NodeList? _list;
+
+  DirectoryNode? get _directory => _list?.directory;
+
   List<FsNode> _nodes = const [];
   PanelPhase _status = PanelPhase.idle;
   FsError? _error;
@@ -1265,11 +1275,12 @@ class PanelSession {
     // Список, который панель уже видела. Он всего лишь подсказка: чтение
     // пойдёт следом в любом случае и подменит его, если каталог изменился
     // (`docs/spec/listing-cache.md`, §3).
-    final shown = useCache ? cache?.take(dir, includeHidden: _showHidden) : null;
+    final list = DirectoryNodeList(dir);
+    final shown = useCache ? list.shown(cache, includeHidden: _showHidden) : null;
     var adopted = false;
 
     if (shown != null) {
-      _directory = dir;
+      _list = list;
       _lastPath = dir.pathString;
       _adoptLease(lease, dir);
       adopted = true;
@@ -1292,7 +1303,7 @@ class PanelSession {
       // идёт каталог, а не ожидание, и плашка обязана смениться тем же кадром,
       // что и курсор (`docs/spec/panel-view-tree.md`, §3). Занятости нет —
       // иначе стрелка в дереве отнимала бы клавиши у самого дерева.
-      _directory = dir;
+      _list = list;
       _lastPath = dir.pathString;
       _adoptLease(lease, dir);
       adopted = true;
@@ -1306,9 +1317,9 @@ class PanelSession {
       _changed();
     }
 
-    final operation = dir.provider.getDirectoryListing();
+    final operation = list.read(includeHidden: _showHidden);
     _operation = operation;
-    operation.start(ListingParams(dir, includeHidden: _showHidden));
+    operation.start(null);
 
     try {
       final nodes = await operation.result;
@@ -1316,14 +1327,14 @@ class PanelSession {
         // Пользователь уже запросил другой каталог — этот результат не нужен.
         return;
       }
-      cache?.put(dir, nodes, includeHidden: _showHidden);
+      list.remember(cache, nodes, includeHidden: _showHidden);
 
       if (shown != null) {
         _refresh(nodes);
         return;
       }
 
-      _directory = dir;
+      _list = list;
       _lastPath = dir.pathString;
       // Каталог сменился — сменилась и аренда. Делается это здесь, а не там,
       // откуда уходят: способов уйти много (открыть, подняться, набрать путь),
