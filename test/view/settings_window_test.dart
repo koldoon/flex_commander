@@ -1,5 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_terminal/fc_terminal.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
@@ -397,6 +398,24 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(FcSettingsForm), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('панели объявляют своё правило прокрутки', (tester) async {
+    await openSettings(tester);
+
+    final label = setting('Sorting keeps the cursor row in place');
+    await tester.ensureVisible(label);
+    await tester.pumpAndSettle();
+    expect(find.text('File panels'), findsWidgets, reason: 'раздел зовётся названием модуля');
+
+    final panels = runtime.app.settings.modules.scope(Panels().id).section(PanelsSettings.new);
+    expect(panels.cursorHoldsPlace, isTrue, reason: 'по умолчанию включено');
+
+    await tester.tap(label);
+    await tester.pumpAndSettle();
+    expect(panels.cursorHoldsPlace, isFalse);
 
     await tester.pump(const Duration(milliseconds: 20));
   });

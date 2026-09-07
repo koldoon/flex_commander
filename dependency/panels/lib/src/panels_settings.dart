@@ -6,7 +6,7 @@ import 'package:fc_api/fc_api.dart';
 /// кратком виде выглядели бы поломкой, а не настройкой
 /// (`docs/spec/panel-views.md`, §7).
 class PanelsSettings implements Serializable {
-  PanelsSettings({this.briefColumns = autoColumns, this.treeSize = true});
+  PanelsSettings({this.briefColumns = autoColumns, this.treeSize = true, this.cursorHoldsPlace = true});
 
   /// «Сколько влезет»: число столбцов краткого вида считается по самому
   /// длинному имени в каталоге.
@@ -25,15 +25,24 @@ class PanelsSettings implements Serializable {
   /// (`docs/spec/panel-view-tree.md`, §4).
   bool treeSize;
 
+  /// Держать строку под курсором на месте, когда список переставили.
+  ///
+  /// Включено: перестановку человек попросил, а вот терять из виду то, на что
+  /// он смотрит, не просил (`docs/spec/panel-views.md`, §9). Выключенное
+  /// возвращает прежнюю минимальную подмотку: список стоит, курсор уезжает.
+  bool cursorHoldsPlace;
+
   @override
   void fromMap(Map<String, dynamic> m) {
     briefColumns = extract(briefColumns, m['briefColumns']).clamp(autoColumns, maxColumns);
     treeSize = extract(treeSize, m['treeSize']);
+    cursorHoldsPlace = extract(cursorHoldsPlace, m['cursorHoldsPlace']);
   }
 
   @override
   void toMap(Map<String, dynamic> m) {
     m['briefColumns'] = briefColumns;
     m['treeSize'] = treeSize;
+    m['cursorHoldsPlace'] = cursorHoldsPlace;
   }
 }

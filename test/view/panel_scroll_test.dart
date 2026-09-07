@@ -1,5 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_file_icons/fc_file_icons.dart';
+import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
@@ -111,6 +112,39 @@ void main() {
     expect(app.left.sort.column, FsColumn.size);
     expect(app.left.currentEntry?.name, name);
     expect(tester.getRect(row()).top, closeTo(was, 1));
+  });
+
+  testWidgets('настройку сняли — перестановка снова уводит строку', (tester) async {
+    final sized = InMemoryTreeProvider([
+      FakeEntry.directory('/home'),
+      for (var i = 0; i < 60; i++)
+        FakeEntry.file('/home/file-${i.toString().padLeft(2, '0')}.txt', size: (60 - i) * 10),
+    ]);
+    final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
+    settings.modules.scope(Panels().id).section(PanelsSettings.new).cursorHoldsPlace = false;
+    app = (await testApp(provider: sized, modules: featureModules(), settings: settings)).app;
+
+    await pumpApp(tester);
+    for (var i = 0; i < 30; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    }
+    for (var i = 0; i < 5; i++) {
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+    }
+
+    final name = app.left.currentEntry!.name;
+    final label = name.substring(0, name.lastIndexOf('.'));
+    Finder row() => find.descendant(of: find.byType(ListView).first, matching: find.text(label));
+    final was = tester.getRect(row()).top;
+
+    await tester.tap(find.text('Size').first);
+    await tester.pumpAndSettle();
+
+    // Прежнее поведение: список стоит, строка уезжает, и вид догоняет её
+    // минимальной подмоткой.
+    expect(app.left.currentEntry?.name, name);
+    expect(tester.getRect(row()).top, isNot(closeTo(was, 1)));
   });
 
   testWidgets('возврат наверх ставит список туда, где стоит курсор', (tester) async {

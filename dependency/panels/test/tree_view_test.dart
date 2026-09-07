@@ -692,6 +692,41 @@ void main() {
     await tester.pumpAndSettle(const Duration(milliseconds: 500));
   });
 
+  testWidgets('идущий подсчёт не мешает крутить колесо', (tester) async {
+    // Живой дефект: пока считается большой каталог, вид не давал промотать
+    // себя дальше курсора — размеры приходят новым списком строк по нескольку
+    // раз в секунду, и на каждый приход вид возвращался к курсору.
+    final runtime = await open(tester, source: _SlowWalkProvider(deepEntries())..home = '/home', height: 300);
+
+    Future<void> tick([int times = 3]) async {
+      for (var i = 0; i < times; i++) {
+        await tester.pump(const Duration(milliseconds: 10));
+      }
+    }
+
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tick();
+    runtime.commands.dispatch(KeyCombination.parse('Right'));
+    await tick();
+    runtime.commands.dispatch(KeyCombination.parse('Space'));
+    await tick(5);
+    expect(runtime.app.left.markedSizeIsFinal, isFalse, reason: 'обход ещё идёт — иначе стенд ни о чём');
+
+    // Крутим вниз: курсор остаётся наверху и уходит за верхний край.
+    final list = find.byType(ListView).first;
+    double offset() => tester.widget<ListView>(list).controller!.offset;
+    await tester.drag(list, const Offset(0, -160));
+    await tester.pumpAndSettle();
+    final scrolled = offset();
+    expect(scrolled, greaterThan(100), reason: 'вид промотался');
+
+    // И пока обход рассказывает о себе, вид стоит там, куда его поставили.
+    await tick(10);
+    expect(offset(), closeTo(scrolled, 1));
+
+    await tester.pumpAndSettle(const Duration(milliseconds: 500));
+  });
+
   testWidgets('у подкаталогов посчитанного каталога размер тоже виден', (tester) async {
     final runtime = await open(tester);
 
@@ -826,6 +861,45 @@ void main() {
     // вместе с ней (`docs/spec/panel-views.md`, §9).
     expect(runtime.app.left.currentEntry?.name, name);
     expect(tester.getRect(row()).top, closeTo(was, 1));
+  });
+
+  testWidgets('настройку сняли — перестановка снова уводит строку', (tester) async {
+    final deep = [
+      FakeEntry.directory('/home'),
+      for (var i = 0; i < 60; i++)
+        FakeEntry.file('/home/file-${i.toString().padLeft(2, '0')}.txt', size: (60 - i) * 10),
+    ];
+    final runtime = await open(
+      tester,
+      source: InMemoryTreeProvider(deep)..home = '/home',
+      left: PanelSettings(path: '/home', expanded: ['/', '/home']),
+    );
+    await tester.pumpAndSettle();
+    // Флажок спрашивается в момент подмотки — снять его можно и на ходу.
+    runtime.app.settings.modules.scope(Panels().id).section(PanelsSettings.new).cursorHoldsPlace = false;
+
+    for (var i = 0; i < 30; i++) {
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+    }
+    await tester.pumpAndSettle();
+    for (var i = 0; i < 5; i++) {
+      runtime.commands.dispatch(KeyCombination.parse('Up'));
+    }
+    await tester.pumpAndSettle();
+
+    final name = runtime.app.left.currentEntry!.name;
+    Finder row() => find.descendant(of: find.byType(TreeView), matching: find.text(name));
+    final was = tester.getRect(row()).top;
+
+    await tester.tap(find.descendant(of: find.byType(TreeView), matching: find.text('Size')));
+    await tester.pumpAndSettle();
+
+    // Прежнее поведение: список стоит, строка уезжает, и вид догоняет её
+    // минимальной подмоткой — к тому краю, за который она вышла.
+    final list = tester.getRect(find.byType(ListView).first);
+    expect(runtime.app.left.currentEntry?.name, name);
+    expect(tester.getRect(row()).top, isNot(closeTo(was, 1)));
+    expect(tester.getRect(row()).bottom, closeTo(list.bottom, 6));
   });
 
   testWidgets('щелчок по заголовку сортирует дерево', (tester) async {

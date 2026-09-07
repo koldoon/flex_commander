@@ -147,14 +147,22 @@ void main() {
       FakeEntry.directory('/home'),
       for (var i = 1; i <= 200; i++) FakeEntry.file('/home/file${'$i'.padLeft(3, '0')}.txt', size: 201 - i),
     ])..home = '/home';
-    final runtime = await open(tester, size: const Size(700, 300), source: many);
+    final runtime = await open(tester, size: const Size(1400, 300), source: many);
     final panel = runtime.app.left;
 
-    // Не середина: середина при развороте остаётся на месте, и проверять было
-    // бы нечего.
+    // Не середина списка: середина при развороте остаётся на месте, и
+    // проверять было бы нечего.
     panel.setCursorToName('file060.txt');
     await tester.pumpAndSettle();
-    final before = tester.getTopLeft(find.text('file060.txt').first);
+    // И не край экрана: у края любая докрутка вернула бы столбец на то же
+    // место сама. Уходим на пару столбцов назад — вид при этом стоит.
+    runtime.commands.dispatch(KeyCombination.parse('Left'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Left'));
+    await tester.pumpAndSettle();
+
+    final name = panel.currentEntry!.name;
+    final before = tester.getTopLeft(find.text(name).first);
 
     // Размеры расходятся с именами наоборот: сортировка переставляет список
     // целиком, и имени под курсором есть куда уехать.
@@ -163,8 +171,8 @@ void main() {
 
     // Столбец с курсором стоит там же, где стоял (`docs/spec/panel-views.md`,
     // §9): список переставили, а место, на которое человек смотрит, — нет.
-    expect(panel.currentEntry?.name, 'file060.txt');
-    expect(tester.getTopLeft(find.text('file060.txt').first).dx, closeTo(before.dx, 2));
+    expect(panel.currentEntry?.name, name);
+    expect(tester.getTopLeft(find.text(name).first).dx, closeTo(before.dx, 2));
   });
 
   testWidgets('смена вида оставляет курсор на том же имени', (tester) async {

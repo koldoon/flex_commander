@@ -10,14 +10,19 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'cursor_pin.dart';
 import 'file_table_header.dart';
 import 'panel_drag.dart';
+import 'panels_settings.dart';
 import 'file_table_row.dart';
 
 /// Таблица файлов: заголовки колонок, вертикальные линейки на всю высоту и
 /// прокручиваемый список строк.
 class FileTable extends StatefulWidget {
-  const FileTable({super.key, required this.panel});
+  const FileTable({super.key, required this.panel, required this.settings});
 
   final Panel panel;
+
+  /// Настройки видов — спрашиваются в момент подмотки, а не при сборке: снятый
+  /// в окне настроек флажок действует сразу.
+  final PanelsSettings Function() settings;
 
   @override
   State<FileTable> createState() => _FileTableState();
@@ -180,7 +185,9 @@ class _FileTableState extends State<FileTable> {
     final rows = widget.panel.entries;
     final at = widget.panel.cursorIndex;
 
-    final from = _pin.movedFrom(rows, at);
+    // Запоминается **всегда**, флажок или нет: иначе после выключения и
+    // включения закрепление сработало бы от устаревшего места.
+    final from = widget.settings().cursorHoldsPlace ? _pin.movedFrom(rows, at) : null;
     _pin.remember(rows, at);
     final base =
         from == null

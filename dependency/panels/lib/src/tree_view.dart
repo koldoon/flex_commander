@@ -68,13 +68,20 @@ class TreeViewState extends State<TreeView> {
 
   Operations? _operations;
 
-  /// Строка, к которой прокручивали, и строки, в которых её искали.
+  /// Строка, к которой прокручивали: её номер, её адрес и сколько строк было.
   ///
-  /// Следить надо за обоими: строки приходят позже курсора — при запуске
+  /// Следить надо за всеми тремя: строки приходят позже курсора — при запуске
   /// сначала список каталога, потом дерево, — и подмотка, сделанная по прежним
   /// строкам, оставляет курсор за краем.
+  ///
+  /// А вот на **список целиком** смотреть нельзя: пока идёт подсчёт размеров,
+  /// строки приходят новым списком по нескольку раз в секунду, и подмотка на
+  /// каждый такой приход не давала бы промотать вид дальше курсора — колесо
+  /// крутится, а вид возвращается назад. Размеры к месту курсора отношения не
+  /// имеют.
   int _shownCursor = -1;
-  List<FileEntry>? _shownRows;
+  String? _shownPath;
+  int _shownCount = -1;
 
   /// Сохранённую прокрутку уже поставили.
   ///
@@ -208,7 +215,9 @@ class TreeViewState extends State<TreeView> {
     } else {
       // Список переставили — строка под курсором остаётся там же, где была на
       // экране: она и есть то место, на которое человек смотрит.
-      final from = _pin.movedFrom(rows, at);
+      // Запоминается ниже **всегда**, флажок или нет: иначе после выключения и
+      // включения закрепление сработало бы от устаревшего места.
+      final from = widget.settings().cursorHoldsPlace ? _pin.movedFrom(rows, at) : null;
       final base = from == null ? offset : (offset + (at - from) * _step).clamp(0.0, limit);
 
       // Обычный ход курсора — подмотка **минимальная**, как в списке файлов:
@@ -371,9 +380,12 @@ class TreeViewState extends State<TreeView> {
         final inset = theme.metrics.panelRightPadding;
 
         final rows = _rows;
-        if (panel.cursorIndex != _shownCursor || !identical(rows, _shownRows)) {
-          _shownCursor = panel.cursorIndex;
-          _shownRows = rows;
+        final at = panel.cursorIndex;
+        final cursorPath = at >= 0 && at < rows.length ? rows[at].path : null;
+        if (at != _shownCursor || cursorPath != _shownPath || rows.length != _shownCount) {
+          _shownCursor = at;
+          _shownPath = cursorPath;
+          _shownCount = rows.length;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               _revealCursor();

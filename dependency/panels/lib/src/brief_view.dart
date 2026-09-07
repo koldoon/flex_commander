@@ -5,6 +5,7 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
+import 'cursor_pin.dart';
 import 'file_table_row.dart';
 import 'panel_drag.dart';
 import 'panels_settings.dart';
@@ -52,6 +53,9 @@ class _BriefViewState extends State<BriefView> {
   double _viewWidth = 0;
   int _rows = 1;
 
+  /// Строка под курсором с прошлого показа — чтобы перестановка её не сдвинула.
+  final CursorPin _pin = CursorPin();
+
   /// Высота строки последней отрисовки: по ней ищут строку под указателем.
   double _rowHeight = 0;
 
@@ -96,16 +100,30 @@ class _BriefViewState extends State<BriefView> {
     if (!_scroll.hasClients || _columnWidth <= 0 || _viewWidth <= 0) {
       return;
     }
-    final column = widget.panel.cursorIndex ~/ _rows;
+    final rows = widget.panel.entries;
+    final at = widget.panel.cursorIndex;
+    final column = at ~/ _rows;
+
+    // Список переставили — столбец с курсором остаётся там же, где был: то же
+    // правило, что и при смене раскладки, только повод другой
+    // (`docs/spec/panel-views.md`, §9). Запоминается **всегда**, флажок или
+    // нет: иначе после выключения и включения закрепление сработало бы от
+    // устаревшего места.
+    final from = widget.settings().cursorHoldsPlace ? _pin.movedFrom(rows, at) : null;
+    _pin.remember(rows, at);
+    final offset =
+        from == null
+            ? _scroll.offset
+            : (_scroll.offset + (column - from ~/ _rows) * _columnWidth).clamp(0.0, _scroll.position.maxScrollExtent);
+
     final left = column * _columnWidth;
     final right = left + _columnWidth;
-    final offset = _scroll.offset;
     final target = switch (0) {
       _ when left < offset => left,
       _ when right > offset + _viewWidth => right - _viewWidth,
       _ => offset,
     };
-    if (target != offset) {
+    if (target != _scroll.offset) {
       _scroll.jumpTo(target.clamp(0, _scroll.position.maxScrollExtent));
     }
   }

@@ -37,9 +37,26 @@ class Panels implements FcFrontendModule {
     final settings = registry.settings;
     PanelsSettings settingsOf() => settings.section(PanelsSettings.new);
 
+    // Раздел в окне настроек: одно правило, общее на все виды панели. Прочее,
+    // что живёт в `PanelsSettings`, — выбор вида, и спрашивают его там же, в
+    // окне выбора (`Alt-F1`).
+    registry.settingsSchema(() {
+      final strings = registry.services.resolve<Strings>();
+      return SettingsSchema([
+        SettingsField.flag(
+          'cursorHoldsPlace',
+          defaultValue: true,
+          title: strings.tr('Sorting keeps the cursor row in place'),
+          description: strings.tr('The list is reordered and the view moves with the row, so nothing jumps'),
+          read: () => settingsOf().cursorHoldsPlace,
+          write: (value) => settingsOf().cursorHoldsPlace = value,
+        ),
+      ], save: settings.save);
+    });
+
     // Таблица файлов — штатный вид содержимого панели. Остальные виды
     // (результаты поиска, дерево) объявляются так же, своими модулями.
-    registry.viewport(PanelViewports.files, (context, panel) => FileTable(panel: panel));
+    registry.viewport(PanelViewports.files, (context, panel) => FileTable(panel: panel, settings: settingsOf));
     // Панель — тоже состояние области, и рисуется тем же механизмом, что всё
     // остальное: ядро не знает, чем показывают файлы.
     registry.view<Panel>((context, panel) => PanelView(panel: panel));
@@ -52,7 +69,7 @@ class Panels implements FcFrontendModule {
         id: PanelSettings.defaultView,
         title: 'Table',
         description: 'Name, size, date — everything in columns',
-        build: (context, panel) => FileTable(panel: panel),
+        build: (context, panel) => FileTable(panel: panel, settings: settingsOf),
       ),
     );
 
@@ -152,6 +169,11 @@ const Map<String, String> _russian = {
   'Accessed': 'Открыт',
   'Attributes': 'Атрибуты',
   'Reset columns': 'Вернуть колонки',
+
+  // Настройки панелей.
+  'Sorting keeps the cursor row in place': 'Сортировка не двигает строку под курсором',
+  'The list is reordered and the view moves with the row, so nothing jumps':
+      'Список переставляется, а вид едет вместе со строкой — ничего не прыгает',
 
   // Виды панели.
   'Table': 'Таблица',
