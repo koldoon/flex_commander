@@ -82,6 +82,10 @@ class _FileTableState extends State<FileTable> {
   void initState() {
     super.initState();
     widget.panel.addListener(_onPanelChanged);
+    // Вид говорит, что ему нужно: строки каталога. Молчание значило бы «сойдёт
+    // и то, что дали», а дали бы то, что просил прежний вид, — дерево
+    // (`docs/spec/panel-node-list.md`, §3).
+    unawaited(widget.panel.showRows(RowsKind.listing));
   }
 
   @override
@@ -90,6 +94,7 @@ class _FileTableState extends State<FileTable> {
     if (oldWidget.panel != widget.panel) {
       oldWidget.panel.removeListener(_onPanelChanged);
       widget.panel.addListener(_onPanelChanged);
+      unawaited(widget.panel.showRows(RowsKind.listing));
     }
   }
 

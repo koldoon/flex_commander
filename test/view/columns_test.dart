@@ -178,6 +178,24 @@ void main() {
     });
   });
 
+  group('набор строк', () {
+    testWidgets('после дерева таблица показывает каталог, а не ветви', (tester) async {
+      await pumpApp(tester);
+
+      await app.left.setView(TreeView.viewId);
+      await tester.pumpAndSettle();
+      expect(app.left.rows, RowsKind.tree);
+
+      await app.left.setView(PanelSettings.defaultView);
+      await tester.pumpAndSettle();
+
+      // Вид говорит, что ему нужно; молчание значило бы «сойдёт и то, что
+      // просил прежний» (`docs/spec/panel-node-list.md`, §3).
+      expect(app.left.rows, RowsKind.listing);
+      expect(app.left.entries.every((entry) => entry.level == 0), isTrue);
+    });
+  });
+
   group('видимость колонок', () {
     /// Окно выбора вида левой панели: там же, где человек их и меняет.
     Future<void> openViewDialog(WidgetTester tester) async {

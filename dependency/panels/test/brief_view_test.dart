@@ -175,6 +175,30 @@ void main() {
     expect(tester.getTopLeft(find.text(name).first).dx, closeTo(before.dx, 2));
   });
 
+  testWidgets('после дерева краткий вид показывает каталог, а не ветви', (tester) async {
+    // Живой дефект: строки остаются те, которые просил прежний вид, и краткий
+    // рисовал дерево — без отступов, вперемешку с раскрытыми ветвями. Заодно
+    // и клавиши были древесные: `Right` раскрывал ветвь.
+    final runtime = await open(tester);
+    final panel = runtime.app.left;
+
+    await panel.setView(TreeView.viewId);
+    await tester.pumpAndSettle();
+    expect(panel.rows, RowsKind.tree);
+
+    await panel.setView(BriefView.viewId);
+    await tester.pumpAndSettle();
+
+    expect(panel.rows, RowsKind.listing, reason: 'вид сказал, что ему нужно');
+    expect(panel.entries.map((entry) => entry.name), isNot(contains('/')), reason: 'корня дерева в каталоге нет');
+    expect(panel.entries.every((entry) => entry.level == 0), isTrue, reason: 'ветвей тут нет');
+    expect(
+      panel.entries.every((entry) => entry.directoryPath == panel.currentPath || entry.path.isEmpty),
+      isTrue,
+      reason: 'строки — содержимое одного каталога',
+    );
+  });
+
   testWidgets('смена вида оставляет курсор на том же имени', (tester) async {
     final runtime = await open(tester);
     final panel = runtime.app.left;

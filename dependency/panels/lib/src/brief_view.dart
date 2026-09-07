@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:fc_api/fc_api.dart';
@@ -70,6 +71,23 @@ class _BriefViewState extends State<BriefView> {
   /// пора заново.
   List<FileEntry>? _measuredList;
   double _measuredWidth = 0;
+
+  @override
+  void initState() {
+    super.initState();
+    // Вид говорит, что ему нужно: строки каталога. Молчание значило бы «сойдёт
+    // и то, что дали», а дали бы то, что просил прежний вид, — дерево
+    // (`docs/spec/panel-node-list.md`, §3).
+    unawaited(widget.panel.showRows(RowsKind.listing));
+  }
+
+  @override
+  void didUpdateWidget(BriefView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.panel != widget.panel) {
+      unawaited(widget.panel.showRows(RowsKind.listing));
+    }
+  }
 
   @override
   void dispose() {
