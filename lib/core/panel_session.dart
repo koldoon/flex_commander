@@ -1481,10 +1481,19 @@ class PanelSession {
     return true;
   }
 
+  /// Чем сравнивать по этой колонке: своим у источника или встроенным.
+  ///
+  /// Спрашивают **источник**, а не ядро: колонку, которой ядро не знает,
+  /// сортировать ему нечем (`docs/spec/panel-node-list.md`, §5).
+  NodeComparator? _columnComparator(FsColumn column) {
+    final source = provider;
+    return source is PanelColumns ? (source as PanelColumns).comparatorOf(column) : null;
+  }
+
   void _applySort() {
     // Тем же правилом, что рисует колонку: иначе имя стояло бы под одним
     // расширением, а сортировалось по другому.
-    final sorted = _nodes.toList()..sort(comparatorFor(_sort, naming: naming));
+    final sorted = _nodes.toList()..sort(comparatorFor(_sort, naming: naming, column: _columnComparator(_sort.column)));
     _nodes = List.unmodifiable(sorted);
     // Порядок сменился — значит сменился и список: строки те же, но их места
     // другие, а та сторона знает строки по местам.

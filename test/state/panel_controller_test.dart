@@ -6,6 +6,21 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+/// Источник со своей колонкой и своим сравнением.
+///
+/// Ядру такая колонка незнакома, сортировать её ему нечем — сравнение приходит
+/// оттуда же, откуда раскладка (`docs/spec/panel-node-list.md`, §5).
+class _OwnColumnsProvider extends InMemoryTreeProvider implements PanelColumns {
+  _OwnColumnsProvider(super.entries);
+
+  @override
+  ColumnLayout get columns => ColumnLayout.defaults;
+
+  /// Размер сравнивается наоборот — по этому и видно, чьё сравнение в деле.
+  @override
+  NodeComparator? comparatorOf(FsColumn column) => column == FsColumn.size ? (a, b) => b.size.compareTo(a.size) : null;
+}
+
 void main() {
   late InMemoryTreeProvider provider;
   late TestPanel panel;
@@ -350,6 +365,24 @@ void main() {
       panel.sortBy(FsColumn.size);
 
       expect(panel.currentEntry?.name, 'notes.txt');
+    });
+
+    test('сравнение берётся у источника, если он его отдал', () async {
+      final own = _OwnColumnsProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.file('/home/small.txt', size: 10),
+        FakeEntry.file('/home/big.txt', size: 900),
+        FakeEntry.file('/home/mid.txt', size: 100),
+      ]);
+      final panel = testPanel(provider: own, settings: PanelSettings.defaults('/home'));
+      addTearDown(panel.dispose);
+      await panel.openPath('/home');
+
+      panel.sortBy(FsColumn.size);
+
+      // По возрастанию — но сравнение своё, обратное: сверху самый большой.
+      expect(panel.sort.direction, SortDirection.ascending);
+      expect(namesOf(panel), ['..', 'big.txt', 'mid.txt', 'small.txt']);
     });
 
     test('по колонке иконки сортировать нельзя', () {

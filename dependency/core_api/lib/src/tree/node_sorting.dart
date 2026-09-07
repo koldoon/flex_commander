@@ -2,6 +2,14 @@ import 'package:fc_api/fc_api.dart';
 
 import 'fs_node.dart';
 
+/// Как сравнивают по колонке: меньше — выше в списке.
+///
+/// Сравнение живёт **у колонки**, а не в закрытом перечислении случаев:
+/// источник со своими колонками отдаёт своё (`PanelColumns.comparatorOf`), и
+/// добавить колонку — значит добавить сравнение, а не править ядро
+/// (`docs/spec/panel-node-list.md`, §5).
+typedef NodeComparator = int Function(FsNode a, FsNode b);
+
 /// Компаратор для правила сортировки.
 ///
 /// Само правило ([SortSpec]) — общее значение: его выбирают на экране и
@@ -10,7 +18,17 @@ import 'fs_node.dart';
 /// Порядок проверок: псевдоузел «..» всегда первый, затем — каталоги перед
 /// файлами, и только после этого сравнение по колонке. Первые два правила
 /// не переворачиваются направлением сортировки.
-int Function(FsNode, FsNode) comparatorFor(SortSpec spec, {FileNaming naming = const ReferenceFileNaming()}) {
+///
+/// [column] — сравнение колонки; null означает встроенное
+/// ([builtInComparatorFor]). Общие правила и доводчик по имени остаются
+/// здесь при любом сравнении: без доводчика порядок «плавает» между
+/// перечитываниями, а без «..» и каталогов список выглядит чужим.
+int Function(FsNode, FsNode) comparatorFor(
+  SortSpec spec, {
+  FileNaming naming = const ReferenceFileNaming(),
+  NodeComparator? column,
+}) {
+  final byColumn = column ?? builtInComparatorFor(spec.column, naming: naming);
   return (a, b) {
     if (a is ParentDirNode) {
       return b is ParentDirNode ? 0 : -1;
@@ -27,7 +45,7 @@ int Function(FsNode, FsNode) comparatorFor(SortSpec spec, {FileNaming naming = c
       }
     }
 
-    var result = _compareByColumn(a, b, spec.column, naming);
+    var result = byColumn(a, b);
     if (result == 0) {
       // Доводчик по имени: без него порядок «плавает» между перечитываниями.
       result = naturalCompare(a.name, b.name);
@@ -42,9 +60,15 @@ bool _isDirectory(FsNode node) => node is DirectoryNode || (node is LinkNode && 
 /// Каталог объекта — тем же текстом, каким он показан в колонке пути.
 String _directoryOf(FsNode node) => node.parentDirectory?.displayPath ?? '';
 
+/// Встроенное сравнение колонки — то, чем сортируется обычный каталог.
+NodeComparator builtInComparatorFor(FsColumn column, {FileNaming naming = const ReferenceFileNaming()}) {
+  return (a, b) => _compareByColumn(a, b, column, naming);
+}
+
 int _compareByColumn(FsNode a, FsNode b, FsColumn column, FileNaming naming) {
   return switch (column) {
-    // Ветвь сортировке не поддаётся: порядок в дереве задаёт само дерево.
+    // Колонка дерева и колонка имени — одна и та же колонка, нарисованная
+    // по-разному (`docs/spec/panel-node-list.md`, §5).
     FsColumn.tree => naturalCompare(a.name, b.name),
     FsColumn.name => naturalCompare(a.name, b.name),
     FsColumn.path => naturalCompare(_directoryOf(a), _directoryOf(b)),

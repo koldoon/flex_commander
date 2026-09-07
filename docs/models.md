@@ -866,8 +866,14 @@ class SortSpec {
   SortSpec toggled(FsColumn column);
 }
 
-/// Чистая функция, без обращения к ФС.
-int Function(FsNode, FsNode) comparatorFor(SortSpec spec);
+/// Как сравнивают по колонке: меньше — выше в списке.
+typedef NodeComparator = int Function(FsNode a, FsNode b);
+
+/// Чистая функция, без обращения к ФС. Общие правила — здесь, сравнение по
+/// колонке приходит доводом: null означает встроенное. Источник со своей
+/// колонкой отдаёт своё сравнение (`PanelColumns.comparatorOf`) —
+/// `spec/panel-node-list.md`, §5.
+int Function(FsNode, FsNode) comparatorFor(SortSpec spec, {NodeComparator? column});
 ```
 
 Порядок сравнения (правила 1–2 взяты из `nodesCompareFunction` референса и не зависят

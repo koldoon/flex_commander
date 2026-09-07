@@ -35,6 +35,12 @@ class SearchResults implements TreeProvider, PanelColumns {
   /// Без неё список нечитаем: имена в нём повторяются, а различает строки
   /// только то, откуда каждая. Настройку панели это не трогает — раскладку
   /// просит источник, и уходит она вместе с ним.
+  /// Сравнения у находок обычные: колонка пути сравнивает **настоящий**
+  /// каталог найденного объекта, а его знает и ядро. Своё сравнение
+  /// понадобится тому источнику, чья колонка ядру незнакома.
+  @override
+  NodeComparator? comparatorOf(FsColumn column) => null;
+
   @override
   ColumnLayout get columns => ColumnLayout([
     for (final column in ColumnLayout.defaults.columns)

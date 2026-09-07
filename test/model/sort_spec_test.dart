@@ -128,6 +128,46 @@ void main() {
     });
   });
 
+  group('сравнение принадлежит колонке', () {
+    test('своё сравнение источника берётся вместо встроенного', () {
+      // Колонку, которой ядро не знает, сортировать ему нечем: сравнение
+      // приходит оттуда же, откуда раскладка (`spec/panel-node-list.md`, §5).
+      final nodes = <FsNode>[file('a.txt', size: 300), file('b.txt', size: 100), file('c.txt', size: 200)];
+      int byNameLength(FsNode a, FsNode b) => a.name.length.compareTo(b.name.length);
+
+      final result = nodes.toList()..sort(comparatorFor(const SortSpec(column: FsColumn.size), column: byNameLength));
+
+      // Имена одной длины — значит порядок решил доводчик по имени, а не
+      // размер: встроенное сравнение в дело не пошло.
+      expect(result.map((node) => node.name), ['a.txt', 'b.txt', 'c.txt']);
+    });
+
+    test('общие правила остаются при любом сравнении', () {
+      final directory = DirectoryNode(provider: provider, name: 'sub', parent: root);
+      final nodes = <FsNode>[file('zzz.txt'), ParentDirNode(directory), dir('aaa')];
+      int always(FsNode a, FsNode b) => 0;
+
+      final result = nodes.toList()..sort(comparatorFor(const SortSpec(), column: always));
+
+      // «..» первым и каталоги выше файлов — правила ядра, и никакая колонка
+      // их не отменяет.
+      expect(result.map((node) => node.name), ['..', 'aaa', 'zzz.txt']);
+    });
+
+    test('колонка дерева сортируется — и сортируется именем', () {
+      // Колонка дерева и колонка имени — одна и та же колонка, нарисованная
+      // по-разному.
+      expect(FsColumn.tree.sortable, isTrue);
+
+      final nodes = <FsNode>[file('b.txt'), file('a.txt')];
+      expect(sorted(nodes, const SortSpec(column: FsColumn.tree)), ['a.txt', 'b.txt']);
+      expect(sorted(nodes, const SortSpec(column: FsColumn.tree, direction: SortDirection.descending)), [
+        'b.txt',
+        'a.txt',
+      ]);
+    });
+  });
+
   group('SortSpec.toggled', () {
     test('та же колонка меняет направление', () {
       const spec = SortSpec();

@@ -8,6 +8,7 @@ library;
 
 import 'package:fc_api/fc_api.dart';
 
+import 'node_sorting.dart';
 import 'tree_provider.dart';
 
 /// Провайдер, содержимое которого рисуется не таблицей файлов.
@@ -28,4 +29,11 @@ abstract interface class PanelContent {
 /// под свои каталоги, и уход в находки не должен её переписывать.
 abstract interface class PanelColumns {
   ColumnLayout get columns;
+
+  /// Чем сортировать эту колонку; null — сравнением по умолчанию.
+  ///
+  /// Своя колонка без своего сравнения бесполезна: сортировать её ядру нечем,
+  /// а знает о ней только источник. Поэтому сравнение приходит оттуда же,
+  /// откуда раскладка (`docs/spec/panel-node-list.md`, §5).
+  NodeComparator? comparatorOf(FsColumn column);
 }
