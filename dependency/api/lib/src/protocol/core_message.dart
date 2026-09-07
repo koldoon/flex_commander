@@ -154,6 +154,17 @@ final class Arrange extends CoreRequest {
   final RowsKind? rows;
 }
 
+/// Запомнить, насколько список промотан.
+///
+/// Сообщением, а не просьбой: это положение, а не настройка, и ответа на него
+/// не ждут. Ядро его только хранит и возвращает — как и имя вида.
+final class ScrollTo extends CoreRequest {
+  const ScrollTo(this.panel, this.offset);
+
+  final PanelId panel;
+  final double offset;
+}
+
 /// Раскрыть или свернуть ветвь по пути.
 ///
 /// Сообщением, а не просьбой: ответа не ждут, новые строки приедут списком.

@@ -128,8 +128,8 @@ void main() {
 
   InMemoryTreeProvider provider() => InMemoryTreeProvider(entries())..home = '/home';
 
-  Future<AppRuntime> open(WidgetTester tester, {String at = '/home', TreeProvider? source}) async {
-    final settings = AppSettings(left: PanelSettings.defaults(at), right: PanelSettings.defaults('/home'));
+  Future<AppRuntime> open(WidgetTester tester, {String at = '/home', TreeProvider? source, PanelSettings? left}) async {
+    final settings = AppSettings(left: left ?? PanelSettings.defaults(at), right: PanelSettings.defaults('/home'));
     final runtime = await testApp(provider: source ?? provider(), modules: featureModules(), settings: settings);
     await runtime.app.start();
 
@@ -707,6 +707,30 @@ void main() {
     // Обход и так прошёл через `src` — сумма по нему известна, и прятать её
     // незачем.
     expect(sizeOf(tester, 'src'), isNotEmpty);
+  });
+
+  testWidgets('после запуска вид стоит там же, где стоял', (tester) async {
+    // Длинное дерево: экрана на него не хватает, и промотка видна.
+    final deep = [
+      FakeEntry.directory('/home'),
+      for (var i = 0; i < 60; i++) FakeEntry.file('/home/file-$i.txt', size: 10),
+    ];
+    final runtime = await open(
+      tester,
+      source: InMemoryTreeProvider(deep)..home = '/home',
+      left: PanelSettings(path: '/home', expanded: ['/', '/home'], cursorPath: '/home/file-59.txt'),
+    );
+    await tester.pumpAndSettle();
+
+    // Курсор глубоко внизу — и он виден целиком, а не разрезан нижним краем.
+    // Строка дерева, а не строка состояния: имя под курсором видно в обеих.
+    final row = find.descendant(of: find.byType(TreeView), matching: find.text('file-59.txt'));
+    expect(row, findsOneWidget);
+    final panelBox = tester.getRect(find.byType(TreeView));
+    final rowBox = tester.getRect(row);
+    expect(rowBox.top, greaterThanOrEqualTo(panelBox.top));
+    expect(rowBox.bottom, lessThanOrEqualTo(panelBox.bottom));
+    expect(runtime.app.left.currentEntry?.name, 'file-59.txt');
   });
 
   testWidgets('колонку размера выключают в настройках вида', (tester) async {

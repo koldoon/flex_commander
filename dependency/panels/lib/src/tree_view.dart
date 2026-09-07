@@ -61,9 +61,13 @@ class TreeViewState extends State<TreeView> {
 
   Operations? _operations;
 
-  /// Строка, к которой прокручивали в прошлый раз: курсор ходит по строкам
-  /// панели, и следить надо за его сменой, а не за каждым кадром.
+  /// Строка, к которой прокручивали, и строки, в которых её искали.
+  ///
+  /// Следить надо за обоими: строки приходят позже курсора — при запуске
+  /// сначала список каталога, потом дерево, — и подмотка, сделанная по прежним
+  /// строкам, оставляет курсор за краем.
   int _shownCursor = -1;
+  List<FileEntry>? _shownRows;
 
   @override
   void initState() {
@@ -113,22 +117,72 @@ class TreeViewState extends State<TreeView> {
   List<FileEntry> get _rows => widget.panel.entries;
 
   /// Прокрутить к курсору, если он ушёл из виду.
-  void _revealCursor() {
+  ///
+  /// Список стоит **целыми строками**: высота области на шаг строки делится
+  /// редко, и подмотка «ровно настолько, чтобы влезло» оставляла бы строку
+  /// разрезанной нижним краем.
+  ///
+  /// [restoring] — первый показ после восстановления. Вид встаёт туда, где
+  /// стоял при закрытии, и правила ниже нужны, только если это не подошло:
+  /// пока приложение было закрыто, снаружи могло измениться, и курсор
+  /// оказывается за краем. Правил два (`panel-view-tree.md`, §5): помещается
+  /// ветвь вместе с курсором — она и становится первой строкой, и видно,
+  /// **откуда** этот курсор; не помещается — курсор уводится к середине.
+  void _revealCursor({bool restoring = false}) {
     if (!_scroll.hasClients || _step <= 0) {
       return;
     }
-    final top = widget.panel.cursorIndex * _step;
-    final bottom = top + _step;
-    final offset = _scroll.offset;
-    final height = _scroll.position.viewportDimension;
-    final target = switch (0) {
-      _ when top < offset => top,
-      _ when bottom > offset + height => bottom - height,
-      _ => offset,
-    };
-    if (target != offset) {
-      _scroll.jumpTo(target.clamp(0, _scroll.position.maxScrollExtent));
+    final rows = _rows;
+    final at = widget.panel.cursorIndex;
+    if (at < 0 || at >= rows.length) {
+      return;
     }
+
+    final height = _scroll.position.viewportDimension;
+    // Целых строк в области; последняя, разрезанная, за строку не считается.
+    final visible = (height / _step).floor().clamp(1, rows.length);
+    final maxFirst = (rows.length - visible).clamp(0, rows.length);
+
+    var first = (_scroll.offset / _step).round();
+
+    if (restoring) {
+      // Сначала — туда, где вид стоял при закрытии.
+      first = (widget.panel.scrollOffset / _step).round().clamp(0, maxFirst);
+
+      if (at < first || at > first + visible - 1) {
+        // Не подошло: пока приложение было закрыто, снаружи изменилось.
+        final parent = _parentIndexOf(at);
+        first = parent >= 0 && at - parent < visible - 1 ? parent : at - visible ~/ 2;
+      }
+    }
+
+    // Курсор обязан быть виден целиком, каким бы ни было правило.
+    first = first.clamp(0, maxFirst);
+    if (at < first) {
+      first = at;
+    } else if (at > first + visible - 1) {
+      first = at - visible + 1;
+    }
+
+    // Предел считается по своим строкам, а не спрашивается у списка: строки
+    // только что сменились, и его мерки ещё от прежних — подмотка вышла бы на
+    // строку короче, и курсор остался бы под нижним краем.
+    final limit = (rows.length * _step - height).clamp(0.0, double.infinity);
+    final target = (first * _step).clamp(0.0, limit);
+    if (target != _scroll.offset) {
+      _scroll.jumpTo(target);
+    }
+  }
+
+  /// Строка ветви, в которой лежит строка [at]; -1 — такой нет.
+  int _parentIndexOf(int at) {
+    final rows = _rows;
+    for (var i = at - 1; i >= 0; i--) {
+      if (rows[i].level < rows[at].level) {
+        return i;
+      }
+    }
+    return -1;
   }
 
   /// Строка под точкой — в местных координатах области.
@@ -169,14 +223,8 @@ class TreeViewState extends State<TreeView> {
   /// По глубине, а не по пути: строки уже разложены деревом, и соседство в
   /// списке и есть родство.
   FileEntry? _parentOf(FileEntry row) {
-    final rows = _rows;
-    final at = rows.indexOf(row);
-    for (var i = at - 1; i >= 0; i--) {
-      if (rows[i].level < row.level) {
-        return rows[i];
-      }
-    }
-    return null;
+    final at = _parentIndexOf(_rows.indexOf(row));
+    return at < 0 ? null : _rows[at];
   }
 
   /// Обводится **та ветвь, в которую ляжет**: указали на файл — горит его
@@ -259,48 +307,58 @@ class TreeViewState extends State<TreeView> {
         // в таблице.
         final inset = theme.metrics.panelRightPadding;
 
-        if (panel.cursorIndex != _shownCursor) {
+        final rows = _rows;
+        if (panel.cursorIndex != _shownCursor || !identical(rows, _shownRows)) {
+          final restoring = _shownRows == null;
           _shownCursor = panel.cursorIndex;
+          _shownRows = rows;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              _revealCursor();
+              _revealCursor(restoring: restoring);
             }
           });
         }
 
-        final rows = _rows;
-        final list = LayoutBuilder(
-          builder: (context, constraints) {
-            // Страница — то, что видно: тем же счётом, что в таблице.
-            panel.pageSize = (constraints.maxHeight / step).floor().clamp(1, 1000);
-            return ListView.builder(
-              controller: _scroll,
-              itemExtent: step,
-              itemCount: rows.length,
-              itemBuilder: (context, index) {
-                final row = rows[index];
-                final branch = _BranchRow(
-                  row: row,
-                  underCursor: index == panel.cursorIndex,
-                  marked: panel.isMarked(row),
-                  // Размер приходит **в строке**: его проставило ядро, и
-                  // второго источника у него нет (`panel-node-list.md`, §4).
-                  size: showSize ? row.size : FileEntry.unknownSize,
-                  sizeWidth: showSize ? sizeWidth : 0,
-                  inset: inset,
-                  panelActive: app.view.takesKeys(panel),
-                  onTap: () => _onTap(index),
-                  onToggle: () {
-                    app.activate(panel);
-                    toggleAt(index);
-                  },
-                );
-                // Тянут за ветвь то же, что тянут за строку списка: объект, а
-                // не картинку (`panel_drag.dart`).
-                return panelDragSource(context: context, panel: panel, entry: row, child: branch);
-              },
-            );
+        final list = NotificationListener<ScrollEndNotification>(
+          // Прокрутка запоминается, когда устоялась, — и только тогда:
+          // сообщение на каждую точку было бы лентой сообщений через границу.
+          onNotification: (notification) {
+            panel.setScrollOffset(notification.metrics.pixels);
+            return false;
           },
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Страница — то, что видно: тем же счётом, что в таблице.
+              panel.pageSize = (constraints.maxHeight / step).floor().clamp(1, 1000);
+              return ListView.builder(
+                controller: _scroll,
+                itemExtent: step,
+                itemCount: rows.length,
+                itemBuilder: (context, index) {
+                  final row = rows[index];
+                  final branch = _BranchRow(
+                    row: row,
+                    underCursor: index == panel.cursorIndex,
+                    marked: panel.isMarked(row),
+                    // Размер приходит **в строке**: его проставило ядро, и
+                    // второго источника у него нет (`panel-node-list.md`, §4).
+                    size: showSize ? row.size : FileEntry.unknownSize,
+                    sizeWidth: showSize ? sizeWidth : 0,
+                    inset: inset,
+                    panelActive: app.view.takesKeys(panel),
+                    onTap: () => _onTap(index),
+                    onToggle: () {
+                      app.activate(panel);
+                      toggleAt(index);
+                    },
+                  );
+                  // Тянут за ветвь то же, что тянут за строку списка: объект, а
+                  // не картинку (`panel_drag.dart`).
+                  return panelDragSource(context: context, panel: panel, entry: row, child: branch);
+                },
+              );
+            },
+          ),
         );
 
         final content = Stack(

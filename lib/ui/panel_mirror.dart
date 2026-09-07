@@ -451,6 +451,12 @@ class PanelMirror extends ChangeNotifier implements Panel {
   @override
   void setExpanded(String path, {required bool expanded}) => _link.tell(ExpandRow(id, path, expanded: expanded));
 
+  @override
+  double get scrollOffset => _state.scroll;
+
+  @override
+  void setScrollOffset(double offset) => _link.tell(ScrollTo(id, offset));
+
   // --- своя работа ---
 
   /// Работа, которую ведёт экран; null — панель занята чем-то ядровым или

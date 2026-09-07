@@ -14,6 +14,7 @@ class PanelSettings implements Serializable {
     this.path = '',
     this.cursor = '',
     this.cursorPath = '',
+    this.scroll = 0,
     ColumnLayout? columns,
     this.sort = const SortSpec(),
     this.showHidden = false,
@@ -45,6 +46,13 @@ class PanelSettings implements Serializable {
   /// (`docs/spec/panel-node-list.md`, §3).
   String cursorPath;
 
+  /// Насколько список был промотан — в точках.
+  ///
+  /// Положение, а не настройка: сохраняется затем, чтобы при запуске экран
+  /// выглядел так же, как при закрытии. Не подошло (данные снаружи изменились)
+  /// — вид подматывает по своему правилу (`docs/spec/panel-view-tree.md`, §5).
+  double scroll;
+
   ColumnLayout columns;
   SortSpec sort;
   bool showHidden;
@@ -75,6 +83,9 @@ class PanelSettings implements Serializable {
     if (cursorPath.isNotEmpty) {
       m['cursorPath'] = cursorPath;
     }
+    if (scroll > 0) {
+      m['scroll'] = scroll;
+    }
     m['showHidden'] = showHidden;
     m['view'] = view;
     // Раскладка колонок и правило сортировки — значения, а не документы:
@@ -98,6 +109,7 @@ class PanelSettings implements Serializable {
 
     cursor = extract(cursor, m['cursor']);
     cursorPath = extract(cursorPath, m['cursorPath']);
+    scroll = extract(scroll, m['scroll']);
     showHidden = extract(showHidden, m['showHidden']);
     view = extract(view, m['view']);
     sort = SortSpec.fromJson(m['sort']);

@@ -30,6 +30,7 @@ class PanelState {
     this.cursorSeq = 0,
     this.generation = 0,
     this.rows = RowsKind.listing,
+    this.scroll = 0,
     this.sort = const SortSpec(),
     required this.columns,
     this.showHidden = false,
@@ -105,6 +106,9 @@ class PanelState {
   /// Чем набраны строки: содержимое каталога или дерево.
   final RowsKind rows;
 
+  /// Сохранённая прокрутка — то, с чего вид начинает после запуска.
+  final double scroll;
+
   final SortSpec sort;
   final ColumnLayout columns;
   final bool showHidden;
@@ -151,6 +155,7 @@ class PanelState {
     int? cursorSeq,
     int? generation,
     RowsKind? rows,
+    double? scroll,
     SortSpec? sort,
     ColumnLayout? columns,
     bool? showHidden,
@@ -174,6 +179,7 @@ class PanelState {
     cursorSeq: cursorSeq ?? this.cursorSeq,
     generation: generation ?? this.generation,
     rows: rows ?? this.rows,
+    scroll: scroll ?? this.scroll,
     sort: sort ?? this.sort,
     columns: columns ?? this.columns,
     view: view ?? this.view,

@@ -98,6 +98,7 @@ class PanelSession {
        _view = settings.view,
        _expanded = {...settings.expanded},
        _savedCursor = settings.cursorPath,
+       _scrollOffset = settings.scroll,
        _sort = settings.sort,
        _showHidden = settings.showHidden,
        _lastPath = settings.path {
@@ -259,6 +260,12 @@ class PanelSession {
   /// Одноразовая: как только строки собраны и курсор поставлен, память
   /// уступает место живому курсору.
   String _savedCursor;
+
+  /// Насколько список промотан — то, что вид сказал в прошлый раз.
+  ///
+  /// Ядро об этом ничего не знает: точки приходят с той стороны, хранятся
+  /// здесь и возвращаются обратно вместе с состоянием — как и имя вида.
+  double _scrollOffset;
   SortSpec _sort;
   bool _showHidden;
 
@@ -1028,6 +1035,12 @@ class PanelSession {
 
   RowsKind get rows => _rows;
 
+  double get scrollOffset => _scrollOffset;
+
+  /// Запомнить прокрутку. Состояние наружу не гоняется: показанное от этого не
+  /// меняется, а при следующем запуске значение уедет в настройках.
+  void setScrollOffset(double value) => _scrollOffset = value;
+
   /// Сменить набор строк: каталог или дерево.
   ///
   /// Строки пересобираются сразу: вид, попросивший дерево, обязан увидеть
@@ -1267,6 +1280,7 @@ class PanelSession {
       showHidden: _showHidden,
       view: _view,
       expanded: _expanded.toList(),
+      scroll: _scrollOffset,
     );
   }
 
@@ -1306,6 +1320,7 @@ class PanelSession {
     showHidden: _showHidden,
     view: _view,
     rows: _rows,
+    scroll: _scrollOffset,
     markedPaths: selection.paths,
     marksSeq: _marksSeq,
     markedSize: selection.totalSize,

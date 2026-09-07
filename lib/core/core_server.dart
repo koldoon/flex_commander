@@ -201,6 +201,10 @@ class CoreServer implements CoreHandler {
         session(panel).toggleCurrentMark();
         return null;
 
+      case ScrollTo(:final panel, :final offset):
+        session(panel).setScrollOffset(offset);
+        return null;
+
       case ExpandRow(:final panel, :final path, :final expanded):
         await session(panel).setExpanded(path, expanded: expanded);
         return null;
