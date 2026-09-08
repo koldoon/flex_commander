@@ -58,9 +58,12 @@ PANEL = (14, 29, 59)
 # сквозь все строки и слила бы их в одну полосу.
 PANEL_BOX = (20, 300, 60, 530)
 
-# Полоса заголовка у всех окон одна и та же; сверять её незачем, а её нижняя
-# грань даёт лишнюю полосу, которая сбивала бы сведение.
+# Полосы чернил считаются ниже заголовка: его нижняя грань дала бы лишнюю
+# полосу и сбила сведение. Сам заголовок проверяется отдельно — `title_ink`.
 SKIP_TOP = 38
+
+# Надпись в полосе заголовка: белая на синем, поэтому берётся по яркости.
+TITLE_BRIGHT = 300
 
 
 def window_rect(image):
@@ -96,6 +99,21 @@ def ink_bands(image, rect):
     return bands
 
 
+def title_ink(image, rect):
+    """Где стоят чернила надписи в полосе заголовка, считая от верха окна.
+
+    Полосу заголовка сверять надо отдельно: она у всех окон одна, полосный
+    разбор её пропускает, и перекос надписи в ней однажды так и дожил до
+    замечания глазами.
+    """
+    pixels = image.load()
+    left, top = rect[0] + 16, rect[1]
+    right = rect[2] - 16
+    rows = [y for y in range(top, top + 30)
+            if any(sum(pixels[x, y]) > TITLE_BRIGHT for x in range(left, right))]
+    return (rows[0] - top, rows[-1] - top) if rows else None
+
+
 def compare(name, gold_file, mock_file):
     gold = Image.open(os.path.join(GOLD, gold_file)).convert('RGB')
     mock = Image.open(mock_file).convert('RGB')
@@ -129,6 +147,11 @@ def compare(name, gold_file, mock_file):
     for i, band in enumerate(mock_bands):
         if i not in taken:
             issues.append('   в макете %s — в эталоне такой полосы нет' % band)
+
+    gold_title, mock_title = title_ink(gold, gold_rect), title_ink(mock, mock_rect)
+    if gold_title and mock_title and abs(gold_title[0] - mock_title[0]) > 1:
+        issues.insert(0, '   заголовок: макет %s эталон %s   верх %+d'
+                      % (mock_title, gold_title, mock_title[0] - gold_title[0]))
 
     print('== %-18s макет %dx%d / эталон %dx%d  [%s]  полос %d / %d'
           % (name, mock_size[0], mock_size[1], gold_size[0], gold_size[1],
