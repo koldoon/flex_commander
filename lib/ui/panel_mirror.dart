@@ -475,7 +475,8 @@ class PanelMirror extends ChangeNotifier implements Panel {
   Future<void> showRows(RowsKind kind) => _link.call(Arrange(id, rows: kind));
 
   @override
-  void setExpanded(String path, {required bool expanded}) => _link.tell(ExpandRow(id, path, expanded: expanded));
+  void setExpanded(String path, {required bool expanded, bool deep = false}) =>
+      _link.tell(ExpandRow(id, path, expanded: expanded, deep: deep));
 
   @override
   double get scrollOffset => _state.scroll;

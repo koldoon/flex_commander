@@ -97,6 +97,14 @@ class Panels implements FcFrontendModule {
       ),
     );
 
+    // Четыре команды дерева: поддерево под курсором и всё дерево, каждое — в
+    // обе стороны (`docs/spec/panel-view-tree.md`, §6а).
+    for (final expand in const [true, false]) {
+      for (final all in const [true, false]) {
+        registry.command((context) => TreeDeepCommand(expand: expand, all: all));
+      }
+    }
+
     registry.command((context) => SetPanelViewCommand());
     registry.command((context) => ChoosePanelViewCommand());
 
@@ -125,6 +133,14 @@ class Panels implements FcFrontendModule {
         parameters: {SetPanelViewCommand.viewParam: PanelSettings.defaultView},
       ),
     );
+
+    // Раскрытие вглубь: `Shift` к тем же стрелкам, что раскрывают ветвь на шаг,
+    // а `Cmd` к ним — всё дерево. Клавиши свободны, а смысл читается сам:
+    // «то же, но целиком» (`docs/spec/panel-view-tree.md`, §6а).
+    registry.binding(KeyBinding('Shift-Right', TreeDeepCommand.expandSubtreeId));
+    registry.binding(KeyBinding('Shift-Left', TreeDeepCommand.collapseSubtreeId));
+    registry.binding(KeyBinding('Shift-Cmd-Right', TreeDeepCommand.expandAllId));
+    registry.binding(KeyBinding('Shift-Cmd-Left', TreeDeepCommand.collapseAllId));
     registry.binding(
       KeyBinding('Cmd-2', SetPanelViewCommand.commandId, parameters: {SetPanelViewCommand.viewParam: BriefView.viewId}),
     );
@@ -188,6 +204,14 @@ const Map<String, String> _russian = {
   'brief|Columns': 'Столбцов',
   'As many as fit': 'Сколько влезет',
   'Tree': 'Дерево',
+  'Expand all': 'Раскрыть всё',
+  'Expand subtree': 'Раскрыть поддерево',
+  'Collapse all': 'Свернуть всё',
+  'Collapse subtree': 'Свернуть поддерево',
+  'Open every branch of the tree — up to a limit': 'Раскрыть все ветви дерева — до предела',
+  'Open the branch under the cursor and everything inside it': 'Раскрыть ветвь под курсором и всё, что в ней',
+  'Close every branch, leaving the roots': 'Свернуть все ветви, оставив корни',
+  'Close the branch under the cursor and everything inside it': 'Свернуть ветвь под курсором и всё, что в ней',
   'Everything as branches — where you are and what lies where': 'Всё ветвями — где вы сейчас и что где лежит',
   'Branch up': 'Ветвь выше',
   'Branch down': 'Ветвь ниже',

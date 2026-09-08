@@ -226,8 +226,10 @@ class CoreServer implements CoreHandler {
         session(panel).setScrollOffset(offset);
         return null;
 
-      case ExpandRow(:final panel, :final path, :final expanded):
-        await session(panel).setExpanded(path, expanded: expanded);
+      case ExpandRow(:final panel, :final path, :final expanded, :final deep):
+        await (deep
+            ? session(panel).setExpandedDeep(path, expanded: expanded)
+            : session(panel).setExpanded(path, expanded: expanded));
         return null;
 
       case Arrange(:final panel, :final sort, :final columns, :final showHidden, :final view, :final rows):

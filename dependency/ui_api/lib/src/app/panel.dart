@@ -311,7 +311,11 @@ abstract interface class Panel implements ViewportState {
   /// Раскрыть или свернуть ветвь по пути.
   ///
   /// Путём, а не строкой: строки живут путями, а узлы после чтения другие.
-  void setExpanded(String path, {required bool expanded});
+  /// Раскрыть или свернуть ветвь по пути.
+  ///
+  /// [deep] — вместе со всем, что под ней; пустой путь при этом значит **всё
+  /// дерево** (`docs/spec/panel-view-tree.md`, §6а).
+  void setExpanded(String path, {required bool expanded, bool deep = false});
 
   SortSpec get sort;
 

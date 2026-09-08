@@ -177,11 +177,16 @@ final class ScrollTo extends CoreRequest {
 /// Сообщением, а не просьбой: ответа не ждут, новые строки приедут списком.
 /// Путь — потому что строки живут путями, а узлы после чтения другие.
 final class ExpandRow extends CoreRequest {
-  const ExpandRow(this.panel, this.path, {required this.expanded});
+  const ExpandRow(this.panel, this.path, {required this.expanded, this.deep = false});
 
   final PanelId panel;
+
+  /// Путь ветви; пусто вместе с [deep] — всё дерево.
   final String path;
   final bool expanded;
+
+  /// Вместе со всем, что под ней (`docs/spec/panel-view-tree.md`, §6а).
+  final bool deep;
 }
 
 /// Посчитать размеры всех каталогов текущего каталога.

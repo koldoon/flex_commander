@@ -16,6 +16,16 @@ import 'node_list.dart';
 ///
 /// **Содержимое ветви читает провайдер самого узла**, а не корня: найденный
 /// каталог раскрывается настоящим источником, каким бы ни был набор.
+/// Чем кончилось раскрытие: сколько ветвей открыто и упёрлось ли в предел.
+class TreeExpansion {
+  const TreeExpansion({required this.opened, required this.stopped});
+
+  final int opened;
+
+  /// Предел достигнут: дальше человек раскрывает сам.
+  final bool stopped;
+}
+
 class TreeNodeList implements NodeList {
   TreeNodeList({required List<DirectoryNode> roots, Iterable<String> expanded = const []})
     : _rootDirectories = List.unmodifiable(roots),
@@ -110,6 +120,124 @@ class TreeNodeList implements NodeList {
     walk(_roots, null);
     return found;
   }
+
+  /// Раскрыть ветвь и всё, что под ней; пустой путь — всё дерево.
+  ///
+  /// Читает по дороге: узнать, что там внутри, иначе нечем. Предел не
+  /// перестраховка, а необходимость — «раскрыть всё» над корнем диска значит
+  /// прочитать диск целиком; упёрлись в него — так и говорим
+  /// (`docs/spec/panel-view-tree.md`, §6а).
+  ///
+  /// Дышит по времени: местный провайдер читает каталог **синхронно**, и без
+  /// вдоха обход занял бы поток целиком — как это было у поиска
+  /// (`SearchRun.breath`).
+  Future<TreeExpansion> expandDeep(
+    String path, {
+    required int limit,
+    required bool includeHidden,
+    required OperationContext op,
+  }) async {
+    final start = path.isEmpty ? _roots : [_branchAt(path)];
+    var opened = 0;
+    var stopped = false;
+    final sinceBreath = Stopwatch()..start();
+
+    Future<void> walk(_Branch? branch) async {
+      if (branch == null || stopped) {
+        return;
+      }
+      final node = branch.node;
+      if (node is! DirectoryNode) {
+        return;
+      }
+      if (opened >= limit) {
+        stopped = true;
+        return;
+      }
+      op.checkCanceled();
+      if (sinceBreath.elapsed >= _breath) {
+        sinceBreath
+          ..reset()
+          ..start();
+        await Future<void>.delayed(Duration.zero);
+        op.checkCanceled();
+      }
+
+      if (_expanded.add(node.pathString)) {
+        opened++;
+      }
+      await _fillOne(branch);
+      for (final child in branch.children ?? const <_Branch>[]) {
+        // Скрытое не раскрываем, пока его не показывают: читать то, чего не
+        // видно, незачем.
+        if (!includeHidden && child.node.name.startsWith('.')) {
+          continue;
+        }
+        await walk(child);
+      }
+    }
+
+    for (final branch in start) {
+      await walk(branch);
+    }
+    return TreeExpansion(opened: opened, stopped: stopped);
+  }
+
+  /// Свернуть ветвь и всё, что под ней; пустой путь — всё дерево.
+  ///
+  /// Прочитанное не выбрасывается: свернули и развернули обратно — читать
+  /// заново незачем.
+  int collapseDeep(String path) {
+    if (path.isEmpty) {
+      final was = _expanded.length;
+      _expanded.clear();
+      return was;
+    }
+    final under = _expanded.where((at) => at == path || at.startsWith('$path/')).toList();
+    _expanded.removeAll(under);
+    return under.length;
+  }
+
+  /// Ветвь по пути; null — такой в дереве нет.
+  _Branch? _branchAt(String path) {
+    _Branch? found;
+    bool walk(List<_Branch> branches) {
+      for (final branch in branches) {
+        if (branch.node.pathString == path) {
+          found = branch;
+          return true;
+        }
+        if (walk(branch.children ?? const [])) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    walk(_roots);
+    return found;
+  }
+
+  /// Прочитать содержимое одной ветви, если его ещё нет.
+  Future<void> _fillOne(_Branch branch) async {
+    if (branch.children != null) {
+      return;
+    }
+    final node = branch.node;
+    if (node is! DirectoryNode) {
+      return;
+    }
+    try {
+      final children = await node.provider.listChildren(node);
+      branch.children = [for (final child in children) _Branch(child)];
+    } on Object {
+      // В ветвь не пустили — она просто останется пустой, как и в списке.
+      branch.children = const [];
+    }
+  }
+
+  /// Как часто обход отдаёт управление: половина кадра, как у поиска.
+  static const Duration _breath = Duration(milliseconds: 8);
 
   /// Раскрыть ветвь. false — она и так была раскрыта.
   ///

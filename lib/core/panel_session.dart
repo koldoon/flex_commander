@@ -1242,12 +1242,87 @@ class PanelSession {
     if (!changed) {
       return;
     }
+    _rememberExpanded(list);
+    await _rebuildRows();
+  }
+
+  /// Раскрыть или свернуть ветвь **вместе со всем, что под ней**.
+  ///
+  /// Пустой путь — всё дерево: «раскрыть всё» и «свернуть всё» — те же две
+  /// команды, только без ветви под курсором
+  /// (`docs/spec/panel-view-tree.md`, §6а).
+  ///
+  /// Раскрытие читает по дороге и потому идёт **работой**: `Esc` её прерывает,
+  /// а строка состояния говорит, чем кончилось. Занятой панель при этом не
+  /// становится — курсор ходит, команды выполнимы: читается то, на что и так
+  /// смотрят.
+  Future<void> setExpandedDeep(String path, {required bool expanded}) async {
+    final list = _list;
+    if (list is! TreeNodeList) {
+      return;
+    }
+
+    if (!expanded) {
+      if (list.collapseDeep(path) == 0) {
+        return;
+      }
+      _rememberExpanded(list);
+      await _rebuildRows();
+      // Свернули ветвь — курсор остаётся на ней; свернули всё — на корне, где
+      // он и оказался бы, потеряв свою строку.
+      if (path.isEmpty || !_cursorToPath(path)) {
+        _cursorIndex = 0;
+      }
+      _changed();
+      return;
+    }
+
+    _operation?.cancel();
+    final operation = TaskOperation<void, TreeExpansion>(
+      (op, _) => list.expandDeep(path, limit: expandLimit, includeHidden: _showHidden, op: op),
+    );
+    _operation = operation;
+    _statusText = strings.tr('Expanding…');
+    _changed();
+    operation.start(null);
+
+    final TreeExpansion result;
+    try {
+      result = await operation.result;
+    } on OperationCanceled {
+      _statusText = null;
+      _rememberExpanded(list);
+      await _rebuildRows();
+      return;
+    }
+
+    _statusText =
+        result.stopped
+            // Предел не перестраховка: «раскрыть всё» над корнем диска значит
+            // прочитать диск целиком.
+            ? strings.tr('Expanded {count} branches — the rest by hand', args: {'count': result.opened})
+            : null;
+    _rememberExpanded(list);
+    await _rebuildRows();
+    if (path.isNotEmpty) {
+      _cursorToPath(path);
+    }
+    _changed();
+  }
+
+  /// Сколько ветвей раскрывает одна команда.
+  ///
+  /// Дальше человек раскрывает сам: у «раскрыть всё» нет естественного конца,
+  /// а у чтения диска — есть цена.
+  static const int expandLimit = 2000;
+
+  /// Запомнить раскрытое набора — своё или источника.
+  void _rememberExpanded(TreeNodeList list) {
     if (provider is PanelPreferredView) {
       _expandedHere = list.expandedPaths;
     } else {
       _expanded = list.expandedPaths;
     }
-    await _rebuildRows();
   }
 
   /// Набор строк для этого каталога — тот, который попросил вид.

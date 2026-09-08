@@ -285,6 +285,49 @@ void main() {
     expect(fresh.session.entries.any((entry) => entry.name == 'other' && entry.isOpen), isTrue);
   });
 
+  group('раскрытие вглубь', () {
+    test('поддерево раскрывается целиком, одной командой', () async {
+      await panel.session.setRows(RowsKind.tree);
+      expect(rows(), ['/', '  home', '    lib', '    main.dart', '  other']);
+
+      await panel.session.setExpandedDeep('/home', expanded: true);
+
+      // Всё, что под `home`, — включая вложенное в `lib`.
+      expect(rows(), ['/', '  home', '    lib', '      src', '      app.dart', '    main.dart', '  other']);
+    });
+
+    test('и сворачивается тоже целиком: внутри тоже свёрнуто', () async {
+      await panel.session.setRows(RowsKind.tree);
+      await panel.session.setExpandedDeep('/home', expanded: true);
+
+      await panel.session.setExpandedDeep('/home', expanded: false);
+      expect(rows(), ['/', '  home', '  other']);
+      expect(panel.session.currentNode?.pathString, '/home', reason: 'курсор остался на свёрнутой ветви');
+
+      // Раскрыли обратно на шаг — внутри пусто: свернули и вложенное.
+      await panel.session.setExpanded('/home', expanded: true);
+      expect(rows(), ['/', '  home', '    lib', '    main.dart', '  other']);
+    });
+
+    test('пустой путь — это всё дерево', () async {
+      await panel.session.setRows(RowsKind.tree);
+
+      await panel.session.setExpandedDeep('', expanded: true);
+      expect(rows(), contains('      app.dart'));
+
+      await panel.session.setExpandedDeep('', expanded: false);
+      expect(rows(), ['/'], reason: 'остались одни корни');
+      expect(panel.session.currentNode?.name, '/');
+    });
+
+    test('раскрытое вглубь уезжает в настройки, как и всякое', () async {
+      await panel.session.setRows(RowsKind.tree);
+      await panel.session.setExpandedDeep('/home', expanded: true);
+
+      expect(panel.session.settings.expanded, containsAll(['/home', '/home/lib']));
+    });
+  });
+
   test('по размеру дерево раскладывается тоже', () async {
     await panel.session.setRows(RowsKind.tree);
     await panel.session.setExpanded('/home/lib', expanded: true);

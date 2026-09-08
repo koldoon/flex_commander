@@ -902,6 +902,58 @@ void main() {
     expect(tester.getRect(row()).bottom, closeTo(list.bottom, 6));
   });
 
+  testWidgets('Shift-стрелки раскрывают и сворачивают поддерево', (tester) async {
+    final runtime = await open(tester);
+    final panel = runtime.app.left;
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    expect(panel.currentEntry?.name, 'lib');
+
+    runtime.commands.dispatch(KeyCombination.parse('Shift-Right'));
+    await tester.pumpAndSettle();
+    expect(branches(tester), containsAllInOrder(['lib', 'src', 'panel.dart', 'app.dart']));
+
+    runtime.commands.dispatch(KeyCombination.parse('Shift-Left'));
+    await tester.pumpAndSettle();
+    expect(branches(tester), isNot(contains('src')));
+    expect(panel.currentEntry?.name, 'lib', reason: 'курсор остался на свёрнутой ветви');
+
+    // Свернуть больше нечего — та же клавиша выводит к ветви, в которой строка
+    // лежит: ровно как обычное сворачивание.
+    runtime.commands.dispatch(KeyCombination.parse('Shift-Left'));
+    await tester.pumpAndSettle();
+    expect(panel.currentEntry?.name, 'home');
+  });
+
+  testWidgets('Shift-Left на файле выводит к его ветви', (tester) async {
+    final runtime = await open(tester);
+    final panel = runtime.app.left;
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Right'));
+    await tester.pumpAndSettle();
+    panel.setCursorToName('app.dart');
+    await tester.pumpAndSettle();
+    expect(panel.currentEntry?.name, 'app.dart');
+
+    runtime.commands.dispatch(KeyCombination.parse('Shift-Left'));
+    await tester.pumpAndSettle();
+
+    expect(panel.currentEntry?.name, 'lib', reason: 'сворачивать нечего — выходим к своей ветви');
+  });
+
+  testWidgets('Shift-Cmd-стрелки раскрывают и сворачивают всё дерево', (tester) async {
+    final runtime = await open(tester);
+
+    runtime.commands.dispatch(KeyCombination.parse('Shift-Cmd-Right'));
+    await tester.pumpAndSettle();
+    expect(branches(tester), containsAllInOrder(['home', 'lib', 'src', 'panel.dart']));
+
+    runtime.commands.dispatch(KeyCombination.parse('Shift-Cmd-Left'));
+    await tester.pumpAndSettle();
+    expect(branches(tester), isNot(contains('lib')), reason: 'остались одни корни');
+  });
+
   testWidgets('щелчок по заголовку сортирует дерево', (tester) async {
     final runtime = await open(tester);
     final panel = runtime.app.left;

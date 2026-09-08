@@ -215,6 +215,10 @@ CommandRegistry.dispatch(combination, app)
 | `Enter` | `panel.tree.toggle` | дерево: раскрыть ветвь под курсором, раскрытую — свернуть |
 | `Right` | `panel.tree.expand` | дерево: раскрыть ветвь под курсором |
 | `Left` | `panel.tree.collapse` | дерево: свернуть раскрытую, а свернуть нечего — курсор к её каталогу |
+| `Shift-Right` | `panel.tree.expandSubtree` | дерево: раскрыть ветвь под курсором и всё, что в ней |
+| `Shift-Left` | `panel.tree.collapseSubtree` | дерево: свернуть её вместе с вложенным; свернуть нечего — курсор к её ветви |
+| `Shift-Cmd-Right` | `panel.tree.expandAll` | дерево: раскрыть всё — до предела в 2000 ветвей |
+| `Shift-Cmd-Left` | `panel.tree.collapseAll` | дерево: свернуть всё, оставив корни |
 | `Space` / `Ins` | `panel.selection.toggle` | пометить ветвь под курсором и шагнуть вниз — та же команда, что в списке |
 
 Никаких «если вид такой-то» внутри команды: где вида нет, команда сообщает о

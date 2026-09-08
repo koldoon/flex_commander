@@ -273,6 +273,93 @@ class _ViewPickerState extends State<_ViewPicker> {
   }
 }
 
+/// Раскрыть или свернуть ветвь **вместе со всем, что под ней**.
+///
+/// Четыре команды одним классом: поддерево под курсором и всё дерево, каждое —
+/// в обе стороны. Одним, потому что различие в двух словах, а поведение общее:
+/// ветвь называется путём, пустой путь значит «всё»
+/// (`docs/spec/panel-view-tree.md`, §6а).
+class TreeDeepCommand extends AppCommand {
+  TreeDeepCommand({required this.expand, required this.all});
+
+  static const String expandSubtreeId = 'panel.tree.expandSubtree';
+  static const String collapseSubtreeId = 'panel.tree.collapseSubtree';
+  static const String expandAllId = 'panel.tree.expandAll';
+  static const String collapseAllId = 'panel.tree.collapseAll';
+
+  /// Раскрыть или свернуть.
+  final bool expand;
+
+  /// Всё дерево или только поддерево под курсором.
+  final bool all;
+
+  @override
+  String get id => switch ((expand, all)) {
+    (true, true) => expandAllId,
+    (true, false) => expandSubtreeId,
+    (false, true) => collapseAllId,
+    (false, false) => collapseSubtreeId,
+  };
+
+  @override
+  String get label => switch ((expand, all)) {
+    (true, true) => tr('Expand all'),
+    (true, false) => tr('Expand subtree'),
+    (false, true) => tr('Collapse all'),
+    (false, false) => tr('Collapse subtree'),
+  };
+
+  @override
+  String get description => switch ((expand, all)) {
+    (true, true) => tr('Open every branch of the tree — up to a limit'),
+    (true, false) => tr('Open the branch under the cursor and everything inside it'),
+    (false, true) => tr('Close every branch, leaving the roots'),
+    (false, false) => tr('Close the branch under the cursor and everything inside it'),
+  };
+
+  @override
+  Set<String> get keywords => const {'branches', 'unfold', 'fold'};
+
+  /// Спрашивается **набор строк**, а не вид: перед командой дерево или нет.
+  ///
+  /// Над файлом она тоже выполнима, и не по недосмотру: свернуть там нечего, и
+  /// сворачивание уводит курсор к ветви, в которой строка лежит, — ровно как
+  /// обычное (`docs/spec/panel-view-tree.md`, §6).
+  @override
+  bool isExecutable(CommandContext context) => context.panel.rows == RowsKind.tree;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final panel = context.panel;
+    if (all) {
+      panel.setExpanded('', expanded: expand, deep: true);
+      return;
+    }
+
+    final row = panel.currentEntry;
+    if (row == null) {
+      return;
+    }
+    // Раскрывать нечего — над файлом и над «..» ветви нет.
+    if (expand) {
+      if (row.isDirectory && row.path.isNotEmpty) {
+        panel.setExpanded(row.path, expanded: true, deep: true);
+      }
+      return;
+    }
+    // Свернуть есть что — сворачиваем всё, что под ветвью; нечего — выходим к
+    // ветви, в которой строка лежит.
+    if (row.isOpen) {
+      panel.setExpanded(row.path, expanded: false, deep: true);
+      return;
+    }
+    final at = TreeBranchCommand.parentRowOf(panel);
+    if (at >= 0) {
+      panel.setCursorIndex(at);
+    }
+  }
+}
+
 /// Шаг курсора по столбцу — влево и вправо.
 ///
 /// Отдельные команды, а не «если вид краткий» внутри хода по строке: там, где
@@ -370,14 +457,17 @@ class TreeBranchCommand extends AppCommand {
     }
     // Свернуть нечего — выходим к ветви, в которой строка лежит: по глубине,
     // потому что строки уже разложены деревом (`panel-view-tree.md`, §6).
-    final at = _parentRowOf(panel);
+    final at = parentRowOf(panel);
     if (at >= 0) {
       panel.setCursorIndex(at);
     }
   }
 
   /// Строка ветви, в которой лежит строка под курсором; -1 — такой нет.
-  static int _parentRowOf(Panel panel) {
+  ///
+  /// Общая с [TreeDeepCommand]: «свернуть нечего — выйти к своей ветви» —
+  /// одно правило на обе, и расходиться им незачем.
+  static int parentRowOf(Panel panel) {
     final rows = panel.entries;
     final at = panel.cursorIndex;
     if (at < 0 || at >= rows.length) {
