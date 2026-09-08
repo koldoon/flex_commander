@@ -44,6 +44,20 @@ WINDOWS = [
     ('View Tree', 'anchor_view_tree.png', '4D4819F3-A936-4608-970C-4636FC0BF065'),
 ]
 
+# Экран целиком: левая панель в каждом из объявленных видов. Здесь сверяется не
+# окно поверх панелей, а сама панель, поэтому и фон другой — `panel/background`.
+SCREENS = [
+    ('Screen table', 'design_anchor.png', '1AEC2F05-A775-4866-AF7C-3109DA659692'),
+    ('Screen brief', 'anchor_panel_brief.png', '2050F604-D705-4C4F-BEE2-87F46CBB1FA9'),
+    ('Screen tree', 'anchor_panel_tree.png', '9ADC3C0C-E182-4358-A0A5-46B0674DEDAD'),
+]
+
+PANEL = (14, 29, 59)
+
+# Левая панель без её рамки и без колонки размера: линейка между колонками идёт
+# сквозь все строки и слила бы их в одну полосу.
+PANEL_BOX = (20, 300, 60, 530)
+
 # Полоса заголовка у всех окон одна и та же; сверять её незачем, а её нижняя
 # грань даёт лишнюю полосу, которая сбивала бы сведение.
 SKIP_TOP = 38
@@ -123,20 +137,76 @@ def compare(name, gold_file, mock_file):
     print()
 
 
+def panel_bands(image):
+    """Полосы чернил в левой панели — по ним сверяются экраны."""
+    pixels = image.load()
+    x0, x1, y0, y1 = PANEL_BOX
+    bands, current = [], None
+    for y in range(y0, y1):
+        ink = [x for x in range(x0, x1) if pixels[x, y] != PANEL]
+        if ink:
+            if current is None:
+                current = [y, y, min(ink), max(ink)]
+            else:
+                current[1] = y
+                current[2] = min(current[2], min(ink))
+                current[3] = max(current[3], max(ink))
+        elif current:
+            bands.append(current)
+            current = None
+    if current:
+        bands.append(current)
+    return bands
+
+
+def compare_screen(name, gold_file, mock_file):
+    gold = Image.open(os.path.join(GOLD, gold_file)).convert('RGB')
+    mock = Image.open(mock_file).convert('RGB')
+    gold_bands, mock_bands = panel_bands(gold), panel_bands(mock)
+
+    taken, issues = set(), []
+    for band in gold_bands:
+        best = None
+        for i, other in enumerate(mock_bands):
+            if i in taken:
+                continue
+            distance = abs(other[0] - band[0])
+            if distance <= 6 and (best is None or distance < best[0]):
+                best = (distance, i, other)
+        if best is None:
+            issues.append('   в эталоне %s — в макете такой строки нет' % band)
+            continue
+        taken.add(best[1])
+        top, left = best[2][0] - band[0], best[2][2] - band[2]
+        if abs(top) > 1 or abs(left) > 1:
+            issues.append('   макет %-22s эталон %-22s   верх %+d слева %+d'
+                          % (best[2], band, top, left))
+    for i, band in enumerate(mock_bands):
+        if i not in taken:
+            issues.append('   в макете %s — в эталоне такой строки нет' % band)
+
+    print('== %-18s строк макет %d / эталон %d' % (name, len(mock_bands), len(gold_bands)))
+    print('\n'.join(issues) if issues else '   все строки сошлись в пределах точки')
+    print()
+
+
 def main():
     if len(sys.argv) < 2:
         print(__doc__)
         return 1
     exported = sys.argv[1]
     only = sys.argv[2].lower() if len(sys.argv) > 2 else None
-    for name, gold_file, layer_id in WINDOWS:
+    for name, gold_file, layer_id in WINDOWS + SCREENS:
         if only and only not in name.lower():
             continue
         mock_file = os.path.join(exported, layer_id + '.png')
         if not os.path.exists(mock_file):
             print('== %-18s выгрузки нет (%s.png)' % (name, layer_id))
             continue
-        compare(name, gold_file, mock_file)
+        if (name, gold_file, layer_id) in SCREENS:
+            compare_screen(name, gold_file, mock_file)
+        else:
+            compare(name, gold_file, mock_file)
     return 0
 
 

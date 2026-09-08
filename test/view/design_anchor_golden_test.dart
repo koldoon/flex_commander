@@ -125,6 +125,35 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  /// Панель другим видом — эталон для экранов макета.
+  ///
+  /// Вид просит сама панель ([Panel.setView]), а не клавиша: `Alt-F1` открывает
+  /// окно выбора, и снимать пришлось бы окно поверх панели, а нужна панель.
+  void view(String name, String file, String id) {
+    testWidgets(name, (tester) async {
+      if (!fontsReady) {
+        markTestSkipped('Шрифты не собрались: Ubuntu, FontAwesome или Consolas недоступны');
+        return;
+      }
+
+      // Всё то же, что на снимке окна, кроме вида левой панели: три экрана
+      // макета должны отличаться ровно им.
+      final app = await openApp(tester, rightPath: '/Users/koldoon/Developer');
+      await app.left.setView(id);
+      await tester.pumpAndSettle();
+      app.left.setCursorToName('INSTALL');
+      app.right.setMarks({'/Users/koldoon/Developer/LICENSE', '/Users/koldoon/Developer/fetch.xml'});
+      await tester.pumpAndSettle();
+
+      await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/$file'));
+
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+  }
+
+  view('панель кратким видом', 'anchor_panel_brief.png', 'brief');
+  view('панель деревом', 'anchor_panel_tree.png', 'tree');
+
   anchor('окно копирования', 'anchor_copy.png', 'F5');
   anchor('окно переноса', 'anchor_move.png', 'F6');
   anchor('окно упаковки', 'anchor_archive.png', 'Shift-F5');
