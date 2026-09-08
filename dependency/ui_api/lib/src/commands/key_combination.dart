@@ -60,12 +60,22 @@ class KeyCombination {
   static bool get _isMacOS => defaultTargetPlatform == TargetPlatform.macOS;
 
   /// Комбинация из события клавиатуры; null, если нажат только модификатор.
+  ///
+  /// **С модификатором клавиша зовётся по своему месту, а не по раскладке.**
+  /// `Alt-O` на маке даёт `ø`, а в русской раскладке `Cmd-A` даёт `ф` — по
+  /// напечатанному такие сочетания не опознать вовсе, и живьём `Alt-O` не
+  /// работал именно поэтому. Место клавиши от раскладки не зависит, и все
+  /// оконные системы горячие клавиши считают по нему.
+  ///
+  /// Без модификаторов правило обратное: там человек **печатает**, и важно
+  /// именно то, что он напечатал.
   static KeyCombination? fromEvent(KeyEvent event) {
-    final name = _nameOf(event.logicalKey);
+    final keyboard = HardwareKeyboard.instance;
+    final combined = keyboard.isAltPressed || keyboard.isControlPressed || keyboard.isMetaPressed;
+    final name = (combined ? _placeOf(event.physicalKey) : null) ?? _nameOf(event.logicalKey);
     if (name == null) {
       return null;
     }
-    final keyboard = HardwareKeyboard.instance;
     return KeyCombination(
       name,
       ctrl: keyboard.isControlPressed,
@@ -142,6 +152,51 @@ class KeyCombination {
     // привязок к ним нет, а в комбинацию они попадать не должны.
     return label.length == 1 ? label.toUpperCase() : null;
   }
+
+  /// Имя клавиши по её **месту**: буквы и цифры основного ряда.
+  ///
+  /// Остальные — знаки препинания, стрелки, функциональные — от раскладки не
+  /// страдают либо приходят особыми ([_specialKeys]), и место им не нужно.
+  static final Map<PhysicalKeyboardKey, String> _places = {
+    PhysicalKeyboardKey.keyA: 'A',
+    PhysicalKeyboardKey.keyB: 'B',
+    PhysicalKeyboardKey.keyC: 'C',
+    PhysicalKeyboardKey.keyD: 'D',
+    PhysicalKeyboardKey.keyE: 'E',
+    PhysicalKeyboardKey.keyF: 'F',
+    PhysicalKeyboardKey.keyG: 'G',
+    PhysicalKeyboardKey.keyH: 'H',
+    PhysicalKeyboardKey.keyI: 'I',
+    PhysicalKeyboardKey.keyJ: 'J',
+    PhysicalKeyboardKey.keyK: 'K',
+    PhysicalKeyboardKey.keyL: 'L',
+    PhysicalKeyboardKey.keyM: 'M',
+    PhysicalKeyboardKey.keyN: 'N',
+    PhysicalKeyboardKey.keyO: 'O',
+    PhysicalKeyboardKey.keyP: 'P',
+    PhysicalKeyboardKey.keyQ: 'Q',
+    PhysicalKeyboardKey.keyR: 'R',
+    PhysicalKeyboardKey.keyS: 'S',
+    PhysicalKeyboardKey.keyT: 'T',
+    PhysicalKeyboardKey.keyU: 'U',
+    PhysicalKeyboardKey.keyV: 'V',
+    PhysicalKeyboardKey.keyW: 'W',
+    PhysicalKeyboardKey.keyX: 'X',
+    PhysicalKeyboardKey.keyY: 'Y',
+    PhysicalKeyboardKey.keyZ: 'Z',
+    PhysicalKeyboardKey.digit0: '0',
+    PhysicalKeyboardKey.digit1: '1',
+    PhysicalKeyboardKey.digit2: '2',
+    PhysicalKeyboardKey.digit3: '3',
+    PhysicalKeyboardKey.digit4: '4',
+    PhysicalKeyboardKey.digit5: '5',
+    PhysicalKeyboardKey.digit6: '6',
+    PhysicalKeyboardKey.digit7: '7',
+    PhysicalKeyboardKey.digit8: '8',
+    PhysicalKeyboardKey.digit9: '9',
+  };
+
+  static String? _placeOf(PhysicalKeyboardKey key) => _places[key];
 
   static final Map<LogicalKeyboardKey, String> _specialKeys = {
     LogicalKeyboardKey.enter: 'Enter',

@@ -94,6 +94,58 @@ void main() {
       expect(combination, isNull);
     });
 
+    testWidgets('с модификатором клавиша зовётся по месту, а не по раскладке', (tester) async {
+      // Живой дефект: `Alt-O` на маке не работал вовсе. Option печатает `ø`, и
+      // сочетание не совпадало с привязкой ни разу.
+      await simulateKeyDownEvent(LogicalKeyboardKey.altLeft);
+      addTearDown(() => simulateKeyUpEvent(LogicalKeyboardKey.altLeft));
+
+      final combination = KeyCombination.fromEvent(
+        const KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyO,
+          logicalKey: LogicalKeyboardKey.keyO,
+          character: 'ø',
+          timeStamp: Duration.zero,
+        ),
+      );
+
+      expect(combination?.toString(), 'Alt-O');
+    });
+
+    testWidgets('чужая раскладка сочетанию не мешает', (tester) async {
+      // В русской раскладке на месте `A` печатается `ф`: горячая клавиша от
+      // этого меняться не должна — так считают их все оконные системы.
+      await simulateKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      addTearDown(() => simulateKeyUpEvent(LogicalKeyboardKey.controlLeft));
+
+      final combination = KeyCombination.fromEvent(
+        KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyA,
+          logicalKey: LogicalKeyboardKey('ф'.codeUnitAt(0)),
+          character: 'ф',
+          timeStamp: Duration.zero,
+        ),
+      );
+
+      expect(combination?.toString(), 'Ctrl-A');
+    });
+
+    testWidgets('без модификаторов важно напечатанное, а не место', (tester) async {
+      // Иначе быстрый поиск и переход к имени набирали бы латиницу вместо того,
+      // что человек видит на экране.
+      final combination = KeyCombination.fromEvent(
+        KeyDownEvent(
+          physicalKey: PhysicalKeyboardKey.keyA,
+          logicalKey: LogicalKeyboardKey('ф'.codeUnitAt(0)),
+          character: 'ф',
+          timeStamp: Duration.zero,
+        ),
+      );
+
+      expect(combination?.key, 'Ф');
+      expect(combination?.character, 'ф');
+    });
+
     testWidgets('модификаторы берутся из состояния клавиатуры', (tester) async {
       await simulateKeyDownEvent(LogicalKeyboardKey.shiftLeft);
       addTearDown(() => simulateKeyUpEvent(LogicalKeyboardKey.shiftLeft));

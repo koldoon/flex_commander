@@ -81,7 +81,7 @@ void main() {
   /// кнопка нижней панели и строка палитры ведут к одному и тому же
   /// `dispatch`, и снимать надо именно его — тогда снимок не разойдётся с тем,
   /// что увидит человек.
-  void anchor(String name, String file, String keys) {
+  void anchor(String name, String file, String keys, {int down = 0}) {
     testWidgets(name, (tester) async {
       if (!fontsReady) {
         markTestSkipped('Шрифты не собрались: Ubuntu, FontAwesome или Consolas недоступны');
@@ -95,6 +95,11 @@ void main() {
 
       app.commands.dispatch(KeyCombination.parse(keys));
       await tester.pumpAndSettle();
+
+      for (var i = 0; i < down; i++) {
+        await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+        await tester.pumpAndSettle();
+      }
 
       await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/$file'));
 
@@ -125,6 +130,15 @@ void main() {
   anchor('окно настроек', 'anchor_settings.png', 'F9');
   anchor('окно справки', 'anchor_help.png', 'F1');
   anchor('палитра команд', 'anchor_palette.png', 'Cmd-Shift-P');
+  // Окно встаёт над своей панелью, а не по середине экрана, и список видов в
+  // нём идёт во всю ширину окна: макету нужно и то и другое.
+  anchor('окно выбора вида', 'anchor_view.png', 'Alt-F1');
+  // Три снимка на одно окно: настройки под списком принадлежат виду под
+  // курсором, и у каждого вида они свои — окно от этого меняет и высоту.
+  // Стрелка идёт **нажатием**, а не командой: по списку в окне ходит его
+  // собственный узел фокуса, а не разбор команд.
+  anchor('окно выбора вида — краткий', 'anchor_view_brief.png', 'Alt-F1', down: 1);
+  anchor('окно выбора вида — дерево', 'anchor_view_tree.png', 'Alt-F1', down: 2);
 }
 
 /// Интерфейсный шрифт и шрифт иконок лежат в ресурсах, шрифт списка — нет.
