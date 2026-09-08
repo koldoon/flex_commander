@@ -24,6 +24,17 @@ import 'viewport.dart';
 /// [Listenable] приходит вместе с ним: панель уведомляет об изменениях, и
 /// подписаться может любой, кому она досталась, — виджет ядра или содержимое,
 /// нарисованное модулем.
+/// Чем кончилось раскрытие вглубь.
+class PanelExpansion {
+  const PanelExpansion({required this.opened, required this.stopped});
+
+  /// Сколько ветвей раскрылось (или свернулось).
+  final int opened;
+
+  /// Упёрлось в предел: дальше человек раскрывает сам.
+  final bool stopped;
+}
+
 abstract interface class Panel implements ViewportState {
   /// Какая это панель: левая или правая.
   PanelId get id;
@@ -311,11 +322,15 @@ abstract interface class Panel implements ViewportState {
   /// Раскрыть или свернуть ветвь по пути.
   ///
   /// Путём, а не строкой: строки живут путями, а узлы после чтения другие.
-  /// Раскрыть или свернуть ветвь по пути.
+  /// Раскрыть или свернуть ветвь по пути — на один шаг.
+  void setExpanded(String path, {required bool expanded});
+
+  /// То же **вместе со всем, что под ней**; пустой путь значит всё дерево.
   ///
-  /// [deep] — вместе со всем, что под ней; пустой путь при этом значит **всё
-  /// дерево** (`docs/spec/panel-view-tree.md`, §6а).
-  void setExpanded(String path, {required bool expanded, bool deep = false});
+  /// С ответом: раскрытие читает по дороге и упирается в предел, а сказать об
+  /// этом надо тому, кто просил, — тостом, один раз
+  /// (`docs/spec/panel-view-tree.md`, §6а).
+  Future<PanelExpansion> expandDeep(String path, {required bool expanded});
 
   SortSpec get sort;
 

@@ -227,10 +227,12 @@ class CoreServer implements CoreHandler {
         return null;
 
       case ExpandRow(:final panel, :final path, :final expanded, :final deep):
-        await (deep
-            ? session(panel).setExpandedDeep(path, expanded: expanded)
-            : session(panel).setExpanded(path, expanded: expanded));
-        return null;
+        if (!deep) {
+          await session(panel).setExpanded(path, expanded: expanded);
+          return null;
+        }
+        final expansion = await session(panel).setExpandedDeep(path, expanded: expanded);
+        return CoreExpanded(opened: expansion.opened, stopped: expansion.stopped);
 
       case Arrange(:final panel, :final sort, :final columns, :final showHidden, :final view, :final rows):
         final target = session(panel);

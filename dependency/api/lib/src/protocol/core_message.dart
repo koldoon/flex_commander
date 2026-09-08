@@ -459,6 +459,21 @@ final class CoreEntered extends CoreReply {
 }
 
 /// Да или нет.
+/// Чем кончилось раскрытие вглубь: сколько ветвей открыто и упёрлось ли в
+/// предел.
+///
+/// Ответом, а не событием: сказать об этом надо тому, кто просил, и один раз —
+/// тостом. В строке состояния такое сообщение висело бы, пока его не сменят
+/// (`docs/spec/panel-view-tree.md`, §6а).
+final class CoreExpanded extends CoreReply {
+  const CoreExpanded({required this.opened, required this.stopped});
+
+  final int opened;
+
+  /// Предел достигнут: дальше человек раскрывает сам.
+  final bool stopped;
+}
+
 final class CoreFlag extends CoreReply {
   const CoreFlag(this.value);
 

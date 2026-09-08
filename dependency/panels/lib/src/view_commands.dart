@@ -332,7 +332,7 @@ class TreeDeepCommand extends AppCommand {
   Future<void> execute(CommandContext context) async {
     final panel = context.panel;
     if (all) {
-      panel.setExpanded('', expanded: expand, deep: true);
+      await _open(context, '');
       return;
     }
 
@@ -343,20 +343,32 @@ class TreeDeepCommand extends AppCommand {
     // Раскрывать нечего — над файлом и над «..» ветви нет.
     if (expand) {
       if (row.isDirectory && row.path.isNotEmpty) {
-        panel.setExpanded(row.path, expanded: true, deep: true);
+        await _open(context, row.path);
       }
       return;
     }
     // Свернуть есть что — сворачиваем всё, что под ветвью; нечего — выходим к
     // ветви, в которой строка лежит.
     if (row.isOpen) {
-      panel.setExpanded(row.path, expanded: false, deep: true);
+      await _open(context, row.path);
       return;
     }
     final at = TreeBranchCommand.parentRowOf(panel);
     if (at >= 0) {
       panel.setCursorIndex(at);
     }
+  }
+
+  /// Раскрыть или свернуть — и сказать, если раскрытие упёрлось в предел.
+  ///
+  /// Тостом, а не строкой состояния: строка говорит о том, что **идёт**, и
+  /// сообщение осталось бы висеть в ней, пока его не сменят.
+  Future<void> _open(CommandContext context, String path) async {
+    final result = await context.panel.expandDeep(path, expanded: expand);
+    if (!result.stopped) {
+      return;
+    }
+    context.app.toasts.show(tr('Expanded {count} branches — the rest by hand', args: {'count': result.opened}));
   }
 }
 

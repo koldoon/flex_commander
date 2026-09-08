@@ -1256,15 +1256,16 @@ class PanelSession {
   /// а строка состояния говорит, чем кончилось. Занятой панель при этом не
   /// становится — курсор ходит, команды выполнимы: читается то, на что и так
   /// смотрят.
-  Future<void> setExpandedDeep(String path, {required bool expanded}) async {
+  Future<TreeExpansion> setExpandedDeep(String path, {required bool expanded}) async {
     final list = _list;
     if (list is! TreeNodeList) {
-      return;
+      return const TreeExpansion(opened: 0, stopped: false);
     }
 
     if (!expanded) {
-      if (list.collapseDeep(path) == 0) {
-        return;
+      final closed = list.collapseDeep(path);
+      if (closed == 0) {
+        return const TreeExpansion(opened: 0, stopped: false);
       }
       _rememberExpanded(list);
       await _rebuildRows();
@@ -1274,7 +1275,7 @@ class PanelSession {
         _cursorIndex = 0;
       }
       _changed();
-      return;
+      return TreeExpansion(opened: closed, stopped: false);
     }
 
     _operation?.cancel();
@@ -1293,28 +1294,31 @@ class PanelSession {
       _statusText = null;
       _rememberExpanded(list);
       await _rebuildRows();
-      return;
+      return const TreeExpansion(opened: 0, stopped: false);
     }
 
-    _statusText =
-        result.stopped
-            // Предел не перестраховка: «раскрыть всё» над корнем диска значит
-            // прочитать диск целиком.
-            ? strings.tr('Expanded {count} branches — the rest by hand', args: {'count': result.opened})
-            : null;
+    // Строка состояния говорит только о том, что **идёт**: она гаснет, а не
+    // копит сообщения. Что раскрытие упёрлось в предел, скажет тост — один
+    // раз и тому, кто просил.
+    _statusText = null;
     _rememberExpanded(list);
     await _rebuildRows();
     if (path.isNotEmpty) {
       _cursorToPath(path);
     }
     _changed();
+    return result;
   }
 
   /// Сколько ветвей раскрывает одна команда.
   ///
   /// Дальше человек раскрывает сам: у «раскрыть всё» нет естественного конца,
   /// а у чтения диска — есть цена.
-  static const int expandLimit = 2000;
+  ///
+  /// Не `const` затем, чтобы проверке не приходилось заводить две тысячи
+  /// каталогов ради одного сообщения.
+  @visibleForTesting
+  static int expandLimit = 2000;
 
   /// Запомнить раскрытое набора — своё или источника.
   void _rememberExpanded(TreeNodeList list) {

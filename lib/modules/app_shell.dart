@@ -446,7 +446,6 @@ const Map<String, PluralForms> _plurals = {'{n} times': (one: '{n} раз', few:
 const Map<String, String> _coreRussian = {
   'Loading…': 'Чтение…',
   'Expanding…': 'Раскрытие…',
-  'Expanded {count} branches — the rest by hand': 'Раскрыто {count} ветвей — дальше вручную',
   'Opening {name}…': 'Открывается {name}…',
   'Measuring directories…': 'Считаются размеры каталогов…',
   'Administrator rights': 'Права администратора',

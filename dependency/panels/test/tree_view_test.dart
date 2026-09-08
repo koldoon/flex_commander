@@ -8,6 +8,7 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flex_commander/core/panel_session.dart';
 import 'package:flex_commander/link/link.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -952,6 +953,29 @@ void main() {
     runtime.commands.dispatch(KeyCombination.parse('Shift-Cmd-Left'));
     await tester.pumpAndSettle();
     expect(branches(tester), isNot(contains('lib')), reason: 'остались одни корни');
+  });
+
+  testWidgets('упёршееся в предел раскрытие говорит тостом, а не строкой', (tester) async {
+    // Строка состояния говорит о том, что **идёт**; сообщение об итоге в ней
+    // висело бы, пока его не сменят.
+    PanelSession.expandLimit = 2;
+    addTearDown(() => PanelSession.expandLimit = 2000);
+
+    final deep = [FakeEntry.directory('/home'), for (var i = 0; i < 6; i++) FakeEntry.directory('/home/d$i')];
+    final runtime = await open(tester, source: InMemoryTreeProvider(deep)..home = '/home');
+    await tester.pumpAndSettle();
+
+    runtime.commands.dispatch(KeyCombination.parse('Shift-Cmd-Right'));
+    // Кадрами **без времени**: в прогоне тост живёт пять миллисекунд, и любая
+    // пауза съела бы его прежде, чем мы посмотрим.
+    for (var i = 0; i < 20 && runtime.app.toasts.current == null; i++) {
+      await tester.pump();
+    }
+
+    expect(runtime.app.toasts.current?.message, contains('Expanded 2 branches'));
+    expect(runtime.app.left.statusText, isNull, reason: 'строка состояния не копит сообщений');
+
+    await tester.pumpAndSettle();
   });
 
   testWidgets('щелчок по заголовку сортирует дерево', (tester) async {

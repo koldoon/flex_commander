@@ -212,6 +212,7 @@ const Map<String, String> _russian = {
   'Open the branch under the cursor and everything inside it': 'Раскрыть ветвь под курсором и всё, что в ней',
   'Close every branch, leaving the roots': 'Свернуть все ветви, оставив корни',
   'Close the branch under the cursor and everything inside it': 'Свернуть ветвь под курсором и всё, что в ней',
+  'Expanded {count} branches — the rest by hand': 'Раскрыто {count} ветвей — дальше вручную',
   'Everything as branches — where you are and what lies where': 'Всё ветвями — где вы сейчас и что где лежит',
   'Branch up': 'Ветвь выше',
   'Branch down': 'Ветвь ниже',

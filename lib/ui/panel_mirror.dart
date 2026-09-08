@@ -475,8 +475,21 @@ class PanelMirror extends ChangeNotifier implements Panel {
   Future<void> showRows(RowsKind kind) => _link.call(Arrange(id, rows: kind));
 
   @override
-  void setExpanded(String path, {required bool expanded, bool deep = false}) =>
-      _link.tell(ExpandRow(id, path, expanded: expanded, deep: deep));
+  @override
+  void setExpanded(String path, {required bool expanded}) => _link.tell(ExpandRow(id, path, expanded: expanded));
+
+  /// Раскрыть или свернуть вглубь — и узнать, чем кончилось.
+  ///
+  /// Просьбой с ответом, а не просто просьбой: упёршееся в предел раскрытие
+  /// говорит об этом **тостом**, и сказать это может только тот, кто просил
+  /// (`docs/spec/panel-view-tree.md`, §6а).
+  @override
+  Future<PanelExpansion> expandDeep(String path, {required bool expanded}) async {
+    final reply = await _link.call(ExpandRow(id, path, expanded: expanded, deep: true));
+    return reply is CoreExpanded
+        ? PanelExpansion(opened: reply.opened, stopped: reply.stopped)
+        : const PanelExpansion(opened: 0, stopped: false);
+  }
 
   @override
   double get scrollOffset => _state.scroll;
