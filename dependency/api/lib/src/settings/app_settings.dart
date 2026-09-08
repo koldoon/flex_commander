@@ -126,6 +126,41 @@ class PanelSettings implements Serializable {
 }
 
 /// Сохраняемые настройки приложения.
+/// Сессии одной стороны и та из них, что показана сейчас.
+///
+/// Сторон две, сессий в стороне бывает несколько: столбцами комбинированного
+/// вида или вкладками (`docs/spec/panel-slots.md`). Пустым слот не бывает —
+/// сторона без панели это состояние, которого в модели нет вовсе.
+class PanelSlotSettings implements Serializable {
+  PanelSlotSettings({List<PanelSettings>? panels, this.current = 0})
+    : panels = panels == null || panels.isEmpty ? [PanelSettings()] : panels;
+
+  final List<PanelSettings> panels;
+
+  /// Номер показанной сессии.
+  int current;
+
+  /// Показанная сессия; сбившийся номер приводит к первой, а не роняет разбор.
+  PanelSettings get currentPanel => panels[current.clamp(0, panels.length - 1)];
+
+  @override
+  void toMap(Map<String, dynamic> m) {
+    m['panels'] = [for (final panel in panels) serialize(panel)];
+    m['current'] = current;
+  }
+
+  @override
+  void fromMap(Map<String, dynamic> m) {
+    final stored = m['panels'];
+    if (stored is List && stored.isNotEmpty) {
+      panels
+        ..clear()
+        ..addAll(extractList<PanelSettings>(stored, (_) => PanelSettings()));
+    }
+    current = extract(current, m['current']).clamp(0, panels.length - 1);
+  }
+}
+
 class AppSettings implements Serializable {
   AppSettings({
     PanelSettings? left,
@@ -135,8 +170,13 @@ class AppSettings implements Serializable {
     this.sizeScanConcurrency = defaultSizeScanConcurrency,
     this.window,
     ModuleSettings? modules,
-  }) : left = left ?? PanelSettings(),
-       right = right ?? PanelSettings(),
+    List<PanelSlotSettings>? slots,
+  }) : slots =
+           slots ??
+           [
+             PanelSlotSettings(panels: [left ?? PanelSettings()]),
+             PanelSlotSettings(panels: [right ?? PanelSettings()]),
+           ],
        // Разделы модулей переносятся в новый снимок настроек как есть: это
        // живые объекты самих модулей, а не копия их значений.
        modules = modules ?? ModuleSettings();
@@ -162,8 +202,15 @@ class AppSettings implements Serializable {
   static const int minSizeScanConcurrency = 1;
   static const int maxSizeScanConcurrency = 64;
 
-  PanelSettings left;
-  PanelSettings right;
+  /// Сессии каждой стороны; слотов ровно два — по числу сторон.
+  ///
+  /// Раскладку по сторонам держит экран, здесь она только хранится: ядро в неё
+  /// не заглядывает (`docs/spec/panel-slots.md`, §5).
+  final List<PanelSlotSettings> slots;
+
+  /// Показанная сессия левой стороны — то, чем панель была до слотов.
+  PanelSettings get left => slots[0].currentPanel;
+  PanelSettings get right => slots[1].currentPanel;
 
   /// 0 — активна левая панель, 1 — правая.
   int activePanel;
@@ -191,7 +238,7 @@ class AppSettings implements Serializable {
     if (window != null) {
       m['window'] = serialize(window);
     }
-    m['panels'] = [serialize(left), serialize(right)];
+    m['panels'] = [for (final slot in slots) serialize(slot)];
     m['modules'] = serialize(modules);
   }
 
@@ -215,13 +262,20 @@ class AppSettings implements Serializable {
 
     // Панели дописываются в уже готовые: в них лежит каталог по умолчанию,
     // и файл без пути его не потеряет.
-    final panels = m['panels'];
-    if (panels is List) {
-      if (panels.isNotEmpty) {
-        extract(left, panels[0]);
-      }
-      if (panels.length > 1) {
-        extract(right, panels[1]);
+    //
+    // Форм в файле две, и обе читаются. Старая — по одной панели на сторону,
+    // новая — слот со списком сессий. Отличаются они наличием `panels` внутри:
+    // у панели такого поля нет и быть не может (`docs/spec/panel-slots.md`,
+    // §5).
+    final stored = m['panels'];
+    if (stored is List) {
+      for (var i = 0; i < slots.length && i < stored.length; i++) {
+        final item = stored[i];
+        if (item is Map && item['panels'] is List) {
+          extract(slots[i], item);
+        } else {
+          extract(slots[i].panels.first, item);
+        }
       }
     }
   }

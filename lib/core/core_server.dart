@@ -27,13 +27,20 @@ class CoreServer implements CoreHandler {
   CoreServer({
     required PanelSession left,
     required PanelSession right,
+    List<PanelSession> more = const [],
+    PanelSession Function(PanelSettings settings)? createSession,
     ProviderRegistry? registry,
     TreeEditor editor = const TreeTransferEngine(),
     FcServices services = const _NoServices(),
     Map<String, OperationFactory> operations = const {},
     SettingsHub? settings,
     SecretsHub? secrets,
-  }) : _panels = {PanelId.left: left, PanelId.right: right},
+  }) : _panels = {
+         PanelId.left: left,
+         PanelId.right: right,
+         for (var i = 0; i < more.length; i++) PanelId(i + 2): more[i],
+       },
+       _createSession = createSession,
        _registry = registry,
        _settings = settings,
        _secrets = secrets {
@@ -53,26 +60,58 @@ class CoreServer implements CoreHandler {
     // Находки прибывают, пока идёт обход, — и панель, которой их отдали,
     // растёт вместе с ними (`docs/spec/file-search.md`, §4).
     _operations.onFound = _grewFound;
+    _nextId = _panels.length;
+    // Дальше о сессиях спрашивают ядро: заведённая на ходу тоже пишется в
+    // файл (`docs/spec/panel-slots.md`, §5).
+    _settings?.bindPanels((panel) => _panels[panel]?.settings);
     for (final entry in _panels.entries) {
-      final panel = entry.key;
-      final session = entry.value;
-      session.watch(
-        onChanged: () {
-          // Настройки панели — её же состояние: каталог, курсор, колонки,
-          // сортировка. Спрашивать их у экрана было бы кругом.
-          _settings?.panelsChanged();
-          _say(PanelChanged(panel, session.state));
-        },
-        onListed: () {
-          // Список и состояние уезжают вместе: в состоянии лежит номер списка,
-          // и приехать оно должно **после** самого списка — иначе та сторона
-          // увидит номер, которому ещё нечего соответствовать.
-          _say(PanelListed(panel, PanelListing(generation: session.generation, entries: session.entries)));
-          _say(PanelChanged(panel, session.state));
-        },
-        onSized: (paths) => _say(PanelSized(panel, paths)),
-      );
+      _watch(entry.key, entry.value);
     }
+  }
+
+  /// Завести сессию по образцу: тот же каталог, те же колонки, сортировка и
+  /// вид — всё, что описывает панель, кроме места на экране.
+  ///
+  /// Открывается она сразу и здесь же: заведённая, но пустая сессия ничем не
+  /// лучше отсутствующей, а зеркалу пришлось бы ждать второго сообщения.
+  Future<CoreReply?> _openPanel(PanelId like) async {
+    final create = _createSession;
+    final model = _panels[like];
+    if (create == null || model == null) {
+      return null;
+    }
+
+    final settings = model.settings;
+    final session = create(settings);
+    final panel = PanelId(_nextId++);
+    _panels[panel] = session;
+    _watch(panel, session);
+
+    await _restore(session);
+    return PanelOpened(panel, session.state, PanelListing(generation: session.generation, entries: session.entries));
+  }
+
+  /// Слушать сессию: всё, что она о себе рассказывает, уходит событиями.
+  ///
+  /// Вешается на каждую заведённую, а не только на две начальные: сессий в
+  /// стороне бывает несколько (`docs/spec/panel-slots.md`, §3).
+  void _watch(PanelId panel, PanelSession session) {
+    session.watch(
+      onChanged: () {
+        // Настройки панели — её же состояние: каталог, курсор, колонки,
+        // сортировка. Спрашивать их у экрана было бы кругом.
+        _settings?.panelsChanged();
+        _say(PanelChanged(panel, session.state));
+      },
+      onListed: () {
+        // Список и состояние уезжают вместе: в состоянии лежит номер списка,
+        // и приехать оно должно **после** самого списка — иначе та сторона
+        // увидит номер, которому ещё нечего соответствовать.
+        _say(PanelListed(panel, PanelListing(generation: session.generation, entries: session.entries)));
+        _say(PanelChanged(panel, session.state));
+      },
+      onSized: (paths) => _say(PanelSized(panel, paths)),
+    );
   }
 
   /// Находки, показанные панелью: чей это обход и куда складывать прибывающее.
@@ -94,6 +133,15 @@ class CoreServer implements CoreHandler {
   }
 
   final Map<PanelId, PanelSession> _panels;
+
+  /// Чем завести новую сессию; null — ядро собрано без этого, и заводить
+  /// нечем (так собирают его проверки, которым хватает двух).
+  final PanelSession Function(PanelSettings settings)? _createSession;
+
+  /// Личности выдаются по порядку и не переиспользуются: закрытая сессия
+  /// уносит свой номер с собой, и опоздавшая просьба к ней попадёт в пустоту,
+  /// а не в чужую панель.
+  int _nextId = 0;
 
   final ProviderRegistry? _registry;
 
@@ -129,6 +177,18 @@ class CoreServer implements CoreHandler {
   }
 
   PanelSession session(PanelId panel) => _panels[panel]!;
+
+  /// Сессия, если она ещё жива; null — такой уже (или ещё) нет.
+  ///
+  /// Нужна тем, кто спрашивает по личности из чужих рук: раскладка слотов
+  /// приезжает с экрана и может отстать от закрытия на сообщение.
+  PanelSession? sessionOrNull(PanelId panel) => _panels[panel];
+
+  /// Сессии, какие есть: их личности в порядке заведения.
+  ///
+  /// Наружу — ради проверок и настроек: раскладку по сторонам знает экран, а
+  /// здесь только «кто вообще живёт».
+  Iterable<PanelId> get panels => _panels.keys;
 
   /// Реестр провайдеров: чем открываются архивы и адреса, и что открыто
   /// сейчас.
@@ -268,8 +328,13 @@ class CoreServer implements CoreHandler {
         session(panel).measureDirectories();
         return null;
 
+      case OpenPanel(:final like):
+        return _openPanel(like);
+
       case ClosePanel(:final panel):
-        session(panel).close();
+        // Убрана — значит убрана: сессия отпускает аренду и уходит из карты.
+        // Опоздавшая просьба к ней ответит пустотой, а не чужой панели.
+        _panels.remove(panel)?.close();
         return null;
 
       case CancelWork(:final panel):

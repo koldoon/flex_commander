@@ -49,6 +49,32 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
     return stack.isEmpty ? null : stack.last;
   }
 
+  /// Показать в панельных областях те сессии, что стали текущими в слотах.
+  ///
+  /// Дно стопки подменяется **на месте**, без `setViewportContent`: тот
+  /// закрывает прежнее содержимое, а закрытая сессия отпустила бы аренду — то
+  /// есть ровно то, ради чего слоты и заводятся
+  /// (`docs/spec/panel-slots.md`, §4).
+  void showPanels() {
+    var changed = false;
+    for (final (position, panel) in [(ViewportPosition.left, _app.left), (ViewportPosition.right, _app.right)]) {
+      final stack = _stacks[position]!;
+      if (stack.isEmpty) {
+        stack.add(panel);
+        changed = true;
+        continue;
+      }
+      if (identical(stack.first, panel)) {
+        continue;
+      }
+      stack[0] = panel;
+      changed = true;
+    }
+    if (changed) {
+      notifyListeners();
+    }
+  }
+
   @override
   Panel? panelAt(ViewportPosition position) {
     final content = contentAt(position);

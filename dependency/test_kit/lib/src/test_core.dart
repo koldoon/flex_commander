@@ -33,19 +33,51 @@ AppController testCore({
   final rightRegistry = rightProvider == null ? registry : ProviderRegistry(root: rightProvider);
   const editor = TreeTransferEngine();
 
+  // Сессии заводятся по файлу, показанные — первыми: им и достаются личности
+  // `PanelId.left` и `PanelId.right` (`docs/spec/panel-slots.md`, §5). То же
+  // самое делает сборка приложения, и делать иначе здесь значило бы проверять
+  // не то приложение.
   final left = PanelSession(settings: settings.left, registry: registry, editor: editor);
   final right = PanelSession(settings: settings.right, registry: rightRegistry, editor: editor);
-  final sessions = {PanelId.left: left, PanelId.right: right};
+  final more = <PanelSession>[];
+  final layout = <SlotLayout>[];
+
+  for (var side = 0; side < settings.slots.length; side++) {
+    final slot = settings.slots[side];
+    final sideRegistry = side == 0 ? registry : rightRegistry;
+    final shown = slot.current.clamp(0, slot.panels.length - 1);
+    final ids = <PanelId>[];
+    for (var i = 0; i < slot.panels.length; i++) {
+      if (i == shown) {
+        ids.add(side == 0 ? PanelId.left : PanelId.right);
+        continue;
+      }
+      ids.add(PanelId(more.length + 2));
+      more.add(PanelSession(settings: slot.panels[i], registry: sideRegistry, editor: editor));
+    }
+    layout.add(SlotLayout(panels: ids, current: shown));
+  }
+
+  final sessions = {
+    PanelId.left: left,
+    PanelId.right: right,
+    for (var i = 0; i < more.length; i++) PanelId(i + 2): more[i],
+  };
 
   final core = CoreServer(
     left: left,
     right: right,
+    more: more,
+    // Сессии заводятся тем же, чем и первые: слот умеет держать несколько
+    // (`docs/spec/panel-slots.md`).
+    createSession: (settings) => PanelSession(settings: settings, registry: registry, editor: editor),
     registry: registry,
     editor: editor,
     settings: SettingsHub(
       store: store,
       stored: settings,
-      panelSettings: (panel) => sessions[panel]!.settings,
+      panelSettings: (panel) => sessions[panel]?.settings,
+      slots: layout,
       saveDelay: saveDelay,
     ),
   );
@@ -61,6 +93,8 @@ AppController testCore({
   return AppController(
     left: mirror(PanelId.left, left),
     right: mirror(PanelId.right, right),
+    more: [for (var i = 0; i < more.length; i++) mirror(PanelId(i + 2), more[i])],
+    slots: layout,
     core: core,
     link: link,
     settings: settings,

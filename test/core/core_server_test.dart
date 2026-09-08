@@ -80,7 +80,7 @@ void main() {
     test('первое слово ядра — что у него есть прямо сейчас', () async {
       final ready = await link.call(const Handshake()) as CoreReady;
 
-      expect(ready.states.keys, containsAll(PanelId.values));
+      expect(ready.states.keys, containsAll(const [PanelId.left, PanelId.right]));
       expect(ready.listings[PanelId.left]!.entries, isEmpty, reason: 'каталог ещё не открывали');
     });
   });

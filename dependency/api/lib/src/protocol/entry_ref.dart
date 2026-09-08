@@ -1,5 +1,38 @@
-/// Какая панель: у приложения их две, и обе адресуются именем.
-enum PanelId { left, right }
+/// Личность сессии панели.
+///
+/// Именно сессии, а не стороны: сторон на экране две и они на месте
+/// (`ViewportPosition`), а сессий в стороне бывает несколько — столбцами
+/// комбинированного вида или вкладками. Какая где показана, знает экран; ядро
+/// знает только сессии (`docs/spec/panel-slots.md`).
+///
+/// [left] и [right] — две первые сессии, те самые, что стоят в сторонах при
+/// запуске. Имена у них прежние: панелей по одной на сторону, пока не
+/// попросили больше.
+class PanelId {
+  const PanelId(this.value);
+
+  static const PanelId left = PanelId(0);
+  static const PanelId right = PanelId(1);
+
+  /// Номер сессии: растёт с каждой заведённой.
+  final int value;
+
+  /// Имя для отладки и сообщений; заведённые на ходу зовутся по номеру.
+  String get name => switch (value) {
+    0 => 'left',
+    1 => 'right',
+    _ => 'panel$value',
+  };
+
+  @override
+  bool operator ==(Object other) => other is PanelId && other.value == value;
+
+  @override
+  int get hashCode => value;
+
+  @override
+  String toString() => 'PanelId($name)';
+}
 
 /// Ссылка на объект — то, чем интерфейс называет ядру строку списка.
 ///

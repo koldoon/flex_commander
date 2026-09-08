@@ -422,6 +422,20 @@ final class TellOperation extends CoreRequest {
   final OperationInput input;
 }
 
+/// Завести ещё одну сессию панели — по образцу названной.
+///
+/// По образцу, а не «пустую»: обоим потребителям нужно ровно это — спутник
+/// комбинированного вида встаёт там же, где панель, а новая вкладка
+/// открывается на текущем каталоге (`docs/spec/panel-slots.md`, §3).
+///
+/// Кто где показан, ядро не знает и не решает: оно заводит сессию и отдаёт её
+/// личность.
+final class OpenPanel extends CoreRequest {
+  const OpenPanel(this.like);
+
+  final PanelId like;
+}
+
 /// Панель убрали из области: отпустить всё, что она держала.
 ///
 /// Не то же, что «прервать»: работу можно прервать и остаться на месте, а
@@ -569,6 +583,18 @@ final class PanelChanged extends CoreEvent {
 
   final PanelId panel;
   final PanelState state;
+}
+
+/// Сессия заведена: её личность и первое состояние.
+///
+/// Состояние и список едут вместе с ответом, а не отдельным событием: зеркалу
+/// нечего было бы показывать между «завели» и «рассказали».
+final class PanelOpened extends CoreReply {
+  const PanelOpened(this.panel, this.state, this.listing);
+
+  final PanelId panel;
+  final PanelState state;
+  final PanelListing listing;
 }
 
 /// У панели новый список.

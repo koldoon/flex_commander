@@ -240,9 +240,26 @@ class UiContainer extends DI {
 
         final ready = _handshake;
 
+        // Зеркала — на каждую сессию, какие есть: в стороне их бывает
+        // несколько (`docs/spec/panel-slots.md`). Раскладку по сторонам
+        // приносит то же рукопожатие.
+        final mirrors = {
+          for (final entry in ready.states.entries)
+            entry.key: mirror(
+              entry.key,
+              entry.value,
+              ready.listings[entry.key] ?? const PanelListing(generation: 0, entries: []),
+            ),
+        };
+
         return AppController(
-          left: mirror(PanelId.left, ready.states[PanelId.left]!, ready.listings[PanelId.left]!),
-          right: mirror(PanelId.right, ready.states[PanelId.right]!, ready.listings[PanelId.right]!),
+          left: mirrors[PanelId.left]!,
+          right: mirrors[PanelId.right]!,
+          more: [
+            for (final entry in mirrors.entries)
+              if (entry.key != PanelId.left && entry.key != PanelId.right) entry.value,
+          ],
+          slots: ready.ui.slots,
           core: core,
           link: link,
           settings: _settings,

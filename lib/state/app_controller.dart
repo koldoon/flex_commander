@@ -26,8 +26,10 @@ import 'toast_controller.dart';
 /// Команды видят приложение только как [Application].
 class AppController extends ChangeNotifier implements Application {
   AppController({
-    required this.left,
-    required this.right,
+    required PanelMirror left,
+    required PanelMirror right,
+    List<PanelMirror> more = const [],
+    List<SlotLayout>? slots,
     this.core,
     this.link,
     required AppSettings settings,
@@ -48,7 +50,8 @@ class AppController extends ChangeNotifier implements Application {
     this.dragAndDrop,
     this.contentTypes,
     this.fileIcons,
-  }) : _splitRatio = settings.splitRatio,
+  }) : _slots = _slotsOf(left, right, more, slots),
+       _splitRatio = settings.splitRatio,
        _windowGeometry = settings.window,
        _initialSettings = settings,
        theme = theme ?? ThemeController(),
@@ -71,8 +74,8 @@ class AppController extends ChangeNotifier implements Application {
        views = views ?? const NoViews(),
        window = window ?? const NoopWindowService() {
     // Одна панель активна всегда, ещё до первого чтения каталогов.
-    left.setActive(settings.activePanel != 1);
-    right.setActive(settings.activePanel == 1);
+    this.left.setActive(settings.activePanel != 1);
+    this.right.setActive(settings.activePanel == 1);
     // Слушать панели ради записи больше незачем: их настройки — это состояние
     // сеанса, и ядро видит его раньше и точнее (`spec/client-server.md`, §9).
     this.window.addListener(_onWindowChanged);
@@ -89,11 +92,132 @@ class AppController extends ChangeNotifier implements Application {
   @override
   late final AppViewController view = AppViewController(this);
 
-  @override
-  final PanelMirror left;
+  /// Сессии по сторонам: слот на сторону, в слоте — та, что показана
+  /// (`docs/spec/panel-slots.md`).
+  final List<_PanelSlot> _slots;
+
+  /// Слоты по раскладке, приехавшей из настроек; сессия, которой в раскладке
+  /// нет, в слот не попадает, а пустой слот не бывает — в нём остаётся та,
+  /// что стояла там при запуске.
+  static List<_PanelSlot> _slotsOf(
+    PanelMirror left,
+    PanelMirror right,
+    List<PanelMirror> more,
+    List<SlotLayout>? layout,
+  ) {
+    final byId = {
+      for (final panel in [left, right, ...more]) panel.id: panel,
+    };
+    final slots = layout ?? UiSettings.defaultSlots;
+    return [
+      for (var side = 0; side < 2; side++)
+        _PanelSlot(
+          panels: [
+            if (side < slots.length)
+              for (final id in slots[side].panels)
+                if (byId[id] case final panel?) panel,
+          ],
+          current: side < slots.length ? slots[side].current : 0,
+          fallback: side == 0 ? left : right,
+        ),
+    ];
+  }
 
   @override
-  final PanelMirror right;
+  PanelMirror get left => _slots[0].shown;
+
+  @override
+  PanelMirror get right => _slots[1].shown;
+
+  /// Все сессии обеих сторон: их закрывают на выходе и о них рассказывают
+  /// ядру, когда меняется раскладка.
+  Iterable<PanelMirror> get _allPanels => _slots.expand((slot) => slot.panels);
+
+  @override
+  List<Panel> panelsAt(ViewportPosition side) => List.unmodifiable(_slotAt(side).panels);
+
+  _PanelSlot _slotAt(ViewportPosition side) => _slots[side == ViewportPosition.right ? 1 : 0];
+
+  /// Слот, в котором живёт эта сессия; null — сессия не наша.
+  _PanelSlot? _slotOf(Panel panel) {
+    for (final slot in _slots) {
+      if (slot.panels.contains(panel)) {
+        return slot;
+      }
+    }
+    return null;
+  }
+
+  @override
+  Future<Panel> openPanel(ViewportPosition side, {Panel? like}) async {
+    final slot = _slotAt(side);
+    final model = like is PanelMirror ? like : slot.shown;
+    final opened = await link?.call(OpenPanel(model.id));
+    if (opened is! PanelOpened) {
+      // Ядра нет или оно не умеет заводить сессии: показанная остаётся одна.
+      return slot.shown;
+    }
+    final panel = PanelMirror(
+      id: opened.panel,
+      link: link!,
+      state: opened.state,
+      listing: opened.listing,
+      strings: strings,
+    );
+    slot.panels.add(panel);
+    _slotsChanged();
+    return panel;
+  }
+
+  @override
+  void closePanel(Panel panel) {
+    final slot = _slotOf(panel);
+    // Последняя не закрывается: сторона без панели — состояние, которого в
+    // модели нет вовсе.
+    if (slot == null || slot.panels.length < 2 || panel is! PanelMirror) {
+      return;
+    }
+    final gone = slot.panels.indexOf(panel);
+    slot.panels.removeAt(gone);
+    if (slot.current >= slot.panels.length) {
+      slot.current = slot.panels.length - 1;
+    } else if (gone < slot.current) {
+      slot.current--;
+    }
+    final wasActive = panel.active;
+    panel.close();
+    if (wasActive) {
+      activate(slot.shown);
+    }
+    _slotsChanged();
+  }
+
+  @override
+  void showPanel(Panel panel) {
+    final slot = _slotOf(panel);
+    if (slot == null || panel is! PanelMirror || identical(slot.shown, panel)) {
+      return;
+    }
+    final wasActive = slot.shown.active;
+    slot.current = slot.panels.indexOf(panel);
+    if (wasActive) {
+      activate(slot.shown);
+    }
+    _slotsChanged();
+  }
+
+  /// Раскладка изменилась: рабочая область показывает другую сессию, а ядро
+  /// узнаёт, кого куда писать в файл.
+  void _slotsChanged() {
+    view.showPanels();
+    settingsChanged();
+    notifyListeners();
+  }
+
+  /// Раскладка слотов — значениями, для настроек.
+  List<SlotLayout> get slotLayout => [
+    for (final slot in _slots) SlotLayout(panels: [for (final panel in slot.panels) panel.id], current: slot.current),
+  ];
 
   /// Действия приложения: за кнопкой нижней панели и за горячей клавишей
   /// стоит одна и та же команда.
@@ -372,8 +496,11 @@ class AppController extends ChangeNotifier implements Application {
   /// (`docs/spec/client-server.md`, §9).
   @override
   Future<void> shutdown() async {
-    left.cancel();
-    right.cancel();
+    // Все сессии, а не только показанные: в слоте их бывает несколько, и
+    // работает каждая своё (`docs/spec/panel-slots.md`).
+    for (final panel in _allPanels) {
+      panel.cancel();
+    }
     await commands.shutdown();
     // Геометрию здесь не спрашиваем: выход происходит внутри системного
     // обработчика завершения, и обращение к плагину через платформенный канал
@@ -443,6 +570,9 @@ class AppController extends ChangeNotifier implements Application {
     window: _windowGeometry,
     sizeScanConcurrency: _initialSettings.sizeScanConcurrency,
     modules: serialize(_initialSettings.modules) as Map<String, dynamic>,
+    // Кто где стоит, знает только эта сторона: ядро сессии заводит, но не
+    // раскладывает (`docs/spec/panel-slots.md`, §5).
+    slots: slotLayout,
   );
 
   /// Сказать ядру, что эта половина настроек изменилась.
@@ -472,4 +602,20 @@ class AppController extends ChangeNotifier implements Application {
     window.removeListener(_onWindowChanged);
     super.dispose();
   }
+}
+
+/// Сессии одной стороны и та из них, что показана.
+///
+/// Список живой: сессии заводятся и закрываются на ходу, а показана всегда
+/// ровно одна — та, что стоит в области (`docs/spec/panel-slots.md`, §4).
+class _PanelSlot {
+  _PanelSlot({required List<PanelMirror> panels, required int current, required PanelMirror fallback})
+    : panels = panels.isEmpty ? [fallback] : panels,
+      current = panels.isEmpty ? 0 : current.clamp(0, panels.length - 1);
+
+  final List<PanelMirror> panels;
+
+  int current;
+
+  PanelMirror get shown => panels[current];
 }

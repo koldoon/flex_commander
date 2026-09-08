@@ -121,7 +121,7 @@ void main() {
         1,
         CoreReady(
           states: {PanelId.left: state, PanelId.right: state},
-          listings: const {PanelId.left: listing, PanelId.right: listing},
+          listings: {PanelId.left: listing, PanelId.right: listing},
         ),
       ),
     );

@@ -311,8 +311,16 @@ class AppController extends ChangeNotifier {
     required AppSettings settings,
   });
 
+  /// Показанная сессия стороны: в слоте их бывает несколько
+  /// (`spec/panel-slots.md`).
   PanelMirror get left;
   PanelMirror get right;
+
+  /// Все сессии стороны, завести ещё одну, убрать, показать другую.
+  List<Panel> panelsAt(ViewportPosition side);
+  Future<Panel> openPanel(ViewportPosition side, {Panel? like});
+  void closePanel(Panel panel);
+  void showPanel(Panel panel);
 
   /// Активная панель — источник операций.
   PanelMirror get activePanel;

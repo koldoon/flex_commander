@@ -214,13 +214,45 @@ class CoreContainer extends DI {
                   cache: c.get<ListingCache>(),
                 );
 
-        final left = panels.create(settings.left);
-        final right = rightPanels.create(settings.right);
-        final sessions = {PanelId.left: left, PanelId.right: right};
+        // Сессии заводятся по файлу, и первыми — показанные: им достаются
+        // личности `PanelId.left` и `PanelId.right`, остальным — номера
+        // следом (`docs/spec/panel-slots.md`, §5).
+        final slots = settings.slots;
+        final left = panels.create(slots[0].currentPanel);
+        final right = rightPanels.create(slots[1].currentPanel);
+        final more = <PanelSession>[];
+        final layout = <SlotLayout>[];
+
+        for (var side = 0; side < slots.length; side++) {
+          final slot = slots[side];
+          final factory = side == 0 ? panels : rightPanels;
+          final shown = slot.current.clamp(0, slot.panels.length - 1);
+          final ids = <PanelId>[];
+          for (var i = 0; i < slot.panels.length; i++) {
+            if (i == shown) {
+              ids.add(side == 0 ? PanelId.left : PanelId.right);
+              continue;
+            }
+            // Номер по порядку добавления: ядро раздаёт их так же.
+            ids.add(PanelId(more.length + 2));
+            more.add(factory.create(slot.panels[i]));
+          }
+          layout.add(SlotLayout(panels: ids, current: shown));
+        }
+
+        final sessions = {
+          PanelId.left: left,
+          PanelId.right: right,
+          for (var i = 0; i < more.length; i++) PanelId(i + 2): more[i],
+        };
 
         return CoreServer(
           left: left,
           right: right,
+          more: more,
+          // Заводится новая тем же, чем и левая: сторон ядро не знает, а
+          // подставной источник правой — приём проверок, а не правило.
+          createSession: panels.create,
           registry: c.get<ProviderRegistry>(),
           editor: c.get<TreeEditor>(),
           services: services,
@@ -228,7 +260,10 @@ class CoreContainer extends DI {
           settings: SettingsHub(
             store: c.get<SettingsStore>(),
             stored: settings,
-            panelSettings: (panel) => sessions[panel]!.settings,
+            // Карта заведённых — только пока ядро собирается: собравшись, оно
+            // подменит её собой (`SettingsHub.bindPanels`).
+            panelSettings: (panel) => sessions[panel]?.settings,
+            slots: layout,
             saveDelay: overrides.saveDelay ?? SettingsHub.defaultSaveDelay,
           ),
           secrets: c.get<SecretsHub>(),
