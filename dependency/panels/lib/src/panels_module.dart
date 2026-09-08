@@ -104,8 +104,10 @@ class Panels implements FcFrontendModule {
         title: 'Tree with contents',
         description: 'Branches on the left, what is inside on the right',
         build: (context, panel) => CombinedView(panel: panel, settings: settingsOf, save: settings.save),
-        // Настройки те же, что у дерева: столбец слева — оно и есть.
-        options: (context, panel) => TreeViewOptions(settings: settingsOf, save: settings.save),
+        // Настройки — списка: колонки настраиваются у него, а дереву одних
+        // каталогов настраивать нечего — там имя и ничего больше
+        // (`docs/spec/panel-view-combined.md`, §7).
+        options: (context, panel) => TableViewOptions(panel: CombinedView.listOf(context, panel)),
       ),
     );
 

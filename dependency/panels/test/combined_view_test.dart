@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -131,6 +132,27 @@ void main() {
 
     expect(list(runtime).currentPath, '/home/lib');
     expect(tree(runtime).currentEntry?.name, 'lib', reason: 'дерево встало на ту же ветвь');
+  });
+
+  testWidgets('окно выбора вида правит колонки списка', (tester) async {
+    final runtime = await open(tester);
+    await settle(tester);
+
+    runtime.commands.dispatch(KeyCombination.parse('Alt-F1'));
+    await tester.pumpAndSettle();
+
+    // Настраивать в этом виде есть что у списка: у дерева одних каталогов
+    // колонок нет вовсе, и его «Modified (not implemented)» здесь был бы
+    // враньём — колонка вполне работает.
+    expect(find.text('Modified (not implemented)'), findsNothing);
+    final before = list(runtime).columns.columns.firstWhere((column) => column.id == FsColumn.modified).visible;
+
+    // Заголовки колонок в панелях зовутся так же — берём тот, что в окне.
+    await tester.tap(find.descendant(of: find.byType(FcCheckbox), matching: find.text('Modified')));
+    await tester.pumpAndSettle();
+
+    final after = list(runtime).columns.columns.firstWhere((column) => column.id == FsColumn.modified).visible;
+    expect(after, !before, reason: 'флажок правит колонки того столбца, у которого они есть');
   });
 
   testWidgets('уход на другой вид закрывает второй столбец', (tester) async {

@@ -32,6 +32,21 @@ class CombinedView extends StatefulWidget {
   /// Записать настройки: доля правится перетаскиванием.
   final VoidCallback save;
 
+  /// Столбец списка этой стороны; если столбцов ещё нет — сама панель.
+  ///
+  /// Нужен окну выбора вида: настраивать в этом виде есть что у списка — его
+  /// колонки, — а показанной в слоте бывает любая из двух сессий
+  /// (`docs/spec/panel-view-combined.md`, §7).
+  static Panel listOf(BuildContext context, Panel panel) {
+    final app = AppScope.read(context);
+    final side = app.view.positionOf(panel);
+    if (side == null) {
+      return panel;
+    }
+    final panels = app.panelsAt(side);
+    return panels.length < 2 ? panel : panels[1];
+  }
+
   @override
   State<CombinedView> createState() => _CombinedViewState();
 }
@@ -227,6 +242,9 @@ class _CombinedViewState extends State<CombinedView> {
     return FcSplitView(
       ratio: settings.treeShare,
       minWidth: _minColumnWidth,
+      // Столбцы стоят в одной рамке, и граница между ними — та же линейка, что
+      // между колонками таблицы.
+      divider: true,
       onRatioChanged: (value) {
         setState(() => settings.treeShare = value.clamp(PanelsSettings.minTreeShare, PanelsSettings.maxTreeShare));
         widget.save();

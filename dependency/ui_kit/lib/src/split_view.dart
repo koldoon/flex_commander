@@ -18,6 +18,7 @@ class FcSplitView extends StatefulWidget {
     required this.onRatioChanged,
     required this.onCenter,
     this.minWidth,
+    this.divider = false,
   });
 
   final Widget left;
@@ -39,6 +40,14 @@ class FcSplitView extends StatefulWidget {
   /// Сколько остаётся у каждой стороны как минимум; пусто — ширина панели из
   /// темы. Столбцам вида нужна своя: панель целиком туда не поместится.
   final double? minWidth;
+
+  /// Рисовать ли линейку в зазоре.
+  ///
+  /// Между панелями её нет: у каждой своя рамка, и вторая черта между ними
+  /// была бы лишней. Внутри панели — наоборот: столбцы стоят в одной рамке, и
+  /// граница между ними читается той же линейкой, что и между колонками
+  /// таблицы (`docs/spec/panel-view-combined.md`, §7).
+  final bool divider;
 
   @override
   State<FcSplitView> createState() => _FcSplitViewState();
@@ -74,6 +83,15 @@ class _FcSplitViewState extends State<FcSplitView> {
                 Expanded(child: widget.right),
               ],
             ),
+            // Линейка — под захватом: её видно, а тянут всё равно за него.
+            if (widget.divider)
+              Positioned(
+                left: leftWidth + (metrics.areaGap - metrics.strokeWidth) / 2,
+                top: 0,
+                bottom: 0,
+                width: metrics.strokeWidth,
+                child: ColoredBox(color: FcTheme.of(context).colors.columnDivider),
+              ),
             // Захват — **поверх** панелей, а не внутри зазора.
             //
             // Раньше он лежал внутри и расширялся `OverflowBox`: нарисовано
