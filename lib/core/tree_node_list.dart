@@ -144,7 +144,10 @@ class TreeNodeList implements NodeList {
       // избранном, поиск в находках, панель в обычном дереве, — и правило
       // сортировки их не переставляет. Раскладывается **содержимое** ветвей.
       if (level > 0) {
-        shown.sort((a, b) => order.compare(a.node, b.node));
+        final compare = order.compare;
+        if (compare != null) {
+          shown.sort((a, b) => compare(a.node, b.node));
+        }
       }
       for (final branch in shown) {
         final node = branch.node;

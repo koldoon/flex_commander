@@ -22,7 +22,8 @@ import 'package:fc_core_api/fc_core_api.dart';
 /// Из этого же следует, чего источник **не** делает. Обход поддерева и подсчёт
 /// размеров — вопросы к тому, кому узел принадлежит; здесь на них отвечать
 /// нечем и незачем.
-class SearchResultsProvider implements TreeProvider, PanelColumns, PanelPreferredView, RealPathSource {
+class SearchResultsProvider
+    implements TreeProvider, PanelColumns, PanelPreferredView, PanelNaturalOrder, RealPathSource {
   SearchResultsProvider({required String title, required List<FsNode> found, DirectoryNode? parent}) : _under = parent {
     _root = DirectoryNode(provider: this, name: title, parent: parent);
     _build(found);
@@ -81,23 +82,30 @@ class SearchResultsProvider implements TreeProvider, PanelColumns, PanelPreferre
   @override
   Iterable<String> get openBranches => [_root.pathString, ..._branches.keys];
 
+  /// Добавить найденное: список растёт, пока идёт обход.
+  ///
+  /// Панель показывает находки **по ходу** поиска, а не только итог: обход над
+  /// большим деревом идёт минутами, и ждать его, глядя в готовый список,
+  /// незачем (`docs/spec/file-search.md`, §4).
+  void add(List<FsNode> found) {
+    if (found.isEmpty) {
+      return;
+    }
+    _build(found);
+  }
+
   /// Раскладывает находки по ветвям: каталоги между каталогом поиска и
   /// находкой становятся виртуальными.
   void _build(List<FsNode> found) {
+    // Прибавляется к тому, что уже разложено: список растёт по ходу обхода, и
+    // пересобирать его целиком на каждую пачку было бы работой впустую.
     final children = <DirectoryNode, List<FsNode>>{};
     for (final node in found) {
       _found.add(node);
       children.putIfAbsent(_branchFor(node, children), () => []).add(node);
     }
     for (final entry in children.entries) {
-      entry.key.nodes = entry.value;
-    }
-    // Ветвь без находок непосредственно в ней — только с подветвями: её список
-    // всё равно надо закрыть, иначе она покажется пустой.
-    for (final branch in [_root, ..._branches.values]) {
-      if (!children.containsKey(branch) && branch.nodes.isEmpty) {
-        branch.nodes = const [];
-      }
+      entry.key.nodes = [...entry.key.nodes, ...entry.value];
     }
   }
 

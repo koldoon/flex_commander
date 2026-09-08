@@ -282,7 +282,9 @@ class PanelSession {
   void _forgetSourceView(TreeProvider? source) {
     final was = view;
     _viewHere = null;
+    _sortHere = null;
     _expandedHere = {if (source is PanelPreferredView) ...(source as PanelPreferredView).openBranches};
+    _knownBranches = {..._expandedHere};
 
     // Вид сменился — сменится и набор строк, который он попросит; до тех пор
     // панель показывала бы чужой. Набор при этом привязан к корню источника, и
@@ -836,6 +838,39 @@ class PanelSession {
     );
   }
 
+  /// Перечитать то же самое **тихо**: без занятости и не двигая курсор.
+  ///
+  /// Для растущих списков: находки прибывают, пока идёт обход, и панель должна
+  /// показывать их по ходу дела, а не отнимать клавиши на каждую пачку
+  /// (`docs/spec/file-search.md`, §4).
+  ///
+  /// Курсор возвращается **путём**: в дереве имена повторяются, и по имени он
+  /// уехал бы к первой попавшейся строке.
+  Future<void> refreshRows() async {
+    final dir = _directory;
+    if (dir == null) {
+      return;
+    }
+    // Ветви, которых раньше не было, раскрываются сами: их назвал источник, а
+    // свёрнутое человеком остаётся свёрнутым.
+    final source = provider;
+    if (source is PanelPreferredView) {
+      final named = (source as PanelPreferredView).openBranches.toSet();
+      _expandedHere.addAll(named.difference(_knownBranches));
+      _knownBranches = named;
+    }
+
+    final at = currentNode?.pathString;
+    await _load(dir, cursorName: currentNode?.name, keepMarks: true, useCache: false, quiet: true);
+    if (at != null && _cursorToPath(at)) {
+      _changed();
+    }
+  }
+
+  /// Ветви, о которых источник уже говорил: новые раскрываются, о свёрнутых
+  /// человеком он второй раз не просит.
+  Set<String> _knownBranches = {};
+
   /// Прервать текущую работу панели.
   ///
   /// Внутрь отмена доходит сама: разбор пути — это операция, внутри которой
@@ -1275,7 +1310,7 @@ class PanelSession {
     final marked = selection.paths;
 
     _operation?.cancel();
-    final operation = list.read(order: _order);
+    final operation = list.read(order: _orderFor(list.directory.provider));
     _operation = operation;
     operation.start(null);
 
@@ -1308,14 +1343,19 @@ class PanelSession {
     return true;
   }
 
-  SortSpec get sort => _sort;
+  /// Правило раскладки — то, которым панель разложена **сейчас**.
+  ///
+  /// У источника со своим порядком (находки) это правило человека, пока он не
+  /// щёлкнул по заголовку: щелчок живёт, пока показывают источник, и настройки
+  /// панели не меняет — как и с видом, и с колонками.
+  SortSpec get sort => _sortHere ?? _sort;
 
   /// Сортировка по колонке: та же колонка меняет направление.
   void sortBy(FsColumn column) {
     if (!column.sortable) {
       return;
     }
-    sortTo(_sort.toggled(column));
+    sortTo(sort.toggled(column));
   }
 
   /// Сортировать по готовому правилу.
@@ -1323,7 +1363,13 @@ class PanelSession {
   /// Курсор остаётся на том же **объекте**, а не на том же месте: строка
   /// уедет, и следить надо за тем, на чём стоял курсор.
   void sortTo(SortSpec sort) {
-    _sort = sort;
+    if (provider is PanelNaturalOrder) {
+      // Порядок источника человек перебивает на месте: своей настройки он этим
+      // не меняет, а уйдя из находок, увидит прежнюю.
+      _sortHere = sort;
+    } else {
+      _sort = sort;
+    }
     _measuredSinceSort = false;
     final at = currentNode?.pathString;
     final name = currentNode?.name;
@@ -1657,7 +1703,7 @@ class PanelSession {
       _changed();
     }
 
-    final operation = list.read(order: _order);
+    final operation = list.read(order: _orderFor(list.directory.provider));
     _operation = operation;
     operation.start(null);
 
@@ -1824,24 +1870,44 @@ class PanelSession {
   }
 
   /// Чем раскладывать строки: правило панели, сравнение колонки и скрытое.
-  NodeListOrder get _order =>
-      NodeListOrder.of(_sort, includeHidden: _showHidden, column: _columnComparator(_sort.column), naming: naming);
-
-  /// Чем сравнивать по этой колонке: своим у источника или встроенным.
   ///
-  /// Спрашивают **источник**, а не ядро: колонку, которой ядро не знает,
-  /// сортировать ему нечем (`docs/spec/panel-node-list.md`, §5).
-  NodeComparator? _columnComparator(FsColumn column) {
-    final source = provider;
-    return source is PanelColumns ? (source as PanelColumns).comparatorOf(column) : null;
+  /// У источника, отдающего узлы в своём порядке (`PanelNaturalOrder` —
+  /// находки), порядок его: переставлять растущий список значило бы двигать
+  /// прочитанное на экране под каждую пачку. Пока человек не попросил своего —
+  /// щелчком по заголовку.
+  NodeListOrder get _order => _orderFor(provider);
+
+  /// То же для **этого** источника: чтение начинается раньше, чем панель в него
+  /// встаёт, и спрашивать у показанного было бы поздно.
+  NodeListOrder _orderFor(TreeProvider source) {
+    if (source is PanelNaturalOrder && _sortHere == null) {
+      return NodeListOrder.asGiven(includeHidden: _showHidden);
+    }
+    final sort = _sortHere ?? _sort;
+    return NodeListOrder.of(
+      sort,
+      includeHidden: _showHidden,
+      // Сравнение спрашивают **у источника**, а не у ядра: колонку, которой
+      // ядро не знает, сортировать ему нечем (`docs/spec/panel-node-list.md`, §5).
+      column: source is PanelColumns ? (source as PanelColumns).comparatorOf(sort.column) : null,
+      naming: naming,
+    );
   }
+
+  /// Порядок, выбранный **в этом источнике**: живёт, пока его показывают.
+  SortSpec? _sortHere;
 
   void _applySort() {
     // Раскладывает **набор строк**: у каталога это обычная сортировка списка, у
     // дерева — сортировка внутри ветвей. Правило одно на оба, разное только
     // применение (`docs/spec/panel-node-list.md`, §3).
     final list = _list;
-    final sorted = list == null ? (_nodes.toList()..sort(_order.compare)) : list.reorder(_nodes, _order);
+    final order = _order;
+    final compare = order.compare;
+    final sorted =
+        list == null
+            ? (compare == null ? _nodes.toList() : (_nodes.toList()..sort(compare)))
+            : list.reorder(_nodes, order);
     _setRows(List.unmodifiable(sorted));
     // Порядок сменился — значит сменился и список: строки те же, но их места
     // другие, а та сторона знает строки по местам.

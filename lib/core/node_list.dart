@@ -11,6 +11,13 @@ import 'listing_cache.dart';
 class NodeListOrder {
   const NodeListOrder({required this.compare, required this.includeHidden});
 
+  /// Порядок источника: строки идут так, как он их отдал.
+  ///
+  /// Нужен растущим спискам — находкам: они прибывают по ходу обхода, и всякая
+  /// сортировка вставляла бы новое в середину, перекладывая уже прочитанное на
+  /// экране (`docs/spec/file-search.md`, §4).
+  const NodeListOrder.asGiven({required this.includeHidden}) : compare = null;
+
   /// Правило панели со сравнением колонки — тем, которое отдал источник, или
   /// встроенным.
   factory NodeListOrder.of(
@@ -20,7 +27,8 @@ class NodeListOrder {
     FileNaming naming = const ReferenceFileNaming(),
   }) => NodeListOrder(compare: comparatorFor(sort, naming: naming, column: column), includeHidden: includeHidden);
 
-  final NodeComparator compare;
+  /// Чем сравнивать; null — не переставлять вовсе.
+  final NodeComparator? compare;
   final bool includeHidden;
 }
 
@@ -110,5 +118,8 @@ class DirectoryNodeList implements NodeList {
   }
 
   @override
-  List<FsNode> reorder(List<FsNode> rows, NodeListOrder order) => rows.toList()..sort(order.compare);
+  List<FsNode> reorder(List<FsNode> rows, NodeListOrder order) {
+    final compare = order.compare;
+    return compare == null ? rows : (rows.toList()..sort(compare));
+  }
 }

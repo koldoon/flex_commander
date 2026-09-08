@@ -39,6 +39,8 @@ class FileEntry {
     this.reference = '',
     this.scheme = '',
     this.realPath = '',
+    this.canStream = false,
+    this.canReceive = false,
     this.level = 0,
     this.isOpen = false,
     this.sizeIsFinal = true,
@@ -104,6 +106,17 @@ class FileEntry {
   /// столько же, сколько о любом другом.
   final String realPath;
 
+  /// Что умеет источник **этой строки**: отдать содержимое и принять его.
+  ///
+  /// Значением, а не вопросом к панели: строка списка находок бывает откуда
+  /// угодно, и завтра — из избранного, где местные каталоги, серверы и архивы
+  /// стоят рядом (`docs/roadmap.md`, З2). Решать это надо о ней, а не о том,
+  /// что показано панелью, — то же правило, что у [realPath].
+  ///
+  /// На них смотрит `F4`: править можно то, что умеют и отдать, и принять.
+  final bool canStream;
+  final bool canReceive;
+
   /// То же значение с новым размером.
   ///
   /// Нужно посчитанным каталогам: их размер приезжает отдельным событием, и
@@ -127,6 +140,8 @@ class FileEntry {
     level: level,
     isOpen: isOpen,
     sizeIsFinal: isFinal,
+    canStream: canStream,
+    canReceive: canReceive,
   );
 
   /// Глубина строки в списке: 0 у корневых, дальше по вложенности.

@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -11,6 +12,20 @@ import 'package:flex_commander/state/app_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+/// Источник, чтение которого идёт заметное время.
+///
+/// На подставном дереве обход кончается мгновенно, а проверять надо то, что
+/// происходит, **пока он идёт**.
+class _SlowProvider extends InMemoryTreeProvider {
+  _SlowProvider(super.entries);
+
+  @override
+  Future<List<FsNode>> listChildren(DirectoryNode dir) async {
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    return super.listChildren(dir);
+  }
+}
 
 /// Окно поиска проверяется целиком: от клавиши до найденного в панели.
 void main() {
@@ -197,10 +212,60 @@ void main() {
     expect(app.left.view, TreeView.viewId);
     expect(
       [for (final entry in app.left.entries) '${'  ' * entry.level}${entry.name}'],
-      ['*.dart', '  lib', '    src', '      util.dart', '    main.dart', '  main.dart'],
+      // В порядке обхода, а не по алфавиту: список растёт по ходу поиска, и
+      // сортировка вставляла бы новое в середину (`docs/spec/file-search.md`, §4).
+      ['*.dart', '  main.dart', '  lib', '    main.dart', '    src', '      util.dart'],
     );
     // Окно ушло: смотреть на список удобнее в панели.
     expect(find.widgetWithText(FcButton, 'To panel'), findsNothing);
+  });
+
+  testWidgets('«To panel» на середине обхода: поиск виден полоской, список растёт', (tester) async {
+    // Живой дефект: окно исчезало сразу, а находки появлялись через несколько
+    // секунд — обход-то шёл, и было непонятно, ждать его или нет.
+    final slow = _SlowProvider([
+      FakeEntry.directory('/home'),
+      for (var i = 0; i < 30; i++) ...[
+        FakeEntry.directory('/home/d$i'),
+        FakeEntry.file('/home/d$i/found.dart', size: 1),
+      ],
+    ])..home = '/home';
+    app = (await testApp(provider: slow, modules: featureModules())).app;
+
+    await pumpApp(tester);
+    await openWindow(tester);
+    await tester.enterText(input, '*.dart');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+
+    final state = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state;
+    // Ждём первых находок: отдавать панели пустоту команда отказывается.
+    for (var i = 0; i < 40 && state.found.length < 3; i++) {
+      await tester.pump(const Duration(milliseconds: 30));
+    }
+    expect(state.found, isNotEmpty, reason: 'что-то уже нашлось');
+    expect(state.busy, isTrue, reason: 'стенд ни о чём, если обход уже кончился');
+
+    // Не нажатием: `pumpAndSettle` внутри него дождался бы конца обхода, а
+    // проверяем мы то, что происходит, **пока он идёт**.
+    await state.toPanel();
+    await tester.pump();
+
+    expect(app.left.source.scheme, SourceInfo.foundScheme, reason: 'находки уже в панели');
+    expect(app.operations.at(ViewportPosition.left), hasLength(1), reason: 'а поиск виден полоской');
+    final first = app.left.entries.length;
+    expect(first, lessThan(61), reason: 'стенд ни о чём, если к этому мигу нашлось всё');
+
+    // Обход идёт дальше, и панель прибавляет находки по ходу дела.
+    for (var i = 0; i < 40 && state.busy; i++) {
+      await tester.pump(const Duration(milliseconds: 60));
+    }
+    expect(state.busy, isFalse, reason: 'обход кончился');
+    await tester.pump(const Duration(milliseconds: 120));
+
+    expect(app.left.entries.length, greaterThan(first), reason: 'список вырос, пока шёл обход');
+    expect(app.left.entries.where((entry) => entry.name == 'found.dart'), hasLength(30));
   });
 
   testWidgets('панель уже деревом — находки всё равно раскрыты', (tester) async {
@@ -223,7 +288,9 @@ void main() {
     expect(app.left.rows, RowsKind.tree);
     expect(
       [for (final entry in app.left.entries) '${'  ' * entry.level}${entry.name}'],
-      ['*.dart', '  lib', '    src', '      util.dart', '    main.dart', '  main.dart'],
+      // В порядке обхода, а не по алфавиту: список растёт по ходу поиска, и
+      // сортировка вставляла бы новое в середину (`docs/spec/file-search.md`, §4).
+      ['*.dart', '  main.dart', '  lib', '    main.dart', '    src', '      util.dart'],
     );
   });
 
@@ -313,6 +380,33 @@ void main() {
 
     expect(app.left.source.scheme, isNot(SourceInfo.foundScheme));
     expect(app.left.columns.find(FsColumn.path)?.visible, isFalse, reason: 'колонка пути ушла вместе с находками');
+  });
+
+  testWidgets('F4 над находкой правит её, а над ветвью молчит', (tester) async {
+    // Живой дефект: команда спрашивала **панель**, а у списка находок умений
+    // нет вовсе — `F4` не работал ни над чем.
+    //
+    // Источник с содержимым: править можно то, что умеют и отдать, и принять.
+    final withBytes = InMemoryContentProvider([
+      FakeEntry.directory('/home'),
+      FakeEntry.directory('/home/lib'),
+      FakeEntry.file('/home/lib/util.dart', size: 1),
+    ])..home = '/home';
+    app = (await testApp(provider: withBytes, modules: featureModules())).app;
+
+    await pumpApp(tester);
+    await openWindow(tester);
+    await search(tester, '*.dart');
+    await press(tester, 'To panel');
+
+    final edit = app.commands.create('file.edit')!;
+    app.left.setCursorToName('lib');
+    await tester.pumpAndSettle();
+    expect(edit.isExecutable(CommandContext.of(app)), isFalse, reason: 'ветвь не файл');
+
+    app.left.setCursorToName('util.dart');
+    await tester.pumpAndSettle();
+    expect(edit.isExecutable(CommandContext.of(app)), isTrue, reason: 'находка — настоящий файл своего источника');
   });
 
   testWidgets('Enter в найденном ведёт к файлу, а не открывает его', (tester) async {

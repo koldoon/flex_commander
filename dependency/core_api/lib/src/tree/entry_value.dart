@@ -46,6 +46,10 @@ FileEntry entryValueOf(FsNode node) {
     //
     // Источник вправе ответить за свой узел сам ([RealPathSource]): ветвь
     // находок файловой системой не является, а каталог за ней — настоящий.
+    // Что умеет источник **этой** строки: в находках и в избранном они разные,
+    // и спрашивать об этом панель бессмысленно (`docs/roadmap.md`, З2).
+    canStream: node.provider.canStream,
+    canReceive: node.provider.canReceive,
     realPath: switch (node.provider) {
       final RealPathSource source => source.realPathOf(node),
       _ => node.provider.capabilities.realFileSystem ? node.pathString : '',

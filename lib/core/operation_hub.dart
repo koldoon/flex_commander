@@ -129,12 +129,23 @@ class OperationHub {
     if (found.isEmpty) {
       return;
     }
+    final shown = onFound;
+    if (shown != null) {
+      shown(runId, found);
+    }
     (_found[runId] ??= []).addAll(found);
     _say(OperationFound(runId, [for (final node in found) entryValueOf(node)]));
   }
 
   /// Узлы, найденные этой работой; забирает их тот, кто показывает.
   List<FsNode> takeFound(String runId) => _found.remove(runId) ?? const [];
+
+  /// Кому ещё рассказать о найденном.
+  ///
+  /// Панель, которой находки уже отдали, растёт вместе с ними: обход идёт
+  /// дальше, и показывать надо то, что есть сейчас, а не то, что было в миг
+  /// нажатия (`docs/spec/file-search.md`, §4).
+  void Function(String runId, List<FsNode> found)? onFound;
 
   /// Прекращает всё: приложение уходит.
   void dispose() {

@@ -13,12 +13,14 @@ import 'package:flutter_test/flutter_test.dart';
 /// (`docs/spec/file-search.md`, §4).
 void main() {
   late AppRuntime runtime;
-  late InMemoryTreeProvider provider;
+  late InMemoryContentProvider provider;
 
   PanelSession panel() => runtime.app.leftSession;
 
   setUp(() async {
-    provider = InMemoryTreeProvider([
+    // С содержимым: умения строки — это умения её источника, и проверять их
+    // на источнике без байтов было бы не о чем.
+    provider = InMemoryContentProvider([
       FakeEntry.directory('/home'),
       FakeEntry.directory('/home/docs'),
       FakeEntry.directory('/home/docs/deep'),
@@ -156,6 +158,42 @@ void main() {
     // пережила.
     await panel().goUp();
     expect(panel().view, was.view);
+  });
+
+  test('находки идут в порядке обхода, а не по алфавиту', () async {
+    // Список растёт по ходу поиска: всякая сортировка вставляла бы новое в
+    // середину, и уже прочитанное на экране переезжало бы с каждой пачкой.
+    final search = await results(found: ['/home/readme.txt', '/home/docs/notes.txt']);
+    await panel().open(search.rootDirectory);
+
+    expect(panel().entries.map((entry) => entry.name), ['..', 'readme.txt', 'docs']);
+
+    // Щелчок по заголовку человек делает сам — тогда и раскладываем.
+    panel().sortTo(const SortSpec());
+    expect(panel().entries.map((entry) => entry.name), ['..', 'docs', 'readme.txt']);
+
+    // Своей настройки он этим не менял: ушёл из находок — она прежняя.
+    expect(panel().settings.sort.column, FsColumn.name);
+    await panel().goUp();
+    expect(panel().sort.column, FsColumn.name);
+  });
+
+  test('умения — у строки, а не у списка', () async {
+    final search = await results(found: ['/home/docs/notes.txt']);
+    await panel().open(search.rootDirectory);
+
+    final branch = panel().entries.firstWhere((entry) => entry.name == 'docs');
+    await panel().open(search.rootDirectory.nodes.whereType<DirectoryNode>().first);
+    final note = panel().entries.firstWhere((entry) => entry.name == 'notes.txt');
+
+    // Находка — настоящий узел своего источника: и отдать её содержимое, и
+    // принять он умеет, поэтому `F4` над ней работает.
+    expect(note.canStream, isTrue);
+    expect(note.canReceive, isTrue);
+
+    // А ветвь — своя, виртуальная: байтов у неё нет вовсе.
+    expect(branch.canStream, isFalse);
+    expect(branch.canReceive, isFalse);
   });
 
   test('в списке находок нечего писать', () async {

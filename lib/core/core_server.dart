@@ -50,6 +50,9 @@ class CoreServer implements CoreHandler {
       sessionOf: session,
       say: _say,
     );
+    // Находки прибывают, пока идёт обход, — и панель, которой их отдали,
+    // растёт вместе с ними (`docs/spec/file-search.md`, §4).
+    _operations.onFound = _grewFound;
     for (final entry in _panels.entries) {
       final panel = entry.key;
       final session = entry.value;
@@ -69,6 +72,24 @@ class CoreServer implements CoreHandler {
         },
         onSized: (paths) => _say(PanelSized(panel, paths)),
       );
+    }
+  }
+
+  /// Находки, показанные панелью: чей это обход и куда складывать прибывающее.
+  final Map<PanelId, _ShownFound> _showing = {};
+
+  /// Обход нашёл ещё — положить в тот список, который его показывает.
+  ///
+  /// Перечитывание панели идёт **с ограничителем**: находки приходят пачками по
+  /// нескольку раз в секунду, а перечитывание собирает строки заново.
+  void _grewFound(String runId, List<FsNode> found) {
+    for (final entry in _showing.entries) {
+      final shown = entry.value;
+      if (shown.runId != runId) {
+        continue;
+      }
+      shown.results.add(found);
+      shown.redraw();
     }
   }
 
@@ -281,6 +302,10 @@ class CoreServer implements CoreHandler {
         // нужно. Тот, где стоит **курсор**: искали оттуда же (`panel.currentPath`),
         // и в дереве это не корень источника.
         final results = SearchResultsProvider(title: title, found: found, parent: session(panel).standingDirectory);
+        // Незаконченный поиск идёт дальше, и список растёт: панель помнит, чей
+        // он, чтобы прибывающее попадало в тот же источник.
+        _showing[panel]?.redraw.cancel();
+        _showing[panel] = _ShownFound(runId, results, Throttle(() => unawaited(session(panel).refreshRows())));
         await session(panel).open(results.rootDirectory);
         return const CoreOpened(true);
 
@@ -390,4 +415,16 @@ class _NoServices implements FcServices {
 
   @override
   List<T> resolveAll<T>() => const [];
+}
+
+/// Найденное, показанное панелью: обход, список и ограничитель перерисовки.
+class _ShownFound {
+  _ShownFound(this.runId, this.results, this.redraw);
+
+  final String runId;
+  final SearchResultsProvider results;
+
+  /// Ограничитель: перечитывать панель на каждую пачку находок незачем — их
+  /// приходит по нескольку раз в секунду.
+  final Throttle redraw;
 }

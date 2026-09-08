@@ -37,18 +37,20 @@ class EditFileCommand extends AppCommand {
   @override
   bool isExecutable(CommandContext context) {
     final entry = context.entry;
-    final source = context.panel.source;
-    // Править можно то, что умеют и отдать, и принять: у результатов поиска
-    // байтов нет вовсе, а архив, открытый через временную копию, принять их
-    // не может — изменения уехали бы вместе с копией.
+    // Править можно то, что умеют и отдать, и принять, — и спрашивают об этом
+    // **строку**, а не панель: в находках узлы настоящие и принадлежат своим
+    // источникам, а сам список байтов не отдаёт вовсе. Живьём `F4` над
+    // находкой поэтому и не работал. Архив, открытый через временную копию,
+    // остаётся запретным: у его строк тот же провайдер, что у панели, и
+    // принять он не может — изменения уехали бы вместе с копией.
     return entry != null &&
         // Занятая панель второго чтения не начинает: она уже читает — либо
         // каталог, либо файл, — и говорить об этом ей нечем дважды.
         !context.panel.busy &&
         !entry.isDirectory &&
         !entry.isParent &&
-        source.canStream &&
-        source.canReceive;
+        entry.canStream &&
+        entry.canReceive;
   }
 
   @override
@@ -59,7 +61,7 @@ class EditFileCommand extends AppCommand {
       return;
     }
 
-    if (!panel.source.canStream || !panel.source.canReceive) {
+    if (!entry.canStream || !entry.canReceive) {
       throw FsError(entry.path, FsErrorKind.notSupported);
     }
 
