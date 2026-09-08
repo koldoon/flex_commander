@@ -63,9 +63,7 @@ void main() {
       expect(app.activePanel, same(app.left), reason: 'команда показывает, а не переводит взгляд');
     });
 
-    test('на файле показывается его каталог', () async {
-      await app.left.openPath('/home/docs');
-      await app.left.openPath('/home');
+    test('на файле показывается каталог этого файла', () async {
       app.left.setCursorToName('notes.txt');
 
       await run('panel.openInOther');

@@ -186,8 +186,9 @@ class TogglePanelCommand extends AppCommand {
 ///
 /// Привычка `mc`: `Alt-O` — быстрый способ развести две панели по нужным
 /// каталогам, не набирая путь. Курсор на каталоге — соседняя открывает **его**;
-/// на файле или на «..» — каталог этой панели: файл в панели не открыть, а
-/// показать рядом то, что рядом с ним, — ровно то, чего от команды и ждут.
+/// на файле — каталог, в котором **этот файл лежит**, а не каталог панели: в
+/// находках это разные вещи, и рядом надо показать то, что рядом с находкой.
+/// На «..» и там, где каталог строки неизвестен, — каталог самой панели.
 ///
 /// Активной остаётся своя панель: команда показывает, а не переводит взгляд.
 /// Хотели бы перевести — для этого есть `Tab`.
@@ -221,7 +222,7 @@ class OpenInOtherPanelCommand extends AppCommand {
     await target.openPath(path);
   }
 
-  /// Что показать соседке: каталог под курсором, а иначе — свой каталог.
+  /// Что показать соседке: каталог под курсором, а иначе — каталог его строки.
   static String? _pathFor(CommandContext context) {
     final entry = context.entry;
     final here = context.panel.currentPath;
@@ -229,7 +230,14 @@ class OpenInOtherPanelCommand extends AppCommand {
       return here;
     }
     final directory = entry.isDirectory || (entry.isLink && entry.linkToDirectory);
-    return directory ? entry.path : here;
+    if (directory) {
+      // Настоящий путь, если он есть: ветвь находок показывает найденное, а
+      // значит — каталог, из которого оно найдено. Её собственный адрес
+      // соседней панели ни о чём не говорит, и живьём это выглядело так, что
+      // на каталоге команда молчит.
+      return entry.realPath.isEmpty ? entry.path : entry.realPath;
+    }
+    return entry.directoryPath.isEmpty ? here : entry.directoryPath;
   }
 }
 

@@ -22,7 +22,7 @@ import 'package:fc_core_api/fc_core_api.dart';
 /// Из этого же следует, чего источник **не** делает. Обход поддерева и подсчёт
 /// размеров — вопросы к тому, кому узел принадлежит; здесь на них отвечать
 /// нечем и незачем.
-class SearchResultsProvider implements TreeProvider, PanelColumns, PanelPreferredView {
+class SearchResultsProvider implements TreeProvider, PanelColumns, PanelPreferredView, RealPathSource {
   SearchResultsProvider({required String title, required List<FsNode> found, DirectoryNode? parent}) : _under = parent {
     _root = DirectoryNode(provider: this, name: title, parent: parent);
     _build(found);
@@ -38,6 +38,28 @@ class SearchResultsProvider implements TreeProvider, PanelColumns, PanelPreferre
 
   /// Виртуальные каталоги по их пути — по ним же собираются ветви.
   final Map<String, DirectoryNode> _branches = {};
+
+  /// Настоящий каталог за каждой ветвью.
+  ///
+  /// Ветвь показывает найденное, но значит — тот каталог, из которого это
+  /// найдено: туда её открывают в соседней панели (`Alt-O`), оттуда её
+  /// показывает система. Снаружи это видно как [FileEntry.realPath].
+  final Map<DirectoryNode, DirectoryNode> _mirrors = {};
+
+  /// Настоящий путь узла: у ветви — каталог, который она показывает.
+  ///
+  /// У корня своего нет: он не каталог, а список, сложившийся по маске.
+  @override
+  String realPathOf(FsNode node) {
+    if (!identical(node.provider, this)) {
+      return node.provider.capabilities.realFileSystem ? node.pathString : '';
+    }
+    final real = _mirrors[node];
+    if (real == null) {
+      return '';
+    }
+    return real.provider.capabilities.realFileSystem ? real.pathString : '';
+  }
 
   /// Что нашлось — в том порядке, в каком находилось.
   final List<FsNode> _found = [];
@@ -92,6 +114,7 @@ class SearchResultsProvider implements TreeProvider, PanelColumns, PanelPreferre
       }
       final virtual = DirectoryNode(provider: this, name: real.name, parent: branch, modified: real.modified);
       _branches[path] = virtual;
+      _mirrors[virtual] = real;
       children.putIfAbsent(branch, () => []).add(virtual);
       branch = virtual;
     }

@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 
 import 'fs_node.dart';
+import 'tree_provider.dart';
 
 /// Узел значением — то, чем его рисуют по ту сторону границы.
 ///
@@ -42,6 +43,12 @@ FileEntry entryValueOf(FsNode node) {
     // ничего не опознаёт, он отвечает на другой вопрос — «что эта строка
     // значит вне приложения», — а «..» ведёт во вполне настоящий каталог, и
     // система знает о нём столько же, сколько о любом другом.
-    realPath: !node.provider.capabilities.realFileSystem ? '' : node.pathString,
+    //
+    // Источник вправе ответить за свой узел сам ([RealPathSource]): ветвь
+    // находок файловой системой не является, а каталог за ней — настоящий.
+    realPath: switch (node.provider) {
+      final RealPathSource source => source.realPathOf(node),
+      _ => node.provider.capabilities.realFileSystem ? node.pathString : '',
+    },
   );
 }

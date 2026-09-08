@@ -247,6 +247,24 @@ void main() {
     expect(app.left.currentEntry?.path, '/home', reason: 'курсор на ветви каталога, откуда искали');
   });
 
+  testWidgets('Alt-O на ветви находок открывает настоящий каталог', (tester) async {
+    // Живой дефект: ветвь находок — виртуальная, и её собственный адрес
+    // соседней панели ни о чём не говорит: команда молчала.
+    await pumpApp(tester);
+    await openWindow(tester);
+    await search(tester, '*.dart');
+    await press(tester, 'To panel');
+
+    app.left.setCursorToName('lib');
+    await tester.pumpAndSettle();
+    expect(app.left.currentEntry?.realPath, '/home/lib', reason: 'ветвь знает свой настоящий каталог');
+
+    await app.commands.create('panel.openInOther')!.executeWith();
+    await tester.pumpAndSettle();
+
+    expect(app.right.currentPath, '/home/lib');
+  });
+
   testWidgets('в найденном видна колонка пути, а раскладка панели цела', (tester) async {
     await pumpApp(tester);
     final before = app.left.columns;
