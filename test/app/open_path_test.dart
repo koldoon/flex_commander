@@ -227,7 +227,7 @@ void main() {
         // экран. Доля ширины задаёт середину окна, а не выравнивание по
         // свободному месту, и на широком экране разница видна.
         final dialog = tester.getRect(
-          find.descendant(of: find.byType(DialogFrame), matching: find.byType(IntrinsicWidth)),
+          find.descendant(of: find.byType(DialogFrame), matching: find.byType(DialogWidth)),
         );
         expect(dialog.center.dx, closeTo(entry.value, 1), reason: 'окно ${entry.key} панели');
 
@@ -681,11 +681,9 @@ void main() {
       // читалась бы как плитка, а не как «эта строка списка».
       expect(row.left, list.left);
       expect(row.right, list.right);
-      // Само окно — это `IntrinsicWidth` внутри рамы: она занимает всю
+      // Само окно — это `DialogWidth` внутри рамы: она занимает всю
       // отведённую команде область, а окно облегает содержимое.
-      final window = tester.getRect(
-        find.descendant(of: find.byType(DialogFrame), matching: find.byType(IntrinsicWidth)),
-      );
+      final window = tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(DialogWidth)));
       expect(list.width, moreOrLessEquals(window.width, epsilon: 1));
 
       // А текст в ней — ровно под набранным. Поле здесь стоит в столбце

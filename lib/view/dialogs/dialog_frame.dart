@@ -150,6 +150,27 @@ class _DialogFrameState extends State<DialogFrame> {
     );
   }
 
+  /// Ширина окна над названной областью: область минус поле с каждой стороны.
+  ///
+  /// **Число, а не «по содержимому».** Содержимое окна меняется на глазах —
+  /// в ходе работы бегут имена файлов, список отбирается по набранному, —
+  /// и окно, облегающее его, дёргалось бы шириной на каждом шаге
+  /// (`docs/spec/dialog-placement.md`, §3).
+  ///
+  /// Не меньше `dialogMinWidth`: на узком экране важнее прочитать окно, чем
+  /// попасть точно над панелью, — то же правило, что и у раскладки.
+  ///
+  /// У окна над всем приложением ширины отсюда нет вовсе (`infinity`): оно
+  /// либо назначает её себе само (`ownWidth`), либо облегает содержимое в
+  /// пределах темы, и области, чьи границы стоило бы беречь, у него нет.
+  double _areaWidth(BuildContext context, FcMetrics metrics) {
+    if (widget.area.width >= 1) {
+      return double.infinity;
+    }
+    final width = MediaQuery.sizeOf(context).width * widget.area.width;
+    return math.max(metrics.dialogMinWidth, width - metrics.dialogAreaInset * 2);
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
@@ -157,6 +178,7 @@ class _DialogFrameState extends State<DialogFrame> {
 
     final metrics = theme.metrics;
     final radius = BorderRadius.circular(metrics.dialogRadius);
+    final areaWidth = _areaWidth(context, metrics);
 
     return Stack(
       children: [
@@ -166,6 +188,10 @@ class _DialogFrameState extends State<DialogFrame> {
           delegate: _OverArea(
             widget.area,
             metrics.dialogMinWidth,
+            // Поле между границей области и окном: без него окно над панелью
+            // ложится стык в стык с её рамкой
+            // (`docs/spec/dialog-placement.md`).
+            metrics.dialogAreaInset,
             _shift,
             metrics.dialogDragKeepVisible,
             // Отступ сверху один на все окна и берётся из темы: окно, стоящее
@@ -195,18 +221,22 @@ class _DialogFrameState extends State<DialogFrame> {
                 // Узел рамы нужен, чтобы окно слышало клавиши, когда внутри
                 // фокусировать нечего. Останавливаться на нём `Tab`у незачем.
                 skipTraversal: true,
-                // Ширину рамка не назначает: окно облегает содержимое в пределах
-                // `minWidth`/`maxWidth`. Нужен определённый размер — команда
-                // задаёт его сама в том, что вернула из `dialogSpec`, и тогда
-                // же снимает верхний предел (`ownWidth`): он в точках, а такая
-                // ширина в долях экрана, и на широком экране предел обрезал бы
-                // её тем сильнее, чем экран шире.
+                // Пределы — для окна над всем приложением: оно облегает
+                // содержимое, и держат его `minWidth`/`maxWidth`. Нужен
+                // определённый размер — команда задаёт его сама в том, что
+                // вернула из `dialogSpec`, и тогда же снимает верхний предел
+                // (`ownWidth`): он в точках, а такая ширина в долях экрана, и
+                // на широком экране предел обрезал бы её тем сильнее, чем
+                // экран шире.
+                //
+                // У окна над панелью ширина своя и точная — [DialogWidth].
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
                     minWidth: metrics.dialogMinWidth,
                     maxWidth: widget.ownWidth ? double.infinity : metrics.dialogMaxWidth,
                   ),
-                  child: IntrinsicWidth(
+                  child: DialogWidth(
+                    width: areaWidth,
                     child: Container(
                       decoration: BoxDecoration(
                         color: colors.dialogBackground,
@@ -242,18 +272,50 @@ class _DialogFrameState extends State<DialogFrame> {
   }
 }
 
+/// Ширина окна: назначенная областью или по содержимому.
+///
+/// Окно над **панелью** получает точное число — ширину своей области без полей
+/// (`docs/spec/dialog-placement.md`, §3). Не «облегает содержимое»: содержимое
+/// меняется на глазах — бегут имена файлов, отбирается список, — и окно по нему
+/// дрожало бы шириной на каждом шаге.
+///
+/// Окно над **всем приложением** ширину берёт по содержимому, как и раньше:
+/// области, от которой её считать, у него нет.
+///
+/// Оно же — само окно в дереве виджетов: рама вокруг занимает всю область
+/// вместе с затемнением, а окно — то, что внутри. По нему окно и находят в
+/// проверках.
+class DialogWidth extends StatelessWidget {
+  const DialogWidth({super.key, required this.width, required this.child});
+
+  /// Ширина окна; `infinity` — по содержимому.
+  final double width;
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) =>
+      width.isFinite ? SizedBox(width: width, child: child) : IntrinsicWidth(child: child);
+}
+
 /// Ставит окно над заданной частью экрана.
 ///
 /// `Align` для этого не годится: он раскладывает по **свободному** месту, и
-/// широкое окно уезжает от задуманного тем сильнее, чем оно шире. Ширина при
-/// этом ограничивается самой областью — окно шире панели над ней не
-/// поместится, как ни выравнивай, — но не ниже [minWidth]: на узком экране
-/// важнее прочитать окно, чем попасть точно над панелью.
+/// широкое окно уезжает от задуманного тем сильнее, чем оно шире.
+///
+/// Ширина ограничивается не самой областью, а границами, посчитанными от неё:
+/// окно не касается границ своей панели, а не поместившись — заходит на
+/// соседнюю, но не дальше её середины (`docs/spec/dialog-placement.md`, §3).
+/// Ниже [minWidth] не жмёт: на узком экране важнее прочитать окно, чем попасть
+/// точно над панелью.
 class _OverArea extends SingleChildLayoutDelegate {
-  const _OverArea(this.area, this.minWidth, this.shift, this.keepVisible, this.topInset);
+  const _OverArea(this.area, this.minWidth, this.inset, this.shift, this.keepVisible, this.topInset);
 
   final DialogArea area;
   final double minWidth;
+
+  /// Поле между границей области и окном.
+  final double inset;
 
   /// Сколько сверху до окна — одно число на все окна.
   ///
@@ -270,18 +332,48 @@ class _OverArea extends SingleChildLayoutDelegate {
   /// Сколько окна остаётся видно, как далеко его ни утащили.
   final double keepVisible;
 
+  /// В каких границах окну дозволено лежать (`docs/spec/dialog-placement.md`,
+  /// §3).
+  ///
+  /// Внутри своей области — с полем от границ; наружу — только в ту сторону,
+  /// где места больше, и не дальше её середины. Область во всё приложение
+  /// границ не имеет вовсе: беречь там нечего, соседа у неё нет.
+  (double, double) _bounds(double width) {
+    final start = width * area.start;
+    final end = width * area.end;
+    final outsideLeft = start;
+    final outsideRight = width - end;
+    if (outsideLeft <= 0 && outsideRight <= 0) {
+      return (0, width);
+    }
+    // Расти — в ту сторону, где просторнее: у левой панели сосед справа, у
+    // правой слева. Ближний край при этом остаётся на поле от своей границы.
+    return outsideRight >= outsideLeft
+        ? (start + inset, end + outsideRight / 2)
+        : (start - outsideLeft / 2, end - inset);
+  }
+
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
-    final allowed = math.max(minWidth, constraints.maxWidth * area.width);
+    final (low, high) = _bounds(constraints.maxWidth);
+    final allowed = math.max(minWidth, high - low);
     return constraints.loosen().copyWith(maxWidth: math.min(constraints.maxWidth, allowed));
   }
 
   @override
   Offset getPositionForChild(Size size, Size childSize) {
-    // За край не выпускаем: на узком окне важнее видеть окно целиком, чем
-    // держать его точно над панелью.
+    final (low, high) = _bounds(size.width);
+    // Одно правило на оба случая: середина области, прижатая к границам.
+    // Узкое окно так и стоит посередине панели, широкое упирается ближним
+    // краем в поле и заходит на соседнюю.
+    final right = math.max(low, high - childSize.width);
+    var x = (size.width * area.center - childSize.width / 2).clamp(math.min(low, right), right).toDouble();
+
+    // За край окна приложения не выпускаем: на узком окне важнее видеть окно
+    // целиком, чем держать его точно над панелью.
     final free = math.max(0.0, size.width - childSize.width);
-    final x = (size.width * area.center - childSize.width / 2).clamp(0.0, free).toDouble();
+    x = x.clamp(0.0, free).toDouble();
+
     final freeHeight = math.max(0.0, size.height - childSize.height);
     // Высокое окно поднимается ровно настолько, чтобы поместиться: обещание
     // «не дёргаться» кончается там, где начинается «не влезло».
@@ -305,6 +397,7 @@ class _OverArea extends SingleChildLayoutDelegate {
   bool shouldRelayout(_OverArea oldDelegate) =>
       oldDelegate.area != area ||
       oldDelegate.minWidth != minWidth ||
+      oldDelegate.inset != inset ||
       oldDelegate.shift != shift ||
       oldDelegate.keepVisible != keepVisible ||
       oldDelegate.topInset != topInset;

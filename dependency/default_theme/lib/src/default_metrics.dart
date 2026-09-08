@@ -209,6 +209,11 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get dialogScreenInset => 120;
 
+  /// Вдвое против поля содержимого: между двумя рамками поле заметнее, чем
+  /// внутри окна, иначе окно кажется приклеенным к панели.
+  @override
+  double get dialogAreaInset => 16;
+
   @override
   double get dialogTopInset => 130;
 

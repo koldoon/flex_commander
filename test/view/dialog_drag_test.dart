@@ -47,9 +47,9 @@ void main() {
 
   Finder title() => find.text('Open path (left panel)');
 
-  /// Само окно: `IntrinsicWidth` внутри рамы — рама занимает всю область.
+  /// Само окно: `DialogWidth` внутри рамы — рама занимает всю область.
   Rect window(WidgetTester tester) =>
-      tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(IntrinsicWidth)));
+      tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(DialogWidth)));
 
   /// Тянуть мышью, шагами: одно движение только начинает протяжку, положение —
   /// дело последующих.
@@ -167,7 +167,7 @@ void main() {
 
     expect(find.byType(FcCommandPalette), findsOneWidget);
     // Полосы нет: в раме не осталось ни одного текста высотой в заголовок.
-    final frame = tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(IntrinsicWidth)));
+    final frame = tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(DialogWidth)));
     final palette = tester.getRect(find.byType(FcCommandPalette));
     expect(palette.top, moreOrLessEquals(frame.top, epsilon: 0.5), reason: 'содержимое начинается у самого верха окна');
 
@@ -175,7 +175,7 @@ void main() {
     // окно от протяжки по нему не двигается.
     await drag(tester, find.byType(FcCommandPalette), const Offset(120, -60));
 
-    expect(tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(IntrinsicWidth))), frame);
+    expect(tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(DialogWidth))), frame);
 
     await tester.sendKeyEvent(LogicalKeyboardKey.escape);
     await tester.pumpAndSettle();
