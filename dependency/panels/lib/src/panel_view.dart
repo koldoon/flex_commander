@@ -57,7 +57,11 @@ class PanelView extends StatelessWidget {
           // результаты поиска и просмотрщики — такие же жильцы панели, как и
           // файлы. Каталог же человек показывает как хочет — своим видом
           // (`docs/spec/panel-views.md`, §3).
-          child: _content(context, app, panel),
+          // Слушает панель: вид выбирает человек (`Cmd-1`…`Cmd-3`), а
+          // содержимое — источник, и меняются оба на ходу. Без подписки
+          // содержимое оставалось прежним до первой чужой перерисовки — живьём
+          // вид не менялся, пока не нажмёшь `Tab`.
+          child: ListenableBuilder(listenable: panel, builder: (context, _) => _content(context, app, panel)),
         ),
       ),
     );

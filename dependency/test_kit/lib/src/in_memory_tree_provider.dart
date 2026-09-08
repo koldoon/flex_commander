@@ -42,10 +42,12 @@ class FakeEntry {
       content = content ?? List.filled(size ?? 0, 0),
       size = size ?? content?.length ?? 0;
 
-  FakeEntry.link(this.path, this.linkTarget)
+  /// Ссылка. [executable] — то, что о ней скажет `stat`: он идёт **по
+  /// ссылке**, и ссылка на каталог числится исполняемой, потому что `+x` есть
+  /// у каталога.
+  FakeEntry.link(this.path, this.linkTarget, {this.executable = false})
     : type = FileType.symbolicLink,
       size = FsNode.unknownSize,
-      executable = false,
       content = const [];
 
   final String path;
@@ -297,6 +299,10 @@ class InMemoryReadOnlyProvider implements TreeProvider {
         targetType: _typeOfTarget(entry),
         modified: entry.modified,
         attributes: attributes,
+        // `stat` идёт **по ссылке**: ссылка на каталог числится исполняемой,
+        // потому что `+x` есть у каталога. Без этого подделка не умела
+        // изобразить `/etc` — и живой дефект в проверку не попадал.
+        executable: entry.executable,
       ),
       _ => FileNode(
         provider: this,

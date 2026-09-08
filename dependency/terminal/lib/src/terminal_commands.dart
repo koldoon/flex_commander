@@ -799,7 +799,11 @@ class RunNodeCommand extends AppCommand {
   /// открывается как каталог, каким и является.
   static FileEntry? _runnable(CommandContext context) {
     final entry = context.entry;
-    if (entry == null || entry.isDirectory || entry.isParent) {
+    // Всё, во что **входят**, запуску не подлежит: каталог, «..» и ссылка на
+    // каталог. Последняя и подвела: у каталога стоит бит `+x`, ссылка на него
+    // числится исполняемой — и `Enter` над `/etc` запускал `cd / && /etc`
+    // вместо того, чтобы войти (`docs/spec/terminal.md`, §8).
+    if (entry == null || entry.canEnter) {
       return null;
     }
     // Запускать можно только настоящий путь: внутри архива запускать нечего, а

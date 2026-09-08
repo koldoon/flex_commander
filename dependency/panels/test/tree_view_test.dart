@@ -1033,6 +1033,26 @@ void main() {
     expect(panel.sort.direction, SortDirection.descending);
   });
 
+  testWidgets('вид переключается сразу, без чужой перерисовки', (tester) async {
+    // Живой дефект: содержимое панели не слушало панель, и вид не менялся,
+    // пока что-нибудь не перерисует её со стороны — например `Tab`.
+    final runtime = await open(tester);
+    final panel = runtime.app.left;
+    expect(find.byType(TreeView), findsOneWidget);
+
+    await panel.setView(PanelSettings.defaultView);
+    // Кадр — и только: ничего, кроме самой панели, не менялось.
+    await tester.pump();
+    await tester.pump();
+
+    expect(find.byType(TreeView), findsNothing, reason: 'дерево ушло');
+    expect(find.byType(FileTable), findsWidgets, reason: 'а таблица встала');
+
+    // Дать улечься таймерам панели: проверка смотрела на первый кадр, но
+    // бросать их нельзя — прогон об этом и скажет.
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('сортировка в дереве — та же, что в списке', (tester) async {
     final runtime = await open(tester);
     final panel = runtime.app.left;

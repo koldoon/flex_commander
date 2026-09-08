@@ -47,6 +47,9 @@ void main() {
         FakeEntry.file('/home/build.sh', size: 10, executable: true),
         FakeEntry.file('/home/notes.txt', size: 10),
         FakeEntry.file("/home/my script (2).sh", size: 10, executable: true),
+        // У каталога стоит `+x`, и `stat` по ссылке на него говорит то же:
+        // ссылка числится исполняемой.
+        FakeEntry.link('/home/to-docs', '/home/docs', executable: true),
       ],
       null,
       pty,
@@ -99,6 +102,17 @@ void main() {
 
     expect(pty.started, isFalse);
     expect(app.left.currentPath, '/home/docs');
+  });
+
+  test('ссылка на каталог — вход, а не запуск', () async {
+    // Живой дефект: `Enter` над `/etc` уходил в оболочку строкой `cd / && /etc`
+    // — у каталога есть `+x`, и ссылка на него числится исполняемой.
+    app.left.setCursorToName('to-docs');
+    press('Enter');
+    await pumpEventQueue();
+
+    expect(pty.started, isFalse, reason: 'ничего не запускали');
+    expect(app.left.currentPath, contains('docs'));
   });
 
   test('без настоящего пути не запускается ничего: внутри архива запускать нечем', () async {
