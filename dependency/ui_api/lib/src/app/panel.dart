@@ -279,6 +279,13 @@ abstract interface class Panel implements ViewportState {
 
   // --- вид ---
 
+  /// Разложены ли строки правилом [sort].
+  ///
+  /// false — порядок источника: находки идут так, как их нашли. Смотрит на это
+  /// заголовок: каретка над колонкой обещала бы порядок, которого нет
+  /// (`docs/spec/file-search.md`, §4).
+  bool get sorted;
+
   ColumnLayout get columns;
 
   void setColumnLayout(ColumnLayout layout);

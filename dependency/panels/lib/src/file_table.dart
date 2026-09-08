@@ -275,6 +275,7 @@ class _FileTableState extends State<FileTable> {
                       columns: columns,
                       widths: widths,
                       sort: panel.sort,
+                      sorted: panel.sorted,
                       onColumnTap: (column) {
                         app.activate(panel);
                         panel.sortBy(column);

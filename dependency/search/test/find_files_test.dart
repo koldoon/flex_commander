@@ -382,6 +382,32 @@ void main() {
     expect(app.left.columns.find(FsColumn.path)?.visible, isFalse, reason: 'колонка пути ушла вместе с находками');
   });
 
+  testWidgets('в находках каретки нет: порядок обхода — не сортировка', (tester) async {
+    // Живьём каретка над «Tree» читалась как «список отсортирован», хотя он
+    // идёт в порядке обхода.
+    await pumpApp(tester);
+    await openWindow(tester);
+    await search(tester, '*.dart');
+    await press(tester, 'To panel');
+
+    final icons = FcTheme.of(tester.element(find.byType(TreeView))).icons;
+    Finder caret() => find.descendant(
+      of: find.byType(TreeView),
+      matching: find.byWidgetPredicate(
+        (widget) => widget is Icon && (widget.icon == icons.caretUp || widget.icon == icons.caretDown),
+      ),
+    );
+
+    expect(app.left.sorted, isFalse, reason: 'порядок источника, а не правило панели');
+    expect(caret(), findsNothing, reason: 'каретка обещала бы порядок, которого нет');
+
+    // Щёлкнули по заголовку — правило включилось, и каретка появилась.
+    await tester.tap(find.descendant(of: find.byType(TreeView), matching: find.text('Tree')));
+    await tester.pumpAndSettle();
+    expect(app.left.sorted, isTrue);
+    expect(caret(), findsOneWidget);
+  });
+
   testWidgets('F4 над находкой правит её, а над ветвью молчит', (tester) async {
     // Живой дефект: команда спрашивала **панель**, а у списка находок умений
     // нет вовсе — `F4` не работал ни над чем.

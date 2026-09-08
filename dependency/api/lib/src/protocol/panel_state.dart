@@ -32,6 +32,7 @@ class PanelState {
     this.rows = RowsKind.listing,
     this.scroll = 0,
     this.sort = const SortSpec(),
+    this.sorted = true,
     required this.columns,
     this.showHidden = false,
     this.view = PanelSettings.defaultView,
@@ -110,6 +111,14 @@ class PanelState {
   final double scroll;
 
   final SortSpec sort;
+
+  /// Разложены ли строки этим правилом.
+  ///
+  /// false — порядок источника: находки идут так, как их нашли, и каретка в
+  /// заголовке была бы обещанием того, чего нет (`docs/spec/file-search.md`,
+  /// §4). Правило при этом никуда не девается: щелчок по заголовку включает
+  /// его, и оно же вернётся, когда панель уйдёт из такого источника.
+  final bool sorted;
   final ColumnLayout columns;
   final bool showHidden;
 
@@ -157,6 +166,7 @@ class PanelState {
     RowsKind? rows,
     double? scroll,
     SortSpec? sort,
+    bool? sorted,
     ColumnLayout? columns,
     bool? showHidden,
     String? view,
@@ -181,6 +191,7 @@ class PanelState {
     rows: rows ?? this.rows,
     scroll: scroll ?? this.scroll,
     sort: sort ?? this.sort,
+    sorted: sorted ?? this.sorted,
     columns: columns ?? this.columns,
     view: view ?? this.view,
     showHidden: showHidden ?? this.showHidden,

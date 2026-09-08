@@ -1482,7 +1482,12 @@ class PanelSession {
     cursorIndex: _cursorIndex,
     cursorSeq: _cursorSeq,
     generation: _generation,
-    sort: _sort,
+    // Правило — показанное: в находках это то, которым человек их разложил, а
+    // не то, что стоит в его настройках.
+    sort: sort,
+    // И применено ли оно: у источника со своим порядком (находки) строки идут
+    // так, как их нашли, и каретка была бы обещанием того, чего нет.
+    sorted: _order.compare != null,
     columns: columns,
     showHidden: _showHidden,
     // Показанный, а не выбранный: пока показывают находки, это их дерево

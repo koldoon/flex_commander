@@ -463,6 +463,9 @@ class PanelMirror extends ChangeNotifier implements Panel {
   String get view => _state.view;
 
   @override
+  bool get sorted => _state.sorted;
+
+  @override
   Future<void> setView(String view) => _link.call(Arrange(id, view: view));
 
   @override

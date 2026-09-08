@@ -520,7 +520,7 @@ class _TreeHeader extends StatelessWidget {
           Expanded(
             child: FileTableHeaderCell(
               column: _treeColumn,
-              sorted: _byName,
+              sorted: panel.sorted && _byName,
               direction: panel.sort.direction,
               onTap: () => panel.sortBy(FsColumn.name),
             ),
@@ -530,7 +530,7 @@ class _TreeHeader extends StatelessWidget {
               width: sizeWidth,
               child: FileTableHeaderCell(
                 column: _sizeColumn,
-                sorted: panel.sort.column == FsColumn.size,
+                sorted: panel.sorted && panel.sort.column == FsColumn.size,
                 direction: panel.sort.direction,
                 onTap: () => panel.sortBy(FsColumn.size),
               ),

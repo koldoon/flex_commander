@@ -15,6 +15,7 @@ class FileTableHeader extends StatefulWidget {
     required this.columns,
     required this.widths,
     required this.sort,
+    this.sorted = true,
     this.onColumnTap,
     this.onLayoutChanged,
   });
@@ -28,6 +29,10 @@ class FileTableHeader extends StatefulWidget {
 
   final List<double> widths;
   final SortSpec sort;
+
+  /// Разложены ли строки этим правилом; false — каретки нет ни у одной колонки
+  /// (`docs/spec/file-search.md`, §4).
+  final bool sorted;
 
   final void Function(FsColumn column)? onColumnTap;
   final void Function(ColumnLayout layout)? onLayoutChanged;
@@ -72,7 +77,7 @@ class _FileTableHeaderState extends State<FileTableHeader> {
 
     final cell = FileTableHeaderCell(
       column: column,
-      sorted: widget.sort.column == column.id,
+      sorted: widget.sorted && widget.sort.column == column.id,
       direction: widget.sort.direction,
       onTap: widget.onColumnTap == null || !column.id.sortable ? null : () => widget.onColumnTap!(column.id),
     );
