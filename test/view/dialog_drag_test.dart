@@ -45,7 +45,7 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  Finder title() => find.text('Open path (left panel)');
+  Finder title() => find.text('Open address (left panel)');
 
   /// Само окно: `DialogWidth` внутри рамы — рама занимает всю область.
   Rect window(WidgetTester tester) =>

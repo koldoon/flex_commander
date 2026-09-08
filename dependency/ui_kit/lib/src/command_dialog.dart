@@ -1,5 +1,6 @@
 import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -805,6 +806,10 @@ class FcForm extends StatelessWidget {
       // выросло под длинное поле (рама облегает содержимое, а `FlexColumnWidth`
       // в замере отвечает нулём и ширины окну не прибавляет); остаток — чтобы
       // на широком окне поле занимало всё место.
+      //
+      // «По себе» — это желаемая ширина; наименьшая у значения нулевая
+      // ([_Shrinkable]), и когда окну ширины не хватает, столбец ужимается,
+      // а не вылезает за раму.
       columnWidths: {0: FixedColumnWidth(width), 1: const IntrinsicColumnWidth(flex: 1)},
       children: [
         for (var i = 0; i < rows.length; i++)
@@ -831,7 +836,10 @@ class FcForm extends StatelessWidget {
                     left: metrics.dialogGap,
                     bottom: i == rows.length - 1 ? 0 : metrics.dialogGap,
                   ),
-                  child: rows[i].content(theme),
+                  // Значение ужимается, когда места не хватает: ширину окна
+                  // задаёт не оно (`docs/spec/dialog-placement.md`, §3), а
+                  // длинный путь в поле иначе вылезал бы за раму.
+                  child: _Shrinkable(child: rows[i].content(theme)),
                 ),
               ),
             ],
@@ -839,6 +847,28 @@ class FcForm extends StatelessWidget {
       ],
     );
   }
+}
+
+/// Содержимое, которое **можно** ужать: наименьшая ширина у него нулевая.
+///
+/// Нужно столбцу значений в форме. `Table` спрашивает у столбца две меры —
+/// желаемую и наименьшую, — и ужимает его только в этом промежутке. У поля
+/// ввода обе равны ширине набранного текста: `TextField` меряет себя по нему,
+/// хотя прокручивать умеет. Из-за этого длинный путь в поле раздвигал столбец
+/// шире окна и уходил за раму, а не прокручивался внутри.
+///
+/// Раскладку это не меняет: ребёнок получает ровно те же ограничения, — меняет
+/// только ответ на вопрос «а насколько ты можешь ужаться».
+class _Shrinkable extends SingleChildRenderObjectWidget {
+  const _Shrinkable({required Widget super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderShrinkable();
+}
+
+class _RenderShrinkable extends RenderProxyBox {
+  @override
+  double computeMinIntrinsicWidth(double height) => 0;
 }
 
 /// Кнопка окна команды — `RegularButtonSkin` и `DefaultButtonSkin` референса.

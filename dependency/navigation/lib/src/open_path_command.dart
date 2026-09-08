@@ -63,7 +63,7 @@ class OpenPathCommand extends AppCommand {
   bool _isLeft(CommandContext context) => context.invocation.param<String>(panelParam) != rightPanel;
 
   String titleOf(CommandContext context) =>
-      _isLeft(context) ? tr('Open path (left panel)') : tr('Open path (right panel)');
+      _isLeft(context) ? tr('Open address (left panel)') : tr('Open address (right panel)');
 
   /// Окно встаёт над своей панелью.
   ///
@@ -371,12 +371,12 @@ class _OpenPathFormState extends State<_OpenPathForm> {
     return ListenableBuilder(
       listenable: state,
       builder: (context, _) {
-        // Подписи меряются здесь же, а не только внутри формы: список под полем
-        // должен встать текстом ровно под ним, а поле стоит в столбце значений
-        // — за подписью. Меряется тот же набор строк, что форма и покажет,
-        // поэтому список и поле съезжают вместе или не съезжают вовсе.
-        final labels = [context.strings.tr('Path'), if (state.statusMessage != null) context.strings.tr('Status')];
-        final inset = dialogInputTextInset(context, labelWidth: widestLabel(context, labels));
+        // Подписей в этом окне нет вовсе: и поле, и строка о ходе работы идут
+        // во всю ширину. Подпись «Адрес» повторяла бы заголовок окна, а
+        // столбец под неё съедал бы у поля треть ширины — при том, что окно
+        // над панелью шириной не растёт (`docs/spec/dialog-placement.md`).
+        // Поэтому текст списка стоит под текстом поля без всякой поправки.
+        final inset = dialogInputTextInset(context);
 
         return CommandDialogForm(
           // Неудача не закрывает окно: путь правится тут же и пробуется снова.
@@ -387,8 +387,7 @@ class _OpenPathFormState extends State<_OpenPathForm> {
           onSubmit: state.submit,
           submitLabel: context.strings.tr('Open'),
           children: [
-            CommandDialogField(
-              label: context.strings.tr('Path'),
+            CommandDialogField.wide(
               child: FcTextField(
                 controller: _path,
                 focusNode: _field,
@@ -415,9 +414,10 @@ class _OpenPathFormState extends State<_OpenPathForm> {
               CommandDialogField.bleed(
                 child: ConstrainedBox(
                   // Окно не должно расти на всю историю: дальше список
-                  // прокручивается.
+                  // прокручивается. Ширину не ограничиваем — её задаёт окно
+                  // (`docs/spec/dialog-placement.md`), а списку остаётся в неё
+                  // уместиться.
                   constraints: BoxConstraints(
-                    maxWidth: MediaQuery.sizeOf(context).width * theme.metrics.dialogWidthFactor,
                     maxHeight: (theme.metrics.rowHeight + theme.metrics.rowGap) * _visibleRows,
                   ),
                   child: FcPickList(
@@ -447,8 +447,7 @@ class _OpenPathFormState extends State<_OpenPathForm> {
             // ходе работы есть что, но говорится это в строке состояния панели —
             // под затенением этого самого окна.
             if (state.statusMessage case final message?)
-              CommandDialogField(
-                label: context.strings.tr('Status'),
+              CommandDialogField.wide(
                 // Одной строкой: адреса длинные, а окно не должно расти вниз на
                 // каждой вехе.
                 child: Text(message, style: theme.dialogTextStyle, maxLines: 1, overflow: TextOverflow.ellipsis),

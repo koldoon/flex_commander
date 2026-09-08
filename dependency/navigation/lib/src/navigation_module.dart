@@ -273,9 +273,8 @@ const Map<String, String> _russian = {
   // Окно адреса.
   'Address': 'Адрес',
   'Open any path or address in the left or right panel': 'Открыть любой путь или адрес в левой или правой панели',
-  'Open path (left panel)': 'Открыть путь (левая панель)',
-  'Open path (right panel)': 'Открыть путь (правая панель)',
-  'Path': 'Путь',
+  'Open address (left panel)': 'Открыть адрес (левая панель)',
+  'Open address (right panel)': 'Открыть адрес (правая панель)',
   'Status': 'Ход дела',
   'No matching address in history': 'В истории нет подходящего адреса',
 

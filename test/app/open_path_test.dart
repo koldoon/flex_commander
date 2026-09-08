@@ -181,7 +181,7 @@ void main() {
         const CommandInvocation(parameters: {OpenPathCommand.panelParam: 'left'}),
       );
 
-      expect(command.titleOf(context), 'Open path (left panel)');
+      expect(command.titleOf(context), 'Open address (left panel)');
       // Середина левой панели при разделителе посередине — четверть ширины.
       expect(command.areaOf(context), const DialogArea(end: 0.5));
 
@@ -202,7 +202,7 @@ void main() {
         const CommandInvocation(parameters: {OpenPathCommand.panelParam: 'right'}),
       );
 
-      expect(command.titleOf(context), 'Open path (right panel)');
+      expect(command.titleOf(context), 'Open address (right panel)');
       expect(command.areaOf(context), const DialogArea(start: 0.5));
     });
 
@@ -238,6 +238,38 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
     });
 
+    testWidgets('длинный путь не выводит поле за раму окна', (tester) async {
+      final runtime = await app();
+      tester.view.physicalSize = const Size(1200, 800);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+      await runtime.app.start();
+      await tester.pumpAndSettle();
+
+      runtime.commands.run(
+        OpenPathCommand.commandId,
+        CommandInvocation(parameters: {OpenPathCommand.panelParam: OpenPathCommand.leftPanel}),
+      );
+      await tester.pumpAndSettle();
+
+      // Ширину окна задаёт панель, а не набранное: поле обязано ужаться и
+      // прокручивать свой текст (`docs/spec/dialog-placement.md`, §3).
+      await tester.enterText(
+        find.descendant(of: find.byType(DialogFrame), matching: find.byType(TextField)),
+        '/Users/someone/Developer/Flutter Projects/flex_commander/dependency/ui_kit/lib/src',
+      );
+      await tester.pumpAndSettle();
+
+      final dialog = tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(DialogWidth)));
+      final field = tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(TextField)));
+      expect(field.right, lessThanOrEqualTo(dialog.right));
+      expect(field.left, greaterThanOrEqualTo(dialog.left));
+
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
     testWidgets('поле заполнено текущим путём панели', (tester) async {
       final runtime = await app();
       await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
@@ -250,7 +282,7 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('Open path (left panel)'), findsOneWidget);
+      expect(find.text('Open address (left panel)'), findsOneWidget);
       expect(tester.widget<TextField>(dialogField()).controller?.text, '/home');
     });
 
@@ -299,7 +331,7 @@ void main() {
 
       expect(runtime.app.right.currentPath, '/etc');
       expect(runtime.app.activePanel, runtime.app.right, reason: 'пользователь смотрит туда, куда пришёл');
-      expect(find.text('Open path (right panel)'), findsNothing);
+      expect(find.text('Open address (right panel)'), findsNothing);
 
       await tester.pump(const Duration(milliseconds: 20));
     });
@@ -437,7 +469,7 @@ void main() {
       await tester.pumpAndSettle();
 
       // Путь правится тут же: окно осталось и говорит, что не так.
-      expect(find.text('Open path (left panel)'), findsOneWidget);
+      expect(find.text('Open address (left panel)'), findsOneWidget);
       expect(find.textContaining('Not found'), findsOneWidget);
       expect(runtime.app.left.currentPath, '/home');
 
@@ -690,6 +722,9 @@ void main() {
       // значений, за подписью, и список считает отступ по ней же.
       final typed = tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(EditableText)));
       expect(tester.getRect(title).left, moreOrLessEquals(typed.left, epsilon: 0.5));
+      // И кончается там же, где набранное: подпись стоит слева, справа её нет,
+      // и зеркальный отступ увёл бы конец строки далеко от края поля.
+      expect(tester.getRect(title).right, moreOrLessEquals(typed.right, epsilon: 0.5));
 
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
@@ -752,7 +787,9 @@ void main() {
 
       // Строку состояния панели закрывает затенение окна, поэтому веха
       // показывается в самом окне — и это веха источника, а не общее «Loading…».
-      expect(find.text('Status'), findsOneWidget);
+      // Подписи у строки нет: в этом окне подписей нет вовсе
+      // (`docs/spec/dialog-placement.md`), и веха читается сама по себе.
+      //
       // Именно в окне: в строке состояния панели эта же веха есть и сейчас, но
       // её закрывает затенение — с неё вся работа и началась.
       expect(
@@ -770,18 +807,22 @@ void main() {
       await tester.pumpAndSettle();
 
       // Прервали, но не ушли: набранный адрес на месте, и его можно поправить.
-      expect(find.text('Open path (left panel)'), findsOneWidget);
+      expect(find.text('Open address (left panel)'), findsOneWidget);
       expect(tester.widget<TextField>(dialogField()).controller?.text, 'slow://alpha/srv');
       // Отмена — не отказ: «Not found» здесь был бы враньём.
       expect(find.textContaining('Not found'), findsNothing);
-      expect(find.text('Status'), findsNothing, reason: 'работа кончилась — говорить не о чем');
+      expect(
+        find.descendant(of: find.byType(DialogFrame), matching: find.textContaining('Connecting to')),
+        findsNothing,
+        reason: 'работа кончилась — говорить не о чем',
+      );
       expect(runtime.app.left.currentPath, '/home', reason: 'панель осталась где была');
       expect(runtime.app.left.busy, isFalse);
 
       // А второй Esc закрывает: прерывать больше нечего.
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
       await tester.pumpAndSettle();
-      expect(find.text('Open path (left panel)'), findsNothing);
+      expect(find.text('Open address (left panel)'), findsNothing);
 
       await tester.pump(const Duration(milliseconds: 20));
     });
@@ -792,7 +833,7 @@ void main() {
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
 
-      expect(find.text('Open path (left panel)'), findsOneWidget);
+      expect(find.text('Open address (left panel)'), findsOneWidget);
       expect(runtime.app.left.currentPath, '/home');
       expect(runtime.app.left.busy, isFalse);
 
