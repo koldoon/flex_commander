@@ -203,6 +203,50 @@ void main() {
     expect(find.widgetWithText(FcButton, 'To panel'), findsNothing);
   });
 
+  testWidgets('панель уже деревом — находки всё равно раскрыты', (tester) async {
+    // Живой дефект: вид уже стоял древесным, второй раз он ни о чём не просит,
+    // и находки показывались списком своего корня — «..» и одна ветвь, которая
+    // не раскрывалась (`docs/spec/panel-node-list.md`, §11).
+    await pumpApp(tester);
+    await app.left.setView(TreeView.viewId);
+    await tester.pumpAndSettle();
+    // Курсор на ветви внутри `/home` — оттуда и ищем: в дереве каталог панели
+    // идёт за курсором.
+    app.left.setCursorToName('lib');
+    await tester.pumpAndSettle();
+    expect(app.left.currentPath, '/home', reason: 'стенд ни о чём, если ищем не оттуда');
+
+    await openWindow(tester);
+    await search(tester, '*.dart');
+    await press(tester, 'To panel');
+
+    expect(app.left.rows, RowsKind.tree);
+    expect(
+      [for (final entry in app.left.entries) '${'  ' * entry.level}${entry.name}'],
+      ['*.dart', '  lib', '    src', '      util.dart', '    main.dart', '  main.dart'],
+    );
+  });
+
+  testWidgets('из найденного деревом возвращаются в каталог поиска', (tester) async {
+    await pumpApp(tester);
+    await app.left.setView(TreeView.viewId);
+    await tester.pumpAndSettle();
+    app.left.setCursorToName('lib');
+    await tester.pumpAndSettle();
+
+    await openWindow(tester);
+    await search(tester, '*.dart');
+    await press(tester, 'To panel');
+
+    await app.left.goUp();
+    await tester.pumpAndSettle();
+
+    // Не в корень диска: дерево строится от корня источника, и уход из находок
+    // приводил панель туда — курсор оставался на первой строке.
+    expect(app.left.source.scheme, isNot(SourceInfo.foundScheme));
+    expect(app.left.currentEntry?.path, '/home', reason: 'курсор на ветви каталога, откуда искали');
+  });
+
   testWidgets('в найденном видна колонка пути, а раскладка панели цела', (tester) async {
     await pumpApp(tester);
     final before = app.left.columns;

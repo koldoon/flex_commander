@@ -278,8 +278,9 @@ class CoreServer implements CoreHandler {
         }
         // Каталог поиска — родитель списка: `..` из находок возвращает туда,
         // где панель стояла, и никакого «запомненного места» для этого не
-        // нужно.
-        final results = SearchResultsProvider(title: title, found: found, parent: session(panel).directory);
+        // нужно. Тот, где стоит **курсор**: искали оттуда же (`panel.currentPath`),
+        // и в дереве это не корень источника.
+        final results = SearchResultsProvider(title: title, found: found, parent: session(panel).standingDirectory);
         await session(panel).open(results.rootDirectory);
         return const CoreOpened(true);
 

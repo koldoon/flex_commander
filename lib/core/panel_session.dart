@@ -275,21 +275,25 @@ class PanelSession {
   /// цепочка предков, которую подмешивает `_listFor`.
   Set<String> _expandedHere = {};
 
-  /// Что раскрыто сейчас — своё или источника.
-  Set<String> get _openBranches => provider is PanelPreferredView ? _expandedHere : _expanded;
-
   /// Забыть всё, что относилось к прежнему источнику.
   ///
   /// Зовётся сменой источника: просьба источника — не выбор человека, и
   /// пережить источник она не должна.
   void _forgetSourceView(TreeProvider? source) {
-    final dictated = provider is PanelPreferredView || source is PanelPreferredView;
+    final was = view;
     _viewHere = null;
     _expandedHere = {if (source is PanelPreferredView) ...(source as PanelPreferredView).openBranches};
-    if (dictated) {
-      // Вид сейчас сменится — значит сменится и набор строк, который он просит.
-      // С чужим набором панель встала бы не в тот каталог: дерево привязано к
-      // корню источника, и уход из находок приводил её в корень диска.
+
+    // Вид сменился — сменится и набор строк, который он попросит; до тех пор
+    // панель показывала бы чужой. Набор при этом привязан к корню источника, и
+    // с древесным она встала бы не в тот каталог.
+    //
+    // А вот когда вид **тот же** (дерево у человека и дерево у находок),
+    // сбрасывать нельзя: вид уже стоит и второй раз ни о чём не попросит —
+    // живьём находки показывались списком своего корня, из которого не
+    // раскрывалась ни одна ветвь.
+    final now = source is PanelPreferredView ? (source as PanelPreferredView).preferredView : _view;
+    if (was != now) {
       _rows = RowsKind.listing;
     }
   }
@@ -339,6 +343,19 @@ class PanelSession {
   /// каталог строки под курсором. Панель тут ничего не решает: что значит «где
   /// я стою», знает тот, кто собрал строки.
   String get currentPath => _standing.isEmpty ? (_directory?.displayPath ?? '') : _standing;
+
+  /// Каталог, в котором панель стоит с точки зрения курсора.
+  ///
+  /// То же, что [currentPath], только узлом: у дерева это каталог строки под
+  /// курсором, а не корень источника. Спрашивают его те, кому нужен не путь, а
+  /// сам каталог, — например находки, которым он становится корнем.
+  DirectoryNode? get standingDirectory {
+    final list = _list;
+    if (list is! TreeNodeList) {
+      return _directory;
+    }
+    return currentNode?.parentDirectory ?? _directory;
+  }
 
   /// Где панель стоит **сейчас**: последнее, что сказал набор строк.
   ///
@@ -1202,8 +1219,10 @@ class PanelSession {
     //
     // Чьё это раскрытое — своё или источника, — решает [_openBranches]: просьбу
     // источника в настройки панели не пишут.
+    // Чьё раскрытое брать, решает **этот** каталог, а не тот, что показан:
+    // источник меняется раньше, чем панель успевает в него встать.
     final open = {
-      ..._openBranches,
+      ...(dir.provider is PanelPreferredView ? _expandedHere : _expanded),
       if (previous is TreeNodeList) ...previous.expandedPaths,
       for (final node in dir.path)
         if (node is DirectoryNode) node.pathString,
@@ -1610,6 +1629,7 @@ class PanelSession {
       _stopSizeScan(keepMarked: quiet);
       _restoreSelection(keepMarks ? selection.paths : null);
       _restoreCursor(cursorName, cursorFallbackIndex);
+      _cursorToBranch(dir, cursorName);
       // Занятости нет: панель уже что-то показала, и отнимать у неё клавиши
       // ради чтения, которого никто не ждёт, незачем. Этим фоновое обновление
       // и отличается от `runWork`, где ждут нового экрана.
@@ -1679,6 +1699,7 @@ class PanelSession {
       // отменял бы всё, что сделано после него.
       _restoreSelection(keepMarks ? selection.paths : null);
       _restoreCursor(cursorName, cursorFallbackIndex);
+      _cursorToBranch(dir, cursorName);
 
       _status = PanelPhase.idle;
       _finish();
@@ -1867,6 +1888,21 @@ class PanelSession {
 
   /// Курсор ищется по имени; если объект исчез — встаёт на ближайший индекс
   /// от прежней позиции.
+  /// В дереве курсор встаёт на ветвь открытого каталога — если строки с
+  /// запрошенным именем в наборе нет.
+  ///
+  /// Иначе он оставался бы на первой строке, то есть на корне источника: уход
+  /// из находок «возвращал» панель в корень диска, а не туда, откуда искали.
+  void _cursorToBranch(DirectoryNode dir, String? cursorName) {
+    if (_rows != RowsKind.tree) {
+      return;
+    }
+    if (cursorName != null && currentNode?.name == cursorName) {
+      return;
+    }
+    _cursorToPath(dir.pathString);
+  }
+
   void _restoreCursor(String? cursorName, int? fallbackIndex) {
     if (cursorName != null) {
       final index = _nodes.indexWhere((node) => node.name == cursorName);
