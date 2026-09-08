@@ -199,10 +199,17 @@ class _CombinedViewState extends State<CombinedView> {
   }
 
   /// Список ушёл в другой каталог сам — по `Enter` или `Bsp`: дерево догоняет.
+  ///
+  /// **Только когда курсор в списке.** Иначе список — пассажир: он едет за
+  /// деревом, и его собственные вести о новом каталоге означают лишь то, что
+  /// он доехал. Пока ответ ядра идёт, курсор в дереве успевает уйти дальше — и
+  /// догонялка тащила бы его обратно к тому каталогу, который список только что
+  /// открыл. Живьём это выглядело так, что курсор в дереве не идёт вниз, а
+  /// отскакивает назад (`docs/spec/panel-view-combined.md`, §5).
   void _listMoved() {
     final tree = _tree;
     final list = _list;
-    if (tree == null || list == null) {
+    if (tree == null || list == null || !list.active) {
       return;
     }
     final at = list.currentPath;
@@ -219,8 +226,12 @@ class _CombinedViewState extends State<CombinedView> {
 
   void _catchUpTree() {
     final tree = _tree;
-    final at = _list?.currentPath;
-    if (!mounted || tree == null || at == null || at.isEmpty || at == _branchUnderCursor()) {
+    final list = _list;
+    final at = list?.currentPath;
+    if (!mounted || tree == null || list == null || !list.active || at == null || at.isEmpty) {
+      return;
+    }
+    if (at == _branchUnderCursor()) {
       return;
     }
     // Дерево пошло за списком — а значит, догонять его обратно не нужно:

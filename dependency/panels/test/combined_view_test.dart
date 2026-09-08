@@ -27,8 +27,16 @@ void main() {
       AppSettings(left: PanelSettings.defaults(path), right: PanelSettings.defaults(path));
 
   /// Приложение с левой панелью в комбинированном виде.
-  Future<AppRuntime> open(WidgetTester tester, {String path = '/home'}) async {
-    final runtime = await testApp(provider: provider(), modules: featureModules(), settings: settingsAt(path));
+  ///
+  /// [lagging] — дверь, придерживающая вести ядра: так ведёт себя порт, и
+  /// только так ловятся гонки связки между столбцами.
+  Future<AppRuntime> open(WidgetTester tester, {String path = '/home', bool lagging = false}) async {
+    final runtime = await testApp(
+      provider: provider(),
+      modules: featureModules(),
+      settings: settingsAt(path),
+      door: lagging ? LaggingDoor.new : null,
+    );
     await runtime.app.start();
     tester.view.physicalSize = const Size(1000, 600);
     tester.view.devicePixelRatio = 1;
@@ -132,6 +140,54 @@ void main() {
 
     expect(list(runtime).currentPath, '/home/lib');
     expect(tree(runtime).currentEntry?.name, 'lib', reason: 'дерево встало на ту же ветвь');
+  });
+
+  testWidgets('курсор в дереве не отбрасывает назад', (tester) async {
+    final runtime = await open(tester);
+    await settle(tester);
+
+    runtime.commands.dispatch(KeyCombination.parse('Left'));
+    await tester.pumpAndSettle();
+
+    // Идём вниз, не дожидаясь придержки: список остаётся на прежнем каталоге,
+    // и связка не должна тянуть курсор обратно к нему.
+    final names = <String>[];
+    for (var step = 0; step < 3; step++) {
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+      await tester.pump();
+      names.add(tree(runtime).currentEntry?.name ?? '');
+    }
+    final last = names.last;
+
+    await settle(tester);
+    await settle(tester);
+
+    expect(tree(runtime).currentEntry?.name, last, reason: 'курсор остался там, куда его привели: $names');
+  });
+
+  testWidgets('пока список читает, курсор дерева не отбрасывает назад', (tester) async {
+    // Придержанная дверь: список узнаёт о новом каталоге позже, чем курсор
+    // успевает уйти дальше, — ровно как на порту.
+    final runtime = await open(tester, lagging: true);
+    await settle(tester);
+
+    runtime.commands.dispatch(KeyCombination.parse('Left'));
+    await tester.pumpAndSettle();
+
+    // Шаг, придержка, чтение — и, не дожидаясь вестей, ещё шаг.
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pump(const Duration(milliseconds: 200));
+    final was = tree(runtime).currentEntry?.name;
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pump();
+    final now = tree(runtime).currentEntry?.name;
+    expect(now, isNot(was), reason: 'стенд ни о чём, если курсор не сдвинулся');
+
+    // Вести о прежнем каталоге приходят сюда — и не должны ничего двигать.
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    expect(tree(runtime).currentEntry?.name, now, reason: 'список — пассажир, а не поводырь');
   });
 
   testWidgets('окно выбора вида правит колонки списка', (tester) async {

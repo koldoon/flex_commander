@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_panels/fc_panels.dart';
@@ -9,53 +8,8 @@ import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/core/panel_session.dart';
-import 'package:flex_commander/link/link.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-/// Дверь, придерживающая подтверждения ядра.
-///
-/// На петле ядро отвечает в том же кадре, и такого не бывает; на порту —
-/// бывает всегда: этой стороне помечено уже пятнадцать объектов, а
-/// подтверждение идёт про первый (`docs/spec/client-server.md`, §5.5).
-/// Задержка поддельная, как и время в прогоне: кадр её и двигает.
-class _LaggingDoor implements Link {
-  _LaggingDoor(this._link);
-
-  static const Duration delay = Duration(milliseconds: 100);
-
-  final Link _link;
-  final StreamController<CoreEvent> _events = StreamController<CoreEvent>.broadcast();
-  StreamSubscription<CoreEvent>? _listening;
-
-  @override
-  Stream<CoreEvent> get events {
-    _listening ??= _link.events.listen((event) {
-      Future<void>.delayed(delay, () {
-        if (!_events.isClosed) {
-          _events.add(event);
-        }
-      });
-    });
-    return _events.stream;
-  }
-
-  @override
-  Future<CoreReply> call(CoreRequest request) => _link.call(request);
-
-  @override
-  void tell(CoreRequest request) => _link.tell(request);
-
-  @override
-  bool get isOpen => _link.isOpen;
-
-  @override
-  Future<void> dispose() async {
-    await _listening?.cancel();
-    await _events.close();
-    await _link.dispose();
-  }
-}
 
 /// Источник со **своей схемой** — как сервер по `ssh` или архив.
 ///
@@ -485,7 +439,7 @@ void main() {
       provider: provider(),
       modules: featureModules(),
       settings: settings,
-      door: _LaggingDoor.new,
+      door: LaggingDoor.new,
     );
     await runtime.app.start();
     tester.view.physicalSize = const Size(900, 600);
@@ -1063,7 +1017,7 @@ void main() {
       provider: provider(),
       modules: featureModules(),
       settings: settings,
-      door: _LaggingDoor.new,
+      door: LaggingDoor.new,
     );
     await runtime.app.start();
     tester.view.physicalSize = const Size(900, 600);
@@ -1080,7 +1034,7 @@ void main() {
     await panel.setView(PanelSettings.defaultView);
     // Дверь придерживает подтверждения: сперва доезжает смена вида, и только
     // потом — ответ на просьбу о наборе строк. Между ними и был тот кадр.
-    await tester.pump(_LaggingDoor.delay + const Duration(milliseconds: 20));
+    await tester.pump(LaggingDoor.delay + const Duration(milliseconds: 20));
     await tester.pump();
 
     // Строки левой панели: справа стоит обычная таблица со своими.
