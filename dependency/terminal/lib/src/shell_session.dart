@@ -96,9 +96,11 @@ class ShellSession {
     final opened = TerminalSession.around(channel.pty, maxLines: settings().maxLines, agreement: agreement);
     final setup = channel.fresh ? agreement.setupFor(channel.program.isEmpty ? null : channel.program) : '';
     if (setup.isNotEmpty) {
-      // `clear` следом: сама строка уговора в ленте не нужна, а всё, что после
-      // неё, — уже жизнь человека.
-      opened.input('$setup\nclear\n');
+      // `clear` **той же строкой**: сама строка уговора в ленте не нужна, а всё,
+      // что после неё, — уже жизнь человека. Той же, а не следующей, потому что
+      // отдельная строка осела бы в истории — уговор от неё как раз и прячется
+      // (`docs/spec/single-shell-session.md`).
+      opened.input('$setup; clear\n');
     }
     // Оболочка смертна: `exit`, `kill`, обрыв `ssh`. Умерла — уходит из
     // таблицы, и следующая команда заводит новую; держать мёртвую значило бы

@@ -73,6 +73,9 @@ class ShellAgreement {
     return List.generate(4, (_) => random.nextInt(1 << 16).toRadixString(16).padLeft(4, '0')).join();
   }
 
+  /// Имя нашей функции — оно же примета строки уговора в истории.
+  static const String _markFunction = '__fc_mark';
+
   /// Строка уговора для этой оболочки; пусто — такую мы уговаривать не умеем.
   ///
   /// Оболочку узнаём по имени того, чем её запустили. На своей машине это
@@ -89,14 +92,32 @@ class ShellAgreement {
     final running = "\\e]$_code;$_name;$nonce;$_running\\a";
 
     if (shell != null && shell.split('/').last == 'fish') {
+      // Пробел впереди: `fish` сам не помнит команд, начатых с пробела.
       return [
-        'function __fc_prompt --on-event fish_prompt; $prompt \$status "\$PWD"; end',
+        ' function __fc_prompt --on-event fish_prompt; $prompt \$status "\$PWD"; end',
         "function __fc_running --on-event fish_preexec; printf '$running'; end",
       ].join('; ');
     }
 
     return [
-      '__fc_mark() { $prompt "\$1" "\$PWD"; }',
+      // **Уговор не должен осесть в истории.** Он длинный, машинный и человеку
+      // ни к чему; живьём история и правда им засорялась. Оболочки прячут его
+      // по-разному, и здесь стоит по приёму на каждую — замерено на живых
+      // (`docs/spec/single-shell-session.md`):
+      //
+      // * `zsh` смотрит на `HISTORY_IGNORE` **при записи**, поэтому строка,
+      //   назвавшая образец сама, в файл уже не попадает. Образец
+      //   **дописывается** к чужому, а не заменяет его: человек мог настроить
+      //   своё;
+      // * `bash` решает раньше, чем выполняет, — его строку приходится удалять
+      //   следом (`history -d`). И только **свою**: если строка не записалась
+      //   (у человека `HISTCONTROL=ignorespace`), удаление сняло бы чужую
+      //   команду. Поэтому сперва проверка, что последняя запись — наша.
+      //
+      // Пробел впереди не лишний: с `ignorespace` строка не пишется вовсе, а
+      // без него не мешает.
+      ' HISTORY_IGNORE="\${HISTORY_IGNORE:+(\$HISTORY_IGNORE)|}*$_markFunction*"',
+      '$_markFunction() { $prompt "\$1" "\$PWD"; }',
       'if [ -n "\$ZSH_VERSION" ]',
       "then eval '__fc_precmd() { __fc_mark \$?; }; __fc_preexec() { printf \"$running\"; }; "
           "precmd_functions=(__fc_precmd \$precmd_functions); preexec_functions=(__fc_preexec \$preexec_functions)'",
@@ -110,6 +131,9 @@ class ShellAgreement {
       // Не ломается — показывается чаще, чем нужно.
       'then PROMPT_COMMAND=\'__fc_mark \$?\'"\${PROMPT_COMMAND:+; \$PROMPT_COMMAND}"; PS0="$running\$PS0"',
       'fi',
+      // Своя запись — та, что содержит имя нашей функции; чужую не трогаем.
+      'case "\$(HISTTIMEFORMAT= history 1 2>/dev/null)" in *$_markFunction*)'
+          ' history -d \$((HISTCMD-1)) 2>/dev/null;; esac',
     ].join('; ');
   }
 

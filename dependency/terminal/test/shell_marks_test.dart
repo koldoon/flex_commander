@@ -97,6 +97,37 @@ void main() {
       expect(agreement.setupFor('/bin/fish'), isNot(contains('\n')));
     });
 
+    group('в историю уговор не попадает', () {
+      // Живьём история засорялась им целиком. Приёмы разные у разных оболочек,
+      // и все три замерены на живых (`docs/spec/single-shell-session.md`).
+      test('строка начинается с пробела', () {
+        for (final shell in [null, '/bin/zsh', '/bin/bash', '/opt/homebrew/bin/fish']) {
+          expect(agreement.setupFor(shell), startsWith(' '), reason: 'оболочка $shell');
+        }
+      });
+
+      test('zsh: образец дописывается к чужому, а не заменяет его', () {
+        final setup = agreement.setupFor('/bin/zsh');
+        expect(setup, startsWith(r' HISTORY_IGNORE="${HISTORY_IGNORE:+($HISTORY_IGNORE)|}*__fc_mark*"'));
+      });
+
+      test('bash: удаляется только своя запись', () {
+        final setup = agreement.setupFor('/bin/bash');
+        // Сперва проверка, что последняя запись — наша: без неё удаление сняло
+        // бы чужую команду, когда своя не записалась (`HISTCONTROL=ignorespace`).
+        final check = setup.indexOf('history 1');
+        final remove = setup.indexOf('history -d');
+        expect(check, greaterThan(0));
+        expect(remove, greaterThan(check), reason: 'сперва спрашиваем, потом удаляем');
+      });
+
+      test('fish своей чистки не просит: ему довольно пробела', () {
+        final setup = agreement.setupFor('/usr/local/bin/fish');
+        expect(setup, isNot(contains('history -d')));
+        expect(setup, isNot(contains('HISTORY_IGNORE')));
+      });
+    });
+
     test('в метку зашито число этой сессии', () {
       expect(agreement.setupFor(null), contains('777;fc;abcd;p;'));
       expect(agreement.setupFor(null), contains('777;fc;abcd;r'));
