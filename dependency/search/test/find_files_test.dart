@@ -432,6 +432,38 @@ void main() {
     expect(caret(), findsOneWidget);
   });
 
+  testWidgets('таблицей и кратким находки показываются, не выпадая из них', (tester) async {
+    // Живой дефект: курсор стоял на самой находке, и переход к списочному виду
+    // уводил панель в каталог **файла** — вернуться в находки было уже нечем.
+    await pumpApp(tester);
+    await openWindow(tester);
+    await search(tester, '*.dart');
+    await press(tester, 'To panel');
+
+    app.left.setCursorToName('util.dart');
+    await tester.pumpAndSettle();
+
+    await app.left.setView(PanelSettings.defaultView);
+    await tester.pumpAndSettle();
+
+    // Показана ветвь, в которой находка стоит, — виртуальная, из находок.
+    expect(app.left.source.scheme, SourceInfo.foundScheme);
+    expect(app.left.entries.map((entry) => entry.name), ['..', 'util.dart']);
+    expect(app.left.currentEntry?.name, 'util.dart', reason: 'курсор остался на находке');
+
+    // И «..» ведёт вверх по находкам, а не по диску.
+    await app.left.goUp();
+    await tester.pumpAndSettle();
+    expect(app.left.source.scheme, SourceInfo.foundScheme);
+    expect(app.left.entries.map((entry) => entry.name), ['..', 'main.dart', 'src']);
+
+    // Краткий вид — то же самое: набор строк тот же, меняется только показ.
+    await app.left.setView(BriefView.viewId);
+    await tester.pumpAndSettle();
+    expect(app.left.source.scheme, SourceInfo.foundScheme);
+    expect(app.left.entries.map((entry) => entry.name), ['..', 'main.dart', 'src']);
+  });
+
   testWidgets('F4 над находкой правит её, а над ветвью молчит', (tester) async {
     // Живой дефект: команда спрашивала **панель**, а у списка находок умений
     // нет вовсе — `F4` не работал ни над чем.

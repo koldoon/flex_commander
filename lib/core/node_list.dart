@@ -73,6 +73,15 @@ abstract interface class NodeList {
   /// попросил другое.
   Operation<void, List<FsNode>> read({required NodeListOrder order});
 
+  /// Ветвь **этого набора**, в которой стоит строка; null — такой нет.
+  ///
+  /// Не то же, что каталог узла: в находках строка — настоящий файл со своим
+  /// каталогом где-то на диске, а показывает её виртуальная ветвь. Спрашивают
+  /// это при смене набора строк: переходя от дерева к списку, панель обязана
+  /// остаться **в том же источнике**, а не уехать туда, где лежит файл
+  /// (`docs/spec/file-search.md`, §4).
+  DirectoryNode? branchOf(FsNode row);
+
   /// Разложить уже собранные строки заново — когда сменилось правило, а
   /// содержимое нет.
   ///
@@ -101,6 +110,10 @@ class DirectoryNodeList implements NodeList {
   @override
   void remember(ListingCache? cache, List<FsNode> rows, {required bool includeHidden}) =>
       cache?.put(directory, rows, includeHidden: includeHidden);
+
+  /// В списке каталога ветвь одна — он сам.
+  @override
+  DirectoryNode? branchOf(FsNode row) => directory;
 
   @override
   Operation<void, List<FsNode>> read({required NodeListOrder order}) {

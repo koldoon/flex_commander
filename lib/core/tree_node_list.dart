@@ -88,6 +88,29 @@ class TreeNodeList implements NodeList {
   @override
   List<FsNode> reorder(List<FsNode> rows, NodeListOrder order) => _flatten(order);
 
+  /// Ветвь, в которой стоит строка; null — строка сама корень.
+  @override
+  DirectoryNode? branchOf(FsNode row) {
+    DirectoryNode? found;
+
+    bool walk(List<_Branch> branches, DirectoryNode? parent) {
+      for (final branch in branches) {
+        if (identical(branch.node, row)) {
+          found = parent;
+          return true;
+        }
+        final node = branch.node;
+        if (walk(branch.children ?? const [], node is DirectoryNode ? node : parent)) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    walk(_roots, null);
+    return found;
+  }
+
   /// Раскрыть ветвь. false — она и так была раскрыта.
   ///
   /// Путь принимается **любой**, даже ещё не прочитанный: раскрытое приходит

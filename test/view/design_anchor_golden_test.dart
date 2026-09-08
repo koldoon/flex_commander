@@ -1,11 +1,13 @@
 import 'dart:io';
 
+import 'package:fc_search/fc_search.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -139,6 +141,38 @@ void main() {
   // собственный узел фокуса, а не разбор команд.
   anchor('окно выбора вида — краткий', 'anchor_view_brief.png', 'Alt-F1', down: 1);
   anchor('окно выбора вида — дерево', 'anchor_view_tree.png', 'Alt-F1', down: 2);
+
+  // Вторая фаза поиска — своим тестом, а не `anchor`: до неё надо дойти, набрав
+  // маску и нажав `Enter`. Ряд из семи кнопок в неё не помещается и потому
+  // ужимается целиком (`CommandDialogActions`), а по одному только окну
+  // параметров этого не увидеть — из-за чего макет и разъехался.
+  testWidgets('окно находок', (tester) async {
+    if (!fontsReady) {
+      markTestSkipped('Шрифты не собрались: Ubuntu, FontAwesome или Consolas недоступны');
+      return;
+    }
+
+    final app = await openApp(tester);
+    app.commands.dispatch(KeyCombination.parse('Alt-F7'));
+    await tester.pumpAndSettle();
+
+    // Живое поле **в окне** одно: остальные два приглушены. Искать его надо
+    // внутри формы — командная строка внизу экрана тоже принимает набор.
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(FindFilesForm),
+        matching: find.byWidgetPredicate((widget) => widget is TextField && widget.enabled != false),
+      ),
+      '*.xml',
+    );
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/anchor_find_results.png'));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
 }
 
 /// Интерфейсный шрифт и шрифт иконок лежат в ресурсах, шрифт списка — нет.

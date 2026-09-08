@@ -1211,6 +1211,18 @@ class PanelSession {
       await _load(was, keepMarks: true);
       return;
     }
+
+    // Ветвь **набора**, а не каталог узла: в находках строка — настоящий файл
+    // со своим каталогом где-то на диске, а показывает её виртуальная ветвь.
+    // Уходя от дерева к списку, панель обязана остаться в том же источнике —
+    // живьём она вместо этого уезжала в каталог файла, и вернуться в находки
+    // было уже нечем (`docs/spec/file-search.md`, §4).
+    final branch = was == null ? null : _list?.branchOf(was);
+    if (branch != null) {
+      await _load(branch, cursorName: name, keepMarks: true);
+      return;
+    }
+
     final resolved = await resolvePath().run(at);
     final target = resolved.node;
     await resolved.release();
