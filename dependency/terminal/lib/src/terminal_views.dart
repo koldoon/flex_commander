@@ -13,12 +13,18 @@ class TerminalScreenView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _TerminalFrame(
-      title: context.strings.tr('Terminal'),
-      // Выход показан словами, а не клавишей ряда: `F10` внутри принадлежит
-      // тому, что там запущено, — `htop` и `mc` им и живут.
-      hint: context.strings.tr('⌃O panels'),
-      session: screen.session,
+    // Экран встаёт раньше оболочки: рама и подпись появляются сразу, а
+    // содержимое — когда та отзовётся.
+    return ListenableBuilder(
+      listenable: screen,
+      builder:
+          (context, _) => _TerminalFrame(
+            title: context.strings.tr('Terminal'),
+            // Выход показан словами, а не клавишей ряда: `F10` внутри
+            // принадлежит тому, что там запущено, — `htop` и `mc` им и живут.
+            hint: context.strings.tr('⌃O panels'),
+            session: screen.session,
+          ),
     );
   }
 }
@@ -57,7 +63,9 @@ class _TerminalFrame extends StatelessWidget {
   final String title;
   final String hint;
   final bool failed;
-  final TerminalSession session;
+
+  /// Что показывать; null — оболочки ещё нет, и место под неё пустует.
+  final TerminalSession? session;
 
   @override
   Widget build(BuildContext context) {
@@ -113,35 +121,41 @@ class _TerminalFrame extends StatelessWidget {
               // придётся.
               child: _BottomAligned(
                 lineHeight: lineHeight,
-                child: TerminalView(
-                  session.terminal,
-                  autofocus: true,
-                  backgroundOpacity: 0,
-                  // Только железная клавиатура — без подключения к системному
-                  // текстовому вводу.
-                  //
-                  // Иначе на macOS система забирает нажатия себе: `Backspace`
-                  // уходит в `deleteBackward:` текстового поля, которого у нас
-                  // нет, и до терминала не доходит вовсе, а буквы приезжают
-                  // разбором ввода, который на чужой раскладке врёт. Здесь же
-                  // клавиша приходит как есть: служебные разбирает таблица
-                  // `xterm` (`Backspace` — `\x7f`, `Tab` — `\x9`, `Ctrl-A` —
-                  // `\x1`), а печатные берутся из `event.character` — того
-                  // самого символа, который дала раскладка.
-                  //
-                  // Цена — составной ввод (китайский, японский, мёртвые клавиши):
-                  // в терминале его не будет. Для оболочки это меньшая потеря,
-                  // чем неработающий `Backspace`.
-                  hardwareKeyboardOnly: true,
-                  // С запасными семействами: без них `xterm` подставляет свои,
-                  // и один и тот же текст в терминале и в строке выходит разными
-                  // шрифтами.
-                  textStyle: TerminalStyle(
-                    fontFamily: theme.fonts.fixed,
-                    fontFamilyFallback: theme.fonts.fixedFallback,
-                    fontSize: metrics.fontSize,
+                child: switch (session) {
+                  // Оболочки ещё нет: место под неё пустует, а рама уже стоит.
+                  // Пустое, а не «Загрузка…»: терминал и выглядит пустым, пока
+                  // ничего не вывел, и лишняя надпись мигала бы на кадр.
+                  null => const SizedBox.expand(),
+                  final shell => TerminalView(
+                    shell.terminal,
+                    autofocus: true,
+                    backgroundOpacity: 0,
+                    // Только железная клавиатура — без подключения к системному
+                    // текстовому вводу.
+                    //
+                    // Иначе на macOS система забирает нажатия себе: `Backspace`
+                    // уходит в `deleteBackward:` текстового поля, которого у нас
+                    // нет, и до терминала не доходит вовсе, а буквы приезжают
+                    // разбором ввода, который на чужой раскладке врёт. Здесь же
+                    // клавиша приходит как есть: служебные разбирает таблица
+                    // `xterm` (`Backspace` — `\x7f`, `Tab` — `\x9`, `Ctrl-A` —
+                    // `\x1`), а печатные берутся из `event.character` — того
+                    // самого символа, который дала раскладка.
+                    //
+                    // Цена — составной ввод (китайский, японский, мёртвые клавиши):
+                    // в терминале его не будет. Для оболочки это меньшая потеря,
+                    // чем неработающий `Backspace`.
+                    hardwareKeyboardOnly: true,
+                    // С запасными семействами: без них `xterm` подставляет свои,
+                    // и один и тот же текст в терминале и в строке выходит разными
+                    // шрифтами.
+                    textStyle: TerminalStyle(
+                      fontFamily: theme.fonts.fixed,
+                      fontFamilyFallback: theme.fonts.fixedFallback,
+                      fontSize: metrics.fontSize,
+                    ),
                   ),
-                ),
+                },
               ),
             ),
           ),

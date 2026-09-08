@@ -109,10 +109,11 @@ class TerminalSession extends ChangeNotifier {
 
   /// Оболочку можно **показывать**: уговор заключён и убран с глаз.
   ///
-  /// Отличается от [settled] на одну команду. Оболочка отражает всё, что ей
-  /// присылают, — и строку уговора тоже; следом уходит `clear`, но между ними
-  /// есть кадры, в которые видно чужую кухню. Ждём приглашения **после**
-  /// команды: первое приглашение — от уговора, второе — от `clear`.
+  /// Совпадает с [settled] и не случайно: уговор и `clear` уходят **одной**
+  /// строкой, поэтому первая же метка приглашения приходит с уже чистого
+  /// экрана. Пока их было две, ждать приходилось второго приглашения — а после
+  /// слияния ждать стало нечего, и терминал открывался через три секунды, по
+  /// таймауту (`spec/single-shell-session.md`, §3).
   Future<void> get ready => _ready.future;
   final Completer<void> _ready = Completer<void>();
 
@@ -158,7 +159,8 @@ class TerminalSession extends ChangeNotifier {
     _marksWork = true;
     if (!_settled.isCompleted) {
       _settled.complete();
-    } else if (mark.kind == ShellMarkKind.prompt && !_ready.isCompleted) {
+    }
+    if (mark.kind == ShellMarkKind.prompt && !_ready.isCompleted) {
       _ready.complete();
     }
     _lastMark = mark;

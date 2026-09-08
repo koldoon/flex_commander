@@ -308,6 +308,12 @@ class ToggleTerminalCommand extends AppCommand {
       return;
     }
 
+    // Экран встаёт **сразу**: панели уходят в том же кадре, в котором нажали
+    // клавишу. Оболочка заводится сколько нужно — на сервере это поход по
+    // сети, — и до её ответа экран пуст (`spec/terminal.md`).
+    final screen = TerminalScreen();
+    view.pushViewportContent(ViewportPosition.fullscreen, screen);
+
     final TerminalSession session;
     try {
       // Аренду места берёт ядро: пока живёт оболочка, живо и соединение —
@@ -316,17 +322,27 @@ class ToggleTerminalCommand extends AppCommand {
       session = await shell().sessionIn(context.app, panel: line?.panel, directory: line?.workingDirectory);
     } on Object catch (error) {
       // На сервере открытие канала — поход по сети, и не удаться оно может.
-      // Молчать нельзя: клавиша нажата, а экрана нет.
+      // Молчать нельзя: клавиша нажата, а экрана нет. Пустой экран при этом
+      // убирается — показывать нечего.
+      _close(view, screen);
       context.app.toasts.show(tr('Shell did not start: {error}', args: {'error': error}));
       return;
     }
 
-    // Показываем не раньше, чем оболочка убрала с глаз строку уговора: она
-    // отражает всё, что ей присылают, и без этой паузы человек видит на кадр
-    // чужую кухню (`spec/single-shell-session.md`, §3).
+    // Содержимое показываем не раньше, чем оболочка убрала с глаз строку
+    // уговора: она отражает всё, что ей присылают, и без этой паузы человек
+    // видит на кадр чужую кухню (`spec/single-shell-session.md`, §3).
     await session.ready.timeout(ShellSession.settleTimeout, onTimeout: () {});
 
-    view.pushViewportContent(ViewportPosition.fullscreen, TerminalScreen(session));
+    screen.attach(session);
+  }
+}
+
+/// Убрать экран, если он всё ещё показан: пока ждали оболочку, человек мог
+/// нажать `Ctrl-O` ещё раз или уйти в другое место.
+void _close(ApplicationView view, TerminalScreen screen) {
+  if (identical(view.contentAt(ViewportPosition.fullscreen), screen)) {
+    view.popViewportContent(ViewportPosition.fullscreen);
   }
 }
 

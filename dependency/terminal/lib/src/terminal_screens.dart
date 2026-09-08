@@ -9,9 +9,26 @@ import 'terminal_session.dart';
 /// только пока на него смотрят. Поэтому [close] её и не трогает: `Ctrl-O`
 /// вернёт ту же оболочку со всей историей вывода.
 class TerminalScreen extends ChangeNotifier implements ViewportState {
-  TerminalScreen(this.session);
+  TerminalScreen([TerminalSession? session]) : _session = session;
 
-  final TerminalSession session;
+  /// Оболочка этого экрана; null — её ещё нет.
+  ///
+  /// Экран встаёт **раньше** неё: панели уходят в тот же кадр, в котором нажали
+  /// `Ctrl-O`, а оболочка заводится сколько нужно — на сервере это поход по
+  /// сети (`docs/spec/terminal.md`). До её появления экран пуст: оболочка
+  /// отражает всё, что ей присылают, и показывать её раньше времени значит
+  /// показывать чужую кухню.
+  TerminalSession? get session => _session;
+  TerminalSession? _session;
+
+  /// Оболочка отозвалась — показываем её.
+  void attach(TerminalSession value) {
+    if (identical(_session, value)) {
+      return;
+    }
+    _session = value;
+    notifyListeners();
+  }
 
   @override
   bool get takesKeyboard => true;

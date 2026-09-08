@@ -498,13 +498,17 @@ void main() {
       expect(press('Ctrl-O'), isTrue);
       await pumpEventQueue();
 
-      // И показывают не раньше, чем оболочка убрала с глаз строку уговора.
-      expect(app.view.contentAt(ViewportPosition.fullscreen), isNull, reason: 'пока уговор на экране — не показываем');
+      // Экран встаёт **сразу**: панели уходят в тот же кадр, в котором нажали
+      // клавишу. А содержимого в нём пока нет — оболочка ещё отражает строку
+      // уговора, и показывать её раньше времени значит показывать чужую кухню.
+      final screen = app.view.contentAt(ViewportPosition.fullscreen);
+      expect(screen, isA<TerminalScreen>(), reason: 'панели ушли сразу');
+      expect((screen! as TerminalScreen).session, isNull, reason: 'а оболочки в нём ещё нет');
+
       shell.greet();
       await pumpEventQueue();
 
-      final screen = app.view.contentAt(ViewportPosition.fullscreen);
-      expect(screen, isA<TerminalScreen>());
+      expect((screen as TerminalScreen).session, isNotNull, reason: 'оболочка отозвалась — показываем');
       expect(pty.started, isTrue);
 
       press('Ctrl-O');
@@ -515,10 +519,7 @@ void main() {
       press('Ctrl-O');
       await pumpEventQueue();
       expect(pty.sessions, hasLength(1));
-      expect(
-        (app.view.contentAt(ViewportPosition.fullscreen)! as TerminalScreen).session,
-        same((screen! as TerminalScreen).session),
-      );
+      expect((app.view.contentAt(ViewportPosition.fullscreen)! as TerminalScreen).session, same(screen.session));
     });
 
     test('оболочка начинает там, где стояла панель', () async {
