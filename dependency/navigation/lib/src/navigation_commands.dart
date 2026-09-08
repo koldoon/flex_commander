@@ -190,6 +190,10 @@ class TogglePanelCommand extends AppCommand {
 /// находках это разные вещи, и рядом надо показать то, что рядом с находкой.
 /// На «..» и там, где каталог строки неизвестен, — каталог самой панели.
 ///
+/// **На файле соседняя ещё и встаёт курсором на него.** Команду звали, стоя на
+/// нём: рядом должен оказаться он, а не первая строка чужого каталога. Так же
+/// это работает и в находках — там имя из находки, а каталог настоящий.
+///
 /// Активной остаётся своя панель: команда показывает, а не переводит взгляд.
 /// Хотели бы перевести — для этого есть `Tab`.
 class OpenInOtherPanelCommand extends AppCommand {
@@ -210,24 +214,33 @@ class OpenInOtherPanelCommand extends AppCommand {
   /// Некуда показывать — нечего и делать: напротив бывает наложение (быстрый
   /// просмотр, находки во весь экран), и панели там сейчас нет.
   @override
-  bool isExecutable(CommandContext context) => context.target != null && _pathFor(context) != null;
+  bool isExecutable(CommandContext context) => context.target != null;
 
   @override
   Future<void> execute(CommandContext context) async {
-    final path = _pathFor(context);
     final target = context.target;
-    if (path == null || target == null) {
+    if (target == null) {
       return;
     }
-    await target.openPath(path);
+    final place = _placeFor(context);
+    if (!await target.openPath(place.path)) {
+      return;
+    }
+    // Курсор — на тот же файл. Только после удачного открытия: не открылось —
+    // соседняя стоит где стояла, и двигать в ней курсор значит трогать чужой
+    // каталог.
+    if (place.name case final name?) {
+      target.setCursorToName(name);
+    }
   }
 
-  /// Что показать соседке: каталог под курсором, а иначе — каталог его строки.
-  static String? _pathFor(CommandContext context) {
+  /// Куда показать соседке: каталог, а при курсоре на файле — ещё и имя, на
+  /// которое там встать.
+  static ({String path, String? name}) _placeFor(CommandContext context) {
     final entry = context.entry;
     final here = context.panel.currentPath;
     if (entry == null || entry.path.isEmpty) {
-      return here;
+      return (path: here, name: null);
     }
     final directory = entry.isDirectory || (entry.isLink && entry.linkToDirectory);
     if (directory) {
@@ -235,9 +248,9 @@ class OpenInOtherPanelCommand extends AppCommand {
       // значит — каталог, из которого оно найдено. Её собственный адрес
       // соседней панели ни о чём не говорит, и живьём это выглядело так, что
       // на каталоге команда молчит.
-      return entry.realPath.isEmpty ? entry.path : entry.realPath;
+      return (path: entry.realPath.isEmpty ? entry.path : entry.realPath, name: null);
     }
-    return entry.directoryPath.isEmpty ? here : entry.directoryPath;
+    return (path: entry.directoryPath.isEmpty ? here : entry.directoryPath, name: entry.name);
   }
 }
 

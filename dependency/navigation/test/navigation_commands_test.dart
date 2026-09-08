@@ -63,12 +63,25 @@ void main() {
       expect(app.activePanel, same(app.left), reason: 'команда показывает, а не переводит взгляд');
     });
 
-    test('на файле показывается каталог этого файла', () async {
+    test('на файле показывается каталог этого файла, и курсор встаёт на него', () async {
       app.left.setCursorToName('notes.txt');
 
       await run('panel.openInOther');
 
       expect(app.right.currentPath, '/home');
+      // Команду звали, стоя на файле: рядом должен оказаться он, а не первая
+      // строка каталога.
+      expect(app.right.currentEntry?.name, 'notes.txt');
+    });
+
+    test('на каталоге курсор соседки не трогается', () async {
+      app.left.setCursorToName('docs');
+
+      await run('panel.openInOther');
+
+      // Открыт сам каталог: вставать в нём не на что — там своё содержимое.
+      expect(app.right.currentPath, '/home/docs');
+      expect(app.right.currentEntry?.isParent, isTrue);
     });
 
     test('на «..» — тоже свой каталог', () async {
