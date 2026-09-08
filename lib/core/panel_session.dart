@@ -1841,7 +1841,11 @@ class PanelSession {
     final cursorIndex = _cursorIndex;
 
     _applyMeasured(nodes);
-    final sorted = List<FsNode>.unmodifiable(nodes.toList()..sort(comparatorFor(_sort, naming: naming)));
+    // Тем же правилом, что и везде: своим сравнением фоновое обновление
+    // разошлось бы с чтением — и разошлось. Живьём находки, показанные
+    // таблицей, оказывались отсортированы, хотя порядок у них свой, обходной
+    // (`docs/spec/file-search.md`, §4).
+    final sorted = List<FsNode>.unmodifiable(_ordered(nodes));
     if (_sameListing(sorted)) {
       // Ничего не изменилось — и таблицу не пересобираем: иначе каждый подъём
       // наверх ронял бы её на ровном месте, а вместе с ней пометку, которая
@@ -1914,18 +1918,25 @@ class PanelSession {
   /// Порядок, выбранный **в этом источнике**: живёт, пока его показывают.
   SortSpec? _sortHere;
 
+  /// Разложить строки нынешним правилом — тем же, каким их читают.
+  ///
+  /// Одно место на всех: сортировка при чтении, при перестановке колонки и при
+  /// тихом обновлении обязана быть одна, иначе списки расходятся.
+  List<FsNode> _ordered(List<FsNode> rows) {
+    final list = _list;
+    final order = _orderFor(list?.directory.provider ?? provider);
+    if (list != null) {
+      return list.reorder(rows, order);
+    }
+    final compare = order.compare;
+    return compare == null ? rows.toList() : (rows.toList()..sort(compare));
+  }
+
   void _applySort() {
     // Раскладывает **набор строк**: у каталога это обычная сортировка списка, у
     // дерева — сортировка внутри ветвей. Правило одно на оба, разное только
     // применение (`docs/spec/panel-node-list.md`, §3).
-    final list = _list;
-    final order = _order;
-    final compare = order.compare;
-    final sorted =
-        list == null
-            ? (compare == null ? _nodes.toList() : (_nodes.toList()..sort(compare)))
-            : list.reorder(_nodes, order);
-    _setRows(List.unmodifiable(sorted));
+    _setRows(List.unmodifiable(_ordered(_nodes)));
     // Порядок сменился — значит сменился и список: строки те же, но их места
     // другие, а та сторона знает строки по местам.
     _listed();

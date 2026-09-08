@@ -20,8 +20,18 @@ class GoToFoundCommand extends AppCommand {
   @override
   Set<String> get keywords => const {'reveal', 'locate', 'results'};
 
-  /// Только в списке находок: в обычном каталоге `Enter` делает то, что и
-  /// всегда, — привязка тогда невыполнима и достаётся навигации.
+  /// Только над **самой находкой** и только в списке находок: в обычном
+  /// каталоге `Enter` делает то, что и всегда, — привязка тогда невыполнима и
+  /// достаётся навигации.
+  ///
+  /// Ветвь находок — не находка: это виртуальный каталог, показывающий, где
+  /// что нашлось, и `Enter` над ним значит «войти», как над всяким каталогом.
+  /// Живьём иначе выходило так, что в таблице и кратком виде войти в ветвь
+  /// было нельзя вовсе: команда забирала клавишу и вела в никуда — своего
+  /// каталога у ветви нет (`docs/spec/file-search.md`, §4).
+  ///
+  /// Отличает их **схема строки**: находка принадлежит своему источнику
+  /// (`fs`, `sftp`, `zip`), ветвь — самим находкам.
   @override
   bool isExecutable(CommandContext context) {
     final panel = context.panel;
@@ -31,6 +41,7 @@ class GoToFoundCommand extends AppCommand {
     return panel.source.scheme == SourceInfo.foundScheme &&
         entry != null &&
         !entry.isParent &&
+        entry.scheme != SourceInfo.foundScheme &&
         entry.directoryPath.isNotEmpty;
   }
 

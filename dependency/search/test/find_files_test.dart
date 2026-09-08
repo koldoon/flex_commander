@@ -491,6 +491,28 @@ void main() {
     expect(edit.isExecutable(CommandContext.of(app)), isTrue, reason: 'находка — настоящий файл своего источника');
   });
 
+  testWidgets('Enter в таблице находок входит в ветвь, а не ведёт в никуда', (tester) async {
+    // Живой дефект: `Enter` забирала команда «перейти к находке», а своего
+    // каталога у ветви нет — в таблице и кратком виде войти в неё было нельзя.
+    await pumpApp(tester);
+    await openWindow(tester);
+    await search(tester, '*.dart');
+    await press(tester, 'To panel');
+
+    await app.left.setView(PanelSettings.defaultView);
+    await tester.pumpAndSettle();
+    expect(app.left.entries.map((entry) => entry.name), ['..', 'main.dart', 'lib']);
+
+    app.left.setCursorToName('lib');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+
+    // Вошли в ветвь — и остались в находках.
+    expect(app.left.source.scheme, SourceInfo.foundScheme);
+    expect(app.left.entries.map((entry) => entry.name), ['..', 'main.dart', 'src']);
+  });
+
   testWidgets('Enter в найденном ведёт к файлу, а не открывает его', (tester) async {
     await pumpApp(tester);
     await openWindow(tester);
