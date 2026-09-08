@@ -197,24 +197,24 @@ void main() {
     await settle(tester);
   });
 
-  testWidgets('крестик возвращает окно сразу, а не через «нужен ответ»', (tester) async {
+  testWidgets('крестик прерывает молча, не открывая окна', (tester) async {
     await pumpApp(tester);
     final run = await sendToBackground(tester);
 
     expect(runtime.app.view.dialogs, isEmpty);
 
-    // Нажатый крестик и есть внимание человека: он смотрит сюда и уже решил.
+    // Нажатый крестик и есть ответ: человек целился в эту строку.
     await tester.tap(find.text('✕'));
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 20));
 
-    // Окно вернулось само, и вопрос уже в нём — второй кнопки на пути нет.
-    expect(runtime.app.view.dialogs, hasLength(1));
-    expect(run.question, isNotNull);
-    expect(runtime.app.operations.at(ViewportPosition.left), isEmpty);
+    // Живьём иначе выходило так, что фоновый поиск крестиком не остановить:
+    // вместо остановки открывалось окно находок.
+    expect(runtime.app.view.dialogs, isEmpty, reason: 'окно не выдёргивается');
+    expect(run.question, isNull, reason: 'и не переспрашивает: спросили бы дважды');
+    expect(command.operation.isCanceled, isTrue, reason: 'работа прервана');
+    expect(runtime.app.operations.at(ViewportPosition.left), isEmpty, reason: 'и строка ушла');
 
-    done = true;
-    await run.submit();
     await tester.pumpAndSettle();
   });
 
@@ -251,17 +251,16 @@ void main() {
 
   testWidgets('Bsp отменяет работу под курсором — как крестик', (tester) async {
     await pumpApp(tester);
-    final run = await sendToBackground(tester);
+    await sendToBackground(tester);
 
     await press(tester, 'Cmd-B');
     await press(tester, 'Bsp');
     await tester.pump(const Duration(milliseconds: 20));
 
-    expect(runtime.app.view.dialogs, hasLength(1), reason: 'окно вернулось до вопроса');
-    expect(run.question, isNotNull, reason: 'работу попросили прерваться');
+    expect(runtime.app.view.dialogs, isEmpty, reason: 'окно не выдёргивается');
+    expect(command.operation.isCanceled, isTrue, reason: 'прервана — ровно то же, что делает крестик');
+    expect(runtime.app.operations.at(ViewportPosition.left), isEmpty);
 
-    done = true;
-    await run.submit();
     await tester.pumpAndSettle();
   });
 

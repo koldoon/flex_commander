@@ -745,6 +745,44 @@ void main() {
       expect(app.operations.at(ViewportPosition.left), isEmpty, reason: 'из фона работа вернулась');
     });
 
+    testWidgets('крестик у идущего поиска его останавливает, не открывая окна', (tester) async {
+      // Живой дефект: крестик просил прерваться, работа переспрашивала, и ради
+      // вопроса ей возвращалось окно — остановить фоновый поиск было нельзя.
+      final slow = _SlowProvider([
+        FakeEntry.directory('/home'),
+        for (var i = 0; i < 30; i++) ...[
+          FakeEntry.directory('/home/d$i'),
+          FakeEntry.file('/home/d$i/found.dart', size: 1),
+        ],
+      ])..home = '/home';
+      app = (await testApp(provider: slow, modules: featureModules())).app;
+
+      await pumpApp(tester);
+      await openWindow(tester);
+      await tester.enterText(input, '*.dart');
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+
+      final state = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state;
+      for (var i = 0; i < 40 && state.found.isEmpty; i++) {
+        await tester.pump(const Duration(milliseconds: 30));
+      }
+      expect(state.busy, isTrue, reason: 'стенд ни о чём, если обход кончился');
+
+      state.toBackground();
+      await tester.pump();
+      expect(app.operations.at(ViewportPosition.left), hasLength(1));
+
+      await tester.tap(find.text('✕'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 30));
+
+      expect(app.view.dialogs, isEmpty, reason: 'окно находок не выдёргивается');
+      expect(app.operations.at(ViewportPosition.left), isEmpty, reason: 'работы не стало');
+      expect(state.busy, isFalse, reason: 'обход прерван');
+    });
+
     testWidgets('крестик у законченного поиска его забывает', (tester) async {
       await pumpApp(tester);
       await openWindow(tester);
