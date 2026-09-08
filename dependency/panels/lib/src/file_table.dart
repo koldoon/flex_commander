@@ -103,6 +103,14 @@ class _FileTableState extends State<FileTable> {
     super.dispose();
   }
 
+  /// Строки, которые вид **просил**: содержимое каталога.
+  ///
+  /// Пока ядро не ответило на просьбу (`showRows`), в панели лежит набор
+  /// прежнего вида — древесный. Рисовать его таблицей нельзя: живьём при
+  /// переключении с дерева на миг показывался список ветвей, и только потом
+  /// он сменялся содержимым каталога (`docs/spec/panel-node-list.md`, §3).
+  List<FileEntry> get _rows => widget.panel.rows == RowsKind.listing ? widget.panel.entries : const [];
+
   /// Вид говорит, что ему нужно: строки каталога.
   ///
   /// Молчание значило бы «сойдёт и то, что дали», а дали бы то, что просил
@@ -414,7 +422,8 @@ class _FileTableState extends State<FileTable> {
         // Стереть их значило бы отнять и `..`, и всё, чем отсюда уходят:
         // человек, ткнувшийся в чужой каталог, оказывался запертым в
         // сообщении. Про неудачу говорит строка состояния, и этого довольно.
-        if (panel.entries.isEmpty) {
+        final rows = _rows;
+        if (rows.isEmpty) {
           return const SizedBox.shrink();
         }
 
@@ -426,10 +435,10 @@ class _FileTableState extends State<FileTable> {
           // Тем же шагом, что и всё остальное: `_rowHeight` посчитан выше, в
           // разметке, и учитывает крупные иконки.
           itemExtent: _rowHeight,
-          itemCount: panel.entries.length,
+          itemCount: rows.length,
           primary: false,
           itemBuilder: (context, index) {
-            final entry = panel.entries[index];
+            final entry = rows[index];
             final row = FileTableRow(
               entry: entry,
               columns: columns,

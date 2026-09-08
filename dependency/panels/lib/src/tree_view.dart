@@ -146,7 +146,13 @@ class TreeViewState extends State<TreeView> {
     unawaited(widget.panel.reload());
   }
 
-  List<FileEntry> get _rows => widget.panel.entries;
+  /// Строки, которые вид **просил**: ветви.
+  ///
+  /// Пока ядро не ответило на просьбу (`showRows`), в панели лежит набор
+  /// прежнего вида — списочный, — и рисовать его деревом нельзя: на миг
+  /// показался бы каталог, притворяющийся ветвями
+  /// (`docs/spec/panel-node-list.md`, §3).
+  List<FileEntry> get _rows => widget.panel.rows == RowsKind.tree ? widget.panel.entries : const [];
 
   /// Прокрутить к курсору, если он ушёл из виду.
   ///

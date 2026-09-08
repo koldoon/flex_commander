@@ -1053,6 +1053,48 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('при смене вида чужие строки не показываются', (tester) async {
+    // Живой дефект: таблица на миг рисовала ветви — строки, которые просило
+    // дерево, — и только потом сменяла их содержимым каталога. На петле ядро
+    // отвечает в том же кадре, и увидеть это можно только через дверь с
+    // задержкой — такую, как настоящая.
+    final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
+    final runtime = await testApp(
+      provider: provider(),
+      modules: featureModules(),
+      settings: settings,
+      door: _LaggingDoor.new,
+    );
+    await runtime.app.start();
+    tester.view.physicalSize = const Size(900, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    final panel = runtime.app.left;
+    await panel.setView(TreeView.viewId);
+    await tester.pumpAndSettle();
+    expect(panel.rows, RowsKind.tree);
+
+    await panel.setView(PanelSettings.defaultView);
+    // Дверь придерживает подтверждения: сперва доезжает смена вида, и только
+    // потом — ответ на просьбу о наборе строк. Между ними и был тот кадр.
+    await tester.pump(_LaggingDoor.delay + const Duration(milliseconds: 20));
+    await tester.pump();
+
+    // Строки левой панели: справа стоит обычная таблица со своими.
+    Finder leftRows() => find.descendant(of: find.byType(FileTable).first, matching: find.byType(FileTableRow));
+
+    // Набор строк ещё древесный — таблица не рисует ничего, а не чужое.
+    expect(panel.rows, RowsKind.tree, reason: 'стенд ни о чём, если ядро успело ответить');
+    expect(leftRows(), findsNothing);
+
+    await tester.pumpAndSettle();
+    expect(panel.rows, RowsKind.listing);
+    expect(leftRows(), findsWidgets, reason: 'а потом — содержимое каталога');
+  });
+
   testWidgets('сортировка в дереве — та же, что в списке', (tester) async {
     final runtime = await open(tester);
     final panel = runtime.app.left;

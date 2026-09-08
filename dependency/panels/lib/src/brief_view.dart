@@ -86,6 +86,13 @@ class _BriefViewState extends State<BriefView> {
     }
   }
 
+  /// Строки, которые вид **просил**: содержимое каталога.
+  ///
+  /// Пока ядро не ответило, в панели лежит набор прежнего вида — древесный, — и
+  /// рисовать его столбцами нельзя: на миг показались бы ветви
+  /// (`docs/spec/panel-node-list.md`, §3).
+  List<FileEntry> get _shownRows => widget.panel.rows == RowsKind.listing ? widget.panel.entries : const [];
+
   /// Вид говорит, что ему нужно: строки каталога.
   ///
   /// Молчание значило бы «сойдёт и то, что дали», а дали бы то, что просил
@@ -257,7 +264,7 @@ class _BriefViewState extends State<BriefView> {
           (context, _) => LayoutBuilder(
             builder: (context, constraints) {
               final app = AppScope.read(context);
-              final entries = panel.entries;
+              final entries = _shownRows;
               final metrics = theme.metrics;
 
               // Те же величины, что у таблицы: строки обоих видов обязаны
