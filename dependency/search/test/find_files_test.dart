@@ -382,6 +382,30 @@ void main() {
     expect(app.left.columns.find(FsColumn.path)?.visible, isFalse, reason: 'колонка пути ушла вместе с находками');
   });
 
+  testWidgets('обход идёт в глубину: находка прибывает в конец дерева', (tester) async {
+    // В ширину находка из глубины приходила позже, а место её — внутри ветви,
+    // нарисованной выше: всё, что ниже, съезжало, и список скакал.
+    final deep = InMemoryTreeProvider([
+      FakeEntry.directory('/home'),
+      FakeEntry.directory('/home/a'),
+      FakeEntry.directory('/home/a/inner'),
+      FakeEntry.file('/home/a/inner/deep.dart', size: 1),
+      FakeEntry.directory('/home/b'),
+      FakeEntry.file('/home/b/late.dart', size: 1),
+    ])..home = '/home';
+    app = (await testApp(provider: deep, modules: featureModules())).app;
+
+    await pumpApp(tester);
+    await openWindow(tester);
+    await search(tester, '*.dart');
+
+    final state = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state;
+
+    // Сперва вся ветвь `a` до самого низа, и только потом `b`: в ширину было
+    // бы наоборот — `b/late.dart` пришло бы раньше `a/inner/deep.dart`.
+    expect(state.found.map((entry) => entry.name), ['deep.dart', 'late.dart']);
+  });
+
   testWidgets('в находках каретки нет: порядок обхода — не сортировка', (tester) async {
     // Живьём каретка над «Tree» читалась как «список отсортирован», хотя он
     // идёт в порядке обхода.

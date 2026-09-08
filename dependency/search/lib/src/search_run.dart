@@ -55,11 +55,21 @@ class SearchRun {
         return found;
       }
 
-      // Очередь, а не список: `removeAt(0)` сдвигает весь хвост, а каталогов
-      // в большом дереве десятки тысяч.
-      final queue = Queue<DirectoryNode>()..add(where);
+      // **В глубину, а не в ширину** — и по порядку: каталог, потом первый его
+      // подкаталог целиком, потом второй.
+      //
+      // Так находки приходят в том же порядке, в каком дерево находок
+      // разворачивается на экране, и новое всегда оказывается **в конце**.
+      // Обход в ширину этого не даёт: находка из глубины приходит позже, а
+      // место её — внутри ветви, нарисованной выше, и всё, что ниже, съезжает.
+      // Живьём это выглядело так, что список скачет (`docs/spec/file-search.md`,
+      // §4).
+      //
+      // Стопка, а не список: `removeAt(0)` сдвигает весь хвост, а каталогов в
+      // большом дереве десятки тысяч.
+      final stack = Queue<DirectoryNode>()..add(where);
       final sinceBreath = Stopwatch()..start();
-      while (queue.isNotEmpty) {
+      while (stack.isNotEmpty) {
         // Прерывание проверяется на каждом каталоге, а не на каждом файле:
         // между каталогами и есть настоящее ожидание — чтение с диска или из
         // сети.
@@ -89,7 +99,7 @@ class SearchRun {
           await Future<void>.delayed(Duration.zero);
         }
 
-        final dir = queue.removeFirst();
+        final dir = stack.removeFirst();
         // Путь **для человека**: в строке хода работы он и стоит. Машинный
         // (`pathString`) несёт схемы провайдеров — `…/a.zip:zip:/inner`, — и
         // читать их в этой строке незачем.
@@ -104,6 +114,7 @@ class SearchRun {
           continue;
         }
 
+        final descend = <DirectoryNode>[];
         for (final node in children) {
           if (!query.hidden && node.name.startsWith('.')) {
             continue;
@@ -115,8 +126,13 @@ class SearchRun {
           // Каталог может и сам подойти под маску, и содержать подходящее:
           // одно другому не мешает.
           if (query.recursive && node is DirectoryNode) {
-            queue.add(node);
+            descend.add(node);
           }
+        }
+        // Задом наперёд: стопка отдаёт последнее, а спускаться надо в первый
+        // подкаталог — в том порядке, в каком их вернул источник.
+        for (final dir in descend.reversed) {
+          stack.addFirst(dir);
         }
       }
 
