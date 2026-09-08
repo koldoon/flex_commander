@@ -105,6 +105,8 @@ class Panels implements FcFrontendModule {
       }
     }
 
+    registry.command((context) => TreeFollowLinkCommand());
+
     registry.command((context) => SetPanelViewCommand());
     registry.command((context) => ChoosePanelViewCommand());
 
@@ -162,6 +164,9 @@ class Panels implements FcFrontendModule {
     registry.command((context) => ToggleTreeBranchCommand());
     registry.binding(KeyBinding('Left', TreeBranchCommand.collapseId));
     registry.binding(KeyBinding('Right', TreeBranchCommand.expandId));
+    // Ссылка раньше ветви: над ссылкой `Enter` значит «сходить к цели», и
+    // выигрывает та привязка, что объявлена раньше.
+    registry.binding(KeyBinding('Enter', TreeFollowLinkCommand.commandId));
     registry.binding(KeyBinding('Enter', ToggleTreeBranchCommand.commandId));
 
     registry.command((context) => MoveCursorColumnCommand(right: false));
@@ -213,6 +218,9 @@ const Map<String, String> _russian = {
   'Close every branch, leaving the roots': 'Свернуть все ветви, оставив корни',
   'Close the branch under the cursor and everything inside it': 'Свернуть ветвь под курсором и всё, что в ней',
   'Expanded {count} branches — the rest by hand': 'Раскрыто {count} ветвей — дальше вручную',
+  'Go to link target': 'Перейти к цели ссылки',
+  'Move the cursor to what the link points at': 'Поставить курсор на то, куда ведёт ссылка',
+  'The link leads nowhere: {name}': 'Ссылка ведёт в никуда: {name}',
   'Everything as branches — where you are and what lies where': 'Всё ветвями — где вы сейчас и что где лежит',
   'Branch up': 'Ветвь выше',
   'Branch down': 'Ветвь ниже',

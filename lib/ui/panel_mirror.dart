@@ -478,6 +478,12 @@ class PanelMirror extends ChangeNotifier implements Panel {
   @override
   void setExpanded(String path, {required bool expanded}) => _link.tell(ExpandRow(id, path, expanded: expanded));
 
+  @override
+  Future<bool> followLink(String path) async {
+    final reply = await _link.call(FollowLink(id, path));
+    return reply is CoreFlag && reply.value;
+  }
+
   /// Раскрыть или свернуть вглубь — и узнать, чем кончилось.
   ///
   /// Просьбой с ответом, а не просто просьбой: упёршееся в предел раскрытие

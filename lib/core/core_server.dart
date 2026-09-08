@@ -261,6 +261,9 @@ class CoreServer implements CoreHandler {
         session(panel).setHeaderText(text);
         return null;
 
+      case FollowLink(:final panel, :final path):
+        return CoreFlag(await session(panel).followLink(path));
+
       case MeasureDirectories(:final panel):
         session(panel).measureDirectories();
         return null;

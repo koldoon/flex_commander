@@ -511,8 +511,15 @@ class ToggleTreeBranchCommand extends AppCommand {
   @override
   String get description => tr('Expand the branch, or collapse it back');
 
+  /// Только над ветвью: над прочими строками клавиша достаётся тем, кто
+  /// объявлен следом.
+  ///
+  /// Прежде команда объявляла себя выполнимой над **любой** строкой дерева, а
+  /// в теле молча выходила — и `Enter` над файлом и над ссылкой не делал
+  /// ничего вовсе: до навигации он не доходил.
   @override
-  bool isExecutable(CommandContext context) => context.panel.rows == RowsKind.tree;
+  bool isExecutable(CommandContext context) =>
+      context.panel.rows == RowsKind.tree && (context.panel.currentEntry?.isDirectory ?? false);
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -522,5 +529,45 @@ class ToggleTreeBranchCommand extends AppCommand {
       return;
     }
     panel.setExpanded(row.path, expanded: !row.isOpen);
+  }
+}
+
+/// `Enter` над ссылкой в дереве: перейти к тому, куда она ведёт.
+///
+/// Раскрыть ссылку нельзя — она увела бы в цикл, — а сходить по ней можно:
+/// курсор встаёт на цель, а ветви до неё раскрываются
+/// (`docs/spec/panel-view-tree.md`, §4а).
+class TreeFollowLinkCommand extends AppCommand {
+  static const String commandId = 'panel.tree.followLink';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => tr('Go to link target');
+
+  @override
+  String get description => tr('Move the cursor to what the link points at');
+
+  @override
+  Set<String> get keywords => const {'symlink', 'resolve', 'follow'};
+
+  /// Только в дереве и только над ссылкой: в списке `Enter` над ссылкой значит
+  /// «войти», и менять это незачем.
+  @override
+  bool isExecutable(CommandContext context) =>
+      context.panel.rows == RowsKind.tree && (context.panel.currentEntry?.isLink ?? false);
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final entry = context.panel.currentEntry;
+    if (entry == null || entry.path.isEmpty) {
+      return;
+    }
+    if (await context.panel.followLink(entry.path)) {
+      return;
+    }
+    // Битая ссылка — «случилось и закончилось»: тост, а не строка состояния.
+    context.app.toasts.show(tr('The link leads nowhere: {name}', args: {'name': entry.name}));
   }
 }

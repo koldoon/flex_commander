@@ -189,6 +189,19 @@ final class ExpandRow extends CoreRequest {
   final bool deep;
 }
 
+/// Сходить по ссылке: курсор встаёт на то, куда она ведёт.
+///
+/// Отдельно от входа: в дереве ссылку не раскрывают (увела бы в цикл), а
+/// перейти к цели — можно (`docs/spec/panel-view-tree.md`, §4а).
+final class FollowLink extends CoreRequest {
+  const FollowLink(this.panel, this.path);
+
+  final PanelId panel;
+
+  /// Путь строки-ссылки.
+  final String path;
+}
+
 /// Посчитать размеры всех каталогов текущего каталога.
 final class MeasureDirectories extends CoreRequest {
   const MeasureDirectories(this.panel);

@@ -978,6 +978,40 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('Enter над ссылкой ведёт к её цели, а над файлом не пропадает', (tester) async {
+    // Прежде `Enter` в дереве съедало переключение ветви: оно объявляло себя
+    // выполнимым над любой строкой, а делало что-то только над каталогом.
+    final linked = InMemoryTreeProvider([
+      FakeEntry.directory('/home'),
+      FakeEntry.directory('/home/real'),
+      FakeEntry.file('/home/real/note.txt', size: 5),
+      FakeEntry.link('/home/to-dir', '/home/real'),
+      FakeEntry.link('/home/broken', '/home/gone'),
+    ])..home = '/home';
+    final runtime = await open(tester, source: linked);
+    final panel = runtime.app.left;
+
+    panel.setCursorToName('to-dir');
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Enter'));
+    await tester.pumpAndSettle();
+
+    expect(panel.currentEntry?.path, '/home/real', reason: 'курсор на цели ссылки');
+    expect(branches(tester), contains('note.txt'), reason: 'ветвь до цели раскрыта');
+
+    // Битая ссылка — сообщение, и курсор на месте.
+    panel.setCursorToName('broken');
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Enter'));
+    for (var i = 0; i < 20 && runtime.app.toasts.current == null; i++) {
+      await tester.pump();
+    }
+    expect(runtime.app.toasts.current?.message, contains('leads nowhere'));
+    expect(panel.currentEntry?.name, 'broken');
+
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('щелчок по заголовку сортирует дерево', (tester) async {
     final runtime = await open(tester);
     final panel = runtime.app.left;

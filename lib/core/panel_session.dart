@@ -1246,6 +1246,91 @@ class PanelSession {
     await _rebuildRows();
   }
 
+  /// Перейти к тому, на что показывает ссылка.
+  ///
+  /// В дереве ссылку не раскрывают — она увела бы в цикл, — а вот **сходить**
+  /// по ней можно: курсор встаёт на цель, а ветви до неё раскрываются. Цикла
+  /// это не даёт: прыжок идёт по настоящим предкам цели, а не по самой ссылке
+  /// (`docs/spec/panel-view-tree.md`, §4а).
+  ///
+  /// false — идти некуда: строка не ссылка или ссылка битая. Сказать об этом
+  /// человеку — дело того, кто просил: это «случилось и закончилось», то есть
+  /// тост.
+  Future<bool> followLink(String path) async {
+    final row = _rowAt(path);
+    if (row is! LinkNode || row.reference.isEmpty) {
+      return false;
+    }
+
+    // Цель ищется **адресом**, а не разрешением ссылки: разрешённый узел
+    // числится под самой ссылкой (`/home/to-dir/deep`), потому что путь
+    // показывает, как человек сюда пришёл (`node_path.dart`). А курсор надо
+    // поставить туда, где цель **лежит на самом деле**, — иначе строки для неё
+    // в дереве нет.
+    final reference = row.reference;
+    final base = row.parentDirectory?.displayPath ?? '';
+    final wanted = reference.startsWith('/') ? reference : _joined(base, reference);
+
+    final ResolvedNode resolved;
+    try {
+      resolved = await resolvePath().run(wanted);
+    } on FsError {
+      // Ссылка ведёт в никуда — обычное дело, а не беда.
+      return false;
+    }
+    final target = resolved.node;
+    await resolved.release();
+    if (target == null) {
+      return false;
+    }
+
+    final list = _list;
+    if (list is TreeNodeList) {
+      // Раскрываем цепочку **настоящих** предков цели: каталоги, в которых она
+      // лежит. Сама ссылка в ней не участвует — оттого и цикла нет.
+      for (final node in target.path) {
+        if (node is DirectoryNode) {
+          list.expand(node.pathString);
+        }
+      }
+      _rememberExpanded(list);
+      await _rebuildRows();
+      if (_cursorToPath(target.pathString)) {
+        _changed();
+        return true;
+      }
+    }
+
+    // Цель вне дерева — другой источник, другой диск: открываем её каталог,
+    // как это делает `Enter` над ссылкой в списке.
+    final directory = target is DirectoryNode ? target : target.parentDirectory;
+    if (directory == null) {
+      return false;
+    }
+    await _load(directory, cursorName: target is DirectoryNode ? null : target.name);
+    return true;
+  }
+
+  /// Сложить путь из каталога и относительной ссылки: `..` и `.` разбираются
+  /// здесь, а не откладываются на провайдера — тот вправе их не понять.
+  static String _joined(String base, String reference) {
+    final parts = <String>[...base.split('/'), ...reference.split('/')];
+    final result = <String>[];
+    for (final part in parts) {
+      if (part.isEmpty || part == '.') {
+        continue;
+      }
+      if (part == '..') {
+        if (result.isNotEmpty) {
+          result.removeLast();
+        }
+        continue;
+      }
+      result.add(part);
+    }
+    return '/${result.join('/')}';
+  }
+
   /// Раскрыть или свернуть ветвь **вместе со всем, что под ней**.
   ///
   /// Пустой путь — всё дерево: «раскрыть всё» и «свернуть всё» — те же две

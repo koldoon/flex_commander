@@ -285,6 +285,84 @@ void main() {
     expect(fresh.session.entries.any((entry) => entry.name == 'other' && entry.isOpen), isTrue);
   });
 
+  group('ссылки', () {
+    /// Дерево со ссылками: на каталог, на файл и в никуда.
+    Future<TestPanel> linked() async {
+      final source = InMemoryTreeProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.directory('/home/real'),
+        FakeEntry.directory('/home/real/deep'),
+        FakeEntry.file('/home/real/note.txt', size: 5),
+        FakeEntry.link('/home/to-dir', '/home/real/deep'),
+        FakeEntry.link('/home/to-file', '/home/real/note.txt'),
+        FakeEntry.link('/home/broken', '/home/gone'),
+      ]);
+      final panel = testPanel(provider: source, settings: PanelSettings.defaults('/home'));
+      addTearDown(panel.dispose);
+      await panel.openPath('/home');
+      await panel.session.setRows(RowsKind.tree);
+      return panel;
+    }
+
+    test('Enter над ссылкой ведёт к каталогу, куда она показывает', () async {
+      final panel = await linked();
+
+      expect(await panel.session.followLink('/home/to-dir'), isTrue);
+
+      // Ветви до цели раскрылись, курсор на ней. Сама ссылка при этом не
+      // раскрыта: раскрытие увело бы в цикл.
+      expect(panel.session.currentNode?.pathString, '/home/real/deep');
+      expect([
+        for (final entry in panel.session.entries) '${'  ' * entry.level}${entry.name}',
+      ], containsAllInOrder(['/', '  home', '    real', '      deep']));
+    });
+
+    test('ссылка на файл — курсор на файле', () async {
+      final panel = await linked();
+
+      expect(await panel.session.followLink('/home/to-file'), isTrue);
+
+      expect(panel.session.currentNode?.pathString, '/home/real/note.txt');
+    });
+
+    test('битая ссылка никуда не ведёт и ничего не двигает', () async {
+      final panel = await linked();
+      panel.session.setCursorToName('broken');
+      final was = panel.session.currentNode?.pathString;
+
+      expect(await panel.session.followLink('/home/broken'), isFalse);
+
+      expect(panel.session.currentNode?.pathString, was);
+    });
+
+    test('относительная ссылка считается от своего каталога', () async {
+      // Так устроен `/etc` на маке: ссылка на `private/etc`, а не на `/private/etc`.
+      final source = InMemoryTreeProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.directory('/home/real'),
+        FakeEntry.file('/home/real/note.txt', size: 5),
+        FakeEntry.link('/home/near', 'real'),
+        FakeEntry.link('/home/real/up', '../real/note.txt'),
+      ]);
+      final panel = testPanel(provider: source, settings: PanelSettings.defaults('/home'));
+      addTearDown(panel.dispose);
+      await panel.openPath('/home');
+      await panel.session.setRows(RowsKind.tree);
+
+      expect(await panel.session.followLink('/home/near'), isTrue);
+      expect(panel.session.currentNode?.pathString, '/home/real');
+
+      expect(await panel.session.followLink('/home/real/up'), isTrue);
+      expect(panel.session.currentNode?.pathString, '/home/real/note.txt', reason: '`..` разобран');
+    });
+
+    test('строка не ссылка — идти некуда', () async {
+      final panel = await linked();
+
+      expect(await panel.session.followLink('/home/real'), isFalse);
+    });
+  });
+
   group('раскрытие вглубь', () {
     test('поддерево раскрывается целиком, одной командой', () async {
       await panel.session.setRows(RowsKind.tree);

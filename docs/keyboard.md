@@ -212,6 +212,7 @@ CommandRegistry.dispatch(combination, app)
 |---|---|---|
 | `Left` / `Right` | `panel.cursor.columnLeft` / `columnRight` | краткий вид: курсор на столбец вбок |
 | `Up`, `Down`, `PgUp`, `PgDn`, `Home`, `End` | `panel.tree.up`…`panel.tree.last` | дерево: курсор по ветвям — и **только** |
+| `Enter` | `panel.tree.followLink` | дерево: над ссылкой — перейти к её цели (§4а спеки дерева) |
 | `Enter` | `panel.tree.toggle` | дерево: раскрыть ветвь под курсором, раскрытую — свернуть |
 | `Right` | `panel.tree.expand` | дерево: раскрыть ветвь под курсором |
 | `Left` | `panel.tree.collapse` | дерево: свернуть раскрытую, а свернуть нечего — курсор к её каталогу |
