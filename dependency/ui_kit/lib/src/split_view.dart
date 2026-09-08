@@ -2,17 +2,22 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 
-import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'fc_theme.dart';
 
-/// Две панели и перетаскиваемый разделитель между ними.
-class SplitView extends StatefulWidget {
-  const SplitView({
+/// Две области и перетаскиваемый разделитель между ними.
+///
+/// Мест, где тянут границу, два: между панелями окна и между столбцами
+/// комбинированного вида (`docs/spec/panel-view-combined.md`, §7). Правило у
+/// них одно, поэтому и разделитель один.
+class FcSplitView extends StatefulWidget {
+  const FcSplitView({
     super.key,
     required this.left,
     required this.right,
     required this.ratio,
     required this.onRatioChanged,
     required this.onCenter,
+    this.minWidth,
   });
 
   final Widget left;
@@ -31,11 +36,15 @@ class SplitView extends StatefulWidget {
   /// это ровно половина.
   final VoidCallback onCenter;
 
+  /// Сколько остаётся у каждой стороны как минимум; пусто — ширина панели из
+  /// темы. Столбцам вида нужна своя: панель целиком туда не поместится.
+  final double? minWidth;
+
   @override
-  State<SplitView> createState() => _SplitViewState();
+  State<FcSplitView> createState() => _FcSplitViewState();
 }
 
-class _SplitViewState extends State<SplitView> {
+class _FcSplitViewState extends State<FcSplitView> {
   /// Насколько правее границы панелей взялись за разделитель.
   ///
   /// Запоминается на время перетаскивания, чтобы разделитель не прыгал под
@@ -49,7 +58,7 @@ class _SplitViewState extends State<SplitView> {
     return LayoutBuilder(
       builder: (context, constraints) {
         final available = constraints.maxWidth - metrics.areaGap;
-        final minRatio = (metrics.minPanelWidth / available).clamp(0.0, 0.5);
+        final minRatio = ((widget.minWidth ?? metrics.minPanelWidth) / available).clamp(0.0, 0.5);
         final leftWidth = available * widget.ratio.clamp(minRatio, 1 - minRatio);
 
         // Ширина захвата: зазор бывает уже, чем палец, — тогда область шире его

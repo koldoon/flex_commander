@@ -6,7 +6,6 @@ import 'dialogs/credentials_layer.dart';
 import 'dialogs/elevation_layer.dart';
 import 'dialogs/error_layer.dart';
 import 'keyboard_handler.dart';
-import 'split_view.dart';
 import 'window_title_bar.dart';
 import 'function_bar/function_bar.dart';
 import 'toast_layer.dart';
@@ -43,7 +42,7 @@ class AppShell extends StatelessWidget {
       return _place(context, app, fullscreen);
     }
 
-    return SplitView(
+    return FcSplitView(
       ratio: app.splitRatio,
       onRatioChanged: app.setSplitRatio,
       // По идентификатору, а не по классу: команда живёт в модуле навигации,

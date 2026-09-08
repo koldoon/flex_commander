@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'brief_view.dart';
+import 'combined_view.dart';
 import 'brief_view_options.dart';
 import 'file_table.dart';
 import 'panels_settings.dart';
@@ -97,6 +98,17 @@ class Panels implements FcFrontendModule {
       ),
     );
 
+    registry.panelView(
+      PanelViewSpec(
+        id: CombinedView.viewId,
+        title: 'Tree with contents',
+        description: 'Branches on the left, what is inside on the right',
+        build: (context, panel) => CombinedView(panel: panel, settings: settingsOf, save: settings.save),
+        // Настройки те же, что у дерева: столбец слева — оно и есть.
+        options: (context, panel) => TreeViewOptions(settings: settingsOf, save: settings.save),
+      ),
+    );
+
     // Четыре команды дерева: поддерево под курсором и всё дерево, каждое — в
     // обе стороны (`docs/spec/panel-view-tree.md`, §6а).
     for (final expand in const [true, false]) {
@@ -151,6 +163,23 @@ class Panels implements FcFrontendModule {
       KeyBinding('Cmd-3', SetPanelViewCommand.commandId, parameters: {SetPanelViewCommand.viewParam: TreeView.viewId}),
     );
 
+    registry.binding(
+      KeyBinding(
+        'Cmd-4',
+        SetPanelViewCommand.commandId,
+        parameters: {SetPanelViewCommand.viewParam: CombinedView.viewId},
+      ),
+    );
+
+    // Столбцы комбинированного вида — раньше всего прочего, что висит на этих
+    // стрелках: раскрытие ветви объявлено следом и потому получает `Right`
+    // ровно там, где переход невыполним, — на закрытой ветви
+    // (`docs/spec/panel-view-combined.md`, §6).
+    registry.command((context) => CombinedSideCommand(toList: true));
+    registry.command((context) => CombinedSideCommand(toList: false));
+    registry.binding(KeyBinding('Right', CombinedSideCommand.toListId));
+    registry.binding(KeyBinding('Left', CombinedSideCommand.toTreeId));
+
     // Курсор и пометка в дереве — **панельные**: строки собирает ядро, и
     // ходить по ним нечем иным (`docs/spec/panel-node-list.md`, §3). Своими
     // остались только раскрытие и сворачивание: смысл у `Left` и `Right` тут
@@ -196,6 +225,13 @@ const Map<String, String> _russian = {
   'Accessed': 'Открыт',
   'Attributes': 'Атрибуты',
   'Columns visible': 'Видимые колонки',
+
+  // Комбинированный вид.
+  'Tree with contents': 'Дерево с содержимым',
+  'Branches on the left, what is inside on the right': 'Ветви слева, содержимое — справа',
+  'To the list': 'В список',
+  'To the tree': 'В дерево',
+  'Move the cursor to the other column': 'Перевести курсор в соседний столбец',
 
   // Настройки панелей.
   'Sorting keeps the cursor row in place': 'Сортировка не двигает строку под курсором',

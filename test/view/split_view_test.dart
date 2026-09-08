@@ -6,8 +6,8 @@ import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flex_commander/view/split_view.dart';
 
 /// Разделитель панелей: перетаскивание и возврат в середину.
 void main() {
@@ -37,7 +37,7 @@ void main() {
 
   /// Середина области захвата разделителя.
   Offset dividerCenter(WidgetTester tester) {
-    final split = tester.getRect(find.byType(SplitView));
+    final split = tester.getRect(find.byType(FcSplitView));
     return Offset(split.left + split.width * app.splitRatio, split.center.dy);
   }
 
@@ -71,7 +71,7 @@ void main() {
 
   testWidgets('щелчок мимо разделителя ничего не двигает', (tester) async {
     await buildApp(tester);
-    final split = tester.getRect(find.byType(SplitView));
+    final split = tester.getRect(find.byType(FcSplitView));
 
     // Середина левой панели — до разделителя далеко.
     await tester.tapAt(Offset(split.left + 40, split.center.dy), buttons: kTertiaryButton);

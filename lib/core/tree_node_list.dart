@@ -27,12 +27,20 @@ class TreeExpansion {
 }
 
 class TreeNodeList implements NodeList {
-  TreeNodeList({required List<DirectoryNode> roots, Iterable<String> expanded = const []})
+  TreeNodeList({required List<DirectoryNode> roots, Iterable<String> expanded = const [], this.directoriesOnly = false})
     : _rootDirectories = List.unmodifiable(roots),
       _roots = [for (final root in roots) _Branch(root)],
       _expanded = {...expanded} {
     assert(roots.isNotEmpty, 'дерево без корней показывать нечем');
   }
+
+  /// Показывать только каталоги: файлы в такие строки не попадают вовсе.
+  ///
+  /// Просьба вида, а не свойство дерева: у комбинированного вида файлы живут в
+  /// соседнем столбце, и вторым списком они не нужны
+  /// (`docs/spec/panel-view-combined.md`, §4). Отбор стоит здесь, а не в виде:
+  /// вид не отбирает строки, он их рисует.
+  final bool directoriesOnly;
 
   final List<DirectoryNode> _rootDirectories;
 
@@ -289,7 +297,9 @@ class TreeNodeList implements NodeList {
       // выбранное из-за точки в имени значило бы показать пустоту.
       final shown = [
         for (final branch in branches)
-          if (level == 0 || order.includeHidden || !branch.node.name.startsWith('.')) branch,
+          if ((level == 0 || order.includeHidden || !branch.node.name.startsWith('.')) &&
+              (!directoriesOnly || branch.node is DirectoryNode))
+            branch,
       ];
       // Корни идут в том порядке, в каком их дали: их выбрали — человек в
       // избранном, поиск в находках, панель в обычном дереве, — и правило

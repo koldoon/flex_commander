@@ -74,8 +74,7 @@ class AppController extends ChangeNotifier implements Application {
        views = views ?? const NoViews(),
        window = window ?? const NoopWindowService() {
     // Одна панель активна всегда, ещё до первого чтения каталогов.
-    this.left.setActive(settings.activePanel != 1);
-    this.right.setActive(settings.activePanel == 1);
+    _applyActive(settings.activePanel == 1 ? this.right : this.left);
     // Слушать панели ради записи больше незачем: их настройки — это состояние
     // сеанса, и ядро видит его раньше и точнее (`spec/client-server.md`, §9).
     this.window.addListener(_onWindowChanged);
@@ -149,7 +148,7 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   @override
-  Future<Panel> openPanel(ViewportPosition side, {Panel? like}) async {
+  Future<Panel> openPanel(ViewportPosition side, {Panel? like, int? at}) async {
     final slot = _slotAt(side);
     final model = like is PanelMirror ? like : slot.shown;
     final opened = await link?.call(OpenPanel(model.id));
@@ -164,7 +163,12 @@ class AppController extends ChangeNotifier implements Application {
       listing: opened.listing,
       strings: strings,
     );
-    slot.panels.add(panel);
+    final place = (at ?? slot.panels.length).clamp(0, slot.panels.length);
+    slot.panels.insert(place, panel);
+    // Показанная остаётся показанной: заведение сессии не переводит взгляд.
+    if (place <= slot.current) {
+      slot.current++;
+    }
     _slotsChanged();
     return panel;
   }
@@ -200,8 +204,10 @@ class AppController extends ChangeNotifier implements Application {
     }
     final wasActive = slot.shown.active;
     slot.current = slot.panels.indexOf(panel);
+    // Показанная сессия активной стороны — она же и активная: курсор один, и
+    // стоит он там, где смотрят.
     if (wasActive) {
-      activate(slot.shown);
+      _applyActive(panel);
     }
     _slotsChanged();
   }
@@ -349,7 +355,16 @@ class AppController extends ChangeNotifier implements Application {
 
   @override
   void activate(Panel panel) {
-    assert(panel == left || panel == right, 'Панель не принадлежит этому приложению');
+    assert(_slotOf(panel) != null, 'Панель не принадлежит этому приложению');
+    // Сессия из того же слота, но не показанная, — это соседний столбец
+    // комбинированного вида: щелчок по нему и делает его текущим
+    // (`docs/spec/panel-slots.md`, §4).
+    final slot = _slotOf(panel);
+    if (slot != null && !identical(slot.shown, panel) && panel is PanelMirror) {
+      slot.current = slot.panels.indexOf(panel);
+      view.showPanels();
+      settingsChanged();
+    }
     // Ввод мог быть у командной строки — тогда «сделать активной ту же самую
     // панель» означает вернуть его ей, и ранний выход ниже пропустил бы это:
     // щелчок по активной панели не выводил бы из строки.
@@ -360,9 +375,18 @@ class AppController extends ChangeNotifier implements Application {
       }
       return;
     }
-    left.setActive(panel == left);
-    right.setActive(panel == right);
+    _applyActive(panel);
     notifyListeners();
+  }
+
+  /// Активна ровно одна сессия из всех — та, где стоит курсор.
+  ///
+  /// Всех, а не двух показанных: в слоте бывает несколько, и оставшийся
+  /// признак у спрятанной означал бы второй курсор.
+  void _applyActive(Panel active) {
+    for (final panel in _allPanels) {
+      panel.setActive(identical(panel, active));
+    }
   }
 
   /// Переключить активную панель (Tab).

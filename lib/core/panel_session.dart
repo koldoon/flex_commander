@@ -1184,7 +1184,7 @@ class PanelSession {
       return;
     }
 
-    if (value == RowsKind.tree) {
+    if (value.isTree) {
       _list = _listFor(dir);
       await _rebuildRows();
       // Курсор встаёт туда, где стоял в прошлый запуск; нет такой строки —
@@ -1420,7 +1420,7 @@ class PanelSession {
   /// всей цепочкой до него: иначе панель показала бы дерево, в котором её
   /// самой не видно.
   NodeList _listFor(DirectoryNode dir) {
-    if (_rows != RowsKind.tree) {
+    if (!_rows.isTree) {
       return DirectoryNodeList(dir);
     }
     final previous = _list;
@@ -1443,7 +1443,13 @@ class PanelSession {
     } else {
       _expanded = open;
     }
-    return TreeNodeList(roots: [dir.provider.rootDirectory], expanded: open);
+    return TreeNodeList(
+      roots: [dir.provider.rootDirectory],
+      expanded: open,
+      // Одни каталоги — просьба вида: файлы у него живут в соседнем столбце
+      // (`docs/spec/panel-view-combined.md`, §4).
+      directoriesOnly: _rows == RowsKind.branches,
+    );
   }
 
   /// Свести набор строк с тем, что просил вид.
@@ -1458,12 +1464,16 @@ class PanelSession {
     if (dir == null) {
       return;
     }
-    if ((_rows == RowsKind.tree) == (_list is TreeNodeList)) {
+    // Сверяется и то, каким деревом: `branches` от `tree` отличается
+    // строками, а не типом набора.
+    final list = _list;
+    if (_rows.isTree == (list is TreeNodeList) &&
+        (list is! TreeNodeList || list.directoriesOnly == (_rows == RowsKind.branches))) {
       return;
     }
     _list = _listFor(dir);
     await _rebuildRows();
-    if (_rows == RowsKind.tree) {
+    if (_rows.isTree) {
       final saved = _savedCursor;
       _savedCursor = '';
       if (saved.isEmpty || !_cursorToPath(saved)) {
@@ -2152,7 +2162,7 @@ class PanelSession {
   /// Иначе он оставался бы на первой строке, то есть на корне источника: уход
   /// из находок «возвращал» панель в корень диска, а не туда, откуда искали.
   void _cursorToBranch(DirectoryNode dir, String? cursorName) {
-    if (_rows != RowsKind.tree) {
+    if (!_rows.isTree) {
       return;
     }
     if (cursorName != null && currentNode?.name == cursorName) {

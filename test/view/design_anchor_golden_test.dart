@@ -153,6 +153,7 @@ void main() {
 
   view('панель кратким видом', 'anchor_panel_brief.png', 'brief');
   view('панель деревом', 'anchor_panel_tree.png', 'tree');
+  view('панель деревом с содержимым', 'anchor_panel_combined.png', 'tree+');
 
   anchor('окно копирования', 'anchor_copy.png', 'F5');
   anchor('окно переноса', 'anchor_move.png', 'F6');
@@ -170,6 +171,7 @@ void main() {
   // собственный узел фокуса, а не разбор команд.
   anchor('окно выбора вида — краткий', 'anchor_view_brief.png', 'Alt-F1', down: 1);
   anchor('окно выбора вида — дерево', 'anchor_view_tree.png', 'Alt-F1', down: 2);
+  anchor('окно выбора вида — дерево с содержимым', 'anchor_view_combined.png', 'Alt-F1', down: 3);
 
   // Вторая фаза поиска — своим тестом, а не `anchor`: до неё надо дойти, набрав
   // маску и нажав `Enter`. Ряд из семи кнопок в неё не помещается и потому

@@ -5,7 +5,6 @@ import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/view/function_bar/function_bar.dart';
-import 'package:flex_commander/view/split_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -56,7 +55,7 @@ void main() {
       expect(find.text('Stub line'), findsOneWidget);
 
       final strip = tester.getRect(find.text('Stub line'));
-      final panels = tester.getRect(find.byType(SplitView));
+      final panels = tester.getRect(find.byType(FcSplitView));
       final buttons = tester.getRect(find.byType(FunctionBar));
       expect(strip.top, greaterThanOrEqualTo(panels.bottom));
       expect(strip.bottom, lessThanOrEqualTo(buttons.top));
@@ -100,7 +99,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final gap = gapOf(tester);
-      final panels = tester.getRect(find.byType(SplitView));
+      final panels = tester.getRect(find.byType(FcSplitView));
       final strip = tester.getRect(find.text('Stub line'));
       final buttons = tester.getRect(find.byType(FunctionBar));
 
@@ -112,7 +111,7 @@ void main() {
       await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
       await tester.pumpAndSettle();
 
-      final panels = tester.getRect(find.byType(SplitView));
+      final panels = tester.getRect(find.byType(FcSplitView));
       final buttons = tester.getRect(find.byType(FunctionBar));
 
       expect(buttons.top - panels.bottom, closeTo(gapOf(tester), 0.01));

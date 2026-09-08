@@ -2,7 +2,6 @@ import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flex_commander/view/split_view.dart';
 
 /// Разделитель панелей: он обязан идти ровно за курсором.
 void main() {
@@ -26,7 +25,7 @@ void main() {
             child: SizedBox(
               width: width,
               height: 400,
-              child: SplitView(
+              child: FcSplitView(
                 left: const ColoredBox(color: Color(0xFF001122)),
                 right: const ColoredBox(color: Color(0xFF112233)),
                 ratio: ratio,
@@ -42,7 +41,7 @@ void main() {
 
   /// Точка захвата: середина зазора между панелями.
   Offset handleOf(WidgetTester tester, double ratio) {
-    final split = tester.getRect(find.byType(SplitView));
+    final split = tester.getRect(find.byType(FcSplitView));
     return Offset(split.left + available * ratio + metrics.areaGap / 2, split.center.dy);
   }
 

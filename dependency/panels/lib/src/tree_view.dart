@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -21,12 +22,19 @@ import 'panels_settings.dart';
 /// дерево держало ветви у себя и водило панель за собой — отсюда вышел целый
 /// класс гонок, который чинился шесть заходов подряд.
 class TreeView extends StatefulWidget {
-  const TreeView({super.key, required this.panel, required this.settings});
+  const TreeView({super.key, required this.panel, required this.settings, this.rows = RowsKind.tree});
 
   /// Имя вида — оно же ключ настройки панели.
   static const String viewId = 'tree';
 
   final Panel panel;
+
+  /// Какими ветвями: всеми или одними каталогами.
+  ///
+  /// Просит их вид, а собирает ядро — здесь только сказано, какие нужны. Одни
+  /// каталоги нужны левому столбцу комбинированного вида
+  /// (`docs/spec/panel-view-combined.md`, §4).
+  final RowsKind rows;
 
   /// Настройки видов: показывать ли размер. Способом узнать, а не значением —
   /// флажок правят в окне выбора вида, и следующий же кадр обязан его учесть.
@@ -99,7 +107,7 @@ class TreeViewState extends State<TreeView> {
     super.initState();
     // Вид говорит, что ему нужно; собирать строки — дело ядра
     // (`docs/spec/panel-node-list.md`, §3).
-    unawaited(widget.panel.showRows(RowsKind.tree));
+    unawaited(widget.panel.showRows(widget.rows));
     // Ждать строк начинаем сразу: они приходят позже вида, а восстановление
     // прокрутки без них смысла не имеет.
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -152,7 +160,7 @@ class TreeViewState extends State<TreeView> {
   /// прежнего вида — списочный, — и рисовать его деревом нельзя: на миг
   /// показался бы каталог, притворяющийся ветвями
   /// (`docs/spec/panel-node-list.md`, §3).
-  List<FileEntry> get _rows => widget.panel.rows == RowsKind.tree ? widget.panel.entries : const [];
+  List<FileEntry> get _rows => widget.panel.rows.isTree ? widget.panel.entries : const [];
 
   /// Прокрутить к курсору, если он ушёл из виду.
   ///
@@ -173,7 +181,7 @@ class TreeViewState extends State<TreeView> {
 
     // Восстановление ждёт своего кадра: строки при запуске приходят позже
     // вида, и признак тратить рано.
-    final restoring = !_restored && widget.panel.rows == RowsKind.tree;
+    final restoring = !_restored && widget.panel.rows.isTree;
     if (!ready || (!_restored && !restoring)) {
       if (!_restored && _restoreTries < _restoreLimit) {
         _restoreTries++;
@@ -379,7 +387,12 @@ class TreeViewState extends State<TreeView> {
 
         // Колонки те же, что у таблицы, и ширина у размера та же: дерево
         // показывает то же самое, и мерить это другой меркой незачем.
-        final showSize = widget.settings().treeSize;
+        //
+        // Кроме дерева одних каталогов: оно узкое и стоит рядом со списком,
+        // где размер и так виден. Колонка там съедала бы место у имени —
+        // ровно то, ради чего это дерево и заведено
+        // (`docs/spec/panel-view-combined.md`, §4).
+        final showSize = widget.settings().treeSize && widget.rows != RowsKind.branches;
         final sizeWidth = _sizeColumn.width;
         // Поле справа принадлежит содержимому, а не подсветке строки, — как и
         // в таблице.
@@ -623,6 +636,23 @@ class _BranchRow extends StatelessWidget {
     return String.fromCharCode(row.isOpen ? icons.branchOpen.codePoint : icons.branchClosed.codePoint);
   }
 
+  /// Сколько от строки останется под имя, если отступить на всю глубину.
+  ///
+  /// Меньше этого не отступаем: имя ужимается многоточием, а знак раскрытия,
+  /// значок и колонка размера — нет. Величина — чтобы имя **читалось**, а не
+  /// чтобы оно поместилось: несколько букв с многоточием говорят больше, чем
+  /// пустое место с одним значком.
+  static const double _minNameWidth = 60;
+
+  double _indent(double wanted, double width, FcMetrics metrics) {
+    if (width <= 0) {
+      return wanted;
+    }
+    final fixed =
+        metrics.iconLeftPadding + metrics.iconSize * 2 + metrics.treeMarkGap + metrics.iconGap + _minNameWidth;
+    return wanted.clamp(0, math.max(0, width - fixed - sizeWidth));
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
@@ -662,63 +692,79 @@ class _BranchRow extends StatelessWidget {
           ),
           child: Stack(
             children: [
-              Padding(
-                // Слева — то же поле, что у строки списка: панели рядом, и их
-                // содержимое обязано начинаться на одной вертикали.
-                padding: EdgeInsets.only(left: metrics.iconLeftPadding + row.level * indent),
-                // Те же две поправки, что у строки списка: содержимое опущено
-                // относительно подсветки, а имя — относительно значка. Панели
-                // стоят рядом, и строка дерева обязана совпадать со строкой
-                // списка до точки.
-                child: Transform.translate(
-                  offset: Offset(0, metrics.rowContentVerticalNudge),
-                  child: Row(
-                    children: [
-                      GestureDetector(
-                        behavior: HitTestBehavior.opaque,
-                        onTap: onToggle,
-                        child: SizedBox(
-                          width: square,
-                          // По середине квадрата, а не по левому его краю: глиф
-                          // угла узкий, и прижатый влево он отходил бы от значка
-                          // на полквадрата.
-                          child: Center(child: Text(_mark(icons), style: glyph)),
-                        ),
+              LayoutBuilder(
+                builder:
+                    (context, constraints) => Padding(
+                      // Слева — то же поле, что у строки списка: панели рядом, и
+                      // их содержимое обязано начинаться на одной вертикали.
+                      //
+                      // Шаг вглубь при этом упирается в ширину строки: в узком
+                      // столбце (дерево комбинированного вида — треть панели)
+                      // глубокая ветвь иначе выталкивала бы за край и знак, и
+                      // значок, и размер — всё то, что не ужимается
+                      // (`docs/spec/panel-view-combined.md`, §7).
+                      padding: EdgeInsets.only(
+                        left: metrics.iconLeftPadding + _indent(row.level * indent, constraints.maxWidth, metrics),
                       ),
-                      SizedBox(width: metrics.treeMarkGap),
-                      // Значок тот же, что в списке: у каталога папка, у файла
-                      // его собственный — правило одно на приложение
-                      // (`docs/spec/file-icons.md`).
-                      FileTypeIcon(entry: row, selected: _selected),
-                      SizedBox(width: metrics.iconGap),
-                      Expanded(
-                        child: Padding(
-                          // Поле справа — то же, что у ячейки таблицы: имя не
-                          // должно упираться в линейку колонки.
-                          padding: EdgeInsets.only(right: metrics.cellPadding),
-                          child: Transform.translate(
-                            offset: Offset(0, metrics.rowTextVerticalNudge),
-                            child: Text(row.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
-                          ),
-                        ),
-                      ),
-                      // Колонка размера — своей ширины и под своим заголовком:
-                      // число прижато к правому её краю, как в таблице.
-                      if (sizeWidth > 0)
-                        SizedBox(
-                          width: sizeWidth,
-                          child: Padding(
-                            padding: EdgeInsets.symmetric(horizontal: metrics.cellPadding),
-                            child: Transform.translate(
-                              offset: Offset(0, metrics.rowTextVerticalNudge),
-                              child: Text(formatSize(size), maxLines: 1, textAlign: TextAlign.right, style: style),
+                      // Те же две поправки, что у строки списка: содержимое опущено
+                      // относительно подсветки, а имя — относительно значка. Панели
+                      // стоят рядом, и строка дерева обязана совпадать со строкой
+                      // списка до точки.
+                      child: Transform.translate(
+                        offset: Offset(0, metrics.rowContentVerticalNudge),
+                        child: Row(
+                          children: [
+                            GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTap: onToggle,
+                              child: SizedBox(
+                                width: square,
+                                // По середине квадрата, а не по левому его краю: глиф
+                                // угла узкий, и прижатый влево он отходил бы от значка
+                                // на полквадрата.
+                                child: Center(child: Text(_mark(icons), style: glyph)),
+                              ),
                             ),
-                          ),
+                            SizedBox(width: metrics.treeMarkGap),
+                            // Значок тот же, что в списке: у каталога папка, у файла
+                            // его собственный — правило одно на приложение
+                            // (`docs/spec/file-icons.md`).
+                            FileTypeIcon(entry: row, selected: _selected),
+                            SizedBox(width: metrics.iconGap),
+                            Expanded(
+                              child: Padding(
+                                // Поле справа — то же, что у ячейки таблицы: имя не
+                                // должно упираться в линейку колонки.
+                                padding: EdgeInsets.only(right: metrics.cellPadding),
+                                child: Transform.translate(
+                                  offset: Offset(0, metrics.rowTextVerticalNudge),
+                                  child: Text(row.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+                                ),
+                              ),
+                            ),
+                            // Колонка размера — своей ширины и под своим заголовком:
+                            // число прижато к правому её краю, как в таблице.
+                            if (sizeWidth > 0)
+                              SizedBox(
+                                width: sizeWidth,
+                                child: Padding(
+                                  padding: EdgeInsets.symmetric(horizontal: metrics.cellPadding),
+                                  child: Transform.translate(
+                                    offset: Offset(0, metrics.rowTextVerticalNudge),
+                                    child: Text(
+                                      formatSize(size),
+                                      maxLines: 1,
+                                      textAlign: TextAlign.right,
+                                      style: style,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            SizedBox(width: inset),
+                          ],
                         ),
-                      SizedBox(width: inset),
-                    ],
-                  ),
-                ),
+                      ),
+                    ),
               ),
               // Полоса пометки поверх фона: она должна читаться и тогда, когда
               // ветвь вдобавок под курсором.

@@ -23,3 +23,4 @@ export 'src/palette_search.dart';
 export 'src/pick_list.dart';
 export 'src/panel_frame.dart';
 export 'src/settings_form.dart';
+export 'src/split_view.dart';

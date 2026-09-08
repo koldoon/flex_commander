@@ -6,7 +6,6 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:flex_commander/view/split_view.dart';
 import 'package:flex_commander/view/app_shell.dart';
 import 'package:flex_commander/view/function_bar/function_bar.dart';
 
@@ -84,7 +83,7 @@ void main() {
     await runtime.app.start();
     await pumpScreen(tester);
 
-    expect(find.byType(SplitView), findsOneWidget);
+    expect(find.byType(FcSplitView), findsOneWidget);
     expect(find.byType(PanelView), findsNWidgets(2));
     // Содержимое панели рисуется тем же видом, что объявлен модулем: имя и
     // расширение стоят в своих колонках.
@@ -143,7 +142,7 @@ void main() {
     await pumpScreen(tester, metrics: const _MetricsWithSides());
 
     final window = tester.getRect(find.byType(AppShell));
-    final panels = tester.getRect(find.byType(SplitView));
+    final panels = tester.getRect(find.byType(FcSplitView));
 
     expect(panels.left - window.left, 20);
     expect(window.right - panels.right, 20);

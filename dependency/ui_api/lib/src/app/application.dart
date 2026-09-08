@@ -46,7 +46,10 @@ abstract interface class Application implements Listenable {
   ///
   /// Ждёт ядра: сессия заводится там, там же открывается каталог, и до ответа
   /// показывать нечего.
-  Future<Panel> openPanel(ViewportPosition side, {Panel? like});
+  ///
+  /// [at] — куда её поставить в слоте; пусто — в конец. Порядок сессий и есть
+  /// порядок показа: у комбинированного вида дерево всегда первое.
+  Future<Panel> openPanel(ViewportPosition side, {Panel? like, int? at});
 
   /// Убрать сессию: она отпускает аренду и уходит из слота.
   ///

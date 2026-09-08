@@ -1,9 +1,10 @@
 import 'dart:async';
 
-import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
+
+import 'combined_view.dart';
 
 /// Показать каталог другим видом.
 ///
@@ -59,7 +60,32 @@ class SetPanelViewCommand extends AppCommand {
     if (view.isEmpty) {
       return;
     }
-    await panelOf(context).setView(view);
+    final panel = panelOf(context);
+    final was = panel.view;
+    await panel.setView(view);
+    if (was == CombinedView.viewId && view != CombinedView.viewId) {
+      collapseColumns(context.app, panel);
+    }
+  }
+
+  /// Уход с комбинированного вида схлопывает слот: остаётся та сессия, в
+  /// которой стояли, соседний столбец закрывается
+  /// (`docs/spec/panel-view-combined.md`, §3).
+  ///
+  /// Здесь, а не в самом виде: виджет уходит и когда его накрывают
+  /// просмотрщиком, и когда источник просит показать себя по-своему (находки),
+  /// — а закрывать спутника надо только тогда, когда вид сменил человек.
+  static void collapseColumns(Application app, Panel panel) {
+    final side = app.view.positionOf(panel);
+    if (side == null) {
+      return;
+    }
+    for (final other in app.panelsAt(side)) {
+      if (!identical(other, panel)) {
+        other.setView(panel.view);
+        app.closePanel(other);
+      }
+    }
   }
 }
 
@@ -326,7 +352,7 @@ class TreeDeepCommand extends AppCommand {
   /// сворачивание уводит курсор к ветви, в которой строка лежит, — ровно как
   /// обычное (`docs/spec/panel-view-tree.md`, §6).
   @override
-  bool isExecutable(CommandContext context) => context.panel.rows == RowsKind.tree;
+  bool isExecutable(CommandContext context) => context.panel.rows.isTree;
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -442,7 +468,7 @@ class TreeBranchCommand extends AppCommand {
   /// Спрашивается **набор строк**, а не вид: строки собирает ядро, и команда
   /// знает лишь то, что перед ней дерево (`docs/spec/panel-node-list.md`, §3).
   @override
-  bool isExecutable(CommandContext context) => context.panel.rows == RowsKind.tree;
+  bool isExecutable(CommandContext context) => context.panel.rows.isTree;
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -519,7 +545,7 @@ class ToggleTreeBranchCommand extends AppCommand {
   /// ничего вовсе: до навигации он не доходил.
   @override
   bool isExecutable(CommandContext context) =>
-      context.panel.rows == RowsKind.tree && (context.panel.currentEntry?.isDirectory ?? false);
+      context.panel.rows.isTree && (context.panel.currentEntry?.isDirectory ?? false);
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -556,7 +582,7 @@ class TreeFollowLinkCommand extends AppCommand {
   /// «войти», и менять это незачем.
   @override
   bool isExecutable(CommandContext context) =>
-      context.panel.rows == RowsKind.tree && (context.panel.currentEntry?.isLink ?? false);
+      context.panel.rows.isTree && (context.panel.currentEntry?.isLink ?? false);
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -569,5 +595,77 @@ class TreeFollowLinkCommand extends AppCommand {
     }
     // Битая ссылка — «случилось и закончилось»: тост, а не строка состояния.
     context.app.toasts.show(tr('The link leads nowhere: {name}', args: {'name': entry.name}));
+  }
+}
+
+/// Курсор между столбцами комбинированного вида.
+///
+/// Столбцы — две сессии одного слота, и «перевести курсор» значит показать
+/// другую: та, что показана, и есть панель
+/// (`docs/spec/panel-view-combined.md`, §3).
+///
+/// Отдельные команды, а не «если вид такой-то» внутри хода по строке: где
+/// столбцов нет, команда невыполнима, и клавиша достаётся объявленным
+/// следом — раскрытию ветви и «в начало списка».
+class CombinedSideCommand extends AppCommand {
+  CombinedSideCommand({required this.toList});
+
+  static const String toListId = 'panel.combined.toList';
+  static const String toTreeId = 'panel.combined.toTree';
+
+  /// true — вправо, из дерева в список; false — влево, из списка в дерево.
+  final bool toList;
+
+  @override
+  String get id => toList ? toListId : toTreeId;
+
+  @override
+  String get label => toList ? tr('To the list') : tr('To the tree');
+
+  @override
+  String get description => tr('Move the cursor to the other column');
+
+  /// «Дерево» в синонимы не идёт: оно и так в названии одной из двух команд, а
+  /// синоним, который находится и без него, — мёртвый груз.
+  @override
+  Set<String> get keywords => const {'column', 'side', 'pane'};
+
+  /// Столбцы стороны; пусто — их там нет вовсе.
+  static List<Panel> _columnsOf(CommandContext context) {
+    final side = context.app.view.positionOf(context.panel);
+    if (side == null) {
+      return const [];
+    }
+    final panels = context.app.panelsAt(side);
+    return panels.length < 2 ? const [] : panels;
+  }
+
+  @override
+  bool isExecutable(CommandContext context) {
+    final columns = _columnsOf(context);
+    if (columns.isEmpty) {
+      return false;
+    }
+    final inTree = identical(columns.first, context.panel);
+    if (!toList) {
+      return !inTree;
+    }
+    if (!inTree) {
+      return false;
+    }
+    // Закрытую ветвь `Right` сперва раскрывает: раскрытие объявлено следом, и
+    // клавиша достаётся ему, пока эта команда невыполнима
+    // (`docs/spec/panel-view-combined.md`, §6).
+    final row = context.panel.currentEntry;
+    return row == null || !row.isDirectory || row.isOpen;
+  }
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final columns = _columnsOf(context);
+    if (columns.isEmpty) {
+      return;
+    }
+    context.app.showPanel(toList ? columns[1] : columns.first);
   }
 }

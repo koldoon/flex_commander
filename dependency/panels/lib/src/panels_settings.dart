@@ -6,7 +6,17 @@ import 'package:fc_api/fc_api.dart';
 /// кратком виде выглядели бы поломкой, а не настройкой
 /// (`docs/spec/panel-views.md`, §7).
 class PanelsSettings implements Serializable {
-  PanelsSettings({this.briefColumns = autoColumns, this.treeSize = true, this.cursorHoldsPlace = true});
+  PanelsSettings({
+    this.briefColumns = autoColumns,
+    this.treeSize = true,
+    this.cursorHoldsPlace = true,
+    this.treeShare = defaultTreeShare,
+  });
+
+  /// Какую долю ширины занимает дерево в комбинированном виде.
+  static const double defaultTreeShare = 1 / 3;
+  static const double minTreeShare = 0.15;
+  static const double maxTreeShare = 0.7;
 
   /// «Сколько влезет»: число столбцов краткого вида считается по самому
   /// длинному имени в каталоге.
@@ -32,11 +42,18 @@ class PanelsSettings implements Serializable {
   /// возвращает прежнюю минимальную подмотку: список стоит, курсор уезжает.
   bool cursorHoldsPlace;
 
+  /// Доля ширины под деревом в комбинированном виде.
+  ///
+  /// Правится перетаскиванием разделителя между столбцами
+  /// (`docs/spec/panel-view-combined.md`, §7).
+  double treeShare;
+
   @override
   void fromMap(Map<String, dynamic> m) {
     briefColumns = extract(briefColumns, m['briefColumns']).clamp(autoColumns, maxColumns);
     treeSize = extract(treeSize, m['treeSize']);
     cursorHoldsPlace = extract(cursorHoldsPlace, m['cursorHoldsPlace']);
+    treeShare = extract(treeShare, m['treeShare']).clamp(minTreeShare, maxTreeShare);
   }
 
   @override
@@ -44,5 +61,6 @@ class PanelsSettings implements Serializable {
     m['briefColumns'] = briefColumns;
     m['treeSize'] = treeSize;
     m['cursorHoldsPlace'] = cursorHoldsPlace;
+    m['treeShare'] = treeShare;
   }
 }
