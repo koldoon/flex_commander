@@ -205,32 +205,45 @@ class _CommandLineViewState extends State<CommandLineView> {
   /// не отпускает — прячется цветом, иначе набранное дёргалось бы вбок каждый
   /// раз, когда открывают и закрывают поиск.
   Widget _typed(FcTheme theme, CommandLineState state, TextStyle style, {required bool takesKeys}) {
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: FcCursorBlink(
-        // Набор сбрасывает мигание: пока печатают, курсор виден.
-        resetOn: state.text.text,
-        builder:
-            (context, visible) => Text.rich(
-              TextSpan(
-                children: [
-                  TextSpan(text: state.text.text, style: style),
-                  // Курсор блоком, как в терминале, — но прячется он цветом, а
-                  // не отсутствием: пропав из строки, блок дважды в секунду
-                  // менял бы её длину.
-                  TextSpan(
-                    text: '\u2588',
-                    style: style.copyWith(
-                      color: visible && takesKeys ? theme.colors.cursorBackground : const Color(0x00000000),
-                    ),
-                  ),
-                ],
+    // Клетка набора: ширина знака и высота строки — те самые, которыми
+    // рисуется текст рядом. Меряется, а не берётся из темы: моноширинный шрифт
+    // на разных машинах разный, а курсор обязан попадать в клетку.
+    final cell = _cellOf(style);
+
+    return FcCursorBlink(
+      // Набор сбрасывает мигание: пока печатают, курсор виден.
+      resetOn: state.text.text,
+      builder:
+          (context, visible) => Row(
+            // Курсор — сосед текста, а не знак внутри него. Внутри он менял бы
+            // **высоту строки**: и знак «█», и вставка в текст (`WidgetSpan`)
+            // раздвигают коробку строки, а раздвинутая строка съезжает вниз
+            // относительно приглашения — оно-то осталось прежним. Живьём это и
+            // выглядело как «курсор ниже строки на две-три точки», хотя ниже
+            // была вся строка набора.
+            crossAxisAlignment: CrossAxisAlignment.center,
+            children: [
+              Flexible(child: Text(state.text.text, style: style, maxLines: 1, overflow: TextOverflow.ellipsis)),
+              // Прямоугольник в клетку, как в терминале. Прячется он цветом, а
+              // не отсутствием: пропав из строки, блок дважды в секунду менял
+              // бы её длину.
+              SizedBox.fromSize(
+                size: cell,
+                child: ColoredBox(
+                  color: visible && takesKeys ? theme.colors.cursorBackground : const Color(0x00000000),
+                ),
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-            ),
-      ),
+            ],
+          ),
     );
+  }
+
+  /// Размер знакоместа этого набора.
+  static Size _cellOf(TextStyle style) {
+    final probe = TextPainter(text: TextSpan(text: 'M', style: style), textDirection: TextDirection.ltr)..layout();
+    final size = Size(probe.width, probe.height);
+    probe.dispose();
+    return size;
   }
 
   /// Доля строки, которую ввод оставляет себе, каким бы длинным ни был путь.

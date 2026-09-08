@@ -137,13 +137,18 @@ void main() {
     line().settings.typingGoesToLine = true;
     await pumpApp(tester);
 
-    /// Цвет курсора-блока в строке: он часть набранного текста, а не виджет.
-    Color blockColor() {
-      final rich = tester
-          .widgetList<Text>(find.descendant(of: find.byType(CommandLineView), matching: find.byType(Text)))
-          .firstWhere((text) => (text.textSpan as TextSpan?)?.children?.length == 2);
-      return ((rich.textSpan! as TextSpan).children!.last as TextSpan).style!.color!;
-    }
+    /// Цвет курсора-блока в строке.
+    ///
+    /// Блок стоит **рядом** с текстом, а не внутри него: внутри он раздвигал бы
+    /// коробку строки, и набранное съезжало бы вниз относительно приглашения
+    /// (`docs/spec/mc-command-line.md`, §4).
+    Color blockColor() =>
+        tester
+            .widgetList<ColoredBox>(
+              find.descendant(of: find.byType(CommandLineView), matching: find.byType(ColoredBox)),
+            )
+            .last
+            .color;
 
     final typing = blockColor();
     expect(typing.a, greaterThan(0), reason: 'буквы идут в строку — курсор виден');

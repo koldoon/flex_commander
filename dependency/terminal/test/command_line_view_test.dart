@@ -296,6 +296,40 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 20));
   });
+  testWidgets('в режиме mc набор стоит вровень с приглашением, а курсор — в клетку', (tester) async {
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    // В режиме `mc` поля ввода под строкой нет: и текст, и курсор рисует она
+    // сама, а значит — сама и отвечает за то, чтобы они встали вровень с
+    // приглашением.
+    final line = runtime.app.view.contentAt(ViewportPosition.bottom)! as CommandLineState;
+    line.settings.typingGoesToLine = true;
+    runtime.commands.dispatch(const KeyCombination('L', character: 'l'));
+    await tester.pumpAndSettle();
+
+    final texts = find.descendant(of: find.byType(CommandLineView), matching: find.byType(Text));
+    final prompt = tester.getRect(texts.first);
+    final typed = tester.getRect(texts.last);
+    final block = tester.getRect(
+      find.descendant(of: find.byType(CommandLineView), matching: find.byType(ColoredBox)).last,
+    );
+
+    // Набранное — той же строкой, что и приглашение: курсор внутри текста
+    // раздвигал бы её коробку, и весь набор съезжал бы вниз.
+    expect(typed.top, moreOrLessEquals(prompt.top, epsilon: 0.01));
+    expect(typed.bottom, moreOrLessEquals(prompt.bottom, epsilon: 0.01));
+    // А курсор — клеткой: рост в строку, ширина в знак.
+    expect(block.top, moreOrLessEquals(typed.top, epsilon: 0.01));
+    expect(block.height, moreOrLessEquals(typed.height, epsilon: 0.01));
+    expect(block.width, greaterThan(0));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
 }
 
 /// Тема, у которой полоса командной строки выше поля ввода.
