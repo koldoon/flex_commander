@@ -78,7 +78,7 @@ class ShellSession {
   /// запуске: дальше её каталог принадлежит ей самой.
   ///
   /// Аренды здесь больше нет: место держит ядро, пока жива оболочка.
-  Future<TerminalSession> sessionIn(Application app, {Panel? panel, String? directory}) async {
+  Future<TerminalSession> sessionIn(Application app, {Session? panel, String? directory}) async {
     // Ждём: на сервере открытие канала — поход по сети, и не удаться оно
     // вполне может. Отказ уходит бедой тому, кто просил.
     final channel = await app.openShell(panel: panel, directory: directory);

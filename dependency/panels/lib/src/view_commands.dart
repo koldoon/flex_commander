@@ -37,10 +37,10 @@ class SetPanelViewCommand extends AppCommand {
   Set<String> get keywords => const {'layout', 'brief', 'tree', 'icons', 'columns'};
 
   /// Панель, о которой идёт речь.
-  static Panel panelOf(CommandContext context) => switch (context.invocation.param<String>(panelParam)) {
+  static Session panelOf(CommandContext context) => switch (context.invocation.param<String>(panelParam)) {
     leftPanel => context.app.left,
     rightPanel => context.app.right,
-    _ => context.panel,
+    _ => context.session,
   };
 
   /// Вид, названный вызовом; пусто — вида не назвали.
@@ -75,7 +75,7 @@ class SetPanelViewCommand extends AppCommand {
   /// Здесь, а не в самом виде: виджет уходит и когда его накрывают
   /// просмотрщиком, и когда источник просит показать себя по-своему (находки),
   /// — а закрывать спутника надо только тогда, когда вид сменил человек.
-  static void collapseColumns(Application app, Panel panel) {
+  static void collapseColumns(Application app, Session panel) {
     final side = app.view.positionOf(panel);
     if (side == null) {
       return;
@@ -181,7 +181,7 @@ class ViewPickerState extends ChangeNotifier {
 
   /// Панель, для которой открыли окно: её правят панельные настройки вида —
   /// колонки таблицы (`docs/spec/panel-views.md`, §7).
-  final Panel panel;
+  final Session panel;
 
   int _index;
 
@@ -365,11 +365,11 @@ class TreeDeepCommand extends AppCommand {
   /// сворачивание уводит курсор к ветви, в которой строка лежит, — ровно как
   /// обычное (`docs/spec/panel-view-tree.md`, §6).
   @override
-  bool isExecutable(CommandContext context) => context.panel.rows.isTree;
+  bool isExecutable(CommandContext context) => context.session.rows.isTree;
 
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
+    final panel = context.session;
     if (all) {
       await _open(context, '');
       return;
@@ -403,7 +403,7 @@ class TreeDeepCommand extends AppCommand {
   /// Тостом, а не строкой состояния: строка говорит о том, что **идёт**, и
   /// сообщение осталось бы висеть в ней, пока его не сменят.
   Future<void> _open(CommandContext context, String path) async {
-    final result = await context.panel.expandDeep(path, expanded: expand);
+    final result = await context.session.expandDeep(path, expanded: expand);
     if (!result.stopped) {
       return;
     }
@@ -434,14 +434,14 @@ class MoveCursorColumnCommand extends AppCommand {
   String get description => tr('Move the cursor one column aside');
 
   /// Спрашивается не вид, а его раскладка: столбцы объявляет сам вид
-  /// (`Panel.columnRows`), и команде всё равно, кто это — краткий вид или
+  /// (`Session.columnRows`), и команде всё равно, кто это — краткий вид или
   /// будущие столбцы Finder.
   @override
-  bool isExecutable(CommandContext context) => context.panel.columnRows > 0 && context.panel.entries.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.session.columnRows > 0 && context.session.entries.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
+    final panel = context.session;
     final rows = panel.columnRows;
     if (rows <= 0) {
       return;
@@ -481,11 +481,11 @@ class TreeBranchCommand extends AppCommand {
   /// Спрашивается **набор строк**, а не вид: строки собирает ядро, и команда
   /// знает лишь то, что перед ней дерево (`docs/spec/panel-node-list.md`, §3).
   @override
-  bool isExecutable(CommandContext context) => context.panel.rows.isTree;
+  bool isExecutable(CommandContext context) => context.session.rows.isTree;
 
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
+    final panel = context.session;
     final row = panel.currentEntry;
     if (row == null) {
       return;
@@ -518,7 +518,7 @@ class TreeBranchCommand extends AppCommand {
   ///
   /// Общая с [TreeDeepCommand]: «свернуть нечего — выйти к своей ветви» —
   /// одно правило на обе, и расходиться им незачем.
-  static int parentRowOf(Panel panel) {
+  static int parentRowOf(Session panel) {
     final rows = panel.entries;
     final at = panel.cursorIndex;
     if (at < 0 || at >= rows.length) {
@@ -558,11 +558,11 @@ class ToggleTreeBranchCommand extends AppCommand {
   /// ничего вовсе: до навигации он не доходил.
   @override
   bool isExecutable(CommandContext context) =>
-      context.panel.rows.isTree && (context.panel.currentEntry?.isDirectory ?? false);
+      context.session.rows.isTree && (context.session.currentEntry?.isDirectory ?? false);
 
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
+    final panel = context.session;
     final row = panel.currentEntry;
     if (row == null || !row.isDirectory) {
       return;
@@ -595,15 +595,15 @@ class TreeFollowLinkCommand extends AppCommand {
   /// «войти», и менять это незачем.
   @override
   bool isExecutable(CommandContext context) =>
-      context.panel.rows.isTree && (context.panel.currentEntry?.isLink ?? false);
+      context.session.rows.isTree && (context.session.currentEntry?.isLink ?? false);
 
   @override
   Future<void> execute(CommandContext context) async {
-    final entry = context.panel.currentEntry;
+    final entry = context.session.currentEntry;
     if (entry == null || entry.path.isEmpty) {
       return;
     }
-    if (await context.panel.followLink(entry.path)) {
+    if (await context.session.followLink(entry.path)) {
       return;
     }
     // Битая ссылка — «случилось и закончилось»: тост, а не строка состояния.
@@ -644,8 +644,8 @@ class CombinedSideCommand extends AppCommand {
   Set<String> get keywords => const {'column', 'side', 'pane'};
 
   /// Столбцы стороны; пусто — их там нет вовсе.
-  static List<Panel> _columnsOf(CommandContext context) {
-    final side = context.app.view.positionOf(context.panel);
+  static List<Session> _columnsOf(CommandContext context) {
+    final side = context.app.view.positionOf(context.session);
     if (side == null) {
       return const [];
     }
@@ -658,10 +658,10 @@ class CombinedSideCommand extends AppCommand {
     final columns = _columnsOf(context);
     // Столбцы — только у комбинированного вида: сессия, оставшаяся в слоте от
     // него, сама по себе второго столбца не делает.
-    if (columns.isEmpty || context.panel.view != CombinedView.viewId) {
+    if (columns.isEmpty || context.session.view != CombinedView.viewId) {
       return false;
     }
-    final inTree = identical(columns.first, context.panel);
+    final inTree = identical(columns.first, context.session);
     if (!toList) {
       return !inTree;
     }
@@ -674,7 +674,7 @@ class CombinedSideCommand extends AppCommand {
     //
     // Кроме той, у которой раскрывать нечего: знака у неё нет, и обещать
     // нажатием то, чего не видно, нельзя — курсор уходит вправо сразу.
-    final row = context.panel.currentEntry;
+    final row = context.session.currentEntry;
     return row == null || !row.isDirectory || row.isOpen || !row.hasBranches;
   }
 

@@ -80,7 +80,7 @@ class Panels implements FcFrontendModule {
     registry.viewport(PanelViewports.files, (context, panel) => FileTable(panel: panel, settings: settingsOf));
     // Панель — тоже состояние области, и рисуется тем же механизмом, что всё
     // остальное: ядро не знает, чем показывают файлы.
-    registry.view<Panel>((context, panel) => PanelView(panel: panel, settings: settingsOf));
+    registry.view<Session>((context, panel) => PanelView(panel: panel, settings: settingsOf));
 
     // Таблица — вид по умолчанию, и объявляется она так же, как остальные:
     // отдельного «встроенного» вида нет, иначе виды делились бы на свои и

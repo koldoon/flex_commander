@@ -15,7 +15,7 @@ import 'panels_settings.dart';
 class PanelTabRow extends StatelessWidget {
   const PanelTabRow({super.key, required this.panel, required this.settings});
 
-  final Panel panel;
+  final Session panel;
 
   final PanelsSettings Function() settings;
 

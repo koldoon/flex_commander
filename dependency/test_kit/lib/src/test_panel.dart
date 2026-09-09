@@ -7,15 +7,15 @@ import 'package:flex_commander/core/listing_cache.dart';
 import 'package:flex_commander/core/panel_session.dart';
 import 'package:flex_commander/link/link.dart';
 import 'package:flex_commander/link/loopback_link.dart';
-import 'package:flex_commander/ui/panel_mirror.dart';
+import 'package:flex_commander/ui/session_mirror.dart';
 
 /// Панель для проверок — обе её половины разом.
 ///
 /// Экран видит зеркало, ядро держит сеанс, между ними петля. Проверка обычно
-/// говорит с [PanelMirror] — это и есть панель, какой её видят команды, — но
+/// говорит с [SessionMirror] — это и есть панель, какой её видят команды, — но
 /// иногда ей нужна и та сторона: узлы, провайдер, монтирование. Тогда она
 /// спрашивает [session], и в коде видно, что вопрос был про ядро.
-class TestPanel extends PanelMirror {
+class TestPanel extends SessionMirror {
   TestPanel._({
     required super.id,
     required super.link,

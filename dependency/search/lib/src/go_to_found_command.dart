@@ -34,7 +34,7 @@ class GoToFoundCommand extends AppCommand {
   /// (`fs`, `sftp`, `zip`), ветвь — самим находкам.
   @override
   bool isExecutable(CommandContext context) {
-    final panel = context.panel;
+    final panel = context.session;
     final entry = panel.currentEntry;
     // Находки узнаются по схеме источника, а не по его типу: типа этой стороне
     // не видно, а схема приезжает снимком.
@@ -47,7 +47,7 @@ class GoToFoundCommand extends AppCommand {
 
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
+    final panel = context.session;
     final entry = panel.currentEntry;
     if (entry == null || entry.directoryPath.isEmpty) {
       return;

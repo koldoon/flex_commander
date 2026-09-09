@@ -77,7 +77,7 @@ class ProbeCommand extends AppCommand {
 
   String get serviceValue => env.resolve<ProbeService>().value;
 
-  Panel get activePanel => env.app.activePanel;
+  Session get activePanel => env.app.activePanel;
 }
 
 class StartupCommand extends AppCommand {
@@ -211,7 +211,7 @@ void main() {
       final runtime = await build();
 
       expect(runtime.app, isA<Application>());
-      expect(runtime.app.left, isA<Panel>());
+      expect(runtime.app.left, isA<Session>());
       expect(runtime.app.left.markedPaths, isA<Set<String>>());
     });
   });

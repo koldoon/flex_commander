@@ -334,13 +334,13 @@ class _WarmShellCommand extends AppCommand {
   ///
   /// На сервере и в архиве прогрев не к месту: там оболочка либо чужая, либо
   /// её нет вовсе.
-  static bool _isHere(Panel panel) {
+  static bool _isHere(Session panel) {
     final label = panel.source.shellLabel;
     return label.isEmpty || label == 'localhost';
   }
 
   /// Каталог панели так, как назовёт его оболочка; пусто — так и не дождались.
-  Future<String> _placeOf(Application app, Panel panel) async {
+  Future<String> _placeOf(Application app, Session panel) async {
     if (panel.shellDirectory.isNotEmpty) {
       return panel.shellDirectory;
     }

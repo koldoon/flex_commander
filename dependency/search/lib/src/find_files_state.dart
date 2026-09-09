@@ -40,7 +40,7 @@ class FindFilesState extends ChangeNotifier {
   final String runId;
 
   /// Панель, в каталоге которой ищут и в которую отдают найденное.
-  final Panel panel;
+  final Session panel;
 
   /// Где искать — путём. Не поле окна: чтобы искать в другом месте, туда
   /// переходят панелью, — так не бывает поиска «не там, где думает человек».

@@ -39,7 +39,7 @@ const String dropDestinationParam = 'destination';
 /// по эту сторону нет — тогда за ними идут в ядро
 /// (`docs/spec/operation-targets.md`, §4). Когда всё помеченное на виду — а это
 /// обычный случай, — границу никто не трогает.
-Future<List<FileEntry>> dragEntriesOf(Panel panel, FileEntry entry) async {
+Future<List<FileEntry>> dragEntriesOf(Session panel, FileEntry entry) async {
   if (!panel.isMarked(entry)) {
     return [entry];
   }
@@ -58,7 +58,7 @@ Future<List<FileEntry>> dragEntriesOf(Panel panel, FileEntry entry) async {
 /// (`docs/spec/drag-and-drop.md`, §3).
 Widget panelDragSource({
   required BuildContext context,
-  required Panel panel,
+  required Session panel,
   required FileEntry entry,
   required Widget child,
 }) {
@@ -90,7 +90,7 @@ class PanelDropArea extends StatelessWidget {
     this.onDropped,
   });
 
-  final Panel panel;
+  final Session panel;
 
   /// Что у вида под точкой; null — сюда нельзя, и подсветки не будет.
   final DropSpot? Function(Offset local) spotAt;
@@ -155,7 +155,7 @@ class PanelDropArea extends StatelessWidget {
 ///
 /// С `Shift` — перенос, без него — копия: так принято везде, и решает это
 /// система, а не мы (она же и значок у курсора рисует).
-Future<void> runDrop(Application app, Panel panel, DropSpot spot, DropPayload payload) async {
+Future<void> runDrop(Application app, Session panel, DropSpot spot, DropPayload payload) async {
   if (payload.paths.isEmpty) {
     return;
   }

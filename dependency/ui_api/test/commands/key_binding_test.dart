@@ -9,7 +9,7 @@ import 'package:flutter/foundation.dart';
 ///
 /// Именно по **содержимому**, а не по месту: в полноэкранной области бывает и
 /// просмотрщик, и редактор, и терминал, а одна клавиша значит в них разное.
-class _FakePanel extends ChangeNotifier implements Panel {
+class _FakePanel extends ChangeNotifier implements Session {
   @override
   bool get takesKeyboard => false;
 

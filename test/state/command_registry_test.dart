@@ -244,7 +244,7 @@ void main() {
       app.toggleActivePanel();
       final context = registry.contextFor(registry.find('ctx')!);
 
-      expect(context.panel, app.right);
+      expect(context.session, app.right);
       expect(context.target, app.left);
     });
   });

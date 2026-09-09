@@ -27,7 +27,7 @@ class CommandLineState extends ChangeNotifier implements ViewportState {
   ///
   /// Панель-**источник**, а не активная область: активна в этот момент как раз
   /// строка.
-  Panel? get panel => app.view.panelAt(app.view.sourceArea);
+  Session? get panel => app.view.panelAt(app.view.sourceArea);
 
   /// Каталог, в котором выполнится команда; null — выполнять нельзя.
   ///

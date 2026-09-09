@@ -36,7 +36,7 @@ class TerminalRun {
   static Future<void> start({
     required Application app,
     required ShellSession shells,
-    required Panel? panel,
+    required Session? panel,
     required TerminalSettings options,
     required String command,
     required String workingDirectory,
@@ -165,7 +165,7 @@ class TerminalRun {
   ///
   /// Только те, что стоят на настоящей файловой системе: перечитывать `ssh://`
   /// из-за локальной команды — лишний поход по сети.
-  static Future<void> _reloadPanels(Application app, {Panel? skip}) async {
+  static Future<void> _reloadPanels(Application app, {Session? skip}) async {
     for (final position in const [ViewportPosition.left, ViewportPosition.right]) {
       final panel = app.view.panelAt(position);
       if (panel != null && panel != skip && panel.source.capabilities.realFileSystem) {

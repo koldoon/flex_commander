@@ -1,8 +1,14 @@
 # Управление состоянием
 
+> **Про имена.** То, чем оперируют команды, теперь зовётся `Session`: это одно
+> **место** — каталог, курсор, пометка, вид, — а «панель» стала местом на
+> экране, где сессию показывают. Прежнее имя `Panel` и `PanelMirror`
+> встречаются в спеках, написанных до переименования: читайте их как `Session`
+> и `SessionMirror`. В ядре сессия как звалась `PanelSession`, так и зовётся.
+
 Доменное состояние приложения живёт в **ядре**: каталог, список, курсор,
 пометка, сортировка — всё это держит `PanelSession` (`lib/core/`), и он же
-работает с деревом. Экранная сторона его зеркалит: `PanelMirror` (`lib/ui/`)
+работает с деревом. Экранная сторона его зеркалит: `SessionMirror` (`lib/ui/`)
 своего состояния не имеет — у него есть последнее, о чём рассказало ядро.
 Между ними линк, и по нему ходит язык протокола: значения, и ничего живого
 (`spec/client-server.md`).
@@ -22,13 +28,13 @@
 | Интерфейс | Реализация | Аналог в референсе |
 |---|---|---|
 | `Application` | `AppController` | `IApplication` / `ApplicationImpl` |
-| `Panel` | `PanelMirror` над линком; за ним `PanelSession` | `IPanel` / `FilesPanel` |
+| `Session` | `SessionMirror` над линком; за ним `PanelSession` | `IPanel` / `FilesPanel` |
 | `TreeProvider` | `LocalTreeProvider` | `ITreeProvider` |
 | `Operation<P, R>` | `TaskOperation` | `IAsyncOperation` |
 
 Зачем разделение:
 
-- **Команда видит только интерфейс.** `CommandContext` отдаёт `Application` и `Panel`,
+- **Команда видит только интерфейс.** `CommandContext` отдаёт `Application` и `Session`,
   а не контроллеры, поэтому реализацию можно переписать, не трогая ни одной команды.
   Это же станет контрактом для команд, которые появятся на следующих этапах.
 - **Интерфейсы лежат в нижнем слое.** `model/app/` не знает ни о Flutter, ни о
@@ -106,7 +112,7 @@ Future<List<FileEntry>> allTargets();   // значения всех целей 
 Экрана у него нет: вместо перерисовки он говорит `onChanged`, `onListed` и
 `onSized`, а наружу отдаёт значения — `state` и `entries`.
 
-`PanelMirror` (`lib/ui/panel_mirror.dart`) — реализация `Panel` **поверх
+`SessionMirror` (`lib/ui/session_mirror.dart`) — реализация `Session` **поверх
 линка**. Своего состояния у него нет: есть последнее, о чём рассказало ядро.
 Просьбы уходят за границу, ответы приходят событиями, и между ними проходит её
 оборот.
@@ -121,7 +127,7 @@ Future<List<FileEntry>> allTargets();   // значения всех целей 
 неразличима на фоне самого дела.
 
 ```dart
-abstract interface class Panel {
+abstract interface class Session {
   PanelId get id;
 
   /// Откуда панель берёт содержимое сейчас: схема, умения, вид содержимого.
@@ -196,7 +202,7 @@ abstract interface class Panel {
 }
 ```
 
-Сверх этого у `Panel` есть короткий раздел **долга** — живые узлы и источник:
+Сверх этого у `Session` есть короткий раздел **долга** — живые узлы и источник:
 им пока пользуются файловые операции, просмотр, правка, оболочка и сборка
 архивов. Список нарочно короткий: он и есть мера оставшегося переезда
 (`spec/client-server.md`, Э4 и Э5).
@@ -304,8 +310,8 @@ dir.refresh() → TreeProvider.getDirectoryListing()      [Operation, изоля
 ```dart
 class AppController extends ChangeNotifier {
   AppController({
-    required PanelMirror left,
-    required PanelMirror right,
+    required SessionMirror left,
+    required SessionMirror right,
     Link? link,          // дверь к ядру: работы, содержимое, настройки
     CoreServer? core,    // само ядро — только если оно в этом же изоляте
     required AppSettings settings,
@@ -313,22 +319,22 @@ class AppController extends ChangeNotifier {
 
   /// Показанная сессия стороны: в слоте их бывает несколько
   /// (`spec/panel-slots.md`).
-  PanelMirror get left;
-  PanelMirror get right;
+  Session get left;
+  Session get right;
 
   /// Все сессии стороны, завести ещё одну, убрать, показать другую.
-  List<Panel> panelsAt(ViewportPosition side);
-  Future<Panel> openPanel(ViewportPosition side, {Panel? like});
-  void closePanel(Panel panel);
-  void showPanel(Panel panel);
+  List<Session> panelsAt(ViewportPosition side);
+  Future<Session> openPanel(ViewportPosition side, {Session? like});
+  void closePanel(Session session);
+  void showPanel(Session session);
 
   /// Активная панель — источник операций.
-  PanelMirror get activePanel;
+  Session get activePanel;
 
   /// Пассивная — приёмник операций (аналог getPassivePanel()).
-  PanelMirror get passivePanel;
+  Session get passivePanel;
 
-  void activate(Panel panel);
+  void activate(Session session);
   void toggleActivePanel();            // Tab
 
   double get splitRatio;
@@ -460,11 +466,11 @@ abstract class AppCommand {
 /// то, что видит человек, — строка списка.
 class CommandContext {
   final Application app;
-  final Panel panel;             // активная панель — источник операции
+  final Session session;         // сессия активной панели — источник операции
   final FileEntry? entry;        // строка под курсором
   final List<FileEntry> targets; // помеченное или [entry], если пометки нет
 
-  Panel get target => app.passivePanel;   // приёмник операции
+  Session get target => app.passivePanel; // сессия панели-приёмника
 }
 ```
 
@@ -926,7 +932,7 @@ Esc посреди копирования не прерывает его мол�
 ```dart
 class AppScope extends InheritedNotifier<AppController> {
   static AppController of(BuildContext context);
-  static Panel panelOf(BuildContext context);   // ближайшая панель
+  static Session sessionOf(BuildContext context); // ближайшая сессия
 }
 ```
 
@@ -1042,7 +1048,7 @@ class UiContainer extends DI {        // lib/bootstrap/ui_container.dart
 | Что | Как |
 |---|---|
 | Компараторы, форматтеры, разбор путей, разбор режима доступа | чистые unit-тесты |
-| `PanelSession` и `PanelMirror` (открытие, курсор, пометка, восстановление после reload) | unit-тесты на `InMemoryTreeProvider` через петлю, без Flutter |
+| `PanelSession` и `SessionMirror` (открытие, курсор, пометка, восстановление после reload) | unit-тесты на `InMemoryTreeProvider` через петлю, без Flutter |
 | `CommandRegistry.dispatch` (приоритеты, `nameMatch`, `isExecutable`) | unit-тесты с фейковыми командами |
 | `SettingsStore` (мусор в JSON, отсутствующие поля, недоступный путь) | unit-тесты на временном каталоге |
 | Клавиатура и фокус целиком | widget-тесты: `sendKeyEvent` + проверка курсора и активной панели |

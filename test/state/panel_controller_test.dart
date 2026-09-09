@@ -41,7 +41,7 @@ void main() {
 
   tearDown(() => panel.dispose());
 
-  List<String> namesOf(Panel panel) => panel.entries.map((n) => n.name).toList();
+  List<String> namesOf(Session panel) => panel.entries.map((n) => n.name).toList();
 
   group('открытие каталога', () {
     test('читает содержимое и сортирует его', () async {

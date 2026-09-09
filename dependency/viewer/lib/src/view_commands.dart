@@ -37,7 +37,7 @@ class ViewFileCommand extends AppCommand {
     // с этим файлом, и сказать об этом словами честнее, чем потухшей кнопкой.
     // Занятая панель второго чтения не начинает: она уже читает — либо каталог,
     // либо файл.
-    return entry != null && !context.panel.busy && !entry.isDirectory && !entry.isParent;
+    return entry != null && !context.session.busy && !entry.isDirectory && !entry.isParent;
   }
 
   @override
@@ -47,13 +47,13 @@ class ViewFileCommand extends AppCommand {
       return;
     }
     // Байты живут за границей: сюда приезжает то, чем их читают.
-    final bytes = context.panel.contentOf(entry);
+    final bytes = context.session.contentOf(entry);
 
     try {
       // Открытие ведёт панель: файл может лежать на сервере, и до появления
       // экрана проходят секунды. Точка прерывания у просмотрщиков уже есть —
       // ею пользуется быстрый просмотр, — и отдаётся она прямо из работы.
-      final content = await context.panel.runWork<ViewportState>((op) async {
+      final content = await context.session.runWork<ViewportState>((op) async {
         op.report(message: tr('Reading {name}…', args: {'name': entry.name}));
         return openViewer(
           context.app,
@@ -61,8 +61,8 @@ class ViewFileCommand extends AppCommand {
           bytes,
           ViewerPlace.fullscreen,
           checkpoint: op.checkpoint,
-          siblings: context.panel.entries,
-          contentOf: context.panel.contentOf,
+          siblings: context.session.entries,
+          contentOf: context.session.contentOf,
         );
       });
       context.app.view.pushViewportContent(ViewportPosition.fullscreen, content);

@@ -59,11 +59,11 @@ void main() {
   }
 
   /// Столбцы левой стороны: первый — дерево, второй — список.
-  List<Panel> columns(AppRuntime runtime) => runtime.app.panelsAt(ViewportPosition.left);
+  List<Session> columns(AppRuntime runtime) => runtime.app.panelsAt(ViewportPosition.left);
 
-  Panel tree(AppRuntime runtime) => columns(runtime).first;
+  Session tree(AppRuntime runtime) => columns(runtime).first;
 
-  Panel list(AppRuntime runtime) => columns(runtime)[1];
+  Session list(AppRuntime runtime) => columns(runtime)[1];
 
   /// Дать придержанному чтению случиться.
   Future<void> settle(WidgetTester tester) async {

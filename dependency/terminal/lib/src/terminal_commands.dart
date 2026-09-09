@@ -230,7 +230,7 @@ bool statusTakesKeys(Application app) {
 /// Спрашивается у снимка источника, а не у провайдера: самого источника по эту
 /// сторону нет вовсе, и это не потеря — «есть ли здесь оболочка» и так вопрос
 /// про место, а не про объект.
-bool hasShell(Panel? panel) => panel != null && panel.source.isShellHost;
+bool hasShell(Session? panel) => panel != null && panel.source.isShellHost;
 
 /// Путь объекта так, как назовёт его **оболочка** панели.
 ///
@@ -238,7 +238,7 @@ bool hasShell(Panel? panel) => panel != null && panel.source.isShellHost;
 /// оболочка уже назвала — остаётся приставить имя тем же разделителем, каким
 /// приставил его сам источник. Лишнего похода за границу на каждый `Enter` это
 /// стоить не должно.
-String shellPathOf(Panel panel, FileEntry entry) =>
+String shellPathOf(Session panel, FileEntry entry) =>
     entry.path.startsWith(panel.currentPath)
         ? panel.shellDirectory + entry.path.substring(panel.currentPath.length)
         : entry.path;
@@ -477,7 +477,7 @@ class ClearLineCommand extends AppCommand {
     final line = _lineOf(context.app);
     // Занятой панели `Esc` принадлежит целиком: отмена работы важнее уборки в
     // строке.
-    return line != null && line.typingGoesToLine && !line.isBlank && !context.panel.busy;
+    return line != null && line.typingGoesToLine && !line.isBlank && !context.session.busy;
   }
 
   @override
@@ -762,17 +762,17 @@ class RunNodeCommand extends AppCommand {
   @override
   bool isExecutable(CommandContext context) =>
       settings().runExecutables &&
-      !context.panel.busy &&
+      !context.session.busy &&
       // Запускают **из каталога панели**, а он не всегда настоящий: в списке
       // находок узлы свои, а каталога у них общего нет. Раньше это выяснялось
       // уже в `execute`, и `Enter` там молча пропадал — клавишу забирала
       // команда, которой нечего было делать.
-      hasShell(context.panel) &&
+      hasShell(context.session) &&
       _runnable(context) != null;
 
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
+    final panel = context.session;
     final entry = _runnable(context);
     if (entry == null || !hasShell(panel)) {
       return;
@@ -818,7 +818,7 @@ class RunNodeCommand extends AppCommand {
     }
     // Запускать можно только настоящий путь: внутри архива запускать нечего, а
     // на сервере — нечем, наш терминал местный.
-    if (!context.panel.source.capabilities.realFileSystem) {
+    if (!context.session.source.capabilities.realFileSystem) {
       return null;
     }
     // Битая ссылка исполняемой числится, но вести ей некуда.

@@ -81,7 +81,7 @@ dependency/ui_api   fc_ui_api    API интерфейса
 |---|---|
 | `fc_api` | значения границы (§4), протокол (§5), работы (`Operation`, `TaskOperation`, `OperationStatus`, `OperationRequest`), форматы, маски, сериализация, типы настроек, `FcModule` |
 | `fc_core_api` | `FsNode`, `TreeProvider`, `ProviderRegistry`, `ProviderLease`, `NodeEditor`, движок переноса, `StagingArea`, `ProcessRunner`, `Pty`, `FcBackendModule` и `BackendRegistry` |
-| `fc_ui_api` | `Application`, `Panel`, `PanelSelection`, `Views`, `ViewerSpec`, `NodeInfoProvider`, `AppCommand`, `KeyBinding`, `ThemeService`, `ClipboardService`, `Credentials`, `WindowService`, `FcFrontendModule` и `FrontendRegistry` |
+| `fc_ui_api` | `Application`, `Session`, `PanelSelection`, `Views`, `ViewerSpec`, `NodeInfoProvider`, `AppCommand`, `KeyBinding`, `ThemeService`, `ClipboardService`, `Credentials`, `WindowService`, `FcFrontendModule` и `FrontendRegistry` |
 
 **`fc_ui_api` не зависит от `fc_core_api`, и наоборот.** Это и есть ответ на
 «где граница»: фронтовая часть модуля физически не видит `TreeProvider`, а
@@ -556,7 +556,7 @@ lib/ui/
 
 ### 7.1. Долг панели отдан
 
-`Panel` больше не знает ни узлов, ни провайдеров: `provider`, `directory`,
+`Session` больше не знает ни узлов, ни провайдеров: `provider`, `directory`,
 `editor`, `nodeOf`, `openDirectory`, `leaseProvider` ушли целиком, и вместе с
 ними — зависимость `fc_ui_api` от `fc_core_api`. На её месте встала проверка
 чистоты: «где проходит граница» отвечает теперь компилятор, а не уговор.
@@ -623,7 +623,7 @@ lib/ui/
 **старее** последней местной заявки отбрасывается — иначе курсор дёргался бы
 назад. Всё остальное ждёт ответа: там задержка неразличима на фоне самого дела.
 
-**`Panel` и `Application` остаются контрактом фронта.** Виджеты панелей,
+**`Session` и `Application` остаются контрактом фронта.** Виджеты панелей,
 статусная строка, ряд кнопок и команды написаны против них и не переучиваются:
 меняется реализация, а не интерфейс. Правятся только узловые подписи —
 `open(DirectoryNode)` становится `openEntry(EntryRef)`, `enterCurrent()`
@@ -884,7 +884,7 @@ lib/link/
 ## 12. Чем рискуем
 
 **Э3 — большой шаг.** Переключение затрагивает панели и весь интерфейсный код,
-державший `FsNode`. Смягчение: `Panel` сохраняется как контракт, поэтому виджеты
+державший `FsNode`. Смягчение: `Session` сохраняется как контракт, поэтому виджеты
 не переучиваются; меняются только узловые подписи. Гейт — весь прогон.
 
 **Копирование списка.** Каталог в десять тысяч строк едет целиком. Числа Э0
@@ -945,7 +945,7 @@ lib/link/
   - [x] запуск в два приёма: `startCore`, затем рукопожатие
   - [x] выключение в обратном порядке: `saveSettings` ждут
 - [x] Э7. Переключение сборки: два контейнера, зеркала, секреты через границу
-  - [x] долг панели отдан: узлов и провайдеров в `Panel` больше нет
+  - [x] долг панели отдан: узлов и провайдеров в `Session` больше нет
   - [x] `fc_ui_api` не зависит от `fc_core_api` — проверка чистоты
   - [x] зеркала вместо переходников
   - [x] два контейнера

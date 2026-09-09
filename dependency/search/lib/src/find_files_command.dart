@@ -39,11 +39,11 @@ class FindFilesCommand extends AppCommand {
   /// Искать можно там, где есть каталог: в архиве и по `ssh` — тоже, обход
   /// идёт через провайдера.
   @override
-  bool isExecutable(CommandContext context) => context.panel.currentPath.isNotEmpty && !context.panel.busy;
+  bool isExecutable(CommandContext context) => context.session.currentPath.isNotEmpty && !context.session.busy;
 
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
+    final panel = context.session;
     final where = panel.currentPath;
     if (where.isEmpty) {
       return;

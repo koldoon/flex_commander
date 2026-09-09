@@ -2,7 +2,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:flutter/widgets.dart';
 
 import '../app/application.dart';
-import '../app/panel.dart';
+import '../app/session.dart';
 import '../app/viewport.dart';
 import 'key_combination.dart';
 
@@ -64,7 +64,7 @@ class KeyBinding {
       nameMatch = null,
       inContent = _inPanel;
 
-  static bool _inPanel(ViewportState state) => state is Panel;
+  static bool _inPanel(ViewportState state) => state is Session;
 
   final KeyCombination keys;
 
@@ -135,7 +135,7 @@ class KeyBinding {
 /// Условия, в которых выполняется команда: активная панель и объекты, с
 /// которыми работать.
 ///
-/// Всё здесь — интерфейсы ([Application], [Panel]): команда работает с API
+/// Всё здесь — интерфейсы ([Application], [Session]): команда работает с API
 /// приложения, а не с конкретными контроллерами, и потому не зависит от того,
 /// как они устроены.
 ///
@@ -145,7 +145,7 @@ class KeyBinding {
 class CommandContext {
   const CommandContext({
     required this.app,
-    required this.panel,
+    required this.session,
     this.entry,
     this.targets = const [],
     this.invocation = const CommandInvocation(),
@@ -160,7 +160,7 @@ class CommandContext {
 
     return CommandContext(
       app: app,
-      panel: panel,
+      session: panel,
       entry: panel.currentEntry,
       // Помеченное, а если пометки нет — объект под курсором. Разворачивает
       // это сама панель: список у неё на руках.
@@ -178,8 +178,11 @@ class CommandContext {
   /// известно только из вызова.
   final CommandInvocation invocation;
 
-  /// Активная панель — источник операции.
-  final Panel panel;
+  /// Сессия активной панели — источник операции.
+  ///
+  /// Команда говорит с **сессией**: панель — это место на экране, а каталог,
+  /// курсор и пометка живут в сессии (`docs/spec/panel-sessions.md`).
+  final Session session;
 
   /// Строка под курсором.
   final FileEntry? entry;
@@ -199,7 +202,7 @@ class CommandContext {
   /// и правда жива — у неё каталог, курсор и аренда, — но приёмником быть не
   /// может: человек её не видит, и класть файлы туда, куда он не смотрит,
   /// нельзя.
-  Panel? get target => app.view.panelAt(app.view.sourceArea.opposite);
+  Session? get target => app.view.panelAt(app.view.sourceArea.opposite);
 }
 
 /// Как создать действие приложения. Зависимости в фабрику подставляет

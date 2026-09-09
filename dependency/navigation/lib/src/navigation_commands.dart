@@ -12,10 +12,10 @@ class MoveCursorUpCommand extends AppCommand {
   String get label => tr('Cursor up');
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.session.entries.isNotEmpty;
 
   @override
-  Future<void> execute(CommandContext context) async => context.panel.moveCursor(-1);
+  Future<void> execute(CommandContext context) async => context.session.moveCursor(-1);
 }
 
 /// Курсор на строку вниз.
@@ -29,10 +29,10 @@ class MoveCursorDownCommand extends AppCommand {
   String get label => tr('Cursor down');
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.session.entries.isNotEmpty;
 
   @override
-  Future<void> execute(CommandContext context) async => context.panel.moveCursor(1);
+  Future<void> execute(CommandContext context) async => context.session.moveCursor(1);
 }
 
 /// Курсор на первый объект, чьё имя начинается с заданного символа.
@@ -59,7 +59,7 @@ class GoToNameCommand extends AppCommand {
   Set<String> get keywords => const {'search', 'filter', 'jump', 'quick search', 'find file'};
 
   @override
-  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.entries.isNotEmpty;
+  bool isExecutable(CommandContext context) => !context.session.busy && context.session.entries.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -68,7 +68,7 @@ class GoToNameCommand extends AppCommand {
       return;
     }
 
-    final panel = context.panel;
+    final panel = context.session;
     final entries = panel.entries;
 
     // Поиск идёт от курсора вниз и по кругу: повторное нажатие той же буквы
@@ -99,10 +99,10 @@ class PageUpCommand extends AppCommand {
   String get label => tr('Page up');
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.session.entries.isNotEmpty;
 
   @override
-  Future<void> execute(CommandContext context) async => context.panel.moveCursorPage(-1);
+  Future<void> execute(CommandContext context) async => context.session.moveCursorPage(-1);
 }
 
 /// Курсор на страницу вниз.
@@ -116,10 +116,10 @@ class PageDownCommand extends AppCommand {
   String get label => tr('Page down');
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.session.entries.isNotEmpty;
 
   @override
-  Future<void> execute(CommandContext context) async => context.panel.moveCursorPage(1);
+  Future<void> execute(CommandContext context) async => context.session.moveCursorPage(1);
 }
 
 /// Курсор на первый объект списка.
@@ -136,10 +136,10 @@ class GoToFirstNodeCommand extends AppCommand {
   String get label => tr('First item');
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.session.entries.isNotEmpty;
 
   @override
-  Future<void> execute(CommandContext context) async => context.panel.setCursorToFirst();
+  Future<void> execute(CommandContext context) async => context.session.setCursorToFirst();
 }
 
 /// Курсор на последний объект списка.
@@ -153,10 +153,10 @@ class GoToLastNodeCommand extends AppCommand {
   String get label => tr('Last item');
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.session.entries.isNotEmpty;
 
   @override
-  Future<void> execute(CommandContext context) async => context.panel.setCursorToLast();
+  Future<void> execute(CommandContext context) async => context.session.setCursorToLast();
 }
 
 /// Переключение активной панели.
@@ -238,7 +238,7 @@ class OpenInOtherPanelCommand extends AppCommand {
   /// которое там встать.
   static ({String path, String? name}) _placeFor(CommandContext context) {
     final entry = context.entry;
-    final here = context.panel.currentPath;
+    final here = context.session.currentPath;
     if (entry == null || entry.path.isEmpty) {
       return (path: here, name: null);
     }
@@ -273,7 +273,7 @@ class OpenNodeCommand extends AppCommand {
   String get description => tr('Enter a directory or an archive');
 
   @override
-  bool isExecutable(CommandContext context) => context.entry != null && !context.panel.busy;
+  bool isExecutable(CommandContext context) => context.entry != null && !context.session.busy;
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -285,7 +285,7 @@ class OpenNodeCommand extends AppCommand {
     // запускал он чужое приложение — на текстовом файле открывался редактор,
     // которого никто не звал. Отдать файл системе по-прежнему можно, но
     // сказав это прямо: `Cmd-O` (`panel.openWithSystem`).
-    await context.panel.enterCurrent();
+    await context.session.enterCurrent();
   }
 }
 
@@ -319,11 +319,11 @@ class OpenWithSystemCommand extends AppCommand {
   /// про то же самое).
   @override
   bool isExecutable(CommandContext context) =>
-      context.entry != null && context.panel.source.capabilities.realFileSystem;
+      context.entry != null && context.session.source.capabilities.realFileSystem;
 
   @override
   Future<void> execute(CommandContext context) async {
-    if (!context.panel.source.capabilities.realFileSystem) {
+    if (!context.session.source.capabilities.realFileSystem) {
       return;
     }
     for (final entry in context.targets) {
@@ -349,10 +349,10 @@ class GoUpCommand extends AppCommand {
   Set<String> get keywords => const {'parent', 'back', 'go up'};
 
   @override
-  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.canGoUp;
+  bool isExecutable(CommandContext context) => !context.session.busy && context.session.canGoUp;
 
   @override
-  Future<void> execute(CommandContext context) => context.panel.goUp();
+  Future<void> execute(CommandContext context) => context.session.goUp();
 }
 
 /// В корень провайдера.
@@ -370,10 +370,10 @@ class GoToRootCommand extends AppCommand {
 
   @override
   bool isExecutable(CommandContext context) =>
-      !context.panel.busy && context.panel.currentPath != context.panel.source.rootPath;
+      !context.session.busy && context.session.currentPath != context.session.source.rootPath;
 
   @override
-  Future<void> execute(CommandContext context) => context.panel.openPath(context.panel.source.rootPath);
+  Future<void> execute(CommandContext context) => context.session.openPath(context.session.source.rootPath);
 }
 
 /// Посчитать размеры всех каталогов текущего каталога.
@@ -398,10 +398,10 @@ class CalculateSizesCommand extends AppCommand {
 
   /// Занятой панели считать нечего: список ещё читается, и обходить пока некого.
   @override
-  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.currentPath.isNotEmpty;
+  bool isExecutable(CommandContext context) => !context.session.busy && context.session.currentPath.isNotEmpty;
 
   @override
-  Future<void> execute(CommandContext context) async => context.panel.measureDirectories();
+  Future<void> execute(CommandContext context) async => context.session.measureDirectories();
 }
 
 /// Перечитать текущий каталог.
@@ -421,10 +421,10 @@ class ReloadCommand extends AppCommand {
   Set<String> get keywords => const {'refresh', 'rescan', 'update'};
 
   @override
-  bool isExecutable(CommandContext context) => !context.panel.busy && context.panel.currentPath.isNotEmpty;
+  bool isExecutable(CommandContext context) => !context.session.busy && context.session.currentPath.isNotEmpty;
 
   @override
-  Future<void> execute(CommandContext context) => context.panel.reload();
+  Future<void> execute(CommandContext context) => context.session.reload();
 }
 
 /// Показать или спрятать скрытые объекты.
@@ -445,12 +445,12 @@ class ToggleHiddenCommand extends AppCommand {
   Set<String> get keywords => const {'dotfiles', 'show hidden', 'invisible'};
 
   @override
-  bool isExecutable(CommandContext context) => !context.panel.busy;
+  bool isExecutable(CommandContext context) => !context.session.busy;
 
   @override
   Future<void> execute(CommandContext context) async {
-    final showing = !context.panel.showHidden;
-    await context.panel.setShowHidden(showing);
+    final showing = !context.session.showHidden;
+    await context.session.setShowHidden(showing);
 
     // Сказать вслух: в каталоге без скрытых файлов переключение ничего не
     // меняет на экране, и понять, сработало ли оно, иначе неоткуда.
@@ -480,8 +480,8 @@ class CancelCommand extends AppCommand {
   Set<String> get keywords => const {'stop', 'abort', 'interrupt'};
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.busy;
+  bool isExecutable(CommandContext context) => context.session.busy;
 
   @override
-  Future<void> execute(CommandContext context) async => context.panel.cancel();
+  Future<void> execute(CommandContext context) async => context.session.cancel();
 }

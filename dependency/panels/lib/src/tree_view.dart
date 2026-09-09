@@ -27,7 +27,7 @@ class TreeView extends StatefulWidget {
   /// Имя вида — оно же ключ настройки панели.
   static const String viewId = 'tree';
 
-  final Panel panel;
+  final Session panel;
 
   /// Какими ветвями: всеми или одними каталогами.
   ///
@@ -521,7 +521,7 @@ const ColumnSpec _sizeColumn = ColumnSpec(id: FsColumn.size, width: 64, align: C
 class _TreeHeader extends StatelessWidget {
   const _TreeHeader({required this.panel, required this.showSize, required this.sizeWidth, required this.inset});
 
-  final Panel panel;
+  final Session panel;
   final bool showSize;
   final double sizeWidth;
   final double inset;

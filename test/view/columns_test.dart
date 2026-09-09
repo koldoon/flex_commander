@@ -45,7 +45,7 @@ void main() {
     matching: find.ancestor(of: find.text(title), matching: find.byType(FileTableHeaderCell)),
   );
 
-  List<String> namesOf(Panel panel) => panel.entries.map((node) => node.name).toList();
+  List<String> namesOf(Session panel) => panel.entries.map((node) => node.name).toList();
 
   /// Перетаскивание с учётом порога распознавания: первый сдвиг уходит на то,
   /// чтобы жест был признан перетаскиванием, и до обработчика не доходит.

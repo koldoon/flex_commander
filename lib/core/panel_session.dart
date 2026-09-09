@@ -688,7 +688,7 @@ class PanelSession {
     }
 
     if (!allowConnect) {
-      // Подключаться сейчас нельзя — см. [Panel.openPath]. Отвечаем так же,
+      // Подключаться сейчас нельзя — см. [Session.openPath]. Отвечаем так же,
       // как о любом недоступном пути: тот, кто просил, откроет что-нибудь ещё.
       throw FsError(path, FsErrorKind.notFound);
     }

@@ -28,7 +28,7 @@ class FileInfoCommand extends AppCommand {
   String get description => tr('Everything known about the object under the cursor');
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.hasTargets;
+  bool isExecutable(CommandContext context) => context.session.hasTargets;
 
   /// Помеченное, а нет пометки — то, что под курсором. Псевдоузел «..» не в
   /// счёт: сведения о нём — это сведения о каталоге, куда он ведёт, и
@@ -41,7 +41,7 @@ class FileInfoCommand extends AppCommand {
 
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
+    final panel = context.session;
     final targets = _targetsOf(context);
     if (!panel.hasTargets) {
       return;
@@ -95,10 +95,10 @@ class FileInfoCommand extends AppCommand {
   /// Считается по путям целей: помеченное бывает из разных каталогов, а строк
   /// своего списка на всех не хватит (`docs/spec/operation-targets.md`, §2).
   String _titleOf(CommandContext context) {
-    final paths = context.panel.targetPaths;
+    final paths = context.session.targetPaths;
     if (paths.length == 1) {
       final path = paths.single;
-      final seen = context.panel.entries.where((entry) => entry.path == path).firstOrNull;
+      final seen = context.session.entries.where((entry) => entry.path == path).firstOrNull;
       return seen?.name ?? _nameOf(path);
     }
     return plural(paths.length, one: '{n} item', other: '{n} items');

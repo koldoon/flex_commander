@@ -37,7 +37,7 @@ class MakeDirectoryCommand extends AppCommand {
 
   @override
   bool isExecutable(CommandContext context) {
-    final panel = context.panel;
+    final panel = context.session;
     // Источник может уметь только читать — тогда создавать нечем.
     return !panel.busy && panel.currentPath.isNotEmpty && panel.source.canWrite;
   }
@@ -48,7 +48,7 @@ class MakeDirectoryCommand extends AppCommand {
   /// мимо окна вовсе; во втором команда показывает окно и уходит.
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
+    final panel = context.session;
     final parent = panel.currentPath;
     if (parent.isEmpty || !panel.source.canWrite) {
       return;
@@ -96,7 +96,7 @@ class MakeDirectoryCommand extends AppCommand {
 
   /// Каталог, в котором появится новый: показывается в окне.
   String _parentPathOf(CommandContext context) {
-    return context.panel.currentPath;
+    return context.session.currentPath;
   }
 }
 
@@ -256,7 +256,7 @@ abstract class RemoveCommandBase extends AppCommand {
 
   @override
   bool isExecutable(CommandContext context) {
-    final panel = context.panel;
+    final panel = context.session;
     if (panel.busy || !panel.source.canWrite) {
       return false;
     }
@@ -270,7 +270,7 @@ abstract class RemoveCommandBase extends AppCommand {
   ///
   /// Именем набора, а не перечислением: разворачивает его ядро — пометка живёт
   /// там же, где дерево.
-  Targets targetsOf(CommandContext context) => Targets.marked(context.panel.id);
+  Targets targetsOf(CommandContext context) => Targets.marked(context.session.id);
 
   /// «Delete !» в заголовке разбора читалось бы как опечатка: восклицательный
   /// знак в названии команды отличает её от удаления в корзину, а не от чего-то
@@ -283,7 +283,7 @@ abstract class RemoveCommandBase extends AppCommand {
   /// ход работы, вопросы по дороге, уход в фон, — принадлежит окну.
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
+    final panel = context.session;
     if (!panel.source.canWrite || !panel.hasTargets) {
       return;
     }
@@ -382,10 +382,10 @@ abstract class RemoveCommandBase extends AppCommand {
   /// разных каталогов, и подтверждение, обещающее удалить два, а стирающее
   /// пять, — худший случай этой лжи (`docs/spec/operation-targets.md`, §1).
   String _whatOf(CommandContext context) {
-    final paths = context.panel.targetPaths;
+    final paths = context.session.targetPaths;
     if (paths.length == 1) {
       final path = paths.single;
-      final seen = context.panel.entries.where((entry) => entry.path == path).firstOrNull;
+      final seen = context.session.entries.where((entry) => entry.path == path).firstOrNull;
       return '«${seen?.name ?? _nameOf(path)}»';
     }
     return plural(paths.length, one: '{n} item', other: '{n} items');
@@ -436,7 +436,7 @@ class RenameCommand extends AppCommand {
 
   @override
   bool isExecutable(CommandContext context) {
-    final panel = context.panel;
+    final panel = context.session;
     if (panel.busy || !panel.source.canWrite) {
       return false;
     }
@@ -453,7 +453,7 @@ class RenameCommand extends AppCommand {
 
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
+    final panel = context.session;
     final entry = context.entry;
     if (entry == null || entry.isParent || !panel.source.canWrite) {
       return;

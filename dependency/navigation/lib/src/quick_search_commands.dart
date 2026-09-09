@@ -41,7 +41,7 @@ class QuickSearchCommand extends AppCommand {
   Set<String> get keywords => const {'incremental search', 'find in panel', 'jump to name'};
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.session.entries.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) async {
@@ -63,7 +63,7 @@ class QuickSearchCommand extends AppCommand {
     // искать ещё нечего.
     view.pushViewportContent(
       position,
-      QuickSearchState(panel: context.panel, onLeave: () => leave(context.app), keeps: quickSearchCommands),
+      QuickSearchState(panel: context.session, onLeave: () => leave(context.app), keeps: quickSearchCommands),
     );
   }
 
@@ -90,7 +90,7 @@ class QuickSearchCommand extends AppCommand {
   ///
   /// Ищет от [from] и по кругу: перебор одним и тем же образцом не должен
   /// топтаться на первом попавшемся.
-  static bool moveTo(Panel panel, String pattern, {required int from}) {
+  static bool moveTo(Session panel, String pattern, {required int from}) {
     final entries = panel.entries;
     if (entries.isEmpty) {
       return false;

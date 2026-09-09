@@ -1,7 +1,7 @@
 import 'package:flutter/foundation.dart';
 
 import '../commands/app_command.dart';
-import 'panel.dart';
+import 'session.dart';
 
 /// Места на экране.
 ///
@@ -175,7 +175,7 @@ abstract interface class ApplicationView implements Listenable {
   /// «Панель есть» — ещё не «в неё можно писать»: результаты поиска панелью
   /// остаются, и копировать из них можно, а приёмником они быть не могут,
   /// потому что их провайдер не реализует записи.
-  Panel? panelAt(ViewportPosition position);
+  Session? panelAt(ViewportPosition position);
 
   /// Заменяет то, что стоит в области, — дно её стопки.
   ///

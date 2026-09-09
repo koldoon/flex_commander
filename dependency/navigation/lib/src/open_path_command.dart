@@ -58,7 +58,7 @@ class OpenPathCommand extends AppCommand {
   Set<String> get keywords => const {'path', 'location', 'go to', 'url', 'ssh', 'connect', 'open path'};
 
   /// Панель, о которой идёт речь. Какая именно — известно только из вызова.
-  Panel panelOf(CommandContext context) => _isLeft(context) ? context.app.left : context.app.right;
+  Session panelOf(CommandContext context) => _isLeft(context) ? context.app.left : context.app.right;
 
   bool _isLeft(CommandContext context) => context.invocation.param<String>(panelParam) != rightPanel;
 
@@ -144,7 +144,7 @@ class OpenPathCommand extends AppCommand {
 class OpenPathDialogState extends ChangeNotifier {
   OpenPathDialogState({required this.panel, required this.activate, required this.remember});
 
-  final Panel panel;
+  final Session panel;
 
   /// Панель, в которую открыли путь, становится активной: пользователь
   /// смотрит туда, куда только что пришёл.

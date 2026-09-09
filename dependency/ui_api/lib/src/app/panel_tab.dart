@@ -1,4 +1,4 @@
-import 'panel.dart';
+import 'session.dart';
 
 /// Вкладка панели: то, что человек считает одной панелью.
 ///
@@ -8,7 +8,7 @@ import 'panel.dart';
 /// ([Application.openTab] и соседние), а ряд вкладок только рисует.
 abstract interface class PanelTab {
   /// Показанный столбец: им вкладка и представляется.
-  Panel get panel;
+  Session get panel;
 
   /// Закреплённая: уход из неё открывает новую рядом.
   bool get pinned;

@@ -1,9 +1,9 @@
 import 'package:flutter/widgets.dart';
 
-import 'panel.dart';
+import 'session.dart';
 
 /// Чем рисуется содержимое панели.
-typedef PanelViewportBuilder = Widget Function(BuildContext context, Panel panel);
+typedef PanelViewportBuilder = Widget Function(BuildContext context, Session panel);
 
 /// Виды содержимого панели и то, чем каждый рисуется.
 ///

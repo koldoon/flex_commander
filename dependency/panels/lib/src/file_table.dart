@@ -18,7 +18,7 @@ import 'file_table_row.dart';
 class FileTable extends StatefulWidget {
   const FileTable({super.key, required this.panel, required this.settings});
 
-  final Panel panel;
+  final Session panel;
 
   /// Настройки видов — спрашиваются в момент подмотки, а не при сборке: снятый
   /// в окне настроек флажок действует сразу.

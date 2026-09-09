@@ -46,7 +46,7 @@ class EditFileCommand extends AppCommand {
     return entry != null &&
         // Занятая панель второго чтения не начинает: она уже читает — либо
         // каталог, либо файл, — и говорить об этом ей нечем дважды.
-        !context.panel.busy &&
+        !context.session.busy &&
         !entry.isDirectory &&
         !entry.isParent &&
         entry.canStream &&
@@ -56,7 +56,7 @@ class EditFileCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final entry = context.entry;
-    final panel = context.panel;
+    final panel = context.session;
     if (entry == null) {
       return;
     }
@@ -83,7 +83,7 @@ class EditFileCommand extends AppCommand {
     var readOnly = false;
     final TextFile file;
     try {
-      file = await context.panel.runWork<TextFile>((op) async {
+      file = await context.session.runWork<TextFile>((op) async {
         // Права спрашиваются **до чтения**: узнать об отказе на `F2`, после
         // часа работы, значит остаться с текстом, который некуда деть — «Save
         // As» у редактора нет. И до чтения же, а не после: незачем тянуть с
@@ -145,7 +145,7 @@ class EditFileCommand extends AppCommand {
   /// Спрашивается это звеном общей цепочки, потому что спрашивать бывает
   /// далеко: по ssh проба — поход на сервер, и сама по себе она была бы вторым
   /// немым замиранием, ради избавления от которого затевался Г9.
-  Future<bool> _canWrite(TaskOperation<void, TextFile> op, Panel panel, FileEntry entry) async {
+  Future<bool> _canWrite(TaskOperation<void, TextFile> op, Session panel, FileEntry entry) async {
     op.report(message: tr('Checking {name}…', args: {'name': entry.name}));
     try {
       // Спрашивает ядро: права знает та сторона, где лежит файл.
@@ -181,7 +181,7 @@ class EditFileCommand extends AppCommand {
     }
 
     final elevation = context.app.elevation;
-    final mayElevate = elevation.enabled && context.panel.source.isShellHost;
+    final mayElevate = elevation.enabled && context.session.source.isShellHost;
 
     dialogId = view.showDialog(
       DialogSpec(

@@ -8,7 +8,7 @@ import 'package:flex_commander/core/settings_store.dart';
 import 'package:flex_commander/link/link.dart';
 import 'package:flex_commander/link/loopback_link.dart';
 import 'package:flex_commander/state/app_controller.dart';
-import 'package:flex_commander/ui/panel_mirror.dart';
+import 'package:flex_commander/ui/session_mirror.dart';
 
 /// Приложение с обеими сторонами — но без модулей.
 ///
@@ -89,7 +89,7 @@ AppController testCore({
   );
   final Link link = LoopbackLink(core);
 
-  PanelMirror mirror(PanelId id, PanelSession session) => PanelMirror(
+  SessionMirror mirror(PanelId id, PanelSession session) => SessionMirror(
     id: id,
     link: link,
     state: session.state,

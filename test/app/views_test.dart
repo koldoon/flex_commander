@@ -102,8 +102,8 @@ void main() {
   });
 
   test('вид на интерфейс подходит его реализации', () {
-    // Иначе объявить вид на `Panel` было бы невозможно: придёт
-    // `Panel`, и по типу они не совпадут никогда.
+    // Иначе объявить вид на `Session` было бы невозможно: придёт
+    // `Session`, и по типу они не совпадут никогда.
     final views = ViewRegistry(_install([const _QuestionModule()]).views);
 
     expect(views.builderFor(const _Password()), isNotNull);

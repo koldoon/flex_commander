@@ -16,7 +16,7 @@ import 'file_table_header.dart';
 class TableViewOptions extends StatelessWidget {
   const TableViewOptions({super.key, required this.panel});
 
-  final Panel panel;
+  final Session panel;
 
   @override
   Widget build(BuildContext context) {

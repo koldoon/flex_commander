@@ -21,7 +21,7 @@ import 'tab_row.dart';
 class PanelView extends StatelessWidget {
   const PanelView({super.key, required this.panel, required this.settings});
 
-  final Panel panel;
+  final Session panel;
 
   /// Настройки видов: ряду вкладок нужно знать, показывать ли себя, когда
   /// вкладка одна.
@@ -92,7 +92,7 @@ class PanelView extends StatelessWidget {
 /// останется списком находок, чем бы его ни просили рисовать. Каталог рисуется
 /// выбранным видом, а незнакомый вид — таблицей: модуль, объявивший вид, могли
 /// выключить, а показать каталог панель обязана.
-Widget _content(BuildContext context, Application app, Panel panel) {
+Widget _content(BuildContext context, Application app, Session panel) {
   if (panel.source.contentKind != SourceInfo.files) {
     return app.viewports.builderFor(panel.source.contentKind)(context, panel);
   }

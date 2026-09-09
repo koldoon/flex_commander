@@ -6,7 +6,7 @@ import 'package:flex_commander/core/core_server.dart';
 import 'package:flex_commander/core/panel_session.dart';
 import 'package:flex_commander/link/link.dart';
 import 'package:flex_commander/link/loopback_link.dart';
-import 'package:flex_commander/ui/panel_mirror.dart';
+import 'package:flex_commander/ui/session_mirror.dart';
 import 'package:flex_commander/ui/remote_content.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -57,7 +57,7 @@ void main() {
   late InMemoryTreeProvider provider;
   late CoreServer core;
   late Link link;
-  late PanelMirror panel;
+  late SessionMirror panel;
 
   PanelSession sessionFor(String path) => PanelSession(
     settings: PanelSettings.defaults(path),
@@ -75,7 +75,7 @@ void main() {
     );
     link = LoopbackLink(core);
     final ready = await link.call(const Handshake()) as CoreReady;
-    panel = PanelMirror(
+    panel = SessionMirror(
       id: PanelId.left,
       link: link,
       state: ready.states[PanelId.left]!,
@@ -167,7 +167,7 @@ void main() {
     // подтверждения на первые приходят, когда помечено уже больше. Слушать их
     // значит терять пометку — и на глазах у человека.
     final lagging = _LaggingLink(link);
-    final slow = PanelMirror(id: PanelId.left, link: lagging, state: panel.state, listing: panel.listing);
+    final slow = SessionMirror(id: PanelId.left, link: lagging, state: panel.state, listing: panel.listing);
     addTearDown(slow.dispose);
 
     slow.setMarks({'/home/notes.txt'});

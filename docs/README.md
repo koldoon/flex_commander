@@ -120,7 +120,7 @@
 
 Принципы:
 
-1. **Слой интерфейсов — это API приложения.** `Application`, `Panel`,
+1. **Слой интерфейсов — это API приложения.** `Application`, `Session`,
    `AppCommand`, `Operation` описывают, что умеет приложение; контроллеры и
    зеркала их реализуют. Команды пишутся только против интерфейсов, поэтому
    реализацию можно менять, не трогая ни одну команду. Так же устроен референс
@@ -168,7 +168,7 @@
 | `m.async.IAsyncOperation` + `IAsyncOperationStatus` | `Operation<P, R>` (данные → результат, прогресс, отмена) |
 | `m.interactive.IInteraction` | `UserActionRequest` — запрос к пользователю из середины операции |
 | `m.app.IApplication` | `Application` (интерфейс) + `AppController` (реализация) |
-| `m.app.IPanel` | `Panel` + `PanelMirror` (экран) над `PanelSession` (ядро) |
+| `m.app.IPanel` | `Session` + `SessionMirror` (экран) над `PanelSession` (ядро) |
 | `m.app.IPanelSelection` | `PanelSelection` + `SelectionController` (обе — в ядре) |
 | `m.app.ICommand` + `BindingProperties` | `AppCommand` + `KeyBinding` |
 | `m.app.impl.ApplicationImpl.processKeyboardCombination()` | `CommandRegistry.dispatch()` |

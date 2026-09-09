@@ -76,9 +76,9 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
   }
 
   @override
-  Panel? panelAt(ViewportPosition position) {
+  Session? panelAt(ViewportPosition position) {
     final content = contentAt(position);
-    return content is Panel ? content : null;
+    return content is Session ? content : null;
   }
 
   @override
@@ -323,8 +323,8 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
     // держит аренду. Панели закрывает не здесь: их пути ещё не сохранены.
     for (final position in ViewportPosition.values) {
       final stack = _stacks[position]!;
-      _closeAll(stack.where((state) => state is! Panel));
-      stack.removeWhere((state) => state is! Panel);
+      _closeAll(stack.where((state) => state is! Session));
+      stack.removeWhere((state) => state is! Session);
     }
     super.dispose();
   }

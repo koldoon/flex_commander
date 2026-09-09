@@ -15,7 +15,7 @@ import '../state/toast_controller.dart';
 import '../state/view_registry.dart';
 import '../ui/credentials_prompt.dart';
 import '../ui/elevation_prompt.dart';
-import '../ui/panel_mirror.dart';
+import '../ui/session_mirror.dart';
 import '../ui/secrets_client.dart';
 import 'app_runtime.dart';
 import 'language.dart';
@@ -235,8 +235,8 @@ class UiContainer extends DI {
         // может спросить пароль.
         c.get<SecretsClient>();
 
-        PanelMirror mirror(PanelId id, PanelState state, PanelListing listing) =>
-            PanelMirror(id: id, link: link, state: state, listing: listing, strings: c.get<Strings>());
+        SessionMirror mirror(PanelId id, PanelState state, PanelListing listing) =>
+            SessionMirror(id: id, link: link, state: state, listing: listing, strings: c.get<Strings>());
 
         final ready = _handshake;
 

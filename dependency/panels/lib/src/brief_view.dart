@@ -24,7 +24,7 @@ class BriefView extends StatefulWidget {
   /// Имя вида — оно же ключ настройки панели.
   static const String viewId = 'brief';
 
-  final Panel panel;
+  final Session panel;
 
   /// Способ узнать настройки, а не их значение: их правят в окне выбора вида, и
   /// следующая же отрисовка должна идти по новым.

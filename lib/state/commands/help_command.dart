@@ -134,11 +134,11 @@ class HelpCommand extends AppCommand {
     return keys.isEmpty ? '—' : keys.join(', ');
   }
 
-  String _pathOf(Panel panel) => panel.currentPath.isEmpty ? '—' : panel.currentPath;
+  String _pathOf(Session panel) => panel.currentPath.isEmpty ? '—' : panel.currentPath;
 
   /// Настройка у каждой панели своя, и различие важнее общего вида: показываем
   /// обе, а совпадающие значения не удваиваем.
-  String _bothPanels(Application app, String Function(Panel panel) valueOf) {
+  String _bothPanels(Application app, String Function(Session panel) valueOf) {
     final left = valueOf(app.left);
     final right = valueOf(app.right);
     return left == right ? left : 'left — $left, right — $right';
@@ -149,7 +149,7 @@ class HelpCommand extends AppCommand {
     return '${sort.column.title} $direction';
   }
 
-  String _columnsOf(Panel panel) => panel.columns.visibleColumns
+  String _columnsOf(Session panel) => panel.columns.visibleColumns
       .where((column) => column.id.title.isNotEmpty)
       .map((column) => column.id.title)
       .join(', ');

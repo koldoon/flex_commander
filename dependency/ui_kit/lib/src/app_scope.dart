@@ -60,9 +60,9 @@ extension FcStrings on BuildContext {
 class PanelScope extends InheritedWidget {
   const PanelScope({super.key, required this.panel, required super.child});
 
-  final Panel panel;
+  final Session panel;
 
-  static Panel of(BuildContext context) {
+  static Session of(BuildContext context) {
     final scope = context.dependOnInheritedWidgetOfExactType<PanelScope>();
     assert(scope != null, 'PanelScope не найден выше по дереву');
     return scope!.panel;

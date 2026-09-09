@@ -22,11 +22,11 @@ abstract class MaskSelectionCommandBase extends AppCommand {
   bool get marks;
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty && !context.panel.busy;
+  bool isExecutable(CommandContext context) => context.session.entries.isNotEmpty && !context.session.busy;
 
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
+    final panel = context.session;
 
     void apply(String patterns) {
       final mask = FileMask.parse(patterns);
@@ -136,7 +136,7 @@ class DeselectByMaskCommand extends MaskSelectionCommandBase {
   bool get marks => false;
 
   @override
-  bool isExecutable(CommandContext context) => super.isExecutable(context) && context.panel.markedPaths.isNotEmpty;
+  bool isExecutable(CommandContext context) => super.isExecutable(context) && context.session.markedPaths.isNotEmpty;
 }
 
 /// Что набрано в окне маски и что из этого выйдет.

@@ -9,7 +9,7 @@ typedef StateViewBuilder<S extends Object> = Widget Function(BuildContext contex
 /// Объявленный вид: на какой тип, как его узнать и чем рисовать.
 ///
 /// Проверка отдельно от типа, потому что вид объявляют и на **интерфейс**:
-/// `view<Panel>(…)` — а придёт `PanelController`, и по типу они не совпадут.
+/// `view<Session>(…)` — а придёт `PanelController`, и по типу они не совпадут.
 class StateView {
   const StateView({required this.stateType, required this.matches, required this.build});
 

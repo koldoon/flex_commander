@@ -12,7 +12,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 class PanelStatusBar extends StatelessWidget {
   const PanelStatusBar({super.key, required this.panel});
 
-  final Panel panel;
+  final Session panel;
 
   @override
   Widget build(BuildContext context) {

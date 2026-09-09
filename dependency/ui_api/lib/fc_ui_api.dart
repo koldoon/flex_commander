@@ -8,7 +8,7 @@ library;
 
 // --- Приложение и панели ---
 export 'src/app/application.dart';
-export 'src/app/panel.dart';
+export 'src/app/session.dart';
 export 'src/app/panel_tab.dart';
 export 'src/app/panel_view_spec.dart';
 export 'src/app/panel_viewport.dart';

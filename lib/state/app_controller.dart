@@ -9,7 +9,7 @@ import '../link/link.dart';
 import '../ui/remote_content.dart';
 import '../ui/remote_shell.dart';
 import '../ui/remote_operation.dart';
-import '../ui/panel_mirror.dart';
+import '../ui/session_mirror.dart';
 import 'panel_viewport_registry.dart';
 import 'app_view_controller.dart';
 import 'view_registry.dart';
@@ -26,9 +26,9 @@ import 'toast_controller.dart';
 /// Команды видят приложение только как [Application].
 class AppController extends ChangeNotifier implements Application {
   AppController({
-    required PanelMirror left,
-    required PanelMirror right,
-    List<PanelMirror> more = const [],
+    required SessionMirror left,
+    required SessionMirror right,
+    List<SessionMirror> more = const [],
     List<SlotLayout>? slots,
     this.core,
     this.link,
@@ -91,7 +91,7 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   /// Тип уточнён до реализации: приложение выставляет панелям признак
-  /// активности и закрывает их при выходе — этого в [Panel] нет и не должно
+  /// активности и закрывает их при выходе — этого в [Session] нет и не должно
   /// быть. Всем остальным, включая виджеты, хватает интерфейса.
   /// Что видно выше ряда функциональных кнопок. Сами панели тоже экран, и
   /// открывает его модуль: ядро не решает, чем показывать файлы.
@@ -107,9 +107,9 @@ class AppController extends ChangeNotifier implements Application {
   /// нет, в слот не попадает, а пустым он не бывает — там остаётся та вкладка,
   /// что стояла при запуске.
   static List<_PanelSlot> _slotsOf(
-    PanelMirror left,
-    PanelMirror right,
-    List<PanelMirror> more,
+    SessionMirror left,
+    SessionMirror right,
+    List<SessionMirror> more,
     List<SlotLayout>? layout,
   ) {
     final byId = {
@@ -136,23 +136,23 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   @override
-  PanelMirror get left => _slots[0].shown;
+  SessionMirror get left => _slots[0].shown;
 
   @override
-  PanelMirror get right => _slots[1].shown;
+  SessionMirror get right => _slots[1].shown;
 
   /// Все сессии обеих сторон: их закрывают на выходе и о них рассказывают
   /// ядру, когда меняется раскладка.
-  Iterable<PanelMirror> get _allPanels => _slots.expand((slot) => slot.panels);
+  Iterable<SessionMirror> get _allPanels => _slots.expand((slot) => slot.panels);
 
   @override
-  List<Panel> panelsAt(ViewportPosition side) => List.unmodifiable(_slotAt(side).shownTab.columns);
+  List<Session> panelsAt(ViewportPosition side) => List.unmodifiable(_slotAt(side).shownTab.columns);
 
   @override
   List<PanelTab> tabsAt(ViewportPosition side) => List.unmodifiable(_slotAt(side).tabs);
 
   @override
-  PanelTab? tabOf(Panel panel) {
+  PanelTab? tabOf(Session panel) {
     for (final slot in _slots) {
       for (final tab in slot.tabs) {
         if (tab.columns.contains(panel)) {
@@ -166,7 +166,7 @@ class AppController extends ChangeNotifier implements Application {
   _PanelSlot _slotAt(ViewportPosition side) => _slots[side == ViewportPosition.right ? 1 : 0];
 
   /// Слот, в котором живёт эта сессия; null — сессия не наша.
-  _PanelSlot? _slotOf(Panel panel) {
+  _PanelSlot? _slotOf(Session panel) {
     for (final slot in _slots) {
       if (slot.panels.contains(panel)) {
         return slot;
@@ -176,21 +176,21 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   /// Завести сессию по образцу; null — ядра нет или оно не умеет.
-  Future<PanelMirror?> _createPanel(Panel like) async {
-    if (like is! PanelMirror) {
+  Future<SessionMirror?> _createPanel(Session like) async {
+    if (like is! SessionMirror) {
       return null;
     }
     final opened = await link?.call(OpenPanel(like.id));
     if (opened is! PanelOpened) {
       return null;
     }
-    return PanelMirror(id: opened.panel, link: link!, state: opened.state, listing: opened.listing, strings: strings);
+    return SessionMirror(id: opened.panel, link: link!, state: opened.state, listing: opened.listing, strings: strings);
   }
 
   @override
-  Future<Panel> openPanel(ViewportPosition side, {Panel? like, int? at}) async {
+  Future<Session> openPanel(ViewportPosition side, {Session? like, int? at}) async {
     final tab = _slotAt(side).shownTab;
-    final model = like is PanelMirror ? like : tab.shown;
+    final model = like is SessionMirror ? like : tab.shown;
     final panel = await _createPanel(model);
     if (panel == null) {
       // Ядра нет или оно не умеет заводить сессии: показанная остаётся одна.
@@ -208,11 +208,11 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   @override
-  void closePanel(Panel panel) {
+  void closePanel(Session panel) {
     final tab = tabOf(panel);
     // Последний столбец не закрывается: вкладка без панели — то же, что
     // сторона без панели.
-    if (tab is! _PanelTab || tab.columns.length < 2 || panel is! PanelMirror) {
+    if (tab is! _PanelTab || tab.columns.length < 2 || panel is! SessionMirror) {
       return;
     }
     final gone = tab.columns.indexOf(panel);
@@ -231,9 +231,9 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   @override
-  void showPanel(Panel panel) {
+  void showPanel(Session panel) {
     final tab = tabOf(panel);
-    if (tab is! _PanelTab || panel is! PanelMirror || identical(tab.shown, panel)) {
+    if (tab is! _PanelTab || panel is! SessionMirror || identical(tab.shown, panel)) {
       return;
     }
     final wasActive = tab.shown.active;
@@ -247,9 +247,9 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   @override
-  Future<PanelTab> openTab(ViewportPosition side, {Panel? like, int? at}) async {
+  Future<PanelTab> openTab(ViewportPosition side, {Session? like, int? at}) async {
     final slot = _slotAt(side);
-    final model = like is PanelMirror ? like : slot.shown;
+    final model = like is SessionMirror ? like : slot.shown;
     final panel = await _createPanel(model);
     if (panel == null) {
       return slot.shownTab;
@@ -479,11 +479,11 @@ class AppController extends ChangeNotifier implements Application {
 
   /// Активная панель: в ней курсор и ввод с клавиатуры.
   @override
-  PanelMirror get activePanel => left.active ? left : right;
+  SessionMirror get activePanel => left.active ? left : right;
 
   /// Пассивная панель — приёмник операций копирования и перемещения.
   @override
-  PanelMirror get passivePanel => left.active ? right : left;
+  SessionMirror get passivePanel => left.active ? right : left;
 
   /// Доля ширины окна под левой панелью.
   @override
@@ -513,13 +513,13 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   @override
-  void activate(Panel panel) {
+  void activate(Session panel) {
     assert(_slotOf(panel) != null, 'Панель не принадлежит этому приложению');
     // Сессия той же стороны, но не показанная, — это соседний столбец
     // комбинированного вида или другая вкладка: щелчок по ней и делает её
     // текущей (`docs/spec/panel-tabs.md`, §3).
     final slot = _slotOf(panel);
-    if (slot != null && !identical(slot.shown, panel) && panel is PanelMirror) {
+    if (slot != null && !identical(slot.shown, panel) && panel is SessionMirror) {
       final tab = tabOf(panel);
       if (tab is _PanelTab) {
         slot.current = slot.tabs.indexOf(tab);
@@ -546,7 +546,7 @@ class AppController extends ChangeNotifier implements Application {
   ///
   /// Всех, а не двух показанных: в слоте бывает несколько, и оставшийся
   /// признак у спрятанной означал бы второй курсор.
-  void _applyActive(Panel active) {
+  void _applyActive(Session active) {
     for (final panel in _allPanels) {
       panel.setActive(identical(panel, active));
     }
@@ -639,13 +639,13 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   @override
-  Future<ShellChannel> openShell({Panel? panel, String? directory, int columns = 80, int rows = 24}) async {
+  Future<ShellChannel> openShell({Session? panel, String? directory, int columns = 80, int rows = 24}) async {
     final door = link;
     if (door == null) {
       throw const FsError('', FsErrorKind.notSupported);
     }
     final reply = await door.call(
-      OpenShell(panel: panel is PanelMirror ? panel.id : null, directory: directory, columns: columns, rows: rows),
+      OpenShell(panel: panel is SessionMirror ? panel.id : null, directory: directory, columns: columns, rows: rows),
     );
     if (reply is! ShellOpened) {
       // Отказ приходит бедой: клавишу нажали, и сказать, почему ничего не
@@ -810,7 +810,7 @@ class _PanelTab implements PanelTab {
   _PanelTab({required this.columns, required int current, required this.pinned})
     : current = columns.isEmpty ? 0 : current.clamp(0, columns.length - 1);
 
-  final List<PanelMirror> columns;
+  final List<SessionMirror> columns;
 
   int current;
 
@@ -827,10 +827,10 @@ class _PanelTab implements PanelTab {
   /// (`docs/spec/panel-tabs.md`, §2).
   String pinnedPath = '';
 
-  PanelMirror get shown => columns[current];
+  SessionMirror get shown => columns[current];
 
   @override
-  Panel get panel => shown;
+  Session get panel => shown;
 }
 
 /// Вкладки одной стороны и та из них, что показана.
@@ -839,7 +839,7 @@ class _PanelTab implements PanelTab {
 /// ровно одна — её показанный столбец и стоит в области
 /// (`docs/spec/panel-slots.md`, §4).
 class _PanelSlot {
-  _PanelSlot({required List<_PanelTab> tabs, required int current, required PanelMirror fallback})
+  _PanelSlot({required List<_PanelTab> tabs, required int current, required SessionMirror fallback})
     : tabs =
           tabs.isEmpty
               ? [
@@ -854,8 +854,8 @@ class _PanelSlot {
 
   _PanelTab get shownTab => tabs[current];
 
-  PanelMirror get shown => shownTab.shown;
+  SessionMirror get shown => shownTab.shown;
 
   /// Все сессии стороны — в порядке вкладок и столбцов.
-  Iterable<PanelMirror> get panels => tabs.expand((tab) => tab.columns);
+  Iterable<SessionMirror> get panels => tabs.expand((tab) => tab.columns);
 }

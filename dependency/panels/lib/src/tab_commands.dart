@@ -10,7 +10,7 @@ import 'panels_settings.dart';
 ///
 /// Сторона берётся у рабочей области, а не у панели: под наложением — быстрым
 /// просмотром, просмотрщиком — панели не видно, и вкладки там ни при чём.
-ViewportPosition? _sideOf(CommandContext context) => context.app.view.positionOf(context.panel);
+ViewportPosition? _sideOf(CommandContext context) => context.app.view.positionOf(context.session);
 
 /// Новая вкладка на текущем каталоге.
 class NewTabCommand extends AppCommand {
@@ -52,9 +52,9 @@ class NewTabCommand extends AppCommand {
       return;
     }
     final tabs = context.app.tabsAt(side);
-    final at = tabs.indexWhere((tab) => identical(tab.panel, context.panel));
+    final at = tabs.indexWhere((tab) => identical(tab.panel, context.session));
     // Рядом с нынешней, а не в конце ряда: новая вкладка про то же место.
-    await context.app.openTab(side, like: context.panel, at: at < 0 ? null : at + 1);
+    await context.app.openTab(side, like: context.session, at: at < 0 ? null : at + 1);
   }
 }
 
@@ -84,7 +84,7 @@ class CloseTabCommand extends AppCommand {
 
   @override
   Future<void> execute(CommandContext context) async {
-    final tab = context.app.tabOf(context.panel);
+    final tab = context.app.tabOf(context.session);
     if (tab != null) {
       context.app.closeTab(tab);
     }
@@ -125,7 +125,7 @@ class CycleTabsCommand extends AppCommand {
       return;
     }
     final tabs = context.app.tabsAt(side);
-    final at = tabs.indexWhere((tab) => identical(tab.panel, context.panel));
+    final at = tabs.indexWhere((tab) => identical(tab.panel, context.session));
     if (at < 0) {
       return;
     }
@@ -199,11 +199,11 @@ class ToggleTabLockCommand extends AppCommand {
   Set<String> get keywords => const {'lock', 'keep'};
 
   @override
-  bool isExecutable(CommandContext context) => context.app.tabOf(context.panel) != null;
+  bool isExecutable(CommandContext context) => context.app.tabOf(context.session) != null;
 
   @override
   Future<void> execute(CommandContext context) async {
-    final tab = context.app.tabOf(context.panel);
+    final tab = context.app.tabOf(context.session);
     if (tab != null) {
       context.app.setTabPinned(tab, !tab.pinned);
     }

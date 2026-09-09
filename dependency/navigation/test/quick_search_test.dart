@@ -11,7 +11,7 @@ import 'package:flutter_test/flutter_test.dart';
 void main() {
   late AppRuntime runtime;
 
-  Panel panel() => runtime.app.left;
+  Session panel() => runtime.app.left;
 
   /// Идущий поиск — он же признак того, что режим включён: отдельного флага
   /// нет, есть само содержимое статусной области.

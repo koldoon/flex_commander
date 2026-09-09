@@ -24,7 +24,7 @@ class CombinedView extends StatefulWidget {
   /// Имя вида — оно же ключ настройки панели.
   static const String viewId = 'tree+';
 
-  final Panel panel;
+  final Session panel;
 
   /// Настройки видов: доля под деревом и всё, что нужно самим столбцам.
   final PanelsSettings Function() settings;
@@ -37,7 +37,7 @@ class CombinedView extends StatefulWidget {
   /// Нужен окну выбора вида: настраивать в этом виде есть что у списка — его
   /// колонки, — а показанной в слоте бывает любая из двух сессий
   /// (`docs/spec/panel-view-combined.md`, §7).
-  static Panel listOf(BuildContext context, Panel panel) {
+  static Session listOf(BuildContext context, Session panel) {
     final app = AppScope.read(context);
     final side = app.view.positionOf(panel);
     if (side == null) {
@@ -68,8 +68,8 @@ class _CombinedViewState extends State<CombinedView> {
   /// Столбцы: дерево — первая сессия слота, список — вторая. Порядок сессий и
   /// есть порядок столбцов, а показанной бывает любая из них — та, в которой
   /// стоит курсор.
-  Panel? _tree;
-  Panel? _list;
+  Session? _tree;
+  Session? _list;
 
   Timer? _follow;
 
@@ -154,7 +154,7 @@ class _CombinedViewState extends State<CombinedView> {
   /// строки, и курсор после неё стоит на первой — на корне источника. Пойди
   /// связка с этого места, список уехал бы в корень диска, хотя человек ничего
   /// такого не просил.
-  Future<void> _prepare(Panel tree, Panel list) async {
+  Future<void> _prepare(Session tree, Session list) async {
     // Тот же вид у обеих сессий: после перезапуска столбцы должны вернуться
     // оба.
     tree.setView(CombinedView.viewId);

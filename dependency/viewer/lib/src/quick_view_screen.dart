@@ -37,7 +37,7 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
   final Application app;
 
   /// Панель, за курсором которой идёт просмотр.
-  final Panel panel;
+  final Session panel;
 
   final Duration delay;
 

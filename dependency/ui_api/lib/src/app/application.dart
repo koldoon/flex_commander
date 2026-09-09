@@ -17,12 +17,12 @@ import 'views.dart';
 import '../theme/theme_service.dart';
 
 import '../os/window_service.dart';
-import 'panel.dart';
+import 'session.dart';
 import 'toasts.dart';
 
 /// Приложение целиком — то, чем оперируют команды.
 ///
-/// Аналог `IApplication` референса. Вместе с [Panel] и [PanelSelection] это и
+/// Аналог `IApplication` референса. Вместе с [Session] и [PanelSelection] это и
 /// есть API для написания команд: всё, что команде нужно знать о приложении,
 /// описано здесь, а как это устроено внутри — её не касается.
 ///
@@ -36,26 +36,26 @@ abstract interface class Application implements Listenable {
   /// комбинированного вида или вкладками, — и «левая панель» означает ту, что
   /// сейчас на виду (`docs/spec/panel-slots.md`). Команды об этом не знают и
   /// знать не должны.
-  Panel get left;
+  Session get left;
 
-  Panel get right;
+  Session get right;
 
   /// Столбцы показанной вкладки этой стороны.
   ///
   /// Столбец один, а у комбинированного вида два — дерево и список
   /// (`docs/spec/panel-tabs.md`, §3).
-  List<Panel> panelsAt(ViewportPosition side);
+  List<Session> panelsAt(ViewportPosition side);
 
   /// Вкладки стороны, в порядке ряда.
   List<PanelTab> tabsAt(ViewportPosition side);
 
   /// Вкладка, которой принадлежит эта сессия; null — сессия не наша.
-  PanelTab? tabOf(Panel panel);
+  PanelTab? tabOf(Session panel);
 
   /// Завести вкладку — по образцу [like] или показанной — и показать её.
   ///
   /// [at] — место в ряду; пусто — в конец.
-  Future<PanelTab> openTab(ViewportPosition side, {Panel? like, int? at});
+  Future<PanelTab> openTab(ViewportPosition side, {Session? like, int? at});
 
   /// Убрать вкладку со всеми её столбцами: они отпускают аренду и уходят.
   ///
@@ -76,25 +76,25 @@ abstract interface class Application implements Listenable {
   ///
   /// [at] — куда её поставить в слоте; пусто — в конец. Порядок сессий и есть
   /// порядок показа: у комбинированного вида дерево всегда первое.
-  Future<Panel> openPanel(ViewportPosition side, {Panel? like, int? at});
+  Future<Session> openPanel(ViewportPosition side, {Session? like, int? at});
 
   /// Убрать сессию: она отпускает аренду и уходит из слота.
   ///
   /// Последнюю в слоте убрать нельзя: сторона без панели — состояние, которого
   /// в модели нет вовсе.
-  void closePanel(Panel panel);
+  void closePanel(Session panel);
 
   /// Показать эту сессию в её стороне вместо нынешней.
   ///
   /// Прежняя остаётся жить: её каталог, курсор и аренда на месте, и вернуться
   /// к ней — это ничего не перечитать.
-  void showPanel(Panel panel);
+  void showPanel(Session panel);
 
   /// Активная панель — источник операции.
-  Panel get activePanel;
+  Session get activePanel;
 
   /// Пассивная панель — приёмник операции.
-  Panel get passivePanel;
+  Session get passivePanel;
 
   /// Действия приложения и клавиши за ними.
   ///
@@ -141,7 +141,7 @@ abstract interface class Application implements Listenable {
   ///
   /// [panel] null — своя машина: греют оболочку заранее, когда панелей ещё нет.
   /// Не вышло — [FsError]: клавишу нажали, и молчать нельзя.
-  Future<ShellChannel> openShell({Panel? panel, String? directory, int columns, int rows});
+  Future<ShellChannel> openShell({Session? panel, String? directory, int columns, int rows});
 
   /// Ошибки, которые никто не поймал: показать человеку, а не только записать
   /// в журнал.
@@ -202,7 +202,7 @@ abstract interface class Application implements Listenable {
   /// результаты поиска: ядро не решает, чем показывать файлы.
   ApplicationView get view;
 
-  void activate(Panel panel);
+  void activate(Session panel);
 
   /// Переключить активную панель.
   void toggleActivePanel();

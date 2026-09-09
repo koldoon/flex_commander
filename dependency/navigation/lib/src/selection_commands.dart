@@ -25,7 +25,7 @@ class ToggleMarkCommand extends AppCommand {
   }
 
   @override
-  Future<void> execute(CommandContext context) async => context.panel.toggleCurrentMark();
+  Future<void> execute(CommandContext context) async => context.session.toggleCurrentMark();
 }
 
 /// Инвертировать пометку объекта под курсором, **не двигая курсор**.
@@ -57,7 +57,7 @@ class ToggleMarkInPlaceCommand extends AppCommand {
   }
 
   @override
-  Future<void> execute(CommandContext context) async => context.panel.toggleCurrentMark(step: false);
+  Future<void> execute(CommandContext context) async => context.session.toggleCurrentMark(step: false);
 }
 
 /// Снять всю пометку.
@@ -77,10 +77,10 @@ class ClearSelectionCommand extends AppCommand {
   Set<String> get keywords => const {'deselect', 'clear selection', 'none'};
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.markedPaths.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.session.markedPaths.isNotEmpty;
 
   @override
-  Future<void> execute(CommandContext context) async => context.panel.clearMarks();
+  Future<void> execute(CommandContext context) async => context.session.clearMarks();
 }
 
 /// Пометить файлы, не трогая каталоги.
@@ -110,11 +110,11 @@ class SelectFilesCommand extends AppCommand {
   Set<String> get keywords => const {'select files', 'only files'};
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.entries.any(_isFile);
+  bool isExecutable(CommandContext context) => context.session.entries.any(_isFile);
 
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
+    final panel = context.session;
     panel.setMarks({
       ...panel.markedPaths,
       for (final entry in panel.entries)
@@ -143,8 +143,8 @@ class SelectAllCommand extends AppCommand {
   Set<String> get keywords => const {'select all', 'everything'};
 
   @override
-  bool isExecutable(CommandContext context) => context.panel.entries.isNotEmpty;
+  bool isExecutable(CommandContext context) => context.session.entries.isNotEmpty;
 
   @override
-  Future<void> execute(CommandContext context) async => context.panel.markAll();
+  Future<void> execute(CommandContext context) async => context.session.markAll();
 }

@@ -1,6 +1,6 @@
 import 'package:flutter/widgets.dart';
 
-import 'panel.dart';
+import 'session.dart';
 
 /// Вид панели: чем показать каталог.
 ///
@@ -33,7 +33,7 @@ class PanelViewSpec {
 
   /// Чем рисовать. Тот же вид работает в любой панели: какая именно — сказано
   /// доводом.
-  final Widget Function(BuildContext context, Panel panel) build;
+  final Widget Function(BuildContext context, Session panel) build;
 
   /// Настройки **этого** вида — их показывает окно выбора под списком: сколько
   /// колонок, какого размера значки, показывать ли миниатюры.
@@ -43,7 +43,7 @@ class PanelViewSpec {
   /// — через панель, которую окно и открыли (`docs/spec/panel-views.md`, §7):
   /// колонки таблицы у левой и правой свои, и «настройка вида» тут значит
   /// «настройка **этого** вида **этой** панели».
-  final Widget Function(BuildContext context, Panel panel)? options;
+  final Widget Function(BuildContext context, Session panel)? options;
 }
 
 /// Виды панели, объявленные модулями.

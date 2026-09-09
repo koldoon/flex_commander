@@ -19,7 +19,7 @@ class QuickSearchState extends ChangeNotifier implements TransientContent {
     panel.addListener(_watchPanel);
   }
 
-  final Panel panel;
+  final Session panel;
 
   /// Команды, при которых полоса остаётся, — её собственные.
   ///

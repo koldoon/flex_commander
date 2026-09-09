@@ -50,7 +50,7 @@ class ContentType {
 ///
 /// Служба **экранная**: тип нужен показу — иконке, колонке, окну сведений, — а
 /// ядру он не нужен ни для чего. Байты через границу уже ходят
-/// (`Panel.contentOf` → [Content]), и второго пути к ним заводить незачем
+/// (`Session.contentOf` → [Content]), и второго пути к ним заводить незачем
 /// (`docs/spec/content-types.md`, §3).
 abstract interface class ContentTypes {
   /// Известный тип или null — ещё не смотрели.

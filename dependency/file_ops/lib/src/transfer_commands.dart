@@ -90,7 +90,7 @@ abstract class TransferCommandBase extends AppCommand {
 
   @override
   bool isExecutable(CommandContext context) {
-    final panel = context.panel;
+    final panel = context.session;
     if (panel.busy) {
       return false;
     }
@@ -126,7 +126,7 @@ abstract class TransferCommandBase extends AppCommand {
   /// панель, отношения не имеет.
   Targets targetsOf(CommandContext context) {
     final given = context.invocation.param<List<String>>(sourcesParam);
-    return given == null ? Targets.marked(context.panel.id) : Targets.paths(given);
+    return given == null ? Targets.marked(context.session.id) : Targets.paths(given);
   }
 
   /// Пришло ли задание готовым — со своими объектами и приёмником.
@@ -138,7 +138,7 @@ abstract class TransferCommandBase extends AppCommand {
   /// мимо окна вовсе; во втором команда показывает окно и уходит.
   @override
   Future<void> execute(CommandContext context) async {
-    final panel = context.panel;
+    final panel = context.session;
     // Приёмник нужен и для проверки, и для разбора пути: путь может проходить
     // через несколько источников, и разбирает его та панель, которая там
     // стоит. Движок при этом берёт ядро — у приёмника, где заведомо умеют
@@ -270,7 +270,7 @@ abstract class TransferCommandBase extends AppCommand {
   /// Обычно это панель напротив — привычка двухпанельного менеджера. Но когда
   /// задание пришло готовым (перетаскивание), приёмник — **та панель, в которую
   /// бросили**: она же активная, и панель напротив тут ни при чём.
-  Panel? _destinationPanelOf(CommandContext context) => givenJob(context) ? context.panel : context.target;
+  Session? _destinationPanelOf(CommandContext context) => givenJob(context) ? context.session : context.target;
 
   String? _defaultDestinationOf(CommandContext context) {
     // Полный путь: приёмник может оказаться внутри архива, и часть про
@@ -292,7 +292,7 @@ abstract class TransferCommandBase extends AppCommand {
       // Имя берётся у видимой строки, а её нет — последним звеном пути: у
       // помеченного в соседней ветви значения по эту сторону не лежит.
       final path = paths.single;
-      final seen = context.panel.entries.where((entry) => entry.path == path).firstOrNull;
+      final seen = context.session.entries.where((entry) => entry.path == path).firstOrNull;
       return '«${seen?.name ?? _nameOf(path)}»';
     }
     return plural(paths.length, one: '{n} item', other: '{n} items');
@@ -300,7 +300,7 @@ abstract class TransferCommandBase extends AppCommand {
 
   /// Пути целей: у готового задания свои, иначе — пометка панели.
   static List<String> pathsOf(CommandContext context) =>
-      context.invocation.param<List<String>>(sourcesParam) ?? context.panel.targetPaths.toList();
+      context.invocation.param<List<String>>(sourcesParam) ?? context.session.targetPaths.toList();
 
   /// Имя объекта из пути — для заголовка работы.
   static String _nameOf(String path) {
@@ -321,9 +321,9 @@ abstract class TransferCommandBase extends AppCommand {
   String _sourcePathOf(CommandContext context) {
     final given = context.invocation.param<List<String>>(sourcesParam);
     if (given != null && given.isNotEmpty) {
-      return _sourcesText({for (final path in given) _directoryOf(path)}, context.panel.currentPath);
+      return _sourcesText({for (final path in given) _directoryOf(path)}, context.session.currentPath);
     }
-    return context.panel.currentPath;
+    return context.session.currentPath;
   }
 
   /// Каталоги, из которых идёт работа.
@@ -341,7 +341,7 @@ abstract class TransferCommandBase extends AppCommand {
     if (given != null) {
       return {for (final path in given) _directoryOf(path)};
     }
-    return {for (final entry in await context.panel.allTargets()) entry.directoryPath};
+    return {for (final entry in await context.session.allTargets()) entry.directoryPath};
   }
 
   /// Один каталог — он и написан; несколько — их число: перечислять негде, а

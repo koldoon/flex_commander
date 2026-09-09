@@ -53,7 +53,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
 
   @override
   bool isExecutable(CommandContext context) {
-    if (context.panel.busy || !context.panel.hasTargets) {
+    if (context.session.busy || !context.session.hasTargets) {
       return false;
     }
     // Класть архив некуда, если приёмника нет вовсе (панель накрыта показом)
@@ -67,12 +67,12 @@ class CreateSevenZipArchiveCommand extends AppCommand {
   ///
   /// Путями, а не строками списка: помеченное бывает из разных каталогов, и
   /// строк на всех не хватит (`docs/spec/operation-targets.md`, §4).
-  Set<String> _sourcesOf(CommandContext context) => context.panel.targetPaths;
+  Set<String> _sourcesOf(CommandContext context) => context.session.targetPaths;
 
   /// Имя объекта: у видимой строки — её собственное, у помеченного в соседней
   /// ветви — последнее звено пути.
   String _nameOf(CommandContext context, String path) {
-    final seen = context.panel.entries.where((entry) => entry.path == path).firstOrNull;
+    final seen = context.session.entries.where((entry) => entry.path == path).firstOrNull;
     if (seen != null) {
       return seen.name;
     }
@@ -110,7 +110,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
       // узлы, и там же идёт работа.
       final spec = OperationSpec(
         kind: SevenZipPacking.kind,
-        targets: Targets.marked(context.panel.id),
+        targets: Targets.marked(context.session.id),
         destination: target.id,
         options: {
           SevenZipPacking.nameOption: name,
@@ -196,7 +196,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
     if (sources.length == 1) {
       return '${_nameOf(context, sources.single)}.7z';
     }
-    final directory = context.panel.directoryName;
+    final directory = context.session.directoryName;
     final name = directory.isEmpty || directory == '/' ? 'archive' : directory;
     return '$name.7z';
   }

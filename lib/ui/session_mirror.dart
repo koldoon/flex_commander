@@ -7,7 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../link/link.dart';
 import 'remote_content.dart';
 
-/// Панель со стороны экрана: зеркало того, что держит ядро.
+/// Сессия со стороны экрана: зеркало того, что держит ядро.
 ///
 /// Своего состояния у зеркала нет — есть последнее, о чём рассказало ядро.
 /// Просьбы уходят за границу, ответы приходят событиями, и между ними
@@ -23,8 +23,8 @@ import 'remote_content.dart';
 /// просмотр или правку ведёт экран: там буфер, там окно, там `Esc`. Панель на
 /// это время занята, и знать об этом надо здесь и сейчас — а ядру о том же
 /// говорится строкой состояния, чтобы обе стороны сходились.
-class PanelMirror extends ChangeNotifier implements Panel {
-  PanelMirror({
+class SessionMirror extends ChangeNotifier implements Session {
+  SessionMirror({
     required this.id,
     required Link link,
     required PanelState state,

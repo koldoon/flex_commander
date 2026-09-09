@@ -42,7 +42,7 @@ class CreateGzipCommand extends AppCommand {
 
   @override
   bool isExecutable(CommandContext context) {
-    if (context.panel.busy) {
+    if (context.session.busy) {
       return false;
     }
 
@@ -55,7 +55,7 @@ class CreateGzipCommand extends AppCommand {
     }
     // Пометка при этом должна быть либо пустой, либо той же одной строкой:
     // помечено несколько — это к `Mk Tar`.
-    if (context.panel.targetPaths.length > 1) {
+    if (context.session.targetPaths.length > 1) {
       return false;
     }
 
@@ -91,7 +91,7 @@ class CreateGzipCommand extends AppCommand {
       // Аренда обоих концов и проверка занятого имени — дело ядра.
       final spec = OperationSpec(
         kind: GzipPacking.kind,
-        targets: Targets.current(context.panel.id),
+        targets: Targets.current(context.session.id),
         destination: target.id,
         options: {GzipPacking.nameOption: name},
       );

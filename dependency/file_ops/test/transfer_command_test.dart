@@ -41,7 +41,7 @@ void main() {
         if (followLinks) TransferCommandBase.followLinksParam: true,
       });
 
-  List<String> namesOf(Panel panel) => panel.entries.map((node) => node.name).toList();
+  List<String> namesOf(Session panel) => panel.entries.map((node) => node.name).toList();
 
   test('копирует в каталог пассивной панели', () async {
     app.left.setCursorToName('notes.txt');

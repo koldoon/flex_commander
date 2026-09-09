@@ -4,7 +4,7 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/core/panel_session.dart';
-import 'package:flex_commander/ui/panel_mirror.dart';
+import 'package:flex_commander/ui/session_mirror.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Размеры всех каталогов одним нажатием.
@@ -32,7 +32,7 @@ void main() {
     await runtime.app.start();
   });
 
-  PanelMirror panel() => runtime.app.left;
+  SessionMirror panel() => runtime.app.left;
 
   PanelSession session() => runtime.app.leftSession;
 
