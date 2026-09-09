@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -7,6 +8,7 @@ import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/state/commands/session_commands.dart';
 import 'package:flex_commander/view/panel_row.dart';
+import 'package:flex_commander/view/window_title_bar.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -61,23 +63,63 @@ void main() {
   }
 
   group('ряд', () {
-    testWidgets('пока показано всё, ряда нет', (tester) async {
+    testWidgets('виден всегда — даже когда показаны оба набора', (tester) async {
       await pumpApp(tester);
 
       expect(app.panels.length, 2);
-      expect(find.byType(PanelRow), findsOneWidget);
-      // Виджет в дереве есть всегда, а строки не занимает: показывать нечего.
-      expect(tester.getSize(find.byType(PanelRow)).height, 0);
+      // Ряд живёт в полосе заголовка и места ни у кого не отнимает.
+      expect(find.descendant(of: find.byType(WindowTitleBar), matching: find.byType(PanelRow)), findsOneWidget);
+      expect(find.descendant(of: find.byType(PanelRow), matching: find.text('home')), findsWidgets);
+      expect(find.byKey(PanelRow.newPanelKey), findsOneWidget, reason: 'кнопка нового набора — последней');
     });
 
-    testWidgets('непоказанный набор поднимает ряд и перечисляется в нём', (tester) async {
+    testWidgets('непоказанный набор перечисляется в ряду', (tester) async {
       await pumpApp(tester);
       await press(tester, LogicalKeyboardKey.keyT, modifiers: [commandKey, LogicalKeyboardKey.shift]);
 
       expect(app.panels.length, 3, reason: 'Cmd-Shift-T заводит набор');
-      expect(tester.getSize(find.byType(PanelRow)).height, greaterThan(0));
       // Три записи: показанные слева и справа и тот, кому места не досталось.
       expect(find.descendant(of: find.byType(PanelRow), matching: find.text('home')), findsWidgets);
+    });
+
+    testWidgets('записи не залезают на светофор и на ручку окна', (tester) async {
+      // Окно тесное, наборов много: записям некуда деваться, кроме как ужаться.
+      for (var more = 0; more < 4; more++) {
+        await app.openPanel(ViewportPosition.left);
+      }
+      await pumpApp(tester);
+
+      const metrics = DefaultMetrics();
+      final free = metrics.windowControlsWidth + metrics.windowDragHandleWidth;
+      final row = find.byType(PanelRow);
+      expect(tester.getTopLeft(row).dx, greaterThanOrEqualTo(free));
+    });
+
+    testWidgets('ряд стоит по центру полосы и кончается там же, где панели', (tester) async {
+      await pumpApp(tester);
+
+      const metrics = DefaultMetrics();
+      final bar = tester.getRect(find.byType(WindowTitleBar));
+      final plus = tester.getRect(find.byKey(PanelRow.newPanelKey));
+      final chip = tester.getRect(find.byKey(PanelRow.chipKey(1)));
+
+      expect(plus.height, chip.height, reason: 'кнопка ростом с запись');
+      expect(plus.top, chip.top, reason: 'и стоит с ней вровень');
+      expect(chip.center.dy, bar.center.dy, reason: 'по центру полосы — там же, где светофор');
+      expect(plus.right, bar.right - metrics.windowSidePadding, reason: 'поле окна одно на всё содержимое');
+    });
+
+    testWidgets('кнопка «плюс» заводит набор', (tester) async {
+      await pumpApp(tester);
+      final was = app.panels.length;
+
+      // Без задержки: нажатие по записи не должно ждать срока двойного —
+      // двойное живёт под рядом и достаётся пустым местам полосы.
+      await tester.tap(find.byKey(PanelRow.newPanelKey));
+      await tester.pumpAndSettle();
+
+      expect(app.panels.length, was + 1);
+      expect(app.left, same(app.panels[1].session), reason: 'заведённый показан здесь же');
     });
 
     testWidgets('метка горит у того, кто показан, и с той стороны', (tester) async {

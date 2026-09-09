@@ -23,6 +23,16 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get windowTitleBarHeight => 28;
 
+  /// Семьдесят точек — светофор macOS с небольшим запасом: три кнопки стоят по
+  /// центрам 20, 40 и 60, правый край последней приходится на 66.
+  @override
+  double get windowControlsWidth => 70;
+
+  /// Полсотни точек ручки — столько, чтобы за окно было удобно взяться, не
+  /// целясь между кнопками и вкладками.
+  @override
+  double get windowDragHandleWidth => 50;
+
   @override
   double get windowTopPadding => 8;
 

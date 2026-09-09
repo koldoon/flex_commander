@@ -100,19 +100,23 @@ void main() {
 
   testWidgets('заголовок панели показывает текст, выставленный командой', (tester) async {
     await pumpApp(tester);
-    expect(find.text('/home'), findsOneWidget);
+    // На плашке панели, а не где угодно: тем же текстом называет себя запись
+    // ряда наборов в полосе заголовка (`spec/panel-sessions.md`, §8).
+    Finder onPlate(String text) => find.descendant(of: find.byType(FcPathPlate), matching: find.text(text));
+
+    expect(onPlate('/home'), findsOneWidget);
 
     // Так панель подписывает то, что заполнено не каталогом: результаты
     // поиска, ветку соединения, список закладок.
     app.left.setHeaderText('Search: *.txt');
     await tester.pump();
 
-    expect(find.text('Search: *.txt'), findsOneWidget);
-    expect(find.text('/home'), findsNothing);
+    expect(onPlate('Search: *.txt'), findsOneWidget);
+    expect(onPlate('/home'), findsNothing);
 
     app.left.setHeaderText(null);
     await tester.pump();
-    expect(find.text('/home'), findsOneWidget);
+    expect(onPlate('/home'), findsOneWidget);
   });
 
   testWidgets('строка состояния показывает объект под курсором', (tester) async {

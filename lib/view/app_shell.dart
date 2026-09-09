@@ -6,7 +6,6 @@ import 'dialogs/credentials_layer.dart';
 import 'dialogs/elevation_layer.dart';
 import 'dialogs/error_layer.dart';
 import 'keyboard_handler.dart';
-import 'panel_row.dart';
 import 'window_title_bar.dart';
 import 'function_bar/function_bar.dart';
 import 'toast_layer.dart';
@@ -204,22 +203,7 @@ class AppShell extends StatelessWidget {
                   Expanded(
                     child: Padding(
                       padding: EdgeInsets.symmetric(horizontal: metrics.windowSidePadding),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          // Ряд наборов — над обеими панелями и в их полях:
-                          // набор не принадлежит стороне
-                          // (`spec/panel-sessions.md`, §3). Своего зазора он не
-                          // отмеряет — как и все области, его ставит шелл.
-                          const PanelRow(),
-                          Expanded(
-                            child: ListenableBuilder(
-                              listenable: app.view,
-                              builder: (context, _) => _workArea(context, app),
-                            ),
-                          ),
-                        ],
-                      ),
+                      child: ListenableBuilder(listenable: app.view, builder: (context, _) => _workArea(context, app)),
                     ),
                   ),
                   Padding(

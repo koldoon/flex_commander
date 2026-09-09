@@ -4,22 +4,30 @@ import 'package:flutter/material.dart';
 
 import '../state/commands/session_commands.dart';
 
-/// Ряд открытых наборов — **один общий на всё окно**, над обеими панелями
+/// Ряд открытых наборов — **один общий на всё окно**, в полосе заголовка
 /// (`docs/spec/panel-sessions.md`, §3).
 ///
 /// Рисует его шелл, а не модуль панелей: набор не принадлежит стороне, и ряд
 /// на каждую сторону врал бы об этом устройстве — как и вопрос «а в чей ряд
 /// попал заведённый набор».
 ///
-/// **Пока показано всё, ряда нет.** Полоса, которая ничего не выбирает, отняла
-/// бы строку у списка файлов: при двух наборах оба и так на виду. Появляется
-/// она с первым же непоказанным набором и пропадает вместе с ним.
+/// **Виден всегда**, даже когда оба набора показаны: в полосе заголовка он ни
+/// у кого не отнимает места — полоса есть в окне всегда и до сих пор пустовала
+/// (`docs/spec/window-chrome.md`, §3). Прижат к правому краю, а слева
+/// останавливается там, где кончается свободная ручка окна: место под ряд
+/// отмеряет полоса, а не он сам.
 class PanelRow extends StatelessWidget {
   const PanelRow({super.key});
 
   /// Ключи горящих ячеек метки: по ним проверка узнаёт, где набор показан.
   static const Key leftMarkKey = Key('panel-row-mark-left');
   static const Key rightMarkKey = Key('panel-row-mark-right');
+
+  /// Ключ кнопки «завести набор» — последней в ряду.
+  static const Key newPanelKey = Key('panel-row-new');
+
+  /// Ключ записи по её номеру — тому же, что виден в ряду.
+  static Key chipKey(int number) => ValueKey('panel-row-chip-$number');
 
   @override
   Widget build(BuildContext context) {
@@ -36,9 +44,6 @@ class PanelRow extends StatelessWidget {
         final panels = app.panels;
         final left = app.panelAt(ViewportPosition.left);
         final right = app.panelAt(ViewportPosition.right);
-        if (!panels.any((panel) => !identical(panel, left) && !identical(panel, right))) {
-          return const SizedBox.shrink();
-        }
         return ListenableBuilder(
           listenable: Listenable.merge([for (final panel in panels) panel.session]),
           builder: (context, _) => _row(context, app, panels, left, right),
@@ -49,38 +54,78 @@ class PanelRow extends StatelessWidget {
 
   Widget _row(BuildContext context, Application app, List<Panel> panels, Panel left, Panel right) {
     final metrics = FcTheme.of(context).metrics;
-    return Padding(
-      padding: EdgeInsets.only(bottom: metrics.areaGap),
-      child: SizedBox(
-        // Высотой с плашку пути: запись ею и выглядит, и текст в ней тот же.
-        height: metrics.pathHeaderHeight,
-        child: Row(
-          // Справа налево: у правого края ряд стоит там же, где кончаются
-          // панели, а прибывающие наборы растут внутрь окна, не сдвигая
-          // остальных с насиженных мест.
-          mainAxisAlignment: MainAxisAlignment.end,
-          children: [
-            for (var at = 0; at < panels.length; at++) ...[
-              // Дистанция между записями — та же, что между областями окна:
-              // другой величине здесь взяться неоткуда.
-              if (at > 0) SizedBox(width: metrics.areaGap),
-              // По содержимому: запись занимает столько, сколько нужно имени.
-              // Тесно — ужимается по очереди, а не делит ширину поровну.
-              Flexible(
-                child: _PanelChip(
-                  number: at + 1,
-                  title: panelTitle(panels[at], panels),
-                  path: panels[at].session.currentPath,
-                  shownLeft: identical(panels[at], left),
-                  shownRight: identical(panels[at], right),
-                  // Показывают в активной панели: ряд общий, и «куда» решает
-                  // не он, а то, где сейчас курсор.
-                  onTap: () => app.showPanel(app.view.sourceArea, panels[at]),
-                  onClose: () => app.closePanel(panels[at]),
-                ),
+    return Center(
+      // Ростом записи облегают свой текст, а по вертикали ряд стоит **по
+      // центру полосы** — там же, где светофор.
+      child: Row(
+        // Справа налево: у правого края ряд стоит там же, где кончаются
+        // панели, а прибывающие наборы растут внутрь окна, не сдвигая
+        // остальных с насиженных мест.
+        mainAxisAlignment: MainAxisAlignment.end,
+        children: [
+          for (var at = 0; at < panels.length; at++) ...[
+            // Дистанция между записями — та же, что между областями окна:
+            // другой величине здесь взяться неоткуда.
+            if (at > 0) SizedBox(width: metrics.areaGap),
+            // По содержимому: запись занимает столько, сколько нужно имени.
+            // Тесно — ужимается по очереди, а не делит ширину поровну.
+            Flexible(
+              child: _PanelChip(
+                key: PanelRow.chipKey(at + 1),
+                number: at + 1,
+                title: panelTitle(panels[at], panels),
+                path: panels[at].session.currentPath,
+                shownLeft: identical(panels[at], left),
+                shownRight: identical(panels[at], right),
+                // Показывают в активной панели: ряд общий, и «куда» решает
+                // не он, а то, где сейчас курсор.
+                onTap: () => app.showPanel(app.view.sourceArea, panels[at]),
+                onClose: () => app.closePanel(panels[at]),
               ),
-            ],
+            ),
           ],
+          SizedBox(width: metrics.areaGap),
+          // Кнопка нового набора — последней, как вкладка «плюс» в браузере.
+          // Не `Flexible`: ужимаются имена, а кнопка держит свой размер —
+          // завести набор должно быть можно и в тесном окне.
+          _NewPanelButton(onTap: () => app.commands.run(NewSessionCommand.commandId)),
+        ],
+      ),
+    );
+  }
+}
+
+/// Кнопка «завести набор»: рамка записи, а внутри — знак «плюс».
+class _NewPanelButton extends StatelessWidget {
+  const _NewPanelButton({required this.onTap});
+
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FcTheme.of(context);
+    final colors = theme.colors;
+    final metrics = theme.metrics;
+
+    return Tooltip(
+      message: context.strings.tr('New session'),
+      waitDuration: const Duration(milliseconds: 600),
+      child: GestureDetector(
+        key: PanelRow.newPanelKey,
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Container(
+          padding: EdgeInsets.symmetric(horizontal: metrics.labelPadding),
+          decoration: BoxDecoration(
+            color: colors.panelBackground,
+            border: Border.all(color: colors.panelBorder, width: metrics.strokeWidth),
+            borderRadius: BorderRadius.circular(metrics.pathHeaderRadius),
+          ),
+          // Знак набран **тем же шрифтом**, что имена в записях, только
+          // жирным: иконочный глиф здесь ни к чему — плюс есть в любом наборе.
+          // Заодно кнопка меряется той же строкой, что и записи, и выходит
+          // ровно их роста.
+          child: Text('+', style: theme.statusStyle.copyWith(fontWeight: FontWeight.bold, color: colors.secondaryText)),
         ),
       ),
     );
@@ -96,6 +141,7 @@ class PanelRow extends StatelessWidget {
 /// значок перед именем.
 class _PanelChip extends StatelessWidget {
   const _PanelChip({
+    super.key,
     required this.number,
     required this.title,
     required this.path,
