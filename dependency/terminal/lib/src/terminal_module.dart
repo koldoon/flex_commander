@@ -301,13 +301,62 @@ class _WarmShellCommand extends AppCommand {
     unawaited(_warm(context.app));
   }
 
+  /// Сколько ждать, пока панели встанут на свои каталоги.
+  ///
+  /// Стартовые команды идут **раньше** восстановления панелей, а прогревать
+  /// оболочку до того, как известно место, нельзя: заведённая в каталоге
+  /// приложения, она утащит туда и панель — за её приглашением идёт
+  /// `followShell` (`spec/single-shell-session.md`).
+  static const Duration _placeTimeout = Duration(seconds: 10);
+
   Future<void> _warm(Application app) async {
     try {
-      await shells().sessionIn(app);
+      final panel = app.activePanel;
+      final directory = await _placeOf(app, panel);
+      // Место так и не появилось или панель не на своей машине — греть нечего:
+      // первый же `Ctrl-O` заведёт оболочку там, где к тому времени будет
+      // стоять панель.
+      if (directory.isEmpty || !_isHere(panel)) {
+        return;
+      }
+      // Без панели, но **в её каталоге**: греется своя машина (её объявляет
+      // модуль локальной файловой системы), а каталог берётся у той панели, из
+      // которой человек и нажмёт `Ctrl-O`.
+      await shells().sessionIn(app, directory: directory);
     } on Object {
       // Молчим: терминала никто не просил. Псевдотерминала на этой платформе
       // может не быть вовсе, и узнать об этом человек должен тогда, когда
       // попросит терминал, а не при запуске приложения.
+    }
+  }
+
+  /// Панель стоит на своей машине: греть заранее можно только её.
+  ///
+  /// На сервере и в архиве прогрев не к месту: там оболочка либо чужая, либо
+  /// её нет вовсе.
+  static bool _isHere(Panel panel) {
+    final label = panel.source.shellLabel;
+    return label.isEmpty || label == 'localhost';
+  }
+
+  /// Каталог панели так, как назовёт его оболочка; пусто — так и не дождались.
+  Future<String> _placeOf(Application app, Panel panel) async {
+    if (panel.shellDirectory.isNotEmpty) {
+      return panel.shellDirectory;
+    }
+    final ready = Completer<String>();
+    void look() {
+      final at = panel.shellDirectory;
+      if (at.isNotEmpty && !ready.isCompleted) {
+        ready.complete(at);
+      }
+    }
+
+    panel.addListener(look);
+    try {
+      return await ready.future.timeout(_placeTimeout, onTimeout: () => '');
+    } finally {
+      panel.removeListener(look);
     }
   }
 }

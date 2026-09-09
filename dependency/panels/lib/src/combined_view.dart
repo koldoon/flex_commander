@@ -159,8 +159,18 @@ class _CombinedViewState extends State<CombinedView> {
     // оба.
     tree.setView(CombinedView.viewId);
     list.setView(CombinedView.viewId);
+    // Ветвями дерево ещё не показывали — значит спутник только что заведён (или
+    // приложение только что запущено), и курсор ему надо поставить.
+    //
+    // **Только тогда.** Вид встаёт заново каждый раз, когда панели показывают
+    // после полноэкранного — терминала, просмотрщика, редактора, — и открывать
+    // каталог на каждом возврате значило бы перечитывать панели там, где их
+    // всего лишь **показали** обратно.
+    final fresh = tree.rows != RowsKind.branches;
     await tree.showRows(RowsKind.branches);
-    await tree.openPath(list.currentPath);
+    if (fresh) {
+      await tree.openPath(list.currentPath);
+    }
     if (!mounted || !identical(_tree, tree) || !identical(_list, list)) {
       return;
     }
@@ -245,7 +255,12 @@ class _CombinedViewState extends State<CombinedView> {
       }
       _awaited = null;
     }
-    if (at.isEmpty || at == tree.currentPath || at == _branchUnderCursor()) {
+    // Сравнивать надо с **ветвью под курсором**, а не с каталогом дерева: у
+    // дерева это каталог, в котором ветвь лежит, — то есть её родитель. Шаг
+    // списка вверх как раз в этот родитель и попадал, равенство срабатывало, и
+    // дерево оставалось на месте: следование работало через раз
+    // (`docs/spec/panel-view-combined.md`, §5).
+    if (at.isEmpty || at == _branchUnderCursor()) {
       return;
     }
     // **Не из самого уведомления.** Панель рассказывает о себе, разбирая

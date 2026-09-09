@@ -334,6 +334,16 @@ class ToggleTerminalCommand extends AppCommand {
     // видит на кадр чужую кухню (`spec/single-shell-session.md`, §3).
     await session.ready.timeout(ShellSession.settleTimeout, onTimeout: () {});
 
+    // Оболочка одна на место и живёт своей жизнью: пока её не показывали, она
+    // могла остаться там, где её завели. Показать её надо **там, где стоит
+    // панель** — иначе она не только покажет чужой каталог, но и утащит туда
+    // панель: за её приглашением идёт `followShell`
+    // (`spec/single-shell-session.md`).
+    final at = line?.workingDirectory;
+    if (at != null && at.isNotEmpty && session.lastMark?.directory != at) {
+      session.input('cd ${ShellCommand.quote(at)}\n');
+    }
+
     screen.attach(session);
   }
 }

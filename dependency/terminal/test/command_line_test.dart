@@ -529,5 +529,29 @@ void main() {
       expect(pty.session.workingDirectory, '/home');
       expect(pty.session.arguments, contains('-i'));
     });
+
+    test('заведённая раньше оболочка показывается там, где стоит панель', () async {
+      // Оболочка уже живёт — так бывает после прогрева при запуске и после
+      // работы в самом терминале.
+      press('Ctrl-O');
+      await pumpEventQueue();
+      shell.greet();
+      await pumpEventQueue();
+      press('Ctrl-O');
+      await pumpEventQueue();
+
+      // Панель ушла в другой каталог, а оболочка осталась где была.
+      await app.left.openPath('/home/docs');
+      await pumpEventQueue();
+      pty.session.writes.clear();
+
+      press('Ctrl-O');
+      await pumpEventQueue();
+
+      // Показывается она **там, где панель**: иначе не только покажет чужой
+      // каталог, но и утащит туда панель — за приглашением идёт `followShell`.
+      expect(pty.session.written, contains('cd /home/docs'));
+      expect(pty.sessions, hasLength(1), reason: 'та же оболочка, а не вторая');
+    });
   });
 }

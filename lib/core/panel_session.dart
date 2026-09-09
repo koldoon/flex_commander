@@ -1732,11 +1732,28 @@ class PanelSession {
   /// здесь негде (внутри архива оболочки нет вовсе).
   String get shellDirectory {
     final current = provider;
-    final here = directory;
+    final here = _shellPlace;
     if (current is! ShellHost || here == null) {
       return '';
     }
     return (current as ShellHost).shellPath(here.pathString);
+  }
+
+  /// Место, которое оболочка считает «здесь».
+  ///
+  /// В списке это показанный каталог: стоя на подкаталоге, команду выполняют
+  /// **тут**, а не внутри него, — так во всех оболочках и в `mc`.
+  ///
+  /// В дереве иначе: ветвь под курсором и есть то место, где человек стоит.
+  /// Каталог самой панели там означает другое — каталог, **в котором** лежит
+  /// строка (`docs/spec/panel-node-list.md`), и оболочка в нём открывалась бы
+  /// на уровень выше, чем видно глазами.
+  DirectoryNode? get _shellPlace {
+    final row = currentNode;
+    if (_rows.isTree && row is DirectoryNode) {
+      return row;
+    }
+    return directory;
   }
 
   /// Снимок источника, в котором панель стоит сейчас.

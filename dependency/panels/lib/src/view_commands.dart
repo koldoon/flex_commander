@@ -133,9 +133,22 @@ class ChoosePanelViewCommand extends AppCommand {
 
     late final String dialogId;
     void close() => app.view.closeDialog(dialogId);
+    // Окно не меняет вид само: оно **запускает ту же команду**, что и клавиша.
+    // Иначе у одного дела два входа, и правило, дописанное к одному из них, —
+    // например «уход с комбинированного вида схлопывает слот» — второму не
+    // достаётся.
     void apply() {
       close();
-      unawaited(panel.setView(state.selected.id));
+      app.commands.run(
+        SetPanelViewCommand.commandId,
+        CommandInvocation(
+          parameters: {
+            SetPanelViewCommand.viewParam: state.selected.id,
+            if (context.invocation.param<String>(SetPanelViewCommand.panelParam) case final named?)
+              SetPanelViewCommand.panelParam: named,
+          },
+        ),
+      );
     }
 
     state.apply = apply;
@@ -643,7 +656,9 @@ class CombinedSideCommand extends AppCommand {
   @override
   bool isExecutable(CommandContext context) {
     final columns = _columnsOf(context);
-    if (columns.isEmpty) {
+    // Столбцы — только у комбинированного вида: сессия, оставшаяся в слоте от
+    // него, сама по себе второго столбца не делает.
+    if (columns.isEmpty || context.panel.view != CombinedView.viewId) {
       return false;
     }
     final inTree = identical(columns.first, context.panel);

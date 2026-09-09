@@ -6,6 +6,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -332,6 +333,105 @@ void main() {
     expect(pty.session.workingDirectory, list(runtime).currentPath);
 
     await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('Ctrl-O из дерева заводит оболочку в его ветви', (tester) async {
+    final runtime = await open(tester);
+    await settle(tester);
+
+    runtime.commands.dispatch(KeyCombination.parse('Left'));
+    await tester.pumpAndSettle();
+    while (tree(runtime).currentEntry?.name != 'lib') {
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+      await tester.pump();
+    }
+    await settle(tester);
+
+    runtime.commands.dispatch(KeyCombination.parse('Ctrl-O'));
+    await tester.pumpAndSettle();
+    AgreeingShell(pty.session).greet();
+    await tester.pumpAndSettle();
+
+    // Курсор в дереве — оболочка заводится в той ветви, на которой он стоит.
+    expect(pty.session.workingDirectory, '/home/lib');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('возврат из полноэкранного ничего не перечитывает', (tester) async {
+    final runtime = await open(tester);
+    await settle(tester);
+
+    // Ушли в дерево и встали на ветвь, которой список ещё не показывал.
+    runtime.commands.dispatch(KeyCombination.parse('Left'));
+    await tester.pumpAndSettle();
+    while (tree(runtime).currentEntry?.name != 'lib') {
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+      await tester.pump();
+    }
+    await settle(tester);
+    final at = tree(runtime).currentEntry?.name;
+    final shown = list(runtime).currentPath;
+
+    // Терминал во весь экран и обратно: панели **прячут**, а не закрывают.
+    runtime.commands.dispatch(KeyCombination.parse('Ctrl-O'));
+    await tester.pumpAndSettle();
+    AgreeingShell(pty.session).greet();
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Ctrl-O'));
+    await tester.pumpAndSettle();
+    await settle(tester);
+
+    expect(tree(runtime).currentEntry?.name, at, reason: 'курсор дерева на месте');
+    expect(list(runtime).currentPath, shown, reason: 'и список показывает то же');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('шаг списка вверх дерево тоже догоняет', (tester) async {
+    final runtime = await open(tester);
+    await settle(tester);
+
+    // Списком входим внутрь, а потом обратно наверх — тем же `Bsp`, каким
+    // ходят в панели.
+    list(runtime).setCursorToName('lib');
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Enter'));
+    await tester.pumpAndSettle();
+    await settle(tester);
+    expect(tree(runtime).currentEntry?.name, 'lib', reason: 'стенд ни о чём, если дерево не вошло');
+
+    runtime.commands.dispatch(KeyCombination.parse('Bsp'));
+    await tester.pumpAndSettle();
+    await settle(tester);
+
+    expect(list(runtime).currentPath, '/home');
+    expect(tree(runtime).currentEntry?.name, 'home', reason: 'дерево вышло вместе со списком');
+  });
+
+  testWidgets('уход окном выбора тоже закрывает второй столбец', (tester) async {
+    final runtime = await open(tester);
+    await settle(tester);
+
+    // Тот же уход, но не клавишей вида, а окном: `Alt-F1`, стрелка на «Tree»,
+    // `Enter`.
+    runtime.commands.dispatch(KeyCombination.parse('Alt-F1'));
+    await tester.pumpAndSettle();
+    // Стрелкой вверх — на «Tree»: по списку в окне ходит его собственный узел
+    // фокуса, а не разбор команд.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    await settle(tester);
+
+    expect(runtime.app.left.view, TreeView.viewId);
+    expect(columns(runtime).length, 1, reason: 'слот схлопнулся');
+
+    // И `Left` в дереве сворачивает ветвь, а не возвращает второй столбец.
+    runtime.commands.dispatch(KeyCombination.parse('Left'));
+    await tester.pumpAndSettle();
+    expect(runtime.app.left.view, TreeView.viewId);
   });
 
   testWidgets('уход на другой вид закрывает второй столбец', (tester) async {

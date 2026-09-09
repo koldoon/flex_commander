@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_terminal/fc_terminal.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
@@ -130,6 +131,27 @@ void main() {
       press('Enter');
       await pumpEventQueue();
       expect(app.left.currentPath, '/home/docs');
+    });
+
+    test('в дереве набранное тоже выигрывает у ветви под курсором', () async {
+      // Дерево держит `Enter` для раскрытия ветви, и объявлено оно у панелей.
+      // Терминал объявлен раньше — иначе набранное в строке не выполнялось бы
+      // вовсе (`docs/spec/mc-command-line.md`, §3).
+      await app.left.showRows(RowsKind.tree);
+      await pumpEventQueue();
+      app.left.setCursorToName('docs');
+      expect(app.left.currentEntry?.isDirectory, isTrue, reason: 'стенд ни о чём, если курсор не на ветви');
+
+      typeKeys('cd docs');
+      press('Enter');
+      await pumpEventQueue();
+
+      expect(line.text.text, isEmpty, reason: 'команда ушла, строка очистилась');
+      expect(line.history, contains('cd docs'));
+      // Каталог панели спрашивать бесполезно: в дереве это каталог **строки**
+      // под курсором, и после перехода курсор снова стоит на той же ветви
+      // (`docs/spec/panel-view-tree.md`, §3).
+      expect(app.left.entries.map((entry) => entry.name), contains('docs'));
     });
 
     test('ввод остаётся у панели — стрелки и Tab по-прежнему её', () {
