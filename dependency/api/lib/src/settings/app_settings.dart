@@ -126,27 +126,33 @@ class PanelSettings implements Serializable {
 }
 
 /// Сохраняемые настройки приложения.
-/// Сессии одной стороны и та из них, что показана сейчас.
+/// Вкладка: то, что человек считает одной панелью.
 ///
-/// Сторон две, сессий в стороне бывает несколько: столбцами комбинированного
-/// вида или вкладками (`docs/spec/panel-slots.md`). Пустым слот не бывает —
-/// сторона без панели это состояние, которого в модели нет вовсе.
-class PanelSlotSettings implements Serializable {
-  PanelSlotSettings({List<PanelSettings>? panels, this.current = 0})
+/// Сессий в ней одна, а у комбинированного вида две — столбцы
+/// (`docs/spec/panel-tabs.md`, §3). Пустой вкладки не бывает.
+class PanelTabSettings implements Serializable {
+  PanelTabSettings({List<PanelSettings>? panels, this.current = 0, this.pinned = false})
     : panels = panels == null || panels.isEmpty ? [PanelSettings()] : panels;
 
   final List<PanelSettings> panels;
 
-  /// Номер показанной сессии.
+  /// Номер показанного столбца.
   int current;
 
-  /// Показанная сессия; сбившийся номер приводит к первой, а не роняет разбор.
+  /// Закреплённая: уход из неё открывает новую рядом.
+  bool pinned;
+
+  /// Показанный столбец; сбившийся номер приводит к первому, а не роняет
+  /// разбор.
   PanelSettings get currentPanel => panels[current.clamp(0, panels.length - 1)];
 
   @override
   void toMap(Map<String, dynamic> m) {
     m['panels'] = [for (final panel in panels) serialize(panel)];
     m['current'] = current;
+    if (pinned) {
+      m['pinned'] = true;
+    }
   }
 
   @override
@@ -158,6 +164,50 @@ class PanelSlotSettings implements Serializable {
         ..addAll(extractList<PanelSettings>(stored, (_) => PanelSettings()));
     }
     current = extract(current, m['current']).clamp(0, panels.length - 1);
+    pinned = extract(pinned, m['pinned']);
+  }
+}
+
+/// Вкладки одной стороны и та из них, что показана сейчас.
+///
+/// Сторон две, вкладок в стороне сколько завели (`docs/spec/panel-tabs.md`).
+/// Пустым слот не бывает — сторона без панели это состояние, которого в модели
+/// нет вовсе.
+class PanelSlotSettings implements Serializable {
+  PanelSlotSettings({List<PanelTabSettings>? tabs, List<PanelSettings>? panels, this.current = 0})
+    : tabs = tabs == null || tabs.isEmpty ? [PanelTabSettings(panels: panels)] : tabs;
+
+  final List<PanelTabSettings> tabs;
+
+  /// Номер показанной вкладки.
+  int current;
+
+  /// Показанная вкладка.
+  PanelTabSettings get currentTab => tabs[current.clamp(0, tabs.length - 1)];
+
+  /// Показанная сессия показанной вкладки — то, чем панель была до вкладок.
+  PanelSettings get currentPanel => currentTab.currentPanel;
+
+  @override
+  void toMap(Map<String, dynamic> m) {
+    m['tabs'] = [for (final tab in tabs) serialize(tab)];
+    m['current'] = current;
+  }
+
+  @override
+  void fromMap(Map<String, dynamic> m) {
+    // Форм в файле три, и читаются все. Нынешняя — список вкладок; прежняя —
+    // слот со списком сессий (одна вкладка); самая старая — голая панель
+    // (`docs/spec/panel-tabs.md`, §4).
+    final stored = m['tabs'];
+    if (stored is List && stored.isNotEmpty) {
+      tabs
+        ..clear()
+        ..addAll(extractList<PanelTabSettings>(stored, (_) => PanelTabSettings()));
+    } else if (m['panels'] is List) {
+      extract(tabs.first, m);
+    }
+    current = extract(current, m['current']).clamp(0, tabs.length - 1);
   }
 }
 
@@ -174,8 +224,16 @@ class AppSettings implements Serializable {
   }) : slots =
            slots ??
            [
-             PanelSlotSettings(panels: [left ?? PanelSettings()]),
-             PanelSlotSettings(panels: [right ?? PanelSettings()]),
+             PanelSlotSettings(
+               tabs: [
+                 PanelTabSettings(panels: [left ?? PanelSettings()]),
+               ],
+             ),
+             PanelSlotSettings(
+               tabs: [
+                 PanelTabSettings(panels: [right ?? PanelSettings()]),
+               ],
+             ),
            ],
        // Разделы модулей переносятся в новый снимок настроек как есть: это
        // живые объекты самих модулей, а не копия их значений.
@@ -263,18 +321,18 @@ class AppSettings implements Serializable {
     // Панели дописываются в уже готовые: в них лежит каталог по умолчанию,
     // и файл без пути его не потеряет.
     //
-    // Форм в файле две, и обе читаются. Старая — по одной панели на сторону,
-    // новая — слот со списком сессий. Отличаются они наличием `panels` внутри:
-    // у панели такого поля нет и быть не может (`docs/spec/panel-slots.md`,
-    // §5).
+    // Форм в файле три, и все читаются: голая панель, слот со списком сессий и
+    // слот со списком вкладок. Отличают их поля `tabs` и `panels`: у самой
+    // панели ни того, ни другого нет и быть не может
+    // (`docs/spec/panel-tabs.md`, §4).
     final stored = m['panels'];
     if (stored is List) {
       for (var i = 0; i < slots.length && i < stored.length; i++) {
         final item = stored[i];
-        if (item is Map && item['panels'] is List) {
+        if (item is Map && (item['tabs'] is List || item['panels'] is List)) {
           extract(slots[i], item);
         } else {
-          extract(slots[i].panels.first, item);
+          extract(slots[i].currentPanel, item);
         }
       }
     }

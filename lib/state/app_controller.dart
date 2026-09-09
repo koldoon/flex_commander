@@ -91,13 +91,12 @@ class AppController extends ChangeNotifier implements Application {
   @override
   late final AppViewController view = AppViewController(this);
 
-  /// Сессии по сторонам: слот на сторону, в слоте — та, что показана
-  /// (`docs/spec/panel-slots.md`).
+  /// Стороны, вкладки и столбцы (`docs/spec/panel-tabs.md`, §3).
   final List<_PanelSlot> _slots;
 
   /// Слоты по раскладке, приехавшей из настроек; сессия, которой в раскладке
-  /// нет, в слот не попадает, а пустой слот не бывает — в нём остаётся та,
-  /// что стояла там при запуске.
+  /// нет, в слот не попадает, а пустым он не бывает — там остаётся та вкладка,
+  /// что стояла при запуске.
   static List<_PanelSlot> _slotsOf(
     PanelMirror left,
     PanelMirror right,
@@ -111,10 +110,15 @@ class AppController extends ChangeNotifier implements Application {
     return [
       for (var side = 0; side < 2; side++)
         _PanelSlot(
-          panels: [
+          tabs: [
             if (side < slots.length)
-              for (final id in slots[side].panels)
-                if (byId[id] case final panel?) panel,
+              for (final tab in slots[side].tabs)
+                if ([
+                      for (final id in tab.panels)
+                        if (byId[id] case final panel?) panel,
+                    ]
+                    case final columns when columns.isNotEmpty)
+                  _PanelTab(columns: columns, current: tab.current, pinned: tab.pinned),
           ],
           current: side < slots.length ? slots[side].current : 0,
           fallback: side == 0 ? left : right,
@@ -133,7 +137,22 @@ class AppController extends ChangeNotifier implements Application {
   Iterable<PanelMirror> get _allPanels => _slots.expand((slot) => slot.panels);
 
   @override
-  List<Panel> panelsAt(ViewportPosition side) => List.unmodifiable(_slotAt(side).panels);
+  List<Panel> panelsAt(ViewportPosition side) => List.unmodifiable(_slotAt(side).shownTab.columns);
+
+  @override
+  List<PanelTab> tabsAt(ViewportPosition side) => List.unmodifiable(_slotAt(side).tabs);
+
+  @override
+  PanelTab? tabOf(Panel panel) {
+    for (final slot in _slots) {
+      for (final tab in slot.tabs) {
+        if (tab.columns.contains(panel)) {
+          return tab;
+        }
+      }
+    }
+    return null;
+  }
 
   _PanelSlot _slotAt(ViewportPosition side) => _slots[side == ViewportPosition.right ? 1 : 0];
 
@@ -147,27 +166,33 @@ class AppController extends ChangeNotifier implements Application {
     return null;
   }
 
+  /// Завести сессию по образцу; null — ядра нет или оно не умеет.
+  Future<PanelMirror?> _createPanel(Panel like) async {
+    if (like is! PanelMirror) {
+      return null;
+    }
+    final opened = await link?.call(OpenPanel(like.id));
+    if (opened is! PanelOpened) {
+      return null;
+    }
+    return PanelMirror(id: opened.panel, link: link!, state: opened.state, listing: opened.listing, strings: strings);
+  }
+
   @override
   Future<Panel> openPanel(ViewportPosition side, {Panel? like, int? at}) async {
-    final slot = _slotAt(side);
-    final model = like is PanelMirror ? like : slot.shown;
-    final opened = await link?.call(OpenPanel(model.id));
-    if (opened is! PanelOpened) {
+    final tab = _slotAt(side).shownTab;
+    final model = like is PanelMirror ? like : tab.shown;
+    final panel = await _createPanel(model);
+    if (panel == null) {
       // Ядра нет или оно не умеет заводить сессии: показанная остаётся одна.
-      return slot.shown;
+      return tab.shown;
     }
-    final panel = PanelMirror(
-      id: opened.panel,
-      link: link!,
-      state: opened.state,
-      listing: opened.listing,
-      strings: strings,
-    );
-    final place = (at ?? slot.panels.length).clamp(0, slot.panels.length);
-    slot.panels.insert(place, panel);
-    // Показанная остаётся показанной: заведение сессии не переводит взгляд.
-    if (place <= slot.current) {
-      slot.current++;
+    final place = (at ?? tab.columns.length).clamp(0, tab.columns.length);
+    tab.columns.insert(place, panel);
+    // Показанный столбец остаётся показанным: заведение сессии не переводит
+    // взгляд.
+    if (place <= tab.current) {
+      tab.current++;
     }
     _slotsChanged();
     return panel;
@@ -175,40 +200,107 @@ class AppController extends ChangeNotifier implements Application {
 
   @override
   void closePanel(Panel panel) {
-    final slot = _slotOf(panel);
-    // Последняя не закрывается: сторона без панели — состояние, которого в
-    // модели нет вовсе.
-    if (slot == null || slot.panels.length < 2 || panel is! PanelMirror) {
+    final tab = tabOf(panel);
+    // Последний столбец не закрывается: вкладка без панели — то же, что
+    // сторона без панели.
+    if (tab is! _PanelTab || tab.columns.length < 2 || panel is! PanelMirror) {
       return;
     }
-    final gone = slot.panels.indexOf(panel);
-    slot.panels.removeAt(gone);
-    if (slot.current >= slot.panels.length) {
-      slot.current = slot.panels.length - 1;
-    } else if (gone < slot.current) {
-      slot.current--;
+    final gone = tab.columns.indexOf(panel);
+    tab.columns.removeAt(gone);
+    if (tab.current >= tab.columns.length) {
+      tab.current = tab.columns.length - 1;
+    } else if (gone < tab.current) {
+      tab.current--;
     }
     final wasActive = panel.active;
     panel.close();
     if (wasActive) {
-      activate(slot.shown);
+      activate(tab.shown);
     }
     _slotsChanged();
   }
 
   @override
   void showPanel(Panel panel) {
-    final slot = _slotOf(panel);
-    if (slot == null || panel is! PanelMirror || identical(slot.shown, panel)) {
+    final tab = tabOf(panel);
+    if (tab is! _PanelTab || panel is! PanelMirror || identical(tab.shown, panel)) {
       return;
     }
-    final wasActive = slot.shown.active;
-    slot.current = slot.panels.indexOf(panel);
+    final wasActive = tab.shown.active;
+    tab.current = tab.columns.indexOf(panel);
     // Показанная сессия активной стороны — она же и активная: курсор один, и
     // стоит он там, где смотрят.
     if (wasActive) {
       _applyActive(panel);
     }
+    _slotsChanged();
+  }
+
+  @override
+  Future<PanelTab> openTab(ViewportPosition side, {Panel? like, int? at}) async {
+    final slot = _slotAt(side);
+    final model = like is PanelMirror ? like : slot.shown;
+    final panel = await _createPanel(model);
+    if (panel == null) {
+      return slot.shownTab;
+    }
+    final tab = _PanelTab(columns: [panel], current: 0, pinned: false);
+    final place = (at ?? slot.tabs.length).clamp(0, slot.tabs.length);
+    slot.tabs.insert(place, tab);
+    if (place <= slot.current) {
+      slot.current++;
+    }
+    // Заведённая вкладка и показывается: её для того и заводят.
+    showTab(tab);
+    return tab;
+  }
+
+  @override
+  void closeTab(PanelTab tab) {
+    final slot = _slotOf(tab.panel);
+    // Последняя не закрывается: сторона без панели — состояние, которого в
+    // модели нет вовсе.
+    if (slot == null || tab is! _PanelTab || slot.tabs.length < 2) {
+      return;
+    }
+    final gone = slot.tabs.indexOf(tab);
+    slot.tabs.removeAt(gone);
+    if (slot.current >= slot.tabs.length) {
+      slot.current = slot.tabs.length - 1;
+    } else if (gone < slot.current) {
+      slot.current--;
+    }
+    final wasActive = tab.columns.any((panel) => panel.active);
+    for (final panel in tab.columns) {
+      panel.close();
+    }
+    if (wasActive) {
+      _applyActive(slot.shown);
+    }
+    _slotsChanged();
+  }
+
+  @override
+  void showTab(PanelTab tab) {
+    final slot = _slotOf(tab.panel);
+    if (slot == null || tab is! _PanelTab) {
+      return;
+    }
+    final wasActive = slot.shown.active;
+    slot.current = slot.tabs.indexOf(tab);
+    if (wasActive) {
+      _applyActive(slot.shown);
+    }
+    _slotsChanged();
+  }
+
+  @override
+  void setTabPinned(PanelTab tab, bool pinned) {
+    if (tab is! _PanelTab || tab.pinned == pinned) {
+      return;
+    }
+    tab.pinned = pinned;
     _slotsChanged();
   }
 
@@ -222,7 +314,14 @@ class AppController extends ChangeNotifier implements Application {
 
   /// Раскладка слотов — значениями, для настроек.
   List<SlotLayout> get slotLayout => [
-    for (final slot in _slots) SlotLayout(panels: [for (final panel in slot.panels) panel.id], current: slot.current),
+    for (final slot in _slots)
+      SlotLayout(
+        tabs: [
+          for (final tab in slot.tabs)
+            TabLayout(panels: [for (final panel in tab.columns) panel.id], current: tab.current, pinned: tab.pinned),
+        ],
+        current: slot.current,
+      ),
   ];
 
   /// Действия приложения: за кнопкой нижней панели и за горячей клавишей
@@ -356,12 +455,16 @@ class AppController extends ChangeNotifier implements Application {
   @override
   void activate(Panel panel) {
     assert(_slotOf(panel) != null, 'Панель не принадлежит этому приложению');
-    // Сессия из того же слота, но не показанная, — это соседний столбец
-    // комбинированного вида: щелчок по нему и делает его текущим
-    // (`docs/spec/panel-slots.md`, §4).
+    // Сессия той же стороны, но не показанная, — это соседний столбец
+    // комбинированного вида или другая вкладка: щелчок по ней и делает её
+    // текущей (`docs/spec/panel-tabs.md`, §3).
     final slot = _slotOf(panel);
     if (slot != null && !identical(slot.shown, panel) && panel is PanelMirror) {
-      slot.current = slot.panels.indexOf(panel);
+      final tab = tabOf(panel);
+      if (tab is _PanelTab) {
+        slot.current = slot.tabs.indexOf(tab);
+        tab.current = tab.columns.indexOf(panel);
+      }
       view.showPanels();
       settingsChanged();
     }
@@ -628,18 +731,50 @@ class AppController extends ChangeNotifier implements Application {
   }
 }
 
-/// Сессии одной стороны и та из них, что показана.
+/// Вкладка: её столбцы и тот из них, что показан.
 ///
-/// Список живой: сессии заводятся и закрываются на ходу, а показана всегда
-/// ровно одна — та, что стоит в области (`docs/spec/panel-slots.md`, §4).
-class _PanelSlot {
-  _PanelSlot({required List<PanelMirror> panels, required int current, required PanelMirror fallback})
-    : panels = panels.isEmpty ? [fallback] : panels,
-      current = panels.isEmpty ? 0 : current.clamp(0, panels.length - 1);
+/// Столбец один, а у комбинированного вида два — дерево и список
+/// (`docs/spec/panel-tabs.md`, §3).
+class _PanelTab implements PanelTab {
+  _PanelTab({required this.columns, required int current, required this.pinned})
+    : current = columns.isEmpty ? 0 : current.clamp(0, columns.length - 1);
 
-  final List<PanelMirror> panels;
+  final List<PanelMirror> columns;
 
   int current;
 
-  PanelMirror get shown => panels[current];
+  @override
+  bool pinned;
+
+  PanelMirror get shown => columns[current];
+
+  @override
+  Panel get panel => shown;
+}
+
+/// Вкладки одной стороны и та из них, что показана.
+///
+/// Список живой: вкладки заводятся и закрываются на ходу, а показана всегда
+/// ровно одна — её показанный столбец и стоит в области
+/// (`docs/spec/panel-slots.md`, §4).
+class _PanelSlot {
+  _PanelSlot({required List<_PanelTab> tabs, required int current, required PanelMirror fallback})
+    : tabs =
+          tabs.isEmpty
+              ? [
+                _PanelTab(columns: [fallback], current: 0, pinned: false),
+              ]
+              : tabs,
+      current = tabs.isEmpty ? 0 : current.clamp(0, tabs.length - 1);
+
+  final List<_PanelTab> tabs;
+
+  int current;
+
+  _PanelTab get shownTab => tabs[current];
+
+  PanelMirror get shown => shownTab.shown;
+
+  /// Все сессии стороны — в порядке вкладок и столбцов.
+  Iterable<PanelMirror> get panels => tabs.expand((tab) => tab.columns);
 }

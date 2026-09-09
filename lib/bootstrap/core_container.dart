@@ -214,30 +214,35 @@ class CoreContainer extends DI {
                   cache: c.get<ListingCache>(),
                 );
 
-        // Сессии заводятся по файлу, и первыми — показанные: им достаются
-        // личности `PanelId.left` и `PanelId.right`, остальным — номера
-        // следом (`docs/spec/panel-slots.md`, §5).
-        final slots = settings.slots;
-        final left = panels.create(slots[0].currentPanel);
-        final right = rightPanels.create(slots[1].currentPanel);
+        // Сессии заводятся по файлу, показанные — первыми: им и достаются личности
+        // `PanelId.left` и `PanelId.right` (`docs/spec/panel-tabs.md`, §4). То же
+        // самое делает сборка приложения, и делать иначе здесь значило бы проверять
+        // не то приложение.
+        final left = panels.create(settings.left);
+        final right = rightPanels.create(settings.right);
         final more = <PanelSession>[];
         final layout = <SlotLayout>[];
 
-        for (var side = 0; side < slots.length; side++) {
-          final slot = slots[side];
+        for (var side = 0; side < settings.slots.length; side++) {
+          final slot = settings.slots[side];
           final factory = side == 0 ? panels : rightPanels;
-          final shown = slot.current.clamp(0, slot.panels.length - 1);
-          final ids = <PanelId>[];
-          for (var i = 0; i < slot.panels.length; i++) {
-            if (i == shown) {
-              ids.add(side == 0 ? PanelId.left : PanelId.right);
-              continue;
+          final shownTab = slot.current.clamp(0, slot.tabs.length - 1);
+          final tabs = <TabLayout>[];
+          for (var t = 0; t < slot.tabs.length; t++) {
+            final tab = slot.tabs[t];
+            final shown = tab.current.clamp(0, tab.panels.length - 1);
+            final ids = <PanelId>[];
+            for (var i = 0; i < tab.panels.length; i++) {
+              if (t == shownTab && i == shown) {
+                ids.add(side == 0 ? PanelId.left : PanelId.right);
+                continue;
+              }
+              ids.add(PanelId(more.length + 2));
+              more.add(factory.create(tab.panels[i]));
             }
-            // Номер по порядку добавления: ядро раздаёт их так же.
-            ids.add(PanelId(more.length + 2));
-            more.add(factory.create(slot.panels[i]));
+            tabs.add(TabLayout(panels: ids, current: shown, pinned: tab.pinned));
           }
-          layout.add(SlotLayout(panels: ids, current: shown));
+          layout.add(SlotLayout(tabs: tabs, current: shownTab));
         }
 
         final sessions = {

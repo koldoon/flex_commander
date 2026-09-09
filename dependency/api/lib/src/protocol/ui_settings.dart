@@ -2,33 +2,66 @@ import '../settings/app_settings.dart';
 import '../settings/window_geometry.dart';
 import 'entry_ref.dart';
 
-/// Какие сессии стоят в стороне и которая из них показана.
+/// Сессии одной вкладки и та из них, что показана.
 ///
-/// Раскладка — дело экрана: ядро знает сессии, но не знает, где они
-/// (`docs/spec/panel-slots.md`, §2). В настройки она попадает через него же,
-/// как и всё прочее экранное.
-class SlotLayout {
-  const SlotLayout({required this.panels, this.current = 0});
+/// Столбцов у вкладки один, а у комбинированного вида два
+/// (`docs/spec/panel-tabs.md`, §3).
+class TabLayout {
+  const TabLayout({required this.panels, this.current = 0, this.pinned = false});
 
-  /// Личности сессий стороны, в том порядке, в каком они показаны.
+  /// Личности сессий вкладки, в порядке столбцов.
   final List<PanelId> panels;
 
-  /// Номер показанной.
+  /// Номер показанного столбца.
   final int current;
+
+  /// Закреплённая: уход из неё открывает новую рядом.
+  final bool pinned;
 
   @override
   bool operator ==(Object other) =>
-      other is SlotLayout &&
+      other is TabLayout &&
       other.current == current &&
+      other.pinned == pinned &&
       other.panels.length == panels.length &&
       // По одной: списки сравниваются ссылкой, а раскладка приезжает новой.
       List.generate(panels.length, (i) => other.panels[i] == panels[i]).every((same) => same);
 
   @override
-  int get hashCode => Object.hash(current, Object.hashAll(panels));
+  int get hashCode => Object.hash(current, pinned, Object.hashAll(panels));
 
   @override
-  String toString() => 'SlotLayout($panels, current: $current)';
+  String toString() => 'TabLayout($panels, current: $current${pinned ? ', pinned' : ''})';
+}
+
+/// Какие вкладки стоят в стороне и которая из них показана.
+///
+/// Раскладка — дело экрана: ядро знает сессии, но не знает, где они
+/// (`docs/spec/panel-slots.md`, §2). В настройки она попадает через него же,
+/// как и всё прочее экранное.
+class SlotLayout {
+  const SlotLayout({required this.tabs, this.current = 0});
+
+  final List<TabLayout> tabs;
+
+  /// Номер показанной вкладки.
+  final int current;
+
+  /// Все сессии стороны — в порядке вкладок и столбцов.
+  Iterable<PanelId> get panels => tabs.expand((tab) => tab.panels);
+
+  @override
+  bool operator ==(Object other) =>
+      other is SlotLayout &&
+      other.current == current &&
+      other.tabs.length == tabs.length &&
+      List.generate(tabs.length, (i) => other.tabs[i] == tabs[i]).every((same) => same);
+
+  @override
+  int get hashCode => Object.hash(current, Object.hashAll(tabs));
+
+  @override
+  String toString() => 'SlotLayout($tabs, current: $current)';
 }
 
 /// Настройки, которые держит и правит экран.
@@ -48,10 +81,19 @@ class UiSettings {
     this.slots = defaultSlots,
   });
 
-  /// По одной сессии на сторону — то, чем приложение и было до слотов.
+  /// По одной вкладке на сторону, и в ней одна сессия — то, чем приложение и
+  /// было до слотов.
   static const List<SlotLayout> defaultSlots = [
-    SlotLayout(panels: [PanelId.left]),
-    SlotLayout(panels: [PanelId.right]),
+    SlotLayout(
+      tabs: [
+        TabLayout(panels: [PanelId.left]),
+      ],
+    ),
+    SlotLayout(
+      tabs: [
+        TabLayout(panels: [PanelId.right]),
+      ],
+    ),
   ];
 
   /// 0 — активна левая панель, 1 — правая.

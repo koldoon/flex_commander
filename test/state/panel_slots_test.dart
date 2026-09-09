@@ -156,9 +156,9 @@ void main() {
 
       final saved = await waitForSaved();
 
-      expect(saved.slots[0].panels.map((panel) => panel.path), ['/home', '/work']);
-      expect(saved.slots[0].current, 1, reason: 'показана вторая');
-      expect(saved.slots[1].panels.length, 1);
+      expect(saved.slots[0].currentTab.panels.map((panel) => panel.path), ['/home', '/work']);
+      expect(saved.slots[0].currentTab.current, 1, reason: 'показана вторая');
+      expect(saved.slots[1].currentTab.panels.length, 1);
       // И привычное короткое имя означает показанную.
       expect(saved.left.path, '/work');
     });
@@ -173,7 +173,7 @@ void main() {
       });
 
       expect(settings.slots.length, 2);
-      expect(settings.slots[0].panels.map((panel) => panel.path), ['/work']);
+      expect(settings.slots[0].currentTab.panels.map((panel) => panel.path), ['/work']);
       expect(settings.left.path, '/work');
       expect(settings.right.path, '/home/docs');
     });
@@ -197,7 +197,7 @@ void main() {
         ],
       });
 
-      expect(settings.slots[0].panels.map((panel) => panel.path), ['/home', '/work']);
+      expect(settings.slots[0].currentTab.panels.map((panel) => panel.path), ['/home', '/work']);
       expect(settings.left.path, '/work', reason: 'показана вторая');
       expect(settings.right.path, '/home/docs');
     });

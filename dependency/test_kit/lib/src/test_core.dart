@@ -34,7 +34,7 @@ AppController testCore({
   const editor = TreeTransferEngine();
 
   // Сессии заводятся по файлу, показанные — первыми: им и достаются личности
-  // `PanelId.left` и `PanelId.right` (`docs/spec/panel-slots.md`, §5). То же
+  // `PanelId.left` и `PanelId.right` (`docs/spec/panel-tabs.md`, §4). То же
   // самое делает сборка приложения, и делать иначе здесь значило бы проверять
   // не то приложение.
   final left = PanelSession(settings: settings.left, registry: registry, editor: editor);
@@ -45,17 +45,23 @@ AppController testCore({
   for (var side = 0; side < settings.slots.length; side++) {
     final slot = settings.slots[side];
     final sideRegistry = side == 0 ? registry : rightRegistry;
-    final shown = slot.current.clamp(0, slot.panels.length - 1);
-    final ids = <PanelId>[];
-    for (var i = 0; i < slot.panels.length; i++) {
-      if (i == shown) {
-        ids.add(side == 0 ? PanelId.left : PanelId.right);
-        continue;
+    final shownTab = slot.current.clamp(0, slot.tabs.length - 1);
+    final tabs = <TabLayout>[];
+    for (var t = 0; t < slot.tabs.length; t++) {
+      final tab = slot.tabs[t];
+      final shown = tab.current.clamp(0, tab.panels.length - 1);
+      final ids = <PanelId>[];
+      for (var i = 0; i < tab.panels.length; i++) {
+        if (t == shownTab && i == shown) {
+          ids.add(side == 0 ? PanelId.left : PanelId.right);
+          continue;
+        }
+        ids.add(PanelId(more.length + 2));
+        more.add(PanelSession(settings: tab.panels[i], registry: sideRegistry, editor: editor));
       }
-      ids.add(PanelId(more.length + 2));
-      more.add(PanelSession(settings: slot.panels[i], registry: sideRegistry, editor: editor));
+      tabs.add(TabLayout(panels: ids, current: shown, pinned: tab.pinned));
     }
-    layout.add(SlotLayout(panels: ids, current: shown));
+    layout.add(SlotLayout(tabs: tabs, current: shownTab));
   }
 
   final sessions = {

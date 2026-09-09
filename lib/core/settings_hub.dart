@@ -75,11 +75,18 @@ class SettingsHub {
     slots: [
       for (final slot in _ui.slots)
         PanelSlotSettings(
-          // Закрытая сессия в файл не попадает: раскладка приезжает с экрана и
-          // может отстать от закрытия на одно сообщение.
-          panels: [
-            for (final panel in slot.panels)
-              if (_panelSettings(panel) case final settings?) settings,
+          tabs: [
+            for (final tab in slot.tabs)
+              PanelTabSettings(
+                // Закрытая сессия в файл не попадает: раскладка приезжает с
+                // экрана и может отстать от закрытия на одно сообщение.
+                panels: [
+                  for (final panel in tab.panels)
+                    if (_panelSettings(panel) case final settings?) settings,
+                ],
+                current: tab.current,
+                pinned: tab.pinned,
+              ),
           ],
           current: slot.current,
         ),
@@ -160,8 +167,9 @@ class SettingsHub {
 
   /// Тот же снимок, но без положения курсора.
   ///
-  /// Ходит по слотам: в файле лежат стороны, а в них — сессии
-  /// (`docs/spec/panel-slots.md`, §5), и положение курсора у каждой своё.
+  /// Ходит по слотам и вкладкам: в файле лежат стороны, в них вкладки, а в
+  /// тех — сессии (`docs/spec/panel-tabs.md`, §4), и положение курсора у
+  /// каждой своё.
   String _snapshotWithoutCursor() {
     final map = serialize(settings);
     final slots = map['panels'];
@@ -170,20 +178,26 @@ class SettingsHub {
         if (slot is! Map) {
           continue;
         }
-        final panels = slot['panels'];
-        if (panels is! List) {
+        final tabs = slot['tabs'];
+        if (tabs is! List) {
           continue;
         }
-        for (final panel in panels) {
-          if (panel is Map) {
-            panel
-              ..remove('cursor')
-              // Путь курсора — то же положение, только для дерева: имени там
-              // мало (`docs/spec/panel-node-list.md`, §3). Ради движения
-              // курсора настройки на диск не пишутся.
-              ..remove('cursorPath')
-              // И прокрутка: это положение, а не настройка.
-              ..remove('scroll');
+        for (final tab in tabs) {
+          final panels = tab is Map ? tab['panels'] : null;
+          if (panels is! List) {
+            continue;
+          }
+          for (final panel in panels) {
+            if (panel is Map) {
+              panel
+                ..remove('cursor')
+                // Путь курсора — то же положение, только для дерева: имени
+                // там мало (`docs/spec/panel-node-list.md`, §3). Ради движения
+                // курсора настройки на диск не пишутся.
+                ..remove('cursorPath')
+                // И прокрутка: это положение, а не настройка.
+                ..remove('scroll');
+            }
           }
         }
       }

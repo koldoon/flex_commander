@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import '../background/operations.dart';
 import '../commands/command_service.dart';
 import 'errors.dart';
+import 'panel_tab.dart';
 import 'panel_view_spec.dart';
 import 'panel_viewport.dart';
 import 'viewport.dart';
@@ -39,8 +40,34 @@ abstract interface class Application implements Listenable {
 
   Panel get right;
 
-  /// Все сессии стороны, в порядке показа.
+  /// Столбцы показанной вкладки этой стороны.
+  ///
+  /// Столбец один, а у комбинированного вида два — дерево и список
+  /// (`docs/spec/panel-tabs.md`, §3).
   List<Panel> panelsAt(ViewportPosition side);
+
+  /// Вкладки стороны, в порядке ряда.
+  List<PanelTab> tabsAt(ViewportPosition side);
+
+  /// Вкладка, которой принадлежит эта сессия; null — сессия не наша.
+  PanelTab? tabOf(Panel panel);
+
+  /// Завести вкладку — по образцу [like] или показанной — и показать её.
+  ///
+  /// [at] — место в ряду; пусто — в конец.
+  Future<PanelTab> openTab(ViewportPosition side, {Panel? like, int? at});
+
+  /// Убрать вкладку со всеми её столбцами: они отпускают аренду и уходят.
+  ///
+  /// Последнюю в стороне убрать нельзя.
+  void closeTab(PanelTab tab);
+
+  /// Показать эту вкладку вместо нынешней. Прежняя остаётся жить.
+  void showTab(PanelTab tab);
+
+  /// Закрепить вкладку или отпустить: закреплённая остаётся на своём каталоге,
+  /// а уход из неё открывает новую рядом.
+  void setTabPinned(PanelTab tab, bool pinned);
 
   /// Завести в стороне ещё одну сессию — по образцу [like] или показанной.
   ///
