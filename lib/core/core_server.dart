@@ -335,6 +335,14 @@ class CoreServer implements CoreHandler {
       case OpenPanel(:final like):
         return _openPanel(like);
 
+      case RestorePanel(:final panel):
+        final shown = sessionOrNull(panel);
+        // Прочитанной просьба ничего не стоит: показ не значит перечитывания.
+        if (shown != null && !shown.restored) {
+          await _restore(shown);
+        }
+        return null;
+
       case ClosePanel(:final panel):
         // Убрана — значит убрана: сессия отпускает аренду и уходит из карты.
         // Опоздавшая просьба к ней ответит пустотой, а не чужой панели.
@@ -436,12 +444,20 @@ class CoreServer implements CoreHandler {
     }
   }
 
-  /// Открыть панели там, где их оставили.
+  /// Открыть показанные панели там, где их оставили.
   ///
   /// Первым делом и до всякого экрана: интерфейс подписывается на готовое, а
   /// не смотрит, как оно собирается. Обе разом — вторая не должна ждать первую.
   Future<void> start() async {
-    await Future.wait([for (final entry in _panels.entries) _restore(entry.value)]);
+    // Только показанные: сессий бывает много, а десять сессий не должны
+    // превращать запуск в десять чтений диска
+    // (`docs/spec/panel-sessions.md`, §6). Непоказанные ждут первого показа —
+    // просьбы `RestorePanel`.
+    final shown = _settings?.shownSessions;
+    await Future.wait([
+      for (final entry in _panels.entries)
+        if (shown == null || shown.contains(entry.key)) _restore(entry.value),
+    ]);
     // Открытие панелей — не изменение настроек: там ровно то, что в файле и
     // лежало, и записывать это заново незачем.
     _settings?.remember();

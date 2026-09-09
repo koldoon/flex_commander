@@ -5,6 +5,7 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flex_commander/core/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
+import 'package:flex_commander/ui/session_mirror.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -135,6 +136,44 @@ void main() {
       app.closeSession(panel.session);
 
       expect(panel.sessions.length, 1);
+    });
+  });
+
+  group('ленивое чтение', () {
+    /// Настройки с тремя наборами: показаны первый и второй.
+    AppSettings threePanels() => AppSettings(
+      panels: [
+        PanelGroupSettings(sessions: [PanelSettings.defaults('/home')]),
+        PanelGroupSettings(sessions: [PanelSettings.defaults('/home/docs')]),
+        PanelGroupSettings(sessions: [PanelSettings.defaults('/work')]),
+      ],
+      shown: [0, 1],
+    );
+
+    test('непоказанный набор каталога не читает', () async {
+      final app = await build(threePanels());
+
+      expect(provider.listings, 2, reason: 'прочитаны только показанные');
+      final cold = app.panels[2].session as SessionMirror;
+      expect(app.sessionOf(cold.id).restored, isFalse);
+      expect(cold.currentPath, '/work', reason: 'сессия стоит там, где её оставили');
+    });
+
+    test('первый показ читает, второй — нет', () async {
+      final app = await build(threePanels());
+      final cold = app.panels[2];
+
+      app.showPanel(ViewportPosition.left, cold);
+      await pumpEventQueue();
+
+      expect(provider.listings, 3);
+      expect(app.left.currentPath, '/work');
+
+      app.showPanel(ViewportPosition.left, app.panels[0]);
+      app.showPanel(ViewportPosition.left, cold);
+      await pumpEventQueue();
+
+      expect(provider.listings, 3, reason: 'прочитанное не перечитывается');
     });
   });
 

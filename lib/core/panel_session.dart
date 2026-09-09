@@ -375,7 +375,10 @@ class PanelSession {
   /// Спрашивают **набор строк**: у списка каталога это сам каталог, у дерева —
   /// каталог строки под курсором. Панель тут ничего не решает: что значит «где
   /// я стою», знает тот, кто собрал строки.
-  String get currentPath => _standing.isEmpty ? (_directory?.displayPath ?? '') : _standing;
+  /// Непрочитанная сессия отвечает тем каталогом, где её оставили: она
+  /// **стоит** там, просто ещё не читана (`docs/spec/panel-sessions.md`, §6), а
+  /// ряд наборов должен называть её по месту, а не пустотой.
+  String get currentPath => _standing.isEmpty ? (_directory?.displayPath ?? _lastPath) : _standing;
 
   /// Каталог, в котором панель стоит с точки зрения курсора.
   ///
@@ -404,7 +407,15 @@ class PanelSession {
   }
 
   /// Имя показанного каталога: последнее звено пути.
-  String get directoryName => _directory?.name ?? '';
+  /// Имя каталога; у непрочитанной сессии — имя того, где её оставили.
+  String get directoryName {
+    final directory = _directory;
+    if (directory != null) {
+      return directory.name;
+    }
+    final at = _lastPath.lastIndexOf('/');
+    return at < 0 ? _lastPath : _lastPath.substring(at + 1);
+  }
 
   /// Есть ли куда подниматься. У корня источника — нет.
   bool get canGoUp => _directory?.parentDirectory != null;
@@ -1650,6 +1661,12 @@ class PanelSession {
   /// стоит. Одно поле на оба случая: восстановление после запуска — это тот же
   /// возврат в каталог, где уже были.
   String get savedPath => _directory?.pathString ?? _lastPath;
+
+  /// Читали ли уже каталог этой сессии.
+  ///
+  /// Ленивое чтение заводит сессии все, а читает показанные; остальные ждут
+  /// первого показа (`docs/spec/panel-sessions.md`, §6).
+  bool get restored => _directory != null;
 
   /// Текущее состояние панели в виде сохраняемых настроек.
   PanelSettings get settings {

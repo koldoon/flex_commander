@@ -257,7 +257,20 @@ class AppController extends ChangeNotifier implements Application {
     if (wasActive) {
       _applyActive(_panelAt(side).shown);
     }
+    _wake(_panels[number]);
     _panelsChanged();
+  }
+
+  /// Показали набор — прочитать его сессии, если их ещё не читали.
+  ///
+  /// Ленивое чтение: при запуске ядро читает только показанные, остальные ждут
+  /// этой просьбы (`docs/spec/panel-sessions.md`, §6). Прочитанной она ничего
+  /// не стоит, поэтому проверять «а холодная ли она» здесь не нужно: об этом
+  /// знает та сторона.
+  void _wake(_Panel panel) {
+    for (final column in panel.columns) {
+      unawaited(link?.call(RestorePanel(column.id)) ?? Future<void>.value());
+    }
   }
 
   @override

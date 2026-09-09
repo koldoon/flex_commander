@@ -436,6 +436,17 @@ final class OpenPanel extends CoreRequest {
   final PanelId like;
 }
 
+/// Показали сессию, которую при запуске не читали, — прочитать её каталог.
+///
+/// Ленивое чтение (`docs/spec/panel-sessions.md`, §6): сессии заводятся все, а
+/// каталог читается у показанных. Уже прочитанной просьба ничего не стоит —
+/// перечитывания она не значит.
+final class RestorePanel extends CoreRequest {
+  const RestorePanel(this.panel);
+
+  final PanelId panel;
+}
+
 /// Панель убрали из области: отпустить всё, что она держала.
 ///
 /// Не то же, что «прервать»: работу можно прервать и остаться на месте, а
