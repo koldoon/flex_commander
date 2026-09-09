@@ -202,6 +202,26 @@ void main() {
       expect(settings.right.path, '/home/docs');
     });
 
+    test('вкладки переживают перезапуск вместе с закреплением', () async {
+      final first = await build();
+      final tab = await first.openTab(ViewportPosition.left);
+      await tab.panel.openPath('/work');
+      first.setTabPinned(tab, true);
+      await waitForSaved();
+      await first.save();
+
+      final saved = await store.load();
+      expect(saved.slots[0].tabs.length, 2);
+      expect(saved.slots[0].tabs[1].panels.first.path, '/work');
+      expect(saved.slots[0].tabs[1].pinned, isTrue);
+      expect(saved.slots[0].current, 1, reason: 'показана заведённая');
+
+      final restored = await build(saved);
+      expect(restored.tabsAt(ViewportPosition.left).length, 2);
+      expect(restored.left.currentPath, '/work');
+      expect(restored.tabsAt(ViewportPosition.left)[1].pinned, isTrue);
+    });
+
     test('сохранённые сессии восстанавливаются при запуске', () async {
       final first = await build();
       final second = await first.openPanel(ViewportPosition.left);

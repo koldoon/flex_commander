@@ -123,6 +123,24 @@ void main() {
     expect(find.descendant(of: row, matching: find.text('src — work')), findsOneWidget);
   });
 
+  testWidgets('уход из закреплённой открывает новую, а сама она остаётся', (tester) async {
+    final runtime = await open(tester);
+    final pinned = tabs(runtime).first;
+
+    runtime.app.setTabPinned(pinned, true);
+    await tester.pumpAndSettle();
+
+    // Уходим из неё — как обычно, открытием каталога.
+    await runtime.app.left.openPath('/work');
+    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pumpAndSettle();
+
+    expect(tabs(runtime).length, 2, reason: 'новый каталог уехал в новую вкладку');
+    expect(pinned.panel.currentPath, '/home', reason: 'а закреплённая осталась на своём');
+    expect(runtime.app.left.currentPath, '/work', reason: 'и показывается новая');
+  });
+
   testWidgets('щелчок по вкладке показывает её', (tester) async {
     final runtime = await open(tester);
     final first = runtime.app.left;

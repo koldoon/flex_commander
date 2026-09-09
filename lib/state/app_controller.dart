@@ -75,6 +75,15 @@ class AppController extends ChangeNotifier implements Application {
        window = window ?? const NoopWindowService() {
     // Одна панель активна всегда, ещё до первого чтения каталогов.
     _applyActive(settings.activePanel == 1 ? this.right : this.left);
+    // За закреплёнными, приехавшими из настроек, следим с первого кадра: иначе
+    // закрепление переживало бы перезапуск только на вид.
+    for (final slot in _slots) {
+      for (final tab in slot.tabs) {
+        if (tab.pinned) {
+          _watchPinned(tab);
+        }
+      }
+    }
     // Слушать панели ради записи больше незачем: их настройки — это состояние
     // сеанса, и ядро видит его раньше и точнее (`spec/client-server.md`, §9).
     this.window.addListener(_onWindowChanged);
@@ -301,8 +310,59 @@ class AppController extends ChangeNotifier implements Application {
       return;
     }
     tab.pinned = pinned;
+    _watchPinned(tab);
     _slotsChanged();
   }
+
+  /// Следить за закреплённой вкладкой — или перестать.
+  void _watchPinned(_PanelTab tab) {
+    void moved() => _pinnedMoved(tab);
+    // Слушатель один на вкладку: снимаем прежний в любом случае, ставим — если
+    // закреплена.
+    tab.shown.removeListener(tab.onMoved ?? moved);
+    if (!tab.pinned) {
+      tab.onMoved = null;
+      tab.pinnedPath = '';
+      return;
+    }
+    tab.pinnedPath = tab.shown.currentPath;
+    tab.onMoved = moved;
+    tab.shown.addListener(moved);
+  }
+
+  /// Закреплённую увели в другой каталог: новый каталог уходит в новую
+  /// вкладку, а эта возвращается на свой.
+  ///
+  /// Не изнутри уведомления: панель рассказывает о себе, разбирая событие ядра,
+  /// и просьба к ядру оттуда падает — тот же урок, что и у столбцов
+  /// (`docs/spec/panel-view-combined.md`, §5).
+  void _pinnedMoved(_PanelTab tab) {
+    final at = tab.shown.currentPath;
+    if (_closed || !tab.pinned || _returning || at.isEmpty || at == tab.pinnedPath) {
+      return;
+    }
+    final side =
+        _slots.indexWhere((slot) => slot.tabs.contains(tab)) == 1 ? ViewportPosition.right : ViewportPosition.left;
+    _returning = true;
+    Timer.run(() async {
+      try {
+        if (_closed) {
+          return;
+        }
+        await openTab(side, like: tab.shown);
+        await tab.shown.openPath(tab.pinnedPath);
+      } finally {
+        _returning = false;
+      }
+    });
+  }
+
+  /// Идёт возврат закреплённой: её собственные вести в это время не в счёт.
+  bool _returning = false;
+
+  /// Приложение уже закрыли: вести, догнавшие нас после этого, ничего не
+  /// значат — отвечать на них некому.
+  bool _closed = false;
 
   /// Раскладка изменилась: рабочая область показывает другую сессию, а ядро
   /// узнаёт, кого куда писать в файл.
@@ -723,6 +783,17 @@ class AppController extends ChangeNotifier implements Application {
 
   @override
   void dispose() {
+    _closed = true;
+    // Слежение за закреплёнными снимается: панель ещё жива и рассказывает о
+    // себе, а отвечать на это уже некому.
+    for (final slot in _slots) {
+      for (final tab in slot.tabs) {
+        if (tab.onMoved case final moved?) {
+          tab.shown.removeListener(moved);
+          tab.onMoved = null;
+        }
+      }
+    }
     toasts.dispose();
     credentials.dispose();
     elevation.dispose();
@@ -745,6 +816,16 @@ class _PanelTab implements PanelTab {
 
   @override
   bool pinned;
+
+  /// Слушатель, которым следят за закреплённой; null — не следят.
+  VoidCallback? onMoved;
+
+  /// Каталог, на котором закреплённая вкладка стоит.
+  ///
+  /// Запоминается при закреплении: уход из вкладки — это переход в другой
+  /// каталог, и вернуть её надо туда, где её закрепили
+  /// (`docs/spec/panel-tabs.md`, §2).
+  String pinnedPath = '';
 
   PanelMirror get shown => columns[current];
 

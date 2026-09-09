@@ -54,6 +54,24 @@ class Panels implements FcFrontendModule {
           read: () => settingsOf().cursorHoldsPlace,
           write: (value) => settingsOf().cursorHoldsPlace = value,
         ),
+        SettingsField.flag(
+          'tabsAlwaysVisible',
+          defaultValue: false,
+          title: strings.tr('Always show the tab row'),
+          description: strings.tr('Otherwise it appears with the second tab: an empty row eats a line of the list'),
+          read: () => settingsOf().tabsAlwaysVisible,
+          write: (value) => settingsOf().tabsAlwaysVisible = value,
+        ),
+        SettingsField.integer(
+          'maxTabs',
+          min: PanelsSettings.minTabs,
+          max: PanelsSettings.maxTabsLimit,
+          defaultValue: PanelsSettings.defaultMaxTabs,
+          title: strings.tr('Tabs per side'),
+          description: strings.tr('A tab holds its source open: five archives are five unpacked copies'),
+          read: () => settingsOf().maxTabs,
+          write: (value) => settingsOf().maxTabs = value,
+        ),
       ], save: settings.save);
     });
 
@@ -261,6 +279,12 @@ const Map<String, String> _russian = {
   'Tab by number': 'Вкладка по номеру',
   'Show the tab with this number': 'Показать вкладку с этим номером',
   'Pin tab': 'Закрепить вкладку',
+  'Always show the tab row': 'Всегда показывать ряд вкладок',
+  'Otherwise it appears with the second tab: an empty row eats a line of the list':
+      'Иначе он появляется со второй вкладкой: пустой ряд отнимает строку у списка',
+  'Tabs per side': 'Вкладок на сторону',
+  'A tab holds its source open: five archives are five unpacked copies':
+      'Вкладка держит свой источник открытым: пять архивов — пять распакованных копий',
   'A pinned tab stays on its directory; leaving it opens a new one':
       'Закреплённая вкладка остаётся на своём каталоге, а уход из неё открывает новую',
 
