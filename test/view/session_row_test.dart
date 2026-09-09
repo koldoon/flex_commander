@@ -105,7 +105,11 @@ void main() {
 
       expect(plus.height, chip.height, reason: 'кнопка ростом с запись');
       expect(plus.top, chip.top, reason: 'и стоит с ней вровень');
-      expect(chip.center.dy, bar.center.dy, reason: 'по центру полосы — там же, где светофор');
+      expect(
+        chip.center.dy,
+        bar.center.dy + metrics.windowTitleBarContentNudge,
+        reason: 'по центру светофора — он ниже середины полосы',
+      );
       expect(plus.right, bar.right - metrics.windowSidePadding, reason: 'поле окна одно на всё содержимое');
     });
 

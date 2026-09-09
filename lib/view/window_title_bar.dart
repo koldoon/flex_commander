@@ -58,7 +58,14 @@ class WindowTitleBar extends StatelessWidget {
                     // Справа ряд кончается там же, где панели под ним: поле
                     // окна одно на всё содержимое.
                     padding: EdgeInsets.only(right: metrics.windowSidePadding),
-                    child: const PanelRow(),
+                    // И опущен на оптический сдвиг: середина светофора ниже
+                    // середины полосы, а равняться ряд должен по нему.
+                    // Сдвигом, а не полем: разметку он не меняет, и высота
+                    // полосы остаётся ровно той, что назначила тема.
+                    child: Transform.translate(
+                      offset: Offset(0, metrics.windowTitleBarContentNudge),
+                      child: const PanelRow(),
+                    ),
                   ),
                 ),
               ],

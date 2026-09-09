@@ -33,6 +33,11 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get windowDragHandleWidth => 50;
 
+  /// Две точки — столько, чтобы середины плашек совпали с серединой светофора.
+  /// Меряно по живому окну: сама полоса стоит от верхнего края.
+  @override
+  double get windowTitleBarContentNudge => 2;
+
   @override
   double get windowTopPadding => 8;
 
