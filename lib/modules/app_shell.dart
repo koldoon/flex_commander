@@ -8,6 +8,7 @@ import '../state/background_tasks_state.dart';
 import '../state/commands/background_commands.dart';
 import '../state/commands/help_command.dart';
 import '../state/commands/palette_command.dart';
+import '../state/commands/session_commands.dart';
 import '../state/commands/settings_command.dart';
 import '../state/shell_settings.dart';
 import '../ui/credentials_prompt.dart';
@@ -139,6 +140,33 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     // Привычка macOS. Действует и в просмотрщике, и в редакторе: настройки —
     // не про то, что сейчас на экране.
     registry.binding(KeyBinding.anywhere('Cmd-,', SettingsCommand.commandId));
+
+    // Открытые сессии: один список на приложение, ряд над панелями рисует
+    // шелл, и команды его же (`docs/spec/panel-sessions.md`, §9).
+    registry.command((context) => NewSessionCommand());
+    registry.command((context) => CloseSessionCommand());
+    registry.command((context) => CycleSessionsCommand(forward: true));
+    registry.command((context) => CycleSessionsCommand(forward: false));
+    registry.command((context) => SelectSessionCommand());
+    registry.command((context) => ChooseSessionCommand());
+    registry.command((context) => RenameSessionCommand());
+    registry.binding(KeyBinding('Cmd-Shift-T', NewSessionCommand.commandId));
+    registry.binding(KeyBinding('Cmd-Shift-W', CloseSessionCommand.commandId));
+    // `Ctrl-Tab` — тот, к которому все привыкли: `Ctrl` и `Cmd` у нас разные
+    // модификаторы, на macOS это сочетание свободно, а на Windows и Linux оно
+    // и есть родное.
+    registry.binding(KeyBinding('Ctrl-Tab', CycleSessionsCommand.nextId));
+    registry.binding(KeyBinding('Ctrl-Shift-Tab', CycleSessionsCommand.previousId));
+    registry.binding(KeyBinding('Cmd-Shift-O', ChooseSessionCommand.commandId));
+    for (var number = 1; number <= 9; number++) {
+      registry.binding(
+        KeyBinding(
+          'Alt-$number',
+          SelectSessionCommand.commandId,
+          parameters: {SelectSessionCommand.numberParam: '$number'},
+        ),
+      );
+    }
 
     // Список фоновых работ под панелью: обычная область со своим курсором и
     // клавишами (`docs/spec/background-operations.md`).
@@ -361,6 +389,22 @@ const Map<String, String> _russian = {
   'Stop the selected background task; a finished one is dismissed':
       'Прервать выбранную фоновую работу; законченную — забыть',
   'Watch background tasks': 'Следить за фоновыми работами',
+
+  // Открытые сессии.
+  'New session': 'Новая сессия',
+  'Open one more session on the current directory': 'Открыть ещё одну сессию на текущем каталоге',
+  'Close session': 'Закрыть сессию',
+  'Close the session shown here and let its source go': 'Закрыть показанную здесь сессию и отпустить её источник',
+  'Next session': 'Следующая сессия',
+  'Previous session': 'Предыдущая сессия',
+  'Show the neighbouring session here': 'Показать здесь соседнюю сессию',
+  'Session by number': 'Сессия по номеру',
+  'Show the session with this number here': 'Показать здесь сессию с этим номером',
+  'Sessions': 'Сессии',
+  'All open sessions; show the chosen one here': 'Все открытые сессии; выбранная показывается здесь',
+  'Rename session': 'Назвать сессию',
+  'Give this session a name of your own': 'Дать этой сессии своё имя',
+  'Empty name follows the directory': 'Пустое имя — по каталогу',
 
   // Справка.
   'Left panel': 'Левая панель',
