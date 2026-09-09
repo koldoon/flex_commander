@@ -10,6 +10,7 @@ import 'package:flex_commander/state/commands/session_commands.dart';
 import 'package:flex_commander/view/panel_row.dart';
 import 'package:flex_commander/view/window_title_bar.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Ряд открытых наборов и команды сессий (`docs/spec/panel-sessions.md`).
@@ -103,8 +104,12 @@ void main() {
       final plus = tester.getRect(find.byKey(PanelRow.newPanelKey));
       final chip = tester.getRect(find.byKey(PanelRow.chipKey(1)));
 
-      expect(plus.height, chip.height, reason: 'кнопка ростом с запись');
-      expect(plus.top, chip.top, reason: 'и стоит с ней вровень');
+      Rect textOf(Key key) => tester.getRect(find.descendant(of: find.byKey(key), matching: find.byType(Text)).last);
+
+      // Кнопка набрана той же строкой, что и записи: рост её плашки меряется
+      // ею же, а оптический сдвиг знака — дело самой кнопки.
+      expect(textOf(PanelRow.newPanelKey).height, textOf(PanelRow.chipKey(1)).height);
+      expect(plus.center.dy, closeTo(chip.center.dy, 1.5), reason: 'кнопка стоит вровень с записями');
       expect(
         chip.center.dy,
         bar.center.dy + metrics.windowTitleBarContentNudge,

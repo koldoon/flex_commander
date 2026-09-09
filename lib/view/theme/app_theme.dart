@@ -17,6 +17,11 @@ ThemeData buildThemeData(FcThemeSpec spec) {
     fontFamily: spec.fonts.ui,
     scaffoldBackgroundColor: colors.windowBackground,
     extensions: [theme],
+    // Текст без своего стиля набирается **нашим**, а не материальным: у того
+    // своя разрядка и своя межстрочная, и они расходились бы с тем, чем
+    // набрано всё остальное. Материальные роли крупнее (заголовки, кнопки)
+    // остаются свои — их в приложении почти нет.
+    textTheme: TextTheme(bodyMedium: theme.uiStyle),
     // Списки и панели прокручиваются без «эффекта растяжения»: это
     // настольное приложение, а не мобильное.
     scrollbarTheme: const ScrollbarThemeData(thickness: WidgetStatePropertyAll(8)),

@@ -115,7 +115,7 @@ class _NewPanelButton extends StatelessWidget {
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: metrics.labelPadding),
+          padding: EdgeInsets.only(left: metrics.labelPadding, right: metrics.labelPadding, bottom: 2),
           decoration: BoxDecoration(
             color: colors.panelBackground,
             border: Border.all(color: colors.panelBorder, width: metrics.strokeWidth),

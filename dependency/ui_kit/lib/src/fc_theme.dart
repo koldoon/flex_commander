@@ -29,8 +29,14 @@ class FcTheme extends ThemeExtension<FcTheme> {
       style.inherit ? DefaultTextStyle.of(context).style.merge(style) : style;
 
   /// Базовый стиль интерфейса.
+  ///
+  /// Разрядка названа **нулём, а не пропущена**: `Text` со стилем-наследником
+  /// домешивает к нему окружение, а материальное окружение несёт свою
+  /// (`letterSpacing` 0.25 на знак). Пропуск означал бы «бери оттуда», и текст
+  /// выходил бы шире того, что мы меряем и что задумано в референсе
+  /// ([effective]).
   TextStyle get uiStyle =>
-      TextStyle(fontFamily: fonts.ui, fontSize: metrics.fontSize, color: colors.rowText, height: 1.2);
+      TextStyle(fontFamily: fonts.ui, fontSize: metrics.fontSize, color: colors.rowText, height: 1.2, letterSpacing: 0);
 
   /// Строка списка файлов.
   ///
@@ -51,11 +57,16 @@ class FcTheme extends ThemeExtension<FcTheme> {
   /// текст без неё встаёт по собственной метрике шрифта, и та же строка в
   /// терминале и в командной строке оказывается на пару пикселей врозь. Это
   /// видно: приглашение оболочки в них одно и то же слово в слово.
+  /// **Разрядка.** Ноль, и названный: моноширинный шрифт меряется знакоместом,
+  /// а разрядка окружения раздвинула бы его — и только у того текста, что
+  /// рисует Flutter. `xterm` рисует своим набором и о ней не знает, поэтому
+  /// список и терминал разошлись бы на пропущенном поле.
   TextStyle get fixedStyle => TextStyle(
     fontFamily: fonts.fixed,
     fontFamilyFallback: fonts.fixedFallback,
     fontSize: metrics.fontSize,
     height: terminalLineHeight,
+    letterSpacing: 0,
   );
 
   /// Межстрочная моноширинного набора.
