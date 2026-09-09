@@ -352,8 +352,35 @@ void main() {
     AgreeingShell(pty.session).greet();
     await tester.pumpAndSettle();
 
-    // Курсор в дереве — оболочка заводится в той ветви, на которой он стоит.
-    expect(pty.session.workingDirectory, '/home/lib');
+    // Курсор в дереве — оболочка заводится там же, куда пойдёт операция: в
+    // ближайшем родителе строки, а не в ней самой
+    // (`docs/spec/panel-node-list.md`).
+    expect(pty.session.workingDirectory, '/home');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('над файлом в дереве оболочка берёт его каталог', (tester) async {
+    final runtime = await open(tester);
+    await settle(tester);
+
+    // В дереве одних каталогов файлов нет — берём обычное дерево: правило у
+    // ветвей общее, а беда была именно над файлом.
+    await runtime.app.left.setView(TreeView.viewId);
+    await tester.pumpAndSettle();
+    await settle(tester);
+    while (runtime.app.left.currentEntry?.name != 'notes.txt') {
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+      await tester.pump();
+    }
+    await tester.pumpAndSettle();
+
+    runtime.commands.dispatch(KeyCombination.parse('Ctrl-O'));
+    await tester.pumpAndSettle();
+    AgreeingShell(pty.session).greet();
+    await tester.pumpAndSettle();
+
+    expect(pty.session.workingDirectory, '/home', reason: 'каталог файла, а не корень источника');
 
     await tester.pump(const Duration(milliseconds: 20));
   });
