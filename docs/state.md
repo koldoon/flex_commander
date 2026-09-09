@@ -318,7 +318,7 @@ class AppController extends ChangeNotifier {
   });
 
   /// Показанная сессия стороны: в слоте их бывает несколько
-  /// (`spec/panel-slots.md`).
+  /// (`spec/panel-sessions.md`).
   Session get left;
   Session get right;
 

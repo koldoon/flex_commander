@@ -13,7 +13,7 @@ import 'tree_view.dart';
 ///
 /// Спецификация — `docs/spec/panel-view-combined.md`.
 ///
-/// **Столбцы — это две сессии панели** в одном слоте (`panel-slots.md`): слева
+/// **Столбцы — это две сессии одного набора** (`panel-sessions.md`, §2): слева
 /// ветви одних каталогов, справа обычный список того каталога, на котором стоит
 /// курсор дерева. Курсор один и стоит в той сессии, которую слот показывает, —
 /// поэтому ни одна команда об этом виде не знает: `Enter` в списке это тот же
@@ -38,13 +38,8 @@ class CombinedView extends StatefulWidget {
   /// колонки, — а показанной в слоте бывает любая из двух сессий
   /// (`docs/spec/panel-view-combined.md`, §7).
   static Session listOf(BuildContext context, Session panel) {
-    final app = AppScope.read(context);
-    final side = app.view.positionOf(panel);
-    if (side == null) {
-      return panel;
-    }
-    final panels = app.panelsAt(side);
-    return panels.length < 2 ? panel : panels[1];
+    final sessions = AppScope.read(context).panelOf(panel)?.sessions ?? const <Session>[];
+    return sessions.length < 2 ? panel : sessions[1];
   }
 
   @override
@@ -118,14 +113,19 @@ class _CombinedViewState extends State<CombinedView> {
       return;
     }
 
-    final panels = app.panelsAt(side);
+    final panels = app.panelOf(widget.panel)?.sessions ?? const <Session>[];
     if (panels.length < 2) {
       if (_asking) {
         return;
       }
       _asking = true;
+      final panel = app.panelOf(widget.panel);
+      if (panel == null) {
+        _asking = false;
+        return;
+      }
       unawaited(
-        app.openPanel(side, like: widget.panel, at: 0).then((_) {
+        app.openSession(panel, like: widget.panel, at: 0).then((_) {
           _asking = false;
           if (mounted) {
             setState(_findColumns);

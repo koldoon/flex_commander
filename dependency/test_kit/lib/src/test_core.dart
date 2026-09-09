@@ -33,49 +33,32 @@ AppController testCore({
   final rightRegistry = rightProvider == null ? registry : ProviderRegistry(root: rightProvider);
   const editor = TreeTransferEngine();
 
-  // Сессии заводятся по файлу, показанные — первыми: им и достаются личности
-  // `PanelId.left` и `PanelId.right` (`docs/spec/panel-tabs.md`, §4). То же
-  // самое делает сборка приложения, и делать иначе здесь значило бы проверять
-  // не то приложение.
-  final left = PanelSession(settings: settings.left, registry: registry, editor: editor);
-  final right = PanelSession(settings: settings.right, registry: rightRegistry, editor: editor);
-  final more = <PanelSession>[];
-  final layout = <SlotLayout>[];
+  // Сессии заводятся по файлу — по порядку наборов и столбцов в них; личности
+  // выдаются тем же порядком (`docs/spec/panel-sessions.md`, §4). Правый
+  // источник достаётся тому набору, что показан справа: подставная правая
+  // панель — приём проверок, а не правило.
+  final rightShown = settings.groupAt(1);
+  final sessions = <PanelId, PanelSession>{};
+  final layout = <PanelLayout>[];
 
-  for (var side = 0; side < settings.slots.length; side++) {
-    final slot = settings.slots[side];
-    final sideRegistry = side == 0 ? registry : rightRegistry;
-    final shownTab = slot.current.clamp(0, slot.tabs.length - 1);
-    final tabs = <TabLayout>[];
-    for (var t = 0; t < slot.tabs.length; t++) {
-      final tab = slot.tabs[t];
-      final shown = tab.current.clamp(0, tab.panels.length - 1);
-      final ids = <PanelId>[];
-      for (var i = 0; i < tab.panels.length; i++) {
-        if (t == shownTab && i == shown) {
-          ids.add(side == 0 ? PanelId.left : PanelId.right);
-          continue;
-        }
-        ids.add(PanelId(more.length + 2));
-        more.add(PanelSession(settings: tab.panels[i], registry: sideRegistry, editor: editor));
-      }
-      tabs.add(TabLayout(panels: ids, current: shown, pinned: tab.pinned));
+  for (final group in settings.panels) {
+    final ids = <PanelId>[];
+    for (final session in group.sessions) {
+      final id = PanelId(sessions.length);
+      sessions[id] = PanelSession(
+        settings: session,
+        registry: identical(group, rightShown) ? rightRegistry : registry,
+        editor: editor,
+      );
+      ids.add(id);
     }
-    layout.add(SlotLayout(tabs: tabs, current: shownTab));
+    layout.add(PanelLayout(sessions: ids, current: group.current.clamp(0, ids.length - 1), name: group.name));
   }
 
-  final sessions = {
-    PanelId.left: left,
-    PanelId.right: right,
-    for (var i = 0; i < more.length; i++) PanelId(i + 2): more[i],
-  };
-
   final core = CoreServer(
-    left: left,
-    right: right,
-    more: more,
-    // Сессии заводятся тем же, чем и первые: слот умеет держать несколько
-    // (`docs/spec/panel-slots.md`).
+    sessions: sessions,
+    // Сессии заводятся тем же, чем и первые: набор умеет держать несколько
+    // (`docs/spec/panel-sessions.md`).
     createSession: (settings) => PanelSession(settings: settings, registry: registry, editor: editor),
     registry: registry,
     editor: editor,
@@ -83,7 +66,8 @@ AppController testCore({
       store: store,
       stored: settings,
       panelSettings: (panel) => sessions[panel]?.settings,
-      slots: layout,
+      panels: layout,
+      shown: settings.shown,
       saveDelay: saveDelay,
     ),
   );
@@ -97,10 +81,9 @@ AppController testCore({
   );
 
   return AppController(
-    left: mirror(PanelId.left, left),
-    right: mirror(PanelId.right, right),
-    more: [for (var i = 0; i < more.length; i++) mirror(PanelId(i + 2), more[i])],
-    slots: layout,
+    sessions: [for (final entry in sessions.entries) mirror(entry.key, entry.value)],
+    panels: layout,
+    shown: settings.shown,
     core: core,
     link: link,
     settings: settings,
@@ -117,7 +100,7 @@ AppController testCore({
 extension CoreSessions on AppController {
   PanelSession sessionOf(PanelId panel) => core!.session(panel);
 
-  PanelSession get leftSession => sessionOf(PanelId.left);
+  PanelSession get leftSession => sessionOf(left.id);
 
-  PanelSession get rightSession => sessionOf(PanelId.right);
+  PanelSession get rightSession => sessionOf(right.id);
 }

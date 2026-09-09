@@ -125,92 +125,54 @@ class PanelSettings implements Serializable {
   }
 }
 
-/// Сохраняемые настройки приложения.
-/// Вкладка: то, что человек считает одной панелью.
+/// Набор: то, что показывают как одно (`docs/spec/panel-sessions.md`, §2).
 ///
-/// Сессий в ней одна, а у комбинированного вида две — столбцы
-/// (`docs/spec/panel-tabs.md`, §3). Пустой вкладки не бывает.
-class PanelTabSettings implements Serializable {
-  PanelTabSettings({List<PanelSettings>? panels, this.current = 0, this.pinned = false})
-    : panels = panels == null || panels.isEmpty ? [PanelSettings()] : panels;
+/// Сессия в нём одна, а у комбинированного вида две — столбцы. Пустым набор не
+/// бывает.
+class PanelGroupSettings implements Serializable {
+  PanelGroupSettings({List<PanelSettings>? sessions, this.current = 0, this.name = ''})
+    : sessions = sessions == null || sessions.isEmpty ? [PanelSettings()] : sessions;
 
-  final List<PanelSettings> panels;
+  final List<PanelSettings> sessions;
 
-  /// Номер показанного столбца.
+  /// Номер показанной сессии — того столбца, в котором стоит курсор.
   int current;
 
-  /// Закреплённая: уход из неё открывает новую рядом.
-  bool pinned;
+  /// Имя, данное человеком; пусто — зовётся по каталогу
+  /// (`docs/spec/panel-sessions.md`, §8).
+  String name;
 
-  /// Показанный столбец; сбившийся номер приводит к первому, а не роняет
-  /// разбор.
-  PanelSettings get currentPanel => panels[current.clamp(0, panels.length - 1)];
+  /// Показанная сессия; сбившийся номер приводит к первой, а не роняет разбор.
+  PanelSettings get currentSession => sessions[current.clamp(0, sessions.length - 1)];
 
   @override
   void toMap(Map<String, dynamic> m) {
-    m['panels'] = [for (final panel in panels) serialize(panel)];
+    m['sessions'] = [for (final session in sessions) serialize(session)];
     m['current'] = current;
-    if (pinned) {
-      m['pinned'] = true;
+    if (name.isNotEmpty) {
+      m['name'] = name;
     }
   }
 
   @override
   void fromMap(Map<String, dynamic> m) {
-    final stored = m['panels'];
+    // Формы прежних лет читаются здесь же: `sessions` — нынешняя, `panels` —
+    // та, что писали вкладки и слоты (`docs/spec/panel-sessions.md`, §10).
+    final stored = m['sessions'] ?? m['panels'];
     if (stored is List && stored.isNotEmpty) {
-      panels
+      sessions
         ..clear()
         ..addAll(extractList<PanelSettings>(stored, (_) => PanelSettings()));
+    } else {
+      // Голая панель: набором она не назвалась, значит сама и есть сессия.
+      sessions.first.fromMap(m);
     }
-    current = extract(current, m['current']).clamp(0, panels.length - 1);
-    pinned = extract(pinned, m['pinned']);
+    current = extract(current, m['current']).clamp(0, sessions.length - 1);
+    name = extract(name, m['name']);
   }
 }
 
-/// Вкладки одной стороны и та из них, что показана сейчас.
-///
-/// Сторон две, вкладок в стороне сколько завели (`docs/spec/panel-tabs.md`).
-/// Пустым слот не бывает — сторона без панели это состояние, которого в модели
-/// нет вовсе.
-class PanelSlotSettings implements Serializable {
-  PanelSlotSettings({List<PanelTabSettings>? tabs, List<PanelSettings>? panels, this.current = 0})
-    : tabs = tabs == null || tabs.isEmpty ? [PanelTabSettings(panels: panels)] : tabs;
-
-  final List<PanelTabSettings> tabs;
-
-  /// Номер показанной вкладки.
-  int current;
-
-  /// Показанная вкладка.
-  PanelTabSettings get currentTab => tabs[current.clamp(0, tabs.length - 1)];
-
-  /// Показанная сессия показанной вкладки — то, чем панель была до вкладок.
-  PanelSettings get currentPanel => currentTab.currentPanel;
-
-  @override
-  void toMap(Map<String, dynamic> m) {
-    m['tabs'] = [for (final tab in tabs) serialize(tab)];
-    m['current'] = current;
-  }
-
-  @override
-  void fromMap(Map<String, dynamic> m) {
-    // Форм в файле три, и читаются все. Нынешняя — список вкладок; прежняя —
-    // слот со списком сессий (одна вкладка); самая старая — голая панель
-    // (`docs/spec/panel-tabs.md`, §4).
-    final stored = m['tabs'];
-    if (stored is List && stored.isNotEmpty) {
-      tabs
-        ..clear()
-        ..addAll(extractList<PanelTabSettings>(stored, (_) => PanelTabSettings()));
-    } else if (m['panels'] is List) {
-      extract(tabs.first, m);
-    }
-    current = extract(current, m['current']).clamp(0, tabs.length - 1);
-  }
-}
-
+/// Сохраняемые настройки приложения: наборы, экран и разделы модулей.
 class AppSettings implements Serializable {
   AppSettings({
     PanelSettings? left,
@@ -220,21 +182,15 @@ class AppSettings implements Serializable {
     this.sizeScanConcurrency = defaultSizeScanConcurrency,
     this.window,
     ModuleSettings? modules,
-    List<PanelSlotSettings>? slots,
-  }) : slots =
-           slots ??
+    List<PanelGroupSettings>? panels,
+    List<int>? shown,
+  }) : panels =
+           panels ??
            [
-             PanelSlotSettings(
-               tabs: [
-                 PanelTabSettings(panels: [left ?? PanelSettings()]),
-               ],
-             ),
-             PanelSlotSettings(
-               tabs: [
-                 PanelTabSettings(panels: [right ?? PanelSettings()]),
-               ],
-             ),
+             PanelGroupSettings(sessions: [left ?? PanelSettings()]),
+             PanelGroupSettings(sessions: [right ?? PanelSettings()]),
            ],
+       shown = shown ?? [0, 1],
        // Разделы модулей переносятся в новый снимок настроек как есть: это
        // живые объекты самих модулей, а не копия их значений.
        modules = modules ?? ModuleSettings();
@@ -260,15 +216,24 @@ class AppSettings implements Serializable {
   static const int minSizeScanConcurrency = 1;
   static const int maxSizeScanConcurrency = 64;
 
-  /// Сессии каждой стороны; слотов ровно два — по числу сторон.
+  /// Открытые наборы — одним списком на приложение.
   ///
-  /// Раскладку по сторонам держит экран, здесь она только хранится: ядро в неё
-  /// не заглядывает (`docs/spec/panel-slots.md`, §5).
-  final List<PanelSlotSettings> slots;
+  /// Раскладку держит экран, здесь она только хранится: ядро в неё не
+  /// заглядывает (`docs/spec/panel-sessions.md`, §10).
+  final List<PanelGroupSettings> panels;
 
-  /// Показанная сессия левой стороны — то, чем панель была до слотов.
-  PanelSettings get left => slots[0].currentPanel;
-  PanelSettings get right => slots[1].currentPanel;
+  /// Что показано слева и справа — номера наборов.
+  ///
+  /// Один и тот же набор в обеих сторонах — обычное дело и ничего не стоит.
+  final List<int> shown;
+
+  /// Набор, показанный с этой стороны; сбившийся номер приводит к первому.
+  PanelGroupSettings groupAt(int side) =>
+      panels[(side < shown.length ? shown[side] : side).clamp(0, panels.length - 1)];
+
+  /// Показанная сессия левой стороны — то, чем панель была до наборов.
+  PanelSettings get left => groupAt(0).currentSession;
+  PanelSettings get right => groupAt(1).currentSession;
 
   /// 0 — активна левая панель, 1 — правая.
   int activePanel;
@@ -296,7 +261,8 @@ class AppSettings implements Serializable {
     if (window != null) {
       m['window'] = serialize(window);
     }
-    m['panels'] = [for (final slot in slots) serialize(slot)];
+    m['panels'] = [for (final panel in panels) serialize(panel)];
+    m['shown'] = shown;
     m['modules'] = serialize(modules);
   }
 
@@ -321,19 +287,56 @@ class AppSettings implements Serializable {
     // Панели дописываются в уже готовые: в них лежит каталог по умолчанию,
     // и файл без пути его не потеряет.
     //
-    // Форм в файле три, и все читаются: голая панель, слот со списком сессий и
-    // слот со списком вкладок. Отличают их поля `tabs` и `panels`: у самой
-    // панели ни того, ни другого нет и быть не может
-    // (`docs/spec/panel-tabs.md`, §4).
+    // Форм в файле четыре, и все читаются (`docs/spec/panel-sessions.md`, §10).
+    // Нынешняя — список наборов; прежние — слот со списком вкладок, слот со
+    // списком сессий и голая панель. Все прежние разворачиваются в наборы по
+    // одной сессии, а стороны становятся первыми двумя номерами в [shown].
     final stored = m['panels'];
-    if (stored is List) {
-      for (var i = 0; i < slots.length && i < stored.length; i++) {
-        final item = stored[i];
-        if (item is Map && (item['tabs'] is List || item['panels'] is List)) {
-          extract(slots[i], item);
-        } else {
-          extract(slots[i].currentPanel, item);
+    if (stored is List && stored.isNotEmpty) {
+      // Каталог по умолчанию — тот, с которым нас создали: сессия без пути в
+      // файле должна открыться там же, где открылась бы без файла вовсе.
+      final fallback = panels.first.sessions.first.path;
+      final read = <PanelGroupSettings>[];
+      final sides = <int>[];
+      for (final item in stored) {
+        if (item is! Map) {
+          continue;
         }
+        final tabs = item['tabs'];
+        if (tabs is List && tabs.isNotEmpty) {
+          // Слот со вкладками: каждая вкладка — набор, а показанная в слоте
+          // становится показанной со своей стороны.
+          sides.add(read.length + extract(0, item['current']).clamp(0, tabs.length - 1));
+          for (final tab in tabs) {
+            read.add(PanelGroupSettings()..fromMap(Map<String, dynamic>.from(tab as Map)));
+          }
+          continue;
+        }
+        sides.add(read.length);
+        read.add(PanelGroupSettings()..fromMap(Map<String, dynamic>.from(item)));
+      }
+      if (read.isNotEmpty) {
+        for (final group in read) {
+          for (final session in group.sessions) {
+            if (session.path.isEmpty) {
+              session.path = fallback;
+            }
+          }
+        }
+        panels
+          ..clear()
+          ..addAll(read);
+        final places = m['shown'];
+        shown
+          ..clear()
+          ..addAll(
+            places is List && places.length >= 2
+                ? [for (final place in places.take(2)) extract(0, place).clamp(0, panels.length - 1)]
+                : [
+                  for (var side = 0; side < 2; side++)
+                    side < sides.length ? sides[side].clamp(0, panels.length - 1) : 0,
+                ],
+          );
       }
     }
   }

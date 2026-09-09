@@ -28,7 +28,7 @@
 ## 3. Устройство: два столбца — две сессии
 
 Столбцы — это две сессии панели в одном слоте
-([`panel-slots.md`](panel-slots.md)). Левая показывает `RowsKind.branches`,
+([`panel-sessions.md`](panel-sessions.md)). Левая показывает `RowsKind.branches`,
 правая — `RowsKind.listing`; курсор стоит в той, что **показана** слотом, и она
 же отвечает на `app.left`.
 

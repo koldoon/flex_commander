@@ -54,7 +54,7 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
   /// Дно стопки подменяется **на месте**, без `setViewportContent`: тот
   /// закрывает прежнее содержимое, а закрытая сессия отпустила бы аренду — то
   /// есть ровно то, ради чего слоты и заводятся
-  /// (`docs/spec/panel-slots.md`, §4).
+  /// (`docs/spec/panel-sessions.md`, §5).
   void showPanels() {
     var changed = false;
     for (final (position, panel) in [(ViewportPosition.left, _app.left), (ViewportPosition.right, _app.right)]) {

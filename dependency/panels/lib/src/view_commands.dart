@@ -68,22 +68,18 @@ class SetPanelViewCommand extends AppCommand {
     }
   }
 
-  /// Уход с комбинированного вида схлопывает слот: остаётся та сессия, в
+  /// Уход с комбинированного вида схлопывает набор: остаётся та сессия, в
   /// которой стояли, соседний столбец закрывается
   /// (`docs/spec/panel-view-combined.md`, §3).
   ///
   /// Здесь, а не в самом виде: виджет уходит и когда его накрывают
   /// просмотрщиком, и когда источник просит показать себя по-своему (находки),
   /// — а закрывать спутника надо только тогда, когда вид сменил человек.
-  static void collapseColumns(Application app, Session panel) {
-    final side = app.view.positionOf(panel);
-    if (side == null) {
-      return;
-    }
-    for (final other in app.panelsAt(side)) {
-      if (!identical(other, panel)) {
-        other.setView(panel.view);
-        app.closePanel(other);
+  static void collapseColumns(Application app, Session session) {
+    for (final other in app.panelOf(session)?.sessions ?? const <Session>[]) {
+      if (!identical(other, session)) {
+        other.setView(session.view);
+        app.closeSession(other);
       }
     }
   }
@@ -643,14 +639,10 @@ class CombinedSideCommand extends AppCommand {
   @override
   Set<String> get keywords => const {'column', 'side', 'pane'};
 
-  /// Столбцы стороны; пусто — их там нет вовсе.
+  /// Столбцы набора; пусто — их там нет вовсе.
   static List<Session> _columnsOf(CommandContext context) {
-    final side = context.app.view.positionOf(context.session);
-    if (side == null) {
-      return const [];
-    }
-    final panels = context.app.panelsAt(side);
-    return panels.length < 2 ? const [] : panels;
+    final sessions = context.app.panelOf(context.session)?.sessions ?? const <Session>[];
+    return sessions.length < 2 ? const [] : sessions;
   }
 
   @override
@@ -684,6 +676,6 @@ class CombinedSideCommand extends AppCommand {
     if (columns.isEmpty) {
       return;
     }
-    context.app.showPanel(toList ? columns[1] : columns.first);
+    context.app.showSession(toList ? columns[1] : columns.first);
   }
 }

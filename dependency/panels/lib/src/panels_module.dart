@@ -6,7 +6,6 @@ import 'combined_view.dart';
 import 'brief_view_options.dart';
 import 'file_table.dart';
 import 'panels_settings.dart';
-import 'tab_commands.dart';
 import 'table_view_options.dart';
 import 'tree_view.dart';
 import 'tree_view_options.dart';
@@ -80,7 +79,7 @@ class Panels implements FcFrontendModule {
     registry.viewport(PanelViewports.files, (context, panel) => FileTable(panel: panel, settings: settingsOf));
     // Панель — тоже состояние области, и рисуется тем же механизмом, что всё
     // остальное: ядро не знает, чем показывают файлы.
-    registry.view<Session>((context, panel) => PanelView(panel: panel, settings: settingsOf));
+    registry.view<Session>((context, panel) => PanelView(panel: panel));
 
     // Таблица — вид по умолчанию, и объявляется она так же, как остальные:
     // отдельного «встроенного» вида нет, иначе виды делились бы на свои и
@@ -139,27 +138,6 @@ class Panels implements FcFrontendModule {
     }
 
     registry.command((context) => TreeFollowLinkCommand());
-
-    // Вкладки: ряд рисует этот же модуль, и команды его же
-    // (`docs/spec/panel-tabs.md`).
-    registry.command((context) => NewTabCommand(settings: settingsOf));
-    registry.command((context) => CloseTabCommand());
-    registry.command((context) => CycleTabsCommand(forward: true));
-    registry.command((context) => CycleTabsCommand(forward: false));
-    registry.command((context) => SelectTabCommand());
-    registry.command((context) => ToggleTabLockCommand());
-    registry.binding(KeyBinding('Cmd-Shift-T', NewTabCommand.commandId));
-    registry.binding(KeyBinding('Cmd-Shift-W', CloseTabCommand.commandId));
-    // `Ctrl-Tab` — тот, к которому все привыкли: `Ctrl` и `Cmd` у нас разные
-    // модификаторы, на macOS это сочетание свободно, а на Windows и Linux оно
-    // и есть родное.
-    registry.binding(KeyBinding('Ctrl-Tab', CycleTabsCommand.nextId));
-    registry.binding(KeyBinding('Ctrl-Shift-Tab', CycleTabsCommand.previousId));
-    for (var number = 1; number <= 9; number++) {
-      registry.binding(
-        KeyBinding('Alt-$number', SelectTabCommand.commandId, parameters: {SelectTabCommand.numberParam: '$number'}),
-      );
-    }
 
     registry.command((context) => SetPanelViewCommand());
     registry.command((context) => ChoosePanelViewCommand());
@@ -268,25 +246,12 @@ const Map<String, String> _russian = {
   'Attributes': 'Атрибуты',
   'Columns visible': 'Видимые колонки',
 
-  // Вкладки.
-  'New tab': 'Новая вкладка',
-  'Open one more tab on the current directory': 'Завести ещё одну вкладку на текущем каталоге',
-  'Close tab': 'Закрыть вкладку',
-  'Close this tab and let its source go': 'Закрыть вкладку и отпустить её источник',
-  'Next tab': 'Следующая вкладка',
-  'Previous tab': 'Предыдущая вкладка',
-  'Switch to the neighbouring tab': 'Перейти к соседней вкладке',
-  'Tab by number': 'Вкладка по номеру',
-  'Show the tab with this number': 'Показать вкладку с этим номером',
-  'Pin tab': 'Закрепить вкладку',
   'Always show the tab row': 'Всегда показывать ряд вкладок',
   'Otherwise it appears with the second tab: an empty row eats a line of the list':
       'Иначе он появляется со второй вкладкой: пустой ряд отнимает строку у списка',
   'Tabs per side': 'Вкладок на сторону',
   'A tab holds its source open: five archives are five unpacked copies':
       'Вкладка держит свой источник открытым: пять архивов — пять распакованных копий',
-  'A pinned tab stays on its directory; leaving it opens a new one':
-      'Закреплённая вкладка остаётся на своём каталоге, а уход из неё открывает новую',
 
   // Комбинированный вид.
   'Tree with contents': 'Дерево с содержимым',

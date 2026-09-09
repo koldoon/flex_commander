@@ -214,48 +214,26 @@ class CoreContainer extends DI {
                   cache: c.get<ListingCache>(),
                 );
 
-        // Сессии заводятся по файлу, показанные — первыми: им и достаются личности
-        // `PanelId.left` и `PanelId.right` (`docs/spec/panel-tabs.md`, §4). То же
-        // самое делает сборка приложения, и делать иначе здесь значило бы проверять
-        // не то приложение.
-        final left = panels.create(settings.left);
-        final right = rightPanels.create(settings.right);
-        final more = <PanelSession>[];
-        final layout = <SlotLayout>[];
+        // Сессии заводятся по файлу — по порядку наборов и столбцов в них;
+        // личности выдаются тем же порядком (`docs/spec/panel-sessions.md`, §4).
+        // Подставной правый источник достаётся набору, показанному справа.
+        final rightShown = settings.groupAt(1);
+        final sessions = <PanelId, PanelSession>{};
+        final layout = <PanelLayout>[];
 
-        for (var side = 0; side < settings.slots.length; side++) {
-          final slot = settings.slots[side];
-          final factory = side == 0 ? panels : rightPanels;
-          final shownTab = slot.current.clamp(0, slot.tabs.length - 1);
-          final tabs = <TabLayout>[];
-          for (var t = 0; t < slot.tabs.length; t++) {
-            final tab = slot.tabs[t];
-            final shown = tab.current.clamp(0, tab.panels.length - 1);
-            final ids = <PanelId>[];
-            for (var i = 0; i < tab.panels.length; i++) {
-              if (t == shownTab && i == shown) {
-                ids.add(side == 0 ? PanelId.left : PanelId.right);
-                continue;
-              }
-              ids.add(PanelId(more.length + 2));
-              more.add(factory.create(tab.panels[i]));
-            }
-            tabs.add(TabLayout(panels: ids, current: shown, pinned: tab.pinned));
+        for (final group in settings.panels) {
+          final ids = <PanelId>[];
+          for (final session in group.sessions) {
+            final id = PanelId(sessions.length);
+            sessions[id] = (identical(group, rightShown) ? rightPanels : panels).create(session);
+            ids.add(id);
           }
-          layout.add(SlotLayout(tabs: tabs, current: shownTab));
+          layout.add(PanelLayout(sessions: ids, current: group.current.clamp(0, ids.length - 1), name: group.name));
         }
 
-        final sessions = {
-          PanelId.left: left,
-          PanelId.right: right,
-          for (var i = 0; i < more.length; i++) PanelId(i + 2): more[i],
-        };
-
         return CoreServer(
-          left: left,
-          right: right,
-          more: more,
-          // Заводится новая тем же, чем и левая: сторон ядро не знает, а
+          sessions: sessions,
+          // Заводится новая тем же, чем и первая: сторон ядро не знает, а
           // подставной источник правой — приём проверок, а не правило.
           createSession: panels.create,
           registry: c.get<ProviderRegistry>(),
@@ -268,7 +246,8 @@ class CoreContainer extends DI {
             // Карта заведённых — только пока ядро собирается: собравшись, оно
             // подменит её собой (`SettingsHub.bindPanels`).
             panelSettings: (panel) => sessions[panel]?.settings,
-            slots: layout,
+            panels: layout,
+            shown: settings.shown,
             saveDelay: overrides.saveDelay ?? SettingsHub.defaultSaveDelay,
           ),
           secrets: c.get<SecretsHub>(),

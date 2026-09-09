@@ -20,7 +20,8 @@ class SettingsHub {
     required this.store,
     required AppSettings stored,
     required PanelSettings? Function(PanelId panel) panelSettings,
-    List<SlotLayout>? slots,
+    List<PanelLayout>? panels,
+    List<int>? shown,
     this.saveDelay = defaultSaveDelay,
   }) : _stored = stored,
        _panelSettings = panelSettings,
@@ -31,8 +32,9 @@ class SettingsHub {
          sizeScanConcurrency: stored.sizeScanConcurrency,
          // Раскладку по сторонам знает тот, кто заводил сессии: файл говорит,
          // сколько их в каждой стороне, а какая личность досталась какой —
-         // видно только оттуда (`docs/spec/panel-slots.md`, §5).
-         slots: slots ?? UiSettings.defaultSlots,
+         // видно только оттуда (`docs/spec/panel-sessions.md`, §10).
+         panels: panels ?? UiSettings.defaultPanels,
+         shown: shown ?? UiSettings.defaultShown,
        ) {
     // Раздел модуля просит записать себя сам — тем же отложенным путём.
     _stored.modules.onSave = schedule;
@@ -72,25 +74,20 @@ class SettingsHub {
   /// Собираются заново на каждый запрос: панели рассказывают о себе сами, а
   /// то, чем ядро не заведует, переносится из прочитанного.
   AppSettings get settings => AppSettings(
-    slots: [
-      for (final slot in _ui.slots)
-        PanelSlotSettings(
-          tabs: [
-            for (final tab in slot.tabs)
-              PanelTabSettings(
-                // Закрытая сессия в файл не попадает: раскладка приезжает с
-                // экрана и может отстать от закрытия на одно сообщение.
-                panels: [
-                  for (final panel in tab.panels)
-                    if (_panelSettings(panel) case final settings?) settings,
-                ],
-                current: tab.current,
-                pinned: tab.pinned,
-              ),
+    panels: [
+      for (final panel in _ui.panels)
+        PanelGroupSettings(
+          // Закрытая сессия в файл не попадает: раскладка приезжает с экрана и
+          // может отстать от закрытия на одно сообщение.
+          sessions: [
+            for (final session in panel.sessions)
+              if (_panelSettings(session) case final settings?) settings,
           ],
-          current: slot.current,
+          current: panel.current,
+          name: panel.name,
         ),
     ],
+    shown: [..._ui.shown],
     activePanel: _ui.activePanel,
     splitRatio: _ui.splitRatio,
     sizeScanConcurrency: _ui.sizeScanConcurrency,
@@ -167,37 +164,27 @@ class SettingsHub {
 
   /// Тот же снимок, но без положения курсора.
   ///
-  /// Ходит по слотам и вкладкам: в файле лежат стороны, в них вкладки, а в
-  /// тех — сессии (`docs/spec/panel-tabs.md`, §4), и положение курсора у
-  /// каждой своё.
+  /// Ходит по наборам: в файле лежат наборы, а в них сессии
+  /// (`docs/spec/panel-sessions.md`, §10), и положение курсора у каждой своё.
   String _snapshotWithoutCursor() {
     final map = serialize(settings);
-    final slots = map['panels'];
-    if (slots is List) {
-      for (final slot in slots) {
-        if (slot is! Map) {
+    final panels = map['panels'];
+    if (panels is List) {
+      for (final panel in panels) {
+        final sessions = panel is Map ? panel['sessions'] : null;
+        if (sessions is! List) {
           continue;
         }
-        final tabs = slot['tabs'];
-        if (tabs is! List) {
-          continue;
-        }
-        for (final tab in tabs) {
-          final panels = tab is Map ? tab['panels'] : null;
-          if (panels is! List) {
-            continue;
-          }
-          for (final panel in panels) {
-            if (panel is Map) {
-              panel
-                ..remove('cursor')
-                // Путь курсора — то же положение, только для дерева: имени
-                // там мало (`docs/spec/panel-node-list.md`, §3). Ради движения
-                // курсора настройки на диск не пишутся.
-                ..remove('cursorPath')
-                // И прокрутка: это положение, а не настройка.
-                ..remove('scroll');
-            }
+        for (final session in sessions) {
+          if (session is Map) {
+            session
+              ..remove('cursor')
+              // Путь курсора — то же положение, только для дерева: имени
+              // там мало (`docs/spec/panel-node-list.md`, §3). Ради движения
+              // курсора настройки на диск не пишутся.
+              ..remove('cursorPath')
+              // И прокрутка: это положение, а не настройка.
+              ..remove('scroll');
           }
         }
       }

@@ -6,8 +6,6 @@ export 'src/brief_view_options.dart';
 export 'src/combined_view.dart';
 export 'src/file_table.dart';
 export 'src/panels_settings.dart';
-export 'src/tab_commands.dart';
-export 'src/tab_row.dart';
 export 'src/table_view_options.dart';
 export 'src/tree_view.dart';
 export 'src/tree_view_options.dart';

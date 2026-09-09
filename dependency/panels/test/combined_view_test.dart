@@ -59,7 +59,7 @@ void main() {
   }
 
   /// Столбцы левой стороны: первый — дерево, второй — список.
-  List<Session> columns(AppRuntime runtime) => runtime.app.panelsAt(ViewportPosition.left);
+  List<Session> columns(AppRuntime runtime) => runtime.app.panelOf(runtime.app.left)!.sessions;
 
   Session tree(AppRuntime runtime) => columns(runtime).first;
 

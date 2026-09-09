@@ -24,10 +24,15 @@ import 'shell_hub.dart';
 /// Экрана у этой стороны нет и быть не может: ни окна, ни команды, ни виджета
 /// здесь не встретится — их типов эта сторона попросту не видит.
 class CoreServer implements CoreHandler {
+  /// [sessions] — все сессии со своими личностями; так собирает ядро
+  /// приложение, где сессий столько, сколько наборов в файле
+  /// (`docs/spec/panel-sessions.md`, §4). [left] и [right] — короткий путь для
+  /// проверок: две сессии с личностями `PanelId.left` и `PanelId.right`.
   CoreServer({
-    required PanelSession left,
-    required PanelSession right,
+    PanelSession? left,
+    PanelSession? right,
     List<PanelSession> more = const [],
+    Map<PanelId, PanelSession>? sessions,
     PanelSession Function(PanelSettings settings)? createSession,
     ProviderRegistry? registry,
     TreeEditor editor = const TreeTransferEngine(),
@@ -35,11 +40,10 @@ class CoreServer implements CoreHandler {
     Map<String, OperationFactory> operations = const {},
     SettingsHub? settings,
     SecretsHub? secrets,
-  }) : _panels = {
-         PanelId.left: left,
-         PanelId.right: right,
-         for (var i = 0; i < more.length; i++) PanelId(i + 2): more[i],
-       },
+  }) : assert(sessions != null || (left != null && right != null), 'Ядру нужны сессии: списком или парой'),
+       _panels =
+           sessions ??
+           {PanelId.left: left!, PanelId.right: right!, for (var i = 0; i < more.length; i++) PanelId(i + 2): more[i]},
        _createSession = createSession,
        _registry = registry,
        _settings = settings,
@@ -62,7 +66,7 @@ class CoreServer implements CoreHandler {
     _operations.onFound = _grewFound;
     _nextId = _panels.length;
     // Дальше о сессиях спрашивают ядро: заведённая на ходу тоже пишется в
-    // файл (`docs/spec/panel-slots.md`, §5).
+    // файл (`docs/spec/panel-sessions.md`, §10).
     _settings?.bindPanels((panel) => _panels[panel]?.settings);
     for (final entry in _panels.entries) {
       _watch(entry.key, entry.value);
@@ -93,8 +97,8 @@ class CoreServer implements CoreHandler {
 
   /// Слушать сессию: всё, что она о себе рассказывает, уходит событиями.
   ///
-  /// Вешается на каждую заведённую, а не только на две начальные: сессий в
-  /// стороне бывает несколько (`docs/spec/panel-slots.md`, §3).
+  /// Вешается на каждую заведённую, а не только на начальные: сессий в наборе
+  /// бывает несколько (`docs/spec/panel-sessions.md`, §4).
   void _watch(PanelId panel, PanelSession session) {
     session.watch(
       onChanged: () {

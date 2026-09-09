@@ -26,10 +26,9 @@ import 'toast_controller.dart';
 /// Команды видят приложение только как [Application].
 class AppController extends ChangeNotifier implements Application {
   AppController({
-    required SessionMirror left,
-    required SessionMirror right,
-    List<SessionMirror> more = const [],
-    List<SlotLayout>? slots,
+    required List<SessionMirror> sessions,
+    List<PanelLayout>? panels,
+    List<int>? shown,
     this.core,
     this.link,
     required AppSettings settings,
@@ -50,7 +49,8 @@ class AppController extends ChangeNotifier implements Application {
     this.dragAndDrop,
     this.contentTypes,
     this.fileIcons,
-  }) : _slots = _slotsOf(left, right, more, slots),
+  }) : _panels = _panelsOf(sessions, panels),
+       _shown = [...(shown ?? UiSettings.defaultShown)],
        _splitRatio = settings.splitRatio,
        _windowGeometry = settings.window,
        _initialSettings = settings,
@@ -74,16 +74,7 @@ class AppController extends ChangeNotifier implements Application {
        views = views ?? const NoViews(),
        window = window ?? const NoopWindowService() {
     // Одна панель активна всегда, ещё до первого чтения каталогов.
-    _applyActive(settings.activePanel == 1 ? this.right : this.left);
-    // За закреплёнными, приехавшими из настроек, следим с первого кадра: иначе
-    // закрепление переживало бы перезапуск только на вид.
-    for (final slot in _slots) {
-      for (final tab in slot.tabs) {
-        if (tab.pinned) {
-          _watchPinned(tab);
-        }
-      }
-    }
+    _applyActive(settings.activePanel == 1 ? right : left);
     // Слушать панели ради записи больше незачем: их настройки — это состояние
     // сеанса, и ядро видит его раньше и точнее (`spec/client-server.md`, §9).
     this.window.addListener(_onWindowChanged);
@@ -100,83 +91,73 @@ class AppController extends ChangeNotifier implements Application {
   @override
   late final AppViewController view = AppViewController(this);
 
-  /// Стороны, вкладки и столбцы (`docs/spec/panel-tabs.md`, §3).
-  final List<_PanelSlot> _slots;
+  /// Открытые наборы — одним списком на приложение
+  /// (`docs/spec/panel-sessions.md`, §3).
+  final List<_Panel> _panels;
 
-  /// Слоты по раскладке, приехавшей из настроек; сессия, которой в раскладке
-  /// нет, в слот не попадает, а пустым он не бывает — там остаётся та вкладка,
-  /// что стояла при запуске.
-  static List<_PanelSlot> _slotsOf(
-    SessionMirror left,
-    SessionMirror right,
-    List<SessionMirror> more,
-    List<SlotLayout>? layout,
-  ) {
-    final byId = {
-      for (final panel in [left, right, ...more]) panel.id: panel,
-    };
-    final slots = layout ?? UiSettings.defaultSlots;
-    return [
-      for (var side = 0; side < 2; side++)
-        _PanelSlot(
-          tabs: [
-            if (side < slots.length)
-              for (final tab in slots[side].tabs)
-                if ([
-                      for (final id in tab.panels)
-                        if (byId[id] case final panel?) panel,
-                    ]
-                    case final columns when columns.isNotEmpty)
-                  _PanelTab(columns: columns, current: tab.current, pinned: tab.pinned),
-          ],
-          current: side < slots.length ? slots[side].current : 0,
-          fallback: side == 0 ? left : right,
-        ),
+  /// Номера показанных наборов: слева и справа.
+  ///
+  /// Один и тот же номер с обеих сторон — обычное дело: набор показывают, а не
+  /// отдают во владение.
+  final List<int> _shown;
+
+  /// Наборы по раскладке из настроек; сессия, которой в раскладке нет, в набор
+  /// не попадает, а пустым список не бывает — раскладки нет, значит на каждую
+  /// сессию по набору.
+  static List<_Panel> _panelsOf(List<SessionMirror> all, List<PanelLayout>? layout) {
+    final byId = {for (final session in all) session.id: session};
+    final panels = [
+      for (final panel in layout ?? UiSettings.defaultPanels)
+        if ([
+              for (final id in panel.sessions)
+                if (byId[id] case final session?) session,
+            ]
+            case final sessions when sessions.isNotEmpty)
+          _Panel(sessions: sessions, current: panel.current, name: panel.name),
     ];
+    return panels.isEmpty
+        ? [
+          for (final session in all) _Panel(sessions: [session], current: 0, name: ''),
+        ]
+        : panels;
   }
 
   @override
-  SessionMirror get left => _slots[0].shown;
+  List<Panel> get panels => List.unmodifiable(_panels);
 
   @override
-  SessionMirror get right => _slots[1].shown;
-
-  /// Все сессии обеих сторон: их закрывают на выходе и о них рассказывают
-  /// ядру, когда меняется раскладка.
-  Iterable<SessionMirror> get _allPanels => _slots.expand((slot) => slot.panels);
+  SessionMirror get left => _panelAt(ViewportPosition.left).shown;
 
   @override
-  List<Session> panelsAt(ViewportPosition side) => List.unmodifiable(_slotAt(side).shownTab.columns);
+  SessionMirror get right => _panelAt(ViewportPosition.right).shown;
+
+  /// Все сессии всех наборов: их закрывают на выходе и о них рассказывают ядру.
+  Iterable<SessionMirror> get _allSessions => _panels.expand((panel) => panel.columns);
+
+  int _sideOf(ViewportPosition side) => side == ViewportPosition.right ? 1 : 0;
 
   @override
-  List<PanelTab> tabsAt(ViewportPosition side) => List.unmodifiable(_slotAt(side).tabs);
+  Panel panelAt(ViewportPosition side) => _panelAt(side);
 
-  @override
-  PanelTab? tabOf(Session panel) {
-    for (final slot in _slots) {
-      for (final tab in slot.tabs) {
-        if (tab.columns.contains(panel)) {
-          return tab;
-        }
-      }
-    }
-    return null;
+  /// То же, но своим типом: внутри нужен показанный столбец.
+  _Panel _panelAt(ViewportPosition side) {
+    final at = _sideOf(side);
+    final number = (at < _shown.length ? _shown[at] : at).clamp(0, _panels.length - 1);
+    return _panels[number];
   }
 
-  _PanelSlot _slotAt(ViewportPosition side) => _slots[side == ViewportPosition.right ? 1 : 0];
-
-  /// Слот, в котором живёт эта сессия; null — сессия не наша.
-  _PanelSlot? _slotOf(Session panel) {
-    for (final slot in _slots) {
-      if (slot.panels.contains(panel)) {
-        return slot;
+  @override
+  Panel? panelOf(Session session) {
+    for (final panel in _panels) {
+      if (panel.columns.contains(session)) {
+        return panel;
       }
     }
     return null;
   }
 
   /// Завести сессию по образцу; null — ядра нет или оно не умеет.
-  Future<SessionMirror?> _createPanel(Session like) async {
+  Future<SessionMirror?> _createSession(Session like) async {
     if (like is! SessionMirror) {
       return null;
     }
@@ -188,201 +169,183 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   @override
-  Future<Session> openPanel(ViewportPosition side, {Session? like, int? at}) async {
-    final tab = _slotAt(side).shownTab;
-    final model = like is SessionMirror ? like : tab.shown;
-    final panel = await _createPanel(model);
-    if (panel == null) {
-      // Ядра нет или оно не умеет заводить сессии: показанная остаётся одна.
-      return tab.shown;
+  Future<Panel> openPanel(ViewportPosition side, {Session? like, int? at}) async {
+    final here = _panelAt(side);
+    final model = like is SessionMirror ? like : here.shown;
+    final session = await _createSession(model);
+    if (session == null) {
+      return here;
     }
-    final place = (at ?? tab.columns.length).clamp(0, tab.columns.length);
-    tab.columns.insert(place, panel);
-    // Показанный столбец остаётся показанным: заведение сессии не переводит
-    // взгляд.
-    if (place <= tab.current) {
-      tab.current++;
+    final panel = _Panel(sessions: [session], current: 0, name: '');
+    // Рядом с нынешним, а не в конце списка: новый набор про то же место.
+    final place = (at ?? _panels.indexOf(here) + 1).clamp(0, _panels.length);
+    _panels.insert(place, panel);
+    for (var i = 0; i < _shown.length; i++) {
+      if (_shown[i] >= place) {
+        _shown[i]++;
+      }
     }
-    _slotsChanged();
+    showPanel(side, panel);
     return panel;
   }
 
   @override
-  void closePanel(Session panel) {
-    final tab = tabOf(panel);
-    // Последний столбец не закрывается: вкладка без панели — то же, что
-    // сторона без панели.
-    if (tab is! _PanelTab || tab.columns.length < 2 || panel is! SessionMirror) {
+  void closePanel(Panel panel) {
+    if (panel is! _Panel) {
       return;
     }
-    final gone = tab.columns.indexOf(panel);
-    tab.columns.removeAt(gone);
-    if (tab.current >= tab.columns.length) {
-      tab.current = tab.columns.length - 1;
-    } else if (gone < tab.current) {
-      tab.current--;
-    }
-    final wasActive = panel.active;
-    panel.close();
-    if (wasActive) {
-      activate(tab.shown);
-    }
-    _slotsChanged();
-  }
-
-  @override
-  void showPanel(Session panel) {
-    final tab = tabOf(panel);
-    if (tab is! _PanelTab || panel is! SessionMirror || identical(tab.shown, panel)) {
+    final gone = _panels.indexOf(panel);
+    if (gone < 0) {
       return;
     }
-    final wasActive = tab.shown.active;
-    tab.current = tab.columns.indexOf(panel);
-    // Показанная сессия активной стороны — она же и активная: курсор один, и
-    // стоит он там, где смотрят.
-    if (wasActive) {
-      _applyActive(panel);
-    }
-    _slotsChanged();
-  }
-
-  @override
-  Future<PanelTab> openTab(ViewportPosition side, {Session? like, int? at}) async {
-    final slot = _slotAt(side);
-    final model = like is SessionMirror ? like : slot.shown;
-    final panel = await _createPanel(model);
-    if (panel == null) {
-      return slot.shownTab;
-    }
-    final tab = _PanelTab(columns: [panel], current: 0, pinned: false);
-    final place = (at ?? slot.tabs.length).clamp(0, slot.tabs.length);
-    slot.tabs.insert(place, tab);
-    if (place <= slot.current) {
-      slot.current++;
-    }
-    // Заведённая вкладка и показывается: её для того и заводят.
-    showTab(tab);
-    return tab;
-  }
-
-  @override
-  void closeTab(PanelTab tab) {
-    final slot = _slotOf(tab.panel);
-    // Последняя не закрывается: сторона без панели — состояние, которого в
-    // модели нет вовсе.
-    if (slot == null || tab is! _PanelTab || slot.tabs.length < 2) {
+    final wasActive = panel.columns.any((session) => session.active);
+    // Панель без набора не бывает: закрыли последний — на его место встаёт
+    // новый, там же (`docs/spec/panel-sessions.md`, §5). Заводится он **до**
+    // закрытия: образцом ядру служит живая сессия, а закрытой уже нет.
+    if (_panels.length == 1) {
+      unawaited(_replaceLast(panel));
       return;
     }
-    final gone = slot.tabs.indexOf(tab);
-    slot.tabs.removeAt(gone);
-    if (slot.current >= slot.tabs.length) {
-      slot.current = slot.tabs.length - 1;
-    } else if (gone < slot.current) {
-      slot.current--;
+    _panels.removeAt(gone);
+    for (final session in panel.columns) {
+      session.close();
     }
-    final wasActive = tab.columns.any((panel) => panel.active);
-    for (final panel in tab.columns) {
-      panel.close();
-    }
-    if (wasActive) {
-      _applyActive(slot.shown);
-    }
-    _slotsChanged();
-  }
-
-  @override
-  void showTab(PanelTab tab) {
-    final slot = _slotOf(tab.panel);
-    if (slot == null || tab is! _PanelTab) {
-      return;
-    }
-    final wasActive = slot.shown.active;
-    slot.current = slot.tabs.indexOf(tab);
-    if (wasActive) {
-      _applyActive(slot.shown);
-    }
-    _slotsChanged();
-  }
-
-  @override
-  void setTabPinned(PanelTab tab, bool pinned) {
-    if (tab is! _PanelTab || tab.pinned == pinned) {
-      return;
-    }
-    tab.pinned = pinned;
-    _watchPinned(tab);
-    _slotsChanged();
-  }
-
-  /// Следить за закреплённой вкладкой — или перестать.
-  void _watchPinned(_PanelTab tab) {
-    void moved() => _pinnedMoved(tab);
-    // Слушатель один на вкладку: снимаем прежний в любом случае, ставим — если
-    // закреплена.
-    tab.shown.removeListener(tab.onMoved ?? moved);
-    if (!tab.pinned) {
-      tab.onMoved = null;
-      tab.pinnedPath = '';
-      return;
-    }
-    tab.pinnedPath = tab.shown.currentPath;
-    tab.onMoved = moved;
-    tab.shown.addListener(moved);
-  }
-
-  /// Закреплённую увели в другой каталог: новый каталог уходит в новую
-  /// вкладку, а эта возвращается на свой.
-  ///
-  /// Не изнутри уведомления: панель рассказывает о себе, разбирая событие ядра,
-  /// и просьба к ядру оттуда падает — тот же урок, что и у столбцов
-  /// (`docs/spec/panel-view-combined.md`, §5).
-  void _pinnedMoved(_PanelTab tab) {
-    final at = tab.shown.currentPath;
-    if (_closed || !tab.pinned || _returning || at.isEmpty || at == tab.pinnedPath) {
-      return;
-    }
-    final side =
-        _slots.indexWhere((slot) => slot.tabs.contains(tab)) == 1 ? ViewportPosition.right : ViewportPosition.left;
-    _returning = true;
-    Timer.run(() async {
-      try {
-        if (_closed) {
-          return;
-        }
-        await openTab(side, like: tab.shown);
-        await tab.shown.openPath(tab.pinnedPath);
-      } finally {
-        _returning = false;
+    for (var i = 0; i < _shown.length; i++) {
+      if (_shown[i] > gone) {
+        _shown[i]--;
+      } else if (_shown[i] == gone) {
+        _shown[i] = gone.clamp(0, _panels.length - 1);
       }
-    });
+    }
+    if (wasActive) {
+      _applyActive(_panelAt(_activePanel == 1 ? ViewportPosition.right : ViewportPosition.left).shown);
+    }
+    _panelsChanged();
   }
 
-  /// Идёт возврат закреплённой: её собственные вести в это время не в счёт.
-  bool _returning = false;
+  /// Закрывают единственный набор: на его место заводится такой же.
+  ///
+  /// Заводить нечем (ядра нет) — набор остаётся: пустой список панелям
+  /// показывать нечем, и это хуже, чем незакрытый набор.
+  Future<void> _replaceLast(_Panel gone) async {
+    final session = await _createSession(gone.shown);
+    if (session == null || !_panels.contains(gone)) {
+      return;
+    }
+    _panels
+      ..clear()
+      ..add(_Panel(sessions: [session], current: 0, name: ''));
+    for (var i = 0; i < _shown.length; i++) {
+      _shown[i] = 0;
+    }
+    for (final column in gone.columns) {
+      column.close();
+    }
+    _applyActive(session);
+    _panelsChanged();
+  }
 
-  /// Приложение уже закрыли: вести, догнавшие нас после этого, ничего не
-  /// значат — отвечать на них некому.
-  bool _closed = false;
+  @override
+  void showPanel(ViewportPosition side, Panel panel) {
+    final number = panel is _Panel ? _panels.indexOf(panel) : -1;
+    if (number < 0) {
+      return;
+    }
+    final at = _sideOf(side);
+    final wasActive = _panelAt(side).shown.active;
+    _shown[at] = number;
+    if (wasActive) {
+      _applyActive(_panelAt(side).shown);
+    }
+    _panelsChanged();
+  }
 
-  /// Раскладка изменилась: рабочая область показывает другую сессию, а ядро
-  /// узнаёт, кого куда писать в файл.
-  void _slotsChanged() {
+  @override
+  void renamePanel(Panel panel, String name) {
+    if (panel is! _Panel || panel.name == name) {
+      return;
+    }
+    panel.name = name;
+    _panelsChanged();
+  }
+
+  @override
+  Future<Session> openSession(Panel panel, {Session? like, int? at}) async {
+    if (panel is! _Panel) {
+      return panel.session;
+    }
+    final model = like is SessionMirror ? like : panel.shown;
+    final session = await _createSession(model);
+    if (session == null) {
+      return panel.shown;
+    }
+    final place = (at ?? panel.columns.length).clamp(0, panel.columns.length);
+    panel.columns.insert(place, session);
+    // Показанный столбец остаётся показанным: заведение не переводит взгляд.
+    if (place <= panel.current) {
+      panel.current++;
+    }
+    _panelsChanged();
+    return session;
+  }
+
+  @override
+  void closeSession(Session session) {
+    final panel = panelOf(session);
+    // Последний столбец не закрывается: набор без сессии — то же, что панель
+    // без набора.
+    if (panel is! _Panel || panel.columns.length < 2 || session is! SessionMirror) {
+      return;
+    }
+    final gone = panel.columns.indexOf(session);
+    panel.columns.removeAt(gone);
+    if (panel.current >= panel.columns.length) {
+      panel.current = panel.columns.length - 1;
+    } else if (gone < panel.current) {
+      panel.current--;
+    }
+    final wasActive = session.active;
+    session.close();
+    if (wasActive) {
+      activate(panel.shown);
+    }
+    _panelsChanged();
+  }
+
+  @override
+  void showSession(Session session) {
+    final panel = panelOf(session);
+    if (panel is! _Panel || session is! SessionMirror || identical(panel.shown, session)) {
+      return;
+    }
+    final wasActive = panel.shown.active;
+    panel.current = panel.columns.indexOf(session);
+    if (wasActive) {
+      _applyActive(session);
+    }
+    _panelsChanged();
+  }
+
+  /// Список или показанное изменились: рабочая область показывает другое, а
+  /// ядро узнаёт, что писать в файл.
+  void _panelsChanged() {
     view.showPanels();
     settingsChanged();
     notifyListeners();
   }
 
-  /// Раскладка слотов — значениями, для настроек.
-  List<SlotLayout> get slotLayout => [
-    for (final slot in _slots)
-      SlotLayout(
-        tabs: [
-          for (final tab in slot.tabs)
-            TabLayout(panels: [for (final panel in tab.columns) panel.id], current: tab.current, pinned: tab.pinned),
-        ],
-        current: slot.current,
+  /// Раскладка наборов — значениями, для настроек.
+  List<PanelLayout> get panelLayout => [
+    for (final panel in _panels)
+      PanelLayout(
+        sessions: [for (final session in panel.columns) session.id],
+        current: panel.current,
+        name: panel.name,
       ),
   ];
+
+  /// Номера показанных наборов — значениями, для настроек.
+  List<int> get shownPanels => [..._shown];
 
   /// Действия приложения: за кнопкой нижней панели и за горячей клавишей
   /// стоит одна и та же команда.
@@ -513,18 +476,14 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   @override
-  void activate(Session panel) {
-    assert(_slotOf(panel) != null, 'Панель не принадлежит этому приложению');
-    // Сессия той же стороны, но не показанная, — это соседний столбец
-    // комбинированного вида или другая вкладка: щелчок по ней и делает её
-    // текущей (`docs/spec/panel-tabs.md`, §3).
-    final slot = _slotOf(panel);
-    if (slot != null && !identical(slot.shown, panel) && panel is SessionMirror) {
-      final tab = tabOf(panel);
-      if (tab is _PanelTab) {
-        slot.current = slot.tabs.indexOf(tab);
-        tab.current = tab.columns.indexOf(panel);
-      }
+  void activate(Session session) {
+    assert(panelOf(session) != null, 'Сессия не принадлежит этому приложению');
+    // Сессия из показанного набора, но не показанная, — это соседний столбец
+    // комбинированного вида: щелчок по нему и делает его текущим
+    // (`docs/spec/panel-sessions.md`, §2).
+    final panel = panelOf(session);
+    if (panel is _Panel && !identical(panel.shown, session) && session is SessionMirror) {
+      panel.current = panel.columns.indexOf(session);
       view.showPanels();
       settingsChanged();
     }
@@ -532,13 +491,13 @@ class AppController extends ChangeNotifier implements Application {
     // панель» означает вернуть его ей, и ранний выход ниже пропустил бы это:
     // щелчок по активной панели не выводил бы из строки.
     final released = view.releaseFocus();
-    if (panel.active) {
+    if (session.active) {
       if (released) {
         notifyListeners();
       }
       return;
     }
-    _applyActive(panel);
+    _applyActive(session);
     notifyListeners();
   }
 
@@ -547,7 +506,7 @@ class AppController extends ChangeNotifier implements Application {
   /// Всех, а не двух показанных: в слоте бывает несколько, и оставшийся
   /// признак у спрятанной означал бы второй курсор.
   void _applyActive(Session active) {
-    for (final panel in _allPanels) {
+    for (final panel in _allSessions) {
       panel.setActive(identical(panel, active));
     }
   }
@@ -683,9 +642,9 @@ class AppController extends ChangeNotifier implements Application {
   /// (`docs/spec/client-server.md`, §9).
   @override
   Future<void> shutdown() async {
-    // Все сессии, а не только показанные: в слоте их бывает несколько, и
-    // работает каждая своё (`docs/spec/panel-slots.md`).
-    for (final panel in _allPanels) {
+    // Все сессии, а не только показанные: в наборе их бывает несколько, и
+    // работает каждая своё (`docs/spec/panel-sessions.md`, §5).
+    for (final panel in _allSessions) {
       panel.cancel();
     }
     await commands.shutdown();
@@ -758,8 +717,9 @@ class AppController extends ChangeNotifier implements Application {
     sizeScanConcurrency: _initialSettings.sizeScanConcurrency,
     modules: serialize(_initialSettings.modules) as Map<String, dynamic>,
     // Кто где стоит, знает только эта сторона: ядро сессии заводит, но не
-    // раскладывает (`docs/spec/panel-slots.md`, §5).
-    slots: slotLayout,
+    // раскладывает (`docs/spec/panel-sessions.md`, §10).
+    panels: panelLayout,
+    shown: shownPanels,
   );
 
   /// Сказать ядру, что эта половина настроек изменилась.
@@ -783,17 +743,6 @@ class AppController extends ChangeNotifier implements Application {
 
   @override
   void dispose() {
-    _closed = true;
-    // Слежение за закреплёнными снимается: панель ещё жива и рассказывает о
-    // себе, а отвечать на это уже некому.
-    for (final slot in _slots) {
-      for (final tab in slot.tabs) {
-        if (tab.onMoved case final moved?) {
-          tab.shown.removeListener(moved);
-          tab.onMoved = null;
-        }
-      }
-    }
     toasts.dispose();
     credentials.dispose();
     elevation.dispose();
@@ -802,60 +751,27 @@ class AppController extends ChangeNotifier implements Application {
   }
 }
 
-/// Вкладка: её столбцы и тот из них, что показан.
+/// Набор: его столбцы и тот из них, что показан.
 ///
 /// Столбец один, а у комбинированного вида два — дерево и список
-/// (`docs/spec/panel-tabs.md`, §3).
-class _PanelTab implements PanelTab {
-  _PanelTab({required this.columns, required int current, required this.pinned})
-    : current = columns.isEmpty ? 0 : current.clamp(0, columns.length - 1);
+/// (`docs/spec/panel-sessions.md`, §2).
+class _Panel implements Panel {
+  _Panel({required List<SessionMirror> sessions, required int current, required this.name})
+    : columns = sessions,
+      current = sessions.isEmpty ? 0 : current.clamp(0, sessions.length - 1);
 
   final List<SessionMirror> columns;
 
   int current;
 
   @override
-  bool pinned;
+  String name;
 
-  /// Слушатель, которым следят за закреплённой; null — не следят.
-  VoidCallback? onMoved;
-
-  /// Каталог, на котором закреплённая вкладка стоит.
-  ///
-  /// Запоминается при закреплении: уход из вкладки — это переход в другой
-  /// каталог, и вернуть её надо туда, где её закрепили
-  /// (`docs/spec/panel-tabs.md`, §2).
-  String pinnedPath = '';
-
-  SessionMirror get shown => columns[current];
+  SessionMirror get shown => columns[current.clamp(0, columns.length - 1)];
 
   @override
-  Session get panel => shown;
-}
+  Session get session => shown;
 
-/// Вкладки одной стороны и та из них, что показана.
-///
-/// Список живой: вкладки заводятся и закрываются на ходу, а показана всегда
-/// ровно одна — её показанный столбец и стоит в области
-/// (`docs/spec/panel-slots.md`, §4).
-class _PanelSlot {
-  _PanelSlot({required List<_PanelTab> tabs, required int current, required SessionMirror fallback})
-    : tabs =
-          tabs.isEmpty
-              ? [
-                _PanelTab(columns: [fallback], current: 0, pinned: false),
-              ]
-              : tabs,
-      current = tabs.isEmpty ? 0 : current.clamp(0, tabs.length - 1);
-
-  final List<_PanelTab> tabs;
-
-  int current;
-
-  _PanelTab get shownTab => tabs[current];
-
-  SessionMirror get shown => shownTab.shown;
-
-  /// Все сессии стороны — в порядке вкладок и столбцов.
-  Iterable<SessionMirror> get panels => tabs.expand((tab) => tab.columns);
+  @override
+  List<Session> get sessions => List.unmodifiable(columns);
 }
