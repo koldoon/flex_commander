@@ -52,7 +52,8 @@ class PanelRow extends StatelessWidget {
     return Padding(
       padding: EdgeInsets.only(bottom: metrics.areaGap),
       child: SizedBox(
-        height: metrics.headerRowHeight,
+        // Высотой с плашку пути: запись ею и выглядит, и текст в ней тот же.
+        height: metrics.pathHeaderHeight,
         child: Row(
           // Справа налево: у правого края ряд стоит там же, где кончаются
           // панели, а прибывающие наборы растут внутрь окна, не сдвигая
@@ -120,9 +121,11 @@ class _PanelChip extends StatelessWidget {
     final shown = shownLeft || shownRight;
 
     // Погасшая ячейка не пропадает, а темнеет: пара читается как две панели, и
-    // одна ячейка вместо двух означала бы другое.
+    // одна ячейка вместо двух означала бы другое. Высота — со строчную букву:
+    // метка стоит в строке, а не подпирает её края.
     Widget cell(bool lit, Key key) => SizedBox(
       width: metrics.markedBarWidth,
+      height: metrics.iconSize,
       child: ColoredBox(color: lit ? colors.markedBar : colors.panelBorder, key: lit ? key : null),
     );
 
@@ -137,31 +140,30 @@ class _PanelChip extends StatelessWidget {
         // Средняя кнопка закрывает — привычка браузера, и стоит она недорого.
         onTertiaryTapUp: (_) => onClose(),
         child: Container(
-          padding: EdgeInsets.symmetric(horizontal: metrics.cellPadding * 2, vertical: metrics.cellPadding),
+          // Поля как у плашки пути, и только по горизонтали: высоту записи
+          // держит сам ряд, а вертикальные поля отняли бы её у текста.
+          padding: EdgeInsets.symmetric(horizontal: metrics.labelPadding),
           decoration: BoxDecoration(
             color: shown ? colors.pathBackground : colors.panelBackground,
             border: Border.all(color: shown ? colors.pathBorder : colors.panelBorder, width: metrics.strokeWidth),
-            borderRadius: BorderRadius.circular(metrics.inputRadius),
+            borderRadius: BorderRadius.circular(metrics.pathHeaderRadius),
           ),
+          // По содержимому: запись занимает столько, сколько нужно её имени.
           child: Row(
             mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               // Номер — тот же, что у `Alt-N`: ряд заодно учит клавише. Дальше
               // девятого номера нет и у клавиши.
               if (number <= 9) ...[
-                Align(child: Text('$number', style: theme.statusStyle.copyWith(color: colors.secondaryText))),
+                Text('$number', style: theme.statusStyle.copyWith(color: colors.secondaryText)),
                 SizedBox(width: metrics.cellPadding),
               ],
               Flexible(
-                child: Align(
-                  alignment: Alignment.centerLeft,
-                  child: Text(
-                    title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: shown ? theme.pathStyle : theme.statusStyle,
-                  ),
+                child: Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: shown ? theme.pathStyle : theme.statusStyle,
                 ),
               ),
               // Непоказанный ничем не помечен: пустое место говорит само.
