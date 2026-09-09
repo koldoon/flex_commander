@@ -106,12 +106,18 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
     final scaler = MediaQuery.textScalerOf(context);
     final widths = List<double>.filled(_columns, 0);
 
+    // Тем же стилем, каким ячейки будут набраны: `Text` смешивает переданный
+    // стиль с наследуемым, и замер без этого выходит уже нарисованного
+    // ([FcTheme.effective]).
+    final labelStyle = FcTheme.effective(context, theme.dialogLabelStyle);
+    final textStyle = FcTheme.effective(context, theme.dialogTextStyle);
+
     for (final section in widget.sections) {
       for (final row in section.rows) {
         final cells = row.cells;
         for (var i = 0; i < cells.length && i < _columns - 1; i++) {
           final painter = TextPainter(
-            text: TextSpan(text: cells[i], style: i == 0 ? theme.dialogLabelStyle : theme.dialogTextStyle),
+            text: TextSpan(text: cells[i], style: i == 0 ? labelStyle : textStyle),
             textDirection: TextDirection.ltr,
             textScaler: scaler,
             maxLines: 1,

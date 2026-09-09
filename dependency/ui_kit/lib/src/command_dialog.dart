@@ -458,7 +458,7 @@ BoxConstraints dialogContentLimits(BuildContext context, {bool titled = true, do
 double widestLabel(BuildContext context, Iterable<String> labels, {TextStyle? style, double? limit}) {
   final theme = FcTheme.of(context);
   final scaler = MediaQuery.textScalerOf(context);
-  final style0 = DefaultTextStyle.of(context).style.merge(style ?? theme.dialogLabelStyle);
+  final style0 = FcTheme.effective(context, style ?? theme.dialogLabelStyle);
   var widest = 0.0;
 
   for (final label in labels) {

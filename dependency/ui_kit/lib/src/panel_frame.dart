@@ -42,7 +42,13 @@ class FcPathPlate extends StatelessWidget {
     // Активность панели в референсе плашкой не показывалась, но панелей две:
     // видеть, какая из них принимает клавиши, нужно, и приглушённая плашка —
     // самый спокойный способ это сказать.
-    final style = active ? theme.pathStyle : theme.pathStyle.copyWith(color: colors.pathInactiveText);
+    // Тем же стилем, каким будет набрано: плашка меряет путь сама, и мерить
+    // не то, что рисуется, значит срезать хвост пути ровно на разрядку
+    // окружения ([FcTheme.effective]).
+    final style = FcTheme.effective(
+      context,
+      active ? theme.pathStyle : theme.pathStyle.copyWith(color: colors.pathInactiveText),
+    );
 
     return Tooltip(
       message: trailing == null ? path : '$path  $trailing',

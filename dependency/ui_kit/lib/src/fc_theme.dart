@@ -17,6 +17,17 @@ class FcTheme extends ThemeExtension<FcTheme> {
 
   static FcTheme of(BuildContext context) => Theme.of(context).extension<FcTheme>()!;
 
+  /// Стиль, которым текст **и правда** будет набран в этом месте дерева.
+  ///
+  /// `Text` со стилем-наследником домешивает к нему окружение
+  /// (`DefaultTextStyle`), а окружение в приложении материальное: у него своя
+  /// разрядка (`letterSpacing`), которой в наших стилях нет. Кто меряет текст
+  /// сам — плашка пути, колонки таблиц, ряд кнопок, — обязан мерить **этим**
+  /// стилем: иначе меряет одно, а рисует другое, и на длинной строке разница
+  /// набегает в добрый десяток точек (проверено: 0.25 на знак).
+  static TextStyle effective(BuildContext context, TextStyle style) =>
+      style.inherit ? DefaultTextStyle.of(context).style.merge(style) : style;
+
   /// Базовый стиль интерфейса.
   TextStyle get uiStyle =>
       TextStyle(fontFamily: fonts.ui, fontSize: metrics.fontSize, color: colors.rowText, height: 1.2);

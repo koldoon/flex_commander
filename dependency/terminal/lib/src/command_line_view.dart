@@ -113,7 +113,13 @@ class _CommandLineViewState extends State<CommandLineView> {
       listenable: Listenable.merge([state, view, state.panel, state.text]),
       builder: (context, _) {
         final enabled = state.enabled;
-        final style = theme.fixedStyle.copyWith(color: enabled ? colors.rowText : colors.secondaryText);
+        // Тем стилем, каким текст и правда набирается: окружение подмешивает
+        // к нему своё, и клетка, померенная без этого, разойдётся с набором
+        // ([FcTheme.effective]).
+        final style = FcTheme.effective(
+          context,
+          theme.fixedStyle.copyWith(color: enabled ? colors.rowText : colors.secondaryText),
+        );
 
         // Ряд подсказок стоит **всегда**, даже когда он пуст.
         //
