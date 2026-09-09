@@ -200,6 +200,10 @@ CommandRegistry.dispatch(combination, app)
 | `Cmd-2` | `panel.view.set` (`brief`) | краткий: одни имена столбцами, прокрутка вбок |
 | `Cmd-3` | `panel.view.set` (`tree`) | дерево: каталоги и файлы ветвями |
 | `Cmd-4` | `panel.view.set` (`tree+`) | дерево с содержимым: ветви слева, список справа |
+| `Cmd-Shift-T` | `panel.tabs.new` | новая вкладка на текущем каталоге, рядом с нынешней |
+| `Cmd-Shift-W` | `panel.tabs.close` | закрыть вкладку; последнюю — нельзя |
+| `Ctrl-Tab` / `Ctrl-Shift-Tab` | `panel.tabs.next` / `panel.tabs.previous` | по вкладкам стороны, по кругу |
+| `Alt-1`…`Alt-9` | `panel.tabs.select` | вкладка по номеру |
 
 Клавиша вида — параметр привязки, а не своя команда на каждый вид: вид
 называется значением `view`, и модуль, приносящий вид, привязывает клавишу сам
