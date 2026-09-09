@@ -4,17 +4,22 @@ import 'package:flutter/material.dart';
 
 import '../state/commands/session_commands.dart';
 
-/// Ряд открытых наборов — над **обеими** панелями
+/// Ряд открытых наборов — **один общий на всё окно**, над обеими панелями
 /// (`docs/spec/panel-sessions.md`, §3).
 ///
 /// Рисует его шелл, а не модуль панелей: набор не принадлежит стороне, и ряд
-/// над одной панелью врал бы об этом устройстве.
+/// на каждую сторону врал бы об этом устройстве — как и вопрос «а в чей ряд
+/// попал заведённый набор».
 ///
 /// **Пока показано всё, ряда нет.** Полоса, которая ничего не выбирает, отняла
 /// бы строку у списка файлов: при двух наборах оба и так на виду. Появляется
 /// она с первым же непоказанным набором и пропадает вместе с ним.
 class PanelRow extends StatelessWidget {
   const PanelRow({super.key});
+
+  /// Ключи горящих ячеек метки: по ним проверка узнаёт, где набор показан.
+  static const Key leftMarkKey = Key('panel-row-mark-left');
+  static const Key rightMarkKey = Key('panel-row-mark-right');
 
   @override
   Widget build(BuildContext context) {
@@ -49,9 +54,17 @@ class PanelRow extends StatelessWidget {
       child: SizedBox(
         height: metrics.headerRowHeight,
         child: Row(
+          // Справа налево: у правого края ряд стоит там же, где кончаются
+          // панели, а прибывающие наборы растут внутрь окна, не сдвигая
+          // остальных с насиженных мест.
+          mainAxisAlignment: MainAxisAlignment.end,
           children: [
             for (var at = 0; at < panels.length; at++) ...[
-              if (at > 0) SizedBox(width: metrics.strokeWidth),
+              // Дистанция между записями — та же, что между областями окна:
+              // другой величине здесь взяться неоткуда.
+              if (at > 0) SizedBox(width: metrics.areaGap),
+              // По содержимому: запись занимает столько, сколько нужно имени.
+              // Тесно — ужимается по очереди, а не делит ширину поровну.
               Flexible(
                 child: _PanelChip(
                   number: at + 1,
@@ -73,11 +86,13 @@ class PanelRow extends StatelessWidget {
   }
 }
 
-/// Один набор в ряду: номер, имя и метки сторон, где он показан.
+/// Один набор в ряду: номер, имя и метка того, где он показан.
 ///
-/// Метки — полосками по краям, а не буквами: слева показан — полоска слева,
-/// справа — справа, в обеих — с обеих сторон. Знаком это пришлось бы читать,
-/// а полоску видно, не читая.
+/// Метка — **мини-пара панелей у правой границы**: две ячейки, левая горит,
+/// когда набор показан слева, правая — когда справа, обе — когда в обеих.
+/// Буквами это пришлось бы читать, а пара сама похожа на то, что показывает.
+/// Место у неё всегда одно, поэтому она читается как метка записи, а не как
+/// значок перед именем.
 class _PanelChip extends StatelessWidget {
   const _PanelChip({
     required this.number,
@@ -104,8 +119,12 @@ class _PanelChip extends StatelessWidget {
     final metrics = theme.metrics;
     final shown = shownLeft || shownRight;
 
-    Widget mark(bool lit) =>
-        SizedBox(width: metrics.markedBarWidth, child: lit ? ColoredBox(color: colors.markedBar) : null);
+    // Погасшая ячейка не пропадает, а темнеет: пара читается как две панели, и
+    // одна ячейка вместо двух означала бы другое.
+    Widget cell(bool lit, Key key) => SizedBox(
+      width: metrics.markedBarWidth,
+      child: ColoredBox(color: lit ? colors.markedBar : colors.panelBorder, key: lit ? key : null),
+    );
 
     return Tooltip(
       // Полный путь — подсказкой: имена в ряду короткие и повторяются
@@ -118,43 +137,40 @@ class _PanelChip extends StatelessWidget {
         // Средняя кнопка закрывает — привычка браузера, и стоит она недорого.
         onTertiaryTapUp: (_) => onClose(),
         child: Container(
-          // Полоски сторон обрезаются по скруглению: рамке они не годятся —
-          // скруглённая рамка бывает только одноцветной.
-          clipBehavior: Clip.antiAlias,
+          padding: EdgeInsets.symmetric(horizontal: metrics.cellPadding * 2, vertical: metrics.cellPadding),
           decoration: BoxDecoration(
             color: shown ? colors.pathBackground : colors.panelBackground,
             border: Border.all(color: shown ? colors.pathBorder : colors.panelBorder, width: metrics.strokeWidth),
             borderRadius: BorderRadius.circular(metrics.inputRadius),
           ),
           child: Row(
+            mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              mark(shownLeft),
+              // Номер — тот же, что у `Alt-N`: ряд заодно учит клавише. Дальше
+              // девятого номера нет и у клавиши.
+              if (number <= 9) ...[
+                Align(child: Text('$number', style: theme.statusStyle.copyWith(color: colors.secondaryText))),
+                SizedBox(width: metrics.cellPadding),
+              ],
               Flexible(
-                child: Padding(
-                  padding: EdgeInsets.symmetric(horizontal: metrics.cellPadding * 2),
-                  child: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      // Номер — тот же, что у `Alt-N`: ряд заодно учит клавише.
-                      // Дальше девятого номера нет и у клавиши.
-                      if (number <= 9) ...[
-                        Text('$number', style: theme.statusStyle.copyWith(color: colors.secondaryText)),
-                        SizedBox(width: metrics.cellPadding),
-                      ],
-                      Flexible(
-                        child: Text(
-                          title,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: shown ? theme.pathStyle : theme.statusStyle,
-                        ),
-                      ),
-                    ],
+                child: Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text(
+                    title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: shown ? theme.pathStyle : theme.statusStyle,
                   ),
                 ),
               ),
-              mark(shownRight),
+              // Непоказанный ничем не помечен: пустое место говорит само.
+              if (shown) ...[
+                SizedBox(width: metrics.cellPadding * 2),
+                cell(shownLeft, PanelRow.leftMarkKey),
+                SizedBox(width: metrics.strokeWidth),
+                cell(shownRight, PanelRow.rightMarkKey),
+              ],
             ],
           ),
         ),

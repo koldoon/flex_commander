@@ -79,6 +79,23 @@ void main() {
       expect(find.descendant(of: find.byType(PanelRow), matching: find.text('home')), findsWidgets);
     });
 
+    testWidgets('метка горит у того, кто показан, и с той стороны', (tester) async {
+      await pumpApp(tester);
+      await press(tester, LogicalKeyboardKey.keyT, modifiers: [commandKey, LogicalKeyboardKey.shift]);
+
+      // Показаны двое: заведённый слева и прежний правый. Значит, горящих
+      // ячеек ровно по одной с каждой стороны — и в разных записях.
+      expect(find.byKey(PanelRow.leftMarkKey), findsOneWidget);
+      expect(find.byKey(PanelRow.rightMarkKey), findsOneWidget);
+
+      // Один набор в обеих панелях — обе ячейки одной записи.
+      app.showPanel(ViewportPosition.right, app.panelAt(ViewportPosition.left));
+      await tester.pumpAndSettle();
+      expect(find.byKey(PanelRow.leftMarkKey), findsOneWidget);
+      expect(find.byKey(PanelRow.rightMarkKey), findsOneWidget);
+      expect(app.left, same(app.right));
+    });
+
     testWidgets('нажатие по записи показывает набор в активной панели', (tester) async {
       await pumpApp(tester);
       await press(tester, LogicalKeyboardKey.keyT, modifiers: [commandKey, LogicalKeyboardKey.shift]);
