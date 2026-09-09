@@ -656,8 +656,11 @@ class CombinedSideCommand extends AppCommand {
     // Закрытую ветвь `Right` сперва раскрывает: раскрытие объявлено следом, и
     // клавиша достаётся ему, пока эта команда невыполнима
     // (`docs/spec/panel-view-combined.md`, §6).
+    //
+    // Кроме той, у которой раскрывать нечего: знака у неё нет, и обещать
+    // нажатием то, чего не видно, нельзя — курсор уходит вправо сразу.
     final row = context.panel.currentEntry;
-    return row == null || !row.isDirectory || row.isOpen;
+    return row == null || !row.isDirectory || row.isOpen || !row.hasBranches;
   }
 
   @override

@@ -19,6 +19,7 @@ class FcSplitView extends StatefulWidget {
     required this.onCenter,
     this.minWidth,
     this.divider = false,
+    this.gap,
   });
 
   final Widget left;
@@ -40,6 +41,13 @@ class FcSplitView extends StatefulWidget {
   /// Сколько остаётся у каждой стороны как минимум; пусто — ширина панели из
   /// темы. Столбцам вида нужна своя: панель целиком туда не поместится.
   final double? minWidth;
+
+  /// Ширина зазора между областями; пусто — зазор между панелями из темы.
+  ///
+  /// Внутри панели он равен самой линейке: по общему правилу подсветка строки
+  /// упирается в границу, и просвет между курсором и чертой читался бы как
+  /// сбой (`docs/spec/panel-view-combined.md`, §7).
+  final double? gap;
 
   /// Рисовать ли линейку в зазоре.
   ///
@@ -66,27 +74,28 @@ class _FcSplitViewState extends State<FcSplitView> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        final available = constraints.maxWidth - metrics.areaGap;
+        final gap = widget.gap ?? metrics.areaGap;
+        final available = constraints.maxWidth - gap;
         final minRatio = ((widget.minWidth ?? metrics.minPanelWidth) / available).clamp(0.0, 0.5);
         final leftWidth = available * widget.ratio.clamp(minRatio, 1 - minRatio);
 
         // Ширина захвата: зазор бывает уже, чем палец, — тогда область шире его
         // самого и заходит на края обеих панелей.
-        final handleWidth = math.max(metrics.resizeHandleWidth, metrics.areaGap);
+        final handleWidth = math.max(metrics.resizeHandleWidth, gap);
 
         return Stack(
           children: [
             Row(
               children: [
                 SizedBox(width: leftWidth, child: widget.left),
-                SizedBox(width: metrics.areaGap, height: double.infinity),
+                SizedBox(width: gap, height: double.infinity),
                 Expanded(child: widget.right),
               ],
             ),
             // Линейка — под захватом: её видно, а тянут всё равно за него.
             if (widget.divider)
               Positioned(
-                left: leftWidth + (metrics.areaGap - metrics.strokeWidth) / 2,
+                left: leftWidth + (gap - metrics.strokeWidth) / 2,
                 top: 0,
                 bottom: 0,
                 width: metrics.strokeWidth,
@@ -100,7 +109,7 @@ class _FcSplitViewState extends State<FcSplitView> {
             // она отбрасывает. Пока зазор был в восемь точек, разницы никто не
             // замечал; ужали до шести — и мимо стало попадать заметно.
             Positioned(
-              left: leftWidth + (metrics.areaGap - handleWidth) / 2,
+              left: leftWidth + (gap - handleWidth) / 2,
               top: 0,
               bottom: 0,
               width: handleWidth,

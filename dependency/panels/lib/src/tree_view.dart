@@ -445,6 +445,11 @@ class TreeViewState extends State<TreeView> {
                     sizeWidth: showSize ? sizeWidth : 0,
                     inset: inset,
                     panelActive: app.view.takesKeys(panel),
+                    // Дерево одних каталогов — навигатор соседнего столбца, и
+                    // правила у него свои: место видно и без курсора, а знак
+                    // раскрытия стоит только там, где внутри и правда ветви
+                    // (`docs/spec/panel-view-combined.md`, §5а и §5б).
+                    navigator: widget.rows == RowsKind.branches,
                     onTap: () => _onTap(index),
                     onToggle: () {
                       app.activate(panel);
@@ -594,6 +599,7 @@ class _BranchRow extends StatelessWidget {
     required this.sizeWidth,
     required this.inset,
     required this.panelActive,
+    this.navigator = false,
     required this.onTap,
     required this.onToggle,
   });
@@ -619,10 +625,24 @@ class _BranchRow extends StatelessWidget {
   final double inset;
 
   final bool panelActive;
+
+  /// Это дерево — навигатор соседнего столбца.
+  ///
+  /// Отсюда два его отличия. **Место видно и без курсора**: он уходит в список,
+  /// а откуда этот список взялся — видно по имени ветви; полосы курсора при
+  /// этом нет, двух курсоров на экране не бывает (§5а). И **знак раскрытия
+  /// стоит только там, где внутри есть ветви**: пустые каталоги обещали бы
+  /// раскрытие, которого не будет (§5б).
+  final bool navigator;
+
   final VoidCallback onTap;
   final VoidCallback onToggle;
 
   bool get _selected => underCursor && panelActive;
+
+  /// Имя пишется ярким: под курсором — на полосе, а у отпустившего клавиши
+  /// навигатора — на обычном фоне.
+  bool get _bright => _selected || (underCursor && navigator);
 
   /// Знак раскрытия: у каталога — шеврон, у файла ничего.
   ///
@@ -631,6 +651,11 @@ class _BranchRow extends StatelessWidget {
   /// (`docs/spec/panel-view-tree.md`, §4).
   String _mark(FcIcons icons) {
     if (!row.isDirectory) {
+      return '';
+    }
+    // У навигатора знак обещает содержимое, а не тип строки: пока ядро не
+    // дочитало, знака нет — он появится вместе с ответом.
+    if (navigator && !row.hasBranches) {
       return '';
     }
     return String.fromCharCode(row.isOpen ? icons.branchOpen.codePoint : icons.branchClosed.codePoint);
@@ -667,7 +692,7 @@ class _BranchRow extends StatelessWidget {
     final square = FileIconSize.of(metrics, AppScope.read(context).fileIcons);
     final indent = square + metrics.treeMarkGap;
 
-    final style = _selected ? theme.rowStyle.copyWith(color: colors.cursorText) : theme.rowStyle;
+    final style = _bright ? theme.rowStyle.copyWith(color: colors.cursorText) : theme.rowStyle;
     final glyph = TextStyle(
       fontFamily: icons.fontFamily,
       fontSize: metrics.fontSize,

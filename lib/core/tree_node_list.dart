@@ -244,6 +244,75 @@ class TreeNodeList implements NodeList {
     }
   }
 
+  /// Есть ли в прочитанной ветви свои ветви; null — не читали, и врать нечем.
+  bool? _branchesIn(_Branch branch, bool includeHidden) {
+    final children = branch.children;
+    if (children == null) {
+      return null;
+    }
+    return children.any((child) => child.node is DirectoryNode && (includeHidden || !child.node.name.startsWith('.')));
+  }
+
+  /// Дочитать показанные ветви — только ради знака раскрытия.
+  ///
+  /// Идёт **следом за строками**, а не вместо них: чтобы ответить, надо
+  /// прочитать каждый показанный каталог, и делать это до показа значило бы
+  /// открывать каталог во столько раз дольше, сколько в нём подкаталогов
+  /// (`docs/spec/panel-view-combined.md`, §5б).
+  ///
+  /// [onLearned] зовётся пачками: знаки появляются по мере того, как ответы
+  /// приходят, а не все разом в конце.
+  Future<void> probeBranches({
+    required bool includeHidden,
+    required OperationContext op,
+    required void Function() onLearned,
+  }) async {
+    final sinceBreath = Stopwatch()..start();
+    var learned = 0;
+
+    Future<void> walk(List<_Branch> branches, int level) async {
+      for (final branch in branches) {
+        op.checkCanceled();
+        final node = branch.node;
+        if (node is! DirectoryNode) {
+          continue;
+        }
+        if (level > 0 && !includeHidden && node.name.startsWith('.')) {
+          continue;
+        }
+        if (branch.hasBranches == null) {
+          if (sinceBreath.elapsed >= _breath) {
+            sinceBreath
+              ..reset()
+              ..start();
+            await Future<void>.delayed(Duration.zero);
+            op.checkCanceled();
+          }
+          await _fillOne(branch);
+          branch.hasBranches = _branchesIn(branch, includeHidden) ?? false;
+          node.hasBranches = branch.hasBranches;
+          learned++;
+          // Пачками: строка с новым знаком должна появиться, пока читаются
+          // остальные, — иначе дерево стоит немым до конца обхода.
+          if (learned % _learnedBatch == 0) {
+            onLearned();
+          }
+        }
+        if (_expanded.contains(node.pathString)) {
+          await walk(branch.children ?? const [], level + 1);
+        }
+      }
+    }
+
+    await walk(_roots, 0);
+    if (learned % _learnedBatch != 0) {
+      onLearned();
+    }
+  }
+
+  /// Через сколько прочитанных ветвей показать, что узналось.
+  static const int _learnedBatch = 16;
+
   /// Как часто обход отдаёт управление: половина кадра, как у поиска.
   static const Duration _breath = Duration(milliseconds: 8);
 
@@ -315,7 +384,8 @@ class TreeNodeList implements NodeList {
         final open = node is DirectoryNode && _expanded.contains(node.pathString);
         node
           ..level = level
-          ..isOpen = open;
+          ..isOpen = open
+          ..hasBranches = branch.hasBranches ?? _branchesIn(branch, order.includeHidden);
         rows.add(node);
         if (open) {
           walk(branch.children ?? const [], level + 1);
@@ -334,4 +404,11 @@ class _Branch {
 
   final FsNode node;
   List<_Branch>? children;
+
+  /// Есть ли внутри свои ветви; null — не смотрели.
+  ///
+  /// Отдельно от [children]: прочитанная ветвь отвечает на этот вопрос сама, а
+  /// вот дочитывать ради знака раскрытия приходится и те, что никто не
+  /// раскрывал (`docs/spec/panel-view-combined.md`, §5б).
+  bool? hasBranches;
 }

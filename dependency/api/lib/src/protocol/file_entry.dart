@@ -43,6 +43,7 @@ class FileEntry {
     this.canReceive = false,
     this.level = 0,
     this.isOpen = false,
+    this.hasBranches = false,
     this.sizeIsFinal = true,
   });
 
@@ -139,6 +140,7 @@ class FileEntry {
     scheme: scheme,
     level: level,
     isOpen: isOpen,
+    hasBranches: hasBranches,
     sizeIsFinal: isFinal,
     canStream: canStream,
     canReceive: canReceive,
@@ -153,6 +155,14 @@ class FileEntry {
 
   /// Ветвь раскрыта: её содержимое стоит в списке следом.
   final bool isOpen;
+
+  /// Внутри ветви есть свои ветви.
+  ///
+  /// Заполняет это дерево одних каталогов, и заполняет **не сразу**: узнать
+  /// ответ — значит прочитать каталог, а читать все подряд ради знака
+  /// раскрытия долго. Поэтому по умолчанию здесь `false`, знаки появляются по
+  /// мере того, как ядро дочитывает (`docs/spec/panel-view-combined.md`, §5б).
+  final bool hasBranches;
 
   /// Размер окончателен.
   ///

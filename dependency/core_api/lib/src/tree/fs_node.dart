@@ -38,6 +38,14 @@ abstract class FsNode {
   bool get isOpen;
   set isOpen(bool value);
 
+  /// Есть ли внутри ветви; null — ещё не смотрели.
+  ///
+  /// Знание это стоит чтения, поэтому приходит оно **следом** за строками и не
+  /// задерживает их: дерево одних каталогов рисует знак раскрытия только там,
+  /// где ветви и правда есть (`docs/spec/panel-view-combined.md`, §5б).
+  bool? get hasBranches;
+  set hasBranches(bool? value);
+
   /// Полный путь строкой — через все провайдеры цепочки:
   /// `/home/archive.zip:zip:/inner/doc.txt`. Схема `fs` в начале не печатается,
   /// поэтому обычный путь выглядит обычно.
@@ -104,6 +112,9 @@ abstract class AbstractFsNode implements FsNode {
 
   @override
   bool isOpen;
+
+  @override
+  bool? hasBranches;
 
   @override
   String get pathString => nodePathOf(this).toString();

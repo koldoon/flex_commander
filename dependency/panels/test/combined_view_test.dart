@@ -13,15 +13,23 @@ import 'package:flutter_test/flutter_test.dart';
 ///
 /// Столбцы — две сессии одного слота, и курсор стоит в той, что показана.
 void main() {
-  InMemoryTreeProvider provider() => InMemoryTreeProvider([
-    FakeEntry.directory('/home'),
-    FakeEntry.directory('/home/lib'),
-    FakeEntry.directory('/home/lib/src'),
-    FakeEntry.file('/home/lib/main.dart', size: 10),
-    FakeEntry.directory('/home/test'),
-    FakeEntry.file('/home/notes.txt', size: 3),
-    FakeEntry.file('/home/test/all_test.dart', size: 4),
-  ])..home = '/home';
+  late FakePty pty;
+
+  setUp(() => pty = FakePty());
+
+  InMemoryTreeProvider provider() => InMemoryTreeProvider(
+    [
+      FakeEntry.directory('/home'),
+      FakeEntry.directory('/home/lib'),
+      FakeEntry.directory('/home/lib/src'),
+      FakeEntry.file('/home/lib/main.dart', size: 10),
+      FakeEntry.directory('/home/test'),
+      FakeEntry.file('/home/notes.txt', size: 3),
+      FakeEntry.file('/home/test/all_test.dart', size: 4),
+    ],
+    null,
+    pty,
+  )..home = '/home';
 
   AppSettings settingsAt(String path) =>
       AppSettings(left: PanelSettings.defaults(path), right: PanelSettings.defaults(path));
@@ -190,6 +198,105 @@ void main() {
     expect(tree(runtime).currentEntry?.name, now, reason: 'список — пассажир, а не поводырь');
   });
 
+  testWidgets('знак раскрытия стоит только там, где внутри есть ветви', (tester) async {
+    final runtime = await open(tester);
+    await settle(tester);
+    // Ответы приходят следом за строками: дочитывание идёт в фоне.
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    bool branches(String name) => tree(runtime).entries.firstWhere((entry) => entry.name == name).hasBranches;
+
+    expect(branches('lib'), isTrue, reason: 'в lib лежит src');
+    expect(branches('test'), isFalse, reason: 'в test одни файлы — раскрывать нечего');
+  });
+
+  testWidgets('с ветви без ветвей Right уводит вправо сразу', (tester) async {
+    final runtime = await open(tester);
+    await settle(tester);
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.pumpAndSettle();
+
+    runtime.commands.dispatch(KeyCombination.parse('Left'));
+    await tester.pumpAndSettle();
+    while (tree(runtime).currentEntry?.name != 'test') {
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+      await tester.pump();
+    }
+
+    // Знака раскрытия у неё нет — и обещать нажатием то, чего не видно,
+    // нельзя: курсор уходит в список с первого раза.
+    runtime.commands.dispatch(KeyCombination.parse('Right'));
+    await tester.pumpAndSettle();
+
+    expect(runtime.app.left, same(list(runtime)));
+  });
+
+  testWidgets('дерево держит место, когда курсор ушёл в список', (tester) async {
+    final runtime = await open(tester);
+    await settle(tester);
+
+    /// Цвет имени ветви в дереве.
+    Color nameColor(String name) {
+      final text = tester.widget<Text>(find.descendant(of: find.byType(TreeView), matching: find.text(name)).first);
+      return text.style!.color!;
+    }
+
+    runtime.commands.dispatch(KeyCombination.parse('Left'));
+    await tester.pumpAndSettle();
+    while (tree(runtime).currentEntry?.name != 'lib') {
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+      await tester.pump();
+    }
+    await settle(tester);
+
+    final theme = FcTheme.of(tester.element(find.byType(TreeView)));
+    expect(nameColor('lib'), theme.colors.cursorText, reason: 'курсор в дереве — имя на полосе');
+
+    // Курсор ушёл в список: первый `Right` раскрывает ветвь, второй уводит
+    // вправо. Полосы в дереве после этого нет, но откуда взялся список —
+    // видно по имени.
+    runtime.commands.dispatch(KeyCombination.parse('Right'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Right'));
+    await tester.pumpAndSettle();
+    expect(runtime.app.left, same(list(runtime)));
+
+    expect(nameColor('lib'), theme.colors.cursorText, reason: 'место осталось помечено');
+    expect(nameColor('test'), theme.colors.rowText, reason: 'а соседние ветви — обычные');
+  });
+
+  testWidgets('ушли вправо, не дождавшись списка, — дерево остаётся на месте', (tester) async {
+    // Придержанная дверь: список едет к новой ветви дольше, чем человек
+    // успевает нажать «вправо».
+    final runtime = await open(tester, lagging: true);
+    await settle(tester);
+
+    runtime.commands.dispatch(KeyCombination.parse('Left'));
+    await tester.pumpAndSettle();
+    // Встали на `lib` и дождались, чтобы список показал её содержимое.
+    while (tree(runtime).currentEntry?.name != 'lib') {
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+      await tester.pump();
+    }
+    await settle(tester);
+    await settle(tester);
+    expect(list(runtime).currentPath, '/home/lib', reason: 'стенд ни о чём, если список не догнал');
+
+    // Шаг вверх — и сразу вправо, не дожидаясь придержки.
+    runtime.commands.dispatch(KeyCombination.parse('Up'));
+    await tester.pump(const Duration(milliseconds: 20));
+    final wanted = tree(runtime).currentEntry?.name;
+    runtime.commands.dispatch(KeyCombination.parse('Right'));
+    await tester.pumpAndSettle();
+    await settle(tester);
+    await settle(tester);
+
+    expect(runtime.app.left, same(list(runtime)), reason: 'курсор ушёл в список');
+    expect(tree(runtime).currentEntry?.name, wanted, reason: 'дерево осталось там, куда его привели');
+    expect(list(runtime).currentPath, '/home', reason: 'а список догнал ту ветвь, с которой уходили');
+  });
+
   testWidgets('окно выбора вида правит колонки списка', (tester) async {
     final runtime = await open(tester);
     await settle(tester);
@@ -209,6 +316,22 @@ void main() {
 
     final after = list(runtime).columns.columns.firstWhere((column) => column.id == FsColumn.modified).visible;
     expect(after, !before, reason: 'флажок правит колонки того столбца, у которого они есть');
+  });
+
+  testWidgets('Ctrl-O заводит оболочку там, где стоит показанный столбец', (tester) async {
+    final runtime = await open(tester);
+    await settle(tester);
+
+    // Курсор в списке: оболочка начинает в его каталоге.
+    runtime.commands.dispatch(KeyCombination.parse('Ctrl-O'));
+    await tester.pumpAndSettle();
+    // Оболочка отвечает на уговор: без этого экран ждёт её до истечения срока.
+    AgreeingShell(pty.session).greet();
+    await tester.pumpAndSettle();
+
+    expect(pty.session.workingDirectory, list(runtime).currentPath);
+
+    await tester.pump(const Duration(milliseconds: 20));
   });
 
   testWidgets('уход на другой вид закрывает второй столбец', (tester) async {

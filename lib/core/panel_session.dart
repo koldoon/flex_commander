@@ -241,6 +241,37 @@ class PanelSession {
   void _setRows(List<FsNode> rows) {
     _nodes = rows;
     _byPath = null;
+    _probeBranches();
+  }
+
+  /// Дочитывание ради знаков раскрытия; null — сейчас никто не читает.
+  Operation<void, void>? _probing;
+
+  /// Узнать, у каких показанных ветвей есть свои, — следом за строками.
+  ///
+  /// Только для дерева одних каталогов: обычному дереву знак раскрытия
+  /// положен всякому каталогу, и спрашивать нечего. Работа фоновая и
+  /// прерываемая: новые строки отменяют прежнее дочитывание
+  /// (`docs/spec/panel-view-combined.md`, §5б).
+  void _probeBranches() {
+    _probing?.cancel();
+    _probing = null;
+    final list = _list;
+    if (_rows != RowsKind.branches || list is! TreeNodeList) {
+      return;
+    }
+    final operation = TaskOperation<void, void>(
+      (op, _) => list.probeBranches(
+        includeHidden: _showHidden,
+        op: op,
+        // Строки те же самые — изменились только их признаки, и пересобирать
+        // набор незачем: узлы в нём и есть те, которым дописали ответ.
+        onLearned: _listed,
+      ),
+    );
+    _probing = operation;
+    operation.start(null);
+    unawaited(operation.result.catchError((Object _) {}));
   }
 
   FsNode? _rowAt(String path) => (_byPath ??= {for (final node in _nodes) node.pathString: node})[path];

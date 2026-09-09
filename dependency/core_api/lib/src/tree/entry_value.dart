@@ -25,6 +25,9 @@ FileEntry entryValueOf(FsNode node) {
     // рисует ветви (`docs/spec/panel-node-list.md`, §4).
     level: node.level,
     isOpen: node.isOpen,
+    // Пусто, пока не читали: знак раскрытия рисуется только там, где ветви
+    // и правда есть (`docs/spec/panel-view-combined.md`, §5б).
+    hasBranches: node.hasBranches ?? false,
     modified: file?.modified,
     created: file?.created,
     accessed: file?.accessed,

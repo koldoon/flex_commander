@@ -77,6 +77,15 @@ class _CombinedViewState extends State<CombinedView> {
   /// список следующим тактом, а не изнутри его уведомления.
   Timer? _catchUp;
 
+  /// Каталог, в который список **едет** по просьбе дерева; null — приехал.
+  ///
+  /// Пока едет, его вести о прежнем каталоге ничего не значат: он там уже не
+  /// живёт, а только не успел уехать. Без этого выходило так: встали на ветвь
+  /// выше, тут же ушли вправо — и дерево отскакивало обратно, потому что
+  /// список, ставший главным, ещё показывал прежнее
+  /// (`docs/spec/panel-view-combined.md`, §5).
+  String? _awaited;
+
   /// Заведение спутника идёт к ядру и возвращается кадром позже — второй раз
   /// просить не надо.
   bool _asking = false;
@@ -195,7 +204,15 @@ class _CombinedViewState extends State<CombinedView> {
     if (!mounted || list == null || at == null || at == list.currentPath) {
       return;
     }
-    unawaited(list.openPath(at));
+    _awaited = at;
+    unawaited(
+      list.openPath(at).then((opened) {
+        // Не доехал — и не доедет: ждать больше нечего.
+        if (!opened && _awaited == at) {
+          _awaited = null;
+        }
+      }),
+    );
   }
 
   /// Список ушёл в другой каталог сам — по `Enter` или `Bsp`: дерево догоняет.
@@ -212,7 +229,22 @@ class _CombinedViewState extends State<CombinedView> {
     if (tree == null || list == null || !list.active) {
       return;
     }
+    // Курсор ушёл в список, а тот ещё не тронулся за деревом: ждать придержку
+    // незачем — вправо шли именно за содержимым этой ветви.
+    if (_follow?.isActive ?? false) {
+      // Следующим тактом, а не сейчас: изнутри уведомления к ядру не ходят.
+      _follow!.cancel();
+      _follow = Timer(Duration.zero, _followCursor);
+      return;
+    }
+    // Список в пути: его весть о прежнем каталоге не повод вести дерево назад.
     final at = list.currentPath;
+    if (_awaited != null) {
+      if (at != _awaited) {
+        return;
+      }
+      _awaited = null;
+    }
     if (at.isEmpty || at == tree.currentPath || at == _branchUnderCursor()) {
       return;
     }
@@ -229,6 +261,9 @@ class _CombinedViewState extends State<CombinedView> {
     final list = _list;
     final at = list?.currentPath;
     if (!mounted || tree == null || list == null || !list.active || at == null || at.isEmpty) {
+      return;
+    }
+    if (_awaited != null && at != _awaited) {
       return;
     }
     if (at == _branchUnderCursor()) {
@@ -254,8 +289,10 @@ class _CombinedViewState extends State<CombinedView> {
       ratio: settings.treeShare,
       minWidth: _minColumnWidth,
       // Столбцы стоят в одной рамке, и граница между ними — та же линейка, что
-      // между колонками таблицы.
+      // между колонками таблицы. Зазор равен ей самой: подсветка строки должна
+      // упираться в черту, а не останавливаться перед ней.
       divider: true,
+      gap: FcTheme.of(context).metrics.strokeWidth,
       onRatioChanged: (value) {
         setState(() => settings.treeShare = value.clamp(PanelsSettings.minTreeShare, PanelsSettings.maxTreeShare));
         widget.save();
