@@ -30,6 +30,7 @@ class SettingsHub {
          splitRatio: stored.splitRatio,
          window: stored.window,
          sizeScanConcurrency: stored.sizeScanConcurrency,
+         reconnectAtStartup: stored.reconnectAtStartup,
          // Раскладку по сторонам знает тот, кто заводил сессии: файл говорит,
          // сколько их в каждой стороне, а какая личность досталась какой —
          // видно только оттуда (`docs/spec/panel-sessions.md`, §10).
@@ -91,9 +92,13 @@ class SettingsHub {
     activePanel: _ui.activePanel,
     splitRatio: _ui.splitRatio,
     sizeScanConcurrency: _ui.sizeScanConcurrency,
+    reconnectAtStartup: _ui.reconnectAtStartup,
     window: _ui.window,
     modules: _stored.modules,
   );
+
+  /// Подключаться ли при запуске к сохранённым удалённым источникам.
+  bool get reconnectAtStartup => _ui.reconnectAtStartup;
 
   /// Личности показанных сессий: все столбцы показанных наборов.
   ///

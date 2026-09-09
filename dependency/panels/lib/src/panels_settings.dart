@@ -11,17 +11,7 @@ class PanelsSettings implements Serializable {
     this.treeSize = true,
     this.cursorHoldsPlace = true,
     this.treeShare = defaultTreeShare,
-    this.maxTabs = defaultMaxTabs,
-    this.tabsAlwaysVisible = false,
   });
-
-  /// Сколько вкладок можно завести в одной стороне.
-  ///
-  /// Предел — не придирка: вкладка держит аренду источника, и пять архивов
-  /// это пять распакованных копий (`docs/spec/panel-tabs.md`, §7).
-  static const int defaultMaxTabs = 10;
-  static const int minTabs = 2;
-  static const int maxTabsLimit = 30;
 
   /// Какую долю ширины занимает дерево в комбинированном виде.
   static const double defaultTreeShare = 1 / 3;
@@ -52,15 +42,6 @@ class PanelsSettings implements Serializable {
   /// возвращает прежнюю минимальную подмотку: список стоит, курсор уезжает.
   bool cursorHoldsPlace;
 
-  /// Предел числа вкладок в стороне.
-  int maxTabs;
-
-  /// Показывать ряд вкладок, даже когда вкладка одна.
-  ///
-  /// Выключено: полоса, которая ничего не выбирает, отнимает строку у списка
-  /// файлов (`docs/spec/panel-tabs.md`, §6).
-  bool tabsAlwaysVisible;
-
   /// Доля ширины под деревом в комбинированном виде.
   ///
   /// Правится перетаскиванием разделителя между столбцами
@@ -73,8 +54,6 @@ class PanelsSettings implements Serializable {
     treeSize = extract(treeSize, m['treeSize']);
     cursorHoldsPlace = extract(cursorHoldsPlace, m['cursorHoldsPlace']);
     treeShare = extract(treeShare, m['treeShare']).clamp(minTreeShare, maxTreeShare);
-    maxTabs = extract(maxTabs, m['maxTabs']).clamp(minTabs, maxTabsLimit);
-    tabsAlwaysVisible = extract(tabsAlwaysVisible, m['tabsAlwaysVisible']);
   }
 
   @override
@@ -83,7 +62,5 @@ class PanelsSettings implements Serializable {
     m['treeSize'] = treeSize;
     m['cursorHoldsPlace'] = cursorHoldsPlace;
     m['treeShare'] = treeShare;
-    m['maxTabs'] = maxTabs;
-    m['tabsAlwaysVisible'] = tabsAlwaysVisible;
   }
 }

@@ -208,6 +208,14 @@ abstract interface class Application implements Listenable {
   /// Настройка ядра, а не модуля, — и потому у неё свой доступ, а не раздел.
   int get sizeScanConcurrency;
 
+  /// Подключаться ли при запуске к сохранённым удалённым источникам.
+  ///
+  /// Правится в окне настроек, действует со следующего запуска
+  /// (`docs/spec/panel-sessions.md`, §6).
+  bool get reconnectAtStartup;
+
+  void setReconnectAtStartup(bool value);
+
   void setSizeScanConcurrency(int value);
 
   /// Последняя известная геометрия окна.

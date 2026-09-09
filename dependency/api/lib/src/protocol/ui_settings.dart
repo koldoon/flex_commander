@@ -47,6 +47,7 @@ class UiSettings {
     this.splitRatio = 0.5,
     this.window,
     this.sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
+    this.reconnectAtStartup = false,
     this.modules = const {},
     this.panels = defaultPanels,
     this.shown = defaultShown,
@@ -74,6 +75,10 @@ class UiSettings {
   /// настроек — то есть эта сторона.
   final int sizeScanConcurrency;
 
+  /// Подключаться ли при запуске к сохранённым удалённым источникам: настройка
+  /// ядра, а правит её окно настроек — то есть эта сторона.
+  final bool reconnectAtStartup;
+
   /// Разделы модулей — те же, что в файле, значениями.
   ///
   /// Целиком, а не «фронтовые»: раздел принадлежит **модулю**, а половин у
@@ -92,6 +97,7 @@ class UiSettings {
     double? splitRatio,
     WindowGeometry? window,
     int? sizeScanConcurrency,
+    bool? reconnectAtStartup,
     Map<String, dynamic>? modules,
     List<PanelLayout>? panels,
     List<int>? shown,
@@ -100,6 +106,7 @@ class UiSettings {
     splitRatio: splitRatio ?? this.splitRatio,
     window: window ?? this.window,
     sizeScanConcurrency: sizeScanConcurrency ?? this.sizeScanConcurrency,
+    reconnectAtStartup: reconnectAtStartup ?? this.reconnectAtStartup,
     modules: modules ?? this.modules,
     panels: panels ?? this.panels,
     shown: shown ?? this.shown,
@@ -117,12 +124,20 @@ class UiSettings {
       other.splitRatio == splitRatio &&
       other.window == window &&
       other.sizeScanConcurrency == sizeScanConcurrency &&
+      other.reconnectAtStartup == reconnectAtStartup &&
       other.panels.length == panels.length &&
       List.generate(panels.length, (i) => other.panels[i] == panels[i]).every((same) => same) &&
       other.shown.length == shown.length &&
       List.generate(shown.length, (i) => other.shown[i] == shown[i]).every((same) => same);
 
   @override
-  int get hashCode =>
-      Object.hash(activePanel, splitRatio, window, sizeScanConcurrency, Object.hashAll(panels), Object.hashAll(shown));
+  int get hashCode => Object.hash(
+    activePanel,
+    splitRatio,
+    window,
+    sizeScanConcurrency,
+    reconnectAtStartup,
+    Object.hashAll(panels),
+    Object.hashAll(shown),
+  );
 }

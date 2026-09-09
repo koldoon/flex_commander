@@ -270,9 +270,14 @@ class AppController extends ChangeNotifier implements Application {
   /// этой просьбы (`docs/spec/panel-sessions.md`, §6). Прочитанной она ничего
   /// не стоит, поэтому проверять «а холодная ли она» здесь не нужно: об этом
   /// знает та сторона.
+  ///
+  /// Сказать и не ждать ([Link.tell]): ответа у этой просьбы нет вовсе, а о
+  /// прочитанном ядро расскажет событиями — как и о всяком другом чтении.
+  /// Ждать его было бы ждать ответа, которого никто не даёт: заявка висела бы
+  /// до самого закрытия связи.
   void _wake(_Panel panel) {
     for (final column in panel.columns) {
-      unawaited(link?.call(RestorePanel(column.id)) ?? Future<void>.value());
+      link?.tell(RestorePanel(column.id));
     }
   }
 
@@ -738,6 +743,19 @@ class AppController extends ChangeNotifier implements Application {
   @override
   int get sizeScanConcurrency => _initialSettings.sizeScanConcurrency;
 
+  @override
+  bool get reconnectAtStartup => _initialSettings.reconnectAtStartup;
+
+  /// Действует со следующего запуска — тем она и является.
+  @override
+  void setReconnectAtStartup(bool value) {
+    if (_initialSettings.reconnectAtStartup == value) {
+      return;
+    }
+    _initialSettings.reconnectAtStartup = value;
+    settingsChanged();
+  }
+
   /// Настройки **этой** стороны: разделы модулей и то, чем экран не заведует.
   ///
   /// Не часть [Application]: своё модуль спрашивает разделом
@@ -781,6 +799,7 @@ class AppController extends ChangeNotifier implements Application {
     splitRatio: _splitRatio,
     window: _windowGeometry,
     sizeScanConcurrency: _initialSettings.sizeScanConcurrency,
+    reconnectAtStartup: _initialSettings.reconnectAtStartup,
     modules: serialize(_initialSettings.modules) as Map<String, dynamic>,
     // Кто где стоит, знает только эта сторона: ядро сессии заводит, но не
     // раскладывает (`docs/spec/panel-sessions.md`, §10).

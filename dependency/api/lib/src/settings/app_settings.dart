@@ -180,6 +180,7 @@ class AppSettings implements Serializable {
     this.activePanel = 0,
     this.splitRatio = 0.5,
     this.sizeScanConcurrency = defaultSizeScanConcurrency,
+    this.reconnectAtStartup = false,
     this.window,
     ModuleSettings? modules,
     List<PanelGroupSettings>? panels,
@@ -243,6 +244,14 @@ class AppSettings implements Serializable {
   /// Размер пула обхода каталогов, см. [defaultSizeScanConcurrency].
   int sizeScanConcurrency;
 
+  /// Подключаться ли при запуске к сохранённым удалённым источникам.
+  ///
+  /// Выключено: запуск не должен начинаться с вопроса о пароле поверх пустых
+  /// панелей, а недоступный сервер — задерживать его до истечения времени
+  /// подключения. Включённое возвращает панели ровно туда, где их оставили,
+  /// ценой этого ожидания (`docs/spec/panel-sessions.md`, §6).
+  bool reconnectAtStartup;
+
   /// Положение и размер окна; null — окно ещё ни разу не открывали.
   WindowGeometry? window;
 
@@ -258,6 +267,7 @@ class AppSettings implements Serializable {
     m['activePanel'] = activePanel;
     m['splitRatio'] = splitRatio;
     m['sizeScanConcurrency'] = sizeScanConcurrency;
+    m['reconnectAtStartup'] = reconnectAtStartup;
     if (window != null) {
       m['window'] = serialize(window);
     }
@@ -277,6 +287,7 @@ class AppSettings implements Serializable {
       sizeScanConcurrency,
       m['sizeScanConcurrency'],
     ).clamp(minSizeScanConcurrency, maxSizeScanConcurrency);
+    reconnectAtStartup = extract(reconnectAtStartup, m['reconnectAtStartup']);
     window = extractObject(m['window'], (_) => WindowGeometry());
 
     final moduleSections = m['modules'];

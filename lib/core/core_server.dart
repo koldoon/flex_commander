@@ -91,7 +91,11 @@ class CoreServer implements CoreHandler {
     _panels[panel] = session;
     _watch(panel, session);
 
-    await _restore(session);
+    // С подключением: образец уже стоит там, куда идём, — соединение поднято,
+    // и второй аренде оно достаётся тем же (`spec/provider-lease.md`, §2).
+    // Без этого спутник комбинированного вида над сервером падал бы в
+    // домашний каталог.
+    await _restore(session, allowConnect: true);
     return PanelOpened(panel, session.state, PanelListing(generation: session.generation, entries: session.entries));
   }
 
@@ -338,8 +342,13 @@ class CoreServer implements CoreHandler {
       case RestorePanel(:final panel):
         final shown = sessionOrNull(panel);
         // Прочитанной просьба ничего не стоит: показ не значит перечитывания.
+        //
+        // А непрочитанной — можно и подключиться: показ набора это просьба
+        // человека, а не восстановление состояния. Сохранённый `ssh://` иначе
+        // выбрасывал бы его в домашний каталог ровно тогда, когда он пришёл
+        // на сервер (`docs/spec/panel-sessions.md`, §6).
         if (shown != null && !shown.restored) {
-          await _restore(shown);
+          await _restore(shown, allowConnect: true);
         }
         return null;
 
@@ -454,9 +463,13 @@ class CoreServer implements CoreHandler {
     // (`docs/spec/panel-sessions.md`, §6). Непоказанные ждут первого показа —
     // просьбы `RestorePanel`.
     final shown = _settings?.shownSessions;
+    // Подключаться ли к сохранённым серверам — выбор человека: по умолчанию
+    // нет, но кому важнее вернуться туда же, тот платит ожиданием
+    // (`docs/spec/panel-sessions.md`, §6).
+    final connect = _settings?.reconnectAtStartup ?? false;
     await Future.wait([
       for (final entry in _panels.entries)
-        if (shown == null || shown.contains(entry.key)) _restore(entry.value),
+        if (shown == null || shown.contains(entry.key)) _restore(entry.value, allowConnect: connect),
     ]);
     // Открытие панелей — не изменение настроек: там ровно то, что в файле и
     // лежало, и записывать это заново незачем.
@@ -466,14 +479,19 @@ class CoreServer implements CoreHandler {
   /// Панель встаёт туда, где её оставили; не вышло — домой, не вышло — в
   /// корень.
   ///
-  /// Без подключения: восстановление состояния не должно ходить в сеть.
-  /// Сохранённый адрес сервера означал бы вопрос о пароле поверх ещё пустых
-  /// панелей, а недоступный сервер — ожидание до истечения времени подключения
-  /// при каждом запуске. На сервер человек возвращается сам — так же ведут
-  /// себя Total Commander и Far.
-  Future<void> _restore(PanelSession session) async {
+  /// **При запуске — без подключения** ([allowConnect] по умолчанию):
+  /// восстановление состояния не должно ходить в сеть. Сохранённый адрес
+  /// сервера означал бы вопрос о пароле поверх ещё пустых панелей, а
+  /// недоступный сервер — ожидание до истечения времени подключения при каждом
+  /// запуске. На сервер человек возвращается сам — так же ведут себя Total
+  /// Commander и Far.
+  ///
+  /// **По просьбе — с подключением.** Показ непрочитанного набора и заведение
+  /// сессии по образцу — это уже действие человека, и вопрос о пароле в них
+  /// уместен ровно так же, как при открытии адреса руками.
+  Future<void> _restore(PanelSession session, {bool allowConnect = false}) async {
     final path = session.savedPath;
-    if (path.isNotEmpty && await session.openPath(path, allowConnect: false)) {
+    if (path.isNotEmpty && await session.openPath(path, allowConnect: allowConnect)) {
       return;
     }
     if (await session.openPath(session.provider.homePath)) {

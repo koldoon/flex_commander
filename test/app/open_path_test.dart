@@ -40,7 +40,11 @@ void main() {
     created = [];
   });
 
-  Future<AppRuntime> app({List<FcBackendModule> extra = const [], String leftPath = '/home'}) async {
+  Future<AppRuntime> app({
+    List<FcBackendModule> extra = const [],
+    String leftPath = '/home',
+    AppSettings? settings,
+  }) async {
     final local = InMemoryTreeProvider([
       FakeEntry.directory('/home'),
       FakeEntry.directory('/home/docs'),
@@ -52,7 +56,7 @@ void main() {
       provider: local,
       modules: featureModules(),
       backend: extra,
-      settings: AppSettings(left: PanelSettings.defaults(leftPath), right: PanelSettings.defaults('/home')),
+      settings: settings ?? AppSettings(left: PanelSettings.defaults(leftPath), right: PanelSettings.defaults('/home')),
     );
   }
 
@@ -69,12 +73,77 @@ void main() {
       expect(runtime.app.left.currentPath, '/home');
     });
 
+    test('а с настройкой «подключаться при запуске» — поднимает', () async {
+      final runtime = await app(
+        extra: [memoryAddresses()],
+        settings: AppSettings(
+          left: PanelSettings.defaults('mem://alpha/srv'),
+          right: PanelSettings.defaults('/home'),
+          reconnectAtStartup: true,
+        ),
+      );
+
+      await runtime.app.start();
+
+      // Выбор человека: вернуться туда же ценой ожидания и вопроса о пароле.
+      expect(opened.single.host, 'alpha');
+      expect(runtime.app.left.currentPath, startsWith('mem://alpha'));
+    });
+
     test('обычный сохранённый путь по-прежнему открывается', () async {
       final runtime = await app(extra: [memoryAddresses()], leftPath: '/home/docs');
 
       await runtime.app.start();
 
       expect(runtime.app.left.currentPath, '/home/docs');
+    });
+
+    test('непоказанный набор с адресом тоже молчит', () async {
+      // Ленивое чтение: непоказанный каталога не читает вовсе, а уж в сеть не
+      // ходит и подавно (`docs/spec/panel-sessions.md`, §6).
+      final runtime = await app(
+        extra: [memoryAddresses()],
+        settings: AppSettings(
+          panels: [
+            PanelGroupSettings(sessions: [PanelSettings.defaults('/home')]),
+            PanelGroupSettings(sessions: [PanelSettings.defaults('/home')]),
+            PanelGroupSettings(sessions: [PanelSettings.defaults('mem://alpha/srv')]),
+          ],
+          shown: [0, 1],
+        ),
+      );
+
+      await runtime.app.start();
+
+      expect(opened, isEmpty);
+    });
+
+    test('показали набор с адресом — тогда и подключаемся', () async {
+      final runtime = await app(
+        extra: [memoryAddresses()],
+        settings: AppSettings(
+          panels: [
+            PanelGroupSettings(sessions: [PanelSettings.defaults('/home')]),
+            PanelGroupSettings(sessions: [PanelSettings.defaults('/home')]),
+            PanelGroupSettings(sessions: [PanelSettings.defaults('mem://alpha/srv')]),
+          ],
+          shown: [0, 1],
+        ),
+      );
+      await runtime.app.start();
+
+      // Показ — просьба человека, а не восстановление состояния: вопрос о
+      // пароле здесь уместен, и падать в домашний каталог панель не должна.
+      runtime.app.showPanel(ViewportPosition.left, runtime.app.panels[2]);
+      await waitUntil(() => runtime.app.left.entries.isNotEmpty);
+
+      expect(opened.single.host, 'alpha');
+      expect(runtime.app.left.currentPath, startsWith('mem://alpha'));
+      expect(runtime.app.left.entries.map((node) => node.name), contains('alpha.txt'));
+
+      // Досказать начатое до закрытия ядра: показ уходит к нему сообщением, и
+      // закрытая по дороге связь оборвала бы начатое чтение.
+      await pumpEventQueue();
     });
 
     test('а руками адрес открывается сразу же', () async {

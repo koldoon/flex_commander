@@ -249,6 +249,14 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           read: () => app.sizeScanConcurrency,
           write: app.setSizeScanConcurrency,
         ),
+        SettingsField.flag(
+          'reconnectAtStartup',
+          defaultValue: false,
+          title: strings.tr('Reconnect remote fs at startup'),
+          description: strings.tr('Otherwise a saved server waits until you go there yourself'),
+          read: () => app.reconnectAtStartup,
+          write: app.setReconnectAtStartup,
+        ),
         SettingsField.text(
           'compoundExtensions',
           title: strings.tr('Compound extensions'),
@@ -389,6 +397,9 @@ const Map<String, String> _russian = {
   'Stop the selected background task; a finished one is dismissed':
       'Прервать выбранную фоновую работу; законченную — забыть',
   'Watch background tasks': 'Следить за фоновыми работами',
+  'Reconnect remote fs at startup': 'Подключаться к удалённым источникам при запуске',
+  'Otherwise a saved server waits until you go there yourself':
+      'Иначе сохранённый сервер ждёт, пока вы придёте туда сами',
 
   // Открытые сессии.
   'New session': 'Новая сессия',

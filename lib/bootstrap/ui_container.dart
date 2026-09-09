@@ -99,6 +99,7 @@ class UiContainer extends DI {
       activePanel: ui.activePanel,
       splitRatio: ui.splitRatio,
       sizeScanConcurrency: ui.sizeScanConcurrency,
+      reconnectAtStartup: ui.reconnectAtStartup,
       window: ui.window,
     );
     settings.modules.fromMap(ui.modules);
