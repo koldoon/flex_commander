@@ -24,19 +24,25 @@ class PanelView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final app = AppScope.read(context);
-    final outerEdge =
-        identical(panel, app.left)
-            ? PanelOuterEdge.left
-            : identical(panel, app.right)
-            ? PanelOuterEdge.right
-            : null;
+    // Край берётся у **места**, а не у сессии: одна и та же сессия бывает
+    // показана в обеих панелях (`docs/spec/panel-sessions.md`, §7), и по ней
+    // левая от правой не отличается.
+    final at = ViewportScope.maybeOf(context);
+    final outerEdge = switch (at) {
+      ViewportPosition.left => PanelOuterEdge.left,
+      ViewportPosition.right => PanelOuterEdge.right,
+      _ => null,
+    };
 
     return PanelScope(
       panel: panel,
       child: GestureDetector(
         // Клик в любом месте панели делает её активной — поведение референса.
+        // Активной становится **эта** панель: щёлкнули по месту, а не по
+        // сессии, и показанная в обеих сторонах не должна уводить ввод туда,
+        // где он был.
         behavior: HitTestBehavior.translucent,
-        onTapDown: (_) => app.activate(panel),
+        onTapDown: (_) => at == null ? app.activate(panel) : app.view.setFocus(at),
         child: FcPanelFrame(
           outerEdge: outerEdge,
           header: ListenableBuilder(
@@ -46,10 +52,11 @@ class PanelView extends StatelessWidget {
             builder:
                 (context, _) => FcPathPlate(
                   path: panel.headerText ?? (panel.currentPath.isEmpty ? '/' : panel.currentPath),
-                  // Не `panel.active`: та говорит, какая панель — **источник**
-                  // операции, и остаётся собой, когда ввод ушёл в наложение
-                  // напротив. Плашка говорит другое: где сейчас клавиши.
-                  active: app.view.takesKeys(panel),
+                  // Не `panel.active`: та говорит, какая **сессия** —
+                  // источник операции, и остаётся собой, когда ввод ушёл в
+                  // наложение напротив, а показана она бывает сразу в обеих
+                  // панелях. Плашка говорит другое: где сейчас клавиши.
+                  active: takesKeysHere(context, panel),
                 ),
           ),
           footer: PanelStatusBar(panel: panel),

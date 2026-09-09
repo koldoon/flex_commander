@@ -444,7 +444,7 @@ class TreeViewState extends State<TreeView> {
                     size: showSize ? row.size : FileEntry.unknownSize,
                     sizeWidth: showSize ? sizeWidth : 0,
                     inset: inset,
-                    panelActive: app.view.takesKeys(panel),
+                    panelActive: takesKeysHere(context, panel),
                     // Дерево одних каталогов — навигатор соседнего столбца, и
                     // правила у него свои: место видно и без курсора, а знак
                     // раскрытия стоит только там, где внутри и правда ветви

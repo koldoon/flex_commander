@@ -1,5 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
@@ -111,6 +112,46 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(app.panelAt(ViewportPosition.left), same(hidden), reason: 'курсор стоял слева');
+    });
+  });
+
+  group('один набор в обеих панелях', () {
+    /// Плашки пути, горящие как активные: их должно быть не больше одной.
+    Finder activePlates() => find.byWidgetPredicate((widget) => widget is FcPathPlate && widget.active);
+
+    testWidgets('курсор всё равно один — там, где ввод', (tester) async {
+      await pumpApp(tester);
+      app.showPanel(ViewportPosition.right, app.panelAt(ViewportPosition.left));
+      await tester.pumpAndSettle();
+
+      expect(app.left, same(app.right), reason: 'сессия одна на две панели');
+      expect(app.view.sourceArea, ViewportPosition.left);
+      expect(activePlates(), findsOneWidget);
+    });
+
+    testWidgets('Tab уводит ввод на другую сторону той же сессии', (tester) async {
+      await pumpApp(tester);
+      app.showPanel(ViewportPosition.right, app.panelAt(ViewportPosition.left));
+      await tester.pumpAndSettle();
+
+      await press(tester, LogicalKeyboardKey.tab);
+
+      expect(app.view.sourceArea, ViewportPosition.right);
+      expect(activePlates(), findsOneWidget);
+    });
+
+    testWidgets('щелчок по правой панели делает источником её', (tester) async {
+      await pumpApp(tester);
+      app.showPanel(ViewportPosition.right, app.panelAt(ViewportPosition.left));
+      await tester.pumpAndSettle();
+
+      // Половина окна вправо — там правая панель, чью бы сессию она ни
+      // показывала.
+      await tester.tapAt(const Offset(600, 300));
+      await tester.pumpAndSettle();
+
+      expect(app.view.sourceArea, ViewportPosition.right);
+      expect(activePlates(), findsOneWidget);
     });
   });
 

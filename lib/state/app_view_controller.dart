@@ -240,7 +240,23 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
   }
 
   @override
-  ViewportPosition get sourceArea => _app.left.active ? ViewportPosition.left : ViewportPosition.right;
+  bool takesKeysAt(ViewportPosition? at, ViewportState content) {
+    // Место решает первым: одна и та же сессия бывает показана в обеих
+    // панелях, и клавиши при этом ровно у одной из них.
+    //
+    // Панельное место годится в двух случаях: ввод у него самого или ввод у
+    // командной строки, а панель по-прежнему источник — тогда стрелки её.
+    if (at != null && at.isPanelArea && at != activeArea && at != sourceArea) {
+      return false;
+    }
+    return takesKeys(content);
+  }
+
+  /// Сторона, из которой идёт работа: её знает приложение, а не признак
+  /// сессии — сессия бывает показана сразу в обеих
+  /// (`docs/spec/panel-sessions.md`, §7).
+  @override
+  ViewportPosition get sourceArea => _app.activeSide;
 
   /// Отпускает ввод, взятый областью без своей активности. true — он был у неё.
   ///
@@ -257,10 +273,12 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
 
   @override
   void setFocus(ViewportPosition position) {
-    final panel = panelAt(position);
-    if (panel != null) {
-      // Ввод вернулся панели: отпускает его `activate` — он же и уведомит.
-      _app.activate(panel);
+    if (panelAt(position) != null) {
+      // Ввод вернулся панели — именно этой: сторону называем прямо, потому что
+      // по сессии её не опознать — она бывает показана в обеих
+      // (`docs/spec/panel-sessions.md`, §7). Отпускает ввод `activateAt`, он же
+      // и уведомит.
+      _app.activateAt(position);
       return;
     }
     // У областей без панели своего состояния активности нет: `fullscreen`

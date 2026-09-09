@@ -40,7 +40,7 @@ class AppShell extends StatelessWidget {
   Widget _workArea(BuildContext context, Application app) {
     final fullscreen = app.view.contentAt(ViewportPosition.fullscreen);
     if (fullscreen != null) {
-      return _place(context, app, fullscreen);
+      return _place(context, app, fullscreen, at: ViewportPosition.fullscreen);
     }
 
     return FcSplitView(
@@ -76,7 +76,7 @@ class AppShell extends StatelessWidget {
         return Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Expanded(child: _place(context, app, app.view.contentAt(position))),
+            Expanded(child: _place(context, app, app.view.contentAt(position), at: position)),
             for (final area in _below(context, app, position)) ...[SizedBox(height: gap), area],
           ],
         );
@@ -101,7 +101,10 @@ class AppShell extends StatelessWidget {
     final position = panel.status;
     final stack = position == null ? const <ViewportState>[] : app.view.stackAt(position);
 
-    return [for (final state in stack.reversed) _place(context, app, state)];
+    if (position == null) {
+      return const [];
+    }
+    return [for (final state in stack.reversed) _place(context, app, state, at: position)];
   }
 
   /// Поле у ряда кнопок: общее поле окна за вычетом его собственного выступа.
@@ -162,12 +165,15 @@ class AppShell extends StatelessWidget {
   ///
   /// Пусто — значит показывать нечем: модуль, объявивший вид, отключён.
   /// Приложение при этом работает, и ряд кнопок на месте.
-  Widget _place(BuildContext context, Application app, ViewportState? state) {
+  /// Место кладётся в дерево вместе с содержимым: само оно своего места не
+  /// знает, а одна сессия бывает показана сразу в обеих панелях
+  /// (`spec/panel-sessions.md`, §7).
+  Widget _place(BuildContext context, Application app, ViewportState? state, {required ViewportPosition at}) {
     if (state == null) {
       return const SizedBox.expand();
     }
     final build = app.views.builderFor(state);
-    return build == null ? const SizedBox.expand() : build(context, state);
+    return ViewportScope(position: at, child: build == null ? const SizedBox.expand() : build(context, state));
   }
 
   /// Действие «разделитель посередине» — если модуль навигации установлен.

@@ -52,6 +52,32 @@ extension FcStrings on BuildContext {
   Strings get strings => StringsScope.of(this);
 }
 
+/// Место, в котором стоит виджет: левая панель, правая, полноэкранное.
+///
+/// Ставит его шелл — он один и знает раскладку. Нужен затем, что содержимое
+/// **не опознаёт своё место само**: одна и та же сессия бывает показана в обеих
+/// панелях (`docs/spec/panel-sessions.md`, §7), и вопрос «мне ли клавиши»
+/// без места отвечался бы утвердительно обеим — два курсора на экране.
+class ViewportScope extends InheritedWidget {
+  const ViewportScope({super.key, required this.position, required super.child});
+
+  final ViewportPosition position;
+
+  /// Места нет — виджет живёт вне областей (окно команды, ряд кнопок).
+  static ViewportPosition? maybeOf(BuildContext context) =>
+      context.dependOnInheritedWidgetOfExactType<ViewportScope>()?.position;
+
+  @override
+  bool updateShouldNotify(ViewportScope oldWidget) => oldWidget.position != position;
+}
+
+/// Достаются ли клавиши тому, что виджет рисует, — с оглядкой на его место.
+///
+/// Вопрос задаётся отсюда, а не `app.view.takesKeys`: место берётся из дерева
+/// ([ViewportScope]), и виджету не приходится знать, где он стоит.
+bool takesKeysHere(BuildContext context, ViewportState content) =>
+    AppScope.of(context).view.takesKeysAt(ViewportScope.maybeOf(context), content);
+
 /// Доступ к панели, внутри которой находится виджет.
 ///
 /// Обычный [InheritedWidget], а не [InheritedNotifier]: панель уведомляет и о

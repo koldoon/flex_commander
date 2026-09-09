@@ -344,7 +344,7 @@ class _BriefViewState extends State<BriefView> {
                               underCursor: panel.cursorIndex == first + row,
                               // Тот же вопрос, что задаёт плашка пути: горит
                               // курсор там, где сейчас клавиши.
-                              panelActive: app.view.takesKeys(panel),
+                              panelActive: takesKeysHere(context, panel),
                               naming: app.fileNaming,
                               contentOf: panel.contentOf,
                               onTap: () => _onTap(first + row),

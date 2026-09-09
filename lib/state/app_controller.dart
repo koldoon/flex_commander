@@ -73,8 +73,9 @@ class AppController extends ChangeNotifier implements Application {
        nodeInfoProviders = [...nodeInfoProviders]..sort((a, b) => b.priority.compareTo(a.priority)),
        views = views ?? const NoViews(),
        window = window ?? const NoopWindowService() {
-    // Одна панель активна всегда, ещё до первого чтения каталогов.
-    _applyActive(settings.activePanel == 1 ? right : left);
+    // Одна сторона активна всегда, ещё до первого чтения каталогов.
+    _activePanel = settings.activePanel == 1 ? 1 : 0;
+    _applyActive(activePanel);
     // Слушать панели ради записи больше незачем: их настройки — это состояние
     // сеанса, и ядро видит его раньше и точнее (`spec/client-server.md`, §9).
     this.window.addListener(_onWindowChanged);
@@ -252,7 +253,9 @@ class AppController extends ChangeNotifier implements Application {
       return;
     }
     final at = _sideOf(side);
-    final wasActive = _panelAt(side).shown.active;
+    // Именно сторона, а не признак прежней сессии: показанная в обеих панелях
+    // активна и тогда, когда курсор в другой (`docs/spec/panel-sessions.md`, §7).
+    final wasActive = side == activeSide;
     _shown[at] = number;
     if (wasActive) {
       _applyActive(_panelAt(side).shown);
@@ -453,13 +456,20 @@ class AppController extends ChangeNotifier implements Application {
   double _splitRatio;
   WindowGeometry? _windowGeometry;
 
+  /// Сторона, в которой курсор: она же источник работы.
+  ///
+  /// Хранится стороной, а не признаком у сессии: одну и ту же сессию
+  /// показывают в обеих панелях, и признак ответил бы «активны обе»
+  /// (`docs/spec/panel-sessions.md`, §7).
+  ViewportPosition get activeSide => _activePanel == 1 ? ViewportPosition.right : ViewportPosition.left;
+
   /// Активная панель: в ней курсор и ввод с клавиатуры.
   @override
-  SessionMirror get activePanel => left.active ? left : right;
+  SessionMirror get activePanel => _panelAt(activeSide).shown;
 
   /// Пассивная панель — приёмник операций копирования и перемещения.
   @override
-  SessionMirror get passivePanel => left.active ? right : left;
+  SessionMirror get passivePanel => _panelAt(activeSide.opposite).shown;
 
   /// Доля ширины окна под левой панелью.
   @override
@@ -488,6 +498,27 @@ class AppController extends ChangeNotifier implements Application {
     settingsChanged();
   }
 
+  /// Сделать активной **сторону**: ввод уходит той панели, что показана здесь.
+  ///
+  /// Отдельно от [activate], потому что по сессии сторону не опознать: один
+  /// набор бывает показан в обеих панелях (`docs/spec/panel-sessions.md`, §7).
+  void activateAt(ViewportPosition side) {
+    if (!side.isPanelArea) {
+      return;
+    }
+    final released = view.releaseFocus();
+    final shown = _panelAt(side).shown;
+    if (side == activeSide && shown.active) {
+      if (released) {
+        notifyListeners();
+      }
+      return;
+    }
+    _activePanel = _sideOf(side);
+    _applyActive(shown);
+    notifyListeners();
+  }
+
   @override
   void activate(Session session) {
     assert(panelOf(session) != null, 'Сессия не принадлежит этому приложению');
@@ -504,20 +535,42 @@ class AppController extends ChangeNotifier implements Application {
     // панель» означает вернуть его ей, и ранний выход ниже пропустил бы это:
     // щелчок по активной панели не выводил бы из строки.
     final released = view.releaseFocus();
-    if (session.active) {
+    final side = _sideShowing(session);
+    if (session.active && (side == null || side == activeSide)) {
       if (released) {
         notifyListeners();
       }
       return;
     }
+    if (side != null) {
+      _activePanel = _sideOf(side);
+    }
     _applyActive(session);
     notifyListeners();
   }
 
+  /// Сторона, где показана эта сессия; null — она не показана нигде.
+  ///
+  /// Показана в обеих — остаётся нынешняя активная: щелчок по той же самой
+  /// панели не должен уводить работу на другую сторону.
+  ViewportPosition? _sideShowing(Session session) {
+    for (final side in [activeSide, activeSide.opposite]) {
+      if (identical(_panelAt(side).shown, session)) {
+        return side;
+      }
+    }
+    return null;
+  }
+
   /// Активна ровно одна сессия из всех — та, где стоит курсор.
   ///
-  /// Всех, а не двух показанных: в слоте бывает несколько, и оставшийся
+  /// Всех, а не двух показанных: в наборе бывает несколько, и оставшийся
   /// признак у спрятанной означал бы второй курсор.
+  ///
+  /// Признак говорит «эта сессия — источник работы», но **не** «эта панель
+  /// активна»: одна сессия бывает показана в обеих панелях, и какая из них
+  /// принимает клавиши, знает [activeSide]
+  /// (`docs/spec/panel-sessions.md`, §7).
   void _applyActive(Session active) {
     for (final panel in _allSessions) {
       panel.setActive(identical(panel, active));
@@ -724,7 +777,7 @@ class AppController extends ChangeNotifier implements Application {
   /// Разделы модулей собираются на каждую отправку: их правят окна настроек, и
   /// уехать они должны такими, какие есть сейчас.
   UiSettings get _ui => UiSettings(
-    activePanel: left.active ? 0 : 1,
+    activePanel: _activePanel,
     splitRatio: _splitRatio,
     window: _windowGeometry,
     sizeScanConcurrency: _initialSettings.sizeScanConcurrency,

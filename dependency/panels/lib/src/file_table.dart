@@ -450,7 +450,7 @@ class _FileTableState extends State<FileTable> {
               // плашка. Своим признаком активности панель отвечала на другой
               // вопрос: ввод мог уйти в список фоновых работ под ней, а курсор
               // оставался гореть — как будто стрелки всё ещё её.
-              panelActive: app.view.takesKeys(panel),
+              panelActive: takesKeysHere(context, panel),
               // Правило показа одно на приложение: две панели, делящие имя
               // по-разному, — не гибкость, а недосмотр.
               naming: app.fileNaming,

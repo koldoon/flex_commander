@@ -10,7 +10,18 @@ import 'package:flutter/widgets.dart';
 ///
 /// Сторона берётся у рабочей области, а не у сессии: под наложением — быстрым
 /// просмотром, просмотрщиком — панели не видно, и наборы там ни при чём.
-ViewportPosition? _sideOf(CommandContext context) => context.app.view.positionOf(context.session);
+///
+/// Сперва спрашивается сторона-источник: один набор бывает показан в обеих
+/// панелях, и «здесь» тогда — та, где курсор
+/// (`docs/spec/panel-sessions.md`, §7).
+ViewportPosition? _sideOf(CommandContext context) {
+  final view = context.app.view;
+  final source = view.sourceArea;
+  if (source.isPanelArea && identical(view.panelAt(source), context.session)) {
+    return source;
+  }
+  return view.positionOf(context.session);
+}
 
 /// Набор, показанный в активной панели; null — панели не видно.
 Panel? _panelOf(CommandContext context) {
