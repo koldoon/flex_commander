@@ -436,6 +436,28 @@ void main() {
     expect(tree(runtime).currentEntry?.name, 'home', reason: 'дерево вышло вместе со списком');
   });
 
+  testWidgets('по списку можно выйти доверху, и дерево идёт следом', (tester) async {
+    // Начинаем изнутри и идём наверх шаг за шагом, с живыми паузами: придержка
+    // между шагами успевает сработать, и связка ловится на гонке.
+    final runtime = await open(tester, path: '/home/lib');
+    await settle(tester);
+
+    final walked = <String>[];
+    for (var step = 0; step < 3; step++) {
+      runtime.commands.dispatch(KeyCombination.parse('Bsp'));
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpAndSettle();
+      walked.add(list(runtime).currentPath);
+    }
+    await settle(tester);
+
+    // Наверх — и не обратно: дерево, догоняя список, само слежения не заказывает.
+    expect(walked, ['/home', '/', '/'], reason: 'шаги: $walked');
+    // И навигатор стоит там же, куда пришёл список, а не на ветви, из которой
+    // вышли: запомненный курсор — правило списка, не дерева.
+    expect(tree(runtime).currentEntry?.name, '/');
+  });
+
   testWidgets('уход окном выбора тоже закрывает второй столбец', (tester) async {
     final runtime = await open(tester);
     await settle(tester);

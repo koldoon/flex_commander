@@ -192,10 +192,17 @@ class _CombinedViewState extends State<CombinedView> {
   }
 
   /// Курсор дерева переехал — список догоняет.
+  ///
+  /// **Только когда курсор в дереве.** Дерево двигается и само — когда догоняет
+  /// список, — и заявка слежения на такое движение утаскивала бы список назад:
+  /// шаг вверх, дерево догнало, слежение вернуло список внутрь. Живьём это
+  /// выглядело так, что из каталога не выйти вовсе
+  /// (`docs/spec/panel-view-combined.md`, §5).
   void _treeMoved() {
+    final tree = _tree;
     final list = _list;
     final at = _branchUnderCursor();
-    if (list == null || at == null || at == list.currentPath) {
+    if (tree == null || list == null || !tree.active || at == null || at == list.currentPath) {
       return;
     }
     _follow?.cancel();

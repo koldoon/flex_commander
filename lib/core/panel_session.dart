@@ -439,7 +439,7 @@ class PanelSession {
 
   /// Открыть каталог. Отменяет незавершённое чтение этой же панели.
   Future<void> open(DirectoryNode dir) {
-    return _load(dir, cursorName: _cursorMemory[dir.pathString]);
+    return _load(dir, cursorName: _rows.isTree ? null : _cursorMemory[dir.pathString]);
   }
 
   /// Ещё одна аренда на то, в чём панель стоит сейчас; null — общий корень.
@@ -586,7 +586,12 @@ class PanelSession {
       return false;
     }
 
-    await _load(dir, lease: resolved.lease, cursorName: _cursorMemory[dir.pathString]);
+    // Память курсора — правило **списка**: вернулись в каталог, а курсор там,
+    // где его оставили. В дереве каталог не показывают, а становятся на его
+    // ветвь: запомненное имя увело бы курсор на соседнюю строку, и навигатор
+    // показывал бы не то место, которое открыли
+    // (`docs/spec/panel-view-combined.md`, §5).
+    await _load(dir, lease: resolved.lease, cursorName: _rows.isTree ? null : _cursorMemory[dir.pathString]);
     return _status != PanelPhase.error;
   }
 
