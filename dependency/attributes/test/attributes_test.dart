@@ -731,6 +731,27 @@ void main() {
       await forgetToast(tester);
     });
 
+    testWidgets('мгновенный отказ не мигает полосой хода дела', (tester) async {
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      await tester.enterText(fieldWithHint('user'), 'нет-такого');
+      await tester.pumpAndSettle();
+
+      // Кадр за кадром: полоса хода дела не должна мелькнуть **ни разу** —
+      // моргнувшее окно это единственное, что человек запомнит.
+      await tester.tap(find.widgetWithText(FcButton, 'Apply'));
+      for (var i = 0; i < 6; i++) {
+        await tester.pump(const Duration(milliseconds: 10));
+        expect(find.byType(CommandDialogProgress), findsNothing);
+      }
+      await settle(tester);
+
+      expect(find.textContaining('No such user or group'), findsOneWidget);
+      await forgetToast(tester);
+    });
+
     testWidgets('поправленное со второго раза доходит', (tester) async {
       await pumpApp(tester);
       await putCursorOn(tester, 'notes.txt');

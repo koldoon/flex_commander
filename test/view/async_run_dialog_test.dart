@@ -74,7 +74,10 @@ void main() {
     await pump(tester);
 
     final running = work(hanging.operation);
-    await tester.pump();
+    // Не сразу: ход дела показывается, когда работа сказала о себе слово или
+    // когда стало ясно, что мгновенно она не кончится. Эта молчит — значит по
+    // сроку.
+    await tester.pump(const Duration(milliseconds: 200));
 
     expect(find.text('форма'), findsNothing);
     expect(find.byType(CommandDialogProgress), findsOneWidget);
@@ -83,6 +86,23 @@ void main() {
 
     hanging.release.complete();
     await running;
+  });
+
+  testWidgets('мгновенный отказ формы не покидает', (tester) async {
+    await pump(tester);
+
+    // Работа, отказавшаяся не начавшись: полоса хода дела не должна мелькнуть
+    // между двумя кадрами — моргнувшее окно это единственное, что запомнится.
+    final refused = work(TaskOperation<void, void>((op, _) async => throw const FsError('x', FsErrorKind.invalidName)));
+    for (var i = 0; i < 8; i++) {
+      await tester.pump(const Duration(milliseconds: 10));
+      expect(find.byType(CommandDialogProgress), findsNothing);
+    }
+    await refused;
+    await tester.pump();
+
+    expect(find.text('форма'), findsOneWidget);
+    expect(run.error, isNotNull);
   });
 
   testWidgets('работа кончилась — окно замирает на ходе дела', (tester) async {

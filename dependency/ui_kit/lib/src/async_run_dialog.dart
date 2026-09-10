@@ -37,11 +37,17 @@ class FcAsyncRunDialog extends StatelessWidget {
           return CommandDialogQuestion(request: question, onAnswer: run.answer, onTextChanged: run.setAnswerText);
         }
 
-        if (run.isBusy) {
-          final failure = run.error;
-          // Ошибка после начала работы форму не воскрешает: править ввод уже
-          // поздно, работа была начата. Остаётся сказать, что не вышло.
-          return failure != null ? _failure(context, failure) : _progress();
+        final failure = run.error;
+        // Ошибка после начала работы форму не воскрешает: править ввод уже
+        // поздно, работа была начата. Остаётся сказать, что не вышло.
+        if (run.isBusy && failure != null) {
+          return _failure(context, failure);
+        }
+        // Ход дела — только когда его есть что показывать
+        // ([FcAsyncRun.showsProgress]). Работа, отказавшаяся мгновенно, не
+        // должна мигнуть полосой на пути от формы обратно к форме.
+        if (run.showsProgress) {
+          return _progress();
         }
 
         return form(context);

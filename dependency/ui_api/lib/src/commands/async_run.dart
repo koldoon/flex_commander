@@ -98,6 +98,10 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
     _watched = operation.status;
     _watched!.addListener(_onStatusChanged);
     _requests = operation.requests.listen(_onRequest);
+    _grace = Timer(_settleIn, () {
+      _showsProgress = true;
+      notifyListeners();
+    });
     operation.start(params);
 
     var refused = false;
@@ -125,6 +129,9 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
       // ещё открыто, и на её последние цифры смотрят. Забыть их значило бы
       // обнулить полосу в тот момент, когда на неё и смотрят.
       _watched?.removeListener(_onStatusChanged);
+      _grace?.cancel();
+      _grace = null;
+      _showsProgress = false;
       app.operations.forget(runId);
       unawaited(_requests?.cancel());
       _redraw.cancel();
@@ -144,6 +151,32 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
 
   /// Работа успела сказать о себе хоть слово — то есть дело началось.
   bool _progressed = false;
+
+  /// Показывать ли ход дела.
+  ///
+  /// Не то же, что [isBusy]. Работа, отказавшаяся **мгновенно** — негодное имя,
+  /// занятый путь, — не начиналась: окно вернёт человека к форме. А полоса хода
+  /// дела, мелькнувшая между двумя кадрами, успевает моргнуть, и это
+  /// единственное, что он запомнит.
+  ///
+  /// Поэтому ход показывается тогда, когда работа сказала о себе слово — или
+  /// когда прошла [_settleIn] и стало ясно, что мгновенно она не кончится.
+  bool _showsProgress = false;
+
+  Timer? _grace;
+
+  /// Сколько ждать, прежде чем показать ход дела.
+  ///
+  /// Меньше кадра-двух: дольше — и настоящая работа успевает показаться
+  /// молчащей формой, в которой человек снова жмёт «Apply».
+  static const Duration _settleIn = Duration(milliseconds: 120);
+
+  /// Работа идёт и о ней есть что показать.
+  ///
+  /// `!isRunning` в конце — это **хвост** работы: операция кончилась, окно ещё
+  /// открыто, и форме тут не место (`spec/dialog-run-phase.md`). Мгновенный
+  /// отказ сюда не попадает: он снимает работу целиком, и [isBusy] уже ложь.
+  bool get showsProgress => isBusy && (_progressed || _showsProgress || !isRunning);
 
   void _onRequest(OperationRequest request) {
     if (app.operations.byId(runId)?.isInBackground ?? false) {
