@@ -41,14 +41,41 @@ class FcText extends StatelessWidget {
 /// растягивающей колонкой, и без этого флажок растянулся бы во всю ширину,
 /// а щелчок ловился бы далеко за меткой.
 class FcCheckbox extends StatefulWidget {
+  /// Обычный флажок: включён или выключен.
   const FcCheckbox({
     super.key,
     required this.label,
     this.richLabel,
-    required this.value,
+    required bool this.value,
     required this.onChanged,
     this.focusNode,
-  });
+  }) : _tristate = false,
+       _onMixed = null;
+
+  /// Флажок, у которого есть третье состояние — «не трогать».
+  ///
+  /// Нужно там, где правят **несколько объектов сразу** и значение у них
+  /// разное: правка атрибутов у десятка файлов. Обычный флажок такое показать
+  /// не может вовсе, и любое его положение соврало бы — а нажатие на соседний
+  /// флаг молча выровняло бы этот у всех.
+  ///
+  /// Отдельный конструктор, а не флаг в общем: тип обратного вызова здесь
+  /// другой (`bool?`), и обычный флажок в смешанное состояние попасть просто
+  /// не может — за этим следит компилятор, а не проверка в теле.
+  ///
+  /// [value] null — смешанное. Обход по кругу: смешанное → включено →
+  /// выключено → смешанное. Круг замкнут нарочно: передумав, человек должен
+  /// уметь вернуть «не трогать», не закрывая окна.
+  const FcCheckbox.tristate({
+    super.key,
+    required this.label,
+    this.richLabel,
+    required this.value,
+    required ValueChanged<bool?>? onChanged,
+    this.focusNode,
+  }) : _tristate = true,
+       _onMixed = onChanged,
+       onChanged = null;
 
   final String label;
 
@@ -59,10 +86,22 @@ class FcCheckbox extends StatefulWidget {
   /// при этом обязателен и остаётся: он и подпись по умолчанию, и то, что
   /// прочитает озвучка.
   final InlineSpan? richLabel;
-  final bool value;
+
+  /// null — смешанное; бывает только у [FcCheckbox.tristate].
+  final bool? value;
 
   /// null — флажок показан, но не меняется.
   final ValueChanged<bool>? onChanged;
+
+  /// Он же у флажка с третьим состоянием: там значение бывает и null.
+  final ValueChanged<bool?>? _onMixed;
+
+  /// Заведён ли флажок с третьим состоянием.
+  ///
+  /// Своим полем, а не по `value != null`: смешанное — это законное состояние
+  /// такого флажка, а не признак его вида, и вернуться в него он должен и
+  /// после того, как его один раз тронули.
+  final bool _tristate;
 
   /// Узел фокуса — когда он нужен снаружи.
   final FocusNode? focusNode;
@@ -74,7 +113,25 @@ class FcCheckbox extends StatefulWidget {
 class _FcCheckboxState extends State<FcCheckbox> {
   bool _focused = false;
 
-  bool get _enabled => widget.onChanged != null;
+  bool get _enabled => widget._tristate ? widget._onMixed != null : widget.onChanged != null;
+
+  /// Что будет по следующему нажатию.
+  ///
+  /// У обычного — другое из двух. У флажка с третьим состоянием — круг:
+  /// смешанное → включено → выключено → смешанное.
+  bool? get _next => switch (widget.value) {
+    null => true,
+    true => false,
+    false => widget._tristate ? null : true,
+  };
+
+  void _toggle() {
+    if (widget._tristate) {
+      widget._onMixed!(_next);
+    } else {
+      widget.onChanged!(_next!);
+    }
+  }
 
   /// `Space` переключает флажок, на котором стоит фокус.
   ///
@@ -85,7 +142,7 @@ class _FcCheckboxState extends State<FcCheckbox> {
     if (!_enabled || event is! KeyDownEvent || event.logicalKey != LogicalKeyboardKey.space) {
       return KeyEventResult.ignored;
     }
-    widget.onChanged!(!widget.value);
+    _toggle();
     return KeyEventResult.handled;
   }
 
@@ -97,7 +154,6 @@ class _FcCheckboxState extends State<FcCheckbox> {
     final enabled = _enabled;
     final value = widget.value;
     final label = widget.label;
-    final onChanged = widget.onChanged;
 
     return Align(
       alignment: Alignment.centerLeft,
@@ -115,7 +171,7 @@ class _FcCheckboxState extends State<FcCheckbox> {
             cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
-              onTap: enabled ? () => onChanged!(!value) : null,
+              onTap: enabled ? _toggle : null,
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
@@ -138,17 +194,14 @@ class _FcCheckboxState extends State<FcCheckbox> {
                       ),
                       borderRadius: BorderRadius.circular(metrics.inputRadius),
                     ),
-                    child:
-                        value
-                            ? Text(
-                              theme.icons.glyph(theme.icons.check),
-                              style: TextStyle(
-                                fontFamily: theme.icons.fontFamily,
-                                fontSize: metrics.fontSize * 0.8,
-                                color: colors.inputText,
-                              ),
-                            )
-                            : null,
+                    // Три состояния — три вида знака: галочка, чёрточка,
+                    // пусто. Приглушать смешанное цветом нельзя: приглушённое в
+                    // приложении означает «недоступно», а тут всё доступно.
+                    child: switch (value) {
+                      true => _Mark(theme.icons.check, theme: theme),
+                      null => _Mark(theme.icons.mixed, theme: theme),
+                      false => null,
+                    },
                   ),
                   SizedBox(width: metrics.checkboxGap),
                   // Подпись уступает, если места мало: в форме флаг стоит в
@@ -168,6 +221,27 @@ class _FcCheckboxState extends State<FcCheckbox> {
       ),
     );
   }
+}
+
+/// Знак внутри флажка: галочка или чёрточка.
+///
+/// Оба набираются шрифтом иконок и одним размером: разный кегль сдвинул бы знак
+/// в клетке, и при переключении он бы прыгал.
+class _Mark extends StatelessWidget {
+  const _Mark(this.icon, {required this.theme});
+
+  final IconData icon;
+  final FcTheme theme;
+
+  @override
+  Widget build(BuildContext context) => Text(
+    theme.icons.glyph(icon),
+    style: TextStyle(
+      fontFamily: theme.icons.fontFamily,
+      fontSize: theme.metrics.fontSize * 0.8,
+      color: theme.colors.inputText,
+    ),
+  );
 }
 
 /// Выпадающий список: ровно один вариант из нескольких.

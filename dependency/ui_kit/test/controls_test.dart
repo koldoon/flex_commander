@@ -1,6 +1,8 @@
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Окно команды выкладывает содержимое растягивающей колонкой — в ней и
@@ -95,6 +97,119 @@ void main() {
       // Иначе щелчок ловился бы далеко за меткой — по всей ширине окна.
       final painted = find.descendant(of: find.byType(FcCheckbox), matching: find.byType(Opacity));
       expect(tester.getSize(painted).width, lessThan(300));
+    });
+  });
+
+  group('флажок с третьим состоянием', () {
+    const icons = DefaultIcons();
+
+    /// Что нарисовано в клетке: галочка, чёрточка или ничего.
+    String? markIn(WidgetTester tester) {
+      final texts = tester.widgetList<Text>(find.descendant(of: find.byType(FcCheckbox), matching: find.byType(Text)));
+      for (final text in texts) {
+        if (text.style?.fontFamily == icons.fontFamily) {
+          return text.data;
+        }
+      }
+      return null;
+    }
+
+    Future<void> pumpTristate(WidgetTester tester, {bool? initial}) async {
+      var value = initial;
+      await pumpInDialogColumn(
+        tester,
+        StatefulBuilder(
+          builder:
+              (context, setState) => FcCheckbox.tristate(
+                label: 'Execute',
+                value: value,
+                onChanged: (next) => setState(() => value = next),
+              ),
+        ),
+      );
+    }
+
+    testWidgets('обход замкнут: смешанное → включено → выключено → смешанное', (tester) async {
+      await pumpTristate(tester);
+
+      expect(markIn(tester), icons.glyph(icons.mixed), reason: 'начали со смешанного');
+
+      await tester.tap(find.text('Execute'));
+      await tester.pump();
+      expect(markIn(tester), icons.glyph(icons.check));
+
+      await tester.tap(find.text('Execute'));
+      await tester.pump();
+      expect(markIn(tester), isNull, reason: 'выключено — пустая клетка');
+
+      // Круг замкнут нарочно: передумав, человек возвращает «не трогать», не
+      // закрывая окна.
+      await tester.tap(find.text('Execute'));
+      await tester.pump();
+      expect(markIn(tester), icons.glyph(icons.mixed));
+    });
+
+    testWidgets('Space водит по тому же кругу, что и щелчок', (tester) async {
+      final focus = FocusNode();
+      addTearDown(focus.dispose);
+      bool? value;
+      await pumpInDialogColumn(
+        tester,
+        StatefulBuilder(
+          builder:
+              (context, setState) => FcCheckbox.tristate(
+                label: 'Execute',
+                value: value,
+                focusNode: focus,
+                onChanged: (next) => setState(() => value = next),
+              ),
+        ),
+      );
+
+      focus.requestFocus();
+      await tester.pump();
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+      expect(markIn(tester), icons.glyph(icons.check));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+      expect(markIn(tester), isNull);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.space);
+      await tester.pump();
+      expect(markIn(tester), icons.glyph(icons.mixed));
+    });
+
+    testWidgets('обычный флажок в смешанное не попадает', (tester) async {
+      var value = true;
+      await pumpInDialogColumn(
+        tester,
+        StatefulBuilder(
+          builder:
+              (context, setState) =>
+                  FcCheckbox(label: 'Execute', value: value, onChanged: (next) => setState(() => value = next)),
+        ),
+      );
+
+      // Ему это и не выразить: обратный вызов у него `bool`, а не `bool?`.
+      await tester.tap(find.text('Execute'));
+      await tester.pump();
+      expect(markIn(tester), isNull);
+
+      await tester.tap(find.text('Execute'));
+      await tester.pump();
+      expect(markIn(tester), icons.glyph(icons.check));
+    });
+
+    testWidgets('без обработчика не меняется и в смешанном', (tester) async {
+      await pumpInDialogColumn(tester, const FcCheckbox.tristate(label: 'Execute', value: null, onChanged: null));
+
+      await tester.tap(find.text('Execute'));
+      await tester.pump();
+
+      expect(markIn(tester), icons.glyph(icons.mixed));
     });
   });
 

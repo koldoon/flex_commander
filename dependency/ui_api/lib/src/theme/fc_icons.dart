@@ -24,6 +24,13 @@ abstract class FcIcons {
 
   IconData get check;
 
+  /// Смешанное состояние флажка: «у выбранных по-разному, не трогать».
+  ///
+  /// Чёрточка, а не половина галочки и не серый квадрат: галочка означала бы
+  /// «да, но слабее», квадрат — «нельзя». Чёрточка не обещает ни того, ни
+  /// другого, и её же рисуют системы, у которых такой флажок есть.
+  IconData get mixed;
+
   /// Стрелка «ведёт на» — в описании ссылки.
   ///
   /// Не `long-arrow-right`: та почти целую кегельную площадку в ширину
@@ -65,6 +72,7 @@ extension FcIconRoles on FcIcons {
     'link' => link,
     'asterisk' => asterisk,
     'check' => check,
+    'mixed' => mixed,
     'angleRight' => angleRight,
     'caretUp' => caretUp,
     'caretDown' => caretDown,
