@@ -245,7 +245,9 @@ class AttributesForm extends StatelessWidget {
                 FcText(strings.plural(rows.length, one: '{n} attribute', other: '{n} attributes')),
               ],
             ),
-            SizedBox(height: theme.metrics.dialogLineGap),
+            // Заголовок отбит от содержимого тем же просветом, что строки друг
+            // от друга: вплотную он читается как первая строка таблицы.
+            SizedBox(height: theme.metrics.dialogGap),
             if (rows.isNotEmpty)
               ConstrainedBox(
                 constraints: BoxConstraints(maxHeight: rowHeight * _visibleXattrs),
@@ -363,7 +365,7 @@ class AttributesForm extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         FcLabel(strings.tr('Apply to')),
-        SizedBox(height: FcTheme.of(context).metrics.dialogLineGap),
+        SizedBox(height: FcTheme.of(context).metrics.dialogGap),
         Row(
           children: [
             FcSelect<AttributeScope>(

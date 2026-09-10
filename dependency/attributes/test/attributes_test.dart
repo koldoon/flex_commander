@@ -501,6 +501,18 @@ void main() {
       expect(inList, closeTo(inForm, 0.5));
     });
 
+    testWidgets('заголовок отбит от таблицы, а не приклеен к ней', (tester) async {
+      provider.xattrs['/home/notes.txt'] = {'com.example.a': utf8.encode('1')};
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      // Вплотную заголовок читается как первая строка таблицы.
+      final heading = tester.getRect(find.text('Extended attributes'));
+      final firstRow = tester.getRect(find.text('com.example.a'));
+      expect(firstRow.top - heading.bottom, greaterThanOrEqualTo(8));
+    });
+
     testWidgets('имя ярче счёта байт: смотрят на имя', (tester) async {
       provider.xattrs['/home/notes.txt'] = {'com.example.mark': List.filled(7, 0)};
       await pumpApp(tester);
