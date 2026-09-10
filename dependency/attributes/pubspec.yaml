@@ -45,5 +45,9 @@ dev_dependencies:
   fc_file_info:
     path: ../file_info
 
+  # Быстрый просмотр: сведения показываются в панели им.
+  fc_viewer:
+    path: ../viewer
+
   flex_commander:
     path: ../..

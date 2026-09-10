@@ -66,7 +66,15 @@ class FileInfoView extends StatelessWidget {
               padding: EdgeInsets.all(FcTheme.of(context).metrics.labelPadding),
               // Фокуса не просит: сведения в панели читают, а ввод в это время
               // принадлежит списку файлов.
-              child: FcKeyValueSections(sections: sectionsOf(screen, context.strings), autofocus: false, padded: false),
+              // Листается и вбок: расширенный атрибут бывает одним длинным
+              // словом без пробелов, перенос его разорвать не может, а панель
+              // быстрого просмотра узкая.
+              child: FcKeyValueSections(
+                sections: sectionsOf(screen, context.strings),
+                autofocus: false,
+                padded: false,
+                horizontal: true,
+              ),
             ),
           ),
     );

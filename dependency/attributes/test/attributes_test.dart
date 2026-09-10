@@ -6,6 +6,7 @@ import 'package:fc_attributes/src/attributes_form.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_file_info/fc_file_info.dart';
 import 'package:fc_navigation/fc_navigation.dart';
+import 'package:fc_viewer/fc_viewer.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
@@ -696,6 +697,24 @@ void main() {
       // Двоичное текстом не притворяется и здесь: показать кашу вместо
       // `FinderInfo` хуже, чем сказать, сколько в нём байт.
       expect(find.text('32 bytes'), findsOneWidget);
+    });
+
+    testWidgets('длинное значение не уходит за раму панели, а листается вбок', (tester) async {
+      // Одно слово без пробелов: перенос его разорвать не может.
+      provider.xattrs['/home/notes.txt'] = {
+        'com.apple.quarantine': utf8.encode('0083;68b8ab13;Safari;C6460336-67E0-469D-8927-5C67831C9827'),
+      };
+      await startWith([const Navigation(), const FileInfo(), const AttributeEditing(), const Viewer()]);
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+
+      // Быстрый просмотр: панель узкая, и раньше значение вылезало за раму.
+      app.commands.run('viewer.quickView');
+      await settle(tester);
+
+      expect(tester.takeException(), isNull);
+      final sideways = tester.widgetList<SingleChildScrollView>(find.byType(SingleChildScrollView));
+      expect(sideways.any((one) => one.scrollDirection == Axis.horizontal), isTrue);
     });
 
     testWidgets('нечего сказать — раздела нет вовсе', (tester) async {

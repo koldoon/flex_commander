@@ -79,6 +79,9 @@ class FileInfoCommand extends AppCommand {
               (context, _) => FcKeyValueTable(
                 sections: sectionsOf(screen, context.strings),
                 onClose: close,
+                // Значение бывает одним длинным словом без пробелов —
+                // расширенный атрибут, путь, адрес: перенос его не разорвёт.
+                horizontal: true,
                 // Размер каталога — кнопкой, рядом с «Close»: обход дерева при
                 // открытии окна недопустим.
                 actions: [

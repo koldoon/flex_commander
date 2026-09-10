@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:fc_search/fc_search.dart';
@@ -26,6 +27,10 @@ import 'package:flutter_test/flutter_test.dart';
 ///
 /// Обновление: `flutter test --update-goldens test/view/design_anchor_golden_test.dart`.
 void main() {
+  /// Дерево снимка: провайдер нужен снаружи — окну правки атрибутов задаются
+  /// расширенные атрибуты, которых у подставки по умолчанию нет.
+  late InMemoryContentProvider provider;
+
   /// Удалось ли собрать все три набора. Без любого из них снимок сверять не с
   /// чем: подстановка молча заменит шрифт, и расхождение спишут на макет.
   var fontsReady = false;
@@ -44,7 +49,7 @@ void main() {
     // Провайдер с содержимым, а не обычный: упаковка невыполнима, если приёмник
     // не умеет принимать байты (`canReceive`), и окно упаковки не открылось бы
     // вовсе — а снять его надо тем же путём, каким его открывает человек.
-    final provider = InMemoryContentProvider([
+    provider = InMemoryContentProvider([
       FakeEntry.directory('/Users'),
       FakeEntry.directory('/Users/koldoon'),
       FakeEntry.directory('/Users/koldoon/Developer'),
@@ -108,6 +113,34 @@ void main() {
       await tester.pump(const Duration(milliseconds: 20));
     });
   }
+
+  /// Окно правки атрибутов — со **своей** обстановкой.
+  ///
+  /// Одна цель, а не две: даты, владелец и расширенные атрибуты показываются
+  /// только у одного объекта, и снимать окно без них значило бы снимать
+  /// половину. Расширенные задаются здесь же — у подставки их по умолчанию нет.
+  testWidgets('окно правки атрибутов', (tester) async {
+    if (!fontsReady) {
+      markTestSkipped('Шрифты не собрались: Ubuntu, FontAwesome или Consolas недоступны');
+      return;
+    }
+
+    final app = await openApp(tester);
+    provider.xattrs['/Users/koldoon/Developer/LICENSE'] = {
+      'com.apple.quarantine': utf8.encode('0083;68b8ab13;Safari;'),
+      'com.apple.metadata:kMDItemWhereFroms': List.filled(66, 7),
+      'com.apple.provenance': List.filled(11, 3),
+    };
+    app.left.setCursorToName('LICENSE');
+    await tester.pumpAndSettle();
+
+    app.commands.dispatch(KeyCombination.parse('Cmd-Shift-I'));
+    await tester.pumpAndSettle();
+
+    await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/anchor_attributes.png'));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
 
   testWidgets('окно настоящими шрифтами — эталон набора для макета', (tester) async {
     if (!fontsReady) {

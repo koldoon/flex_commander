@@ -41,7 +41,13 @@ class FcTableSection {
 /// Прокручивается сама: стрелками, PgUp/PgDn, Home/End, — а Enter и Esc
 /// отдаёт тому, кто её показывает.
 class FcKeyValueSections extends StatefulWidget {
-  const FcKeyValueSections({super.key, required this.sections, this.autofocus = true, this.padded = true});
+  const FcKeyValueSections({
+    super.key,
+    required this.sections,
+    this.autofocus = true,
+    this.padded = true,
+    this.horizontal = false,
+  });
 
   final List<FcTableSection> sections;
 
@@ -51,6 +57,17 @@ class FcKeyValueSections extends StatefulWidget {
 
   /// Отступы содержимого окна. В панели у рамы свои.
   final bool padded;
+
+  /// Листается ли таблица **вбок**.
+  ///
+  /// Нужно там, где значение бывает одним длинным словом без пробелов:
+  /// расширенный атрибут (`0083;68b8ab13;Safari;C6460336-…`), путь, адрес. Их
+  /// перенос разорвать не может, и без прокрутки они уходят за раму — в узкой
+  /// панели быстрого просмотра это видно сразу.
+  ///
+  /// По умолчанию нет: справке и настройкам перенос как раз и нужен — там
+  /// значения из обычных слов, и лента вбок читалась бы хуже столбца.
+  final bool horizontal;
 
   @override
   State<FcKeyValueSections> createState() => _FcKeyValueSectionsState();
@@ -147,30 +164,40 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
       child: SingleChildScrollView(
         controller: _scroll,
         padding: widget.padded ? dialogContentPadding(context) : EdgeInsets.zero,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            for (var i = 0; i < widget.sections.length; i++) ...[
-              if (i > 0) SizedBox(height: metrics.sectionGap),
-              // Заголовок раздела — строкой во всю ширину: столбцы под ним те
-              // же, что и у соседних разделов. И крупнее подписей, а не только
-              // жирнее: разделов много, и на общем кегле заголовок теряется
-              // среди них — то же решение, что в окне настроек.
-              Padding(
-                padding: EdgeInsets.only(bottom: metrics.sectionEntryGap),
-                child: Text(
-                  widget.sections[i].title,
-                  style: theme.dialogTitleStyle.copyWith(fontSize: metrics.sectionHeadingFontSize),
+        child: _sideways(
+          Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < widget.sections.length; i++) ...[
+                if (i > 0) SizedBox(height: metrics.sectionGap),
+                // Заголовок раздела — строкой во всю ширину: столбцы под ним те
+                // же, что и у соседних разделов. И крупнее подписей, а не только
+                // жирнее: разделов много, и на общем кегле заголовок теряется
+                // среди них — то же решение, что в окне настроек.
+                Padding(
+                  padding: EdgeInsets.only(bottom: metrics.sectionEntryGap),
+                  child: Text(
+                    widget.sections[i].title,
+                    style: theme.dialogTitleStyle.copyWith(fontSize: metrics.sectionHeadingFontSize),
+                  ),
                 ),
-              ),
-              _rows(theme, widget.sections[i], widths, columns),
+                _rows(theme, widget.sections[i], widths, columns),
+              ],
             ],
-          ],
+          ),
         ),
       ),
     );
   }
+
+  /// Обёртка для прокрутки вбок; без неё — то же самое, что дали.
+  ///
+  /// Внутри вертикальной, а не снаружи: листают её сверху вниз, и заголовок
+  /// раздела должен уезжать вместе со своими строками, а не оставаться на
+  /// месте, пока строки едут вбок.
+  Widget _sideways(Widget child) =>
+      widget.horizontal ? SingleChildScrollView(scrollDirection: Axis.horizontal, child: child) : child;
 
   /// Строки раздела — таблицей с **общими** ширинами столбцов.
   ///
@@ -223,7 +250,13 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
 /// назначает — она облегает то, что ей дали, — а высоту не ограничивает вовсе,
 /// поэтому длинная таблица без этого вылезла бы за экран.
 class FcKeyValueTable extends StatefulWidget {
-  const FcKeyValueTable({super.key, required this.sections, required this.onClose, this.actions = const []});
+  const FcKeyValueTable({
+    super.key,
+    required this.sections,
+    required this.onClose,
+    this.actions = const [],
+    this.horizontal = false,
+  });
 
   final List<FcTableSection> sections;
   final VoidCallback onClose;
@@ -233,6 +266,9 @@ class FcKeyValueTable extends StatefulWidget {
   /// Ряд кнопок собирается здесь, а не у вызывающего: он один на все окна
   /// приложения, и обходить его своей разметкой нельзя (см. ниже).
   final List<Widget> actions;
+
+  /// Листается ли таблица вбок — см. [FcKeyValueSections.horizontal].
+  final bool horizontal;
 
   @override
   State<FcKeyValueTable> createState() => _FcKeyValueTableState();
@@ -254,7 +290,7 @@ class _FcKeyValueTableState extends State<FcKeyValueTable> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Flexible(child: FcKeyValueSections(sections: widget.sections)),
+            Flexible(child: FcKeyValueSections(sections: widget.sections, horizontal: widget.horizontal)),
             // Тот же ряд, что и у остальных окон: кнопка по размеру подписи,
             // прижата вправо. Своей разметкой её обходить нельзя — `FcButton`
             // под ограниченной шириной растягивается во всю её ширину.

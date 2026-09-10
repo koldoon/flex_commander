@@ -581,7 +581,9 @@ mixin InMemoryContent on InMemoryReadOnlyProvider implements FileContentProvider
 ///
 /// Нужен там, где проверяется стратегия «поток»: перенос в чужой провайдер
 /// возможен ровно тогда, когда обе стороны знают байтовый контракт.
-class InMemoryContentProvider extends InMemoryTreeProvider with InMemoryContent implements LinkEditor {
+class InMemoryContentProvider extends InMemoryTreeProvider
+    with InMemoryContent
+    implements LinkEditor, NodeAttributesEditor, NodeXattrEditor {
   /// Ссылки — умение отдельное: его объявляют те, кто и правда их заводит.
   /// Приёмник без ссылок (архив) собирается из [InMemoryTreeProvider] и
   /// [InMemoryContent] — байты есть, ссылок нет.
@@ -595,6 +597,64 @@ class InMemoryContentProvider extends InMemoryTreeProvider with InMemoryContent 
   }
 
   InMemoryContentProvider([super.entries, super.host]);
+
+  // --- атрибуты ---
+  //
+  // Умеет их подставка нарочно: без этого окно правки атрибутов открывалось бы
+  // с погашенной формой, и снять с него эталон было бы нечем. Значения
+  // постоянные — снимок должен отличаться только тем, какое окно открыто.
+
+  /// Режим по пути; чего нет — `644` у файла и `755` у каталога.
+  final Map<String, int> modes = {};
+
+  /// Расширенные атрибуты по пути. Пусто — их нет, и раздела в сведениях тоже.
+  final Map<String, Map<String, List<int>>> xattrs = {};
+
+  int modeOf(FsNode node) => modes[node.pathString] ?? (node is DirectoryNode ? 0x41ED : 0x81A4);
+
+  @override
+  Future<NodeAttributes> readAttributes(FsNode node) async => NodeAttributes(
+    mode: modeOf(node),
+    modeString: node is DirectoryNode ? 'drwxr-xr-x' : '-rw-r--r--',
+    uid: 501,
+    gid: 20,
+    owner: 'koldoon',
+    group: 'staff',
+    modified: DateTime(2018, 2, 19, 14, 20, 31),
+    accessed: DateTime(2018, 2, 19, 14, 20, 31),
+    canEditMode: true,
+    canEditTimes: true,
+    canEditOwner: true,
+  );
+
+  @override
+  Future<void> setMode(FsNode node, int mode) async {
+    modes[node.pathString] = (modeOf(node) & ~0xFFF) | (mode & 0xFFF);
+  }
+
+  @override
+  Future<void> setTimes(FsNode node, {DateTime? modified, DateTime? accessed}) async {}
+
+  @override
+  Future<void> setOwner(FsNode node, {int? uid, int? gid}) async {
+    // Сменить владельца обычно не дают — и подставка не притворяется.
+    throw FsError(node.pathString, FsErrorKind.permissionDenied);
+  }
+
+  @override
+  Future<List<Xattr>> readXattrs(FsNode node) async => [
+    for (final one in (xattrs[node.pathString] ?? const <String, List<int>>{}).entries) Xattr(one.key, one.value),
+  ];
+
+  @override
+  Future<void> setXattr(FsNode node, String name, List<int> value) async {
+    (xattrs[node.pathString] ??= {})[name] = value;
+  }
+
+  @override
+  Future<void> removeXattr(FsNode node, String name) async {
+    xattrs[node.pathString]?.remove(name);
+  }
 }
 
 /// Архив, открытый на просмотр: дерево читается, содержимое отдаётся, менять
