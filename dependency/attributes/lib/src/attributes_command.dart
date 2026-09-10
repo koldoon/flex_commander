@@ -65,7 +65,8 @@ class AttributesCommand extends AppCommand {
     Future<void> apply() async {
       final edits = run.collect(context.app.strings);
       if (edits == null) {
-        // В полях негодное: причина уже в окне, работу не заводим.
+        // В полях негодное: работу не заводим, а причину говорим тостом.
+        run.complain(context.app.toasts);
         return;
       }
       if (edits.isEmpty) {
@@ -85,6 +86,10 @@ class AttributesCommand extends AppCommand {
         // Панели показывают не то, что на диске: права и даты изменились.
         await _reload(context.app, targets);
       }
+      // Отказ (работа отказалась, не начавшись) — тостом. Строка внутри формы
+      // отъедала бы у неё место и двигала поля ровно тогда, когда в них
+      // собираются что-то поправить.
+      run.complain(context.app.toasts);
     }
 
     void present() {

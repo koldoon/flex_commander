@@ -216,7 +216,8 @@ Figma четырёх стилей хватало ровно потому, что
 | `Button` | `Normal`, `Primary`, `Pressed`, `Focused` |
 | `Text Field` | `Normal`, `Hint`, `Focused`, `Search`, `Disabled` |
 | `Checkbox` | `Off`, `On`, `Focused` |
-| `Select`, `Progress Bar`, `Caret`, `Toast` | по одному |
+| `Select`, `Progress Bar`, `Caret` | по одному |
+| `Toast/Normal`, `Toast/Failure` | обычное сообщение и отказ |
 | `File Row` | `Normal`, `Directory`, `Marked`, `Cursor`, `Marked Cursor` |
 | `Brief Row` | один — строка краткого вида: значок и имя |
 | `Column Header`, `Status Bar` | по одному |
@@ -460,7 +461,7 @@ macOS со светофором.
 1. страницы, swatch'и, стили текста и слоя;
 2. `Foundations`: шапка, плашки, образцы набора, линейки метрик;
 3. восемь самостоятельных символов: `Button`, `Text Field`, `Checkbox`,
-   `Radio Group`, `Select`, `Progress Bar`, `Caret`, `Toast`;
+   `Radio Group`, `Select`, `Progress Bar`, `Caret`, `Toast/*`;
 4. шесть из списка файлов: `File Row`, `Column Header`, `Path Plate`,
    `Status Bar`, `Function Button`, `Panel Frame`;
 5. четыре составных: `Dialog`, `Command Palette`, `Pick List`,
@@ -473,6 +474,16 @@ macOS со светофором.
 завести символ.
 
 ## 8. Отметки по ходу
+
+**11 сентября 2026 — у тоста появился отказ.** `Toast` разделился на
+`Toast/Normal` и `Toast/Failure`: красная обводка и красный текст. Обводка, а не
+заливка целиком — заливка кричала бы громче, чем стоит короткая новость, а
+рамка видна и краем глаза.
+
+Красному тексту понадобился свой стиль — `UI/Dialog Error` (тот же набор, что у
+`UI/Dialog Text`, цвет `state/error`). Их теперь двадцать четыре. Стиль в Sketch
+несёт цвет, и покрасить текст мимо стиля значило бы оставить слой без стиля
+вовсе — то, что запрещает сверка.
 
 **10 сентября 2026 — окно правки атрибутов нарисовано.** Мастер
 `Dialog/Attributes` (570 × 580) на `Symbols`, экземпляр с подписью — на

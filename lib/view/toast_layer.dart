@@ -41,7 +41,7 @@ class ToastLayer extends StatelessWidget {
                           // Ключ по номеру показа, а не по тексту: два
                           // одинаковых сообщения подряд — это два показа, и
                           // второе должно моргнуть, а не остаться незамеченным.
-                          : _ToastView(key: ValueKey(toast.id), message: toast.message),
+                          : _ToastView(key: ValueKey(toast.id), message: toast.message, failed: toast.failed),
                 );
               },
             ),
@@ -55,9 +55,12 @@ class ToastLayer extends StatelessWidget {
 }
 
 class _ToastView extends StatelessWidget {
-  const _ToastView({super.key, required this.message});
+  const _ToastView({super.key, required this.message, required this.failed});
 
   final String message;
+
+  /// Отказ: рама и текст красные.
+  final bool failed;
 
   @override
   Widget build(BuildContext context) {
@@ -71,6 +74,9 @@ class _ToastView extends StatelessWidget {
         // Оформление окна команды: тост — такая же всплывшая поверхность, и
         // заводить ему собственную палитру незачем.
         color: colors.dialogBackground,
+        // Отказ обведён красным, а фон остаётся своим: заливка целиком кричала
+        // бы громче, чем стоит короткая новость, а рамка видна и краем глаза.
+        border: failed ? Border.all(color: colors.error, width: metrics.strokeWidth) : null,
         borderRadius: BorderRadius.circular(metrics.dialogRadius),
         boxShadow: [
           BoxShadow(
@@ -80,7 +86,7 @@ class _ToastView extends StatelessWidget {
           ),
         ],
       ),
-      child: Text(message, style: theme.uiStyle.copyWith(color: colors.dialogText)),
+      child: Text(message, style: theme.uiStyle.copyWith(color: failed ? colors.error : colors.dialogText)),
     );
   }
 }

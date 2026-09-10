@@ -164,6 +164,10 @@ void main() {
           provider: tree,
           modules: [const Navigation(), const AttributeEditing()],
           settings: settings,
+          // Отказы говорятся тостом, и тесту надо успеть его увидеть.
+          // Умолчание подставки — пять миллисекунд, чтобы таймер не пережил
+          // проверку; отпускает его `forgetToast`.
+          toastDuration: const Duration(seconds: 1),
         )).app;
   }
 
@@ -229,6 +233,12 @@ void main() {
     await tester.tap(find.text(label).at(at));
     await tester.pumpAndSettle();
   }
+
+  /// Дать тосту истечь: висящий таймер роняет виджет-тест, и правильно делает.
+  ///
+  /// Зовётся там, где работа отказала: об отказе говорит тост, а не строка в
+  /// форме, и после проверки его надо отпустить.
+  Future<void> forgetToast(WidgetTester tester) => tester.pump(const Duration(seconds: 2));
 
   Future<void> apply(WidgetTester tester) async {
     await tester.tap(find.widgetWithText(FcButton, 'Apply'));
@@ -614,6 +624,7 @@ void main() {
 
       // Имя разрешилось (или его и не было — набрали число), отказала система.
       expect(find.textContaining('Permission denied'), findsOneWidget);
+      await forgetToast(tester);
     });
 
     testWidgets('имя владельца разрешается в число', (tester) async {
@@ -646,6 +657,7 @@ void main() {
       expect(find.widgetWithText(FcButton, 'Apply'), findsOneWidget);
       expect(provider.owners, isEmpty);
       expect(provider.touched, isEmpty, reason: 'до режима дело не дошло');
+      await forgetToast(tester);
     });
 
     testWidgets('число идёт как есть, словарь не спрашивается', (tester) async {
@@ -674,6 +686,7 @@ void main() {
       await apply(tester);
 
       expect(find.textContaining('No such user or group'), findsOneWidget);
+      await forgetToast(tester);
     });
 
     testWidgets('нетронутое поле не шлёт ни имени, ни числа', (tester) async {
@@ -705,10 +718,17 @@ void main() {
       expect(find.text('Octal'), findsOneWidget);
       // Спрашивать «пропустить?» не о чем: цель одна.
       expect(find.text('Skip'), findsNothing);
+      // И сообщение стоит **поверх** окна тостом, а не внутри формы: иначе оно
+      // отъедало бы место и двигало поля.
+      expect(
+        find.descendant(of: find.byType(DialogFrame), matching: find.textContaining('Permission denied')),
+        findsNothing,
+      );
       // И «работы не было» — правда: владелец правится первым, и до режима
       // дело не дошло.
       expect(provider.touched, isEmpty);
       expect(provider.modeOf('/home/notes.txt') & 0xFFF, 0x1A4);
+      await forgetToast(tester);
     });
 
     testWidgets('поправленное со второго раза доходит', (tester) async {
@@ -720,421 +740,13 @@ void main() {
       await tester.enterText(fieldWithHint('user'), '0');
       await tester.pumpAndSettle();
       await apply(tester);
+      await forgetToast(tester);
 
       // Вернули владельца как было — прямо в открытой форме — и нажали ещё раз.
       await tester.enterText(fieldWithHint('user'), 'koldoon');
       await tester.pumpAndSettle();
       await apply(tester);
 
-      expect(provider.modeOf('/home/notes.txt') & 0xFFF, 0x1E4);
-    });
-  });
-
-  group('рекурсия', () {
-    testWidgets('выключена — правится только названное', (tester) async {
-      await pumpApp(tester);
-      await putCursorOn(tester, 'docs');
-      await pressCtrlA(tester);
-
-      await tapCheckbox(tester, 'exec');
-      await apply(tester);
-
-      expect(provider.touched, ['/home/docs']);
-    });
-
-    testWidgets('включена — правка идёт по всему дереву', (tester) async {
-      await pumpApp(tester);
-      await putCursorOn(tester, 'docs');
-      await pressCtrlA(tester);
-
-      await tapCheckbox(tester, 'Recursive');
-      await tapCheckbox(tester, 'write', at: 1);
-      await apply(tester);
-
-      expect(provider.touched, contains('/home/docs/deep.txt'));
-      expect(provider.touched, contains('/home/docs/inner/nested.txt'));
-      expect(provider.touched, contains('/home/docs/inner'));
-    });
-
-    testWidgets('«только файлы» каталогов внутри не трогает', (tester) async {
-      await pumpApp(tester);
-      await putCursorOn(tester, 'docs');
-      await pressCtrlA(tester);
-
-      await tapCheckbox(tester, 'Recursive');
-      await tester.tap(find.text('files and directories'));
-      await tester.pumpAndSettle();
-      await tester.tap(find.text('only files').last);
-      await tester.pumpAndSettle();
-      await tapCheckbox(tester, 'write', at: 1);
-      await apply(tester);
-
-      // Названный каталог правится при любом отборе: его выбрали руками.
-      expect(provider.touched, contains('/home/docs'));
-      expect(provider.touched, contains('/home/docs/deep.txt'));
-      expect(provider.touched, isNot(contains('/home/docs/inner')));
-    });
-
-    testWidgets('среди одних файлов флажок погашен', (tester) async {
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      final box = tester.widgetList<FcCheckbox>(find.byType(FcCheckbox)).firstWhere((one) => one.label == 'Recursive');
-      // Показан, но не трогается: пропадающее поле переставляло бы всё, что под
-      // ним, прямо под курсором человека.
-      expect(box.onChanged, isNull);
-    });
-  });
-
-  group('расширенные атрибуты', () {
-    testWidgets('видны, добавляются и убираются', (tester) async {
-      provider.xattrs['/home/notes.txt'] = {'com.apple.quarantine': utf8.encode('0083;Safari')};
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      expect(find.text('com.apple.quarantine'), findsOneWidget);
-
-      await tester.tap(find.widgetWithText(FcButton, 'Remove'));
-      await tester.pumpAndSettle();
-      await apply(tester);
-
-      expect(provider.xattrs['/home/notes.txt'], isEmpty);
-    });
-
-    testWidgets('строка не слипается: между управлениями обычный просвет', (tester) async {
-      provider.xattrs['/home/notes.txt'] = {'com.apple.quarantine': utf8.encode('0083;Safari')};
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      // `dialogGap` — та же мера, которой отбиты друг от друга кнопки окна.
-      const gap = 8.0;
-      final value = tester.getRect(fieldWithHint('value'));
-      final add = tester.getRect(find.widgetWithText(FcButton, 'Add'));
-      expect(add.left - value.right, greaterThanOrEqualTo(gap));
-
-      final name = tester.getRect(fieldWithHint('name'));
-      expect(value.left - name.right, greaterThanOrEqualTo(gap));
-    });
-
-    testWidgets('короткая кнопка встаёт там же, где длинная', (tester) async {
-      provider.xattrs['/home/notes.txt'] = {'com.apple.quarantine': utf8.encode('0083;Safari')};
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      // «Add» короче «Remove», и по левому краю им не сойтись — в образце
-      // строка нового атрибута стоит своей раскладкой, без столбца размера.
-      // Сходятся они по правому краю: обе кнопки прижаты к краю окна, и
-      // столбец кнопок читается прямым.
-      final remove = tester.getRect(find.widgetWithText(FcButton, 'Remove'));
-      final add = tester.getRect(find.widgetWithText(FcButton, 'Add'));
-      expect(add.right, closeTo(remove.right, 0.5));
-      expect(add.width, lessThan(remove.width), reason: 'кнопка по-прежнему по своей подписи');
-
-      // И поля значения кончаются на одной вертикали. Меряются одинаковые узлы
-      // — сами поля, а не то, что у них внутри.
-      Rect fieldAt(String prefix) => tester.getRect(
-        find.byWidgetPredicate(
-          (widget) => widget.key is ValueKey<String> && (widget.key! as ValueKey<String>).value.startsWith(prefix),
-        ),
-      );
-
-      expect(fieldAt('new-value:').right, lessThan(add.left));
-      expect(fieldAt('xattr:').right, lessThan(remove.left));
-    });
-
-    testWidgets('длинное имя не встаёт в две строки, а режется многоточием', (tester) async {
-      const long = 'com.apple.metadata:kMDItemWhereFroms';
-      provider.xattrs['/home/notes.txt'] = {'com.apple.macl': utf8.encode('x'), long: utf8.encode('y')};
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      final short = tester.getRect(find.text('com.apple.macl'));
-      final wide = tester.getRect(find.text(long));
-
-      // Перенос сдвинул бы соседей по строке и разъехал бы таблицу. Ширина у
-      // обоих одна: столбец задан долей окна, а не длиной нынешнего имени, —
-      // ради этого ширина окна и назначена числом.
-      expect(wide.height, closeTo(short.height, 0.5));
-      expect(wide.width, closeTo(short.width, 0.5));
-      expect(tester.getRect(find.byType(DialogWidth)).width, closeTo(AttributesForm.width, 0.5));
-    });
-
-    testWidgets('их десяток не переполняет окно, а прокручивается', (tester) async {
-      provider.xattrs['/home/notes.txt'] = {
-        for (var i = 0; i < 12; i++) 'com.example.mark$i': utf8.encode('значение $i'),
-      };
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      // Рядов больше, чем помещается в окно 802×621: рама прокручивает
-      // содержимое, а не переполняется молча.
-      expect(tester.takeException(), isNull);
-    });
-
-    testWidgets('длинное имя не съедает столбец значения', (tester) async {
-      const long = 'com.apple.metadata:kMDItemWhereFroms';
-      provider.xattrs['/home/notes.txt'] = {long: List.filled(72, 7)};
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      // Двоичное показывается счётом байт; ужиматься ему некуда, и в один знак
-      // ширины оно вставало бы столбиком по букве.
-      final value = tester.getRect(find.text('72 bytes'));
-      expect(value.width, greaterThan(40));
-      expect(value.height, lessThan(30), reason: 'одна строка, а не столбик');
-    });
-
-    testWidgets('видно четыре строки, дальше прокрутка', (tester) async {
-      provider.xattrs['/home/notes.txt'] = {
-        for (var i = 0; i < 9; i++) 'com.example.mark$i': utf8.encode('значение $i'),
-      };
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      // Ближайшая прокрутка над строкой — своя, списка, а не рамы окна.
-      final list = tester.state<ScrollableState>(
-        find.ancestor(of: find.text('com.example.mark0'), matching: find.byType(Scrollable)).first,
-      );
-      final row = tester.getRect(find.byType(Table).last).height / 9;
-
-      // Список ограничен четырьмя строками — у файла с диска их бывает и
-      // десяток, а окно расти без предела не должно.
-      expect(list.position.viewportDimension, closeTo(row * 4, row));
-      expect(list.position.maxScrollExtent, greaterThan(0), reason: 'до остальных листают');
-    });
-
-    testWidgets('заголовок и строки начинаются от левого поля', (tester) async {
-      provider.xattrs['/home/notes.txt'] = {'com.example.mark': utf8.encode('x')};
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      // Столбец подписей заголовкам разделов не начальник: отодвинутые на его
-      // ширину, они выглядели бы приклеенными к форме сбоку.
-      final octal = tester.getRect(find.text('Octal')).left;
-      expect(tester.getRect(find.text('Extended attributes')).left, closeTo(octal, 0.5));
-      expect(tester.getRect(find.text('Apply to')).left, closeTo(octal, 0.5));
-      expect(tester.getRect(find.text('com.example.mark')).left, closeTo(octal, 0.5));
-
-      // А поле с подписью — правее: перед ним стоит столбец подписей.
-      expect(tester.getRect(fieldWithHint('user')).left, greaterThan(octal));
-    });
-
-    testWidgets('строки списка идут тем же шагом, что поля формы', (tester) async {
-      provider.xattrs['/home/notes.txt'] = {'com.example.a': utf8.encode('1'), 'com.example.b': utf8.encode('2')};
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      // Меряются одинаковые узлы — сами поля: у текста своя высота, и по нему
-      // шаг не сравнить.
-      Rect fieldAt(String prefix) => tester.getRect(
-        find
-            .byWidgetPredicate(
-              (widget) => widget.key is ValueKey<String> && (widget.key! as ValueKey<String>).value.startsWith(prefix),
-            )
-            .first,
-      );
-
-      // Строки списка и поля окна читаются как один ряд: разный шаг у них
-      // разъезжался бы на глазах.
-      final inList = fieldAt('xattr:com.example.b').top - fieldAt('xattr:com.example.a').bottom;
-      final inForm = fieldAt('Modified:').top - fieldAt('owner:').bottom;
-
-      expect(inList, closeTo(inForm, 0.5));
-    });
-
-    testWidgets('заголовок отбит от таблицы, а не приклеен к ней', (tester) async {
-      provider.xattrs['/home/notes.txt'] = {'com.example.a': utf8.encode('1')};
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      // Вплотную заголовок читается как первая строка таблицы.
-      final heading = tester.getRect(find.text('Extended attributes'));
-      final firstRow = tester.getRect(find.text('com.example.a'));
-      expect(firstRow.top - heading.bottom, greaterThanOrEqualTo(8));
-    });
-
-    testWidgets('имя ярче счёта байт: смотрят на имя', (tester) async {
-      provider.xattrs['/home/notes.txt'] = {'com.example.mark': List.filled(7, 0)};
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      final theme = FcTheme.of(tester.element(find.text('com.example.mark')));
-      expect(tester.widget<Text>(find.text('com.example.mark')).style?.color, theme.colors.dialogLabel);
-      expect(tester.widget<Text>(find.text('7 bytes')).style?.color, theme.colors.dialogText);
-    });
-
-    testWidgets('полное имя — подсказкой', (tester) async {
-      const long = 'com.apple.metadata:kMDItemWhereFroms';
-      provider.xattrs['/home/notes.txt'] = {long: utf8.encode('https://example.com')};
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      // В столбце имя режется многоточием, а спрашивают о нём именно тогда,
-      // когда не влезло.
-      final tips = tester.widgetList<Tooltip>(find.byType(Tooltip)).map((one) => one.message).toList();
-      expect(tips, contains(long));
-      expect(tips, contains('https://example.com'), reason: 'у значения тоже: оно длиннее поля');
-    });
-
-    testWidgets('источник без этого умения раздела не показывает', (tester) async {
-      // Ровно как сервер по SFTP: обычные атрибуты умеет, расширенных у него
-      // нет вовсе.
-      await start(_OnlyPlainAttributes([FakeEntry.directory('/home'), FakeEntry.file('/home/notes.txt', size: 1)]));
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      expect(find.text('Octal'), findsOneWidget);
-      expect(find.text('Extended attributes'), findsNothing);
-    });
-  });
-
-  group('отказы', () {
-    testWidgets('смена владельца без прав — ошибка, окно не закрылось', (tester) async {
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      await tester.enterText(fieldWithHint('user'), '0');
-      await tester.pumpAndSettle();
-      await apply(tester);
-
-      // Имя разрешилось (или его и не было — набрали число), отказала система.
-      expect(find.textContaining('Permission denied'), findsOneWidget);
-    });
-
-    testWidgets('имя владельца разрешается в число', (tester) async {
-      provider.deniesOwner = false;
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      await tester.enterText(fieldWithHint('user'), 'root');
-      await tester.pumpAndSettle();
-      await apply(tester);
-
-      // До источника дошло число, а не имя: разрешил его словарь машины.
-      expect(provider.owners, ['0:null']);
-    });
-
-    testWidgets('неизвестное имя возвращает к форме, ничего не тронув', (tester) async {
-      provider.deniesOwner = false;
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      await tester.enterText(fieldWithHint('user'), 'нет-такого');
-      await tester.pumpAndSettle();
-      await apply(tester);
-
-      // Отказ до первого слова о ходе дела — это отказ, а не крах работы:
-      // окно вернулось к форме, и правку можно поправить на месте.
-      expect(find.textContaining('No such user or group'), findsOneWidget);
-      expect(find.widgetWithText(FcButton, 'Apply'), findsOneWidget);
-      expect(provider.owners, isEmpty);
-      expect(provider.touched, isEmpty, reason: 'до режима дело не дошло');
-    });
-
-    testWidgets('число идёт как есть, словарь не спрашивается', (tester) async {
-      provider.deniesOwner = false;
-      provider.users.clear();
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      await tester.enterText(fieldWithHint('user'), '42');
-      await tester.pumpAndSettle();
-      await apply(tester);
-
-      expect(provider.owners, ['42:null']);
-    });
-
-    testWidgets('источник без словаря именам отказывает', (tester) async {
-      // Как сервер по SFTP: атрибуты умеет, имён пользователей не знает.
-      await start(_OnlyPlainAttributes([FakeEntry.directory('/home'), FakeEntry.file('/home/notes.txt', size: 1)]));
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      await tester.enterText(fieldWithHint('user'), 'koldoon');
-      await tester.pumpAndSettle();
-      await apply(tester);
-
-      expect(find.textContaining('No such user or group'), findsOneWidget);
-    });
-
-    testWidgets('нетронутое поле не шлёт ни имени, ни числа', (tester) async {
-      provider.deniesOwner = false;
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      await tapCheckbox(tester, 'exec');
-      await apply(tester);
-
-      expect(provider.owners, isEmpty);
-    });
-
-    testWidgets('отказ у одной цели возвращает к форме, а не хоронит правку', (tester) async {
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      // Правим и права, и владельца: владелец откажет.
-      await tapCheckbox(tester, 'exec');
-      await tester.enterText(fieldWithHint('user'), '0');
-      await tester.pumpAndSettle();
-      await apply(tester);
-
-      // Форма на месте — опечатку можно поправить, не открывая окна заново.
-      expect(find.textContaining('Permission denied'), findsOneWidget);
-      expect(find.widgetWithText(FcButton, 'Apply'), findsOneWidget);
-      expect(find.text('Octal'), findsOneWidget);
-      // Спрашивать «пропустить?» не о чем: цель одна.
-      expect(find.text('Skip'), findsNothing);
-      // И «работы не было» — правда: владелец правится первым, и до режима
-      // дело не дошло.
-      expect(provider.touched, isEmpty);
-      expect(provider.modeOf('/home/notes.txt') & 0xFFF, 0x1A4);
-    });
-
-    testWidgets('поправленное со второго раза доходит', (tester) async {
-      await pumpApp(tester);
-      await putCursorOn(tester, 'notes.txt');
-      await pressCtrlA(tester);
-
-      await tapCheckbox(tester, 'exec');
-      await tester.enterText(fieldWithHint('user'), '0');
-      await tester.pumpAndSettle();
-      await apply(tester);
-
-      // Вернули владельца как было — прямо в открытой форме — и нажали ещё раз.
-      await tester.enterText(fieldWithHint('user'), 'koldoon');
-      await tester.pumpAndSettle();
-      await apply(tester);
-
-      // ignore: avoid_print
-      print(
-        'DBG owners=${provider.owners} touched=${provider.touched} '
-        'mode=${(provider.modeOf('/home/notes.txt') & 0xFFF).toRadixString(8)} '
-        'apply=${find.widgetWithText(FcButton, 'Apply').evaluate().length} '
-        'err=${find.textContaining('Permission').evaluate().length} '
-        'fields=${tester.widgetList<TextField>(find.byType(TextField)).map((f) => f.controller?.text).take(3).toList()} '
-        'msgs=${tester.widgetList<Text>(find.byType(Text)).map((t) => t.data).where((t) => t != null && t.contains(':')).toList()}',
-      );
       expect(provider.modeOf('/home/notes.txt') & 0xFFF, 0x1E4);
       expect(find.widgetWithText(FcButton, 'Apply'), findsNothing, reason: 'окно закрылось');
     });
@@ -1192,7 +804,13 @@ void main() {
   group('кнопка в сведениях', () {
     Future<void> startWith(List<FcModule> modules) async {
       final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
-      app = (await testApp(provider: provider, modules: modules, settings: settings)).app;
+      app =
+          (await testApp(
+            provider: provider,
+            modules: modules,
+            settings: settings,
+            toastDuration: const Duration(seconds: 1),
+          )).app;
     }
 
     testWidgets('открывает окно правки', (tester) async {
@@ -1227,7 +845,13 @@ void main() {
   group('раздел в сведениях', () {
     Future<void> startWith(List<FcModule> modules) async {
       final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
-      app = (await testApp(provider: provider, modules: modules, settings: settings)).app;
+      app =
+          (await testApp(
+            provider: provider,
+            modules: modules,
+            settings: settings,
+            toastDuration: const Duration(seconds: 1),
+          )).app;
     }
 
     testWidgets('расширенные атрибуты видны в окне сведений', (tester) async {

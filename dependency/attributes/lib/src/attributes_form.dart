@@ -51,7 +51,10 @@ class AttributesForm extends StatelessWidget {
     final strings = context.strings;
 
     return CommandDialogForm(
-      error: run.error,
+      // Причина отказа говорится тостом, а не строкой в форме: она отъедала бы
+      // у окна место и двигала поля ровно тогда, когда в них собираются
+      // что-то поправить.
+      error: null,
       onCancel: run.dismiss,
       onSubmit: run.submit,
       submitLabel: strings.tr('Apply'),

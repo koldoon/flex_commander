@@ -95,6 +95,17 @@ class AttributesRun extends FcAsyncRun {
     notifyListeners();
   }
 
+  /// Сказать об отказе — тостом, если он есть.
+  ///
+  /// [FcAsyncRun.error] при этом **остаётся**: по нему окно понимает, что
+  /// закрываться рано, — а показывать его внутри формы мы больше не даём.
+  void complain(Toasts toasts) {
+    final failure = error;
+    if (failure != null) {
+      toasts.fail(failure);
+    }
+  }
+
   /// Спросить не вышло: показываем причину вместо полей.
   void failed(FsError failure) {
     loading = false;

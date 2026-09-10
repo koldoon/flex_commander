@@ -23,9 +23,14 @@ class ToastController extends ChangeNotifier implements Toasts {
   Toast? get current => _current;
 
   @override
-  void show(String message) {
+  void show(String message) => _put(message, failed: false);
+
+  @override
+  void fail(String message) => _put(message, failed: true);
+
+  void _put(String message, {required bool failed}) {
     _timer?.cancel();
-    _current = Toast(id: ++_lastId, message: message);
+    _current = Toast(id: ++_lastId, message: message, failed: failed);
     // Время идёт от последнего сообщения, а не от первого: иначе третье
     // переключение подряд исчезало бы почти сразу после появления.
     _timer = Timer(duration, hide);

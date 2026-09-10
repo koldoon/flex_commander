@@ -1,5 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -120,6 +121,27 @@ void main() {
       await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
       await tester.pumpAndSettle();
     }
+
+    testWidgets('отказ говорится красным, а обычное сообщение — нет', (tester) async {
+      final runtime = await pumpApp(
+        tester,
+        settings: AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home')),
+      );
+      runtime.app.toasts.show('Show hidden files: On');
+      await tester.pumpAndSettle();
+      final plain = find.text('Show hidden files: On');
+      final error = FcTheme.of(tester.element(plain)).colors.error;
+      expect(tester.widget<Text>(plain).style?.color, isNot(error));
+
+      // «Сделано» и «не вышло» — разные новости, и одинаковый вид сделал бы
+      // отказ незаметным ровно там, где заметить его и нужно.
+      runtime.app.toasts.fail('Permission denied: /home/notes.txt');
+      await tester.pumpAndSettle();
+      expect(tester.widget<Text>(find.text('Permission denied: /home/notes.txt')).style?.color, error);
+
+      await tester.pump(const Duration(seconds: 3));
+      await tester.pumpAndSettle();
+    });
 
     testWidgets('переключение скрытых файлов говорит о себе', (tester) async {
       final runtime = await pumpApp(
