@@ -81,6 +81,30 @@ void main() {
     });
   });
 
+  group('высокое содержимое', () {
+    testWidgets('прокручивается, а не вылезает за окно приложения', (tester) async {
+      await start(tester);
+
+      // Окно правки атрибутов у файла с десятком расширенных именно таково:
+      // рядов больше, чем помещается, и раньше рама молча переполнялась.
+      runtime.app.view.showDialog(const DialogSpec(title: 'Tall', content: SizedBox(width: 300, height: 2000)));
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(window(tester).height, lessThanOrEqualTo(800));
+    });
+
+    testWidgets('невысокое окно облегает содержимое, как и раньше', (tester) async {
+      await start(tester);
+
+      runtime.app.view.showDialog(const DialogSpec(title: 'Short', content: SizedBox(width: 300, height: 100)));
+      await tester.pumpAndSettle();
+
+      final metric = metrics(tester);
+      expect(window(tester).height, closeTo(100 + metric.dialogTitleHeight, 0.5));
+    });
+  });
+
   /// Окно приложения поуже: при 900 точках панель ровно та, что окно «открыть
   /// путь» просило себе целиком, — раньше оно и ложилось от рамки до рамки.
   testWidgets('над тесной панелью окно не ложится от рамки до рамки', (tester) async {

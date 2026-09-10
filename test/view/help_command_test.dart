@@ -162,8 +162,7 @@ void main() {
     testWidgets('на маленьком экране таблица прокручивается, а не обрезается', (tester) async {
       await openHelp(tester, size: const Size(802, 621));
 
-      final scroll = tester.widget<SingleChildScrollView>(find.byType(SingleChildScrollView).first);
-      final position = scroll.controller!.position;
+      final position = _ownScroll(tester).controller!.position;
 
       // Строк заведомо больше, чем помещается: справка листается.
       expect(position.maxScrollExtent, greaterThan(0));
@@ -172,7 +171,7 @@ void main() {
 
     testWidgets('стрелки и PgDn листают таблицу', (tester) async {
       await openHelp(tester);
-      final controller = tester.widget<SingleChildScrollView>(find.byType(SingleChildScrollView).first).controller!;
+      final controller = _ownScroll(tester).controller!;
 
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
       await tester.pump();
@@ -298,3 +297,13 @@ void main() {
     });
   });
 }
+
+/// Прокрутка **самой справки**, а не рамы окна.
+///
+/// Рама с некоторых пор прокручивает всё, что в неё не влезло, — иначе высокое
+/// окно молча переполнялось бы. Её прокрутка своего контроллера не заводит, и
+/// по нему они и различаются: справка листается клавишами и потому держит его
+/// сама.
+SingleChildScrollView _ownScroll(WidgetTester tester) => tester
+    .widgetList<SingleChildScrollView>(find.byType(SingleChildScrollView))
+    .firstWhere((one) => one.controller != null);

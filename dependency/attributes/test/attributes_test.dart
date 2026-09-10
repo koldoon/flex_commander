@@ -410,6 +410,19 @@ void main() {
       expect(wide.width, greaterThan(short.width));
     });
 
+    testWidgets('их десяток не переполняет окно, а прокручивается', (tester) async {
+      provider.xattrs['/home/notes.txt'] = {
+        for (var i = 0; i < 12; i++) 'com.example.mark$i': utf8.encode('значение $i'),
+      };
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      // Рядов больше, чем помещается в окно 802×621: рама прокручивает
+      // содержимое, а не переполняется молча.
+      expect(tester.takeException(), isNull);
+    });
+
     testWidgets('источник без этого умения раздела не показывает', (tester) async {
       // Ровно как сервер по SFTP: обычные атрибуты умеет, расширенных у него
       // нет вовсе.

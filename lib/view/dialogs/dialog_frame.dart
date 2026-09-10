@@ -269,7 +269,18 @@ class _DialogFrameState extends State<DialogFrame> {
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
                           if (widget.title case final title?) _titleBar(theme, colors, metrics, title),
-                          widget.child,
+                          // Содержимое, которому не хватило высоты, прокручивается
+                          // — а не вылезает за раму молчащим переполнением.
+                          //
+                          // `Flexible`, а не `Expanded`: невысокому окну лишняя
+                          // высота не нужна, оно по-прежнему облегает содержимое.
+                          // Прокрутка появляется только там, где иначе было бы
+                          // переполнение: окно правки атрибутов у файла с
+                          // десятком расширенных именно таково.
+                          //
+                          // Полоса заголовка при этом остаётся на месте: за неё
+                          // окно двигают, и уезжать ей нельзя.
+                          Flexible(child: SingleChildScrollView(child: widget.child)),
                         ],
                       ),
                     ),
