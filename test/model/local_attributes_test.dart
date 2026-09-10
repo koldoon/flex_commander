@@ -208,8 +208,63 @@ void main() {
       expect(xattr.names(path), isEmpty);
     });
   });
+
+  group('числа владельца', () {
+    test('сходятся с тем, что говорит система', () async {
+      final path = await makeFile('numbers.txt');
+      final own = LocalStat.instance!.ownerOf(path);
+
+      // Единственная возможная сверка: раскладка `struct stat` не отказывает
+      // при ошибке, а тихо отдаёт чужие байты как числа владельца.
+      expect(own, isNotNull);
+      expect(own!.uid, _statField(path, '%u'));
+      expect(own.gid, _statField(path, '%g'));
+    });
+
+    test('несуществующего пути нет и владельца', () {
+      expect(LocalStat.instance!.ownerOf(p.join(root, 'нет')), isNull);
+    });
+  });
+
+  group('имена пользователей', () {
+    test('своё имя — то же, что у `id -un`', () {
+      final uid = int.parse(Process.runSync('id', ['-u']).stdout.toString().trim());
+      final name = Process.runSync('id', ['-un']).stdout.toString().trim();
+
+      // Ровно тот случай, из-за которого разбор `/etc/passwd` не годится: на
+      // macOS обычного пользователя в этом файле нет вовсе.
+      expect(LocalUsers.instance!.userName(uid), name);
+    });
+
+    test('своя группа — то же, что у `id -gn`', () {
+      final gid = int.parse(Process.runSync('id', ['-g']).stdout.toString().trim());
+      final name = Process.runSync('id', ['-gn']).stdout.toString().trim();
+
+      expect(LocalUsers.instance!.groupName(gid), name);
+    });
+
+    test('имя разбирается обратно в число', () {
+      final uid = int.parse(Process.runSync('id', ['-u']).stdout.toString().trim());
+      final name = Process.runSync('id', ['-un']).stdout.toString().trim();
+
+      expect(LocalUsers.instance!.userId(name), uid);
+      expect(LocalUsers.instance!.groupId('staff'), 20);
+    });
+
+    test('неизвестное имя — null, неизвестное число — пусто', () {
+      expect(LocalUsers.instance!.userId('такого-точно-нет'), isNull);
+      expect(LocalUsers.instance!.groupId('такой-точно-нет'), isNull);
+      expect(LocalUsers.instance!.userName(65123), isEmpty);
+    });
+
+    test('root зовут root', () {
+      expect(LocalUsers.instance!.userName(0), 'root');
+    });
+  });
 }
 
 bool _amRoot() => Process.runSync('id', ['-u']).stdout.toString().trim() == '0';
 
 int _gidOf(String path) => int.parse(Process.runSync('stat', ['-f', '%g', path]).stdout.toString().trim());
+int _statField(String path, String format) =>
+    int.parse(Process.runSync('stat', ['-f', format, path]).stdout.toString().trim());
