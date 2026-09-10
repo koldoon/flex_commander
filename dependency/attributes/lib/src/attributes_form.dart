@@ -251,7 +251,7 @@ class AttributesForm extends StatelessWidget {
               children: [
                 FcLabel(strings.tr('Extended attributes')),
                 SizedBox(width: theme.metrics.dialogGap),
-                FcText(strings.plural(rows.length, one: '{n} attribute', other: '{n} attributes')),
+                FcText(strings.plural(rows.length, one: 'про{n} attribute', other: '{n} attributes')),
               ],
             ),
             // Заголовок отбит от содержимого тем же просветом, что строки друг
