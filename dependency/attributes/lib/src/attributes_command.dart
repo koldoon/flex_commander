@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:flutter/widgets.dart';
 
 import 'attribute_edits.dart';
 import 'attributes_form.dart';
@@ -91,7 +92,12 @@ class AttributesCommand extends AppCommand {
         DialogSpec(
           title: title,
           takesFocus: true,
-          content: FcAsyncRunDialog(run: run, form: (_) => AttributesForm(run: run)),
+          // Ширина назначена окном, а не содержимым: и форма, и ход работы, и
+          // вопрос при отказе стоят в одной раме, и дёргаться ей незачем.
+          content: SizedBox(
+            width: AttributesForm.width,
+            child: FcAsyncRunDialog(run: run, form: (_) => AttributesForm(run: run)),
+          ),
           onSubmit: run.submit,
           onDismiss: run.dismiss,
         ),

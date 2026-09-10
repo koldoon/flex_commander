@@ -16,21 +16,30 @@ import 'mode_edit.dart';
 class AttributesForm extends StatelessWidget {
   const AttributesForm({super.key, required this.run});
 
+  /// Ширина окна — числом, а не по содержимому.
+  ///
+  /// Содержимое здесь меняется на глазах: у одного файла расширенных атрибутов
+  /// нет вовсе, у другого десяток, и имена у них какой угодно длины. Окно,
+  /// облегающее такое содержимое, дышало бы шириной от файла к файлу и от
+  /// правки к правке — а столбцы внутри него то расходились бы, то схлопывались.
+  /// То же правило, по которому ширину окна над панелью назначает область
+  /// (`docs/spec/dialog-placement.md`, §3).
+  static const double width = 570;
+
   /// Ширины полей — из того же образца. Числами, потому что это раскладка
   /// одного окна, а не роль темы: дата занимает ровно `2026-09-09 02:06:59`,
   /// восьмеричное — четыре цифры, и растягивать их не на что.
   static const double _octalWidth = 78;
   static const double _fieldWidth = 170;
 
-  /// Пределы столбцов расширенных атрибутов — `minmax()` образца.
+  /// Доли столбцов расширенных атрибутов — из того же образца (`1fr` и `1.3fr`).
   ///
-  /// Нижний нужен, чтобы столбец не схлопнулся в один знак; верхний — чтобы
-  /// `com.apple.metadata:kMDItemWhereFroms` не съел всё место: ужиматься ему
-  /// есть чем, он режется многоточием.
-  static const double _nameMin = 90;
-  static const double _nameMax = 200;
-  static const double _valueMin = 120;
-  static const double _valueMax = 240;
+  /// Долями, а не по содержимому: ширина окна назначена ([width]), и делить
+  /// остаток от размера и кнопки надо по правилу, а не по тому, какой длины
+  /// имя у нынешнего файла. Длинное имя режется многоточием, длинное значение
+  /// прокручивается внутри поля.
+  static const double _nameFlex = 1;
+  static const double _valueFlex = 1.3;
 
   /// Сколько строк расширенных видно сразу; дальше — прокрутка.
   static const int _visibleXattrs = 4;
@@ -254,9 +263,9 @@ class AttributesForm extends StatelessWidget {
                 child: SingleChildScrollView(
                   child: Table(
                     columnWidths: const {
-                      0: IntrinsicColumnWidth(flex: 1),
+                      0: FlexColumnWidth(_nameFlex),
                       1: IntrinsicColumnWidth(),
-                      2: IntrinsicColumnWidth(flex: 1),
+                      2: FlexColumnWidth(_valueFlex),
                       3: IntrinsicColumnWidth(),
                     },
                     defaultVerticalAlignment: TableCellVerticalAlignment.middle,
@@ -278,49 +287,50 @@ class AttributesForm extends StatelessWidget {
     final theme = FcTheme.of(context);
     final strings = context.strings;
     final text = xattr.text;
+    final gap = last ? 0.0 : theme.metrics.dialogGap;
+
     return TableRow(
-      children:
-          [
-                _cell(
-                  context,
-                  first: true,
-                  // Полное имя — подсказкой: в столбце оно режется многоточием, а
-                  // спрашивают о нём именно тогда, когда не влезло.
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: _nameMin, maxWidth: _nameMax),
-                    // Имя — главное в строке, и набрано оно ярким; счёт байт рядом
-                    // приглушён: это подробность, а не то, за чем сюда смотрят.
-                    child: Tooltip(message: xattr.name, child: FcLabel(xattr.name, maxLines: 1)),
-                  ),
-                ),
-                _cell(context, FcText(strings.plural(xattr.value.length, one: '{n} byte', other: '{n} bytes'))),
-                _cell(
-                  context,
-                  ConstrainedBox(
-                    constraints: const BoxConstraints(minWidth: _valueMin, maxWidth: _valueMax),
-                    child: Tooltip(
-                      message: text ?? strings.tr('binary'),
-                      child: _Field(
-                        key: ValueKey('xattr:${xattr.name}'),
-                        // Двоичное текстом не притворяется: подсунуть человеку
-                        // испорченную строку хуже, чем показать пустое поле с
-                        // подсказкой. Набранное в нём заменит двоичное целиком — это
-                        // осознанный ввод, а не порча несмотренного.
-                        text: text ?? '',
-                        enabled: true,
-                        hint: text == null ? strings.tr('binary') : '',
-                        onChanged: (value) => run.setXattr(xattr.name, value, wasBinary: text == null),
-                      ),
-                    ),
-                  ),
-                ),
-                _cell(context, FcButton(label: strings.tr('Remove'), onPressed: () => run.removeXattr(xattr.name))),
-                // Просвет между строками — **тот же, что между полями формы**:
-                // список и поля читаются как один ряд, и разный шаг у них
-                // разъезжался бы на глазах. Снизу у каждой ячейки, кроме последней.
-              ]
-              .map((cell) => Padding(padding: EdgeInsets.only(bottom: last ? 0 : theme.metrics.dialogGap), child: cell))
-              .toList(),
+      children: [
+        _cell(
+          context,
+          bottom: gap,
+          first: true,
+          // Полное имя — подсказкой: в столбце оно режется многоточием, а
+          // спрашивают о нём именно тогда, когда не влезло. Набрано ярким:
+          // имя — главное в строке.
+          Tooltip(message: xattr.name, child: FcLabel(xattr.name, maxLines: 1)),
+        ),
+        // Счёт байт приглушён и в одну строку: это подробность, а не то, за чем
+        // сюда смотрят, и переносу она не подлежит.
+        _cell(
+          context,
+          bottom: gap,
+          FcText(strings.plural(xattr.value.length, one: '{n} byte', other: '{n} bytes'), maxLines: 1),
+        ),
+        _cell(
+          context,
+          bottom: gap,
+          Tooltip(
+            message: text ?? strings.tr('binary'),
+            child: _Field(
+              key: ValueKey('xattr:${xattr.name}'),
+              // Двоичное текстом не притворяется: подсунуть человеку испорченную
+              // строку хуже, чем показать пустое поле с подсказкой. Набранное в
+              // нём заменит двоичное целиком — это осознанный ввод, а не порча
+              // несмотренного.
+              text: text ?? '',
+              enabled: true,
+              hint: text == null ? strings.tr('binary') : '',
+              onChanged: (value) => run.setXattr(xattr.name, value, wasBinary: text == null),
+            ),
+          ),
+        ),
+        _cell(
+          context,
+          bottom: gap,
+          FcButton(label: strings.tr('Remove'), onPressed: () => run.removeXattr(xattr.name)),
+        ),
+      ],
     );
   }
 
@@ -424,9 +434,12 @@ class AttributesForm extends StatelessWidget {
     return buffer.toString();
   }
 
-  /// Ячейка таблицы: просвет слева — между столбцами.
-  Widget _cell(BuildContext context, Widget child, {bool first = false}) => Padding(
-    padding: EdgeInsets.only(left: first ? 0 : FcTheme.of(context).metrics.dialogGap),
+  /// Ячейка таблицы: просвет слева — между столбцами, снизу — между строками.
+  ///
+  /// Просвет между строками **тот же, что между полями формы**: список и поля
+  /// читаются как один ряд, и разный шаг у них разъезжался бы на глазах.
+  Widget _cell(BuildContext context, Widget child, {required double bottom, bool first = false}) => Padding(
+    padding: EdgeInsets.only(left: first ? 0 : FcTheme.of(context).metrics.dialogGap, bottom: bottom),
     child: Align(alignment: Alignment.centerLeft, child: child),
   );
 

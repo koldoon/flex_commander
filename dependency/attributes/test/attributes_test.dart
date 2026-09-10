@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_attributes/fc_attributes.dart';
+import 'package:fc_attributes/src/attributes_form.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_file_info/fc_file_info.dart';
 import 'package:fc_navigation/fc_navigation.dart';
@@ -10,6 +11,7 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/state/app_controller.dart';
+import 'package:flex_commander/view/dialogs/dialog_frame.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -216,6 +218,25 @@ void main() {
       expect(find.text('Octal'), findsOneWidget);
     });
 
+    testWidgets('ширина окна не зависит от содержимого', (tester) async {
+      provider.xattrs['/home/notes.txt'] = {
+        'com.apple.metadata:kMDItemWhereFroms': utf8.encode('https://example.com/very/long/path'),
+      };
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+      final wide = tester.getRect(find.byType(DialogWidth)).width;
+
+      // У этого файла расширенных нет вовсе — окно обязано остаться тем же.
+      await tester.tap(find.widgetWithText(FcButton, 'Cancel'));
+      await settle(tester);
+      await putCursorOn(tester, 'report.txt');
+      await pressCtrlA(tester);
+
+      expect(tester.getRect(find.byType(DialogWidth)).width, closeTo(wide, 0.5));
+      expect(wide, closeTo(AttributesForm.width, 0.5));
+    });
+
     testWidgets('поля заполнены свежим, а не тем, что приехало со списком', (tester) async {
       // В списке подставное дерево показывает `rwxrwxrwx`, а провайдер о том же
       // объекте говорит `644`: окно обязано показать второе.
@@ -397,7 +418,7 @@ void main() {
       expect(fieldAt('xattr:').right, lessThan(remove.left));
     });
 
-    testWidgets('длинное имя не встаёт в две строки, а раздвигает окно', (tester) async {
+    testWidgets('длинное имя не встаёт в две строки, а режется многоточием', (tester) async {
       const long = 'com.apple.metadata:kMDItemWhereFroms';
       provider.xattrs['/home/notes.txt'] = {'com.apple.macl': utf8.encode('x'), long: utf8.encode('y')};
       await pumpApp(tester);
@@ -407,10 +428,12 @@ void main() {
       final short = tester.getRect(find.text('com.apple.macl'));
       final wide = tester.getRect(find.text(long));
 
-      // Столбец имени меряется по себе: перенос сдвинул бы соседей по строке и
-      // разъехал бы таблицу.
+      // Перенос сдвинул бы соседей по строке и разъехал бы таблицу. Ширина у
+      // обоих одна: столбец задан долей окна, а не длиной нынешнего имени, —
+      // ради этого ширина окна и назначена числом.
       expect(wide.height, closeTo(short.height, 0.5));
-      expect(wide.width, greaterThan(short.width));
+      expect(wide.width, closeTo(short.width, 0.5));
+      expect(tester.getRect(find.byType(DialogWidth)).width, closeTo(AttributesForm.width, 0.5));
     });
 
     testWidgets('их десяток не переполняет окно, а прокручивается', (tester) async {
