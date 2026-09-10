@@ -132,8 +132,17 @@ class AttributesRun extends FcAsyncRun {
 
   void setNewXattrValue(String value) => newXattrValue = value;
 
-  void setXattr(String name, String value) {
-    xattrSet[name] = utf8.encode(value);
+  /// Новое значение атрибута.
+  ///
+  /// [wasBinary] — значение было двоичным, и в поле стояла пустота с подсказкой
+  /// «binary». Пустое поле там означает «не трогать», а не «сделать пустым»:
+  /// иначе один взгляд на окно стирал бы то, чего человек не видел.
+  void setXattr(String name, String value, {bool wasBinary = false}) {
+    if (wasBinary && value.isEmpty) {
+      xattrSet.remove(name);
+    } else {
+      xattrSet[name] = utf8.encode(value);
+    }
     xattrRemove.remove(name);
     notifyListeners();
   }

@@ -68,7 +68,7 @@ const Map<String, String> _russian = {
   'Special': 'Особые',
   'read': 'чтение',
   'write': 'запись',
-  'execute': 'запуск',
+  'exec': 'запуск',
   'Octal': 'Восьмеричные',
   'mixed': 'по-разному',
   'Owner': 'Владелец',
@@ -76,7 +76,9 @@ const Map<String, String> _russian = {
   'group': 'группа',
   'Modified': 'Изменён',
   'Accessed': 'Открыт',
-  'Extended': 'Расширенные',
+  'Extended attributes': 'Расширенные атрибуты',
+  'binary': 'двоичное',
+  'Apply to': 'Применить к',
   'Remove': 'Убрать',
   'Add': 'Добавить',
   'name': 'имя',
@@ -93,4 +95,5 @@ const Map<String, String> _russian = {
 const Map<String, PluralForms> _plurals = {
   '{n} items': (one: '{n} объект', few: '{n} объекта', many: '{n} объектов'),
   '{n} bytes': (one: '{n} байт', few: '{n} байта', many: '{n} байт'),
+  '{n} attributes': (one: '{n} атрибут', few: '{n} атрибута', many: '{n} атрибутов'),
 };

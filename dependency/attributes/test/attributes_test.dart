@@ -226,7 +226,7 @@ void main() {
 
       expect(app.left.currentEntry!.attributes.modeString, 'rwxrwxrwx');
       expect(checkboxValue(tester, 'write'), isTrue, reason: 'запись владельцу — из свежих 644');
-      expect(checkboxValue(tester, 'execute'), isFalse, reason: 'в списке стояло бы «да»');
+      expect(checkboxValue(tester, 'exec'), isFalse, reason: 'в списке стояло бы «да»');
     });
 
     testWidgets('правка флажка меняет восьмеричное поле', (tester) async {
@@ -237,7 +237,7 @@ void main() {
       expect(find.widgetWithText(TextField, '0644'), findsOneWidget);
 
       // Первый «execute» в окне — владельца.
-      await tapCheckbox(tester, 'execute');
+      await tapCheckbox(tester, 'exec');
 
       expect(find.widgetWithText(TextField, '0744'), findsOneWidget);
     });
@@ -253,7 +253,7 @@ void main() {
 
       // Чтение владельцем есть у обоих, запуск — только у одного.
       expect(checkboxValue(tester, 'read'), isTrue);
-      expect(checkboxValue(tester, 'execute'), isNull);
+      expect(checkboxValue(tester, 'exec'), isNull);
       // Дат и владельца у набора не показываем: у пятнадцати файлов это каша.
       expect(find.text('Modified'), findsNothing);
     });
@@ -274,7 +274,7 @@ void main() {
       await putCursorOn(tester, 'notes.txt');
       await pressCtrlA(tester);
 
-      await tapCheckbox(tester, 'execute');
+      await tapCheckbox(tester, 'exec');
       await apply(tester);
 
       expect(provider.modeOf('/home/notes.txt') & 0xFFF, 0x1E4);
@@ -287,7 +287,7 @@ void main() {
       await putCursorOn(tester, 'docs');
       await pressCtrlA(tester);
 
-      await tapCheckbox(tester, 'execute');
+      await tapCheckbox(tester, 'exec');
       await apply(tester);
 
       expect(provider.touched, ['/home/docs']);
@@ -376,22 +376,25 @@ void main() {
       await putCursorOn(tester, 'notes.txt');
       await pressCtrlA(tester);
 
-      // «Add» короче «Remove», и без общего столбца поля над ней и под ней
-      // кончались бы в разных местах — таблица разъезжалась.
+      // «Add» короче «Remove», и по левому краю им не сойтись — в образце
+      // строка нового атрибута стоит своей раскладкой, без столбца размера.
+      // Сходятся они по правому краю: обе кнопки прижаты к краю окна, и
+      // столбец кнопок читается прямым.
       final remove = tester.getRect(find.widgetWithText(FcButton, 'Remove'));
       final add = tester.getRect(find.widgetWithText(FcButton, 'Add'));
-      expect(add.left, closeTo(remove.left, 0.5));
+      expect(add.right, closeTo(remove.right, 0.5));
       expect(add.width, lessThan(remove.width), reason: 'кнопка по-прежнему по своей подписи');
 
-      // И значит столбцы полей кончаются на одной вертикали. Меряются
-      // одинаковые узлы — сами поля, а не то, что у них внутри.
+      // И поля значения кончаются на одной вертикали. Меряются одинаковые узлы
+      // — сами поля, а не то, что у них внутри.
       Rect fieldAt(String prefix) => tester.getRect(
         find.byWidgetPredicate(
           (widget) => widget.key is ValueKey<String> && (widget.key! as ValueKey<String>).value.startsWith(prefix),
         ),
       );
 
-      expect(fieldAt('new-value:').right, closeTo(fieldAt('xattr:').right, 0.5));
+      expect(fieldAt('new-value:').right, lessThan(add.left));
+      expect(fieldAt('xattr:').right, lessThan(remove.left));
     });
 
     testWidgets('длинное имя не встаёт в две строки, а раздвигает окно', (tester) async {
@@ -437,6 +440,40 @@ void main() {
       expect(value.height, lessThan(30), reason: 'одна строка, а не столбик');
     });
 
+    testWidgets('видно четыре строки, дальше прокрутка', (tester) async {
+      provider.xattrs['/home/notes.txt'] = {
+        for (var i = 0; i < 9; i++) 'com.example.mark$i': utf8.encode('значение $i'),
+      };
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      // Ближайшая прокрутка над строкой — своя, списка, а не рамы окна.
+      final list = tester.state<ScrollableState>(
+        find.ancestor(of: find.text('com.example.mark0'), matching: find.byType(Scrollable)).first,
+      );
+      final row = tester.getRect(find.byType(Table).last).height / 9;
+
+      // Список ограничен четырьмя строками — у файла с диска их бывает и
+      // десяток, а окно расти без предела не должно.
+      expect(list.position.viewportDimension, closeTo(row * 4, row));
+      expect(list.position.maxScrollExtent, greaterThan(0), reason: 'до остальных листают');
+    });
+
+    testWidgets('полное имя — подсказкой', (tester) async {
+      const long = 'com.apple.metadata:kMDItemWhereFroms';
+      provider.xattrs['/home/notes.txt'] = {long: utf8.encode('https://example.com')};
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      // В столбце имя режется многоточием, а спрашивают о нём именно тогда,
+      // когда не влезло.
+      final tips = tester.widgetList<Tooltip>(find.byType(Tooltip)).map((one) => one.message).toList();
+      expect(tips, contains(long));
+      expect(tips, contains('https://example.com'), reason: 'у значения тоже: оно длиннее поля');
+    });
+
     testWidgets('источник без этого умения раздела не показывает', (tester) async {
       // Ровно как сервер по SFTP: обычные атрибуты умеет, расширенных у него
       // нет вовсе.
@@ -446,7 +483,7 @@ void main() {
       await pressCtrlA(tester);
 
       expect(find.text('Octal'), findsOneWidget);
-      expect(find.text('Extended'), findsNothing);
+      expect(find.text('Extended attributes'), findsNothing);
     });
   });
 

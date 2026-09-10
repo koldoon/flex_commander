@@ -1,15 +1,39 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:flutter/material.dart' show Tooltip;
 import 'package:flutter/widgets.dart';
 
 import 'attribute_edits.dart';
 import 'attributes_run.dart';
 import 'mode_edit.dart';
 
-/// Окно правки атрибутов: сетка прав, восьмеричное, владелец, даты,
-/// расширенные атрибуты и рекурсия.
+/// Окно правки атрибутов.
+///
+/// Раскладка — по образцу `docs/design/permissions/Attributes Dialog.dc.html`:
+/// восьмеричное с расшифровкой сверху, четыре карточки разрядов в ряд, поля
+/// владельца и дат, список расширенных атрибутов с прокруткой и строка «куда
+/// применить».
 class AttributesForm extends StatelessWidget {
   const AttributesForm({super.key, required this.run});
+
+  /// Ширины полей — из того же образца. Числами, потому что это раскладка
+  /// одного окна, а не роль темы: дата занимает ровно `2026-09-09 02:06:59`,
+  /// восьмеричное — четыре цифры, и растягивать их не на что.
+  static const double _octalWidth = 78;
+  static const double _fieldWidth = 170;
+
+  /// Пределы столбцов расширенных атрибутов — `minmax()` образца.
+  ///
+  /// Нижний нужен, чтобы столбец не схлопнулся в один знак; верхний — чтобы
+  /// `com.apple.metadata:kMDItemWhereFroms` не съел всё место: ужиматься ему
+  /// есть чем, он режется многоточием.
+  static const double _nameMin = 90;
+  static const double _nameMax = 200;
+  static const double _valueMin = 120;
+  static const double _valueMax = 240;
+
+  /// Сколько строк расширенных видно сразу; дальше — прокрутка.
+  static const int _visibleXattrs = 4;
 
   final AttributesRun run;
 
@@ -23,58 +47,94 @@ class AttributesForm extends StatelessWidget {
       onSubmit: run.submit,
       submitLabel: strings.tr('Apply'),
       children: [
-        _rights(context, strings.tr('User'), ModeBits.ownerRead, ModeBits.ownerWrite, ModeBits.ownerExecute),
-        _rights(context, strings.tr('Group'), ModeBits.groupRead, ModeBits.groupWrite, ModeBits.groupExecute),
-        _rights(context, strings.tr('Others'), ModeBits.otherRead, ModeBits.otherWrite, ModeBits.otherExecute),
-        _special(context),
-        _octal(context),
+        CommandDialogField.wide(child: _octalRow(context)),
+        CommandDialogField.wide(child: _classes(context)),
         if (run.single) _owner(context),
         if (run.single) _date(context, strings.tr('Modified'), run.modifiedText, run.setModified),
         if (run.single) _date(context, strings.tr('Accessed'), run.accessedText, run.setAccessed),
         if (run.single && run.sample.canEditXattrs) ..._extended(context),
-        _recursion(context),
+        CommandDialogField.wide(child: _applyTo(context)),
       ],
     );
   }
 
-  /// Три флажка одного разряда прав.
+  /// Восьмеричное, строка режима и расшифровка словами — одной строкой.
   ///
-  /// Разрядом в строку, а не сеткой с заголовками: столбец значений в окне
-  /// узкий, а `rwx` подряд читается тем же движением, что и `rw-r--r--` в
-  /// панели.
-  CommandDialogField _rights(BuildContext context, String label, int read, int write, int execute) {
+  /// Три вида одного значения рядом: набирают восьмеричное, читают `rw-r--r--`,
+  /// а словами видно, кому что досталось, не считая букв по разрядам.
+  Widget _octalRow(BuildContext context) {
+    final theme = FcTheme.of(context);
     final strings = context.strings;
-    return CommandDialogField(
-      label: label,
+    return Row(
+      children: [
+        FcLabel(strings.tr('Octal')),
+        SizedBox(width: theme.metrics.dialogGap),
+        SizedBox(
+          width: _octalWidth,
+          child: _Field(
+            // Ключ по состоянию сетки: поле переписывается, когда его меняют
+            // флажками, — и не переписывается, пока в нём набирают.
+            key: ValueKey('octal:${run.mode.setBits}:${run.mode.clearBits}'),
+            text: run.octalText,
+            enabled: run.sample.canEditMode,
+            hint: strings.tr('mixed'),
+            onChanged: run.setOctal,
+          ),
+        ),
+        SizedBox(width: theme.metrics.dialogGap),
+        Flexible(child: FcText(_modeString(context), maxLines: 1)),
+      ],
+    );
+  }
+
+  /// Четыре разряда карточками в ряд: владелец, группа, остальные, особые.
+  Widget _classes(BuildContext context) {
+    final strings = context.strings;
+    // `IntrinsicHeight` — чтобы карточки были одной высоты: без него растяжка
+    // в столбце без предела высоты требует бесконечности, а по содержимому они
+    // разойдутся на пару точек и рамки перестанут стоять в линию.
+    return IntrinsicHeight(
       child: Row(
-        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _bit(context, strings.tr('read'), read),
-          _gap(context),
-          _bit(context, strings.tr('write'), write),
-          _gap(context),
-          _bit(context, strings.tr('execute'), execute),
+          Expanded(
+            child: _card(context, strings.tr('User'), ModeBits.ownerRead, ModeBits.ownerWrite, ModeBits.ownerExecute),
+          ),
+          _space(context),
+          Expanded(
+            child: _card(context, strings.tr('Group'), ModeBits.groupRead, ModeBits.groupWrite, ModeBits.groupExecute),
+          ),
+          _space(context),
+          Expanded(
+            child: _card(context, strings.tr('Others'), ModeBits.otherRead, ModeBits.otherWrite, ModeBits.otherExecute),
+          ),
+          _space(context),
+          Expanded(child: _special(context)),
         ],
       ),
     );
   }
 
-  CommandDialogField _special(BuildContext context) {
+  Widget _card(BuildContext context, String title, int read, int write, int execute) {
     final strings = context.strings;
-    return CommandDialogField(
-      label: strings.tr('Special'),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          _bit(context, 'setuid', ModeBits.setUid),
-          _gap(context),
-          _bit(context, 'setgid', ModeBits.setGid),
-          _gap(context),
-          _bit(context, 'sticky', ModeBits.sticky),
-        ],
-      ),
+    return _Card(
+      title: title,
+      children: [
+        _bit(context, strings.tr('read'), read),
+        _bit(context, strings.tr('write'), write),
+        _bit(context, strings.tr('exec'), execute),
+      ],
     );
   }
+
+  Widget _special(BuildContext context) => _Card(
+    title: context.strings.tr('Special'),
+    children: [
+      _bit(context, 'setuid', ModeBits.setUid),
+      _bit(context, 'setgid', ModeBits.setGid),
+      _bit(context, 'sticky', ModeBits.sticky),
+    ],
+  );
 
   /// Флажок одного бита.
   ///
@@ -98,30 +158,6 @@ class AttributesForm extends StatelessWidget {
     );
   }
 
-  /// Просвет между флажками в ряду — вдвое против обычного.
-  ///
-  /// Обычного здесь мало: у флажка справа от клетки уже стоит своя подпись, и
-  /// с одним `dialogGap` она смыкалась бы со следующей клеткой в одно слово.
-  Widget _gap(BuildContext context) => SizedBox(width: FcTheme.of(context).metrics.dialogGap * 2);
-
-  /// Обычный просвет между управлениями в строке — тот же, что между кнопками.
-  static Widget _space(BuildContext context) => SizedBox(width: FcTheme.of(context).metrics.dialogGap);
-
-  /// Восьмеричное — второй вид того же значения, связанный с сеткой в обе
-  /// стороны.
-  CommandDialogField _octal(BuildContext context) => CommandDialogField(
-    label: context.strings.tr('Octal'),
-    child: _Field(
-      // Ключ по состоянию сетки: поле переписывается, когда его меняют
-      // флажками, — и не переписывается, пока в нём набирают.
-      key: ValueKey('octal:${run.mode.setBits}:${run.mode.clearBits}'),
-      text: run.octalText,
-      enabled: run.sample.canEditMode,
-      hint: context.strings.tr('mixed'),
-      onChanged: run.setOctal,
-    ),
-  );
-
   /// Владелец и группа — одной строкой: спрашивают о них вместе.
   CommandDialogField _owner(BuildContext context) {
     final strings = context.strings;
@@ -129,7 +165,8 @@ class AttributesForm extends StatelessWidget {
       label: strings.tr('Owner'),
       child: Row(
         children: [
-          Expanded(
+          SizedBox(
+            width: _fieldWidth,
             child: _Field(
               key: ValueKey('owner:${run.sample.uid}'),
               text: run.ownerText,
@@ -139,7 +176,8 @@ class AttributesForm extends StatelessWidget {
             ),
           ),
           _space(context),
-          Expanded(
+          SizedBox(
+            width: _fieldWidth,
             child: _Field(
               key: ValueKey('group:${run.sample.gid}'),
               text: run.groupText,
@@ -156,160 +194,254 @@ class AttributesForm extends StatelessWidget {
   CommandDialogField _date(BuildContext context, String label, String text, ValueChanged<String> onChanged) =>
       CommandDialogField(
         label: label,
-        child: _Field(
-          key: ValueKey('$label:$text'),
-          text: text,
-          enabled: run.sample.canEditTimes,
-          hint: 'YYYY-MM-DD HH:MM:SS',
-          onChanged: onChanged,
+        child: Row(
+          children: [
+            SizedBox(
+              width: _fieldWidth,
+              child: _Field(
+                key: ValueKey('$label:$text'),
+                text: text,
+                enabled: run.sample.canEditTimes,
+                hint: 'YYYY-MM-DD HH:MM:SS',
+                onChanged: onChanged,
+              ),
+            ),
+          ],
         ),
       );
 
-  /// Расширенные атрибуты: что есть, плюс пустая строка под новый.
+  /// Расширенные атрибуты: заголовок со счётом, список с прокруткой и строка
+  /// под новый.
   ///
-  /// **Таблицей, а не рядом строк.** Кнопки в строках разные по подписи
-  /// («Remove» длиннее «Add»), и в обычном ряду каждая забирала бы себе по
-  /// своей ширине — поля над ней и под ней кончались бы в разных местах, и
-  /// столбцы разъезжались. У таблицы столбец кнопок один на все строки и
-  /// меряется по самой широкой, а кнопка внутри него прижата влево: короткая
-  /// начинается там же, где длинная.
+  /// **Список — таблицей**: столбцы у строк общие, иначе значение начиналось бы
+  /// у каждой строки в своём месте. Видно [_visibleXattrs] строк, дальше
+  /// прокрутка: у файла с диска их бывает и десяток, а окно не должно расти без
+  /// предела.
   List<CommandDialogField> _extended(BuildContext context) {
+    final theme = FcTheme.of(context);
     final strings = context.strings;
-    final metrics = FcTheme.of(context).metrics;
     final rows = run.xattrs;
+    final rowHeight = theme.metrics.inputHeight + theme.metrics.dialogLineGap * 2;
+
     return [
-      CommandDialogField.stacked(
-        label: strings.tr('Extended'),
-        children: [
-          Table(
-            // Все три столбца меряются **по себе** — иначе окно не узнает, что
-            // ему стоит подрасти, и столбец значения ужмётся до одного знака.
-            // (`FlexColumnWidth` в замере отвечает нулём — то же, обо что уже
-            // споткнулась форма окна.)
-            //
-            // У имени сверху предел в половину окна: `com.apple.metadata:
-            // kMDItemWhereFroms` иначе съел бы всё место, а ему есть чем
-            // ужаться — оно режется многоточием. У значения `flex: 1`: на
-            // широком окне остаток достаётся ему.
-            columnWidths: {
-              0: MinColumnWidth(const IntrinsicColumnWidth(), FixedColumnWidth(metrics.dialogMaxWidth / 2)),
-              1: const IntrinsicColumnWidth(flex: 1),
-              2: const IntrinsicColumnWidth(),
-            },
-            defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-            children: [
-              for (var i = 0; i < rows.length; i++) _xattrRow(context, rows[i], last: false),
-              _newXattrRow(context),
-            ],
-          ),
-        ],
+      CommandDialogField.wide(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            FcLabel(strings.tr('Extended attributes')),
+            SizedBox(width: theme.metrics.dialogGap),
+            FcText(strings.plural(rows.length, one: '{n} attribute', other: '{n} attributes')),
+          ],
+        ),
+      ),
+      CommandDialogField.wide(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            if (rows.isNotEmpty)
+              ConstrainedBox(
+                constraints: BoxConstraints(maxHeight: rowHeight * _visibleXattrs),
+                child: SingleChildScrollView(
+                  child: Table(
+                    columnWidths: const {
+                      0: IntrinsicColumnWidth(flex: 1),
+                      1: IntrinsicColumnWidth(),
+                      2: IntrinsicColumnWidth(flex: 1),
+                      3: IntrinsicColumnWidth(),
+                    },
+                    defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+                    children: [for (final one in rows) _xattrRow(context, one)],
+                  ),
+                ),
+              ),
+            SizedBox(height: theme.metrics.dialogLineGap),
+            _newXattrRow(context),
+          ],
+        ),
       ),
     ];
   }
 
-  /// Одна строка расширенного атрибута: имя, значение и «убрать».
-  TableRow _xattrRow(BuildContext context, Xattr xattr, {required bool last}) {
+  TableRow _xattrRow(BuildContext context, Xattr xattr) {
+    final theme = FcTheme.of(context);
+    final strings = context.strings;
     final text = xattr.text;
     return TableRow(
-      children: [
-        _cell(context, FcText(xattr.name, maxLines: 1), last: last, first: true),
-        _cell(
-          context,
-          text == null
-              // Двоичное текстом не притворяется: подсунуть человеку испорченную
-              // строку хуже, чем не дать её править. Убрать такой атрибут
-              // по-прежнему можно — за этим сюда и приходят.
-              ? FcText(context.strings.plural(xattr.value.length, one: '{n} byte', other: '{n} bytes'))
-              : _Field(
-                key: ValueKey('xattr:${xattr.name}'),
-                text: text,
-                enabled: true,
-                hint: '',
-                onChanged: (value) => run.setXattr(xattr.name, value),
+      children:
+          [
+            _cell(
+              context,
+              first: true,
+              // Полное имя — подсказкой: в столбце оно режется многоточием, а
+              // спрашивают о нём именно тогда, когда не влезло.
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: _nameMin, maxWidth: _nameMax),
+                child: Tooltip(message: xattr.name, child: FcText(xattr.name, maxLines: 1)),
               ),
-          last: last,
-        ),
-        _cell(
-          context,
-          FcButton(label: context.strings.tr('Remove'), onPressed: () => run.removeXattr(xattr.name)),
-          last: last,
-        ),
-      ],
+            ),
+            _cell(context, FcLabel(strings.plural(xattr.value.length, one: '{n} byte', other: '{n} bytes'))),
+            _cell(
+              context,
+              ConstrainedBox(
+                constraints: const BoxConstraints(minWidth: _valueMin, maxWidth: _valueMax),
+                child: Tooltip(
+                  message: text ?? strings.tr('binary'),
+                  child: _Field(
+                    key: ValueKey('xattr:${xattr.name}'),
+                    // Двоичное текстом не притворяется: подсунуть человеку
+                    // испорченную строку хуже, чем показать пустое поле с
+                    // подсказкой. Набранное в нём заменит двоичное целиком — это
+                    // осознанный ввод, а не порча несмотренного.
+                    text: text ?? '',
+                    enabled: true,
+                    hint: text == null ? strings.tr('binary') : '',
+                    onChanged: (value) => run.setXattr(xattr.name, value, wasBinary: text == null),
+                  ),
+                ),
+              ),
+            ),
+            _cell(context, FcButton(label: strings.tr('Remove'), onPressed: () => run.removeXattr(xattr.name))),
+            // Просвет между строками — снизу у каждой ячейки, кроме последней.
+          ].map((cell) => Padding(padding: EdgeInsets.only(bottom: theme.metrics.dialogLineGap), child: cell)).toList(),
     );
   }
 
   /// Пустая строка, которой заводят новый атрибут.
-  TableRow _newXattrRow(BuildContext context) {
+  Widget _newXattrRow(BuildContext context) {
     final strings = context.strings;
     // Ключ по числу правок: поля пустеют, когда атрибут добавлен.
     final key = '${run.xattrSet.length}:${run.xattrRemove.length}';
-    return TableRow(
+    return Row(
       children: [
-        _cell(
-          context,
-          _Field(
+        Expanded(
+          flex: 10,
+          child: _Field(
             key: ValueKey('new-name:$key'),
             text: run.newXattrName,
             enabled: true,
             hint: strings.tr('name'),
             onChanged: run.setNewXattrName,
           ),
-          last: true,
-          first: true,
         ),
-        _cell(
-          context,
-          _Field(
+        _space(context),
+        Expanded(
+          flex: 13,
+          child: _Field(
             key: ValueKey('new-value:$key'),
             text: run.newXattrValue,
             enabled: true,
             hint: strings.tr('value'),
             onChanged: run.setNewXattrValue,
           ),
-          last: true,
         ),
-        _cell(context, FcButton(label: strings.tr('Add'), onPressed: run.addXattr), last: true),
+        _space(context),
+        FcButton(label: strings.tr('Add'), onPressed: run.addXattr),
       ],
     );
   }
 
-  /// Ячейка таблицы: просвет слева — между столбцами, снизу — между строками.
-  ///
-  /// Кнопка внутри прижата влево: столбец мерян по самой широкой из них, и без
-  /// этого короткая встала бы посередине отведённого ей места.
-  Widget _cell(BuildContext context, Widget child, {required bool last, bool first = false}) {
-    final gap = FcTheme.of(context).metrics.dialogGap;
-    return Padding(
-      padding: EdgeInsets.only(left: first ? 0 : gap, bottom: last ? 0 : gap),
-      child: Align(alignment: Alignment.centerLeft, child: child),
+  /// Куда применить: отбор и признак «внутрь каталогов».
+  Widget _applyTo(BuildContext context) {
+    final strings = context.strings;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        FcLabel(strings.tr('Apply to')),
+        SizedBox(height: FcTheme.of(context).metrics.dialogLineGap),
+        Row(
+          children: [
+            FcSelect<AttributeScope>(
+              options: {
+                AttributeScope.all: strings.tr('files and directories'),
+                AttributeScope.files: strings.tr('only files'),
+                AttributeScope.directories: strings.tr('only directories'),
+              },
+              value: run.applyTo,
+              // Отбор относится к тому, что нашлось внутри, — без рекурсии ему
+              // нечего отбирать.
+              onChanged: run.recursive && run.hasDirectory ? run.setApplyTo : null,
+            ),
+            _space(context),
+            FcCheckbox(
+              label: strings.tr('Recursive'),
+              value: run.recursive,
+              // Показан, но погашен, когда каталогов среди целей нет:
+              // пропадающее поле переставляет всё, что под ним, прямо под
+              // курсором человека.
+              onChanged: run.hasDirectory ? run.setRecursive : null,
+            ),
+          ],
+        ),
+      ],
     );
   }
 
-  /// Рекурсия и отбор — одной строкой, как «идти по ссылкам» у переноса.
-  CommandDialogField _recursion(BuildContext context) {
-    final strings = context.strings;
-    return CommandDialogField.wide(
-      child: Row(
+  /// Строка режима по нынешней сетке: `-rw-r--r--`.
+  ///
+  /// Считается по правке, а не берётся у источника: она и показывает, что
+  /// получится, а не что было. Бит «не трогать» пишется вопросом — у него нет
+  /// ответа до самой работы.
+  String _modeString(BuildContext context) {
+    const letters = 'rwxrwxrwx';
+    final type = run.sample.modeString.isEmpty ? '-' : run.sample.modeString[0];
+    final buffer = StringBuffer(type);
+    const order = [
+      ModeBits.ownerRead,
+      ModeBits.ownerWrite,
+      ModeBits.ownerExecute,
+      ModeBits.groupRead,
+      ModeBits.groupWrite,
+      ModeBits.groupExecute,
+      ModeBits.otherRead,
+      ModeBits.otherWrite,
+      ModeBits.otherExecute,
+    ];
+    for (var i = 0; i < order.length; i++) {
+      buffer.write(switch (run.mode.valueOf(order[i])) {
+        true => letters[i],
+        false => '-',
+        null => '?',
+      });
+    }
+    return buffer.toString();
+  }
+
+  /// Ячейка таблицы: просвет слева — между столбцами.
+  Widget _cell(BuildContext context, Widget child, {bool first = false}) => Padding(
+    padding: EdgeInsets.only(left: first ? 0 : FcTheme.of(context).metrics.dialogGap),
+    child: Align(alignment: Alignment.centerLeft, child: child),
+  );
+
+  static Widget _space(BuildContext context) => SizedBox(width: FcTheme.of(context).metrics.dialogGap);
+}
+
+/// Карточка разряда прав: подпись и три флажка столбиком.
+class _Card extends StatelessWidget {
+  const _Card({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FcTheme.of(context);
+    return Container(
+      padding: EdgeInsets.all(theme.metrics.dialogGap),
+      decoration: BoxDecoration(
+        color: theme.colors.dialogListBackground,
+        border: Border.all(color: theme.colors.dialogListBorder, width: theme.metrics.strokeWidth),
+        borderRadius: BorderRadius.circular(theme.metrics.inputRadius),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
-          FcCheckbox(
-            label: strings.tr('Recursive'),
-            value: run.recursive,
-            // Показан, но погашен, когда каталогов среди целей нет: пропадающее
-            // поле переставляет всё, что под ним, прямо под курсором человека.
-            onChanged: run.hasDirectory ? run.setRecursive : null,
-          ),
-          _gap(context),
-          FcSelect<AttributeScope>(
-            options: {
-              AttributeScope.all: strings.tr('files and directories'),
-              AttributeScope.files: strings.tr('only files'),
-              AttributeScope.directories: strings.tr('only directories'),
-            },
-            value: run.applyTo,
-            // Отбор относится к тому, что нашлось внутри, — без рекурсии ему
-            // нечего отбирать.
-            onChanged: run.recursive && run.hasDirectory ? run.setApplyTo : null,
-          ),
+          FcLabel(title),
+          SizedBox(height: theme.metrics.dialogLineGap),
+          for (var i = 0; i < children.length; i++) ...[
+            if (i > 0) SizedBox(height: theme.metrics.dialogLineGap),
+            children[i],
+          ],
         ],
       ),
     );
@@ -320,7 +452,8 @@ class AttributesForm extends StatelessWidget {
 ///
 /// Отдельным виджетом ради контроллера: форма перерисовывается на каждую
 /// правку, а контроллер обязан пережить перерисовку — иначе курсор прыгает в
-/// начало на каждой набранной букве.
+/// начало на каждой набранной букве. Он же держит прокрутку внутри поля: в
+/// длинном значении видно то место, где стоит курсор.
 class _Field extends StatefulWidget {
   const _Field({super.key, required this.text, required this.enabled, required this.hint, required this.onChanged});
 
