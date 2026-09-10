@@ -1,0 +1,43 @@
+name: fc_attributes
+description: "Правка атрибутов объекта: права, даты, владелец и расширенные атрибуты."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  fc_core_api:
+    path: ../core_api
+
+  fc_ui_api:
+    path: ../ui_api
+
+  fc_ui_kit:
+    path: ../ui_kit
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  fc_default_theme:
+    path: ../default_theme
+
+  # Панель должна уметь ходить и ставить курсор: окно правки открывают на том,
+  # что под ним.
+  fc_navigation:
+    path: ../navigation
+
+  flex_commander:
+    path: ../..

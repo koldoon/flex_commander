@@ -1,4 +1,5 @@
 import 'package:fc_7z/fc_7z.dart';
+import 'package:fc_attributes/fc_attributes.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_content_types/fc_content_types.dart';
 import 'package:fc_core_api/fc_core_api.dart';
@@ -83,6 +84,8 @@ List<FcModule> featureModules() => [
   const ImageViewer(),
   // Последним в очереди просмотрщиков: берётся за то, за что не взялся никто.
   const FileInfo(),
+  // Правка того, что сведения показывают: права, даты, владелец, xattr.
+  const AttributeEditing(),
   // Редактор после оболочки: он занимает место её заглушки на F4.
   const TextEditor(),
 ];
