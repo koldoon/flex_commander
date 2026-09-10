@@ -477,6 +477,30 @@ void main() {
       expect(tester.getRect(fieldWithHint('user')).left, greaterThan(octal));
     });
 
+    testWidgets('строки списка идут тем же шагом, что поля формы', (tester) async {
+      provider.xattrs['/home/notes.txt'] = {'com.example.a': utf8.encode('1'), 'com.example.b': utf8.encode('2')};
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      // Меряются одинаковые узлы — сами поля: у текста своя высота, и по нему
+      // шаг не сравнить.
+      Rect fieldAt(String prefix) => tester.getRect(
+        find
+            .byWidgetPredicate(
+              (widget) => widget.key is ValueKey<String> && (widget.key! as ValueKey<String>).value.startsWith(prefix),
+            )
+            .first,
+      );
+
+      // Строки списка и поля окна читаются как один ряд: разный шаг у них
+      // разъезжался бы на глазах.
+      final inList = fieldAt('xattr:com.example.b').top - fieldAt('xattr:com.example.a').bottom;
+      final inForm = fieldAt('Modified:').top - fieldAt('owner:').bottom;
+
+      expect(inList, closeTo(inForm, 0.5));
+    });
+
     testWidgets('имя ярче счёта байт: смотрят на имя', (tester) async {
       provider.xattrs['/home/notes.txt'] = {'com.example.mark': List.filled(7, 0)};
       await pumpApp(tester);

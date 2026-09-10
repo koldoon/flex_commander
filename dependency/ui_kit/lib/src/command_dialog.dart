@@ -666,6 +666,12 @@ class CommandDialogField {
   /// Широкая строка отодвинута на ширину столбца подписей.
   final bool _indented;
 
+  /// Строка начинает новый раздел окна: широкая и от левого поля.
+  ///
+  /// Такую отбивают от соседей сильнее ([FcMetrics.dialogSectionGap]) — и
+  /// сверху, и снизу: раздел кончается там же, где начинается следующий.
+  bool get startsSection => isWide && !_indented;
+
   /// Содержимое строки — одно или столбцом.
   Widget content(FcTheme theme) {
     final single = _child;
@@ -754,6 +760,7 @@ class FcForm extends StatelessWidget {
     final gaps = <double>[];
     var run = <CommandDialogField>[];
     var lastWide = false;
+    var lastSection = false;
 
     Widget inset(Widget part) =>
         horizontalPadding == 0
@@ -766,10 +773,15 @@ class FcForm extends StatelessWidget {
     /// под полями, а не в их ряду, и отделять её от того, что ниже, нужно ровно
     /// так же. С просветом только сверху флажок прижимался к строке под собой и
     /// читался как её часть.
-    void add(Widget part, {required bool wide}) {
-      gaps.add(parts.isEmpty ? 0 : (wide || lastWide ? metrics.dialogWideRowGap : metrics.dialogGap));
+    void add(Widget part, {required bool wide, bool section = false}) {
+      final gap =
+          section || lastSection
+              ? metrics.dialogSectionGap
+              : (wide || lastWide ? metrics.dialogWideRowGap : metrics.dialogGap);
+      gaps.add(parts.isEmpty ? 0 : gap);
       parts.add(part);
       lastWide = wide;
+      lastSection = section;
     }
 
     void flush() {
@@ -801,7 +813,7 @@ class FcForm extends StatelessWidget {
                       ? row.content(theme)
                       : Padding(padding: EdgeInsets.only(left: indent), child: row.content(theme)),
                 );
-        add(content, wide: true);
+        add(content, wide: true, section: row.startsSection);
         continue;
       }
       run.add(row);

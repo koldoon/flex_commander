@@ -191,6 +191,9 @@ class DefaultMetrics extends FcMetrics {
   double get dialogWideRowGap => 12;
 
   @override
+  double get dialogSectionGap => 16;
+
+  @override
   double get settingsWidthFactor => 0.75;
 
   @override

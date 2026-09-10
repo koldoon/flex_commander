@@ -47,10 +47,10 @@ class AttributesForm extends StatelessWidget {
       onSubmit: run.submit,
       submitLabel: strings.tr('Apply'),
       children: [
-        // Заголовки разделов и то, что под ними, идут от левого поля: столбец
-        // подписей им не начальник.
-        CommandDialogField.wide(indented: false, child: _octalRow(context)),
-        CommandDialogField.wide(indented: false, child: _classes(context)),
+        // Раздел — одной строкой формы, вместе с заголовком: заголовок и то,
+        // что под ним, стоят теснее, чем раздел от раздела. И идут они от
+        // левого поля: столбец подписей разделам не начальник.
+        CommandDialogField.wide(indented: false, child: _permissions(context)),
         if (run.single) _owner(context),
         if (run.single) _date(context, strings.tr('Modified'), run.modifiedText, run.setModified),
         if (run.single) _date(context, strings.tr('Accessed'), run.accessedText, run.setAccessed),
@@ -59,6 +59,12 @@ class AttributesForm extends StatelessWidget {
       ],
     );
   }
+
+  /// Права целиком: восьмеричное с расшифровкой и четыре карточки разрядов.
+  Widget _permissions(BuildContext context) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [_octalRow(context), SizedBox(height: FcTheme.of(context).metrics.dialogGap), _classes(context)],
+  );
 
   /// Восьмеричное, строка режима и расшифровка словами — одной строкой.
   ///
@@ -223,25 +229,23 @@ class AttributesForm extends StatelessWidget {
     final theme = FcTheme.of(context);
     final strings = context.strings;
     final rows = run.xattrs;
-    final rowHeight = theme.metrics.inputHeight + theme.metrics.dialogLineGap * 2;
+    final rowHeight = theme.metrics.inputHeight + theme.metrics.dialogGap;
 
     return [
-      CommandDialogField.wide(
-        indented: false,
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.end,
-          children: [
-            FcLabel(strings.tr('Extended attributes')),
-            SizedBox(width: theme.metrics.dialogGap),
-            FcText(strings.plural(rows.length, one: '{n} attribute', other: '{n} attributes')),
-          ],
-        ),
-      ),
       CommandDialogField.wide(
         indented: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                FcLabel(strings.tr('Extended attributes')),
+                SizedBox(width: theme.metrics.dialogGap),
+                FcText(strings.plural(rows.length, one: '{n} attribute', other: '{n} attributes')),
+              ],
+            ),
+            SizedBox(height: theme.metrics.dialogLineGap),
             if (rows.isNotEmpty)
               ConstrainedBox(
                 constraints: BoxConstraints(maxHeight: rowHeight * _visibleXattrs),
@@ -254,11 +258,13 @@ class AttributesForm extends StatelessWidget {
                       3: IntrinsicColumnWidth(),
                     },
                     defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-                    children: [for (final one in rows) _xattrRow(context, one)],
+                    children: [
+                      for (var i = 0; i < rows.length; i++) _xattrRow(context, rows[i], last: i == rows.length - 1),
+                    ],
                   ),
                 ),
               ),
-            SizedBox(height: theme.metrics.dialogLineGap),
+            SizedBox(height: theme.metrics.dialogGap),
             _newXattrRow(context),
           ],
         ),
@@ -266,49 +272,53 @@ class AttributesForm extends StatelessWidget {
     ];
   }
 
-  TableRow _xattrRow(BuildContext context, Xattr xattr) {
+  TableRow _xattrRow(BuildContext context, Xattr xattr, {required bool last}) {
     final theme = FcTheme.of(context);
     final strings = context.strings;
     final text = xattr.text;
     return TableRow(
       children:
           [
-            _cell(
-              context,
-              first: true,
-              // Полное имя — подсказкой: в столбце оно режется многоточием, а
-              // спрашивают о нём именно тогда, когда не влезло.
-              ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: _nameMin, maxWidth: _nameMax),
-                // Имя — главное в строке, и набрано оно ярким; счёт байт рядом
-                // приглушён: это подробность, а не то, за чем сюда смотрят.
-                child: Tooltip(message: xattr.name, child: FcLabel(xattr.name, maxLines: 1)),
-              ),
-            ),
-            _cell(context, FcText(strings.plural(xattr.value.length, one: '{n} byte', other: '{n} bytes'))),
-            _cell(
-              context,
-              ConstrainedBox(
-                constraints: const BoxConstraints(minWidth: _valueMin, maxWidth: _valueMax),
-                child: Tooltip(
-                  message: text ?? strings.tr('binary'),
-                  child: _Field(
-                    key: ValueKey('xattr:${xattr.name}'),
-                    // Двоичное текстом не притворяется: подсунуть человеку
-                    // испорченную строку хуже, чем показать пустое поле с
-                    // подсказкой. Набранное в нём заменит двоичное целиком — это
-                    // осознанный ввод, а не порча несмотренного.
-                    text: text ?? '',
-                    enabled: true,
-                    hint: text == null ? strings.tr('binary') : '',
-                    onChanged: (value) => run.setXattr(xattr.name, value, wasBinary: text == null),
+                _cell(
+                  context,
+                  first: true,
+                  // Полное имя — подсказкой: в столбце оно режется многоточием, а
+                  // спрашивают о нём именно тогда, когда не влезло.
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: _nameMin, maxWidth: _nameMax),
+                    // Имя — главное в строке, и набрано оно ярким; счёт байт рядом
+                    // приглушён: это подробность, а не то, за чем сюда смотрят.
+                    child: Tooltip(message: xattr.name, child: FcLabel(xattr.name, maxLines: 1)),
                   ),
                 ),
-              ),
-            ),
-            _cell(context, FcButton(label: strings.tr('Remove'), onPressed: () => run.removeXattr(xattr.name))),
-            // Просвет между строками — снизу у каждой ячейки, кроме последней.
-          ].map((cell) => Padding(padding: EdgeInsets.only(bottom: theme.metrics.dialogLineGap), child: cell)).toList(),
+                _cell(context, FcText(strings.plural(xattr.value.length, one: '{n} byte', other: '{n} bytes'))),
+                _cell(
+                  context,
+                  ConstrainedBox(
+                    constraints: const BoxConstraints(minWidth: _valueMin, maxWidth: _valueMax),
+                    child: Tooltip(
+                      message: text ?? strings.tr('binary'),
+                      child: _Field(
+                        key: ValueKey('xattr:${xattr.name}'),
+                        // Двоичное текстом не притворяется: подсунуть человеку
+                        // испорченную строку хуже, чем показать пустое поле с
+                        // подсказкой. Набранное в нём заменит двоичное целиком — это
+                        // осознанный ввод, а не порча несмотренного.
+                        text: text ?? '',
+                        enabled: true,
+                        hint: text == null ? strings.tr('binary') : '',
+                        onChanged: (value) => run.setXattr(xattr.name, value, wasBinary: text == null),
+                      ),
+                    ),
+                  ),
+                ),
+                _cell(context, FcButton(label: strings.tr('Remove'), onPressed: () => run.removeXattr(xattr.name))),
+                // Просвет между строками — **тот же, что между полями формы**:
+                // список и поля читаются как один ряд, и разный шаг у них
+                // разъезжался бы на глазах. Снизу у каждой ячейки, кроме последней.
+              ]
+              .map((cell) => Padding(padding: EdgeInsets.only(bottom: last ? 0 : theme.metrics.dialogGap), child: cell))
+              .toList(),
     );
   }
 
