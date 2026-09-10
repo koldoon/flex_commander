@@ -93,7 +93,6 @@ const Map<String, String> _russian = {
   'only files': 'только файлы',
   'only directories': 'только каталоги',
   'Wrong date: {text}': 'Негодная дата: {text}',
-  'Unknown user: {name}': 'Неизвестный пользователь: {name}',
 };
 
 /// Ключ множественного — форма `other`: та, что написана в коде вторым доводом.

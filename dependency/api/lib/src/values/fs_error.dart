@@ -8,6 +8,14 @@ enum FsErrorKind {
   targetInsideSource,
   notSupported,
 
+  /// Имени, которое набрали, у источника нет: такого пользователя или группы
+  /// он не знает — или не знает имён вовсе.
+  ///
+  /// В [FsError.path] лежит **имя**, а не путь: тот же приём, что у
+  /// [unsupportedScheme], где там стоит протокол. Отказавший объект в этом
+  /// сообщении ни при чём — виновато набранное.
+  unknownUser,
+
   /// Протокол, которого никто не умеет: `ssh://` без модуля SSH.
   ///
   /// Отдельно от [notSupported]: там речь о том, чего не умеет **источник**
@@ -51,6 +59,10 @@ class FsError implements Exception {
     FsErrorKind.invalidName => 'Invalid name: $path',
     FsErrorKind.targetInsideSource => 'Cannot copy a directory into itself: $path',
     FsErrorKind.notSupported => 'Not supported: $path',
+    // Одно сообщение на оба случая: и «такого имени нет», и «источник имён не
+    // знает вовсе». Для того, кто набирал, ответ один — этим именем здесь
+    // пользоваться нельзя.
+    FsErrorKind.unknownUser => 'No such user or group: $path',
     FsErrorKind.unsupportedScheme => 'Protocol $path is not supported',
     FsErrorKind.invalidAddress => 'Wrong URI: $path',
     FsErrorKind.io => 'I/O error: $path',

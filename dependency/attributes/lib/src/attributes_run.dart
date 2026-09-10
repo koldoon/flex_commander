@@ -191,33 +191,29 @@ class AttributesRun extends FcAsyncRun {
       return parsed;
     }
 
-    int? number(String text, {required String was, required int? id}) {
-      if (!single || text.trim().isEmpty || text.trim() == was) {
-        return null;
-      }
+    /// Что уедет работе: число, имя или ничего.
+    ///
+    /// Число уходит как есть. Имя — как имя: разрешить его в число окну нечем,
+    /// словарь пользователей живёт у источника, и спрашивает его работа. Своей
+    /// ошибки окно про имена больше не выдумывает.
+    (int?, String) owner(String text, {required String was}) {
       final typed = text.trim();
-      final parsed = int.tryParse(typed);
-      if (parsed != null) {
-        return parsed;
+      if (!single || typed.isEmpty || typed == was) {
+        return (null, '');
       }
-      // Разрешить чужое имя в число некому: словарь пользователей живёт у
-      // источника, по эту сторону границы его нет. Своё имя мы знаем — оно
-      // приехало вместе с числом; всё прочее приходится набирать числом.
-      error = strings.tr('Unknown user: {name}', args: {'name': typed});
-      return id;
+      final parsed = int.tryParse(typed);
+      return parsed != null ? (parsed, '') : (null, typed);
     }
 
     final modified = date(modifiedText, sample.modified);
     final accessed = date(accessedText, sample.accessed);
-    final uid = number(
+    final (uid, ownerName) = owner(
       ownerText,
       was: sample.owner.isEmpty ? (sample.uid?.toString() ?? '') : sample.owner,
-      id: sample.uid,
     );
-    final gid = number(
+    final (gid, groupName) = owner(
       groupText,
       was: sample.group.isEmpty ? (sample.gid?.toString() ?? '') : sample.group,
-      id: sample.gid,
     );
 
     if (error != null) {
@@ -232,6 +228,8 @@ class AttributesRun extends FcAsyncRun {
       accessed: accessed,
       uid: uid,
       gid: gid,
+      owner: ownerName,
+      group: groupName,
       xattrSet: single ? Map.of(xattrSet) : const {},
       xattrRemove: single ? xattrRemove.toList() : const [],
       recursive: recursive && hasDirectory,

@@ -24,6 +24,12 @@ class AttributesApply {
       return;
     }
 
+    // Имена владельца и группы разрешаются **первым делом** — до единого слова
+    // о ходе дела. Так неверное имя доходит до человека отказом, и окно
+    // возвращает его к форме: `FsError` до первого отчёта считается отказом, а
+    // не крахом работы (`spec/dialog-run-phase.md`).
+    final resolved = await _owner(inputs.targets.first, edits);
+
     // Названные объекты правятся **всегда**: их выбрали руками, и отбор
     // относится к тому, что нашлось внутри.
     var done = 0;
@@ -42,7 +48,7 @@ class AttributesApply {
         indeterminate: edits.recursive,
       );
       try {
-        await _applyTo(node, edits);
+        await _applyTo(node, edits, resolved);
         return true;
       } on FsError catch (error) {
         if (skipAll) {
@@ -84,16 +90,46 @@ class AttributesApply {
     }
   }
 
+  /// Числа владельца и группы: как набрали или как разрешил словарь источника.
+  ///
+  /// Словарь спрашивается у провайдера **первой** цели: владельца правят только
+  /// у одного объекта (`spec/file-attributes.md`, §8), и второго источника тут
+  /// быть не может.
+  Future<({int? uid, int? gid})> _owner(FsNode node, AttributeEdits edits) async {
+    final provider = node.provider;
+    final directory = provider is UserDirectory ? provider as UserDirectory : null;
+    return (
+      uid: edits.uid ?? await _resolve(edits.owner, () async => directory?.userId(edits.owner)),
+      gid: edits.gid ?? await _resolve(edits.group, () async => directory?.groupId(edits.group)),
+    );
+  }
+
+  /// Имя — в число; пусто — нечего разрешать.
+  ///
+  /// Отказ один на два случая: и «такого имени нет», и «источник имён не знает
+  /// вовсе». Для того, кто набирал, ответ одинаков — этим именем здесь
+  /// пользоваться нельзя, а чем именно источник не угодил, ему безразлично.
+  Future<int?> _resolve(String name, Future<int?> Function() ask) async {
+    if (name.isEmpty) {
+      return null;
+    }
+    final id = await ask();
+    if (id == null) {
+      throw FsError(name, FsErrorKind.unknownUser);
+    }
+    return id;
+  }
+
   /// Всё, что просили, — одному объекту.
-  Future<void> _applyTo(FsNode node, AttributeEdits edits) async {
+  Future<void> _applyTo(FsNode node, AttributeEdits edits, ({int? uid, int? gid}) owner) async {
     final provider = node.provider;
 
     if (edits.setBits != 0 ||
         edits.clearBits != 0 ||
         edits.modified != null ||
         edits.accessed != null ||
-        edits.uid != null ||
-        edits.gid != null) {
+        owner.uid != null ||
+        owner.gid != null) {
       if (provider is! NodeAttributesEditor) {
         throw FsError(node.pathString, FsErrorKind.notSupported);
       }
@@ -105,8 +141,8 @@ class AttributesApply {
       if (edits.modified != null || edits.accessed != null) {
         await editor.setTimes(node, modified: edits.modified, accessed: edits.accessed);
       }
-      if (edits.uid != null || edits.gid != null) {
-        await editor.setOwner(node, uid: edits.uid, gid: edits.gid);
+      if (owner.uid != null || owner.gid != null) {
+        await editor.setOwner(node, uid: owner.uid, gid: owner.gid);
       }
     }
 

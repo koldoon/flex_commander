@@ -153,6 +153,7 @@ class StringsRegistry extends ChangeNotifier implements Strings {
       FsErrorKind.invalidName => tr('Invalid name: {path}', args: path),
       FsErrorKind.targetInsideSource => tr('Cannot copy a directory into itself: {path}', args: path),
       FsErrorKind.notSupported => tr('Not supported: {path}', args: path),
+      FsErrorKind.unknownUser => tr('No such user or group: {path}', args: path),
       FsErrorKind.unsupportedScheme => tr('Protocol {path} is not supported', args: path),
       FsErrorKind.invalidAddress => tr('Wrong URI: {path}', args: path),
       FsErrorKind.io => tr('I/O error: {path}', args: path),

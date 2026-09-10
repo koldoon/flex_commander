@@ -201,6 +201,23 @@ void main() {
       expect(back.applyTo, AttributeScope.files);
     });
 
+    test('имя ездит туда и обратно, не смешиваясь с числом', () {
+      const named = AttributeEdits(owner: 'koldoon', group: 'staff');
+      final back = AttributeEdits.fromOptions(named.toOptions());
+
+      expect(back.owner, 'koldoon');
+      expect(back.group, 'staff');
+      // Одновременно число и имя не приходят никогда: окно шлёт что-то одно.
+      expect(back.uid, isNull);
+      expect(back.gid, isNull);
+    });
+
+    test('одного имени хватает, чтобы правка не была пустой', () {
+      expect(const AttributeEdits(owner: 'koldoon').isEmpty, isFalse);
+      expect(const AttributeEdits(group: 'staff').isEmpty, isFalse);
+      expect(const AttributeEdits().isEmpty, isTrue);
+    });
+
     test('чужое и негодное пропускается, а не роняет работу', () {
       final back = AttributeEdits.fromOptions(const {
         'setBits': 'не число',

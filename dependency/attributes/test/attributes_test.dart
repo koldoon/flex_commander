@@ -18,7 +18,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Дерево, которое умеет атрибуты — и помнит, что с ними сделали.
-class _AttributeProvider extends InMemoryTreeProvider implements NodeAttributesEditor, NodeXattrEditor {
+class _AttributeProvider extends InMemoryTreeProvider implements NodeAttributesEditor, NodeXattrEditor, UserDirectory {
   _AttributeProvider(super.entries);
 
   /// Режим по пути; чего нет — то `644` у файла и `755` у каталога.
@@ -39,6 +39,27 @@ class _AttributeProvider extends InMemoryTreeProvider implements NodeAttributesE
 
   /// Что назначали — по порядку. По нему видно, кого работа обошла.
   final List<String> touched = [];
+
+  /// Кого работа назначила владельцем: числами, уже разрешёнными.
+  final List<String> owners = [];
+
+  /// Словарь машины. Спрашивают его через провайдера: он и есть та машина.
+  final Map<String, int> users = {'koldoon': 501, 'root': 0};
+  final Map<String, int> groups = {'staff': 20, 'wheel': 0};
+
+  @override
+  Future<String> userName(int uid) async =>
+      users.entries.where((one) => one.value == uid).map((one) => one.key).firstOrNull ?? '';
+
+  @override
+  Future<String> groupName(int gid) async =>
+      groups.entries.where((one) => one.value == gid).map((one) => one.key).firstOrNull ?? '';
+
+  @override
+  Future<int?> userId(String name) async => users[name];
+
+  @override
+  Future<int?> groupId(String name) async => groups[name];
 
   int modeOf(String path) => modes[path] ?? (_isDirectory(path) ? 0x41ED : 0x81A4);
 
@@ -99,10 +120,16 @@ class _AttributeProvider extends InMemoryTreeProvider implements NodeAttributesE
     }
   }
 
+  /// Сменить владельца обычно не дают — но тесту нужно видеть, **кого**
+  /// назначали, поэтому отказ включается флажком.
+  bool deniesOwner = true;
+
   @override
   Future<void> setOwner(FsNode node, {int? uid, int? gid}) async {
-    // Сменить владельца обычно не дают — и мы не притворяемся.
-    throw FsError(node.pathString, FsErrorKind.permissionDenied);
+    owners.add('$uid:$gid');
+    if (deniesOwner) {
+      throw FsError(node.pathString, FsErrorKind.permissionDenied);
+    }
   }
 
   @override
@@ -585,7 +612,80 @@ void main() {
       await tester.pumpAndSettle();
       await apply(tester);
 
+      // Имя разрешилось (или его и не было — набрали число), отказала система.
       expect(find.textContaining('Permission denied'), findsOneWidget);
+    });
+
+    testWidgets('имя владельца разрешается в число', (tester) async {
+      provider.deniesOwner = false;
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      await tester.enterText(fieldWithHint('user'), 'root');
+      await tester.pumpAndSettle();
+      await apply(tester);
+
+      // До источника дошло число, а не имя: разрешил его словарь машины.
+      expect(provider.owners, ['0:null']);
+    });
+
+    testWidgets('неизвестное имя возвращает к форме, ничего не тронув', (tester) async {
+      provider.deniesOwner = false;
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      await tester.enterText(fieldWithHint('user'), 'нет-такого');
+      await tester.pumpAndSettle();
+      await apply(tester);
+
+      // Отказ до первого слова о ходе дела — это отказ, а не крах работы:
+      // окно вернулось к форме, и правку можно поправить на месте.
+      expect(find.textContaining('No such user or group'), findsOneWidget);
+      expect(find.widgetWithText(FcButton, 'Apply'), findsOneWidget);
+      expect(provider.owners, isEmpty);
+      expect(provider.touched, isEmpty, reason: 'до режима дело не дошло');
+    });
+
+    testWidgets('число идёт как есть, словарь не спрашивается', (tester) async {
+      provider.deniesOwner = false;
+      provider.users.clear();
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      await tester.enterText(fieldWithHint('user'), '42');
+      await tester.pumpAndSettle();
+      await apply(tester);
+
+      expect(provider.owners, ['42:null']);
+    });
+
+    testWidgets('источник без словаря именам отказывает', (tester) async {
+      // Как сервер по SFTP: атрибуты умеет, имён пользователей не знает.
+      await start(_OnlyPlainAttributes([FakeEntry.directory('/home'), FakeEntry.file('/home/notes.txt', size: 1)]));
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      await tester.enterText(fieldWithHint('user'), 'koldoon');
+      await tester.pumpAndSettle();
+      await apply(tester);
+
+      expect(find.textContaining('No such user or group'), findsOneWidget);
+    });
+
+    testWidgets('нетронутое поле не шлёт ни имени, ни числа', (tester) async {
+      provider.deniesOwner = false;
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      await tapCheckbox(tester, 'exec');
+      await apply(tester);
+
+      expect(provider.owners, isEmpty);
     });
 
     testWidgets('отказ на одном из нескольких спрашивает, а не рушит всё', (tester) async {
@@ -763,9 +863,16 @@ void main() {
 class _OnlyPlainAttributes extends InMemoryTreeProvider implements NodeAttributesEditor {
   _OnlyPlainAttributes(super.entries);
 
+  /// Числа владельца есть, имён нет — ровно как отдаёт сервер по SFTP.
   @override
-  Future<NodeAttributes> readAttributes(FsNode node) async =>
-      const NodeAttributes(mode: 0x81A4, modeString: '-rw-r--r--', canEditMode: true);
+  Future<NodeAttributes> readAttributes(FsNode node) async => const NodeAttributes(
+    mode: 0x81A4,
+    modeString: '-rw-r--r--',
+    uid: 1000,
+    gid: 1000,
+    canEditMode: true,
+    canEditOwner: true,
+  );
 
   @override
   Future<void> setMode(FsNode node, int mode) async {}

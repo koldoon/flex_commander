@@ -30,6 +30,8 @@ abstract final class AttributeOperations {
   static const String accessed = 'accessed';
   static const String uid = 'uid';
   static const String gid = 'gid';
+  static const String owner = 'owner';
+  static const String group = 'group';
   static const String xattrSet = 'xattrSet';
   static const String xattrRemove = 'xattrRemove';
   static const String recursive = 'recursive';
@@ -58,6 +60,8 @@ class AttributeEdits {
     this.accessed,
     this.uid,
     this.gid,
+    this.owner = '',
+    this.group = '',
     this.xattrSet = const {},
     this.xattrRemove = const [],
     this.recursive = false,
@@ -80,6 +84,14 @@ class AttributeEdits {
   /// Числа владельца и группы; null — не трогать.
   final int? uid;
   final int? gid;
+
+  /// Они же именами — когда в поле набрали не число.
+  ///
+  /// Разрешает имя в число **работа**: словарь пользователей живёт у источника
+  /// ([UserDirectory]), а по эту сторону границы его нет. Одновременно число и
+  /// имя не приходят никогда — окно шлёт что-то одно.
+  final String owner;
+  final String group;
 
   /// Расширенные атрибуты: имя → байты.
   final Map<String, List<int>> xattrSet;
@@ -104,6 +116,8 @@ class AttributeEdits {
       accessed == null &&
       uid == null &&
       gid == null &&
+      owner.isEmpty &&
+      group.isEmpty &&
       xattrSet.isEmpty &&
       xattrRemove.isEmpty;
 
@@ -130,6 +144,8 @@ class AttributeEdits {
     if (accessed != null) AttributeOperations.accessed: accessed!.millisecondsSinceEpoch,
     if (uid != null) AttributeOperations.uid: uid,
     if (gid != null) AttributeOperations.gid: gid,
+    if (owner.isNotEmpty) AttributeOperations.owner: owner,
+    if (group.isNotEmpty) AttributeOperations.group: group,
     if (xattrSet.isNotEmpty) AttributeOperations.xattrSet: {for (final one in xattrSet.entries) one.key: one.value},
     if (xattrRemove.isNotEmpty) AttributeOperations.xattrRemove: [...xattrRemove],
     if (recursive) AttributeOperations.recursive: true,
@@ -161,6 +177,8 @@ class AttributeEdits {
       accessed: time(AttributeOperations.accessed),
       uid: value<int>(AttributeOperations.uid),
       gid: value<int>(AttributeOperations.gid),
+      owner: value<String>(AttributeOperations.owner) ?? '',
+      group: value<String>(AttributeOperations.group) ?? '',
       xattrSet: {
         for (final one in set.entries)
           if (one.key is String && one.value is List<int>) one.key! as String: one.value! as List<int>,
