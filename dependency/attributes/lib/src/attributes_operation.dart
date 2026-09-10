@@ -30,6 +30,16 @@ class AttributesApply {
     // не крахом работы (`spec/dialog-run-phase.md`).
     final resolved = await _owner(inputs.targets.first, edits);
 
+    // Один объект без рекурсии — это не «ход дела», а одно действие.
+    //
+    // От этого зависит и отчёт, и вопрос при отказе: пока работа ни слова о
+    // себе не сказала, её отказ считается отказом, и окно возвращает человека
+    // **к форме** — поправить набранное. Стоит ей отчитаться, тот же отказ
+    // становится неудачей, из которой назад к форме уже не пускают
+    // (`spec/dialog-run-phase.md`). Опечатка в имени владельца — ровно тот
+    // случай, ради которого назад пускать надо.
+    final alone = inputs.targets.length == 1 && !edits.recursive;
+
     // Названные объекты правятся **всегда**: их выбрали руками, и отбор
     // относится к тому, что нашлось внутри.
     var done = 0;
@@ -40,17 +50,25 @@ class AttributesApply {
         return true;
       }
       await op.checkpoint();
-      op.report(
-        message: strings.tr('Changing attributes…'),
-        itemName: node.name,
-        itemsTransferred: ++done,
-        itemsTotal: edits.recursive ? null : inputs.targets.length,
-        indeterminate: edits.recursive,
-      );
+      if (!alone) {
+        op.report(
+          message: strings.tr('Changing attributes…'),
+          itemName: node.name,
+          itemsTransferred: ++done,
+          itemsTotal: edits.recursive ? null : inputs.targets.length,
+          indeterminate: edits.recursive,
+        );
+      }
       try {
         await _applyTo(node, edits, resolved);
         return true;
       } on FsError catch (error) {
+        // Пропускать нечего: единственный объект, пропущенный целиком, — это
+        // «ничего не делать», и спрашивать об этом человека незачем. Отказ
+        // уходит наверх и возвращает окно к форме — поправить набранное.
+        if (alone) {
+          rethrow;
+        }
         if (skipAll) {
           return true;
         }
@@ -135,14 +153,18 @@ class AttributesApply {
       }
       final editor = provider as NodeAttributesEditor;
 
+      // **Владелец первым.** Он отказывает чаще всего — сменить его без прав
+      // администратора нельзя, — и если отказ придёт после режима и дат, у
+      // объекта останется половина правки, а окно скажет «работы не было».
+      // Поставив его вперёд, мы получаем честное «не изменилось ничего».
+      if (owner.uid != null || owner.gid != null) {
+        await editor.setOwner(node, uid: owner.uid, gid: owner.gid);
+      }
       if (edits.setBits != 0 || edits.clearBits != 0) {
         await editor.setMode(node, edits.applyToMode(await _modeOf(editor, node, edits)));
       }
       if (edits.modified != null || edits.accessed != null) {
         await editor.setTimes(node, modified: edits.modified, accessed: edits.accessed);
-      }
-      if (owner.uid != null || owner.gid != null) {
-        await editor.setOwner(node, uid: owner.uid, gid: owner.gid);
       }
     }
 

@@ -75,7 +75,9 @@ class AttributesCommand extends AppCommand {
       }
       try {
         await run.run(
-          context.app.runOperation(runId: run.runId),
+          // Без своего имени: второй заход после отказа — это **другая**
+          // работа, и ядро не должно принять её за уже законченную.
+          context.app.runOperation(),
           OperationSpec(kind: AttributeOperations.apply, targets: Targets.marked(panel.id), options: edits.toOptions()),
           message: tr('Changing attributes…'),
         );
