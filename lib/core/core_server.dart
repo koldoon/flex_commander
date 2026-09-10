@@ -385,6 +385,14 @@ class CoreServer implements CoreHandler {
       case CheckWriteAccess(:final entry):
         return CoreFlag(await _content.canWrite(entry));
 
+      case ReadAttributes(:final entry):
+        try {
+          return CoreAttributes(await _content.readAttributes(entry));
+        } on FsError catch (error) {
+          // Отказ — ответ, а не поломка: спросивший о нём и скажет человеку.
+          return CoreFailed(error);
+        }
+
       case ShowFound(:final panel, :final runId, :final title):
         final found = _operations.takeFound(runId);
         if (found.isEmpty) {

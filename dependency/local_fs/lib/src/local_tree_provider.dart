@@ -31,7 +31,9 @@ class LocalTreeProvider
         FileContentProvider,
         FileContentReceiver,
         WriteAccessCheck,
-        NodeAttributesWriter,
+        NodeAttributesEditor,
+        NodeXattrEditor,
+        UserDirectory,
         ShellHost {
   LocalTreeProvider({
     String? homePath,
@@ -82,27 +84,119 @@ class LocalTreeProvider
   /// тестах: берутся умолчания.
   final LocalFsSettings Function()? settings;
 
-  /// Переносит режим доступа. Нечем (Windows) или нечего (объекта уже нет) —
-  /// молча ничего не делает: это сохранность прав, а не само сохранение файла,
-  /// и ронять из-за неё записанное нельзя.
+  // --- атрибуты ---
+  //
+  // Всё, чего нет в `dart:io`, берётся системными вызовами напрямую
+  // (`fc_platform`): режима там только чтение, дат у каталога нет вовсе, чисел
+  // владельца нет ни у чего, а расширенных атрибутов нет и подавно.
+
   @override
-  Future<void> carryMode({required FsNode from, required FsNode to}) async {
+  Future<NodeAttributes> readAttributes(FsNode node) async {
+    final path = physicalPathOf(node);
+    final FileStat stat;
+    try {
+      stat = await File(path).stat();
+    } on FileSystemException catch (error) {
+      throw fsErrorFrom(path, error);
+    }
+    if (stat.type == FileSystemEntityType.notFound) {
+      throw FsError(path, FsErrorKind.notFound);
+    }
+    final owner = LocalStat.instance?.ownerOf(path);
+    return NodeAttributes(
+      mode: stat.mode,
+      modeString: attributesFromStat(stat).modeString,
+      uid: owner?.uid,
+      gid: owner?.gid,
+      modified: stat.modified,
+      accessed: stat.accessed,
+      // Не флагами про себя, а по тому, есть ли чем: на Windows режима и
+      // владельца нет вовсе, и обещать их правку было бы враньём.
+      canEditMode: LocalMode.instance != null,
+      canEditTimes: LocalTimes.instance != null,
+      canEditOwner: LocalOwner.instance != null && owner != null,
+    );
+  }
+
+  @override
+  Future<void> setMode(FsNode node, int mode) async {
     final chmod = LocalMode.instance;
     if (chmod == null) {
-      return;
+      throw FsError(physicalPathOf(node), FsErrorKind.notSupported);
     }
-    try {
-      final mode = (await File(physicalPathOf(from)).stat()).mode & 0xFFF;
-      if (mode != 0) {
-        chmod.apply(physicalPathOf(to), mode);
-      }
-    } on FileSystemException {
-      // Источника уже нет — переносить нечего.
-    } on FsError {
-      // Назначить не вышло: это сохранность прав, а не само сохранение файла.
-      // `LocalMode.apply` теперь об отказе говорит — молчать здесь решаем мы.
-    }
+    chmod.apply(physicalPathOf(node), mode & 0xFFF);
   }
+
+  @override
+  Future<void> setTimes(FsNode node, {DateTime? modified, DateTime? accessed}) async {
+    final times = LocalTimes.instance;
+    if (times == null) {
+      throw FsError(physicalPathOf(node), FsErrorKind.notSupported);
+    }
+    times.apply(physicalPathOf(node), modified: modified, accessed: accessed);
+  }
+
+  @override
+  Future<void> setOwner(FsNode node, {int? uid, int? gid}) async {
+    final owner = LocalOwner.instance;
+    if (owner == null) {
+      throw FsError(physicalPathOf(node), FsErrorKind.notSupported);
+    }
+    owner.apply(physicalPathOf(node), uid: uid, gid: gid);
+  }
+
+  // --- расширенные атрибуты ---
+
+  @override
+  Future<List<Xattr>> readXattrs(FsNode node) async {
+    final xattr = LocalXattr.instance;
+    if (xattr == null) {
+      return const [];
+    }
+    final path = physicalPathOf(node);
+    return [
+      for (final name in xattr.names(path))
+        // Атрибут мог исчезнуть между перечислением и чтением — это не повод
+        // ронять весь список.
+        if (xattr.read(path, name) case final value?) Xattr(name, value),
+    ];
+  }
+
+  @override
+  Future<void> setXattr(FsNode node, String name, List<int> value) async {
+    final xattr = LocalXattr.instance;
+    if (xattr == null) {
+      throw FsError(physicalPathOf(node), FsErrorKind.notSupported);
+    }
+    xattr.write(physicalPathOf(node), name, value);
+  }
+
+  @override
+  Future<void> removeXattr(FsNode node, String name) async {
+    final xattr = LocalXattr.instance;
+    if (xattr == null) {
+      throw FsError(physicalPathOf(node), FsErrorKind.notSupported);
+    }
+    xattr.erase(physicalPathOf(node), name);
+  }
+
+  // --- словарь пользователей ---
+  //
+  // Умение машины, а не дерева, — но спрашивают о нём через провайдера: он и
+  // есть та машина, на которой лежат его файлы. У сервера по SFTP словаря нет,
+  // и владелец там остаётся числом.
+
+  @override
+  Future<String> userName(int uid) async => LocalUsers.instance?.userName(uid) ?? '';
+
+  @override
+  Future<String> groupName(int gid) async => LocalUsers.instance?.groupName(gid) ?? '';
+
+  @override
+  Future<int?> userId(String name) async => LocalUsers.instance?.userId(name);
+
+  @override
+  Future<int?> groupId(String name) async => LocalUsers.instance?.groupId(name);
 
   @override
   String get shellLabel => _shell.shellLabel;

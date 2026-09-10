@@ -63,8 +63,8 @@ Future<void> _save(OperationInputs inputs) async {
     // Владельца это не переносит и не может: сменить его без прав
     // администратора нельзя. Там, где владелец чужой, запись и так идёт через
     // повышение, а `cp` пишет в существующий файл и сохраняет обоих.
-    if (provider is NodeAttributesWriter) {
-      await (provider as NodeAttributesWriter).carryMode(from: node, to: written);
+    if (provider is NodeAttributesEditor) {
+      await (provider as NodeAttributesEditor).carryMode(from: node, to: written);
     }
 
     if (!await editor.renameEntry(written, parent, node.name)) {

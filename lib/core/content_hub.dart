@@ -59,6 +59,48 @@ class ContentHub {
     }
   }
 
+  /// Атрибуты объекта — собранные из всего, что о нём знают.
+  ///
+  /// Складывает их **ядро**, а не провайдер: обычные атрибуты знает один, имена
+  /// владельца — словарь машины, расширенные атрибуты — третий, и каждое из
+  /// этих умений бывает порознь (`docs/spec/file-attributes.md`, §3.4). Тот же
+  /// приём, которым окно сведений собирает разделы у нескольких провайдеров.
+  ///
+  /// Источник не умеет ничего — [NodeAttributes.unknown]. Отказ выходит
+  /// [FsError] наружу: «не пустили» и «нечего показывать» — разные ответы.
+  Future<NodeAttributes> readAttributes(EntryRef entry) async {
+    final leases = <ProviderLease>[];
+    try {
+      final node = await _nodeOf(entry, leases);
+      if (node == null) {
+        return NodeAttributes.unknown;
+      }
+      final provider = node.provider;
+      if (provider is! NodeAttributesEditor) {
+        return NodeAttributes.unknown;
+      }
+      var attributes = await (provider as NodeAttributesEditor).readAttributes(node);
+
+      if (provider is UserDirectory) {
+        final directory = provider as UserDirectory;
+        attributes = attributes.withNames(
+          owner: attributes.uid == null ? '' : await directory.userName(attributes.uid!),
+          group: attributes.gid == null ? '' : await directory.groupName(attributes.gid!),
+        );
+      }
+
+      if (provider is NodeXattrEditor) {
+        attributes = attributes.withXattrs(await (provider as NodeXattrEditor).readXattrs(node));
+      }
+
+      return attributes;
+    } finally {
+      for (final lease in leases) {
+        unawaited(lease.release());
+      }
+    }
+  }
+
   /// Дадут ли записать в этот файл.
   ///
   /// Источник без проверки молчит согласием: спрашивать о правах умеет не

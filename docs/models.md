@@ -188,6 +188,50 @@ class FileAttributes {
 }
 ```
 
+### `NodeAttributes`
+
+То, что о файле можно **поменять**, — и это другое значение, чем то, что о нём
+показывают в списке. Строка списка везёт `FileAttributes` с последнего чтения
+каталога; `NodeAttributes` читаются заново, отдельной просьбой к ядру
+(`ReadAttributes`), потому что править по устаревшему режиму значит вернуть
+файлу права, которых у него уже нет.
+
+```dart
+class NodeAttributes {
+  final int mode;              // 0 — режима у источника нет вовсе
+  final String modeString;
+  final int? uid;              // числа: имена знает не всякий источник
+  final int? gid;
+  final String owner;          // пусто — показывается число
+  final String group;
+  final DateTime? modified;
+  final DateTime? accessed;
+  final List<Xattr> xattrs;    // расширенные атрибуты
+
+  /// Что из этого источник даст поменять. Значениями, а не вопросом к нему:
+  /// на экранной стороне провайдера нет вовсе.
+  final bool canEditMode, canEditTimes, canEditOwner, canEditXattrs;
+
+  /// Права без типа объекта.
+  int get permissions => mode & 0xFFF;
+
+  static const NodeAttributes unknown = NodeAttributes();
+}
+
+class Xattr {
+  final String name;
+  final List<int> value;   // байты: `com.apple.FinderInfo` — 32 двоичных байта
+
+  /// Значение, которое можно показать строкой; null — двоичное.
+  String? get text;
+}
+```
+
+Собирается из трёх умений сразу, и складывает их **ядро**, а не провайдер:
+обычные атрибуты знает один (`NodeAttributesEditor`), расширенные — второй
+(`NodeXattrEditor`), имена владельца — третий (`UserDirectory`), и каждое бывает
+порознь. Подробности — [`spec/file-attributes.md`](spec/file-attributes.md), §3.
+
 ## 2. Провайдеры дерева
 
 Интерфейсы повторяют `ITreeProvider` / `ITreeEditor` референса.

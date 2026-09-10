@@ -568,6 +568,22 @@ class SessionMirror extends ChangeNotifier implements Session {
   }
 
   @override
+  Future<NodeAttributes> readAttributes(FileEntry entry) async {
+    final ref = _refTo(entry);
+    if (ref == null) {
+      // У «..» пути нет, и спрашивать не о чем.
+      return NodeAttributes.unknown;
+    }
+    final reply = await _link.call(ReadAttributes(ref));
+    return switch (reply) {
+      CoreAttributes(:final attributes) => attributes,
+      // Отказ доходит до того, кто спросил: окно скажет, почему не вышло.
+      CoreFailed(:final error) => throw error,
+      _ => NodeAttributes.unknown,
+    };
+  }
+
+  @override
   Future<bool> canWriteTo(FileEntry entry) async {
     final ref = _refTo(entry);
     if (ref == null) {

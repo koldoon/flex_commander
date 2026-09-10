@@ -15,6 +15,7 @@ library;
 export 'src/values/file_attributes.dart';
 export 'src/values/file_type.dart';
 export 'src/values/fs_error.dart';
+export 'src/values/node_attributes.dart';
 export 'src/values/provider_capabilities.dart';
 
 // --- Протокол границы ---

@@ -3,6 +3,7 @@ import '../panel/rows_kind.dart';
 import '../panel/sort_spec.dart';
 import '../async/progress_report.dart';
 import '../values/fs_error.dart';
+import '../values/node_attributes.dart';
 import 'entry_ref.dart';
 import 'file_entry.dart';
 import 'operation_spec.dart';
@@ -253,6 +254,19 @@ final class RunOperation extends CoreRequest {
 /// некуда: права знает только та сторона.
 final class CheckWriteAccess extends CoreRequest {
   const CheckWriteAccess(this.entry);
+
+  final EntryRef entry;
+}
+
+/// Атрибуты объекта: режим, даты, владелец, расширенные атрибуты.
+///
+/// Просьбой, а не частью состояния строки: список бывает в десять тысяч строк,
+/// и возить в каждой то, на что смотрят раз в неделю, — работа впустую
+/// (`docs/spec/client-server.md`, §4.3). Читаются они **заново**: в
+/// `FileEntry.attributes` лежит режим с последнего чтения каталога, и править
+/// по нему значило бы вернуть файлу права, которых у него уже нет.
+final class ReadAttributes extends CoreRequest {
+  const ReadAttributes(this.entry);
 
   final EntryRef entry;
 }
@@ -523,6 +537,17 @@ final class CoreEntries extends CoreReply {
   const CoreEntries(this.entries);
 
   final List<FileEntry> entries;
+}
+
+/// Атрибуты объекта — те, что источник о нём знает.
+///
+/// Не знает ничего — приезжает [NodeAttributes.unknown], и окно показывает
+/// поля погашенными. Не смог ответить — это [CoreFailed]: «отказали в доступе»
+/// и «править нечем» — разные ответы, и путать их нельзя.
+final class CoreAttributes extends CoreReply {
+  const CoreAttributes(this.attributes);
+
+  final NodeAttributes attributes;
 }
 
 /// Посчитанные размеры: путь каталога — сумма его содержимого.
