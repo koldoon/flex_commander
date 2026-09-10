@@ -107,6 +107,32 @@ class DartsshSftp implements SftpApi {
   }
 
   @override
+  Future<void> setStat(
+    String path, {
+    int? mode,
+    (int uid, int gid)? owner,
+    (DateTime accessed, DateTime modified)? times,
+  }) async {
+    if (mode == null && owner == null && times == null) {
+      return;
+    }
+    try {
+      await _sftp.setStat(
+        path,
+        SftpFileAttrs(
+          mode: mode == null ? null : SftpFileMode.value(mode),
+          userID: owner?.$1,
+          groupID: owner?.$2,
+          accessTime: times == null ? null : _seconds(times.$1),
+          modifyTime: times == null ? null : _seconds(times.$2),
+        ),
+      );
+    } on SftpError catch (error) {
+      throw _errorFrom(path, error);
+    }
+  }
+
+  @override
   Future<Stream<List<int>>> openRead(String path, {int offset = 0}) async {
     final SftpFile file;
     try {
@@ -187,12 +213,18 @@ class DartsshSftp implements SftpApi {
       // в нём лежит: показывать его пользователю было бы ложью.
       size: type == FileType.directory ? FsNode.unknownSize : (attrs.size ?? FsNode.unknownSize),
       mode: attrs.mode?.value ?? 0,
+      uid: attrs.userID,
+      gid: attrs.groupID,
       modified: _time(attrs.modifyTime),
       accessed: _time(attrs.accessTime),
     );
   }
 
   static DateTime? _time(int? seconds) => seconds == null ? null : DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+
+  /// Время в протоколе — секунды эпохи, и больше ничего: доли секунды в третьей
+  /// версии не передаются вовсе, и назначенная дата округляется вниз.
+  static int _seconds(DateTime at) => (at.millisecondsSinceEpoch / Duration.millisecondsPerSecond).floor();
 
   static FileType _typeOf(SftpFileMode? mode) => switch (mode?.type) {
     SftpFileType.directory => FileType.directory,

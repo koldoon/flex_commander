@@ -15,6 +15,8 @@ class SftpEntry {
     required this.type,
     this.size = FsNode.unknownSize,
     this.mode = 0,
+    this.uid,
+    this.gid,
     this.modified,
     this.accessed,
     this.linkTarget,
@@ -29,6 +31,13 @@ class SftpEntry {
 
   /// Режим доступа целиком, как его отдал сервер. 0 — атрибутов нет.
   final int mode;
+
+  /// Числа владельца и группы; null — сервер их не прислал.
+  ///
+  /// Именами их не бывает: в третьей версии протокола владелец — это число, и
+  /// словаря пользователей чужой машины у нас нет.
+  final int? uid;
+  final int? gid;
 
   final DateTime? modified;
   final DateTime? accessed;
@@ -70,6 +79,25 @@ abstract interface class SftpApi {
   Future<void> removeDirectory(String path);
 
   Future<void> rename(String from, String to);
+
+  /// Меняет атрибуты объекта — один пакет `SSH_FXP_SETSTAT`.
+  ///
+  /// **Даты и числа владельца ходят парами**, и это не наша прихоть: в
+  /// протоколе они лежат под одним признаком, один на двоих, и половина пары в
+  /// нём просто не выразима. Тот, кто хочет поменять одну дату, приносит
+  /// вторую прочитанной — иначе пакет получился бы короче, чем обещал его же
+  /// признак, и разговор с сервером разъехался бы.
+  ///
+  /// Пары записаны парами и в подписи: так забыть половину не даст компилятор.
+  ///
+  /// Расширенных атрибутов здесь нет вовсе — в третьей версии протокола их не
+  /// существует.
+  Future<void> setStat(
+    String path, {
+    int? mode,
+    (int uid, int gid)? owner,
+    (DateTime accessed, DateTime modified)? times,
+  });
 
   /// Содержимое файла потоком, начиная с [offset].
   Future<Stream<List<int>>> openRead(String path, {int offset = 0});

@@ -29,6 +29,7 @@ class SftpTreeProvider
         FileContentProvider,
         FileContentReceiver,
         WriteAccessCheck,
+        NodeAttributesEditor,
         ShellHost,
         ProviderLifecycle {
   SftpTreeProvider({
@@ -351,6 +352,75 @@ class SftpTreeProvider
       into: await _sftp.openWrite(temporary),
       removeTemporary: () => _sftp.removeFile(temporary),
     );
+  }
+
+  // --- атрибуты ---
+  //
+  // Расширенных атрибутов здесь нет и не будет: в третьей версии протокола их
+  // не существует вовсе. Словаря пользователей тоже нет — сервер отдаёт числа,
+  // и владелец на той стороне так и показывается числом. Врать про имя хуже.
+
+  @override
+  Future<NodeAttributes> readAttributes(FsNode node) async {
+    final path = remotePathOf(node);
+    // По ссылке идём: `SSH_FXP_SETSTAT` тоже идёт по ней, и показывать одно, а
+    // менять другое — худший из возможных ответов.
+    final entry = await _sftp.stat(path, followLink: true);
+    if (entry == null) {
+      throw FsError(path, FsErrorKind.notFound);
+    }
+    return NodeAttributes(
+      mode: entry.mode,
+      modeString: entry.mode == 0 ? '' : '${entry.type.attributeChar}${permissionsOf(entry.mode)}',
+      uid: entry.uid,
+      gid: entry.gid,
+      modified: entry.modified,
+      accessed: entry.accessed,
+      // Умения выводятся из того, что сервер **прислал**, а не из того, что мы
+      // о нём думаем. Обе даты и оба числа обязательны потому, что в протоколе
+      // они лежат парами: не прислал вторую — менять первую нечем.
+      canEditMode: entry.mode != 0,
+      canEditTimes: entry.modified != null && entry.accessed != null,
+      canEditOwner: entry.uid != null && entry.gid != null,
+    );
+  }
+
+  @override
+  Future<void> setMode(FsNode node, int mode) => _sftp.setStat(remotePathOf(node), mode: mode & 0xFFF);
+
+  @override
+  Future<void> setTimes(FsNode node, {DateTime? modified, DateTime? accessed}) async {
+    if (modified == null && accessed == null) {
+      return;
+    }
+    if (modified != null && accessed != null) {
+      await _sftp.setStat(remotePathOf(node), times: (accessed, modified));
+      return;
+    }
+    // Половину пары протокол не выражает — недостающую приходится приносить
+    // прочитанной. Между чтением и записью её мог поменять кто угодно, и это
+    // не наш выбор, а плата за третью версию протокола.
+    final current = await readAttributes(node);
+    if (!current.canEditTimes) {
+      throw FsError(remotePathOf(node), FsErrorKind.notSupported);
+    }
+    await _sftp.setStat(remotePathOf(node), times: (accessed ?? current.accessed!, modified ?? current.modified!));
+  }
+
+  @override
+  Future<void> setOwner(FsNode node, {int? uid, int? gid}) async {
+    if (uid == null && gid == null) {
+      return;
+    }
+    if (uid != null && gid != null) {
+      await _sftp.setStat(remotePathOf(node), owner: (uid, gid));
+      return;
+    }
+    final current = await readAttributes(node);
+    if (!current.canEditOwner) {
+      throw FsError(remotePathOf(node), FsErrorKind.notSupported);
+    }
+    await _sftp.setStat(remotePathOf(node), owner: (uid ?? current.uid!, gid ?? current.gid!));
   }
 
   /// Пустят ли записать в этот объект — спрашиваем у сервера, а не гадаем по

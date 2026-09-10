@@ -299,6 +299,52 @@ void main() {
     expect(await provider.resolvePath().run(remote(dir, 'logs')), isNull);
   });
 
+  test('атрибуты: режим и даты меняются на настоящем сервере', () async {
+    final provider = await connect();
+    if (provider == null) {
+      markTestSkipped('$hostSpec не пускает по ключу');
+      return;
+    }
+
+    final dir = await workDirectory(provider);
+    await writeRemote(dir, 'attrs.txt', 'тело');
+    final file = (await provider.resolvePath().run(remote(dir, 'attrs.txt')))!;
+
+    final was = await provider.readAttributes(file);
+    expect(was.canEditMode, isTrue);
+    expect(was.uid, isNotNull, reason: 'сервер прислал число владельца');
+    expect(was.canEditTimes, isTrue, reason: 'сервер прислал обе даты');
+
+    await provider.setMode(file, 0x1A0); // 0640
+    expect((await provider.readAttributes(file)).permissions, 0x1A0);
+
+    // Одна дата: вторую провайдер дочитывает сам — половина пары в третьей
+    // версии протокола не выразима.
+    final when = DateTime.utc(2019, 3, 4, 5, 6, 7);
+    await provider.setTimes(file, modified: when);
+
+    final now = await provider.readAttributes(file);
+    // Доли секунды протокол не везёт, поэтому сравниваем секундами.
+    expect(now.modified!.toUtc(), when);
+    expect(now.accessed, was.accessed, reason: 'вторую половину пары не сдвинули');
+
+    // Свой же владелец — назначение того, что и так стоит: проходит.
+    await provider.setOwner(file, uid: was.uid, gid: was.gid);
+  });
+
+  test('атрибуты: расширенных на сервере нет вовсе', () async {
+    final provider = await connect();
+    if (provider == null) {
+      markTestSkipped('$hostSpec не пускает по ключу');
+      return;
+    }
+
+    // Не «мы не умеем», а «в третьей версии протокола их не существует» —
+    // умение объявлять нечем, и окно раздела не покажет.
+    expect(provider, isNot(isA<NodeXattrEditor>()));
+    expect(provider, isNot(isA<UserDirectory>()));
+  });
+
   test('удаление поддерева — движком, по одному объекту', () async {
     final provider = await connect();
     if (provider == null) {

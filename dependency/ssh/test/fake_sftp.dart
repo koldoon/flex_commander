@@ -39,8 +39,30 @@ class FakeSftp implements SftpApi {
     _nodes[_norm(path)] = _FakeNode(FileType.directory, mode: mode);
   }
 
-  void file(String path, String content, {int mode = 0x81A4, DateTime? modified}) {
-    _nodes[_norm(path)] = _FakeNode(FileType.regular, bytes: utf8.encode(content), mode: mode, modified: modified);
+  void file(
+    String path,
+    String content, {
+    int mode = 0x81A4,
+    DateTime? modified,
+    DateTime? accessed,
+    int? uid,
+    int? gid,
+  }) {
+    _nodes[_norm(path)] = _FakeNode(
+      FileType.regular,
+      bytes: utf8.encode(content),
+      mode: mode,
+      uid: uid,
+      gid: gid,
+      modified: modified,
+      accessed: accessed,
+    );
+  }
+
+  /// Что у объекта сейчас — тем же взглядом, каким смотрит сервер.
+  ({int mode, int? uid, int? gid, DateTime? modified, DateTime? accessed}) attributesOf(String path) {
+    final node = _nodes[_norm(path)]!;
+    return (mode: node.mode, uid: node.uid, gid: node.gid, modified: node.modified, accessed: node.accessed);
   }
 
   void link(String path, String reference, {int mode = 0xA1FF}) {
@@ -160,6 +182,35 @@ class FakeSftp implements SftpApi {
       throw FsError(path, FsErrorKind.io);
     }
     _nodes.remove(target);
+  }
+
+  @override
+  Future<void> setStat(
+    String path, {
+    int? mode,
+    (int uid, int gid)? owner,
+    (DateTime accessed, DateTime modified)? times,
+  }) async {
+    calls.add('setstat $path');
+    _checkDenied(path);
+
+    final resolved = _real(path, followLast: true);
+    final node = resolved == null ? null : _nodes[resolved];
+    if (node == null) {
+      throw FsError(path, FsErrorKind.notFound);
+    }
+    if (mode != null) {
+      // Тип объекта режим не меняет: в него приходят только права.
+      node.mode = (node.mode & ~0xFFF) | (mode & 0xFFF);
+    }
+    if (owner != null) {
+      node.uid = owner.$1;
+      node.gid = owner.$2;
+    }
+    if (times != null) {
+      node.accessed = times.$1;
+      node.modified = times.$2;
+    }
   }
 
   @override
@@ -287,19 +338,28 @@ class FakeSftp implements SftpApi {
     type: node.type,
     size: node.type == FileType.directory ? FsNode.unknownSize : (node.bytes?.length ?? FsNode.unknownSize),
     mode: node.mode,
+    uid: node.uid,
+    gid: node.gid,
     modified: node.modified,
+    accessed: node.accessed,
   );
 
   static String _norm(String path) => p.posix.normalize(path.startsWith('/') ? path : '/$path');
 }
 
 class _FakeNode {
-  _FakeNode(this.type, {this.bytes, this.mode = 0, this.modified, this.linkTarget});
+  _FakeNode(this.type, {this.bytes, this.mode = 0, this.uid, this.gid, this.modified, this.accessed, this.linkTarget});
 
   final FileType type;
   List<int>? bytes;
-  final int mode;
-  final DateTime? modified;
+
+  /// Меняются: подставка изображает сервер, у которого атрибуты правятся.
+  int mode;
+  int? uid;
+  int? gid;
+  DateTime? modified;
+  DateTime? accessed;
+
   final String? linkTarget;
 }
 
