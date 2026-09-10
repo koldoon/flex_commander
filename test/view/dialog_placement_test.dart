@@ -52,6 +52,35 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  group('заголовок — строго одна строка', () {
+    const long = 'a-very-long-file-name-that-would-have-torn-the-title-bar-in-two-and-stretched-the-window.tar.gz';
+
+    Rect titleBar(WidgetTester tester) =>
+        tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.text(long)));
+
+    testWidgets('длинное имя не рвёт полосу и не растягивает окно', (tester) async {
+      await start(tester);
+
+      runtime.app.view.showDialog(DialogSpec(title: long, content: const SizedBox(width: 300, height: 100)));
+      await tester.pumpAndSettle();
+
+      // Полоса заголовка высотой ровно в строку: перенос вылез бы за неё.
+      expect(titleBar(tester).height, lessThanOrEqualTo(metrics(tester).dialogTitleHeight));
+      // Ширину окна задаёт содержимое, а не имя файла: 300 плюс поля.
+      expect(window(tester).width, lessThan(metrics(tester).dialogMaxWidth));
+    });
+
+    testWidgets('короткий заголовок ничего не потерял', (tester) async {
+      await start(tester);
+
+      runtime.app.view.showDialog(const DialogSpec(title: 'notes.txt', content: SizedBox(width: 300, height: 100)));
+      await tester.pumpAndSettle();
+
+      // Обрезать нечего: имя короткое, и многоточия в нём быть не должно.
+      expect(find.text('notes.txt'), findsOneWidget);
+    });
+  });
+
   /// Окно приложения поуже: при 900 точках панель ровно та, что окно «открыть
   /// путь» просило себе целиком, — раньше оно и ложилось от рамки до рамки.
   testWidgets('над тесной панелью окно не ложится от рамки до рамки', (tester) async {

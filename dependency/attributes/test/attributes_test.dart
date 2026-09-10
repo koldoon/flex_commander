@@ -370,6 +370,46 @@ void main() {
       expect(value.left - name.right, greaterThanOrEqualTo(gap));
     });
 
+    testWidgets('короткая кнопка встаёт там же, где длинная', (tester) async {
+      provider.xattrs['/home/notes.txt'] = {'com.apple.quarantine': utf8.encode('0083;Safari')};
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      // «Add» короче «Remove», и без общего столбца поля над ней и под ней
+      // кончались бы в разных местах — таблица разъезжалась.
+      final remove = tester.getRect(find.widgetWithText(FcButton, 'Remove'));
+      final add = tester.getRect(find.widgetWithText(FcButton, 'Add'));
+      expect(add.left, closeTo(remove.left, 0.5));
+      expect(add.width, lessThan(remove.width), reason: 'кнопка по-прежнему по своей подписи');
+
+      // И значит столбцы полей кончаются на одной вертикали. Меряются
+      // одинаковые узлы — сами поля, а не то, что у них внутри.
+      Rect fieldAt(String prefix) => tester.getRect(
+        find.byWidgetPredicate(
+          (widget) => widget.key is ValueKey<String> && (widget.key! as ValueKey<String>).value.startsWith(prefix),
+        ),
+      );
+
+      expect(fieldAt('new-value:').right, closeTo(fieldAt('xattr:').right, 0.5));
+    });
+
+    testWidgets('длинное имя не встаёт в две строки, а раздвигает окно', (tester) async {
+      const long = 'com.apple.metadata:kMDItemWhereFroms';
+      provider.xattrs['/home/notes.txt'] = {'com.apple.macl': utf8.encode('x'), long: utf8.encode('y')};
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      final short = tester.getRect(find.text('com.apple.macl'));
+      final wide = tester.getRect(find.text(long));
+
+      // Столбец имени меряется по себе: перенос сдвинул бы соседей по строке и
+      // разъехал бы таблицу.
+      expect(wide.height, closeTo(short.height, 0.5));
+      expect(wide.width, greaterThan(short.width));
+    });
+
     testWidgets('источник без этого умения раздела не показывает', (tester) async {
       // Ровно как сервер по SFTP: обычные атрибуты умеет, расширенных у него
       // нет вовсе.

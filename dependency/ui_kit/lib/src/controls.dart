@@ -24,14 +24,26 @@ class FcLabel extends StatelessWidget {
 
 /// Обычный текст окна: значение, пояснение, вопрос.
 class FcText extends StatelessWidget {
-  const FcText(this.text, {super.key, this.textAlign});
+  const FcText(this.text, {super.key, this.textAlign, this.maxLines});
 
   final String text;
   final TextAlign? textAlign;
 
+  /// Сколько строк текст занимает; null — сколько понадобится.
+  ///
+  /// `1` нужно там, где текст стоит в столбце таблицы: перенос сдвинул бы
+  /// соседей по строке и разъехал бы таблицу. Не влезшее режется многоточием.
+  final int? maxLines;
+
   @override
   Widget build(BuildContext context) {
-    return Text(text, style: FcTheme.of(context).dialogTextStyle, textAlign: textAlign);
+    return Text(
+      text,
+      style: FcTheme.of(context).dialogTextStyle,
+      textAlign: textAlign,
+      maxLines: maxLines,
+      overflow: maxLines == null ? null : TextOverflow.ellipsis,
+    );
   }
 }
 

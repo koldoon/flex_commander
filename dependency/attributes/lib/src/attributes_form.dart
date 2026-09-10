@@ -166,14 +166,114 @@ class AttributesForm extends StatelessWidget {
       );
 
   /// Расширенные атрибуты: что есть, плюс пустая строка под новый.
+  ///
+  /// **Таблицей, а не рядом строк.** Кнопки в строках разные по подписи
+  /// («Remove» длиннее «Add»), и в обычном ряду каждая забирала бы себе по
+  /// своей ширине — поля над ней и под ней кончались бы в разных местах, и
+  /// столбцы разъезжались. У таблицы столбец кнопок один на все строки и
+  /// меряется по самой широкой, а кнопка внутри него прижата влево: короткая
+  /// начинается там же, где длинная.
   List<CommandDialogField> _extended(BuildContext context) {
     final strings = context.strings;
+    final rows = run.xattrs;
     return [
       CommandDialogField.stacked(
         label: strings.tr('Extended'),
-        children: [for (final one in run.xattrs) _XattrRow(run: run, xattr: one), _NewXattrRow(run: run)],
+        children: [
+          Table(
+            // Имя меряется по себе: `com.apple.metadata:kMDItemWhereFroms`
+            // длиннее половины окна, и в резиновом столбце он вставал бы в две
+            // строки. Пусть окно вырастет под него — в пределах темы; растягивать
+            // его будет самое длинное имя, а не значение (значение резиновое и в
+            // счёте ширины не участвует).
+            columnWidths: const {0: IntrinsicColumnWidth(), 1: FlexColumnWidth(), 2: IntrinsicColumnWidth()},
+            defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+            children: [
+              for (var i = 0; i < rows.length; i++) _xattrRow(context, rows[i], last: false),
+              _newXattrRow(context),
+            ],
+          ),
+        ],
       ),
     ];
+  }
+
+  /// Одна строка расширенного атрибута: имя, значение и «убрать».
+  TableRow _xattrRow(BuildContext context, Xattr xattr, {required bool last}) {
+    final text = xattr.text;
+    return TableRow(
+      children: [
+        _cell(context, FcText(xattr.name, maxLines: 1), last: last, first: true),
+        _cell(
+          context,
+          text == null
+              // Двоичное текстом не притворяется: подсунуть человеку испорченную
+              // строку хуже, чем не дать её править. Убрать такой атрибут
+              // по-прежнему можно — за этим сюда и приходят.
+              ? FcText(context.strings.plural(xattr.value.length, one: '{n} byte', other: '{n} bytes'))
+              : _Field(
+                key: ValueKey('xattr:${xattr.name}'),
+                text: text,
+                enabled: true,
+                hint: '',
+                onChanged: (value) => run.setXattr(xattr.name, value),
+              ),
+          last: last,
+        ),
+        _cell(
+          context,
+          FcButton(label: context.strings.tr('Remove'), onPressed: () => run.removeXattr(xattr.name)),
+          last: last,
+        ),
+      ],
+    );
+  }
+
+  /// Пустая строка, которой заводят новый атрибут.
+  TableRow _newXattrRow(BuildContext context) {
+    final strings = context.strings;
+    // Ключ по числу правок: поля пустеют, когда атрибут добавлен.
+    final key = '${run.xattrSet.length}:${run.xattrRemove.length}';
+    return TableRow(
+      children: [
+        _cell(
+          context,
+          _Field(
+            key: ValueKey('new-name:$key'),
+            text: run.newXattrName,
+            enabled: true,
+            hint: strings.tr('name'),
+            onChanged: run.setNewXattrName,
+          ),
+          last: true,
+          first: true,
+        ),
+        _cell(
+          context,
+          _Field(
+            key: ValueKey('new-value:$key'),
+            text: run.newXattrValue,
+            enabled: true,
+            hint: strings.tr('value'),
+            onChanged: run.setNewXattrValue,
+          ),
+          last: true,
+        ),
+        _cell(context, FcButton(label: strings.tr('Add'), onPressed: run.addXattr), last: true),
+      ],
+    );
+  }
+
+  /// Ячейка таблицы: просвет слева — между столбцами, снизу — между строками.
+  ///
+  /// Кнопка внутри прижата влево: столбец мерян по самой широкой из них, и без
+  /// этого короткая встала бы посередине отведённого ей места.
+  Widget _cell(BuildContext context, Widget child, {required bool last, bool first = false}) {
+    final gap = FcTheme.of(context).metrics.dialogGap;
+    return Padding(
+      padding: EdgeInsets.only(left: first ? 0 : gap, bottom: last ? 0 : gap),
+      child: Align(alignment: Alignment.centerLeft, child: child),
+    );
   }
 
   /// Рекурсия и отбор — одной строкой, как «идти по ссылкам» у переноса.
@@ -203,79 +303,6 @@ class AttributesForm extends StatelessWidget {
           ),
         ],
       ),
-    );
-  }
-}
-
-/// Одна строка расширенного атрибута: имя, значение и «убрать».
-class _XattrRow extends StatelessWidget {
-  const _XattrRow({required this.run, required this.xattr});
-
-  final AttributesRun run;
-  final Xattr xattr;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = xattr.text;
-    return Row(
-      children: [
-        Expanded(child: FcText(xattr.name)),
-        AttributesForm._space(context),
-        Expanded(
-          child:
-              text == null
-                  // Двоичное текстом не притворяется: подсунуть человеку
-                  // испорченную строку хуже, чем не дать её править. Убрать
-                  // такой атрибут по-прежнему можно — за этим сюда и приходят.
-                  ? FcText(context.strings.plural(xattr.value.length, one: '{n} byte', other: '{n} bytes'))
-                  : _Field(
-                    key: ValueKey('xattr:${xattr.name}'),
-                    text: text,
-                    enabled: true,
-                    hint: '',
-                    onChanged: (value) => run.setXattr(xattr.name, value),
-                  ),
-        ),
-        AttributesForm._space(context),
-        FcButton(label: context.strings.tr('Remove'), onPressed: () => run.removeXattr(xattr.name)),
-      ],
-    );
-  }
-}
-
-/// Пустая строка, которой заводят новый атрибут.
-class _NewXattrRow extends StatelessWidget {
-  const _NewXattrRow({required this.run});
-
-  final AttributesRun run;
-
-  @override
-  Widget build(BuildContext context) {
-    final strings = context.strings;
-    return Row(
-      children: [
-        Expanded(
-          child: _Field(
-            key: ValueKey('new-name:${run.xattrSet.length}:${run.xattrRemove.length}'),
-            text: run.newXattrName,
-            enabled: true,
-            hint: strings.tr('name'),
-            onChanged: run.setNewXattrName,
-          ),
-        ),
-        AttributesForm._space(context),
-        Expanded(
-          child: _Field(
-            key: ValueKey('new-value:${run.xattrSet.length}:${run.xattrRemove.length}'),
-            text: run.newXattrValue,
-            enabled: true,
-            hint: strings.tr('value'),
-            onChanged: run.setNewXattrValue,
-          ),
-        ),
-        AttributesForm._space(context),
-        FcButton(label: strings.tr('Add'), onPressed: run.addXattr),
-      ],
     );
   }
 }

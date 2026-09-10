@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -145,7 +146,18 @@ class _DialogFrameState extends State<DialogFrame> {
         // Заголовок приходит значением — от того, кто окно открыл. Переводит
         // его тот, кто показывает: иначе окно, открытое до смены языка,
         // осталось бы с прежним заголовком (`docs/spec/localization.md`, §3).
-        child: Text(context.strings.tr(title), style: theme.dialogTitleStyle),
+        //
+        // Строго одна строка: в заголовке стоит имя файла, а оно бывает какой
+        // угодно длины. Перенос рвал бы полосу — высота у неё ровно в строку.
+        child: _UnmeasuredTitle(
+          child: Text(
+            context.strings.tr(title),
+            style: theme.dialogTitleStyle,
+            maxLines: 1,
+            softWrap: false,
+            overflow: TextOverflow.ellipsis,
+          ),
+        ),
       ),
     );
   }
@@ -401,4 +413,30 @@ class _OverArea extends SingleChildLayoutDelegate {
       oldDelegate.shift != shift ||
       oldDelegate.keepVisible != keepVisible ||
       oldDelegate.topInset != topInset;
+}
+
+/// Заголовок, который **не** решает, какой окну быть ширины.
+///
+/// Ширину окна задаёт его содержимое или область, над которой оно встало
+/// (`docs/spec/dialog-placement.md`, §3), — заголовку в этом счёте места нет.
+/// Иначе длинное имя файла растягивало бы окно до предела темы, а упёршись в
+/// него, переносилось бы на вторую строку и рвало полосу заголовка: высота у
+/// неё ровно в строку.
+///
+/// Из той же породы, что `_Shrinkable` в форме окна, только строже: там
+/// нулевой становится наименьшая ширина, здесь — обе. Разница в том, что поле
+/// ввода окно вырасти под себя вправе, а заголовок — нет.
+class _UnmeasuredTitle extends SingleChildRenderObjectWidget {
+  const _UnmeasuredTitle({required Widget super.child});
+
+  @override
+  RenderObject createRenderObject(BuildContext context) => _RenderUnmeasuredTitle();
+}
+
+class _RenderUnmeasuredTitle extends RenderProxyBox {
+  @override
+  double computeMinIntrinsicWidth(double height) => 0;
+
+  @override
+  double computeMaxIntrinsicWidth(double height) => 0;
 }
