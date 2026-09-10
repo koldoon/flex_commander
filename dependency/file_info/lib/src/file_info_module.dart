@@ -105,5 +105,6 @@ const Map<String, String> _russian = {
 
   // Кнопка подсчёта размера.
   'Calculate': 'Посчитать',
+  'Edit…': 'Править…',
   'Counting…': 'Считаю…',
 };

@@ -377,6 +377,7 @@ takes and saying in words when nothing does.
 | `dependency/viewer` | the viewing shell: `F3`, `Shift+F3` and choosing a viewer |
 | `dependency/text_viewer`, `dependency/image_viewer` | viewers: text and images |
 | `dependency/file_info` | file info: the window, the fallback viewer, section providers |
+| `dependency/attributes` | editing attributes: permissions, dates, owner, extended |
 | `dependency/editor` | the text editor (`F4`) |
 | `dependency/navigation` | cursor, tree walking, marking |
 | `dependency/file_ops` | create, delete, copy, move |

@@ -12,6 +12,14 @@ import 'file_info_view.dart';
 ///
 /// `Cmd-I` с макоси и `Alt-Enter` из коммандеров: обе привычки настоящие, и
 /// спорить им не с чем.
+/// Правка атрибутов — **строкой**, а не пакетом.
+///
+/// Идентификатор команды это внешний контракт: он живёт в настройках, в справке
+/// и в журнале. Зависеть ради кнопки от `fc_attributes` шелл сведений не может
+/// и не должен: он обязан работать и без него. Та же связь, которой окно
+/// настроек зовёт редактор тем (роадмап, В3).
+const String _editAttributes = 'file.attributes';
+
 class FileInfoCommand extends AppCommand {
   static const String commandId = 'file.info';
 
@@ -47,11 +55,12 @@ class FileInfoCommand extends AppCommand {
       return;
     }
 
-    final view = context.app.view;
+    final app = context.app;
+    final view = app.view;
     // Окно встаёт с тем, что видно, и дополняется целиком, когда ядро ответит:
     // помеченного в других каталогах у этой стороны значением нет вовсе
     // (`docs/spec/operation-targets.md`, §2).
-    final screen = FileInfoScreen(app: context.app, entries: targets, contentOf: panel.contentOf);
+    final screen = FileInfoScreen(app: app, entries: targets, contentOf: panel.contentOf);
     late final String dialogId;
     void close() {
       view.closeDialog(dialogId);
@@ -77,6 +86,17 @@ class FileInfoCommand extends AppCommand {
                     FcButton(
                       label: screen.counting ? tr('Counting…') : tr('Calculate'),
                       onPressed: screen.counting ? null : screen.count,
+                    ),
+                  // Сведения показывают, окно правки правит — и попасть в него
+                  // естественнее всего отсюда. Кнопки нет вовсе, если нет
+                  // команды: модуль правки выключен — и обещать нечего.
+                  if (app.commands.find(_editAttributes) case final command? when app.commands.isExecutable(command))
+                    FcButton(
+                      label: tr('Edit…'),
+                      onPressed: () {
+                        close();
+                        app.commands.run(_editAttributes);
+                      },
                     ),
                 ],
               ),

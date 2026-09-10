@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_attributes/fc_attributes.dart';
 import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_file_info/fc_file_info.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/state/app_controller.dart';
@@ -409,6 +411,57 @@ void main() {
 
       final boxes = tester.widgetList<FcCheckbox>(find.byType(FcCheckbox)).where((one) => one.label == 'read');
       expect(boxes.every((one) => one.onChanged == null), isTrue);
+    });
+  });
+
+  group('мимо окна', () {
+    testWidgets('параметр recursive делает то же самое', (tester) async {
+      await pumpApp(tester);
+      await putCursorOn(tester, 'docs');
+
+      // Правка дерева выразима параметром: из палитры, из привязки клавиши, из
+      // сценария — окна при этом никто не видит.
+      app.commands.run('file.attributes', const CommandInvocation(parameters: {'recursive': true}));
+      await settle(tester);
+      await tapCheckbox(tester, 'write', at: 1);
+      await apply(tester);
+
+      expect(provider.touched, contains('/home/docs/inner/nested.txt'));
+    });
+  });
+
+  group('кнопка в сведениях', () {
+    Future<void> startWith(List<FcModule> modules) async {
+      final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
+      app = (await testApp(provider: provider, modules: modules, settings: settings)).app;
+    }
+
+    testWidgets('открывает окно правки', (tester) async {
+      await startWith([const Navigation(), const FileInfo(), const AttributeEditing()]);
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+
+      app.commands.run('file.info');
+      await settle(tester);
+      expect(find.text('Edit…'), findsOneWidget);
+
+      await tester.tap(find.widgetWithText(FcButton, 'Edit…'));
+      await settle(tester);
+
+      expect(find.text('Apply'), findsOneWidget, reason: 'сведения закрылись, правка открылась');
+    });
+
+    testWidgets('без модуля правки кнопки нет вовсе', (tester) async {
+      // Правило В3: команды нет — модуль выключен — и обещать нечего.
+      await startWith([const Navigation(), const FileInfo()]);
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+
+      app.commands.run('file.info');
+      await settle(tester);
+
+      expect(find.text('Edit…'), findsNothing);
+      expect(find.text('Calculate'), findsNothing, reason: 'под курсором файл, а не каталог');
     });
   });
 

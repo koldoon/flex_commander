@@ -39,5 +39,11 @@ dev_dependencies:
   fc_navigation:
     path: ../navigation
 
+  # Кнопка «Edit…» живёт в окне сведений и ссылается на нашу команду строкой:
+  # проверяется отсюда, потому что связь односторонняя — сведения о нас не
+  # знают и знать не должны.
+  fc_file_info:
+    path: ../file_info
+
   flex_commander:
     path: ../..
