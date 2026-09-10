@@ -3,6 +3,10 @@ import 'dart:io';
 
 import 'package:ffi/ffi.dart';
 
+import 'package:fc_api/fc_api.dart';
+
+import 'system_errors.dart';
+
 /// Назначение режима доступа — `chmod(2)`.
 ///
 /// Через FFI, потому что в `dart:io` этого нет вовсе: файл можно прочитать,
@@ -24,15 +28,20 @@ class LocalMode {
 
   final _ChmodDart _chmod;
 
-  /// Назначает режим; false — не вышло.
+  /// Назначает режим; не вышло — [FsError] по `errno`.
   ///
-  /// Не бросает: единственный, кто это зовёт, — сохранение файла, и уронить
-  /// уже записанное из-за неудавшегося `chmod` было бы хуже, чем оставить файл
-  /// с правами по умолчанию.
-  bool apply(String path, int mode) {
+  /// **Бросает**, в отличие от прежней редакции. Молчать здесь больше нельзя:
+  /// режим теперь назначают и по прямой просьбе человека, а «нажал Apply, и
+  /// ничего не произошло» — это ровно то, чего приложение не делает. Тому
+  /// единственному месту, которому отказ безразличен, — переносу режима при
+  /// записи файла (`NodeAttributesEditor.carryMode`), — молчать проще самому:
+  /// оно и знает, почему ему можно.
+  void apply(String path, int mode) {
     final native = path.toNativeUtf8();
     try {
-      return _chmod(native, mode) == 0;
+      if (_chmod(native, mode) != 0) {
+        throw fsErrorFromErrno(path, systemErrno, what: 'Cannot change the mode');
+      }
     } finally {
       calloc.free(native);
     }

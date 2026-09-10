@@ -16,9 +16,12 @@ library;
 
 export 'src/local_file_copy.dart';
 export 'src/local_mode.dart';
+export 'src/local_owner.dart';
 export 'src/local_process_runner.dart';
 export 'src/local_shell.dart';
 export 'src/local_staging_area.dart';
+export 'src/local_times.dart';
+export 'src/local_xattr.dart';
 export 'src/plugin_window_service.dart';
 export 'src/posix_pty.dart';
 export 'src/system_clipboard.dart';
