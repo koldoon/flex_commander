@@ -423,6 +423,20 @@ void main() {
       expect(tester.takeException(), isNull);
     });
 
+    testWidgets('длинное имя не съедает столбец значения', (tester) async {
+      const long = 'com.apple.metadata:kMDItemWhereFroms';
+      provider.xattrs['/home/notes.txt'] = {long: List.filled(72, 7)};
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      // Двоичное показывается счётом байт; ужиматься ему некуда, и в один знак
+      // ширины оно вставало бы столбиком по букве.
+      final value = tester.getRect(find.text('72 bytes'));
+      expect(value.width, greaterThan(40));
+      expect(value.height, lessThan(30), reason: 'одна строка, а не столбик');
+    });
+
     testWidgets('источник без этого умения раздела не показывает', (tester) async {
       // Ровно как сервер по SFTP: обычные атрибуты умеет, расширенных у него
       // нет вовсе.

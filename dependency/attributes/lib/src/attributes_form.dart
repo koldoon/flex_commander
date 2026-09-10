@@ -175,18 +175,27 @@ class AttributesForm extends StatelessWidget {
   /// начинается там же, где длинная.
   List<CommandDialogField> _extended(BuildContext context) {
     final strings = context.strings;
+    final metrics = FcTheme.of(context).metrics;
     final rows = run.xattrs;
     return [
       CommandDialogField.stacked(
         label: strings.tr('Extended'),
         children: [
           Table(
-            // Имя меряется по себе: `com.apple.metadata:kMDItemWhereFroms`
-            // длиннее половины окна, и в резиновом столбце он вставал бы в две
-            // строки. Пусть окно вырастет под него — в пределах темы; растягивать
-            // его будет самое длинное имя, а не значение (значение резиновое и в
-            // счёте ширины не участвует).
-            columnWidths: const {0: IntrinsicColumnWidth(), 1: FlexColumnWidth(), 2: IntrinsicColumnWidth()},
+            // Все три столбца меряются **по себе** — иначе окно не узнает, что
+            // ему стоит подрасти, и столбец значения ужмётся до одного знака.
+            // (`FlexColumnWidth` в замере отвечает нулём — то же, обо что уже
+            // споткнулась форма окна.)
+            //
+            // У имени сверху предел в половину окна: `com.apple.metadata:
+            // kMDItemWhereFroms` иначе съел бы всё место, а ему есть чем
+            // ужаться — оно режется многоточием. У значения `flex: 1`: на
+            // широком окне остаток достаётся ему.
+            columnWidths: {
+              0: MinColumnWidth(const IntrinsicColumnWidth(), FixedColumnWidth(metrics.dialogMaxWidth / 2)),
+              1: const IntrinsicColumnWidth(flex: 1),
+              2: const IntrinsicColumnWidth(),
+            },
             defaultVerticalAlignment: TableCellVerticalAlignment.middle,
             children: [
               for (var i = 0; i < rows.length; i++) _xattrRow(context, rows[i], last: false),
