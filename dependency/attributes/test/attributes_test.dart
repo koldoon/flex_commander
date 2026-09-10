@@ -354,6 +354,22 @@ void main() {
       expect(provider.xattrs['/home/notes.txt'], isEmpty);
     });
 
+    testWidgets('строка не слипается: между управлениями обычный просвет', (tester) async {
+      provider.xattrs['/home/notes.txt'] = {'com.apple.quarantine': utf8.encode('0083;Safari')};
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      // `dialogGap` — та же мера, которой отбиты друг от друга кнопки окна.
+      const gap = 8.0;
+      final value = tester.getRect(fieldWithHint('value'));
+      final add = tester.getRect(find.widgetWithText(FcButton, 'Add'));
+      expect(add.left - value.right, greaterThanOrEqualTo(gap));
+
+      final name = tester.getRect(fieldWithHint('name'));
+      expect(value.left - name.right, greaterThanOrEqualTo(gap));
+    });
+
     testWidgets('источник без этого умения раздела не показывает', (tester) async {
       // Ровно как сервер по SFTP: обычные атрибуты умеет, расширенных у него
       // нет вовсе.

@@ -98,7 +98,14 @@ class AttributesForm extends StatelessWidget {
     );
   }
 
-  Widget _gap(BuildContext context) => SizedBox(width: FcTheme.of(context).metrics.checkboxGap * 2);
+  /// Просвет между флажками в ряду — вдвое против обычного.
+  ///
+  /// Обычного здесь мало: у флажка справа от клетки уже стоит своя подпись, и
+  /// с одним `dialogGap` она смыкалась бы со следующей клеткой в одно слово.
+  Widget _gap(BuildContext context) => SizedBox(width: FcTheme.of(context).metrics.dialogGap * 2);
+
+  /// Обычный просвет между управлениями в строке — тот же, что между кнопками.
+  static Widget _space(BuildContext context) => SizedBox(width: FcTheme.of(context).metrics.dialogGap);
 
   /// Восьмеричное — второй вид того же значения, связанный с сеткой в обе
   /// стороны.
@@ -131,7 +138,7 @@ class AttributesForm extends StatelessWidget {
               onChanged: run.setOwner,
             ),
           ),
-          _gap(context),
+          _space(context),
           Expanded(
             child: _Field(
               key: ValueKey('group:${run.sample.gid}'),
@@ -213,6 +220,7 @@ class _XattrRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(child: FcText(xattr.name)),
+        AttributesForm._space(context),
         Expanded(
           child:
               text == null
@@ -228,6 +236,7 @@ class _XattrRow extends StatelessWidget {
                     onChanged: (value) => run.setXattr(xattr.name, value),
                   ),
         ),
+        AttributesForm._space(context),
         FcButton(label: context.strings.tr('Remove'), onPressed: () => run.removeXattr(xattr.name)),
       ],
     );
@@ -254,6 +263,7 @@ class _NewXattrRow extends StatelessWidget {
             onChanged: run.setNewXattrName,
           ),
         ),
+        AttributesForm._space(context),
         Expanded(
           child: _Field(
             key: ValueKey('new-value:${run.xattrSet.length}:${run.xattrRemove.length}'),
@@ -263,6 +273,7 @@ class _NewXattrRow extends StatelessWidget {
             onChanged: run.setNewXattrValue,
           ),
         ),
+        AttributesForm._space(context),
         FcButton(label: strings.tr('Add'), onPressed: run.addXattr),
       ],
     );
