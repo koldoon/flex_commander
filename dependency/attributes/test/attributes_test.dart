@@ -460,6 +460,34 @@ void main() {
       expect(list.position.maxScrollExtent, greaterThan(0), reason: 'до остальных листают');
     });
 
+    testWidgets('заголовок и строки начинаются от левого поля', (tester) async {
+      provider.xattrs['/home/notes.txt'] = {'com.example.mark': utf8.encode('x')};
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      // Столбец подписей заголовкам разделов не начальник: отодвинутые на его
+      // ширину, они выглядели бы приклеенными к форме сбоку.
+      final octal = tester.getRect(find.text('Octal')).left;
+      expect(tester.getRect(find.text('Extended attributes')).left, closeTo(octal, 0.5));
+      expect(tester.getRect(find.text('Apply to')).left, closeTo(octal, 0.5));
+      expect(tester.getRect(find.text('com.example.mark')).left, closeTo(octal, 0.5));
+
+      // А поле с подписью — правее: перед ним стоит столбец подписей.
+      expect(tester.getRect(fieldWithHint('user')).left, greaterThan(octal));
+    });
+
+    testWidgets('имя ярче счёта байт: смотрят на имя', (tester) async {
+      provider.xattrs['/home/notes.txt'] = {'com.example.mark': List.filled(7, 0)};
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+      await pressCtrlA(tester);
+
+      final theme = FcTheme.of(tester.element(find.text('com.example.mark')));
+      expect(tester.widget<Text>(find.text('com.example.mark')).style?.color, theme.colors.dialogLabel);
+      expect(tester.widget<Text>(find.text('7 bytes')).style?.color, theme.colors.dialogText);
+    });
+
     testWidgets('полное имя — подсказкой', (tester) async {
       const long = 'com.apple.metadata:kMDItemWhereFroms';
       provider.xattrs['/home/notes.txt'] = {long: utf8.encode('https://example.com')};

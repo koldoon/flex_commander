@@ -11,14 +11,26 @@ import 'pick_list.dart';
 /// Модулю не нужно знать, каким стилем набирается подпись, — это дело темы,
 /// а тема может смениться.
 class FcLabel extends StatelessWidget {
-  const FcLabel(this.text, {super.key, this.textAlign});
+  const FcLabel(this.text, {super.key, this.textAlign, this.maxLines});
 
   final String text;
   final TextAlign? textAlign;
 
+  /// Сколько строк подпись занимает; null — сколько понадобится.
+  ///
+  /// `1` нужно в столбце таблицы: перенос сдвинул бы соседей по строке.
+  /// Не влезшее режется многоточием.
+  final int? maxLines;
+
   @override
   Widget build(BuildContext context) {
-    return Text(text, style: FcTheme.of(context).dialogLabelStyle, textAlign: textAlign);
+    return Text(
+      text,
+      style: FcTheme.of(context).dialogLabelStyle,
+      textAlign: textAlign,
+      maxLines: maxLines,
+      overflow: maxLines == null ? null : TextOverflow.ellipsis,
+    );
   }
 }
 

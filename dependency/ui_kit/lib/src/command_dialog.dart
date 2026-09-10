@@ -571,7 +571,8 @@ class CommandDialogField {
       children = const [],
       bleeds = false,
       _tight = false,
-      _stacked = false;
+      _stacked = false,
+      _indented = true;
 
   /// Несколько строк под одной подписью; подпись встаёт вровень с первой.
   ///
@@ -581,7 +582,8 @@ class CommandDialogField {
     : _child = null,
       bleeds = false,
       _tight = true,
-      _stacked = false;
+      _stacked = false,
+      _indented = true;
 
   /// Подпись **над** столбцом, а не слева от него.
   ///
@@ -593,7 +595,8 @@ class CommandDialogField {
     : _child = null,
       bleeds = false,
       _tight = false,
-      _stacked = true;
+      _stacked = true,
+      _indented = true;
 
   /// Несколько **самостоятельных** строк под одной подписью — с обычным
   /// просветом между ними.
@@ -606,19 +609,31 @@ class CommandDialogField {
     : _child = null,
       bleeds = false,
       _tight = false,
-      _stacked = false;
+      _stacked = false,
+      _indented = true;
 
   /// Строка без подписи — во всю ширину столбца значений.
   ///
   /// Флаг, полоса хода работы, сообщение об ошибке: подписи слева у них нет, а
   /// вставать они должны вровень с остальными значениями, а не с их подписями.
-  const CommandDialogField.wide({required Widget child})
+  /// Строка без подписи — во всю ширину содержимого.
+  ///
+  /// [indented] по умолчанию: строка начинается там же, где значения, — под
+  /// полем ввода, а не под его подписью. Так стоит флажок «идти по ссылкам»:
+  /// он про поле над собой.
+  ///
+  /// `indented: false` — от левого поля окна, мимо столбца подписей. Так стоят
+  /// **заголовки разделов** и то, что под ними: столбец подписей им не
+  /// начальник, и отодвинутые на его ширину они выглядели бы приклеенными к
+  /// форме сбоку.
+  const CommandDialogField.wide({required Widget child, bool indented = true})
     : label = '',
       _child = child,
       children = const [],
       bleeds = false,
       _tight = false,
-      _stacked = false;
+      _stacked = false,
+      _indented = indented;
 
   /// Строка во всю ширину **окна** — мимо полей формы.
   ///
@@ -632,7 +647,8 @@ class CommandDialogField {
       children = const [],
       bleeds = true,
       _tight = false,
-      _stacked = false;
+      _stacked = false,
+      _indented = true;
 
   final String label;
 
@@ -646,6 +662,9 @@ class CommandDialogField {
 
   /// Подпись стоит над содержимым, а не слева от него.
   final bool _stacked;
+
+  /// Широкая строка отодвинута на ширину столбца подписей.
+  final bool _indented;
 
   /// Содержимое строки — одно или столбцом.
   Widget content(FcTheme theme) {
@@ -773,7 +792,7 @@ class FcForm extends StatelessWidget {
         // столбец зазор сдвигал бы всё содержимое вправо, и поле слева
         // оказывалось шире правого ровно на него. Окно от этого выглядело
         // косым, а причина не находилась ни в нём самом, ни в теме.
-        final indent = width == 0 ? 0.0 : width + metrics.dialogGap;
+        final indent = width == 0 || !row._indented ? 0.0 : width + metrics.dialogGap;
         final content =
             row.bleeds
                 ? row.content(theme)

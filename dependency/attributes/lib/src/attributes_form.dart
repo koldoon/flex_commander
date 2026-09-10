@@ -47,13 +47,15 @@ class AttributesForm extends StatelessWidget {
       onSubmit: run.submit,
       submitLabel: strings.tr('Apply'),
       children: [
-        CommandDialogField.wide(child: _octalRow(context)),
-        CommandDialogField.wide(child: _classes(context)),
+        // Заголовки разделов и то, что под ними, идут от левого поля: столбец
+        // подписей им не начальник.
+        CommandDialogField.wide(indented: false, child: _octalRow(context)),
+        CommandDialogField.wide(indented: false, child: _classes(context)),
         if (run.single) _owner(context),
         if (run.single) _date(context, strings.tr('Modified'), run.modifiedText, run.setModified),
         if (run.single) _date(context, strings.tr('Accessed'), run.accessedText, run.setAccessed),
         if (run.single && run.sample.canEditXattrs) ..._extended(context),
-        CommandDialogField.wide(child: _applyTo(context)),
+        CommandDialogField.wide(indented: false, child: _applyTo(context)),
       ],
     );
   }
@@ -225,6 +227,7 @@ class AttributesForm extends StatelessWidget {
 
     return [
       CommandDialogField.wide(
+        indented: false,
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
@@ -235,6 +238,7 @@ class AttributesForm extends StatelessWidget {
         ),
       ),
       CommandDialogField.wide(
+        indented: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -276,10 +280,12 @@ class AttributesForm extends StatelessWidget {
               // спрашивают о нём именно тогда, когда не влезло.
               ConstrainedBox(
                 constraints: const BoxConstraints(minWidth: _nameMin, maxWidth: _nameMax),
-                child: Tooltip(message: xattr.name, child: FcText(xattr.name, maxLines: 1)),
+                // Имя — главное в строке, и набрано оно ярким; счёт байт рядом
+                // приглушён: это подробность, а не то, за чем сюда смотрят.
+                child: Tooltip(message: xattr.name, child: FcLabel(xattr.name, maxLines: 1)),
               ),
             ),
-            _cell(context, FcLabel(strings.plural(xattr.value.length, one: '{n} byte', other: '{n} bytes'))),
+            _cell(context, FcText(strings.plural(xattr.value.length, one: '{n} byte', other: '{n} bytes'))),
             _cell(
               context,
               ConstrainedBox(
