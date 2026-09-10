@@ -39,6 +39,12 @@
 **провайдеров сведений**, объявленных модулями.
 
 ```dart
+/// Откуда об объекте узнают: байты и атрибуты.
+abstract interface class NodeSource {
+  Content get content;
+  Future<NodeAttributes> attributes();
+}
+
 abstract interface class NodeInfoProvider {
   /// Устойчивое имя: `basics`, `image`, `xattr`.
   String get id;
@@ -50,10 +56,10 @@ abstract interface class NodeInfoProvider {
   ///
   /// Тот же вопрос и в том же виде, что у просмотрщика: два реестра рядом
   /// должны спрашиваться одинаково, иначе их придётся помнить по отдельности.
-  bool accepts(FsNode node, ContentType? type);
+  bool accepts(FileEntry entry, ContentType? type);
 
   /// Что этот провайдер знает об узле. Пусто — «сказать нечего».
-  Future<List<NodeInfoSection>> describe(FsNode node);
+  Future<List<NodeInfoSection>> describe(FileEntry entry, NodeSource source);
 }
 
 registry.nodeInfo((context) => ImageInfoProvider());
@@ -94,12 +100,11 @@ registry.nodeInfo((context) => ImageInfoProvider());
   выдержкой.
 * **Архиваторы** — метод сжатия, доля сжатия, признак шифрования у записи
   внутри архива.
-* **Правка атрибутов** (Е2) — расширенные атрибуты (`xattr`), метки, флаги.
-  **Отложено:** в Е2 расширенные атрибуты показываются и правятся в своём окне,
-  а раздела здесь пока нет. Причина в контракте: провайдер сведений живёт на
-  экранной стороне и получает только строку и байты (`Content`) — дороги к
-  ядру у него нет, а дать её значит менять `describe` у всех сразу
-  ([`file-attributes.md`](file-attributes.md), §13).
+* **Правка атрибутов** (Е2) — расширенные атрибуты (`xattr`) разделом
+  «Extended attributes». **Сделано**, и ради этого у провайдера сведений
+  сменился второй довод: вместо байтов (`Content`) он получает `NodeSource` —
+  ручку, у которой спрашивают и байты, и атрибуты. Дороги к ядру у него так и
+  нет: спрашивает он у панели, которой строка принадлежит.
 * **Локальная ФС** — владелец и группа, когда появится Б4.
 * **SSH** — что о файле сказал сервер сверх обычного.
 

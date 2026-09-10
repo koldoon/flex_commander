@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:flutter/foundation.dart';
 
+import 'node_info.dart';
 import 'viewport.dart';
 
 /// Сессия — одно **место**, с которым работают: каталог, курсор, пометка, вид.
@@ -148,6 +149,13 @@ abstract interface class Session implements ViewportState {
   /// Умеет ли источник отдавать байты вообще, говорит снимок
   /// (`SourceInfo.canStream`).
   Content contentOf(FileEntry entry);
+
+  /// Откуда об этой строке узнают: байты и атрибуты одной ручкой.
+  ///
+  /// Нужна тем, кто о строке **рассказывает**, а не показывает её: провайдеру
+  /// сведений бывает нужно и то и другое, и таскать за собой два замыкания он
+  /// не должен.
+  NodeSource sourceOf(FileEntry entry);
 
   /// Атрибуты строки: режим, даты, владелец, расширенные атрибуты.
   ///

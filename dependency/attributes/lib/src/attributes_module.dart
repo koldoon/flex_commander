@@ -5,6 +5,7 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'attribute_edits.dart';
 import 'attributes_command.dart';
 import 'attributes_operation.dart';
+import 'xattr_info_provider.dart';
 
 /// Правка атрибутов: команда и окно на экране, работа — в ядре.
 ///
@@ -39,6 +40,10 @@ class AttributeEditing implements FcBackendModule, FcFrontendModule {
   void installFrontend(FrontendRegistry registry) {
     registry.strings('ru', _russian);
     registry.plurals('ru', _plurals);
+
+    // Сведения дополняются нашим разделом — и окно о нас ничего не знает:
+    // рассказывает о расширенных атрибутах тот, кто с ними и работает.
+    registry.nodeInfo((context) => XattrInfoProvider(context.resolve<Strings>()));
 
     registry.command((context) => AttributesCommand());
     // Привычка Far Manager: там за этим сочетанием ровно атрибуты файла. На

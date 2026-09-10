@@ -672,6 +672,59 @@ void main() {
     });
   });
 
+  group('раздел в сведениях', () {
+    Future<void> startWith(List<FcModule> modules) async {
+      final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
+      app = (await testApp(provider: provider, modules: modules, settings: settings)).app;
+    }
+
+    testWidgets('расширенные атрибуты видны в окне сведений', (tester) async {
+      provider.xattrs['/home/notes.txt'] = {
+        'com.apple.quarantine': utf8.encode('0083;Safari'),
+        'com.apple.FinderInfo': List.filled(32, 0),
+      };
+      await startWith([const Navigation(), const FileInfo(), const AttributeEditing()]);
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+
+      app.commands.run('file.info');
+      await settle(tester);
+
+      expect(find.text('Extended attributes'), findsOneWidget);
+      expect(find.text('com.apple.quarantine'), findsOneWidget);
+      expect(find.text('0083;Safari'), findsOneWidget);
+      // Двоичное текстом не притворяется и здесь: показать кашу вместо
+      // `FinderInfo` хуже, чем сказать, сколько в нём байт.
+      expect(find.text('32 bytes'), findsOneWidget);
+    });
+
+    testWidgets('нечего сказать — раздела нет вовсе', (tester) async {
+      await startWith([const Navigation(), const FileInfo(), const AttributeEditing()]);
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+
+      app.commands.run('file.info');
+      await settle(tester);
+
+      // Пустой заголовок — обещание, которого не сдержали.
+      expect(find.text('Extended attributes'), findsNothing);
+      expect(find.text('General'), findsOneWidget, reason: 'остальные разделы на месте');
+    });
+
+    testWidgets('без модуля правки раздела нет, а сведения работают', (tester) async {
+      provider.xattrs['/home/notes.txt'] = {'com.apple.quarantine': utf8.encode('0083;Safari')};
+      await startWith([const Navigation(), const FileInfo()]);
+      await pumpApp(tester);
+      await putCursorOn(tester, 'notes.txt');
+
+      app.commands.run('file.info');
+      await settle(tester);
+
+      expect(find.text('Extended attributes'), findsNothing);
+      expect(find.text('General'), findsOneWidget);
+    });
+  });
+
   group('без модуля', () {
     testWidgets('Ctrl-A ничего не делает, и приложение работает', (tester) async {
       final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));

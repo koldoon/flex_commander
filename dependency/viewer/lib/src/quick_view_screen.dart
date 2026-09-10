@@ -110,7 +110,7 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
         panel.contentOf(entry),
         ViewerPlace.panel,
         siblings: panel.entries,
-        contentOf: panel.contentOf,
+        sourceOf: panel.sourceOf,
         // Курсор ушёл дальше — дочитывать незачем: просмотрщик спрашивает об
         // этом сам, по ходу чтения.
         checkpoint: () async {

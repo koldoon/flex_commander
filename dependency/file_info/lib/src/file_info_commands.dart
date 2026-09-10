@@ -60,7 +60,7 @@ class FileInfoCommand extends AppCommand {
     // Окно встаёт с тем, что видно, и дополняется целиком, когда ядро ответит:
     // помеченного в других каталогах у этой стороны значением нет вовсе
     // (`docs/spec/operation-targets.md`, §2).
-    final screen = FileInfoScreen(app: app, entries: targets, contentOf: panel.contentOf);
+    final screen = FileInfoScreen(app: app, entries: targets, sourceOf: panel.sourceOf);
     late final String dialogId;
     void close() {
       view.closeDialog(dialogId);

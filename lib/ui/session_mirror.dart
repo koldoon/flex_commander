@@ -567,6 +567,10 @@ class SessionMirror extends ChangeNotifier implements Session {
     return ref == null ? const NoContent() : RemoteContent(_link, ref, length: entry.size);
   }
 
+  /// Байты и атрибуты одной ручкой — тем, кто о строке рассказывает.
+  @override
+  NodeSource sourceOf(FileEntry entry) => _EntrySource(this, entry);
+
   @override
   Future<NodeAttributes> readAttributes(FileEntry entry) async {
     final ref = _refTo(entry);
@@ -696,4 +700,21 @@ class SessionMirror extends ChangeNotifier implements Session {
     unawaited(_events.cancel());
     super.dispose();
   }
+}
+
+/// Строка как источник сведений о себе.
+///
+/// Значением, а не парой замыканий: спрашивают о ней и байты, и атрибуты, и
+/// завтра — контрольную сумму; носить их порознь пришлось бы всем по дороге.
+class _EntrySource implements NodeSource {
+  const _EntrySource(this._panel, this._entry);
+
+  final SessionMirror _panel;
+  final FileEntry _entry;
+
+  @override
+  Content get content => _panel.contentOf(_entry);
+
+  @override
+  Future<NodeAttributes> attributes() => _panel.readAttributes(_entry);
 }

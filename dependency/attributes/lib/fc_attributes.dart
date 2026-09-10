@@ -12,3 +12,4 @@ export 'src/attribute_edits.dart';
 export 'src/attributes_command.dart';
 export 'src/attributes_module.dart';
 export 'src/attributes_run.dart';
+export 'src/xattr_info_provider.dart';

@@ -62,7 +62,7 @@ class ViewFileCommand extends AppCommand {
           ViewerPlace.fullscreen,
           checkpoint: op.checkpoint,
           siblings: context.session.entries,
-          contentOf: context.session.contentOf,
+          sourceOf: context.session.sourceOf,
         );
       });
       context.app.view.pushViewportContent(ViewportPosition.fullscreen, content);

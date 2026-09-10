@@ -23,7 +23,7 @@ class _BrokenProvider implements NodeInfoProvider {
   bool accepts(FileEntry entry, ContentType? type) => entry.name.endsWith('.broken');
 
   @override
-  Future<List<NodeInfoSection>> describe(FileEntry entry, Content content) async =>
+  Future<List<NodeInfoSection>> describe(FileEntry entry, NodeSource source) async =>
       throw const FsError('x', FsErrorKind.io);
 }
 
@@ -39,7 +39,7 @@ class _SilentProvider implements NodeInfoProvider {
   bool accepts(FileEntry entry, ContentType? type) => true;
 
   @override
-  Future<List<NodeInfoSection>> describe(FileEntry entry, Content content) async => const [];
+  Future<List<NodeInfoSection>> describe(FileEntry entry, NodeSource source) async => const [];
 }
 
 /// Модуль, объявляющий обоих: так это делает любой чужой модуль.
@@ -87,7 +87,7 @@ void main() {
     final screen = FileInfoScreen(
       app: runtime.app,
       entries: [entryValueOf(node)],
-      contentOf: (entry) => NodeContent(node),
+      sourceOf: (entry) => _NodeSource(NodeContent(node)),
     );
     await pumpEventQueue();
     return screen;
@@ -226,4 +226,15 @@ Map<String, String> _rowsOf(FileInfoScreen screen, String title) {
     }
   }
   return const {};
+}
+
+/// Источник сведений о подставном узле: байты есть, атрибутов не знаем.
+class _NodeSource implements NodeSource {
+  const _NodeSource(this.content);
+
+  @override
+  final Content content;
+
+  @override
+  Future<NodeAttributes> attributes() async => NodeAttributes.unknown;
 }

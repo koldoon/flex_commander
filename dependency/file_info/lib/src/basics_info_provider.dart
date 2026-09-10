@@ -23,7 +23,7 @@ class BasicsInfoProvider implements NodeInfoProvider {
   bool accepts(FileEntry entry, ContentType? type) => true;
 
   @override
-  Future<List<NodeInfoSection>> describe(FileEntry entry, Content content) async {
+  Future<List<NodeInfoSection>> describe(FileEntry entry, NodeSource source) async {
     return [
       NodeInfoSection(title: strings.tr('General'), rows: _general(entry)),
       if (_dates(entry) case final rows when rows.isNotEmpty) NodeInfoSection(title: strings.tr('Dates'), rows: rows),

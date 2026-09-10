@@ -36,10 +36,10 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
   FileInfoScreen({
     required this.app,
     required List<FileEntry> entries,
-    required Content Function(FileEntry entry) contentOf,
+    required NodeSource Function(FileEntry entry) sourceOf,
     this.place = ViewerPlace.fullscreen,
   }) : _entries = List.of(entries),
-       _contentOf = contentOf {
+       _sourceOf = sourceOf {
     _ask();
   }
 
@@ -83,7 +83,11 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
   }
 
   /// Чем прочесть содержимое: сведения о картинке разбирают её заголовок.
-  final Content Function(FileEntry entry) _contentOf;
+  /// Откуда об строке узнают: байты и атрибуты.
+  ///
+  /// Одной ручкой, а не парой замыканий: провайдеру бывает нужно и то и
+  /// другое, а шеллу — ни то ни другое.
+  final NodeSource Function(FileEntry entry) _sourceOf;
 
   @override
   final ViewerPlace place;
@@ -181,7 +185,7 @@ class FileInfoScreen extends ChangeNotifier implements ViewerContent {
 
   Future<void> _fill(NodeInfoPart part, NodeInfoProvider provider) async {
     try {
-      final sections = await provider.describe(entry, _contentOf(entry));
+      final sections = await provider.describe(entry, _sourceOf(entry));
       part.sections = sections;
       part.error = null;
     } on Object catch (error) {

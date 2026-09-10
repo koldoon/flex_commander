@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 
 import 'application.dart';
 import 'content_types.dart';
+import 'node_info.dart';
 import 'viewport.dart';
 
 /// Где показывают файл.
@@ -26,8 +27,8 @@ class ViewerRequest {
     required this.place,
     required this.checkpoint,
     this.siblings = const [],
-    Content Function(FileEntry entry)? contentOf,
-  }) : _contentOf = contentOf;
+    NodeSource Function(FileEntry entry)? sourceOf,
+  }) : _sourceOf = sourceOf;
 
   /// Приложение: показу бывает нужно спросить у него объявленное другими.
   ///
@@ -53,16 +54,22 @@ class ViewerRequest {
   /// листать нечем: показ открыли не из панели.
   final List<FileEntry> siblings;
 
-  final Content Function(FileEntry entry)? _contentOf;
+  final NodeSource Function(FileEntry entry)? _sourceOf;
+
+  /// Откуда узнают об этой строке или о её соседе — байты и атрибуты.
+  ///
+  /// У самой открываемой строки байты уже есть ([content]): её читали, чтобы
+  /// выбрать просмотрщик, и читать второй раз незачем.
+  NodeSource sourceFor(FileEntry entry) {
+    final source = _sourceOf?.call(entry);
+    if (source != null && entry.name != this.entry.name) {
+      return source;
+    }
+    return _OpenedSource(content, source);
+  }
 
   /// Содержимое соседа — чтобы листать, не выходя в панель.
-  Content contentFor(FileEntry entry) {
-    final read = _contentOf;
-    if (read == null || entry.name == this.entry.name) {
-      return content;
-    }
-    return read(entry);
-  }
+  Content contentFor(FileEntry entry) => sourceFor(entry).content;
 
   /// Пауза и отмена: открытие может идти долго — файл читается с сервера или из
   /// архива, — а курсор в быстром просмотре к тому времени уже ушёл дальше.
@@ -133,4 +140,20 @@ class ViewerSpec {
   ///
   /// Отказ — [ViewerRefused]; ошибка чтения — обычное исключение источника.
   final Future<ViewerContent> Function(ViewerRequest request) open;
+}
+
+/// Уже открытая строка: байты на руках, а за атрибутами ходят к панели.
+///
+/// Панели может не быть вовсе — показ открывают и не из неё; тогда об
+/// атрибутах сказать нечего, и это законный ответ.
+class _OpenedSource implements NodeSource {
+  const _OpenedSource(this.content, this._source);
+
+  @override
+  final Content content;
+
+  final NodeSource? _source;
+
+  @override
+  Future<NodeAttributes> attributes() async => await _source?.attributes() ?? NodeAttributes.unknown;
 }

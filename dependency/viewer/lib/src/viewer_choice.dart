@@ -29,7 +29,7 @@ Future<ViewerContent> openViewer(
   ViewerPlace place, {
   Future<void> Function()? checkpoint,
   List<FileEntry> siblings = const [],
-  Content Function(FileEntry entry)? contentOf,
+  NodeSource Function(FileEntry entry)? sourceOf,
 }) async {
   final spec = viewerFor(app, entry);
   if (spec == null) {
@@ -43,7 +43,7 @@ Future<ViewerContent> openViewer(
       place: place,
       checkpoint: checkpoint ?? _never,
       siblings: siblings,
-      contentOf: contentOf,
+      sourceOf: sourceOf,
     ),
   );
 }

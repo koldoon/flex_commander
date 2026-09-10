@@ -52,7 +52,7 @@ class FileInfo implements FcFrontendModule {
             (request) async => FileInfoScreen(
               app: request.app,
               entries: [request.entry],
-              contentOf: request.contentFor,
+              sourceOf: request.sourceFor,
               place: request.place,
             ),
       ),

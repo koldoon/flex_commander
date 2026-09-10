@@ -33,10 +33,16 @@ class ImageInfoProvider implements NodeInfoProvider {
       !entry.isDirectory && !entry.isParent && ImageViewer.extensions.contains(extensionOf(entry.name).toLowerCase());
 
   @override
-  Future<List<NodeInfoSection>> describe(FileEntry entry, Content content) async {
+  Future<List<NodeInfoSection>> describe(FileEntry entry, NodeSource source) async {
     // Читает целиком — иначе заголовок не разобрать. Предел тот же, что у
     // показа: сведения не должны стоить дороже открытия.
-    final document = await ImageDocument.read(entry, content, settings, checkpoint: () async {}, strings: strings);
+    final document = await ImageDocument.read(
+      entry,
+      source.content,
+      settings,
+      checkpoint: () async {},
+      strings: strings,
+    );
 
     return [
       NodeInfoSection(
