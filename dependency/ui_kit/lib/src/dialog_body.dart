@@ -11,7 +11,13 @@ import 'fc_theme.dart';
 /// **Прокрутка живёт тут, а не в раме.** Рамная уносила бы вместе с
 /// содержимым и ряд кнопок — а ему положено стоять.
 class FcDialogBody extends StatelessWidget {
-  const FcDialogBody({super.key, required this.child, this.actions = const [], this.insets = FcDialogInsets.all});
+  const FcDialogBody({
+    super.key,
+    required this.child,
+    this.actions = const [],
+    this.insets = FcDialogInsets.all,
+    this.scrolls = true,
+  });
 
   /// Содержимое окна — всё, что между полосой заголовка и рядом кнопок.
   final Widget child;
@@ -25,13 +31,30 @@ class FcDialogBody extends StatelessWidget {
   /// Чем содержимое отбито от краёв окна.
   final FcDialogInsets insets;
 
+  /// Листает ли содержимое тело окна.
+  ///
+  /// Ложь — содержимое листает себя само, своим списком и своим контроллером
+  /// (справка, настройки, находки): клавиши листают именно его, и вторая
+  /// прокрутка поверх только мешала бы — страница дёргалась бы под списком.
+  final bool scrolls;
+
   @override
   Widget build(BuildContext context) {
     final metrics = FcTheme.of(context).metrics;
     // Высота задана — её надо заполнить; не задана — окно облегает содержимое.
     // Сведение идёт сверху, от рамы: изнутри его не добыть ([FcDialogSizing]).
     final stretches = FcDialogSizing.of(context);
-    final side = insets == FcDialogInsets.all ? metrics.dialogHorizontalPadding : 0.0;
+    final padding = switch (insets) {
+      FcDialogInsets.all => EdgeInsets.only(
+        left: metrics.dialogHorizontalPadding,
+        right: metrics.dialogHorizontalPadding,
+        // Сверху больше остальных: содержимое отходит от полосы заголовка.
+        top: metrics.dialogContentTopPadding,
+        bottom: metrics.dialogPadding,
+      ),
+      FcDialogInsets.vertical => EdgeInsets.only(top: metrics.dialogContentTopPadding, bottom: metrics.dialogPadding),
+      FcDialogInsets.none => EdgeInsets.zero,
+    };
 
     return Column(
       mainAxisSize: stretches ? MainAxisSize.max : MainAxisSize.min,
@@ -40,19 +63,12 @@ class FcDialogBody extends StatelessWidget {
         Flexible(
           fit: stretches ? FlexFit.tight : FlexFit.loose,
           child: Padding(
-            padding: EdgeInsets.only(
-              left: side,
-              right: side,
-              // Сверху больше остальных: содержимое отходит от полосы заголовка.
-              top: metrics.dialogContentTopPadding,
-              bottom: metrics.dialogPadding,
-            ),
+            padding: padding,
             // Растянутому окну прокрутка не нужна и вредна: высота у него есть,
-            // и распорядиться ею должно содержимое — у тянущихся окон внутри
-            // свой список со своим листанием. Облегающему она страхует от
+            // и распорядиться ею должно содержимое. Облегающему она страхует от
             // переполнения: окно правки атрибутов у файла с десятком
             // расширенных иначе молча вылезало за раму.
-            child: stretches ? child : SingleChildScrollView(child: child),
+            child: stretches || !scrolls ? child : SingleChildScrollView(child: child),
           ),
         ),
         if (actions.isNotEmpty) FcDialogActions(actions: actions),
@@ -63,8 +79,8 @@ class FcDialogBody extends StatelessWidget {
 
 /// Чем содержимое окна отбито от его краёв.
 ///
-/// Перечислением, а не флагом: боковых полей может не быть по двум разным
-/// причинам, и завтра появится третья.
+/// Перечислением, а не флагом: полей может не быть по разным причинам, и от
+/// причины зависит, каких именно.
 enum FcDialogInsets {
   /// Поля со всех сторон — так стоит содержимое обычного окна.
   all,
@@ -76,6 +92,13 @@ enum FcDialogInsets {
   /// затем, что его строка выбора обязана доходить до краёв: отбитая полями,
   /// она читается не как «эта строка», а как «эта плитка».
   vertical,
+
+  /// Полей нет вовсе: их ставит содержимое **внутри своей прокрутки**.
+  ///
+  /// Так устроена таблица справки: отбитая снаружи, она отходила бы от краёв
+  /// и прокручивалась в этой рамке, а отступ сверху не уезжал бы под полосу
+  /// заголовка вместе с первой строкой — и выглядел бы обрывом, а не полем.
+  none,
 }
 
 /// Ряд кнопок внизу окна: отступы и сами кнопки.

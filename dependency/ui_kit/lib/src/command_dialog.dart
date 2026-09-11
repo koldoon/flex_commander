@@ -515,6 +515,7 @@ class CommandDialogField {
     : _child = child,
       children = const [],
       bleeds = false,
+      expands = false,
       _tight = false,
       _stacked = false,
       _indented = true;
@@ -526,6 +527,7 @@ class CommandDialogField {
   const CommandDialogField.column({required this.label, required this.children})
     : _child = null,
       bleeds = false,
+      expands = false,
       _tight = true,
       _stacked = false,
       _indented = true;
@@ -539,6 +541,7 @@ class CommandDialogField {
   const CommandDialogField.stacked({required this.label, required this.children})
     : _child = null,
       bleeds = false,
+      expands = false,
       _tight = false,
       _stacked = true,
       _indented = true;
@@ -553,6 +556,7 @@ class CommandDialogField {
   const CommandDialogField.group({required this.label, required this.children})
     : _child = null,
       bleeds = false,
+      expands = false,
       _tight = false,
       _stacked = false,
       _indented = true;
@@ -571,7 +575,7 @@ class CommandDialogField {
   /// **заголовки разделов** и то, что под ними: столбец подписей им не
   /// начальник, и отодвинутые на его ширину они выглядели бы приклеенными к
   /// форме сбоку.
-  const CommandDialogField.wide({required Widget child, bool indented = true})
+  const CommandDialogField.wide({required Widget child, bool indented = true, this.expands = false})
     : label = '',
       _child = child,
       children = const [],
@@ -591,6 +595,7 @@ class CommandDialogField {
       _child = child,
       children = const [],
       bleeds = true,
+      expands = false,
       _tight = false,
       _stacked = false,
       _indented = true;
@@ -599,6 +604,14 @@ class CommandDialogField {
 
   /// Строка выходит за поля формы к самым краям окна.
   final bool bleeds;
+
+  /// Строка забирает себе всю высоту, какая осталась у формы.
+  ///
+  /// Только в окне, которому высоту **задали** (`FcDialogSizing`): в облегающем
+  /// окне лишней высоты нет вовсе, и забирать нечего. Так растёт список находок
+  /// — растянули окно, и видно больше строк, а сводка под ним остаётся на
+  /// месте (`docs/spec/dialog-body.md`).
+  final bool expands;
   final List<Widget> children;
   final Widget? _child;
 
@@ -703,6 +716,9 @@ class FcForm extends StatelessWidget {
     final parts = <Widget>[];
     // Просвет **перед** каждой частью; у первой его нет.
     final gaps = <double>[];
+    // Какая из частей забирает себе оставшуюся высоту; таких бывает не больше
+    // одной — делить остаток между двумя было бы нечем.
+    final grows = <bool>[];
     var run = <CommandDialogField>[];
     var lastWide = false;
     var lastSection = false;
@@ -718,13 +734,14 @@ class FcForm extends StatelessWidget {
     /// под полями, а не в их ряду, и отделять её от того, что ниже, нужно ровно
     /// так же. С просветом только сверху флажок прижимался к строке под собой и
     /// читался как её часть.
-    void add(Widget part, {required bool wide, bool section = false}) {
+    void add(Widget part, {required bool wide, bool section = false, bool expands = false}) {
       final gap =
           section || lastSection
               ? metrics.dialogSectionGap
               : (wide || lastWide ? metrics.dialogWideRowGap : metrics.dialogGap);
       gaps.add(parts.isEmpty ? 0 : gap);
       parts.add(part);
+      grows.add(expands);
       lastWide = wide;
       lastSection = section;
     }
@@ -758,18 +775,25 @@ class FcForm extends StatelessWidget {
                       ? row.content(theme)
                       : Padding(padding: EdgeInsets.only(left: indent), child: row.content(theme)),
                 );
-        add(content, wide: true, section: row.startsSection);
+        add(content, wide: true, section: row.startsSection, expands: row.expands);
         continue;
       }
       run.add(row);
     }
     flush();
 
+    // Форма растягивается только тогда, когда высоту ей задали **и** есть
+    // кому её отдать: иначе она по-прежнему облегает свои строки.
+    final stretches = grows.contains(true) && FcDialogSizing.of(context);
+
     return Column(
-      mainAxisSize: MainAxisSize.min,
+      mainAxisSize: stretches ? MainAxisSize.max : MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (var i = 0; i < parts.length; i++) ...[if (gaps[i] > 0) SizedBox(height: gaps[i]), parts[i]],
+        for (var i = 0; i < parts.length; i++) ...[
+          if (gaps[i] > 0) SizedBox(height: gaps[i]),
+          if (stretches && grows[i]) Flexible(fit: FlexFit.tight, child: parts[i]) else parts[i],
+        ],
       ],
     );
   }

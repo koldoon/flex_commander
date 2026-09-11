@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
@@ -110,8 +112,14 @@ class _FoundTableState extends State<FoundTable> {
     final colors = theme.colors;
     final line = _line(metrics);
 
-    // Страница для `PgUp`/`PgDn` известна заранее: строк столько, сколько видно.
-    widget.page?.size = widget.visibleRows;
+    // Страница для `PgUp`/`PgDn` — столько строк, сколько видно. Обычно это
+    // `visibleRows`, но в растянутом окне строк помещается больше, и тогда их
+    // считает сам обзор: `visibleRows` там всего лишь высота по умолчанию,
+    // которую перебивают ограничения окна (`docs/spec/dialog-body.md`).
+    widget.page?.size =
+        FcDialogSizing.of(context) && _scroll.hasClients
+            ? math.max(1, (_scroll.position.viewportDimension / line).floor())
+            : widget.visibleRows;
 
     // Область находок — место файловой панели, и устроена она как панель:
     // скругление `panelRadius`, шаг строк и цвета текста те же. Цвет области
@@ -126,6 +134,9 @@ class _FoundTableState extends State<FoundTable> {
     // и быть не может — что искали, сказано в заголовке окна, — а место под
     // неё осталось бы пустой полосой.
     return Container(
+      // Высота по умолчанию — целое число строк. В растянутом окне её
+      // перебивают ограничения: список получает всё, что осталось от сводки и
+      // ряда кнопок.
       height: line * widget.visibleRows + metrics.strokeWidth * 2,
       decoration: BoxDecoration(
         color: colors.dialogListBackground,

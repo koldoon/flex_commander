@@ -10,6 +10,7 @@ import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -639,6 +640,43 @@ void main() {
 
     expect(tester.getRect(find.byType(FoundTable)), table, reason: 'таблица там же и того же размера');
     expect(tester.getRect(find.byType(FindFilesResults)), window, reason: 'и окно не поехало');
+  });
+
+  testWidgets('растянутое окно отдаёт прибавку списку, а сводка и кнопки остаются внизу', (tester) async {
+    // Ради этого список и тянут: видно больше находок разом
+    // (`docs/spec/dialog-body.md`).
+    await pumpApp(tester, size: const Size(1200, 800));
+    await openWindow(tester);
+    await search(tester, '*.dart');
+
+    final table = tester.getRect(find.byType(FoundTable));
+    final window = tester.getRect(find.byType(FindFilesResults));
+
+    // Тянем окно за нижний край — там же, где его тянет человек.
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    final from = Offset(window.center.dx, window.bottom - 2);
+    await mouse.addPointer(location: from);
+    await tester.pump();
+    await mouse.down(from);
+    await tester.pump(const Duration(milliseconds: 20));
+    for (var step = 1; step <= 5; step++) {
+      await mouse.moveTo(from + Offset(0, 20.0 * step));
+      await tester.pump(const Duration(milliseconds: 10));
+    }
+    await mouse.up();
+    await tester.pumpAndSettle();
+    await mouse.removePointer();
+    await tester.pump();
+
+    final grown = tester.getRect(find.byType(FoundTable));
+    expect(grown.height, greaterThan(table.height + 50), reason: 'список не вырос');
+    // Сводка под списком и ряд кнопок никуда не делись.
+    expect(find.textContaining('Found:'), findsOneWidget);
+    expect(
+      tester.getRect(find.widgetWithText(FcButton, 'To panel')).bottom,
+      greaterThan(grown.bottom),
+      reason: 'кнопки должны остаться под списком',
+    );
   });
 
   testWidgets('находки красятся как в панели, заголовок каталога — всегда белым', (tester) async {

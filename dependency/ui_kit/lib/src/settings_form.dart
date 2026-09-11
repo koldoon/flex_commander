@@ -311,113 +311,122 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
         // не работает, `Flexible` получает бесконечность, и форма вылезает за
         // экран.
         constraints: dialogContentLimits(context),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Padding(
-              padding: EdgeInsets.only(left: padding.left, right: padding.right, top: padding.top),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: FcTextField(
-                      controller: _query,
-                      autofocus: true,
-                      hintText: context.strings.tr('Search settings'),
+        // Тело окна: содержимое, под ним ряд кнопок, прибитый к низу
+        // (`docs/spec/dialog-body.md`). Листает себя окно само — колонками, у
+        // каждой своя прокрутка, — и поля ставит там же, внутри них.
+        child: FcDialogBody(
+          scrolls: false,
+          insets: FcDialogInsets.none,
+          actions: [FcButton(label: context.strings.tr('Close'), onPressed: widget.onClose)],
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            // Заданную высоту колонка отдаёт своему ряду: под растянутым окном
+            // список должен дотянуться до кнопок, а не оставить полосу пустоты.
+            mainAxisSize: MainAxisSize.max,
+            children: [
+              Padding(
+                padding: EdgeInsets.only(left: padding.left, right: padding.right, top: padding.top),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: FcTextField(
+                        controller: _query,
+                        autofocus: true,
+                        hintText: context.strings.tr('Search settings'),
+                      ),
                     ),
-                  ),
-                  // Счёт — только пока отбирают: «22 settings» при пустом поле
-                  // отвечает на вопрос, которого никто не задавал, а вот
-                  // «5 settings» объясняет, почему список вдруг короткий.
-                  if (_query.text.trim().isNotEmpty) ...[
-                    SizedBox(width: metrics.columnGap),
-                    Text(_countLabel, style: _secondaryStyle(theme)),
+                    // Счёт — только пока отбирают: «22 settings» при пустом поле
+                    // отвечает на вопрос, которого никто не задавал, а вот
+                    // «5 settings» объясняет, почему список вдруг короткий.
+                    if (_query.text.trim().isNotEmpty) ...[
+                      SizedBox(width: metrics.columnGap),
+                      Text(_countLabel, style: _secondaryStyle(theme)),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            Flexible(
-              // Растяжкой, а не по содержимому: обе колонки прокручиваются
-              // сами, и высоту им должен задать ряд, иначе мерить её будет
-              // нечем.
-              child:
-                  _found.isEmpty
-                      // Одним сообщением на оба столбца: пустое оглавление
-                      // рядом с пустым списком сказало бы то же самое дважды.
-                      ? Center(child: Text(context.strings.tr('Nothing found'), style: theme.dialogLabelStyle))
-                      : Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(
-                            width: _tocWidth(context, theme, width, padding.left),
-                            child: Padding(
-                              padding: EdgeInsets.only(left: padding.left, top: padding.top, bottom: padding.bottom),
-                              child: FcPickList(
-                                rows: [for (final (_, title, _, _) in _found) FcPickRow(id: title, title: title)],
-                                // Оглавление отбирают снаружи, а не изнутри:
-                                // раздел, в котором ничего не совпало, из него
-                                // уже пропал, и подсвечивать в оставшихся
-                                // нечего.
-                                query: '',
-                                // Свой отступ: по умолчанию строка списка
-                                // равняется по тексту в поле ввода над ней, а
-                                // над оглавлением поля нет — есть край окна.
-                                textInset: metrics.dialogPadding,
-                                selected: _section,
-                                // Оглавление не выбирают — оно показывает, где
-                                // вы сейчас, и курсору здесь не обо что
-                                // упереться: ни рамки, ни фона у столбца нет.
-                                mark: FcPickMark.weight,
-                                onTap: (id) => _goToSection(_found.indexWhere((section) => section.$2 == id)),
+              Flexible(
+                // Растяжкой, а не по содержимому: обе колонки прокручиваются
+                // сами, и высоту им должен задать ряд, иначе мерить её будет
+                // нечем.
+                child:
+                    _found.isEmpty
+                        // Одним сообщением на оба столбца: пустое оглавление
+                        // рядом с пустым списком сказало бы то же самое дважды.
+                        ? Center(child: Text(context.strings.tr('Nothing found'), style: theme.dialogLabelStyle))
+                        : Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              width: _tocWidth(context, theme, width, padding.left),
+                              child: Padding(
+                                padding: EdgeInsets.only(left: padding.left, top: padding.top, bottom: padding.bottom),
+                                child: FcPickList(
+                                  rows: [for (final (_, title, _, _) in _found) FcPickRow(id: title, title: title)],
+                                  // Оглавление отбирают снаружи, а не изнутри:
+                                  // раздел, в котором ничего не совпало, из него
+                                  // уже пропал, и подсвечивать в оставшихся
+                                  // нечего.
+                                  query: '',
+                                  // Свой отступ: по умолчанию строка списка
+                                  // равняется по тексту в поле ввода над ней, а
+                                  // над оглавлением поля нет — есть край окна.
+                                  textInset: metrics.dialogPadding,
+                                  selected: _section,
+                                  // Оглавление не выбирают — оно показывает, где
+                                  // вы сейчас, и курсору здесь не обо что
+                                  // упереться: ни рамки, ни фона у столбца нет.
+                                  mark: FcPickMark.weight,
+                                  onTap: (id) => _goToSection(_found.indexWhere((section) => section.$2 == id)),
+                                ),
                               ),
                             ),
-                          ),
-                          Expanded(
-                            // Отступ от поля поиска — **снаружи** прокрутки, как
-                            // у оглавления: внутри он уезжал бы вместе с
-                            // содержимым, и настройки подлезали бы под поле.
-                            child: Padding(
-                              padding: EdgeInsets.only(top: padding.top),
-                              // Любое касание списка снимает удержание: колесо,
-                              // перетаскивание полосы, щелчок по настройке.
-                              child: Listener(
-                                onPointerDown: _unpin,
-                                onPointerSignal: _unpin,
-                                child: SingleChildScrollView(
-                                  controller: _scroll,
-                                  // Те же поля, что и у справки: окна не должны
-                                  // быть отбиты по-разному.
-                                  padding: EdgeInsets.only(
-                                    left: padding.left,
-                                    right: padding.right,
-                                    bottom: padding.bottom,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment: CrossAxisAlignment.start,
-                                    children: [
-                                      for (final (position, (index, title, schema, fields)) in _found.indexed) ...[
-                                        // Просвет **перед** заголовком, а не
-                                        // после каждого раздела: у первого
-                                        // сверху уже есть поле окна.
-                                        if (position > 0) SizedBox(height: metrics.sectionGap),
-                                        _heading(theme, title, key: _headings[index]),
-                                        for (final field in fields) ...[
-                                          SizedBox(height: metrics.sectionEntryGap),
-                                          _block(theme, schema, field),
+                            Expanded(
+                              // Отступ от поля поиска — **снаружи** прокрутки, как
+                              // у оглавления: внутри он уезжал бы вместе с
+                              // содержимым, и настройки подлезали бы под поле.
+                              child: Padding(
+                                padding: EdgeInsets.only(top: padding.top),
+                                // Любое касание списка снимает удержание: колесо,
+                                // перетаскивание полосы, щелчок по настройке.
+                                child: Listener(
+                                  onPointerDown: _unpin,
+                                  onPointerSignal: _unpin,
+                                  child: SingleChildScrollView(
+                                    controller: _scroll,
+                                    // Те же поля, что и у справки: окна не должны
+                                    // быть отбиты по-разному.
+                                    padding: EdgeInsets.only(
+                                      left: padding.left,
+                                      right: padding.right,
+                                      bottom: padding.bottom,
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        for (final (position, (index, title, schema, fields)) in _found.indexed) ...[
+                                          // Просвет **перед** заголовком, а не
+                                          // после каждого раздела: у первого
+                                          // сверху уже есть поле окна.
+                                          if (position > 0) SizedBox(height: metrics.sectionGap),
+                                          _heading(theme, title, key: _headings[index]),
+                                          for (final field in fields) ...[
+                                            SizedBox(height: metrics.sectionEntryGap),
+                                            _block(theme, schema, field),
+                                          ],
                                         ],
                                       ],
-                                    ],
+                                    ),
                                   ),
                                 ),
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-            ),
-            SizedBox(height: metrics.dialogGap),
-            FcDialogActions(actions: [FcButton(label: context.strings.tr('Close'), onPressed: widget.onClose)]),
-          ],
+                          ],
+                        ),
+              ),
+              SizedBox(height: metrics.dialogGap),
+            ],
+          ),
         ),
       ),
     );

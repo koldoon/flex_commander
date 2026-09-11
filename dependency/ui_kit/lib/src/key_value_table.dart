@@ -287,21 +287,20 @@ class _FcKeyValueTableState extends State<FcKeyValueTable> {
         // Ширина берётся у самого широкого раздела: строки внутри растягиваются
         // на всё, что им дали, и сами по себе ничего не требуют.
         width: double.infinity,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Flexible(child: FcKeyValueSections(sections: widget.sections, horizontal: widget.horizontal)),
-            // Тот же ряд, что и у остальных окон: кнопка по размеру подписи,
-            // прижата вправо. Своей разметкой её обходить нельзя — `FcButton`
-            // под ограниченной шириной растягивается во всю её ширину.
-            FcDialogActions(
-              actions: [
-                ...widget.actions,
-                FcButton(label: context.strings.tr('Close'), onPressed: widget.onClose, primary: true),
-              ],
-            ),
+        // Тело окна: содержимое, под ним ряд кнопок, прибитый к низу
+        // (`docs/spec/dialog-body.md`). Своей разметкой его обходить нельзя —
+        // `FcButton` под ограниченной шириной растягивается во всю её ширину,
+        // а растянутое окно оставило бы кнопки посреди себя.
+        child: FcDialogBody(
+          // Листает себя таблица сама — стрелками и PgUp/PgDn, своим
+          // контроллером; поля она ставит внутри этой прокрутки.
+          scrolls: false,
+          insets: FcDialogInsets.none,
+          actions: [
+            ...widget.actions,
+            FcButton(label: context.strings.tr('Close'), onPressed: widget.onClose, primary: true),
           ],
+          child: FcKeyValueSections(sections: widget.sections, horizontal: widget.horizontal),
         ),
       ),
     );

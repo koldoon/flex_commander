@@ -118,6 +118,9 @@ class _FindFilesResultsState extends State<FindFilesResults> {
               ],
               children: [
                 CommandDialogField.wide(
+                  // Растянули окно — прибавка достаётся списку: ради неё его и
+                  // тянут. Сводка под ним остаётся на месте.
+                  expands: true,
                   child: FoundTable(
                     rows: state.rows,
                     selected: state.selected,
