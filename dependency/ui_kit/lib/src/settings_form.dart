@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 
 import 'app_scope.dart';
 import 'command_dialog.dart';
+import 'dialog_body.dart';
 import 'controls.dart';
 import 'fc_theme.dart';
 import 'pick_list.dart';
@@ -415,7 +416,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                       ),
             ),
             SizedBox(height: metrics.dialogGap),
-            CommandDialogActions(actions: [FcButton(label: context.strings.tr('Close'), onPressed: widget.onClose)]),
+            FcDialogActions(actions: [FcButton(label: context.strings.tr('Close'), onPressed: widget.onClose)]),
           ],
         ),
       ),

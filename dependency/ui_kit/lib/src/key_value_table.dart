@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'command_dialog.dart';
+import 'dialog_body.dart';
 import 'app_scope.dart';
 import 'fc_theme.dart';
 
@@ -294,7 +295,7 @@ class _FcKeyValueTableState extends State<FcKeyValueTable> {
             // Тот же ряд, что и у остальных окон: кнопка по размеру подписи,
             // прижата вправо. Своей разметкой её обходить нельзя — `FcButton`
             // под ограниченной шириной растягивается во всю её ширину.
-            CommandDialogActions(
+            FcDialogActions(
               actions: [
                 ...widget.actions,
                 FcButton(label: context.strings.tr('Close'), onPressed: widget.onClose, primary: true),

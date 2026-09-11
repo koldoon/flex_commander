@@ -624,7 +624,7 @@ void main() {
   testWidgets('таблица находок не меняет размера, пока они прибывают', (tester) async {
     // Список, растущий по ходу работы, дёргал бы окно под курсором на каждой
     // пачке. Окно пошире: в тесном ряд кнопок ужимается целиком (`FittedBox` в
-    // `CommandDialogActions`), а от его высоты едет и всё остальное.
+    // `FcDialogActions`), а от его высоты едет и всё остальное.
     await pumpApp(tester, size: const Size(1200, 800));
     await openWindow(tester);
     await search(tester, '*.dart');

@@ -49,7 +49,7 @@ void main() {
     testWidgets('в ряду кнопок ширина не меняется', (tester) async {
       await pumpInDialogColumn(
         tester,
-        CommandDialogActions(
+        FcDialogActions(
           actions: [FcButton(label: 'Cancel', onPressed: () {}), FcButton(label: 'OK', onPressed: () {})],
         ),
       );

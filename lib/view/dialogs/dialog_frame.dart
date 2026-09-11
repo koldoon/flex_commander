@@ -513,24 +513,21 @@ class _DialogFrameState extends State<DialogFrame> {
                           children: [
                             if (widget.title case final title?) _titleBar(theme, colors, metrics, title),
                             // Высота **задана** — содержимое получает её целиком
-                            // (`tight`) и распоряжается ею само: прокрутки здесь
-                            // нет и быть не может, она съела бы всю прибавку и
-                            // оставила окно с пустотой внизу
-                            // (`docs/spec/dialog-body.md`).
+                            // (`tight`) и распоряжается ею само. Не задана —
+                            // окно облегает содержимое (`loose`), как облегало
+                            // всегда (`docs/spec/dialog-body.md`).
                             //
-                            // Высота **не задана** — всё как было: окно облегает
-                            // содержимое (`loose`), а прокрутка страхует от
-                            // переполнения. Окно правки атрибутов у файла с
-                            // десятком расширенных именно таково.
+                            // **Прокрутки здесь нет ни в той, ни в другой
+                            // ветке**, и это не упущение: рамная уносила бы
+                            // вместе с содержимым и ряд кнопок, а ему положено
+                            // стоять у нижнего края. Прокручивается середина
+                            // окна, и ставит её тело (`FcDialogBody`).
                             //
-                            // Полоса заголовка при этом остаётся на месте в обоих
+                            // Полоса заголовка остаётся на месте в обоих
                             // случаях: за неё окно двигают, и уезжать ей нельзя.
                             Flexible(
                               fit: fitted == null ? FlexFit.loose : FlexFit.tight,
-                              child: FcDialogSizing(
-                                stretches: fitted != null,
-                                child: fitted == null ? SingleChildScrollView(child: widget.child) : widget.child,
-                              ),
+                              child: FcDialogSizing(stretches: fitted != null, child: widget.child),
                             ),
                           ],
                         ),

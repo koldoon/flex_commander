@@ -5,6 +5,7 @@ import 'package:flutter/rendering.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'app_scope.dart';
+import 'dialog_body.dart';
 import 'fc_theme.dart';
 
 /// Готовые куски содержимого окна команды.
@@ -380,38 +381,18 @@ class CommandDialogBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FcTheme.of(context);
-    final metrics = theme.metrics;
-    // Поля по краям ставит сама форма: строка `bleed` выходит за них к краям
-    // окна, а изнутри общего `Padding` выйти нечем. Сверху отступ больше —
-    // содержимое отходит от полосы заголовка.
-    final contentPadding = EdgeInsets.only(top: metrics.dialogContentTopPadding, bottom: metrics.dialogPadding);
+    final metrics = FcTheme.of(context).metrics;
 
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: contentPadding,
-          child: FcForm(rows: children, horizontalPadding: metrics.dialogHorizontalPadding),
-        ),
-        CommandDialogActions(actions: actions),
-      ],
+    return FcDialogBody(
+      // Поля по краям ставит сама форма: строка `bleed` выходит за них к краям
+      // окна, а изнутри общего `Padding` выйти нечем.
+      insets: FcDialogInsets.vertical,
+      actions: actions,
+      child: FcForm(rows: children, horizontalPadding: metrics.dialogHorizontalPadding),
     );
   }
 }
 
-/// Ряд кнопок внизу окна: отступы и сами кнопки.
-///
-/// Общий для **всех** окон, и это не удобство, а необходимость: кнопка
-/// (`FcButton`) — это `Container` с `alignment`, а такой контейнер под
-/// ограниченной по ширине разметкой растягивается во всю её ширину. Ряд
-/// с `mainAxisSize: min` даёт кнопкам неограниченную ширину, и каждая
-/// получается по своей подписи.
-///
-/// Правило одно на все окна: **кнопки — по размеру подписи, одной строкой,
-/// прижатой вправо** (`HorizontalLayout horizontalAlign="right"` в референсе).
-/// Даже там, где кнопка одна.
 /// Сколько места содержимому окна дозволено занять.
 ///
 /// Одно правило на все окна: рама облегает содержимое, поэтому предел ставит
@@ -517,42 +498,6 @@ double dialogInputTextInset(BuildContext context, {double labelWidth = 0}) {
   final label = labelWidth > 0 ? labelWidth + metrics.dialogGap : 0.0;
 
   return metrics.dialogHorizontalPadding + label + metrics.strokeWidth + metrics.inputHorizontalPadding;
-}
-
-class CommandDialogActions extends StatelessWidget {
-  const CommandDialogActions({super.key, required this.actions});
-
-  final List<Widget> actions;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = FcTheme.of(context);
-    final metrics = theme.metrics;
-
-    return Column(
-      mainAxisSize: MainAxisSize.min,
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Padding(
-          padding: EdgeInsets.symmetric(horizontal: metrics.dialogHorizontalPadding, vertical: metrics.dialogPadding),
-          // Ширина окна задана содержимым и от кнопок не зависит, поэтому пять
-          // кнопок (вопрос о занятом имени) в узкое окно могут не помещаться.
-          // Тогда `FittedBox` соразмерно уменьшает весь ряд — строка остаётся
-          // одной, без переноса и без полосы переполнения.
-          child: FittedBox(
-            fit: BoxFit.scaleDown,
-            alignment: Alignment.centerRight,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                for (var i = 0; i < actions.length; i++) ...[if (i > 0) SizedBox(width: metrics.dialogGap), actions[i]],
-              ],
-            ),
-          ),
-        ),
-      ],
-    );
-  }
 }
 
 /// Строка формы: подпись слева, содержимое справа (`SimpleFormItemSkin`).
