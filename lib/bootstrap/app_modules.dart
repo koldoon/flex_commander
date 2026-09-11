@@ -9,6 +9,7 @@ import 'package:fc_editor/fc_editor.dart';
 import 'package:fc_file_icons/fc_file_icons.dart';
 import 'package:fc_file_info/fc_file_info.dart';
 import 'package:fc_file_ops/fc_file_ops.dart';
+import 'package:fc_ftp/fc_ftp.dart';
 import 'package:fc_image_viewer/fc_image_viewer.dart';
 import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:fc_navigation/fc_navigation.dart';
@@ -77,6 +78,10 @@ List<FcModule> featureModules() => [
   const SevenZipArchiver(),
   const TarArchiver(),
   const SshFileSystem(),
+  // Второй источник по адресу. Свой клиент на dart:io: у дартовых пакетов
+  // канал данных при FTPS не шифруется, а сертификат принимается любой
+  // (`docs/spec/ftp.md`, §8).
+  const FtpFileSystem(),
   // Оболочка просмотра занимает место заглушки на F3; просмотрщики объявляют
   // себя ей в реестр. Первая выбирает, вторые показывают.
   const Viewer(),

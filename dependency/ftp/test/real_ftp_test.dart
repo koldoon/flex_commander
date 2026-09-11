@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ftp/fc_ftp.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -140,6 +141,37 @@ void main() {
     final reply = await ftp.command('AUTH TLS');
     expect(reply.isPositive, isFalse, reason: 'сервер объявил AUTH TLS и отказал на нём');
   }, timeout: const Timeout(Duration(seconds: 60)));
+
+  test('провайдер собирает дерево живого сервера', () async {
+    // Всё предыдущее проверяет разговор; это — то, ради чего он затевался:
+    // панель должна получить настоящие узлы с размерами и правами.
+    final provider = await FtpTreeProvider.open(
+      Uri.parse('ftp://${target.host}$root'),
+      credentials: _AnonymousCredentials(),
+    );
+    addTearDown(() => (provider as ProviderLifecycle).dispose());
+
+    final dir = await provider.resolvePath().run(root);
+    expect(dir, isA<DirectoryNode>());
+
+    final nodes = await provider.getDirectoryListing().run(ListingParams(dir! as DirectoryNode));
+    expect(nodes.whereType<DirectoryNode>(), isNotEmpty);
+    expect(provider.pathOf(dir), startsWith('//anonymous@${target.host}'));
+
+    // Вход в подкаталог — обычная ходьба панели.
+    final inner = nodes.whereType<DirectoryNode>().first;
+    final deeper = await provider.getDirectoryListing().run(ListingParams(inner));
+    expect(deeper.first, isA<ParentDirNode>(), reason: 'наверх из подкаталога есть чем выйти');
+  }, timeout: const Timeout(Duration(seconds: 120)));
+}
+
+/// Анонимный вход: секрета не спрашивают, и спросить некого.
+class _AnonymousCredentials implements Credentials {
+  @override
+  Future<Credential?> obtain(CredentialRequest request) async => null;
+
+  @override
+  void forget(String realm) {}
 }
 
 /// Пароль анонимного входа: по обычаю — почтовый адрес.

@@ -209,7 +209,7 @@ void main() {
       final runtime = await app();
       await runtime.app.start();
 
-      expect(await runtime.app.left.openPath('ftp://host/pub'), isFalse);
+      expect(await runtime.app.left.openPath('gopher://host/pub'), isFalse);
       expect(runtime.app.left.currentPath, '/home', reason: 'панель осталась где была');
     });
 
@@ -417,15 +417,17 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      // Протокол, которого в приложении действительно нет: `ssh` с недавних
-      // пор умеет свой модуль, и на нём эта проверка проверяла бы уже не то.
-      await tester.enterText(dialogField(), 'ftp://user@host/srv');
+      // Протокол, которого в приложении действительно нет. Здесь уже дважды
+      // менялась строка: сперва `ssh` обзавёлся своим модулем, потом `ftp`, и
+      // каждый раз проверка начинала проверять не то. `gopher` мы приносить не
+      // собираемся.
+      await tester.enterText(dialogField(), 'gopher://user@host/srv');
       await tester.tap(find.text('Open'));
       await tester.pumpAndSettle();
 
       // «Путь не найден» тут врёт: путь-то мы даже не смотрели, потому что не
       // умеем такой протокол.
-      expect(find.textContaining('Protocol ftp is not supported'), findsWidgets);
+      expect(find.textContaining('Protocol gopher is not supported'), findsWidgets);
       expect(find.textContaining('Not found'), findsNothing);
 
       await tester.pump(const Duration(milliseconds: 20));
@@ -496,7 +498,7 @@ void main() {
       // Ввод → что должно быть сказано.
       const answers = {
         'Blah': 'Wrong URI',
-        'ftp://user@host/srv': 'Protocol ftp is not supported',
+        'gopher://user@host/srv': 'Protocol gopher is not supported',
         '/такого/нет': 'Not found',
         'mem://alpha/нет-такого': 'Not found',
       };

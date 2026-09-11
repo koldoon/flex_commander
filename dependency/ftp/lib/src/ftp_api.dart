@@ -1,5 +1,9 @@
+import 'dart:async';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
+
+import 'ftp_features.dart';
 
 /// Одна запись на той стороне: то немногое, что провайдеру нужно о файле.
 ///
@@ -64,4 +68,38 @@ class FtpEntry {
         ? letters.contains('c') || letters.contains('m')
         : letters.contains('a') || letters.contains('w');
   }
+}
+
+/// То, чем провайдер пользуется на той стороне.
+///
+/// Интерфейс нарочно узкий: чем меньше в нём методов, тем честнее подставка в
+/// тестах и тем меньше провайдер знает о протоколе. Все ошибки отсюда выходят
+/// уже переведёнными в [FsError] — движок другого языка не понимает.
+abstract interface class FtpApi {
+  /// Что сервер о себе объявил. Подсказка, а не обещание
+  /// (`docs/spec/ftp.md`, §3.2).
+  FtpFeatures get features;
+
+  /// Содержимое каталога; «.» и «..» в нём уже нет.
+  Future<List<FtpEntry>> listDirectory(String path);
+
+  /// Один объект; null — по этому пути ничего нет.
+  ///
+  /// Настоящего `stat` у FTP нет: `MLST` есть не у всех, и там, где его нет,
+  /// объект ищется в списке своего каталога. Дороже, зато работает везде.
+  Future<FtpEntry?> stat(String path);
+
+  Future<Stream<List<int>>> openRead(String path, {int offset = 0});
+
+  Future<StreamSink<List<int>>> openWrite(String path);
+
+  Future<void> makeDirectory(String path);
+
+  Future<void> removeFile(String path);
+
+  Future<void> removeDirectory(String path);
+
+  Future<void> rename(String from, String to);
+
+  Future<void> close();
 }
