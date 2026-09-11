@@ -1,0 +1,37 @@
+name: fc_ftp
+description: "Файлы по FTP: панель встаёт на сервер целиком, как на ssh."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  fc_core_api:
+    path: ../core_api
+
+  path: ^1.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  # Живому тесту нужна вторая сторона копирования — настоящая локальная ФС.
+  flex_commander:
+    path: ../..
+
+  # Тесты собирают настоящее приложение, а корневой источник в нём —
+  # локальная файловая система.
+  fc_local_fs:
+    path: ../local_fs
