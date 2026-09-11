@@ -31,6 +31,29 @@ class FakeSftp implements SftpApi {
   /// Пути, обращение к которым отвечает отказом.
   final Map<String, FsErrorKind> denied = {};
 
+  /// Насколько сервер задумывается над ответом.
+  ///
+  /// Ноль — отвечает сразу, и тогда по времени не видно ничего. Ненулевая
+  /// задержка показывает то, ради чего она и заведена: спрашиваем мы сервер по
+  /// очереди или разом (`docs/spec/ssh-listing-speed.md`).
+  Duration answerDelay = Duration.zero;
+
+  /// Сколько вопросов держали в полёте одновременно — за всё время.
+  int peakInFlight = 0;
+
+  int _inFlight = 0;
+
+  Future<void> _answer() async {
+    _inFlight++;
+    if (_inFlight > peakInFlight) {
+      peakInFlight = _inFlight;
+    }
+    if (answerDelay > Duration.zero) {
+      await Future<void>.delayed(answerDelay);
+    }
+    _inFlight--;
+  }
+
   bool closed = false;
 
   // --- наполнение ---------------------------------------------------------
@@ -78,6 +101,7 @@ class FakeSftp implements SftpApi {
   @override
   Future<SftpEntry?> stat(String path, {bool followLink = false}) async {
     calls.add('stat $path');
+    await _answer();
     _checkDenied(path);
 
     final resolved = _real(path, followLast: followLink);
@@ -91,6 +115,7 @@ class FakeSftp implements SftpApi {
   @override
   Future<List<SftpEntry>> listDirectory(String path) async {
     calls.add('list $path');
+    await _answer();
     _checkDenied(path);
 
     final directory = _real(path, followLast: true);
@@ -112,6 +137,7 @@ class FakeSftp implements SftpApi {
   @override
   Future<String?> readLink(String path) async {
     calls.add('readlink $path');
+    await _answer();
     final target = _real(path);
     return target == null ? null : _nodes[target]?.linkTarget;
   }

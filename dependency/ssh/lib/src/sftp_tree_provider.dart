@@ -187,14 +187,14 @@ class SftpTreeProvider
       final entries = await _sftp.listDirectory(path);
       op.checkCanceled();
 
-      final nodes = <FsNode>[if (dir.parentDirectory != null) ParentDirNode(dir)];
-      for (final entry in entries) {
-        if (!includeHidden && entry.name.startsWith('.')) {
-          continue;
-        }
-        op.checkCanceled();
-        nodes.add(await _nodeFrom(entry, p.posix.join(path, entry.name), dir));
-      }
+      final shown = [
+        for (final entry in entries)
+          if (includeHidden || !entry.name.startsWith('.')) entry,
+      ];
+      final nodes = <FsNode>[
+        if (dir.parentDirectory != null) ParentDirNode(dir),
+        ...await _nodesFrom(shown, path, dir, op),
+      ];
 
       dir.nodes = nodes;
       return nodes;
@@ -205,8 +205,60 @@ class SftpTreeProvider
   Future<List<FsNode>> listChildren(DirectoryNode dir) async {
     final path = remotePathOf(dir);
     final entries = await _sftp.listDirectory(path);
-    return [for (final entry in entries) await _nodeFrom(entry, p.posix.join(path, entry.name), dir)];
+    return _nodesFrom(entries, path, dir, null);
   }
+
+  /// Узлы каталога — **спрашивая сервер о ссылках разом, а не по очереди**.
+  ///
+  /// Про каждую ссылку надо спросить дважды: куда она ведёт (`readlink`) и
+  /// каталог ли там (`stat`). Пока эти вопросы шли один за другим, каждый
+  /// стоил полного оборота до сервера, и каталог со ссылками открывался
+  /// неприлично долго: замер на живом сервере дал **81 мс на запрос подряд и
+  /// 2,6 мс на запрос разом** — в тридцать раз. `/usr/bin` со ста
+  /// пятьюдесятью пятью ссылками открывался девятнадцать секунд
+  /// (`docs/spec/ssh-listing-speed.md`).
+  ///
+  /// Пачками, а не все разом: тысяча одновременных запросов — это не ускорение,
+  /// а отказ в обслуживании для чужого сервера. Шестнадцать прячут задержку
+  /// почти целиком и остаются вежливыми.
+  Future<List<FsNode>> _nodesFrom(
+    List<SftpEntry> entries,
+    String path,
+    DirectoryNode dir,
+    TaskOperation<Object?, Object?>? op,
+  ) async {
+    final nodes = List<FsNode?>.filled(entries.length, null);
+
+    // Обычная запись узлом становится даром — сервера о ней спрашивать нечего.
+    // Считать её наравне со ссылками значило бы раскидать ссылки по пачкам по
+    // две-три штуки, и пачки снова пошли бы одна за другой: первая попытка
+    // так и сделала, выиграв всего вдвое вместо тридцати.
+    final links = <int>[];
+    for (var i = 0; i < entries.length; i++) {
+      if (entries[i].isLink) {
+        links.add(i);
+      } else {
+        nodes[i] = nodeFromEntry(entries[i], dir, this);
+      }
+    }
+
+    for (var from = 0; from < links.length; from += _linkBatch) {
+      op?.checkCanceled();
+      final to = (from + _linkBatch).clamp(0, links.length);
+      await Future.wait([
+        for (var k = from; k < to; k++)
+          _nodeFrom(
+            entries[links[k]],
+            p.posix.join(path, entries[links[k]].name),
+            dir,
+          ).then((node) => nodes[links[k]] = node),
+      ]);
+    }
+    return [for (final node in nodes) node!];
+  }
+
+  /// Сколько вопросов о ссылках держать в полёте разом.
+  static const int _linkBatch = 16;
 
   @override
   Operation<LinkNode, FsNode?> resolveLink() {
@@ -532,8 +584,14 @@ class SftpTreeProvider
       return nodeFromEntry(entry, parent, this);
     }
 
-    final reference = await _sftp.readLink(path);
-    final resolvedTarget = await _sftp.stat(path, followLink: true);
+    // Два вопроса об одной ссылке независимы — и задаются разом: по сети
+    // «сначала один, потом другой» стоит двух оборотов вместо одного.
+    final answers = await Future.wait([
+      _sftp.readLink(path),
+      _sftp.stat(path, followLink: true).then<Object?>((value) => value),
+    ]);
+    final reference = answers[0] as String?;
+    final resolvedTarget = answers[1] as SftpEntry?;
 
     return nodeFromEntry(
       SftpEntry(
