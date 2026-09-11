@@ -414,6 +414,14 @@ class FtpConnection {
         // сокета до него доходить не должно.
         throw FsError(path, FsErrorKind.io, error);
       }
+      // **Канал данных закрывается до чтения хвоста, а не после.** Сервер
+      // досылает `226` только после того, как закроются обе стороны: наша
+      // половина остаётся открытой, и он ждёт её собственным таймаутом —
+      // десять секунд на каждый каталог, сколько бы в нём ни было файлов.
+      // Именно это и выглядело как «у нас втрое медленнее Finder»
+      // (`docs/spec/ftp.md`, §3.8).
+      await _closeData(data);
+
       final tail = await _read();
       tailPending = false;
       await _expect(tail, what: path);
@@ -541,6 +549,18 @@ class FtpConnection {
     await _expect(tail, what: path, writing: true);
   });
 
+  /// Закрыть свою половину канала данных — и дождаться, пока это дойдёт.
+  ///
+  /// `destroy()` рвёт молча и не шлёт `FIN`, а сервер ждёт именно его.
+  static Future<void> _closeData(Socket data) async {
+    try {
+      await data.close();
+    } on Object {
+      // Сервер мог закрыть всё сам — тогда закрывать нечего.
+    }
+    data.destroy();
+  }
+
   /// Всё, что приедет по каналу данных, — начиная с этого мгновения.
   /// Сколько канал данных может молчать, прежде чем его признают мёртвым.
   ///
@@ -553,7 +573,10 @@ class FtpConnection {
 
   Future<List<int>> _collect(Stream<List<int>> data) {
     final bytes = <int>[];
-    return withPause(data).forEach(bytes.addAll).then((_) => bytes);
+    return withPause(data).forEach(bytes.addAll).then((_) {
+      trace?.call('~ канал данных дочитан: ${bytes.length} байт');
+      return bytes;
+    });
   }
 
   /// Тот же поток, но с пределом молчания.

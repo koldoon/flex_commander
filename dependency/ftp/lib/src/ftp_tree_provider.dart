@@ -126,6 +126,17 @@ class FtpTreeProvider implements TreeProvider, NodeEditor, FileContentProvider, 
     return names.isEmpty ? '/' : '/${names.join('/')}';
   }
 
+  /// Разбор пути — **одним обращением к серверу**, а не по одному на сегмент.
+  ///
+  /// Промежуточные каталоги не проверяются нарочно: если существует
+  /// `/pub/a/b`, то существуют и `/pub`, и `/pub/a`, — а по сети каждая лишняя
+  /// проверка это отдельный оборот, и на `/Cisco/16xx` их выходило два вместо
+  /// одного. Не существует — об этом скажет тот единственный вопрос, который
+  /// мы и задаём (`docs/spec/ftp.md`, §3.8).
+  ///
+  /// Цепочка родителей при этом строится целиком: она нужна для «..» и для
+  /// пути, который показывают человеку, а существование каждого звена в ней
+  /// подразумевается существованием последнего.
   @override
   Operation<String, FsNode?> resolvePath() {
     return TaskOperation<String, FsNode?>((op, path) async {
@@ -136,24 +147,12 @@ class FtpTreeProvider implements TreeProvider, NodeEditor, FileContentProvider, 
 
       final segments = p.posix.split(normalized).skip(1).toList();
       DirectoryNode parent = _root;
-
-      for (var i = 0; i < segments.length; i++) {
-        op.checkCanceled();
-
-        final name = segments[i];
-        final node = await _nodeAt(p.posix.join(remotePathOf(parent), name), name, parent);
-        if (node == null) {
-          return null;
-        }
-        if (i == segments.length - 1) {
-          return node;
-        }
-        if (node is! DirectoryNode) {
-          return null;
-        }
-        parent = node;
+      for (var i = 0; i < segments.length - 1; i++) {
+        parent = DirectoryNode(provider: this, name: segments[i], parent: parent);
       }
-      return parent;
+
+      op.checkCanceled();
+      return _nodeAt(normalized, segments.last, parent);
     });
   }
 

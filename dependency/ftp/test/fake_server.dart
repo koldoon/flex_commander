@@ -14,6 +14,11 @@ import 'dart:io';
 class FakeFtpServer {
   FakeFtpServer._(this._socket, this.files, {required this.machineListing, required this.extendedPassive});
 
+  /// Сколько сервер ждёт закрытия со стороны клиента, прежде чем досылать
+  /// хвост сам. У настоящего это секунды; здесь ровно столько, чтобы неверный
+  /// клиент было видно по времени, а прогон не стоял.
+  static const Duration lingerGuard = Duration(seconds: 3);
+
   /// Скольким ближайшим передачам отказать переходной ошибкой `425`.
   ///
   /// Так живая сеть и отвечает, когда канал данных не задался: это не «нет
@@ -227,7 +232,25 @@ class _Session {
     }
     await socket.flush();
     await socket.close();
+    await _awaitClientClose(socket);
     say('226 Передача закончена');
+  }
+
+  /// Дождаться, пока клиент закроет свою половину канала данных.
+  ///
+  /// **Настоящий сервер ведёт себя именно так**: `226` он досылает, когда
+  /// закрылись обе стороны, а не своя. Клиент, который этого не делает, ждёт
+  /// сервера до его собственного таймаута — десять секунд на каждый каталог,
+  /// сколько бы в нём ни было файлов (`docs/spec/ftp.md`, §3.8).
+  ///
+  /// Предел здесь затем, чтобы неверный клиент проверку **замедлял**, а не
+  /// вешал: разница видна по времени.
+  Future<void> _awaitClientClose(Socket socket) async {
+    try {
+      await socket.listen(null).asFuture<void>().timeout(FakeFtpServer.lingerGuard);
+    } on Object {
+      // Не дождались — ведём себя как настоящий сервер: досылаем хвост сами.
+    }
   }
 
   Future<void> _sendBytes(String path) async {
@@ -243,6 +266,7 @@ class _Session {
     _restart = 0;
     await socket.flush();
     await socket.close();
+    await _awaitClientClose(socket);
     say('226 Передача закончена');
   }
 
