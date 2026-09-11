@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
@@ -29,7 +30,17 @@ class DialogFrame extends StatefulWidget {
     this.takesFocus = false,
     this.area = DialogArea.window,
     this.ownWidth = false,
+    this.id,
+    this.resizable = false,
   });
+
+  /// Имя окна: под ним оно помнит о себе всё, что переживает перезапуск
+  /// (`DialogSpec.id`). null — помнить негде, и размер живёт, пока окно
+  /// открыто.
+  final String? id;
+
+  /// Окно тянется за края и углы (`docs/spec/dialog-resize.md`).
+  final bool resizable;
 
   /// Заголовок; null — полосы нет, и окно **не двигается**: ручка была ею.
   final String? title;
@@ -71,11 +82,43 @@ class _DialogFrameState extends State<DialogFrame> {
   /// умирает вместе с ним. Отдельного хранилища и ключей к нему не нужно.
   Offset _shift = Offset.zero;
 
+  /// Размер, заданный человеком; null — считает рама, как считала всегда.
+  Size? _size;
+
+  /// Содержимое окна — чтобы спросить у него, ниже чего оно не ужимается.
+  final GlobalKey _content = GlobalKey(debugLabel: 'dialog content');
+
+  /// Само окно — чтобы знать, от какого размера тянут.
+  ///
+  /// Не рама: рама занимает всю область вместе с затемнением, и первое же
+  /// движение от её размера швырнуло бы окно к пределу.
+  final GlobalKey _window = GlobalKey(debugLabel: 'dialog window');
+
+  bool _restored = false;
+
   @override
   void initState() {
     super.initState();
     if (!widget.takesFocus) {
       _node.requestFocus();
+    }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Запомненное поднимается один раз, при первом показе: дальше окно живёт
+    // своим размером, и перечитывать настройки на каждую перестройку значило
+    // бы затирать то, что человек тянет прямо сейчас.
+    if (_restored || !widget.resizable) {
+      return;
+    }
+    _restored = true;
+    if (widget.id case final id?) {
+      final saved = AppScope.read(context).dialogState(id);
+      if (saved != null && saved.hasWidth && saved.hasHeight) {
+        _size = Size(saved.width, saved.height);
+      }
     }
   }
 
@@ -162,6 +205,194 @@ class _DialogFrameState extends State<DialogFrame> {
     );
   }
 
+  // --- растяжение -----------------------------------------------------------
+
+  /// Ниже чего окно не ужимается.
+  ///
+  /// **Числа темы, а не требование содержимого** — и это не упрощение, а
+  /// поправка по замеру. Спрашивать содержимое интринсиками мы пробовали:
+  /// `Table` справки объявляет своей наименьшей шириной 876 точек, живя при
+  /// этом в 800, — потому что «наименьшая» у таблицы это её естественные
+  /// столбцы, а не предел, ниже которого нельзя. Окно от такого предела
+  /// прыгало на первом же движении, а высота переставала меняться вовсе
+  /// (`docs/spec/dialog-resize.md`, §12).
+  ///
+  /// Содержимому это и не нужно: оно **обязано** уметь ужиматься, потому что
+  /// ширину ему назначает рама (`dialog-placement.md`, §4а).
+  Size _minSize(FcMetrics metrics) => Size(metrics.dialogMinWidth, metrics.dialogMinHeight);
+
+  /// Больше рабочей области окна приложения окно не растягивается.
+  ///
+  /// По высоте область считается от того отступа, на котором окно стоит: ниже
+  /// края экрана ему всё равно не показаться.
+  Size _maxSize(BuildContext context, FcMetrics metrics) {
+    final screen = MediaQuery.sizeOf(context);
+    return Size(screen.width, math.max(metrics.dialogMinHeight, screen.height - metrics.dialogTopInset));
+  }
+
+  /// Размер, поджатый под нынешнее окно приложения.
+  ///
+  /// Считается на каждой раскладке, а не один раз при отпускании: окно
+  /// приложения меняет размер, и окно команды обязано в него влезать. В
+  /// настройках при этом остаётся то, что задал человек: сузили приложение и
+  /// расширили обратно — вернулся и размер окна (`docs/spec/dialog-resize.md`,
+  /// §7).
+  Size? _fitted(BuildContext context, FcMetrics metrics) {
+    final size = _size;
+    if (size == null) {
+      return null;
+    }
+    final min = _minSize(metrics);
+    final max = _maxSize(context, metrics);
+    return Size(
+      size.width.clamp(math.min(min.width, max.width), math.max(min.width, max.width)),
+      size.height.clamp(math.min(min.height, max.height), math.max(min.height, max.height)),
+    );
+  }
+
+  /// Тянут за край: меняем размер, а края, двигающие начало окна, — ещё и
+  /// смещение.
+  void _resize(_Edge edge, Offset delta, Size current, FcMetrics metrics) {
+    final min = _minSize(metrics);
+    final max = _maxSize(context, metrics);
+
+    var width = current.width;
+    var height = current.height;
+    var shift = _shift;
+
+    // **По горизонтали окно стоит серединой области, по вертикали — от верха**
+    // (`_OverArea`), и поправки к смещению у них разные. Считаются они от
+    // *применённого* изменения, а не от того, на сколько потянули: у предела
+    // окно перестаёт расти, и продолжать двигать его было бы неправдой.
+    if (edge.left || edge.right) {
+      final wanted = edge.right ? width + delta.dx : width - delta.dx;
+      final applied = wanted.clamp(min.width, max.width) - width;
+      // Растёт окно в обе стороны от середины, поэтому противоположный край
+      // остаётся на месте, когда середина уезжает на половину прибавки.
+      shift += Offset(edge.right ? applied / 2 : -applied / 2, 0);
+      width += applied;
+    }
+
+    if (edge.top || edge.bottom) {
+      final wanted = edge.bottom ? height + delta.dy : height - delta.dy;
+      final applied = wanted.clamp(min.height, max.height) - height;
+      // Верх окна прибит к своему отступу: вниз оно растёт само, а вверх — на
+      // всю прибавку целиком.
+      if (edge.top) {
+        shift += Offset(0, -applied);
+      }
+      height += applied;
+    }
+
+    if (width == current.width && height == current.height) {
+      return;
+    }
+    setState(() {
+      _size = Size(width, height);
+      _shift = shift;
+    });
+  }
+
+  /// Отпустили — запоминаем. Если окну негде помнить, размер живёт до
+  /// закрытия, и это всё равно лучше, чем ничего.
+  void _rememberSize() {
+    final id = widget.id;
+    final size = _size;
+    if (id == null || size == null) {
+      return;
+    }
+    AppScope.read(context).rememberDialogState(id, DialogState(width: size.width, height: size.height));
+  }
+
+  /// Двойной щелчок по краю возвращает размер по умолчанию.
+  ///
+  /// Без сброса неудачно растянутое окно чинится только правкой файла
+  /// настроек руками, а это не ответ (`docs/spec/dialog-resize.md`, §9).
+  void _resetSize() {
+    setState(() => _size = null);
+    if (widget.id case final id?) {
+      AppScope.read(context).rememberDialogState(id, DialogState());
+    }
+  }
+
+  /// Окно вместе с полосами, за которые его тянут.
+  ///
+  /// Полосы лежат **внутри** окна, по его краю, и с полосой заголовка не
+  /// пересекаются: тянут за край рамы, двигают за заголовок. Поэтому спора
+  /// между двумя жестами нет и модификатор не нужен — так же устроены окна
+  /// системы (`docs/spec/dialog-resize.md`, §5).
+  Widget _withHandles(FcMetrics metrics, Size? fitted, Widget window) {
+    if (!widget.resizable) {
+      return window;
+    }
+
+    final edge = metrics.dialogResizeEdge;
+    // Размер нужен, чтобы считать от него: пока окно не тянули, он тот, что
+    // назначила рама, и берётся у самого окна при первом же движении.
+    Size current() => fitted ?? _windowSize() ?? Size.zero;
+
+    Widget handle(_Edge at, {double? left, double? top, double? right, double? bottom, double? width, double? height}) {
+      return Positioned(
+        left: left,
+        top: top,
+        right: right,
+        bottom: bottom,
+        width: width,
+        height: height,
+        child: MouseRegion(
+          cursor: at.cursor,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            // Отсчёт от нажатия, как и у перетаскивания: иначе окно отставало
+            // бы от указателя на порог распознавания.
+            dragStartBehavior: DragStartBehavior.down,
+            onPanStart: (_) => _beginResize(metrics),
+            onPanUpdate: (details) => _resize(at, details.delta, _size ?? current(), metrics),
+            onPanEnd: (_) => _rememberSize(),
+            onDoubleTap: _resetSize,
+          ),
+        ),
+      );
+    }
+
+    return Stack(
+      children: [
+        window,
+        handle(const _Edge(left: true), left: 0, top: edge, bottom: edge, width: edge),
+        handle(const _Edge(right: true), right: 0, top: edge, bottom: edge, width: edge),
+        handle(const _Edge(top: true), left: edge, right: edge, top: 0, height: edge),
+        handle(const _Edge(bottom: true), left: edge, right: edge, bottom: 0, height: edge),
+        handle(const _Edge(left: true, top: true), left: 0, top: 0, width: edge, height: edge),
+        handle(const _Edge(right: true, top: true), right: 0, top: 0, width: edge, height: edge),
+        handle(const _Edge(left: true, bottom: true), left: 0, bottom: 0, width: edge, height: edge),
+        handle(const _Edge(right: true, bottom: true), right: 0, bottom: 0, width: edge, height: edge),
+      ],
+    );
+  }
+
+  /// Первое движение: окну назначается тот размер, какой у него сейчас.
+  ///
+  /// До этого размера у окна нет вовсе — его считает рама, — и тянуть «от
+  /// ничего» нельзя: первое же движение должно продолжать то, что человек
+  /// видит, а не прыгать к пределу.
+  void _beginResize(FcMetrics metrics) {
+    if (_size != null) {
+      return;
+    }
+    final size = _windowSize();
+    if (size == null) {
+      return;
+    }
+    final min = _minSize(metrics);
+    setState(() => _size = Size(math.max(size.width, min.width), math.max(size.height, min.height)));
+  }
+
+  /// Нынешний размер самого окна; null — окна ещё нет на экране.
+  Size? _windowSize() {
+    final box = _window.currentContext?.findRenderObject();
+    return box is RenderBox && box.hasSize ? box.size : null;
+  }
+
   /// Ширина окна над названной областью: область минус поле с каждой стороны.
   ///
   /// **Число, а не «по содержимому».** Содержимое окна меняется на глазах —
@@ -191,6 +422,7 @@ class _DialogFrameState extends State<DialogFrame> {
     final metrics = theme.metrics;
     final radius = BorderRadius.circular(metrics.dialogRadius);
     final areaWidth = _areaWidth(context, metrics);
+    final fitted = _fitted(context, metrics);
 
     return Stack(
       children: [
@@ -245,43 +477,56 @@ class _DialogFrameState extends State<DialogFrame> {
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
                     minWidth: metrics.dialogMinWidth,
-                    maxWidth: widget.ownWidth ? double.infinity : metrics.dialogMaxWidth,
+                    maxWidth: widget.ownWidth || fitted != null ? double.infinity : metrics.dialogMaxWidth,
                   ),
-                  child: DialogWidth(
-                    width: areaWidth,
-                    child: Container(
-                      decoration: BoxDecoration(
-                        color: colors.dialogBackground,
-                        borderRadius: radius,
-                        boxShadow: [
-                          BoxShadow(
-                            color: colors.shadow,
-                            offset: Offset(0, metrics.dialogShadowOffset),
-                            blurRadius: metrics.dialogShadowBlur,
-                          ),
-                        ],
-                      ),
-                      // Скруглённые углы обрезают полосу заголовка: в референсе
-                      // она для этого закрыта маской.
-                      clipBehavior: Clip.antiAlias,
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          if (widget.title case final title?) _titleBar(theme, colors, metrics, title),
-                          // Содержимое, которому не хватило высоты, прокручивается
-                          // — а не вылезает за раму молчащим переполнением.
-                          //
-                          // `Flexible`, а не `Expanded`: невысокому окну лишняя
-                          // высота не нужна, оно по-прежнему облегает содержимое.
-                          // Прокрутка появляется только там, где иначе было бы
-                          // переполнение: окно правки атрибутов у файла с
-                          // десятком расширенных именно таково.
-                          //
-                          // Полоса заголовка при этом остаётся на месте: за неё
-                          // окно двигают, и уезжать ей нельзя.
-                          Flexible(child: SingleChildScrollView(child: widget.child)),
-                        ],
+                  child: _withHandles(
+                    metrics,
+                    fitted,
+                    DialogWidth(
+                      width: fitted?.width ?? areaWidth,
+                      child: Container(
+                        key: _window,
+                        // Высота задана — значит задана: без этого окно
+                        // осталось бы по содержимому, и нижний край тянулся бы
+                        // вхолостую.
+                        height: fitted?.height,
+                        decoration: BoxDecoration(
+                          color: colors.dialogBackground,
+                          borderRadius: radius,
+                          boxShadow: [
+                            BoxShadow(
+                              color: colors.shadow,
+                              offset: Offset(0, metrics.dialogShadowOffset),
+                              blurRadius: metrics.dialogShadowBlur,
+                            ),
+                          ],
+                        ),
+                        // Скруглённые углы обрезают полосу заголовка: в референсе
+                        // она для этого закрыта маской.
+                        clipBehavior: Clip.antiAlias,
+                        child: Column(
+                          // Заданная высота заполняется целиком: содержимое
+                          // тянется вместе с окном, а не жмётся к заголовку.
+                          mainAxisSize: fitted == null ? MainAxisSize.min : MainAxisSize.max,
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (widget.title case final title?) _titleBar(theme, colors, metrics, title),
+                            // Содержимое, которому не хватило высоты, прокручивается
+                            // — а не вылезает за раму молчащим переполнением.
+                            //
+                            // `Flexible`, а не `Expanded`: невысокому окну лишняя
+                            // высота не нужна, оно по-прежнему облегает содержимое.
+                            // Прокрутка появляется только там, где иначе было бы
+                            // переполнение: окно правки атрибутов у файла с
+                            // десятком расширенных именно таково.
+                            //
+                            // Полоса заголовка при этом остаётся на месте: за неё
+                            // окно двигают, и уезжать ей нельзя.
+                            Flexible(
+                              child: SingleChildScrollView(child: KeyedSubtree(key: _content, child: widget.child)),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
@@ -292,6 +537,30 @@ class _DialogFrameState extends State<DialogFrame> {
         ),
       ],
     );
+  }
+}
+
+/// Край окна, за который тянут.
+///
+/// Восемь: четыре стороны и четыре угла. Угол — это просто два края разом, и
+/// отдельного случая ему не нужно.
+class _Edge {
+  const _Edge({this.left = false, this.right = false, this.top = false, this.bottom = false});
+
+  final bool left;
+  final bool right;
+  final bool top;
+  final bool bottom;
+
+  /// Курсор над этим краем — тот же, что у окон системы.
+  MouseCursor get cursor {
+    if ((left && top) || (right && bottom)) {
+      return SystemMouseCursors.resizeUpLeftDownRight;
+    }
+    if ((right && top) || (left && bottom)) {
+      return SystemMouseCursors.resizeUpRightDownLeft;
+    }
+    return left || right ? SystemMouseCursors.resizeLeftRight : SystemMouseCursors.resizeUpDown;
   }
 }
 

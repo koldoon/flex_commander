@@ -225,6 +225,15 @@ abstract interface class Application implements Listenable {
   /// Последняя известная геометрия окна.
   WindowGeometry? get windowGeometry;
 
+  /// Что окно команды помнит о себе; null — о нём не помнят ничего.
+  ///
+  /// Спрашивает рама окна, когда его показывают
+  /// (`docs/spec/dialog-resize.md`, §8).
+  DialogState? dialogState(String id);
+
+  /// Запомнить состояние окна. Пустое — забыть о нём вовсе.
+  void rememberDialogState(String id, DialogState state);
+
   /// Содержимое объекта **по его пути** — мимо панелей и того, где они стоят.
   ///
   /// Отличается от `panel.contentOf` тем, кого спрашивают: панель отвечает о

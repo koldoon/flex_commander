@@ -1,4 +1,5 @@
 import '../settings/app_settings.dart';
+import '../settings/dialog_state.dart';
 import '../settings/window_geometry.dart';
 import 'entry_ref.dart';
 
@@ -48,6 +49,7 @@ class UiSettings {
     this.window,
     this.sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
     this.reconnectAtStartup = false,
+    this.dialogs = const {},
     this.modules = const {},
     this.panels = defaultPanels,
     this.shown = defaultShown,
@@ -79,6 +81,13 @@ class UiSettings {
   /// ядра, а правит её окно настроек — то есть эта сторона.
   final bool reconnectAtStartup;
 
+  /// Что окна команд помнят о себе — по именам (`DialogSpec.id`).
+  ///
+  /// Вид окна это дело **экрана**, поэтому и правит его он; ядро только хранит
+  /// (`docs/spec/dialog-resize.md`, §8). Незнакомое имя проезжает насквозь —
+  /// выключенный на один запуск модуль не должен терять свой размер.
+  final Map<String, DialogState> dialogs;
+
   /// Разделы модулей — те же, что в файле, значениями.
   ///
   /// Целиком, а не «фронтовые»: раздел принадлежит **модулю**, а половин у
@@ -98,6 +107,7 @@ class UiSettings {
     WindowGeometry? window,
     int? sizeScanConcurrency,
     bool? reconnectAtStartup,
+    Map<String, DialogState>? dialogs,
     Map<String, dynamic>? modules,
     List<PanelLayout>? panels,
     List<int>? shown,
@@ -107,6 +117,7 @@ class UiSettings {
     window: window ?? this.window,
     sizeScanConcurrency: sizeScanConcurrency ?? this.sizeScanConcurrency,
     reconnectAtStartup: reconnectAtStartup ?? this.reconnectAtStartup,
+    dialogs: dialogs ?? this.dialogs,
     modules: modules ?? this.modules,
     panels: panels ?? this.panels,
     shown: shown ?? this.shown,
@@ -125,10 +136,25 @@ class UiSettings {
       other.window == window &&
       other.sizeScanConcurrency == sizeScanConcurrency &&
       other.reconnectAtStartup == reconnectAtStartup &&
+      _sameDialogs(other.dialogs) &&
       other.panels.length == panels.length &&
       List.generate(panels.length, (i) => other.panels[i] == panels[i]).every((same) => same) &&
       other.shown.length == shown.length &&
       List.generate(shown.length, (i) => other.shown[i] == shown[i]).every((same) => same);
+
+  /// Состояния окон сравниваются: по этому сравнению решается, нужна ли
+  /// запись, а растянутое окно записать надо.
+  bool _sameDialogs(Map<String, DialogState> other) {
+    if (other.length != dialogs.length) {
+      return false;
+    }
+    for (final entry in dialogs.entries) {
+      if (other[entry.key] != entry.value) {
+        return false;
+      }
+    }
+    return true;
+  }
 
   @override
   int get hashCode => Object.hash(

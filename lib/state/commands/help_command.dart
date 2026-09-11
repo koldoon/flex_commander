@@ -49,6 +49,11 @@ class HelpCommand extends AppCommand {
     dialogId = view.showDialog(
       DialogSpec(
         title: dialogTitle,
+        // Справку читают, и читают по-разному: кому-то нужен весь список
+        // команд разом, кому-то хватит угла экрана
+        // (`docs/spec/dialog-resize.md`, §4).
+        id: commandId,
+        resizable: true,
         takesFocus: true,
         content: FcKeyValueTable(sections: _sections(context), onClose: close),
         onSubmit: close,

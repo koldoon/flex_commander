@@ -760,6 +760,32 @@ class AppController extends ChangeNotifier implements Application {
   @override
   bool get reconnectAtStartup => _initialSettings.reconnectAtStartup;
 
+  /// Что окно команды помнит о себе; null — о нём не помнят ничего.
+  @override
+  DialogState? dialogState(String id) => _initialSettings.dialogs[id];
+
+  /// Запомнить состояние окна. Пустое — забыть о нём вовсе.
+  ///
+  /// Пишет в прочитанное с диска — тот же объект, что держит ядро, — и просит
+  /// отложенную запись. Тем же приёмом живут и остальные настройки, которые
+  /// правит экран.
+  @override
+  void rememberDialogState(String id, DialogState state) {
+    final known = _initialSettings.dialogs[id];
+    if (state.isEmpty) {
+      if (known == null) {
+        return;
+      }
+      _initialSettings.dialogs.remove(id);
+    } else {
+      if (known == state) {
+        return;
+      }
+      _initialSettings.dialogs[id] = state;
+    }
+    settingsChanged();
+  }
+
   /// Действует со следующего запуска — тем она и является.
   @override
   void setReconnectAtStartup(bool value) {
@@ -814,6 +840,7 @@ class AppController extends ChangeNotifier implements Application {
     window: _windowGeometry,
     sizeScanConcurrency: _initialSettings.sizeScanConcurrency,
     reconnectAtStartup: _initialSettings.reconnectAtStartup,
+    dialogs: _initialSettings.dialogs,
     modules: serialize(_initialSettings.modules) as Map<String, dynamic>,
     // Кто где стоит, знает только эта сторона: ядро сессии заводит, но не
     // раскладывает (`docs/spec/panel-sessions.md`, §10).

@@ -90,6 +90,10 @@ class FindFilesCommand extends AppCommand {
     dialogId = app.view.showDialog(
       DialogSpec(
         title: title,
+        // Список находок — первое, что хочется растянуть: имена длинные, а
+        // путь до находки длиннее имени.
+        id: commandId,
+        resizable: true,
         takesFocus: true,
         // Ширину окна назначают сами фазы, долей экрана: иначе рама мерила бы
         // содержимое, а ленивый список находок на вопрос о своей ширине не

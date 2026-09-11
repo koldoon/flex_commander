@@ -31,6 +31,7 @@ class SettingsHub {
          window: stored.window,
          sizeScanConcurrency: stored.sizeScanConcurrency,
          reconnectAtStartup: stored.reconnectAtStartup,
+         dialogs: {...stored.dialogs},
          // Раскладку по сторонам знает тот, кто заводил сессии: файл говорит,
          // сколько их в каждой стороне, а какая личность досталась какой —
          // видно только оттуда (`docs/spec/panel-sessions.md`, §10).
@@ -94,6 +95,7 @@ class SettingsHub {
     sizeScanConcurrency: _ui.sizeScanConcurrency,
     reconnectAtStartup: _ui.reconnectAtStartup,
     window: _ui.window,
+    dialogs: _ui.dialogs,
     modules: _stored.modules,
   );
 

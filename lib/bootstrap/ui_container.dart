@@ -102,6 +102,7 @@ class UiContainer extends DI {
       sizeScanConcurrency: ui.sizeScanConcurrency,
       reconnectAtStartup: ui.reconnectAtStartup,
       window: ui.window,
+      dialogs: ui.dialogs,
     );
     settings.modules.fromMap(ui.modules);
     return settings;

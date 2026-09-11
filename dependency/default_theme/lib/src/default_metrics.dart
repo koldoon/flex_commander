@@ -166,6 +166,15 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get dialogMaxWidth => 800;
 
+  /// Заголовок, строка содержимого и ряд кнопок — ниже окно перестаёт быть
+  /// окном.
+  @override
+  double get dialogMinHeight => 120;
+
+  /// Шесть точек: попасть указателем можно, а на содержимое не наползает.
+  @override
+  double get dialogResizeEdge => 6;
+
   @override
   double get dialogTitleHeight => 30;
 

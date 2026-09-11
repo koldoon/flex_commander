@@ -2,6 +2,7 @@ import '../serialization.dart';
 import 'module_settings.dart';
 import '../panel/column_spec.dart';
 import '../panel/sort_spec.dart';
+import 'dialog_state.dart';
 import 'window_geometry.dart';
 
 /// Сохраняемые настройки одной панели.
@@ -185,6 +186,7 @@ class AppSettings implements Serializable {
     this.sizeScanConcurrency = defaultSizeScanConcurrency,
     this.reconnectAtStartup = false,
     this.window,
+    Map<String, DialogState>? dialogs,
     ModuleSettings? modules,
     List<PanelGroupSettings>? panels,
     List<int>? shown,
@@ -195,6 +197,7 @@ class AppSettings implements Serializable {
              PanelGroupSettings(sessions: [right ?? PanelSettings()]),
            ],
        shown = shown ?? [0, 1],
+       dialogs = {...?dialogs},
        // Разделы модулей переносятся в новый снимок настроек как есть: это
        // живые объекты самих модулей, а не копия их значений.
        modules = modules ?? ModuleSettings();
@@ -258,6 +261,13 @@ class AppSettings implements Serializable {
   /// Положение и размер окна; null — окно ещё ни разу не открывали.
   WindowGeometry? window;
 
+  /// Что окна команд помнят о себе — по именам (`DialogSpec.id`).
+  ///
+  /// Имя, которого в этой сборке никто не объявил, **спит**: выключенный на
+  /// один запуск модуль не должен стирать чужое состояние — то же правило, что
+  /// у колонок и у разделов настроек (`docs/spec/dialog-resize.md`, §8).
+  final Map<String, DialogState> dialogs;
+
   /// Настройки модулей: у каждого свой раздел под своим именем.
   ///
   /// Ядро в них не заглядывает — только хранит и отдаёт тому, кто спросит
@@ -273,6 +283,12 @@ class AppSettings implements Serializable {
     m['reconnectAtStartup'] = reconnectAtStartup;
     if (window != null) {
       m['window'] = serialize(window);
+    }
+    if (dialogs.isNotEmpty) {
+      m['dialogs'] = {
+        for (final entry in dialogs.entries)
+          if (!entry.value.isEmpty) entry.key: serialize(entry.value),
+      };
     }
     m['panels'] = [for (final panel in panels) serialize(panel)];
     m['shown'] = shown;
@@ -292,6 +308,18 @@ class AppSettings implements Serializable {
     ).clamp(minSizeScanConcurrency, maxSizeScanConcurrency);
     reconnectAtStartup = extract(reconnectAtStartup, m['reconnectAtStartup']);
     window = extractObject(m['window'], (_) => WindowGeometry());
+
+    final storedDialogs = m['dialogs'];
+    if (storedDialogs is Map) {
+      dialogs.clear();
+      for (final entry in storedDialogs.entries) {
+        final id = entry.key;
+        final state = id is String ? extractObject(entry.value, (_) => DialogState()) : null;
+        if (id is String && state != null && !state.isEmpty) {
+          dialogs[id] = state;
+        }
+      }
+    }
 
     final moduleSections = m['modules'];
     if (moduleSections is Map<String, dynamic>) {
