@@ -6,6 +6,7 @@ import 'package:logecom/logecom.dart';
 import '../core/core_server.dart';
 import '../core/elevated_writes.dart';
 import '../core/listing_cache.dart';
+import '../core/column_sorting_registry.dart';
 import '../core/panel_session.dart';
 import '../core/secrets_hub.dart';
 import '../core/settings_hub.dart';
@@ -181,11 +182,16 @@ class CoreContainer extends DI {
       },
     );
 
+    // Колонки, объявленные ядровыми половинами модулей: ядру от них нужно
+    // сравнение (`docs/spec/column-registry.md`, §3.4).
+    bind<ColumnSorting>(to: (c) => ColumnSortingRegistry(backend.services, backend.columns));
+
     bind<PanelSessionFactory>(
       to:
           (c) => PanelSessionFactory(
             registry: c.get<ProviderRegistry>(),
             editor: c.get<TreeEditor>(),
+            columns: c.get<ColumnSorting>(),
             sizeScanConcurrency: () => c.get<AppSettings>().sizeScanConcurrency,
             naming: c.get<FileNaming>(),
             cache: c.get<ListingCache>(),

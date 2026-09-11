@@ -1,6 +1,5 @@
 import 'dart:io';
 
-import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -8,6 +7,7 @@ import 'package:flex_commander/bootstrap/bootstrap.dart';
 import 'package:flex_commander/core/settings_store.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:fc_panels/fc_panels.dart';
 
 /// Состояние панелей переживает перезапуск — целиком.
 ///
@@ -86,16 +86,16 @@ void main() {
   test('вид панели — колонки, сортировка, скрытые — переживает перезапуск', () async {
     final first = await launch();
     await first.app.left.setShowHidden(true);
-    await first.app.left.sortBy(FsColumn.size);
+    await first.app.left.sortBy(FsColumns.size);
     await first.dispose();
 
     final saved = await store.load();
     expect(saved.left.showHidden, isTrue);
-    expect(saved.left.sort.column, FsColumn.size);
+    expect(saved.left.sort.column, FsColumns.size);
 
     final second = await launch();
     expect(second.app.left.showHidden, isTrue);
-    expect(second.app.left.sort.column, FsColumn.size);
+    expect(second.app.left.sort.column, FsColumns.size);
     await second.dispose();
   });
 }

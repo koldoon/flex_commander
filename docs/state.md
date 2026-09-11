@@ -180,7 +180,7 @@ abstract interface class Session {
   void setColumnLayout(ColumnLayout layout);
 
   SortSpec get sort;
-  void sortBy(FsColumn column);        // тот же столбец — смена направления
+  void sortBy(String column);          // тот же столбец — смена направления
 
   bool get showHidden;
   void setShowHidden(bool value);

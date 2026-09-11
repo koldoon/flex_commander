@@ -69,7 +69,7 @@ class HelpCommand extends AppCommand {
       FcTableRow(tr('Active panel'), identical(app.activePanel, app.left) ? tr('Left') : tr('Right')),
       FcTableRow(tr('Split'), tr('{percent}% left', args: {'percent': (app.splitRatio * 100).round()})),
       FcTableRow(tr('Hidden files'), _bothPanels(app, (panel) => panel.showHidden ? tr('shown') : tr('hidden'))),
-      FcTableRow(tr('Sort'), _bothPanels(app, (panel) => _sortOf(panel.sort))),
+      FcTableRow(tr('Sort'), _bothPanels(app, (panel) => _sortOf(app, panel.sort))),
       FcTableRow(tr('Columns'), _bothPanels(app, _columnsOf)),
       FcTableRow(tr('Directory scans'), tr('{count} at a time', args: {'count': app.sizeScanConcurrency})),
       FcTableRow(tr('Window'), _windowOf(app.windowGeometry)),
@@ -144,15 +144,16 @@ class HelpCommand extends AppCommand {
     return left == right ? left : 'left — $left, right — $right';
   }
 
-  String _sortOf(SortSpec sort) {
+  String _sortOf(Application app, SortSpec sort) {
     final direction = sort.direction == SortDirection.ascending ? '↑' : '↓';
-    return '${sort.column.title} $direction';
+    // Название приходит объявлением; колонка выключенного модуля называет себя
+    // сама — своим именем из настроек.
+    final title = app.columns.find(sort.column)?.title ?? '';
+    return '${title.isEmpty ? sort.column : title} $direction';
   }
 
-  String _columnsOf(Session panel) => panel.columns.visibleColumns
-      .where((column) => column.id.title.isNotEmpty)
-      .map((column) => column.id.title)
-      .join(', ');
+  String _columnsOf(Session panel) =>
+      panel.columns.visibleColumns.where((column) => column.title.isNotEmpty).map((column) => column.title).join(', ');
 
   String _windowOf(WindowGeometry? window) {
     if (window == null) {

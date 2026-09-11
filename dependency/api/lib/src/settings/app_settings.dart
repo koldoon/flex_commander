@@ -20,7 +20,7 @@ class PanelSettings implements Serializable {
     this.showHidden = false,
     this.view = defaultView,
     List<String>? expanded,
-  }) : columns = columns ?? ColumnLayout.defaults,
+  }) : columns = columns ?? ColumnLayout.empty,
        expanded = expanded ?? const [];
 
   /// Вид, которым панель показывает каталог, пока не выбрали другой.
@@ -53,6 +53,9 @@ class PanelSettings implements Serializable {
   /// — вид подматывает по своему правилу (`docs/spec/panel-view-tree.md`, §5).
   double scroll;
 
+  /// Чем человек переопределил объявленные колонки: порядок, ширина,
+  /// видимость. Пусто — «как объявлено»: умолчания знает не файл настроек, а
+  /// тот модуль, который колонку принёс (`docs/spec/column-registry.md`, §4).
   ColumnLayout columns;
   SortSpec sort;
   bool showHidden;

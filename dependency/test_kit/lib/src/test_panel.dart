@@ -2,12 +2,15 @@ import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flex_commander/core/core_server.dart';
 import 'package:flex_commander/core/listing_cache.dart';
 import 'package:flex_commander/core/panel_session.dart';
 import 'package:flex_commander/link/link.dart';
 import 'package:flex_commander/link/loopback_link.dart';
 import 'package:flex_commander/ui/session_mirror.dart';
+
+import 'test_columns.dart';
 
 /// Панель для проверок — обе её половины разом.
 ///
@@ -21,6 +24,7 @@ class TestPanel extends SessionMirror {
     required super.link,
     required super.state,
     required super.listing,
+    required super.columns,
     required this.session,
     required this.core,
   });
@@ -59,19 +63,25 @@ TestPanel testPanel({
   TreeEditor editor = const TreeTransferEngine(),
   int sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
   ListingCache? cache,
+  ColumnSorting? columns,
+  PanelColumns? shownColumns,
   PanelId id = PanelId.left,
 }) {
   final providers = registry ?? ProviderRegistry(root: provider);
+  // Колонки — те же, что объявляют модули приложения: без них сортировка по
+  // размеру и дате молча ложилась бы по имени.
+  final declared = columns ?? testColumnSorting();
   final session = PanelSession(
     settings: settings,
     registry: providers,
     editor: editor,
+    columns: declared,
     sizeScanConcurrency: () => sizeScanConcurrency,
     cache: cache,
   );
   // Вторая панель ядру нужна всегда — оно про две, — но проверке она не мешает:
   // стоит на том же источнике и никем не трогается.
-  final other = PanelSession(settings: PanelSettings(), registry: providers, editor: editor);
+  final other = PanelSession(settings: PanelSettings(), registry: providers, editor: editor, columns: declared);
   final core = CoreServer(
     left: id == PanelId.left ? session : other,
     right: id == PanelId.left ? other : session,
@@ -85,6 +95,7 @@ TestPanel testPanel({
     link: link,
     state: session.state,
     listing: PanelListing(generation: session.generation, entries: session.entries),
+    columns: shownColumns ?? testPanelColumns(),
     session: session,
     core: core,
   );

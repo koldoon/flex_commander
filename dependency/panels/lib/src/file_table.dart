@@ -11,6 +11,7 @@ import 'cursor_pin.dart';
 import 'file_table_header.dart';
 import 'panel_drag.dart';
 import 'panels_settings.dart';
+import 'columns.dart';
 import 'file_table_row.dart';
 
 /// Таблица файлов: заголовки колонок, вертикальные линейки на всю высоту и
@@ -288,16 +289,10 @@ class _FileTableState extends State<FileTable> {
                         app.activate(panel);
                         panel.sortBy(column);
                       },
-                      // Колонки правятся, только когда они панельные: у
-                      // списка находок раскладку просит источник, и менять в
-                      // ней нечего — уйдёт она вместе с ним.
-                      onLayoutChanged:
-                          panel.source.columns != null
-                              ? null
-                              : (layout) {
-                                app.activate(panel);
-                                panel.setColumnLayout(layout);
-                              },
+                      onLayoutChanged: (layout) {
+                        app.activate(panel);
+                        panel.setColumnLayout(layout);
+                      },
                     ),
                     Expanded(child: _buildList(columns, widths)),
                   ],
@@ -658,7 +653,7 @@ class _FileTableState extends State<FileTable> {
     // (`models.md`), и у иконки она складывается из отступа, самой иконки и
     // просвета до имени — то есть из метрик темы, а не из константы раскладки.
     double widthOf(ColumnSpec column) =>
-        column.id == FsColumn.icon ? FileIconSize.columnWidth(metrics, iconSize) : column.width;
+        column.id == FsColumns.icon ? FileIconSize.columnWidth(metrics, iconSize) : column.width;
 
     var fixed = 0.0;
     for (final column in columns) {
@@ -693,7 +688,7 @@ class _ColumnDividersPainter extends CustomPainter {
   /// перекрёсток, и глаз читал бы его как рамку таблицы, которой нет.
   final double inset;
 
-  static const Set<FsColumn> _noLeftDivider = {FsColumn.icon, FsColumn.name, FsColumn.ext};
+  static const Set<String> _noLeftDivider = {FsColumns.icon, FsColumns.name, FsColumns.ext};
 
   @override
   void paint(Canvas canvas, Size size) {

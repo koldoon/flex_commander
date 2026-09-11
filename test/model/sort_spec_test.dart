@@ -1,6 +1,7 @@
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_panels/fc_panels.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -21,8 +22,13 @@ void main() {
   LinkNode link(String name, {FileType? targetType}) =>
       LinkNode(provider: provider, name: name, parent: root, reference: '/somewhere', targetType: targetType);
 
+  // Сравнение приходит из реестра объявлений — тем же путём, каким его берёт
+  // панель: встроенного перечисления случаев у ядра больше нет
+  // (`docs/spec/column-registry.md`, §5).
+  final declared = testColumnSorting();
+
   List<String> sorted(List<FsNode> nodes, SortSpec spec) {
-    final result = nodes.toList()..sort(comparatorFor(spec));
+    final result = nodes.toList()..sort(comparatorFor(spec, column: declared.comparatorOf(spec.column)));
     return result.map((n) => n.name).toList();
   }
 
@@ -69,7 +75,7 @@ void main() {
         file('small.bin', size: 10),
         file('unknown.bin', size: FsNode.unknownSize),
       ];
-      expect(sorted(nodes, const SortSpec(column: FsColumn.size)), ['unknown.bin', 'small.bin', 'big.bin']);
+      expect(sorted(nodes, const SortSpec(column: FsColumns.size)), ['unknown.bin', 'small.bin', 'big.bin']);
     });
 
     test('по размеру: посчитанные каталоги сравниваются между собой', () {
@@ -82,7 +88,7 @@ void main() {
 
       // «Каталоги вперёд» решается по типу узла, поэтому посчитанный каталог
       // не перемешивается с файлами; непосчитанный идёт первым.
-      expect(sorted(nodes, const SortSpec(column: FsColumn.size)), ['unknown', 'small', 'big', 'file.txt']);
+      expect(sorted(nodes, const SortSpec(column: FsColumns.size)), ['unknown', 'small', 'big', 'file.txt']);
     });
 
     test('по дате; отсутствующая дата идёт первой', () {
@@ -91,12 +97,12 @@ void main() {
         file('old.txt', modified: DateTime(2018, 2, 19)),
         file('none.txt'),
       ];
-      expect(sorted(nodes, const SortSpec(column: FsColumn.modified)), ['none.txt', 'old.txt', 'new.txt']);
+      expect(sorted(nodes, const SortSpec(column: FsColumns.modified)), ['none.txt', 'old.txt', 'new.txt']);
     });
 
     test('по расширению', () {
       final nodes = <FsNode>[file('b.xlsx'), file('a.zip'), file('c.doc')];
-      expect(sorted(nodes, const SortSpec(column: FsColumn.ext)), ['c.doc', 'b.xlsx', 'a.zip']);
+      expect(sorted(nodes, const SortSpec(column: FsColumns.ext)), ['c.doc', 'b.xlsx', 'a.zip']);
     });
 
     test('направление переворачивает сравнение по колонке', () {
@@ -106,7 +112,7 @@ void main() {
 
     test('при равенстве порядок устойчив и задаётся именем', () {
       final nodes = <FsNode>[file('b.txt', size: 10), file('a.txt', size: 10), file('c.txt', size: 10)];
-      expect(sorted(nodes, const SortSpec(column: FsColumn.size)), ['a.txt', 'b.txt', 'c.txt']);
+      expect(sorted(nodes, const SortSpec(column: FsColumns.size)), ['a.txt', 'b.txt', 'c.txt']);
     });
   });
 
@@ -135,7 +141,7 @@ void main() {
       final nodes = <FsNode>[file('a.txt', size: 300), file('b.txt', size: 100), file('c.txt', size: 200)];
       int byNameLength(FsNode a, FsNode b) => a.name.length.compareTo(b.name.length);
 
-      final result = nodes.toList()..sort(comparatorFor(const SortSpec(column: FsColumn.size), column: byNameLength));
+      final result = nodes.toList()..sort(comparatorFor(const SortSpec(column: FsColumns.size), column: byNameLength));
 
       // Имена одной длины — значит порядок решил доводчик по имени, а не
       // размер: встроенное сравнение в дело не пошло.
@@ -157,11 +163,11 @@ void main() {
     test('колонка дерева сортируется — и сортируется именем', () {
       // Колонка дерева и колонка имени — одна и та же колонка, нарисованная
       // по-разному.
-      expect(FsColumn.tree.sortable, isTrue);
+      expect(declared.find(FsColumns.tree)?.sortable, isTrue);
 
       final nodes = <FsNode>[file('b.txt'), file('a.txt')];
-      expect(sorted(nodes, const SortSpec(column: FsColumn.tree)), ['a.txt', 'b.txt']);
-      expect(sorted(nodes, const SortSpec(column: FsColumn.tree, direction: SortDirection.descending)), [
+      expect(sorted(nodes, const SortSpec(column: FsColumns.tree)), ['a.txt', 'b.txt']);
+      expect(sorted(nodes, const SortSpec(column: FsColumns.tree, direction: SortDirection.descending)), [
         'b.txt',
         'a.txt',
       ]);
@@ -171,15 +177,15 @@ void main() {
   group('SortSpec.toggled', () {
     test('та же колонка меняет направление', () {
       const spec = SortSpec();
-      final toggled = spec.toggled(FsColumn.name);
-      expect(toggled.column, FsColumn.name);
+      final toggled = spec.toggled(FsColumns.name);
+      expect(toggled.column, FsColumns.name);
       expect(toggled.direction, SortDirection.descending);
     });
 
     test('другая колонка сортирует по возрастанию', () {
       const spec = SortSpec(direction: SortDirection.descending);
-      final toggled = spec.toggled(FsColumn.size);
-      expect(toggled.column, FsColumn.size);
+      final toggled = spec.toggled(FsColumns.size);
+      expect(toggled.column, FsColumns.size);
       expect(toggled.direction, SortDirection.ascending);
     });
   });

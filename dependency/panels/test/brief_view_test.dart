@@ -166,7 +166,7 @@ void main() {
 
     // Размеры расходятся с именами наоборот: сортировка переставляет список
     // целиком, и имени под курсором есть куда уехать.
-    await panel.sortBy(FsColumn.size);
+    await panel.sortBy(FsColumns.size);
     await tester.pumpAndSettle();
 
     // Столбец с курсором стоит там же, где стоял (`docs/spec/panel-views.md`,

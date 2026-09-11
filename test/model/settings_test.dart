@@ -17,6 +17,18 @@ AppSettings read(Object? json, {String fallbackPath = ''}) {
 /// Пишет объект так же, как `SettingsStore`.
 Map<String, dynamic> write(Serializable value) => serialize(value) as Map<String, dynamic>;
 
+/// Раскладка, какой её мог бы сложить человек: объявленное плюс его правки.
+///
+/// Настройки хранят выбор, а не геометрию, поэтому здесь только имена — те же,
+/// что лежат в файле.
+final ColumnLayout _layout = ColumnLayout(const [
+  ColumnSpec(id: 'icon', pinned: true),
+  ColumnSpec(id: 'name', pinned: true),
+  ColumnSpec(id: 'ext', width: 40),
+  ColumnSpec(id: 'size', width: 64),
+  ColumnSpec(id: 'attributes', width: 88, visible: false),
+]);
+
 void main() {
   group('AppSettings', () {
     test('запись и чтение дают то же самое', () {
@@ -24,8 +36,8 @@ void main() {
         left: PanelSettings(
           path: '/Users/koldoon',
           cursor: 'notes.txt',
-          columns: ColumnLayout.defaults.resize(FsColumn.size, 120).toggleVisible(FsColumn.attributes),
-          sort: const SortSpec(column: FsColumn.modified, direction: SortDirection.descending),
+          columns: _layout.resize('size', 120).toggleVisible('attributes'),
+          sort: const SortSpec(column: 'modified', direction: SortDirection.descending),
           showHidden: true,
         ),
         right: PanelSettings.defaults('/tmp'),
@@ -39,10 +51,10 @@ void main() {
       expect(restored.left.path, '/Users/koldoon');
       expect(restored.left.cursor, 'notes.txt');
       expect(restored.left.showHidden, isTrue);
-      expect(restored.left.sort.column, FsColumn.modified);
+      expect(restored.left.sort.column, 'modified');
       expect(restored.left.sort.direction, SortDirection.descending);
-      expect(restored.left.columns.find(FsColumn.size)?.width, 120);
-      expect(restored.left.columns.find(FsColumn.attributes)?.visible, isTrue);
+      expect(restored.left.columns.find('size')?.width, 120);
+      expect(restored.left.columns.find('attributes')?.visible, isTrue);
       expect(restored.right.path, '/tmp');
       expect(restored.activePanel, 1);
       expect(restored.splitRatio, 0.35);
@@ -81,7 +93,8 @@ void main() {
       expect(settings.left.path, '/home');
       expect(settings.right.path, '/home');
       expect(settings.sizeScanConcurrency, AppSettings.defaultSizeScanConcurrency);
-      expect(settings.left.columns.columns.length, ColumnLayout.defaults.columns.length);
+      // Раскладки в файле нет вовсе — значит «как объявлено».
+      expect(settings.left.columns.columns, isEmpty);
     });
 
     test('панель без пути остаётся в каталоге по умолчанию', () {
@@ -128,11 +141,12 @@ void main() {
 
       expect(settings.left.path, '/Users/koldoon');
       expect(settings.left.showHidden, isTrue);
-      expect(settings.left.sort.column, FsColumn.modified);
+      expect(settings.left.sort.column, 'modified');
       expect(settings.left.sort.direction, SortDirection.descending);
-      expect(settings.left.columns.find(FsColumn.ext)?.width, closeTo(51.40234375, 1e-9));
-      // Колонок в файле три, остальные дописываются из умолчаний.
-      expect(settings.left.columns.columns.length, ColumnLayout.defaults.columns.length);
+      expect(settings.left.columns.find('ext')?.width, closeTo(51.40234375, 1e-9));
+      // Ровно то, что в файле: умолчания приложит тот, кто рисует
+      // (`docs/spec/column-registry.md`, §4).
+      expect(settings.left.columns.columns.map((c) => c.id), ['icon', 'name', 'ext']);
 
       expect(settings.right.path, '/Users');
       expect(settings.right.showHidden, isFalse);
@@ -147,97 +161,6 @@ void main() {
     test('доля разделителя ограничена разумными пределами', () {
       expect(read({'splitRatio': 0.01}).splitRatio, AppSettings.minSplitRatio);
       expect(read({'splitRatio': 42}).splitRatio, AppSettings.maxSplitRatio);
-    });
-  });
-
-  group('ColumnLayout.fromJson', () {
-    test('порядок колонок берётся из настроек', () {
-      final layout = ColumnLayout.fromJson([
-        {'id': 'icon', 'width': 24, 'visible': true},
-        {'id': 'name', 'width': 0, 'visible': true},
-        {'id': 'modified', 'width': 90, 'visible': true},
-        {'id': 'ext', 'width': 40, 'visible': false},
-      ]);
-
-      expect(layout.columns.take(4).map((c) => c.id), [FsColumn.icon, FsColumn.name, FsColumn.modified, FsColumn.ext]);
-      // Ширина колонки с иконкой — из умолчаний, а не из файла: менять её
-      // пользователь не может, а оформление со временем меняется.
-      expect(layout.find(FsColumn.icon)?.width, ColumnLayout.defaults.find(FsColumn.icon)?.width);
-      expect(layout.find(FsColumn.modified)?.width, 90);
-      expect(layout.find(FsColumn.modified)?.width, 90);
-      expect(layout.find(FsColumn.ext)?.visible, isFalse);
-    });
-
-    test('колонки, которых не было в файле, добавляются следом', () {
-      final layout = ColumnLayout.fromJson([
-        {'id': 'name', 'width': 0, 'visible': true},
-      ]);
-
-      expect(layout.columns.first.id, FsColumn.name);
-      // Все колонки **таблицы**: ветвь дерева в раскладку панели не входит —
-      // её рисует свой вид (`docs/spec/panel-view-tree.md`, §4).
-      expect(layout.columns.map((c) => c.id), containsAll(ColumnLayout.defaults.columns.map((c) => c.id)));
-      expect(layout.columns.map((c) => c.id), isNot(contains(FsColumn.tree)));
-    });
-
-    test('неизвестные колонки игнорируются', () {
-      final layout = ColumnLayout.fromJson([
-        {'id': 'rating', 'width': 50, 'visible': true},
-        {'id': 'name', 'width': 0, 'visible': true},
-      ]);
-
-      expect(layout.columns.length, ColumnLayout.defaults.columns.length);
-      expect(layout.columns.first.id, FsColumn.name);
-    });
-
-    test('обязательные колонки нельзя спрятать через файл настроек', () {
-      final layout = ColumnLayout.fromJson([
-        {'id': 'name', 'width': 0, 'visible': false},
-      ]);
-
-      expect(layout.find(FsColumn.name)?.visible, isTrue);
-    });
-
-    test('не список даёт раскладку по умолчанию', () {
-      expect(ColumnLayout.fromJson('нет').columns.map((c) => c.id), ColumnLayout.defaults.columns.map((c) => c.id));
-    });
-  });
-
-  group('перестановка колонок', () {
-    test('колонка встаёт на указанную позицию', () {
-      final layout = ColumnLayout.defaults;
-      final moved = layout.moveColumn(layout.indexOf(FsColumn.modified), 2);
-
-      expect(moved.columns.map((c) => c.id).take(5), [
-        FsColumn.icon,
-        FsColumn.name,
-        FsColumn.modified,
-        FsColumn.path,
-        FsColumn.ext,
-      ]);
-    });
-
-    test('обязательные колонки не двигаются', () {
-      final layout = ColumnLayout.defaults;
-      final moved = layout.moveColumn(layout.indexOf(FsColumn.name), 4);
-
-      expect(moved.columns.map((c) => c.id), layout.columns.map((c) => c.id));
-    });
-
-    test('другие колонки не встают перед обязательными', () {
-      final layout = ColumnLayout.defaults;
-      final moved = layout.moveColumn(layout.indexOf(FsColumn.size), 0);
-
-      expect(moved.columns.map((c) => c.id).take(3), [FsColumn.icon, FsColumn.name, FsColumn.size]);
-      expect(layout.firstMovableIndex, 2);
-    });
-
-    test('порядок колонок переживает сохранение', () {
-      final layout = ColumnLayout.defaults;
-      final moved = layout.moveColumn(layout.indexOf(FsColumn.modified), 2);
-      final restored = ColumnLayout.fromJson(moved.toJson());
-
-      expect(restored.columns.map((c) => c.id), moved.columns.map((c) => c.id));
     });
   });
 

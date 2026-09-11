@@ -4,6 +4,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fc_panels/fc_panels.dart';
 
 /// Источник, чтение которого не заканчивается, пока его не отпустят.
 ///
@@ -410,10 +411,10 @@ void main() {
     await panel.session.setRows(RowsKind.tree);
     await panel.session.setExpanded('/home/lib', expanded: true);
 
-    panel.session.sortTo(const SortSpec(column: FsColumn.size));
+    panel.session.sortTo(const SortSpec(column: FsColumns.size));
     expect(rows(), ['/', '  home', '    lib', '      src', '      app.dart', '    main.dart', '  other']);
 
-    panel.session.sortTo(const SortSpec(column: FsColumn.size, direction: SortDirection.descending));
+    panel.session.sortTo(const SortSpec(column: FsColumns.size, direction: SortDirection.descending));
 
     // Перевернули — и ветви внутри своего уровня переставились.
     expect(rows(), ['/', '  other', '  home', '    lib', '      src', '      app.dart', '    main.dart']);
@@ -447,7 +448,7 @@ void main() {
     addTearDown(fresh.dispose);
     await fresh.openPath('/home');
     await fresh.session.setRows(RowsKind.tree);
-    fresh.session.sortTo(const SortSpec(column: FsColumn.size));
+    fresh.session.sortTo(const SortSpec(column: FsColumns.size));
 
     List<String> shown() => [for (final entry in fresh.session.entries) '${'  ' * entry.level}${entry.name}'];
     expect(shown(), ['/', '  home', '    big', '    small'], reason: 'размеры неизвестны — разводит имя');
@@ -475,7 +476,7 @@ void main() {
     await settle();
     expect(panel.session.nodes.firstWhere((node) => node.name == 'lib').size, 20);
 
-    panel.session.sortTo(const SortSpec(column: FsColumn.size, direction: SortDirection.descending));
+    panel.session.sortTo(const SortSpec(column: FsColumns.size, direction: SortDirection.descending));
 
     // Внутри `home` каталог остаётся выше файла, а `other` и `home` —
     // оба неизвестны, и их разводит доводчик по имени.

@@ -1,8 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
-import 'file_type_icon.dart';
+import 'columns.dart';
 
 /// Одна строка файловой таблицы.
 ///
@@ -49,6 +50,10 @@ class FileTableRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
     final colors = theme.colors;
+    // Без подписки: реестр колонок собран при запуске и больше не меняется, а
+    // строк на экране полсотни.
+    final declared = AppScope.read(context).columns;
+    final cell = ColumnCell(entry: entry, shown: columns, naming: naming, selected: _selected, contentOf: contentOf);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -77,7 +82,7 @@ class FileTableRow extends StatelessWidget {
                 child: Row(
                   children: [
                     for (var i = 0; i < columns.length; i++)
-                      SizedBox(width: widths[i], child: _cell(context, theme, columns[i])),
+                      SizedBox(width: widths[i], child: _cell(context, theme, declared, cell, columns[i])),
                   ],
                 ),
               ),
@@ -98,21 +103,16 @@ class FileTableRow extends StatelessWidget {
     );
   }
 
-  Widget _cell(BuildContext context, FcTheme theme, ColumnSpec column) {
+  Widget _cell(BuildContext context, FcTheme theme, PanelColumns declared, ColumnCell cell, ColumnSpec column) {
     final metrics = theme.metrics;
 
-    if (column.id == FsColumn.icon) {
-      // Иконка прижата к левому краю строки: `left="30"` у `iconLabel`.
-      return Padding(
-        padding: EdgeInsets.only(left: metrics.iconLeftPadding),
-        child: Align(
-          alignment: Alignment.centerLeft,
-          child: FileTypeIcon(entry: entry, selected: _selected, contentOf: contentOf),
-        ),
-      );
+    // Своя ячейка — там, где текста мало: значок типа объекта. Отступы у неё
+    // свои: значок прижат к левому краю строки, а не к краю колонки.
+    if (declared.builderOf(column.id) case final build?) {
+      return build(context, cell);
     }
 
-    final text = _textFor(column);
+    final text = _hidesText(column) ? '' : declared.textOf(column.id)?.call(cell) ?? '';
     if (text.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -136,42 +136,17 @@ class FileTableRow extends StatelessWidget {
     );
   }
 
+  /// У «..» есть только имя: размер и даты родительского каталога здесь ничего
+  /// не значат.
+  ///
+  /// Правило строки, а не колонки: спрашивать о нём каждое объявление значило
+  /// бы повторить его столько раз, сколько колонок.
+  bool _hidesText(ColumnSpec column) => entry.isParent && column.id != FsColumns.name;
+
   /// В референсе все ячейки строки одного цвета, а под курсором — белые:
   /// тип объекта показывает иконка, а не цвет имени.
   TextStyle _styleFor(FcTheme theme, ColumnSpec column) {
     final base = theme.rowStyle;
     return _selected ? base.copyWith(color: theme.colors.cursorText) : base;
   }
-
-  String _textFor(ColumnSpec column) {
-    if (entry.isParent) {
-      // У «..» есть только имя: размер и даты родительского каталога здесь
-      // ничего не значат.
-      return column.id == FsColumn.name ? entry.name : '';
-    }
-
-    // У каталога расширения нет: `my.backup` это не «файл .backup». Решает это
-    // тот, кто показывает, — расширение вообще не свойство файла, а толкование
-    // имени.
-    final splittable = !entry.isDirectory;
-    return switch (column.id) {
-      // Расширение показывается отдельной колонкой, поэтому из имени убирается.
-      // Ветвь рисует дерево — со своим отступом и знаком раскрытия; строка
-      // списка про неё ничего не знает (`docs/spec/panel-view-tree.md`, §4).
-      FsColumn.tree => entry.name,
-      FsColumn.name => _showExtension && splittable ? naming.split(entry.name).base : entry.name,
-      FsColumn.ext => _showExtension && splittable ? naming.split(entry.name).extension : '',
-      // Каталог объекта, а не его собственный путь: имя уже показано рядом.
-      FsColumn.path => entry.directoryPath,
-      FsColumn.size => formatSize(entry.size),
-      FsColumn.modified => formatDate(entry.modified),
-      FsColumn.created => formatDate(entry.created),
-      FsColumn.accessed => formatDate(entry.accessed),
-      FsColumn.attributes => entry.attributes.modeString,
-      FsColumn.icon => '',
-    };
-  }
-
-  /// Расширение отделяется от имени, только если колонка расширений видима.
-  bool get _showExtension => columns.any((column) => column.id == FsColumn.ext);
 }

@@ -109,7 +109,7 @@ void main() {
 
     // Строка уехала на другое место в списке — но не на экране: вид уехал
     // вместе с ней (`docs/spec/panel-views.md`, §9).
-    expect(app.left.sort.column, FsColumn.size);
+    expect(app.left.sort.column, FsColumns.size);
     expect(app.left.currentEntry?.name, name);
     expect(tester.getRect(row()).top, closeTo(was, 1));
   });

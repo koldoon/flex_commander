@@ -10,6 +10,7 @@ import '../ui/remote_content.dart';
 import '../ui/remote_shell.dart';
 import '../ui/remote_operation.dart';
 import '../ui/session_mirror.dart';
+import 'column_registry.dart';
 import 'panel_viewport_registry.dart';
 import 'app_view_controller.dart';
 import 'view_registry.dart';
@@ -35,6 +36,7 @@ class AppController extends ChangeNotifier implements Application {
     required this.commands,
     PanelViewports? viewports,
     PanelViews? panelViews,
+    PanelColumns? columns,
     List<ViewerSpec> viewers = const [],
     List<NodeInfoProvider> nodeInfoProviders = const [],
     Views? views,
@@ -67,6 +69,7 @@ class AppController extends ChangeNotifier implements Application {
        // Ни одного вида — панель рисует таблицей: так собирают приложение без
        // модуля панелей, и это не ошибка.
        panelViews = panelViews ?? PanelViewRegistry(),
+       columns = columns ?? const NoPanelColumns(),
        // По убыванию приоритета — один раз при сборке: спрашивают этот список
        // на каждое открытие файла, а меняться ему больше негде.
        viewers = [...viewers]..sort((a, b) => b.priority.compareTo(a.priority)),
@@ -166,7 +169,14 @@ class AppController extends ChangeNotifier implements Application {
     if (opened is! PanelOpened) {
       return null;
     }
-    return SessionMirror(id: opened.panel, link: link!, state: opened.state, listing: opened.listing, strings: strings);
+    return SessionMirror(
+      id: opened.panel,
+      link: link!,
+      state: opened.state,
+      listing: opened.listing,
+      columns: columns,
+      strings: strings,
+    );
   }
 
   @override
@@ -390,6 +400,10 @@ class AppController extends ChangeNotifier implements Application {
   /// Виды, которыми человек может показать каталог.
   @override
   final PanelViews panelViews;
+
+  /// Колонки, объявленные модулями (`docs/spec/column-registry.md`).
+  @override
+  final PanelColumns columns;
 
   /// Объявленные просмотрщики, по убыванию приоритета.
   @override

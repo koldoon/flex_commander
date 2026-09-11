@@ -4,6 +4,7 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/core/node_list.dart';
 import 'package:flex_commander/core/tree_node_list.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fc_panels/fc_panels.dart';
 
 /// Дерево как набор строк: маппер разворачивает раскрытые ветви построчно
 /// (`docs/spec/panel-node-list.md`, §3).
@@ -24,8 +25,12 @@ void main() {
 
   Future<DirectoryNode> dirAt(String path) async => (await provider.resolvePath().run(path))! as DirectoryNode;
 
+  // Сравнение колонки приходит из реестра объявлений — как и в панели
+  // (`docs/spec/column-registry.md`, §5).
+  final declared = testColumnSorting();
+
   NodeListOrder order({bool includeHidden = false, SortSpec sort = const SortSpec()}) =>
-      NodeListOrder.of(sort, includeHidden: includeHidden);
+      NodeListOrder.of(sort, includeHidden: includeHidden, column: declared.comparatorOf(sort.column));
 
   Future<List<String>> rowsOf(TreeNodeList list, {NodeListOrder? with_}) async {
     final rows = await list.read(order: with_ ?? order()).run(null);
@@ -112,7 +117,7 @@ void main() {
     final list = TreeNodeList(roots: [await dirAt('/home')])..expand('/home');
     final rows = await list.read(order: order()).run(null);
 
-    final again = list.reorder(rows, order(sort: const SortSpec(column: FsColumn.size)));
+    final again = list.reorder(rows, order(sort: const SortSpec(column: FsColumns.size)));
 
     // Ни одного чтения — только новый порядок: `main.dart` тяжелее, но
     // каталоги остаются выше файлов.

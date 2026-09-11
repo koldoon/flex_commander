@@ -6,6 +6,7 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
+import 'columns.dart';
 import 'cursor_pin.dart';
 import 'file_table_header.dart';
 import 'file_type_icon.dart';
@@ -507,11 +508,12 @@ class TreeViewState extends State<TreeView> {
 
 /// Колонки дерева: сама ветвь и размер.
 ///
-/// Те же `ColumnSpec`, что у таблицы, и та же ширина у размера: дерево
-/// показывает то же самое, и мерить это другой меркой незачем. Здесь их две; с
-/// датой станет три (`docs/spec/panel-view-tree.md`, §4).
-const ColumnSpec _treeColumn = ColumnSpec(id: FsColumn.tree, width: 0, pinned: true);
-const ColumnSpec _sizeColumn = ColumnSpec(id: FsColumn.size, width: 64, align: ColumnAlign.end);
+/// Те же объявления, что у таблицы: дерево показывает то же самое, и мерить
+/// это другой меркой незачем. Ветвь в раскладку панели не входит — её ставит
+/// себе вид (`docs/spec/panel-view-tree.md`, §4). Здесь их две; с датой
+/// станет три.
+const ColumnSpec _treeColumn = FsColumnSpecs.tree;
+const ColumnSpec _sizeColumn = FsColumnSpecs.size;
 
 /// Шапка дерева: те же заголовки, что у таблицы.
 ///
@@ -532,7 +534,7 @@ class _TreeHeader extends StatelessWidget {
   /// Колонка ветви сортирует по **имени**: колонка дерева и колонка имени —
   /// одна и та же колонка, нарисованная по-разному. Каретка потому и стоит на
   /// ней при любом из двух имён.
-  bool get _byName => panel.sort.column == FsColumn.name || panel.sort.column == FsColumn.tree;
+  bool get _byName => panel.sort.column == FsColumns.name || panel.sort.column == FsColumns.tree;
 
   @override
   Widget build(BuildContext context) {
@@ -546,7 +548,7 @@ class _TreeHeader extends StatelessWidget {
               column: _treeColumn,
               sorted: panel.sorted && _byName,
               direction: panel.sort.direction,
-              onTap: () => panel.sortBy(FsColumn.name),
+              onTap: () => panel.sortBy(FsColumns.name),
             ),
           ),
           if (showSize)
@@ -554,9 +556,9 @@ class _TreeHeader extends StatelessWidget {
               width: sizeWidth,
               child: FileTableHeaderCell(
                 column: _sizeColumn,
-                sorted: panel.sorted && panel.sort.column == FsColumn.size,
+                sorted: panel.sorted && panel.sort.column == FsColumns.size,
                 direction: panel.sort.direction,
-                onTap: () => panel.sortBy(FsColumn.size),
+                onTap: () => panel.sortBy(FsColumns.size),
               ),
             ),
           SizedBox(width: inset),

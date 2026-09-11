@@ -190,6 +190,9 @@ class _Collector implements BackendRegistry {
   SettingsScope get settings => throw UnimplementedError();
 
   @override
+  void column(ColumnSpec spec, {ColumnComparatorFactory? compare}) {}
+
+  @override
   void addressProvider(String scheme, AddressFactory factory) {}
 
   @override

@@ -6,6 +6,7 @@ import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/core/panel_session.dart';
 import 'package:flex_commander/core/search_results.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fc_panels/fc_panels.dart';
 
 /// Найденное как содержимое панели — то, ради чего этап и затевался.
 ///
@@ -173,9 +174,9 @@ void main() {
     expect(panel().entries.map((entry) => entry.name), ['..', 'docs', 'readme.txt']);
 
     // Своей настройки он этим не менял: ушёл из находок — она прежняя.
-    expect(panel().settings.sort.column, FsColumn.name);
+    expect(panel().settings.sort.column, FsColumns.name);
     await panel().goUp();
-    expect(panel().sort.column, FsColumn.name);
+    expect(panel().sort.column, FsColumns.name);
   });
 
   test('умения — у строки, а не у списка', () async {

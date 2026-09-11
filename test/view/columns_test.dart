@@ -60,13 +60,13 @@ void main() {
   group('сортировка кликом', () {
     testWidgets('клик по заголовку сортирует по колонке', (tester) async {
       await pumpApp(tester);
-      expect(app.left.sort.column, FsColumn.name);
+      expect(app.left.sort.column, FsColumns.name);
 
       await tester.tap(headerOf('Size'));
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 20));
 
-      expect(app.left.sort.column, FsColumn.size);
+      expect(app.left.sort.column, FsColumns.size);
       expect(app.left.sort.direction, SortDirection.ascending);
       // Каталоги всё равно выше файлов, поэтому сравниваем только файлы.
       expect(namesOf(app.left).sublist(2), ['b.txt', 'c.txt', 'a.txt']);
@@ -106,20 +106,20 @@ void main() {
       // Саму запись на диск проверяет тест AppController: обращаться к файловой
       // системе внутри widget-теста нельзя — его поддельное асинхронное окружение
       // такого не переживает.
-      expect(app.core!.settings!.left.sort.column, FsColumn.modified);
+      expect(app.core!.settings!.left.sort.column, FsColumns.modified);
     });
   });
 
   group('ширина колонок', () {
     testWidgets('перетаскивание границы меняет ширину правой колонки', (tester) async {
       await pumpApp(tester);
-      final before = app.left.columns.find(FsColumn.size)!.width;
+      final before = app.left.columns.find(FsColumns.size)!.width;
 
       // Граница колонки размера — её левый край.
       final sizeHeader = tester.getRect(headerOf('Size'));
       await dragBy(tester, Offset(sizeHeader.left, sizeHeader.center.dy), -20);
 
-      expect(app.left.columns.find(FsColumn.size)!.width, before + 20);
+      expect(app.left.columns.find(FsColumns.size)!.width, before + 20);
     });
 
     testWidgets('ширина не уходит ниже минимума', (tester) async {
@@ -128,7 +128,7 @@ void main() {
       final sizeHeader = tester.getRect(headerOf('Size'));
       await dragBy(tester, Offset(sizeHeader.left, sizeHeader.center.dy), 500);
 
-      final spec = app.left.columns.find(FsColumn.size)!;
+      final spec = app.left.columns.find(FsColumns.size)!;
       expect(spec.width, spec.minWidth);
     });
 
@@ -138,7 +138,10 @@ void main() {
       final sizeHeader = tester.getRect(headerOf('Size'));
       await dragBy(tester, Offset(sizeHeader.left, sizeHeader.center.dy), -10);
 
-      expect(app.core!.settings!.left.columns.find(FsColumn.size)?.width, app.left.columns.find(FsColumn.size)?.width);
+      expect(
+        app.core!.settings!.left.columns.find(FsColumns.size)?.width,
+        app.left.columns.find(FsColumns.size)?.width,
+      );
     });
   });
 
@@ -146,11 +149,11 @@ void main() {
     testWidgets('перетаскивание заголовка меняет порядок', (tester) async {
       await pumpApp(tester);
       expect(app.left.columns.visibleColumns.map((c) => c.id), [
-        FsColumn.icon,
-        FsColumn.name,
-        FsColumn.ext,
-        FsColumn.size,
-        FsColumn.modified,
+        FsColumns.icon,
+        FsColumns.name,
+        FsColumns.ext,
+        FsColumns.size,
+        FsColumns.modified,
       ]);
 
       final modified = tester.getRect(headerOf('Modified'));
@@ -158,11 +161,11 @@ void main() {
       await dragBy(tester, modified.center, ext.left - modified.center.dx);
 
       expect(app.left.columns.visibleColumns.map((c) => c.id), [
-        FsColumn.icon,
-        FsColumn.name,
-        FsColumn.modified,
-        FsColumn.ext,
-        FsColumn.size,
+        FsColumns.icon,
+        FsColumns.name,
+        FsColumns.modified,
+        FsColumns.ext,
+        FsColumns.size,
       ]);
     });
 
@@ -173,8 +176,8 @@ void main() {
       final size = tester.getRect(headerOf('Size'));
       await dragBy(tester, name.center, size.center.dx - name.center.dx);
 
-      expect(app.left.columns.columns.first.id, FsColumn.icon);
-      expect(app.left.columns.columns[1].id, FsColumn.name);
+      expect(app.left.columns.columns.first.id, FsColumns.icon);
+      expect(app.left.columns.columns[1].id, FsColumns.name);
     });
   });
 
@@ -216,8 +219,8 @@ void main() {
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 20));
 
-      expect(app.left.columns.find(FsColumn.ext)?.visible, isFalse);
-      expect(app.left.columns.visibleColumns.map((c) => c.id), isNot(contains(FsColumn.ext)));
+      expect(app.left.columns.find(FsColumns.ext)?.visible, isFalse);
+      expect(app.left.columns.visibleColumns.map((c) => c.id), isNot(contains(FsColumns.ext)));
     });
 
     testWidgets('иконку и имя не выключить: без них строка нечитаема', (tester) async {
@@ -263,8 +266,8 @@ void main() {
       await tester.tap(find.descendant(of: find.byType(FcCheckbox), matching: find.text('Ext')));
       await tester.pumpAndSettle();
 
-      expect(app.left.columns.find(FsColumn.ext)?.visible, isFalse);
-      expect(app.right.columns.find(FsColumn.ext)?.visible, isTrue);
+      expect(app.left.columns.find(FsColumns.ext)?.visible, isFalse);
+      expect(app.right.columns.find(FsColumns.ext)?.visible, isTrue);
     });
   });
 }

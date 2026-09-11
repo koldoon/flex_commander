@@ -5,6 +5,7 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/foundation.dart';
 
 import '../link/link.dart';
+import '../state/column_registry.dart';
 import 'remote_content.dart';
 
 /// Сессия со стороны экрана: зеркало того, что держит ядро.
@@ -29,8 +30,10 @@ class SessionMirror extends ChangeNotifier implements Session {
     required Link link,
     required PanelState state,
     required PanelListing listing,
+    PanelColumns columns = const NoPanelColumns(),
     Strings? strings,
   }) : _link = link,
+       _declared = columns,
        _state = state,
        _listing = listing,
        // Своя работа тоже рассказывает о себе — и на языке человека. Своих
@@ -43,6 +46,10 @@ class SessionMirror extends ChangeNotifier implements Session {
   final PanelId id;
 
   final Link _link;
+
+  /// Объявленные колонки: раскладку из настроек накладывают на них здесь —
+  /// реестр живёт по эту сторону границы (`docs/spec/column-registry.md`, §4).
+  final PanelColumns _declared;
   final Strings _strings;
   late final StreamSubscription<CoreEvent> _events;
 
@@ -114,7 +121,7 @@ class SessionMirror extends ChangeNotifier implements Session {
   SortSpec get sort => _state.sort;
 
   @override
-  ColumnLayout get columns => _state.source.columns ?? _state.columns;
+  ColumnLayout get columns => _declared.resolve(_state.columns, extra: _state.source.extraColumns);
 
   @override
   bool get showHidden => _state.showHidden;
@@ -446,8 +453,10 @@ class SessionMirror extends ChangeNotifier implements Session {
   // --- вид ---
 
   @override
-  Future<void> sortBy(FsColumn column) {
-    if (!column.sortable) {
+  Future<void> sortBy(String column) {
+    // Незнакомая и несортируемая колонки не делают ничего — как и в ядре, куда
+    // эта заявка поехала бы.
+    if (!(_declared.find(column)?.sortable ?? false)) {
       return Future.value();
     }
     return _link.call(Arrange(id, sort: _state.sort.toggled(column)));

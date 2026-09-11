@@ -335,14 +335,14 @@ void main() {
   testWidgets('в найденном видна колонка пути, а раскладка панели цела', (tester) async {
     await pumpApp(tester);
     final before = app.left.columns;
-    expect(before.find(FsColumn.path)?.visible, isFalse, reason: 'в обычном каталоге путь у всех один');
+    expect(before.find(FsColumns.path)?.visible, isFalse, reason: 'в обычном каталоге путь у всех один');
 
     await openWindow(tester);
     await search(tester, '*.dart');
     await press(tester, 'To panel');
 
     // Иначе список нечитаем: `main.dart` в нём два, и различает их только это.
-    expect(app.left.columns.find(FsColumn.path)?.visible, isTrue);
+    expect(app.left.columns.find(FsColumns.path)?.visible, isTrue);
 
     // Дерево говорит это ветвями, а колонку видно в таблице — и посмотреть
     // находки таблицей человек волен: просьба источника не запрет.
@@ -358,7 +358,7 @@ void main() {
     // это не переписывает.
     await app.left.goUp();
     await tester.pumpAndSettle();
-    expect(app.left.columns.find(FsColumn.path)?.visible, isFalse);
+    expect(app.left.columns.find(FsColumns.path)?.visible, isFalse);
   });
 
   testWidgets('правка колонок в находках не переписывает настройку панели', (tester) async {
@@ -379,7 +379,7 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(app.left.source.scheme, isNot(SourceInfo.foundScheme));
-    expect(app.left.columns.find(FsColumn.path)?.visible, isFalse, reason: 'колонка пути ушла вместе с находками');
+    expect(app.left.columns.find(FsColumns.path)?.visible, isFalse, reason: 'колонка пути ушла вместе с находками');
   });
 
   testWidgets('обход идёт в глубину: находка прибывает в конец дерева', (tester) async {

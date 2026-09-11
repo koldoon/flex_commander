@@ -9,6 +9,7 @@ import '../state/app_controller.dart';
 import '../state/compound_file_naming.dart';
 import '../state/shell_settings.dart';
 import '../state/error_controller.dart';
+import '../state/column_registry.dart';
 import '../state/panel_viewport_registry.dart';
 import '../state/theme_controller.dart';
 import '../state/toast_controller.dart';
@@ -184,6 +185,10 @@ class UiContainer extends DI {
 
     bind<PanelViews>(to: (c) => PanelViewRegistry(frontend.panelViews));
 
+    // Колонки, объявленные экранными половинами модулей: на них накладывается
+    // раскладка панели (`docs/spec/column-registry.md`, §3.5).
+    bind<PanelColumns>(to: (c) => ColumnRegistry(frontend.columns));
+
     bind<Views>(to: (c) => ViewRegistry(frontend.views));
 
     // Разделы окна настроек: собраны при объявлении, строятся при открытии.
@@ -236,8 +241,14 @@ class UiContainer extends DI {
         // может спросить пароль.
         c.get<SecretsClient>();
 
-        SessionMirror mirror(PanelId id, PanelState state, PanelListing listing) =>
-            SessionMirror(id: id, link: link, state: state, listing: listing, strings: c.get<Strings>());
+        SessionMirror mirror(PanelId id, PanelState state, PanelListing listing) => SessionMirror(
+          id: id,
+          link: link,
+          state: state,
+          listing: listing,
+          columns: c.get<PanelColumns>(),
+          strings: c.get<Strings>(),
+        );
 
         final ready = _handshake;
 
@@ -261,6 +272,7 @@ class UiContainer extends DI {
           strings: c.get<Strings>() as StringsRegistry,
           viewports: c.get<PanelViewports>(),
           panelViews: c.get<PanelViews>(),
+          columns: c.get<PanelColumns>(),
           // Списком, а не службой: складывать и упорядочивать — вся работа
           // оболочки с просмотрщиками. Кто возьмётся за файл, спрашивает она.
           viewers: frontend.viewers,

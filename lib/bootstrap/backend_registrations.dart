@@ -20,6 +20,14 @@ class AddressRegistration {
   final AddressFactory factory;
 }
 
+/// Колонка, объявленная ядровой половиной модуля: паспорт и сравнение.
+class ColumnDeclaration {
+  const ColumnDeclaration(this.spec, {this.compare});
+
+  final ColumnSpec spec;
+  final ColumnComparatorFactory? compare;
+}
+
 /// Всё, что ядровые половины модулей предложили ядру.
 ///
 /// Реестр только собирает объявления; что с ними делать, решает сборка.
@@ -37,6 +45,9 @@ class BackendRegistrations extends ModuleRegistrations<FcBackendModule> implemen
 
   /// Работы по именам: `file.copy`, `zip.pack`.
   final Map<String, OperationFactory> operations = {};
+
+  /// Объявленные колонки — в порядке объявления.
+  final List<ColumnDeclaration> columns = [];
 
   @override
   void install(FcBackendModule module) => module.installBackend(this);
@@ -70,6 +81,11 @@ class BackendRegistrations extends ModuleRegistrations<FcBackendModule> implemen
       throw StateError('Работа «$kind» уже объявлена');
     }
     operations[kind] = factory;
+  }
+
+  @override
+  void column(ColumnSpec spec, {ColumnComparatorFactory? compare}) {
+    columns.add(ColumnDeclaration(spec, compare: compare));
   }
 
   @override

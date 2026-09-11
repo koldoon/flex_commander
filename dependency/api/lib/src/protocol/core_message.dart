@@ -149,6 +149,10 @@ final class Arrange extends CoreRequest {
 
   final PanelId panel;
   final SortSpec? sort;
+
+  /// Раскладка, какой её видит экран, — а видит он только объявленное.
+  /// Колонку выключенного модуля ядро возвращает на место само
+  /// (`ColumnLayout.merge`, `docs/spec/column-registry.md`, §4.3).
   final ColumnLayout? columns;
   final bool? showHidden;
 

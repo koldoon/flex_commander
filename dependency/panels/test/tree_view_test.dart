@@ -983,7 +983,7 @@ void main() {
     // Тот же порядок, только наоборот, — и внутри ветвей, а не вперемешку:
     // каталоги остаются выше файлов.
     expect(branches(tester), containsAllInOrder(['test', 'lib', 'main.dart']));
-    expect(panel.sort.column, FsColumn.name);
+    expect(panel.sort.column, FsColumns.name);
     expect(panel.sort.direction, SortDirection.descending);
   });
 
@@ -1056,12 +1056,12 @@ void main() {
     await tester.tap(find.descendant(of: find.byType(TreeView), matching: find.text('Size')));
     await tester.pumpAndSettle();
 
-    expect(panel.sort.column, FsColumn.size, reason: 'правило одно на панель');
+    expect(panel.sort.column, FsColumns.size, reason: 'правило одно на панель');
 
     // Переключились в список — порядок тот же: правило панельное.
     await panel.setView('table');
     await tester.pumpAndSettle();
-    expect(panel.sort.column, FsColumn.size);
+    expect(panel.sort.column, FsColumns.size);
   });
 
   testWidgets('курсор остаётся на той же ветви при смене порядка', (tester) async {
@@ -1096,7 +1096,7 @@ void main() {
     await tester.tap(find.descendant(of: find.byType(TreeView), matching: find.text('Size')));
     await tester.pumpAndSettle();
 
-    expect(runtime.app.left.sort.column, FsColumn.size);
+    expect(runtime.app.left.sort.column, FsColumns.size);
     expect(branches(tester), containsAllInOrder(['b.txt', 'c.txt', 'a.txt']));
   });
 

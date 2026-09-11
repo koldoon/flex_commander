@@ -4,21 +4,23 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_panels/fc_panels.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Источник со своей колонкой и своим сравнением.
+/// Источник со своим сравнением.
 ///
-/// Ядру такая колонка незнакома, сортировать её ему нечем — сравнение приходит
-/// оттуда же, откуда раскладка (`docs/spec/panel-node-list.md`, §5).
-class _OwnColumnsProvider extends InMemoryTreeProvider implements PanelColumns {
+/// Своя колонка источника реестру незнакома, сортировать её нечем — сравнение
+/// приходит оттуда же, откуда просьба показать колонку
+/// (`docs/spec/column-registry.md`, §6).
+class _OwnColumnsProvider extends InMemoryTreeProvider implements PanelExtraColumns {
   _OwnColumnsProvider(super.entries);
 
   @override
-  ColumnLayout get columns => ColumnLayout.defaults;
+  Set<String> get extraColumns => const {};
 
   /// Размер сравнивается наоборот — по этому и видно, чьё сравнение в деле.
   @override
-  NodeComparator? comparatorOf(FsColumn column) => column == FsColumn.size ? (a, b) => b.size.compareTo(a.size) : null;
+  NodeComparator? comparatorOf(String column) => column == FsColumns.size ? (a, b) => b.size.compareTo(a.size) : null;
 }
 
 void main() {
@@ -355,14 +357,14 @@ void main() {
     test('клик по колонке меняет направление', () {
       expect(panel.sort.direction, SortDirection.ascending);
 
-      panel.sortBy(FsColumn.name);
+      panel.sortBy(FsColumns.name);
       expect(panel.sort.direction, SortDirection.descending);
       expect(namesOf(panel), ['..', 'link-to-bin', 'docs', 'bin', 'report.xlsx', 'notes.txt']);
     });
 
     test('курсор остаётся на том же объекте', () {
       panel.setCursorToName('notes.txt');
-      panel.sortBy(FsColumn.size);
+      panel.sortBy(FsColumns.size);
 
       expect(panel.currentEntry?.name, 'notes.txt');
     });
@@ -378,7 +380,7 @@ void main() {
       addTearDown(panel.dispose);
       await panel.openPath('/home');
 
-      panel.sortBy(FsColumn.size);
+      panel.sortBy(FsColumns.size);
 
       // По возрастанию — но сравнение своё, обратное: сверху самый большой.
       expect(panel.sort.direction, SortDirection.ascending);
@@ -387,7 +389,7 @@ void main() {
 
     test('по колонке иконки сортировать нельзя', () {
       final before = panel.sort;
-      panel.sortBy(FsColumn.icon);
+      panel.sortBy(FsColumns.icon);
 
       expect(panel.sort, before);
     });
@@ -395,13 +397,13 @@ void main() {
 
   test('настройки панели отражают текущее состояние', () async {
     await panel.openPath('/home/docs');
-    panel.sortBy(FsColumn.size);
-    panel.setColumnLayout(panel.columns.toggleVisible(FsColumn.attributes));
+    panel.sortBy(FsColumns.size);
+    panel.setColumnLayout(panel.columns.toggleVisible(FsColumns.attributes));
 
     final settings = panel.session.settings;
     expect(settings.path, '/home/docs');
-    expect(settings.sort.column, FsColumn.size);
-    expect(settings.columns.find(FsColumn.attributes)?.visible, isTrue);
+    expect(settings.sort.column, FsColumns.size);
+    expect(settings.columns.find(FsColumns.attributes)?.visible, isTrue);
   });
 
   group('курсор между запусками', () {

@@ -9,6 +9,7 @@ import 'package:flex_commander/link/loopback_link.dart';
 import 'package:flex_commander/ui/session_mirror.dart';
 import 'package:flex_commander/ui/remote_content.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fc_panels/fc_panels.dart';
 
 /// Зеркало: панель на экране — это последнее, о чём рассказало ядро.
 /// Линк, придерживающий события: подтверждения ядра приходят тогда, когда их
@@ -63,6 +64,7 @@ void main() {
     settings: PanelSettings.defaults(path),
     registry: ProviderRegistry(root: provider),
     editor: const TreeTransferEngine(),
+    columns: testColumnSorting(),
   );
 
   Future<void> start() async {
@@ -80,6 +82,7 @@ void main() {
       link: link,
       state: ready.states[PanelId.left]!,
       listing: ready.listings[PanelId.left]!,
+      columns: testPanelColumns(),
     );
     await panel.openPath('/home');
   }
@@ -283,7 +286,7 @@ void main() {
   test('сортировка меняет порядок', () async {
     final names = panel.entries.map((entry) => entry.name).toList();
 
-    await panel.sortBy(FsColumn.name);
+    await panel.sortBy(FsColumns.name);
 
     expect(panel.entries.map((entry) => entry.name), isNot(names));
   });

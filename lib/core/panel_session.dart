@@ -6,10 +6,20 @@ import 'package:flutter/foundation.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 
+import '../core/column_sorting_registry.dart';
 import '../core/listing_cache.dart';
 import '../core/node_list.dart';
 import '../core/tree_node_list.dart';
 import '../core/selection_controller.dart';
+
+/// Имя колонки размеров — чужое: объявляет её модуль панелей.
+///
+/// Ссылаться на колонку по имени можно, а зависеть ради этого от объявившего
+/// её модуля — нельзя: имя это внешний контракт, он же лежит в настройках
+/// (`docs/spec/column-registry.md`, §9). Нужно оно здесь одному месту:
+/// подсчёт размеров каталогов меняет числа, и список, отсортированный по ним,
+/// приходится разложить заново.
+const String _sizeColumn = 'size';
 
 /// Создаёт сеансы панелей.
 ///
@@ -22,6 +32,7 @@ class PanelSessionFactory {
   PanelSessionFactory({
     required this.registry,
     required this.editor,
+    this.columns = const NoColumnSorting(),
     this.sizeScanConcurrency = _defaultConcurrency,
     this.naming = const ReferenceFileNaming(),
     this.cache,
@@ -46,6 +57,9 @@ class PanelSessionFactory {
   /// Правило показа имени: по нему же идёт сортировка по расширению.
   final FileNaming naming;
 
+  /// Объявленные колонки: чем их сравнивать. Один реестр на обе панели.
+  final ColumnSorting columns;
+
   /// Списки уже прочитанных каталогов — один на приложение, поэтому приходит
   /// сюда, а не заводится панелью. null — кеша нет вовсе, и панель читает так
   /// же, как читала до него.
@@ -57,6 +71,7 @@ class PanelSessionFactory {
   PanelSession create(PanelSettings settings) => PanelSession(
     registry: registry,
     editor: editor,
+    columns: columns,
     settings: settings,
     sizeScanConcurrency: sizeScanConcurrency,
     naming: naming,
@@ -87,6 +102,7 @@ class PanelSession {
     required PanelSettings settings,
     required ProviderRegistry registry,
     required TreeEditor editor,
+    ColumnSorting columns = const NoColumnSorting(),
     this.sizeScanConcurrency = _defaultConcurrency,
     this.naming = const ReferenceFileNaming(),
     this.cache,
@@ -94,12 +110,13 @@ class PanelSession {
   }) : strings = strings ?? StringsRegistry(),
        _registry = registry,
        _editor = editor,
+       _columnSorting = columns,
        _columns = settings.columns,
        _view = settings.view,
        _expanded = {...settings.expanded},
        _savedCursor = settings.cursorPath,
        _scrollOffset = settings.scroll,
-       _sort = settings.sort,
+       _sort = columns.sanitize(settings.sort),
        _showHidden = settings.showHidden,
        _lastPath = settings.path {
     // Прочитанное из настроек кладётся в ту же память, которой панель
@@ -285,6 +302,9 @@ class PanelSession {
   String _lastPath;
 
   ColumnLayout _columns;
+
+  /// Объявленные колонки: чем их сравнивать и какие из них сортируемы.
+  final ColumnSorting _columnSorting;
   String _view;
 
   /// Чем набираются строки: говорит вид, а ядро о видах не знает
@@ -1135,29 +1155,51 @@ class PanelSession {
 
   // --- вид ---
 
-  /// Раскладка колонок: своя у панели, но источник вправе попросить другую.
+  /// Раскладка колонок — то, чем человек переопределил объявленное.
   ///
-  /// Просит только тот, кто не каталог (`PanelColumns`): найденному нужна
-  /// колонка пути. Настройку панели это не меняет — уйдя из находок, человек
-  /// видит те же колонки, что настраивал.
-  ColumnLayout get columns {
-    final current = provider;
-    return current is PanelColumns ? (current as PanelColumns).columns : _columns;
+  /// Объявления к ней прикладывает тот, кто рисует: реестр колонок живёт на
+  /// его стороне (`docs/spec/column-registry.md`, §4). Просьбу источника
+  /// (`PanelExtraColumns`) везёт `SourceInfo.extraColumns` — и она тоже
+  /// накладывается там, потому что в настройки не попадает.
+  ColumnLayout get columns => _columns;
+
+  /// Раскладка, какой её видит экран, — поверх той, что хранится.
+  ///
+  /// Слияние, а не замена: экран знает только объявленное, а в настройках
+  /// живёт ещё и колонка выключенного модуля. Она обязана уцелеть — иначе один
+  /// запуск без модуля стирал бы раскладку насовсем
+  /// (`docs/spec/column-registry.md`, §4.3).
+  void setColumnLayout(ColumnLayout layout) {
+    _columns = _columns.merge(_asChosen(layout));
+    _changed();
   }
 
-  /// Своя раскладка колонок; чужую не трогаем.
+  /// Из пришедшего убирается то, что выбрал не человек, а источник.
   ///
-  /// Пока источник просит собственные колонки (`PanelColumns` — список
-  /// находок), на экране не панельная раскладка, а его. Записать её в
-  /// настройки панели значило бы сделать выбор источника выбором человека: уйдя
-  /// из находок, панель осталась бы с колонкой пути навсегда — и это не
-  /// выдумка, а поймано живьём.
-  void setColumnLayout(ColumnLayout layout) {
-    if (provider is PanelColumns) {
-      return;
+  /// Список находок просит колонку пути, и на экране она видима. Записать эту
+  /// видимость в настройки значило бы сделать выбор источника выбором
+  /// человека: уйдя из находок, панель осталась бы с колонкой пути навсегда —
+  /// и это не выдумка, а поймано живьём.
+  ColumnLayout _asChosen(ColumnLayout incoming) {
+    final source = provider;
+    final extra = source is PanelExtraColumns ? (source as PanelExtraColumns).extraColumns : const <String>{};
+    if (extra.isEmpty) {
+      return incoming;
     }
-    _columns = layout;
-    _changed();
+    final kept = <ColumnSpec>[];
+    for (final column in incoming.columns) {
+      if (!extra.contains(column.id)) {
+        kept.add(column);
+        continue;
+      }
+      // Своего выбора об этой колонке у человека не было вовсе — и появиться
+      // ему неоткуда: он её не включал.
+      final saved = _columns.find(column.id);
+      if (saved != null) {
+        kept.add(column.copyWith(visible: saved.visible));
+      }
+    }
+    return ColumnLayout(kept);
   }
 
   /// Чем панель показывает каталог.
@@ -1584,8 +1626,11 @@ class PanelSession {
   SortSpec get sort => _sortHere ?? _sort;
 
   /// Сортировка по колонке: та же колонка меняет направление.
-  void sortBy(FsColumn column) {
-    if (!column.sortable) {
+  ///
+  /// Незнакомая и несортируемая колонки не делают ничего: щёлкнуть по значку
+  /// в шапке негде, а колонка выключенного модуля до экрана не доходила.
+  void sortBy(String column) {
+    if (!(_columnSorting.find(column)?.sortable ?? false)) {
       return;
     }
     sortTo(sort.toggled(column));
@@ -1796,7 +1841,7 @@ class PanelSession {
       canReceive: current.canReceive,
       isShellHost: shell != null,
       contentKind: current is PanelContent ? (current as PanelContent).contentKind : SourceInfo.files,
-      columns: current is PanelColumns ? (current as PanelColumns).columns : null,
+      extraColumns: current is PanelExtraColumns ? (current as PanelExtraColumns).extraColumns : const {},
       shellLabel: shell?.shellLabel ?? '',
       shellProgram: shell?.shellProgram ?? '',
     );
@@ -2153,9 +2198,12 @@ class PanelSession {
     return NodeListOrder.of(
       sort,
       includeHidden: _showHidden,
-      // Сравнение спрашивают **у источника**, а не у ядра: колонку, которой
-      // ядро не знает, сортировать ему нечем (`docs/spec/panel-node-list.md`, §5).
-      column: source is PanelColumns ? (source as PanelColumns).comparatorOf(sort.column) : null,
+      // Сравнение спрашивают **у колонки**: сперва у источника — своя колонка
+      // известна только ему, — а нет своего, у реестра объявлений
+      // (`docs/spec/column-registry.md`, §5).
+      column:
+          (source is PanelExtraColumns ? (source as PanelExtraColumns).comparatorOf(sort.column) : null) ??
+          _columnSorting.comparatorOf(sort.column),
       naming: naming,
     );
   }
@@ -2665,7 +2713,7 @@ class PanelSession {
       return false;
     }
     _measuredSinceSort = false;
-    if (_sort.column != FsColumn.size) {
+    if (_sort.column != _sizeColumn) {
       return false;
     }
 

@@ -34,7 +34,7 @@ class FileTableHeader extends StatefulWidget {
   /// (`docs/spec/file-search.md`, §4).
   final bool sorted;
 
-  final void Function(FsColumn column)? onColumnTap;
+  final void Function(String column)? onColumnTap;
   final void Function(ColumnLayout layout)? onLayoutChanged;
 
   @override
@@ -43,7 +43,7 @@ class FileTableHeader extends StatefulWidget {
 
 class _FileTableHeaderState extends State<FileTableHeader> {
   /// Перетаскиваемая колонка и позиция, куда её положат.
-  FsColumn? _dragged;
+  String? _dragged;
   int _dropIndex = -1;
 
   @override
@@ -79,7 +79,7 @@ class _FileTableHeaderState extends State<FileTableHeader> {
       column: column,
       sorted: widget.sorted && widget.sort.column == column.id,
       direction: widget.sort.direction,
-      onTap: widget.onColumnTap == null || !column.id.sortable ? null : () => widget.onColumnTap!(column.id),
+      onTap: widget.onColumnTap == null || !column.sortable ? null : () => widget.onColumnTap!(column.id),
     );
 
     if (!movable) {
@@ -239,16 +239,19 @@ class FileTableHeaderCell extends StatelessWidget {
   final SortDirection direction;
   final VoidCallback? onTap;
 
-  /// Заголовок колонки. Сам список названий живёт в API — рядом с колонками.
-  static String titleOf(FsColumn column) => column.title;
+  /// Заголовок колонки — тот, под которым её объявили.
+  ///
+  /// У значка своего нет: в шапке ему негде стоять. Имя ему нужно только в
+  /// списке колонок, и подставляет его тот список.
+  static String titleOf(ColumnSpec column) => column.title;
 
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
-    // Название колонки приходит значением (`FsColumn.title`) — английским, как
-    // и всё в коде; переводит его тот, кто показывает.
-    final title = context.strings.tr(titleOf(column.id));
-    if (column.id == FsColumn.icon) {
+    // Название колонки приходит объявлением — английским, как и всё в коде;
+    // переводит его тот, кто показывает.
+    final title = context.strings.tr(titleOf(column));
+    if (title.isEmpty) {
       return const SizedBox.shrink();
     }
 

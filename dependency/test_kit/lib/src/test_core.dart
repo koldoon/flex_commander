@@ -10,6 +10,8 @@ import 'package:flex_commander/link/loopback_link.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/ui/session_mirror.dart';
 
+import 'test_columns.dart';
+
 /// Приложение с обеими сторонами — но без модулей.
 ///
 /// Между [testPanel] (одна панель) и `testApp` (весь граф зависимостей): здесь
@@ -32,6 +34,10 @@ AppController testCore({
   final registry = ProviderRegistry(root: provider);
   final rightRegistry = rightProvider == null ? registry : ProviderRegistry(root: rightProvider);
   const editor = TreeTransferEngine();
+  // Колонки — те же, что объявляют модули приложения: раскладка без объявлений
+  // выходит пустой, а сортировка — по одному имени.
+  final declared = testColumnSorting();
+  final shownColumns = testPanelColumns();
 
   // Сессии заводятся по файлу — по порядку наборов и столбцов в них; личности
   // выдаются тем же порядком (`docs/spec/panel-sessions.md`, §4). Правый
@@ -49,6 +55,7 @@ AppController testCore({
         settings: session,
         registry: identical(group, rightShown) ? rightRegistry : registry,
         editor: editor,
+        columns: declared,
       );
       ids.add(id);
     }
@@ -59,7 +66,8 @@ AppController testCore({
     sessions: sessions,
     // Сессии заводятся тем же, чем и первые: набор умеет держать несколько
     // (`docs/spec/panel-sessions.md`).
-    createSession: (settings) => PanelSession(settings: settings, registry: registry, editor: editor),
+    createSession:
+        (settings) => PanelSession(settings: settings, registry: registry, editor: editor, columns: declared),
     registry: registry,
     editor: editor,
     settings: SettingsHub(
@@ -78,9 +86,11 @@ AppController testCore({
     link: link,
     state: session.state,
     listing: PanelListing(generation: session.generation, entries: session.entries),
+    columns: shownColumns,
   );
 
   return AppController(
+    columns: shownColumns,
     sessions: [for (final entry in sessions.entries) mirror(entry.key, entry.value)],
     panels: layout,
     shown: settings.shown,

@@ -1,7 +1,9 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'brief_view.dart';
+import 'columns.dart';
 import 'combined_view.dart';
 import 'brief_view_options.dart';
 import 'file_table.dart';
@@ -20,7 +22,7 @@ import 'panel_view.dart';
 ///
 /// Без него приложение соберётся и запустится — просто выше ряда кнопок будет
 /// пусто. Так же честно, как сейчас без корневого провайдера.
-class Panels implements FcFrontendModule {
+class Panels implements FcBackendModule, FcFrontendModule {
   const Panels();
 
   @override
@@ -29,8 +31,20 @@ class Panels implements FcFrontendModule {
   @override
   String get title => 'File panels';
 
+  /// Ядровая половина — одна: сравнения штатных колонок.
+  ///
+  /// Колонка расщеплена надвое общим идентификатором, и объявляется она по
+  /// разу на каждой стороне: колбэк через границу не поедет
+  /// (`docs/spec/column-registry.md`, §3.2).
+  @override
+  void installBackend(BackendRegistry registry) {
+    installColumnSorting(registry);
+  }
+
   @override
   void installFrontend(FrontendRegistry registry) {
+    installColumnCells(registry);
+
     registry.strings('ru', _russian);
     registry.plurals('ru', _plurals);
 

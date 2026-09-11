@@ -1,4 +1,3 @@
-import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
@@ -6,6 +5,7 @@ import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/core/panel_session.dart';
 import 'package:flex_commander/ui/session_mirror.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fc_panels/fc_panels.dart';
 
 /// Размеры всех каталогов одним нажатием.
 ///
@@ -89,7 +89,7 @@ void main() {
   });
 
   test('по опустошению очереди список пересортируется, а курсор остаётся на объекте', () async {
-    panel().sortBy(FsColumn.size);
+    panel().sortBy(FsColumns.size);
     panel().setCursorToName('small');
     final before = [for (final node in session().nodes) node.name];
 
@@ -102,7 +102,7 @@ void main() {
   });
 
   test('посчитали помеченный каталог — порядок догнал его число', () async {
-    panel().sortBy(FsColumn.size);
+    panel().sortBy(FsColumns.size);
     // Пока все размеры неизвестны, каталоги разводит доводчик по имени.
     expect([for (final node in session().nodes) node.name], ['..', 'big', 'mid', 'small', 'notes.txt']);
 
@@ -123,7 +123,7 @@ void main() {
   });
 
   test('при сортировке по имени порядок не трогается', () async {
-    panel().sortBy(FsColumn.name);
+    panel().sortBy(FsColumns.name);
     final before = [for (final node in session().nodes) node.name];
 
     panel().measureDirectories();

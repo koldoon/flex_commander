@@ -1,6 +1,15 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 
+/// Имя колонки пути — чужое: объявляет её модуль панелей.
+///
+/// Ссылаться на колонку по имени можно, а зависеть ради этого от объявившего
+/// её модуля — нельзя: имя это внешний контракт, он же лежит в настройках
+/// (`docs/spec/column-registry.md`, §9). Модуль выключен — просьба останется
+/// без ответа, и находки покажутся без колонки пути: это ровно то, чего
+/// человек и добивался, выключив панели.
+const String _pathColumn = 'path';
+
 /// Найденное — как содержимое панели.
 ///
 /// Живёт в ядре, а не у окна поиска, и это не переезд ради переезда: узлы в нём
@@ -23,7 +32,7 @@ import 'package:fc_core_api/fc_core_api.dart';
 /// размеров — вопросы к тому, кому узел принадлежит; здесь на них отвечать
 /// нечем и незачем.
 class SearchResultsProvider
-    implements TreeProvider, PanelColumns, PanelPreferredView, PanelNaturalOrder, RealPathSource {
+    implements TreeProvider, PanelExtraColumns, PanelPreferredView, PanelNaturalOrder, RealPathSource {
   SearchResultsProvider({required String title, required List<FsNode> found, DirectoryNode? parent}) : _under = parent {
     _root = DirectoryNode(provider: this, name: title, parent: parent);
     _build(found);
@@ -152,19 +161,16 @@ class SearchResultsProvider
   ///
   /// Дерево показывает, откуда каждая находка, ветвями, но в таблице этого
   /// нет — а имена в находках повторяются. Настройку панели это не трогает:
-  /// раскладку просит источник, и уходит она вместе с ним.
+  /// колонку просит источник, и уходит она вместе с ним.
   ///
-  /// Сравнения у находок обычные: колонка пути сравнивает **настоящий**
-  /// каталог найденного объекта, а его знает и ядро. Своё сравнение
-  /// понадобится тому источнику, чья колонка ядру незнакома.
+  /// Сравнения у находок обычные: колонка пути сравнивает каталог найденного
+  /// объекта тем же, чем объявлена. Своё сравнение понадобится тому источнику,
+  /// чья колонка в реестре не объявлена вовсе.
   @override
-  NodeComparator? comparatorOf(FsColumn column) => null;
+  NodeComparator? comparatorOf(String column) => null;
 
   @override
-  ColumnLayout get columns => ColumnLayout([
-    for (final column in ColumnLayout.defaults.columns)
-      column.id == FsColumn.path ? column.copyWith(visible: true) : column,
-  ]);
+  Set<String> get extraColumns => const {_pathColumn};
 
   @override
   DirectoryNode get rootDirectory => _root;

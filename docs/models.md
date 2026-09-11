@@ -831,36 +831,32 @@ final node = await op.delegate(provider.resolvePath(path));
 
 ## 4. Колонки
 
-Набор колонок настраивается пользователем: состав, порядок, ширина, видимость;
-раскладка своя у каждой панели.
+Колонка — **объявление**, а не значение перечисления: её приносит модуль, как
+команду или вид панели. Полная спецификация — [`spec/column-registry.md`](spec/column-registry.md).
 
-```dart
-/// Идентификатор колонки. Значения сохраняются в settings.json по имени,
-/// поэтому переименовывать их нельзя — только добавлять новые.
-enum FsColumn {
-  icon,        // иконка типа объекта; не сортируется, не скрывается
-  name,        // единственная «резиновая» колонка; не скрывается
-  ext,
-  size,
-  modified,
-  created,
-  accessed,
-  attributes,
-}
-```
+Три вещи, и путать их не стоит:
+
+| Вещь | Владелец | Где живёт |
+|---|---|---|
+| **Объявление** — какая колонка бывает и какая она по умолчанию | модуль | реестр, на обеих сторонах |
+| **Раскладка** — чем человек её переопределил: порядок, ширина, видимость | человек | `settings.json`, `PanelState` |
+| **Показ** — объявления, переставленные и подправленные раскладкой | тот, кто рисует | считается на месте |
 
 ```dart
 enum ColumnAlign { start, end }
 
 class ColumnSpec {
-  final FsColumn id;
-  final double width;      // игнорируется для «резиновой» колонки
+  final String id;          // 'name', 'size', 'fs.owner' — имя в настройках
+  final String title;       // по-английски: это ключ перевода
+  final double width;       // у «резиновой» колонки не значит ничего
   final double minWidth;
   final bool visible;
-  final bool pinned;       // нельзя скрыть/переместить: icon и name
+  final bool pinned;        // нельзя скрыть и увести с места: icon и name
+  final bool flexible;      // занимает всё оставшееся место
+  final bool sortable;
   final ColumnAlign align;
-
-  ColumnSpec copyWith({double? width, bool? visible});
+  final bool inLayout;      // false — колонку человек не выбирает (ветвь дерева)
+  final bool ownWidth;      // ширину задал человек, а не объявление
 }
 
 class ColumnLayout {
@@ -870,25 +866,43 @@ class ColumnLayout {
   List<ColumnSpec> get visibleColumns;
 
   ColumnLayout moveColumn(int from, int to);
-  ColumnLayout resize(FsColumn id, double width);
-  ColumnLayout toggleVisible(FsColumn id);
+  ColumnLayout resize(String id, double width);
+  ColumnLayout toggleVisible(String id);
 
-  static ColumnLayout get defaults;
+  /// Объявленное, переставленное и подправленное этой раскладкой.
+  ColumnLayout resolvedWith(Iterable<ColumnSpec> declared, {Set<String> extra});
+
+  /// Эта раскладка, поверх которой легло то, что вернул экран.
+  ColumnLayout merge(ColumnLayout incoming);
 }
 ```
 
-Раскладка по умолчанию — как в макете и в референсе (`FilesPanel`: Name 100%, Ext, Size, Modified):
+Умолчаний у `ColumnLayout` нет: пустая раскладка означает «как объявлено».
+Идентификатор, которого никто не объявил, **спит** — его не рисуют, но из
+настроек не убирают: выключенный на один запуск модуль не должен стирать
+раскладку.
+
+Объявляет штатные десять модуль панелей (`fc_panels`, `src/columns.dart`), и
+объявляет **дважды** — по разу на каждой стороне: сравнение работает над
+`FsNode` в ядре, ячейка рисуется из `FileEntry` на экране, а колбэк через
+границу изолятов не поедет.
 
 | Колонка | Ширина | Выравнивание | Видима по умолчанию |
 |---------|--------|--------------|---------------------|
-| `icon` | 24 | — | да |
-| `name` | резиновая, min 80 | слева | да |
+| `icon` | 28, закреплена | — | да |
+| `name` | резиновая, min 90, закреплена | слева | да |
+| `tree` | резиновая, закреплена | слева | не входит в раскладку |
+| `path` | 160 | слева | нет |
 | `ext` | 40 | справа | да |
-| `size` | 60 | справа | да |
-| `modified` | 78 | справа | да |
-| `created` | 78 | справа | нет |
-| `accessed` | 78 | справа | нет |
-| `attributes` | 84 | слева | нет |
+| `size` | 64 | справа | да |
+| `modified` | 88 | справа | да |
+| `created` | 88 | справа | нет |
+| `accessed` | 88 | справа | нет |
+| `attributes` | 88 | слева | нет |
+
+**Ширина закреплённых колонок в файл не пишется, а ширина прочих — только если
+человек её и правда менял.** Иначе однажды сохранённое число осталось бы
+навсегда и правки оформления до пользователя не дошли бы.
 
 Расчёт ширин при отрисовке: сумма фиксированных ширин видимых колонок вычитается из
 ширины панели, остаток отдаётся `name`; если остаток меньше её `minWidth`, включается
@@ -900,23 +914,24 @@ class ColumnLayout {
 enum SortDirection { ascending, descending }
 
 class SortSpec {
-  final FsColumn column;
+  final String column;      // имя колонки — то же, что в настройках
   final SortDirection direction;
 
   /// Каталоги (и ссылки на каталоги) всегда выше файлов.
   final bool foldersFirst;
 
   /// Тот же столбец — смена направления; другой — он же по возрастанию.
-  SortSpec toggled(FsColumn column);
+  SortSpec toggled(String column);
 }
 
 /// Как сравнивают по колонке: меньше — выше в списке.
 typedef NodeComparator = int Function(FsNode a, FsNode b);
 
 /// Чистая функция, без обращения к ФС. Общие правила — здесь, сравнение по
-/// колонке приходит доводом: null означает встроенное. Источник со своей
-/// колонкой отдаёт своё сравнение (`PanelColumns.comparatorOf`) —
-/// `spec/panel-node-list.md`, §5.
+/// колонке приходит доводом: null означает «сравнения нет», и всё решает
+/// доводчик по имени. Сравнение приносит объявление колонки
+/// (`ColumnSorting.comparatorOf`), а источник со своей колонкой отдаёт своё
+/// (`PanelExtraColumns.comparatorOf`) — `spec/column-registry.md`, §5.
 int Function(FsNode, FsNode) comparatorFor(SortSpec spec, {NodeComparator? column});
 ```
 
@@ -926,12 +941,13 @@ int Function(FsNode, FsNode) comparatorFor(SortSpec spec, {NodeComparator? colum
 1. `ParentDirNode` — всегда первый.
 2. Если `foldersFirst` — каталоги перед файлами; ссылка на каталог считается
    каталогом (тип цели известен из `LinkNode.targetType` сразу после чтения).
-3. Сравнение по колонке:
-   - `name`, `ext`, `attributes` — регистронезависимо, «естественный» порядок чисел
-     (`file2` перед `file10`), функция `naturalCompare`;
+3. Сравнение по колонке — то, которое объявил её модуль. У штатных десяти:
+   - `name`, `tree`, `path`, `ext`, `attributes` — регистронезависимо,
+     «естественный» порядок чисел (`file2` перед `file10`), функция
+     `naturalCompare`;
    - `size` — числовое; `-1` (неизвестный размер) меньше любого значения;
    - даты — по `microsecondsSinceEpoch`; отсутствующая дата меньше любой;
-   - `icon` — по `FileType.index`.
+   - `icon` не сортируется вовсе.
 4. При равенстве — доводчик по `name` по возрастанию, чтобы порядок не «плавал»
    между перечитываниями.
 5. `direction` переворачивает результат шагов 3–4, но не шагов 1–2.

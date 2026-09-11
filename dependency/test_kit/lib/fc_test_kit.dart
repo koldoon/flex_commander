@@ -22,6 +22,7 @@ export 'src/lagging_door.dart';
 export 'src/in_memory_tree_provider.dart';
 export 'src/node_content.dart';
 export 'src/test_app.dart';
+export 'src/test_columns.dart';
 export 'src/test_core.dart';
 export 'src/test_panel.dart';
 export 'src/test_screen.dart';

@@ -3,6 +3,15 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'registrations.dart';
 
+/// Колонка, объявленная экранной половиной модуля: паспорт и ячейка.
+class ColumnDeclaration {
+  const ColumnDeclaration(this.spec, {this.text, this.build});
+
+  final ColumnSpec spec;
+  final ColumnText? text;
+  final ColumnCellBuilder? build;
+}
+
 /// Всё, что экранные половины модулей предложили интерфейсу.
 ///
 /// Реестр только собирает объявления; что с ними делать, решает сборка.
@@ -33,6 +42,10 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
   /// показывает окно выбора.
   final List<PanelViewSpec> panelViews = [];
 
+  /// Объявленные колонки — в порядке объявления: он же порядок, в котором они
+  /// встают в панели, пока человек их не переставил.
+  final List<ColumnDeclaration> columns = [];
+
   /// Объявленные просмотрщики — в порядке объявления; по приоритету их
   /// расставит приложение.
   final List<ViewerSpec> viewers = [];
@@ -49,6 +62,11 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
 
   @override
   void panelView(PanelViewSpec spec) => panelViews.add(spec);
+
+  @override
+  void column(ColumnSpec spec, {ColumnText? text, ColumnCellBuilder? build}) {
+    columns.add(ColumnDeclaration(spec, text: text, build: build));
+  }
 
   @override
   void strings(String language, Map<String, String> words) => translations.add(language, words);

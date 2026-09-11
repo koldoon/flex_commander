@@ -6,6 +6,7 @@ import 'package:flex_commander/core/settings_store.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
+import 'package:fc_panels/fc_panels.dart';
 
 void main() {
   late InMemoryTreeProvider provider;
@@ -130,11 +131,11 @@ void main() {
       addTearDown(app.dispose);
       await app.start();
 
-      app.left.setColumnLayout(app.left.columns.resize(FsColumn.size, 111));
+      app.left.setColumnLayout(app.left.columns.resize(FsColumns.size, 111));
       expect(File(store.filePath).existsSync(), isFalse);
 
       final saved = await waitForSaved();
-      expect(saved.left.columns.find(FsColumn.size)?.width, 111);
+      expect(saved.left.columns.find(FsColumns.size)?.width, 111);
     });
 
     test('движение курсора не приводит к записи', () async {

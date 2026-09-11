@@ -1,5 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 
+import '../tree/node_sorting.dart';
 import '../tree/operation_kind.dart';
 import '../tree/provider_registry.dart';
 import '../tree/tree_provider.dart';
@@ -61,6 +62,18 @@ abstract interface class BackendRegistry {
   /// этом остаётся мелким мутатором: собрать заявку и отправить
   /// (`docs/spec/client-server.md`, §5.4).
   void operation(String kind, OperationFactory factory);
+
+  /// Колонка панели — ядровой половиной: заголовок, ширина и сравнение.
+  ///
+  /// То же объявление модуль регистрирует и на экране
+  /// (`FrontendRegistry.column`) — уже с ячейкой. Одна константа на обе
+  /// половины: колбэк через границу не поедет, а разъехаться геометрии негде
+  /// (`docs/spec/column-registry.md`, §3.2).
+  ///
+  /// [compare] — чем сортировать; null означает «сортировать нечем»: список
+  /// ляжет доводчиком по имени. У несортируемой колонки (значок) сравнения и
+  /// не бывает.
+  void column(ColumnSpec spec, {ColumnComparatorFactory? compare});
 
   /// Переводы строк этого модуля на язык [language].
   ///

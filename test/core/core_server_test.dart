@@ -8,6 +8,7 @@ import 'package:flex_commander/core/panel_session.dart';
 import 'package:flex_commander/link/link.dart';
 import 'package:flex_commander/link/loopback_link.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fc_panels/fc_panels.dart';
 
 /// Провайдер с медленным чтением каталога.
 ///
@@ -353,7 +354,7 @@ void main() {
       final names = before.entries.map((entry) => entry.name).toList();
 
       await link.call(
-        const Arrange(PanelId.left, sort: SortSpec(column: FsColumn.name, direction: SortDirection.descending)),
+        const Arrange(PanelId.left, sort: SortSpec(column: FsColumns.name, direction: SortDirection.descending)),
       );
 
       final after = lastListing()!;

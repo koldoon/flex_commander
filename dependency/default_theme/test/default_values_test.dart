@@ -1,4 +1,3 @@
-import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -114,14 +113,6 @@ void main() {
       expect(metrics.fontSize, lessThan(metrics.rowHeight * 34 / 50));
       // Иконка — глиф того же кегля, что и текст.
       expect(metrics.iconSize, metrics.fontSize);
-    });
-
-    test('колонка иконки вмещает отступ, глиф и просвет до имени', () {
-      // Ширина колонки лежит в слое моделей и метрики оттуда не видит,
-      // поэтому согласованность проверяется здесь.
-      final icon = ColumnLayout.defaults.find(FsColumn.icon)!;
-      expect(icon.width, closeTo(metrics.iconColumnWidth, 1));
-      expect(icon.minWidth, icon.width);
     });
 
     test('обводка остаётся в одну точку', () {

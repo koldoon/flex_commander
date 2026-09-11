@@ -3,6 +3,7 @@ import 'package:fc_api/fc_api.dart';
 import '../app/application.dart';
 import '../app/node_info.dart';
 import '../app/panel_view_spec.dart';
+import '../app/column_cell.dart';
 import '../app/panel_viewport.dart';
 import '../app/viewer_spec.dart';
 import '../app/views.dart';
@@ -85,6 +86,16 @@ abstract interface class FrontendRegistry {
   /// Не путать с [viewport]: там — что показано (решает источник), здесь — как
   /// показано (решает человек, `docs/spec/panel-views.md`, §3).
   void panelView(PanelViewSpec spec);
+
+  /// Колонка панели — экранной половиной: заголовок, ширина и ячейка.
+  ///
+  /// То же объявление модуль регистрирует и в ядре
+  /// (`BackendRegistry.column`) — уже со сравнением. Одна константа на обе
+  /// половины: колбэк через границу не поедет, а разъехаться геометрии негде
+  /// (`docs/spec/column-registry.md`, §3.2).
+  ///
+  /// Заданы оба — рисует [build]; не задано ничего — ячейка пуста.
+  void column(ColumnSpec spec, {ColumnText? text, ColumnCellBuilder? build});
 
   /// Провайдер сведений об узле: что этот модуль знает о файле.
   ///

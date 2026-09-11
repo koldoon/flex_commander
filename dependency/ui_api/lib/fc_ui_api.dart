@@ -12,6 +12,7 @@ export 'src/app/session.dart';
 export 'src/app/panel.dart';
 export 'src/app/panel_view_spec.dart';
 export 'src/app/panel_viewport.dart';
+export 'src/app/column_cell.dart';
 export 'src/app/node_info.dart';
 export 'src/app/content_types.dart';
 export 'src/app/file_icons.dart';

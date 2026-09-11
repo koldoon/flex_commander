@@ -63,7 +63,7 @@ void main() {
     realPath: '/home/notes.txt',
   );
   const listing = PanelListing(generation: 1, entries: [entry]);
-  final state = PanelState(source: const SourceInfo(scheme: 'fs'), columns: ColumnLayout.defaults);
+  final state = PanelState(source: const SourceInfo(scheme: 'fs'), columns: ColumnLayout.empty);
   const ref = EntryRef.inPanel(PanelId.left, 0, 1);
 
   group('просьбы', () {

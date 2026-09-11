@@ -309,13 +309,13 @@ void main() {
     // колонок нет вовсе, и его «Modified (not implemented)» здесь был бы
     // враньём — колонка вполне работает.
     expect(find.text('Modified (not implemented)'), findsNothing);
-    final before = list(runtime).columns.columns.firstWhere((column) => column.id == FsColumn.modified).visible;
+    final before = list(runtime).columns.columns.firstWhere((column) => column.id == FsColumns.modified).visible;
 
     // Заголовки колонок в панелях зовутся так же — берём тот, что в окне.
     await tester.tap(find.descendant(of: find.byType(FcCheckbox), matching: find.text('Modified')));
     await tester.pumpAndSettle();
 
-    final after = list(runtime).columns.columns.firstWhere((column) => column.id == FsColumn.modified).visible;
+    final after = list(runtime).columns.columns.firstWhere((column) => column.id == FsColumns.modified).visible;
     expect(after, !before, reason: 'флажок правит колонки того столбца, у которого они есть');
   });
 

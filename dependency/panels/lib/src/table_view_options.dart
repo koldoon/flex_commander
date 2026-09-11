@@ -26,7 +26,7 @@ class TableViewOptions extends StatelessWidget {
   }
 
   /// Название колонки для списка: у значка своего нет.
-  static String _titleOf(FsColumn column) {
+  static String _titleOf(ColumnSpec column) {
     final title = FileTableHeaderCell.titleOf(column);
     return title.isEmpty ? 'Icon' : title;
   }
@@ -46,7 +46,7 @@ class TableViewOptions extends StatelessWidget {
               FcCheckbox(
                 // У колонки значка заголовка нет — в шапке ему негде стоять, —
                 // но безымянный флажок в списке читался бы сбоем.
-                label: strings.tr(_titleOf(column.id)),
+                label: strings.tr(_titleOf(column)),
                 value: column.visible,
                 // Иконку и имя скрывать нельзя: без них строка нечитаема.
                 onChanged: column.pinned ? null : (_) => panel.setColumnLayout(panel.columns.toggleVisible(column.id)),

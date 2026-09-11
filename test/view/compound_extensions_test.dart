@@ -6,6 +6,7 @@ import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/state/shell_settings.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:fc_panels/fc_panels.dart';
 
 /// Составные расширения в живом приложении.
 ///
@@ -60,7 +61,7 @@ void main() {
   testWidgets('колонку расширения выключили — имя показывается целиком', (tester) async {
     await pumpApp(tester);
 
-    app.left.setColumnLayout(app.left.columns.toggleVisible(FsColumn.ext));
+    app.left.setColumnLayout(app.left.columns.toggleVisible(FsColumns.ext));
     await tester.pumpAndSettle();
 
     expect(find.text('archive.tar.gz'), findsWidgets);
@@ -89,7 +90,7 @@ void main() {
   testWidgets('сортировка по расширению держит составное вместе', (tester) async {
     await pumpApp(tester);
 
-    app.left.sortBy(FsColumn.ext);
+    app.left.sortBy(FsColumns.ext);
     await tester.pumpAndSettle();
 
     // Порядок по расширению: `gz`, `json`, `tar.gz`. Составное стоит своим

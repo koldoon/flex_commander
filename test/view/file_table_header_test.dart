@@ -61,11 +61,11 @@ void main() {
   Finder header(String title) =>
       find.descendant(of: find.byType(FileTableHeader).first, matching: find.text(title)).first;
 
-  List<FsColumn> visibleColumns() => [for (final column in runtime.app.left.columns.visibleColumns) column.id];
+  List<String> visibleColumns() => [for (final column in runtime.app.left.columns.visibleColumns) column.id];
 
   testWidgets('клик по заголовку меняет направление, даже если указатель дрогнул', (tester) async {
     await pumpApp(tester);
-    expect(runtime.app.left.sort.column, FsColumn.name);
+    expect(runtime.app.left.sort.column, FsColumns.name);
     expect(runtime.app.left.sort.direction, SortDirection.ascending);
 
     await click(tester, header('Name'));
@@ -83,7 +83,7 @@ void main() {
 
     await click(tester, header('Size'));
 
-    expect(runtime.app.left.sort.column, FsColumn.size);
+    expect(runtime.app.left.sort.column, FsColumns.size);
     // Новая колонка начинает с прямого порядка, а не наследует прежний.
     expect(runtime.app.left.sort.direction, SortDirection.ascending);
 
@@ -98,7 +98,7 @@ void main() {
     await click(tester, find.descendant(of: right, matching: find.text('Size')).first);
 
     expect(runtime.app.activePanel, runtime.app.right);
-    expect(runtime.app.right.sort.column, FsColumn.size);
+    expect(runtime.app.right.sort.column, FsColumns.size);
 
     await tester.pump(const Duration(milliseconds: 20));
   });

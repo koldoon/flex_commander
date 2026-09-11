@@ -1,4 +1,3 @@
-import '../panel/column_spec.dart';
 import '../values/provider_capabilities.dart';
 
 /// Снимок источника: что интерфейс знает о нём, не спрашивая.
@@ -22,7 +21,7 @@ class SourceInfo {
     this.canReceive = false,
     this.isShellHost = false,
     this.contentKind = files,
-    this.columns,
+    this.extraColumns = const {},
     this.shellLabel = '',
     this.shellProgram = '',
   });
@@ -59,12 +58,14 @@ class SourceInfo {
   /// значит, таблица файлов.
   final String contentKind;
 
-  /// Колонки, которых просит сам источник; null — панель показывает свои.
+  /// Колонки, без которых этот источник не читается: списку находок нужна
+  /// колонка пути.
   ///
-  /// Просит только тот, кто не каталог: списку находок нужна колонка пути.
-  /// Настройку панели это не меняет — уйдя из находок, человек видит те
-  /// колонки, что настраивал.
-  final ColumnLayout? columns;
+  /// Имена, а не раскладка: источник просит одну колонку, а не собирает чужую
+  /// разметку — умолчаний в ядре нет вовсе (`docs/spec/column-registry.md`,
+  /// §6). Включаются они поверх раскладки панели и никуда не сохраняются:
+  /// уйдя из находок, человек видит те колонки, что настраивал.
+  final Set<String> extraColumns;
 
   /// Как место называется в оболочке: `localhost` или `user@host`.
   final String shellLabel;

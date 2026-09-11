@@ -319,8 +319,14 @@ abstract interface class Session implements ViewportState {
   /// (`docs/spec/file-search.md`, §4).
   bool get sorted;
 
+  /// Колонки, какими они показаны: объявленное, подправленное раскладкой
+  /// панели и просьбой источника (`docs/spec/column-registry.md`, §4).
   ColumnLayout get columns;
 
+  /// Новая раскладка — та, что видно на экране.
+  ///
+  /// Колонку выключенного модуля она не упоминает вовсе, и вернуть её на место
+  /// в настройках обязано ядро — здесь о ней знать нечего.
   void setColumnLayout(ColumnLayout layout);
 
   /// Чем набираются строки: содержимое каталога или дерево.
@@ -364,7 +370,7 @@ abstract interface class Session implements ViewportState {
   SortSpec get sort;
 
   /// Сортировка по колонке: та же колонка меняет направление.
-  void sortBy(FsColumn column);
+  void sortBy(String column);
 
   bool get showHidden;
 

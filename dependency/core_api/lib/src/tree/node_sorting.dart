@@ -4,11 +4,20 @@ import 'fs_node.dart';
 
 /// Как сравнивают по колонке: меньше — выше в списке.
 ///
-/// Сравнение живёт **у колонки**, а не в закрытом перечислении случаев:
-/// источник со своими колонками отдаёт своё (`PanelColumns.comparatorOf`), и
-/// добавить колонку — значит добавить сравнение, а не править ядро
-/// (`docs/spec/panel-node-list.md`, §5).
+/// Сравнение живёт **у колонки**, а не в закрытом перечислении случаев: его
+/// приносит тот же модуль, что объявил колонку (`BackendRegistry.column`), а
+/// источник со своими колонками отдаёт своё (`PanelExtraColumns.comparatorOf`).
+/// Добавить колонку — значит объявить её, а не править ядро
+/// (`docs/spec/column-registry.md`, §5).
 typedef NodeComparator = int Function(FsNode a, FsNode b);
+
+/// Как модуль отдаёт сравнение своей колонки.
+///
+/// Фабрика, а не готовый компаратор: сравнению бывают нужны службы — колонке
+/// расширения нужен `FileNaming`, а он собран из настроек и во время
+/// объявления модуля ещё не существует. То же правило, что у всех фабрик
+/// реестра: службы читают из них, а не при объявлении.
+typedef ColumnComparatorFactory = NodeComparator Function(FcServices services);
 
 /// Компаратор для правила сортировки.
 ///
@@ -19,16 +28,16 @@ typedef NodeComparator = int Function(FsNode a, FsNode b);
 /// файлами, и только после этого сравнение по колонке. Первые два правила
 /// не переворачиваются направлением сортировки.
 ///
-/// [column] — сравнение колонки; null означает встроенное
-/// ([builtInComparatorFor]). Общие правила и доводчик по имени остаются
-/// здесь при любом сравнении: без доводчика порядок «плавает» между
+/// [column] — сравнение колонки; null означает «сравнения нет»: так выходит с
+/// колонкой, которой никто не объявил сравнения, и с той, которую не объявлял
+/// вовсе никто. Тогда всё решает доводчик по имени. Общие правила и доводчик
+/// остаются здесь при любом сравнении: без доводчика порядок «плавает» между
 /// перечитываниями, а без «..» и каталогов список выглядит чужим.
 int Function(FsNode, FsNode) comparatorFor(
   SortSpec spec, {
   FileNaming naming = const ReferenceFileNaming(),
   NodeComparator? column,
 }) {
-  final byColumn = column ?? builtInComparatorFor(spec.column, naming: naming);
   return (a, b) {
     if (a is ParentDirNode) {
       return b is ParentDirNode ? 0 : -1;
@@ -45,70 +54,13 @@ int Function(FsNode, FsNode) comparatorFor(
       }
     }
 
-    var result = byColumn(a, b);
+    var result = column == null ? 0 : column(a, b);
     if (result == 0) {
       // Доводчик по имени: без него порядок «плавает» между перечитываниями.
       result = naturalCompare(a.name, b.name);
-      return spec.direction == SortDirection.ascending ? result : -result;
     }
     return spec.direction == SortDirection.ascending ? result : -result;
   };
 }
 
 bool _isDirectory(FsNode node) => node is DirectoryNode || (node is LinkNode && node.isDirectoryLink);
-
-/// Каталог объекта — тем же текстом, каким он показан в колонке пути.
-String _directoryOf(FsNode node) => node.parentDirectory?.displayPath ?? '';
-
-/// Встроенное сравнение колонки — то, чем сортируется обычный каталог.
-NodeComparator builtInComparatorFor(FsColumn column, {FileNaming naming = const ReferenceFileNaming()}) {
-  return (a, b) => _compareByColumn(a, b, column, naming);
-}
-
-int _compareByColumn(FsNode a, FsNode b, FsColumn column, FileNaming naming) {
-  return switch (column) {
-    // Колонка дерева и колонка имени — одна и та же колонка, нарисованная
-    // по-разному (`docs/spec/panel-node-list.md`, §5).
-    FsColumn.tree => naturalCompare(a.name, b.name),
-    FsColumn.name => naturalCompare(a.name, b.name),
-    FsColumn.path => naturalCompare(_directoryOf(a), _directoryOf(b)),
-    FsColumn.ext => naturalCompare(_extensionOf(a, naming), _extensionOf(b, naming)),
-    FsColumn.attributes => naturalCompare(_attributesOf(a), _attributesOf(b)),
-    FsColumn.size => a.size.compareTo(b.size),
-    FsColumn.modified => _compareDates(_fileOf(a)?.modified, _fileOf(b)?.modified),
-    FsColumn.created => _compareDates(_fileOf(a)?.created, _fileOf(b)?.created),
-    FsColumn.accessed => _compareDates(_fileOf(a)?.accessed, _fileOf(b)?.accessed),
-    FsColumn.icon => _typeOf(a).index.compareTo(_typeOf(b).index),
-  };
-}
-
-FileNode? _fileOf(FsNode node) => node is FileNode ? node : null;
-
-/// Расширение для сортировки — тем же правилом, что рисует колонку.
-///
-/// Иначе показ и порядок разойдутся: имя стояло бы в списке под одним
-/// расширением, а сортировалось по другому.
-String _extensionOf(FsNode node, FileNaming naming) => _fileOf(node) == null ? '' : naming.split(node.name).extension;
-
-String _attributesOf(FsNode node) => _fileOf(node)?.attributes.modeString ?? '';
-
-_TypeOrder _typeOf(FsNode node) {
-  if (node is DirectoryNode) return _TypeOrder.directory;
-  if (node is LinkNode) {
-    return node.isDirectoryLink ? _TypeOrder.directory : _TypeOrder.link;
-  }
-  return _TypeOrder.file;
-}
-
-enum _TypeOrder { directory, link, file }
-
-/// Отсутствующая дата меньше любой заданной.
-int _compareDates(DateTime? a, DateTime? b) {
-  if (a == null) {
-    return b == null ? 0 : -1;
-  }
-  if (b == null) {
-    return 1;
-  }
-  return a.compareTo(b);
-}

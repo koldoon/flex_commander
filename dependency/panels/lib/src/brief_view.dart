@@ -7,6 +7,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
 import 'cursor_pin.dart';
+import 'columns.dart';
 import 'file_table_row.dart';
 import 'panel_drag.dart';
 import 'panels_settings.dart';
@@ -386,6 +387,6 @@ class _BriefViewState extends State<BriefView> {
 /// строками достаются даром. Колонки расширения здесь нет, поэтому имя
 /// показывается неразделённым: у краткого вида своё толкование имени.
 const List<ColumnSpec> _briefColumns = [
-  ColumnSpec(id: FsColumn.icon, width: 0, pinned: true),
-  ColumnSpec(id: FsColumn.name, width: 0, pinned: true),
+  ColumnSpec(id: FsColumns.icon, width: 0, pinned: true, sortable: false),
+  ColumnSpec(id: FsColumns.name, width: 0, pinned: true),
 ];
