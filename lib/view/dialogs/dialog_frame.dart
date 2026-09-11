@@ -1,6 +1,5 @@
 import 'dart:math' as math;
 
-import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -557,32 +556,23 @@ class _Edge {
   final bool top;
   final bool bottom;
 
-  /// Тянется ли этот край по обеим осям — то есть угол ли это.
-  bool get isCorner => (left || right) && (top || bottom);
-
   /// Курсор над этим краем.
   ///
-  /// **У macOS диагональных курсоров нет вовсе.** В открытом API `NSCursor`
-  /// их не существует: системные окна рисует оконный сервер своими,
-  /// недоступными. Flutter это и не скрывает — у `resizeUpLeftDownRight` в
-  /// списке платформ macOS не значится, — но подставляет вместо него обычную
-  /// стрелку, и угол выглядит так, будто за него не тянут
-  /// (`docs/spec/dialog-resize.md`, §5).
+  /// **Диагонального курсора у нас нет нигде — даже там, где он есть у
+  /// системы.** У macOS он появился в открытом API с 15-й версии
+  /// (`+[NSCursor frameResizeCursorFromPosition:inDirections:]`), но Flutter
+  /// его не отдаёт: строк `resizeUpLeftDownRight` и `resizeUpRightDownLeft`
+  /// в `FlutterMacOS` нет вовсе, и запрос на диагональ молча превращается в
+  /// обычную стрелку. Достать её можно только своим родным кодом, а держать
+  /// такую подпорку ради курсора мы не станем: появится поддержка во Flutter —
+  /// диагональ вернётся сама (`docs/spec/dialog-resize.md`, §5).
   ///
-  /// Поэтому там, где диагонали нет, угол показывает курсор той оси, которую
-  /// у окна меняют чаще, — горизонтальной. Полуправда лучше неправды: стрелка
-  /// говорит «тут ничего нет», а этот курсор — «тут тянут».
-  MouseCursor get cursor {
-    if (isCorner) {
-      if (defaultTargetPlatform == TargetPlatform.macOS) {
-        return SystemMouseCursors.resizeLeftRight;
-      }
-      return (left && top) || (right && bottom)
-          ? SystemMouseCursors.resizeUpLeftDownRight
-          : SystemMouseCursors.resizeUpRightDownLeft;
-    }
-    return left || right ? SystemMouseCursors.resizeLeftRight : SystemMouseCursors.resizeUpDown;
-  }
+  /// Одна и та же ручка не должна выглядеть на разных системах по-разному,
+  /// поэтому угол везде показывает курсор той оси, которую у окна меняют
+  /// чаще, — горизонтальной. Полуправда лучше неправды: стрелка говорит «тут
+  /// ничего нет», а этот курсор — «тут тянут». Отдельного случая углу и тут
+  /// не нужно: он есть два края разом и приходит сюда горизонтальным.
+  MouseCursor get cursor => left || right ? SystemMouseCursors.resizeLeftRight : SystemMouseCursors.resizeUpDown;
 }
 
 /// Ширина окна: назначенная областью или по содержимому.
