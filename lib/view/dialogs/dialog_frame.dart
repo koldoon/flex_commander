@@ -85,9 +85,6 @@ class _DialogFrameState extends State<DialogFrame> {
   /// Размер, заданный человеком; null — считает рама, как считала всегда.
   Size? _size;
 
-  /// Содержимое окна — чтобы спросить у него, ниже чего оно не ужимается.
-  final GlobalKey _content = GlobalKey(debugLabel: 'dialog content');
-
   /// Само окно — чтобы знать, от какого размера тянут.
   ///
   /// Не рама: рама занимает всю область вместе с затемнением, и первое же
@@ -515,19 +512,25 @@ class _DialogFrameState extends State<DialogFrame> {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             if (widget.title case final title?) _titleBar(theme, colors, metrics, title),
-                            // Содержимое, которому не хватило высоты, прокручивается
-                            // — а не вылезает за раму молчащим переполнением.
+                            // Высота **задана** — содержимое получает её целиком
+                            // (`tight`) и распоряжается ею само: прокрутки здесь
+                            // нет и быть не может, она съела бы всю прибавку и
+                            // оставила окно с пустотой внизу
+                            // (`docs/spec/dialog-body.md`).
                             //
-                            // `Flexible`, а не `Expanded`: невысокому окну лишняя
-                            // высота не нужна, оно по-прежнему облегает содержимое.
-                            // Прокрутка появляется только там, где иначе было бы
-                            // переполнение: окно правки атрибутов у файла с
+                            // Высота **не задана** — всё как было: окно облегает
+                            // содержимое (`loose`), а прокрутка страхует от
+                            // переполнения. Окно правки атрибутов у файла с
                             // десятком расширенных именно таково.
                             //
-                            // Полоса заголовка при этом остаётся на месте: за неё
-                            // окно двигают, и уезжать ей нельзя.
+                            // Полоса заголовка при этом остаётся на месте в обоих
+                            // случаях: за неё окно двигают, и уезжать ей нельзя.
                             Flexible(
-                              child: SingleChildScrollView(child: KeyedSubtree(key: _content, child: widget.child)),
+                              fit: fitted == null ? FlexFit.loose : FlexFit.tight,
+                              child: FcDialogSizing(
+                                stretches: fitted != null,
+                                child: fitted == null ? SingleChildScrollView(child: widget.child) : widget.child,
+                              ),
                             ),
                           ],
                         ),
