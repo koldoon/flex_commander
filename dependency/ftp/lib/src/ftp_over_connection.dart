@@ -14,9 +14,18 @@ import 'ftp_reply.dart';
 /// Здесь и только здесь живёт знание о том, какими командами что делается.
 /// Провайдер об этом не знает — и потому проверяется подставкой.
 class FtpOverConnection implements FtpApi {
-  FtpOverConnection(this._ftp);
+  FtpOverConnection(this._ftp, {Future<FtpConnection> Function()? reopen}) : _reopen = reopen;
 
-  final FtpConnection _ftp;
+  FtpConnection _ftp;
+
+  /// Чем поднять соединение заново; null — нечем, и отказ уходит как есть.
+  ///
+  /// Оборванное соединение не всегда доходит до нас разрывом: бывает, что
+  /// канал данных просто замолкает навсегда, и тогда управляющий канал уже
+  /// не в порядке — хвоста передачи в нём не дождаться. Чинится это
+  /// единственным честным способом: подключиться заново
+  /// (`docs/spec/ftp.md`, §3.7).
+  final Future<FtpConnection> Function()? _reopen;
 
   @override
   FtpFeatures get features => _ftp.features;
@@ -27,8 +36,45 @@ class FtpOverConnection implements FtpApi {
   /// но врёт (`docs/spec/ftp.md`, §3.2). Что сервер `MLSD` не умеет, узнаём
   /// один раз и дальше не спрашиваем — иначе каждый каталог стоил бы лишнего
   /// обмена.
+  /// Сколько раз повторить сорванную передачу.
+  ///
+  /// Обрыв канала данных на ровном месте — не наша ошибка и не ошибка сервера:
+  /// тот же обмен минимальным клиентом, без единой нашей строки, срывается
+  /// примерно раз на сорок (`docs/spec/ftp.md`, §3.7). Сервер при этом
+  /// считает передачу состоявшейся и продолжает работать — значит правильный
+  /// ответ на такой обрыв повторить, а не показывать человеку ошибку там, где
+  /// её нет.
+  static const int _attempts = 3;
+
+  /// Повторяет работу, если она сорвалась обрывом канала.
+  ///
+  /// Только [FsErrorKind.io]: «не найдено» и «нет доступа» повтором не
+  /// лечатся, и дёргать ими сервер незачем.
+  Future<T> _retrying<T>(Future<T> Function() body) async {
+    for (var attempt = 1; ; attempt++) {
+      try {
+        return await body();
+      } on FsError catch (error) {
+        if (error.kind != FsErrorKind.io || attempt >= _attempts) {
+          rethrow;
+        }
+        if (_ftp.isClosed) {
+          final reopen = _reopen;
+          if (reopen == null) {
+            rethrow;
+          }
+          // Соединение больше не в порядке — повторять в него бессмысленно.
+          _ftp = await reopen();
+          _machine = _ftp.features.machineListing;
+        }
+      }
+    }
+  }
+
   @override
-  Future<List<FtpEntry>> listDirectory(String path) async {
+  Future<List<FtpEntry>> listDirectory(String path) => _retrying(() => _listDirectory(path));
+
+  Future<List<FtpEntry>> _listDirectory(String path) async {
     if (_machine) {
       try {
         final lines = await _ftp.listing('MLSD', path);
@@ -105,8 +151,12 @@ class FtpOverConnection implements FtpApi {
     return null;
   }
 
+  /// Открытие чтения повторяется так же: обрыв случается чаще всего сразу,
+  /// ещё до первого байта. Уже начатый поток повторить нельзя — там за докачку
+  /// отвечает движок, у которого для этого есть `canSeek`.
   @override
-  Future<Stream<List<int>>> openRead(String path, {int offset = 0}) => _ftp.retrieve(path, offset: offset);
+  Future<Stream<List<int>>> openRead(String path, {int offset = 0}) =>
+      _retrying(() => _ftp.retrieve(path, offset: offset));
 
   @override
   Future<StreamSink<List<int>>> openWrite(String path) async {

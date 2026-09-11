@@ -14,6 +14,13 @@ import 'dart:io';
 class FakeFtpServer {
   FakeFtpServer._(this._socket, this.files, {required this.machineListing, required this.extendedPassive});
 
+  /// Скольким ближайшим передачам отказать переходной ошибкой `425`.
+  ///
+  /// Так живая сеть и отвечает, когда канал данных не задался: это не «нет
+  /// файла» и не «нет доступа», а «попробуйте ещё раз»
+  /// (`docs/spec/ftp.md`, §3.7).
+  int refuseTransfers = 0;
+
   final ServerSocket _socket;
 
   /// Содержимое: путь → строки списка (для каталога) или байты (для файла).
@@ -205,6 +212,12 @@ class _Session {
     final content = server.files[path] ?? server.files['$path/'];
     if (content is! List<String>) {
       say('550 $path: нет такого каталога');
+      return;
+    }
+    if (server.refuseTransfers > 0) {
+      server.refuseTransfers--;
+      // Передачи не было вовсе — значит и хвоста не будет.
+      say('425 Канал данных не открылся');
       return;
     }
     final socket = await _accept();

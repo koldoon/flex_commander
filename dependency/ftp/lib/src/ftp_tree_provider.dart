@@ -59,15 +59,17 @@ class FtpTreeProvider implements TreeProvider, NodeEditor, FileContentProvider, 
         password = answer.password ?? '';
       }
 
+      final secret = password;
+      Future<FtpConnection> connect() =>
+          FtpConnection.open(target, password: secret, onBadCertificate: allowUnknownCertificate ? (_) => true : null);
+
       try {
-        final connection = await FtpConnection.open(
-          target,
-          password: password,
-          onBadCertificate: allowUnknownCertificate ? (_) => true : null,
-        );
+        final connection = await connect();
         return FtpTreeProvider(
           target: target,
-          ftp: FtpOverConnection(connection),
+          // Соединение, замолчавшее посреди передачи, поднимается заново тем
+          // же паролем: человека об этом не спрашивают второй раз.
+          ftp: FtpOverConnection(connection, reopen: connect),
           homePath: target.path.isEmpty ? '/' : target.path,
           strings: said,
         );

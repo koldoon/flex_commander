@@ -17,7 +17,14 @@ import 'ftp_reply.dart';
 /// команды выстраиваются в очередь, а чтение файла держит свою очередь до тех
 /// пор, пока поток не дочитают или не бросят (`docs/spec/ftp.md`, §5).
 class FtpConnection {
-  FtpConnection._(this.target, this._control, {required this.encoding});
+  FtpConnection._(this.target, this._control, {required this.encoding, this.trace});
+
+  /// Куда рассказывать о разговоре с сервером; null — молчать.
+  ///
+  /// Разбирать жалобу «перестало работать после нескольких переходов» без
+  /// записи разговора нечем: ошибка приходит из середины обмена, а видно её
+  /// в строке состояния панели. Пароль сюда не попадает.
+  final void Function(String line)? trace;
 
   /// Сколько ждать ответа на команду. Сервер, который молчит дольше, считается
   /// отвалившимся: висеть в панели без объяснений хуже, чем сказать об ошибке.
@@ -65,6 +72,7 @@ class FtpConnection {
     required String password,
     Duration timeout = const Duration(seconds: 20),
     bool Function(X509Certificate certificate)? onBadCertificate,
+    void Function(String line)? trace,
   }) async {
     final Socket socket;
     try {
@@ -73,7 +81,7 @@ class FtpConnection {
       throw FsError(target.display, FsErrorKind.io, error);
     }
 
-    final connection = FtpConnection._(target, socket, encoding: utf8);
+    final connection = FtpConnection._(target, socket, encoding: utf8, trace: trace);
     connection._attach(socket);
     try {
       // Приветствие бывает баннером в два десятка строк — разбор ответа это
@@ -175,6 +183,7 @@ class FtpConnection {
   /// Команда без очереди — только изнутри уже занятой очереди.
   Future<FtpReply> _raw(String line, {bool secret = false}) async {
     _checkAlive();
+    trace?.call('> ${secret ? line.split(' ').first : line}');
     try {
       _control.add(encoding.encode('$line\r\n'));
       await _control.flush();
@@ -210,6 +219,67 @@ class FtpConnection {
         throw FsError(target.display, FsErrorKind.io);
       },
     );
+  }
+
+  /// Ответ, если он придёт скоро; null — не дождались.
+  ///
+  /// В отличие от [_read] не объявляет связь мёртвой: этим пользуется наведение
+  /// порядка после сорванной передачи, где молчание сервера — один из
+  /// возможных и вполне рабочих исходов.
+  Future<FtpReply?> _readSoon(Duration limit) async {
+    if (_replies.isNotEmpty) {
+      return _replies.removeFirst();
+    }
+    if (_broken != null) {
+      return null;
+    }
+    final waiter = Completer<FtpReply>();
+    _waiting = waiter;
+    try {
+      return await waiter.future.timeout(limit);
+    } on TimeoutException {
+      if (identical(_waiting, waiter)) {
+        _waiting = null;
+      }
+      return null;
+    } on Object {
+      return null;
+    }
+  }
+
+  /// Сколько ждать завершающий ответ после сорванной передачи.
+  static const Duration _resyncTimeout = Duration(seconds: 5);
+
+  /// Привести управляющий канал в порядок после сорванной передачи.
+  ///
+  /// **Сервер досылает завершающий ответ и тогда, когда канал данных
+  /// оборвался** — `226`, `426`, реже `550`. Не прочитать его значит сдвинуть
+  /// на единицу все последующие ответы: `EPSV` получит чужое `226`, `PASV` —
+  /// чужое `229`, порт не разберётся ни там ни там, и панель скажет
+  /// «протокол не поддерживается» про сервер, с которым только что
+  /// разговаривала.
+  ///
+  /// Это не выдумка: ровно так выглядела жалоба — `not supported` с адресом
+  /// сервера в строке состояния после нескольких переходов по каталогам
+  /// (`docs/spec/ftp.md`, §3.7).
+  ///
+  /// Не дождались — связь дальше держать нельзя: молча врать о её состоянии
+  /// хуже, чем честно переподключиться.
+  Future<void> _resync() async {
+    for (var attempt = 0; attempt < 2; attempt++) {
+      final reply = await _readSoon(_resyncTimeout);
+      if (reply == null) {
+        trace?.call('~ хвост передачи не пришёл — соединение больше не в порядке');
+        _break(const FtpDesynchronized());
+        return;
+      }
+      trace?.call('~ хвост передачи прочитан: $reply');
+      // Завершение передачи — это 2xx или 4xx/5xx о ней же; всё, что меньше
+      // двухсот, — предварительный ответ, за ним будет ещё один.
+      if (reply.kind >= 2) {
+        return;
+      }
+    }
   }
 
   /// Ответ должен быть положительным; иначе — ошибка на языке дерева.
@@ -264,7 +334,9 @@ class FtpConnection {
     }
 
     try {
+      trace?.call('~ подключаюсь к каналу данных :$port');
       final socket = await Socket.connect(target.host, port, timeout: replyTimeout);
+      trace?.call('~ канал данных открыт :$port');
       if (!_protected) {
         return socket;
       }
@@ -306,21 +378,51 @@ class FtpConnection {
   }
 
   /// Список каталога строками: `MLSD` или `LIST`.
+  ///
+  /// **Чтение начинается сразу после подключения, а не после `150`.** Сервер
+  /// шлёт данные, не дожидаясь, пока мы дочитаем ответ управляющего канала, и
+  /// сокет, который никто не слушает, отзывается для него обрывом. Поймано
+  /// живьём: тот же обмен, повторённый вручную, шёл без единой заминки
+  /// (`docs/spec/ftp.md`, §3.7).
   Future<List<String>> listing(String command, String path) => _enqueue(() async {
     final data = await _openData();
+    var tailPending = false;
     try {
+      final collecting = _collect(data);
       final start = await _raw('$command $path');
       if (!start.isAboutToTransfer) {
+        // Передачи не было — и хвоста не будет: сервер уже всё сказал.
+        unawaited(collecting.catchError((_) => <int>[]));
         throw errorFor(path, start, writing: false);
       }
-      final bytes = <int>[];
-      await for (final chunk in data) {
-        bytes.addAll(chunk);
+
+      tailPending = true;
+      final List<int> bytes;
+      try {
+        bytes = await collecting;
+      } on TimeoutException catch (error) {
+        // Замолчавший канал данных — это не «оборвалось», а «связи больше
+        // нет»: хвоста передачи в управляющем канале не дождаться, и ждать
+        // его — лишние секунды перед тем же исходом. Соединение объявляется
+        // мёртвым сразу, и источник поднимает его заново.
+        tailPending = false;
+        _break(error);
+        throw FsError(path, FsErrorKind.io, error);
+      } on Object catch (error) {
+        // Обрыв канала данных — это ошибка ввода-вывода, а не «сломанный
+        // объект»: движок другого языка не понимает, и голое исключение
+        // сокета до него доходить не должно.
+        throw FsError(path, FsErrorKind.io, error);
       }
-      await _expect(await _read(), what: path);
+      final tail = await _read();
+      tailPending = false;
+      await _expect(tail, what: path);
       return LineSplitter.split(encoding.decode(bytes)).where((line) => line.isNotEmpty).toList();
     } finally {
       data.destroy();
+      if (tailPending) {
+        await _resync();
+      }
     }
   });
 
@@ -365,7 +467,11 @@ class FtpConnection {
         closed = true;
         socket.destroy();
         if (error != null) {
-          out.addError(error, stack);
+          // Обрыв канала данных — ошибка ввода-вывода, и голое исключение
+          // сокета до движка доходить не должно. Управляющий канал при этом
+          // надо привести в порядок: сервер всё равно досылает хвост.
+          out.addError(FsError(path, FsErrorKind.io, error), stack);
+          await _resync();
         } else {
           try {
             await _expect(await _read(), what: path);
@@ -377,7 +483,7 @@ class FtpConnection {
         finished.complete();
       }
 
-      final subscription = socket.listen(
+      final subscription = withPause(socket).listen(
         out.add,
         onError: (Object error, StackTrace stack) => unawaited(done(error, stack)),
         onDone: () => unawaited(done(null, null)),
@@ -407,38 +513,92 @@ class FtpConnection {
   /// Запись файла потоком.
   Future<void> store(String path, Stream<List<int>> data, {bool append = false}) => _enqueue(() async {
     final socket = await _openData();
+    var tailPending = false;
     var sent = false;
     try {
       final start = await _raw('${append ? 'APPE' : 'STOR'} $path');
       if (!start.isAboutToTransfer) {
         throw errorFor(path, start, writing: true);
       }
-      await socket.addStream(data);
-      await socket.flush();
+      tailPending = true;
+      try {
+        await socket.addStream(data);
+        await socket.flush();
+      } on Object catch (error) {
+        throw FsError(path, FsErrorKind.io, error);
+      }
       sent = true;
     } finally {
+      // Закрытие записи — это и есть «файл кончился»: сервер ждёт FIN, чтобы
+      // ответить. Поэтому закрываем, а не рвём.
       await socket.close().catchError((_) {});
       socket.destroy();
+      if (tailPending && !sent) {
+        await _resync();
+      }
     }
-    if (sent) {
-      await _expect(await _read(), what: path, writing: true);
-    }
+    final tail = await _read();
+    await _expect(tail, what: path, writing: true);
   });
 
+  /// Всё, что приедет по каналу данных, — начиная с этого мгновения.
+  /// Сколько канал данных может молчать, прежде чем его признают мёртвым.
+  ///
+  /// **Предел обязателен.** Оборванное соединение не всегда доходит до нас
+  /// разрывом: бывает, что сокет остаётся открытым и молчит вечно. Без предела
+  /// панель в таком случае занята навсегда, и `Esc` ей не поможет — ждать
+  /// нечего и некого. Поймано живьём на долгой ходьбе по серверу: прогон не
+  /// упал, а завис (`docs/spec/ftp.md`, §3.7).
+  static const Duration transferPause = Duration(seconds: 30);
+
+  Future<List<int>> _collect(Stream<List<int>> data) {
+    final bytes = <int>[];
+    return withPause(data).forEach(bytes.addAll).then((_) => bytes);
+  }
+
+  /// Тот же поток, но с пределом молчания.
+  static Stream<List<int>> withPause(Stream<List<int>> data) => data.timeout(
+    transferPause,
+    onTimeout: (sink) => sink.addError(TimeoutException('Канал данных молчит', transferPause)),
+  );
+
   /// Прервать передачу, о которой сервер ещё не знает.
+  ///
+  /// **Сколько придёт ответов — заранее неизвестно.** Классический случай —
+  /// два: `426` о брошенной передаче и `226` об `ABOR`. Но если передача к
+  /// этому мгновению уже кончилась, придёт `226` о ней и `226` об `ABOR`, а
+  /// иные серверы отвечают одним. Считать их — гадание, и ошибка в счёте сдвинет
+  /// все последующие ответы на единицу: следующая команда прочтёт чужой.
+  /// Поэтому не считаем, а вычитываем всё, что сервер успевает досказать.
   Future<void> _abort() async {
     try {
       _control.add(encoding.encode('ABOR\r\n'));
       await _control.flush();
-      // Ответов бывает два: `426` о брошенной передаче и `226` об `ABOR`.
-      final first = await _read();
-      if (first.code == 426) {
-        await _read();
-      }
+      await _drain();
     } on Object {
       // Прервать не вышло — соединение всё равно больше не в порядке.
       _break(const FtpAborted());
     }
+  }
+
+  /// Сколько ждать очередной досказанный ответ, прежде чем считать, что сервер
+  /// замолчал.
+  static const Duration _drainPause = Duration(milliseconds: 700);
+
+  /// Вычитать всё, что сервер ещё не досказал.
+  ///
+  /// Предел нужен затем, чтобы разговорчивый или сломанный сервер не держал
+  /// панель: четыре ответа подряд — это уже не «хвост передачи», а что-то, чего
+  /// мы не понимаем, и дальше честнее переподключиться.
+  Future<void> _drain() async {
+    for (var read = 0; read < 4; read++) {
+      final reply = await _readSoon(_drainPause);
+      if (reply == null) {
+        return;
+      }
+      trace?.call('~ дочитан хвост: $reply');
+    }
+    _break(const FtpDesynchronized());
   }
 
   // --- сокет ---
@@ -477,6 +637,7 @@ class FtpConnection {
   }
 
   void _deliver(FtpReply reply) {
+    trace?.call('< $reply');
     final waiter = _waiting;
     if (waiter != null && !waiter.isCompleted) {
       _waiting = null;
@@ -528,6 +689,14 @@ class FtpAborted implements Exception {
 
   @override
   String toString() => 'Передача прервана';
+}
+
+/// Управляющий канал сбился с такта: завершающий ответ передачи не пришёл.
+class FtpDesynchronized implements Exception {
+  const FtpDesynchronized();
+
+  @override
+  String toString() => 'Сервер не досказал о передаче, соединение больше не в порядке';
 }
 
 /// Соединение закрыто нами.
