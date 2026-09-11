@@ -334,6 +334,7 @@ class PanelSession {
     final was = view;
     _viewHere = null;
     _sortHere = null;
+    _extraOff = {};
     _expandedHere = {if (source is PanelPreferredView) ...(source as PanelPreferredView).openBranches};
     _knownBranches = {..._expandedHere};
 
@@ -1174,26 +1175,60 @@ class PanelSession {
     _changed();
   }
 
+  /// Колонки источника, которые человек здесь выключил.
+  ///
+  /// Живёт, пока показывают источник, — как и его вид с порядком: просьба
+  /// источника это умолчание, а не запрет, и отменённая она не должна
+  /// пережить сам источник (`docs/spec/column-registry.md`, §6).
+  Set<String> _extraOff = {};
+
+  /// Колонки, которых просит показанный источник, за вычетом отменённых.
+  Set<String> get _extraColumns {
+    final source = provider;
+    if (source is! PanelExtraColumns) {
+      return const {};
+    }
+    final asked = (source as PanelExtraColumns).extraColumns;
+    if (_extraOff.isEmpty) {
+      return asked;
+    }
+    return {
+      for (final id in asked)
+        if (!_extraOff.contains(id)) id,
+    };
+  }
+
   /// Из пришедшего убирается то, что выбрал не человек, а источник.
   ///
   /// Список находок просит колонку пути, и на экране она видима. Записать эту
   /// видимость в настройки значило бы сделать выбор источника выбором
   /// человека: уйдя из находок, панель осталась бы с колонкой пути навсегда —
   /// и это не выдумка, а поймано живьём.
+  ///
+  /// Но и молчать в ответ нельзя: флажок этой колонки стоит в окне вида
+  /// наравне с прочими, и нажатие, от которого ничего не происходит, — это
+  /// ошибка, а не защита настроек. Поэтому просьбу источника человек здесь
+  /// **отменяет**, и отмена живёт ровно столько же, сколько сама просьба.
   ColumnLayout _asChosen(ColumnLayout incoming) {
     final source = provider;
-    final extra = source is PanelExtraColumns ? (source as PanelExtraColumns).extraColumns : const <String>{};
-    if (extra.isEmpty) {
+    final asked = source is PanelExtraColumns ? (source as PanelExtraColumns).extraColumns : const <String>{};
+    if (asked.isEmpty) {
       return incoming;
     }
     final kept = <ColumnSpec>[];
     for (final column in incoming.columns) {
-      if (!extra.contains(column.id)) {
+      if (!asked.contains(column.id)) {
         kept.add(column);
         continue;
       }
-      // Своего выбора об этой колонке у человека не было вовсе — и появиться
-      // ему неоткуда: он её не включал.
+      // Погасили — просьба отменена, зажгли обратно — она снова в силе.
+      if (column.visible) {
+        _extraOff.remove(column.id);
+      } else {
+        _extraOff.add(column.id);
+      }
+      // В настройки эта видимость не попадает ни в каком случае: своего
+      // выбора об этой колонке у человека нет — он её не включал.
       final saved = _columns.find(column.id);
       if (saved != null) {
         kept.add(column.copyWith(visible: saved.visible));
@@ -1841,7 +1876,7 @@ class PanelSession {
       canReceive: current.canReceive,
       isShellHost: shell != null,
       contentKind: current is PanelContent ? (current as PanelContent).contentKind : SourceInfo.files,
-      extraColumns: current is PanelExtraColumns ? (current as PanelExtraColumns).extraColumns : const {},
+      extraColumns: _extraColumns,
       shellLabel: shell?.shellLabel ?? '',
       shellProgram: shell?.shellProgram ?? '',
     );

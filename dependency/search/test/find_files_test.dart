@@ -382,6 +382,49 @@ void main() {
     expect(app.left.columns.find(FsColumns.path)?.visible, isFalse, reason: 'колонка пути ушла вместе с находками');
   });
 
+  testWidgets('колонку, которой просит источник, человек может погасить', (tester) async {
+    await pumpApp(tester);
+    await openWindow(tester);
+    await search(tester, '*.dart');
+    await press(tester, 'To panel');
+    expect(app.left.columns.find(FsColumns.path)?.visible, isTrue);
+
+    // Флажок этой колонки стоит в окне вида наравне с прочими, и нажатие, от
+    // которого ничего не происходит, — ошибка, а не защита настроек. Просьба
+    // источника это умолчание, как и его вид с порядком.
+    await app.left.setColumnLayout(app.left.columns.toggleVisible(FsColumns.path));
+    await tester.pumpAndSettle();
+    expect(app.left.columns.find(FsColumns.path)?.visible, isFalse);
+
+    // Зажгли обратно — просьба снова в силе.
+    await app.left.setColumnLayout(app.left.columns.toggleVisible(FsColumns.path));
+    await tester.pumpAndSettle();
+    expect(app.left.columns.find(FsColumns.path)?.visible, isTrue);
+  });
+
+  testWidgets('отмена просьбы живёт не дольше самого источника', (tester) async {
+    await pumpApp(tester);
+    await openWindow(tester);
+    await search(tester, '*.dart');
+    await press(tester, 'To panel');
+
+    await app.left.setColumnLayout(app.left.columns.toggleVisible(FsColumns.path));
+    await tester.pumpAndSettle();
+    expect(app.left.columns.find(FsColumns.path)?.visible, isFalse);
+
+    // Ушли и вернулись: источник просит заново, а погашенное человеком в
+    // настройках панели не осело — там его и не было.
+    await app.left.goUp();
+    await tester.pumpAndSettle();
+    expect(app.left.columns.find(FsColumns.path)?.visible, isFalse, reason: 'в каталоге путь у всех один');
+
+    await openWindow(tester);
+    await search(tester, '*.dart');
+    await press(tester, 'To panel');
+
+    expect(app.left.columns.find(FsColumns.path)?.visible, isTrue);
+  });
+
   testWidgets('обход идёт в глубину: находка прибывает в конец дерева', (tester) async {
     // В ширину находка из глубины приходила позже, а место её — внутри ветви,
     // нарисованной выше: всё, что ниже, съезжало, и список скакал.
