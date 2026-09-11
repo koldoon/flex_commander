@@ -167,6 +167,12 @@ void main() {
   });
 
   group('память', () {
+    /// Точка в полосе заголовка, за которую окно двигают.
+    ///
+    /// Ниже ручки растяжения: по верхнему краю окна лежит она, и протяжка от
+    /// самого края меняла бы размер, а не двигала.
+    Offset titleOf(Rect box) => Offset(box.center.dx, box.top + 15);
+
     /// Закрыть окно: Esc — то же, чем его закрывает человек.
     Future<void> close(WidgetTester tester) async {
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -209,6 +215,94 @@ void main() {
       await openHelp(tester);
 
       expect(window(tester).width, moreOrLessEquals(stretched.width, epsilon: 2));
+    });
+
+    testWidgets('закрыли и открыли — окно на том же месте', (tester) async {
+      await start(tester);
+      await openHelp(tester);
+      final before = window(tester);
+
+      // Отодвинули за полосу заголовка — тем же, чем двигает человек.
+      await dragFrom(tester, titleOf(before), const Offset(-60, 40));
+      final moved = window(tester);
+      expect(moved.left, isNot(moreOrLessEquals(before.left, epsilon: 2)), reason: 'окно не поехало');
+
+      await close(tester);
+      await openHelp(tester);
+
+      expect(window(tester).left, moreOrLessEquals(moved.left, epsilon: 2));
+      expect(window(tester).top, moreOrLessEquals(moved.top, epsilon: 2));
+    });
+
+    testWidgets('растянутое вверх окно открывается там же, а не низом к краю', (tester) async {
+      // Та самая беда: окно тянут за верхний край, оно уезжает вверх — а
+      // открывалось прежней высоты, но от верхнего отступа вниз, и низ
+      // упирался в край экрана.
+      await start(tester);
+      await openHelp(tester);
+
+      await dragFrom(tester, edgeOf(window(tester), top: 2), const Offset(0, -90));
+      final stretched = window(tester);
+
+      await close(tester);
+      await openHelp(tester);
+
+      expect(window(tester).top, moreOrLessEquals(stretched.top, epsilon: 2));
+      expect(window(tester).bottom, moreOrLessEquals(stretched.bottom, epsilon: 2));
+    });
+
+    testWidgets('место уходит в настройки и переживает перезапуск', (tester) async {
+      await start(tester);
+      await openHelp(tester);
+      final before = window(tester);
+
+      await dragFrom(tester, titleOf(before), const Offset(-70, 50));
+      final moved = window(tester);
+      await close(tester);
+
+      final saved = runtime.app.dialogState(HelpCommand.commandId);
+      expect(saved, isNotNull, reason: 'окно себя не запомнило');
+      expect(saved!.offsetX, moreOrLessEquals(-70, epsilon: 2));
+      expect(saved.offsetY, moreOrLessEquals(50, epsilon: 2));
+
+      // Новое приложение из тех же настроек — то же окно на том же месте.
+      runtime = await build(
+        settings: AppSettings(
+          left: PanelSettings.defaults('/home'),
+          right: PanelSettings.defaults('/home'),
+          dialogs: {
+            HelpCommand.commandId: DialogState(
+              width: saved.width,
+              height: saved.height,
+              offsetX: saved.offsetX,
+              offsetY: saved.offsetY,
+            ),
+          },
+        ),
+      );
+      await start(tester);
+      await openHelp(tester);
+
+      expect(window(tester).left, moreOrLessEquals(moved.left, epsilon: 2));
+      expect(window(tester).top, moreOrLessEquals(moved.top, epsilon: 2));
+    });
+
+    testWidgets('двойной щелчок по краю возвращает и место', (tester) async {
+      await start(tester);
+      await openHelp(tester);
+      final before = window(tester);
+
+      await dragFrom(tester, titleOf(before), const Offset(-60, 40));
+      expect(window(tester).left, isNot(moreOrLessEquals(before.left, epsilon: 2)));
+
+      final at = edgeOf(window(tester), right: 2);
+      await tester.tapAt(at);
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tapAt(at);
+      await tester.pumpAndSettle();
+
+      expect(window(tester).left, moreOrLessEquals(before.left, epsilon: 2));
+      expect(window(tester).top, moreOrLessEquals(before.top, epsilon: 2));
     });
 
     testWidgets('двойной щелчок по краю возвращает размер по умолчанию', (tester) async {

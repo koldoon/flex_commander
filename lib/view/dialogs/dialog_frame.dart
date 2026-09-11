@@ -105,17 +105,25 @@ class _DialogFrameState extends State<DialogFrame> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     // Запомненное поднимается один раз, при первом показе: дальше окно живёт
-    // своим размером, и перечитывать настройки на каждую перестройку значило
-    // бы затирать то, что человек тянет прямо сейчас.
+    // своим размером и своим местом, и перечитывать настройки на каждую
+    // перестройку значило бы затирать то, что человек тянет прямо сейчас.
     if (_restored || !widget.resizable) {
       return;
     }
     _restored = true;
     if (widget.id case final id?) {
       final saved = AppScope.read(context).dialogState(id);
-      if (saved != null && saved.hasWidth && saved.hasHeight) {
+      if (saved == null) {
+        return;
+      }
+      if (saved.hasWidth && saved.hasHeight) {
         _size = Size(saved.width, saved.height);
       }
+      // Место поднимается **вместе с размером и независимо от него**: окно,
+      // которое тянули за верхний край, уехало вверх — и без этого смещения
+      // открылось бы прежней высоты, но от верхнего отступа вниз, упираясь
+      // низом в край экрана (`docs/spec/dialog-resize.md`, §10).
+      _shift = Offset(saved.offsetX, saved.offsetY);
     }
   }
 
@@ -164,6 +172,11 @@ class _DialogFrameState extends State<DialogFrame> {
       // самого конца.
       dragStartBehavior: DragStartBehavior.down,
       onPanUpdate: (details) => setState(() => _shift += details.delta),
+      // Отпустили — запомнили, тем же снимком, что и размер: окно, которое
+      // отодвинули, обязано открыться там же (`docs/spec/dialog-resize.md`,
+      // §10). Не на каждом движении: запись отложенная, но снимок на каждую
+      // точку пути — работа впустую.
+      onPanEnd: (_) => _remember(),
       child: Container(
         width: double.infinity,
         height: metrics.dialogTitleHeight,
@@ -292,21 +305,31 @@ class _DialogFrameState extends State<DialogFrame> {
 
   /// Отпустили — запоминаем. Если окну негде помнить, размер живёт до
   /// закрытия, и это всё равно лучше, чем ничего.
-  void _rememberSize() {
+  void _remember() {
     final id = widget.id;
-    final size = _size;
-    if (id == null || size == null) {
+    if (id == null) {
       return;
     }
-    AppScope.read(context).rememberDialogState(id, DialogState(width: size.width, height: size.height));
+    final size = _size;
+    AppScope.read(context).rememberDialogState(
+      id,
+      DialogState(width: size?.width ?? 0, height: size?.height ?? 0, offsetX: _shift.dx, offsetY: _shift.dy),
+    );
   }
 
-  /// Двойной щелчок по краю возвращает размер по умолчанию.
+  /// Двойной щелчок по краю возвращает окно к тому, каким его сделала бы рама:
+  /// и размер, и место.
   ///
-  /// Без сброса неудачно растянутое окно чинится только правкой файла
-  /// настроек руками, а это не ответ (`docs/spec/dialog-resize.md`, §9).
-  void _resetSize() {
-    setState(() => _size = null);
+  /// Место вместе с размером не по симметрии, а по делу: окно тянут за верхний
+  /// край, и оно уезжает вверх — вернув один размер, мы оставили бы его
+  /// висеть не там, где оно встало бы само. Без сброса неудачно растянутое
+  /// окно чинится только правкой файла настроек руками, а это не ответ
+  /// (`docs/spec/dialog-resize.md`, §9).
+  void _reset() {
+    setState(() {
+      _size = null;
+      _shift = Offset.zero;
+    });
     if (widget.id case final id?) {
       AppScope.read(context).rememberDialogState(id, DialogState());
     }
@@ -349,8 +372,8 @@ class _DialogFrameState extends State<DialogFrame> {
             dragStartBehavior: DragStartBehavior.down,
             onPanStart: (_) => _beginResize(metrics),
             onPanUpdate: (details) => _resize(at, details.delta, _size ?? current(), metrics),
-            onPanEnd: (_) => _rememberSize(),
-            onDoubleTap: _resetSize,
+            onPanEnd: (_) => _remember(),
+            onDoubleTap: _reset,
           ),
         ),
       );
