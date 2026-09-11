@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
@@ -327,6 +328,10 @@ class _DialogFrameState extends State<DialogFrame> {
     }
 
     final edge = metrics.dialogResizeEdge;
+    // Угол — самая полезная ручка и самая труднодоступная: шесть точек на
+    // шесть попробуй поймай. Вдвое от края по каждой оси, и стороны на эту
+    // длину укорачиваются — угол лежит поверх и выигрывает нажатие.
+    final corner = edge * 2;
     // Размер нужен, чтобы считать от него: пока окно не тянули, он тот, что
     // назначила рама, и берётся у самого окна при первом же движении.
     Size current() => fitted ?? _windowSize() ?? Size.zero;
@@ -358,14 +363,14 @@ class _DialogFrameState extends State<DialogFrame> {
     return Stack(
       children: [
         window,
-        handle(const _Edge(left: true), left: 0, top: edge, bottom: edge, width: edge),
-        handle(const _Edge(right: true), right: 0, top: edge, bottom: edge, width: edge),
-        handle(const _Edge(top: true), left: edge, right: edge, top: 0, height: edge),
-        handle(const _Edge(bottom: true), left: edge, right: edge, bottom: 0, height: edge),
-        handle(const _Edge(left: true, top: true), left: 0, top: 0, width: edge, height: edge),
-        handle(const _Edge(right: true, top: true), right: 0, top: 0, width: edge, height: edge),
-        handle(const _Edge(left: true, bottom: true), left: 0, bottom: 0, width: edge, height: edge),
-        handle(const _Edge(right: true, bottom: true), right: 0, bottom: 0, width: edge, height: edge),
+        handle(const _Edge(left: true), left: 0, top: corner, bottom: corner, width: edge),
+        handle(const _Edge(right: true), right: 0, top: corner, bottom: corner, width: edge),
+        handle(const _Edge(top: true), left: corner, right: corner, top: 0, height: edge),
+        handle(const _Edge(bottom: true), left: corner, right: corner, bottom: 0, height: edge),
+        handle(const _Edge(left: true, top: true), left: 0, top: 0, width: corner, height: corner),
+        handle(const _Edge(right: true, top: true), right: 0, top: 0, width: corner, height: corner),
+        handle(const _Edge(left: true, bottom: true), left: 0, bottom: 0, width: corner, height: corner),
+        handle(const _Edge(right: true, bottom: true), right: 0, bottom: 0, width: corner, height: corner),
       ],
     );
   }
@@ -552,13 +557,29 @@ class _Edge {
   final bool top;
   final bool bottom;
 
-  /// Курсор над этим краем — тот же, что у окон системы.
+  /// Тянется ли этот край по обеим осям — то есть угол ли это.
+  bool get isCorner => (left || right) && (top || bottom);
+
+  /// Курсор над этим краем.
+  ///
+  /// **У macOS диагональных курсоров нет вовсе.** В открытом API `NSCursor`
+  /// их не существует: системные окна рисует оконный сервер своими,
+  /// недоступными. Flutter это и не скрывает — у `resizeUpLeftDownRight` в
+  /// списке платформ macOS не значится, — но подставляет вместо него обычную
+  /// стрелку, и угол выглядит так, будто за него не тянут
+  /// (`docs/spec/dialog-resize.md`, §5).
+  ///
+  /// Поэтому там, где диагонали нет, угол показывает курсор той оси, которую
+  /// у окна меняют чаще, — горизонтальной. Полуправда лучше неправды: стрелка
+  /// говорит «тут ничего нет», а этот курсор — «тут тянут».
   MouseCursor get cursor {
-    if ((left && top) || (right && bottom)) {
-      return SystemMouseCursors.resizeUpLeftDownRight;
-    }
-    if ((right && top) || (left && bottom)) {
-      return SystemMouseCursors.resizeUpRightDownLeft;
+    if (isCorner) {
+      if (defaultTargetPlatform == TargetPlatform.macOS) {
+        return SystemMouseCursors.resizeLeftRight;
+      }
+      return (left && top) || (right && bottom)
+          ? SystemMouseCursors.resizeUpLeftDownRight
+          : SystemMouseCursors.resizeUpRightDownLeft;
     }
     return left || right ? SystemMouseCursors.resizeLeftRight : SystemMouseCursors.resizeUpDown;
   }

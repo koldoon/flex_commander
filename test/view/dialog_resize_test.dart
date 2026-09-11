@@ -6,6 +6,8 @@ import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/state/commands/help_command.dart';
 import 'package:flex_commander/view/dialogs/dialog_frame.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/foundation.dart';
+import 'package:flutter/widgets.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -222,6 +224,90 @@ void main() {
 
       expect(window(tester).width, moreOrLessEquals(before.width, epsilon: 2));
       expect(runtime.app.dialogState(HelpCommand.commandId), isNull, reason: 'запомненное не стёрли');
+    });
+  });
+
+  group('курсор', () {
+    /// Курсор, который окажется под указателем в этой точке.
+    ///
+    /// Ручки лежат поверх окна, и перечисляются они сверху дерева вниз —
+    /// значит последний подходящий и есть верхний.
+    MouseCursor cursorAt(WidgetTester tester, Offset at) {
+      MouseCursor found = MouseCursor.defer;
+      for (final region in tester.widgetList<MouseRegion>(find.byType(MouseRegion))) {
+        if (region.cursor == MouseCursor.defer) {
+          continue;
+        }
+        final box = tester.renderObject<RenderBox>(find.byWidget(region));
+        if (!box.hasSize) {
+          continue;
+        }
+        if ((box.localToGlobal(Offset.zero) & box.size).contains(at)) {
+          found = region.cursor;
+        }
+      }
+      return found;
+    }
+
+    testWidgets('края показывают, в какую сторону тянуть', (tester) async {
+      await start(tester);
+      await openHelp(tester);
+      final box = window(tester);
+
+      expect(cursorAt(tester, edgeOf(box, right: 2)), SystemMouseCursors.resizeLeftRight);
+      expect(cursorAt(tester, edgeOf(box, left: 2)), SystemMouseCursors.resizeLeftRight);
+      expect(cursorAt(tester, edgeOf(box, bottom: 2)), SystemMouseCursors.resizeUpDown);
+      expect(cursorAt(tester, edgeOf(box, top: 2)), SystemMouseCursors.resizeUpDown);
+    });
+
+    testWidgets('на углу есть курсор, а не стрелка', (tester) async {
+      // Диагонального курсора Flutter на macOS не отдаёт: строк
+      // `resizeUpLeftDownRight` и `resizeUpRightDownLeft` нет в самом
+      // встройщике, и запрос на них превращается в обычную стрелку. У системы
+      // такой курсор есть, а у нас его нет — и угол выглядел так, будто за
+      // него не тянут (`docs/spec/dialog-resize.md`, §5).
+      // Подмена снимается **в теле теста**: проверка Flutter следит за этими
+      // переменными и ругается раньше, чем сработает `addTearDown`.
+      debugDefaultTargetPlatformOverride = TargetPlatform.macOS;
+      try {
+        await start(tester);
+        await openHelp(tester);
+        final box = window(tester);
+
+        for (final at in [
+          edgeOf(box, left: 2, top: 2),
+          edgeOf(box, right: 2, top: 2),
+          edgeOf(box, left: 2, bottom: 2),
+          edgeOf(box, right: 2, bottom: 2),
+        ]) {
+          expect(cursorAt(tester, at), SystemMouseCursors.resizeLeftRight, reason: 'угол $at');
+        }
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('там, где диагональ доходит, показывается она', (tester) async {
+      debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+      try {
+        await start(tester);
+        await openHelp(tester);
+        final box = window(tester);
+
+        expect(cursorAt(tester, edgeOf(box, left: 2, top: 2)), SystemMouseCursors.resizeUpLeftDownRight);
+        expect(cursorAt(tester, edgeOf(box, right: 2, top: 2)), SystemMouseCursors.resizeUpRightDownLeft);
+      } finally {
+        debugDefaultTargetPlatformOverride = null;
+      }
+    });
+
+    testWidgets('в угол можно попасть: он крупнее полосы края', (tester) async {
+      await start(tester);
+      await openHelp(tester);
+      final box = window(tester);
+
+      // Вдвое дальше от края, чем полоса стороны, — это ещё угол.
+      expect(cursorAt(tester, box.bottomRight - const Offset(9, 9)), isNot(MouseCursor.defer));
     });
   });
 
