@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
+import 'history_commands.dart';
 import 'layout_commands.dart';
 import 'mask_selection_commands.dart';
 import 'navigation_settings.dart';
@@ -55,6 +56,8 @@ class Navigation implements FcFrontendModule {
     registry.command((context) => SelectByMaskCommand(settings: settingsOf, save: settings.save));
     registry.command((context) => DeselectByMaskCommand(settings: settingsOf, save: settings.save));
     registry.command((context) => GoToRootCommand());
+    registry.command((context) => GoBackCommand());
+    registry.command((context) => GoForwardCommand());
     registry.command((context) => ReloadCommand());
     registry.command((context) => ToggleHiddenCommand());
     registry.command((context) => CancelCommand());
@@ -124,6 +127,15 @@ class Navigation implements FcFrontendModule {
     registry.binding(KeyBinding('Bsp', GoUpCommand.commandId));
     registry.binding(KeyBinding('Cmd-Up', GoUpCommand.commandId));
     registry.binding(KeyBinding('Cmd-/', GoToRootCommand.commandId));
+
+    // История переходов: обе привычки сразу — `Cmd-[`/`Cmd-]` из Finder и
+    // браузеров, `Alt-←`/`Alt-→` из Total Commander
+    // (`docs/spec/session-history.md`, §8). Голые `Left`/`Right` заняты
+    // переходом в начало и конец списка, но с модификатором они свободны.
+    registry.binding(KeyBinding('Cmd-[', GoBackCommand.commandId));
+    registry.binding(KeyBinding('Alt-Left', GoBackCommand.commandId));
+    registry.binding(KeyBinding('Cmd-]', GoForwardCommand.commandId));
+    registry.binding(KeyBinding('Alt-Right', GoForwardCommand.commandId));
 
     // Произвольный путь — по клавише на каждую панель, как выбор диска в
     // Norton Commander. Команда одна: какая панель, приходит параметром.
@@ -206,6 +218,10 @@ const Map<String, String> _russian = {
   'First item': 'В начало',
   'Last item': 'В конец',
   'Go to name': 'К имени',
+  'Back': 'Назад',
+  'Return to the previous directory of this panel': 'Вернуться в каталог, где панель была до этого',
+  'Forward': 'Вперёд',
+  'Go forward again after going back': 'Пойти вперёд после возврата назад',
   'Jump to the first item starting with the typed letter': 'Перейти к первому имени на набранную букву',
 
   // Панели и дерево.

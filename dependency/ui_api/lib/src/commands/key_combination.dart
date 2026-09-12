@@ -194,6 +194,11 @@ class KeyCombination {
     PhysicalKeyboardKey.digit7: '7',
     PhysicalKeyboardKey.digit8: '8',
     PhysicalKeyboardKey.digit9: '9',
+    // Скобки — ради «назад» и «вперёд» (`Cmd-[`, `Cmd-]`): в русской раскладке
+    // они дают `х` и `ъ`, и по напечатанному сочетание не опознать
+    // (`docs/spec/session-history.md`, §8).
+    PhysicalKeyboardKey.bracketLeft: '[',
+    PhysicalKeyboardKey.bracketRight: ']',
   };
 
   static String? _placeOf(PhysicalKeyboardKey key) => _places[key];

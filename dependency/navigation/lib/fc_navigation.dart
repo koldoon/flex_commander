@@ -1,6 +1,7 @@
 /// Перемещение по дереву и пометка объектов.
 library;
 
+export 'src/history_commands.dart';
 export 'src/layout_commands.dart';
 export 'src/mask_selection_commands.dart';
 export 'src/navigation_commands.dart';

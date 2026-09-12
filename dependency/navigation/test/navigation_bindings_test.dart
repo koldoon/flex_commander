@@ -68,6 +68,54 @@ void main() {
     }
   });
 
+  group('история переходов', () {
+    test('обе привычки ведут назад и вперёд', () async {
+      await app.start();
+      await app.left.openPath('/home/docs');
+      await pumpEventQueue();
+
+      expect(commands.commandFor(KeyCombination.parse('Cmd-['))?.id, GoBackCommand.commandId);
+      expect(commands.commandFor(KeyCombination.parse('Alt-Left'))?.id, GoBackCommand.commandId);
+
+      commands.dispatch(KeyCombination.parse('Cmd-['));
+      await pumpEventQueue();
+      expect(app.left.currentPath, '/home');
+
+      expect(commands.commandFor(KeyCombination.parse('Cmd-]'))?.id, GoForwardCommand.commandId);
+      commands.dispatch(KeyCombination.parse('Alt-Right'));
+      await pumpEventQueue();
+      expect(app.left.currentPath, '/home/docs');
+    });
+
+    test('идти некуда — команда приглушена, а не молчит', () async {
+      await app.start();
+      final where = app.left.currentPath;
+
+      // Привязка находится и в начале пути — иначе ряду кнопок нечего было бы
+      // показать, — но выполнить её нельзя, и нажатие ничего не делает.
+      final back = commands.commandFor(KeyCombination.parse('Cmd-['));
+      expect(back?.id, GoBackCommand.commandId);
+      expect(commands.isExecutable(back!), isFalse, reason: 'из начала истории идти назад некуда');
+
+      commands.dispatch(KeyCombination.parse('Cmd-['));
+      await pumpEventQueue();
+      expect(app.left.currentPath, where);
+
+      final forward = commands.commandFor(KeyCombination.parse('Cmd-]'));
+      expect(forward?.id, GoForwardCommand.commandId);
+      expect(commands.isExecutable(forward!), isFalse, reason: 'вперёд некуда: не возвращались');
+    });
+
+    test('голые стрелки по-прежнему водят по списку', () async {
+      await app.start();
+
+      // `Left` и `Right` заняты переходом в начало и конец: сочетание с
+      // модификатором до них не доходит, а без модификатора — их.
+      expect(commands.commandFor(KeyCombination.parse('Left'))?.id, 'panel.cursor.first');
+      expect(commands.commandFor(KeyCombination.parse('Right'))?.id, 'panel.cursor.last');
+    });
+  });
+
   test('пометка пробелом не перехвачена переходом к имени', () async {
     await app.start();
     // Курсор на «..» пометить нечего, и клавиша досталась бы первой попавшейся
