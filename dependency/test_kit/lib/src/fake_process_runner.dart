@@ -99,6 +99,17 @@ class FakeProcessRunner implements ProcessRunner {
     return session;
   }
 
+  /// Запуски «отпустив» — отдельно: их проверяют не по выводу, которого нет, а
+  /// по тому, что и с чем запустили.
+  final List<ProcessCall> detached = [];
+
+  @override
+  Future<void> detach(String executable, List<String> arguments, {String? workingDirectory}) async {
+    final call = ProcessCall(executable, arguments, workingDirectory: workingDirectory);
+    detached.add(call);
+    calls.add(call);
+  }
+
   @override
   Future<String?> which(String executable, {Iterable<String> extraDirectories = const []}) async =>
       executables[executable];

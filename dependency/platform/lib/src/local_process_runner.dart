@@ -41,6 +41,17 @@ class LocalProcessRunner implements ProcessRunner {
   }
 
   @override
+  Future<void> detach(String executable, List<String> arguments, {String? workingDirectory}) async {
+    try {
+      // `detached` — то самое «отпустить»: процесс не держится за нас ни
+      // каналами, ни группой, и переживает наш выход.
+      await Process.start(executable, arguments, workingDirectory: workingDirectory, mode: ProcessStartMode.detached);
+    } on ProcessException catch (error) {
+      throw FsError(executable, FsErrorKind.notFound, error);
+    }
+  }
+
+  @override
   Future<String?> which(String executable, {Iterable<String> extraDirectories = const []}) async {
     if (executable.contains(Platform.pathSeparator)) {
       // Указали путь, а не имя: искать нечего, надо проверить.

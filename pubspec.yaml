@@ -134,6 +134,9 @@ dependencies:
   fc_text_viewer:
     path: dependency/text_viewer
 
+  fc_updater:
+    path: dependency/updater
+
   fc_image_viewer:
     path: dependency/image_viewer
 

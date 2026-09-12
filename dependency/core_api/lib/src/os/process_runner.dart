@@ -17,6 +17,14 @@ abstract interface class ProcessRunner {
   /// Для того, что течёт: распаковка в поток, упаковка с ходом работы.
   Future<ProcessSession> start(String executable, List<String> arguments, {String? workingDirectory});
 
+  /// Запустить и **отпустить**: программа переживёт наш выход.
+  ///
+  /// Нужно ровно одному делу — подмене приложения собой же
+  /// (`docs/spec/self-update.md`, §6): каталог `.app` занят, пока мы работаем,
+  /// поэтому последний шаг делает тот, кто останется жить после нас. Вывода у
+  /// такой программы никто не читает, и кода возврата у неё для нас нет.
+  Future<void> detach(String executable, List<String> arguments, {String? workingDirectory});
+
   /// Полный путь к программе или null, если её нет.
   ///
   /// [extraDirectories] просматриваются после `PATH`. Это не прихоть: на macOS

@@ -25,9 +25,17 @@ dependencies:
 
   path: ^1.9.1
 
+  # Журнал: канал раннера может не отозваться, и об этом стоит сказать в лог,
+  # а не человеку — обновление от этого просто не предложится.
+  logecom: ^0.0.11
+
 dev_dependencies:
   flutter_test:
     sdk: flutter
 
   fc_test_kit:
     path: ../test_kit
+
+  # Помощника проверяем настоящей оболочкой: подставкой его не проверить.
+  fc_platform:
+    path: ../platform
