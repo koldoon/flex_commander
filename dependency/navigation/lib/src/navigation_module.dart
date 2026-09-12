@@ -58,6 +58,7 @@ class Navigation implements FcFrontendModule {
     registry.command((context) => GoToRootCommand());
     registry.command((context) => GoBackCommand());
     registry.command((context) => GoForwardCommand());
+    registry.command((context) => ChooseHistoryCommand());
     registry.command((context) => ReloadCommand());
     registry.command((context) => ToggleHiddenCommand());
     registry.command((context) => CancelCommand());
@@ -136,6 +137,8 @@ class Navigation implements FcFrontendModule {
     registry.binding(KeyBinding('Alt-Left', GoBackCommand.commandId));
     registry.binding(KeyBinding('Cmd-]', GoForwardCommand.commandId));
     registry.binding(KeyBinding('Alt-Right', GoForwardCommand.commandId));
+    // Выпадающая история каталога — оттуда же, из Total Commander.
+    registry.binding(KeyBinding('Alt-Down', ChooseHistoryCommand.commandId));
 
     // Произвольный путь — по клавише на каждую панель, как выбор диска в
     // Norton Commander. Команда одна: какая панель, приходит параметром.
@@ -222,6 +225,10 @@ const Map<String, String> _russian = {
   'Return to the previous directory of this panel': 'Вернуться в каталог, где панель была до этого',
   'Forward': 'Вперёд',
   'Go forward again after going back': 'Пойти вперёд после возврата назад',
+  'History': 'История',
+  'Show where this panel has been': 'Показать, где эта панель уже была',
+  'Filter by path': 'Отбор по пути',
+  'Go': 'Перейти',
   'Jump to the first item starting with the typed letter': 'Перейти к первому имени на набранную букву',
 
   // Панели и дерево.

@@ -18,6 +18,7 @@ class FcPickRow {
     this.subtitle = '',
     this.trailing = '',
     this.keywords = const [],
+    this.marked = false,
   });
 
   /// Чем строка отзовётся, когда её выберут.
@@ -40,6 +41,14 @@ class FcPickRow {
   /// «Mk Tar», название модуля у любой команды палитры. У истории адресов их
   /// нет — там ищут по самому пути.
   final List<String> keywords;
+
+  /// Строка помечена значком слева: «вот эта».
+  ///
+  /// Не «выбранная» — выбранное показано курсором и меняется стрелками. Это
+  /// про **место в списке**: в истории переходов так помечен шаг, на котором
+  /// сессия стоит сейчас, и по соседям видно, куда поведут «назад» и «вперёд»
+  /// (`docs/spec/session-history.md`, §9).
+  final bool marked;
 }
 
 /// Сколько строк помещается в обзоре списка; от этого считается шаг
@@ -329,6 +338,16 @@ class _FcPickListState extends State<FcPickList> {
         alignment: Alignment.centerLeft,
         child: Row(
           children: [
+            // Колонка значка — только там, где есть чему в ней стоять:
+            // пустая, она сдвинула бы вправо весь текст и у палитры, и у
+            // истории адресов, где помечать нечего.
+            if (widget.rows.any((row) => row.marked)) ...[
+              SizedBox(
+                width: metrics.fontSize,
+                child: row.marked ? Icon(theme.icons.angleRight, size: metrics.fontSize, color: bright.color) : null,
+              ),
+              SizedBox(width: metrics.columnGap),
+            ],
             Expanded(
               child: Text.rich(
                 TextSpan(

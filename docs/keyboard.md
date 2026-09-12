@@ -601,6 +601,9 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 | `panel.openWithSystem` | — | `Cmd-O` | есть объект под курсором |
 | `panel.up` | `Bsp`, `Cmd-Up` | у каталога есть родитель |
 | `panel.root` | `Cmd-/` | не в корне |
+| `panel.history.back` | `Cmd-[`, `Alt-Left` | панель уже где-то была до этого |
+| `panel.history.forward` | `Cmd-]`, `Alt-Right` | до этого возвращались назад |
+| `panel.history.choose` | `Alt-Down` | в истории больше одного шага |
 | `panel.reload` | `Cmd-R` | панель не занята |
 | `panel.toggleHidden` | `Cmd-Shift-H`, `Cmd-H` | всегда |
 | `panel.selection.toggle` | `Space`, `Ins` | под курсором не `..` |

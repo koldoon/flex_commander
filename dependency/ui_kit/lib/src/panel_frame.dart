@@ -23,9 +23,16 @@ enum PanelOuterEdge {
 /// только файловая панель: просмотрщик и редактор занимают её место и обязаны
 /// выглядеть так же.
 class FcPathPlate extends StatelessWidget {
-  const FcPathPlate({super.key, required this.path, this.trailing, this.active = true});
+  const FcPathPlate({super.key, required this.path, this.leading, this.trailing, this.active = true});
 
   final String path;
+
+  /// Что стоит слева от пути; null — только путь.
+  ///
+  /// Слотом, а не встройкой: плашкой пользуется всё, что занимает место в
+  /// окне, — панель, просмотрщик, редактор, — а стрелки «назад» и «вперёд»
+  /// есть только у панели (`docs/spec/session-history.md`, §9).
+  final Widget? leading;
 
   /// Приписка справа — размер файла у просмотрщика; null — только путь.
   final String? trailing;
@@ -83,25 +90,27 @@ class FcPathPlate extends StatelessWidget {
               style: style,
             );
 
-            if (suffix == null) {
+            if (suffix == null && leading == null) {
               return Center(widthFactor: 1, child: pathText);
             }
 
             return Row(
               mainAxisSize: MainAxisSize.min,
               children: [
+                if (leading case final slot?) ...[slot, SizedBox(width: metrics.labelPadding)],
                 Flexible(child: pathText),
                 // Приписка тоже гнётся: в узкой панели её одной хватало, чтобы
                 // плашка вылезла за края. Путь к тому времени ужат уже до
                 // ничего, и ужиматься дальше некому.
-                Flexible(
-                  child: Text(
-                    _gap + suffix,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: style.copyWith(color: colors.secondaryText),
+                if (suffix != null)
+                  Flexible(
+                    child: Text(
+                      _gap + suffix,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: style.copyWith(color: colors.secondaryText),
+                    ),
                   ),
-                ),
               ],
             );
           },

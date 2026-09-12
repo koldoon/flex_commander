@@ -31,6 +31,10 @@ abstract class FcIcons {
   /// другого, и её же рисуют системы, у которых такой флажок есть.
   IconData get mixed;
 
+  /// Стрелка «туда, откуда пришли» — «назад» в шапке панели
+  /// (`docs/spec/session-history.md`, §9).
+  IconData get angleLeft;
+
   /// Стрелка «ведёт на» — в описании ссылки.
   ///
   /// Не `long-arrow-right`: та почти целую кегельную площадку в ширину
@@ -73,6 +77,7 @@ extension FcIconRoles on FcIcons {
     'asterisk' => asterisk,
     'check' => check,
     'mixed' => mixed,
+    'angleLeft' => angleLeft,
     'angleRight' => angleRight,
     'caretUp' => caretUp,
     'caretDown' => caretDown,

@@ -2,6 +2,7 @@
 library;
 
 export 'src/history_commands.dart';
+export 'src/history_dialog.dart';
 export 'src/layout_commands.dart';
 export 'src/mask_selection_commands.dart';
 export 'src/navigation_commands.dart';

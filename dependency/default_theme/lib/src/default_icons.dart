@@ -31,6 +31,9 @@ class DefaultIcons extends FcIcons {
   IconData get mixed => _icon(0xf068);
 
   @override
+  IconData get angleLeft => _icon(0xf104);
+
+  @override
   IconData get angleRight => _icon(0xf105);
 
   @override

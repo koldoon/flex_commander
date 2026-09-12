@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'history_arrows.dart';
 import 'panel_status_bar.dart';
 
 /// Панель целиком: «плашка» пути, таблица файлов и строка состояния.
@@ -52,6 +53,10 @@ class PanelView extends StatelessWidget {
             builder:
                 (context, _) => FcPathPlate(
                   path: panel.headerText ?? (panel.currentPath.isEmpty ? '/' : panel.currentPath),
+                  // «Назад» и «вперёд» — только у панели с файлами: у
+                  // просмотрщика в этой же плашке истории нет
+                  // (`docs/spec/session-history.md`, §9).
+                  leading: HistoryArrows(panel: panel),
                   // Не `panel.active`: та говорит, какая **сессия** —
                   // источник операции, и остаётся собой, когда ввод ушёл в
                   // наложение напротив, а показана она бывает сразу в обеих
