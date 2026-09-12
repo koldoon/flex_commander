@@ -49,7 +49,9 @@ class NavigationSettings implements Serializable {
   /// Повтор поднимается наверх, а не ложится вторым: список коротких походов по
   /// одним и тем же местам иначе вытеснил бы сам себя.
   void remember(String address) {
-    final value = address.trim();
+    // Без хвостового разделителя: `/home/docs` и `/home/docs/` — один и тот же
+    // каталог, и двумя строками в списке они быть не должны.
+    final value = pathWithoutTrailingSlash(address.trim());
     if (value.isEmpty) {
       return;
     }

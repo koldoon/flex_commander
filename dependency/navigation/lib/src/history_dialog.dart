@@ -193,6 +193,12 @@ class _HistoryDialogFormState extends State<HistoryDialogForm> {
                       maxHeight: (theme.metrics.rowHeight + theme.metrics.rowGap) * _visibleRows,
                     ),
                     child: FcPickList(
+                      trimHead: true,
+                      // Ярко — последнее звено пути: именно им строки и
+                      // различаются, начало у соседних чаще всего одно.
+                      dimPathHead: true,
+                      // Пути режутся с головы, как в плашке: конец важнее —
+                      // в нём тот каталог, о котором речь.
                       rows: state.shown,
                       query: state.query,
                       selected: state.selected,

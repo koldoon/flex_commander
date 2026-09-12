@@ -21,6 +21,8 @@ void main() {
         FakeEntry.directory('/home'),
         FakeEntry.directory('/home/docs'),
         FakeEntry.directory('/home/pics'),
+        FakeEntry.directory('/home/pics/2026'),
+        FakeEntry.directory('/home/pics/2026/september-photos-from-the-long-trip-to-the-north'),
         FakeEntry.file('/home/notes.txt', size: 10),
       ])..home = '/home',
       modules: [const Navigation()],
@@ -115,6 +117,44 @@ void main() {
 
     expect(app.left.currentPath, '/home/docs');
     expect(app.left.canGoForward, isTrue, reason: 'прыжок — ход по истории, а не новый переход');
+  });
+
+  testWidgets('длинный путь в списке обрезан с головы, а не с хвоста', (tester) async {
+    const long = '/home/pics/2026/september-photos-from-the-long-trip-to-the-north';
+    await start(tester);
+    // Окно поуже, чтобы путь заведомо не поместился: в списке от него должен
+    // остаться **конец** — тот каталог, о котором речь, как и в плашке пути.
+    tester.view.physicalSize = const Size(620, 600);
+    await app.left.openPath(long);
+    await tester.pumpAndSettle();
+    await openWindow(tester);
+
+    final texts = [
+      for (final row in tester.widgetList<Text>(
+        find.descendant(of: find.byType(FcPickList), matching: find.byType(Text)),
+      ))
+        row.textSpan?.toPlainText() ?? row.data ?? '',
+    ];
+    final shown = texts.firstWhere((text) => text.endsWith('north'), orElse: () => '');
+
+    expect(shown, isNotEmpty, reason: 'конец пути не виден вовсе: ${texts.join(' | ')}');
+    expect(shown.length, lessThan(long.length), reason: 'путь не обрезан, хотя не помещается');
+    expect(shown, startsWith('…'));
+    expect(long, endsWith(shown.substring(1)));
+  });
+
+  testWidgets('пути стоят под текстом поля, а значок — в поле слева', (tester) async {
+    await start(tester);
+    await walk(tester);
+    await openWindow(tester);
+
+    final field = tester.getRect(find.byType(EditableText).first);
+    final row = tester.getRect(find.descendant(of: find.byType(FcPickList), matching: find.byType(Text)).first);
+    expect(row.left, moreOrLessEquals(field.left, epsilon: 1), reason: 'список съехал относительно набранного');
+
+    final marker = tester.getRect(find.descendant(of: find.byType(FcPickList), matching: find.byType(Icon)).first);
+    expect(marker.right, lessThanOrEqualTo(row.left + 1), reason: 'значок отнимает место у текста');
+    expect(marker.left, greaterThanOrEqualTo(tester.getRect(find.byType(FcPickList)).left - 1));
   });
 
   testWidgets('Esc закрывает окно, ничего не тронув', (tester) async {

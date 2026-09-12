@@ -421,6 +421,9 @@ class _OpenPathFormState extends State<_OpenPathForm> {
                     maxHeight: (theme.metrics.rowHeight + theme.metrics.rowGap) * _visibleRows,
                   ),
                   child: FcPickList(
+                    // Ярко — последнее звено адреса: список читают по именам
+                    // каталогов, а начало у соседних строк одно и то же.
+                    dimPathHead: true,
                     rows: _found,
                     query: _typed,
                     selected: _selected,

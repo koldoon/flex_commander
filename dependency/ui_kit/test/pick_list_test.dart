@@ -1,4 +1,6 @@
+import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -103,6 +105,94 @@ void main() {
     test('с первой вверх уходят в -1, чтобы вернуть набранное', () {
       expect(FcPickList.moveSelection(press(LogicalKeyboardKey.arrowUp), selected: 0, count: 10, wrap: false), -1);
       expect(FcPickList.moveSelection(press(LogicalKeyboardKey.arrowUp), selected: 0, count: 10), 9);
+    });
+  });
+
+  group('путь двумя цветами', () {
+    const metrics = DefaultMetrics();
+    const colors = DefaultColors();
+
+    Future<void> pump(WidgetTester tester, String title, {bool dimPathHead = true}) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            extensions: const [FcTheme(colors: colors, metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts())],
+          ),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 600,
+                child: FcPickList(
+                  rows: [FcPickRow(id: '0', title: title)],
+                  query: '',
+                  // Курсора нет: у строки под ним свой цвет, и проверять надо
+                  // обычную.
+                  selected: -1,
+                  dimPathHead: dimPathHead,
+                  onTap: (_) {},
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    /// Кусочки строки со своими цветами — так видно, чем набрана каждая часть.
+    List<(String, Color?)> partsOf(WidgetTester tester) {
+      final parts = <(String, Color?)>[];
+      void walk(InlineSpan span) {
+        if (span is TextSpan) {
+          if (span.text != null) {
+            parts.add((span.text!, span.style?.color));
+          }
+          for (final child in span.children ?? const <InlineSpan>[]) {
+            walk(child);
+          }
+        }
+      }
+
+      walk(tester.widget<Text>(find.byType(Text).first).textSpan!);
+      return parts;
+    }
+
+    testWidgets('ярко только последнее звено', (tester) async {
+      await pump(tester, '/home/koldoon/Developer');
+
+      final parts = partsOf(tester);
+      expect(parts.map((part) => part.$1).join(), '/home/koldoon/Developer');
+      expect(parts.first.$2, colors.dialogText, reason: 'начало пути должно быть приглушено');
+      expect(parts.last.$2, colors.dialogLabel, reason: 'последнее звено — ярко');
+    });
+
+    testWidgets('строке без разделителя делить нечего', (tester) async {
+      await pump(tester, 'Copy File');
+
+      expect(partsOf(tester).map((part) => part.$2).toSet(), {colors.dialogLabel});
+    });
+
+    testWidgets('хвостовой разделитель делению не мешает', (tester) async {
+      // Такие строки остались в настройках от прежних времён: показать их надо
+      // так же, как нынешние, — ярким последним звеном.
+      await pump(tester, '/Users/koldoon/Developer/');
+
+      final parts = partsOf(tester);
+      expect(parts.map((part) => part.$1).join(), '/Users/koldoon/Developer');
+      expect(parts.last.$2, colors.dialogLabel, reason: 'последнее звено — ярко');
+      expect(parts.first.$2, colors.dialogText);
+    });
+
+    testWidgets('у корня нет звена, которое стоило бы выделить', (tester) async {
+      await pump(tester, '/');
+
+      expect(partsOf(tester).map((part) => part.$2).toSet(), {colors.dialogLabel});
+    });
+
+    testWidgets('обычный список приглушения не знает', (tester) async {
+      await pump(tester, '/home/koldoon/Developer', dimPathHead: false);
+
+      expect(partsOf(tester).map((part) => part.$2).toSet(), {colors.dialogLabel});
     });
   });
 }

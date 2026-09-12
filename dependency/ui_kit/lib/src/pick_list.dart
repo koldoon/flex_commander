@@ -5,6 +5,7 @@ import 'app_scope.dart';
 import 'command_dialog.dart';
 import 'fc_theme.dart';
 import 'palette_search.dart';
+import 'text_trim.dart';
 
 /// Строка списка с отбором.
 ///
@@ -85,6 +86,8 @@ class FcPickList extends StatefulWidget {
     this.textInset,
     this.page,
     this.mark = FcPickMark.cursor,
+    this.trimHead = false,
+    this.dimPathHead = false,
   });
 
   final List<FcPickRow> rows;
@@ -111,6 +114,21 @@ class FcPickList extends StatefulWidget {
 
   /// Чем показано выбранное.
   final FcPickMark mark;
+
+  /// Обрезать строку **слева**, а не справа.
+  ///
+  /// Для путей: конец строки важнее — в нём тот каталог, о котором речь, — и
+  /// режется так же, как в плашке пути (`trimTextHead`). Обычные списки
+  /// (палитра, маски) режут хвост: у команды важнее начало имени.
+  final bool trimHead;
+
+  /// В пути ярко набрано **последнее звено**, остальное приглушено.
+  ///
+  /// Списки путей — история переходов и история адресов — читают по именам
+  /// каталогов: куда именно ведёт строка, сказано в её конце, а начало у
+  /// соседних строк чаще всего одно и то же. Приглушённое начало перестаёт
+  /// спорить с концом за внимание.
+  final bool dimPathHead;
 
   @override
   State<FcPickList> createState() => _FcPickListState();
@@ -325,6 +343,55 @@ class _FcPickListState extends State<FcPickList> {
     final dim = base.copyWith(color: colors.dialogText);
     final match = matchCommand(widget.query, label: row.title);
 
+    // Приглушённое начало пути. На строке под курсором — не общий
+    // приглушённый цвет (он набран для тёмного фона окна и на подсветке
+    // тонет), а тот же светлый, приспущенный к её фону.
+    final dimPath =
+        current && !byWeight
+            ? bright.copyWith(color: Color.lerp(bright.color, colors.cursorBackground, 0.45))
+            : bright.copyWith(color: colors.dialogText);
+
+    /// Путь двумя цветами: последнее звено ярко, всё до него — приглушённо.
+    ///
+    /// Подсветка совпавшего делится между половинами: буквы запроса могут
+    /// попасть и туда, и сюда.
+    List<TextSpan> pathSpans(String text, List<int> hits) {
+      final cut = text.lastIndexOf('/');
+      // Строку с хвостовым разделителем делить не на что: последнего звена у
+      // неё нет вовсе. Такие приходят из старых настроек — показываем их так
+      // же, как пишем нынешние (`pathWithoutTrailingSlash`).
+      if (widget.dimPathHead && cut == text.length - 1 && text.length > 1) {
+        return pathSpans(text.substring(0, text.length - 1), [
+          for (final hit in hits)
+            if (hit < text.length - 1) hit,
+        ]);
+      }
+      if (!widget.dimPathHead || cut < 0 || cut == text.length - 1) {
+        return highlightMatch(text, hits, bright);
+      }
+      return [
+        ...highlightMatch(text.substring(0, cut + 1), [
+          for (final hit in hits)
+            if (hit <= cut) hit,
+        ], dimPath),
+        ...highlightMatch(text.substring(cut + 1), [
+          for (final hit in hits)
+            if (hit > cut) hit - cut - 1,
+        ], bright),
+      ];
+    }
+
+    /// Заголовок строки: подсвеченный, а если надо — обрезанный с головы.
+    ///
+    /// Обрезка идёт по **доступной** ширине, поэтому меряется в раскладке:
+    /// сколько её осталось, знает только `LayoutBuilder`. Он тут безопасен —
+    /// окна со списками задают себе ширину сами (`DialogSpec.ownWidth`), и
+    /// про интринсики их никто не спрашивает.
+    Widget title(List<TextSpan> spans) =>
+        Text.rich(TextSpan(children: spans), maxLines: 1, overflow: TextOverflow.ellipsis);
+
+    final inset = widget.textInset ?? dialogInputTextInset(context);
+
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () => widget.onTap(row.id),
@@ -334,41 +401,66 @@ class _FcPickListState extends State<FcPickList> {
         // Подсветка — во всю ширину, отбит только текст: строка выбора обязана
         // доходить до краёв, иначе читается не как «эта строка», а как «эта
         // плитка». А текст стоит ровно под набранным в поле.
-        padding: EdgeInsets.symmetric(horizontal: widget.textInset ?? dialogInputTextInset(context)),
         alignment: Alignment.centerLeft,
-        child: Row(
+        child: Stack(
           children: [
-            // Колонка значка — только там, где есть чему в ней стоять:
-            // пустая, она сдвинула бы вправо весь текст и у палитры, и у
-            // истории адресов, где помечать нечего.
-            if (widget.rows.any((row) => row.marked)) ...[
-              SizedBox(
-                width: metrics.fontSize,
-                child: row.marked ? Icon(theme.icons.angleRight, size: metrics.fontSize, color: bright.color) : null,
+            // Значок стоит **в поле слева**, а не в колонке перед текстом:
+            // колонка сдвинула бы строки вправо, и список перестал бы стоять
+            // под полем ввода. В поле он и помещается — его там ровно столько,
+            // сколько отбит текст (`docs/spec/session-history.md`, §9).
+            if (row.marked)
+              Positioned(
+                left: ((inset - metrics.fontSize) / 2).clamp(0, inset),
+                top: 0,
+                bottom: 0,
+                child: Center(child: Icon(theme.icons.angleRight, size: metrics.fontSize, color: bright.color)),
               ),
-              SizedBox(width: metrics.columnGap),
-            ],
-            Expanded(
-              child: Text.rich(
-                TextSpan(
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: inset),
+              child: Align(
+                alignment: Alignment.centerLeft,
+                child: Row(
                   children: [
-                    ...highlightMatch(row.title, match?.labelHits ?? const [], bright),
-                    // Уточнение без подсветки: по нему не ищут, и подсвечивать
-                    // в нём нечего.
-                    if (row.subtitle.isNotEmpty) TextSpan(text: '   ${row.subtitle}', style: dim),
+                    Expanded(
+                      child:
+                          widget.trimHead
+                              ? LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final scaler = MediaQuery.textScalerOf(context);
+                                  final shown = trimTextHead(row.title, bright, constraints.maxWidth, scaler);
+                                  // Подсветка считается по целой строке, а
+                                  // показывают обрезанную: совпавшие буквы,
+                                  // ушедшие с головой, отпадают, оставшиеся
+                                  // сдвигаются на отрезанное.
+                                  final cut = row.title.length - shown.length + (shown.startsWith('…') ? 1 : 0);
+                                  final hits = <int>[
+                                    for (final hit in match?.labelHits ?? const <int>[])
+                                      if (hit >= cut) hit - cut + (shown.startsWith('…') ? 1 : 0),
+                                  ];
+                                  return title(pathSpans(shown, hits));
+                                },
+                              )
+                              : title([
+                                ...pathSpans(row.title, match?.labelHits ?? const []),
+                                // Уточнение без подсветки: по нему не ищут, и
+                                // подсвечивать в нём нечего.
+                                if (row.subtitle.isNotEmpty) TextSpan(text: '   ${row.subtitle}', style: dim),
+                              ]),
+                    ),
+                    if (row.trailing.isNotEmpty) ...[
+                      SizedBox(width: metrics.columnGap),
+                      Text(
+                        row.trailing,
+                        style: dim.copyWith(
+                          fontFamily: theme.fonts.fixed,
+                          fontFamilyFallback: theme.fonts.fixedFallback,
+                        ),
+                      ),
+                    ],
                   ],
                 ),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ),
-            if (row.trailing.isNotEmpty) ...[
-              SizedBox(width: metrics.columnGap),
-              Text(
-                row.trailing,
-                style: dim.copyWith(fontFamily: theme.fonts.fixed, fontFamilyFallback: theme.fonts.fixedFallback),
-              ),
-            ],
           ],
         ),
       ),

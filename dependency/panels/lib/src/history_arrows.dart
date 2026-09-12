@@ -13,6 +13,14 @@ class HistoryArrows extends StatelessWidget {
 
   final Session panel;
 
+  /// Сколько места они займут.
+  ///
+  /// Объявляется наружу, потому что плашка обрезает путь **сама** и обязана
+  /// знать, сколько у неё отняли: иначе она отмерит путь по всей плашке, и
+  /// конец пути уйдёт за край (`docs/spec/session-history.md`, §9). Та же
+  /// величина держит и сам ряд — расходиться им негде.
+  static double widthOf(FcTheme theme) => theme.metrics.fontSize * 2 + theme.metrics.labelPadding;
+
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
@@ -20,21 +28,24 @@ class HistoryArrows extends StatelessWidget {
     return ListenableBuilder(
       listenable: panel,
       builder:
-          (context, _) => Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              _Arrow(
-                icon: theme.icons.angleLeft,
-                hint: context.strings.tr('Back'),
-                onTap: panel.canGoBack ? () => panel.goBack() : null,
-              ),
-              SizedBox(width: theme.metrics.labelPadding),
-              _Arrow(
-                icon: theme.icons.angleRight,
-                hint: context.strings.tr('Forward'),
-                onTap: panel.canGoForward ? () => panel.goForward() : null,
-              ),
-            ],
+          (context, _) => SizedBox(
+            width: widthOf(theme),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                _Arrow(
+                  icon: theme.icons.angleLeft,
+                  hint: context.strings.tr('Back'),
+                  onTap: panel.canGoBack ? () => panel.goBack() : null,
+                ),
+                SizedBox(width: theme.metrics.labelPadding),
+                _Arrow(
+                  icon: theme.icons.angleRight,
+                  hint: context.strings.tr('Forward'),
+                  onTap: panel.canGoForward ? () => panel.goForward() : null,
+                ),
+              ],
+            ),
           ),
     );
   }

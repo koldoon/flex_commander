@@ -57,6 +57,7 @@ class PanelView extends StatelessWidget {
                   // просмотрщика в этой же плашке истории нет
                   // (`docs/spec/session-history.md`, §9).
                   leading: HistoryArrows(panel: panel),
+                  leadingWidth: HistoryArrows.widthOf(FcTheme.of(context)),
                   // Не `panel.active`: та говорит, какая **сессия** —
                   // источник операции, и остаётся собой, когда ввод ушёл в
                   // наложение напротив, а показана она бывает сразу в обеих

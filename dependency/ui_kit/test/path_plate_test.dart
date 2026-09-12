@@ -11,7 +11,13 @@ void main() {
 
   /// Окружение материальное и со своей разрядкой — как в живом приложении:
   /// `Text` со стилем-наследником подмешивает её к нашему стилю.
-  Future<void> pumpPlate(WidgetTester tester, {required double width, double letterSpacing = 2}) async {
+  Future<void> pumpPlate(
+    WidgetTester tester, {
+    required double width,
+    double letterSpacing = 2,
+    Widget? leading,
+    double leadingWidth = 0,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(
@@ -25,7 +31,10 @@ void main() {
             child: SizedBox(
               width: width,
               height: 300,
-              child: const FcPanelFrame(header: FcPathPlate(path: path), child: SizedBox()),
+              child: FcPanelFrame(
+                header: FcPathPlate(path: path, leading: leading, leadingWidth: leadingWidth),
+                child: const SizedBox(),
+              ),
             ),
           ),
         ),
@@ -56,6 +65,34 @@ void main() {
         (tester.widget(find.descendant(of: find.byType(FcPathPlate), matching: find.byType(Text))) as Text).data!;
     expect(shown, startsWith('…'));
     expect(path, endsWith(shown.substring(1)));
+  });
+
+  group('со слотом слева', () {
+    /// Место под стрелки истории: плашка о них не знает, но ширину ей
+    /// называют — иначе она отмерит путь по всей плашке, и конец пути уйдёт
+    /// за край (`docs/spec/session-history.md`, §9).
+    const slot = SizedBox(width: 40, height: 12);
+
+    testWidgets('путь по-прежнему обрезается с головы', (tester) async {
+      await pumpPlate(tester, width: 393, leading: slot, leadingWidth: 40);
+
+      final shown =
+          (tester.widget(find.descendant(of: find.byType(FcPathPlate), matching: find.byType(Text))) as Text).data!;
+      expect(shown, startsWith('…'), reason: 'обрезали хвост вместо головы');
+      expect(path, endsWith(shown.substring(1)), reason: 'конец пути потерян');
+    });
+
+    testWidgets('путь со слотом вместе не вылезают за плашку', (tester) async {
+      await pumpPlate(tester, width: 393, leading: slot, leadingWidth: 40);
+
+      final plate = tester.getRect(find.byType(FcPathPlate));
+      final paragraph = tester.renderObject<RenderParagraph>(
+        find.descendant(of: find.byType(FcPathPlate), matching: find.byType(Text)),
+      );
+
+      final inner = plate.width - 2 * (metrics.labelPadding + metrics.strokeWidth) - 40 - metrics.labelPadding;
+      expect(paragraph.getMaxIntrinsicWidth(double.infinity), lessThanOrEqualTo(inner + 0.01));
+    });
   });
 
   testWidgets('короткому пути многоточие ни к чему', (tester) async {

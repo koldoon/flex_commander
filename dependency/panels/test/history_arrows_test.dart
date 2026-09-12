@@ -79,6 +79,27 @@ void main() {
     expect(runtime.app.left.canGoForward, isTrue, reason: 'вперёд теперь есть куда');
   });
 
+  testWidgets('длинный путь по-прежнему обрезается с головы, а не с хвоста', (tester) async {
+    // Стрелки отняли у пути место, а плашка меряет его сама: не зная, сколько
+    // у неё отняли, она отмеряла путь по всей ширине — и конец пути уходил за
+    // край, обрезанный уже с хвоста (`docs/spec/session-history.md`, §9).
+    await open(tester);
+    tester.view.physicalSize = const Size(560, 600);
+    await tester.pumpAndSettle();
+    await runtime.app.left.openPath('/home/docs');
+    await tester.pumpAndSettle();
+
+    final plate = find.byType(FcPathPlate).first;
+    final shown = (tester.widget(find.descendant(of: plate, matching: find.byType(Text)).first) as Text).data!;
+
+    expect(shown, isNot(endsWith('…')), reason: 'обрезан хвост — конец пути потерян');
+    if (shown.startsWith('…')) {
+      expect('/home/docs', endsWith(shown.substring(1)));
+    } else {
+      expect(shown, '/home/docs', reason: 'путь поместился целиком — обрезать нечего');
+    }
+  });
+
   testWidgets('стрелки стоят слева от пути и не отнимают его целиком', (tester) async {
     await open(tester);
     await runtime.app.left.openPath('/home/docs');

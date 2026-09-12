@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'fc_theme.dart';
+import 'text_trim.dart';
 
 /// Внешний край окна, к которому прижата панель.
 ///
@@ -23,7 +24,14 @@ enum PanelOuterEdge {
 /// только файловая панель: просмотрщик и редактор занимают её место и обязаны
 /// выглядеть так же.
 class FcPathPlate extends StatelessWidget {
-  const FcPathPlate({super.key, required this.path, this.leading, this.trailing, this.active = true});
+  const FcPathPlate({
+    super.key,
+    required this.path,
+    this.leading,
+    this.leadingWidth = 0,
+    this.trailing,
+    this.active = true,
+  });
 
   final String path;
 
@@ -33,6 +41,15 @@ class FcPathPlate extends StatelessWidget {
   /// окне, — панель, просмотрщик, редактор, — а стрелки «назад» и «вперёд»
   /// есть только у панели (`docs/spec/session-history.md`, §9).
   final Widget? leading;
+
+  /// Сколько места занимает слот.
+  ///
+  /// Числом, а не замером: **плашка обрезает путь сама**, и мерить обязана
+  /// тем же, чем рисует, — до раскладки. Не зная ширины слота, она отмерила бы
+  /// путь по всей плашке, и конец пути ушёл бы за край, обрезанный уже не с
+  /// головы, а с хвоста. Ширину называет тот, кто слот даёт: она у него
+  /// известна (`HistoryArrows.widthOf`).
+  final double leadingWidth;
 
   /// Приписка справа — размер файла у просмотрщика; null — только путь.
   final String? trailing;
@@ -75,15 +92,17 @@ class FcPathPlate extends StatelessWidget {
             final scaler = MediaQuery.textScalerOf(context);
             final suffix = trailing;
 
+            // Что остаётся пути: вся плашка минус слот с его зазором и минус
+            // приписка.
+            final free =
+                constraints.maxWidth -
+                (leading == null ? 0 : leadingWidth + metrics.labelPadding) -
+                (suffix == null ? 0 : textWidthOf(_gap + suffix, style, scaler));
+
             // Сдвига, как в строках списка, здесь нет: он нужен моноширинному
             // шрифту, а путь набран Ubuntu — у него базовая линия обычная.
             final pathText = Text(
-              _trimHead(
-                path,
-                style,
-                constraints.maxWidth - (suffix == null ? 0 : _widthOf(_gap + suffix, style, scaler)),
-                scaler,
-              ),
+              trimTextHead(path, style, free, scaler),
               maxLines: 1,
               softWrap: false,
               textAlign: TextAlign.center,
@@ -121,45 +140,6 @@ class FcPathPlate extends StatelessWidget {
 
   /// Просвет между путём и припиской.
   static const String _gap = '   ';
-
-  static double _widthOf(String text, TextStyle style, TextScaler scaler) {
-    final painter = TextPainter(
-      text: TextSpan(text: text, style: style),
-      textDirection: TextDirection.ltr,
-      textScaler: scaler,
-      maxLines: 1,
-    )..layout();
-    final width = painter.width;
-    painter.dispose();
-    return width;
-  }
-
-  /// Обрезает путь **слева**: конец строки важнее — в нём текущий каталог.
-  ///
-  /// Считается вручную, а не через `TextOverflow.ellipsis`: тот всегда режет
-  /// хвост, а разворот направления текста ломает порядок символов в пути.
-  static String _trimHead(String value, TextStyle style, double maxWidth, TextScaler scaler) {
-    if (maxWidth.isInfinite || maxWidth <= 0) {
-      return value;
-    }
-
-    if (_widthOf(value, style, scaler) <= maxWidth) {
-      return value;
-    }
-
-    // Двоичный поиск самого длинного хвоста, который помещается вместе с «…».
-    var low = 0;
-    var high = value.length;
-    while (low < high) {
-      final middle = (low + high) ~/ 2;
-      if (_widthOf('…${value.substring(middle)}', style, scaler) <= maxWidth) {
-        high = middle;
-      } else {
-        low = middle + 1;
-      }
-    }
-    return '…${value.substring(low)}';
-  }
 }
 
 /// Оформление места в окне: обведённая область с «плашкой» заголовка,
