@@ -18,6 +18,12 @@ dependencies:
   fc_core_api:
     path: ../core_api
 
+  fc_ui_api:
+    path: ../ui_api
+
+  fc_ui_kit:
+    path: ../ui_kit
+
   # Сумма скачанного сверяется с той, что назвал GitHub. Пакет команды Dart,
   # без зависимостей: считать sha256 вызовом `shasum` значило бы доверять
   # ещё и оболочке.

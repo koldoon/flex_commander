@@ -65,6 +65,7 @@ sealed class SettingsField {
     required bool defaultValue,
     required bool Function() read,
     required void Function(bool value) write,
+    SettingsAction? action,
   }) => SettingsFlag(
     id,
     title: title,
@@ -73,6 +74,7 @@ sealed class SettingsField {
     defaultValue: defaultValue,
     read: read,
     write: write,
+    action: action,
   );
 
   /// Целое число с пределами.
@@ -152,6 +154,7 @@ class SettingsFlag extends SettingsField {
     required this.defaultValue,
     required this.read,
     required this.write,
+    this.action,
   });
 
   /// Что стоит, пока не выбрали своего.
@@ -160,11 +163,35 @@ class SettingsFlag extends SettingsField {
   final bool Function() read;
   final void Function(bool value) write;
 
+  /// Кнопка в той же строке; null — только флажок.
+  ///
+  /// Приставкой к флажку, а не отдельным полем: это одно дело, сказанное двумя
+  /// способами — «делать самому» и «вот сейчас сделай». Так стоит «Check now»
+  /// рядом с «проверять обновления» (`docs/spec/self-update.md`, §8).
+  final SettingsAction? action;
+
   @override
   bool get isDefault => read() == defaultValue;
 
   @override
   void resetToDefault() => write(defaultValue);
+}
+
+/// Кнопка-приставка у поля настройки.
+///
+/// Значения у неё нет — значит и в сверке «у каждого поля схемы есть ключ в
+/// разделе» ей делать нечего: сверять нечего.
+class SettingsAction {
+  const SettingsAction({required this.label, required this.run});
+
+  /// Подпись кнопки.
+  final String label;
+
+  /// Что сделать по нажатию.
+  ///
+  /// Живой она остаётся независимо от самого поля: выключенная проверка по
+  /// расписанию не значит, что нельзя проверить руками.
+  final void Function() run;
 }
 
 class SettingsNumber extends SettingsField {

@@ -616,6 +616,38 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     ),
   );
 
+  /// Флажок, а рядом — его кнопка, если она есть.
+  ///
+  /// Кнопка живая и при снятом флажке: отказ делать по расписанию не значит
+  /// отказа сделать сейчас (`docs/spec/self-update.md`, §8).
+  Widget _flagControl(FcTheme theme, SettingsFlag flag, VoidCallback changed) {
+    final checkbox = FcCheckbox(
+      label: flag.title,
+      richLabel: _titleSpan(theme, flag.title),
+      value: flag.read(),
+      onChanged: (value) {
+        flag.write(value);
+        changed();
+      },
+    );
+
+    final action = flag.action;
+    if (action == null) {
+      return checkbox;
+    }
+
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        // Уступает флажок, а не кнопка: подпись длинная и ужимается, а кнопка
+        // облегает своё слово и гнуться ей нечем.
+        Flexible(child: checkbox),
+        SizedBox(width: theme.metrics.dialogGap),
+        FcButton(label: action.label, onPressed: action.run),
+      ],
+    );
+  }
+
   Widget _control(FcTheme theme, SettingsSchema schema, SettingsField field) {
     void changed() {
       schema.save();
@@ -623,15 +655,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     }
 
     return switch (field) {
-      SettingsFlag flag => FcCheckbox(
-        label: flag.title,
-        richLabel: _titleSpan(theme, flag.title),
-        value: flag.read(),
-        onChanged: (value) {
-          flag.write(value);
-          changed();
-        },
-      ),
+      SettingsFlag flag => _flagControl(theme, flag, changed),
       // Выпадающим списком, а не переключателем: темы приносят модули, и
       // строка на каждый вариант росла бы вместе с их числом.
       SettingsChoice choice => FcSelect<String>(

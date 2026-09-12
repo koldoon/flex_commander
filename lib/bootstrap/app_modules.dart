@@ -19,6 +19,7 @@ import 'package:fc_ssh/fc_ssh.dart';
 import 'package:fc_tar/fc_tar.dart';
 import 'package:fc_terminal/fc_terminal.dart';
 import 'package:fc_text_viewer/fc_text_viewer.dart';
+import 'package:fc_updater/fc_updater.dart';
 import 'package:fc_viewer/fc_viewer.dart';
 import 'package:fc_zip/fc_zip.dart';
 
@@ -93,6 +94,10 @@ List<FcModule> featureModules() => [
   const AttributeEditing(),
   // Редактор после оболочки: он занимает место её заглушки на F4.
   const TextEditor(),
+  // Обновление приложения собой же. Последним: оно ни от чего не зависит и
+  // ничего не приносит панелям — только команду, окно и флажок в настройках
+  // (`docs/spec/self-update.md`).
+  const Updates(),
 ];
 
 /// Ядровые половины — те модули из списка, у которых она есть.

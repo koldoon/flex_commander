@@ -9,3 +9,8 @@ export 'src/release.dart';
 export 'src/update_check.dart';
 export 'src/update_download.dart';
 export 'src/update_install.dart';
+export 'src/update_commands.dart';
+export 'src/update_service.dart';
+export 'src/update_view.dart';
+export 'src/updater_module.dart';
+export 'src/updater_settings.dart';

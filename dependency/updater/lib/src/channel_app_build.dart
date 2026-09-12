@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 import 'app_build.dart';
 import 'app_version.dart';
 import 'package:flutter/services.dart';
@@ -25,20 +27,40 @@ class ChannelAppBuild implements AppBuild {
   String _architecture = '';
   bool _asked = false;
 
+  /// Где мы лежим — по пути исполняемого файла, без всякого канала.
+  ///
+  /// `…/flex_commander.app/Contents/MacOS/flex_commander` — значит бандл на
+  /// три уровня выше. Пусто — приложение запущено не из бандла: так живут
+  /// проверки и `flutter run`.
+  static String bundleOf(String executable) {
+    final parts = p.split(executable);
+    final at = parts.lastIndexWhere((part) => part.endsWith('.app'));
+    return at < 0 ? '' : p.joinAll(parts.take(at + 1));
+  }
+
   /// Спросить раннера. Без этого остальное отвечает «не знаю» — и обновление
   /// честно не предлагается.
+  ///
+  /// **Канал зовётся только из бандла.** Вне его раннера нет вовсе, и вопрос
+  /// остался бы без ответа: в проверках такой вызов не отвечает никогда, а
+  /// ждать его — значит подвесить запуск.
   Future<void> load() async {
     if (_asked) {
       return;
     }
     _asked = true;
+    _bundlePath = bundleOf(Platform.resolvedExecutable);
+    if (_bundlePath.isEmpty) {
+      return;
+    }
     try {
       final info = await _channel.invokeMapMethod<String, Object?>('info');
       if (info == null) {
         return;
       }
       _version = AppVersion.parse(info['version'] as String? ?? '');
-      _bundlePath = info['bundlePath'] as String? ?? '';
+      // Путь из раннера точнее нашего счёта по частям: его он знает у себя.
+      _bundlePath = (info['bundlePath'] as String?)?.isNotEmpty == true ? info['bundlePath'] as String : _bundlePath;
       _architecture = info['architecture'] as String? ?? '';
     } on PlatformException catch (error) {
       // Раннер без канала — это сборка, собранная не нами: обновляться ей
