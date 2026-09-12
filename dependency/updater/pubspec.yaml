@@ -53,6 +53,8 @@ dev_dependencies:
   fc_test_kit:
     path: ../test_kit
 
-  # Помощника проверяем настоящей оболочкой: подставкой его не проверить.
-  fc_platform:
-    path: ../platform
+  # Окно проверяется с настоящими цветами и мерами: подставка темы показала бы
+  # не то, что увидит человек.
+  fc_default_theme:
+    path: ../default_theme
+
