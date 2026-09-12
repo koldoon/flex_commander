@@ -95,6 +95,9 @@ class OpenPathCommand extends AppCommand {
     final state = OpenPathDialogState(
       panel: panel,
       activate: () => context.app.activate(panel),
+      // Ошибку переводит тот, кто показывает: у состояния окна словаря нет
+      // (`docs/spec/localization.md`, §3).
+      fail: (failure) => context.app.toasts.fail(context.app.strings.describe(failure)),
       remember: (address) {
         history.remember(address);
         save();
@@ -142,7 +145,7 @@ class OpenPathCommand extends AppCommand {
 /// Живёт, пока открыто окно: команда, показав его, уходит. Здесь же и отмена —
 /// прерывают открытие, а не команду.
 class OpenPathDialogState extends ChangeNotifier {
-  OpenPathDialogState({required this.panel, required this.activate, required this.remember});
+  OpenPathDialogState({required this.panel, required this.activate, required this.remember, required this.fail});
 
   final Session panel;
 
@@ -155,6 +158,13 @@ class OpenPathDialogState extends ChangeNotifier {
   /// Зовётся **после** успеха, а не при отправке: адрес с опечаткой не должен
   /// всплывать в подсказках.
   final void Function(String address) remember;
+
+  /// Сказать, что не вышло.
+  ///
+  /// Тостом, а не строкой в окне: сообщение внутри формы отъедает у неё место
+  /// и двигает поля ровно тогда, когда в них собираются что-то поправить
+  /// (`Toasts.fail`).
+  final void Function(FsError failure) fail;
 
   String path = '';
 
@@ -182,7 +192,18 @@ class OpenPathDialogState extends ChangeNotifier {
   String? get statusMessage => _statusMessage;
   String? _statusMessage;
 
+  /// Чем кончилась последняя попытка; null — ещё не пробовали или вышло.
+  ///
+  /// Остаётся полем, хотя человеку сообщение уходит тостом: по нему команда,
+  /// запущенная **с адресом в параметре** (сценарий, привязка), понимает, что
+  /// открыть не вышло, и бросает исключение — окна у неё нет.
   String? error;
+
+  /// Сказать о неудаче: запомнить и показать.
+  void _report(FsError failure) {
+    error = failure.message;
+    fail(failure);
+  }
 
   /// Чем закрыть себя; null — окно ещё не показано (так бывает в тесте).
   VoidCallback? close;
@@ -224,14 +245,14 @@ class OpenPathDialogState extends ChangeNotifier {
       if (!opened) {
         // Причину берём у панели: «путь не найден» и «такой протокол мы не
         // умеем» — разные ответы, и второй сам себя объясняет.
-        error = (panel.error ?? FsError(target, FsErrorKind.notFound)).message;
+        _report(panel.error ?? FsError(target, FsErrorKind.notFound));
         return;
       }
       remember(addressWithoutPassword(target));
       activate();
       close?.call();
     } on FsError catch (failure) {
-      error = failure.message;
+      _report(failure);
     } finally {
       panel.removeListener(_onPanelChanged);
       _running = false;
@@ -379,8 +400,6 @@ class _OpenPathFormState extends State<_OpenPathForm> {
         final inset = dialogInputTextInset(context);
 
         return CommandDialogForm(
-          // Неудача не закрывает окно: путь правится тут же и пробуется снова.
-          error: state.error,
           // Работа уже идёт — подтверждать нечего.
           busy: state.running,
           onCancel: state.dismiss,

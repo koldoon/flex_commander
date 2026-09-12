@@ -157,6 +157,7 @@ class StringsRegistry extends ChangeNotifier implements Strings {
       FsErrorKind.unsupportedScheme => tr('Protocol {path} is not supported', args: path),
       FsErrorKind.invalidAddress => tr('Wrong URI: {path}', args: path),
       FsErrorKind.io => tr('I/O error: {path}', args: path),
+      FsErrorKind.cannotConnect => tr('Cannot connect: {path}', args: path),
     };
   }
 

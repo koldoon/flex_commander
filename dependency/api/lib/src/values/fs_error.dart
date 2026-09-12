@@ -31,6 +31,15 @@ enum FsErrorKind {
   invalidAddress,
 
   io,
+
+  /// До источника не достучались вовсе: сервер отверг соединение, не ответил
+  /// или его имя не разобралось.
+  ///
+  /// Отдельно от [io]: «ошибка ввода-вывода» человеку не говорит ничего, а
+  /// «не удалось подключиться» отправляет его смотреть сеть, адрес и сам
+  /// сервер — туда, где беда и есть. В [FsError.path] при этом стоит тот, к
+  /// кому не достучались.
+  cannotConnect,
 }
 
 /// Ошибка чтения или изменения дерева.
@@ -66,6 +75,7 @@ class FsError implements Exception {
     FsErrorKind.unsupportedScheme => 'Protocol $path is not supported',
     FsErrorKind.invalidAddress => 'Wrong URI: $path',
     FsErrorKind.io => 'I/O error: $path',
+    FsErrorKind.cannotConnect => 'Cannot connect: $path',
   };
 
   @override

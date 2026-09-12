@@ -423,7 +423,9 @@ void main() {
       // собираемся.
       await tester.enterText(dialogField(), 'gopher://user@host/srv');
       await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
+      // Кадром, а не `pumpAndSettle`: сообщение уходит тостом, а тот живёт
+      // считаные секунды — «успокоившись», окно останется уже без него.
+      await tester.pump();
 
       // «Путь не найден» тут врёт: путь-то мы даже не смотрели, потому что не
       // умеем такой протокол.
@@ -512,8 +514,10 @@ void main() {
 
         await tester.enterText(dialogField(), entry.key);
         await tester.tap(find.text('Open'));
-        await tester.pumpAndSettle();
+        await tester.pump();
 
+        // Сообщение — тостом поверх окна: в форме оно отъедало место и двигало
+        // поля ровно тогда, когда в них собираются что-то поправить.
         expect(find.textContaining(entry.value), findsWidgets, reason: 'на «${entry.key}»');
 
         await tester.sendKeyEvent(LogicalKeyboardKey.escape);
@@ -537,12 +541,17 @@ void main() {
 
       await tester.enterText(dialogField(), '/такого/нет');
       await tester.tap(find.text('Open'));
-      await tester.pumpAndSettle();
+      await tester.pump();
 
-      // Путь правится тут же: окно осталось и говорит, что не так.
+      // Путь правится тут же: окно осталось, а о беде сказано тостом.
       expect(find.text('Open address (left panel)'), findsOneWidget);
       expect(find.textContaining('Not found'), findsOneWidget);
       expect(runtime.app.left.currentPath, '/home');
+
+      // Тост уходит сам, а окно остаётся: поправить набранное можно и после.
+      await tester.pumpAndSettle();
+      expect(find.text('Open address (left panel)'), findsOneWidget);
+      expect(find.textContaining('Not found'), findsNothing, reason: 'сообщение осталось висеть в окне');
 
       await tester.pump(const Duration(milliseconds: 20));
     });

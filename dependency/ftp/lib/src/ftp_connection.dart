@@ -78,7 +78,10 @@ class FtpConnection {
     try {
       socket = await Socket.connect(target.host, target.port, timeout: timeout);
     } on SocketException catch (error) {
-      throw FsError(target.display, FsErrorKind.io, error);
+      // Не достучались вовсе: сервер отверг соединение, не ответил или его имя
+      // не разобралось. «Ошибка ввода-вывода» об этом не говорит ничего, а
+      // человеку надо знать, где смотреть, — в сети, в адресе и на сервере.
+      throw FsError(target.display, FsErrorKind.cannotConnect, error);
     }
 
     final connection = FtpConnection._(target, socket, encoding: utf8, trace: trace);

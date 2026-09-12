@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ftp/fc_ftp.dart';
@@ -28,6 +29,22 @@ void main() {
   }
 
   group('вход', () {
+    test('до сервера не достучались — это «не подключиться», а не ошибка ввода-вывода', () async {
+      // Порт, на котором никто не слушает: сокет отвечает отказом сразу, и
+      // человеку надо сказать, что не дозвонились, — «ошибка ввода-вывода»
+      // отправила бы его искать беду не там (`docs/spec/ftp.md`).
+      final closed = await ServerSocket.bind(InternetAddress.loopbackIPv4, 0);
+      final port = closed.port;
+      await closed.close();
+      // Подставки нет вовсе — значит и останавливать в конце нечего.
+      server = await FakeFtpServer.start();
+
+      await expectLater(
+        FtpConnection.open(FtpTarget(host: '127.0.0.1', port: port), password: ''),
+        throwsA(isA<FsError>().having((error) => error.kind, 'вид', FsErrorKind.cannotConnect)),
+      );
+    });
+
     test('многострочный баннер не сбивает разговор', () async {
       // Баннер сервера содержит строку, похожую на конец ответа. Если разбор
       // на ней обрывается, дальше врёт весь сеанс — а здесь вход просто не
