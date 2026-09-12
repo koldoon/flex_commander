@@ -15,9 +15,9 @@ parts that were right there were kept: the model layer, the command model with k
 bindings, and the visual design. The central idea comes from there too — **a panel does
 not show "a list of files", it shows a directory in a tree of nodes**, and everything
 that can read or change that tree hides behind one interface, `TreeProvider`. The local
-file system is only one implementation of it; a ZIP archive, a 7z archive and a remote
-machine over SFTP are simply more providers, and the cursor, marking, sorting and every
-file command work the same way in all of them.
+file system is only one implementation of it; a ZIP archive, a 7z archive, a remote
+machine over SFTP and an FTP server are simply more providers, and the cursor, marking,
+sorting and every file command work the same way in all of them.
 
 ## Status
 
@@ -37,15 +37,55 @@ and typing any printable character jumps to the next name starting with it. `Ctr
 starts a quick search where the cursor follows the whole name as you type it — a letter
 that leads nowhere is simply not taken, so one typo does not leave you deleting blindly. Sorting is
 natural (`file2` before `file10`), directories first, symbolic links resolved without
-losing the path you walked.
+losing the path you walked. `Alt+O` puts what you are looking at into the *other* panel —
+a directory opens there, a file puts its own directory there with the cursor on it — while
+the input stays where it is, which is the `mc` habit for setting up a copy without walking
+anywhere yourself. A directory you have already been in opens instantly: the listing comes
+from memory and the re-read that follows quietly replaces it if anything moved, so `Bsp`
+over `ssh` is no longer a pause; `Cmd+R` means read *past* that memory, which is the answer
+to "what I see looks wrong".
+
+**Panel views.** Four ways to show the same directory, on `Cmd+1`…`Cmd+4` or from one
+window on `Alt+F1` / `Alt+F2`, where the settings of the chosen view stand right underneath
+it. The table is the full set of columns; the brief view is names alone, in columns that
+scroll sideways; the tree shows branches, where `Right` and `Left` expand and collapse,
+`Shift+Right` takes the whole subtree and `Shift+Cmd+Right` takes the lot — it reads as it
+goes, so it runs as a job and `Esc` stops it. The combined view (`Cmd+4`) puts a tree of
+directories on the left and the contents of the branch under the cursor on the right: walk
+one column and the other follows, and the column holding the cursor is the one that leads.
+All four are built by the same core that builds the list, so sorting by a header, marking,
+`F3` and `F5` mean exactly what they always did — and what is expanded, where the cursor
+stands and how far the view is scrolled all come back after a restart.
+
+**Open sessions.** What a tab is for is not the tab: it is what it holds open — an unpacked
+archive, a raised connection, a directory already read, a cursor already placed. That is a
+session, and a session belongs to the application rather than to a side, so the list is
+one. It lives in the title bar, to the right of the traffic lights, and a mark at the edge
+of each entry is a miniature pair of panels saying whether that session is shown on the
+left, on the right or in both. `Cmd+Shift+T` opens one on the current directory,
+`Cmd+Shift+W` closes the one on show, `Ctrl+Tab` walks the row, `Alt+1`…`Alt+9` go straight
+to a number, `Cmd+Shift+O` opens a chooser with fuzzy matching, and a session can be given
+a name that outlives the directory it was opened on. The same session can be shown in both
+panels at once — then the cursor and the marking are shared, and the keys belong to
+whichever side has the input. Directories are read lazily: at startup only the ones on
+show, the rest when first shown, and a session that stood on a server raises its connection
+at that same moment rather than dropping you into a home directory on the way in.
 
 **Address input.** `Cmd+F1` and `Cmd+F2` open anything by string: `/etc`,
-`~/Downloads`, a path inside an archive, or `ssh://user@host/srv`. A leading `~` expands
+`~/Downloads`, a path inside an archive, `ssh://user@host/srv` or
+`ftp://ftp.example.org/pub`. A leading `~` expands
 to the home directory *of that source*, not of the local machine.
 
-**Columns.** Name, extension, size, modified, created, accessed, attributes. Drag headers
-to reorder, drag borders to resize, right-click for a visibility menu, click to sort. The
-layout, sorting and hidden-file flag are stored per panel and survive restarts. Compound
+**Columns.** Name, extension, size, modified, created, accessed, attributes, source — and
+a column is a **declaration a module brings**, not a value of an enumeration in the core.
+The ten standard ones come from the panels module; a module that wants a column of its own
+adds one without the core learning its name. Drag headers to reorder, drag borders to
+resize, click to sort; which columns are visible is chosen in the view window (`Alt+F1`),
+where everything else about the panel's appearance already lives. The layout, sorting and
+hidden-file flag are stored per panel and survive restarts — but only the widths you
+actually dragged are written down, so a metric changed in the theme still reaches someone
+who already has a settings file, and a column whose module is switched off sleeps in the
+settings instead of being erased from them. Compound
 extensions come from a dictionary rather than a guess: `archive.tar.gz` is `archive` plus
 `tar.gz`, `button.spec.ts` is `button` plus `spec.ts`, and sorting groups them the same
 way — while `readme.v2.txt` keeps its version in the name. Add your own in the settings,
@@ -53,10 +93,12 @@ or hide the extension column and names show whole.
 
 **Marking.** Space or Insert marks, `Cmd+A` marks everything and `Cmd+Shift+A` marks
 files only — the one you want before `chmod +x` or packing, where walking around
-directories by hand is the tiresome part. `Esc` clears. The right
-mouse button marks too: a click toggles a row, dragging marks the whole run you drag
-across — and dragging back unmarks what the same gesture just marked; near the edges the
-list scrolls by itself. `+` and `-`
+directories by hand is the tiresome part. `Esc` clears. `Shift+Space` marks **without
+stepping down**: the ordinary Space steps, which is how a run of files is marked with one
+key, but a directory's size is counted for what is marked and shown only while the cursor
+is on it, and there the step is in the way. The right mouse button marks too: a click
+toggles a row, dragging marks the whole run you drag across — and dragging back unmarks
+what the same gesture just marked; near the edges the list scrolls by itself. `+` and `-`
 mark and unmark by mask — `*.dart;!*.g.dart`, several patterns through `;`, `!` excluding,
 case ignored — with the recent masks under the field and a live count of what matches
 while you type. Marking adds to what is already marked rather than replacing it. The status bar
@@ -68,9 +110,15 @@ engine that marks files — `*.dart;!*.g.dart` — and results come in while the
 still going, so on a big tree the first hits are there long before the last. It walks
 through the source, not the disk, so an archive and an `ssh://` directory are searched the
 same way. «To panel» makes the results the panel's content: real nodes, so the cursor,
-marking, copying, deleting and `F3` work on them as usual, with a Path column saying where
-each came from. `Enter` leaves the results for the directory the file lies in, and `..`
-returns to where the search started.
+marking, copying, deleting, `F3` and `F4` work on them as usual. They arrive as a **tree** —
+between the root and a hit stand the directories it was found in, so where something turned
+up is visible and not merely how much of it there is — and that tree keeps growing while
+the walk continues: «To panel» halfway through no longer cuts the search short, it moves
+the search into the background strip under the panel. The walk goes depth-first for exactly
+that reason, so hits come in the order the tree unfolds on screen, what is new is always at
+the bottom, and nothing shifts under your hands. `Cmd+1` shows the same results as a table,
+where a Path column says where each came from. `Enter` leaves the results for the directory
+the file lies in, and `..` returns to where the search started.
 
 **File operations.** Copy, move, rename (`Shift+F6`, with the name already in the field
 and its base — everything before the extension — selected, since that is the part people
@@ -79,16 +127,30 @@ Every long operation shows two progress bars (the current object and the whole j
 object and byte counters, transfer speed and estimated time; it asks what to do about an
 existing name (overwrite / all / skip / all / cancel), survives errors on single objects
 by asking rather than stopping, can be cancelled with confirmation, and can be sent to
-the background to keep running in the bar above the function keys.
+the background to keep running in the bar above the function keys. That bar is an ordinary
+area of the application rather than a column of text: `Cmd+B` hands it the input, arrows
+walk it, `Enter` brings the job's window back, `Bsp` or `Del` cancels the job (or forgets a
+finished one), `Esc` gives the input back to the panel. A copy started from the keyboard is
+cancelled from the keyboard.
 
 **Data sources.** Local file system; ZIP — read, write, and create with `Shift+F5`; 7z —
 read, write, and create with `Shift+F7`, using the external `7z` program; tar, gz, tar.gz
 and tgz — read, and create from the command palette («Mk Tar» and «Mk Gz»); SSH/SFTP — read
 and write, authenticating with the keys in `~/.ssh` (asking for a passphrase only when one
-is actually needed) or with a password. An archive that does not live on disk — one on a
-server — can be written to as well: it is opened through a local copy, and the repacked
-copy travels back to its owner, replacing the original in one move so that a broken
-connection leaves the old archive rather than a stump. Since a zip cannot be appended to,
+is actually needed) or with a password; FTP and FTPS — read and write, with resumed
+transfers, renaming, deleting and making directories, and an anonymous login when no user
+name is given, which is all half the public mirrors know. `ftps://` is the same protocol
+under TLS, and it encrypts the **data** channel rather than only the password. The FTP
+client is our own, on plain sockets: of the Dart packages, the only one that reads as a
+stream leaves the FTPS data channel unencrypted altogether and accepts whatever certificate
+the server offers, without asking. It also gives the owner by *name* — `anonftp`,
+`autotier` — which `ssh` never can, having no dictionary of the other machine to consult,
+so the attributes column on a server is not empty for once.
+
+An archive that does not live on disk — one on a server — can be written to as well: it is
+opened through a local copy, and the repacked copy travels back to its owner, replacing
+the original in one move so that a broken connection leaves the old archive rather than a
+stump. Since a zip cannot be appended to,
 any write repacks it whole, and you are told that before the work starts rather than by a
 progress bar afterwards. Archives nest: an archive inside an archive, an
 archive on a server, addressed by a chain of paths such as `fs:/a.zip:zip:/inner` — and
@@ -119,7 +181,13 @@ highlighting, search with `Cmd+F` or `F7` and next/previous, word wrap, line num
 scrolling; the viewer additionally copies the selection with `Cmd+C`. The editor refuses
 to open a file that is not valid UTF-8 rather than saving replacement characters over it,
 preserves the file's original line endings, and writes through a temporary file with a
-rename so an interrupted save cannot leave half a file behind. Files inside archives and
+rename so an interrupted save cannot leave half a file behind. A file that is not yours is
+still saved: `/etc/hosts` here, `/etc/squid/squid.conf` on a server — the application asks
+for consent, asks for a password if it needs one, and writes as the administrator. What is
+raised is **one action**, not the session: the panels, the terminal and everything else stay
+yours. Whether the write will be refused is known when the file is opened rather than an
+hour later on `F2`, and the whole thing switches off in the settings, after which a refusal
+stays a refusal. Files inside archives and
 on servers open too — the bytes come through the same contract as copying.
 
 **Images.** png, jpeg, gif (animated), webp and bmp, decoded by Flutter itself —
@@ -144,6 +212,24 @@ The same sections are what `F3` falls back to. Nothing else takes a `.bin`, so
 it opens as information rather than as bytes pretending to be text, and the
 quick view shows a directory the same way.
 
+**Editing attributes (`Ctrl+A`, `Cmd+Shift+I`).** What `Cmd+I` shows, this changes: the
+three classes of permission as cards with the special bits beside them, an octal field
+spelled back out as `-rw-r--r--`, owner and group, the modified and accessed dates, and the
+extended attributes. A «Recursive» flag lets the edit into directories — as a job, with
+progress, cancellation and the usual questions when something refuses — and a choice beside
+it decides who it reaches: files, directories or everything.
+
+Extended attributes are half of that window rather than an appendix to it. On macOS
+everything is marked with them: the Gatekeeper quarantine that greets a downloaded file
+with a question, Finder's colour labels, `com.apple.metadata`. They are visible in the
+information window and editable here, where one can be added, changed or taken off. A
+binary value does not pretend to be text — it is shown as a count of bytes, and the field
+under it stands empty with a «binary» hint, where empty means "leave it alone" rather than
+"erase it". The owner can be named instead of numbered — `koldoon`, `staff` — because the
+application asks the machine the file lives on for its dictionary. Changing it usually will
+not be allowed, and the refusal is shown as it came: the application does not pretend it
+worked. All of this works over `ssh` as well, extended attributes excepted.
+
 **Terminal and command line.** A shell in the same window: a command line under the
 panels, and a full-screen session over them on `Ctrl+O` — the key `mc` uses. `Cmd+T`
 hands the input to the line; it has to be a key, because a printable character in a panel
@@ -166,6 +252,12 @@ program gets a real controlling terminal, so `Ctrl+C` and `Ctrl+Z` are signals r
 characters, job control works, and `/dev/tty` — the one `ssh` and `sudo` ask for a
 password on — is there. `Ctrl+O` over a running command puts it out of sight and brings it
 back, rather than stacking a second terminal on top.
+
+A panel standing on a server takes the command line with it: what you type runs **there**,
+in the directory the panel shows, and `Ctrl+O` unrolls that server's own shell. There can
+be several of them, one per server, all alive at once — and none asks for a second login,
+because the terminal takes the connection the panel already opened. The prompt says where
+the line will run, so an `rm` on the server is not mistaken for an `rm` at home.
 
 **Running programs.** `Enter` on a file with the `+x` bit does not hand it to the
 system — it **runs** it, in the terminal, in the panel's directory, with the same
@@ -192,6 +284,19 @@ drag: dropping files where they already are does nothing, so it does not pretend
 otherwise — one setting turns that into an allowance for dropping into a subdirectory
 without leaving the panel. Both directions are AppKit in the runner rather than a plugin,
 so the macOS build stays free of CocoaPods.
+
+**Row icons.** Out of the box the list looks as it always did — the theme's own glyphs —
+but a «System icons» flag makes the panels look like Finder: `Safari.app` shows its own
+face, `report.pdf` the icon of whatever opens it, a folder a folder. It works over `ssh`
+and inside an archive too, where there is no path to ask the system about but the icon of
+an ordinary file depends only on its extension, which the system knows anyway. Icon size is
+a setting of its own, and the row height follows it. Finer than that is a list of rules in
+`~/.flex-commander/settings.json`, section `fc.icons`: a condition, an icon, first match
+wins — where an icon is a theme glyph, any glyph of a font by code point, an image from
+disk or a system icon. A condition may ask about the **contents**, so a picture named
+`photo.dat` is still recognised as a picture: fifty-odd formats are known by their first
+bytes, awkward ones included — an empty `zip`, which does not begin with the signature it
+ought to, and `tar`, which has no signature at the front at all.
 
 **Appearance.** One dark theme, taken from the reference application: palette, metrics,
 icons and fonts all come from a module, and every size in it is a named value rather than
@@ -222,13 +327,23 @@ On Windows and Linux `Cmd` reads as `Ctrl`.
 |---|---|
 | `↑` `↓` `PgUp` `PgDn` | move the cursor |
 | `Home` / `Left`, `End` / `Right` | first / last entry |
-| `Enter` | enter a directory or archive; run an executable in the terminal; open anything else with the system |
+| `Enter` | enter a directory, an archive or a link; run a `+x` file in the terminal; in search results, go to the file in its own directory. An ordinary file it does **not** open — that is `Cmd-O` |
 | `Bsp`, `Cmd-↑` | go up one level |
 | `Cmd-/` | go to the root of the current source |
 | `Cmd-R` | re-read the directory |
-| `Cmd-Shift-H` | show or hide hidden files |
+| `Cmd-Shift-H`, `Cmd-H` | show or hide hidden files |
+| `Alt-Shift-Enter` | count the sizes of every directory here |
 | `Tab` | switch the active panel |
+| `Alt-O` | show what the cursor is on in the *other* panel, without going there |
+| `Cmd-1` … `Cmd-4` | the panel's view: table, brief, tree, tree with contents beside it |
+| `Alt-F1`, `Alt-F2` | the view window for the left / right panel, its settings underneath |
+| `Right` / `Left` (tree) | expand the branch / collapse it, then step out to its parent |
+| `Shift-Right` / `Shift-Left` | expand or collapse the whole subtree; with `Cmd`, the whole tree |
+| `Cmd-Shift-T` / `Cmd-Shift-W` | open a session on this directory / close the one on show |
+| `Ctrl-Tab`, `Alt-1` … `Alt-9` | the next open session, round the row / the one with that number |
+| `Cmd-Shift-O` | choose an open session by name, with fuzzy matching |
 | `Space`, `Ins` | mark the object under the cursor |
+| `Shift-Space` | mark without stepping down |
 | `Ctrl-S` | quick search: the cursor follows what you type |
 | `Alt-F7` | find files by mask below the current directory |
 | `Cmd-A`, `Esc` | mark everything, clear the marking |
@@ -240,8 +355,10 @@ On Windows and Linux `Cmd` reads as `Ctrl`.
 | `F1` | help: settings and every command with its keys |
 | `F9`, `Cmd-,` | settings: everything you choose, in one window |
 | `Cmd-Shift-P` | the command palette: everything the app can do right now, by name or synonym, each with what it does |
+| `Cmd-B` | the input goes to the list of background jobs under the panel |
 | `F3` / `F4` | view / edit the file under the cursor |
 | `Cmd-I`, `Alt-Enter` | everything known about the object |
+| `Ctrl-A`, `Cmd-Shift-I` | edit attributes: permissions, dates, owner, extended |
 | `Shift-F3` | quick view in the other panel; `Tab` hands the input to it |
 | `F5` / `F6` | copy / move to the other panel |
 | `Shift-F6` | rename the item under the cursor |
@@ -350,6 +467,15 @@ The application is assembled from packages. In the middle sits `fc_api` — mode
 interfaces, commands with their registry and the shared interface elements. The core
 depends on it, every module depends on it, and modules know nothing about each other.
 
+**The core and the window are two isolates.** Panels, directories, search, copying,
+archives, `ssh` and the shell live in one; drawing lives in the other; between them the
+talk is in values — a request one way, state back the other. That buys one visible thing:
+the window stopped freezing. While a big tree is searched or directory sizes are counted,
+the cursor moves, panels scroll and the window drags — the longest pause during a search
+fell from 14–36 ms to 6.5–9.3, which is to say no frame is dropped at all. The three API
+packages below are that boundary written down: `fc_api` is what crosses it, `fc_core_api`
+is the core's own side, `fc_ui_api` the window's.
+
 ```
 flex_commander (core)  ->  fc_api  <-  modules (navigation, file_ops, zip, 7z, ssh, …)
 ```
@@ -380,10 +506,16 @@ takes and saying in words when nothing does.
 | `dependency/attributes` | editing attributes: permissions, dates, owner, extended |
 | `dependency/editor` | the text editor (`F4`) |
 | `dependency/navigation` | cursor, tree walking, marking |
+| `dependency/search` | file search: the window, the walk, the results as a panel's content |
 | `dependency/file_ops` | create, delete, copy, move |
+| `dependency/local_fs` | the local file system and the platform parts it needs |
+| `dependency/platform` | what only a real machine can do: window, clipboard, launching programs, the pseudo-terminal |
 | `dependency/zip`, `dependency/7z`, `dependency/tar` | archives as trees, plus archive creation |
 | `dependency/ssh` | a remote machine's file system over SFTP |
+| `dependency/ftp` | an FTP server's file system, over a client of our own |
 | `dependency/terminal` | command line and shell session, on its own pseudo-terminal |
+| `dependency/content_types` | what a file really is: the type from its first bytes, not from its name |
+| `dependency/file_icons` | the row's icon by rules: a glyph, an image from disk or a system icon |
 | `dependency/default_theme` | palette, metrics, icons, fonts |
 | `dependency/test_kit` | fakes and application assembly for tests |
 | `dependency/re_editor` | vendored fork of the text editing engine |
