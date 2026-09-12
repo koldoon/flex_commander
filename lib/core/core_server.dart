@@ -85,7 +85,13 @@ class CoreServer implements CoreHandler {
       return null;
     }
 
-    final settings = model.settings;
+    // Каталог, вид и курсор новый набор берёт у образца, а **историю — нет**:
+    // ходил по ней не он. «Назад» в только что заведённом наборе уводило бы
+    // туда, где он не был (`docs/spec/session-history.md`, §6).
+    final settings =
+        model.settings
+          ..history = []
+          ..historyIndex = 0;
     final session = create(settings);
     final panel = PanelId(_nextId++);
     _panels[panel] = session;
