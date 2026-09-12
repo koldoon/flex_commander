@@ -5,6 +5,7 @@ import 'dart:ui' as ui;
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -70,6 +71,47 @@ Future<void> _restart(Application app, UpdateService updates, File archive) asyn
   await ServicesBinding.instance.exitApplication(ui.AppExitType.cancelable);
 }
 
+/// Как выглядят заметки: тем же набором стилей, что и остальные окна.
+///
+/// Своей темы у разметки нет и быть не должно — окно обновления обязано
+/// выглядеть как окно приложения, а не как страница GitHub.
+MarkdownStyleSheet _notesStyle(FcTheme theme) {
+  final metrics = theme.metrics;
+  final code = theme.dialogTextStyle.copyWith(
+    fontFamily: theme.fonts.fixed,
+    fontFamilyFallback: theme.fonts.fixedFallback,
+  );
+
+  return MarkdownStyleSheet(
+    p: theme.dialogTextStyle,
+    // Заголовки разделов — тем же кеглем, что заголовки в справке: в заметках
+    // они разделяют части рассказа, а не спорят с заголовком окна.
+    h1: theme.dialogTitleStyle.copyWith(fontSize: metrics.sectionHeadingFontSize),
+    h2: theme.dialogTitleStyle.copyWith(fontSize: metrics.sectionHeadingFontSize),
+    h3: theme.dialogTitleStyle,
+    strong: theme.dialogTextStyle.copyWith(fontWeight: FontWeight.bold, color: theme.colors.dialogLabel),
+    em: theme.dialogTextStyle.copyWith(fontStyle: FontStyle.italic),
+    code: code,
+    codeblockPadding: EdgeInsets.all(metrics.dialogPadding),
+    codeblockDecoration: BoxDecoration(
+      color: theme.colors.dialogListBackground,
+      borderRadius: BorderRadius.circular(metrics.inputRadius),
+    ),
+    a: theme.dialogTextStyle.copyWith(color: theme.colors.dialogLabel),
+    listBullet: theme.dialogTextStyle,
+    blockSpacing: metrics.dialogGap,
+    tableHead: theme.dialogTextStyle.copyWith(fontWeight: FontWeight.bold, color: theme.colors.dialogLabel),
+    tableBody: theme.dialogTextStyle,
+    tableBorder: TableBorder.all(color: theme.colors.dialogListBorder, width: metrics.strokeWidth),
+    tableCellsPadding: EdgeInsets.symmetric(horizontal: metrics.cellPadding, vertical: metrics.dialogLineGap),
+    blockquoteDecoration: BoxDecoration(
+      color: theme.colors.dialogListBackground,
+      borderRadius: BorderRadius.circular(metrics.inputRadius),
+    ),
+    blockquotePadding: EdgeInsets.all(metrics.dialogPadding),
+  );
+}
+
 /// Содержимое окна: заметки выпуска и ряд кнопок.
 class UpdateReadyView extends StatelessWidget {
   const UpdateReadyView({super.key, required this.notes, required this.onLater, required this.onRestart});
@@ -89,16 +131,27 @@ class UpdateReadyView extends StatelessWidget {
       // прыгать шириной не должно.
       width: MediaQuery.sizeOf(context).width * theme.metrics.dialogWidthFactor,
       child: FcDialogBody(
+        // Прокручивает разметка, а не тело окна: у растянутого окна тело
+        // отдаёт содержимому высоту целиком и своей прокрутки не ставит, а
+        // заметки бывают длиннее любого окна (`docs/spec/dialog-body.md`).
+        scrolls: false,
         actions: [
           FcButton(label: context.strings.tr('Later'), onPressed: onLater),
           FcButton(label: context.strings.tr('Restart'), onPressed: onRestart, primary: true),
         ],
-        child: SingleChildScrollView(
-          child: Text(
-            notes.trim().isEmpty ? context.strings.tr('No release notes') : notes.trim(),
-            style: theme.dialogTextStyle,
-          ),
-        ),
+        child:
+            notes.trim().isEmpty
+                ? Text(context.strings.tr('No release notes'), style: theme.dialogTextStyle)
+                : SingleChildScrollView(
+                  child: MarkdownBody(
+                    data: notes.trim(),
+                    styleSheet: _notesStyle(theme),
+                    // Ссылки в заметках есть («Full Changelog»), но нажимать
+                    // их здесь некуда: браузер из окна обновления не
+                    // открывают.
+                    onTapLink: (_, _, _) {},
+                  ),
+                ),
       ),
     );
   }

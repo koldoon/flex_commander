@@ -59,7 +59,18 @@ jobs:
           ditto -c -k --sequesterRsrc --keepParent "$app" "$out"
           echo "path=${out}" >> "$GITHUB_OUTPUT"
 
+      # Описание выпуска — то самое, что написано руками в
+      # `docs/release-notes.md`. Тело релиза читает не только человек на
+      # странице GitHub: его показывает и само приложение, когда предлагает
+      # обновиться (`docs/spec/self-update.md`, §3). Без этого шага там
+      # оставалась одна строка «Full Changelog».
+      - name: Описание выпуска
+        run: python3 tool/release_notes.py "${{ steps.version.outputs.tag }}" > release-body.md
+
       - uses: softprops/action-gh-release@v3
         with:
           files: ${{ steps.package.outputs.path }}
+          body_path: release-body.md
+          # Список коммитов дописывается **под** нашим описанием: одно отвечает
+          # на «что изменилось для меня», другое — на «что именно правили».
           generate_release_notes: true
