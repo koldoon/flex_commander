@@ -193,6 +193,7 @@ class CoreContainer extends DI {
             editor: c.get<TreeEditor>(),
             columns: c.get<ColumnSorting>(),
             sizeScanConcurrency: () => c.get<AppSettings>().sizeScanConcurrency,
+            historyLimit: () => c.get<AppSettings>().sessionHistoryLimit,
             naming: c.get<FileNaming>(),
             cache: c.get<ListingCache>(),
             strings: c.get<Strings>(),
@@ -214,6 +215,7 @@ class CoreContainer extends DI {
                   registry: ProviderRegistry(root: rightProvider),
                   editor: c.get<TreeEditor>(),
                   sizeScanConcurrency: () => settings.sizeScanConcurrency,
+                  historyLimit: () => settings.sessionHistoryLimit,
                   // Кеш тот же: он и заведён общим. Одинаковые пути в двух
                   // источниках он не путает — список отдаётся только своему
                   // провайдеру.

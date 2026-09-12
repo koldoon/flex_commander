@@ -1,4 +1,5 @@
 import '../panel/column_spec.dart';
+import '../settings/path_step.dart';
 import '../panel/rows_kind.dart';
 import '../panel/sort_spec.dart';
 import '../async/progress_report.dart';
@@ -59,6 +60,42 @@ final class OpenEntry extends CoreRequest {
 /// На уровень вверх; курсор встаёт на объект, через который вошли.
 final class GoUp extends CoreRequest {
   const GoUp(this.panel);
+
+  final PanelId panel;
+}
+
+/// Шаг по истории переходов этой сессии
+/// (`docs/spec/session-history.md`).
+///
+/// Одним сообщением на три хода: назад, вперёд и прыжок к названному шагу —
+/// это одно действие с разным адресом, и разводить их по трём сообщениям
+/// значило бы трижды написать одно и то же.
+final class WalkHistory extends CoreRequest {
+  const WalkHistory(this.panel, this.where, {this.index = 0});
+
+  final PanelId panel;
+  final HistoryWalk where;
+
+  /// Номер шага — только для [HistoryWalk.toStep].
+  final int index;
+}
+
+/// Куда шагнуть по истории.
+enum HistoryWalk {
+  back,
+  forward,
+
+  /// К названному номером шагу: ход по истории, «вперёд» не обрезается.
+  toStep,
+}
+
+/// Пройденное сессией — списком.
+///
+/// Просьбой, а не событием: список нужен один раз, когда открывают окно
+/// выбора, и возить его в каждом снимке было бы работой впустую
+/// (`docs/spec/session-history.md`, §6).
+final class AskHistory extends CoreRequest {
+  const AskHistory(this.panel);
 
   final PanelId panel;
 }
@@ -505,6 +542,16 @@ final class CoreOpened extends CoreReply {
   const CoreOpened(this.opened);
 
   final bool opened;
+}
+
+/// Шаги сессии от старого к новому и номер того, на котором стоим.
+final class CoreHistory extends CoreReply {
+  const CoreHistory(this.steps, this.index);
+
+  final List<PathStep> steps;
+
+  /// Где в этом ряду сессия стоит сейчас; −1 — истории нет вовсе.
+  final int index;
 }
 
 /// Вошли (null) или войти нельзя — вот во что.

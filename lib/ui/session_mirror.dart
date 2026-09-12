@@ -630,6 +630,27 @@ class SessionMirror extends ChangeNotifier implements Session {
   bool get canGoUp => _state.canGoUp;
 
   @override
+  bool get canGoBack => _state.canGoBack;
+
+  @override
+  bool get canGoForward => _state.canGoForward;
+
+  @override
+  Future<void> goBack() => _link.call(WalkHistory(id, HistoryWalk.back));
+
+  @override
+  Future<void> goForward() => _link.call(WalkHistory(id, HistoryWalk.forward));
+
+  @override
+  Future<void> goToStep(int index) => _link.call(WalkHistory(id, HistoryWalk.toStep, index: index));
+
+  @override
+  Future<({List<PathStep> steps, int index})> history() async {
+    final reply = await _link.call(AskHistory(id));
+    return reply is CoreHistory ? (steps: reply.steps, index: reply.index) : (steps: const <PathStep>[], index: -1);
+  }
+
+  @override
   bool get active => _active;
   bool _active = false;
 

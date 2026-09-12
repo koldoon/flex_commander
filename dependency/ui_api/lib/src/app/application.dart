@@ -222,6 +222,15 @@ abstract interface class Application implements Listenable {
 
   void setSizeScanConcurrency(int value);
 
+  /// Сколько шагов помнит история переходов каждой сессии.
+  ///
+  /// Тоже настройка ядра: историю ведёт сессия, а правит предел окно настроек
+  /// (`docs/spec/session-history.md`, §7). Уменьшенный действует со следующего
+  /// перехода.
+  int get sessionHistoryLimit;
+
+  void setSessionHistoryLimit(int value);
+
   /// Последняя известная геометрия окна.
   WindowGeometry? get windowGeometry;
 

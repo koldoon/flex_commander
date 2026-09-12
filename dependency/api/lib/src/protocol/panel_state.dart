@@ -21,6 +21,8 @@ class PanelState {
     this.directoryName = '',
     this.shellDirectory = '',
     this.canGoUp = false,
+    this.canGoBack = false,
+    this.canGoForward = false,
     this.phase = PanelPhase.idle,
     this.error,
     this.busy = false,
@@ -68,6 +70,15 @@ class PanelState {
 
   /// Есть ли куда подниматься. У корня источника — нет.
   final bool canGoUp;
+
+  /// Есть ли куда шагнуть по истории этой сессии
+  /// (`docs/spec/session-history.md`).
+  ///
+  /// Флагами, а не списком шагов: ими живут стрелки в плашке и команды, и
+  /// стоят они ровно ничего. Сам список нужен один раз — когда открывают окно
+  /// выбора, — и спрашивается тогда же, отдельной заявкой.
+  final bool canGoBack;
+  final bool canGoForward;
 
   final PanelPhase phase;
   final FsError? error;
@@ -156,6 +167,8 @@ class PanelState {
     String? directoryName,
     String? shellDirectory,
     bool? canGoUp,
+    bool? canGoBack,
+    bool? canGoForward,
     PanelPhase? phase,
     FsError? error,
     bool clearError = false,
@@ -184,6 +197,8 @@ class PanelState {
     directoryName: directoryName ?? this.directoryName,
     shellDirectory: shellDirectory ?? this.shellDirectory,
     canGoUp: canGoUp ?? this.canGoUp,
+    canGoBack: canGoBack ?? this.canGoBack,
+    canGoForward: canGoForward ?? this.canGoForward,
     phase: phase ?? this.phase,
     error: clearError ? null : (error ?? this.error),
     busy: busy ?? this.busy,

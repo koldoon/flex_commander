@@ -274,6 +274,15 @@ class CoreServer implements CoreHandler {
         await session(panel).reload();
         return const CoreDone();
 
+      case WalkHistory(:final panel, :final where, :final index):
+        final target = session(panel);
+        await switch (where) {
+          HistoryWalk.back => target.goBack(),
+          HistoryWalk.forward => target.goForward(),
+          HistoryWalk.toStep => target.goToStep(index),
+        };
+        return const CoreDone();
+
       case MoveCursor(:final panel, :final index, :final seq):
         session(panel).setCursorIndex(index, seq: seq);
         return null;
@@ -412,6 +421,10 @@ class CoreServer implements CoreHandler {
 
       case ListNames(:final panel, :final path):
         return CoreEntries(await session(panel).namesIn(path));
+
+      case AskHistory(:final panel):
+        final walked = session(panel).history;
+        return CoreHistory(walked.steps, walked.index);
 
       case AskSizes(:final panel, :final paths):
         final target = session(panel);

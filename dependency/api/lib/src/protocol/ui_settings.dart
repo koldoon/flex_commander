@@ -48,6 +48,7 @@ class UiSettings {
     this.splitRatio = 0.5,
     this.window,
     this.sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
+    this.sessionHistoryLimit = AppSettings.defaultSessionHistoryLimit,
     this.reconnectAtStartup = false,
     this.dialogs = const {},
     this.modules = const {},
@@ -76,6 +77,10 @@ class UiSettings {
   /// Сколько каталогов обходится за раз: настройка ядра, а правит её окно
   /// настроек — то есть эта сторона.
   final int sizeScanConcurrency;
+
+  /// Сколько шагов помнит история переходов сессии — тоже настройка ядра,
+  /// правленная отсюда (`docs/spec/session-history.md`, §7).
+  final int sessionHistoryLimit;
 
   /// Подключаться ли при запуске к сохранённым удалённым источникам: настройка
   /// ядра, а правит её окно настроек — то есть эта сторона.
@@ -106,6 +111,7 @@ class UiSettings {
     double? splitRatio,
     WindowGeometry? window,
     int? sizeScanConcurrency,
+    int? sessionHistoryLimit,
     bool? reconnectAtStartup,
     Map<String, DialogState>? dialogs,
     Map<String, dynamic>? modules,
@@ -116,6 +122,7 @@ class UiSettings {
     splitRatio: splitRatio ?? this.splitRatio,
     window: window ?? this.window,
     sizeScanConcurrency: sizeScanConcurrency ?? this.sizeScanConcurrency,
+    sessionHistoryLimit: sessionHistoryLimit ?? this.sessionHistoryLimit,
     reconnectAtStartup: reconnectAtStartup ?? this.reconnectAtStartup,
     dialogs: dialogs ?? this.dialogs,
     modules: modules ?? this.modules,
@@ -135,6 +142,7 @@ class UiSettings {
       other.splitRatio == splitRatio &&
       other.window == window &&
       other.sizeScanConcurrency == sizeScanConcurrency &&
+      other.sessionHistoryLimit == sessionHistoryLimit &&
       other.reconnectAtStartup == reconnectAtStartup &&
       _sameDialogs(other.dialogs) &&
       other.panels.length == panels.length &&
@@ -162,6 +170,7 @@ class UiSettings {
     splitRatio,
     window,
     sizeScanConcurrency,
+    sessionHistoryLimit,
     reconnectAtStartup,
     Object.hashAll(panels),
     Object.hashAll(shown),

@@ -1,5 +1,6 @@
 import '../serialization.dart';
 import 'module_settings.dart';
+import 'path_step.dart';
 import '../panel/column_spec.dart';
 import '../panel/sort_spec.dart';
 import 'dialog_state.dart';
@@ -21,8 +22,11 @@ class PanelSettings implements Serializable {
     this.showHidden = false,
     this.view = defaultView,
     List<String>? expanded,
+    List<PathStep>? history,
+    this.historyIndex = 0,
   }) : columns = columns ?? ColumnLayout.empty,
-       expanded = expanded ?? const [];
+       expanded = expanded ?? const [],
+       history = history ?? [];
 
   /// Вид, которым панель показывает каталог, пока не выбрали другой.
   static const String defaultView = 'table';
@@ -80,6 +84,21 @@ class PanelSettings implements Serializable {
   /// его показывали.
   List<String> expanded;
 
+  /// Где сессия успела побывать, от старого к новому
+  /// (`docs/spec/session-history.md`).
+  ///
+  /// Переживает перезапуск вместе с остальным, что помнит сессия: набор и так
+  /// восстанавливается с каталогом, курсором и раскрытыми ветвями, а десяток
+  /// шагов рядом с ними ничего не стоит.
+  List<PathStep> history;
+
+  /// Который из шагов — нынешний: с него идут «назад» и «вперёд».
+  ///
+  /// Номер, а не «последний»: человек мог закрыть приложение, вернувшись на
+  /// два шага назад, и «вперёд» после запуска обязано вести туда же, куда
+  /// вело бы до него.
+  int historyIndex;
+
   @override
   void toMap(Map<String, dynamic> m) {
     m['path'] = path;
@@ -98,6 +117,10 @@ class PanelSettings implements Serializable {
     m['columns'] = columns.toJson();
     if (expanded.isNotEmpty) {
       m['expanded'] = expanded;
+    }
+    if (history.isNotEmpty) {
+      m['history'] = serialize(history);
+      m['historyIndex'] = historyIndex;
     }
   }
 
@@ -126,6 +149,11 @@ class PanelSettings implements Serializable {
                 if (path is String) path,
             ]
             : const [];
+
+    history = extractList<PathStep>(m['history'], (_) => PathStep())..removeWhere((step) => step.isEmpty);
+    // Сбившийся номер приводит к последнему шагу, а не роняет разбор: файл
+    // мог быть правлен руками, а история — это удобство, не устройство.
+    historyIndex = history.isEmpty ? 0 : extract(historyIndex, m['historyIndex']).clamp(0, history.length - 1);
   }
 }
 
@@ -184,6 +212,7 @@ class AppSettings implements Serializable {
     this.activePanel = 0,
     this.splitRatio = 0.5,
     this.sizeScanConcurrency = defaultSizeScanConcurrency,
+    this.sessionHistoryLimit = defaultSessionHistoryLimit,
     this.reconnectAtStartup = false,
     this.window,
     Map<String, DialogState>? dialogs,
@@ -220,6 +249,17 @@ class AppSettings implements Serializable {
   /// Предел нужен, чтобы не завалить диск сотней одновременных обходов, если
   /// помечены сотни каталогов.
   static const int defaultSizeScanConcurrency = 10;
+
+  /// Сколько шагов помнит история переходов сессии, пока не сказано иное.
+  ///
+  /// Полсотни — это «сколько угодно» для одного сеанса работы и всё ещё
+  /// ничто для файла настроек: шаг это две короткие строки.
+  static const int defaultSessionHistoryLimit = 50;
+
+  /// Ниже единицы история перестаёт быть историей, выше тысячи — перестаёт
+  /// быть полезной: столько шагов назад никто не отматывает.
+  static const int minSessionHistoryLimit = 1;
+  static const int maxSessionHistoryLimit = 1000;
   static const int minSizeScanConcurrency = 1;
   static const int maxSizeScanConcurrency = 64;
 
@@ -249,6 +289,15 @@ class AppSettings implements Serializable {
 
   /// Размер пула обхода каталогов, см. [defaultSizeScanConcurrency].
   int sizeScanConcurrency;
+
+  /// Сколько шагов помнит история переходов каждой сессии
+  /// (`docs/spec/session-history.md`, §7).
+  ///
+  /// Настройка ядра, а не модуля навигации, хотя команды «назад» и «вперёд»
+  /// приносит он: историю ведёт **сессия**, то есть эта сторона, а читать
+  /// чужой раздел ей нечем. Так же устроен пул обхода — его правит окно
+  /// настроек, а живёт он здесь.
+  int sessionHistoryLimit;
 
   /// Подключаться ли при запуске к сохранённым удалённым источникам.
   ///
@@ -280,6 +329,7 @@ class AppSettings implements Serializable {
     m['activePanel'] = activePanel;
     m['splitRatio'] = splitRatio;
     m['sizeScanConcurrency'] = sizeScanConcurrency;
+    m['sessionHistoryLimit'] = sessionHistoryLimit;
     m['reconnectAtStartup'] = reconnectAtStartup;
     if (window != null) {
       m['window'] = serialize(window);
@@ -306,6 +356,10 @@ class AppSettings implements Serializable {
       sizeScanConcurrency,
       m['sizeScanConcurrency'],
     ).clamp(minSizeScanConcurrency, maxSizeScanConcurrency);
+    sessionHistoryLimit = extract(
+      sessionHistoryLimit,
+      m['sessionHistoryLimit'],
+    ).clamp(minSessionHistoryLimit, maxSessionHistoryLimit);
     reconnectAtStartup = extract(reconnectAtStartup, m['reconnectAtStartup']);
     window = extractObject(m['window'], (_) => WindowGeometry());
 

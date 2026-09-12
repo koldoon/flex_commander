@@ -8,6 +8,7 @@ import 'package:fc_core_api/fc_core_api.dart';
 
 import '../core/column_sorting_registry.dart';
 import '../core/listing_cache.dart';
+import '../core/session_history.dart';
 import '../core/node_list.dart';
 import '../core/tree_node_list.dart';
 import '../core/selection_controller.dart';
@@ -28,12 +29,17 @@ const String _sizeColumn = 'size';
 /// Предел обхода, когда его не назвали, — тот же, что в настройках.
 int _defaultConcurrency() => AppSettings.defaultSizeScanConcurrency;
 
+/// Предел истории переходов, пока его никто не назвал
+/// (`docs/spec/session-history.md`, §7).
+int _defaultHistoryLimit() => SessionHistory.defaultLimit;
+
 class PanelSessionFactory {
   PanelSessionFactory({
     required this.registry,
     required this.editor,
     this.columns = const NoColumnSorting(),
     this.sizeScanConcurrency = _defaultConcurrency,
+    this.historyLimit = _defaultHistoryLimit,
     this.naming = const ReferenceFileNaming(),
     this.cache,
     Strings? strings,
@@ -53,6 +59,11 @@ class PanelSessionFactory {
   /// Способ узнать, а не значение: настройку правят в окне, и следующий же
   /// обход должен идти по новому пределу, а не по тому, что было при запуске.
   final int Function() sizeScanConcurrency;
+
+  /// Сколько шагов помнит история переходов — общая настройка, как и пул
+  /// обхода, и приходит так же: способом узнать, а не значением
+  /// (`docs/spec/session-history.md`, §7).
+  final int Function() historyLimit;
 
   /// Правило показа имени: по нему же идёт сортировка по расширению.
   final FileNaming naming;
@@ -74,6 +85,7 @@ class PanelSessionFactory {
     columns: columns,
     settings: settings,
     sizeScanConcurrency: sizeScanConcurrency,
+    historyLimit: historyLimit,
     naming: naming,
     cache: cache,
     strings: strings,
@@ -104,10 +116,12 @@ class PanelSession {
     required TreeEditor editor,
     ColumnSorting columns = const NoColumnSorting(),
     this.sizeScanConcurrency = _defaultConcurrency,
+    int Function() historyLimit = _defaultHistoryLimit,
     this.naming = const ReferenceFileNaming(),
     this.cache,
     Strings? strings,
   }) : strings = strings ?? StringsRegistry(),
+       _history = SessionHistory(steps: settings.history, index: settings.historyIndex, limit: historyLimit),
        _registry = registry,
        _editor = editor,
        _columnSorting = columns,
@@ -378,6 +392,25 @@ class PanelSession {
   /// каталог ставит курсор туда, где пользователь его оставил.
   final Map<String, String> _cursorMemory = {};
 
+  /// Где эта сессия побывала и где она в этом ряду стоит
+  /// (`docs/spec/session-history.md`).
+  ///
+  /// Здесь, а не в слое окон и не на экране: историю ведёт тот, кто ходит, а
+  /// ходит сессия. Показанная в другой панели, она приносит историю с собой —
+  /// потому что это её история, а не панели.
+  final SessionHistory _history;
+
+  /// Куда ведут «назад» и «вперёд»; пусто — идти некуда.
+  bool get canGoBack => _history.canGoBack;
+
+  bool get canGoForward => _history.canGoForward;
+
+  /// Пройденное этой сессией, от старого к новому, и номер нынешнего шага.
+  ///
+  /// Спрашивается заявкой, а не едет в каждом снимке: список нужен один раз —
+  /// когда открывают окно выбора (`docs/spec/session-history.md`, §6).
+  ({List<PathStep> steps, int index}) get history => (steps: _history.steps, index: _history.index);
+
   /// Сколько каталогов помнить. Ограничение защищает от роста памяти при
   /// долгой работе.
   ///
@@ -471,7 +504,7 @@ class PanelSession {
 
   /// Открыть каталог. Отменяет незавершённое чтение этой же панели.
   Future<void> open(DirectoryNode dir) {
-    return _load(dir, cursorName: _rows.isTree ? null : _cursorMemory[dir.pathString]);
+    return _load(dir, cursorName: _rows.isTree ? null : _cursorMemory[dir.pathString], records: true);
   }
 
   /// Ещё одна аренда на то, в чём панель стоит сейчас; null — общий корень.
@@ -538,7 +571,12 @@ class PanelSession {
     (op, path) => op.delegate(_registry.resolveDisplayPath(), ResolvePathParams(path, from: _root)),
   );
 
-  Future<bool> openPath(String path, {bool allowConnect = true}) async {
+  /// Открыть путь строкой; [cursorName] — на что поставить курсор в нём.
+  ///
+  /// [records] — записывать ли переход в историю сессии. Ложь у ходов **по**
+  /// истории: шаг назад сам в историю не пишется
+  /// (`docs/spec/session-history.md`, §5).
+  Future<bool> openPath(String path, {bool allowConnect = true, String? cursorName, bool records = true}) async {
     // Прежняя работа панели уступает место: без этого она осталась бы читать
     // впустую — номер запроса не даст применить её итог, но сама она про это
     // не знает и продолжит тянуть байты с сервера. Так же начинает и `_load`.
@@ -623,7 +661,12 @@ class PanelSession {
     // ветвь: запомненное имя увело бы курсор на соседнюю строку, и навигатор
     // показывал бы не то место, которое открыли
     // (`docs/spec/panel-view-combined.md`, §5).
-    await _load(dir, lease: resolved.lease, cursorName: _rows.isTree ? null : _cursorMemory[dir.pathString]);
+    await _load(
+      dir,
+      lease: resolved.lease,
+      cursorName: cursorName ?? (_rows.isTree ? null : _cursorMemory[dir.pathString]),
+      records: records,
+    );
     return _status != PanelPhase.error;
   }
 
@@ -836,6 +879,9 @@ class PanelSession {
         lease.provider.rootDirectory,
         lease: lease,
         cursorName: _cursorMemory[lease.provider.rootDirectory.pathString],
+        // Вход в архив — такой же переход, как вход в каталог: обратно из него
+        // человек выходит тем же «назад».
+        records: true,
       );
     } on OperationCanceled {
       // Открытие прервали: панель остаётся там, где была.
@@ -881,7 +927,31 @@ class PanelSession {
       return;
     }
 
-    await _load(parent, cursorName: entered.name);
+    await _load(parent, cursorName: entered.name, records: true);
+  }
+
+  /// Шаг назад по истории этой сессии; ничего — идти некуда.
+  ///
+  /// Сам в историю не пишется: иначе «назад» не кончилось бы никогда
+  /// (`docs/spec/session-history.md`, §5).
+  Future<void> goBack() => _walkHistory(_history.back());
+
+  /// Шаг вперёд — если до этого возвращались.
+  Future<void> goForward() => _walkHistory(_history.forward());
+
+  /// Прыжок к названному шагу: ход по истории, «вперёд» не обрезается.
+  Future<void> goToStep(int index) => _walkHistory(_history.goTo(index));
+
+  /// Открыть то, что сказала история, ничего в неё не записывая.
+  Future<void> _walkHistory(PathStep? step) async {
+    if (step == null) {
+      return;
+    }
+    // Уходя, оставляем в нынешнем шаге то имя, на котором стоял курсор: место
+    // в каталоге — половина шага (§4). Делается здесь, потому что историю
+    // двигают **до** открытия: иначе некуда было бы записывать.
+    await openPath(step.path, cursorName: step.cursor, records: false);
+    _changed();
   }
 
   /// Перечитать текущий каталог, сохранив курсор и пометку.
@@ -1767,6 +1837,10 @@ class PanelSession {
       view: _view,
       expanded: _expanded.toList(),
       scroll: _scrollOffset,
+      // История переживает перезапуск вместе с остальным, что помнит сессия
+      // (`docs/spec/session-history.md`, §7).
+      history: _history.saved.steps,
+      historyIndex: _history.saved.index,
     );
   }
 
@@ -1793,6 +1867,8 @@ class PanelSession {
     directoryName: directoryName,
     shellDirectory: shellDirectory,
     canGoUp: canGoUp,
+    canGoBack: canGoBack,
+    canGoForward: canGoForward,
     phase: _status,
     error: _error,
     busy: _busy,
@@ -1988,6 +2064,7 @@ class PanelSession {
     bool keepMarks = false,
     bool useCache = true,
     bool quiet = false,
+    bool records = false,
   }) async {
     _rememberCursor();
     _operation?.cancel();
@@ -2009,6 +2086,9 @@ class PanelSession {
     if (shown != null) {
       _list = list;
       _lastPath = dir.pathString;
+      if (records) {
+        _recordStep(dir, cursorName);
+      }
       _adoptLease(lease, dir);
       adopted = true;
       _setRows(shown);
@@ -2064,6 +2144,9 @@ class PanelSession {
 
       _list = list;
       _lastPath = dir.pathString;
+      if (records) {
+        _recordStep(dir, cursorName);
+      }
       // Каталог сменился — сменилась и аренда. Делается это здесь, а не там,
       // откуда уходят: способов уйти много (открыть, подняться, набрать путь),
       // а место, где каталог сменился, одно.
@@ -2336,12 +2419,24 @@ class PanelSession {
     _cursorIndex = _nodes.isEmpty ? 0 : (fallbackIndex ?? 0).clamp(0, _nodes.length - 1);
   }
 
+  /// Каталог принят — записать шаг.
+  ///
+  /// Записывается только удавшееся: сюда приходят из тех двух мест, где
+  /// каталог уже стал своим, — из памяти и после чтения
+  /// (`docs/spec/session-history.md`, §5).
+  void _recordStep(DirectoryNode dir, String? cursorName) {
+    _history.visit(PathStep(path: dir.pathString, cursor: cursorName ?? ''));
+  }
+
   void _rememberCursor() {
     final dir = _directory;
     final node = currentNode;
     if (dir == null || node == null) {
       return;
     }
+    // Уходя, оставляем в нынешнем шаге истории то имя, на котором стоял
+    // курсор: вернуться человек хочет туда, где был (§4).
+    _history.noteCursor(node.name);
     if (_cursorMemory.length >= cursorMemoryLimit) {
       _cursorMemory.remove(_cursorMemory.keys.first);
     }

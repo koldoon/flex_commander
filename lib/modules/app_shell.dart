@@ -249,6 +249,16 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           read: () => app.sizeScanConcurrency,
           write: app.setSizeScanConcurrency,
         ),
+        SettingsField.integer(
+          'sessionHistoryLimit',
+          defaultValue: AppSettings.defaultSessionHistoryLimit,
+          title: strings.tr('Steps remembered per session'),
+          description: strings.tr('How far back «go back» reaches in one panel'),
+          min: AppSettings.minSessionHistoryLimit,
+          max: AppSettings.maxSessionHistoryLimit,
+          read: () => app.sessionHistoryLimit,
+          write: app.setSessionHistoryLimit,
+        ),
         SettingsField.flag(
           'reconnectAtStartup',
           defaultValue: false,
@@ -476,6 +486,8 @@ const Map<String, String> _russian = {
   'System': 'Системный',
   'Directory size scans': 'Обходов каталогов разом',
   'How many directories are measured at once': 'Сколько каталогов считается одновременно',
+  'Steps remembered per session': 'Шагов в истории панели',
+  'How far back «go back» reaches in one panel': 'Насколько далеко уводит «назад» в одной панели',
   'Compound extensions': 'Составные расширения',
   'Names ending in these are shown as one extension: archive.tar.gz is tar.gz':
       'Имена с таким концом показываются одним расширением: archive.tar.gz — это tar.gz',

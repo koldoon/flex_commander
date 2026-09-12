@@ -30,6 +30,7 @@ class SettingsHub {
          splitRatio: stored.splitRatio,
          window: stored.window,
          sizeScanConcurrency: stored.sizeScanConcurrency,
+         sessionHistoryLimit: stored.sessionHistoryLimit,
          reconnectAtStartup: stored.reconnectAtStartup,
          dialogs: {...stored.dialogs},
          // Раскладку по сторонам знает тот, кто заводил сессии: файл говорит,
@@ -93,6 +94,7 @@ class SettingsHub {
     activePanel: _ui.activePanel,
     splitRatio: _ui.splitRatio,
     sizeScanConcurrency: _ui.sizeScanConcurrency,
+    sessionHistoryLimit: _ui.sessionHistoryLimit,
     reconnectAtStartup: _ui.reconnectAtStartup,
     window: _ui.window,
     dialogs: _ui.dialogs,
@@ -200,7 +202,14 @@ class SettingsHub {
               // курсора настройки на диск не пишутся.
               ..remove('cursorPath')
               // И прокрутка: это положение, а не настройка.
-              ..remove('scroll');
+              ..remove('scroll')
+              // И пройденные шаги. История меняется вместе с каталогом, и
+              // каталог запись заведёт сам; а вот **восстановление** сессии
+              // при запуске записывает первый шаг, ничего по сути не меняя, —
+              // и без этого каждый запуск начинался бы с записи файла
+              // (`docs/spec/session-history.md`, §7).
+              ..remove('history')
+              ..remove('historyIndex');
           }
         }
       }

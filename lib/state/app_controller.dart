@@ -758,6 +758,9 @@ class AppController extends ChangeNotifier implements Application {
   int get sizeScanConcurrency => _initialSettings.sizeScanConcurrency;
 
   @override
+  int get sessionHistoryLimit => _initialSettings.sessionHistoryLimit;
+
+  @override
   bool get reconnectAtStartup => _initialSettings.reconnectAtStartup;
 
   /// Что окно команды помнит о себе; null — о нём не помнят ничего.
@@ -816,6 +819,17 @@ class AppController extends ChangeNotifier implements Application {
     settingsChanged();
   }
 
+  /// Предел истории переходов: сессии спрашивают его на каждый шаг, поэтому
+  /// уменьшенный предел действует со следующего же перехода.
+  @override
+  void setSessionHistoryLimit(int value) {
+    if (_initialSettings.sessionHistoryLimit == value) {
+      return;
+    }
+    _initialSettings.sessionHistoryLimit = value;
+    settingsChanged();
+  }
+
   /// Записать настройки сейчас и дождаться записи.
   ///
   /// Ждать обязательно при выходе: процесс уходит, и отложенному таймеру
@@ -839,6 +853,7 @@ class AppController extends ChangeNotifier implements Application {
     splitRatio: _splitRatio,
     window: _windowGeometry,
     sizeScanConcurrency: _initialSettings.sizeScanConcurrency,
+    sessionHistoryLimit: _initialSettings.sessionHistoryLimit,
     reconnectAtStartup: _initialSettings.reconnectAtStartup,
     dialogs: _initialSettings.dialogs,
     modules: serialize(_initialSettings.modules) as Map<String, dynamic>,
