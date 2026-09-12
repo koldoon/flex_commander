@@ -114,9 +114,12 @@ Future<void> _fetchAndOffer(Application app, UpdateService updates, ReleaseInfo 
     return updates.download(
       asset,
       canceled: () => canceled || op.isCanceled,
+      // В сообщении — объём, а не то же самое слово: полоска работы рисует
+      // «название: сообщение», и одинаковый текст читался бы как «Загрузка
+      // 0.0.73: Загрузка 0.0.73» (поймано живьём).
       onProgress:
           (received, total) => op.report(
-            message: strings.tr('Downloading {version}', args: {'version': '${release.version}'}),
+            message: total > 0 ? '${formatBytesLong(received)} / ${formatBytesLong(total)}' : formatBytesLong(received),
             bytesTransferred: received,
             bytesTotal: total > 0 ? total : null,
           ),

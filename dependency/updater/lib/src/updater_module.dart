@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
-import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:path/path.dart' as p;
 
@@ -47,7 +47,11 @@ class Updates implements FcFrontendModule {
         service ??= UpdateService(
           build: build,
           source: GithubReleases(repository: repository),
-          processes: () => registry.services.resolve<ProcessRunner>(),
+          // Свой, а не из графа служб: `ProcessRunner` там регистрирует
+          // **ядровая** половина модуля локальной ФС, и экранной стороне его
+          // не достать — `resolve` отвечает отказом, а обновление молча не
+          // ставится (поймано живьём, `docs/spec/self-update.md`, §12).
+          processes: () => const LocalProcessRunner(),
           settings: settingsOf,
           save: settings.save,
           // Рядом с настройками, а не в системном кеше: у приложения уже есть

@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 import 'dart:ui' as ui;
 
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/services.dart';
@@ -54,10 +55,14 @@ void showUpdateReady(Application app, UpdateService updates, ReleaseInfo release
 Future<void> _restart(Application app, UpdateService updates, File archive) async {
   try {
     await updates.install(archive);
-  } on Object {
-    // Подменить не вышло — остаёмся работать: сказать об этом честнее, чем
-    // закрыться неизвестно во что.
-    app.toasts.fail(app.strings.tr('Could not install the update'));
+  } on FsError catch (failure) {
+    // С причиной, а не общей фразой: «не вышло поставить» не говорит ничего —
+    // ни где искать, ни что делать. Одно такое сообщение уже стоило живого
+    // разбирательства (`docs/spec/self-update.md`, §12).
+    app.toasts.fail('${app.strings.tr('Could not install the update')}: ${app.strings.describe(failure)}');
+    return;
+  } on Object catch (error) {
+    app.toasts.fail('${app.strings.tr('Could not install the update')}: $error');
     return;
   }
   // Просим систему завершить приложение обычным путём: только так сработает
