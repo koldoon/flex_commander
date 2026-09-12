@@ -51,6 +51,7 @@ workspace:
   - dependency/test_kit
   - dependency/text_kit
   - dependency/text_viewer
+  - dependency/updater
   - dependency/ui_api
   - dependency/ui_kit
   - dependency/viewer

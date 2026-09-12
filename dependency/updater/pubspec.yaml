@@ -1,0 +1,33 @@
+name: fc_updater
+description: "Приложение обновляет себя само: выпуск с GitHub, проверка суммы, подмена .app."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  fc_core_api:
+    path: ../core_api
+
+  # Сумма скачанного сверяется с той, что назвал GitHub. Пакет команды Dart,
+  # без зависимостей: считать sha256 вызовом `shasum` значило бы доверять
+  # ещё и оболочке.
+  crypto: ^3.0.3
+
+  path: ^1.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
