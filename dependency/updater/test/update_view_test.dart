@@ -21,7 +21,13 @@ void main() {
 |---|---|---|
 | `/tmp` | 278 мс | 36 мс |''';
 
-  Future<void> pump(WidgetTester tester, {String data = notes, VoidCallback? later, VoidCallback? restart}) async {
+  Future<void> pump(
+    WidgetTester tester, {
+    String data = notes,
+    VoidCallback? later,
+    VoidCallback? restart,
+    Future<void> Function(String url)? openLink,
+  }) async {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(
@@ -34,7 +40,12 @@ void main() {
             child: SizedBox(
               width: 600,
               height: 400,
-              child: UpdateReadyView(notes: data, onLater: later ?? () {}, onRestart: restart ?? () {}),
+              child: UpdateReadyView(
+                notes: data,
+                onLater: later ?? () {},
+                onRestart: restart ?? () {},
+                openLink: openLink ?? (_) async {},
+              ),
             ),
           ),
         ),
@@ -66,6 +77,22 @@ void main() {
 
     expect(find.text('No release notes'), findsOneWidget);
     expect(find.byType(MarkdownBody), findsNothing);
+  });
+
+  testWidgets('ссылка из заметок уходит системе', (tester) async {
+    // В заметках выпуска GitHub всегда оставляет «Full Changelog», и читать
+    // его человек идёт в браузер: показывать страницу в окне обновления нечем.
+    final opened = <String>[];
+    await pump(
+      tester,
+      data: '[Full Changelog](https://github.com/koldoon/flex_commander/compare/v0.0.72...v0.0.73)',
+      openLink: (url) async => opened.add(url),
+    );
+
+    await tester.tap(find.textContaining('Full Changelog'));
+    await tester.pump();
+
+    expect(opened, ['https://github.com/koldoon/flex_commander/compare/v0.0.72...v0.0.73']);
   });
 
   testWidgets('оба ответа на месте и отзываются', (tester) async {

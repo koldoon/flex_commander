@@ -4,6 +4,7 @@ import 'dart:ui' as ui;
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter/services.dart';
@@ -97,7 +98,10 @@ MarkdownStyleSheet _notesStyle(FcTheme theme) {
       color: theme.colors.dialogListBackground,
       borderRadius: BorderRadius.circular(metrics.inputRadius),
     ),
-    a: theme.dialogTextStyle.copyWith(color: theme.colors.dialogLabel),
+    // Подчёркиванием, а не только цветом: в окне мало текста, и ссылка обязана
+    // отличаться от выделенного слова с первого взгляда — иначе по ней просто
+    // не нажмут.
+    a: theme.dialogTextStyle.copyWith(color: theme.colors.dialogLabel, decoration: TextDecoration.underline),
     listBullet: theme.dialogTextStyle,
     blockSpacing: metrics.dialogGap,
     tableHead: theme.dialogTextStyle.copyWith(fontWeight: FontWeight.bold, color: theme.colors.dialogLabel),
@@ -114,13 +118,26 @@ MarkdownStyleSheet _notesStyle(FcTheme theme) {
 
 /// Содержимое окна: заметки выпуска и ряд кнопок.
 class UpdateReadyView extends StatelessWidget {
-  const UpdateReadyView({super.key, required this.notes, required this.onLater, required this.onRestart});
+  const UpdateReadyView({
+    super.key,
+    required this.notes,
+    required this.onLater,
+    required this.onRestart,
+    this.openLink = openWithSystem,
+  });
 
   /// Заметки выпуска — как их написали в релизе, без разбора разметки.
   final String notes;
 
   final VoidCallback onLater;
   final VoidCallback onRestart;
+
+  /// Чем открыть ссылку из заметок.
+  ///
+  /// Системой, а не внутри окна: в заметках стоит «Full Changelog» на GitHub, и
+  /// читать его человек пойдёт в браузер — показывать страницу в окне
+  /// обновления нечем и незачем.
+  final Future<void> Function(String url) openLink;
 
   @override
   Widget build(BuildContext context) {
@@ -146,10 +163,11 @@ class UpdateReadyView extends StatelessWidget {
                   child: MarkdownBody(
                     data: notes.trim(),
                     styleSheet: _notesStyle(theme),
-                    // Ссылки в заметках есть («Full Changelog»), но нажимать
-                    // их здесь некуда: браузер из окна обновления не
-                    // открывают.
-                    onTapLink: (_, _, _) {},
+                    onTapLink: (_, href, _) {
+                      if (href != null && href.isNotEmpty) {
+                        unawaited(openLink(href));
+                      }
+                    },
                   ),
                 ),
       ),
