@@ -61,6 +61,36 @@ void main() {
     });
   });
 
+  group('окно системы — не выбор человека', () {
+    /// Окно, каким его создаёт система по шаблону: 800×632 где придётся.
+    final startupWindow = WindowGeometry(left: 560, top: 232, width: 800, height: 632);
+
+    test('событие окна до восстановления сохранённого не затирает', () async {
+      // Так и было живьём: свежий бандл система спросила о доступе к
+      // каталогам, запуск ядра встал на этом вопросе, а окно уже висело —
+      // системное. Слушатель принял его за выбор человека и записал вместо
+      // настоящего.
+      build(AppSettings.defaults('/home')..window = geometry);
+
+      window.moveTo(startupWindow);
+      await Future<void>.delayed(Duration.zero);
+      await app.start();
+
+      expect(window.restored, geometry, reason: 'восстанавливать надо сохранённое, а не системное');
+      expect(app.windowGeometry, geometry);
+    });
+
+    test('после восстановления окно слушают как прежде', () async {
+      build(AppSettings.defaults('/home')..window = geometry);
+      await app.start();
+
+      window.moveTo(startupWindow);
+      await Future<void>.delayed(Duration.zero);
+
+      expect(app.windowGeometry, startupWindow, reason: 'подвинули — запомнили');
+    });
+  });
+
   group('сохранение геометрии', () {
     test('перемещение окна попадает в настройки', () async {
       build(AppSettings.defaults('/home'));

@@ -643,19 +643,36 @@ class AppController extends ChangeNotifier implements Application {
     final door = link;
     if (door == null) {
       // Ядра нет вовсе (подставка в тесте состояния): поднимать нечего.
-      await window.restore(_windowGeometry);
+      await _restoreWindow();
       return;
     }
+
+    // Окно — первым делом, до ядра: ядро вправе задержаться надолго (у нового
+    // бандла система спрашивает доступ к каталогам, и ответа ждут от
+    // человека), а окно всё это время стояло бы там, где его поставила
+    // система. Геометрию мы уже знаем — она приехала рукопожатием при сборке.
+    await _restoreWindow();
 
     await door.call(const StartCore());
     if (await door.call(const Handshake()) case final CoreReady ready) {
       _splitRatio = ready.ui.splitRatio;
-      _windowGeometry = ready.ui.window;
+      // Геометрию отсюда **не берём**: окно уже восстановлено, и человек мог
+      // успеть его подвинуть — снимок ядра к этому моменту устарел.
       _activePanel = ready.ui.activePanel;
     }
 
-    await window.restore(_windowGeometry);
     activate(_activePanel == 1 ? right : left);
+  }
+
+  /// Поставить окно туда, где его оставили, и только после этого слушать его.
+  ///
+  /// До восстановления окно — системное: шаблонные 800×600 где придётся. Его
+  /// события приходят как обычные, и без этой оговорки слушатель записывал их
+  /// вместо сохранённого (поймано живьём 14 сентября 2026: задержка на вопросе
+  /// о доступе к каталогам стирала размер окна при каждом обновлении).
+  Future<void> _restoreWindow() async {
+    await window.restore(_windowGeometry);
+    _windowRestored = true;
   }
 
   /// Какая панель была активной. Держится отдельно от самих панелей: до
@@ -877,8 +894,16 @@ class AppController extends ChangeNotifier implements Application {
   /// Вызывается на изменения окна и при уходе приложения на второй план —
   /// то есть заведомо не в момент завершения процесса.
   Future<void> captureWindowGeometry() async {
+    // До восстановления спрашивать нечего: окно там, где его поставила
+    // система, и это не выбор человека.
+    if (!_windowRestored) {
+      return;
+    }
     setWindowGeometry(await window.current());
   }
+
+  /// Окно уже поставлено туда, где его оставили.
+  bool _windowRestored = false;
 
   void _onWindowChanged() => unawaited(captureWindowGeometry());
 
