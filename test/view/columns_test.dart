@@ -237,6 +237,31 @@ void main() {
       expect(app.left.columns.visibleColumns.map((c) => c.id), isNot(contains(FsColumns.ext)));
     });
 
+    /// Строка списка видов: рисуется разметкой, и по `data` её не найти — там
+    /// название и пояснение одной строкой. Ищем по началу, поэтому «Tree» так
+    /// не спросить: с него начинается и «Tree with contents».
+    Finder viewRow(String title) => find.byWidgetPredicate(
+      (widget) => widget is Text && widget.data == null && (widget.textSpan?.toPlainText() ?? '').startsWith(title),
+    );
+
+    testWidgets('щелчок по виду выбирает, а включает «OK»', (tester) async {
+      await pumpApp(tester);
+      await openViewDialog(tester);
+
+      await tester.tap(viewRow('Brief'));
+      await tester.pumpAndSettle();
+
+      // Окно на месте, вид прежний: щелчок сказал «вот этот», а не «включай».
+      expect(find.byType(FcPickList), findsOneWidget);
+      expect(tester.widget<FcPickList>(find.byType(FcPickList)).selected, 1);
+      expect(app.left.view, PanelSettings.defaultView);
+
+      await confirm(tester);
+
+      expect(app.left.view, 'brief');
+      expect(find.byType(FcPickList), findsNothing, reason: 'окно закрылось');
+    });
+
     testWidgets('до «OK» не меняется ничего', (tester) async {
       await pumpApp(tester);
       await openViewDialog(tester);

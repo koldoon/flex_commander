@@ -299,10 +299,11 @@ class _ViewPickerState extends State<_ViewPicker> {
                       query: '',
                       selected: state.index,
                       page: _page,
-                      onTap: (id) {
-                        state.index = state.views.indexWhere((view) => view.id == id);
-                        state.apply();
-                      },
+                      // Щелчок только выбирает: включает вид «OK», как и
+                      // настройки под списком. Иначе окно применяло бы вид
+                      // раньше, чем человек добрался до его настроек, — а они
+                      // ждут «OK» (`docs/spec/panel-views.md`, §7).
+                      onTap: (id) => state.index = state.views.indexWhere((view) => view.id == id),
                     ),
                   ),
                 ),

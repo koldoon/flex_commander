@@ -100,8 +100,13 @@ void main() {
       reason: 'вид пробы объявлен и потому предложен',
     );
 
-    // Щелчок по строке применяет вид — правой панели, а не левой.
+    // Щелчок выбирает, «OK» включает — и вид достаётся правой панели, а не
+    // левой (`docs/spec/panel-views.md`, §7).
     await tester.tap(find.textContaining('Probe', findRichText: true));
+    await tester.pumpAndSettle();
+    expect(runtime.app.right.view, PanelSettings.defaultView, reason: 'щелчок ничего не включает');
+
+    await tester.tap(find.widgetWithText(FcButton, 'OK'));
     await tester.pumpAndSettle();
 
     expect(runtime.app.right.view, _ProbeViews.viewId);
