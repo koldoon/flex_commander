@@ -1,3 +1,4 @@
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
@@ -9,23 +10,32 @@ import 'panels_settings.dart';
 /// с ним встанут дата и остальное, когда до них дойдёт черёд. Группой, а не
 /// блоком строк: флажки — самостоятельные управления, и просвет между ними
 /// обычный, окошный
-/// (`docs/spec/panel-view-tree.md`, §4). Правит раздел модуля напрямую:
-/// настройки вида общие на приложение (`docs/spec/panel-views.md`, §7).
+/// (`docs/spec/panel-view-tree.md`, §4). Правит раздел модуля: настройки вида
+/// общие на приложение, — но по «OK», а не живьём (`docs/spec/panel-views.md`,
+/// §7).
 class TreeViewOptions extends StatefulWidget {
-  const TreeViewOptions({super.key, required this.settings, required this.save});
+  const TreeViewOptions({super.key, required this.settings, required this.save, required this.draft});
 
   final PanelsSettings Function() settings;
   final VoidCallback save;
+  final ViewOptionsDraft draft;
 
   @override
   State<TreeViewOptions> createState() => _TreeViewOptionsState();
 }
 
 class _TreeViewOptionsState extends State<TreeViewOptions> {
+  /// Показывать ли размер — каким оно станет по «OK».
+  late bool _size = widget.settings().treeSize;
+
+  void _apply() {
+    widget.settings().treeSize = _size;
+    widget.save();
+  }
+
   @override
   Widget build(BuildContext context) {
     final strings = context.strings;
-    final settings = widget.settings();
 
     // Своей маленькой формой — как у краткого вида: список видов над ней идёт
     // во всю ширину и в столбец подписей не входит.
@@ -37,10 +47,10 @@ class _TreeViewOptionsState extends State<TreeViewOptions> {
           children: [
             FcCheckbox(
               label: strings.tr('Size'),
-              value: settings.treeSize,
+              value: _size,
               onChanged: (value) {
-                setState(() => settings.treeSize = value);
-                widget.save();
+                setState(() => _size = value);
+                widget.draft.onApply(_apply);
               },
             ),
             // Показан, но не работает: место под будущую колонку занято, и

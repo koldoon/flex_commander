@@ -134,6 +134,10 @@ class ChoosePanelViewCommand extends AppCommand {
     // например «уход с комбинированного вида схлопывает слот» — второму не
     // достаётся.
     void apply() {
+      // Сперва настройки, потом вид: у комбинированного вида столбец списка
+      // рождается клоном панели уже после смены, и раскладка, записанная
+      // после, до него не доедет (`docs/spec/panel-view-combined.md`, §7).
+      state.draft.apply();
       close();
       app.commands.run(
         SetPanelViewCommand.commandId,
@@ -188,8 +192,14 @@ class ViewPickerState extends ChangeNotifier {
       return;
     }
     _index = value;
+    // Черновик принадлежит выбранному виду: ушёл курсор — собранное пропадает,
+    // потому что включат теперь не его (`docs/spec/panel-views.md`, §7).
+    draft = ViewOptionsDraft(panel);
     notifyListeners();
   }
+
+  /// Правки настроек выбранного вида: копятся здесь и уходят по «OK».
+  late ViewOptionsDraft draft = ViewOptionsDraft(panel);
 
   PanelViewSpec get selected => views[_index];
 
@@ -300,7 +310,11 @@ class _ViewPickerState extends State<_ViewPicker> {
                 // выбором: человек видит, что достанется тому, что он сейчас
                 // включит.
                 if (state.selected.options case final options?)
-                  CommandDialogField.wide(child: options(context, state.panel)),
+                  CommandDialogField.wide(
+                    // Ключом по виду: у каждого вида черновик свой, и состояние
+                    // виджета настроек не должно переехать от одного к другому.
+                    child: KeyedSubtree(key: ValueKey(state.selected.id), child: options(context, state.draft)),
+                  ),
               ],
             ),
       ),

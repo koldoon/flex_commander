@@ -88,7 +88,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
         build: (context, panel) => FileTable(panel: panel, settings: settingsOf),
         // Колонки — панельные: у левой и правой они свои, и правит их та
         // панель, для которой окно открыли.
-        options: (context, panel) => TableViewOptions(panel: panel),
+        options: (context, draft) => TableViewOptions(panel: draft.panel, draft: draft),
       ),
     );
 
@@ -98,7 +98,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
         title: 'Brief',
         description: 'Names only, in columns',
         build: (context, panel) => BriefView(panel: panel, settings: settingsOf),
-        options: (context, panel) => BriefViewOptions(settings: settingsOf, save: settings.save),
+        options: (context, draft) => BriefViewOptions(settings: settingsOf, save: settings.save, draft: draft),
       ),
     );
 
@@ -108,7 +108,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
         title: 'Tree',
         description: 'Everything as branches — where you are and what lies where',
         build: (context, panel) => TreeView(panel: panel, settings: settingsOf),
-        options: (context, panel) => TreeViewOptions(settings: settingsOf, save: settings.save),
+        options: (context, draft) => TreeViewOptions(settings: settingsOf, save: settings.save, draft: draft),
       ),
     );
 
@@ -121,7 +121,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
         // Настройки — списка: колонки настраиваются у него, а дереву одних
         // каталогов настраивать нечего — там имя и ничего больше
         // (`docs/spec/panel-view-combined.md`, §7).
-        options: (context, panel) => TableViewOptions(panel: CombinedView.listOf(context, panel)),
+        options: (context, draft) => TableViewOptions(panel: CombinedView.listOf(context, draft.panel), draft: draft),
       ),
     );
 

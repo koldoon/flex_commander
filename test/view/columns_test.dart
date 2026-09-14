@@ -8,6 +8,7 @@ import 'package:flex_commander/state/app_controller.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 void main() {
@@ -206,6 +207,20 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    /// Нажать «OK»: правки настроек вида уходят по нему, а не живьём
+    /// (`docs/spec/panel-views.md`, §7).
+    Future<void> confirm(WidgetTester tester) async {
+      await tester.tap(find.widgetWithText(FcButton, 'OK'));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 20));
+    }
+
+    /// Снять галочку с колонки в открытом окне.
+    Future<void> toggle(WidgetTester tester, String title) async {
+      await tester.tap(find.descendant(of: find.byType(FcCheckbox), matching: find.text(title)));
+      await tester.pumpAndSettle();
+    }
+
     testWidgets('окно вида показывает колонки и скрывает выбранную', (tester) async {
       await pumpApp(tester);
       expect(find.text('Ext'), findsWidgets);
@@ -215,12 +230,63 @@ void main() {
       // Перечислены все колонки, включая скрытые.
       expect(find.descendant(of: find.byType(FcCheckbox), matching: find.text('Attributes')), findsOneWidget);
 
-      await tester.tap(find.descendant(of: find.byType(FcCheckbox), matching: find.text('Ext')));
-      await tester.pumpAndSettle();
-      await tester.pump(const Duration(milliseconds: 20));
+      await toggle(tester, 'Ext');
+      await confirm(tester);
 
       expect(app.left.columns.find(FsColumns.ext)?.visible, isFalse);
       expect(app.left.columns.visibleColumns.map((c) => c.id), isNot(contains(FsColumns.ext)));
+    });
+
+    testWidgets('до «OK» не меняется ничего', (tester) async {
+      await pumpApp(tester);
+      await openViewDialog(tester);
+
+      await toggle(tester, 'Ext');
+
+      // Галочка снята — а панель ещё нет: правки ждут «OK».
+      expect(
+        tester.widget<FcCheckbox>(find.ancestor(of: find.text('Ext').last, matching: find.byType(FcCheckbox))).value,
+        isFalse,
+      );
+      expect(app.left.columns.find(FsColumns.ext)?.visible, isTrue);
+
+      await confirm(tester);
+      expect(app.left.columns.find(FsColumns.ext)?.visible, isFalse);
+    });
+
+    testWidgets('«Отмена» не меняет ничего', (tester) async {
+      await pumpApp(tester);
+      await openViewDialog(tester);
+
+      await toggle(tester, 'Ext');
+      await tester.tap(find.widgetWithText(FcButton, 'Cancel'));
+      await tester.pumpAndSettle();
+      await tester.pump(const Duration(milliseconds: 20));
+
+      expect(app.left.columns.find(FsColumns.ext)?.visible, isTrue);
+    });
+
+    testWidgets('галочки под невыбранным видом не трогают показанное', (tester) async {
+      // Панель показана таблицей, курсор в окне ушёл на «Tree with contents»:
+      // его настройки — это колонки будущего столбца списка, и перерисовывать
+      // ими таблицу нельзя (`docs/spec/panel-views.md`, §7).
+      await pumpApp(tester);
+      await openViewDialog(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      // Список рисует строки разметкой, а не `Text`, — выбранное спрашиваем у
+      // него самого: четвёртый вид и есть комбинированный.
+      expect(tester.widget<FcPickList>(find.byType(FcPickList)).selected, 3);
+
+      await toggle(tester, 'Ext');
+
+      expect(app.left.view, PanelSettings.defaultView, reason: 'вид не сменился от хода курсора');
+      expect(app.left.columns.find(FsColumns.ext)?.visible, isTrue, reason: 'таблица не перерисовалась');
     });
 
     testWidgets('иконку и имя не выключить: без них строка нечитаема', (tester) async {
@@ -263,8 +329,8 @@ void main() {
 
       // Окно открыто для левой: правая своей раскладки не теряет.
       await openViewDialog(tester);
-      await tester.tap(find.descendant(of: find.byType(FcCheckbox), matching: find.text('Ext')));
-      await tester.pumpAndSettle();
+      await toggle(tester, 'Ext');
+      await confirm(tester);
 
       expect(app.left.columns.find(FsColumns.ext)?.visible, isFalse);
       expect(app.right.columns.find(FsColumns.ext)?.visible, isTrue);

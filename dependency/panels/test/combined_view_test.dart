@@ -315,6 +315,11 @@ void main() {
     await tester.tap(find.descendant(of: find.byType(FcCheckbox), matching: find.text('Modified')));
     await tester.pumpAndSettle();
 
+    // По «OK», а не живьём: правки настроек вида копятся черновиком
+    // (`docs/spec/panel-views.md`, §7).
+    await tester.tap(find.widgetWithText(FcButton, 'OK'));
+    await tester.pumpAndSettle();
+
     final after = list(runtime).columns.columns.firstWhere((column) => column.id == FsColumns.modified).visible;
     expect(after, !before, reason: 'флажок правит колонки того столбца, у которого они есть');
   });

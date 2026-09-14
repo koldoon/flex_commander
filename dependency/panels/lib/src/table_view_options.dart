@@ -9,21 +9,36 @@ import 'file_table_header.dart';
 ///
 /// Колонки: какие видны и как вернуть умолчание. Правит **панель**, а не раздел
 /// модуля: раскладка колонок у левой и правой своя, и окно открыто для одной из
-/// них (`docs/spec/panel-views.md`, §7).
+/// них (`docs/spec/panel-views.md`, §7). Правит по «OK», а не живьём: до него
+/// галочки ходят по черновику.
 ///
 /// Порядок и ширина колонок здесь не показаны: их двигают прямо в шапке
 /// таблицы, мышью, и второго способа тому же делу заводить незачем.
-class TableViewOptions extends StatelessWidget {
-  const TableViewOptions({super.key, required this.panel});
+class TableViewOptions extends StatefulWidget {
+  const TableViewOptions({super.key, required this.panel, required this.draft});
 
+  /// Чья раскладка правится: сама панель, а у комбинированного вида — столбец
+  /// списка (`docs/spec/panel-view-combined.md`, §7).
   final Session panel;
 
+  final ViewOptionsDraft draft;
+
   @override
-  Widget build(BuildContext context) {
-    // Своего состояния нет: раскладка живёт в панели, и перерисовка приходит
-    // оттуда же — тем же способом, каким её слушает сама таблица.
-    return ListenableBuilder(listenable: panel, builder: (context, _) => _form(context));
+  State<TableViewOptions> createState() => _TableViewOptionsState();
+}
+
+class _TableViewOptionsState extends State<TableViewOptions> {
+  /// Раскладка, какой она станет по «OK». Снимается с панели один раз: пока
+  /// окно открыто, правит её отсюда никто, кроме этих же галочек.
+  late ColumnLayout _layout = widget.panel.columns;
+
+  void _toggle(ColumnSpec column) {
+    setState(() => _layout = _layout.toggleVisible(column.id));
+    widget.draft.onApply(() => widget.panel.setColumnLayout(_layout));
   }
+
+  @override
+  Widget build(BuildContext context) => _form(context);
 
   /// Название колонки для списка: у значка своего нет.
   static String _titleOf(ColumnSpec column) {
@@ -33,7 +48,7 @@ class TableViewOptions extends StatelessWidget {
 
   Widget _form(BuildContext context) {
     final strings = context.strings;
-    final layout = panel.columns;
+    final layout = _layout;
 
     return FcForm(
       rows: [
@@ -49,7 +64,7 @@ class TableViewOptions extends StatelessWidget {
                 label: strings.tr(_titleOf(column)),
                 value: column.visible,
                 // Иконку и имя скрывать нельзя: без них строка нечитаема.
-                onChanged: column.pinned ? null : (_) => panel.setColumnLayout(panel.columns.toggleVisible(column.id)),
+                onChanged: column.pinned ? null : (_) => _toggle(column),
               ),
           ],
         ),
