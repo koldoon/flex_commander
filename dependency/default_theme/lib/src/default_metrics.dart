@@ -64,7 +64,7 @@ class DefaultMetrics extends FcMetrics {
   double get pathHeaderRadius => 5;
 
   @override
-  double get pathHeaderMinInset => 20;
+  double get pathHeaderMinInset => 25;
 
   /// Пять точек: столько же, сколько у полей окна, — рамка и её отступ читаются
   /// как одно целое.
