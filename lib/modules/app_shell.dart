@@ -239,6 +239,23 @@ class AppShell implements FcBackendModule, FcFrontendModule {
             (app.strings as StringsRegistry).refresh();
           },
         ),
+        // Заголовок панели: список собирается из реестра, а не перечисляется
+        // здесь, — вид адреса приносит модуль (`docs/spec/panel-crumbs.md`,
+        // §6). Ни одного не объявили — и поля нет: выбор из ничего не выбор.
+        if (app.panelHeaders.available.isNotEmpty)
+          SettingsField.choice(
+            'panelHeader',
+            defaultValue: app.panelHeaders.available.first.id,
+            title: strings.tr('Panel address'),
+            description: strings.tr('How the current path is shown above the panel'),
+            // Название заголовка приходит значением — переводит его тот, кто
+            // показывает.
+            options: {for (final header in app.panelHeaders.available) header.id: strings.tr(header.title)},
+            // Пусто — стоит первый объявленный: он и рисуется, и выбор из
+            // пустоты человеку показывать незачем.
+            read: () => app.panelHeader.isEmpty ? app.panelHeaders.available.first.id : app.panelHeader,
+            write: app.setPanelHeader,
+          ),
         SettingsField.integer(
           'sizeScanConcurrency',
           defaultValue: AppSettings.defaultSizeScanConcurrency,
@@ -481,6 +498,8 @@ const Map<String, String> _russian = {
 
   // Настройки приложения.
   'Theme': 'Оформление',
+  'Panel address': 'Адрес панели',
+  'How the current path is shown above the panel': 'Чем показан текущий путь над панелью',
   'Language': 'Язык',
   'Interface language; «System» follows the machine': 'Язык интерфейса; «Системный» — как у машины',
   'System': 'Системный',

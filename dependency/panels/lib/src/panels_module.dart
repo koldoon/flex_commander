@@ -6,6 +6,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'brief_view.dart';
 import 'columns.dart';
 import 'combined_view.dart';
+import 'crumbs_header.dart';
 import 'brief_view_options.dart';
 import 'file_table.dart';
 import 'panels_settings.dart';
@@ -108,6 +109,15 @@ class Panels implements FcBackendModule, FcFrontendModule {
         title: 'Path',
         description: 'The whole address in one line',
         build: (context, view) => FcPathText(text: view.text, width: view.width, style: view.style),
+      ),
+    );
+
+    registry.panelHeader(
+      PanelHeaderSpec(
+        id: crumbsHeaderId,
+        title: 'Crumbs',
+        description: 'Address by links: press one to go there',
+        build: (context, view) => CrumbsHeader(view: view),
       ),
     );
 
@@ -263,6 +273,8 @@ const Map<String, String> _russian = {
   // «Path» уже переведён выше — колонка и заголовок зовутся одинаково, и
   // перевод у них один.
   'The whole address in one line': 'Весь адрес одной строкой',
+  'Crumbs': 'Звенья',
+  'Address by links: press one to go there': 'Адрес звеньями: нажатие уводит туда',
 
   // Комбинированный вид.
   'Tree with contents': 'Дерево с содержимым',

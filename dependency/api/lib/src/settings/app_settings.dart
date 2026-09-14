@@ -340,9 +340,9 @@ class AppSettings implements Serializable {
     m['splitRatio'] = splitRatio;
     m['sizeScanConcurrency'] = sizeScanConcurrency;
     m['sessionHistoryLimit'] = sessionHistoryLimit;
-    if (panelHeader.isNotEmpty) {
-      m['panelHeader'] = panelHeader;
-    }
+    // Всегда, даже пустым: у поля схемы настроек обязан быть ключ в разделе,
+    // иначе схема и данные разойдутся молча (`settings_window_test.dart`).
+    m['panelHeader'] = panelHeader;
     m['reconnectAtStartup'] = reconnectAtStartup;
     if (window != null) {
       m['window'] = serialize(window);
