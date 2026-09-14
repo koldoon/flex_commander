@@ -1,3 +1,6 @@
+import 'dart:async';
+import 'dart:io';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
@@ -67,6 +70,41 @@ void main() {
     expect(button.onPressed, isNotNull);
   });
 
+  testWidgets('второе нажатие отвечает, а не заводит вторую загрузку', (tester) async {
+    // Несколько нажатий «Check now» подряд заводили по загрузке на каждое, и
+    // все они писали в один файл: добежавшая первой уносила его из-под
+    // остальных (поймано живьём, `docs/spec/self-update.md`, §4).
+    await start(tester);
+
+    final answer = Completer<ReleaseInfo?>();
+    final updates = UpdateService(
+      build: _Build(),
+      source: _WaitingSource(answer.future),
+      processes: FakeProcessRunner.new,
+      settings: UpdaterSettings.new,
+      save: () {},
+      // Синхронно: в виджет-тесте время поддельное, и настоящий ввод-вывод в
+      // `await` не доезжает — прогон повисает молча.
+      cache: Directory.systemTemp.createTempSync('fc_updates_app'),
+    );
+
+    // Первая проверка ушла и ждёт ответа GitHub.
+    final asked = runUpdate(runtime.app, updates, byHand: true);
+    await tester.pump();
+    expect(updates.busy, isTrue);
+
+    await runUpdate(runtime.app, updates, byHand: true);
+
+    expect(runtime.app.toasts.current?.message, 'Already checking for updates');
+
+    answer.complete(null);
+    await asked;
+    expect(updates.busy, isFalse);
+
+    // Тост уходит по своему таймеру, и незакрытый таймер валит прогон.
+    await tester.pump(const Duration(seconds: 10));
+  });
+
   testWidgets('при запуске приложение в сеть не ходит', (tester) async {
     // Своей версии проверочная сборка не знает — канала раннера у неё нет, —
     // и стартовая проверка честно не начинается вовсе: ни запроса, ни таймера
@@ -77,4 +115,30 @@ void main() {
 
     expect(runtime.app.toasts.current, isNull, reason: 'молчит — значит и не спрашивала');
   });
+}
+
+/// Сборка, которой хватает, чтобы дойти до вопроса к GitHub.
+class _Build implements AppBuild {
+  @override
+  AppVersion? get version => const AppVersion(0, 0, 1);
+
+  @override
+  String get bundlePath => '/Applications/flex_commander.app';
+
+  @override
+  String get architecture => 'arm64';
+
+  @override
+  bool get canReplaceItself => true;
+}
+
+/// Источник, который отвечает тогда, когда ему велят: пока молчит — обновление
+/// идёт, и служба занята.
+class _WaitingSource implements ReleaseSource {
+  _WaitingSource(this._answer);
+
+  final Future<ReleaseInfo?> _answer;
+
+  @override
+  Future<ReleaseInfo?> latest() => _answer;
 }

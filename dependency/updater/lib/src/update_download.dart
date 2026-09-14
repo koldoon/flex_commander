@@ -40,7 +40,19 @@ class UpdateDownload {
     // Имя с суммой: два выпуска с одинаковым именем файла — обычное дело, а
     // недокачанный остаток от прошлого раза не должен сойти за целый.
     final file = File('${into.path}/${asset.sha256.substring(0, 12)}-${asset.name}');
-    final partial = File('${file.path}.part');
+
+    // Уже лежит и та самая — качать нечего: так повторная просьба обходится
+    // без сети, а не приносит второй такой же файл.
+    if (await file.exists() && await _sha256Of(file) == asset.sha256.toLowerCase()) {
+      onProgress?.call(await file.length(), await file.length());
+      return file;
+    }
+
+    // Недокачанному — своё имя на каждую попытку: общее делало две загрузки
+    // одного выпуска смертельными друг для друга — добежавшая первой уносила
+    // файл из-под второй, и та падала на чтении (поймано живьём, несколько
+    // нажатий «Check now» подряд).
+    final partial = File('${file.path}.$pid-${DateTime.now().microsecondsSinceEpoch}.part');
 
     final client = _client ?? HttpClient();
     client.connectionTimeout = timeout;
@@ -82,6 +94,10 @@ class UpdateDownload {
       return file;
     } on SocketException catch (error) {
       throw FsError(asset.name, FsErrorKind.cannotConnect, error);
+    } on FileSystemException catch (error) {
+      // Кеш недоступен, диск полон, файл увели из-под нас — это ответ человеку
+      // тостом, а не отчёт об ошибке: обновление не обязано получиться.
+      throw FsError(asset.name, FsErrorKind.io, error);
     } finally {
       await sink?.close();
       if (await partial.exists()) {

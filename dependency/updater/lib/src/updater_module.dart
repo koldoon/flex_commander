@@ -134,6 +134,7 @@ const Map<String, String> _russian = {
   'Check for updates at startup': 'Проверка обновлений при запуске',
   'Ask GitHub whether a newer build is out': 'Спросить GitHub, нет ли сборки новее',
   'You are up to date': 'У вас и так свежее',
+  'Already checking for updates': 'Обновление уже идёт',
   'Downloading {version}': 'Загрузка {version}',
   'Version {version} is ready': 'Версия {version} готова',
   'No release notes': 'Заметок к выпуску нет',

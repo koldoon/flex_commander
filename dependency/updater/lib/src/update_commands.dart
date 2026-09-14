@@ -80,6 +80,22 @@ class CheckForUpdatesAtStartupCommand extends AppCommand {
 Future<void> runUpdate(Application app, UpdateService updates, {required bool byHand}) async {
   final strings = app.strings;
 
+  // Второй раз, пока идёт первый, — не вторая загрузка, а ответ: работа одна,
+  // и полоска о ней уже идёт внизу. Молчать тут нельзя — нажатие без ответа
+  // это ошибка (`docs/spec/self-update.md`, §9).
+  if (updates.busy) {
+    if (byHand) {
+      app.toasts.show(strings.tr('Already checking for updates'));
+    }
+    return;
+  }
+
+  await updates.hold(() => _runUpdate(app, updates, byHand: byHand));
+}
+
+Future<void> _runUpdate(Application app, UpdateService updates, {required bool byHand}) async {
+  final strings = app.strings;
+
   final UpdateCheckResult result;
   try {
     result = await updates.check(byHand: byHand);

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 
 import 'package:fc_test_kit/fc_test_kit.dart';
@@ -91,6 +92,35 @@ void main() {
     memory.postponed = 'v0.0.73';
 
     expect(await updates.check(), isA<UpdateAvailable>());
+  });
+
+  test('пока идёт обновление, служба занята', () async {
+    // Обновление одно на приложение: второй зовущий обязан это увидеть, иначе
+    // две загрузки пишут в один файл (`docs/spec/self-update.md`, §4).
+    final updates = service(latest: release('v0.0.74'));
+    expect(updates.busy, isFalse);
+
+    final started = Completer<void>();
+    final finish = Completer<void>();
+    final held = updates.hold(() async {
+      started.complete();
+      await finish.future;
+    });
+
+    await started.future;
+    expect(updates.busy, isTrue);
+
+    finish.complete();
+    await held;
+    expect(updates.busy, isFalse, reason: 'работа кончилась — служба свободна');
+  });
+
+  test('сорвавшееся обновление службу не запирает', () async {
+    final updates = service();
+
+    await expectLater(updates.hold(() async => throw StateError('сорвалось')), throwsStateError);
+
+    expect(updates.busy, isFalse);
   });
 
   test('дата проверки ставится и после неудачи', () async {

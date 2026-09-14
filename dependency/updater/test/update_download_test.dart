@@ -51,6 +51,34 @@ void main() {
     size: payload.length,
   );
 
+  test('две загрузки разом не мешают друг другу', () async {
+    // Несколько нажатий «Check now» подряд заводили несколько загрузок в один
+    // и тот же `.part`: добежавшая первой уносила файл из-под остальных, и те
+    // падали отчётом об ошибке (поймано живьём).
+    final files = await Future.wait([
+      UpdateDownload(into: cache).fetch(asset()),
+      UpdateDownload(into: cache).fetch(asset()),
+      UpdateDownload(into: cache).fetch(asset()),
+    ]);
+
+    for (final file in files) {
+      expect(await file.exists(), isTrue);
+      expect(await file.length(), payload.length);
+    }
+    expect(files.map((file) => file.path).toSet(), hasLength(1), reason: 'файл один, имя по сумме');
+    expect(cache.listSync().whereType<File>(), hasLength(1), reason: 'недокачанные остатки убраны');
+  });
+
+  test('готовое в кеше не качается заново', () async {
+    await UpdateDownload(into: cache).fetch(asset());
+    expect(requests, 1);
+
+    final again = await UpdateDownload(into: cache).fetch(asset());
+
+    expect(await again.length(), payload.length);
+    expect(requests, 1, reason: 'файл с нужной суммой уже лежит — сети тут делать нечего');
+  });
+
   test('скачанное с верной суммой ложится в кеш', () async {
     final progress = <int>[];
     final file = await UpdateDownload(into: cache).fetch(asset(), onProgress: (received, _) => progress.add(received));
