@@ -41,6 +41,7 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
   /// Виды панели — в порядке объявления модулей: в этом же порядке их и
   /// показывает окно выбора.
   final List<PanelViewSpec> panelViews = [];
+  final List<PanelHeaderSpec> panelHeaders = [];
 
   /// Объявленные колонки — в порядке объявления: он же порядок, в котором они
   /// встают в панели, пока человек их не переставил.
@@ -62,6 +63,9 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
 
   @override
   void panelView(PanelViewSpec spec) => panelViews.add(spec);
+
+  @override
+  void panelHeader(PanelHeaderSpec spec) => panelHeaders.add(spec);
 
   @override
   void column(ColumnSpec spec, {ColumnText? text, ColumnCellBuilder? build}) {

@@ -62,3 +62,26 @@ class PanelViewRegistry implements PanelViews {
     return null;
   }
 }
+
+/// Заголовки панели, объявленные модулями.
+///
+/// Тот же список в том же порядке, что и виды, и по той же причине: имя в нём —
+/// ключ настройки (`docs/spec/panel-header.md`, §6).
+class PanelHeaderRegistry implements PanelHeaders {
+  PanelHeaderRegistry([List<PanelHeaderSpec> headers = const []]) : _headers = List.unmodifiable(headers);
+
+  final List<PanelHeaderSpec> _headers;
+
+  @override
+  List<PanelHeaderSpec> get available => _headers;
+
+  @override
+  PanelHeaderSpec? byId(String id) {
+    for (final header in _headers) {
+      if (header.id == id) {
+        return header;
+      }
+    }
+    return null;
+  }
+}

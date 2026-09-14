@@ -6,6 +6,7 @@ import '../commands/command_service.dart';
 import 'errors.dart';
 import 'column_cell.dart';
 import 'panel.dart';
+import 'panel_header_spec.dart';
 import 'panel_view_spec.dart';
 import 'panel_viewport.dart';
 import 'viewport.dart';
@@ -170,6 +171,10 @@ abstract interface class Application implements Listenable {
   /// Виды, которыми человек может показать каталог
   /// (`docs/spec/panel-views.md`).
   PanelViews get panelViews;
+
+  /// Заголовки, которыми человек может показать адрес панели
+  /// (`docs/spec/panel-header.md`).
+  PanelHeaders get panelHeaders;
 
   /// Колонки, объявленные модулями (`docs/spec/column-registry.md`).
   PanelColumns get columns;

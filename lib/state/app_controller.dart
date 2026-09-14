@@ -36,6 +36,7 @@ class AppController extends ChangeNotifier implements Application {
     required this.commands,
     PanelViewports? viewports,
     PanelViews? panelViews,
+    PanelHeaders? panelHeaders,
     PanelColumns? columns,
     List<ViewerSpec> viewers = const [],
     List<NodeInfoProvider> nodeInfoProviders = const [],
@@ -69,6 +70,9 @@ class AppController extends ChangeNotifier implements Application {
        // Ни одного вида — панель рисует таблицей: так собирают приложение без
        // модуля панелей, и это не ошибка.
        panelViews = panelViews ?? PanelViewRegistry(),
+       // Ни одного заголовка — панель показывает путь строкой: так собирают
+       // приложение без модуля панелей, и это не ошибка.
+       panelHeaders = panelHeaders ?? PanelHeaderRegistry(),
        columns = columns ?? const NoPanelColumns(),
        // По убыванию приоритета — один раз при сборке: спрашивают этот список
        // на каждое открытие файла, а меняться ему больше негде.
@@ -400,6 +404,10 @@ class AppController extends ChangeNotifier implements Application {
   /// Виды, которыми человек может показать каталог.
   @override
   final PanelViews panelViews;
+
+  /// Заголовки, которыми человек может показать адрес панели.
+  @override
+  final PanelHeaders panelHeaders;
 
   /// Колонки, объявленные модулями (`docs/spec/column-registry.md`).
   @override

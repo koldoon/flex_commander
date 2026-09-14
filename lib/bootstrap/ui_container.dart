@@ -186,6 +186,7 @@ class UiContainer extends DI {
     );
 
     bind<PanelViews>(to: (c) => PanelViewRegistry(frontend.panelViews));
+    bind<PanelHeaders>(to: (c) => PanelHeaderRegistry(frontend.panelHeaders));
 
     // Колонки, объявленные экранными половинами модулей: на них накладывается
     // раскладка панели (`docs/spec/column-registry.md`, §3.5).
@@ -274,6 +275,7 @@ class UiContainer extends DI {
           strings: c.get<Strings>() as StringsRegistry,
           viewports: c.get<PanelViewports>(),
           panelViews: c.get<PanelViews>(),
+          panelHeaders: c.get<PanelHeaders>(),
           columns: c.get<PanelColumns>(),
           // Списком, а не службой: складывать и упорядочивать — вся работа
           // оболочки с просмотрщиками. Кто возьмётся за файл, спрашивает она.

@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 
 import '../app/application.dart';
 import '../app/node_info.dart';
+import '../app/panel_header_spec.dart';
 import '../app/panel_view_spec.dart';
 import '../app/column_cell.dart';
 import '../app/panel_viewport.dart';
@@ -86,6 +87,12 @@ abstract interface class FrontendRegistry {
   /// Не путать с [viewport]: там — что показано (решает источник), здесь — как
   /// показано (решает человек, `docs/spec/panel-views.md`, §3).
   void panelView(PanelViewSpec spec);
+
+  /// Заголовок панели: чем человек может показать её адрес.
+  ///
+  /// Не путать с [panelView]: там — как показан каталог, здесь — как показан
+  /// его адрес (`docs/spec/panel-header.md`).
+  void panelHeader(PanelHeaderSpec spec);
 
   /// Колонка панели — экранной половиной: заголовок, ширина и ячейка.
   ///
