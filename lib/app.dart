@@ -1,3 +1,4 @@
+import 'dart:io' show Platform;
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
@@ -58,7 +59,10 @@ class _FlexCommanderAppState extends State<FlexCommanderApp> {
           builder:
               (context, child) => MaterialApp(
                 title: 'Flex Commander',
-                debugShowCheckedModeBanner: false,
+                // Лента «DEBUG» в отладочной сборке: видно, что запущено не
+                // то, что стоит у людей. В прогоне тестов её нет — она
+                // въелась бы в эталоны окон, где угол снимка её и застаёт.
+                debugShowCheckedModeBanner: !Platform.environment.containsKey('FLUTTER_TEST'),
                 theme: buildThemeData(widget.controller.theme.current),
                 home: const AppShell(),
               ),
