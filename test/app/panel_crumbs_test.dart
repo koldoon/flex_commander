@@ -6,6 +6,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -90,6 +91,29 @@ void main() {
     expect(crumb('/'), findsOneWidget, reason: 'первое звено говорит, где мы вообще');
     expect(crumb('commander'), findsOneWidget, reason: 'последнее — где именно');
     expect(crumb('documents'), findsNothing);
+  });
+
+  testWidgets('под мышью звено подчёркивается', (tester) async {
+    await open(tester);
+
+    TextDecoration? decorationOf(String label) =>
+        (tester.widget<RichText>(crumb(label)).text as TextSpan).style?.decoration;
+
+    expect(decorationOf('documents'), isNot(TextDecoration.underline));
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await mouse.addPointer(location: Offset.zero);
+    addTearDown(mouse.removePointer);
+    await mouse.moveTo(tester.getCenter(crumb('documents')));
+    await tester.pumpAndSettle();
+
+    expect(decorationOf('documents'), TextDecoration.underline);
+    expect(decorationOf('home'), isNot(TextDecoration.underline), reason: 'подчёркнуто только то, что под мышью');
+
+    await mouse.moveTo(Offset.zero);
+    await tester.pumpAndSettle();
+
+    expect(decorationOf('documents'), isNot(TextDecoration.underline));
   });
 
   testWidgets('вид адреса выбирают в настройках', (tester) async {

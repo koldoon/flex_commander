@@ -141,7 +141,7 @@ class CrumbsHeader extends StatelessWidget {
 }
 
 /// Одно звено: нажимается и ведёт.
-class _Crumb extends StatelessWidget {
+class _Crumb extends StatefulWidget {
   const _Crumb({required this.crumb, required this.panel, required this.style});
 
   final PathCrumb crumb;
@@ -149,16 +149,37 @@ class _Crumb extends StatelessWidget {
   final TextStyle style;
 
   @override
+  State<_Crumb> createState() => _CrumbState();
+}
+
+class _CrumbState extends State<_Crumb> {
+  /// Мышь над этим звеном.
+  ///
+  /// Подчёркиванием, а не цветом: цвет здесь занят — им сказано, какое звено
+  /// последнее (§4), — и вторая роль у того же цвета читалась бы как первая.
+  /// Курсор-палец говорит «сюда можно нажать», подчёркивание — «вот на что
+  /// попадёт нажатие»: в ряду из коротких слов это разные сведения.
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
     return MouseRegion(
       cursor: SystemMouseCursors.click,
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         // Обычный переход панели, а не особый случай: значит шаг попадает в
         // историю сам собой (§5). Активной панель делает нажатие в ней — тем
         // же обработчиком, что и щелчок по списку файлов.
-        onTap: () => unawaited(panel.openPath(crumb.path)),
-        child: Text(crumb.label, maxLines: 1, softWrap: false, overflow: TextOverflow.ellipsis, style: style),
+        onTap: () => unawaited(widget.panel.openPath(widget.crumb.path)),
+        child: Text(
+          widget.crumb.label,
+          maxLines: 1,
+          softWrap: false,
+          overflow: TextOverflow.ellipsis,
+          style: _hovered ? widget.style.copyWith(decoration: TextDecoration.underline) : widget.style,
+        ),
       ),
     );
   }
