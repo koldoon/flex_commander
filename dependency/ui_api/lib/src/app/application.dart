@@ -236,6 +236,15 @@ abstract interface class Application implements Listenable {
 
   void setSessionHistoryLimit(int value);
 
+  /// Чем показан адрес панели: имя заголовка из объявленных модулями; пусто —
+  /// путь строкой (`docs/spec/panel-header.md`, §6).
+  ///
+  /// Настройка ядра по той же причине, что и предел истории: живёт она в файле
+  /// рядом с прочим общим, а правит её окно настроек.
+  String get panelHeader;
+
+  void setPanelHeader(String value);
+
   /// Последняя известная геометрия окна.
   WindowGeometry? get windowGeometry;
 

@@ -27,6 +27,7 @@ class FcPathPlate extends StatelessWidget {
   const FcPathPlate({
     super.key,
     required this.path,
+    this.content,
     this.leading,
     this.leadingWidth = 0,
     this.trailing,
@@ -34,6 +35,14 @@ class FcPathPlate extends StatelessWidget {
   });
 
   final String path;
+
+  /// Чем набрать адрес; null — строкой с обрезкой слева, как было всегда.
+  ///
+  /// Строителем, а не готовым виджетом: остаток ширины и стиль плашка считает
+  /// сама — она же ставит слот и приписку, — и отдаёт их тому, кто рисует
+  /// (`docs/spec/panel-header.md`, §4). Сама плашка при этом остаётся своей:
+  /// цвета, приглушение и слоты модулю не отдают.
+  final Widget Function(BuildContext context, double width, TextStyle style)? content;
 
   /// Что стоит слева от пути; null — только путь.
   ///
@@ -99,15 +108,7 @@ class FcPathPlate extends StatelessWidget {
                 (leading == null ? 0 : leadingWidth + metrics.labelPadding) -
                 (suffix == null ? 0 : textWidthOf(_gap + suffix, style, scaler));
 
-            // Сдвига, как в строках списка, здесь нет: он нужен моноширинному
-            // шрифту, а путь набран Ubuntu — у него базовая линия обычная.
-            final pathText = Text(
-              trimTextHead(path, style, free, scaler),
-              maxLines: 1,
-              softWrap: false,
-              textAlign: TextAlign.center,
-              style: style,
-            );
+            final pathText = content?.call(context, free, style) ?? FcPathText(text: path, width: free, style: style);
 
             if (suffix == null && leading == null) {
               return Center(widthFactor: 1, child: pathText);
@@ -140,6 +141,35 @@ class FcPathPlate extends StatelessWidget {
 
   /// Просвет между путём и припиской.
   static const String _gap = '   ';
+}
+
+/// Путь одной строкой, обрезанный слева по отведённой ширине.
+///
+/// Отдельным виджетом, а не встройкой в плашку: тем же набран заголовок `path`,
+/// объявленный модулем панелей, — а два способа показать одно и то же однажды
+/// разойдутся (`docs/spec/panel-header.md`, §3).
+class FcPathText extends StatelessWidget {
+  const FcPathText({super.key, required this.text, required this.width, required this.style});
+
+  final String text;
+
+  /// Сколько места отведено: обрезка идёт по нему, а не по раскладке.
+  final double width;
+
+  final TextStyle style;
+
+  @override
+  Widget build(BuildContext context) {
+    // Сдвига, как в строках списка, здесь нет: он нужен моноширинному шрифту, а
+    // путь набран Ubuntu — у него базовая линия обычная.
+    return Text(
+      trimTextHead(text, style, width, MediaQuery.textScalerOf(context)),
+      maxLines: 1,
+      softWrap: false,
+      textAlign: TextAlign.center,
+      style: style,
+    );
+  }
 }
 
 /// Оформление места в окне: обведённая область с «плашкой» заголовка,

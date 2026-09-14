@@ -213,6 +213,7 @@ class AppSettings implements Serializable {
     this.splitRatio = 0.5,
     this.sizeScanConcurrency = defaultSizeScanConcurrency,
     this.sessionHistoryLimit = defaultSessionHistoryLimit,
+    this.panelHeader = '',
     this.reconnectAtStartup = false,
     this.window,
     Map<String, DialogState>? dialogs,
@@ -299,6 +300,15 @@ class AppSettings implements Serializable {
   /// настроек, а живёт он здесь.
   int sessionHistoryLimit;
 
+  /// Чем показан адрес панели: имя заголовка, объявленного модулем
+  /// (`docs/spec/panel-header.md`, §6). Пусто — путь строкой.
+  ///
+  /// Общая на приложение, а не на панель: две панели с разным видом адреса
+  /// выглядели бы поломкой, а не настройкой, — тот же довод, что у настроек
+  /// вида. Незнакомое имя не стирается: модуль могли выключить, а вернуть его
+  /// человек вправе.
+  String panelHeader;
+
   /// Подключаться ли при запуске к сохранённым удалённым источникам.
   ///
   /// Выключено: запуск не должен начинаться с вопроса о пароле поверх пустых
@@ -330,6 +340,9 @@ class AppSettings implements Serializable {
     m['splitRatio'] = splitRatio;
     m['sizeScanConcurrency'] = sizeScanConcurrency;
     m['sessionHistoryLimit'] = sessionHistoryLimit;
+    if (panelHeader.isNotEmpty) {
+      m['panelHeader'] = panelHeader;
+    }
     m['reconnectAtStartup'] = reconnectAtStartup;
     if (window != null) {
       m['window'] = serialize(window);
@@ -360,6 +373,7 @@ class AppSettings implements Serializable {
       sessionHistoryLimit,
       m['sessionHistoryLimit'],
     ).clamp(minSessionHistoryLimit, maxSessionHistoryLimit);
+    panelHeader = extract(panelHeader, m['panelHeader']);
     reconnectAtStartup = extract(reconnectAtStartup, m['reconnectAtStartup']);
     window = extractObject(m['window'], (_) => WindowGeometry());
 

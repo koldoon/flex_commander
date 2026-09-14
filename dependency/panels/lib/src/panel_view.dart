@@ -49,10 +49,23 @@ class PanelView extends StatelessWidget {
           header: ListenableBuilder(
             // И на область тоже: ввод уходит и туда, где панели нет вовсе, —
             // в быстрый просмотр напротив, — а плашка обязана это показать.
-            listenable: Listenable.merge([panel, app.view]),
+            // И на само приложение: заголовок выбирают в настройках, и смена
+            // обязана дойти до обеих панелей сразу.
+            listenable: Listenable.merge([panel, app.view, app]),
             builder:
                 (context, _) => FcPathPlate(
-                  path: panel.headerText ?? (panel.currentPath.isEmpty ? '/' : panel.currentPath),
+                  path: _headerTextOf(panel),
+                  // Чем набрать адрес, решает объявивший заголовок модуль;
+                  // никто не объявил или имя чужое — путь строкой, как было
+                  // всегда (`docs/spec/panel-header.md`, §6).
+                  content: switch (app.panelHeaders.byId(app.panelHeader)) {
+                    final header? =>
+                      (context, width, style) => header.build(
+                        context,
+                        PanelHeaderView(panel: panel, text: _headerTextOf(panel), width: width, style: style),
+                      ),
+                    null => null,
+                  },
                   // «Назад» и «вперёд» — только у панели с файлами: у
                   // просмотрщика в этой же плашке истории нет
                   // (`docs/spec/session-history.md`, §9).
@@ -80,6 +93,13 @@ class PanelView extends StatelessWidget {
     );
   }
 }
+
+/// Что показывает плашка: заголовок, выставленный командой, иначе путь.
+///
+/// Решает это панель, а не заголовок: `headerText` главнее пути, и повторять
+/// это правило в каждом заголовке значит однажды повторить его неверно
+/// (`docs/spec/panel-header.md`, §3).
+String _headerTextOf(Session panel) => panel.headerText ?? (panel.currentPath.isEmpty ? '/' : panel.currentPath);
 
 /// Чем рисовать то, что в панели сейчас.
 ///

@@ -49,6 +49,7 @@ class UiSettings {
     this.window,
     this.sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
     this.sessionHistoryLimit = AppSettings.defaultSessionHistoryLimit,
+    this.panelHeader = '',
     this.reconnectAtStartup = false,
     this.dialogs = const {},
     this.modules = const {},
@@ -82,6 +83,9 @@ class UiSettings {
   /// правленная отсюда (`docs/spec/session-history.md`, §7).
   final int sessionHistoryLimit;
 
+  /// Чем показан адрес панели (`docs/spec/panel-header.md`, §6).
+  final String panelHeader;
+
   /// Подключаться ли при запуске к сохранённым удалённым источникам: настройка
   /// ядра, а правит её окно настроек — то есть эта сторона.
   final bool reconnectAtStartup;
@@ -112,6 +116,7 @@ class UiSettings {
     WindowGeometry? window,
     int? sizeScanConcurrency,
     int? sessionHistoryLimit,
+    String? panelHeader,
     bool? reconnectAtStartup,
     Map<String, DialogState>? dialogs,
     Map<String, dynamic>? modules,
@@ -123,6 +128,7 @@ class UiSettings {
     window: window ?? this.window,
     sizeScanConcurrency: sizeScanConcurrency ?? this.sizeScanConcurrency,
     sessionHistoryLimit: sessionHistoryLimit ?? this.sessionHistoryLimit,
+    panelHeader: panelHeader ?? this.panelHeader,
     reconnectAtStartup: reconnectAtStartup ?? this.reconnectAtStartup,
     dialogs: dialogs ?? this.dialogs,
     modules: modules ?? this.modules,
@@ -143,6 +149,7 @@ class UiSettings {
       other.window == window &&
       other.sizeScanConcurrency == sizeScanConcurrency &&
       other.sessionHistoryLimit == sessionHistoryLimit &&
+      other.panelHeader == panelHeader &&
       other.reconnectAtStartup == reconnectAtStartup &&
       _sameDialogs(other.dialogs) &&
       other.panels.length == panels.length &&

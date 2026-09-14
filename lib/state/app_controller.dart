@@ -844,6 +844,21 @@ class AppController extends ChangeNotifier implements Application {
     settingsChanged();
   }
 
+  /// Чем показан адрес панели; пусто — путь строкой.
+  @override
+  String get panelHeader => _initialSettings.panelHeader;
+
+  /// Сменить заголовок: панели перерисуются сами — они слушают приложение.
+  @override
+  void setPanelHeader(String value) {
+    if (_initialSettings.panelHeader == value) {
+      return;
+    }
+    _initialSettings.panelHeader = value;
+    settingsChanged();
+    notifyListeners();
+  }
+
   /// Предел истории переходов: сессии спрашивают его на каждый шаг, поэтому
   /// уменьшенный предел действует со следующего же перехода.
   @override
@@ -879,6 +894,7 @@ class AppController extends ChangeNotifier implements Application {
     window: _windowGeometry,
     sizeScanConcurrency: _initialSettings.sizeScanConcurrency,
     sessionHistoryLimit: _initialSettings.sessionHistoryLimit,
+    panelHeader: _initialSettings.panelHeader,
     reconnectAtStartup: _initialSettings.reconnectAtStartup,
     dialogs: _initialSettings.dialogs,
     modules: serialize(_initialSettings.modules) as Map<String, dynamic>,

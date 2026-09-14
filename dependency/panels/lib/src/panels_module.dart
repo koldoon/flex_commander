@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 
 import 'brief_view.dart';
 import 'columns.dart';
@@ -13,6 +14,12 @@ import 'tree_view.dart';
 import 'tree_view_options.dart';
 import 'view_commands.dart';
 import 'panel_view.dart';
+
+/// Имя нынешнего заголовка — пути одной строкой.
+///
+/// Здесь, а не у виджета: набирает его `FcPathText` из общего набора, а
+/// заголовком объявляет этот модуль (`docs/spec/panel-header.md`, §6).
+const String pathHeaderId = 'path';
 
 /// Файловые панели.
 ///
@@ -89,6 +96,18 @@ class Panels implements FcBackendModule, FcFrontendModule {
         // Колонки — панельные: у левой и правой они свои, и правит их та
         // панель, для которой окно открыли.
         options: (context, draft) => TableViewOptions(panel: draft.panel, draft: draft),
+      ),
+    );
+
+    // Нынешняя плашка — тоже заголовок, объявленный модулем: иначе в окне
+    // выбора её не из чего было бы выбрать, а «вернуть как было» — это тот же
+    // выбор (`docs/spec/panel-header.md`, §6).
+    registry.panelHeader(
+      PanelHeaderSpec(
+        id: pathHeaderId,
+        title: 'Path',
+        description: 'The whole address in one line',
+        build: (context, view) => FcPathText(text: view.text, width: view.width, style: view.style),
       ),
     );
 
@@ -241,6 +260,9 @@ const Map<String, String> _russian = {
   'Accessed': 'Открыт',
   'Attributes': 'Атрибуты',
   'Columns visible': 'Видимые колонки',
+  // «Path» уже переведён выше — колонка и заголовок зовутся одинаково, и
+  // перевод у них один.
+  'The whole address in one line': 'Весь адрес одной строкой',
 
   // Комбинированный вид.
   'Tree with contents': 'Дерево с содержимым',
