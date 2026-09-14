@@ -53,6 +53,30 @@ class PluginWindowService with WindowListener implements WindowService {
       await windowManager.show();
       await windowManager.focus();
     });
+
+    // Показанное окно проверяется и, если нужно, ставится ещё раз.
+    //
+    // До показа система вправе поставить окно по-своему: `setBounds` спрятанному
+    // окну она принимает молча и не применяет — положение из настроек так и не
+    // доезжало, окно вставало там, куда его определила система
+    // (поймано живьём 15 сентября 2026 трассировкой запуска).
+    if (geometry != null && !target.maximized) {
+      await _insist(geometry);
+    }
+  }
+
+  /// Поставить окно и убедиться, что оно встало.
+  ///
+  /// Одна попытка вдогонку, а не цикл: не вышло дважды — значит мешает
+  /// система (окно упёрлось в край экрана, монитор отключили), и спорить с ней
+  /// бесполезно.
+  Future<void> _insist(WindowGeometry geometry) async {
+    final wanted = Rect.fromLTWH(geometry.left, geometry.top, geometry.width, geometry.height);
+    final now = await windowManager.getBounds();
+    if ((now.left - wanted.left).abs() <= 1 && (now.top - wanted.top).abs() <= 1) {
+      return;
+    }
+    await windowManager.setBounds(wanted);
   }
 
   @override
