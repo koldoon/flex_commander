@@ -29,20 +29,27 @@ class PluginWindowService with WindowListener implements WindowService {
     );
 
     await windowManager.waitUntilReadyToShow(options, () async {
+      // Полоса заголовка убирается **до** того, как окно ставят на место.
+      // Системной полосы у нас нет: её место занимает содержимое, а двигают
+      // окно за полосу, которую рисует шелл. Светофор остаётся — закрытие,
+      // сворачивание и разворот привычнее системные, и своих кнопок для них
+      // заводить незачем.
+      //
+      // Порядок здесь — не вкусовщина. Скрытие полосы меняет рамку окна: оно
+      // оседает ровно на её высоту (32 точки), и поставленные до этого
+      // размеры перестают совпадать с тем, что потом вернёт `getBounds`.
+      // Разница уходила в настройки, и окно худело с каждым запуском —
+      // 632, 600, 568 (поймано живьём 14 сентября 2026).
+      //
+      // Стиль назначается, пока окно спрятано: сделай это позже — при запуске
+      // мелькнёт системная полоса.
+      await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: true);
       if (geometry != null) {
         await windowManager.setBounds(Rect.fromLTWH(geometry.left, geometry.top, geometry.width, geometry.height));
       }
       if (target.maximized) {
         await windowManager.maximize();
       }
-      // Системной полосы заголовка нет: её место занимает содержимое окна, а
-      // двигают окно за полосу, которую рисует шелл. Светофор остаётся —
-      // закрытие, сворачивание и разворот привычнее системные, и своих кнопок
-      // для них заводить незачем.
-      //
-      // Стиль назначается, пока окно спрятано: сделай это позже — при запуске
-      // мелькнёт системная полоса.
-      await windowManager.setTitleBarStyle(TitleBarStyle.hidden, windowButtonVisibility: true);
       await windowManager.show();
       await windowManager.focus();
     });
