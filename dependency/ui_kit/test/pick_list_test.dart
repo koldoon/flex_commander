@@ -108,6 +108,86 @@ void main() {
     });
   });
 
+  group('отклик на нажатие мышью', () {
+    const metrics = DefaultMetrics();
+    const colors = DefaultColors();
+
+    /// Список из трёх строк; курсор на первой.
+    Future<List<String>> pump(WidgetTester tester) async {
+      final taken = <String>[];
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            extensions: const [FcTheme(colors: colors, metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts())],
+          ),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: 600,
+                child: FcPickList(
+                  rows: [
+                    FcPickRow(id: 'one', title: 'One'),
+                    FcPickRow(id: 'two', title: 'Two'),
+                    FcPickRow(id: 'three', title: 'Three'),
+                  ],
+                  query: '',
+                  selected: 0,
+                  onTap: taken.add,
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return taken;
+    }
+
+    /// Строка с отметкой выбора — по её заливке.
+    String? markedRow(WidgetTester tester) {
+      for (var i = 0; i < 3; i++) {
+        final row = find.ancestor(of: find.text(['One', 'Two', 'Three'][i]), matching: find.byType(Container)).first;
+        if (tester.widget<Container>(row).color == colors.cursorBackground) {
+          return ['One', 'Two', 'Three'][i];
+        }
+      }
+      return null;
+    }
+
+    testWidgets('отметка переезжает на нажатую строку, а дело идёт по отпусканию', (tester) async {
+      final taken = await pump(tester);
+      expect(markedRow(tester), 'One', reason: 'курсор там, куда его поставили');
+
+      final press = await tester.startGesture(tester.getCenter(find.text('Three')));
+      await tester.pump();
+
+      // Кнопка ещё не отпущена: видно, на что попало нажатие, но ничего не
+      // случилось — как у кнопок окна.
+      expect(markedRow(tester), 'Three');
+      expect(taken, isEmpty);
+
+      await press.up();
+      await tester.pumpAndSettle();
+
+      expect(taken, ['three']);
+    });
+
+    testWidgets('увёл палец со строки — отметка вернулась, выбора нет', (tester) async {
+      final taken = await pump(tester);
+
+      final press = await tester.startGesture(tester.getCenter(find.text('Two')));
+      await tester.pump();
+      expect(markedRow(tester), 'Two');
+
+      await press.moveTo(const Offset(5, 5));
+      await press.up();
+      await tester.pumpAndSettle();
+
+      expect(taken, isEmpty, reason: 'жест ушёл со строки — он и не выбор');
+      expect(markedRow(tester), 'One', reason: 'отметка вернулась туда, где стоит курсор');
+    });
+  });
+
   group('путь двумя цветами', () {
     const metrics = DefaultMetrics();
     const colors = DefaultColors();

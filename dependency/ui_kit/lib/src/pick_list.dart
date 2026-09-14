@@ -270,6 +270,9 @@ class _FcPickListState extends State<FcPickList> {
     page.size = (_scroll.position.viewportDimension / (metrics.rowHeight + metrics.rowGap)).floor();
   }
 
+  /// Строка под нажатой кнопкой мыши; -1 — не нажата ни одна.
+  int _pressed = -1;
+
   void _showSelected() {
     if (!_scroll.hasClients || widget.selected < 0) {
       return;
@@ -315,13 +318,17 @@ class _FcPickListState extends State<FcPickList> {
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          for (var i = 0; i < widget.rows.length; i++) _row(context, theme, widget.rows[i], i == widget.selected),
+          for (var i = 0; i < widget.rows.length; i++)
+            // Нажатая строка и есть выбранная: палец опустился — отметка
+            // переехала, и видно, на что попало нажатие. Само же нажатие
+            // срабатывает на отпускании — как у кнопок.
+            _row(context, theme, widget.rows[i], i, i == (_pressed < 0 ? widget.selected : _pressed)),
         ],
       ),
     );
   }
 
-  Widget _row(BuildContext context, FcTheme theme, FcPickRow row, bool current) {
+  Widget _row(BuildContext context, FcTheme theme, FcPickRow row, int index, bool current) {
     final colors = theme.colors;
     final metrics = theme.metrics;
     // Яркое — имя, приглушённое — уточнение и примечание.
@@ -394,7 +401,15 @@ class _FcPickListState extends State<FcPickList> {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: () => widget.onTap(row.id),
+      // Отметка переезжает на нажатую строку сразу, а дело делается на
+      // отпускании: у списка под мышью не было отклика вовсе — он просто
+      // исчезал, и на чём именно сработало нажатие, человек не видел.
+      onTapDown: (_) => setState(() => _pressed = index),
+      onTapCancel: () => setState(() => _pressed = -1),
+      onTap: () {
+        setState(() => _pressed = -1);
+        widget.onTap(row.id);
+      },
       child: Container(
         height: metrics.rowHeight + metrics.rowGap,
         color: current && !byWeight ? colors.cursorBackground : null,
