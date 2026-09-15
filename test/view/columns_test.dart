@@ -450,11 +450,16 @@ void main() {
       await pumpApp(tester);
       await openViewDialog(tester);
 
-      Rect inDialog(String text) =>
-          tester.getRect(find.descendant(of: find.byType(TableViewOptions), matching: find.text(text)));
-      final title = inDialog('Columns visible');
-      final icon = inDialog('Icon');
-      final name = inDialog('Name');
+      // Подпись флажка ищем внутри самого флажка: то же слово стоит теперь и
+      // подписью формата — «Имя» есть и у колонки, и у формата владельца.
+      Rect checkbox(String text) =>
+          tester.getRect(find.descendant(of: find.byType(FcCheckbox), matching: find.text(text)).first);
+
+      final title = tester.getRect(
+        find.descendant(of: find.byType(TableViewOptions), matching: find.text('Columns visible')),
+      );
+      final icon = checkbox('Icon');
+      final name = checkbox('Name');
 
       // Подпись над столбцом, флажки под ней — и всё по одной левой границе,
       // той же, по которой отбито содержимое окна (список видов над ними).
@@ -462,6 +467,41 @@ void main() {
       expect(name.top, greaterThan(icon.top), reason: 'столбиком, а не в строку');
       expect(icon.top, greaterThan(title.top));
       expect(title.left, closeTo(view.left, 0.5));
+    });
+
+    testWidgets('формат колонки выбирают там же и применяют по «OK»', (tester) async {
+      await pumpApp(tester);
+      await openViewDialog(tester);
+
+      // Список форматов стоит у колонки, которая их объявила; у имени его нет.
+      final sizeFormat = find.byWidgetPredicate(
+        (widget) => widget is FcSelect<String> && widget.options.containsKey('bytes'),
+      );
+      expect(sizeFormat, findsOneWidget);
+
+      tester.widget<FcSelect<String>>(sizeFormat).onChanged!('bytes');
+      await tester.pumpAndSettle();
+      expect(app.left.columns.find(FsColumns.size)?.format, isNot('bytes'), reason: 'правки ждут «OK»');
+
+      await confirm(tester);
+
+      expect(app.left.columns.find(FsColumns.size)?.format, 'bytes');
+      expect(app.right.columns.find(FsColumns.size)?.format, isNot('bytes'), reason: 'формат панельный, как ширина');
+    });
+
+    testWidgets('формат переживает перезапуск', (tester) async {
+      await pumpApp(tester);
+      await openViewDialog(tester);
+
+      final sizeFormat = find.byWidgetPredicate(
+        (widget) => widget is FcSelect<String> && widget.options.containsKey('bytes'),
+      );
+      tester.widget<FcSelect<String>>(sizeFormat).onChanged!('bytes');
+      await tester.pumpAndSettle();
+      await confirm(tester);
+      await app.save();
+
+      expect(app.core!.settings!.left.columns.find(FsColumns.size)?.format, 'bytes');
     });
 
     testWidgets('колонки правой панели — свои', (tester) async {

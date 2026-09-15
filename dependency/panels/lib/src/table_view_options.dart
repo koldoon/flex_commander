@@ -37,6 +37,11 @@ class _TableViewOptionsState extends State<TableViewOptions> {
     widget.draft.onApply(() => widget.panel.setColumnLayout(_layout));
   }
 
+  void _setFormat(ColumnSpec column, String format) {
+    setState(() => _layout = _layout.setFormat(column.id, format));
+    widget.draft.onApply(() => widget.panel.setColumnLayout(_layout));
+  }
+
   @override
   Widget build(BuildContext context) => _form(context);
 
@@ -48,6 +53,7 @@ class _TableViewOptionsState extends State<TableViewOptions> {
 
   Widget _form(BuildContext context) {
     final strings = context.strings;
+    final theme = FcTheme.of(context);
     final layout = _layout;
 
     return FcForm(
@@ -58,13 +64,36 @@ class _TableViewOptionsState extends State<TableViewOptions> {
           label: strings.tr('Columns visible'),
           children: [
             for (final column in layout.columns)
-              FcCheckbox(
-                // У колонки значка заголовка нет — в шапке ему негде стоять, —
-                // но безымянный флажок в списке читался бы сбоем.
-                label: strings.tr(_titleOf(column)),
-                value: column.visible,
-                // Иконку и имя скрывать нельзя: без них строка нечитаема.
-                onChanged: column.pinned ? null : (_) => _toggle(column),
+              Row(
+                children: [
+                  // Флажок занимает всё, что осталось от списка: так списки
+                  // встают колонкой у правого края, а не лесенкой за подписями
+                  // разной длины.
+                  Expanded(
+                    child: FcCheckbox(
+                      // У колонки значка заголовка нет — в шапке ему негде
+                      // стоять, — но безымянный флажок в списке читался бы
+                      // сбоем.
+                      label: strings.tr(_titleOf(column)),
+                      value: column.visible,
+                      // Иконку и имя скрывать нельзя: без них строка нечитаема.
+                      onChanged: column.pinned ? null : (_) => _toggle(column),
+                    ),
+                  ),
+                  // Формат — там же, где видимость: всё про колонки в одном
+                  // месте (`docs/spec/column-formats.md`, §5). У колонки без
+                  // форматов списка нет вовсе — выбор из одного был бы обманом.
+                  if (column.formats.isNotEmpty) ...[
+                    SizedBox(width: theme.metrics.columnGap),
+                    FcSelect<String>(
+                      value: column.effectiveFormat,
+                      // Подписи форматов приходят значением — переводит их тот,
+                      // кто показывает.
+                      options: {for (final format in column.formats) format.id: strings.tr(format.title)},
+                      onChanged: (value) => _setFormat(column, value),
+                    ),
+                  ],
+                ],
               ),
           ],
         ),

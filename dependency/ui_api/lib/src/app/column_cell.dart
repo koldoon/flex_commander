@@ -4,8 +4,9 @@ import 'package:fc_api/fc_api.dart';
 
 /// Всё, что нужно знать ячейке колонки.
 ///
-/// Значением, а не списком доводов: формат вывода (роадмап, Б3) добавится сюда
-/// полем, и ни одна подпись объявления не поменяется.
+/// Значением, а не списком доводов: формат вывода добавился сюда полем, и ни
+/// одна подпись объявления от этого не поменялась
+/// (`docs/spec/column-formats.md`, §3).
 class ColumnCell {
   const ColumnCell({
     required this.entry,
@@ -13,10 +14,20 @@ class ColumnCell {
     this.naming = const ReferenceFileNaming(),
     this.selected = false,
     this.contentOf,
+    this.format = '',
   });
 
   /// Строка значением: узлы живут в ядре, а рисуют по эту сторону.
   final FileEntry entry;
+
+  /// Чем набирать значение — имя формата, выбранное для **этой** колонки; пусто
+  /// — умолчанием. Незнакомое имя колонка обязана понять как умолчание, а не
+  /// показать пустоту (`docs/spec/column-formats.md`, §3).
+  final String format;
+
+  /// Та же ячейка, но для колонки с этим форматом.
+  ColumnCell withFormat(String format) =>
+      ColumnCell(entry: entry, shown: shown, naming: naming, selected: selected, contentOf: contentOf, format: format);
 
   /// Колонки, показанные рядом: колонка имени смотрит, видна ли колонка
   /// расширения, — и только тогда отделяет расширение от имени.

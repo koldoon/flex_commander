@@ -73,9 +73,37 @@ abstract final class FsColumnSpecs {
 
   static const ColumnSpec ext = ColumnSpec(id: FsColumns.ext, title: 'Ext', width: 40, align: ColumnAlign.end);
 
-  static const ColumnSpec size = ColumnSpec(id: FsColumns.size, title: 'Size', width: 64, align: ColumnAlign.end);
+  /// Форматы дат — одни и те же у трёх колонок, а выбирают их порознь: «Изменён»
+  /// с временем и «Создан» без — законное желание
+  /// (`docs/spec/column-formats.md`, §4).
+  static const List<ColumnFormatSpec> dateFormats = [
+    ColumnFormatSpec('date', 'dd-mm-yyyy'),
+    ColumnFormatSpec('datetime', 'dd-mm-yyyy hh:mm'),
+    ColumnFormatSpec('iso', 'yyyy-mm-dd'),
+    ColumnFormatSpec('isotime', 'yyyy-mm-dd hh:mm'),
+  ];
+
+  /// Имя или число — у владельца и у группы.
+  static const List<ColumnFormatSpec> ownerFormats = [
+    ColumnFormatSpec('name', 'Name'),
+    ColumnFormatSpec('id', 'Number'),
+  ];
+
+  static const ColumnSpec size = ColumnSpec(
+    id: FsColumns.size,
+    title: 'Size',
+    width: 64,
+    align: ColumnAlign.end,
+    formats: [
+      ColumnFormatSpec('auto', 'Auto'),
+      ColumnFormatSpec('bytes', 'Bytes'),
+      ColumnFormatSpec('binary', 'KB, MB, GB'),
+      ColumnFormatSpec('decimal', 'kB, MB, GB'),
+    ],
+  );
 
   static const ColumnSpec modified = ColumnSpec(
+    formats: dateFormats,
     id: FsColumns.modified,
     title: 'Modified',
     width: 88,
@@ -83,6 +111,7 @@ abstract final class FsColumnSpecs {
   );
 
   static const ColumnSpec created = ColumnSpec(
+    formats: dateFormats,
     id: FsColumns.created,
     title: 'Created',
     width: 88,
@@ -91,6 +120,7 @@ abstract final class FsColumnSpecs {
   );
 
   static const ColumnSpec accessed = ColumnSpec(
+    formats: dateFormats,
     id: FsColumns.accessed,
     title: 'Accessed',
     width: 88,
@@ -103,14 +133,31 @@ abstract final class FsColumnSpecs {
     title: 'Attributes',
     width: 88,
     visible: false,
+    formats: [
+      ColumnFormatSpec('letters', 'rwxr-xr-x'),
+      ColumnFormatSpec('octal', '755'),
+      ColumnFormatSpec('both', 'rwxr-xr-x 755'),
+    ],
   );
 
   /// Кто хозяин объекта. Скрыта, как и права: в своём каталоге владелец у всех
   /// один, и спрашивают о нём тогда, когда что-то не открылось
   /// (`docs/spec/owner-columns.md`, §2).
-  static const ColumnSpec owner = ColumnSpec(id: FsColumns.owner, title: 'Owner', width: 96, visible: false);
+  static const ColumnSpec owner = ColumnSpec(
+    id: FsColumns.owner,
+    title: 'Owner',
+    width: 96,
+    visible: false,
+    formats: ownerFormats,
+  );
 
-  static const ColumnSpec group = ColumnSpec(id: FsColumns.group, title: 'Group', width: 96, visible: false);
+  static const ColumnSpec group = ColumnSpec(
+    id: FsColumns.group,
+    title: 'Group',
+    width: 96,
+    visible: false,
+    formats: ownerFormats,
+  );
 
   /// Порядок объявления — он же порядок колонок в новой панели.
   static const List<ColumnSpec> all = [
@@ -180,15 +227,34 @@ void installColumnCells(FrontendRegistry registry) {
   // Каталог объекта, а не его собственный путь: имя уже показано рядом.
   registry.column(FsColumnSpecs.path, text: (cell) => cell.entry.directoryPath);
   registry.column(FsColumnSpecs.ext, text: (cell) => _splits(cell) ? cell.naming.split(cell.entry.name).extension : '');
-  registry.column(FsColumnSpecs.size, text: (cell) => formatSize(cell.entry.size));
-  registry.column(FsColumnSpecs.modified, text: (cell) => formatDate(cell.entry.modified));
-  registry.column(FsColumnSpecs.created, text: (cell) => formatDate(cell.entry.created));
-  registry.column(FsColumnSpecs.accessed, text: (cell) => formatDate(cell.entry.accessed));
-  registry.column(FsColumnSpecs.attributes, text: (cell) => cell.entry.attributes.modeString);
+  registry.column(FsColumnSpecs.size, text: (cell) => formatSize(cell.entry.size, SizeFormat.byId(cell.format)));
+  registry.column(
+    FsColumnSpecs.modified,
+    text: (cell) => formatDate(cell.entry.modified, DateFormat.byId(cell.format)),
+  );
+  registry.column(FsColumnSpecs.created, text: (cell) => formatDate(cell.entry.created, DateFormat.byId(cell.format)));
+  registry.column(
+    FsColumnSpecs.accessed,
+    text: (cell) => formatDate(cell.entry.accessed, DateFormat.byId(cell.format)),
+  );
+  registry.column(
+    FsColumnSpecs.attributes,
+    text: (cell) => formatMode(cell.entry.attributes, ModeFormat.byId(cell.format)),
+  );
   // Имя, число или пусто — по тому, что известно источнику. Пустая ячейка
   // честнее выдуманной: у архива хозяина нет вовсе.
-  registry.column(FsColumnSpecs.owner, text: (cell) => cell.entry.attributes.ownerText);
-  registry.column(FsColumnSpecs.group, text: (cell) => cell.entry.attributes.groupText);
+  // Формат `id` не выдумывает числа там, где их нет, — он лишь запрещает
+  // подставлять имя там, где оно есть.
+  registry.column(
+    FsColumnSpecs.owner,
+    text:
+        (cell) => cell.format == 'id' ? (cell.entry.attributes.uid?.toString() ?? '') : cell.entry.attributes.ownerText,
+  );
+  registry.column(
+    FsColumnSpecs.group,
+    text:
+        (cell) => cell.format == 'id' ? (cell.entry.attributes.gid?.toString() ?? '') : cell.entry.attributes.groupText,
+  );
 }
 
 /// Имя делится на имя и расширение, только если колонка расширений видима.

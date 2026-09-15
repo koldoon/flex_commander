@@ -124,3 +124,48 @@ FileType fileTypeOfMode(int mode) => switch (mode & 0xF000) {
   0x8000 => FileType.regular,
   _ => FileType.unknown,
 };
+
+/// Как показать права в колонке (`docs/spec/column-formats.md`, §4).
+enum ModeFormat {
+  /// `drwxr-xr-x` — как в `ls`, и потому умолчание.
+  letters('letters'),
+
+  /// `755` — восьмеричное, как в `chmod`.
+  octal('octal'),
+
+  /// Оба разом: `drwxr-xr-x 755`.
+  both('both');
+
+  const ModeFormat(this.id);
+
+  final String id;
+
+  static ModeFormat byId(String id) {
+    for (final format in values) {
+      if (format.id == id) {
+        return format;
+      }
+    }
+    return letters;
+  }
+}
+
+/// Права объекта — буквами, числом или и тем и другим.
+///
+/// Одна функция на всё приложение: восьмеричное число считали окно сведений и
+/// окно атрибутов, каждое по-своему, — три места, считающие одно, однажды
+/// разойдутся.
+///
+/// [digits] — сколько разрядов у числа: три (`755`) в колонке и четыре (`0755`)
+/// там, где важны биты setuid и sticky.
+String formatMode(FileAttributes attributes, [ModeFormat format = ModeFormat.letters, int digits = 3]) {
+  if (attributes.modeString.isEmpty && attributes.mode == 0) {
+    return '';
+  }
+  final octal = (attributes.mode & 0xFFF).toRadixString(8).padLeft(digits, '0');
+  return switch (format) {
+    ModeFormat.letters => attributes.modeString,
+    ModeFormat.octal => octal,
+    ModeFormat.both => attributes.modeString.isEmpty ? octal : '${attributes.modeString} $octal',
+  };
+}

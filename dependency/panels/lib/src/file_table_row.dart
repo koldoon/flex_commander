@@ -109,10 +109,13 @@ class FileTableRow extends StatelessWidget {
     // Своя ячейка — там, где текста мало: значок типа объекта. Отступы у неё
     // свои: значок прижат к левому краю строки, а не к краю колонки.
     if (declared.builderOf(column.id) case final build?) {
-      return build(context, cell);
+      return build(context, cell.withFormat(column.effectiveFormat));
     }
 
-    final text = _hidesText(column) ? '' : declared.textOf(column.id)?.call(cell) ?? '';
+    // Формат — у колонки, а не у строки: «Изменён» с временем и «Создан» без —
+    // это две разные колонки одной строки (`docs/spec/column-formats.md`, §4).
+    final text =
+        _hidesText(column) ? '' : declared.textOf(column.id)?.call(cell.withFormat(column.effectiveFormat)) ?? '';
     if (text.isEmpty) {
       return const SizedBox.shrink();
     }

@@ -2,6 +2,20 @@ import '../serialization.dart';
 
 enum ColumnAlign { start, end }
 
+/// Один способ показать значение колонки: имя и подпись для человека.
+///
+/// Имя — строка, а не перечислимое: форматы объявляет та же сторона, что и
+/// колонку, и знать их наперёд некому — ровно как с именами самих колонок
+/// (`docs/spec/column-formats.md`, §3).
+class ColumnFormatSpec {
+  const ColumnFormatSpec(this.id, this.title);
+
+  final String id;
+
+  /// Подпись — по-английски, как всё в коде: это ключ перевода.
+  final String title;
+}
+
 /// Колонка панели: и объявление, и запись человеческого выбора.
 ///
 /// Два прочтения одного значения, и различать их важно.
@@ -30,6 +44,8 @@ class ColumnSpec {
     this.align = ColumnAlign.start,
     this.inLayout = true,
     this.ownWidth = false,
+    this.formats = const [],
+    this.format = '',
   });
 
   /// Имя колонки — в настройках, в протоколе и в справке.
@@ -85,7 +101,33 @@ class ColumnSpec {
   /// защищены отдельным правилом.
   final bool ownWidth;
 
-  ColumnSpec copyWith({double? width, bool? visible, bool? ownWidth}) => ColumnSpec(
+  /// Чем колонка умеет показывать значение; пусто — показывать нечем, кроме
+  /// одного способа (`docs/spec/column-formats.md`, §3).
+  ///
+  /// Первый в списке — умолчание: он и стоит, пока человек не выбрал своего.
+  final List<ColumnFormatSpec> formats;
+
+  /// Выбранный формат; пусто — умолчание.
+  ///
+  /// Незнакомое имя — тоже умолчание: формат мог прийти от модуля, которого в
+  /// этой сборке нет, а показать значение колонка обязана. Из настроек оно при
+  /// этом не стирается — как не стирается и сама колонка выключенного модуля.
+  final String format;
+
+  /// Формат, которым колонка и правда набирает значение.
+  String get effectiveFormat {
+    if (formats.isEmpty) {
+      return '';
+    }
+    for (final known in formats) {
+      if (known.id == format) {
+        return format;
+      }
+    }
+    return formats.first.id;
+  }
+
+  ColumnSpec copyWith({double? width, bool? visible, bool? ownWidth, String? format}) => ColumnSpec(
     id: id,
     title: title,
     width: width ?? this.width,
@@ -97,6 +139,8 @@ class ColumnSpec {
     align: align,
     inLayout: inLayout,
     ownWidth: ownWidth ?? this.ownWidth,
+    formats: formats,
+    format: format ?? this.format,
   );
 
   @override
@@ -164,6 +208,11 @@ class ColumnLayout {
     ]);
   }
 
+  /// Назначить колонке формат вывода (`docs/spec/column-formats.md`).
+  ColumnLayout setFormat(String id, String format) {
+    return ColumnLayout([for (final column in columns) column.id == id ? column.copyWith(format: format) : column]);
+  }
+
   ColumnLayout toggleVisible(String id) {
     return ColumnLayout([
       for (final column in columns)
@@ -208,12 +257,18 @@ class ColumnLayout {
   ///
   /// Ширина закреплённой колонки из раскладки не берётся никогда, ширина
   /// прочих — только если человек её и правда менял ([ColumnSpec.ownWidth]).
+  ///
+  /// Формат берётся как есть, даже незнакомый: показывать колонка будет
+  /// умолчанием ([ColumnSpec.effectiveFormat]), а запись уцелеет — формат мог
+  /// прийти от модуля, которого в этой сборке нет
+  /// (`docs/spec/column-formats.md`, §3).
   static ColumnSpec _apply(ColumnSpec spec, ColumnSpec? saved, Set<String> extra) {
     final visible = extra.contains(spec.id) || (spec.pinned ? true : saved?.visible ?? spec.visible);
+    final format = saved?.format ?? '';
     if (saved == null || spec.pinned || !saved.ownWidth) {
-      return spec.copyWith(visible: visible);
+      return spec.copyWith(visible: visible, format: format);
     }
-    return spec.copyWith(width: saved.width, visible: visible, ownWidth: true);
+    return spec.copyWith(width: saved.width, visible: visible, ownWidth: true, format: format);
   }
 
   /// Эта раскладка, поверх которой легло то, что вернул экран.
@@ -241,7 +296,14 @@ class ColumnLayout {
   /// правки оформления до пользователя не дошли бы.
   List<Map<String, Object?>> toJson() => [
     for (final column in columns)
-      {'id': column.id, if (!column.pinned && column.ownWidth) 'width': column.width, 'visible': column.visible},
+      {
+        'id': column.id,
+        if (!column.pinned && column.ownWidth) 'width': column.width,
+        'visible': column.visible,
+        // Только выбранный: пустой ключ значил бы «человек выбрал умолчание»,
+        // а он его не выбирал.
+        if (column.format.isNotEmpty) 'format': column.format,
+      },
   ];
 
   /// Восстановление раскладки из настроек.
@@ -265,7 +327,13 @@ class ColumnLayout {
       }
       final width = item['width'];
       restored.add(
-        ColumnSpec(id: id, width: extract(0.0, width), visible: extract(true, item['visible']), ownWidth: width is num),
+        ColumnSpec(
+          id: id,
+          width: extract(0.0, width),
+          visible: extract(true, item['visible']),
+          ownWidth: width is num,
+          format: extract('', item['format']),
+        ),
       );
     }
     return ColumnLayout(restored);
