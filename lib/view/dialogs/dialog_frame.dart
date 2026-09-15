@@ -30,6 +30,7 @@ class DialogFrame extends StatefulWidget {
     this.takesFocus = false,
     this.area = DialogArea.window,
     this.ownWidth = false,
+    this.hugsContent = false,
     this.id,
     this.resizable = false,
   });
@@ -59,6 +60,9 @@ class DialogFrame extends StatefulWidget {
   /// Окно назначает ширину само — верхний предел рамы к нему не применяется
   /// (`DialogSpec.ownWidth`).
   final bool ownWidth;
+
+  /// Облегает ли окно над панелью своё содержимое (`DialogSpec.hugsContent`).
+  final bool hugsContent;
 
   final Widget child;
 
@@ -501,13 +505,23 @@ class _DialogFrameState extends State<DialogFrame> {
                 child: ConstrainedBox(
                   constraints: BoxConstraints(
                     minWidth: metrics.dialogMinWidth,
-                    maxWidth: widget.ownWidth || fitted != null ? double.infinity : metrics.dialogMaxWidth,
+                    // Облегающее окно держится **в своей области**: расти в
+                    // соседнюю ему незачем — содержимое у него стоит на месте,
+                    // и раз оно не влезло, лишнее уступит само.
+                    maxWidth:
+                        widget.hugsContent && areaWidth.isFinite
+                            ? areaWidth
+                            : widget.ownWidth || fitted != null
+                            ? double.infinity
+                            : metrics.dialogMaxWidth,
                   ),
                   child: _withHandles(
                     metrics,
                     fitted,
                     DialogWidth(
-                      width: fitted?.width ?? areaWidth,
+                      // Облегающее окно меряет себя само — в пределах области
+                      // (`DialogSpec.hugsContent`).
+                      width: fitted?.width ?? (widget.hugsContent ? double.infinity : areaWidth),
                       child: Container(
                         key: _window,
                         // Высота задана — значит задана: без этого окно

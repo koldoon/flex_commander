@@ -142,6 +142,46 @@ void main() {
     expect(wide.left, moreOrLessEquals(inset, epsilon: 0.5));
   });
 
+  group('окно, облегающее содержимое', () {
+    testWidgets('узкое содержимое — узкое окно, а не панель целиком', (tester) async {
+      // Правило «ширину назначает панель» защищает от дрожания там, где имена
+      // файлов бегут. Где содержимое стоит на месте, оно только разводит
+      // связанные вещи по краям (`docs/spec/dialog-placement.md`, §3).
+      await start(tester);
+      runtime.app.view.showDialog(
+        // Содержимое узкое и своей ширины не назначает: окно обязано облечь
+        // именно его.
+        const DialogSpec(
+          title: 'Panel view',
+          area: DialogArea(end: 0.5),
+          hugsContent: true,
+          content: SizedBox(width: 120, height: 40),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final inset = metrics(tester).dialogAreaInset;
+      expect(window(tester).width, lessThan(width / 2 - inset * 2));
+    });
+
+    testWidgets('широкое содержимое не выходит за свою панель', (tester) async {
+      await start(tester);
+      runtime.app.view.showDialog(
+        DialogSpec(
+          title: 'Panel view',
+          area: const DialogArea(end: 0.5),
+          hugsContent: true,
+          content: SizedBox(width: width * 2, height: 40),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Шире области оно не станет: соседняя панель — не его место.
+      final inset = metrics(tester).dialogAreaInset;
+      expect(window(tester).width, moreOrLessEquals(width / 2 - inset * 2, epsilon: 0.5));
+    });
+  });
+
   testWidgets('над правой панелью всё зеркально', (tester) async {
     await start(tester);
     await showWide(tester, const DialogArea(start: 0.5));

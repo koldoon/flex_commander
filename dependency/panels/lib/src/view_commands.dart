@@ -158,6 +158,11 @@ class ChoosePanelViewCommand extends AppCommand {
         title: label,
         takesFocus: true,
         area: areaOf(context),
+        // Облегает содержимое: у этого окна оно стоит на месте — список видов и
+        // столбец колонок не меняют ширины, — а растянутое во всю панель оно
+        // разводило бы связанные вещи по краям
+        // (`docs/spec/dialog-placement.md`, §3).
+        hugsContent: true,
         content: _ViewPicker(state: state),
         // `Enter` разбирает рама окна — как и во всех окнах приложения; здесь
         // он значит «показать выбранное».
