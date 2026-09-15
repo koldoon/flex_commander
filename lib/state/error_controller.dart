@@ -28,8 +28,11 @@ class ErrorController extends ChangeNotifier implements Errors {
   /// Куда копировать отчёт. null — копировать некуда (тесты без службы).
   final ClipboardService? clipboard;
 
-  /// Версия приложения для отчёта.
-  final String? version;
+  /// Версия приложения для отчёта; пусто — приложение её не знает.
+  ///
+  /// Замыканием, а не строкой: ловушки ошибок ставятся до запуска, а о своей
+  /// сборке приложение узнаёт уже в нём.
+  final String Function()? version;
 
   /// Что дописывается в отчёт про машину и сборку.
   final Map<String, String> environment;
@@ -124,7 +127,10 @@ class ErrorController extends ChangeNotifier implements Errors {
       return false;
     }
 
-    await clipboard.writeText(report.toReport(environment: {if (version != null) 'Version': version!, ...environment}));
+    final version = this.version?.call() ?? '';
+    await clipboard.writeText(
+      report.toReport(environment: {if (version.isNotEmpty) 'Version': version, ...environment}),
+    );
     return true;
   }
 }

@@ -17,7 +17,7 @@ void main() {
     clipboard = FakeClipboard();
     errors = ErrorController(
       clipboard: clipboard,
-      version: '1.2.3',
+      version: () => '1.2.3',
       // Окружение задаётся, а не берётся у машины: иначе тест зависел бы от
       // того, где его запустили.
       environment: const {'Platform': 'test'},

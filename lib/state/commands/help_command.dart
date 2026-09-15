@@ -62,7 +62,27 @@ class HelpCommand extends AppCommand {
     );
   }
 
-  List<FcTableSection> _sections(CommandContext context) => [_settings(context), ..._commands(context)];
+  List<FcTableSection> _sections(CommandContext context) => [
+    _about(context),
+    _settings(context),
+    ..._commands(context),
+  ];
+
+  /// О самой сборке — первой строкой справки.
+  ///
+  /// Это первое, о чём спрашивают в разговоре о поломке, и до сих пор ответа на
+  /// это в приложении не было вовсе (`docs/spec/build-info.md`). Сборка, не
+  /// знающая своей версии, так и говорит — вранья про `1.0.0` тут не нужно.
+  FcTableSection _about(CommandContext context) {
+    final build = context.app.build;
+    return FcTableSection(tr('Application'), [
+      FcTableRow(
+        tr('Version'),
+        build.isKnown ? build.describe(buildWord: tr('build')) : tr('unknown — this build is not a release'),
+      ),
+      if (build.architecture.isNotEmpty) FcTableRow(tr('Processor'), build.architecture),
+    ]);
+  }
 
   /// Настройки — то, что приложение помнит между запусками.
   FcTableSection _settings(CommandContext context) {

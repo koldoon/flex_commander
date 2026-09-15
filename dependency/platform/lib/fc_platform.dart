@@ -28,5 +28,6 @@ export 'src/plugin_window_service.dart';
 export 'src/posix_pty.dart';
 export 'src/system_clipboard.dart';
 export 'src/system_errors.dart';
+export 'src/build_info_channel.dart';
 export 'src/system_open.dart';
 export 'src/system_pty.dart';

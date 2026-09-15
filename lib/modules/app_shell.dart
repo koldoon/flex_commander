@@ -462,6 +462,11 @@ const Map<String, String> _russian = {
   'Empty name follows the directory': 'Пустое имя — по каталогу',
 
   // Справка.
+  'Application': 'Приложение',
+  'Version': 'Версия',
+  'build': 'сборка',
+  'unknown — this build is not a release': 'неизвестна — это не выпуск',
+  'Processor': 'Процессор',
   'Left panel': 'Левая панель',
   'Right panel': 'Правая панель',
   'Active panel': 'Активная панель',

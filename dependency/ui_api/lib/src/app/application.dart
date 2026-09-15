@@ -245,6 +245,13 @@ abstract interface class Application implements Listenable {
 
   void setPanelHeader(String value);
 
+  /// Что приложение знает о своей сборке: версия, номер, место, процессор.
+  ///
+  /// Спрашивается один раз при запуске и дальше не меняется. До ответа — и в
+  /// сборке не из бандла — `BuildInfo.unknown`: приложение обязано работать и
+  /// не зная своей версии (`docs/spec/build-info.md`).
+  BuildInfo get build;
+
   /// Последняя известная геометрия окна.
   WindowGeometry? get windowGeometry;
 

@@ -109,6 +109,12 @@ Future<AppRuntime> testApp({
   /// Буфер обмена, если тесту нужно посмотреть, что в него положили.
   FakeClipboard? clipboard,
 
+  /// Что приложение знает о своей сборке; null — не знает ничего.
+  ///
+  /// Настоящий канал отвечает только из бандла, а проверке нужна назначенная
+  /// версия (`docs/spec/build-info.md`).
+  BuildInfo? build,
+
   /// Сколько висит всплывающее сообщение: тесту про сами сообщения нужно
   /// подольше, остальным — чтобы таймер не пережил проверку.
   Duration? toastDuration,
@@ -157,6 +163,9 @@ Future<AppRuntime> testApp({
       rightProvider: rightProvider,
       store: settingsStore,
       window: window ?? FakeWindowService(),
+      // Сведения о сборке: назначенные тестом или «ничего не знаю» — настоящий
+      // канал отвечает только из бандла, и в прогоне его звать нельзя.
+      buildInfo: () async => build ?? BuildInfo.unknown,
       // Отложенная запись настроек не должна пережить тест: таймер, оставшийся
       // висеть после окна, роняет виджет-тест — и правильно делает.
       saveDelay: const Duration(milliseconds: 5),

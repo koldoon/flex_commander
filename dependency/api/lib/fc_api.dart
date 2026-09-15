@@ -12,6 +12,7 @@
 library;
 
 // --- Значения границы ---
+export 'src/values/build_info.dart';
 export 'src/values/file_attributes.dart';
 export 'src/values/file_type.dart';
 export 'src/values/fs_error.dart';

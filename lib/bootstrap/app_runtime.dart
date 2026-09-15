@@ -20,6 +20,7 @@ class AppOverrides {
     this.toastDuration,
     this.language,
     this.door,
+    this.buildInfo,
   });
 
   final TreeProvider? provider;
@@ -32,6 +33,12 @@ class AppOverrides {
   final TreeProvider? rightProvider;
   final SettingsStore? store;
   final WindowService? window;
+
+  /// Чем прочитать сведения о сборке; null — платформенным каналом.
+  ///
+  /// Подставляется в проверках: настоящий канал отвечает только из бандла, а
+  /// проверке нужна назначенная версия (`docs/spec/build-info.md`).
+  final Future<BuildInfo> Function()? buildInfo;
 
   /// Через сколько после изменения настройки уходят в хранилище.
   ///

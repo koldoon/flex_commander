@@ -1,5 +1,6 @@
 import 'package:dicom/dicom.dart';
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:logecom/logecom.dart';
 
@@ -230,6 +231,10 @@ class UiContainer extends DI {
       to:
           (c) => ErrorController(
             clipboard: c.get<ClipboardService>(),
+            // Замыканием, а не значением: ловушки ставятся до запуска, а о
+            // себе приложение узнаёт в нём. Отчёт без версии начинается с
+            // вопроса «а на чём вы это видели?» (`docs/spec/build-info.md`).
+            version: () => c.get<AppController>().build.describe(),
             onLog:
                 (report) =>
                     Logecom.createLogger('App').error(report.context ?? 'Unhandled', [report.error, report.stack]),
@@ -277,6 +282,10 @@ class UiContainer extends DI {
           viewports: c.get<PanelViewports>(),
           panelViews: c.get<PanelViews>(),
           panelHeaders: c.get<PanelHeaders>(),
+          // Сведения о сборке спрашивает платформа: версия лежит в
+          // `Info.plist`, и из Flutter её не видно
+          // (`docs/spec/build-info.md`).
+          buildInfo: overrides.buildInfo ?? const BuildInfoChannel().read,
           columns: c.get<PanelColumns>(),
           // Списком, а не службой: складывать и упорядочивать — вся работа
           // оболочки с просмотрщиками. Кто возьмётся за файл, спрашивает она.

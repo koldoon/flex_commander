@@ -37,6 +37,7 @@ class AppController extends ChangeNotifier implements Application {
     PanelViewports? viewports,
     PanelViews? panelViews,
     PanelHeaders? panelHeaders,
+    Future<BuildInfo> Function()? buildInfo,
     PanelColumns? columns,
     List<ViewerSpec> viewers = const [],
     List<NodeInfoProvider> nodeInfoProviders = const [],
@@ -73,6 +74,7 @@ class AppController extends ChangeNotifier implements Application {
        // Ни одного заголовка — панель показывает путь строкой: так собирают
        // приложение без модуля панелей, и это не ошибка.
        panelHeaders = panelHeaders ?? PanelHeaderRegistry(),
+       _buildInfo = buildInfo,
        columns = columns ?? const NoPanelColumns(),
        // По убыванию приоритета — один раз при сборке: спрашивают этот список
        // на каждое открытие файла, а меняться ему больше негде.
@@ -661,6 +663,11 @@ class AppController extends ChangeNotifier implements Application {
     // система. Геометрию мы уже знаем — она приехала рукопожатием при сборке.
     await _restoreWindow();
 
+    // О себе спрашиваем здесь, а не при сборке: канал раннера к тому времени
+    // ещё не готов. Ответ нужен справке и отчёту об ошибке, поэтому ждём его —
+    // вне бандла он приходит сразу, без всякого канала.
+    _build = await _buildInfo?.call() ?? BuildInfo.unknown;
+
     await door.call(const StartCore());
     if (await door.call(const Handshake()) case final CoreReady ready) {
       _splitRatio = ready.ui.splitRatio;
@@ -671,6 +678,15 @@ class AppController extends ChangeNotifier implements Application {
 
     activate(_activePanel == 1 ? right : left);
   }
+
+  /// Чем прочитать сведения о сборке; null — читать нечем (подставка в тесте).
+  final Future<BuildInfo> Function()? _buildInfo;
+
+  BuildInfo _build = BuildInfo.unknown;
+
+  /// Что приложение знает о своей сборке.
+  @override
+  BuildInfo get build => _build;
 
   /// Поставить окно туда, где его оставили, и только после этого слушать его.
   ///

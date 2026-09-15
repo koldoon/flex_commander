@@ -62,8 +62,8 @@ class Updates implements FcFrontendModule {
 
     registry.command((context) => CheckForUpdatesCommand(updates: updates));
 
-    // При запуске: спросить раннера о себе, убрать отложенную сборку и, если
-    // пора, сходить на GitHub.
+    // При запуске: взять у приложения сведения о себе, убрать отложенную
+    // сборку и, если пора, сходить на GitHub.
     registry.startup((context) => _PrepareUpdatesCommand(build: build, updates: updates));
 
     registry.settingsSchema(() {
@@ -111,9 +111,10 @@ class _PrepareUpdatesCommand extends AppCommand {
 
   @override
   Future<void> execute(CommandContext context) async {
-    // Сведения о себе спрашиваются здесь, а не при сборке модуля: канал раннера
-    // к тому времени ещё не готов.
-    await build.load();
+    // Сведения о себе берём у приложения: оно спросило платформу при запуске, а
+    // второй раз спрашивать нечего — между запросами они не меняются
+    // (`docs/spec/build-info.md`).
+    await build.load(known: context.app.build);
 
     // Сборка, не знающая своей версии, обновляться не умеет: канала раннера
     // нет — значит нет и бандла. Так живут проверки и `flutter run`, и ходить
