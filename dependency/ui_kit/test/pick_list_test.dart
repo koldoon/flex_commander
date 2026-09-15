@@ -188,6 +188,58 @@ void main() {
     });
   });
 
+  group('номер слева и знак справа', () {
+    const metrics = DefaultMetrics();
+    const colors = DefaultColors();
+    const badgeKey = Key('badge');
+
+    Future<void> pump(WidgetTester tester, FcPickRow row) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            extensions: const [FcTheme(colors: colors, metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts())],
+          ),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(width: 600, child: FcPickList(rows: [row], query: '', selected: 0, onTap: (_) {})),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('номер стоит слева от имени и не спорит с ним за место', (tester) async {
+      await pump(tester, FcPickRow(id: 'one', title: 'Desktop', leading: '2'));
+
+      final number = tester.getRect(find.text('2'));
+      final title = tester.getRect(find.textContaining('Desktop', findRichText: true));
+
+      expect(number.right, lessThanOrEqualTo(title.left + 0.5), reason: 'номер в поле слева, текст под полем ввода');
+    });
+
+    testWidgets('знак справа рисуется вместо приписки', (tester) async {
+      await pump(tester, const FcPickRow(id: 'one', title: 'Desktop', badge: SizedBox(key: badgeKey, width: 10)));
+
+      expect(find.byKey(badgeKey), findsOneWidget);
+    });
+
+    test('место одно: приписка и знак вместе не уживаются', () {
+      // Утверждением, а не молчаливым выбором: строка, у которой справа два
+      // жильца, — это ошибка вызывающего, и узнать о ней надо сразу.
+      expect(
+        () => FcPickRow(id: 'one', title: 'Desktop', trailing: 'Alt-1', badge: const SizedBox()),
+        throwsA(isA<AssertionError>()),
+      );
+      expect(
+        // Без `const`: у постоянного значения утверждение проверяет компилятор,
+        // и до прогона дело не доходит вовсе.
+        () => FcPickRow(id: 'one', title: 'Desktop', leading: '2', marked: true),
+        throwsA(isA<AssertionError>()),
+      );
+    });
+  });
+
   group('путь двумя цветами', () {
     const metrics = DefaultMetrics();
     const colors = DefaultColors();

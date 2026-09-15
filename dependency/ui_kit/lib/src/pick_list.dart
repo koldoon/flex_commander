@@ -18,9 +18,12 @@ class FcPickRow {
     required this.title,
     this.subtitle = '',
     this.trailing = '',
+    this.leading = '',
+    this.badge,
     this.keywords = const [],
     this.marked = false,
-  });
+  }) : assert(trailing == '' || badge == null, 'справа либо приписка, либо знак: место одно'),
+       assert(leading == '' || !marked, 'слева либо метка, либо значок: место одно');
 
   /// Чем строка отзовётся, когда её выберут.
   final String id;
@@ -42,6 +45,23 @@ class FcPickRow {
   /// «Mk Tar», название модуля у любой команды палитры. У истории адресов их
   /// нет — там ищут по самому пути.
   final List<String> keywords;
+
+  /// Приглушённая метка в поле слева: номер клавиши у записи.
+  ///
+  /// Там же, где значок [marked], и вместо него: место одно. Колонкой её не
+  /// делают — колонка сдвинула бы текст, и список перестал бы стоять под полем
+  /// ввода.
+  ///
+  /// Частью имени номер не делают тем более: цифра участвовала бы в отборе
+  /// (запрос `1` выдавал бы всё подряд) и подсвечивалась бы наравне с буквами,
+  /// а приглушить её было бы нечем (`docs/spec/panel-sessions.md`, §3).
+  final String leading;
+
+  /// Знак справа вместо приписки: мини-пара панелей у наборов.
+  ///
+  /// Виджетом, а не строкой: знак, который человек уже выучил в другом месте,
+  /// пересказывать словами значит завести второй язык для того же сведения.
+  final Widget? badge;
 
   /// Строка помечена значком слева: «вот эта».
   ///
@@ -430,6 +450,23 @@ class _FcPickListState extends State<FcPickList> {
                 bottom: 0,
                 child: Center(child: Icon(theme.icons.angleRight, size: metrics.fontSize, color: bright.color)),
               ),
+            // Номер — там же и приглушённо: он подсказка, а не часть имени.
+            // Ширина в букву даёт ровную колонку цифр и то же место, что у
+            // значка.
+            if (row.leading.isNotEmpty)
+              Positioned(
+                left: ((inset - metrics.fontSize) / 2).clamp(0, inset),
+                top: 0,
+                bottom: 0,
+                child: SizedBox(
+                  width: metrics.fontSize,
+                  child: Center(
+                    // Приглушением строки, а не общим `dim`: под курсором тот
+                    // тонет в подсветке — та же беда, что у начала пути.
+                    child: Text(row.leading, maxLines: 1, style: dimPath),
+                  ),
+                ),
+              ),
             Padding(
               padding: EdgeInsets.symmetric(horizontal: inset),
               child: Align(
@@ -462,7 +499,10 @@ class _FcPickListState extends State<FcPickList> {
                                 if (row.subtitle.isNotEmpty) TextSpan(text: '   ${row.subtitle}', style: dim),
                               ]),
                     ),
-                    if (row.trailing.isNotEmpty) ...[
+                    if (row.badge case final badge?) ...[
+                      SizedBox(width: metrics.columnGap),
+                      badge,
+                    ] else if (row.trailing.isNotEmpty) ...[
                       SizedBox(width: metrics.columnGap),
                       Text(
                         row.trailing,
