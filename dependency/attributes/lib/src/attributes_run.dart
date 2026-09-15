@@ -63,9 +63,12 @@ class AttributesRun extends FcAsyncRun {
   bool get hasDirectory => targets.any((entry) => entry.isDirectory);
 
   /// Что показывать в восьмеричном поле; пусто — биты расходятся.
+  ///
+  /// Тем же правилом, что и колонка прав, и окно сведений: три места, считающие
+  /// одно, однажды разойдутся (`docs/spec/column-formats.md`, §6).
   String get octalText {
     final value = mode.octal;
-    return value == null ? '' : value.toRadixString(8).padLeft(4, '0');
+    return value == null ? '' : octalMode(value, digits: 4);
   }
 
   /// Расширенные атрибуты объекта с учётом того, что с ними сделали.

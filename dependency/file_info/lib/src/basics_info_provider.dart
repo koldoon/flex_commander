@@ -76,7 +76,9 @@ class BasicsInfoProvider implements NodeInfoProvider {
     }
     return [
       NodeInfoRow(strings.tr('Permissions'), attributes.modeString),
-      if (attributes.mode != 0) NodeInfoRow(strings.tr('Mode'), attributes.mode.toRadixString(8).padLeft(4, '0')),
+      // Тем же правилом, что и колонка прав: биты типа объекта в права не
+      // входят (`docs/spec/column-formats.md`, §6).
+      if (attributes.mode != 0) NodeInfoRow(strings.tr('Mode'), formatMode(attributes, ModeFormat.octal, 4)),
       // Владелец — там же, где права: вопрос «почему не открылось» у них общий.
       // Имя, число или ничего — по тому, что известно источнику
       // (`docs/spec/owner-columns.md`, §2).

@@ -162,10 +162,17 @@ String formatMode(FileAttributes attributes, [ModeFormat format = ModeFormat.let
   if (attributes.modeString.isEmpty && attributes.mode == 0) {
     return '';
   }
-  final octal = (attributes.mode & 0xFFF).toRadixString(8).padLeft(digits, '0');
+  final octal = octalMode(attributes.mode, digits: digits);
   return switch (format) {
     ModeFormat.letters => attributes.modeString,
     ModeFormat.octal => octal,
     ModeFormat.both => attributes.modeString.isEmpty ? octal : '${attributes.modeString} $octal',
   };
 }
+
+/// Режим доступа восьмеричным числом: `755`, `0644`.
+///
+/// Биты типа объекта отброшены: `0o100644` — это файл с правами `644`, и
+/// показывать «100644» значит показывать не права. [digits] — сколько разрядов
+/// печатать: три в колонке, четыре там, где важны setuid, setgid и sticky.
+String octalMode(int mode, {int digits = 3}) => (mode & 0xFFF).toRadixString(8).padLeft(digits, '0');
