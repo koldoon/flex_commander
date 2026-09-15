@@ -6,6 +6,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ssh/fc_ssh.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -451,6 +452,58 @@ void main() {
     expect(panel.entries.map((node) => node.name), contains('guide.txt'));
     // И круг замыкается: показанное совпадает с тем, что открывали.
     expect(session.directory?.displayPath, shown);
+  });
+
+  test('правка файла на сервере сохраняется', () async {
+    // Сохранение называет цель **путём** (`ssh://user@host/…`), и разбирает
+    // его корень дерева, а не панель. Отказ на чужой схеме в начале не давал
+    // редактору дойти до сервера вовсе (`docs/spec/address-targets.md`).
+    final provider = await connect();
+    if (provider == null) {
+      markTestSkipped('$hostSpec не пускает по ключу');
+      return;
+    }
+
+    final dir = await workDirectory(provider);
+    final sink = await provider.openWrite(dir, 'notes.txt', length: 8);
+    await sink.addStream(Stream<List<int>>.value(utf8.encode('раз\n')));
+    await sink.close();
+
+    await connection!.close();
+    connection = null;
+
+    final runtime = await testApp(
+      provider: InMemoryTreeProvider([FakeEntry.directory('/home')])..home = '/home',
+      modules: featureModules(),
+    );
+    await runtime.app.start();
+
+    final panel = runtime.app.left;
+    expect(await panel.openPath('ssh://$hostSpec${remote(dir)}'), isTrue);
+
+    panel.setCursorToName('notes.txt');
+    // Команды по именам: модуль редактора тянуть в зависимости этого пакета
+    // незачем, а идентификатор — тот же самый договор, что и клавиша.
+    await (runtime.commands.create('file.edit')!).executeWith();
+    await pumpEventQueue();
+
+    final screen = runtime.app.view.contentAt(ViewportPosition.fullscreen);
+    expect(screen, isNotNull, reason: 'редактор должен был открыться');
+    (screen! as dynamic).controller.text = 'раз\nдва\n';
+
+    await (runtime.commands.create('editor.save')!).executeWith();
+    runtime.app.view.dialogs.single.onSubmit!();
+    // Запись идёт по сети, и сколько очередь ни крути, сервер отвечает
+    // столько, сколько отвечает.
+    await waitUntil(() => runtime.app.view.dialogs.isEmpty);
+
+    expect(runtime.app.view.dialogs, isEmpty, reason: 'осталось бы окно с ошибкой');
+
+    // Проверяем с другой стороны: своим соединением, а не тем, которым писали.
+    final again = await connect();
+    final saved = await again!.resolvePath().run(remote(dir, 'notes.txt'));
+    final read = await again.openRead(saved!);
+    expect(utf8.decode(await read.expand((chunk) => chunk).toList()), 'раз\nдва\n');
   });
 
   test('чего нет — того нет, а закрытое закрыто', () async {

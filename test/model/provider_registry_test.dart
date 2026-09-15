@@ -239,6 +239,126 @@ void main() {
     });
   });
 
+  group('источник по адресу как начало пути', () {
+    late List<InMemoryAddressProvider> servers;
+
+    /// Реестр с сервером: `tsh://` монтируется адресом, как `ssh://`.
+    ProviderRegistry withServer() {
+      servers = [];
+      return ProviderRegistry(root: disk)
+        ..register(
+          'arc',
+          () =>
+              TaskOperation<FsNode, TreeProvider>((op, host) async => InMemoryArchiveProvider(archiveEntries(), host)),
+          extensions: {'arc'},
+        )
+        ..registerAddress('tsh', () {
+          return TaskOperation<Uri, TreeProvider>((op, address) async {
+            final server = InMemoryAddressProvider(
+              address: address,
+              entries: [
+                FakeEntry.directory('/etc'),
+                FakeEntry.file('/etc/daemon.json', content: [1, 2]),
+                FakeEntry.file('/a.arc', content: [0]),
+              ],
+            );
+            servers.add(server);
+            return server;
+          });
+        });
+    }
+
+    test('путь целиком разбирается, хотя корень — локальная ФС', () async {
+      // Работа, которой цель названа путём, приходит со стороны: она не знает и
+      // не должна знать, стоит ли сейчас панель на этом сервере.
+      final registry = withServer();
+
+      final resolved = await registry.resolveDisplayPath().run(
+        ResolvePathParams('tsh://tester@example.org/etc/daemon.json'),
+      );
+
+      expect(resolved.node?.name, 'daemon.json');
+      expect(resolved.node?.provider, isA<InMemoryAddressProvider>());
+      await resolved.release();
+    });
+
+    test('машинный разбор — тем же правилом', () async {
+      final registry = withServer();
+
+      final resolved = await registry.resolvePath().run(ResolvePathParams('tsh://tester@example.org/etc/daemon.json'));
+
+      expect(resolved.node?.name, 'daemon.json');
+      await resolved.release();
+    });
+
+    test('уже открытый сервер берётся, а не подключается второй', () async {
+      final registry = withServer();
+      final panel = await registry.acquireAddress().run(Uri.parse('tsh://tester@example.org/etc'));
+
+      final resolved = await registry.resolveDisplayPath().run(
+        ResolvePathParams('tsh://tester@example.org/etc/daemon.json'),
+      );
+
+      // Второе подключение разошлось бы с первым состоянием — и спросило бы
+      // пароль посреди сохранения.
+      expect(resolved.node?.provider, same(panel.provider));
+      expect(servers, hasLength(1));
+
+      await resolved.release();
+      expect(servers.single.closed, isFalse, reason: 'панель всё ещё стоит на сервере');
+      await panel.release();
+      expect(servers.single.closed, isTrue);
+    });
+
+    test('подключились ради пути — аренда уезжает наружу', () async {
+      final registry = withServer();
+
+      final resolved = await registry.resolveDisplayPath().run(
+        ResolvePathParams('tsh://tester@example.org/etc/daemon.json'),
+      );
+
+      expect(resolved.lease, isNotNull, reason: 'отпускать соединение больше некому');
+      expect(servers.single.closed, isFalse);
+      await resolved.release();
+      expect(servers.single.closed, isTrue);
+    });
+
+    test('пути на сервере нет — соединение не остаётся висеть', () async {
+      final registry = withServer();
+
+      final resolved = await registry.resolveDisplayPath().run(
+        ResolvePathParams('tsh://tester@example.org/etc/missing.json'),
+      );
+
+      expect(resolved.node, isNull);
+      expect(servers.single.closed, isTrue);
+    });
+
+    test('архив на сервере разбирается показанным путём', () async {
+      final registry = withServer();
+
+      final resolved = await registry.resolveDisplayPath().run(
+        ResolvePathParams('tsh://tester@example.org/a.arc/inner/doc.txt'),
+      );
+
+      expect(resolved.node?.name, 'doc.txt');
+      expect(resolved.node?.provider, isA<InMemoryArchiveProvider>());
+      // Внутренняя аренда держит внешнюю: сервер закрывается вместе с архивом,
+      // а не раньше него.
+      await resolved.release();
+      expect(servers.single.closed, isTrue);
+    });
+
+    test('незнакомая схема — по-прежнему отказ', () async {
+      final registry = withServer();
+
+      await expectLater(
+        registry.resolveDisplayPath().run(ResolvePathParams('mem://alpha/etc')),
+        throwsA(isA<FsError>().having((error) => error.kind, 'kind', FsErrorKind.notSupported)),
+      );
+    });
+  });
+
   group('аренда смонтированного', () {
     test('второй арендатор получает тот же экземпляр', () async {
       final host = await nodeAt('/home/archive.arc');

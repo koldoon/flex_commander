@@ -371,23 +371,19 @@ class ProviderRegistry {
   Operation<ResolvePathParams, ResolvedNode> resolvePath() {
     return TaskOperation<ResolvePathParams, ResolvedNode>((op, params) async {
       final path = params.path;
-      final start = params.from ?? root;
       final chain = NodePath.parse(path);
-      // Первая часть адресует корень: `fs` в ней — это «схемы не было вовсе»,
-      // её подставляет разбор строки. Чужая схема в начале означает **другой**
-      // корень, и открывает его не разбор пути, а тот, кому решать, на чём
-      // стоять, — панель (`PanelController.openPath`).
       final first = chain.parts.first;
-      if (first.scheme != start.scheme && first.scheme != NodePath.defaultScheme) {
-        throw FsError(path, FsErrorKind.notSupported);
-      }
+      final begin = await _startAt(op, first, params.from ?? root, path);
+      final start = begin.provider;
 
-      FsNode? node = await op.delegate(start.resolvePath(), _expandHome(first.path, start));
-      op.checkCanceled();
-
-      // Аренда самого глубокого звена: она же держит все внешние.
-      ProviderLease? lease;
+      // Аренда самого глубокого звена: она же держит все внешние. Подключение
+      // ради чужой схемы — первое из них.
+      ProviderLease? lease = begin.lease;
+      FsNode? node;
       try {
+        node = await op.delegate(start.resolvePath(), _expandHome(first.path, start));
+        op.checkCanceled();
+
         for (final part in chain.parts.skip(1)) {
           if (node == null) {
             break;
@@ -440,16 +436,68 @@ class ProviderRegistry {
       }
 
       final path = params.path;
-      final start = params.from ?? root;
       final first = chain.parts.first;
-      // То же правило, что и в [resolvePath]: чужая схема в начале — это другой
-      // корень, и открывает его не разбор пути.
-      if (first.scheme != start.scheme && first.scheme != NodePath.defaultScheme) {
-        throw FsError(path, FsErrorKind.notSupported);
+      final begin = await _startAt(op, first, params.from ?? root, path);
+      final start = begin.provider;
+      final lease = begin.lease;
+
+      if (lease == null) {
+        return _resolveMounting(start, _expandHome(first.path, start), op);
       }
 
-      return _resolveMounting(start, _expandHome(first.path, start), op);
+      try {
+        final resolved = await _resolveMounting(start, _expandHome(first.path, start), op);
+        if (resolved.node == null) {
+          // Подключались ради пути, которого там нет: держать соединение
+          // больше некому.
+          await lease.release();
+          return const ResolvedNode.none();
+        }
+        if (resolved.lease != null) {
+          // Внутри смонтировали архив: он держит наш корень сам, и вторая
+          // аренда на него лишняя — то же правило, что в [_resolveMounting].
+          await lease.release();
+          return resolved;
+        }
+        return ResolvedNode(resolved.node, lease);
+      } on Object {
+        await lease.release();
+        rethrow;
+      }
     });
+  }
+
+  /// Корень, с которого начинать разбор, — и аренда, если ради него
+  /// подключались.
+  ///
+  /// Первая часть пути адресует корень: `fs` в ней — это «схемы не было
+  /// вовсе», её подставляет разбор строки. Чужая схема означает **другой**
+  /// корень — источник по адресу, — и разбор его открывает: путь, названный
+  /// целиком, обязан разбираться независимо от того, стоит ли сейчас панель на
+  /// этом сервере (`docs/spec/address-targets.md`).
+  ///
+  /// Второго подключения при этом не возникает: ключ монтирования — схема и
+  /// `user@host:port`, и панель, уже открывшая этот сервер, отдаёт своё
+  /// соединение. Незнакомая схема — отказ: источника правда нет.
+  Future<_Start> _startAt(
+    TaskOperation<Object?, Object?> op,
+    NodePathPart first,
+    TreeProvider start,
+    String path,
+  ) async {
+    if (first.scheme == start.scheme || first.scheme == NodePath.defaultScheme) {
+      return _Start(start, null);
+    }
+    if (!knowsAddress(first.scheme)) {
+      throw FsError(path, FsErrorKind.notSupported);
+    }
+    final address = Uri.tryParse('${first.scheme}:${first.path}');
+    if (address == null) {
+      throw FsError(path, FsErrorKind.invalidAddress);
+    }
+    final lease = await op.delegate(acquireAddress(), address);
+    op.checkCanceled();
+    return _Start(lease.provider, lease);
   }
 
   /// Разбирает путь внутри [provider], монтируя то, что встретится по дороге.
@@ -587,6 +635,14 @@ class _MountKey {
 
   @override
   String toString() => '$scheme over $host';
+}
+
+/// Начало разбора: корень и аренда на него, если ради пути подключались.
+class _Start {
+  const _Start(this.provider, this.lease);
+
+  final TreeProvider provider;
+  final ProviderLease? lease;
 }
 
 /// Запись таблицы: одно смонтированное и все, кто его держит.

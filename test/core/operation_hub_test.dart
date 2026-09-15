@@ -53,6 +53,20 @@ void main() {
       FakeEntry.file('/home/report.txt', size: 20),
     ])..home = '/home';
     registry = ProviderRegistry(root: provider);
+    // Сервер, как `ssh://`: цель работы на нём называется путём целиком, и
+    // разбирать этот путь ядру приходится самому.
+    registry.registerAddress(
+      'tsh',
+      () => TaskOperation<Uri, TreeProvider>(
+        (op, address) async => InMemoryAddressProvider(
+          address: address,
+          entries: [
+            FakeEntry.directory('/etc'),
+            FakeEntry.file('/etc/daemon.json', content: [1, 2]),
+          ],
+        ),
+      ),
+    );
 
     core = CoreServer(
       left: sessionFor('/home'),
@@ -84,6 +98,32 @@ void main() {
     await operation.run(const OperationSpec(kind: 'test.probe', targets: Targets.marked(PanelId.left)));
 
     expect(seen, contains('Работаю над 2'), reason: 'цели развернуло ядро — по имени набора');
+    expect(operation.state, OperationState.complete);
+  });
+
+  test('цель, названная путём, разворачивается корнем дерева', () async {
+    final operation = RemoteOperation(link);
+    final seen = <String>[];
+    operation.status.addListener(() => seen.add(operation.status.message));
+
+    await operation.run(const OperationSpec(kind: 'test.probe', targets: Targets.paths(['/home/notes.txt'])));
+
+    expect(seen, contains('Работаю над 1'));
+  });
+
+  test('цель на сервере — тоже путь, и он разбирается', () async {
+    // Сохранение в редакторе называет цель путём: `ssh://…/etc/docker/daemon.json`.
+    // Разбор отказывал на чужой схеме, и до источника дело не доходило вовсе
+    // (`docs/spec/address-targets.md`).
+    final operation = RemoteOperation(link);
+    final seen = <String>[];
+    operation.status.addListener(() => seen.add(operation.status.message));
+
+    await operation.run(
+      const OperationSpec(kind: 'test.probe', targets: Targets.paths(['tsh://tester@example.org/etc/daemon.json'])),
+    );
+
+    expect(seen, contains('Работаю над 1'));
     expect(operation.state, OperationState.complete);
   });
 
