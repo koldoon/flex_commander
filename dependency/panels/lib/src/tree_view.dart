@@ -765,7 +765,11 @@ class _BranchRow extends StatelessWidget {
                                 padding: EdgeInsets.only(right: metrics.cellPadding),
                                 child: Transform.translate(
                                   offset: Offset(0, metrics.rowTextVerticalNudge),
-                                  child: Text(row.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: style),
+                                  // Своей раскладкой: имя занимает всё, что
+                                  // осталось от знака, значка и колонки
+                                  // размера, — а считать это семью слагаемыми
+                                  // было бы хрупко.
+                                  child: FcTrimmedText(text: row.name, style: style),
                                 ),
                               ),
                             ),

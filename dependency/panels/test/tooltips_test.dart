@@ -81,6 +81,16 @@ void main() {
     await disposeScreen(tester);
   });
 
+  testWidgets('дерево: имя ветви договаривается, а размер молчит', (tester) async {
+    await open(tester, view: TreeView.viewId);
+
+    expect(tester.widget<FcTooltip>(tipOf(long).first).message, long);
+    // Число не режется: колонка размера своей ширины, и в ней всё помещается.
+    expect(tipOf('40'), findsNothing);
+
+    await disposeScreen(tester);
+  });
+
   testWidgets('краткий вид: имя договаривается тем же', (tester) async {
     await open(tester, view: BriefView.viewId);
 
