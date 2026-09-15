@@ -53,15 +53,7 @@ FsNode nodeFromEntry(SftpEntry entry, FsNode parent, TreeProvider provider, {Fil
 
 /// Девять символов прав из режима доступа: «rwxr-xr-x».
 ///
-/// Пишется здесь, а не берётся из API: `FileAttributes.fromMode` ждёт уже
-/// готовую строку, а `dart:io` с его `FileStat.modeString` над чужой машиной не
-/// работает — режим приезжает числом по протоколу.
-String permissionsOf(int mode) {
-  const letters = 'rwxrwxrwx';
-  final buffer = StringBuffer();
-  for (var i = 0; i < letters.length; i++) {
-    // Старший из девяти битов — чтение владельцем (0400).
-    buffer.write(mode & (1 << (letters.length - 1 - i)) != 0 ? letters[i] : '-');
-  }
-  return buffer.toString();
-}
+/// Общее правило (`permissionsOfMode` в `fc_api`): режим приезжает числом и от
+/// сервера, и от своего `stat`, и из архива — разбирать его по-разному значит
+/// однажды показать один и тот же файл двумя способами.
+String permissionsOf(int mode) => permissionsOfMode(mode);

@@ -46,6 +46,40 @@ class LocalStat {
 
   final _StatDart _stat;
 
+  /// Всё, что нужно строке списка: режим, размер, времена и числа владельца.
+  ///
+  /// Одним вызовом, а не двумя: `dart:io` зовёт `stat(2)` ради `FileStat`, но
+  /// чисел владельца оттуда не отдаёт — они в структуре есть, а в `FileStat`
+  /// их нет. Свой вызов приносит и то и другое разом, и системных вызовов
+  /// остаётся ровно столько же (`docs/spec/owner-columns.md`, §3).
+  ///
+  /// Время — в секундах эпохи, как его и хранит система. Наносекунды рядом с
+  /// ними мы не читаем: в списке их всё равно не показывают.
+  LocalStatInfo? readOf(String path) {
+    final native = path.toNativeUtf8();
+    final buffer = calloc<Uint8>(256);
+    try {
+      if (_stat(native, buffer.cast()) != 0) {
+        return null;
+      }
+      final stat = buffer.cast<_Stat>().ref;
+      return LocalStatInfo(
+        mode: stat.mode,
+        uid: stat.uid,
+        gid: stat.gid,
+        size: stat.size,
+        accessed: _timeOf(stat.accessedSeconds),
+        modified: _timeOf(stat.modifiedSeconds),
+        changed: _timeOf(stat.changedSeconds),
+      );
+    } finally {
+      calloc.free(buffer);
+      calloc.free(native);
+    }
+  }
+
+  static DateTime _timeOf(int seconds) => DateTime.fromMillisecondsSinceEpoch(seconds * 1000);
+
   /// Числа владельца и группы; null — объекта нет или спросить не вышло.
   ({int uid, int gid})? ownerOf(String path) {
     final native = path.toNativeUtf8();
@@ -88,6 +122,65 @@ final class _Stat extends Struct {
 
   @Uint32()
   external int gid;
+
+  /// `st_rdev` и выравнивание за ним: сами по себе не нужны, но без них
+  /// поехали бы все поля дальше — структура читается по смещениям.
+  @Int32()
+  external int rdev;
+
+  // ignore: unused_field
+  @Int32()
+  external int padding;
+
+  @Int64()
+  external int accessedSeconds;
+
+  @Int64()
+  external int accessedNanoseconds;
+
+  @Int64()
+  external int modifiedSeconds;
+
+  @Int64()
+  external int modifiedNanoseconds;
+
+  @Int64()
+  external int changedSeconds;
+
+  @Int64()
+  external int changedNanoseconds;
+
+  @Int64()
+  external int bornSeconds;
+
+  @Int64()
+  external int bornNanoseconds;
+
+  @Int64()
+  external int size;
+}
+
+/// Что рассказала о файле система.
+class LocalStatInfo {
+  const LocalStatInfo({
+    required this.mode,
+    required this.uid,
+    required this.gid,
+    required this.size,
+    required this.accessed,
+    required this.modified,
+    required this.changed,
+  });
+
+  final int mode;
+  final int uid;
+  final int gid;
+  final int size;
+  final DateTime accessed;
+  final DateTime modified;
+
+  /// Когда менялись сами атрибуты — то же, что `FileStat.changed`.
+  final DateTime changed;
 }
 
 typedef _StatNative = Int32 Function(Pointer<Utf8> path, Pointer<_Stat> out);

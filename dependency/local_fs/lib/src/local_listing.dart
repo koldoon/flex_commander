@@ -22,6 +22,10 @@ class RawEntry {
     this.changed,
     this.mode = 0,
     this.modeString = '',
+    this.uid,
+    this.gid,
+    this.owner = '',
+    this.group = '',
     this.linkTarget,
     this.linkTargetType,
     this.broken = false,
@@ -29,6 +33,15 @@ class RawEntry {
 
   final String name;
   final FileType fileType;
+
+  /// Числа владельца и группы; null — своего `stat` здесь нет
+  /// (`docs/spec/owner-columns.md`, §3).
+  final int? uid;
+  final int? gid;
+
+  /// Имена владельца и группы; пусто — система их не назвала.
+  final String owner;
+  final String group;
   final int size;
   final DateTime? modified;
   final DateTime? accessed;
@@ -100,6 +113,38 @@ List<RawEntry> readDirectoryBlocking(String path, {bool includeHidden = false}) 
   return entries;
 }
 
+/// Запись из своего `stat`: режим, размер, времена и владелец разом.
+RawEntry _fromOwnStat(
+  FileSystemEntity entity,
+  String name,
+  LocalStatInfo stat, {
+  required bool isLink,
+  required String? linkTarget,
+}) {
+  final statType = fileTypeOfMode(stat.mode);
+  final fileType = isLink ? FileType.symbolicLink : statType;
+  final users = LocalUsers.instance;
+
+  return RawEntry(
+    name: name,
+    fileType: fileType,
+    size: statType == FileType.directory ? -1 : stat.size,
+    modified: stat.modified,
+    accessed: stat.accessed,
+    changed: stat.changed,
+    mode: stat.mode,
+    modeString: '${fileType.attributeChar}${permissionsOfMode(stat.mode)}',
+    // Имена — по числам, а не по файлу: в каталоге из тысяч записей чисел
+    // два-три, и словарь их помнит (`LocalUsers`).
+    uid: stat.uid,
+    gid: stat.gid,
+    owner: users?.userName(stat.uid) ?? '',
+    group: users?.groupName(stat.gid) ?? '',
+    linkTarget: linkTarget,
+    linkTargetType: isLink ? statType : null,
+  );
+}
+
 RawEntry _describeBlocking(FileSystemEntity entity, String name) {
   String? linkTarget;
   FileType? linkTargetType;
@@ -111,6 +156,14 @@ RawEntry _describeBlocking(FileSystemEntity entity, String name) {
     } on FileSystemException {
       linkTarget = '';
     }
+  }
+
+  // Своим `stat` там, где он есть: `dart:io` зовёт тот же вызов, но чисел
+  // владельца из него не отдаёт, и второй вызов ради них удвоил бы их число на
+  // каждую запись каталога (`docs/spec/owner-columns.md`, §3).
+  final own = LocalStat.instance?.readOf(entity.path);
+  if (own != null) {
+    return _fromOwnStat(entity, name, own, isLink: isLink, linkTarget: linkTarget);
   }
 
   FileStat stat;

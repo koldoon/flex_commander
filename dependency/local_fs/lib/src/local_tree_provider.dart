@@ -717,7 +717,14 @@ class LocalTreeProvider
     final attributes =
         entry.modeString.isEmpty
             ? const FileAttributes.unknown()
-            : FileAttributes(mode: entry.mode, modeString: entry.modeString);
+            : FileAttributes(
+              mode: entry.mode,
+              modeString: entry.modeString,
+              uid: entry.uid,
+              gid: entry.gid,
+              owner: entry.owner,
+              group: entry.group,
+            );
 
     return switch (entry.fileType) {
       FileType.symbolicLink => LinkNode(

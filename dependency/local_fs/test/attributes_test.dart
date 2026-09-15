@@ -152,4 +152,21 @@ void main() {
       await expectLater(provider.carryMode(from: from, to: to), completes);
     });
   });
+
+  group('владелец в строке списка', () {
+    test('запись каталога знает числа и имена владельца', () async {
+      // Раньше строка списка везла только режим доступа, и показать владельца
+      // колонкой было нечем (`docs/spec/owner-columns.md`, §3).
+      await node('notes.txt');
+      final dir = (await provider.resolvePath().run(temp.path))! as DirectoryNode;
+      final children = await provider.listChildren(dir);
+      final entry = children.firstWhere((child) => child.name == 'notes.txt') as FileNode;
+
+      final me = Process.runSync('id', ['-un']).stdout.toString().trim();
+      expect(entry.attributes.uid, isNotNull);
+      expect(entry.attributes.owner, me);
+      expect(entry.attributes.ownerText, me);
+      expect(entry.attributes.group, isNotEmpty);
+    });
+  });
 }
