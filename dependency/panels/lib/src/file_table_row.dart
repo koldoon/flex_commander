@@ -82,7 +82,7 @@ class FileTableRow extends StatelessWidget {
                 child: Row(
                   children: [
                     for (var i = 0; i < columns.length; i++)
-                      SizedBox(width: widths[i], child: _cell(context, theme, declared, cell, columns[i])),
+                      SizedBox(width: widths[i], child: _cell(context, theme, declared, cell, columns[i], widths[i])),
                   ],
                 ),
               ),
@@ -103,7 +103,14 @@ class FileTableRow extends StatelessWidget {
     );
   }
 
-  Widget _cell(BuildContext context, FcTheme theme, PanelColumns declared, ColumnCell cell, ColumnSpec column) {
+  Widget _cell(
+    BuildContext context,
+    FcTheme theme,
+    PanelColumns declared,
+    ColumnCell cell,
+    ColumnSpec column,
+    double width,
+  ) {
     final metrics = theme.metrics;
 
     // Своя ячейка — там, где текста мало: значок типа объекта. Отступы у неё
@@ -127,10 +134,12 @@ class FileTableRow extends StatelessWidget {
         // Текст опущен относительно иконки — см. `FcMetrics.textVerticalNudge`.
         child: Transform.translate(
           offset: Offset(0, metrics.rowTextVerticalNudge),
-          child: Text(
-            text,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          // Ширина числом, а не своей раскладкой: список ленивый, и отдельная
+          // раскладка на каждую ячейку отняла бы дешевизну постоянной высоты
+          // строки (`docs/widgets.md`, §4). Поля ячейки известны здесь же.
+          child: FcTrimmedText(
+            text: text,
+            width: width - metrics.cellPadding * 2,
             textAlign: column.align == ColumnAlign.end ? TextAlign.right : TextAlign.left,
             style: _styleFor(theme, column),
           ),
