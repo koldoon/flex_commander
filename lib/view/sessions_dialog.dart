@@ -224,6 +224,9 @@ class _SessionsDialogFormState extends State<SessionsDialogForm> {
                       maxHeight: (theme.metrics.rowHeight + theme.metrics.rowGap) * _visibleRows,
                     ),
                     child: FcPickList(
+                      // Путь режется слева и с сохранённым корнем: имя читается
+                      // с начала, а у пути важны корень и конец (§3).
+                      trimSubtitleHead: true,
                       rows: state.shown,
                       query: state.query,
                       selected: state.selected,

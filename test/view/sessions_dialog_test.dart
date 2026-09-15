@@ -23,6 +23,9 @@ void main() {
             FakeEntry.directory('/home/docs'),
             FakeEntry.directory('/work'),
             FakeEntry.directory('/work/reports'),
+            FakeEntry.directory('/work/qwickserve-flex-applications'),
+            FakeEntry.directory('/work/qwickserve-flex-applications/generated-sources'),
+            FakeEntry.directory('/work/qwickserve-flex-applications/generated-sources/dist'),
           ]),
           modules: featureModules(),
           settings: AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home/docs')),
@@ -177,6 +180,25 @@ void main() {
 
     expect(find.byType(SessionsDialogForm), findsOneWidget, reason: 'закрывать в пустоту — терять набранное');
     expect(identical(app.panelAt(ViewportPosition.left), was), isTrue);
+  });
+
+  testWidgets('длинный путь режется слева, и корень виден', (tester) async {
+    // Хвостовое многоточие теряло и корень, и тот каталог, о котором речь
+    // (поймано живьём).
+    await pumpApp(tester);
+    await addSession(tester, path: '/work/qwickserve-flex-applications/generated-sources/dist', name: 'сборка');
+
+    await openDialog(tester);
+    await type(tester, 'сбор');
+
+    // Не первый попавшийся: слева от имени своим отрезком стоит номер.
+    final row = tester
+        .widgetList<RichText>(find.descendant(of: find.byType(FcPickList), matching: find.byType(RichText)))
+        .map((text) => text.text.toPlainText())
+        .firstWhere((text) => text.startsWith('сборка'));
+
+    expect(row, contains('/…'), reason: 'корень остаётся: по нему видно, о каком диске речь');
+    expect(row, endsWith('dist'), reason: 'в конце тот каталог, о котором речь');
   });
 
   testWidgets('Esc закрывает окно, ничего не меняя', (tester) async {

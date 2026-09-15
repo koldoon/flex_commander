@@ -72,6 +72,9 @@ class FcPickRow {
   final bool marked;
 }
 
+/// Просвет между именем и уточнением.
+const String _subtitleGap = '   ';
+
 /// Сколько строк помещается в обзоре списка; от этого считается шаг
 /// `PgUp`/`PgDn`.
 ///
@@ -107,6 +110,7 @@ class FcPickList extends StatefulWidget {
     this.page,
     this.mark = FcPickMark.cursor,
     this.trimHead = false,
+    this.trimSubtitleHead = false,
     this.dimPathHead = false,
   });
 
@@ -141,6 +145,14 @@ class FcPickList extends StatefulWidget {
   /// режется так же, как в плашке пути (`trimTextHead`). Обычные списки
   /// (палитра, маски) режут хвост: у команды важнее начало имени.
   final bool trimHead;
+
+  /// Уточнение — путь: обрезать **его** слева, а не строку целиком.
+  ///
+  /// Там, где имя и путь стоят в одной строке (список наборов), режется именно
+  /// путь: имя короткое и читается с начала, а путь длинный, и в нём важны
+  /// корень и конец. Обычным хвостовым многоточием путь терял бы и то, и
+  /// другое (`docs/spec/panel-sessions.md`, §3).
+  final bool trimSubtitleHead;
 
   /// В пути ярко набрано **последнее звено**, остальное приглушено.
   ///
@@ -492,11 +504,30 @@ class _FcPickListState extends State<FcPickList> {
                                   return title(pathSpans(shown, hits));
                                 },
                               )
+                              : widget.trimSubtitleHead && row.subtitle.isNotEmpty
+                              ? LayoutBuilder(
+                                builder: (context, constraints) {
+                                  final scaler = MediaQuery.textScalerOf(context);
+                                  // Имя берёт своё, а путь — то, что осталось:
+                                  // режется он, а не строка целиком.
+                                  final free =
+                                      constraints.maxWidth -
+                                      textWidthOf(row.title, bright, scaler) -
+                                      textWidthOf(_subtitleGap, dim, scaler);
+                                  return title([
+                                    ...pathSpans(row.title, match?.labelHits ?? const []),
+                                    TextSpan(
+                                      text: '$_subtitleGap${trimTextHead(row.subtitle, dim, free, scaler)}',
+                                      style: dim,
+                                    ),
+                                  ]);
+                                },
+                              )
                               : title([
                                 ...pathSpans(row.title, match?.labelHits ?? const []),
                                 // Уточнение без подсветки: по нему не ищут, и
                                 // подсвечивать в нём нечего.
-                                if (row.subtitle.isNotEmpty) TextSpan(text: '   ${row.subtitle}', style: dim),
+                                if (row.subtitle.isNotEmpty) TextSpan(text: '$_subtitleGap${row.subtitle}', style: dim),
                               ]),
                     ),
                     if (row.badge case final badge?) ...[

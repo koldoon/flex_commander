@@ -33,21 +33,14 @@ List<PathCrumb> crumbsOf(String address) {
     return const [];
   }
 
-  final scheme = text.indexOf('://');
-  final String root;
-  final String rest;
-  if (scheme >= 0) {
-    final afterScheme = scheme + 3;
-    final slash = text.indexOf('/', afterScheme);
-    root = slash < 0 ? text : text.substring(0, slash);
-    rest = slash < 0 ? '' : text.substring(slash + 1);
-  } else if (text.startsWith('/')) {
-    root = '/';
-    rest = text.substring(1);
-  } else {
+  // Корень — общим правилом: им же начинается обрезанный путь в плашке и в
+  // списках (`trimTextHead`), и разойтись им негде.
+  final root = pathRootOf(text);
+  if (root.isEmpty) {
     // Ни схемы, ни корня — это не путь.
     return const [];
   }
+  final rest = text.substring(root.length).replaceFirst(RegExp('^/'), '');
 
   final crumbs = [PathCrumb(root, root)];
   var walked = root;
