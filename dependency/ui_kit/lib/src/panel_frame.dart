@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'fc_theme.dart';
 import 'fc_tooltip.dart';
 import 'text_trim.dart';
+import 'trimmed_text.dart';
 
 /// Внешний край окна, к которому прижата панель.
 ///
@@ -152,8 +153,20 @@ class FcPathPlate extends StatelessWidget {
 /// Отдельным виджетом, а не встройкой в плашку: тем же набран заголовок `path`,
 /// объявленный модулем панелей, — а два способа показать одно и то же однажды
 /// разойдутся (`docs/spec/panel-header.md`, §3).
+///
+/// Внутри — [FcTrimmedText] с обрезкой слева: правило одно на всё приложение,
+/// и путь, обрезанный здесь, обрезан так же, как в списке и в крошках. Имя
+/// оставлено своё: на него ссылаются три спецификации, и переименовывать их
+/// ради внутренней перестановки незачем.
 class FcPathText extends StatelessWidget {
-  const FcPathText({super.key, required this.text, required this.style, this.width, this.textAlign = TextAlign.start});
+  const FcPathText({
+    super.key,
+    required this.text,
+    required this.style,
+    this.width,
+    this.textAlign = TextAlign.start,
+    this.hugged = false,
+  });
 
   final String text;
 
@@ -168,27 +181,20 @@ class FcPathText extends StatelessWidget {
 
   final TextAlign textAlign;
 
+  /// Окно облегает содержимое — мерить нечем и незачем ([FcTrimmedText.hugged]).
+  final bool hugged;
+
   @override
   Widget build(BuildContext context) {
-    if (width case final width?) {
-      return _text(context, width);
-    }
-    // Своей раскладкой: обрезка идёт по доступной ширине, а её до раскладки не
-    // знает никто. Безопасно везде, кроме содержимого окон команд, которое рама
-    // меряет интринсиками (`docs/spec/dialog-body.md`), — там ширину называют
-    // числом.
-    return LayoutBuilder(builder: (context, constraints) => _text(context, constraints.maxWidth));
-  }
-
-  Widget _text(BuildContext context, double width) {
     // Сдвига, как в строках списка, здесь нет: он нужен моноширинному шрифту, а
     // путь набран Ubuntu — у него базовая линия обычная.
-    return Text(
-      trimTextHead(text, style, width, MediaQuery.textScalerOf(context)),
-      maxLines: 1,
-      softWrap: false,
-      textAlign: textAlign,
+    return FcTrimmedText(
+      text: text,
       style: style,
+      width: width,
+      side: FcTrimSide.head,
+      textAlign: textAlign,
+      hugged: hugged,
     );
   }
 }

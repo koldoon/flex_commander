@@ -40,8 +40,24 @@ class FcTooltip extends StatefulWidget {
   /// линейками, а задержку линейкой не измерить (`docs/spec/tooltips.md`, §4).
   static const Duration delay = Duration(milliseconds: 600);
 
+  /// Есть ли подсказка выше по дереву.
+  ///
+  /// Спрашивает [FcTrimmedText]: договаривать дважды одно и то же не нужно, а
+  /// вложенные подсказки всплывали бы обе — наведение приходит всем, кто под
+  /// курсором. Право старшего: плашка пути говорит о всей плашке (и о крошках,
+  /// которые роняют звенья), а текст внутри неё — только о себе.
+  static bool above(BuildContext context) => context.getInheritedWidgetOfExactType<_FcTooltipScope>() != null;
+
   @override
   State<FcTooltip> createState() => _FcTooltipState();
+}
+
+/// Метка «здесь уже договаривают» для тех, кто внутри.
+class _FcTooltipScope extends InheritedWidget {
+  const _FcTooltipScope({required super.child});
+
+  @override
+  bool updateShouldNotify(_FcTooltipScope oldWidget) => false;
 }
 
 class _FcTooltipState extends State<FcTooltip> {
@@ -87,7 +103,9 @@ class _FcTooltipState extends State<FcTooltip> {
     // подсказка живёт в накладке, в дерево панели не входящей. Поэтому её
     // появление не трогает ни прокрутку, ни слой пометки, ни источник
     // перетаскивания (`docs/spec/mouse-marking.md`, §6).
-    return MouseRegion(onEnter: (_) => _wait(), onHover: (_) => _wait(), onExit: (_) => _hide(), child: widget.child);
+    return _FcTooltipScope(
+      child: MouseRegion(onEnter: (_) => _wait(), onHover: (_) => _wait(), onExit: (_) => _hide(), child: widget.child),
+    );
   }
 
   /// Завести отсчёт — если он уже идёт, не перезаводить.
