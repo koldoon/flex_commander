@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:xterm/xterm.dart';
 
 import 'terminal_screens.dart';
+import 'terminal_palette.dart';
 import 'terminal_session.dart';
 
 /// Постоянная сессия во весь экран.
@@ -130,6 +131,10 @@ class _TerminalFrame extends StatelessWidget {
                     shell.terminal,
                     autofocus: true,
                     backgroundOpacity: 0,
+                    // Палитра — из темы, а не умолчание `xterm`: те же цвета
+                    // берёт приглашение в строке команд, и разойтись им нельзя
+                    // (`docs/spec/shell-prompt.md`, §5).
+                    theme: terminalThemeOf(theme),
                     // Только железная клавиатура — без подключения к системному
                     // текстовому вводу.
                     //

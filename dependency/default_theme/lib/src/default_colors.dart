@@ -40,6 +40,32 @@ abstract final class FcPalette {
   static const Color dialogList = Color(0xFF011629);
   static const Color dialogListEdge = Color(0xFF01111F);
 
+  /// Шестнадцать цветов ANSI и то, чем набран вывод без своего цвета.
+  ///
+  /// Умолчание `xterm` — не наш выбор, а договор между программами
+  /// (`docs/spec/shell-prompt.md`, §5).
+  static const List<Color> ansi = [
+    Color(0xFF000000), // 0 чёрный
+    Color(0xFFCD3131), // 1 красный
+    Color(0xFF0DBC79), // 2 зелёный
+    Color(0xFFE5E510), // 3 жёлтый
+    Color(0xFF2472C8), // 4 синий
+    Color(0xFFBC3FBC), // 5 пурпурный
+    Color(0xFF11A8CD), // 6 голубой
+    Color(0xFFE5E5E5), // 7 белый
+    Color(0xFF666666), // 8 яркий чёрный
+    Color(0xFFF14C4C), // 9 яркий красный
+    Color(0xFF23D18B), // 10 яркий зелёный
+    Color(0xFFF5F543), // 11 яркий жёлтый
+    Color(0xFF3B8EEA), // 12 яркий синий
+    Color(0xFFD670D6), // 13 яркий пурпурный
+    Color(0xFF29B8DB), // 14 яркий голубой
+    Color(0xFFFFFFFF), // 15 яркий белый
+  ];
+
+  static const Color ansiText = Color(0xFFCCCCCC);
+  static const Color ansiCursor = Color(0xAAAEAFAD);
+
   static const Color sea = Color(0xFF04345B);
   static const Color sea2 = Color(0xFF011E37);
 
@@ -212,6 +238,26 @@ class DefaultColors extends FcColors {
   Color get shadow => const Color(0xFF000000).withValues(alpha: 0.25);
 
   // --- прочее ---
+
+  @override
+  // --- терминал ---
+  /// Те же шестнадцать, которыми `xterm` красит по умолчанию.
+  ///
+  /// Взяты у него, а не из референсной палитры, и это осознанно: в референсе
+  /// терминала не было вовсе, а цвета ANSI — договор между программами, а не
+  /// вкус приложения. `ls` и `git` подобрали свои цвета под привычные, и
+  /// перекрасить их значило бы сделать вывод хуже читаемым, а не «нашим».
+  @override
+  List<Color> get terminalAnsi => FcPalette.ansi;
+
+  @override
+  Color get terminalText => FcPalette.ansiText;
+
+  @override
+  Color get terminalCursor => FcPalette.ansiCursor;
+
+  @override
+  Color get terminalSelection => FcPalette.ansiCursor;
 
   @override
   Color get progress => FcPalette.blue0;
