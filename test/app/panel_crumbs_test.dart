@@ -17,6 +17,9 @@ void main() {
   InMemoryTreeProvider provider() => InMemoryTreeProvider([
     FakeEntry.directory('/home'),
     FakeEntry.directory('/home/documents'),
+    FakeEntry.directory('/home/Petrosoft'),
+    FakeEntry.directory('/home/Petrosoft/qwickserve-applications'),
+    FakeEntry.directory('/home/Petrosoft/qwickserve-applications/docs'),
     FakeEntry.directory('/home/documents/projects'),
     FakeEntry.directory('/home/documents/projects/commander'),
     FakeEntry.file('/home/documents/projects/commander/notes.txt', size: 10),
@@ -91,6 +94,23 @@ void main() {
     expect(crumb('/'), findsOneWidget, reason: 'первое звено говорит, где мы вообще');
     expect(crumb('commander'), findsOneWidget, reason: 'последнее — где именно');
     expect(crumb('documents'), findsNothing);
+  });
+
+  testWidgets('влезающие звенья не режутся многоточием', (tester) async {
+    // Живой случай: звенья по своей ширине помещались, а ряд делил место
+    // поровну — длинные имена обрезались, хотя справа оставалась пустота.
+    await open(tester, path: '/home/Petrosoft/qwickserve-applications/docs', size: const Size(1800, 700));
+
+    for (final label in ['Petrosoft', 'qwickserve-applications', 'docs']) {
+      final painter = TextPainter(text: tester.widget<RichText>(crumb(label)).text, textDirection: TextDirection.ltr)
+        ..layout();
+
+      expect(
+        tester.getSize(crumb(label)).width,
+        closeTo(painter.width, 0.5),
+        reason: 'звено «$label» должно стоять во всю свою ширину',
+      );
+    }
   });
 
   testWidgets('под мышью звено подчёркивается', (tester) async {
