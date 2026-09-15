@@ -239,7 +239,7 @@ class _PanelChip extends StatelessWidget {
     }
     width += textWidthOf(title, FcTheme.effective(context, shown ? theme.pathStyle : theme.statusStyle), scaler);
     if (shown) {
-      width += metrics.cellPadding * 2 + metrics.markedBarWidth * 2 + metrics.strokeWidth;
+      width += metrics.cellPadding * 2 + FcSideMarks.widthOf(theme);
     }
     return width;
   }
@@ -250,15 +250,6 @@ class _PanelChip extends StatelessWidget {
     final colors = theme.colors;
     final metrics = theme.metrics;
     final shown = shownLeft || shownRight;
-
-    // Погасшая ячейка не пропадает, а темнеет: пара читается как две панели, и
-    // одна ячейка вместо двух означала бы другое. Высота — со строчную букву:
-    // метка стоит в строке, а не подпирает её края.
-    Widget cell(bool lit, Key key) => SizedBox(
-      width: metrics.markedBarWidth,
-      height: metrics.iconSize,
-      child: ColoredBox(color: lit ? colors.markedBar : colors.panelBorder, key: lit ? key : null),
-    );
 
     return Tooltip(
       // Полный путь — подсказкой: имена в ряду короткие и повторяются
@@ -300,9 +291,12 @@ class _PanelChip extends StatelessWidget {
               // Непоказанный ничем не помечен: пустое место говорит само.
               if (shown) ...[
                 SizedBox(width: metrics.cellPadding * 2),
-                cell(shownLeft, PanelRow.leftMarkKey),
-                SizedBox(width: metrics.strokeWidth),
-                cell(shownRight, PanelRow.rightMarkKey),
+                FcSideMarks(
+                  left: shownLeft,
+                  right: shownRight,
+                  leftKey: PanelRow.leftMarkKey,
+                  rightKey: PanelRow.rightMarkKey,
+                ),
               ],
             ],
           ),
