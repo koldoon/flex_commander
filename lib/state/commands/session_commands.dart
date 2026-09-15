@@ -1,5 +1,7 @@
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
+
+import '../../view/sessions_dialog.dart';
 import 'package:flutter/widgets.dart';
 
 /// Команды открытых сессий (`docs/spec/panel-sessions.md`, §9).
@@ -243,41 +245,28 @@ class ChooseSessionCommand extends AppCommand {
       return;
     }
     final app = context.app;
-    final panels = app.panels;
     final view = app.view;
 
+    // Снимок списка: пока окно открыто, ввод у него, и трогать наборы некому, —
+    // зато номера строк остаются теми же, что у `Alt-N`.
+    final state = SessionsDialogState(app: app, side: side, panels: [...app.panels]);
+
     late final String dialogId;
-    void close() => view.closeDialog(dialogId);
+    state.close = () => view.closeDialog(dialogId);
 
     dialogId = view.showDialog(
       DialogSpec(
+        // С заголовком, в отличие от палитры: окно живёт своей жизнью — его
+        // таскают за полосу, и видно, что это за окно.
+        title: label,
+        // Над своей панелью, как окно адреса и окно истории: «набор слева» и
+        // «набор справа» иначе неотличимы на вид.
+        area: side == ViewportPosition.left ? DialogArea(end: app.splitRatio) : DialogArea(start: app.splitRatio),
         takesFocus: true,
         ownWidth: true,
-        content: FcCommandPalette(
-          items: [
-            for (var at = 0; at < panels.length; at++)
-              PaletteItem(
-                id: '$at',
-                label: panelTitle(panels[at], panels),
-                // Путь — под названием: имена короткие и повторяются, а
-                // отличает наборы именно место.
-                description: panels[at].session.currentPath,
-                owner: '',
-                // Номерная клавиша — у первых девяти: увидел раз, дальше
-                // жмёшь её.
-                keys: at < 9 ? 'Alt-${at + 1}' : '',
-              ),
-          ],
-          recent: const [],
-          onRun: (chosen) {
-            close();
-            final at = int.tryParse(chosen) ?? -1;
-            if (at >= 0 && at < panels.length) {
-              app.showPanel(side, panels[at]);
-            }
-          },
-        ),
-        onDismiss: close,
+        content: SessionsDialogForm(state: state),
+        onSubmit: state.submit,
+        onDismiss: state.close,
       ),
     );
   }
