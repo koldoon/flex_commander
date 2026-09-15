@@ -594,7 +594,7 @@ void main() {
 
       // В столбце имя режется многоточием, а спрашивают о нём именно тогда,
       // когда не влезло.
-      final tips = tester.widgetList<Tooltip>(find.byType(Tooltip)).map((one) => one.message).toList();
+      final tips = tester.widgetList<FcTooltip>(find.byType(FcTooltip)).map((one) => one.message).toList();
       expect(tips, contains(long));
       expect(tips, contains('https://example.com'), reason: 'у значения тоже: оно длиннее поля');
     });

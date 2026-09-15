@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'fc_theme.dart';
+import 'fc_tooltip.dart';
 import 'text_trim.dart';
 
 /// Внешний край окна, к которому прижата панель.
@@ -83,9 +84,8 @@ class FcPathPlate extends StatelessWidget {
       active ? theme.pathStyle : theme.pathStyle.copyWith(color: colors.pathInactiveText),
     );
 
-    return Tooltip(
+    return FcTooltip(
       message: trailing == null ? path : '$path  $trailing',
-      waitDuration: const Duration(milliseconds: 600),
       child: Container(
         height: metrics.pathHeaderHeight,
         padding: EdgeInsets.symmetric(horizontal: metrics.labelPadding),

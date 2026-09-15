@@ -74,9 +74,8 @@ class _Arrow extends StatelessWidget {
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,
-        child: Tooltip(
+        child: FcTooltip(
           message: hint,
-          waitDuration: const Duration(milliseconds: 600),
           child: Icon(icon, size: theme.metrics.fontSize, color: live ? colors.pathText : colors.pathInactiveText),
         ),
       ),

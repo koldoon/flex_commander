@@ -167,9 +167,8 @@ class _NewPanelButton extends StatelessWidget {
     final colors = theme.colors;
     final metrics = theme.metrics;
 
-    return Tooltip(
+    return FcTooltip(
       message: context.strings.tr('New session'),
-      waitDuration: const Duration(milliseconds: 600),
       child: GestureDetector(
         key: PanelRow.newPanelKey,
         behavior: HitTestBehavior.opaque,
@@ -251,11 +250,11 @@ class _PanelChip extends StatelessWidget {
     final metrics = theme.metrics;
     final shown = shownLeft || shownRight;
 
-    return Tooltip(
+    return FcTooltip(
       // Полный путь — подсказкой: имена в ряду короткие и повторяются
-      // (`spec/panel-sessions.md`, §8).
+      // (`spec/panel-sessions.md`, §8). Безусловно, а не по факту обрезки:
+      // она говорит **не то же**, что видно на экране (`spec/tooltips.md`, §2).
       message: path,
-      waitDuration: const Duration(milliseconds: 600),
       child: GestureDetector(
         behavior: HitTestBehavior.opaque,
         onTap: onTap,

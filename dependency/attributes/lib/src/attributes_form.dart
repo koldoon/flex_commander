@@ -1,6 +1,5 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
-import 'package:flutter/material.dart' show Tooltip;
 import 'package:flutter/widgets.dart';
 
 import 'attribute_edits.dart';
@@ -301,7 +300,7 @@ class AttributesForm extends StatelessWidget {
           // Полное имя — подсказкой: в столбце оно режется многоточием, а
           // спрашивают о нём именно тогда, когда не влезло. Набрано ярким:
           // имя — главное в строке.
-          Tooltip(message: xattr.name, child: FcLabel(xattr.name, maxLines: 1)),
+          FcTooltip(message: xattr.name, child: FcLabel(xattr.name, maxLines: 1)),
         ),
         // Счёт байт приглушён и в одну строку: это подробность, а не то, за чем
         // сюда смотрят, и переносу она не подлежит.
@@ -313,7 +312,10 @@ class AttributesForm extends StatelessWidget {
         _cell(
           context,
           bottom: gap,
-          Tooltip(
+          FcTooltip(
+            // Безусловно: подсказка говорит **не то же**, что видно на экране,
+            // — у двоичного в поле слово `binary`, а в подсказке значение
+            // (`docs/spec/tooltips.md`, §2).
             message: text ?? strings.tr('binary'),
             child: _Field(
               key: ValueKey('xattr:${xattr.name}'),
