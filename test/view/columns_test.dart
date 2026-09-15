@@ -48,8 +48,23 @@ void main() {
 
   List<String> namesOf(Session panel) => panel.entries.map((node) => node.name).toList();
 
+  /// Перетаскивание ровно на столько, на сколько прошёл курсор.
+  ///
+  /// Так тянут границу колонки: она идёт за курсором точка в точку
+  /// (`DragStartBehavior.down`), и поблажка на порог распознавания здесь
+  /// исказила бы проверку.
+  Future<void> dragExactly(WidgetTester tester, Offset from, double dx) async {
+    final gesture = await tester.startGesture(from);
+    await gesture.moveBy(Offset(dx, 0));
+    await gesture.up();
+    await tester.pumpAndSettle();
+  }
+
   /// Перетаскивание с учётом порога распознавания: первый сдвиг уходит на то,
   /// чтобы жест был признан перетаскиванием, и до обработчика не доходит.
+  ///
+  /// Так тянут **заголовок** — перестановку колонок: она о пройденном пути не
+  /// отчитывается, ей важно, куда отпустили.
   Future<void> dragBy(WidgetTester tester, Offset from, double dx) async {
     final gesture = await tester.startGesture(from);
     await gesture.moveBy(Offset(dx.isNegative ? -kDragSlopDefault : kDragSlopDefault, 0));
@@ -118,16 +133,29 @@ void main() {
 
       // Граница колонки размера — её левый край.
       final sizeHeader = tester.getRect(headerOf('Size'));
-      await dragBy(tester, Offset(sizeHeader.left, sizeHeader.center.dy), -20);
+      await dragExactly(tester, Offset(sizeHeader.left, sizeHeader.center.dy), -20);
 
       expect(app.left.columns.find(FsColumns.size)!.width, before + 20);
+    });
+
+    testWidgets('граница идёт за курсором, а не следом на отставании', (tester) async {
+      // Жест признаётся перетаскиванием не сразу, и всё, что курсор прошёл до
+      // этого, при `DragStartBehavior.start` пропадает: граница потом едет за
+      // курсором на постоянном отставании (поймано живьём).
+      await pumpApp(tester);
+      final before = app.left.columns.find(FsColumns.size)!.width;
+
+      final sizeHeader = tester.getRect(headerOf('Size'));
+      await dragExactly(tester, Offset(sizeHeader.left, sizeHeader.center.dy), -40);
+
+      expect(app.left.columns.find(FsColumns.size)!.width, closeTo(before + 40, 0.5));
     });
 
     testWidgets('ширина не уходит ниже минимума', (tester) async {
       await pumpApp(tester);
 
       final sizeHeader = tester.getRect(headerOf('Size'));
-      await dragBy(tester, Offset(sizeHeader.left, sizeHeader.center.dy), 500);
+      await dragExactly(tester, Offset(sizeHeader.left, sizeHeader.center.dy), 500);
 
       final spec = app.left.columns.find(FsColumns.size)!;
       expect(spec.width, spec.minWidth);
@@ -137,7 +165,9 @@ void main() {
       await pumpApp(tester);
 
       final sizeHeader = tester.getRect(headerOf('Size'));
-      await dragBy(tester, Offset(sizeHeader.left, sizeHeader.center.dy), -10);
+      // Заметно больше порога распознавания: короткое движение жестом не
+      // считается вовсе — ни у нас, ни в системе.
+      await dragExactly(tester, Offset(sizeHeader.left, sizeHeader.center.dy), -30);
 
       expect(
         app.core!.settings!.left.columns.find(FsColumns.size)?.width,

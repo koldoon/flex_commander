@@ -1,6 +1,7 @@
 import 'package:flutter/widgets.dart';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:flutter/gestures.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
 /// Строка заголовков колонок.
@@ -151,6 +152,11 @@ class _FileTableHeaderState extends State<FileTableHeader> {
               cursor: SystemMouseCursors.resizeColumn,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
+                // От нажатия, а не от признания жеста: пока жест спорит за
+                // указатель с перестановкой колонок, курсор успевает уехать, и
+                // всё это движение при `start` пропадает — граница потом идёт
+                // за курсором на постоянном отставании (поймано живьём).
+                dragStartBehavior: DragStartBehavior.down,
                 onHorizontalDragUpdate: (details) => _resize(column, -details.delta.dx),
                 child: const SizedBox.expand(),
               ),

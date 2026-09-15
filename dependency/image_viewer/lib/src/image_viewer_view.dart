@@ -67,6 +67,9 @@ class ImageViewerView extends StatelessWidget {
                   },
                   child: GestureDetector(
                     // Мышью — то же самое: стрелки заняты, они листают каталог.
+                    // От нажатия: иначе картинка отстаёт от курсора ровно на
+                    // то, что ушло на признание жеста, — и так и едет.
+                    dragStartBehavior: DragStartBehavior.down,
                     onPanUpdate: (details) => screen.moveBy(details.delta, shown: shown, viewport: viewport),
                     child: _image(shown),
                   ),
