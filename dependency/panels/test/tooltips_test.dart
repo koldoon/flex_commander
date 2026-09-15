@@ -81,6 +81,21 @@ void main() {
     await disposeScreen(tester);
   });
 
+  testWidgets('заголовок колонки договаривается полным названием', (tester) async {
+    await open(tester, size: const Size(620, 400));
+
+    // Колонку сузили так, что название в ней не помещается.
+    final grip = find.byWidgetPredicate(
+      (widget) => widget is MouseRegion && widget.cursor == SystemMouseCursors.resizeColumn,
+    );
+    await tester.dragFrom(tester.getCenter(grip.at(1)), const Offset(90, 0), kind: PointerDeviceKind.mouse);
+    await tester.pumpAndSettle();
+
+    expect(tipOf('Size'), findsOneWidget, reason: 'обрубленное посреди буквы — тем более загадка');
+
+    await disposeScreen(tester);
+  });
+
   testWidgets('дерево: имя ветви договаривается, а размер молчит', (tester) async {
     await open(tester, view: TreeView.viewId);
 

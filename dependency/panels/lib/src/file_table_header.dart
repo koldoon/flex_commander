@@ -81,6 +81,7 @@ class _FileTableHeaderState extends State<FileTableHeader> {
       sorted: widget.sorted && widget.sort.column == column.id,
       direction: widget.sort.direction,
       onTap: widget.onColumnTap == null || !column.sortable ? null : () => widget.onColumnTap!(column.id),
+      width: widget.widths[index],
     );
 
     if (!movable) {
@@ -251,12 +252,19 @@ class FileTableHeaderCell extends StatelessWidget {
     required this.sorted,
     required this.direction,
     this.onTap,
+    this.width,
   });
 
   final ColumnSpec column;
   final bool sorted;
   final SortDirection direction;
   final VoidCallback? onTap;
+
+  /// Ширина ячейки; пусто — столько, сколько дадут.
+  ///
+  /// Числом её называет таблица: ширины колонок известны ей и так. Пусто —
+  /// в дереве, где та же ячейка стоит в `Expanded` и меряет себя сама.
+  final double? width;
 
   /// Заголовок колонки — тот, под которым её объявили.
   ///
@@ -299,11 +307,39 @@ class FileTableHeaderCell extends StatelessWidget {
                 ),
                 SizedBox(width: theme.metrics.cellPadding),
               ],
-              Flexible(child: Text(title, maxLines: 1, overflow: TextOverflow.clip, style: theme.headerStyle)),
+              // Название договаривается подсказкой, когда не поместилось.
+              // Обрубается оно при этом по-прежнему посреди буквы (`clip`, не
+              // `ellipsis`): многоточие здесь — правка вида, она двигает
+              // эталоны и решается вместе с макетом. Подсказка от этого не
+              // врёт: «не поместилось» считается меркой, а не по виду
+              // многоточия (`docs/spec/tooltips.md`, §7).
+              Flexible(
+                child: fcTooltipIf(
+                  context,
+                  trimmed: !_fits(context, theme, title),
+                  message: title,
+                  child: Text(title, maxLines: 1, overflow: TextOverflow.clip, style: theme.headerStyle),
+                ),
+              ),
             ],
           ),
         ),
       ),
     );
+  }
+
+  /// Помещается ли название в отведённое.
+  ///
+  /// Свободное место считается с оглядкой на каретку сортировки: она стоит
+  /// перед текстом и отнимает у него значок с зазором.
+  bool _fits(BuildContext context, FcTheme theme, String title) {
+    if (width case final width?) {
+      final free =
+          width - theme.metrics.cellPadding * 2 - (sorted ? theme.metrics.iconSize + theme.metrics.cellPadding : 0);
+      return textFits(title, FcTheme.effective(context, theme.headerStyle), free, MediaQuery.textScalerOf(context));
+    }
+    // Ширины никто не назвал — в дереве ячейка занимает всё, что дали, и
+    // название в ней помещается всегда: колонка там одна.
+    return true;
   }
 }
