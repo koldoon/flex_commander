@@ -7,6 +7,7 @@ import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -149,6 +150,90 @@ void main() {
       await dragExactly(tester, Offset(sizeHeader.left, sizeHeader.center.dy), -40);
 
       expect(app.left.columns.find(FsColumns.size)!.width, closeTo(before + 40, 0.5));
+    });
+
+    testWidgets('мышь идёт мелкими шагами — граница идёт за ней', (tester) async {
+      // Так двигают мышью на самом деле: два десятка мелких шагов, а не один
+      // рывок. Именно здесь и вылезло, что граница почти не двигается.
+      await pumpApp(tester);
+      final before = app.left.columns.find(FsColumns.size)!.width;
+
+      final sizeHeader = tester.getRect(headerOf('Size'));
+      // Мышью, а не пальцем: порог распознавания у них разный, и вылезло это
+      // именно на мыши.
+      final gesture = await tester.startGesture(
+        Offset(sizeHeader.left, sizeHeader.center.dy),
+        kind: PointerDeviceKind.mouse,
+      );
+      for (var step = 0; step < 20; step++) {
+        await gesture.moveBy(const Offset(-3, 0));
+        await tester.pump();
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(app.left.columns.find(FsColumns.size)!.width, closeTo(before + 60, 1));
+    });
+
+    testWidgets('в тесной панели граница всё равно идёт за курсором', (tester) async {
+      // Так у человека и было: включены все колонки, резиновому имени ужиматься
+      // почти некуда — и граница переставала двигаться.
+      await pumpApp(tester);
+      for (final id in [
+        FsColumns.created,
+        FsColumns.accessed,
+        FsColumns.attributes,
+        FsColumns.owner,
+        FsColumns.group,
+      ]) {
+        app.left.setColumnLayout(app.left.columns.toggleVisible(id));
+      }
+      await tester.pumpAndSettle();
+
+      final before = app.left.columns.find(FsColumns.size)!.width;
+      final sizeHeader = tester.getRect(headerOf('Size'));
+      final gesture = await tester.startGesture(
+        Offset(sizeHeader.left, sizeHeader.center.dy),
+        kind: PointerDeviceKind.mouse,
+      );
+      for (var step = 0; step < 10; step++) {
+        await gesture.moveBy(const Offset(-3, 0));
+        await tester.pump();
+      }
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(app.left.columns.find(FsColumns.size)!.width, closeTo(before + 30, 1));
+    });
+
+    testWidgets('упёрлись в предел и пошли обратно — граница трогается сразу', (tester) async {
+      // Приращения теряются, стоит упереться: лишнее движение отбрасывается, и
+      // обратно граница трогается не с того места, где курсор. Дальше она так и
+      // идёт с отставанием — ровно то, что было видно живьём.
+      await pumpApp(tester);
+      final spec = app.left.columns.find(FsColumns.size)!;
+      final sizeHeader = tester.getRect(headerOf('Size'));
+
+      final gesture = await tester.startGesture(
+        Offset(sizeHeader.left, sizeHeader.center.dy),
+        kind: PointerDeviceKind.mouse,
+      );
+      // Вправо до упора и ещё сто точек сверху: колонка уже на минимуме.
+      await gesture.moveBy(const Offset(200, 0));
+      await tester.pump();
+      expect(app.left.columns.find(FsColumns.size)!.width, spec.minWidth);
+
+      // И обратно ровно настолько, чтобы вернуться к исходной ширине.
+      await gesture.moveBy(const Offset(-200, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(
+        app.left.columns.find(FsColumns.size)!.width,
+        closeTo(spec.width, 1),
+        reason: 'вернулись курсором туда же — значит и граница там же',
+      );
     });
 
     testWidgets('ширина не уходит ниже минимума', (tester) async {

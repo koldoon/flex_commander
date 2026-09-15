@@ -152,12 +152,21 @@ class _FileTableHeaderState extends State<FileTableHeader> {
               cursor: SystemMouseCursors.resizeColumn,
               child: GestureDetector(
                 behavior: HitTestBehavior.opaque,
-                // От нажатия, а не от признания жеста: пока жест спорит за
-                // указатель с перестановкой колонок, курсор успевает уехать, и
-                // всё это движение при `start` пропадает — граница потом идёт
-                // за курсором на постоянном отставании (поймано живьём).
+                // От нажатия, а не от признания жеста: всё, что курсор прошёл
+                // до того, как жест признали перетаскиванием, при `start`
+                // пропадает.
                 dragStartBehavior: DragStartBehavior.down,
-                onHorizontalDragUpdate: (details) => _resize(column, -details.delta.dx),
+                onHorizontalDragStart: (details) {
+                  _grabbedWidth = column.width;
+                  _grabbedAt = details.globalPosition.dx;
+                },
+                // Ширина считается **от захвата**, а не приращениями.
+                // Приращения теряются, стоит упереться в предел: лишнее
+                // движение отбрасывается, и обратно граница трогается не с
+                // того места, где курсор, — уезжает от него и дальше идёт с
+                // отставанием (поймано живьём).
+                onHorizontalDragUpdate:
+                    (details) => _resizeTo(column, _grabbedWidth - (details.globalPosition.dx - _grabbedAt)),
                 child: const SizedBox.expand(),
               ),
             ),
@@ -169,8 +178,12 @@ class _FileTableHeaderState extends State<FileTableHeader> {
     return handles;
   }
 
-  void _resize(ColumnSpec column, double delta) {
-    final layout = widget.layout.resize(column.id, column.width + delta);
+  /// Ширина колонки на момент захвата границы и место курсора тогда же.
+  double _grabbedWidth = 0;
+  double _grabbedAt = 0;
+
+  void _resizeTo(ColumnSpec column, double width) {
+    final layout = widget.layout.resize(column.id, width);
     widget.onLayoutChanged?.call(layout);
   }
 
