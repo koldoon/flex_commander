@@ -77,6 +77,11 @@ class BasicsInfoProvider implements NodeInfoProvider {
     return [
       NodeInfoRow(strings.tr('Permissions'), attributes.modeString),
       if (attributes.mode != 0) NodeInfoRow(strings.tr('Mode'), attributes.mode.toRadixString(8).padLeft(4, '0')),
+      // Владелец — там же, где права: вопрос «почему не открылось» у них общий.
+      // Имя, число или ничего — по тому, что известно источнику
+      // (`docs/spec/owner-columns.md`, §2).
+      if (attributes.ownerText.isNotEmpty) NodeInfoRow(strings.tr('Owner'), attributes.ownerText),
+      if (attributes.groupText.isNotEmpty) NodeInfoRow(strings.tr('Group'), attributes.groupText),
     ];
   }
 

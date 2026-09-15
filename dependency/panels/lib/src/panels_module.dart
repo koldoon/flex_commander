@@ -269,6 +269,8 @@ const Map<String, String> _russian = {
   'Created': 'Создан',
   'Accessed': 'Открыт',
   'Attributes': 'Атрибуты',
+  'Owner': 'Владелец',
+  'Group': 'Группа',
   'Columns visible': 'Видимые колонки',
   // «Path» уже переведён выше — колонка и заголовок зовутся одинаково, и
   // перевод у них один.

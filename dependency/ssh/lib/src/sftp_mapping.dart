@@ -11,7 +11,16 @@ FsNode nodeFromEntry(SftpEntry entry, FsNode parent, TreeProvider provider, {Fil
   final attributes =
       entry.mode == 0
           ? const FileAttributes.unknown()
-          : FileAttributes.fromMode(entry.mode, permissionsOf(entry.mode), entry.type);
+          : FileAttributes.fromMode(
+            entry.mode,
+            permissionsOf(entry.mode),
+            entry.type,
+            // Числа сервер присылает вместе с режимом; имён SFTP не даёт — их
+            // там, где сервер их не назвал, не будет
+            // (`docs/spec/owner-columns.md`, §3).
+            uid: entry.uid,
+            gid: entry.gid,
+          );
 
   return switch (entry.type) {
     FileType.symbolicLink => LinkNode(

@@ -89,6 +89,8 @@ const Map<String, String> _russian = {
   'Created': 'Создан',
   'Accessed': 'Открыт',
   'Permissions': 'Права',
+  'Owner': 'Владелец',
+  'Group': 'Группа',
   'Mode': 'Восьмеричные права',
   'Points to': 'Ведёт на',
   'Target': 'Цель',

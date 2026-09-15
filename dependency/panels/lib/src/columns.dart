@@ -24,6 +24,8 @@ abstract final class FsColumns {
   static const String created = 'created';
   static const String accessed = 'accessed';
   static const String attributes = 'attributes';
+  static const String owner = 'owner';
+  static const String group = 'group';
 }
 
 /// Паспорта штатных колонок — одни на обе половины модуля.
@@ -103,8 +105,28 @@ abstract final class FsColumnSpecs {
     visible: false,
   );
 
+  /// Кто хозяин объекта. Скрыта, как и права: в своём каталоге владелец у всех
+  /// один, и спрашивают о нём тогда, когда что-то не открылось
+  /// (`docs/spec/owner-columns.md`, §2).
+  static const ColumnSpec owner = ColumnSpec(id: FsColumns.owner, title: 'Owner', width: 96, visible: false);
+
+  static const ColumnSpec group = ColumnSpec(id: FsColumns.group, title: 'Group', width: 96, visible: false);
+
   /// Порядок объявления — он же порядок колонок в новой панели.
-  static const List<ColumnSpec> all = [icon, name, tree, path, ext, size, modified, created, accessed, attributes];
+  static const List<ColumnSpec> all = [
+    icon,
+    name,
+    tree,
+    path,
+    ext,
+    size,
+    modified,
+    created,
+    accessed,
+    attributes,
+    owner,
+    group,
+  ];
 }
 
 /// Ядровая половина штатных колонок: сравнения.
@@ -124,6 +146,11 @@ void installColumnSorting(BackendRegistry registry) {
   registry.column(FsColumnSpecs.created, compare: (_) => (a, b) => _dates(_fileOf(a)?.created, _fileOf(b)?.created));
   registry.column(FsColumnSpecs.accessed, compare: (_) => (a, b) => _dates(_fileOf(a)?.accessed, _fileOf(b)?.accessed));
   registry.column(FsColumnSpecs.attributes, compare: (_) => (a, b) => naturalCompare(_modeOf(a), _modeOf(b)));
+  // По тому же, что и показано: имя, если оно есть, иначе число. Сравнивать по
+  // скрытому числу значило бы раскладывать список не в том порядке, в каком он
+  // читается.
+  registry.column(FsColumnSpecs.owner, compare: (_) => (a, b) => naturalCompare(_ownerOf(a), _ownerOf(b)));
+  registry.column(FsColumnSpecs.group, compare: (_) => (a, b) => naturalCompare(_groupOf(a), _groupOf(b)));
 }
 
 /// Экранная половина штатных колонок: ячейки.
@@ -158,6 +185,10 @@ void installColumnCells(FrontendRegistry registry) {
   registry.column(FsColumnSpecs.created, text: (cell) => formatDate(cell.entry.created));
   registry.column(FsColumnSpecs.accessed, text: (cell) => formatDate(cell.entry.accessed));
   registry.column(FsColumnSpecs.attributes, text: (cell) => cell.entry.attributes.modeString);
+  // Имя, число или пусто — по тому, что известно источнику. Пустая ячейка
+  // честнее выдуманной: у архива хозяина нет вовсе.
+  registry.column(FsColumnSpecs.owner, text: (cell) => cell.entry.attributes.ownerText);
+  registry.column(FsColumnSpecs.group, text: (cell) => cell.entry.attributes.groupText);
 }
 
 /// Имя делится на имя и расширение, только если колонка расширений видима.
@@ -184,6 +215,10 @@ FileNode? _fileOf(FsNode node) => node is FileNode ? node : null;
 String _directoryOf(FsNode node) => node.parentDirectory?.displayPath ?? '';
 
 String _modeOf(FsNode node) => _fileOf(node)?.attributes.modeString ?? '';
+
+String _ownerOf(FsNode node) => _fileOf(node)?.attributes.ownerText ?? '';
+
+String _groupOf(FsNode node) => _fileOf(node)?.attributes.groupText ?? '';
 
 /// Отсутствующая дата меньше любой заданной.
 int _dates(DateTime? a, DateTime? b) {

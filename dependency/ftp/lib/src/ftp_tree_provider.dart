@@ -332,7 +332,7 @@ class FtpTreeProvider implements TreeProvider, NodeEditor, FileContentProvider, 
       parent: parent,
       size: entry.size,
       modified: entry.modified,
-      attributes: attributesOf(entry.mode, FileType.regular),
+      attributes: attributesOf(entry.mode, FileType.regular, owner: entry.owner, group: entry.group),
     );
   }
 

@@ -28,6 +28,7 @@ const archiveCapabilities = ProviderCapabilities(canSeek: true, maxConcurrency: 
 class FakeEntry {
   FakeEntry.directory(this.path)
     : type = FileType.directory,
+      attributes = null,
       size = FsNode.unknownSize,
       linkTarget = null,
       // Право входить в каталог, а не запускать его: `+x` у каталога есть
@@ -36,7 +37,7 @@ class FakeEntry {
       executable = true,
       content = const [];
 
-  FakeEntry.file(this.path, {int? size, this.modified, List<int>? content, this.executable = false})
+  FakeEntry.file(this.path, {int? size, this.modified, List<int>? content, this.executable = false, this.attributes})
     : type = FileType.regular,
       linkTarget = null,
       content = content ?? List.filled(size ?? 0, 0),
@@ -46,7 +47,8 @@ class FakeEntry {
   /// ссылке**, и ссылка на каталог числится исполняемой, потому что `+x` есть
   /// у каталога.
   FakeEntry.link(this.path, this.linkTarget, {this.executable = false})
-    : type = FileType.symbolicLink,
+    : attributes = null,
+      type = FileType.symbolicLink,
       size = FsNode.unknownSize,
       content = const [];
 
@@ -58,6 +60,12 @@ class FakeEntry {
 
   /// Бит `+x`. У каталогов он есть всегда, у файлов — только если так сказали.
   final bool executable;
+
+  /// Права и владелец; null — подставные, те же у всех.
+  ///
+  /// Задают их там, где проверяют сами атрибуты: колонки владельца читают их у
+  /// строки списка (`docs/spec/owner-columns.md`).
+  final FileAttributes? attributes;
 
   /// Содержимое файла. У каталогов и ссылок пустое: содержимого у них нет.
   final List<int> content;
@@ -281,7 +289,7 @@ class InMemoryReadOnlyProvider implements TreeProvider {
   ];
 
   FsNode _nodeFrom(FakeEntry entry, FsNode parent) {
-    const attributes = FileAttributes(mode: 0x1FF, modeString: 'rwxrwxrwx');
+    final attributes = entry.attributes ?? const FileAttributes(mode: 0x1FF, modeString: 'rwxrwxrwx');
     return switch (entry.type) {
       FileType.directory => DirectoryNode(
         provider: this,

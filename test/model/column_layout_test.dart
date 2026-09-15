@@ -24,6 +24,8 @@ void main() {
         'created',
         'accessed',
         'attributes',
+        'owner',
+        'group',
       ]);
       expect(shown.find('size')?.width, 64);
       expect(shown.find('size')?.title, 'Size');

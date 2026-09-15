@@ -19,5 +19,11 @@ String permissionsOf(int mode) {
 
 /// Атрибуты строки списка; режим 0 — сервер о нём не сказал, и выдумывать
 /// прочерки нельзя: пустое честнее.
-FileAttributes attributesOf(int mode, FileType type) =>
-    mode == 0 ? const FileAttributes.unknown() : FileAttributes.fromMode(mode, permissionsOf(mode), type);
+///
+/// Имена владельца сервер называет сам — и в `MLSD`, и в юниксовом `LIST`;
+/// чисел он не называет вовсе, и это единственный источник, где имя есть, а
+/// числа нет (`docs/spec/owner-columns.md`, §3).
+FileAttributes attributesOf(int mode, FileType type, {String owner = '', String group = ''}) =>
+    mode == 0 && owner.isEmpty && group.isEmpty
+        ? const FileAttributes.unknown()
+        : FileAttributes.fromMode(mode, permissionsOf(mode), type, owner: owner, group: group);
