@@ -118,6 +118,52 @@ void main() {
       expect(plus.right, bar.right - metrics.windowSidePadding, reason: 'поле окна одно на всё содержимое');
     });
 
+    testWidgets('имена не режутся, пока в ряду есть место', (tester) async {
+      // Живой случай: записи делили ряд поровну, и длинное имя обрезалось
+      // многоточием, когда слева оставалась пустота.
+      final panel = await app.openPanel(ViewportPosition.left);
+      app.renamePanel(panel, 'qwickserve-applications');
+      await pumpApp(tester);
+
+      final title = find.descendant(of: find.byType(PanelRow), matching: find.text('qwickserve-applications'));
+      expect(title, findsOneWidget);
+
+      final painter = TextPainter(
+        text: TextSpan(text: 'qwickserve-applications', style: tester.widget<Text>(title).style),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      expect(
+        tester.getSize(title).width,
+        closeTo(painter.width, 0.5),
+        reason: 'имя стоит целиком, пока ряду есть куда расти',
+      );
+    });
+
+    testWidgets('тесно — ужимается длинное, а короткое стоит целиком', (tester) async {
+      for (var at = 0; at < 4; at++) {
+        final panel = await app.openPanel(ViewportPosition.left);
+        app.renamePanel(panel, at.isEven ? 'a-very-long-session-name-$at' : 'no$at');
+      }
+      await pumpApp(tester);
+
+      Size sizeOf(String name) =>
+          tester.getSize(find.descendant(of: find.byType(PanelRow), matching: find.text(name)).first);
+
+      // Короткое имя своего места не уступает: ужимаются переросшие потолок.
+      final short = sizeOf('no1');
+      final painter = TextPainter(
+        text: TextSpan(
+          text: 'no1',
+          style:
+              tester.widget<Text>(find.descendant(of: find.byType(PanelRow), matching: find.text('no1')).first).style,
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout();
+
+      expect(short.width, closeTo(painter.width, 0.5));
+    });
+
     testWidgets('кнопка «плюс» заводит набор', (tester) async {
       await pumpApp(tester);
       final was = app.panels.length;

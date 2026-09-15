@@ -53,46 +53,96 @@ class PanelRow extends StatelessWidget {
   }
 
   Widget _row(BuildContext context, Application app, List<Panel> panels, Panel left, Panel right) {
-    final metrics = FcTheme.of(context).metrics;
-    return Center(
-      // Ростом записи облегают свой текст, а по вертикали ряд стоит **по
-      // центру полосы** — там же, где светофор.
-      child: Row(
-        // Справа налево: у правого края ряд стоит там же, где кончаются
-        // панели, а прибывающие наборы растут внутрь окна, не сдвигая
-        // остальных с насиженных мест.
-        mainAxisAlignment: MainAxisAlignment.end,
-        children: [
-          for (var at = 0; at < panels.length; at++) ...[
-            // Дистанция между записями — та же, что между областями окна:
-            // другой величине здесь взяться неоткуда.
-            if (at > 0) SizedBox(width: metrics.areaGap),
-            // По содержимому: запись занимает столько, сколько нужно имени.
-            // Тесно — ужимается по очереди, а не делит ширину поровну.
-            Flexible(
-              child: _PanelChip(
-                key: PanelRow.chipKey(at + 1),
-                number: at + 1,
-                title: panelTitle(panels[at], panels),
-                path: panels[at].session.currentPath,
-                shownLeft: identical(panels[at], left),
-                shownRight: identical(panels[at], right),
-                // Показывают в активной панели: ряд общий, и «куда» решает
-                // не он, а то, где сейчас курсор.
-                onTap: () => app.showPanel(app.view.sourceArea, panels[at]),
-                onClose: () => app.closePanel(panels[at]),
-              ),
-            ),
-          ],
-          SizedBox(width: metrics.areaGap),
-          // Кнопка нового набора — последней, как вкладка «плюс» в браузере.
-          // Не `Flexible`: ужимаются имена, а кнопка держит свой размер —
-          // завести набор должно быть можно и в тесном окне.
-          _NewPanelButton(onTap: () => app.commands.run(NewSessionCommand.commandId)),
-        ],
-      ),
+    final theme = FcTheme.of(context);
+    final metrics = theme.metrics;
+
+    // Ширину записям раздаём сами, а не отдаём `Flexible`: тот делит место
+    // между гибкими детьми **поровну**, и длинные имена резались многоточием,
+    // когда в ряду ещё оставалась пустота (поймано живьём).
+    //
+    // `LayoutBuilder` здесь безопасен: ширину ряду задаёт полоса заголовка, и
+    // об интринсиках его никто не спрашивает — в отличие от окон команд
+    // (`docs/spec/dialog-body.md`).
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final shown = [for (final panel in panels) identical(panel, left) || identical(panel, right)];
+        final natural = [
+          for (var at = 0; at < panels.length; at++)
+            _PanelChip.naturalWidthOf(context, number: at + 1, title: panelTitle(panels[at], panels), shown: shown[at]),
+        ];
+        // Записям остаётся всё, кроме просветов и кнопки «плюс»: она своего
+        // размера не уступает.
+        final free = constraints.maxWidth - metrics.areaGap * panels.length - _NewPanelButton.widthOf(context);
+        final widths = shareWidth(natural, free);
+
+        return Center(
+          // Ростом записи облегают свой текст, а по вертикали ряд стоит **по
+          // центру полосы** — там же, где светофор.
+          child: Row(
+            // Справа налево: у правого края ряд стоит там же, где кончаются
+            // панели, а прибывающие наборы растут внутрь окна, не сдвигая
+            // остальных с насиженных мест.
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              for (var at = 0; at < panels.length; at++) ...[
+                // Дистанция между записями — та же, что между областями окна:
+                // другой величине здесь взяться неоткуда.
+                if (at > 0) SizedBox(width: metrics.areaGap),
+                SizedBox(
+                  width: widths[at],
+                  child: _PanelChip(
+                    key: PanelRow.chipKey(at + 1),
+                    number: at + 1,
+                    title: panelTitle(panels[at], panels),
+                    path: panels[at].session.currentPath,
+                    shownLeft: identical(panels[at], left),
+                    shownRight: identical(panels[at], right),
+                    // Показывают в активной панели: ряд общий, и «куда» решает
+                    // не он, а то, где сейчас курсор.
+                    onTap: () => app.showPanel(app.view.sourceArea, panels[at]),
+                    onClose: () => app.closePanel(panels[at]),
+                  ),
+                ),
+              ],
+              SizedBox(width: metrics.areaGap),
+              // Кнопка нового набора — последней, как вкладка «плюс» в
+              // браузере. Своей ширины она не уступает: завести набор должно
+              // быть можно и в тесном окне.
+              _NewPanelButton(onTap: () => app.commands.run(NewSessionCommand.commandId)),
+            ],
+          ),
+        );
+      },
     );
   }
+}
+
+/// Раздать [free] по естественным ширинам [natural].
+///
+/// Влезает всё — каждый берёт своё. Тесно — у всех появляется общий потолок,
+/// и ужимаются только те, кто его перерос: короткое имя остаётся целым, а
+/// место уступает длинное. Делить поровну нельзя — тогда короткие держат
+/// место, которого им не нужно, а длинные режутся при полупустом ряде
+/// (`docs/spec/panel-sessions.md`, §8).
+List<double> shareWidth(List<double> natural, double free) {
+  final total = natural.fold(0.0, (sum, width) => sum + width);
+  if (natural.isEmpty || free <= 0 || total <= free) {
+    return [...natural];
+  }
+
+  // От коротких к длинным: отдав короткому его немного, остаток делим между
+  // теми, кому не хватило, — и так, пока потолок не перестанет резать.
+  final order = [for (var at = 0; at < natural.length; at++) at]..sort((a, b) => natural[a].compareTo(natural[b]));
+  final widths = List<double>.filled(natural.length, 0);
+  var left = free;
+  var rest = natural.length;
+  for (final at in order) {
+    final share = left / rest;
+    widths[at] = natural[at] <= share ? natural[at] : share;
+    left -= widths[at];
+    rest--;
+  }
+  return widths;
 }
 
 /// Кнопка «завести набор»: рамка записи, а внутри — знак «плюс».
@@ -100,6 +150,16 @@ class _NewPanelButton extends StatelessWidget {
   const _NewPanelButton({required this.onTap});
 
   final VoidCallback onTap;
+
+  /// Сколько места занимает: ряд раздаёт ширину сам и обязан знать, сколько
+  /// у него отняли, — та же величина держит и саму кнопку.
+  static double widthOf(BuildContext context) {
+    final theme = FcTheme.of(context);
+    final style = FcTheme.effective(context, theme.statusStyle.copyWith(fontWeight: FontWeight.bold));
+    return textWidthOf('+', style, MediaQuery.textScalerOf(context)) +
+        theme.metrics.labelPadding * 2 +
+        theme.metrics.strokeWidth * 2;
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -158,6 +218,31 @@ class _PanelChip extends StatelessWidget {
   final bool shownRight;
   final VoidCallback onTap;
   final VoidCallback onClose;
+
+  /// Сколько места нужно записи, чтобы имя стояло целиком.
+  ///
+  /// Меряется тем же, чем рисуется, и по тем же частям: номер, имя, метка и
+  /// поля. Ряд раздаёт ширину по этим числам, поэтому разойтись им негде.
+  static double naturalWidthOf(
+    BuildContext context, {
+    required int number,
+    required String title,
+    required bool shown,
+  }) {
+    final theme = FcTheme.of(context);
+    final metrics = theme.metrics;
+    final scaler = MediaQuery.textScalerOf(context);
+
+    var width = metrics.labelPadding * 2 + metrics.strokeWidth * 2;
+    if (number <= 9) {
+      width += textWidthOf('$number', FcTheme.effective(context, theme.statusStyle), scaler) + metrics.cellPadding;
+    }
+    width += textWidthOf(title, FcTheme.effective(context, shown ? theme.pathStyle : theme.statusStyle), scaler);
+    if (shown) {
+      width += metrics.cellPadding * 2 + metrics.markedBarWidth * 2 + metrics.strokeWidth;
+    }
+    return width;
+  }
 
   @override
   Widget build(BuildContext context) {
