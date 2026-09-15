@@ -79,4 +79,41 @@ void main() {
       expect(widthOf(trimTextHead(path, style, width, scaler)), lessThanOrEqualTo(width), reason: 'ширина $width');
     }
   });
+
+  group('поместилось ли', () {
+    test('пустая строка помещается всегда', () {
+      expect(textFits('', style, 0, scaler), isTrue);
+    });
+
+    test('вставшая впритык — поместилась', () {
+      // Иначе подсказка висела бы на каждой ровно уложившейся строке и
+      // повторяла бы видимое.
+      const name = 'readme.md';
+      expect(textFits(name, style, widthOf(name), scaler), isTrue);
+    });
+
+    test('не влезла на волос — не поместилась', () {
+      const name = 'readme.md';
+      expect(textFits(name, style, widthOf(name) - 1, scaler), isFalse);
+    });
+
+    test('память не врёт при смене стиля', () {
+      const name = 'очень длинное имя файла';
+      const bigger = TextStyle(fontSize: 28);
+
+      final small = textWidthOf(name, style, scaler);
+      final large = textWidthOf(name, bigger, scaler);
+
+      expect(large, greaterThan(small), reason: 'стиль — часть вопроса, а не догадка');
+      expect(textWidthOf(name, style, scaler), small, reason: 'повторный ответ тот же');
+    });
+
+    test('память не врёт при смене крупности', () {
+      const name = 'имя файла';
+      final plain = textWidthOf(name, style, scaler);
+      final scaled = textWidthOf(name, style, const TextScaler.linear(2));
+
+      expect(scaled, greaterThan(plain));
+    });
+  });
 }

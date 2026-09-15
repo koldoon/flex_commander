@@ -1,8 +1,22 @@
+import 'dart:collection';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:flutter/widgets.dart';
 
 /// Ширина строки, набранной этим стилем.
+///
+/// Считается с памятью: один и тот же вопрос задаётся десятками раз за кадр.
+/// Строка таблицы спрашивает о каждой ячейке, краткий вид — обо всех именах
+/// каталога сразу, и каждый ответ — это набор строки в `TextPainter`. Полсотни
+/// строк на восемь колонок — четыреста наборов за кадр, а обещано шестьдесят
+/// кадров в секунду на каталоге в сто тысяч записей (`docs/widgets.md`, §4).
 double textWidthOf(String text, TextStyle style, TextScaler scaler) {
+  final key = (text, style, scaler);
+  final remembered = _widths[key];
+  if (remembered != null) {
+    return remembered;
+  }
+
   final painter = TextPainter(
     text: TextSpan(text: text, style: style),
     textDirection: TextDirection.ltr,
@@ -11,7 +25,42 @@ double textWidthOf(String text, TextStyle style, TextScaler scaler) {
   )..layout();
   final width = painter.width;
   painter.dispose();
+
+  // Помнится последнее, а старое забывается: имена уходят с экрана и больше не
+  // спрашиваются, а расти без предела память не вправе.
+  if (_widths.length >= _widthsLimit) {
+    _widths.remove(_widths.keys.first);
+  }
+  _widths[key] = width;
+
   return width;
+}
+
+/// Ширина по вопросу целиком: стиль и масштаб — часть вопроса, а не догадка.
+/// Сменилась тема или крупность текста — ответы прежние не подойдут, и ключ
+/// сам это учитывает.
+final LinkedHashMap<(String, TextStyle, TextScaler), double> _widths = LinkedHashMap();
+
+const int _widthsLimit = 1024;
+
+/// Поместится ли строка в отведённое.
+///
+/// Вопрос задаётся там, где текст режется: обрезанному нужна подсказка,
+/// поместившемуся — нет (`docs/spec/tooltips.md`, §2). `TextOverflow.ellipsis`
+/// на этот вопрос не отвечает: он молча рисует многоточие, — поэтому меряем
+/// сами, и меряем **тем же**, чем рисуем.
+///
+/// Вставшая впритык строка считается поместившейся: иначе на каждой ровно
+/// уложившейся строке висела бы подсказка, повторяющая видимое.
+bool textFits(String text, TextStyle style, double maxWidth, TextScaler scaler) {
+  if (text.isEmpty || maxWidth.isInfinite) {
+    return true;
+  }
+  if (maxWidth <= 0) {
+    // Места не отведено вовсе — рисовать нечего, и договаривать нечего.
+    return true;
+  }
+  return textWidthOf(text, style, scaler) <= maxWidth;
 }
 
 /// Обрезает путь **слева**, по целым звеньям: `/…/Qwickserve/dist`.
