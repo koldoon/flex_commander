@@ -3,6 +3,7 @@ import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import '../bootstrap/language.dart';
+import '../state/app_controller.dart';
 import '../state/background_tasks.dart';
 import '../state/background_tasks_state.dart';
 import '../state/commands/background_commands.dart';
@@ -256,6 +257,19 @@ class AppShell implements FcBackendModule, FcFrontendModule {
             read: () => app.panelHeader.isEmpty ? app.panelHeaders.available.first.id : app.panelHeader,
             write: app.setPanelHeader,
           ),
+        SettingsField.flag(
+          'sessionsInTitleBar',
+          defaultValue: true,
+          title: strings.tr('Session row in the title bar'),
+          description: strings.tr('Otherwise sessions are switched by the window, Ctrl-Tab and Alt-1…Alt-9'),
+          read: () => settings.section(ShellSettings.new).sessionsInTitleBar,
+          write: (value) {
+            settings.section(ShellSettings.new).sessionsInTitleBar = value;
+            // Раздел правится мимо контроллера, и ряд обязан пропасть сейчас, а
+            // не при следующей чужой перерисовке.
+            (app as AppController).refresh();
+          },
+        ),
         SettingsField.integer(
           'sizeScanConcurrency',
           defaultValue: AppSettings.defaultSizeScanConcurrency,
@@ -502,6 +516,9 @@ const Map<String, String> _russian = {
   // Настройки приложения.
   'Theme': 'Оформление',
   'Panel address': 'Адрес панели',
+  'Session row in the title bar': 'Ряд сессий в полосе заголовка',
+  'Otherwise sessions are switched by the window, Ctrl-Tab and Alt-1…Alt-9':
+      'Иначе сессии переключают окном, Ctrl-Tab и Alt-1…Alt-9',
   'How the current path is shown above the panel': 'Чем показан текущий путь над панелью',
   'Language': 'Язык',
   'Interface language; «System» follows the machine': 'Язык интерфейса; «Системный» — как у машины',

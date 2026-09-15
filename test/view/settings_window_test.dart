@@ -7,6 +7,9 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flex_commander/state/shell_settings.dart';
+import 'package:flex_commander/view/panel_row.dart';
+import 'package:flex_commander/view/window_title_bar.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -117,6 +120,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(terminal().typingGoesToLine, isTrue, reason: 'применяется сразу, без кнопки «Применить»');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('флажок ряда наборов убирает ряд из полосы заголовка', (tester) async {
+    await openSettings(tester);
+    expect(find.byType(PanelRow), findsOneWidget);
+
+    await tester.ensureVisible(setting('Session row in the title bar'));
+    await tester.pumpAndSettle();
+    await tester.tap(setting('Session row in the title bar'));
+    await tester.pumpAndSettle();
+
+    // Ряд пропадает сразу, а полоса остаётся: за неё таскают окно.
+    expect(find.byType(PanelRow), findsNothing);
+    expect(find.byType(WindowTitleBar), findsOneWidget);
+    expect(runtime.app.moduleSettings('fc.shell').section(ShellSettings.new).sessionsInTitleBar, isFalse);
 
     await tester.pump(const Duration(milliseconds: 20));
   });

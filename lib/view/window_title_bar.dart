@@ -2,6 +2,7 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
+import '../state/shell_settings.dart';
 import 'panel_row.dart';
 
 /// Полоса вверху окна — вместо системной.
@@ -47,29 +48,33 @@ class WindowTitleBar extends StatelessWidget {
             Positioned.fill(
               child: GestureDetector(behavior: HitTestBehavior.opaque, onDoubleTap: app.window.toggleMaximized),
             ),
-            Row(
-              children: [
-                // Место светофора и свободная ручка за ним: ряд начинается
-                // только здесь, чтобы не залезть на системные кнопки и не
-                // оставить окно без места, за которое его берут.
-                SizedBox(width: metrics.windowControlsWidth + metrics.windowDragHandleWidth),
-                Expanded(
-                  child: Padding(
-                    // Справа ряд кончается там же, где панели под ним: поле
-                    // окна одно на всё содержимое.
-                    padding: EdgeInsets.only(right: metrics.windowSidePadding),
-                    // И опущен на оптический сдвиг: середина светофора ниже
-                    // середины полосы, а равняться ряд должен по нему.
-                    // Сдвигом, а не полем: разметку он не меняет, и высота
-                    // полосы остаётся ровно той, что назначила тема.
-                    child: Transform.translate(
-                      offset: Offset(0, metrics.windowTitleBarContentNudge),
-                      child: const PanelRow(),
+            // Ряд — по настройке; полоса остаётся всегда: за неё таскают окно
+            // и разворачивают его двойным щелчком, и к наборам это отношения
+            // не имеет (`docs/spec/panel-sessions.md`, §3).
+            if (app.moduleSettings('fc.shell').section(ShellSettings.new).sessionsInTitleBar)
+              Row(
+                children: [
+                  // Место светофора и свободная ручка за ним: ряд начинается
+                  // только здесь, чтобы не залезть на системные кнопки и не
+                  // оставить окно без места, за которое его берут.
+                  SizedBox(width: metrics.windowControlsWidth + metrics.windowDragHandleWidth),
+                  Expanded(
+                    child: Padding(
+                      // Справа ряд кончается там же, где панели под ним: поле
+                      // окна одно на всё содержимое.
+                      padding: EdgeInsets.only(right: metrics.windowSidePadding),
+                      // И опущен на оптический сдвиг: середина светофора ниже
+                      // середины полосы, а равняться ряд должен по нему.
+                      // Сдвигом, а не полем: разметку он не меняет, и высота
+                      // полосы остаётся ровно той, что назначила тема.
+                      child: Transform.translate(
+                        offset: Offset(0, metrics.windowTitleBarContentNudge),
+                        child: const PanelRow(),
+                      ),
                     ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
           ],
         ),
       ),

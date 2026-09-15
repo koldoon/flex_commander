@@ -10,6 +10,7 @@ class ShellSettings implements Serializable {
     this.allowElevatedWrites = true,
     this.useBuiltinExtensions = true,
     this.listingCache = true,
+    this.sessionsInTitleBar = true,
     this.listingCacheLimit = defaultListingCacheLimit,
     this.listingCacheTtl = defaultListingCacheTtl,
     List<String>? compoundExtensions,
@@ -62,6 +63,13 @@ class ShellSettings implements Serializable {
   /// неправду и не заметить этого.
   int listingCacheTtl;
 
+  /// Показывать ли ряд открытых наборов в полосе заголовка.
+  ///
+  /// Включено: полоса до него пустовала, и места ряд ни у кого не отнимает
+  /// (`docs/spec/panel-sessions.md`, §3). Выключают его те, кто держит свои два
+  /// набора в голове: переключение остаётся окном, `Ctrl-Tab` и номерами.
+  bool sessionsInTitleBar;
+
   /// Недавно запущенные команды, свежие впереди.
   ///
   /// Это состояние, а не выбор: в окне настроек его нет — как нет там истории
@@ -73,6 +81,7 @@ class ShellSettings implements Serializable {
     language = extract(language, m['language']);
     allowElevatedWrites = extract(allowElevatedWrites, m['allowElevatedWrites']);
     listingCache = extract(listingCache, m['listingCache']);
+    sessionsInTitleBar = extract(sessionsInTitleBar, m['sessionsInTitleBar']);
     listingCacheLimit = extract(listingCacheLimit, m['listingCacheLimit']).clamp(1, 4096);
     listingCacheTtl = extract(listingCacheTtl, m['listingCacheTtl']).clamp(1, 86400);
     useBuiltinExtensions = extract(useBuiltinExtensions, m['useBuiltinExtensions']);
@@ -85,6 +94,7 @@ class ShellSettings implements Serializable {
     m['language'] = language;
     m['allowElevatedWrites'] = allowElevatedWrites;
     m['listingCache'] = listingCache;
+    m['sessionsInTitleBar'] = sessionsInTitleBar;
     m['listingCacheLimit'] = listingCacheLimit;
     m['listingCacheTtl'] = listingCacheTtl;
     m['useBuiltinExtensions'] = useBuiltinExtensions;

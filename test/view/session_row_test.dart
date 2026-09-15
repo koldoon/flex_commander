@@ -7,6 +7,7 @@ import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/state/commands/session_commands.dart';
+import 'package:flex_commander/state/shell_settings.dart';
 import 'package:flex_commander/view/panel_row.dart';
 import 'package:flex_commander/view/window_title_bar.dart';
 import 'package:flutter/services.dart';
@@ -249,6 +250,52 @@ void main() {
 
       expect(app.view.sourceArea, ViewportPosition.right);
       expect(activePlates(), findsOneWidget);
+    });
+  });
+
+  group('ряд по настройке', () {
+    ShellSettings shell() => app.moduleSettings('fc.shell').section(ShellSettings.new);
+
+    testWidgets('по умолчанию ряд в полосе есть', (tester) async {
+      await pumpApp(tester);
+
+      expect(shell().sessionsInTitleBar, isTrue);
+      expect(find.byType(PanelRow), findsOneWidget);
+    });
+
+    testWidgets('выключенный ряд пропадает, а полоса остаётся', (tester) async {
+      await pumpApp(tester);
+      final bar = tester.getRect(find.byType(WindowTitleBar));
+
+      shell().sessionsInTitleBar = false;
+      app.refresh();
+      await tester.pumpAndSettle();
+
+      expect(find.byType(PanelRow), findsNothing);
+      // Полоса на месте и той же высоты: за неё таскают окно и разворачивают
+      // его двойным щелчком.
+      expect(find.byType(WindowTitleBar), findsOneWidget);
+      expect(tester.getRect(find.byType(WindowTitleBar)), bar);
+    });
+
+    testWidgets('без ряда наборы переключают окном и номерами', (tester) async {
+      await pumpApp(tester);
+      await app.openPanel(ViewportPosition.left);
+      await tester.pumpAndSettle();
+      shell().sessionsInTitleBar = false;
+      app.refresh();
+      await tester.pumpAndSettle();
+
+      // Номер виден в окне выбора — с выключенным рядом это единственное место,
+      // где он написан.
+      app.commands.run(ChooseSessionCommand.commandId);
+      await tester.pumpAndSettle();
+      expect(find.byType(FcPickList), findsOneWidget);
+      await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+      await tester.pumpAndSettle();
+
+      await press(tester, LogicalKeyboardKey.digit2, modifiers: [LogicalKeyboardKey.alt]);
+      expect(identical(app.panelAt(ViewportPosition.left), app.panels[1]), isTrue);
     });
   });
 

@@ -246,8 +246,8 @@ CommandRegistry.dispatch(combination, app)
 | `Cmd-Shift-T` | `panel.sessions.new` | новый набор на текущем каталоге, показать здесь |
 | `Cmd-Shift-W` | `panel.sessions.close` | закрыть показанный здесь; на место последнего встаёт новый |
 | `Ctrl-Tab` / `Ctrl-Shift-Tab` | `panel.sessions.next` / `panel.sessions.previous` | соседний по списку, по кругу |
-| `Alt-1`…`Alt-9` | `panel.sessions.select` | набор по номеру — тому, что написан в ряду |
-| `Cmd-Shift-O` | `panel.sessions.choose` | окно выбора набора: все открытые, с нечётким отбором |
+| `Alt-1`…`Alt-9` | `panel.sessions.select` | набор по номеру — тому, что написан в ряду и в окне выбора |
+| `Cmd-Shift-O` | `panel.sessions.choose` | окно выбора набора: все открытые, отбор по имени и пути |
 | — | `panel.sessions.rename` | назвать набор своим именем (палитра) |
 
 ### Пометка объектов
