@@ -40,6 +40,12 @@ class FcTooltip extends StatefulWidget {
   /// линейками, а задержку линейкой не измерить (`docs/spec/tooltips.md`, §4).
   static const Duration delay = Duration(milliseconds: 600);
 
+  /// Ключ всплывшей подсказки — по нему её находят проверки.
+  ///
+  /// Иначе искать нечего: подсказка живёт в накладке и отличается от
+  /// договариваемого текста только тем, что показана дважды.
+  static const Key viewKey = Key('fc-tooltip');
+
   /// Есть ли подсказка выше по дереву.
   ///
   /// Спрашивает [FcTrimmedText]: договаривать дважды одно и то же не нужно, а
@@ -175,6 +181,7 @@ class _FcTooltipView extends StatelessWidget {
       child: CustomSingleChildLayout(
         delegate: _FcTooltipLayout(anchor: anchor, gap: metrics.dialogLineGap, share: metrics.dialogMaxScreenFactor),
         child: Container(
+          key: FcTooltip.viewKey,
           padding: EdgeInsets.symmetric(horizontal: metrics.toastHorizontalPadding, vertical: metrics.toastPadding),
           decoration: BoxDecoration(
             // Оформление всплывающего сообщения: обе поверхности всплывают
