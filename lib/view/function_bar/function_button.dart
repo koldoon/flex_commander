@@ -71,12 +71,36 @@ class _FunctionButtonState extends State<FunctionButton> {
                             borderRadius: BorderRadius.circular(metrics.functionButtonRadius),
                           )
                           : null,
-                  child: Text(
-                    widget.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.clip,
-                    softWrap: false,
-                    style: theme.uiStyle.copyWith(color: colors.functionButtonText),
+                  // Подпись обрубается посреди буквы, как и было, — и
+                  // договаривается подсказкой, когда обрублена: по-русски
+                  // подписи длиннее, и в тесном окне читать их нечем.
+                  child: Builder(
+                    builder: (context) {
+                      final style = theme.uiStyle.copyWith(color: colors.functionButtonText);
+                      return LayoutBuilder(
+                        builder: (context, constraints) {
+                          final measured = FcTheme.effective(context, style);
+                          return fcTooltipIf(
+                            context,
+                            trimmed:
+                                !textFits(
+                                  widget.label,
+                                  measured,
+                                  constraints.maxWidth,
+                                  MediaQuery.textScalerOf(context),
+                                ),
+                            message: widget.label,
+                            child: Text(
+                              widget.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.clip,
+                              softWrap: false,
+                              style: style,
+                            ),
+                          );
+                        },
+                      );
+                    },
                   ),
                 ),
               ),

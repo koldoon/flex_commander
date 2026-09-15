@@ -43,6 +43,19 @@ final LinkedHashMap<(String, TextStyle, TextScaler), double> _widths = LinkedHas
 
 const int _widthsLimit = 1024;
 
+/// Ширина набранного куска: текст в нём может быть разных стилей.
+///
+/// Отдельно от [textWidthOf]: строка состояния набирает имя ссылки, стрелку
+/// глифом шрифта значков и цель — тремя стилями, и сложить их ширины по
+/// отдельности значило бы забыть про кернинг на стыках. Памяти здесь нет:
+/// таких мест единицы, и спрашивают они раз на перерисовку, а не на строку.
+double spanWidthOf(InlineSpan span, TextScaler scaler) {
+  final painter = TextPainter(text: span, textDirection: TextDirection.ltr, textScaler: scaler, maxLines: 1)..layout();
+  final width = painter.width;
+  painter.dispose();
+  return width;
+}
+
 /// Поместится ли строка в отведённое.
 ///
 /// Вопрос задаётся там, где текст режется: обрезанному нужна подсказка,

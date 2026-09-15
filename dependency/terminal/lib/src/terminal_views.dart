@@ -88,7 +88,7 @@ class _TerminalFrame extends StatelessWidget {
             alignment: Alignment.centerLeft,
             child: Row(
               children: [
-                Expanded(child: Text(title, maxLines: 1, overflow: TextOverflow.ellipsis, style: label)),
+                Expanded(child: FcTrimmedText(text: title, style: label)),
                 Text(hint, style: label.copyWith(color: failed ? colors.markedBar : colors.secondaryText)),
               ],
             ),

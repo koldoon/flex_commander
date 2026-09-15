@@ -45,12 +45,7 @@ class PanelStatusBar extends StatelessWidget {
                   // тема).
                   padding: EdgeInsets.symmetric(horizontal: theme.metrics.labelPadding + theme.metrics.cellPadding),
                   alignment: Alignment.centerLeft,
-                  child: Text.rich(
-                    _content(theme, context.strings),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: error ? theme.statusStyle.copyWith(color: theme.colors.error) : theme.statusStyle,
-                  ),
+                  child: _text(context, theme, error: error),
                 ),
               ),
             ],
@@ -60,10 +55,35 @@ class PanelStatusBar extends StatelessWidget {
     );
   }
 
-  InlineSpan _content(FcTheme theme, Strings strings) {
+  /// Строка состояния с подсказкой, когда сказанное не поместилось.
+  ///
+  /// Сюда смотрят, когда имя в списке обрезано, — и обрезанная строка
+  /// состояния оставляла бы вопрос без ответа совсем (`docs/spec/tooltips.md`,
+  /// §7). `FcTrimmedText` не встаёт: текст набран кусками разных стилей.
+  Widget _text(BuildContext context, FcTheme theme, {required bool error}) {
+    final style = error ? theme.statusStyle.copyWith(color: theme.colors.error) : theme.statusStyle;
+    final (span, whole) = _content(theme, context.strings);
+    final shown = Text.rich(span, maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
+
+    // Своей раскладкой: полоса занимает всю ширину панели, и знать её заранее
+    // неоткуда. Интринсиками панель никто не меряет — это не окно команды.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final measured = FcTheme.effective(context, style);
+        final width = spanWidthOf(TextSpan(style: measured, children: [span]), MediaQuery.textScalerOf(context));
+        return fcTooltipIf(context, trimmed: width > constraints.maxWidth, message: whole, child: shown);
+      },
+    );
+  }
+
+  /// Что сказано — набором и теми же словами простым текстом.
+  ///
+  /// Двумя значениями сразу, а не двумя методами: подсказка обязана говорить
+  /// **то же**, что полоса, а два места, собирающие одно, однажды разойдутся.
+  (InlineSpan, String) _content(FcTheme theme, Strings strings) {
     final status = panel.statusText;
     if (status != null && status.isNotEmpty) {
-      return TextSpan(text: status);
+      return (TextSpan(text: status), status);
     }
 
     final marked = panel.markedPaths;
@@ -73,25 +93,35 @@ class PanelStatusBar extends StatelessWidget {
       // Каталоги обходятся фоном, и пока обход идёт, сумма неполная —
       // сказать об этом надо прямо, иначе растущее число выглядит ошибкой.
       final scanning = panel.markedSizeIsFinal ? '' : ' ${strings.tr('(Scanning…)')}';
-      return TextSpan(text: size > 0 ? '$items, ${formatBytesLong(size)}$scanning' : '$items$scanning');
+      final text = size > 0 ? '$items, ${formatBytesLong(size)}$scanning' : '$items$scanning';
+      return (TextSpan(text: text), text);
     }
 
     final entry = panel.currentEntry;
     if (entry != null && entry.isLink) {
       // Стрелка — глиф шрифта иконок, а не пара знаков «->»: рисованная
       // стрелка не рассыпается на разные шрифты и выглядит как стрелка.
-      return TextSpan(
-        children: [
-          TextSpan(text: entry.name),
-          TextSpan(
-            text: ' ${theme.icons.glyph(theme.icons.angleRight)} ',
-            style: TextStyle(fontFamily: theme.icons.fontFamily),
-          ),
-          TextSpan(text: entry.reference),
-        ],
+      return (
+        TextSpan(
+          children: [
+            TextSpan(text: entry.name),
+            TextSpan(
+              text: ' ${theme.icons.glyph(theme.icons.angleRight)} ',
+              style: TextStyle(fontFamily: theme.icons.fontFamily),
+            ),
+            TextSpan(text: entry.reference),
+          ],
+        ),
+        // В подсказке стрелка — обычный знак: шрифта значков там нет, и глиф
+        // вышел бы пустым прямоугольником.
+        '${entry.name} $_arrow ${entry.reference}',
       );
     }
 
-    return TextSpan(text: entry?.name ?? '-');
+    final name = entry?.name ?? '-';
+    return (TextSpan(text: name), name);
   }
+
+  /// Стрелка для подсказки: набором её рисует глиф шрифта значков.
+  static const String _arrow = '→';
 }

@@ -96,6 +96,24 @@ void main() {
     await disposeScreen(tester);
   });
 
+  testWidgets('строка состояния договаривает то, что в ней не поместилось', (tester) async {
+    final runtime = await open(tester, size: const Size(620, 400));
+
+    // Курсор на длинном имени: сюда и смотрят, когда имя в списке обрезано.
+    runtime.app.left.setCursorToName(long);
+    await tester.pumpAndSettle();
+
+    final status = find.descendant(of: find.byType(PanelStatusBar).first, matching: find.byType(FcTooltip));
+    expect(tester.widget<FcTooltip>(status).message, long);
+
+    // Короткое имя полосу не переполняет — и молчит.
+    runtime.app.left.setCursorToName(short);
+    await tester.pumpAndSettle();
+    expect(status, findsNothing);
+
+    await disposeScreen(tester);
+  });
+
   testWidgets('дерево: имя ветви договаривается, а размер молчит', (tester) async {
     await open(tester, view: TreeView.viewId);
 

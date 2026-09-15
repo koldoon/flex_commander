@@ -167,7 +167,9 @@ class _RunRow extends StatelessWidget {
                     children: [
                       Text('${task.title}: ', style: theme.statusStyle),
                       Expanded(
-                        child: Text(task.status.message, style: theme.statusStyle, overflow: TextOverflow.ellipsis),
+                        // В сообщении о ходе стоят пути — обрезанное
+                        // договаривается подсказкой (`docs/spec/tooltips.md`).
+                        child: FcTrimmedText(text: task.status.message, style: theme.statusStyle),
                       ),
                       SizedBox(width: metrics.dialogGap),
                       SizedBox(

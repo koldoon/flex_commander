@@ -475,7 +475,7 @@ class _OpenPathFormState extends State<_OpenPathForm> {
               CommandDialogField.wide(
                 // Одной строкой: адреса длинные, а окно не должно расти вниз на
                 // каждой вехе.
-                child: Text(message, style: theme.dialogTextStyle, maxLines: 1, overflow: TextOverflow.ellipsis),
+                child: FcTrimmedText(text: message, style: theme.dialogTextStyle),
               ),
           ],
         );

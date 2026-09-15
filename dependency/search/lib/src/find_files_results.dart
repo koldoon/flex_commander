@@ -156,13 +156,30 @@ class _FindFilesResultsState extends State<FindFilesResults> {
 
   /// Строка статистики постоянной высоты: у пустого текста нет ни одного глифа,
   /// и без этого он на пару точек ниже.
-  Widget _line(FcTheme theme, String text) => Text(
-    text,
-    style: theme.dialogLabelStyle,
-    strutStyle: StrutStyle.fromTextStyle(theme.dialogLabelStyle, forceStrutHeight: true),
-    maxLines: 1,
-    overflow: TextOverflow.ellipsis,
-  );
+  Widget _line(FcTheme theme, String text) {
+    final shown = Text(
+      text,
+      style: theme.dialogLabelStyle,
+      strutStyle: StrutStyle.fromTextStyle(theme.dialogLabelStyle, forceStrutHeight: true),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+    );
+
+    // Не `FcTrimmedText`: стойка постоянной высоты здесь важнее общей обёртки —
+    // без неё строка прыгает на пару точек. Правило подсказки при этом общее.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final style = FcTheme.effective(context, theme.dialogLabelStyle);
+        final scaler = MediaQuery.textScalerOf(context);
+        return fcTooltipIf(
+          context,
+          trimmed: !textFits(text, style, constraints.maxWidth, scaler),
+          message: text,
+          child: shown,
+        );
+      },
+    );
+  }
 
   /// Ход работы: где обход сейчас, а по окончании — чем он кончился.
   String _progress(Strings strings, FindFilesState state) {
