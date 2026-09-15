@@ -19,6 +19,7 @@ export 'src/dialog_body.dart';
 export 'src/controls.dart';
 export 'src/cursor_blink.dart';
 export 'src/fc_theme.dart';
+export 'src/fc_tooltip.dart';
 export 'src/key_value_table.dart';
 export 'src/palette_search.dart';
 export 'src/pick_list.dart';
