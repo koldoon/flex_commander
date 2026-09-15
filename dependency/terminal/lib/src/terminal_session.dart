@@ -7,6 +7,7 @@ import 'package:xterm/xterm.dart';
 
 import 'shell_keys.dart';
 import 'shell_marks.dart';
+import 'shell_prompt.dart';
 
 /// Программа в псевдотерминале вместе с разбором её вывода.
 ///
@@ -119,6 +120,29 @@ class TerminalSession extends ChangeNotifier {
 
   Completer<ShellMark>? _waiting;
 
+  /// Приглашение, снятое с экрана; пусто — снять пока нечего.
+  ///
+  /// Снимается готовым, а не спрашивается у оболочки: она его уже собрала и уже
+  /// напечатала (`docs/spec/shell-prompt.md`, §3).
+  ShellPrompt get prompt => _prompt;
+  ShellPrompt _prompt = ShellPrompt.none;
+
+  /// Откуда приглашение начнётся: место курсора на метке. Метка приходит из
+  /// `precmd` — **до** печати, поэтому это ровно начало.
+  int _promptLine = -1;
+  int _promptColumn = -1;
+
+  /// Ждём, пока печать утихнет: приглашение бывает многострочным и приезжает
+  /// не одним куском, а темы вроде `powerlevel10k` дорисовывают его позже.
+  Timer? _promptSettle;
+
+  /// Сколько тишины считать концом печати.
+  ///
+  /// Не «ноль кадров»: приглашение приходит несколькими записями подряд, и
+  /// снимать его на первой значило бы снять половину. Не «полсекунды»: столько
+  /// строка стояла бы с прошлым приглашением после каждой команды.
+  static const Duration promptSettleDelay = Duration(milliseconds: 40);
+
   /// Выполнить строку в этой оболочке и дождаться её конца.
   ///
   /// null — оболочка о себе не рассказывает: строка отправлена, но конца её мы
@@ -143,6 +167,11 @@ class TerminalSession extends ChangeNotifier {
       case ShellMarkKind.running:
         _running = true;
         _commandOutput = false;
+        // Команда пошла — снимать приглашение больше неоткуда: то, что
+        // напечатается дальше, принадлежит ей.
+        _promptSettle?.cancel();
+        _promptSettle = null;
+        _promptLine = -1;
         // Прекратил человек или нет — вопрос про эту команду, а не про сессию:
         // прошлый `Ctrl-C` к новой отношения не имеет.
         _interrupted = false;
@@ -152,6 +181,9 @@ class TerminalSession extends ChangeNotifier {
           _commandOutput = true;
         }
         _running = false;
+        _promptLine = _cursorLine;
+        _promptColumn = terminal.buffer.cursorX;
+        _capturePromptLater();
         final waiting = _waiting;
         _waiting = null;
         waiting?.complete(mark);
@@ -201,11 +233,39 @@ class TerminalSession extends ChangeNotifier {
   void _onOutput(String data) {
     _producedOutput = true;
     terminal.write(data);
+    if (_promptLine >= 0) {
+      _capturePromptLater();
+    }
     // Считается **по ходу**, а не в конце: экран молчащей команды показывается
     // по первому же её слову, а не когда она уже закончилась.
     if (_running && _cursorLine != _outputStart) {
       _commandOutput = true;
     }
+    notifyListeners();
+  }
+
+  /// Снять приглашение, когда печать утихнет.
+  void _capturePromptLater() {
+    _promptSettle?.cancel();
+    _promptSettle = Timer(promptSettleDelay, _capturePrompt);
+  }
+
+  void _capturePrompt() {
+    _promptSettle = null;
+    if (_promptLine < 0 || _running) {
+      return;
+    }
+    final taken = readShellPrompt(
+      terminal.buffer,
+      startLine: _promptLine,
+      startColumn: _promptColumn,
+      endLine: _cursorLine,
+      endColumn: terminal.buffer.cursorX,
+    );
+    if (taken.isEmpty) {
+      return;
+    }
+    _prompt = taken;
     notifyListeners();
   }
 
@@ -247,6 +307,10 @@ class TerminalSession extends ChangeNotifier {
     if (waiting != null && !waiting.isCompleted) {
       waiting.completeError(StateError('Оболочка закрылась'));
     }
+    // Отсчёт тишины переживать сессию не вправе: `flutter_test` считает
+    // незакрытый таймер ошибкой, и он ею и был бы.
+    _promptSettle?.cancel();
+    _promptSettle = null;
     unawaited(_output.cancel());
     // Убить уже мёртвое — не ошибка, а обычный случай: команда из строки
     // обычно кончается сама.
