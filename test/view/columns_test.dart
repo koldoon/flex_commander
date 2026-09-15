@@ -31,8 +31,8 @@ void main() {
     app = runtime.app;
   });
 
-  Future<void> pumpApp(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(802, 621);
+  Future<void> pumpApp(WidgetTester tester, {Size size = const Size(802, 621)}) async {
+    tester.view.physicalSize = size;
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
@@ -487,6 +487,30 @@ void main() {
 
       expect(app.left.columns.find(FsColumns.size)?.format, 'bytes');
       expect(app.right.columns.find(FsColumns.size)?.format, isNot('bytes'), reason: 'формат панельный, как ширина');
+    });
+
+    testWidgets('списки форматов стоят столбцом и не уезжают к краю панели', (tester) async {
+      // Ряд, растянутый на всю панель, уводил списки к её правому краю, и
+      // таблица читалась разреженной (поймано живьём).
+      // Окно пошире: в тесном столбец флажков обязан уступить место списку, и
+      // ровный столбец там невозможен — это и правильно.
+      await pumpApp(tester, size: const Size(1600, 900));
+      await openViewDialog(tester);
+
+      final selects = tester.widgetList<FcSelect<String>>(find.byType(FcSelect<String>)).toList();
+      expect(selects.length, greaterThan(2), reason: 'форматы есть у размера, дат, прав и владельца');
+
+      final lefts = [
+        for (final finder in find.byType(FcSelect<String>).evaluate())
+          tester.getRect(find.byWidget(finder.widget)).left,
+      ];
+      expect(lefts.toSet(), hasLength(1), reason: 'все списки начинаются с одного места');
+
+      // И вплотную к столбцу флажков, а не у края окна: между ними один зазор.
+      final widest = tester.getRect(
+        find.descendant(of: find.byType(FcCheckbox), matching: find.text('Attributes')).first,
+      );
+      expect(lefts.first - widest.right, lessThan(100), reason: 'списки прижаты к флажкам, а не к краю');
     });
 
     testWidgets('формат переживает перезапуск', (tester) async {

@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'command_dialog.dart';
 import 'fc_theme.dart';
+import 'text_trim.dart';
 import 'pick_list.dart';
 
 /// Подпись поля в окне команды.
@@ -129,6 +130,21 @@ class FcCheckbox extends StatefulWidget {
 
   /// Узел фокуса — когда он нужен снаружи.
   final FocusNode? focusNode;
+
+  /// Сколько места нужно флажку с такой подписью.
+  ///
+  /// Объявляется наружу ради столбца флажков: чтобы поставить рядом с ними
+  /// что-то ещё — выпадающий список формата колонки, — нужно знать ширину
+  /// самого широкого, а она зависит от языка
+  /// (`docs/spec/column-formats.md`, §5). Меряется тем же стилем, каким будет
+  /// набрано: окружение домешивает свою разрядку (`FcTheme.effective`).
+  static double widthOf(BuildContext context, String label) {
+    final theme = FcTheme.of(context);
+    final style = FcTheme.effective(context, theme.dialogTextStyle);
+    return theme.metrics.checkboxSize +
+        theme.metrics.checkboxGap +
+        textWidthOf(label, style, MediaQuery.textScalerOf(context));
+  }
 
   @override
   State<FcCheckbox> createState() => _FcCheckboxState();
