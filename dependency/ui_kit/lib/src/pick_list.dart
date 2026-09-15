@@ -6,6 +6,7 @@ import 'command_dialog.dart';
 import 'fc_theme.dart';
 import 'palette_search.dart';
 import 'text_trim.dart';
+import 'trimmed_text.dart';
 
 /// Строка списка с отбором.
 ///
@@ -112,6 +113,7 @@ class FcPickList extends StatefulWidget {
     this.trimHead = false,
     this.trimSubtitleHead = false,
     this.dimPathHead = false,
+    this.hugged = false,
   });
 
   final List<FcPickRow> rows;
@@ -153,6 +155,14 @@ class FcPickList extends StatefulWidget {
   /// корень и конец. Обычным хвостовым многоточием путь терял бы и то, и
   /// другое (`docs/spec/panel-sessions.md`, §3).
   final bool trimSubtitleHead;
+
+  /// Окно облегает содержимое — строку мерить нечем и незачем.
+  ///
+  /// Рама такого окна меряет содержимое интринсиками, а `LayoutBuilder` на этот
+  /// вопрос отвечать не умеет (`docs/spec/dialog-body.md`). Да и незачем: окно
+  /// ровно такой ширины, какой хватило, и строки в нём не режутся. Ставят его
+  /// окна без `ownWidth` — выбор вида и пометка по маске.
+  final bool hugged;
 
   /// В пути ярко набрано **последнее звено**, остальное приглушено.
   ///
@@ -425,9 +435,17 @@ class _FcPickListState extends State<FcPickList> {
     /// Обрезка идёт по **доступной** ширине, поэтому меряется в раскладке:
     /// сколько её осталось, знает только `LayoutBuilder`. Он тут безопасен —
     /// окна со списками задают себе ширину сами (`DialogSpec.ownWidth`), и
-    /// про интринсики их никто не спрашивает.
+    /// про интринсики их никто не спрашивает; те, что облегают содержимое,
+    /// говорят об этом сами ([FcPickList.hugged]).
     Widget title(List<TextSpan> spans) =>
         Text.rich(TextSpan(children: spans), maxLines: 1, overflow: TextOverflow.ellipsis);
+
+    /// Целая строка — то, что договорит подсказка, если показанное обрезано.
+    ///
+    /// `FcTrimmedText` сюда не встаёт: текст здесь набран не одной строкой, а
+    /// кусками разного цвета — с подсветкой совпавшего и приглушённым путём.
+    /// Правило же общее ([fcTooltipIf]).
+    String whole() => row.subtitle.isEmpty ? row.title : '${row.title}$_subtitleGap${row.subtitle}';
 
     final inset = widget.textInset ?? dialogInputTextInset(context);
 
@@ -501,7 +519,12 @@ class _FcPickListState extends State<FcPickList> {
                                     for (final hit in match?.labelHits ?? const <int>[])
                                       if (hit >= cut) hit - cut + (shown.startsWith('…') ? 1 : 0),
                                   ];
-                                  return title(pathSpans(shown, hits));
+                                  return fcTooltipIf(
+                                    context,
+                                    trimmed: shown != row.title,
+                                    message: row.title,
+                                    child: title(pathSpans(shown, hits)),
+                                  );
                                 },
                               )
                               : widget.trimSubtitleHead && row.subtitle.isNotEmpty
@@ -514,21 +537,50 @@ class _FcPickListState extends State<FcPickList> {
                                       constraints.maxWidth -
                                       textWidthOf(row.title, bright, scaler) -
                                       textWidthOf(_subtitleGap, dim, scaler);
-                                  return title([
-                                    ...pathSpans(row.title, match?.labelHits ?? const []),
-                                    TextSpan(
-                                      text: '$_subtitleGap${trimTextHead(row.subtitle, dim, free, scaler)}',
-                                      style: dim,
-                                    ),
-                                  ]);
+                                  final shown = trimTextHead(row.subtitle, dim, free, scaler);
+                                  return fcTooltipIf(
+                                    context,
+                                    trimmed: shown != row.subtitle,
+                                    message: whole(),
+                                    child: title([
+                                      ...pathSpans(row.title, match?.labelHits ?? const []),
+                                      TextSpan(text: '$_subtitleGap$shown', style: dim),
+                                    ]),
+                                  );
                                 },
                               )
-                              : title([
-                                ...pathSpans(row.title, match?.labelHits ?? const []),
-                                // Уточнение без подсветки: по нему не ищут, и
-                                // подсвечивать в нём нечего.
-                                if (row.subtitle.isNotEmpty) TextSpan(text: '$_subtitleGap${row.subtitle}', style: dim),
-                              ]),
+                              : Builder(
+                                builder: (context) {
+                                  final shown = title([
+                                    ...pathSpans(row.title, match?.labelHits ?? const []),
+                                    // Уточнение без подсветки: по нему не ищут,
+                                    // и подсвечивать в нём нечего.
+                                    if (row.subtitle.isNotEmpty)
+                                      TextSpan(text: '$_subtitleGap${row.subtitle}', style: dim),
+                                  ]);
+                                  if (widget.hugged) {
+                                    return shown;
+                                  }
+                                  return LayoutBuilder(
+                                    builder: (context, constraints) {
+                                      final scaler = MediaQuery.textScalerOf(context);
+                                      // Имя и уточнение набраны разными
+                                      // стилями, поэтому меряются порознь.
+                                      final width =
+                                          textWidthOf(row.title, bright, scaler) +
+                                          (row.subtitle.isEmpty
+                                              ? 0
+                                              : textWidthOf('$_subtitleGap${row.subtitle}', dim, scaler));
+                                      return fcTooltipIf(
+                                        context,
+                                        trimmed: width > constraints.maxWidth,
+                                        message: whole(),
+                                        child: shown,
+                                      );
+                                    },
+                                  );
+                                },
+                              ),
                     ),
                     if (row.badge case final badge?) ...[
                       SizedBox(width: metrics.columnGap),

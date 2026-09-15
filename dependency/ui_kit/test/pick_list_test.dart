@@ -327,4 +327,85 @@ void main() {
       expect(partsOf(tester).map((part) => part.$2).toSet(), {colors.dialogLabel});
     });
   });
+
+  group('длинная строка договаривается', () {
+    const long = 'невероятно длинное имя строки списка, которому не хватит ширины окна';
+    const path = '/Users/koldoon/Developer/Petrosoft/qwickserve/dist';
+
+    Future<void> show(WidgetTester tester, FcPickList list) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            extensions: const [
+              FcTheme(colors: DefaultColors(), metrics: DefaultMetrics(), icons: DefaultIcons(), fonts: DefaultFonts()),
+            ],
+          ),
+          home: Scaffold(body: Center(child: SizedBox(width: 200, height: 200, child: list))),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('не поместилась — подсказка, поместилась — нет', (tester) async {
+      await show(
+        tester,
+        FcPickList(
+          rows: [const FcPickRow(id: 'long', title: long), const FcPickRow(id: 'short', title: 'One')],
+          query: '',
+          selected: 0,
+          onTap: (_) {},
+        ),
+      );
+
+      expect(tester.widget<FcTooltip>(find.byType(FcTooltip)).message, long);
+      expect(find.ancestor(of: find.text('One'), matching: find.byType(FcTooltip)), findsNothing);
+    });
+
+    testWidgets('обрезанный слева путь договаривается целиком', (tester) async {
+      await show(
+        tester,
+        FcPickList(
+          trimHead: true,
+          rows: [const FcPickRow(id: 'path', title: path)],
+          query: '',
+          selected: 0,
+          onTap: (_) {},
+        ),
+      );
+
+      expect(tester.widget<FcTooltip>(find.byType(FcTooltip)).message, path);
+    });
+
+    testWidgets('окно облегает содержимое — список не мерит и не падает', (tester) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            extensions: const [
+              FcTheme(colors: DefaultColors(), metrics: DefaultMetrics(), icons: DefaultIcons(), fonts: DefaultFonts()),
+            ],
+          ),
+          home: Scaffold(
+            body: Center(
+              child: IntrinsicWidth(
+                child: SizedBox(
+                  height: 200,
+                  child: FcPickList(
+                    hugged: true,
+                    rows: [const FcPickRow(id: 'long', title: long)],
+                    query: '',
+                    selected: 0,
+                    onTap: (_) {},
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(tester.takeException(), isNull);
+      expect(find.byType(FcTooltip), findsNothing, reason: 'окно ровно такой ширины, какой хватило');
+    });
+  });
 }

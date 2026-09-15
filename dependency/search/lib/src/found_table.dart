@@ -199,11 +199,12 @@ class _FoundTableState extends State<FoundTable> {
           right: metrics.inputHorizontalPadding,
         ),
         alignment: Alignment.centerLeft,
-        child: Text(
-          row.entry!.name,
+        // Имя режется с хвоста и договаривается подсказкой; ширину виджет
+        // меряет своей раскладкой — окно задаёт её себе само (`ownWidth`), и
+        // интринсиками его никто не спрашивает.
+        child: FcTrimmedText(
+          text: row.entry!.name,
           style: base.copyWith(color: current ? colors.cursorText : colors.rowText),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
         ),
       ),
     );

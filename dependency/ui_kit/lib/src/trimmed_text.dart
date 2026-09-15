@@ -103,12 +103,23 @@ class FcTrimmedText extends StatelessWidget {
     style: style,
   );
 
-  Widget _wrapped(BuildContext context, Widget shown, {required bool trimmed}) {
-    // Выше уже договаривают — значит, о целом месте, а этот текст только его
-    // часть: вложенные подсказки всплывали бы обе.
-    if (!trimmed || FcTooltip.above(context)) {
-      return shown;
-    }
-    return FcTooltip(message: text, child: shown);
+  Widget _wrapped(BuildContext context, Widget shown, {required bool trimmed}) =>
+      fcTooltipIf(context, trimmed: trimmed, message: text, child: shown);
+}
+
+/// Подсказка, если текст обрезан, — и ничего, если поместился.
+///
+/// Отдельной функцией: тем же правилом живут строки списка, где текст набран
+/// не одной строкой, а кусками разного цвета ([FcPickList]), — а два места,
+/// решающих одно, однажды разойдутся.
+///
+/// Подсказка **выше по дереву отменяет свою**: та говорит о целом месте (плашка
+/// пути — о всей плашке, включая крошки, которые роняют звенья), а этот текст
+/// только его часть. Вложенные всплывали бы обе: наведение приходит всем, кто
+/// под курсором.
+Widget fcTooltipIf(BuildContext context, {required bool trimmed, required String message, required Widget child}) {
+  if (!trimmed || FcTooltip.above(context)) {
+    return child;
   }
+  return FcTooltip(message: message, child: child);
 }

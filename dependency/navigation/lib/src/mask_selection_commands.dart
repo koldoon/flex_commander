@@ -288,6 +288,9 @@ class _MaskDialogFormState extends State<MaskDialogForm> {
                 child: ConstrainedBox(
                   constraints: BoxConstraints(maxHeight: (theme.metrics.rowHeight + theme.metrics.rowGap) * 6),
                   child: FcPickList(
+                    // Окно облегает содержимое: строки в нём не режутся, и
+                    // мерить их нечем — рама меряет содержимое интринсиками.
+                    hugged: true,
                     rows: found,
                     query: _field.text,
                     selected: _selected,
