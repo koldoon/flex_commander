@@ -139,7 +139,9 @@ void main() {
 
     expect(shown, isNotEmpty, reason: 'конец пути не виден вовсе: ${texts.join(' | ')}');
     expect(shown.length, lessThan(long.length), reason: 'путь не обрезан, хотя не помещается');
-    expect(shown, startsWith('…'));
+    // Многоточие в начале, а не в конце. Стоит оно либо сразу (одно звено само
+    // не влезло — тот случай, что здесь), либо за корнем: `/…/сентябрь`.
+    expect(shown.indexOf('…'), lessThan(3), reason: 'обрезали хвост вместо головы');
     expect(long, endsWith(shown.substring(1)));
   });
 

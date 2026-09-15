@@ -63,8 +63,10 @@ void main() {
 
     final shown =
         (tester.widget(find.descendant(of: find.byType(FcPathPlate), matching: find.byType(Text))) as Text).data!;
-    expect(shown, startsWith('…'));
-    expect(path, endsWith(shown.substring(1)));
+    // Корень остаётся впереди многоточия: по нему видно, о каком месте речь
+    // (`docs/spec/panel-crumbs.md`, §2).
+    expect(shown, startsWith('/…'));
+    expect(path, endsWith(shown.substring(2)), reason: 'конец пути потерян');
   });
 
   group('со слотом слева', () {
@@ -78,8 +80,8 @@ void main() {
 
       final shown =
           (tester.widget(find.descendant(of: find.byType(FcPathPlate), matching: find.byType(Text))) as Text).data!;
-      expect(shown, startsWith('…'), reason: 'обрезали хвост вместо головы');
-      expect(path, endsWith(shown.substring(1)), reason: 'конец пути потерян');
+      expect(shown, startsWith('/…'), reason: 'обрезали хвост вместо головы');
+      expect(path, endsWith(shown.substring(2)), reason: 'конец пути потерян');
     });
 
     testWidgets('путь со слотом вместе не вылезают за плашку', (tester) async {

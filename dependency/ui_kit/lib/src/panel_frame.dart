@@ -108,7 +108,11 @@ class FcPathPlate extends StatelessWidget {
                 (leading == null ? 0 : leadingWidth + metrics.labelPadding) -
                 (suffix == null ? 0 : textWidthOf(_gap + suffix, style, scaler));
 
-            final pathText = content?.call(context, free, style) ?? FcPathText(text: path, width: free, style: style);
+            final pathText =
+                content?.call(context, free, style) ??
+                // По центру: плашка облегает путь, и он стоит в ней ровно
+                // посередине — так было в референсе.
+                FcPathText(text: path, width: free, style: style, textAlign: TextAlign.center);
 
             if (suffix == null && leading == null) {
               return Center(widthFactor: 1, child: pathText);
@@ -149,24 +153,41 @@ class FcPathPlate extends StatelessWidget {
 /// объявленный модулем панелей, — а два способа показать одно и то же однажды
 /// разойдутся (`docs/spec/panel-header.md`, §3).
 class FcPathText extends StatelessWidget {
-  const FcPathText({super.key, required this.text, required this.width, required this.style});
+  const FcPathText({super.key, required this.text, required this.style, this.width, this.textAlign = TextAlign.start});
 
   final String text;
 
-  /// Сколько места отведено: обрезка идёт по нему, а не по раскладке.
-  final double width;
+  /// Сколько места отведено; null — столько, сколько дадут.
+  ///
+  /// Числом — там, где место делят с кем-то ещё и знают, сколько отняли: плашка
+  /// вычитает слот со стрелками, строка списка — имя перед путём. Пусто — там,
+  /// где путь один в своём месте, и мерить его может сам виджет.
+  final double? width;
 
   final TextStyle style;
 
+  final TextAlign textAlign;
+
   @override
   Widget build(BuildContext context) {
+    if (width case final width?) {
+      return _text(context, width);
+    }
+    // Своей раскладкой: обрезка идёт по доступной ширине, а её до раскладки не
+    // знает никто. Безопасно везде, кроме содержимого окон команд, которое рама
+    // меряет интринсиками (`docs/spec/dialog-body.md`), — там ширину называют
+    // числом.
+    return LayoutBuilder(builder: (context, constraints) => _text(context, constraints.maxWidth));
+  }
+
+  Widget _text(BuildContext context, double width) {
     // Сдвига, как в строках списка, здесь нет: он нужен моноширинному шрифту, а
     // путь набран Ubuntu — у него базовая линия обычная.
     return Text(
       trimTextHead(text, style, width, MediaQuery.textScalerOf(context)),
       maxLines: 1,
       softWrap: false,
-      textAlign: TextAlign.center,
+      textAlign: textAlign,
       style: style,
     );
   }

@@ -14,6 +14,27 @@ void main() {
     expect(trimTextHead('/home/docs', style, widthOf('/home/docs') + 1, scaler), '/home/docs');
   });
 
+  test('режется по целым звеньям, а не по буквам', () {
+    // Обрубок посреди имени читается как другое имя: глаз принимает его за
+    // настоящее и только потом замечает многоточие.
+    const path = '/Users/koldoon/Developer/Petrosoft/qwickserve/docs';
+    final trimmed = trimTextHead(path, style, widthOf('/…/Petrosoft/qwickserve/docs') + 1, scaler);
+
+    expect(trimmed, '/…/Petrosoft/qwickserve/docs');
+  });
+
+  test('одно звено не влезает — режем его буквами: хвост важнее правила', () {
+    final trimmed = trimTextHead(
+      '/Users/koldoon/невероятно-длинное-имя-каталога',
+      style,
+      widthOf('…-каталога'),
+      scaler,
+    );
+
+    expect(trimmed, startsWith('…'));
+    expect(trimmed, endsWith('каталога'));
+  });
+
   test('не влезает — остаётся корень, многоточие и хвост', () {
     final trimmed = trimTextHead(
       '/Users/koldoon/Developer/qwickserve/dist',
@@ -30,7 +51,9 @@ void main() {
     const address = 'ssh://koldoon@shark/home/koldoon/very/deep/place';
     final trimmed = trimTextHead(address, style, widthOf('ssh://koldoon@shark/…/deep/place'), scaler);
 
-    expect(trimmed, startsWith('ssh://koldoon@shark…'));
+    // Разделитель после корня свой: `ssh://koldoon@shark/…/deep/place` читается
+    // как адрес, а `ssh://koldoon@shark…` — как обрубок имени машины.
+    expect(trimmed, startsWith('ssh://koldoon@shark/…/'));
     expect(trimmed, endsWith('place'));
   });
 

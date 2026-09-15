@@ -289,11 +289,26 @@ class _CommandLineViewState extends State<CommandLineView> {
               // сервере видно так же, как обычный.
               ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: promptLimit),
-                child: Text(
-                  '${state.prompt}\$',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: style.copyWith(color: enabled ? colors.pathText : colors.secondaryText),
+                child: Builder(
+                  builder: (context) {
+                    final promptStyle = style.copyWith(color: enabled ? colors.pathText : colors.secondaryText);
+                    // Тем же стилем, каким будет набрано: окружение домешивает
+                    // свою разрядку, и мерить не то, что рисуется, значит
+                    // срезать хвост пути на ровном месте (`FcTheme.effective`).
+                    final measured = FcTheme.effective(context, promptStyle);
+                    final scaler = MediaQuery.textScalerOf(context);
+                    // Путь режется слева, общим правилом: от приглашения, и без
+                    // того короткого, хвостовое многоточие оставляло корень
+                    // диска — то есть ничего. Доллар в обрезку не входит: он
+                    // стоит за путём всегда, и место под него отняли заранее.
+                    final room = promptLimit - textWidthOf(r'$', measured, scaler);
+                    return Text(
+                      '${trimTextHead(state.prompt, measured, room, scaler)}\$',
+                      maxLines: 1,
+                      softWrap: false,
+                      style: promptStyle,
+                    );
+                  },
                 ),
               ),
               SizedBox(width: metrics.columnGap),

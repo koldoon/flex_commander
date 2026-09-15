@@ -440,6 +440,9 @@ class _OpenPathFormState extends State<_OpenPathForm> {
                     maxHeight: (theme.metrics.rowHeight + theme.metrics.rowGap) * _visibleRows,
                   ),
                   child: FcPickList(
+                    // Слева, как в плашке и в остальных списках путей: конец
+                    // важнее начала, и правило обрезки одно на всё приложение.
+                    trimHead: true,
                     // Ярко — последнее звено адреса: список читают по именам
                     // каталогов, а начало у соседних строк одно и то же.
                     dimPathHead: true,

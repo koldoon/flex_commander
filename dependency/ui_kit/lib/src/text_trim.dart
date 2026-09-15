@@ -14,14 +14,22 @@ double textWidthOf(String text, TextStyle style, TextScaler scaler) {
   return width;
 }
 
-/// Обрезает путь **слева**, оставляя корень: `/…/Qwickserve/dist`.
+/// Обрезает путь **слева**, по целым звеньям: `/…/Qwickserve/dist`.
 ///
-/// Конец строки важнее — в нём текущий каталог; но и начало не пустое место:
-/// по нему видно, о каком корне речь, — свой диск это или `ssh://koldoon@shark`
+/// Конец строки важнее — в нём текущий каталог; но и начало не пустое место: по
+/// нему видно, о каком корне речь, — свой диск это или `ssh://koldoon@shark`
 /// (`docs/spec/panel-crumbs.md`, §2). Тем же корнем начинаются звенья пути, и
 /// правило у них одно — `pathRootOf`.
 ///
-/// Правило одно и на всё приложение: плашка пути, список пройденного и список
+/// **По звеньям, а не по буквам.** Обрубок посреди имени (`/…eveloper/Petrosoft`)
+/// читается как другое имя: глаз сперва принимает его за настоящее и только
+/// потом замечает многоточие. Целые звенья читаются сразу, и цена этому —
+/// несколько точек пустоты справа.
+///
+/// Не влезает и одно звено — режем его буквами: показать хвост важнее, чем
+/// соблюсти правило.
+///
+/// Правило одно на всё приложение: плашка пути, список пройденного и список
 /// наборов режут одинаково, иначе один и тот же путь выглядел бы в трёх местах
 /// по-разному (`docs/spec/session-history.md`, §9).
 ///
@@ -36,21 +44,34 @@ String trimTextHead(String value, TextStyle style, double maxWidth, TextScaler s
     return value;
   }
 
-  // Корень показывается, пока сам помещается вместе с многоточием и хотя бы
-  // одной буквой хвоста; не помещается — режем как раньше, без него.
   final root = pathRootOf(value);
-  final head = root.isEmpty || textWidthOf('$root…', style, scaler) >= maxWidth ? '…' : '$root…';
+  final parts = value.substring(root.length).split('/').where((part) => part.isNotEmpty).toList();
+  // Начало показанного: корень и многоточие вместо отброшенных звеньев.
+  final head = root.endsWith('/') ? '$root…' : '$root/…';
 
-  // Двоичный поиск самого длинного хвоста, который помещается вместе с началом.
-  var low = root.length;
+  // Отбрасываем звенья с головы, пока остаток не поместится.
+  for (var skip = 1; skip < parts.length; skip++) {
+    final shown = '$head/${parts.skip(skip).join('/')}';
+    if (textWidthOf(shown, style, scaler) <= maxWidth) {
+      return shown;
+    }
+  }
+
+  return _trimByLetters(value, style, maxWidth, scaler);
+}
+
+/// Обрезка буквами: для строк без звеньев и для звена, которое само не влезло.
+String _trimByLetters(String value, TextStyle style, double maxWidth, TextScaler scaler) {
+  // Двоичный поиск самого длинного хвоста, который помещается вместе с «…».
+  var low = 0;
   var high = value.length;
   while (low < high) {
     final middle = (low + high) ~/ 2;
-    if (textWidthOf('$head${value.substring(middle)}', style, scaler) <= maxWidth) {
+    if (textWidthOf('…${value.substring(middle)}', style, scaler) <= maxWidth) {
       high = middle;
     } else {
       low = middle + 1;
     }
   }
-  return '$head${value.substring(low)}';
+  return '…${value.substring(low)}';
 }

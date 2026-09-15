@@ -155,12 +155,9 @@ class _FindFilesFormState extends State<FindFilesForm> {
         border: Border.all(color: theme.colors.inputBorder, width: metrics.strokeWidth),
         borderRadius: BorderRadius.circular(metrics.inputRadius),
       ),
-      child: Text(
-        state.where,
-        style: theme.inputStyle.copyWith(color: theme.colors.inputHint),
-        maxLines: 1,
-        overflow: TextOverflow.ellipsis,
-      ),
+      // Слева, общим правилом: человек должен видеть, **в каком** каталоге
+      // ищет, а хвостовое многоточие оставляло от него корень диска.
+      child: FcPathText(text: state.where, style: theme.inputStyle.copyWith(color: theme.colors.inputHint)),
     );
   }
 

@@ -179,12 +179,10 @@ class _FoundTableState extends State<FoundTable> {
       return Container(
         padding: EdgeInsets.symmetric(horizontal: metrics.inputHorizontalPadding),
         alignment: Alignment.centerLeft,
-        child: Text(
-          row.path,
-          style: base.copyWith(color: colors.pathText),
-          maxLines: 1,
-          overflow: TextOverflow.ellipsis,
-        ),
+        // Путь режется слева, общим правилом: находки из десятка одноимённых
+        // каталогов различаются ровно хвостом, а хвостовое многоточие срезало
+        // бы именно его.
+        child: FcPathText(text: row.path, style: base.copyWith(color: colors.pathText)),
       );
     }
 

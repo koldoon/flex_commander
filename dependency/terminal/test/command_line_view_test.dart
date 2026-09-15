@@ -123,7 +123,22 @@ void main() {
 
     final line = find.byType(CommandLineView);
     final strip = tester.getSize(line).width;
-    final prompt = tester.getSize(find.descendant(of: line, matching: find.text('$deep\$')));
+    // Приглашение ищем по хвосту, а не по целому пути: не поместившийся путь
+    // режется **нами** — общим правилом, слева (`trimTextHead`), — и в тексте
+    // виджета лежит уже обрезанное. Прежде его резал Flutter хвостовым
+    // многоточием, и в `data` оставался целый путь: на экране строка была
+    // обрезана, а проверка этого не видела.
+    final promptText = find.descendant(
+      of: line,
+      matching: find.byWidgetPredicate((widget) => widget is Text && (widget.data ?? '').endsWith(r'$')),
+    );
+    final shown = tester.widget<Text>(promptText).data!;
+    expect(shown, endsWith('go-loyalty-service\$'), reason: 'конец пути важнее начала');
+    if (shown.length < '$deep\$'.length) {
+      expect(shown.indexOf('…'), lessThan(3), reason: 'обрезали хвост вместо головы');
+    }
+
+    final prompt = tester.getSize(promptText);
 
     // Приглашение берёт по содержимому, а не долю строки: делили `1:3`, и
     // путь резался многоточием при пустом поле.
