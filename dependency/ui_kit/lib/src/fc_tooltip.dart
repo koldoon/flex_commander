@@ -197,7 +197,11 @@ class _FcTooltipView extends StatelessWidget {
               ),
             ],
           ),
-          child: Text(message, style: theme.uiStyle.copyWith(color: colors.dialogText)),
+          // Стиль назван целиком, а не дополнен окружением: накладка — своя
+          // ветка отрисовки, ни `Material`, ни наших стилей над ней нет. `Text`
+          // со стилем-наследником подмешал бы отладочный запасной стиль — и
+          // подсказка выходила бы жирной, с жёлтым двойным подчёркиванием.
+          child: DefaultTextStyle(style: theme.uiStyle.copyWith(color: colors.dialogText), child: Text(message)),
         ),
       ),
     );

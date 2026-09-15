@@ -204,7 +204,16 @@ void main() {
     expect(decoration.borderRadius, BorderRadius.circular(metrics.dialogRadius));
     expect(decoration.border, isNull, reason: 'рамка у сообщения означает отказ — второго значения ей не давать');
     expect(decoration.boxShadow!.single.color, colors.shadow);
-    expect(tester.widget<Text>(find.text(message)).style!.color, colors.dialogText);
+
+    // Стиль проверяется **действующий**, а не тот, что написан у `Text`:
+    // накладка — своя ветка отрисовки, и всё, чего стиль не назвал, приходит
+    // туда отладочным запасным стилем Flutter (жирное начертание и жёлтое
+    // двойное подчёркивание — поймано живьём).
+    final shown = DefaultTextStyle.of(tester.element(find.text(message))).style;
+    expect(shown.color, colors.dialogText);
+    expect(shown.fontFamily, const DefaultFonts().ui);
+    expect(shown.decoration ?? TextDecoration.none, TextDecoration.none);
+    expect(shown.fontWeight ?? FontWeight.normal, FontWeight.normal);
 
     await disposeScreen(tester);
   });
