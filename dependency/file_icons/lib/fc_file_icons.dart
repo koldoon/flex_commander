@@ -9,3 +9,4 @@ export 'src/file_icon_service.dart' show FileIconService;
 export 'src/file_icon_settings.dart';
 export 'src/file_icons_module.dart';
 export 'src/picture_files.dart' show PictureFiles;
+export 'src/thumbnail_store.dart' show ThumbnailStore;

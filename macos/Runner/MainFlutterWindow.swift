@@ -1,5 +1,6 @@
 import Cocoa
 import FlutterMacOS
+import QuickLookThumbnailing
 import UniformTypeIdentifiers
 import window_manager
 
@@ -500,12 +501,61 @@ final class SystemIcons {
 
     // Род — последнее, что остаётся: о строке с сервера или из архива известно
     // только то, папка это или файл.
+    // Миниатюра — картинка **содержимого**, а не значок типа: снимок
+    // показывает себя, `pdf` — первую страницу, видео — кадр
+    // (`docs/spec/file-thumbnails.md`).
+    case "thumbnailForPath":
+      guard let path = arguments?["path"] as? String else {
+        result(nil)
+        return
+      }
+      thumbnail(path: path, pixels: pixels, result: result)
+
     case "iconForKind":
       let folder = (arguments?["kind"] as? String) == "folder"
       result(png(of: NSWorkspace.shared.icon(for: folder ? .folder : .data), pixels: pixels))
 
     default:
       result(FlutterMethodNotImplemented)
+    }
+  }
+
+  /// Картинка содержимого — тем же, чем её рисует Finder.
+  ///
+  /// Просим **только** `.thumbnail`: `.all` вернуло бы значок типа, когда
+  /// миниатюры нет, — а значок мы и без того умеем спросить сами, и подменять
+  /// им содержимое значило бы врать. Нет миниатюры — молчим, и правило иконки
+  /// возьмётся следующее.
+  ///
+  /// Ответ **не квадратный**: у него форма содержимого (замеры — §2 спеки).
+  /// Поэтому картинка отдаётся как есть, а вписывает её в отведённое место тот,
+  /// кто рисует.
+  ///
+  /// `scale: 1` и размер в пикселях: множитель экрана уже учтён тем, кто
+  /// спрашивал, — тем же способом, что у значков.
+  private func thumbnail(path: String, pixels: Int, result: @escaping FlutterResult) {
+    let side = max(16, min(pixels, 1024))
+    let request = QLThumbnailGenerator.Request(
+      fileAt: URL(fileURLWithPath: path),
+      size: CGSize(width: side, height: side),
+      scale: 1,
+      representationTypes: .thumbnail
+    )
+
+    QLThumbnailGenerator.shared.generateBestRepresentation(for: request) { thumbnail, _ in
+      guard let image = thumbnail?.cgImage else {
+        // Ошибка здесь — обычное дело: у архива, каталога и текста миниатюры
+        // нет вовсе, и стоит этот отказ единицы миллисекунд.
+        DispatchQueue.main.async { result(nil) }
+        return
+      }
+
+      let bitmap = NSBitmapImageRep(cgImage: image)
+      bitmap.size = NSSize(width: image.width, height: image.height)
+      let data = bitmap.representation(using: .png, properties: [:])
+      DispatchQueue.main.async {
+        result(data.map { FlutterStandardTypedData(bytes: $0) })
+      }
     }
   }
 

@@ -18,6 +18,9 @@ sealed class IconSource {
     if (text == 'system') {
       return const SystemIconSource();
     }
+    if (text == 'thumbnail') {
+      return const ThumbnailSource();
+    }
     if (text.startsWith('image:')) {
       final path = text.substring('image:'.length).trim();
       return path.isEmpty ? null : PictureSource(path);
@@ -83,6 +86,18 @@ class SystemIconSource extends IconSource {
 
   @override
   String get text => 'system';
+}
+
+/// Картинка содержимого: `thumbnail`.
+///
+/// Не значок типа, а сам файл: снимок показывает себя, `pdf` — первую страницу,
+/// видео — кадр (`docs/spec/file-thumbnails.md`). Умеет это система, и только у
+/// местного файла: ей нужен путь на диске.
+class ThumbnailSource extends IconSource {
+  const ThumbnailSource();
+
+  @override
+  String get text => 'thumbnail';
 }
 
 /// Правило: условие → чем рисовать.

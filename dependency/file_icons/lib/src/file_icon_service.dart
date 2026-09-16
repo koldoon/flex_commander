@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 
 import 'file_icon_settings.dart';
 import 'picture_files.dart';
+import 'thumbnail_store.dart';
 
 /// Выбор иконки по правилам.
 ///
@@ -16,17 +17,27 @@ class FileIconService implements FileIcons {
     required FileIconSettings Function() settings,
     ContentTypes? contentTypes,
     SystemIcons? systemIcons,
+    SystemThumbnails? thumbnails,
     PictureFiles? pictures,
     int cacheLimit = defaultCacheLimit,
   }) : _settings = settings,
        _contentTypes = contentTypes,
-       _systemIcons = systemIcons,
        _pictures = pictures ?? PictureFiles(),
-       _cacheLimit = cacheLimit;
+       _systemIcons = systemIcons,
+       _cacheLimit = cacheLimit,
+       _thumbnails = thumbnails == null ? null : ThumbnailStore(thumbnails: thumbnails);
 
   /// Сколько значков системы помним. Ключей мало (десятки расширений плюс
   /// пакеты), но ходьба по дереву не должна копить их без конца.
   static const int defaultCacheLimit = 512;
+
+  /// Меньше этого миниатюру не спрашивают.
+  ///
+  /// В строке списка значок высотой 26 пикселей: миниатюра в нём неразличима, а
+  /// вопрос к системе стоил бы своего — по одному на каждую строку. Порог —
+  /// часть **флага**, а не правила: написанное руками сильнее умолчания
+  /// (`docs/spec/file-thumbnails.md`, §6).
+  static const int thumbnailFrom = 48;
 
   /// Сколько раз перепроверяем список правил, пока недостающее приезжает.
   ///
@@ -39,6 +50,7 @@ class FileIconService implements FileIcons {
   final FileIconSettings Function() _settings;
   final ContentTypes? _contentTypes;
   final SystemIcons? _systemIcons;
+  final ThumbnailStore? _thumbnails;
   final PictureFiles _pictures;
   final int _cacheLimit;
 
@@ -90,7 +102,17 @@ class FileIconService implements FileIcons {
       if (!rule.when.matches(entry, type: type?.id, group: type?.group.name)) {
         continue;
       }
-      final icon = _iconOf(rule.icon, entry, pixels, needs);
+      final icon = _iconOf(rule.icon, entry, pixels, stillWanted, needs);
+      if (icon != null) {
+        return icon;
+      }
+    }
+
+    // Миниатюра выше значка системы: она точнее — это сам файл, а не его тип.
+    // И только там, где значок просят крупным: в строке списка её всё равно не
+    // разглядеть (`docs/spec/file-thumbnails.md`, §6).
+    if (settings.thumbnails && pixels >= thumbnailFrom) {
+      final icon = _thumbnail(entry, pixels, stillWanted, needs);
       if (icon != null) {
         return icon;
       }
@@ -110,7 +132,13 @@ class FileIconService implements FileIcons {
     return FileIcon.builtIn(entry);
   }
 
-  FileIcon? _iconOf(IconSource source, FileEntry entry, int pixels, List<Future<void>> needs) => switch (source) {
+  FileIcon? _iconOf(
+    IconSource source,
+    FileEntry entry,
+    int pixels,
+    bool Function()? stillWanted,
+    List<Future<void>> needs,
+  ) => switch (source) {
     GlyphRoleSource(:final role) => IconRole(role),
     GlyphCodeSource(:final codePoint) => IconGlyph(codePoint),
     PictureSource(:final path) => switch (_pictures.of(path)) {
@@ -118,6 +146,8 @@ class FileIconService implements FileIcons {
       null => null,
     },
     SystemIconSource() => _systemIcon(entry, pixels, needs),
+    // Правило порога не знает: явное сильнее умолчания.
+    ThumbnailSource() => _thumbnail(entry, pixels, stillWanted, needs),
   };
 
   /// Завести определение типа, если его есть кому вести.
@@ -130,6 +160,25 @@ class FileIconService implements FileIcons {
       return;
     }
     needs.add(types.detect(entry, open, stillWanted: stillWanted));
+  }
+
+  /// Картинка содержимого — у местного файла и один раз на файл.
+  ///
+  /// Готова — рисуем; не спрашивали — заводим вопрос и уходим дальше по
+  /// правилам: пока ответа нет, строка показывает то, что известно по имени
+  /// (`docs/spec/file-thumbnails.md`, §8).
+  FileIcon? _thumbnail(FileEntry entry, int pixels, bool Function()? stillWanted, List<Future<void>> needs) {
+    final store = _thumbnails;
+    if (store == null) {
+      return null;
+    }
+    if (store.known(entry, pixels) case final image?) {
+      return IconPicture(image);
+    }
+    if (store.wants(entry, pixels)) {
+      needs.add(store.ask(entry, pixels, stillWanted: stillWanted));
+    }
+    return null;
   }
 
   FileIcon? _systemIcon(FileEntry entry, int pixels, List<Future<void>> needs) {

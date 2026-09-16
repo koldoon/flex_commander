@@ -35,6 +35,7 @@ class FileIconRules implements FcFrontendModule {
         settings: settingsOf,
         contentTypes: _optional<ContentTypes>(services),
         systemIcons: _optional<SystemIcons>(services),
+        thumbnails: _optional<SystemThumbnails>(services),
       ),
     );
 
@@ -52,6 +53,14 @@ class FileIconRules implements FcFrontendModule {
           ),
           read: () => settingsOf().size,
           write: (value) => settingsOf().size = value,
+        ),
+        SettingsField.flag(
+          'thumbnails',
+          defaultValue: true,
+          title: strings.tr('Thumbnails'),
+          description: strings.tr('Show what is inside the file instead of a format icon, where the system can'),
+          read: () => settingsOf().thumbnails,
+          write: (value) => settingsOf().thumbnails = value,
         ),
         SettingsField.flag(
           'system',
@@ -81,6 +90,9 @@ const Map<String, String> _russian = {
   'Icon size': 'Размер значка',
   'Row icon size in points; 0 keeps the size the theme sets. Bigger icons make rows taller':
       'Размер значка в строке, в точках; 0 — как задано темой. Крупные значки делают строки выше',
+  'Thumbnails': 'Миниатюры',
+  'Show what is inside the file instead of a format icon, where the system can':
+      'Показывать содержимое файла вместо значка формата — там, где система умеет',
   'System icons': 'Системные значки',
   'Show the icon the system knows for files and folders on disk':
       'Показывать значок, который система знает для файла или папки на диске',

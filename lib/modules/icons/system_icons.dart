@@ -26,6 +26,10 @@ class SystemFileIcons implements FcFrontendModule {
     registry.strings('ru', {'System icons': 'Системные значки'});
 
     registry.service<SystemIcons>((services) => ChannelSystemIcons());
+
+    // Вторая служба того же канала: вопрос другой, дорога одна
+    // (`docs/spec/file-thumbnails.md`, §3).
+    registry.service<SystemThumbnails>((services) => ChannelSystemThumbnails());
   }
 }
 
@@ -83,6 +87,47 @@ class ChannelSystemIcons implements SystemIcons {
     }
     _complained = true;
     Logecom.createLogger('SystemIcons').warn(message);
+  }
+
+  bool _complained = false;
+}
+
+/// Реализация [SystemThumbnails] поверх того же канала раннера.
+///
+/// Своим классом, а не методом в [ChannelSystemIcons]: службы разные, и
+/// спрашивают их разные части приложения. Общее у них — имя канала и жалоба
+/// на его отсутствие.
+class ChannelSystemThumbnails implements SystemThumbnails {
+  ChannelSystemThumbnails({MethodChannel? channel})
+    : _channel = channel ?? const MethodChannel(ChannelSystemIcons.channelName);
+
+  final MethodChannel _channel;
+
+  @override
+  Future<Uint8List?> forPath(String path, {required int pixels}) async {
+    try {
+      return await _channel.invokeMethod<Uint8List>('thumbnailForPath', {'path': path, 'pixels': pixels});
+    } on MissingPluginException {
+      _complainOnce(
+        'Канала «${ChannelSystemIcons.channelName}» в этом приложении нет: '
+        'миниатюры показать нечем. Раннер собирается заново — горячей '
+        'перезагрузки для него мало.',
+      );
+      return null;
+    } on PlatformException catch (error) {
+      _complainOnce('Раннер отказал в миниатюре: ${error.message}');
+      return null;
+    }
+  }
+
+  /// Жаловаться один раз за сеанс: плиток на экране полсотни, и жалоба на
+  /// каждую превратила бы журнал в шум, в котором её же и не найти.
+  void _complainOnce(String message) {
+    if (_complained) {
+      return;
+    }
+    _complained = true;
+    Logecom.createLogger('SystemThumbnails').warn(message);
   }
 
   bool _complained = false;

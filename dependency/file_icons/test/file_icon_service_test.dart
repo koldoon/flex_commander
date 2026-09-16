@@ -51,6 +51,18 @@ class FakeContentTypes implements ContentTypes {
   }
 }
 
+/// Миниатюры, за которыми видно, о чём спрашивали.
+class FakeThumbnails implements SystemThumbnails {
+  final List<String> asked = [];
+  bool answers = true;
+
+  @override
+  Future<Uint8List?> forPath(String path, {required int pixels}) async {
+    asked.add('$path@$pixels');
+    return answers ? Uint8List.fromList([9, 9, 9]) : null;
+  }
+}
+
 /// Картинки, о диске не знающие: тест сам говорит, какие есть.
 class FakePictures implements PictureFiles {
   FakePictures(this.available);
@@ -76,15 +88,24 @@ FileEntry file(String name, {String realPath = '', bool executable = false}) => 
 FileEntry directory(String name, {String realPath = ''}) =>
     FileEntry(name: name, kind: EntryKind.directory, path: 'fs:/tmp/$name', realPath: realPath);
 
+/// Чем нарисовано — байтами: подставки отвечают разными, и по ним видно, кто
+/// выиграл.
+List<int>? _bytesOf(FileIcon icon) => switch (icon) {
+  IconPicture(:final image) => (image as MemoryImage).bytes,
+  _ => null,
+};
+
 void main() {
   FileIconService serviceOf(
     FileIconSettings settings, {
     SystemIcons? system,
+    SystemThumbnails? thumbnails,
     ContentTypes? types,
     Set<String> pictures = const {},
   }) => FileIconService(
     settings: () => settings,
     systemIcons: system,
+    thumbnails: thumbnails,
     contentTypes: types,
     pictures: FakePictures(pictures),
   );
@@ -327,5 +348,86 @@ void main() {
   test('размер — то, что в настройках', () {
     expect(serviceOf(FileIconSettings()).size, 0);
     expect(serviceOf(FileIconSettings(size: 24)).size, 24);
+  });
+
+  group('Миниатюры', () {
+    late FakeThumbnails thumbnails;
+    late FakeSystemIcons system;
+
+    setUp(() {
+      thumbnails = FakeThumbnails();
+      system = FakeSystemIcons();
+    });
+
+    /// Крупный значок: при таком размере флаг миниатюр и срабатывает.
+    const big = 128;
+
+    FileEntry photo() => file('shot.jpg', realPath: '/tmp/shot.jpg');
+
+    test('флаг показывает содержимое, когда оно приехало', () async {
+      final service = serviceOf(FileIconSettings(), thumbnails: thumbnails);
+      final entry = photo();
+
+      final first = service.resolve(entry, pixels: big);
+      expect(first.now, isA<IconNothing>(), reason: 'пока картинки нет — то, что известно по имени');
+      expect(await first.later, isA<IconPicture>());
+      expect(thumbnails.asked, ['/tmp/shot.jpg@$big']);
+    });
+
+    test('миниатюра выше значка системы: она точнее', () async {
+      final service = serviceOf(FileIconSettings(system: true), thumbnails: thumbnails, system: system);
+
+      // Пока картинка едет, строка честно показывает то, что уже знает, — и
+      // значок системы для этого спрашивается (`file-thumbnails.md`, §8).
+      await service.resolve(photo(), pixels: big).later;
+      final again = service.resolve(photo(), pixels: big);
+
+      expect(_bytesOf(again.now), [9, 9, 9], reason: 'выиграла миниатюра, а не значок типа');
+      expect(again.later, isNull, reason: 'уточнять больше нечего');
+    });
+
+    test('миниатюры нет — дальше по списку, к значку системы', () async {
+      thumbnails.answers = false;
+      final service = serviceOf(FileIconSettings(system: true), thumbnails: thumbnails, system: system);
+
+      expect(await service.resolve(photo(), pixels: big).later, isA<IconPicture>());
+      expect(system.asked, isNotEmpty, reason: 'отказ миниатюры не отменяет значка');
+    });
+
+    test('в строке списка флаг молчит: там миниатюру не разглядеть', () {
+      final service = serviceOf(FileIconSettings(), thumbnails: thumbnails);
+
+      final answer = service.resolve(photo(), pixels: 26);
+
+      expect(answer.later, isNull);
+      expect(thumbnails.asked, isEmpty);
+    });
+
+    test('правило порога не знает: явное сильнее умолчания', () async {
+      final service = serviceOf(
+        FileIconSettings(
+          thumbnails: false,
+          rules: [FileIconRule(when: EntryCondition(mask: "*.jpg"), icon: const ThumbnailSource())],
+        ),
+        thumbnails: thumbnails,
+      );
+
+      expect(await service.resolve(photo(), pixels: 26).later, isA<IconPicture>());
+      expect(thumbnails.asked, ['/tmp/shot.jpg@26']);
+    });
+
+    test('выключенный флаг не спрашивает вовсе', () {
+      final service = serviceOf(FileIconSettings(thumbnails: false), thumbnails: thumbnails);
+
+      service.resolve(photo(), pixels: big);
+
+      expect(thumbnails.asked, isEmpty);
+    });
+
+    test('источника нет — миниатюр нет, и это не поломка', () {
+      final service = serviceOf(FileIconSettings());
+
+      expect(service.resolve(photo(), pixels: big).now, isA<IconNothing>());
+    });
   });
 }
