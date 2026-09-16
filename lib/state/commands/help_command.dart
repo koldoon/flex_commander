@@ -55,7 +55,9 @@ class HelpCommand extends AppCommand {
         id: commandId,
         resizable: true,
         takesFocus: true,
-        content: FcKeyValueTable(sections: _sections(context), onClose: close),
+        // Со строчными линейками: описания команд занимают то одну строчку, то
+        // три, и без них соседние сливаются в сплошной абзац.
+        content: FcKeyValueTable(sections: _sections(context), onClose: close, divided: true),
         onSubmit: close,
         onDismiss: close,
       ),

@@ -48,6 +48,7 @@ class FcKeyValueSections extends StatefulWidget {
     this.autofocus = true,
     this.padded = true,
     this.horizontal = false,
+    this.divided = false,
   });
 
   final List<FcTableSection> sections;
@@ -69,6 +70,17 @@ class FcKeyValueSections extends StatefulWidget {
   /// По умолчанию нет: справке и настройкам перенос как раз и нужен — там
   /// значения из обычных слов, и лента вбок читалась бы хуже столбца.
   final bool horizontal;
+
+  /// Отделять строки друг от друга линейкой.
+  ///
+  /// Нужно там, где последний столбец **переносится**: описания команд в
+  /// справке занимают то одну строчку, то три, и без линейки соседние
+  /// описания читаются одним сплошным абзацем — не видно, где кончается одно
+  /// и начинается другое.
+  ///
+  /// По умолчанию нет: в окне сведений значения однострочные, и линейки там
+  /// были бы решёткой на ровном месте.
+  final bool divided;
 
   @override
   State<FcKeyValueSections> createState() => _FcKeyValueSectionsState();
@@ -208,8 +220,17 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
   /// а `Expanded` в такой замер не укладывается и переполняет строку.
   Widget _rows(FcTheme theme, FcTableSection section, List<double> widths, int columns) {
     final metrics = theme.metrics;
+    // Просвет вокруг линейки: половина сверху, половина снизу — иначе строка
+    // прилипает к той, что над ней. Линейке нужно больше воздуха, чем строке
+    // без неё, поэтому и роль другая; без линейки просвет прежний — окна
+    // сведений от этой правки поехать не должны.
+    final gap = widget.divided ? metrics.dialogLineGap : metrics.dialogPadding / 4;
 
     return Table(
+      border:
+          widget.divided
+              ? TableBorder(horizontalInside: BorderSide(color: theme.colors.columnDivider, width: metrics.strokeWidth))
+              : null,
       columnWidths: {
         for (var i = 0; i < columns - 1; i++) i: FixedColumnWidth(widths[i] + metrics.dialogGap),
         // Последний столбец меряется по себе **и** забирает остаток.
@@ -227,7 +248,7 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
             children: [
               for (var i = 0; i < columns; i++)
                 Padding(
-                  padding: EdgeInsets.only(bottom: metrics.dialogPadding / 4),
+                  padding: EdgeInsets.only(top: widget.divided ? gap : 0, bottom: gap),
                   child: Text(
                     i < row.cells.length ? row.cells[i] : '',
                     style: i == 0 ? theme.dialogLabelStyle : theme.dialogTextStyle,
@@ -257,6 +278,7 @@ class FcKeyValueTable extends StatefulWidget {
     required this.onClose,
     this.actions = const [],
     this.horizontal = false,
+    this.divided = false,
   });
 
   final List<FcTableSection> sections;
@@ -270,6 +292,9 @@ class FcKeyValueTable extends StatefulWidget {
 
   /// Листается ли таблица вбок — см. [FcKeyValueSections.horizontal].
   final bool horizontal;
+
+  /// Отделять ли строки линейкой — см. [FcKeyValueSections.divided].
+  final bool divided;
 
   @override
   State<FcKeyValueTable> createState() => _FcKeyValueTableState();
@@ -300,7 +325,7 @@ class _FcKeyValueTableState extends State<FcKeyValueTable> {
             ...widget.actions,
             FcButton(label: context.strings.tr('Close'), onPressed: widget.onClose, primary: true),
           ],
-          child: FcKeyValueSections(sections: widget.sections, horizontal: widget.horizontal),
+          child: FcKeyValueSections(sections: widget.sections, horizontal: widget.horizontal, divided: widget.divided),
         ),
       ),
     );
