@@ -295,7 +295,7 @@ dependency/
   text_viewer/                     fc_text_viewer — просмотрщик текста,
                                    один из объявленных в реестре
   image_viewer/                    fc_image_viewer — картинки: png, jpeg,
-                                   gif, webp, bmp
+                                   gif, webp, bmp, heic (системой)
   file_info/                       fc_file_info — сведения об объекте:
                                    окно, показ и провайдеры разделов
   attributes/                      fc_attributes — правка атрибутов: права,
