@@ -43,6 +43,7 @@ class ImageDocument {
     ImageViewerSettings settings, {
     required Future<void> Function() checkpoint,
     Strings? strings,
+    SystemImages? system,
   }) async {
     final said = strings ?? StringsRegistry();
     if (entry.size > settings.maxFileSize) {
@@ -63,7 +64,32 @@ class ImageDocument {
     await checkpoint();
 
     final bytes = Uint8List.fromList(chunks);
-    final size = await _sizeOf(bytes);
+    var shown = bytes;
+    var format = _formatOf(bytes);
+    var size = await _sizeOf(bytes);
+
+    // Свой разбор не справился — спросим систему: `HEIC` она читает, а Skia
+    // нет (`docs/spec/image-viewer.md`, §12). Для своих форматов этот вопрос не
+    // задаётся вовсе, и их дорога не меняется ни на шаг.
+    if (size == null && system != null) {
+      final answer = await system.readable(bytes, maxPixels: settings.maxPixels);
+      await checkpoint();
+      if (answer != null) {
+        size = (answer.width, answer.height);
+        // Имя формата — от системы: она назовёт и то, чего не знает наш разбор
+        // подписей. Пересжатое для показа при этом не называется никак: в
+        // плашке должен стоять `HEIC`, а не `JPEG`.
+        if (answer.format.isNotEmpty) {
+          format = answer.format;
+        }
+        // Картинки нет — значит, точек больше предела: отказ об этом скажет
+        // ниже, теми же словами, что и своим форматам.
+        if (answer.bytes case final decoded?) {
+          shown = decoded;
+        }
+      }
+    }
+
     if (size == null) {
       // Заголовок не разобрался — значит, это не картинка или формат не наш.
       // Сказать об этом надо здесь, а не после того, как распаковка съест
@@ -81,7 +107,7 @@ class ImageDocument {
       );
     }
 
-    return ImageDocument(bytes: bytes, width: size.$1, height: size.$2, format: _formatOf(bytes));
+    return ImageDocument(bytes: shown, width: size.$1, height: size.$2, format: format);
   }
 
   /// Распаковать заранее — до того, как картинку покажут.
@@ -182,6 +208,10 @@ class ImageDocument {
     }
     if (starts([0x42, 0x4d])) {
       return 'BMP';
+    }
+    // `….ftypheic`: подпись контейнера стоит не в начале, а после длины блока.
+    if (starts([0x66, 0x74, 0x79, 0x70], at: 4)) {
+      return 'HEIC';
     }
     // Показать сможем — назвать нет: заголовок разобрался, а подпись чужая.
     return 'Image';

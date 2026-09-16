@@ -1,3 +1,6 @@
+import 'dart:typed_data';
+
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_image_viewer/fc_image_viewer.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
@@ -17,9 +20,11 @@ void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
 
   late AppRuntime runtime;
+  late _FakeSystemImages system;
   const right = ViewportPosition.right;
 
   setUp(() async {
+    system = _FakeSystemImages(imageOf(pngData));
     runtime = await testApp(
       provider: InMemoryContentProvider([
         FakeEntry.directory('/home'),
@@ -27,8 +32,14 @@ void main() {
         FakeEntry.file('/home/b.gif', content: imageOf(gifData)),
         FakeEntry.file('/home/c.bmp', content: imageOf(bmpData)),
         FakeEntry.file('/home/notes.txt', content: 'просто текст'.codeUnits),
+        // Своим каталогом, чтобы не мешать соседям: листание считает их по
+        // содержимому каталога, и лишняя картинка сбила бы счёт.
+        FakeEntry.directory('/home/phone'),
+        // Заголовок `HEIC`: `ftyp` на пятом байте. Дальше мусор — Flutter
+        // такого не разберёт, а система в прогоне подставная.
+        FakeEntry.file('/home/phone/photo.heic', content: [0, 0, 0, 24, ...'ftypheic'.codeUnits, 1, 2, 3]),
       ])..home = '/home',
-      modules: featureModules(),
+      modules: [...featureModules(), _SystemImagesModule(system)],
     );
     await runtime.app.start();
   });
@@ -249,4 +260,61 @@ void main() {
       expect(innermost(host), isA<TextViewerScreen>());
     });
   });
+
+  group('чего не умеет Flutter', () {
+    /// Открывает снимок в его каталоге.
+    Future<void> viewPhoto() async {
+      await runtime.app.left.openPath('/home/phone');
+      await pumpEventQueue();
+      await view('photo.heic');
+    }
+
+    test('`HEIC` открывает просмотрщик изображений, а не текстовый', () async {
+      await viewPhoto();
+
+      expect(shownFullscreen(), isA<ImageViewerScreen>());
+      expect(system.asked, isNotEmpty, reason: 'разобрала его система');
+    });
+
+    test('в плашке стоит формат файла и его настоящие размеры', () async {
+      await viewPhoto();
+
+      final screen = shownFullscreen()! as ImageViewerScreen;
+      expect(screen.document.format, 'HEIC');
+      expect(screen.document.width, 2860);
+      expect(screen.document.height, 3814);
+    });
+  });
+}
+
+/// Система, которая умеет разобрать `HEIC` и отдаёт вместо него `png`.
+class _FakeSystemImages implements SystemImages {
+  _FakeSystemImages(this.picture);
+
+  final Uint8List picture;
+  final List<int> asked = [];
+
+  @override
+  Future<SystemImage?> readable(Uint8List bytes, {required int maxPixels}) async {
+    asked.add(bytes.length);
+    return SystemImage(width: 2860, height: 3814, format: 'HEIC', bytes: picture);
+  }
+}
+
+/// Модуль-подставка: в прогоне канала раннера нет, и спрашивать некого.
+class _SystemImagesModule implements FcFrontendModule {
+  const _SystemImagesModule(this.images);
+
+  final SystemImages images;
+
+  @override
+  String get id => 'test.images';
+
+  @override
+  String get title => 'Test images';
+
+  @override
+  void installFrontend(FrontendRegistry registry) {
+    registry.service<SystemImages>((services) => images);
+  }
 }

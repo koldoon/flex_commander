@@ -12,9 +12,13 @@ import 'image_viewer_settings.dart';
 ///
 /// Позже сюда же встанет EXIF: снято тогда-то, тем-то, с такой выдержкой.
 class ImageInfoProvider implements NodeInfoProvider {
-  const ImageInfoProvider(this.settings, this.strings);
+  const ImageInfoProvider(this.settings, this.strings, [this.system]);
 
   final ImageViewerSettings settings;
+
+  /// Разбор того, чего не умеет Flutter; null — службы нет, и сведений о таком
+  /// файле не будет, как не было и показа.
+  final SystemImages? system;
 
   /// Подписи строк — на языке человека: их читают в окне сведений.
   final Strings strings;
@@ -42,6 +46,7 @@ class ImageInfoProvider implements NodeInfoProvider {
       settings,
       checkpoint: () async {},
       strings: strings,
+      system: system,
     );
 
     return [

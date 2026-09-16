@@ -16,10 +16,17 @@ import 'image_viewer_view.dart';
 class ImageViewer implements FcFrontendModule {
   const ImageViewer();
 
-  /// Расширения, за которые берётся. Всё это декодирует сам Flutter (Skia);
-  /// `tiff`, `heic` и `avif` он не умеет — на них отказ с предложением открыть
-  /// системой.
-  static const Set<String> extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'};
+  /// Расширения, за которые берётся.
+  ///
+  /// Первые пять декодирует сам Flutter (Skia). `heic` — система: Skia его не
+  /// умеет, и спрашивается она только тогда, когда свой разбор не справился
+  /// (`docs/spec/image-viewer.md`, §12). Нет раннера — будет отказ, и тот же,
+  /// что и всегда: обещать показ и не показать честнее, чем молча отдать файл
+  /// текстовому просмотрщику, который нарисует мусор.
+  ///
+  /// `tiff` и `avif` не умеет никто из них — на них отказ с предложением
+  /// открыть системой.
+  static const Set<String> extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'heic'};
 
   @override
   String get id => 'fc.image_viewer';
@@ -83,14 +90,16 @@ class ImageViewer implements FcFrontendModule {
         accepts:
             (entry, type) =>
                 !entry.isDirectory && !entry.isParent && extensions.contains(extensionOf(entry.name).toLowerCase()),
-        open: (request) => _open(request, settingsOf(), settings.save),
+        open: (request) => _open(request, settingsOf(), settings.save, _optional<SystemImages>(registry.services)),
       ),
     );
 
     // Сведения о картинке — тому окну, которое их показывает. Ему про
     // картинки знать неоткуда, а нам про окно — незачем: между нами общий
     // контракт и ни одной правки в чужом модуле.
-    registry.nodeInfo((context) => ImageInfoProvider(settingsOf(), context.resolve<Strings>()));
+    registry.nodeInfo(
+      (context) => ImageInfoProvider(settingsOf(), context.resolve<Strings>(), _optional<SystemImages>(context)),
+    );
 
     registry.command((context) => ToggleImageFitCommand());
     registry.command((context) => ZoomImageCommand());
@@ -131,11 +140,18 @@ class ImageViewer implements FcFrontendModule {
     registry.binding(KeyBinding.inState<ImageViewerScreen>('Up', StepImageCommand.previousCommandId));
   }
 
+  /// Служба, без которой модуль умеет обойтись; null — её никто не объявил.
+  static T? _optional<T>(FcServices services) {
+    final found = services.resolveAll<T>();
+    return found.isEmpty ? null : found.first;
+  }
+
   /// Открыть: прочитать, разобрать заголовок и собрать список соседей.
   static Future<ViewerContent> _open(
     ViewerRequest request,
     ImageViewerSettings settings,
     void Function() onSettingsChanged,
+    SystemImages? system,
   ) async {
     final entry = request.entry;
     final document = await ImageDocument.read(
@@ -144,6 +160,7 @@ class ImageViewer implements FcFrontendModule {
       settings,
       checkpoint: request.checkpoint,
       strings: request.app.strings,
+      system: system,
     );
     // Распаковать сразу: показ должен появиться картинкой, а не пустым местом,
     // которое через миг сменится картинкой.
@@ -155,6 +172,7 @@ class ImageViewer implements FcFrontendModule {
       settings: settings,
       onSettingsChanged: onSettingsChanged,
       place: request.place,
+      system: system,
       // Соседи — один раз при открытии: каталог за это время не изменится, а
       // перечитывать его на каждую стрелку значило бы ходить по диску вместо
       // показа.

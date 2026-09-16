@@ -19,6 +19,7 @@ class ImageViewerScreen extends ChangeNotifier implements ViewerContent {
     required this.onSettingsChanged,
     this.place = ViewerPlace.fullscreen,
     List<FileEntry> siblings = const [],
+    this.system,
   }) : _entry = entry,
        _document = document,
        _siblings = siblings;
@@ -30,6 +31,12 @@ class ImageViewerScreen extends ChangeNotifier implements ViewerContent {
   final ImageViewerSettings settings;
 
   final void Function() onSettingsChanged;
+
+  /// Разбор того, чего не умеет Flutter; null — службы нет.
+  ///
+  /// Нужен и здесь, а не только при открытии: стрелки листают каталог, и
+  /// соседом вполне может оказаться `HEIC`.
+  final SystemImages? system;
 
   @override
   final ViewerPlace place;
@@ -140,7 +147,13 @@ class ImageViewerScreen extends ChangeNotifier implements ViewerContent {
     _targetIndex = next;
     final generation = ++_generation;
     final sibling = _siblings[next];
-    final document = await ImageDocument.read(sibling, contentOf(sibling), settings, checkpoint: () async {});
+    final document = await ImageDocument.read(
+      sibling,
+      contentOf(sibling),
+      settings,
+      checkpoint: () async {},
+      system: system,
+    );
     // Распаковка до подмены: иначе на месте новой картинки видна прежняя.
     await document.warmUp();
     if (generation != _generation) {

@@ -26,6 +26,7 @@ import 'package:fc_zip/fc_zip.dart';
 import '../modules/app_shell.dart';
 import '../modules/dnd/system_drag_and_drop.dart';
 import '../modules/icons/system_icons.dart';
+import '../modules/images/system_images.dart';
 
 /// Из чего собрано приложение.
 ///
@@ -74,6 +75,10 @@ List<FcModule> featureModules() => [
   // необходимости — службы разбираются лениво, — а потому что читается сверху
   // вниз: сперва то, что он спрашивает, потом он сам.
   const SystemFileIcons(),
+  // Разбор картинок, которых не умеет Flutter: `HEIC` и всё, что читает
+  // система, а Skia — нет. Просмотрщик спрашивает его последним, когда свой
+  // разбор не справился (`docs/spec/image-viewer.md`, §12).
+  const SystemImageDecoding(),
   const FileIconRules(),
   const ZipArchiver(),
   const SevenZipArchiver(),
