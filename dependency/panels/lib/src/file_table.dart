@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
 import 'package:fc_api/fc_api.dart';
@@ -13,6 +12,7 @@ import 'panel_drag.dart';
 import 'panels_settings.dart';
 import 'columns.dart';
 import 'file_table_row.dart';
+import 'mark_drag.dart';
 
 /// Таблица файлов: заголовки колонок, вертикальные линейки на всю высоту и
 /// прокручиваемый список строк.
@@ -59,25 +59,16 @@ class _FileTableState extends State<FileTable> {
   int _lastTapIndex = -1;
   DateTime _lastTapTime = DateTime.fromMillisecondsSinceEpoch(0);
 
-  /// Пометка правой кнопкой: строка, с которой жест начался; -1 — жеста нет.
-  int _markAnchor = -1;
-
-  /// Докуда дотянули в прошлый раз: строки за отрезком нужно вернуть в прежнее
-  /// состояние, а знать, какие именно, можно только помня прошлый конец.
-  int _markTo = -1;
-
-  /// Помечаем или снимаем — решает первая строка жеста.
-  bool _markAdds = true;
-
-  /// Пометка, какой она была до жеста: по ней восстанавливаются строки,
-  /// выпавшие из отрезка при ходе назад.
-  Set<String> _markBefore = const {};
-
-  /// Где указатель сейчас — нужно автопрокрутке: она едет по таймеру, а не по
-  /// движениям, и своей координаты у неё нет.
-  Offset _markPointer = Offset.zero;
-
-  Timer? _markScroll;
+  /// Пометка правой кнопкой — жест общий со всеми видами
+  /// (`spec/mouse-marking.md`).
+  late final MarkDrag _marking = MarkDrag(
+    panel: widget.panel,
+    indexAt: _indexAt,
+    indexNear: _rowUnder,
+    bounds: () => (_headerHeight, _headerHeight + _listHeight),
+    scroll: () => _scroll,
+    activate: () => AppScope.read(context).activate(widget.panel),
+  );
 
   @override
   void initState() {
@@ -98,7 +89,7 @@ class _FileTableState extends State<FileTable> {
 
   @override
   void dispose() {
-    _markScroll?.cancel();
+    _marking.dispose();
     widget.panel.removeListener(_onPanelChanged);
     _scroll.dispose();
     super.dispose();
@@ -351,10 +342,10 @@ class _FileTableState extends State<FileTable> {
   /// (`spec/drag-and-drop.md`).
   Widget _withMarking(Widget content) {
     return Listener(
-      onPointerDown: _markDown,
-      onPointerMove: _markMove,
-      onPointerUp: _markUp,
-      onPointerCancel: _markUp,
+      onPointerDown: _marking.down,
+      onPointerMove: _marking.move,
+      onPointerUp: _marking.up,
+      onPointerCancel: _marking.up,
       child: content,
     );
   }
@@ -471,64 +462,6 @@ class _FileTableState extends State<FileTable> {
 
   // --- Пометка правой кнопкой (`spec/mouse-marking.md`) ---
 
-  /// Насколько далеко за краем список едет с наибольшей скоростью.
-  static const double _autoScrollReach = 120;
-
-  /// Наибольший шаг автопрокрутки за такт.
-  static const double _autoScrollStep = 24;
-
-  static const Duration _autoScrollTick = Duration(milliseconds: 16);
-
-  /// Начало жеста: запоминаем строку, снимок пометки и направление.
-  ///
-  /// Направление задаёт первая строка: начали с непомеченной — весь отрезок
-  /// помечается, начали с помеченной — снимается. Отдельной ветки «просто
-  /// щелчок» нет: он и есть отрезок длиной в одну строку.
-  void _markDown(PointerDownEvent event) {
-    if (!_isMarking(event.kind, event.buttons)) {
-      return;
-    }
-    // Начаться жест может только на строке: над заголовками колонок правая
-    // кнопка по-прежнему открывает меню видимости.
-    final index = _indexAt(event.localPosition);
-    if (index == null) {
-      return;
-    }
-
-    final panel = widget.panel;
-    AppScope.read(context).activate(panel);
-
-    _markAnchor = index;
-    _markTo = index;
-    _markBefore = panel.markedPaths;
-    _markAdds = !panel.isMarked(panel.entries[index]);
-    _markPointer = event.localPosition;
-    _markSegment(index);
-  }
-
-  void _markMove(PointerMoveEvent event) {
-    if (_markAnchor < 0 || !_isMarking(event.kind, event.buttons)) {
-      return;
-    }
-    _markPointer = event.localPosition;
-    _markSegment(_rowUnder(event.localPosition));
-    _autoScroll(event.localPosition);
-  }
-
-  void _markUp(PointerEvent event) {
-    _markAnchor = -1;
-    _markBefore = const {};
-    _markScroll?.cancel();
-    _markScroll = null;
-  }
-
-  /// Жест — это правая кнопка, чем бы её ни нажали.
-  ///
-  /// Устройство не проверяется: протянуть с зажатой правой на трекпаде и так
-  /// невозможно (правый щелчок там — двухпальцевый тап), а переключить пометку
-  /// одной строки им можно, и запрещать это незачем.
-  static bool _isMarking(PointerDeviceKind kind, int buttons) => buttons == kSecondaryMouseButton;
-
   /// Строка, к которой тянут: за краями списка — крайняя видимая, а не
   /// последняя в каталоге.
   ///
@@ -540,96 +473,6 @@ class _FileTableState extends State<FileTable> {
     final offset = _scroll.hasClients ? _scroll.offset : 0.0;
     final index = ((dy - _headerHeight + offset) / _rowHeight).floor();
     return index.clamp(0, widget.panel.entries.length - 1);
-  }
-
-  /// Приводит к нужному виду отрезок от начальной строки до [to], а всё, что
-  /// из отрезка выпало, возвращает в состояние до жеста.
-  ///
-  /// Отрезок, а не след: ход назад снимает то, что жест сам же и пометил.
-  void _markSegment(int to) {
-    final panel = widget.panel;
-    final entries = panel.entries;
-    final from = _markAnchor;
-
-    final low = math.min(from, math.min(to, _markTo));
-    final high = math.max(from, math.max(to, _markTo));
-    final segmentLow = math.min(from, to);
-    final segmentHigh = math.max(from, to);
-
-    // Пометка меняется одной просьбой на весь отрезок: до ядра она едет
-    // путями, и слать по сообщению на строку значило бы гнать сотню
-    // сообщений за один взмах мыши.
-    final marked = {...panel.markedPaths};
-    for (var i = low; i <= high; i++) {
-      final entry = entries[i];
-      // «..» не помечается никогда — это правило самой пометки, и жесту
-      // достаточно его не обходить.
-      if (entry.isParent) {
-        continue;
-      }
-      final wanted = i >= segmentLow && i <= segmentHigh ? _markAdds : _markBefore.contains(entry.path);
-      if (wanted) {
-        marked.add(entry.path);
-      } else {
-        marked.remove(entry.path);
-      }
-    }
-    panel.setMarks(marked);
-
-    _markTo = to;
-    // Курсор идёт за жестом: иначе после пометки полутора экранов он остаётся
-    // там, где его забыли, и следующая клавиша делает не то, что человек видит.
-    panel.setCursorIndex(to);
-  }
-
-  /// У краёв список едет сам — иначе жестом нельзя пометить больше экрана.
-  ///
-  /// Скорость растёт с тем, насколько далеко указатель ушёл за край: одна
-  /// скорость на все случаи либо мучительна на длинном списке, либо
-  /// проскакивает нужное место. Шаг делается по таймеру, а не по движениям
-  /// мыши: остановленную за краем руку список обязан слушаться дальше.
-  void _autoScroll(Offset local) {
-    final top = _headerHeight;
-    final bottom = _headerHeight + _listHeight;
-
-    var over = 0.0;
-    if (local.dy < top) {
-      over = local.dy - top;
-    } else if (local.dy > bottom) {
-      over = local.dy - bottom;
-    }
-
-    if (over == 0) {
-      _markScroll?.cancel();
-      _markScroll = null;
-      return;
-    }
-    _markScroll ??= Timer.periodic(_autoScrollTick, (_) => _autoScrollStepped());
-  }
-
-  void _autoScrollStepped() {
-    if (_markAnchor < 0 || !_scroll.hasClients) {
-      return;
-    }
-    final top = _headerHeight;
-    final bottom = _headerHeight + _listHeight;
-    final dy = _markPointer.dy;
-    final over = dy < top ? dy - top : (dy > bottom ? dy - bottom : 0.0);
-    if (over == 0) {
-      return;
-    }
-
-    final speed = (over.abs() / _autoScrollReach).clamp(0.0, 1.0) * _autoScrollStep;
-    final position = _scroll.position;
-    final target = (position.pixels + (over < 0 ? -speed : speed)).clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    );
-    if (target == position.pixels) {
-      return;
-    }
-    _scroll.jumpTo(target);
-    _markSegment(_rowUnder(_markPointer));
   }
 
   /// Клик ставит курсор, двойной клик по той же строке — входит в объект.

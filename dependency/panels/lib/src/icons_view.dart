@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart';
 
 import 'cursor_pin.dart';
 import 'icon_tile.dart';
+import 'mark_drag.dart';
 import 'panel_drag.dart';
 import 'panels_settings.dart';
 import 'widest_name.dart';
@@ -79,6 +80,20 @@ class _IconsViewState extends State<IconsView> {
   /// Плитка под курсором с прошлого показа — чтобы перестановка её не сдвинула.
   final CursorPin _pin = CursorPin();
 
+  /// Пометка правой кнопкой — жест общий со списком (`spec/mouse-marking.md`).
+  ///
+  /// Отрезок он считает по порядку списка, а не по прямоугольнику: плитки
+  /// разложены рядами, и «от этой до той» читается так же, как в списке — по
+  /// дороге, которой идёт курсор.
+  late final MarkDrag _marking = MarkDrag(
+    panel: widget.panel,
+    indexAt: _indexAt,
+    indexNear: _tileNear,
+    bounds: () => (0, _viewHeight),
+    scroll: () => _scroll,
+    activate: () => AppScope.read(context).activate(widget.panel),
+  );
+
   /// Самое длинное имя списка — общей меркой с кратким видом.
   final WidestName _widest = WidestName();
 
@@ -118,6 +133,7 @@ class _IconsViewState extends State<IconsView> {
 
   @override
   void dispose() {
+    _marking.dispose();
     _scroll.dispose();
     super.dispose();
   }
@@ -216,6 +232,23 @@ class _IconsViewState extends State<IconsView> {
 
   /// Сколько рамы закрывает плашка пути сверху.
   double _headroom = 0;
+
+  /// Плитка, к которой тянут: за краями сетки — крайняя видимая, а не
+  /// последняя в каталоге.
+  ///
+  /// Иначе указатель, ушедший за нижний край, помечал бы каталог до конца одним
+  /// махом; а так отрезок растёт по мере того, как сетка едет.
+  int _tileNear(Offset local) {
+    final entries = widget.panel.entries;
+    if (_step <= 0 || _rowHeight <= 0 || _columns <= 0 || entries.isEmpty) {
+      return 0;
+    }
+    final offset = _scroll.hasClients ? _scroll.offset : 0.0;
+    final dy = local.dy.clamp(0.0, math.max(0.0, _viewHeight - 1));
+    final row = math.max(0, ((dy - _top + offset) / _rowHeight).floor());
+    final column = ((local.dx - _gap) / _step).floor().clamp(0, _columns - 1);
+    return (row * _columns + column).clamp(0, entries.length - 1);
+  }
 
   /// Куда попадёт брошенное: в каталог под указателем, а мимо каталогов — в
   /// каталог панели. То же правило, что у таблицы.
@@ -400,17 +433,26 @@ class _IconsViewState extends State<IconsView> {
                 panel: panel,
                 spotAt: _spotAt,
                 highlightOf: _highlightOf,
-                child: NotificationListener<ScrollEndNotification>(
-                  // Прокрутка запоминается, когда устоялась: с неё вид и
-                  // начнёт, когда его соберут заново.
-                  onNotification: (notification) {
-                    if (_shown) {
-                      panel.setScrollOffset(notification.metrics.pixels);
-                    }
-                    _shown = true;
-                    return false;
-                  },
-                  child: list,
+                // Слой пометки стоит **всегда**, а не появляется вместе с
+                // жестом: строение дерева посреди работы мышью меняться не
+                // вправе (`spec/drag-and-drop.md`).
+                child: Listener(
+                  onPointerDown: _marking.down,
+                  onPointerMove: _marking.move,
+                  onPointerUp: _marking.up,
+                  onPointerCancel: _marking.up,
+                  child: NotificationListener<ScrollEndNotification>(
+                    // Прокрутка запоминается, когда устоялась: с неё вид и
+                    // начнёт, когда его соберут заново.
+                    onNotification: (notification) {
+                      if (_shown) {
+                        panel.setScrollOffset(notification.metrics.pixels);
+                      }
+                      _shown = true;
+                      return false;
+                    },
+                    child: list,
+                  ),
                 ),
               );
             },

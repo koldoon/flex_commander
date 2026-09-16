@@ -174,4 +174,73 @@ void main() {
     // Помечено непрерывно от начала: ни одна строка по дороге не пропущена.
     expect(marked(), containsAll([for (var i = 0; i < rolled; i++) 'file-${i.toString().padLeft(2, '0')}.txt']));
   });
+
+  group('в сетке значков', () {
+    /// Плитка **левой** панели по имени.
+    Finder tile(String name) => find.descendant(
+      of: find.byType(IconsView).first,
+      matching: find.byWidgetPredicate((widget) => widget is IconTile && widget.entry.name == name),
+    );
+
+    Future<void> openGrid(WidgetTester tester) async {
+      await pumpApp(tester);
+      await app.left.setView(IconsView.viewId);
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('щелчок правой переключает пометку плитки', (tester) async {
+      await openGrid(tester);
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse, buttons: kSecondaryMouseButton);
+      await mouse.addPointer(location: tester.getCenter(tile('file-01.txt')));
+      await tester.pump();
+      await mouse.down(tester.getCenter(tile('file-01.txt')));
+      await tester.pump(const Duration(milliseconds: 20));
+      await mouse.up();
+      await tester.pumpAndSettle();
+      await mouse.removePointer();
+
+      expect(marked(), {'file-01.txt'});
+      expect(app.left.currentEntry?.name, 'file-01.txt', reason: 'курсор идёт за жестом');
+    });
+
+    testWidgets('протягивание помечает отрезок по порядку списка', (tester) async {
+      await openGrid(tester);
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse, buttons: kSecondaryMouseButton);
+      await mouse.addPointer(location: tester.getCenter(tile('file-00.txt')));
+      await tester.pump();
+      await mouse.down(tester.getCenter(tile('file-00.txt')));
+      await tester.pump(const Duration(milliseconds: 20));
+      await mouse.moveTo(tester.getCenter(tile('file-04.txt')));
+      await tester.pump(const Duration(milliseconds: 20));
+      await mouse.up();
+      await tester.pumpAndSettle();
+      await mouse.removePointer();
+
+      expect(marked(), {for (var i = 0; i <= 4; i++) 'file-${i.toString().padLeft(2, '0')}.txt'});
+    });
+
+    testWidgets('ход назад снимает лишнее, «..» не помечается', (tester) async {
+      await openGrid(tester);
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse, buttons: kSecondaryMouseButton);
+      await mouse.addPointer(location: tester.getCenter(tile('file-02.txt')));
+      await tester.pump();
+      await mouse.down(tester.getCenter(tile('file-02.txt')));
+      await tester.pump(const Duration(milliseconds: 20));
+      await mouse.moveTo(tester.getCenter(tile('file-05.txt')));
+      await tester.pump(const Duration(milliseconds: 20));
+      // Назад, к самому началу списка: за отрезком всё возвращается в прежнее.
+      await mouse.moveTo(tester.getCenter(tile('..')));
+      await tester.pump(const Duration(milliseconds: 20));
+      await mouse.up();
+      await tester.pumpAndSettle();
+      await mouse.removePointer();
+
+      expect(marked(), {'deep', 'file-00.txt', 'file-01.txt', 'file-02.txt'});
+      expect(marked(), isNot(contains('..')), reason: '«..» не помечается никогда');
+      expect(marked(), isNot(contains('file-05.txt')), reason: 'ход назад снял то, что жест сам и пометил');
+    });
+  });
 }
