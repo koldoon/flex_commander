@@ -76,4 +76,5 @@ export 'src/format/size_format.dart';
 export 'src/util/file_mask.dart';
 export 'src/util/file_name.dart';
 export 'src/util/natural_compare.dart';
+export 'src/util/settle.dart';
 export 'src/util/throttle.dart';
