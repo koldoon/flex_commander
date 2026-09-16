@@ -135,8 +135,14 @@ class IconTile extends StatelessWidget {
             ? colors.markedBackground
             : null;
 
-    // Ровно столько, сколько текст и получит: поля плитки и поля плашки.
-    final room = width - metrics.cellPadding * 4;
+    // Полоса пометки идёт по краю плашки, и имя оказалось бы к ней вплотную:
+    // слева ему добавляется просвет — и только помеченному, иначе непомеченные
+    // имена стояли бы не по центру плитки.
+    final shift = marked ? metrics.markedBarGap : 0.0;
+
+    // Ровно столько, сколько текст и получит: поля плитки, поля плашки и
+    // просвет за полосой.
+    final room = width - metrics.cellPadding * 4 - shift;
     // Плашка облегает имя: не всю отведённую ширину, а самую длинную строку
     // набранного. Короткое имя — короткая плашка; имя в две строки — плашка по
     // длинной из них, а не во всю плитку.
@@ -152,7 +158,7 @@ class IconTile extends StatelessWidget {
     );
 
     final Widget text = Padding(
-      padding: EdgeInsets.symmetric(horizontal: metrics.cellPadding),
+      padding: EdgeInsets.only(left: metrics.cellPadding + shift, right: metrics.cellPadding),
       child: SizedBox(
         // Ужать до собственной длинной строки безопасно: перенос жадный, и
         // строки лягут теми же.

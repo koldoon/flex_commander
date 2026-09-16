@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -274,6 +275,26 @@ void main() {
       tester.getRect(find.byType(IconTile).first).width,
       greaterThan(auto),
       reason: 'потолок подняли — плитка доросла до самого длинного имени',
+    );
+  });
+
+  testWidgets('полоса пометки не прижимает имя к себе', (tester) async {
+    final runtime = await open(tester);
+    final panel = runtime.app.left;
+    final marked = panel.entries.firstWhere((entry) => entry.name == name(3));
+    panel.mark(marked);
+    await tester.pumpAndSettle();
+
+    final tile = find.ancestor(of: find.text(name(3)), matching: find.byType(IconTile)).first;
+    // Плашка имени — та, что под полосой: её и режет маска.
+    final plate = find.descendant(of: tile, matching: find.byType(ClipRRect)).first;
+    final text = find.descendant(of: plate, matching: find.byType(Text)).first;
+
+    const metrics = DefaultMetrics();
+    expect(
+      tester.getRect(text).left - tester.getRect(plate).left,
+      greaterThanOrEqualTo(metrics.markedBarWidth + metrics.markedBarGap),
+      reason: 'иначе имя стоит вплотную к полосе и читается хуже',
     );
   });
 
