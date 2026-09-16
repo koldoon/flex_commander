@@ -186,6 +186,27 @@ void main() {
     expect(panel.session.selection.paths, {'/home/main.dart'});
   });
 
+  test('корень источника не помечается — ни клавишей, ни просьбой', () async {
+    await panel.session.setRows(RowsKind.tree);
+
+    // Корень не лежит ни в одном каталоге: целью операции ему быть негде, и
+    // копировать его некуда (`docs/spec/panel-view-tree.md`, §7).
+    panel.session.setCursorToFirst();
+    expect(panel.session.currentNode?.pathString, '/', reason: 'первая строка — корень');
+
+    panel.session.toggleCurrentMark();
+    expect(panel.session.selection.paths, isEmpty, reason: 'клавиша корень не берёт');
+
+    // Вторая дверь — набор путей: ею кладёт пометку мышь, и правило в ядре
+    // ровно затем, чтобы обе двери вели в одно место.
+    await panel.session.setMarks({'/', '/home/main.dart'});
+    expect(panel.session.selection.paths, {'/home/main.dart'});
+
+    // И оптом тоже: `markAll` берёт весь список, а корень в нём первый.
+    panel.session.markAll();
+    expect(panel.session.selection.paths, isNot(contains('/')));
+  });
+
   test('раскрытое переживает смену вида и попадает в настройки', () async {
     await panel.session.setRows(RowsKind.tree);
     await panel.session.setExpanded('/home/lib', expanded: true);

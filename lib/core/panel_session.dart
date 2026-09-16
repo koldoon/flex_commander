@@ -1192,7 +1192,7 @@ class PanelSession {
   /// [step] — шагать ли: пометка на месте курсор не двигает.
   void toggleCurrentMark({bool step = true}) {
     final node = currentNode;
-    if (node == null || node is ParentDirNode) {
+    if (node == null || !_markable(node)) {
       return;
     }
     selection.toggle(node);
@@ -1201,7 +1201,23 @@ class PanelSession {
     }
   }
 
-  void markAll() => selection.addAll(_nodes);
+  void markAll() => selection.addAll(_nodes.where(_markable));
+
+  /// Можно ли пометить этот узел.
+  ///
+  /// Два отказа, и оба про то, что объектом строка не является:
+  ///
+  /// * «..» — не объект, а дорога наверх (`operation-targets.md`);
+  /// * **корень источника** — он не лежит ни в одном каталоге, и целью операции
+  ///   быть не может: копировать его некуда и неоткуда
+  ///   (`panel-view-tree.md`, §7). Родителя у корня нет вовсе — этим он и
+  ///   опознаётся, без догадок по имени и схеме.
+  ///
+  /// Правило стоит **в ядре**, у самой пометки: за ней ходят и клавиша, и
+  /// мышь, и маска, и восстановление из настроек, — а повторять его в каждом
+  /// вызывающем значит однажды забыть. На этом уже попались: жест мыши кладёт
+  /// пометку набором путей, мимо клавишной двери, и помечал корень.
+  static bool _markable(FsNode node) => node is! ParentDirNode && node.parent != null;
 
   /// Помеченное, а если не помечено ничего — объект под курсором.
   ///
@@ -2482,7 +2498,7 @@ class PanelSession {
         _ => null,
       };
       node ??= strangers[path];
-      if (node != null) {
+      if (node != null && _markable(node)) {
         replacement.add(node);
       }
     }

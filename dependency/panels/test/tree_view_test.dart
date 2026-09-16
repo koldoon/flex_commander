@@ -389,36 +389,37 @@ void main() {
     expect(markedRows(tester), 2, reason: 'и это видно в дереве');
   });
 
-  testWidgets('протяжка помечает ровно то же, что клавиша', (tester) async {
-    // Жест кладёт пометку набором путей, мимо ядра, а клавиша идёт через него.
-    // Разойтись им нельзя: цели `F5` берутся из одной и той же пометки.
+  testWidgets('корень не помечает ни клавиша, ни мышь', (tester) async {
+    // Жест кладёт пометку набором путей — дверью, мимо которой ходит клавиша.
+    // Разойтись им нельзя: цели `F5` берутся из одной и той же пометки, и
+    // корень целью не бывает ни для одной из них (`panel-view-tree.md`, §7).
     final runtime = await open(tester, at: '/home/lib');
     final panel = runtime.app.left;
 
-    Finder branch(String name) => find.descendant(of: find.byType(TreeView), matching: find.text(name));
-
-    // Клавишей: курсор на `src`, пометили.
-    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    // Клавишей: курсор на первую строку — это корень источника.
+    runtime.commands.dispatch(KeyCombination.parse('Home'));
     await tester.pumpAndSettle();
+    expect(panel.currentEntry?.path, '/', reason: 'первая строка дерева — корень');
+
     runtime.commands.dispatch(KeyCombination.parse('Space'));
     await tester.pumpAndSettle();
-    final byKey = {...panel.markedPaths};
-    expect(byKey, isNotEmpty);
+    expect(panel.markedPaths, isEmpty, reason: 'клавиша корень не берёт');
 
-    // Снимаем и повторяем то же мышью — одним щелчком правой.
-    panel.setMarks(const {});
-    await tester.pumpAndSettle();
-
+    // Мышью: протяжка с корня вниз помечает всё, кроме него.
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse, buttons: kSecondaryMouseButton);
-    await mouse.addPointer(location: tester.getCenter(branch('src')));
+    final root = find.descendant(of: find.byType(TreeView), matching: find.text('/'));
+    final home = find.descendant(of: find.byType(TreeView), matching: find.text('home'));
+    await mouse.addPointer(location: tester.getCenter(root));
     await tester.pump();
-    await mouse.down(tester.getCenter(branch('src')));
+    await mouse.down(tester.getCenter(root));
+    await tester.pump(const Duration(milliseconds: 20));
+    await mouse.moveTo(tester.getCenter(home));
     await tester.pump(const Duration(milliseconds: 20));
     await mouse.up();
     await tester.pumpAndSettle();
     await mouse.removePointer();
 
-    expect(panel.markedPaths, byKey, reason: 'мышь и клавиша помечают одно и то же');
+    expect(panel.markedPaths, {'/home'}, reason: 'протяжка взяла всё, кроме корня');
   });
 
   testWidgets('пометка из разных ветвей складывается', (tester) async {
