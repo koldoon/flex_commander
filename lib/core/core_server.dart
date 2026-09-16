@@ -255,6 +255,12 @@ class CoreServer implements CoreHandler {
 
       case ChangeSettings(:final ui):
         _settings?.applyUi(ui);
+        // Слежение за каталогом могли выключить — или включить обратно. Раздел
+        // правят мимо ядра, и узнать о правке ему неоткуда, кроме как от того,
+        // кто её принёс (`docs/spec/directory-watch.md`, §8).
+        for (final session in _panels.values) {
+          session.settingsChanged();
+        }
         return null;
 
       case SaveSettings():

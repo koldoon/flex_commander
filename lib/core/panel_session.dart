@@ -34,6 +34,12 @@ int _defaultConcurrency() => AppSettings.defaultSizeScanConcurrency;
 /// (`docs/spec/session-history.md`, §7).
 int _defaultHistoryLimit() => SessionHistory.defaultLimit;
 
+/// Следим ли мы за показанным каталогом (`docs/spec/directory-watch.md`).
+///
+/// Сборка приложения говорит это настройкой; умолчание нужно тем, кто
+/// собирает панель сам, — проверкам.
+bool _watchByDefault() => true;
+
 class PanelSessionFactory {
   PanelSessionFactory({
     required this.registry,
@@ -44,6 +50,8 @@ class PanelSessionFactory {
     this.naming = const ReferenceFileNaming(),
     this.cache,
     Strings? strings,
+    this.watchDirectories = _watchByDefault,
+    this.watchDelay,
   }) : strings = strings ?? StringsRegistry();
 
   /// Реестр провайдеров: с какого панель начинает и чем открываются вложенные
@@ -80,6 +88,12 @@ class PanelSessionFactory {
   /// Строки на языке человека: строку состояния пишет эта сторона.
   final Strings strings;
 
+  /// Следить ли за показанным каталогом и сколько копить события — общие
+  /// настройки, и приходят так же, как пул обхода: способом узнать
+  /// (`docs/spec/directory-watch.md`, §8).
+  final bool Function() watchDirectories;
+  final Duration Function()? watchDelay;
+
   PanelSession create(PanelSettings settings) => PanelSession(
     registry: registry,
     editor: editor,
@@ -90,6 +104,8 @@ class PanelSessionFactory {
     naming: naming,
     cache: cache,
     strings: strings,
+    watchDirectories: watchDirectories,
+    watchDelay: watchDelay,
   );
 }
 
@@ -146,9 +162,6 @@ class PanelSession {
     selection.addListener(_onSelectionChanged);
     _watch = DirectoryWatch(refresh: catchUp, enabled: watchDirectories, delay: watchDelay);
   }
-
-  /// Следим ли мы за показанным каталогом (`docs/spec/directory-watch.md`).
-  static bool _watchByDefault() => true;
 
   /// Слежение за показанным каталогом: изменили не мы — догоняем.
   late final DirectoryWatch _watch;

@@ -197,6 +197,14 @@ class CoreContainer extends DI {
             naming: c.get<FileNaming>(),
             cache: c.get<ListingCache>(),
             strings: c.get<Strings>(),
+            // Тем же приёмом, что и кеш: раздел спрашивается каждый раз, и
+            // правка в окне настроек действует со следующего же события.
+            watchDirectories:
+                () => c.get<AppSettings>().modules.scope('fc.shell').section(ShellSettings.new).watchDirectories,
+            watchDelay:
+                () => Duration(
+                  milliseconds: c.get<AppSettings>().modules.scope('fc.shell').section(ShellSettings.new).watchDelay,
+                ),
           ),
     );
 

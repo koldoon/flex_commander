@@ -13,6 +13,8 @@ class ShellSettings implements Serializable {
     this.sessionsInTitleBar = true,
     this.listingCacheLimit = defaultListingCacheLimit,
     this.listingCacheTtl = defaultListingCacheTtl,
+    this.watchDirectories = true,
+    this.watchDelay = defaultWatchDelay,
     List<String>? compoundExtensions,
     List<String>? recentCommands,
   }) : compoundExtensions = compoundExtensions ?? <String>[],
@@ -63,6 +65,25 @@ class ShellSettings implements Serializable {
   /// неправду и не заметить этого.
   int listingCacheTtl;
 
+  /// Следить ли за показанным каталогом и догонять чужие изменения.
+  ///
+  /// Включено: выключенного никто бы не проверил, а без слежения панель
+  /// показывает снимок — то, ради чего этап и затевался
+  /// (`docs/spec/directory-watch.md`). Выключают его те, кому дорог покой
+  /// диска: остаётся `Cmd-R`.
+  bool watchDirectories;
+
+  /// Сколько миллисекунд копить события, прежде чем перечитать.
+  ///
+  /// Одно осмысленное изменение присылает несколько событий — переименование
+  /// четыре, распаковка двухсот файлов четыре сотни, — и реагировать на каждое
+  /// значит читать каталог без нужды.
+  int watchDelay;
+
+  /// Умолчание — то же число, каким живёт сам накопитель: два места, называющих
+  /// одно, однажды разойдутся.
+  static const int defaultWatchDelay = 300;
+
   /// Показывать ли ряд открытых наборов в полосе заголовка.
   ///
   /// Включено: полоса до него пустовала, и места ряд ни у кого не отнимает
@@ -84,6 +105,8 @@ class ShellSettings implements Serializable {
     sessionsInTitleBar = extract(sessionsInTitleBar, m['sessionsInTitleBar']);
     listingCacheLimit = extract(listingCacheLimit, m['listingCacheLimit']).clamp(1, 4096);
     listingCacheTtl = extract(listingCacheTtl, m['listingCacheTtl']).clamp(1, 86400);
+    watchDirectories = extract(watchDirectories, m['watchDirectories']);
+    watchDelay = extract(watchDelay, m['watchDelay']).clamp(50, 5000);
     useBuiltinExtensions = extract(useBuiltinExtensions, m['useBuiltinExtensions']);
     compoundExtensions = extractList<String>(m['compoundExtensions']);
     recentCommands = extractList<String>(m['recentCommands']);
@@ -97,6 +120,8 @@ class ShellSettings implements Serializable {
     m['sessionsInTitleBar'] = sessionsInTitleBar;
     m['listingCacheLimit'] = listingCacheLimit;
     m['listingCacheTtl'] = listingCacheTtl;
+    m['watchDirectories'] = watchDirectories;
+    m['watchDelay'] = watchDelay;
     m['useBuiltinExtensions'] = useBuiltinExtensions;
     m['compoundExtensions'] = compoundExtensions;
     m['recentCommands'] = recentCommands;

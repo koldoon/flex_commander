@@ -6,6 +6,7 @@ import 'dart:io';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_local_fs/fc_local_fs.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 
@@ -114,5 +115,37 @@ void main() {
 
     expect(await waitFor(() => closed), isTrue);
     expect(events, 0, reason: 'следить здесь нечем — это не отказ');
+  });
+
+  test('панель догоняет чужие изменения сама', () async {
+    final panel = testPanel(
+      provider: provider,
+      settings: PanelSettings(path: root),
+      // Окно накопления короткое: проверяем слежение, а не терпение.
+      watchDelay: const Duration(milliseconds: 40),
+    );
+    addTearDown(panel.dispose);
+    await panel.openPath(root);
+    await waitFor(() => panel.entries.isNotEmpty);
+
+    // Создание.
+    File(p.join(root, 'fresh.txt')).writeAsStringSync('hello');
+    expect(
+      await waitFor(() => panel.entries.any((one) => one.name == 'fresh.txt')),
+      isTrue,
+      reason: 'сборка положила файл — панель это увидела',
+    );
+
+    // Переименование.
+    File(p.join(root, 'fresh.txt')).renameSync(p.join(root, 'renamed.txt'));
+    expect(await waitFor(() => panel.entries.any((one) => one.name == 'renamed.txt')), isTrue);
+    expect(panel.entries.any((one) => one.name == 'fresh.txt'), isFalse);
+
+    // Удаление.
+    File(p.join(root, 'renamed.txt')).deleteSync();
+    expect(await waitFor(() => panel.entries.every((one) => one.name != 'renamed.txt')), isTrue);
+
+    // И всё это — не отнимая клавиатуру.
+    expect(panel.busy, isFalse);
   });
 }

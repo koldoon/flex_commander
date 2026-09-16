@@ -345,6 +345,24 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           write: (value) => settings.section(ShellSettings.new).listingCacheTtl = value,
         ),
         SettingsField.flag(
+          'watchDirectories',
+          defaultValue: true,
+          title: strings.tr('Follow directory changes'),
+          description: strings.tr('The list catches up with changes made by other programs'),
+          read: () => settings.section(ShellSettings.new).watchDirectories,
+          write: (value) => settings.section(ShellSettings.new).watchDirectories = value,
+        ),
+        SettingsField.integer(
+          'watchDelay',
+          defaultValue: ShellSettings.defaultWatchDelay,
+          title: strings.tr('Changes settle for'),
+          description: strings.tr('Milliseconds of quiet before the list is re-read: one change sends many events'),
+          min: 50,
+          max: 5000,
+          read: () => settings.section(ShellSettings.new).watchDelay,
+          write: (value) => settings.section(ShellSettings.new).watchDelay = value,
+        ),
+        SettingsField.flag(
           'allowElevatedWrites',
           defaultValue: true,
           title: strings.tr('Allow elevated writes'),
@@ -541,6 +559,11 @@ const Map<String, String> _russian = {
   'Offer to save as administrator where ordinary rights are not enough':
       'Предлагать сохранить от администратора там, где обычных прав не хватило',
   'Remember directory listings': 'Помнить содержимое каталогов',
+  'Follow directory changes': 'Следить за изменениями каталога',
+  'The list catches up with changes made by other programs': 'Список догоняет изменения, сделанные другими программами',
+  'Changes settle for': 'Копить изменения',
+  'Milliseconds of quiet before the list is re-read: one change sends many events':
+      'Сколько миллисекунд тишины ждать перед перечитыванием: одно изменение шлёт много событий',
   'A directory you have already visited shows at once and reloads in the background':
       'Каталог, где вы уже были, показывается сразу и перечитывается фоном',
   'Listings remembered': 'Каталогов в памяти',

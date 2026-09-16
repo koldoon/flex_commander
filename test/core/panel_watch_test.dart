@@ -4,6 +4,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/core/listing_cache.dart';
+import 'package:flex_commander/state/shell_settings.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Панель догоняет чужие изменения (`docs/spec/directory-watch.md`, §6).
@@ -158,6 +159,13 @@ void main() {
     await settle();
 
     expect(provider.watchers, 0);
+  });
+
+  test('умолчание настройки и умолчание накопителя — одно число', () async {
+    // Два места, называющих одно, однажды разойдутся: настройку правят в окне,
+    // а накопитель живёт в общем наборе, и константу из него в поле не вписать.
+    await open();
+    expect(ShellSettings.defaultWatchDelay, Settle.defaultQuiet.inMilliseconds);
   });
 
   test('выключенная настройка не подписывается вовсе', () async {
