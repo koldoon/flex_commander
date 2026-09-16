@@ -24,38 +24,48 @@ class PanelStatusBar extends StatelessWidget {
         final error = panel.phase == PanelPhase.error;
         final stroke = theme.metrics.strokeWidth;
 
-        return SizedBox(
-          height: theme.metrics.statusBarHeight,
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              // Линейка не доходит до рамки панели — ровно на её толщину, как в
-              // референсе. Дойди она до края, получился бы угол, и полоса
-              // читалась бы отдельной коробкой, а не низом той же панели.
-              Padding(
-                padding: EdgeInsets.symmetric(horizontal: stroke),
-                child: SizedBox(height: stroke, child: ColoredBox(color: theme.colors.columnDivider)),
+        // Высота не задана, а **не меньше**: длинное имя строка договаривает,
+        // вырастая на вторую и третью строчку (`docs/widgets.md`, раздел `PanelStatusBar`).
+        // Пока текст в одну строку — всё ровно так же, как было.
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            // Линейка не доходит до рамки панели — ровно на её толщину, как в
+            // референсе. Дойди она до края, получился бы угол, и полоса
+            // читалась бы отдельной коробкой, а не низом той же панели.
+            Padding(
+              padding: EdgeInsets.symmetric(horizontal: stroke),
+              child: SizedBox(height: stroke, child: ColoredBox(color: theme.colors.columnDivider)),
+            ),
+            ConstrainedBox(
+              constraints: BoxConstraints(minHeight: theme.metrics.statusBarHeight - stroke),
+              child: Container(
+                // Поле слева и справа: рамка полосы и текст не должны
+                // сходиться вплотную. Ролями, а не числом, — иначе отступ
+                // останется прежним при любом масштабе темы, а всё вокруг
+                // него уедет (`DefaultMetrics(scale: 0.8)` — это «крупная»
+                // тема).
+                padding: EdgeInsets.symmetric(horizontal: theme.metrics.labelPadding + theme.metrics.cellPadding),
+                alignment: Alignment.centerLeft,
+                child: _text(context, theme, error: error),
               ),
-              Expanded(
-                child: Container(
-                  // Поле слева и справа: рамка полосы и текст не должны
-                  // сходиться вплотную. Ролями, а не числом, — иначе отступ
-                  // останется прежним при любом масштабе темы, а всё вокруг
-                  // него уедет (`DefaultMetrics(scale: 0.8)` — это «крупная»
-                  // тема).
-                  padding: EdgeInsets.symmetric(horizontal: theme.metrics.labelPadding + theme.metrics.cellPadding),
-                  alignment: Alignment.centerLeft,
-                  child: _text(context, theme, error: error),
-                ),
-              ),
-            ],
-          ),
+            ),
+          ],
         );
       },
     );
   }
 
-  /// Строка состояния с подсказкой, когда сказанное не поместилось.
+  /// Сколько строчек строка состояния позволяет себе занять.
+  ///
+  /// Три — потому что четвёртая отъедает от списка уже заметно, а имя, не
+  /// влезшее в три, не влезет и в пять. Приложение клавиатурное, и договорить
+  /// имя под курсором больше некому: подсказка — про мышь
+  /// (`docs/widgets.md`, раздел `PanelStatusBar`).
+  static const int maxLines = 3;
+
+  /// Строка состояния: растёт до [maxLines], дальше договаривает подсказкой.
   ///
   /// Сюда смотрят, когда имя в списке обрезано, — и обрезанная строка
   /// состояния оставляла бы вопрос без ответа совсем (`docs/spec/tooltips.md`,
@@ -63,15 +73,20 @@ class PanelStatusBar extends StatelessWidget {
   Widget _text(BuildContext context, FcTheme theme, {required bool error}) {
     final style = error ? theme.statusStyle.copyWith(color: theme.colors.error) : theme.statusStyle;
     final (span, whole) = _content(theme, context.strings);
-    final shown = Text.rich(span, maxLines: 1, overflow: TextOverflow.ellipsis, style: style);
+    final shown = Text.rich(span, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: style);
 
     // Своей раскладкой: полоса занимает всю ширину панели, и знать её заранее
     // неоткуда. Интринсиками панель никто не меряет — это не окно команды.
     return LayoutBuilder(
       builder: (context, constraints) {
         final measured = FcTheme.effective(context, style);
-        final width = spanWidthOf(TextSpan(style: measured, children: [span]), MediaQuery.textScalerOf(context));
-        return fcTooltipIf(context, trimmed: width > constraints.maxWidth, message: whole, child: shown);
+        final fits = spanFitsLines(
+          TextSpan(style: measured, children: [span]),
+          constraints.maxWidth,
+          MediaQuery.textScalerOf(context),
+          maxLines: maxLines,
+        );
+        return fcTooltipIf(context, trimmed: !fits, message: whole, child: shown);
       },
     );
   }

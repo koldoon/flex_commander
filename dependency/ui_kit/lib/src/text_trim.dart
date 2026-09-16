@@ -56,6 +56,23 @@ double spanWidthOf(InlineSpan span, TextScaler scaler) {
   return width;
 }
 
+/// Поместится ли набранное в отведённое число строк.
+///
+/// Отдельно от [textFits]: там вопрос про одну строку и плоский текст, здесь —
+/// про несколько строк и куски разных стилей. Спрашивает строка состояния: она
+/// растёт, пока имя не поместится, но не выше своего предела
+/// (`docs/widgets.md`, раздел `PanelStatusBar`).
+bool spanFitsLines(InlineSpan span, double maxWidth, TextScaler scaler, {int maxLines = 1}) {
+  if (maxWidth.isInfinite || maxWidth <= 0) {
+    return true;
+  }
+  final painter = TextPainter(text: span, textDirection: TextDirection.ltr, textScaler: scaler, maxLines: maxLines)
+    ..layout(maxWidth: maxWidth);
+  final exceeded = painter.didExceedMaxLines;
+  painter.dispose();
+  return !exceeded;
+}
+
 /// Поместится ли строка в отведённое.
 ///
 /// Вопрос задаётся там, где текст режется: обрезанному нужна подсказка,

@@ -270,6 +270,13 @@ class _FileTableState extends State<FileTable> {
               panel.columnRows = 0;
               // Те же размеры нужны прокрутке нового каталога, а она считается
               // до разметки: запоминаем то, что известно сейчас.
+              // Область списка ужалась — курсор мог уехать под обрез. Так это
+              // и бывает: строка состояния вырастает **из-за того**, что курсор
+              // встал на длинное имя, и выталкивает нижние строки вниз
+              // (`docs/widgets.md`, раздел `PanelStatusBar`).
+              if (listHeight < _listHeight) {
+                WidgetsBinding.instance.addPostFrameCallback((_) => _ensureCursorVisible());
+              }
               _listHeight = listHeight;
               _rowHeight = rowHeight;
               _headerHeight = theme.metrics.headerRowHeight;
