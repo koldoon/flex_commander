@@ -452,16 +452,17 @@ class MoveCursorColumnCommand extends AppCommand {
   @override
   String get description => tr('Move the cursor one column aside');
 
-  /// Спрашивается не вид, а его раскладка: столбцы объявляет сам вид
-  /// (`Session.columnRows`), и команде всё равно, кто это — краткий вид или
-  /// будущие столбцы Finder.
+  /// Спрашивается не вид, а его шаг: раскладку объявляет сам вид
+  /// (`Session.cursorSteps`), и команде всё равно, кто это — краткий вид,
+  /// сетка значков или будущие столбцы Finder.
   @override
-  bool isExecutable(CommandContext context) => context.session.columnRows > 0 && context.session.entries.isNotEmpty;
+  bool isExecutable(CommandContext context) =>
+      context.session.cursorSteps.across > 0 && context.session.entries.isNotEmpty;
 
   @override
   Future<void> execute(CommandContext context) async {
     final panel = context.session;
-    final rows = panel.columnRows;
+    final rows = panel.cursorSteps.across;
     if (rows <= 0) {
       return;
     }
@@ -469,6 +470,63 @@ class MoveCursorColumnCommand extends AppCommand {
     // через весь экран.
     final target = panel.cursorIndex + (right ? rows : -rows);
     panel.setCursorIndex(target.clamp(0, panel.entries.length - 1));
+  }
+}
+
+/// Перевести курсор на ряд выше или ниже — там, где ряды есть.
+///
+/// Только в сетке: вид объявляет шаг вниз, и при обычном шаге в строку команда
+/// невыполнима, а клавиша достаётся навигации. Тот же приём, что у хода по
+/// столбцам (`docs/spec/panel-view-icons.md`, §6).
+class MoveCursorRowCommand extends AppCommand {
+  MoveCursorRowCommand({required this.down});
+
+  static const String upId = 'panel.cursor.rowUp';
+  static const String downId = 'panel.cursor.rowDown';
+
+  final bool down;
+
+  @override
+  String get id => down ? downId : upId;
+
+  @override
+  String get label => down ? tr('Row below') : tr('Row above');
+
+  @override
+  String get description => tr('Move the cursor one row of tiles');
+
+  @override
+  bool isExecutable(CommandContext context) =>
+      context.session.cursorSteps.down > 1 && context.session.entries.isNotEmpty;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final panel = context.session;
+    final row = panel.cursorSteps.down;
+    if (row <= 1) {
+      return;
+    }
+
+    final at = panel.cursorIndex;
+    final last = panel.entries.length - 1;
+    if (!down) {
+      // Выше ряда нет — упираемся: увести курсор вбок вертикальной клавишей
+      // значит соврать о том, что она делает.
+      panel.setCursorIndex(at - row < 0 ? at : at - row);
+      return;
+    }
+
+    // Ряд ниже неполон — встаём на его последнюю плитку; ряда ниже нет вовсе —
+    // не двигаемся.
+    final below = at + row;
+    if (below <= last) {
+      panel.setCursorIndex(below);
+      return;
+    }
+    final lastRowStarts = last - (last % row);
+    if (at < lastRowStarts) {
+      panel.setCursorIndex(last);
+    }
   }
 }
 

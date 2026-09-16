@@ -11,6 +11,7 @@ export 'src/app/application.dart';
 export 'src/app/session.dart';
 export 'src/app/panel.dart';
 export 'src/app/panel_header_spec.dart';
+export 'src/app/panel_steps.dart';
 export 'src/app/panel_view_spec.dart';
 export 'src/app/panel_viewport.dart';
 export 'src/app/column_cell.dart';

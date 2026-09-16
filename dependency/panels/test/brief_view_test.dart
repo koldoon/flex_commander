@@ -95,8 +95,8 @@ void main() {
 
     panel.setCursorIndex(0);
     await tester.pumpAndSettle();
-    final rows = panel.columnRows;
-    expect(rows, greaterThan(0), reason: 'вид объявил свою раскладку');
+    final rows = panel.cursorSteps.across;
+    expect(rows, greaterThan(0), reason: 'вид объявил свой шаг');
 
     runtime.commands.dispatch(KeyCombination.parse('Right'));
     await tester.pumpAndSettle();
@@ -114,7 +114,7 @@ void main() {
     // В таблице те же клавиши значат прежнее: одна клавиша, две команды.
     await panel.setView(PanelSettings.defaultView);
     await tester.pumpAndSettle();
-    expect(panel.columnRows, 0);
+    expect(panel.cursorSteps, const PanelSteps.list());
     runtime.commands.dispatch(KeyCombination.parse('Right'));
     await tester.pumpAndSettle();
     expect(panel.cursorIndex, panel.entries.length - 1, reason: 'в таблице Right — в конец списка');

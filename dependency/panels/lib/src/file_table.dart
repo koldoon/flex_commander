@@ -267,7 +267,7 @@ class _FileTableState extends State<FileTable> {
               panel.pageSize = (listHeight / rowHeight).floor().clamp(1, 1000);
               // Столбцов у таблицы нет: `Left`/`Right` достаются «в начало» и
               // «в конец» (`docs/spec/panel-views.md`, §10).
-              panel.columnRows = 0;
+              panel.cursorSteps = const PanelSteps.list();
               // Те же размеры нужны прокрутке нового каталога, а она считается
               // до разметки: запоминаем то, что известно сейчас.
               // Область списка ужалась — курсор мог уехать под обрез. Так это

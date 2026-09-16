@@ -145,7 +145,7 @@ class SessionMirror extends ChangeNotifier implements Session {
 
   /// Столбцов у таблицы нет; вид, который ими раскладывает, скажет своё.
   @override
-  int columnRows = 0;
+  PanelSteps cursorSteps = const PanelSteps.list();
 
   @override
   int get cursorIndex => _state.cursorIndex;
@@ -158,7 +158,16 @@ class SessionMirror extends ChangeNotifier implements Session {
   void moveCursor(int delta) => setCursorIndex(_state.cursorIndex + delta);
 
   @override
-  void moveCursorPage(int direction) => moveCursor(direction * (pageSize - 1).clamp(1, pageSize));
+  void moveCursorPage(int direction) {
+    // Страница — целое число рядов там, где ряды есть: иначе единица
+    // перекрытия, взятая ради «строка со стыка остаётся на виду», уводила бы
+    // курсор на плитку вбок за каждую страницу
+    // (`docs/spec/panel-view-icons.md`, §6). При обычном шаге в строку это
+    // ровно прежнее поведение.
+    final step = (pageSize - 1).clamp(1, pageSize);
+    final rows = cursorSteps.down;
+    moveCursor(direction * (rows > 1 ? (step ~/ rows) * rows : step).clamp(1, pageSize));
+  }
 
   @override
   void setCursorToFirst() => setCursorIndex(0);

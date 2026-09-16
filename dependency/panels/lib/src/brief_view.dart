@@ -291,7 +291,7 @@ class _BriefViewState extends State<BriefView> {
 
               panel.pageSize = (rows * visible).clamp(1, 10000);
               // Столбцы есть — значит, `Left`/`Right` ходят по ним.
-              panel.columnRows = rows;
+              panel.cursorSteps = PanelSteps.columns(rows);
 
               // Окно изменили — раскладка другая: столбцов стало больше или
               // меньше, ширина у них новая. Прокрутка при этом остаётся в

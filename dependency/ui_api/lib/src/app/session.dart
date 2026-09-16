@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:flutter/foundation.dart';
 
 import 'node_info.dart';
+import 'panel_steps.dart';
 import 'viewport.dart';
 
 /// Сессия — одно **место**, с которым работают: каталог, курсор, пометка, вид.
@@ -235,14 +236,13 @@ abstract interface class Session implements ViewportState {
   set pageSize(int value);
 
   /// Сколько строк в столбце, если вид раскладывает список столбцами;
-  /// `0` — столбцов нет вовсе.
+  /// Шаг курсора по месту: на сколько строк списка он сдвигается вбок и вниз.
   ///
-  /// Выставляет вид, читает команда хода по столбцам: она не спрашивает «какой
-  /// сейчас вид», она спрашивает «есть ли тут столбцы»
-  /// (`docs/spec/panel-view-brief.md`, §6).
-  int get columnRows;
+  /// Выставляет вид, читают команды: они не спрашивают «какой сейчас вид», они
+  /// спрашивают «на сколько шагать» (`docs/spec/panel-view-icons.md`, §6).
+  PanelSteps get cursorSteps;
 
-  set columnRows(int value);
+  set cursorSteps(PanelSteps value);
 
   void moveCursor(int delta);
 

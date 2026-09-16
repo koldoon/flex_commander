@@ -247,6 +247,13 @@ class Panels implements FcBackendModule, FcFrontendModule {
     registry.command((context) => MoveCursorColumnCommand(right: true));
     registry.binding(KeyBinding('Left', MoveCursorColumnCommand.leftId));
     registry.binding(KeyBinding('Right', MoveCursorColumnCommand.rightId));
+
+    // Ряды — там, где они есть: в сетке значков. В прочих видах команда
+    // невыполнима, и `Up`/`Down` достаются навигации, как доставались всегда.
+    registry.command((context) => MoveCursorRowCommand(down: false));
+    registry.command((context) => MoveCursorRowCommand(down: true));
+    registry.binding(KeyBinding('Up', MoveCursorRowCommand.upId));
+    registry.binding(KeyBinding('Down', MoveCursorRowCommand.downId));
   }
 }
 
@@ -256,6 +263,9 @@ class Panels implements FcBackendModule, FcFrontendModule {
 /// вызове: переводит их тот, кто показывает, — но объявлены они здесь, у того,
 /// кто эти колонки рисует.
 const Map<String, String> _russian = {
+  'Row above': 'Ряд выше',
+  'Row below': 'Ряд ниже',
+  'Move the cursor one row of tiles': 'Перевести курсор на ряд плиток',
   'File panels': 'Файловые панели',
 
   // Заголовки колонок.

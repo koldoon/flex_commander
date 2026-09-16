@@ -375,7 +375,7 @@ class TreeViewState extends State<TreeView> {
       builder: (context, _) {
         // Столбцов у дерева нет: `Left` и `Right` здесь свои
         // (`docs/spec/panel-view-tree.md`, §6).
-        panel.columnRows = 0;
+        panel.cursorSteps = const PanelSteps.list();
 
         final app = AppScope.read(context);
         // Шаг строки — тот же, что в списке: панели стоят рядом, и строки
