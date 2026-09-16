@@ -56,6 +56,22 @@ double spanWidthOf(InlineSpan span, TextScaler scaler) {
   return width;
 }
 
+/// Высота одной строки, набранной этим стилем.
+///
+/// Не кегль: строка выше него на межстрочный просвет, и путать их — значит
+/// промахиваться мимо тем сильнее, чем крупнее текст.
+double textLineHeight(TextStyle style, TextScaler scaler) {
+  final painter = TextPainter(
+    text: TextSpan(text: ' ', style: style),
+    textDirection: TextDirection.ltr,
+    textScaler: scaler,
+    maxLines: 1,
+  )..layout();
+  final height = painter.preferredLineHeight;
+  painter.dispose();
+  return height;
+}
+
 /// Поместится ли набранное в отведённое число строк.
 ///
 /// Отдельно от [textFits]: там вопрос про одну строку и плоский текст, здесь —

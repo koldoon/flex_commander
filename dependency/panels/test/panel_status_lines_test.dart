@@ -58,6 +58,32 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('поля сверху и снизу те же, что были у однострочной', (tester) async {
+    await open(tester);
+
+    // Однострочный случай: текст стоит ровно посередине полосы — так его
+    // держала её собственная высота, и правка не вправе это сдвинуть.
+    await heightOn(tester, short);
+    final bar = tester.getRect(find.byType(PanelStatusBar).first);
+    final text = tester.getRect(
+      find.descendant(of: find.byType(PanelStatusBar).first, matching: find.byType(Text)).first,
+    );
+
+    expect(text.top - bar.top - const DefaultMetrics().strokeWidth, closeTo(bar.bottom - text.bottom, 0.5));
+
+    // Выросшая полоса — те же поля сверху и снизу.
+    await heightOn(tester, long);
+    final tall = tester.getRect(find.byType(PanelStatusBar).first);
+    final lines = tester.getRect(
+      find.descendant(of: find.byType(PanelStatusBar).first, matching: find.byType(Text)).first,
+    );
+
+    expect(lines.top - tall.top - const DefaultMetrics().strokeWidth, closeTo(tall.bottom - lines.bottom, 0.5));
+    expect(tall.bottom - lines.bottom, greaterThan(0), reason: 'текст не упирается в рамку');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('длинное имя — полоса выросла, и имя видно целиком', (tester) async {
     await open(tester);
     final one = await heightOn(tester, short);

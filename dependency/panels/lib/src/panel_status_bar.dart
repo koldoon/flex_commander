@@ -46,7 +46,15 @@ class PanelStatusBar extends StatelessWidget {
                 // останется прежним при любом масштабе темы, а всё вокруг
                 // него уедет (`DefaultMetrics(scale: 0.8)` — это «крупная»
                 // тема).
-                padding: EdgeInsets.symmetric(horizontal: theme.metrics.labelPadding + theme.metrics.cellPadding),
+                //
+                // Сверху и снизу — **ровно то поле**, которое однострочной
+                // полосе давала её собственная высота. Пока строка была одна,
+                // его создавало выравнивание по середине; выросши, текст упёрся
+                // бы в линейку и в рамку.
+                padding: EdgeInsets.symmetric(
+                  horizontal: theme.metrics.labelPadding + theme.metrics.cellPadding,
+                  vertical: _verticalPadding(context, theme),
+                ),
                 alignment: Alignment.centerLeft,
                 child: _text(context, theme, error: error),
               ),
@@ -55,6 +63,17 @@ class PanelStatusBar extends StatelessWidget {
         );
       },
     );
+  }
+
+  /// Поле над текстом и под ним — то же, что было у однострочной полосы.
+  ///
+  /// Считается, а не берётся ролью: в однострочном случае его создавала высота
+  /// полосы за вычетом самой строки, и назначить сюда любое другое число
+  /// значило бы сдвинуть полосу там, где она не менялась.
+  double _verticalPadding(BuildContext context, FcTheme theme) {
+    final line = textLineHeight(FcTheme.effective(context, theme.statusStyle), MediaQuery.textScalerOf(context));
+    final free = theme.metrics.statusBarHeight - theme.metrics.strokeWidth - line;
+    return free > 0 ? free / 2 : 0;
   }
 
   /// Сколько строчек строка состояния позволяет себе занять.
