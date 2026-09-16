@@ -79,8 +79,9 @@ class IconTile extends StatelessWidget {
               SizedBox(
                 // Место под полосу пометки отведено **всегда**, помечен объект
                 // или нет: иначе пометка двигала бы имя вниз, а она не вправе
-                // двигать ничего.
-                height: markRoom(metrics) + nameHeight,
+                // двигать ничего. Поле под буквами — часть плашки, и место ему
+                // нужно такое же.
+                height: markRoom(metrics) + nameHeight + metrics.nameBottomPadding,
                 child: Align(alignment: Alignment.topCenter, child: _name(context, theme, style)),
               ),
             ],
@@ -157,7 +158,13 @@ class IconTile extends StatelessWidget {
     );
 
     final Widget text = Padding(
-      padding: EdgeInsets.symmetric(horizontal: metrics.cellPadding),
+      // Снизу поле: буквы упирались в нижний край плашки. Сверху их отбивает
+      // межстрочный просвет набора, и добавлять там нечего.
+      padding: EdgeInsets.only(
+        left: metrics.cellPadding,
+        right: metrics.cellPadding,
+        bottom: metrics.nameBottomPadding,
+      ),
       child: SizedBox(
         // Ужать до собственной длинной строки безопасно: перенос жадный, и
         // строки лягут теми же.
@@ -215,8 +222,12 @@ class IconTile extends StatelessWidget {
     return marked ? plated : Padding(padding: EdgeInsets.only(top: markRoom(metrics)), child: plated);
   }
 
-  /// Сколько места отведено полосе пометки: она сама и её отбивка от букв.
-  static double markRoom(FcMetrics metrics) => metrics.markedBarWidth + metrics.markedBarGap;
+  /// Сколько места отведено полосе пометки — **ровно её толщина**.
+  ///
+  /// Ни точкой больше: плашка прирастает на полосу, а не на полосу с отступом.
+  /// Сверху буквы отбивает межстрочный просвет набора, и добавлять к нему ещё
+  /// один значило бы уводить помеченное имя выше непомеченного.
+  static double markRoom(FcMetrics metrics) => metrics.markedBarWidth;
 
   /// Чем набрано имя под значком: **обычным набором, а не моноширинным**.
   ///
@@ -235,5 +246,11 @@ class IconTile extends StatelessWidget {
   /// Считается в одном месте: по ней же ищут плитку под указателем и место
   /// броска, а это три обычных промаха на один просвет.
   static double height(FcMetrics metrics, double iconSize, double nameHeight) =>
-      metrics.rowGap * 2 + iconSize + metrics.iconGap * 2 + metrics.rowGap + markRoom(metrics) + nameHeight;
+      metrics.rowGap * 2 +
+      iconSize +
+      metrics.iconGap * 2 +
+      metrics.rowGap +
+      markRoom(metrics) +
+      nameHeight +
+      metrics.nameBottomPadding;
 }

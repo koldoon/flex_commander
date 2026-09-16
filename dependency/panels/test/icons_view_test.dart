@@ -340,9 +340,9 @@ void main() {
     expect(tester.getSize(bar).width, closeTo(tester.getSize(plate).width, 0.5), reason: 'во всю ширину плашки');
     expect(tester.getRect(bar).top, closeTo(tester.getRect(plate).top, 0.5), reason: 'по верхнему краю плашки');
     expect(
-      tester.getRect(text).top - tester.getRect(bar).bottom,
-      closeTo(metrics.markedBarGap, 0.5),
-      reason: 'между полосой и буквами — её отбивка',
+      tester.getRect(plate).top,
+      closeTo(tester.getRect(bar).top, 0.5),
+      reason: 'плашка приросла ровно на полосу, без лишнего отступа',
     );
   });
 
