@@ -64,8 +64,8 @@ class IconTile extends StatelessWidget {
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
       // Во всю ширину и по центру: [FcTrimmedText] ширину берёт только для
-      // мерки, а рисуется по содержимому, — и без этого короткое имя утащило
-      // бы за собой всю плитку к левому краю, а столбцы перестали бы читаться
+      // мерки, а рисуется по содержимому, — и без этого короткое имя утащило бы
+      // за собой всю плитку к левому краю, а столбцы перестали бы читаться
       // столбцами.
       child: SizedBox(
         width: double.infinity,
@@ -135,14 +135,10 @@ class IconTile extends StatelessWidget {
             ? colors.markedBackground
             : null;
 
-    // Полоса пометки идёт по краю плашки, и имя оказалось бы к ней вплотную:
-    // слева ему добавляется просвет — и только помеченному, иначе непомеченные
-    // имена стояли бы не по центру плитки.
-    final shift = marked ? metrics.markedBarGap : 0.0;
-
-    // Ровно столько, сколько текст и получит: поля плитки, поля плашки и
-    // просвет за полосой.
-    final room = width - metrics.cellPadding * 4 - shift;
+    // Ровно столько, сколько текст и получит: поля плитки и поля плашки.
+    //
+    // Пометка на это число не влияет вовсе — см. ниже, где рисуется её полоса.
+    final room = width - metrics.cellPadding * 4;
     // Плашка облегает имя: не всю отведённую ширину, а самую длинную строку
     // набранного. Короткое имя — короткая плашка; имя в две строки — плашка по
     // длинной из них, а не во всю плитку.
@@ -158,7 +154,7 @@ class IconTile extends StatelessWidget {
     );
 
     final Widget text = Padding(
-      padding: EdgeInsets.only(left: metrics.cellPadding + shift, right: metrics.cellPadding),
+      padding: EdgeInsets.symmetric(horizontal: metrics.cellPadding),
       child: SizedBox(
         // Ужать до собственной длинной строки безопасно: перенос жадный, и
         // строки лягут теми же.
@@ -173,30 +169,43 @@ class IconTile extends StatelessWidget {
       ),
     );
 
-    if (plate == null) {
+    if (plate == null && !marked) {
       return text;
     }
 
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(metrics.panelRadius),
-      child: DecoratedBox(
-        decoration: BoxDecoration(color: plate),
-        child: Stack(
-          children: [
-            text,
-            // Полоса пометки поверх плашки: пометка обязана читаться и тогда,
-            // когда плитка вдобавок под курсором.
-            if (marked)
-              Positioned(
-                left: 0,
-                top: 0,
-                bottom: 0,
-                width: metrics.markedBarWidth,
-                child: ColoredBox(color: colors.markedBar),
-              ),
-          ],
+    final Widget named =
+        plate == null
+            ? text
+            : ClipRRect(
+              borderRadius: BorderRadius.circular(metrics.panelRadius),
+              child: DecoratedBox(decoration: BoxDecoration(color: plate), child: text),
+            );
+
+    if (!marked) {
+      return named;
+    }
+
+    // Полоса пометки рисуется **снаружи** плашки, а не внутри неё.
+    //
+    // Внутри она отнимала бы у имени место: помеченное имя обрезалось бы
+    // раньше непомеченного, а текст ездил бы вбок на ширину полосы — ровно в
+    // тот миг, когда на строку смотрят. Снаружи не меняется ничего: пометка
+    // только добавляет знак слева (`docs/spec/panel-view-icons.md`, §4).
+    //
+    // Место для неё берётся из просвета сетки: он один и тот же между плитками
+    // и вокруг них, и полосы с её отбивкой в нём помещаются.
+    return Stack(
+      clipBehavior: Clip.none,
+      children: [
+        named,
+        Positioned(
+          left: -(metrics.markedBarWidth + metrics.markedBarGap),
+          top: 0,
+          bottom: 0,
+          width: metrics.markedBarWidth,
+          child: ColoredBox(color: colors.markedBar),
         ),
-      ),
+      ],
     );
   }
 

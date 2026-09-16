@@ -110,6 +110,9 @@ class DefaultMetrics extends FcMetrics {
   double get markedBarGap => 2;
 
   @override
+  double get tileGap => 8;
+
+  @override
   double get iconLeftPadding => 12;
 
   @override

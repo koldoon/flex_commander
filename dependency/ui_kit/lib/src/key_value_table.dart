@@ -5,7 +5,7 @@ import 'command_dialog.dart';
 import 'dialog_body.dart';
 import 'app_scope.dart';
 import 'fc_theme.dart';
-
+пос
 /// Строка таблицы: название и одно или два значения.
 ///
 /// Третья ячейка нужна там, где значению нужно пояснение — команде, например,

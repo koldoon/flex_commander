@@ -191,8 +191,10 @@ class _IconsViewState extends State<IconsView> {
       return null;
     }
     final offset = _scroll.hasClients ? _scroll.offset : 0.0;
-    final column = (local.dx / _step).floor();
-    final row = ((local.dy + offset) / _rowHeight).floor();
+    // Поле вокруг содержимого сдвинуло сетку: указатель приходит в координатах
+    // области, а плитки стоят внутри поля.
+    final column = ((local.dx - _gap) / _step).floor();
+    final row = ((local.dy - _gap + offset) / _rowHeight).floor();
     if (column < 0 || column >= _columns || row < 0) {
       return null;
     }
@@ -229,8 +231,8 @@ class _IconsViewState extends State<IconsView> {
     }
     final offset = _scroll.hasClients ? _scroll.offset : 0.0;
     return Rect.fromLTWH(
-      (index % _columns) * _step,
-      (index ~/ _columns) * _rowHeight - offset,
+      _gap + (index % _columns) * _step,
+      _gap + (index ~/ _columns) * _rowHeight - offset,
       _tileWidth,
       _tileHeight,
     );
@@ -264,18 +266,19 @@ class _IconsViewState extends State<IconsView> {
               final metrics = theme.metrics;
 
               final iconSize = widget.settings().iconTileSize.toDouble();
-              // Просвет между плитками один и тот же по обеим осям — тот же,
-              // каким отбиты колонки списка. Своей метрики темы не заводится:
-              // каждая новая величина тянет за собой правку макета и сверку
-              // (`docs/spec/design-system.md`).
-              final gap = metrics.columnGap;
+              // Просвет между плитками один и тот же по обеим осям, и он свой:
+              // колоночный читается в сетке вдвое — он виден и вбок, и вниз
+              // (`docs/spec/panel-view-icons.md`, §3).
+              final gap = metrics.tileGap;
               final scaler = MediaQuery.textScalerOf(context);
               final nameStyle = IconTile.nameStyle(theme);
               final nameHeight = textLineHeight(nameStyle, scaler) * IconTile.nameLines;
               final tileHeight = IconTile.height(metrics, iconSize, nameHeight);
 
-              final inset = metrics.panelRightPadding;
-              final available = math.max(constraints.maxWidth - inset, 1.0);
+              // Поле вокруг содержимого — то же, что между плитками: крайняя
+              // плитка отбита от рамы так же, как от соседки.
+              final available = math.max(constraints.maxWidth - gap * 2, 1.0);
+              final viewHeight = math.max(constraints.maxHeight - gap * 2, 1.0);
 
               // Ширина плитки — по самому длинному имени каталога, но не уже
               // плашки значка и не шире двадцати знаков. Считается **до** числа
@@ -299,7 +302,7 @@ class _IconsViewState extends State<IconsView> {
               final rowHeight = tileHeight + gap;
               final total = entries.isEmpty ? 0 : (entries.length / columns).ceil();
 
-              final visible = math.max(1, (constraints.maxHeight / rowHeight).floor());
+              final visible = math.max(1, (viewHeight / rowHeight).floor());
               panel.pageSize = (columns * visible).clamp(1, 10000);
               // Сетка: вбок курсор шагает на плитку, вниз — на целый ряд.
               panel.cursorSteps = PanelSteps.grid(columns);
@@ -307,14 +310,14 @@ class _IconsViewState extends State<IconsView> {
               // Ширину окна изменили — плитки переехали в другие ряды, а
               // прокрутка осталась в точках и указывает уже не туда. Держимся
               // за курсор: он и есть то место, на которое человек смотрит.
-              final resized = _columns != columns || _rowHeight != rowHeight || _viewHeight != constraints.maxHeight;
+              final resized = _columns != columns || _rowHeight != rowHeight || _viewHeight != viewHeight;
               final wasCursorAt = _cursorRowOnScreen();
               _columns = columns;
               _tileWidth = tileWidth;
               _tileHeight = tileHeight;
               _rowHeight = rowHeight;
               _gap = gap;
-              _viewHeight = constraints.maxHeight;
+              _viewHeight = viewHeight;
               if (resized) {
                 WidgetsBinding.instance.addPostFrameCallback((_) => _pinCursorRow(wasCursorAt));
               }
@@ -338,32 +341,34 @@ class _IconsViewState extends State<IconsView> {
                   final first = row * columns;
                   return Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
+                    // Просветом ряда, а не полем у каждой плитки: поле висело
+                    // бы и за последней, и ряд оказывался бы шире отведённого —
+                    // на тот самый просвет. Раньше его съедало поле панели, а
+                    // теперь съедать нечем, и раскладка честно ругается.
+                    spacing: gap,
                     children: [
                       for (var column = 0; column < columns && first + column < entries.length; column++)
-                        Padding(
-                          padding: EdgeInsets.only(right: gap),
-                          child: SizedBox(
-                            width: tileWidth,
-                            height: tileHeight,
-                            // Плитку можно утащить — тем же жестом и по тому же
-                            // правилу, что строку в таблице (`panel_drag.dart`).
-                            child: panelDragSource(
-                              context: context,
-                              panel: panel,
+                        SizedBox(
+                          width: tileWidth,
+                          height: tileHeight,
+                          // Плитку можно утащить — тем же жестом и по тому же
+                          // правилу, что строку в таблице (`panel_drag.dart`).
+                          child: panelDragSource(
+                            context: context,
+                            panel: panel,
+                            entry: entries[first + column],
+                            child: IconTile(
                               entry: entries[first + column],
-                              child: IconTile(
-                                entry: entries[first + column],
-                                iconSize: iconSize,
-                                nameHeight: nameHeight,
-                                width: tileWidth,
-                                marked: panel.isMarked(entries[first + column]),
-                                underCursor: panel.cursorIndex == first + column,
-                                // Тот же вопрос, что задаёт плашка пути: горит
-                                // курсор там, где сейчас клавиши.
-                                panelActive: takesKeysHere(context, panel),
-                                contentOf: panel.contentOf,
-                                onTap: () => _onTap(first + column),
-                              ),
+                              iconSize: iconSize,
+                              nameHeight: nameHeight,
+                              width: tileWidth,
+                              marked: panel.isMarked(entries[first + column]),
+                              underCursor: panel.cursorIndex == first + column,
+                              // Тот же вопрос, что задаёт плашка пути: горит
+                              // курсор там, где сейчас клавиши.
+                              panelActive: takesKeysHere(context, panel),
+                              contentOf: panel.contentOf,
+                              onTap: () => _onTap(first + column),
                             ),
                           ),
                         ),
@@ -386,7 +391,7 @@ class _IconsViewState extends State<IconsView> {
                     _shown = true;
                     return false;
                   },
-                  child: list,
+                  child: Padding(padding: EdgeInsets.all(gap), child: list),
                 ),
               );
             },

@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_panels/fc_panels.dart';
@@ -101,6 +103,24 @@ void main() {
     expect(row.last, lessThan(panel.width), reason: 'плитки не вылезли за панель');
   });
 
+  testWidgets('содержимое отбито от краёв тем же полем, что и плитки друг от друга', (tester) async {
+    await open(tester);
+
+    final gap = const DefaultMetrics().tileGap;
+    final view = tester.getRect(find.byType(IconsView));
+    final tiles = [for (final one in find.byType(IconTile).evaluate()) tester.getRect(find.byWidget(one.widget))];
+    final top = tiles.where((tile) => tile.top == tiles.first.top).toList()..sort((a, b) => a.left.compareTo(b.left));
+
+    expect(top.first.left - view.left, closeTo(gap, 0.5), reason: 'крайняя плитка не прижата к раме');
+    expect(top.first.top - view.top, closeTo(gap, 0.5));
+    expect(top[1].left - top.first.right, closeTo(gap, 0.5), reason: 'и от соседки отбита тем же');
+    expect(
+      view.right - top.last.right,
+      greaterThanOrEqualTo(gap - 0.5),
+      reason: 'справа поле не меньше: остаток места добавляется к нему, а не съедает его',
+    );
+  });
+
   testWidgets('плитка шире панели даёт один столбец, а не ноль', (tester) async {
     // Размер взят крупнее, чем помещается: в панели шириной в треть окна
     // плитка в 256 точек не встаёт даже одна.
@@ -113,6 +133,26 @@ void main() {
 
     expect(runtime.app.left.cursorSteps.down, 1, reason: 'один столбец, а не ноль');
     expect(shown(), isNotEmpty, reason: 'плитки видны, а не схлопнулись в ничто');
+  });
+
+  testWidgets('ряд не вылезает за панель ни при какой ширине окна', (tester) async {
+    // Ширина окна — не круглое число: столбцы считаются делением, и остаток
+    // ряда обязан оставаться внутри, а не выпирать на просвет за последней
+    // плиткой. Ровно на этом приложение и ругалось живьём, на полтора пикселя.
+    final runtime = await open(tester, size: const Size(1000, 700));
+
+    for (var width = 900.0; width <= 1400; width += 7) {
+      tester.view.physicalSize = Size(width, 700);
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull, reason: 'ширина $width');
+
+      final view = tester.getRect(find.byType(IconsView));
+      final tiles = [for (final one in find.byType(IconTile).evaluate()) tester.getRect(find.byWidget(one.widget))];
+      final right = tiles.map((tile) => tile.right).reduce(math.max);
+      expect(right, lessThanOrEqualTo(view.right + 0.5), reason: 'ширина $width: плитка вылезла за панель');
+    }
+
+    expect(runtime.app.left.cursorSteps.down, greaterThan(0));
   });
 
   testWidgets('вбок курсор шагает на плитку, вниз — на ряд', (tester) async {
@@ -278,23 +318,29 @@ void main() {
     );
   });
 
-  testWidgets('полоса пометки не прижимает имя к себе', (tester) async {
+  testWidgets('пометка не двигает имя и не отнимает у него места', (tester) async {
     final runtime = await open(tester);
     final panel = runtime.app.left;
-    final marked = panel.entries.firstWhere((entry) => entry.name == name(3));
-    panel.mark(marked);
+
+    final text = find.text(name(3));
+    final before = tester.getRect(text);
+
+    panel.mark(panel.entries.firstWhere((entry) => entry.name == name(3)));
     await tester.pumpAndSettle();
 
-    final tile = find.ancestor(of: find.text(name(3)), matching: find.byType(IconTile)).first;
-    // Плашка имени — та, что под полосой: её и режет маска.
-    final plate = find.descendant(of: tile, matching: find.byType(ClipRRect)).first;
-    final text = find.descendant(of: plate, matching: find.byType(Text)).first;
+    expect(tester.getRect(text), before, reason: 'полоса рисуется снаружи и ничего не отнимает');
 
-    const metrics = DefaultMetrics();
+    // Сама полоса — слева от плашки, через просвет.
+    final tile = find.ancestor(of: text, matching: find.byType(IconTile)).first;
+    final plate = find.descendant(of: tile, matching: find.byType(ClipRRect)).first;
+    final bar = find.descendant(of: tile, matching: find.byType(ColoredBox)).first;
+    final metrics = const DefaultMetrics();
+
+    expect(tester.getSize(bar).width, metrics.markedBarWidth);
     expect(
-      tester.getRect(text).left - tester.getRect(plate).left,
-      greaterThanOrEqualTo(metrics.markedBarWidth + metrics.markedBarGap),
-      reason: 'иначе имя стоит вплотную к полосе и читается хуже',
+      tester.getRect(plate).left - tester.getRect(bar).right,
+      closeTo(metrics.markedBarGap, 0.5),
+      reason: 'иначе имя читается вплотную к полосе',
     );
   });
 
