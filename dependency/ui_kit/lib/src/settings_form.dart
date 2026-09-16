@@ -407,13 +407,23 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                                         for (final (position, (index, title, schema, fields)) in _found.indexed) ...[
                                           // Просвет **перед** заголовком, а не
                                           // после каждого раздела: у первого
-                                          // сверху уже есть поле окна.
-                                          if (position > 0) SizedBox(height: metrics.sectionGap),
-                                          _heading(theme, title, key: _headings[index]),
-                                          for (final field in fields) ...[
-                                            SizedBox(height: metrics.sectionEntryGap),
-                                            _block(theme, schema, field),
-                                          ],
+                                          // сверху уже есть поле окна. Равен
+                                          // полю окна по бокам — тем же, каким
+                                          // отбиты плашки в справке.
+                                          if (position > 0) SizedBox(height: metrics.dialogHorizontalPadding),
+                                          _plate(
+                                            theme,
+                                            child: Column(
+                                              crossAxisAlignment: CrossAxisAlignment.start,
+                                              children: [
+                                                _heading(theme, title, key: _headings[index]),
+                                                for (final field in fields) ...[
+                                                  SizedBox(height: metrics.sectionEntryGap),
+                                                  _block(theme, schema, field),
+                                                ],
+                                              ],
+                                            ),
+                                          ),
                                         ],
                                       ],
                                     ),
@@ -436,6 +446,31 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   String get _countLabel {
     final count = _found.fold(0, (sum, section) => sum + section.$4.length);
     return count == 1 ? '1 setting' : '$count settings';
+  }
+
+  /// Раздел настроек — в плашке, той же, какой обведён список находок и
+  /// разделы справки (`docs/widgets.md`).
+  ///
+  /// Разделов в окне много, и сплошной лентой они читаются хуже: плашка даёт
+  /// глазу, где раздел начался и где кончился, — а заодно окно настроек и
+  /// справка перестают выглядеть по-разному.
+  Widget _plate(FcTheme theme, {required Widget child}) {
+    final metrics = theme.metrics;
+    return Container(
+      // Во всю ширину: столбец даёт детям их собственную ширину, и плашка
+      // облегала бы содержимое — короткий раздел выходил уже длинного, и
+      // разделы стояли лесенкой.
+      width: double.infinity,
+      // Поле со всех сторон одинаковое: содержимое не должно прилипать ни к
+      // краю плашки, ни к её скруглению.
+      padding: EdgeInsets.all(metrics.dialogPadding),
+      decoration: BoxDecoration(
+        color: theme.colors.dialogListBackground,
+        border: Border.all(color: theme.colors.dialogListBorder, width: metrics.strokeWidth),
+        borderRadius: BorderRadius.circular(metrics.panelRadius),
+      ),
+      child: child,
+    );
   }
 
   /// Заголовок раздела.

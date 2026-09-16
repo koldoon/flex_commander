@@ -183,23 +183,66 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               for (var i = 0; i < widget.sections.length; i++) ...[
-                if (i > 0) SizedBox(height: metrics.sectionGap),
-                // Заголовок раздела — строкой во всю ширину: столбцы под ним те
-                // же, что и у соседних разделов. И крупнее подписей, а не только
-                // жирнее: разделов много, и на общем кегле заголовок теряется
-                // среди них — то же решение, что в окне настроек.
-                Padding(
-                  padding: EdgeInsets.only(bottom: metrics.sectionEntryGap),
-                  child: Text(
-                    widget.sections[i].title,
-                    style: theme.dialogTitleStyle.copyWith(fontSize: metrics.sectionHeadingFontSize),
-                  ),
-                ),
-                _rows(theme, widget.sections[i], widths, columns),
+                // Между плашками — то же поле, что у окна по бокам: раздел
+                // отбит от раздела ровно так же, как содержимое от края, и
+                // окно читается одной сеткой. Разделы без плашек стоят как
+                // стояли: там просвет отделяет заголовок от чужих строк, а не
+                // блок от блока.
+                if (i > 0) SizedBox(height: widget.divided ? metrics.dialogHorizontalPadding : metrics.sectionGap),
+                _section(theme, widget.sections[i], widths, columns),
               ],
             ],
           ),
         ),
+      ),
+    );
+  }
+
+  /// Раздел целиком: заголовок и строки под ним.
+  ///
+  /// У таблицы с линейками раздел взят в плашку — ту же, какой обведён список
+  /// находок: скругление панели, свой фон и обводка (`dialogListBackground`,
+  /// `dialogListBorder`). Так разделы читаются блоками, а не сплошной лентой, —
+  /// а строчные линейки внутри отделяют описания друг от друга.
+  ///
+  /// Без линеек плашки нет: в окне сведений разделы короткие и однострочные,
+  /// обводить там нечего.
+  Widget _section(FcTheme theme, FcTableSection section, List<double> widths, int columns) {
+    final metrics = theme.metrics;
+    final title = Text(section.title, style: theme.dialogTitleStyle.copyWith(fontSize: metrics.sectionHeadingFontSize));
+
+    if (!widget.divided) {
+      return Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          // Заголовок раздела — строкой во всю ширину: столбцы под ним те же,
+          // что и у соседних разделов. И крупнее подписей, а не только жирнее:
+          // разделов много, и на общем кегле заголовок теряется среди них — то
+          // же решение, что в окне настроек.
+          Padding(padding: EdgeInsets.only(bottom: metrics.sectionEntryGap), child: title),
+          _rows(theme, section, widths, columns),
+        ],
+      );
+    }
+
+    return Container(
+      width: double.infinity,
+      // Поле со всех сторон одинаковое: содержимое не должно прилипать ни к
+      // краю плашки, ни к её скруглению.
+      padding: EdgeInsets.all(metrics.dialogPadding),
+      decoration: BoxDecoration(
+        color: theme.colors.dialogListBackground,
+        border: Border.all(color: theme.colors.dialogListBorder, width: metrics.strokeWidth),
+        borderRadius: BorderRadius.circular(metrics.panelRadius),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(padding: EdgeInsets.only(bottom: metrics.sectionEntryGap), child: title),
+          _rows(theme, section, widths, columns),
+        ],
       ),
     );
   }
@@ -218,6 +261,9 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
   /// которой заголовки разделов идут во всю ширину. Собственный `Row` с
   /// `Expanded` тут не годится — рама окна меряет содержимое (`IntrinsicWidth`),
   /// а `Expanded` в такой замер не укладывается и переполняет строку.
+  /// Линейка таблицы: та же, что делит колонки списка.
+  BorderSide _divider(FcTheme theme) => BorderSide(color: theme.colors.columnDivider, width: theme.metrics.strokeWidth);
+
   Widget _rows(FcTheme theme, FcTableSection section, List<double> widths, int columns) {
     final metrics = theme.metrics;
     // Просвет вокруг линейки: половина сверху, половина снизу — иначе строка
@@ -227,10 +273,12 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
     final gap = widget.divided ? metrics.dialogLineGap : metrics.dialogPadding / 4;
 
     return Table(
-      border:
-          widget.divided
-              ? TableBorder(horizontalInside: BorderSide(color: theme.colors.columnDivider, width: metrics.strokeWidth))
-              : null,
+      // Линейки между строками, а также сверху и снизу: раздел получает
+      // видимые края, и таблица перестаёт висеть в пустоте. По бокам линеек
+      // нет — столбцы разделены просветом, и вертикальные сделали бы решётку.
+      // Только между строками: края раздела рисует плашка вокруг него, и
+      // линейка по её кромке была бы второй границей на том же месте.
+      border: widget.divided ? TableBorder(horizontalInside: _divider(theme)) : null,
       columnWidths: {
         for (var i = 0; i < columns - 1; i++) i: FixedColumnWidth(widths[i] + metrics.dialogGap),
         // Последний столбец меряется по себе **и** забирает остаток.
