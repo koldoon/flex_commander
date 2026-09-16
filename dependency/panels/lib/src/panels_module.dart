@@ -161,6 +161,9 @@ class Panels implements FcBackendModule, FcFrontendModule {
     registry.panelView(
       PanelViewSpec(
         id: IconsView.viewId,
+        // Листается целиком, как картинка в просмотрщике: плитки уезжают под
+        // плашку пути, а не упираются в полосу фона под ней.
+        fillsFrame: true,
         title: 'Icons',
         description: 'A grid of tiles: a picture and a name under it',
         build: (context, panel) => IconsView(panel: panel, settings: settingsOf),

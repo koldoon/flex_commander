@@ -83,6 +83,27 @@ void main() {
     expect(sideways, findsNothing, reason: 'перенос заменил ленту вбок');
   });
 
+  testWidgets('промотка идёт во всю раму, а содержимое начинается под плашкой', (tester) async {
+    await open(tester);
+
+    final viewport = tester.getRect(
+      find.descendant(of: find.byType(FileInfoView), matching: find.byType(SingleChildScrollView)).first,
+    );
+    final plate = tester.getRect(find.descendant(of: find.byType(FileInfoView), matching: find.byType(FcPathPlate)));
+    final first = tester.getRect(find.descendant(of: find.byType(FileInfoView), matching: find.byType(Table)).first);
+
+    expect(
+      viewport.top,
+      lessThan(plate.bottom),
+      reason: 'область промотки заходит под плашку — иначе верх содержимого обрезан её краем',
+    );
+    expect(
+      first.top,
+      greaterThanOrEqualTo(plate.bottom),
+      reason: 'но само содержимое начинается ниже её: прочитать надо всё',
+    );
+  });
+
   testWidgets('разделы стоят в плашках, как в справке и настройках', (tester) async {
     await open(tester);
 

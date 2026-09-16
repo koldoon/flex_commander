@@ -46,6 +46,10 @@ class PanelView extends StatelessWidget {
         onTapDown: (_) => at == null ? app.activate(panel) : app.view.setFocus(at),
         child: FcPanelFrame(
           outerEdge: outerEdge,
+          // Раму целиком занимает тот вид, который об этом сказал: у сетки
+          // значков содержимое уезжает под плашку, а у списка — нет, там
+          // первая строка обязана быть видна.
+          fillsFrame: _fillsFrame(app, panel),
           header: ListenableBuilder(
             // И на область тоже: ввод уходит и туда, где панели нет вовсе, —
             // в быстрый просмотр напротив, — а плашка обязана это показать.
@@ -92,6 +96,18 @@ class PanelView extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Занимает ли нынешний вид раму целиком.
+///
+/// Спрашивается у вида, а не решается здесь: панель не знает, как устроено то,
+/// что в ней показано. Источник со своим видом содержимого (находки,
+/// просмотрщик) раму не заполняет — у них своя рама и свои правила.
+bool _fillsFrame(Application app, Session panel) {
+  if (panel.source.contentKind != SourceInfo.files) {
+    return false;
+  }
+  return app.panelViews.byId(panel.view)?.fillsFrame ?? false;
 }
 
 /// Что показывает плашка: заголовок, выставленный командой, иначе путь.

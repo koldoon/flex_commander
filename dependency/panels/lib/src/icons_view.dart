@@ -145,10 +145,14 @@ class _IconsViewState extends State<IconsView> {
             ? _scroll.offset
             : (_scroll.offset + (row - from ~/ _columns) * _rowHeight).clamp(0.0, _scroll.position.maxScrollExtent);
 
-    final top = row * _rowHeight;
+    // Место ряда считается вместе с полем сверху: оно лежит внутри прокрутки.
+    final top = _top + row * _rowHeight;
     final bottom = top + _rowHeight;
+    // Плашка пути лежит поверх рамы и закрывает её верх наполовину своей
+    // высоты: докручивая вверх, ряд ставим ниже этого края — иначе он приедет
+    // под плашку, и курсора не будет видно.
     final target = switch (0) {
-      _ when top < offset => top,
+      _ when top - offset < _headroom => top - _headroom,
       _ when bottom > offset + _viewHeight => bottom - _viewHeight,
       _ => offset,
     };
@@ -165,7 +169,7 @@ class _IconsViewState extends State<IconsView> {
     if (!_scroll.hasClients || _rowHeight <= 0 || _columns <= 0) {
       return null;
     }
-    return (widget.panel.cursorIndex ~/ _columns) * _rowHeight - _scroll.offset;
+    return _top + (widget.panel.cursorIndex ~/ _columns) * _rowHeight - _scroll.offset;
   }
 
   /// Вернуть ряд с курсором туда же, где он стоял на экране.
@@ -177,7 +181,7 @@ class _IconsViewState extends State<IconsView> {
       _revealCursor();
       return;
     }
-    final target = (widget.panel.cursorIndex ~/ _columns) * _rowHeight - was;
+    final target = _top + (widget.panel.cursorIndex ~/ _columns) * _rowHeight - was;
     _scroll.jumpTo(target.clamp(0, _scroll.position.maxScrollExtent));
     _revealCursor();
   }
@@ -194,7 +198,7 @@ class _IconsViewState extends State<IconsView> {
     // Поле вокруг содержимого сдвинуло сетку: указатель приходит в координатах
     // области, а плитки стоят внутри поля.
     final column = ((local.dx - _gap) / _step).floor();
-    final row = ((local.dy - _gap + offset) / _rowHeight).floor();
+    final row = ((local.dy - _top + offset) / _rowHeight).floor();
     if (column < 0 || column >= _columns || row < 0) {
       return null;
     }
@@ -206,6 +210,12 @@ class _IconsViewState extends State<IconsView> {
   double get _step => _tileWidth + _gap;
 
   double _gap = 0;
+
+  /// Поле сверху: просвет сетки и место под плашкой пути.
+  double _top = 0;
+
+  /// Сколько рамы закрывает плашка пути сверху.
+  double _headroom = 0;
 
   /// Куда попадёт брошенное: в каталог под указателем, а мимо каталогов — в
   /// каталог панели. То же правило, что у таблицы.
@@ -232,7 +242,7 @@ class _IconsViewState extends State<IconsView> {
     final offset = _scroll.hasClients ? _scroll.offset : 0.0;
     return Rect.fromLTWH(
       _gap + (index % _columns) * _step,
-      _gap + (index ~/ _columns) * _rowHeight - offset,
+      _top + (index ~/ _columns) * _rowHeight - offset,
       _tileWidth,
       _tileHeight,
     );
@@ -276,9 +286,13 @@ class _IconsViewState extends State<IconsView> {
               final tileHeight = IconTile.height(metrics, iconSize, nameHeight);
 
               // Поле вокруг содержимого — то же, что между плитками: крайняя
-              // плитка отбита от рамы так же, как от соседки.
+              // плитка отбита от рамы так же, как от соседки. Сверху к нему
+              // добавлено место, которое раме давал отступ под плашкой пути:
+              // вид занимает раму целиком, и без этого первый ряд оказался бы
+              // под плашкой (`docs/spec/panel-views.md`, §3).
+              final top = gap + metrics.panelTopPadding;
               final available = math.max(constraints.maxWidth - gap * 2, 1.0);
-              final viewHeight = math.max(constraints.maxHeight - gap * 2, 1.0);
+              final viewHeight = math.max(constraints.maxHeight, 1.0);
 
               // Ширина плитки — по самому длинному имени каталога, но не уже
               // плашки значка и не шире двадцати знаков. Считается **до** числа
@@ -317,6 +331,8 @@ class _IconsViewState extends State<IconsView> {
               _tileHeight = tileHeight;
               _rowHeight = rowHeight;
               _gap = gap;
+              _top = top;
+              _headroom = metrics.pathHeaderHeight / 2;
               _viewHeight = viewHeight;
               if (resized) {
                 WidgetsBinding.instance.addPostFrameCallback((_) => _pinCursorRow(wasCursorAt));
@@ -335,6 +351,9 @@ class _IconsViewState extends State<IconsView> {
               // (`docs/widgets.md`, §4).
               final list = ListView.builder(
                 controller: _scroll,
+                // Поля — внутри прокрутки: так плитки уезжают под плашку пути
+                // целиком, а не обрезаются по её краю.
+                padding: EdgeInsets.fromLTRB(gap, top, gap, gap),
                 itemExtent: rowHeight,
                 itemCount: total,
                 itemBuilder: (context, row) {
@@ -391,7 +410,7 @@ class _IconsViewState extends State<IconsView> {
                     _shown = true;
                     return false;
                   },
-                  child: Padding(padding: EdgeInsets.all(gap), child: list),
+                  child: list,
                 ),
               );
             },

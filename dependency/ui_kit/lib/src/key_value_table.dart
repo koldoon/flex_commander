@@ -50,6 +50,7 @@ class FcKeyValueSections extends StatefulWidget {
     this.horizontal = false,
     this.divided = false,
     this.bounded = false,
+    this.padding,
   });
 
   /// Доли ширины у подписи и у значения: `2 : 3`.
@@ -89,6 +90,14 @@ class FcKeyValueSections extends StatefulWidget {
   /// По умолчанию нет: в окне сведений значения однострочные, и линейки там
   /// были бы решёткой на ровном месте.
   final bool divided;
+
+  /// Поля содержимого — свои, вместо [padded].
+  ///
+  /// Лежат они **внутри** прокрутки, а не вокруг неё: так содержимое уезжает
+  /// под плашку пути целиком, а не обрезается по её нижнему краю. Тем же
+  /// приёмом живёт панель со сплошным содержимым — картинка занимает всю раму,
+  /// а плашка лежит поверх (`FcPanelFrame.fillsFrame`).
+  final EdgeInsetsGeometry? padding;
 
   /// Ширина задана снаружи: столбцы делят её долями, а текст переносится.
   ///
@@ -201,7 +210,7 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
       onKeyEvent: _handleKey,
       child: SingleChildScrollView(
         controller: _scroll,
-        padding: widget.padded ? dialogContentPadding(context) : EdgeInsets.zero,
+        padding: widget.padding ?? (widget.padded ? dialogContentPadding(context) : EdgeInsets.zero),
         child: _sideways(
           Column(
             mainAxisSize: MainAxisSize.min,

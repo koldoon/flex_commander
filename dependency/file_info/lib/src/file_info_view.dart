@@ -62,25 +62,43 @@ class FileInfoView extends StatelessWidget {
           (context, _) => FcPanelFrame(
             outerEdge: _edgeOf(app),
             header: FcPathPlate(path: screen.entry.path, active: app == null || app.view.takesKeys(screen)),
-            child: Padding(
-              padding: EdgeInsets.all(FcTheme.of(context).metrics.labelPadding),
-              // Фокуса не просит: сведения в панели читают, а ввод в это время
-              // принадлежит списку файлов.
-              child: FcKeyValueSections(
-                sections: sectionsOf(screen, context.strings),
-                autofocus: false,
-                padded: false,
-                // Разделы — плашками, строки — через линейку: тем же, чем
-                // читаются справка и настройки.
-                divided: true,
-                // Ширина известна — значит, столбцы делят её долями, а текст
-                // переносится. Прокрутка вбок при этом не нужна вовсе: даже
-                // слово без пробелов каркас разрывает сам, по знакам, — а
-                // лента, уезжающая за край, читалась хуже столбца.
-                bounded: true,
-              ),
+            // Во всю раму, как у картинки: сведения длиннее панели, и последние
+            // строки должны доезжать до её низа, а первые — уезжать под плашку
+            // пути, а не упираться в её край.
+            fillsFrame: true,
+            // Фокуса не просит: сведения в панели читают, а ввод в это время
+            // принадлежит списку файлов.
+            child: FcKeyValueSections(
+              sections: sectionsOf(screen, context.strings),
+              autofocus: false,
+              padded: false,
+              // Поля — внутри прокрутки, и сверху к ним добавлено ровно то
+              // место, которое раме давал отступ под плашкой: содержимое
+              // начинается там же, где начиналось, но теперь может уехать
+              // выше, под плашку.
+              padding: _padding(context),
+              // Разделы — плашками, строки — через линейку: тем же, чем
+              // читаются справка и настройки.
+              divided: true,
+              // Ширина известна — значит, столбцы делят её долями, а текст
+              // переносится. Прокрутка вбок при этом не нужна вовсе: даже
+              // слово без пробелов каркас разрывает сам, по знакам, — а
+              // лента, уезжающая за край, читалась хуже столбца.
+              bounded: true,
             ),
           ),
+    );
+  }
+
+  /// Поля содержимого: по краям — обычные, сверху — вместе с тем отступом,
+  /// который рама отдавала плашке пути.
+  EdgeInsets _padding(BuildContext context) {
+    final metrics = FcTheme.of(context).metrics;
+    return EdgeInsets.fromLTRB(
+      metrics.labelPadding,
+      metrics.labelPadding + metrics.panelTopPadding,
+      metrics.labelPadding,
+      metrics.labelPadding,
     );
   }
 

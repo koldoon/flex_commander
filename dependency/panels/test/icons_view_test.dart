@@ -2,6 +2,7 @@ import 'dart:math' as math;
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_default_theme/fc_default_theme.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -112,7 +113,11 @@ void main() {
     final top = tiles.where((tile) => tile.top == tiles.first.top).toList()..sort((a, b) => a.left.compareTo(b.left));
 
     expect(top.first.left - view.left, closeTo(gap, 0.5), reason: 'крайняя плитка не прижата к раме');
-    expect(top.first.top - view.top, closeTo(gap, 0.5));
+    expect(
+      top.first.top - view.top,
+      closeTo(gap + const DefaultMetrics().panelTopPadding, 0.5),
+      reason: 'сверху к полю добавлено место под плашкой пути: вид занимает раму целиком',
+    );
     expect(top[1].left - top.first.right, closeTo(gap, 0.5), reason: 'и от соседки отбита тем же');
     expect(
       view.right - top.last.right,
@@ -153,6 +158,32 @@ void main() {
     }
 
     expect(runtime.app.left.cursorSteps.down, greaterThan(0));
+  });
+
+  testWidgets('сетка листается во всю раму и уезжает под плашку пути', (tester) async {
+    final runtime = await open(tester, size: const Size(1000, 700));
+    final panel = runtime.app.left;
+
+    final plate = tester.getRect(find.byType(FcPathPlate).first);
+    final list = tester.getRect(find.byType(Scrollable).first);
+    expect(list.top, lessThan(plate.bottom), reason: 'область промотки заходит под плашку');
+
+    // Первый ряд при этом стоит ниже плашки: его должно быть видно целиком.
+    final first = tester.getRect(find.byType(IconTile).first);
+    expect(first.top, greaterThanOrEqualTo(plate.bottom), reason: 'иначе верхние плитки наполовину под плашкой');
+
+    // Курсор, уехавший вниз и вернувшийся наверх, тоже не прячется под неё.
+    panel.setCursorIndex(panel.entries.length - 1);
+    await tester.pumpAndSettle();
+    panel.setCursorIndex(1);
+    await tester.pumpAndSettle();
+
+    final cursor = find.ancestor(of: find.text(name(1)), matching: find.byType(IconTile)).first;
+    expect(
+      tester.getRect(cursor).top,
+      greaterThanOrEqualTo(plate.bottom - 0.5),
+      reason: 'курсор виден, а не под плашкой',
+    );
   });
 
   testWidgets('вбок курсор шагает на плитку, вниз — на ряд', (tester) async {
