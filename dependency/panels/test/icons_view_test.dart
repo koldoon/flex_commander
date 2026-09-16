@@ -22,7 +22,13 @@ void main() {
     for (var i = 1; i <= count; i++) FakeEntry.file('/home/${name(i)}', size: i),
   ])..home = '/home';
 
-  Future<AppRuntime> open(WidgetTester tester, {Size size = const Size(900, 500), InMemoryTreeProvider? source}) async {
+  /// Окно просторное нарочно: набор в прогоне шире экранного, и на девятистах
+  /// точках в ряд встают две плитки — сравнивать в таком ряду нечего.
+  Future<AppRuntime> open(
+    WidgetTester tester, {
+    Size size = const Size(1400, 700),
+    InMemoryTreeProvider? source,
+  }) async {
     final runtime = await testApp(provider: source ?? provider(), modules: featureModules());
     await runtime.app.start();
 
@@ -198,6 +204,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(shown().length, lessThan(small), reason: 'крупнее плитки — меньше их на экране');
+  });
+
+  testWidgets('окно шире — плиток больше, а не шире', (tester) async {
+    final runtime = await open(tester, size: const Size(1000, 700));
+    final narrow = tester.getRect(find.byType(IconTile).first).width;
+    final columns = runtime.app.left.cursorSteps.down;
+
+    tester.view.physicalSize = const Size(1600, 700);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getRect(find.byType(IconTile).first).width,
+      closeTo(narrow, 0.5),
+      reason: 'ширина плитки — про имя, а не про панель',
+    );
+    expect(
+      runtime.app.left.cursorSteps.down,
+      greaterThan(columns),
+      reason: 'свободное место уходит в новые столбцы, а не в просветы',
+    );
   });
 
   testWidgets('короткое имя не утаскивает плитку к левому краю', (tester) async {

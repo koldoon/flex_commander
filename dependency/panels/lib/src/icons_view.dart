@@ -39,9 +39,26 @@ class _IconsViewState extends State<IconsView> {
   /// Окно, в пределах которого два щелчка по одной плитке считаются двойным.
   static const Duration _doubleTapWindow = Duration(milliseconds: 400);
 
-  /// Шире четверти панели плитка не бывает: одно чудовищное имя не вправе
-  /// превратить сетку в два столбца.
-  static const int _minColumns = 4;
+  /// Сколько места имя вправе занять сверх значка: вдвое от его стороны.
+  ///
+  /// **От значка, а не от панели.** Пока мера была долей панели — четвертью, —
+  /// окно пошире делало плитки шире, а не многочисленнее: столбцов всегда
+  /// оставалось четыре, а просветы между значками росли, как при растягивании
+  /// по ширине, от которого мы отказались (§3 спеки).
+  ///
+  /// Вдвое: при 64 точках это 128 — около двух десятков знаков в строке, то
+  /// есть сорок на две строки. Имена длиннее встречаются, но договаривает их
+  /// подсказка, а не сетка.
+  static const double _nameToIcon = 2;
+
+  /// Упоры, между которыми держится этот потолок.
+  ///
+  /// Снизу — чтобы при мелком значке имя не сжималось в огрызок: значок в 16
+  /// точек не повод показывать четыре знака имени. Сверху — чтобы при крупном
+  /// плитка не расползалась: 256 точек под имя это уже не сетка, а список с
+  /// картинками.
+  static const double _leastName = 80;
+  static const double _mostName = 160;
 
   /// Список сразу встаёт туда, где стоял: начальное смещение задаётся при
   /// создании контроллера, а не подмоткой следующим кадром.
@@ -251,27 +268,31 @@ class _IconsViewState extends State<IconsView> {
               // каждая новая величина тянет за собой правку макета и сверку
               // (`docs/spec/design-system.md`).
               final gap = metrics.columnGap;
-              final nameHeight = textLineHeight(theme.rowStyle, MediaQuery.textScalerOf(context)) * IconTile.nameLines;
+              final scaler = MediaQuery.textScalerOf(context);
+              final nameHeight = textLineHeight(theme.rowStyle, scaler) * IconTile.nameLines;
               final tileHeight = IconTile.height(metrics, iconSize, nameHeight);
 
               final inset = metrics.panelRightPadding;
               final available = math.max(constraints.maxWidth - inset, 1.0);
 
               // Ширина плитки — по самому длинному имени каталога, но не уже
-              // значка и не шире четверти панели. Считается **до** числа
+              // плашки значка и не шире двадцати знаков. Считается **до** числа
               // столбцов, поэтому остаток места остаётся справа, а не
               // растягивает просветы (`docs/spec/panel-view-icons.md`, §3).
-              final least = iconSize + metrics.cellPadding * 2;
+              final least = iconSize + (metrics.iconGap + metrics.cellPadding) * 2;
               final wanted = math.max(
                 least,
-                _widest.of(context, entries, style: theme.rowStyle) + metrics.cellPadding * 2,
+                _widest.of(context, entries, style: theme.rowStyle) + metrics.cellPadding * 4,
               );
-              // Четверть **с просветами**, а не просто четверть ширины: иначе
-              // четвёртый столбец не помещается никогда — на него не хватает
-              // ровно трёх просветов, и каталог длинных имён показывается
-              // тремя плитками вместо четырёх.
-              final quarter = (available - gap * (_minColumns - 1)) / _minColumns;
-              final tileWidth = math.min(wanted, math.max(quarter, least));
+              // Потолок: место под имя сверх плашки значка. Поля плитки и поля
+              // плашки имени — те же четыре, по которым режется само имя.
+              final most = math.max(
+                least,
+                (iconSize * _nameToIcon).clamp(_leastName, _mostName) + metrics.cellPadding * 4,
+              );
+              // Панель уже плитки — плитка сжимается до панели: один столбец
+              // лучше, чем ноль.
+              final tileWidth = math.min(wanted, math.max(least, math.min(most, available)));
               final columns = math.max(1, ((available + gap) / (tileWidth + gap)).floor());
               final rowHeight = tileHeight + gap;
               final total = entries.isEmpty ? 0 : (entries.length / columns).ceil();

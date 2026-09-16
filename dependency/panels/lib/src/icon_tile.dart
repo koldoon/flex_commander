@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
@@ -74,7 +76,10 @@ class IconTile extends StatelessWidget {
             children: [
               _icon(theme),
               SizedBox(height: metrics.rowGap),
-              SizedBox(height: nameHeight, child: Align(alignment: Alignment.topCenter, child: _name(theme, style))),
+              SizedBox(
+                height: nameHeight,
+                child: Align(alignment: Alignment.topCenter, child: _name(context, theme, style)),
+              ),
             ],
           ),
         ),
@@ -120,7 +125,7 @@ class IconTile extends StatelessWidget {
   ///
   /// Короткое имя — короткая плашка: залитая во всю ширину полоса под коротким
   /// именем читалась бы обрубком ряда, а не пометкой объекта.
-  Widget _name(FcTheme theme, TextStyle style) {
+  Widget _name(BuildContext context, FcTheme theme, TextStyle style) {
     final metrics = theme.metrics;
     final colors = theme.colors;
     final plate =
@@ -130,15 +135,35 @@ class IconTile extends StatelessWidget {
             ? colors.markedBackground
             : null;
 
+    // Ровно столько, сколько текст и получит: поля плитки и поля плашки.
+    final room = width - metrics.cellPadding * 4;
+    // Плашка облегает имя: не всю отведённую ширину, а самую длинную строку
+    // набранного. Короткое имя — короткая плашка; имя в две строки — плашка по
+    // длинной из них, а не во всю плитку.
+    final taken = math.min(
+      room,
+      textWidestLine(
+        entry.name,
+        FcTheme.effective(context, style),
+        room,
+        MediaQuery.textScalerOf(context),
+        maxLines: nameLines,
+      ),
+    );
+
     final Widget text = Padding(
       padding: EdgeInsets.symmetric(horizontal: metrics.cellPadding),
-      child: FcTrimmedText(
-        text: entry.name,
-        style: style,
-        // Ровно столько, сколько текст и получит: поля плитки и поля плашки.
-        width: width - metrics.cellPadding * 4,
-        textAlign: TextAlign.center,
-        maxLines: nameLines,
+      child: SizedBox(
+        // Ужать до собственной длинной строки безопасно: перенос жадный, и
+        // строки лягут теми же.
+        width: taken,
+        child: FcTrimmedText(
+          text: entry.name,
+          style: style,
+          width: room,
+          textAlign: TextAlign.center,
+          maxLines: nameLines,
+        ),
       ),
     );
 

@@ -89,6 +89,56 @@ bool spanFitsLines(InlineSpan span, double maxWidth, TextScaler scaler, {int max
   return !exceeded;
 }
 
+/// Ширина самой длинной строки текста, разложенного по [maxWidth].
+///
+/// Спрашивают там, где текст нужно **облечь**: плашка под именем в сетке
+/// значков обязана облегать имя, а не растягиваться на всю плитку — иначе
+/// подсветка короткого имени читается обрубком ряда
+/// (`docs/spec/panel-view-icons.md`, §4).
+///
+/// Меряется **тем же**, чем рисуется: то же число строк и то же многоточие, —
+/// иначе ответ окажется про другой текст. Ужать текст до этой ширины безопасно:
+/// перенос жадный, и по собственной самой длинной строке он ляжет теми же
+/// строками.
+///
+/// С памятью, как [textWidthOf]: вопрос задаётся о каждой плитке на экране и на
+/// каждый кадр.
+double textWidestLine(String text, TextStyle style, double maxWidth, TextScaler scaler, {int maxLines = 1}) {
+  if (text.isEmpty || maxWidth.isInfinite || maxWidth <= 0) {
+    return 0;
+  }
+  final key = (text, style, maxWidth, scaler, maxLines);
+  final remembered = _lines[key];
+  if (remembered != null) {
+    return remembered;
+  }
+
+  final painter = TextPainter(
+    text: TextSpan(text: text, style: style),
+    textDirection: TextDirection.ltr,
+    textScaler: scaler,
+    maxLines: maxLines,
+    ellipsis: '\u2026',
+  )..layout(maxWidth: maxWidth);
+  var width = 0.0;
+  for (final line in painter.computeLineMetrics()) {
+    if (line.width > width) {
+      width = line.width;
+    }
+  }
+  painter.dispose();
+
+  if (_lines.length >= _widthsLimit) {
+    _lines.remove(_lines.keys.first);
+  }
+  _lines[key] = width;
+  return width;
+}
+
+/// Ширина по вопросу целиком — как у [textWidthOf], только вопрос длиннее:
+/// в него входят отведённая ширина и число строк.
+final LinkedHashMap<(String, TextStyle, double, TextScaler, int), double> _lines = LinkedHashMap();
+
 /// Поместится ли строка в отведённое.
 ///
 /// Вопрос задаётся там, где текст режется: обрезанному нужна подсказка,
