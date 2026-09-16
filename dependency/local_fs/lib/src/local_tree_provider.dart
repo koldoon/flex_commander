@@ -34,6 +34,7 @@ class LocalTreeProvider
         NodeAttributesEditor,
         NodeXattrEditor,
         UserDirectory,
+        WatchableSource,
         ShellHost {
   LocalTreeProvider({
     String? homePath,
@@ -314,6 +315,31 @@ class LocalTreeProvider
       return segments.first;
     }
     return p.normalize(segments.reduce((value, name) => p.join(value, name)));
+  }
+
+  /// Следим за каталогом средствами системы (`docs/spec/directory-watch.md`).
+  ///
+  /// По **физическому** пути — тому же, по которому каталог читается: следить
+  /// за одним, а читать другое значило бы догонять не то.
+  ///
+  /// Пустой поток — не отказ, а «здесь нечем»: система слежения не умеет,
+  /// каталога уже нет, прав не хватило. Спрашивающий живёт как жил, только без
+  /// самообновления.
+  ///
+  /// `recursive: false` — панель показывает один уровень, и события о файлах в
+  /// подкаталогах ей не нужны (проверено живьём: их и не приходит).
+  @override
+  Stream<void> watchDirectory(DirectoryNode dir) {
+    if (!FileSystemEntity.isWatchSupported) {
+      return const Stream<void>.empty();
+    }
+    final at = Directory(physicalPathOf(dir));
+    if (!at.existsSync()) {
+      return const Stream<void>.empty();
+    }
+    // Событие несёт факт: что именно случилось, спрашивать бесполезно — система
+    // не обещает ни порядка, ни полноты.
+    return at.watch(recursive: false).map<void>((_) {});
   }
 
   @override
