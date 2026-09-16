@@ -51,6 +51,19 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
   String? get notice => _notice;
   String? _notice;
 
+  /// Что читается прямо сейчас поверх уже показанного; null — ничего не ждём.
+  ///
+  /// **Показанное не гаснет, пока не готово новое.** Пока чтение шло, на месте
+  /// картинки появлялось слово «Чтение…» — и при ходьбе стрелками по каталогу
+  /// снимков просмотр мигал на каждом шаге. Во весь экран этого не бывает:
+  /// там картинка стоит, пока не приедет следующая, — и здесь должно быть так
+  /// же (`docs/spec/quick-view.md`).
+  ///
+  /// Показывать нечего — тогда и держать нечего: первый файл по-прежнему
+  /// говорит словами, что его читают.
+  String? get loading => _loading;
+  String? _loading;
+
   /// Узел, который показан или читается. Отличается от `panel.currentNode`
   /// ровно на время паузы и чтения.
   FileEntry? _target;
@@ -101,7 +114,10 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
     // здесь нечем: быстрый просмотр её и заменил, панели в этой области нет.
     // А чужую, активную, занимать нельзя — по ней в это время водят курсором,
     // ради чего быстрый просмотр и открывают.
-    _say(app.strings.tr('Reading {name}…', args: {'name': entry.name}));
+    //
+    // Но если показ уже стоит, он и остаётся: мигать на каждом шаге курсора
+    // хуже, чем подождать молча. О чтении в этом случае говорит подсказка.
+    _reading(app.strings.tr('Reading {name}…', args: {'name': entry.name}));
 
     try {
       final content = await openViewer(
@@ -147,7 +163,21 @@ class QuickViewHost extends ChangeNotifier implements ViewportHost {
     _replace(null, notice: message);
   }
 
+  /// Сказать, что идёт чтение, — не гася того, что уже показано.
+  void _reading(String message) {
+    if (_disposed) {
+      return;
+    }
+    if (_inner == null) {
+      _say(message);
+      return;
+    }
+    _loading = message;
+    notifyListeners();
+  }
+
   void _replace(ViewportState? content, {required String? notice}) {
+    _loading = null;
     // Прежнее закрывается: показ держит и текст, и поиск, и — у будущих
     // просмотрщиков — распакованную картинку. Забыть его здесь значило бы
     // копить их по одному на каждый шаг курсора.

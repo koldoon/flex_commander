@@ -25,7 +25,12 @@ class QuickViewView extends StatelessWidget {
         if (inner != null) {
           final build = app.views.builderFor(inner);
           if (build != null) {
-            return build(context, inner);
+            final shown = build(context, inner);
+            // Пока читается следующий файл, показанное стоит как стояло —
+            // мигать на каждом шаге курсора хуже, чем подождать молча. О том,
+            // что чтение идёт, говорит подсказка: место для настоящего
+            // указателя хода ещё не выбрано, а молчать вовсе нельзя.
+            return host.loading == null ? shown : FcTooltip(message: host.loading!, child: shown);
           }
         }
 

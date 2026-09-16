@@ -1,4 +1,7 @@
+import 'dart:async';
 import 'dart:convert';
+
+import 'package:fc_core_api/fc_core_api.dart';
 
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
@@ -59,6 +62,54 @@ void main() {
     runtime.app.left.setCursorToName(name);
     await settle();
   }
+
+  group('показанное не гаснет', () {
+    test('пока читается следующий файл, на месте прежнего стоит он сам', () async {
+      // Чтение придержано нарочно: иначе промежуточное состояние не поймать —
+      // подставка отвечает быстрее, чем успевает пройти проверка.
+      final held = _HeldProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.file('/home/notes.txt', content: utf8.encode('раз')),
+        FakeEntry.file('/home/other.txt', content: utf8.encode('два')),
+      ])..home = '/home';
+      runtime = await testApp(provider: held, modules: featureModules());
+      await runtime.app.start();
+
+      runtime.app.left.setCursorToName('notes.txt');
+      await toggle();
+      held.release();
+      await settle();
+      final was = shown();
+      expect(was, isNotNull, reason: 'первый файл показан');
+
+      // Курсор ушёл дальше — чтение началось, но ещё не кончилось.
+      held.hold();
+      runtime.app.left.setCursorToName('other.txt');
+      await settle();
+
+      expect(shown(), same(was), reason: 'на месте прежнего стоит он сам, а не слово «Чтение…»');
+      expect(quickView()!.notice, isNull, reason: 'слово на месте картинки — это и есть мигание');
+      expect(quickView()!.loading, contains('other.txt'), reason: 'но сказать о чтении всё же надо');
+
+      held.release();
+      await settle();
+      expect(shown(), isNot(same(was)), reason: 'дочитали — показали новое');
+      expect(quickView()!.loading, isNull);
+    });
+
+    test('отказ гасит показанное: держать чужую картинку вместо отказа нельзя', () async {
+      runtime.app.left.setCursorToName('notes.txt');
+      await toggle();
+      await settle();
+      expect(shown(), isNotNull);
+
+      await cursorTo('big.log');
+
+      expect(shown(), isNull, reason: 'прежний файл не выдаётся за этот');
+      expect(quickView()!.notice, contains('too large'));
+      expect(quickView()!.loading, isNull);
+    });
+  });
 
   group('показ', () {
     test('Shift-F3 показывает содержимое в соседней области', () async {
@@ -230,4 +281,37 @@ void main() {
       expect(shown()!.controller.text, 'раз\nдва\nтри');
     });
   });
+}
+
+/// Подставка, у которой чтение можно придержать и отпустить.
+///
+/// Нужна ровно затем, чтобы поймать промежуточное состояние: в памяти файл
+/// читается быстрее, чем успевает пройти проверка.
+class _HeldProvider extends InMemoryContentProvider {
+  _HeldProvider(super.entries);
+
+  Completer<void>? _gate;
+
+  void hold() => _gate = Completer<void>();
+
+  void release() {
+    final gate = _gate;
+    _gate = null;
+    if (gate != null && !gate.isCompleted) {
+      gate.complete();
+    }
+  }
+
+  @override
+  Future<Stream<List<int>>> openRead(FsNode node, {int offset = 0}) async {
+    final source = await super.openRead(node, offset: offset);
+    final gate = _gate;
+    if (gate == null) {
+      return source;
+    }
+    return () async* {
+      await gate.future;
+      yield* source;
+    }();
+  }
 }
