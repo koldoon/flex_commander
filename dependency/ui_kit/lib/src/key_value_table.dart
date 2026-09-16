@@ -49,7 +49,15 @@ class FcKeyValueSections extends StatefulWidget {
     this.padded = true,
     this.horizontal = false,
     this.divided = false,
+    this.bounded = false,
   });
+
+  /// Доли ширины у подписи и у значения: `2 : 3`.
+  ///
+  /// Не поровну: подпись — короткое название поля, значение бывает путём,
+  /// адресом или расширенным атрибутом, и место ему нужнее.
+  static const int labelShare = 2;
+  static const int valueShare = 3;
 
   final List<FcTableSection> sections;
 
@@ -81,6 +89,18 @@ class FcKeyValueSections extends StatefulWidget {
   /// По умолчанию нет: в окне сведений значения однострочные, и линейки там
   /// были бы решёткой на ровном месте.
   final bool divided;
+
+  /// Ширина задана снаружи: столбцы делят её долями, а текст переносится.
+  ///
+  /// Так таблица живёт **в панели**, где ширина известна заранее и меняется
+  /// вместе с окном. Столбцы берут [labelShare] и [valueShare], длинное
+  /// значение переносится по краю столбца — включая слово без пробелов:
+  /// его каркас разрывает сам, по знакам.
+  ///
+  /// В окне так нельзя: рама меряет содержимое интринсиками, а доля в таком
+  /// замере отвечает нулём — окно вышло бы шириной с заголовок
+  /// (`docs/spec/dialog-body.md`). Там столбцы по-прежнему меряются по себе.
+  final bool bounded;
 
   @override
   State<FcKeyValueSections> createState() => _FcKeyValueSectionsState();
@@ -132,6 +152,11 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
   /// столбец здесь не меряется — ему достаётся весь остаток, и переносится он
   /// по краю окна, а не раньше.
   List<double> _widths(BuildContext context) {
+    // Доли мерить незачем: ширину столбцам задаёт не текст, а отведённое место.
+    if (widget.bounded) {
+      return List<double>.filled(_columns, 0);
+    }
+
     final theme = FcTheme.of(context);
     final scaler = MediaQuery.textScalerOf(context);
     final widths = List<double>.filled(_columns, 0);
@@ -280,14 +305,24 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
       // линейка по её кромке была бы второй границей на том же месте.
       border: widget.divided ? TableBorder(horizontalInside: _divider(theme)) : null,
       columnWidths: {
-        for (var i = 0; i < columns - 1; i++) i: FixedColumnWidth(widths[i] + metrics.dialogGap),
-        // Последний столбец меряется по себе **и** забирает остаток.
-        //
-        // Оба разом: по себе — чтобы окно выросло под длинное значение (рама
-        // облегает содержимое, а `FlexColumnWidth` в замере отвечает нулём и
-        // ширины окну не прибавляет); остаток — чтобы на широком окне значение
-        // занимало всё место, а не половину.
-        columns - 1: const IntrinsicColumnWidth(flex: 1),
+        if (widget.bounded)
+          // Долями: подпись и значение делят отведённую ширину, а не растут по
+          // содержимому. Столбцов бывает и три — тогда доля значения делится
+          // между ними поровну.
+          for (var i = 0; i < columns; i++)
+            i: FlexColumnWidth(
+              i == 0 ? FcKeyValueSections.labelShare.toDouble() : FcKeyValueSections.valueShare / (columns - 1),
+            )
+        else ...{
+          for (var i = 0; i < columns - 1; i++) i: FixedColumnWidth(widths[i] + metrics.dialogGap),
+          // Последний столбец меряется по себе **и** забирает остаток.
+          //
+          // Оба разом: по себе — чтобы окно выросло под длинное значение (рама
+          // облегает содержимое, а `FlexColumnWidth` в замере отвечает нулём и
+          // ширины окну не прибавляет); остаток — чтобы на широком окне значение
+          // занимало всё место, а не половину.
+          columns - 1: const IntrinsicColumnWidth(flex: 1),
+        },
       },
       defaultVerticalAlignment: TableCellVerticalAlignment.top,
       children: [
@@ -296,7 +331,13 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
             children: [
               for (var i = 0; i < columns; i++)
                 Padding(
-                  padding: EdgeInsets.only(top: widget.divided ? gap : 0, bottom: gap),
+                  // Просвет между столбцами: ширину им задаёт доля, и без поля
+                  // подпись прилипла бы к значению.
+                  padding: EdgeInsets.only(
+                    top: widget.divided ? gap : 0,
+                    bottom: gap,
+                    right: widget.bounded && i < columns - 1 ? metrics.dialogGap : 0,
+                  ),
                   child: Text(
                     i < row.cells.length ? row.cells[i] : '',
                     style: i == 0 ? theme.dialogLabelStyle : theme.dialogTextStyle,
