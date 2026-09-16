@@ -81,7 +81,7 @@ class _FcTooltipState extends State<FcTooltip> {
     super.didUpdateWidget(oldWidget);
     if (widget.message != oldWidget.message) {
       // Текст сменился под курсором — показываем новый, а не прежний.
-      widget.message.isEmpty ? _hide() : _shown?.markNeedsBuild();
+      widget.message.isEmpty ? _hide() : _refresh();
     }
   }
 
@@ -112,6 +112,26 @@ class _FcTooltipState extends State<FcTooltip> {
     return _FcTooltipScope(
       child: MouseRegion(onEnter: (_) => _wait(), onHover: (_) => _wait(), onExit: (_) => _hide(), child: widget.child),
     );
+  }
+
+  /// Перерисовать показанную подсказку новым текстом.
+  ///
+  /// **Следующим кадром, а не сейчас.** Текст подсказки может смениться
+  /// из-под раскладки — так бывает у показа, который живёт внутри
+  /// `LayoutBuilder`, — и пометить запись наложения в этот миг нельзя: каркас
+  /// уже строит дерево и законно ругается «setState during build». Кадр
+  /// задержки на подсказке не виден, а падение в журнале видно хорошо.
+  void _refresh() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) {
+        return;
+      }
+      // Запись могла уйти, пока кадр шёл: подсказку спрятали, строка уехала.
+      final shown = _shown;
+      if (shown != null && shown.mounted) {
+        shown.markNeedsBuild();
+      }
+    });
   }
 
   /// Завести отсчёт — если он уже идёт, не перезаводить.

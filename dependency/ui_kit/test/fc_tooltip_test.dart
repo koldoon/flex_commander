@@ -217,4 +217,51 @@ void main() {
 
     await disposeScreen(tester);
   });
+
+  testWidgets('текст сменился из-под раскладки — подсказка не роняет кадр', (tester) async {
+    // Так это и случилось живьём: показ в панели живёт внутри `LayoutBuilder`,
+    // и его перестройка идёт **во время раскладки**. Пометить запись наложения
+    // в этот миг нельзя — каркас уже строит дерево.
+    final text = ValueNotifier<String>('первое сообщение');
+    addTearDown(text.dispose);
+
+    await pumpScreen(
+      tester,
+      LayoutBuilder(
+        // Раскладка сверху слева: окно меняет размер, а цель остаётся под
+        // указателем — иначе подсказка пропадёт просто потому, что мышь
+        // съехала с неё.
+        builder:
+            (context, constraints) => ValueListenableBuilder<String>(
+              valueListenable: text,
+              builder:
+                  (context, value, _) => Align(
+                    alignment: Alignment.topLeft,
+                    child: FcTooltip(message: value, child: const SizedBox(key: target, width: 120, height: 20)),
+                  ),
+            ),
+      ),
+    );
+
+    await hover(tester, find.byKey(target));
+    await tester.pump(FcTooltip.delay);
+    expect(find.text('первое сообщение'), findsOneWidget);
+
+    // Текст и ширина меняются одним кадром: перестройку внутри раскладки даёт
+    // именно это сочетание.
+    text.value = 'второе сообщение';
+    tester.view.physicalSize = const Size(700, 500);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pump();
+
+    expect(tester.takeException(), isNull, reason: 'перерисовка подсказки не вправе ронять кадр');
+
+    // Ещё кадр: перерисовка отложена нарочно — см. `_refresh`.
+    await tester.pump();
+    await tester.pump();
+    expect(find.text('второе сообщение'), findsOneWidget, reason: 'и новый текст всё же доезжает');
+
+    await disposeScreen(tester);
+  });
 }
