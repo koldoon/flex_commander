@@ -1,0 +1,19 @@
+{
+  "fill" : {
+    "automatic-gradient" : "extended-srgb:0.18431,0.41961,0.65882,1.00000"
+  },
+  "groups" : [
+    {
+      "layers" : [
+        {
+          "image-name" : "window.png"
+        }
+      ]
+    }
+  ],
+  "supported-platforms" : {
+    "squares" : [
+      "macOS"
+    ]
+  }
+}
