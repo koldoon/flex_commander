@@ -237,6 +237,11 @@ class DefaultColors extends FcColors {
   @override
   Color get shadow => const Color(0xFF000000).withValues(alpha: 0.25);
 
+  /// Чёрный 45 %: у края тени это даёт те же 0.35, что и у системного значка
+  /// (замер — `docs/spec/file-thumbnails.md`, §9).
+  @override
+  Color get iconShadow => const Color(0xFF000000).withValues(alpha: 0.45);
+
   // --- прочее ---
 
   @override

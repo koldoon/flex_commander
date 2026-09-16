@@ -58,6 +58,15 @@ class FileTypeIcon extends StatefulWidget {
   State<FileTypeIcon> createState() => _FileTypeIconState();
 }
 
+/// Тень миниатюры — **долями от значка**, а не точками темы.
+///
+/// Значок бывает и 16 точек, и 128: тень в точках была бы у мелкого чернильным
+/// пятном, а у крупного — ниткой. Доли сняты с системного значка macOS
+/// (256 точек): чёрный расходится вниз на тринадцать точек и вбок на девять,
+/// то есть смещён вниз примерно на две.
+const double shadowBlur = 10 / 256;
+const double shadowOffset = 2 / 256;
+
 class _FileTypeIconState extends State<FileTypeIcon> {
   /// Чем рисуем сейчас. Ответ есть всегда — просто он бывает не окончательным.
   FileIcon _icon = const IconNothing();
@@ -138,11 +147,27 @@ class _FileTypeIconState extends State<FileTypeIcon> {
     if (!content) {
       return Image(image: image, width: size, height: size, fit: BoxFit.contain, filterQuality: FilterQuality.medium);
     }
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(theme.metrics.panelRadius),
-      child: ConstrainedBox(
-        constraints: BoxConstraints(maxWidth: size, maxHeight: size),
-        child: Image(image: image, fit: BoxFit.contain, filterQuality: FilterQuality.medium),
+    return DecoratedBox(
+      // Тень — как у значков системы: миниатюра лежит с ними в одной сетке, и
+      // плоская картинка рядом с ними читается чужой. Числа сняты с
+      // собственного значка macOS, а не подобраны на глаз
+      // (`docs/spec/file-thumbnails.md`, §9).
+      decoration: BoxDecoration(
+        borderRadius: BorderRadius.circular(theme.metrics.panelRadius),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colors.iconShadow,
+            blurRadius: size * shadowBlur,
+            offset: Offset(0, size * shadowOffset),
+          ),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(theme.metrics.panelRadius),
+        child: ConstrainedBox(
+          constraints: BoxConstraints(maxWidth: size, maxHeight: size),
+          child: Image(image: image, fit: BoxFit.contain, filterQuality: FilterQuality.medium),
+        ),
       ),
     );
   }

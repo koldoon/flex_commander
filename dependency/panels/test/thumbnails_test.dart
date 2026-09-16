@@ -73,6 +73,42 @@ void main() {
     expect(tester.getRect(clip), tester.getRect(pictureOf('shot.jpg')));
   });
 
+  testWidgets('под миниатюрой тень — та же, что система рисует под своим значком', (tester) async {
+    await open(tester);
+
+    // Числа сняты с собственного значка macOS, а не подобраны на глаз
+    // (`docs/spec/file-thumbnails.md`, §9): чёрный расходится вниз на
+    // тринадцать точек из 256 и вбок на девять — значит, смещён вниз.
+    final decorated = tester.widget<DecoratedBox>(
+      find.ancestor(of: pictureOf('shot.jpg'), matching: find.byType(DecoratedBox)).first,
+    );
+    final shadow = (decorated.decoration as BoxDecoration).boxShadow!.single;
+    // Считается от стороны значка, а не от картинки: широкий снимок вписан в
+    // квадрат с полями, и тень у него должна быть та же, что у квадратного.
+    final side =
+        tester
+            .widget<IconTile>(find.ancestor(of: pictureOf('shot.jpg'), matching: find.byType(IconTile)).first)
+            .iconSize;
+
+    expect(shadow.color, const DefaultColors().iconShadow);
+    expect(shadow.blurRadius, closeTo(side * shadowBlur, 0.01), reason: 'мягкость — долей от значка, а не в точках');
+    expect(shadow.offset.dy, closeTo(side * shadowOffset, 0.01), reason: 'смещена вниз, как системная');
+    expect(shadow.offset.dx, 0);
+  });
+
+  testWidgets('у значка типа своей тени не добавляем: она у него уже есть', (tester) async {
+    await open(tester);
+
+    // Плитка текста показана значком системы — его силуэт и тень свои, и
+    // накладывать вторую значило бы удваивать её.
+    final tile = find.ancestor(of: find.text('notes.txt'), matching: find.byType(IconTile)).first;
+    final decorated = find.descendant(of: tile, matching: find.byType(DecoratedBox));
+    for (final widget in tester.widgetList<DecoratedBox>(decorated)) {
+      final decoration = widget.decoration;
+      expect(decoration is BoxDecoration ? decoration.boxShadow : null, isNull);
+    }
+  });
+
   testWidgets('миниатюры нет — плитка остаётся со значком', (tester) async {
     await open(tester);
 
