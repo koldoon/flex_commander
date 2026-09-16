@@ -12,6 +12,7 @@ class PanelsSettings implements Serializable {
     this.cursorHoldsPlace = true,
     this.treeShare = defaultTreeShare,
     this.iconTileSize = defaultIconTileSize,
+    this.iconNameWidth = autoNameWidth,
   });
 
   /// Какую долю ширины занимает дерево в комбинированном виде.
@@ -52,6 +53,29 @@ class PanelsSettings implements Serializable {
   /// Сторона значка в плитке сетки.
   int iconTileSize;
 
+  /// Сколько места отведено имени в плитке, в точках.
+  ///
+  /// [autoNameWidth] — вдвое от стороны значка, в пределах 80…160 точек: мера
+  /// считается от значка, а не от панели, иначе окно пошире делало бы плитки
+  /// шире, а не многочисленнее (`docs/spec/panel-view-icons.md`, §3).
+  int iconNameWidth;
+
+  /// «Как значок»: ширину имени считает сам вид.
+  static const int autoNameWidth = 0;
+
+  /// Сторожевое значение списка: «Своё». Отрицательной ширины не бывает.
+  static const int customNameWidth = -1;
+
+  /// Уже этого имя — огрызок в три знака: договаривать его будет подсказка, а
+  /// не сетка.
+  static const int minNameWidth = 40;
+
+  /// Шире — уже не сетка, а список с картинками.
+  static const int maxNameWidth = 400;
+
+  /// Что предлагается списком; всё прочее набирается числом.
+  static const List<int> nameWidths = [80, 120, 160, 200, 240];
+
   /// Сколько столбцов у краткого вида; [autoColumns] — сколько влезет.
   int briefColumns;
 
@@ -81,6 +105,8 @@ class PanelsSettings implements Serializable {
     cursorHoldsPlace = extract(cursorHoldsPlace, m['cursorHoldsPlace']);
     treeShare = extract(treeShare, m['treeShare']).clamp(minTreeShare, maxTreeShare);
     iconTileSize = extract(iconTileSize, m['iconTileSize']).clamp(minIconTileSize, maxIconTileSize);
+    final width = extract(iconNameWidth, m['iconNameWidth']);
+    iconNameWidth = width <= autoNameWidth ? autoNameWidth : width.clamp(minNameWidth, maxNameWidth);
   }
 
   @override
@@ -90,5 +116,6 @@ class PanelsSettings implements Serializable {
     m['cursorHoldsPlace'] = cursorHoldsPlace;
     m['treeShare'] = treeShare;
     m['iconTileSize'] = iconTileSize;
+    m['iconNameWidth'] = iconNameWidth;
   }
 }

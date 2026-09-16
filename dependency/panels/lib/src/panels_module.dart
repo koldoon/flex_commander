@@ -332,6 +332,7 @@ const Map<String, String> _russian = {
   'Icons': 'Значки',
   'A grid of tiles: a picture and a name under it': 'Сетка плиток: картинка и имя под ней',
   'Icon size': 'Размер значка',
+  'Name width': 'Ширина имени',
   'Custom': 'Своё',
   'Brief': 'Кратко',
   'Names only, in columns': 'Одни имена, столбцами',

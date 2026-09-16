@@ -58,7 +58,7 @@ class IconTile extends StatelessWidget {
     final theme = FcTheme.of(context);
     final colors = theme.colors;
     final metrics = theme.metrics;
-    final style = _selected ? theme.rowStyle.copyWith(color: colors.cursorText) : theme.rowStyle;
+    final style = _selected ? nameStyle(theme).copyWith(color: colors.cursorText) : nameStyle(theme);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -193,6 +193,14 @@ class IconTile extends StatelessWidget {
       ),
     );
   }
+
+  /// Чем набрано имя под значком: **обычным набором, а не моноширинным**.
+  ///
+  /// Моноширинный полезен в таблице — им держатся столбцы и совпадают разряды
+  /// размеров; под значком столбцов нет, а читаемость есть, и пропорциональный
+  /// набор её прибавляет. Спрашивается в одном месте: тем же начертанием вид
+  /// меряет самое длинное имя и высоту двух строк, и разойтись им нельзя.
+  static TextStyle nameStyle(FcTheme theme) => theme.uiStyle;
 
   /// Имя занимает две строки, как в Finder: одной мало половине снимков с
   /// камеры, а третья отнимает у сетки ряд.

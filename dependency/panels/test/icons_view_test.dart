@@ -260,6 +260,23 @@ void main() {
     }
   });
 
+  testWidgets('ширина имени слушается настройки', (tester) async {
+    final runtime = await open(tester);
+    final auto = tester.getRect(find.byType(IconTile).first).width;
+
+    settingsOf(runtime).iconNameWidth = PanelsSettings.nameWidths.last;
+    await runtime.app.left.setView(PanelSettings.defaultView);
+    await tester.pumpAndSettle();
+    await runtime.app.left.setView(IconsView.viewId);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getRect(find.byType(IconTile).first).width,
+      greaterThan(auto),
+      reason: 'потолок подняли — плитка доросла до самого длинного имени',
+    );
+  });
+
   testWidgets('щелчок ставит курсор на ту плитку, по которой щёлкнули', (tester) async {
     final runtime = await open(tester);
     final panel = runtime.app.left;

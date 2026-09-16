@@ -39,7 +39,8 @@ class _IconsViewState extends State<IconsView> {
   /// Окно, в пределах которого два щелчка по одной плитке считаются двойным.
   static const Duration _doubleTapWindow = Duration(milliseconds: 400);
 
-  /// Сколько места имя вправе занять сверх значка: вдвое от его стороны.
+  /// Сколько места имя вправе занять, когда его не задали настройкой: вдвое от
+  /// стороны значка.
   ///
   /// **От значка, а не от панели.** Пока мера была долей панели — четвертью, —
   /// окно пошире делало плитки шире, а не многочисленнее: столбцов всегда
@@ -269,7 +270,8 @@ class _IconsViewState extends State<IconsView> {
               // (`docs/spec/design-system.md`).
               final gap = metrics.columnGap;
               final scaler = MediaQuery.textScalerOf(context);
-              final nameHeight = textLineHeight(theme.rowStyle, scaler) * IconTile.nameLines;
+              final nameStyle = IconTile.nameStyle(theme);
+              final nameHeight = textLineHeight(nameStyle, scaler) * IconTile.nameLines;
               final tileHeight = IconTile.height(metrics, iconSize, nameHeight);
 
               final inset = metrics.panelRightPadding;
@@ -280,16 +282,16 @@ class _IconsViewState extends State<IconsView> {
               // столбцов, поэтому остаток места остаётся справа, а не
               // растягивает просветы (`docs/spec/panel-view-icons.md`, §3).
               final least = iconSize + (metrics.iconGap + metrics.cellPadding) * 2;
-              final wanted = math.max(
-                least,
-                _widest.of(context, entries, style: theme.rowStyle) + metrics.cellPadding * 4,
-              );
-              // Потолок: место под имя сверх плашки значка. Поля плитки и поля
-              // плашки имени — те же четыре, по которым режется само имя.
-              final most = math.max(
-                least,
-                (iconSize * _nameToIcon).clamp(_leastName, _mostName) + metrics.cellPadding * 4,
-              );
+              final wanted = math.max(least, _widest.of(context, entries, style: nameStyle) + metrics.cellPadding * 4);
+              // Потолок: место под имя сверх плашки значка. Спрошенное в
+              // настройках или посчитанное от значка. Поля плитки и поля плашки
+              // имени — те же четыре, по которым режется само имя.
+              final asked = widget.settings().iconNameWidth;
+              final room =
+                  asked > PanelsSettings.autoNameWidth
+                      ? asked.toDouble()
+                      : (iconSize * _nameToIcon).clamp(_leastName, _mostName);
+              final most = math.max(least, room + metrics.cellPadding * 4);
               // Панель уже плитки — плитка сжимается до панели: один столбец
               // лучше, чем ноль.
               final tileWidth = math.min(wanted, math.max(least, math.min(most, available)));
