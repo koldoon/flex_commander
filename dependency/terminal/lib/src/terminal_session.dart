@@ -74,6 +74,16 @@ class TerminalSession extends ChangeNotifier {
   /// первым, ещё до всякой команды.
   void Function(ShellMark mark)? onMark;
 
+  /// Терминал этой оболочки уже показывали человеку.
+  ///
+  /// До первого показа экран принадлежит нам: там нет ничего, кроме уговора и
+  /// наших служебных `cd`, — и убирать за собой мы вправе. После показа лента
+  /// принадлежит человеку, и чистить её нельзя (`docs/spec/shell-prompt.md`).
+  bool get shown => _shown;
+  bool _shown = false;
+
+  void markShown() => _shown = true;
+
   /// Идёт ли команда: между меткой о запуске и следующим приглашением.
   bool get running => _running;
   bool _running = false;

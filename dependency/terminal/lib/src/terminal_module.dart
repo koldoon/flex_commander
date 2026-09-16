@@ -297,6 +297,16 @@ class _FollowShellCommand extends AppCommand {
   /// таймер, оставшийся висеть, ронял бы виджет-тесты.
   String? _waiting;
 
+  /// Куда просимся, пока идёт отсчёт.
+  String? _pending;
+  Timer? _later;
+
+  /// Сколько ждать, пока панель встанет.
+  ///
+  /// Полсекунды — столько человек и стоит, прежде чем посмотреть на строку;
+  /// меньше — и пробег по каталогам превращается в очередь из `cd`.
+  static const Duration syncDelay = Duration(milliseconds: 500);
+
   TerminalSession? _watched;
 
   /// Панель, за которой сейчас следим, и само приложение.
@@ -375,9 +385,27 @@ class _FollowShellCommand extends AppCommand {
     }
 
     _waiting = null;
-    _asked.add(at);
-    // Ведущий пробел: служебный `cd` в историю не нужен — его не набирали.
-    session.input(' cd ${ShellCommand.quote(at)}\n');
+    _pending = at;
+    // С задержкой: пробег стрелками по десятку каталогов стоит одного `cd`, а
+    // не десяти. Отсчёт заводится только там, где оболочка и правда есть, —
+    // иначе таймер висел бы в каждом прогоне (`docs/spec/shell-prompt.md`, §6).
+    _later?.cancel();
+    _later = Timer(syncDelay, () {
+      _later = null;
+      final target = _pending;
+      final live = shells().at(label);
+      if (target == null || live == null || live.running || live.lastMark?.directory == target) {
+        return;
+      }
+      _asked.add(target);
+      // Ведущий пробел: служебный `cd` в историю не нужен — его не набирали.
+      //
+      // До первого показа за собой убираем: экран в этот миг принадлежит нам,
+      // и человек, открыв терминал впервые, не должен увидеть нашу возню. А
+      // после показа лента его — там `cd` виден, как всякая другая команда.
+      final clean = live.shown ? '' : ' && clear';
+      live.input(' cd ${ShellCommand.quote(target)}$clean\n');
+    });
   }
 
   /// Оболочка освободилась — досылаем то, о чём просили, пока она была занята.

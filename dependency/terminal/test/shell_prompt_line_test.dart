@@ -1,3 +1,5 @@
+import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_terminal/fc_terminal.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
@@ -27,6 +29,25 @@ void main() {
     await runtime.app.start();
   });
 
+  /// Подождать — и поддельным временем, и настоящим.
+  ///
+  /// Обоими нарочно. Приложение поднимается в `setUp`, то есть вне поддельного
+  /// времени теста: часть отсчётов (снятие приглашения, синхронизация) заводится
+  /// из подписок, живущих в настоящем времени, часть — из тела теста, то есть в
+  /// поддельном. Какой именно — зависит от того, кто позвал, и полагаться на это
+  /// проверке нельзя.
+  Future<void> waitReal(WidgetTester tester, Duration delay) async {
+    await tester.runAsync(() => Future<void>.delayed(delay));
+    await tester.pump(delay);
+    await tester.pumpAndSettle();
+  }
+
+  /// Дождаться снятия приглашения.
+  Future<void> waitPrompt(WidgetTester tester) => waitReal(tester, TerminalSession.promptSettleDelay * 3);
+
+  /// Дождаться отсчёта синхронизации.
+  Future<void> waitSync(WidgetTester tester) => waitReal(tester, const Duration(milliseconds: 700));
+
   /// Поднять приложение и завести оболочку: до первого `Ctrl-O` её нет вовсе.
   Future<AgreeingShell> open(WidgetTester tester, {String prompt = r'koldoon@cray /home % '}) async {
     await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
@@ -37,7 +58,7 @@ void main() {
 
     final shell = AgreeingShell(pty.session, promptText: prompt);
     shell.greet();
-    await tester.pump(TerminalSession.promptSettleDelay * 2);
+    await waitPrompt(tester);
 
     // Терминал убираем: смотрим на строку под панелями, а не на него.
     runtime.commands.dispatch(KeyCombination.parse('Ctrl-O'));
@@ -92,6 +113,7 @@ void main() {
       final mark = pty.session.written.length;
 
       await runtime.app.left.openPath('/home/work');
+      await waitSync(tester);
       await tester.pumpAndSettle();
 
       expect(sentSince(mark), contains(' cd /home/work'), reason: 'служебный cd в историю не нужен');
@@ -101,10 +123,38 @@ void main() {
       shell.directory = '/home/work';
       shell.promptText = r'/home/work % ';
       shell.greet();
-      await tester.pump(TerminalSession.promptSettleDelay * 2);
-      await tester.pumpAndSettle();
+      await waitPrompt(tester);
 
       expect(runtime.app.left.currentPath, '/home/work');
+
+      await tester.pump(const Duration(milliseconds: 20));
+    });
+
+    testWidgets('терминал ни разу не открывали — за собой убираем', (tester) async {
+      // Оболочка, заведённая прогревом: её экран человек ещё не видел, и всё,
+      // что там есть, — наше (`docs/spec/shell-prompt.md`, §6).
+      final warm = FakePty();
+      final app = await testApp(
+        provider: InMemoryTreeProvider([FakeEntry.directory('/home'), FakeEntry.directory('/home/work')], null, warm)
+          ..home = '/home',
+        modules: modulesWithTerminal(),
+        backend: [_LocalShell(warm)],
+      );
+      await app.app.start();
+      await tester.pumpWidget(FlexCommanderApp(controller: app.app));
+      await tester.pumpAndSettle();
+
+      final shell = AgreeingShell(warm.session, promptText: r'/home % ');
+      shell.greet();
+      await waitPrompt(tester);
+      final mark = warm.session.written.length;
+
+      await app.app.left.openPath('/home/work');
+      await waitSync(tester);
+
+      final sent = warm.session.written.substring(mark);
+      expect(sent, contains(' cd /home/work'));
+      expect(sent, contains('&& clear'), reason: 'первое открытие терминала не должно показать нашу возню');
 
       await tester.pump(const Duration(milliseconds: 20));
     });
@@ -115,7 +165,7 @@ void main() {
       final mark = pty.session.written.length;
 
       await runtime.app.left.openPath('/home/work');
-      await tester.pumpAndSettle();
+      await waitSync(tester);
 
       expect(sentSince(mark), isNot(contains('cd ')), reason: 'ленивое поведение, как было');
 
@@ -129,18 +179,62 @@ void main() {
       final mark = pty.session.written.length;
 
       await runtime.app.left.openPath('/home/work');
-      await tester.pumpAndSettle();
+      await waitSync(tester);
 
       expect(sentSince(mark), isNot(contains('cd ')), reason: 'строка досталась бы самой команде');
 
       // Команда кончилась — оболочка освободилась, и просьба досылается.
       shell.finish();
-      await tester.pump(TerminalSession.promptSettleDelay * 2);
-      await tester.pumpAndSettle();
+      await waitPrompt(tester);
+      await waitSync(tester);
 
       expect(sentSince(mark), contains(' cd /home/work'));
 
       await tester.pump(const Duration(milliseconds: 20));
     });
   });
+}
+
+/// Оболочка «этой машины» — подставная: настоящую прогон трогать не должен.
+///
+/// Нужна там, где сессия обязана завестись **без показа терминала**: прогрев
+/// при запуске заводит её сам, а `Ctrl-O` — это уже показ.
+class _LocalShell implements FcBackendModule {
+  const _LocalShell(this.pty);
+
+  final FakePty pty;
+
+  @override
+  String get id => 'test.localShell';
+
+  @override
+  String get title => 'Local shell';
+
+  @override
+  void installBackend(BackendRegistry registry) {
+    registry.service<ShellHost>((services) => _FakeHost(pty));
+  }
+}
+
+class _FakeHost implements ShellHost {
+  const _FakeHost(this.pty);
+
+  final FakePty pty;
+
+  @override
+  String get shellLabel => 'localhost';
+
+  @override
+  String? get shellProgram => '/bin/zsh';
+
+  @override
+  String shellPath(String panelPath) => panelPath;
+
+  @override
+  Future<PtySession> run(String command, {String? directory, int columns = 80, int rows = 24}) async =>
+      pty.start(executable: '/bin/zsh', arguments: ['-ic', command]);
+
+  @override
+  Future<PtySession> shell({String? directory, int columns = 80, int rows = 24}) async =>
+      pty.start(executable: '/bin/zsh', arguments: ['-i']);
 }

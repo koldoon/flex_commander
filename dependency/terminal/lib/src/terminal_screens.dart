@@ -23,6 +23,9 @@ class TerminalScreen extends ChangeNotifier implements ViewportState {
 
   /// Оболочка отозвалась — показываем её.
   void attach(TerminalSession value) {
+    // Отмечаем всегда, даже если сессия та же: с этого мига лента принадлежит
+    // человеку, и убирать за собой мы больше не вправе.
+    value.markShown();
     if (identical(_session, value)) {
       return;
     }

@@ -65,6 +65,18 @@ class ShellSession extends ChangeNotifier {
   /// секунд хватает и тяжёлому `.zshrc`, и походу по сети до сервера.
   static const Duration settleTimeout = Duration(seconds: 3);
 
+  /// Каким терминал считает себя, пока его никто не показал.
+  ///
+  /// Размер оболочке сообщает вид, а вида до первого `Ctrl-O` нет вовсе — и
+  /// оболочка считала бы себя шириной в 80 колонок. Всё, что печатается до
+  /// показа (приглашения, наши служебные `cd`), переносилось бы по 80-й
+  /// колонке, и в ленте оставались бы рваные строки — видно живьём.
+  ///
+  /// Щедро, а не «как окно»: настоящий размер всё равно назовёт вид, а до него
+  /// важно одно — чтобы длинный путь в приглашении не переносился.
+  static const int startColumns = 200;
+  static const int startRows = 50;
+
   final Map<String, TerminalSession> _sessions = {};
 
   /// Оболочку этого места уже запускали.
@@ -90,7 +102,7 @@ class ShellSession extends ChangeNotifier {
   Future<TerminalSession> sessionIn(Application app, {Session? panel, String? directory}) async {
     // Ждём: на сервере открытие канала — поход по сети, и не удаться оно
     // вполне может. Отказ уходит бедой тому, кто просил.
-    final channel = await app.openShell(panel: panel, directory: directory);
+    final channel = await app.openShell(panel: panel, directory: directory, columns: startColumns, rows: startRows);
     final label = channel.label;
     final current = _sessions[label];
     if (current != null) {
