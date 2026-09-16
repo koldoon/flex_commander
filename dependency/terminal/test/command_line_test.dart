@@ -136,7 +136,7 @@ void main() {
       // снимает с себя фокус — курсор пропадал, ввод оставался за строкой, и
       // клавиши панели молчали до самого `Esc`.
       expect(press('Enter'), isTrue);
-      expect(pty.started, isFalse);
+      expect(line.history, isEmpty, reason: 'выполнять нечего — и помнить нечего');
       expect(app.view.activeArea, ViewportPosition.bottom);
     });
 
@@ -265,6 +265,8 @@ void main() {
       await pumpEventQueue();
 
       expect(app.left.currentPath, '/home/docs');
+      // Оболочки здесь нет вовсе: вида нет, и просить её некому — её заводит
+      // строка, когда ей есть что показывать (`spec/shell-prompt.md`, §7).
       expect(pty.started, isFalse);
       expect(line.history, ['cd docs']);
     });
@@ -491,24 +493,23 @@ void main() {
 
   group('терминал', () {
     test('Ctrl-O разворачивает сессию и сворачивает обратно', () async {
-      expect(pty.started, isFalse, reason: 'оболочка не должна заводиться при сборке');
-
       // Открытие ждут: на сервере это поход по сети, и оттого асинхронно даже
       // на своей машине — повадка у оболочек одна.
       expect(press('Ctrl-O'), isTrue);
       await pumpEventQueue();
 
       // Экран встаёт **сразу**: панели уходят в тот же кадр, в котором нажали
-      // клавишу. А содержимого в нём пока нет — оболочка ещё отражает строку
-      // уговора, и показывать её раньше времени значит показывать чужую кухню.
-      final screen = app.view.contentAt(ViewportPosition.fullscreen);
-      expect(screen, isA<TerminalScreen>(), reason: 'панели ушли сразу');
-      expect((screen! as TerminalScreen).session, isNull, reason: 'а оболочки в нём ещё нет');
+      // клавишу. Оболочка к этому времени уже заведена — её заводят ради
+      // приглашения в строке (`spec/shell-prompt.md`, §7), — поэтому и
+      // содержимое появляется тут же. На сервере, куда ещё не ходили, экран
+      // так же встанет пустым и дождётся её.
+      expect(app.view.contentAt(ViewportPosition.fullscreen), isA<TerminalScreen>(), reason: 'панели ушли сразу');
+      final screen = app.view.contentAt(ViewportPosition.fullscreen)! as TerminalScreen;
 
       shell.greet();
       await pumpEventQueue();
 
-      expect((screen as TerminalScreen).session, isNotNull, reason: 'оболочка отозвалась — показываем');
+      expect(screen.session, isNotNull, reason: 'оболочка отозвалась — показываем');
       expect(pty.started, isTrue);
 
       press('Ctrl-O');

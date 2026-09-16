@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/widgets.dart';
 
@@ -69,6 +71,42 @@ class CommandLineState extends ChangeNotifier implements ViewportState {
     final label = panel?.source.shellLabel ?? '';
     return label.isEmpty ? null : shells?.at(label);
   }
+
+  /// Завести оболочку этого места, если её ещё нет.
+  ///
+  /// Греется заранее только своя машина: сервер за прогрев при запуске платил
+  /// бы походом по сети, а панелей в тот миг ещё нет. Но когда панель **уже
+  /// стоит** на сервере, соединение с ним есть, и оболочка обходится одним
+  /// каналом — без второго входа и без вопроса о пароле.
+  ///
+  /// Без этого приглашение сервера не показывалось до первого `Ctrl-O` вовсе:
+  /// показывать было нечего (`docs/spec/shell-prompt.md`, §7). Заодно и первый
+  /// `Ctrl-O` там открывается сразу.
+  ///
+  /// **Просит её строка**, а не тот, кто ходит за панелью: показывает
+  /// приглашение она, ради показа оболочка и заводится — и настройку
+  /// спрашиваем ту же, показа.
+  ///
+  /// Попытка одна на место: не удалось — молчим и второй раз не пробуем.
+  /// Человек терминала не просил, и жаловаться ему не на что; попросит —
+  /// узнает тогда.
+  void ensureShell() {
+    if (!settings.shellPrompt) {
+      return;
+    }
+    final source = panel;
+    final label = source?.source.shellLabel ?? '';
+    final at = source?.shellDirectory ?? '';
+    if (label.isEmpty || at.isEmpty || shells == null || shells!.at(label) != null || !_asked.add(label)) {
+      return;
+    }
+    // С каталогом панели: оболочка обязана начать там, где человек стоит, —
+    // иначе первое же приглашение будет про её домашний каталог, а не про его.
+    unawaited(shells!.sessionIn(app, panel: source, directory: at).then((_) {}, onError: (_) {}));
+  }
+
+  /// Места, для которых оболочку уже просили.
+  final Set<String> _asked = {};
 
   /// Приглашение оболочки; пустое — показываем своё (путь и `$`).
   ///

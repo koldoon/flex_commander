@@ -99,7 +99,32 @@ class ShellSession extends ChangeNotifier {
   /// запуске: дальше её каталог принадлежит ей самой.
   ///
   /// Аренды здесь больше нет: место держит ядро, пока жива оболочка.
-  Future<TerminalSession> sessionIn(Application app, {Session? panel, String? directory}) async {
+  Future<TerminalSession> sessionIn(Application app, {Session? panel, String? directory}) {
+    // Одно открытие на место. Просящих теперь несколько — прогрев при запуске,
+    // `Ctrl-O`, команда из строки и показ приглашения, — и, начавшись разом,
+    // они открыли бы два канала: второй тут же оказался бы лишним, а на той
+    // стороне остался бы висеть процессом.
+    //
+    // Ключ — имя места у панели: то же, каким сессия потом и ляжет в таблицу.
+    // Прогрев панели не называет вовсе, и ключ у него свой, пустой: он один и
+    // случается раньше всех.
+    final key = panel?.source.shellLabel ?? '';
+    final live = _sessions[key];
+    if (live != null) {
+      return Future.value(live);
+    }
+    final opening = _opening[key];
+    if (opening != null) {
+      return opening;
+    }
+    final work = _openIn(app, panel: panel, directory: directory);
+    _opening[key] = work;
+    return work.whenComplete(() => _opening.remove(key));
+  }
+
+  final Map<String, Future<TerminalSession>> _opening = {};
+
+  Future<TerminalSession> _openIn(Application app, {Session? panel, String? directory}) async {
     // Ждём: на сервере открытие канала — поход по сети, и не удаться оно
     // вполне может. Отказ уходит бедой тому, кто просил.
     final channel = await app.openShell(panel: panel, directory: directory, columns: startColumns, rows: startRows);

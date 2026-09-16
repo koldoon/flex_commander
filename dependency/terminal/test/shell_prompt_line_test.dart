@@ -107,6 +107,37 @@ void main() {
   /// подставная оболочка узнаёт своё число — сотрёшь её, и оболочка замолчит.
   String sentSince(int mark) => pty.session.written.substring(mark);
 
+  testWidgets('оболочка заводится сама — иначе приглашение показывать нечем', (tester) async {
+    // Так на сервере: греется заранее только своя машина, и до этой правки
+    // приглашение там не показывалось до первого `Ctrl-O` вовсе.
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    expect(pty.sessions, hasLength(1), reason: 'панель стоит на месте с оболочкой — её и завели');
+    expect(pty.session.workingDirectory, '/home', reason: 'и начала там, где стоит панель');
+
+    // Второй раз не просим: попытка одна на место.
+    await runtime.app.left.openPath('/home/work');
+    await tester.pumpAndSettle();
+    expect(pty.sessions, hasLength(1));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('выключенное приглашение оболочку не будит', (tester) async {
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+    lineState().settings.shellPrompt = false;
+
+    await runtime.app.left.openPath('/home/work');
+    await tester.pumpAndSettle();
+
+    // Уже заведённую не убиваем — но новую ради показа не заводим.
+    expect(pty.sessions.length, lessThanOrEqualTo(1));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   group('оболочка идёт за панелью', () {
     testWidgets('панель шагнула — cd ушёл, и с ведущим пробелом', (tester) async {
       final shell = await open(tester);

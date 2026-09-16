@@ -109,6 +109,11 @@ class _CommandLineViewState extends State<CommandLineView> {
     final colors = theme.colors;
     final state = widget.state;
 
+    // Оболочку просим отсюда, а не из сборки дерева: сборка обязана быть
+    // чистой, а завести оболочку — это дело. Кадром позже, зато ровно тогда,
+    // когда панель уже встала на новом месте (`docs/spec/shell-prompt.md`, §7).
+    WidgetsBinding.instance.addPostFrameCallback((_) => state.ensureShell());
+
     return ListenableBuilder(
       // Поле тоже: подсказка дополнения уходит от любой правки строки, а о
       // правке знает только контроллер текста.

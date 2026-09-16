@@ -356,10 +356,6 @@ class _FollowShellCommand extends AppCommand {
 
   /// Оболочка догоняет панель.
   void _syncShell(Application app) {
-    if (!settings().shellFollowsPanel) {
-      return;
-    }
-
     final panel = app.activePanel;
     final label = panel.source.shellLabel;
     final at = panel.shellDirectory;
@@ -368,7 +364,7 @@ class _FollowShellCommand extends AppCommand {
     }
 
     final session = shells().at(label);
-    if (session == null || !session.marksWork) {
+    if (session == null || !session.marksWork || !settings().shellFollowsPanel) {
       return;
     }
     _watch(session, app);
