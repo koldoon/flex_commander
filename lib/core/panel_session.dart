@@ -7,6 +7,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 
 import '../core/column_sorting_registry.dart';
+import '../core/directory_watch.dart';
 import '../core/listing_cache.dart';
 import '../core/session_history.dart';
 import '../core/node_list.dart';
@@ -120,6 +121,8 @@ class PanelSession {
     this.naming = const ReferenceFileNaming(),
     this.cache,
     Strings? strings,
+    bool Function() watchDirectories = _watchByDefault,
+    Duration Function()? watchDelay,
   }) : strings = strings ?? StringsRegistry(),
        _history = SessionHistory(steps: settings.history, index: settings.historyIndex, limit: historyLimit),
        _registry = registry,
@@ -141,7 +144,20 @@ class PanelSession {
       _cursorMemory[settings.path] = settings.cursor;
     }
     selection.addListener(_onSelectionChanged);
+    _watch = DirectoryWatch(refresh: catchUp, enabled: watchDirectories, delay: watchDelay);
   }
+
+  /// Следим ли мы за показанным каталогом (`docs/spec/directory-watch.md`).
+  static bool _watchByDefault() => true;
+
+  /// Слежение за показанным каталогом: изменили не мы — догоняем.
+  late final DirectoryWatch _watch;
+
+  /// Вернуть слежение тому каталогу, который панель показывает сейчас.
+  ///
+  /// Дерево не наблюдается вовсе: слежение за поддеревом — за рамками этапа, да
+  /// и одним каталогом дерево не описывается.
+  void _rewatch() => _watch.follow(_list is DirectoryNodeList ? _directory : null);
 
   /// Кто слушает перемены.
   ///
@@ -1005,6 +1021,42 @@ class PanelSession {
     }
   }
 
+  /// Настройки поменялись: слежение могли выключить — или включить обратно.
+  ///
+  /// Спрашивает сама панель, а не настройка её дёргает: раздел правят мимо
+  /// ядра, и узнать о правке ему неоткуда, кроме как от того, кто её принёс.
+  void settingsChanged() => _rewatch();
+
+  /// Каталог изменили **не мы** — догнать: тихо и мимо памяти.
+  ///
+  /// Зовётся слежением (`docs/spec/directory-watch.md`, §6). Отдельно от
+  /// [refreshRows] потому, что у того своё дело — растущие находки, — и свои
+  /// правила: раскрытие новых ветвей источника здесь ни при чём.
+  Future<void> catchUp() async {
+    final dir = _directory;
+    if (dir == null) {
+      return;
+    }
+    // Панель занята — чтением, работой, открытием файла: `_load` отменил бы
+    // чужую операцию. Событие не теряется: накопитель заведёт новое окно, и
+    // догоним, как только освободится.
+    if (_busy) {
+      _watch.retry();
+      return;
+    }
+
+    // Обе записи, а не только свою: соседняя панель с другим показом скрытых
+    // иначе получила бы память вместо диска (`listing-cache.md`, §11).
+    cache?.forget(dir);
+    // Посчитанные размеры **не** выбрасываем, в отличие от `Cmd-R`: чужое
+    // изменение к ним отношения не имеет, а считались они долго.
+    final at = currentNode?.pathString;
+    await _load(dir, cursorName: currentNode?.name, keepMarks: true, useCache: false, quiet: true, watched: true);
+    if (at != null && _cursorToPath(at)) {
+      _changed();
+    }
+  }
+
   /// Ветви, о которых источник уже говорил: новые раскрываются, о свёрнутых
   /// человеком он второй раз не просит.
   Set<String> _knownBranches = {};
@@ -1068,6 +1120,10 @@ class PanelSession {
   /// поступает и смена каталога.
   void close() {
     _operation?.cancel();
+    // Слежение снимается и здесь: набор закрывают через `close`, а не через
+    // разбор, и забыть про это значило бы оставить живой поток и перечитывание
+    // каталога, который никому не показывают.
+    _watch.dispose();
     unawaited(_releaseRoot());
     final lease = _lease;
     _lease = null;
@@ -1666,6 +1722,9 @@ class PanelSession {
       return;
     }
     _list = _listFor(dir);
+    // Список сменил род: за деревом мы не следим, а вернувшись к каталогу —
+    // следим снова (`docs/spec/directory-watch.md`, §5).
+    _rewatch();
     await _rebuildRows();
     if (_rows.isTree) {
       final saved = _savedCursor;
@@ -2065,8 +2124,15 @@ class PanelSession {
     bool useCache = true,
     bool quiet = false,
     bool records = false,
+    bool watched = false,
   }) async {
     _rememberCursor();
+    // Слежение снимается **до** отмены операции и до чтения: событие из
+    // покидаемого каталога, придя сейчас, позвало бы `catchUp`, а тот — `_load`,
+    // и отменил бы этот самый переход (`docs/spec/directory-watch.md`, §7).
+    if (_directory?.pathString != dir.pathString) {
+      _watch.stop();
+    }
     _operation?.cancel();
     // Сменился источник — забыли, о чём просил прежний: его вид и его
     // раскрытое пережить его не должны.
@@ -2091,6 +2157,7 @@ class PanelSession {
       }
       _adoptLease(lease, dir);
       adopted = true;
+      _watch.follow(dir);
       _setRows(shown);
       _applyMeasured(_nodes);
       _applySort();
@@ -2115,6 +2182,7 @@ class PanelSession {
       _lastPath = dir.pathString;
       _adoptLease(lease, dir);
       adopted = true;
+      _watch.follow(dir);
       _error = null;
       _changed();
     } else {
@@ -2137,8 +2205,12 @@ class PanelSession {
       }
       list.remember(cache, nodes, includeHidden: _showHidden);
 
-      if (shown != null) {
-        _refresh(nodes);
+      // Сравнение списков — не только для памяти. Система присылает события,
+      // случившиеся **до** подписки, поэтому сразу после входа в каталог почти
+      // всегда прилетает одно ложное; равный список не должен ни пересобирать
+      // таблицу, ни двигать номер поколения (`docs/spec/directory-watch.md`, §5).
+      if (shown != null || watched) {
+        _refresh(nodes, keepSizeScan: watched);
         return;
       }
 
@@ -2152,6 +2224,10 @@ class PanelSession {
       // а место, где каталог сменился, одно.
       _adoptLease(lease, dir);
       adopted = true;
+      // Подписка — только после удавшегося чтения: следить за каталогом, в
+      // который не вошли, незачем. Щель между чтением и подпиской закрывает
+      // сама система — она присылает и события, случившиеся до подписки.
+      _watch.follow(dir);
       _setRows(nodes);
       // До сортировки: иначе список оказался бы разложен по вчерашним числам.
       _applyMeasured(_nodes);
@@ -2163,7 +2239,11 @@ class PanelSession {
       // обход будет убит и заново не начнётся, ведь уведомлений больше не
       // будет. И только в этой ветке — при ошибке или отмене чтения на экране
       // остаются прежние узлы, и обход над ними по-прежнему правомерен.
-      _stopSizeScan(keepMarked: quiet);
+      // Обход размеров переживает догоняющее чтение: чужое изменение к
+      // посчитанному отношения не имеет, а терять счёт на каждый чих нельзя.
+      if (!watched) {
+        _stopSizeScan(keepMarked: quiet);
+      }
       // Пометка берётся **сейчас**, а не в миг заказа чтения: пока список шёл,
       // человек успевает пометить ещё — в дереве это обычное дело, там каталог
       // подтягивается тихо, а `Space` жмут дальше. Снимок, взятый до чтения,
@@ -2243,7 +2323,7 @@ class PanelSession {
   ///
   /// Курсор и пометка берутся **сейчас**, а не с показа: между ними человек
   /// успевает нажать пару стрелок, и отыгрывать их назад нельзя.
-  void _refresh(List<FsNode> nodes) {
+  void _refresh(List<FsNode> nodes, {bool keepSizeScan = false}) {
     final cursorName = currentNode?.name;
     final marked = selection.paths;
     final cursorIndex = _cursorIndex;
@@ -2264,7 +2344,12 @@ class PanelSession {
 
     _setRows(sorted);
     _listed();
-    _stopSizeScan();
+    // Обход размеров переживает догоняющее чтение: он живёт путями, смену строк
+    // переносит, а посчитанное наносится заново (`docs/spec/directory-watch.md`,
+    // §6).
+    if (!keepSizeScan) {
+      _stopSizeScan();
+    }
     _restoreSelection(marked);
     _restoreCursor(cursorName, cursorIndex);
     _finish();
@@ -2939,6 +3024,7 @@ class PanelSession {
 
   void dispose() {
     _operation?.cancel();
+    _watch.dispose();
     _stopSizeScan(notify: false);
     // Панель ушла — она больше не арендатор ни архива, ни своего сервера.
     // Закроются они, только если держать их больше некому: работа, ушедшая в

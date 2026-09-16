@@ -66,6 +66,8 @@ TestPanel testPanel({
   ColumnSorting? columns,
   PanelColumns? shownColumns,
   PanelId id = PanelId.left,
+  bool watchDirectories = true,
+  Duration watchDelay = const Duration(milliseconds: 20),
 }) {
   final providers = registry ?? ProviderRegistry(root: provider);
   // Колонки — те же, что объявляют модули приложения: без них сортировка по
@@ -78,6 +80,10 @@ TestPanel testPanel({
     columns: declared,
     sizeScanConcurrency: () => sizeScanConcurrency,
     cache: cache,
+    watchDirectories: () => watchDirectories,
+    // Окно накопления в прогоне короткое: ждать по три сотни миллисекунд на
+    // каждое событие — значит проверять терпение, а не слежение.
+    watchDelay: () => watchDelay,
   );
   // Вторая панель ядру нужна всегда — оно про две, — но проверке она не мешает:
   // стоит на том же источнике и никем не трогается.
