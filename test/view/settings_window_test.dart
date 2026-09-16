@@ -5,6 +5,7 @@ import 'package:fc_terminal/fc_terminal.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
+import 'package:flex_commander/view/dialogs/dialog_frame.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/state/shell_settings.dart';
@@ -333,23 +334,48 @@ void main() {
     await search(tester, 'квакозябра');
 
     expect(find.text('Nothing found'), findsOneWidget);
-    expect(find.byType(FcPickList), findsNothing);
     expect(find.text('0 settings'), findsOneWidget);
+    expect(find.byType(FcPickList), findsNothing, reason: 'пустое оглавление сказало бы то же самое вторично');
+    // А поле поиска остаётся: им же и ищут.
+    expect(find.byType(FcTextField), findsWidgets);
 
     await tester.pump(const Duration(milliseconds: 20));
   });
 
-  testWidgets('прокрученные настройки не подлезают под поиск', (tester) async {
+  testWidgets('список настроек прокручивается от самого верха окна', (tester) async {
     await openSettings(tester);
 
     // Обе прокрутки: сперва оглавление, за ним настройки.
     final viewports = find.descendant(of: find.byType(FcSettingsForm), matching: find.byType(SingleChildScrollView));
     expect(viewports, findsNWidgets(2));
 
-    // Отступ от поля поиска стоит **снаружи** прокрутки — как у оглавления.
-    // Внутри он уезжал бы вместе с содержимым, и настройки подлезали бы под
-    // поле, пока оглавление рядом держало бы свой отступ.
-    expect(tester.getRect(viewports.last).top, closeTo(tester.getRect(viewports.first).top, 0.5));
+    final form = tester.getRect(find.byType(FcSettingsForm));
+    final list = tester.getRect(viewports.last);
+    expect(
+      list.top,
+      closeTo(form.top, 0.5),
+      reason: 'область прокрутки начинается у края окна: содержимое уезжает под заголовок целиком',
+    );
+
+    // А поле окна при этом никуда не делось — оно **внутри** прокрутки, и
+    // уезжает вместе с содержимым.
+    final scroll = tester.widget<SingleChildScrollView>(viewports.last);
+    expect(scroll.padding, isNotNull, reason: 'иначе первый раздел прилипнет к краю окна');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('поле поиска стоит в столбце разделов', (tester) async {
+    await openSettings(tester);
+
+    final field = tester.getRect(find.byType(FcTextField).first);
+    final toc = tester.getRect(find.byType(FcPickList));
+    final viewports = find.descendant(of: find.byType(FcSettingsForm), matching: find.byType(SingleChildScrollView));
+    final list = tester.getRect(viewports.last);
+
+    expect(field.right, lessThanOrEqualTo(list.left + 0.5), reason: 'поле не залезает на список настроек');
+    expect(field.left, closeTo(toc.left, 0.5), reason: 'поле и разделы стоят одним столбцом');
+    expect(field.bottom, lessThanOrEqualTo(toc.top + 0.5), reason: 'поле над разделами, а не поверх них');
 
     await tester.pump(const Duration(milliseconds: 20));
   });
@@ -403,10 +429,39 @@ void main() {
     expect(find.byType(Scrollable), findsWidgets);
     expect(tester.takeException(), isNull);
 
-    // Кнопка «Close» остаётся видимой: прокручивается список, а не окно
-    // целиком.
-    expect(find.widgetWithText(FcButton, 'Close'), findsOneWidget);
-    expect(tester.getRect(find.widgetWithText(FcButton, 'Close')).bottom, lessThanOrEqualTo(420));
+    // Прокручивается список, а не окно целиком: полоса заголовка с крестиком
+    // остаётся на месте, а содержимое не вылезает за нижний край.
+    final form = tester.getRect(find.byType(FcSettingsForm));
+    expect(form.bottom, lessThanOrEqualTo(420.5));
+
+    final viewports = find.descendant(of: find.byType(FcSettingsForm), matching: find.byType(SingleChildScrollView));
+    expect(tester.getRect(viewports.last).bottom, lessThanOrEqualTo(form.bottom + 0.5));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('кнопок внизу нет: закрывают Esc и крестик', (tester) async {
+    await openSettings(tester);
+
+    // Ряд кнопок стоил бы списку полосы высоты, а сказать ему нечего:
+    // настройки применяются сразу (`docs/spec/dialog-body.md`). Кнопки у
+    // самих настроек при этом остаются — они делают дело, а не закрывают окно.
+    expect(find.byType(FcDialogActions), findsNothing);
+    expect(find.widgetWithText(FcButton, 'Close'), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('крестик в заголовке закрывает окно', (tester) async {
+    await openSettings(tester);
+
+    final cross = find.descendant(of: find.byType(DialogFrame), matching: find.byType(CustomPaint)).first;
+    expect(cross, findsOneWidget, reason: 'мышью окно тоже надо чем-то закрывать');
+
+    await tester.tap(cross);
+    await tester.pumpAndSettle();
+
+    expect(find.byType(FcSettingsForm), findsNothing);
 
     await tester.pump(const Duration(milliseconds: 20));
   });

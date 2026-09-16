@@ -1,6 +1,5 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
-import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
@@ -45,8 +44,6 @@ void main() {
   /// Само окно — то, что внутри рамы.
   Rect window(WidgetTester tester) =>
       tester.getRect(find.descendant(of: find.byType(DialogFrame), matching: find.byType(DialogWidth)));
-
-  FcMetrics metrics(WidgetTester tester) => FcTheme.of(tester.element(find.byType(DialogFrame))).metrics;
 
   /// Тянуть от точки, шагами: одно движение только начинает протяжку.
   Future<void> dragFrom(WidgetTester tester, Offset from, Offset by) async {
@@ -392,8 +389,7 @@ void main() {
     /// Содержимое справки — таблица со всеми командами.
     Rect content(WidgetTester tester) => tester.getRect(find.byType(FcKeyValueSections));
 
-    /// Кнопка, которой окно закрывают: она и есть ряд кнопок справки.
-    Rect closeButton(WidgetTester tester) => tester.getRect(find.widgetWithText(FcButton, 'Close'));
+    /// Низ окна: у справки кнопок нет вовсе — содержимое доходит до края.
 
     testWidgets('прибавка достаётся содержимому, а не пустоте', (tester) async {
       await start(tester);
@@ -405,30 +401,27 @@ void main() {
       expect(content(tester).height - before.height, moreOrLessEquals(100, epsilon: 2));
     });
 
-    testWidgets('ряд кнопок прижат к низу окна — и до протяжки, и после', (tester) async {
+    testWidgets('содержимое доходит до низа окна — и до протяжки, и после', (tester) async {
+      // Ряда кнопок у справки нет: закрывают её `Esc` и крестик, а полосу
+      // высоты содержимое получает себе.
       await start(tester);
       await openHelp(tester);
-      final padding = metrics(tester).dialogPadding;
 
-      expect(closeButton(tester).bottom, moreOrLessEquals(window(tester).bottom - padding, epsilon: 1));
+      expect(content(tester).bottom, moreOrLessEquals(window(tester).bottom, epsilon: 1));
 
       await dragFrom(tester, edgeOf(window(tester), bottom: 2), const Offset(0, 120));
 
-      expect(closeButton(tester).bottom, moreOrLessEquals(window(tester).bottom - padding, epsilon: 1));
+      expect(content(tester).bottom, moreOrLessEquals(window(tester).bottom, epsilon: 1));
     });
 
-    testWidgets('сжатое до предела окно кнопок не теряет', (tester) async {
+    testWidgets('сжатое до предела окно не ломается', (tester) async {
       await start(tester);
       await openHelp(tester);
 
       await dragFrom(tester, edgeOf(window(tester), bottom: 2), const Offset(0, -5000));
 
       expect(tester.takeException(), isNull);
-      expect(closeButton(tester), isNotNull);
-      expect(
-        closeButton(tester).bottom,
-        moreOrLessEquals(window(tester).bottom - metrics(tester).dialogPadding, epsilon: 1),
-      );
+      expect(content(tester).bottom, moreOrLessEquals(window(tester).bottom, epsilon: 1));
     });
   });
 

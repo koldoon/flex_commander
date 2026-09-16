@@ -25,6 +25,7 @@ class DialogFrame extends StatefulWidget {
     super.key,
     required this.onSubmit,
     required this.onDismiss,
+    this.closable = true,
     required this.child,
     this.title,
     this.takesFocus = false,
@@ -49,6 +50,13 @@ class DialogFrame extends StatefulWidget {
   /// Enter и Esc соответственно.
   final VoidCallback onSubmit;
   final VoidCallback onDismiss;
+
+  /// Есть ли в полосе заголовка крестик.
+  ///
+  /// Он делает то же, что `Esc`, — просто мышью. Ставится не везде: окно,
+  /// которое `Esc` не закрывает (вопрос, требующий ответа), крестиком врало бы
+  /// о том, чего не умеет.
+  final bool closable;
 
   /// Содержимое ставит фокус само (поле ввода) — тогда рама его не забирает.
   final bool takesFocus;
@@ -206,13 +214,49 @@ class _DialogFrameState extends State<DialogFrame> {
         //
         // Строго одна строка: в заголовке стоит имя файла, а оно бывает какой
         // угодно длины. Перенос рвал бы полосу — высота у неё ровно в строку.
-        child: _UnmeasuredTitle(
-          child: Text(
-            context.strings.tr(title),
-            style: theme.dialogTitleStyle,
-            maxLines: 1,
-            softWrap: false,
-            overflow: TextOverflow.ellipsis,
+        child: Row(
+          children: [
+            Expanded(
+              child: _UnmeasuredTitle(
+                child: Text(
+                  context.strings.tr(title),
+                  style: theme.dialogTitleStyle,
+                  maxLines: 1,
+                  softWrap: false,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ),
+            ),
+            if (widget.closable) _close(theme, metrics),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Крестик закрытия — то же, что `Esc`, но мышью.
+  ///
+  /// В полосе заголовка, а не кнопкой внизу: кнопка стоила бы окну целого ряда
+  /// (`docs/spec/dialog-body.md`), а здесь место уже занято заголовком и
+  /// пустует справа.
+  ///
+  /// **Рисуется штрихом, а не глифом шрифта значков.** Крестик FontAwesome в
+  /// этом кегле жирен — он нарисован для кнопок, а не для полосы заголовка, — и
+  /// тоньше его не сделать: толщина у глифа своя. Два отрезка в ту же клетку
+  /// дают тонкий штрих и остаются чёткими на любом множителе экрана.
+  Widget _close(FcTheme theme, FcMetrics metrics) {
+    return MouseRegion(
+      cursor: SystemMouseCursors.click,
+      child: GestureDetector(
+        // Своим жестом, а не кнопкой: полоса заголовка ловит протяжку, и
+        // кнопка внутри неё отбирала бы у окна возможность двигаться.
+        behavior: HitTestBehavior.opaque,
+        onTap: widget.onDismiss,
+        child: Padding(
+          padding: EdgeInsets.only(left: metrics.dialogGap),
+          child: CustomPaint(
+            size: Size.square(metrics.fontSize),
+            painter: _CloseCross(color: theme.colors.dialogTitleText, width: metrics.strokeWidth),
           ),
         ),
       ),
@@ -767,4 +811,37 @@ class _RenderUnmeasuredTitle extends RenderProxyBox {
 
   @override
   double computeMaxIntrinsicWidth(double height) => 0;
+}
+
+/// Крестик двумя отрезками.
+///
+/// Своим рисованием, а не глифом: в шрифте значков он нарисован жирным, и
+/// толщину у глифа не отнять. Здесь она задана — линейкой темы, той же, какой
+/// отбиты рамки и линейки.
+class _CloseCross extends CustomPainter {
+  const _CloseCross({required this.color, required this.width});
+
+  final Color color;
+  final double width;
+
+  /// Поле внутри клетки: крестик не упирается в её края, иначе рядом с текстом
+  /// он выглядит крупнее, чем есть.
+  static const double _inset = 0.18;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint =
+        Paint()
+          ..color = color
+          ..strokeWidth = width
+          ..strokeCap = StrokeCap.round
+          ..isAntiAlias = true;
+    final from = size.width * _inset;
+    final to = size.width * (1 - _inset);
+    canvas.drawLine(Offset(from, from), Offset(to, to), paint);
+    canvas.drawLine(Offset(to, from), Offset(from, to), paint);
+  }
+
+  @override
+  bool shouldRepaint(_CloseCross old) => old.color != color || old.width != width;
 }

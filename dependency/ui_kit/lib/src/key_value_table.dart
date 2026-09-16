@@ -3,7 +3,6 @@ import 'package:flutter/services.dart';
 
 import 'command_dialog.dart';
 import 'dialog_body.dart';
-import 'app_scope.dart';
 import 'fc_theme.dart';
 
 /// Строка таблицы: название и одно или два значения.
@@ -373,19 +372,19 @@ class FcKeyValueTable extends StatefulWidget {
   const FcKeyValueTable({
     super.key,
     required this.sections,
-    required this.onClose,
     this.actions = const [],
     this.horizontal = false,
     this.divided = false,
   });
 
   final List<FcTableSection> sections;
-  final VoidCallback onClose;
 
-  /// Кнопки левее «Close»: у справки их нет, у окна ошибки — «Report».
+  /// Кнопки окна: у справки и сведений их нет, у окна ошибки — «Report».
   ///
   /// Ряд кнопок собирается здесь, а не у вызывающего: он один на все окна
-  /// приложения, и обходить его своей разметкой нельзя (см. ниже).
+  /// приложения, и обходить его своей разметкой нельзя (см. ниже). Кнопок нет
+  /// вовсе — ряда нет, и места он не занимает: содержимое получает всю высоту
+  /// окна (`docs/spec/dialog-body.md`).
   final List<Widget> actions;
 
   /// Листается ли таблица вбок — см. [FcKeyValueSections.horizontal].
@@ -419,10 +418,10 @@ class _FcKeyValueTableState extends State<FcKeyValueTable> {
           // контроллером; поля она ставит внутри этой прокрутки.
           scrolls: false,
           insets: FcDialogInsets.none,
-          actions: [
-            ...widget.actions,
-            FcButton(label: context.strings.tr('Close'), onPressed: widget.onClose, primary: true),
-          ],
+          // Своей кнопки «Close» здесь нет: закрывают окно `Esc` и крестик в
+          // полосе заголовка, а ряд ради одного слова отнимал бы у содержимого
+          // полосу высоты. Кнопки, которые **делают дело**, остаются.
+          actions: widget.actions,
           child: FcKeyValueSections(sections: widget.sections, horizontal: widget.horizontal, divided: widget.divided),
         ),
       ),

@@ -85,7 +85,6 @@ class _ErrorDialog extends StatelessWidget {
       onDismiss: onClose,
       child: FcKeyValueTable(
         sections: _sections(context.strings),
-        onClose: onClose,
         actions: [FcButton(label: context.strings.tr('Report'), onPressed: onReport)],
       ),
     );

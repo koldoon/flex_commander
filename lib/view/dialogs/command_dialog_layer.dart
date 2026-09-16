@@ -39,6 +39,9 @@ class CommandDialogLayer extends StatelessWidget {
                 resizable: spec.resizable,
                 onSubmit: spec.onSubmit ?? () {},
                 onDismiss: spec.onDismiss ?? () {},
+                // Крестик — только там, где `Esc` и правда закрывает: иначе он
+                // обещал бы то, чего окно не умеет.
+                closable: spec.onDismiss != null,
                 child: spec.content,
               ),
           ],

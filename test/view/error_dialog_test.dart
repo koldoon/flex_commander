@@ -3,6 +3,7 @@ import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/state/error_controller.dart';
 import 'package:flex_commander/state/toast_controller.dart';
+import 'package:flex_commander/view/dialogs/dialog_frame.dart';
 import 'package:flex_commander/view/dialogs/error_layer.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -60,18 +61,22 @@ void main() {
     expect(find.text('Unexpected error (1 of 2)'), findsOneWidget);
   });
 
-  testWidgets('Close показывает следующую, а последнюю закрывает', (tester) async {
+  testWidgets('крестик показывает следующую, а последнюю закрывает', (tester) async {
     errors
       ..report(StateError('первая'), StackTrace.fromString('#0 a'))
       ..report(StateError('вторая'), StackTrace.fromString('#0 b'));
     await pump(tester);
 
-    await tester.tap(find.text('Close'));
+    // Закрывают крестиком в полосе заголовка: своей кнопки «Close» у окна
+    // больше нет — ряд ради одного слова отнимал бы полосу высоты.
+    Finder cross() => find.descendant(of: find.byType(DialogFrame), matching: find.byType(CustomPaint)).first;
+
+    await tester.tap(cross());
     await tester.pump();
 
     expect(find.textContaining('вторая'), findsWidgets);
 
-    await tester.tap(find.text('Close'));
+    await tester.tap(cross());
     await tester.pump();
 
     expect(find.text('Unexpected error'), findsNothing);

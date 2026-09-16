@@ -6,6 +6,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flex_commander/view/dialogs/dialog_frame.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Справка: таблица текущих настроек и привязок клавиш.
@@ -75,7 +76,7 @@ void main() {
   String valueOf(WidgetTester tester, String name) => rowOf(tester, name).firstOrNull ?? '';
 
   group('окно', () {
-    testWidgets('F1 открывает справку с одной кнопкой', (tester) async {
+    testWidgets('F1 открывает справку', (tester) async {
       await openHelp(tester);
 
       expect(find.byType(FcKeyValueTable), findsOneWidget);
@@ -86,30 +87,29 @@ void main() {
       // Команды показаны по модулям: заголовок раздела — название модуля, а не
       // общее «Commands». Первым — тот, кто объявлен первым.
       expect(inHelp(find.text('Application shell')), findsOneWidget);
-      // Единственная кнопка: закрыть. Ни отмены, ни подтверждения — читать
-      // справку нечем, кроме глаз.
-      expect(find.byType(FcButton), findsOneWidget);
-      expect(find.widgetWithText(FcButton, 'Close'), findsOneWidget);
+      // Кнопок нет вовсе: читать справку нечем, кроме глаз, а закрывают её
+      // `Esc` и крестик в заголовке.
+      expect(find.byType(FcButton), findsNothing);
     });
 
-    testWidgets('кнопка по размеру подписи и прижата вправо, как в других окнах', (tester) async {
+    testWidgets('кнопок внизу нет: справка ничего не делает, её читают', (tester) async {
       await openHelp(tester, size: const Size(1400, 900));
 
-      final button = find.widgetWithText(FcButton, 'Close');
-      final size = tester.getSize(button);
-      final dialog = tester.getRect(find.byType(FcKeyValueTable));
+      // Ряд ради одного слова «Close» отнимал бы у текста полосу высоты, а
+      // закрывают окно `Esc` и крестик в заголовке (`docs/spec/dialog-body.md`).
+      expect(find.byType(FcDialogActions), findsNothing);
+      expect(find.widgetWithText(FcButton, 'Close'), findsNothing);
 
-      // `FcButton` — это Container с alignment: под ограниченной по ширине
-      // разметкой он растягивается во всю ширину окна. Ряд кнопок этого не
-      // допускает, и проверять надо именно ширину, а не факт наличия кнопки.
-      expect(size.width, lessThan(dialog.width / 3));
-      expect(tester.getRect(button).right, closeTo(dialog.right - 16, 4));
+      // И содержимое от этого доходит до низа окна, а не оставляет полосу.
+      final dialog = tester.getRect(find.byType(FcKeyValueTable));
+      final content = tester.getRect(find.byType(FcKeyValueSections));
+      expect(content.bottom, closeTo(dialog.bottom, 1));
     });
 
-    testWidgets('кнопка закрывает окно', (tester) async {
+    testWidgets('крестик в заголовке закрывает окно', (tester) async {
       await openHelp(tester);
 
-      await tester.tap(find.widgetWithText(FcButton, 'Close'));
+      await tester.tap(find.descendant(of: find.byType(DialogFrame), matching: find.byType(CustomPaint)).first);
       await tester.pumpAndSettle();
 
       expect(find.byType(FcKeyValueTable), findsNothing);
