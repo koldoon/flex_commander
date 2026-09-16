@@ -8,6 +8,7 @@ import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/core/panel_session.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -363,6 +364,61 @@ void main() {
 
     expect(panel.markedPaths, isEmpty);
     expect(markedRows(tester), 0);
+  });
+
+  testWidgets('правой кнопкой помечают протягиванием — как в списке', (tester) async {
+    // Жеста в дереве не было вовсе: клавишей помечалось всё, а мышью — ничего
+    // (`docs/spec/mouse-marking.md`).
+    final runtime = await open(tester, at: '/home/lib');
+    final panel = runtime.app.left;
+
+    Finder branch(String name) => find.descendant(of: find.byType(TreeView), matching: find.text(name));
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse, buttons: kSecondaryMouseButton);
+    await mouse.addPointer(location: tester.getCenter(branch('src')));
+    await tester.pump();
+    await mouse.down(tester.getCenter(branch('src')));
+    await tester.pump(const Duration(milliseconds: 20));
+    await mouse.moveTo(tester.getCenter(branch('app.dart')));
+    await tester.pump(const Duration(milliseconds: 20));
+    await mouse.up();
+    await tester.pumpAndSettle();
+    await mouse.removePointer();
+
+    expect(panel.markedPaths, {'/home/lib/src', '/home/lib/app.dart'}, reason: 'помечен весь отрезок');
+    expect(markedRows(tester), 2, reason: 'и это видно в дереве');
+  });
+
+  testWidgets('протяжка помечает ровно то же, что клавиша', (tester) async {
+    // Жест кладёт пометку набором путей, мимо ядра, а клавиша идёт через него.
+    // Разойтись им нельзя: цели `F5` берутся из одной и той же пометки.
+    final runtime = await open(tester, at: '/home/lib');
+    final panel = runtime.app.left;
+
+    Finder branch(String name) => find.descendant(of: find.byType(TreeView), matching: find.text(name));
+
+    // Клавишей: курсор на `src`, пометили.
+    runtime.commands.dispatch(KeyCombination.parse('Down'));
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Space'));
+    await tester.pumpAndSettle();
+    final byKey = {...panel.markedPaths};
+    expect(byKey, isNotEmpty);
+
+    // Снимаем и повторяем то же мышью — одним щелчком правой.
+    panel.setMarks(const {});
+    await tester.pumpAndSettle();
+
+    final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse, buttons: kSecondaryMouseButton);
+    await mouse.addPointer(location: tester.getCenter(branch('src')));
+    await tester.pump();
+    await mouse.down(tester.getCenter(branch('src')));
+    await tester.pump(const Duration(milliseconds: 20));
+    await mouse.up();
+    await tester.pumpAndSettle();
+    await mouse.removePointer();
+
+    expect(panel.markedPaths, byKey, reason: 'мышь и клавиша помечают одно и то же');
   });
 
   testWidgets('пометка из разных ветвей складывается', (tester) async {

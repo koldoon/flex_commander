@@ -10,6 +10,7 @@ import 'columns.dart';
 import 'cursor_pin.dart';
 import 'file_table_header.dart';
 import 'file_type_icon.dart';
+import 'mark_drag.dart';
 import 'panel_drag.dart';
 import 'panels_settings.dart';
 
@@ -66,6 +67,24 @@ class TreeViewState extends State<TreeView> {
   /// Высота шапки: она входит в область, но не в список, и попадание броском
   /// считается от первой строки, а не от верха области.
   double _headerHeight = 0;
+
+  /// Высота самого списка: по ней жест пометки узнаёт, что указатель ушёл за
+  /// край и список пора везти самому.
+  double _listHeight = 0;
+
+  /// Пометка правой кнопкой — жест общий с таблицей и сеткой
+  /// (`spec/mouse-marking.md`).
+  ///
+  /// Дереву его просто не подключили, и до сих пор в нём нельзя было пометить
+  /// протяжкой ни одной ветви — при том, что клавишей помечается всё.
+  late final MarkDrag _marking = MarkDrag(
+    panel: widget.panel,
+    indexAt: _indexAt,
+    indexNear: _rowNear,
+    bounds: () => (_headerHeight, _headerHeight + _listHeight),
+    scroll: () => _scroll,
+    activate: () => AppScope.read(context).activate(widget.panel),
+  );
 
   /// Куда бросили: ветвь раскрывается сразу, а перечитывается, когда работа
   /// кончится (`docs/spec/drag-and-drop.md`, §4).
@@ -133,6 +152,7 @@ class TreeViewState extends State<TreeView> {
 
   @override
   void dispose() {
+    _marking.dispose();
     _operations?.removeListener(_onOperations);
     _scroll.dispose();
     super.dispose();
@@ -270,6 +290,30 @@ class TreeViewState extends State<TreeView> {
       }
     }
     return -1;
+  }
+
+  /// Номер строки под точкой; null — мимо строк (шапка, пустое место).
+  int? _indexAt(Offset local) {
+    if (_step <= 0 || local.dy < _headerHeight) {
+      return null;
+    }
+    final offset = _scroll.hasClients ? _scroll.offset : 0.0;
+    final index = ((local.dy - _headerHeight + offset) / _step).floor();
+    return index >= 0 && index < _rows.length ? index : null;
+  }
+
+  /// Строка, к которой тянут: за краями списка — крайняя видимая, а не
+  /// последняя в дереве. Иначе указатель, ушедший за нижний край, помечал бы
+  /// дерево до конца одним махом.
+  int _rowNear(Offset local) {
+    final rows = _rows;
+    if (_step <= 0 || rows.isEmpty) {
+      return 0;
+    }
+    final bottom = _headerHeight + _listHeight;
+    final dy = local.dy.clamp(_headerHeight, math.max(_headerHeight, bottom - 1));
+    final offset = _scroll.hasClients ? _scroll.offset : 0.0;
+    return ((dy - _headerHeight + offset) / _step).floor().clamp(0, rows.length - 1);
   }
 
   /// Строка под точкой — в местных координатах области.
@@ -430,6 +474,7 @@ class TreeViewState extends State<TreeView> {
             builder: (context, constraints) {
               // Страница — то, что видно: тем же счётом, что в таблице.
               panel.pageSize = (constraints.maxHeight / step).floor().clamp(1, 1000);
+              _listHeight = constraints.maxHeight;
               return ListView.builder(
                 controller: _scroll,
                 itemExtent: step,
@@ -494,12 +539,21 @@ class TreeViewState extends State<TreeView> {
 
         // Бросают в каталог под указателем, а не в каталог панели: дерево
         // показывает много каталогов разом.
-        return PanelDropArea(
-          panel: panel,
-          spotAt: _spotAt,
-          highlightOf: _highlightOf,
-          onDropped: _onDropped,
-          child: content,
+        // Слой пометки стоит **всегда**, а не появляется вместе с жестом:
+        // строение дерева посреди работы мышью меняться не вправе
+        // (`spec/drag-and-drop.md`).
+        return Listener(
+          onPointerDown: _marking.down,
+          onPointerMove: _marking.move,
+          onPointerUp: _marking.up,
+          onPointerCancel: _marking.up,
+          child: PanelDropArea(
+            panel: panel,
+            spotAt: _spotAt,
+            highlightOf: _highlightOf,
+            onDropped: _onDropped,
+            child: content,
+          ),
         );
       },
     );
