@@ -97,6 +97,72 @@ void main() {
     });
   });
 
+  group('с припиской справа', () {
+    /// Что просмотрщик картинок пишет о снимке.
+    const about = '2560×1600';
+
+    /// Имя длиннее, чем влезает, и **одним звеном**: так выглядит снимок с
+    /// обоев — звенья отбросить уже нечего, и путь режется по буквам.
+    const long = '/Users/koldoon/Pictures/beautiful-mountains-nature-wallpaper-hd-widescreen-original-3840.jpg';
+
+    Future<void> pumpWithSuffix(WidgetTester tester, {required double width}) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            extensions: const [
+              FcTheme(colors: DefaultColors(), metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts()),
+            ],
+          ),
+          home: Scaffold(
+            body: Center(
+              child: SizedBox(
+                width: width,
+                height: 300,
+                child: const FcPanelFrame(header: FcPathPlate(path: long, trailing: about), child: SizedBox()),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('путь занимает всё, что осталось от приписки', (tester) async {
+      // Прежде путь и приписка были гибкими оба, и плашка делилась пополам:
+      // имя обрывалось на полуслове посреди свободного места.
+      await pumpWithSuffix(tester, width: 1000);
+
+      final texts = find.descendant(of: find.byType(FcPathPlate), matching: find.byType(Text));
+      final shownPath = tester.getRect(texts.first);
+      final shownAbout = tester.getRect(texts.last);
+      final plate = tester.getRect(find.byType(FcPathPlate));
+
+      final inner = plate.width - 2 * (metrics.labelPadding + metrics.strokeWidth);
+      expect(
+        shownPath.width + shownAbout.width,
+        closeTo(inner, 2),
+        reason: 'вдвоём они занимают плашку целиком, а не половину на каждого',
+      );
+      expect(
+        shownPath.width,
+        closeTo(inner - shownAbout.width, 2),
+        reason: 'пути досталось всё остальное, а не половина плашки',
+      );
+    });
+
+    testWidgets('набранный путь не вылезает за отведённое', (tester) async {
+      await pumpWithSuffix(tester, width: 1000);
+
+      final texts = find.descendant(of: find.byType(FcPathPlate), matching: find.byType(Text));
+      final paragraph = tester.renderObject<RenderParagraph>(texts.first);
+      final box = tester.getRect(texts.first);
+
+      // Набранная строка шире коробки — это и есть обрыв на полуслове: текст
+      // обрезается по краю, и многоточия у него нет.
+      expect(paragraph.getMaxIntrinsicWidth(double.infinity), lessThanOrEqualTo(box.width + 0.5));
+    });
+  });
+
   testWidgets('короткому пути многоточие ни к чему', (tester) async {
     await pumpPlate(tester, width: 393);
 

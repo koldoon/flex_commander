@@ -1,3 +1,5 @@
+import 'dart:math' as math;
+
 import 'package:flutter/material.dart';
 
 import 'fc_theme.dart';
@@ -104,10 +106,14 @@ class FcPathPlate extends StatelessWidget {
 
             // Что остаётся пути: вся плашка минус слот с его зазором и минус
             // приписка.
-            final free =
-                constraints.maxWidth -
-                (leading == null ? 0 : leadingWidth + metrics.labelPadding) -
-                (suffix == null ? 0 : textWidthOf(_gap + suffix, style, scaler));
+            final suffixWidth = suffix == null ? 0.0 : textWidthOf(_gap + suffix, style, scaler);
+
+            // Что остаётся пути: вся плашка минус слот с его зазором и минус
+            // приписка.
+            final free = math.max(
+              0.0,
+              constraints.maxWidth - (leading == null ? 0 : leadingWidth + metrics.labelPadding) - suffixWidth,
+            );
 
             final pathText =
                 content?.call(context, free, style) ??
@@ -123,12 +129,22 @@ class FcPathPlate extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 if (leading case final slot?) ...[slot, SizedBox(width: metrics.labelPadding)],
-                Flexible(child: pathText),
-                // Приписка тоже гнётся: в узкой панели её одной хватало, чтобы
-                // плашка вылезла за края. Путь к тому времени ужат уже до
-                // ничего, и ужиматься дальше некому.
+                // Гнутся оба, но **по нужде, а не поровну**.
+                //
+                // Весом берётся то, сколько места каждому отмерено: путь уже
+                // обрезан по [free], приписке нужна её ширина, и вместе они —
+                // ровно плашка. Раньше вес был у обоих один, плашка делилась
+                // пополам, и длинное имя обрывалось на полуслове посреди
+                // свободного места, потому что половину занимала приписка
+                // размером в треть.
+                //
+                // Гибкими они остаются оба: приписки в узкой панели одной
+                // хватало, чтобы плашка вылезла за края, а крошкам нужно уметь
+                // сворачиваться по тому месту, которое и правда осталось.
+                Flexible(flex: math.max(1, free.round()), child: pathText),
                 if (suffix != null)
                   Flexible(
+                    flex: math.max(1, suffixWidth.round()),
                     child: Text(
                       _gap + suffix,
                       maxLines: 1,
