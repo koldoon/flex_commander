@@ -77,7 +77,10 @@ class IconTile extends StatelessWidget {
               _icon(theme),
               SizedBox(height: metrics.rowGap),
               SizedBox(
-                height: nameHeight,
+                // Место под полосу пометки отведено **всегда**, помечен объект
+                // или нет: иначе пометка двигала бы имя вниз, а она не вправе
+                // двигать ничего.
+                height: markRoom(metrics) + nameHeight,
                 child: Align(alignment: Alignment.topCenter, child: _name(context, theme, style)),
               ),
             ],
@@ -170,44 +173,50 @@ class IconTile extends StatelessWidget {
     );
 
     if (plate == null && !marked) {
-      return text;
+      // С тем же отступом сверху, что и у помеченного: место под полосу
+      // отведено всем, иначе имена стояли бы на разной высоте.
+      return Padding(padding: EdgeInsets.only(top: markRoom(metrics)), child: text);
     }
 
-    final Widget named =
-        plate == null
-            ? text
-            : ClipRRect(
-              borderRadius: BorderRadius.circular(metrics.panelRadius),
-              child: DecoratedBox(decoration: BoxDecoration(color: plate), child: text),
-            );
-
-    if (!marked) {
-      return named;
-    }
-
-    // Полоса пометки рисуется **снаружи** плашки, а не внутри неё.
+    // Полоса пометки — **над именем**, поверх плашки, во всю её ширину.
     //
-    // Внутри она отнимала бы у имени место: помеченное имя обрезалось бы
-    // раньше непомеченного, а текст ездил бы вбок на ширину полосы — ровно в
-    // тот миг, когда на строку смотрят. Снаружи не меняется ничего: пометка
-    // только добавляет знак слева (`docs/spec/panel-view-icons.md`, §4).
-    //
-    // Место для неё берётся из просвета сетки: он один и тот же между плитками
-    // и вокруг них, и полосы с её отбивкой в нём помещаются.
-    return Stack(
-      clipBehavior: Clip.none,
-      children: [
-        named,
-        Positioned(
-          left: -(metrics.markedBarWidth + metrics.markedBarGap),
-          top: 0,
-          bottom: 0,
-          width: metrics.markedBarWidth,
-          child: ColoredBox(color: colors.markedBar),
+    // Места у имени она при этом не отнимает: плашка на ту же высоту растёт
+    // вверх, а место над ней отведено заранее — и текст остаётся ровно там же,
+    // где стоял до пометки. Отними полоса место изнутри, буквы прыгали бы вниз
+    // ровно в тот миг, когда на плитку смотрят
+    // (`docs/spec/panel-view-icons.md`, §4).
+    final grown = marked ? markRoom(metrics) : 0.0;
+
+    final Widget plated = ClipRRect(
+      borderRadius: BorderRadius.circular(metrics.panelRadius),
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: plate),
+        child: Stack(
+          children: [
+            Padding(padding: EdgeInsets.only(top: grown), child: text),
+            if (marked)
+              Positioned(
+                left: 0,
+                right: 0,
+                // По краю плашки, а отбивка — только снизу, от букв: сверху
+                // плашка её и так держит.
+                top: 0,
+                height: metrics.markedBarWidth,
+                child: ColoredBox(color: colors.markedBar),
+              ),
+          ],
         ),
-      ],
+      ),
     );
+
+    // Непомеченное имя опускается ровно на столько, сколько у помеченного
+    // занимает полоса: у обоих оно оказывается на одной высоте, а плашка у
+    // помеченного вырастает вверх, а не съедает строку.
+    return marked ? plated : Padding(padding: EdgeInsets.only(top: markRoom(metrics)), child: plated);
   }
+
+  /// Сколько места отведено полосе пометки: она сама и её отбивка от букв.
+  static double markRoom(FcMetrics metrics) => metrics.markedBarWidth + metrics.markedBarGap;
 
   /// Чем набрано имя под значком: **обычным набором, а не моноширинным**.
   ///
@@ -226,5 +235,5 @@ class IconTile extends StatelessWidget {
   /// Считается в одном месте: по ней же ищут плитку под указателем и место
   /// броска, а это три обычных промаха на один просвет.
   static double height(FcMetrics metrics, double iconSize, double nameHeight) =>
-      metrics.rowGap * 2 + iconSize + metrics.iconGap * 2 + metrics.rowGap + nameHeight;
+      metrics.rowGap * 2 + iconSize + metrics.iconGap * 2 + metrics.rowGap + markRoom(metrics) + nameHeight;
 }

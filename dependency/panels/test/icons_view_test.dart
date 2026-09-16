@@ -328,19 +328,21 @@ void main() {
     panel.mark(panel.entries.firstWhere((entry) => entry.name == name(3)));
     await tester.pumpAndSettle();
 
-    expect(tester.getRect(text), before, reason: 'полоса рисуется снаружи и ничего не отнимает');
+    expect(tester.getRect(text), before, reason: 'место под полосу отведено заранее, а не отнято у имени');
 
-    // Сама полоса — слева от плашки, через просвет.
+    // Полоса — над именем, поверх плашки и во всю её ширину.
     final tile = find.ancestor(of: text, matching: find.byType(IconTile)).first;
     final plate = find.descendant(of: tile, matching: find.byType(ClipRRect)).first;
     final bar = find.descendant(of: tile, matching: find.byType(ColoredBox)).first;
-    final metrics = const DefaultMetrics();
+    const metrics = DefaultMetrics();
 
-    expect(tester.getSize(bar).width, metrics.markedBarWidth);
+    expect(tester.getSize(bar).height, metrics.markedBarWidth);
+    expect(tester.getSize(bar).width, closeTo(tester.getSize(plate).width, 0.5), reason: 'во всю ширину плашки');
+    expect(tester.getRect(bar).top, closeTo(tester.getRect(plate).top, 0.5), reason: 'по верхнему краю плашки');
     expect(
-      tester.getRect(plate).left - tester.getRect(bar).right,
+      tester.getRect(text).top - tester.getRect(bar).bottom,
       closeTo(metrics.markedBarGap, 0.5),
-      reason: 'иначе имя читается вплотную к полосе',
+      reason: 'между полосой и буквами — её отбивка',
     );
   });
 
