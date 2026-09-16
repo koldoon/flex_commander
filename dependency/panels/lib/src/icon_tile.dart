@@ -7,8 +7,11 @@ import 'file_type_icon.dart';
 
 /// Одна плитка сетки: значок, под ним имя в две строки.
 ///
-/// То же, чем [FileTableRow] служит списку, — с одной разницей: подсветка
-/// обводит **ячейку**, а не полосу во всю ширину. Плитка и есть ячейка
+/// То же, чем `FileTableRow` служит списку, — но подсветка устроена иначе.
+/// Строка занимает всю ширину, и красить её фоном целиком естественно; плитка
+/// же стоит в сетке, и залитый прямоугольник в четверть панели читается
+/// пятном. Поэтому курсор и пометка живут **плашками**: скруглённая плашка под
+/// значком и такая же под именем, облегающая текст
 /// (`docs/spec/panel-view-icons.md`, §4).
 class IconTile extends StatelessWidget {
   const IconTile({
@@ -58,53 +61,100 @@ class IconTile extends StatelessWidget {
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: onTap,
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color:
-              _selected
-                  ? colors.cursorBackground
-                  : marked
-                  ? colors.markedBackground
-                  : null,
+      // Во всю ширину и по центру: [FcTrimmedText] ширину берёт только для
+      // мерки, а рисуется по содержимому, — и без этого короткое имя утащило
+      // бы за собой всю плитку к левому краю, а столбцы перестали бы читаться
+      // столбцами.
+      child: SizedBox(
+        width: double.infinity,
+        child: Padding(
+          padding: EdgeInsets.symmetric(horizontal: metrics.cellPadding, vertical: metrics.rowGap),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              _icon(theme),
+              SizedBox(height: metrics.rowGap),
+              SizedBox(height: nameHeight, child: Align(alignment: Alignment.topCenter, child: _name(theme, style))),
+            ],
+          ),
         ),
+      ),
+    );
+  }
+
+  /// Значок на плашке — под курсором; иначе просто значок.
+  ///
+  /// Плашка чуть больше самого значка: её поле — тот же просвет, каким значок
+  /// отбит от имени в строке списка.
+  Widget _icon(FcTheme theme) {
+    final metrics = theme.metrics;
+    // Значок берётся у той же службы, что и в списке: плитка своего рисования
+    // не заводит вовсе, поэтому миниатюры потом не потребуют её правок
+    // (`docs/spec/file-icons.md`).
+    final Widget glyph = FileTypeIcon(
+      entry: entry,
+      selected: _selected,
+      contentOf: contentOf,
+      size: iconSize,
+      // Дыры на месте значка в плитке быть не должно: у файла без правила
+      // рисуется лист бумаги.
+      fillsBlank: true,
+    );
+
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        // Своей роли цвета этап не заводит: плашка панели — это и есть
+        // «поверхность поверх фона», а новая роль стоила бы правки макета
+        // (`docs/spec/design-system.md`, §8).
+        color: _selected ? theme.colors.panelBackground : null,
+        borderRadius: BorderRadius.circular(metrics.panelRadius),
+      ),
+      child: Padding(
+        padding: EdgeInsets.all(metrics.iconGap),
+        child: SizedBox(width: iconSize, height: iconSize, child: Center(child: glyph)),
+      ),
+    );
+  }
+
+  /// Имя в плашке, облегающей текст.
+  ///
+  /// Короткое имя — короткая плашка: залитая во всю ширину полоса под коротким
+  /// именем читалась бы обрубком ряда, а не пометкой объекта.
+  Widget _name(FcTheme theme, TextStyle style) {
+    final metrics = theme.metrics;
+    final colors = theme.colors;
+    final plate =
+        _selected
+            ? colors.cursorBackground
+            : marked
+            ? colors.markedBackground
+            : null;
+
+    final Widget text = Padding(
+      padding: EdgeInsets.symmetric(horizontal: metrics.cellPadding),
+      child: FcTrimmedText(
+        text: entry.name,
+        style: style,
+        // Ровно столько, сколько текст и получит: поля плитки и поля плашки.
+        width: width - metrics.cellPadding * 4,
+        textAlign: TextAlign.center,
+        maxLines: nameLines,
+      ),
+    );
+
+    if (plate == null) {
+      return text;
+    }
+
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(metrics.panelRadius),
+      child: DecoratedBox(
+        decoration: BoxDecoration(color: plate),
         child: Stack(
           children: [
-            Padding(
-              padding: EdgeInsets.symmetric(horizontal: metrics.cellPadding, vertical: metrics.rowGap),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  // Значок берётся у той же службы, что и в списке: плитка
-                  // своего рисования не заводит вовсе, поэтому миниатюры потом
-                  // не потребуют её правок (`docs/spec/file-icons.md`).
-                  SizedBox(
-                    height: iconSize,
-                    child: FileTypeIcon(
-                      entry: entry,
-                      selected: _selected,
-                      contentOf: contentOf,
-                      size: iconSize,
-                      // Дыры на месте значка в плитке быть не должно: у файла
-                      // без правила рисуется лист бумаги.
-                      fillsBlank: true,
-                    ),
-                  ),
-                  SizedBox(height: metrics.rowGap),
-                  SizedBox(
-                    height: nameHeight,
-                    child: FcTrimmedText(
-                      text: entry.name,
-                      style: style,
-                      width: width - metrics.cellPadding * 2,
-                      textAlign: TextAlign.center,
-                      maxLines: IconTile.nameLines,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            // Полоса пометки поверх фона: она обязана читаться и тогда, когда
-            // плитка вдобавок под курсором.
+            text,
+            // Полоса пометки поверх плашки: пометка обязана читаться и тогда,
+            // когда плитка вдобавок под курсором.
             if (marked)
               Positioned(
                 left: 0,
@@ -123,10 +173,10 @@ class IconTile extends StatelessWidget {
   /// камеры, а третья отнимает у сетки ряд.
   static const int nameLines = 2;
 
-  /// Высота плитки — поле, значок, просвет, две строки имени.
+  /// Высота плитки — поле, плашка значка, просвет, две строки имени.
   ///
   /// Считается в одном месте: по ней же ищут плитку под указателем и место
   /// броска, а это три обычных промаха на один просвет.
   static double height(FcMetrics metrics, double iconSize, double nameHeight) =>
-      metrics.rowGap * 2 + iconSize + metrics.rowGap + nameHeight;
+      metrics.rowGap * 2 + iconSize + metrics.iconGap * 2 + metrics.rowGap + nameHeight;
 }

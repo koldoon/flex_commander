@@ -22,8 +22,8 @@ void main() {
     for (var i = 1; i <= count; i++) FakeEntry.file('/home/${name(i)}', size: i),
   ])..home = '/home';
 
-  Future<AppRuntime> open(WidgetTester tester, {Size size = const Size(900, 500)}) async {
-    final runtime = await testApp(provider: provider(), modules: featureModules());
+  Future<AppRuntime> open(WidgetTester tester, {Size size = const Size(900, 500), InMemoryTreeProvider? source}) async {
+    final runtime = await testApp(provider: source ?? provider(), modules: featureModules());
     await runtime.app.start();
 
     tester.view.physicalSize = size;
@@ -198,6 +198,40 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(shown().length, lessThan(small), reason: 'крупнее плитки — меньше их на экране');
+  });
+
+  testWidgets('короткое имя не утаскивает плитку к левому краю', (tester) async {
+    // Имена разной длины в одном каталоге: текст рисуется по содержимому, и
+    // без явной ширины короткое имя тянуло бы за собой всю плитку — столбцы
+    // переставали бы читаться столбцами.
+    await open(
+      tester,
+      source: InMemoryTreeProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.file('/home/a.txt', size: 1),
+        FakeEntry.file('/home/b.txt', size: 2),
+        FakeEntry.file('/home/имя подлиннее прочих.txt', size: 3),
+        FakeEntry.file('/home/c.txt', size: 4),
+      ])..home = '/home',
+    );
+
+    // Плитки одной ширины: иначе короткое имя сжимает свою, и столбцы
+    // перестают быть столбцами.
+    final tiles = [for (final tile in find.byType(IconTile).evaluate()) tester.getRect(find.byWidget(tile.widget))];
+    expect(tiles.length, greaterThan(3));
+    for (final tile in tiles) {
+      expect(tile.width, closeTo(tiles.first.width, 0.5), reason: 'все плитки одной ширины');
+    }
+
+    for (final label in ['a.txt', 'b.txt', 'имя подлиннее прочих.txt', 'c.txt']) {
+      final text = find.text(label).first;
+      final tile = find.ancestor(of: text, matching: find.byType(IconTile)).first;
+      expect(
+        tester.getRect(text).center.dx,
+        closeTo(tester.getRect(tile).center.dx, 0.5),
+        reason: 'имя «$label» стоит по середине своей плитки',
+      );
+    }
   });
 
   testWidgets('щелчок ставит курсор на ту плитку, по которой щёлкнули', (tester) async {

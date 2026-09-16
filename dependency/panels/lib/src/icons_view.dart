@@ -266,7 +266,12 @@ class _IconsViewState extends State<IconsView> {
                 least,
                 _widest.of(context, entries, style: theme.rowStyle) + metrics.cellPadding * 2,
               );
-              final tileWidth = math.min(wanted, math.max(available / _minColumns, least));
+              // Четверть **с просветами**, а не просто четверть ширины: иначе
+              // четвёртый столбец не помещается никогда — на него не хватает
+              // ровно трёх просветов, и каталог длинных имён показывается
+              // тремя плитками вместо четырёх.
+              final quarter = (available - gap * (_minColumns - 1)) / _minColumns;
+              final tileWidth = math.min(wanted, math.max(quarter, least));
               final columns = math.max(1, ((available + gap) / (tileWidth + gap)).floor());
               final rowHeight = tileHeight + gap;
               final total = entries.isEmpty ? 0 : (entries.length / columns).ceil();
