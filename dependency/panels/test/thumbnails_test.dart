@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -55,6 +56,21 @@ void main() {
 
     expect(system.asked, isNotEmpty, reason: 'сетка просит значок крупным — миниатюру спрашивают');
     expect(pictureOf('shot.jpg'), findsOneWidget);
+  });
+
+  testWidgets('миниатюра кроется маской со скруглением', (tester) async {
+    await open(tester);
+
+    final clip = find.ancestor(of: pictureOf('shot.jpg'), matching: find.byType(ClipRRect)).first;
+    expect(
+      tester.widget<ClipRRect>(clip).borderRadius,
+      BorderRadius.circular(const DefaultMetrics().panelRadius),
+      reason: 'прямой угол рядом со скруглёнными плашками читается чужим',
+    );
+
+    // Маска надета на саму картинку, а не на отведённый ей квадрат: широкий
+    // снимок не достаёт до верха и низа, и скруглять пустое место незачем.
+    expect(tester.getRect(clip), tester.getRect(pictureOf('shot.jpg')));
   });
 
   testWidgets('миниатюры нет — плитка остаётся со значком', (tester) async {

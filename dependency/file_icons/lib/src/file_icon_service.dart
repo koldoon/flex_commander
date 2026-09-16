@@ -173,7 +173,7 @@ class FileIconService implements FileIcons {
       return null;
     }
     if (store.known(entry, pixels) case final image?) {
-      return IconPicture(image);
+      return IconPicture(image, content: true);
     }
     if (store.wants(entry, pixels)) {
       needs.add(store.ask(entry, pixels, stillWanted: stillWanted));

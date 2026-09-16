@@ -120,15 +120,32 @@ class _FileTypeIconState extends State<FileTypeIcon> {
     // ignore: non_const_argument_for_const_parameter
     IconGlyph(:final codePoint) => _glyph(theme, IconData(codePoint, fontFamily: theme.icons.fontFamily), size),
     // Картинка рисуется как есть, без перекраски — см. [FileTypeIcon.selected].
-    IconPicture(:final image) => Image(
-      image: image,
-      width: size,
-      height: size,
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.medium,
-    ),
+    IconPicture(:final image, :final content) => _picture(theme, image, size, content: content),
     IconNothing() => widget.fillsBlank ? _glyph(theme, theme.icons.file, size) : SizedBox(width: size),
   };
+
+  /// Картинка — значком или содержимым.
+  ///
+  /// **Значок** занимает отведённый квадрат целиком: у него свои прозрачные
+  /// поля и своя форма, и подрезать его нечем и незачем.
+  ///
+  /// **Миниатюра** прямоугольна до самого края и в квадрат вписана с полями —
+  /// широкий снимок не достаёт до верха и низа. Поэтому маска надевается не на
+  /// квадрат, а на саму картинку: размер ей не задаётся вовсе, и она сама
+  /// становится ровно такой, какой влезла, — а скругление ложится по её краю
+  /// (`docs/spec/file-thumbnails.md`, §9).
+  Widget _picture(FcTheme theme, ImageProvider image, double size, {required bool content}) {
+    if (!content) {
+      return Image(image: image, width: size, height: size, fit: BoxFit.contain, filterQuality: FilterQuality.medium);
+    }
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(theme.metrics.panelRadius),
+      child: ConstrainedBox(
+        constraints: BoxConstraints(maxWidth: size, maxHeight: size),
+        child: Image(image: image, fit: BoxFit.contain, filterQuality: FilterQuality.medium),
+      ),
+    );
+  }
 
   /// Глиф красится темой. Незнакомая роль не рисует ничего и не роняет
   /// приложение: имя роли приезжает из файла настроек, а его правят руками.
