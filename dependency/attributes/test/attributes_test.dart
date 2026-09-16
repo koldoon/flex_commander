@@ -895,11 +895,12 @@ void main() {
       expect(find.text('32 bytes'), findsOneWidget);
     });
 
-    testWidgets('длинное значение не уходит за раму панели, а листается вбок', (tester) async {
-      // Одно слово без пробелов: перенос его разорвать не может.
-      provider.xattrs['/home/notes.txt'] = {
-        'com.apple.quarantine': utf8.encode('0083;68b8ab13;Safari;C6460336-67E0-469D-8927-5C67831C9827'),
-      };
+    testWidgets('длинное значение не уходит за раму панели, а переносится', (tester) async {
+      // Одно слово без пробелов: обычный перенос по словам его не разорвёт, —
+      // но каркас разрывает такое по знакам, и ленты вбок панели больше не
+      // нужно (`docs/spec/file-info.md`, §4б).
+      const long = '0083;68b8ab13;Safari;C6460336-67E0-469D-8927-5C67831C9827';
+      provider.xattrs['/home/notes.txt'] = {'com.apple.quarantine': utf8.encode(long)};
       await startWith([const Navigation(), const FileInfo(), const AttributeEditing(), const Viewer()]);
       await pumpApp(tester);
       await putCursorOn(tester, 'notes.txt');
@@ -910,7 +911,16 @@ void main() {
 
       expect(tester.takeException(), isNull);
       final sideways = tester.widgetList<SingleChildScrollView>(find.byType(SingleChildScrollView));
-      expect(sideways.any((one) => one.scrollDirection == Axis.horizontal), isTrue);
+      expect(
+        sideways.any((one) => one.scrollDirection == Axis.horizontal),
+        isFalse,
+        reason: 'перенос заменил ленту вбок',
+      );
+
+      final shown = tester.getRect(find.text(long));
+      final panel = tester.getRect(find.byType(FileInfoView));
+      expect(shown.right, lessThanOrEqualTo(panel.right + 0.5), reason: 'значение осталось внутри рамы');
+      expect(shown.height, greaterThan(20), reason: 'значит, легло несколькими строками');
     });
 
     testWidgets('нечего сказать — раздела нет вовсе', (tester) async {
