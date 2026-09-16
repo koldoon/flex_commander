@@ -15,6 +15,11 @@ class DefaultIcons extends FcIcons {
   @override
   IconData get folder => _icon(0xf07b);
 
+  /// `fa-file-o` — лист бумаги с загнутым углом: контурный, как папка, и в
+  /// одном с ней ряду по весу.
+  @override
+  IconData get file => _icon(0xf016);
+
   @override
   IconData get folderOpen => _icon(0xf114);
 

@@ -95,6 +95,20 @@ void main() {
     await disposeScreen(tester);
   });
 
+  testWidgets('две строки: влезшее в них молчит, не влезшее договаривается', (tester) async {
+    // Имя под значком в сетке занимает две строки всегда — влезло оно в одну
+    // или нет (`docs/spec/panel-view-icons.md`, §4).
+    const two = 'имя из двух строк';
+    await pump(tester, const FcTrimmedText(text: two, style: style, width: 200, maxLines: 2));
+    expect(find.byType(FcTooltip), findsNothing, reason: 'в две строки влезло');
+    expect(tester.widget<Text>(find.byType(Text)).maxLines, 2);
+
+    await pump(tester, const FcTrimmedText(text: long, style: style, width: 120, maxLines: 2));
+    expect(tester.widget<FcTooltip>(find.byType(FcTooltip)).message, long, reason: 'и в две не влезло');
+
+    await disposeScreen(tester);
+  });
+
   testWidgets('пустой текст молчит', (tester) async {
     await pump(tester, const FcTrimmedText(text: '', style: style, width: 0));
 

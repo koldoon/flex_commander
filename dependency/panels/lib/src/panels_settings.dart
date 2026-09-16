@@ -11,6 +11,7 @@ class PanelsSettings implements Serializable {
     this.treeSize = true,
     this.cursorHoldsPlace = true,
     this.treeShare = defaultTreeShare,
+    this.iconTileSize = defaultIconTileSize,
   });
 
   /// Какую долю ширины занимает дерево в комбинированном виде.
@@ -25,6 +26,31 @@ class PanelsSettings implements Serializable {
   /// Больше восьми столбцов имён не читаются вовсе — это уже не список, а
   /// сетка обрубков.
   static const int maxColumns = 8;
+
+  /// Сторона значка в плитке вида «Значки», в точках.
+  ///
+  /// Своя величина, а не размер значка в строке списка: тот ограничен высотой
+  /// строки (`FileIconSize`), а плитке нужно и 128 (`docs/spec/file-icons.md`,
+  /// §8).
+  ///
+  /// Умолчание 64: при нём читается и глиф, и будущая миниатюра, а на половине
+  /// окна помещается полсотни плиток.
+  static const int defaultIconTileSize = 64;
+  static const int minIconTileSize = 16;
+
+  /// Больше — уже не сетка, а две плитки на экран; да и системе пришлось бы
+  /// рисовать значок в пол-экрана.
+  static const int maxIconTileSize = 256;
+
+  /// Что предлагается списком; всё прочее набирается числом
+  /// (`docs/spec/panel-view-icons.md`, §7).
+  static const List<int> iconTileSizes = [16, 32, 48, 64, 128];
+
+  /// Сторожевое значение списка: «Своё». Законным размером ноль не бывает.
+  static const int customIconTileSize = 0;
+
+  /// Сторона значка в плитке сетки.
+  int iconTileSize;
 
   /// Сколько столбцов у краткого вида; [autoColumns] — сколько влезет.
   int briefColumns;
@@ -54,6 +80,7 @@ class PanelsSettings implements Serializable {
     treeSize = extract(treeSize, m['treeSize']);
     cursorHoldsPlace = extract(cursorHoldsPlace, m['cursorHoldsPlace']);
     treeShare = extract(treeShare, m['treeShare']).clamp(minTreeShare, maxTreeShare);
+    iconTileSize = extract(iconTileSize, m['iconTileSize']).clamp(minIconTileSize, maxIconTileSize);
   }
 
   @override
@@ -62,5 +89,6 @@ class PanelsSettings implements Serializable {
     m['treeSize'] = treeSize;
     m['cursorHoldsPlace'] = cursorHoldsPlace;
     m['treeShare'] = treeShare;
+    m['iconTileSize'] = iconTileSize;
   }
 }

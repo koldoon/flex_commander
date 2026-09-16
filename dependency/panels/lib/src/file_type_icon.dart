@@ -16,7 +16,14 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 /// начинались с одной позиции. Здесь то же самое, только пустым местом той же
 /// ширины.
 class FileTypeIcon extends StatefulWidget {
-  const FileTypeIcon({super.key, required this.entry, required this.selected, this.contentOf});
+  const FileTypeIcon({
+    super.key,
+    required this.entry,
+    required this.selected,
+    this.contentOf,
+    this.size,
+    this.fillsBlank = false,
+  });
 
   final FileEntry entry;
 
@@ -32,6 +39,20 @@ class FileTypeIcon extends StatefulWidget {
   /// Ровно одно умение, а не панель целиком: строке от панели больше ничего не
   /// нужно, а чем меньше она о ней знает, тем проще будет другому виду списка.
   final Content Function(FileEntry entry)? contentOf;
+
+  /// Сторона значка в точках; пусто — размер строки списка.
+  ///
+  /// Числом — там, где размер задаёт не строка, а место: у плитки в сетке он
+  /// свой и высотой строки не ограничен (`docs/spec/file-icons.md`, §8).
+  final double? size;
+
+  /// Рисовать лист бумаги там, где значка нет вовсе.
+  ///
+  /// В строке списка пустое место читается отступом — так было в референсе. В
+  /// плитке сетки это дыра, и она просит лист (`docs/spec/panel-view-icons.md`,
+  /// §4). Встроенный ответ службы при этом не меняется: строки списка остаются
+  /// какими были.
+  final bool fillsBlank;
 
   @override
   State<FileTypeIcon> createState() => _FileTypeIconState();
@@ -52,7 +73,7 @@ class _FileTypeIconState extends State<FileTypeIcon> {
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
     final icons = AppScope.read(context).fileIcons;
-    final size = FileIconSize.of(theme.metrics, icons);
+    final size = widget.size ?? FileIconSize.of(theme.metrics, icons);
 
     _resolve(context, icons, size);
     return _draw(theme, size);
@@ -106,7 +127,7 @@ class _FileTypeIconState extends State<FileTypeIcon> {
       fit: BoxFit.contain,
       filterQuality: FilterQuality.medium,
     ),
-    IconNothing() => SizedBox(width: size),
+    IconNothing() => widget.fillsBlank ? _glyph(theme, theme.icons.file, size) : SizedBox(width: size),
   };
 
   /// Глиф красится темой. Незнакомая роль не рисует ничего и не роняет

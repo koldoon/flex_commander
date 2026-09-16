@@ -16,6 +16,13 @@ abstract class FcIcons {
 
   IconData get folder;
 
+  /// Лист бумаги — обычный файл.
+  ///
+  /// В строке списка у него значка нет вовсе (так было в референсе), и это
+  /// читается отступом. А в плитке сетки значков пустое место — дыра, и рисует
+  /// её она (`docs/spec/panel-view-icons.md`, §4).
+  IconData get file;
+
   IconData get folderOpen;
 
   IconData get link;
@@ -72,6 +79,7 @@ abstract class FcIcons {
 extension FcIconRoles on FcIcons {
   IconData? byRole(String role) => switch (role) {
     'folder' => folder,
+    'file' => file,
     'folderOpen' => folderOpen,
     'link' => link,
     'asterisk' => asterisk,

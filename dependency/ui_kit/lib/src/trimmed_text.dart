@@ -39,6 +39,7 @@ class FcTrimmedText extends StatelessWidget {
     this.side = FcTrimSide.tail,
     this.textAlign = TextAlign.start,
     this.hugged = false,
+    this.maxLines = 1,
   });
 
   final String text;
@@ -68,6 +69,18 @@ class FcTrimmedText extends StatelessWidget {
   /// молчанием: забыл поставить — прогон падает, а не показывает не то.
   final bool hugged;
 
+  /// Сколько строк текст вправе занять.
+  ///
+  /// Больше одной — там, где место под них отведено заранее и высота от этого
+  /// не скачет: имя под значком в сетке занимает две строки всегда, влезло оно
+  /// в одну или нет (`docs/spec/panel-view-icons.md`, §4). Обрезка и подсказка
+  /// считаются по **последней** строке: не влез — договаривает подсказка.
+  ///
+  /// Обрезка слева (сторона [FcTrimSide.head]) многострочной не бывает: путь
+  /// режут ради одной строки, и разложить его по двум значило бы не решить
+  /// задачу, а отложить.
+  final int maxLines;
+
   @override
   Widget build(BuildContext context) {
     if (hugged || text.isEmpty) {
@@ -90,15 +103,24 @@ class FcTrimmedText extends StatelessWidget {
       return _wrapped(context, _plain(shown), trimmed: shown != text);
     }
 
+    if (maxLines > 1) {
+      // Несколько строк — и мерка другая: помещается ли текст в отведённые
+      // строки, а не в одну. Ту же меру завела многострочная строка состояния.
+      final fits = spanFitsLines(TextSpan(text: text, style: measured), width, scaler, maxLines: maxLines);
+      return _wrapped(context, _plain(text), trimmed: !fits);
+    }
+
     return _wrapped(context, _plain(text), trimmed: !textFits(text, measured, width, scaler));
   }
 
   Widget _plain(String shown) => Text(
     shown,
-    maxLines: 1,
+    maxLines: maxLines,
     // Хвост режет `ellipsis`; голова уже отрезана — ей многоточие поставили мы.
     overflow: side == FcTrimSide.head ? TextOverflow.clip : TextOverflow.ellipsis,
-    softWrap: false,
+    // Переносим только там, где строк больше одной: у однострочного переносить
+    // нечего, а `softWrap: false` бережёт раскладку от лишней работы.
+    softWrap: maxLines > 1,
     textAlign: textAlign,
     style: style,
   );
