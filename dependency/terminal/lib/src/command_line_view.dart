@@ -3,7 +3,9 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
 
 import 'command_line_state.dart';
+import 'shell_prompt.dart';
 import 'terminal_commands.dart';
+import 'terminal_palette.dart';
 
 /// Строка под панелями: приглашение и ввод.
 ///
@@ -110,7 +112,11 @@ class _CommandLineViewState extends State<CommandLineView> {
     return ListenableBuilder(
       // Поле тоже: подсказка дополнения уходит от любой правки строки, а о
       // правке знает только контроллер текста.
-      listenable: Listenable.merge([state, view, state.panel, state.text]),
+      // Оболочка — двумя слушаниями: служба говорит, что сессия завелась, а
+      // сессия — что приглашение сменилось. Общего уведомления сессии здесь не
+      // хватило бы точности: оно приходит на каждую запись вывода, а на сборке
+      // проекта это сотни раз в секунду.
+      listenable: Listenable.merge([state, view, state.panel, state.text, state.shells, state.shell?.promptChanges]),
       builder: (context, _) {
         final enabled = state.enabled;
         // Тем стилем, каким текст и правда набирается: окружение подмешивает
@@ -259,6 +265,84 @@ class _CommandLineViewState extends State<CommandLineView> {
   /// работают в поле.
   static const double _inputShare = 1 / 3;
 
+  /// Приглашение оболочки — то, что она напечатала, её цветами.
+  ///
+  /// Режется **с хвоста строки**, то есть с головы приглашения: ближе к вводу
+  /// стоит то, что важнее (`docs/spec/shell-prompt.md`, §8). По звеньям пути
+  /// тут не режут: приглашение — не путь, и звеньев в нём может не быть вовсе.
+  Widget _shellPrompt(
+    BuildContext context,
+    FcTheme theme,
+    ShellPrompt prompt,
+    TextStyle style,
+    double limit, {
+    required bool stale,
+  }) {
+    final scaler = MediaQuery.textScalerOf(context);
+    // Пока оболочка догоняет панель, показанное приглашение — про прежний
+    // каталог: гасим его целиком, вместо того чтобы врать цветами.
+    final palette = stale ? null : TerminalPalette(terminalThemeOf(theme));
+    final dim = theme.colors.secondaryText;
+
+    final (spans, trimmed) = _fitRuns(prompt.lastLine, style, limit, scaler, palette: palette, dim: dim);
+
+    return fcTooltipIf(
+      context,
+      // Целое договаривается подсказкой: приглашение бывает многострочным, а
+      // строка у нас одна (`docs/spec/shell-prompt.md`, §4).
+      trimmed: trimmed || prompt.lines.length > 1,
+      message: prompt.text,
+      child: Text.rich(TextSpan(children: spans), maxLines: 1, softWrap: false, style: style),
+    );
+  }
+
+  /// Укладывает куски в отведённое, отрезая с головы; второе — резали ли.
+  (List<TextSpan>, bool) _fitRuns(
+    List<ShellPromptRun> runs,
+    TextStyle style,
+    double limit,
+    TextScaler scaler, {
+    required TerminalPalette? palette,
+    required Color dim,
+  }) {
+    TextStyle styleOf(ShellPromptRun run) => style.copyWith(
+      color: palette?.textOf(run.color) ?? dim,
+      fontWeight: run.bold ? FontWeight.bold : null,
+      fontStyle: run.italic ? FontStyle.italic : null,
+    );
+
+    final spans = <TextSpan>[];
+    var free = limit;
+    var trimmed = false;
+
+    // С конца: то, что стоит перед вводом, теряется последним.
+    for (final run in runs.reversed) {
+      final own = styleOf(run);
+      final width = textWidthOf(run.text, own, scaler);
+      if (width <= free) {
+        spans.insert(0, TextSpan(text: run.text, style: own));
+        free -= width;
+        continue;
+      }
+
+      // Кусок влезает не весь: ищем самый длинный хвост, помещающийся вместе с
+      // многоточием.
+      trimmed = true;
+      final ellipsis = textWidthOf('…', own, scaler);
+      var at = run.text.length;
+      while (at > 0 && textWidthOf(run.text.substring(at - 1), own, scaler) + ellipsis <= free) {
+        at--;
+      }
+      if (at < run.text.length) {
+        spans.insert(0, TextSpan(text: run.text.substring(at), style: own));
+      }
+      spans.insert(0, TextSpan(text: '…', style: own));
+      break;
+    }
+
+    return (spans, trimmed);
+  }
+
   Widget _input(FcTheme theme, CommandLineState state, bool enabled, TextStyle style) {
     final colors = theme.colors;
     final metrics = theme.metrics;
@@ -297,6 +381,12 @@ class _CommandLineViewState extends State<CommandLineView> {
                     // срезать хвост пути на ровном месте (`FcTheme.effective`).
                     final measured = FcTheme.effective(context, promptStyle);
                     final scaler = MediaQuery.textScalerOf(context);
+
+                    final shell = state.shellPrompt;
+                    if (!shell.isEmpty) {
+                      return _shellPrompt(context, theme, shell, measured, promptLimit, stale: state.shellPromptStale);
+                    }
+
                     // Путь режется слева, общим правилом: от приглашения, и без
                     // того короткого, хвостовое многоточие оставляло корень
                     // диска — то есть ничего. Доллар в обрезку не входит: он

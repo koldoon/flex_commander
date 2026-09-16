@@ -6,9 +6,11 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'command_line_state.dart';
 import 'command_line_view.dart';
+import 'shell_command.dart';
 import 'shell_session.dart';
 import 'terminal_commands.dart';
 import 'terminal_screens.dart';
+import 'terminal_session.dart';
 import 'terminal_settings.dart';
 import 'terminal_views.dart';
 
@@ -84,6 +86,22 @@ class ShellTerminal implements FcBackendModule, FcFrontendModule, FcModuleLifecy
           read: () => settingsOf().runExecutables,
           write: (value) => settingsOf().runExecutables = value,
         ),
+        SettingsField.flag(
+          'shellPrompt',
+          defaultValue: true,
+          title: strings.tr('Shell prompt in the command line'),
+          description: strings.tr('The same prompt the shell prints: its colours, its branch, its exit code'),
+          read: () => settingsOf().shellPrompt,
+          write: (value) => settingsOf().shellPrompt = value,
+        ),
+        SettingsField.flag(
+          'shellFollowsPanel',
+          defaultValue: true,
+          title: strings.tr('Shell follows the panel directory'),
+          description: strings.tr('Without it the shell catches up only before a command, and the prompt lags behind'),
+          read: () => settingsOf().shellFollowsPanel,
+          write: (value) => settingsOf().shellFollowsPanel = value,
+        ),
         SettingsField.text(
           'shell',
           title: strings.tr('Shell'),
@@ -125,8 +143,16 @@ class ShellTerminal implements FcBackendModule, FcFrontendModule, FcModuleLifecy
 
     // Полоса ставится стартовой командой, а не здесь: во время объявления нет
     // ни приложения, ни настроек.
-    registry.startup((context) => InstallCommandLineCommand(settings: settingsOf, save: settings.save));
-    registry.startup((context) => _FollowShellCommand(() => context.resolve<ShellSession>()));
+    registry.startup(
+      (context) => InstallCommandLineCommand(
+        settings: settingsOf,
+        save: settings.save,
+        shells: () => context.resolve<ShellSession>(),
+      ),
+    );
+    registry.startup(
+      (context) => _FollowShellCommand(shells: () => context.resolve<ShellSession>(), settings: settingsOf),
+    );
     registry.startup((context) => _WarmShellCommand(shells: () => context.resolve<ShellSession>()));
 
     registry.command((context) => FocusCommandLineCommand());
@@ -214,12 +240,13 @@ class _ChosenShell implements ShellPreference {
 
 /// Ставит командную строку в полосу под панелями — один раз, при запуске.
 class InstallCommandLineCommand extends AppCommand {
-  InstallCommandLineCommand({required this.settings, required this.save});
+  InstallCommandLineCommand({required this.settings, required this.save, required this.shells});
 
   static const String commandId = 'terminal.install';
 
   final TerminalSettings Function() settings;
   final void Function() save;
+  final ShellSession Function() shells;
 
   @override
   String get id => commandId;
@@ -234,21 +261,51 @@ class InstallCommandLineCommand extends AppCommand {
   Future<void> execute(CommandContext context) async {
     context.app.view.setViewportContent(
       ViewportPosition.bottom,
-      CommandLineState(app: context.app, settings: settings(), save: save),
+      CommandLineState(app: context.app, settings: settings(), save: save, shells: shells()),
     );
   }
 }
 
-/// Панель идёт за оболочкой — один раз, при запуске.
+/// Каталог: панель и оболочка ходят друг за другом — связывается при запуске.
 ///
 /// Стартовой командой, а не из фабрики службы: приложения в тот миг ещё нет, и
 /// это не придирка — так устроен модуль нарочно ([FcContext]). А связать надо
 /// именно приложение с таблицей оболочек: куда ушла оболочка, знает она, а
 /// какой панели за этим идти — знает оно.
+///
+/// **В обе стороны.** Оболочка ушла — панель идёт за ней (`cd` в терминале
+/// ведёт панель). Панель ушла — оболочка идёт за ней, не дожидаясь команды:
+/// иначе чужое приглашение видно только после выполненной команды, потому что
+/// до неё оболочка стоит там, где стояла (`docs/spec/shell-prompt.md`, §6).
 class _FollowShellCommand extends AppCommand {
-  _FollowShellCommand(this.shells);
+  _FollowShellCommand({required this.shells, required this.settings});
 
   final ShellSession Function() shells;
+  final TerminalSettings Function() settings;
+
+  /// Каталоги, которые запросили мы сами.
+  ///
+  /// Метка от **нашего** `cd` панель двигать не вправе: успей человек уйти
+  /// дальше, его бы дёрнуло назад (`docs/spec/shell-prompt.md`, §6).
+  final Set<String> _asked = {};
+
+  /// Куда просились, пока оболочка была занята; пусто — не просились.
+  ///
+  /// Так синхронизация обходится **без таймера**: следующий `cd` уходит не по
+  /// отсчёту, а когда оболочка напечатала приглашение, то есть освободилась.
+  /// Пробег стрелками по десятку каталогов стоит одного лишнего `cd` в конце, а
+  /// таймер, оставшийся висеть, ронял бы виджет-тесты.
+  String? _waiting;
+
+  TerminalSession? _watched;
+
+  /// Панель, за которой сейчас следим, и само приложение.
+  ///
+  /// Панель — отдельной подпиской: приложение о смене её каталога не
+  /// уведомляет, об этом говорит сама панель. А приложение нужно затем, что
+  /// активная панель меняется — и следить тогда надо за другой.
+  Session? _panel;
+  Application? _app;
 
   @override
   String get id => 'terminal.followShell';
@@ -262,7 +319,78 @@ class _FollowShellCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final app = context.app;
-    shells().onDirectory = (label, directory) => followShell(app, label, directory);
+    shells().onDirectory = (label, directory) {
+      if (_asked.remove(directory)) {
+        return;
+      }
+      followShell(app, label, directory);
+    };
+    _app = app;
+    app.addListener(_onChanged);
+    shells().addListener(_onChanged);
+    _onChanged();
+  }
+
+  void _onChanged() {
+    final app = _app;
+    if (app == null) {
+      return;
+    }
+    final panel = app.activePanel;
+    if (!identical(_panel, panel)) {
+      _panel?.removeListener(_onChanged);
+      _panel = panel..addListener(_onChanged);
+    }
+    _syncShell(app);
+  }
+
+  /// Оболочка догоняет панель.
+  void _syncShell(Application app) {
+    if (!settings().shellFollowsPanel) {
+      return;
+    }
+
+    final panel = app.activePanel;
+    final label = panel.source.shellLabel;
+    final at = panel.shellDirectory;
+    if (label.isEmpty || at.isEmpty) {
+      return;
+    }
+
+    final session = shells().at(label);
+    if (session == null || !session.marksWork) {
+      return;
+    }
+    _watch(session, app);
+
+    // Развёрнутый терминал — чужая территория: там человек набирает сам, и
+    // наша строка влезла бы прямо посреди набранного.
+    if (session.running || app.view.contentAt(ViewportPosition.fullscreen) is TerminalScreen) {
+      _waiting = at;
+      return;
+    }
+    if (session.lastMark?.directory == at) {
+      _waiting = null;
+      return;
+    }
+
+    _waiting = null;
+    _asked.add(at);
+    // Ведущий пробел: служебный `cd` в историю не нужен — его не набирали.
+    session.input(' cd ${ShellCommand.quote(at)}\n');
+  }
+
+  /// Оболочка освободилась — досылаем то, о чём просили, пока она была занята.
+  void _watch(TerminalSession session, Application app) {
+    if (identical(_watched, session)) {
+      return;
+    }
+    _watched = session;
+    session.promptChanges.addListener(() {
+      if (_waiting != null) {
+        _syncShell(app);
+      }
+    });
   }
 }
 
@@ -410,6 +538,12 @@ const Map<String, String> _russian = {
   'Typing goes to the command line': 'Печать уходит в командную строку',
   'The mc habit: no jump-to-name by the first letter': 'Привычка mc: переход к имени по первой букве не работает',
   'Enter runs executable files': 'Enter запускает исполняемые файлы',
+  'Shell prompt in the command line': 'Приглашение — как в оболочке',
+  'The same prompt the shell prints: its colours, its branch, its exit code':
+      'То самое приглашение, которое печатает оболочка: её цвета, её ветка, её код возврата',
+  'Shell follows the panel directory': 'Оболочка идёт за панелью',
+  'Without it the shell catches up only before a command, and the prompt lags behind':
+      'Без этого оболочка догоняет панель только перед командой, и приглашение отстаёт',
   'A file with the +x bit runs in the terminal instead of going to the system':
       'Файл с битом +x запускается в терминале, а не уходит системе',
   'Shell': 'Оболочка',

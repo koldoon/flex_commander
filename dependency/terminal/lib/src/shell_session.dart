@@ -1,5 +1,7 @@
 import 'dart:async';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'shell_marks.dart';
@@ -30,7 +32,7 @@ import 'terminal_settings.dart';
 /// соединения к одному серверу должны делить одну оболочку, иначе `Ctrl-O`
 /// открывал бы новую всякий раз, когда панель перемонтировали. Локальная —
 /// такая же запись в этой таблице, без особого случая.
-class ShellSession {
+class ShellSession extends ChangeNotifier {
   ShellSession({required this.settings});
 
   final TerminalSettings Function() settings;
@@ -67,6 +69,13 @@ class ShellSession {
 
   /// Оболочку этого места уже запускали.
   bool startedAt(String shellLabel) => _sessions.containsKey(shellLabel);
+
+  /// Сессия этого места, если она уже живёт; null — не заводили.
+  ///
+  /// Синхронно и **не заводя новой**: строка команд спрашивает её на каждой
+  /// перерисовке, чтобы показать приглашение, и заводить из-за показа оболочку
+  /// нельзя — она заводится, когда есть что выполнять ([sessionIn]).
+  TerminalSession? at(String shellLabel) => _sessions[shellLabel];
 
   /// Хоть какая-то оболочка жива.
   bool get started => _sessions.isNotEmpty;
@@ -130,7 +139,12 @@ class ShellSession {
       }),
     );
 
-    return _sessions[label] = opened;
+    _sessions[label] = opened;
+    // Сессия завелась — об этом надо сказать: строка команд показывает её
+    // приглашение, а заводится оболочка заранее и сама
+    // (`docs/spec/shell-prompt.md`, §7).
+    notifyListeners();
+    return opened;
   }
 
   /// Место закрылось — закрылась и его оболочка.
@@ -139,6 +153,7 @@ class ShellSession {
   /// ушли, незачем — она всё равно оборвана.
   void closeAt(String shellLabel) {
     _sessions.remove(shellLabel)?.dispose();
+    notifyListeners();
   }
 
   /// Приложение уходит — уходят и все оболочки.

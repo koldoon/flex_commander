@@ -7,6 +7,8 @@ class TerminalSettings implements Serializable {
     this.maxLines = defaultMaxLines,
     this.typingGoesToLine = false,
     this.runExecutables = true,
+    this.shellPrompt = true,
+    this.shellFollowsPanel = true,
     this.afterCommand = defaultAfterCommand,
     List<String>? history,
   }) : history = history ?? <String>[];
@@ -64,6 +66,22 @@ class TerminalSettings implements Serializable {
   /// исполняемые скрипты и открывает их в редакторе.
   bool runExecutables;
 
+  /// Приглашение в строке — то самое, что печатает оболочка.
+  ///
+  /// Снимается с экрана нашего же терминала (`spec/shell-prompt.md`).
+  /// Выключил — вернулись путь и `$`: приглашение бывает и длинным, и пёстрым,
+  /// а кому-то от строки нужно ровно одно — где выполнится набранное.
+  bool shellPrompt;
+
+  /// Оболочка идёт за панелью, не дожидаясь команды.
+  ///
+  /// Без этого чужое приглашение видно только после выполненной команды: до
+  /// неё оболочка стоит там, где стояла, и её приглашение — про старый каталог
+  /// (`spec/shell-prompt.md`, §6). Выключил — `cd` уходит только перед
+  /// командой, как было: синхронизация — это работа оболочки после каждого
+  /// шага по каталогам, и на медленном git или по сети она заметна.
+  bool shellFollowsPanel;
+
   /// История команд, старые впереди.
   List<String> history;
 
@@ -73,6 +91,8 @@ class TerminalSettings implements Serializable {
     maxLines = extract(maxLines, m['maxLines']);
     typingGoesToLine = extract(typingGoesToLine, m['typingGoesToLine']);
     runExecutables = extract(runExecutables, m['runExecutables']);
+    shellPrompt = extract(shellPrompt, m['shellPrompt']);
+    shellFollowsPanel = extract(shellFollowsPanel, m['shellFollowsPanel']);
     afterCommand = extract(afterCommand, m['afterCommand']);
     history = extractList<String>(m['history']);
   }
@@ -83,6 +103,8 @@ class TerminalSettings implements Serializable {
     m['maxLines'] = maxLines;
     m['typingGoesToLine'] = typingGoesToLine;
     m['runExecutables'] = runExecutables;
+    m['shellPrompt'] = shellPrompt;
+    m['shellFollowsPanel'] = shellFollowsPanel;
     m['afterCommand'] = afterCommand;
     m['history'] = history;
   }

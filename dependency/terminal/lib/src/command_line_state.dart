@@ -2,6 +2,9 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/widgets.dart';
 
 import 'completion.dart';
+import 'shell_prompt.dart';
+import 'shell_session.dart';
+import 'terminal_session.dart';
 import 'terminal_settings.dart';
 
 /// Командная строка под панелями.
@@ -13,10 +16,16 @@ import 'terminal_settings.dart';
 /// Каталог, историю и приглашение держит она; кто и как их показывает — дело
 /// вида, а кто и когда выполняет — дело команд.
 class CommandLineState extends ChangeNotifier implements ViewportState {
-  CommandLineState({required this.app, required this.settings, required this.save});
+  CommandLineState({required this.app, required this.settings, required this.save, this.shells});
 
   final Application app;
   final TerminalSettings settings;
+
+  /// Оболочки — ради приглашения: строка показывает то, что напечатала
+  /// оболочка того места, где стоит панель (`docs/spec/shell-prompt.md`).
+  ///
+  /// Необязательно: без модуля оболочек строка живёт по-старому — путь и `$`.
+  final ShellSession? shells;
 
   /// Отложенная запись настроек — та же, что у панелей.
   final void Function() save;
@@ -50,6 +59,42 @@ class CommandLineState extends ChangeNotifier implements ViewportState {
     final path = panel?.currentPath ?? '';
     final label = panel?.source.shellLabel ?? '';
     return label.isEmpty || label == 'localhost' ? path : '$label:$path';
+  }
+
+  /// Оболочка того места, где стоит панель; null — её ещё не заводили.
+  ///
+  /// Не заводит новую: показ приглашения — не повод запускать оболочку, она
+  /// заводится, когда есть что выполнять.
+  TerminalSession? get shell {
+    final label = panel?.source.shellLabel ?? '';
+    return label.isEmpty ? null : shells?.at(label);
+  }
+
+  /// Приглашение оболочки; пустое — показываем своё (путь и `$`).
+  ///
+  /// Пустым оно бывает по трём причинам, и все три законны: настройка
+  /// выключена, оболочки этого места ещё нет, оболочка о себе не рассказывает
+  /// (уговор не подошёл).
+  ShellPrompt get shellPrompt {
+    if (!settings.shellPrompt) {
+      return ShellPrompt.none;
+    }
+    final session = shell;
+    return session == null || !session.marksWork ? ShellPrompt.none : session.prompt;
+  }
+
+  /// Оболочка ещё не там, где панель.
+  ///
+  /// Показанное приглашение в этот миг — про прежний каталог, и говорить им о
+  /// новом нельзя. Строка не прячет его, а приглушает: мигать на каждом шаге
+  /// по каталогам она не должна (`docs/spec/shell-prompt.md`, §7).
+  bool get shellPromptStale {
+    final session = shell;
+    if (session == null) {
+      return false;
+    }
+    final at = session.lastMark?.directory ?? '';
+    return at.isEmpty || at != workingDirectory;
   }
 
   /// Строку можно выполнить здесь.

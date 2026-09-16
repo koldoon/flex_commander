@@ -124,8 +124,12 @@ class TerminalSession extends ChangeNotifier {
   ///
   /// Снимается готовым, а не спрашивается у оболочки: она его уже собрала и уже
   /// напечатала (`docs/spec/shell-prompt.md`, §3).
-  ShellPrompt get prompt => _prompt;
-  ShellPrompt _prompt = ShellPrompt.none;
+  ShellPrompt get prompt => promptChanges.value;
+
+  /// Отдельным уведомлением, а не общим [notifyListeners]: общее приходит на
+  /// **каждую запись** вывода — на сборке проекта это сотни раз в секунду, — а
+  /// приглашение меняется раз на команду. Строка команд слушает только его.
+  final ValueNotifier<ShellPrompt> promptChanges = ValueNotifier(ShellPrompt.none);
 
   /// Откуда приглашение начнётся: место курсора на метке. Метка приходит из
   /// `precmd` — **до** печати, поэтому это ровно начало.
@@ -265,8 +269,7 @@ class TerminalSession extends ChangeNotifier {
     if (taken.isEmpty) {
       return;
     }
-    _prompt = taken;
-    notifyListeners();
+    promptChanges.value = taken;
   }
 
   void _onExit(int code) {
@@ -311,6 +314,7 @@ class TerminalSession extends ChangeNotifier {
     // незакрытый таймер ошибкой, и он ею и был бы.
     _promptSettle?.cancel();
     _promptSettle = null;
+    promptChanges.dispose();
     unawaited(_output.cancel());
     // Убить уже мёртвое — не ошибка, а обычный случай: команда из строки
     // обычно кончается сама.

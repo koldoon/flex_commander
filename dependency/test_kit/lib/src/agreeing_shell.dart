@@ -9,12 +9,19 @@ import 'fake_pty.dart';
 /// прислало, а не выдаётся тесту отдельно. Разойдись формат метки с разбором —
 /// тесты об этом узнают.
 class AgreeingShell {
-  AgreeingShell(this.pty, {this.directory = '/home'});
+  AgreeingShell(this.pty, {this.directory = '/home', this.promptText = ''});
 
   final FakePtySession pty;
 
   /// Где стоит оболочка. Меняется вместе с тем, что она сообщает в метке.
   String directory;
+
+  /// Что оболочка **печатает** после метки; пусто — ничего не печатает.
+  ///
+  /// Настоящая печатает приглашение, и приложение снимает его с экрана
+  /// (`docs/spec/shell-prompt.md`). Подставной это нужно только там, где
+  /// приглашение и проверяют: прочим тестам лишний текст на экране ни к чему.
+  String promptText;
 
   /// Число этой сессии — из строки уговора; null — уговора не присылали.
   String? get nonce => RegExp(r'777;fc;([0-9a-f]+);').firstMatch(pty.written)?.group(1);
@@ -57,7 +64,9 @@ class AgreeingShell {
   void _prompt(int code) {
     final id = nonce;
     if (id != null) {
-      pty.emit('\x1b]777;fc;$id;p;$code;$directory\x07');
+      // Метка **до** печати: она приходит из `precmd`, и её место — то самое,
+      // где приглашение начнётся.
+      pty.emit('\x1b]777;fc;$id;p;$code;$directory\x07$promptText');
     }
   }
 }
