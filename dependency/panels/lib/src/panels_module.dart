@@ -9,6 +9,8 @@ import 'combined_view.dart';
 import 'crumbs_header.dart';
 import 'brief_view_options.dart';
 import 'file_table.dart';
+import 'icons_view.dart';
+import 'icons_view_options.dart';
 import 'panels_settings.dart';
 import 'table_view_options.dart';
 import 'tree_view.dart';
@@ -154,6 +156,18 @@ class Panels implements FcBackendModule, FcFrontendModule {
       ),
     );
 
+    // Последним, а не по соседству с кратким: порядок списка видов — это
+    // порядок их быстрых клавиш, и сетка получает `Cmd-5`.
+    registry.panelView(
+      PanelViewSpec(
+        id: IconsView.viewId,
+        title: 'Icons',
+        description: 'A grid of tiles: a picture and a name under it',
+        build: (context, panel) => IconsView(panel: panel, settings: settingsOf),
+        options: (context, draft) => IconsViewOptions(settings: settingsOf, save: settings.save, draft: draft),
+      ),
+    );
+
     // Четыре команды дерева: поддерево под курсором и всё дерево, каждое — в
     // обе стороны (`docs/spec/panel-view-tree.md`, §6а).
     for (final expand in const [true, false]) {
@@ -214,6 +228,10 @@ class Panels implements FcBackendModule, FcFrontendModule {
         SetPanelViewCommand.commandId,
         parameters: {SetPanelViewCommand.viewParam: CombinedView.viewId},
       ),
+    );
+
+    registry.binding(
+      KeyBinding('Cmd-5', SetPanelViewCommand.commandId, parameters: {SetPanelViewCommand.viewParam: IconsView.viewId}),
     );
 
     // Столбцы комбинированного вида — раньше всего прочего, что висит на этих
@@ -311,6 +329,10 @@ const Map<String, String> _russian = {
 
   // Виды панели.
   'Table': 'Таблица',
+  'Icons': 'Значки',
+  'A grid of tiles: a picture and a name under it': 'Сетка плиток: картинка и имя под ней',
+  'Icon size': 'Размер значка',
+  'Custom': 'Своё',
   'Brief': 'Кратко',
   'Names only, in columns': 'Одни имена, столбцами',
   'brief|Columns': 'Столбцов',

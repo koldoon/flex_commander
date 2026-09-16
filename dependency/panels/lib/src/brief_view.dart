@@ -11,6 +11,7 @@ import 'columns.dart';
 import 'file_table_row.dart';
 import 'panel_drag.dart';
 import 'panels_settings.dart';
+import 'widest_name.dart';
 
 /// Краткий вид: одни имена, столбцами сверху вниз и дальше вправо.
 ///
@@ -65,13 +66,8 @@ class _BriefViewState extends State<BriefView> {
   int _lastTapIndex = -1;
   DateTime _lastTapTime = DateTime.fromMillisecondsSinceEpoch(0);
 
-  /// Список, для которого мерили самое длинное имя, и сама мера.
-  ///
-  /// Мерить на каждую отрисовку нельзя: в каталоге бывают тысячи имён. Список
-  /// приходит значением и на каждое чтение новый — по нему и видно, что мерить
-  /// пора заново.
-  List<FileEntry>? _measuredList;
-  double _measuredWidth = 0;
+  /// Самое длинное имя списка — общей меркой на оба вида, где оно считается.
+  final WidestName _widest = WidestName();
 
   @override
   void initState() {
@@ -113,21 +109,6 @@ class _BriefViewState extends State<BriefView> {
   void dispose() {
     _scroll.dispose();
     super.dispose();
-  }
-
-  /// Ширина самого длинного имени — тем же набором, каким его нарисуют.
-  double _widestName(BuildContext context, FcTheme theme, List<FileEntry> entries) {
-    if (identical(_measuredList, entries)) {
-      return _measuredWidth;
-    }
-    _measuredList = entries;
-    _measuredWidth = widestLabel(
-      context,
-      [for (final entry in entries) entry.name],
-      style: theme.rowStyle,
-      limit: 4000,
-    );
-    return _measuredWidth;
   }
 
   /// Докрутить так, чтобы столбец с курсором стоял целиком.
@@ -282,7 +263,7 @@ class _BriefViewState extends State<BriefView> {
               final asked = widget.settings().briefColumns;
               final inset = metrics.panelRightPadding;
               final available = math.max(constraints.maxWidth - inset, 1.0);
-              final needed = _widestName(context, theme, entries) + iconWidth + metrics.cellPadding * 2;
+              final needed = _widest.of(context, entries, style: theme.rowStyle) + iconWidth + metrics.cellPadding * 2;
               final columnWidth =
                   asked > PanelsSettings.autoColumns
                       ? available / asked
