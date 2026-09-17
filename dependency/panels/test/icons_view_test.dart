@@ -265,6 +265,33 @@ void main() {
     expect(panel.cursorIndex, greaterThan(0));
   });
 
+  testWidgets('шаг сетки не зависит от того, что лежит в каталоге', (tester) async {
+    // Сетка — это в первую очередь ритм: входя в соседний каталог, человек не
+    // должен видеть, как всё разъезжается. Мерили по самому длинному имени — и
+    // видел (живой разбор 17 сентября 2026).
+    final runtime = await open(
+      tester,
+      source: InMemoryTreeProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.file('/home/a.txt', size: 1),
+        FakeEntry.directory('/home/long-names'),
+        FakeEntry.file('/home/long-names/невероятно-длинное-имя-которое-не-помещается-никак', size: 1),
+        FakeEntry.file('/home/long-names/второе-очень-длинное-имя-для-верности', size: 1),
+      ])..home = '/home',
+    );
+    final panel = runtime.app.left;
+
+    final short = tester.getRect(find.byType(IconTile).first).width;
+
+    panel.setCursorToName('long-names');
+    await tester.pumpAndSettle();
+    await panel.enterCurrent();
+    await tester.pumpAndSettle();
+    expect(find.text('невероятно-длинное-имя-которое-не-помещается-никак'), findsWidgets);
+
+    expect(tester.getRect(find.byType(IconTile).first).width, short, reason: 'ритм сетки тот же');
+  });
+
   testWidgets('размер плитки слушается настройки', (tester) async {
     final runtime = await open(tester);
     final small = shown().length;

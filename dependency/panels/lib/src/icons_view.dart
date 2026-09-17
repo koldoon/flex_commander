@@ -11,7 +11,6 @@ import 'icon_tile.dart';
 import 'mark_drag.dart';
 import 'panel_drag.dart';
 import 'panels_settings.dart';
-import 'widest_name.dart';
 
 /// Вид «Значки»: содержимое каталога сеткой плиток.
 ///
@@ -95,7 +94,6 @@ class _IconsViewState extends State<IconsView> {
   );
 
   /// Самое длинное имя списка — общей меркой с кратким видом.
-  final WidestName _widest = WidestName();
 
   int _lastCursorIndex = -1;
   int _lastTapIndex = -1;
@@ -327,24 +325,31 @@ class _IconsViewState extends State<IconsView> {
               final available = math.max(constraints.maxWidth - gap * 2, 1.0);
               final viewHeight = math.max(constraints.maxHeight, 1.0);
 
-              // Ширина плитки — по самому длинному имени каталога, но не уже
-              // плашки значка и не шире двадцати знаков. Считается **до** числа
-              // столбцов, поэтому остаток места остаётся справа, а не
-              // растягивает просветы (`docs/spec/panel-view-icons.md`, §3).
+              // Ширина плитки — из **настроек**, а не из имён каталога.
+              //
+              // Считается она от значка и от места, отведённого имени: не уже
+              // плашки значка и не шире потолка. Имя подстраивается само —
+              // переносится на вторую строку и договаривается подсказкой.
+              //
+              // По самому длинному имени мерить нельзя, хотя так и было: шаг
+              // сетки тогда свой в каждом каталоге, и, входя в соседний, человек
+              // видит, как всё разъезжается — включая «..», которое стоит на
+              // одном и том же месте (живой разбор 17 сентября 2026). Сетка —
+              // это в первую очередь **ритм**, и меняться он от содержимого не
+              // вправе.
               final least = iconSize + (metrics.iconGap + metrics.cellPadding) * 2;
-              final wanted = math.max(least, _widest.of(context, entries, style: nameStyle) + metrics.cellPadding * 4);
-              // Потолок: место под имя сверх плашки значка. Спрошенное в
-              // настройках или посчитанное от значка. Поля плитки и поля плашки
-              // имени — те же четыре, по которым режется само имя.
+              // Место под имя сверх плашки значка: спрошенное в настройках или
+              // посчитанное от значка. Поля плитки и поля плашки имени — те же
+              // четыре, по которым режется само имя.
               final asked = widget.settings().iconNameWidth;
               final room =
                   asked > PanelsSettings.autoNameWidth
                       ? asked.toDouble()
                       : (iconSize * _nameToIcon).clamp(_leastName, _mostName);
-              final most = math.max(least, room + metrics.cellPadding * 4);
+              final wanted = math.max(least, room + metrics.cellPadding * 4);
               // Панель уже плитки — плитка сжимается до панели: один столбец
               // лучше, чем ноль.
-              final tileWidth = math.min(wanted, math.max(least, math.min(most, available)));
+              final tileWidth = math.max(least, math.min(wanted, available));
               final columns = math.max(1, ((available + gap) / (tileWidth + gap)).floor());
               final rowHeight = tileHeight + gap;
               final total = entries.isEmpty ? 0 : (entries.length / columns).ceil();
