@@ -5,6 +5,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 
 import 'brief_view.dart';
 import 'columns.dart';
+import 'columns_commands.dart';
 import 'columns_view.dart';
 import 'combined_view.dart';
 import 'crumbs_header.dart';
@@ -272,6 +273,26 @@ class Panels implements FcBackendModule, FcFrontendModule {
     registry.binding(KeyBinding('Right', CombinedSideCommand.toListId));
     registry.binding(KeyBinding('Left', CombinedSideCommand.toTreeId));
 
+    // Столбцы — раньше дерева и позже комбинированного вида: строки здесь
+    // древесные, и раскрытие ветви забрало бы обе стрелки себе, а `Home` увёл
+    // бы курсор на корень, которого в столбцах не видно
+    // (`docs/spec/panel-view-columns.md`, §6).
+    registry.command((context) => ColumnsStepCommand(deeper: true));
+    registry.command((context) => ColumnsStepCommand(deeper: false));
+    for (final step in ColumnsRowStep.values) {
+      for (final down in const [false, true]) {
+        registry.command((context) => ColumnsRowCommand(down: down, step: step));
+      }
+    }
+    registry.binding(KeyBinding('Right', ColumnsStepCommand.inId));
+    registry.binding(KeyBinding('Left', ColumnsStepCommand.outId));
+    registry.binding(KeyBinding('Up', ColumnsRowCommand.upId));
+    registry.binding(KeyBinding('Down', ColumnsRowCommand.downId));
+    registry.binding(KeyBinding('PgUp', ColumnsRowCommand.pageUpId));
+    registry.binding(KeyBinding('PgDn', ColumnsRowCommand.pageDownId));
+    registry.binding(KeyBinding('Home', ColumnsRowCommand.firstId));
+    registry.binding(KeyBinding('End', ColumnsRowCommand.lastId));
+
     // Курсор и пометка в дереве — **панельные**: строки собирает ядро, и
     // ходить по ним нечем иным (`docs/spec/panel-node-list.md`, §3). Своими
     // остались только раскрытие и сворачивание: смысл у `Left` и `Right` тут
@@ -364,6 +385,17 @@ const Map<String, String> _russian = {
   'Name width': 'Ширина имени',
   'Custom': 'Своё',
   'Path columns': 'Столбцы',
+  'Into the directory': 'В каталог',
+  'Out to the parent': 'К родителю',
+  'Show what is inside and move the cursor there': 'Показать содержимое и перевести туда курсор',
+  'Move the cursor to the directory this column grew from': 'Перевести курсор на каталог, из которого вырос столбец',
+  'Row above in the column': 'Строка выше в столбце',
+  'Row below in the column': 'Строка ниже в столбце',
+  'Column page up': 'Столбец страницей вверх',
+  'Column page down': 'Столбец страницей вниз',
+  'First row of the column': 'Первая строка столбца',
+  'Last row of the column': 'Последняя строка столбца',
+  'Move the cursor inside its own column': 'Двигать курсор внутри своего столбца',
   'The path as a chain of directories, left to right': 'Путь цепочкой каталогов, слева направо',
   'Brief': 'Кратко',
   'Names only, in columns': 'Одни имена, столбцами',

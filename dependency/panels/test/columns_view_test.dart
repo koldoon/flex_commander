@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
@@ -160,6 +161,134 @@ void main() {
 
     // Сразу, без придержки: это выбор человека, и уход курсора его не отменяет.
     expect(tester.widgetList(columns()).length, 3);
+  });
+
+  group('клавиши', () {
+    testWidgets('Right раскрывает, второй раз — уводит внутрь', (tester) async {
+      final runtime = await open(tester, at: '/home');
+      final panel = runtime.app.left;
+      panel.setCursorToName('test');
+      await tester.pump();
+
+      runtime.commands.dispatch(KeyCombination.parse('Right'));
+      await tester.pumpAndSettle();
+      expect(panel.currentEntry?.name, 'test', reason: 'сперва только раскрылось');
+      expect(tester.widgetList(columns()).length, 3);
+
+      runtime.commands.dispatch(KeyCombination.parse('Right'));
+      await tester.pumpAndSettle();
+      expect(panel.currentEntry?.name, 'panel_test.dart', reason: 'и только потом шаг внутрь');
+    });
+
+    testWidgets('Left возвращает к родителю и ничего не сворачивает', (tester) async {
+      final runtime = await open(tester, at: '/home/test');
+      final panel = runtime.app.left;
+      runtime.commands.dispatch(KeyCombination.parse('Right'));
+      await tester.pumpAndSettle();
+      expect(panel.currentEntry?.name, 'panel_test.dart');
+
+      runtime.commands.dispatch(KeyCombination.parse('Left'));
+      await tester.pumpAndSettle();
+
+      expect(panel.currentEntry?.name, 'test', reason: 'вышли к родителю');
+      // Столбец справа остаётся: из него только что вышли, и убирать его
+      // нажатием «назад» значило бы стирать пройденное.
+      expect(namesIn(tester, 2), contains('panel_test.dart'));
+    });
+
+    testWidgets('Left в первом столбце молча стоит', (tester) async {
+      final runtime = await open(tester, at: '/home');
+      final panel = runtime.app.left;
+      panel.setCursorToName('home');
+      await tester.pump();
+
+      runtime.commands.dispatch(KeyCombination.parse('Left'));
+      await tester.pumpAndSettle();
+
+      // Корень столбцом не рисуется, вставать на него некуда. И отказаться
+      // нельзя: клавишу подхватило бы дерево и свернуло ветвь.
+      expect(panel.currentEntry?.name, 'home');
+      expect(tester.widgetList(columns()).length, greaterThan(1), reason: 'ничего не свернулось');
+    });
+
+    testWidgets('Right на файле ничего не двигает', (tester) async {
+      final runtime = await open(tester, at: '/home');
+      final panel = runtime.app.left;
+      panel.setCursorToName('main.dart');
+      await tester.pump();
+
+      runtime.commands.dispatch(KeyCombination.parse('Right'));
+      await tester.pumpAndSettle();
+
+      expect(panel.currentEntry?.name, 'main.dart');
+    });
+
+    testWidgets('Down идёт к соседу по каталогу, а не в чужое поддерево', (tester) async {
+      final runtime = await open(tester, at: '/home/lib');
+      final panel = runtime.app.left;
+      // `lib` раскрыт и стоит выше `test`: по плоскому списку следом за ним
+      // идут его дети, а по столбцу — сосед.
+      panel.setCursorToName('lib');
+      await tester.pump();
+
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+      await tester.pumpAndSettle();
+
+      expect(panel.currentEntry?.name, 'test');
+    });
+
+    testWidgets('Home и End ходят по столбцу, а не по списку', (tester) async {
+      final runtime = await open(tester, at: '/home/lib');
+      final panel = runtime.app.left;
+      panel.setCursorToName('test');
+      await tester.pump();
+
+      runtime.commands.dispatch(KeyCombination.parse('Home'));
+      await tester.pumpAndSettle();
+      expect(panel.currentEntry?.name, 'lib', reason: 'первая строка своего столбца, а не корень');
+
+      runtime.commands.dispatch(KeyCombination.parse('End'));
+      await tester.pumpAndSettle();
+      expect(panel.currentEntry?.name, 'main.dart', reason: 'последняя строка своего столбца');
+    });
+  });
+
+  group('сторож порядка привязок', () {
+    // Столбцы объявлены раньше дерева и позже комбинированного вида, и цена
+    // ошибки здесь невидима: клавиша молча достаётся не тому.
+    testWidgets('в дереве Left по-прежнему сворачивает ветвь', (tester) async {
+      final runtime = await open(tester, at: '/home/lib');
+      final panel = runtime.app.left;
+      await panel.setView(TreeView.viewId);
+      await tester.pumpAndSettle();
+      panel.setCursorToName('lib');
+      await tester.pump();
+
+      runtime.commands.dispatch(KeyCombination.parse('Left'));
+      await tester.pumpAndSettle();
+
+      final shown = [
+        for (final text in tester.widgetList<Text>(
+          find.descendant(of: find.byType(TreeView), matching: find.byType(Text)),
+        ))
+          text.data,
+      ];
+      expect(shown, isNot(contains('app.dart')), reason: 'ветвь свернулась');
+    });
+
+    testWidgets('в таблице Left уводит в начало списка', (tester) async {
+      final runtime = await open(tester, at: '/home');
+      final panel = runtime.app.left;
+      await panel.setView(PanelSettings.defaultView);
+      await tester.pumpAndSettle();
+      panel.setCursorToName('main.dart');
+      await tester.pump();
+
+      runtime.commands.dispatch(KeyCombination.parse('Left'));
+      await tester.pumpAndSettle();
+
+      expect(panel.cursorIndex, 0);
+    });
   });
 
   testWidgets('знак «дальше вправо» — только у того, в который вошли', (tester) async {
