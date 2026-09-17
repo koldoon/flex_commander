@@ -421,7 +421,13 @@ class CoreServer implements CoreHandler {
         return null;
 
       case CheckWriteAccess(:final entry):
-        return CoreFlag(await _content.canWrite(entry));
+        try {
+          return CoreFlag(await _content.canWrite(entry));
+        } on FsError catch (error) {
+          // Отказ — ответ, а не поломка: спросивший решит сам, что с ним
+          // делать. Редактор, например, читает его как «не смогли выяснить».
+          return CoreFailed(error);
+        }
 
       case ReadAttributes(:final entry):
         try {
@@ -478,15 +484,18 @@ class CoreServer implements CoreHandler {
 
   /// Войти в объект, названный ссылкой.
   ///
-  /// Строка панели — обычный случай: пришли за тем, что видят на экране.
-  /// Номер списка при этом сверяется, а не берётся на веру: пока сообщение
-  /// шло, каталог могли перечитать, и строка под тем же местом — уже другая.
+  /// Строка панели — обычный случай: пришли за тем, что видят на экране. Ищется
+  /// она **личностью**, а не местом в списке: пока сообщение шло, список мог
+  /// дорасти, и отказывать из-за этого человеку не за что
+  /// (`docs/spec/client-server.md`, §5.5а).
   Future<CoreReply> _enter(PanelSession session, EntryRef entry) async {
     switch (entry) {
-      case PanelEntryRef(:final index, :final generation):
-        if (generation != session.generation || index < 0 || index >= session.nodes.length) {
-          // Список сменился — заявка ни о чём. Не беда: та сторона просто
-          // увидит новый список и повторит, если человек нажмёт ещё раз.
+      case PanelEntryRef(:final id, :final path):
+        final node = session.rowForRef(id, path);
+        final index = node == null ? -1 : session.nodes.indexOf(node);
+        if (index < 0) {
+          // Строки больше нет вовсе. Не беда: та сторона увидит новый список и
+          // повторит, если человек нажмёт ещё раз.
           return const CoreEntered(null);
         }
         session.setCursorIndex(index);

@@ -54,10 +54,12 @@ void main() {
     await core.dispose();
   });
 
-  int indexOf(String name) => session.entries.indexWhere((entry) => entry.name == name);
+  FileEntry rowOf(String name) => session.entries.firstWhere((entry) => entry.name == name);
 
-  Content contentOf(String name) =>
-      RemoteContent(link, EntryRef.inPanel(PanelId.left, indexOf(name), session.generation), length: 5);
+  Content contentOf(String name) {
+    final row = rowOf(name);
+    return RemoteContent(link, EntryRef.inPanel(PanelId.left, row.id, path: row.path), length: 5);
+  }
 
   test('байты приезжают кусками и кончаются', () async {
     final bytes = <int>[];
@@ -78,16 +80,30 @@ void main() {
   });
 
   test('источник без байтов отказывает, а не молчит', () async {
-    final index = plain.entries.indexWhere((entry) => entry.name == 'plain.txt');
-    final content = RemoteContent(link, EntryRef.inPanel(PanelId.right, index, plain.generation), length: 3);
+    final row = plain.entries.firstWhere((entry) => entry.name == 'plain.txt');
+    final content = RemoteContent(link, EntryRef.inPanel(PanelId.right, row.id, path: row.path), length: 3);
 
     await expectLater(content.read().toList(), throwsA(isA<FsError>()));
   });
 
-  test('строка устаревшего списка байтов не отдаёт', () async {
-    final stale = RemoteContent(link, EntryRef.inPanel(PanelId.left, 0, session.generation - 1), length: 0);
+  test('строки, которой нет, байтов не отдают', () async {
+    final gone = RemoteContent(link, const EntryRef.inPanel(PanelId.left, 99999, path: '/home/gone.txt'), length: 0);
 
-    await expectLater(stale.read().toList(), throwsA(isA<FsError>()));
+    await expectLater(gone.read().toList(), throwsA(isA<FsError>()));
+  });
+
+  test('после перечитывания байты приезжают по той же ссылке', () async {
+    // Личность строки сменилась вместе с узлом, а путь — нет: им ссылка и
+    // выручается (`docs/spec/client-server.md`, §5.5а).
+    final content = contentOf('notes.txt');
+    await link.call(const Reload(PanelId.left));
+
+    final bytes = <int>[];
+    await for (final chunk in content.read()) {
+      bytes.addAll(chunk);
+    }
+
+    expect(bytes, [104, 101, 108, 108, 111]);
   });
 
   test('закрытый поток прекращает чтение', () async {

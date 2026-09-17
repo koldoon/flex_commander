@@ -509,11 +509,9 @@ class SessionMirror extends ChangeNotifier implements Session {
   @override
   Future<FileEntry?> enter(FileEntry entry) async {
     _yieldWork();
-    final index = entries.indexOf(entry);
-    if (index < 0) {
-      return null;
-    }
-    final reply = await _link.call(OpenEntry(id, EntryRef.inPanel(id, index, _listing.generation)));
+    // «..» называется одной личностью: пути у неё нет, и подтверждать его
+    // нечем — а войти в неё надо.
+    final reply = await _link.call(OpenEntry(id, EntryRef.inPanel(id, entry.id, path: entry.path)));
     return reply is CoreEntered ? reply.entry : null;
   }
 
@@ -701,22 +699,30 @@ class SessionMirror extends ChangeNotifier implements Session {
       return false;
     }
     final reply = await _link.call(CheckWriteAccess(ref));
-    return reply is CoreFlag && reply.value;
+    return switch (reply) {
+      CoreFlag(:final value) => value,
+      // Отказ доходит до того, кто спросил: «не нашли строку» — не то же, что
+      // «писать не дают», и редактор различает их сам.
+      CoreFailed(:final error) => throw error,
+      _ => true,
+    };
   }
 
-  /// Ссылка на строку: место в списке и его номер.
+  /// Ссылка на строку: её личность и путь при ней.
   ///
-  /// Место ищется **по пути**, а не по имени: цели бывают из других каталогов,
-  /// а одноимённая строка своего каталога — это другой файл, и прочитать вместо
-  /// спрошенного его было бы подменой (`docs/spec/operation-targets.md`, §4).
-  /// Не нашлось здесь — говорим адресом: разбирать пути ядро умеет.
+  /// Личность выдало ядро вместе со списком, и по ней оно найдёт **тот самый**
+  /// узел, даже если список с тех пор дорос (`docs/spec/client-server.md`,
+  /// §5.5а). Путь едет рядом — им подтверждают личность и им же выручают, когда
+  /// каталог перечитали и номера сменились.
+  ///
+  /// Строки из чужих рук (перетаскивание, сценарий) личности не имеют — их
+  /// называют адресом, и разбирать его ядро умеет.
   EntryRef? _refTo(FileEntry entry) {
     if (entry.path.isEmpty) {
-      // Путь есть у всего, кроме «..», а его читать нечем.
+      // Путь есть у всего, кроме «..», а её читать нечем.
       return null;
     }
-    final index = entries.indexWhere((candidate) => candidate.path == entry.path);
-    return index < 0 ? EntryRef.path(entry.path) : EntryRef.inPanel(id, index, _listing.generation);
+    return entry.id == 0 ? EntryRef.path(entry.path) : EntryRef.inPanel(id, entry.id, path: entry.path);
   }
 
   // --- область ---

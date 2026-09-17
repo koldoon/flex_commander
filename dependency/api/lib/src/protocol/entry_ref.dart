@@ -42,10 +42,15 @@ sealed class EntryRef {
 
   /// То, что сейчас на экране: строка панели.
   ///
-  /// [generation] растёт с каждым новым списком. Заявка на строку устаревшего
-  /// списка отвергается, а не попадает в чужой файл: пока шло сообщение,
-  /// каталог могли перечитать.
-  const factory EntryRef.inPanel(PanelId panel, int index, int generation) = PanelEntryRef;
+  /// Называется она **личностью** ([FileEntry.id]), а не местом в списке, и
+  /// разбирает её сама сессия — по своим строкам. Так ссылка переживает и
+  /// прирост списка, и перечитывание: узел остаётся тем же, где бы он ни
+  /// оказался (`docs/spec/client-server.md`, §5.5а).
+  ///
+  /// [path] — запасной ключ: перечитанный каталог рождает новые узлы, и
+  /// личности у них новые, а путь тот же. Пусто у «..»: у неё нет пути, и
+  /// подтверждать личность ей нечем.
+  const factory EntryRef.inPanel(PanelId panel, int id, {String path}) = PanelEntryRef;
 
   /// Адрес со стороны: перетаскивание из системы, сценарий, буфер обмена,
   /// сохранённые настройки. Стоит разбора пути — того же, что делается и
@@ -54,14 +59,18 @@ sealed class EntryRef {
 }
 
 final class PanelEntryRef extends EntryRef {
-  const PanelEntryRef(this.panel, this.index, this.generation);
+  const PanelEntryRef(this.panel, this.id, {this.path = ''});
 
   final PanelId panel;
-  final int index;
-  final int generation;
+
+  /// Личность строки — [FileEntry.id].
+  final int id;
+
+  /// Путь строки: подтверждение личности и запасной ключ.
+  final String path;
 
   @override
-  String toString() => 'EntryRef(${panel.name}[$index]@$generation)';
+  String toString() => 'EntryRef(${panel.name}#$id${path.isEmpty ? '' : ' $path'})';
 }
 
 final class PathEntryRef extends EntryRef {

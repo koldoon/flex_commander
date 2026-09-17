@@ -32,7 +32,7 @@ class ContentHub {
     try {
       final node = await _nodeOf(entry, leases);
       if (node == null) {
-        throw const FsError('', FsErrorKind.notFound);
+        throw FsError(_pathOf(entry), FsErrorKind.notFound);
       }
       final provider = node.provider;
       if (provider is! FileContentProvider) {
@@ -73,7 +73,9 @@ class ContentHub {
     try {
       final node = await _nodeOf(entry, leases);
       if (node == null) {
-        return NodeAttributes.unknown;
+        // «Не нашли» — это отказ, а не пустые атрибуты: окно сведений иначе
+        // показывает прочерки, не сказав почему.
+        throw FsError(_pathOf(entry), FsErrorKind.notFound);
       }
       final provider = node.provider;
       if (provider is! NodeAttributesEditor) {
@@ -110,14 +112,20 @@ class ContentHub {
     try {
       final node = await _nodeOf(entry, leases);
       if (node == null) {
-        return false;
+        // «Не нашли строку» и «писать не дают» — разные ответы, и путать их
+        // нельзя: соврав вторым, ядро заставляет редактор показать окно «файл
+        // только для чтения» над обычным файлом.
+        throw FsError(_pathOf(entry), FsErrorKind.notFound);
       }
       final provider = node.provider;
       if (provider is! WriteAccessCheck) {
         return true;
       }
       return await (provider as WriteAccessCheck).canWriteTo(node);
-    } on FsError {
+    } on FsError catch (error) {
+      if (error.kind == FsErrorKind.notFound) {
+        rethrow;
+      }
       // Не смогли выяснить — не выдумываем: молчим, как источник без проверки.
       return true;
     } finally {
@@ -147,17 +155,25 @@ class ContentHub {
   ///
   /// Аренда здесь не формальность: читают файл из архива, а панель за это время
   /// вправе из него выйти.
+  /// Путь из ссылки — для отказа: «не нашли» без имени не говорит человеку
+  /// ничего.
+  static String _pathOf(EntryRef entry) => switch (entry) {
+    PanelEntryRef(:final path) => path,
+    PathEntryRef(:final path) => path,
+  };
+
   Future<FsNode?> _nodeOf(EntryRef entry, List<ProviderLease> leases) async {
     switch (entry) {
-      case PanelEntryRef(:final panel, :final index, :final generation):
+      case PanelEntryRef(:final panel, :final id, :final path):
         final session = _sessionOf(panel);
-        if (generation != session.generation || index < 0 || index >= session.nodes.length) {
+        final node = session.rowForRef(id, path);
+        if (node == null) {
           return null;
         }
         if (session.leaseProvider() case final lease?) {
           leases.add(lease);
         }
-        return session.nodes[index];
+        return node;
       case PathEntryRef(:final path):
         final resolved = await _registry?.resolveDisplayPath().run(ResolvePathParams(path));
         if (resolved == null) {

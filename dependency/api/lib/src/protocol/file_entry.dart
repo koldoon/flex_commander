@@ -45,11 +45,22 @@ class FileEntry {
     this.isOpen = false,
     this.hasBranches = false,
     this.sizeIsFinal = true,
+    this.id = 0,
   });
 
   /// Размер неизвестен: у каталога, пока его не обошли, и у того, о чьём
   /// размере источник молчит.
   static const int unknownSize = -1;
+
+  /// Личность строки: по ней ядро находит **тот самый** узел.
+  ///
+  /// Номер выдаёт сессия при публикации списка и не меняет, пока строка та же
+  /// (`docs/spec/client-server.md`, §5.5а). Ноль — строка не из панели:
+  /// находка в окне работы, строка перетаскивания; такую называют путём.
+  ///
+  /// Номер, а не место в списке: список растёт и перечитывается, и место
+  /// перестаёт значить что-либо уже через кадр, а узел остаётся тем же.
+  final int id;
 
   final String name;
   final EntryKind kind;
@@ -144,6 +155,33 @@ class FileEntry {
     sizeIsFinal: isFinal,
     canStream: canStream,
     canReceive: canReceive,
+    id: id,
+  );
+
+  /// Та же строка с выданной ей личностью.
+  FileEntry withId(int value) => FileEntry(
+    name: name,
+    kind: kind,
+    path: path,
+    realPath: realPath,
+    directoryPath: directoryPath,
+    size: size,
+    modified: modified,
+    created: created,
+    accessed: accessed,
+    attributes: attributes,
+    executable: executable,
+    broken: broken,
+    linkToDirectory: linkToDirectory,
+    reference: reference,
+    scheme: scheme,
+    level: level,
+    isOpen: isOpen,
+    hasBranches: hasBranches,
+    sizeIsFinal: sizeIsFinal,
+    canStream: canStream,
+    canReceive: canReceive,
+    id: value,
   );
 
   /// Глубина строки в списке: 0 у корневых, дальше по вложенности.

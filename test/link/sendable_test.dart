@@ -64,7 +64,7 @@ void main() {
   );
   const listing = PanelListing(generation: 1, entries: [entry]);
   final state = PanelState(source: const SourceInfo(scheme: 'fs'), columns: ColumnLayout.empty);
-  const ref = EntryRef.inPanel(PanelId.left, 0, 1);
+  const ref = EntryRef.inPanel(PanelId.left, 7, path: '/home/notes.txt');
 
   group('просьбы', () {
     sendable('рукопожатие', const LinkRequest(1, Handshake()));

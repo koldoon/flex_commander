@@ -116,7 +116,10 @@ class EditFileCommand extends AppCommand {
         context.app.toasts.show(tr('Not a UTF-8 text file: {name}', args: {'name': entry.name}));
         return;
       }
-      rethrow;
+      // Прочее говорится тостом, а не уходит в журнал: человек нажал `F4` и
+      // вправе узнать, почему ничего не открылось.
+      context.app.toasts.show(error.message);
+      return;
     }
 
     context.app.view.pushViewportContent(

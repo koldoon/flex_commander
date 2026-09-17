@@ -152,10 +152,10 @@ void main() {
     test('вход в каталог даёт новый список с новым номером', () async {
       await link.call(const OpenPath(PanelId.left, '/home'));
       final listing = lastListing()!;
-      final docs = listing.entries.indexWhere((entry) => entry.name == 'docs');
+      final docs = listing.entries.firstWhere((entry) => entry.name == 'docs');
 
       final entered = await link.call(
-        OpenEntry(PanelId.left, EntryRef.inPanel(PanelId.left, docs, listing.generation)),
+        OpenEntry(PanelId.left, EntryRef.inPanel(PanelId.left, docs.id, path: docs.path)),
       );
 
       expect((entered as CoreEntered).entry, isNull, reason: 'вошли');
@@ -164,23 +164,46 @@ void main() {
       expect(lastListing()!.entries.map((entry) => entry.name), contains('deep.txt'));
     });
 
-    test('заявка на строку устаревшего списка не исполняется', () async {
+    test('заявка на строку, которой больше нет, не исполняется', () async {
       await link.call(const OpenPath(PanelId.left, '/home'));
-      final stale = lastListing()!.generation - 1;
 
-      final entered = await link.call(OpenEntry(PanelId.left, EntryRef.inPanel(PanelId.left, 0, stale)));
+      // Ни личности, ни пути — подтвердить нечем, и это честный отказ, а не
+      // вход в произвольную строку.
+      final entered = await link.call(
+        OpenEntry(PanelId.left, const EntryRef.inPanel(PanelId.left, 99999, path: '/home/gone.txt')),
+      );
 
       expect((entered as CoreEntered).entry, isNull);
       expect(lastState()!.currentPath, '/home', reason: 'никуда не пошли');
     });
 
+    test('список вырос — заявка на строку всё равно исполняется', () async {
+      // Ровно то, что ломалось живьём на растущем списке находок: ссылка
+      // строилась при нажатии, а к ядру приезжала, когда номер списка уже
+      // сменился (`docs/spec/client-server.md`, §5.5а).
+      await link.call(const OpenPath(PanelId.left, '/home'));
+      final docs = lastListing()!.entries.firstWhere((entry) => entry.name == 'docs');
+      final was = lastListing()!.generation;
+
+      provider.add(FakeEntry.file('/home/fresh.txt', size: 1));
+      await link.call(const Reload(PanelId.left));
+      expect(lastListing()!.generation, greaterThan(was), reason: 'стенд ни о чём без нового списка');
+
+      final entered = await link.call(
+        OpenEntry(PanelId.left, EntryRef.inPanel(PanelId.left, docs.id, path: docs.path)),
+      );
+
+      expect((entered as CoreEntered).entry, isNull, reason: 'вошли');
+      expect(lastState()!.currentPath, '/home/docs');
+    });
+
     test('в файл войти нельзя — он и приезжает обратно', () async {
       await link.call(const OpenPath(PanelId.left, '/home'));
       final listing = lastListing()!;
-      final notes = listing.entries.indexWhere((entry) => entry.name == 'notes.txt');
+      final notes = listing.entries.firstWhere((entry) => entry.name == 'notes.txt');
 
       final entered =
-          await link.call(OpenEntry(PanelId.left, EntryRef.inPanel(PanelId.left, notes, listing.generation)))
+          await link.call(OpenEntry(PanelId.left, EntryRef.inPanel(PanelId.left, notes.id, path: notes.path)))
               as CoreEntered;
 
       expect(entered.entry?.name, 'notes.txt');

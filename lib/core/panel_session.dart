@@ -297,6 +297,19 @@ class PanelSession {
   /// весь список на каждую посчитанную ветвь.
   Map<String, FsNode>? _byPath;
 
+  /// Личности строк: узел → номер и номер → узел.
+  ///
+  /// Номер выдаётся один раз на узел и живёт, пока узел стоит в списке. Список
+  /// дорос в конце — прежние строки остались со своими номерами, и заявка,
+  /// посланная секунду назад, по-прежнему знает, о ком речь
+  /// (`docs/spec/client-server.md`, §5.5а).
+  ///
+  /// По тождеству, а не по пути: перечитанный каталог рождает **новые** узлы, и
+  /// они честно получают новые номера — а старую заявку выручит путь.
+  final Map<FsNode, int> _idOfRow = Map.identity();
+  final Map<int, FsNode> _rowById = {};
+  int _nextRowId = 0;
+
   /// Строки сменились: указатель по путям пересобирается лениво.
   /// Новые строки — и курсор вместе с ними.
   ///
@@ -316,6 +329,7 @@ class PanelSession {
     final was = currentNode?.pathString ?? '';
     _nodes = rows;
     _byPath = null;
+    _identify(rows);
     _keptCursor = was.isNotEmpty && _cursorToPath(was);
     if (!_keptCursor) {
       // Строки той нет вовсе — номер хотя бы приводится к новой длине: иначе
@@ -356,6 +370,39 @@ class PanelSession {
   }
 
   FsNode? _rowAt(String path) => (_byPath ??= {for (final node in _nodes) node.pathString: node})[path];
+
+  /// Раздать личности новым строкам и забыть ушедшие.
+  ///
+  /// Забыть обязательно: без уборки карта росла бы на каждое перечитывание, а
+  /// заявка на строку, которой в списке больше нет, находила бы мертвеца.
+  void _identify(List<FsNode> rows) {
+    final kept = <FsNode, int>{};
+    _rowById.clear();
+    for (final node in rows) {
+      final id = _idOfRow[node] ?? ++_nextRowId;
+      kept[node] = id;
+      _rowById[id] = node;
+    }
+    _idOfRow
+      ..clear()
+      ..addAll(kept);
+  }
+
+  /// Узел по ссылке на строку; null — такой строки в списке нет.
+  ///
+  /// Правило одно на всех, кто спрашивает из-за границы: личность, потом путь,
+  /// потом честный отказ (`docs/spec/client-server.md`, §5.5а). Путь ищется
+  /// **среди своих строк** — разбора адреса здесь нет и быть не должно: узел
+  /// принадлежит своему источнику вместе с соединением, и собирать его заново
+  /// по строке значило бы открыть второй путь к тому же файлу.
+  FsNode? rowForRef(int id, String path) {
+    final known = _rowById[id];
+    if (known != null) {
+      return known;
+    }
+    return path.isEmpty ? null : _rowAt(path);
+  }
+
   PanelPhase _status = PanelPhase.idle;
   FsError? _error;
   int _cursorIndex = 0;
@@ -2154,7 +2201,7 @@ class PanelSession {
 
   /// Узел значением.
   FileEntry entryOf(FsNode node) {
-    final entry = entryValueOf(node);
+    final entry = entryValueOf(node).withId(_idOfRow[node] ?? 0);
     if (entry.size >= 0) {
       return entry;
     }
