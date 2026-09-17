@@ -371,8 +371,17 @@ class SessionMirror extends ChangeNotifier implements Session {
             }
           }
         }
-        _listing = _withSizes(_listing);
-        notifyListeners();
+        final sized = _withSizes(_listing);
+        // Перерисовываем **только если в показанных строках и правда
+        // изменилось**. Обход помечает размер каждого встреченного подкаталога,
+        // а их в большом дереве десятки тысяч; из них в списке видны единицы, и
+        // остальные вести до экрана доходить не должны. Живьём это выглядело
+        // так: помечаешь каталог — интерфейс подвисает (разбор 17 сентября
+        // 2026).
+        if (!identical(sized, _listing)) {
+          _listing = sized;
+          notifyListeners();
+        }
         // Пока спрашивали, могло накопиться ещё.
         _pullSizes();
       }),
@@ -386,17 +395,31 @@ class SessionMirror extends ChangeNotifier implements Session {
   ///
   /// Забытое ядром возвращается к прочерку: половина, застывшая в колонке,
   /// хуже пустоты.
+  /// Тот же объект, если ни одна показанная строка не изменилась: по нему
+  /// сверяются те, кто считает раскладку (нарезка столбцов, закрепление
+  /// строки), — и лишней работы не делают.
   PanelListing _withSizes(PanelListing listing) {
-    final entries = [
-      for (final entry in listing.entries)
-        if (_forgotten.contains(entry.path) && !entry.sizeIsFinal)
-          entry.withSize(FileEntry.unknownSize)
-        else if (_sizes[entry.path] case final size?)
-          entry.withSize(size, isFinal: !_partial.contains(entry.path))
-        else
-          entry,
-    ];
+    List<FileEntry>? entries;
+    for (var at = 0; at < listing.entries.length; at++) {
+      final entry = listing.entries[at];
+      final FileEntry? changed;
+      if (_forgotten.contains(entry.path) && !entry.sizeIsFinal) {
+        changed = entry.withSize(FileEntry.unknownSize);
+      } else if (_sizes[entry.path] case final size?) {
+        final isFinal = !_partial.contains(entry.path);
+        changed = entry.size == size && entry.sizeIsFinal == isFinal ? null : entry.withSize(size, isFinal: isFinal);
+      } else {
+        changed = null;
+      }
+      if (changed != null) {
+        entries ??= [...listing.entries];
+        entries[at] = changed;
+      }
+    }
     _forgotten.clear();
+    if (entries == null) {
+      return listing;
+    }
     return PanelListing(generation: listing.generation, entries: entries);
   }
 

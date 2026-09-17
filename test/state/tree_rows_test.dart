@@ -207,6 +207,21 @@ void main() {
     expect(panel.session.selection.paths, isNot(contains('/')));
   });
 
+  test('догоняющее чтение не уводит курсор на ветвь своего каталога', () async {
+    // Живой разбор 17 сентября 2026: курсор посреди работы уходил в предыдущий
+    // столбец — это перечитывание по слежению ставило его на ветвь каталога
+    // панели, хотя строка под курсором никуда не девалась.
+    await panel.session.setRows(RowsKind.tree);
+    await panel.session.setExpanded('/home/lib', expanded: true);
+    cursorTo('app.dart');
+    expect(panel.session.currentNode?.name, 'app.dart');
+
+    await panel.session.catchUp();
+    await settle();
+
+    expect(panel.session.currentNode?.name, 'app.dart', reason: 'всё на месте — и курсор тоже');
+  });
+
   test('раскрытое переживает смену вида и попадает в настройки', () async {
     await panel.session.setRows(RowsKind.tree);
     await panel.session.setExpanded('/home/lib', expanded: true);

@@ -310,10 +310,14 @@ class PanelSession {
   /// Точное место потом уточнят те, кто знает больше — имя, ветвь, запомненное
   /// в истории, — но **до** публикации, а не после.
   void _setRows(List<FsNode> rows) {
-    final was = currentNode?.pathString;
+    // У «..» пути нет вовсе — и опознавать по нему нечего: пустой путь нашёлся
+    // бы у «..» нового списка, а это **другой** каталог. Подъём наверх ставит
+    // курсор на покинутый каталог, и мешать ему нельзя.
+    final was = currentNode?.pathString ?? '';
     _nodes = rows;
     _byPath = null;
-    if (was == null || !_cursorToPath(was)) {
+    _keptCursor = was.isNotEmpty && _cursorToPath(was);
+    if (!_keptCursor) {
       // Строки той нет вовсе — номер хотя бы приводится к новой длине: иначе
       // он указывает за край.
       _cursorIndex = rows.isEmpty ? 0 : _cursorIndex.clamp(0, rows.length - 1);
@@ -2215,10 +2219,22 @@ class PanelSession {
     bool watched = false,
   }) async {
     _rememberCursor();
+    // Сменился ли каталог — решается **здесь**, до чтения: ниже прежнего уже
+    // не спросить, а от ответа зависит, двигать ли курсор на ветвь нового
+    // каталога.
+    //
+    // Спрашивается **показанный путь**, а не каталог набора строк: у дерева
+    // набор начинается с корня источника, и его «каталог» — всегда корень,
+    // сколько по дереву ни ходи.
+    //
+    // Первое открытие — тоже переход: панель ещё ничего не показала, а путь из
+    // настроек уже лежит в `_lastPath`, и без этой оговорки курсор оставался бы
+    // на корне дерева.
+    final moved = _directory == null || _lastPath != dir.pathString;
     // Слежение снимается **до** отмены операции и до чтения: событие из
     // покидаемого каталога, придя сейчас, позвало бы `catchUp`, а тот — `_load`,
     // и отменил бы этот самый переход (`docs/spec/directory-watch.md`, §7).
-    if (_directory?.pathString != dir.pathString) {
+    if (moved) {
       _watch.stop();
     }
     _operation?.cancel();
@@ -2254,8 +2270,8 @@ class PanelSession {
       // запомненное (живой разбор 17 сентября 2026).
       _applySort(
         placeCursor: () {
-          _restoreCursor(cursorName, cursorFallbackIndex);
-          _cursorToBranch(dir, cursorName);
+          _restoreCursor(cursorName, cursorFallbackIndex, moved: moved);
+          _cursorToBranch(dir, cursorName, moved: moved);
         },
       );
       _stopSizeScan(keepMarked: quiet);
@@ -2330,8 +2346,8 @@ class PanelSession {
       // ту сторону целиком, и поставленный после курсор опаздывает на кадр.
       _applySort(
         placeCursor: () {
-          _restoreCursor(cursorName, cursorFallbackIndex);
-          _cursorToBranch(dir, cursorName);
+          _restoreCursor(cursorName, cursorFallbackIndex, moved: moved);
+          _cursorToBranch(dir, cursorName, moved: moved);
         },
       );
 
@@ -2585,7 +2601,8 @@ class PanelSession {
   ///
   /// Иначе он оставался бы на первой строке, то есть на корне источника: уход
   /// из находок «возвращал» панель в корень диска, а не туда, откуда искали.
-  void _cursorToBranch(DirectoryNode dir, String? cursorName) {
+  /// [moved] — каталог панели сменился; false — тот же самый перечитали.
+  void _cursorToBranch(DirectoryNode dir, String? cursorName, {required bool moved}) {
     if (!_rows.isTree) {
       return;
     }
@@ -2600,8 +2617,25 @@ class PanelSession {
     if (_restoredSaved) {
       return;
     }
+    // **Перечитали тот же каталог, а строка под курсором цела** — двигать
+    // нечего.
+    //
+    // Ветвь каталога — ответ на вопрос «где мы теперь», и он нужен, когда
+    // каталог и правда сменился: список комбинированного вида вошёл внутрь или
+    // поднялся наверх, и дерево обязано его догнать. А догоняющее чтение курсор
+    // трогать не смеет: посреди работы он уходил на ветвь — то есть в
+    // предыдущий столбец (живой разбор 17 сентября 2026).
+    if (!moved && _keptCursor) {
+      return;
+    }
     _cursorToPath(dir.pathString);
   }
+
+  /// Строка под курсором пережила смену строк — её нашли на новом месте.
+  ///
+  /// Признак ставится в [_setRows] и читается теми, кто уточняет курсор следом:
+  /// уточнять нечего, объект под курсором тот же.
+  bool _keptCursor = false;
 
   /// Курсор только что встал по строке прошлого запуска.
   ///
@@ -2610,7 +2644,8 @@ class PanelSession {
   /// найденное.
   bool _restoredSaved = false;
 
-  void _restoreCursor(String? cursorName, int? fallbackIndex) {
+  /// [moved] — каталог сменился; false — перечитали тот же самый.
+  void _restoreCursor(String? cursorName, int? fallbackIndex, {bool moved = true}) {
     // Строка прошлого запуска — **путём и первой**: имя в дереве неоднозначно
     // (одинаковых имён в разных ветвях сколько угодно), а строк тут бывает
     // четыре тысячи.
@@ -2626,12 +2661,28 @@ class PanelSession {
       _restoredSaved = true;
       return;
     }
+    // Имя — это **намерение** того, кто позвал: вернуться историей, подняться
+    // наверх, войти в каталог, из которого вышли. Оно сильнее того, что курсор
+    // остался на месте.
     if (cursorName != null) {
       final index = _nodes.indexWhere((node) => node.name == cursorName);
       if (index >= 0) {
         _cursorIndex = index;
         return;
       }
+    }
+    // Перечитали **тот же** каталог, и строка под курсором цела — двигать
+    // нечего.
+    //
+    // Это обычное дело догоняющего чтения: список перечитали, всё на месте, и
+    // курсор обязан остаться там же. Без этой проверки он уходил на ветвь
+    // своего каталога — то есть в **предыдущий столбец**, посреди работы, без
+    // единой нажатой клавиши (живой разбор 17 сентября 2026).
+    //
+    // А вот при переходе прежняя строка ничего не значит: «в корень» — это в
+    // начало корня, а не туда, где курсор случайно оказался.
+    if (!moved && _keptCursor) {
+      return;
     }
     _cursorIndex = _nodes.isEmpty ? 0 : (fallbackIndex ?? 0).clamp(0, _nodes.length - 1);
   }
