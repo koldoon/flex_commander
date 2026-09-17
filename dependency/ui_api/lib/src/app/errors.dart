@@ -40,6 +40,18 @@ abstract interface class Errors implements Listenable {
   Future<bool> copyReport();
 }
 
+/// Ошибка, у которой след свой, а не местный.
+///
+/// Ядро живёт в изоляте, и тип исключения через границу не поедет: приезжают
+/// текст и след (`docs/spec/client-server.md`, §3). Местный стек при этом
+/// показывает только, **где ответа ждали**, — по нему поломку не найти. Отчёт
+/// без следа и был бесполезен: «Null check operator used on a null value» без
+/// единой строки о том, где именно.
+abstract interface class TracedError {
+  /// След с той стороны — как он приехал.
+  String get trace;
+}
+
 /// Одна пойманная ошибка — то, что показывают человеку и кладут в отчёт.
 ///
 /// Хранится всё, что удалось вытащить: без стека и типа сообщение «Bad state»
@@ -107,6 +119,14 @@ class ErrorReport {
       ..writeln('$type: $message')
       ..writeln()
       ..writeln(stack?.toString() ?? 'No stack trace');
+    // След с той стороны — после местного, а не вместо: где ответа ждали, тоже
+    // часть картины.
+    if (error case final TracedError traced when traced.trace.isNotEmpty) {
+      buffer
+        ..writeln()
+        ..writeln('Core stack:')
+        ..writeln(traced.trace);
+    }
     return buffer.toString();
   }
 }

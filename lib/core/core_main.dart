@@ -67,8 +67,10 @@ Future<void> coreMain(CoreStartup startup) async {
 Future<void> _answer(CoreServer core, LinkRequest incoming, SendPort back) async {
   try {
     final reply = await core.handle(incoming.request);
-    if (reply != null && incoming.id != 0) {
-      back.send(LinkReply(incoming.id, reply));
+    // Ждущему отвечаем всегда, даже когда сказать нечего: молчание на просьбу,
+    // ответа которой ждут, — это зависший экран.
+    if (incoming.id != 0) {
+      back.send(LinkReply(incoming.id, reply ?? const CoreDone()));
     }
   } on Object catch (error, stack) {
     back.send(LinkCrashed(incoming.id, error.toString(), stack.toString()));

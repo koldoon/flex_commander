@@ -1,6 +1,7 @@
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:flex_commander/state/error_controller.dart';
+import 'package:flex_commander/link/link.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Сборщик того, что никто не поймал.
@@ -100,6 +101,20 @@ void main() {
     test('копировать нечего — и говорится об этом', () async {
       expect(await errors.copyReport(), isFalse);
       expect(clipboard.text, isNull);
+    });
+
+    test('след с той стороны границы попадает в отчёт', () async {
+      // Ядро живёт в изоляте: местный стек показывает только, где ждали
+      // ответа. Без приехавшего следа отчёт не называл места вовсе — так и
+      // случилось с живым падением 17 сентября 2026.
+      errors.report(
+        const CoreCrashed('Null check operator used on a null value', '#0 SomeClass.method (core.dart:42)'),
+      );
+
+      await errors.copyReport();
+
+      expect(clipboard.text, contains('Core stack:'));
+      expect(clipboard.text, contains('core.dart:42'));
     });
 
     test('повторы попадают в отчёт', () async {

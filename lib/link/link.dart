@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 
 /// Что ходит по линку.
 ///
@@ -194,10 +195,14 @@ abstract class CoreLink implements Link {
 ///
 /// Текстом и стеком: тип исключения через границу не поедет, а сказать
 /// человеку надо именно текст.
-class CoreCrashed implements Exception {
+class CoreCrashed implements Exception, TracedError {
   const CoreCrashed(this.message, this.trace);
 
   final String message;
+
+  /// След ядра: местный стек показывает только, где ждали ответа, и без этого
+  /// отчёт об ошибке не называет места вовсе.
+  @override
   final String trace;
 
   @override

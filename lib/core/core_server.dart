@@ -190,6 +190,10 @@ class CoreServer implements CoreHandler {
     return () => _listeners.remove(onEvent);
   }
 
+  /// Сессия по личности.
+  ///
+  /// Развёртка здесь законна: просьбы к убранной панели отсеиваются на входе
+  /// (см. [handle]), а зовут это только оттуда.
   PanelSession session(PanelId panel) => _panels[panel]!;
 
   /// Сессия, если она ещё жива; null — такой уже (или ещё) нет.
@@ -230,6 +234,15 @@ class CoreServer implements CoreHandler {
 
   @override
   Future<CoreReply?> handle(CoreRequest request) async {
+    // Просьба к убранной панели — тишина, а не поломка: экран мог отправить её
+    // до того, как узнал о закрытии, и это обычный ход дела, а не беда.
+    // Проверка одна на все просьбы: иначе о ней забывают ровно в той, где
+    // забывать нельзя, — живьём это и приходило «Null check operator used on a
+    // null value» из ядра, без единой строки о месте.
+    if (request case PanelRequest(:final panel) when !_panels.containsKey(panel)) {
+      return null;
+    }
+
     switch (request) {
       case Handshake():
         return CoreReady(

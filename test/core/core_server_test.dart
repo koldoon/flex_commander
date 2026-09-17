@@ -77,6 +77,21 @@ void main() {
   PanelState? lastState([PanelId panel = PanelId.left]) =>
       heard.whereType<PanelChanged>().where((event) => event.panel == panel).lastOrNull?.state;
 
+  test('просьба к убранной панели уходит в пустоту, а не роняет ядро', () async {
+    // Экран мог отправить её до того, как узнал о закрытии, — обычный ход дела.
+    // Развёртка `_panels[panel]!` превращала это в поломку ядра, и та
+    // приезжала на экран без единой строки о месте.
+    await link.call(const ClosePanel(PanelId.right));
+
+    // Отвечает, а не молчит: ждущий без ответа висел бы вечно.
+    expect(await link.call(const OpenPath(PanelId.right, '/home')), isA<CoreDone>());
+    expect(await link.call(const Reload(PanelId.right)), isA<CoreDone>());
+    expect(await link.call(const AskHistory(PanelId.right)), isA<CoreDone>());
+
+    // Живая панель при этом отвечает как обычно.
+    expect(await link.call(const OpenPath(PanelId.left, '/home')), isA<CoreOpened>());
+  });
+
   group('рукопожатие', () {
     test('первое слово ядра — что у него есть прямо сейчас', () async {
       final ready = await link.call(const Handshake()) as CoreReady;

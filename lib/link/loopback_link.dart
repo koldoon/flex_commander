@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter/foundation.dart';
 
 import 'link.dart';
@@ -36,8 +37,11 @@ class LoopbackLink extends CoreLink {
       _core
           .handle(message.request)
           .then((reply) {
-            if (reply != null && message.id != 0) {
-              receive(LinkReply(message.id, reply));
+            // Ждущему отвечаем **всегда**: разбор бывает и молчаливым — просьба
+            // к убранной панели, например, — а ждущий без ответа висит вечно.
+            // `CoreDone` и значит «сказать нечего».
+            if (message.id != 0) {
+              receive(LinkReply(message.id, reply ?? const CoreDone()));
             }
           })
           .catchError((Object error, StackTrace stack) {

@@ -25,6 +25,16 @@ sealed class CoreRequest {
   const CoreRequest();
 }
 
+/// Просьба, обращённая к одной панели.
+///
+/// Общий признак, а не поле у каждой: панель бывает **убрана**, а просьба к ней
+/// — уже в пути. Ядро отвечает такой тишиной, и проверить это надо один раз, на
+/// входе, а не двадцатью проверками в разборе
+/// (`docs/spec/client-server.md`, §5).
+abstract interface class PanelRequest {
+  PanelId get panel;
+}
+
 /// Первое слово: что у ядра есть прямо сейчас.
 ///
 /// До ответа дверь закрыта — панель, попросившая каталог раньше, ждёт его, а не
@@ -38,9 +48,10 @@ final class Handshake extends CoreRequest {
 /// [allowConnect] — можно ли ради этого подключаться к источнику по адресу.
 /// false нужен восстановлению при запуске: сохранённый адрес означал бы поход
 /// в сеть на каждом запуске.
-final class OpenPath extends CoreRequest {
+final class OpenPath extends CoreRequest implements PanelRequest {
   const OpenPath(this.panel, this.path, {this.allowConnect = true});
 
+  @override
   final PanelId panel;
   final String path;
   final bool allowConnect;
@@ -50,17 +61,19 @@ final class OpenPath extends CoreRequest {
 ///
 /// Ответом приходит то, во что войти нельзя (обычный файл), — им займётся
 /// команда; null означает, что переход выполнен.
-final class OpenEntry extends CoreRequest {
+final class OpenEntry extends CoreRequest implements PanelRequest {
   const OpenEntry(this.panel, this.entry);
 
+  @override
   final PanelId panel;
   final EntryRef entry;
 }
 
 /// На уровень вверх; курсор встаёт на объект, через который вошли.
-final class GoUp extends CoreRequest {
+final class GoUp extends CoreRequest implements PanelRequest {
   const GoUp(this.panel);
 
+  @override
   final PanelId panel;
 }
 
@@ -70,9 +83,10 @@ final class GoUp extends CoreRequest {
 /// Одним сообщением на три хода: назад, вперёд и прыжок к названному шагу —
 /// это одно действие с разным адресом, и разводить их по трём сообщениям
 /// значило бы трижды написать одно и то же.
-final class WalkHistory extends CoreRequest {
+final class WalkHistory extends CoreRequest implements PanelRequest {
   const WalkHistory(this.panel, this.where, {this.index = 0});
 
+  @override
   final PanelId panel;
   final HistoryWalk where;
 
@@ -94,16 +108,18 @@ enum HistoryWalk {
 /// Просьбой, а не событием: список нужен один раз, когда открывают окно
 /// выбора, и возить его в каждом снимке было бы работой впустую
 /// (`docs/spec/session-history.md`, §6).
-final class AskHistory extends CoreRequest {
+final class AskHistory extends CoreRequest implements PanelRequest {
   const AskHistory(this.panel);
 
+  @override
   final PanelId panel;
 }
 
 /// Перечитать каталог, сохранив курсор и пометку.
-final class Reload extends CoreRequest {
+final class Reload extends CoreRequest implements PanelRequest {
   const Reload(this.panel);
 
+  @override
   final PanelId panel;
 }
 
@@ -113,9 +129,10 @@ final class Reload extends CoreRequest {
 /// переход к имени и упор в края — это про показ. Через границу едет уже
 /// результат, а [seq] позволяет зеркалу отличить свежий ответ от опоздавшего
 /// (`docs/spec/client-server.md`, §5.5).
-final class MoveCursor extends CoreRequest {
+final class MoveCursor extends CoreRequest implements PanelRequest {
   const MoveCursor(this.panel, this.index, this.seq);
 
+  @override
   final PanelId panel;
   final int index;
   final int seq;
@@ -133,9 +150,10 @@ final class MoveCursor extends CoreRequest {
 ///
 /// [seq] — тот же номер заявки, что у [MoveCursor]: зеркало двигает курсор у
 /// себя сразу и по номеру отличает свежее подтверждение от опоздавшего.
-final class MoveCursorTo extends CoreRequest {
+final class MoveCursorTo extends CoreRequest implements PanelRequest {
   const MoveCursorTo(this.panel, this.path, this.seq);
 
+  @override
   final PanelId panel;
   final String path;
   final int seq;
@@ -155,9 +173,10 @@ final class MoveCursorTo extends CoreRequest {
 /// применяется **сразу**, а подтверждения на первые заявки приходят, когда
 /// помечено уже больше, — и слушать их значит отбирать помеченное
 /// (`docs/spec/client-server.md`, §5.5).
-final class SetMarks extends CoreRequest {
+final class SetMarks extends CoreRequest implements PanelRequest {
   const SetMarks(this.panel, this.paths, this.seq);
 
+  @override
   final PanelId panel;
   final Set<String> paths;
   final int seq;
@@ -171,9 +190,10 @@ final class SetMarks extends CoreRequest {
 /// (`docs/spec/panel-view-tree.md`, §3). От [OpenPath] отличается тремя вещами:
 /// панель не занята, пометка не снимается, а список подтягивается тихо — тот
 /// же каталог вид только что прочитал сам.
-final class FollowCursor extends CoreRequest {
+final class FollowCursor extends CoreRequest implements PanelRequest {
   const FollowCursor(this.panel, this.directory, this.name);
 
+  @override
   final PanelId panel;
 
   /// Каталог, в котором лежит объект под курсором вида.
@@ -187,9 +207,10 @@ final class FollowCursor extends CoreRequest {
 ///
 /// Отдельно от [SetMarks], потому что это одно действие: клавиша `Space`
 /// помечает и переходит к следующему, а курсор — ядровый.
-final class ToggleMark extends CoreRequest {
+final class ToggleMark extends CoreRequest implements PanelRequest {
   const ToggleMark(this.panel, {this.step = true, this.seq = 0});
 
+  @override
   final PanelId panel;
 
   /// Номер заявки той стороны — тот же, что у [SetMarks].
@@ -209,9 +230,10 @@ final class ToggleMark extends CoreRequest {
 }
 
 /// Как показывать список: сортировка, колонки, скрытые.
-final class Arrange extends CoreRequest {
+final class Arrange extends CoreRequest implements PanelRequest {
   const Arrange(this.panel, {this.sort, this.columns, this.showHidden, this.view, this.rows});
 
+  @override
   final PanelId panel;
   final SortSpec? sort;
 
@@ -235,9 +257,10 @@ final class Arrange extends CoreRequest {
 ///
 /// Сообщением, а не просьбой: это положение, а не настройка, и ответа на него
 /// не ждут. Ядро его только хранит и возвращает — как и имя вида.
-final class ScrollTo extends CoreRequest {
+final class ScrollTo extends CoreRequest implements PanelRequest {
   const ScrollTo(this.panel, this.offset);
 
+  @override
   final PanelId panel;
   final double offset;
 }
@@ -246,9 +269,10 @@ final class ScrollTo extends CoreRequest {
 ///
 /// Сообщением, а не просьбой: ответа не ждут, новые строки приедут списком.
 /// Путь — потому что строки живут путями, а узлы после чтения другие.
-final class ExpandRow extends CoreRequest {
+final class ExpandRow extends CoreRequest implements PanelRequest {
   const ExpandRow(this.panel, this.path, {required this.expanded, this.deep = false});
 
+  @override
   final PanelId panel;
 
   /// Путь ветви; пусто вместе с [deep] — всё дерево.
@@ -263,9 +287,10 @@ final class ExpandRow extends CoreRequest {
 ///
 /// Отдельно от входа: в дереве ссылку не раскрывают (увела бы в цикл), а
 /// перейти к цели — можно (`docs/spec/panel-view-tree.md`, §4а).
-final class FollowLink extends CoreRequest {
+final class FollowLink extends CoreRequest implements PanelRequest {
   const FollowLink(this.panel, this.path);
 
+  @override
   final PanelId panel;
 
   /// Путь строки-ссылки.
@@ -273,9 +298,10 @@ final class FollowLink extends CoreRequest {
 }
 
 /// Посчитать размеры всех каталогов текущего каталога.
-final class MeasureDirectories extends CoreRequest {
+final class MeasureDirectories extends CoreRequest implements PanelRequest {
   const MeasureDirectories(this.panel);
 
+  @override
   final PanelId panel;
 }
 
@@ -285,17 +311,19 @@ final class MeasureDirectories extends CoreRequest {
 /// там же, где остальное состояние. Уходит просьба не дожидаясь ответа, а
 /// зеркало пишет к себе сразу: текст должен появиться в тот же кадр, в котором
 /// команда его выставила.
-final class SetStatusText extends CoreRequest {
+final class SetStatusText extends CoreRequest implements PanelRequest {
   const SetStatusText(this.panel, this.text);
 
+  @override
   final PanelId panel;
   final String? text;
 }
 
 /// Заголовок панели, выставленный командой; null — показывается путь.
-final class SetHeaderText extends CoreRequest {
+final class SetHeaderText extends CoreRequest implements PanelRequest {
   const SetHeaderText(this.panel, this.text);
 
+  @override
   final PanelId panel;
   final String? text;
 }
@@ -421,9 +449,10 @@ final class StartCore extends CoreRequest {
 /// принадлежат своим провайдерам, поэтому копирование, удаление, `F3` и `F4`
 /// работают над ними без единой правки. Заводится он **здесь**, где эти узлы и
 /// живут; та сторона называет работу, чьи находки показывать.
-final class ShowFound extends CoreRequest {
+final class ShowFound extends CoreRequest implements PanelRequest {
   const ShowFound(this.panel, this.runId, {this.title = ''});
 
+  @override
   final PanelId panel;
   final String runId;
 
@@ -439,9 +468,10 @@ final class ShowFound extends CoreRequest {
 ///
 /// Путь считается **от панели**: `~` у сервера свой, и подставлять вместо него
 /// местный было бы враньём.
-final class ListNames extends CoreRequest {
+final class ListNames extends CoreRequest implements PanelRequest {
   const ListNames(this.panel, this.path);
 
+  @override
   final PanelId panel;
   final String path;
 }
@@ -454,9 +484,10 @@ final class ListNames extends CoreRequest {
 /// ему нужны размеры ровно тех ветвей, что сейчас на экране.
 ///
 /// Неизвестного в ответе нет: чего панель не считала, того в карте и не будет.
-final class AskSizes extends CoreRequest {
+final class AskSizes extends CoreRequest implements PanelRequest {
   const AskSizes(this.panel, this.paths);
 
+  @override
   final PanelId panel;
   final List<String> paths;
 }
@@ -470,9 +501,10 @@ final class AskSizes extends CoreRequest {
 /// и возить в нём весь помеченный каталог — работа впустую
 /// (`docs/spec/client-server.md`, §4.3). Счёт этой стороне и без того известен:
 /// пути помеченного приезжают полностью.
-final class ListTargets extends CoreRequest {
+final class ListTargets extends CoreRequest implements PanelRequest {
   const ListTargets(this.panel);
 
+  @override
   final PanelId panel;
 }
 
@@ -524,9 +556,10 @@ final class OpenPanel extends CoreRequest {
 /// Ленивое чтение (`docs/spec/panel-sessions.md`, §6): сессии заводятся все, а
 /// каталог читается у показанных. Уже прочитанной просьба ничего не стоит —
 /// перечитывания она не значит.
-final class RestorePanel extends CoreRequest {
+final class RestorePanel extends CoreRequest implements PanelRequest {
   const RestorePanel(this.panel);
 
+  @override
   final PanelId panel;
 }
 
@@ -534,16 +567,18 @@ final class RestorePanel extends CoreRequest {
 ///
 /// Не то же, что «прервать»: работу можно прервать и остаться на месте, а
 /// здесь панели больше нет — и смонтированный ради неё архив держать незачем.
-final class ClosePanel extends CoreRequest {
+final class ClosePanel extends CoreRequest implements PanelRequest {
   const ClosePanel(this.panel);
 
+  @override
   final PanelId panel;
 }
 
 /// Прервать то, чем панель занята.
-final class CancelWork extends CoreRequest {
+final class CancelWork extends CoreRequest implements PanelRequest {
   const CancelWork(this.panel);
 
+  @override
   final PanelId panel;
 }
 
