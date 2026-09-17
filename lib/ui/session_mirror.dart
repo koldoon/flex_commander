@@ -277,7 +277,33 @@ class SessionMirror extends ChangeNotifier implements Session {
   /// Одной просьбой: пометка и курсор здесь — одно действие, и разложить его
   /// на две значило бы разрешить им разъехаться.
   @override
-  void toggleCurrentMark({bool step = true}) => _link.tell(ToggleMark(id, step: step));
+  void toggleCurrentMark({bool step = true}) {
+    _marksSeq++;
+
+    // Пометка показывается **сразу**, как и курсор: кадр рисует эта сторона, и
+    // ждать ради него оборота границы нечего. Пока ядро занято — а при
+    // помеченном каталоге оно обходит его целиком, — ответ отстаёт, и пометка
+    // догоняла курсор через заметное время (живой разбор 17 сентября 2026).
+    //
+    // Показываем только то, в чём уверены: «..» не помечается, а про строку
+    // уровня 0 в дереве решает ядро (корень источника целью не бывает) — там
+    // своей догадки не строим, дождёмся ответа.
+    //
+    // И **до** просьбы, а не после: дверь бывает и без задержки (петля в
+    // прогоне), и тогда ответ успевает прийти раньше, чем мы поставим своё, —
+    // а поставленное поверх ответа значит снять только что поставленное.
+    final entry = currentEntry;
+    if (entry != null && !entry.isParent && !(rows.isTree && entry.level == 0)) {
+      final marks = {..._state.markedPaths};
+      if (!marks.remove(entry.path)) {
+        marks.add(entry.path);
+      }
+      _state = _state.copyWith(markedPaths: marks, marksSeq: _marksSeq);
+      notifyListeners();
+    }
+
+    _link.tell(ToggleMark(id, step: step, seq: _marksSeq));
+  }
 
   /// Помеченное, а если не помечено ничего — объект под курсором.
   ///

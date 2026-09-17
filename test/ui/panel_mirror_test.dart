@@ -206,6 +206,25 @@ void main() {
     expect(panel.targets.map((entry) => entry.name), ['report.txt']);
   });
 
+  test('пометка под курсором видна в том же кадре', () async {
+    // Ядро могло уйти считать размеры помеченного каталога, и ответа ждать
+    // долго: пометка обязана появиться тем же кадром, что и нажатие
+    // (живой разбор 17 сентября 2026 — пометка догоняла курсор).
+    final notes = panel.entries.indexWhere((entry) => entry.name == 'notes.txt');
+    panel.setCursorIndex(notes);
+
+    panel.toggleCurrentMark(step: false);
+    expect(panel.markedPaths, {'/home/notes.txt'}, reason: 'ответа ещё нет — а пометка уже видна');
+
+    await pumpEventQueue();
+    expect(panel.markedPaths, {'/home/notes.txt'}, reason: 'и ядро согласилось');
+
+    panel.toggleCurrentMark(step: false);
+    expect(panel.markedPaths, isEmpty, reason: 'снимается так же сразу');
+    await pumpEventQueue();
+    expect(panel.markedPaths, isEmpty);
+  });
+
   test('опоздавшее подтверждение пометки не отбирает поставленное', () async {
     // Так помечают в дереве, зажав `Space`: заявки уходят пачкой, а
     // подтверждения на первые приходят, когда помечено уже больше. Слушать их

@@ -1232,7 +1232,12 @@ class PanelSession {
   /// так пометка нескольких файлов подряд делается одной клавишей.
   ///
   /// [step] — шагать ли: пометка на месте курсор не двигает.
-  void toggleCurrentMark({bool step = true}) {
+  void toggleCurrentMark({bool step = true, int seq = 0}) {
+    // Номер заявки — тот же, что у [setMarks]: пометку эта сторона показывает
+    // сразу, и опоздавшее подтверждение не должно её отбирать.
+    if (seq != 0) {
+      _marksSeq = seq;
+    }
     final node = currentNode;
     if (node == null || !_markable(node)) {
       return;
