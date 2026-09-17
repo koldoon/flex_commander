@@ -126,6 +126,63 @@ class ColumnsStepCommand extends _ColumnsCommand {
   }
 }
 
+/// Пометить строку под курсором и шагнуть **по столбцу**.
+///
+/// Своя, потому что шаг общей пометки — «следующая строка списка», а следующая
+/// строка списка у раскрытого каталога это его **первое содержимое**: пометив
+/// каталог, человек оказывался внутри него, в соседнем столбце. В списке и в
+/// дереве такого не бывает — там шаг вниз и есть шаг вниз.
+class ColumnsMarkCommand extends _ColumnsCommand {
+  static const String commandId = 'panel.columns.mark';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => tr('Mark');
+
+  @override
+  String get description => tr('Mark or unmark the item under the cursor and step down the column');
+
+  @override
+  Set<String> get keywords => const {'select', 'columns'};
+
+  @override
+  bool isExecutable(CommandContext context) {
+    final entry = context.entry;
+    if (entry == null || entry.isParent || !super.isExecutable(context)) {
+      return false;
+    }
+    // Полоса под панелью занята — пробел принадлежит ей: там набирают в
+    // быстром поиске, и пробел в имени не должен помечать каталог.
+    //
+    // Спрашивается **слот**, а не быстрый поиск по имени: модуль панелей о
+    // навигации не знает, да и знать не должен — занятая полоса и без него
+    // значит «клавиши сейчас чужие». Обычно эту развязку делает порядок
+    // привязок, но панели объявлены раньше навигации, и здесь он не спасает.
+    final status = context.app.view.activeArea.status;
+    return status == null || context.app.view.contentAt(status) == null;
+  }
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final panel = context.session;
+    // Пометка — на месте, шаг — свой: два дела, и каждое делает тот, кто умеет.
+    panel.toggleCurrentMark(step: false);
+
+    final chain = chainOf(context);
+    if (chain.current < 0) {
+      return;
+    }
+    final column = chain.columns[chain.current].rows;
+    final place = column.indexOf(panel.cursorIndex);
+    if (place < 0 || place + 1 >= column.length) {
+      return;
+    }
+    panel.setCursorToPath(panel.entries[column[place + 1]].path);
+  }
+}
+
 /// Насколько двигать курсор по столбцу.
 enum ColumnsRowStep {
   /// Соседняя строка.

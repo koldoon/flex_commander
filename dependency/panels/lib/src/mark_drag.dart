@@ -25,6 +25,7 @@ class MarkDrag {
     required this.bounds,
     required this.scroll,
     required this.activate,
+    this.rowsBetween,
   });
 
   /// Насколько далеко за краем список едет с наибольшей скоростью.
@@ -55,6 +56,14 @@ class MarkDrag {
 
   /// Сделать панель активной: жест начался в ней.
   final void Function() activate;
+
+  /// Какие строки лежат **между** двумя номерами; пусто — все подряд.
+  ///
+  /// Нужно тому виду, где соседние на экране строки не соседи в списке: в
+  /// столбцах между двумя строками одного каталога лежит чужое раскрытое
+  /// поддерево, и протяжка пометила бы его **невидимо** — а оттуда оно уехало
+  /// бы в цели `F5` (`docs/spec/panel-view-columns.md`, §9).
+  final List<int> Function(int low, int high)? rowsBetween;
 
   /// Строка, с которой жест начался; -1 — жеста нет.
   int _anchor = -1;
@@ -151,7 +160,11 @@ class MarkDrag {
     // путями, и слать по сообщению на строку значило бы гнать сотню сообщений
     // за один взмах мыши.
     final marked = <String>{...panel.markedPaths};
-    for (var i = low; i <= high && i < entries.length; i++) {
+    final touched = rowsBetween?.call(low, high) ?? [for (var i = low; i <= high && i < entries.length; i++) i];
+    for (final i in touched) {
+      if (i < 0 || i >= entries.length) {
+        continue;
+      }
       final entry = entries[i];
       // «..» не помечается никогда — это правило самой пометки, и жесту
       // достаточно его не обходить.

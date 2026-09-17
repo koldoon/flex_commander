@@ -186,7 +186,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
         // перевод на двоих.
         title: 'Path columns',
         description: 'The path as a chain of directories, left to right',
-        build: (context, panel) => ColumnsView(panel: panel, settings: settingsOf),
+        build: (context, panel) => ColumnsView(panel: panel, settings: settingsOf, save: settings.save),
       ),
     );
 
@@ -284,6 +284,10 @@ class Panels implements FcBackendModule, FcFrontendModule {
         registry.command((context) => ColumnsRowCommand(down: down, step: step));
       }
     }
+    registry.command((context) => ColumnsMarkCommand());
+    // Раньше общей пометки: у той шаг вниз — «следующая строка списка», а в
+    // столбцах это содержимое раскрытого каталога.
+    registry.binding(KeyBinding('Space', ColumnsMarkCommand.commandId));
     registry.binding(KeyBinding('Right', ColumnsStepCommand.inId));
     registry.binding(KeyBinding('Left', ColumnsStepCommand.outId));
     registry.binding(KeyBinding('Up', ColumnsRowCommand.upId));
@@ -396,6 +400,8 @@ const Map<String, String> _russian = {
   'First row of the column': 'Первая строка столбца',
   'Last row of the column': 'Последняя строка столбца',
   'Move the cursor inside its own column': 'Двигать курсор внутри своего столбца',
+  'Mark or unmark the item under the cursor and step down the column':
+      'Пометить объект под курсором или снять пометку и шагнуть вниз по столбцу',
   'The path as a chain of directories, left to right': 'Путь цепочкой каталогов, слева направо',
   'Brief': 'Кратко',
   'Names only, in columns': 'Одни имена, столбцами',

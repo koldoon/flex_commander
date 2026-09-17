@@ -6,6 +6,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -187,6 +188,132 @@ void main() {
 
     expect(runtime.app.left.currentEntry?.path, '/home/lib/app.dart', reason: 'курсор там, где его оставили');
     expect(tester.widgetList(columns()).length, 3, reason: 'и цепочка та же');
+  });
+
+  testWidgets('место под следующий столбец отведено заранее', (tester) async {
+    // Смысл вида в том, чтобы содержимое было видно **до** перехода курсора, а
+    // лента не дёргалась от появления и пропажи столбца.
+    await open(tester, at: '/home');
+    final shown = tester.widgetList(columns()).length;
+
+    final lane = tester.getSize(find.descendant(of: find.byType(ColumnsView), matching: find.byType(Row)).first);
+    final width = PanelsSettings.defaultColumnWidth.toDouble();
+
+    expect(lane.width, greaterThanOrEqualTo((shown + 1) * width), reason: 'лишний столбец места — про запас');
+  });
+
+  group('пометка', () {
+    testWidgets('пометка каталога шагает по столбцу, а не внутрь него', (tester) async {
+      // Шаг общей пометки — «следующая строка списка», а у раскрытого каталога
+      // это его первое содержимое: пометив каталог, человек оказывался внутри.
+      final runtime = await open(tester, at: '/home');
+      final panel = runtime.app.left;
+      panel.setCursorToName('lib');
+      await tester.pump();
+      // Придержка раскрыла каталог — теперь следом за ним в списке стоят его
+      // строки.
+      await tester.pump(ColumnsView.holdBeforeOpen);
+      await tester.pumpAndSettle();
+      expect(tester.widgetList(columns()).length, 3);
+
+      runtime.commands.dispatch(KeyCombination.parse('Space'));
+      await tester.pumpAndSettle();
+
+      expect(panel.markedPaths, {'/home/lib'}, reason: 'каталог помечен');
+      expect(panel.currentEntry?.path, '/home/test', reason: 'курсор шагнул к соседу по каталогу');
+    });
+
+    testWidgets('пометка мышью не уводит курсор из столбца', (tester) async {
+      final runtime = await open(tester, at: '/home');
+      final panel = runtime.app.left;
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse, buttons: kSecondaryMouseButton);
+      final row = find.descendant(of: find.byType(ColumnsView), matching: find.text('lib'));
+      await mouse.addPointer(location: tester.getCenter(row));
+      await tester.pump();
+      await mouse.down(tester.getCenter(row));
+      await tester.pump(const Duration(milliseconds: 20));
+      await mouse.up();
+      await tester.pumpAndSettle();
+      await mouse.removePointer();
+
+      expect(panel.markedPaths, {'/home/lib'});
+    });
+  });
+
+  group('протяжка', () {
+    testWidgets('отрезок пометки не выходит за свой столбец', (tester) async {
+      // Между `lib` и `main.dart` в списке строк лежит содержимое раскрытого
+      // `lib`. По экрану они соседи, по списку — нет, и пометиться это
+      // содержимое не должно: невидимая пометка уехала бы в цели `F5`.
+      final runtime = await open(tester, at: '/home');
+      final panel = runtime.app.left;
+      panel.setCursorToName('lib');
+      await tester.pump();
+      await tester.pump(ColumnsView.holdBeforeOpen);
+      await tester.pumpAndSettle();
+      expect(tester.widgetList(columns()).length, 3, reason: 'lib раскрыт');
+
+      Finder row(String name) => find.descendant(of: columns().at(1), matching: find.text(name));
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse, buttons: kSecondaryMouseButton);
+      await mouse.addPointer(location: tester.getCenter(row('lib')));
+      await tester.pump();
+      await mouse.down(tester.getCenter(row('lib')));
+      await tester.pump(const Duration(milliseconds: 20));
+      await mouse.moveTo(tester.getCenter(row('main.dart')));
+      await tester.pump(const Duration(milliseconds: 20));
+      await mouse.up();
+      await tester.pumpAndSettle();
+      await mouse.removePointer();
+
+      expect(panel.markedPaths, {'/home/lib', '/home/test', '/home/main.dart'});
+    });
+  });
+
+  group('ширина', () {
+    /// Ширины столбцов, слева направо, — по самим спискам.
+    List<double> widths(WidgetTester tester) => [
+      for (final list in columns().evaluate()) tester.getSize(find.byWidget(list.widget)).width,
+    ];
+
+    testWidgets('тяга границы меняет только столбец слева от неё', (tester) async {
+      await open(tester, at: '/home/lib');
+      final was = widths(tester);
+      expect(was.length, 3);
+
+      // Граница между первым и вторым столбцами: тянем вправо на 60 точек.
+      final lane = tester.getRect(find.descendant(of: find.byType(ColumnsView), matching: find.byType(Row)).first);
+      final grip = Offset(lane.left + was[0], lane.center.dy);
+      await tester.dragFrom(grip, const Offset(60, 0));
+      await tester.pumpAndSettle();
+
+      final now = widths(tester);
+      expect(now[0], closeTo(was[0] + 60, 2), reason: 'шире стал тот, у чьего края тянули');
+      expect(now[1], was[1], reason: 'соседям это не указ');
+      expect(now[2], was[2]);
+    });
+
+    testWidgets('новый столбец открывается шириной родителя', (tester) async {
+      final runtime = await open(tester, at: '/home');
+      final lane = tester.getRect(find.descendant(of: find.byType(ColumnsView), matching: find.byType(Row)).first);
+      final was = widths(tester);
+
+      // Подстроили второй столбец…
+      await tester.dragFrom(Offset(lane.left + was[0] + was[1] + 1, lane.center.dy), const Offset(-50, 0));
+      await tester.pumpAndSettle();
+      final narrowed = widths(tester)[1];
+
+      // …и пошли вглубь: третий наследует ширину того, из кого вышли.
+      final panel = runtime.app.left;
+      panel.setCursorToName('lib');
+      await tester.pump();
+      runtime.commands.dispatch(KeyCombination.parse('Right'));
+      await tester.pumpAndSettle();
+
+      final now = widths(tester);
+      expect(now.length, 3);
+      expect(now[2], closeTo(narrowed, 1), reason: 'ритм задаёт тот, из кого вышли');
+    });
   });
 
   group('клавиши', () {
