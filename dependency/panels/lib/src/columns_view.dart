@@ -958,26 +958,39 @@ class _ColumnRow extends StatelessWidget {
           ),
           child: Stack(
             children: [
-              Padding(
-                padding: EdgeInsets.only(left: metrics.iconLeftPadding),
-                child: Transform.translate(
-                  offset: Offset(0, metrics.rowContentVerticalNudge),
-                  child: Row(
-                    children: [
-                      FileTypeIcon(entry: row, selected: _selected),
-                      SizedBox(width: metrics.iconGap),
-                      Expanded(
-                        child: Transform.translate(
-                          offset: Offset(0, metrics.rowTextVerticalNudge),
-                          child: FcTrimmedText(text: row.name, style: style),
+              // Во всю высоту полосы: иначе строка меряется по себе — по
+              // тексту, — и содержимое центрируется в своей высоте, а не в
+              // высоте подсветки. Живьём это видно как текст чуть выше
+              // середины (`docs/spec/panel-view-columns.md`, §7а).
+              Positioned.fill(
+                child: Padding(
+                  padding: EdgeInsets.only(left: metrics.iconLeftPadding),
+                  child: Transform.translate(
+                    offset: Offset(0, metrics.rowContentVerticalNudge),
+                    child: Row(
+                      children: [
+                        FileTypeIcon(entry: row, selected: _selected),
+                        SizedBox(width: metrics.iconGap),
+                        Expanded(
+                          child: Padding(
+                            // Поле справа — то же, что у ячейки таблицы: имя не
+                            // должно упираться в границу столбца. Оно же
+                            // отбивает имя от знака «дальше вправо», когда тот
+                            // есть.
+                            padding: EdgeInsets.only(right: metrics.cellPadding),
+                            child: Transform.translate(
+                              offset: Offset(0, metrics.rowTextVerticalNudge),
+                              child: FcTrimmedText(text: row.name, style: style),
+                            ),
+                          ),
                         ),
-                      ),
-                      if (entered)
-                        Padding(
-                          padding: EdgeInsets.symmetric(horizontal: metrics.cellPadding),
-                          child: Text(String.fromCharCode(theme.icons.branchClosed.codePoint), style: glyph),
-                        ),
-                    ],
+                        if (entered)
+                          Padding(
+                            padding: EdgeInsets.only(right: metrics.cellPadding),
+                            child: Text(String.fromCharCode(theme.icons.branchClosed.codePoint), style: glyph),
+                          ),
+                      ],
+                    ),
                   ),
                 ),
               ),

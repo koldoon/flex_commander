@@ -190,6 +190,48 @@ void main() {
     expect(tester.widgetList(columns()).length, 3, reason: 'и цепочка та же');
   });
 
+  testWidgets('строка столбца стоит так же, как строка таблицы', (tester) async {
+    // Панели стоят рядом, и строки обязаны сходиться до точки: тот же шаг, те
+    // же поправки под шрифт, то же поле справа. Живьём было видно, что текст
+    // чуть выше середины — строка меряла себя по тексту, а не по полосе
+    // подсветки.
+    final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
+    final runtime = await testApp(provider: provider(), modules: featureModules(), settings: settings);
+    await runtime.app.start();
+    tester.view.physicalSize = const Size(1400, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+    await runtime.app.right.setView(ColumnsView.viewId);
+    await tester.pumpAndSettle();
+
+    /// Где текст и значок внутри своей полосы подсветки.
+    (double text, double icon) placeIn(Finder view) {
+      final band = tester.getRect(find.descendant(of: view, matching: find.byType(DecoratedBox)).at(1));
+      final text = tester.getRect(find.descendant(of: view, matching: find.text('lib')).first);
+      final icon = tester.getRect(find.descendant(of: view, matching: find.byType(FileTypeIcon)).at(1));
+      return (text.top - band.top, icon.top - band.top);
+    }
+
+    final table = placeIn(find.byType(FileTable));
+    final columns = placeIn(find.byType(ColumnsView));
+
+    expect(columns.$1, closeTo(table.$1, 0.01), reason: 'текст на той же высоте');
+    expect(columns.$2, closeTo(table.$2, 0.01), reason: 'и значок тоже');
+  });
+
+  testWidgets('имя не упирается в границу столбца', (tester) async {
+    await open(tester, at: '/home');
+    final metrics = FcTheme.of(tester.element(find.byType(ColumnsView))).metrics;
+
+    // Строка без знака «дальше вправо»: справа от имени всё равно поле.
+    final column = tester.getRect(columns().at(1));
+    final text = tester.getRect(find.descendant(of: columns().at(1), matching: find.text('main.dart')).first);
+
+    expect(column.right - text.right, greaterThanOrEqualTo(metrics.cellPadding));
+  });
+
   group('лента', () {
     ScrollController lane(WidgetTester tester) =>
         tester
