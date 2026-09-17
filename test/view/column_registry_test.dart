@@ -81,11 +81,20 @@ void main() {
       expect(app.left.columns.find(_Marks.columnId)?.visible, isFalse);
 
       await openViewDialog(runtime, tester);
-      await tester.tap(find.descendant(of: find.byType(FcCheckbox), matching: find.text('Mark')));
+      // Окно в тесном окне листается само (`docs/spec/dialog-placement.md`), и
+      // флажок лишней колонки может стоять ниже обзора: подводим его к глазам,
+      // как это сделал бы человек.
+      final mark = find.descendant(of: find.byType(FcCheckbox), matching: find.text('Mark'));
+      await tester.ensureVisible(mark);
+      await tester.pumpAndSettle();
+      await tester.tap(mark);
       await tester.pumpAndSettle();
       // По «OK»: правки настроек вида копятся черновиком
       // (`docs/spec/panel-views.md`, §7).
-      await tester.tap(find.widgetWithText(FcButton, 'OK'));
+      final ok = find.widgetWithText(FcButton, 'OK');
+      await tester.ensureVisible(ok);
+      await tester.pumpAndSettle();
+      await tester.tap(ok);
       await tester.pumpAndSettle();
       await tester.pump(const Duration(milliseconds: 20));
 

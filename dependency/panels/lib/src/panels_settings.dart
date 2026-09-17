@@ -13,6 +13,7 @@ class PanelsSettings implements Serializable {
     this.treeShare = defaultTreeShare,
     this.iconTileSize = defaultIconTileSize,
     this.iconNameWidth = autoNameWidth,
+    this.columnWidth = defaultColumnWidth,
   });
 
   /// Какую долю ширины занимает дерево в комбинированном виде.
@@ -76,6 +77,24 @@ class PanelsSettings implements Serializable {
   /// Что предлагается списком; всё прочее набирается числом.
   static const List<int> nameWidths = [80, 120, 160, 200, 240];
 
+  /// Ширина **первого** столбца вида «Столбцы», в точках.
+  ///
+  /// Первого, а не всех: остальные наследуют ширину своего родителя, а
+  /// подстроенную мышью держит сам вид — из пути её не вывести, и в настройках
+  /// по числу на каждый посещённый каталог копился бы мусор
+  /// (`docs/spec/panel-view-columns.md`, §8).
+  ///
+  /// В окно настроек не идёт: её правят прямой манипуляцией, а два места для
+  /// одного числа расходятся (`docs/spec/panel-views.md`, §7).
+  static const int defaultColumnWidth = 220;
+
+  /// Уже — в столбце не остаётся имени; шире — в панель не помещается и двух.
+  static const int minColumnWidth = 120;
+  static const int maxColumnWidth = 480;
+
+  /// Ширина первого столбца вида «Столбцы».
+  int columnWidth;
+
   /// Сколько столбцов у краткого вида; [autoColumns] — сколько влезет.
   int briefColumns;
 
@@ -105,6 +124,7 @@ class PanelsSettings implements Serializable {
     cursorHoldsPlace = extract(cursorHoldsPlace, m['cursorHoldsPlace']);
     treeShare = extract(treeShare, m['treeShare']).clamp(minTreeShare, maxTreeShare);
     iconTileSize = extract(iconTileSize, m['iconTileSize']).clamp(minIconTileSize, maxIconTileSize);
+    columnWidth = extract(columnWidth, m['columnWidth']).clamp(minColumnWidth, maxColumnWidth);
     final width = extract(iconNameWidth, m['iconNameWidth']);
     iconNameWidth = width <= autoNameWidth ? autoNameWidth : width.clamp(minNameWidth, maxNameWidth);
   }
@@ -117,5 +137,6 @@ class PanelsSettings implements Serializable {
     m['treeShare'] = treeShare;
     m['iconTileSize'] = iconTileSize;
     m['iconNameWidth'] = iconNameWidth;
+    m['columnWidth'] = columnWidth;
   }
 }

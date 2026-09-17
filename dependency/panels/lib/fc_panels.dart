@@ -4,6 +4,7 @@ library;
 export 'src/brief_view.dart';
 export 'src/column_chain.dart';
 export 'src/columns.dart';
+export 'src/columns_view.dart';
 export 'src/brief_view_options.dart';
 export 'src/combined_view.dart';
 export 'src/crumbs_header.dart';

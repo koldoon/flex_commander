@@ -5,6 +5,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 
 import 'brief_view.dart';
 import 'columns.dart';
+import 'columns_view.dart';
 import 'combined_view.dart';
 import 'crumbs_header.dart';
 import 'brief_view_options.dart';
@@ -171,6 +172,23 @@ class Panels implements FcBackendModule, FcFrontendModule {
       ),
     );
 
+    // Столбцы объявляются после сетки и получают `Cmd-6` — последнюю из
+    // отведённого ряда. Настраивать в окне выбора нечего: ширину столбца правят
+    // прямой манипуляцией, а два места для одного числа расходятся
+    // (`docs/spec/panel-views.md`, §7).
+    registry.panelView(
+      PanelViewSpec(
+        id: ColumnsView.viewId,
+        // «Path columns», а не «Columns»: одно слово уже занято колонками
+        // таблицы — и в справке, и в окне раскладки. Английский текст здесь
+        // ключ перевода, и два разных места с одним ключом получили бы один
+        // перевод на двоих.
+        title: 'Path columns',
+        description: 'The path as a chain of directories, left to right',
+        build: (context, panel) => ColumnsView(panel: panel, settings: settingsOf),
+      ),
+    );
+
     // Четыре команды дерева: поддерево под курсором и всё дерево, каждое — в
     // обе стороны (`docs/spec/panel-view-tree.md`, §6а).
     for (final expand in const [true, false]) {
@@ -235,6 +253,14 @@ class Panels implements FcBackendModule, FcFrontendModule {
 
     registry.binding(
       KeyBinding('Cmd-5', SetPanelViewCommand.commandId, parameters: {SetPanelViewCommand.viewParam: IconsView.viewId}),
+    );
+
+    registry.binding(
+      KeyBinding(
+        'Cmd-6',
+        SetPanelViewCommand.commandId,
+        parameters: {SetPanelViewCommand.viewParam: ColumnsView.viewId},
+      ),
     );
 
     // Столбцы комбинированного вида — раньше всего прочего, что висит на этих
@@ -337,6 +363,8 @@ const Map<String, String> _russian = {
   'Icon size': 'Размер значка',
   'Name width': 'Ширина имени',
   'Custom': 'Своё',
+  'Path columns': 'Столбцы',
+  'The path as a chain of directories, left to right': 'Путь цепочкой каталогов, слева направо',
   'Brief': 'Кратко',
   'Names only, in columns': 'Одни имена, столбцами',
   'brief|Columns': 'Столбцов',

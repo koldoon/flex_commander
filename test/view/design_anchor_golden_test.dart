@@ -188,6 +188,7 @@ void main() {
   view('панель деревом', 'anchor_panel_tree.png', 'tree');
   view('панель деревом с содержимым', 'anchor_panel_combined.png', 'tree+');
   view('панель значками', 'anchor_panel_icons.png', 'icons');
+  view('панель столбцами', 'anchor_panel_columns.png', 'columns');
 
   anchor('окно копирования', 'anchor_copy.png', 'F5');
   anchor('окно переноса', 'anchor_move.png', 'F6');
@@ -207,6 +208,10 @@ void main() {
   anchor('окно выбора вида — дерево', 'anchor_view_tree.png', 'Alt-F1', down: 2);
   anchor('окно выбора вида — дерево с содержимым', 'anchor_view_combined.png', 'Alt-F1', down: 3);
   anchor('окно выбора вида — значки', 'anchor_view_icons.png', 'Alt-F1', down: 4);
+  // Столбцы настраивать в окне нечем: ширину правят прямой манипуляцией
+  // (`docs/spec/panel-view-columns.md`, §8) — и место под настройки окно не
+  // отводит вовсе.
+  anchor('окно выбора вида — столбцы', 'anchor_view_columns.png', 'Alt-F1', down: 5);
 
   // Вторая фаза поиска — своим тестом, а не `anchor`: до неё надо дойти, набрав
   // маску и нажав `Enter`. Ряд из семи кнопок в неё не помещается и потому
