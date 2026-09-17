@@ -1146,8 +1146,9 @@ class FormatterSpec {
 
 **Спецификация — [`spec/panel-views.md`](spec/panel-views.md)**, у каждого вида
 своя: [`panel-view-brief.md`](spec/panel-view-brief.md),
-[`panel-view-tree.md`](spec/panel-view-tree.md). Здесь только состояние и то, что
-раздел обещал раньше и обещать перестал.
+[`panel-view-tree.md`](spec/panel-view-tree.md),
+[`panel-view-columns.md`](spec/panel-view-columns.md). Здесь только состояние и
+то, что раздел обещал раньше и обещать перестал.
 
 **Что получается.** Панель показывает один и тот же список по-разному: таблицей,
 одними именами в несколько столбцов, деревом, значками, столбцами как в Finder.
@@ -1161,7 +1162,7 @@ class FormatterSpec {
 | 3 | **Дерево с содержимым** (`tree+`) | **сделано**: `Cmd-4`, два столбца — две сессии слота ([`spec/panel-view-combined.md`](spec/panel-view-combined.md)) |
 | 4 | **Таблица** (`table`) с настраиваемыми колонками | `Cmd-1` есть, настройка колонок ждёт Б2 |
 | 5 | **Значки** (`icons`) | [Г15](#г15-вид-значки-сетка-и-миниатюры) |
-| 6 | **Столбцы** (`columns`) как в Finder | — |
+| 6 | **Столбцы** (`columns`) как в Finder | `Cmd-6`, цепочка каталогов слева направо ([`spec/panel-view-columns.md`](spec/panel-view-columns.md)) |
 
 Сам механизм видов сделан вместе с первым этапом: `PanelViewSpec`, реестр
 `PanelViews`, `Alt-F1`/`Alt-F2` — окно выбора вида с настройками этого вида
