@@ -37,4 +37,11 @@ abstract final class SearchWork {
   /// а `DateTime` значением протокола не является.
   static const String changedAfterOption = 'changedAfter';
   static const String changedBeforeOption = 'changedBefore';
+
+  /// Что искать внутри файла и как читать набранное.
+  static const String contentOption = 'content';
+  static const String contentRegexpOption = 'contentRegexp';
+  static const String contentCaseOption = 'contentCase';
+  static const String wholeWordsOption = 'wholeWords';
+  static const String allCharsetsOption = 'allCharsets';
 }

@@ -74,6 +74,11 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
         // является.
         changedAfter: _timeOf(inputs.option<int>(SearchWork.changedAfterOption)),
         changedBefore: _timeOf(inputs.option<int>(SearchWork.changedBeforeOption)),
+        content: inputs.option<String>(SearchWork.contentOption) ?? '',
+        contentRegexp: inputs.option<bool>(SearchWork.contentRegexpOption) ?? false,
+        contentCase: inputs.option<bool>(SearchWork.contentCaseOption) ?? false,
+        wholeWords: inputs.option<bool>(SearchWork.wholeWordsOption) ?? false,
+        allCharsets: inputs.option<bool>(SearchWork.allCharsetsOption) ?? false,
       );
       await op.delegate(SearchRun.from(where, onFound: inputs.onFound, strings: strings), query);
     });
@@ -88,7 +93,6 @@ const Map<String, String> _russian = {
   'Content:': 'Содержимое:',
   'Whole words': 'Слова целиком',
   'Regular expression': 'Регулярное выражение',
-  'First hit': 'Только первое совпадение',
   'File search': 'Поиск файлов',
 
   // Команды.

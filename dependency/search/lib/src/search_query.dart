@@ -1,5 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 
+import 'content_rule.dart';
+
 /// О чём спрашивают: что искать и по каким условиям отбирать.
 ///
 /// Каталог — не поле, а то, где стоит панель: чтобы искать в другом месте,
@@ -19,6 +21,11 @@ class SearchQuery {
     this.sizeTo,
     this.changedAfter,
     this.changedBefore,
+    this.content = '',
+    this.contentRegexp = false,
+    this.contentCase = false,
+    this.wholeWords = false,
+    this.allCharsets = false,
   });
 
   /// Что набрано в поле имени — как набрано.
@@ -54,18 +61,37 @@ class SearchQuery {
   final DateTime? changedAfter;
   final DateTime? changedBefore;
 
+  /// Что искать **внутри** файла; пусто — не искать вовсе.
+  final String content;
+
+  /// Флаги содержимого. Регистр у имени и у содержимого **разный**: имя ищут
+  /// небрежно, а `TODO` от `todo` отличают (`docs/spec/file-search.md`, §11.1).
+  final bool contentRegexp;
+  final bool contentCase;
+  final bool wholeWords;
+  final bool allCharsets;
+
   /// Правило имени — разобранное.
   NameRule get name => NameRule.parse(mask, regexp: regexp, caseSensitive: caseSensitive);
+
+  /// Правило содержимого — разобранное.
+  ContentRule get contentRule => ContentRule.parse(
+    content,
+    regexp: contentRegexp,
+    caseSensitive: contentCase,
+    wholeWords: wholeWords,
+    allCharsets: allCharsets,
+  );
 
   /// Маска каталогов-исключений — разобранная. Пустая не исключает ничего.
   FileMask get ignored => FileMask.parse(ignore, caseSensitive: caseSensitive);
 
-  /// Ищем ли хоть что-нибудь: пустое правило не совпадает ни с чем.
-  bool get isEmpty => name.isEmpty;
+  /// Ищем ли хоть что-нибудь: задано либо имя, либо содержимое.
+  bool get isEmpty => name.isEmpty && contentRule.isEmpty;
 
   /// Годится ли запрос к отправке. Неверное выражение — не отказ по нажатию, а
-  /// ошибка у поля (`file-search.md`, §10.2).
-  bool get isValid => name.isValid;
+  /// ошибка у поля (`file-search.md`, §10.2 и §11.4).
+  bool get isValid => name.isValid && contentRule.isValid;
 
   SearchQuery copyWith({
     String? mask,
@@ -79,6 +105,11 @@ class SearchQuery {
     int? Function()? sizeTo,
     DateTime? Function()? changedAfter,
     DateTime? Function()? changedBefore,
+    String? content,
+    bool? contentRegexp,
+    bool? contentCase,
+    bool? wholeWords,
+    bool? allCharsets,
   }) => SearchQuery(
     mask: mask ?? this.mask,
     regexp: regexp ?? this.regexp,
@@ -93,5 +124,10 @@ class SearchQuery {
     sizeTo: sizeTo == null ? this.sizeTo : sizeTo(),
     changedAfter: changedAfter == null ? this.changedAfter : changedAfter(),
     changedBefore: changedBefore == null ? this.changedBefore : changedBefore(),
+    content: content ?? this.content,
+    contentRegexp: contentRegexp ?? this.contentRegexp,
+    contentCase: contentCase ?? this.contentCase,
+    wholeWords: wholeWords ?? this.wholeWords,
+    allCharsets: allCharsets ?? this.allCharsets,
   );
 }

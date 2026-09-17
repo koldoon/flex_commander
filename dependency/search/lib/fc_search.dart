@@ -1,6 +1,8 @@
 /// Поиск файлов: окно, обход дерева и найденное как содержимое панели.
 library;
 
+export 'src/content_rule.dart';
+export 'src/content_scan.dart';
 export 'src/find_files_command.dart';
 export 'src/find_files_form.dart';
 export 'src/find_files_results.dart';

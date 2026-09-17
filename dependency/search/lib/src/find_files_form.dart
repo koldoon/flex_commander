@@ -154,7 +154,7 @@ class _FindFilesFormState extends State<FindFilesForm> {
                     // Просвет между столбцами — по полю окна: тогда средний
                     // просвет читается так же, как боковые.
                     SizedBox(width: theme.metrics.dialogHorizontalPadding),
-                    Expanded(child: _byContent(context, theme)),
+                    Expanded(child: _byContent(context, theme, state)),
                   ],
                 ),
               ),
@@ -343,24 +343,65 @@ class _FindFilesFormState extends State<FindFilesForm> {
     );
   }
 
-  /// Правый столбец: поиск по содержимому — второй шаг Д2, целиком приглушён.
-  Widget _byContent(BuildContext context, FcTheme theme) {
+  /// Правый столбец: поиск по содержимому.
+  ///
+  /// Флажка `First hit` здесь нет: находка у нас — файл, и чтение прекращается
+  /// на первом совпадении **всегда**. Флажок обещал бы выбор, которого нет
+  /// (`docs/spec/file-search.md`, §11.5).
+  Widget _byContent(BuildContext context, FcTheme theme, FindFilesState state) {
     final gap = SizedBox(height: theme.metrics.dialogGap);
+    final query = state.query;
     return Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _labeled(theme, context.strings.tr('Content:'), FcTextField(controller: _content, enabled: false)),
+        _labeled(
+          theme,
+          context.strings.tr('Content:'),
+          FcTextField(
+            controller: _content,
+            enabled: !state.busy,
+            hintText: query.contentRegexp ? r'TODO|FIXME' : 'TODO',
+            onChanged: state.setContent,
+          ),
+        ),
+        // Неверное выражение — ошибка у поля, как и у имени.
+        if (!query.contentRule.isValid) ...[
+          SizedBox(height: theme.metrics.dialogLineGap),
+          Text(
+            context.strings.tr('The expression is not understood'),
+            style: theme.dialogLabelStyle.copyWith(color: theme.colors.error),
+          ),
+        ],
         gap,
-        FcCheckbox(label: context.strings.tr('Whole words'), value: false, onChanged: null),
+        FcCheckbox(
+          label: context.strings.tr('Whole words'),
+          value: query.wholeWords,
+          onChanged: state.busy ? null : state.setWholeWords,
+        ),
         gap,
-        FcCheckbox(label: context.strings.tr('Regular expression'), value: false, onChanged: null),
+        // Выражение и «любые кодировки» гасят друг друга: два флажка, которые
+        // нельзя включить вместе, лучше показывать так, чем объяснять потом,
+        // почему ничего не нашлось.
+        FcCheckbox(
+          label: context.strings.tr('Regular expression'),
+          value: query.contentRegexp,
+          onChanged: state.busy ? null : state.setContentRegexp,
+        ),
         gap,
-        FcCheckbox(label: context.strings.tr('Case sensitive'), value: false, onChanged: null),
+        // Свой регистр, отдельно от имени: имя ищут небрежно, а `TODO` от
+        // `todo` отличают.
+        FcCheckbox(
+          label: context.strings.tr('Case sensitive'),
+          value: query.contentCase,
+          onChanged: state.busy ? null : state.setContentCase,
+        ),
         gap,
-        FcCheckbox(label: context.strings.tr('All charsets'), value: false, onChanged: null),
-        gap,
-        FcCheckbox(label: context.strings.tr('First hit'), value: false, onChanged: null),
+        FcCheckbox(
+          label: context.strings.tr('All charsets'),
+          value: query.allCharsets,
+          onChanged: state.busy ? null : state.setAllCharsets,
+        ),
       ],
     );
   }

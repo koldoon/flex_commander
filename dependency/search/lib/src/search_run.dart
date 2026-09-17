@@ -1,9 +1,13 @@
 import 'dart:collection';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_content_types/fc_content_types.dart';
 import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/foundation.dart';
 
+import 'content_rule.dart';
+import 'content_scan.dart';
 import 'search_query.dart';
 
 /// Обход дерева в поисках имён.
@@ -42,6 +46,7 @@ class SearchRun {
     return TaskOperation<SearchQuery, List<FsNode>>((op, query) async {
       final name = query.name;
       final ignored = query.ignored;
+      final content = query.contentRule;
       final found = <FsNode>[];
       final batch = <FsNode>[];
       void flush() {
@@ -51,7 +56,9 @@ class SearchRun {
         }
       }
 
-      if (name.isEmpty || !name.isValid) {
+      // Пустое имя при заданном содержимом значит «любое»: человек, набравший
+      // только содержимое, просит искать везде, а не нигде (§11.2).
+      if ((name.isEmpty && content.isEmpty) || !name.isValid || !content.isValid) {
         // Пустое правило не совпадает ни с чем, неверное выражение — тем
         // более: обходить дерево незачем. Про неверное человек узнаёт раньше,
         // у поля (`docs/spec/file-search.md`, §10.2), — здесь это последняя
@@ -137,9 +144,16 @@ class SearchRun {
           if (!ignored.isEmpty && node is DirectoryNode && ignored.matches(node.name)) {
             continue;
           }
-          if (name.matches(node.name) && _fits(node, query)) {
-            found.add(node);
-            batch.add(node);
+          // Имя отбирает первым: маска дешева, чтение дорого. Файл, не
+          // прошедший по имени, размеру или дате, не читается вовсе (§11.2).
+          if ((name.isEmpty || name.matches(node.name)) && _fits(node, query)) {
+            if (content.isEmpty) {
+              found.add(node);
+              batch.add(node);
+            } else if (node is! DirectoryNode && await _hasInside(node, content, op)) {
+              found.add(node);
+              batch.add(node);
+            }
           }
           if (!query.recursive) {
             continue;
@@ -212,6 +226,90 @@ class SearchRun {
       }
     }
     return true;
+  }
+
+  /// Есть ли искомое **внутри** файла.
+  ///
+  /// Читается кусками, потоком: файл бывает больше памяти. Двоичное отсеивается
+  /// по началу — тем же правилом, что у службы типов (`textOrBinary`), и голова
+  /// при этом не пропадает: она же первый кусок поиска (§11.2).
+  ///
+  /// Отмена проверяется **между кусками**: файл в гигабайт делает проверку раз
+  /// на каталог бесполезной.
+  static Future<bool> _hasInside(FsNode node, ContentRule rule, TaskOperation<Object?, Object?> op) async {
+    final provider = node.provider;
+    if (provider is! FileContentProvider) {
+      return false;
+    }
+
+    final scan = ContentScan(rule);
+    var head = <int>[];
+    var decided = false;
+    try {
+      // Приведение явное, как и в ядре (`content_hub.dart`): `TreeProvider` —
+      // интерфейс, и умение читать объявлено отдельным.
+      await for (final chunk in await (provider as FileContentProvider).openRead(node)) {
+        await op.checkpoint();
+
+        if (!decided) {
+          head = head.isEmpty ? chunk : [...head, ...chunk];
+          if (head.length < headSize) {
+            // Голову дочитываем целиком: решение «текст или двоичное» по
+            // половине сигнатуры было бы гаданием.
+            continue;
+          }
+          decided = true;
+          if (_looksBinary(head, rule.anyCharset)) {
+            return false;
+          }
+          if (scan.feed(head)) {
+            return true;
+          }
+          continue;
+        }
+
+        if (scan.feed(chunk)) {
+          return true;
+        }
+      }
+    } on Object {
+      // Файл, который не дали прочесть, поиск не прекращает — как и каталог.
+      return false;
+    }
+
+    // Файл кончился, а голова так и не набралась: короткий файл решается тем
+    // же правилом и ищется целиком.
+    if (!decided) {
+      if (_looksBinary(head, rule.anyCharset)) {
+        return false;
+      }
+      if (scan.feed(head)) {
+        return true;
+      }
+    }
+    return scan.close();
+  }
+
+  /// Сколько байт хватает, чтобы решить «текст или двоичное».
+  ///
+  /// Столько же берёт служба типов: правило одно, и число при нём то же.
+  static const int headSize = 4096;
+
+  /// Двоичное ли начало.
+  ///
+  /// [anyCharset] — когда ищут в любых кодировках, остаётся **только** правило
+  /// нулевого байта. Обычное правило объявляет двоичным всё, что не разбирается
+  /// как UTF-8, — а текст в CP1251 как раз таким и приходит: отсеивать его тем
+  /// же ситом значило бы обещать поиск в других кодировках и не искать в них
+  /// ни разу (§11.2).
+  static bool _looksBinary(List<int> head, bool anyCharset) {
+    if (head.isEmpty) {
+      return false;
+    }
+    if (anyCharset) {
+      return head.contains(0);
+    }
+    return textOrBinary(Uint8List.fromList(head)).group == ContentGroup.binary;
   }
 
   /// Чем каталог опознаётся в памяти пройденного.

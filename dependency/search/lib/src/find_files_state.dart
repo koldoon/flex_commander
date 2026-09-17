@@ -217,6 +217,34 @@ class FindFilesState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setContent(String value) {
+    query = query.copyWith(content: value);
+    notifyListeners();
+  }
+
+  /// Выражение и «любые кодировки» не сочетаются: выражение по неизвестной
+  /// кодировке не значит ничего, и включённое гасит другое
+  /// (`docs/spec/file-search.md`, §11.4).
+  void setContentRegexp(bool value) {
+    query = query.copyWith(contentRegexp: value, allCharsets: value ? false : null);
+    notifyListeners();
+  }
+
+  void setContentCase(bool value) {
+    query = query.copyWith(contentCase: value);
+    notifyListeners();
+  }
+
+  void setWholeWords(bool value) {
+    query = query.copyWith(wholeWords: value);
+    notifyListeners();
+  }
+
+  void setAllCharsets(bool value) {
+    query = query.copyWith(allCharsets: value, contentRegexp: value ? false : null);
+    notifyListeners();
+  }
+
   void setRecursive(bool value) {
     query = query.copyWith(recursive: value);
     notifyListeners();
@@ -280,6 +308,11 @@ class FindFilesState extends ChangeNotifier {
             if (query.sizeTo case final to?) SearchWork.sizeToOption: to,
             if (query.changedAfter case final after?) SearchWork.changedAfterOption: after.millisecondsSinceEpoch,
             if (query.changedBefore case final before?) SearchWork.changedBeforeOption: before.millisecondsSinceEpoch,
+            SearchWork.contentOption: query.content,
+            SearchWork.contentRegexpOption: query.contentRegexp,
+            SearchWork.contentCaseOption: query.contentCase,
+            SearchWork.wholeWordsOption: query.wholeWords,
+            SearchWork.allCharsetsOption: query.allCharsets,
           },
         ),
       );

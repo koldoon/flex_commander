@@ -21,6 +21,11 @@ dependencies:
   fc_ui_api:
     path: ../ui_api
 
+  # Правило «текст или двоичное»: поиск отсеивает двоичные файлы по началу тем
+  # же правилом, что и служба типов (Б6).
+  fc_content_types:
+    path: ../content_types
+
   fc_ui_kit:
     path: ../ui_kit
 

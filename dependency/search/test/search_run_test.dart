@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
@@ -138,6 +139,125 @@ void main() {
       final names = await search(const SearchQuery(mask: '*.md', followLinks: true));
 
       expect(names, contains('readme.md'));
+    });
+  });
+
+  group('по содержимому', () {
+    late InMemoryContentProvider files;
+
+    /// Дерево с байтами: то же `/home`, но файлы не пустые.
+    setUp(() {
+      files = InMemoryContentProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.file('/home/plain.txt', content: utf8.encode('первая строка\nздесь TODO разобраться\n')),
+        FakeEntry.file('/home/other.txt', content: utf8.encode('здесь ничего такого нет\n')),
+        FakeEntry.file('/home/notes.md', content: utf8.encode('TODO и в заметке тоже\n')),
+      ])..home = '/home';
+    });
+
+    Future<List<String>> inside(SearchQuery query) async {
+      final root = await files.resolvePath().run('/home') as DirectoryNode;
+      final run = SearchRun.from(root, onFound: (_) {});
+      return (await run.run(query)).map((node) => node.name).toList();
+    }
+
+    test('пустое имя при заданном содержимом значит «любое»', () async {
+      final names = await inside(const SearchQuery(mask: '', content: 'TODO'));
+
+      expect(names, containsAll(['plain.txt', 'notes.md']));
+      expect(names, isNot(contains('other.txt')));
+    });
+
+    test('имя отбирает раньше чтения', () async {
+      // Маска дешева, чтение дорого: файл, не прошедший по имени, не
+      // открывается вовсе. Считаем куски — их выдаёт сам провайдер.
+      var chunks = 0;
+      files.onChunk = () => chunks++;
+
+      final names = await inside(const SearchQuery(mask: '*.md', content: 'TODO'));
+
+      expect(names, ['notes.md']);
+      expect(chunks, lessThanOrEqualTo(4), reason: 'читали одну заметку, а не всё дерево');
+    });
+
+    test('каталог по содержимому не находится', () async {
+      files.add(FakeEntry.directory('/home/TODO'));
+
+      final names = await inside(const SearchQuery(mask: '*', content: 'TODO'));
+
+      expect(names, isNot(contains('TODO')), reason: 'внутри каталога байтов нет');
+    });
+
+    test('двоичное не читается как текст', () async {
+      files.add(FakeEntry.file('/home/blob.bin', content: [0, 1, 2, 0, ...utf8.encode('TODO'), 0, 0]));
+
+      final names = await inside(const SearchQuery(mask: '*', content: 'TODO'));
+
+      expect(names, isNot(contains('blob.bin')), reason: 'нули в начале — не текст');
+    });
+
+    test('совпадение на стыке кусков не теряется', () async {
+      // Провайдер отдаёт по десять байт: слово ложится на границу нарочно.
+      files.add(FakeEntry.file('/home/edge.txt', content: utf8.encode('aaaaaaaaaaaaaaaaaaMARKERконец')));
+
+      final names = await inside(const SearchQuery(mask: 'edge.txt', content: 'MARKER'));
+
+      expect(names, ['edge.txt']);
+    });
+
+    test('кириллица находится и в другой кодировке', () async {
+      // CP1251: «нашлось» записано однобайтной кириллицей.
+      final windows = [0xed, 0xe0, 0xf8, 0xeb, 0xee, 0xf1, 0xfc, 0x0a];
+      files.add(FakeEntry.file('/home/win.txt', content: windows));
+
+      expect(await inside(const SearchQuery(mask: '*', content: 'нашлось')), isNot(contains('win.txt')));
+      expect(
+        await inside(const SearchQuery(mask: '*', content: 'нашлось', allCharsets: true)),
+        contains('win.txt'),
+        reason: 'те же буквы, записанные иначе',
+      );
+    });
+
+    test('латиница в файле чужой кодировки тоже находится', () async {
+      // Образец у латинского слова во всех кодировках один и тот же — а файл
+      // вокруг него как UTF-8 не разбирается. Обычное сито объявило бы такой
+      // файл двоичным, и «любые кодировки» не искали бы в них ни разу.
+      final windows = [...utf8.encode('TODO: '), 0xef, 0xf0, 0xee, 0xe2, 0xe5, 0xf0, 0xe8, 0xf2, 0xfc, 0x0a];
+      files.add(FakeEntry.file('/home/mixed.txt', content: windows));
+
+      final names = await inside(const SearchQuery(mask: 'mixed.txt', content: 'TODO', allCharsets: true));
+
+      expect(names, ['mixed.txt']);
+    });
+
+    test('слово целиком отсекает часть слова', () async {
+      files.add(FakeEntry.file('/home/part.txt', content: utf8.encode('TODOS не то же самое\n')));
+
+      final loose = await inside(const SearchQuery(mask: 'part.txt', content: 'TODO'));
+      final strict = await inside(const SearchQuery(mask: 'part.txt', content: 'TODO', wholeWords: true));
+
+      expect(loose, ['part.txt']);
+      expect(strict, isEmpty);
+    });
+
+    test('выражение ищется по строкам', () async {
+      final names = await inside(const SearchQuery(mask: '*', content: r'TODO\s+разобраться', contentRegexp: true));
+
+      expect(names, ['plain.txt']);
+    });
+
+    test('неверное выражение содержимого дерева не обходит', () async {
+      final read = files.listings;
+
+      final names = await inside(const SearchQuery(mask: '*', content: 'TODO(', contentRegexp: true));
+
+      expect(names, isEmpty);
+      expect(files.listings, read, reason: 'о такой ошибке узнают у поля');
+    });
+
+    test('регистр содержимого — свой, отдельно от имени', () async {
+      expect(await inside(const SearchQuery(mask: '*.md', content: 'todo')), contains('notes.md'));
+      expect(await inside(const SearchQuery(mask: '*.md', content: 'todo', contentCase: true)), isEmpty);
     });
   });
 

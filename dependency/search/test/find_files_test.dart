@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_panels/fc_panels.dart';
@@ -146,7 +148,7 @@ void main() {
       await pumpApp(tester);
       await openWindow(tester);
 
-      // Слева — флажок имени, справа такой же у содержимого (он приглушён).
+      // Слева — флажок имени, справа такой же у содержимого: свой у каждого.
       await tester.tap(find.text('Case sensitive').first);
       await tester.pumpAndSettle();
       await search(tester, '*.DART');
@@ -168,6 +170,75 @@ void main() {
       await tester.enterText(fieldWithHint('500k'), '1k');
       await tester.pumpAndSettle();
       expect(okButton(tester).onPressed, isNotNull);
+    });
+
+    testWidgets('содержимое отбирает находки', (tester) async {
+      // Своё дерево: у этого поиска байты решают всё, а обычный стенд их не
+      // отдаёт.
+      final files = InMemoryContentProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.file('/home/found.dart', content: utf8.encode('// TODO разобраться\n')),
+        FakeEntry.file('/home/clean.dart', content: utf8.encode('всё сделано\n')),
+      ]);
+      final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
+      app = (await testApp(provider: files, modules: featureModules(), settings: settings)).app;
+
+      await pumpApp(tester);
+      await openWindow(tester);
+
+      await tester.enterText(fieldWithHint('TODO'), 'TODO');
+      await tester.pumpAndSettle();
+      await search(tester, '*.dart');
+
+      expect(find.text('found.dart'), findsWidgets);
+      expect(find.text('clean.dart'), findsNothing, reason: 'в нём такого нет');
+    });
+
+    testWidgets('неверное выражение содержимого не даёт искать', (tester) async {
+      await pumpApp(tester);
+      await openWindow(tester);
+
+      await tester.enterText(input, '*.dart');
+      await tester.pumpAndSettle();
+      await tester.enterText(fieldWithHint('TODO'), 'TODO(');
+      await tester.pumpAndSettle();
+      expect(okButton(tester).onPressed, isNotNull, reason: 'строкой это законно');
+
+      // Второй переключатель `.*` — у содержимого.
+      await tester.tap(find.text('Regular expression'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('The expression is not understood'), findsWidgets);
+      expect(okButton(tester).onPressed, isNull);
+    });
+
+    testWidgets('выражение и любые кодировки гасят друг друга', (tester) async {
+      await pumpApp(tester);
+      await openWindow(tester);
+
+      await tester.tap(find.text('All charsets'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Regular expression'));
+      await tester.pumpAndSettle();
+
+      final flags = tester.widgetList<FcCheckbox>(find.byType(FcCheckbox)).toList();
+      final charsets = flags.firstWhere((flag) => flag.label == 'All charsets');
+      final regexp = flags.firstWhere((flag) => flag.label == 'Regular expression');
+
+      expect(regexp.value, isTrue);
+      expect(charsets.value, isFalse, reason: 'выражение по неизвестной кодировке не значит ничего');
+    });
+
+    testWidgets('обещаний без действия в окне нет', (tester) async {
+      await pumpApp(tester);
+      await openWindow(tester);
+
+      // `First hit` обещал выбор, которого нет: находка у нас — файл, и чтение
+      // прекращается на первом совпадении всегда.
+      expect(find.text('First hit'), findsNothing);
+      for (final flag in tester.widgetList<FcCheckbox>(find.byType(FcCheckbox))) {
+        expect(flag.onChanged, isNotNull, reason: 'мёртвый флажок — та же ложь: ${flag.label}');
+      }
     });
 
     testWidgets('размер отбирает находки', (tester) async {
