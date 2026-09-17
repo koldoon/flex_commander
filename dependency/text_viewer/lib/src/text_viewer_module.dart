@@ -1,6 +1,9 @@
 import 'dart:convert';
 
+import 'dart:typed_data';
+
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_content_types/fc_content_types.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_text_kit/fc_text_kit.dart';
 
@@ -29,11 +32,13 @@ class TextViewer implements FcFrontendModule {
   static const String findNextCommandId = 'text.findNext';
   static const String findPreviousCommandId = 'text.findPrevious';
 
-  /// За что берётся: похожее на текст.
+  /// Расширения, по которым текст узнают **не читая**.
   ///
-  /// Список — честная замена тому, чего ещё нет. Пока тип по содержимому не
-  /// узнаётся (Б6), решать приходится по имени; появится он — `accepts`
-  /// начнёт спрашивать настоящий тип, и список исчезнет.
+  /// Список остался, но решает он не всё: расширений у текста больше, чем можно
+  /// перечислить — `.as`, `.pro`, `.gradle`, — и такой файл живьём открывался
+  /// окном сведений вместо кода. Поэтому берёмся мы за любой файл, а двоичное
+  /// отсеиваем по **началу**, уже открыв (§11.2 `content-types.md`): имя
+  /// обманывает, начало файла нет.
   ///
   /// Раньше текст брался за **всё**: показать байты можно всегда, и файла,
   /// который нечем открыть, быть не могло. Теперь последним стоит модуль
@@ -108,6 +113,9 @@ class TextViewer implements FcFrontendModule {
     'vtt',
   };
 
+  /// Скрипт по сигнатуре `#!` — имя типа из таблицы служб типов.
+  static const String _script = 'script';
+
   /// Имена без расширения, которые всё равно текст: `Makefile`, `LICENSE`.
   ///
   /// Каталог отсеивается **отдельной** строкой: расширения у него обычно нет,
@@ -119,11 +127,28 @@ class TextViewer implements FcFrontendModule {
     final extension = extensionOf(entry.name).toLowerCase();
     if (extension.isEmpty) {
       // Без расширения — почти всегда текст: `Makefile`, `LICENSE`, `README`,
-      // `.gitignore`. Двоичное без расширения встречается куда реже, и о нём
-      // расскажут сведения, если человек попросит их сам.
+      // `.gitignore`.
       return true;
     }
     return extensions.contains(extension);
+  }
+
+  /// Стоит ли и пробовать: за файл берёмся, за каталог — нет.
+  ///
+  /// Известный тип решает сразу: текст — берёмся, картинка или архив — нет,
+  /// читать их незачем. Неизвестный — берёмся и смотрим начало сами
+  /// ([_isBinary]); ошиблись — говорим [ViewerDeclined], и очередь идёт дальше.
+  ///
+  /// Скрипт — тоже текст: группа у него «исполняемое», но показывают его
+  /// строками.
+  static bool canBeText(FileEntry entry, [ContentType? type]) {
+    if (entry.isDirectory || entry.isParent) {
+      return false;
+    }
+    if (type == null) {
+      return true;
+    }
+    return type.group == ContentGroup.text || type.group == ContentGroup.binary || type.id == _script;
   }
 
   @override
@@ -181,7 +206,7 @@ class TextViewer implements FcFrontendModule {
         // Ниже картинок, но выше сведений: сведения стоят последними и
         // берутся за то, за что не взялся никто.
         priority: -100,
-        accepts: (entry, type) => looksLikeText(entry),
+        accepts: (entry, type) => canBeText(entry, type),
         open: (request) => _open(request, settingsOf(), settings.save),
       ),
     );
@@ -224,6 +249,14 @@ class TextViewer implements FcFrontendModule {
   ) async {
     final entry = request.entry;
     if (entry.size > settings.maxFileSize) {
+      // Про **текст** отказ говорится словами: большой журнал человек открыть и
+      // хотел, и предел ему стоит увидеть. А про файл, который текстом и не
+      // выглядит, говорить нечего: мы даже не знаем, текст ли это, — читать
+      // ради этого гигабайт незачем, и пусть покажет тот, кто расскажет о нём
+      // не читая.
+      if (!looksLikeText(entry)) {
+        throw const ViewerDeclined();
+      }
       // Отказ, а не начало файла: показывать кусок и называть его файлом —
       // значит врать о содержимом.
       throw ViewerRefused(
@@ -235,12 +268,26 @@ class TextViewer implements FcFrontendModule {
     }
 
     final bytes = <int>[];
+    var judged = false;
     await for (final chunk in request.content.read()) {
       // Курсор в быстром просмотре мог уйти дальше: дочитывать незачем.
       await request.checkpoint();
       bytes.addAll(chunk);
+      // Двоичное отсеивается по началу и **до** дочитывания: тянуть гигабайт,
+      // чтобы потом сказать «это не текст», незачем.
+      if (!judged && bytes.length >= ContentTypeTable.headSize) {
+        judged = true;
+        if (_isBinary(bytes)) {
+          throw const ViewerDeclined();
+        }
+      }
     }
     await request.checkpoint();
+
+    // Файл кончился раньше головы — судим по тому, что есть.
+    if (!judged && _isBinary(bytes)) {
+      throw const ViewerDeclined();
+    }
 
     return TextViewerScreen(
       entry: entry,
@@ -258,6 +305,19 @@ class TextViewer implements FcFrontendModule {
       },
     );
   }
+}
+
+/// Текст ли это — по началу файла, тем же правилом, что у службы типов.
+///
+/// Своего правила здесь нет нарочно: два ответа на вопрос «это текст?»
+/// разошлись бы молча, и файл открывался бы по `F3` иначе, чем показывает его
+/// иконка (`docs/spec/content-types.md`, §9).
+bool _isBinary(List<int> bytes) {
+  final head =
+      bytes.length > ContentTypeTable.headSize
+          ? Uint8List.fromList(bytes.sublist(0, ContentTypeTable.headSize))
+          : Uint8List.fromList(bytes);
+  return head.isNotEmpty && textOrBinary(head).group == ContentGroup.binary;
 }
 
 /// Русские строки просмотра текста.

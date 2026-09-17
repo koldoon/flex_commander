@@ -105,6 +105,23 @@ class ViewerRefused implements Exception {
   String toString() => reason;
 }
 
+/// «Это не мой файл» — спросите следующего.
+///
+/// Отличается от [ViewerRefused] тем, чего ждёт человек: отказ он **видит**
+/// («слишком большой файл»), а этот ответ значит, что просмотрщик ошибся,
+/// взявшись, — и показать файл должен кто-то другой. Человеку об этом знать
+/// незачем.
+///
+/// Нужен там, где по имени решить нельзя, а по содержимому — можно, но только
+/// прочитав: текст с незнакомым расширением (`.as`, `.pro`) от двоичного файла
+/// отличается началом, а не именем (`docs/spec/content-types.md`).
+class ViewerDeclined implements Exception {
+  const ViewerDeclined();
+
+  @override
+  String toString() => 'ViewerDeclined';
+}
+
 /// Объявление просмотрщика: чем он берётся и что открывает.
 class ViewerSpec {
   const ViewerSpec({
@@ -138,7 +155,8 @@ class ViewerSpec {
   /// видам файлов, а реестр заводится ровно затем, чтобы такого `switch` не
   /// было нигде.
   ///
-  /// Отказ — [ViewerRefused]; ошибка чтения — обычное исключение источника.
+  /// Отказ — [ViewerRefused]; «это не моё» — [ViewerDeclined], и тогда
+  /// спрашивают следующего; ошибка чтения — обычное исключение источника.
   final Future<ViewerContent> Function(ViewerRequest request) open;
 }
 

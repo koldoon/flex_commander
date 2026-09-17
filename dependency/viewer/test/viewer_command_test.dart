@@ -19,6 +19,10 @@ void main() {
         FakeEntry.directory('/home'),
         FakeEntry.file('/home/notes.txt', content: utf8.encode('раз\nдва\nтри')),
         FakeEntry.file('/home/big.log', size: 200 * 1024),
+        // Расширение, которого в списке текстовых нет и не будет: их больше,
+        // чем можно перечислить.
+        FakeEntry.file('/home/script.as', content: utf8.encode('package {\n  class A {}\n}\n')),
+        FakeEntry.file('/home/blob.bin', content: [0, 1, 2, 3, 0, 9, 0, 0]),
         FakeEntry.directory('/home/docs'),
       ])..home = '/home',
       modules: featureModules(),
@@ -47,6 +51,21 @@ void main() {
       // Панели никуда не делись — они под ним, в своих областях.
       expect(runtime.app.view.stackAt(ViewportPosition.fullscreen), hasLength(1));
       expect(runtime.app.view.panelAt(ViewportPosition.left), isNotNull);
+    });
+
+    test('текст с незнакомым расширением открывается текстом', () async {
+      // Решает содержимое, а не имя: живьём `.as` уходил в окно сведений —
+      // статистикой вместо кода (`docs/spec/content-types.md`, §5).
+      await view('script.as');
+
+      expect(openViewer(), isNotNull);
+      expect(openViewer()!.controller.text, contains('class A'));
+    });
+
+    test('двоичное текстом не притворяется', () async {
+      await view('blob.bin');
+
+      expect(openViewer(), isNull, reason: 'о нём расскажут сведения, а не мусор из байтов');
     });
 
     test('каталог показывать нечем', () {
