@@ -225,23 +225,34 @@ class ColumnsViewState extends State<ColumnsView> {
     }
   }
 
+  /// Границы места [at] в координатах ленты; пусто — такого места нет.
+  ///
+  /// Одна арифметика на всех: у столбцов ширины **разные** (их тянут мышью), и
+  /// считать `at * (ширина из настроек)` — значит промахиваться тем сильнее,
+  /// чем больше подстроено.
+  ({double left, double right})? _placeBounds(int at) {
+    if (at < 0 || at >= _shownEdges.length) {
+      return null;
+    }
+    return (left: _shownEdges[at], right: _shownEdges[at] + _shownWidths[at]);
+  }
+
   /// Столбец с курсором скрылся целиком — вернуть его на экран.
   ///
   /// Единственное, ради чего лента трогается при ходьбе внутри столбца: увести
   /// его из виду могли не мы (тяга ширины, смена размера окна), а курсор,
   /// которого не видно, — это уже не «не дёргать», а «потерять».
   void _keepColumnVisible(ColumnChain chain) {
-    final at = chain.current;
-    if (at < 0 || !_ribbon.hasClients) {
+    if (!_ribbon.hasClients) {
       return;
     }
-    final width = _columnWidth();
-    final step = width + _dividerWidth;
-    final left = at * step;
-    final right = left + width;
+    final bounds = _placeBounds(chain.current);
+    if (bounds == null) {
+      return;
+    }
     final view = _ribbon.position.viewportDimension;
     final offset = _ribbon.offset;
-    if (right > offset && left < offset + view) {
+    if (bounds.right > offset && bounds.left < offset + view) {
       return;
     }
     _revealColumn(chain);
@@ -261,21 +272,22 @@ class ColumnsViewState extends State<ColumnsView> {
   /// отведённое заранее, держит и то и другое неподвижным: новый столбец
   /// встаёт в готовую нишу.
   void _revealColumn(ColumnChain chain) {
-    final at = chain.current;
-    if (at < 0 || !_ribbon.hasClients) {
+    if (!_ribbon.hasClients) {
       return;
     }
-    final width = _columnWidth();
-    final step = width + _dividerWidth;
-    final left = at * step;
+    final here = _placeBounds(chain.current);
+    if (here == null) {
+      return;
+    }
+    final left = here.left;
     // Правый край **следующего места** — занято оно столбцом или пока пусто.
     //
-    // Пустая ниша здесь не пустая трата: ход вбок — единственный миг, когда
+    // Пустое место здесь не пустая трата: ход вбок — единственный миг, когда
     // ленте позволено ехать (ходьба вверх-вниз её не трогает), и уехать она
     // обязана так, чтобы в поле зрения осталось место под содержимое. Иначе
-    // придержка раскроет каталог в нише, которой не видно, — а смысл вида в
-    // том, чтобы содержимое читалось **до** перехода.
-    final right = left + step + width;
+    // придержка раскроет каталог там, где его не видно, — а смысл вида в том,
+    // чтобы содержимое читалось **до** перехода.
+    final right = (_placeBounds(chain.current + 1) ?? here).right;
     final view = _ribbon.position.viewportDimension;
     final limit = _ribbon.position.maxScrollExtent;
     final offset = _ribbon.offset;
@@ -297,6 +309,40 @@ class ColumnsViewState extends State<ColumnsView> {
 
   /// Ширина первого столбца — общая настройка приложения.
   double _columnWidth() => widget.settings().columnWidth.toDouble();
+
+  /// Ширины **мест** в ленте, слева направо.
+  ///
+  /// Мест на одно больше, чем столбцов до курсора: место справа от столбца с
+  /// курсором есть **всегда** — занято настоящим столбцом или пусто. «Пусто» —
+  /// свойство содержимого, а не места, и в расчётах место участвует наравне со
+  /// столбцами (`docs/spec/panel-view-columns.md`, §8).
+  ///
+  /// Отсюда главное свойство: пока курсор не сменил столбец, ширина ленты и
+  /// предел прокрутки **постоянны**. Иначе, стоило курсору шагнуть с
+  /// раскрытого каталога на файл, лента укорачивалась на целый столбец, а
+  /// прокрутка прижималась к новому пределу — и содержимое ехало вбок само,
+  /// без всякой подмотки (живой разбор 17 сентября 2026).
+  List<double> _placesOf(ColumnChain chain, List<FileEntry> rows) {
+    final places = _widthsOf(chain, rows);
+    // Столбцов бывает либо `current + 1` (курсор на файле или закрытой ветви),
+    // либо `current + 2` (курсор на раскрытой) — значит недостающее место
+    // всегда одно.
+    if (places.length < chain.current + 2) {
+      places.add(_reserveWidth(chain, rows, places));
+    }
+    return places;
+  }
+
+  /// Ширина пустого места — та, которую получит будущий столбец.
+  ///
+  /// Сперва его собственная, если по этому каталогу уже ходили, иначе — ширина
+  /// текущего столбца (разовое наследование, §8). Так появление содержимого не
+  /// меняет ленту ни на точку.
+  double _reserveWidth(ColumnChain chain, List<FileEntry> rows, List<double> places) {
+    final at = widget.panel.cursorIndex;
+    final path = at >= 0 && at < rows.length ? rows[at].path : '';
+    return _widths[path] ?? (places.isEmpty ? _columnWidth() : places.last);
+  }
 
   /// Ширины столбцов цепочки, слева направо.
   ///
@@ -347,9 +393,6 @@ class ColumnsViewState extends State<ColumnsView> {
       }
     });
   }
-
-  /// Линейка между столбцами — она же весь зазор между ними.
-  double get _dividerWidth => FcTheme.of(context).metrics.strokeWidth;
 
   /// Столбец под указателем; -1 — мимо столбцов.
   int _columnAt(Offset local) {
@@ -569,7 +612,6 @@ class ColumnsViewState extends State<ColumnsView> {
           });
         }
 
-        final width = _columnWidth();
         final divider = theme.metrics.strokeWidth;
 
         // Слой пометки стоит **всегда**, а не появляется вместе с жестом:
@@ -579,6 +621,13 @@ class ColumnsViewState extends State<ColumnsView> {
           onPointerDown: (event) {
             if (MarkDrag.isMarking(event.buttons)) {
               _markColumn = _columnAt(event.localPosition);
+              // Начали мимо столбцов — в пустом месте, в шапке, в зазоре —
+              // помечать нечего, и жест не начинается вовсе. Иначе у края
+              // сработала бы автопрокрутка, а ехать ей было бы **лентой**:
+              // вертикальная протяжка двигала бы столбцы вбок.
+              if (_markColumn < 0) {
+                return;
+              }
             }
             _marking.down(event);
           },
@@ -591,107 +640,103 @@ class ColumnsViewState extends State<ColumnsView> {
             _markColumn = -1;
             _marking.up(event);
           },
-          child: NotificationListener<ScrollEndNotification>(
-            // Запоминается **горизонталь ленты**: её из пути не вывести, в
-            // отличие от вертикали столбцов (§8а). Сообщение идёт по покое, а не
-            // на каждую точку: иначе через границу поехала бы лента сообщений.
-            onNotification: (notification) {
-              if (notification.metrics.axis == Axis.horizontal) {
-                panel.setScrollOffset(notification.metrics.pixels);
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              // Шапка входит в столбец, но не в список: страница считается по
+              // тому, что и правда листается.
+              _height = (constraints.maxHeight - theme.metrics.headerRowHeight).clamp(0.0, constraints.maxHeight);
+              // Страница — то, что видно в столбце: `PgUp`/`PgDn` листают
+              // ровно столько, сколько человек перед собой видит.
+              panel.pageSize = (_height / _step).floor().clamp(1, 1000);
+
+              _headerHeight = theme.metrics.headerRowHeight;
+              final places = _placesOf(chain, rows);
+              // Левые края мест — по ним же стоят и захваты границ, и жест
+              // пометки, и подмотка ленты: одно место — одна арифметика.
+              final edges = <double>[];
+              var x = 0.0;
+              for (final one in places) {
+                edges.add(x);
+                x += one + divider;
               }
-              return false;
-            },
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                // Шапка входит в столбец, но не в список: страница считается по
-                // тому, что и правда листается.
-                _height = (constraints.maxHeight - theme.metrics.headerRowHeight).clamp(0.0, constraints.maxHeight);
-                // Страница — то, что видно в столбце: `PgUp`/`PgDn` листают
-                // ровно столько, сколько человек перед собой видит.
-                panel.pageSize = (_height / _step).floor().clamp(1, 1000);
+              // Последняя линейка в ширину не входит: справа от последнего
+              // места её не рисуем.
+              final lane = x - divider;
 
-                _headerHeight = theme.metrics.headerRowHeight;
-                final widths = _widthsOf(chain, rows);
-                // Левые края столбцов — по ним же стоят и захваты границ.
-                final edges = <double>[];
-                var x = 0.0;
-                for (final one in widths) {
-                  edges.add(x);
-                  x += one + divider;
-                }
-                // Место под следующий столбец — отведено всегда, даже когда
-                // показывать в нём нечего: так содержимое видно заранее, а лента
-                // не дёргается от появления и пропажи столбца.
-                final lane = x + (widths.isEmpty ? width : widths.last);
+              // Раскладка запоминается для жеста пометки и подмотки: они
+              // живут в координатах ленты и должны знать, где чьё место.
+              _shownChain = chain;
+              _shownWidths = places;
+              _shownEdges = edges;
 
-                // Раскладка запоминается для жеста пометки: он живёт в
-                // координатах ленты и должен знать, где чей столбец.
-                _shownChain = chain;
-                _shownWidths = widths;
-                _shownEdges = edges;
-
-                return SingleChildScrollView(
-                  controller: _ribbon,
-                  scrollDirection: Axis.horizontal,
-                  child: SizedBox(
-                    height: constraints.maxHeight,
-                    width: lane,
-                    child: Stack(
-                      children: [
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            for (var at = 0; at < chain.columns.length; at++) ...[
-                              if (at > 0)
-                                SizedBox(width: divider, child: ColoredBox(color: theme.colors.columnDivider)),
-                              SizedBox(
-                                width: widths[at],
-                                child: _Column(
-                                  panel: panel,
-                                  rows: rows,
-                                  column: chain.columns[at],
-                                  // Строка, из которой вырос столбец справа; -1 —
-                                  // столбец последний. Спрашивается у цепочки, а не
-                                  // выводится из `selected`: в последнем столбце
-                                  // выбранное — это курсор, и справа от него может не
-                                  // быть ничего (файл, закрытая ветвь).
-                                  nextOwner: at + 1 < chain.columns.length ? chain.columns[at + 1].owner : -1,
-                                  current: at == chain.current,
-                                  step: _step,
-                                  controller: _verticalOf(rows[chain.columns[at].owner].path),
-                                  onTap: _onTap,
-                                ),
-                              ),
-                            ],
-                            SizedBox(width: divider, child: ColoredBox(color: theme.colors.columnDivider)),
-                            const Expanded(child: SizedBox.expand()),
-                          ],
-                        ),
-                        // Захваты границ — **поверх** столбцов, а не в зазоре
-                        // между ними: проверка попадания идёт по размеру
-                        // родителя, и всё, что нарисовано шире зазора, до жеста
-                        // не доходит (урок `FcSplitView`).
-                        for (var at = 0; at < widths.length; at++)
-                          Positioned(
-                            left: edges[at] + widths[at] + divider / 2 - _ColumnGrip.width / 2,
-                            top: 0,
-                            bottom: 0,
-                            width: _ColumnGrip.width,
-                            child: _ColumnGrip(
-                              // Ширина считается **от положения указателя**, а не
-                              // набегает из его смещений: смещения приходят чаще,
-                              // чем рисуются кадры, и граница отставала бы тем
-                              // сильнее, чем быстрее движение (урок `FcSplitView`).
-                              onDrag: (position) => _resize(chain, rows, at, position - edges[at]),
-                              onReset: () => _resetWidth(chain, rows, at),
+              return SingleChildScrollView(
+                controller: _ribbon,
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  height: constraints.maxHeight,
+                  // Не уже обзора: иначе при короткой цепочке лента
+                  // оказывается меньше панели и фон за ней просвечивает.
+                  width: math.max(lane, constraints.maxWidth),
+                  child: Stack(
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          for (var at = 0; at < places.length; at++) ...[
+                            if (at > 0) SizedBox(width: divider, child: ColoredBox(color: theme.colors.columnDivider)),
+                            SizedBox(
+                              width: places[at],
+                              // Место без столбца — пустое: показывать в нём
+                              // пока нечего, но оно есть, и лента от этого не
+                              // меняет ширины.
+                              child:
+                                  at >= chain.columns.length
+                                      ? const SizedBox.expand()
+                                      : _Column(
+                                        panel: panel,
+                                        rows: rows,
+                                        column: chain.columns[at],
+                                        // Строка, из которой вырос столбец справа; -1 —
+                                        // столбец последний. Спрашивается у цепочки, а не
+                                        // выводится из `selected`: в последнем столбце
+                                        // выбранное — это курсор, и справа от него может не
+                                        // быть ничего (файл, закрытая ветвь).
+                                        nextOwner: at + 1 < chain.columns.length ? chain.columns[at + 1].owner : -1,
+                                        current: at == chain.current,
+                                        step: _step,
+                                        controller: _verticalOf(rows[chain.columns[at].owner].path),
+                                        onTap: _onTap,
+                                      ),
                             ),
+                          ],
+                        ],
+                      ),
+                      // Захваты границ — **поверх** столбцов, а не в зазоре
+                      // между ними: проверка попадания идёт по размеру
+                      // родителя, и всё, что нарисовано шире зазора, до жеста
+                      // не доходит (урок `FcSplitView`).
+                      // Захват — только у настоящего столбца: у пустого
+                      // места тянуть нечего.
+                      for (var at = 0; at < chain.columns.length; at++)
+                        Positioned(
+                          left: edges[at] + places[at] + divider / 2 - _ColumnGrip.width / 2,
+                          top: 0,
+                          bottom: 0,
+                          width: _ColumnGrip.width,
+                          child: _ColumnGrip(
+                            // Ширина считается **от положения указателя**, а не
+                            // набегает из его смещений: смещения приходят чаще,
+                            // чем рисуются кадры, и граница отставала бы тем
+                            // сильнее, чем быстрее движение (урок `FcSplitView`).
+                            onDrag: (position) => _resize(chain, rows, at, position - edges[at]),
+                            onReset: () => _resetWidth(chain, rows, at),
                           ),
-                      ],
-                    ),
+                        ),
+                    ],
                   ),
-                );
-              },
-            ),
+                ),
+              );
+            },
           ),
         );
       },

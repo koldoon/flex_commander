@@ -1,3 +1,5 @@
+import 'package:flutter/widgets.dart';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -186,7 +188,13 @@ class Panels implements FcBackendModule, FcFrontendModule {
         // перевод на двоих.
         title: 'Path columns',
         description: 'The path as a chain of directories, left to right',
-        build: (context, panel) => ColumnsView(panel: panel, settings: settingsOf, save: settings.save),
+        // Ключом по панели: память вида — лента, ширины столбцов, последний
+        // столбец курсора — принадлежит **своей** сессии. Без ключа в то же
+        // место дерева встаёт другая, состояние переиспользуется, и первый же
+        // кадр читается как ход вбок.
+        build:
+            (context, panel) =>
+                ColumnsView(key: ObjectKey(panel), panel: panel, settings: settingsOf, save: settings.save),
       ),
     );
 

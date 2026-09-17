@@ -190,25 +190,110 @@ void main() {
     expect(tester.widgetList(columns()).length, 3, reason: 'и цепочка та же');
   });
 
-  testWidgets('место под следующий столбец отведено заранее', (tester) async {
-    // Смысл вида в том, чтобы содержимое было видно **до** перехода курсора, а
-    // лента не дёргалась от появления и пропажи столбца.
-    await open(tester, at: '/home');
-    final shown = tester.widgetList(columns()).length;
-
-    final lane = tester.getSize(find.descendant(of: find.byType(ColumnsView), matching: find.byType(Row)).first);
-    final width = PanelsSettings.defaultColumnWidth.toDouble();
-
-    expect(lane.width, greaterThanOrEqualTo((shown + 1) * width), reason: 'лишний столбец места — про запас');
-  });
-
   group('лента', () {
+    ScrollController lane(WidgetTester tester) =>
+        tester
+            .widget<Scrollable>(find.descendant(of: find.byType(ColumnsView), matching: find.byType(Scrollable)).first)
+            .controller!;
+
+    /// Насколько лента длиннее обзора: по этому числу видна её ширина.
+    double reach(WidgetTester tester) => lane(tester).position.maxScrollExtent;
+
     /// Насколько лента промотана вбок.
     double ribbon(WidgetTester tester) =>
         tester
             .widget<Scrollable>(find.descendant(of: find.byType(ColumnsView), matching: find.byType(Scrollable)).first)
             .controller!
             .offset;
+
+    testWidgets('ширина ленты не зависит от того, есть ли содержимое справа', (tester) async {
+      // Место справа от столбца с курсором есть **всегда**: занято настоящим
+      // столбцом или пусто. Иначе шаг с раскрытого каталога на файл укорачивал
+      // ленту на целый столбец, прокрутка прижималась к новому пределу — и
+      // содержимое ехало вбок само, без всякой подмотки.
+      final runtime = await open(tester, at: '/home', size: const Size(700, 600));
+      final panel = runtime.app.left;
+
+      panel.setCursorToName('lib');
+      await tester.pump();
+      await tester.pump(ColumnsView.holdBeforeOpen);
+      await tester.pumpAndSettle();
+      expect(tester.widgetList(columns()).length, 3, reason: 'справа настоящий столбец');
+      final withColumn = reach(tester);
+
+      panel.setCursorToName('main.dart');
+      await tester.pumpAndSettle();
+      expect(tester.widgetList(columns()).length, 2, reason: 'у файла содержимого нет');
+
+      expect(reach(tester), withColumn, reason: 'а место — есть, и лента той же длины');
+    });
+
+    testWidgets('ходьба мимо каталогов и файлов ленту не двигает', (tester) async {
+      final runtime = await open(tester, at: '/home', size: const Size(700, 600));
+      final panel = runtime.app.left;
+      // Уходим вправо: лента встаёт к правому краю, и любое укорачивание её
+      // тут же сдвинуло бы. Дальше ходим **внутри** этого столбца — мимо
+      // каталога (столбец справа есть) и мимо файла (столбца справа нет).
+      panel.setCursorToName('lib');
+      await tester.pump();
+      // Первый `Right` раскрывает, второй — уводит внутрь.
+      runtime.commands.dispatch(KeyCombination.parse('Right'));
+      await tester.pumpAndSettle();
+      runtime.commands.dispatch(KeyCombination.parse('Right'));
+      await tester.pumpAndSettle();
+      expect(panel.currentEntry?.path, startsWith('/home/lib/'));
+      final was = ribbon(tester);
+
+      for (final name in ['src', 'app.dart', 'src']) {
+        panel.setCursorToName(name);
+        await tester.pump();
+        await tester.pump(ColumnsView.holdBeforeOpen);
+        await tester.pumpAndSettle();
+        expect(ribbon(tester), was, reason: 'курсор на $name');
+      }
+    });
+
+    testWidgets('подстроенная ширина не сбивает подмотку', (tester) async {
+      // Подмотка считает по настоящим краям мест, а не по общей настройке
+      // ширины: после тяги они расходятся.
+      final runtime = await open(tester, at: '/home', size: const Size(700, 600));
+      final panel = runtime.app.left;
+      panel.setCursorToName('lib');
+      await tester.pump();
+      runtime.commands.dispatch(KeyCombination.parse('Right'));
+      await tester.pumpAndSettle();
+
+      final row = tester.getRect(find.descendant(of: find.byType(ColumnsView), matching: find.byType(Row)).first);
+      await tester.dragFrom(Offset(row.left + 60, row.center.dy), const Offset(60, 0));
+      await tester.pumpAndSettle();
+      final was = ribbon(tester);
+
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+      await tester.pumpAndSettle();
+
+      expect(ribbon(tester), was, reason: 'ходьба вниз ленту не трогает и с подстроенными ширинами');
+    });
+
+    testWidgets('столбцы не затирают вертикальную память дерева', (tester) async {
+      // `Session.scrollOffset` — поле общее на все виды: дерево пишет туда
+      // вертикаль в пикселях. Если столбцы станут писать туда горизонталь
+      // ленты, дерево после возврата откроется не там, где его оставили.
+      final runtime = await open(tester, at: '/home/lib');
+      final panel = runtime.app.left;
+      await panel.setView(TreeView.viewId);
+      await tester.pumpAndSettle();
+      panel.setScrollOffset(400);
+      await tester.pumpAndSettle();
+
+      await panel.setView(ColumnsView.viewId);
+      await tester.pumpAndSettle();
+      runtime.commands.dispatch(KeyCombination.parse('Right'));
+      await tester.pumpAndSettle();
+      runtime.commands.dispatch(KeyCombination.parse('Left'));
+      await tester.pumpAndSettle();
+
+      expect(panel.scrollOffset, 400, reason: 'вертикаль дерева цела');
+    });
 
     testWidgets('ходьба по столбцу ленту не двигает', (tester) async {
       // Узкая панель: цепочка в неё не помещается, и ехать ленте есть куда.
