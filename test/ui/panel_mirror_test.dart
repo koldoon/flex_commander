@@ -144,6 +144,47 @@ void main() {
     expect(panel.cursorIndex, last);
   });
 
+  test('курсор ставится путём: список сменился, а строка та же', () async {
+    // Так двигает курсор вид, который сам меняет список: номер, пока заявка
+    // едет через границу, успевает означать другую строку
+    // (`docs/spec/panel-view-columns.md`, §5).
+    panel.setCursorToPath('/home/report.txt');
+    expect(panel.currentEntry?.name, 'report.txt', reason: 'кадр рисует эта сторона');
+
+    await pumpEventQueue();
+    expect(panel.currentEntry?.path, '/home/report.txt', reason: 'и ядро встало туда же');
+  });
+
+  test('новый список приехал раньше подтверждения — курсор не прыгает', () async {
+    // Живая находка 17 сентября 2026: строки и курсор приезжают **разными**
+    // событиями. Пока своя заявка не подтверждена, зеркало держало свой
+    // номер, — а если за это время приехал новый список, тот же номер означал
+    // уже соседнюю строку, и курсор на кадр прыгал назад.
+    final held = _LaggingLink(link);
+    final mirror = SessionMirror(
+      id: PanelId.left,
+      link: held,
+      state: panel.state,
+      listing: panel.listing,
+      columns: testPanelColumns(),
+    );
+    addTearDown(mirror.dispose);
+
+    mirror.setCursorToPath('/home/report.txt');
+    final was = mirror.currentEntry?.path;
+
+    // В каталоге появилось пополнение — список приедет раньше, чем ответ на
+    // заявку о курсоре.
+    provider.add(FakeEntry.file('/home/aaa-first.txt', size: 1));
+    await panel.reload();
+    await pumpEventQueue();
+    for (var i = 0; i < 6; i++) {
+      await held.releaseOne();
+    }
+
+    expect(mirror.currentEntry?.path, was, reason: 'курсор держится за строку, а не за её номер');
+  });
+
   test('пометка ставится сразу и подтверждается ядром', () async {
     panel.setMarks({'/home/notes.txt', '/home/report.txt'});
     expect(panel.markedPaths, {'/home/notes.txt', '/home/report.txt'});

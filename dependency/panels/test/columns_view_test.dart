@@ -163,6 +163,32 @@ void main() {
     expect(tester.widgetList(columns()).length, 3);
   });
 
+  testWidgets('перезапуск возвращает цепочку и курсор', (tester) async {
+    // Так приложение и стартует: вид, каталог, раскрытое и строка курсора —
+    // всё из настроек (`docs/spec/panel-view-columns.md`, §8а).
+    final settings = AppSettings(
+      // Каталогом записан **корень**: у древесных видов панель стоит на корне
+      // источника, а где человек на самом деле, говорит строка курсора.
+      left: PanelSettings(
+        path: '/',
+        view: ColumnsView.viewId,
+        expanded: ['/', '/home', '/home/lib'],
+        cursorPath: '/home/lib/app.dart',
+      ),
+      right: PanelSettings.defaults('/home'),
+    );
+    final runtime = await testApp(provider: provider(), modules: featureModules(), settings: settings);
+    await runtime.app.start();
+    tester.view.physicalSize = const Size(1200, 600);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+
+    expect(runtime.app.left.currentEntry?.path, '/home/lib/app.dart', reason: 'курсор там, где его оставили');
+    expect(tester.widgetList(columns()).length, 3, reason: 'и цепочка та же');
+  });
+
   group('клавиши', () {
     testWidgets('Right раскрывает, второй раз — уводит внутрь', (tester) async {
       final runtime = await open(tester, at: '/home');
@@ -209,6 +235,21 @@ void main() {
       // нельзя: клавишу подхватило бы дерево и свернуло ветвь.
       expect(panel.currentEntry?.name, 'home');
       expect(tester.widgetList(columns()).length, greaterThan(1), reason: 'ничего не свернулось');
+    });
+
+    testWidgets('курсор на корне: стрелка заводит его в цепочку', (tester) async {
+      // Корень столбцом не рисуется, и курсора на нём не видно. Нажатие всё
+      // равно обязано что-то делать: оно заводит курсор в последний столбец.
+      final runtime = await open(tester, at: '/home');
+      final panel = runtime.app.left;
+      panel.setCursorIndex(0);
+      await tester.pumpAndSettle();
+      expect(panel.currentEntry?.path, '/');
+
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+      await tester.pumpAndSettle();
+
+      expect(panel.currentEntry?.path, isNot('/'), reason: 'курсор в столбце, а не в никуда');
     });
 
     testWidgets('Right на файле ничего не двигает', (tester) async {

@@ -298,9 +298,26 @@ class PanelSession {
   Map<String, FsNode>? _byPath;
 
   /// Строки сменились: указатель по путям пересобирается лениво.
+  /// Новые строки — и курсор вместе с ними.
+  ///
+  /// Курсор переезжает **здесь**, а не у того, кто позовёт следом: строки
+  /// уезжают на ту сторону целиком (`_listed`), и опубликовать новый список со
+  /// старым номером значит показать курсор на произвольной строке. Живой
+  /// разбор 17 сентября 2026: при ходьбе стрелками курсор на кадр улетал в
+  /// середину списка и возвращался — между сменой строк и восстановлением
+  /// курсора успевал уехать целый кадр.
+  ///
+  /// Точное место потом уточнят те, кто знает больше — имя, ветвь, запомненное
+  /// в истории, — но **до** публикации, а не после.
   void _setRows(List<FsNode> rows) {
+    final was = currentNode?.pathString;
     _nodes = rows;
     _byPath = null;
+    if (was == null || !_cursorToPath(was)) {
+      // Строки той нет вовсе — номер хотя бы приводится к новой длине: иначе
+      // он указывает за край.
+      _cursorIndex = rows.isEmpty ? 0 : _cursorIndex.clamp(0, rows.length - 1);
+    }
     _probeBranches();
   }
 
@@ -397,8 +414,13 @@ class PanelSession {
 
   /// Строка, на которой стоял курсор в прошлый запуск, — путём.
   ///
-  /// Одноразовая: как только строки собраны и курсор поставлен, память
-  /// уступает место живому курсору.
+  /// Память **до первого попадания**, а не до первой попытки: строки при
+  /// запуске собираются не один раз — сперва каталогом, потом деревом, — и
+  /// строки, запомненной в дереве, в списке каталога нет вовсе. Съев память на
+  /// первой же попытке, панель теряла её насовсем: после перезапуска курсор
+  /// оказывался на корне (живой разбор 17 сентября 2026).
+  ///
+  /// Гасит её и живой курсор: человек тронул — помнить больше нечего.
   String _savedCursor;
 
   /// Насколько список промотан — то, что вид сказал в прошлый раз.
@@ -1171,6 +1193,22 @@ class PanelSession {
     _setCursor(index.clamp(0, _nodes.length - 1));
   }
 
+  /// Поставить курсор на строку с этим путём; нет такой — оставить как есть.
+  ///
+  /// Так курсор двигает тот вид, который **сам меняет список**: номер, пока
+  /// заявка едет, успевает означать другую строку (`MoveCursorTo`). Нет такой
+  /// строки — не двигаем: объект исчез, и лучше оставить курсор там, где он
+  /// стоит, чем ронять его на случайного соседа.
+  void setCursorToPath(String path, {int seq = 0}) {
+    if (seq != 0) {
+      _cursorSeq = seq;
+    }
+    final index = _nodes.indexWhere((node) => node.pathString == path);
+    if (index >= 0) {
+      _setCursor(index);
+    }
+  }
+
   void setCursorToFirst() => setCursorIndex(0);
 
   void setCursorToLast() => setCursorIndex(_nodes.length - 1);
@@ -1465,18 +1503,26 @@ class PanelSession {
 
     if (value.isTree) {
       _list = _listFor(dir);
-      await _rebuildRows();
-      // Курсор встаёт туда, где стоял в прошлый запуск; нет такой строки —
-      // на то, на чём он стоял в списке; нет и её — на ветвь своего каталога:
-      // иначе панель окажется на корне, в дереве длиной в весь диск.
-      //
-      // Именно на **том же объекте**: стояли в списке на `koldoon` — в дереве
-      // стоим на нём же, а не на каталоге, в котором он лежит.
-      final saved = _savedCursor;
-      _savedCursor = '';
-      if ((saved.isEmpty || !_cursorToPath(saved)) && (wasPath.isEmpty || !_cursorToPath(wasPath))) {
-        _cursorToPath(dir.pathString);
-      }
+      // Курсор ставится **внутри** пересборки, до публикации строк. Поставленный
+      // после, он опаздывал на кадр: та сторона успевала увидеть дерево с
+      // курсором на корне и — вид «Столбцы» так и делает — поправить его
+      // по-своему, затерев запомненное (живой разбор 17 сентября 2026).
+      await _rebuildRows(
+        placeCursor: () {
+          // Курсор встаёт туда, где стоял в прошлый запуск; нет такой строки —
+          // на то, на чём он стоял в списке; нет и её — на ветвь своего
+          // каталога: иначе панель окажется на корне, в дереве длиной в весь
+          // диск.
+          //
+          // Именно на **том же объекте**: стояли в списке на `koldoon` — в
+          // дереве стоим на нём же, а не на каталоге, в котором он лежит.
+          if (_savedCursor.isNotEmpty && _cursorToPath(_savedCursor)) {
+            _savedCursor = '';
+          } else if (wasPath.isEmpty || !_cursorToPath(wasPath)) {
+            _cursorToPath(dir.pathString);
+          }
+        },
+      );
       _changed();
       return;
     }
@@ -1769,7 +1815,10 @@ class PanelSession {
   ///
   /// Курсор держится за **строку**, а не за место: после раскрытия ветви
   /// строки уезжают вниз, и следить надо за объектом.
-  Future<void> _rebuildRows() async {
+  /// [placeCursor] — куда встать курсору в новых строках; пусто — на ту же
+  /// строку, где он стоял. Зовётся **до** публикации: список уезжает на ту
+  /// сторону целиком, и курсор в нём обязан быть уже правильным.
+  Future<void> _rebuildRows({void Function()? placeCursor}) async {
     final list = _list;
     if (list == null) {
       return;
@@ -1793,11 +1842,14 @@ class PanelSession {
 
     _setRows(List.unmodifiable(rows));
     _applyMeasured(_nodes);
-    _listed();
-    _restoreSelection(marked);
-    if (at != null) {
+    // Курсор — **до** публикации: после неё та сторона уже нарисовала кадр.
+    if (placeCursor != null) {
+      placeCursor();
+    } else if (at != null) {
       _cursorToPath(at);
     }
+    _listed();
+    _restoreSelection(marked);
     _changed();
   }
 
@@ -1844,14 +1896,21 @@ class PanelSession {
     _measuredSinceSort = false;
     final at = currentNode?.pathString;
     final name = currentNode?.name;
-    _applySort();
-    // Путём, а не именем: в дереве одинаковые имена лежат в разных ветвях, и
-    // курсор ушёл бы к первому попавшемуся (`docs/spec/panel-node-list.md`).
-    if (at == null || !_cursorToPath(at)) {
-      if (name != null) {
-        setCursorToName(name);
-      }
-    }
+    _applySort(
+      placeCursor: () {
+        // Путём, а не именем: в дереве одинаковые имена лежат в разных ветвях,
+        // и курсор ушёл бы к первому попавшемуся
+        // (`docs/spec/panel-node-list.md`).
+        if (at == null || !_cursorToPath(at)) {
+          if (name != null) {
+            final index = _nodes.indexWhere((node) => node.name == name);
+            if (index >= 0) {
+              _cursorIndex = index;
+            }
+          }
+        }
+      },
+    );
     _changed();
   }
 
@@ -2189,11 +2248,18 @@ class PanelSession {
       _watch.follow(dir);
       _setRows(shown);
       _applyMeasured(_nodes);
-      _applySort();
+      // Курсор ставится **внутри** сортировки, до публикации строк: после неё
+      // та сторона уже нарисовала кадр — и вид, которому курсор на корне
+      // показывать негде, успевал поправить его по-своему, затирая
+      // запомненное (живой разбор 17 сентября 2026).
+      _applySort(
+        placeCursor: () {
+          _restoreCursor(cursorName, cursorFallbackIndex);
+          _cursorToBranch(dir, cursorName);
+        },
+      );
       _stopSizeScan(keepMarked: quiet);
       _restoreSelection(keepMarks ? selection.paths : null);
-      _restoreCursor(cursorName, cursorFallbackIndex);
-      _cursorToBranch(dir, cursorName);
       // Занятости нет: панель уже что-то показала, и отнимать у неё клавиши
       // ради чтения, которого никто не ждёт, незачем. Этим фоновое обновление
       // и отличается от `runWork`, где ждут нового экрана.
@@ -2260,7 +2326,14 @@ class PanelSession {
       _setRows(nodes);
       // До сортировки: иначе список оказался бы разложен по вчерашним числам.
       _applyMeasured(_nodes);
-      _applySort();
+      // Курсор — **внутри** сортировки, до публикации строк: список уезжает на
+      // ту сторону целиком, и поставленный после курсор опаздывает на кадр.
+      _applySort(
+        placeCursor: () {
+          _restoreCursor(cursorName, cursorFallbackIndex);
+          _cursorToBranch(dir, cursorName);
+        },
+      );
 
       // Обход размеров останавливается здесь, и место у вызова несущее в обе
       // стороны. До `_restoreSelection` — потому что она уведомит пометку и
@@ -2278,8 +2351,6 @@ class PanelSession {
       // подтягивается тихо, а `Space` жмут дальше. Снимок, взятый до чтения,
       // отменял бы всё, что сделано после него.
       _restoreSelection(keepMarks ? selection.paths : null);
-      _restoreCursor(cursorName, cursorFallbackIndex);
-      _cursorToBranch(dir, cursorName);
 
       _status = PanelPhase.idle;
       _finish();
@@ -2372,6 +2443,7 @@ class PanelSession {
     }
 
     _setRows(sorted);
+    _restoreCursor(cursorName, cursorIndex);
     _listed();
     // Обход размеров переживает догоняющее чтение: он живёт путями, смену строк
     // переносит, а посчитанное наносится заново (`docs/spec/directory-watch.md`,
@@ -2380,7 +2452,6 @@ class PanelSession {
       _stopSizeScan();
     }
     _restoreSelection(marked);
-    _restoreCursor(cursorName, cursorIndex);
     _finish();
   }
 
@@ -2457,11 +2528,13 @@ class PanelSession {
     return compare == null ? rows.toList() : (rows.toList()..sort(compare));
   }
 
-  void _applySort() {
+  /// [placeCursor] — куда встать курсору; зовётся **до** публикации строк.
+  void _applySort({void Function()? placeCursor}) {
     // Раскладывает **набор строк**: у каталога это обычная сортировка списка, у
     // дерева — сортировка внутри ветвей. Правило одно на оба, разное только
     // применение (`docs/spec/panel-node-list.md`, §3).
     _setRows(List.unmodifiable(_ordered(_nodes)));
+    placeCursor?.call();
     // Порядок сменился — значит сменился и список: строки те же, но их места
     // другие, а та сторона знает строки по местам.
     _listed();
@@ -2519,10 +2592,40 @@ class PanelSession {
     if (cursorName != null && currentNode?.name == cursorName) {
       return;
     }
+    // Строку прошлого запуска не перебиваем: её только что нашли по пути, и
+    // она **точнее** ветви открытого каталога. Живой разбор 17 сентября 2026:
+    // панель стоит на корне (у древесных видов так и записано в настройках), и
+    // ветвь корня возвращала курсор на нулевую строку — прямо поверх
+    // восстановленной.
+    if (_restoredSaved) {
+      return;
+    }
     _cursorToPath(dir.pathString);
   }
 
+  /// Курсор только что встал по строке прошлого запуска.
+  ///
+  /// Одноразовый признак: он живёт ровно от [_restoreCursor] до конца той же
+  /// сборки строк, и нужен затем, чтобы уточнения, идущие следом, не перебили
+  /// найденное.
+  bool _restoredSaved = false;
+
   void _restoreCursor(String? cursorName, int? fallbackIndex) {
+    // Строка прошлого запуска — **путём и первой**: имя в дереве неоднозначно
+    // (одинаковых имён в разных ветвях сколько угодно), а строк тут бывает
+    // четыре тысячи.
+    //
+    // Здесь, а не только в `setRows`: вид просит дерево раньше, чем у панели
+    // появляется каталог, — та просьба уходит ни с чем, и строки потом
+    // собирает обычное открытие каталога. Память одноразовая, и съесть её
+    // должен тот, кто первым собрал строки, кем бы он ни был (живой разбор
+    // 17 сентября 2026: после перезапуска курсор оказывался на корне).
+    _restoredSaved = false;
+    if (_savedCursor.isNotEmpty && _cursorToPath(_savedCursor)) {
+      _savedCursor = '';
+      _restoredSaved = true;
+      return;
+    }
     if (cursorName != null) {
       final index = _nodes.indexWhere((node) => node.name == cursorName);
       if (index >= 0) {
@@ -2558,6 +2661,9 @@ class PanelSession {
   }
 
   void _setCursor(int index) {
+    // Человек тронул курсор — память прошлого запуска больше не нужна, и
+    // всплыть посреди работы она не должна.
+    _savedCursor = '';
     if (_cursorIndex == index) {
       return;
     }

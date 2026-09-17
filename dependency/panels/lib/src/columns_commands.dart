@@ -29,6 +29,24 @@ abstract class _ColumnsCommand extends AppCommand {
   /// ядре клавиш и о виджетах не знает — а один проход по строкам дешевле
   /// любого способа их связать.
   ColumnChain chainOf(CommandContext context) => ColumnChain.of(context.session.entries, context.session.cursorIndex);
+
+  /// Курсор ни в одном столбце — он на корне, а корень столбцом не рисуется.
+  ///
+  /// Нажатие обязано что-то делать, и делает оно самое понятное: заводит
+  /// курсор в последний столбец цепочки — тот, в чей каталог смотрит панель.
+  /// Случай не выдуманный: курсор мог встать на корень в дереве, а вид
+  /// переключили после.
+  bool enterChain(CommandContext context, ColumnChain chain) {
+    if (chain.current >= 0 || chain.columns.isEmpty) {
+      return false;
+    }
+    final rows = chain.columns.last.rows;
+    if (rows.isEmpty) {
+      return false;
+    }
+    context.session.setCursorToPath(context.session.entries[rows.first].path);
+    return true;
+  }
 }
 
 /// Шаг вглубь и обратно: `Right` и `Left`.
@@ -64,6 +82,10 @@ class ColumnsStepCommand extends _ColumnsCommand {
     if (at < 0 || at >= rows.length) {
       return;
     }
+    // Курсор на корне: стрелка заводит его в цепочку, а не пропадает впустую.
+    if (enterChain(context, chainOf(context))) {
+      return;
+    }
 
     if (!deeper) {
       // **Не сворачивая**: столбец справа остаётся на месте — из него только
@@ -73,7 +95,7 @@ class ColumnsStepCommand extends _ColumnsCommand {
       // столбце команда молча стоит.
       final parent = _parentOf(rows, at);
       if (parent >= 0 && rows[parent].level >= 1) {
-        panel.setCursorIndex(parent);
+        panel.setCursorToPath(rows[parent].path);
       }
       return;
     }
@@ -89,7 +111,7 @@ class ColumnsStepCommand extends _ColumnsCommand {
     // Раскрытая ветвь — шаг внутрь: следующая строка и есть её первый ребёнок.
     // Пустой каталог такой строки не даёт, и курсор остаётся на месте.
     if (at + 1 < rows.length && rows[at + 1].level > row.level) {
-      panel.setCursorIndex(at + 1);
+      panel.setCursorToPath(rows[at + 1].path);
     }
   }
 
@@ -166,6 +188,7 @@ class ColumnsRowCommand extends _ColumnsCommand {
     final panel = context.session;
     final chain = chainOf(context);
     if (chain.current < 0) {
+      enterChain(context, chain);
       return;
     }
     final column = chain.columns[chain.current].rows;
@@ -181,6 +204,10 @@ class ColumnsRowCommand extends _ColumnsCommand {
       ColumnsRowStep.page => place + (down ? 1 : -1) * (panel.pageSize - 1).clamp(1, panel.pageSize),
       ColumnsRowStep.edge => down ? column.length - 1 : 0,
     };
-    panel.setCursorIndex(column[moved.clamp(0, column.length - 1)]);
+    final target = column[moved.clamp(0, column.length - 1)];
+    // Путём, а не номером: пока заявка едет, придержка успевает раскрыть
+    // каталог под курсором, и номер соседа означает уже первую строку внутри
+    // него (`docs/spec/panel-view-columns.md`, §5).
+    panel.setCursorToPath(panel.entries[target].path);
   }
 }

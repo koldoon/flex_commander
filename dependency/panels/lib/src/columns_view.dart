@@ -55,7 +55,17 @@ class ColumnsViewState extends State<ColumnsView> {
   /// Окно, в пределах которого два щелчка по одной строке считаются двойным.
   static const Duration _doubleTapWindow = Duration(milliseconds: 400);
 
-  int _lastTapIndex = -1;
+  /// По чему опознаётся второй щелчок — **по пути**, а не по номеру строки.
+  ///
+  /// В этом виде номера разъезжаются сами: придержка раскрывает каталог, уход
+  /// курсора сворачивает раскрытое ею же, и строки ниже съезжают на всю
+  /// глубину поддерева. Номер, запомненный до этого, назавтра означает **другую
+  /// строку** — и одиночный щелчок по ней читается вторым, а вторым здесь
+  /// значит «войти». Снаружи это выглядит так: человек ходит курсором, а
+  /// панель самопроизвольно проваливается внутрь каталога.
+  ///
+  /// В таблице номером можно: там список сам собой не перестраивается.
+  String _lastTapPath = '';
   DateTime _lastTapTime = DateTime.fromMillisecondsSinceEpoch(0);
 
   /// Высота строки вместе с просветом; 0 — разметки ещё не было.
@@ -247,15 +257,20 @@ class ColumnsViewState extends State<ColumnsView> {
   /// Распознаётся вручную, как везде: штатный `onDoubleTap` придерживает
   /// первый щелчок до конца окна, и курсор начинает опаздывать.
   void _onTap(int index) {
+    final rows = _rows;
+    if (index < 0 || index >= rows.length) {
+      return;
+    }
+    final path = rows[index].path;
     final now = DateTime.now();
-    final again = index == _lastTapIndex && now.difference(_lastTapTime) < _doubleTapWindow;
-    _lastTapIndex = index;
+    final again = path == _lastTapPath && now.difference(_lastTapTime) < _doubleTapWindow;
+    _lastTapPath = path;
     _lastTapTime = now;
 
     AppScope.read(context).activate(widget.panel);
-    widget.panel.setCursorIndex(index);
+    widget.panel.setCursorToPath(path);
     if (again) {
-      _lastTapIndex = -1;
+      _lastTapPath = '';
       enterAt(index);
     }
   }
@@ -281,7 +296,9 @@ class ColumnsViewState extends State<ColumnsView> {
       widget.panel.setExpanded(row.path, expanded: true);
       return;
     }
-    widget.panel.setCursorIndex(index + 1);
+    if (index + 1 < rows.length && rows[index + 1].level > row.level) {
+      widget.panel.setCursorToPath(rows[index + 1].path);
+    }
   }
 
   @override

@@ -62,6 +62,28 @@ class SessionMirror extends ChangeNotifier implements Session {
   /// нажать стрелку ещё раз, и слушать его значит дёргать курсор назад.
   int _cursorSeq = 0;
 
+  /// Строка, на которой стоит курсор, — **путём**.
+  ///
+  /// Строки и курсор приезжают из ядра **разными** событиями: список одним,
+  /// положение курсора другим. Между ними бывает кадр, в котором список уже
+  /// новый, а номер курсора ещё старый, — и означает он тогда соседнюю строку.
+  /// Живьём это видно как прыжок курсора на строку назад с немедленным
+  /// возвратом (разбор 17 сентября 2026).
+  ///
+  /// Путь такого не умеет: по нему номер находится заново в том списке,
+  /// который сейчас на экране. Пусто — строку не опознать (список пуст, курсор
+  /// на «..»), и тогда остаётся номер.
+  String _cursorPath = '';
+
+  /// Номер курсора, приехавший **для другого списка**, и поколение того списка.
+  ///
+  /// Состояние панели и её строки едут разными событиями, и состояние обгоняет:
+  /// в нём номер курсора уже для нового списка, а список ещё старый. Применить
+  /// такой номер сразу — значит на кадр показать курсор на произвольной
+  /// строке; поэтому он ждёт **свой** список, опознаваемый по поколению.
+  int _aheadCursor = -1;
+  int _aheadGeneration = -1;
+
   /// Номер последней **своей** заявки на пометку — по той же причине, что и у
   /// курсора: пометка ставится сразу, а подтверждения на первые заявки приходят,
   /// когда помечено уже больше. Зажатый `Space` в дереве этим и отличается от
@@ -184,12 +206,30 @@ class SessionMirror extends ChangeNotifier implements Session {
   }
 
   @override
+  void setCursorToPath(String path) {
+    final index = entries.indexWhere((entry) => entry.path == path);
+    if (index < 0) {
+      return;
+    }
+    _cursorSeq++;
+    _cursorPath = path;
+    // К себе — номером (свои строки перед глазами), а за границу — путём: там
+    // строки могли уже смениться (`MoveCursorTo`).
+    _state = _state.copyWith(cursorIndex: index, cursorSeq: _cursorSeq);
+    _link.tell(MoveCursorTo(id, path, _cursorSeq));
+    notifyListeners();
+  }
+
+  @override
   void setCursorIndex(int index) {
     final clamped = entries.isEmpty ? 0 : index.clamp(0, entries.length - 1);
     if (clamped == _state.cursorIndex) {
       return;
     }
     _cursorSeq++;
+    // Строка запоминается **путём**: если до подтверждения приедет новый
+    // список, номер в нём будет означать другую строку.
+    _rememberCursor(clamped);
     // Сразу к себе — и следом просьбой: кадр рисуется этой стороной, и ждать
     // ради него оборота границы нечего.
     _state = _state.copyWith(cursorIndex: clamped, cursorSeq: _cursorSeq);
@@ -692,6 +732,22 @@ class SessionMirror extends ChangeNotifier implements Session {
 
   // --- зеркалирование ---
 
+  /// Где в **нынешнем** списке стоит запомненная строка; нет такой — прежний
+  /// номер: объект исчез, и ронять курсор на случайного соседа хуже, чем
+  /// оставить его на месте.
+  int get _cursorIndexNow {
+    if (_cursorPath.isEmpty) {
+      return _state.cursorIndex;
+    }
+    final at = entries.indexWhere((entry) => entry.path == _cursorPath);
+    return at < 0 ? _state.cursorIndex : at;
+  }
+
+  /// Запомнить строку под курсором — ту, что стоит по этому номеру сейчас.
+  void _rememberCursor(int index) {
+    _cursorPath = index >= 0 && index < entries.length ? entries[index].path : '';
+  }
+
   void _apply(CoreEvent event) {
     switch (event) {
       case PanelChanged(:final panel, :final state) when panel == id:
@@ -700,7 +756,20 @@ class SessionMirror extends ChangeNotifier implements Session {
         // отобрал.
         var next = state;
         if (state.cursorSeq < _cursorSeq) {
-          next = next.copyWith(cursorIndex: _state.cursorIndex, cursorSeq: _cursorSeq);
+          // Опоздавшее подтверждение: пока оно шло, человек нажал стрелку ещё
+          // раз. Своё положение держится **строкой**, а не номером: список за
+          // это время мог смениться.
+          next = next.copyWith(cursorIndex: _cursorIndexNow, cursorSeq: _cursorSeq);
+        } else if (state.generation != _listing.generation) {
+          // Номер приехал для списка, которого здесь ещё нет, — ждём его.
+          _aheadCursor = state.cursorIndex;
+          _aheadGeneration = state.generation;
+          next = next.copyWith(cursorIndex: _cursorIndexNow);
+        } else {
+          // Курсор переставило ядро — запоминаем **строку**, на которой он
+          // теперь стоит: следующий список может приехать раньше следующего
+          // подтверждения.
+          _rememberCursor(next.cursorIndex);
         }
         if (state.marksSeq < _marksSeq) {
           next = next.copyWith(markedPaths: _state.markedPaths, marksSeq: _marksSeq);
@@ -719,6 +788,18 @@ class SessionMirror extends ChangeNotifier implements Session {
           }
         }
         _listing = listing;
+        if (_aheadGeneration == listing.generation) {
+          // Дождались своего списка — номер курсора из состояния наконец
+          // означает то, что задумывало ядро.
+          _state = _state.copyWith(cursorIndex: _aheadCursor);
+          _aheadCursor = -1;
+          _aheadGeneration = -1;
+          _rememberCursor(_state.cursorIndex);
+        } else {
+          // Список сменился сам по себе — номер курсора ищется в нём заново по
+          // строке, на которой курсор стоял.
+          _state = _state.copyWith(cursorIndex: _cursorIndexNow);
+        }
         notifyListeners();
 
       case PanelSized(:final panel, :final paths) when panel == id:
