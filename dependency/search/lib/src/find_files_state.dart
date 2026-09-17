@@ -4,6 +4,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/foundation.dart';
 
+import 'search_limits.dart';
 import 'search_query.dart';
 import 'search_work.dart';
 
@@ -109,7 +110,16 @@ class FindFilesState extends ChangeNotifier {
   bool get canGoTo => _selected >= 0 && _selected < found.length && found[_selected].directoryPath.isNotEmpty;
 
   /// Есть что искать: маска непустая и обход не идёт.
-  bool get canStart => !busy && !query.isEmpty;
+  bool get canStart => !busy && !query.isEmpty && query.isValid && _limits.isValid;
+
+  /// Разбор набранного в полях размера и даты.
+  ///
+  /// Числа и даты живут **строками** ровно до `OK`: пока человек печатает,
+  /// половина набранного не разбирается, и негодное значение — это не ошибка
+  /// ввода, а ещё не дописанное. Ошибку показывают у поля, а `OK` не даётся
+  /// (`docs/spec/file-search.md`, §10.5).
+  SearchLimits get limits => _limits;
+  SearchLimits _limits = const SearchLimits();
 
   /// `OK` в окне параметров: закрыть его, показать находки и пойти искать.
   ///
@@ -172,6 +182,38 @@ class FindFilesState extends ChangeNotifier {
 
   void typed(String mask) {
     query = query.copyWith(mask: mask);
+    notifyListeners();
+  }
+
+  void setRegexp(bool value) {
+    query = query.copyWith(regexp: value);
+    notifyListeners();
+  }
+
+  void setCaseSensitive(bool value) {
+    query = query.copyWith(caseSensitive: value);
+    notifyListeners();
+  }
+
+  void setIgnore(String value) {
+    query = query.copyWith(ignore: value);
+    notifyListeners();
+  }
+
+  void setFollowLinks(bool value) {
+    query = query.copyWith(followLinks: value);
+    notifyListeners();
+  }
+
+  /// Набранное в полях размера и даты — строками, как набрано.
+  void setLimits(SearchLimits value) {
+    _limits = value;
+    query = query.copyWith(
+      sizeFrom: () => value.sizeFrom,
+      sizeTo: () => value.sizeTo,
+      changedAfter: () => value.changedAfter,
+      changedBefore: () => value.changedBefore,
+    );
     notifyListeners();
   }
 

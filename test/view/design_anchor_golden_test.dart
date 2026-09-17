@@ -232,7 +232,7 @@ void main() {
     await tester.enterText(
       find.descendant(
         of: find.byType(FindFilesForm),
-        matching: find.byWidgetPredicate((widget) => widget is TextField && widget.enabled != false),
+        matching: find.byWidgetPredicate((widget) => widget is TextField && widget.autofocus),
       ),
       '*.xml',
     );

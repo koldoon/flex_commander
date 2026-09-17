@@ -47,10 +47,12 @@ void main() {
     app = (await testApp(provider: provider, modules: featureModules(), settings: settings)).app;
   });
 
-  // Именно поле окна: внизу экрана стоит ещё и командная строка.
+  // Именно поле маски: в окне живых полей теперь несколько (исключения, размер,
+  // дата), а внизу экрана стоит ещё и командная строка. Маска — то поле, ради
+  // которого окно и открывают, и фокус оно просит себе само.
   final input = find.descendant(
     of: find.byType(FindFilesForm),
-    matching: find.byWidgetPredicate((widget) => widget is TextField && widget.enabled != false),
+    matching: find.byWidgetPredicate((widget) => widget is TextField && widget.autofocus),
   );
 
   Future<void> pumpApp(WidgetTester tester, {Size size = const Size(802, 621)}) async {
@@ -87,6 +89,99 @@ void main() {
     await tester.tap(find.widgetWithText(FcButton, label));
     await tester.pumpAndSettle();
   }
+
+  group('условия отбора', () {
+    /// Поле по подсказке-образцу: живых полей в окне несколько.
+    Finder fieldWithHint(String hint) => find.descendant(
+      of: find.byType(FindFilesForm),
+      matching: find.byWidgetPredicate((widget) => widget is TextField && widget.decoration?.hintText == hint),
+    );
+
+    /// Кнопка `OK` — та, что запускает обход.
+    FcButton okButton(WidgetTester tester) => tester.widget<FcButton>(find.widgetWithText(FcButton, 'OK'));
+
+    testWidgets('переключатель читает набранное выражением', (tester) async {
+      await pumpApp(tester);
+      await openWindow(tester);
+
+      // Маской `main\.dart$` не совпадёт ни с чем: в маске это просто имя.
+      await tester.enterText(input, r'main\.dart$');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('.*'));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+
+      expect(find.text('main.dart'), findsWidgets, reason: 'прочитано выражением');
+    });
+
+    testWidgets('неверное выражение не даёт искать и говорит об этом', (tester) async {
+      await pumpApp(tester);
+      await openWindow(tester);
+
+      await tester.enterText(input, '*.dart');
+      await tester.pumpAndSettle();
+      expect(okButton(tester).onPressed, isNotNull, reason: 'маской это законно');
+
+      await tester.tap(find.text('.*'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('The expression is not understood'), findsOneWidget, reason: 'сказано у поля, а не в отказе');
+      expect(okButton(tester).onPressed, isNull, reason: 'искать нечем');
+    });
+
+    testWidgets('исключённый каталог в находки не попадает', (tester) async {
+      await pumpApp(tester);
+      await openWindow(tester);
+
+      await tester.enterText(fieldWithHint('node_modules;.git'), 'src');
+      await tester.pumpAndSettle();
+      await search(tester, '*.dart');
+
+      expect(find.text('main.dart'), findsWidgets);
+      expect(find.text('util.dart'), findsNothing, reason: 'он лежит в `src`');
+    });
+
+    testWidgets('регистр различается по флажку', (tester) async {
+      await pumpApp(tester);
+      await openWindow(tester);
+
+      // Слева — флажок имени, справа такой же у содержимого (он приглушён).
+      await tester.tap(find.text('Case sensitive').first);
+      await tester.pumpAndSettle();
+      await search(tester, '*.DART');
+
+      expect(find.text('main.dart'), findsNothing, reason: 'регистр теперь важен');
+    });
+
+    testWidgets('неразобранный размер не даёт искать', (tester) async {
+      await pumpApp(tester);
+      await openWindow(tester);
+
+      await tester.enterText(input, '*.dart');
+      await tester.pumpAndSettle();
+      await tester.enterText(fieldWithHint('500k'), 'много');
+      await tester.pumpAndSettle();
+
+      expect(okButton(tester).onPressed, isNull);
+
+      await tester.enterText(fieldWithHint('500k'), '1k');
+      await tester.pumpAndSettle();
+      expect(okButton(tester).onPressed, isNotNull);
+    });
+
+    testWidgets('размер отбирает находки', (tester) async {
+      await pumpApp(tester);
+      await openWindow(tester);
+
+      await tester.enterText(fieldWithHint('500k'), '1k');
+      await tester.pumpAndSettle();
+      await search(tester, '*.dart');
+
+      // Все файлы стенда по байту — под условие не подходит ни один.
+      expect(find.text('main.dart'), findsNothing);
+    });
+  });
 
   testWidgets('Alt-F7 открывает окно: поле маски в фокусе, каталог показан', (tester) async {
     await pumpApp(tester);

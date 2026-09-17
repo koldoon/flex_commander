@@ -4,6 +4,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
 import 'find_files_state.dart';
+import 'search_limits.dart';
 
 /// Окно поиска: маска, флаги, ход работы и то, что нашлось.
 class FindFilesForm extends StatefulWidget {
@@ -18,10 +19,18 @@ class FindFilesForm extends StatefulWidget {
 class _FindFilesFormState extends State<FindFilesForm> {
   final TextEditingController _mask = TextEditingController();
 
-  /// Поля, которых пока нет: каталоги-исключения и поиск по содержимому.
-  /// Свои контроллеры им нужны затем же, зачем и живому полю, — чтобы поле
-  /// было полем, а не картинкой поля.
   final TextEditingController _ignore = TextEditingController();
+
+  /// Поля размера и даты: набранное живёт строками до `OK`
+  /// (`docs/spec/file-search.md`, §10.5).
+  final TextEditingController _sizeFrom = TextEditingController();
+  final TextEditingController _sizeTo = TextEditingController();
+  final TextEditingController _after = TextEditingController();
+  final TextEditingController _before = TextEditingController();
+
+  /// Поля, которого пока нет: поиск по содержимому (Д3). Свой контроллер ему
+  /// нужен затем же, зачем и живому полю, — чтобы поле было полем, а не
+  /// картинкой поля.
   final TextEditingController _content = TextEditingController();
   final FocusNode _focus = FocusNode(debugLabel: 'find files mask');
 
@@ -45,10 +54,26 @@ class _FindFilesFormState extends State<FindFilesForm> {
   @override
   void dispose() {
     _ignore.dispose();
+    _sizeFrom.dispose();
+    _sizeTo.dispose();
+    _after.dispose();
+    _before.dispose();
     _content.dispose();
     _mask.dispose();
     _focus.dispose();
     super.dispose();
+  }
+
+  /// Набранное в полях размера и даты — одним значением: их разбирают вместе.
+  void _limitsTyped(FindFilesState state) {
+    state.setLimits(
+      SearchLimits(
+        sizeFromText: _sizeFrom.text,
+        sizeToText: _sizeTo.text,
+        afterText: _after.text,
+        beforeText: _before.text,
+      ),
+    );
   }
 
   @override
@@ -93,20 +118,31 @@ class _FindFilesFormState extends State<FindFilesForm> {
             // у двух столбцов ту самую ширину, ради которой их и ставят рядом.
             children: [
               CommandDialogField.wide(child: _labeled(theme, context.strings.tr('Start at:'), _startAt(theme, state))),
-              // Не наше пока: каталоги-исключения (Д3). Флаг и поле под ним —
-              // **один** блок, а не две строки формы: флаг здесь работает
-              // подписью к полю, и зазор между ними тот же, что между строками
-              // левого столбца. Двумя строками их разделял бы широкий зазор
-              // между строками формы, и пара разрывалась — на живой проверке
-              // это и было первым, что бросилось в глаза.
+              // Флаг и поле под ним — **один** блок, а не две строки формы:
+              // флаг здесь работает подписью к полю, и зазор между ними тот же,
+              // что между строками левого столбца. Двумя строками их разделял
+              // бы широкий зазор между строками формы, и пара разрывалась — на
+              // живой проверке это и было первым, что бросилось в глаза.
               CommandDialogField.wide(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    FcCheckbox(label: context.strings.tr('Ignore directories:'), value: false, onChanged: null),
+                    // Флажок здесь — выключатель поля, а не условие сам по
+                    // себе: снятый очищает исключения, и набранное при этом
+                    // остаётся в поле — вдруг вернут.
+                    FcCheckbox(
+                      label: context.strings.tr('Ignore directories:'),
+                      value: state.query.ignore.isNotEmpty,
+                      onChanged: state.busy ? null : (on) => state.setIgnore(on ? _ignore.text : ''),
+                    ),
                     SizedBox(height: theme.metrics.dialogGap),
-                    FcTextField(controller: _ignore, enabled: false),
+                    FcTextField(
+                      controller: _ignore,
+                      enabled: !state.busy,
+                      hintText: 'node_modules;.git',
+                      onChanged: state.setIgnore,
+                    ),
                   ],
                 ),
               ),
@@ -119,6 +155,70 @@ class _FindFilesFormState extends State<FindFilesForm> {
                     // просвет читается так же, как боковые.
                     SizedBox(width: theme.metrics.dialogHorizontalPadding),
                     Expanded(child: _byContent(context, theme)),
+                  ],
+                ),
+              ),
+              // Размер и дата — по ряду на каждое, оба конца рядом: «от … до»
+              // читается строкой, а не двумя полями в разных углах.
+              CommandDialogField.wide(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _labeled(
+                        theme,
+                        context.strings.tr('Size from:'),
+                        FcTextField(
+                          controller: _sizeFrom,
+                          enabled: !state.busy,
+                          hintText: '500k',
+                          onChanged: (_) => _limitsTyped(state),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: theme.metrics.dialogHorizontalPadding),
+                    Expanded(
+                      child: _labeled(
+                        theme,
+                        context.strings.tr('to:'),
+                        FcTextField(
+                          controller: _sizeTo,
+                          enabled: !state.busy,
+                          hintText: '2M',
+                          onChanged: (_) => _limitsTyped(state),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              CommandDialogField.wide(
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _labeled(
+                        theme,
+                        context.strings.tr('Changed after:'),
+                        FcTextField(
+                          controller: _after,
+                          enabled: !state.busy,
+                          hintText: '7d',
+                          onChanged: (_) => _limitsTyped(state),
+                        ),
+                      ),
+                    ),
+                    SizedBox(width: theme.metrics.dialogHorizontalPadding),
+                    Expanded(
+                      child: _labeled(
+                        theme,
+                        context.strings.tr('before:'),
+                        FcTextField(
+                          controller: _before,
+                          enabled: !state.busy,
+                          hintText: '2026-09-01',
+                          onChanged: (_) => _limitsTyped(state),
+                        ),
+                      ),
+                    ),
                   ],
                 ),
               ),
@@ -174,17 +274,43 @@ class _FindFilesFormState extends State<FindFilesForm> {
         _labeled(
           theme,
           context.strings.tr('File name:'),
-          // `Enter` полю не отдаётся: в открытом окне его разбирает рама и
-          // отдаёт окну (`DialogSpec.onSubmit`). Два пути к одному действию
-          // разошлись бы в первый же день, когда одному из них добавят условие.
-          FcTextField(
-            controller: _mask,
-            focusNode: _focus,
-            autofocus: true,
-            hintText: '*.dart;!*.g.dart',
-            onChanged: state.typed,
+          Row(
+            children: [
+              // `Enter` полю не отдаётся: в открытом окне его разбирает рама и
+              // отдаёт окну (`DialogSpec.onSubmit`). Два пути к одному действию
+              // разошлись бы в первый же день, когда одному из них добавят
+              // условие.
+              Expanded(
+                child: FcTextField(
+                  controller: _mask,
+                  focusNode: _focus,
+                  autofocus: true,
+                  hintText: state.query.regexp ? r'\.dart$' : '*.dart;!*.g.dart',
+                  onChanged: state.typed,
+                ),
+              ),
+              SizedBox(width: theme.metrics.dialogGap),
+              // Переключатель **у поля**, а не флажком в столбце: он говорит не
+              // «искать ещё и так», а «как читать набранное». Рядом с полем это
+              // видно, а в столбце флагов прочиталось бы как условие.
+              _RegexpToggle(
+                on: state.query.regexp,
+                enabled: !state.busy,
+                onChanged: state.setRegexp,
+                message: context.strings.tr('Read as a regular expression'),
+              ),
+            ],
           ),
         ),
+        // Неверное выражение — ошибка у поля, а не отказ по нажатию: иначе про
+        // опечатку узнают после обхода в сто тысяч каталогов.
+        if (!state.query.isValid) ...[
+          SizedBox(height: theme.metrics.dialogLineGap),
+          Text(
+            context.strings.tr('The expression is not understood'),
+            style: theme.dialogLabelStyle.copyWith(color: theme.colors.error),
+          ),
+        ],
         gap,
         FcCheckbox(
           label: context.strings.tr('Find recursively'),
@@ -192,19 +318,19 @@ class _FindFilesFormState extends State<FindFilesForm> {
           onChanged: state.busy ? null : state.setRecursive,
         ),
         gap,
-        // Ссылки не разыменовываются — Д3.
-        FcCheckbox(label: context.strings.tr('Follow symlinks'), value: false, onChanged: null),
+        FcCheckbox(
+          label: context.strings.tr('Follow symlinks'),
+          value: state.query.followLinks,
+          onChanged: state.busy ? null : state.setFollowLinks,
+        ),
         gap,
-        // Маски у нас всегда «шелловые» — тот же движок, что у пометки, — и
-        // выключить это нечем. Стоит отмеченным и приглушённым: так видно, по
-        // каким правилам разбирается набранное.
-        FcCheckbox(label: context.strings.tr('Using shell patterns'), value: true, onChanged: null),
-        gap,
-        // Маска сличается без учёта регистра (`FileMask`), и выбора здесь пока
-        // нет.
-        FcCheckbox(label: context.strings.tr('Case sensitive'), value: false, onChanged: null),
-        gap,
-        FcCheckbox(label: context.strings.tr('All charsets'), value: false, onChanged: null),
+        // Один флажок на окно: регистр в имени и в каталогах-исключениях —
+        // одно правило, двух в нём не нужно.
+        FcCheckbox(
+          label: context.strings.tr('Case sensitive'),
+          value: state.query.caseSensitive,
+          onChanged: state.busy ? null : state.setCaseSensitive,
+        ),
         gap,
         // У `mc` этот флаг перевёрнут относительно нашего: там «пропускать
         // скрытые», у нас в запросе — «брать скрытые». Показываем как в `mc`.
@@ -236,6 +362,56 @@ class _FindFilesFormState extends State<FindFilesForm> {
         gap,
         FcCheckbox(label: context.strings.tr('First hit'), value: false, onChanged: null),
       ],
+    );
+  }
+}
+
+/// Переключатель у поля имени: читать набранное выражением или маской.
+///
+/// Квадрат со знаком `.*` — привычка WebStorm и всех, кто держит переключатель
+/// **в поле**, а не в списке флагов. Он говорит не «искать ещё и так», а «как
+/// читать то, что набрано», и потому стоит там, где набирают.
+class _RegexpToggle extends StatelessWidget {
+  const _RegexpToggle({required this.on, required this.enabled, required this.onChanged, required this.message});
+
+  final bool on;
+  final bool enabled;
+  final ValueChanged<bool> onChanged;
+
+  /// Что сказать подсказкой: знак `.*` понятен не всякому.
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FcTheme.of(context);
+    final metrics = theme.metrics;
+    final colors = theme.colors;
+
+    return FcTooltip(
+      message: message,
+      child: Opacity(
+        opacity: enabled ? 1 : 0.5,
+        child: MouseRegion(
+          cursor: enabled ? SystemMouseCursors.click : MouseCursor.defer,
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: enabled ? () => onChanged(!on) : null,
+            child: Container(
+              width: metrics.inputHeight,
+              height: metrics.inputHeight,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                // Включённый — залит цветом курсора: тем же, каким в списках
+                // отмечено «вот это сейчас и действует».
+                color: on ? colors.cursorBackground : colors.inputBackground,
+                border: Border.all(color: colors.inputBorder, width: metrics.strokeWidth),
+                borderRadius: BorderRadius.circular(metrics.inputRadius),
+              ),
+              child: Text('.*', style: theme.inputStyle.copyWith(color: on ? colors.cursorText : colors.inputHint)),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

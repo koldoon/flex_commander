@@ -40,11 +40,12 @@ void main() {
     await tester.sendKeyUpEvent(LogicalKeyboardKey.altLeft);
     await tester.pumpAndSettle();
 
-    // Именно поле окна: внизу экрана стоит ещё и командная строка.
+    // Именно поле маски: живых полей в окне несколько, а внизу экрана стоит
+    // ещё и командная строка. Маска — то поле, которое просит фокус себе.
     await tester.enterText(
       find.descendant(
         of: find.byType(FindFilesForm),
-        matching: find.byWidgetPredicate((widget) => widget is TextField && widget.enabled != false),
+        matching: find.byWidgetPredicate((widget) => widget is TextField && widget.autofocus),
       ),
       '*.dart',
     );

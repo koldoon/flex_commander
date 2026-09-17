@@ -103,9 +103,16 @@ const Map<String, String> _russian = {
   'Start at:': 'Начать с:',
   'Find recursively': 'Искать по всему дереву',
   'Follow symlinks': 'Идти по ссылкам',
-  'Using shell patterns': 'Маски как в оболочке',
   'Case sensitive': 'Различать регистр',
+  // Остался у поиска по содержимому (Д3): там кодировки и правда бывают
+  // разные. В поиске по имени флага больше нет — имена всегда UTF-8.
   'All charsets': 'Любые кодировки',
+  'Read as a regular expression': 'Читать как регулярное выражение',
+  'The expression is not understood': 'Выражение не разобрано',
+  'Size from:': 'Размер от:',
+  'to:': 'до:',
+  'Changed after:': 'Изменён после:',
+  'before:': 'до:',
   'Skip hidden': 'Пропускать скрытые',
   'Ignore directories:': 'Пропускать каталоги:',
   'Cancel': 'Отмена',

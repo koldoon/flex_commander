@@ -65,12 +65,13 @@ void main() {
     await appWith(tester);
     await openWindow(tester);
 
-    // Поле маски: в окне есть ещё два, приглушённых, и командная строка внизу
-    // экрана. Живое поле здесь одно.
+    // Поле маски: живых полей в окне несколько (исключения, размер, дата), а
+    // внизу экрана стоит ещё и командная строка. Маска — то поле, которое
+    // просит фокус себе.
     await tester.enterText(
       find.descendant(
         of: find.byType(FindFilesForm),
-        matching: find.byWidgetPredicate((widget) => widget is TextField && widget.enabled != false),
+        matching: find.byWidgetPredicate((widget) => widget is TextField && widget.autofocus),
       ),
       '*.dart',
     );
