@@ -82,7 +82,7 @@ class FakeEntry {
 /// Менять в нём нечего: примитивов изменения нет вовсе — так выглядит архив,
 /// открытый на просмотр. Тот, что умеет меняться, — [InMemoryTreeProvider],
 /// тот, что отдаёт ещё и байты, — [InMemoryContentProvider].
-class InMemoryReadOnlyProvider implements TreeProvider {
+class InMemoryReadOnlyProvider implements TreeProvider, RealPathSource {
   InMemoryReadOnlyProvider([List<FakeEntry> entries = const [], this.host]) {
     for (final entry in entries) {
       add(entry);
@@ -140,6 +140,18 @@ class InMemoryReadOnlyProvider implements TreeProvider {
   String pathOf(FsNode node) => _join(visiblePathNodes(node).map((n) => n.name).toList());
 
   /// Настоящий путь: ссылки развёрнуты.
+  /// Настоящий путь — как у локальной файловой системы: ссылки развёрнуты.
+  ///
+  /// Подставка обязана уметь это так же, иначе обход поиска в стенде не узнаёт
+  /// круга по ссылкам, а живьём — узнаёт.
+  ///
+  /// **Только когда изображает файловую систему.** Этой же подставкой в
+  /// прогонах притворяются архив и сервер, а у них настоящего пути нет вовсе —
+  /// и перетаскивание наружу отдаёт оттуда обещание, а не путь
+  /// (`docs/spec/drag-and-drop.md`).
+  @override
+  String realPathOf(FsNode node) => capabilities.realFileSystem ? physicalPathOf(node) : '';
+
   String physicalPathOf(FsNode node) {
     var segments = <String>[];
     FsNode? previous;

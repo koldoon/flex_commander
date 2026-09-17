@@ -35,6 +35,7 @@ class LocalTreeProvider
         NodeXattrEditor,
         UserDirectory,
         WatchableSource,
+        RealPathSource,
         ShellHost {
   LocalTreeProvider({
     String? homePath,
@@ -250,6 +251,14 @@ class LocalTreeProvider
   /// в `/`, а не в `/private`, куда ведёт настоящая цель.
   @override
   String pathOf(FsNode node) => _join(visiblePathNodes(node).map((n) => n.name).toList());
+
+  /// Настоящий путь узла — он же физический.
+  ///
+  /// Объявлен интерфейсом, потому что спрашивают его не только внутри: обход
+  /// поиска по нему узнаёт, где уже был, — и без этого `a → b → a` не
+  /// заканчивается никогда (`docs/spec/file-search.md`, §10.4).
+  @override
+  String realPathOf(FsNode node) => physicalPathOf(node);
 
   /// Настоящий путь в файловой системе: все ссылки развёрнуты.
   ///

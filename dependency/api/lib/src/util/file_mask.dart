@@ -15,7 +15,12 @@ class FileMask {
   /// последними, независимо от порядка: `*;!*.bak` и `!*.bak;*` значат одно и
   /// то же — «всё, кроме `.bak`». Иначе строку пришлось бы читать как
   /// программу.
-  factory FileMask.parse(String patterns) {
+  ///
+  /// [caseSensitive] — различать ли регистр. По умолчанию нет: на macOS
+  /// файловая система его не различает, и маска, которая различает, удивляла
+  /// бы. Просит обратное поиск — там это флажок окна
+  /// (`docs/spec/file-search.md`, §10.2).
+  factory FileMask.parse(String patterns, {bool caseSensitive = false}) {
     final include = <RegExp>[];
     final exclude = <RegExp>[];
 
@@ -27,11 +32,11 @@ class FileMask {
       if (pattern.startsWith('!')) {
         final rest = pattern.substring(1).trim();
         if (rest.isNotEmpty) {
-          exclude.add(_regExpOf(rest));
+          exclude.add(_regExpOf(rest, caseSensitive));
         }
         continue;
       }
-      include.add(_regExpOf(pattern));
+      include.add(_regExpOf(pattern, caseSensitive));
     }
 
     return FileMask._(include, exclude);
@@ -66,10 +71,7 @@ class FileMask {
 
   /// Образец в выражение: `*` — сколько угодно любых символов, `?` — ровно
   /// один, всё остальное как есть.
-  ///
-  /// Регистр не важен: на macOS файловая система по умолчанию его не различает,
-  /// и маска, которая различает, удивляла бы.
-  static RegExp _regExpOf(String pattern) {
+  static RegExp _regExpOf(String pattern, bool caseSensitive) {
     final buffer = StringBuffer('^');
     for (final char in pattern.split('')) {
       switch (char) {
@@ -82,6 +84,6 @@ class FileMask {
       }
     }
     buffer.write(r'$');
-    return RegExp(buffer.toString(), caseSensitive: false);
+    return RegExp(buffer.toString(), caseSensitive: caseSensitive);
   }
 }

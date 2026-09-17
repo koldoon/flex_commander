@@ -62,12 +62,25 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
       }
       final query = SearchQuery(
         mask: inputs.option<String>(SearchWork.maskOption) ?? '',
+        regexp: inputs.option<bool>(SearchWork.regexpOption) ?? false,
+        caseSensitive: inputs.option<bool>(SearchWork.caseOption) ?? false,
         recursive: inputs.option<bool>(SearchWork.recursiveOption) ?? true,
         hidden: inputs.option<bool>(SearchWork.hiddenOption) ?? false,
+        ignore: inputs.option<String>(SearchWork.ignoreOption) ?? '',
+        followLinks: inputs.option<bool>(SearchWork.followLinksOption) ?? false,
+        sizeFrom: inputs.option<int>(SearchWork.sizeFromOption),
+        sizeTo: inputs.option<int>(SearchWork.sizeToOption),
+        // Через границу время едет числом: `DateTime` значением протокола не
+        // является.
+        changedAfter: _timeOf(inputs.option<int>(SearchWork.changedAfterOption)),
+        changedBefore: _timeOf(inputs.option<int>(SearchWork.changedBeforeOption)),
       );
       await op.delegate(SearchRun.from(where, onFound: inputs.onFound, strings: strings), query);
     });
   }
+
+  static DateTime? _timeOf(int? epochMilliseconds) =>
+      epochMilliseconds == null ? null : DateTime.fromMillisecondsSinceEpoch(epochMilliseconds);
 }
 
 /// Русские строки поиска файлов.

@@ -40,7 +40,8 @@ class SearchRun {
   }) {
     final said = strings ?? StringsRegistry();
     return TaskOperation<SearchQuery, List<FsNode>>((op, query) async {
-      final mask = FileMask.parse(query.mask);
+      final name = query.name;
+      final ignored = query.ignored;
       final found = <FsNode>[];
       final batch = <FsNode>[];
       void flush() {
@@ -50,8 +51,11 @@ class SearchRun {
         }
       }
 
-      if (mask.isEmpty) {
-        // Пустая маска не совпадает ни с чем — обходить дерево незачем.
+      if (name.isEmpty || !name.isValid) {
+        // Пустое правило не совпадает ни с чем, неверное выражение — тем
+        // более: обходить дерево незачем. Про неверное человек узнаёт раньше,
+        // у поля (`docs/spec/file-search.md`, §10.2), — здесь это последняя
+        // застава.
         return found;
       }
 
@@ -68,6 +72,13 @@ class SearchRun {
       // Стопка, а не список: `removeAt(0)` сдвигает весь хвост, а каталогов в
       // большом дереве десятки тысяч.
       final stack = Queue<DirectoryNode>()..add(where);
+
+      // Где уже были — настоящими путями.
+      //
+      // Без этого обход по ссылкам не заканчивается никогда: `a → b → a` водит
+      // по кругу, а две разные ссылки на один каталог — это один каталог
+      // (§10.4). Память живёт ровно столько, сколько обход.
+      final visited = <String>{_identityOf(where)};
       final sinceBreath = Stopwatch()..start();
       while (stack.isNotEmpty) {
         // Прерывание проверяется на каждом каталоге, а не на каждом файле:
@@ -119,14 +130,37 @@ class SearchRun {
           if (!query.hidden && node.name.startsWith('.')) {
             continue;
           }
-          if (mask.matches(node.name)) {
+          // Исключённый каталог убирается из поиска целиком — и спуск, и сама
+          // находка: «не заходить, но показать» читалось бы как ошибка
+          // (§10.3). Сличается **имя**, а не путь: человек пишет
+          // `node_modules`, а не `**/node_modules`.
+          if (!ignored.isEmpty && node is DirectoryNode && ignored.matches(node.name)) {
+            continue;
+          }
+          if (name.matches(node.name) && _fits(node, query)) {
             found.add(node);
             batch.add(node);
           }
-          // Каталог может и сам подойти под маску, и содержать подходящее:
+          if (!query.recursive) {
+            continue;
+          }
+          // Каталог может и сам подойти под правило, и содержать подходящее:
           // одно другому не мешает.
-          if (query.recursive && node is DirectoryNode) {
-            descend.add(node);
+          if (node is DirectoryNode) {
+            if (visited.add(_identityOf(node))) {
+              descend.add(node);
+            }
+            continue;
+          }
+          // Ссылка, ведущая в каталог, — тоже дорога вниз, если о том просили.
+          // Ведёт ли она в каталог, видно **без** разыменования: `targetType`
+          // приходит вместе с чтением каталога, а `resolve` стоит похода к
+          // источнику (§10.4).
+          if (query.followLinks && node is LinkNode && node.isDirectoryLink) {
+            final target = await _targetOf(node);
+            if (target != null && visited.add(_identityOf(target))) {
+              descend.add(target);
+            }
           }
         }
         // Задом наперёд: стопка отдаёт последнее, а спускаться надо в первый
@@ -146,5 +180,65 @@ class SearchRun {
       op.report(message: said.tr('Found: {count}', args: {'count': found.length}), itemsTransferred: found.length);
       return found;
     });
+  }
+
+  /// Подходит ли объект по размеру и дате.
+  ///
+  /// **Каталоги условие размера не отбирает**: их размер без обхода неизвестен,
+  /// и требовать его значило бы обойти всё дерево ради отбора
+  /// (`docs/spec/file-search.md`, §10.5). Незаданный конец не ограничивает
+  /// ничего.
+  static bool _fits(FsNode node, SearchQuery query) {
+    if (node is! DirectoryNode) {
+      final size = node.size;
+      if (size >= 0) {
+        if (query.sizeFrom case final from? when size < from) {
+          return false;
+        }
+        if (query.sizeTo case final to? when size > to) {
+          return false;
+        }
+      }
+    }
+    final changed = node is FileNode ? node.modified : null;
+    if (query.changedAfter case final after?) {
+      if (changed == null || changed.isBefore(after)) {
+        return false;
+      }
+    }
+    if (query.changedBefore case final before?) {
+      if (changed == null || changed.isAfter(before)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /// Чем каталог опознаётся в памяти пройденного.
+  ///
+  /// **Настоящим путём**, если источник его знает: две ссылки на один каталог
+  /// — это один каталог, а по адресу внутри дерева они разные. Не знает —
+  /// адресом: у архива и у сервера он и есть единственное имя узла.
+  static String _identityOf(FsNode node) {
+    if (node.provider case final RealPathSource source) {
+      final real = source.realPathOf(node);
+      if (real.isNotEmpty) {
+        return real;
+      }
+    }
+    return node.pathString;
+  }
+
+  /// Каталог, в который ведёт ссылка; null — не ведёт или не дошли.
+  ///
+  /// Разыменование стоит похода к источнику, поэтому зовётся оно **только**
+  /// когда вниз и правда идём. Битая ссылка — не ошибка обхода: он идёт дальше.
+  static Future<DirectoryNode?> _targetOf(LinkNode link) async {
+    try {
+      final target = link.target ?? await link.resolve().run(link);
+      return target is DirectoryNode ? target : null;
+    } on Object {
+      return null;
+    }
   }
 }

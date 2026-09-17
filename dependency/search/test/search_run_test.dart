@@ -32,6 +32,115 @@ void main() {
     return found.map((node) => node.name).toList();
   }
 
+  group('условия отбора', () {
+    test('выражение читается выражением, а не маской', () async {
+      // `;` и `!` в выражении — часть синтаксиса, а не разделители образцов.
+      final names = await search(const SearchQuery(mask: r'plan\.txt$', regexp: true));
+
+      expect(names, contains('plan.txt'));
+      expect(names, isNot(contains('plan.txt.bak')), reason: 'конец имени привязан');
+    });
+
+    test('регистр учитывается по просьбе', () async {
+      expect(await search(const SearchQuery(mask: '*.TXT')), contains('plan.txt'));
+      expect(await search(const SearchQuery(mask: '*.TXT', caseSensitive: true)), isEmpty);
+    });
+
+    test('неверное выражение дерева не обходит', () async {
+      final read = provider.listings;
+      final names = await search(const SearchQuery(mask: '*.txt', regexp: true));
+
+      expect(names, isEmpty);
+      expect(provider.listings, read, reason: 'о такой ошибке узнают у поля, а не после обхода');
+    });
+
+    test('исключённый каталог не обходится и в находки не попадает', () async {
+      final names = await search(const SearchQuery(mask: '*', ignore: 'docs'));
+
+      expect(names, contains('readme.md'));
+      expect(names, isNot(contains('docs')), reason: 'каталога для этого поиска нет вовсе');
+      expect(names, isNot(contains('notes.txt')), reason: 'и содержимого его тоже');
+    });
+
+    test('исключение сличается с именем на любой глубине', () async {
+      final names = await search(const SearchQuery(mask: '*.txt', ignore: 'deep'));
+
+      expect(names, containsAll(['notes.txt', 'plan.txt']));
+      expect(names, isNot(contains('buried.txt')));
+    });
+
+    test('размер отбирает файлы, а каталоги — нет', () async {
+      provider.add(FakeEntry.file('/home/docs/big.txt', size: 4096));
+
+      final names = await search(const SearchQuery(mask: '*', sizeFrom: 1000));
+
+      expect(names, contains('big.txt'));
+      expect(names, isNot(contains('plan.txt')), reason: 'десять байт меньше тысячи');
+      expect(names, contains('docs'), reason: 'размер каталога без обхода неизвестен');
+    });
+
+    test('дата отбирает по обоим концам', () async {
+      provider.add(FakeEntry.file('/home/old.txt', size: 10, modified: DateTime(2020, 1, 1)));
+      provider.add(FakeEntry.file('/home/new.txt', size: 10, modified: DateTime(2026, 9, 1)));
+
+      final after = await search(SearchQuery(mask: '*.txt', changedAfter: DateTime(2026, 1, 1)));
+      expect(after, contains('new.txt'));
+      expect(after, isNot(contains('old.txt')));
+
+      final before = await search(SearchQuery(mask: '*.txt', changedBefore: DateTime(2026, 1, 1)));
+      expect(before, contains('old.txt'));
+      expect(before, isNot(contains('new.txt')));
+    });
+  });
+
+  group('ссылки', () {
+    /// То же дерево, но с ссылками: одна вниз, одна обратно наверх (круг) и
+    /// одна битая.
+    void withLinks() {
+      provider.add(FakeEntry.directory('/home/real'));
+      provider.add(FakeEntry.file('/home/real/inside.txt', size: 10));
+      provider.add(FakeEntry.link('/home/to-real', '/home/real'));
+      provider.add(FakeEntry.link('/home/real/back', '/home'));
+      provider.add(FakeEntry.link('/home/broken', '/home/gone'));
+    }
+
+    test('без флага обход в ссылку не заходит, а сама она находится', () async {
+      withLinks();
+
+      final names = await search(const SearchQuery(mask: '*'));
+
+      expect(names, contains('to-real'), reason: 'ссылка — такой же объект');
+      expect(names.where((name) => name == 'inside.txt').length, 1, reason: 'найдено один раз — через настоящий путь');
+    });
+
+    test('с флагом заходит, а круг заканчивается', () async {
+      withLinks();
+
+      // `/home/real/back` ведёт обратно в `/home`: без памяти пройденного
+      // обход не кончился бы никогда.
+      final names = await search(const SearchQuery(mask: 'inside.txt', followLinks: true));
+
+      expect(names, ['inside.txt'], reason: 'ровно один раз, сколько бы дорог туда ни вело');
+    });
+
+    test('две ссылки на один каталог — один обход', () async {
+      withLinks();
+      provider.add(FakeEntry.link('/home/also-real', '/home/real'));
+
+      final names = await search(const SearchQuery(mask: 'inside.txt', followLinks: true));
+
+      expect(names, ['inside.txt']);
+    });
+
+    test('битая ссылка обход не роняет', () async {
+      withLinks();
+
+      final names = await search(const SearchQuery(mask: '*.md', followLinks: true));
+
+      expect(names, contains('readme.md'));
+    });
+  });
+
   test('маска отбирает по всему дереву', () async {
     final names = await search(const SearchQuery(mask: '*.txt'));
 

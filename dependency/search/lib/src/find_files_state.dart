@@ -226,8 +226,18 @@ class FindFilesState extends ChangeNotifier {
           targets: Targets.paths([where]),
           options: {
             SearchWork.maskOption: query.mask,
+            SearchWork.regexpOption: query.regexp,
+            SearchWork.caseOption: query.caseSensitive,
             SearchWork.recursiveOption: query.recursive,
             SearchWork.hiddenOption: query.hidden,
+            SearchWork.ignoreOption: query.ignore,
+            SearchWork.followLinksOption: query.followLinks,
+            // Незаданное не едет вовсе: пусто и «ноль» — разные вещи, а
+            // `option<int>` про эту разницу не знает.
+            if (query.sizeFrom case final from?) SearchWork.sizeFromOption: from,
+            if (query.sizeTo case final to?) SearchWork.sizeToOption: to,
+            if (query.changedAfter case final after?) SearchWork.changedAfterOption: after.millisecondsSinceEpoch,
+            if (query.changedBefore case final before?) SearchWork.changedBeforeOption: before.millisecondsSinceEpoch,
           },
         ),
       );
