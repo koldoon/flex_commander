@@ -268,11 +268,14 @@ class ColumnsViewState extends State<ColumnsView> {
     final width = _columnWidth();
     final step = width + _dividerWidth;
     final left = at * step;
-    // Правый край следующего столбца — **если он есть**. Место под него
-    // отведено всегда (ниже, в раскладке), но ехать ради пустой ниши незачем:
-    // в узкой панели это спрятало бы родительский столбец ради пустоты.
-    final next = at + 1 < chain.columns.length;
-    final right = next ? left + step + width : left + width;
+    // Правый край **следующего места** — занято оно столбцом или пока пусто.
+    //
+    // Пустая ниша здесь не пустая трата: ход вбок — единственный миг, когда
+    // ленте позволено ехать (ходьба вверх-вниз её не трогает), и уехать она
+    // обязана так, чтобы в поле зрения осталось место под содержимое. Иначе
+    // придержка раскроет каталог в нише, которой не видно, — а смысл вида в
+    // том, чтобы содержимое читалось **до** перехода.
+    final right = left + step + width;
     final view = _ribbon.position.viewportDimension;
     final limit = _ribbon.position.maxScrollExtent;
     final offset = _ribbon.offset;

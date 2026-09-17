@@ -231,6 +231,30 @@ void main() {
       expect(ribbon(tester), was);
     });
 
+    testWidgets('после хода вбок место под содержимое остаётся видно', (tester) async {
+      // Иначе придержка раскроет каталог в нише, которой не видно, — и
+      // содержимое опять придётся открывать вслепую.
+      // Панель шириной в два столбца с запасом: в неё помещается и столбец с
+      // курсором, и место под содержимое.
+      final runtime = await open(tester, at: '/home', size: const Size(1120, 600));
+      final panel = runtime.app.left;
+      panel.setCursorToName('lib');
+      await tester.pump();
+      runtime.commands.dispatch(KeyCombination.parse('Right'));
+      await tester.pumpAndSettle();
+      runtime.commands.dispatch(KeyCombination.parse('Right'));
+      await tester.pumpAndSettle();
+      expect(panel.currentEntry?.path, '/home/lib/src');
+
+      final lane = tester.getRect(find.byType(ColumnsView));
+      final width = PanelsSettings.defaultColumnWidth.toDouble();
+      final current = tester.getRect(columns().at(2));
+
+      // Справа от текущего столбца остаётся место шириной в столбец — там и
+      // появится содержимое.
+      expect(lane.right - current.right, greaterThanOrEqualTo(width - 1), reason: 'ниша в поле зрения');
+    });
+
     testWidgets('шаг вправо ленту двигает', (tester) async {
       final runtime = await open(tester, at: '/home', size: const Size(700, 600));
       final panel = runtime.app.left;
