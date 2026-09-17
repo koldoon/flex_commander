@@ -202,6 +202,51 @@ void main() {
     expect(lane.width, greaterThanOrEqualTo((shown + 1) * width), reason: 'лишний столбец места — про запас');
   });
 
+  group('лента', () {
+    /// Насколько лента промотана вбок.
+    double ribbon(WidgetTester tester) =>
+        tester
+            .widget<Scrollable>(find.descendant(of: find.byType(ColumnsView), matching: find.byType(Scrollable)).first)
+            .controller!
+            .offset;
+
+    testWidgets('ходьба по столбцу ленту не двигает', (tester) async {
+      // Узкая панель: цепочка в неё не помещается, и ехать ленте есть куда.
+      final runtime = await open(tester, at: '/home', size: const Size(700, 600));
+      final panel = runtime.app.left;
+      panel.setCursorToName('lib');
+      await tester.pump();
+      final was = ribbon(tester);
+
+      // Придержка раскрывает соседний каталог — столбец справа появляется…
+      await tester.pump(ColumnsView.holdBeforeOpen);
+      await tester.pumpAndSettle();
+      expect(tester.widgetList(columns()).length, 3);
+
+      // …но курсор шёл вниз, а не вбок: лента обязана стоять.
+      expect(ribbon(tester), was, reason: 'глазу нужна опора');
+
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+      await tester.pumpAndSettle();
+      expect(ribbon(tester), was);
+    });
+
+    testWidgets('шаг вправо ленту двигает', (tester) async {
+      final runtime = await open(tester, at: '/home', size: const Size(700, 600));
+      final panel = runtime.app.left;
+      panel.setCursorToName('lib');
+      await tester.pump();
+      await tester.pump(ColumnsView.holdBeforeOpen);
+      await tester.pumpAndSettle();
+      final was = ribbon(tester);
+
+      runtime.commands.dispatch(KeyCombination.parse('Right'));
+      await tester.pumpAndSettle();
+
+      expect(ribbon(tester), greaterThan(was), reason: 'курсор сменил столбец — лента идёт следом');
+    });
+  });
+
   group('пометка', () {
     testWidgets('пометка каталога шагает по столбцу, а не внутрь него', (tester) async {
       // Шаг общей пометки — «следующая строка списка», а у раскрытого каталога

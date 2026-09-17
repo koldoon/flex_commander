@@ -97,6 +97,11 @@ class ColumnsViewState extends State<ColumnsView> {
   List<double> _shownWidths = const [];
   List<double> _shownEdges = const [];
 
+  /// Столбец, в котором курсор стоял в прошлый показ; -1 — не стоял нигде.
+  ///
+  /// По нему видно, был ли ход **вбок**: только он и двигает ленту.
+  int _revealedColumn = -1;
+
   /// Столбец, в котором начался жест пометки; -1 — жеста нет.
   ///
   /// Отрезок пометки зажимается в нём: столбцы — это разные каталоги, и тянуть
@@ -203,6 +208,41 @@ class ColumnsViewState extends State<ColumnsView> {
       if (target != offset) {
         controller.jumpTo(target);
       }
+    }
+
+    // Лента едет **только когда курсор сменил столбец** — вправо к детям, влево
+    // к родителю. Ходьба внутри столбца её не трогает: там человек читает
+    // список, и уезжающая под руками лента отнимает у глаза единственную
+    // опору. Живой разбор 17 сентября 2026: придержка раскрывала соседний
+    // каталог, лента доезжала до нового столбца — и всё содержимое прыгало
+    // вбок, хотя курсор шёл вниз.
+    final sideways = chain.current != _revealedColumn;
+    _revealedColumn = chain.current;
+    if (sideways) {
+      _revealColumn(chain);
+    } else {
+      _keepColumnVisible(chain);
+    }
+  }
+
+  /// Столбец с курсором скрылся целиком — вернуть его на экран.
+  ///
+  /// Единственное, ради чего лента трогается при ходьбе внутри столбца: увести
+  /// его из виду могли не мы (тяга ширины, смена размера окна), а курсор,
+  /// которого не видно, — это уже не «не дёргать», а «потерять».
+  void _keepColumnVisible(ColumnChain chain) {
+    final at = chain.current;
+    if (at < 0 || !_ribbon.hasClients) {
+      return;
+    }
+    final width = _columnWidth();
+    final step = width + _dividerWidth;
+    final left = at * step;
+    final right = left + width;
+    final view = _ribbon.position.viewportDimension;
+    final offset = _ribbon.offset;
+    if (right > offset && left < offset + view) {
+      return;
     }
     _revealColumn(chain);
   }
