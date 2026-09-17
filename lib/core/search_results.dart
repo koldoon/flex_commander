@@ -32,7 +32,13 @@ const String _pathColumn = 'path';
 /// размеров — вопросы к тому, кому узел принадлежит; здесь на них отвечать
 /// нечем и незачем.
 class SearchResultsProvider
-    implements TreeProvider, PanelExtraColumns, PanelPreferredView, PanelNaturalOrder, RealPathSource {
+    implements
+        TreeProvider,
+        PanelExtraColumns,
+        PanelPreferredView,
+        PanelNaturalOrder,
+        PanelVirtualBranches,
+        RealPathSource {
   SearchResultsProvider({required String title, required List<FsNode> found, DirectoryNode? parent}) : _under = parent {
     _root = DirectoryNode(provider: this, name: title, parent: parent);
     _build(found);
@@ -202,18 +208,46 @@ class SearchResultsProvider
     return '/${names.join('/')}';
   }
 
-  /// Список ветви — с «..», как у всякого источника: из находок возвращаются
-  /// им же, а не только `Esc` (`docs/spec/file-search.md`, §4).
+  /// Список ветви — **плоский**: все находки под ней, без промежуточных ветвей.
   ///
-  /// В [listChildren] его нет: там содержимое ветви, а дерево псевдострок не
-  /// показывает.
+  /// Ветвь в плоском списке показывать нечем: она говорит путь, а путь здесь и
+  /// так виден колонкой (`docs/spec/file-search.md`, §4а, Н3). Показывать
+  /// вместо находок ветви значило бы прятать за нажатиями ровно то, ради чего
+  /// список открыт, — живьём `Cmd-1` над находками и оставлял на экране одну
+  /// строку.
+  ///
+  /// Дерево собирается не отсюда, а из [listChildren]: там содержимое ветви,
+  /// со структурой и без псевдострок.
+  ///
+  /// «..» — как у всякого источника: из находок возвращаются им же, а не
+  /// только `Esc` (§4).
   @override
   Operation<ListingParams, List<FsNode>> getDirectoryListing() => TaskOperation<ListingParams, List<FsNode>>(
-    (op, params) async => [
-      if (params.dir.parentDirectory != null) ParentDirNode(params.dir),
-      ...await listChildren(params.dir),
-    ],
+    (op, params) async => [if (params.dir.parentDirectory != null) ParentDirNode(params.dir), ...flatUnder(params.dir)],
   );
+
+  /// Находки под этой ветвью — в порядке обхода, без ветвей между ними.
+  ///
+  /// Спускаемся только по **своим** ветвям: найденный каталог — настоящий узел
+  /// чужого источника, и раскрывать его здесь незачем. Он сам находка.
+  List<FsNode> flatUnder(DirectoryNode dir) {
+    if (!identical(dir.provider, this)) {
+      return const [];
+    }
+    final flat = <FsNode>[];
+    void walk(DirectoryNode branch) {
+      for (final node in branch.nodes) {
+        if (node is DirectoryNode && identical(node.provider, this)) {
+          walk(node);
+          continue;
+        }
+        flat.add(node);
+      }
+    }
+
+    walk(dir);
+    return flat;
+  }
 
   /// Содержимое ветви — только найденное. Чужой каталог свой список отдаёт сам.
   @override

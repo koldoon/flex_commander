@@ -642,9 +642,10 @@ void main() {
     expect(caret(), findsOneWidget);
   });
 
-  testWidgets('таблицей и кратким находки показываются, не выпадая из них', (tester) async {
-    // Живой дефект: курсор стоял на самой находке, и переход к списочному виду
-    // уводил панель в каталог **файла** — вернуться в находки было уже нечем.
+  testWidgets('плоские виды показывают все находки, не выпадая из них', (tester) async {
+    // Живой дефект, дважды: сперва переход к списку уводил панель в каталог
+    // **файла**, потом — внутрь ветви, и на экране оставалась одна строка
+    // (`docs/spec/file-search.md`, §4а).
     await pumpApp(tester);
     await openWindow(tester);
     await search(tester, '*.dart');
@@ -656,22 +657,22 @@ void main() {
     await app.left.setView(PanelSettings.defaultView);
     await tester.pumpAndSettle();
 
-    // Показана ветвь, в которой находка стоит, — виртуальная, из находок.
+    // Все находки сразу — ветвей в плоском списке нет, путь виден колонкой.
     expect(app.left.source.scheme, SourceInfo.foundScheme);
-    expect(app.left.entries.map((entry) => entry.name), ['..', 'util.dart']);
+    expect(app.left.entries.map((entry) => entry.name), ['..', 'main.dart', 'main.dart', 'util.dart']);
     expect(app.left.currentEntry?.name, 'util.dart', reason: 'курсор остался на находке');
-
-    // И «..» ведёт вверх по находкам, а не по диску.
-    await app.left.goUp();
-    await tester.pumpAndSettle();
-    expect(app.left.source.scheme, SourceInfo.foundScheme);
-    expect(app.left.entries.map((entry) => entry.name), ['..', 'main.dart', 'src']);
+    expect(app.left.entries.map((entry) => entry.level), everyElement(0), reason: 'список, а не лесенка');
 
     // Краткий вид — то же самое: набор строк тот же, меняется только показ.
     await app.left.setView(BriefView.viewId);
     await tester.pumpAndSettle();
     expect(app.left.source.scheme, SourceInfo.foundScheme);
-    expect(app.left.entries.map((entry) => entry.name), ['..', 'main.dart', 'src']);
+    expect(app.left.entries.map((entry) => entry.name), ['..', 'main.dart', 'main.dart', 'util.dart']);
+
+    // А «..» уводит туда, где искали.
+    await app.left.goUp();
+    await tester.pumpAndSettle();
+    expect(app.left.source.scheme, isNot(SourceInfo.foundScheme));
   });
 
   testWidgets('F4 над находкой правит её, а над ветвью молчит', (tester) async {
@@ -701,26 +702,25 @@ void main() {
     expect(edit.isExecutable(CommandContext.of(app)), isTrue, reason: 'находка — настоящий файл своего источника');
   });
 
-  testWidgets('Enter в таблице находок входит в ветвь, а не ведёт в никуда', (tester) async {
-    // Живой дефект: `Enter` забирала команда «перейти к находке», а своего
-    // каталога у ветви нет — в таблице и кратком виде войти в неё было нельзя.
+  testWidgets('Enter на ветви сворачивает её, а панель остаётся в находках', (tester) async {
+    // Ветвь — показ, а не место: стоять в ней человек не просил, и `Enter`
+    // здесь про раскрытие (`docs/spec/file-search.md`, §4а, Н5).
     await pumpApp(tester);
     await openWindow(tester);
     await search(tester, '*.dart');
     await press(tester, 'To panel');
-
-    await app.left.setView(PanelSettings.defaultView);
-    await tester.pumpAndSettle();
-    expect(app.left.entries.map((entry) => entry.name), ['..', 'main.dart', 'lib']);
 
     app.left.setCursorToName('lib');
     await tester.pumpAndSettle();
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
 
-    // Вошли в ветвь — и остались в находках.
     expect(app.left.source.scheme, SourceInfo.foundScheme);
-    expect(app.left.entries.map((entry) => entry.name), ['..', 'main.dart', 'src']);
+    expect(app.left.entries.map((entry) => entry.name), ['*.dart', 'main.dart', 'lib'], reason: 'ветвь свернулась');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pumpAndSettle();
+    expect(app.left.entries.map((entry) => entry.name), contains('util.dart'), reason: 'и раскрылась обратно');
   });
 
   testWidgets('Enter в найденном ведёт к файлу, а не открывает его', (tester) async {

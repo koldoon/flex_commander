@@ -123,7 +123,10 @@ void main() {
     // Панель берёт провайдера у узла, которым её открыли, — отдельного «покажи
     // вот этот источник» заводить не пришлось.
     expect(panel().provider, same(search));
-    expect(panel().entries.map((node) => node.name), containsAll(['readme.txt', 'docs']));
+    // Списком — все находки и без ветвей: ветвь говорит путь, а он в списке
+    // виден колонкой (`docs/spec/file-search.md`, §4а, Н3).
+    expect(panel().entries.map((node) => node.name), containsAll(['readme.txt', 'notes.txt']));
+    expect(panel().entries.map((node) => node.name), isNot(contains('docs')));
     expect(panel().entries.map((node) => node.name), contains('..'), reason: '`..` возвращает туда, где стояли');
   });
 
@@ -140,6 +143,61 @@ void main() {
       [for (final entry in panel().entries) '${'  ' * entry.level}${entry.name}'],
       ['*.txt', '  docs', '    deep', '      plan.txt', '  readme.txt'],
     );
+  });
+
+  group('под всеми видами', () {
+    /// Находки в трёх каталогах: корень, `docs` и `docs/deep`.
+    Future<SearchResultsProvider> opened() async {
+      final search = await results(found: ['/home/readme.txt', '/home/docs/notes.txt', '/home/docs/deep/plan.txt']);
+      await panel().open(search.rootDirectory);
+      await panel().setRows(RowsKind.tree);
+      return search;
+    }
+
+    test('плоский вид показывает все находки, а не ветвь под курсором', () async {
+      final search = await opened();
+      panel().setCursorToPath('${search.rootDirectory.pathString}/docs/deep/plan.txt');
+
+      await panel().setRows(RowsKind.listing);
+
+      // Все три — и без ветвей между ними: путь виден колонкой
+      // (`docs/spec/file-search.md`, §4а, Н3).
+      expect(panel().entries.map((entry) => entry.name), ['..', 'readme.txt', 'notes.txt', 'plan.txt']);
+      expect(panel().provider, same(search), reason: 'из находок никуда не ушли');
+    });
+
+    test('смена вида каталога панели не меняет', () async {
+      final search = await opened();
+      final at = panel().directory;
+      panel().setCursorToPath('${search.rootDirectory.pathString}/docs/deep/plan.txt');
+
+      for (final kind in [RowsKind.listing, RowsKind.tree, RowsKind.branches, RowsKind.listing, RowsKind.tree]) {
+        await panel().setRows(kind);
+        expect(panel().directory, same(at), reason: 'вид это как показать, а не куда пойти');
+        expect(panel().provider, same(search));
+      }
+    });
+
+    test('курсор из ветви встаёт на первую находку под ней', () async {
+      final search = await opened();
+      // Стояли на ветви `docs` — в плоском списке её нет вовсе.
+      panel().setCursorToPath('${search.rootDirectory.pathString}/docs');
+
+      await panel().setRows(RowsKind.listing);
+
+      expect(panel().currentNode?.name, 'notes.txt', reason: 'первая находка под той ветвью, а не начало списка');
+    });
+
+    test('в плоском списке строки не наследуют отступов дерева', () async {
+      await opened();
+      expect(panel().entries.any((entry) => entry.level > 0), isTrue, reason: 'стенд ни о чём без дерева');
+
+      await panel().setRows(RowsKind.listing);
+
+      // Глубина живёт на узле, а узлы у находок те же самые: без уборки список
+      // рисовался бы лесенкой.
+      expect(panel().entries.map((entry) => entry.level), everyElement(0));
+    });
   });
 
   test('вид и раскрытое источника — не выбор человека', () async {
@@ -167,11 +225,11 @@ void main() {
     final search = await results(found: ['/home/readme.txt', '/home/docs/notes.txt']);
     await panel().open(search.rootDirectory);
 
-    expect(panel().entries.map((entry) => entry.name), ['..', 'readme.txt', 'docs']);
+    expect(panel().entries.map((entry) => entry.name), ['..', 'readme.txt', 'notes.txt']);
 
     // Щелчок по заголовку человек делает сам — тогда и раскладываем.
     panel().sortTo(const SortSpec());
-    expect(panel().entries.map((entry) => entry.name), ['..', 'docs', 'readme.txt']);
+    expect(panel().entries.map((entry) => entry.name), ['..', 'notes.txt', 'readme.txt']);
 
     // Своей настройки он этим не менял: ушёл из находок — она прежняя.
     expect(panel().settings.sort.column, FsColumns.name);
@@ -183,8 +241,10 @@ void main() {
     final search = await results(found: ['/home/docs/notes.txt']);
     await panel().open(search.rootDirectory);
 
+    // Ветвь — из дерева: в плоском списке ветвей нет (§4а, Н3).
+    await panel().setRows(RowsKind.tree);
     final branch = panel().entries.firstWhere((entry) => entry.name == 'docs');
-    await panel().open(search.rootDirectory.nodes.whereType<DirectoryNode>().first);
+    await panel().setRows(RowsKind.listing);
     final note = panel().entries.firstWhere((entry) => entry.name == 'notes.txt');
 
     // Находка — настоящий узел своего источника: и отдать её содержимое, и

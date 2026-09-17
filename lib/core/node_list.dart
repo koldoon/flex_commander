@@ -121,13 +121,30 @@ class DirectoryNodeList implements NodeList {
     // работу и прерывает её вместе с этой.
     return TaskOperation<void, List<FsNode>>(
       (op, _) async => reorder(
-        await op.delegate(
-          directory.provider.getDirectoryListing(),
-          ListingParams(directory, includeHidden: order.includeHidden),
+        _flat(
+          await op.delegate(
+            directory.provider.getDirectoryListing(),
+            ListingParams(directory, includeHidden: order.includeHidden),
+          ),
         ),
         order,
       ),
     );
+  }
+
+  /// Список плоский: все строки нулевого уровня, ничего не раскрыто.
+  ///
+  /// Глубина живёт **на узле** — её ставит дерево (`TreeNodeList`), — а узел
+  /// бывает тот же самый: находки показываются и деревом, и списком одними и
+  /// теми же объектами. Без уборки список наследовал бы отступы дерева и
+  /// рисовался лесенкой (`docs/spec/panel-node-list.md`, §3).
+  List<FsNode> _flat(List<FsNode> rows) {
+    for (final node in rows) {
+      node
+        ..level = 0
+        ..isOpen = false;
+    }
+    return rows;
   }
 
   @override

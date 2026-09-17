@@ -1536,6 +1536,25 @@ class PanelSession {
       return;
     }
 
+    // Источник, у которого ветви виртуальные, смены вида не переживает
+    // **никуда**: ни внутрь ветви под курсором, ни наружу — в настоящий
+    // каталог находки. Вид это как показать, а не куда пойти
+    // (`docs/spec/file-search.md`, §4а, Н1). Плоский список такой источник
+    // отдаёт сам, и ветвей в нём нет — курсор держится за строку, а пропала
+    // она (стояли на ветви) — встаёт на первую находку под ней.
+    if (dir.provider is PanelVirtualBranches) {
+      _list = _listFor(dir);
+      await _rebuildRows(
+        placeCursor: () {
+          if (wasPath.isEmpty || !_cursorToPath(wasPath)) {
+            _cursorUnder(wasPath);
+          }
+        },
+      );
+      _changed();
+      return;
+    }
+
     // Обратно в список — тем каталогом, на который **указывал курсор**, а не
     // корнем дерева. Курсор на ветви каталога значит «вот этот каталог»: в
     // дереве им и ходят, и список продолжает ход, а не пятится на уровень
@@ -1561,6 +1580,25 @@ class PanelSession {
     final target = resolved.node;
     await resolved.release();
     await _load(target is DirectoryNode ? target : dir, cursorName: name, keepMarks: true);
+  }
+
+  /// Курсор — на первую строку, лежащую под этим путём.
+  ///
+  /// Нужно там, где строка исчезла не потому, что объект ушёл, а потому, что
+  /// набор её не показывает: ветвь находок в плоском списке. Встать в начало
+  /// было бы потерей места — под ветвью лежит ровно то, что человек смотрел
+  /// (`docs/spec/file-search.md`, §4а, Н4).
+  void _cursorUnder(String path) {
+    if (path.isEmpty) {
+      return;
+    }
+    final prefix = '$path/';
+    for (var at = 0; at < _nodes.length; at++) {
+      if (_nodes[at].pathString.startsWith(prefix)) {
+        _cursorIndex = at;
+        return;
+      }
+    }
   }
 
   /// Раскрыть или свернуть ветвь по пути.
