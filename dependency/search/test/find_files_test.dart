@@ -29,6 +29,17 @@ class _SlowProvider extends InMemoryTreeProvider {
   }
 }
 
+/// То же, но с байтами: `F3` и `F4` над находкой читают файл.
+class _SlowContentProvider extends InMemoryContentProvider {
+  _SlowContentProvider(super.entries);
+
+  @override
+  Future<List<FsNode>> listChildren(DirectoryNode dir) async {
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    return super.listChildren(dir);
+  }
+}
+
 /// Окно поиска проверяется целиком: от клавиши до найденного в панели.
 void main() {
   late AppController app;
@@ -1029,6 +1040,76 @@ void main() {
       await app.left.goUp();
       await tester.pumpAndSettle();
       expect(app.left.currentPath, '/home', reason: '«..» уводит туда, где искали');
+    });
+  });
+
+  group('пока список растёт', () {
+    /// Медленное дерево с байтами: находки прибывают пачками, и между ними
+    /// человек успевает нажать клавишу.
+    Future<FindFilesState> streaming(WidgetTester tester) async {
+      final slow = _SlowContentProvider([
+        FakeEntry.directory('/home'),
+        for (var i = 0; i < 30; i++) ...[
+          FakeEntry.directory('/home/d$i'),
+          FakeEntry.file('/home/d$i/found.dart', content: utf8.encode('// файл $i\n')),
+        ],
+      ])..home = '/home';
+      app = (await testApp(provider: slow, modules: featureModules())).app;
+
+      await pumpApp(tester, size: const Size(1200, 800));
+      await openWindow(tester);
+      await tester.enterText(input, '*.dart');
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pump();
+
+      final state = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state;
+      for (var i = 0; i < 40 && state.foundCount < 4; i++) {
+        await tester.pump(const Duration(milliseconds: 30));
+      }
+      expect(state.busy, isTrue, reason: 'стенд ни о чём, если обход уже кончился');
+      // Курсор — на первую находку, а не на последнюю: у последней больше
+      // шансов уцелеть случайно.
+      state.results!.setCursorToName('found.dart');
+      await tester.pump();
+      expect(state.canGoTo, isTrue);
+      return state;
+    }
+
+    testWidgets('«Go to file» над находкой срабатывает с первого раза', (tester) async {
+      // Живой дефект: ссылка на строку состояла из места и номера списка, а
+      // номер рос двадцать раз в секунду — заявка протухала за 50 мс, и нажатие
+      // уходило в никуда (`docs/spec/client-server.md`, §5.5а).
+      final state = await streaming(tester);
+
+      await state.goTo();
+      state.stop();
+      await tester.pumpAndSettle();
+
+      expect(app.left.currentPath, startsWith('/home/d'));
+      expect(app.left.currentEntry?.name, 'found.dart');
+    });
+
+    testWidgets('строка отзывается, пока список растёт', (tester) async {
+      // Корень и `F3`, и `F4`, и `Enter`: все они спрашивают ядро о строке под
+      // курсором. Прежде ссылка протухала за 50 мс, и ядро отвечало «нет такой
+      // строки» — просмотр молчал, а правка показывала окно «только для
+      // чтения» над обычным файлом (`docs/spec/client-server.md`, §5.5а).
+      final state = await streaming(tester);
+      final session = state.results!;
+      final entry = session.currentEntry!;
+
+      // Пачка за пачкой: список успел смениться не раз, а строка та же.
+      for (var i = 0; i < 3; i++) {
+        await tester.pump(const Duration(milliseconds: 40));
+      }
+
+      expect(await session.canWriteTo(entry), isTrue, reason: 'писать в неё можно — и это правда');
+      final attributes = await session.readAttributes(entry);
+      expect(attributes, isNot(NodeAttributes.unknown), reason: 'строка нашлась, а не потерялась');
+
+      state.stop();
+      await tester.pumpAndSettle();
     });
   });
 
