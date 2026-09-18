@@ -946,6 +946,64 @@ void main() {
     expect(session.currentEntry?.name, isNot(first), reason: 'и дошёл до следующей строки');
   });
 
+  testWidgets('удержание стрелки в окне повторяет шаг', (tester) async {
+    // Живой дефект: в окне находок удержание стрелки не двигало курсор вовсе —
+    // окно принимало только нажатие, а автоповтор приходит своим событием.
+    await pumpApp(tester, size: const Size(1200, 800));
+    await openWindow(tester);
+    await search(tester, '*.dart');
+
+    final state = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state;
+    final session = state.results!;
+    final start = session.cursorIndex;
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowDown);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+
+    expect(session.cursorIndex, start + 3, reason: 'три события — три шага');
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.arrowUp);
+    await tester.sendKeyRepeatEvent(LogicalKeyboardKey.arrowUp);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+
+    expect(session.cursorIndex, start + 1, reason: 'и вверх тоже');
+  });
+
+  testWidgets('удержание PageDown в окне листает дальше первой страницы', (tester) async {
+    final many = <FakeEntry>[FakeEntry.directory('/big')];
+    for (var i = 0; i < 200; i++) {
+      many.add(FakeEntry.file('/big/file$i.dart', size: 1));
+    }
+    app =
+        (await testApp(
+          provider: InMemoryTreeProvider(many),
+          modules: featureModules(),
+          settings: AppSettings(left: PanelSettings.defaults('/big'), right: PanelSettings.defaults('/big')),
+        )).app;
+
+    await pumpApp(tester, size: const Size(1200, 800));
+    await openWindow(tester);
+    await search(tester, '*.dart');
+
+    final state = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state;
+    final session = state.results!;
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.pageDown);
+    await tester.pumpAndSettle();
+    final page = session.cursorIndex;
+    expect(page, greaterThan(0), reason: 'первая страница пролистана');
+
+    await tester.sendKeyRepeatEvent(LogicalKeyboardKey.pageDown);
+    await tester.pumpAndSettle();
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.pageDown);
+
+    expect(session.cursorIndex, greaterThan(page), reason: 'удержание листает дальше');
+  });
+
   testWidgets('тысяча находок — строк собрано столько, сколько видно', (tester) async {
     // Общий список окон собирает все строки разом, и на тысячах находок
     // приложение вставало намертво. Панельный список ленив — им окно и

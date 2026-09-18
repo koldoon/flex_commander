@@ -40,12 +40,19 @@ class _FindFilesResultsState extends State<FindFilesResults> {
   ///
   /// Клавиши ловит окно, а не реестр команд: пока окно открыто, клавиши
   /// принадлежат ему целиком (`screens.md`), и до привязок они не доходят.
+  ///
+  /// Автоповтор — наравне с нажатием, как и в панели
+  /// (`lib/view/keyboard_handler.dart`): удержание стрелки обязано вести
+  /// курсор, иначе по длинному списку находок идут нажатием на строку. А вот
+  /// **открытие** повтору не отдаётся: придержанный `F3` открывал бы находку
+  /// снова и снова.
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     final state = widget.state;
-    if (event is! KeyDownEvent) {
+    final repeat = event is KeyRepeatEvent;
+    if (event is! KeyDownEvent && !repeat) {
       return KeyEventResult.ignored;
     }
-    if (state.canGoTo) {
+    if (!repeat && state.canGoTo) {
       if (event.logicalKey == LogicalKeyboardKey.f3) {
         unawaited(state.open(_viewCommand));
         return KeyEventResult.handled;
