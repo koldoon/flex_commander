@@ -181,8 +181,16 @@ class ColumnsViewState extends State<ColumnsView> {
   /// Обещание скромное и честное: звено **видно**. Ровно на той же строке, что
   /// при закрытии, оно стоять не обязано — вертикаль столбцов нигде не
   /// хранится, она выводится из пути (`panel-view-columns.md`, §8а).
-  void _reveal(ColumnChain chain) {
+  /// [moved] — курсор двинулся. Список сменился **сам** (растут находки,
+  /// догоняется каталог) — вертикаль столбцов не трогаем вовсе: человек в это
+  /// время читает список мышью, и подмотка отбирала бы у него прокрутку на
+  /// каждой пачке.
+  void _reveal(ColumnChain chain, {bool moved = true}) {
     if (_step <= 0 || _height <= 0) {
+      return;
+    }
+    if (!moved) {
+      _revealedColumn = chain.current;
       return;
     }
     for (var at = 0; at < chain.columns.length; at++) {
@@ -598,7 +606,8 @@ class ColumnsViewState extends State<ColumnsView> {
         _forgetGone(chain);
         _scheduleHold(_rowUnderCursor());
 
-        if (panel.cursorIndex != _shownCursor || rows.length != _shownCount) {
+        final cursorMoved = panel.cursorIndex != _shownCursor;
+        if (cursorMoved || rows.length != _shownCount) {
           _shownCursor = panel.cursorIndex;
           _shownCount = rows.length;
           // И подмотка, и уборка — **после кадра**: та зовёт ядро, а к ядру
@@ -606,7 +615,7 @@ class ColumnsViewState extends State<ColumnsView> {
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               final chain = _memo.of(_rows, widget.panel.cursorIndex);
-              _reveal(chain);
+              _reveal(chain, moved: cursorMoved);
               _tidyUp(chain);
             }
           });

@@ -195,7 +195,13 @@ class TreeViewState extends State<TreeView> {
   /// оказывается за краем. Правил два (`panel-view-tree.md`, §5): помещается
   /// ветвь вместе с курсором — она и становится первой строкой, и видно,
   /// **откуда** этот курсор; не помещается — курсор уводится к середине.
-  void _revealCursor() {
+  ///
+  /// [moved] — курсор двинулся, и его надо показать. Список сменился **сам**
+  /// (растут находки, догоняется каталог) — курсор не трогали, и тянуть к нему
+  /// вид нельзя: человек в это время читает список мышью, и подмотка отбирает
+  /// у него прокрутку на каждой пачке. Место строки под курсором при этом
+  /// держится по-прежнему.
+  void _revealCursor({bool moved = true}) {
     final rows = _rows;
     final at = widget.panel.cursorIndex;
     final ready = _scroll.hasClients && _step > 0 && at >= 0 && at < rows.length;
@@ -255,18 +261,23 @@ class TreeViewState extends State<TreeView> {
       final from = widget.settings().cursorHoldsPlace ? _pin.movedFrom(rows, at) : null;
       final base = from == null ? offset : (offset + (at - from) * _step).clamp(0.0, limit);
 
-      // Обычный ход курсора — подмотка **минимальная**, как в списке файлов:
-      // строка прижимается к тому краю, за который вышла, и курсор доходит до
-      // самого низа. Целыми строками тут нельзя: разрезанная нижним краем
-      // строка отнимала бы у курсора последнюю позицию, и он упирался бы в
-      // предпоследнюю, а вид дёргался на строку вверх.
-      final top = at * _step;
-      final bottom = top + _step;
-      target = switch (0) {
-        _ when top < base => top,
-        _ when bottom > base + height => (bottom - height).clamp(0.0, limit),
-        _ => base,
-      };
+      if (!moved) {
+        // Список сменился сам: держим строку на месте и ничего не подматываем.
+        target = base;
+      } else {
+        // Обычный ход курсора — подмотка **минимальная**, как в списке файлов:
+        // строка прижимается к тому краю, за который вышла, и курсор доходит до
+        // самого низа. Целыми строками тут нельзя: разрезанная нижним краем
+        // строка отнимала бы у курсора последнюю позицию, и он упирался бы в
+        // предпоследнюю, а вид дёргался на строку вверх.
+        final top = at * _step;
+        final bottom = top + _step;
+        target = switch (0) {
+          _ when top < base => top,
+          _ when bottom > base + height => (bottom - height).clamp(0.0, limit),
+          _ => base,
+        };
+      }
     }
 
     _pin.remember(rows, at);
@@ -446,13 +457,16 @@ class TreeViewState extends State<TreeView> {
         final rows = _rows;
         final at = panel.cursorIndex;
         final cursorPath = at >= 0 && at < rows.length ? rows[at].path : null;
-        if (at != _shownCursor || cursorPath != _shownPath || rows.length != _shownCount) {
+        // Курсор двинулся — показать его; сменилось только число строк —
+        // придержать строку на месте, но прокрутку не отбирать.
+        final cursorMoved = at != _shownCursor || cursorPath != _shownPath;
+        if (cursorMoved || rows.length != _shownCount) {
           _shownCursor = at;
           _shownPath = cursorPath;
           _shownCount = rows.length;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              _revealCursor();
+              _revealCursor(moved: cursorMoved);
             }
           });
         }

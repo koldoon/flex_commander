@@ -810,6 +810,36 @@ void main() {
     expect(runtime.app.left.currentEntry?.name, 'file-30.txt');
   });
 
+  testWidgets('растущий список не отбирает прокрутку', (tester) async {
+    // Живой дефект: пока идёт поиск, список прибавляется по нескольку раз в
+    // секунду, и каждая пачка подматывала вид к курсору — читать список мышью
+    // было нельзя вовсе (`docs/spec/panel-view-tree.md`, §5).
+    final source = InMemoryTreeProvider([
+      FakeEntry.directory('/home'),
+      for (var i = 0; i < 60; i++) FakeEntry.file('/home/file-$i.txt', size: 10),
+    ])..home = '/home';
+    final runtime = await open(tester, source: source, left: PanelSettings(path: '/home', expanded: ['/', '/home']));
+    await tester.pumpAndSettle();
+
+    // Уехали мышью вниз — курсор остался наверху, на первой строке.
+    final list = find.byType(ListView).first;
+    await tester.drag(list, const Offset(0, -200));
+    await tester.pumpAndSettle();
+    final scrolled = tester.widget<Scrollable>(find.byType(Scrollable).first).controller!.offset;
+    expect(scrolled, greaterThan(0), reason: 'стенд ни о чём, если прокрутка не поехала');
+
+    // Список прибавился — так растут находки.
+    source.add(FakeEntry.file('/home/fresh.txt', size: 1));
+    await runtime.app.left.reload();
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.widget<Scrollable>(find.byType(Scrollable).first).controller!.offset,
+      scrolled,
+      reason: 'вид остался там, куда его увёл человек',
+    );
+  });
+
   testWidgets('курсор доходит до нижнего края', (tester) async {
     final deep = [
       FakeEntry.directory('/home'),
