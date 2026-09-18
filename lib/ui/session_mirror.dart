@@ -824,6 +824,13 @@ class SessionMirror extends ChangeNotifier implements Session {
           next = next.copyWith(markedPaths: _state.markedPaths, marksSeq: _marksSeq);
         }
         _state = next;
+        if (_traceScroll) {
+          // ignore: avoid_print
+          print(
+            'щуп ядра: состояние панели=${id.name} курсор=${next.cursorIndex} seq=${next.cursorSeq} '
+            'поколение=${next.generation} занята=${next.busy}',
+          );
+        }
         notifyListeners();
 
       case PanelListed(:final panel, :final listing) when panel == id:
@@ -849,6 +856,14 @@ class SessionMirror extends ChangeNotifier implements Session {
           // строке, на которой курсор стоял.
           _state = _state.copyWith(cursorIndex: _cursorIndexNow);
         }
+        if (_traceScroll) {
+          // ignore: avoid_print
+          print(
+            'щуп ядра: список панели=${id.name} строк=${listing.entries.length} '
+            'поколение=${listing.generation} курсор=${_state.cursorIndex} '
+            'ждали=$_aheadGeneration',
+          );
+        }
         notifyListeners();
 
       case PanelSized(:final panel, :final paths) when panel == id:
@@ -862,6 +877,10 @@ class SessionMirror extends ChangeNotifier implements Session {
         break;
     }
   }
+
+  /// Щуп прокрутки — на время разбора живой беды
+  /// (`--dart-define=FC_TRACE_SCROLL=1`).
+  static const bool _traceScroll = bool.fromEnvironment('FC_TRACE_SCROLL');
 
   @override
   void dispose() {
