@@ -1125,6 +1125,29 @@ void main() {
     });
   });
 
+  testWidgets('«Tree with contents» остаётся в находках, а не уезжает на диск', (tester) async {
+    // Живой дефект: спутник дерева шёл за «куда пойдёт операция» и уводил
+    // столбец в настоящий каталог — а оттуда дерево строится от корня диска.
+    // Спутник работает с тем же провайдером, и прозрачность для него та же
+    // (`docs/spec/file-search.md`, §4.5).
+    await pumpApp(tester, size: const Size(1200, 800));
+    await openWindow(tester);
+    await search(tester, '*.dart');
+    await press(tester, 'To panel');
+
+    await app.left.setView(CombinedView.viewId);
+    await tester.pumpAndSettle();
+
+    final tab = app.panelOf(app.left)!;
+    expect(tab.sessions, hasLength(2), reason: 'у вида два столбца');
+    for (final session in tab.sessions) {
+      expect(session.source.scheme, SourceInfo.searchScheme, reason: 'оба столбца — в находках');
+    }
+    // Дерево показывает проекцию, а не весь диск.
+    final tree = tab.sessions.first;
+    expect(tree.entries.map((entry) => entry.name), isNot(contains('Users')));
+  });
+
   group('восстановление', () {
     testWidgets('панель, оставленную в находках, поднимают списком', (tester) async {
       // Обход при запуске никто не заводит — уходить в обход диска на старте
