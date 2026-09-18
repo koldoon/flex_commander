@@ -1,5 +1,6 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
+import 'package:flutter/foundation.dart';
 
 import 'search_address.dart';
 import 'search_work.dart';
@@ -36,6 +37,7 @@ class SearchProvider
         PanelSourceTitle,
         PanelExitPath,
         PanelFilledByWork,
+        PanelSourceChanges,
         RealPathSource {
   SearchProvider(this.address, {required String title}) : sourceTitle = title {
     _root = DirectoryNode(provider: this, name: title);
@@ -70,6 +72,12 @@ class SearchProvider
   final List<FsNode> _found = [];
 
   List<FsNode> get found => List.unmodifiable(_found);
+
+  /// Список прибавился: панель узнаёт об этом от источника, а не по таймеру.
+  final ValueNotifier<int> _changes = ValueNotifier<int>(0);
+
+  @override
+  Listenable get changes => _changes;
 
   bool _filled = false;
 
@@ -111,6 +119,7 @@ class SearchProvider
     for (final entry in children.entries) {
       entry.key.nodes = [...entry.key.nodes, ...entry.value];
     }
+    _changes.value++;
   }
 
   /// Обход начат — даже если пока ничего не нашлось.

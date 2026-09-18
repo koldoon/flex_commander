@@ -10,7 +10,6 @@ import 'content_hub.dart';
 import 'operation_hub.dart';
 import 'panel_session.dart';
 import 'settings_hub.dart';
-import 'search_results.dart';
 import 'secrets_hub.dart';
 import 'shell_hub.dart';
 
@@ -61,9 +60,6 @@ class CoreServer implements CoreHandler {
       sessionOf: session,
       say: _say,
     );
-    // Находки прибывают, пока идёт обход, — и панель, которой их отдали,
-    // растёт вместе с ними (`docs/spec/file-search.md`, §4).
-    _operations.onFound = _grewFound;
     _nextId = _panels.length;
     // Дальше о сессиях спрашивают ядро: заведённая на ходу тоже пишется в
     // файл (`docs/spec/panel-sessions.md`, §10).
@@ -126,24 +122,6 @@ class CoreServer implements CoreHandler {
       },
       onSized: (paths) => _say(PanelSized(panel, paths)),
     );
-  }
-
-  /// Находки, показанные панелью: чей это обход и куда складывать прибывающее.
-  final Map<PanelId, _ShownFound> _showing = {};
-
-  /// Обход нашёл ещё — положить в тот список, который его показывает.
-  ///
-  /// Перечитывание панели идёт **с ограничителем**: находки приходят пачками по
-  /// нескольку раз в секунду, а перечитывание собирает строки заново.
-  void _grewFound(String runId, List<FsNode> found) {
-    for (final entry in _showing.entries) {
-      final shown = entry.value;
-      if (shown.runId != runId) {
-        continue;
-      }
-      shown.results.add(found);
-      shown.redraw();
-    }
   }
 
   final Map<PanelId, PanelSession> _panels;
@@ -437,23 +415,6 @@ class CoreServer implements CoreHandler {
           return CoreFailed(error);
         }
 
-      case ShowFound(:final panel, :final runId, :final title):
-        final found = _operations.takeFound(runId);
-        if (found.isEmpty) {
-          return const CoreOpened(false);
-        }
-        // Каталог поиска — родитель списка: `..` из находок возвращает туда,
-        // где панель стояла, и никакого «запомненного места» для этого не
-        // нужно. Тот, где стоит **курсор**: искали оттуда же (`panel.currentPath`),
-        // и в дереве это не корень источника.
-        final results = SearchResultsProvider(title: title, found: found, parent: session(panel).standingDirectory);
-        // Незаконченный поиск идёт дальше, и список растёт: панель помнит, чей
-        // он, чтобы прибывающее попадало в тот же источник.
-        _showing[panel]?.redraw.cancel();
-        _showing[panel] = _ShownFound(runId, results, Throttle(() => unawaited(session(panel).refreshRows())));
-        await session(panel).open(results.rootDirectory);
-        return const CoreOpened(true);
-
       case ListNames(:final panel, :final path):
         return CoreEntries(await session(panel).namesIn(path));
 
@@ -584,16 +545,4 @@ class _NoServices implements FcServices {
 
   @override
   List<T> resolveAll<T>() => const [];
-}
-
-/// Найденное, показанное панелью: обход, список и ограничитель перерисовки.
-class _ShownFound {
-  _ShownFound(this.runId, this.results, this.redraw);
-
-  final String runId;
-  final SearchResultsProvider results;
-
-  /// Ограничитель: перечитывать панель на каждую пачку находок незачем — их
-  /// приходит по нескольку раз в секунду.
-  final Throttle redraw;
 }

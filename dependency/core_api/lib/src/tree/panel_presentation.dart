@@ -7,6 +7,7 @@
 library;
 
 import 'package:fc_api/fc_api.dart';
+import 'package:flutter/foundation.dart';
 
 import 'node_sorting.dart';
 import 'tree_provider.dart';
@@ -75,6 +76,18 @@ abstract interface class PanelSourceTitle {
 /// выходить некуда (`docs/spec/file-search.md`, §4.6).
 abstract interface class PanelExitPath {
   String get exitPath;
+}
+
+/// Провайдер, содержимое которого меняется само.
+///
+/// Находки прибывают, пока идёт обход, и список растёт без единого нажатия.
+/// Панель узнаёт об этом от источника — а не перечитывается по таймеру,
+/// заведённому где-то в стороне: таймер жил дольше показа и дёргал панель,
+/// давно ушедшую в обычный каталог (`docs/spec/file-search.md`, §4.7).
+abstract interface class PanelSourceChanges {
+  /// О чём говорит: «во мне прибавилось». Слушать и отписываться — дело
+  /// панели.
+  Listenable get changes;
 }
 
 /// Провайдер, который наполняется работой.

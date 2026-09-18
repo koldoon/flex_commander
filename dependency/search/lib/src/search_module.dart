@@ -34,7 +34,7 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
   @override
   void installBackend(BackendRegistry registry) {
     // Итог работы виден в списке фоновых работ, а пишет его эта сторона.
-    registry.strings('ru', {'Found: {count}': 'Найдено: {count}', 'Found: {what}': 'Найдено: {what}'});
+    registry.strings('ru', {'Found: {count}': 'Найдено: {count}', 'Find {what}': 'Поиск {what}'});
 
     registry.operation(SearchWork.kind, (services) => searching(services.resolve<Strings>()));
 
@@ -50,7 +50,10 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
           throw FsError(uri.toString(), FsErrorKind.invalidAddress);
         }
         final strings = registry.services.resolve<Strings>();
-        return SearchProvider(address, title: strings.tr('Found: {what}', args: {'what': address.what}));
+        // Тем же словом, что и полоска работы: список и работа — одно и то же,
+        // и звать их по-разному незачем. «Found:» не годится — так начинается
+        // счётчик находок в окне, и два разных смысла читались бы как один.
+        return SearchProvider(address, title: strings.tr('Find {what}', args: {'what': address.what}));
       }),
     );
   }

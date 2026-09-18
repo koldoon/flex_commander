@@ -38,10 +38,10 @@ class GoToFoundCommand extends AppCommand {
     final entry = panel.currentEntry;
     // Находки узнаются по схеме источника, а не по его типу: типа этой стороне
     // не видно, а схема приезжает снимком.
-    return panel.source.scheme == SourceInfo.foundScheme &&
+    return panel.source.scheme == SourceInfo.searchScheme &&
         entry != null &&
         !entry.isParent &&
-        entry.scheme != SourceInfo.foundScheme &&
+        entry.scheme != SourceInfo.searchScheme &&
         entry.directoryPath.isNotEmpty;
   }
 

@@ -4,31 +4,10 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/foundation.dart';
 
+import 'search_address.dart';
 import 'search_limits.dart';
 import 'search_query.dart';
 import 'search_work.dart';
-
-/// Строка списка находок: заголовок каталога или сама находка под ним.
-///
-/// **Плоско, а не деревом.** Список обязан быть ленивым — находок бывают
-/// тысячи, — а ленивый строит только видимое лишь тогда, когда все строки одной
-/// высоты и он знает, сколько их. Дерево ни того, ни другого не даёт
-/// (`spec/file-search.md`, §3.2).
-class FoundRow {
-  const FoundRow.header(this.path) : entry = null, index = -1;
-  const FoundRow.item(FileEntry this.entry, this.index) : path = '';
-
-  /// Путь каталога — у заголовка; у находки пусто.
-  final String path;
-
-  /// Сама находка; null — это заголовок.
-  final FileEntry? entry;
-
-  /// Номер находки в [FindFilesState.found]; -1 у заголовка.
-  final int index;
-
-  bool get isHeader => entry == null;
-}
 
 /// Состояние окна поиска: о чём спросили, что нашлось и идёт ли обход.
 class FindFilesState extends ChangeNotifier {
@@ -49,29 +28,24 @@ class FindFilesState extends ChangeNotifier {
 
   SearchQuery query = const SearchQuery(mask: '');
 
-  /// Найденное — в том порядке, в каком находилось.
+  /// Вкладка с находками — та, в которой смонтирован источник.
   ///
-  /// Значениями: узлы остались в ядре, где живут их источники, и показать
-  /// находки панелью можно оттуда же ([toPanel]).
-  final List<FileEntry> found = [];
+  /// Список принадлежит **ей**, а окно его только показывает: держать у себя
+  /// второй значило бы завести второго владельца, а на стыках владельцев всё и
+  /// разваливалось (`docs/spec/file-search.md`, §4.7).
+  Panel? get tab => _tab;
+  Panel? _tab;
 
-  /// Строки списка: заголовки каталогов и находки под ними.
-  ///
-  /// Собираются **по ходу обхода**, за одно действие на находку, — а не
-  /// пересобираются на каждую перерисовку. Именно на пересборке приложение и
-  /// вставало.
-  final List<FoundRow> rows = [];
+  /// Сессия вкладки: её же рисует окно, её же получит панель.
+  Session? get results => _tab?.session;
 
-  /// Номер строки для каждой находки. Нужен только затем, чтобы подвести
-  /// выбранную под обзор: курсор ходит по находкам, а прокрутка — по строкам.
-  final List<int> _rowOfFound = [];
+  /// Адрес запроса; null — ещё не искали.
+  SearchAddress? get address => _address;
+  SearchAddress? _address;
 
-  /// Каталог последней находки: с ним сличается следующая, и по несовпадению
-  /// добавляется заголовок. Одно сравнение вместо группировки.
-  String? _lastDirectory;
-
-  /// Какой строкой показана эта находка.
-  int rowOfFound(int index) => index >= 0 && index < _rowOfFound.length ? _rowOfFound[index] : -1;
+  /// Сколько нашлось. Считается по ходу — сами находки живут в источнике.
+  int get foundCount => _foundCount;
+  int _foundCount = 0;
 
   /// Перерисовка не чаще, чем имеет смысл смотреть.
   ///
@@ -102,12 +76,14 @@ class FindFilesState extends ChangeNotifier {
   VoidCallback? showResults;
   VoidCallback? close;
 
-  /// Строка находок под курсором; -1 — не выбрана ни одна.
-  int get selected => _selected;
-  int _selected = -1;
+  /// Строка под курсором — та же, что и в панели: курсор один на список.
+  FileEntry? get current => results?.currentEntry;
 
-  /// Есть куда перейти: строка выбрана и у неё есть каталог.
-  bool get canGoTo => _selected >= 0 && _selected < found.length && found[_selected].directoryPath.isNotEmpty;
+  /// Есть куда перейти: под курсором находка, а не ветвь и не «..».
+  bool get canGoTo {
+    final entry = current;
+    return entry != null && !entry.isParent && entry.scheme != SearchAddress.scheme && entry.directoryPath.isNotEmpty;
+  }
 
   /// Есть что искать: маска непустая и обход не идёт.
   bool get canStart => !busy && !query.isEmpty && query.isValid && _limits.isValid;
@@ -155,10 +131,18 @@ class FindFilesState extends ChangeNotifier {
     close?.call();
   }
 
-  /// `Close`: окно и работа уходят вместе.
+  /// `Close`: окно, работа и вкладка уходят вместе.
+  ///
+  /// Вкладка тоже: человек сказал, что искомое ему больше не нужно, — а
+  /// оставить её значило бы оставить список, за которым он не придёт.
   void finish() {
     stop();
     app.operations.forget(runId);
+    final tab = _tab;
+    _tab = null;
+    if (tab != null) {
+      app.closePanel(tab);
+    }
     close?.call();
   }
 
@@ -172,13 +156,14 @@ class FindFilesState extends ChangeNotifier {
     }
   }
 
-  void select(int index) {
-    if (index == _selected) {
-      return;
-    }
-    _selected = index;
-    notifyListeners();
-  }
+  /// Курсор ведёт сессия: список один, и второго курсора у него быть не может.
+  void moveCursor(int delta) => results?.moveCursor(delta);
+
+  void moveCursorPage(int direction) => results?.moveCursorPage(direction);
+
+  void cursorToFirst() => results?.setCursorToFirst();
+
+  void cursorToLast() => results?.setCursorToLast();
 
   void typed(String mask) {
     query = query.copyWith(mask: mask);
@@ -255,21 +240,31 @@ class FindFilesState extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Начать обход. Идёт он фоном: окно остаётся на месте и пополняется.
+  /// Начать обход.
+  ///
+  /// Порядок: адрес → вкладка → работа. Вкладка заводится **обычным способом**
+  /// и сразу показывается: окно в этот миг сверху, и появившаяся за ним вкладка
+  /// никого не тревожит (`docs/spec/file-search.md`, §4.3). Работу заводит
+  /// экран — правило «работа рождается заявкой с экрана» поиск не отменяет.
   Future<void> start() async {
     if (busy || query.isEmpty) {
       return;
     }
-    found.clear();
-    rows.clear();
-    _rowOfFound.clear();
-    _lastDirectory = null;
-    _selected = -1;
+    _foundCount = 0;
     _searched = true;
     _stopped = false;
-    // Работа заводится в ядре: обход дерева — это `listChildren`, то есть
-    // поход на диск, в архив или по сети, а источники живут там.
-    final run = app.runOperation(runId: runId, onFound: _addAll);
+
+    final address = SearchAddress(where: where, query: query, limits: _limits);
+    _address = address;
+
+    // Вкладка со своим источником: находки складываются прямо в него, и
+    // «передать список панели» становится нечем и некуда — панель получает ту
+    // же вкладку.
+    final tab = await app.openPanel(_side, like: panel);
+    _tab = tab;
+    await tab.session.openPath(address.toString());
+
+    final run = app.runOperation(runId: runId, onFound: _grew);
     _run = run;
     // Работа заводится в общем реестре — том же, где копирование. С этого
     // момента её можно отправить в фон и вернуть щелчком по полоске, а
@@ -278,7 +273,7 @@ class FindFilesState extends ChangeNotifier {
       OperationRun(
         runId: runId,
         operation: run,
-        title: app.strings.tr('Find "{mask}"', args: {'mask': query.mask}),
+        title: app.strings.tr('Find {what}', args: {'what': address.what}),
         bringToFront: () => showResults?.call(),
       ),
     );
@@ -290,32 +285,7 @@ class FindFilesState extends ChangeNotifier {
     });
 
     try {
-      run.start(
-        OperationSpec(
-          kind: SearchWork.kind,
-          targets: Targets.paths([where]),
-          options: {
-            SearchWork.maskOption: query.mask,
-            SearchWork.regexpOption: query.regexp,
-            SearchWork.caseOption: query.caseSensitive,
-            SearchWork.recursiveOption: query.recursive,
-            SearchWork.hiddenOption: query.hidden,
-            SearchWork.ignoreOption: query.ignore,
-            SearchWork.followLinksOption: query.followLinks,
-            // Незаданное не едет вовсе: пусто и «ноль» — разные вещи, а
-            // `option<int>` про эту разницу не знает.
-            if (query.sizeFrom case final from?) SearchWork.sizeFromOption: from,
-            if (query.sizeTo case final to?) SearchWork.sizeToOption: to,
-            if (query.changedAfter case final after?) SearchWork.changedAfterOption: after.millisecondsSinceEpoch,
-            if (query.changedBefore case final before?) SearchWork.changedBeforeOption: before.millisecondsSinceEpoch,
-            SearchWork.contentOption: query.content,
-            SearchWork.contentRegexpOption: query.contentRegexp,
-            SearchWork.contentCaseOption: query.contentCase,
-            SearchWork.wholeWordsOption: query.wholeWords,
-            SearchWork.allCharsetsOption: query.allCharsets,
-          },
-        ),
-      );
+      run.start(SearchWork.specFor(address));
       await run.result;
     } on OperationCanceled {
       // Прекратили — найденное остаётся: половина ответа лучше, чем ничего.
@@ -330,6 +300,16 @@ class FindFilesState extends ChangeNotifier {
       // таймер роняет виджет-тест, и правильно делает.
       _redraw.flush();
     }
+  }
+
+  /// С какой стороны показывать вкладку — с той, где стоит панель, из которой
+  /// искали.
+  ViewportPosition get _side =>
+      identical(app.panelAt(ViewportPosition.right).session, panel) ? ViewportPosition.right : ViewportPosition.left;
+
+  void _grew(List<FileEntry> entries) {
+    _foundCount += entries.length;
+    _redraw();
   }
 
   /// Обход прекратили руками: итог говорит об этом словом, а не молчанием.
@@ -347,32 +327,28 @@ class FindFilesState extends ChangeNotifier {
     _run?.cancel();
   }
 
-  /// Отдать найденное панели — и уйти из окна.
+  /// Отдать находки панели — и уйти из окна.
   ///
-  /// **Незаконченный поиск при этом продолжается — в фоне и на виду**: полоска
-  /// под панелью показывает, что он идёт, а панель прибавляет находки по ходу
-  /// дела. Живьём иначе выходило так, что окно исчезает сразу, а список
-  /// появляется через несколько секунд — обход-то шёл, и было непонятно, ждать
-  /// его или нет (`docs/spec/file-search.md`, §4).
+  /// Отдавать, по существу, нечего: вкладка с находками уже живёт, и панель
+  /// её уже показывает. Остаётся показать её наверняка (человек мог за это
+  /// время переключить вкладку) и убрать окно.
   ///
-  /// Законченный забывается: держать его второй раз полоской незачем — находки
-  /// уже у человека.
+  /// Незаконченный поиск при этом продолжается — в фоне и на виду: полоска
+  /// показывает, что он идёт, а список растёт сам, потому что растёт его
+  /// источник.
   Future<void> toPanel() async {
-    if (found.isEmpty) {
+    final tab = _tab;
+    if (tab == null) {
       return;
     }
     if (busy) {
       toBackground();
     } else {
+      app.operations.forget(runId);
       close?.call();
     }
-    // Список складывает **ядро**: узлы в нём настоящие и принадлежат своим
-    // источникам, а источники живут там. Забирает оно их у той же работы,
-    // поэтому имя её здесь и пригодилось.
-    await panel.showFound(runId, title: query.mask);
-    if (!busy) {
-      app.operations.forget(runId);
-    }
+    app.showPanel(_side, tab);
+    app.activate(tab.session);
   }
 
   /// Перейти к найденному: панель открывает его каталог, курсор встаёт на нём.
@@ -381,16 +357,17 @@ class FindFilesState extends ChangeNotifier {
   /// оттуда можно `F3`.
   ///
   /// Поиск при этом **уходит в фон, а не пропадает**: сходить к одной находке —
-  /// не повод потерять остальные. Полоска остаётся, и щелчок по ней возвращает
-  /// тот же список.
+  /// не повод потерять остальные.
   Future<void> goTo() async {
-    if (!canGoTo) {
+    final entry = current;
+    final session = results;
+    if (!canGoTo || entry == null || session == null) {
       return;
     }
-    final entry = found[_selected];
     toBackground();
-    await panel.openPath(entry.directoryPath);
-    panel.setCursorToName(entry.name);
+    app.activate(session);
+    await session.openPath(entry.directoryPath);
+    session.setCursorToName(entry.name);
   }
 
   /// `F3` и `F4` над находкой: встать на неё и открыть.
@@ -404,21 +381,5 @@ class FindFilesState extends ChangeNotifier {
     }
     await goTo();
     app.commands.run(commandId);
-  }
-
-  void _addAll(List<FileEntry> entries) {
-    for (final entry in entries) {
-      // Каталог называется один раз на пачку — как в `mc`: обход идёт
-      // каталогами, и находки из одного приходят подряд.
-      final directory = entry.directoryPath;
-      if (directory != _lastDirectory) {
-        _lastDirectory = directory;
-        rows.add(FoundRow.header(directory));
-      }
-      found.add(entry);
-      _rowOfFound.add(rows.length);
-      rows.add(FoundRow.item(entry, found.length - 1));
-    }
-    _redraw();
   }
 }

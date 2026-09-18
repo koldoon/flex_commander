@@ -32,7 +32,7 @@ void main() {
 
   Future<SearchProvider> found(List<String> paths, {String content = 'TODO', String mask = ''}) async {
     final address = SearchAddress(where: '/home', query: SearchQuery(mask: mask, content: content));
-    final source = SearchProvider(address, title: 'Found: ${address.what}');
+    final source = SearchProvider(address, title: 'Find ${address.what}');
     source.add(await nodesAt(paths));
     return source;
   }

@@ -29,9 +29,12 @@ class SourceInfo {
   /// Обычная таблица файлов — то, чем панель показывает каталог.
   static const String files = 'files';
 
-  /// Схема списка находок: по ней его узнают снаружи — например, `Enter` над
-  /// находкой, который уводит к ней в её каталог.
-  static const String foundScheme = 'found';
+  /// Схема поиска: по ней список находок узнают снаружи — например, `Enter`
+  /// над находкой, который уводит к ней в её каталог.
+  ///
+  /// Она же и адрес: весь запрос лежит в строке `search:/?in=…`
+  /// (`docs/spec/file-search.md`, §4.1).
+  static const String searchScheme = 'search';
 
   /// Схема путей: `fs`, `zip`, `sftp`.
   final String scheme;

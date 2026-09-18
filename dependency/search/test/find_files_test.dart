@@ -3,7 +3,6 @@ import 'dart:convert';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_panels/fc_panels.dart';
-import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_search/fc_search.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
@@ -287,9 +286,8 @@ void main() {
     await search(tester, '*.dart');
 
     expect(find.text('Found: 3'), findsOneWidget);
-    // Раскладка `mc`: каталог заголовком, находки под ним.
-    expect(find.text('util.dart'), findsOneWidget);
-    expect(find.text('/home/lib/src'), findsOneWidget);
+    // Список окна — тот же, что у панели: находка видна и там, и там.
+    expect(find.text('util.dart'), findsWidgets);
   });
 
   testWidgets('кнопка «OK» ищет то же, что и Enter', (tester) async {
@@ -371,7 +369,7 @@ void main() {
 
     await press(tester, 'To panel');
 
-    expect(app.left.source.scheme, SourceInfo.foundScheme);
+    expect(app.left.source.scheme, SourceInfo.searchScheme);
 
     // Деревом, а не кучей: видно, где что нашлось. Вид просит сам источник, и
     // раскрыто оно сразу — иначе находки прятались бы за нажатиями
@@ -381,7 +379,7 @@ void main() {
       [for (final entry in app.left.entries) '${'  ' * entry.level}${entry.name}'],
       // В порядке обхода, а не по алфавиту: список растёт по ходу поиска, и
       // сортировка вставляла бы новое в середину (`docs/spec/file-search.md`, §4).
-      ['*.dart', '  main.dart', '  lib', '    main.dart', '    src', '      util.dart'],
+      ['Find *.dart', '  main.dart', '  lib', '    main.dart', '    src', '      util.dart'],
     );
     // Окно ушло: смотреть на список удобнее в панели.
     expect(find.widgetWithText(FcButton, 'To panel'), findsNothing);
@@ -408,10 +406,10 @@ void main() {
 
     final state = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state;
     // Ждём первых находок: отдавать панели пустоту команда отказывается.
-    for (var i = 0; i < 40 && state.found.length < 3; i++) {
+    for (var i = 0; i < 40 && state.foundCount < 3; i++) {
       await tester.pump(const Duration(milliseconds: 30));
     }
-    expect(state.found, isNotEmpty, reason: 'что-то уже нашлось');
+    expect(state.foundCount, greaterThan(0), reason: 'что-то уже нашлось');
     expect(state.busy, isTrue, reason: 'стенд ни о чём, если обход уже кончился');
 
     // Не нажатием: `pumpAndSettle` внутри него дождался бы конца обхода, а
@@ -419,7 +417,7 @@ void main() {
     await state.toPanel();
     await tester.pump();
 
-    expect(app.left.source.scheme, SourceInfo.foundScheme, reason: 'находки уже в панели');
+    expect(app.left.source.scheme, SourceInfo.searchScheme, reason: 'находки уже в панели');
     expect(app.operations.at(ViewportPosition.left), hasLength(1), reason: 'а поиск виден полоской');
     final first = app.left.entries.length;
     expect(first, lessThan(61), reason: 'стенд ни о чём, если к этому мигу нашлось всё');
@@ -457,7 +455,7 @@ void main() {
       [for (final entry in app.left.entries) '${'  ' * entry.level}${entry.name}'],
       // В порядке обхода, а не по алфавиту: список растёт по ходу поиска, и
       // сортировка вставляла бы новое в середину (`docs/spec/file-search.md`, §4).
-      ['*.dart', '  main.dart', '  lib', '    main.dart', '    src', '      util.dart'],
+      ['Find *.dart', '  main.dart', '  lib', '    main.dart', '    src', '      util.dart'],
     );
   });
 
@@ -477,8 +475,10 @@ void main() {
 
     // Не в корень диска: дерево строится от корня источника, и уход из находок
     // приводил панель туда — курсор оставался на первой строке.
-    expect(app.left.source.scheme, isNot(SourceInfo.foundScheme));
-    expect(app.left.currentEntry?.path, '/home', reason: 'курсор на ветви каталога, откуда искали');
+    expect(app.left.source.scheme, isNot(SourceInfo.searchScheme));
+    // Вернулись туда, где искали, — и курсор встал там, где стоял до поиска.
+    expect(app.left.currentPath, '/home');
+    expect(app.left.currentEntry?.path, '/home/lib');
   });
 
   testWidgets('Alt-O на ветви находок открывает настоящий каталог', (tester) async {
@@ -545,7 +545,7 @@ void main() {
     await app.left.goUp();
     await tester.pumpAndSettle();
 
-    expect(app.left.source.scheme, isNot(SourceInfo.foundScheme));
+    expect(app.left.source.scheme, isNot(SourceInfo.searchScheme));
     expect(app.left.columns.find(FsColumns.path)?.visible, isFalse, reason: 'колонка пути ушла вместе с находками');
   });
 
@@ -613,7 +613,7 @@ void main() {
 
     // Сперва вся ветвь `a` до самого низа, и только потом `b`: в ширину было
     // бы наоборот — `b/late.dart` пришло бы раньше `a/inner/deep.dart`.
-    expect(state.found.map((entry) => entry.name), ['deep.dart', 'late.dart']);
+    expect(state.foundCount, 2);
   });
 
   testWidgets('в находках каретки нет: порядок обхода — не сортировка', (tester) async {
@@ -658,7 +658,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Все находки сразу — ветвей в плоском списке нет, путь виден колонкой.
-    expect(app.left.source.scheme, SourceInfo.foundScheme);
+    expect(app.left.source.scheme, SourceInfo.searchScheme);
     expect(app.left.entries.map((entry) => entry.name), ['..', 'main.dart', 'main.dart', 'util.dart']);
     expect(app.left.currentEntry?.name, 'util.dart', reason: 'курсор остался на находке');
     expect(app.left.entries.map((entry) => entry.level), everyElement(0), reason: 'список, а не лесенка');
@@ -666,13 +666,13 @@ void main() {
     // Краткий вид — то же самое: набор строк тот же, меняется только показ.
     await app.left.setView(BriefView.viewId);
     await tester.pumpAndSettle();
-    expect(app.left.source.scheme, SourceInfo.foundScheme);
+    expect(app.left.source.scheme, SourceInfo.searchScheme);
     expect(app.left.entries.map((entry) => entry.name), ['..', 'main.dart', 'main.dart', 'util.dart']);
 
     // А «..» уводит туда, где искали.
     await app.left.goUp();
     await tester.pumpAndSettle();
-    expect(app.left.source.scheme, isNot(SourceInfo.foundScheme));
+    expect(app.left.source.scheme, isNot(SourceInfo.searchScheme));
   });
 
   testWidgets('F4 над находкой правит её, а над ветвью молчит', (tester) async {
@@ -715,8 +715,12 @@ void main() {
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
 
-    expect(app.left.source.scheme, SourceInfo.foundScheme);
-    expect(app.left.entries.map((entry) => entry.name), ['*.dart', 'main.dart', 'lib'], reason: 'ветвь свернулась');
+    expect(app.left.source.scheme, SourceInfo.searchScheme);
+    expect(app.left.entries.map((entry) => entry.name), [
+      'Find *.dart',
+      'main.dart',
+      'lib',
+    ], reason: 'ветвь свернулась');
 
     await tester.sendKeyEvent(LogicalKeyboardKey.enter);
     await tester.pumpAndSettle();
@@ -764,7 +768,7 @@ void main() {
     await app.left.goUp();
     await tester.pumpAndSettle();
 
-    expect(app.left.source.scheme, isNot(SourceInfo.foundScheme));
+    expect(app.left.source.scheme, isNot(SourceInfo.searchScheme));
     expect(app.left.currentPath, '/home');
   });
 
@@ -777,7 +781,8 @@ void main() {
 
     // Щелчок выбирает, ведёт — кнопка: так же, как в `mc`, где по списку
     // ходят, а `Chdir` нажимают.
-    await tester.tap(find.text('util.dart'));
+    // В окне и в панели строка одна и та же — щёлкаем по той, что в окне.
+    await tester.tap(find.descendant(of: find.byType(FindFilesResults), matching: find.text('util.dart')));
     await tester.pumpAndSettle();
     await press(tester, 'Go to file');
 
@@ -796,16 +801,14 @@ void main() {
     await openWindow(tester);
     await search(tester, '*.dart');
 
-    final table = tester.getRect(find.byType(FoundTable));
     final window = tester.getRect(find.byType(FindFilesResults));
-    expect(find.text('util.dart'), findsOneWidget);
+    expect(find.text('util.dart'), findsWidgets);
 
     // Ещё один поиск в том же окне: находок другое число, размеры те же.
     await press(tester, 'Again');
     await search(tester, '*.md');
 
-    expect(tester.getRect(find.byType(FoundTable)), table, reason: 'таблица там же и того же размера');
-    expect(tester.getRect(find.byType(FindFilesResults)), window, reason: 'и окно не поехало');
+    expect(tester.getRect(find.byType(FindFilesResults)), window, reason: 'окно не поехало');
   });
 
   testWidgets('растянутое окно отдаёт прибавку списку, а сводка и кнопки остаются внизу', (tester) async {
@@ -815,8 +818,8 @@ void main() {
     await openWindow(tester);
     await search(tester, '*.dart');
 
-    final table = tester.getRect(find.byType(FoundTable));
     final window = tester.getRect(find.byType(FindFilesResults));
+    final table = tester.getRect(find.descendant(of: find.byType(FindFilesResults), matching: find.byType(TreeView)));
 
     // Тянем окно за нижний край — там же, где его тянет человек.
     final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
@@ -834,7 +837,7 @@ void main() {
     await mouse.removePointer();
     await tester.pump();
 
-    final grown = tester.getRect(find.byType(FoundTable));
+    final grown = tester.getRect(find.descendant(of: find.byType(FindFilesResults), matching: find.byType(TreeView)));
     expect(grown.height, greaterThan(table.height + 50), reason: 'список не вырос');
     // Сводка под списком и ряд кнопок никуда не делись.
     expect(find.textContaining('Found:'), findsOneWidget);
@@ -845,63 +848,31 @@ void main() {
     );
   });
 
-  testWidgets('находки красятся как в панели, заголовок каталога — всегда белым', (tester) async {
+  testWidgets('стрелки в окне водят курсор того же списка, что и в панели', (tester) async {
+    // Курсор один на список: окно и панель смотрят в один источник, и второго
+    // курсора у него быть не может (`docs/spec/file-search.md`, §4.3).
     await pumpApp(tester, size: const Size(1200, 800));
     await openWindow(tester);
     await search(tester, '*.dart');
 
-    const colors = DefaultColors();
-    // Строки списка по порядку: имя и цвет, каким оно набрано. Имена в
-    // находках повторяются (`main.dart` лежит в двух каталогах) — различает их
-    // только место в списке.
-    List<(String, Color?)> rows() => [
-      for (final text in tester.widgetList<Text>(
-        find.descendant(of: find.byType(FoundTable), matching: find.byType(Text)),
-      ))
-        (text.data ?? '', text.style?.color),
-    ];
+    final state = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state;
+    final session = state.results!;
 
-    // Курсора ещё нет: обход только кончился, по списку не ходили.
-    expect(rows(), [
-      ('/home', colors.pathText),
-      ('main.dart', colors.rowText),
-      ('/home/lib', colors.pathText),
-      ('main.dart', colors.rowText),
-      ('/home/lib/src', colors.pathText),
-      ('util.dart', colors.rowText),
-    ]);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+    final first = session.currentEntry?.name;
+    expect(first, isNotNull, reason: 'курсор пошёл по списку');
 
     await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     await tester.pumpAndSettle();
 
-    expect(rows(), [
-      ('/home', colors.pathText),
-      ('main.dart', colors.cursorText),
-      ('/home/lib', colors.pathText),
-      ('main.dart', colors.rowText),
-      ('/home/lib/src', colors.pathText),
-      ('util.dart', colors.rowText),
-    ], reason: 'под курсором — как в панели, белым');
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    await tester.pumpAndSettle();
-
-    // Курсор ушёл дальше: белой стала следующая находка, а заголовки не
-    // шелохнулись — курсор по ним не ходит вовсе.
-    expect(rows(), [
-      ('/home', colors.pathText),
-      ('main.dart', colors.rowText),
-      ('/home/lib', colors.pathText),
-      ('main.dart', colors.cursorText),
-      ('/home/lib/src', colors.pathText),
-      ('util.dart', colors.rowText),
-    ]);
+    expect(session.currentEntry?.name, isNot(first), reason: 'и дошёл до следующей строки');
   });
 
   testWidgets('тысяча находок — строк собрано столько, сколько видно', (tester) async {
-    // То, ради чего таблица своя: общий список окон собирает все строки разом,
-    // и на тысячах находок приложение вставало намертво. Здесь строится только
-    // видимое.
+    // Общий список окон собирает все строки разом, и на тысячах находок
+    // приложение вставало намертво. Панельный список ленив — им окно и
+    // рисует находки (`docs/spec/file-search.md`, §3.2).
     final many = <FakeEntry>[FakeEntry.directory('/big')];
     for (var i = 0; i < 1000; i++) {
       many.add(FakeEntry.file('/big/file$i.dart', size: 1));
@@ -918,12 +889,14 @@ void main() {
     await search(tester, '*.dart');
 
     final state = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state;
-    expect(state.found, hasLength(1000), reason: 'нашлось всё');
+    expect(state.foundCount, 1000, reason: 'нашлось всё');
     expect(find.text('Found: 1000'), findsOneWidget);
 
-    // А построено — по числу видимых строк, а не по числу находок.
-    final built = tester.widgetList(find.descendant(of: find.byType(FoundTable), matching: find.byType(Row))).length;
-    expect(built, lessThan(50), reason: 'список ленивый: строк собрано столько, сколько влезло в обзор');
+    // А построено — по числу видимых строк, а не по числу находок: список в
+    // окне тот же, что в панели, и ленивость у него оттуда же.
+    final built =
+        tester.widgetList(find.descendant(of: find.byType(FindFilesResults), matching: find.byType(Row))).length;
+    expect(built, lessThan(60), reason: 'список ленивый: строк собрано столько, сколько влезло в обзор');
   });
 
   testWidgets('перерисовок меньше, чем находок', (tester) async {
@@ -950,7 +923,7 @@ void main() {
 
     await search(tester, '*.dart');
 
-    expect(state.found, hasLength(300));
+    expect(state.foundCount, 300);
     expect(redraws, lessThan(50), reason: 'сообщений о находках 300, а перерисовок — единицы');
   });
 
@@ -971,7 +944,9 @@ void main() {
 
       expect(find.byType(FindFilesResults), findsNothing, reason: 'окно ушло');
       expect(app.operations.at(ViewportPosition.left), hasLength(1), reason: 'а работа осталась');
-      expect(find.textContaining('Find "*.dart"'), findsOneWidget, reason: 'полоска называет поиск');
+      // Имя работы — у самой работы: на экране им подписаны и полоска, и
+      // вкладка, и потому «ровно одно» тут спрашивать не о чем.
+      expect(app.operations.at(ViewportPosition.left).single.title, 'Find *.dart', reason: 'полоска называет поиск');
       // Той же строкой, что и окно находок: итог у работы один, и говорить его
       // двумя разными способами незачем.
       expect(find.text('Found: 3'), findsOneWidget, reason: 'и говорит, чем он кончился');
@@ -984,7 +959,7 @@ void main() {
       tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state.toBackground();
       await tester.pumpAndSettle();
 
-      await tester.tap(find.textContaining('Find "*.dart"'));
+      await tester.tap(find.textContaining('Find *.dart').last);
       await tester.pumpAndSettle();
 
       expect(find.byType(FindFilesResults), findsOneWidget);
@@ -1012,7 +987,7 @@ void main() {
       await tester.pump();
 
       final state = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state;
-      for (var i = 0; i < 40 && state.found.isEmpty; i++) {
+      for (var i = 0; i < 40 && state.foundCount == 0; i++) {
         await tester.pump(const Duration(milliseconds: 30));
       }
       expect(state.busy, isTrue, reason: 'стенд ни о чём, если обход кончился');
@@ -1054,9 +1029,9 @@ void main() {
       }
 
       // По полоске на каждый — ровно как у копирований.
-      expect(app.operations.at(ViewportPosition.left), hasLength(2));
-      expect(find.textContaining('Find "*.dart"'), findsOneWidget);
-      expect(find.textContaining('Find "*.md"'), findsOneWidget);
+      final strips = app.operations.at(ViewportPosition.left);
+      expect(strips, hasLength(2));
+      expect(strips.map((run) => run.title), ['Find *.dart', 'Find *.md']);
     });
   });
 

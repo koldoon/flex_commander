@@ -172,6 +172,31 @@ class PanelSession {
   /// и одним каталогом дерево не описывается.
   void _rewatch() => _watch.follow(_list is DirectoryNodeList ? _directory : null);
 
+  /// Подписка на источник, который меняется сам; null — такого нет.
+  VoidCallback? _unfollowSource;
+
+  /// Перечитывание по вести источника — не чаще, чем имеет смысл смотреть:
+  /// находки приходят пачками по нескольку раз в секунду.
+  late final Throttle _sourceGrew = Throttle(() => unawaited(refreshRows()));
+
+  /// Следить за источником, который растёт сам (находки), и отписываться от
+  /// прежнего.
+  ///
+  /// Подписка живёт ровно столько, сколько панель его показывает: ушли —
+  /// перестали слушать. Прежде за этим следил таймер, заведённый в ядре, и он
+  /// переживал показ (`docs/spec/file-search.md`, §4.7).
+  void _followSource(TreeProvider? source) {
+    _unfollowSource?.call();
+    _unfollowSource = null;
+    if (source is! PanelSourceChanges) {
+      return;
+    }
+    final changes = (source as PanelSourceChanges).changes;
+    void grew() => _sourceGrew();
+    changes.addListener(grew);
+    _unfollowSource = () => changes.removeListener(grew);
+  }
+
   /// Кто слушает перемены.
   ///
   /// Слушателей несколько: сервер рассылает события за границу, а переходник
@@ -2355,10 +2380,12 @@ class PanelSession {
     }
     _operation?.cancel();
     // Сменился источник — забыли, о чём просил прежний: его вид и его
-    // раскрытое пережить его не должны.
+    // раскрытое пережить его не должны. Заодно меняется и тот, за кем следим:
+    // растущий список слушают ровно столько, сколько показывают.
     if (!identical(dir.provider, provider)) {
       _forgetSourceView(dir.provider);
     }
+    _followSource(dir.provider);
 
     final requestId = ++_requestId;
 
@@ -3327,6 +3354,9 @@ class PanelSession {
   void dispose() {
     _operation?.cancel();
     _watch.dispose();
+    _unfollowSource?.call();
+    _unfollowSource = null;
+    _sourceGrew.cancel();
     _stopSizeScan(notify: false);
     // Панель ушла — она больше не арендатор ни архива, ни своего сервера.
     // Закроются они, только если держать их больше некому: работа, ушедшая в

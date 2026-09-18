@@ -6,7 +6,6 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'find_files_state.dart';
-import 'found_table.dart';
 
 /// Окно находок — вторая фаза поиска.
 ///
@@ -27,9 +26,6 @@ class FindFilesResults extends StatefulWidget {
 class _FindFilesResultsState extends State<FindFilesResults> {
   final FocusNode _focus = FocusNode(debugLabel: 'find files results');
 
-  /// Размер страницы для `PgUp`/`PgDn`: список кладёт его сюда.
-  final FcPickPage _page = FcPickPage();
-
   /// Сколько строк находок видно. Больше — и окно упрётся в край экрана;
   /// меньше — и список перестанет быть списком.
   static const int _visibleRows = 16;
@@ -46,7 +42,10 @@ class _FindFilesResultsState extends State<FindFilesResults> {
   /// принадлежат ему целиком (`screens.md`), и до привязок они не доходят.
   KeyEventResult _onKey(FocusNode node, KeyEvent event) {
     final state = widget.state;
-    if (event is KeyDownEvent && state.canGoTo) {
+    if (event is! KeyDownEvent) {
+      return KeyEventResult.ignored;
+    }
+    if (state.canGoTo) {
       if (event.logicalKey == LogicalKeyboardKey.f3) {
         unawaited(state.open(_viewCommand));
         return KeyEventResult.handled;
@@ -57,17 +56,25 @@ class _FindFilesResultsState extends State<FindFilesResults> {
       }
     }
 
-    final moved = FcPickList.moveSelection(
-      event,
-      selected: state.selected,
-      count: state.found.length,
-      wrap: false,
-      page: _page,
-    );
-    if (moved == null) {
-      return KeyEventResult.ignored;
+    // Курсор ведёт **сессия**: список один на окно и панель, и второго курсора
+    // у него быть не может. Окно только переводит нажатие в шаг — привязки
+    // команд до него не доходят, пока оно открыто (`screens.md`).
+    switch (event.logicalKey) {
+      case LogicalKeyboardKey.arrowDown:
+        state.moveCursor(1);
+      case LogicalKeyboardKey.arrowUp:
+        state.moveCursor(-1);
+      case LogicalKeyboardKey.pageDown:
+        state.moveCursorPage(1);
+      case LogicalKeyboardKey.pageUp:
+        state.moveCursorPage(-1);
+      case LogicalKeyboardKey.home:
+        state.cursorToFirst();
+      case LogicalKeyboardKey.end:
+        state.cursorToLast();
+      default:
+        return KeyEventResult.ignored;
     }
-    state.select(moved);
     return KeyEventResult.handled;
   }
 
@@ -81,8 +88,11 @@ class _FindFilesResultsState extends State<FindFilesResults> {
     final theme = FcTheme.of(context);
     final state = widget.state;
 
+    // Слушаем и состояние окна, и сессию: находки считает первое, а курсор по
+    // ним ведёт вторая — и кнопки зависят от обоих.
+    final session = state.results;
     return ListenableBuilder(
-      listenable: state,
+      listenable: session == null ? state : Listenable.merge([state, session]),
       builder: (context, _) {
         return SizedBox(
           // Ширина — доля экрана: пути находок бывают длинными и разными, и от
@@ -113,7 +123,7 @@ class _FindFilesResultsState extends State<FindFilesResults> {
                 FcButton(
                   label: context.strings.tr('To panel'),
                   primary: true,
-                  onPressed: state.found.isEmpty ? null : () => unawaited(state.toPanel()),
+                  onPressed: state.tab == null ? null : () => unawaited(state.toPanel()),
                 ),
               ],
               children: [
@@ -121,15 +131,7 @@ class _FindFilesResultsState extends State<FindFilesResults> {
                   // Растянули окно — прибавка достаётся списку: ради неё его и
                   // тянут. Сводка под ним остаётся на месте.
                   expands: true,
-                  child: FoundTable(
-                    rows: state.rows,
-                    selected: state.selected,
-                    rowOfFound: state.rowOfFound,
-                    visibleRows: _visibleRows,
-                    page: _page,
-                    emptyMessage: state.busy ? '' : context.strings.tr('Nothing found'),
-                    onTap: state.select,
-                  ),
+                  child: SizedBox(height: _visibleRows * theme.metrics.rowHeight, child: _list(context, state)),
                 ),
                 // Две строки, как в `mc`: сколько нашлось и где обход сейчас.
                 // Обе стоят всегда — строка, то появляющаяся, то исчезающая,
@@ -142,7 +144,7 @@ class _FindFilesResultsState extends State<FindFilesResults> {
                 CommandDialogField.column(
                   label: '',
                   children: [
-                    _line(theme, context.strings.tr('Found: {count}', args: {'count': state.found.length})),
+                    _line(theme, context.strings.tr('Found: {count}', args: {'count': state.foundCount})),
                     _line(theme, _progress(context.strings, state)),
                   ],
                 ),
@@ -152,6 +154,26 @@ class _FindFilesResultsState extends State<FindFilesResults> {
         );
       },
     );
+  }
+
+  /// Список находок — **та же сессия**, что показывает панель, и тем же видом.
+  ///
+  /// Не своя таблица: два устройства одного списка однажды расходятся, и
+  /// разошлись (`docs/spec/file-search.md`, §3.2). Вид берётся из реестра, а не
+  /// у модуля панелей: окно про его устройство не знает и знать не должно.
+  Widget _list(BuildContext context, FindFilesState state) {
+    final session = state.results;
+    if (session == null) {
+      return const SizedBox.shrink();
+    }
+    if (!state.busy && state.foundCount == 0 && state.searched) {
+      // Словами, а не пустотой: «ничего не нашлось» — это ответ, и человек
+      // должен отличать его от «ещё идёт».
+      return Center(child: Text(context.strings.tr('Nothing found'), style: FcTheme.of(context).dialogLabelStyle));
+    }
+    final views = state.app.panelViews;
+    final spec = views.byId(session.view) ?? views.available.firstOrNull;
+    return spec == null ? const SizedBox.shrink() : spec.build(context, session);
   }
 
   /// Строка статистики постоянной высоты: у пустого текста нет ни одного глифа,

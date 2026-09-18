@@ -1,3 +1,5 @@
+import 'package:fc_api/fc_api.dart';
+
 import 'search_limits.dart';
 import 'search_query.dart';
 
@@ -15,8 +17,8 @@ import 'search_query.dart';
 class SearchAddress {
   const SearchAddress({required this.where, required this.query, this.limits = const SearchLimits()});
 
-  /// Схема источника находок.
-  static const String scheme = 'search';
+  /// Схема источника находок — та же, которой он представляется панели.
+  static const String scheme = SourceInfo.searchScheme;
 
   /// Где искать — каталог, от которого идёт обход.
   final String where;
