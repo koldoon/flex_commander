@@ -81,6 +81,12 @@ class TreeNodeList implements NodeList {
     if (cursor == null) {
       return null;
     }
+    // Ветвь такого источника — показ, а не место: панель всё это время стоит
+    // там, где искали, и каталог файла под курсором её положением не является
+    // (`docs/spec/file-search.md`, §4а, Н5).
+    if (_rootDirectories.first.provider is PanelVirtualBranches) {
+      return null;
+    }
     // Корень набора — тот, что человек выбрал, а не тот, у кого нет родителя:
     // ветвь `/home` в файловой системе лежит в `/`, но если дерево начинается
     // с неё, выше подниматься некуда.

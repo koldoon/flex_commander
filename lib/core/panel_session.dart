@@ -573,8 +573,18 @@ class PanelSession {
     return at < 0 ? _lastPath : _lastPath.substring(at + 1);
   }
 
-  /// Есть ли куда подниматься. У корня источника — нет.
-  bool get canGoUp => _directory?.parentDirectory != null;
+  /// Есть ли куда подниматься.
+  ///
+  /// У корня обычного источника — нет; у того, кто ни в чём не лежит, выход
+  /// называет он сам ([PanelExitPath]): находки возвращают туда, где искали
+  /// (`docs/spec/file-search.md`, §4.6).
+  bool get canGoUp => _directory?.parentDirectory != null || _exitPath.isNotEmpty;
+
+  /// Куда ведёт `..` из источника, у которого нет родителя; пусто — никуда.
+  String get _exitPath {
+    final source = _directory?.provider;
+    return source is PanelExitPath ? (source as PanelExitPath).exitPath : '';
+  }
 
   /// Отсортированное содержимое каталога — то, что рисует таблица.
   List<FsNode> get nodes => _nodes;
@@ -594,8 +604,18 @@ class PanelSession {
   /// null — строка состояния показывает объект под курсором.
   String? get statusText => _statusText;
 
-  /// Заголовок, выставленный командой. null — показывается путь каталога.
-  String? get headerText => _headerText;
+  /// Заголовок панели: выставленный командой, иначе имя самого источника.
+  /// null — ни того ни другого, и панель подписывается путём.
+  ///
+  /// Имя спрашивается **у источника**, а не ставится снаружи просьбой: снимать
+  /// поставленное было бы некому ровно тогда, когда человек ушёл из источника
+  /// (`docs/spec/panel-header.md`, §3).
+  String? get headerText => _headerText ?? _sourceTitle;
+
+  String? get _sourceTitle {
+    final source = _directory?.provider;
+    return source is PanelSourceTitle ? (source as PanelSourceTitle).sourceTitle : null;
+  }
 
   /// Вид содержимого спрашивается у провайдера: он один знает, что показывает.
   /// Обычный провайдер дерева о видах не подозревает — значит, таблица файлов.
@@ -1026,6 +1046,12 @@ class PanelSession {
       parent = parent.parent;
     }
     if (parent is! DirectoryNode) {
+      // Источник, который ни в чём не лежит, называет выход сам: находки
+      // возвращают туда, где искали.
+      final exit = _exitPath;
+      if (exit.isNotEmpty) {
+        await openPath(exit, records: true);
+      }
       return;
     }
 
@@ -2114,7 +2140,7 @@ class PanelSession {
     error: _error,
     busy: _busy,
     statusText: _statusText,
-    headerText: _headerText,
+    headerText: headerText,
     cursorIndex: _cursorIndex,
     cursorSeq: _cursorSeq,
     generation: _generation,

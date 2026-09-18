@@ -12,6 +12,7 @@ export 'src/go_to_found_command.dart';
 export 'src/search_address.dart';
 export 'src/search_module.dart';
 export 'src/search_limits.dart';
+export 'src/search_provider.dart';
 export 'src/search_query.dart';
 export 'src/search_run.dart';
 export 'src/search_work.dart';

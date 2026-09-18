@@ -1,3 +1,7 @@
+import 'package:fc_api/fc_api.dart';
+
+import 'search_address.dart';
+
 /// Как зовут работу поиска и её доводы.
 ///
 /// Отдельным файлом, потому что имена нужны **обеим** сторонам: экран собирает
@@ -5,6 +9,41 @@
 /// провайдеров, — и потому этот файл видят обе половины модуля, не таща за
 /// собой чужой половины (`docs/spec/client-server.md`, §8).
 abstract final class SearchWork {
+  /// Заявка на обход по адресу запроса.
+  ///
+  /// Одна сборка на обе стороны: заводит работу экран (правило
+  /// `client-server.md`, §5.4), а знает о ней и источник — и собирать доводы
+  /// дважды значило бы однажды собрать их по-разному.
+  ///
+  /// Приёмник — сам источник: находки складываются прямо в него, и «передать
+  /// накопленное» становится нечем и некуда (`file-search.md`, §4.2).
+  static OperationSpec specFor(SearchAddress address) {
+    final query = address.fullQuery;
+    return OperationSpec(
+      kind: kind,
+      targets: Targets.paths([address.where]),
+      destinationPath: address.toString(),
+      options: {
+        maskOption: query.mask,
+        regexpOption: query.regexp,
+        caseOption: query.caseSensitive,
+        recursiveOption: query.recursive,
+        hiddenOption: query.hidden,
+        ignoreOption: query.ignore,
+        followLinksOption: query.followLinks,
+        if (query.sizeFrom case final from?) sizeFromOption: from,
+        if (query.sizeTo case final to?) sizeToOption: to,
+        if (query.changedAfter case final after?) changedAfterOption: after.millisecondsSinceEpoch,
+        if (query.changedBefore case final before?) changedBeforeOption: before.millisecondsSinceEpoch,
+        contentOption: query.content,
+        contentRegexpOption: query.contentRegexp,
+        contentCaseOption: query.contentCase,
+        wholeWordsOption: query.wholeWords,
+        allCharsetsOption: query.allCharsets,
+      },
+    );
+  }
+
   /// Одна работа на все поиски, сколько бы их ни шло разом.
   static const String kind = 'search.find';
 

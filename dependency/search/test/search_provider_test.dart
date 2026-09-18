@@ -1,0 +1,135 @@
+import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
+import 'package:fc_search/fc_search.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+/// Источник находок: адреса строк, выход наверх и плоский список
+/// (`docs/spec/file-search.md`, §4).
+void main() {
+  late InMemoryTreeProvider disk;
+
+  setUp(() {
+    disk = InMemoryTreeProvider([
+      FakeEntry.directory('/home'),
+      FakeEntry.file('/home/readme.txt', size: 10),
+      FakeEntry.directory('/home/docs'),
+      FakeEntry.file('/home/docs/notes.txt', size: 10),
+      FakeEntry.directory('/home/docs/deep'),
+      FakeEntry.file('/home/docs/deep/plan.txt', size: 20),
+    ])..home = '/home';
+  });
+
+  Future<List<FsNode>> nodesAt(List<String> paths) async {
+    final result = <FsNode>[];
+    for (final path in paths) {
+      final dir = await disk.resolvePath().run(path.substring(0, path.lastIndexOf('/'))) as DirectoryNode;
+      final children = await disk.listChildren(dir);
+      result.add(children.firstWhere((node) => node.pathString == path));
+    }
+    return result;
+  }
+
+  Future<SearchProvider> found(List<String> paths, {String content = 'TODO', String mask = ''}) async {
+    final address = SearchAddress(where: '/home', query: SearchQuery(mask: mask, content: content));
+    final source = SearchProvider(address, title: 'Found: ${address.what}');
+    source.add(await nodesAt(paths));
+    return source;
+  }
+
+  test('адрес запроса живёт в пути строк', () async {
+    final source = await found(['/home/docs/deep/plan.txt']);
+
+    // Корень зовётся адресом, ветвь — местом внутри него: по строке источник
+    // восстанавливается после перезапуска, как сервер по `ssh://…`.
+    expect(source.rootDirectory.pathString, 'search:/?in=%2Fhome&content=TODO');
+    final branch = source.rootDirectory.nodes.whereType<DirectoryNode>().single;
+    expect(branch.pathString, 'search:/?in=%2Fhome&content=TODO#/docs');
+    expect(branch.pathString, isNot(contains('//')), reason: 'звеньев чужого пути в адресе нет');
+  });
+
+  test('имя списка в пути не участвует', () async {
+    // Прежде имя было звеном пути, и пустая маска ломала адреса всех строк.
+    final address = SearchAddress(where: '/home', query: const SearchQuery(mask: '', content: 'TODO'));
+    final source = SearchProvider(address, title: '');
+
+    expect(source.rootDirectory.pathString, 'search:/?in=%2Fhome&content=TODO');
+    expect(source.rootDirectory.pathString, isNot(contains('//')));
+  });
+
+  test('разбор пути не выдумывает', () async {
+    final source = await found(['/home/docs/notes.txt']);
+    final branch = source.rootDirectory.nodes.whereType<DirectoryNode>().single;
+
+    expect(await source.resolvePath().run(source.rootDirectory.pathString), same(source.rootDirectory));
+    expect(await source.resolvePath().run(branch.pathString), same(branch));
+    // Промах — это «нет такого», а не «вот вам корень»: молчаливая подмена
+    // уводила панель в начало списка на любую устаревшую ветвь.
+    expect(await source.resolvePath().run('search:/?in=%2Fhome&content=TODO#/gone'), isNull);
+  });
+
+  test('раскрытое — это адреса строк', () async {
+    final source = await found(['/home/docs/deep/plan.txt']);
+
+    final rows = <String>[source.rootDirectory.pathString];
+    void walk(DirectoryNode dir) {
+      for (final node in dir.nodes.whereType<DirectoryNode>()) {
+        if (identical(node.provider, source)) {
+          rows.add(node.pathString);
+          walk(node);
+        }
+      }
+    }
+
+    walk(source.rootDirectory);
+    expect(source.openBranches, rows, reason: 'панель сравнивает их со своим раскрытым');
+  });
+
+  test('список плоский: все находки без ветвей между ними', () async {
+    final source = await found(['/home/readme.txt', '/home/docs/notes.txt', '/home/docs/deep/plan.txt']);
+
+    final listing = await source.getDirectoryListing().run(ListingParams(source.rootDirectory));
+
+    expect(listing.map((node) => node.name), ['..', 'readme.txt', 'notes.txt', 'plan.txt']);
+  });
+
+  test('«..» ведёт туда, где искали', () async {
+    final source = await found(['/home/readme.txt']);
+
+    expect(source.exitPath, '/home');
+  });
+
+  test('находки остаются настоящими узлами своих источников', () async {
+    final source = await found(['/home/docs/notes.txt']);
+
+    final note = source.flatUnder(source.rootDirectory).single;
+    expect(note.provider, same(disk), reason: 'копирование и правка работают без единой правки');
+    expect(note.pathString, '/home/docs/notes.txt');
+  });
+
+  test('ветвь знает свой настоящий каталог, а корень — нет', () async {
+    final source = await found(['/home/docs/notes.txt']);
+    final branch = source.rootDirectory.nodes.whereType<DirectoryNode>().single;
+
+    expect(source.realPathOf(branch), '/home/docs');
+    expect(source.realPathOf(source.rootDirectory), isEmpty, reason: 'корень — список, а не каталог');
+  });
+
+  test('источник называет работу, которой наполняется', () async {
+    final source = await found(['/home/readme.txt'], content: 'TODO', mask: '*.txt');
+
+    final work = source.work;
+    expect(work.kind, SearchWork.kind);
+    expect(work.destinationPath, source.address.toString(), reason: 'находки складываются прямо в него');
+    expect(work.options[SearchWork.maskOption], '*.txt');
+    expect(work.options[SearchWork.contentOption], 'TODO');
+  });
+
+  test('находка не из-под каталога поиска ложится в корень', () async {
+    disk.add(FakeEntry.directory('/elsewhere'));
+    disk.add(FakeEntry.file('/elsewhere/stray.txt', size: 1));
+    final source = await found(['/elsewhere/stray.txt']);
+
+    expect(source.rootDirectory.nodes.map((node) => node.name), ['stray.txt']);
+  });
+}

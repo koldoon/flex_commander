@@ -4,6 +4,8 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'find_files_command.dart';
 import 'go_to_found_command.dart';
+import 'search_address.dart';
+import 'search_provider.dart';
 import 'search_query.dart';
 import 'search_run.dart';
 import 'search_work.dart';
@@ -32,9 +34,25 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
   @override
   void installBackend(BackendRegistry registry) {
     // Итог работы виден в списке фоновых работ, а пишет его эта сторона.
-    registry.strings('ru', {'Found: {count}': 'Найдено: {count}'});
+    registry.strings('ru', {'Found: {count}': 'Найдено: {count}', 'Found: {what}': 'Найдено: {what}'});
 
     registry.operation(SearchWork.kind, (services) => searching(services.resolve<Strings>()));
+
+    // Поиск — источник по адресу, как `ssh` и `zip`: весь запрос лежит в
+    // строке, и по ней же он восстанавливается (`docs/spec/file-search.md`,
+    // §4.1). Обход при монтировании не начинается — источник только называет
+    // работу, которой наполняется, а заводит её тот, кто его открыл (§4.2).
+    registry.addressProvider(
+      SearchAddress.scheme,
+      () => TaskOperation<Uri, TreeProvider>((op, uri) async {
+        final address = SearchAddress.of(uri);
+        if (address == null) {
+          throw FsError(uri.toString(), FsErrorKind.invalidAddress);
+        }
+        final strings = registry.services.resolve<Strings>();
+        return SearchProvider(address, title: strings.tr('Found: {what}', args: {'what': address.what}));
+      }),
+    );
   }
 
   @override
@@ -80,7 +98,19 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
         wholeWords: inputs.option<bool>(SearchWork.wholeWordsOption) ?? false,
         allCharsets: inputs.option<bool>(SearchWork.allCharsetsOption) ?? false,
       );
-      await op.delegate(SearchRun.from(where, onFound: inputs.onFound, strings: strings), query);
+      // Находки складываются **прямо в источник**, если он назван приёмником:
+      // список принадлежит ему, и копить их где-то ещё значило бы завести
+      // второго владельца — ровно того, из-за которого прежняя сборка и
+      // разъезжалась (`docs/spec/file-search.md`, §4.7).
+      final into = inputs.destination?.provider;
+      final list = into is SearchProvider ? into : null;
+      list?.markFilled();
+      void found(List<FsNode> nodes) {
+        list?.add(nodes);
+        inputs.onFound(nodes);
+      }
+
+      await op.delegate(SearchRun.from(where, onFound: found, strings: strings), query);
     });
   }
 
