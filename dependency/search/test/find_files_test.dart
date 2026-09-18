@@ -927,6 +927,111 @@ void main() {
     expect(redraws, lessThan(50), reason: 'сообщений о находках 300, а перерисовок — единицы');
   });
 
+  group('вкладка поиска', () {
+    testWidgets('окно и панель показывают один список', (tester) async {
+      await pumpApp(tester, size: const Size(1200, 800));
+      await openWindow(tester);
+      await search(tester, '*.dart');
+
+      final state = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state;
+      expect(state.results, isNotNull);
+      // Панель показывает ту же сессию: передавать список некуда, он один.
+      expect(identical(state.results, app.left), isTrue);
+      expect(app.left.source.scheme, SourceInfo.searchScheme);
+
+      final was = app.left.entries.length;
+      await press(tester, 'To panel');
+
+      expect(identical(state.results, app.left), isTrue, reason: '«To panel» ничего не перекладывает');
+      expect(app.left.entries.length, was, reason: 'и ничего не перечитывает');
+    });
+
+    testWidgets('два поиска — две вкладки и два разных списка', (tester) async {
+      // Личность источника — его адрес: у разных запросов он разный, и делить
+      // один список им нельзя (`docs/spec/file-search.md`, §4.1).
+      await pumpApp(tester);
+      await openWindow(tester);
+      await search(tester, '*.dart');
+      final state = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state;
+      final first = state.results!;
+      // Кнопка «Background» жива только у идущего обхода, а на подставном
+      // дереве он кончается мгновенно.
+      state.toBackground();
+      await tester.pumpAndSettle();
+
+      await openWindow(tester);
+      await search(tester, '*.md');
+      final second = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state.results!;
+
+      expect(identical(first, second), isFalse, reason: 'вкладки разные');
+      expect(first.entries.map((entry) => entry.name), contains('main.dart'));
+      expect(second.entries.map((entry) => entry.name), contains('readme.md'));
+      expect(second.entries.map((entry) => entry.name), isNot(contains('main.dart')));
+    });
+
+    testWidgets('заголовок панели — имя списка, а не каталог поиска', (tester) async {
+      await pumpApp(tester);
+      await openWindow(tester);
+      await search(tester, '*.dart');
+      await press(tester, 'To panel');
+
+      expect(app.left.headerText, 'Find *.dart');
+      // А «где стоим» — каталог поиска: ветвь находок местом не является
+      // (§4а, Н5), и повторный `Alt-F7` отсюда ищет там же.
+      expect(app.left.currentPath, '/home');
+    });
+
+    testWidgets('«Close» уносит вкладку вместе с окном', (tester) async {
+      await pumpApp(tester);
+      final tabs = app.panels.length;
+      await openWindow(tester);
+      await search(tester, '*.dart');
+      expect(app.panels.length, tabs + 1, reason: 'вкладка завелась');
+
+      await press(tester, 'Close');
+
+      expect(app.panels.length, tabs, reason: 'и ушла вместе с окном');
+      expect(app.left.source.scheme, isNot(SourceInfo.searchScheme));
+    });
+
+    testWidgets('поиск только по содержимому не ломает адреса', (tester) async {
+      // Тот самый запрос, на котором прежняя сборка разваливалась: имя пустое,
+      // и оно было звеном пути (§4.7).
+      final files = InMemoryContentProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.directory('/home/lib'),
+        FakeEntry.file('/home/lib/found.dart', content: utf8.encode('// TODO\n')),
+        FakeEntry.file('/home/clean.dart', content: utf8.encode('всё сделано\n')),
+      ])..home = '/home';
+      final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
+      app = (await testApp(provider: files, modules: featureModules(), settings: settings)).app;
+
+      await pumpApp(tester);
+      await openWindow(tester);
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(FindFilesForm),
+          matching: find.byWidgetPredicate((widget) => widget is TextField && widget.decoration?.hintText == 'TODO'),
+        ),
+        'TODO',
+      );
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      await press(tester, 'To panel');
+
+      expect(app.left.headerText, 'Find "TODO"', reason: 'имя списка не бывает пустым');
+      expect(app.left.entries.map((entry) => entry.name), contains('found.dart'));
+      for (final entry in app.left.entries) {
+        expect(entry.path, isNot(contains('//')), reason: 'в адресах строк нет двойного слэша');
+      }
+
+      await app.left.goUp();
+      await tester.pumpAndSettle();
+      expect(app.left.currentPath, '/home', reason: '«..» уводит туда, где искали');
+    });
+  });
+
   group('фон', () {
     testWidgets('«Background» убирает окно, а работа остаётся полоской', (tester) async {
       await pumpApp(tester);

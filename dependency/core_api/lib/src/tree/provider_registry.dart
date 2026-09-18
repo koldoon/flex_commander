@@ -615,15 +615,21 @@ class _MountKey {
   final TreeProvider? hostProvider;
   final String host;
 
-  /// `user@host:22` — без пароля.
+  /// `user@host:22` — без пароля; у адреса без сервера — его доводы.
   ///
   /// Пароль не годится ни в ключ, ни в показ: с ним один и тот же сервер,
   /// набранный с паролем и без, оказался бы двумя подключениями, а `mounted`
   /// показал бы пароль в справке.
+  ///
+  /// Доводы — потому что сервер есть не у всякого адреса. У поиска
+  /// (`search:/?in=…&content=TODO`) личность целиком в них, и без них два
+  /// разных запроса стали бы одним смонтированным источником
+  /// (`docs/spec/file-search.md`, §4.1).
   static String _addressOf(Uri address) {
     final user = address.userInfo.split(':').first;
     final place = address.hasPort ? '${address.host}:${address.port}' : address.host;
-    return user.isEmpty ? place : '$user@$place';
+    final server = user.isEmpty ? place : '$user@$place';
+    return address.query.isEmpty ? server : '$server?${address.query}';
   }
 
   @override

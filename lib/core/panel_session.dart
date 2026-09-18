@@ -559,7 +559,20 @@ class PanelSession {
   /// Непрочитанная сессия отвечает тем каталогом, где её оставили: она
   /// **стоит** там, просто ещё не читана (`docs/spec/panel-sessions.md`, §6), а
   /// ряд наборов должен называть её по месту, а не пустотой.
-  String get currentPath => _standing.isEmpty ? (_directory?.displayPath ?? _lastPath) : _standing;
+  String get currentPath {
+    if (_standing.isNotEmpty) {
+      return _standing;
+    }
+    // Источник, у которого ветви — показ, а не места, называет и то, где
+    // панель стоит: находки показываются, а стоит она там, где искали
+    // (`docs/spec/file-search.md`, §4.5). Иначе «где я» отвечал бы адрес
+    // списка, и повторный поиск отсюда искать было бы негде.
+    final exit = _exitPath;
+    if (exit.isNotEmpty) {
+      return exit;
+    }
+    return _directory?.displayPath ?? _lastPath;
+  }
 
   /// Каталог, в котором панель стоит с точки зрения курсора.
   ///
@@ -581,6 +594,13 @@ class PanelSession {
   String _standing = '';
 
   void _updateStanding() {
+    // У источника с виртуальными ветвями место панели не выводится из строк
+    // вовсе: ветвь — показ, а не место, и находка под курсором лежит в чужом
+    // каталоге. Где стоим, знает сам источник (`file-search.md`, §4.5).
+    if (_directory?.provider is PanelVirtualBranches) {
+      _standing = '';
+      return;
+    }
     final at = _list?.currentPathFor(currentNode);
     if (at != null && at.isNotEmpty) {
       _standing = at;
@@ -904,8 +924,12 @@ class PanelSession {
 
     // Тот же адрес — тот же корень: перечитывать сервер заново незачем, а
     // второе подключение к нему разошлось бы состоянием с первым.
+    //
+    // Сравниваются и доводы: у адреса без сервера (`search:/?in=…`) вся
+    // личность в них, и без этого два разных запроса считались бы одним местом.
     final own = _rootLease?.provider;
-    if (own != null && own.scheme == scheme && _ownAddress?.authority == address.authority) {
+    final same = _ownAddress?.authority == address.authority && _ownAddress?.query == address.query;
+    if (own != null && own.scheme == scheme && same) {
       return own;
     }
 
