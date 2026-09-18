@@ -1141,8 +1141,18 @@ class PanelSession {
       _knownBranches = named;
     }
 
+    // Именем курсор здесь **не называется**. Имя — это намерение того, кто
+    // позвал: вернуться историей, подняться наверх, войти в каталог, из
+    // которого вышли. У тихого перечитывания намерения нет вовсе: строка та же,
+    // и держится она путём.
+    //
+    // Живой разбор 18 сентября 2026: в списке находок имена повторяются сотнями
+    // (`typescript/loc/lcl/PTB` лежит в каждом `node_modules`), и поиск по имени
+    // уводил курсор на **первую** такую строку — с 1334-й на 168-ю. Вид честно
+    // подматывался к ней, следующая пачка возвращала курсор назад, и панель
+    // мерцала между двумя местами по нескольку раз в секунду.
     final at = currentNode?.pathString;
-    await _load(dir, cursorName: currentNode?.name, keepMarks: true, useCache: false, quiet: true);
+    await _load(dir, keepMarks: true, useCache: false, quiet: true, samePlace: true);
     if (at != null && _cursorToPath(at)) {
       _changed();
     }
@@ -1178,7 +1188,9 @@ class PanelSession {
     // Посчитанные размеры **не** выбрасываем, в отличие от `Cmd-R`: чужое
     // изменение к ним отношения не имеет, а считались они долго.
     final at = currentNode?.pathString;
-    await _load(dir, cursorName: currentNode?.name, keepMarks: true, useCache: false, quiet: true, watched: true);
+    // На месте и без намерения: каталог изменили не мы, а курсор держится
+    // путём. Имя тут не годится вдвойне — в дереве тёзок сколько угодно.
+    await _load(dir, keepMarks: true, useCache: false, quiet: true, watched: true, samePlace: true);
     if (at != null && _cursorToPath(at)) {
       _changed();
     }
@@ -2348,6 +2360,7 @@ class PanelSession {
     bool quiet = false,
     bool records = false,
     bool watched = false,
+    bool samePlace = false,
   }) async {
     _rememberCursor();
     // Сменился ли каталог — решается **здесь**, до чтения: ниже прежнего уже
@@ -2361,7 +2374,13 @@ class PanelSession {
     // Первое открытие — тоже переход: панель ещё ничего не показала, а путь из
     // настроек уже лежит в `_lastPath`, и без этой оговорки курсор оставался бы
     // на корне дерева.
-    final moved = _directory == null || _lastPath != dir.pathString;
+    //
+    // [samePlace] говорит об этом прямо: перечитывание на месте переходом не
+    // бывает. У дерева «каталог набора» — корень источника, и он не совпадает с
+    // показанным путём никогда: тихое перечитывание выглядело переходом, курсор
+    // уезжал на ветвь корня, а следующая пачка возвращала его назад. Живьём это
+    // и мерцало по нескольку раз в секунду (живой разбор 18 сентября 2026).
+    final moved = !samePlace && (_directory == null || _lastPath != dir.pathString);
     // Слежение снимается **до** отмены операции и до чтения: событие из
     // покидаемого каталога, придя сейчас, позвало бы `catchUp`, а тот — `_load`,
     // и отменил бы этот самый переход (`docs/spec/directory-watch.md`, §7).
