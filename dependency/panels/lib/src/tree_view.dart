@@ -205,6 +205,19 @@ class TreeViewState extends State<TreeView> {
     final rows = _rows;
     final at = widget.panel.cursorIndex;
     final ready = _scroll.hasClients && _step > 0 && at >= 0 && at < rows.length;
+    // Временный щуп: собирать с `--dart-define=FC_TRACE_SCROLL=1`. Заводится на
+    // время беды и уходит вместе с ней — постоянного журнала в приложении нет
+    // (`docs/spec/client-server.md`, §5.5).
+    if (_traceScroll) {
+      // ignore: avoid_print
+      print(
+        'щуп подмотки: двинулся=$moved курсор=$at строк=${rows.length} '
+        'путь=${at >= 0 && at < rows.length ? rows[at].path : '—'} '
+        'смещение=${_scroll.hasClients ? _scroll.offset.toStringAsFixed(1) : '—'} '
+        'обзор=${_scroll.hasClients ? _scroll.position.viewportDimension.toStringAsFixed(1) : '—'} '
+        'шаг=${_step.toStringAsFixed(1)} готов=$ready восстановлен=$_restored',
+      );
+    }
 
     // Восстановление ждёт своего кадра: строки при запуске приходят позже
     // вида, и признак тратить рано.
@@ -282,9 +295,16 @@ class TreeViewState extends State<TreeView> {
 
     _pin.remember(rows, at);
     if (target != offset) {
+      if (_traceScroll) {
+        // ignore: avoid_print
+        print('щуп подмотки: ${offset.toStringAsFixed(1)} → ${target.toStringAsFixed(1)}');
+      }
       _scroll.jumpTo(target);
     }
   }
+
+  /// Щуп прокрутки — на время разбора живой беды.
+  static const bool _traceScroll = bool.fromEnvironment('FC_TRACE_SCROLL');
 
   /// Строка под курсором с прошлого показа — чтобы перестановка её не сдвинула.
   final CursorPin _pin = CursorPin();
