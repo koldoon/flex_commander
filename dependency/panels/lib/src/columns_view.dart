@@ -133,6 +133,7 @@ class ColumnsViewState extends State<ColumnsView> {
 
   /// Что показывали в прошлый раз: по смене видно, что пора подматывать.
   int _shownCursor = -1;
+  String? _shownPath;
   int _shownCount = -1;
 
   @override
@@ -606,16 +607,23 @@ class ColumnsViewState extends State<ColumnsView> {
         _forgetGone(chain);
         _scheduleHold(_rowUnderCursor());
 
-        final cursorMoved = panel.cursorIndex != _shownCursor;
-        if (cursorMoved || rows.length != _shownCount) {
+        // Список прибавился сам, а строка под курсором та же — вид не трогаем:
+        // человек в это время читает его мышью (`panel-view-tree.md`, §5).
+        final cursorPath =
+            panel.cursorIndex >= 0 && panel.cursorIndex < rows.length ? rows[panel.cursorIndex].path : null;
+        final sameRow = cursorPath != null && cursorPath == _shownPath;
+        final countChanged = rows.length != _shownCount;
+        final follow = !sameRow || !countChanged;
+        if (!sameRow || panel.cursorIndex != _shownCursor || countChanged) {
           _shownCursor = panel.cursorIndex;
+          _shownPath = cursorPath;
           _shownCount = rows.length;
           // И подмотка, и уборка — **после кадра**: та зовёт ядро, а к ядру
           // из-под разметки ходить нельзя (`panel-state-races`).
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
               final chain = _memo.of(_rows, widget.panel.cursorIndex);
-              _reveal(chain, moved: cursorMoved);
+              _reveal(chain, moved: follow);
               _tidyUp(chain);
             }
           });

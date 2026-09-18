@@ -457,16 +457,26 @@ class TreeViewState extends State<TreeView> {
         final rows = _rows;
         final at = panel.cursorIndex;
         final cursorPath = at >= 0 && at < rows.length ? rows[at].path : null;
-        // Курсор двинулся — показать его; сменилось только число строк —
-        // придержать строку на месте, но прокрутку не отбирать.
-        final cursorMoved = at != _shownCursor || cursorPath != _shownPath;
-        if (cursorMoved || rows.length != _shownCount) {
+        // Что случилось со списком — три разных случая, и подмотка у них разная
+        // (`docs/spec/panel-view-tree.md`, §5):
+        //
+        // * под курсором **другая строка** — человек его увёл, и строку надо
+        //   показать;
+        // * строк **стало больше или меньше**, а строка под курсором та же —
+        //   список прибавился сам (растут находки, идёт обход), и вид трогать
+        //   нельзя: человек в это время читает его мышью;
+        // * строки **переставили** (сортировка), а число их прежнее — тогда всё
+        //   как раньше: настройка решает, держать место или догнать строку.
+        final sameRow = cursorPath != null && cursorPath == _shownPath;
+        final countChanged = rows.length != _shownCount;
+        final follow = !sameRow || !countChanged;
+        if (!sameRow || at != _shownCursor || countChanged) {
           _shownCursor = at;
           _shownPath = cursorPath;
           _shownCount = rows.length;
           WidgetsBinding.instance.addPostFrameCallback((_) {
             if (mounted) {
-              _revealCursor(moved: cursorMoved);
+              _revealCursor(moved: follow);
             }
           });
         }

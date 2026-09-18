@@ -828,8 +828,9 @@ void main() {
     final scrolled = tester.widget<Scrollable>(find.byType(Scrollable).first).controller!.offset;
     expect(scrolled, greaterThan(0), reason: 'стенд ни о чём, если прокрутка не поехала');
 
-    // Список прибавился — так растут находки.
-    source.add(FakeEntry.file('/home/fresh.txt', size: 1));
+    // Список прибавился **выше курсора** — так и растут находки: номер строки
+    // под курсором меняется сам, а человек никуда не ходил.
+    source.add(FakeEntry.file('/home/aaa.txt', size: 1));
     await runtime.app.left.reload();
     await tester.pumpAndSettle();
 
@@ -838,6 +839,13 @@ void main() {
       scrolled,
       reason: 'вид остался там, куда его увёл человек',
     );
+
+    // И ещё раз: мерцало оно именно на череде пачек.
+    source.add(FakeEntry.file('/home/aab.txt', size: 1));
+    await runtime.app.left.reload();
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<Scrollable>(find.byType(Scrollable).first).controller!.offset, scrolled);
   });
 
   testWidgets('курсор доходит до нижнего края', (tester) async {
