@@ -444,6 +444,55 @@ void main() {
     expect(app.left.entries.where((entry) => entry.name == 'found.dart'), hasLength(30));
   });
 
+  testWidgets('«To panel» из правой панели дважды: левая остаётся своей', (tester) async {
+    // Живой дефект: поиск из правой панели, «To panel», окно вернули из фона и
+    // нажали ещё раз — находки вставали **ещё и в левую** панель.
+    final slow = _SlowProvider([
+      FakeEntry.directory('/home'),
+      for (var i = 0; i < 30; i++) ...[
+        FakeEntry.directory('/home/d$i'),
+        FakeEntry.file('/home/d$i/found.dart', size: 1),
+      ],
+    ])..home = '/home';
+    app = (await testApp(provider: slow, modules: featureModules())).app;
+
+    await pumpApp(tester);
+    app.activate(app.right);
+    await tester.pumpAndSettle();
+
+    await openWindow(tester);
+    await tester.enterText(input, '*.dart');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.pump();
+
+    final state = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state;
+    for (var i = 0; i < 40 && state.foundCount < 3; i++) {
+      await tester.pump(const Duration(milliseconds: 30));
+    }
+    expect(state.busy, isTrue, reason: 'стенд ни о чём, если обход уже кончился');
+
+    await state.toPanel();
+    await tester.pump();
+
+    expect(app.right.source.scheme, SourceInfo.searchScheme, reason: 'находки в той панели, откуда искали');
+    expect(app.left.source.scheme, isNot(SourceInfo.searchScheme), reason: 'левую панель не трогали');
+
+    // Окно вернули из фона и нажали ещё раз: показать ту же вкладку там же.
+    await state.toPanel();
+    await tester.pump();
+
+    expect(app.right.source.scheme, SourceInfo.searchScheme);
+    expect(app.left.source.scheme, isNot(SourceInfo.searchScheme), reason: 'и второе нажатие её не занимает');
+
+    // Дать обходу кончиться: незаконченный оставляет за собой отложенную
+    // перерисовку, а висящий таймер роняет виджет-тест.
+    for (var i = 0; i < 40 && state.busy; i++) {
+      await tester.pump(const Duration(milliseconds: 60));
+    }
+    await tester.pump(const Duration(milliseconds: 120));
+  });
+
   testWidgets('панель уже деревом — находки всё равно раскрыты', (tester) async {
     // Живой дефект: вид уже стоял древесным, второй раз он ни о чём не просит,
     // и находки показывались списком своего корня — «..» и одна ветвь, которая

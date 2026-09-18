@@ -11,7 +11,11 @@ import 'search_work.dart';
 
 /// Состояние окна поиска: о чём спросили, что нашлось и идёт ли обход.
 class FindFilesState extends ChangeNotifier {
-  FindFilesState({required this.app, required this.panel, required this.where, required this.runId});
+  FindFilesState({required this.app, required this.panel, required this.where, required this.runId})
+    : _side =
+          identical(app.panelAt(ViewportPosition.right).session, panel)
+              ? ViewportPosition.right
+              : ViewportPosition.left;
 
   final Application app;
 
@@ -21,6 +25,16 @@ class FindFilesState extends ChangeNotifier {
 
   /// Панель, в каталоге которой ищут и в которую отдают найденное.
   final Session panel;
+
+  /// С какой стороны показывать вкладку — с той, где стояла панель, из которой
+  /// искали.
+  ///
+  /// Запоминается **раз**, при вопросе, а не вычисляется при каждом ответе: с
+  /// первого же «В панель» с этой стороны стоит сама вкладка, и панели-источника
+  /// там больше нет. Вычисляемая заново, сторона от этого переворачивалась — и
+  /// второе нажатие ставило находки **ещё и во вторую** панель
+  /// (`docs/spec/file-search.md`, §4.3).
+  final ViewportPosition _side;
 
   /// Где искать — путём. Не поле окна: чтобы искать в другом месте, туда
   /// переходят панелью, — так не бывает поиска «не там, где думает человек».
@@ -317,11 +331,6 @@ class FindFilesState extends ChangeNotifier {
       _redraw.flush();
     }
   }
-
-  /// С какой стороны показывать вкладку — с той, где стоит панель, из которой
-  /// искали.
-  ViewportPosition get _side =>
-      identical(app.panelAt(ViewportPosition.right).session, panel) ? ViewportPosition.right : ViewportPosition.left;
 
   void _grew(List<FileEntry> entries) {
     _foundCount += entries.length;
