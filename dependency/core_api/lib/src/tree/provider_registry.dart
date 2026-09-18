@@ -97,7 +97,24 @@ class ProviderRegistry {
   }
 
   /// Регистрирует источник, открываемый по адресу: `ssh`, `ftp`, `smb`.
-  void registerAddress(String scheme, AddressFactory factory) => _addresses[scheme.toLowerCase()] = factory;
+  void registerAddress(String scheme, AddressFactory factory, {bool needsConnection = true}) {
+    final name = scheme.toLowerCase();
+    _addresses[name] = factory;
+    if (!needsConnection) {
+      _offlineAddresses.add(name);
+    }
+  }
+
+  /// Нужно ли ради этого адреса куда-то ходить.
+  ///
+  /// Восстановление при запуске не подключается само (`allowConnect: false`):
+  /// сохранённый `ssh://` полез бы в сеть на каждом запуске. Но есть адреса,
+  /// открытие которых не стоит ничего — список находок, например, монтируется
+  /// пустым, — и отказывать им в восстановлении не за что
+  /// (`docs/spec/file-search.md`, §4.6).
+  bool addressNeedsConnection(String scheme) => !_offlineAddresses.contains(scheme.toLowerCase());
+
+  final Set<String> _offlineAddresses = {};
 
   /// Открывается ли адрес с такой схемой.
   bool knowsAddress(String scheme) => _addresses.containsKey(scheme.toLowerCase());

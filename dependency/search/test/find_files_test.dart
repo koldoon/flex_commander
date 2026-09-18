@@ -1032,6 +1032,35 @@ void main() {
     });
   });
 
+  group('восстановление', () {
+    testWidgets('панель, оставленную в находках, поднимают списком', (tester) async {
+      // Обход при запуске никто не заводит — уходить в обход диска на старте
+      // приложение не должно. Но адрес восстанавливается, и список зовётся
+      // по-прежнему (`docs/spec/file-search.md`, §4.6).
+      final provider = InMemoryContentProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.file('/home/main.dart', size: 1),
+      ])..home = '/home';
+      final address = SearchAddress(where: '/home', query: const SearchQuery(mask: '*.dart')).toString();
+      final settings = AppSettings(left: PanelSettings(path: address), right: PanelSettings.defaults('/home'));
+      app = (await testApp(provider: provider, modules: featureModules(), settings: settings)).app;
+
+      await pumpApp(tester);
+
+      expect(app.left.source.scheme, SourceInfo.searchScheme, reason: 'список на месте');
+      expect(app.left.headerText, 'Find *.dart', reason: 'и зовётся по запросу');
+      expect(app.left.entries.where((entry) => entry.name == 'main.dart'), isEmpty, reason: 'а обход не заводили');
+
+      // Повторить его — дело одного окна: запрос уже в адресе.
+      await openWindow(tester);
+      expect(tester.widget<TextField>(input).controller!.text, '*.dart');
+
+      // Прогрев оболочки при запуске ставит свой таймер; дожидаемся его, иначе
+      // стенд ругается на висящий таймер, и правильно делает.
+      await tester.pump(const Duration(seconds: 11));
+    });
+  });
+
   group('фон', () {
     testWidgets('«Background» убирает окно, а работа остаётся полоской', (tester) async {
       await pumpApp(tester);

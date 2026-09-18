@@ -44,6 +44,10 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
     // работу, которой наполняется, а заводит её тот, кто его открыл (§4.2).
     registry.addressProvider(
       SearchAddress.scheme,
+      // Ходить ради него никуда не надо: источник монтируется пустым, а обход
+      // заводит тот, кто его открыл. Потому и при запуске он восстанавливается
+      // как обычный путь (`docs/spec/file-search.md`, §4.6).
+      needsConnection: false,
       () => TaskOperation<Uri, TreeProvider>((op, uri) async {
         final address = SearchAddress.of(uri);
         if (address == null) {

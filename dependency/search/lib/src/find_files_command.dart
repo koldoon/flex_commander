@@ -6,6 +6,7 @@ import 'package:flutter/widgets.dart';
 import 'find_files_form.dart';
 import 'find_files_results.dart';
 import 'find_files_state.dart';
+import 'search_address.dart';
 
 /// Окно поиска по дереву — в две фазы.
 ///
@@ -51,6 +52,13 @@ class FindFilesCommand extends AppCommand {
 
     final app = context.app;
     final state = FindFilesState(app: app, panel: panel, where: where, runId: '$commandId#${++_runs}');
+
+    // Панель уже показывает находки — значит, запрос у неё есть, и спрашивать
+    // его заново незачем: окно открывается с прежними полями. Так же из неё
+    // возвращается и поиск, восстановленный после перезапуска (§4.6).
+    if (SearchAddress.parse(panel.source.rootPath) case final address?) {
+      state.restore(address);
+    }
 
     // Окна показывает команда, а состояние их только зовёт. Каждое закрывает
     // за собой предыдущее: два окна поиска разом на экране — это два вопроса,

@@ -933,9 +933,11 @@ class PanelSession {
       return own;
     }
 
-    if (!allowConnect) {
+    if (!allowConnect && _registry.addressNeedsConnection(scheme)) {
       // Подключаться сейчас нельзя — см. [Session.openPath]. Отвечаем так же,
       // как о любом недоступном пути: тот, кто просил, откроет что-нибудь ещё.
+      // Адрес, ради которого никуда идти не надо, это не задевает: список
+      // находок восстанавливается пустым (`docs/spec/file-search.md`, §4.6).
       throw FsError(path, FsErrorKind.notFound);
     }
 

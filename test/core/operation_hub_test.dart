@@ -233,7 +233,7 @@ class _Collector implements BackendRegistry {
   void column(ColumnSpec spec, {ColumnComparatorFactory? compare}) {}
 
   @override
-  void addressProvider(String scheme, AddressFactory factory) {}
+  void addressProvider(String scheme, AddressFactory factory, {bool needsConnection = true}) {}
 
   @override
   void provider(String scheme, ProviderFactory factory, {Set<String> extensions = const {}}) {}

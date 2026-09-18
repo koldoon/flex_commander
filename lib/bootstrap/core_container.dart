@@ -85,7 +85,7 @@ class CoreContainer extends DI {
           registry.register(declared.scheme, declared.factory, extensions: declared.extensions);
         }
         for (final declared in backend.addresses) {
-          registry.registerAddress(declared.scheme, declared.factory);
+          registry.registerAddress(declared.scheme, declared.factory, needsConnection: declared.needsConnection);
         }
         return registry;
       },

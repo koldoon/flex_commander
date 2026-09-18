@@ -52,7 +52,13 @@ abstract interface class BackendRegistry {
   ///
   /// В отличие от вложенного, такому не над чем монтироваться — он сам себе
   /// корень, и панель встаёт на него целиком.
-  void addressProvider(String scheme, AddressFactory factory);
+  ///
+  /// [needsConnection] — надо ли ради него куда-то идти. У сервера надо, и при
+  /// запуске такой адрес не восстанавливается сам: сохранённый `ssh://` лез бы
+  /// в сеть на каждом запуске. У списка находок — нет: он монтируется пустым, и
+  /// отказывать ему в восстановлении не за что (`docs/spec/file-search.md`,
+  /// §4.6).
+  void addressProvider(String scheme, AddressFactory factory, {bool needsConnection = true});
 
   /// Длительная работа, которую умеет этот модуль: упаковка, распаковка,
   /// проверка.

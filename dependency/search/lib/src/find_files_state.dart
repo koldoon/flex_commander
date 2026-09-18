@@ -165,6 +165,18 @@ class FindFilesState extends ChangeNotifier {
 
   void cursorToLast() => results?.setCursorToLast();
 
+  /// Взять запрос из адреса — того, что панель уже показывает.
+  ///
+  /// Панель, оставленную в находках, приложение восстанавливает списком: он
+  /// пуст, потому что обход при запуске никто не заводит (§4.6). Тогда
+  /// `Alt-F7` из неё открывает окно **с тем же запросом** — повторить поиск
+  /// становится делом одного `Enter`.
+  void restore(SearchAddress address) {
+    query = address.query;
+    _limits = address.limits;
+    notifyListeners();
+  }
+
   void typed(String mask) {
     query = query.copyWith(mask: mask);
     notifyListeners();

@@ -14,10 +14,14 @@ class ProviderRegistration {
 
 /// Источник по адресу, объявленный модулем.
 class AddressRegistration {
-  const AddressRegistration(this.scheme, this.factory);
+  const AddressRegistration(this.scheme, this.factory, {this.needsConnection = true});
 
   final String scheme;
   final AddressFactory factory;
+
+  /// Нужно ли ради него куда-то ходить: от этого зависит, восстановят ли его
+  /// при запуске (`docs/spec/file-search.md`, §4.6).
+  final bool needsConnection;
 }
 
 /// Колонка, объявленная ядровой половиной модуля: паспорт и сравнение.
@@ -68,8 +72,8 @@ class BackendRegistrations extends ModuleRegistrations<FcBackendModule> implemen
   }
 
   @override
-  void addressProvider(String scheme, AddressFactory factory) {
-    addresses.add(AddressRegistration(scheme, factory));
+  void addressProvider(String scheme, AddressFactory factory, {bool needsConnection = true}) {
+    addresses.add(AddressRegistration(scheme, factory, needsConnection: needsConnection));
   }
 
   @override
