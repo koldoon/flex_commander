@@ -45,19 +45,21 @@ class FindFilesCommand extends AppCommand {
   @override
   Future<void> execute(CommandContext context) async {
     final panel = context.session;
-    final where = panel.currentPath;
+
+    // Панель уже показывает находки — значит, запрос у неё есть. Тогда окно
+    // открывается с прежними полями, а искать заново идём **туда же**, где
+    // искали: проекция сама по себе не место, и складывать фильтр поверх
+    // фильтра человек не просил (`docs/spec/file-search.md`, §4.6).
+    final shown = SearchAddress.parse(panel.source.rootPath);
+    final where = shown?.where ?? panel.currentPath;
     if (where.isEmpty) {
       return;
     }
 
     final app = context.app;
     final state = FindFilesState(app: app, panel: panel, where: where, runId: '$commandId#${++_runs}');
-
-    // Панель уже показывает находки — значит, запрос у неё есть, и спрашивать
-    // его заново незачем: окно открывается с прежними полями. Так же из неё
-    // возвращается и поиск, восстановленный после перезапуска (§4.6).
-    if (SearchAddress.parse(panel.source.rootPath) case final address?) {
-      state.restore(address);
+    if (shown != null) {
+      state.restore(shown);
     }
 
     // Окна показывает команда, а состояние их только зовёт. Каждое закрывает

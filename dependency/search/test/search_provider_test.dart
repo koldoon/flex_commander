@@ -85,12 +85,25 @@ void main() {
     expect(source.openBranches, rows, reason: 'панель сравнивает их со своим раскрытым');
   });
 
-  test('список плоский: все находки без ветвей между ними', () async {
+  test('список — уровень, как у всякого каталога', () async {
     final source = await found(['/home/readme.txt', '/home/docs/notes.txt', '/home/docs/deep/plan.txt']);
 
     final listing = await source.getDirectoryListing().run(ListingParams(source.rootDirectory));
 
-    expect(listing.map((node) => node.name), ['..', 'readme.txt', 'notes.txt', 'plan.txt']);
+    // Ветви каталогами, находки файлами: в ветвь входят, а не разворачивают её
+    // в общую кучу (`docs/spec/file-search.md`, §4а, Н3).
+    expect(listing.map((node) => node.name), ['..', 'readme.txt', 'docs']);
+
+    final branch = listing.whereType<DirectoryNode>().firstWhere((node) => node.name == 'docs');
+    final inside = await source.getDirectoryListing().run(ListingParams(branch));
+    expect(inside.map((node) => node.name), ['..', 'notes.txt', 'deep']);
+  });
+
+  test('всё найденное можно спросить и одной кучей', () async {
+    // Списком панели это не служит, но нужно тому, кто считает находки.
+    final source = await found(['/home/readme.txt', '/home/docs/notes.txt', '/home/docs/deep/plan.txt']);
+
+    expect(source.flatUnder(source.rootDirectory).map((node) => node.name), ['readme.txt', 'notes.txt', 'plan.txt']);
   });
 
   test('«..» ведёт туда, где искали', () async {
@@ -107,12 +120,13 @@ void main() {
     expect(note.pathString, '/home/docs/notes.txt');
   });
 
-  test('ветвь знает свой настоящий каталог, а корень — нет', () async {
+  test('за каждым местом проекции стоит настоящий каталог', () async {
     final source = await found(['/home/docs/notes.txt']);
     final branch = source.rootDirectory.nodes.whereType<DirectoryNode>().single;
 
     expect(source.realPathOf(branch), '/home/docs');
-    expect(source.realPathOf(source.rootDirectory), isEmpty, reason: 'корень — список, а не каталог');
+    // За корнем стоит каталог, в котором искали: проекция начинается с него.
+    expect(source.realPathOf(source.rootDirectory), '/home');
   });
 
   test('источник называет работу, которой наполняется', () async {
