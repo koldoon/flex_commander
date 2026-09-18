@@ -272,7 +272,11 @@ class FindFilesState extends ChangeNotifier {
     // Вкладка со своим источником: находки складываются прямо в него, и
     // «передать список панели» становится нечем и некуда — панель получает ту
     // же вкладку.
-    final tab = await app.openPanel(_side, like: panel);
+    //
+    // **Не показывая**: панель человек не отдавал. Вкладка видна в ряду, к ней
+    // можно перейти — а подменять содержимое панели за спиной незачем
+    // (`docs/spec/file-search.md`, §4.3).
+    final tab = await app.openPanel(_side, like: panel, show: false);
     _tab = tab;
     await tab.session.openPath(address.toString());
 
@@ -372,14 +376,16 @@ class FindFilesState extends ChangeNotifier {
   /// не повод потерять остальные.
   Future<void> goTo() async {
     final entry = current;
-    final session = results;
-    if (!canGoTo || entry == null || session == null) {
+    if (!canGoTo || entry == null) {
       return;
     }
     toBackground();
-    app.activate(session);
-    await session.openPath(entry.directoryPath);
-    session.setCursorToName(entry.name);
+    // В **свою** панель, а не во вкладку поиска: её человек не открывал, и
+    // показывать ему находку в невидимом наборе значило бы не показать ничего
+    // (`docs/spec/file-search.md`, §4.3).
+    app.activate(panel);
+    await panel.openPath(entry.directoryPath);
+    panel.setCursorToName(entry.name);
   }
 
   /// `F3` и `F4` над находкой: встать на неё и открыть.

@@ -186,7 +186,7 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   @override
-  Future<Panel> openPanel(ViewportPosition side, {Session? like, int? at}) async {
+  Future<Panel> openPanel(ViewportPosition side, {Session? like, int? at, bool show = true}) async {
     final here = _panelAt(side);
     final model = like is SessionMirror ? like : here.shown;
     final session = await _createSession(model);
@@ -202,7 +202,13 @@ class AppController extends ChangeNotifier implements Application {
         _shown[i]++;
       }
     }
-    showPanel(side, panel);
+    if (show) {
+      showPanel(side, panel);
+    } else {
+      // Набор заведён, но панели не отданы: ряд вкладок его уже показывает, а
+      // подменять содержимое панели, которой человек не просил, — нельзя.
+      _panelsChanged();
+    }
     return panel;
   }
 

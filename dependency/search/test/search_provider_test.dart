@@ -92,7 +92,7 @@ void main() {
 
     // Ветви каталогами, находки файлами: в ветвь входят, а не разворачивают её
     // в общую кучу (`docs/spec/file-search.md`, §4а, Н3).
-    expect(listing.map((node) => node.name), ['..', 'readme.txt', 'docs']);
+    expect(listing.map((node) => node.name), ['readme.txt', 'docs']);
 
     final branch = listing.whereType<DirectoryNode>().firstWhere((node) => node.name == 'docs');
     final inside = await source.getDirectoryListing().run(ListingParams(branch));
@@ -106,10 +106,19 @@ void main() {
     expect(source.flatUnder(source.rootDirectory).map((node) => node.name), ['readme.txt', 'notes.txt', 'plan.txt']);
   });
 
-  test('«..» ведёт туда, где искали', () async {
-    final source = await found(['/home/readme.txt']);
+  test('в корне проекции «..» нет', () async {
+    // Вверх из неё идти некуда: выйти из отобранного можно только явно —
+    // сменой вкладки или переходом по адресу (§4.6). Иначе из списка
+    // вываливались случайно, одним лишним нажатием.
+    final source = await found(['/home/docs/notes.txt']);
 
-    expect(source.exitPath, '/home');
+    final listing = await source.getDirectoryListing().run(ListingParams(source.rootDirectory));
+    expect(listing.map((node) => node.name), isNot(contains('..')));
+
+    // А внутри проекции «..» на месте: там наверх есть куда.
+    final branch = listing.whereType<DirectoryNode>().single;
+    final inside = await source.getDirectoryListing().run(ListingParams(branch));
+    expect(inside.map((node) => node.name), contains('..'));
   });
 
   test('находки остаются настоящими узлами своих источников', () async {

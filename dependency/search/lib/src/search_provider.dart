@@ -42,7 +42,6 @@ class SearchProvider
         PanelNaturalOrder,
         PanelVirtualBranches,
         PanelSourceTitle,
-        PanelExitPath,
         PanelFilledByWork,
         PanelSourceChanges,
         RealPathSource {
@@ -101,10 +100,6 @@ class SearchProvider
   /// собирается заявка одним местом на обе стороны.
   @override
   OperationSpec get work => SearchWork.specFor(address);
-
-  /// Куда ведёт `..` — туда, где искали.
-  @override
-  String get exitPath => address.where;
 
   /// Найденное показывается деревом: плоским списком структуры не видно.
   @override
@@ -253,10 +248,11 @@ class SearchProvider
   @override
   Operation<ListingParams, List<FsNode>> getDirectoryListing() => TaskOperation<ListingParams, List<FsNode>>(
     (op, params) async => [
-      // У корня своего родителя нет — выход ему называет источник; у ветви
-      // родитель обычный.
-      if (params.dir.parentDirectory != null || (identical(params.dir, _root) && exitPath.isNotEmpty))
-        ParentDirNode(params.dir),
+      // У корня проекции «..» нет вовсе: вверх из неё идти некуда, а выйти из
+      // отобранного можно только явно — сменой вкладки или переходом по адресу
+      // (`docs/spec/file-search.md`, §4.6). Иначе из списка вываливались
+      // случайно, одним лишним нажатием.
+      if (params.dir.parentDirectory != null) ParentDirNode(params.dir),
       ...await listChildren(params.dir),
     ],
   );

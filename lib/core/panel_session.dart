@@ -598,18 +598,8 @@ class PanelSession {
     return at < 0 ? _lastPath : _lastPath.substring(at + 1);
   }
 
-  /// Есть ли куда подниматься.
-  ///
-  /// У корня обычного источника — нет; у того, кто ни в чём не лежит, выход
-  /// называет он сам ([PanelExitPath]): находки возвращают туда, где искали
-  /// (`docs/spec/file-search.md`, §4.6).
-  bool get canGoUp => _directory?.parentDirectory != null || _exitPath.isNotEmpty;
-
-  /// Куда ведёт `..` из источника, у которого нет родителя; пусто — никуда.
-  String get _exitPath {
-    final source = _directory?.provider;
-    return source is PanelExitPath ? (source as PanelExitPath).exitPath : '';
-  }
+  /// Есть ли куда подниматься. У корня источника — нет.
+  bool get canGoUp => _directory?.parentDirectory != null;
 
   /// Отсортированное содержимое каталога — то, что рисует таблица.
   List<FsNode> get nodes => _nodes;
@@ -1077,12 +1067,6 @@ class PanelSession {
       parent = parent.parent;
     }
     if (parent is! DirectoryNode) {
-      // Источник, который ни в чём не лежит, называет выход сам: находки
-      // возвращают туда, где искали.
-      final exit = _exitPath;
-      if (exit.isNotEmpty) {
-        await openPath(exit, records: true);
-      }
       return;
     }
 

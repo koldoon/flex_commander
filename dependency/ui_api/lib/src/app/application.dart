@@ -63,10 +63,14 @@ abstract interface class Application implements Listenable {
   /// Набор, которому принадлежит эта сессия; null — сессия не наша.
   Panel? panelOf(Session session);
 
-  /// Завести набор — по образцу [like] или показанного — и показать его здесь.
+  /// Завести набор — по образцу [like] или показанного.
   ///
   /// [at] — место в списке; пусто — следом за нынешним.
-  Future<Panel> openPanel(ViewportPosition side, {Session? like, int? at});
+  ///
+  /// [show] — показать ли его сразу с этой стороны. Пустить в панель не спросив
+  /// можно не всегда: окно поиска заводит вкладку по `OK`, но панели человек не
+  /// отдавал — он её и не просил трогать (`docs/spec/file-search.md`, §4.3).
+  Future<Panel> openPanel(ViewportPosition side, {Session? like, int? at, bool show = true});
 
   /// Убрать набор со всеми его сессиями: они отпускают аренду и уходят.
   ///

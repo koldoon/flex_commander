@@ -481,15 +481,18 @@ void main() {
     await search(tester, '*.dart');
     await press(tester, 'To panel');
 
+    // Из корня проекции «..» не выводит: выйти можно только явно (§4.6).
     await app.left.goUp();
+    await tester.pumpAndSettle();
+    expect(app.left.source.scheme, SourceInfo.searchScheme, reason: 'случайно из находок не вываливаются');
+
+    await app.left.openPath('/home');
     await tester.pumpAndSettle();
 
     // Не в корень диска: дерево строится от корня источника, и уход из находок
     // приводил панель туда — курсор оставался на первой строке.
     expect(app.left.source.scheme, isNot(SourceInfo.searchScheme));
-    // Вернулись туда, где искали, — и курсор встал там, где стоял до поиска.
     expect(app.left.currentPath, '/home');
-    expect(app.left.currentEntry?.path, '/home/lib');
   });
 
   testWidgets('Alt-O на ветви находок открывает настоящий каталог', (tester) async {
@@ -534,7 +537,7 @@ void main() {
 
     // Раскладку просит источник, и уходит она вместе с ним: настройку панели
     // это не переписывает.
-    await app.left.goUp();
+    await app.left.openPath('/home');
     await tester.pumpAndSettle();
     expect(app.left.columns.find(FsColumns.path)?.visible, isFalse);
   });
@@ -553,7 +556,7 @@ void main() {
     app.left.setColumnLayout(app.left.columns);
     await tester.pumpAndSettle();
 
-    await app.left.goUp();
+    await app.left.openPath('/home');
     await tester.pumpAndSettle();
 
     expect(app.left.source.scheme, isNot(SourceInfo.searchScheme));
@@ -672,13 +675,13 @@ void main() {
     // Уровень, где панель стоит: ветви каталогами, находки файлами. Смена вида
     // панель никуда не увела.
     expect(app.left.source.scheme, SourceInfo.searchScheme);
-    expect(app.left.entries.map((entry) => entry.name), ['..', 'main.dart', 'lib']);
+    expect(app.left.entries.map((entry) => entry.name), ['main.dart', 'lib']);
     expect(app.left.entries.map((entry) => entry.level), everyElement(0), reason: 'список, а не лесенка');
 
     // Краткий вид — то же самое: набор строк тот же, меняется только показ.
     await app.left.setView(BriefView.viewId);
     await tester.pumpAndSettle();
-    expect(app.left.entries.map((entry) => entry.name), ['..', 'main.dart', 'lib']);
+    expect(app.left.entries.map((entry) => entry.name), ['main.dart', 'lib']);
 
     // В ветвь входят, как в каталог, — и видят отобранное в ней.
     app.left.setCursorToName('lib');
@@ -687,14 +690,15 @@ void main() {
     expect(app.left.source.scheme, SourceInfo.searchScheme);
     expect(app.left.entries.map((entry) => entry.name), ['..', 'main.dart', 'src']);
 
-    // «..» ведёт наверх по находкам, а из корня — туда, где искали.
+    // «..» ведёт наверх по проекции, а в её корне его нет вовсе: выйти из
+    // отобранного можно только явно (§4.6).
     await app.left.goUp();
     await tester.pumpAndSettle();
-    expect(app.left.entries.map((entry) => entry.name), ['..', 'main.dart', 'lib']);
+    expect(app.left.entries.map((entry) => entry.name), ['main.dart', 'lib']);
 
     await app.left.goUp();
     await tester.pumpAndSettle();
-    expect(app.left.source.scheme, isNot(SourceInfo.searchScheme));
+    expect(app.left.source.scheme, SourceInfo.searchScheme, reason: 'из корня никуда не вывело');
   });
 
   testWidgets('F4 над находкой правит её, а над ветвью молчит', (tester) async {
@@ -781,17 +785,19 @@ void main() {
     expect(app.left.currentEntry?.name, 'build.sh');
   });
 
-  testWidgets('из найденного «..» возвращает прежний каталог', (tester) async {
+  testWidgets('из корня находок «..» никуда не выводит', (tester) async {
+    // Выйти из отобранного можно только явно — сменой вкладки или переходом по
+    // адресу: иначе из списка вываливались одним лишним нажатием (§4.6).
     await pumpApp(tester);
     await openWindow(tester);
     await search(tester, '*.dart');
     await press(tester, 'To panel');
 
+    expect(app.left.entries.map((entry) => entry.name), isNot(contains('..')));
     await app.left.goUp();
     await tester.pumpAndSettle();
 
-    expect(app.left.source.scheme, isNot(SourceInfo.searchScheme));
-    expect(app.left.currentPath, '/home');
+    expect(app.left.source.scheme, SourceInfo.searchScheme);
   });
 
   testWidgets('«Go to file» ведёт панель в каталог находки и ставит на неё курсор', (tester) async {
@@ -957,13 +963,14 @@ void main() {
 
       final state = tester.widget<FindFilesResults>(find.byType(FindFilesResults)).state;
       expect(state.results, isNotNull);
-      // Панель показывает ту же сессию: передавать список некуда, он один.
-      expect(identical(state.results, app.left), isTrue);
-      expect(app.left.source.scheme, SourceInfo.searchScheme);
+      // Вкладка завелась, но панель человек не отдавал: она показывает прежнее.
+      expect(identical(state.results, app.left), isFalse, reason: 'панель не тронута');
+      expect(app.left.source.scheme, isNot(SourceInfo.searchScheme));
 
-      final was = app.left.entries.length;
+      final was = state.results!.entries.length;
       await press(tester, 'To panel');
 
+      // А теперь показывает ту же сессию: передавать список некуда, он один.
       expect(identical(state.results, app.left), isTrue, reason: '«To panel» ничего не перекладывает');
       expect(app.left.entries.length, was, reason: 'и ничего не перечитывает');
     });
@@ -997,11 +1004,13 @@ void main() {
       await search(tester, '*.dart');
       await press(tester, 'To panel');
 
+      // Имя списка, а не каталог, в котором искали: панель спрашивает его у
+      // источника, и уходит оно вместе с ним.
       expect(app.left.headerText, 'Find *.dart');
-      // «Где стоим» — место в самой проекции: панель ходит по ней, как по
-      // обычному дереву, и знать о фильтре ей незачем. Настоящий каталог за
-      // этим местом говорит колонка пути и `realPath` строк.
-      expect(app.left.currentPath, app.left.source.rootPath);
+
+      await app.left.openPath('/home');
+      await tester.pumpAndSettle();
+      expect(app.left.headerText, isNull, reason: 'ушли из находок — имя пропало само');
     });
 
     testWidgets('«Close» уносит вкладку вместе с окном', (tester) async {
@@ -1044,14 +1053,14 @@ void main() {
       await press(tester, 'To panel');
 
       expect(app.left.headerText, 'Find "TODO"', reason: 'имя списка не бывает пустым');
-      expect(app.left.entries.map((entry) => entry.name), contains('found.dart'));
+      expect(app.left.entries.map((entry) => entry.name), contains('lib'));
       for (final entry in app.left.entries) {
         expect(entry.path, isNot(contains('//')), reason: 'в адресах строк нет двойного слэша');
       }
 
-      await app.left.goUp();
+      await app.left.openPath('/home');
       await tester.pumpAndSettle();
-      expect(app.left.currentPath, '/home', reason: '«..» уводит туда, где искали');
+      expect(app.left.currentPath, '/home', reason: 'выход из находок — явный');
     });
   });
 
