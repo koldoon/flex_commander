@@ -129,9 +129,23 @@ void main() {
     expect(runtime.app.view.stackAt(fullscreen), hasLength(2));
   });
 
-  test('область говорит и о том, что происходит внутри верхнего', () {
-    // Иначе ряд функциональных кнопок замирает: он подписан на область, а
-    // доступность его команд зависит от того, что внутри.
+  test('о том, что внутри верхнего, говорит отдельный сигнал', () {
+    // Ряд функциональных кнопок без этого замирает: доступность его команд
+    // зависит от того, что внутри показанного.
+    final content = _Content('viewer');
+    runtime.app.view.pushViewportContent(fullscreen, content);
+
+    var inside = 0;
+    runtime.app.view.contentChanges.addListener(() => inside++);
+    content.poke();
+
+    expect(inside, 1);
+  });
+
+  test('сама область о чужих переменах молчит', () {
+    // На область подписаны те, кому нужен её состав, — шелл и панели. Пересказ
+    // чужих уведомлений своими перерисовывал им всё на каждое движение курсора
+    // (`docs/spec/panel-redraw.md`, §8).
     final content = _Content('viewer');
     runtime.app.view.pushViewportContent(fullscreen, content);
 
@@ -139,7 +153,7 @@ void main() {
     runtime.app.view.addListener(() => notified++);
     content.poke();
 
-    expect(notified, 1);
+    expect(notified, 0);
   });
 
   group('кому достаются клавиши', () {

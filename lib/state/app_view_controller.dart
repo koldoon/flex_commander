@@ -26,10 +26,23 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
 
   /// Верхнее состояние, если оно умеет сообщать о себе.
   ///
-  /// Иначе ряд функциональных кнопок замирает: он подписан на область, а
-  /// доступность его команд зависит от того, что происходит внутри, — есть ли
-  /// в редакторе несохранённое, выделено ли что-нибудь в просмотрщике.
+  /// Слушаем его ради ряда функциональных кнопок: доступность его команд
+  /// зависит от того, что происходит внутри, — есть ли в редакторе
+  /// несохранённое, выделено ли что-нибудь в просмотрщике.
   Listenable? _watched;
+
+  /// Что происходит внутри показанного — отдельным сигналом.
+  ///
+  /// Пересказывать чужие уведомления своими нельзя: на область подписаны те,
+  /// кому нужен её состав, — шелл, панели, — и движение курсора в панели
+  /// перерисовывало им всё (`docs/spec/panel-redraw.md`, §8).
+  ///
+  /// Числом, потому что важен сам факт: что именно изменилось, спросят у
+  /// содержимого. Тем же приёмом рассказывает о себе растущий список находок.
+  final ValueNotifier<int> _contentChanges = ValueNotifier<int>(0);
+
+  @override
+  Listenable get contentChanges => _contentChanges;
 
   /// Стопка области снизу вверх.
   @override
@@ -322,10 +335,12 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
     if (identical(listenable, _watched)) {
       return;
     }
-    _watched?.removeListener(notifyListeners);
+    _watched?.removeListener(_contentChanged);
     _watched = listenable;
-    _watched?.addListener(notifyListeners);
+    _watched?.addListener(_contentChanged);
   }
+
+  void _contentChanged() => _contentChanges.value++;
 
   void _closeAll(Iterable<ViewportState> leaving) {
     for (final state in leaving) {
@@ -335,8 +350,9 @@ class AppViewController extends ChangeNotifier implements ApplicationView {
 
   @override
   void dispose() {
-    _watched?.removeListener(notifyListeners);
+    _watched?.removeListener(_contentChanged);
     _watched = null;
+    _contentChanges.dispose();
     // Приложение уходит — уходит и содержимое областей: открытый редактор
     // держит аренду. Панели закрывает не здесь: их пути ещё не сохранены.
     for (final position in ViewportPosition.values) {

@@ -17,14 +17,66 @@ import 'panel_status_bar.dart';
 ///
 /// Сторону панель выводит сама, а не получает параметром: вид её строит реестр,
 /// а он передаёт только состояние — про место в окне ему знать неоткуда.
-class PanelView extends StatelessWidget {
+class PanelView extends StatefulWidget {
   const PanelView({super.key, required this.panel});
 
   final Session panel;
 
   @override
+  State<PanelView> createState() => _PanelViewState();
+}
+
+/// Со своим состоянием ради одного вопроса: занимает ли нынешний вид раму
+/// целиком.
+///
+/// Ответ меняется вместе с видом и с источником, то есть по сообщению панели, —
+/// а подписаться на него шире нельзя: рама, заголовок и строка состояния тогда
+/// пересобирались бы на каждое движение курсора. Поэтому подписка узкая:
+/// слушаем всё, а перерисовываемся, только когда изменился **ответ**
+/// (`docs/spec/panel-redraw.md`).
+///
+/// Прежде это держалось на том, что область пересказывала чужие уведомления
+/// своими, и шелл пересобирал панель целиком. Пересказ убрали — и вид сетки
+/// значков перестал доезжать до рамы: содержимое больше не уходило под плашку
+/// (поймано эталонным снимком).
+class _PanelViewState extends State<PanelView> {
+  bool _fills = false;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.panel.addListener(_onPanelChanged);
+  }
+
+  @override
+  void didUpdateWidget(PanelView oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!identical(oldWidget.panel, widget.panel)) {
+      oldWidget.panel.removeListener(_onPanelChanged);
+      widget.panel.addListener(_onPanelChanged);
+    }
+  }
+
+  @override
+  void dispose() {
+    widget.panel.removeListener(_onPanelChanged);
+    super.dispose();
+  }
+
+  void _onPanelChanged() {
+    final fills = _fillsFrame(AppScope.read(context), widget.panel);
+    if (fills != _fills) {
+      setState(() => _fills = fills);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final panel = widget.panel;
     final app = AppScope.read(context);
+    // Ответ спрашивается и здесь: первую сборку сообщение панели не опередит,
+    // а вид она могла сменить ещё до того, как её начали слушать.
+    _fills = _fillsFrame(app, panel);
     // Край берётся у **места**, а не у сессии: одна и та же сессия бывает
     // показана в обеих панелях (`docs/spec/panel-sessions.md`, §7), и по ней
     // левая от правой не отличается.
@@ -49,7 +101,7 @@ class PanelView extends StatelessWidget {
           // Раму целиком занимает тот вид, который об этом сказал: у сетки
           // значков содержимое уезжает под плашку, а у списка — нет, там
           // первая строка обязана быть видна.
-          fillsFrame: _fillsFrame(app, panel),
+          fillsFrame: _fills,
           header: ListenableBuilder(
             // И на область тоже: ввод уходит и туда, где панели нет вовсе, —
             // в быстрый просмотр напротив, — а плашка обязана это показать.

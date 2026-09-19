@@ -70,11 +70,39 @@ void main() {
 
     await tester.pump(const Duration(milliseconds: 20));
   });
+
+  testWidgets('внутри экрана изменилось — кнопка ожила', (tester) async {
+    // Доступность команд зависит от того, что **внутри** показанного, а не
+    // только от того, что показано. Ради этого ряд и подписан на
+    // `contentChanges` (`docs/spec/panel-redraw.md`, §9).
+    await pumpApp(tester);
+    final screen = _StubScreen();
+    runtime.app.view.pushViewportContent(ViewportPosition.fullscreen, screen);
+    await tester.pumpAndSettle();
+
+    bool enabled() => tester.widget<FunctionButton>(find.widgetWithText(FunctionButton, 'Stub wrap')).enabled;
+    expect(enabled(), isFalse, reason: 'команде экрана пока нечего делать');
+
+    screen.becomeReady();
+    await tester.pumpAndSettle();
+
+    expect(enabled(), isTrue, reason: 'ряд кнопок не услышал, что внутри экрана изменилось');
+    await tester.pump(const Duration(milliseconds: 20));
+  });
 }
 
 /// Экран-подставка: в ядре своих экранов нет, а проверять правило надо.
 class _StubScreen extends ChangeNotifier implements ViewportState {
   _StubScreen();
+
+  /// Что-то, от чего зависит доступность команды экрана, — как несохранённое в
+  /// редакторе или выделенное в просмотрщике.
+  bool ready = false;
+
+  void becomeReady() {
+    ready = true;
+    notifyListeners();
+  }
 
   @override
   bool get takesKeyboard => false;
@@ -107,8 +135,12 @@ class _StubCommand extends AppCommand {
   @override
   String get label => 'Stub wrap';
 
+  /// Выполнима, только когда внутри экрана для неё что-то есть.
   @override
-  bool isExecutable(CommandContext context) => true;
+  bool isExecutable(CommandContext context) {
+    final screen = context.app.view.contentAt(ViewportPosition.fullscreen);
+    return screen is _StubScreen && screen.ready;
+  }
 
   @override
   Future<void> execute(CommandContext context) async {}

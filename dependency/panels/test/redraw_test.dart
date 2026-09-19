@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -135,6 +136,25 @@ void main() {
     final after =
         tester.widgetList<FileTableRow>(find.byType(FileTableRow)).map((row) => row.entry.name).take(5).toList();
     expect(after, isNot(before), reason: 'память строк отдала прежние строки после перестановки');
+  });
+
+  testWidgets('сетка значков доезжает до рамы, а таблица — нет', (tester) async {
+    // Занимает ли вид раму целиком, `PanelView` спрашивает у него самого, и
+    // держалось это на том, что область пересказывала чужие уведомления своими.
+    // Пересказ убрали — и сетка перестала уходить под плашку: содержимое
+    // осталось под ней, а не за ней (поймано эталонным снимком).
+    await pumpApp(tester);
+    final plate = tester.getRect(find.byType(FcPathPlate).first);
+    expect(tester.getRect(find.byType(ListView).first).top, greaterThanOrEqualTo(plate.bottom - 1));
+
+    await runtime.app.left.setView(IconsView.viewId);
+    await tester.pumpAndSettle();
+
+    expect(
+      tester.getRect(find.byType(ListView).first).top,
+      lessThan(plate.bottom),
+      reason: 'сетка значков не заняла раму целиком',
+    );
   });
 
   testWidgets('панель сузили — строки собраны по новым ширинам', (tester) async {

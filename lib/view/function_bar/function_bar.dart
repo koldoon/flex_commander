@@ -38,10 +38,13 @@ class FunctionBar extends StatelessWidget {
         // сам по себе: модуль может поставить свою команду после запуска.
         // Область — потому что за одной и той же клавишей при разном
         // содержимом стоят разные команды, и ряд обязан показывать команды
-        // того, что сейчас видно.
+        // того, что сейчас видно; `contentChanges` — потому что доступность
+        // зависит и от того, что **внутри** показанного: есть ли в редакторе
+        // несохранённое, выделено ли что-нибудь в просмотрщике
+        // (`docs/spec/panel-redraw.md`, §9).
         // Зажатые модификаторы сюда не входят: на них ряд подписан самим
         // обращением к ModifiersScope — тот перестроит зависимых сам.
-        listenable: Listenable.merge([app.left, app.right, app.commands, app.view]),
+        listenable: Listenable.merge([app.left, app.right, app.commands, app.view, app.view.contentChanges]),
         builder: (context, _) {
           final layer = _layerOf(context);
 
