@@ -11,6 +11,7 @@ export 'src/dialog_finders.dart';
 export 'src/progress_log.dart';
 export 'src/started_task.dart';
 export 'src/fake_clipboard.dart';
+export 'src/fake_file_clipboard.dart';
 export 'src/fake_credentials.dart';
 export 'src/fake_process_runner.dart';
 export 'src/agreeing_shell.dart';

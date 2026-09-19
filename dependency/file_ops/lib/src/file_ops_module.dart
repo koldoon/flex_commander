@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
+import 'clipboard_commands.dart';
 import 'copy_path_command.dart';
 import 'file_commands.dart';
 import 'transfer_commands.dart';
@@ -38,6 +39,13 @@ class FileOps implements FcFrontendModule {
     // куда всегда (`docs/spec/file-clipboard.md`, §7).
     registry.command((context) => CopyPathCommand(context));
 
+    // Файловый буфер: служба приходит модулем приложения, и без неё эти
+    // команды невыполнимы (`docs/spec/file-clipboard.md`, §2).
+    registry.command((context) => ClipboardCopyCommand(context));
+    registry.command((context) => ClipboardCutCommand(context));
+    registry.command((context) => ClipboardPasteCommand(context, forcesMove: false));
+    registry.command((context) => ClipboardPasteCommand(context, forcesMove: true));
+
     registry.binding(KeyBinding('F5', CopyCommand.commandId));
     registry.binding(KeyBinding('F6', MoveCommand.commandId));
     registry.binding(KeyBinding('F7', MakeDirectoryCommand.commandId));
@@ -55,6 +63,11 @@ class FileOps implements FcFrontendModule {
     // То же сочетание, что у «Copy as Pathname» в Finder: кто пришёл оттуда,
     // получает привычку без настройки.
     registry.binding(KeyBinding('Alt-Cmd-C', CopyPathCommand.commandId));
+    registry.binding(KeyBinding('Cmd-C', ClipboardCopyCommand.commandId));
+    registry.binding(KeyBinding('Cmd-X', ClipboardCutCommand.commandId));
+    registry.binding(KeyBinding('Cmd-V', ClipboardPasteCommand.copyId));
+    // Привычка Finder: копируют, а переносят клавишей вставки.
+    registry.binding(KeyBinding('Alt-Cmd-V', ClipboardPasteCommand.moveId));
   }
 }
 
@@ -71,6 +84,15 @@ const Map<String, String> _russian = {
   'Move the selected items to the other panel': 'Перенести выбранное в соседнюю панель',
   'Moving…': 'Перенос…',
   'Copy path': 'Скопировать путь',
+  'Copy to clipboard': 'Скопировать в буфер',
+  'Put the selected items into the clipboard': 'Положить выбранное в буфер обмена',
+  'Cut to clipboard': 'Вырезать в буфер',
+  'Put the selected items into the clipboard to be moved': 'Положить выбранное в буфер обмена для переноса',
+  'Paste': 'Вставить',
+  'Put the clipboard items into this panel': 'Вставить то, что лежит в буфере, в эту панель',
+  'Paste as move': 'Вставить переносом',
+  'Move the clipboard items into this panel': 'Перенести в эту панель то, что лежит в буфере',
+  'The clipboard has no files': 'В буфере обмена нет файлов',
   'Copy the address of the selected items to the clipboard': 'Скопировать адрес выбранного в буфер обмена',
   'From': 'Откуда',
   'To': 'Куда',
@@ -104,6 +126,12 @@ const Map<String, String> _russian = {
 /// Множественные формы: ключ — та форма, которую называют на месте.
 const Map<String, PluralForms> _plurals = {
   'Copied {n} addresses': (one: 'Скопирован {n} адрес', few: 'Скопировано {n} адреса', many: 'Скопировано {n} адресов'),
+  'Copied {n} items': (one: 'Скопирован {n} объект', few: 'Скопировано {n} объекта', many: 'Скопировано {n} объектов'),
+  '{n} items ready to move': (
+    one: '{n} объект готов к переносу',
+    few: '{n} объекта готовы к переносу',
+    many: '{n} объектов готовы к переносу',
+  ),
   '{n} items': (one: '{n} объект', few: '{n} объекта', many: '{n} объектов'),
   // «Откуда», когда цели лежат в разных каталогах: перечислять их негде.
   '{n} sources': (one: '{n} источник', few: '{n} источника', many: '{n} источников'),

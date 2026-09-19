@@ -12,6 +12,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'fake_clipboard.dart';
+import 'fake_file_clipboard.dart';
 import 'fake_process_runner.dart';
 import 'fake_window_service.dart';
 import 'in_memory_settings_store.dart';
@@ -49,11 +50,16 @@ class TestPlatformBackend implements FcBackendModule {
 
 /// Платформенные службы интерфейса для тестов.
 class TestPlatformFrontend implements FcFrontendModule {
-  const TestPlatformFrontend({this.clipboard});
+  const TestPlatformFrontend({this.clipboard, this.fileClipboard});
 
   /// Буфер обмена. Пусто — свой, в памяти: настоящий буфер машины прогон
   /// трогать не должен.
   final FakeClipboard? clipboard;
+
+  /// Файловый буфер. Пусто — его нет вовсе: так собирается приложение без
+  /// модуля буфера, и команды `Cmd-C`/`Cmd-V` в нём просто невыполнимы
+  /// (`docs/spec/file-clipboard.md`, §2).
+  final FakeFileClipboard? fileClipboard;
 
   @override
   String get id => 'test.platform';
@@ -67,6 +73,12 @@ class TestPlatformFrontend implements FcFrontendModule {
     // копирует, и стирать ему это прогоном нельзя.
     final clipboard = this.clipboard ?? FakeClipboard();
     registry.service<ClipboardService>((services) => clipboard);
+
+    // Файловый буфер ставится **только если его попросили**: иначе прогон не
+    // смог бы собрать приложение без него, а это отдельное правило модуля.
+    if (fileClipboard case final files?) {
+      registry.service<FileClipboard>((services) => files);
+    }
 
     // Отдавать файл системе прогон не должен: открылось бы окно поверх всего.
     registry.service<SystemOpener>((services) => (path) async {});
@@ -109,6 +121,9 @@ Future<AppRuntime> testApp({
   /// Буфер обмена, если тесту нужно посмотреть, что в него положили.
   FakeClipboard? clipboard,
 
+  /// Файловый буфер обмена; null — приложение собрано без него.
+  FakeFileClipboard? fileClipboard,
+
   /// Что приложение знает о своей сборке; null — не знает ничего.
   ///
   /// Настоящий канал отвечает только из бандла, а проверке нужна назначенная
@@ -150,7 +165,7 @@ Future<AppRuntime> testApp({
   final all = <FcModule>[
     const AppShell(),
     TestPlatformBackend(processes: processes),
-    TestPlatformFrontend(clipboard: clipboard),
+    TestPlatformFrontend(clipboard: clipboard, fileClipboard: fileClipboard),
     const DefaultTheme(),
     ...modules,
   ];

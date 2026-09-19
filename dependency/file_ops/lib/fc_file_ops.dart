@@ -1,6 +1,7 @@
 /// Файловые операции: создание каталога, удаление, копирование и перенос.
 library;
 
+export 'src/clipboard_commands.dart';
 export 'src/copy_path_command.dart';
 export 'src/file_commands.dart';
 export 'src/panels_at.dart';
