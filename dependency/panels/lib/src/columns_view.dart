@@ -10,6 +10,7 @@ import 'column_chain.dart';
 import 'file_type_icon.dart';
 import 'mark_drag.dart';
 import 'panels_settings.dart';
+import 'row_cache.dart';
 
 /// Столбцы, как в Finder: пройденный путь слева направо.
 ///
@@ -762,7 +763,11 @@ class ColumnsViewState extends State<ColumnsView> {
 }
 
 /// Один столбец: содержимое одного каталога, без отступов и заголовка.
-class _Column extends StatelessWidget {
+///
+/// Со своим состоянием — ради памяти готовых строк: столбец пересобирается на
+/// каждое сообщение панели, а меняются в нём единицы строк
+/// (`docs/spec/panel-redraw.md`).
+class _Column extends StatefulWidget {
   const _Column({
     required this.panel,
     required this.rows,
@@ -789,36 +794,68 @@ class _Column extends StatelessWidget {
   final void Function(int index) onPress;
 
   @override
+  State<_Column> createState() => _ColumnState();
+}
+
+class _ColumnState extends State<_Column> {
+  /// Готовые строки: та же строка отдаётся тем же виджетом (`row_cache.dart`).
+  final RowCache _cache = RowCache();
+
+  @override
   Widget build(BuildContext context) {
     // Шапка называет **каталог**, чьё содержимое в столбце, — то самое
     // последнее звено пути, из которого этот столбец вырос. Не колонка: имя,
     // размер и дата здесь ни при чём, столбец один и всегда с именами.
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [_ColumnHeader(name: rows[column.owner].name), Expanded(child: _list(context))],
+      children: [_ColumnHeader(name: widget.rows[widget.column.owner].name), Expanded(child: _list(context))],
     );
   }
 
   Widget _list(BuildContext context) {
+    final panel = widget.panel;
+    final column = widget.column;
+    // Спрашивается один раз на столбец, а не в каждой строке: ответ у них
+    // общий, а обращение это поиск унаследованного виджета.
+    final active = takesKeysHere(context, panel);
+    _cache.frame([
+      FcTheme.of(context),
+      widget.step,
+      widget.rows,
+      column.rows,
+      widget.current,
+      widget.nextOwner,
+      column.selected,
+    ]);
+
     // Пустой столбец — не то же, что отсутствие столбца: «здесь пусто» надо
     // показать, иначе оно неотличимо от «сюда не входили».
     return ListView.builder(
-      controller: controller,
-      itemExtent: step,
+      controller: widget.controller,
+      itemExtent: widget.step,
       itemCount: column.rows.length,
+      // Беречь строке нечего: своего состояния у неё нет
+      // (`docs/spec/panel-redraw.md`, §7).
+      addAutomaticKeepAlives: false,
       itemBuilder: (context, place) {
         final index = column.rows[place];
-        final row = rows[index];
-        return _ColumnRow(
-          row: row,
-          underCursor: current && index == panel.cursorIndex,
-          // Вошли — значит этот каталог и показан столбцом справа.
-          entered: index == nextOwner,
-          onTrail: !current && index == column.selected,
-          marked: panel.isMarked(row),
-          panelActive: takesKeysHere(context, panel),
-          onPress: () => onPress(index),
-        );
+        final row = widget.rows[index];
+        final underCursor = widget.current && index == panel.cursorIndex;
+        // Вошли — значит этот каталог и показан столбцом справа.
+        final entered = index == widget.nextOwner;
+        final onTrail = !widget.current && index == column.selected;
+        final marked = panel.isMarked(row);
+        return _cache.of(index, [row, underCursor, entered, onTrail, marked, active], () {
+          return _ColumnRow(
+            row: row,
+            underCursor: underCursor,
+            entered: entered,
+            onTrail: onTrail,
+            marked: marked,
+            panelActive: active,
+            onPress: () => widget.onPress(index),
+          );
+        });
       },
     );
   }

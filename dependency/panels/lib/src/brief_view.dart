@@ -10,6 +10,7 @@ import 'cursor_pin.dart';
 import 'columns.dart';
 import 'file_table_row.dart';
 import 'panel_drag.dart';
+import 'row_cache.dart';
 import 'panels_settings.dart';
 import 'widest_name.dart';
 
@@ -68,6 +69,9 @@ class _BriefViewState extends State<BriefView> {
 
   /// Самое длинное имя списка — общей меркой на оба вида, где оно считается.
   final WidestName _widest = WidestName();
+
+  /// Готовые строки: та же строка отдаётся тем же виджетом (`row_cache.dart`).
+  final RowCache _cache = RowCache();
 
   @override
   void initState() {
@@ -235,6 +239,35 @@ class _BriefViewState extends State<BriefView> {
     }
   }
 
+  /// Строка списка — из памяти, если у неё ничего не изменилось.
+  Widget _row(Session panel, List<FileEntry> entries, int index, List<double> widths, bool active, FileNaming naming) {
+    final entry = entries[index];
+    final marked = panel.isMarked(entry);
+    final underCursor = panel.cursorIndex == index;
+    return _cache.of(index, [entry, marked, underCursor, active], () {
+      // Строку можно утащить — тем же жестом и по тому же правилу, что в
+      // таблице (`panel_drag.dart`).
+      return panelDragSource(
+        context: context,
+        panel: panel,
+        entry: entry,
+        child: FileTableRow(
+          entry: entry,
+          columns: _briefColumns,
+          widths: widths,
+          marked: marked,
+          underCursor: underCursor,
+          // Тот же вопрос, что задаёт плашка пути: горит курсор там, где
+          // сейчас клавиши.
+          panelActive: active,
+          naming: naming,
+          contentOf: panel.contentOf,
+          onPress: () => _onPress(index),
+        ),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final panel = widget.panel;
@@ -299,40 +332,27 @@ class _BriefViewState extends State<BriefView> {
 
               final widths = <double>[iconWidth, math.max(columnWidth - iconWidth, 1)];
 
+              // Спрашивается один раз на список, а не в каждой строке: ответ у
+              // них общий, а обращение это поиск унаследованного виджета.
+              final active = takesKeysHere(context, panel);
+              final naming = app.fileNaming;
+              // Ширины в приметы не входят: их целиком задают два числа ниже, а
+              // сам список каждый раз новый (`docs/spec/panel-redraw.md`, §6).
+              _cache.frame([theme, rowHeight, columnWidth, iconWidth, entries, naming]);
+
               final list = ListView.builder(
                 controller: _scroll,
                 scrollDirection: Axis.horizontal,
                 itemExtent: columnWidth,
                 itemCount: total,
+                addAutomaticKeepAlives: false,
                 itemBuilder: (context, column) {
                   final first = column * rows;
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       for (var row = 0; row < rows && first + row < entries.length; row++)
-                        SizedBox(
-                          height: rowHeight,
-                          // Строку можно утащить — тем же жестом и по тому же
-                          // правилу, что в таблице (`panel_drag.dart`).
-                          child: panelDragSource(
-                            context: context,
-                            panel: panel,
-                            entry: entries[first + row],
-                            child: FileTableRow(
-                              entry: entries[first + row],
-                              columns: _briefColumns,
-                              widths: widths,
-                              marked: panel.isMarked(entries[first + row]),
-                              underCursor: panel.cursorIndex == first + row,
-                              // Тот же вопрос, что задаёт плашка пути: горит
-                              // курсор там, где сейчас клавиши.
-                              panelActive: takesKeysHere(context, panel),
-                              naming: app.fileNaming,
-                              contentOf: panel.contentOf,
-                              onPress: () => _onPress(first + row),
-                            ),
-                          ),
-                        ),
+                        SizedBox(height: rowHeight, child: _row(panel, entries, first + row, widths, active, naming)),
                     ],
                   );
                 },

@@ -10,6 +10,7 @@ import 'cursor_pin.dart';
 import 'icon_tile.dart';
 import 'mark_drag.dart';
 import 'panel_drag.dart';
+import 'row_cache.dart';
 import 'panels_settings.dart';
 
 /// Вид «Значки»: содержимое каталога сеткой плиток.
@@ -96,6 +97,9 @@ class _IconsViewState extends State<IconsView> {
   /// Самое длинное имя списка — общей меркой с кратким видом.
 
   int _lastCursorIndex = -1;
+
+  /// Готовые плитки: та же плитка отдаётся тем же виджетом (`row_cache.dart`).
+  final RowCache _cache = RowCache();
   int _lastTapIndex = -1;
   DateTime _lastTapTime = DateTime.fromMillisecondsSinceEpoch(0);
 
@@ -293,6 +297,43 @@ class _IconsViewState extends State<IconsView> {
     }
   }
 
+  /// Плитка сетки — из памяти, если у неё ничего не изменилось.
+  Widget _tile(
+    Session panel,
+    List<FileEntry> entries,
+    int index,
+    double iconSize,
+    double tileWidth,
+    double nameHeight,
+    bool active,
+  ) {
+    final entry = entries[index];
+    final marked = panel.isMarked(entry);
+    final underCursor = panel.cursorIndex == index;
+    return _cache.of(index, [entry, marked, underCursor, active], () {
+      // Плитку можно утащить — тем же жестом и по тому же правилу, что строку
+      // в таблице (`panel_drag.dart`).
+      return panelDragSource(
+        context: context,
+        panel: panel,
+        entry: entry,
+        child: IconTile(
+          entry: entry,
+          iconSize: iconSize,
+          nameHeight: nameHeight,
+          width: tileWidth,
+          marked: marked,
+          underCursor: underCursor,
+          // Тот же вопрос, что задаёт плашка пути: горит курсор там, где
+          // сейчас клавиши.
+          panelActive: active,
+          contentOf: panel.contentOf,
+          onPress: () => _onPress(index),
+        ),
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final panel = widget.panel;
@@ -387,6 +428,11 @@ class _IconsViewState extends State<IconsView> {
               // Список **рядов** постоянной высоты: краткий вид, повёрнутый на
               // 90°. Кадр строит десятки плиток, а не тысячи
               // (`docs/widgets.md`, §4).
+              // Спрашивается один раз на список, а не в каждой плитке: ответ у
+              // них общий, а обращение это поиск унаследованного виджета.
+              final active = takesKeysHere(context, panel);
+              _cache.frame([theme, iconSize, tileWidth, tileHeight, nameHeight, entries]);
+
               final list = ListView.builder(
                 controller: _scroll,
                 // Поля — внутри прокрутки: так плитки уезжают под плашку пути
@@ -394,6 +440,7 @@ class _IconsViewState extends State<IconsView> {
                 padding: EdgeInsets.fromLTRB(gap, top, gap, gap),
                 itemExtent: rowHeight,
                 itemCount: total,
+                addAutomaticKeepAlives: false,
                 itemBuilder: (context, row) {
                   final first = row * columns;
                   return Row(
@@ -408,26 +455,7 @@ class _IconsViewState extends State<IconsView> {
                         SizedBox(
                           width: tileWidth,
                           height: tileHeight,
-                          // Плитку можно утащить — тем же жестом и по тому же
-                          // правилу, что строку в таблице (`panel_drag.dart`).
-                          child: panelDragSource(
-                            context: context,
-                            panel: panel,
-                            entry: entries[first + column],
-                            child: IconTile(
-                              entry: entries[first + column],
-                              iconSize: iconSize,
-                              nameHeight: nameHeight,
-                              width: tileWidth,
-                              marked: panel.isMarked(entries[first + column]),
-                              underCursor: panel.cursorIndex == first + column,
-                              // Тот же вопрос, что задаёт плашка пути: горит
-                              // курсор там, где сейчас клавиши.
-                              panelActive: takesKeysHere(context, panel),
-                              contentOf: panel.contentOf,
-                              onPress: () => _onPress(first + column),
-                            ),
-                          ),
+                          child: _tile(panel, entries, first + column, iconSize, tileWidth, nameHeight, active),
                         ),
                     ],
                   );

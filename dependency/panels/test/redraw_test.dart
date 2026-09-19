@@ -76,6 +76,36 @@ void main() {
     );
   });
 
+  /// То же правило — в остальных видах: строка у каждого своя, а порядок один.
+  ///
+  /// Имена виджетов строк — как их называет сам каркас, включая приватные:
+  /// счётчик читает то, что напечатал `debugPrintRebuildDirtyWidgets`.
+  group('шаг курсора в прочих видах', () {
+    for (final (view, row, limit) in const [
+      (TreeView.viewId, '_BranchRow', 2),
+      (BriefView.viewId, 'FileTableRow', 2),
+      (IconsView.viewId, 'IconTile', 2),
+      (ColumnsView.viewId, '_ColumnRow', 4),
+    ]) {
+      testWidgets('$view пересобирает только тронутое', (tester) async {
+        await pumpApp(tester);
+        await runtime.app.left.setView(view);
+        await tester.pumpAndSettle();
+
+        expect(runtime.app.left.entries.length, greaterThan(20), reason: 'в виде нечего пересобирать');
+
+        final counts = await rebuilds(tester, () async {
+          await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+          await tester.pump();
+        });
+
+        // Кадр и правда был: счёт из пустоты прошёл бы любой порог.
+        expect(counts.values.fold(0, (sum, count) => sum + count), greaterThan(0));
+        expect(counts[row] ?? 0, lessThanOrEqualTo(limit), reason: 'пересобран весь список: ${counts[row]}');
+      });
+    }
+  });
+
   testWidgets('пометка перерисовывает свою строку', (tester) async {
     await pumpApp(tester);
     // Уходим с «..»: он не помечается никогда, и проверять было бы нечего.

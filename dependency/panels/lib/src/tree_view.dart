@@ -12,6 +12,7 @@ import 'file_table_header.dart';
 import 'file_type_icon.dart';
 import 'mark_drag.dart';
 import 'panel_drag.dart';
+import 'row_cache.dart';
 import 'panels_settings.dart';
 
 /// Дерево каталогов: где панель сейчас, что рядом и что внутри.
@@ -59,6 +60,9 @@ class TreeViewState extends State<TreeView> {
   static const Duration _doubleTapWindow = Duration(milliseconds: 400);
 
   int _lastTapIndex = -1;
+
+  /// Готовые ветви: та же ветвь отдаётся тем же виджетом (`row_cache.dart`).
+  final RowCache _cache = RowCache();
   DateTime _lastTapTime = DateTime.fromMillisecondsSinceEpoch(0);
 
   /// Высота строки вместе с просветом; 0 — разметки ещё не было.
@@ -499,36 +503,50 @@ class TreeViewState extends State<TreeView> {
               // Страница — то, что видно: тем же счётом, что в таблице.
               panel.pageSize = (constraints.maxHeight / step).floor().clamp(1, 1000);
               _listHeight = constraints.maxHeight;
+              // Спрашивается один раз на список, а не в каждой строке: ответ
+              // у них общий, а обращение это поиск унаследованного виджета.
+              final active = takesKeysHere(context, panel);
+              final navigator = widget.rows == RowsKind.branches;
+              _cache.frame([theme, step, showSize, sizeWidth, inset, rows, navigator]);
+
               return ListView.builder(
                 controller: _scroll,
                 itemExtent: step,
                 itemCount: rows.length,
+                // Беречь ветви нечего: своего состояния у неё нет
+                // (`docs/spec/panel-redraw.md`, §7).
+                addAutomaticKeepAlives: false,
                 itemBuilder: (context, index) {
                   final row = rows[index];
-                  final branch = _BranchRow(
-                    row: row,
-                    underCursor: index == panel.cursorIndex,
-                    marked: panel.isMarked(row),
-                    // Размер приходит **в строке**: его проставило ядро, и
-                    // второго источника у него нет (`panel-node-list.md`, §4).
-                    size: showSize ? row.size : FileEntry.unknownSize,
-                    sizeWidth: showSize ? sizeWidth : 0,
-                    inset: inset,
-                    panelActive: takesKeysHere(context, panel),
-                    // Дерево одних каталогов — навигатор соседнего столбца, и
-                    // правила у него свои: место видно и без курсора, а знак
-                    // раскрытия стоит только там, где внутри и правда ветви
-                    // (`docs/spec/panel-view-combined.md`, §5а и §5б).
-                    navigator: widget.rows == RowsKind.branches,
-                    onPress: () => _onPress(index),
-                    onToggle: () {
-                      app.activate(panel);
-                      toggleAt(index);
-                    },
-                  );
-                  // Тянут за ветвь то же, что тянут за строку списка: объект, а
-                  // не картинку (`panel_drag.dart`).
-                  return panelDragSource(context: context, panel: panel, entry: row, child: branch);
+                  final underCursor = index == panel.cursorIndex;
+                  final marked = panel.isMarked(row);
+                  // Размер приходит **в строке**: его проставило ядро, и
+                  // второго источника у него нет (`panel-node-list.md`, §4).
+                  final size = showSize ? row.size : FileEntry.unknownSize;
+                  return _cache.of(index, [row, underCursor, marked, size, active], () {
+                    final branch = _BranchRow(
+                      row: row,
+                      underCursor: underCursor,
+                      marked: marked,
+                      size: size,
+                      sizeWidth: showSize ? sizeWidth : 0,
+                      inset: inset,
+                      panelActive: active,
+                      // Дерево одних каталогов — навигатор соседнего столбца, и
+                      // правила у него свои: место видно и без курсора, а знак
+                      // раскрытия стоит только там, где внутри и правда ветви
+                      // (`docs/spec/panel-view-combined.md`, §5а и §5б).
+                      navigator: navigator,
+                      onPress: () => _onPress(index),
+                      onToggle: () {
+                        app.activate(panel);
+                        toggleAt(index);
+                      },
+                    );
+                    // Тянут за ветвь то же, что тянут за строку списка: объект,
+                    // а не картинку (`panel_drag.dart`).
+                    return panelDragSource(context: context, panel: panel, entry: row, child: branch);
+                  });
                 },
               );
             },
