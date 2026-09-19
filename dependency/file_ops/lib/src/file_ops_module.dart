@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
+import 'copy_path_command.dart';
 import 'file_commands.dart';
 import 'transfer_commands.dart';
 
@@ -33,6 +34,9 @@ class FileOps implements FcFrontendModule {
     registry.command((context) => RemovePermanentlyCommand());
     registry.command((context) => CopyCommand());
     registry.command((context) => MoveCommand());
+    // Буфер текстовый, а не файловый: адрес — это строка, и класть её есть
+    // куда всегда (`docs/spec/file-clipboard.md`, §7).
+    registry.command((context) => CopyPathCommand(context));
 
     registry.binding(KeyBinding('F5', CopyCommand.commandId));
     registry.binding(KeyBinding('F6', MoveCommand.commandId));
@@ -48,6 +52,9 @@ class FileOps implements FcFrontendModule {
     registry.binding(KeyBinding('Shift-F8', RemovePermanentlyCommand.commandId));
     registry.binding(KeyBinding('Cmd-Bsp', RemoveCommand.commandId));
     registry.binding(KeyBinding('Shift-Cmd-Bsp', RemovePermanentlyCommand.commandId));
+    // То же сочетание, что у «Copy as Pathname» в Finder: кто пришёл оттуда,
+    // получает привычку без настройки.
+    registry.binding(KeyBinding('Alt-Cmd-C', CopyPathCommand.commandId));
   }
 }
 
@@ -63,6 +70,8 @@ const Map<String, String> _russian = {
   'Move': 'Перенести',
   'Move the selected items to the other panel': 'Перенести выбранное в соседнюю панель',
   'Moving…': 'Перенос…',
+  'Copy path': 'Скопировать путь',
+  'Copy the address of the selected items to the clipboard': 'Скопировать адрес выбранного в буфер обмена',
   'From': 'Откуда',
   'To': 'Куда',
   'Destination path': 'Путь назначения',
@@ -94,6 +103,7 @@ const Map<String, String> _russian = {
 
 /// Множественные формы: ключ — та форма, которую называют на месте.
 const Map<String, PluralForms> _plurals = {
+  'Copied {n} addresses': (one: 'Скопирован {n} адрес', few: 'Скопировано {n} адреса', many: 'Скопировано {n} адресов'),
   '{n} items': (one: '{n} объект', few: '{n} объекта', many: '{n} объектов'),
   // «Откуда», когда цели лежат в разных каталогах: перечислять их негде.
   '{n} sources': (one: '{n} источник', few: '{n} источника', many: '{n} источников'),
