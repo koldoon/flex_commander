@@ -1,4 +1,5 @@
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:flex_commander/core/operation_hub.dart';
 import 'package:flex_commander/app.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
@@ -68,6 +69,13 @@ class _SlowCopyProvider extends InMemoryTreeProvider {
 void main() {
   late _SlowCopyProvider provider;
   late AppController app;
+
+  // Отчёты о ходе работы придерживаются на границе
+  // (`docs/spec/growing-listing.md`, §5), а проверка смотрит **их
+  // содержимое**: работа здесь кончается быстрее, чем истекает окно, и без
+  // этого до неё доехал бы только итог.
+  setUp(() => OperationHub.reportWindow = Duration.zero);
+  tearDown(() => OperationHub.reportWindow = OperationHub.defaultReportWindow);
 
   setUp(() async {
     provider = _SlowCopyProvider([

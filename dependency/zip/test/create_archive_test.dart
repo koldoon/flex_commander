@@ -6,6 +6,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_zip/fc_zip.dart';
+import 'package:flex_commander/core/operation_hub.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:flutter/foundation.dart';
@@ -22,6 +23,13 @@ void main() {
   late String source;
   late String target;
   late AppRuntime runtime;
+
+  // Отчёты о ходе работы придерживаются на границе
+  // (`docs/spec/growing-listing.md`, §5), а проверка смотрит **их
+  // содержимое**: работа здесь кончается быстрее, чем истекает окно, и без
+  // этого до неё доехал бы только итог.
+  setUp(() => OperationHub.reportWindow = Duration.zero);
+  tearDown(() => OperationHub.reportWindow = OperationHub.defaultReportWindow);
 
   setUp(() async {
     debugDefaultTargetPlatformOverride = TargetPlatform.macOS;

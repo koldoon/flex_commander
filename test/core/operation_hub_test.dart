@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:flex_commander/core/operation_hub.dart';
 import 'package:flex_commander/core/core_server.dart';
 import 'package:flex_commander/core/panel_session.dart';
 import 'package:flex_commander/link/link.dart';
@@ -54,6 +55,9 @@ void main() {
           await Future<void>.delayed(const Duration(milliseconds: 10));
         }
       });
+
+  // Окно придерживания — настоящее: эта проверка как раз про него.
+  setUp(() => OperationHub.reportWindow = OperationHub.defaultReportWindow);
 
   setUp(() {
     provider = InMemoryTreeProvider([

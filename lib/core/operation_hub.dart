@@ -45,7 +45,17 @@ class OperationHub {
   /// успевает читать, а сообщений через порт становится вчетверо меньше
   /// (`docs/spec/growing-listing.md`, §5). Работа при этом отчитывается
   /// по-прежнему — о границе она не знает.
-  static const Duration reportWindow = Duration(milliseconds: 100);
+  static const Duration defaultReportWindow = Duration(milliseconds: 100);
+
+  /// Окно, по которому отчёты придерживаются сейчас.
+  ///
+  /// Не `const` затем, что проверке случается смотреть **содержимое**
+  /// промежуточных отчётов — какой объект в строке источника, какое имя в
+  /// строке файла, — а окно их как раз и прячет: работа в прогоне кончается
+  /// быстрее, чем оно истекает. Тем же приёмом живёт предел раскрытия дерева
+  /// (`PanelSession.expandLimit`).
+  @visibleForTesting
+  static Duration reportWindow = defaultReportWindow;
 
   /// Заводит работу и ведёт её до конца.
   ///
