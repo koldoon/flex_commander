@@ -394,7 +394,7 @@ class TreeViewState extends State<TreeView> {
   /// двойной щелчок (`docs/spec/panel-views.md`, §9). Распознаётся вручную —
   /// как в таблице: штатный `onDoubleTap` заставляет ждать окно двойного
   /// щелчка перед **первым**, и курсор начинает опаздывать.
-  void _onTap(int index) {
+  void _onPress(int index) {
     final now = DateTime.now();
     final again = index == _lastTapIndex && now.difference(_lastTapTime) < _doubleTapWindow;
     _lastTapIndex = index;
@@ -520,7 +520,7 @@ class TreeViewState extends State<TreeView> {
                     // раскрытия стоит только там, где внутри и правда ветви
                     // (`docs/spec/panel-view-combined.md`, §5а и §5б).
                     navigator: widget.rows == RowsKind.branches,
-                    onTap: () => _onTap(index),
+                    onPress: () => _onPress(index),
                     onToggle: () {
                       app.activate(panel);
                       toggleAt(index);
@@ -680,7 +680,7 @@ class _BranchRow extends StatelessWidget {
     required this.inset,
     required this.panelActive,
     this.navigator = false,
-    required this.onTap,
+    required this.onPress,
     required this.onToggle,
   });
 
@@ -715,7 +715,14 @@ class _BranchRow extends StatelessWidget {
   /// раскрытие, которого не будет (§5б).
   final bool navigator;
 
-  final VoidCallback onTap;
+  /// Нажатие на строку — **по нажатию, а не по отпусканию**.
+  ///
+  /// Панель зажигается по нажатию (`PanelView`), и если бы курсор переставлялся
+  /// по отпусканию, между ними был бы виден курсор на прежнем месте: щёлкнули в
+  /// соседнюю панель, она загорелась со своей старой строкой, и только с
+  /// отпусканием курсор прыгал туда, куда целились
+  /// (`docs/spec/panel-views.md`, §9).
+  final VoidCallback onPress;
   final VoidCallback onToggle;
 
   bool get _selected => underCursor && panelActive;
@@ -781,7 +788,7 @@ class _BranchRow extends StatelessWidget {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTapDown: (_) => onPress(),
       child: Padding(
         padding: EdgeInsets.only(bottom: metrics.rowGap),
         child: DecoratedBox(

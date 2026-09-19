@@ -26,7 +26,7 @@ class IconTile extends StatelessWidget {
     required this.panelActive,
     required this.width,
     this.contentOf,
-    this.onTap,
+    this.onPress,
   });
 
   final FileEntry entry;
@@ -49,7 +49,14 @@ class IconTile extends StatelessWidget {
 
   final Content Function(FileEntry entry)? contentOf;
 
-  final VoidCallback? onTap;
+  /// Нажатие на строку — **по нажатию, а не по отпусканию**.
+  ///
+  /// Панель зажигается по нажатию (`PanelView`), и если бы курсор переставлялся
+  /// по отпусканию, между ними был бы виден курсор на прежнем месте: щёлкнули в
+  /// соседнюю панель, она загорелась со своей старой строкой, и только с
+  /// отпусканием курсор прыгал туда, куда целились
+  /// (`docs/spec/panel-views.md`, §9).
+  final VoidCallback? onPress;
 
   bool get _selected => underCursor && panelActive;
 
@@ -62,7 +69,7 @@ class IconTile extends StatelessWidget {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTapDown: onPress == null ? null : (_) => onPress!(),
       // Во всю ширину и по центру: [FcTrimmedText] ширину берёт только для
       // мерки, а рисуется по содержимому, — и без этого короткое имя утащило бы
       // за собой всю плитку к левому краю, а столбцы перестали бы читаться

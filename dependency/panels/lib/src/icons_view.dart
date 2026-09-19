@@ -279,7 +279,7 @@ class _IconsViewState extends State<IconsView> {
     );
   }
 
-  void _onTap(int index) {
+  void _onPress(int index) {
     final panel = widget.panel;
     final now = DateTime.now();
     final again = index == _lastTapIndex && now.difference(_lastTapTime) < _doubleTapWindow;
@@ -425,7 +425,7 @@ class _IconsViewState extends State<IconsView> {
                               // курсор там, где сейчас клавиши.
                               panelActive: takesKeysHere(context, panel),
                               contentOf: panel.contentOf,
-                              onTap: () => _onTap(first + column),
+                              onPress: () => _onPress(first + column),
                             ),
                           ),
                         ),

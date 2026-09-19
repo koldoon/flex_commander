@@ -540,7 +540,7 @@ class ColumnsViewState extends State<ColumnsView> {
   ///
   /// Распознаётся вручную, как везде: штатный `onDoubleTap` придерживает
   /// первый щелчок до конца окна, и курсор начинает опаздывать.
-  void _onTap(int index) {
+  void _onPress(int index) {
     final rows = _rows;
     if (index < 0 || index >= rows.length) {
       return;
@@ -722,7 +722,7 @@ class ColumnsViewState extends State<ColumnsView> {
                                         current: at == chain.current,
                                         step: _step,
                                         controller: _verticalOf(rows[chain.columns[at].owner].path),
-                                        onTap: _onTap,
+                                        onPress: _onPress,
                                       ),
                             ),
                           ],
@@ -771,7 +771,7 @@ class _Column extends StatelessWidget {
     required this.current,
     required this.step,
     required this.controller,
-    required this.onTap,
+    required this.onPress,
   });
 
   final Session panel;
@@ -786,7 +786,7 @@ class _Column extends StatelessWidget {
 
   final double step;
   final ScrollController controller;
-  final void Function(int index) onTap;
+  final void Function(int index) onPress;
 
   @override
   Widget build(BuildContext context) {
@@ -817,7 +817,7 @@ class _Column extends StatelessWidget {
           onTrail: !current && index == column.selected,
           marked: panel.isMarked(row),
           panelActive: takesKeysHere(context, panel),
-          onTap: () => onTap(index),
+          onPress: () => onPress(index),
         );
       },
     );
@@ -909,7 +909,7 @@ class _ColumnRow extends StatelessWidget {
     required this.onTrail,
     required this.marked,
     required this.panelActive,
-    required this.onTap,
+    required this.onPress,
   });
 
   final FileEntry row;
@@ -935,7 +935,15 @@ class _ColumnRow extends StatelessWidget {
 
   final bool marked;
   final bool panelActive;
-  final VoidCallback onTap;
+
+  /// Нажатие на строку — **по нажатию, а не по отпусканию**.
+  ///
+  /// Панель зажигается по нажатию (`PanelView`), и если бы курсор переставлялся
+  /// по отпусканию, между ними был бы виден курсор на прежнем месте: щёлкнули в
+  /// соседнюю панель, она загорелась со своей старой строкой, и только с
+  /// отпусканием курсор прыгал туда, куда целились
+  /// (`docs/spec/panel-views.md`, §9).
+  final VoidCallback onPress;
 
   bool get _selected => underCursor && panelActive;
 
@@ -959,7 +967,7 @@ class _ColumnRow extends StatelessWidget {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTapDown: (_) => onPress(),
       child: Padding(
         padding: EdgeInsets.only(bottom: metrics.rowGap),
         child: DecoratedBox(

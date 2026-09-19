@@ -20,7 +20,7 @@ class FileTableRow extends StatelessWidget {
     required this.panelActive,
     this.naming = const ReferenceFileNaming(),
     this.contentOf,
-    this.onTap,
+    this.onPress,
   });
 
   /// Строка значением: узлы живут в ядре, а рисуют по эту сторону.
@@ -42,7 +42,14 @@ class FileTableRow extends StatelessWidget {
   /// Чем открыть байты строки — иконке, если правило спрашивает о содержимом.
   final Content Function(FileEntry entry)? contentOf;
 
-  final VoidCallback? onTap;
+  /// Нажатие на строку — **по нажатию, а не по отпусканию**.
+  ///
+  /// Панель зажигается по нажатию (`PanelView`), и если бы курсор переставлялся
+  /// по отпусканию, между ними был бы виден курсор на прежнем месте: щёлкнули в
+  /// соседнюю панель, она загорелась со своей старой строкой, и только с
+  /// отпусканием курсор прыгал туда, куда целились
+  /// (`docs/spec/panel-views.md`, §9).
+  final VoidCallback? onPress;
 
   bool get _selected => underCursor && panelActive;
 
@@ -57,7 +64,7 @@ class FileTableRow extends StatelessWidget {
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
-      onTap: onTap,
+      onTapDown: onPress == null ? null : (_) => onPress!(),
       // Просвет между строками: подсветка курсора и пометки не смыкается
       // со следующей строкой. Нажатие по просвету всё равно попадает в строку —
       // отступ лежит внутри области жеста.

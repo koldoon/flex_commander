@@ -450,7 +450,7 @@ class _FileTableState extends State<FileTable> {
               // Байты — для правил иконок по содержимому. Спрашивают их у
               // панели: строка принадлежит ей, и она же знает, откуда читать.
               contentOf: panel.contentOf,
-              onTap: () => _handleRowTap(app, index),
+              onPress: () => _handleRowPress(app, index),
             );
             // Строку можно утащить наружу — если есть кому тащить.
             return panelDragSource(context: context, panel: panel, entry: entry, child: row);
@@ -480,7 +480,7 @@ class _FileTableState extends State<FileTable> {
   /// Двойной клик распознаётся вручную: штатный `onDoubleTap` заставляет
   /// Flutter придержать одиночный клик до истечения таймаута, а курсор в
   /// файловом менеджере должен переставляться сразу.
-  void _handleRowTap(Application app, int index) {
+  void _handleRowPress(Application app, int index) {
     final now = DateTime.now();
     final isDoubleTap = index == _lastTapIndex && now.difference(_lastTapTime) < _doubleTapWindow;
     _lastTapIndex = index;

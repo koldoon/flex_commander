@@ -221,7 +221,7 @@ class _BriefViewState extends State<BriefView> {
     return Rect.fromLTWH(column * _columnWidth - offset, row * _rowHeight, _columnWidth, _rowHeight);
   }
 
-  void _onTap(int index) {
+  void _onPress(int index) {
     final panel = widget.panel;
     final now = DateTime.now();
     final again = index == _lastTapIndex && now.difference(_lastTapTime) < _doubleTapWindow;
@@ -329,7 +329,7 @@ class _BriefViewState extends State<BriefView> {
                               panelActive: takesKeysHere(context, panel),
                               naming: app.fileNaming,
                               contentOf: panel.contentOf,
-                              onTap: () => _onTap(first + row),
+                              onPress: () => _onPress(first + row),
                             ),
                           ),
                         ),
