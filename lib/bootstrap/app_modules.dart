@@ -24,6 +24,7 @@ import 'package:fc_viewer/fc_viewer.dart';
 import 'package:fc_zip/fc_zip.dart';
 
 import '../modules/app_shell.dart';
+import '../modules/clipboard/system_file_clipboard.dart';
 import '../modules/dnd/system_drag_and_drop.dart';
 import '../modules/icons/system_icons.dart';
 import '../modules/images/system_images.dart';
@@ -68,6 +69,9 @@ List<FcModule> featureModules() => [
   // Перетаскивание мышью. Платформенного в дартовой части нет — только имя
   // канала; без своего раннера канал молчит, и это ровно «перетаскивания нет».
   const SystemDragAndDrop(),
+  // Файлы в буфере обмена — тем же способом и по той же причине: буфер файлов
+  // знает только система (`docs/spec/file-clipboard.md`).
+  const FileClipboardModule(),
   // Тип по содержимому: службу спрашивает показ, а модуль не приносит ни
   // колонки, ни команды — только ответ на вопрос «что это за файл».
   const ContentTypeDetection(),
