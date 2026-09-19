@@ -136,8 +136,28 @@ class SessionMirror extends ChangeNotifier implements Session {
   @override
   SortSpec get sort => _state.sort;
 
+  /// Раскладка, разобранная в прошлый раз, и то, из чего она разобрана.
+  ///
+  /// Спрашивают её на каждую сборку списка, а собирается она заново с новыми
+  /// `ColumnSpec` — и строка получала новые приметы там, где ничего не менялось
+  /// (`docs/spec/panel-redraw.md`, §4).
+  ColumnLayout? _resolved;
+  ColumnLayout? _resolvedFrom;
+  Set<String>? _resolvedExtra;
+
   @override
-  ColumnLayout get columns => _declared.resolve(_state.columns, extra: _state.source.extraColumns);
+  ColumnLayout get columns {
+    final saved = _state.columns;
+    final extra = _state.source.extraColumns;
+    // По экземпляру: состояние приезжает целиком и заменяется целиком, а
+    // раскладка внутри него неизменяема.
+    if (_resolved case final ready? when identical(_resolvedFrom, saved) && identical(_resolvedExtra, extra)) {
+      return ready;
+    }
+    _resolvedFrom = saved;
+    _resolvedExtra = extra;
+    return _resolved = _declared.resolve(saved, extra: extra);
+  }
 
   @override
   bool get showHidden => _state.showHidden;

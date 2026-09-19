@@ -297,6 +297,30 @@ void main() {
     });
   });
 
+  group('раскладка колонок не пересобирается зря', () {
+    testWidgets('спрошенная дважды — та же самая', (tester) async {
+      // По раскладке и списку показанных колонок вид узнаёт, что строка не
+      // изменилась и собирать её заново не нужно. Новый список на каждое
+      // обращение рушил это молча (`docs/spec/panel-redraw.md`, §4).
+      await pumpApp(tester);
+
+      final first = app.left.columns;
+      expect(app.left.columns, same(first), reason: 'раскладка собирается заново на каждое обращение');
+      expect(app.left.columns.visibleColumns, same(first.visibleColumns));
+    });
+
+    testWidgets('колонку спрятали — раскладка другая', (tester) async {
+      await pumpApp(tester);
+
+      final before = app.left.columns;
+      app.left.setColumnLayout(before.toggleVisible(FsColumns.size));
+      await tester.pumpAndSettle();
+
+      expect(app.left.columns, isNot(same(before)), reason: 'память держит устаревшую раскладку');
+      expect(app.left.columns.find(FsColumns.size)!.visible, isFalse);
+    });
+  });
+
   group('набор строк', () {
     testWidgets('после дерева таблица показывает каталог, а не ветви', (tester) async {
       await pumpApp(tester);

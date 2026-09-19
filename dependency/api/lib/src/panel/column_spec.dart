@@ -161,7 +161,13 @@ class ColumnLayout {
 
   final List<ColumnSpec> columns;
 
-  List<ColumnSpec> get visibleColumns => columns.where((c) => c.visible).toList(growable: false);
+  /// Показанные колонки — **одним и тем же списком**.
+  ///
+  /// Раскладка неизменяема, и отбирать из неё заново на каждое обращение нечего.
+  /// Дело не в отборе, а в том, что новый список рушит приметы строки: по ним
+  /// вид узнаёт, что строка не изменилась и собирать её заново не нужно
+  /// (`docs/spec/panel-redraw.md`, §4).
+  late final List<ColumnSpec> visibleColumns = columns.where((c) => c.visible).toList(growable: false);
 
   ColumnSpec? find(String id) {
     for (final column in columns) {
