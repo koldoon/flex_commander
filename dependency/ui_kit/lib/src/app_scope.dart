@@ -71,12 +71,37 @@ class ViewportScope extends InheritedWidget {
   bool updateShouldNotify(ViewportScope oldWidget) => oldWidget.position != position;
 }
 
+/// Место вне областей, отвечающее за клавиши **само**, — открытое окно.
+///
+/// Приложение знает, кому клавиши, по областям: левая панель, правая, полоса,
+/// полноэкранное. Окно областью не бывает, и показанного в нём приложение не
+/// находит нигде — ответ выходил отрицательный, и список в окне рисовался без
+/// курсора вовсе. А клавиши, пока окно открыто, принадлежат **ему целиком**
+/// (`docs/screens.md`): значит и списку, который оно показывает, — курсор в нём
+/// ходит стрелками, и видно его должно быть.
+///
+/// Ставит его слой окон: какое из них верхнее, знает он один.
+class KeysScope extends InheritedWidget {
+  const KeysScope({super.key, required this.takesKeys, required super.child});
+
+  final bool takesKeys;
+
+  /// Ответа нет — виджет стоит не в окне, и спрашивать надо приложение.
+  static bool? maybeOf(BuildContext context) => context.dependOnInheritedWidgetOfExactType<KeysScope>()?.takesKeys;
+
+  @override
+  bool updateShouldNotify(KeysScope oldWidget) => oldWidget.takesKeys != takesKeys;
+}
+
 /// Достаются ли клавиши тому, что виджет рисует, — с оглядкой на его место.
 ///
 /// Вопрос задаётся отсюда, а не `app.view.takesKeys`: место берётся из дерева
 /// ([ViewportScope]), и виджету не приходится знать, где он стоит.
+///
+/// Окно отвечает за себя само ([KeysScope]) и спрошено первым: его ответ —
+/// про открытое окно, а приложение знает только области.
 bool takesKeysHere(BuildContext context, ViewportState content) =>
-    AppScope.of(context).view.takesKeysAt(ViewportScope.maybeOf(context), content);
+    KeysScope.maybeOf(context) ?? AppScope.of(context).view.takesKeysAt(ViewportScope.maybeOf(context), content);
 
 /// Доступ к панели, внутри которой находится виджет.
 ///

@@ -946,6 +946,33 @@ void main() {
     expect(session.currentEntry?.name, isNot(first), reason: 'и дошёл до следующей строки');
   });
 
+  testWidgets('курсор в окне находок виден', (tester) async {
+    // Живой дефект: курсор в окне не рисовался вовсе. Список тот же, что в
+    // панели, а полосу курсора он рисует, только когда клавиши у его места;
+    // окно местом не бывает, и ответ ему приходил отрицательный.
+    await pumpApp(tester, size: const Size(1200, 800));
+    await openWindow(tester);
+    await search(tester, '*.dart');
+
+    final colors = FcTheme.of(tester.element(find.byType(FindFilesResults))).colors;
+    List<Color?> painted() =>
+        tester
+            .widgetList<DecoratedBox>(
+              find.descendant(of: find.byType(FindFilesResults), matching: find.byType(DecoratedBox)),
+            )
+            .map((box) => box.decoration)
+            .whereType<BoxDecoration>()
+            .map((decoration) => decoration.color)
+            .toList();
+
+    expect(painted().where((color) => color == colors.cursorBackground), hasLength(1), reason: 'полоса курсора одна');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+
+    expect(painted().where((color) => color == colors.cursorBackground), hasLength(1), reason: 'и ходит со стрелкой');
+  });
+
   testWidgets('удержание стрелки в окне повторяет шаг', (tester) async {
     // Живой дефект: в окне находок удержание стрелки не двигало курсор вовсе —
     // окно принимало только нажатие, а автоповтор приходит своим событием.

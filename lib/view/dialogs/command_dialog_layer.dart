@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 
 import 'dialog_frame.dart';
 
@@ -42,7 +43,15 @@ class CommandDialogLayer extends StatelessWidget {
                 // Крестик — только там, где `Esc` и правда закрывает: иначе он
                 // обещал бы то, чего окно не умеет.
                 closable: spec.onDismiss != null,
-                child: spec.content,
+                // Клавиши, пока окно открыто, принадлежат ему целиком
+                // (`docs/screens.md`), — и списку, который оно показывает,
+                // тоже: курсор в нём ходит стрелками. Приложение об этом не
+                // спросишь, оно знает только области, а окно областью не
+                // бывает (`KeysScope`).
+                //
+                // Верхнему: окон бывает несколько одно над другим, и клавиши у
+                // последнего показанного.
+                child: KeysScope(takesKeys: identical(spec, own.last), child: spec.content),
               ),
           ],
         );
