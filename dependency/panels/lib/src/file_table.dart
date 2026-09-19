@@ -13,6 +13,7 @@ import 'panels_settings.dart';
 import 'columns.dart';
 import 'file_table_row.dart';
 import 'mark_drag.dart';
+import 'row_cache.dart';
 
 /// Таблица файлов: заголовки колонок, вертикальные линейки на всю высоту и
 /// прокручиваемый список строк.
@@ -52,6 +53,19 @@ class _FileTableState extends State<FileTable> {
   double _headerHeight = 0;
 
   int _lastCursorIndex = -1;
+
+  /// Готовые строки: та же строка отдаётся тем же виджетом (`row_cache.dart`).
+  final RowCache _cache = RowCache();
+
+  /// Посчитанные ширины и то, из чего они посчитаны.
+  ///
+  /// Не ради самого счёта — он дешёвый, — а ради примет: новый список ширин на
+  /// каждую сборку означал бы, что ни одна строка не совпала сама с собой
+  /// (`docs/spec/panel-redraw.md`, §7).
+  List<double>? _widths;
+  List<ColumnSpec>? _widthsOf;
+  double _widthsFor = -1;
+  double _widthsIcon = -1;
 
   /// Строка под курсором с прошлого показа — чтобы перестановка её не сдвинула.
   final CursorPin _pin = CursorPin();
@@ -249,7 +263,7 @@ class _FileTableState extends State<FileTable> {
               // `right="40"` у содержимого строки при рамке панели, идущей
               // до самого края.
               final inset = theme.metrics.panelRightPadding;
-              final widths = _columnWidths(columns, constraints.maxWidth - inset, iconSize, theme.metrics);
+              final widths = _widthsOfColumns(columns, constraints.maxWidth - inset, iconSize, theme.metrics);
               final contentWidth = widths.fold<double>(0, (sum, width) => sum + width) + inset;
 
               // Сколько строк видно — от этого считается шаг PgUp/PgDn.
@@ -420,6 +434,23 @@ class _FileTableState extends State<FileTable> {
           return const SizedBox.shrink();
         }
 
+        // Курсор горит там, куда попадёт следующее нажатие, — и вопрос об
+        // этом один на всё приложение, тот же, которым светится плашка. Своим
+        // признаком активности панель отвечала на другой вопрос: ввод мог уйти
+        // в список фоновых работ под ней, а курсор оставался гореть — как
+        // будто стрелки всё ещё её.
+        //
+        // Спрашивается один раз на список, а не в каждой строке: ответ у них
+        // общий, а обращение это поиск унаследованного виджета.
+        final active = takesKeysHere(context, panel);
+        // Тема — в приметах кадра: сменили её или размер значков, и прежние
+        // строки нарисованы не теми цветами.
+        final theme = FcTheme.of(context);
+        // Правило показа имён одно на приложение: две панели, делящие имя
+        // по-разному, — не гибкость, а недосмотр.
+        final naming = app.fileNaming;
+        _cache.frame([theme, columns, widths, rows, naming, _rowHeight]);
+
         return ListView.builder(
           // Новый каталог — новый список: положение прежнего в него не
           // переносится.
@@ -430,30 +461,31 @@ class _FileTableState extends State<FileTable> {
           itemExtent: _rowHeight,
           itemCount: rows.length,
           primary: false,
+          // Беречь строке нечего: своего состояния у неё нет, а значок помнит
+          // себя по пути и уезд с экрана переживает сам
+          // (`docs/spec/panel-redraw.md`, §7).
+          addAutomaticKeepAlives: false,
           itemBuilder: (context, index) {
             final entry = rows[index];
-            final row = FileTableRow(
-              entry: entry,
-              columns: columns,
-              widths: widths,
-              marked: panel.isMarked(entry),
-              underCursor: index == panel.cursorIndex,
-              // Курсор горит там, куда попадёт следующее нажатие, — и вопрос
-              // об этом один на всё приложение, тот же, которым светится
-              // плашка. Своим признаком активности панель отвечала на другой
-              // вопрос: ввод мог уйти в список фоновых работ под ней, а курсор
-              // оставался гореть — как будто стрелки всё ещё её.
-              panelActive: takesKeysHere(context, panel),
-              // Правило показа одно на приложение: две панели, делящие имя
-              // по-разному, — не гибкость, а недосмотр.
-              naming: app.fileNaming,
-              // Байты — для правил иконок по содержимому. Спрашивают их у
-              // панели: строка принадлежит ей, и она же знает, откуда читать.
-              contentOf: panel.contentOf,
-              onPress: () => _handleRowPress(app, index),
-            );
-            // Строку можно утащить наружу — если есть кому тащить.
-            return panelDragSource(context: context, panel: panel, entry: entry, child: row);
+            final marked = panel.isMarked(entry);
+            final underCursor = index == panel.cursorIndex;
+            return _cache.of(index, [entry, marked, underCursor, active], () {
+              final row = FileTableRow(
+                entry: entry,
+                columns: columns,
+                widths: widths,
+                marked: marked,
+                underCursor: underCursor,
+                panelActive: active,
+                naming: naming,
+                // Байты — для правил иконок по содержимому. Спрашивают их у
+                // панели: строка принадлежит ей, и она же знает, откуда читать.
+                contentOf: panel.contentOf,
+                onPress: () => _handleRowPress(app, index),
+              );
+              // Строку можно утащить наружу — если есть кому тащить.
+              return panelDragSource(context: context, panel: panel, entry: entry, child: row);
+            });
           },
         );
       },
@@ -493,6 +525,19 @@ class _FileTableState extends State<FileTable> {
       _lastTapIndex = -1;
       widget.panel.enterCurrent();
     }
+  }
+
+  /// Ширины — теми же числами и тем же списком, пока считать их не из чего
+  /// заново.
+  List<double> _widthsOfColumns(List<ColumnSpec> columns, double available, double iconSize, FcMetrics metrics) {
+    if (_widths case final ready?
+        when identical(_widthsOf, columns) && available == _widthsFor && iconSize == _widthsIcon) {
+      return ready;
+    }
+    _widthsOf = columns;
+    _widthsFor = available;
+    _widthsIcon = iconSize;
+    return _widths = _columnWidths(columns, available, iconSize, metrics);
   }
 
   /// Фиксированные колонки получают свою ширину, «резиновая» — весь остаток.
