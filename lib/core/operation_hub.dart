@@ -39,6 +39,14 @@ class OperationHub {
 
   final Map<String, _Run> _running = {};
 
+  /// Не чаще этого отчёты о ходе работы пересекают границу.
+  ///
+  /// Десять раз в секунду: цифры в полосе хода меняются быстрее, чем глаз
+  /// успевает читать, а сообщений через порт становится вчетверо меньше
+  /// (`docs/spec/growing-listing.md`, §5). Работа при этом отчитывается
+  /// по-прежнему — о границе она не знает.
+  static const Duration reportWindow = Duration(milliseconds: 100);
+
   /// Заводит работу и ведёт её до конца.
   ///
   /// Имя работы даёт та сторона: подписка у неё встаёт раньше запуска, и
@@ -61,10 +69,15 @@ class OperationHub {
 
       // Сперва подписки, потом запуск: до `start` не происходит ничего, и
       // потерять нечего, — а после первый же вопрос мог бы пройти мимо.
-      run.watch(
-        onProgress: () => _say(OperationProgress(runId, _reportOf(operation))),
-        onAsk: (request) => _ask(runId, run, request),
-      );
+      //
+      // Отчёт о ходе работы — это «сейчас идёт вот это», а не запись в журнал:
+      // терять промежуточные не жалко, важен последний. Работа же рассказывает
+      // о себе столько, сколько ей естественно: поиск — на каждый каталог,
+      // копирование — на каждый блок. Ограничитель стоит здесь, на самой
+      // границе, и один на все работы сразу
+      // (`docs/spec/growing-listing.md`, §5).
+      run.reports = Throttle(() => _say(OperationProgress(runId, _reportOf(operation))), interval: () => reportWindow);
+      run.watch(onProgress: run.reports!.call, onAsk: (request) => _ask(runId, run, request));
 
       operation.start(
         OperationInputs(
@@ -152,6 +165,10 @@ class OperationHub {
 
   void _finish(String runId, OperationEnded ended) {
     final run = _running.remove(runId);
+    // Придержанный отчёт отдаётся **до** «работа кончилась»: иначе итог остался
+    // бы с числом на сотню миллисекунд младше правды — на поиске это «нашлось
+    // 12300» вместо 12487 (`docs/spec/growing-listing.md`, §5).
+    run?.reports?.flush();
     run?.release();
     if (run?.asked != null) {
       // Вопрос снимается вместе с работой: спрашивать уже нечего, а закрыть
@@ -269,6 +286,9 @@ class _Run {
   final Operation<OperationInputs, void> operation;
   final List<ProviderLease> leases;
 
+  /// Чем отчёты о ходе работы придерживаются на пути через границу.
+  Throttle? reports;
+
   StreamSubscription<OperationRequest>? _requests;
   VoidCallback? _stopWatching;
 
@@ -296,6 +316,7 @@ class _Run {
   }
 
   void release() {
+    reports?.cancel();
     _stopWatching?.call();
     unawaited(_requests?.cancel());
     for (final lease in leases) {

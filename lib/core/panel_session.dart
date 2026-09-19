@@ -40,6 +40,32 @@ int _defaultHistoryLimit() => SessionHistory.defaultLimit;
 /// собирает панель сам, — проверкам.
 bool _watchByDefault() => true;
 
+/// Во сколько раз окно перерисовки растущего списка длиннее цены круга.
+///
+/// Четыре: ядро отдаёт показу четверть своего времени и три четверти оставляет
+/// работе — обходу, который список и наполняет
+/// (`docs/spec/growing-listing.md`, §3).
+const int growPace = 4;
+
+/// Дальше этого окно не растёт, сколько бы список ни стоил.
+///
+/// Список, который обновляется реже раза в секунду, выглядит замершим, и уж
+/// лучше заплатить.
+const Duration maxGrowWindow = Duration(seconds: 1);
+
+/// Окно перерисовки растущего списка по цене прошлого круга.
+///
+/// Не по часам, а по цене: перерисовка стоит столько же, сколько сам список, и
+/// чем он длиннее, тем дальше отодвигается следующая. Снизу окно не опускается
+/// ниже обычного шага перерисовки — на коротком списке ничего не меняется.
+Duration growWindowFor(Duration cost) {
+  final paced = cost * growPace;
+  if (paced < Throttle.defaultInterval) {
+    return Throttle.defaultInterval;
+  }
+  return paced > maxGrowWindow ? maxGrowWindow : paced;
+}
+
 class PanelSessionFactory {
   PanelSessionFactory({
     required this.registry,
@@ -175,9 +201,37 @@ class PanelSession {
   /// Подписка на источник, который меняется сам; null — такого нет.
   VoidCallback? _unfollowSource;
 
-  /// Перечитывание по вести источника — не чаще, чем имеет смысл смотреть:
-  /// находки приходят пачками по нескольку раз в секунду.
-  late final Throttle _sourceGrew = Throttle(() => unawaited(refreshRows()));
+  /// Перечитывание по вести источника — не чаще, чем оно **стоит**.
+  ///
+  /// Находки приходят пачками по нескольку раз в секунду, а перечитывание стоит
+  /// столько же, сколько сам список: обход проекции, раскладка ветвей и
+  /// `FileEntry` на каждую строку. Зови его по часам — и ядро занято показом, а
+  /// не поиском: живой замер показал четыре с половиной секунды из каждых пяти
+  /// (`docs/spec/growing-listing.md`, §1).
+  late final Throttle _sourceGrew = Throttle(() => unawaited(_showGrown()), interval: () => _growWindow);
+
+  /// То же окно — дочитанным ветвям дерева: событие другое, цена та же.
+  late final Throttle _branchesLearned = Throttle(_showLearned, interval: () => _growWindow);
+
+  /// Сколько заняла прошлая перерисовка растущего списка.
+  Duration _growCost = Duration.zero;
+
+  /// Как редко звать перерисовку растущего списка — по цене прошлого круга.
+  Duration get _growWindow => growWindowFor(_growCost);
+
+  /// Показать прибавившееся — и запомнить, во что это обошлось.
+  Future<void> _showGrown() async {
+    final spent = Stopwatch()..start();
+    await refreshRows();
+    _growCost = spent.elapsed;
+  }
+
+  /// Показать дочитанные ветви — с той же меркой.
+  void _showLearned() {
+    final spent = Stopwatch()..start();
+    _listed();
+    _growCost = spent.elapsed;
+  }
 
   /// Следить за источником, который растёт сам (находки), и отписываться от
   /// прежнего.
@@ -386,7 +440,11 @@ class PanelSession {
         op: op,
         // Строки те же самые — изменились только их признаки, и пересобирать
         // набор незачем: узлы в нём и есть те, которым дописали ответ.
-        onLearned: _listed,
+        //
+        // Через ограничитель: ветви дочитываются пачками по шестнадцать, а
+        // показ списка стоит столько же, сколько список
+        // (`docs/spec/growing-listing.md`, §2).
+        onLearned: _branchesLearned.call,
       ),
     );
     _probing = operation;
@@ -3366,6 +3424,7 @@ class PanelSession {
     _unfollowSource?.call();
     _unfollowSource = null;
     _sourceGrew.cancel();
+    _branchesLearned.cancel();
     _stopSizeScan(notify: false);
     // Панель ушла — она больше не арендатор ни архива, ни своего сервера.
     // Закроются они, только если держать их больше некому: работа, ушедшая в

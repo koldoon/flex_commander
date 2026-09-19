@@ -45,6 +45,16 @@ void main() {
         }
       });
 
+  /// Работа, которая отчитывается часто и подолгу: так ведёт себя поиск —
+  /// отчёт на каждый каталог.
+  Operation<OperationInputs, void> storm(FcServices services) =>
+      TaskOperation<OperationInputs, void>((op, inputs) async {
+        for (var step = 0; step < 40; step++) {
+          op.report(message: 'шаг $step', itemsTransferred: step, itemsTotal: 40);
+          await Future<void>.delayed(const Duration(milliseconds: 10));
+        }
+      });
+
   setUp(() {
     provider = InMemoryTreeProvider([
       FakeEntry.directory('/home'),
@@ -72,7 +82,7 @@ void main() {
       left: sessionFor('/home'),
       right: sessionFor('/home'),
       registry: registry,
-      operations: {'test.probe': probe, ...const AppShellKinds().kinds},
+      operations: {'test.probe': probe, 'test.storm': storm, ...const AppShellKinds().kinds},
     );
     link = LoopbackLink(core);
   });
@@ -200,6 +210,28 @@ void main() {
     );
 
     expect(provider.entryAt('/home/docs/notes.txt'), isNotNull);
+  });
+
+  test('отчёты о ходе работы не заваливают границу, а последний доходит', () async {
+    // Отчёт — это «сейчас идёт вот это», а не запись в журнал: терять
+    // промежуточные не жалко, важен последний
+    // (`docs/spec/growing-listing.md`, §5).
+    final sent = <ProgressReport>[];
+    final watching = link.events.listen((event) {
+      if (event is OperationProgress) {
+        sent.add(event.report);
+      }
+    });
+    addTearDown(watching.cancel);
+
+    final operation = RemoteOperation(link);
+    await operation.run(const OperationSpec(kind: 'test.storm', targets: Targets.paths(['/home/notes.txt'])));
+
+    // Работа отчиталась сорок раз за четыре десятых секунды; через границу
+    // уходит не чаще десяти раз в секунду.
+    expect(sent.length, lessThan(15), reason: 'через границу ушло ${sent.length} отчётов из сорока');
+    expect(sent, isNotEmpty, reason: 'ход работы не доехал вовсе');
+    expect(sent.last.message, 'шаг 39', reason: 'последний отчёт потерялся в ограничителе');
   });
 }
 
