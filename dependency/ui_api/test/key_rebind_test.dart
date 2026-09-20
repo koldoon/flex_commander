@@ -72,6 +72,33 @@ void main() {
     expect(registry.bindings.map((binding) => binding.commandId).toList(), ['viewer.open', 'shell.open']);
   });
 
+  group('столкновение — это спор за одно нажатие', () {
+    test('одна клавиша в разных местах не спорит', () {
+      // `F5` в панели копирует, в просмотрщике форматирует — и это задумано
+      // (`docs/spec/key-bindings.md`, §3).
+      final panel = KeyBinding('F5', 'file.copy');
+      final screen = KeyBinding.inState<_Screen>('F5', 'text.format');
+
+      expect(panel.conflictsWith(screen), isFalse);
+    });
+
+    test('в одном месте — спорит', () {
+      expect(KeyBinding('F5', 'file.copy').conflictsWith(KeyBinding('F5', 'file.move')), isTrue);
+    });
+
+    test('разные клавиши не спорят никогда', () {
+      expect(KeyBinding('F5', 'file.copy').conflictsWith(KeyBinding('F6', 'file.move')), isFalse);
+    });
+
+    test('условие по имени разводит привязки', () {
+      // `Enter` на архиве и `Enter` на обычном файле — разные привязки.
+      final archive = KeyBinding('Enter', 'file.open', nameMatch: RegExp(r'\.zip$'));
+      final plain = KeyBinding('Enter', 'file.open');
+
+      expect(archive.conflictsWith(plain), isFalse);
+    });
+  });
+
   test('объявленное помнится и после переназначения', () {
     final registry = registryWith([KeyBinding('F5', 'file.copy')]);
 

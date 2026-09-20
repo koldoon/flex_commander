@@ -8,6 +8,7 @@ import '../state/background_tasks.dart';
 import '../state/background_tasks_state.dart';
 import '../state/commands/background_commands.dart';
 import '../state/commands/help_command.dart';
+import '../state/commands/keys_command.dart';
 import '../state/commands/palette_command.dart';
 import '../state/commands/session_commands.dart';
 import '../state/commands/settings_command.dart';
@@ -141,6 +142,12 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     // Привычка macOS. Действует и в просмотрщике, и в редакторе: настройки —
     // не про то, что сейчас на экране.
     registry.binding(KeyBinding.anywhere('Cmd-,', SettingsCommand.commandId));
+
+    // Клавиши — рядом с настройками и по той же причине, что и они: `Alt-F9`
+    // стоит у `F9` под рукой (`docs/spec/key-bindings.md`, §7). Реестр команда
+    // получает способом его спросить: он собирается вместе с ней.
+    registry.command((context) => KeysCommand(registry: () => context.resolve<CommandRegistry>()));
+    registry.binding(KeyBinding.anywhere('Alt-F9', KeysCommand.commandId));
 
     // Открытые сессии: один список на приложение, ряд над панелями рисует
     // шелл, и команды его же (`docs/spec/panel-sessions.md`, §9).
@@ -446,6 +453,20 @@ const Map<String, String> _russian = {
   'Everything the application remembers by your choice': 'Всё, что приложение помнит по вашему выбору',
   'Settings': 'Настройки',
   'Commands': 'Команды',
+
+  // Настройка клавиш.
+  'Keyboard': 'Клавиши',
+  'Set your own key for any command': 'Назначить любой команде свою клавишу',
+  'Enter — set, Bsp — clear, Cmd-R — default': 'Enter — назначить, Bsp — снять, Cmd-R — умолчание',
+  'Press the combination; Esc — cancel': 'Нажмите сочетание; Esc — отмена',
+  '{keys} belongs to «{command}». Enter — take it, Esc — leave it':
+      '{keys} занято командой «{command}». Enter — отнять, Esc — оставить',
+  'This one answers any letter: there is no combination to set':
+      'Эта привязка отзывается на любую букву: назначать нечего',
+  'This command has no key of its own yet — it is run from the palette':
+      'У этой команды своей клавиши пока нет — её вызывают из палитры',
+  'Reset all': 'Вернуть все',
+  'No such command': 'Такой команды нет',
   'Everything the application can do right now, by name': 'Всё, что приложение умеет сейчас, — по названию',
   'Command': 'Команда',
   'Command list is not available': 'Список команд недоступен',
