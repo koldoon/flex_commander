@@ -518,6 +518,10 @@ void main() {
     for (final page in pages) {
       for (final field in page.build().fields) {
         expect(field.title, isNotEmpty, reason: 'поле без подписи не покажешь');
+        if (field is SettingsButton) {
+          // Кнопке сохранять нечего: у неё нет значения, она делает.
+          continue;
+        }
         expect(
           keys,
           contains(field.id),

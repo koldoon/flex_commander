@@ -143,11 +143,12 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     // не про то, что сейчас на экране.
     registry.binding(KeyBinding.anywhere('Cmd-,', SettingsCommand.commandId));
 
-    // Клавиши — рядом с настройками и по той же причине, что и они: `Alt-F9`
-    // стоит у `F9` под рукой (`docs/spec/key-bindings.md`, §7). Реестр команда
-    // получает способом его спросить: он собирается вместе с ней.
+    // Клавиши: своё окно, а открывают его кнопкой из настроек и из палитры.
+    // Своей клавиши у него нет — `Alt-F9` живьём до приложения не дошёл, и
+    // держать привязку, которая не срабатывает, незачем
+    // (`docs/spec/key-bindings.md`, §7). Реестр команда получает способом его
+    // спросить: он собирается вместе с ней.
     registry.command((context) => KeysCommand(registry: () => context.resolve<CommandRegistry>()));
-    registry.binding(KeyBinding.anywhere('Alt-F9', KeysCommand.commandId));
 
     // Открытые сессии: один список на приложение, ряд над панелями рисует
     // шелл, и команды его же (`docs/spec/panel-sessions.md`, §9).
@@ -231,6 +232,15 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           options: {for (final theme in app.theme.available) theme.id: strings.tr(theme.title)},
           read: () => app.theme.current.id,
           write: (value) => app.theme.use(value),
+        ),
+        // Клавиши — кнопкой, а не полем: выбирать тут нечего, а делать есть
+        // что — открыть своё окно (`docs/spec/key-bindings.md`, §7).
+        SettingsField.button(
+          'keys',
+          title: strings.tr('Keyboard'),
+          description: strings.tr('Set your own key for any command'),
+          label: strings.tr('Key bindings'),
+          run: () => app.commands.run(KeysCommand.commandId),
         ),
         // Язык впереди темы: на нём написано всё остальное в этом окне.
         SettingsField.choice(
@@ -456,6 +466,7 @@ const Map<String, String> _russian = {
 
   // Настройка клавиш.
   'Keyboard': 'Клавиши',
+  'Key bindings': 'Настроить клавиши',
   'Set your own key for any command': 'Назначить любой команде свою клавишу',
   'Enter — set, Bsp — clear, Cmd-R — default': 'Enter — назначить, Bsp — снять, Cmd-R — умолчание',
   'Press the combination; Esc — cancel': 'Нажмите сочетание; Esc — отмена',

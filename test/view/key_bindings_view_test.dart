@@ -48,9 +48,15 @@ void main() {
     await tester.pumpAndSettle();
   }
 
+  /// Открыть окно так, как его открывает кнопка настроек.
+  Future<void> openWindow(WidgetTester tester) async {
+    expect(runtime.commands.run('app.keys'), isTrue, reason: 'окно не открылось');
+    await tester.pumpAndSettle();
+  }
+
   /// Открыть окно и отобрать строку по названию команды.
   Future<void> openFor(WidgetTester tester, String query) async {
-    await press(tester, LogicalKeyboardKey.f9, modifiers: const [LogicalKeyboardKey.altLeft]);
+    await openWindow(tester);
     expect(find.byType(FcKeyBindings), findsOneWidget, reason: 'окно не открылось');
     // Поле именно окна: внизу приложения стоит командная строка, и она тоже
     // `TextField`.
@@ -60,10 +66,16 @@ void main() {
 
   String? keysOf(String commandId) => runtime.commands.bindingsOf(commandId).firstOrNull?.keys.toString();
 
-  testWidgets('Alt-F9 открывает окно со списком привязок', (tester) async {
+  testWidgets('кнопка в настройках открывает окно клавиш', (tester) async {
+    // Своей клавиши у окна нет: открывают его отсюда и из палитры
+    // (`docs/spec/key-bindings.md`, §7).
     await pumpApp(tester);
 
-    await press(tester, LogicalKeyboardKey.f9, modifiers: const [LogicalKeyboardKey.altLeft]);
+    await press(tester, LogicalKeyboardKey.f9);
+    expect(find.text('Key bindings'), findsOneWidget, reason: 'кнопки в настройках нет');
+
+    await tester.tap(find.widgetWithText(FcButton, 'Key bindings'));
+    await tester.pumpAndSettle();
 
     expect(find.byType(FcKeyBindings), findsOneWidget);
     // Первая же строка говорит, чем команда вызывается.

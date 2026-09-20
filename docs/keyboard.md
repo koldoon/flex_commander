@@ -324,10 +324,14 @@ CommandRegistry.dispatch(combination, app)
 | `Alt-Cmd-C` | `file.copyPath` | адрес объекта в буфер обмена строкой — тот, что показывает панель; помеченное по строке на объект |
 | `Ctrl-A`, `Cmd-Shift-I` | `file.attributes` | правка атрибутов: права, даты, владелец, расширенные |
 | `F9`, `Cmd-,` | `app.settings` | настройки: всё, что человек выбирает, в одном окне |
-| `Alt-F9` | `app.keys` | настройка клавиш: своя клавиша любой команде — нажатием ([`spec/key-bindings.md`](spec/key-bindings.md)) |
 | `Cmd-Shift-P` | `app.commands` | палитра: всё, что приложение умеет сейчас, по названию и с описанием |
 | `F1` | `app.help` | справка: настройки и привязки клавиш таблицей |
 | `Cmd-B` | `app.background` | ввод в список фоновых работ под панелью |
+
+**Своя клавиша любой команде** — `app.keys`: окно, где привязку назначают
+нажатием ([`spec/key-bindings.md`](spec/key-bindings.md)). Своей клавиши у него
+нет: открывают его кнопкой «Key bindings» из настроек и из палитры. Клавишу
+можно назначить и ему самому — там же.
 
 ### Список фоновых работ
 
@@ -640,7 +644,6 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 | `file.removePermanently` | `Shift-F8`, `Shift-Cmd-Bsp` | то же |
 | `file.copy` | `F5` | то же |
 | `file.move` | `F6` | то же |
-| `app.keys` | `Alt-F9` | всегда |
 | `app.background` | `Cmd-B` | есть хоть одна фоновая работа |
 | `background.cursorUp` | `Up` | ввод в списке работ и работ больше одной |
 | `background.cursorDown` | `Down` | то же |

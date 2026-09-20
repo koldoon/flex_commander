@@ -695,6 +695,13 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
 
     return switch (field) {
       SettingsFlag flag => _flagControl(theme, flag, changed),
+      // Кнопка стоит одна, без поля: у неё нет значения, которое можно было бы
+      // показать рядом. Ряд с `min` — чтобы она облегала свою подпись, как и
+      // все кнопки приложения (`FcDialogActions`).
+      SettingsButton button => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [FcButton(label: button.label, onPressed: button.run)],
+      ),
       // Выпадающим списком, а не переключателем: темы приносят модули, и
       // строка на каждый вариант росла бы вместе с их числом.
       SettingsChoice choice => FcSelect<String>(

@@ -143,6 +143,47 @@ sealed class SettingsField {
     read: read,
     write: write,
   );
+
+  /// Кнопка: поле без значения.
+  ///
+  /// Так в настройках стоит то, что не выбирают, а **делают**: «Key bindings»
+  /// открывает своё окно (`docs/spec/key-bindings.md`, §7). Отдельным видом, а
+  /// не приставкой к флажку ([SettingsFlag.action]): приставка уточняет
+  /// настройку, а этой кнопке уточнять нечего — настройки у неё нет.
+  static SettingsButton button(
+    String id, {
+    required String title,
+    required String label,
+    required void Function() run,
+    String description = '',
+    String note = '',
+  }) => SettingsButton(id, title: title, description: description, note: note, label: label, run: run);
+}
+
+/// Поле, у которого нет значения: только кнопка.
+class SettingsButton extends SettingsField {
+  const SettingsButton(
+    super.id, {
+    required super.title,
+    required this.label,
+    required this.run,
+    super.description,
+    super.note,
+  });
+
+  /// Подпись кнопки.
+  final String label;
+
+  /// Что сделать по нажатию.
+  final void Function() run;
+
+  /// Тронуть её нечем: значения нет, а значит нет и умолчания, от которого
+  /// можно отойти.
+  @override
+  bool get isDefault => true;
+
+  @override
+  void resetToDefault() {}
 }
 
 class SettingsFlag extends SettingsField {
