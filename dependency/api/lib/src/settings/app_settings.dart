@@ -4,6 +4,7 @@ import 'path_step.dart';
 import '../panel/column_spec.dart';
 import '../panel/sort_spec.dart';
 import 'dialog_state.dart';
+import 'key_override.dart';
 import 'window_geometry.dart';
 
 /// Сохраняемые настройки одной панели.
@@ -217,6 +218,7 @@ class AppSettings implements Serializable {
     this.reconnectAtStartup = false,
     this.window,
     Map<String, DialogState>? dialogs,
+    List<KeyOverride>? keys,
     ModuleSettings? modules,
     List<PanelGroupSettings>? panels,
     List<int>? shown,
@@ -228,6 +230,7 @@ class AppSettings implements Serializable {
            ],
        shown = shown ?? [0, 1],
        dialogs = {...?dialogs},
+       keys = [...?keys],
        // Разделы модулей переносятся в новый снимок настроек как есть: это
        // живые объекты самих модулей, а не копия их значений.
        modules = modules ?? ModuleSettings();
@@ -327,6 +330,13 @@ class AppSettings implements Serializable {
   /// у колонок и у разделов настроек (`docs/spec/dialog-resize.md`, §8).
   final Map<String, DialogState> dialogs;
 
+  /// Переназначенные клавиши (`docs/spec/key-bindings.md`).
+  ///
+  /// Список, а не словарь: ключ у переназначения составной — команда и прежняя
+  /// комбинация, — и словарём он был бы склеенной строкой, которую пришлось бы
+  /// разбирать обратно.
+  final List<KeyOverride> keys;
+
   /// Настройки модулей: у каждого свой раздел под своим именем.
   ///
   /// Ядро в них не заглядывает — только хранит и отдаёт тому, кто спросит
@@ -352,6 +362,9 @@ class AppSettings implements Serializable {
         for (final entry in dialogs.entries)
           if (!entry.value.isEmpty) entry.key: serialize(entry.value),
       };
+    }
+    if (keys.isNotEmpty) {
+      m['keys'] = [for (final override in keys) serialize(override)];
     }
     m['panels'] = [for (final panel in panels) serialize(panel)];
     m['shown'] = shown;
@@ -385,6 +398,19 @@ class AppSettings implements Serializable {
         final state = id is String ? extractObject(entry.value, (_) => DialogState()) : null;
         if (id is String && state != null && !state.isEmpty) {
           dialogs[id] = state;
+        }
+      }
+    }
+
+    final storedKeys = m['keys'];
+    if (storedKeys is List) {
+      keys.clear();
+      for (final item in storedKeys) {
+        // Испорченная запись отбрасывается молча, как и всё прочее в файле:
+        // она означает лишь, что одна клавиша осталась умолчанием.
+        final override = extractObject(item, (_) => KeyOverride());
+        if (override != null && override.isSane) {
+          keys.add(override);
         }
       }
     }

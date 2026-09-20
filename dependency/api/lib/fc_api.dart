@@ -48,6 +48,7 @@ export 'src/panel/sort_spec.dart';
 export 'src/serialization.dart';
 export 'src/settings/app_settings.dart';
 export 'src/settings/dialog_state.dart';
+export 'src/settings/key_override.dart';
 export 'src/settings/module_settings.dart';
 export 'src/settings/path_step.dart';
 export 'src/settings/window_geometry.dart';

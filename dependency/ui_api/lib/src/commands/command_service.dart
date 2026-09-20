@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter/foundation.dart';
 
 import 'app_command.dart';
@@ -29,6 +30,23 @@ abstract interface class CommandService implements Listenable {
 
   /// Снимает все привязки команды — например, при переназначении клавиш.
   void unbind(String commandId);
+
+  /// Переназначает клавиши по списку из настроек
+  /// (`docs/spec/key-bindings.md`, §5).
+  ///
+  /// Подменяет комбинацию у объявленных привязок и ничего не добавляет и не
+  /// удаляет: порядок привязок значащий — им решается, кому достанется клавиша,
+  /// когда выполнимы обе, — и трогать его переназначение не вправе.
+  ///
+  /// Список **полный**: он и есть то, что человек выбрал. Позвали с пустым —
+  /// вернулись все умолчания.
+  void rebind(List<KeyOverride> overrides);
+
+  /// Привязки как они **объявлены**, без переназначений.
+  ///
+  /// По ним окно настройки клавиш показывает умолчание и решает, тронута ли
+  /// строка.
+  List<KeyBinding> get declaredBindings;
 
   /// Чем вызывается команда: для справки и настроек.
   List<KeyBinding> bindingsOf(String commandId);

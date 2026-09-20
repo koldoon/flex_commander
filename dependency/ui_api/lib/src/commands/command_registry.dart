@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -43,6 +44,7 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
     List<String> owners = const [],
   ]) {
     _factories.addAll(commands);
+    _declared.addAll(bindings);
     _bindings.addAll(bindings);
     _owners.addAll(owners);
   }
@@ -55,7 +57,16 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
   /// Фабрика по идентификатору команды. Заполняется при установке: искать её
   /// перебором значило бы создавать все команды подряд на каждое нажатие.
   final Map<String, AppCommandFactory> _factoryById = {};
+
+  /// Действующие привязки: объявленные с поправкой на переназначения.
   final List<KeyBinding> _bindings = [];
+
+  /// Привязки как их объявили модули.
+  ///
+  /// Держатся рядом с действующими: переназначение подменяет комбинацию, и
+  /// вернуть «как было» иначе было бы не из чего. Порядок у обоих списков
+  /// один — им решается, кому достанется клавиша, когда выполнимы обе.
+  final List<KeyBinding> _declared = [];
 
   /// Экземпляр на команду для опроса: название, выполнимость. Своё окно он
   /// не открывает и состояния исполнения не хранит — для работы создаётся
@@ -206,16 +217,59 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
   }
 
   /// Закрепляет комбинацию за командой. Более ранние привязки имеют приоритет.
+  ///
+  /// Переназначение человека действует и на неё: модули объявляются и после
+  /// того, как настройки прочитаны, и привязка, пришедшая позже, обязана
+  /// слушаться того же выбора.
   @override
   void bind(KeyBinding binding) {
-    _bindings.add(binding);
+    _declared.add(binding);
+    _bindings.add(_effective(binding));
     notifyListeners();
   }
+
+  /// Переназначения человека: список из настроек, как он есть
+  /// (`docs/spec/key-bindings.md`, §5).
+  List<KeyOverride> _overrides = const [];
+
+  @override
+  List<KeyBinding> get declaredBindings => List.unmodifiable(_declared);
+
+  /// Переназначает клавиши по списку из настроек.
+  ///
+  /// Список **полный**: он и есть то, что человек выбрал. Позвали с пустым —
+  /// вернулись все умолчания.
+  @override
+  void rebind(List<KeyOverride> overrides) {
+    _overrides = [...overrides];
+    // Действующие собираются заново из объявленного: снятое переназначение
+    // возвращает клавишу, и возвращать её неоткуда, кроме умолчания.
+    _bindings
+      ..clear()
+      ..addAll(_declared.map(_effective));
+    notifyListeners();
+  }
+
+  /// Привязка с учётом переназначения; без него — она сама.
+  KeyBinding _effective(KeyBinding declared) {
+    final override = _overrides.where((item) => _matches(item, declared)).firstOrNull;
+    if (override == null) {
+      return declared;
+    }
+    // Пустая или негодная строка — «клавиши нет»: привязка остаётся в списке,
+    // но не совпадёт ни с одним нажатием.
+    return declared.withKeys(KeyCombination.tryParse(override.now) ?? KeyCombination.none);
+  }
+
+  /// Та ли это привязка: команда и **прежняя** комбинация.
+  bool _matches(KeyOverride override, KeyBinding declared) =>
+      override.command == declared.commandId && override.was == declared.keys.toString();
 
   /// Снимает все привязки команды — например, при переназначении клавиш.
   @override
   void unbind(String commandId) {
     final before = _bindings.length;
+    _declared.removeWhere((binding) => binding.commandId == commandId);
     _bindings.removeWhere((binding) => binding.commandId == commandId);
     if (_bindings.length != before) {
       notifyListeners();

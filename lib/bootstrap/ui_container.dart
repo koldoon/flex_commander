@@ -103,6 +103,7 @@ class UiContainer extends DI {
       sizeScanConcurrency: ui.sizeScanConcurrency,
       sessionHistoryLimit: ui.sessionHistoryLimit,
       panelHeader: ui.panelHeader,
+      keys: ui.keys,
       reconnectAtStartup: ui.reconnectAtStartup,
       window: ui.window,
       dialogs: ui.dialogs,

@@ -89,6 +89,11 @@ class AppController extends ChangeNotifier implements Application {
     // сеанса, и ядро видит его раньше и точнее (`spec/client-server.md`, §9).
     this.window.addListener(_onWindowChanged);
     commands.attach(this);
+    // Клавиши, переназначенные человеком, — сразу при сборке: привязки уже
+    // объявлены модулями, а список из настроек прочитан
+    // (`docs/spec/key-bindings.md`, §5). Пустой список — все умолчания, и
+    // звать всё равно надо: так у реестра появляется память об объявленном.
+    commands.rebind(settings.keys);
   }
 
   /// Тип уточнён до реализации: приложение выставляет панелям признак
@@ -872,6 +877,24 @@ class AppController extends ChangeNotifier implements Application {
 
   /// Сменить заголовок: панели перерисуются сами — они слушают приложение.
   @override
+  List<KeyOverride> get keyOverrides => List.unmodifiable(_initialSettings.keys);
+
+  /// Переназначенные клавиши: сохранить выбор и применить его к реестру.
+  ///
+  /// Применяет **сразу**: клавиша, которая подействует «со следующего запуска»,
+  /// — это половина настройки, и человек проверяет её нажатием тут же
+  /// (`docs/spec/key-bindings.md`, §8).
+  @override
+  void setKeyOverrides(List<KeyOverride> overrides) {
+    _initialSettings.keys
+      ..clear()
+      ..addAll(overrides);
+    commands.rebind(_initialSettings.keys);
+    settingsChanged();
+    notifyListeners();
+  }
+
+  @override
   void setPanelHeader(String value) {
     if (_initialSettings.panelHeader == value) {
       return;
@@ -926,6 +949,7 @@ class AppController extends ChangeNotifier implements Application {
     sessionHistoryLimit: _initialSettings.sessionHistoryLimit,
     panelHeader: _initialSettings.panelHeader,
     reconnectAtStartup: _initialSettings.reconnectAtStartup,
+    keys: _initialSettings.keys,
     dialogs: _initialSettings.dialogs,
     modules: serialize(_initialSettings.modules) as Map<String, dynamic>,
     // Кто где стоит, знает только эта сторона: ядро сессии заводит, но не

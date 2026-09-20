@@ -44,6 +44,26 @@ class KeyCombination {
   /// [_nameOf] возвращает либо одиночный символ, либо имя из [_specialKeys].
   static const KeyCombination anyCharacter = KeyCombination('AnyChar');
 
+  /// Комбинация, которой не бывает: ею помечена привязка **без клавиши**.
+  ///
+  /// Имени клавиши у настоящего нажатия пустым не бывает, поэтому такая
+  /// привязка не совпадёт ни с чем — но останется в списке, и вернуть ей
+  /// умолчание по-прежнему есть чем (`docs/spec/key-bindings.md`, §5).
+  static const KeyCombination none = KeyCombination('');
+
+  /// Разбор строки, которой могло и не быть: пусто или мусор — null.
+  ///
+  /// Нужен тому, кто читает **чужую** строку: настройки правят руками, и
+  /// пустое поле там обычное дело.
+  static KeyCombination? tryParse(String value) {
+    final text = value.trim();
+    if (text.isEmpty) {
+      return null;
+    }
+    final parsed = KeyCombination.parse(text);
+    return parsed.key.isEmpty ? null : parsed;
+  }
+
   /// Печатный символ: буква, цифра, знак. Shift допускается — это тот же
   /// символ, только заглавный; остальные модификаторы делают из нажатия
   /// сочетание, а не ввод символа.

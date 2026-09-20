@@ -1,4 +1,5 @@
 import '../settings/app_settings.dart';
+import '../settings/key_override.dart';
 import '../settings/dialog_state.dart';
 import '../settings/window_geometry.dart';
 import 'entry_ref.dart';
@@ -52,6 +53,7 @@ class UiSettings {
     this.panelHeader = '',
     this.reconnectAtStartup = false,
     this.dialogs = const {},
+    this.keys = const [],
     this.modules = const {},
     this.panels = defaultPanels,
     this.shown = defaultShown,
@@ -65,6 +67,13 @@ class UiSettings {
 
   /// Слева первый, справа второй.
   static const List<int> defaultShown = [0, 1];
+
+  /// Переназначенные клавиши (`docs/spec/key-bindings.md`).
+  ///
+  /// Едут сюда, потому что привязки живут на **этой** стороне: реестр команд,
+  /// ряд кнопок и окно настройки клавиш — всё экранное. Ядру они нужны ровно
+  /// затем, чтобы записать их в файл вместе с прочим выбором.
+  final List<KeyOverride> keys;
 
   /// 0 — активна левая панель, 1 — правая.
   final int activePanel;
@@ -117,6 +126,7 @@ class UiSettings {
     int? sizeScanConcurrency,
     int? sessionHistoryLimit,
     String? panelHeader,
+    List<KeyOverride>? keys,
     bool? reconnectAtStartup,
     Map<String, DialogState>? dialogs,
     Map<String, dynamic>? modules,
@@ -129,6 +139,7 @@ class UiSettings {
     sizeScanConcurrency: sizeScanConcurrency ?? this.sizeScanConcurrency,
     sessionHistoryLimit: sessionHistoryLimit ?? this.sessionHistoryLimit,
     panelHeader: panelHeader ?? this.panelHeader,
+    keys: keys ?? this.keys,
     reconnectAtStartup: reconnectAtStartup ?? this.reconnectAtStartup,
     dialogs: dialogs ?? this.dialogs,
     modules: modules ?? this.modules,

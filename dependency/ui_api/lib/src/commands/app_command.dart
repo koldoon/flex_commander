@@ -49,8 +49,14 @@ class KeyBinding {
   static KeyBinding anywhere(String keys, String commandId, {Map<String, Object?> parameters = const {}}) =>
       KeyBinding._(KeyCombination.parse(keys), commandId, parameters: parameters, inContent: null);
 
-  const KeyBinding._(this.keys, this.commandId, {this.nameMatch, this.parameters = const {}, required this.inContent})
-    : characterParam = null;
+  const KeyBinding._(
+    this.keys,
+    this.commandId, {
+    this.nameMatch,
+    this.parameters = const {},
+    required this.inContent,
+    this.characterParam,
+  });
 
   /// Привязка к любому печатному символу: набранный символ приходит команде
   /// параметром [characterParam].
@@ -127,6 +133,35 @@ class KeyBinding {
     }
     return {...parameters, name: combination.character ?? combination.key};
   }
+
+  /// Та же привязка, но с другой клавишей.
+  ///
+  /// Так переназначают: подменяется **комбинация у объявленной привязки**, а не
+  /// заводится новая. Место, условие по имени и значения остаются теми же —
+  /// человек менял клавишу, а не смысл (`docs/spec/key-bindings.md`, §5).
+  ///
+  /// Привязка неизменяема, поэтому новая: её раздают наружу (`bindingsOf`), и
+  /// правка на месте подменяла бы то, что уже у кого-то в руках.
+  KeyBinding withKeys(KeyCombination combination) => KeyBinding._(
+    combination,
+    commandId,
+    nameMatch: nameMatch,
+    parameters: parameters,
+    inContent: inContent,
+    characterParam: characterParam,
+  );
+
+  /// Спорят ли две привязки за одно нажатие.
+  ///
+  /// Одна комбинация — ещё не спор: клавиша принадлежит тому, что сейчас на
+  /// экране, и `F5` в панели копирует, а в просмотрщике форматирует. Спор — это
+  /// совпадение всего трое: комбинация, место и условие по имени
+  /// (`docs/spec/key-bindings.md`, §3).
+  ///
+  /// Место сравнивается **объявлением**, а не ответом: `inContent` это
+  /// замыкание, и узнать про него можно только одно — то же оно или другое.
+  bool conflictsWith(KeyBinding other) =>
+      keys == other.keys && inContent == other.inContent && nameMatch?.pattern == other.nameMatch?.pattern;
 
   @override
   String toString() => '$keys → $commandId${inContent == null ? ' (везде)' : ''}';
