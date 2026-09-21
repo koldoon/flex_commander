@@ -73,30 +73,97 @@ void main() {
   });
 
   group('столкновение — это спор за одно нажатие', () {
-    test('одна клавиша в разных местах не спорит', () {
+    test('одна клавиша в разных контекстах не спорит', () {
       // `F5` в панели копирует, в просмотрщике форматирует — и это задумано
-      // (`docs/spec/key-bindings.md`, §3).
-      final panel = KeyBinding('F5', 'file.copy');
-      final screen = KeyBinding.inState<_Screen>('F5', 'text.format');
+      // (`docs/spec/key-bindings.md`, §4).
+      final panel = KeyBinding('F5', 'file.copy', context: KeyContext.panel);
+      final screen = KeyBinding.inState<_Screen>('F5', 'text.format', context: KeyContext.textViewer);
 
       expect(panel.conflictsWith(screen), isFalse);
     });
 
-    test('в одном месте — спорит', () {
-      expect(KeyBinding('F5', 'file.copy').conflictsWith(KeyBinding('F5', 'file.move')), isTrue);
+    test('в одном контексте — спорит', () {
+      expect(
+        KeyBinding(
+          'F5',
+          'file.copy',
+          context: KeyContext.panel,
+        ).conflictsWith(KeyBinding('F5', 'file.move', context: KeyContext.panel)),
+        isTrue,
+      );
+    });
+
+    test('спор виден и у двух привязок одного экрана', () {
+      // Замыкание `inState` каждый раз новое, и по тождеству эти две не совпали
+      // бы никогда: спор между ними не находился вовсе.
+      final find = KeyBinding.inState<_Screen>('Cmd-F', 'text.find', context: KeyContext.textViewer);
+      final next = KeyBinding.inState<_Screen>('Cmd-F', 'text.findNext', context: KeyContext.textViewer);
+
+      expect(find.conflictsWith(next), isTrue);
+    });
+
+    test('«везде» спорит с каждым контекстом', () {
+      final everywhere = KeyBinding.anywhere('Cmd-B', 'app.background', context: KeyContext.everywhere);
+      final panel = KeyBinding('Cmd-B', 'file.copy', context: KeyContext.panel);
+
+      expect(everywhere.conflictsWith(panel), isTrue);
+      expect(panel.conflictsWith(everywhere), isTrue);
+    });
+
+    test('внутренняя привязка не спорит ни с кем', () {
+      // Её не показывают и не переназначают — значит и отнимать у неё нечего.
+      final internal = KeyBinding('Enter', 'panel.open');
+      final settable = KeyBinding('Enter', 'terminal.run', context: KeyContext.panel);
+
+      expect(internal.conflictsWith(settable), isFalse);
+      expect(settable.conflictsWith(internal), isFalse);
     });
 
     test('разные клавиши не спорят никогда', () {
-      expect(KeyBinding('F5', 'file.copy').conflictsWith(KeyBinding('F6', 'file.move')), isFalse);
+      expect(
+        KeyBinding(
+          'F5',
+          'file.copy',
+          context: KeyContext.panel,
+        ).conflictsWith(KeyBinding('F6', 'file.move', context: KeyContext.panel)),
+        isFalse,
+      );
     });
 
     test('условие по имени разводит привязки', () {
       // `Enter` на архиве и `Enter` на обычном файле — разные привязки.
-      final archive = KeyBinding('Enter', 'file.open', nameMatch: RegExp(r'\.zip$'));
-      final plain = KeyBinding('Enter', 'file.open');
+      final archive = KeyBinding('Enter', 'file.open', nameMatch: RegExp(r'\.zip$'), context: KeyContext.panel);
+      final plain = KeyBinding('Enter', 'file.open', context: KeyContext.panel);
 
       expect(archive.conflictsWith(plain), isFalse);
     });
+  });
+
+  group('привязка без клавиши', () {
+    test('несёт контекст и опознаётся пустой строкой', () {
+      final unbound = KeyBinding.unbound('app.theme.use', context: KeyContext.everywhere);
+
+      expect(unbound.keys, KeyCombination.none);
+      expect(unbound.keys.toString(), isEmpty);
+      expect(unbound.isSettable, isTrue);
+    });
+
+    test('переназначение доезжает до неё теми же двумя сравнениями', () {
+      final registry = registryWith([KeyBinding.unbound('app.theme.use', context: KeyContext.everywhere)]);
+
+      registry.rebind([KeyOverride(command: 'app.theme.use', was: '', now: 'Alt-Shift-D')]);
+
+      expect(registry.bindings.single.keys.toString(), 'Alt-Shift-D');
+      expect(registry.bindings.single.context, KeyContext.everywhere);
+    });
+  });
+
+  test('переназначение не теряет контекст', () {
+    final registry = registryWith([KeyBinding('F5', 'file.copy', context: KeyContext.panel)]);
+
+    registry.rebind([KeyOverride(command: 'file.copy', was: 'F5', now: 'Cmd-Shift-Y')]);
+
+    expect(registry.bindings.single.context, KeyContext.panel);
   });
 
   test('объявленное помнится и после переназначения', () {

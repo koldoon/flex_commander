@@ -5,6 +5,7 @@ import '../app/application.dart';
 import '../app/session.dart';
 import '../app/viewport.dart';
 import 'key_combination.dart';
+import 'key_context.dart';
 
 /// Привязка комбинации клавиш к команде.
 ///
@@ -17,12 +18,12 @@ class KeyBinding {
   /// Умолчание, потому что клавиша принадлежит тому, что сейчас на экране, а
   /// по умолчанию это панели. Иначе `F5` копировал бы файлы из-под открытого
   /// просмотрщика, а ряд кнопок обещал бы то, чего не будет.
-  KeyBinding(String keys, this.commandId, {this.nameMatch, this.parameters = const {}})
+  KeyBinding(String keys, this.commandId, {this.nameMatch, this.parameters = const {}, this.context})
     : keys = KeyCombination.parse(keys),
       characterParam = null,
       inContent = _inPanel;
 
-  const KeyBinding.combination(this.keys, this.commandId, {this.nameMatch, this.parameters = const {}})
+  const KeyBinding.combination(this.keys, this.commandId, {this.nameMatch, this.parameters = const {}, this.context})
     : characterParam = null,
       inContent = _inPanel;
 
@@ -37,17 +38,38 @@ class KeyBinding {
     String commandId, {
     RegExp? nameMatch,
     Map<String, Object?> parameters = const {},
+    KeyContext? context,
   }) => KeyBinding._(
     KeyCombination.parse(keys),
     commandId,
     nameMatch: nameMatch,
     parameters: parameters,
     inContent: (state) => state is S,
+    context: context,
   );
 
   /// Привязка, действующая при любом содержимом.
-  static KeyBinding anywhere(String keys, String commandId, {Map<String, Object?> parameters = const {}}) =>
-      KeyBinding._(KeyCombination.parse(keys), commandId, parameters: parameters, inContent: null);
+  static KeyBinding anywhere(
+    String keys,
+    String commandId, {
+    Map<String, Object?> parameters = const {},
+    KeyContext? context,
+  }) => KeyBinding._(KeyCombination.parse(keys), commandId, parameters: parameters, inContent: null, context: context);
+
+  /// Привязка **без клавиши**: команда есть, вызывать её нечем.
+  ///
+  /// Так модуль говорит о команде, которой клавиши не дал, две вещи сразу: что
+  /// назначить её человеку можно и в каком разделе она стоит. Без этого
+  /// назначать было бы некуда — где новая клавиша действует, знает модуль, а не
+  /// окно (`docs/spec/key-bindings.md`, §5).
+  ///
+  /// Контекст здесь обязателен: привязка без клавиши и без контекста не значила
+  /// бы вовсе ничего.
+  static KeyBinding unbound(
+    String commandId, {
+    required KeyContext context,
+    Map<String, Object?> parameters = const {},
+  }) => KeyBinding._(KeyCombination.none, commandId, parameters: parameters, inContent: null, context: context);
 
   const KeyBinding._(
     this.keys,
@@ -56,6 +78,7 @@ class KeyBinding {
     this.parameters = const {},
     required this.inContent,
     this.characterParam,
+    this.context,
   });
 
   /// Привязка к любому печатному символу: набранный символ приходит команде
@@ -65,10 +88,14 @@ class KeyBinding {
   /// сорока — по одной на каждую клавишу. Команда при этом по-прежнему не знает,
   /// чем её вызвали: символ для неё — обычный параметр, и точно так же его
   /// задаст список команд или сценарий.
-  const KeyBinding.anyCharacter(this.commandId, {this.characterParam = 'character', this.parameters = const {}})
-    : keys = KeyCombination.anyCharacter,
-      nameMatch = null,
-      inContent = _inPanel;
+  const KeyBinding.anyCharacter(
+    this.commandId, {
+    this.characterParam = 'character',
+    this.parameters = const {},
+    this.context,
+  }) : keys = KeyCombination.anyCharacter,
+       nameMatch = null,
+       inContent = _inPanel;
 
   static bool _inPanel(ViewportState state) => state is Session;
 
@@ -96,6 +123,13 @@ class KeyBinding {
   /// Действует ли привязка при таком содержимом активной области;
   /// null — действует при любом.
   final bool Function(ViewportState state)? inContent;
+
+  /// В каком разделе окна клавиш привязка стоит и с кем спорит за нажатие;
+  /// null — привязка внутренняя и переназначению не подлежит ([KeyContext]).
+  final KeyContext? context;
+
+  /// Можно ли эту привязку показать человеку и дать переназначить.
+  bool get isSettable => context != null;
 
   /// Действует ли привязка сейчас.
   ///
@@ -149,6 +183,7 @@ class KeyBinding {
     parameters: parameters,
     inContent: inContent,
     characterParam: characterParam,
+    context: context,
   );
 
   /// Спорят ли две привязки за одно нажатие.
@@ -158,13 +193,28 @@ class KeyBinding {
   /// совпадение всего трое: комбинация, место и условие по имени
   /// (`docs/spec/key-bindings.md`, §3).
   ///
-  /// Место сравнивается **объявлением**, а не ответом: `inContent` это
-  /// замыкание, и узнать про него можно только одно — то же оно или другое.
-  bool conflictsWith(KeyBinding other) =>
-      keys == other.keys && inContent == other.inContent && nameMatch?.pattern == other.nameMatch?.pattern;
+  /// Место сравнивается **контекстом**, а не замыканием: `KeyBinding.inState`
+  /// создаёт новое замыкание на каждый вызов, и две привязки просмотрщика по
+  /// тождеству не совпали бы никогда — спор между ними не находился вовсе.
+  ///
+  /// Внутренние привязки (контекста нет) не спорят ни с кем: их не показывают и
+  /// не переназначают, а значит и отнимать у них нечего.
+  bool conflictsWith(KeyBinding other) {
+    if (keys != other.keys || nameMatch?.pattern != other.nameMatch?.pattern) {
+      return false;
+    }
+    final mine = context;
+    final theirs = other.context;
+    if (mine == null || theirs == null) {
+      return false;
+    }
+    // «Везде» отнимает нажатие у всех остальных разделов, поэтому спорит с
+    // каждым из них.
+    return mine == theirs || mine == KeyContext.everywhere || theirs == KeyContext.everywhere;
+  }
 
   @override
-  String toString() => '$keys → $commandId${inContent == null ? ' (везде)' : ''}';
+  String toString() => '$keys → $commandId${context == null ? '' : ' [${context!.name}]'}';
 }
 
 /// Условия, в которых выполняется команда: активная панель и объекты, с
