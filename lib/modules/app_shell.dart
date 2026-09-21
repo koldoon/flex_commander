@@ -481,6 +481,7 @@ const Map<String, String> _russian = {
   'Set your own key for any command': 'Назначить любой команде свою клавишу',
   'Search commands': 'Поиск команды',
   'Reset all keys': 'Вернуть все клавиши',
+  'No keys to reset': 'Возвращать нечего: всё и так по умолчанию',
   // Разделы окна — по контексту привязки (`KeyContext`).
   'File panels': 'Файловые панели',
   'Text viewer': 'Просмотр',
@@ -628,7 +629,10 @@ const Map<String, String> _russian = {
 };
 
 /// Множественные формы оболочки.
-const Map<String, PluralForms> _plurals = {'{n} times': (one: '{n} раз', few: '{n} раза', many: '{n} раз')};
+const Map<String, PluralForms> _plurals = {
+  '{n} times': (one: '{n} раз', few: '{n} раза', many: '{n} раз'),
+  'Reset {n} keys': (one: 'Вернули {n} клавишу', few: 'Вернули {n} клавиши', many: 'Вернули {n} клавиш'),
+};
 
 /// Русские строки оболочки — ядровая половина.
 const Map<String, String> _coreRussian = {

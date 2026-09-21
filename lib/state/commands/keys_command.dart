@@ -58,12 +58,26 @@ class KeysCommand extends AppCommand {
           searchHint: 'Search commands',
           // «Вернуть всё» относится к окну целиком, а не к разделу: место ему
           // в подвале оглавления (`docs/spec/key-bindings.md`, §8).
-          footer: _ResetAllButton(onPressed: () => app.setKeyOverrides(const [])),
+          footer: _ResetAllButton(onPressed: () => _resetAll(app)),
         ),
         onSubmit: close,
         onDismiss: close,
       ),
     );
+  }
+
+  /// Вернуть все умолчания — и сказать, что вернули.
+  ///
+  /// Кнопка стоит в подвале, а меняется от неё список: человек смотрит на
+  /// кнопку и правки не видит. Нажатие без ответа неотличимо от промаха.
+  void _resetAll(Application app) {
+    final count = app.keyOverrides.length;
+    if (count == 0) {
+      app.toasts.show(app.strings.tr('No keys to reset'));
+      return;
+    }
+    app.setKeyOverrides(const []);
+    app.toasts.show(app.strings.plural(count, one: 'Reset {n} key', other: 'Reset {n} keys'));
   }
 
   /// Разделы: по одному на контекст, пустых нет.

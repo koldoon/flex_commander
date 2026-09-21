@@ -619,12 +619,15 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text.rich(_titleSpan(theme, field.title)),
+                  // «Reset» прижат к названию, как у всех прочих настроек: он
+                  // про **эту** настройку, и место ему при её подписи, а не у
+                  // дальнего края рядом с чужой кнопкой.
+                  _titleLine(theme, schema, field, Text.rich(_titleSpan(theme, field.title))),
                   for (final line in explanations) ...[SizedBox(height: metrics.dialogLineGap), line],
                 ],
               ),
             ),
-            if (touched) ...[_reset(theme, schema, field), SizedBox(width: metrics.columnGap)],
+            SizedBox(width: metrics.columnGap),
             _control(theme, schema, field),
           ],
         ),

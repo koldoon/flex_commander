@@ -229,6 +229,26 @@ void main() {
     expect(keysOf('app.theme.use'), 'Ctrl-Shift-D');
   });
 
+  testWidgets('«Reset» стоит при названии, а не у клавиши', (tester) async {
+    // Он про **эту** настройку, и место ему при её подписи — как у всех
+    // прочих настроек.
+    await pumpApp(tester);
+    runtime.app.setKeyOverrides([KeyOverride(command: 'file.copy', was: 'F5', now: 'Ctrl-Shift-Y')]);
+    await openWindow(tester);
+    await search(tester, 'file.copy');
+
+    final title = tester.getTopRight(inWindow(find.textContaining('Copy the selected'))).dx;
+    final reset = inWindow(find.text('Reset'));
+    final key = inWindow(find.widgetWithText(FcButton, 'Ctrl-Shift-Y'));
+    expect(reset, findsOneWidget, reason: 'тронутая настройка не помечена');
+
+    expect(
+      tester.getTopLeft(reset).dx - title,
+      lessThan(tester.getTopLeft(key).dx - tester.getTopRight(reset).dx),
+      reason: '«Reset» ближе к клавише, чем к названию',
+    );
+  });
+
   testWidgets('подвал остаётся внизу, когда ничего не нашлось', (tester) async {
     await pumpApp(tester);
     await openWindow(tester);
@@ -252,9 +272,26 @@ void main() {
     // Кнопка стоит в подвале оглавления и отбором не пропадает.
     await search(tester, 'file.copy');
     await tester.tap(inWindow(find.widgetWithText(FcButton, 'Reset all keys')));
-    await tester.pumpAndSettle();
+    // Обычным `pump`, а не `pumpAndSettle`: тост живёт две секунды, и
+    // промотанное до покоя время его уже погасит.
+    await tester.pump();
 
     expect(runtime.app.keyOverrides, isEmpty);
     expect(keysOf('file.copy'), 'F5');
+    // Кнопка в подвале, а меняется список: без ответа нажатие неотличимо от
+    // промаха.
+    expect(runtime.app.toasts.current?.message, 'Reset 1 key', reason: 'тоста об успехе нет');
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('возвращать нечего — так и сказано', (tester) async {
+    await pumpApp(tester);
+    await openWindow(tester);
+
+    await tester.tap(inWindow(find.widgetWithText(FcButton, 'Reset all keys')));
+    await tester.pump();
+
+    expect(runtime.app.toasts.current?.message, 'No keys to reset');
+    await tester.pumpAndSettle();
   });
 }
