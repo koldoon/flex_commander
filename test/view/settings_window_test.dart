@@ -252,8 +252,10 @@ void main() {
     await tester.pumpAndSettle();
     expect(selected(), last, reason: 'и остаётся на нём, даже если раздел не доехал до верха');
 
-    // А тронули список — и подсветка снова следит за прокруткой.
-    await tester.drag(find.byType(FcSettingsForm), const Offset(0, 2000), warnIfMissed: false);
+    // А тронули список — и подсветка снова следит за прокруткой. Тянем заведомо
+    // дальше, чем список длинен: разделов прибавляется, и мерить их точной
+    // высотой значило бы чинить тест на каждый новый.
+    await tester.drag(find.byType(FcSettingsForm), const Offset(0, 20000), warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(selected(), 0);
 

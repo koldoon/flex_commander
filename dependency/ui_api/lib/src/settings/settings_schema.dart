@@ -1,3 +1,5 @@
+import 'dart:async';
+
 /// Из чего состоит раздел настроек — то, что модуль рассказывает о себе, чтобы
 /// ядро нарисовало окно.
 ///
@@ -175,7 +177,7 @@ sealed class SettingsField {
     String id, {
     required String title,
     required String label,
-    required void Function() run,
+    required FutureOr<void> Function()? run,
     String description = '',
     String note = '',
   }) => SettingsButton(id, title: title, description: description, note: note, label: label, run: run);
@@ -264,8 +266,15 @@ class SettingsButton extends SettingsField {
   /// Подпись кнопки.
   final String label;
 
-  /// Что сделать по нажатию.
-  final void Function() run;
+  /// Что сделать по нажатию; null — делать нечего, и кнопка приглушена.
+  ///
+  /// Приглушена, а не спрятана: пропавшая кнопка означала бы, что действия нет
+  /// вовсе, — а оно есть, просто сейчас неприменимо.
+  ///
+  /// Ответ ждут: кнопка, поднявшая окно, возвращается **тут же**, а сделанное
+  /// в том окне случится потом — и пересобирать разделы надо после него, а не
+  /// до (`docs/spec/settings-presets.md`, §6).
+  final FutureOr<void> Function()? run;
 
   /// Тронуть её нечем: значения нет, а значит нет и умолчания, от которого
   /// можно отойти.

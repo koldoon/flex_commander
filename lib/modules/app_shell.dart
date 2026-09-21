@@ -11,7 +11,9 @@ import '../state/commands/help_command.dart';
 import '../state/commands/keys_command.dart';
 import '../state/commands/palette_command.dart';
 import '../state/commands/session_commands.dart';
+import '../state/commands/preset_dialogs.dart';
 import '../state/commands/settings_command.dart';
+import '../state/presets.dart';
 import '../state/shell_settings.dart';
 import '../ui/credentials_prompt.dart';
 import '../ui/elevation_prompt.dart';
@@ -399,6 +401,78 @@ class AppShell implements FcBackendModule, FcFrontendModule {
         ),
       ], save: settings.save);
     });
+
+    // Наборы выбора — своим разделом, а не полем среди прочих: это не одна из
+    // настроек, а способ обращаться со всеми сразу
+    // (`docs/spec/settings-presets.md`).
+    registry.settingsSchema(title: 'Presets', inPreset: false, () {
+      final app = registry.services.resolve<Application>();
+      final strings = registry.services.resolve<Strings>();
+      final presets = Presets(app: app, catalog: () => registry.services.resolve<SettingsCatalog>());
+      final chosen = presets.current;
+
+      return SettingsSchema([
+        SettingsField.choice(
+          'preset',
+          // «None» — настоящий вариант, а не пустота: список рисует значение,
+          // которого в нём нет, пустой строкой, а ходьба стрелками по такому
+          // значению спотыкается.
+          defaultValue: '',
+          title: strings.tr('Preset'),
+          description: strings.tr('Settings and keys of every module in one set'),
+          options: {'': strings.tr('None'), for (final item in presets.all) item.name: item.name},
+          read: () => presets.current,
+          write: presets.select,
+        ),
+        SettingsField.button(
+          'presets.save',
+          title: strings.tr('Save this as a set'),
+          description: strings.tr('Everything you have chosen — settings of every module and your keys'),
+          label: strings.tr('Save as new…'),
+          run:
+              () => askPresetName(
+                app,
+                title: strings.tr('Save as new…'),
+                submitLabel: strings.tr('Save the set'),
+                initial: presets.freeName(strings.tr('My settings')),
+                save:
+                    (name) =>
+                        presets.saveAs(name)
+                            ? null
+                            : strings.tr(
+                              name.isEmpty
+                                  ? 'A set without a name cannot be chosen'
+                                  : 'There is a set with this name already',
+                            ),
+              ),
+        ),
+        SettingsField.button(
+          'presets.update',
+          title: strings.tr('Keep the chosen set up to date'),
+          description: strings.tr('Rewrite it with what is set right now'),
+          label: strings.tr('Update «{name}»', args: {'name': chosen}),
+          // Приглушена, а не спрятана: обновлять нечего, пока ничего не
+          // выбрано, — но действие есть.
+          run: chosen.isEmpty ? null : presets.updateCurrent,
+        ),
+        SettingsField.button(
+          'presets.delete',
+          title: strings.tr('Drop a set you no longer need'),
+          description: strings.tr('Settings stay as they are — only the set goes'),
+          label: strings.tr('Delete «{name}»', args: {'name': chosen}),
+          run:
+              chosen.isEmpty
+                  ? null
+                  : () => askConfirm(
+                    app,
+                    title: strings.tr('Delete set'),
+                    message: strings.tr('Delete «{name}»? Settings stay as they are.', args: {'name': chosen}),
+                    confirmLabel: strings.tr('Delete'),
+                    onConfirm: () => presets.remove(chosen),
+                  ),
+        ),
+      ], save: settings.save);
+    });
   }
 
   /// Копирование и перенос — одна работа с одним отличием.
@@ -473,6 +547,29 @@ const Map<String, String> _russian = {
   'Everything the application remembers by your choice': 'Всё, что приложение помнит по вашему выбору',
   'Settings': 'Настройки',
   'Commands': 'Команды',
+
+  // Наборы выбора.
+  'Presets': 'Наборы',
+  'Preset': 'Набор',
+  'Settings and keys of every module in one set': 'Настройки всех модулей и клавиши — одним набором',
+  'None': 'Нет',
+  'Save this as a set': 'Сложить нынешнее в набор',
+  'Everything you have chosen — settings of every module and your keys':
+      'Всё, что вы выбрали, — настройки всех модулей и ваши клавиши',
+  'Save as new…': 'Сложить в новый…',
+  'Save the set': 'Сложить набор',
+  'My settings': 'Мои настройки',
+  'A set without a name cannot be chosen': 'Безымянный набор не выбрать',
+  'There is a set with this name already': 'Набор с таким именем уже есть',
+  'Keep the chosen set up to date': 'Держать выбранный набор в свежем виде',
+  'Rewrite it with what is set right now': 'Переписать его тем, что стоит сейчас',
+  'Update «{name}»': 'Обновить «{name}»',
+  'Drop a set you no longer need': 'Убрать набор, который больше не нужен',
+  'Settings stay as they are — only the set goes': 'Настройки останутся как есть — уйдёт только набор',
+  'Delete «{name}»': 'Удалить «{name}»',
+  'Delete set': 'Удаление набора',
+  'Delete «{name}»? Settings stay as they are.': 'Удалить «{name}»? Настройки останутся как есть.',
+  'Name': 'Имя',
 
   // Настройка клавиш.
   'Keyboard': 'Клавиши',

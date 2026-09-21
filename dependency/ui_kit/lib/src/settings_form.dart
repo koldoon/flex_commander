@@ -144,6 +144,19 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     _refilter();
   }
 
+  /// Пересобрать разделы: набор полей мог измениться.
+  ///
+  /// Схемы строятся один раз — они дороги не вычислением, а тем, что читают
+  /// настройки. Но кнопка это **действие**, и действие вправе поменять состав
+  /// полей: созданный набор обязан появиться в списке, не закрывая окна
+  /// (`docs/spec/settings-presets.md`, §6). Набранное в поиске и в полях ввода
+  /// переживает пересборку: поиск живёт своим контроллером, поля — своими, по
+  /// ключу.
+  void _rebuild() {
+    _pages = _buildPages();
+    _refilter();
+  }
+
   @override
   void dispose() {
     _scroll.dispose();
@@ -789,7 +802,20 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       // все кнопки приложения (`FcDialogActions`).
       SettingsButton button => Row(
         mainAxisSize: MainAxisSize.min,
-        children: [FcButton(label: button.label, onPressed: button.run)],
+        children: [
+          FcButton(
+            label: button.label,
+            onPressed:
+                button.run == null
+                    ? null
+                    : () async {
+                      await button.run!();
+                      if (mounted) {
+                        _rebuild();
+                      }
+                    },
+          ),
+        ],
       ),
       // Клавиша — тоже кнопка, и написано на ней то, чем команду вызывают:
       // ради этого окно и открывают. Нет клавиши — прочерк, а не пустая
