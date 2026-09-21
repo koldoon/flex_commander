@@ -8,6 +8,7 @@ import 'dialog_body.dart';
 import 'controls.dart';
 import 'fc_theme.dart';
 import 'pick_list.dart';
+import 'plate.dart';
 
 /// Настройки списком: разделы модулей, под каждым — его поля.
 ///
@@ -468,8 +469,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                                         // окна по бокам — тем же, каким отбиты
                                         // плашки в справке.
                                         if (position > 0) SizedBox(height: metrics.dialogHorizontalPadding),
-                                        _plate(
-                                          theme,
+                                        FcPlate(
                                           child: Column(
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
@@ -526,25 +526,6 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   /// Разделов в окне много, и сплошной лентой они читаются хуже: плашка даёт
   /// глазу, где раздел начался и где кончился, — а заодно окно настроек и
   /// справка перестают выглядеть по-разному.
-  Widget _plate(FcTheme theme, {required Widget child}) {
-    final metrics = theme.metrics;
-    return Container(
-      // Во всю ширину: столбец даёт детям их собственную ширину, и плашка
-      // облегала бы содержимое — короткий раздел выходил уже длинного, и
-      // разделы стояли лесенкой.
-      width: double.infinity,
-      // Поле со всех сторон одинаковое: содержимое не должно прилипать ни к
-      // краю плашки, ни к её скруглению.
-      padding: EdgeInsets.all(metrics.dialogPadding),
-      decoration: BoxDecoration(
-        color: theme.colors.dialogListBackground,
-        border: Border.all(color: theme.colors.dialogListBorder, width: metrics.strokeWidth),
-        borderRadius: BorderRadius.circular(metrics.panelRadius),
-      ),
-      child: child,
-    );
-  }
-
   /// Заголовок раздела.
   ///
   /// Крупнее остального текста, а не только жирнее: это единственное, что

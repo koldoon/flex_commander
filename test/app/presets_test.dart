@@ -27,13 +27,11 @@ void main() {
 
   /// Поле схемы — то самое, которым его правит окно. Ищется по модулю и
   /// ключу: `wordWrap` есть и у просмотрщика, и у редактора.
-  SettingsField fieldOf(String module, String id) => runtime
-      .resolve<SettingsCatalog>()
-      .pages
-      .firstWhere((page) => page.id == module)
-      .build()
-      .fields
-      .firstWhere((field) => field.id == id);
+  SettingsField fieldOf(String module, String id) => [
+    // Разделов у модуля бывает несколько: оболочка объявляет и свой, и наборы.
+    for (final page in runtime.resolve<SettingsCatalog>().pages)
+      if (page.id == module) ...page.build().fields,
+  ].firstWhere((field) => field.id == id);
 
   test('снимок берёт выбор и не берёт память', () {
     final preset = presets.capture('Работа');

@@ -151,28 +151,32 @@ class _FileState extends ChangeNotifier {
   final Strings strings;
   final Future<void> Function(String folder, String name) run;
 
-  String? error;
   bool busy = false;
 
   late final VoidCallback close;
 
+  /// Отказ говорится **тостом**, а не полем в окне.
+  ///
+  /// Сообщение внутри формы отъедает у окна место и двигает поля ровно тогда,
+  /// когда в них собираются что-то поправить; тост висит поверх и места не
+  /// занимает (`docs/widgets.md`, «Всплывающие сообщения»). Окно при этом
+  /// остаётся открытым: поправить надо здесь же.
   Future<void> submit() async {
     if (busy) {
       return;
     }
-    error = null;
     busy = true;
     notifyListeners();
     try {
       await run(folder.trim(), name.trim());
       close();
     } on FsError catch (failure) {
-      error = failure.message;
+      app.toasts.fail(failure.message);
     } on FormatException {
-      // Испорченный файл — ошибка в окне, а не пустой набор молчанием.
-      error = strings.tr('This is not a set: the file does not read');
+      // Испорченный файл — отказ словами, а не пустой набор молчанием.
+      app.toasts.fail(strings.tr('This is not a set: the file does not read'));
     } on Object catch (failure) {
-      error = '$failure';
+      app.toasts.fail('$failure');
     }
     busy = false;
     notifyListeners();
@@ -216,7 +220,6 @@ class _FileFormState extends State<_FileForm> {
             onCancel: state.close,
             onSubmit: state.submit,
             submitLabel: widget.submitLabel,
-            error: state.error,
             busy: state.busy,
             children: [
               // Подпись вровень с первой строкой дерева, а не по его середине:

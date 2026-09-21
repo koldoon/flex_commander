@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
 import 'fc_theme.dart';
+import 'plate.dart';
 
 /// Дерево каталогов в окне: где человек выбирает место, не сходя с него
 /// (`docs/spec/settings-presets.md`, §7).
@@ -197,13 +198,13 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
-    final metrics = theme.metrics;
     final rows = _rows;
 
     return Focus(
       focusNode: _keys,
-      child: Container(
-        decoration: BoxDecoration(border: Border.all(color: theme.colors.columnDivider, width: metrics.strokeWidth)),
+      // Плашка — та же, какой обведён раздел настроек: список в окне выглядит
+      // одинаково, где бы он ни стоял.
+      child: FcPlate(
         child: ListView.builder(
           controller: _scroll,
           itemCount: rows.length,

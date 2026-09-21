@@ -58,7 +58,7 @@ void main() {
 
   testWidgets('набор складывается и сразу виден в списке', (tester) async {
     await openPresets(tester);
-    expect(find.text('None'), findsWidgets, reason: 'пустой выбор должен быть настоящим вариантом');
+    expect(find.text('Default'), findsWidgets, reason: 'пустой выбор должен быть настоящим вариантом');
 
     await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
@@ -173,6 +173,32 @@ void main() {
     await tester.tap(find.text('Home'));
     await tester.pumpAndSettle();
     expect(inTree('docs'), findsNothing);
+  });
+
+  testWidgets('отказ окна файла говорится тостом, а окно остаётся', (tester) async {
+    // Сообщение внутри формы двигало бы поля ровно тогда, когда в них
+    // собираются что-то поправить (`docs/widgets.md`).
+    await openPresets(tester);
+    await tapButton(tester, 'Import');
+
+    await tester.enterText(
+      find.descendant(of: find.byType(CommandDialogForm), matching: find.byType(TextField)),
+      'нет-такого.json',
+    );
+    await tester.pumpAndSettle();
+    // Кнопку окна, а не ту, что его подняло: подписи у них одинаковые.
+    await tester.tap(
+      find.descendant(of: find.byType(CommandDialogForm), matching: find.widgetWithText(FcButton, 'Import')),
+    );
+    // Настоящим временем, а не промотанным: ответ идёт через границу, и ждёт
+    // его обычный цикл событий. А до покоя мотать нельзя — тост живёт две
+    // секунды, и промотанное время его погасит.
+    await tester.runAsync(() => Future<void>.delayed(const Duration(milliseconds: 50)));
+    await tester.pump();
+
+    expect(runtime.app.toasts.current?.failed, isTrue, reason: 'об отказе не сказано');
+    expect(find.byType(FcDirectoryTree), findsOneWidget, reason: 'окно закрылось, а поправить негде');
+    await tester.pumpAndSettle();
   });
 
   testWidgets('отказ ничего не убирает', (tester) async {

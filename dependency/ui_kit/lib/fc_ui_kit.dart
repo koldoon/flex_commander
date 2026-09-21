@@ -25,6 +25,7 @@ export 'src/fc_tooltip.dart';
 export 'src/key_value_table.dart';
 export 'src/palette_search.dart';
 export 'src/pick_list.dart';
+export 'src/plate.dart';
 export 'src/side_marks.dart';
 export 'src/panel_frame.dart';
 export 'src/settings_form.dart';

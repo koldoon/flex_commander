@@ -257,6 +257,90 @@ class AppShell implements FcBackendModule, FcFrontendModule {
       KeyBinding.anywhere('Cmd-Shift-P', CommandPaletteCommand.commandId, context: KeyContext.everywhere),
     );
 
+    // Наборы выбора — своим разделом, а не полем среди прочих: это не одна из
+    // настроек, а способ обращаться со всеми сразу
+    // (`docs/spec/settings-presets.md`).
+    //
+    // **Первым разделом**: набор решает всё, что стоит ниже, и после прочих
+    // читался бы как приписка к ним.
+    registry.settingsSchema(title: 'Presets', inPreset: false, () {
+      final app = registry.services.resolve<Application>();
+      final strings = registry.services.resolve<Strings>();
+      final presets = Presets(app: app, catalog: () => registry.services.resolve<SettingsCatalog>());
+      final chosen = presets.current;
+
+      return SettingsSchema([
+        SettingsField.choice(
+          'preset',
+          // Пустая строка, а не имя: «ничего не выбрано» — это отсутствие
+          // набора, и заводить под него настоящий набор незачем. Список рисует
+          // значение, которого в нём нет, пустой строкой, а ходьба стрелками по
+          // такому значению спотыкается — поэтому вариант в списке есть всегда.
+          defaultValue: '',
+          title: strings.tr('Preset'),
+          description: strings.tr('Settings and keys of every module in one set'),
+          // «Default» — настоящий вариант, а не пустота: это состояние «ничего
+          // не выбрано», и оно тоже выбор. С уточнением: «Default» уже значит
+          // «Обычное» у темы, а тут оно про умолчания.
+          options: {'': strings.tr('Default', context: 'preset'), for (final item in presets.all) item.name: item.name},
+          read: () => presets.current,
+          write: presets.select,
+          // Кнопки при списке, а не блоками порознь: все четыре — про то, что
+          // выбрано выше. Приглушены, а не спрятаны: действие есть, просто
+          // сейчас неприменимо.
+          actions: [
+            SettingsAction(
+              label: strings.tr('New'),
+              run:
+                  () => askPresetName(
+                    app,
+                    title: strings.tr('New set'),
+                    submitLabel: strings.tr('Save the set'),
+                    initial: presets.freeName(strings.tr('My settings')),
+                    save:
+                        (name) =>
+                            presets.saveAs(name)
+                                ? null
+                                : strings.tr(
+                                  name.isEmpty
+                                      ? 'A set without a name cannot be chosen'
+                                      : 'There is a set with this name already',
+                                ),
+                  ),
+            ),
+            SettingsAction(label: strings.tr('Update'), run: chosen.isEmpty ? null : presets.updateCurrent),
+            SettingsAction(
+              label: strings.tr('Delete'),
+              run:
+                  chosen.isEmpty
+                      ? null
+                      : () => askConfirm(
+                        app,
+                        title: strings.tr('Delete set'),
+                        message: strings.tr('Delete «{name}»? Settings stay as they are.', args: {'name': chosen}),
+                        confirmLabel: strings.tr('Delete'),
+                        onConfirm: () => presets.remove(chosen),
+                      ),
+            ),
+            SettingsAction(
+              label: strings.tr('Export'),
+              run:
+                  chosen.isEmpty
+                      ? null
+                      : () => exportPreset(app, strings, presets.find(chosen) ?? presets.capture(chosen)),
+            ),
+          ],
+        ),
+        SettingsField.button(
+          'presets.import',
+          title: strings.tr('Bring a set from a file'),
+          description: strings.tr('It joins the list and becomes the chosen one'),
+          label: strings.tr('Import'),
+          run: () => importPreset(app, strings, presets),
+        ),
+      ], save: settings.save);
+    });
+
     // Настройки самого приложения: своего модуля у ядра нет, а выбор есть.
     registry.settingsSchema(() {
       final app = registry.services.resolve<Application>();
@@ -429,83 +513,6 @@ class AppShell implements FcBackendModule, FcFrontendModule {
         ),
       ], save: settings.save);
     });
-
-    // Наборы выбора — своим разделом, а не полем среди прочих: это не одна из
-    // настроек, а способ обращаться со всеми сразу
-    // (`docs/spec/settings-presets.md`).
-    registry.settingsSchema(title: 'Presets', inPreset: false, () {
-      final app = registry.services.resolve<Application>();
-      final strings = registry.services.resolve<Strings>();
-      final presets = Presets(app: app, catalog: () => registry.services.resolve<SettingsCatalog>());
-      final chosen = presets.current;
-
-      return SettingsSchema([
-        SettingsField.choice(
-          'preset',
-          // «None» — настоящий вариант, а не пустота: список рисует значение,
-          // которого в нём нет, пустой строкой, а ходьба стрелками по такому
-          // значению спотыкается.
-          defaultValue: '',
-          title: strings.tr('Preset'),
-          description: strings.tr('Settings and keys of every module in one set'),
-          options: {'': strings.tr('None'), for (final item in presets.all) item.name: item.name},
-          read: () => presets.current,
-          write: presets.select,
-          // Кнопки при списке, а не блоками порознь: все четыре — про то, что
-          // выбрано выше. Приглушены, а не спрятаны: действие есть, просто
-          // сейчас неприменимо.
-          actions: [
-            SettingsAction(
-              label: strings.tr('New'),
-              run:
-                  () => askPresetName(
-                    app,
-                    title: strings.tr('New set'),
-                    submitLabel: strings.tr('Save the set'),
-                    initial: presets.freeName(strings.tr('My settings')),
-                    save:
-                        (name) =>
-                            presets.saveAs(name)
-                                ? null
-                                : strings.tr(
-                                  name.isEmpty
-                                      ? 'A set without a name cannot be chosen'
-                                      : 'There is a set with this name already',
-                                ),
-                  ),
-            ),
-            SettingsAction(label: strings.tr('Update'), run: chosen.isEmpty ? null : presets.updateCurrent),
-            SettingsAction(
-              label: strings.tr('Delete'),
-              run:
-                  chosen.isEmpty
-                      ? null
-                      : () => askConfirm(
-                        app,
-                        title: strings.tr('Delete set'),
-                        message: strings.tr('Delete «{name}»? Settings stay as they are.', args: {'name': chosen}),
-                        confirmLabel: strings.tr('Delete'),
-                        onConfirm: () => presets.remove(chosen),
-                      ),
-            ),
-            SettingsAction(
-              label: strings.tr('Export'),
-              run:
-                  chosen.isEmpty
-                      ? null
-                      : () => exportPreset(app, strings, presets.find(chosen) ?? presets.capture(chosen)),
-            ),
-          ],
-        ),
-        SettingsField.button(
-          'presets.import',
-          title: strings.tr('Bring a set from a file'),
-          description: strings.tr('It joins the list and becomes the chosen one'),
-          label: strings.tr('Import'),
-          run: () => importPreset(app, strings, presets),
-        ),
-      ], save: settings.save);
-    });
   }
 
   /// Копирование и перенос — одна работа с одним отличием.
@@ -585,7 +592,7 @@ const Map<String, String> _russian = {
   'Presets': 'Наборы',
   'Preset': 'Набор',
   'Settings and keys of every module in one set': 'Настройки всех модулей и клавиши — одним набором',
-  'None': 'Нет',
+  'preset|Default': 'Умолчания',
   'New': 'Новый',
   'New set': 'Новый набор',
   'Save the set': 'Сложить набор',
