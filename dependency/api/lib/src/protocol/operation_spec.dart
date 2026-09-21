@@ -65,6 +65,13 @@ abstract final class FileOperations {
   /// числа значило бы городить второй способ рассказать о себе.
   static const String measure = 'file.measure';
 
+  /// Создать файл с данным содержимым.
+  ///
+  /// Не то же, что сохранение из редактора: тому нужен **уже существующий**
+  /// узел, а здесь файла может не быть вовсе. Приёмник называется путём —
+  /// человек выбирает каталог сам (`docs/spec/settings-presets.md`, §7).
+  static const String writeText = 'file.writeText';
+
   /// Идти ли по символическим ссылкам. По умолчанию нет: ссылка переносится
   /// ссылкой, как в mc.
   static const String followLinks = 'followLinks';
@@ -74,6 +81,9 @@ abstract final class FileOperations {
 
   /// Новое имя — для создания каталога и переименования.
   static const String name = 'name';
+
+  /// Что записать — текстом.
+  static const String text = 'text';
 }
 
 /// Что говорят **в уже идущую** работу.

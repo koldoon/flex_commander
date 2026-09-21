@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -12,6 +14,7 @@ import '../state/commands/keys_command.dart';
 import '../state/commands/palette_command.dart';
 import '../state/commands/session_commands.dart';
 import '../state/commands/preset_dialogs.dart';
+import '../state/commands/preset_files.dart';
 import '../state/commands/settings_command.dart';
 import '../state/presets.dart';
 import '../state/shell_settings.dart';
@@ -76,6 +79,31 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           throw FsError(name, FsErrorKind.invalidName);
         }
         await op.delegate(inputs.editor.makeDirectory(), MakeDirectoryParams(parent, name));
+      }),
+    );
+
+    registry.operation(
+      FileOperations.writeText,
+      (services) => TaskOperation<OperationInputs, void>((op, inputs) async {
+        final parent = inputs.destination;
+        final name = inputs.option<String>(FileOperations.name) ?? '';
+        if (parent == null) {
+          throw FsError(name, FsErrorKind.notFound);
+        }
+        // Разделитель пути в имени запрещён нарочно: каталог называют полем
+        // рядом, и уйти из него через имя файла — не то, о чём человек просил.
+        if (name.isEmpty || name.contains('/') || name.contains(r'\')) {
+          throw FsError(name, FsErrorKind.invalidName);
+        }
+        final provider = parent.provider;
+        if (provider is! FileContentReceiver) {
+          throw FsError(parent.pathString, FsErrorKind.notSupported);
+        }
+        final receiver = provider as FileContentReceiver;
+        final bytes = utf8.encode(inputs.option<String>(FileOperations.text) ?? '');
+        final sink = await receiver.openWrite(parent, name, length: bytes.length);
+        await sink.addStream(Stream<List<int>>.value(bytes));
+        await sink.close();
       }),
     );
 
@@ -471,6 +499,21 @@ class AppShell implements FcBackendModule, FcFrontendModule {
                     onConfirm: () => presets.remove(chosen),
                   ),
         ),
+        SettingsField.button(
+          'presets.export',
+          title: strings.tr('Take a set to another machine'),
+          description: strings.tr('Write it to a file: you name the folder and the file'),
+          label: strings.tr('Export…'),
+          run:
+              chosen.isEmpty ? null : () => exportPreset(app, strings, presets.find(chosen) ?? presets.capture(chosen)),
+        ),
+        SettingsField.button(
+          'presets.import',
+          title: strings.tr('Bring a set from a file'),
+          description: strings.tr('It joins the list and becomes the chosen one'),
+          label: strings.tr('Import…'),
+          run: () => importPreset(app, strings, presets),
+        ),
       ], save: settings.save);
     });
   }
@@ -570,6 +613,21 @@ const Map<String, String> _russian = {
   'Delete set': 'Удаление набора',
   'Delete «{name}»? Settings stay as they are.': 'Удалить «{name}»? Настройки останутся как есть.',
   'Name': 'Имя',
+  'Take a set to another machine': 'Увезти набор на другую машину',
+  'Write it to a file: you name the folder and the file': 'Записать его в файл: каталог и имя называете вы',
+  'Export…': 'Выгрузить…',
+  'Export': 'Выгрузить',
+  'Export set': 'Выгрузка набора',
+  'Set «{name}» exported': 'Набор «{name}» выгружен',
+  'Bring a set from a file': 'Привезти набор из файла',
+  'It joins the list and becomes the chosen one': 'Он встанет в список и станет выбранным',
+  'Import…': 'Загрузить…',
+  'Import': 'Загрузить',
+  'Import set': 'Загрузка набора',
+  'Set «{name}» imported': 'Набор «{name}» загружен',
+  'This is not a set: the file does not read': 'Это не набор: файл не читается',
+  'Folder': 'Каталог',
+  'File name': 'Имя файла',
 
   // Настройка клавиш.
   'Keyboard': 'Клавиши',
