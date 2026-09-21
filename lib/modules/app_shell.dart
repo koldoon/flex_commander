@@ -476,17 +476,30 @@ const Map<String, String> _russian = {
 
   // Настройка клавиш.
   'Keyboard': 'Клавиши',
-  'Key bindings': 'Настроить клавиши',
+  'Key bindings': 'Клавиши команд',
+  'Key binding': 'Клавиша команды',
   'Set your own key for any command': 'Назначить любой команде свою клавишу',
-  'Enter — set, Bsp — clear, Cmd-R — default': 'Enter — назначить, Bsp — снять, Cmd-R — умолчание',
+  'Your keys': 'Ваши клавиши',
+  'Forget every key you have changed': 'Забыть всё, что вы переназначили',
+  'Reset all keys': 'Вернуть все клавиши',
+  // Разделы окна — по контексту привязки (`KeyContext`).
+  'File panels': 'Файловые панели',
+  'Text viewer': 'Просмотр',
+  'Image viewer': 'Картинки',
+  'Text editor': 'Редактор',
+  'Command line': 'Командная строка',
+  'Everywhere': 'Везде',
+  // Окошко записи.
+  'Where it works': 'Где действует',
+  'Current key': 'Текущая клавиша',
+  'Default key': 'Клавиша по умолчанию',
+  'Record': 'Записать',
+  'Clear': 'Снять',
+  'Leave it': 'Оставить',
+  'Take the key': 'Отнять клавишу',
   'Press the combination; Esc — cancel': 'Нажмите сочетание; Esc — отмена',
-  '{keys} belongs to «{command}». Enter — take it, Esc — leave it':
-      '{keys} занято командой «{command}». Enter — отнять, Esc — оставить',
-  'This one answers any letter: there is no combination to set':
-      'Эта привязка отзывается на любую букву: назначать нечего',
-  'This command has no key of its own yet — it is run from the palette':
-      'У этой команды своей клавиши пока нет — её вызывают из палитры',
-  'Reset all': 'Вернуть все',
+  '{keys} belongs to «{command}»': '{keys} занято командой «{command}»',
+  'This command has no key of its own': 'Своей клавиши у этой команды нет',
   'No such command': 'Такой команды нет',
   'Everything the application can do right now, by name': 'Всё, что приложение умеет сейчас, — по названию',
   'Command': 'Команда',

@@ -27,7 +27,7 @@ class SettingsSchema {
 /// **замыканиями**, а не по имени ключа: замыкание работает с тем же
 /// типизированным объектом, что и сам модуль, и ошибку в нём ловит компилятор.
 sealed class SettingsField {
-  const SettingsField(this.id, {required this.title, this.description = '', this.note = ''});
+  const SettingsField(this.id, {required this.title, this.description = '', this.note = '', this.keywords = const {}});
 
   /// Ключ в разделе настроек.
   ///
@@ -45,6 +45,14 @@ sealed class SettingsField {
   /// Оговорка о том, когда изменение подействует: «со следующего запуска
   /// оболочки». Пусто — подействует сразу.
   final String note;
+
+  /// Слова, которыми это ищут, но которых в подписи нет: `dark` у смены темы,
+  /// `gzip` у упаковки.
+  ///
+  /// Без них команду «Switch theme» в окне клавиш было не найти ни одним из тех
+  /// слов, которыми её ищут в палитре, — а искали её именно так
+  /// (`docs/spec/key-bindings.md`, §8).
+  final Set<String> keywords;
 
   /// Стоит ли сейчас умолчание.
   ///
@@ -158,6 +166,66 @@ sealed class SettingsField {
     String description = '',
     String note = '',
   }) => SettingsButton(id, title: title, description: description, note: note, label: label, run: run);
+
+  /// Клавиша команды: на кнопке написано, чем команду вызывают сейчас.
+  static SettingsKeys keys(
+    String id, {
+    required String title,
+    required String Function() read,
+    required String defaultKeys,
+    required Future<void> Function() edit,
+    required void Function() reset,
+    String description = '',
+    Set<String> keywords = const {},
+  }) => SettingsKeys(
+    id,
+    title: title,
+    description: description,
+    keywords: keywords,
+    read: read,
+    defaultKeys: defaultKeys,
+    edit: edit,
+    reset: reset,
+  );
+}
+
+/// Клавиша команды: показывается кнопкой, правится в своём окошке
+/// (`docs/spec/key-bindings.md`, §8).
+class SettingsKeys extends SettingsField {
+  const SettingsKeys(
+    super.id, {
+    required super.title,
+    required this.read,
+    required this.defaultKeys,
+    required this.edit,
+    required this.reset,
+    super.description,
+    super.keywords,
+  });
+
+  /// Чем команду вызывают сейчас; пусто — ничем.
+  ///
+  /// Замыканием, а не строкой: форма строит схему один раз, а клавиша меняется,
+  /// пока окно открыто, — записанное строкой так и осталось бы прежним.
+  final String Function() read;
+
+  /// Чем её вызывают по умолчанию; пусто — модуль клавиши не давал.
+  final String defaultKeys;
+
+  /// Открыть окошко записи и дождаться, пока его закроют.
+  ///
+  /// Ждать нужно форме: после правки ей перерисоваться, иначе на кнопке
+  /// осталась бы прежняя клавиша.
+  final Future<void> Function() edit;
+
+  /// Забыть переназначения этой команды.
+  final void Function() reset;
+
+  @override
+  bool get isDefault => read() == defaultKeys;
+
+  @override
+  void resetToDefault() => reset();
 }
 
 /// Поле, у которого нет значения: только кнопка.

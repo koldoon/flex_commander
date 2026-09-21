@@ -1,9 +1,11 @@
+import 'dart:async';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
-/// Настройка клавиш: все привязки списком, назначение нажатием
+/// Настройка клавиш: разделы по контексту, правка нажатием
 /// (`docs/spec/key-bindings.md`).
 ///
 /// Реестр — способом его спросить, а не самим реестром: команда живёт внутри
@@ -34,7 +36,6 @@ class KeysCommand extends AppCommand {
 
   @override
   Future<void> execute(CommandContext context) async {
-    final registry = _registry();
     final app = context.app;
     final view = app.view;
     late final String dialogId;
@@ -42,137 +43,191 @@ class KeysCommand extends AppCommand {
 
     dialogId = view.showDialog(
       DialogSpec(
-        title: tr('Keyboard'),
+        // Английским: окно живёт долго, и заголовок переводит рама — на том
+        // языке, который выбран **сейчас**.
+        title: 'Key bindings',
         id: commandId,
         resizable: true,
         takesFocus: true,
-        // Окно слушает реестр: правка меняет и клавиши, и то, у кого их
-        // отняли, — а знает об этом он один.
-        content: ListenableBuilder(
-          listenable: registry,
-          builder:
-              (context, _) => FcKeyBindings(
-                items: _items(registry, context),
-                occupiedBy: (id, keys) => _occupiedBy(registry, id, keys, context),
-                onAssign: (id, keys) => _assign(app, registry, id, keys),
-                onClear: (id) => _assign(app, registry, id, ''),
-                onReset: (id) => _reset(app, id),
-                onResetAll: () => app.setKeyOverrides(const []),
-              ),
-        ),
+        ownWidth: true,
+        // Та же форма, что и у настроек: она принимает произвольные разделы, и
+        // второй такой писать незачем (`docs/spec/key-bindings.md`, §8).
+        content: FcSettingsForm(pages: _pages(app), onClose: close),
         onSubmit: close,
         onDismiss: close,
       ),
     );
   }
 
-  /// Строки окна: по строке на **привязку** плюс команды, у которых её нет.
-  List<KeyBindingItem> _items(CommandRegistry registry, BuildContext context) {
-    final strings = StringsScope.of(context);
-    final commands = {for (final command in registry.installed) command.id: command};
-    final effective = registry.bindings;
-    final items = <KeyBindingItem>[];
-    final bound = <String>{};
-
-    for (var at = 0; at < registry.declaredBindings.length; at++) {
-      final declared = registry.declaredBindings[at];
-      final command = commands[declared.commandId];
-      if (command == null) {
-        // Привязка к команде, которой нет: модуль выключили. Показывать нечего.
-        continue;
-      }
-      bound.add(command.id);
-      final keys = at < effective.length ? effective[at].keys : declared.keys;
-      items.add(
-        KeyBindingItem(
-          id: _idOf(declared),
-          command: command.id,
-          label: command.label,
-          description: command.description,
-          owner: registry.ownerOf(command.id),
-          details: _detailsOf(declared),
-          keys: keys == KeyCombination.none ? '' : keys.toString(),
-          defaultKeys: declared.keys.toString(),
-          cannotEdit:
-              declared.keys == KeyCombination.anyCharacter
-                  ? strings.tr('This one answers any letter: there is no combination to set')
-                  : '',
-        ),
-      );
-    }
-
-    // Команды без привязок: знать, что они есть и вызываются из палитры,
-    // полезнее, чем не знать (`docs/spec/key-bindings.md`, §2).
-    for (final command in registry.installed) {
-      if (bound.contains(command.id)) {
-        continue;
-      }
-      items.add(
-        KeyBindingItem(
-          id: '${command.id}|',
-          command: command.id,
-          label: command.label,
-          description: command.description,
-          owner: registry.ownerOf(command.id),
-          keys: '',
-          defaultKeys: '',
-          cannotEdit: strings.tr('This command has no key of its own yet — it is run from the palette'),
-        ),
-      );
-    }
-    return items;
+  /// Разделы: по одному на контекст, пустых нет.
+  List<SettingsPage> _pages(Application app) {
+    final registry = _registry();
+    final rows = _rows(registry);
+    return [
+      for (final context in KeyContext.values)
+        if (rows.where((row) => row.context == context).toList() case final own when own.isNotEmpty)
+          SettingsPage(
+            title: context.title,
+            build:
+                () => SettingsSchema([
+                  // «Вернуть всё» стоит первым полем первого раздела: своего
+                  // ряда кнопок у формы настроек нет.
+                  if (context == rows.first.context)
+                    SettingsField.button(
+                      'keys.resetAll',
+                      title: 'Your keys',
+                      description: 'Forget every key you have changed',
+                      label: 'Reset all keys',
+                      run: () => app.setKeyOverrides(const []),
+                    ),
+                  for (final row in own) _field(app, registry, row),
+                ], save: () {}),
+          ),
+    ];
   }
 
-  /// Кто держит эту комбинацию **в том же месте**; null — никто.
+  SettingsKeys _field(Application app, CommandRegistry registry, _Row row) {
+    final command = registry.find(row.commandId);
+    final label = command?.label ?? row.commandId;
+    final description = command?.description ?? '';
+    return SettingsField.keys(
+      row.commandId,
+      // Значения привязки — в подписи: `Cmd-2` и `Cmd-3` это одна команда «вид
+      // панели», и шесть строк с одним названием различить было бы нечем.
+      title: row.details.isEmpty ? label : '$label: ${row.details}',
+      description: description,
+      keywords: command?.keywords ?? const {},
+      read: () => row.keysIn(registry.bindings),
+      defaultKeys: row.keysIn(registry.declaredBindings),
+      reset: () => _reset(app, registry, row),
+      edit:
+          () => _edit(
+            app,
+            registry,
+            row,
+            command: row.details.isEmpty ? label : '$label: ${row.details}',
+            context: row.context.title,
+          ),
+    );
+  }
+
+  /// Строки окна: команда в своём контексте, ровно один раз.
   ///
-  /// Разные места не спорят: `F5` в панели копирует, в просмотрщике
-  /// форматирует (`docs/spec/key-bindings.md`, §3).
-  String? _occupiedBy(CommandRegistry registry, String id, String keys, BuildContext context) {
-    final combination = KeyCombination.tryParse(keys);
-    final mine = _bindingOf(registry, id);
-    if (combination == null || mine == null) {
-      return null;
-    }
-    final probe = mine.withKeys(combination);
-    for (var at = 0; at < registry.bindings.length; at++) {
-      final other = registry.bindings[at];
-      if (_idOf(registry.declaredBindings[at]) == id || !other.conflictsWith(probe)) {
+  /// Группировка по тройке «команда, контекст, значения»: `Esc` просмотрщика,
+  /// объявленный дважды — для полного экрана и для быстрого просмотра, — это
+  /// одно дело и одна строка (`docs/spec/key-bindings.md`, §3).
+  List<_Row> _rows(CommandRegistry registry) {
+    final rows = <String, _Row>{};
+    final declared = registry.declaredBindings;
+    for (var at = 0; at < declared.length; at++) {
+      final binding = declared[at];
+      final context = binding.context;
+      // Внутренняя привязка: её не показывают и не переназначают.
+      if (context == null || registry.find(binding.commandId) == null) {
         continue;
       }
+      final details = _detailsOf(binding);
+      final key = '${binding.commandId}|${context.name}|$details';
+      (rows[key] ??= _Row(commandId: binding.commandId, context: context, details: details)).at.add(at);
+    }
+    return rows.values.toList(growable: false);
+  }
+
+  /// Открыть окошко записи поверх окна клавиш и дождаться, пока его закроют.
+  Future<void> _edit(
+    Application app,
+    CommandRegistry registry,
+    _Row row, {
+    required String command,
+    required String context,
+  }) async {
+    final view = app.view;
+    final closed = Completer<void>();
+    late final String dialogId;
+    void close() {
+      view.closeDialog(dialogId);
+      if (!closed.isCompleted) {
+        closed.complete();
+      }
+    }
+
+    dialogId = view.showDialog(
+      DialogSpec(
+        title: 'Key binding',
+        content: ListenableBuilder(
+          listenable: registry,
+          builder:
+              (_, _) => FcKeyRecorder(
+                command: command,
+                context: context,
+                read: () => row.keysIn(registry.bindings),
+                defaultKeys: row.keysIn(registry.declaredBindings),
+                occupiedBy: (keys) => _occupiedBy(registry, row, keys),
+                onAssign: (keys) => _assign(app, registry, row, keys),
+                onClear: () => _assign(app, registry, row, ''),
+                onReset: () => _reset(app, registry, row),
+                onClose: close,
+              ),
+        ),
+        onSubmit: close,
+        onDismiss: close,
+      ),
+    );
+    return closed.future;
+  }
+
+  /// Кто держит эту комбинацию **в том же контексте**; null — никто.
+  String? _occupiedBy(CommandRegistry registry, _Row row, String keys) {
+    final combination = KeyCombination.tryParse(keys);
+    if (combination == null) {
+      return null;
+    }
+    final probe = registry.declaredBindings[row.at.first].withKeys(combination);
+    for (var at = 0; at < registry.bindings.length; at++) {
+      if (row.at.contains(at) || !registry.bindings[at].conflictsWith(probe)) {
+        continue;
+      }
+      final other = registry.bindings[at];
       return registry.find(other.commandId)?.label ?? other.commandId;
     }
     return null;
   }
 
-  /// Назначить привязке клавишу — и отнять её у того, кто держал.
-  void _assign(Application app, CommandRegistry registry, String id, String keys) {
+  /// Назначить строке клавишу — и отнять её у того, кто держал.
+  ///
+  /// У строки привязок бывает несколько (`F8` и `Cmd-Bsp` у удаления): клавишу
+  /// получает первая, у остальных она снимается. Так «одна клавиша на дело»
+  /// получается ровно тогда, когда человек её записал, а не отбирается у него
+  /// заранее (`docs/spec/key-bindings.md`, §10).
+  void _assign(Application app, CommandRegistry registry, _Row row, String keys) {
     final overrides = [...app.keyOverrides];
-    // У прежнего держателя клавиша снимается: спор за одно нажатие решается
-    // здесь, а не молча во время нажатия.
+    final declared = registry.declaredBindings;
+
     if (keys.isNotEmpty) {
+      final combination = KeyCombination.parse(keys);
+      final probe = declared[row.at.first].withKeys(combination);
       for (var at = 0; at < registry.bindings.length; at++) {
-        final declared = registry.declaredBindings[at];
-        if (_idOf(declared) == id) {
+        if (row.at.contains(at) || !registry.bindings[at].conflictsWith(probe)) {
           continue;
         }
-        if (registry.bindings[at].keys.toString() == keys) {
-          _put(overrides, declared, '');
-        }
+        _put(overrides, declared[at], '');
       }
     }
 
-    final declared = _bindingOf(registry, id);
-    if (declared != null) {
-      _put(overrides, declared, keys);
+    for (final (index, at) in row.at.indexed) {
+      _put(overrides, declared[at], index == 0 ? keys : '');
     }
     app.setKeyOverrides(overrides);
   }
 
-  /// Вернуть умолчание одной привязке: забыть о ней запись.
-  void _reset(Application app, String id) {
+  /// Вернуть умолчание: забыть записи обо всех привязках строки.
+  void _reset(Application app, CommandRegistry registry, _Row row) {
+    final forget = {
+      for (final at in row.at) '${registry.declaredBindings[at].commandId}|${registry.declaredBindings[at].keys}',
+    };
     app.setKeyOverrides([
       for (final override in app.keyOverrides)
-        if ('${override.command}|${override.was}' != id) override,
+        if (!forget.contains('${override.command}|${override.was}')) override,
     ]);
   }
 
@@ -185,13 +240,27 @@ class KeysCommand extends AppCommand {
       ..addAll(keys == was ? const [] : [KeyOverride(command: declared.commandId, was: was, now: keys)]);
   }
 
-  KeyBinding? _bindingOf(CommandRegistry registry, String id) =>
-      registry.declaredBindings.where((binding) => _idOf(binding) == id).firstOrNull;
-
-  /// Привязка опознаётся командой и **объявленной** комбинацией.
-  static String _idOf(KeyBinding declared) => '${declared.commandId}|${declared.keys}';
-
   /// Чем эта привязка отличается от соседних у той же команды.
   static String _detailsOf(KeyBinding binding) =>
       binding.parameters.isEmpty ? '' : binding.parameters.values.map((value) => '$value').join(', ');
+}
+
+/// Строка окна: команда в своём контексте со своими значениями.
+class _Row {
+  _Row({required this.commandId, required this.context, required this.details});
+
+  final String commandId;
+  final KeyContext context;
+
+  /// Значения, с которыми команда запускается: ими и различаются соседние
+  /// строки одной команды.
+  final String details;
+
+  /// Места объявленных привязок строки — они же места действующих: реестр
+  /// держит оба списка одной длины и в одном порядке.
+  final List<int> at = [];
+
+  /// Чем строку вызывают в этом списке привязок; пусто — ничем.
+  String keysIn(List<KeyBinding> bindings) =>
+      [for (final index in at) bindings[index].keys].where((keys) => keys != KeyCombination.none).join(', ');
 }

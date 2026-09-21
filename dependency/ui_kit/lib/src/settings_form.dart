@@ -172,7 +172,10 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   static bool _matches(SettingsField field, String query) =>
       field.title.toLowerCase().contains(query) ||
       field.description.toLowerCase().contains(query) ||
-      field.id.toLowerCase().contains(query);
+      field.id.toLowerCase().contains(query) ||
+      // Синонимы — то, чем вещь называют, но чего в подписи нет: «dark» у
+      // смены темы. В строке их не видно, а найти по ним можно.
+      field.keywords.any((word) => word.toLowerCase().contains(query));
 
   /// Где в строке стоит найденное — чтобы его выделить.
   List<int> _hits(String text) {
@@ -701,6 +704,23 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       SettingsButton button => Row(
         mainAxisSize: MainAxisSize.min,
         children: [FcButton(label: button.label, onPressed: button.run)],
+      ),
+      // Клавиша — тоже кнопка, и написано на ней то, чем команду вызывают:
+      // ради этого окно и открывают. Нет клавиши — прочерк, а не пустая
+      // кнопка: пустую не за что нажать глазами.
+      SettingsKeys keys => Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FcButton(
+            label: keys.read().isEmpty ? '—' : keys.read(),
+            onPressed: () async {
+              await keys.edit();
+              if (mounted) {
+                changed();
+              }
+            },
+          ),
+        ],
       ),
       // Выпадающим списком, а не переключателем: темы приносят модули, и
       // строка на каждый вариант росла бы вместе с их числом.
