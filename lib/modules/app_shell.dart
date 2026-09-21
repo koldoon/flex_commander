@@ -249,7 +249,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           'keys',
           title: strings.tr('Keyboard'),
           description: strings.tr('Set your own key for any command'),
-          label: strings.tr('Key bindings'),
+          label: strings.tr('Keymap'),
           run: () => app.commands.run(KeysCommand.commandId),
         ),
         // Язык впереди темы: на нём написано всё остальное в этом окне.
@@ -476,12 +476,10 @@ const Map<String, String> _russian = {
 
   // Настройка клавиш.
   'Keyboard': 'Клавиши',
-  'Key bindings': 'Клавиши команд',
+  'Keymap': 'Раскладка клавиш',
   'Key binding': 'Клавиша команды',
   'Set your own key for any command': 'Назначить любой команде свою клавишу',
   'Search commands': 'Поиск команды',
-  'Your keys': 'Ваши клавиши',
-  'Forget every key you have changed': 'Забыть всё, что вы переназначили',
   'Reset all keys': 'Вернуть все клавиши',
   // Разделы окна — по контексту привязки (`KeyContext`).
   'File panels': 'Файловые панели',

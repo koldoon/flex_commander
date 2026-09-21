@@ -33,7 +33,13 @@ import 'pick_list.dart';
 /// нет, потому что отменять нечего — приложение и так живёт мгновенным
 /// применением темы, колонок и скрытых файлов.
 class FcSettingsForm extends StatefulWidget {
-  const FcSettingsForm({super.key, required this.pages, required this.onClose, this.searchHint = 'Search settings'});
+  const FcSettingsForm({
+    super.key,
+    required this.pages,
+    required this.onClose,
+    this.searchHint = 'Search settings',
+    this.footer,
+  });
 
   final List<SettingsPage> pages;
 
@@ -43,6 +49,13 @@ class FcSettingsForm extends StatefulWidget {
   /// Что написано в пустом поле поиска: форму берёт не одно окно настроек, и
   /// «Search settings» в окне клавиш обещало бы не то.
   final String searchHint;
+
+  /// Что стоит в подвале оглавления; null — ничего.
+  ///
+  /// Подвал, а не поле среди настроек: «вернуть всё» относится к окну целиком,
+  /// и среди настроек оно притворялось бы одной из них — да ещё и уезжало бы
+  /// вместе с прокруткой и пропадало при отборе.
+  final Widget? footer;
 
   @override
   State<FcSettingsForm> createState() => _FcSettingsFormState();
@@ -393,6 +406,12 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                                   onTap: (id) => _goToSection(_found.indexWhere((section) => section.$2 == id)),
                                 ),
                               ),
+                            // Подвал прижат к низу столбца: место ему там же,
+                            // где разделы, но отдельно от них.
+                            if (widget.footer case final footer?) ...[
+                              SizedBox(height: metrics.dialogGap),
+                              Padding(padding: EdgeInsets.only(left: metrics.dialogPadding), child: footer),
+                            ],
                           ],
                         ),
                       ),
@@ -551,6 +570,29 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       if (field.note.isNotEmpty)
         Text(field.note, style: _secondaryStyle(theme).copyWith(color: theme.colors.secondaryText)),
     ];
+
+    // Клавиша — справа, в одну строку с названием: читают этот список
+    // названиями, а клавиша при каждом из них стоит столбцом.
+    if (field is SettingsKeys) {
+      return _withMarker(
+        theme,
+        touched,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Row(
+              children: [
+                Expanded(child: Text.rich(_titleSpan(theme, field.title))),
+                if (touched) ...[_reset(theme, schema, field), SizedBox(width: metrics.columnGap)],
+                _control(theme, schema, field),
+              ],
+            ),
+            for (final line in explanations) ...[SizedBox(height: metrics.dialogLineGap), line],
+          ],
+        ),
+      );
+    }
 
     if (field is SettingsFlag) {
       return _withMarker(

@@ -85,9 +85,9 @@ void main() {
     await pumpApp(tester);
 
     await press(tester, LogicalKeyboardKey.f9);
-    expect(find.text('Key bindings'), findsOneWidget, reason: 'кнопки в настройках нет');
+    expect(find.text('Keymap'), findsOneWidget, reason: 'кнопки в настройках нет');
 
-    await tester.tap(find.widgetWithText(FcButton, 'Key bindings'));
+    await tester.tap(find.widgetWithText(FcButton, 'Keymap'));
     await tester.pumpAndSettle();
 
     expect(runtime.app.view.dialogs, hasLength(2), reason: 'окно клавиш должно встать поверх настроек');
@@ -104,8 +104,9 @@ void main() {
     await search(tester, 'file.copy');
 
     expect(inWindow(find.widgetWithText(FcButton, 'F5')), findsOneWidget);
-    // Рядом только «Copy path» — другая команда, и клавиша у неё своя.
-    expect(inWindow(find.byType(FcButton)), findsNWidgets(2));
+    // Рядом только «Copy path» — другая команда, и клавиша у неё своя. Третья
+    // кнопка — «вернуть всё» в подвале оглавления: она стоит всегда.
+    expect(inWindow(find.byType(FcButton)), findsNWidgets(3));
   });
 
   testWidgets('дважды объявленный Esc просмотрщика не даёт двух строк', (tester) async {
@@ -115,7 +116,11 @@ void main() {
     await openWindow(tester);
     await search(tester, 'viewer.close');
 
-    expect(inWindow(find.byType(FcButton)), findsNothing, reason: 'закрытие просмотрщика — поведение, а не настройка');
+    expect(
+      inWindow(find.byType(FcButton)),
+      findsOneWidget,
+      reason: 'закрытие просмотрщика — поведение, а не настройка; кнопка остаётся только в подвале',
+    );
   });
 
   testWidgets('поиск в панели и в редакторе стоят в разных разделах', (tester) async {
@@ -136,6 +141,7 @@ void main() {
     await search(tester, 'dark');
 
     expect(inWindow(find.widgetWithText(FcButton, '—')), findsOneWidget, reason: 'клавиши у неё нет, и это видно');
+    expect(find.text('Switch theme'), findsWidgets, reason: 'нашлась не та команда');
   });
 
   testWidgets('Record назначает клавишу и показывает её тут же', (tester) async {
@@ -227,9 +233,10 @@ void main() {
     await pumpApp(tester);
     runtime.app.setKeyOverrides([KeyOverride(command: 'file.copy', was: 'F5', now: 'Ctrl-Shift-Y')]);
     await openWindow(tester);
-    await search(tester, 'Your keys');
 
-    await tester.tap(find.widgetWithText(FcButton, 'Reset all keys'));
+    // Кнопка стоит в подвале оглавления и отбором не пропадает.
+    await search(tester, 'file.copy');
+    await tester.tap(inWindow(find.widgetWithText(FcButton, 'Reset all keys')));
     await tester.pumpAndSettle();
 
     expect(runtime.app.keyOverrides, isEmpty);

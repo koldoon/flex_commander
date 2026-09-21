@@ -45,14 +45,21 @@ class KeysCommand extends AppCommand {
       DialogSpec(
         // Английским: окно живёт долго, и заголовок переводит рама — на том
         // языке, который выбран **сейчас**.
-        title: 'Key bindings',
+        title: 'Keymap',
         id: commandId,
         resizable: true,
         takesFocus: true,
         ownWidth: true,
         // Та же форма, что и у настроек: она принимает произвольные разделы, и
         // второй такой писать незачем (`docs/spec/key-bindings.md`, §8).
-        content: FcSettingsForm(pages: _pages(app), onClose: close, searchHint: 'Search commands'),
+        content: FcSettingsForm(
+          pages: _pages(app),
+          onClose: close,
+          searchHint: 'Search commands',
+          // «Вернуть всё» относится к окну целиком, а не к разделу: место ему
+          // в подвале оглавления (`docs/spec/key-bindings.md`, §8).
+          footer: _ResetAllButton(onPressed: () => app.setKeyOverrides(const [])),
+        ),
         onSubmit: close,
         onDismiss: close,
       ),
@@ -68,20 +75,7 @@ class KeysCommand extends AppCommand {
         if (rows.where((row) => row.context == context).toList() case final own when own.isNotEmpty)
           SettingsPage(
             title: context.title,
-            build:
-                () => SettingsSchema([
-                  // «Вернуть всё» стоит первым полем первого раздела: своего
-                  // ряда кнопок у формы настроек нет.
-                  if (context == rows.first.context)
-                    SettingsField.button(
-                      'keys.resetAll',
-                      title: 'Your keys',
-                      description: 'Forget every key you have changed',
-                      label: 'Reset all keys',
-                      run: () => app.setKeyOverrides(const []),
-                    ),
-                  for (final row in own) _field(app, registry, row),
-                ], save: () {}),
+            build: () => SettingsSchema([for (final row in own) _field(app, registry, row)], save: () {}),
           ),
     ];
   }
@@ -243,6 +237,19 @@ class KeysCommand extends AppCommand {
   /// Чем эта привязка отличается от соседних у той же команды.
   static String _detailsOf(KeyBinding binding) =>
       binding.parameters.isEmpty ? '' : binding.parameters.values.map((value) => '$value').join(', ');
+}
+
+/// Кнопка «вернуть все клавиши» — со своей подписью из словаря.
+///
+/// Своим виджетом, потому что подпись переводится, а переводчик живёт в дереве:
+/// команда строит окно раньше, чем это дерево появится.
+class _ResetAllButton extends StatelessWidget {
+  const _ResetAllButton({required this.onPressed});
+
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) => FcButton(label: context.strings.tr('Reset all keys'), onPressed: onPressed);
 }
 
 /// Строка окна: команда в своём контексте со своими значениями.
