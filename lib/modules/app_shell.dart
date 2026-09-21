@@ -120,13 +120,13 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     // Справка показывает содержимое реестра, а реестра во время объявления
     // ещё нет: команда получает не его, а способ его спросить.
     registry.command((context) => HelpCommand(registry: () => context.resolve<CommandRegistry>()));
-    registry.binding(KeyBinding('F1', HelpCommand.commandId));
+    registry.binding(KeyBinding('F1', HelpCommand.commandId, context: KeyContext.panel));
 
     // Ещё не реализованное: клавиша закреплена, кнопка показана и приглушена.
     registry.command((context) => PlaceholderCommand(id: viewCommand, label: 'View'));
     registry.command((context) => PlaceholderCommand(id: editCommand, label: 'Edit'));
-    registry.binding(KeyBinding('F3', viewCommand));
-    registry.binding(KeyBinding('F4', editCommand));
+    registry.binding(KeyBinding('F3', viewCommand, context: KeyContext.panel));
+    registry.binding(KeyBinding('F4', editCommand, context: KeyContext.panel));
 
     // Настройки на `F9` — там, где в `mc` меню.
     //
@@ -138,10 +138,10 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     // `F2` при этом освобождается: в референсе за ним «переименовать», и в
     // панельных менеджерах это самая привычная из функциональных клавиш.
     registry.command((context) => SettingsCommand(catalog: () => context.resolve<SettingsCatalog>()));
-    registry.binding(KeyBinding('F9', SettingsCommand.commandId));
+    registry.binding(KeyBinding('F9', SettingsCommand.commandId, context: KeyContext.panel));
     // Привычка macOS. Действует и в просмотрщике, и в редакторе: настройки —
     // не про то, что сейчас на экране.
-    registry.binding(KeyBinding.anywhere('Cmd-,', SettingsCommand.commandId));
+    registry.binding(KeyBinding.anywhere('Cmd-,', SettingsCommand.commandId, context: KeyContext.everywhere));
 
     // Клавиши: своё окно, а открывают его кнопкой из настроек и из палитры.
     // Своей клавиши у него нет — `Alt-F9` живьём до приложения не дошёл, и
@@ -149,6 +149,10 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     // (`docs/spec/key-bindings.md`, §7). Реестр команда получает способом его
     // спросить: он собирается вместе с ней.
     registry.command((context) => KeysCommand(registry: () => context.resolve<CommandRegistry>()));
+    // Привязка без клавиши: назначить её можно, а умолчания у неё нет
+    // (`docs/spec/key-bindings.md`, §5). Заодно это единственный способ увидеть
+    // команду в её же окне.
+    registry.binding(KeyBinding.unbound(KeysCommand.commandId, context: KeyContext.everywhere));
 
     // Открытые сессии: один список на приложение, ряд над панелями рисует
     // шелл, и команды его же (`docs/spec/panel-sessions.md`, §9).
@@ -159,20 +163,21 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     registry.command((context) => SelectSessionCommand());
     registry.command((context) => ChooseSessionCommand());
     registry.command((context) => RenameSessionCommand());
-    registry.binding(KeyBinding('Cmd-Shift-T', NewSessionCommand.commandId));
-    registry.binding(KeyBinding('Cmd-Shift-W', CloseSessionCommand.commandId));
+    registry.binding(KeyBinding('Cmd-Shift-T', NewSessionCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Cmd-Shift-W', CloseSessionCommand.commandId, context: KeyContext.panel));
     // `Ctrl-Tab` — тот, к которому все привыкли: `Ctrl` и `Cmd` у нас разные
     // модификаторы, на macOS это сочетание свободно, а на Windows и Linux оно
     // и есть родное.
-    registry.binding(KeyBinding('Ctrl-Tab', CycleSessionsCommand.nextId));
-    registry.binding(KeyBinding('Ctrl-Shift-Tab', CycleSessionsCommand.previousId));
-    registry.binding(KeyBinding('Cmd-Shift-O', ChooseSessionCommand.commandId));
+    registry.binding(KeyBinding('Ctrl-Tab', CycleSessionsCommand.nextId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Ctrl-Shift-Tab', CycleSessionsCommand.previousId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Cmd-Shift-O', ChooseSessionCommand.commandId, context: KeyContext.panel));
     for (var number = 1; number <= 9; number++) {
       registry.binding(
         KeyBinding(
           'Alt-$number',
           SelectSessionCommand.commandId,
           parameters: {SelectSessionCommand.numberParam: '$number'},
+          context: KeyContext.panel,
         ),
       );
     }
@@ -187,9 +192,12 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     registry.command((context) => ShowBackgroundTaskCommand());
     registry.command((context) => CancelBackgroundTaskCommand());
     // `Cmd-B` действует везде: список работ не про то, что сейчас на экране.
-    registry.binding(KeyBinding.anywhere('Cmd-B', FocusBackgroundCommand.commandId));
+    registry.binding(KeyBinding.anywhere('Cmd-B', FocusBackgroundCommand.commandId, context: KeyContext.everywhere));
     // Остальное — только когда клавиши у списка. Иначе `Bsp` в панели значил бы
     // «наверх», а `Enter` — «войти», и отнимать их у панели нельзя.
+    //
+    // Контекста у них нет нарочно: ходьба по списку, `Enter` на показ и `Esc`
+    // на выход — поведение, а не выбор (`docs/spec/key-bindings.md`, §2).
     registry.binding(KeyBinding.inState<BackgroundTasksState>('Up', MoveBackgroundCursorCommand.upId));
     registry.binding(KeyBinding.inState<BackgroundTasksState>('Down', MoveBackgroundCursorCommand.downId));
     registry.binding(KeyBinding.inState<BackgroundTasksState>('Enter', ShowBackgroundTaskCommand.commandId));
@@ -215,7 +223,9 @@ class AppShell implements FcBackendModule, FcFrontendModule {
         save: settings.save,
       ),
     );
-    registry.binding(KeyBinding.anywhere('Cmd-Shift-P', CommandPaletteCommand.commandId));
+    registry.binding(
+      KeyBinding.anywhere('Cmd-Shift-P', CommandPaletteCommand.commandId, context: KeyContext.everywhere),
+    );
 
     // Настройки самого приложения: своего модуля у ядра нет, а выбор есть.
     registry.settingsSchema(() {

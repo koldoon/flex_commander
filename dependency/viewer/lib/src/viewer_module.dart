@@ -35,7 +35,7 @@ class Viewer implements FcFrontendModule {
 
     // Быстрый просмотр — в слое `Shift` рядом с `F3`: то же действие, только
     // рядом, а не во весь экран.
-    registry.binding(KeyBinding('Shift-F3', QuickViewCommand.commandId));
+    registry.binding(KeyBinding('Shift-F3', QuickViewCommand.commandId, context: KeyContext.panel));
 
     // Закрытие — одно на все просмотрщики: `inState<ViewerContent>` подходит
     // любому показу, чем бы он ни был, и объявлено это здесь один раз.

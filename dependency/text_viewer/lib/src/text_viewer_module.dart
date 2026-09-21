@@ -225,14 +225,24 @@ class TextViewer implements FcFrontendModule {
 
     // Клавиши действуют при показанном тексте — где бы он ни стоял: во весь
     // экран или в быстром просмотре. `inState` находит его сквозь хозяина.
-    registry.binding(KeyBinding.inState<TextViewerScreen>('F2', ToggleWordWrapCommand.commandId));
-    registry.binding(KeyBinding.inState<TextViewerScreen>('F9', ToggleLineNumbersCommand.commandId));
-    registry.binding(KeyBinding.inState<TextViewerScreen>('F7', findCommandId));
-    registry.binding(KeyBinding.inState<TextViewerScreen>('Cmd-F', findCommandId));
-    registry.binding(KeyBinding.inState<TextViewerScreen>('Shift-F7', findNextCommandId));
-    registry.binding(KeyBinding.inState<TextViewerScreen>('Cmd-G', findNextCommandId));
-    registry.binding(KeyBinding.inState<TextViewerScreen>('Shift-Cmd-G', findPreviousCommandId));
-    registry.binding(KeyBinding.inState<TextViewerScreen>('Cmd-C', CopySelectionCommand.commandId));
+    registry.binding(
+      KeyBinding.inState<TextViewerScreen>('F2', ToggleWordWrapCommand.commandId, context: KeyContext.textViewer),
+    );
+    registry.binding(
+      KeyBinding.inState<TextViewerScreen>('F9', ToggleLineNumbersCommand.commandId, context: KeyContext.textViewer),
+    );
+    registry.binding(KeyBinding.inState<TextViewerScreen>('F7', findCommandId, context: KeyContext.textViewer));
+    registry.binding(KeyBinding.inState<TextViewerScreen>('Cmd-F', findCommandId, context: KeyContext.textViewer));
+    registry.binding(
+      KeyBinding.inState<TextViewerScreen>('Shift-F7', findNextCommandId, context: KeyContext.textViewer),
+    );
+    registry.binding(KeyBinding.inState<TextViewerScreen>('Cmd-G', findNextCommandId, context: KeyContext.textViewer));
+    registry.binding(
+      KeyBinding.inState<TextViewerScreen>('Shift-Cmd-G', findPreviousCommandId, context: KeyContext.textViewer),
+    );
+    registry.binding(
+      KeyBinding.inState<TextViewerScreen>('Cmd-C', CopySelectionCommand.commandId, context: KeyContext.textViewer),
+    );
 
     // Стрелок, страниц и `Home` здесь нет нарочно: прокрутку и выделение
     // забрал себе показ — он же берёт фокус.

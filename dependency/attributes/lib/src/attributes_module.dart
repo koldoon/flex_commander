@@ -48,12 +48,12 @@ class AttributeEditing implements FcBackendModule, FcFrontendModule {
     registry.command((context) => AttributesCommand());
     // Привычка Far Manager: там за этим сочетанием ровно атрибуты файла. На
     // macOS оно свободно — пометить всё там `Cmd-A`.
-    registry.binding(KeyBinding('Ctrl-A', AttributesCommand.commandId));
+    registry.binding(KeyBinding('Ctrl-A', AttributesCommand.commandId, context: KeyContext.panel));
     // Второе — ради Windows и Linux: там `Cmd-A` разбирается **как** `Ctrl-A`,
     // и первое сочетание достаётся пометке «выделить всё», которая старше и
     // привычнее. Тот же приём, которым живёт показ скрытых объектов: основное
     // сочетание одно, второе — для платформы, где первое занято.
-    registry.binding(KeyBinding('Cmd-Shift-I', AttributesCommand.commandId));
+    registry.binding(KeyBinding('Cmd-Shift-I', AttributesCommand.commandId, context: KeyContext.panel));
   }
 }
 

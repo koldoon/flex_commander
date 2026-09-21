@@ -187,18 +187,38 @@ class ShellTerminal implements FcBackendModule, FcFrontendModule, FcModuleLifecy
 
     // Ввод строке отдаёт клавиша, а не печать: печатный символ в панели — это
     // переход к имени, и отнимать его нельзя.
-    registry.binding(KeyBinding('Cmd-T', FocusCommandLineCommand.commandId));
+    registry.binding(KeyBinding('Cmd-T', FocusCommandLineCommand.commandId, context: KeyContext.panel));
     registry.binding(KeyBinding.inState<CommandLineState>('Esc', LeaveCommandLineCommand.commandId));
     registry.binding(KeyBinding.inState<CommandLineState>('Enter', RunCommandLineCommand.commandId));
-    registry.binding(KeyBinding.inState<CommandLineState>('Cmd-Up', HistoryCommand.previousId));
-    registry.binding(KeyBinding.inState<CommandLineState>('Cmd-Down', HistoryCommand.nextId));
-    registry.binding(KeyBinding.inState<CommandLineState>('Cmd-Enter', InsertNodeCommand.nameId));
-    registry.binding(KeyBinding.inState<CommandLineState>('Cmd-Shift-Enter', InsertNodeCommand.pathId));
+    registry.binding(
+      KeyBinding.inState<CommandLineState>('Cmd-Up', HistoryCommand.previousId, context: KeyContext.commandLine),
+    );
+    registry.binding(
+      KeyBinding.inState<CommandLineState>('Cmd-Down', HistoryCommand.nextId, context: KeyContext.commandLine),
+    );
+    registry.binding(
+      KeyBinding.inState<CommandLineState>('Cmd-Enter', InsertNodeCommand.nameId, context: KeyContext.commandLine),
+    );
+    registry.binding(
+      KeyBinding.inState<CommandLineState>(
+        'Cmd-Shift-Enter',
+        InsertNodeCommand.pathId,
+        context: KeyContext.commandLine,
+      ),
+    );
     // `Tab` принадлежит строке, только пока ввод у неё: у панели за ним
     // по-прежнему переключение панелей, и в будущем режиме `mc` он там и
     // останется — без единой проверки настройки.
-    registry.binding(KeyBinding.inState<CommandLineState>('Tab', CompletePathCommand.commandId));
-    registry.binding(KeyBinding.inState<CommandLineState>('Shift-Tab', CompletePathCommand.backCommandId));
+    registry.binding(
+      KeyBinding.inState<CommandLineState>('Tab', CompletePathCommand.commandId, context: KeyContext.commandLine),
+    );
+    registry.binding(
+      KeyBinding.inState<CommandLineState>(
+        'Shift-Tab',
+        CompletePathCommand.backCommandId,
+        context: KeyContext.commandLine,
+      ),
+    );
 
     // Клавиши режима `mc`. Все объявлены для панелей и все невыполнимы, пока
     // настройка выключена, — тогда клавиша достаётся тому, кто объявлен
@@ -215,7 +235,7 @@ class ShellTerminal implements FcBackendModule, FcFrontendModule, FcModuleLifecy
 
     // `Ctrl-O` — из `mc`, и действует везде: из панелей, из строки, из самого
     // терминала. Выход должен быть один и тот же отовсюду.
-    registry.binding(KeyBinding.anywhere('Ctrl-O', ToggleTerminalCommand.commandId));
+    registry.binding(KeyBinding.anywhere('Ctrl-O', ToggleTerminalCommand.commandId, context: KeyContext.everywhere));
 
     // Экран отработавшей команды убирается клавишей; пока команда работает,
     // команда закрытия невыполнима, и клавиша уходит в саму программу.

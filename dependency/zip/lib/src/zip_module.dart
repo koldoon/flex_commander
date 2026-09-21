@@ -71,7 +71,7 @@ class ZipArchiver implements FcBackendModule, FcFrontendModule {
     registry.plurals('ru', _plurals);
 
     registry.command((context) => CreateZipArchiveCommand());
-    registry.binding(KeyBinding('Shift-F5', CreateZipArchiveCommand.commandId));
+    registry.binding(KeyBinding('Shift-F5', CreateZipArchiveCommand.commandId, context: KeyContext.panel));
   }
 }
 

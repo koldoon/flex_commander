@@ -218,6 +218,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
         'Alt-F1',
         ChoosePanelViewCommand.commandId,
         parameters: {SetPanelViewCommand.panelParam: SetPanelViewCommand.leftPanel},
+        context: KeyContext.panel,
       ),
     );
     registry.binding(
@@ -225,6 +226,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
         'Alt-F2',
         ChoosePanelViewCommand.commandId,
         parameters: {SetPanelViewCommand.panelParam: SetPanelViewCommand.rightPanel},
+        context: KeyContext.panel,
       ),
     );
     // Быстрая клавиша своего вида: каждый вид привязывает её сам, и таблица —
@@ -234,22 +236,33 @@ class Panels implements FcBackendModule, FcFrontendModule {
         'Cmd-1',
         SetPanelViewCommand.commandId,
         parameters: {SetPanelViewCommand.viewParam: PanelSettings.defaultView},
+        context: KeyContext.panel,
       ),
     );
 
     // Раскрытие вглубь: `Shift` к тем же стрелкам, что раскрывают ветвь на шаг,
     // а `Cmd` к ним — всё дерево. Клавиши свободны, а смысл читается сам:
     // «то же, но целиком» (`docs/spec/panel-view-tree.md`, §6а).
-    registry.binding(KeyBinding('Shift-Right', TreeDeepCommand.expandSubtreeId));
-    registry.binding(KeyBinding('Shift-Left', TreeDeepCommand.collapseSubtreeId));
-    registry.binding(KeyBinding('Shift-Cmd-Right', TreeDeepCommand.expandAllId));
-    registry.binding(KeyBinding('Shift-Cmd-Left', TreeDeepCommand.collapseAllId));
+    registry.binding(KeyBinding('Shift-Right', TreeDeepCommand.expandSubtreeId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Shift-Left', TreeDeepCommand.collapseSubtreeId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Shift-Cmd-Right', TreeDeepCommand.expandAllId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Shift-Cmd-Left', TreeDeepCommand.collapseAllId, context: KeyContext.panel));
     registry.binding(
-      KeyBinding('Cmd-2', SetPanelViewCommand.commandId, parameters: {SetPanelViewCommand.viewParam: BriefView.viewId}),
+      KeyBinding(
+        'Cmd-2',
+        SetPanelViewCommand.commandId,
+        parameters: {SetPanelViewCommand.viewParam: BriefView.viewId},
+        context: KeyContext.panel,
+      ),
     );
 
     registry.binding(
-      KeyBinding('Cmd-3', SetPanelViewCommand.commandId, parameters: {SetPanelViewCommand.viewParam: TreeView.viewId}),
+      KeyBinding(
+        'Cmd-3',
+        SetPanelViewCommand.commandId,
+        parameters: {SetPanelViewCommand.viewParam: TreeView.viewId},
+        context: KeyContext.panel,
+      ),
     );
 
     registry.binding(
@@ -257,11 +270,17 @@ class Panels implements FcBackendModule, FcFrontendModule {
         'Cmd-4',
         SetPanelViewCommand.commandId,
         parameters: {SetPanelViewCommand.viewParam: CombinedView.viewId},
+        context: KeyContext.panel,
       ),
     );
 
     registry.binding(
-      KeyBinding('Cmd-5', SetPanelViewCommand.commandId, parameters: {SetPanelViewCommand.viewParam: IconsView.viewId}),
+      KeyBinding(
+        'Cmd-5',
+        SetPanelViewCommand.commandId,
+        parameters: {SetPanelViewCommand.viewParam: IconsView.viewId},
+        context: KeyContext.panel,
+      ),
     );
 
     registry.binding(
@@ -269,6 +288,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
         'Cmd-6',
         SetPanelViewCommand.commandId,
         parameters: {SetPanelViewCommand.viewParam: ColumnsView.viewId},
+        context: KeyContext.panel,
       ),
     );
 

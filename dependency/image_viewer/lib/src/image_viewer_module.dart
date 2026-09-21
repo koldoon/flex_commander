@@ -108,7 +108,9 @@ class ImageViewer implements FcFrontendModule {
 
     // Клавиши действуют при показанной картинке — где бы она ни стояла: во
     // весь экран или в быстром просмотре. `inState` находит её сквозь хозяина.
-    registry.binding(KeyBinding.inState<ImageViewerScreen>('F2', ToggleImageFitCommand.commandId));
+    registry.binding(
+      KeyBinding.inState<ImageViewerScreen>('F2', ToggleImageFitCommand.commandId, context: KeyContext.imageViewer),
+    );
     // Приближение — и на `+`, и на `=`: на большинстве раскладок плюс требует
     // Shift, а привычка из браузеров говорит именно про эту клавишу.
     for (final key in ['+', '=']) {
@@ -117,6 +119,7 @@ class ImageViewer implements FcFrontendModule {
           key,
           ZoomImageCommand.commandId,
           parameters: {ZoomImageCommand.factorParam: ImageViewerScreen.zoomStep},
+          context: KeyContext.imageViewer,
         ),
       );
     }
@@ -125,6 +128,7 @@ class ImageViewer implements FcFrontendModule {
         '-',
         ZoomImageCommand.commandId,
         parameters: {ZoomImageCommand.factorParam: 1 / ImageViewerScreen.zoomStep},
+        context: KeyContext.imageViewer,
       ),
     );
 
@@ -134,10 +138,22 @@ class ImageViewer implements FcFrontendModule {
     // Только во весь экран: в быстром просмотре они принадлежат панели, и
     // следующая картинка появляется оттого, что курсор пошёл вниз. Решает это
     // сама команда — привязка объявляется на тип, а мест у него два.
-    registry.binding(KeyBinding.inState<ImageViewerScreen>('Right', StepImageCommand.nextCommandId));
-    registry.binding(KeyBinding.inState<ImageViewerScreen>('Down', StepImageCommand.nextCommandId));
-    registry.binding(KeyBinding.inState<ImageViewerScreen>('Left', StepImageCommand.previousCommandId));
-    registry.binding(KeyBinding.inState<ImageViewerScreen>('Up', StepImageCommand.previousCommandId));
+    registry.binding(
+      KeyBinding.inState<ImageViewerScreen>('Right', StepImageCommand.nextCommandId, context: KeyContext.imageViewer),
+    );
+    registry.binding(
+      KeyBinding.inState<ImageViewerScreen>('Down', StepImageCommand.nextCommandId, context: KeyContext.imageViewer),
+    );
+    registry.binding(
+      KeyBinding.inState<ImageViewerScreen>(
+        'Left',
+        StepImageCommand.previousCommandId,
+        context: KeyContext.imageViewer,
+      ),
+    );
+    registry.binding(
+      KeyBinding.inState<ImageViewerScreen>('Up', StepImageCommand.previousCommandId, context: KeyContext.imageViewer),
+    );
   }
 
   /// Служба, без которой модуль умеет обойтись; null — её никто не объявил.

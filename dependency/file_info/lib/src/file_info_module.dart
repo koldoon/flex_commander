@@ -36,8 +36,8 @@ class FileInfo implements FcFrontendModule {
     registry.command((context) => FileInfoCommand());
 
     // Обе привычки настоящие: `Cmd-I` с макоси, `Alt-Enter` из коммандеров.
-    registry.binding(KeyBinding('Cmd-I', FileInfoCommand.commandId));
-    registry.binding(KeyBinding('Alt-Enter', FileInfoCommand.commandId));
+    registry.binding(KeyBinding('Cmd-I', FileInfoCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Alt-Enter', FileInfoCommand.commandId, context: KeyContext.panel));
 
     registry.viewer(
       ViewerSpec(

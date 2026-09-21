@@ -46,28 +46,28 @@ class FileOps implements FcFrontendModule {
     registry.command((context) => ClipboardPasteCommand(context, forcesMove: false));
     registry.command((context) => ClipboardPasteCommand(context, forcesMove: true));
 
-    registry.binding(KeyBinding('F5', CopyCommand.commandId));
-    registry.binding(KeyBinding('F6', MoveCommand.commandId));
-    registry.binding(KeyBinding('F7', MakeDirectoryCommand.commandId));
+    registry.binding(KeyBinding('F5', CopyCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('F6', MoveCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('F7', MakeDirectoryCommand.commandId, context: KeyContext.panel));
     // Shift-F6 — там же, где переименование во всех коммандерах: рядом с
     // переносом, потому что это его ближайший родственник.
-    registry.binding(KeyBinding('Shift-F6', RenameCommand.commandId));
+    registry.binding(KeyBinding('Shift-F6', RenameCommand.commandId, context: KeyContext.panel));
     // На macOS F-клавиши по умолчанию отданы системе (F7 — «предыдущий трек»),
     // и до приложения нажатие не доходит. Привычное сочетание из Finder
     // работает без настройки клавиатуры.
-    registry.binding(KeyBinding('Shift-Cmd-N', MakeDirectoryCommand.commandId));
-    registry.binding(KeyBinding('F8', RemoveCommand.commandId));
-    registry.binding(KeyBinding('Shift-F8', RemovePermanentlyCommand.commandId));
-    registry.binding(KeyBinding('Cmd-Bsp', RemoveCommand.commandId));
-    registry.binding(KeyBinding('Shift-Cmd-Bsp', RemovePermanentlyCommand.commandId));
+    registry.binding(KeyBinding('Shift-Cmd-N', MakeDirectoryCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('F8', RemoveCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Shift-F8', RemovePermanentlyCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Cmd-Bsp', RemoveCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Shift-Cmd-Bsp', RemovePermanentlyCommand.commandId, context: KeyContext.panel));
     // То же сочетание, что у «Copy as Pathname» в Finder: кто пришёл оттуда,
     // получает привычку без настройки.
-    registry.binding(KeyBinding('Alt-Cmd-C', CopyPathCommand.commandId));
-    registry.binding(KeyBinding('Cmd-C', ClipboardCopyCommand.commandId));
-    registry.binding(KeyBinding('Cmd-X', ClipboardCutCommand.commandId));
-    registry.binding(KeyBinding('Cmd-V', ClipboardPasteCommand.copyId));
+    registry.binding(KeyBinding('Alt-Cmd-C', CopyPathCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Cmd-C', ClipboardCopyCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Cmd-X', ClipboardCutCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Cmd-V', ClipboardPasteCommand.copyId, context: KeyContext.panel));
     // Привычка Finder: копируют, а переносят клавишей вставки.
-    registry.binding(KeyBinding('Alt-Cmd-V', ClipboardPasteCommand.moveId));
+    registry.binding(KeyBinding('Alt-Cmd-V', ClipboardPasteCommand.moveId, context: KeyContext.panel));
   }
 }
 

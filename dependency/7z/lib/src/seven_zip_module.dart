@@ -106,7 +106,7 @@ class SevenZipArchiver implements FcBackendModule, FcFrontendModule {
     // Упаковка — такое же действие, как копирование, и живёт там же, где
     // формат: про 7z знает только этот модуль.
     registry.command((context) => CreateSevenZipArchiveCommand());
-    registry.binding(KeyBinding('Shift-F7', CreateSevenZipArchiveCommand.commandId));
+    registry.binding(KeyBinding('Shift-F7', CreateSevenZipArchiveCommand.commandId, context: KeyContext.panel));
   }
 }
 

@@ -43,6 +43,10 @@ class DefaultTheme implements FcFrontendModule {
 
     final settings = registry.settings;
     registry.command((context) => SwitchThemeCommand(context, settings));
+    // Клавиши у смены темы нет, а назначить её можно: привязка без клавиши
+    // говорит только о том, в каком разделе команда стоит
+    // (`docs/spec/key-bindings.md`, §5).
+    registry.binding(KeyBinding.unbound(SwitchThemeCommand.commandId, context: KeyContext.everywhere));
     registry.startup((context) => RestoreThemeCommand(context, settings));
   }
 }

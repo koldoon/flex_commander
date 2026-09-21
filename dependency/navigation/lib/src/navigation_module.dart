@@ -100,7 +100,8 @@ class Navigation implements FcFrontendModule {
 
   /// Клавиши. Порядок задаёт приоритет — он и есть содержание этого метода.
   void _bindKeys(FrontendRegistry registry) {
-    // Курсор.
+    // Курсор — весь внутренний: ходьба стрелками это поведение, а не выбор
+    // (`docs/spec/key-bindings.md`, §2).
     registry.binding(KeyBinding('Up', MoveCursorUpCommand.commandId));
     registry.binding(KeyBinding('Down', MoveCursorDownCommand.commandId));
     registry.binding(KeyBinding('PgUp', PageUpCommand.commandId));
@@ -111,34 +112,38 @@ class Navigation implements FcFrontendModule {
     registry.binding(KeyBinding('Right', GoToLastNodeCommand.commandId));
 
     // Навигация по дереву.
-    registry.binding(KeyBinding('Tab', TogglePanelCommand.commandId));
+    registry.binding(KeyBinding('Tab', TogglePanelCommand.commandId, context: KeyContext.panel));
     // Привычка `mc`: показать соседке каталог под курсором, не сходя с места.
-    registry.binding(KeyBinding('Alt-O', OpenInOtherPanelCommand.commandId));
+    registry.binding(KeyBinding('Alt-O', OpenInOtherPanelCommand.commandId, context: KeyContext.panel));
     registry.binding(KeyBinding('Enter', OpenNodeCommand.commandId));
-    registry.binding(KeyBinding('Cmd-O', OpenWithSystemCommand.commandId));
+    registry.binding(KeyBinding('Cmd-O', OpenWithSystemCommand.commandId, context: KeyContext.panel));
 
     // Размеры всех каталогов — как в Total Commander.
     registry.command((context) => CalculateSizesCommand());
-    registry.binding(KeyBinding('Alt-Shift-Enter', CalculateSizesCommand.commandId));
+    registry.binding(KeyBinding('Alt-Shift-Enter', CalculateSizesCommand.commandId, context: KeyContext.panel));
     // Стирание в быстром поиске — **раньше** перехода наверх: пока полоса
     // набора на экране, `Bsp` принадлежит ей целиком, и стёртый до конца
     // образец клавишу не отпускает. Невыполнимо только когда режима нет вовсе,
     // и тогда `Bsp` уводит наверх, как и всегда.
     registry.binding(KeyBinding('Bsp', QuickSearchEraseCommand.commandId));
-    registry.binding(KeyBinding('Bsp', GoUpCommand.commandId));
-    registry.binding(KeyBinding('Cmd-Up', GoUpCommand.commandId));
-    registry.binding(KeyBinding('Cmd-/', GoToRootCommand.commandId));
+    registry.binding(KeyBinding('Bsp', GoUpCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Cmd-Up', GoUpCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Cmd-/', GoToRootCommand.commandId, context: KeyContext.panel));
+    // Клавиши у «Центра» нет, а назначить её можно: привязка без клавиши
+    // говорит только о том, в каком разделе команда стоит
+    // (`docs/spec/key-bindings.md`, §5).
+    registry.binding(KeyBinding.unbound(CenterSplitCommand.commandId, context: KeyContext.panel));
 
     // История переходов: обе привычки сразу — `Cmd-[`/`Cmd-]` из Finder и
     // браузеров, `Alt-←`/`Alt-→` из Total Commander
     // (`docs/spec/session-history.md`, §8). Голые `Left`/`Right` заняты
     // переходом в начало и конец списка, но с модификатором они свободны.
-    registry.binding(KeyBinding('Cmd-[', GoBackCommand.commandId));
-    registry.binding(KeyBinding('Alt-Left', GoBackCommand.commandId));
-    registry.binding(KeyBinding('Cmd-]', GoForwardCommand.commandId));
-    registry.binding(KeyBinding('Alt-Right', GoForwardCommand.commandId));
+    registry.binding(KeyBinding('Cmd-[', GoBackCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Alt-Left', GoBackCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Cmd-]', GoForwardCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Alt-Right', GoForwardCommand.commandId, context: KeyContext.panel));
     // Выпадающая история каталога — оттуда же, из Total Commander.
-    registry.binding(KeyBinding('Alt-Down', ChooseHistoryCommand.commandId));
+    registry.binding(KeyBinding('Alt-Down', ChooseHistoryCommand.commandId, context: KeyContext.panel));
 
     // Произвольный путь — по клавише на каждую панель, как выбор диска в
     // Norton Commander. Команда одна: какая панель, приходит параметром.
@@ -147,6 +152,7 @@ class Navigation implements FcFrontendModule {
         'Cmd-F1',
         OpenPathCommand.commandId,
         parameters: {OpenPathCommand.panelParam: OpenPathCommand.leftPanel},
+        context: KeyContext.panel,
       ),
     );
     registry.binding(
@@ -154,19 +160,20 @@ class Navigation implements FcFrontendModule {
         'Cmd-F2',
         OpenPathCommand.commandId,
         parameters: {OpenPathCommand.panelParam: OpenPathCommand.rightPanel},
+        context: KeyContext.panel,
       ),
     );
-    registry.binding(KeyBinding('Cmd-R', ReloadCommand.commandId));
+    registry.binding(KeyBinding('Cmd-R', ReloadCommand.commandId, context: KeyContext.panel));
     // На macOS `Cmd-H` занят системным меню приложения («Hide APP_NAME»), и до
     // окна нажатие не доходит вовсе. Поэтому основное сочетание — `Cmd-Shift-H`;
     // `Cmd-H` остаётся ради Windows и Linux, где он разбирается как `Ctrl-H`.
-    registry.binding(KeyBinding('Cmd-Shift-H', ToggleHiddenCommand.commandId));
-    registry.binding(KeyBinding('Cmd-H', ToggleHiddenCommand.commandId));
+    registry.binding(KeyBinding('Cmd-Shift-H', ToggleHiddenCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Cmd-H', ToggleHiddenCommand.commandId, context: KeyContext.panel));
 
     // Быстрый поиск — из `mc`. Его `Esc` и `Backspace` идут **раньше** всех
     // прочих: пока набирают имя, эти клавиши принадлежат набору, а невыполнимы
     // они ровно тогда, когда режим выключен.
-    registry.binding(KeyBinding('Ctrl-S', QuickSearchCommand.commandId));
+    registry.binding(KeyBinding('Ctrl-S', QuickSearchCommand.commandId, context: KeyContext.panel));
     registry.binding(KeyBinding('Esc', QuickSearchStopCommand.commandId));
     registry.binding(
       const KeyBinding.anyCharacter(
@@ -185,18 +192,18 @@ class Navigation implements FcFrontendModule {
     // Пометка объектов. Отмена операции идёт раньше сброса пометки.
     registry.binding(KeyBinding('Esc', CancelCommand.commandId));
     registry.binding(KeyBinding('Esc', ClearSelectionCommand.commandId));
-    registry.binding(KeyBinding('Space', ToggleMarkCommand.commandId));
+    registry.binding(KeyBinding('Space', ToggleMarkCommand.commandId, context: KeyContext.panel));
     // Пометка на месте: тот же пробел, но курсор остаётся на помеченном.
-    registry.binding(KeyBinding('Shift-Space', ToggleMarkInPlaceCommand.commandId));
-    registry.binding(KeyBinding('Ins', ToggleMarkCommand.commandId));
-    registry.binding(KeyBinding('Cmd-A', SelectAllCommand.commandId));
-    registry.binding(KeyBinding('Cmd-Shift-A', SelectFilesCommand.commandId));
+    registry.binding(KeyBinding('Shift-Space', ToggleMarkInPlaceCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Ins', ToggleMarkCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Cmd-A', SelectAllCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Cmd-Shift-A', SelectFilesCommand.commandId, context: KeyContext.panel));
     // Пометка по маске. На маке `+` — это `Shift-=`: отдельной клавиши `+` на
     // основной клавиатуре нет, а на цифровом блоке есть своя. В справке пишется
     // `+` — то, что человек нажимает, а не то, как это называется внутри.
-    registry.binding(KeyBinding('Shift-=', SelectByMaskCommand.commandId));
-    registry.binding(KeyBinding('+', SelectByMaskCommand.commandId));
-    registry.binding(KeyBinding('-', DeselectByMaskCommand.commandId));
+    registry.binding(KeyBinding('Shift-=', SelectByMaskCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('+', SelectByMaskCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('-', DeselectByMaskCommand.commandId, context: KeyContext.panel));
 
     // Переход к имени по набранному символу. Стоит после привязок к конкретным
     // символам: иначе набор имени перехватывал бы их.

@@ -70,7 +70,7 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
     registry.command((context) => GoToFoundCommand());
 
     // Привычка Total Commander.
-    registry.binding(KeyBinding('Alt-F7', FindFilesCommand.commandId));
+    registry.binding(KeyBinding('Alt-F7', FindFilesCommand.commandId, context: KeyContext.panel));
     // `Enter` — **раньше** навигации, потому и модуль объявлен раньше неё.
     // Вне списка находок команда невыполнима, и `Enter` открывает объект, как
     // и всегда.

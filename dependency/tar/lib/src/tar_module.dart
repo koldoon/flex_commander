@@ -85,11 +85,15 @@ class TarArchiver implements FcBackendModule, FcFrontendModule {
     // `Shift-F6` встал бы поперёк привычки — `F6` это перенос. Место команды
     // без клавиши — палитра.
     registry.command((context) => CreateTarArchiveCommand());
+    // Клавиши нет, а назначить её можно: привязка без клавиши говорит только о
+    // том, в каком разделе команда стоит (`docs/spec/key-bindings.md`, §5).
+    registry.binding(KeyBinding.unbound(CreateTarArchiveCommand.commandId, context: KeyContext.panel));
 
     // Сжатие одного файла — отдельная команда, а не пункт в окне упаковки:
     // gzip жмёт поток, а не набор файлов, и «сложить три файла в один .gz» —
     // просьба, которую формат не выполняет.
     registry.command((context) => CreateGzipCommand());
+    registry.binding(KeyBinding.unbound(CreateGzipCommand.commandId, context: KeyContext.panel));
   }
 }
 

@@ -61,6 +61,8 @@ class Updates implements FcFrontendModule {
         );
 
     registry.command((context) => CheckForUpdatesCommand(updates: updates));
+    // Клавиши нет, а назначить её можно (`docs/spec/key-bindings.md`, §5).
+    registry.binding(KeyBinding.unbound(CheckForUpdatesCommand.commandId, context: KeyContext.everywhere));
 
     // При запуске: взять у приложения сведения о себе, убрать отложенную
     // сборку и, если пора, сходить на GitHub.
