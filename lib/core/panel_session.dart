@@ -733,7 +733,12 @@ class PanelSession {
     // показывало ни одной ветви (`docs/spec/panel-view-tree.md`, §5).
     final ResolvedNode? resolved = _isAddress(asked) ? await resolvePath().run(asked) : null;
     try {
-      final node = resolved != null ? resolved.node : await here.resolvePath().run(asked);
+      final found = resolved != null ? resolved.node : await here.resolvePath().run(asked);
+      // Ссылка на каталог — тоже каталог: на macOS `/etc` это ссылка, и
+      // отвечать на неё пустотой значило бы сказать «каталог пуст» там, где он
+      // полон. Спрашивают отсюда дерево окна и дополнение путей в командной
+      // строке, и обоим нужно содержимое, а не разбор ссылок.
+      final node = found is LinkNode ? await found.provider.resolveLink().run(found) : found;
       if (node is! DirectoryNode) {
         return const [];
       }

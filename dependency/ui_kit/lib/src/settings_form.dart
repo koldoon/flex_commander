@@ -784,10 +784,25 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
         // облегает своё слово и гнуться ей нечем.
         Flexible(child: checkbox),
         SizedBox(width: theme.metrics.dialogGap),
-        FcButton(label: action.label, onPressed: action.run),
+        _actionButton(action),
       ],
     );
   }
+
+  /// Кнопка-приставка: ждёт ответа и пересобирает разделы — действие вправе
+  /// поменять набор полей (см. [_rebuild]).
+  Widget _actionButton(SettingsAction action) => FcButton(
+    label: action.label,
+    onPressed:
+        action.run == null
+            ? null
+            : () async {
+              await action.run!();
+              if (mounted) {
+                _rebuild();
+              }
+            },
+  );
 
   Widget _control(FcTheme theme, SettingsSchema schema, SettingsField field) {
     void changed() {
@@ -836,13 +851,28 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       ),
       // Выпадающим списком, а не переключателем: темы приносят модули, и
       // строка на каждый вариант росла бы вместе с их числом.
-      SettingsChoice choice => FcSelect<String>(
-        options: choice.options,
-        value: choice.read(),
-        onChanged: (value) {
-          choice.write(value);
-          changed();
-        },
+      SettingsChoice choice => Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          FcSelect<String>(
+            options: choice.options,
+            value: choice.read(),
+            onChanged: (value) {
+              choice.write(value);
+              changed();
+            },
+          ),
+          // Кнопки под списком: то, что делают с выбранным, стоит при нём.
+          if (choice.actions.isNotEmpty) ...[
+            SizedBox(height: theme.metrics.dialogGap),
+            Wrap(
+              spacing: theme.metrics.dialogGap,
+              runSpacing: theme.metrics.dialogLineGap,
+              children: [for (final action in choice.actions) _actionButton(action)],
+            ),
+          ],
+        ],
       ),
       SettingsNumber number => Row(
         children: [

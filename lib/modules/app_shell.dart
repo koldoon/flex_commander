@@ -451,62 +451,51 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           options: {'': strings.tr('None'), for (final item in presets.all) item.name: item.name},
           read: () => presets.current,
           write: presets.select,
-        ),
-        SettingsField.button(
-          'presets.save',
-          title: strings.tr('Save this as a set'),
-          description: strings.tr('Everything you have chosen — settings of every module and your keys'),
-          label: strings.tr('Save as new…'),
-          run:
-              () => askPresetName(
-                app,
-                title: strings.tr('Save as new…'),
-                submitLabel: strings.tr('Save the set'),
-                initial: presets.freeName(strings.tr('My settings')),
-                save:
-                    (name) =>
-                        presets.saveAs(name)
-                            ? null
-                            : strings.tr(
-                              name.isEmpty
-                                  ? 'A set without a name cannot be chosen'
-                                  : 'There is a set with this name already',
-                            ),
-              ),
-        ),
-        SettingsField.button(
-          'presets.update',
-          title: strings.tr('Keep the chosen set up to date'),
-          description: strings.tr('Rewrite it with what is set right now'),
-          // Без выбранного — без кавычек: «Update «»» читается как опечатка.
-          label: chosen.isEmpty ? strings.tr('Update') : strings.tr('Update «{name}»', args: {'name': chosen}),
-          // Приглушена, а не спрятана: обновлять нечего, пока ничего не
-          // выбрано, — но действие есть.
-          run: chosen.isEmpty ? null : presets.updateCurrent,
-        ),
-        SettingsField.button(
-          'presets.delete',
-          title: strings.tr('Drop a set you no longer need'),
-          description: strings.tr('Settings stay as they are — only the set goes'),
-          label: chosen.isEmpty ? strings.tr('Delete') : strings.tr('Delete «{name}»', args: {'name': chosen}),
-          run:
-              chosen.isEmpty
-                  ? null
-                  : () => askConfirm(
+          // Кнопки при списке, а не блоками порознь: все четыре — про то, что
+          // выбрано выше. Приглушены, а не спрятаны: действие есть, просто
+          // сейчас неприменимо.
+          actions: [
+            SettingsAction(
+              label: strings.tr('New…'),
+              run:
+                  () => askPresetName(
                     app,
-                    title: strings.tr('Delete set'),
-                    message: strings.tr('Delete «{name}»? Settings stay as they are.', args: {'name': chosen}),
-                    confirmLabel: strings.tr('Delete'),
-                    onConfirm: () => presets.remove(chosen),
+                    title: strings.tr('New set'),
+                    submitLabel: strings.tr('Save the set'),
+                    initial: presets.freeName(strings.tr('My settings')),
+                    save:
+                        (name) =>
+                            presets.saveAs(name)
+                                ? null
+                                : strings.tr(
+                                  name.isEmpty
+                                      ? 'A set without a name cannot be chosen'
+                                      : 'There is a set with this name already',
+                                ),
                   ),
-        ),
-        SettingsField.button(
-          'presets.export',
-          title: strings.tr('Take a set to another machine'),
-          description: strings.tr('Write it to a file: you name the folder and the file'),
-          label: strings.tr('Export…'),
-          run:
-              chosen.isEmpty ? null : () => exportPreset(app, strings, presets.find(chosen) ?? presets.capture(chosen)),
+            ),
+            SettingsAction(label: strings.tr('Update'), run: chosen.isEmpty ? null : presets.updateCurrent),
+            SettingsAction(
+              label: strings.tr('Delete'),
+              run:
+                  chosen.isEmpty
+                      ? null
+                      : () => askConfirm(
+                        app,
+                        title: strings.tr('Delete set'),
+                        message: strings.tr('Delete «{name}»? Settings stay as they are.', args: {'name': chosen}),
+                        confirmLabel: strings.tr('Delete'),
+                        onConfirm: () => presets.remove(chosen),
+                      ),
+            ),
+            SettingsAction(
+              label: strings.tr('Export…'),
+              run:
+                  chosen.isEmpty
+                      ? null
+                      : () => exportPreset(app, strings, presets.find(chosen) ?? presets.capture(chosen)),
+            ),
+          ],
         ),
         SettingsField.button(
           'presets.import',
@@ -597,26 +586,16 @@ const Map<String, String> _russian = {
   'Preset': 'Набор',
   'Settings and keys of every module in one set': 'Настройки всех модулей и клавиши — одним набором',
   'None': 'Нет',
-  'Save this as a set': 'Сложить нынешнее в набор',
-  'Everything you have chosen — settings of every module and your keys':
-      'Всё, что вы выбрали, — настройки всех модулей и ваши клавиши',
-  'Save as new…': 'Сложить в новый…',
+  'New…': 'Новый…',
+  'New set': 'Новый набор',
   'Save the set': 'Сложить набор',
   'My settings': 'Мои настройки',
   'A set without a name cannot be chosen': 'Безымянный набор не выбрать',
   'There is a set with this name already': 'Набор с таким именем уже есть',
-  'Keep the chosen set up to date': 'Держать выбранный набор в свежем виде',
-  'Rewrite it with what is set right now': 'Переписать его тем, что стоит сейчас',
   'Update': 'Обновить',
-  'Update «{name}»': 'Обновить «{name}»',
-  'Drop a set you no longer need': 'Убрать набор, который больше не нужен',
-  'Settings stay as they are — only the set goes': 'Настройки останутся как есть — уйдёт только набор',
-  'Delete «{name}»': 'Удалить «{name}»',
   'Delete set': 'Удаление набора',
   'Delete «{name}»? Settings stay as they are.': 'Удалить «{name}»? Настройки останутся как есть.',
   'Name': 'Имя',
-  'Take a set to another machine': 'Увезти набор на другую машину',
-  'Write it to a file: you name the folder and the file': 'Записать его в файл: каталог и имя называете вы',
   'Export…': 'Выгрузить…',
   'Export': 'Выгрузить',
   'Export set': 'Выгрузка набора',
@@ -629,6 +608,7 @@ const Map<String, String> _russian = {
   'Set «{name}» imported': 'Набор «{name}» загружен',
   'This is not a set: the file does not read': 'Это не набор: файл не читается',
   'Folder': 'Каталог',
+  'Home': 'Дом',
   'File name': 'Имя файла',
 
   // Настройка клавиш.

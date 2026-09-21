@@ -156,6 +156,7 @@ sealed class SettingsField {
     required String defaultValue,
     required String Function() read,
     required void Function(String value) write,
+    List<SettingsAction> actions = const [],
   }) => SettingsChoice(
     id,
     title: title,
@@ -165,6 +166,7 @@ sealed class SettingsField {
     defaultValue: defaultValue,
     read: read,
     write: write,
+    actions: actions,
   );
 
   /// Кнопка: поле без значения.
@@ -343,11 +345,14 @@ class SettingsAction {
   /// Подпись кнопки.
   final String label;
 
-  /// Что сделать по нажатию.
+  /// Что сделать по нажатию; null — делать нечего, и кнопка приглушена.
   ///
   /// Живой она остаётся независимо от самого поля: выключенная проверка по
   /// расписанию не значит, что нельзя проверить руками.
-  final void Function() run;
+  ///
+  /// Ответ ждут — как у [SettingsButton.run]: кнопка, поднявшая окно,
+  /// возвращается тут же, а сделанное в том окне случится потом.
+  final FutureOr<void> Function()? run;
 }
 
 class SettingsNumber extends SettingsField {
@@ -448,7 +453,16 @@ class SettingsChoice extends SettingsField {
     required this.defaultValue,
     required this.read,
     required this.write,
+    this.actions = const [],
   });
+
+  /// Кнопки под списком — то, что делают с выбранным.
+  ///
+  /// Рядом с ним, а не отдельными настройками: «сложить», «обновить»,
+  /// «удалить» и «выгрузить» относятся к выбору, стоящему выше, и блок на
+  /// каждую превращал бы раздел в простыню
+  /// (`docs/spec/settings-presets.md`, §6).
+  final List<SettingsAction> actions;
 
   /// Значение → подпись.
   final Map<String, String> options;

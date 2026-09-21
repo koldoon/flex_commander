@@ -61,6 +61,17 @@ void main() {
     expect(names, isNotEmpty, reason: 'имена приехали значениями');
   });
 
+  test('ссылка на каталог отдаёт его содержимое, а не пустоту', () async {
+    // На macOS `/etc` — ссылка, и панель, оставленная там, отвечала пустым
+    // списком: «каталог пуст» там, где он полон. Спрашивают отсюда дерево
+    // выбора каталога и дополнение путей в командной строке.
+    await runtime.app.start();
+
+    final names = await runtime.app.left.namesIn('/etc');
+
+    expect(names, isNotEmpty, reason: 'ссылка на каталог — тоже каталог');
+  });
+
   test('ядро ушло — разговор кончается бедой, а не тишиной', () async {
     await runtime.app.start();
     await runtime.dispose();

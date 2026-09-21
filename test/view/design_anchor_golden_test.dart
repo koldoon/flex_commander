@@ -222,6 +222,31 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  /// Окно выбора файла — деревом каталогов от дома: путь в файловом менеджере
+  /// не набирают руками (`docs/spec/settings-presets.md`, §7).
+  testWidgets('настройки: выбор файла деревом', (tester) async {
+    if (!fontsReady) {
+      markTestSkipped('Шрифты не собрались: Ubuntu, FontAwesome или Consolas недоступны');
+      return;
+    }
+
+    final app = await openApp(tester);
+    app.commands.dispatch(KeyCombination.parse('F9'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(of: find.byType(FcSettingsForm), matching: find.byType(TextField)).first,
+      'preset',
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.widgetWithText(FcButton, 'Import…'));
+    await tester.pumpAndSettle();
+
+    await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/anchor_preset_file.png'));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   /// Окно клавиш — своим тестом, а не `anchor`: своей клавиши у него нет,
   /// открывают его командой (`docs/spec/key-bindings.md`, §1).
   testWidgets('окно клавиш', (tester) async {

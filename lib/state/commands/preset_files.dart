@@ -11,9 +11,10 @@ import '../presets.dart';
 /// Выгрузка набора в файл и загрузка обратно
 /// (`docs/spec/settings-presets.md`, §7–8).
 ///
-/// Каталог называет человек — полем с подставленным путём активной панели.
-/// Своего файлового диалога в приложении нет и не будет: у него для этого есть
-/// панели, — но **назвать** каталог, не сходя с места, человек должен уметь.
+/// Каталог человек выбирает **деревом**, начиная с домашнего: набирать путь
+/// руками в файловом менеджере — насмешка, а своего системного диалога у
+/// приложения нет и не будет. Ветви перечисляет панель: её провайдер знает и
+/// `ssh://`, и нутро архива.
 
 /// Имя файла, которое предлагается для набора.
 String presetFileName(String name) {
@@ -30,7 +31,6 @@ Future<void> exportPreset(Application app, Strings strings, Preset preset) {
     strings,
     title: strings.tr('Export set'),
     submitLabel: strings.tr('Export'),
-    folder: app.activePanel.currentPath,
     name: presetFileName(preset.name),
     run: (folder, name) async {
       await app.runOperation().run(
@@ -47,15 +47,19 @@ Future<void> exportPreset(Application app, Strings strings, Preset preset) {
 
 /// Загрузить набор из файла: прочитать, разобрать, поставить в список.
 Future<void> importPreset(Application app, Strings strings, Presets presets) {
+  // Имя под курсором — только если оно похоже на набор: курсор стоит где
+  // угодно, хоть на «..», и подставленное «..» выглядело бы как поломка.
   final cursor = app.activePanel.currentEntry;
-  final suggested = cursor != null && !cursor.isDirectory ? cursor.name : presetFileName('preset');
+  final suggested =
+      cursor != null && cursor.kind == EntryKind.file && cursor.name.toLowerCase().endsWith('.json')
+          ? cursor.name
+          : presetFileName('preset');
 
   return _askFile(
     app,
     strings,
     title: strings.tr('Import set'),
     submitLabel: strings.tr('Import'),
-    folder: app.activePanel.currentPath,
     name: suggested,
     run: (folder, name) async {
       final preset = await _read(app, '$folder/$name');
@@ -92,13 +96,16 @@ Future<Preset> _read(Application app, String path) async {
 
 const int _sizeLimit = 4 * 1024 * 1024;
 
+/// Домашний каталог — адресом, который разбирает ядро: экранная сторона своего
+/// дома не знает, а `~` источник понимает сам.
+const String _home = '~';
+
 /// Окно «каталог и имя»: оба поля правятся, оба подставлены.
 Future<void> _askFile(
   Application app,
   Strings strings, {
   required String title,
   required String submitLabel,
-  required String folder,
   required String name,
   required Future<void> Function(String folder, String name) run,
 }) {
@@ -112,7 +119,9 @@ Future<void> _askFile(
     }
   }
 
-  final state = _FileState(folder: folder, name: name, strings: strings, run: run);
+  // Дом, а не каталог панели: выгружают набор обычно «к себе», а панель в
+  // этот миг стоит где угодно — хоть в `/etc`.
+  final state = _FileState(folder: _home, name: name, strings: strings, run: run, app: app);
   state.close = close;
 
   dialogId = view.showDialog(
@@ -129,7 +138,9 @@ Future<void> _askFile(
 
 /// Что набрано в окне файла и чем кончилась попытка.
 class _FileState extends ChangeNotifier {
-  _FileState({required this.folder, required this.name, required this.strings, required this.run});
+  _FileState({required this.folder, required this.name, required this.strings, required this.run, required this.app});
+
+  final Application app;
 
   String folder;
   String name;
@@ -176,7 +187,6 @@ class _FileForm extends StatefulWidget {
 }
 
 class _FileFormState extends State<_FileForm> {
-  late final TextEditingController _folder = TextEditingController(text: widget.state.folder);
   late final TextEditingController _name = TextEditingController(text: widget.state.name)
     ..selection = TextSelection(
       baseOffset: 0,
@@ -185,7 +195,6 @@ class _FileFormState extends State<_FileForm> {
 
   @override
   void dispose() {
-    _folder.dispose();
     _name.dispose();
     super.dispose();
   }
@@ -203,13 +212,26 @@ class _FileFormState extends State<_FileForm> {
             error: state.error,
             busy: state.busy,
             children: [
-              CommandDialogField(
+              // Подпись вровень с первой строкой дерева, а не по его середине:
+              // у высокого управления середина уезжает в пустоту.
+              CommandDialogField.column(
                 label: context.strings.tr('Folder'),
-                child: FcTextField(
-                  controller: _folder,
-                  onChanged: (value) => state.folder = value,
-                  onSubmitted: (_) => state.submit(),
-                ),
+                children: [
+                  SizedBox(
+                    // Размер задаётся здесь, и оба измерения: окно меряет своё
+                    // содержимое (`IntrinsicWidth`), а список прокрутки мерить
+                    // себя не умеет — ради того он и ленив.
+                    width: FcTheme.of(context).metrics.dialogLabelWidth * 3,
+                    height: FcTheme.of(context).metrics.rowHeight * 9,
+                    child: FcDirectoryTree(
+                      root: _home,
+                      rootTitle: context.strings.tr('Home'),
+                      children: state.app.activePanel.namesIn,
+                      selected: state.folder,
+                      onSelected: (path) => setState(() => state.folder = path),
+                    ),
+                  ),
+                ],
               ),
               CommandDialogField(
                 label: context.strings.tr('File name'),
