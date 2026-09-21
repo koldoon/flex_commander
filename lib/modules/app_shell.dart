@@ -606,8 +606,8 @@ const Map<String, String> _russian = {
   'Set «{name}» imported': 'Набор «{name}» загружен',
   'This is not a set: the file does not read': 'Это не набор: файл не читается',
   'Folder': 'Каталог',
-  'Save to: {path}': 'Сохранить в: {path}',
-  'Read from: {path}': 'Читать из: {path}',
+  'Save to': 'Сохранить в',
+  'Read from': 'Читать из',
   'Home': 'Дом',
   'File name': 'Имя файла',
 

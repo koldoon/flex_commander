@@ -31,7 +31,7 @@ Future<void> exportPreset(Application app, Strings strings, Preset preset) {
     strings,
     title: strings.tr('Export set'),
     submitLabel: strings.tr('Export'),
-    destinationLabel: (folder) => strings.tr('Save to: {path}', args: {'path': folder}),
+    destinationLabel: 'Save to',
     name: presetFileName(preset.name),
     run: (folder, name) async {
       await app.runOperation().run(
@@ -61,7 +61,7 @@ Future<void> importPreset(Application app, Strings strings, Presets presets) {
     strings,
     title: strings.tr('Import set'),
     submitLabel: strings.tr('Import'),
-    destinationLabel: (folder) => strings.tr('Read from: {path}', args: {'path': folder}),
+    destinationLabel: 'Read from',
     name: suggested,
     run: (folder, name) async {
       final preset = await _read(app, '$folder/$name');
@@ -109,7 +109,7 @@ Future<void> _askFile(
   required String title,
   required String submitLabel,
   required String name,
-  required String Function(String folder) destinationLabel,
+  required String destinationLabel,
   required Future<void> Function(String folder, String name) run,
 }) {
   final view = app.view;
@@ -185,9 +185,9 @@ class _FileForm extends StatefulWidget {
   final _FileState state;
   final String submitLabel;
 
-  /// Как назвать выбранное место: «Save to: …» у выгрузки, «Read from: …» у
-  /// загрузки — дело у окон разное, и строка о нём говорит своё.
-  final String Function(String folder) destinationLabel;
+  /// Как назвать выбранное место: «Save to» у выгрузки, «Read from» у
+  /// загрузки — дело у окон разное, и подпись о нём говорит своё.
+  final String destinationLabel;
 
   @override
   State<_FileForm> createState() => _FileFormState();
@@ -238,17 +238,20 @@ class _FileFormState extends State<_FileForm> {
                       onSelected: (path) => setState(() => state.folder = path),
                     ),
                   ),
-                  // Выбранное — словами под деревом: в дереве видна подсветка
-                  // строки, а куда именно ляжет файл, из неё не прочесть —
-                  // одноимённых каталогов в разных местах сколько угодно.
-                  SizedBox(height: FcTheme.of(context).metrics.dialogLineGap),
-                  Text(
-                    widget.destinationLabel(state.folder),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: FcTheme.of(context).statusStyle,
-                  ),
                 ],
+              ),
+              // Выбранное — своим полем, с подписью слева, как у соседей: в
+              // дереве видна подсветка строки, а куда именно ляжет файл, из
+              // неё не прочесть — одноимённых каталогов в разных местах
+              // сколько угодно.
+              CommandDialogField(
+                label: context.strings.tr(widget.destinationLabel),
+                child: Text(
+                  state.folder,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: FcTheme.of(context).dialogTextStyle,
+                ),
               ),
               CommandDialogField(
                 label: context.strings.tr('File name'),
