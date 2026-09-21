@@ -85,18 +85,13 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
   }
 
   @override
-  void settingsSchema(
-    SettingsSchema Function() factory, {
-    String title = '',
-    bool inPreset = true,
-    bool atTop = false,
-  }) {
+  void settingsSchema(SettingsSchema Function() factory, {String title = '', bool inPreset = true, int priority = 0}) {
     settingsPages.add(
       SettingsPage(
         title: title.isEmpty ? ownerTitle : title,
         id: ownerId,
         inPreset: inPreset,
-        atTop: atTop,
+        priority: priority,
         build: factory,
       ),
     );

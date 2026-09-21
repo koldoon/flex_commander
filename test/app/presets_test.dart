@@ -43,7 +43,14 @@ void main() {
     );
     addTearDown(full.dispose);
 
-    expect(full.resolve<SettingsCatalog>().pages.first.title, 'Presets');
+    final pages = full.resolve<SettingsCatalog>().pages;
+
+    expect(pages.first.title, 'Presets');
+    // Приоритет поднимает просившего, а не перетасовывает соседей: у прочих он
+    // нулевой, и стоят они там же, где их объявили.
+    expect(pages.where((page) => page.priority != 0).map((page) => page.title), [
+      'Presets',
+    ], reason: 'место просит только раздел наборов');
   });
 
   test('снимок берёт выбор и не берёт память', () {

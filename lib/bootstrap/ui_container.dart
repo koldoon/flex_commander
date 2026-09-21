@@ -325,16 +325,20 @@ class UiContainer extends DI {
 /// Отдельным классом, а не списком наружу: окно спрашивает службу по типу и о
 /// сборке приложения не знает.
 class _Catalog implements SettingsCatalog {
-  /// Разделы идут по модулям, в порядке их объявления, — кроме тех, что
-  /// попросились вперёд ([SettingsPage.atTop]): наборы выбора не про свой
-  /// модуль, а про все сразу.
+  /// Разделы идут по модулям, в порядке их объявления, — а кто попросил себе
+  /// место повыше, встаёт выше ([SettingsPage.priority]).
+  ///
+  /// Порядок объявления при равном приоритете сохраняется: сортировка в Dart
+  /// неустойчива, поэтому вторым доводом сравнения идёт место в списке.
   _Catalog(List<SettingsPage> declared)
-    : pages = [
-        for (final page in declared)
-          if (page.atTop) page,
-        for (final page in declared)
-          if (!page.atTop) page,
-      ];
+    : pages = List.unmodifiable([
+        for (final (_, page)
+            in declared.indexed.toList()..sort((a, b) {
+              final byPriority = b.$2.priority.compareTo(a.$2.priority);
+              return byPriority != 0 ? byPriority : a.$1.compareTo(b.$1);
+            }))
+          page,
+      ]);
 
   @override
   final List<SettingsPage> pages;

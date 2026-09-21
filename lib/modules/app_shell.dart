@@ -32,6 +32,12 @@ import '../view/background_tasks_view.dart';
 /// Ядровая половина — движок и файловые работы: обход дерева и байты живут
 /// там, где источники. Экранная — справка, палитра, окно настроек и вопросы о
 /// секретах (`docs/spec/client-server.md`, §5.4).
+/// Как высоко стоит раздел наборов: выше всего, что объявляют модули.
+///
+/// С запасом, а не единицей: между ним и разделами модулей ещё найдётся чему
+/// встать, и раздвигать соседей тогда не придётся.
+const int presetsPriority = 100;
+
 class AppShell implements FcBackendModule, FcFrontendModule {
   const AppShell();
 
@@ -262,10 +268,10 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     // (`docs/spec/settings-presets.md`).
     //
     // **Первым разделом**: набор решает всё, что стоит ниже, и после прочих
-    // читался бы как припиской к ним. Оговоркой, а не порядком объявления:
+    // читался бы припиской к ним. Приоритетом, а не порядком объявления:
     // разделы идут по модулям, а первой устанавливается не оболочка, а
     // файловая система.
-    registry.settingsSchema(title: 'Presets', inPreset: false, atTop: true, () {
+    registry.settingsSchema(title: 'Presets', inPreset: false, priority: presetsPriority, () {
       final app = registry.services.resolve<Application>();
       final strings = registry.services.resolve<Strings>();
       final presets = Presets(app: app, catalog: () => registry.services.resolve<SettingsCatalog>());

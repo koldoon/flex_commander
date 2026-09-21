@@ -131,7 +131,10 @@ abstract interface class FrontendRegistry {
   /// [title] — своё название раздела; пусто — название модуля, как и было.
   /// Нужно там, где модуль отвечает не только за себя: раздел «Presets»
   /// объявляет оболочка, а зваться он должен по делу.
-  void settingsSchema(SettingsSchema Function() factory, {String title, bool inPreset, bool atTop});
+  ///
+  /// [priority] — насколько высоко раздел стоит среди прочих: больше — выше,
+  /// 0 — на месте своего модуля ([SettingsPage.priority]).
+  void settingsSchema(SettingsSchema Function() factory, {String title, bool inPreset, int priority});
 
   /// Служба для интерфейса и других модулей: разрешается по типу через
   /// [FcServices].
