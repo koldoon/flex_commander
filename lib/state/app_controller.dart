@@ -895,6 +895,25 @@ class AppController extends ChangeNotifier implements Application {
   }
 
   @override
+  List<Preset> get presets => List.unmodifiable(_initialSettings.presets);
+
+  @override
+  String get preset => _initialSettings.preset;
+
+  /// Наборы и выбранный — одной правкой: удалили выбранный, и выбранного
+  /// больше нет; двумя правками это значило бы миг, когда выбран
+  /// несуществующий (`docs/spec/settings-presets.md`, §5).
+  @override
+  void setPresets(List<Preset> presets, {required String current}) {
+    _initialSettings.presets
+      ..clear()
+      ..addAll(presets);
+    _initialSettings.preset = current;
+    settingsChanged();
+    notifyListeners();
+  }
+
+  @override
   void setPanelHeader(String value) {
     if (_initialSettings.panelHeader == value) {
       return;

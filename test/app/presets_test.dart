@@ -1,0 +1,168 @@
+import 'package:fc_api/fc_api.dart';
+import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:flex_commander/bootstrap/app_modules.dart';
+import 'package:flex_commander/bootstrap/app_runtime.dart';
+import 'package:flex_commander/state/presets.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+/// Наборы выбора: сбор, применение и хранение
+/// (`docs/spec/settings-presets.md`).
+void main() {
+  late InMemoryTreeProvider provider;
+  late AppRuntime runtime;
+  late Presets presets;
+
+  setUp(() async {
+    provider = InMemoryTreeProvider([FakeEntry.directory('/home'), FakeEntry.file('/home/notes.txt', size: 10)])
+      ..home = '/home';
+    runtime = await testApp(
+      provider: provider,
+      modules: featureModules(),
+      settings: AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home')),
+    );
+    await runtime.app.start();
+    presets = Presets(app: runtime.app, catalog: () => runtime.resolve<SettingsCatalog>());
+  });
+
+  /// Поле схемы — то самое, которым его правит окно. Ищется по модулю и
+  /// ключу: `wordWrap` есть и у просмотрщика, и у редактора.
+  SettingsField fieldOf(String module, String id) => runtime
+      .resolve<SettingsCatalog>()
+      .pages
+      .firstWhere((page) => page.id == module)
+      .build()
+      .fields
+      .firstWhere((field) => field.id == id);
+
+  test('снимок берёт выбор и не берёт память', () {
+    final preset = presets.capture('Работа');
+
+    // Выбор — в наборе.
+    expect(preset.valueOf('fc.shell', 'themeId'), isNotNull);
+    expect(preset.valueOf('fc.terminal', 'shell'), isNotNull);
+
+    // Память — нет: ни путей панелей, ни геометрии окна, ни истории команд.
+    final everything = {for (final section in preset.settings.values) ...section.keys};
+    expect(everything, isNot(contains('path')));
+    expect(everything, isNot(contains('window')));
+    expect(everything, isNot(contains('recentCommands')));
+    expect(everything, isNot(contains('history')));
+  });
+
+  test('свой выбор набор в себя не кладёт', () {
+    // Набор, помнящий, какой набор выбран, — это петля.
+    expect(presets.capture('Работа').valueOf('fc.shell', 'preset'), isNull);
+  });
+
+  test('у каждого поля, кроме кнопок и клавиш, значение есть', () {
+    // Иначе поле молча выпало бы из набора и сбрасывалось к умолчанию на
+    // каждое применение.
+    for (final page in runtime.resolve<SettingsCatalog>().pages) {
+      for (final field in page.build().fields) {
+        if (field is SettingsButton || field is SettingsKeys) {
+          continue;
+        }
+        expect(field.value, isNotNull, reason: 'поле «${field.title}» в набор не попадёт');
+      }
+    }
+  });
+
+  test('применение делает «ровно так»', () {
+    final wrap = fieldOf('fc.text_viewer', 'wordWrap');
+    final was = wrap.value;
+
+    // Набор сложен на умолчаниях; потом поле трогают.
+    presets.saveAs('Умолчания');
+    wrap.apply(!(was! as bool));
+    expect(wrap.value, isNot(was));
+
+    presets.select('Умолчания');
+
+    expect(wrap.value, was, reason: 'набор не вернул поле');
+  });
+
+  test('о чём набор молчит, то возвращается к умолчанию', () {
+    final wrap = fieldOf('fc.text_viewer', 'wordWrap');
+    final was = wrap.value! as bool;
+
+    // Набор без этого поля вовсе — так выглядит набор из прошлого выпуска.
+    final older = Preset(name: 'Старый')..put('fc.shell', 'themeId', '${fieldOf('fc.shell', 'themeId').value}');
+    wrap.apply(!was);
+
+    presets.apply(older);
+
+    expect(wrap.value, was, reason: 'поле осталось тронутым, а набор о нём молчал');
+  });
+
+  test('клавиши едут набором', () {
+    runtime.app.setKeyOverrides([KeyOverride(command: 'file.copy', was: 'F5', now: 'Ctrl-Shift-C')]);
+    presets.saveAs('С клавишей');
+    runtime.app.setKeyOverrides([]);
+
+    presets.select('С клавишей');
+
+    expect(runtime.app.keyOverrides.single.now, 'Ctrl-Shift-C');
+    expect(runtime.commands.bindingsOf('file.copy').single.keys.toString(), 'Ctrl-Shift-C');
+  });
+
+  test('занятое имя не заводит второго набора', () {
+    expect(presets.saveAs('Дом'), isTrue);
+    expect(presets.saveAs('Дом'), isFalse, reason: 'второй «Дом» затёр бы первый');
+    expect(presets.all, hasLength(1));
+  });
+
+  test('пришедший со стороны набор получает свободное имя', () {
+    presets.saveAs('Дом');
+
+    final name = presets.add(Preset(name: 'Дом'));
+
+    expect(name, 'Дом 2');
+    expect(presets.all.map((item) => item.name), ['Дом', 'Дом 2']);
+    expect(presets.current, 'Дом 2');
+  });
+
+  test('«обновить» переписывает выбранный сделанным', () {
+    final wrap = fieldOf('fc.text_viewer', 'wordWrap');
+    final was = wrap.value! as bool;
+    presets.saveAs('Дом');
+    wrap.apply(!was);
+
+    expect(presets.updateCurrent(), isTrue);
+    wrap.apply(was);
+    presets.select('Дом');
+
+    expect(wrap.value, !was, reason: 'обновление не сохранило сделанного');
+  });
+
+  test('удаление снимает выбор, но настроек не трогает', () {
+    final wrap = fieldOf('fc.text_viewer', 'wordWrap');
+    presets.saveAs('Дом');
+    final was = wrap.value;
+
+    expect(presets.remove('Дом'), isTrue);
+
+    expect(presets.all, isEmpty);
+    expect(presets.current, isEmpty);
+    expect(wrap.value, was, reason: 'удаление набора не должно трогать настройки');
+  });
+
+  test('«None» ничего не применяет', () {
+    final wrap = fieldOf('fc.text_viewer', 'wordWrap');
+    presets.saveAs('Дом');
+    wrap.apply(!(wrap.value! as bool));
+    final touched = wrap.value;
+
+    presets.select('');
+
+    expect(presets.current, isEmpty);
+    expect(wrap.value, touched, reason: 'снятие выбора стёрло сделанное');
+  });
+
+  test('наборы доезжают до настроек', () {
+    presets.saveAs('Дом');
+
+    expect(runtime.app.settings.presets.single.name, 'Дом');
+    expect(runtime.app.settings.preset, 'Дом');
+  });
+}
