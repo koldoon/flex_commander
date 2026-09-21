@@ -31,6 +31,7 @@ Future<void> exportPreset(Application app, Strings strings, Preset preset) {
     strings,
     title: strings.tr('Export set'),
     submitLabel: strings.tr('Export'),
+    destinationLabel: (folder) => strings.tr('Save to: {path}', args: {'path': folder}),
     name: presetFileName(preset.name),
     run: (folder, name) async {
       await app.runOperation().run(
@@ -60,6 +61,7 @@ Future<void> importPreset(Application app, Strings strings, Presets presets) {
     strings,
     title: strings.tr('Import set'),
     submitLabel: strings.tr('Import'),
+    destinationLabel: (folder) => strings.tr('Read from: {path}', args: {'path': folder}),
     name: suggested,
     run: (folder, name) async {
       final preset = await _read(app, '$folder/$name');
@@ -107,6 +109,7 @@ Future<void> _askFile(
   required String title,
   required String submitLabel,
   required String name,
+  required String Function(String folder) destinationLabel,
   required Future<void> Function(String folder, String name) run,
 }) {
   final view = app.view;
@@ -128,7 +131,7 @@ Future<void> _askFile(
     DialogSpec(
       title: title,
       takesFocus: true,
-      content: _FileForm(state: state, submitLabel: submitLabel),
+      content: _FileForm(state: state, submitLabel: submitLabel, destinationLabel: destinationLabel),
       onSubmit: state.submit,
       onDismiss: close,
     ),
@@ -177,10 +180,14 @@ class _FileState extends ChangeNotifier {
 }
 
 class _FileForm extends StatefulWidget {
-  const _FileForm({required this.state, required this.submitLabel});
+  const _FileForm({required this.state, required this.submitLabel, required this.destinationLabel});
 
   final _FileState state;
   final String submitLabel;
+
+  /// Как назвать выбранное место: «Save to: …» у выгрузки, «Read from: …» у
+  /// загрузки — дело у окон разное, и строка о нём говорит своё.
+  final String Function(String folder) destinationLabel;
 
   @override
   State<_FileForm> createState() => _FileFormState();
@@ -230,6 +237,16 @@ class _FileFormState extends State<_FileForm> {
                       selected: state.folder,
                       onSelected: (path) => setState(() => state.folder = path),
                     ),
+                  ),
+                  // Выбранное — словами под деревом: в дереве видна подсветка
+                  // строки, а куда именно ляжет файл, из неё не прочесть —
+                  // одноимённых каталогов в разных местах сколько угодно.
+                  SizedBox(height: FcTheme.of(context).metrics.dialogLineGap),
+                  Text(
+                    widget.destinationLabel(state.folder),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: FcTheme.of(context).statusStyle,
                   ),
                 ],
               ),

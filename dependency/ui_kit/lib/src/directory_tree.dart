@@ -27,6 +27,10 @@ class FcDirectoryTree extends StatefulWidget {
   });
 
   /// С чего начинается дерево: адрес корня.
+  ///
+  /// Бывает сокращением — `~`: его разбирает источник, а не экран. Настоящий
+  /// путь дерево узнаёт от первой же ветви и тогда сообщает его наружу: в
+  /// строке выбора человек должен видеть место, а не сокращение.
   final String root;
 
   /// Как корень называется в строке: `~` читается хуже, чем «Home».
@@ -51,6 +55,9 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
   /// пуста — это разные вещи, и рисуются они по-разному.
   final Map<String, List<FileEntry>> _open = {};
 
+  /// Адрес корня — настоящий, если его уже удалось узнать.
+  late String _root = widget.root;
+
   /// Ветви, ответа по которым ещё ждут: второй раз спрашивать незачем.
   final Set<String> _asked = {};
 
@@ -60,7 +67,7 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
   @override
   void initState() {
     super.initState();
-    unawaited(_expand(widget.root));
+    unawaited(_expand(_root));
   }
 
   @override
@@ -78,11 +85,26 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
     if (!mounted) {
       return;
     }
+    final children = [
+      for (final entry in found)
+        if (entry.canEnter && entry.kind != EntryKind.parent) entry,
+    ];
+
+    // Настоящий путь корня — от первой же ветви: она знает, в каком каталоге
+    // лежит. Спросить его больше не у кого: дом разбирает источник.
+    final real = path == _root && _root == widget.root ? children.firstOrNull?.directoryPath ?? '' : '';
     setState(() {
-      _open[path] = [
-        for (final entry in found)
-          if (entry.canEnter && entry.kind != EntryKind.parent) entry,
-      ];
+      if (real.isNotEmpty) {
+        final chosenRoot = widget.selected == _root;
+        _open[real] = children;
+        _open.remove(_root);
+        _root = real;
+        if (chosenRoot) {
+          widget.onSelected(real);
+        }
+      } else {
+        _open[path] = children;
+      }
     });
   }
 
@@ -95,7 +117,7 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
 
   /// Строки дерева сверху вниз: корень и всё, что раскрыто под ним.
   List<_Branch> get _rows {
-    final rows = <_Branch>[_Branch(path: widget.root, name: widget.rootTitle, depth: 0)];
+    final rows = <_Branch>[_Branch(path: _root, name: widget.rootTitle, depth: 0)];
     void walk(String path, int depth) {
       for (final entry in _open[path] ?? const <FileEntry>[]) {
         rows.add(_Branch(path: entry.path, name: entry.name, depth: depth));
@@ -103,7 +125,7 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
       }
     }
 
-    walk(widget.root, 1);
+    walk(_root, 1);
     return rows;
   }
 
@@ -127,7 +149,7 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
           unawaited(_expand(widget.selected));
         }
       case LogicalKeyboardKey.arrowLeft:
-        if (_open.containsKey(widget.selected) && widget.selected != widget.root) {
+        if (_open.containsKey(widget.selected) && widget.selected != _root) {
           _collapse(widget.selected);
         } else if (at > 0) {
           // Наверх по дереву, а не по строкам: закрытая ветвь отдаёт ход
@@ -159,7 +181,7 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
     if (!_scroll.hasClients) {
       return;
     }
-    final line = FcTheme.of(context).metrics.rowHeight;
+    final line = _lineOf(FcTheme.of(context));
     final top = at * line;
     final position = _scroll.position;
     if (top < position.pixels) {
@@ -168,6 +190,9 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
       position.jumpTo(top + line - position.viewportDimension);
     }
   }
+
+  /// Высота строки — та же, что у панели: строка и просвет под ней.
+  static double _lineOf(FcTheme theme) => theme.metrics.rowHeight + theme.metrics.rowGap;
 
   @override
   Widget build(BuildContext context) {
@@ -182,7 +207,7 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
         child: ListView.builder(
           controller: _scroll,
           itemCount: rows.length,
-          itemExtent: metrics.rowHeight,
+          itemExtent: _lineOf(theme),
           itemBuilder: (context, index) => _row(theme, rows[index]),
         ),
       ),
@@ -193,6 +218,13 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
     final metrics = theme.metrics;
     final chosen = branch.path == widget.selected;
     final opened = _open.containsKey(branch.path);
+    final colors = theme.colors;
+    final icons = theme.icons;
+
+    // Знак раскрытия — **тот же глиф и тем же шрифтом**, что в дереве панели:
+    // два разных шеврона в одном приложении человек видит сразу
+    // (`docs/spec/panel-view-tree.md`, §4).
+    final mark = String.fromCharCode(opened ? icons.branchOpen.codePoint : icons.branchClosed.codePoint);
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
@@ -209,23 +241,40 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
         }
       },
       child: Container(
-        height: metrics.rowHeight,
-        color: chosen ? theme.colors.cursorBackground : null,
-        padding: EdgeInsets.only(left: metrics.dialogPadding + branch.depth * metrics.columnGap * 2),
+        height: _lineOf(theme),
+        color: chosen ? colors.cursorBackground : null,
+        // Шаг вглубь — квадрат знака вместе с просветом: знак дочерней ветви
+        // приходится серединой на середину родительского. То же, что в панели.
+        padding: EdgeInsets.only(
+          left: metrics.iconLeftPadding + branch.depth * (metrics.iconSize + metrics.treeMarkGap),
+        ),
         alignment: Alignment.centerLeft,
         child: Row(
           children: [
             SizedBox(
-              width: metrics.fontSize,
-              child: Icon(
-                opened ? theme.icons.caretDown : theme.icons.angleRight,
-                size: metrics.fontSize * 0.8,
-                color: theme.colors.secondaryText,
+              width: metrics.iconSize,
+              // По середине квадрата, а не по левому краю: глиф угла узкий.
+              child: Center(
+                child: Text(
+                  mark,
+                  style: TextStyle(
+                    fontFamily: icons.fontFamily,
+                    fontSize: metrics.fontSize,
+                    color: chosen ? colors.iconSelected : colors.icon,
+                  ),
+                ),
               ),
             ),
-            SizedBox(width: metrics.columnGap),
+            SizedBox(width: metrics.treeMarkGap),
             Flexible(
-              child: Text(branch.name, maxLines: 1, overflow: TextOverflow.ellipsis, style: theme.dialogTextStyle),
+              child: Text(
+                branch.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                // Набором строки панели, а не окна: это список объектов, и
+                // читается он теми же буквами, что список в панели.
+                style: chosen ? theme.rowStyle.copyWith(color: colors.cursorText) : theme.rowStyle,
+              ),
             ),
           ],
         ),
