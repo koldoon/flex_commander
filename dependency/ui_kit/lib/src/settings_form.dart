@@ -577,18 +577,26 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       return _withMarker(
         theme,
         touched,
-        Column(
+        Row(
+          // Кнопка равняется по **первой** строке: название с объяснением
+          // бывает в две строки, и по середине она уехала бы вниз.
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
           children: [
-            Row(
-              children: [
-                Expanded(child: Text.rich(_titleSpan(theme, field.title))),
-                if (touched) ...[_reset(theme, schema, field), SizedBox(width: metrics.columnGap)],
-                _control(theme, schema, field),
-              ],
+            // Название и объяснение — одним столбцом, и уже он встаёт в ряд с
+            // кнопкой. Порознь ряд задал бы им свою высоту, и межстрочный
+            // просвет разъехался бы по строке названия.
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text.rich(_titleSpan(theme, field.title)),
+                  for (final line in explanations) ...[SizedBox(height: metrics.dialogLineGap), line],
+                ],
+              ),
             ),
-            for (final line in explanations) ...[SizedBox(height: metrics.dialogLineGap), line],
+            if (touched) ...[_reset(theme, schema, field), SizedBox(width: metrics.columnGap)],
+            _control(theme, schema, field),
           ],
         ),
       );
