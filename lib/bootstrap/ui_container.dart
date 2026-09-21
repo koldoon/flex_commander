@@ -104,6 +104,8 @@ class UiContainer extends DI {
       sessionHistoryLimit: ui.sessionHistoryLimit,
       panelHeader: ui.panelHeader,
       keys: ui.keys,
+      presets: ui.presets,
+      preset: ui.preset,
       reconnectAtStartup: ui.reconnectAtStartup,
       window: ui.window,
       dialogs: ui.dialogs,

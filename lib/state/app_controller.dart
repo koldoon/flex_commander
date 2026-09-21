@@ -950,6 +950,8 @@ class AppController extends ChangeNotifier implements Application {
     panelHeader: _initialSettings.panelHeader,
     reconnectAtStartup: _initialSettings.reconnectAtStartup,
     keys: _initialSettings.keys,
+    presets: _initialSettings.presets,
+    preset: _initialSettings.preset,
     dialogs: _initialSettings.dialogs,
     modules: serialize(_initialSettings.modules) as Map<String, dynamic>,
     // Кто где стоит, знает только эта сторона: ядро сессии заводит, но не

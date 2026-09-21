@@ -5,6 +5,7 @@ import '../panel/column_spec.dart';
 import '../panel/sort_spec.dart';
 import 'dialog_state.dart';
 import 'key_override.dart';
+import 'preset.dart';
 import 'window_geometry.dart';
 
 /// Сохраняемые настройки одной панели.
@@ -219,6 +220,8 @@ class AppSettings implements Serializable {
     this.window,
     Map<String, DialogState>? dialogs,
     List<KeyOverride>? keys,
+    List<Preset>? presets,
+    this.preset = '',
     ModuleSettings? modules,
     List<PanelGroupSettings>? panels,
     List<int>? shown,
@@ -231,6 +234,7 @@ class AppSettings implements Serializable {
        shown = shown ?? [0, 1],
        dialogs = {...?dialogs},
        keys = [...?keys],
+       presets = [...?presets],
        // Разделы модулей переносятся в новый снимок настроек как есть: это
        // живые объекты самих модулей, а не копия их значений.
        modules = modules ?? ModuleSettings();
@@ -337,6 +341,15 @@ class AppSettings implements Serializable {
   /// разбирать обратно.
   final List<KeyOverride> keys;
 
+  /// Наборы выбора, сложенные человеком (`docs/spec/settings-presets.md`).
+  final List<Preset> presets;
+
+  /// Имя выбранного набора; пусто — ни один не выбран.
+  ///
+  /// Именем, а не местом в списке: место меняется от удаления соседа, а имя —
+  /// то самое, что человек видит в окне и по которому выбирает.
+  String preset;
+
   /// Настройки модулей: у каждого свой раздел под своим именем.
   ///
   /// Ядро в них не заглядывает — только хранит и отдаёт тому, кто спросит
@@ -366,6 +379,12 @@ class AppSettings implements Serializable {
     if (keys.isNotEmpty) {
       m['keys'] = [for (final override in keys) serialize(override)];
     }
+    if (presets.isNotEmpty) {
+      m['presets'] = [for (final item in presets) serialize(item)];
+    }
+    // Всегда, даже пустым: у поля схемы настроек обязан быть ключ в разделе,
+    // иначе схема и данные разойдутся молча.
+    m['preset'] = preset;
     m['panels'] = [for (final panel in panels) serialize(panel)];
     m['shown'] = shown;
     m['modules'] = serialize(modules);
@@ -401,6 +420,18 @@ class AppSettings implements Serializable {
         }
       }
     }
+
+    final storedPresets = m['presets'];
+    if (storedPresets is List) {
+      presets.clear();
+      for (final item in storedPresets) {
+        final stored = extractObject(item, (_) => Preset());
+        if (stored != null && stored.isSane) {
+          presets.add(stored);
+        }
+      }
+    }
+    preset = extract(preset, m['preset']);
 
     final storedKeys = m['keys'];
     if (storedKeys is List) {

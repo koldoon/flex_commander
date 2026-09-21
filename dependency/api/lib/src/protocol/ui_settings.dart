@@ -1,5 +1,6 @@
 import '../settings/app_settings.dart';
 import '../settings/key_override.dart';
+import '../settings/preset.dart';
 import '../settings/dialog_state.dart';
 import '../settings/window_geometry.dart';
 import 'entry_ref.dart';
@@ -54,6 +55,8 @@ class UiSettings {
     this.reconnectAtStartup = false,
     this.dialogs = const {},
     this.keys = const [],
+    this.presets = const [],
+    this.preset = '',
     this.modules = const {},
     this.panels = defaultPanels,
     this.shown = defaultShown,
@@ -74,6 +77,14 @@ class UiSettings {
   /// ряд кнопок и окно настройки клавиш — всё экранное. Ядру они нужны ровно
   /// затем, чтобы записать их в файл вместе с прочим выбором.
   final List<KeyOverride> keys;
+
+  /// Наборы выбора и выбранный из них (`docs/spec/settings-presets.md`).
+  ///
+  /// Едут здесь по той же причине, что и клавиши: складывает и применяет их
+  /// экранная сторона — у неё схема настроек, — а записать их в файл может
+  /// только ядро.
+  final List<Preset> presets;
+  final String preset;
 
   /// 0 — активна левая панель, 1 — правая.
   final int activePanel;
@@ -127,6 +138,8 @@ class UiSettings {
     int? sessionHistoryLimit,
     String? panelHeader,
     List<KeyOverride>? keys,
+    List<Preset>? presets,
+    String? preset,
     bool? reconnectAtStartup,
     Map<String, DialogState>? dialogs,
     Map<String, dynamic>? modules,
@@ -140,6 +153,8 @@ class UiSettings {
     sessionHistoryLimit: sessionHistoryLimit ?? this.sessionHistoryLimit,
     panelHeader: panelHeader ?? this.panelHeader,
     keys: keys ?? this.keys,
+    presets: presets ?? this.presets,
+    preset: preset ?? this.preset,
     reconnectAtStartup: reconnectAtStartup ?? this.reconnectAtStartup,
     dialogs: dialogs ?? this.dialogs,
     modules: modules ?? this.modules,
@@ -162,6 +177,10 @@ class UiSettings {
       other.sessionHistoryLimit == sessionHistoryLimit &&
       other.panelHeader == panelHeader &&
       other.reconnectAtStartup == reconnectAtStartup &&
+      // Выбранный набор — сравнивается: им решается, нужна ли запись, а
+      // сменившийся набор записать надо. Сами наборы и клавиши сравнению не
+      // подлежат — сличать их пришлось бы деревом на каждую правку.
+      other.preset == preset &&
       _sameDialogs(other.dialogs) &&
       other.panels.length == panels.length &&
       List.generate(panels.length, (i) => other.panels[i] == panels[i]).every((same) => same) &&
@@ -190,6 +209,7 @@ class UiSettings {
     sizeScanConcurrency,
     sessionHistoryLimit,
     reconnectAtStartup,
+    preset,
     Object.hashAll(panels),
     Object.hashAll(shown),
   );
