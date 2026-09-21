@@ -8,6 +8,7 @@ import 'package:flex_commander/app.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -195,6 +196,31 @@ void main() {
   anchor('окно упаковки', 'anchor_archive.png', 'Shift-F5');
   anchor('окно поиска', 'anchor_find.png', 'Alt-F7');
   anchor('окно настроек', 'anchor_settings.png', 'F9');
+
+  /// Раздел наборов — отбором в окне настроек: он стоит последним, и без
+  /// отбора до него пришлось бы листать.
+  testWidgets('настройки: раздел наборов', (tester) async {
+    if (!fontsReady) {
+      markTestSkipped('Шрифты не собрались: Ubuntu, FontAwesome или Consolas недоступны');
+      return;
+    }
+
+    final app = await openApp(tester);
+    app.left.setCursorToName('LICENSE');
+    await tester.pump();
+
+    app.commands.dispatch(KeyCombination.parse('F9'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(of: find.byType(FcSettingsForm), matching: find.byType(TextField)).first,
+      'preset',
+    );
+    await tester.pumpAndSettle();
+
+    await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/anchor_presets.png'));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
 
   /// Окно клавиш — своим тестом, а не `anchor`: своей клавиши у него нет,
   /// открывают его командой (`docs/spec/key-bindings.md`, §1).

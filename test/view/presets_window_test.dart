@@ -86,8 +86,8 @@ void main() {
     await openPresets(tester);
 
     // Приглушены, а не спрятаны: действие есть, просто сейчас неприменимо.
-    expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Update «»')).onPressed, isNull);
-    expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Delete «»')).onPressed, isNull);
+    expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Update')).onPressed, isNull);
+    expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Delete')).onPressed, isNull);
   });
 
   testWidgets('кнопки называют выбранный набор', (tester) async {

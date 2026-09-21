@@ -478,7 +478,8 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           'presets.update',
           title: strings.tr('Keep the chosen set up to date'),
           description: strings.tr('Rewrite it with what is set right now'),
-          label: strings.tr('Update «{name}»', args: {'name': chosen}),
+          // Без выбранного — без кавычек: «Update «»» читается как опечатка.
+          label: chosen.isEmpty ? strings.tr('Update') : strings.tr('Update «{name}»', args: {'name': chosen}),
           // Приглушена, а не спрятана: обновлять нечего, пока ничего не
           // выбрано, — но действие есть.
           run: chosen.isEmpty ? null : presets.updateCurrent,
@@ -487,7 +488,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           'presets.delete',
           title: strings.tr('Drop a set you no longer need'),
           description: strings.tr('Settings stay as they are — only the set goes'),
-          label: strings.tr('Delete «{name}»', args: {'name': chosen}),
+          label: chosen.isEmpty ? strings.tr('Delete') : strings.tr('Delete «{name}»', args: {'name': chosen}),
           run:
               chosen.isEmpty
                   ? null
@@ -606,6 +607,7 @@ const Map<String, String> _russian = {
   'There is a set with this name already': 'Набор с таким именем уже есть',
   'Keep the chosen set up to date': 'Держать выбранный набор в свежем виде',
   'Rewrite it with what is set right now': 'Переписать его тем, что стоит сейчас',
+  'Update': 'Обновить',
   'Update «{name}»': 'Обновить «{name}»',
   'Drop a set you no longer need': 'Убрать набор, который больше не нужен',
   'Settings stay as they are — only the set goes': 'Настройки останутся как есть — уйдёт только набор',
