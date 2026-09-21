@@ -33,6 +33,19 @@ void main() {
       if (page.id == module) ...page.build().fields,
   ].firstWhere((field) => field.id == id);
 
+  test('раздел наборов стоит первым, кто бы ни объявлялся раньше', () async {
+    // Разделы идут по модулям, а первым устанавливается не оболочка, а
+    // файловая система: без оговорки наборы вставали после неё.
+    final full = await testApp(
+      provider: provider,
+      modules: appModules(),
+      settings: AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home')),
+    );
+    addTearDown(full.dispose);
+
+    expect(full.resolve<SettingsCatalog>().pages.first.title, 'Presets');
+  });
+
   test('снимок берёт выбор и не берёт память', () {
     final preset = presets.capture('Работа');
 

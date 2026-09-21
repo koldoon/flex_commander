@@ -325,7 +325,16 @@ class UiContainer extends DI {
 /// Отдельным классом, а не списком наружу: окно спрашивает службу по типу и о
 /// сборке приложения не знает.
 class _Catalog implements SettingsCatalog {
-  const _Catalog(this.pages);
+  /// Разделы идут по модулям, в порядке их объявления, — кроме тех, что
+  /// попросились вперёд ([SettingsPage.atTop]): наборы выбора не про свой
+  /// модуль, а про все сразу.
+  _Catalog(List<SettingsPage> declared)
+    : pages = [
+        for (final page in declared)
+          if (page.atTop) page,
+        for (final page in declared)
+          if (!page.atTop) page,
+      ];
 
   @override
   final List<SettingsPage> pages;

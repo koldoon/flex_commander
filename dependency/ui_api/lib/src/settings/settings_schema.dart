@@ -497,7 +497,13 @@ class SettingsChoice extends SettingsField {
 /// Схема — **фабрика**, а не готовое значение: во время объявления модулей
 /// настройки ещё не прочитаны с диска, и строить её тогда нечем.
 class SettingsPage {
-  const SettingsPage({required this.title, required this.build, this.id = '', this.inPreset = true});
+  const SettingsPage({
+    required this.title,
+    required this.build,
+    this.id = '',
+    this.inPreset = true,
+    this.atTop = false,
+  });
 
   /// Название модуля — оно же заголовок раздела, как в справке.
   ///
@@ -511,6 +517,15 @@ class SettingsPage {
   /// выпуска к выпуску, а идентификатор — нет
   /// (`docs/spec/settings-presets.md`, §2).
   final String id;
+
+  /// Раздел стоит **впереди прочих**, а не на месте своего модуля.
+  ///
+  /// Оговорка, а не порядок объявления: разделы идут по модулям, а наборы
+  /// выбора — не про свой модуль, а про все сразу, и после прочих читались бы
+  /// как приписка к последнему из них. Объявлены они оболочкой, но встать
+  /// обязаны первыми — а первым устанавливается не она
+  /// (`docs/spec/settings-presets.md`, §6).
+  final bool atTop;
 
   /// Входят ли поля раздела в набор выбора.
   ///

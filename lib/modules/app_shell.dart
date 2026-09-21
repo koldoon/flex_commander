@@ -262,8 +262,10 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     // (`docs/spec/settings-presets.md`).
     //
     // **Первым разделом**: набор решает всё, что стоит ниже, и после прочих
-    // читался бы как приписка к ним.
-    registry.settingsSchema(title: 'Presets', inPreset: false, () {
+    // читался бы как припиской к ним. Оговоркой, а не порядком объявления:
+    // разделы идут по модулям, а первой устанавливается не оболочка, а
+    // файловая система.
+    registry.settingsSchema(title: 'Presets', inPreset: false, atTop: true, () {
       final app = registry.services.resolve<Application>();
       final strings = registry.services.resolve<Strings>();
       final presets = Presets(app: app, catalog: () => registry.services.resolve<SettingsCatalog>());
