@@ -60,7 +60,7 @@ void main() {
     await openPresets(tester);
     expect(find.text('None'), findsWidgets, reason: 'пустой выбор должен быть настоящим вариантом');
 
-    await tapButton(tester, 'New…');
+    await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
 
     expect(runtime.app.presets.single.name, 'Дом');
@@ -72,10 +72,10 @@ void main() {
 
   testWidgets('занятое имя — ошибка в том же окне', (tester) async {
     await openPresets(tester);
-    await tapButton(tester, 'New…');
+    await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
 
-    await tapButton(tester, 'New…');
+    await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
 
     expect(find.text('There is a set with this name already'), findsOneWidget);
@@ -88,22 +88,48 @@ void main() {
     // Приглушены, а не спрятаны: действие есть, просто сейчас неприменимо.
     expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Update')).onPressed, isNull);
     expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Delete')).onPressed, isNull);
-    expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Export…')).onPressed, isNull);
+    expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Export')).onPressed, isNull);
   });
+
+  bool alive(WidgetTester tester, String label) =>
+      tester.widget<FcButton>(find.widgetWithText(FcButton, label)).onPressed != null;
 
   testWidgets('выбранный набор оживляет кнопки при списке', (tester) async {
     await openPresets(tester);
-    await tapButton(tester, 'New…');
+    await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
 
-    expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Update')).onPressed, isNotNull);
-    expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Delete')).onPressed, isNotNull);
-    expect(tester.widget<FcButton>(find.widgetWithText(FcButton, 'Export…')).onPressed, isNotNull);
+    expect(alive(tester, 'Update'), isTrue);
+    expect(alive(tester, 'Delete'), isTrue);
+    expect(alive(tester, 'Export'), isTrue);
+  });
+
+  testWidgets('выбор набора в списке оживляет кнопки тут же', (tester) async {
+    // Кнопки знают о выбранном из схемы, а схема строится один раз: без
+    // пересборки они остались бы приглушёнными до следующего открытия окна.
+    await openPresets(tester);
+    await tapButton(tester, 'New');
+    await nameIt(tester, 'Дом');
+    await tapButton(tester, 'New');
+    await nameIt(tester, 'Работа');
+
+    // Снять выбор и выбрать снова — списком, как это делает человек.
+    runtime.app.setPresets(runtime.app.presets, current: '');
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(FcSelect<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Дом').last);
+    await tester.pumpAndSettle();
+
+    expect(runtime.app.preset, 'Дом');
+    expect(alive(tester, 'Update'), isTrue, reason: 'выбрали набор, а обновить его нечем');
+    expect(alive(tester, 'Delete'), isTrue);
+    expect(alive(tester, 'Export'), isTrue);
   });
 
   testWidgets('удаление спрашивает и убирает набор', (tester) async {
     await openPresets(tester);
-    await tapButton(tester, 'New…');
+    await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
 
     await tapButton(tester, 'Delete');
@@ -120,10 +146,10 @@ void main() {
 
   testWidgets('выгрузка показывает дерево от дома, а не поле пути', (tester) async {
     await openPresets(tester);
-    await tapButton(tester, 'New…');
+    await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
 
-    await tapButton(tester, 'Export…');
+    await tapButton(tester, 'Export');
 
     expect(find.byType(FcDirectoryTree), findsOneWidget, reason: 'каталог набирают руками, а не выбирают');
     expect(find.text('Home'), findsOneWidget, reason: 'дерево должно начинаться с дома');
@@ -132,9 +158,9 @@ void main() {
 
   testWidgets('дерево открыто от корня и ходит щелчком', (tester) async {
     await openPresets(tester);
-    await tapButton(tester, 'New…');
+    await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
-    await tapButton(tester, 'Export…');
+    await tapButton(tester, 'Export');
 
     // Ищем **в дереве**: за окном стоит панель, и там этот каталог тоже виден.
     Finder inTree(String name) => find.descendant(of: find.byType(FcDirectoryTree), matching: find.text(name));
@@ -151,7 +177,7 @@ void main() {
 
   testWidgets('отказ ничего не убирает', (tester) async {
     await openPresets(tester);
-    await tapButton(tester, 'New…');
+    await tapButton(tester, 'New');
     await nameIt(tester, 'Дом');
 
     await tapButton(tester, 'Delete');

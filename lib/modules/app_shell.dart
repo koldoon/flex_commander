@@ -456,7 +456,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           // сейчас неприменимо.
           actions: [
             SettingsAction(
-              label: strings.tr('New…'),
+              label: strings.tr('New'),
               run:
                   () => askPresetName(
                     app,
@@ -489,7 +489,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
                       ),
             ),
             SettingsAction(
-              label: strings.tr('Export…'),
+              label: strings.tr('Export'),
               run:
                   chosen.isEmpty
                       ? null
@@ -501,7 +501,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           'presets.import',
           title: strings.tr('Bring a set from a file'),
           description: strings.tr('It joins the list and becomes the chosen one'),
-          label: strings.tr('Import…'),
+          label: strings.tr('Import'),
           run: () => importPreset(app, strings, presets),
         ),
       ], save: settings.save);
@@ -586,7 +586,7 @@ const Map<String, String> _russian = {
   'Preset': 'Набор',
   'Settings and keys of every module in one set': 'Настройки всех модулей и клавиши — одним набором',
   'None': 'Нет',
-  'New…': 'Новый…',
+  'New': 'Новый',
   'New set': 'Новый набор',
   'Save the set': 'Сложить набор',
   'My settings': 'Мои настройки',
@@ -596,13 +596,11 @@ const Map<String, String> _russian = {
   'Delete set': 'Удаление набора',
   'Delete «{name}»? Settings stay as they are.': 'Удалить «{name}»? Настройки останутся как есть.',
   'Name': 'Имя',
-  'Export…': 'Выгрузить…',
   'Export': 'Выгрузить',
   'Export set': 'Выгрузка набора',
   'Set «{name}» exported': 'Набор «{name}» выгружен',
   'Bring a set from a file': 'Привезти набор из файла',
   'It joins the list and becomes the chosen one': 'Он встанет в список и станет выбранным',
-  'Import…': 'Загрузить…',
   'Import': 'Загрузить',
   'Import set': 'Загрузка набора',
   'Set «{name}» imported': 'Набор «{name}» загружен',

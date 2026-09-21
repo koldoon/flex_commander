@@ -810,8 +810,18 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       setState(() {});
     }
 
+    // Правка выбора и флажка меняет не только себя: от неё зависит, что
+    // **могут** соседи — выбранный набор оживляет «Update» и «Delete», и без
+    // пересборки они остались бы приглушёнными до следующего открытия окна.
+    // Набор при этом меняется редко, а набранное в полях ввода пересборку
+    // переживает: контроллеры живут по ключу поля.
+    void switched() {
+      schema.save();
+      _rebuild();
+    }
+
     return switch (field) {
-      SettingsFlag flag => _flagControl(theme, flag, changed),
+      SettingsFlag flag => _flagControl(theme, flag, switched),
       // Кнопка стоит одна, без поля: у неё нет значения, которое можно было бы
       // показать рядом. Ряд с `min` — чтобы она облегала свою подпись, как и
       // все кнопки приложения (`FcDialogActions`).
@@ -851,27 +861,23 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       ),
       // Выпадающим списком, а не переключателем: темы приносят модули, и
       // строка на каждый вариант росла бы вместе с их числом.
-      SettingsChoice choice => Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
+      SettingsChoice choice => Wrap(
+        // Одной строкой со списком: кнопки — про то, что в нём выбрано, и
+        // отдельной строкой читались бы как своё, отдельное дело. `Wrap` —
+        // чтобы в узком окне ряд переносился, а не лез за край.
+        spacing: theme.metrics.dialogGap,
+        runSpacing: theme.metrics.dialogLineGap,
+        crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           FcSelect<String>(
             options: choice.options,
             value: choice.read(),
             onChanged: (value) {
               choice.write(value);
-              changed();
+              switched();
             },
           ),
-          // Кнопки под списком: то, что делают с выбранным, стоит при нём.
-          if (choice.actions.isNotEmpty) ...[
-            SizedBox(height: theme.metrics.dialogGap),
-            Wrap(
-              spacing: theme.metrics.dialogGap,
-              runSpacing: theme.metrics.dialogLineGap,
-              children: [for (final action in choice.actions) _actionButton(action)],
-            ),
-          ],
+          for (final action in choice.actions) _actionButton(action),
         ],
       ),
       SettingsNumber number => Row(

@@ -239,7 +239,7 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    await tester.tap(find.widgetWithText(FcButton, 'Import…'));
+    await tester.tap(find.widgetWithText(FcButton, 'Import'));
     await tester.pumpAndSettle();
 
     await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/anchor_preset_file.png'));
