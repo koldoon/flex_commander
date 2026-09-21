@@ -33,12 +33,16 @@ import 'pick_list.dart';
 /// нет, потому что отменять нечего — приложение и так живёт мгновенным
 /// применением темы, колонок и скрытых файлов.
 class FcSettingsForm extends StatefulWidget {
-  const FcSettingsForm({super.key, required this.pages, required this.onClose});
+  const FcSettingsForm({super.key, required this.pages, required this.onClose, this.searchHint = 'Search settings'});
 
   final List<SettingsPage> pages;
 
   /// Закрыть — единственное действие окна.
   final VoidCallback onClose;
+
+  /// Что написано в пустом поле поиска: форму берёт не одно окно настроек, и
+  /// «Search settings» в окне клавиш обещало бы не то.
+  final String searchHint;
 
   @override
   State<FcSettingsForm> createState() => _FcSettingsFormState();
@@ -352,7 +356,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                             FcTextField(
                               controller: _query,
                               autofocus: true,
-                              hintText: context.strings.tr('Search settings'),
+                              hintText: context.strings.tr(widget.searchHint),
                             ),
                             // Счёт — только пока отбирают: «22 settings» при
                             // пустом поле отвечает на вопрос, которого никто не

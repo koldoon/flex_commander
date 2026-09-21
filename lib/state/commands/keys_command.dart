@@ -52,7 +52,7 @@ class KeysCommand extends AppCommand {
         ownWidth: true,
         // Та же форма, что и у настроек: она принимает произвольные разделы, и
         // второй такой писать незачем (`docs/spec/key-bindings.md`, §8).
-        content: FcSettingsForm(pages: _pages(app), onClose: close),
+        content: FcSettingsForm(pages: _pages(app), onClose: close, searchHint: 'Search commands'),
         onSubmit: close,
         onDismiss: close,
       ),

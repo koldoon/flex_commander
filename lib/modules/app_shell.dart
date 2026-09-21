@@ -479,6 +479,7 @@ const Map<String, String> _russian = {
   'Key bindings': 'Клавиши команд',
   'Key binding': 'Клавиша команды',
   'Set your own key for any command': 'Назначить любой команде свою клавишу',
+  'Search commands': 'Поиск команды',
   'Your keys': 'Ваши клавиши',
   'Forget every key you have changed': 'Забыть всё, что вы переназначили',
   'Reset all keys': 'Вернуть все клавиши',

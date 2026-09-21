@@ -195,6 +195,26 @@ void main() {
   anchor('окно упаковки', 'anchor_archive.png', 'Shift-F5');
   anchor('окно поиска', 'anchor_find.png', 'Alt-F7');
   anchor('окно настроек', 'anchor_settings.png', 'F9');
+
+  /// Окно клавиш — своим тестом, а не `anchor`: своей клавиши у него нет,
+  /// открывают его командой (`docs/spec/key-bindings.md`, §1).
+  testWidgets('окно клавиш', (tester) async {
+    if (!fontsReady) {
+      markTestSkipped('Шрифты не собрались: Ubuntu, FontAwesome или Consolas недоступны');
+      return;
+    }
+
+    final app = await openApp(tester);
+    app.left.setCursorToName('LICENSE');
+    await tester.pump();
+
+    app.commands.run('app.keys');
+    await tester.pumpAndSettle();
+
+    await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/anchor_keys.png'));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
   anchor('окно справки', 'anchor_help.png', 'F1');
   anchor('палитра команд', 'anchor_palette.png', 'Cmd-Shift-P');
   // Окно встаёт над своей панелью, а не по середине экрана, и список видов в
