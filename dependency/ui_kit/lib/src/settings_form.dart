@@ -408,9 +408,21 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                               ),
                             // Подвал прижат к низу столбца: место ему там же,
                             // где разделы, но отдельно от них.
+                            // Ничего не нашлось — оглавления нет, а подвал
+                            // остаётся внизу: иначе он убегал бы под поле
+                            // поиска на каждый запрос, которому нечего
+                            // показать.
+                            if (_found.isEmpty) const Spacer(),
                             if (widget.footer case final footer?) ...[
                               SizedBox(height: metrics.dialogGap),
-                              Padding(padding: EdgeInsets.only(left: metrics.dialogPadding), child: footer),
+                              // Слева и по содержимому: столбец растягивает
+                              // детей, и кнопка иначе разъехалась бы на всю
+                              // его ширину. `scaleDown` — на случай узкого
+                              // столбца: ширину ему задают названия разделов,
+                              // и подпись подвала бывает длиннее их всех. Тем
+                              // же приёмом ужимается ряд кнопок окна
+                              // (`FcDialogActions`).
+                              FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: footer),
                             ],
                           ],
                         ),
@@ -449,8 +461,25 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                                             crossAxisAlignment: CrossAxisAlignment.start,
                                             children: [
                                               _heading(theme, title, key: _headings[index]),
-                                              for (final field in fields) ...[
+                                              for (final (at, field) in fields.indexed) ...[
                                                 SizedBox(height: metrics.sectionEntryGap),
+                                                // Линейка **между** настройками,
+                                                // а не под каждой: края раздела
+                                                // рисует плашка вокруг него, и
+                                                // линейка по её кромке была бы
+                                                // второй границей на том же
+                                                // месте. То же правило у
+                                                // таблицы справки, и линейка та
+                                                // же — иначе соседние настройки
+                                                // читаются одним сплошным
+                                                // столбцом.
+                                                if (at > 0) ...[
+                                                  Container(
+                                                    height: metrics.strokeWidth,
+                                                    color: theme.colors.columnDivider,
+                                                  ),
+                                                  SizedBox(height: metrics.sectionEntryGap),
+                                                ],
                                                 _block(theme, schema, field),
                                               ],
                                             ],

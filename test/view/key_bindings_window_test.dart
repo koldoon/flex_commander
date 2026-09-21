@@ -229,6 +229,21 @@ void main() {
     expect(keysOf('app.theme.use'), 'Ctrl-Shift-D');
   });
 
+  testWidgets('подвал остаётся внизу, когда ничего не нашлось', (tester) async {
+    await pumpApp(tester);
+    await openWindow(tester);
+
+    final bottom = tester.getBottomLeft(inWindow(find.widgetWithText(FcButton, 'Reset all keys'))).dy;
+    await search(tester, 'такой команды нет');
+
+    expect(find.text('Nothing found'), findsOneWidget);
+    expect(
+      tester.getBottomLeft(inWindow(find.widgetWithText(FcButton, 'Reset all keys'))).dy,
+      bottom,
+      reason: 'подвал убежал наверх',
+    );
+  });
+
   testWidgets('«Reset all keys» возвращает все умолчания', (tester) async {
     await pumpApp(tester);
     runtime.app.setKeyOverrides([KeyOverride(command: 'file.copy', was: 'F5', now: 'Ctrl-Shift-Y')]);
