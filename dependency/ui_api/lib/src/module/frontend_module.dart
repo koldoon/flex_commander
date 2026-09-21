@@ -127,7 +127,11 @@ abstract interface class FrontendRegistry {
   ///
   /// Фабрика, а не готовая схема: во время объявления настройки ещё не
   /// прочитаны, и строить её тогда нечем. Зовётся, когда окно открывают.
-  void settingsSchema(SettingsSchema Function() factory);
+  ///
+  /// [title] — своё название раздела; пусто — название модуля, как и было.
+  /// Нужно там, где модуль отвечает не только за себя: раздел «Presets»
+  /// объявляет оболочка, а зваться он должен по делу.
+  void settingsSchema(SettingsSchema Function() factory, {String title, bool inPreset});
 
   /// Служба для интерфейса и других модулей: разрешается по типу через
   /// [FcServices].

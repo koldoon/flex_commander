@@ -64,6 +64,19 @@ sealed class SettingsField {
   /// Вернуть умолчание — и записать, как при обычной правке.
   void resetToDefault();
 
+  /// Что в поле стоит сейчас; null — значения у поля нет вовсе.
+  ///
+  /// Этим набор и собирается: что в него входит, решает схема, а не список
+  /// полей руками (`docs/spec/settings-presets.md`, §3). Значения у кнопки нет,
+  /// а клавиши едут своим списком.
+  Object? get value;
+
+  /// Поставить значение, пришедшее набором.
+  ///
+  /// Чужое или испорченное — молча мимо: набор мог прийти из другого выпуска,
+  /// и падать на нём незачем.
+  void apply(Object? value);
+
   /// Флаг.
   static SettingsFlag flag(
     String id, {
@@ -226,6 +239,15 @@ class SettingsKeys extends SettingsField {
 
   @override
   void resetToDefault() => reset();
+
+  /// Клавиши в набор попадают **своим списком**, а не значением поля: у
+  /// привязки составной ключ, и строкой она была бы склейкой, которую пришлось
+  /// бы разбирать обратно (`docs/spec/settings-presets.md`, §3).
+  @override
+  Object? get value => null;
+
+  @override
+  void apply(Object? value) {}
 }
 
 /// Поле, у которого нет значения: только кнопка.
@@ -252,6 +274,12 @@ class SettingsButton extends SettingsField {
 
   @override
   void resetToDefault() {}
+
+  @override
+  Object? get value => null;
+
+  @override
+  void apply(Object? value) {}
 }
 
 class SettingsFlag extends SettingsField {
@@ -284,6 +312,16 @@ class SettingsFlag extends SettingsField {
 
   @override
   void resetToDefault() => write(defaultValue);
+
+  @override
+  Object? get value => read();
+
+  @override
+  void apply(Object? value) {
+    if (value is bool) {
+      write(value);
+    }
+  }
 }
 
 /// Кнопка-приставка у поля настройки.
@@ -339,6 +377,17 @@ class SettingsNumber extends SettingsField {
   int? parse(String value) {
     return int.tryParse(value.trim())?.clamp(min, max);
   }
+
+  @override
+  Object? get value => read();
+
+  @override
+  void apply(Object? value) {
+    // С поправкой на пределы: набор мог прийти оттуда, где они были другими.
+    if (value is int) {
+      write(value.clamp(min, max));
+    }
+  }
 }
 
 class SettingsText extends SettingsField {
@@ -368,6 +417,16 @@ class SettingsText extends SettingsField {
 
   @override
   void resetToDefault() => write(defaultValue);
+
+  @override
+  Object? get value => read();
+
+  @override
+  void apply(Object? value) {
+    if (value is String) {
+      write(value);
+    }
+  }
 }
 
 class SettingsChoice extends SettingsField {
@@ -396,6 +455,18 @@ class SettingsChoice extends SettingsField {
 
   @override
   void resetToDefault() => write(defaultValue);
+
+  @override
+  Object? get value => read();
+
+  @override
+  void apply(Object? value) {
+    // Только то, что есть в списке: вариант мог пропасть вместе с выключенным
+    // модулем, и ставить его значило бы выбрать несуществующее.
+    if (value is String && options.containsKey(value)) {
+      write(value);
+    }
+  }
 }
 
 /// Раздел окна настроек: чьи это поля и как их получить.
@@ -403,10 +474,26 @@ class SettingsChoice extends SettingsField {
 /// Схема — **фабрика**, а не готовое значение: во время объявления модулей
 /// настройки ещё не прочитаны с диска, и строить её тогда нечем.
 class SettingsPage {
-  const SettingsPage({required this.title, required this.build});
+  const SettingsPage({required this.title, required this.build, this.id = '', this.inPreset = true});
 
   /// Название модуля — оно же заголовок раздела, как в справке.
+  ///
+  /// Не всегда: раздел вправе назваться сам, если модуль отвечает не только за
+  /// себя (`registry.settingsSchema(title: 'Presets')`).
   final String title;
+
+  /// Идентификатор модуля (`fc.terminal`), а не заголовок.
+  ///
+  /// Им раздел назван в наборе выбора: заголовок переводится и меняется от
+  /// выпуска к выпуску, а идентификатор — нет
+  /// (`docs/spec/settings-presets.md`, §2).
+  final String id;
+
+  /// Входят ли поля раздела в набор выбора.
+  ///
+  /// Не входят у самих наборов: набор, помнящий, какой набор выбран, — это
+  /// петля.
+  final bool inPreset;
 
   final SettingsSchema Function() build;
 }
