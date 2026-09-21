@@ -135,7 +135,7 @@ void main() {
     app.left.setCursorToName('LICENSE');
     await tester.pumpAndSettle();
 
-    app.commands.dispatch(KeyCombination.parse('Cmd-Shift-I'));
+    app.commands.dispatch(KeyCombination.parse('Ctrl-A'));
     await tester.pumpAndSettle();
 
     await expectLater(find.byType(FlexCommanderApp), matchesGoldenFile('goldens/anchor_attributes.png'));

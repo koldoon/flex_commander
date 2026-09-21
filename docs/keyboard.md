@@ -167,7 +167,7 @@ CommandRegistry.dispatch(combination, app)
 | `Cmd-O` | `panel.openWithSystem` | открыть выбранные объекты системой, не входя в них |
 | `Cmd-R` | `panel.reload` | перечитать текущий каталог — мимо запомненного списка |
 | `Alt-Shift-Enter` | `panel.calculateSizes` | посчитать размеры всех каталогов здесь |
-| `Cmd-Shift-H`, `Cmd-H` | `panel.toggleHidden` | показать/скрыть скрытые объекты |
+| `Cmd-Shift-H` | `panel.toggleHidden` | показать/скрыть скрытые объекты |
 | `Alt-F7` | `search.findFiles` | искать по дереву от текущего каталога — открывает окно |
 
 `Left`/`Right` заняты переходом к первому/последнему элементу — это решение референса
@@ -231,7 +231,7 @@ CommandRegistry.dispatch(combination, app)
 | `Shift-Left` | `panel.tree.collapseSubtree` | дерево: свернуть её вместе с вложенным; свернуть нечего — курсор к её ветви |
 | `Shift-Cmd-Right` | `panel.tree.expandAll` | дерево: раскрыть всё — до предела в 2000 ветвей |
 | `Shift-Cmd-Left` | `panel.tree.collapseAll` | дерево: свернуть всё, оставив корни |
-| `Space` / `Ins` | `panel.selection.toggle` | пометить ветвь под курсором и шагнуть вниз — та же команда, что в списке |
+| `Space` | `panel.selection.toggle` | пометить ветвь под курсором и шагнуть вниз — та же команда, что в списке |
 
 Никаких «если вид такой-то» внутри команды: где вида нет, команда сообщает о
 себе `isExecutable() == false`, и клавиша достаётся объявленным следом — «в
@@ -265,7 +265,6 @@ CommandRegistry.dispatch(combination, app)
 | Клавиша | Команда | Действие |
 |---|---|---|
 | `Space` | `panel.selection.toggle` | инвертировать пометку и сдвинуть курсор вниз |
-| `Ins` | `panel.selection.toggle` | то же (для внешних клавиатур) |
 | `Shift-Space` | `panel.selection.toggleInPlace` | пометить, **не сходя с места**: курсор остаётся на помеченном |
 | `Esc` | `panel.cancel` / `panel.selection.clear` | прервать операцию, а если панель свободна — снять пометку |
 | `Ctrl-S` | `panel.quickSearch` | быстрый поиск: курсор идёт за набранным; повторно — к следующему |
@@ -314,15 +313,15 @@ CommandRegistry.dispatch(combination, app)
 | `F5` | `file.copy` | копировать выбранное в каталог пассивной панели |
 | `F6` | `file.move` | перенести |
 | `Shift-F6` | `file.rename` | переименовать объект под курсором |
-| `F7`, `Shift-Cmd-N` | `file.mkdir` | создать каталог (в просмотрщике и редакторе `F7` — поиск: клавиша принадлежит экрану) |
-| `F8`, `Cmd-Backspace` | `file.remove` | удалить в корзину |
-| `Shift-F8`, `Shift-Cmd-Backspace` | `file.removePermanently` | удалить мимо корзины |
+| `F7` | `file.mkdir` | создать каталог (в просмотрщике и редакторе `F7` — поиск: клавиша принадлежит экрану) |
+| `F8` | `file.remove` | удалить в корзину |
+| `Shift-F8` | `file.removePermanently` | удалить мимо корзины |
 | `F3` | `file.view` | просмотр файла во весь экран (`docs/screens.md`) |
 | `Shift-F3` | `viewer.quickView` | быстрый просмотр в соседней панели; `Tab` уводит в него ввод |
 | `F4` | `file.edit` | правка файла во весь экран (`docs/screens.md`) |
-| `Cmd-I`, `Alt-Enter` | `file.info` | всё, что известно об объекте: имя, путь, тип, размер, даты, права |
+| `Alt-Enter` | `file.info` | всё, что известно об объекте: имя, путь, тип, размер, даты, права |
 | `Alt-Cmd-C` | `file.copyPath` | адрес объекта в буфер обмена строкой — тот, что показывает панель; помеченное по строке на объект |
-| `Ctrl-A`, `Cmd-Shift-I` | `file.attributes` | правка атрибутов: права, даты, владелец, расширенные |
+| `Ctrl-A` | `file.attributes` | правка атрибутов: права, даты, владелец, расширенные |
 | `F9`, `Cmd-,` | `app.settings` | настройки: всё, что человек выбирает, в одном окне |
 | `Cmd-Shift-P` | `app.commands` | палитра: всё, что приложение умеет сейчас, по названию и с описанием |
 | `F1` | `app.help` | справка: настройки и привязки клавиш таблицей |
@@ -402,8 +401,9 @@ CommandRegistry.dispatch(combination, app)
 `Cmd-H` на macOS забирает главное меню приложения («Hide APP_NAME», см.
 `macos/Runner/Base.lproj/MainMenu.xib`) — до окна такое нажатие не доходит вовсе,
 и команда, привязанная только к нему, выглядит несуществующей. Поэтому у показа
-скрытых объектов основное сочетание `Cmd-Shift-H`, а `Cmd-H` остаётся ради Windows
-и Linux, где он разбирается как `Ctrl-H`.
+скрытых объектов сочетание `Cmd-Shift-H`, а `Cmd-H` не берётся вовсе — даже
+вторым: клавиша, которая не доходит, в умолчаниях бесполезна. На Windows и Linux
+её раздаст набор «far», где это `Ctrl-H`.
 
 Там же заняты `Cmd-Q` (выход), `Cmd-M` (свернуть), `Cmd-W` (закрыть окно) и
 `Cmd-Alt-H` («Hide Others») — на них вешать команды нельзя.
@@ -416,10 +416,9 @@ macOS, на Windows и Linux может оказаться занятым — т
 Far Manager, на macOS свободная (пометить всё там `Cmd-A`), — на прочих системах
 достаётся как раз пометке, и она старше и привычнее.
 
-Поэтому у `file.attributes` два сочетания: `Ctrl-A` там, где оно свободно, и
-`Cmd-Shift-I` рядом с `Cmd-I` — «то же окно, но с правкой». Тот же приём, что у
-показа скрытых объектов, только причина зеркальная: там второе сочетание
-заведено ради Windows и Linux, здесь — основное свободно только на macOS.
+Второго сочетания у `file.attributes` нет: одна клавиша на дело
+([`spec/key-presets.md`](spec/key-presets.md), §3). Прочие привычки раздаёт
+набор, и `Cmd-Shift-I` стоит в наборе «Finder», а не в умолчаниях.
 
 **Проверять свободу сочетания надо по обоим прочтениям.** Поиск по коду строки
 `Ctrl-A` ничего не находит: пометка объявлена как `Cmd-A`.
@@ -452,8 +451,10 @@ Far Manager, на macOS свободная (пометить всё там `Cmd-
 
 По умолчанию F1…F12 перехватываются системой (яркость, громкость). В README проекта
 нужно указать: включить *System Settings → Keyboard → «Use F1, F2, etc. keys as standard
-function keys»*, либо пользоваться `Fn+F5`. Поэтому у файловых команд есть привычные
-для macOS дубли: `Shift-Cmd-N` (создать каталог), `Cmd-Backspace` (удалить).
+function keys»*, либо пользоваться `Fn+F5`.
+
+Привычных для macOS дублей у файловых команд **нет**: одна клавиша на дело, а
+привычки раздаёт набор «Finder» ([`spec/key-presets.md`](spec/key-presets.md)).
 
 ## 3. Нижняя панель — это нарисованная клавиатура
 
@@ -639,14 +640,14 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 | `terminal.runNode` | `Enter` | под курсором файл с `+x` на настоящей ФС, настройка включена |
 | `panel.open` | `Enter` | есть объект под курсором |
 | `panel.openWithSystem` | — | `Cmd-O` | есть объект под курсором |
-| `panel.up` | `Bsp`, `Cmd-Up` | у каталога есть родитель |
+| `panel.up` | `Bsp` | у каталога есть родитель |
 | `panel.root` | `Cmd-/` | не в корне |
-| `panel.history.back` | `Cmd-[`, `Alt-Left` | панель уже где-то была до этого |
-| `panel.history.forward` | `Cmd-]`, `Alt-Right` | до этого возвращались назад |
+| `panel.history.back` | `Alt-Left` | панель уже где-то была до этого |
+| `panel.history.forward` | `Alt-Right` | до этого возвращались назад |
 | `panel.history.choose` | `Alt-Down` | в истории больше одного шага |
 | `panel.reload` | `Cmd-R` | панель не занята |
-| `panel.toggleHidden` | `Cmd-Shift-H`, `Cmd-H` | всегда |
-| `panel.selection.toggle` | `Space`, `Ins` | под курсором не `..` |
+| `panel.toggleHidden` | `Cmd-Shift-H` | всегда |
+| `panel.selection.toggle` | `Space` | под курсором не `..` |
 | `panel.selection.clear` | `Esc` | есть пометка |
 | `panel.quickSearch` | `Ctrl-S` | список не пуст |
 | `panel.quickSearch.type` | любая буква | идёт быстрый поиск |
@@ -660,10 +661,10 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 | `panel.selection.deselectByMask` | `-` | то же и есть пометка |
 | `panel.cancel` | `Esc` | панель занята длительной операцией |
 | `file.rename` | `Shift-F6` | под курсором объект (не `..`), и провайдер умеет переименовывать |
-| `file.info` | `Cmd-I`, `Alt-Enter` | есть цель, отличная от «..» |
+| `file.info` | `Alt-Enter` | есть цель, отличная от «..» |
 | `file.copyPath` | `Alt-Cmd-C` | то же, и буфер обмена есть |
-| `file.attributes` | `Ctrl-A`, `Cmd-Shift-I` | то же, панель не занята и провайдер умеет писать |
-| `file.mkdir` | `F7`, `Shift-Cmd-N` | панель не занята и провайдер умеет писать |
+| `file.attributes` | `Ctrl-A` | то же, панель не занята и провайдер умеет писать |
+| `file.mkdir` | `F7` | панель не занята и провайдер умеет писать |
 | `file.remove` | `F8`, `Cmd-Bsp` | выбран объект, отличный от «..» |
 | `file.removePermanently` | `Shift-F8`, `Shift-Cmd-Bsp` | то же |
 | `file.copy` | `F5` | то же |

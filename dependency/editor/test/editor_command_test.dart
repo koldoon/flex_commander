@@ -179,13 +179,13 @@ void main() {
       await answer(yes: false);
     });
 
-    test('Cmd-S спрашивает то же самое, что и F2', () async {
-      // Одна команда — одна повадка: `Cmd-S` соседей по ряду не имеет, но
-      // разное поведение у одной команды запрещено сквозным правилом.
+    test('сохранение — на F2, а Cmd-S раздаёт набор', () async {
+      // Одна клавиша на дело: привычку macOS возвращает набор «Finder»
+      // (`docs/spec/key-presets.md`, §3).
       await edit('notes.txt');
 
-      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-S'))?.id, SaveFileCommand.commandId);
       expect(runtime.commands.commandFor(KeyCombination.parse('F2'))?.id, SaveFileCommand.commandId);
+      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-S')), isNull);
     });
 
     test('не записалось — окно остаётся и говорит почему', () async {
@@ -468,10 +468,10 @@ void main() {
       await edit('notes.txt');
 
       expect(runtime.commands.commandFor(KeyCombination.parse('F7'))?.id, TextEditor.findCommandId);
-      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-F'))?.id, TextEditor.findCommandId);
       expect(runtime.commands.commandFor(KeyCombination.parse('Shift-F7'))?.id, TextEditor.findNextCommandId);
-      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-G'))?.id, TextEditor.findNextCommandId);
       expect(runtime.commands.commandFor(KeyCombination.parse('Shift-Cmd-G'))?.id, TextEditor.findPreviousCommandId);
+      // `Cmd-F` и `Cmd-G` прополоты: привычку macOS возвращает набор «Finder».
+      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-F')), isNull);
     });
 
     test('панельные клавиши в редакторе молчат', () async {

@@ -232,11 +232,9 @@ class TextViewer implements FcFrontendModule {
       KeyBinding.inState<TextViewerScreen>('F9', ToggleLineNumbersCommand.commandId, context: KeyContext.textViewer),
     );
     registry.binding(KeyBinding.inState<TextViewerScreen>('F7', findCommandId, context: KeyContext.textViewer));
-    registry.binding(KeyBinding.inState<TextViewerScreen>('Cmd-F', findCommandId, context: KeyContext.textViewer));
     registry.binding(
       KeyBinding.inState<TextViewerScreen>('Shift-F7', findNextCommandId, context: KeyContext.textViewer),
     );
-    registry.binding(KeyBinding.inState<TextViewerScreen>('Cmd-G', findNextCommandId, context: KeyContext.textViewer));
     registry.binding(
       KeyBinding.inState<TextViewerScreen>('Shift-Cmd-G', findPreviousCommandId, context: KeyContext.textViewer),
     );

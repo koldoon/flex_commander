@@ -81,7 +81,7 @@ void main() {
     expect(runtime.app.left.currentPath, '/home/documents');
 
     // Обычный переход, а не особый случай: «назад» возвращает (§5).
-    runtime.commands.dispatch(KeyCombination.parse('Cmd-['));
+    runtime.commands.dispatch(KeyCombination.parse('Alt-Left'));
     await tester.pumpAndSettle();
 
     expect(runtime.app.left.currentPath, '/home/documents/projects/commander');

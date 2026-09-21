@@ -55,11 +55,8 @@ class FileOps implements FcFrontendModule {
     // На macOS F-клавиши по умолчанию отданы системе (F7 — «предыдущий трек»),
     // и до приложения нажатие не доходит. Привычное сочетание из Finder
     // работает без настройки клавиатуры.
-    registry.binding(KeyBinding('Shift-Cmd-N', MakeDirectoryCommand.commandId, context: KeyContext.panel));
     registry.binding(KeyBinding('F8', RemoveCommand.commandId, context: KeyContext.panel));
     registry.binding(KeyBinding('Shift-F8', RemovePermanentlyCommand.commandId, context: KeyContext.panel));
-    registry.binding(KeyBinding('Cmd-Bsp', RemoveCommand.commandId, context: KeyContext.panel));
-    registry.binding(KeyBinding('Shift-Cmd-Bsp', RemovePermanentlyCommand.commandId, context: KeyContext.panel));
     // То же сочетание, что у «Copy as Pathname» в Finder: кто пришёл оттуда,
     // получает привычку без настройки.
     registry.binding(KeyBinding('Alt-Cmd-C', CopyPathCommand.commandId, context: KeyContext.panel));

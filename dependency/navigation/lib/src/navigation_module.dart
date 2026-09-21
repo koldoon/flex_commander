@@ -127,7 +127,6 @@ class Navigation implements FcFrontendModule {
     // и тогда `Bsp` уводит наверх, как и всегда.
     registry.binding(KeyBinding('Bsp', QuickSearchEraseCommand.commandId));
     registry.binding(KeyBinding('Bsp', GoUpCommand.commandId, context: KeyContext.panel));
-    registry.binding(KeyBinding('Cmd-Up', GoUpCommand.commandId, context: KeyContext.panel));
     registry.binding(KeyBinding('Cmd-/', GoToRootCommand.commandId, context: KeyContext.panel));
     // Клавиши у «Центра» нет, а назначить её можно: привязка без клавиши
     // говорит только о том, в каком разделе команда стоит
@@ -138,9 +137,7 @@ class Navigation implements FcFrontendModule {
     // браузеров, `Alt-←`/`Alt-→` из Total Commander
     // (`docs/spec/session-history.md`, §8). Голые `Left`/`Right` заняты
     // переходом в начало и конец списка, но с модификатором они свободны.
-    registry.binding(KeyBinding('Cmd-[', GoBackCommand.commandId, context: KeyContext.panel));
     registry.binding(KeyBinding('Alt-Left', GoBackCommand.commandId, context: KeyContext.panel));
-    registry.binding(KeyBinding('Cmd-]', GoForwardCommand.commandId, context: KeyContext.panel));
     registry.binding(KeyBinding('Alt-Right', GoForwardCommand.commandId, context: KeyContext.panel));
     // Выпадающая история каталога — оттуда же, из Total Commander.
     registry.binding(KeyBinding('Alt-Down', ChooseHistoryCommand.commandId, context: KeyContext.panel));
@@ -151,6 +148,7 @@ class Navigation implements FcFrontendModule {
       KeyBinding(
         'Cmd-F1',
         OpenPathCommand.commandId,
+        id: 'panel.openPath.left',
         parameters: {OpenPathCommand.panelParam: OpenPathCommand.leftPanel},
         context: KeyContext.panel,
       ),
@@ -159,6 +157,7 @@ class Navigation implements FcFrontendModule {
       KeyBinding(
         'Cmd-F2',
         OpenPathCommand.commandId,
+        id: 'panel.openPath.right',
         parameters: {OpenPathCommand.panelParam: OpenPathCommand.rightPanel},
         context: KeyContext.panel,
       ),
@@ -168,7 +167,6 @@ class Navigation implements FcFrontendModule {
     // окна нажатие не доходит вовсе. Поэтому основное сочетание — `Cmd-Shift-H`;
     // `Cmd-H` остаётся ради Windows и Linux, где он разбирается как `Ctrl-H`.
     registry.binding(KeyBinding('Cmd-Shift-H', ToggleHiddenCommand.commandId, context: KeyContext.panel));
-    registry.binding(KeyBinding('Cmd-H', ToggleHiddenCommand.commandId, context: KeyContext.panel));
 
     // Быстрый поиск — из `mc`. Его `Esc` и `Backspace` идут **раньше** всех
     // прочих: пока набирают имя, эти клавиши принадлежат набору, а невыполнимы
@@ -195,14 +193,17 @@ class Navigation implements FcFrontendModule {
     registry.binding(KeyBinding('Space', ToggleMarkCommand.commandId, context: KeyContext.panel));
     // Пометка на месте: тот же пробел, но курсор остаётся на помеченном.
     registry.binding(KeyBinding('Shift-Space', ToggleMarkInPlaceCommand.commandId, context: KeyContext.panel));
-    registry.binding(KeyBinding('Ins', ToggleMarkCommand.commandId, context: KeyContext.panel));
     registry.binding(KeyBinding('Cmd-A', SelectAllCommand.commandId, context: KeyContext.panel));
     registry.binding(KeyBinding('Cmd-Shift-A', SelectFilesCommand.commandId, context: KeyContext.panel));
     // Пометка по маске. На маке `+` — это `Shift-=`: отдельной клавиши `+` на
     // основной клавиатуре нет, а на цифровом блоке есть своя. В справке пишется
     // `+` — то, что человек нажимает, а не то, как это называется внутри.
     registry.binding(KeyBinding('Shift-=', SelectByMaskCommand.commandId, context: KeyContext.panel));
-    registry.binding(KeyBinding('+', SelectByMaskCommand.commandId, context: KeyContext.panel));
+    registry.binding(
+      // Своё имя: это **другая клавиша**, а не другая привычка — плюс на
+      // цифровом блоке (`docs/spec/key-presets.md`, §3).
+      KeyBinding('+', SelectByMaskCommand.commandId, id: 'panel.selection.selectByMask.pad', context: KeyContext.panel),
+    );
     registry.binding(KeyBinding('-', DeselectByMaskCommand.commandId, context: KeyContext.panel));
 
     // Переход к имени по набранному символу. Стоит после привязок к конкретным

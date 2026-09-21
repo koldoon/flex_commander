@@ -41,35 +41,44 @@ class Presets {
     return preset;
   }
 
-  /// Применить набор: настройки становятся **ровно такими**, как в нём.
+  /// Применить набор **накладкой**: меняется ровно то, о чём он говорит.
   ///
-  /// Поле, о котором набор молчит, возвращается к умолчанию. Так честнее, чем
-  /// накладка: набор из прошлого выпуска не знает о новых полях, а чужой — о
-  /// выключенных модулях, и «оставить как было» означало бы, что один и тот же
-  /// файл у двух человек даёт разное (`docs/spec/settings-presets.md`, §4).
+  /// Поле, о котором набор молчит, не трогается — ни к умолчанию, ни к
+  /// чему-либо ещё. Иначе набор клавиш «как в mc» сбрасывал бы тему и язык, о
+  /// которых он и не думал говорить (`docs/spec/settings-presets.md`, §4).
   void apply(Preset preset) {
     for (final page in _pages) {
       final schema = page.build();
       var touched = false;
       for (final field in schema.fields) {
-        if (field.value == null) {
-          // Значения у поля нет вовсе — кнопка или клавиши.
-          continue;
-        }
         final value = preset.valueOf(page.id, field.id);
         if (value == null) {
-          field.resetToDefault();
-        } else {
-          field.apply(value);
+          continue;
         }
+        field.apply(value);
         touched = true;
       }
       if (touched) {
         schema.save();
       }
     }
-    // Клавиши — своим списком, целиком: он и есть выбор человека.
-    _app.setKeyOverrides(preset.keys);
+    _applyKeys(preset.keys);
+  }
+
+  /// Клавиши — слиянием по имени привязки: что набор назвал, то и меняется.
+  ///
+  /// Своё переназначение соседней клавиши остаётся на месте: накладка кладётся
+  /// поверх, а не вместо.
+  void _applyKeys(List<KeyOverride> keys) {
+    if (keys.isEmpty) {
+      return;
+    }
+    final named = {for (final override in keys) override.binding};
+    _app.setKeyOverrides([
+      for (final override in _app.keyOverrides)
+        if (!named.contains(override.binding)) override,
+      ...keys,
+    ]);
   }
 
   /// Выбрать набор по имени и применить его; пустое имя — снять выбор.

@@ -258,12 +258,11 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
     }
     // Пустая или негодная строка — «клавиши нет»: привязка остаётся в списке,
     // но не совпадёт ни с одним нажатием.
-    return declared.withKeys(KeyCombination.tryParse(override.now) ?? KeyCombination.none);
+    return declared.withKeys(KeyCombination.tryParse(override.key) ?? KeyCombination.none);
   }
 
-  /// Та ли это привязка: команда и **прежняя** комбинация.
-  bool _matches(KeyOverride override, KeyBinding declared) =>
-      override.command == declared.commandId && override.was == declared.keys.toString();
+  /// Та ли это привязка: сравнивается имя, и только оно.
+  bool _matches(KeyOverride override, KeyBinding declared) => override.binding == declared.id;
 
   /// Снимает все привязки команды — например, при переназначении клавиш.
   @override

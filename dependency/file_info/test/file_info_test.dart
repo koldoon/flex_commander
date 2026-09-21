@@ -94,9 +94,9 @@ void main() {
   }
 
   group('окно', () {
-    test('Cmd-I и Alt-Enter открывают сведения', () async {
-      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-I'))?.id, FileInfoCommand.commandId);
+    test('Alt-Enter открывает сведения, а Cmd-I раздаёт набор', () async {
       expect(runtime.commands.commandFor(KeyCombination.parse('Alt-Enter'))?.id, FileInfoCommand.commandId);
+      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-I')), isNull);
     });
 
     test('команда и правда показывает окно', () async {

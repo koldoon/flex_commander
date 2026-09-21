@@ -18,14 +18,22 @@ class KeyBinding {
   /// Умолчание, потому что клавиша принадлежит тому, что сейчас на экране, а
   /// по умолчанию это панели. Иначе `F5` копировал бы файлы из-под открытого
   /// просмотрщика, а ряд кнопок обещал бы то, чего не будет.
-  KeyBinding(String keys, this.commandId, {this.nameMatch, this.parameters = const {}, this.context})
+  KeyBinding(String keys, this.commandId, {String? id, this.nameMatch, this.parameters = const {}, this.context})
     : keys = KeyCombination.parse(keys),
+      id = id ?? commandId,
       characterParam = null,
       inContent = _inPanel;
 
-  const KeyBinding.combination(this.keys, this.commandId, {this.nameMatch, this.parameters = const {}, this.context})
-    : characterParam = null,
-      inContent = _inPanel;
+  const KeyBinding.combination(
+    this.keys,
+    this.commandId, {
+    String? id,
+    this.nameMatch,
+    this.parameters = const {},
+    this.context,
+  }) : id = id ?? commandId,
+       characterParam = null,
+       inContent = _inPanel;
 
   /// Привязка, действующая при содержимом типа [S].
   ///
@@ -36,12 +44,14 @@ class KeyBinding {
   static KeyBinding inState<S extends ViewportState>(
     String keys,
     String commandId, {
+    String? id,
     RegExp? nameMatch,
     Map<String, Object?> parameters = const {},
     KeyContext? context,
   }) => KeyBinding._(
     KeyCombination.parse(keys),
     commandId,
+    id: id,
     nameMatch: nameMatch,
     parameters: parameters,
     inContent: (state) => state is S,
@@ -52,9 +62,17 @@ class KeyBinding {
   static KeyBinding anywhere(
     String keys,
     String commandId, {
+    String? id,
     Map<String, Object?> parameters = const {},
     KeyContext? context,
-  }) => KeyBinding._(KeyCombination.parse(keys), commandId, parameters: parameters, inContent: null, context: context);
+  }) => KeyBinding._(
+    KeyCombination.parse(keys),
+    commandId,
+    id: id,
+    parameters: parameters,
+    inContent: null,
+    context: context,
+  );
 
   /// Привязка **без клавиши**: команда есть, вызывать её нечем.
   ///
@@ -68,18 +86,20 @@ class KeyBinding {
   static KeyBinding unbound(
     String commandId, {
     required KeyContext context,
+    String? id,
     Map<String, Object?> parameters = const {},
-  }) => KeyBinding._(KeyCombination.none, commandId, parameters: parameters, inContent: null, context: context);
+  }) => KeyBinding._(KeyCombination.none, commandId, id: id, parameters: parameters, inContent: null, context: context);
 
-  const KeyBinding._(
+  KeyBinding._(
     this.keys,
     this.commandId, {
+    String? id,
     this.nameMatch,
     this.parameters = const {},
     required this.inContent,
     this.characterParam,
     this.context,
-  });
+  }) : id = id ?? commandId;
 
   /// Привязка к любому печатному символу: набранный символ приходит команде
   /// параметром [characterParam].
@@ -93,11 +113,23 @@ class KeyBinding {
     this.characterParam = 'character',
     this.parameters = const {},
     this.context,
-  }) : keys = KeyCombination.anyCharacter,
+  }) : id = commandId,
+       keys = KeyCombination.anyCharacter,
        nameMatch = null,
        inContent = _inPanel;
 
   static bool _inPanel(ViewportState state) => state is Session;
+
+  /// Чем эта привязка зовётся: по умолчанию — идентификатор команды.
+  ///
+  /// **Привязка это дело**: вызов команды с конкретными значениями. Своё имя
+  /// нужно там, где у команды дел несколько: `Cmd-1`…`Cmd-6` это одна команда
+  /// «вид панели» с разными значениями, и переназначению надо попасть ровно в
+  /// одно из них (`docs/spec/key-bindings.md`, §3).
+  ///
+  /// Двух настраиваемых привязок с одним именем не бывает — это стережёт
+  /// доктринальный тест, он же и правило «одна клавиша на дело».
+  final String id;
 
   final KeyCombination keys;
 
@@ -179,6 +211,7 @@ class KeyBinding {
   KeyBinding withKeys(KeyCombination combination) => KeyBinding._(
     combination,
     commandId,
+    id: id,
     nameMatch: nameMatch,
     parameters: parameters,
     inContent: inContent,
@@ -214,7 +247,7 @@ class KeyBinding {
   }
 
   @override
-  String toString() => '$keys → $commandId${context == null ? '' : ' [${context!.name}]'}';
+  String toString() => '$keys → $id${context == null ? '' : ' [${context!.name}]'}';
 }
 
 /// Условия, в которых выполняется команда: активная панель и объекты, с

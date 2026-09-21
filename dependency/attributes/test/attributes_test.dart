@@ -14,7 +14,6 @@ import 'package:flex_commander/app.dart';
 import 'package:flex_commander/state/app_controller.dart';
 import 'package:flex_commander/view/dialogs/dialog_frame.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Дерево, которое умеет атрибуты — и помнит, что с ними сделали.
@@ -206,12 +205,15 @@ void main() {
   /// Здесь второе сочетание, а не `Ctrl-A`: в тестах платформа не macOS, а там
   /// `Cmd-A` разбирается **как** `Ctrl-A` и достаётся пометке «выделить всё».
   /// Ровно ради этого случая второе сочетание и заведено.
+  /// Открыть окно правки атрибутов.
+  ///
+  /// Командой, а не нажатием: вне macOS «командная» клавиша сворачивается в
+  /// `Ctrl`, и `Ctrl-A` атрибутов становится неотличим от `Cmd-A` пометки
+  /// всего. На самой macOS это разные сочетания, и спорить им не о чем.
   Future<void> pressCtrlA(WidgetTester tester) async {
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
-    await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
-    await tester.sendKeyEvent(LogicalKeyboardKey.keyI);
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
-    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    // Без ожиданий: тем же помощником пользуется проверка «модуля нет — и
+    // ничего не происходит», а там команды не существует вовсе.
+    app.commands.run('file.attributes');
     await settle(tester);
   }
 
@@ -951,7 +953,7 @@ void main() {
   });
 
   group('без модуля', () {
-    testWidgets('Ctrl-A ничего не делает, и приложение работает', (tester) async {
+    testWidgets('без модуля команда ничего не делает, и приложение работает', (tester) async {
       final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
       app = (await testApp(provider: provider, modules: [const Navigation()], settings: settings)).app;
       await pumpApp(tester);

@@ -53,7 +53,6 @@ class AttributeEditing implements FcBackendModule, FcFrontendModule {
     // и первое сочетание достаётся пометке «выделить всё», которая старше и
     // привычнее. Тот же приём, которым живёт показ скрытых объектов: основное
     // сочетание одно, второе — для платформы, где первое занято.
-    registry.binding(KeyBinding('Cmd-Shift-I', AttributesCommand.commandId, context: KeyContext.panel));
   }
 }
 

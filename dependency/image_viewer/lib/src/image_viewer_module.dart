@@ -112,12 +112,15 @@ class ImageViewer implements FcFrontendModule {
       KeyBinding.inState<ImageViewerScreen>('F2', ToggleImageFitCommand.commandId, context: KeyContext.imageViewer),
     );
     // Приближение — и на `+`, и на `=`: на большинстве раскладок плюс требует
-    // Shift, а привычка из браузеров говорит именно про эту клавишу.
-    for (final key in ['+', '=']) {
+    // Shift, а привычка из браузеров говорит именно про эту клавишу. Это
+    // **разные клавиши**, а не две привычки, поэтому у каждой своё имя
+    // (`docs/spec/key-presets.md`, §3).
+    for (final (key, id) in [('+', 'image.zoom.in.pad'), ('=', 'image.zoom.in')]) {
       registry.binding(
         KeyBinding.inState<ImageViewerScreen>(
           key,
           ZoomImageCommand.commandId,
+          id: id,
           parameters: {ZoomImageCommand.factorParam: ImageViewerScreen.zoomStep},
           context: KeyContext.imageViewer,
         ),
@@ -127,6 +130,7 @@ class ImageViewer implements FcFrontendModule {
       KeyBinding.inState<ImageViewerScreen>(
         '-',
         ZoomImageCommand.commandId,
+        id: 'image.zoom.out',
         parameters: {ZoomImageCommand.factorParam: 1 / ImageViewerScreen.zoomStep},
         context: KeyContext.imageViewer,
       ),
@@ -138,11 +142,11 @@ class ImageViewer implements FcFrontendModule {
     // Только во весь экран: в быстром просмотре они принадлежат панели, и
     // следующая картинка появляется оттого, что курсор пошёл вниз. Решает это
     // сама команда — привязка объявляется на тип, а мест у него два.
+    //
+    // Вбок, а не вниз: ряд снимков лежит горизонтально, и одно дело — одна
+    // клавиша (`docs/spec/key-presets.md`, §3).
     registry.binding(
       KeyBinding.inState<ImageViewerScreen>('Right', StepImageCommand.nextCommandId, context: KeyContext.imageViewer),
-    );
-    registry.binding(
-      KeyBinding.inState<ImageViewerScreen>('Down', StepImageCommand.nextCommandId, context: KeyContext.imageViewer),
     );
     registry.binding(
       KeyBinding.inState<ImageViewerScreen>(
@@ -150,9 +154,6 @@ class ImageViewer implements FcFrontendModule {
         StepImageCommand.previousCommandId,
         context: KeyContext.imageViewer,
       ),
-    );
-    registry.binding(
-      KeyBinding.inState<ImageViewerScreen>('Up', StepImageCommand.previousCommandId, context: KeyContext.imageViewer),
     );
   }
 

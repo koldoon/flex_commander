@@ -35,7 +35,7 @@ void main() {
   String? commandOn(AppRuntime runtime, String keys) => runtime.commands.commandFor(KeyCombination.parse(keys))?.id;
 
   test('переназначенная клавиша действует с самого запуска', () async {
-    final runtime = await build(keys: [KeyOverride(command: 'file.copy', was: 'F5', now: 'Ctrl-Shift-C')]);
+    final runtime = await build(keys: [KeyOverride(binding: 'file.copy', key: 'Ctrl-Shift-C')]);
 
     expect(commandOn(runtime, 'Ctrl-Shift-C'), 'file.copy');
     expect(commandOn(runtime, 'F5'), isNot('file.copy'), reason: 'прежняя клавиша всё ещё копирует');
@@ -46,11 +46,11 @@ void main() {
     final runtime = await build(store: store);
     expect(commandOn(runtime, 'F5'), 'file.copy');
 
-    runtime.app.setKeyOverrides([KeyOverride(command: 'file.copy', was: 'F5', now: 'Ctrl-Shift-C')]);
+    runtime.app.setKeyOverrides([KeyOverride(binding: 'file.copy', key: 'Ctrl-Shift-C')]);
     await runtime.app.save();
 
     expect(commandOn(runtime, 'Ctrl-Shift-C'), 'file.copy', reason: 'клавиша не подействовала сразу');
-    expect(store.saved?.keys.single.now, 'Ctrl-Shift-C', reason: 'выбор не доехал до настроек');
+    expect(store.saved?.keys.single.key, 'Ctrl-Shift-C', reason: 'выбор не доехал до настроек');
 
     // Перезапуск: те же настройки, новое приложение.
     final second = await testApp(
@@ -64,7 +64,7 @@ void main() {
   });
 
   test('возврат умолчаний возвращает клавишу', () async {
-    final runtime = await build(keys: [KeyOverride(command: 'file.copy', was: 'F5', now: 'Ctrl-Shift-C')]);
+    final runtime = await build(keys: [KeyOverride(binding: 'file.copy', key: 'Ctrl-Shift-C')]);
 
     runtime.app.setKeyOverrides([]);
 
@@ -72,12 +72,30 @@ void main() {
     expect(commandOn(runtime, 'Ctrl-Shift-C'), isNull);
   });
 
+  test('у двух настраиваемых привязок не бывает одного имени', () async {
+    // Имя — то, чем переназначение и набор целятся в дело
+    // (`docs/spec/key-bindings.md`, §3). Два дела с одним именем означали бы,
+    // что выбор человека попадает не туда; заодно это стережёт правило «одна
+    // клавиша на дело».
+    final runtime = await build();
+    final seen = <String, KeyBinding>{};
+
+    for (final binding in runtime.commands.declaredBindings) {
+      if (binding.context == null) {
+        continue;
+      }
+      final twin = seen[binding.id];
+      expect(twin, isNull, reason: 'имя «${binding.id}» занято дважды: $twin и $binding');
+      seen[binding.id] = binding;
+    }
+  });
+
   test('ряд кнопок и справка узнают новое сами', () async {
     final runtime = await build();
     var told = 0;
     runtime.commands.addListener(() => told++);
 
-    runtime.app.setKeyOverrides([KeyOverride(command: 'file.copy', was: 'F5', now: 'Ctrl-Shift-C')]);
+    runtime.app.setKeyOverrides([KeyOverride(binding: 'file.copy', key: 'Ctrl-Shift-C')]);
 
     expect(told, greaterThan(0), reason: 'реестр промолчал, и подписанные на него остались со старым');
     expect(runtime.commands.bindingsOf('file.copy').single.keys.toString(), 'Ctrl-Shift-C');

@@ -177,7 +177,16 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     registry.binding(KeyBinding('F9', SettingsCommand.commandId, context: KeyContext.panel));
     // Привычка macOS. Действует и в просмотрщике, и в редакторе: настройки —
     // не про то, что сейчас на экране.
-    registry.binding(KeyBinding.anywhere('Cmd-,', SettingsCommand.commandId, context: KeyContext.everywhere));
+    registry.binding(
+      // Своё имя: настройки объявлены дважды — клавишей ряда и привычкой
+      // macOS, — и это разные дела в разных контекстах.
+      KeyBinding.anywhere(
+        'Cmd-,',
+        SettingsCommand.commandId,
+        id: 'app.settings.anywhere',
+        context: KeyContext.everywhere,
+      ),
+    );
 
     // Клавиши: своё окно, а открывают его кнопкой из настроек и из палитры.
     // Своей клавиши у него нет — `Alt-F9` живьём до приложения не дошёл, и
@@ -212,6 +221,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
         KeyBinding(
           'Alt-$number',
           SelectSessionCommand.commandId,
+          id: 'panel.sessions.select.$number',
           parameters: {SelectSessionCommand.numberParam: '$number'},
           context: KeyContext.panel,
         ),

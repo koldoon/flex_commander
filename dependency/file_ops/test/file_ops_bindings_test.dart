@@ -26,11 +26,12 @@ void main() {
     expect(commands.commandFor(KeyCombination.parse('F8'))?.id, 'file.remove');
   });
 
-  test('у macOS есть свои сочетания', () {
-    // F-клавиши там по умолчанию отданы системе, и до окна нажатие не доходит.
-    expect(commands.commandFor(KeyCombination.parse('Shift-Cmd-N'))?.id, 'file.mkdir');
-    expect(commands.commandFor(KeyCombination.parse('Cmd-Bsp'))?.id, 'file.remove');
-    expect(commands.commandFor(KeyCombination.parse('Shift-Cmd-Bsp'))?.id, 'file.removePermanently');
+  test('маковские сочетания раздаёт набор, а не умолчание', () {
+    // Одна клавиша на дело: привычки закрываются набором «Finder»
+    // (`docs/spec/key-presets.md`, §3).
+    expect(commands.commandFor(KeyCombination.parse('Shift-Cmd-N')), isNull);
+    expect(commands.commandFor(KeyCombination.parse('Cmd-Bsp')), isNull);
+    expect(commands.commandFor(KeyCombination.parse('Shift-Cmd-Bsp')), isNull);
   });
 
   test('длительные операции есть в списке команд', () {

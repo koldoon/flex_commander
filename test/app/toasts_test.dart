@@ -111,13 +111,15 @@ void main() {
       return runtime;
     }
 
-    /// Нажимает `Cmd-H` — переключение показа скрытых файлов.
+    /// Нажимает `Cmd-Shift-H` — переключение показа скрытых файлов.
     ///
     /// Платформа в виджет-тестах не macOS, поэтому «командная» клавиша здесь
     /// Ctrl: ровно то, во что `KeyCombination` сворачивает `Cmd` вне macOS.
     Future<void> toggleHidden(WidgetTester tester) async {
       await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.shiftLeft);
       await tester.sendKeyEvent(LogicalKeyboardKey.keyH);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.shiftLeft);
       await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
       await tester.pumpAndSettle();
     }

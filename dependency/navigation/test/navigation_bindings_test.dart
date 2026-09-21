@@ -69,19 +69,21 @@ void main() {
   });
 
   group('история переходов', () {
-    test('обе привычки ведут назад и вперёд', () async {
+    test('назад и вперёд — одной клавишей на дело', () async {
+      // Привычка Finder (`Cmd-[`) прополота: её возвращает набор
+      // (`docs/spec/key-presets.md`, §3).
       await app.start();
       await app.left.openPath('/home/docs');
       await pumpEventQueue();
 
-      expect(commands.commandFor(KeyCombination.parse('Cmd-['))?.id, GoBackCommand.commandId);
       expect(commands.commandFor(KeyCombination.parse('Alt-Left'))?.id, GoBackCommand.commandId);
+      expect(commands.commandFor(KeyCombination.parse('Cmd-[')), isNull);
 
-      commands.dispatch(KeyCombination.parse('Cmd-['));
+      commands.dispatch(KeyCombination.parse('Alt-Left'));
       await pumpEventQueue();
       expect(app.left.currentPath, '/home');
 
-      expect(commands.commandFor(KeyCombination.parse('Cmd-]'))?.id, GoForwardCommand.commandId);
+      expect(commands.commandFor(KeyCombination.parse('Alt-Right'))?.id, GoForwardCommand.commandId);
       commands.dispatch(KeyCombination.parse('Alt-Right'));
       await pumpEventQueue();
       expect(app.left.currentPath, '/home/docs');
@@ -93,15 +95,15 @@ void main() {
 
       // Привязка находится и в начале пути — иначе ряду кнопок нечего было бы
       // показать, — но выполнить её нельзя, и нажатие ничего не делает.
-      final back = commands.commandFor(KeyCombination.parse('Cmd-['));
+      final back = commands.commandFor(KeyCombination.parse('Alt-Left'));
       expect(back?.id, GoBackCommand.commandId);
       expect(commands.isExecutable(back!), isFalse, reason: 'из начала истории идти назад некуда');
 
-      commands.dispatch(KeyCombination.parse('Cmd-['));
+      commands.dispatch(KeyCombination.parse('Alt-Left'));
       await pumpEventQueue();
       expect(app.left.currentPath, where);
 
-      final forward = commands.commandFor(KeyCombination.parse('Cmd-]'));
+      final forward = commands.commandFor(KeyCombination.parse('Alt-Right'));
       expect(forward?.id, GoForwardCommand.commandId);
       expect(commands.isExecutable(forward!), isFalse, reason: 'вперёд некуда: не возвращались');
     });
@@ -159,11 +161,11 @@ void main() {
     expect(commands.commandFor(const KeyCombination('D'))?.id, 'panel.quickSearch.type');
   });
 
-  test('показ скрытых объектов доступен и на macOS', () {
+  test('показ скрытых объектов — на сочетании, которое доходит', () {
     // `Cmd-H` на macOS забирает системное меню приложения, и до окна нажатие
-    // не доходит: без второго сочетания команда была бы недоступна.
+    // не доходит вовсе: такой клавише в умолчаниях не место.
     expect(commands.commandFor(KeyCombination.parse('Cmd-Shift-H'))?.id, 'panel.toggleHidden');
-    expect(commands.bindingsOf('panel.toggleHidden'), hasLength(2));
+    expect(commands.bindingsOf('panel.toggleHidden'), hasLength(1));
   });
 
   test('Esc во время чтения отменяет операцию, а не снимает пометку', () async {

@@ -91,11 +91,8 @@ class TextEditor implements FcBackendModule, FcFrontendModule {
     registry.binding(KeyBinding.inState<EditorScreen>('F2', SaveFileCommand.commandId, context: KeyContext.editor));
     registry.binding(KeyBinding.inState<EditorScreen>('Esc', CloseEditorCommand.commandId));
     registry.binding(KeyBinding.inState<EditorScreen>('F10', CloseEditorCommand.commandId));
-    registry.binding(KeyBinding.inState<EditorScreen>('Cmd-S', SaveFileCommand.commandId, context: KeyContext.editor));
     registry.binding(KeyBinding.inState<EditorScreen>('F7', findCommandId, context: KeyContext.editor));
-    registry.binding(KeyBinding.inState<EditorScreen>('Cmd-F', findCommandId, context: KeyContext.editor));
     registry.binding(KeyBinding.inState<EditorScreen>('Shift-F7', findNextCommandId, context: KeyContext.editor));
-    registry.binding(KeyBinding.inState<EditorScreen>('Cmd-G', findNextCommandId, context: KeyContext.editor));
     registry.binding(
       KeyBinding.inState<EditorScreen>('Shift-Cmd-G', findPreviousCommandId, context: KeyContext.editor),
     );

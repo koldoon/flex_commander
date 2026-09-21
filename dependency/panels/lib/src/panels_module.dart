@@ -217,6 +217,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
       KeyBinding(
         'Alt-F1',
         ChoosePanelViewCommand.commandId,
+        id: 'panel.view.choose.left',
         parameters: {SetPanelViewCommand.panelParam: SetPanelViewCommand.leftPanel},
         context: KeyContext.panel,
       ),
@@ -225,6 +226,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
       KeyBinding(
         'Alt-F2',
         ChoosePanelViewCommand.commandId,
+        id: 'panel.view.choose.right',
         parameters: {SetPanelViewCommand.panelParam: SetPanelViewCommand.rightPanel},
         context: KeyContext.panel,
       ),
@@ -235,6 +237,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
       KeyBinding(
         'Cmd-1',
         SetPanelViewCommand.commandId,
+        id: 'panel.view.table',
         parameters: {SetPanelViewCommand.viewParam: PanelSettings.defaultView},
         context: KeyContext.panel,
       ),
@@ -251,6 +254,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
       KeyBinding(
         'Cmd-2',
         SetPanelViewCommand.commandId,
+        id: 'panel.view.brief',
         parameters: {SetPanelViewCommand.viewParam: BriefView.viewId},
         context: KeyContext.panel,
       ),
@@ -260,6 +264,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
       KeyBinding(
         'Cmd-3',
         SetPanelViewCommand.commandId,
+        id: 'panel.view.tree',
         parameters: {SetPanelViewCommand.viewParam: TreeView.viewId},
         context: KeyContext.panel,
       ),
@@ -269,6 +274,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
       KeyBinding(
         'Cmd-4',
         SetPanelViewCommand.commandId,
+        id: 'panel.view.combined',
         parameters: {SetPanelViewCommand.viewParam: CombinedView.viewId},
         context: KeyContext.panel,
       ),
@@ -278,6 +284,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
       KeyBinding(
         'Cmd-5',
         SetPanelViewCommand.commandId,
+        id: 'panel.view.icons',
         parameters: {SetPanelViewCommand.viewParam: IconsView.viewId},
         context: KeyContext.panel,
       ),
@@ -287,6 +294,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
       KeyBinding(
         'Cmd-6',
         SetPanelViewCommand.commandId,
+        id: 'panel.view.columns',
         parameters: {SetPanelViewCommand.viewParam: ColumnsView.viewId},
         context: KeyContext.panel,
       ),

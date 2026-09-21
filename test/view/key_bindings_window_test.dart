@@ -233,7 +233,7 @@ void main() {
     // Он про **эту** настройку, и место ему при её подписи — как у всех
     // прочих настроек.
     await pumpApp(tester);
-    runtime.app.setKeyOverrides([KeyOverride(command: 'file.copy', was: 'F5', now: 'Ctrl-Shift-Y')]);
+    runtime.app.setKeyOverrides([KeyOverride(binding: 'file.copy', key: 'Ctrl-Shift-Y')]);
     await openWindow(tester);
     await search(tester, 'file.copy');
 
@@ -266,7 +266,7 @@ void main() {
 
   testWidgets('«Reset all keys» возвращает все умолчания', (tester) async {
     await pumpApp(tester);
-    runtime.app.setKeyOverrides([KeyOverride(command: 'file.copy', was: 'F5', now: 'Ctrl-Shift-Y')]);
+    runtime.app.setKeyOverrides([KeyOverride(binding: 'file.copy', key: 'Ctrl-Shift-Y')]);
     await openWindow(tester);
 
     // Кнопка стоит в подвале оглавления и отбором не пропадает.

@@ -86,66 +86,66 @@ class KeysCommand extends AppCommand {
     final rows = _rows(registry);
     return [
       for (final context in KeyContext.values)
-        if (rows.where((row) => row.context == context).toList() case final own when own.isNotEmpty)
+        if (rows.where((at) => registry.declaredBindings[at].context == context).toList() case final own
+            when own.isNotEmpty)
           SettingsPage(
             title: context.title,
-            build: () => SettingsSchema([for (final row in own) _field(app, registry, row)], save: () {}),
+            build: () => SettingsSchema([for (final at in own) _field(app, registry, at)], save: () {}),
           ),
     ];
   }
 
-  SettingsKeys _field(Application app, CommandRegistry registry, _Row row) {
-    final command = registry.find(row.commandId);
-    final label = command?.label ?? row.commandId;
-    final description = command?.description ?? '';
+  SettingsKeys _field(Application app, CommandRegistry registry, int at) {
+    final registry0 = registry;
+    final declared = registry0.declaredBindings[at];
+    final command = registry0.find(declared.commandId);
+    final label = command?.label ?? declared.commandId;
+    final details = _detailsOf(declared);
+
     return SettingsField.keys(
-      row.commandId,
+      declared.id,
       // Значения привязки — в подписи: `Cmd-2` и `Cmd-3` это одна команда «вид
       // панели», и шесть строк с одним названием различить было бы нечем.
-      title: row.details.isEmpty ? label : '$label: ${row.details}',
-      description: description,
+      title: details.isEmpty ? label : '$label: $details',
+      description: command?.description ?? '',
       keywords: command?.keywords ?? const {},
-      read: () => row.keysIn(registry.bindings),
-      defaultKeys: row.keysIn(registry.declaredBindings),
-      reset: () => _reset(app, registry, row),
+      read: () => _keyOf(registry0.bindings[at]),
+      defaultKeys: _keyOf(declared),
+      reset: () => _reset(app, declared.id),
       edit:
           () => _edit(
             app,
-            registry,
-            row,
-            command: row.details.isEmpty ? label : '$label: ${row.details}',
-            context: row.context.title,
+            registry0,
+            at,
+            command: details.isEmpty ? label : '$label: $details',
+            context: declared.context?.title ?? '',
           ),
     );
   }
 
-  /// Строки окна: команда в своём контексте, ровно один раз.
+  /// Чем привязку вызывают; пусто — ничем.
+  static String _keyOf(KeyBinding binding) => binding.keys == KeyCombination.none ? '' : binding.keys.toString();
+
+  /// Строки окна: настраиваемые привязки, по одной на каждую.
   ///
-  /// Группировка по тройке «команда, контекст, значения»: `Esc` просмотрщика,
-  /// объявленный дважды — для полного экрана и для быстрого просмотра, — это
-  /// одно дело и одна строка (`docs/spec/key-bindings.md`, §3).
-  List<_Row> _rows(CommandRegistry registry) {
-    final rows = <String, _Row>{};
+  /// Строка **и есть привязка** — дело со своим именем: собирать её из
+  /// команды, контекста и значений больше не нужно
+  /// (`docs/spec/key-bindings.md`, §3).
+  List<int> _rows(CommandRegistry registry) {
     final declared = registry.declaredBindings;
-    for (var at = 0; at < declared.length; at++) {
-      final binding = declared[at];
-      final context = binding.context;
-      // Внутренняя привязка: её не показывают и не переназначают.
-      if (context == null || registry.find(binding.commandId) == null) {
-        continue;
-      }
-      final details = _detailsOf(binding);
-      final key = '${binding.commandId}|${context.name}|$details';
-      (rows[key] ??= _Row(commandId: binding.commandId, context: context, details: details)).at.add(at);
-    }
-    return rows.values.toList(growable: false);
+    return [
+      for (var at = 0; at < declared.length; at++)
+        // Внутренняя привязка не показывается и не переназначается; привязка к
+        // команде, которой нет, — тем более: модуль выключили.
+        if (declared[at].context != null && registry.find(declared[at].commandId) != null) at,
+    ];
   }
 
   /// Открыть окошко записи поверх окна клавиш и дождаться, пока его закроют.
   Future<void> _edit(
     Application app,
     CommandRegistry registry,
-    _Row row, {
+    int at, {
     required String command,
     required String context,
   }) async {
@@ -159,6 +159,7 @@ class KeysCommand extends AppCommand {
       }
     }
 
+    final declared = registry.declaredBindings[at];
     dialogId = view.showDialog(
       DialogSpec(
         title: 'Key binding',
@@ -168,12 +169,12 @@ class KeysCommand extends AppCommand {
               (_, _) => FcKeyRecorder(
                 command: command,
                 context: context,
-                read: () => row.keysIn(registry.bindings),
-                defaultKeys: row.keysIn(registry.declaredBindings),
-                occupiedBy: (keys) => _occupiedBy(registry, row, keys),
-                onAssign: (keys) => _assign(app, registry, row, keys),
-                onClear: () => _assign(app, registry, row, ''),
-                onReset: () => _reset(app, registry, row),
+                read: () => _keyOf(registry.bindings[at]),
+                defaultKeys: _keyOf(declared),
+                occupiedBy: (keys) => _occupiedBy(registry, at, keys),
+                onAssign: (keys) => _assign(app, registry, at, keys),
+                onClear: () => _assign(app, registry, at, ''),
+                onReset: () => _reset(app, declared.id),
                 onClose: close,
               ),
         ),
@@ -185,67 +186,54 @@ class KeysCommand extends AppCommand {
   }
 
   /// Кто держит эту комбинацию **в том же контексте**; null — никто.
-  String? _occupiedBy(CommandRegistry registry, _Row row, String keys) {
+  String? _occupiedBy(CommandRegistry registry, int at, String keys) {
     final combination = KeyCombination.tryParse(keys);
     if (combination == null) {
       return null;
     }
-    final probe = registry.declaredBindings[row.at.first].withKeys(combination);
-    for (var at = 0; at < registry.bindings.length; at++) {
-      if (row.at.contains(at) || !registry.bindings[at].conflictsWith(probe)) {
+    final probe = registry.declaredBindings[at].withKeys(combination);
+    for (var other = 0; other < registry.bindings.length; other++) {
+      if (other == at || !registry.bindings[other].conflictsWith(probe)) {
         continue;
       }
-      final other = registry.bindings[at];
-      return registry.find(other.commandId)?.label ?? other.commandId;
+      final holder = registry.bindings[other];
+      return registry.find(holder.commandId)?.label ?? holder.commandId;
     }
     return null;
   }
 
-  /// Назначить строке клавишу — и отнять её у того, кто держал.
-  ///
-  /// У строки привязок бывает несколько (`F8` и `Cmd-Bsp` у удаления): клавишу
-  /// получает первая, у остальных она снимается. Так «одна клавиша на дело»
-  /// получается ровно тогда, когда человек её записал, а не отбирается у него
-  /// заранее (`docs/spec/key-bindings.md`, §10).
-  void _assign(Application app, CommandRegistry registry, _Row row, String keys) {
+  /// Назначить привязке клавишу — и отнять её у того, кто держал.
+  void _assign(Application app, CommandRegistry registry, int at, String keys) {
     final overrides = [...app.keyOverrides];
     final declared = registry.declaredBindings;
 
     if (keys.isNotEmpty) {
-      final combination = KeyCombination.parse(keys);
-      final probe = declared[row.at.first].withKeys(combination);
-      for (var at = 0; at < registry.bindings.length; at++) {
-        if (row.at.contains(at) || !registry.bindings[at].conflictsWith(probe)) {
-          continue;
+      final probe = declared[at].withKeys(KeyCombination.parse(keys));
+      for (var other = 0; other < registry.bindings.length; other++) {
+        if (other != at && registry.bindings[other].conflictsWith(probe)) {
+          _put(overrides, declared[other], '');
         }
-        _put(overrides, declared[at], '');
       }
     }
 
-    for (final (index, at) in row.at.indexed) {
-      _put(overrides, declared[at], index == 0 ? keys : '');
-    }
+    _put(overrides, declared[at], keys);
     app.setKeyOverrides(overrides);
   }
 
-  /// Вернуть умолчание: забыть записи обо всех привязках строки.
-  void _reset(Application app, CommandRegistry registry, _Row row) {
-    final forget = {
-      for (final at in row.at) '${registry.declaredBindings[at].commandId}|${registry.declaredBindings[at].keys}',
-    };
+  /// Вернуть умолчание: забыть запись об этой привязке.
+  void _reset(Application app, String binding) {
     app.setKeyOverrides([
       for (final override in app.keyOverrides)
-        if (!forget.contains('${override.command}|${override.was}')) override,
+        if (override.binding != binding) override,
     ]);
   }
 
   /// Записать переназначение, заменив прежнее той же привязки.
   static void _put(List<KeyOverride> overrides, KeyBinding declared, String keys) {
-    final was = declared.keys.toString();
     overrides
-      ..removeWhere((item) => item.command == declared.commandId && item.was == was)
+      ..removeWhere((item) => item.binding == declared.id)
       // Умолчание записью не считается: вернуть его — значит забыть запись.
-      ..addAll(keys == was ? const [] : [KeyOverride(command: declared.commandId, was: was, now: keys)]);
+      ..addAll(keys == _keyOf(declared) ? const [] : [KeyOverride(binding: declared.id, key: keys)]);
   }
 
   /// Чем эта привязка отличается от соседних у той же команды.
@@ -264,24 +252,4 @@ class _ResetAllButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => FcButton(label: context.strings.tr('Reset all keys'), onPressed: onPressed);
-}
-
-/// Строка окна: команда в своём контексте со своими значениями.
-class _Row {
-  _Row({required this.commandId, required this.context, required this.details});
-
-  final String commandId;
-  final KeyContext context;
-
-  /// Значения, с которыми команда запускается: ими и различаются соседние
-  /// строки одной команды.
-  final String details;
-
-  /// Места объявленных привязок строки — они же места действующих: реестр
-  /// держит оба списка одной длины и в одном порядке.
-  final List<int> at = [];
-
-  /// Чем строку вызывают в этом списке привязок; пусто — ничем.
-  String keysIn(List<KeyBinding> bindings) =>
-      [for (final index in at) bindings[index].keys].where((keys) => keys != KeyCombination.none).join(', ');
 }

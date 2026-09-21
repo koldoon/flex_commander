@@ -11,7 +11,7 @@ void main() {
       'fc.shell': {'themeId': 'dark', 'language': 'ru'},
       'fc.terminal': {'maxLines': 20000},
     },
-    keys: [KeyOverride(command: 'file.copy', was: 'F5', now: 'Cmd-Shift-Y')],
+    keys: [KeyOverride(binding: 'file.copy', key: 'Cmd-Shift-Y')],
   )..put('fc.panels', 'cursorHoldsPlace', true);
 
   Preset reread(Preset preset) {
@@ -26,7 +26,7 @@ void main() {
     expect(back.valueOf('fc.shell', 'themeId'), 'dark');
     expect(back.valueOf('fc.terminal', 'maxLines'), 20000);
     expect(back.valueOf('fc.panels', 'cursorHoldsPlace'), isTrue);
-    expect(back.keys.single.now, 'Cmd-Shift-Y');
+    expect(back.keys.single.key, 'Cmd-Shift-Y');
   });
 
   test('о чём набор молчит, того в нём и нет', () {

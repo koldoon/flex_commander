@@ -100,27 +100,38 @@ void main() {
     expect(wrap.value, was, reason: 'набор не вернул поле');
   });
 
-  test('о чём набор молчит, то возвращается к умолчанию', () {
+  test('о чём набор молчит, то остаётся как было', () {
     final wrap = fieldOf('fc.text_viewer', 'wordWrap');
     final was = wrap.value! as bool;
 
-    // Набор без этого поля вовсе — так выглядит набор из прошлого выпуска.
-    final older = Preset(name: 'Старый')..put('fc.shell', 'themeId', '${fieldOf('fc.shell', 'themeId').value}');
+    // Набор без этого поля вовсе — так выглядит набор клавиш: он о настройках
+    // не говорит ничего (`docs/spec/settings-presets.md`, §4).
+    final keysOnly = Preset(name: 'Только клавиши', keys: [KeyOverride(binding: 'file.copy', key: 'Ctrl-Shift-C')]);
     wrap.apply(!was);
 
-    presets.apply(older);
+    presets.apply(keysOnly);
 
-    expect(wrap.value, was, reason: 'поле осталось тронутым, а набор о нём молчал');
+    expect(wrap.value, !was, reason: 'набор тронул то, о чём молчал');
+    expect(runtime.commands.bindingsOf('file.copy').single.keys.toString(), 'Ctrl-Shift-C');
+  });
+
+  test('накладка не сносит чужих переназначений', () {
+    runtime.app.setKeyOverrides([KeyOverride(binding: 'file.move', key: 'Ctrl-Shift-M')]);
+
+    presets.apply(Preset(name: 'mc', keys: [KeyOverride(binding: 'file.copy', key: 'Ctrl-Shift-C')]));
+
+    expect(runtime.commands.bindingsOf('file.move').single.keys.toString(), 'Ctrl-Shift-M');
+    expect(runtime.commands.bindingsOf('file.copy').single.keys.toString(), 'Ctrl-Shift-C');
   });
 
   test('клавиши едут набором', () {
-    runtime.app.setKeyOverrides([KeyOverride(command: 'file.copy', was: 'F5', now: 'Ctrl-Shift-C')]);
+    runtime.app.setKeyOverrides([KeyOverride(binding: 'file.copy', key: 'Ctrl-Shift-C')]);
     presets.saveAs('С клавишей');
     runtime.app.setKeyOverrides([]);
 
     presets.select('С клавишей');
 
-    expect(runtime.app.keyOverrides.single.now, 'Ctrl-Shift-C');
+    expect(runtime.app.keyOverrides.single.key, 'Ctrl-Shift-C');
     expect(runtime.commands.bindingsOf('file.copy').single.keys.toString(), 'Ctrl-Shift-C');
   });
 

@@ -48,7 +48,7 @@ void main() {
   }
 
   group('клавиши', () {
-    test('F7 и Cmd-F ищут, а в панелях за F7 стоит своё', () async {
+    test('F7 ищет, а в панелях за F7 стоит своё', () async {
       // В панелях F7 — создание каталога. Привязки принадлежат экрану, и это
       // тот случай, ради которого `KeyBinding.screen` заводился.
       expect(runtime.commands.commandFor(KeyCombination.parse('F7'))?.id, isNot(TextViewer.findCommandId));
@@ -56,9 +56,10 @@ void main() {
       await openViewer();
 
       expect(runtime.commands.commandFor(KeyCombination.parse('F7'))?.id, TextViewer.findCommandId);
-      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-F'))?.id, TextViewer.findCommandId);
+      // `Cmd-F` прополот: привычку macOS возвращает набор «Finder».
+      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-F')), isNull);
       expect(runtime.commands.commandFor(KeyCombination.parse('Shift-F7'))?.id, TextViewer.findNextCommandId);
-      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-G'))?.id, TextViewer.findNextCommandId);
+      expect(runtime.commands.commandFor(KeyCombination.parse('Cmd-G')), isNull);
       expect(runtime.commands.commandFor(KeyCombination.parse('Shift-Cmd-G'))?.id, TextViewer.findPreviousCommandId);
     });
 

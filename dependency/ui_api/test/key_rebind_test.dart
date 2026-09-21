@@ -17,7 +17,7 @@ void main() {
   test('переназначение подменяет клавишу объявленной привязки', () {
     final registry = registryWith([KeyBinding('F5', 'file.copy'), KeyBinding('F6', 'file.move')]);
 
-    registry.rebind([KeyOverride(command: 'file.copy', was: 'F5', now: 'Ctrl-C')]);
+    registry.rebind([KeyOverride(binding: 'file.copy', key: 'Ctrl-C')]);
 
     expect(keysOf(registry, 'file.copy'), ['Ctrl-C']);
     expect(keysOf(registry, 'file.move'), ['F6'], reason: 'чужую привязку трогать не за что');
@@ -27,7 +27,7 @@ void main() {
     final binding = KeyBinding.inState<_Screen>('F5', 'text.format', parameters: const {'mode': 'raw'});
     final registry = registryWith([binding]);
 
-    registry.rebind([KeyOverride(command: 'text.format', was: 'F5', now: 'F8')]);
+    registry.rebind([KeyOverride(binding: 'text.format', key: 'F8')]);
 
     final after = registry.bindingsOf('text.format').single;
     expect(after.keys.toString(), 'F8');
@@ -37,7 +37,7 @@ void main() {
 
   test('снятое переназначение возвращает умолчание', () {
     final registry = registryWith([KeyBinding('F5', 'file.copy')]);
-    registry.rebind([KeyOverride(command: 'file.copy', was: 'F5', now: 'Ctrl-C')]);
+    registry.rebind([KeyOverride(binding: 'file.copy', key: 'Ctrl-C')]);
 
     registry.rebind([]);
 
@@ -47,27 +47,48 @@ void main() {
   test('пустая клавиша оставляет привязку без нажатия', () {
     final registry = registryWith([KeyBinding('F5', 'file.copy')]);
 
-    registry.rebind([KeyOverride(command: 'file.copy', was: 'F5', now: '')]);
+    registry.rebind([KeyOverride(binding: 'file.copy', key: '')]);
 
     expect(registry.bindingsOf('file.copy').single.keys, KeyCombination.none);
     expect(registry.commandFor(KeyCombination.parse('F5')), isNull, reason: 'клавиша снята, а отзывается');
   });
 
-  test('переназначение к чужому умолчанию не липнет', () {
-    // Сменилось умолчание в новом выпуске — переназначение отпадает, и человек
-    // видит новое умолчание (§4).
+  test('смена умолчания не рвёт переназначение', () {
+    // Переназначение про **дело**, а не про клавишу: сменилось умолчание в
+    // новом выпуске — выбор человека остаётся в силе
+    // (`docs/spec/key-bindings.md`, §6). Прежде было наоборот: привязку
+    // опознавали прежней клавишей, и правка умолчания выбор отвязывала.
     final registry = registryWith([KeyBinding('Shift-F5', 'file.copy')]);
 
-    registry.rebind([KeyOverride(command: 'file.copy', was: 'F5', now: 'Ctrl-C')]);
+    registry.rebind([KeyOverride(binding: 'file.copy', key: 'Ctrl-C')]);
 
-    expect(keysOf(registry, 'file.copy'), ['Shift-F5']);
+    expect(keysOf(registry, 'file.copy'), ['Ctrl-C']);
+  });
+
+  test('переназначение целится в дело, а не в команду', () {
+    // У команды дел бывает несколько, и у каждого своё имя.
+    final registry = registryWith([
+      KeyBinding('Cmd-2', 'panel.view.set', id: 'panel.view.brief'),
+      KeyBinding('Cmd-3', 'panel.view.set', id: 'panel.view.tree'),
+    ]);
+
+    registry.rebind([KeyOverride(binding: 'panel.view.brief', key: 'Alt-B')]);
+
+    // Вне macOS «командная» клавиша сворачивается в `Ctrl`, а прогон идёт
+    // не на macOS — поэтому ожидаемое разбирается тем же разбором.
+    expect(keysOf(registry, 'panel.view.set'), ['Alt-B', KeyCombination.parse('Cmd-3').toString()]);
+  });
+
+  test('имя привязки по умолчанию — идентификатор команды', () {
+    expect(KeyBinding('F5', 'file.copy').id, 'file.copy');
+    expect(KeyBinding('Cmd-2', 'panel.view.set', id: 'panel.view.brief').id, 'panel.view.brief');
   });
 
   test('порядок привязок не меняется', () {
     // Порядком решается, кому достанется клавиша, когда выполнимы обе.
     final registry = registryWith([KeyBinding('F3', 'viewer.open'), KeyBinding('F3', 'shell.open')]);
 
-    registry.rebind([KeyOverride(command: 'shell.open', was: 'F3', now: 'F4')]);
+    registry.rebind([KeyOverride(binding: 'shell.open', key: 'F4')]);
 
     expect(registry.bindings.map((binding) => binding.commandId).toList(), ['viewer.open', 'shell.open']);
   });
@@ -151,7 +172,7 @@ void main() {
     test('переназначение доезжает до неё теми же двумя сравнениями', () {
       final registry = registryWith([KeyBinding.unbound('app.theme.use', context: KeyContext.everywhere)]);
 
-      registry.rebind([KeyOverride(command: 'app.theme.use', was: '', now: 'Alt-Shift-D')]);
+      registry.rebind([KeyOverride(binding: 'app.theme.use', key: 'Alt-Shift-D')]);
 
       expect(registry.bindings.single.keys.toString(), 'Alt-Shift-D');
       expect(registry.bindings.single.context, KeyContext.everywhere);
@@ -161,7 +182,7 @@ void main() {
   test('переназначение не теряет контекст', () {
     final registry = registryWith([KeyBinding('F5', 'file.copy', context: KeyContext.panel)]);
 
-    registry.rebind([KeyOverride(command: 'file.copy', was: 'F5', now: 'Cmd-Shift-Y')]);
+    registry.rebind([KeyOverride(binding: 'file.copy', key: 'Cmd-Shift-Y')]);
 
     expect(registry.bindings.single.context, KeyContext.panel);
   });
@@ -169,7 +190,7 @@ void main() {
   test('объявленное помнится и после переназначения', () {
     final registry = registryWith([KeyBinding('F5', 'file.copy')]);
 
-    registry.rebind([KeyOverride(command: 'file.copy', was: 'F5', now: 'Ctrl-C')]);
+    registry.rebind([KeyOverride(binding: 'file.copy', key: 'Ctrl-C')]);
 
     expect(registry.declaredBindings.single.keys.toString(), 'F5');
   });
