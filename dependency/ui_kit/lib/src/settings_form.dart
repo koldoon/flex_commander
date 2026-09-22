@@ -94,6 +94,15 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   /// положение курсора, а пересозданный терял бы и то и другое.
   final Map<String, TextEditingController> _editors = {};
 
+  /// Строки списков — по полю; живут столько же, сколько окно, и по той же
+  /// причине, что [_editors].
+  ///
+  /// Список строк **держится здесь, а не в настройке**: пустая строка, только
+  /// что добавленная кнопкой «Add», значением ещё не стала — в настройку такая
+  /// не попадает, а на экране стоять обязана, иначе нажатие осталось бы без
+  /// ответа.
+  final Map<String, _ListRows> _lists = {};
+
   final ScrollController _scroll = ScrollController();
 
   /// Набранное в поиске.
@@ -155,6 +164,16 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   /// ключу.
   void _rebuild() {
     _pages = _buildPages();
+    // Значение могли сменить помимо окна — набором выбора: строки списков
+    // тогда собираются заново. Согласные с настройкой не трогаются, иначе
+    // щелчок по чужому флажку сбрасывал бы курсор в строке списка.
+    for (final (_, schema) in _pages) {
+      for (final field in schema.fields) {
+        if (field is SettingsList) {
+          _lists[field.id]?.syncTo(field.read());
+        }
+      }
+    }
     _refilter();
   }
 
@@ -164,6 +183,9 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     _query.dispose();
     for (final editor in _editors.values) {
       editor.dispose();
+    }
+    for (final rows in _lists.values) {
+      rows.dispose();
     }
     super.dispose();
   }
@@ -711,6 +733,10 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   /// окно, и о том, что значение сменилось помимо набора, сам не узнает —
   /// пометка снималась бы, а в поле оставалось набранное.
   void _refreshEditor(SettingsField field) {
+    if (field is SettingsList) {
+      _lists[field.id]?.syncTo(field.read());
+      return;
+    }
     final editor = _editors[field.id];
     if (editor == null) {
       return;
@@ -783,6 +809,92 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                 _rebuild();
               }
             },
+  );
+
+  /// Строки списка одна под другой, у каждой «×», внизу «Add».
+  ///
+  /// Строка во всю ширину, а «×» столбцом у правого края: значения тут
+  /// однородны, и убирают их обычно подряд — по столбцу целиться проще, чем по
+  /// крестику, гуляющему за концом каждой строки.
+  Widget _listControl(FcTheme theme, SettingsList field, VoidCallback changed) {
+    final metrics = theme.metrics;
+    final rows = _rowsFor(field);
+
+    // Пустая строка значением не считается: пока в ней ничего не набрано,
+    // настройке о ней знать нечего — но на экране она стоит (см. [_lists]).
+    void store() {
+      field.write(rows.values);
+      changed();
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        for (final (index, row) in rows.rows.indexed) ...[
+          if (index > 0) SizedBox(height: metrics.dialogLineGap),
+          Row(
+            children: [
+              Expanded(
+                child: FcTextField(
+                  controller: row.editor,
+                  focusNode: row.focus,
+                  hintText: field.hint,
+                  onChanged: (_) => store(),
+                  // `Enter` в строке — то же, что «Add»: список набирают
+                  // подряд, и тянуться за кнопкой после каждого значения
+                  // незачем.
+                  onSubmitted: (_) => _addRow(field, rows),
+                ),
+              ),
+              SizedBox(width: metrics.columnGap),
+              _removeRow(theme, () {
+                rows.removeAt(index);
+                store();
+              }),
+            ],
+          ),
+        ],
+        SizedBox(height: metrics.dialogLineGap),
+        // Ряд с `min` — чтобы кнопка облегала свою подпись, как все кнопки
+        // приложения.
+        Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [FcButton(label: context.strings.tr('Add'), onPressed: () => _addRow(field, rows))],
+        ),
+      ],
+    );
+  }
+
+  /// Строки этого поля; в первый раз — по тому, что в настройке стоит сейчас.
+  _ListRows _rowsFor(SettingsList field) => _lists.putIfAbsent(field.id, () => _ListRows(field.read()));
+
+  /// Пустая строка внизу и курсор в ней.
+  ///
+  /// Курсор — потому что добавить строку и значит начать набирать: без него
+  /// нажатие выглядело бы так, будто ничего не произошло. Настройка при этом
+  /// не трогается — пустой строке в ней места нет.
+  void _addRow(SettingsList field, _ListRows rows) {
+    setState(rows.add);
+    // После кадра: узла фокуса у новой строки до её сборки ещё нет.
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        rows.rows.last.focus.requestFocus();
+      }
+    });
+  }
+
+  /// «×» — убрать строку.
+  ///
+  /// Знаком, а не иконкой: так же убирают работу из списка фоновых
+  /// (`background_tasks_view.dart`), и заводить ради этого глиф в наборе
+  /// иконок незачем.
+  Widget _removeRow(FcTheme theme, VoidCallback pressed) => MouseRegion(
+    cursor: SystemMouseCursors.click,
+    child: GestureDetector(
+      onTap: pressed,
+      child: Text('✕', style: _secondaryStyle(theme).copyWith(color: theme.colors.dialogText)),
+    ),
   );
 
   Widget _control(FcTheme theme, SettingsSchema schema, SettingsField field) {
@@ -892,6 +1004,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
           ],
         ],
       ),
+      SettingsList list => _listControl(theme, list, changed),
       SettingsText text => FcTextField(
         controller: _editorFor(text.id, text.read()),
         hintText: text.hint,
@@ -908,4 +1021,81 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
 
   TextStyle _secondaryStyle(FcTheme theme) =>
       TextStyle(fontFamily: theme.fonts.ui, fontSize: theme.metrics.fontSize, color: theme.colors.dialogLabel);
+}
+
+/// Строки одного списка настроек: поле ввода и его фокус на каждую.
+///
+/// Живут в окне, а не в настройке: пустая строка, только что добавленная
+/// кнопкой «Add», значением ещё не стала — в настройку она не попадает, а на
+/// экране стоять обязана (`docs/spec/settings-editor.md`, §8).
+class _ListRows {
+  _ListRows(List<String> values) {
+    _fill(values);
+  }
+
+  final List<_ListRow> rows = [];
+
+  /// Что из этого — значения: набранное без пустых строк.
+  ///
+  /// Пробелы по краям срезаются здесь, а не при наборе: срезать их на каждую
+  /// букву значило бы не дать напечатать пробел внутри значения.
+  List<String> get values => [
+    for (final row in rows)
+      if (row.editor.text.trim().isNotEmpty) row.editor.text.trim(),
+  ];
+
+  void add() => rows.add(_ListRow());
+
+  void removeAt(int index) => rows.removeAt(index).dispose();
+
+  /// Собрать заново, если настройка разошлась со строками.
+  ///
+  /// Разойтись она может «Reset»-ом и набором выбора. Пока они согласны,
+  /// строки не трогаются — пустая только что добавленная останется на месте, а
+  /// курсор в набираемой строке не прыгнет в начало.
+  void syncTo(List<String> stored) {
+    final shown = values;
+    if (shown.length == stored.length) {
+      var same = true;
+      for (var i = 0; i < shown.length; i++) {
+        if (shown[i] != stored[i]) {
+          same = false;
+          break;
+        }
+      }
+      if (same) {
+        return;
+      }
+    }
+    for (final row in rows) {
+      row.dispose();
+    }
+    rows.clear();
+    _fill(stored);
+  }
+
+  void _fill(List<String> values) {
+    for (final value in values) {
+      rows.add(_ListRow(value));
+    }
+  }
+
+  void dispose() {
+    for (final row in rows) {
+      row.dispose();
+    }
+    rows.clear();
+  }
+}
+
+class _ListRow {
+  _ListRow([String value = '']) : editor = TextEditingController(text: value);
+
+  final TextEditingController editor;
+  final FocusNode focus = FocusNode(debugLabel: 'settings list row');
+
+  void dispose() {
+    editor.dispose();
+    focus.dispose();
+  }
 }

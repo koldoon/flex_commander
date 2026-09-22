@@ -61,11 +61,15 @@ class Preset implements Serializable {
           continue;
         }
         settings['${entry.key}'] = {
-          // Только примитивы: значение поля схемы — флажок, число, строка или
-          // выбор, и ничем другим оно быть не может. Чужое пропускается молча —
+          // Примитив или список строк — других значений у поля схемы не
+          // бывает: флажок, число, строка, выбор и список
+          // (`docs/spec/settings-editor.md`, §8). Чужое пропускается молча —
           // набор мог прийти из другого выпуска.
           for (final field in fields.entries)
-            if (isPrimitive(field.value)) '${field.key}': field.value,
+            if (isPrimitive(field.value))
+              '${field.key}': field.value
+            else if (_isStrings(field.value))
+              '${field.key}': [for (final item in field.value as List) '$item'],
         };
       }
     }
@@ -86,3 +90,9 @@ class Preset implements Serializable {
   @override
   String toString() => 'Preset($name: ${settings.length} sections, ${keys.length} keys)';
 }
+
+/// Список строк — значение поля-списка.
+///
+/// Разбирается здесь, а не полем: набор приходит файлом, и в нём на месте
+/// списка может оказаться что угодно.
+bool _isStrings(dynamic value) => value is List && value.every((item) => item is String);

@@ -199,6 +199,86 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  ShellSettings shell() => runtime.app.moduleSettings('fc.shell').section(ShellSettings.new);
+
+  /// Блок настройки-списка: подпись, объяснение и строки под ними.
+  Finder listBlock() =>
+      find
+          .ancestor(
+            of: find.text('Names ending in these are shown as one extension: archive.tar.gz is tar.gz'),
+            matching: find.byType(Column),
+          )
+          .first;
+
+  Finder listRows() => find.descendant(of: listBlock(), matching: find.byType(TextField));
+
+  /// Окно со списком: повыше обычного, чтобы список не пришлось долистывать.
+  ///
+  /// Долистав до кнопки «Add», первые строки уезжают за верх обзора: список
+  /// строится целиком, и нажатие в уехавшую строку не доходит — а это про
+  /// тесноту стенда, а не про приложение.
+  Future<void> openWithList(WidgetTester tester) => openSettings(tester, size: const Size(900, 2200));
+
+  testWidgets('список стоит строками, и «×» убирает ровно свою', (tester) async {
+    shell().compoundExtensions = ['tar.gz', 'cfg.json'];
+    await openWithList(tester);
+
+    // Строка на значение — вместо одной строки через точку с запятой, где, чтобы
+    // убрать расширение, надо было не промахнуться мимо разделителя.
+    expect(listRows(), findsNWidgets(2));
+    expect(tester.widget<TextField>(listRows().at(0)).controller?.text, 'tar.gz');
+    expect(tester.widget<TextField>(listRows().at(1)).controller?.text, 'cfg.json');
+
+    await tester.tap(find.descendant(of: listBlock(), matching: find.text('✕')).at(0));
+    await tester.pumpAndSettle();
+
+    expect(listRows(), findsOneWidget);
+    expect(tester.widget<TextField>(listRows().at(0)).controller?.text, 'cfg.json');
+    expect(shell().compoundExtensions, ['cfg.json'], reason: 'убранное доезжает до настройки сразу');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('«Add» даёт пустую строку с курсором, а настройки не трогает', (tester) async {
+    shell().compoundExtensions = ['tar.gz'];
+    await openWithList(tester);
+
+    await tester.tap(find.descendant(of: listBlock(), matching: find.widgetWithText(FcButton, 'Add')));
+    await tester.pumpAndSettle();
+
+    // Пустая строка значением не стала — но на экране стоит, и курсор в ней:
+    // добавить строку и значит начать набирать.
+    expect(listRows(), findsNWidgets(2));
+    expect(shell().compoundExtensions, ['tar.gz']);
+    expect(tester.widget<TextField>(listRows().at(1)).focusNode?.hasFocus, isTrue);
+
+    await tester.enterText(listRows().at(1), '.story.tsx');
+    await tester.pumpAndSettle();
+
+    // Точка в начале срезается: в словаре лежит хвост имени, а не имя файла.
+    expect(shell().compoundExtensions, ['tar.gz', 'story.tsx']);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('«Reset» убирает строки, а не только значение', (tester) async {
+    shell().compoundExtensions = ['tar.gz'];
+    await openWithList(tester);
+
+    expect(find.descendant(of: listBlock(), matching: find.text('Reset')), findsOneWidget);
+
+    await tester.tap(find.descendant(of: listBlock(), matching: find.text('Reset')));
+    await tester.pumpAndSettle();
+
+    // Строки живут в окне, а не в настройке, и о правке помимо набора сами не
+    // узнают: значение вернулось бы, а строки остались стоять.
+    expect(shell().compoundExtensions, isEmpty);
+    expect(listRows(), findsNothing);
+    expect(find.descendant(of: listBlock(), matching: find.text('Reset')), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('оглавление перечисляет разделы и уводит к ним', (tester) async {
     await openSettings(tester);
 

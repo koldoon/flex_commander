@@ -464,15 +464,16 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           read: () => app.reconnectAtStartup,
           write: app.setReconnectAtStartup,
         ),
-        SettingsField.text(
+        SettingsField.list(
           'compoundExtensions',
           title: strings.tr('Compound extensions'),
           description: strings.tr('Names ending in these are shown as one extension: archive.tar.gz is tar.gz'),
-          hint: 'cfg.json; story.tsx',
-          read: () => settings.section(ShellSettings.new).compoundExtensions.join('; '),
-          // Через точку с запятой — как маски в окне пометки: разделитель у
-          // приложения уже свой, и заводить второй незачем.
-          write: (value) => settings.section(ShellSettings.new).compoundExtensions = _splitExtensions(value),
+          hint: 'cfg.json',
+          read: () => settings.section(ShellSettings.new).compoundExtensions,
+          // Списком, а не строкой через разделитель: чтобы убрать одно
+          // расширение, не надо целиться мимо точки с запятой
+          // (`docs/spec/settings-editor.md`, §8).
+          write: (value) => settings.section(ShellSettings.new).compoundExtensions = _extensions(value),
         ),
         SettingsField.flag(
           'useBuiltinExtensions',
@@ -562,13 +563,14 @@ class AppShell implements FcBackendModule, FcFrontendModule {
       });
 }
 
-/// Разбирает список составных расширений из строки настройки.
+/// Приводит набранные расширения к тому, что хранится в словаре.
 ///
-/// Точка с запятой или пробел — человек напишет как привычнее, а точку в начале
-/// («.tar.gz») отбрасываем: в словаре хранится хвост, а не имя файла.
-List<String> _splitExtensions(String value) => [
-  for (final part in value.split(RegExp(r'[;\s]+')))
-    if (part.trim().isNotEmpty) part.trim().replaceFirst(RegExp(r'^\.+'), ''),
+/// Точку в начале («.tar.gz») отбрасываем: в словаре лежит хвост имени, а не
+/// имя файла. Пустое после этого значение выпадает — строка, в которой одна
+/// точка, расширением не стала.
+List<String> _extensions(List<String> values) => [
+  for (final value in values)
+    if (value.replaceFirst(RegExp(r'^\.+'), '').isNotEmpty) value.replaceFirst(RegExp(r'^\.+'), ''),
 ];
 
 /// Заводит сторожа списка фоновых работ.
@@ -742,6 +744,7 @@ const Map<String, String> _russian = {
   'Speed': 'Скорость',
   'Total': 'Всего',
   'Reset': 'Вернуть',
+  'Add': 'Добавить',
   'Search settings': 'Искать настройку',
   'Unlock': 'Открыть',
   'Wrong password': 'Пароль не подошёл',

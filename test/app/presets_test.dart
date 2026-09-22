@@ -135,6 +135,44 @@ void main() {
     expect(runtime.commands.bindingsOf('file.copy').single.keys.toString(), 'Ctrl-Shift-C');
   });
 
+  test('список едет набором и переживает запись', () {
+    final extensions = fieldOf('fc.shell', 'compoundExtensions');
+    extensions.apply(['tar.gz', 'cfg.json']);
+    presets.saveAs('Дом');
+    extensions.apply(<String>[]);
+
+    presets.select('Дом');
+
+    expect(extensions.value, ['tar.gz', 'cfg.json']);
+
+    // И через файл: набор возят между машинами, и список обязан пережить
+    // разбор наравне с флажком и числом.
+    final back = Preset()..fromMap(serialize(presets.find('Дом')!) as Map<String, dynamic>);
+    expect(back.valueOf('fc.shell', 'compoundExtensions'), ['tar.gz', 'cfg.json']);
+  });
+
+  test('испорченный список в наборе пропускается молча', () {
+    // Набор мог прийти из другого выпуска, где это поле было строкой: падать
+    // на нём незачем, а ставить — тем более.
+    final alien =
+        Preset()..fromMap({
+          'name': 'Чужой',
+          'settings': {
+            'fc.shell': {
+              'compoundExtensions': [1, 2],
+            },
+          },
+        });
+
+    expect(alien.valueOf('fc.shell', 'compoundExtensions'), isNull);
+
+    final extensions = fieldOf('fc.shell', 'compoundExtensions');
+    extensions.apply(['tar.gz']);
+    extensions.apply('tar.gz; cfg.json');
+
+    expect(extensions.value, ['tar.gz'], reason: 'строка списком не стала');
+  });
+
   test('занятое имя не заводит второго набора', () {
     expect(presets.saveAs('Дом'), isTrue);
     expect(presets.saveAs('Дом'), isFalse, reason: 'второй «Дом» затёр бы первый');

@@ -146,6 +146,32 @@ sealed class SettingsField {
     write: write,
   );
 
+  /// Список строк: строка на значение, у каждой «×», внизу «Add».
+  ///
+  /// Так стоит то, чего заранее не перечислить и чего бывает сколько угодно:
+  /// словарь составных расширений. Строкой через точку с запятой это же
+  /// правилось вслепую — чтобы убрать одно значение, надо было не промахнуться
+  /// мимо разделителя (`docs/spec/settings-editor.md`, §8).
+  static SettingsList list(
+    String id, {
+    required String title,
+    String description = '',
+    String note = '',
+    String hint = '',
+    List<String> defaultValue = const [],
+    required List<String> Function() read,
+    required void Function(List<String> value) write,
+  }) => SettingsList(
+    id,
+    title: title,
+    description: description,
+    note: note,
+    hint: hint,
+    defaultValue: defaultValue,
+    read: read,
+    write: write,
+  );
+
   /// Выбор из готового списка.
   static SettingsChoice choice(
     String id, {
@@ -440,6 +466,71 @@ class SettingsText extends SettingsField {
     if (value is String) {
       write(value);
     }
+  }
+}
+
+/// Список строк: значение на строку.
+///
+/// Значения тут **однородны** — расширения, маски, имена, — и потому список
+/// хранится списком с самого начала: разбирать строку через разделитель
+/// значило бы договариваться о разделителе с каждым, кто такое поле объявит.
+class SettingsList extends SettingsField {
+  const SettingsList(
+    super.id, {
+    required super.title,
+    super.description,
+    super.note,
+    this.hint = '',
+    this.defaultValue = const [],
+    required this.read,
+    required this.write,
+  });
+
+  /// Что показать в пустой строке — образец значения, а не объяснение поля:
+  /// объяснение стоит выше, над всем списком.
+  final String hint;
+
+  /// Что стоит, пока не выбрали своего; обычно пусто.
+  final List<String> defaultValue;
+
+  final List<String> Function() read;
+
+  /// Записать список целиком.
+  ///
+  /// Целиком, а не «добавить» и «убрать» по одному: правка строки — это тоже
+  /// изменение списка, и трёх способов сказать одно и то же поле не заслужило.
+  final void Function(List<String> value) write;
+
+  @override
+  bool get isDefault => _same(read(), defaultValue);
+
+  @override
+  void resetToDefault() => write([...defaultValue]);
+
+  /// Копией, а не самим списком: набор переживёт своё поле, а список у раздела
+  /// изменяемый — тот же объект в наборе менялся бы вслед за настройкой.
+  @override
+  Object? get value => [...read()];
+
+  @override
+  void apply(Object? value) {
+    // Только список строк: чужое молча мимо — набор мог прийти из другого
+    // выпуска, где это поле было строкой.
+    if (value is List && value.every((item) => item is String)) {
+      write([for (final item in value) item as String]);
+    }
+  }
+
+  static bool _same(List<String> a, List<String> b) {
+    if (a.length != b.length) {
+      return false;
+    }
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) {
+        return false;
+      }
+    }
+    return true;
   }
 }
 
