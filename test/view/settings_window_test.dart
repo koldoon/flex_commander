@@ -47,6 +47,16 @@ void main() {
   /// `findRichText`.
   Finder setting(String title) => find.text(title, findRichText: true);
 
+  /// Прокрутка списка настроек — правого столбца окна.
+  ///
+  /// Прокрутка в окне не одна: своя есть у оглавления и у каждого поля ввода
+  /// (текст в нём едет вбок), и «последняя в дереве» попадает не туда.
+  ScrollPosition settingsList(WidgetTester tester) =>
+      tester
+          .widget<Scrollable>(find.ancestor(of: find.byType(FcPlate).first, matching: find.byType(Scrollable)).first)
+          .controller!
+          .position;
+
   testWidgets('F9 открывает настройки, разделы — по модулям', (tester) async {
     await openSettings(tester);
 
@@ -364,6 +374,78 @@ void main() {
     await tester.enterText(find.byType(FcTextField).first, query);
     await tester.pumpAndSettle();
   }
+
+  testWidgets('стрелки из поиска ходят по разделам', (tester) async {
+    await openSettings(tester);
+
+    final toc = find.byType(FcPickList);
+    expect(tester.widget<FcPickList>(toc).selected, 0);
+
+    // Фокус при открытии в поиске, и стрелки там свободны: строка одна.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<FcPickList>(toc).selected, 1, reason: 'оглавление показывает, куда увело');
+    final moved = settingsList(tester);
+    final second = moved.pixels;
+    expect(second, greaterThan(0), reason: 'список уехал к разделу');
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<FcPickList>(toc).selected, 0);
+    // К началу первого раздела, а не в самый нуль: над заголовком стоит поле
+    // окна, и оно остаётся.
+    expect(moved.pixels, lessThan(second));
+
+    // Дальше первого раздела вверх уводить некуда, и нажатие просто остаётся
+    // на месте.
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+    await tester.pumpAndSettle();
+    expect(tester.widget<FcPickList>(toc).selected, 0);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('PgDn листает список настроек страницей', (tester) async {
+    await openSettings(tester, size: const Size(900, 700));
+
+    final list = settingsList(tester);
+    final page = list.viewportDimension;
+    expect(page, greaterThan(0));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+    await tester.pumpAndSettle();
+
+    // Обзором, а не числом строк: блоки разной высоты, и «десять строк» здесь
+    // значило бы разное в каждом разделе.
+    expect(list.pixels, closeTo(page, 1));
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.pageUp);
+    await tester.pumpAndSettle();
+
+    expect(list.pixels, 0);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('стрелки в поле настройки водят курсор, а не разделы', (tester) async {
+    await openSettings(tester);
+
+    final scans =
+        find.ancestor(of: find.text('How many directories are measured at once'), matching: find.byType(Column)).first;
+    await tester.tap(find.descendant(of: scans, matching: find.byType(TextField)));
+    await tester.pumpAndSettle();
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+    await tester.pumpAndSettle();
+
+    // Иначе набранное в поле стало бы неправимым: стрелки там значат «водить
+    // курсор», и отбирать их у набора нельзя.
+    expect(tester.widget<FcPickList>(find.byType(FcPickList)).selected, 0);
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
 
   testWidgets('поиск отбирает по подписи и считает найденное', (tester) async {
     await openSettings(tester);
