@@ -44,6 +44,9 @@ const int presetsPriority = 100;
 /// причине, что и у наборов.
 const int themesPriority = 90;
 
+/// Клавиши — следом за оформлением, третьими.
+const int keyboardPriority = 80;
+
 /// Смена темы — командой модуля темы, а не службой оформления.
 ///
 /// Именем, а не классом: модуль темы оболочке чужой, и выключить его должно
@@ -84,7 +87,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
   String get id => 'fc.shell';
 
   @override
-  String get title => 'Application shell';
+  String get title => 'Shell';
 
   @override
   void installBackend(BackendRegistry registry) {
@@ -464,20 +467,30 @@ class AppShell implements FcBackendModule, FcFrontendModule {
       ], save: settings.save);
     });
 
+    // Клавиши — своим разделом, третьим: за оформлением идёт то, чем
+    // приложение слушается рук. Полем среди настроек кнопка в одну строку
+    // терялась (`docs/spec/key-bindings.md`, §7).
+    registry.settingsSchema(title: 'Keyboard', priority: keyboardPriority, () {
+      final app = registry.services.resolve<Application>();
+      final strings = registry.services.resolve<Strings>();
+      return SettingsSchema([
+        // Кнопкой, а не полем: выбирать тут нечего, а делать есть что — открыть
+        // своё окно.
+        SettingsField.button(
+          'keys',
+          title: strings.tr('Key bindings'),
+          description: strings.tr('Set your own key for any command'),
+          label: strings.tr('Keymap'),
+          run: () => app.commands.runAndWait(KeysCommand.commandId),
+        ),
+      ], save: settings.save);
+    });
+
     // Настройки самого приложения: своего модуля у ядра нет, а выбор есть.
     registry.settingsSchema(() {
       final app = registry.services.resolve<Application>();
       final strings = registry.services.resolve<Strings>();
       return SettingsSchema([
-        // Клавиши — кнопкой, а не полем: выбирать тут нечего, а делать есть
-        // что — открыть своё окно (`docs/spec/key-bindings.md`, §7).
-        SettingsField.button(
-          'keys',
-          title: strings.tr('Keyboard'),
-          description: strings.tr('Set your own key for any command'),
-          label: strings.tr('Keymap'),
-          run: () => app.commands.runAndWait(KeysCommand.commandId),
-        ),
         // Язык впереди темы: на нём написано всё остальное в этом окне.
         SettingsField.choice(
           'language',
@@ -693,7 +706,7 @@ const Map<String, String> _russian = {
   'Previous task': 'Предыдущая работа',
   'Abort the operation?': 'Прервать работу?',
   'Abort': 'Прервать',
-  'Application shell': 'Оболочка',
+  'Shell': 'Оболочка',
   'Other': 'Прочее',
 
   // Команды оболочки.
@@ -733,7 +746,8 @@ const Map<String, String> _russian = {
   'File name': 'Имя файла',
 
   // Настройка клавиш.
-  'Keyboard': 'Клавиши',
+  'Keyboard': 'Клавиатура',
+  'Key bindings': 'Привязки клавиш',
   'Keymap': 'Раскладка клавиш',
   'Key binding': 'Клавиша команды',
   'Set your own key for any command': 'Назначить любой команде свою клавишу',

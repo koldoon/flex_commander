@@ -86,7 +86,7 @@ void main() {
       expect(inHelp(find.text('Settings')), findsNWidgets(2));
       // Команды показаны по модулям: заголовок раздела — название модуля, а не
       // общее «Commands». Первым — тот, кто объявлен первым.
-      expect(inHelp(find.text('Application shell')), findsOneWidget);
+      expect(inHelp(find.text('Shell')), findsOneWidget);
       // Кнопок нет вовсе: читать справку нечем, кроме глаз, а закрывают её
       // `Esc` и крестик в заголовке.
       expect(find.byType(FcButton), findsNothing);
@@ -279,7 +279,7 @@ void main() {
     testWidgets('команды сгруппированы по модулям, в порядке их объявления', (tester) async {
       await openHelp(tester, size: const Size(1400, 1400));
 
-      final titles = ['Application shell', 'Terminal', 'Navigation', 'File operations'];
+      final titles = ['Shell', 'Terminal', 'Navigation', 'File operations'];
       final tops = [for (final title in titles) tester.getTopLeft(inHelp(find.text(title)).first).dy];
 
       // Порядок тот же, что в списке модулей: им же задан приоритет привязок.

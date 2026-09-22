@@ -793,6 +793,16 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                   children: explanations,
                 ),
               ),
+            // Кнопка-приставка — **под подсказкой**, отдельной строкой: в
+            // строке флажка она отжимала подпись, а читается настройка
+            // подписью. Живая она и при снятом флажке: отказ делать по
+            // расписанию не значит отказа сделать сейчас
+            // (`docs/spec/self-update.md`, §8).
+            if (field.action case final action?)
+              Padding(
+                padding: EdgeInsets.only(top: metrics.dialogLineGap, left: metrics.checkboxSize + metrics.checkboxGap),
+                child: Row(mainAxisSize: MainAxisSize.min, children: [_actionButton(action)]),
+              ),
           ],
         ),
       );
@@ -895,12 +905,10 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     ),
   );
 
-  /// Флажок, а рядом — его кнопка, если она есть.
-  ///
-  /// Кнопка живая и при снятом флажке: отказ делать по расписанию не значит
-  /// отказа сделать сейчас (`docs/spec/self-update.md`, §8).
+  /// Флажок — сам по себе; кнопка-приставка стоит **под** ним, отдельной
+  /// строкой (см. [_block]).
   Widget _flagControl(FcTheme theme, SettingsFlag flag, VoidCallback changed) {
-    final checkbox = FcCheckbox(
+    return FcCheckbox(
       label: flag.title,
       richLabel: _titleSpan(theme, flag.title),
       value: flag.read(),
@@ -908,22 +916,6 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
         flag.write(value);
         changed();
       },
-    );
-
-    final action = flag.action;
-    if (action == null) {
-      return checkbox;
-    }
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        // Уступает флажок, а не кнопка: подпись длинная и ужимается, а кнопка
-        // облегает своё слово и гнуться ей нечем.
-        Flexible(child: checkbox),
-        SizedBox(width: theme.metrics.dialogGap),
-        _actionButton(action),
-      ],
     );
   }
 

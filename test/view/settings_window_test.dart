@@ -115,7 +115,11 @@ void main() {
   testWidgets('настройка — блок: подпись, объяснение, оговорка, управление', (tester) async {
     await openSettings(tester);
 
-    final title = tester.getRect(setting('Shell'));
+    // Подпись именно этой настройки: «Shell» теперь зовётся и раздел оболочки,
+    // и одноимённая строка в оглавлении.
+    final block =
+        find.ancestor(of: find.text('Empty means the shell you work in'), matching: find.byType(Column)).first;
+    final title = tester.getRect(find.descendant(of: block, matching: setting('Shell')));
     final description = tester.getRect(find.text('Empty means the shell you work in'));
     final note = tester.getRect(find.text('Applies to the next session (⌃O)').first);
     final field = tester.getRect(find.ancestor(of: find.text(r'$SHELL'), matching: find.byType(FcTextField)).first);
@@ -469,6 +473,10 @@ void main() {
 
   testWidgets('стрелки в поле настройки водят курсор, а не разделы', (tester) async {
     await openSettings(tester);
+
+    // Отбор оставляет один раздел: тогда список никуда не едет, и подсветка
+    // разделов меняться не может вовсе — кроме как от нажатия.
+    await search(tester, 'directories are measured');
 
     final scans =
         find.ancestor(of: find.text('How many directories are measured at once'), matching: find.byType(Column)).first;

@@ -74,8 +74,10 @@ class Updates implements FcFrontendModule {
         SettingsField.flag(
           'checkAtStartup',
           defaultValue: true,
-          title: strings.tr('Check for updates'),
-          description: strings.tr('Ask GitHub at startup, once a day'),
+          // «При запуске» — в самой подписи: без него настройка обещала
+          // проверять когда-то вообще, а проверка идёт ровно при открытии.
+          title: strings.tr('Check for updates at startup'),
+          description: strings.tr('Once a day, from GitHub releases'),
           read: () => settingsOf().checkAtStartup,
           write: (value) => settingsOf().checkAtStartup = value,
           // Кнопка живая и при снятом флажке: отказ проверять по расписанию не
@@ -131,10 +133,13 @@ class _PrepareUpdatesCommand extends AppCommand {
 
 const Map<String, String> _russian = {
   'Updates': 'Обновления',
-  'Check for updates': 'Проверять обновления',
-  'Ask GitHub at startup, once a day': 'Спрашивать GitHub при запуске, не чаще раза в сутки',
+  // Команда палитры: проверить **сейчас**, руками.
+  'Check for updates': 'Проверить обновления',
   'Check now': 'Проверить сейчас',
-  'Check for updates at startup': 'Проверка обновлений при запуске',
+  // Одна строка на двоих: так названа и настройка, и стартовая работа модуля —
+  // дело у них общее, и второго перевода ему не нужно.
+  'Check for updates at startup': 'Проверять обновления при запуске',
+  'Once a day, from GitHub releases': 'Раз в сутки, из выпусков на GitHub',
   'Ask GitHub whether a newer build is out': 'Спросить GitHub, нет ли сборки новее',
   'You are up to date': 'У вас и так свежее',
   'Already checking for updates': 'Обновление уже идёт',

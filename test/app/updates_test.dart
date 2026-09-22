@@ -49,12 +49,21 @@ void main() {
     expect(runtime.commands.isExecutable(command!), isTrue);
   });
 
-  testWidgets('в настройках есть флажок и кнопка рядом с ним', (tester) async {
+  testWidgets('в настройках есть флажок, а под подсказкой — кнопка', (tester) async {
     await start(tester);
     await openSettings(tester);
 
-    expect(find.text('Check for updates'), findsOneWidget);
-    expect(find.widgetWithText(FcButton, 'Check now'), findsOneWidget);
+    expect(find.text('Check for updates at startup'), findsOneWidget);
+
+    // Кнопка — под подсказкой, отдельной строкой: в строке флажка она отжимала
+    // подпись, а читается настройка подписью.
+    final flag = tester.getRect(find.text('Check for updates at startup'));
+    final hint = tester.getRect(find.text('Once a day, from GitHub releases'));
+    final button = tester.getRect(find.widgetWithText(FcButton, 'Check now'));
+
+    expect(hint.top, greaterThan(flag.top));
+    expect(button.top, greaterThan(hint.top));
+    expect(button.left, closeTo(hint.left, 0.5), reason: 'кнопка равняется по подсказке');
   });
 
   testWidgets('кнопка жива и со снятым флажком', (tester) async {
@@ -63,7 +72,7 @@ void main() {
 
     // Снимаем флажок: отказ проверять по расписанию не значит отказа проверить
     // сейчас (`docs/spec/self-update.md`, §8).
-    await tester.tap(find.text('Check for updates'));
+    await tester.tap(find.text('Check for updates at startup'));
     await tester.pumpAndSettle();
 
     final button = tester.widget<FcButton>(find.widgetWithText(FcButton, 'Check now'));
