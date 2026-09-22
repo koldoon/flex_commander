@@ -133,7 +133,13 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   ];
 
   /// Раздел, подсвеченный в оглавлении, — номер в [_found].
-  int _section = 0;
+  ///
+  /// Записка, а не поле состояния: меняется она на каждой прокрутке, а
+  /// перерисовать от неё надо **одно оглавление**. Через `setState` за ней
+  /// пересобиралась вся форма — полторы сотни блоков редактора тем разом, — и
+  /// прокрутка спотыкалась ровно в тот миг, когда подсветка переезжала на
+  /// следующий раздел.
+  final ValueNotifier<int> _section = ValueNotifier(0);
 
   /// Раздел, выбранный щелчком в оглавлении, — пока его держат.
   ///
@@ -192,6 +198,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
 
   @override
   void dispose() {
+    _section.dispose();
     _scroll.dispose();
     _query.dispose();
     _queryFocus.dispose();
@@ -231,9 +238,9 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
               when fields.isNotEmpty)
             (index, title, schema, fields),
       ];
-      _section = 0;
       _pinned = null;
     });
+    _section.value = 0;
   }
 
   static bool _matches(SettingsField field, String query) =>
@@ -324,9 +331,16 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     var current = 0;
     for (var i = 0; i < _found.length; i++) {
       final start = _startOf(i);
-      if (start != null && start <= position.pixels + 1) {
-        current = i;
+      if (start == null) {
+        continue;
       }
+      // Разделы идут сверху вниз, и начала у них растут: первый, что ушёл ниже
+      // верха обзора, заканчивает поиск. Иначе каждая прокрутка спрашивала бы
+      // геометрию у всех разделов сразу — а их в редакторе тем два десятка.
+      if (start > position.pixels + 1) {
+        break;
+      }
+      current = i;
     }
     return current;
   }
@@ -336,10 +350,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     if (_pinned != null) {
       return;
     }
-    final current = _sectionInView();
-    if (current != _section) {
-      setState(() => _section = current);
-    }
+    _section.value = _sectionInView();
   }
 
   void _goToSection(int index) {
@@ -348,16 +359,16 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       return;
     }
     _scroll.animateTo(start.clamp(0, _scroll.position.maxScrollExtent), duration: _scrollTo, curve: Curves.easeOut);
-    setState(() {
-      _section = index;
-      _pinned = index;
-    });
+    // Ни то ни другое в сборке не участвует: подсветку показывает оглавление
+    // само, а удержание — записка для слушателя прокрутки.
+    _section.value = index;
+    _pinned = index;
   }
 
   /// Тронули список — подсветка снова следит за прокруткой.
   void _unpin([Object? _]) {
     if (_pinned != null) {
-      setState(() => _pinned = null);
+      _pinned = null;
       _followScroll();
     }
   }
@@ -383,11 +394,11 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       return KeyEventResult.ignored;
     }
     if (key == LogicalKeyboardKey.arrowDown) {
-      _goToSection((_section + 1).clamp(0, _found.length - 1));
+      _goToSection((_section.value + 1).clamp(0, _found.length - 1));
       return KeyEventResult.handled;
     }
     if (key == LogicalKeyboardKey.arrowUp) {
-      _goToSection((_section - 1).clamp(0, _found.length - 1));
+      _goToSection((_section.value - 1).clamp(0, _found.length - 1));
       return KeyEventResult.handled;
     }
     return KeyEventResult.ignored;
@@ -491,24 +502,31 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                               // бы то же самое вторично.
                               if (_found.isNotEmpty)
                                 Expanded(
-                                  child: FcPickList(
-                                    rows: [for (final (_, title, _, _) in _found) FcPickRow(id: title, title: title)],
-                                    // Оглавление отбирают снаружи, а не изнутри:
-                                    // раздел, в котором ничего не совпало, из него
-                                    // уже пропал, и подсвечивать в оставшихся
-                                    // нечего.
-                                    query: '',
-                                    // Свой отступ: по умолчанию строка списка
-                                    // равняется по тексту в поле ввода над ней, а
-                                    // здесь поле стоит вплотную — и равняться надо
-                                    // по нему.
-                                    textInset: metrics.dialogPadding,
-                                    selected: _section,
-                                    // Оглавление не выбирают — оно показывает, где
-                                    // вы сейчас, и курсору здесь не обо что
-                                    // упереться: ни рамки, ни фона у столбца нет.
-                                    mark: FcPickMark.weight,
-                                    onTap: (id) => _goToSection(_found.indexWhere((section) => section.$2 == id)),
+                                  child: ValueListenableBuilder<int>(
+                                    valueListenable: _section,
+                                    builder:
+                                        (context, section, _) => FcPickList(
+                                          rows: [
+                                            for (final (_, title, _, _) in _found) FcPickRow(id: title, title: title),
+                                          ],
+                                          // Оглавление отбирают снаружи, а не
+                                          // изнутри: раздел, в котором ничего не
+                                          // совпало, из него уже пропал, и
+                                          // подсвечивать в оставшихся нечего.
+                                          query: '',
+                                          // Свой отступ: по умолчанию строка
+                                          // списка равняется по тексту в поле
+                                          // ввода над ней, а здесь поле стоит
+                                          // вплотную — и равняться надо по нему.
+                                          textInset: metrics.dialogPadding,
+                                          selected: section,
+                                          // Оглавление не выбирают — оно
+                                          // показывает, где вы сейчас, и курсору
+                                          // здесь не обо что упереться: ни рамки,
+                                          // ни фона у столбца нет.
+                                          mark: FcPickMark.weight,
+                                          onTap: (id) => _goToSection(_found.indexWhere((found) => found.$2 == id)),
+                                        ),
                                   ),
                                 ),
                               // Подвал прижат к низу столбца: место ему там же,

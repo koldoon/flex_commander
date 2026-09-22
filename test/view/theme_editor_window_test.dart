@@ -225,6 +225,46 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('прокрутка не пересобирает форму: подсветка раздела живёт отдельно', (tester) async {
+    await openEditor(tester);
+
+    // Кого каркас пересобрал за прокрутку — тем же способом, что и замер
+    // перерисовки панели (`test/performance/panel_redraw_bench_test.dart`).
+    final rebuilt = <String, int>{};
+    final original = debugPrint;
+    debugPrintRebuildDirtyWidgets = true;
+    debugPrint = (String? message, {int? wrapWidth}) {
+      if (message == null || !(message.startsWith('Rebuilding ') || message.startsWith('Building '))) {
+        return;
+      }
+      rebuilt.update(
+        message.split(' ').skip(1).join(' ').split(RegExp('[-(]')).first.trim(),
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    };
+    addTearDown(() {
+      debugPrintRebuildDirtyWidgets = false;
+      debugPrint = original;
+    });
+
+    // Через несколько разделов: подсветка в оглавлении обязана переехать.
+    await tester.drag(find.byType(FcPlate).first, const Offset(0, -600));
+    await tester.pumpAndSettle();
+
+    debugPrintRebuildDirtyWidgets = false;
+    debugPrint = original;
+
+    // Оглавление перерисовалось — значит подсветка и правда переехала.
+    expect(rebuilt['FcPickList'] ?? 0, greaterThan(0), reason: 'подсветка раздела не сдвинулась — мерить нечего');
+    // А форма и поля — нет: полторы сотни блоков на каждый переезд подсветки и
+    // были тем, обо что спотыкалась прокрутка.
+    expect(rebuilt['FcSettingsForm'] ?? 0, 0, reason: 'форма пересобирается на прокрутке');
+    expect(rebuilt['FcColorField'] ?? 0, 0, reason: 'поля цвета пересобираются на прокрутке');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('поиск находит роль по её имени', (tester) async {
     await openEditor(tester);
 
