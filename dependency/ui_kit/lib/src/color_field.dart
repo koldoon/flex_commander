@@ -225,30 +225,40 @@ class _Swatch extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = FcTheme.of(context);
-    final metrics = theme.metrics;
+    final metrics = FcTheme.of(context).metrics;
 
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      // Без обводки: цвет показывают цветом, а рамка вокруг каждого образца
-      // спорила бы с ним за внимание — особенно в списке, где их десятки.
-      // Скругление вдвое мельче, чем у поля рядом: образец — его приставка, а
-      // не второе поле.
-      decoration: BoxDecoration(borderRadius: BorderRadius.circular(metrics.inputRadius / 2)),
-      clipBehavior: Clip.antiAlias,
-      child: CustomPaint(painter: _SwatchPainter(color: color, cell: metrics.iconSize / 2)),
+      child: CustomPaint(
+        painter: _SwatchPainter(
+          color: color,
+          cell: metrics.iconSize / 2,
+          // Скругление вдвое мельче, чем у поля рядом: образец — его приставка,
+          // а не второе поле.
+          radius: metrics.inputRadius / 2,
+        ),
+      ),
     );
   }
 }
 
+/// Рисует образец сам — скруглением кисти, а не обрезкой снаружи.
+///
+/// Обрезка со сглаживанием берёт на углах покрытие наполовину, и берёт его
+/// **каждый слой порознь**: белая подложка шахматки проступала сквозь
+/// непрозрачный цвет светлыми уголками, неотличимыми от обводки. Одна фигура
+/// одной кистью этого не умеет.
 class _SwatchPainter extends CustomPainter {
-  const _SwatchPainter({required this.color, required this.cell});
+  const _SwatchPainter({required this.color, required this.cell, required this.radius});
 
   final Color color;
 
   /// Сторона клетки шахматки.
   final double cell;
+
+  /// Скругление углов образца.
+  final double radius;
 
   /// Клетки — серым по белому, а не цветами темы: это не часть оформления, а
   /// условный знак «здесь просвечивает».
@@ -257,34 +267,27 @@ class _SwatchPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    // Без сглаживания — все три слоя: сглаженные края берут покрытие наполовину,
-    // и белая подложка просвечивала сквозь непрозрачный цвет светлой каймой,
-    // неотличимой от обводки. Скругление углов делает не кисть, а обрезка
-    // родителя, и терять ей нечего.
-    final light =
-        Paint()
-          ..color = _light
-          ..isAntiAlias = false;
-    final dark =
-        Paint()
-          ..color = _dark
-          ..isAntiAlias = false;
-    canvas.drawRect(Offset.zero & size, light);
-    for (var y = 0.0; y < size.height; y += cell) {
-      for (var x = 0.0; x < size.width; x += cell) {
-        if (((x / cell).floor() + (y / cell).floor()).isOdd) {
-          canvas.drawRect(Rect.fromLTWH(x, y, cell, cell), dark);
+    final shape = RRect.fromRectAndRadius(Offset.zero & size, Radius.circular(radius));
+
+    // Шахматка — только под просвечивающим: под непрозрачным её не видно, а
+    // подмешаться на сглаженных углах она успевает.
+    if (color.a < 1) {
+      canvas.save();
+      canvas.clipRRect(shape);
+      canvas.drawRect(Offset.zero & size, Paint()..color = _light);
+      for (var y = 0.0; y < size.height; y += cell) {
+        for (var x = 0.0; x < size.width; x += cell) {
+          if (((x / cell).floor() + (y / cell).floor()).isOdd) {
+            canvas.drawRect(Rect.fromLTWH(x, y, cell, cell), Paint()..color = _dark);
+          }
         }
       }
+      canvas.restore();
     }
-    canvas.drawRect(
-      Offset.zero & size,
-      Paint()
-        ..color = color
-        ..isAntiAlias = false,
-    );
+
+    canvas.drawRRect(shape, Paint()..color = color);
   }
 
   @override
-  bool shouldRepaint(_SwatchPainter old) => old.color != color || old.cell != cell;
+  bool shouldRepaint(_SwatchPainter old) => old.color != color || old.cell != cell || old.radius != radius;
 }
