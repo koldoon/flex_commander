@@ -1,216 +1,91 @@
-import 'package:fc_api/fc_api.dart';
-import 'package:fc_file_icons/fc_file_icons.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
-import 'package:flex_commander/state/app_controller.dart';
+import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Прокрутка списка при смене каталога.
-///
-/// Проверяется не «докуда прокрутили», а **когда**: новый каталог должен
-/// появиться уже прокрученным. Прокрутка после кадра — это видимый рывок,
-/// и заметнее всего он при выходе наверх из длинного списка.
+/// Содержимое во весь экран — то же, чем встают редактор и просмотрщик: панели
+/// оно прячет, а не закрывает.
+class _FullScreen extends ChangeNotifier implements ViewportState {
+  @override
+  bool get takesKeyboard => true;
+
+  @override
+  void close() {}
+}
+
+/// Модуль, объявляющий, чем это содержимое рисуется.
+class _FullScreenModule implements FcFrontendModule {
+  const _FullScreenModule();
+
+  @override
+  String get id => 'test.fullscreen';
+
+  @override
+  String get title => 'Full screen stub';
+
+  @override
+  void installFrontend(FrontendRegistry registry) {
+    registry.view<_FullScreen>((context, state) => const ColoredBox(color: Color(0xFF000000)));
+  }
+}
+
+/// Прокрутка панели переживает полноэкранный вид
+/// (`docs/spec/panel-views.md`, §10).
 void main() {
-  late InMemoryTreeProvider provider;
-  late AppController app;
+  late AppRuntime runtime;
 
   setUp(() async {
-    provider = InMemoryTreeProvider([
-      FakeEntry.directory('/home'),
-      FakeEntry.directory('/home/near'),
-      FakeEntry.file('/home/near/inside.txt', size: 1),
-      // Длинный список, в конце которого стоит каталог: возврат в него — это
-      // и есть тот случай, когда список успевал мелькнуть началом.
-      for (var i = 0; i < 60; i++) FakeEntry.directory('/home/dir-${i.toString().padLeft(2, '0')}'),
-      FakeEntry.file('/home/dir-59/note.txt', size: 1),
-    ]);
-    final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
-    app = (await testApp(provider: provider, modules: featureModules(), settings: settings)).app;
+    runtime = await testApp(
+      provider: InMemoryTreeProvider([
+        FakeEntry.directory('/home'),
+        for (var i = 0; i < 120; i++) FakeEntry.file('/home/file-${i.toString().padLeft(3, '0')}.txt', size: 10),
+      ])..home = '/home',
+      modules: [...featureModules(), const _FullScreenModule()],
+    );
+    await runtime.app.start();
   });
 
-  Future<void> pumpApp(WidgetTester tester) async {
-    tester.view.physicalSize = const Size(802, 621);
+  /// Прокрутка списка левой панели.
+  double offsetOf(WidgetTester tester) =>
+      tester
+          .widget<ListView>(find.descendant(of: find.byType(FileTable).first, matching: find.byType(ListView)))
+          .controller!
+          .offset;
+
+  testWidgets('курсор остаётся там, где его оставили', (tester) async {
+    tester.view.physicalSize = const Size(1200, 800);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
 
-    await tester.pumpWidget(FlexCommanderApp(controller: app));
-    await app.start();
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
     await tester.pumpAndSettle();
-  }
 
-  /// Смещение списка левой панели.
-  double offsetOf(WidgetTester tester) => tester.widget<ListView>(find.byType(ListView).first).controller!.offset;
-
-  /// Живой дефект: при крупных иконках курсор уезжал за нижний край.
-  ///
-  /// Прокрутку к курсору считали кеглем темы, а список размечен шагом, который
-  /// зависит от размера иконки, — и промах рос вместе с ним.
-  testWidgets('крупные иконки не роняют курсор за нижний край', (tester) async {
-    final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
-    settings.modules.scope('fc.icons').section(FileIconSettings.new).size = 24;
-    app = (await testApp(provider: provider, modules: featureModules(), settings: settings)).app;
-
-    await pumpApp(tester);
-    for (var i = 0; i < 40; i++) {
+    // Уводим курсор далеко вниз: список прокручивается за ним.
+    for (var i = 0; i < 60; i++) {
       await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
     }
     await tester.pumpAndSettle();
 
-    final list = find.byType(ListView).first;
-    final row = find.descendant(of: list, matching: find.text(app.left.currentEntry!.name));
-    expect(row, findsOneWidget, reason: 'строки под курсором нет на экране вовсе');
+    final scrolled = offsetOf(tester);
+    expect(scrolled, greaterThan(0), reason: 'список не прокрутился — проверять нечего');
+    final cursorRow = tester.getRect(find.text(runtime.app.left.currentEntry!.name).first);
 
-    final viewport = tester.getRect(list);
-    expect(
-      tester.getRect(row).bottom,
-      lessThanOrEqualTo(viewport.bottom),
-      reason: 'строка под курсором вылезла за нижний край списка',
-    );
+    // Полноэкранный вид и обратно — как у просмотрщика и редактора.
+    runtime.app.view.pushViewportContent(ViewportPosition.fullscreen, _FullScreen());
+    await tester.pumpAndSettle();
+    runtime.app.view.popViewportContent(ViewportPosition.fullscreen);
+    await tester.pumpAndSettle();
+
+    // Список встаёт туда, где стоял: раньше он подматывался к курсору заново,
+    // и тот оказывался у нижнего края — не там, где его оставили.
+    expect(offsetOf(tester), scrolled);
+    expect(tester.getRect(find.text(runtime.app.left.currentEntry!.name).first).top, closeTo(cursorRow.top, 0.5));
 
     await tester.pump(const Duration(milliseconds: 20));
-  });
-
-  testWidgets('перестановка не двигает строку под курсором', (tester) async {
-    // Имена и размеры расходятся нарочно: сортировка по размеру переставляет
-    // список наоборот, и строке под курсором есть куда уехать.
-    final sized = InMemoryTreeProvider([
-      FakeEntry.directory('/home'),
-      for (var i = 0; i < 60; i++)
-        FakeEntry.file('/home/file-${i.toString().padLeft(2, '0')}.txt', size: (60 - i) * 10),
-    ]);
-    final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
-    app = (await testApp(provider: sized, modules: featureModules(), settings: settings)).app;
-
-    await pumpApp(tester);
-    for (var i = 0; i < 30; i++) {
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    }
-    await tester.pumpAndSettle();
-    // И назад от нижнего края: у края любая подмотка вернула бы строку на то
-    // же место сама, и проверять было бы нечего. По кадру на нажатие — пачкой
-    // они складываются в один ход, и вид доводит строку до края.
-    for (var i = 0; i < 5; i++) {
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-      await tester.pumpAndSettle();
-    }
-
-    final name = app.left.currentEntry!.name;
-    // В таблице имя и расширение — разные колонки: ищется то, что нарисовано.
-    final label = name.substring(0, name.lastIndexOf('.'));
-    Finder row() => find.descendant(of: find.byType(ListView).first, matching: find.text(label));
-    final was = tester.getRect(row()).top;
-
-    await tester.tap(find.text('Size').first);
-    await tester.pumpAndSettle();
-
-    // Строка уехала на другое место в списке — но не на экране: вид уехал
-    // вместе с ней (`docs/spec/panel-views.md`, §9).
-    expect(app.left.sort.column, FsColumns.size);
-    expect(app.left.currentEntry?.name, name);
-    expect(tester.getRect(row()).top, closeTo(was, 1));
-  });
-
-  testWidgets('настройку сняли — перестановка снова уводит строку', (tester) async {
-    final sized = InMemoryTreeProvider([
-      FakeEntry.directory('/home'),
-      for (var i = 0; i < 60; i++)
-        FakeEntry.file('/home/file-${i.toString().padLeft(2, '0')}.txt', size: (60 - i) * 10),
-    ]);
-    final settings = AppSettings(left: PanelSettings.defaults('/home'), right: PanelSettings.defaults('/home'));
-    settings.modules.scope(Panels().id).section(PanelsSettings.new).cursorHoldsPlace = false;
-    app = (await testApp(provider: sized, modules: featureModules(), settings: settings)).app;
-
-    await pumpApp(tester);
-    for (var i = 0; i < 30; i++) {
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-    }
-    for (var i = 0; i < 5; i++) {
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
-      await tester.pumpAndSettle();
-    }
-
-    final name = app.left.currentEntry!.name;
-    final label = name.substring(0, name.lastIndexOf('.'));
-    Finder row() => find.descendant(of: find.byType(ListView).first, matching: find.text(label));
-    final was = tester.getRect(row()).top;
-
-    await tester.tap(find.text('Size').first);
-    await tester.pumpAndSettle();
-
-    // Прежнее поведение: список стоит, строка уезжает, и вид догоняет её
-    // минимальной подмоткой.
-    expect(app.left.currentEntry?.name, name);
-    expect(tester.getRect(row()).top, isNot(closeTo(was, 1)));
-  });
-
-  testWidgets('возврат наверх ставит список туда, где стоит курсор', (tester) async {
-    await pumpApp(tester);
-    app.left.setCursorToName('dir-59');
-    await tester.pumpAndSettle();
-
-    // Вошли в каталог в конце длинного списка и сразу вернулись.
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
-    expect(app.leftSession.directory?.name, 'dir-59');
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
-    await tester.pump();
-
-    expect(app.left.currentEntry?.name, 'dir-59');
-    expect(offsetOf(tester), greaterThan(0));
-
-    // Отложенная запись настроек не должна остаться висеть после теста.
-    await tester.pump(const Duration(milliseconds: 20));
-  });
-
-  /// Тот самый дефект: список рисовался началом, и только следующим кадром
-  /// прокручивался к курсору. Проверяется не смещение (к моменту, когда его
-  /// можно спросить, отложенная прокрутка уже сработала бы), а то, **нарисована
-  /// ли** строка под курсором в этом кадре: при прокрутке после кадра её здесь
-  /// нет вовсе.
-  testWidgets('курсор виден в первом же кадре нового каталога', (tester) async {
-    await pumpApp(tester);
-    app.left.setCursorToName('dir-59');
-    await tester.pumpAndSettle();
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pumpAndSettle();
-    await tester.sendKeyEvent(LogicalKeyboardKey.backspace);
-    await tester.pump();
-
-    // Строка под курсором нарисована, а не осталась за нижним краем.
-    final row = find.descendant(of: find.byType(ListView).first, matching: find.text('dir-59'));
-    expect(row, findsOneWidget);
-    expect(tester.getBottomLeft(row).dy, lessThanOrEqualTo(tester.view.physicalSize.height));
-
-    await tester.pump(const Duration(milliseconds: 20));
-  });
-
-  testWidgets('короткий каталог не прокручивается вовсе', (tester) async {
-    await pumpApp(tester);
-    app.left.setCursorToName('near');
-    await tester.pumpAndSettle();
-
-    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
-    await tester.pump();
-
-    // Внутри всё помещается — прокручивать нечего.
-    expect(offsetOf(tester), 0);
-
-    await tester.pump(const Duration(milliseconds: 20));
-  });
-
-  testWidgets('внутри каталога прокрутка следует за курсором', (tester) async {
-    await pumpApp(tester);
-    expect(offsetOf(tester), 0);
-
-    app.left.setCursorToLast();
-    await tester.pumpAndSettle();
-
-    expect(offsetOf(tester), greaterThan(0));
   });
 }

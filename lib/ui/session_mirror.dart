@@ -616,11 +616,25 @@ class SessionMirror extends ChangeNotifier implements Session {
         : const PanelExpansion(opened: 0, stopped: false);
   }
 
-  @override
-  double get scrollOffset => _state.scroll;
+  /// Прокрутка, о которой сказал вид; null — вид ещё ничего не говорил, и в
+  /// ход идёт то, что приехало снимком (прошлый запуск).
+  ///
+  /// Своя, а не из снимка: снимок складывает ядро, и вернётся он **после**
+  /// того, как ядро о прокрутке узнает. Вид между тем успевает собраться
+  /// заново — после полноэкранного просмотра, например, — и прочитал бы
+  /// вчерашнее число (`docs/spec/panel-views.md`, §10).
+  double? _scroll;
 
   @override
-  void setScrollOffset(double offset) => _link.tell(ScrollTo(id, offset));
+  double get scrollOffset => _scroll ?? _state.scroll;
+
+  @override
+  void setScrollOffset(double offset) {
+    _scroll = offset;
+    // Ядру всё равно говорим: это оно складывает снимок, который переживёт
+    // перезапуск.
+    _link.tell(ScrollTo(id, offset));
+  }
 
   // --- своя работа ---
 

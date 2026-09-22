@@ -173,9 +173,14 @@ class _FileTableState extends State<FileTable> {
     }
 
     final previous = _scroll;
+    // Вид собрали заново — после полноэкранного просмотра или перезапуска:
+    // список встаёт туда, где стоял, а не подматывается к курсору заново.
+    // Подмотка ставила курсор у нижнего края, и человек находил его не там,
+    // где оставил (`docs/spec/panel-views.md`, §10).
+    final first = _scrolledDirectory == null;
     _scrolledDirectory = panel.currentPath;
     _lastCursorIndex = panel.cursorIndex;
-    _scroll = ScrollController(initialScrollOffset: _cursorOffset());
+    _scroll = ScrollController(initialScrollOffset: first ? panel.scrollOffset : _cursorOffset());
 
     // Прежний контроллер ещё привязан к списку, который сейчас на экране:
     // отпускать его можно только после того, как список сменится.
@@ -451,42 +456,55 @@ class _FileTableState extends State<FileTable> {
         final naming = app.fileNaming;
         _cache.frame([theme, columns, widths, rows, naming, _rowHeight]);
 
-        return ListView.builder(
-          // Новый каталог — новый список: положение прежнего в него не
-          // переносится.
-          key: ValueKey(_scrolledDirectory),
-          controller: _scroll,
-          // Тем же шагом, что и всё остальное: `_rowHeight` посчитан выше, в
-          // разметке, и учитывает крупные иконки.
-          itemExtent: _rowHeight,
-          itemCount: rows.length,
-          primary: false,
-          // Беречь строке нечего: своего состояния у неё нет, а значок помнит
-          // себя по пути и уезд с экрана переживает сам
-          // (`docs/spec/panel-redraw.md`, §7).
-          addAutomaticKeepAlives: false,
-          itemBuilder: (context, index) {
-            final entry = rows[index];
-            final marked = panel.isMarked(entry);
-            final underCursor = index == panel.cursorIndex;
-            return _cache.of(index, [entry, marked, underCursor, active], () {
-              final row = FileTableRow(
-                entry: entry,
-                columns: columns,
-                widths: widths,
-                marked: marked,
-                underCursor: underCursor,
-                panelActive: active,
-                naming: naming,
-                // Байты — для правил иконок по содержимому. Спрашивают их у
-                // панели: строка принадлежит ей, и она же знает, откуда читать.
-                contentOf: panel.contentOf,
-                onPress: () => _handleRowPress(app, index),
-              );
-              // Строку можно утащить наружу — если есть кому тащить.
-              return panelDragSource(context: context, panel: panel, entry: entry, child: row);
-            });
+        return NotificationListener<ScrollEndNotification>(
+          // Прокрутка запоминается, когда устоялась: с неё вид и начнёт, когда
+          // его соберут заново — после полноэкранного просмотра или
+          // перезапуска.
+          //
+          // Запоминается **всякая**, включая первую, которой список встаёт на
+          // восстановленное место: если её прижало к краю (список короче, чем
+          // был), то прижатое и есть новая правда.
+          onNotification: (notification) {
+            panel.setScrollOffset(notification.metrics.pixels);
+            return false;
           },
+          child: ListView.builder(
+            // Новый каталог — новый список: положение прежнего в него не
+            // переносится.
+            key: ValueKey(_scrolledDirectory),
+            controller: _scroll,
+            // Тем же шагом, что и всё остальное: `_rowHeight` посчитан выше, в
+            // разметке, и учитывает крупные иконки.
+            itemExtent: _rowHeight,
+            itemCount: rows.length,
+            primary: false,
+            // Беречь строке нечего: своего состояния у неё нет, а значок помнит
+            // себя по пути и уезд с экрана переживает сам
+            // (`docs/spec/panel-redraw.md`, §7).
+            addAutomaticKeepAlives: false,
+            itemBuilder: (context, index) {
+              final entry = rows[index];
+              final marked = panel.isMarked(entry);
+              final underCursor = index == panel.cursorIndex;
+              return _cache.of(index, [entry, marked, underCursor, active], () {
+                final row = FileTableRow(
+                  entry: entry,
+                  columns: columns,
+                  widths: widths,
+                  marked: marked,
+                  underCursor: underCursor,
+                  panelActive: active,
+                  naming: naming,
+                  // Байты — для правил иконок по содержимому. Спрашивают их у
+                  // панели: строка принадлежит ей, и она же знает, откуда читать.
+                  contentOf: panel.contentOf,
+                  onPress: () => _handleRowPress(app, index),
+                );
+                // Строку можно утащить наружу — если есть кому тащить.
+                return panelDragSource(context: context, panel: panel, entry: entry, child: row);
+              });
+            },
+          ),
         );
       },
     );
