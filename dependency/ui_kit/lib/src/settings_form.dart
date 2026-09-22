@@ -617,7 +617,16 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                                                   // (`docs/spec/settings-editor.md`,
                                                   // §12).
                                                   SizedBox(height: metrics.sectionEntryGap - metrics.fontCapInset),
-                                                  _block(theme, schema, field),
+                                                  _Block(
+                                                    // Ключом по полю: отбор и
+                                                    // пересборка не должны
+                                                    // менять настройке её
+                                                    // состояние.
+                                                    key: ValueKey(field.id),
+                                                    form: this,
+                                                    schema: schema,
+                                                    field: field,
+                                                  ),
                                                 ],
                                                 // До кромки плашки — столько же,
                                                 // сколько до линейки: своего поля у
@@ -708,7 +717,13 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   /// У флага порядок другой: квадрат встаёт **на строку подписи**, потому что у
   /// него подпись и есть управление. Поставь его как у всех — и подпись
   /// повторилась бы дважды: заголовком и меткой рядом с квадратом.
-  Widget _block(FcTheme theme, SettingsSchema schema, SettingsField field) {
+  ///
+  /// [redraw] перерисовывает **эту настройку**, а не форму: правка меняет её
+  /// значение и её же пометку, а соседям до неё дела нет. Через `setState`
+  /// формы одно нажатие клавиши пересобирало все поля разом — в окне настроек
+  /// это тысяча виджетов, в редакторе тем восемнадцать
+  /// (`docs/spec/settings-editor.md`, §14).
+  Widget _block(FcTheme theme, SettingsSchema schema, SettingsField field, VoidCallback redraw) {
     final metrics = theme.metrics;
     // Тронутое видно полосой слева — тем же цветом, каким помечена строка в
     // панели: «это тронуто» в приложении уже значит именно это. Место под
@@ -746,13 +761,13 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                   // «Reset» прижат к названию, как у всех прочих настроек: он
                   // про **эту** настройку, и место ему при её подписи, а не у
                   // дальнего края рядом с чужой кнопкой.
-                  _titleLine(theme, schema, field, Text.rich(_titleSpan(theme, field.title))),
+                  _titleLine(theme, schema, field, Text.rich(_titleSpan(theme, field.title)), redraw),
                   for (final line in explanations) ...[SizedBox(height: metrics.dialogLineGap), line],
                 ],
               ),
             ),
             SizedBox(width: metrics.columnGap),
-            _control(theme, schema, field),
+            _control(theme, schema, field, redraw),
           ],
         ),
       );
@@ -766,7 +781,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
           crossAxisAlignment: CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
-            _titleLine(theme, schema, field, _control(theme, schema, field)),
+            _titleLine(theme, schema, field, _control(theme, schema, field, redraw), redraw),
             // Объяснение равняется по подписи, а не по квадрату: оно относится
             // к настройке, а не к галочке.
             if (explanations.isNotEmpty)
@@ -790,10 +805,10 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
         children: [
-          _titleLine(theme, schema, field, Text.rich(_titleSpan(theme, field.title))),
+          _titleLine(theme, schema, field, Text.rich(_titleSpan(theme, field.title)), redraw),
           for (final line in explanations) ...[SizedBox(height: metrics.dialogLineGap), line],
           SizedBox(height: metrics.dialogLineGap),
-          _control(theme, schema, field),
+          _control(theme, schema, field, redraw),
         ],
       ),
     );
@@ -826,12 +841,16 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   ///
   /// «Reset» появляется только у тронутого: у настройки, стоящей на умолчании,
   /// он предлагал бы ничего не делать.
-  Widget _titleLine(FcTheme theme, SettingsSchema schema, SettingsField field, Widget title) {
+  Widget _titleLine(FcTheme theme, SettingsSchema schema, SettingsField field, Widget title, VoidCallback redraw) {
     if (field.isDefault) {
       return title;
     }
     return Row(
-      children: [Flexible(child: title), SizedBox(width: theme.metrics.columnGap), _reset(theme, schema, field)],
+      children: [
+        Flexible(child: title),
+        SizedBox(width: theme.metrics.columnGap),
+        _reset(theme, schema, field, redraw),
+      ],
     );
   }
 
@@ -863,14 +882,14 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     }
   }
 
-  Widget _reset(FcTheme theme, SettingsSchema schema, SettingsField field) => MouseRegion(
+  Widget _reset(FcTheme theme, SettingsSchema schema, SettingsField field, VoidCallback redraw) => MouseRegion(
     cursor: SystemMouseCursors.click,
     child: GestureDetector(
       onTap: () {
         field.resetToDefault();
         _refreshEditor(field);
         schema.save();
-        setState(() {});
+        redraw();
       },
       child: Text(context.strings.tr('Reset'), style: _secondaryStyle(theme).copyWith(color: theme.colors.markedBar)),
     ),
@@ -1009,10 +1028,10 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     ),
   );
 
-  Widget _control(FcTheme theme, SettingsSchema schema, SettingsField field) {
+  Widget _control(FcTheme theme, SettingsSchema schema, SettingsField field, VoidCallback redraw) {
     void changed() {
       schema.save();
-      setState(() {});
+      redraw();
     }
 
     // Правка выбора и флажка меняет не только себя: от неё зависит, что
@@ -1246,4 +1265,34 @@ class _ListRow {
     editor.dispose();
     focus.dispose();
   }
+}
+
+/// Одна настройка — своим виджетом.
+///
+/// Затем, что правка перерисовывает **её**: значение и пометка «тронуто» — её
+/// собственные, а соседям до них дела нет. Пока блок рисовался прямо в форме,
+/// одно нажатие клавиши пересобирало все поля разом
+/// (`docs/spec/settings-editor.md`, §14).
+///
+/// Форму блок держит **ссылкой на состояние**: поля ввода, строки списков и
+/// подсветка найденного живут там — они переживают и отбор, и пересборку, а в
+/// блоке жили бы ровно до первой.
+class _Block extends StatefulWidget {
+  const _Block({super.key, required this.form, required this.schema, required this.field});
+
+  final _FcSettingsFormState form;
+  final SettingsSchema schema;
+  final SettingsField field;
+
+  @override
+  State<_Block> createState() => _BlockState();
+}
+
+class _BlockState extends State<_Block> {
+  @override
+  Widget build(BuildContext context) => widget.form._block(FcTheme.of(context), widget.schema, widget.field, () {
+    if (mounted) {
+      setState(() {});
+    }
+  });
 }

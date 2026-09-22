@@ -57,6 +57,44 @@ void main() {
           .controller!
           .position;
 
+  testWidgets('правка поля перерисовывает его, а не всю форму', (tester) async {
+    await openSettings(tester);
+
+    // Кого каркас пересобрал за нажатие — тем же способом, что и замер
+    // перерисовки панели (`test/performance/panel_redraw_bench_test.dart`).
+    final rebuilt = <String, int>{};
+    final original = debugPrint;
+    debugPrintRebuildDirtyWidgets = true;
+    debugPrint = (String? message, {int? wrapWidth}) {
+      if (message == null || !(message.startsWith('Rebuilding ') || message.startsWith('Building '))) {
+        return;
+      }
+      rebuilt.update(
+        message.split(' ').skip(1).join(' ').split(RegExp('[-(]')).first.trim(),
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    };
+    addTearDown(() {
+      debugPrintRebuildDirtyWidgets = false;
+      debugPrint = original;
+    });
+
+    await tester.enterText(find.widgetWithText(FcTextField, r'$SHELL').first, 'zsh');
+    await tester.pumpAndSettle();
+
+    debugPrintRebuildDirtyWidgets = false;
+    debugPrint = original;
+
+    expect(terminal().shell, 'zsh', reason: 'правка не доехала — мерить нечего');
+    // Значение и пометка «тронуто» — собственные у настройки, и соседям до них
+    // дела нет. Через `setState` формы одно нажатие пересобирало все поля
+    // разом — тысячу виджетов в этом окне и восемнадцать тысяч в редакторе тем.
+    expect(rebuilt['FcSettingsForm'] ?? 0, 0, reason: 'форма пересобирается на каждое нажатие');
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('F9 открывает настройки, разделы — по модулям', (tester) async {
     await openSettings(tester);
 
