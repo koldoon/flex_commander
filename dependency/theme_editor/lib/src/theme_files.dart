@@ -59,6 +59,8 @@ Future<void> importTheme(Application app, Strings strings, ThemeOverlay overlay)
     submitLabel: strings.tr('Import'),
     destinationLabel: 'Read from',
     formatError: 'This is not a theme: the file does not read',
+    // Тема лежит в json — их в дереве и показываем.
+    picks: (entry) => entry.name.toLowerCase().endsWith('.json'),
     name: suggested,
     run: (folder, name) async {
       final stored = await readJsonFile(app, '$folder/$name');

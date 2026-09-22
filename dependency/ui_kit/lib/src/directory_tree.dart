@@ -25,6 +25,7 @@ class FcDirectoryTree extends StatefulWidget {
     required this.children,
     required this.selected,
     required this.onSelected,
+    this.shows,
   });
 
   /// С чего начинается дерево: адрес корня.
@@ -43,7 +44,18 @@ class FcDirectoryTree extends StatefulWidget {
   /// Что выбрано сейчас — адресом.
   final String selected;
 
-  final void Function(String path) onSelected;
+  /// Выбрали строку: адрес и то, файл это или ветвь.
+  ///
+  /// Файл или ветвь — врозь, потому что спросившему это разное: окно загрузки
+  /// от файла берёт имя, а от ветви — только место
+  /// (`docs/spec/settings-presets.md`, §7).
+  final void Function(String path, bool isFile) onSelected;
+
+  /// Какие файлы показывать рядом с ветвями; null — только ветви.
+  ///
+  /// Окну загрузки файл нужен целиком: набирать его имя руками, когда он виден
+  /// в том же дереве, незачем.
+  final bool Function(FileEntry entry)? shows;
 
   @override
   State<FcDirectoryTree> createState() => _FcDirectoryTreeState();
@@ -88,7 +100,7 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
     }
     final children = [
       for (final entry in found)
-        if (entry.canEnter && entry.kind != EntryKind.parent) entry,
+        if (entry.kind != EntryKind.parent && (entry.canEnter || (widget.shows?.call(entry) ?? false))) entry,
     ];
 
     // Настоящий путь корня — от первой же ветви: она знает, в каком каталоге
@@ -101,7 +113,8 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
         _open.remove(_root);
         _root = real;
         if (chosenRoot) {
-          widget.onSelected(real);
+          // Корень — ветвь, а не файл: настоящий адрес дома узнали и сказали.
+          widget.onSelected(real, false);
         }
       } else {
         _open[path] = children;
@@ -121,7 +134,7 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
     final rows = <_Branch>[_Branch(path: _root, name: widget.rootTitle, depth: 0)];
     void walk(String path, int depth) {
       for (final entry in _open[path] ?? const <FileEntry>[]) {
-        rows.add(_Branch(path: entry.path, name: entry.name, depth: depth));
+        rows.add(_Branch(path: entry.path, name: entry.name, depth: depth, leaf: !entry.canEnter));
         walk(entry.path, depth + 1);
       }
     }
@@ -142,6 +155,9 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
         _select(rows, at + 1);
       case LogicalKeyboardKey.arrowUp:
         _select(rows, at - 1);
+      case LogicalKeyboardKey.arrowRight when at >= 0 && rows[at].leaf:
+        // В файл не входят: раскрывать нечего.
+        return KeyEventResult.ignored;
       case LogicalKeyboardKey.arrowRight:
         // Вправо раскрывает, а раскрытую — уводит внутрь: то же, что в панели.
         if (_open.containsKey(widget.selected)) {
@@ -173,7 +189,7 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
     if (at < 0 || at >= rows.length) {
       return;
     }
-    widget.onSelected(rows[at].path);
+    widget.onSelected(rows[at].path, rows[at].leaf);
     _show(at);
   }
 
@@ -225,13 +241,19 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
     // Знак раскрытия — **тот же глиф и тем же шрифтом**, что в дереве панели:
     // два разных шеврона в одном приложении человек видит сразу
     // (`docs/spec/panel-view-tree.md`, §4).
-    final mark = String.fromCharCode(opened ? icons.branchOpen.codePoint : icons.branchClosed.codePoint);
+    final mark = String.fromCharCode(
+      branch.leaf ? icons.file.codePoint : (opened ? icons.branchOpen.codePoint : icons.branchClosed.codePoint),
+    );
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,
       onTap: () {
         _keys.requestFocus();
-        widget.onSelected(branch.path);
+        widget.onSelected(branch.path, branch.leaf);
+        if (branch.leaf) {
+          // В файл не входят: щелчок по нему только выбирает.
+          return;
+        }
         // Один щелчок и выбирает, и раскрывает: закрывать приходится тем же
         // щелчком по уже выбранному — иначе до вложенного каталога не дойти
         // мышью вовсе.
@@ -286,9 +308,12 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
 
 /// Ветвь на экране: адрес, имя и глубина.
 class _Branch {
-  const _Branch({required this.path, required this.name, required this.depth});
+  const _Branch({required this.path, required this.name, required this.depth, this.leaf = false});
 
   final String path;
   final String name;
   final int depth;
+
+  /// Файл: внутрь него не входят, и знака раскрытия у него нет.
+  final bool leaf;
 }

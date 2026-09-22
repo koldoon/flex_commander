@@ -397,3 +397,5 @@ class OverlayColors implements FcColors {
 * **§10 — сделано.** `theme.export` и `theme.import`, окно «каталог и имя»
   общее с наборами (`fc_ui_kit/file_dialogs.dart`). Загруженная тема встаёт
   своей, а не поверх нынешней.
+* **Загрузка выбирает файл прямо в дереве** и принимает брошенное мышью — общим
+  окном с наборами (`settings-presets.md`).

@@ -60,6 +60,9 @@ Future<void> importPreset(Application app, Strings strings, Presets presets) {
     submitLabel: strings.tr('Import'),
     destinationLabel: 'Read from',
     formatError: 'This is not a set: the file does not read',
+    // Набор лежит в json — их в дереве и показываем: искать его среди картинок
+    // и архивов человеку незачем.
+    picks: (entry) => entry.name.toLowerCase().endsWith('.json'),
     name: suggested,
     run: (folder, name) async {
       final preset = await _read(app, '$folder/$name');

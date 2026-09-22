@@ -56,6 +56,11 @@ const String _home = '~';
 ///
 /// [formatError] — что сказать, если файл не прочитался: «это не набор», «это
 /// не тема». Знает это тот, кто просил, а не окно.
+///
+/// [picks] — по какому имени видно **файл**, который тут выбирают; null —
+/// файлы не показываются вовсе, и дерево остаётся деревом каталогов. Так
+/// разнятся два окна: выгрузка спрашивает место и имя, а загрузка — готовый
+/// файл, и набирать его имя руками, когда он виден в том же дереве, незачем.
 Future<void> askFile(
   Application app,
   Strings strings, {
@@ -65,6 +70,7 @@ Future<void> askFile(
   required String destinationLabel,
   required String formatError,
   required Future<void> Function(String folder, String name) run,
+  bool Function(FileEntry entry)? picks,
 }) {
   final view = app.view;
   final closed = Completer<void>();
@@ -78,7 +84,15 @@ Future<void> askFile(
 
   // Дом, а не каталог панели: выгружают набор обычно «к себе», а панель в
   // этот миг стоит где угодно — хоть в `/etc`.
-  final state = _FileState(folder: _home, name: name, strings: strings, run: run, app: app, formatError: formatError);
+  final state = _FileState(
+    folder: _home,
+    name: name,
+    strings: strings,
+    run: run,
+    app: app,
+    formatError: formatError,
+    picks: picks,
+  );
   state.close = close;
 
   dialogId = view.showDialog(
@@ -102,10 +116,33 @@ class _FileState extends ChangeNotifier {
     required this.run,
     required this.app,
     required this.formatError,
-  });
+    this.picks,
+  }) : selected = folder;
 
   /// Что сказать про файл, который не прочитался.
   final String formatError;
+
+  /// По какому имени видно файл, который тут выбирают; null — выбирают место.
+  final bool Function(FileEntry entry)? picks;
+
+  /// Что подсвечено в дереве: ветвь или файл.
+  ///
+  /// Отдельно от [folder]: выбранный файл лежит **в** каталоге, и подсветить
+  /// надо его самого, а не то, что его держит.
+  String selected;
+
+  /// Выбрали в дереве — местом или файлом.
+  void choose(String path, bool isFile) {
+    selected = path;
+    if (isFile) {
+      final at = path.lastIndexOf('/');
+      folder = at > 0 ? path.substring(0, at) : path;
+      name = path.substring(at + 1);
+    } else {
+      folder = path;
+    }
+    notifyListeners();
+  }
 
   final Application app;
 
@@ -169,9 +206,30 @@ class _FileFormState extends State<_FileForm> {
     );
 
   @override
+  void initState() {
+    super.initState();
+    widget.state.addListener(_followState);
+  }
+
+  @override
   void dispose() {
+    widget.state.removeListener(_followState);
     _name.dispose();
     super.dispose();
+  }
+
+  /// Выбранное в дереве видно и в поле имени.
+  ///
+  /// Иначе в нём остаётся прежнее, и окно показывает два разных ответа на один
+  /// вопрос — а запишется то, что в поле.
+  void _followState() {
+    if (_name.text == widget.state.name) {
+      return;
+    }
+    _name.value = TextEditingValue(
+      text: widget.state.name,
+      selection: TextSelection.collapsed(offset: widget.state.name.length),
+    );
   }
 
   @override
@@ -189,7 +247,7 @@ class _FileFormState extends State<_FileForm> {
               // Подпись вровень с первой строкой дерева, а не по его середине:
               // у высокого управления середина уезжает в пустоту.
               CommandDialogField.column(
-                label: context.strings.tr('Folder'),
+                label: context.strings.tr(state.picks == null ? 'Folder' : 'File'),
                 children: [
                   SizedBox(
                     // Размер задаётся здесь, и оба измерения: окно меряет своё
@@ -197,12 +255,16 @@ class _FileFormState extends State<_FileForm> {
                     // себя не умеет — ради того он и ленив.
                     width: FcTheme.of(context).metrics.dialogLabelWidth * 3,
                     height: FcTheme.of(context).metrics.rowHeight * 9,
-                    child: FcDirectoryTree(
-                      root: _home,
-                      rootTitle: context.strings.tr('Home'),
-                      children: state.app.activePanel.namesIn,
-                      selected: state.folder,
-                      onSelected: (path) => setState(() => state.folder = path),
+                    child: _DropArea(
+                      state: state,
+                      child: FcDirectoryTree(
+                        root: _home,
+                        rootTitle: context.strings.tr('Home'),
+                        children: state.app.activePanel.namesIn,
+                        selected: state.selected,
+                        shows: state.picks,
+                        onSelected: state.choose,
+                      ),
                     ),
                   ),
                 ],
@@ -232,5 +294,64 @@ class _FileFormState extends State<_FileForm> {
             ],
           ),
     );
+  }
+}
+
+/// Дерево, принимающее брошенный снаружи файл.
+///
+/// Перетащить файл в окно — короче, чем искать его в дереве, и человек к этому
+/// привык: в панель уже бросают мышью (`docs/spec/drag-and-drop.md`). Службы
+/// может не быть вовсе — тогда область остаётся обычным деревом.
+///
+/// Бросают **файл или каталог**, и разбирается это тем же способом, что и
+/// выбор в дереве: файл даёт место и имя, каталог — только место.
+class _DropArea extends StatelessWidget {
+  const _DropArea({required this.state, required this.child});
+
+  final _FileState state;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final dnd = state.app.dragAndDrop;
+    if (dnd == null) {
+      return child;
+    }
+    final theme = FcTheme.of(context);
+
+    return dnd.target(
+      // Хозяин — само окно: бросают в него из панели, а панель себе приёмником
+      // не бывает.
+      owner: state,
+      // Принимается вся область: разбирать, над какой строкой дерева отпустили,
+      // незачем — брошенное само говорит, откуда оно.
+      spotAt: (_) => const DropSpot(destination: ''),
+      onDrop: (_, payload) async => _take(payload),
+      builder:
+          (context, hovered) => Container(
+            foregroundDecoration:
+                hovered == null
+                    ? null
+                    : BoxDecoration(
+                      border: Border.all(color: theme.colors.markedBar, width: theme.metrics.focusRingWidth),
+                      borderRadius: BorderRadius.circular(theme.metrics.panelRadius),
+                    ),
+            child: child,
+          ),
+    );
+  }
+
+  /// Первое брошенное и берём: окно спрашивает **один** файл, и выбирать за
+  /// человека, какой из пяти он имел в виду, нечем.
+  void _take(DropPayload payload) {
+    if (payload.entries.firstOrNull case final entry?) {
+      state.choose(entry.path, !entry.canEnter);
+      return;
+    }
+    if (payload.paths.firstOrNull case final path?) {
+      // Из системы приезжает путь, а не строка списка: каталог это или файл,
+      // видно по тому, как он кончается, — и по имени, которое окно ждёт.
+      state.choose(path, !path.endsWith('/'));
+    }
   }
 }
