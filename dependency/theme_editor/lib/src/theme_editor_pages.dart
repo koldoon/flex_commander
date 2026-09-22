@@ -10,7 +10,12 @@ import 'theme_roles.dart';
 /// Разделы строятся **здесь**, а не кладутся в `SettingsCatalog`: попав туда,
 /// полторы сотни ролей встали бы и в окно настроек
 /// (`docs/spec/theme-editor.md`, §3).
-List<SettingsPage> themeEditorPages(ThemeService themes, ThemeOverlay overlay, {required void Function() save}) {
+List<SettingsPage> themeEditorPages(
+  ThemeService themes,
+  ThemeOverlay overlay, {
+  required void Function() save,
+  List<SystemFont> fonts = const [],
+}) {
   // Палитра — цвета, уже стоящие в теме: подбирая цвет роли, чаще всего берут
   // тот, которым покрашено соседнее. Своего списка «красивых цветов» у
   // редактора нет и быть не может — он не знает, какая тема на экране.
@@ -53,27 +58,34 @@ List<SettingsPage> themeEditorPages(ThemeService themes, ThemeOverlay overlay, {
     );
   }
 
-  final fonts = overlay.pristine.fonts;
+  final base = overlay.pristine.fonts;
   put(
     fontSection,
-    SettingsField.text(
+    _fontField(
       'ui',
       title: 'Interface font',
       description: 'Family name; empty means the one the system picks',
-      defaultValue: fonts.ui,
+      installed: fonts,
+      defaultValue: base.ui,
       read: () => themes.current.fonts.ui,
-      write: (value) => overlay.setUiFont(value == fonts.ui ? null : value),
+      write: (value) => overlay.setUiFont(value == base.ui ? null : value),
     ),
   );
   put(
     fontSection,
-    SettingsField.text(
+    _fontField(
       'fixed',
       title: 'File list font',
       description: 'Monospaced, so that sizes and dates stand in columns',
-      defaultValue: fonts.fixed,
+      // Только моноширинные: пропорциональным шрифтом столбцы размеров и дат
+      // перестают стоять столбцами, и выбрать его — значит сломать список.
+      installed: [
+        for (final font in fonts)
+          if (font.fixedPitch) font,
+      ],
+      defaultValue: base.fixed,
       read: () => themes.current.fonts.fixed,
-      write: (value) => overlay.setFixedFont(value == fonts.fixed ? null : value),
+      write: (value) => overlay.setFixedFont(value == base.fixed ? null : value),
     ),
   );
   put(
@@ -83,9 +95,9 @@ List<SettingsPage> themeEditorPages(ThemeService themes, ThemeOverlay overlay, {
       title: 'File list fallback fonts',
       description: 'What to set the list in when the font above is not installed',
       hint: 'Menlo',
-      defaultValue: fonts.fixedFallback,
+      defaultValue: base.fixedFallback,
       read: () => themes.current.fonts.fixedFallback,
-      write: (value) => overlay.setFallback(_sameFonts(value, fonts.fixedFallback) ? null : value),
+      write: (value) => overlay.setFallback(_sameFonts(value, base.fixedFallback) ? null : value),
     ),
   );
 
@@ -93,6 +105,50 @@ List<SettingsPage> themeEditorPages(ThemeService themes, ThemeOverlay overlay, {
     for (final entry in pages.entries)
       SettingsPage(title: entry.key, build: () => SettingsSchema(entry.value, save: save)),
   ];
+}
+
+/// Шрифт — списком выбора, если перечень установленных есть, и строкой, если
+/// его нет.
+///
+/// Перечень приносит платформенная служба (`SystemFonts`), и её может не быть:
+/// другая система, тест, выключенный модуль. Тогда шрифт набирают руками — так
+/// и было до списка (`docs/spec/theme-editor.md`, §12).
+SettingsField _fontField(
+  String id, {
+  required String title,
+  required String description,
+  required List<SystemFont> installed,
+  required String defaultValue,
+  required String Function() read,
+  required void Function(String value) write,
+}) {
+  if (installed.isEmpty) {
+    return SettingsField.text(
+      id,
+      title: title,
+      description: description,
+      defaultValue: defaultValue,
+      read: read,
+      write: write,
+    );
+  }
+
+  // Нынешний и темин — в списке всегда, даже если в системе их нет: иначе
+  // выбранным оказалось бы не то, что стоит, а поправить было бы нечем.
+  // Consolas у темы по умолчанию именно таков — на macOS его обычно нет.
+  final families = <String>{defaultValue, read(), for (final font in installed) font.family}
+    ..removeWhere((family) => family.isEmpty);
+  final sorted = families.toList()..sort();
+
+  return SettingsField.choice(
+    id,
+    title: title,
+    description: description,
+    options: {for (final family in sorted) family: family},
+    defaultValue: defaultValue,
+    read: read,
+    write: write,
+  );
 }
 
 /// Списки шрифтов равны — значит своего списка нет: запись, повторяющая тему,

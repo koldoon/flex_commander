@@ -28,6 +28,7 @@ import 'package:fc_zip/fc_zip.dart';
 import '../modules/app_shell.dart';
 import '../modules/clipboard/system_file_clipboard.dart';
 import '../modules/dnd/system_drag_and_drop.dart';
+import '../modules/fonts/system_fonts.dart';
 import '../modules/icons/system_icons.dart';
 import '../modules/images/system_images.dart';
 
@@ -84,6 +85,10 @@ List<FcModule> featureModules() => [
   // необходимости — службы разбираются лениво, — а потому что читается сверху
   // вниз: сперва то, что он спрашивает, потом он сам.
   const SystemFileIcons(),
+  // Перечень установленных шрифтов: из Flutter его не узнать, а редактору тем
+  // он нужен, чтобы предлагать шрифт списком, а не заставлять набирать имя
+  // (`docs/spec/theme-editor.md`, §12).
+  const SystemFontList(),
   // Разбор картинок, которых не умеет Flutter: `HEIC` и всё, что читает
   // система, а Skia — нет. Просмотрщик спрашивает его последним, когда свой
   // разбор не справился (`docs/spec/image-viewer.md`, §12).

@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
@@ -65,7 +66,13 @@ class EditThemeCommand extends AppCommand {
         // Та же форма, что у настроек и клавиш: она принимает произвольные
         // разделы, и третью такую писать незачем (§3).
         content: FcSettingsForm(
-          pages: themeEditorPages(app.theme, editor, save: () {}),
+          pages: themeEditorPages(
+            app.theme,
+            editor,
+            save: () {},
+            // Службы может не быть вовсе: тогда шрифт набирают руками.
+            fonts: _fontsOf(env),
+          ),
           onClose: close,
           searchHint: 'Search roles',
           footer: (refresh) => _ResetAllButton(onPressed: () => _resetAll(app, editor, refresh)),
@@ -275,4 +282,14 @@ class _ResetAllButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => FcButton(label: context.strings.tr('Reset all roles'), onPressed: onPressed);
+}
+
+/// Перечень установленных шрифтов; пусто — службы нет.
+///
+/// Служба платформенная, и её может не быть: другая система, тест, выключенный
+/// модуль. Тогда шрифт в окне набирают руками — так и было до списка
+/// (`docs/spec/theme-editor.md`, §12).
+List<SystemFont> _fontsOf(FcServices services) {
+  final found = services.resolveAll<SystemFonts>();
+  return found.isEmpty ? const [] : found.first.installed;
 }
