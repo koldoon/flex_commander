@@ -43,6 +43,8 @@ class ThemeEditing implements FcFrontendModule {
     registry.command((context) => EditThemeCommand(context, () => overlay(context)));
     registry.command((context) => NewThemeCommand(context, () => overlay(context)));
     registry.command((context) => DeleteThemeCommand(context, () => overlay(context)));
+    registry.command((context) => ExportThemeCommand(context, () => overlay(context)));
+    registry.command((context) => ImportThemeCommand(context, () => overlay(context)));
     registry.command((context) => ResetThemeCommand(context, () => overlay(context)));
     // Клавиш редактор не получает: оформление правят раз в жизни. Привязка без
     // клавиши говорит только о том, в каком разделе стоит команда
@@ -50,6 +52,8 @@ class ThemeEditing implements FcFrontendModule {
     registry.binding(KeyBinding.unbound(EditThemeCommand.commandId, context: KeyContext.everywhere));
     registry.binding(KeyBinding.unbound(NewThemeCommand.commandId, context: KeyContext.everywhere));
     registry.binding(KeyBinding.unbound(DeleteThemeCommand.commandId, context: KeyContext.everywhere));
+    registry.binding(KeyBinding.unbound(ExportThemeCommand.commandId, context: KeyContext.everywhere));
+    registry.binding(KeyBinding.unbound(ImportThemeCommand.commandId, context: KeyContext.everywhere));
     registry.binding(KeyBinding.unbound(ResetThemeCommand.commandId, context: KeyContext.everywhere));
 
     registry.startup((context) => ApplyThemeOverlayCommand(context, () => overlay(context)));
@@ -73,6 +77,15 @@ const Map<String, String> _russian = {
   'Delete «{name}»? The theme it was made from stays as it is.':
       'Убрать «{name}»? Оформление, с которого оно списано, останется как есть.',
   'Theme «{name}» deleted': 'Оформление «{name}» убрано',
+  'Export theme': 'Выгрузить оформление',
+  'Save the current look to a file': 'Сохранить нынешний вид файлом',
+  'Theme «{name}» exported': 'Оформление «{name}» выгружено',
+  'Import theme': 'Загрузить оформление',
+  'Bring a theme from a file; it joins the list and becomes the chosen one':
+      'Взять оформление из файла: оно встанет в список и станет выбранным',
+  'Theme «{name}» imported': 'Оформление «{name}» загружено',
+  'This is not a theme: the file does not read': 'Это не оформление: файл не читается',
+  'Bring a theme from a file': 'Взять оформление из файла',
   'Reset theme': 'Вернуть оформление',
   'Drop every change made to the theme': 'Забыть все правки оформления',
   'Apply theme changes': 'Применить правки оформления',

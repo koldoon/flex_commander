@@ -22,6 +22,7 @@ export 'src/directory_tree.dart';
 export 'src/controls.dart';
 export 'src/cursor_blink.dart';
 export 'src/fc_theme.dart';
+export 'src/file_dialogs.dart';
 export 'src/fc_tooltip.dart';
 export 'src/key_value_table.dart';
 export 'src/name_dialogs.dart';

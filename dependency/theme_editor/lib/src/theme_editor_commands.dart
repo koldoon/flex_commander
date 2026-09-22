@@ -4,6 +4,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
 import 'theme_editor_pages.dart';
+import 'theme_files.dart';
 import 'theme_overlay.dart';
 
 /// Смена темы — командой модуля темы, а не службой оформления: имя выбранной
@@ -204,6 +205,62 @@ class DeleteThemeCommand extends AppCommand {
       },
     );
   }
+}
+
+/// Выгрузить тему в файл.
+class ExportThemeCommand extends AppCommand {
+  ExportThemeCommand(this.env, this.overlay);
+
+  final FcContext env;
+  final ThemeOverlay Function() overlay;
+
+  static const String commandId = 'theme.export';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => tr('Export theme');
+
+  @override
+  String get description => tr('Save the current look to a file');
+
+  @override
+  Set<String> get keywords => const {'appearance', 'share', 'file'};
+
+  @override
+  bool isExecutable(CommandContext context) => true;
+
+  @override
+  Future<void> execute(CommandContext context) => exportTheme(context.app, context.app.strings, overlay());
+}
+
+/// Загрузить тему из файла.
+class ImportThemeCommand extends AppCommand {
+  ImportThemeCommand(this.env, this.overlay);
+
+  final FcContext env;
+  final ThemeOverlay Function() overlay;
+
+  static const String commandId = 'theme.import';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => tr('Import theme');
+
+  @override
+  String get description => tr('Bring a theme from a file; it joins the list and becomes the chosen one');
+
+  @override
+  Set<String> get keywords => const {'appearance', 'file'};
+
+  @override
+  bool isExecutable(CommandContext context) => true;
+
+  @override
+  Future<void> execute(CommandContext context) => importTheme(context.app, context.app.strings, overlay());
 }
 
 /// Вернуть оформление — без окна.

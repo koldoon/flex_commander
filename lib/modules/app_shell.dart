@@ -51,6 +51,8 @@ const String _switchThemeParam = 'themeId';
 const String _editThemeCommand = 'theme.edit';
 const String _newThemeCommand = 'theme.new';
 const String _deleteThemeCommand = 'theme.delete';
+const String _exportThemeCommand = 'theme.export';
+const String _importThemeCommand = 'theme.import';
 
 /// Что написано на кнопках при выборе темы.
 ///
@@ -60,6 +62,7 @@ const Map<String, String> _themeActionLabels = {
   _newThemeCommand: 'New',
   _editThemeCommand: 'Edit',
   _deleteThemeCommand: 'Delete',
+  _exportThemeCommand: 'Export',
 };
 
 class AppShell implements FcBackendModule, FcFrontendModule {
@@ -424,7 +427,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           // Приглушённая, а не спрятанная: «Delete» на встроенной теме
           // невыполним, но действие есть — просто не к этой теме.
           actions: [
-            for (final command in [_newThemeCommand, _editThemeCommand, _deleteThemeCommand])
+            for (final command in [_newThemeCommand, _editThemeCommand, _deleteThemeCommand, _exportThemeCommand])
               if (app.commands.find(command) case final found?)
                 SettingsAction(
                   label: strings.tr(_themeActionLabels[command]!),
@@ -435,6 +438,17 @@ class AppShell implements FcBackendModule, FcFrontendModule {
                 ),
           ],
         ),
+        // Загрузка темы — своим полем, а не кнопкой при выборе: это не про
+        // выбранное оформление, а про то, которого в списке ещё нет. Так же
+        // стоит и загрузка набора выше.
+        if (app.commands.find(_importThemeCommand) != null)
+          SettingsField.button(
+            'theme.import',
+            title: strings.tr('Bring a theme from a file'),
+            description: strings.tr('It joins the list and becomes the chosen one'),
+            label: strings.tr('Import'),
+            run: () => app.commands.runAndWait(_importThemeCommand),
+          ),
         // Клавиши — кнопкой, а не полем: выбирать тут нечего, а делать есть
         // что — открыть своё окно (`docs/spec/key-bindings.md`, §7).
         SettingsField.button(

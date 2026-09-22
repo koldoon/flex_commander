@@ -141,6 +141,26 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('обмен темами — кнопками рядом с выбором и полем под ним', (tester) async {
+    await openSettings(tester);
+
+    // «Export» — про выбранное оформление, и место ему при нём.
+    await tester.tap(buttonIn('Theme', 'Export'));
+    await tester.pumpAndSettle();
+    expect(find.text('Export theme'), findsWidgets, reason: 'каталог и имя спрашивают окном');
+    expect(find.byType(FcDirectoryTree), findsOneWidget, reason: 'каталог выбирают деревом, а не набором пути');
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    // «Import» — своим полем: это про оформление, которого в списке ещё нет.
+    await tester.tap(buttonIn('Bring a theme from a file', 'Import'));
+    await tester.pumpAndSettle();
+    expect(find.text('Import theme'), findsWidgets);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('подпись роли выведена из её имени, а не написана руками', (tester) async {
     await openEditor(tester);
 

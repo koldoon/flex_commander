@@ -112,6 +112,35 @@ class ThemeOverlay {
     return edit.id;
   }
 
+  /// Тема, что на экране, — так, как её кладут в файл.
+  ///
+  /// С названием **всегда**: у правок встроенной темы своего имени нет, и файл
+  /// без него не сказал бы, что в нём лежит.
+  Map<String, dynamic> exportable() {
+    final edit = currentEdit;
+    return edit.toJson()..['title'] = edit.isOwn ? edit.title : themes.current.title;
+  }
+
+  /// Принять тему из файла — **своей**, а не поверх нынешней.
+  ///
+  /// Загруженное никогда не затирает то, что на экране: файл мог прийти откуда
+  /// угодно, и потерять из-за него подобранное оформление было бы хуже всего.
+  /// Имя и название разводятся с занятыми — как у своей темы, сложенной руками.
+  ///
+  /// База берётся из файла, если такая тема установлена; нет — база нынешней:
+  /// тему, которой здесь не стоит, накладке класть не на что.
+  String adopt(ThemeEdit incoming) {
+    final base = themes.available.any((theme) => theme.id == incoming.base) ? incoming.base : currentEdit.base;
+    final title = _freeTitle(incoming.title.isEmpty ? 'Imported theme' : incoming.title);
+    final edit = incoming.copyAs(id: _freeId(title), title: title)..base = base;
+
+    overrides.add(edit);
+    save();
+    apply(edit);
+    themes.use(edit.id);
+    return edit.id;
+  }
+
   /// Убрать свою тему; встроенную убрать нельзя — её объявил модуль.
   ///
   /// Возвращает, убрали ли: нечего убирать — значит и говорить не о чем.
@@ -211,6 +240,21 @@ class ThemeOverlay {
   }
 
   bool _free(String id) => overrides.find(id) == null && !themes.available.any((theme) => theme.id == id);
+
+  /// Свободное название: занятое разводится приставкой числа.
+  ///
+  /// Названием, а не молчаливой заменой: две темы с одним именем в списке
+  /// различить нечем.
+  String _freeTitle(String title) {
+    if (!themes.available.any((theme) => theme.title == title)) {
+      return title;
+    }
+    for (var at = 2; ; at++) {
+      if (!themes.available.any((theme) => theme.title == '$title $at')) {
+        return '$title $at';
+      }
+    }
+  }
 
   /// Тему сменили или перевыложили — и это могло быть не нами.
   ///

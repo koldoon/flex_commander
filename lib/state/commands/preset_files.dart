@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
-import 'package:flutter/widgets.dart';
 
 import '../presets.dart';
 
@@ -17,21 +16,19 @@ import '../presets.dart';
 /// `ssh://`, и нутро архива.
 
 /// Имя файла, которое предлагается для набора.
-String presetFileName(String name) {
-  final safe = name.replaceAll(RegExp(r'[/\\:]'), '-').trim();
-  return '${safe.isEmpty ? 'preset' : safe}.json';
-}
+String presetFileName(String name) => safeFileName(name, fallback: 'preset');
 
 /// Выгрузить набор: спросить каталог и имя, потом записать.
 Future<void> exportPreset(Application app, Strings strings, Preset preset) {
   final text = '${const JsonEncoder.withIndent('  ').convert(serialize(preset))}\n';
 
-  return _askFile(
+  return askFile(
     app,
     strings,
     title: strings.tr('Export set'),
     submitLabel: strings.tr('Export'),
     destinationLabel: 'Save to',
+    formatError: 'This is not a set: the file does not read',
     name: presetFileName(preset.name),
     run: (folder, name) async {
       await app.runOperation().run(
@@ -56,12 +53,13 @@ Future<void> importPreset(Application app, Strings strings, Presets presets) {
           ? cursor.name
           : presetFileName('preset');
 
-  return _askFile(
+  return askFile(
     app,
     strings,
     title: strings.tr('Import set'),
     submitLabel: strings.tr('Import'),
     destinationLabel: 'Read from',
+    formatError: 'This is not a set: the file does not read',
     name: suggested,
     run: (folder, name) async {
       final preset = await _read(app, '$folder/$name');
@@ -71,202 +69,11 @@ Future<void> importPreset(Application app, Strings strings, Presets presets) {
   );
 }
 
-/// Прочитать набор по адресу — тем же способом, каким читается файл после
-/// жеста: разбор адреса ведёт ядро, аренду на время чтения берёт оно же.
+/// Прочитать набор по адресу.
 Future<Preset> _read(Application app, String path) async {
-  final content = app.contentAt(FileEntry(name: '', kind: EntryKind.file, path: path, canStream: true));
-  final bytes = <int>[];
-  await for (final chunk in content.read()) {
-    bytes.addAll(chunk);
-    // Набор — это настройки, а не том данных: файл в мегабайты означает, что
-    // указали не на тот.
-    if (bytes.length > _sizeLimit) {
-      throw const FsError('', FsErrorKind.notSupported);
-    }
-  }
-
-  final stored = jsonDecode(utf8.decode(bytes));
-  if (stored is! Map<String, dynamic>) {
-    throw const FormatException();
-  }
-  final preset = Preset()..fromMap(stored);
+  final preset = Preset()..fromMap(await readJsonFile(app, path));
   if (!preset.isSane) {
     throw const FormatException();
   }
   return preset;
-}
-
-const int _sizeLimit = 4 * 1024 * 1024;
-
-/// Домашний каталог — адресом, который разбирает ядро: экранная сторона своего
-/// дома не знает, а `~` источник понимает сам.
-const String _home = '~';
-
-/// Окно «каталог и имя»: оба поля правятся, оба подставлены.
-Future<void> _askFile(
-  Application app,
-  Strings strings, {
-  required String title,
-  required String submitLabel,
-  required String name,
-  required String destinationLabel,
-  required Future<void> Function(String folder, String name) run,
-}) {
-  final view = app.view;
-  final closed = Completer<void>();
-  late final String dialogId;
-  void close() {
-    view.closeDialog(dialogId);
-    if (!closed.isCompleted) {
-      closed.complete();
-    }
-  }
-
-  // Дом, а не каталог панели: выгружают набор обычно «к себе», а панель в
-  // этот миг стоит где угодно — хоть в `/etc`.
-  final state = _FileState(folder: _home, name: name, strings: strings, run: run, app: app);
-  state.close = close;
-
-  dialogId = view.showDialog(
-    DialogSpec(
-      title: title,
-      takesFocus: true,
-      content: _FileForm(state: state, submitLabel: submitLabel, destinationLabel: destinationLabel),
-      onSubmit: state.submit,
-      onDismiss: close,
-    ),
-  );
-  return closed.future;
-}
-
-/// Что набрано в окне файла и чем кончилась попытка.
-class _FileState extends ChangeNotifier {
-  _FileState({required this.folder, required this.name, required this.strings, required this.run, required this.app});
-
-  final Application app;
-
-  String folder;
-  String name;
-
-  final Strings strings;
-  final Future<void> Function(String folder, String name) run;
-
-  bool busy = false;
-
-  late final VoidCallback close;
-
-  /// Отказ говорится **тостом**, а не полем в окне.
-  ///
-  /// Сообщение внутри формы отъедает у окна место и двигает поля ровно тогда,
-  /// когда в них собираются что-то поправить; тост висит поверх и места не
-  /// занимает (`docs/widgets.md`, «Всплывающие сообщения»). Окно при этом
-  /// остаётся открытым: поправить надо здесь же.
-  Future<void> submit() async {
-    if (busy) {
-      return;
-    }
-    busy = true;
-    notifyListeners();
-    try {
-      await run(folder.trim(), name.trim());
-      close();
-    } on FsError catch (failure) {
-      app.toasts.fail(failure.message);
-    } on FormatException {
-      // Испорченный файл — отказ словами, а не пустой набор молчанием.
-      app.toasts.fail(strings.tr('This is not a set: the file does not read'));
-    } on Object catch (failure) {
-      app.toasts.fail('$failure');
-    }
-    busy = false;
-    notifyListeners();
-  }
-}
-
-class _FileForm extends StatefulWidget {
-  const _FileForm({required this.state, required this.submitLabel, required this.destinationLabel});
-
-  final _FileState state;
-  final String submitLabel;
-
-  /// Как назвать выбранное место: «Save to» у выгрузки, «Read from» у
-  /// загрузки — дело у окон разное, и подпись о нём говорит своё.
-  final String destinationLabel;
-
-  @override
-  State<_FileForm> createState() => _FileFormState();
-}
-
-class _FileFormState extends State<_FileForm> {
-  late final TextEditingController _name = TextEditingController(text: widget.state.name)
-    ..selection = TextSelection(
-      baseOffset: 0,
-      extentOffset: widget.state.name.lastIndexOf('.').clamp(0, widget.state.name.length),
-    );
-
-  @override
-  void dispose() {
-    _name.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final state = widget.state;
-    return ListenableBuilder(
-      listenable: state,
-      builder:
-          (context, _) => CommandDialogForm(
-            onCancel: state.close,
-            onSubmit: state.submit,
-            submitLabel: widget.submitLabel,
-            busy: state.busy,
-            children: [
-              // Подпись вровень с первой строкой дерева, а не по его середине:
-              // у высокого управления середина уезжает в пустоту.
-              CommandDialogField.column(
-                label: context.strings.tr('Folder'),
-                children: [
-                  SizedBox(
-                    // Размер задаётся здесь, и оба измерения: окно меряет своё
-                    // содержимое (`IntrinsicWidth`), а список прокрутки мерить
-                    // себя не умеет — ради того он и ленив.
-                    width: FcTheme.of(context).metrics.dialogLabelWidth * 3,
-                    height: FcTheme.of(context).metrics.rowHeight * 9,
-                    child: FcDirectoryTree(
-                      root: _home,
-                      rootTitle: context.strings.tr('Home'),
-                      children: state.app.activePanel.namesIn,
-                      selected: state.folder,
-                      onSelected: (path) => setState(() => state.folder = path),
-                    ),
-                  ),
-                ],
-              ),
-              // Выбранное — своим полем, с подписью слева, как у соседей: в
-              // дереве видна подсветка строки, а куда именно ляжет файл, из
-              // неё не прочесть — одноимённых каталогов в разных местах
-              // сколько угодно.
-              CommandDialogField(
-                label: context.strings.tr(widget.destinationLabel),
-                child: Text(
-                  state.folder,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: FcTheme.of(context).dialogTextStyle,
-                ),
-              ),
-              CommandDialogField(
-                label: context.strings.tr('File name'),
-                child: FcTextField(
-                  controller: _name,
-                  autofocus: true,
-                  onChanged: (value) => state.name = value,
-                  onSubmitted: (_) => state.submit(),
-                ),
-              ),
-            ],
-          ),
-    );
-  }
 }
