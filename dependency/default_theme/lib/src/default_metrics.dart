@@ -321,6 +321,12 @@ class DefaultMetrics extends FcMetrics {
   @override
   double get fontSize => 13;
 
+  /// Замерено по шрифту, а не подобрано на глаз: у `Ubuntu-B.ttf` подъём
+  /// строки `932/1000` кегля, а высота прописной — `693/1000`; разница `0.239`
+  /// и есть пустота над буквой. При кегле 13 это 3.1 точки.
+  @override
+  double get fontCapInset => fontSize * 0.24;
+
   @override
   double get iconSize => fontSize;
 

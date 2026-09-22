@@ -271,6 +271,9 @@ class OverlayMetrics implements FcMetrics {
   double get fontSize => overrides['fontSize'] ?? base.fontSize;
 
   @override
+  double get fontCapInset => overrides['fontCapInset'] ?? base.fontCapInset;
+
+  @override
   double get iconSize => overrides['iconSize'] ?? base.iconSize;
 
   @override

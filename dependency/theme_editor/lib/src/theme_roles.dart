@@ -313,6 +313,7 @@ final List<MetricRole> metricRoles = [
   MetricRole('caretWidth', 'Common sizes', MetricKind.thickness, (metrics) => metrics.caretWidth),
   MetricRole('caretRadius', 'Common sizes', MetricKind.radius, (metrics) => metrics.caretRadius),
   MetricRole('fontSize', 'Common sizes', MetricKind.fontSize, (metrics) => metrics.fontSize),
+  MetricRole('fontCapInset', 'Common sizes', MetricKind.gap, (metrics) => metrics.fontCapInset),
   MetricRole('iconSize', 'Common sizes', MetricKind.size, (metrics) => metrics.iconSize),
   MetricRole('cellPadding', 'Common sizes', MetricKind.gap, (metrics) => metrics.cellPadding),
   MetricRole('rowContentVerticalNudge', 'Common sizes', MetricKind.gap, (metrics) => metrics.rowContentVerticalNudge),

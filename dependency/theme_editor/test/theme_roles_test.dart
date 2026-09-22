@@ -59,7 +59,7 @@ void main() {
 
     test('размеры: те же роли, те же группы и род у каждой', () {
       final contract = declared('app_metrics.dart', 'double');
-      expect(contract.length, 93);
+      expect(contract.length, 94);
 
       final catalog = {for (final role in metricRoles) role.name: role};
       for (final role in contract) {

@@ -1,3 +1,4 @@
+import 'package:fc_default_theme/fc_default_theme.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_theme_editor/fc_theme_editor.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -108,6 +109,45 @@ void main() {
     expect(tester.widget<FcTextField>(editorOf('Cursor background').first).controller.text, isNot('#FF2D6CDF'));
 
     await tester.pumpAndSettle();
+  });
+
+  testWidgets('просветы вокруг линейки равны — с поправкой на пустоту над буквами', (tester) async {
+    await openEditor(tester);
+
+    // Две соседние настройки: отбор ставит их рядом, и мерить есть что.
+    await tester.enterText(find.byType(FcTextField).first, 'panel b');
+    await tester.pumpAndSettle();
+
+    const metrics = DefaultMetrics();
+    final divider = tester.getRect(
+      find.byWidgetPredicate((widget) => widget is Container && widget.color == const DefaultColors().columnDivider),
+    );
+    final above = tester.getRect(find.byType(FcColorField).first);
+    final below = tester.getRect(role('Panel border'));
+
+    // Под полем — столько, сколько назначено.
+    expect(divider.top - above.bottom, closeTo(metrics.sectionEntryGap, 0.5));
+    // А над подписью — меньше на пустоту, которую строка несёт над буквами:
+    // на экране оба просвета выглядят одинаково.
+    expect(below.top - divider.bottom, closeTo(metrics.sectionEntryGap - metrics.fontCapInset, 0.5));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('последняя настройка не липнет к кромке плашки', (tester) async {
+    await openEditor(tester);
+
+    await tester.enterText(find.byType(FcTextField).first, 'window background');
+    await tester.pumpAndSettle();
+
+    const metrics = DefaultMetrics();
+    final plate = tester.getRect(find.byType(FcPlate).first);
+    final field = tester.getRect(find.byType(FcColorField).first);
+
+    // До кромки — столько же, сколько до линейки: своего поля у плашки меньше.
+    expect(plate.bottom - metrics.strokeWidth - field.bottom, closeTo(metrics.sectionEntryGap, 0.5));
+
+    await tester.pump(const Duration(milliseconds: 20));
   });
 
   testWidgets('поиск находит роль по её имени', (tester) async {

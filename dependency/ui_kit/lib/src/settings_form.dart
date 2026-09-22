@@ -572,7 +572,6 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                                               children: [
                                                 _heading(theme, title, key: _headings[index]),
                                                 for (final (at, field) in fields.indexed) ...[
-                                                  SizedBox(height: metrics.sectionEntryGap),
                                                   // Линейка **между** настройками,
                                                   // а не под каждой: края раздела
                                                   // рисует плашка вокруг него, и
@@ -584,14 +583,29 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                                                   // читаются одним сплошным
                                                   // столбцом.
                                                   if (at > 0) ...[
+                                                    SizedBox(height: metrics.sectionEntryGap),
                                                     Container(
                                                       height: metrics.strokeWidth,
                                                       color: theme.colors.columnDivider,
                                                     ),
-                                                    SizedBox(height: metrics.sectionEntryGap),
                                                   ],
+                                                  // Над подписью просвет **меньше**
+                                                  // на пустоту, которую строка
+                                                  // текста несёт над буквами: равные
+                                                  // числа дают неравные просветы, и
+                                                  // настройка стояла бы ближе к
+                                                  // своей линейке снизу, чем к
+                                                  // чужой сверху
+                                                  // (`docs/spec/settings-editor.md`,
+                                                  // §12).
+                                                  SizedBox(height: metrics.sectionEntryGap - metrics.fontCapInset),
                                                   _block(theme, schema, field),
                                                 ],
+                                                // До кромки плашки — столько же,
+                                                // сколько до линейки: своего поля у
+                                                // плашки меньше, и последняя
+                                                // настройка липла к её нижнему краю.
+                                                SizedBox(height: metrics.sectionEntryGap - metrics.dialogPadding),
                                               ],
                                             ),
                                           ),
