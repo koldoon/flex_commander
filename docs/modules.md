@@ -45,7 +45,9 @@ class Navigation implements FcFrontendModule {
   @override
   void installFrontend(FrontendRegistry registry) {
     registry.command((context) => GoUpCommand());
-    registry.binding(KeyBinding('Bsp', GoUpCommand.commandId));
+    // Привязка — это дело. Имя у неё по умолчанию равно идентификатору
+    // команды; там, где дел несколько, модуль называет каждое (`id:`).
+    registry.binding(KeyBinding('Bsp', GoUpCommand.commandId, context: KeyContext.panel));
   }
 }
 ```
@@ -139,7 +141,8 @@ class GoUpCommand extends AppCommand {
 | Метод реестра | Что даёт |
 |---|---|
 | `command(factory)` | действие приложения; фабрика зовётся на каждый запуск |
-| `binding(KeyBinding)` | клавиша за действием; порядок задаёт приоритет |
+| `binding(KeyBinding)` | **дело**: команда со своими значениями, клавиша у неё свойство; порядок задаёт приоритет |
+| `preset(Preset)` | набор выбора, объявленный приложением: «как в mc» |
 | `startup(factory)` | команда, которая выполняется один раз при запуске |
 | `theme(FcThemeSpec)` | оформление: палитра, размеры, иконки, шрифты |
 | `viewport(kind, builder)` | чем рисовать содержимое панели этого вида |
