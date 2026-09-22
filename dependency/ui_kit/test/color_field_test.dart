@@ -80,6 +80,18 @@ void main() {
     expect(editor.text, '#FFDE1D2E');
   });
 
+  testWidgets('палитра шириной со строку поля, а не с образец', (tester) async {
+    const palette = [Color(0xFF2D6CDF), Color(0xFFDE1D2E)];
+    await pump(tester, const Color(0xFF2D6CDF), palette: palette);
+
+    await tapSwatch(tester);
+
+    // Под образцом в строку палитры помещалось три знака из девяти, и цвет в
+    // ней было не прочитать.
+    final dropdown = find.ancestor(of: find.byType(FcPickList), matching: find.byType(Container)).first;
+    expect(tester.getSize(dropdown).width, tester.getSize(find.byType(FcColorField)).width);
+  });
+
   testWidgets('без палитры образец не нажимается: нажатие без ответа — промах', (tester) async {
     await pump(tester, const Color(0xFF2D6CDF));
 

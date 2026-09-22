@@ -53,7 +53,15 @@ class _FcColorFieldState extends State<FcColorField> {
   static const int _visibleRows = 10;
 
   final LayerLink _link = LayerLink();
-  final GlobalKey _swatch = GlobalKey();
+
+  /// Вся строка поля — образец, просвет и поле ввода.
+  ///
+  /// Ширину палитре задаёт она, а не образец: под образцом палитра помещала бы
+  /// в строку три знака из девяти, и цвета в ней было бы не прочитать.
+  final GlobalKey _row = GlobalKey();
+
+  /// Ширина строки, замеренная при раскрытии; 0 — палитра закрыта.
+  double _width = 0;
 
   OverlayEntry? _palette;
 
@@ -86,10 +94,11 @@ class _FcColorFieldState extends State<FcColorField> {
     if (_open || !_pickable) {
       return;
     }
-    final box = _swatch.currentContext?.findRenderObject();
+    final box = _row.currentContext?.findRenderObject();
     if (box is! RenderBox) {
       return;
     }
+    _width = box.size.width;
     final entry = OverlayEntry(builder: (context) => _dropdown(context));
     Overlay.of(context).insert(entry);
     setState(() => _palette = entry);
@@ -114,7 +123,7 @@ class _FcColorFieldState extends State<FcColorField> {
           child: Material(
             type: MaterialType.transparency,
             child: Container(
-              width: metrics.dialogLabelWidth,
+              width: _width,
               constraints: BoxConstraints(maxHeight: line * _visibleRows),
               decoration: BoxDecoration(
                 color: colors.dialogBackground,
@@ -175,6 +184,7 @@ class _FcColorFieldState extends State<FcColorField> {
     );
 
     return Row(
+      key: _row,
       children: [
         CompositedTransformTarget(
           link: _link,
@@ -183,7 +193,7 @@ class _FcColorFieldState extends State<FcColorField> {
             child: GestureDetector(
               behavior: HitTestBehavior.opaque,
               onTap: _pickable ? (_open ? _close : _openPalette) : null,
-              child: _Swatch(key: _swatch, color: widget.value, size: metrics.inputHeight),
+              child: _Swatch(color: widget.value, size: metrics.inputHeight),
             ),
           ),
         ),
@@ -200,7 +210,7 @@ class _FcColorFieldState extends State<FcColorField> {
 /// Шахматка обязательна: без неё `#00000000` и `#FF000000` выглядят одинаково,
 /// и прозрачный цвет неотличим от чёрного (`docs/spec/theme-editor.md`, §4).
 class _Swatch extends StatelessWidget {
-  const _Swatch({super.key, required this.color, required this.size});
+  const _Swatch({required this.color, required this.size});
 
   final Color color;
   final double size;
@@ -213,10 +223,11 @@ class _Swatch extends StatelessWidget {
     return Container(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        border: Border.all(color: theme.colors.inputBorder, width: metrics.strokeWidth),
-        borderRadius: BorderRadius.circular(metrics.inputRadius),
-      ),
+      // Без обводки: цвет показывают цветом, а рамка вокруг каждого образца
+      // спорила бы с ним за внимание — особенно в списке, где их десятки.
+      // Скругление вдвое мельче, чем у поля рядом: образец — его приставка, а
+      // не второе поле.
+      decoration: BoxDecoration(borderRadius: BorderRadius.circular(metrics.inputRadius / 2)),
       clipBehavior: Clip.antiAlias,
       child: CustomPaint(painter: _SwatchPainter(color: color, cell: metrics.iconSize / 2)),
     );
