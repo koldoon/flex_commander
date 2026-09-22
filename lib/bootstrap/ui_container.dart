@@ -201,6 +201,7 @@ class UiContainer extends DI {
 
     // Разделы окна настроек: собраны при объявлении, строятся при открытии.
     bind<SettingsCatalog>(to: (c) => _Catalog(frontend.settingsPages));
+    bind<PresetCatalog>(to: (c) => _Presets(frontend.presets));
   }
 
   void _bindApp() {
@@ -342,6 +343,14 @@ class _Catalog implements SettingsCatalog {
 
   @override
   final List<SettingsPage> pages;
+}
+
+/// Наборы, объявленные приложением, — в порядке объявления модулей.
+class _Presets implements PresetCatalog {
+  const _Presets(this.presets);
+
+  @override
+  final List<Preset> presets;
 }
 
 /// Окружение команд модуля: службы плюс само приложение.

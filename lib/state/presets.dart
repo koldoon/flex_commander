@@ -10,19 +10,31 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 /// выбирал (`settings-window.md`, §2). Новый модуль попадает в наборы сам,
 /// ничего для этого не делая.
 class Presets {
-  Presets({required Application app, required SettingsCatalog Function() catalog}) : _app = app, _catalog = catalog;
+  Presets({required Application app, required SettingsCatalog Function() catalog, List<Preset> Function()? embedded})
+    : _app = app,
+      _catalog = catalog,
+      _embedded = embedded ?? _none;
+
+  static List<Preset> _none() => const [];
 
   final Application _app;
 
   /// Разделы — способом их спросить: во время создания служб ещё нет.
   final SettingsCatalog Function() _catalog;
 
+  /// Наборы, объявленные приложением (`docs/spec/key-presets.md`).
+  final List<Preset> Function() _embedded;
+
   /// Имя выбранного; пусто — ни один не выбран.
   String get current => _app.preset;
 
-  List<Preset> get all => _app.presets;
+  /// Встроенные впереди своих: они не чьи-то, а приложения.
+  List<Preset> get all => [..._embedded(), ..._app.presets];
 
   Preset? find(String name) => all.where((item) => item.name == name).firstOrNull;
+
+  /// Объявлен ли набор приложением: такой не обновить и не удалить.
+  bool isEmbedded(String name) => _embedded().any((item) => item.name == name);
 
   /// Страницы, которые кладутся в набор: все, кроме самих наборов.
   Iterable<SettingsPage> get _pages => _catalog().pages.where((page) => page.inPreset);
@@ -103,18 +115,19 @@ class Presets {
     if (wanted.isEmpty || find(wanted) != null) {
       return false;
     }
-    _app.setPresets([...all, capture(wanted)], current: wanted);
+    _app.setPresets([..._app.presets, capture(wanted)], current: wanted);
     return true;
   }
 
   /// Переписать выбранный набор тем, что стоит сейчас.
   bool updateCurrent() {
     final name = current;
-    if (name.isEmpty || find(name) == null) {
+    // Встроенный не свой: переписать его нечем — он объявлен приложением.
+    if (name.isEmpty || isEmbedded(name) || find(name) == null) {
       return false;
     }
     _app.setPresets([
-      for (final item in all)
+      for (final item in _app.presets)
         if (item.name == name) capture(name) else item,
     ], current: name);
     return true;
@@ -122,11 +135,11 @@ class Presets {
 
   /// Убрать набор; выбранным он быть перестаёт, а настройки остаются как есть.
   bool remove(String name) {
-    if (find(name) == null) {
+    if (isEmbedded(name) || find(name) == null) {
       return false;
     }
     _app.setPresets([
-      for (final item in all)
+      for (final item in _app.presets)
         if (item.name != name) item,
     ], current: current == name ? '' : current);
     return true;
@@ -139,7 +152,7 @@ class Presets {
   String add(Preset preset) {
     final name = freeName(preset.name);
     preset.name = name;
-    _app.setPresets([...all, preset], current: name);
+    _app.setPresets([..._app.presets, preset], current: name);
     apply(preset);
     return name;
   }

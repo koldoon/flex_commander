@@ -11,6 +11,7 @@ import 'package:fc_file_info/fc_file_info.dart';
 import 'package:fc_file_ops/fc_file_ops.dart';
 import 'package:fc_ftp/fc_ftp.dart';
 import 'package:fc_image_viewer/fc_image_viewer.dart';
+import 'package:fc_key_presets/fc_key_presets.dart';
 import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:fc_navigation/fc_navigation.dart';
 import 'package:fc_panels/fc_panels.dart';
@@ -97,6 +98,7 @@ List<FcModule> featureModules() => [
   const Viewer(),
   const TextViewer(),
   const ImageViewer(),
+  const KeyPresets(),
   // Последним в очереди просмотрщиков: берётся за то, за что не взялся никто.
   const FileInfo(),
   // Правка того, что сведения показывают: права, даты, владелец, xattr.

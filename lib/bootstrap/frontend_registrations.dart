@@ -29,6 +29,7 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
   /// на момент объявления ещё нет — есть только фабрика.
   final List<String> commandOwners = [];
   final List<KeyBinding> bindings = [];
+  final List<Preset> presets = [];
   final List<FcCommandFactory> startupCommands = [];
   final List<FcThemeSpec> themes = [];
 
@@ -99,6 +100,9 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
 
   @override
   void binding(KeyBinding binding) => bindings.add(binding);
+
+  @override
+  void preset(Preset preset) => presets.add(preset);
 
   @override
   void startup(FcCommandFactory factory) => startupCommands.add(factory);

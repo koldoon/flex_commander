@@ -38,6 +38,7 @@ export 'src/background/operations.dart';
 export 'src/module/frontend_module.dart';
 
 // --- Настройки ---
+export 'src/settings/preset_catalog.dart';
 export 'src/settings/settings_schema.dart';
 
 // --- Оформление ---

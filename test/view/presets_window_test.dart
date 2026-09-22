@@ -201,6 +201,20 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('встроенный набор выбирается, но не правится', (tester) async {
+    await openPresets(tester);
+
+    await tester.tap(find.byType(FcSelect<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('mc').last);
+    await tester.pumpAndSettle();
+
+    expect(runtime.app.preset, 'mc');
+    expect(alive(tester, 'Export'), isTrue, reason: 'выгрузить встроенный можно — так его делают своим');
+    expect(alive(tester, 'Update'), isFalse, reason: 'встроенный не свой');
+    expect(alive(tester, 'Delete'), isFalse);
+  });
+
   testWidgets('отказ ничего не убирает', (tester) async {
     await openPresets(tester);
     await tapButton(tester, 'New');

@@ -36,6 +36,7 @@ workspace:
   - dependency/file_ops
   - dependency/ftp
   - dependency/image_viewer
+  - dependency/key_presets
   - dependency/local_fs
   - dependency/navigation
   - dependency/panels
@@ -139,6 +140,9 @@ dependencies:
 
   fc_image_viewer:
     path: dependency/image_viewer
+
+  fc_key_presets:
+    path: dependency/key_presets
 
   fc_file_icons:
     path: dependency/file_icons

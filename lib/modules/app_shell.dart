@@ -284,8 +284,15 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     registry.settingsSchema(title: 'Presets', inPreset: false, priority: presetsPriority, () {
       final app = registry.services.resolve<Application>();
       final strings = registry.services.resolve<Strings>();
-      final presets = Presets(app: app, catalog: () => registry.services.resolve<SettingsCatalog>());
+      final presets = Presets(
+        app: app,
+        catalog: () => registry.services.resolve<SettingsCatalog>(),
+        embedded: () => registry.services.resolve<PresetCatalog>().presets,
+      );
       final chosen = presets.current;
+      // Встроенный набор не свой: переписать и удалить его нечем — он объявлен
+      // приложением (`docs/spec/key-presets.md`, §6).
+      final mine = chosen.isNotEmpty && !presets.isEmbedded(chosen);
 
       return SettingsSchema([
         SettingsField.choice(
@@ -326,11 +333,11 @@ class AppShell implements FcBackendModule, FcFrontendModule {
                                 ),
                   ),
             ),
-            SettingsAction(label: strings.tr('Update'), run: chosen.isEmpty ? null : presets.updateCurrent),
+            SettingsAction(label: strings.tr('Update'), run: mine ? presets.updateCurrent : null),
             SettingsAction(
               label: strings.tr('Delete'),
               run:
-                  chosen.isEmpty
+                  !mine
                       ? null
                       : () => askConfirm(
                         app,
