@@ -113,6 +113,23 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('курсор дерева упирается в края плашки', (tester) async {
+    await openImport(tester, 'Bring a set from a file');
+
+    final plate = tester.getRect(find.descendant(of: find.byType(FcDirectoryTree), matching: find.byType(FcPlate)));
+    // Строка курсора — та, что выбрана: у неё и мерим края.
+    final row = tester.getRect(find.ancestor(of: inTree('Home'), matching: find.byType(GestureDetector)).first);
+
+    // Общее правило: курсор упирается в границы того, что его держит, — как
+    // строка в панели упирается в её рамку. С полем внутри он висел бы в
+    // воздухе, и плашка читалась бы второй рамкой вокруг него.
+    final line = FcTheme.of(tester.element(find.byType(FcDirectoryTree))).metrics.strokeWidth;
+    expect(row.left - plate.left, closeTo(line, 0.5));
+    expect(plate.right - row.right, closeTo(line, 0.5));
+
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('брошенный в дерево файл — тот же выбор', (tester) async {
     await openImport(tester, 'Bring a theme from a file');
 

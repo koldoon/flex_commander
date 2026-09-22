@@ -221,6 +221,9 @@ class _FcDirectoryTreeState extends State<FcDirectoryTree> {
       // Плашка — та же, какой обведён раздел настроек: список в окне выглядит
       // одинаково, где бы он ни стоял.
       child: FcPlate(
+        // Вплотную: курсор дерева упирается в края плашки, как строка в панели
+        // упирается в её рамку.
+        tight: true,
         child: ListView.builder(
           controller: _scroll,
           itemCount: rows.length,
