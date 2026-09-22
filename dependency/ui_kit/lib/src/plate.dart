@@ -39,13 +39,20 @@ class FcPlate extends StatelessWidget {
       // краю плашки, ни к её скруглению. Списку — наоборот, вплотную (см.
       // [tight]).
       padding: tight ? EdgeInsets.zero : EdgeInsets.all(metrics.dialogPadding),
-      clipBehavior: tight ? Clip.antiAlias : Clip.none,
       decoration: BoxDecoration(
         color: theme.colors.dialogListBackground,
         border: Border.all(color: theme.colors.dialogListBorder, width: metrics.strokeWidth),
         borderRadius: BorderRadius.circular(metrics.panelRadius),
       ),
-      child: child,
+      child:
+          tight
+              // Обрезка по **внутреннему** краю, а не по внешнему: содержимое
+              // и так стоит внутри обводки, и общая обрезка `Container`
+              // прошла бы по её наружной кромке — курсор первой строки ложился
+              // бы на угол обводки сверху. Скругление внутри на толщину линии
+              // мельче наружного.
+              ? ClipRRect(borderRadius: BorderRadius.circular(metrics.panelRadius - metrics.strokeWidth), child: child)
+              : child,
     );
   }
 }
