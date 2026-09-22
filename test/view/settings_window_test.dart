@@ -331,6 +331,31 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('щелчок в оглавлении ставит плашку раздела туда, где стоит первая', (tester) async {
+    await openSettings(tester);
+
+    final toc = find.byType(FcPickList);
+    final pages = runtime.resolve<SettingsCatalog>().pages;
+
+    /// Плашка раздела — та, внутри которой стоит его заголовок: в оглавлении
+    /// то же название, но плашки под ним нет.
+    Finder plateOf(String title) => find.ancestor(of: find.text(title), matching: find.byType(FcPlate)).first;
+
+    // Где стоит плашка первого раздела при нетронутой прокрутке: вровень с
+    // полем поиска слева.
+    final resting = tester.getRect(plateOf(pages.first.title)).top;
+
+    await tester.tap(find.descendant(of: toc, matching: find.text(pages[2].title, findRichText: true)));
+    await tester.pumpAndSettle();
+
+    // Подмотка целится в плашку, а не в заголовок внутри неё: с заголовком
+    // верхняя кромка плашки и её поле уезжали под верх списка, и раздел
+    // выглядел срезанным.
+    expect(tester.getRect(plateOf(pages[2].title)).top, closeTo(resting, 0.5));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('оглавление перечисляет разделы и уводит к ним', (tester) async {
     await openSettings(tester);
 

@@ -95,9 +95,13 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     for (final page in widget.pages) (context.strings.tr(page.title), page.build()),
   ];
 
-  /// Заголовки разделов — по ключу на каждый: по ним считается, где раздел
+  /// Плашки разделов — по ключу на каждую: по ним считается, где раздел
   /// начинается, и для оглавления, и для прокрутки к нему.
-  late final List<GlobalKey> _headings = [for (final _ in widget.pages) GlobalKey()];
+  ///
+  /// По плашке, а не по заголовку внутри неё: подмотка к заголовку уводила
+  /// верхнюю кромку плашки и её поле под верх списка, и раздел выглядел
+  /// срезанным (`docs/spec/settings-editor.md`, §16).
+  late final List<GlobalKey> _plates = [for (final _ in widget.pages) GlobalKey()];
 
   /// Поля ввода живут столько же, сколько окно: контроллер помнит набранное и
   /// положение курсора, а пересозданный терял бы и то и другое.
@@ -301,12 +305,17 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   /// высота блока зависит от того, как перенеслось объяснение, и повторить этот
   /// счёт в уме — верный способ разойтись с тем, что на экране.
   double? _startOf(int section) {
-    final context = _headings[_found[section].$1].currentContext;
+    final context = _plates[_found[section].$1].currentContext;
     final box = context?.findRenderObject();
     if (box is! RenderBox || !_scroll.hasClients) {
       return null;
     }
-    return RenderAbstractViewport.of(box).getOffsetToReveal(box, 0).offset;
+    // Минус поле списка сверху: плашка встаёт туда же, где стоит первая при
+    // нетронутой прокрутке, — вровень с полем поиска слева. Без поправки она
+    // прижималась бы к самой кромке обзора, и раздел, к которому подмотали,
+    // выглядел бы иначе, чем тот, что виден при открытии.
+    final reveal = RenderAbstractViewport.of(box).getOffsetToReveal(box, 0).offset;
+    return reveal - dialogContentPadding(this.context).top;
   }
 
   /// Какой раздел считать текущим.
@@ -585,10 +594,11 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                                           // плашки в справке.
                                           if (position > 0) SizedBox(height: metrics.dialogHorizontalPadding),
                                           FcPlate(
+                                            key: _plates[index],
                                             child: Column(
                                               crossAxisAlignment: CrossAxisAlignment.start,
                                               children: [
-                                                _heading(theme, title, key: _headings[index]),
+                                                _heading(theme, title),
                                                 for (final (at, field) in fields.indexed) ...[
                                                   // Линейка **между** настройками,
                                                   // а не под каждой: края раздела
@@ -669,13 +679,12 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   ///
   /// Крупнее остального текста, а не только жирнее: это единственное, что
   /// говорит, чьи это настройки, — приставки с названием модуля у подписей нет.
-  Widget _heading(FcTheme theme, String title, {Key? key}) => Padding(
+  Widget _heading(FcTheme theme, String title) => Padding(
     // По той же левой границе, что и настройки: под ними стоит место под
     // полосу пометки, и без отступа заголовок висел бы левее столбца.
     padding: EdgeInsets.only(left: theme.metrics.markedBarWidth + theme.metrics.columnGap),
     child: Text(
       title,
-      key: key,
       style: TextStyle(
         fontFamily: theme.fonts.ui,
         fontSize: theme.metrics.sectionHeadingFontSize,

@@ -285,6 +285,25 @@ void main() {
     await tester.pump(const Duration(milliseconds: 20));
   });
 
+  testWidgets('щелчок в оглавлении ставит раздел ролей туда же, где стоит первый', (tester) async {
+    await openEditor(tester);
+
+    Finder plateOf(String title) => find.ancestor(of: find.text(title), matching: find.byType(FcPlate)).first;
+
+    final resting = tester.getRect(plateOf('Window')).top;
+
+    await tester.tap(
+      find.descendant(of: find.byType(FcPickList), matching: find.text('File list', findRichText: true)),
+    );
+    await tester.pumpAndSettle();
+
+    // Окно редактора — та же форма, что настройки, и подмотка у неё общая:
+    // целится в плашку, а не в заголовок внутри неё.
+    expect(tester.getRect(plateOf('File list')).top, closeTo(resting, 0.5));
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
   testWidgets('поиск находит роль по её имени', (tester) async {
     await openEditor(tester);
 
