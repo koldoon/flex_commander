@@ -46,6 +46,9 @@ const int presetsPriority = 100;
 const String _switchThemeCommand = 'app.theme.use';
 const String _switchThemeParam = 'themeId';
 
+/// Окно правки оформления — команда модуля `fc_theme_editor`.
+const String _editThemeCommand = 'theme.edit';
+
 class AppShell implements FcBackendModule, FcFrontendModule {
   const AppShell();
 
@@ -400,6 +403,13 @@ class AppShell implements FcBackendModule, FcFrontendModule {
               app.theme.use(value);
             }
           },
+          // Кнопка есть только там, где есть команда: выключили редактор тем —
+          // и обещать нечего (`docs/spec/theme-editor.md`, §2). Рядом с выбором
+          // темы, а не своим разделом: искать её человек будет здесь.
+          actions: [
+            if (app.commands.find(_editThemeCommand) != null)
+              SettingsAction(label: strings.tr('Edit…'), run: () => app.commands.run(_editThemeCommand)),
+          ],
         ),
         // Клавиши — кнопкой, а не полем: выбирать тут нечего, а делать есть
         // что — открыть своё окно (`docs/spec/key-bindings.md`, §7).

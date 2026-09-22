@@ -35,6 +35,9 @@ import 'plate.dart';
 /// Изменение применяется сразу и сразу же просит запись: кнопки «Применить»
 /// нет, потому что отменять нечего — приложение и так живёт мгновенным
 /// применением темы, колонок и скрытых файлов.
+/// Подвал оглавления: ему дают, чем перечитать показанное.
+typedef FcSettingsFooterBuilder = Widget Function(VoidCallback refresh);
+
 class FcSettingsForm extends StatefulWidget {
   const FcSettingsForm({
     super.key,
@@ -58,7 +61,11 @@ class FcSettingsForm extends StatefulWidget {
   /// Подвал, а не поле среди настроек: «вернуть всё» относится к окну целиком,
   /// и среди настроек оно притворялось бы одной из них — да ещё и уезжало бы
   /// вместе с прокруткой и пропадало при отборе.
-  final Widget? footer;
+  ///
+  /// Сборщиком, а не готовым виджетом: подвал меняет настройки **мимо полей**,
+  /// и показанное после него надо перечитать — иначе в полях ввода останется
+  /// набранное, которого в настройках уже нет.
+  final FcSettingsFooterBuilder? footer;
 
   @override
   State<FcSettingsForm> createState() => _FcSettingsFormState();
@@ -172,14 +179,12 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
   /// ключу.
   void _rebuild() {
     _pages = _buildPages();
-    // Значение могли сменить помимо окна — набором выбора: строки списков
-    // тогда собираются заново. Согласные с настройкой не трогаются, иначе
-    // щелчок по чужому флажку сбрасывал бы курсор в строке списка.
+    // Значение могли сменить помимо окна — набором выбора или кнопкой подвала:
+    // тогда показанное перечитывается. Согласное с настройкой не трогается,
+    // иначе щелчок по чужому флажку сбрасывал бы курсор в соседнем поле.
     for (final (_, schema) in _pages) {
       for (final field in schema.fields) {
-        if (field is SettingsList) {
-          _lists[field.id]?.syncTo(field.read());
-        }
+        _refreshEditor(field);
       }
     }
     _refilter();
@@ -522,7 +527,11 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                                 // и подпись подвала бывает длиннее их всех. Тем
                                 // же приёмом ужимается ряд кнопок окна
                                 // (`FcDialogActions`).
-                                FittedBox(fit: BoxFit.scaleDown, alignment: Alignment.centerLeft, child: footer),
+                                FittedBox(
+                                  fit: BoxFit.scaleDown,
+                                  alignment: Alignment.centerLeft,
+                                  child: footer(_rebuild),
+                                ),
                               ],
                             ],
                           ),
@@ -815,7 +824,9 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       SettingsText text => text.read(),
       _ => null,
     };
-    if (value != null) {
+    // Согласное с настройкой не трогается: перестановка того же текста увела
+    // бы курсор в конец строки посреди набора.
+    if (value != null && value != editor.text) {
       editor.value = TextEditingValue(text: value, selection: TextSelection.collapsed(offset: value.length));
     }
   }

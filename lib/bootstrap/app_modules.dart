@@ -19,6 +19,7 @@ import 'package:fc_search/fc_search.dart';
 import 'package:fc_ssh/fc_ssh.dart';
 import 'package:fc_tar/fc_tar.dart';
 import 'package:fc_terminal/fc_terminal.dart';
+import 'package:fc_theme_editor/fc_theme_editor.dart';
 import 'package:fc_text_viewer/fc_text_viewer.dart';
 import 'package:fc_updater/fc_updater.dart';
 import 'package:fc_viewer/fc_viewer.dart';
@@ -50,6 +51,9 @@ List<FcModule> appModules() => [const LocalFileSystem(), ...featureModules()];
 List<FcModule> featureModules() => [
   const AppShell(),
   const DefaultTheme(),
+  // Правка оформления — отдельным модулем рядом с темой: выключили его, и темы
+  // остались, а править их нечем (`docs/spec/theme-editor.md`, §2).
+  const ThemeEditing(),
   // Терминал раньше панелей и навигации: в режиме `mc` печать перехватывает он,
   // а выигрывает та привязка, что объявлена раньше. Выключен режим или пуста
   // строка — команды строки невыполнимы, и клавиша достаётся тому, кто следом:

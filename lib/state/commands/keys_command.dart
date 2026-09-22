@@ -58,7 +58,13 @@ class KeysCommand extends AppCommand {
           searchHint: 'Search commands',
           // «Вернуть всё» относится к окну целиком, а не к разделу: место ему
           // в подвале оглавления (`docs/spec/key-bindings.md`, §8).
-          footer: _ResetAllButton(onPressed: () => _resetAll(app)),
+          footer:
+              (refresh) => _ResetAllButton(
+                onPressed: () {
+                  _resetAll(app);
+                  refresh();
+                },
+              ),
         ),
         onSubmit: close,
         onDismiss: close,
