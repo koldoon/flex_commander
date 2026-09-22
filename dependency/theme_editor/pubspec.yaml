@@ -1,0 +1,34 @@
+name: fc_theme_editor
+description: "Правка оформления в самом приложении: цвета, размеры и шрифты поверх выбранной темы."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  fc_ui_api:
+    path: ../ui_api
+
+  fc_ui_kit:
+    path: ../ui_kit
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Накладка кладётся на настоящую тему: своих значений у неё нет и быть не
+  # должно.
+  fc_default_theme:
+    path: ../default_theme
+
+  fc_test_kit:
+    path: ../test_kit

@@ -52,6 +52,7 @@ workspace:
   - dependency/test_kit
   - dependency/text_kit
   - dependency/text_viewer
+  - dependency/theme_editor
   - dependency/updater
   - dependency/ui_api
   - dependency/ui_kit
@@ -125,6 +126,9 @@ dependencies:
 
   fc_terminal:
     path: dependency/terminal
+
+  fc_theme_editor:
+    path: dependency/theme_editor
 
   fc_ui_kit:
     path: dependency/ui_kit
