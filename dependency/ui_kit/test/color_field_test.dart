@@ -12,7 +12,7 @@ void main() {
   setUp(() => editor = TextEditingController());
   tearDown(() => editor.dispose());
 
-  Future<Color?> pump(WidgetTester tester, Color value, {List<Color> palette = const []}) async {
+  Future<Color?> pump(WidgetTester tester, Color value, {List<Color> palette = const [], double? fieldWidth}) async {
     Color? chosen;
     await tester.pumpWidget(
       MaterialApp(
@@ -31,6 +31,7 @@ void main() {
                       controller: editor..text = editor.text.isEmpty ? formatColor(value) : editor.text,
                       value: chosen ?? value,
                       palette: palette,
+                      fieldWidth: fieldWidth,
                       onChanged: (color) => setState(() => chosen = color),
                     ),
               ),
@@ -80,16 +81,21 @@ void main() {
     expect(editor.text, '#FFDE1D2E');
   });
 
-  testWidgets('палитра шириной со строку поля, а не с образец', (tester) async {
+  testWidgets('палитра шириной с поле, а не с образец и не с колонку', (tester) async {
     const palette = [Color(0xFF2D6CDF), Color(0xFFDE1D2E)];
-    await pump(tester, const Color(0xFF2D6CDF), palette: palette);
+    await pump(tester, const Color(0xFF2D6CDF), palette: palette, fieldWidth: 100);
 
     await tapSwatch(tester);
 
-    // Под образцом в строку палитры помещалось три знака из девяти, и цвет в
-    // ней было не прочитать.
     final dropdown = find.ancestor(of: find.byType(FcPickList), matching: find.byType(Container)).first;
-    expect(tester.getSize(dropdown).width, tester.getSize(find.byType(FcColorField)).width);
+    final width = tester.getSize(dropdown).width;
+
+    // Под образцом в строку палитры помещалось три знака из девяти; во всю
+    // строку — палитра раскрывалась на всю колонку окна.
+    expect(width, greaterThan(100));
+    expect(width, lessThan(tester.getSize(find.byType(FcColorField)).width));
+    // От левого края образца до правого края поля.
+    expect(tester.getTopLeft(dropdown).dx, closeTo(tester.getTopLeft(find.byType(FcColorField)).dx, 0.5));
   });
 
   testWidgets('без палитры образец не нажимается: нажатие без ответа — промах', (tester) async {

@@ -54,13 +54,14 @@ class _FcColorFieldState extends State<FcColorField> {
 
   final LayerLink _link = LayerLink();
 
-  /// Вся строка поля — образец, просвет и поле ввода.
+  /// Поле ввода — по нему палитре задаётся ширина.
   ///
-  /// Ширину палитре задаёт она, а не образец: под образцом палитра помещала бы
-  /// в строку три знака из девяти, и цвета в ней было бы не прочитать.
-  final GlobalKey _row = GlobalKey();
+  /// По полю, а не по образцу и не по всей строке: под образцом в строку
+  /// палитры помещалось три знака из девяти, а строка в форме настроек
+  /// растянута на всю колонку — палитра во всю колонку и раскрывалась.
+  final GlobalKey _field = GlobalKey();
 
-  /// Ширина строки, замеренная при раскрытии; 0 — палитра закрыта.
+  /// Ширина палитры, замеренная при раскрытии; 0 — палитра закрыта.
   double _width = 0;
 
   OverlayEntry? _palette;
@@ -94,11 +95,14 @@ class _FcColorFieldState extends State<FcColorField> {
     if (_open || !_pickable) {
       return;
     }
-    final box = _row.currentContext?.findRenderObject();
+    final box = _field.currentContext?.findRenderObject();
     if (box is! RenderBox) {
       return;
     }
-    _width = box.size.width;
+    // От левого края образца до правого края поля: палитра продолжает поле, а
+    // не колонку, в которой оно стоит.
+    final theme = FcTheme.of(context);
+    _width = theme.metrics.inputHeight + theme.metrics.columnGap + box.size.width;
     final entry = OverlayEntry(builder: (context) => _dropdown(context));
     Overlay.of(context).insert(entry);
     setState(() => _palette = entry);
@@ -184,7 +188,6 @@ class _FcColorFieldState extends State<FcColorField> {
     );
 
     return Row(
-      key: _row,
       children: [
         CompositedTransformTarget(
           link: _link,
@@ -199,7 +202,12 @@ class _FcColorFieldState extends State<FcColorField> {
         ),
         SizedBox(width: metrics.columnGap),
         // Поле уступает, когда окно узко: иначе оно выдавливает образец за край.
-        Flexible(child: widget.fieldWidth == null ? field : SizedBox(width: widget.fieldWidth, child: field)),
+        Flexible(
+          child: KeyedSubtree(
+            key: _field,
+            child: widget.fieldWidth == null ? field : SizedBox(width: widget.fieldWidth, child: field),
+          ),
+        ),
       ],
     );
   }
@@ -249,8 +257,18 @@ class _SwatchPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final light = Paint()..color = _light;
-    final dark = Paint()..color = _dark;
+    // Без сглаживания — все три слоя: сглаженные края берут покрытие наполовину,
+    // и белая подложка просвечивала сквозь непрозрачный цвет светлой каймой,
+    // неотличимой от обводки. Скругление углов делает не кисть, а обрезка
+    // родителя, и терять ей нечего.
+    final light =
+        Paint()
+          ..color = _light
+          ..isAntiAlias = false;
+    final dark =
+        Paint()
+          ..color = _dark
+          ..isAntiAlias = false;
     canvas.drawRect(Offset.zero & size, light);
     for (var y = 0.0; y < size.height; y += cell) {
       for (var x = 0.0; x < size.width; x += cell) {
@@ -259,7 +277,12 @@ class _SwatchPainter extends CustomPainter {
         }
       }
     }
-    canvas.drawRect(Offset.zero & size, Paint()..color = color);
+    canvas.drawRect(
+      Offset.zero & size,
+      Paint()
+        ..color = color
+        ..isAntiAlias = false,
+    );
   }
 
   @override
