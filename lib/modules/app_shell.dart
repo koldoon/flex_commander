@@ -38,6 +38,14 @@ import '../view/background_tasks_view.dart';
 /// встать, и раздвигать соседей тогда не придётся.
 const int presetsPriority = 100;
 
+/// Смена темы — командой модуля темы, а не службой оформления.
+///
+/// Именем, а не классом: модуль темы оболочке чужой, и выключить его должно
+/// быть можно — как чужую команду зовёт окно сведений о файле
+/// (`file_info_commands.dart`).
+const String _switchThemeCommand = 'app.theme.use';
+const String _switchThemeParam = 'themeId';
+
 class AppShell implements FcBackendModule, FcFrontendModule {
   const AppShell();
 
@@ -380,7 +388,18 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           // Название темы приходит значением — переводит его тот, кто показывает.
           options: {for (final theme in app.theme.available) theme.id: strings.tr(theme.title)},
           read: () => app.theme.current.id,
-          write: (value) => app.theme.use(value),
+          // Командой, а не службой: имя выбранной темы сохраняет она, и выбор
+          // из окна настроек иначе не переживает перезапуск
+          // (`docs/spec/theme-editor.md`, §13).
+          //
+          // Не взялась — модуль темы отключён или тема одна; тогда хотя бы
+          // перекрасить: нажатие без ответа неотличимо от промаха.
+          write: (value) {
+            final invocation = CommandInvocation(parameters: {_switchThemeParam: value});
+            if (!app.commands.run(_switchThemeCommand, invocation)) {
+              app.theme.use(value);
+            }
+          },
         ),
         // Клавиши — кнопкой, а не полем: выбирать тут нечего, а делать есть
         // что — открыть своё окно (`docs/spec/key-bindings.md`, §7).
