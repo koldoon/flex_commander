@@ -1,5 +1,9 @@
 import 'dart:async';
 
+import 'package:flutter/painting.dart';
+
+import '../theme/color_text.dart';
+
 /// Из чего состоит раздел настроек — то, что модуль рассказывает о себе, чтобы
 /// ядро нарисовало окно.
 ///
@@ -123,6 +127,58 @@ sealed class SettingsField {
     defaultValue: defaultValue,
     read: read,
     write: write,
+  );
+
+  /// Дробное число с пределами.
+  ///
+  /// Рядом с [integer], а не признаком у него: у целого и дробного разный
+  /// разбор набранного и разные пределы, а поле, которое иногда целое,
+  /// пришлось бы спрашивать «а сейчас ты какое». Так правятся метрики
+  /// оформления — все они `double`, и среди них есть доли
+  /// (`docs/spec/theme-editor.md`, §4).
+  static SettingsDecimal decimal(
+    String id, {
+    required String title,
+    String description = '',
+    String note = '',
+    required double min,
+    required double max,
+    String unit = '',
+    required double defaultValue,
+    required double Function() read,
+    required void Function(double value) write,
+  }) => SettingsDecimal(
+    id,
+    title: title,
+    description: description,
+    note: note,
+    min: min,
+    max: max,
+    unit: unit,
+    defaultValue: defaultValue,
+    read: read,
+    write: write,
+  );
+
+  /// Цвет: образец, поле `#AARRGGBB` и палитра за образцом.
+  static SettingsColor color(
+    String id, {
+    required String title,
+    String description = '',
+    String note = '',
+    required Color defaultValue,
+    required Color Function() read,
+    required void Function(Color value) write,
+    List<Color> palette = const [],
+  }) => SettingsColor(
+    id,
+    title: title,
+    description: description,
+    note: note,
+    defaultValue: defaultValue,
+    read: read,
+    write: write,
+    palette: palette,
   );
 
   /// Строка.
@@ -426,6 +482,115 @@ class SettingsNumber extends SettingsField {
     // С поправкой на пределы: набор мог прийти оттуда, где они были другими.
     if (value is int) {
       write(value.clamp(min, max));
+    }
+  }
+}
+
+/// Дробное число с пределами.
+///
+/// Отдельный вид, а не признак у [SettingsNumber]: «ширина окна 0.75» в целом
+/// поле невыразима, а поле, которое иногда целое, каждому читающему пришлось бы
+/// спрашивать, какое оно сейчас (`docs/spec/theme-editor.md`, §4).
+class SettingsDecimal extends SettingsField {
+  const SettingsDecimal(
+    super.id, {
+    required super.title,
+    super.description,
+    super.note,
+    required this.min,
+    required this.max,
+    this.unit = '',
+    required this.defaultValue,
+    required this.read,
+    required this.write,
+  });
+
+  final double min;
+  final double max;
+
+  /// Что стоит, пока не выбрали своего.
+  final double defaultValue;
+
+  /// Единица измерения — подпись справа от поля: `px`, `pt`.
+  final String unit;
+
+  final double Function() read;
+  final void Function(double value) write;
+
+  @override
+  bool get isDefault => read() == defaultValue;
+
+  @override
+  void resetToDefault() => write(defaultValue);
+
+  /// Приводит набранное к допустимому; null — это не число вовсе.
+  ///
+  /// Запятая считается точкой: на русской раскладке дробное набирают через
+  /// неё, и отказ разобрать «1,5» выглядел бы поломкой поля.
+  double? parse(String value) {
+    final parsed = double.tryParse(value.trim().replaceAll(',', '.'));
+    return parsed == null || !parsed.isFinite ? null : parsed.clamp(min, max);
+  }
+
+  @override
+  Object? get value => read();
+
+  @override
+  void apply(Object? value) {
+    // Целое тоже годится: в json `22.0` сохраняется и читается обратно как
+    // `22`, и отказ его принять терял бы каждое круглое значение.
+    if (value is num) {
+      write(value.toDouble().clamp(min, max));
+    }
+  }
+}
+
+/// Цвет: образец, поле `#AARRGGBB` и палитра за образцом.
+///
+/// Значение ходит [Color], а не числом: цвет тем и правят — образцом рядом с
+/// полем, — а число пришлось бы разбирать обратно в каждом, кто такое поле
+/// объявит.
+class SettingsColor extends SettingsField {
+  const SettingsColor(
+    super.id, {
+    required super.title,
+    super.description,
+    super.note,
+    required this.defaultValue,
+    required this.read,
+    required this.write,
+    this.palette = const [],
+  });
+
+  /// Что стоит, пока не выбрали своего.
+  final Color defaultValue;
+
+  final Color Function() read;
+  final void Function(Color value) write;
+
+  /// Что предложить за образцом; пусто — предлагать нечего, и образец не
+  /// нажимается.
+  ///
+  /// Список приносит тот, кто поле объявил: цвета, уже стоящие в теме,
+  /// приложение знает, а поле — нет (`docs/spec/theme-editor.md`, §4).
+  final List<Color> palette;
+
+  @override
+  bool get isDefault => read() == defaultValue;
+
+  @override
+  void resetToDefault() => write(defaultValue);
+
+  /// Строкой, а не числом: в файле настроек цвет должен читаться глазами.
+  @override
+  Object? get value => formatColor(read());
+
+  @override
+  void apply(Object? value) {
+    if (value is String) {
+      if (parseColor(value) case final color?) {
+        write(color);
+      }
     }
   }
 }

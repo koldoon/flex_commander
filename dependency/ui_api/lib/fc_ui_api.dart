@@ -43,6 +43,7 @@ export 'src/settings/settings_schema.dart';
 
 // --- Оформление ---
 export 'src/theme/app_colors.dart';
+export 'src/theme/color_text.dart';
 export 'src/theme/app_metrics.dart';
 export 'src/theme/fc_fonts.dart';
 export 'src/theme/fc_icons.dart';

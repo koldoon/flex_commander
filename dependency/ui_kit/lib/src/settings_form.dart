@@ -4,6 +4,7 @@ import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 
 import 'app_scope.dart';
+import 'color_field.dart';
 import 'command_dialog.dart';
 import 'dialog_body.dart';
 import 'controls.dart';
@@ -809,6 +810,8 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
     }
     final value = switch (field) {
       SettingsNumber number => '${number.read()}',
+      SettingsDecimal decimal => '${decimal.read()}',
+      SettingsColor color => formatColor(color.read()),
       SettingsText text => text.read(),
       _ => null,
     };
@@ -1069,6 +1072,42 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
             Text(number.unit, style: _labelStyle(theme)),
           ],
         ],
+      ),
+      // Дробное — тем же полем, что и целое: разнится у них разбор
+      // набранного, а не вид (`docs/spec/theme-editor.md`, §4).
+      SettingsDecimal decimal => Row(
+        children: [
+          Flexible(
+            child: SizedBox(
+              width: theme.metrics.dialogLabelWidth,
+              child: FcTextField(
+                controller: _editorFor(decimal.id, '${decimal.read()}'),
+                onChanged: (value) {
+                  final parsed = decimal.parse(value);
+                  if (parsed != null) {
+                    decimal.write(parsed);
+                    changed();
+                  }
+                },
+              ),
+            ),
+          ),
+          if (decimal.unit.isNotEmpty) ...[
+            SizedBox(width: theme.metrics.columnGap),
+            Text(decimal.unit, style: _labelStyle(theme)),
+          ],
+        ],
+      ),
+      // Цвет — образцом и полем: набирают его руками, а узнают в лицо.
+      SettingsColor color => FcColorField(
+        controller: _editorFor(color.id, formatColor(color.read())),
+        value: color.read(),
+        palette: color.palette,
+        fieldWidth: theme.metrics.dialogLabelWidth,
+        onChanged: (value) {
+          color.write(value);
+          changed();
+        },
       ),
       SettingsList list => _listControl(theme, list, changed),
       SettingsText text => FcTextField(
