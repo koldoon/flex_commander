@@ -38,6 +38,12 @@ import '../view/background_tasks_view.dart';
 /// встать, и раздвигать соседей тогда не придётся.
 const int presetsPriority = 100;
 
+/// Как высоко стоит раздел оформления: сразу за наборами.
+///
+/// Между ними ничего не стоит, а число оставлено с запасом — по той же
+/// причине, что и у наборов.
+const int themesPriority = 90;
+
 /// Смена темы — командой модуля темы, а не службой оформления.
 ///
 /// Именем, а не классом: модуль темы оболочке чужой, и выключить его должно
@@ -393,8 +399,14 @@ class AppShell implements FcBackendModule, FcFrontendModule {
       ], save: settings.save);
     });
 
-    // Настройки самого приложения: своего модуля у ядра нет, а выбор есть.
-    registry.settingsSchema(() {
+    // Оформление — своим разделом, а не полем среди прочих: тем сколько
+    // угодно, их складывают, правят, возят файлом, — и рядом с выбором стоят
+    // пять кнопок. Среди настроек приложения это читалось бы как одна из них
+    // (`docs/spec/theme-editor.md`, §2).
+    //
+    // Следом за наборами: набор решает и оформление тоже, а всё прочее
+    // выбирают уже внутри выбранного вида.
+    registry.settingsSchema(title: 'Themes', priority: themesPriority, () {
       final app = registry.services.resolve<Application>();
       final strings = registry.services.resolve<Strings>();
       return SettingsSchema([
@@ -449,6 +461,14 @@ class AppShell implements FcBackendModule, FcFrontendModule {
             label: strings.tr('Import'),
             run: () => app.commands.runAndWait(_importThemeCommand),
           ),
+      ], save: settings.save);
+    });
+
+    // Настройки самого приложения: своего модуля у ядра нет, а выбор есть.
+    registry.settingsSchema(() {
+      final app = registry.services.resolve<Application>();
+      final strings = registry.services.resolve<Strings>();
+      return SettingsSchema([
         // Клавиши — кнопкой, а не полем: выбирать тут нечего, а делать есть
         // что — открыть своё окно (`docs/spec/key-bindings.md`, §7).
         SettingsField.button(
@@ -832,6 +852,7 @@ const Map<String, String> _russian = {
 
   // Настройки приложения.
   'Theme': 'Оформление',
+  'Themes': 'Оформление',
   'Panel address': 'Адрес панели',
   'Session row in the title bar': 'Ряд сессий в полосе заголовка',
   'Otherwise sessions are switched by the window, Ctrl-Tab and Alt-1…Alt-9':
