@@ -113,6 +113,32 @@ void main() {
     await tester.pumpAndSettle();
   });
 
+  testWidgets('длинный путь не растягивает окно, а обрезается', (tester) async {
+    await openImport(tester, 'Bring a theme from a file');
+
+    final before = tester.getRect(find.byType(CommandDialogForm)).width;
+
+    // Настоящий путь из жизни: `~/XCode/…/koldoon.xcuserdatad` в строку — это
+    // половина экрана, и окно уезжало за его край.
+    const deep =
+        '/Users/koldoon/XCode/CSO-Mobile/CSO-Mobile.xcodeproj/project.xcworkspace/xcuserdata/koldoon.xcuserdatad';
+    await sendDrop(
+      tester,
+      'drop',
+      at: tester.getCenter(find.byType(FcDirectoryTree)),
+      paths: const ['$deep/theme.json'],
+    );
+
+    expect(tester.getRect(find.byType(CommandDialogForm)).width, before, reason: 'окно поехало за путём');
+    // Ширину окно назначает само — долей экрана.
+    final metrics = FcTheme.of(tester.element(find.byType(FcDirectoryTree))).metrics;
+    expect(before, closeTo(tester.view.physicalSize.width * metrics.dialogWidthFactor, 1));
+    // А путь показан обрезанным слева: конец важнее начала.
+    expect(nameField(tester), 'theme.json');
+
+    await tester.pumpAndSettle();
+  });
+
   testWidgets('курсор дерева упирается в края плашки', (tester) async {
     await openImport(tester, 'Bring a set from a file');
 

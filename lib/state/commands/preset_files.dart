@@ -25,6 +25,7 @@ Future<void> exportPreset(Application app, Strings strings, Preset preset) {
   return askFile(
     app,
     strings,
+    id: 'preset.export',
     title: strings.tr('Export set'),
     submitLabel: strings.tr('Export'),
     destinationLabel: 'Save to',
@@ -56,6 +57,7 @@ Future<void> importPreset(Application app, Strings strings, Presets presets) {
   return askFile(
     app,
     strings,
+    id: 'preset.import',
     title: strings.tr('Import set'),
     submitLabel: strings.tr('Import'),
     destinationLabel: 'Read from',

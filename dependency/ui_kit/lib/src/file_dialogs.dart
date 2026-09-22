@@ -9,6 +9,7 @@ import 'app_scope.dart';
 import 'command_dialog.dart';
 import 'directory_tree.dart';
 import 'fc_theme.dart';
+import 'trimmed_text.dart';
 
 /// Окно «каталог и имя» и чтение файла по адресу.
 ///
@@ -64,6 +65,7 @@ const String _home = '~';
 Future<void> askFile(
   Application app,
   Strings strings, {
+  required String id,
   required String title,
   required String submitLabel,
   required String name,
@@ -98,6 +100,17 @@ Future<void> askFile(
   dialogId = view.showDialog(
     DialogSpec(
       title: title,
+      // Своё имя — чтобы окно помнило размер: дерево тянут вниз, когда каталог
+      // глубокий, и делать это каждый раз заново незачем.
+      id: id,
+      // Ширину назначает само, долей экрана, и тянется мышью.
+      //
+      // Облегать содержимое ему нельзя: в строке места стоит **путь**, и окно
+      // растягивалось бы до его длины — на `~/XCode/CSO-Mobile/…/xcuserdata`
+      // это половина экрана в строку. Путь вместо этого обрезается по месту
+      // ([FcTrimSide.head]), а не двигает раму.
+      resizable: true,
+      ownWidth: true,
       takesFocus: true,
       content: _FileForm(state: state, submitLabel: submitLabel, destinationLabel: destinationLabel),
       onSubmit: state.submit,
@@ -232,67 +245,100 @@ class _FileFormState extends State<_FileForm> {
     );
   }
 
+  /// Подпись над содержимым — как в окне поиска: слева она отняла бы у дерева
+  /// и пути ту самую ширину, ради которой окно и тянут.
+  Widget _labeled(FcTheme theme, String label, Widget child) => Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Padding(
+        padding: EdgeInsets.only(bottom: theme.metrics.dialogLineGap),
+        child: Text(label, style: theme.dialogLabelStyle),
+      ),
+      child,
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     final state = widget.state;
-    return ListenableBuilder(
-      listenable: state,
-      builder:
-          (context, _) => CommandDialogForm(
-            onCancel: state.close,
-            onSubmit: state.submit,
-            submitLabel: widget.submitLabel,
-            busy: state.busy,
-            children: [
-              // Подпись вровень с первой строкой дерева, а не по его середине:
-              // у высокого управления середина уезжает в пустоту.
-              CommandDialogField.column(
-                label: context.strings.tr(state.picks == null ? 'Folder' : 'File'),
-                children: [
-                  SizedBox(
-                    // Размер задаётся здесь, и оба измерения: окно меряет своё
-                    // содержимое (`IntrinsicWidth`), а список прокрутки мерить
-                    // себя не умеет — ради того он и ленив.
-                    width: FcTheme.of(context).metrics.dialogLabelWidth * 3,
-                    height: FcTheme.of(context).metrics.rowHeight * 9,
-                    child: _DropArea(
-                      state: state,
-                      child: FcDirectoryTree(
-                        root: _home,
-                        rootTitle: context.strings.tr('Home'),
-                        children: state.app.activePanel.namesIn,
-                        selected: state.selected,
-                        shows: state.picks,
-                        onSelected: state.choose,
+    final theme = FcTheme.of(context);
+    // Ширина — доля экрана, как у окна работы и палитры: окно назначает её
+    // само ([DialogSpec.ownWidth]), а дальше её меняет мышь.
+    return SizedBox(
+      width: MediaQuery.sizeOf(context).width * theme.metrics.dialogWidthFactor,
+      child: ListenableBuilder(
+        listenable: state,
+        builder:
+            (context, _) => CommandDialogForm(
+              onCancel: state.close,
+              onSubmit: state.submit,
+              submitLabel: widget.submitLabel,
+              busy: state.busy,
+              children: [
+                // Все три строки — **во всю ширину**, с подписями над
+                // содержимым: так же устроено окно поиска, и по той же причине
+                // — окно тянут мышью, а столбец значений задаёт ширину сам.
+                // Дерево к тому же лениво прокручивается, и мерить его рама всё
+                // равно не умеет (`docs/spec/dialog-body.md`).
+                CommandDialogField.wide(
+                  child: _labeled(
+                    theme,
+                    context.strings.tr(state.picks == null ? 'Folder' : 'File'),
+                    SizedBox(
+                      // Высота — числом: список прокрутки мерить себя не умеет,
+                      // ради того он и ленив. Ширину ему даёт окно.
+                      height: theme.metrics.rowHeight * 9,
+                      child: _DropArea(
+                        state: state,
+                        child: FcDirectoryTree(
+                          root: _home,
+                          rootTitle: context.strings.tr('Home'),
+                          children: state.app.activePanel.namesIn,
+                          selected: state.selected,
+                          shows: state.picks,
+                          onSelected: state.choose,
+                        ),
                       ),
                     ),
                   ),
-                ],
-              ),
-              // Выбранное — своим полем, с подписью слева, как у соседей: в
-              // дереве видна подсветка строки, а куда именно ляжет файл, из
-              // неё не прочесть — одноимённых каталогов в разных местах
-              // сколько угодно.
-              CommandDialogField(
-                label: context.strings.tr(widget.destinationLabel),
-                child: Text(
-                  state.folder,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: FcTheme.of(context).dialogTextStyle,
                 ),
-              ),
-              CommandDialogField(
-                label: context.strings.tr('File name'),
-                child: FcTextField(
-                  controller: _name,
-                  autofocus: true,
-                  onChanged: (value) => state.name = value,
-                  onSubmitted: (_) => state.submit(),
+                // Выбранное — строкой под деревом: в дереве видна подсветка, а
+                // куда именно ляжет файл, из неё не прочесть — одноимённых
+                // каталогов в разных местах сколько угодно.
+                //
+                // Подпись слева, а путь занимает остаток: это не поле ввода, а
+                // ответ, и читается он в одну строку с вопросом.
+                CommandDialogField.wide(
+                  child: Row(
+                    children: [
+                      Text('${context.strings.tr(widget.destinationLabel)}:', style: theme.dialogLabelStyle),
+                      SizedBox(width: theme.metrics.dialogGap),
+                      // Обрезается **слева**: в конце пути тот самый каталог,
+                      // ради которого его и читают, а по началу видно, о каком
+                      // корне речь. Обрезанное договаривает подсказка — тем же
+                      // виджетом, что и везде (`docs/spec/tooltips.md`, §3).
+                      Expanded(
+                        child: FcTrimmedText(text: state.folder, side: FcTrimSide.head, style: theme.dialogTextStyle),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            ],
-          ),
+                CommandDialogField.wide(
+                  child: _labeled(
+                    theme,
+                    context.strings.tr('File name'),
+                    FcTextField(
+                      controller: _name,
+                      autofocus: true,
+                      onChanged: (value) => state.name = value,
+                      onSubmitted: (_) => state.submit(),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+      ),
     );
   }
 }

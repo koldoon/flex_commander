@@ -4,6 +4,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
+import 'theme_editor_commands.dart';
 import 'theme_overlay.dart';
 import 'theme_overrides.dart';
 
@@ -24,6 +25,7 @@ Future<void> exportTheme(Application app, Strings strings, ThemeOverlay overlay)
   return askFile(
     app,
     strings,
+    id: ExportThemeCommand.commandId,
     title: strings.tr('Export theme'),
     submitLabel: strings.tr('Export'),
     destinationLabel: 'Save to',
@@ -55,6 +57,7 @@ Future<void> importTheme(Application app, Strings strings, ThemeOverlay overlay)
   return askFile(
     app,
     strings,
+    id: ImportThemeCommand.commandId,
     title: strings.tr('Import theme'),
     submitLabel: strings.tr('Import'),
     destinationLabel: 'Read from',
