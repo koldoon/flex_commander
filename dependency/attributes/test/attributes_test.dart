@@ -843,9 +843,12 @@ void main() {
 
       app.commands.run('file.info');
       await settle(tester);
-      expect(find.text('Edit…'), findsOneWidget);
+      // Кнопкой в окне, а не строкой функциональных клавиш: `F4` внизу тоже
+      // подписан «Edit».
+      final button = find.widgetWithText(FcButton, 'Edit');
+      expect(button, findsOneWidget);
 
-      await tester.tap(find.widgetWithText(FcButton, 'Edit…'));
+      await tester.tap(button);
       await settle(tester);
 
       expect(find.text('Apply'), findsOneWidget, reason: 'сведения закрылись, правка открылась');
@@ -860,7 +863,7 @@ void main() {
       app.commands.run('file.info');
       await settle(tester);
 
-      expect(find.text('Edit…'), findsNothing);
+      expect(find.widgetWithText(FcButton, 'Edit'), findsNothing);
       expect(find.text('Calculate'), findsNothing, reason: 'под курсором файл, а не каталог');
     });
   });

@@ -1,17 +1,23 @@
 import 'dart:async';
 
 import 'package:fc_ui_api/fc_ui_api.dart';
-import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
-/// Окна наборов выбора: имя и подтверждение
-/// (`docs/spec/settings-presets.md`, §6).
+import 'app_scope.dart';
+import 'command_dialog.dart';
 
-/// Спросить имя набора.
+/// Два окна на двоих: «как это назвать» и «точно ли».
 ///
-/// Занятое имя — ошибка **в том же окне**, а не молчаливая перезапись: набор,
-/// затёртый другим набором того же имени, теряется без следа.
-Future<void> askPresetName(
+/// Здесь, а не у того, кто спросил первым: имя спрашивают и набор выбора
+/// (`docs/spec/settings-presets.md`, §6), и своя тема
+/// (`docs/spec/theme-editor.md`, §6), а согласия — всякий, кто что-то убирает.
+/// Имя вещи — по вещи, а не по первому её применению.
+
+/// Спросить имя.
+///
+/// Занятое имя — ошибка **в том же окне**, а не молчаливая перезапись: то, что
+/// затёрли одноимённым, теряется без следа.
+Future<void> askName(
   Application app, {
   required String title,
   required String submitLabel,

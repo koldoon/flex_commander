@@ -431,17 +431,42 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
   /// Запускает прототип: состояния прогона у команды нет, и второй экземпляр
   /// ей не нужен. Всё, с чем её вызвали, лежит в [invocation].
   @override
+  Future<bool> runAndWait(String commandId, [CommandInvocation invocation = const CommandInvocation()]) async {
+    final started = _start(commandId, invocation);
+    if (started == null) {
+      return false;
+    }
+    await runToCompletion(started, invocation);
+    return true;
+  }
+
+  @override
   bool run(String commandId, [CommandInvocation invocation = const CommandInvocation()]) {
+    final command = _start(commandId, invocation);
+    if (command == null) {
+      return false;
+    }
+
+    // Запуск не ждут: нажатие клавиши не может стоять и ждать конца работы.
+    // Но исход разбирается — раньше ошибка команды без окна пропадала совсем.
+    unawaited(runToCompletion(command, invocation));
+    return true;
+  }
+
+  /// Общее начало обоих запусков: найти, спросить выполнимость, снять полосу.
+  ///
+  /// null — запускать нечего: команды нет или она сейчас невыполнима.
+  AppCommand? _start(String commandId, CommandInvocation invocation) {
     final app = _app;
     final command = _prototypes[commandId];
     if (app == null || command == null) {
-      return false;
+      return null;
     }
     // Выполнимость спрашивают про этот запуск: «открыть путь в левой» и «в
     // правой» — одна команда, а заняты панели порознь.
     final context = CommandContext.of(app, invocation);
     if (!command.isExecutable(context)) {
-      return false;
+      return null;
     }
 
     // Полоса, живущая до первой чужой команды, снимается **здесь** — раньше
@@ -451,11 +476,7 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
     // после, снимать было бы уже нечего (или не то). Место единственное: сюда
     // приходят и клавиша, и кнопка, и палитра — значит правило одно на всех.
     _dismissTransient(app, commandId);
-
-    // Запуск не ждут: нажатие клавиши не может стоять и ждать конца работы.
-    // Но исход разбирается — раньше ошибка команды без окна пропадала совсем.
-    unawaited(runToCompletion(command, invocation));
-    return true;
+    return command;
   }
 
   /// Снимает полосу активной панели, если эта команда ей чужая.

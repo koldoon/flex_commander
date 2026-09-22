@@ -1,4 +1,5 @@
 import 'package:fc_default_theme/fc_default_theme.dart';
+import 'package:fc_api/fc_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_theme_editor/fc_theme_editor.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -43,7 +44,7 @@ void main() {
     matching: find.byType(FcTextField),
   );
 
-  testWidgets('кнопка «Edit…» в настройках открывает редактор', (tester) async {
+  testWidgets('кнопка «Edit» в настройках открывает редактор', (tester) async {
     tester.view.physicalSize = const Size(900, 1400);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
@@ -54,7 +55,7 @@ void main() {
     await tester.pumpAndSettle();
 
     // Кнопка стоит рядом с выбором темы — там её и ищут.
-    await tester.tap(find.widgetWithText(FcButton, 'Edit…'));
+    await tester.tap(find.widgetWithText(FcButton, 'Edit'));
     await tester.pumpAndSettle();
 
     expect(find.text('Theme'), findsWidgets);
@@ -64,6 +65,80 @@ void main() {
     expect(find.text('Fonts'), findsWidgets);
 
     await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  /// Кнопка при этой настройке, а не одноимённая у соседней: «New» есть и у
+  /// наборов выбора.
+  Finder buttonIn(String setting, String label) => find.descendant(
+    of: find.ancestor(of: role(setting), matching: find.byType(Column)).first,
+    matching: find.widgetWithText(FcButton, label),
+  );
+
+  Future<void> openSettings(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(900, 1400);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.f9);
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('«New» складывает своё оформление из нынешнего и переходит на него', (tester) async {
+    await openSettings(tester);
+
+    // Правка, ради которой тему и складывают.
+    runtime.app.commands.run(EditThemeCommand.commandId);
+    await tester.pumpAndSettle();
+    await tester.enterText(editorOf('Cursor background').first, '#FF2D6CDF');
+    await tester.pumpAndSettle();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pumpAndSettle();
+
+    await tester.tap(buttonIn('Theme', 'New'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(FcTextField).last, 'My dark');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(runtime.app.theme.current.title, 'My dark');
+    // Копией нынешних правок: «New» нажимают, доведя оформление до нужного.
+    expect(runtime.app.theme.current.colors.cursorBackground, const Color(0xFF2D6CDF));
+    // И выбор запомнен — как всякий выбор темы (§13).
+    expect(
+      runtime.app.settings.modules.scope('fc.default_theme').section(ThemeSettings.new).themeId,
+      runtime.app.theme.current.id,
+    );
+
+    await tester.pump(const Duration(milliseconds: 20));
+  });
+
+  testWidgets('«Delete» убирает своё оформление и не трогает встроенное', (tester) async {
+    await openSettings(tester);
+
+    // На встроенной теме убирать нечего: кнопка приглушена.
+    expect(tester.widget<FcButton>(buttonIn('Theme', 'Delete')).onPressed, isNull);
+
+    await tester.tap(buttonIn('Theme', 'New'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(FcTextField).last, 'My dark');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    await tester.tap(buttonIn('Theme', 'Delete'));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete theme'), findsWidgets, reason: 'согласия спрашивают окном');
+    // Согласие спрашивают окном — и кнопка «Delete» в нём своя.
+    await tester.tap(
+      find.descendant(of: find.byType(CommandDialogConfirm), matching: find.widgetWithText(FcButton, 'Delete')),
+    );
+    await tester.pump();
+
+    expect(runtime.app.theme.available.map((theme) => theme.title), isNot(contains('My dark')));
+    expect(runtime.app.theme.current.id, 'default');
+
+    await tester.pumpAndSettle();
   });
 
   testWidgets('подпись роли выведена из её имени, а не написана руками', (tester) async {

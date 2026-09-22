@@ -41,11 +41,15 @@ class ThemeEditing implements FcFrontendModule {
     ThemeOverlay overlay(FcContext context) => context.resolve<ThemeOverlay>();
 
     registry.command((context) => EditThemeCommand(context, () => overlay(context)));
+    registry.command((context) => NewThemeCommand(context, () => overlay(context)));
+    registry.command((context) => DeleteThemeCommand(context, () => overlay(context)));
     registry.command((context) => ResetThemeCommand(context, () => overlay(context)));
     // Клавиш редактор не получает: оформление правят раз в жизни. Привязка без
     // клавиши говорит только о том, в каком разделе стоит команда
     // (`docs/spec/key-bindings.md`, §5).
     registry.binding(KeyBinding.unbound(EditThemeCommand.commandId, context: KeyContext.everywhere));
+    registry.binding(KeyBinding.unbound(NewThemeCommand.commandId, context: KeyContext.everywhere));
+    registry.binding(KeyBinding.unbound(DeleteThemeCommand.commandId, context: KeyContext.everywhere));
     registry.binding(KeyBinding.unbound(ResetThemeCommand.commandId, context: KeyContext.everywhere));
 
     registry.startup((context) => ApplyThemeOverlayCommand(context, () => overlay(context)));
@@ -57,6 +61,18 @@ const Map<String, String> _russian = {
   'Theme editor': 'Редактор тем',
   'Edit theme': 'Править оформление',
   'Colors, sizes and fonts of the current theme': 'Цвета, размеры и шрифты выбранной темы',
+  // «Create» и «Delete» переведены другими модулями: словарь на язык один, и
+  // второй перевод той же строки — ошибка сборки.
+  'New theme': 'Своё оформление',
+  'Save the current look under a name of your own': 'Сохранить нынешний вид под своим именем',
+  'A theme without a name cannot be chosen': 'Оформление без имени не выбрать',
+  'There is a theme with this name already': 'Оформление с таким именем уже есть',
+  'Theme «{name}» created': 'Оформление «{name}» сложено',
+  'Delete theme': 'Убрать оформление',
+  'Forget a theme of your own': 'Забыть своё оформление',
+  'Delete «{name}»? The theme it was made from stays as it is.':
+      'Убрать «{name}»? Оформление, с которого оно списано, останется как есть.',
+  'Theme «{name}» deleted': 'Оформление «{name}» убрано',
   'Reset theme': 'Вернуть оформление',
   'Drop every change made to the theme': 'Забыть все правки оформления',
   'Apply theme changes': 'Применить правки оформления',

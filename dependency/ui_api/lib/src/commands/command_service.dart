@@ -68,6 +68,17 @@ abstract interface class CommandService implements Listenable {
   /// Результат всюду одинаковый.
   bool run(String commandId, [CommandInvocation invocation = const CommandInvocation()]);
 
+  /// Запускает команду и **ждёт**, пока она кончится.
+  ///
+  /// Нужно тому, кому после команды надо перечитать сделанное: кнопка в окне
+  /// настроек пересобирает разделы, а окно, которое команда подняла,
+  /// закрывается позже самого нажатия — пересобери разделы сразу, и в них
+  /// будет то, что было до (`docs/spec/theme-editor.md`, §2).
+  ///
+  /// false — команда не нашлась или сейчас невыполнима; ждать в этом случае
+  /// нечего.
+  Future<bool> runAndWait(String commandId, [CommandInvocation invocation = const CommandInvocation()]);
+
   /// Создаёт экземпляр команды и связывает его с запуском, но не выполняет:
   /// так её получают те, кто задаёт параметры сам.
   AppCommand? create(String commandId);

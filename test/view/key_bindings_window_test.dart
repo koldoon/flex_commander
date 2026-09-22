@@ -87,6 +87,9 @@ void main() {
     await press(tester, LogicalKeyboardKey.f9);
     expect(find.text('Keymap'), findsOneWidget, reason: 'кнопки в настройках нет');
 
+    // До кнопки надо доехать: раздел оболочки длиннее одного экрана.
+    await tester.ensureVisible(find.widgetWithText(FcButton, 'Keymap'));
+    await tester.pumpAndSettle();
     await tester.tap(find.widgetWithText(FcButton, 'Keymap'));
     await tester.pumpAndSettle();
 

@@ -34,6 +34,16 @@ class _Themes extends ChangeNotifier implements ThemeService {
   }
 
   @override
+  void forget(String id) {
+    _themes.removeWhere((theme) => theme.id == id);
+    if (!_themes.any((theme) => theme.id == _currentId)) {
+      _currentId = _themes.first.id;
+    }
+    notifications++;
+    notifyListeners();
+  }
+
+  @override
   void use(String id) {
     _currentId = id;
     notifications++;
@@ -80,7 +90,7 @@ void main() {
     expect(themes.current.colors.cursorBackground, const Color(0xFF2D6CDF));
     // Прочее осталось темы: накладка — своё там, где задано.
     expect(themes.current.colors.windowBackground, const DefaultColors().windowBackground);
-    expect(overrides.baseThemeId, 'default');
+    expect(overrides.find('default')?.colors, {'cursorBackground': const Color(0xFF2D6CDF)});
     expect(saves, 1);
   });
 
@@ -130,19 +140,17 @@ void main() {
     expect(themes.current.colors.cursorBackground, const Color(0xFF2D6CDF));
   });
 
-  test('правка на другой теме начинает накладку заново', () {
+  test('у каждой темы правки свои', () {
     overlay.setColor('cursorBackground', const Color(0xFF2D6CDF));
     themes.use('light');
     overlay.setMetric('rowHeight', 26);
 
-    expect(overrides.baseThemeId, 'light');
-    expect(overrides.colors, isEmpty, reason: 'цвета, подобранные к одной теме, другой не годятся');
+    // Цвета, подобранные к одной теме, другой не годятся: правки не переезжают.
+    expect(themes.current.colors.cursorBackground, const DefaultColors().cursorBackground);
     expect(themes.current.metrics.rowHeight, 26);
 
-    // Прежней теме вернулся её собственный вид: иначе она до перезапуска
-    // показывала бы правки, которых в настройках уже нет.
     themes.use('default');
-    expect(themes.current.colors.cursorBackground, const DefaultColors().cursorBackground);
+    expect(themes.current.colors.cursorBackground, const Color(0xFF2D6CDF));
     expect(themes.current.metrics.rowHeight, const DefaultMetrics().rowHeight);
   });
 
@@ -168,13 +176,20 @@ void main() {
   test('прочитанная из настроек накладка применяется при запуске', () {
     final stored =
         ThemeOverrides()..fromMap({
-          'baseThemeId': 'default',
-          'colors': {'cursorBackground': '#FF2D6CDF', 'такой роли нет': 'не цвет'},
-          'metrics': {'rowHeight': 26},
-          'fonts': {
-            'fixed': 'JetBrains Mono',
-            'fixedFallback': ['Menlo'],
-          },
+          'themes': [
+            {
+              'id': 'default',
+              'base': 'default',
+              'colors': {'cursorBackground': '#FF2D6CDF', 'такой роли нет': 'не цвет'},
+              'metrics': {'rowHeight': 26},
+              'fonts': {
+                'fixed': 'JetBrains Mono',
+                'fixedFallback': ['Menlo'],
+              },
+            },
+            // Запись без имени темы — не запись вовсе: применять её не к чему.
+            {'base': 'default'},
+          ],
         });
     final fresh = _Themes([_default, _light]);
     ThemeOverlay(themes: fresh, overrides: stored, save: () {}).start();
@@ -184,7 +199,83 @@ void main() {
     expect(fresh.current.fonts.fixed, 'JetBrains Mono');
     expect(fresh.current.fonts.fixedFallback, ['Menlo']);
     // Испорченное — мимо, а не падение разбора (сквозное правило 5).
-    expect(stored.colors.keys, ['cursorBackground']);
+    expect(stored.themes, hasLength(1));
+    expect(stored.themes.single.colors.keys, ['cursorBackground']);
+  });
+
+  group('своя тема', () {
+    test('складывается из того, что на экране, и становится выбранной', () {
+      overlay.setColor('cursorBackground', const Color(0xFF2D6CDF));
+
+      final id = overlay.create('My dark');
+
+      expect(id, 'my-dark', reason: 'имя по названию: его видно в файле настроек');
+      expect(themes.current.id, 'my-dark');
+      expect(themes.current.title, 'My dark');
+      // Копией нынешних правок, а не пустой: «New» нажимают, доведя оформление
+      // до нужного.
+      expect(themes.current.colors.cursorBackground, const Color(0xFF2D6CDF));
+      // И встроенная осталась при своём.
+      themes.use('default');
+      expect(themes.current.colors.cursorBackground, const Color(0xFF2D6CDF));
+    });
+
+    test('правится отдельно от той, с которой списана', () {
+      overlay.create('My dark');
+      overlay.setColor('cursorBackground', const Color(0xFFDE1D2E));
+
+      expect(themes.current.colors.cursorBackground, const Color(0xFFDE1D2E));
+      themes.use('default');
+      expect(themes.current.colors.cursorBackground, const DefaultColors().cursorBackground);
+    });
+
+    test('«Reset all» возвращает её к базе, но не убирает из списка', () {
+      overlay.create('My dark');
+      overlay.setColor('cursorBackground', const Color(0xFFDE1D2E));
+
+      expect(overlay.resetAll(), 1);
+      expect(themes.current.id, 'my-dark', reason: 'тема без правок — это всё ещё тема');
+      expect(themes.current.colors.cursorBackground, const DefaultColors().cursorBackground);
+    });
+
+    test('имена не сталкиваются', () {
+      overlay.create('My dark');
+      themes.use('default');
+
+      expect(overlay.create('My dark'), 'my-dark-2');
+    });
+
+    test('убирается вместе с правками, и выбор переходит её базе', () {
+      final id = overlay.create('My dark');
+
+      expect(overlay.remove(id), isTrue);
+      expect(themes.available.map((theme) => theme.id), isNot(contains('my-dark')));
+      expect(themes.current.id, 'default');
+      expect(overrides.find('my-dark'), isNull);
+    });
+
+    test('встроенную убрать нельзя: её объявил модуль', () {
+      overlay.setColor('cursorBackground', const Color(0xFF2D6CDF));
+
+      expect(overlay.remove('default'), isFalse);
+      expect(themes.available.map((theme) => theme.id), contains('default'));
+    });
+
+    test('переживает перезапуск вместе с правками', () {
+      overlay.setColor('cursorBackground', const Color(0xFF2D6CDF));
+      overlay.create('My dark');
+
+      final written = <String, dynamic>{};
+      overrides.toMap(written);
+
+      final fresh = _Themes([_default, _light]);
+      ThemeOverlay(themes: fresh, overrides: ThemeOverrides()..fromMap(written), save: () {}).start();
+
+      expect(fresh.available.map((theme) => theme.id), contains('my-dark'));
+      fresh.use('my-dark');
+      expect(fresh.current.title, 'My dark');
+      expect(fresh.current.colors.cursorBackground, const Color(0xFF2D6CDF));
+    });
   });
 
   test('накладка записывается строками и читается обратно', () {
@@ -194,11 +285,13 @@ void main() {
 
     final written = <String, dynamic>{};
     overrides.toMap(written);
-    expect(written['colors'], {'cursorBackground': '#FF2D6CDF'});
-    expect(written['metrics'], {'rowHeight': 26.0});
-    expect(written['fonts'], {'fixed': 'JetBrains Mono'});
+    final stored = (written['themes'] as List).single as Map<String, dynamic>;
+    expect(stored['id'], 'default');
+    expect(stored['colors'], {'cursorBackground': '#FF2D6CDF'});
+    expect(stored['metrics'], {'rowHeight': 26.0});
+    expect(stored['fonts'], {'fixed': 'JetBrains Mono'});
 
-    final read = ThemeOverrides()..fromMap(written);
+    final read = (ThemeOverrides()..fromMap(written)).themes.single;
     expect(read.colors['cursorBackground'], const Color(0xFF2D6CDF));
     expect(read.metrics['rowHeight'], 26.0);
     expect(read.fixedFont, 'JetBrains Mono');

@@ -5,6 +5,14 @@ import 'package:flutter/widgets.dart';
 import 'theme_editor_pages.dart';
 import 'theme_overlay.dart';
 
+/// Смена темы — командой модуля темы, а не службой оформления: имя выбранной
+/// темы сохраняет она (`docs/spec/theme-editor.md`, §13).
+///
+/// Именем, а не классом: модуль темы редактору чужой, и выключить его должно
+/// быть можно — так же его зовёт оболочка у поля «Theme».
+const String _switchThemeCommand = 'app.theme.use';
+const String _switchThemeParam = 'themeId';
+
 /// Правка оформления: окно, устроенное как сами настройки
 /// (`docs/spec/theme-editor.md`).
 ///
@@ -82,6 +90,112 @@ class EditThemeCommand extends AppCommand {
     // набранное, которого в теме уже нет.
     refresh();
     app.toasts.show(app.strings.plural(count, one: 'Reset {n} role', other: 'Reset {n} roles'));
+  }
+}
+
+/// Сложить свою тему из того, что на экране.
+///
+/// Именованные темы: одной накладки на встроенную хватало, пока правка была
+/// «подкрутить под себя»; тем, кто держит два оформления и переключается между
+/// ними, нужен список (`docs/spec/theme-editor.md`, §6).
+class NewThemeCommand extends AppCommand {
+  NewThemeCommand(this.env, this.overlay);
+
+  final FcContext env;
+  final ThemeOverlay Function() overlay;
+
+  static const String commandId = 'theme.new';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => tr('New theme');
+
+  @override
+  String get description => tr('Save the current look under a name of your own');
+
+  @override
+  Set<String> get keywords => const {'appearance', 'colors', 'copy'};
+
+  @override
+  bool isExecutable(CommandContext context) => true;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final app = context.app;
+    final editor = overlay();
+    final strings = app.strings;
+
+    await askName(
+      app,
+      title: strings.tr('New theme'),
+      submitLabel: strings.tr('Create'),
+      // От названия нынешней: своя тема чаще всего «то же, но моё».
+      initial: app.theme.current.title,
+      save: (name) {
+        if (name.isEmpty) {
+          return strings.tr('A theme without a name cannot be chosen');
+        }
+        if (app.theme.available.any((theme) => theme.title == name)) {
+          return strings.tr('There is a theme with this name already');
+        }
+        final id = editor.create(name);
+        app.toasts.show(strings.tr('Theme «{name}» created', args: {'name': name}));
+        // Имя выбранной темы сохраняет команда смены темы, а не служба: своя
+        // тема обязана пережить перезапуск так же, как встроенная (§13).
+        app.commands.run(_switchThemeCommand, CommandInvocation(parameters: {_switchThemeParam: id}));
+        return null;
+      },
+    );
+  }
+}
+
+/// Убрать свою тему.
+///
+/// Встроенную убрать нельзя: её объявил модуль, и вернуть её было бы нечем —
+/// поэтому на встроенной команда невыполнима, а кнопка приглушена.
+class DeleteThemeCommand extends AppCommand {
+  DeleteThemeCommand(this.env, this.overlay);
+
+  final FcContext env;
+  final ThemeOverlay Function() overlay;
+
+  static const String commandId = 'theme.delete';
+
+  @override
+  String get id => commandId;
+
+  @override
+  String get label => tr('Delete theme');
+
+  @override
+  String get description => tr('Forget a theme of your own');
+
+  @override
+  bool isExecutable(CommandContext context) => overlay().overrides.find(context.app.theme.current.id)?.isOwn ?? false;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    final app = context.app;
+    final editor = overlay();
+    final strings = app.strings;
+    final theme = app.theme.current;
+
+    await askConfirm(
+      app,
+      title: strings.tr('Delete theme'),
+      message: strings.tr('Delete «{name}»? The theme it was made from stays as it is.', args: {'name': theme.title}),
+      confirmLabel: strings.tr('Delete'),
+      onConfirm: () {
+        if (!editor.remove(theme.id)) {
+          return;
+        }
+        app.toasts.show(strings.tr('Theme «{name}» deleted', args: {'name': theme.title}));
+        // Выбор перешёл базе — и это тоже выбор, который надо запомнить.
+        app.commands.run(_switchThemeCommand, CommandInvocation(parameters: {_switchThemeParam: app.theme.current.id}));
+      },
+    );
   }
 }
 

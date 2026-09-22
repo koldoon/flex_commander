@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
+import 'package:fc_ui_kit/fc_ui_kit.dart';
 
 import '../bootstrap/language.dart';
 import '../state/app_controller.dart';
@@ -13,7 +14,6 @@ import '../state/commands/help_command.dart';
 import '../state/commands/keys_command.dart';
 import '../state/commands/palette_command.dart';
 import '../state/commands/session_commands.dart';
-import '../state/commands/preset_dialogs.dart';
 import '../state/commands/preset_files.dart';
 import '../state/commands/settings_command.dart';
 import '../state/presets.dart';
@@ -46,8 +46,21 @@ const int presetsPriority = 100;
 const String _switchThemeCommand = 'app.theme.use';
 const String _switchThemeParam = 'themeId';
 
-/// Окно правки оформления — команда модуля `fc_theme_editor`.
+/// Окно правки оформления и всё, что делают с темой, — команды модуля
+/// `fc_theme_editor`.
 const String _editThemeCommand = 'theme.edit';
+const String _newThemeCommand = 'theme.new';
+const String _deleteThemeCommand = 'theme.delete';
+
+/// Что написано на кнопках при выборе темы.
+///
+/// Подписи короче названий команд: «New theme» рядом с полем «Theme» повторяло
+/// бы слово, которое и так стоит над ним, — как у наборов выбора.
+const Map<String, String> _themeActionLabels = {
+  _newThemeCommand: 'New',
+  _editThemeCommand: 'Edit',
+  _deleteThemeCommand: 'Delete',
+};
 
 class AppShell implements FcBackendModule, FcFrontendModule {
   const AppShell();
@@ -328,7 +341,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
             SettingsAction(
               label: strings.tr('New'),
               run:
-                  () => askPresetName(
+                  () => askName(
                     app,
                     title: strings.tr('New set'),
                     submitLabel: strings.tr('Save the set'),
@@ -403,12 +416,23 @@ class AppShell implements FcBackendModule, FcFrontendModule {
               app.theme.use(value);
             }
           },
-          // Кнопка есть только там, где есть команда: выключили редактор тем —
+          // Кнопки есть только там, где есть команды: выключили редактор тем —
           // и обещать нечего (`docs/spec/theme-editor.md`, §2). Рядом с выбором
-          // темы, а не своим разделом: искать её человек будет здесь.
+          // темы, а не своим разделом: искать их человек будет здесь — так же,
+          // как «New» и «Delete» стоят при выборе набора.
+          //
+          // Приглушённая, а не спрятанная: «Delete» на встроенной теме
+          // невыполним, но действие есть — просто не к этой теме.
           actions: [
-            if (app.commands.find(_editThemeCommand) != null)
-              SettingsAction(label: strings.tr('Edit…'), run: () => app.commands.run(_editThemeCommand)),
+            for (final command in [_newThemeCommand, _editThemeCommand, _deleteThemeCommand])
+              if (app.commands.find(command) case final found?)
+                SettingsAction(
+                  label: strings.tr(_themeActionLabels[command]!),
+                  // Ответ ждут: «New» поднимает окно имени, и пересобирать
+                  // разделы надо после него, а не до — иначе «Delete» останется
+                  // приглушённым до следующего открытия настроек.
+                  run: app.commands.isExecutable(found) ? () => app.commands.runAndWait(command) : null,
+                ),
           ],
         ),
         // Клавиши — кнопкой, а не полем: выбирать тут нечего, а делать есть
@@ -418,7 +442,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           title: strings.tr('Keyboard'),
           description: strings.tr('Set your own key for any command'),
           label: strings.tr('Keymap'),
-          run: () => app.commands.run(KeysCommand.commandId),
+          run: () => app.commands.runAndWait(KeysCommand.commandId),
         ),
         // Язык впереди темы: на нём написано всё остальное в этом окне.
         SettingsField.choice(

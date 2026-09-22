@@ -46,6 +46,22 @@ class ThemeController extends ChangeNotifier implements ThemeService {
   }
 
   @override
+  void forget(String id) {
+    final before = _themes.length;
+    _themes.removeWhere((theme) => theme.id == id);
+    if (_themes.length == before) {
+      return;
+    }
+    // Убрали выбранную — выбор переходит первой известной: [current] и так
+    // отдаёт её, но сказать об этом надо, иначе имя в настройках останется от
+    // темы, которой больше нет.
+    if (_currentId == id) {
+      _currentId = _themes.isEmpty ? null : _themes.first.id;
+    }
+    notifyListeners();
+  }
+
+  @override
   void use(String id) {
     if (_currentId == id) {
       return;

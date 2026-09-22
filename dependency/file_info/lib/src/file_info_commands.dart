@@ -99,7 +99,7 @@ class FileInfoCommand extends AppCommand {
                   // команды: модуль правки выключен — и обещать нечего.
                   if (app.commands.find(_editAttributes) case final command? when app.commands.isExecutable(command))
                     FcButton(
-                      label: tr('Edit…'),
+                      label: tr('Edit'),
                       onPressed: () {
                         close();
                         app.commands.run(_editAttributes);
