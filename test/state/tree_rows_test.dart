@@ -179,14 +179,14 @@ void main() {
   test('пометка в дереве живёт путями и переживает раскрытие', () async {
     await panel.session.setRows(RowsKind.tree);
     cursorTo('main.dart');
-    panel.session.toggleCurrentMark();
+    await panel.session.setMarks({'/home/main.dart'});
 
     await panel.session.setExpanded('/home/lib', expanded: true);
 
     expect(panel.session.selection.paths, {'/home/main.dart'});
   });
 
-  test('корень источника не помечается — ни клавишей, ни просьбой', () async {
+  test('корень источника не помечается, какой дверью ни проси', () async {
     await panel.session.setRows(RowsKind.tree);
 
     // Корень не лежит ни в одном каталоге: целью операции ему быть негде, и
@@ -194,11 +194,9 @@ void main() {
     panel.session.setCursorToFirst();
     expect(panel.session.currentNode?.pathString, '/', reason: 'первая строка — корень');
 
-    panel.session.toggleCurrentMark();
-    expect(panel.session.selection.paths, isEmpty, reason: 'клавиша корень не берёт');
-
-    // Вторая дверь — набор путей: ею кладёт пометку мышь, и правило в ядре
-    // ровно затем, чтобы обе двери вели в одно место.
+    // Дверей в ядро две — набор путей и «пометить всё», — и правило стоит у
+    // самой пометки, чтобы обе вели в одно место. Клавиша живёт на экране и
+    // сюда приходит этой же дверью (`docs/spec/client-server.md`, §5.6).
     await panel.session.setMarks({'/', '/home/main.dart'});
     expect(panel.session.selection.paths, {'/home/main.dart'});
 
@@ -463,7 +461,7 @@ void main() {
     // Помечаем `home`: обход идёт через `lib` и `src`, и суммы по ним он
     // считает по дороге — выбрасывать их незачем.
     panel.session.setCursorToName('home');
-    panel.session.toggleCurrentMark();
+    await panel.session.setMarks({'/home'});
     await settle();
 
     final lib = panel.session.entries.firstWhere((entry) => entry.name == 'lib');
@@ -490,7 +488,8 @@ void main() {
     expect(shown(), ['/', '  home', '    big', '    small'], reason: 'размеры неизвестны — разводит имя');
 
     fresh.session.setCursorToName('home');
-    fresh.session.toggleCurrentMark();
+    await fresh.session.setMarks({'/home'});
+    fresh.session.moveCursor(1);
     for (var i = 0; i < 60; i++) {
       await Future<void>.delayed(Duration.zero);
     }
@@ -508,7 +507,7 @@ void main() {
 
     // Считаем `lib`: 20 байт против неизвестного у `other`.
     panel.session.setCursorToName('lib');
-    panel.session.toggleCurrentMark();
+    await panel.session.setMarks({'/home/lib'});
     await settle();
     expect(panel.session.nodes.firstWhere((node) => node.name == 'lib').size, 20);
 

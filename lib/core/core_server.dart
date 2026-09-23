@@ -304,10 +304,6 @@ class CoreServer implements CoreHandler {
         await session(panel).follow(directory, name: name);
         return null;
 
-      case ToggleMark(:final panel, :final step, :final seq, :final cursorSeq):
-        session(panel).toggleCurrentMark(step: step, seq: seq, cursorSeq: cursorSeq);
-        return null;
-
       case ScrollTo(:final panel, :final offset):
         session(panel).setScrollOffset(offset);
         return null;

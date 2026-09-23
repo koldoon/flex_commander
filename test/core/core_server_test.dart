@@ -239,19 +239,6 @@ void main() {
       expect(lastState()!.markedSize, 30);
     });
 
-    test('пробел помечает под курсором и уводит курсор ниже', () async {
-      final listing = lastListing()!;
-      final notes = listing.entries.indexWhere((entry) => entry.name == 'notes.txt');
-      link.tell(MoveCursor(PanelId.left, notes, 1));
-      await pumpEventQueue();
-
-      link.tell(const ToggleMark(PanelId.left));
-      await pumpEventQueue();
-
-      expect(lastState()!.markedPaths, {'/home/notes.txt'});
-      expect(lastState()!.cursorIndex, notes + 1);
-    });
-
     test('цели едут значениями, и в них есть помеченное из соседней ветви', () async {
       link.tell(const SetMarks(PanelId.left, {'/home/notes.txt', '/home/docs/deep.txt'}, 1));
       await pumpEventQueue();
