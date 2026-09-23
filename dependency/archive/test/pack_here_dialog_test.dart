@@ -7,6 +7,7 @@ import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
+import 'package:fc_tar/fc_tar.dart';
 import 'package:fc_zip/fc_zip.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flutter/material.dart';
@@ -29,8 +30,8 @@ void main() {
 
     runtime = await testApp(
       provider: LocalTreeProvider(homePath: root, readInIsolate: false),
-      modules: [const ZipArchiver(), const ArchiveHere()],
-      backend: [const ZipArchiver(), const ArchiveHere()],
+      modules: [const ZipArchiver(), const TarArchiver(), const ArchiveHere()],
+      backend: [const ZipArchiver(), const TarArchiver(), const ArchiveHere()],
       settings: AppSettings(left: PanelSettings.defaults(source), right: PanelSettings.defaults(root)),
     );
     await runtime.app.start();
@@ -85,5 +86,21 @@ void main() {
     await tester.pump();
 
     expect(find.text(const FsError('', FsErrorKind.invalidName).message), findsOneWidget);
+  });
+
+  testWidgets('выбранный формат применяется', (tester) async {
+    await pumpDialog(tester);
+
+    // Рамка списка, а не весь контрол: внешний бокс растянут столбцом значений.
+    await tester.tap(find.descendant(of: find.byType(FcSelect<PackerSpec>), matching: find.byType(Opacity)));
+    await tester.pumpAndSettle();
+    await tester.tap(find.descendant(of: find.byType(FcPickList), matching: find.text('TAR', findRichText: true)));
+    await tester.pumpAndSettle();
+
+    expect(tester.widget<FcSelect<PackerSpec>>(find.byType(FcSelect<PackerSpec>)).value?.title, 'TAR');
+    // И довод формата теперь тарный, а не зиповый.
+    expect(find.text('Format'), findsOneWidget, reason: 'формат остался один — это выбор между zip, tar и 7z');
+    expect(find.text('Compression'), findsNothing, reason: 'у tar своего сжатия нет');
+    expect(find.text('Container'), findsOneWidget, reason: 'у него свой довод — чем обёрнут');
   });
 }

@@ -36,6 +36,9 @@ dev_dependencies:
   fc_default_theme:
     path: ../default_theme
 
+  fc_tar:
+    path: ../tar
+
   fc_zip:
     path: ../zip
 

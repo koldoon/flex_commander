@@ -470,13 +470,21 @@ class _FcSelectState<T> extends State<FcSelect<T>> {
               ),
               padding: EdgeInsets.symmetric(vertical: metrics.rowGap),
               child: FcPickList(
-                rows: [for (final entry in widget.options.entries) FcPickRow(id: '${entry.key}', title: entry.value)],
+                // Опознаются значения **номером**, а не своим текстом: у
+                // значения может не быть своего `toString`, и тогда все строки
+                // называются одинаково — выбор молча возвращает первую. Так и
+                // случилось с форматом упаковки (`docs/spec/archive-here.md`,
+                // §8): список закрывался, а выбранное не применялось.
+                rows: [
+                  for (final (index, entry) in widget.options.entries.indexed)
+                    FcPickRow(id: '$index', title: entry.value),
+                ],
                 // Отбирать нечего: варианты уже перечислены, и подсветка
                 // совпавшего была бы ответом на незаданный вопрос.
                 query: '',
                 textInset: metrics.inputHorizontalPadding,
                 selected: _highlighted,
-                onTap: (id) => _choose(values.firstWhere((value) => '$value' == id)),
+                onTap: (id) => _choose(values[int.parse(id)]),
               ),
             ),
           ),

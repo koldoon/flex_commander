@@ -247,6 +247,36 @@ void main() {
       expect(find.text('Copy'), findsNothing, reason: 'в поле стоит выбранное, а не первое из списка');
     });
 
+    testWidgets('значение без своего текста выбирается наравне с прочими', (tester) async {
+      // Живая находка 23 сентября 2026: строки списка опознавались по
+      // `toString()` значения, а у обычного объекта он у всех одинаковый —
+      // «Instance of …». Выбор молча возвращал первое значение, и формат
+      // упаковки поменять было нельзя (`docs/spec/archive-here.md`, §8).
+      const first = _Choice('zip');
+      const second = _Choice('tar');
+      _Choice choice = first;
+
+      await pumpInDialogColumn(
+        tester,
+        StatefulBuilder(
+          builder:
+              (context, setState) => FcSelect<_Choice>(
+                options: const {first: 'ZIP', second: 'TAR'},
+                value: choice,
+                onChanged: (next) => setState(() => choice = next),
+              ),
+        ),
+      );
+
+      await tester.tap(find.descendant(of: find.byType(FcSelect<_Choice>), matching: find.byType(Opacity)));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('TAR', findRichText: true));
+      await tester.pumpAndSettle();
+
+      expect(choice, same(second));
+      expect(find.text('TAR'), findsOneWidget);
+    });
+
     testWidgets('раскрытая часть ровно по ширине рамки', (tester) async {
       await pumpInDialogColumn(
         tester,
@@ -371,4 +401,11 @@ void main() {
   });
 
   group('переключатель в ряд', () {});
+}
+
+/// Значение без своего текста: `toString` у всех такой один и тот же.
+class _Choice {
+  const _Choice(this.name);
+
+  final String name;
 }

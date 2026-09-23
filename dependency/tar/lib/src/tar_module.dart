@@ -92,7 +92,10 @@ class TarArchiver implements FcBackendModule, FcFrontendModule {
         extension: 'tar.gz',
         choice: PackerChoice(
           option: TarPacking.formatOption,
-          label: 'Format',
+          // Не «Format»: в общем окне упаковки формат — это выбор между zip,
+          // tar и 7z, а здесь выбирают, чем tar обёрнут
+          // (`docs/spec/archive-here.md`, §4).
+          label: 'Container',
           values: [(value: 'plain', title: 'tar'), (value: 'gzip', title: 'tar.gz'), (value: 'tgz', title: 'tgz')],
           fallback: 'gzip',
         ),
@@ -141,6 +144,7 @@ const Map<String, String> _russian = {
   'File name': 'Имя файла',
   'Follow symlinks': 'Идти по ссылкам',
   'Format': 'Формат',
+  'Container': 'Контейнер',
   'Reading {name}…': 'Чтение {name}…',
   'Reading {name}… {count} entries': 'Чтение {name}… записей: {count}',
 };
