@@ -266,7 +266,7 @@ void main() {
       OperationSpec(
         kind: FileOperations.copy,
         targets: Targets.marked(PanelId.left, under: null),
-        destination: PanelId.right,
+        destination: const Destination.inPanel(PanelId.right, path: '/home/docs'),
       ),
     );
 

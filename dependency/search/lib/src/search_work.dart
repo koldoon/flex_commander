@@ -22,7 +22,7 @@ abstract final class SearchWork {
     return OperationSpec(
       kind: kind,
       targets: Targets.paths([address.where]),
-      destinationPath: address.toString(),
+      destination: Destination.path(address.toString()),
       options: {
         maskOption: query.mask,
         regexpOption: query.regexp,

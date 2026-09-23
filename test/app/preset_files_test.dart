@@ -31,7 +31,7 @@ void main() {
   Future<void> write(String folder, String name, String text) => runtime.app.runOperation().run(
     OperationSpec(
       kind: FileOperations.writeText,
-      destinationPath: folder,
+      destination: Destination.path(folder),
       options: {FileOperations.name: name, FileOperations.text: text},
     ),
   );

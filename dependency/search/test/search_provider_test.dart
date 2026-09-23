@@ -143,7 +143,11 @@ void main() {
 
     final work = source.work;
     expect(work.kind, SearchWork.kind);
-    expect(work.destinationPath, source.address.toString(), reason: 'находки складываются прямо в него');
+    expect(
+      (work.destination as PathDestination).path,
+      source.address.toString(),
+      reason: 'находки складываются прямо в него',
+    );
     expect(work.options[SearchWork.maskOption], '*.txt');
     expect(work.options[SearchWork.contentOption], 'TODO');
   });

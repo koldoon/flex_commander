@@ -128,3 +128,46 @@ final class PathTargets extends Targets {
 
   final List<String> paths;
 }
+
+/// Куда идёт работа — **местом, которое назвал тот, кто его видел**.
+///
+/// Не панелью: ядро, разворачивая панель в «каталог, где она стоит», отвечало
+/// на этот вопрос само — и у дерева отвечало корнем набора, а не тем каталогом,
+/// что показан в заголовке (`docs/spec/client-server.md`, §5.6а). Правило то же,
+/// что у целей (§5.6): место называет тот, кто видел.
+sealed class Destination {
+  const Destination();
+
+  /// Место, которое назвала панель: [path] — путь, каким его видно на экране,
+  /// [panel] — чьими глазами его читать.
+  ///
+  /// Панель здесь не «куда», а «чем разбирать»: путь без неё теряет личность
+  /// подключения — два `ssh` к одному хосту дают одинаковые пути, а путь внутри
+  /// архива читается только тем, кто этот архив держит (§5.5а).
+  const factory Destination.inPanel(PanelId panel, {required String path}) = PanelDestination;
+
+  /// Место со стороны: сценарий, служебная папка, приёмник находок. Разбирается
+  /// общим разбором пути.
+  const factory Destination.path(String path) = PathDestination;
+}
+
+final class PanelDestination extends Destination {
+  const PanelDestination(this.panel, {required this.path});
+
+  final PanelId panel;
+
+  /// Путь приёмника — тот, что видели на экране, или набранный в окне.
+  final String path;
+
+  @override
+  String toString() => 'Destination(${panel.name} $path)';
+}
+
+final class PathDestination extends Destination {
+  const PathDestination(this.path);
+
+  final String path;
+
+  @override
+  String toString() => 'Destination($path)';
+}

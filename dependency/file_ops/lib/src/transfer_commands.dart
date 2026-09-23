@@ -165,8 +165,7 @@ abstract class TransferCommandBase extends AppCommand {
       final spec = OperationSpec(
         kind: moves ? FileOperations.move : FileOperations.copy,
         targets: targetsOf(context),
-        destination: destination.id,
-        destinationPath: path,
+        destination: Destination.inPanel(destination.id, path: path),
         options: {FileOperations.followLinks: followLinks},
       );
 

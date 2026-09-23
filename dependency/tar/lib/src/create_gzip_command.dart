@@ -83,6 +83,11 @@ class CreateGzipCommand extends AppCommand {
       return;
     }
 
+    // Место работы называет панель — тем путём, который показывает сама, и
+    // снимком на момент заявки: ядро каталога у панели не спрашивает
+    // (`docs/spec/client-server.md`, §5.6а).
+    final destinationPath = target.currentPath;
+
     Future<void> compress(String typed, [FcAsyncRun? run]) async {
       final name = typed.trim();
       if (name.isEmpty || name.contains('/') || name.contains(r'\')) {
@@ -93,7 +98,7 @@ class CreateGzipCommand extends AppCommand {
       final spec = OperationSpec(
         kind: GzipPacking.kind,
         targets: Targets.row(row),
-        destination: target.id,
+        destination: Destination.inPanel(target.id, path: destinationPath),
         options: {GzipPacking.nameOption: name},
       );
 
@@ -137,7 +142,7 @@ class CreateGzipCommand extends AppCommand {
       failureMessage: '$label failed',
       show: present,
       name: defaultNameOf(source),
-      destinationPath: target.currentPath,
+      destinationPath: destinationPath,
     );
     run.onStart = () => compress(run.name, run);
 

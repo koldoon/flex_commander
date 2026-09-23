@@ -42,6 +42,20 @@ void main() {
     expect(namesOf(), contains('docs'));
   });
 
+  test('в дереве каталог ложится туда, где панель стоит, а не в корень набора', () async {
+    // Приёмник называет панель — тем путём, который показывает сама. У дерева
+    // `directory` это корень набора («/»), и пока место выводило ядро, `F7`
+    // создавал каталог там (`docs/spec/client-server.md`, §5.6а).
+    await app.left.showRows(RowsKind.tree);
+    app.left.setCursorToName('notes.txt');
+    await pumpEventQueue();
+
+    await create('docs');
+
+    expect(provider.entryAt('/home/docs'), isNotNull, reason: 'панель стоит в /home');
+    expect(provider.entryAt('/docs'), isNull, reason: 'корень набора тут ни при чём');
+  });
+
   test('курсор встаёт на созданный каталог', () async {
     final command = makeDirectory();
 

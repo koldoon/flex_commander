@@ -304,46 +304,49 @@ class OperationHub {
     }
   }
 
-  /// Каталог-приёмник: панель, путь — или путь, разобранный **от панели**.
+  /// Каталог-приёмник: путь, разобранный тем, кто его назвал.
   ///
-  /// Разбор ведёт панель-приёмник, когда она названа: путь может проходить
-  /// через несколько источников («…/archive.zip:zip:/inner»), и одному
-  /// источнику такое не по силам. Аренда здесь не формальность — архив по
-  /// дороге монтируется ради этой работы, и отпустить его, кроме неё, некому.
+  /// Панель разбирает **свой** путь, когда приёмник назван ею: путь может
+  /// проходить через несколько источников («…/archive.zip:zip:/inner»), и
+  /// разбирает его та панель, которая там стоит. Аренда здесь не формальность —
+  /// архив по дороге монтируется ради этой работы, и отпустить его, кроме неё,
+  /// некому.
+  ///
+  /// Каталога у панели ядро не спрашивает вовсе: место приезжает названным
+  /// (`docs/spec/client-server.md`, §5.6а).
   Future<DirectoryNode?> _destinationOf(OperationSpec spec, List<ProviderLease> leases) async {
-    final session = spec.destination == null ? null : _sessionOf(spec.destination!);
-
-    if (spec.destinationPath case final raw?) {
-      final path = raw.trim();
-      if (path.isEmpty) {
-        throw const FsError('', FsErrorKind.invalidName);
-      }
-      final resolved =
-          session != null
-              ? await session.resolvePath().run(path)
-              : await _registry?.resolveDisplayPath().run(ResolvePathParams(path)) ?? const ResolvedNode.none();
-      if (resolved.lease case final lease?) {
-        leases.add(lease);
-      }
-      var node = resolved.node;
-      if (node is LinkNode) {
-        // Ссылка на каталог — тоже каталог: копировать «в неё» можно.
-        node = await node.provider.resolveLink().run(node);
-      }
-      if (node == null) {
-        throw FsError(path, FsErrorKind.notFound);
-      }
-      if (node is! DirectoryNode) {
-        throw FsError(path, FsErrorKind.notADirectory);
-      }
-      return node;
+    final (PanelSession? session, String? raw) = switch (spec.destination) {
+      PanelDestination(:final panel, :final path) => (_sessionOf(panel), path),
+      PathDestination(:final path) => (null, path),
+      null => (null, null),
+    };
+    if (raw == null) {
+      return null;
     }
 
-    if (session != null) {
-      _hold(session, leases);
-      return session.directory;
+    final path = raw.trim();
+    if (path.isEmpty) {
+      throw const FsError('', FsErrorKind.invalidName);
     }
-    return null;
+    final resolved =
+        session != null
+            ? await session.resolvePath().run(path)
+            : await _registry?.resolveDisplayPath().run(ResolvePathParams(path)) ?? const ResolvedNode.none();
+    if (resolved.lease case final lease?) {
+      leases.add(lease);
+    }
+    var node = resolved.node;
+    if (node is LinkNode) {
+      // Ссылка на каталог — тоже каталог: копировать «в неё» можно.
+      node = await node.provider.resolveLink().run(node);
+    }
+    if (node == null) {
+      throw FsError(path, FsErrorKind.notFound);
+    }
+    if (node is! DirectoryNode) {
+      throw FsError(path, FsErrorKind.notADirectory);
+    }
+    return node;
   }
 
   void _hold(PanelSession session, List<ProviderLease> leases) {

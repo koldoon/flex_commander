@@ -35,7 +35,7 @@ Future<void> exportTheme(Application app, Strings strings, ThemeOverlay overlay)
       await app.runOperation().run(
         OperationSpec(
           kind: FileOperations.writeText,
-          destinationPath: folder,
+          destination: Destination.path(folder),
           options: {FileOperations.name: name, FileOperations.text: text},
         ),
       );

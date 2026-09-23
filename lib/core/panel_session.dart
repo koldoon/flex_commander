@@ -651,19 +651,6 @@ class PanelSession {
   /// ряд наборов должен называть её по месту, а не пустотой.
   String get currentPath => _standing.isEmpty ? (_directory?.displayPath ?? _lastPath) : _standing;
 
-  /// Каталог, в котором панель стоит с точки зрения курсора.
-  ///
-  /// То же, что [currentPath], только узлом: у дерева это каталог строки под
-  /// курсором, а не корень источника. Спрашивают его те, кому нужен не путь, а
-  /// сам каталог, — например находки, которым он становится корнем.
-  DirectoryNode? get standingDirectory {
-    final list = _list;
-    if (list is! TreeNodeList) {
-      return _directory;
-    }
-    return currentNode?.parentDirectory ?? _directory;
-  }
-
   /// Где панель стоит **сейчас**: последнее, что сказал набор строк.
   ///
   /// Памятью, а не вычислением на месте: корень дерева ни в чём не лежит и

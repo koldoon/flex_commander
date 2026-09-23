@@ -78,6 +78,23 @@ void main() {
     return command;
   }
 
+  test('в дереве архив ложится туда, где стоит панель-приёмник', () async {
+    // Приёмник называет панель — тем путём, который показывает сама. У дерева
+    // `directory` это корень набора, и пока место выводило ядро, архив уезжал
+    // туда (`docs/spec/client-server.md`, §5.6а).
+    await File(p.join(target, 'keep.txt')).writeAsString('уже лежит');
+    await runtime.app.right.reload();
+    await runtime.app.right.showRows(RowsKind.tree);
+    runtime.app.right.setCursorToName('keep.txt');
+    await pumpEventQueue();
+    expect(runtime.app.right.currentPath, target, reason: 'панель-приёмник стоит в своём каталоге');
+
+    runtime.app.left.setCursorToName('notes.txt');
+    await pack(name: 'work');
+
+    expect(await File(p.join(target, 'work.zip')).exists(), isTrue);
+  });
+
   group('символические ссылки', () {
     setUp(() async {
       // Ссылка на каталог: узел у неё не `DirectoryNode`, и поток по ней не
@@ -281,7 +298,7 @@ void main() {
         OperationSpec(
           kind: ZipPacking.kind,
           targets: Targets.marked(PanelId.left, under: runtime.app.left.currentRef),
-          destination: PanelId.right,
+          destination: Destination.inPanel(PanelId.right, path: runtime.app.right.currentPath),
           options: {
             ZipPacking.nameOption: '$name.zip',
             ZipPacking.compressionOption: ZipCompression.normal.name,
@@ -317,7 +334,7 @@ void main() {
         OperationSpec(
           kind: ZipPacking.kind,
           targets: Targets.row(runtime.app.left.currentRef!),
-          destination: PanelId.right,
+          destination: Destination.inPanel(PanelId.right, path: runtime.app.right.currentPath),
           options: {
             ZipPacking.nameOption: 'docs.zip',
             ZipPacking.compressionOption: ZipCompression.normal.name,

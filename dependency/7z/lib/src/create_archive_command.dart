@@ -100,6 +100,11 @@ class CreateSevenZipArchiveCommand extends AppCommand {
       return;
     }
 
+    // Место работы называет панель — тем путём, который показывает сама, и
+    // снимком на момент заявки: ядро каталога у панели не спрашивает
+    // (`docs/spec/client-server.md`, §5.6а).
+    final destinationPath = target.currentPath;
+
     Future<void> pack(String typed, SevenZipCompression compression, bool followLinks, [FcAsyncRun? run]) async {
       final name = _withExtension(typed);
       if (name.isEmpty || name.contains('/') || name.contains(r'\')) {
@@ -111,7 +116,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
       final spec = OperationSpec(
         kind: SevenZipPacking.kind,
         targets: Targets.marked(context.session.id, under: context.session.currentRef),
-        destination: target.id,
+        destination: Destination.inPanel(target.id, path: destinationPath),
         options: {
           SevenZipPacking.nameOption: name,
           SevenZipPacking.compressionOption: compression.name,
@@ -167,7 +172,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
       failureMessage: '$label failed',
       show: present,
       name: defaultNameOf(context),
-      destinationPath: destinationPathOf(context),
+      destinationPath: destinationPath,
     );
     run.onStart = () => pack(run.name, run.compression, run.followLinks, run);
 
@@ -200,10 +205,6 @@ class CreateSevenZipArchiveCommand extends AppCommand {
     final name = directory.isEmpty || directory == '/' ? 'archive' : directory;
     return '$name.7z';
   }
-
-  /// Куда ляжет архив — показывается в окне, чтобы «в какую панель» не
-  /// приходилось угадывать.
-  String destinationPathOf(CommandContext context) => context.target?.currentPath ?? '';
 }
 
 /// Имя записи из строки вывода программы.

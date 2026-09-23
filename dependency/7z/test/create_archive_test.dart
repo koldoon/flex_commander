@@ -110,7 +110,7 @@ void main() {
       OperationSpec(
         kind: SevenZipPacking.kind,
         targets: Targets.marked(PanelId.left, under: runtime.app.left.currentRef),
-        destination: PanelId.right,
+        destination: Destination.inPanel(PanelId.right, path: runtime.app.right.currentPath),
         options: {
           SevenZipPacking.nameOption: '$name.7z',
           SevenZipPacking.compressionOption: SevenZipCompression.normal.name,
@@ -357,7 +357,7 @@ void main() {
         OperationSpec(
           kind: SevenZipPacking.kind,
           targets: Targets.row(runtime.app.left.currentRef!),
-          destination: PanelId.right,
+          destination: Destination.inPanel(PanelId.right, path: runtime.app.right.currentPath),
           options: {
             SevenZipPacking.nameOption: 'huge.7z',
             SevenZipPacking.compressionOption: SevenZipCompression.normal.name,

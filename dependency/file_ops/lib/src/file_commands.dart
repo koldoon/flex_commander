@@ -56,7 +56,14 @@ class MakeDirectoryCommand extends AppCommand {
 
     Future<void> create(String name) async {
       await context.app.runOperation().run(
-        OperationSpec(kind: FileOperations.makeDirectory, destination: panel.id, options: {FileOperations.name: name}),
+        OperationSpec(
+          kind: FileOperations.makeDirectory,
+          // Место называет панель — тем путём, который показывает сама: у
+          // дерева это каталог строки под курсором, и ядро его не угадывает
+          // (`docs/spec/client-server.md`, §5.6а).
+          destination: Destination.inPanel(panel.id, path: parent),
+          options: {FileOperations.name: name},
+        ),
       );
       // Каталог создан на диске, но в панели его ещё нет: перечитываем и
       // ставим курсор на новый каталог, чтобы с ним можно было сразу работать.

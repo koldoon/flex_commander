@@ -35,7 +35,7 @@ Future<void> exportPreset(Application app, Strings strings, Preset preset) {
       await app.runOperation().run(
         OperationSpec(
           kind: FileOperations.writeText,
-          destinationPath: folder,
+          destination: Destination.path(folder),
           options: {FileOperations.name: name, FileOperations.text: text},
         ),
       );

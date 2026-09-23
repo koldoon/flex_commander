@@ -16,7 +16,6 @@ class OperationSpec {
     required this.kind,
     this.targets = const Targets.paths([]),
     this.destination,
-    this.destinationPath,
     this.options = const {},
   });
 
@@ -27,12 +26,9 @@ class OperationSpec {
   /// Над чем работать — именем набора, а не перечислением.
   final Targets targets;
 
-  /// Панель-приёмник; её каталог и есть место назначения.
-  final PanelId? destination;
-
-  /// Или прямой путь — когда приёмник назвали строкой: перетаскивание,
-  /// сценарий, повтор из истории.
-  final String? destinationPath;
+  /// Куда работать — местом, которое назвала та сторона, а не панелью, из
+  /// которой ядро его выведет само (`docs/spec/client-server.md`, §5.6а).
+  final Destination? destination;
 
   /// Доводы работы: имя архива, степень сжатия, идти ли по ссылкам.
   final Map<String, Object?> options;
