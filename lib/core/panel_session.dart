@@ -3286,7 +3286,10 @@ class PanelSession {
       // Суммы подкаталогов обход и так считает: пусть остаются, а не
       // выбрасываются. `known` — то, ради чего всё: посчитанное поддерево
       // обход перешагивает.
-      final operation = sizeOperation(onDirectory: _remember, known: sizes.take);
+      final operation = sizeOperation(
+        onDirectory: (walked, totals) => _remember(walked, totals, asked: walked.pathString == path),
+        known: sizes.take,
+      );
       final mine = _SizeScan(directory, operation: operation);
       started = mine;
       return MeasuredWalk(cancel: mine.cancel);
@@ -3432,10 +3435,12 @@ class PanelSession {
   ///
   /// Только окончательную: частичная, застывшая как итог, — ложь, и обход
   /// рассказывает о каталоге лишь тогда, когда прошёл его целиком.
-  void _remember(DirectoryNode directory, DirectoryTotals totals) {
+  /// [asked] — это корень обхода: его число человек и просил, а подкаталоги
+  /// пришли попутно. Память вытесняет их порознь (§12.3).
+  void _remember(DirectoryNode directory, DirectoryTotals totals, {bool asked = false}) {
     final path = directory.pathString;
     final bytes = totals.bytes;
-    sizes.remember(directory, totals);
+    sizes.remember(directory, totals, asked: asked);
     _measuredSinceSort = true;
 
     // Обход проходит через подкаталоги и суммы по ним считает по дороге —

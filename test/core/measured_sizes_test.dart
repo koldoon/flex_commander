@@ -20,6 +20,15 @@ void main() {
   setUp(() {
     provider = InMemoryTreeProvider(_entries());
     sizes = MeasuredSizes();
+    // Пределы — настоящие по смыслу, но маленькие по числу: вытеснение
+    // проверяется на десятке записей, а не на четырёх тысячах.
+    MeasuredSizes.limit = 8;
+    MeasuredSizes.askedLimit = 3;
+  });
+
+  tearDown(() {
+    MeasuredSizes.limit = 4096;
+    MeasuredSizes.askedLimit = 1024;
   });
 
   /// Узел по пути: вложенность настоящая — на ней и проверяется поддерево.
@@ -55,6 +64,47 @@ void main() {
 
       expect(sizes.length, MeasuredSizes.limit);
       expect(sizes.take(DirectoryNode(provider: provider, name: 'd0', parent: provider.rootDirectory)), isNull);
+    });
+
+    test('попутное не теснит просьбу', () {
+      // Человек попросил посчитать один каталог и число увидел.
+      final asked = dir('/home/docs');
+      sizes.remember(asked, _some, asked: true);
+
+      // А потом обход прошёл через целое дерево: подкаталогов у него больше,
+      // чем память вообще помнит.
+      for (var i = 0; i < MeasuredSizes.limit * 3; i++) {
+        sizes.remember(DirectoryNode(provider: provider, name: 'd$i', parent: provider.rootDirectory), _some);
+      }
+
+      expect(sizes.take(asked), _some, reason: 'просьбу попутное не вытесняет — её человек видит в колонке');
+      expect(sizes.length, lessThanOrEqualTo(MeasuredSizes.limit + MeasuredSizes.askedLimit));
+    });
+
+    test('просьбу попутным проходом не разжаловать', () {
+      final asked = dir('/home/docs');
+      sizes.remember(asked, _some, asked: true);
+      // Соседний обход прошёл через тот же каталог по дороге.
+      sizes.remember(asked, _some);
+
+      for (var i = 0; i < MeasuredSizes.limit * 3; i++) {
+        sizes.remember(DirectoryNode(provider: provider, name: 'd$i', parent: provider.rootDirectory), _some);
+      }
+
+      expect(sizes.take(asked), _some);
+    });
+
+    test('просьбы вытесняют друг друга своим пределом', () {
+      for (var i = 0; i < MeasuredSizes.askedLimit + 2; i++) {
+        sizes.remember(
+          DirectoryNode(provider: provider, name: 'a$i', parent: provider.rootDirectory),
+          _some,
+          asked: true,
+        );
+      }
+
+      expect(sizes.askedLength, MeasuredSizes.askedLimit);
+      expect(sizes.take(DirectoryNode(provider: provider, name: 'a0', parent: provider.rootDirectory)), isNull);
     });
   });
 

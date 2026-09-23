@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:collection';
 
+import 'package:flutter/foundation.dart';
+
 import 'fs_node.dart';
 import 'node_path.dart';
 import 'tree_provider.dart';
@@ -81,13 +83,30 @@ class MeasuredWalk {
 /// **Частичных сумм память не видит никогда.** Растущая сумма идущего обхода —
 /// дело того, кто его завёл: половина, застывшая как итог, — ложь (§7).
 class MeasuredSizes {
-  /// Сколько каталогов помнить. Числом, а не настройкой: запись — это три
-  /// числа, а не список узлов, и крутить её человеку незачем.
-  static const int limit = 4096;
+  /// Сколько **попутных** каталогов помнить: тех, через которые обход просто
+  /// прошёл. Числом, а не настройкой: запись — это три числа, а не список
+  /// узлов, и крутить её человеку незачем.
+  ///
+  /// Не `const` затем, чтобы проверке не приходилось заводить дерево на четыре
+  /// тысячи каталогов ради одного вытеснения. Тем же приёмом живут предел
+  /// раскрытия дерева и окно отчётов работы.
+  @visibleForTesting
+  static int limit = 4096;
 
-  /// Порядок обращения: первый ключ — самый давний, его и вытесняют. Тот же
-  /// приём, что у кеша каталогов.
-  final LinkedHashMap<String, _Measured> _entries = LinkedHashMap();
+  /// Сколько помнить **просьб** — каталогов, которые считать попросили.
+  ///
+  /// Очередь отдельная, и это главное в пределе: попутных подкаталогов у
+  /// одного большого дерева десятки тысяч, а просьб — единицы. В общей очереди
+  /// одно дерево выбрасывало всё, что человек насчитал до него, и в колонке
+  /// снова стоял прочерк (§12.3).
+  @visibleForTesting
+  static int askedLimit = 1024;
+
+  /// Просьбы: их вытесняет только другая просьба.
+  final LinkedHashMap<String, _Measured> _asked = LinkedHashMap();
+
+  /// Попутное: досталось даром, даром и теряется.
+  final LinkedHashMap<String, _Measured> _passed = LinkedHashMap();
 
   /// Идущие обходы по тем же путям.
   final Map<String, MeasuredWalk> _walks = {};
@@ -95,7 +114,10 @@ class MeasuredSizes {
   final List<void Function(Set<String> paths)> _listeners = [];
 
   /// Сколько итогов помнится сейчас. Нужно проверкам.
-  int get length => _entries.length;
+  int get length => _asked.length + _passed.length;
+
+  /// Сколько из них — просьбы.
+  int get askedLength => _asked.length;
 
   /// Итог по каталогу; null — итога нет (но обход может идти, см. [claim]).
   ///
@@ -108,13 +130,15 @@ class MeasuredSizes {
   /// Так спрашивает панель, когда та сторона просит числа для строк: путей у
   /// неё список, а провайдер один на всю панель.
   DirectoryTotals? at(String path, TreeProvider provider) {
-    final entry = _entries[path];
+    final queue = _asked.containsKey(path) ? _asked : _passed;
+    final entry = queue[path];
     if (entry == null || !identical(entry.provider, provider)) {
       return null;
     }
-    // Обратно в конец: вытесняется давно не нужное, а не давно посчитанное.
-    _entries.remove(path);
-    _entries[path] = entry;
+    // Обратно в конец своей очереди: вытесняется давно не нужное, а не давно
+    // посчитанное.
+    queue.remove(path);
+    queue[path] = entry;
     return entry.totals;
   }
 
@@ -158,13 +182,25 @@ class MeasuredSizes {
   }
 
   /// Обход кончился итогом: он ложится в память, а ждущие получают числа.
-  void remember(DirectoryNode dir, DirectoryTotals totals) {
+  ///
+  /// [asked] — этот каталог считать **просили**: он корень обхода, его число
+  /// человек видит в колонке. Попутные подкаталоги приходят сюда же, но своей
+  /// очередью, и вытесняют только друг друга (§12.3).
+  void remember(DirectoryNode dir, DirectoryTotals totals, {bool asked = false}) {
     final path = dir.pathString;
-    _entries.remove(path);
-    while (_entries.length >= limit) {
-      _entries.remove(_entries.keys.first);
+    // Просьбу попутным проходом не разжаловать: считать этот каталог просили,
+    // и то, что обход прошёл через него второй раз по дороге в соседний, дела
+    // не меняет.
+    final keep = asked || _asked.containsKey(path);
+    _asked.remove(path);
+    _passed.remove(path);
+
+    final queue = keep ? _asked : _passed;
+    final edge = keep ? askedLimit : limit;
+    while (queue.length >= edge) {
+      queue.remove(queue.keys.first);
     }
-    _entries[path] = _Measured(totals, dir.provider);
+    queue[path] = _Measured(totals, dir.provider);
 
     final walk = _walks.remove(path);
     walk?.finish(totals);
@@ -184,10 +220,12 @@ class MeasuredSizes {
   /// событие слежения, которое про поддерево ничего и не говорило.
   void forget(String path, {bool withSubtree = true}) {
     final gone = <String>{};
-    for (final key in _entries.keys.toList()) {
-      if (key == path || (withSubtree && isUnder(key, path)) || isUnder(path, key)) {
-        _entries.remove(key);
-        gone.add(key);
+    for (final queue in [_asked, _passed]) {
+      for (final key in queue.keys.toList()) {
+        if (key == path || (withSubtree && isUnder(key, path)) || isUnder(path, key)) {
+          queue.remove(key);
+          gone.add(key);
+        }
       }
     }
     if (gone.isEmpty) {
@@ -201,13 +239,15 @@ class MeasuredSizes {
   /// Провайдера закрыли: всё, что он считал, — числа о мертвеце.
   void forgetProvider(TreeProvider provider) {
     final gone = <String>{};
-    _entries.removeWhere((key, entry) {
-      if (!identical(entry.provider, provider)) {
-        return false;
-      }
-      gone.add(key);
-      return true;
-    });
+    for (final queue in [_asked, _passed]) {
+      queue.removeWhere((key, entry) {
+        if (!identical(entry.provider, provider)) {
+          return false;
+        }
+        gone.add(key);
+        return true;
+      });
+    }
     if (gone.isEmpty) {
       return;
     }
@@ -229,7 +269,8 @@ class MeasuredSizes {
   }
 
   void clear() {
-    _entries.clear();
+    _asked.clear();
+    _passed.clear();
     _walks.clear();
   }
 }

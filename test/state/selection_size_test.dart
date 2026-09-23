@@ -171,6 +171,59 @@ void main() {
     expect(panel.markedSizeIsFinal, isTrue);
   });
 
+  group('большое дерево рядом с маленьким', () {
+    /// Пределы настоящие по смыслу, но маленькие по числу: вытеснение видно на
+    /// десятке каталогов, а не на четырёх тысячах.
+    setUp(() {
+      MeasuredSizes.limit = 4;
+      MeasuredSizes.askedLimit = 8;
+    });
+
+    tearDown(() {
+      MeasuredSizes.limit = 4096;
+      MeasuredSizes.askedLimit = 1024;
+    });
+
+    /// Дерево, у которого в одной ветви подкаталогов больше, чем память
+    /// помнит попутного.
+    InMemoryTreeProvider withHuge() => InMemoryTreeProvider([
+      FakeEntry.directory('/home'),
+      FakeEntry.directory('/home/small'),
+      FakeEntry.file('/home/small/a.txt', size: 100),
+      FakeEntry.directory('/home/huge'),
+      for (var i = 0; i < MeasuredSizes.limit * 3; i++) ...[
+        FakeEntry.directory('/home/huge/d$i'),
+        FakeEntry.file('/home/huge/d$i/f.bin', size: 1),
+      ],
+    ]);
+
+    test('большое дерево не стирает числа, которые человек уже видел', () async {
+      final it = await panelOn(withHuge());
+
+      it.setCursorToName('small');
+      it.toggleCurrentMark();
+      await settle();
+      expect(nodeNamed('small', it).size, 100, reason: 'посчитали и увидели');
+
+      // Теперь соседняя ветвь: её обход кладёт в память сотни подкаталогов.
+      it.setCursorToName('huge');
+      it.toggleCurrentMark();
+      await settle();
+
+      // Вышли наверх и вернулись — ровно как живьём (разбор 23 сентября 2026).
+      await it.openPath('/');
+      await settle();
+      await it.openPath('/home');
+      await settle();
+
+      expect(
+        shownSize('small', it),
+        100,
+        reason: 'число маленького каталога человек просил — попутное дерево его не теснит',
+      );
+    });
+  });
+
   test('пометку сняла работа — подсчёт продолжается', () async {
     mark('docs');
     // Работа кончилась и сняла за собой ровно ту пометку, по которой шла.

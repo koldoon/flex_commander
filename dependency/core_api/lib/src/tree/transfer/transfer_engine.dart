@@ -1019,8 +1019,9 @@ class TreeTransferEngine implements TreeEditor {
             progress.countOne(bytes);
           },
           // Итог корня доедет сюда же последним — пост-порядком, — и им же
-          // память закроет обход: ждущие получат числа.
-          onDirectory: memory.remember,
+          // память закроет обход: ждущие получат числа. Корень — просьба:
+          // его число просила работа, остальные пришли попутно (§12.3).
+          onDirectory: (walked, totals) => memory.remember(walked, totals, asked: walked.pathString == node.pathString),
           known: memory.take,
         );
       } on Object {
