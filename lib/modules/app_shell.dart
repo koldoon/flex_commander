@@ -227,7 +227,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     // Клавиши: своё окно, а открывают его кнопкой из настроек и из палитры.
     // Своей клавиши у него нет — `Alt-F9` живьём до приложения не дошёл, и
     // держать привязку, которая не срабатывает, незачем
-    // (`docs/spec/key-bindings.md`, §7). Реестр команда получает способом его
+    // (`docs/spec/key-bindings.md`, §12). Реестр команда получает способом его
     // спросить: он собирается вместе с ней.
     registry.command((context) => KeysCommand(registry: () => context.resolve<CommandRegistry>()));
     // Привязка без клавиши: назначить её можно, а умолчания у неё нет
@@ -469,7 +469,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
 
     // Клавиши — своим разделом, третьим: за оформлением идёт то, чем
     // приложение слушается рук. Полем среди настроек кнопка в одну строку
-    // терялась (`docs/spec/key-bindings.md`, §7).
+    // терялась (`docs/spec/key-bindings.md`, §8).
     registry.settingsSchema(title: 'Keyboard', priority: keyboardPriority, () {
       final app = registry.services.resolve<Application>();
       final strings = registry.services.resolve<Strings>();
