@@ -49,21 +49,28 @@ void main() {
     expect(runtime.commands.isExecutable(command!), isTrue);
   });
 
-  testWidgets('в настройках есть флажок, а под подсказкой — кнопка', (tester) async {
+  testWidgets('в настройках есть флажок, а под ним — отдельная кнопка', (tester) async {
     await start(tester);
     await openSettings(tester);
 
     expect(find.text('Check for updates at startup'), findsOneWidget);
 
-    // Кнопка — под подсказкой, отдельной строкой: в строке флажка она отжимала
-    // подпись, а читается настройка подписью.
+    // Кнопка стоит **под настройкой**, отдельной строкой и от левого края
+    // блока: в строке флажка она отжимала подпись, а выровненная по подписи —
+    // читалась приставкой к галочке. Приставкой она не является: нажимают её
+    // при любом положении галочки (`docs/spec/self-update.md`, §8).
     final flag = tester.getRect(find.text('Check for updates at startup'));
     final hint = tester.getRect(find.text('Once a day, from GitHub releases'));
     final button = tester.getRect(find.widgetWithText(FcButton, 'Check now'));
 
     expect(hint.top, greaterThan(flag.top));
-    expect(button.top, greaterThan(hint.top));
-    expect(button.left, closeTo(hint.left, 0.5), reason: 'кнопка равняется по подсказке');
+    expect(button.top, greaterThan(hint.top), reason: 'ниже подсказки');
+    expect(button.left, lessThan(hint.left), reason: 'и левее её: кнопка не приставка к галочке');
+    expect(
+      button.top - hint.bottom,
+      greaterThan(hint.top - flag.bottom),
+      reason: 'от настройки её отделяет поле больше междустрочного',
+    );
   });
 
   testWidgets('кнопка жива и со снятым флажком', (tester) async {

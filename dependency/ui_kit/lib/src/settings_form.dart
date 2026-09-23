@@ -802,14 +802,20 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
                   children: explanations,
                 ),
               ),
-            // Кнопка-приставка — **под подсказкой**, отдельной строкой: в
-            // строке флажка она отжимала подпись, а читается настройка
-            // подписью. Живая она и при снятом флажке: отказ делать по
-            // расписанию не значит отказа сделать сейчас
-            // (`docs/spec/self-update.md`, §8).
+            // Кнопка-приставка — **отдельной строкой под настройкой**, с
+            // полем в обычный междустрочный промежуток и **без отступа
+            // слева**.
+            //
+            // Ни то ни другое не косметика. Отступ равнял бы кнопку по
+            // подписи флажка — то есть говорил бы, что она к флажку
+            // относится; а она живёт сама по себе: отказ делать по расписанию
+            // не значит отказа сделать сейчас, и нажимают её при любом
+            // положении галочки. Промежуток — тот же, каким отделены друг от
+            // друга соседние настройки: кнопка им и приходится соседкой, а не
+            // продолжением подсказки (`docs/spec/self-update.md`, §8).
             if (field.action case final action?)
               Padding(
-                padding: EdgeInsets.only(top: metrics.dialogLineGap, left: metrics.checkboxSize + metrics.checkboxGap),
+                padding: EdgeInsets.only(top: metrics.dialogGap),
                 child: Row(mainAxisSize: MainAxisSize.min, children: [_actionButton(action)]),
               ),
           ],
