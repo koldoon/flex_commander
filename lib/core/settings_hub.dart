@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:flutter/foundation.dart';
+
 import 'package:fc_api/fc_api.dart';
 
 import 'settings_store.dart';
@@ -152,10 +154,18 @@ class SettingsHub {
   /// попадёт — вместе со следующей настоящей причиной записать и при выходе,
   /// где [save] сравнивает снимки целиком.
   void panelsChanged() {
+    _questions++;
     if (_snapshotWithoutCursor() != _savedQuietSnapshot) {
       schedule();
     }
   }
+
+  /// Сколько раз спрашивали «есть ли что записывать». Нужно проверкам: вопрос
+  /// стоит сверки всех настроек целиком, и задавать его на каждый шаг курсора
+  /// незачем (`docs/spec/panel-sessions.md`, §10).
+  @visibleForTesting
+  int get questions => _questions;
+  int _questions = 0;
 
   /// Отложить запись: что-то изменилось, но ждать конца правок незачем.
   void schedule() {

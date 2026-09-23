@@ -21,6 +21,8 @@ void main() {
   /// отложенную запись в немедленную и перестал бы проверять саму отсрочку.
   const saveDelay = Duration(milliseconds: 10);
 
+  late SettingsHub hub;
+
   void assemble(AppSettings settings) {
     final registry = ProviderRegistry(root: provider);
     const editor = TreeTransferEngine();
@@ -31,12 +33,13 @@ void main() {
       left: left,
       right: right,
       registry: registry,
-      settings: SettingsHub(
-        store: store,
-        stored: settings,
-        panelSettings: (panel) => sessions[panel]!.settings,
-        saveDelay: saveDelay,
-      ),
+      settings:
+          hub = SettingsHub(
+            store: store,
+            stored: settings,
+            panelSettings: (panel) => sessions[panel]!.settings,
+            saveDelay: saveDelay,
+          ),
     );
     link = LoopbackLink(core);
   }
@@ -169,6 +172,26 @@ void main() {
       // Ходят по панели постоянно: таймер записи на каждый шаг стрелкой
       // означал бы диск под непрерывной нагрузкой.
       expect(store.saved, isNull);
+    });
+
+    test('движение курсора настройки даже не спрашивает', () async {
+      // Мало не записать — не надо и **спрашивать**: вопрос «есть ли что
+      // записывать» сверяет все настройки целиком, а стоит он 74 мкс на
+      // обычных панелях и 323 на дереве в полторы тысячи ветвей
+      // (`docs/spec/panel-sessions.md`, §10).
+      await link.call(const StartCore());
+      final asked = hub.questions;
+
+      left.standAt('/home/notes.txt');
+      left.setScrollOffset(120);
+      await pumpEventQueue();
+
+      expect(hub.questions, asked, reason: 'положение — не настройка');
+
+      // А настоящая правка спрашивает и записывает.
+      await left.setRows(RowsKind.tree);
+      await pumpEventQueue();
+      expect(hub.questions, greaterThan(asked));
     });
   });
 

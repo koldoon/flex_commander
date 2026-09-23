@@ -119,10 +119,18 @@ class CoreServer implements CoreHandler {
   /// бывает несколько (`docs/spec/panel-sessions.md`, §4).
   void _watch(PanelId panel, PanelSession session) {
     session.watch(
-      onChanged: () {
-        // Настройки панели — её же состояние: каталог, курсор, колонки,
-        // сортировка. Спрашивать их у экрана было бы кругом.
-        _settings?.panelsChanged();
+      onChanged: (quiet) {
+        // Настройки панели — её же состояние: каталог, колонки, сортировка.
+        // Спрашивать их у экрана было бы кругом.
+        //
+        // Но не на всякое сообщение: «тихое» — это положение курсора или
+        // прокрутки, а из-за положения файл не пишется. Вопрос «есть ли что
+        // записывать» стоит сверки всех настроек целиком — 74 мкс на обычных
+        // панелях и 323 на дереве в полторы тысячи ветвей, — и задавать его на
+        // каждый шаг стрелки незачем (`docs/spec/panel-sessions.md`, §10).
+        if (!quiet) {
+          _settings?.panelsChanged();
+        }
         _say(PanelChanged(panel, session.state));
       },
       onListed: () {

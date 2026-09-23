@@ -272,7 +272,11 @@ class PanelSession {
   /// Слушателей несколько: сервер рассылает события за границу, а переходник
   /// перерисовывает экран. Пока стороны в одном изоляте, они оба смотрят на
   /// один и тот же сеанс, и одним обработчиком тут не обойтись.
-  final List<VoidCallback> _onChanged = [];
+  /// Слушающие состояние. Довеском едет признак «это только положение»:
+  /// курсор и прокрутка меняются постоянно, а в файл настроек не идут, и
+  /// спрашивать из-за них «есть ли что записывать» — работа впустую
+  /// (`docs/spec/panel-sessions.md`, §10).
+  final List<void Function(bool quiet)> _onChanged = [];
   final List<VoidCallback> _onListed = [];
   final List<void Function(Set<String> paths)> _onSized = [];
 
@@ -284,7 +288,11 @@ class PanelSession {
   /// размеры каталогов говорится и вовсе одними путями: слать ради них список
   /// целиком значило бы возить мегабайты ради восьми байт, а везти число —
   /// везти вчерашнее.
-  VoidCallback watch({VoidCallback? onChanged, VoidCallback? onListed, void Function(Set<String> paths)? onSized}) {
+  VoidCallback watch({
+    void Function(bool quiet)? onChanged,
+    VoidCallback? onListed,
+    void Function(Set<String> paths)? onSized,
+  }) {
     if (onChanged != null) {
       _onChanged.add(onChanged);
     }
@@ -1395,7 +1403,7 @@ class PanelSession {
     // Сказать наружу всё-таки надо: у дерева от строки под курсором зависит
     // «где панель стоит», а это и заголовок, и приёмник работы. Эхом это не
     // станет — курсора в состоянии больше нет.
-    _changed();
+    _changed(quiet: true);
   }
 
   /// Поставить курсор самому — там, где список сменился по просьбе той
@@ -1658,6 +1666,8 @@ class PanelSession {
   /// Запомнить прокрутку. Состояние наружу не гоняется: показанное от этого не
   /// меняется, а при следующем запуске значение уедет в настройках.
   void setScrollOffset(double value) => _scrollOffset = value;
+
+  /// Положение курсора и прокрутки — не настройка: из-за них файл не пишется.
 
   /// Сменить набор строк: каталог или дерево.
   ///
@@ -2365,10 +2375,18 @@ class PanelSession {
     return null;
   }
 
-  void _changed() {
+  /// [quiet] — изменилось только **положение**: курсор или прокрутка. Наружу
+  /// состояние едет так же, а вот настройки о таком не спрашивают: в файл
+  /// положение попадёт с ближайшей настоящей причиной записать и при выходе
+  /// (`docs/spec/panel-sessions.md`, §10).
+  ///
+  /// Умолчание — «не положение»: пропустить признак у редкой настройки дёшево
+  /// (лишний вопрос), а у частого положения — нет. Ошибка в эту сторону стоит
+  /// работы, в обратную — потерянной настройки.
+  void _changed({bool quiet = false}) {
     _updateStanding();
     for (final listener in _onChanged.toList()) {
-      listener();
+      listener(quiet);
     }
   }
 
