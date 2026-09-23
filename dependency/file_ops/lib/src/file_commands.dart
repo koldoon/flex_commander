@@ -7,8 +7,6 @@ import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
-import 'panels_at.dart';
-
 /// Создание каталога в активной панели.
 ///
 /// Работает и без интерфейса: задать имя параметром и вызвать [execute].

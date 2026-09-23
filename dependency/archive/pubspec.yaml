@@ -1,0 +1,48 @@
+name: fc_archive
+description: "Архив по месту: распаковать рядом с ним самим и упаковать в свою же панель."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  fc_ui_api:
+    path: ../ui_api
+
+  fc_core_api:
+    path: ../core_api
+
+  fc_ui_kit:
+    path: ../ui_kit
+
+  path: ^1.9.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  fc_default_theme:
+    path: ../default_theme
+
+  fc_zip:
+    path: ../zip
+
+  fc_local_fs:
+    path: ../local_fs
+
+  flex_commander:
+    path: ../..
+
+  archive: ^4.0.0

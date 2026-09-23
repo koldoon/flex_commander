@@ -105,6 +105,26 @@ class SevenZipArchiver implements FcBackendModule, FcFrontendModule {
 
     // Упаковка — такое же действие, как копирование, и живёт там же, где
     // формат: про 7z знает только этот модуль.
+    registry.packer(
+      const PackerSpec(
+        id: '7z',
+        title: '7z',
+        kind: SevenZipPacking.kind,
+        extension: '7z',
+        choice: PackerChoice(
+          option: SevenZipPacking.compressionOption,
+          label: 'Compression',
+          values: [
+            (value: 'none', title: 'Store'),
+            (value: 'fast', title: 'Fast'),
+            (value: 'normal', title: 'Normal'),
+            (value: 'best', title: 'Best'),
+          ],
+          fallback: 'normal',
+        ),
+      ),
+    );
+
     registry.command((context) => CreateSevenZipArchiveCommand());
     registry.binding(KeyBinding('Shift-F7', CreateSevenZipArchiveCommand.commandId, context: KeyContext.panel));
   }

@@ -70,6 +70,28 @@ class ZipArchiver implements FcBackendModule, FcFrontendModule {
     registry.strings('ru', _russian);
     registry.plurals('ru', _plurals);
 
+    // Формат — в общий реестр: «Pack here» собирает из него список, а своего
+    // окна на каждый формат не заводится (`docs/spec/archive-here.md`, §4).
+    registry.packer(
+      const PackerSpec(
+        id: 'zip',
+        title: 'ZIP',
+        kind: ZipPacking.kind,
+        extension: 'zip',
+        choice: PackerChoice(
+          option: ZipPacking.compressionOption,
+          label: 'Compression',
+          values: [
+            (value: 'none', title: 'Store'),
+            (value: 'fast', title: 'Fast'),
+            (value: 'normal', title: 'Normal'),
+            (value: 'best', title: 'Best'),
+          ],
+          fallback: 'normal',
+        ),
+      ),
+    );
+
     registry.command((context) => CreateZipArchiveCommand());
     registry.binding(KeyBinding('Shift-F5', CreateZipArchiveCommand.commandId, context: KeyContext.panel));
   }

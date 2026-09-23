@@ -25,6 +25,7 @@ environment:
 # разрешённой версией зависимостей на всех. Сюда добавляются api и модули.
 workspace:
   - dependency/7z
+  - dependency/archive
   - dependency/attributes
   - dependency/api
   - dependency/content_types
@@ -84,6 +85,9 @@ dependencies:
   # Модули приложения: ядро знает их только по этому списку.
   fc_7z:
     path: dependency/7z
+
+  fc_archive:
+    path: dependency/archive
 
   fc_attributes:
     path: dependency/attributes

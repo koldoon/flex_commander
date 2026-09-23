@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 
 import '../app/application.dart';
 import '../app/node_info.dart';
+import '../app/packer_spec.dart';
 import '../app/panel_header_spec.dart';
 import '../app/panel_view_spec.dart';
 import '../app/column_cell.dart';
@@ -117,6 +118,13 @@ abstract interface class FrontendRegistry {
   /// объявленных просмотрщиков: ядро складывает, порядок задаёт приоритет, а
   /// что показать, решает не оно.
   void nodeInfo(NodeInfoProvider Function(FcContext context) factory);
+
+  /// Упаковщик: чем и во что паковать.
+  ///
+  /// Складывается в реестр, из которого «Pack here» строит список форматов.
+  /// Пусто — команды нет вовсе: паковать нечем
+  /// (`docs/spec/archive-here.md`, §4).
+  void packer(PackerSpec spec);
 
   /// Просмотрщик: чем и для каких файлов открывать `F3`.
   ///

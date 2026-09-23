@@ -52,6 +52,10 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
   /// расставит приложение.
   final List<ViewerSpec> viewers = [];
 
+  /// Объявленные упаковщики — в порядке объявления модулей: в этом же порядке
+  /// их показывает окно упаковки.
+  final List<PackerSpec> packers = [];
+
   /// Провайдеры сведений — фабриками: их зовут, когда приложение уже собрано,
   /// как и фабрики команд.
   final List<NodeInfoProvider Function(FcContext context)> nodeInfoFactories = [];
@@ -123,6 +127,17 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
       throw StateError('Просмотрщик «${spec.id}» уже объявлен');
     }
     viewers.add(spec);
+  }
+
+  @override
+  void packer(PackerSpec spec) {
+    final taken = packers.indexWhere((declared) => declared.id == spec.id);
+    if (taken >= 0) {
+      // Имя формата уходит в настройки окна упаковки, и победа последнего
+      // сделала бы выбор зависящим от порядка модулей.
+      throw StateError('Упаковщик «${spec.id}» уже объявлен');
+    }
+    packers.add(spec);
   }
 
   @override

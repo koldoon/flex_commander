@@ -483,7 +483,10 @@ void main() {
 
       // `Alt-F7` — привычка Total Commander; ставит её модуль поиска.
       expect(labelOf(tester, 7), 'Find files');
-      expect(labelOf(tester, 5), '-');
+      // Оттуда же `Alt-F5` и `Alt-F9`: архив по месту
+      // (`docs/spec/archive-here.md`, §5).
+      expect(labelOf(tester, 5), 'Pack here');
+      expect(labelOf(tester, 9), 'Extract here');
 
       await release(tester, LogicalKeyboardKey.alt);
       expect(labelOf(tester, 5), 'Copy');

@@ -433,6 +433,18 @@ class PanelSession {
   ///
   /// Точное место потом уточнят те, кто знает больше — имя, ветвь, запомненное
   /// в истории, — но **до** публикации, а не после.
+  /// Кто из строк раскрывается, хотя каталогом не является: архив.
+  ///
+  /// Здесь, а не у набора строк: спрашивают об этом и список, и дерево, и
+  /// ответ один — схема реестра по расширению имени. Дерево этим рисует знак
+  /// раскрытия, список — отвечает на «распаковать сюда»
+  /// (`docs/spec/panel-view-tree.md`, §4б; `docs/spec/archive-here.md`, §2).
+  void _markBranches(List<FsNode> rows) {
+    for (final node in rows) {
+      node.mountsAsBranch = _registry.schemeFor(node) != null;
+    }
+  }
+
   void _setRows(List<FsNode> rows) {
     // У «..» пути нет вовсе — и опознавать по нему нечего: пустой путь нашёлся
     // бы у «..» нового списка, а это **другой** каталог. Подъём наверх ставит
@@ -441,6 +453,7 @@ class PanelSession {
     _nodes = rows;
     _byPath = null;
     _identify(rows);
+    _markBranches(rows);
     _keptCursor = was.isNotEmpty && _cursorToPath(was);
     if (!_keptCursor) {
       // Строки той нет вовсе — номер хотя бы приводится к новой длине: иначе

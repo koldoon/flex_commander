@@ -1,4 +1,5 @@
 import 'package:fc_7z/fc_7z.dart';
+import 'package:fc_archive/fc_archive.dart';
 import 'package:fc_attributes/fc_attributes.dart';
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_content_types/fc_content_types.dart';
@@ -97,6 +98,9 @@ List<FcModule> featureModules() => [
   const ZipArchiver(),
   const SevenZipArchiver(),
   const TarArchiver(),
+  // Архив по месту: форматов не знает — берёт то, что объявили модули выше
+  // (`docs/spec/archive-here.md`).
+  const ArchiveHere(),
   const SshFileSystem(),
   // Второй источник по адресу. Свой клиент на dart:io: у дартовых пакетов
   // канал данных при FTPS не шифруется, а сертификат принимается любой

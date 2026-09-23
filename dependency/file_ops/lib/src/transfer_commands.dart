@@ -6,8 +6,6 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
-import 'panels_at.dart';
-
 /// Копирование выбранных объектов в другой каталог.
 class CopyCommand extends TransferCommandBase {
   static const String commandId = 'file.copy';

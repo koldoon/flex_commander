@@ -84,6 +84,21 @@ class TarArchiver implements FcBackendModule, FcFrontendModule {
     // формат. Клавиши ей не досталось: `Shift-F5` у zip, `Shift-F7` у 7z, а
     // `Shift-F6` встал бы поперёк привычки — `F6` это перенос. Место команды
     // без клавиши — палитра.
+    registry.packer(
+      const PackerSpec(
+        id: 'tar',
+        title: 'TAR',
+        kind: TarPacking.kind,
+        extension: 'tar.gz',
+        choice: PackerChoice(
+          option: TarPacking.formatOption,
+          label: 'Format',
+          values: [(value: 'plain', title: 'tar'), (value: 'gzip', title: 'tar.gz'), (value: 'tgz', title: 'tgz')],
+          fallback: 'gzip',
+        ),
+      ),
+    );
+
     registry.command((context) => CreateTarArchiveCommand());
     // Клавиши нет, а назначить её можно: привязка без клавиши говорит только о
     // том, в каком разделе команда стоит (`docs/spec/key-bindings.md`, §5).

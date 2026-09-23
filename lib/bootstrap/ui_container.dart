@@ -199,6 +199,10 @@ class UiContainer extends DI {
 
     bind<Views>(to: (c) => ViewRegistry(frontend.views));
 
+    // Упаковщики — списком, как и просмотрщики: складывать и показывать их
+    // дело окна упаковки, а не реестра (`docs/spec/archive-here.md`, §4).
+    bind<Packers>(to: (c) => _Packers(frontend.packers));
+
     // Разделы окна настроек: собраны при объявлении, строятся при открытии.
     bind<SettingsCatalog>(to: (c) => _Catalog(frontend.settingsPages));
     bind<PresetCatalog>(to: (c) => _Presets(frontend.presets));
@@ -381,4 +385,12 @@ class RuntimeContext implements FcContext {
 
   @override
   List<T> resolveAll<T>() => _services.resolveAll<T>();
+}
+
+/// Объявленные упаковщики — списком в том порядке, в каком объявлены модули.
+class _Packers implements Packers {
+  const _Packers(this.all);
+
+  @override
+  final List<PackerSpec> all;
 }

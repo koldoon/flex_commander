@@ -7,6 +7,8 @@
 library;
 
 // --- Приложение и панели ---
+export 'src/app/packer_spec.dart';
+export 'src/app/panels_at.dart';
 export 'src/app/tree_trace.dart';
 export 'src/app/application.dart';
 export 'src/app/session.dart';
