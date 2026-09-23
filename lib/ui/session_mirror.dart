@@ -455,7 +455,7 @@ class SessionMirror extends ChangeNotifier implements Session {
     if (entries == null) {
       return listing;
     }
-    return PanelListing(generation: listing.generation, entries: entries);
+    return PanelListing(generation: listing.generation, entries: entries, cursor: listing.cursor);
   }
 
   /// Цели значениями — все, включая чужие каталоги: спрашиваются у ядра, где
@@ -877,7 +877,18 @@ class SessionMirror extends ChangeNotifier implements Session {
           }
         }
         _listing = listing;
-        if (_aheadGeneration == listing.generation) {
+        // Ядро поставило курсор нарочно — список сменился по нашей же просьбе
+        // (вошли, поднялись, раскрыли ветвь, поднялись после запуска). Он
+        // приехал **вместе со списком**, к которому относится, и потому
+        // применяется сразу и без оглядки на номера
+        // (`docs/spec/client-server.md`, §5.6.4).
+        final placed = listing.cursor.isEmpty ? -1 : listing.entries.indexWhere((e) => e.path == listing.cursor);
+        if (placed >= 0) {
+          _state = _state.copyWith(cursorIndex: placed);
+          _rememberCursor(placed);
+          _aheadCursor = -1;
+          _aheadGeneration = -1;
+        } else if (_aheadGeneration == listing.generation) {
           // Дождались своего списка — номер курсора из состояния наконец
           // означает то, что задумывало ядро.
           _state = _state.copyWith(cursorIndex: _aheadCursor);

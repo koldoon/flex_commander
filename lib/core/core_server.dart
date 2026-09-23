@@ -100,7 +100,17 @@ class CoreServer implements CoreHandler {
     // Без этого спутник комбинированного вида над сервером падал бы в
     // домашний каталог.
     await _restore(session, allowConnect: true);
-    return PanelOpened(panel, session.state, PanelListing(generation: session.generation, entries: session.entries));
+    return PanelOpened(
+      panel,
+      session.state,
+      // Заведённая панель показывает каталог впервые — курсор в нём ставит
+      // ядро (`docs/spec/client-server.md`, §5.6.4).
+      PanelListing(
+        generation: session.generation,
+        entries: session.entries,
+        cursor: session.currentNode?.pathString ?? '',
+      ),
+    );
   }
 
   /// Слушать сессию: всё, что она о себе рассказывает, уходит событиями.
@@ -119,7 +129,12 @@ class CoreServer implements CoreHandler {
         // Список и состояние уезжают вместе: в состоянии лежит номер списка,
         // и приехать оно должно **после** самого списка — иначе та сторона
         // увидит номер, которому ещё нечего соответствовать.
-        _say(PanelListed(panel, PanelListing(generation: session.generation, entries: session.entries)));
+        _say(
+          PanelListed(
+            panel,
+            PanelListing(generation: session.generation, entries: session.entries, cursor: session.placedCursor),
+          ),
+        );
         _say(PanelChanged(panel, session.state));
       },
       onSized: (paths) => _say(PanelSized(panel, paths)),
@@ -229,7 +244,13 @@ class CoreServer implements CoreHandler {
           states: {for (final entry in _panels.entries) entry.key: entry.value.state},
           listings: {
             for (final entry in _panels.entries)
-              entry.key: PanelListing(generation: entry.value.generation, entries: entry.value.entries),
+              entry.key: PanelListing(
+                generation: entry.value.generation,
+                entries: entry.value.entries,
+                // Рукопожатие — тоже постановка: строка пришла из настроек,
+                // и знает о ней ядро.
+                cursor: entry.value.currentNode?.pathString ?? '',
+              ),
           },
           ui: _settings?.ui ?? const UiSettings(),
         );

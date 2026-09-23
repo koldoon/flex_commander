@@ -229,11 +229,22 @@ class PanelState {
 /// Отдельно от состояния и с номером: пока сообщение шло, панель могли увести
 /// в другой каталог, и по номеру видно, чей это список.
 class PanelListing {
-  const PanelListing({required this.generation, required this.entries});
+  const PanelListing({required this.generation, required this.entries, this.cursor = ''});
 
   final int generation;
   final List<FileEntry> entries;
 
+  /// Путь строки, на которую ядро поставило курсор **нарочно**; пусто — не
+  /// ставило, и трогать курсор той стороне не за что.
+  ///
+  /// Вместе со списком, а не порознь: курсор — это место **в списке**, и
+  /// разлучать их нельзя — пришедшее отдельно пришло бы неизвестно к какому
+  /// списку (`docs/spec/client-server.md`, §5.6.4). Ставит ядро только там,
+  /// где список сменился по просьбе: вошли, поднялись, раскрыли ветвь,
+  /// восстановились после запуска. Прирост находок, догоняющее чтение и
+  /// перечитывание курсора не несут — там его держит экран.
+  final String cursor;
+
   @override
-  String toString() => 'PanelListing(#$generation, ${entries.length})';
+  String toString() => 'PanelListing(#$generation, ${entries.length}${cursor.isEmpty ? '' : ', на $cursor'})';
 }

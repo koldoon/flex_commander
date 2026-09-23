@@ -2044,6 +2044,8 @@ class PanelSession {
   /// строку, где он стоял. Зовётся **до** публикации: список уезжает на ту
   /// сторону целиком, и курсор в нём обязан быть уже правильным.
   Future<void> _rebuildRows({void Function()? placeCursor}) async {
+    // Строки пересобираются по просьбе той стороны — раскрыли ветвь, сменили
+    // набор, — значит курсор в новом списке ставит ядро, и говорит об этом.
     final list = _list;
     if (list == null) {
       return;
@@ -2073,7 +2075,7 @@ class PanelSession {
     } else if (at != null) {
       _cursorToPath(at);
     }
-    _listed();
+    _listed(placed: true);
     _restoreSelection(marked);
     _changed();
   }
@@ -2414,11 +2416,22 @@ class PanelSession {
   }
 
   /// Список сменился: номер вперёд, и о нём стоит рассказать.
-  void _listed() {
+  /// Строка, на которую ядро поставило курсор **нарочно** — для того списка,
+  /// который сейчас уезжает. Пусто — курсора в списке нет, и трогать его той
+  /// стороне не за что (`docs/spec/client-server.md`, §5.6.4).
+  String get placedCursor => _placedCursor;
+  String _placedCursor = '';
+
+  /// [placed] — ядро поставило курсор нарочно: список сменился по просьбе той
+  /// стороны (вход в каталог, подъём, раскрытие ветви, восстановление после
+  /// запуска). Список, собравшийся сам, курсора не несёт.
+  void _listed({bool placed = false}) {
     _generation++;
+    _placedCursor = placed ? (currentNode?.pathString ?? '') : '';
     for (final listener in _onListed.toList()) {
       listener();
     }
+    _placedCursor = '';
   }
 
   // --- внутреннее ---
@@ -2503,6 +2516,11 @@ class PanelSession {
           _restoreCursor(cursorName, cursorFallbackIndex, moved: moved);
           _cursorToBranch(dir, cursorName, moved: moved);
         },
+        // Курсор ставится нарочно ровно тогда, когда панель **перешла**: вошли,
+        // поднялись, восстановились после запуска. Перечитывание на месте и
+        // догоняющее чтение курсора не несут — там его держит та сторона
+        // (`docs/spec/client-server.md`, §5.6.4).
+        placed: moved,
       );
       _stopSizeScan(keepMarked: quiet);
       _restoreSelection(keepMarks ? selection.paths : null);
@@ -2579,6 +2597,11 @@ class PanelSession {
           _restoreCursor(cursorName, cursorFallbackIndex, moved: moved);
           _cursorToBranch(dir, cursorName, moved: moved);
         },
+        // Курсор ставится нарочно ровно тогда, когда панель **перешла**: вошли,
+        // поднялись, восстановились после запуска. Перечитывание на месте и
+        // догоняющее чтение курсора не несут — там его держит та сторона
+        // (`docs/spec/client-server.md`, §5.6.4).
+        placed: moved,
       );
 
       // Обход размеров останавливается здесь, и место у вызова несущее в обе
@@ -2775,7 +2798,7 @@ class PanelSession {
   }
 
   /// [placeCursor] — куда встать курсору; зовётся **до** публикации строк.
-  void _applySort({void Function()? placeCursor}) {
+  void _applySort({void Function()? placeCursor, bool placed = false}) {
     // Раскладывает **набор строк**: у каталога это обычная сортировка списка, у
     // дерева — сортировка внутри ветвей. Правило одно на оба, разное только
     // применение (`docs/spec/panel-node-list.md`, §3).
@@ -2783,7 +2806,7 @@ class PanelSession {
     placeCursor?.call();
     // Порядок сменился — значит сменился и список: строки те же, но их места
     // другие, а та сторона знает строки по местам.
-    _listed();
+    _listed(placed: placed);
   }
 
   /// Собрать пометку заново по путям — в том порядке, в каком их назвали.

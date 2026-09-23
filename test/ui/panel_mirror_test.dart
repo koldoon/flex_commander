@@ -235,6 +235,34 @@ void main() {
     expect(panel.markedPaths, isEmpty);
   });
 
+  test('список, собравшийся сам, курсора не несёт', () async {
+    // Человек пошёл по списку, а тот прирос — находками, слежением,
+    // перечитыванием. Подсказки «встань в начало» в таком списке нет вовсе,
+    // и строка остаётся за человеком (`docs/spec/client-server.md`, §5.6.4).
+    panel.setCursorToName('report.txt');
+    await pumpEventQueue();
+    final was = panel.currentEntry?.path;
+
+    provider.add(FakeEntry.file('/home/aaa-new.txt', size: 1));
+    await panel.reload();
+    await pumpEventQueue();
+
+    expect(panel.listing.cursor, isEmpty, reason: 'перечитывание курсора не ставит');
+    expect(panel.currentEntry?.path, was, reason: 'курсор остался на своей строке');
+  });
+
+  test('вход в каталог курсор ставит — и говорит об этом списком', () async {
+    await panel.openPath('/home/docs');
+    await pumpEventQueue();
+    expect(panel.currentPath, '/home/docs');
+
+    await panel.goUp();
+    await pumpEventQueue();
+
+    expect(panel.listing.cursor, '/home/docs', reason: 'подъём ставит курсор на покинутый каталог');
+    expect(panel.currentEntry?.name, 'docs');
+  });
+
   test('пробел шагает курсором в том же кадре, что и помечает', () async {
     // Пробел — одно действие: помечает и переходит к следующему. Показывать
     // сразу только половину значит отдать человеку курсор, отстающий от его
