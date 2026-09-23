@@ -46,6 +46,14 @@ abstract class FsNode {
   bool? get hasBranches;
   set hasBranches(bool? value);
 
+  /// Строка раскрывается, хотя каталогом не является: архив.
+  ///
+  /// Отдельно от [hasBranches] нарочно: то отвечает «что внутри» и у архива с
+  /// одними файлами внутри **ложно** — а раскрывать его всё равно можно
+  /// (`docs/spec/panel-view-tree.md`, §4б).
+  bool get mountsAsBranch;
+  set mountsAsBranch(bool value);
+
   /// Полный путь строкой — через все провайдеры цепочки:
   /// `/home/archive.zip:zip:/inner/doc.txt`. Схема `fs` в начале не печатается,
   /// поэтому обычный путь выглядит обычно.
@@ -115,6 +123,9 @@ abstract class AbstractFsNode implements FsNode {
 
   @override
   bool? hasBranches;
+
+  @override
+  bool mountsAsBranch = false;
 
   @override
   String get pathString => nodePathOf(this).toString();

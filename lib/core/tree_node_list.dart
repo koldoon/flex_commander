@@ -243,11 +243,36 @@ class TreeNodeList implements NodeList {
     if (path.isEmpty) {
       final was = _expanded.length;
       _expanded.clear();
+      for (final branch in _roots) {
+        _forgetMountedIn(branch);
+      }
       return was;
     }
     final under = _expanded.where((at) => at == path || at.startsWith('$path/')).toList();
     _expanded.removeAll(under);
+    _forgetMounted(path);
     return under.length;
+  }
+
+  /// Забыть смонтированное под этим путём: сессия отпустила аренду, и
+  /// прочитанное из закрытого источника — уже не ответ.
+  void _forgetMounted(String path) {
+    final branch = _branchAt(path);
+    if (branch != null) {
+      _forgetMountedIn(branch);
+    }
+  }
+
+  void _forgetMountedIn(_Branch branch) {
+    if (branch.mounted != null) {
+      branch.mounted = null;
+      branch.children = null;
+      branch.hasBranches = null;
+      return;
+    }
+    for (final child in branch.children ?? const <_Branch>[]) {
+      _forgetMountedIn(child);
+    }
   }
 
   /// Ветвь по пути; null — такой в дереве нет.
@@ -292,9 +317,7 @@ class TreeNodeList implements NodeList {
   bool? _branchesIn(_Branch branch, bool includeHidden) {
     final children = branch.children;
     if (children == null) {
-      // Архив отвечает «да» не читая: узнать иначе можно только открыв его, а
-      // открывать всё видимое ради знака — читать диск целиком (§4б).
-      return _isBranch(branch.node) && branch.node is! DirectoryNode ? true : null;
+      return null;
     }
     return children.any((child) => _isBranch(child.node) && (includeHidden || !child.node.name.startsWith('.')));
   }
@@ -374,7 +397,16 @@ class TreeNodeList implements NodeList {
 
   /// Свернуть ветвь. Прочитанное при этом не выбрасывается: свернули и
   /// развернули обратно — читать заново незачем.
-  bool collapse(String path) => _expanded.remove(path);
+  ///
+  /// Кроме архивов: их аренду сессия со сворачиванием отпускает, и держаться
+  /// за прочитанное из закрытого источника нельзя (§4б).
+  bool collapse(String path) {
+    final removed = _expanded.remove(path);
+    if (removed) {
+      _forgetMounted(path);
+    }
+    return removed;
+  }
 
   bool isExpanded(String path) => _expanded.contains(path);
 
@@ -439,6 +471,11 @@ class TreeNodeList implements NodeList {
         node
           ..level = level
           ..isOpen = open
+          // «Раскрывается» — про саму строку, и у архива оно верно всегда;
+          // «есть ли внутри ветви» — про содержимое, и у архива с одними
+          // файлами внутри оно ложно. Спутать их значит потерять знак
+          // раскрытия ровно в тот миг, когда архив открыли (§4б).
+          ..mountsAsBranch = node is! DirectoryNode && _isBranch(node)
           ..hasBranches = branch.hasBranches ?? _branchesIn(branch, order.includeHidden);
         rows.add(node);
         if (open) {

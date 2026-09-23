@@ -529,7 +529,7 @@ void main() {
     test('настоящий zip раскрывается ветвью и отпускается со сворачиванием', () async {
       final panel = await treePanel();
       final row = panel.session.nodes.firstWhere((node) => node.name == 'sample.zip');
-      expect(row.hasBranches, isTrue, reason: 'знак раскрытия стоит, пока архив не открыт');
+      expect(row.mountsAsBranch, isTrue, reason: 'знак раскрытия стоит, пока архив не открыт');
 
       await panel.session.setExpanded(row.pathString, expanded: true);
 
@@ -540,6 +540,22 @@ void main() {
       await pumpEventQueue();
 
       expect(registry.mounted, isEmpty);
+    });
+
+    test('свёрнутый zip раскрывается снова — уже новым монтированием', () async {
+      // Аренда со сворачиванием отпускается, и провайдер закрывается: держаться
+      // за прочитанное из него нельзя — иначе второй раз архив уже не
+      // открывается.
+      final panel = await treePanel();
+      final row = panel.session.nodes.firstWhere((node) => node.name == 'sample.zip');
+      await panel.session.setExpanded(row.pathString, expanded: true);
+      await panel.session.setExpanded(row.pathString, expanded: false);
+      await pumpEventQueue();
+
+      await panel.session.setExpanded(row.pathString, expanded: true);
+
+      expect(panel.session.nodes.map((node) => node.name), containsAllInOrder(['sample.zip', 'docs', 'readme.md']));
+      expect(registry.mounted, hasLength(1));
     });
 
     test('битый архив раскрывается в ничто, а строка остаётся', () async {

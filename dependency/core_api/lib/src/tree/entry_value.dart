@@ -28,6 +28,9 @@ FileEntry entryValueOf(FsNode node) {
     // Пусто, пока не читали: знак раскрытия рисуется только там, где ветви
     // и правда есть (`docs/spec/panel-view-combined.md`, §5б).
     hasBranches: node.hasBranches ?? false,
+    // «Раскрывается» и «есть что внутри» — разные вопросы: у архива с одними
+    // файлами второй ложен, а первый нет (`docs/spec/panel-view-tree.md`, §4б).
+    mountsAsBranch: node.mountsAsBranch,
     modified: file?.modified,
     created: file?.created,
     accessed: file?.accessed,

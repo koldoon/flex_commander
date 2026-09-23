@@ -760,8 +760,9 @@ class _BranchRow extends StatelessWidget {
       return '';
     }
     // У навигатора знак обещает содержимое, а не тип строки: пока ядро не
-    // дочитало, знака нет — он появится вместе с ответом.
-    if (navigator && !row.hasBranches) {
+    // дочитало, знака нет — он появится вместе с ответом. Архив отвечает за
+    // себя сам: что внутри, известно только открыв его (§4б).
+    if (navigator && !row.hasBranches && !row.mountsAsBranch) {
       return '';
     }
     return String.fromCharCode(row.isOpen ? icons.branchOpen.codePoint : icons.branchClosed.codePoint);

@@ -44,6 +44,7 @@ class FileEntry {
     this.level = 0,
     this.isOpen = false,
     this.hasBranches = false,
+    this.mountsAsBranch = false,
     this.sizeIsFinal = true,
     this.id = 0,
   });
@@ -152,6 +153,7 @@ class FileEntry {
     level: level,
     isOpen: isOpen,
     hasBranches: hasBranches,
+    mountsAsBranch: mountsAsBranch,
     sizeIsFinal: isFinal,
     canStream: canStream,
     canReceive: canReceive,
@@ -178,6 +180,7 @@ class FileEntry {
     level: level,
     isOpen: isOpen,
     hasBranches: hasBranches,
+    mountsAsBranch: mountsAsBranch,
     sizeIsFinal: sizeIsFinal,
     canStream: canStream,
     canReceive: canReceive,
@@ -202,6 +205,13 @@ class FileEntry {
   /// мере того, как ядро дочитывает (`docs/spec/panel-view-combined.md`, §5б).
   final bool hasBranches;
 
+  /// Строка раскрывается, хотя каталогом не является: архив.
+  ///
+  /// Отдельно от [hasBranches]: тот отвечает «есть ли внутри свои ветви», и у
+  /// архива с одними файлами внутри он ложен — а раскрыть архив всё равно
+  /// можно (`docs/spec/panel-view-tree.md`, §4б).
+  final bool mountsAsBranch;
+
   /// Размер окончателен.
   ///
   /// false — это **половина**: обход каталога идёт прямо сейчас, и число
@@ -212,12 +222,9 @@ class FileEntry {
 
   bool get isDirectory => kind == EntryKind.directory;
 
-  /// Раскрывается ли строка в дереве.
-  ///
-  /// Каталог — всегда, архив — потому что ядро сказало [hasBranches]: в дереве
-  /// он такая же ветвь, просто открывается монтированием
+  /// Раскрывается ли строка в дереве: каталог — всегда, архив — монтированием
   /// (`docs/spec/panel-view-tree.md`, §4б).
-  bool get opensAsBranch => isDirectory || hasBranches;
+  bool get opensAsBranch => isDirectory || mountsAsBranch;
 
   bool get isParent => kind == EntryKind.parent;
 
