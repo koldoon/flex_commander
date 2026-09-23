@@ -18,7 +18,7 @@ Future<void> pumpScreen(WidgetTester tester, Widget content, {Application? app})
   await tester.pumpWidget(
     MaterialApp(
       theme: ThemeData(
-        extensions: const [
+        extensions: [
           FcTheme(colors: DefaultColors(), metrics: DefaultMetrics(), icons: DefaultIcons(), fonts: DefaultFonts()),
         ],
       ),

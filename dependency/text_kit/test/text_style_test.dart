@@ -6,7 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Оформление показа текста: то, что нельзя проверить виджетом, проверяется здесь.
 void main() {
-  const theme = FcTheme(
+  final theme = FcTheme(
     colors: DefaultColors(),
     metrics: DefaultMetrics(),
     icons: DefaultIcons(),

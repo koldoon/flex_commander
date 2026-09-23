@@ -11,7 +11,7 @@ Future<void> pumpInDialogColumn(WidgetTester tester, Widget child, {double width
   return tester.pumpWidget(
     MaterialApp(
       theme: ThemeData(
-        extensions: const [
+        extensions: [
           // Значения берутся у оформления по умолчанию: API описывает роли,
           // а красит тема.
           FcTheme(colors: DefaultColors(), metrics: DefaultMetrics(), icons: DefaultIcons(), fonts: DefaultFonts()),

@@ -12,7 +12,7 @@ import 'package:xterm/xterm.dart';
 
 /// Палитра терминала: одна на развёрнутый терминал и на строку команд.
 void main() {
-  const theme = FcTheme(
+  final theme = FcTheme(
     colors: DefaultColors(),
     metrics: DefaultMetrics(),
     icons: DefaultIcons(),

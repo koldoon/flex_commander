@@ -118,7 +118,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: ThemeData(
-            extensions: const [FcTheme(colors: colors, metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts())],
+            extensions: [FcTheme(colors: colors, metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts())],
           ),
           home: Scaffold(
             body: Center(
@@ -197,7 +197,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: ThemeData(
-            extensions: const [FcTheme(colors: colors, metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts())],
+            extensions: [FcTheme(colors: colors, metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts())],
           ),
           home: Scaffold(
             body: Center(
@@ -248,7 +248,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: ThemeData(
-            extensions: const [FcTheme(colors: colors, metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts())],
+            extensions: [FcTheme(colors: colors, metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts())],
           ),
           home: Scaffold(
             body: Center(
@@ -336,7 +336,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: ThemeData(
-            extensions: const [
+            extensions: [
               FcTheme(colors: DefaultColors(), metrics: DefaultMetrics(), icons: DefaultIcons(), fonts: DefaultFonts()),
             ],
           ),
@@ -380,7 +380,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: ThemeData(
-            extensions: const [
+            extensions: [
               FcTheme(colors: DefaultColors(), metrics: DefaultMetrics(), icons: DefaultIcons(), fonts: DefaultFonts()),
             ],
           ),

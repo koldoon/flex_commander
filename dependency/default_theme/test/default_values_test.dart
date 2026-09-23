@@ -49,7 +49,7 @@ void main() {
   });
 
   group('шрифты', () {
-    const theme = FcTheme(
+    final theme = FcTheme(
       colors: DefaultColors(),
       metrics: DefaultMetrics(),
       icons: DefaultIcons(),

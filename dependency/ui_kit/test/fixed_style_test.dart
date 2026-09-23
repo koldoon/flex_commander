@@ -4,7 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 /// Моноширинный набор: семейство вместе с запасными.
 void main() {
-  const theme = FcTheme(
+  final theme = FcTheme(
     colors: DefaultColors(),
     metrics: DefaultMetrics(),
     icons: DefaultIcons(),

@@ -8,7 +8,17 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 /// Значений по умолчанию здесь нет: их приносит тема, а API описывает только
 /// роли. Готовое оформление — в модуле `fc_default_theme`.
 class FcTheme extends ThemeExtension<FcTheme> {
-  const FcTheme({required this.colors, required this.metrics, required this.icons, required this.fonts});
+  FcTheme({required this.colors, required this.metrics, required this.icons, required this.fonts});
+
+  // Стили считаются **один раз на тему**, а не на каждое обращение.
+  //
+  // Тема живёт в `ThemeData.extensions` и меняется, только когда её меняет
+  // человек, — а спрашивают её строки списка, и спрашивают на каждую ячейку.
+  // Замерено 23 сентября 2026: `rowStyle` стоил 156 нс (две аллокации —
+  // `fixedStyle` и `copyWith` поверх), и на списке в 925 строк с шестью
+  // колонками это 0.87 мс на полную сборку. Отсюда и `late final`, и отказ от
+  // `const` у конструктора: значение поля считается при первом обращении и
+  // остаётся при теме (`docs/spec/panel-redraw.md`, §10).
 
   final FcColors colors;
   final FcMetrics metrics;
@@ -35,15 +45,20 @@ class FcTheme extends ThemeExtension<FcTheme> {
   /// (`letterSpacing` 0.25 на знак). Пропуск означал бы «бери оттуда», и текст
   /// выходил бы шире того, что мы меряем и что задумано в референсе
   /// ([effective]).
-  TextStyle get uiStyle =>
-      TextStyle(fontFamily: fonts.ui, fontSize: metrics.fontSize, color: colors.rowText, height: 1.2, letterSpacing: 0);
+  late final TextStyle uiStyle = TextStyle(
+    fontFamily: fonts.ui,
+    fontSize: metrics.fontSize,
+    color: colors.rowText,
+    height: 1.2,
+    letterSpacing: 0,
+  );
 
   /// Строка списка файлов.
   ///
   /// С запасными семействами: шрифт списка берётся из системы, и на машине, где
   /// его нет, подстановку надо назвать самим — иначе список набирается
   /// пропорциональным, и столбцы разъезжаются.
-  TextStyle get rowStyle => fixedStyle.copyWith(color: colors.rowText);
+  late final TextStyle rowStyle = fixedStyle.copyWith(color: colors.rowText);
 
   /// Моноширинный набор: семейство **вместе с запасными** и своей межстрочной.
   ///
@@ -61,7 +76,7 @@ class FcTheme extends ThemeExtension<FcTheme> {
   /// а разрядка окружения раздвинула бы его — и только у того текста, что
   /// рисует Flutter. `xterm` рисует своим набором и о ней не знает, поэтому
   /// список и терминал разошлись бы на пропущенном поле.
-  TextStyle get fixedStyle => TextStyle(
+  late final TextStyle fixedStyle = TextStyle(
     fontFamily: fonts.fixed,
     fontFamilyFallback: fonts.fixedFallback,
     fontSize: metrics.fontSize,
@@ -78,26 +93,26 @@ class FcTheme extends ThemeExtension<FcTheme> {
 
   /// Колонки с числами и датами. Шрифт списка моноширинный, поэтому отдельная
   /// настройка цифр не нужна — столбец и так не «прыгает».
-  TextStyle get numericStyle => rowStyle;
+  late final TextStyle numericStyle = rowStyle;
 
-  TextStyle get headerStyle => uiStyle.copyWith(color: colors.headerText);
+  late final TextStyle headerStyle = uiStyle.copyWith(color: colors.headerText);
 
-  TextStyle get statusStyle => uiStyle;
+  late final TextStyle statusStyle = uiStyle;
 
-  TextStyle get pathStyle => uiStyle.copyWith(color: colors.pathText);
+  late final TextStyle pathStyle = uiStyle.copyWith(color: colors.pathText);
 
   /// Заголовок окна команды: `styleName="white bold left h5"`.
-  TextStyle get dialogTitleStyle => uiStyle.copyWith(color: colors.dialogTitleText, fontWeight: FontWeight.bold);
+  late final TextStyle dialogTitleStyle = uiStyle.copyWith(color: colors.dialogTitleText, fontWeight: FontWeight.bold);
 
   /// Подпись поля в окне команды.
-  TextStyle get dialogLabelStyle => uiStyle.copyWith(color: colors.dialogLabel);
+  late final TextStyle dialogLabelStyle = uiStyle.copyWith(color: colors.dialogLabel);
 
   /// Значение в окне команды.
-  TextStyle get dialogTextStyle => uiStyle.copyWith(color: colors.dialogText);
+  late final TextStyle dialogTextStyle = uiStyle.copyWith(color: colors.dialogText);
 
-  TextStyle get buttonStyle => uiStyle.copyWith(color: colors.buttonText);
+  late final TextStyle buttonStyle = uiStyle.copyWith(color: colors.buttonText);
 
-  TextStyle get inputStyle => uiStyle.copyWith(color: colors.inputText);
+  late final TextStyle inputStyle = uiStyle.copyWith(color: colors.inputText);
 
   @override
   FcTheme copyWith({FcColors? colors, FcMetrics? metrics, FcIcons? icons, FcFonts? fonts}) => FcTheme(

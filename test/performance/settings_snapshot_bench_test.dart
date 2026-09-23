@@ -66,5 +66,4 @@ void main() {
     print('| обычные панели | ${plain.toStringAsFixed(1)} мкс | ${(plain / 10).toStringAsFixed(1)} мс |');
     print('| дерево на 1382 ветви | ${tree.toStringAsFixed(1)} мкс | ${(tree / 10).toStringAsFixed(1)} мс |');
   });
-
 }

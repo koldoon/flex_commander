@@ -22,7 +22,7 @@ void main() {
       MaterialApp(
         theme: ThemeData(
           textTheme: TextTheme(bodyMedium: TextStyle(letterSpacing: letterSpacing)),
-          extensions: const [
+          extensions: [
             FcTheme(colors: DefaultColors(), metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts()),
           ],
         ),
@@ -109,7 +109,7 @@ void main() {
       await tester.pumpWidget(
         MaterialApp(
           theme: ThemeData(
-            extensions: const [
+            extensions: [
               FcTheme(colors: DefaultColors(), metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts()),
             ],
           ),
@@ -169,7 +169,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(
-          extensions: const [
+          extensions: [
             FcTheme(colors: DefaultColors(), metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts()),
           ],
         ),

@@ -14,7 +14,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(
-          extensions: const [FcTheme(colors: colors, metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts())],
+          extensions: [FcTheme(colors: colors, metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts())],
         ),
         home: const Scaffold(body: SizedBox()),
       ),
@@ -22,7 +22,7 @@ void main() {
     await tester.pumpWidget(
       MaterialApp(
         theme: ThemeData(
-          extensions: const [FcTheme(colors: colors, metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts())],
+          extensions: [FcTheme(colors: colors, metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts())],
         ),
         home: Scaffold(
           body: Center(child: FcSideMarks(left: left, right: right, leftKey: leftKey, rightKey: rightKey)),
@@ -67,9 +67,7 @@ void main() {
     expect(
       tester.getSize(find.byType(FcSideMarks)).width,
       closeTo(
-        FcSideMarks.widthOf(
-          const FcTheme(colors: colors, metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts()),
-        ),
+        FcSideMarks.widthOf(FcTheme(colors: colors, metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts())),
         0.5,
       ),
     );
