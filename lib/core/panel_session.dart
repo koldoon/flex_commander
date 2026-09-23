@@ -3284,7 +3284,10 @@ class PanelSession {
 
     final size = total < 0 ? 0 : total;
     _running.remove(path);
-    _remember(path, size);
+    // Сам корень уже запомнен обходом: каталог приходит пост-порядком, и
+    // последним из них приходит он. Второй записи ему не нужно — тем более
+    // такой, у которой из трёх чисел известно одно.
+
     // По пути: узел, с которого обход начинался, мог смениться при
     // перечитывании списка, а число нужно тому, который на экране.
     _setSize(path, size);
@@ -3351,7 +3354,8 @@ class PanelSession {
   ///
   /// Только окончательную: частичная, застывшая как итог, — ложь, и обход
   /// рассказывает о каталоге лишь тогда, когда прошёл его целиком.
-  void _remember(String path, int bytes) {
+  void _remember(String path, DirectoryTotals totals) {
+    final bytes = totals.bytes;
     _keepMeasuredWithSource();
     _measured[path] = bytes;
     _measuredSinceSort = true;

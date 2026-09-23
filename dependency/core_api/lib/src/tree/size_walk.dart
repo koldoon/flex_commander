@@ -3,13 +3,20 @@ import 'dart:async';
 import 'package:fc_api/fc_api.dart';
 
 import 'fs_node.dart';
+import 'measured_sizes.dart';
 
 /// Событие обхода поддерева.
 ///
-/// Обход **ничего не решает за того, кто его читает**: он отдаёт узлы как есть,
-/// а складывает их читающий. Правила у потребителей разные — в сумме размера
-/// ссылка весит свои байты, в счёте переноса не весит ничего, — и живут эти
-/// правила в потребителе, а не здесь.
+/// **Сложку обход взял на себя** — и это смена прежнего договора («обход ничего
+/// не решает за читающего»). Причина в том, что сложки две, а дерево одно:
+/// считать их порознь значит обойти его дважды, а это и есть чинимый дефект
+/// (`docs/spec/directory-sizes.md`, §12.3). Спорного решения обход при этом на
+/// себя не берёт: правила расходятся только на листьях, а листья он и так видит
+/// все до одного.
+///
+/// Что осталось у потребителя — правило про **корень задания**: сказали
+/// копировать ссылку, и ссылка становится объектом работы со своими байтами.
+/// Это правило не про дерево, а про задание, и живёт оно в [countEntries].
 sealed class WalkEvent {
   const WalkEvent();
 }
@@ -29,12 +36,30 @@ class WalkedNode extends WalkEvent {
 /// Приходит **пост-порядком**: сперва содержимое, потом сам каталог. Только так
 /// сумма окончательна, и прерванный обход не оставляет за собой полуправды.
 class WalkedDirectory extends WalkEvent {
-  const WalkedDirectory(this.directory, this.bytes);
+  const WalkedDirectory(this.directory, this.totals);
 
   final DirectoryNode directory;
 
+  /// Три числа разом: занятое место, байты работы и объекты
+  /// (`docs/spec/directory-sizes.md`, §12.2).
+  final DirectoryTotals totals;
+
   /// Суммарный размер содержимого вместе с вложенными каталогами.
-  final int bytes;
+  int get bytes => totals.bytes;
+
+  String get path => directory.pathString;
+}
+
+/// Каталог, который обходить не пришлось: числа уже были.
+///
+/// Отдельным событием, а не молчаливым пропуском: читающий обязан решить, что
+/// он делает с переиспользованной ветвью, — и `switch` по событиям заставит его
+/// это решить (`docs/spec/directory-sizes.md`, §12.3а).
+class WalkedSubtree extends WalkEvent {
+  const WalkedSubtree(this.directory, this.totals);
+
+  final DirectoryNode directory;
+  final DirectoryTotals totals;
 
   String get path => directory.pathString;
 }
@@ -48,6 +73,10 @@ const _breath = Duration(milliseconds: 16);
 /// Байты объекта для суммы: неизвестный размер — ноль, каталог считается своим
 /// содержимым, а не полем.
 int _bytesOf(FsNode node) => node is DirectoryNode || node.size < 0 ? 0 : node.size;
+
+/// Байты объекта для **задания**: ссылку копируют ссылкой, и переносить в ней
+/// нечего; у каталога своих байтов нет.
+int _workBytesOf(FsNode node) => node is DirectoryNode || node is LinkNode || node.size < 0 ? 0 : node.size;
 
 /// Обход поддерева поверх [TreeProvider.listChildren] — один на все источники.
 ///
@@ -64,7 +93,14 @@ int _bytesOf(FsNode node) => node is DirectoryNode || node.size < 0 ? 0 : node.s
 ///   а обход идёт дальше;
 /// * между каталогами управление возвращается циклу событий, поэтому интерфейс
 ///   остаётся отзывчивым, а отмена доходит до читающего сразу.
-Stream<WalkEvent> walkTree(FsNode root, {Duration breath = _breath}) async* {
+/// [known] — способ спросить, посчитан ли каталог уже: не сама память, потому
+/// что обходу незачем знать, кто за ней стоит. Не передали — обход идёт, как
+/// ходил всегда, до последнего листа.
+Stream<WalkEvent> walkTree(
+  FsNode root, {
+  Duration breath = _breath,
+  DirectoryTotals? Function(DirectoryNode directory)? known,
+}) async* {
   final sinceBreath = Stopwatch()..start();
 
   Future<List<FsNode>> open(DirectoryNode directory) async {
@@ -102,25 +138,35 @@ Stream<WalkEvent> walkTree(FsNode root, {Duration breath = _breath}) async* {
 
     if (frame.index == frame.children.length) {
       stack.removeLast();
-      yield WalkedDirectory(frame.directory, frame.bytes);
+      yield WalkedDirectory(frame.directory, frame.totals);
       if (stack.isNotEmpty) {
-        stack.last.bytes += frame.bytes;
+        stack.last.add(frame.totals);
       }
       continue;
     }
 
     final child = frame.children[frame.index++];
-    yield WalkedNode(child);
 
     if (child is DirectoryNode) {
+      // Посчитанное поддерево не обходится второй раз — ради этого всё и
+      // затевалось. Узел о нём всё равно сообщается: читающий должен знать, что
+      // каталог в поддереве есть.
+      if (known?.call(child) case final totals?) {
+        yield WalkedNode(child);
+        yield WalkedSubtree(child, totals);
+        frame.add(totals);
+        continue;
+      }
+      yield WalkedNode(child);
       stack.add(_Frame(child, await open(child)));
     } else {
-      frame.bytes += _bytesOf(child);
+      yield WalkedNode(child);
+      frame.addLeaf(child);
     }
   }
 }
 
-/// Открытый каталог: его содержимое, место обхода в нём и накопленная сумма.
+/// Открытый каталог: его содержимое, место обхода в нём и накопленные числа.
 class _Frame {
   _Frame(this.directory, this.children);
 
@@ -128,7 +174,26 @@ class _Frame {
   final List<FsNode> children;
 
   int index = 0;
-  int bytes = 0;
+
+  int _bytes = 0;
+  int _workBytes = 0;
+
+  /// Сам каталог — тоже объект работы: его создают на той стороне.
+  int _entries = 1;
+
+  DirectoryTotals get totals => DirectoryTotals(bytes: _bytes, workBytes: _workBytes, entries: _entries);
+
+  void addLeaf(FsNode node) {
+    _bytes += _bytesOf(node);
+    _workBytes += _workBytesOf(node);
+    _entries++;
+  }
+
+  void add(DirectoryTotals totals) {
+    _bytes += totals.bytes;
+    _workBytes += totals.workBytes;
+    _entries += totals.entries;
+  }
 }
 
 /// Объекты задания: сколько их и сколько в них байт.
@@ -141,24 +206,37 @@ class _Frame {
 /// [onEntry] зовётся на каждый объект поддерева, включая сам [root]. Исключение
 /// из него наружу не гасится — так движок переноса прекращает подсчёт, когда
 /// работа кончилась раньше него.
-Future<void> countEntries(FsNode root, void Function(int bytes) onEntry) async {
+Future<void> countEntries(
+  FsNode root,
+  void Function(int bytes) onEntry, {
+  DirectorySize? onDirectory,
+  DirectoryTotals? Function(DirectoryNode directory)? known,
+}) async {
   var isRoot = true;
 
-  await for (final event in walkTree(root)) {
-    if (event is! WalkedNode) {
-      continue;
+  await for (final event in walkTree(root, known: known)) {
+    switch (event) {
+      case WalkedNode(node: final node):
+        // Сам корень считается тем, что он есть: сказали копировать ссылку —
+        // ссылка и есть объект работы, со своими байтами.
+        final counted = isRoot || (node is! DirectoryNode && node is! LinkNode);
+        isRoot = false;
+        onEntry(counted && node.size > 0 ? node.size : 0);
+      case WalkedSubtree(:final totals):
+        // Поддерево не обходили — его числа приходят разом. Объекты всё равно
+        // считаются поштучно: счётчик работы меряет их, а не каталоги.
+        onEntry(totals.workBytes);
+        for (var i = 1; i < totals.entries; i++) {
+          onEntry(0);
+        }
+      case WalkedDirectory(:final path, :final totals):
+        onDirectory?.call(path, totals);
     }
-    final node = event.node;
-    // Сам корень считается тем, что он есть: сказали копировать ссылку —
-    // ссылка и есть объект работы, со своими байтами.
-    final counted = isRoot || (node is! DirectoryNode && node is! LinkNode);
-    isRoot = false;
-    onEntry(counted && node.size > 0 ? node.size : 0);
   }
 }
 
-/// Куда обход отдаёт окончательную сумму каждого пройденного каталога.
-typedef DirectorySize = void Function(String path, int bytes);
+/// Куда обход отдаёт окончательные числа каждого пройденного каталога.
+typedef DirectorySize = void Function(String path, DirectoryTotals totals);
 
 /// Суммарный размер объектов вместе с содержимым каталогов — работой.
 ///
@@ -170,14 +248,18 @@ typedef DirectorySize = void Function(String path, int bytes);
 /// [onDirectory] зовётся на каждый пройденный каталог, включая вложенные, и
 /// **только** с окончательной суммой: отменённый обход частичных сумм за собой
 /// не оставляет.
-Operation<List<FsNode>, int> sizeOperation({DirectorySize? onDirectory, Duration breath = _breath}) {
+Operation<List<FsNode>, int> sizeOperation({
+  DirectorySize? onDirectory,
+  DirectoryTotals? Function(DirectoryNode directory)? known,
+  Duration breath = _breath,
+}) {
   return TaskOperation<List<FsNode>, int>((op, nodes) async {
     var total = 0;
 
     for (final node in nodes) {
       op.checkCanceled();
 
-      await for (final event in walkTree(node, breath: breath)) {
+      await for (final event in walkTree(node, breath: breath, known: known)) {
         op.checkCanceled();
         switch (event) {
           case WalkedNode(node: final walked):
@@ -188,8 +270,14 @@ Operation<List<FsNode>, int> sizeOperation({DirectorySize? onDirectory, Duration
               // говорит, что считают, а не где обход идёт сию секунду.
               op.report(itemsTransferred: total, message: node.name);
             }
-          case WalkedDirectory(:final path, :final bytes):
-            onDirectory?.call(path, bytes);
+          case WalkedSubtree(:final path, :final totals):
+            // Поддерево не обходили: его содержимое в сумму приходит разом, а
+            // сам каталог как узел уже пришёл нулём — двойного счёта нет.
+            total += totals.bytes;
+            op.report(itemsTransferred: total, message: node.name);
+            onDirectory?.call(path, totals);
+          case WalkedDirectory(:final path, :final totals):
+            onDirectory?.call(path, totals);
         }
       }
     }

@@ -225,13 +225,57 @@ void main() {
     final nodes = await listRoot();
     final measured = <String, int>{};
 
-    final total = await sizeOperation(onDirectory: (path, bytes) => measured[path] = bytes).run([nodes['docs']!]);
+    final total = await sizeOperation(
+      onDirectory: (path, totals) => measured[path] = totals.bytes,
+    ).run([nodes['docs']!]);
 
     // Обход и так проходит через подкаталоги — суммы по ним просто перестали
     // выбрасываться.
     expect(total, 300);
     expect(measured[nodes['docs']!.pathString], 300);
     expect(measured[p.join(nodes['docs']!.pathString, 'nested')], 200);
+  });
+
+  test('три числа считаются одним проходом и расходятся на ссылке', () async {
+    final dir = (await provider.resolvePath().run(root))! as DirectoryNode;
+    final totals = <String, DirectoryTotals>{};
+
+    await sizeOperation(onDirectory: (path, walked) => totals[path] = walked).run([dir]);
+
+    final walked = totals[dir.pathString]!;
+    // Работе ссылка не стоит ничего — её копируют ссылкой; месту стоит своих
+    // байт (`docs/spec/directory-sizes.md`, §12.2).
+    expect(walked.workBytes, 350, reason: 'docs 300 и notes 50');
+    expect(walked.bytes, greaterThanOrEqualTo(walked.workBytes));
+    // Корень, docs, nested, три файла и ссылка.
+    expect(walked.entries, 7);
+  });
+
+  test('посчитанное поддерево второй раз не обходится', () async {
+    final nodes = await listRoot();
+    final docs = nodes['docs']! as DirectoryNode;
+    final inside = await provider.getDirectoryListing().run(ListingParams(docs));
+    final nested = inside.firstWhere((node) => node.name == 'nested') as DirectoryNode;
+
+    const ready = DirectoryTotals(bytes: 200, workBytes: 200, entries: 2);
+    var subtree = 0;
+    var visited = 0;
+    await for (final event in walkTree(docs, known: (dir) => dir.pathString == nested.pathString ? ready : null)) {
+      switch (event) {
+        case WalkedSubtree(:final totals):
+          subtree++;
+          expect(totals, ready);
+        case WalkedNode(:final node):
+          if (node.name == 'b.txt') {
+            visited++;
+          }
+        case WalkedDirectory():
+          break;
+      }
+    }
+
+    expect(subtree, 1, reason: 'готовое поддерево пришло разом');
+    expect(visited, 0, reason: 'внутрь готового поддерева обход не ходил');
   });
 
   test('каталог приходит после своего содержимого', () async {
@@ -244,6 +288,8 @@ void main() {
           walked.add(node.name);
         case WalkedDirectory(:final directory):
           walked.add('=${directory.name}');
+        case WalkedSubtree(:final directory):
+          walked.add('~${directory.name}');
       }
     }
 
@@ -257,7 +303,7 @@ void main() {
   test('прерванный обход не оставляет частичных сумм', () async {
     final nodes = await listRoot();
     final measured = <String, int>{};
-    final operation = sizeOperation(onDirectory: (path, bytes) => measured[path] = bytes);
+    final operation = sizeOperation(onDirectory: (path, totals) => measured[path] = totals.bytes);
 
     operation.start([nodes['docs']!]);
     operation.cancel();
