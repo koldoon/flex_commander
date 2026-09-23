@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_panels/fc_panels.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
@@ -40,13 +41,24 @@ void main() {
   ///
   /// [lagging] — дверь, придерживающая вести ядра: так ведёт себя порт, и
   /// только так ловятся гонки связки между столбцами.
-  Future<AppRuntime> open(WidgetTester tester, {String path = '/home', bool lagging = false}) async {
+  /// Архив, внутри которого одни файлы: раскрывать в навигаторе нечего.
+  List<FakeEntry> flatArchive() => [
+    FakeEntry.file('/readme.md', content: [4]),
+    FakeEntry.file('/notes.txt', content: [5]),
+  ];
+
+  Future<AppRuntime> open(
+    WidgetTester tester, {
+    String path = '/home',
+    bool lagging = false,
+    List<FcBackendModule> backend = const [FakeArchiveMount()],
+  }) async {
     final runtime = await testApp(
       provider: provider(),
       modules: featureModules(),
       // Архив открывается каталогом — значит, в дереве он ветвь
       // (`docs/spec/panel-view-tree.md`, §4б).
-      backend: const [FakeArchiveMount()],
+      backend: backend,
       settings: settingsAt(path),
       door: lagging ? LaggingDoor.new : null,
     );
@@ -75,27 +87,63 @@ void main() {
     await tester.pumpAndSettle();
   }
 
-  testWidgets('архив в навигаторе раскрывается, и список показывает его нутро', (tester) async {
-    // Живая находка: в комбинированном виде архив не раскрывался вовсе — ни
-    // клавишей, ни мышью, — и содержимого его в списке не появлялось.
-    final runtime = await open(tester);
-    await settle(tester);
-
+  /// Ставит курсор навигатора на названную строку: шагами, как человек.
+  Future<void> cursorInTree(WidgetTester tester, AppRuntime runtime, String name) async {
     runtime.commands.dispatch(KeyCombination.parse('Left'));
     await tester.pumpAndSettle();
-    while (tree(runtime).currentEntry?.name != 'archive.arc') {
+    while (tree(runtime).currentEntry?.name != name) {
       runtime.commands.dispatch(KeyCombination.parse('Down'));
       await tester.pump();
     }
-    expect(tree(runtime).currentEntry?.isOpen, isFalse);
+  }
+
+  testWidgets('архив в навигаторе: Right ведёт к файлам, а список показывает нутро', (tester) async {
+    // Живая находка: архив обещал знаком раскрытия себя, а не своё
+    // содержимое, — и `Right` сперва раскрывал его в пустоту. У навигатора
+    // правило другое: знак обещает ветви внутри, и про закрытый архив это
+    // неизвестно (`docs/spec/panel-view-tree.md`, §4б).
+    final runtime = await open(tester);
+    await settle(tester);
+    await cursorInTree(tester, runtime, 'archive.arc');
+
+    expect(tree(runtime).currentEntry?.hasBranches, isFalse, reason: 'внутрь не заглядывали — знака нет');
 
     runtime.commands.dispatch(KeyCombination.parse('Right'));
     await settle(tester);
 
-    expect(tree(runtime).currentEntry?.isOpen, isTrue, reason: 'Right раскрывает архив, а не уходит в список');
-    expect(tree(runtime).entries.map((row) => row.name), contains('inner'));
-    // Столбец списка догоняет курсор: на архиве это его собственный корень.
+    expect(runtime.app.left, same(list(runtime)), reason: 'раскрывать нечего — курсор уходит к файлам');
     expect(list(runtime).entries.map((row) => row.name), containsAll(['inner', 'readme.md']));
+  });
+
+  testWidgets('архив в навигаторе раскрывается Enter-ом', (tester) async {
+    final runtime = await open(tester);
+    await settle(tester);
+    await cursorInTree(tester, runtime, 'archive.arc');
+
+    runtime.commands.dispatch(KeyCombination.parse('Enter'));
+    await settle(tester);
+
+    expect(tree(runtime).currentEntry?.isOpen, isTrue);
+    expect(tree(runtime).entries.map((row) => row.name), contains('inner'));
+  });
+
+  testWidgets('раскрытый архив без ветвей внутри курсор не задерживает', (tester) async {
+    // Слова находки: «пытается сперва раскрыть, даже если там больше нечего
+    // раскрывать, и только потом перемещает курсор на файлы».
+    final runtime = await open(tester, backend: [FakeArchiveMount(flatArchive)]);
+    await settle(tester);
+    await cursorInTree(tester, runtime, 'archive.arc');
+
+    runtime.commands.dispatch(KeyCombination.parse('Enter'));
+    await settle(tester);
+    expect(tree(runtime).currentEntry?.isOpen, isTrue, reason: 'раскрыть его всё-таки можно');
+    expect(tree(runtime).currentEntry?.hasBranches, isFalse, reason: 'а ветвей внутри нет');
+
+    runtime.commands.dispatch(KeyCombination.parse('Right'));
+    await settle(tester);
+
+    expect(runtime.app.left, same(list(runtime)));
+    expect(list(runtime).entries.map((row) => row.name), containsAll(['notes.txt', 'readme.md']));
   });
 
   testWidgets('вид разводит сторону на два столбца', (tester) async {

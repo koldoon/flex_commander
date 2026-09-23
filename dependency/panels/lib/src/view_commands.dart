@@ -746,11 +746,14 @@ class CombinedSideCommand extends AppCommand {
     // (`docs/spec/panel-view-combined.md`, §6).
     //
     // Кроме той, у которой раскрывать нечего: знака у неё нет, и обещать
-    // нажатием то, чего не видно, нельзя — курсор уходит вправо сразу. У
-    // архива знак есть всегда: что внутри, известно только открыв его
-    // (`docs/spec/panel-view-tree.md`, §4б).
+    // нажатием то, чего не видно, нельзя — курсор уходит вправо сразу.
+    //
+    // Решает **знание**, а не тип строки: ветвь с непрочитанным нутром и архив,
+    // который ещё не открывали, для навигатора одинаковы — под ними ничего не
+    // обещано, и `Right` ведёт к файлам. Раскрыть такую всё равно можно
+    // `Enter`ом (`docs/spec/panel-view-tree.md`, §4б).
     final row = context.session.currentEntry;
-    return row == null || !row.opensAsBranch || row.isOpen || !(row.hasBranches || row.mountsAsBranch);
+    return row == null || row.isOpen || !row.hasBranches;
   }
 
   @override
