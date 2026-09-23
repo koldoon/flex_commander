@@ -247,8 +247,46 @@ void main() {
     await panel.reload();
     await pumpEventQueue();
 
-    expect(panel.listing.cursor, isEmpty, reason: 'перечитывание курсора не ставит');
+    expect(panel.listing.cursor, isNull, reason: 'перечитывание курсора не ставит');
     expect(panel.currentEntry?.path, was, reason: 'курсор остался на своей строке');
+  });
+
+  test('ушёл в начало — туда и вернёшься', () async {
+    // Живая находка 23 сентября 2026: курсор увели в начало списка клавишей,
+    // вышли и вернулись — а он встал туда, откуда прыгнули. Ядро не узнавало
+    // «первую строку»: экран называет её пустым путём, потому что у «..» пути
+    // нет, а у узла «..» он есть — родительский.
+    await panel.openPath('/home/docs');
+    await pumpEventQueue();
+    panel.setCursorToName('notes.txt');
+    await pumpEventQueue();
+
+    panel.setCursorToFirst();
+    await pumpEventQueue();
+    expect(panel.currentEntry?.isParent, isTrue);
+
+    await panel.goUp();
+    await pumpEventQueue();
+    await panel.openPath('/home/docs');
+    await pumpEventQueue();
+
+    expect(panel.cursorIndex, 0, reason: 'курсор оставили в начале — там он и есть');
+  });
+
+  test('вход в каталог ставит курсор на первую строку', () async {
+    // Живая находка 23 сентября 2026: курсор оставался там же, где стоял в
+    // прежнем каталоге. Ядро ставило его на «..», а у неё пути нет — и пустой
+    // путь значил «не ставили» (`docs/spec/client-server.md`, §5.6.4).
+    panel.setCursorToName('report.txt');
+    await pumpEventQueue();
+    expect(panel.cursorIndex, greaterThan(0));
+
+    await panel.openPath('/home/docs');
+    await pumpEventQueue();
+
+    expect(panel.listing.cursor, '', reason: 'пустой путь — это первая строка');
+    expect(panel.cursorIndex, 0);
+    expect(panel.currentEntry?.isParent, isTrue, reason: 'а первая строка — «..»');
   });
 
   test('вход в каталог курсор ставит — и говорит об этом списком', () async {

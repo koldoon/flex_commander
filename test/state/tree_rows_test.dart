@@ -500,7 +500,7 @@ void main() {
     // Список при этом курсора не несёт: пересортировка случилась сама, по
     // досчитанным числам, и места человека не касается
     // (`docs/spec/client-server.md`, §5.6.4).
-    expect(fresh.session.placedCursor, isEmpty);
+    expect(fresh.session.placedCursor, isNull);
   });
 
   test('посчитанный каталог встаёт по своему размеру', () async {

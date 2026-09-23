@@ -867,8 +867,15 @@ class SessionMirror extends ChangeNotifier implements Session {
         // приехал **вместе со списком**, к которому относится, и потому
         // применяется сразу и без оглядки на номера
         // (`docs/spec/client-server.md`, §5.6.4).
-        final placed = listing.cursor.isEmpty ? -1 : listing.entries.indexWhere((e) => e.path == listing.cursor);
-        if (placed >= 0) {
+        // Пустой путь — это **первая строка**: у «..» пути нет, а вход в
+        // каталог ставит курсор как раз на неё.
+        final asked = listing.cursor;
+        final placed = switch (asked) {
+          null => -1,
+          '' => 0,
+          _ => listing.entries.indexWhere((entry) => entry.path == asked),
+        };
+        if (placed >= 0 && placed < listing.entries.length) {
           _cursorIndex = placed;
           _rememberCursor(placed);
         } else {

@@ -1376,10 +1376,12 @@ class PanelSession {
   /// (`docs/spec/client-server.md`, §5.6). Поэтому ни номера заявки, ни
   /// ответа: опоздавших среди фактов не бывает — есть только последний.
   ///
-  /// Строки с таким путём нет — держим прежнюю: список здесь мог ещё не
-  /// смениться, а выдумывать себе место незачем.
+  /// Пустой путь — **первая строка**: у «..» пути нет вовсе, и говорят о ней
+  /// так же, как ядро говорит о ней, ставя курсор (§5.6.4). Строки с таким
+  /// путём нет — держим прежнюю: список здесь мог ещё не смениться, а
+  /// выдумывать себе место незачем.
   void standAt(String path) {
-    final index = _nodes.indexWhere((node) => node.pathString == path);
+    final index = path.isEmpty ? (_nodes.isEmpty ? -1 : 0) : _nodes.indexWhere((node) => node.pathString == path);
     if (index < 0) {
       return;
     }
@@ -2420,21 +2422,26 @@ class PanelSession {
 
   /// Список сменился: номер вперёд, и о нём стоит рассказать.
   /// Строка, на которую ядро поставило курсор **нарочно** — для того списка,
-  /// который сейчас уезжает. Пусто — курсора в списке нет, и трогать его той
-  /// стороне не за что (`docs/spec/client-server.md`, §5.6.4).
-  String get placedCursor => _placedCursor;
-  String _placedCursor = '';
+  /// который сейчас уезжает. null — курсора в списке нет, и трогать его той
+  /// стороне не за что; пустая строка — первая строка списка, то есть «..»,
+  /// у которой пути нет (`docs/spec/client-server.md`, §5.6.4).
+  String? get placedCursor => _placedCursor;
+  String? _placedCursor;
 
   /// [placed] — ядро поставило курсор нарочно: список сменился по просьбе той
   /// стороны (вход в каталог, подъём, раскрытие ветви, восстановление после
   /// запуска). Список, собравшийся сам, курсора не несёт.
   void _listed({bool placed = false}) {
     _generation++;
-    _placedCursor = placed ? (currentNode?.pathString ?? '') : '';
+    // Путём **строки**, а не узла: у «..» узел знает путь родителя, а строка
+    // пути не имеет вовсе (`FileEntry.path`), и сверяются они строками. Пусто
+    // — первая строка, и это как раз «..».
+    final at = currentNode;
+    _placedCursor = placed ? (at == null || at is ParentDirNode ? '' : at.pathString) : null;
     for (final listener in _onListed.toList()) {
       listener();
     }
-    _placedCursor = '';
+    _placedCursor = null;
   }
 
   // --- внутреннее ---
