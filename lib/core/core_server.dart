@@ -36,9 +36,10 @@ class CoreServer implements CoreHandler {
     ProviderRegistry? registry,
     TreeEditor editor = const TreeTransferEngine(),
     FcServices services = const _NoServices(),
-    Map<String, OperationFactory> operations = const {},
+    Map<String, OperationRegistration> operations = const {},
     SettingsHub? settings,
     SecretsHub? secrets,
+    MeasuredSizes? sizes,
   }) : assert(sessions != null || (left != null && right != null), 'Ядру нужны сессии: списком или парой'),
        _panels =
            sessions ??
@@ -57,6 +58,7 @@ class CoreServer implements CoreHandler {
       services: services,
       editor: editor,
       registry: registry,
+      sizes: sizes,
       sessionOf: session,
       say: _say,
     );

@@ -218,8 +218,11 @@ Future<void> countEntries(
     switch (event) {
       case WalkedNode(node: final node):
         // Сам корень считается тем, что он есть: сказали копировать ссылку —
-        // ссылка и есть объект работы, со своими байтами.
-        final counted = isRoot || (node is! DirectoryNode && node is! LinkNode);
+        // ссылка и есть объект работы, со своими байтами. Каталог — никогда:
+        // его байты лежат в содержимом, а в поле у посчитанного каталога
+        // стоит **занятое место**, и сложить его с работой значило бы
+        // посчитать дерево дважды (`docs/spec/directory-sizes.md`, §12.2).
+        final counted = node is! DirectoryNode && (isRoot || node is! LinkNode);
         isRoot = false;
         onEntry(counted && node.size > 0 ? node.size : 0);
       case WalkedSubtree(:final directory, :final totals):

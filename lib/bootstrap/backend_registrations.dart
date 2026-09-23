@@ -48,7 +48,7 @@ class BackendRegistrations extends ModuleRegistrations<FcBackendModule> implemen
   final List<AddressRegistration> addresses = [];
 
   /// Работы по именам: `file.copy`, `zip.pack`.
-  final Map<String, OperationFactory> operations = {};
+  final Map<String, OperationRegistration> operations = {};
 
   /// Объявленные колонки — в порядке объявления.
   final List<ColumnDeclaration> columns = [];
@@ -77,14 +77,14 @@ class BackendRegistrations extends ModuleRegistrations<FcBackendModule> implemen
   }
 
   @override
-  void operation(String kind, OperationFactory factory) {
+  void operation(String kind, OperationFactory factory, {bool writes = true}) {
     if (operations.containsKey(kind)) {
       // Две работы под одним именем — это не выбор, а недосмотр: имя уходит в
       // заявку, и победа последнего сделала бы дело зависящим от порядка
       // модулей в списке.
       throw StateError('Работа «$kind» уже объявлена');
     }
-    operations[kind] = factory;
+    operations[kind] = OperationRegistration(factory, writes: writes);
   }
 
   @override

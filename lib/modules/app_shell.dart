@@ -97,7 +97,12 @@ class AppShell implements FcBackendModule, FcFrontendModule {
 
     // Движок один на приложение: состояния у него нет, а источники узлы
     // приносят с собой — в том числе разные у источника и приёмника.
-    registry.service<TreeEditor>((services) => TreeTransferEngine(strings: services.resolve<Strings>()));
+    // Память посчитанного — общая с панелями: помеченный каталог панель уже
+    // посчитала или считает, и второй обход того же дерева движку не нужен
+    // (`docs/spec/directory-sizes.md`, §12).
+    registry.service<TreeEditor>(
+      (services) => TreeTransferEngine(strings: services.resolve<Strings>(), sizes: services.resolve<MeasuredSizes>()),
+    );
 
     registry.operation(FileOperations.copy, (services) => _transfer(moves: false));
     registry.operation(FileOperations.move, (services) => _transfer(moves: true));
@@ -159,6 +164,9 @@ class AppShell implements FcBackendModule, FcFrontendModule {
         // поэтому набор из разных источников — находки — считается целиком.
         await op.delegate(sizeOperation(), inputs.targets);
       }),
+      // Подсчёт ничего не пишет: забыв после него посчитанное, мы стёрли бы
+      // ровно то, ради чего он и шёл (`docs/spec/directory-sizes.md`, §12.4).
+      writes: false,
     );
 
     registry.operation(

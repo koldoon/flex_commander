@@ -16,6 +16,7 @@ void main() {
   late ProviderRegistry registry;
   late CoreServer core;
   late Link link;
+  late MeasuredSizes sizes;
 
   PanelSession sessionFor(String path) =>
       PanelSession(settings: PanelSettings.defaults(path), registry: registry, editor: const TreeTransferEngine());
@@ -67,6 +68,7 @@ void main() {
       FakeEntry.file('/home/report.txt', size: 20),
     ])..home = '/home';
     registry = ProviderRegistry(root: provider);
+    sizes = MeasuredSizes();
     // Сервер, как `ssh://`: цель работы на нём называется путём целиком, и
     // разбирать этот путь ядру приходится самому.
     registry.registerAddress(
@@ -86,7 +88,15 @@ void main() {
       left: sessionFor('/home'),
       right: sessionFor('/home'),
       registry: registry,
-      operations: {'test.probe': probe, 'test.storm': storm, ...const AppShellKinds().kinds},
+      operations: {
+        'test.probe': OperationRegistration(probe),
+        // Та же работа, но объявленная читающей: посчитанное после неё
+        // остаётся (`docs/spec/directory-sizes.md`, §12.4).
+        'test.reads': OperationRegistration(probe, writes: false),
+        'test.storm': OperationRegistration(storm),
+        ...const AppShellKinds().kinds,
+      },
+      sizes: sizes,
     );
     link = LoopbackLink(core);
   });
@@ -139,6 +149,42 @@ void main() {
 
     expect(seen, contains('Работаю над 1'));
     expect(operation.state, OperationState.complete);
+  });
+
+  group('посчитанные размеры', () {
+    /// Узел каталога — для памяти: она различает каталоги по провайдеру, и
+    /// одного пути ей мало.
+    DirectoryNode home() => DirectoryNode(provider: provider, name: 'home', parent: provider.rootDirectory);
+
+    DirectoryNode docs() => DirectoryNode(provider: provider, name: 'docs', parent: home());
+
+    const totals = DirectoryTotals(bytes: 300, workBytes: 300, entries: 2);
+
+    test('своя работа забывает посчитанное', () async {
+      sizes.remember(docs(), totals);
+
+      await RemoteOperation(link).run(const OperationSpec(kind: 'test.probe', targets: Targets.paths(['/home/docs'])));
+
+      expect(sizes.take(docs()), isNull, reason: 'работа писала в этот каталог — число стало вчерашним');
+    });
+
+    test('работа в файле забывает каталог, в котором он лежит', () async {
+      sizes.remember(home(), totals);
+
+      await RemoteOperation(
+        link,
+      ).run(const OperationSpec(kind: 'test.probe', targets: Targets.paths(['/home/notes.txt'])));
+
+      expect(sizes.take(home()), isNull, reason: 'изменился каталог, а не файл сам по себе');
+    });
+
+    test('читающая работа посчитанного не трогает', () async {
+      sizes.remember(docs(), totals);
+
+      await RemoteOperation(link).run(const OperationSpec(kind: 'test.reads', targets: Targets.paths(['/home/docs'])));
+
+      expect(sizes.take(docs()), totals, reason: 'подсчёт стёр бы ровно то, ради чего шёл');
+    });
   });
 
   test('вопрос доходит до этой стороны, ответ — обратно', () async {
@@ -243,8 +289,8 @@ void main() {
 class AppShellKinds {
   const AppShellKinds();
 
-  Map<String, OperationFactory> get kinds {
-    final collected = <String, OperationFactory>{};
+  Map<String, OperationRegistration> get kinds {
+    final collected = <String, OperationRegistration>{};
     const AppShell().installBackend(_Collector(collected));
     return collected;
   }
@@ -254,10 +300,11 @@ class AppShellKinds {
 class _Collector implements BackendRegistry {
   const _Collector(this._operations);
 
-  final Map<String, OperationFactory> _operations;
+  final Map<String, OperationRegistration> _operations;
 
   @override
-  void operation(String kind, OperationFactory factory) => _operations[kind] = factory;
+  void operation(String kind, OperationFactory factory, {bool writes = true}) =>
+      _operations[kind] = OperationRegistration(factory, writes: writes);
 
   @override
   FcServices get services => throw UnimplementedError();

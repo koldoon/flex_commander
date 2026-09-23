@@ -17,23 +17,30 @@ import 'panel_session.dart';
 /// говорят одним входом — отмена, просьба прервать, ответ.
 class OperationHub {
   OperationHub({
-    required Map<String, OperationFactory> factories,
+    required Map<String, OperationRegistration> factories,
     required FcServices services,
     required TreeEditor editor,
     ProviderRegistry? registry,
+    MeasuredSizes? sizes,
     required PanelSession Function(PanelId panel) sessionOf,
     required void Function(CoreEvent event) say,
   }) : _factories = factories,
        _services = services,
        _editor = editor,
        _registry = registry,
+       _sizes = sizes,
        _sessionOf = sessionOf,
        _say = say;
 
-  final Map<String, OperationFactory> _factories;
+  final Map<String, OperationRegistration> _factories;
   final FcServices _services;
   final TreeEditor _editor;
   final ProviderRegistry? _registry;
+
+  /// Посчитанные размеры каталогов: своя работа их портит, и забыть их —
+  /// её же дело (`docs/spec/directory-sizes.md`, §12.4). null — памяти нет.
+  final MeasuredSizes? _sizes;
+
   final PanelSession Function(PanelId panel) _sessionOf;
   final void Function(CoreEvent event) _say;
 
@@ -62,8 +69,8 @@ class OperationHub {
   /// Имя работы даёт та сторона: подписка у неё встаёт раньше запуска, и
   /// первое же событие — «начали» — не проходит мимо.
   Future<void> run(String runId, OperationSpec spec) async {
-    final factory = _factories[spec.kind];
-    if (factory == null) {
+    final declared = _factories[spec.kind];
+    if (declared == null) {
       _say(OperationEnded(runId, OperationOutcome.failed, message: 'Нет такой работы: ${spec.kind}'));
       return;
     }
@@ -73,8 +80,12 @@ class OperationHub {
       final targets = await _targetsOf(spec.targets, leases);
       final destination = await _destinationOf(spec, leases);
 
-      final operation = factory(_services);
+      final operation = declared.factory(_services);
       final run = _Run(operation, leases);
+      // Пути собираются **до** старта: после переноса узлов уже нет, а путь
+      // забывать всё равно надо. И откуда, и куда: перенос меняет оба конца, а
+      // хаб — единственный, кто знает их сразу (§12.4).
+      run.touched = declared.writes ? _touchedBy(targets, destination) : const [];
       _running[runId] = run;
 
       // Сперва подписки, потом запуск: до `start` не происходит ничего, и
@@ -175,6 +186,13 @@ class OperationHub {
 
   void _finish(String runId, OperationEnded ended) {
     final run = _running.remove(runId);
+    // Забывание — **до** «работа кончилась»: та сторона по этому событию
+    // перечитывает панели, и опоздай мы — она успела бы нарисовать вчерашние
+    // числа. Оборванная работа забывает наравне с дошедшей до конца: половину
+    // написать она успела (`docs/spec/directory-sizes.md`, §12.4).
+    if (run != null) {
+      _forgetMeasured(run);
+    }
     // Придержанный отчёт отдаётся **до** «работа кончилась»: иначе итог остался
     // бы с числом на сотню миллисекунд младше правды — на поиске это «нашлось
     // 12300» вместо 12487 (`docs/spec/growing-listing.md`, §5).
@@ -186,6 +204,34 @@ class OperationHub {
       _say(OperationAskCanceled(runId));
     }
     _say(ended);
+  }
+
+  /// Что задела работа: откуда брала и куда клала.
+  ///
+  /// Каталог цели — сам путь (память заодно уносит его поддерево и предков);
+  /// файл — каталог, в котором он лежит: изменился он, а не файл сам по себе.
+  List<String> _touchedBy(List<FsNode> targets, DirectoryNode? destination) {
+    if (_sizes == null) {
+      return const [];
+    }
+    final paths = <String>{};
+    for (final node in targets) {
+      paths.add(node is DirectoryNode ? node.pathString : (node.parent?.pathString ?? node.pathString));
+    }
+    if (destination != null) {
+      paths.add(destination.pathString);
+    }
+    return paths.toList();
+  }
+
+  void _forgetMeasured(_Run run) {
+    final sizes = _sizes;
+    if (sizes == null) {
+      return;
+    }
+    for (final path in run.touched) {
+      sizes.forget(path);
+    }
   }
 
   ProgressReport _reportOf(Operation<Object?, Object?> operation) {
@@ -304,6 +350,10 @@ class _Run {
 
   /// Вопрос, на который ждут ответа; null — работа не спрашивает.
   OperationRequest? asked;
+
+  /// Каталоги, посчитанные размеры которых эта работа делает вчерашними.
+  /// Собраны до старта: после переноса узлов уже нет.
+  List<String> touched = const [];
 
   void watch({required VoidCallback onProgress, required void Function(OperationRequest request) onAsk}) {
     final status = operation.status;

@@ -63,6 +63,7 @@ TestPanel testPanel({
   TreeEditor editor = const TreeTransferEngine(),
   int sizeScanConcurrency = AppSettings.defaultSizeScanConcurrency,
   ListingCache? cache,
+  MeasuredSizes? sizes,
   ColumnSorting? columns,
   PanelColumns? shownColumns,
   PanelId id = PanelId.left,
@@ -80,6 +81,7 @@ TestPanel testPanel({
     columns: declared,
     sizeScanConcurrency: () => sizeScanConcurrency,
     cache: cache,
+    sizes: sizes,
     watchDirectories: () => watchDirectories,
     // Окно накопления в прогоне короткое: ждать по три сотни миллисекунд на
     // каждое событие — значит проверять терпение, а не слежение.

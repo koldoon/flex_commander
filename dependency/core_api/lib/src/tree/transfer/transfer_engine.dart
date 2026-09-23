@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:fc_api/fc_api.dart';
 
 import '../fs_node.dart';
+import '../measured_sizes.dart';
 import '../size_walk.dart';
 import '../tree_provider.dart';
 import '../operation_params.dart';
@@ -36,7 +37,15 @@ enum TransferStrategy {
 ///
 /// Состояния у движка нет: он ничей и создаётся где угодно.
 class TreeTransferEngine implements TreeEditor {
-  const TreeTransferEngine({this.clock = DateTime.now, Strings? strings}) : _strings = strings;
+  const TreeTransferEngine({this.clock = DateTime.now, Strings? strings, this.sizes}) : _strings = strings;
+
+  /// Посчитанные размеры каталогов — общие с панелями.
+  ///
+  /// null — памяти нет, и движок считает задание своим обходом, как считал
+  /// всегда. Есть — он сперва **спрашивает**: посчитанное дерево отдаётся
+  /// готовым, идущий обход дожидается, и только на «никто не считал» заводится
+  /// свой (`docs/spec/directory-sizes.md`, §12.3а).
+  final MeasuredSizes? sizes;
 
   /// Строки на языке человека: вопросы по ходу работы задаёт движок.
   ///
@@ -920,9 +929,38 @@ class TreeTransferEngine implements TreeEditor {
   /// Ошибка обхода не прекращает работу: это оценка, а не сама операция, и
   /// недосчитанный каталог хуже, чем несделанное копирование.
   Future<void> _countSources(List<FsNode> nodes, TransferProgress progress) async {
+    final memory = sizes;
+
     for (var i = 0; i < nodes.length; i++) {
       if (progress.stopped) {
         return;
+      }
+
+      final node = nodes[i];
+
+      // Память спрашивается **до** обхода: помеченный каталог панель, скорее
+      // всего, уже посчитала или считает прямо сейчас, и пойти по тому же
+      // дереву второй раз — это и есть чинимый дефект (§12.1).
+      if (memory != null && node is DirectoryNode) {
+        // Свой обход считает счётчику по дороге, чужой — молчит: его числа
+        // приходят разом, и отдать их счётчику надо самому.
+        var ours = false;
+        final totals = await memory.claim(node, () {
+          ours = true;
+          return _countingWalk(node, memory, progress);
+        });
+        if (progress.stopped) {
+          return;
+        }
+        if (totals != null) {
+          if (ours) {
+            progress.sourceCounted(i, totals.entries, totals.workBytes);
+          } else {
+            _countKnown(progress, i, totals);
+          }
+          continue;
+        }
+        // null — обход кончился ничем: считаем сами, как считали всегда.
       }
 
       var counted = 0;
@@ -938,7 +976,7 @@ class TreeTransferEngine implements TreeEditor {
           counted++;
           countedBytes += bytes;
           progress.countOne(bytes);
-        });
+        }, known: memory?.take);
       } on _CountingStopped {
         return;
       } on FsError {
@@ -949,6 +987,50 @@ class TreeTransferEngine implements TreeEditor {
     }
 
     progress.countingFinished();
+  }
+
+  /// Числа пришли готовыми — и счётчику их отдают тем же порядком, каким он
+  /// принимает посчитанное сам: объекты поштучно, байты у первого из них.
+  void _countKnown(TransferProgress progress, int index, DirectoryTotals totals) {
+    progress.countOne(totals.workBytes);
+    for (var entry = 1; entry < totals.entries; entry++) {
+      progress.countOne(0);
+    }
+    progress.sourceCounted(index, totals.entries, totals.workBytes);
+  }
+
+  /// Свой обход, объявленный памятью: к нему присоединится и панель, если
+  /// человек пометит тот же каталог, пока работа идёт.
+  ///
+  /// Числа каждого пройденного каталога ложатся в память по дороге — не только
+  /// итог корня: обход и так через них проходит.
+  MeasuredWalk _countingWalk(DirectoryNode node, MeasuredSizes memory, TransferProgress progress) {
+    var canceled = false;
+    final walk = MeasuredWalk(cancel: () => canceled = true);
+
+    unawaited(() async {
+      try {
+        await countEntries(
+          node,
+          (bytes) {
+            if (canceled || progress.stopped) {
+              throw const _CountingStopped();
+            }
+            progress.countOne(bytes);
+          },
+          // Итог корня доедет сюда же последним — пост-порядком, — и им же
+          // память закроет обход: ждущие получат числа.
+          onDirectory: memory.remember,
+          known: memory.take,
+        );
+      } on Object {
+        // Оборванный обход в память не попадает вовсе: половина, застывшая
+        // как итог, — ложь. Ждущим — `null`, «считай сам, если надо».
+        memory.abandon(node);
+      }
+    }());
+
+    return walk;
   }
 
   Future<OperationRequestOption> _askAboutFailure(TaskOperation<Object?, void> op, String message) {

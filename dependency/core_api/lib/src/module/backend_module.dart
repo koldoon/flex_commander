@@ -67,7 +67,10 @@ abstract interface class BackendRegistry {
   /// (`OperationSpec`) — по имени [kind] и с доводами значениями. Команда при
   /// этом остаётся мелким мутатором: собрать заявку и отправить
   /// (`docs/spec/client-server.md`, §5.4).
-  void operation(String kind, OperationFactory factory);
+  /// [writes] — меняет ли работа дерево. `false` у тех, кто только читает
+  /// (подсчёт размера, поиск): посчитанное после них забывать не за что
+  /// (`docs/spec/directory-sizes.md`, §12.4).
+  void operation(String kind, OperationFactory factory, {bool writes = true});
 
   /// Колонка панели — ядровой половиной: заголовок, ширина и сравнение.
   ///

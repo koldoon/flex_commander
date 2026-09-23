@@ -55,3 +55,17 @@ class OperationInputs {
 /// Фабрика зовётся на каждый запуск: у работы своё состояние исполнения,
 /// и один экземпляр на всех не годится.
 typedef OperationFactory = Operation<OperationInputs, void> Function(FcServices services);
+
+/// Объявленная работа: чем её создать и меняет ли она дерево.
+///
+/// [writes] — пишет ли работа в то, на что её натравили. У почти всякой работы
+/// это так, и посчитанные размеры задетых каталогов после неё недействительны.
+/// Исключения — работы, которые только читают: подсчёт размера и поиск. Им
+/// забывать не за что, а подсчёту — вредно: он сотрёт ровно то, что сам и
+/// насчитал (`docs/spec/directory-sizes.md`, §12.4).
+class OperationRegistration {
+  const OperationRegistration(this.factory, {this.writes = true});
+
+  final OperationFactory factory;
+  final bool writes;
+}

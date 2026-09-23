@@ -355,6 +355,81 @@ void main() {
     });
   });
 
+  group('посчитанное не считается дважды', () {
+    late InMemoryContentProvider disk;
+    late MeasuredSizes sizes;
+
+    setUp(() {
+      disk = InMemoryContentProvider([
+        FakeEntry.directory('/home'),
+        FakeEntry.directory('/home/box'),
+        FakeEntry.directory('/home/docs'),
+        FakeEntry.directory('/home/docs/nested'),
+        FakeEntry.file('/home/docs/readme.md', content: [1, 2, 3]),
+        FakeEntry.file('/home/docs/nested/deep.txt', content: [4, 5]),
+      ]);
+      sizes = MeasuredSizes();
+    });
+
+    Future<DirectoryNode> dir(String path) async => (await disk.resolvePath().run(path))! as DirectoryNode;
+
+    /// Что насчитал бы обход этого дерева: два файла на пять байт, а объектов
+    /// — сам каталог, вложенный и два файла.
+    const counted = DirectoryTotals(bytes: 5, workBytes: 5, entries: 4);
+
+    test('посчитанный каталог второй раз не обходится', () async {
+      final docs = await dir('/home/docs');
+      // Панель посчитала его раньше — числа лежат в общей памяти.
+      sizes.remember(docs, counted);
+      disk.listed.clear();
+
+      final operation = TreeTransferEngine(sizes: sizes).copy();
+      operation.start(TransferParams([docs], await dir('/home/box')));
+      await operation.result;
+
+      // Один раз — ради самой работы. Второго обхода, ради полосы прогресса,
+      // не случилось (`docs/spec/directory-sizes.md`, §12.1).
+      expect(disk.listed['/home/docs'], 1);
+      expect(disk.listed['/home/docs/nested'], 1);
+    });
+
+    test('свой обход счётчику не дублируется', () async {
+      // Приёмник придержан: подсчёт заведомо успевает дойти до конца раньше
+      // самой работы, и видно, что насчитал он ровно один раз.
+      final box = _HeldBoxProvider([FakeEntry.directory('/box')]);
+      final docs = await dir('/home/docs');
+      final target = (await box.resolvePath().run('/box'))! as DirectoryNode;
+
+      final operation = TreeTransferEngine(sizes: sizes).copy();
+      operation.start(TransferParams([docs], target));
+      await pumpEventQueue();
+      box.release.complete();
+      await operation.result;
+
+      final status = operation.status as MultipleTransferOperationStatus;
+      // Каталог, вложенный и два файла — четыре объекта, а не восемь.
+      expect(status.itemsTotal, 4);
+      expect(sizes.take(docs)?.entries, 4, reason: 'посчитанное движком осталось в памяти');
+    });
+
+    test('идущий обход дожидается, а не заводится второй', () async {
+      final docs = await dir('/home/docs');
+      // Кто-то уже идёт по этому дереву: панель считает помеченный каталог.
+      final walk = sizes.announce(docs, () => MeasuredWalk(cancel: () {}));
+      disk.listed.clear();
+
+      final operation = TreeTransferEngine(sizes: sizes).copy();
+      operation.start(TransferParams([docs], await dir('/home/box')));
+      await pumpEventQueue();
+      // Чужой обход дошёл до конца — и его числа достались работе.
+      sizes.remember(docs, counted);
+      await operation.result;
+
+      expect(walk.done, completion(counted));
+      expect(disk.listed['/home/docs'], 1, reason: 'свой обход движок не заводил — он присоединился к чужому');
+    });
+  });
+
   group('символические ссылки', () {
     late InMemoryContentProvider disk;
 
@@ -1102,4 +1177,18 @@ class _NoLinksProvider extends InMemoryTreeProvider with InMemoryContent {
 
   @override
   ProviderCapabilities get capabilities => const ProviderCapabilities(maxConcurrency: 4);
+}
+
+/// Приёмник, который не даёт работе начаться, пока его не отпустят: так
+/// фоновый подсчёт заведомо успевает раньше самой работы.
+class _HeldBoxProvider extends InMemoryContentProvider {
+  _HeldBoxProvider(super.entries);
+
+  final Completer<void> release = Completer<void>();
+
+  @override
+  Future<DirectoryNode> createDirectory(DirectoryNode parent, String name) async {
+    await release.future;
+    return super.createDirectory(parent, name);
+  }
 }

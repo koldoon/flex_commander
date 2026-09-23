@@ -36,7 +36,8 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
     // Итог работы виден в списке фоновых работ, а пишет его эта сторона.
     registry.strings('ru', {'Found: {count}': 'Найдено: {count}', 'Find {what}': 'Поиск {what}'});
 
-    registry.operation(SearchWork.kind, (services) => searching(services.resolve<Strings>()));
+    // Поиск только читает: забывать посчитанные размеры после него не за что.
+    registry.operation(SearchWork.kind, (services) => searching(services.resolve<Strings>()), writes: false);
 
     // Поиск — источник по адресу, как `ssh` и `zip`: весь запрос лежит в
     // строке, и по ней же он восстанавливается (`docs/spec/file-search.md`,

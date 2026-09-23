@@ -3449,7 +3449,7 @@ class PanelSession {
   }
 
   /// Прекращает обход одного каталога, не трогая ни остальные, ни очередь.
-  void _cancelScan(DirectoryNode directory) {
+  void _cancelScan(DirectoryNode directory, {bool hard = false}) {
     final path = directory.pathString;
     final scan = _scans.remove(path);
     if (scan == null) {
@@ -3463,10 +3463,15 @@ class PanelSession {
     // Через память, а не напрямую: обхода может ждать ещё и перенос, и
     // выбрасывать работу, которой он ждёт, нельзя. Кончился последний интерес
     // — память сама остановит обход (§12.3а).
-    if (scan.walk case final walk?) {
+    if (scan.walk case final walk? when !hard) {
       sizes.drop(directory, walk);
     } else {
       scan.cancel();
+      // Чужой обход при этом не трогается: мы его только ждали, а ждёт его,
+      // может статься, ещё и перенос.
+      if (scan.walk != null && scan.operation != null) {
+        sizes.abandon(directory);
+      }
     }
     _sizeChanged(path);
   }
@@ -3482,13 +3487,17 @@ class PanelSession {
   /// начинала вовсе: пометка при этом не меняется, а без её уведомления никто
   /// не поставит каталог в очередь снова. Помеченное живёт узлами, которые
   /// пережили чтение, поэтому обход над ними по-прежнему правомерен.
-  void _stopSizeScan({bool keepMarked = false, bool notify = true}) {
+  /// [hard] — панель уходит совсем: обход прекращается, даже если его ждёт
+  /// кто-то ещё. Отпустить интерес тут мало: обход рассказывает о себе **этой**
+  /// сессии, а её уже нет. Ждущий получит `null` и посчитает сам, если ему всё
+  /// ещё надо.
+  void _stopSizeScan({bool keepMarked = false, bool notify = true, bool hard = false}) {
     final marked = keepMarked ? selection.paths : const <String>{};
     for (final scan in _scans.values.toList()) {
       if (marked.contains(scan.directory.pathString)) {
         continue;
       }
-      _cancelScan(scan.directory);
+      _cancelScan(scan.directory, hard: hard);
     }
     _scanQueue.removeWhere((directory) => !marked.contains(directory.pathString));
     // Не `cancel`: в очереди уведомлений лежат «забудь» от только что
@@ -3522,7 +3531,7 @@ class PanelSession {
     _unfollowSource = null;
     _sourceGrew.cancel();
     _branchesLearned.cancel();
-    _stopSizeScan(notify: false);
+    _stopSizeScan(notify: false, hard: true);
     // Панель ушла — она больше не арендатор ни архива, ни своего сервера.
     // Закроются они, только если держать их больше некому: работа, ушедшая в
     // фон, продолжает читать то, из чего панель уже вышла.

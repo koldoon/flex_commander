@@ -36,11 +36,12 @@ void main() {
     }
   }
 
-  Future<TestPanel> open({ListingCache? cache, bool watch = true}) async {
+  Future<TestPanel> open({ListingCache? cache, MeasuredSizes? sizes, bool watch = true}) async {
     panel = testPanel(
       provider: provider,
       settings: PanelSettings(path: '/home'),
       cache: cache,
+      sizes: sizes,
       watchDirectories: watch,
       watchDelay: window,
     );
@@ -137,6 +138,28 @@ void main() {
     await pump();
 
     expect(other.entries.map((one) => one.name), contains('new.txt'));
+  });
+
+  test('событие забывает каталог и предков, но не поддерево', () async {
+    final sizes = MeasuredSizes();
+    await open(sizes: sizes);
+
+    // Три записи: сам каталог, его предок и ветвь под ним. Считались они
+    // долго, а событие слежения говорит только о `/home`.
+    final home = (await provider.resolvePath().run('/home'))! as DirectoryNode;
+    final root = provider.rootDirectory;
+    final deep = (await provider.resolvePath().run('/home/docs'))! as DirectoryNode;
+    const totals = DirectoryTotals(bytes: 1, workBytes: 1, entries: 1);
+    for (final dir in [home, root, deep]) {
+      sizes.remember(dir, totals);
+    }
+
+    provider.touch('/home');
+    await settle();
+
+    expect(sizes.take(home), isNull, reason: 'изменился он сам');
+    expect(sizes.take(root), isNull, reason: 'и сумма выше по дереву вместе с ним');
+    expect(sizes.take(deep), totals, reason: 'а про поддерево событие ничего и не говорило');
   });
 
   test('уход из каталога снимает слежение', () async {

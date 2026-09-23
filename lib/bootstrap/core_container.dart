@@ -272,6 +272,9 @@ class CoreContainer extends DI {
           editor: c.get<TreeEditor>(),
           services: services,
           operations: backend.operations,
+          // Та же память, что у панелей: своя работа портит посчитанное, и
+          // забыть его — её дело (`docs/spec/directory-sizes.md`, §12.4).
+          sizes: c.get<MeasuredSizes>(),
           settings: SettingsHub(
             store: c.get<SettingsStore>(),
             stored: settings,
