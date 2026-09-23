@@ -146,6 +146,36 @@ void main() {
     expect(list(runtime).entries.map((row) => row.name), containsAll(['notes.txt', 'readme.md']));
   });
 
+  testWidgets('дерево идёт за списком внутрь архива и держит курсор на его ветви', (tester) async {
+    // Живая находка: список вошёл в архив, дерево ветвь нарисовало — а курсор
+    // остался в начале дерева, на корне. У корня архива своей строки нет: его
+    // содержимое висит под строкой самого файла, и ветвь этого каталога — она
+    // (`docs/spec/panel-view-tree.md`, §4б).
+    //
+    // С придержанной дверью: живьём вести ядра приходят не в том же кадре.
+    final runtime = await open(tester, lagging: true);
+    await settle(tester);
+
+    // Входит **список**: курсор в столбце файлов, `Enter` на самом архиве.
+    // Дерево догоняет его заявкой и ставит курсор само.
+    list(runtime).setCursorToName('archive.arc');
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Enter'));
+    await settle(tester);
+
+    expect(list(runtime).currentPath, '/home/archive.arc');
+    expect(tree(runtime).currentEntry?.path, '/home/archive.arc', reason: 'ветвь архива и есть его корень');
+
+    // Шаг вглубь архива — дерево идёт следом и встаёт на подкаталог.
+    list(runtime).setCursorToName('inner');
+    await tester.pumpAndSettle();
+    runtime.commands.dispatch(KeyCombination.parse('Enter'));
+    await settle(tester);
+
+    expect(list(runtime).currentPath, '/home/archive.arc/inner');
+    expect(tree(runtime).currentEntry?.path, '/home/archive.arc:arc:/inner');
+  });
+
   testWidgets('вид разводит сторону на два столбца', (tester) async {
     final runtime = await open(tester);
 
