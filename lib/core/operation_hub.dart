@@ -248,18 +248,16 @@ class OperationHub {
   /// живым — дело той стороны, где он и живёт.
   Future<List<FsNode>> _targetsOf(Targets targets, List<ProviderLease> leases) async {
     switch (targets) {
-      case MarkedTargets(:final panel):
+      case MarkedTargets(:final panel, :final under):
         final session = _sessionOf(panel);
         _hold(session, leases);
         // Пометка чужого каталога разбирается асинхронно, а просьбы ядром не
         // сериализуются: пометил ветвь в дереве — тут же нажал `F8`, и работа
         // прочитала бы недособранное (`docs/spec/operation-targets.md`, §3).
         await session.marksSettled;
-        return session.targetNodes;
-      case CurrentTargets(:final panel):
-        final session = _sessionOf(panel);
-        _hold(session, leases);
-        final node = session.currentNode;
+        return session.targetNodesUnder(_rowOf(under, leases));
+      case RowTargets(:final row):
+        final node = _rowOf(row, leases);
         return node == null || node is ParentDirNode ? const [] : [node];
       case PathTargets(:final paths):
         final registry = _registry;
@@ -283,6 +281,26 @@ class OperationHub {
           nodes.add(node);
         }
         return nodes;
+    }
+  }
+
+  /// Узел названной строки; null — строки нет или её не назвали.
+  ///
+  /// Строку называет тот, кто заводил работу, — своей, а не ядровой личностью
+  /// (`docs/spec/client-server.md`, §5.6). Разбирает её сессия по своим
+  /// строкам: глобального разбора пути здесь не появляется (§5.5а).
+  FsNode? _rowOf(EntryRef? row, List<ProviderLease> leases) {
+    switch (row) {
+      case null:
+        return null;
+      case PanelEntryRef(:final panel, :final id, :final path):
+        final session = _sessionOf(panel);
+        _hold(session, leases);
+        return session.rowForRef(id, path);
+      case PathEntryRef():
+        // Адрес со стороны целям работы не приходит: для него есть свой набор
+        // (`Targets.paths`), и разбирает его корень дерева.
+        return null;
     }
   }
 

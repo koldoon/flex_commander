@@ -66,8 +66,8 @@ class CreateGzipCommand extends AppCommand {
 
   /// Что сжимать — строка под курсором.
   ///
-  /// Именно она, а не пометка: работа идёт `Targets.current`, и спрашивать надо
-  /// то же, чем она пойдёт, — иначе проверка и работа говорят о разном
+  /// Именно она, а не пометка: работа идёт `Targets.row`, и спрашивать надо то
+  /// же, чем она пойдёт, — иначе проверка и работа говорят о разном
   /// (`docs/spec/operation-targets.md`, §3).
   FileEntry? _sourceOf(CommandContext context) {
     final entry = context.entry;
@@ -78,7 +78,8 @@ class CreateGzipCommand extends AppCommand {
   Future<void> execute(CommandContext context) async {
     final source = _sourceOf(context);
     final target = context.target;
-    if (source == null || target == null) {
+    final row = context.session.currentRef;
+    if (source == null || target == null || row == null) {
       return;
     }
 
@@ -91,7 +92,7 @@ class CreateGzipCommand extends AppCommand {
       // Аренда обоих концов и проверка занятого имени — дело ядра.
       final spec = OperationSpec(
         kind: GzipPacking.kind,
-        targets: Targets.current(context.session.id),
+        targets: Targets.row(row),
         destination: target.id,
         options: {GzipPacking.nameOption: name},
       );

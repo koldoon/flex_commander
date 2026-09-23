@@ -511,10 +511,15 @@ final class AskSizes extends CoreRequest implements PanelRequest {
 /// (`docs/spec/client-server.md`, §4.3). Счёт этой стороне и без того известен:
 /// пути помеченного приезжают полностью.
 final class ListTargets extends CoreRequest implements PanelRequest {
-  const ListTargets(this.panel);
+  const ListTargets(this.panel, {required this.under});
 
   @override
   final PanelId panel;
+
+  /// Строка, которой отвечать, если не помечено ничего, — та, что у
+  /// спрашивающего под курсором. Ядро своего курсора для этого не
+  /// спрашивает: он принадлежит экрану (`docs/spec/client-server.md`, §5.6).
+  final EntryRef? under;
 }
 
 /// Завести оболочку там, где стоит панель, — или отдать уже заведённую.

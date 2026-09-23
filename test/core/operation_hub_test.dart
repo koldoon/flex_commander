@@ -110,6 +110,13 @@ void main() {
     await link.call(const OpenPath(PanelId.left, '/home'));
   }
 
+  /// Строка панели ссылкой — так её называет экран, заводя работу
+  /// (`docs/spec/client-server.md`, §5.6).
+  EntryRef row(String name) {
+    final entry = core.session(PanelId.left).entries.firstWhere((entry) => entry.name == name);
+    return EntryRef.inPanel(PanelId.left, entry.id, path: entry.path);
+  }
+
   test('работа рождается в ядре и рассказывает о себе', () async {
     await openLeft();
     link.tell(const SetMarks(PanelId.left, {'/home/notes.txt', '/home/report.txt'}, 1));
@@ -119,7 +126,7 @@ void main() {
     final seen = <String>[];
     operation.status.addListener(() => seen.add(operation.status.message));
 
-    await operation.run(const OperationSpec(kind: 'test.probe', targets: Targets.marked(PanelId.left)));
+    await operation.run(OperationSpec(kind: 'test.probe', targets: Targets.marked(PanelId.left, under: null)));
 
     expect(seen, contains('Работаю над 2'), reason: 'цели развернуло ядро — по имени набора');
     expect(operation.state, OperationState.complete);
@@ -194,7 +201,7 @@ void main() {
     final asked = <OperationRequest>[];
     operation.requests.listen(asked.add);
     final done = operation.run(
-      const OperationSpec(kind: 'test.probe', targets: Targets.current(PanelId.left), options: {'asks': true}),
+      OperationSpec(kind: 'test.probe', targets: Targets.row(row('notes.txt')), options: const {'asks': true}),
     );
     await pumpEventQueue();
 
@@ -212,7 +219,7 @@ void main() {
 
     // Никто не подписан на `requests`: работу запустили без окна.
     await operation.run(
-      const OperationSpec(kind: 'test.probe', targets: Targets.current(PanelId.left), options: {'asks': true}),
+      OperationSpec(kind: 'test.probe', targets: Targets.row(row('notes.txt')), options: const {'asks': true}),
     );
 
     expect(operation.status.message, 'Ответили no', reason: 'берётся вариант по умолчанию');
@@ -223,7 +230,7 @@ void main() {
     final operation = RemoteOperation(link);
 
     final done = operation.run(
-      const OperationSpec(kind: 'test.probe', targets: Targets.current(PanelId.left), options: {'waits': true}),
+      OperationSpec(kind: 'test.probe', targets: Targets.row(row('notes.txt')), options: const {'waits': true}),
     );
     await pumpEventQueue();
     operation.cancel();
@@ -256,7 +263,11 @@ void main() {
     await pumpEventQueue();
 
     await RemoteOperation(link).run(
-      const OperationSpec(kind: FileOperations.copy, targets: Targets.marked(PanelId.left), destination: PanelId.right),
+      OperationSpec(
+        kind: FileOperations.copy,
+        targets: Targets.marked(PanelId.left, under: null),
+        destination: PanelId.right,
+      ),
     );
 
     expect(provider.entryAt('/home/docs/notes.txt'), isNotNull);

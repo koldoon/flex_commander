@@ -428,12 +428,12 @@ class CoreServer implements CoreHandler {
         final target = session(panel);
         return CoreSizes(target.measuredSizes(paths), partial: target.partialSizes(paths));
 
-      case ListTargets(:final panel):
+      case ListTargets(:final panel, :final under):
         final asked = session(panel);
         // Сперва пометка дособерётся: спрашивают её сразу после того, как
         // пометили (`docs/spec/operation-targets.md`, §3).
         await asked.marksSettled;
-        return CoreEntries(asked.targetEntries);
+        return CoreEntries(asked.targetEntriesUnder(_rowOf(asked, under)));
 
       case OpenShell():
         return _shells.open(request);
@@ -447,6 +447,15 @@ class CoreServer implements CoreHandler {
 
   /// Войти в объект, названный ссылкой.
   ///
+  /// Узел названной строки; null — не назвали или строки уже нет.
+  ///
+  /// Личностью, а не местом: пока просьба шла, список мог дорасти
+  /// (`docs/spec/client-server.md`, §5.5а).
+  FsNode? _rowOf(PanelSession session, EntryRef? row) => switch (row) {
+    PanelEntryRef(:final id, :final path) => session.rowForRef(id, path),
+    _ => null,
+  };
+
   /// Строка панели — обычный случай: пришли за тем, что видят на экране. Ищется
   /// она **личностью**, а не местом в списке: пока сообщение шло, список мог
   /// дорасти, и отказывать из-за этого человеку не за что

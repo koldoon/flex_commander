@@ -91,27 +91,36 @@ final class PathEntryRef extends EntryRef {
 sealed class Targets {
   const Targets();
 
-  /// Помеченное в панели, а если не помечено ничего — объект под курсором.
+  /// Помеченное в панели, а если не помечено ничего — строка [under].
   /// Это то самое правило, по которому работают все файловые операции.
-  const factory Targets.marked(PanelId panel) = MarkedTargets;
+  ///
+  /// Строку **называет тот, кто заводит работу**, а не ядро по своему курсору:
+  /// курсор принадлежит экрану, и ядро, отставшее на несколько подтверждений,
+  /// взяло бы не ту строку, которую человек видел, когда нажал `F8`
+  /// (`docs/spec/client-server.md`, §5.6). null — строки нет вовсе: пустой
+  /// список или «..» под курсором.
+  const factory Targets.marked(PanelId panel, {required EntryRef? under}) = MarkedTargets;
 
-  /// Только объект под курсором, что бы ни было помечено.
-  const factory Targets.current(PanelId panel) = CurrentTargets;
+  /// Только названная строка, что бы ни было помечено.
+  const factory Targets.row(EntryRef row) = RowTargets;
 
   /// Названные пути: перетаскивание, сценарий, буфер обмена.
   const factory Targets.paths(List<String> paths) = PathTargets;
 }
 
 final class MarkedTargets extends Targets {
-  const MarkedTargets(this.panel);
+  const MarkedTargets(this.panel, {required this.under});
 
   final PanelId panel;
+
+  /// Чем работать, если не помечено ничего; null — нечем.
+  final EntryRef? under;
 }
 
-final class CurrentTargets extends Targets {
-  const CurrentTargets(this.panel);
+final class RowTargets extends Targets {
+  const RowTargets(this.row);
 
-  final PanelId panel;
+  final EntryRef row;
 }
 
 final class PathTargets extends Targets {

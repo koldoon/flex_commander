@@ -113,7 +113,7 @@ class CreateZipArchiveCommand extends AppCommand {
       // узлы, и там же идёт работа.
       final spec = OperationSpec(
         kind: ZipPacking.kind,
-        targets: Targets.marked(context.session.id),
+        targets: Targets.marked(context.session.id, under: context.session.currentRef),
         destination: target.id,
         options: {
           ZipPacking.nameOption: name,

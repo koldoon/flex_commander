@@ -87,7 +87,10 @@ void main() {
     sendable('закрыть панель', const LinkRequest(0, ClosePanel(PanelId.left)));
     sendable(
       'завести работу',
-      LinkRequest(1, RunOperation('run#1', OperationSpec(kind: 'file.copy', targets: Targets.marked(PanelId.left)))),
+      LinkRequest(
+        1,
+        RunOperation('run#1', OperationSpec(kind: 'file.copy', targets: Targets.marked(PanelId.left, under: null))),
+      ),
     );
     sendable('отмена работы', const LinkRequest(0, TellOperation('run#1', CancelInput())));
     sendable('ответ работе', const LinkRequest(0, TellOperation('run#1', AnswerInput('overwrite'))));
@@ -97,7 +100,21 @@ void main() {
     sendable('права на запись', const LinkRequest(1, CheckWriteAccess(ref)));
     sendable('оболочка', const LinkRequest(1, OpenShell(panel: PanelId.left)));
     sendable('имена в каталоге', const LinkRequest(1, ListNames(PanelId.left, '/home')));
-    sendable('цели значениями', const LinkRequest(1, ListTargets(PanelId.left)));
+    sendable('цели значениями', const LinkRequest(1, ListTargets(PanelId.left, under: null)));
+    sendable(
+      'цели с названной строкой',
+      const LinkRequest(1, ListTargets(PanelId.left, under: EntryRef.inPanel(PanelId.left, 7, path: '/home/a.txt'))),
+    );
+    sendable(
+      'работа по названной строке',
+      const LinkRequest(
+        1,
+        RunOperation(
+          'run#2',
+          OperationSpec(kind: 'file.rename', targets: Targets.row(EntryRef.inPanel(PanelId.left, 7, path: '/a'))),
+        ),
+      ),
+    );
     sendable('секрет', LinkRequest(0, AnswerCredential('secret#1', Credential.password('тайна'), realm: '7z:/a.7z')));
     sendable('повышение', const LinkRequest(0, AnswerElevation('sudo#1', agreed: true)));
     sendable('настройки', const LinkRequest(0, ChangeSettings(UiSettings(splitRatio: 0.3))));

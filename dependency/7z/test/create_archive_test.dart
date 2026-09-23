@@ -109,7 +109,7 @@ void main() {
     operation.start(
       OperationSpec(
         kind: SevenZipPacking.kind,
-        targets: Targets.marked(PanelId.left),
+        targets: Targets.marked(PanelId.left, under: runtime.app.left.currentRef),
         destination: PanelId.right,
         options: {
           SevenZipPacking.nameOption: '$name.7z',
@@ -356,7 +356,7 @@ void main() {
       operation.start(
         OperationSpec(
           kind: SevenZipPacking.kind,
-          targets: Targets.current(PanelId.left),
+          targets: Targets.row(runtime.app.left.currentRef!),
           destination: PanelId.right,
           options: {
             SevenZipPacking.nameOption: 'huge.7z',

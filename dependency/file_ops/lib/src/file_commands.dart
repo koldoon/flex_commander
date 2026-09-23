@@ -270,7 +270,7 @@ abstract class RemoveCommandBase extends AppCommand {
   ///
   /// Именем набора, а не перечислением: разворачивает его ядро — пометка живёт
   /// там же, где дерево.
-  Targets targetsOf(CommandContext context) => Targets.marked(context.session.id);
+  Targets targetsOf(CommandContext context) => Targets.marked(context.session.id, under: context.session.currentRef);
 
   /// «Delete !» в заголовке разбора читалось бы как опечатка: восклицательный
   /// знак в названии команды отличает её от удаления в корзину, а не от чего-то
@@ -459,13 +459,17 @@ class RenameCommand extends AppCommand {
       return;
     }
 
+    // Строка называется **сейчас**, до окна с именем: переименовывают ту, на
+    // которой стоял человек, когда нажал, — а не ту, где к концу разговора
+    // окажется чей-то курсор (`docs/spec/client-server.md`, §5.6).
+    final row = panel.currentRef;
+    if (row == null) {
+      return;
+    }
+
     Future<void> rename(String name) async {
       await context.app.runOperation().run(
-        OperationSpec(
-          kind: FileOperations.rename,
-          targets: Targets.current(panel.id),
-          options: {FileOperations.name: name},
-        ),
+        OperationSpec(kind: FileOperations.rename, targets: Targets.row(row), options: {FileOperations.name: name}),
       );
       // Объект на месте, но в панели ещё под прежним именем: перечитываем и
       // ищем его по **новому** — иначе курсор прыгает в начало ровно тогда,

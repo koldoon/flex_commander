@@ -280,7 +280,7 @@ void main() {
       operation.start(
         OperationSpec(
           kind: ZipPacking.kind,
-          targets: Targets.marked(PanelId.left),
+          targets: Targets.marked(PanelId.left, under: runtime.app.left.currentRef),
           destination: PanelId.right,
           options: {
             ZipPacking.nameOption: '$name.zip',
@@ -316,7 +316,7 @@ void main() {
       operation.start(
         OperationSpec(
           kind: ZipPacking.kind,
-          targets: Targets.current(PanelId.left),
+          targets: Targets.row(runtime.app.left.currentRef!),
           destination: PanelId.right,
           options: {
             ZipPacking.nameOption: 'docs.zip',

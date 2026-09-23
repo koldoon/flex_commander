@@ -110,7 +110,7 @@ class CreateSevenZipArchiveCommand extends AppCommand {
       // узлы, и там же идёт работа.
       final spec = OperationSpec(
         kind: SevenZipPacking.kind,
-        targets: Targets.marked(context.session.id),
+        targets: Targets.marked(context.session.id, under: context.session.currentRef),
         destination: target.id,
         options: {
           SevenZipPacking.nameOption: name,

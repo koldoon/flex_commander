@@ -256,7 +256,7 @@ void main() {
       link.tell(const SetMarks(PanelId.left, {'/home/notes.txt', '/home/docs/deep.txt'}, 1));
       await pumpEventQueue();
 
-      final reply = await link.call(const ListTargets(PanelId.left)) as CoreEntries;
+      final reply = await link.call(const ListTargets(PanelId.left, under: null)) as CoreEntries;
 
       expect(reply.entries.map((entry) => entry.name), containsAll(['notes.txt', 'deep.txt']));
       expect(
@@ -272,20 +272,33 @@ void main() {
       // (`docs/spec/operation-targets.md`, §3).
       link.tell(const SetMarks(PanelId.left, {'/home/docs/deep.txt'}, 1));
 
-      final reply = await link.call(const ListTargets(PanelId.left)) as CoreEntries;
+      final reply = await link.call(const ListTargets(PanelId.left, under: null)) as CoreEntries;
 
       expect(reply.entries.map((entry) => entry.name), ['deep.txt']);
     });
 
-    test('без пометки цель — строка под курсором', () async {
+    test('без пометки цель — названная строка, а не курсор ядра', () async {
+      // Курсор принадлежит экрану, и строку называет спрашивающий. Здесь это
+      // видно прямо: курсор в ядре стоит в другом месте, а ответ — про
+      // названную строку (`docs/spec/client-server.md`, §5.6).
       final listing = lastListing()!;
-      final notes = listing.entries.indexWhere((entry) => entry.name == 'notes.txt');
-      link.tell(MoveCursor(PanelId.left, notes, 1));
+      final notes = listing.entries.firstWhere((entry) => entry.name == 'notes.txt');
+      link.tell(const MoveCursor(PanelId.left, 0, 1));
       await pumpEventQueue();
 
-      final reply = await link.call(const ListTargets(PanelId.left)) as CoreEntries;
+      final reply =
+          await link.call(ListTargets(PanelId.left, under: EntryRef.inPanel(PanelId.left, notes.id, path: notes.path)))
+              as CoreEntries;
 
       expect(reply.entries.map((entry) => entry.name), ['notes.txt']);
+    });
+
+    test('названной строки нет — целей нет, и ядро не подставляет свою', () async {
+      final reply =
+          await link.call(const ListTargets(PanelId.left, under: EntryRef.inPanel(PanelId.left, 99, path: '/nope')))
+              as CoreEntries;
+
+      expect(reply.entries, isEmpty);
     });
 
     test('пометка, поставленная во время чтения, не пропадает', () async {

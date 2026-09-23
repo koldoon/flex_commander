@@ -126,7 +126,7 @@ abstract class TransferCommandBase extends AppCommand {
   /// панель, отношения не имеет.
   Targets targetsOf(CommandContext context) {
     final given = context.invocation.param<List<String>>(sourcesParam);
-    return given == null ? Targets.marked(context.session.id) : Targets.paths(given);
+    return given == null ? Targets.marked(context.session.id, under: context.session.currentRef) : Targets.paths(given);
   }
 
   /// Пришло ли задание готовым — со своими объектами и приёмником.

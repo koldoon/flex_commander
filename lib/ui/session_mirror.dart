@@ -483,7 +483,7 @@ class SessionMirror extends ChangeNotifier implements Session {
   /// живут узлы.
   @override
   Future<List<FileEntry>> allTargets() async {
-    final reply = await _link.call(ListTargets(id));
+    final reply = await _link.call(ListTargets(id, under: currentRef));
     return reply is CoreEntries ? reply.entries : const [];
   }
 
@@ -761,6 +761,17 @@ class SessionMirror extends ChangeNotifier implements Session {
   ///
   /// Строки из чужих рук (перетаскивание, сценарий) личности не имеют — их
   /// называют адресом, и разбирать его ядро умеет.
+  /// Строка под курсором — ссылкой, какой её называют ядру.
+  ///
+  /// Курсор принадлежит экрану, и всякий, кому нужна «та строка, на которой
+  /// стоит человек», получает её отсюда — а не просит ядро посмотреть у себя
+  /// (`docs/spec/client-server.md`, §5.6).
+  @override
+  EntryRef? get currentRef {
+    final entry = currentEntry;
+    return entry == null || entry.isParent ? null : _refTo(entry);
+  }
+
   EntryRef? _refTo(FileEntry entry) {
     if (entry.path.isEmpty) {
       // Путь есть у всего, кроме «..», а её читать нечем.

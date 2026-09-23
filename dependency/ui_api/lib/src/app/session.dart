@@ -311,6 +311,13 @@ abstract interface class Session implements ViewportState {
   /// окно вставало сразу (`docs/spec/operation-targets.md`, §2).
   Future<List<FileEntry>> allTargets();
 
+  /// Строка под курсором — ссылкой для ядра; null — строки нет или это «..».
+  ///
+  /// Ею называют цель работы: курсор принадлежит экрану, и просить ядро
+  /// «посмотри у себя» значит отдать ему решение, которое он примет с
+  /// опозданием (`docs/spec/client-server.md`, §5.6).
+  EntryRef? get currentRef;
+
   /// Посчитанный размер каталога по пути; null — не посчитан.
   ///
   /// Числа приезжают **в строках** (`FileEntry.size`), а этот вопрос остаётся

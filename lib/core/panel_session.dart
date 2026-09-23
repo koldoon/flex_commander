@@ -1473,19 +1473,22 @@ class PanelSession {
   /// пометку набором путей, мимо клавишной двери, и помечал корень.
   static bool _markable(FsNode node) => node is! ParentDirNode && node.parent != null;
 
-  /// Помеченное, а если не помечено ничего — объект под курсором.
+  /// Помеченное, а если не помечено ничего — названная строка.
   ///
   /// То самое правило, по которому работают все файловые операции. Псевдоузел
   /// «..» целью не бывает: это не объект, а способ выйти наверх.
-  List<FsNode> get targetNodes {
+  ///
+  /// Строку называет **спрашивающий**, а не курсор сессии: курсор принадлежит
+  /// экрану, и ядро, отставшее на несколько подтверждений, отдало бы не ту
+  /// строку, которую человек видел (`docs/spec/client-server.md`, §5.6).
+  List<FsNode> targetNodesUnder(FsNode? under) {
     if (selection.isNotEmpty) {
       return [
         for (final node in selection.nodes)
           if (node is! ParentDirNode) node,
       ];
     }
-    final node = currentNode;
-    return node == null || node is ParentDirNode ? const [] : [node];
+    return under == null || under is ParentDirNode ? const [] : [under];
   }
 
   /// Заменить пометку целиком — путями.
@@ -2302,10 +2305,10 @@ class PanelSession {
 
   /// Цели значениями — то самое, что развернёт `Targets.marked`.
   ///
-  /// Тем же [targetNodes], а не своим отбором: окно, считающее по своему
+  /// Тем же [targetNodesUnder], а не своим отбором: окно, считающее по своему
   /// списку, однажды разойдётся с операцией, а по общему — не может
   /// (`docs/spec/operation-targets.md`, §3).
-  List<FileEntry> get targetEntries => [for (final node in targetNodes) entryOf(node)];
+  List<FileEntry> targetEntriesUnder(FsNode? under) => [for (final node in targetNodesUnder(under)) entryOf(node)];
 
   /// Каталог панели так, как его назовёт сама оболочка; пусто — выполнять
   /// здесь негде (внутри архива оболочки нет вовсе).

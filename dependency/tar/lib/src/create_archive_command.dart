@@ -114,7 +114,7 @@ class CreateTarArchiveCommand extends AppCommand {
       // узлы, и там же идёт работа.
       final spec = OperationSpec(
         kind: TarPacking.kind,
-        targets: Targets.marked(context.session.id),
+        targets: Targets.marked(context.session.id, under: context.session.currentRef),
         destination: target.id,
         options: {
           TarPacking.nameOption: name,
