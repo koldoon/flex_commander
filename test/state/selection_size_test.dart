@@ -163,12 +163,25 @@ void main() {
 
   test('снятие пометки прекращает подсчёт', () async {
     mark('docs');
-    panel.clearMarks();
+    panel.clearMarks(by: MarkChange.person);
 
     await settle();
 
     expect(panel.markedSize, 0);
     expect(panel.markedSizeIsFinal, isTrue);
+  });
+
+  test('пометку сняла работа — подсчёт продолжается', () async {
+    mark('docs');
+    // Работа кончилась и сняла за собой ровно ту пометку, по которой шла.
+    // Человек тут ничего не передумывал, и выбрасывать обход не за что
+    // (`docs/spec/directory-sizes.md`, §12.5).
+    panel.clearMarks(by: MarkChange.work);
+
+    await settle();
+
+    expect(panel.markedSize, 0, reason: 'помеченного и правда не осталось');
+    expect(nodeNamed('docs').size, 300, reason: 'а обход дошёл до конца, и число видно в колонке');
   });
 
   test('новый каталог встаёт в очередь, не прерывая начатое', () async {
@@ -201,7 +214,7 @@ void main() {
     await settle();
     expect(panel.markedSize, 300);
 
-    panel.clearMarks();
+    panel.clearMarks(by: MarkChange.person);
     mark('bin');
     await settle();
 
@@ -247,7 +260,7 @@ void main() {
       mark('docs');
       await settle();
 
-      panel.clearMarks();
+      panel.clearMarks(by: MarkChange.person);
       await settle();
 
       // В колонке размер остаётся: он всё ещё верен. В сумму не идёт — сумма
@@ -271,7 +284,7 @@ void main() {
       // В узле её при этом нет: узел хранит только известное окончательно.
       expect(nodeNamed('docs', panel).size, FsNode.unknownSize);
 
-      panel.clearMarks();
+      panel.clearMarks(by: MarkChange.person);
       await settle();
 
       // Частичная сумма, застывшая как итог, была бы ложью.
@@ -298,7 +311,7 @@ void main() {
       mark('docs');
       await settle();
 
-      panel.clearMarks();
+      panel.clearMarks(by: MarkChange.person);
       mark('docs');
 
       // Синхронно, без ожидания: значение в узле авторитетно.
@@ -419,7 +432,7 @@ void main() {
       // без этого она молчала бы прочерком до конца обхода.
       expect(panel.session.measuredSizes(['/home/docs']), {'/home/docs': _HeldSizeProvider.partial});
 
-      panel.clearMarks();
+      panel.clearMarks(by: MarkChange.person);
       await settle();
 
       // Обход оборвался — число уходит вместе с ним.
@@ -485,7 +498,7 @@ void main() {
       expect(shownSize('docs', panel), _HeldSizeProvider.partial);
 
       // Esc: пометка снята, обход прекращён.
-      panel.clearMarks();
+      panel.clearMarks(by: MarkChange.person);
       await settle();
 
       // Ни в строке, ни в узле, ни в ответах — иначе число вернётся с
@@ -533,7 +546,7 @@ void main() {
         reason: 'растущая сумма видна',
       );
 
-      panel.clearMarks();
+      panel.clearMarks(by: MarkChange.person);
       await Future<void>.delayed(const Duration(milliseconds: 80));
       await settle();
 

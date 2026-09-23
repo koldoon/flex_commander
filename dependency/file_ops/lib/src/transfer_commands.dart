@@ -186,7 +186,7 @@ abstract class TransferCommandBase extends AppCommand {
         // пришедшее готовым, о пометке ничего не знает, и стирать чужую
         // разметку ему не за что.
         if (givenSources == null) {
-          panel.clearMarks();
+          panel.clearMarks(by: MarkChange.work);
         }
         // Перечитываются все панели, которые смотрят на задетые каталоги —
         // откуда и куда, — и каждая по одному разу: обе могут стоять в одном и

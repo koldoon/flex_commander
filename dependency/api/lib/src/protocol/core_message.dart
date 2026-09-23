@@ -174,12 +174,30 @@ final class MoveCursorTo extends CoreRequest implements PanelRequest {
 /// помечено уже больше, — и слушать их значит отбирать помеченное
 /// (`docs/spec/client-server.md`, §5.5).
 final class SetMarks extends CoreRequest implements PanelRequest {
-  const SetMarks(this.panel, this.paths, this.seq);
+  const SetMarks(this.panel, this.paths, this.seq, {this.by = MarkChange.person});
 
   @override
   final PanelId panel;
   final Set<String> paths;
   final int seq;
+
+  /// Кто меняет пометку: человек или работа.
+  final MarkChange by;
+}
+
+/// Кто поменял пометку.
+///
+/// Признак, а не догадка по времени: снятие пометки отменяет обход размера —
+/// человек передумал, — но **та же** пометка снимается и в конце работы,
+/// которая по ней шла. Отличить одно от другого догадками нельзя, а цена
+/// ошибки — выброшенные полторы минуты обхода
+/// (`docs/spec/directory-sizes.md`, §12.5).
+enum MarkChange {
+  /// Человек: нажал клавишу, щёлкнул мышью, применил маску.
+  person,
+
+  /// Работа: скопировала помеченное и снимает пометку за собой.
+  work,
 }
 
 /// Показать каталог, **не открывая** его: за курсором вида идёт каталог, а не

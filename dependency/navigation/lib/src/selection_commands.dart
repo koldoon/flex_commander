@@ -80,7 +80,7 @@ class ClearSelectionCommand extends AppCommand {
   bool isExecutable(CommandContext context) => context.session.markedPaths.isNotEmpty;
 
   @override
-  Future<void> execute(CommandContext context) async => context.session.clearMarks();
+  Future<void> execute(CommandContext context) async => context.session.clearMarks(by: MarkChange.person);
 }
 
 /// Пометить файлы, не трогая каталоги.

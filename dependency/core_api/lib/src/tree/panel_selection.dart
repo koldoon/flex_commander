@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter/foundation.dart';
 
 import 'fs_node.dart';
@@ -37,9 +38,12 @@ abstract interface class PanelSelection implements Listenable {
   /// гаснут: каждая заявка на миг обнуляла набор, и нажатие, пришедшееся на
   /// этот миг, собирало новый набор поверх пустого
   /// (`docs/spec/client-server.md`, §5.5).
-  void replaceWith(Iterable<FsNode> nodes);
+  ///
+  /// [by] — кто меняет пометку: обход размера отменяет только тот, кто снял
+  /// её **сам** (`docs/spec/directory-sizes.md`, §12.5).
+  void replaceWith(Iterable<FsNode> nodes, {MarkChange by = MarkChange.person});
 
-  void clear();
+  void clear({MarkChange by = MarkChange.person});
 
   /// Помеченные объекты в порядке пометки — он же порядок обработки
   /// в файловых операциях.

@@ -294,8 +294,8 @@ class CoreServer implements CoreHandler {
         session(panel).setCursorToPath(path, seq: seq);
         return null;
 
-      case SetMarks(:final panel, :final paths, :final seq):
-        await session(panel).setMarks(paths, seq: seq);
+      case SetMarks(:final panel, :final paths, :final seq, :final by):
+        await session(panel).setMarks(paths, seq: seq, by: by);
         return null;
 
       case FollowCursor(:final panel, :final directory, :final name):

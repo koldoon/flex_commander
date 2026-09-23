@@ -311,7 +311,7 @@ abstract class RemoveCommandBase extends AppCommand {
       } finally {
         // Часть объектов могла исчезнуть, часть остаться: список в панели
         // больше не совпадает с диском.
-        panel.clearMarks();
+        panel.clearMarks(by: MarkChange.work);
         await reloadPanelsAt(context.app, [...sources, panel.currentPath]);
       }
     }
@@ -363,7 +363,7 @@ abstract class RemoveCommandBase extends AppCommand {
       try {
         await run.run(context.app.runOperation(), spec, message: tr('Deleting…'));
       } finally {
-        panel.clearMarks();
+        panel.clearMarks(by: MarkChange.work);
         await reloadPanelsAt(context.app, [...sources, panel.currentPath]);
       }
     };

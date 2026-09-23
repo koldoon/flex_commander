@@ -266,7 +266,10 @@ abstract interface class Session implements ViewportState {
   bool isMarked(FileEntry entry);
 
   /// Заменить пометку целиком.
-  void setMarks(Set<String> paths);
+  ///
+  /// [by] — кто её меняет: снятие пометки человеком отменяет идущий обход
+  /// размера, а снятие работой — нет (`docs/spec/directory-sizes.md`, §12.5).
+  void setMarks(Set<String> paths, {MarkChange by = MarkChange.person});
 
   void mark(FileEntry entry);
 
@@ -274,7 +277,9 @@ abstract interface class Session implements ViewportState {
 
   void markAll();
 
-  void clearMarks();
+  /// Снять пометку целиком. [by] говорит кто: у человека и у работы это
+  /// разные действия, и обход размера различает их (§12.5).
+  void clearMarks({required MarkChange by});
 
   /// Помеченное, а если не помечено ничего — объект под курсором, **строками
   /// этого списка**.

@@ -1,3 +1,4 @@
+import 'package:fc_api/fc_api.dart';
 import 'package:flutter/foundation.dart';
 
 import 'package:fc_core_api/fc_core_api.dart';
@@ -103,7 +104,7 @@ class SelectionController extends ChangeNotifier implements PanelSelection {
   /// Порядок — тот, в котором пришли узлы: он же порядок обработки в файловых
   /// операциях.
   @override
-  void replaceWith(Iterable<FsNode> nodes) {
+  void replaceWith(Iterable<FsNode> nodes, {MarkChange by = MarkChange.person}) {
     final replacement = <String, FsNode>{};
     for (final node in nodes) {
       if (node is! ParentDirNode) {
@@ -118,7 +119,25 @@ class SelectionController extends ChangeNotifier implements PanelSelection {
     _nodes
       ..clear()
       ..addAll(replacement);
-    notifyListeners();
+    _notify(by);
+  }
+
+  /// Кто поменял пометку **прямо сейчас**: читать это можно только из
+  /// уведомления, и дальше него оно не живёт.
+  ///
+  /// Признак едет через уведомление, а не полем с долгой жизнью: слушающих у
+  /// пометки несколько, и застрявшее «это была работа» однажды соврало бы
+  /// следующему нажатию человека.
+  MarkChange get lastChange => _lastChange;
+  MarkChange _lastChange = MarkChange.person;
+
+  void _notify(MarkChange by) {
+    _lastChange = by;
+    try {
+      notifyListeners();
+    } finally {
+      _lastChange = MarkChange.person;
+    }
   }
 
   /// Тот же ли это набор — и в том же ли порядке.
@@ -137,12 +156,12 @@ class SelectionController extends ChangeNotifier implements PanelSelection {
   }
 
   @override
-  void clear() {
+  void clear({MarkChange by = MarkChange.person}) {
     if (_nodes.isEmpty) {
       return;
     }
     _nodes.clear();
-    notifyListeners();
+    _notify(by);
   }
 
   /// Имена помеченных объектов — тем, кому нужно имя, а не объект.

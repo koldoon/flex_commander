@@ -258,10 +258,10 @@ class SessionMirror extends ChangeNotifier implements Session {
   bool isMarked(FileEntry entry) => entry.path.isNotEmpty && _state.markedPaths.contains(entry.path);
 
   @override
-  void setMarks(Set<String> paths) {
+  void setMarks(Set<String> paths, {MarkChange by = MarkChange.person}) {
     _marksSeq++;
     _state = _state.copyWith(markedPaths: paths, marksSeq: _marksSeq);
-    _link.tell(SetMarks(id, paths, _marksSeq));
+    _link.tell(SetMarks(id, paths, _marksSeq, by: by));
     notifyListeners();
   }
 
@@ -284,7 +284,7 @@ class SessionMirror extends ChangeNotifier implements Session {
   });
 
   @override
-  void clearMarks() => setMarks(const {});
+  void clearMarks({required MarkChange by}) => setMarks(const {}, by: by);
 
   /// Пометить объект под курсором и сдвинуть курсор вниз.
   ///

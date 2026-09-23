@@ -1483,10 +1483,10 @@ class PanelSession {
   /// дойти — список каталога подтягивается тихо, и нажатая в тот же миг
   /// клавиша пометки не должна пропасть (`docs/spec/panel-view-tree.md`, §7).
   /// Не разобралось — объекта нет, и пометке его взять неоткуда.
-  Future<void> setMarks(Set<String> paths, {int seq = 0}) {
+  Future<void> setMarks(Set<String> paths, {int seq = 0, MarkChange by = MarkChange.person}) {
     // Работа запоминается: пока чужой путь разбирается, о пометке уже могут
     // спросить — и клавишей, и просьбой (`docs/spec/operation-targets.md`, §3).
-    final marking = _mark(paths, seq);
+    final marking = _mark(paths, seq, by);
     _marking = marking;
     return marking.whenComplete(() {
       if (identical(_marking, marking)) {
@@ -1514,7 +1514,7 @@ class PanelSession {
   /// Номер последней применённой заявки на пометку.
   int _marksSeq = 0;
 
-  Future<void> _mark(Set<String> paths, int seq) async {
+  Future<void> _mark(Set<String> paths, int seq, MarkChange by) async {
     final known = {for (final node in _nodes) node.pathString, for (final node in selection.nodes) node.pathString};
     final strangers = <String, FsNode>{};
     for (final path in paths) {
@@ -1544,7 +1544,7 @@ class PanelSession {
     // приняло бы его за свежее подтверждение и отобрало у себя помеченное
     // (`docs/spec/client-server.md`, §5.5).
     _marksSeq = seq;
-    _restoreSelection(paths, strangers: strangers);
+    _restoreSelection(paths, strangers: strangers, by: by);
   }
 
   // --- вид ---
@@ -2808,10 +2808,14 @@ class PanelSession {
   /// (`docs/spec/panel-view-tree.md`, §7). [strangers] — то, что для этого
   /// разобрал [setMarks]: путь назвали, а панель его никогда не видела. Всё
   /// остальное отбрасывается — объект исчез.
-  void _restoreSelection(Set<String>? markedPaths, {Map<String, FsNode> strangers = const {}}) {
+  void _restoreSelection(
+    Set<String>? markedPaths, {
+    Map<String, FsNode> strangers = const {},
+    MarkChange by = MarkChange.person,
+  }) {
     final was = {for (final node in selection.nodes) node.pathString: node};
     if (markedPaths == null || markedPaths.isEmpty) {
-      selection.clear();
+      selection.clear(by: by);
       return;
     }
     final here = {for (final node in _nodes) node.pathString: node};
@@ -2834,7 +2838,7 @@ class PanelSession {
         replacement.add(node);
       }
     }
-    selection.replaceWith(replacement);
+    selection.replaceWith(replacement, by: by);
   }
 
   /// Курсор ищется по имени; если объект исчез — встаёт на ближайший индекс
@@ -3218,9 +3222,15 @@ class PanelSession {
   void _onSelectionChanged() {
     final selected = selection.nodes.whereType<DirectoryNode>().toSet();
 
+    // Пометку сняла **работа**, а не человек: она сняла ровно то, по чему
+    // сама и шла, и отменять этим обход нельзя — его итога, может статься, эта
+    // же работа и ждёт (`docs/spec/directory-sizes.md`, §12.5). Признак, а не
+    // догадка по времени: цена ошибки — выброшенные полторы минуты обхода.
+    final byPerson = selection.lastChange == MarkChange.person;
+
     // Пока идёт общий подсчёт, пометка обход не отменяет: его попросили, и
     // снятие пометки к этой просьбе отношения не имеет.
-    if (!_measuringAll) {
+    if (!_measuringAll && byPerson) {
       // Снятое с пометки ждать в очереди перестаёт, но уже посчитанный размер
       // в узле остаётся: он всё ещё верен, и в колонке его видно.
       _scanQueue.removeWhere((directory) => !selected.contains(directory));
