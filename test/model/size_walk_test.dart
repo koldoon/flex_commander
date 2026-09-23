@@ -226,7 +226,7 @@ void main() {
     final measured = <String, int>{};
 
     final total = await sizeOperation(
-      onDirectory: (path, totals) => measured[path] = totals.bytes,
+      onDirectory: (dir, totals) => measured[dir.pathString] = totals.bytes,
     ).run([nodes['docs']!]);
 
     // Обход и так проходит через подкаталоги — суммы по ним просто перестали
@@ -240,7 +240,7 @@ void main() {
     final dir = (await provider.resolvePath().run(root))! as DirectoryNode;
     final totals = <String, DirectoryTotals>{};
 
-    await sizeOperation(onDirectory: (path, walked) => totals[path] = walked).run([dir]);
+    await sizeOperation(onDirectory: (dir, walked) => totals[dir.pathString] = walked).run([dir]);
 
     final walked = totals[dir.pathString]!;
     // Работе ссылка не стоит ничего — её копируют ссылкой; месту стоит своих
@@ -303,7 +303,7 @@ void main() {
   test('прерванный обход не оставляет частичных сумм', () async {
     final nodes = await listRoot();
     final measured = <String, int>{};
-    final operation = sizeOperation(onDirectory: (path, totals) => measured[path] = totals.bytes);
+    final operation = sizeOperation(onDirectory: (dir, totals) => measured[dir.pathString] = totals.bytes);
 
     operation.start([nodes['docs']!]);
     operation.cancel();

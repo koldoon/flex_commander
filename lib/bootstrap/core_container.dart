@@ -182,6 +182,20 @@ class CoreContainer extends DI {
       },
     );
 
+    // Посчитанные размеры каталогов — одна память на приложение: то, что
+    // насчитала панель, достаётся переносу даром, и наоборот
+    // (`docs/spec/directory-sizes.md`, §12).
+    bind<MeasuredSizes>(
+      to: (c) {
+        final sizes = MeasuredSizes();
+        // Закрыли архив — числа о его каталогах говорят о мертвеце. Подписка
+        // здесь по той же причине, что и у кеша каталогов: аренды память не
+        // берёт нарочно.
+        c.get<ProviderRegistry>().onProviderClosed(sizes.forgetProvider);
+        return sizes;
+      },
+    );
+
     // Колонки, объявленные ядровыми половинами модулей: ядру от них нужно
     // сравнение (`docs/spec/column-registry.md`, §3.4).
     bind<ColumnSorting>(to: (c) => ColumnSortingRegistry(backend.services, backend.columns));
@@ -196,6 +210,7 @@ class CoreContainer extends DI {
             historyLimit: () => c.get<AppSettings>().sessionHistoryLimit,
             naming: c.get<FileNaming>(),
             cache: c.get<ListingCache>(),
+            sizes: c.get<MeasuredSizes>(),
             strings: c.get<Strings>(),
             // Тем же приёмом, что и кеш: раздел спрашивается каждый раз, и
             // правка в окне настроек действует со следующего же события.
@@ -226,8 +241,9 @@ class CoreContainer extends DI {
                   historyLimit: () => settings.sessionHistoryLimit,
                   // Кеш тот же: он и заведён общим. Одинаковые пути в двух
                   // источниках он не путает — список отдаётся только своему
-                  // провайдеру.
+                  // провайдеру. С памятью посчитанного — ровно так же.
                   cache: c.get<ListingCache>(),
+                  sizes: c.get<MeasuredSizes>(),
                 );
 
         // Сессии заводятся по файлу — по порядку наборов и столбцов в них;

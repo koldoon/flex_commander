@@ -38,6 +38,9 @@ void main() {
 
   DirectoryNode dir(String name) => session().nodes.firstWhere((node) => node.name == name) as DirectoryNode;
 
+  DirectoryNode rightDir(String name) =>
+      runtime.app.rightSession.nodes.firstWhere((node) => node.name == name) as DirectoryNode;
+
   Future<void> settle() async {
     for (var i = 0; i < 20 && !session().selectionSizeIsFinal; i++) {
       await pumpEventQueue();
@@ -130,6 +133,35 @@ void main() {
     await settle();
 
     expect([for (final node in session().nodes) node.name], before);
+  });
+
+  test('посчитанное одной панелью достаётся другой, и дерево не обходят дважды', () async {
+    panel().measureDirectories();
+    await settle();
+    expect(provider.listed['/home/big'], 1);
+
+    // Соседка приходит в тот же каталог — и числа у неё уже есть: память
+    // посчитанного одна на приложение (`docs/spec/directory-sizes.md`, §12).
+    await runtime.app.rightSession.openPath('/home');
+    expect(rightDir('big').size, 3000, reason: 'число пришло из общей памяти, а не из своего обхода');
+
+    runtime.app.right.measureDirectories();
+    await pumpEventQueue();
+    expect(provider.listed['/home/big'], 1, reason: 'посчитанное дерево второй раз не обходят');
+  });
+
+  test('перечитывание забывает посчитанное — и у соседки тоже', () async {
+    panel().measureDirectories();
+    await settle();
+    await runtime.app.rightSession.openPath('/home');
+    expect(rightDir('big').size, 3000);
+
+    await session().reload();
+
+    expect(dir('big').size, FsNode.unknownSize);
+    // Память общая, и забывают её сообща: соседка перечитывания не получала,
+    // а рисовать вчерашнее число не должна.
+    expect(rightDir('big').size, FsNode.unknownSize);
   });
 
   test('команда невыполнима, пока панель занята', () {

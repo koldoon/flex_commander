@@ -222,21 +222,25 @@ Future<void> countEntries(
         final counted = isRoot || (node is! DirectoryNode && node is! LinkNode);
         isRoot = false;
         onEntry(counted && node.size > 0 ? node.size : 0);
-      case WalkedSubtree(:final totals):
+      case WalkedSubtree(:final directory, :final totals):
         // Поддерево не обходили — его числа приходят разом. Объекты всё равно
         // считаются поштучно: счётчик работы меряет их, а не каталоги.
+        onDirectory?.call(directory, totals);
         onEntry(totals.workBytes);
         for (var i = 1; i < totals.entries; i++) {
           onEntry(0);
         }
-      case WalkedDirectory(:final path, :final totals):
-        onDirectory?.call(path, totals);
+      case WalkedDirectory(:final directory, :final totals):
+        onDirectory?.call(directory, totals);
     }
   }
 }
 
 /// Куда обход отдаёт окончательные числа каждого пройденного каталога.
-typedef DirectorySize = void Function(String path, DirectoryTotals totals);
+///
+/// Узлом, а не путём: общая память различает каталоги по провайдеру, и одного
+/// пути ей мало (`docs/spec/directory-sizes.md`, §12.7).
+typedef DirectorySize = void Function(DirectoryNode directory, DirectoryTotals totals);
 
 /// Суммарный размер объектов вместе с содержимым каталогов — работой.
 ///
@@ -245,9 +249,9 @@ typedef DirectorySize = void Function(String path, DirectoryTotals totals);
 /// насчитано, в `message` — имя объекта, который считают сейчас. Итог —
 /// результат работы.
 ///
-/// [onDirectory] зовётся на каждый пройденный каталог, включая вложенные, и
-/// **только** с окончательной суммой: отменённый обход частичных сумм за собой
-/// не оставляет.
+/// [onDirectory] зовётся на каждый каталог с окончательным числом — и на
+/// пройденный, и на тот, чьи числа взяты готовыми, — включая вложенные.
+/// Частичных сумм за собой отменённый обход не оставляет.
 Operation<List<FsNode>, int> sizeOperation({
   DirectorySize? onDirectory,
   DirectoryTotals? Function(DirectoryNode directory)? known,
@@ -270,14 +274,16 @@ Operation<List<FsNode>, int> sizeOperation({
               // говорит, что считают, а не где обход идёт сию секунду.
               op.report(itemsTransferred: total, message: node.name);
             }
-          case WalkedSubtree(:final path, :final totals):
+          case WalkedSubtree(:final directory, :final totals):
             // Поддерево не обходили: его содержимое в сумму приходит разом, а
             // сам каталог как узел уже пришёл нулём — двойного счёта нет.
             total += totals.bytes;
             op.report(itemsTransferred: total, message: node.name);
-            onDirectory?.call(path, totals);
-          case WalkedDirectory(:final path, :final totals):
-            onDirectory?.call(path, totals);
+            // И о переиспользованном каталоге читающему говорят тоже: число у
+            // него окончательное, а строке в панели оно нужно не меньше.
+            onDirectory?.call(directory, totals);
+          case WalkedDirectory(:final directory, :final totals):
+            onDirectory?.call(directory, totals);
         }
       }
     }

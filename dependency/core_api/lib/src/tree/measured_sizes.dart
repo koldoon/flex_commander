@@ -101,14 +101,20 @@ class MeasuredSizes {
   ///
   /// Чужая запись не отдаётся: одинаковые пути у двух подключений к одному
   /// хосту — разные каталоги, и различает их провайдер, а не строка.
-  DirectoryTotals? take(DirectoryNode dir) {
-    final entry = _entries[dir.pathString];
-    if (entry == null || !identical(entry.provider, dir.provider)) {
+  DirectoryTotals? take(DirectoryNode dir) => at(dir.pathString, dir.provider);
+
+  /// То же, но по пути и провайдеру: узла под рукой не всегда есть.
+  ///
+  /// Так спрашивает панель, когда та сторона просит числа для строк: путей у
+  /// неё список, а провайдер один на всю панель.
+  DirectoryTotals? at(String path, TreeProvider provider) {
+    final entry = _entries[path];
+    if (entry == null || !identical(entry.provider, provider)) {
       return null;
     }
     // Обратно в конец: вытесняется давно не нужное, а не давно посчитанное.
-    _entries.remove(dir.pathString);
-    _entries[dir.pathString] = entry;
+    _entries.remove(path);
+    _entries[path] = entry;
     return entry.totals;
   }
 
@@ -215,7 +221,12 @@ class MeasuredSizes {
   /// Число живёт не только здесь: панель пишет его в свои строки. Панель,
   /// стоящая **не** в том каталоге, который забыли, перечитывания не получит —
   /// и рисовала бы вчерашнее, не узнай она об этом.
-  void onForgotten(void Function(Set<String> paths) listener) => _listeners.add(listener);
+  /// Возвращает способ отписаться: память одна на приложение, а панели
+  /// приходят и уходят — забытая подписка держала бы закрытую сессию.
+  void Function() onForgotten(void Function(Set<String> paths) listener) {
+    _listeners.add(listener);
+    return () => _listeners.remove(listener);
+  }
 
   void clear() {
     _entries.clear();

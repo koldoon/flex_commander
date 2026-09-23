@@ -75,6 +75,7 @@ class PanelSessionFactory {
     this.historyLimit = _defaultHistoryLimit,
     this.naming = const ReferenceFileNaming(),
     this.cache,
+    this.sizes,
     Strings? strings,
     this.watchDirectories = _watchByDefault,
     this.watchDelay,
@@ -111,6 +112,11 @@ class PanelSessionFactory {
   /// же, как читала до него.
   final ListingCache? cache;
 
+  /// Посчитанные размеры каталогов — тоже одна память на приложение, и по той
+  /// же причине. null — панель помнит только то, что насчитала сама, и никому
+  /// этого не отдаёт.
+  final MeasuredSizes? sizes;
+
   /// Строки на языке человека: строку состояния пишет эта сторона.
   final Strings strings;
 
@@ -129,6 +135,7 @@ class PanelSessionFactory {
     historyLimit: historyLimit,
     naming: naming,
     cache: cache,
+    sizes: sizes,
     strings: strings,
     watchDirectories: watchDirectories,
     watchDelay: watchDelay,
@@ -162,10 +169,12 @@ class PanelSession {
     int Function() historyLimit = _defaultHistoryLimit,
     this.naming = const ReferenceFileNaming(),
     this.cache,
+    MeasuredSizes? sizes,
     Strings? strings,
     bool Function() watchDirectories = _watchByDefault,
     Duration Function()? watchDelay,
   }) : strings = strings ?? StringsRegistry(),
+       sizes = sizes ?? MeasuredSizes(),
        _history = SessionHistory(steps: settings.history, index: settings.historyIndex, limit: historyLimit),
        _registry = registry,
        _editor = editor,
@@ -186,11 +195,18 @@ class PanelSession {
       _cursorMemory[settings.path] = settings.cursor;
     }
     selection.addListener(_onSelectionChanged);
+    // Забыть мог и не я: перечитала соседняя панель, отработала работа. Число
+    // живёт не только в памяти, но и в строках этой панели, и стереть его там
+    // больше некому (`docs/spec/directory-sizes.md`, §12.4).
+    _unfollowSizes = this.sizes.onForgotten(_measuredForgotten);
     _watch = DirectoryWatch(refresh: catchUp, enabled: watchDirectories, delay: watchDelay);
   }
 
   /// Слежение за показанным каталогом: изменили не мы — догоняем.
   late final DirectoryWatch _watch;
+
+  /// Чем отписаться от забываний общей памяти.
+  void Function()? _unfollowSizes;
 
   /// Вернуть слежение тому каталогу, который панель показывает сейчас.
   ///
@@ -299,6 +315,14 @@ class PanelSession {
   /// Общий на обе панели: каталог, прочитанный соседкой, достаётся даром
   /// (`docs/spec/listing-cache.md`).
   final ListingCache? cache;
+
+  /// Посчитанные размеры каталогов.
+  ///
+  /// Общая на всё приложение: посчитанное панелью достаётся переносу, а
+  /// посчитанное переносом — панели (`docs/spec/directory-sizes.md`, §12).
+  /// Не передали — панель заводит свою: помнит она тогда только за себя, и
+  /// ведёт себя ровно как до общей памяти.
+  final MeasuredSizes sizes;
 
   /// Строки на языке человека.
   ///
@@ -1248,8 +1272,12 @@ class PanelSession {
     // Обе записи, а не только свою: соседняя панель с другим показом скрытых
     // иначе получила бы память вместо диска (`listing-cache.md`, §11).
     cache?.forget(dir);
-    // Посчитанные размеры **не** выбрасываем, в отличие от `Cmd-R`: чужое
-    // изменение к ним отношения не имеет, а считались они долго.
+    // Поддерево **не** выбрасываем, в отличие от `Cmd-R`: слежение
+    // срабатывает на любой чих, а считалось поддерево долго — и событие про
+    // него ничего и не говорило. А вот сам каталог и его предков забыть
+    // обязаны: в каталоге что-то изменилось, и суммы выше по дереву вместе с
+    // ним (`docs/spec/directory-sizes.md`, §12.4).
+    _forgetMeasured(dir.pathString, withSubtree: false);
     final at = currentNode?.pathString;
     // На месте и без намерения: каталог изменили не мы, а курсор держится
     // путём. Имя тут не годится вдвойне — в дереве тёзок сколько угодно.
@@ -3003,29 +3031,6 @@ class PanelSession {
   /// обхода наперегонки заканчивались бы разными числами.
   final Map<String, _SizeScan> _scans = {};
 
-  /// Посчитанное — по путям, а не в узлах.
-  ///
-  /// Узлы живут до ближайшего перечитывания, в том числе тихого, за курсором
-  /// дерева; посчитанное переживает их и возвращается в новые узлы
-  /// ([_applyMeasured]). Иначе каждый шаг курсора по дереву стирал бы числа и
-  /// запускал обход заново — размер мерцал и пересчитывался.
-  ///
-  /// Сюда попадает и **каждый пройденный подкаталог**: обход и так проходит
-  /// через них, суммы просто перестали выбрасываться.
-  final Map<String, int> _measured = {};
-
-  /// Чьи это пути. Сменился источник — посчитанное относилось к прежнему.
-  TreeProvider? _measuredFor;
-
-  /// Забывает всё, если панель перешла в другой источник.
-  void _keepMeasuredWithSource() {
-    if (identical(_measuredFor, provider)) {
-      return;
-    }
-    _measured.clear();
-    _measuredFor = provider;
-  }
-
   /// Растущие суммы идущих обходов — по корню каждого.
   ///
   /// Отдельно от [_measured]: посчитанным это станет, только когда обход дойдёт
@@ -3043,9 +3048,12 @@ class PanelSession {
   ///
   /// Непосчитанного в ответе нет: прочерк в колонке рисует тот, кто спросил.
   Map<String, int> measuredSizes(Iterable<String> paths) {
+    // Провайдер один на всю панель, а путь — ключ памяти: одинаковые пути у
+    // двух подключений к одному хосту она не путает именно по нему.
+    final source = provider;
     return {
       for (final path in paths)
-        if (_measured[path] ?? _running[path] case final size?) path: size,
+        if (sizes.at(path, source)?.bytes ?? _running[path] case final size?) path: size,
     };
   }
 
@@ -3059,48 +3067,74 @@ class PanelSession {
   ///
   /// Зовётся, когда человек попросил перечитать: это ответ на «показалось не
   /// то», и отвечать на него вчерашним числом было бы издевательством.
-  void _forgetMeasured(String path) {
-    final prefix = path.endsWith('/') ? path : '$path/';
-    _measured.removeWhere((key, _) => key == path || key.startsWith(prefix));
-    // И та сторона забывает: числа живут по путям и в ней тоже, а перечитали
-    // как раз затем, чтобы увидеть нынешнее, а не вчерашнее.
-    _sizeUpdates.addAll(_forgetting(path, prefix));
-    // Сразу, а не с ближайшей пачкой: «забудь» обязано уйти **раньше** нового
-    // списка, иначе та сторона на миг подставит в него вчерашние числа.
-    _flushSizes();
+  void _forgetMeasured(String path, {bool withSubtree = true}) {
+    // Дальше всё делает память: она же расскажет о забытом и этой панели, и
+    // соседней — через [_measuredForgotten].
+    sizes.forget(path, withSubtree: withSubtree);
   }
 
-  /// Пути, о которых та сторона знает число, а мы его только что забыли.
-  Iterable<String> _forgetting(String path, String prefix) sync* {
+  /// Память забыла эти пути — стереть числа и у себя.
+  ///
+  /// Забыть мог кто угодно: своё перечитывание, соседняя панель, работа,
+  /// закрытый архив. Панель, стоящая **не** в том каталоге, перечитывания не
+  /// получит — и рисовала бы вчерашнее число, не узнай она об этом.
+  void _measuredForgotten(Set<String> paths) {
+    var told = false;
     for (final node in _nodes) {
       final key = node.pathString;
-      if (node is DirectoryNode && node is! ParentDirNode && (key == path || key.startsWith(prefix))) {
-        yield key;
+      if (node is! DirectoryNode || node is ParentDirNode || !paths.contains(key)) {
+        continue;
       }
+      // Число жило и в узле: не стереть его здесь значило бы забыть только
+      // наполовину.
+      node.size = FsNode.unknownSize;
+      _sizeUpdates.add(key);
+      told = true;
+    }
+    if (told) {
+      // Сразу, а не с ближайшей пачкой: «забудь» обязано уйти **раньше**
+      // нового списка, иначе та сторона на миг подставит в него вчерашние
+      // числа.
+      _flushSizes();
     }
   }
 
   /// Возвращает посчитанное в свежие узлы — до сортировки, иначе список
   /// оказался бы разложен по вчерашним числам.
+  ///
+  /// Память общая, поэтому сюда приходит и посчитанное соседкой, и посчитанное
+  /// переносом: одно дерево обходят один раз (§12).
   void _applyMeasured(Iterable<FsNode> nodes) {
-    _keepMeasuredWithSource();
-    if (_measured.isEmpty) {
-      return;
-    }
     for (final node in nodes) {
       // «..» размера не получает: подсчёт родителя — это подсчёт всего дерева
       // выше, и по нажатию в панели такого не ждут.
       if (node is! DirectoryNode || node is ParentDirNode) {
         continue;
       }
-      // Только окончательное: растущее в узел не пишется вовсе, оно
+      // Только окончательное: растущее в память не попадает вовсе, оно
       // подставляется при чтении ([entryOf]) из очереди обхода — единственного
       // места, которое знает, что эта сумма ещё половина.
-      final size = _measured[node.pathString];
-      if (size != null) {
-        node.size = size;
+      if (sizes.take(node) case final totals?) {
+        node.size = totals.bytes;
       }
     }
+  }
+
+  /// Посчитан ли каталог уже — и если да, вернуть число в узел.
+  ///
+  /// Спрашивается **до** постановки в очередь: пока панель показывала список,
+  /// то же дерево мог обойти перенос, и ходить по нему второй раз незачем.
+  bool _alreadyMeasured(DirectoryNode directory) {
+    if (directory.size != FsNode.unknownSize) {
+      return true;
+    }
+    if (sizes.take(directory) case final totals?) {
+      directory.size = totals.bytes;
+      _measuredSinceSort = true;
+      _sizeChanged(directory.pathString);
+      return true;
+    }
+    return false;
   }
 
   /// Путь каталога уже считают или вот-вот начнут.
@@ -3157,7 +3191,7 @@ class PanelSession {
       }
       // Посчитанный каталог второй раз не обходим: значение авторитетно до
       // перечитывания каталога.
-      if (node.size != FsNode.unknownSize || _scanning(node)) {
+      if (_alreadyMeasured(node) || _scanning(node)) {
         continue;
       }
       _scanQueue.add(node);
@@ -3202,7 +3236,7 @@ class PanelSession {
     for (final directory in selected) {
       // Посчитанный каталог второй раз не обходим: значение авторитетно до
       // перечитывания каталога.
-      if (directory.size != FsNode.unknownSize || _scanning(directory)) {
+      if (_alreadyMeasured(directory) || _scanning(directory)) {
         continue;
       }
       _scanQueue.add(directory);
@@ -3233,10 +3267,32 @@ class PanelSession {
 
   void _startScan(DirectoryNode directory) {
     final path = directory.pathString;
-    // Суммы подкаталогов обход и так считает: пусть остаются, а не выбрасываются.
-    final operation = sizeOperation(onDirectory: _remember);
-    final scan = _SizeScan(operation, directory);
+
+    // Сперва память: то же дерево мог начать обходить перенос, и второй обход
+    // по нему — ровно тот дефект, который чинится (§12.3а). Свой заводится,
+    // только если обходить и правда некому.
+    _SizeScan? started;
+    final walk = sizes.announce(directory, () {
+      // Суммы подкаталогов обход и так считает: пусть остаются, а не
+      // выбрасываются. `known` — то, ради чего всё: посчитанное поддерево
+      // обход перешагивает.
+      final operation = sizeOperation(onDirectory: _remember, known: sizes.take);
+      final mine = _SizeScan(directory, operation: operation);
+      started = mine;
+      return MeasuredWalk(cancel: mine.cancel);
+    });
+
+    final scan = started ?? _SizeScan(directory);
+    scan.walk = walk;
     _scans[path] = scan;
+
+    final operation = scan.operation;
+    if (operation == null) {
+      // Присоединились к чужому обходу: ждём его итог, а по дереву не идём.
+      // Числа этой панели он положит в ту же память, откуда мы их и возьмём.
+      unawaited(walk.done.then((totals) => _finishScan(directory, scan, totals?.bytes)));
+      return;
+    }
 
     final status = operation.status;
     void onScanned() {
@@ -3263,11 +3319,14 @@ class PanelSession {
     // неё дошла очередь и в пуле освободилось место.
     operation.start([directory]);
 
-    operation.result
-        .then((total) => _finishScan(directory, scan, total))
-        // Каталог мог исчезнуть или оказаться закрытым: засчитываем то,
-        // что успели, и берём из очереди следующий.
-        .catchError((Object _) => _finishScan(directory, scan, directory.size));
+    operation.result.then((total) => _finishScan(directory, scan, total))
+    // Каталог мог исчезнуть или оказаться закрытым: засчитываем то,
+    // что успели, и берём из очереди следующий. Память при этом узнаёт,
+    // что итога не будет, — иначе присоединившийся ждал бы вечно.
+    .catchError((Object _) {
+      sizes.abandon(directory);
+      _finishScan(directory, scan, directory.size);
+    });
   }
 
   /// Записывает итог в узел и освобождает место в пуле.
@@ -3275,15 +3334,24 @@ class PanelSession {
   /// Отрицательное значение сюда попасть не должно, но зажим обязателен:
   /// [FsNode.unknownSize] в узле означает «не посчитан», и такой итог заставил
   /// бы обходить недоступный каталог заново на каждое нажатие.
-  void _finishScan(DirectoryNode directory, _SizeScan scan, int total) {
+  /// [total] null — обход кончился ничем: отменили, не пустили. Тогда размер
+  /// не пишется вовсе: прочерк честнее выдуманного нуля.
+  void _finishScan(DirectoryNode directory, _SizeScan scan, int? total) {
     final path = directory.pathString;
     if (!identical(_scans[path], scan)) {
       // Обход отменили, а результат опоздал — он уже ни о чём.
       return;
     }
 
-    final size = total < 0 ? 0 : total;
     _running.remove(path);
+    if (total == null) {
+      _scans.remove(path);
+      scan.release();
+      _fillPool();
+      return;
+    }
+
+    final size = total < 0 ? 0 : total;
     // Сам корень уже запомнен обходом: каталог приходит пост-порядком, и
     // последним из них приходит он. Второй записи ему не нужно — тем более
     // такой, у которой из трёх чисел известно одно.
@@ -3354,10 +3422,10 @@ class PanelSession {
   ///
   /// Только окончательную: частичная, застывшая как итог, — ложь, и обход
   /// рассказывает о каталоге лишь тогда, когда прошёл его целиком.
-  void _remember(String path, DirectoryTotals totals) {
+  void _remember(DirectoryNode directory, DirectoryTotals totals) {
+    final path = directory.pathString;
     final bytes = totals.bytes;
-    _keepMeasuredWithSource();
-    _measured[path] = bytes;
+    sizes.remember(directory, totals);
     _measuredSinceSort = true;
 
     // Обход проходит через подкаталоги и суммы по ним считает по дороге —
@@ -3381,7 +3449,15 @@ class PanelSession {
     // узлах её нет, она жила здесь. Частичная сумма, застывшая в колонке как
     // итог, — ложь.
     _running.remove(path);
-    scan.cancel();
+    scan.release();
+    // Через память, а не напрямую: обхода может ждать ещё и перенос, и
+    // выбрасывать работу, которой он ждёт, нельзя. Кончился последний интерес
+    // — память сама остановит обход (§12.3а).
+    if (scan.walk case final walk?) {
+      sizes.drop(directory, walk);
+    } else {
+      scan.cancel();
+    }
     _sizeChanged(path);
   }
 
@@ -3428,6 +3504,8 @@ class PanelSession {
   }
 
   void dispose() {
+    _unfollowSizes?.call();
+    _unfollowSizes = null;
     _operation?.cancel();
     _watch.dispose();
     _unfollowSource?.call();
@@ -3451,12 +3529,16 @@ class PanelSession {
 
 /// Один идущий обход каталога: сама операция и подписка на её сообщения.
 class _SizeScan {
-  _SizeScan(this.operation, this.directory);
+  _SizeScan(this.directory, {this.operation});
 
-  final Operation<List<FsNode>, int> operation;
+  /// Сама работа; null — обход чужой, и панель только ждёт его итога.
+  final Operation<List<FsNode>, int>? operation;
 
   /// Узел, с которого обход начат: по нему находят строку в списке.
   final DirectoryNode directory;
+
+  /// Тот же обход в общей памяти: через него к нему присоединяются другие.
+  MeasuredWalk? walk;
 
   /// Чем прекратить слушать ход обхода; null — уже прекратили.
   void Function()? stopWatching;
@@ -3467,7 +3549,7 @@ class _SizeScan {
   }
 
   void cancel() {
-    operation.cancel();
+    operation?.cancel();
     release();
   }
 }

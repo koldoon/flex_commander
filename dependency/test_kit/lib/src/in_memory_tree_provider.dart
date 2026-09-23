@@ -226,6 +226,12 @@ class InMemoryReadOnlyProvider implements TreeProvider, RealPathSource {
     });
   }
 
+  /// Сколько раз у провайдера просили содержимое каталога — по путям.
+  ///
+  /// Нужно проверкам двойной ходьбы: посчитанное дерево второй раз никто
+  /// обходить не должен (`docs/spec/directory-sizes.md`, §12).
+  final Map<String, int> listed = {};
+
   /// Содержимое каталога для движка: со скрытыми, без «..» и без записи
   /// в [DirectoryNode.nodes] — обход не должен трогать то, что видит панель.
   @override
@@ -235,6 +241,7 @@ class InMemoryReadOnlyProvider implements TreeProvider, RealPathSource {
     // не таймер: тестам не приходится крутить часы.
     await Future<void>.microtask(() {});
     final path = physicalPathOf(dir);
+    listed[path] = (listed[path] ?? 0) + 1;
     final children =
         _entries.values.where((e) => p.dirname(e.path) == path && e.path != path).toList()
           ..sort((a, b) => a.name.compareTo(b.name));
