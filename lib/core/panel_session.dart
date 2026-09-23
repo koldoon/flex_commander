@@ -1020,12 +1020,15 @@ class PanelSession {
     await own?.release();
   }
 
-  /// Войти в объект под курсором.
+  /// Войти в названный объект.
+  ///
+  /// Называет его та сторона — своей строкой, а не «тем, что под курсором у
+  /// тебя»: курсор принадлежит ей (`docs/spec/client-server.md`, §5.6).
   ///
   /// Возвращает узел, в который войти нельзя (обычный файл) — открывать его
   /// системой будет команда; null, если переход выполнен.
-  Future<FsNode?> enterCurrent() async {
-    final node = currentNode;
+  Future<FsNode?> enterRow(FsNode? row) async {
+    final node = row;
     if (node == null) {
       return null;
     }
@@ -1366,56 +1369,44 @@ class PanelSession {
 
   FsNode? get currentNode => _cursorIndex >= 0 && _cursorIndex < _nodes.length ? _nodes[_cursorIndex] : null;
 
-  void moveCursor(int delta) => setCursorIndex(_cursorIndex + delta);
-
-  /// Сдвинуть курсор на страницу: `direction` равен -1 или 1.
-  void moveCursorPage(int direction) => moveCursor(direction * (pageSize - 1).clamp(1, pageSize));
-
-  /// Поставить курсор на строку.
+  /// Курсор стоит вот на этой строке — так сказал экран.
   ///
-  /// [seq] — номер заявки той стороны. Зеркало двигает курсор у себя сразу,
-  /// не дожидаясь ответа, а по номеру отличает свежее подтверждение от
-  /// опоздавшего: иначе при удержании стрелки курсор дёргался бы назад
-  /// (`docs/spec/client-server.md`, §5.5).
-  void setCursorIndex(int index, {int seq = 0}) {
-    if (seq != 0) {
-      _cursorSeq = seq;
-    }
-    if (_nodes.isEmpty) {
-      _setCursor(0);
+  /// Не просьба, а **факт**: курсор принадлежит той стороне, и здесь он нужен
+  /// для трёх дел — шаг истории, файл настроек и «где панель стоит» у дерева
+  /// (`docs/spec/client-server.md`, §5.6). Поэтому ни номера заявки, ни
+  /// ответа: опоздавших среди фактов не бывает — есть только последний.
+  ///
+  /// Строки с таким путём нет — держим прежнюю: список здесь мог ещё не
+  /// смениться, а выдумывать себе место незачем.
+  void standAt(String path) {
+    final index = _nodes.indexWhere((node) => node.pathString == path);
+    if (index < 0) {
       return;
     }
-    _setCursor(index.clamp(0, _nodes.length - 1));
+    // Человек тронул курсор — память прошлого запуска больше не нужна, и
+    // всплыть посреди работы она не должна.
+    _savedCursor = '';
+    if (_cursorIndex == index) {
+      return;
+    }
+    _cursorIndex = index;
+    // Сказать наружу всё-таки надо: у дерева от строки под курсором зависит
+    // «где панель стоит», а это и заголовок, и приёмник работы. Эхом это не
+    // станет — курсора в состоянии больше нет.
+    _changed();
   }
 
-  /// Поставить курсор на строку с этим путём; нет такой — оставить как есть.
-  ///
-  /// Так курсор двигает тот вид, который **сам меняет список**: номер, пока
-  /// заявка едет, успевает означать другую строку (`MoveCursorTo`). Нет такой
-  /// строки — не двигаем: объект исчез, и лучше оставить курсор там, где он
-  /// стоит, чем ронять его на случайного соседа.
-  void setCursorToPath(String path, {int seq = 0}) {
-    if (seq != 0) {
-      _cursorSeq = seq;
-    }
-    final index = _nodes.indexWhere((node) => node.pathString == path);
+  /// Поставить курсор самому — там, где список сменился по просьбе той
+  /// стороны: вошли, поднялись, раскрыли ветвь. О такой постановке едет
+  /// [placedCursor] вместе со списком (§5.6.4).
+  void setCursorToName(String name) {
+    final index = _nodes.indexWhere((node) => node.name == name);
     if (index >= 0) {
       _setCursor(index);
     }
   }
 
-  void setCursorToFirst() => setCursorIndex(0);
-
-  void setCursorToLast() => setCursorIndex(_nodes.length - 1);
-
-  /// Поставить курсор на объект с таким именем. Если его нет, курсор
-  /// остаётся на месте.
-  void setCursorToName(String name) {
-    final index = _nodes.indexWhere((node) => node.name == name);
-    if (index >= 0) {
-      setCursorIndex(index);
-    }
-  }
+  void setCursorToFirst() => _setCursor(0);
 
   // --- пометка ---
 
@@ -1844,8 +1835,12 @@ class PanelSession {
         }
       }
       _rememberExpanded(list);
-      await _rebuildRows();
-      if (_cursorToPath(target.pathString)) {
+      // Курсор ставится **внутри** пересборки: поставленный после неё уехал бы
+      // отдельно от списка, к которому относится, — а списком он и едет
+      // (`docs/spec/client-server.md`, §5.6.4).
+      var stood = false;
+      await _rebuildRows(placeCursor: () => stood = _cursorToPath(target.pathString));
+      if (stood) {
         _changed();
         return true;
       }
@@ -1903,12 +1898,16 @@ class PanelSession {
         return const TreeExpansion(opened: 0, stopped: false);
       }
       _rememberExpanded(list);
-      await _rebuildRows();
       // Свернули ветвь — курсор остаётся на ней; свернули всё — на корне, где
-      // он и оказался бы, потеряв свою строку.
-      if (path.isEmpty || !_cursorToPath(path)) {
-        _cursorIndex = 0;
-      }
+      // он и оказался бы, потеряв свою строку. Ставится это внутри пересборки:
+      // курсор едет списком, к которому относится (§5.6.4).
+      await _rebuildRows(
+        placeCursor: () {
+          if (path.isEmpty || !_cursorToPath(path)) {
+            _cursorIndex = 0;
+          }
+        },
+      );
       _changed();
       return TreeExpansion(opened: closed, stopped: false);
     }
@@ -1937,10 +1936,13 @@ class PanelSession {
     // раз и тому, кто просил.
     _statusText = null;
     _rememberExpanded(list);
-    await _rebuildRows();
-    if (path.isNotEmpty) {
-      _cursorToPath(path);
-    }
+    await _rebuildRows(
+      placeCursor: () {
+        if (path.isNotEmpty) {
+          _cursorToPath(path);
+        }
+      },
+    );
     _changed();
     return result;
   }
@@ -2025,14 +2027,18 @@ class PanelSession {
     // Список сменил род: за деревом мы не следим, а вернувшись к каталогу —
     // следим снова (`docs/spec/directory-watch.md`, §5).
     _rewatch();
-    await _rebuildRows();
-    if (_rows.isTree) {
-      final saved = _savedCursor;
-      _savedCursor = '';
-      if (saved.isEmpty || !_cursorToPath(saved)) {
-        _cursorToPath(dir.pathString);
-      }
-    }
+    await _rebuildRows(
+      placeCursor: () {
+        if (!_rows.isTree) {
+          return;
+        }
+        final saved = _savedCursor;
+        _savedCursor = '';
+        if (saved.isEmpty || !_cursorToPath(saved)) {
+          _cursorToPath(dir.pathString);
+        }
+      },
+    );
     _changed();
   }
 

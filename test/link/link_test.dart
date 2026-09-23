@@ -83,11 +83,11 @@ void main() {
     // Очередь одна: «поставь курсор» уйдёт после «открой каталог», даже если
     // ответа у него нет вовсе и уходит он не дожидаясь.
     final opening = link.call(const OpenPath(PanelId.left, '/home'));
-    link.tell(const MoveCursor(PanelId.left, 3, 1));
+    link.tell(const CursorAt(PanelId.left, '/home/notes.txt'));
     await opening;
     await pumpEventQueue();
 
-    expect(core.seen.map((request) => request.runtimeType), [OpenPath, MoveCursor]);
+    expect(core.seen.map((request) => request.runtimeType), [OpenPath, CursorAt]);
   });
 
   test('беда на той стороне приезжает бедой, а не молчанием', () async {
@@ -143,7 +143,7 @@ void main() {
   test('мёртвому линку говорят в тишину, а спрашивают с ошибкой', () async {
     await link.dispose();
 
-    link.tell(const MoveCursor(PanelId.left, 1, 1));
+    link.tell(const CursorAt(PanelId.left, '/home/notes.txt'));
     await expectLater(link.call(const GoUp(PanelId.left)), throwsA(isA<StateError>()));
   });
 }

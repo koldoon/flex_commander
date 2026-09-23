@@ -223,12 +223,23 @@ void main() {
   group('курсор и пометка', () {
     setUp(() => link.call(const OpenPath(PanelId.left, '/home')));
 
-    test('курсор ставится по месту и подтверждается номером заявки', () async {
-      link.tell(const MoveCursor(PanelId.left, 2, 7));
+    test('«стою вот здесь» — факт, и ядро его принимает', () async {
+      // Курсор принадлежит экрану: сюда едет факт, а не просьба, и ответа на
+      // него нет (`docs/spec/client-server.md`, §5.6).
+      link.tell(const CursorAt(PanelId.left, '/home/report.txt'));
       await pumpEventQueue();
 
-      expect(lastState()!.cursorIndex, 2);
-      expect(lastState()!.cursorSeq, 7, reason: 'зеркало узнаёт своё подтверждение');
+      expect(core.session(PanelId.left).currentNode?.name, 'report.txt');
+    });
+
+    test('строки с таким путём нет — ядро держит прежнюю', () async {
+      link.tell(const CursorAt(PanelId.left, '/home/report.txt'));
+      await pumpEventQueue();
+
+      link.tell(const CursorAt(PanelId.left, '/home/нет-такого'));
+      await pumpEventQueue();
+
+      expect(core.session(PanelId.left).currentNode?.name, 'report.txt', reason: 'место себе не выдумываем');
     });
 
     test('пометка едет путями', () async {
@@ -270,7 +281,7 @@ void main() {
       // названную строку (`docs/spec/client-server.md`, §5.6).
       final listing = lastListing()!;
       final notes = listing.entries.firstWhere((entry) => entry.name == 'notes.txt');
-      link.tell(const MoveCursor(PanelId.left, 0, 1));
+      link.tell(const CursorAt(PanelId.left, ''));
       await pumpEventQueue();
 
       final reply =
@@ -350,7 +361,7 @@ void main() {
       // примет это за свежее подтверждение и отберёт у себя помеченное
       // (`docs/spec/client-server.md`, §5.5).
       link.tell(const SetMarks(PanelId.left, {'/home/docs/deep.txt'}, 7));
-      link.tell(const MoveCursor(PanelId.left, 2, 1));
+      link.tell(const CursorAt(PanelId.left, '/home/report.txt'));
       await pumpEventQueue();
 
       final states = [

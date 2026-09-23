@@ -297,12 +297,10 @@ void main() {
     expect(slow.cursorIndex, was + 2, reason: 'ядро согласилось, курсор назад не дёрнулся');
   });
 
-  test('пробел не шлёт наружу свежий номер со вчерашним курсором', () async {
-    // Пометка уведомляет о себе, и каждое уведомление уносит состояние за
-    // границу. Сделай её раньше шага — и наружу уедет состояние со свежим
-    // номером заявки и **старым** курсором; та сторона примет его за
-    // подтверждение и вернёт курсор на строку назад. Живьём это и был дёрганый
-    // курсор при обсчёте размеров (разбор 23 сентября 2026).
+  test('состояние из ядра курсора не двигает, сколько его ни присылай', () async {
+    // Это и есть смысл этапа: у курсора один владелец. Ядро может рассказывать
+    // о себе хоть десять раз в секунду — на месте человека это не сказывается
+    // никак (`docs/spec/client-server.md`, §5.6).
     final lagging = _LaggingLink(link);
     final slow = SessionMirror(
       id: PanelId.left,
@@ -313,19 +311,17 @@ void main() {
     );
     addTearDown(slow.dispose);
 
-    slow.setCursorToName('docs');
-    await lagging.releaseAll();
+    slow.setCursorToName('report.txt');
     final was = slow.cursorIndex;
+    final row = slow.currentEntry?.path;
 
-    slow.toggleCurrentMark();
+    // Ядро тем временем рассказывает о себе — с курсором на другой строке.
+    await panel.reload();
     await pumpEventQueue();
+    await lagging.releaseAll();
 
-    final seq = slow.state.cursorSeq;
-    final stale = [
-      for (final event in lagging.held)
-        if (event case PanelChanged(:final state) when state.cursorSeq >= seq && state.cursorIndex == was) state,
-    ];
-    expect(stale, isEmpty, reason: 'со свежим номером наружу уезжает только сделанный шаг');
+    expect(slow.cursorIndex, was);
+    expect(slow.currentEntry?.path, row, reason: 'курсор остался там, куда его поставил человек');
   });
 
   test('пробел на строке, которая не помечается, курсора не двигает', () async {

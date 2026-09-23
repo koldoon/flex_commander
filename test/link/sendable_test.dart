@@ -73,7 +73,7 @@ void main() {
     sendable('войти в строку', const LinkRequest(1, OpenEntry(PanelId.left, ref)));
     sendable('уровень вверх', const LinkRequest(1, GoUp(PanelId.left)));
     sendable('перечитать', const LinkRequest(1, Reload(PanelId.left)));
-    sendable('курсор', const LinkRequest(0, MoveCursor(PanelId.left, 3, 7)));
+    sendable('курсор стоит здесь', const LinkRequest(0, CursorAt(PanelId.left, '/home/a.txt')));
     sendable('пометка', LinkRequest(0, SetMarks(PanelId.left, const {'a', 'b'}, 3)));
     sendable('пометку сняла работа', LinkRequest(0, SetMarks(PanelId.left, const {}, 4, by: MarkChange.work)));
     sendable('вид', const LinkRequest(1, Arrange(PanelId.left, showHidden: true)));

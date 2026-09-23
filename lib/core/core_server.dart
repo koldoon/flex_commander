@@ -309,12 +309,8 @@ class CoreServer implements CoreHandler {
         };
         return const CoreDone();
 
-      case MoveCursor(:final panel, :final index, :final seq):
-        session(panel).setCursorIndex(index, seq: seq);
-        return null;
-
-      case MoveCursorTo(:final panel, :final path, :final seq):
-        session(panel).setCursorToPath(path, seq: seq);
+      case CursorAt(:final panel, :final path):
+        session(panel).standAt(path);
         return null;
 
       case SetMarks(:final panel, :final paths, :final seq, :final by):
@@ -481,14 +477,14 @@ class CoreServer implements CoreHandler {
     switch (entry) {
       case PanelEntryRef(:final id, :final path):
         final node = session.rowForRef(id, path);
-        final index = node == null ? -1 : session.nodes.indexOf(node);
-        if (index < 0) {
+        if (node == null) {
           // Строки больше нет вовсе. Не беда: та сторона увидит новый список и
           // повторит, если человек нажмёт ещё раз.
           return const CoreEntered(null);
         }
-        session.setCursorIndex(index);
-        final blocked = await session.enterCurrent();
+        // Курсор при этом не двигается: вход — про названную строку, а курсор
+        // принадлежит той стороне (`docs/spec/client-server.md`, §5.6).
+        final blocked = await session.enterRow(node);
         return CoreEntered(blocked == null ? null : session.entryOf(blocked));
 
       case PathEntryRef(:final path):

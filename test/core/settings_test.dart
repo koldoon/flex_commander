@@ -163,7 +163,7 @@ void main() {
     test('движение курсора записи не заводит', () async {
       await link.call(const StartCore());
 
-      left.setCursorIndex(1);
+      left.standAt('/home/notes.txt');
       await Future<void>.delayed(saveDelay * 5);
 
       // Ходят по панели постоянно: таймер записи на каждый шаг стрелкой

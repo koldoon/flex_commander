@@ -489,7 +489,7 @@ void main() {
 
     fresh.session.setCursorToName('home');
     await fresh.session.setMarks({'/home'});
-    fresh.session.moveCursor(1);
+
     for (var i = 0; i < 60; i++) {
       await Future<void>.delayed(Duration.zero);
     }
@@ -497,9 +497,10 @@ void main() {
     // Числа появились сразу у многих ветвей — порядок обязан их догнать сам,
     // без второго щелчка по заголовку.
     expect(shown(), ['/', '  home', '    small', '    big']);
-    // Пометка сдвинула курсор на `big` — он и остался на нём, съехав вниз
-    // вместе со строкой.
-    expect(fresh.session.currentNode?.name, 'big');
+    // Список при этом курсора не несёт: пересортировка случилась сама, по
+    // досчитанным числам, и места человека не касается
+    // (`docs/spec/client-server.md`, §5.6.4).
+    expect(fresh.session.placedCursor, isEmpty);
   });
 
   test('посчитанный каталог встаёт по своему размеру', () async {
