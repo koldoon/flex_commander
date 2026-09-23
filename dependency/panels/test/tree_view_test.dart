@@ -38,33 +38,6 @@ class _RemoteProvider extends InMemoryTreeProvider {
   }
 }
 
-/// Архив — подставкой: настоящий упаковщик дереву не нужен, важно лишь, что
-/// файл открывается каталогом (`docs/spec/panel-view-tree.md`, §4б).
-class _ArcMount implements FcBackendModule {
-  const _ArcMount();
-
-  @override
-  String get id => 'test.arc';
-
-  @override
-  String get title => 'Arc archives';
-
-  @override
-  void installBackend(BackendRegistry registry) {
-    registry.provider(
-      'arc',
-      () => TaskOperation<FsNode, TreeProvider>(
-        (op, host) async => InMemoryArchiveProvider([
-          FakeEntry.directory('/inner'),
-          FakeEntry.file('/inner/doc.txt', content: [1, 2, 3]),
-          FakeEntry.file('/readme.md', content: [4]),
-        ], host),
-      ),
-      extensions: {'arc'},
-    );
-  }
-}
-
 /// Источник, обход которого идёт заметное время.
 ///
 /// В памяти каталог считается быстрее кадра, и «пока считается» проверить
@@ -185,7 +158,7 @@ void main() {
     // панель внутрь архива — и наверху дерева оказывался его корень
     // (`docs/spec/panel-view-tree.md`, §4б).
     final source = InMemoryTreeProvider([...entries(), FakeEntry.file('/home/archive.arc', size: 1)])..home = '/home';
-    final runtime = await open(tester, source: source, backend: const [_ArcMount()]);
+    final runtime = await open(tester, source: source, backend: const [FakeArchiveMount()]);
 
     runtime.app.left.setCursorToName('archive.arc');
     await tester.pumpAndSettle();
@@ -202,6 +175,19 @@ void main() {
     expect(branches(tester), containsAllInOrder(['archive.arc', 'inner', 'readme.md']));
     // Панель осталась там, где стояла: внутрь архива её никто не уводил.
     expect(runtime.app.left.currentPath, '/home');
+  });
+
+  testWidgets('архив раскрывается и двойным щелчком', (tester) async {
+    final source = InMemoryTreeProvider([...entries(), FakeEntry.file('/home/archive.arc', size: 1)])..home = '/home';
+    await open(tester, source: source, backend: const [FakeArchiveMount()]);
+
+    final row = find.descendant(of: find.byType(TreeView), matching: find.text('archive.arc'));
+    await tester.tap(row);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(row);
+    await tester.pumpAndSettle();
+
+    expect(branches(tester), containsAllInOrder(['archive.arc', 'inner', 'readme.md']));
   });
 
   testWidgets('дерево открывается раскрытым до текущего каталога', (tester) async {

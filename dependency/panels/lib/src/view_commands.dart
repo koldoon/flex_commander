@@ -746,9 +746,11 @@ class CombinedSideCommand extends AppCommand {
     // (`docs/spec/panel-view-combined.md`, §6).
     //
     // Кроме той, у которой раскрывать нечего: знака у неё нет, и обещать
-    // нажатием то, чего не видно, нельзя — курсор уходит вправо сразу.
+    // нажатием то, чего не видно, нельзя — курсор уходит вправо сразу. У
+    // архива знак есть всегда: что внутри, известно только открыв его
+    // (`docs/spec/panel-view-tree.md`, §4б).
     final row = context.session.currentEntry;
-    return row == null || !row.isDirectory || row.isOpen || !row.hasBranches;
+    return row == null || !row.opensAsBranch || row.isOpen || !(row.hasBranches || row.mountsAsBranch);
   }
 
   @override

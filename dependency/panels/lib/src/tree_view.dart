@@ -418,7 +418,7 @@ class TreeViewState extends State<TreeView> {
       return;
     }
     final row = rows[index];
-    if (!row.isDirectory) {
+    if (!row.opensAsBranch) {
       return;
     }
     widget.panel.setExpanded(row.path, expanded: !row.isOpen);

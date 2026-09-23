@@ -182,9 +182,12 @@ class _CombinedViewState extends State<CombinedView> {
   ///
   /// Настоящий путь, если он есть: ветвь находок показывает найденное, а
   /// значит — каталог, из которого оно найдено (то же правило, что у `Alt-O`).
+  ///
+  /// Архив тоже называет каталог — свой корень: открыть его путём умеет сама
+  /// сессия, монтируя по дороге (`docs/spec/panel-view-tree.md`, §4б).
   String? _branchUnderCursor() {
     final entry = _tree?.currentEntry;
-    if (entry == null || !entry.isDirectory) {
+    if (entry == null || !entry.opensAsBranch) {
       return null;
     }
     final at = entry.realPath.isEmpty ? entry.path : entry.realPath;

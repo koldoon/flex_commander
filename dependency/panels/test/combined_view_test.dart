@@ -21,6 +21,7 @@ void main() {
   InMemoryTreeProvider provider() => InMemoryTreeProvider(
     [
       FakeEntry.directory('/home'),
+      FakeEntry.file('/home/archive.arc', size: 1),
       FakeEntry.directory('/home/lib'),
       FakeEntry.directory('/home/lib/src'),
       FakeEntry.file('/home/lib/main.dart', size: 10),
@@ -43,6 +44,9 @@ void main() {
     final runtime = await testApp(
       provider: provider(),
       modules: featureModules(),
+      // Архив открывается каталогом — значит, в дереве он ветвь
+      // (`docs/spec/panel-view-tree.md`, §4б).
+      backend: const [FakeArchiveMount()],
       settings: settingsAt(path),
       door: lagging ? LaggingDoor.new : null,
     );
@@ -70,6 +74,29 @@ void main() {
     await tester.pump(const Duration(milliseconds: 200));
     await tester.pumpAndSettle();
   }
+
+  testWidgets('архив в навигаторе раскрывается, и список показывает его нутро', (tester) async {
+    // Живая находка: в комбинированном виде архив не раскрывался вовсе — ни
+    // клавишей, ни мышью, — и содержимого его в списке не появлялось.
+    final runtime = await open(tester);
+    await settle(tester);
+
+    runtime.commands.dispatch(KeyCombination.parse('Left'));
+    await tester.pumpAndSettle();
+    while (tree(runtime).currentEntry?.name != 'archive.arc') {
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+      await tester.pump();
+    }
+    expect(tree(runtime).currentEntry?.isOpen, isFalse);
+
+    runtime.commands.dispatch(KeyCombination.parse('Right'));
+    await settle(tester);
+
+    expect(tree(runtime).currentEntry?.isOpen, isTrue, reason: 'Right раскрывает архив, а не уходит в список');
+    expect(tree(runtime).entries.map((row) => row.name), contains('inner'));
+    // Столбец списка догоняет курсор: на архиве это его собственный корень.
+    expect(list(runtime).entries.map((row) => row.name), containsAll(['inner', 'readme.md']));
+  });
 
   testWidgets('вид разводит сторону на два столбца', (tester) async {
     final runtime = await open(tester);
