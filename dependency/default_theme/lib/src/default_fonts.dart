@@ -22,8 +22,9 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 ///
 /// Список короткий и macOS-овский, потому что и приложение пока только под
 /// macOS; другим системам понадобятся свои имена (`DejaVu Sans Mono`,
-/// `Liberation Mono`). Настоящий же ответ — этап В3 дорожной карты: тема
-/// станет редактируемой, шрифт выберет человек, и гадать за него не придётся.
+/// `Liberation Mono`). Гадать за человека, впрочем, больше не приходится: оба
+/// шрифта он выбирает сам, из установленных в системе
+/// (`docs/spec/theme-editor.md`, §12).
 class DefaultFonts extends FcFonts {
   const DefaultFonts({this.ui = 'Ubuntu', this.fixed = 'Consolas', this.fixedFallback = const ['Menlo']});
 
