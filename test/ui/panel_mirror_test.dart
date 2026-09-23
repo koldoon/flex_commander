@@ -27,6 +27,9 @@ class _LaggingLink implements Link {
   final List<CoreEvent> _held = [];
   final StreamController<CoreEvent> _events = StreamController<CoreEvent>.broadcast();
 
+  /// Что придержано — проверке, которой важен **порядок** подтверждений.
+  List<CoreEvent> get held => List.unmodifiable(_held);
+
   /// Отпустить всё придержанное — по одному, в порядке прихода.
   Future<void> releaseAll() async {
     while (_held.isNotEmpty) {
@@ -264,6 +267,37 @@ void main() {
 
     await lagging.releaseAll();
     expect(slow.cursorIndex, was + 2, reason: 'ядро согласилось, курсор назад не дёрнулся');
+  });
+
+  test('пробел не шлёт наружу свежий номер со вчерашним курсором', () async {
+    // Пометка уведомляет о себе, и каждое уведомление уносит состояние за
+    // границу. Сделай её раньше шага — и наружу уедет состояние со свежим
+    // номером заявки и **старым** курсором; та сторона примет его за
+    // подтверждение и вернёт курсор на строку назад. Живьём это и был дёрганый
+    // курсор при обсчёте размеров (разбор 23 сентября 2026).
+    final lagging = _LaggingLink(link);
+    final slow = SessionMirror(
+      id: PanelId.left,
+      link: lagging,
+      state: panel.state,
+      listing: panel.listing,
+      columns: testPanelColumns(),
+    );
+    addTearDown(slow.dispose);
+
+    slow.setCursorToName('docs');
+    await lagging.releaseAll();
+    final was = slow.cursorIndex;
+
+    slow.toggleCurrentMark();
+    await pumpEventQueue();
+
+    final seq = slow.state.cursorSeq;
+    final stale = [
+      for (final event in lagging.held)
+        if (event case PanelChanged(:final state) when state.cursorSeq >= seq && state.cursorIndex == was) state,
+    ];
+    expect(stale, isEmpty, reason: 'со свежим номером наружу уезжает только сделанный шаг');
   });
 
   test('пробел на строке, которая не помечается, курсора не двигает', () async {
