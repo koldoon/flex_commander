@@ -6,6 +6,7 @@
 library;
 
 export 'src/content_type_table.dart' show ContentSignature, ContentTypeTable;
+export 'src/content_type_cell.dart' show ContentTypeCell;
 export 'src/content_types_module.dart';
 export 'src/content_types_settings.dart';
 export 'src/content_type_service.dart' show ContentTypeService;
