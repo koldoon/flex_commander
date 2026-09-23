@@ -226,7 +226,7 @@ final class FollowCursor extends CoreRequest implements PanelRequest {
 /// Отдельно от [SetMarks], потому что это одно действие: клавиша `Space`
 /// помечает и переходит к следующему, а курсор — ядровый.
 final class ToggleMark extends CoreRequest implements PanelRequest {
-  const ToggleMark(this.panel, {this.step = true, this.seq = 0});
+  const ToggleMark(this.panel, {this.step = true, this.seq = 0, this.cursorSeq = 0});
 
   @override
   final PanelId panel;
@@ -238,6 +238,14 @@ final class ToggleMark extends CoreRequest implements PanelRequest {
   /// догоняла курсор через заметное время (живой разбор 17 сентября 2026).
   /// По номеру потом отличается свежее подтверждение от опоздавшего.
   final int seq;
+
+  /// Номер заявки **на курсор**: шаг вниз — половина этого же действия.
+  ///
+  /// Ноль — шага не будет (строка не помечается), и курсора заявка не
+  /// касается. Ядро ставит номер **до** проверки «а помечается ли эта
+  /// строка»: не совпади догадка зеркала с правилом ядра, поправить её иначе
+  /// было бы нечем (`docs/spec/client-server.md`, §5.5).
+  final int cursorSeq;
 
   /// Сдвинуть ли курсор вниз следом за пометкой.
   ///

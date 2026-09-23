@@ -78,6 +78,7 @@ void main() {
     sendable('пометку сняла работа', LinkRequest(0, SetMarks(PanelId.left, const {}, 4, by: MarkChange.work)));
     sendable('переключить пометку', const LinkRequest(0, ToggleMark(PanelId.left)));
     sendable('пометка на месте', const LinkRequest(0, ToggleMark(PanelId.left, step: false)));
+    sendable('пометка со своим номером курсора', const LinkRequest(0, ToggleMark(PanelId.left, seq: 3, cursorSeq: 7)));
     sendable('вид', const LinkRequest(1, Arrange(PanelId.left, showHidden: true)));
     sendable('строка состояния', const LinkRequest(0, SetStatusText(PanelId.left, 'Loading…')));
     sendable('заголовок', const LinkRequest(0, SetHeaderText(PanelId.left, 'Found')));

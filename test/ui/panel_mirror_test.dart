@@ -27,6 +27,13 @@ class _LaggingLink implements Link {
   final List<CoreEvent> _held = [];
   final StreamController<CoreEvent> _events = StreamController<CoreEvent>.broadcast();
 
+  /// Отпустить всё придержанное — по одному, в порядке прихода.
+  Future<void> releaseAll() async {
+    while (_held.isNotEmpty) {
+      await releaseOne();
+    }
+  }
+
   /// Отпустить одно придержанное подтверждение — самое старое.
   Future<void> releaseOne() async {
     if (_held.isNotEmpty) {
@@ -223,6 +230,52 @@ void main() {
     expect(panel.markedPaths, isEmpty, reason: 'снимается так же сразу');
     await pumpEventQueue();
     expect(panel.markedPaths, isEmpty);
+  });
+
+  test('пробел шагает курсором в том же кадре, что и помечает', () async {
+    // Пробел — одно действие: помечает и переходит к следующему. Показывать
+    // сразу только половину значит отдать человеку курсор, отстающий от его
+    // нажатий: пока ядро обходит помеченный каталог, ответ отстаёт
+    // (живой разбор 23 сентября 2026).
+    final lagging = _LaggingLink(link);
+    final slow = SessionMirror(
+      id: PanelId.left,
+      link: lagging,
+      state: panel.state,
+      listing: panel.listing,
+      columns: testPanelColumns(),
+    );
+    addTearDown(slow.dispose);
+
+    // С каталога: строк под ним хватает на шаг и ещё один, а пометка каталога
+    // — как раз тот случай, когда ядро уходит считать и отвечает нескоро.
+    slow.setCursorToName('docs');
+    final was = slow.cursorIndex;
+
+    slow.toggleCurrentMark();
+
+    expect(slow.markedPaths, {'/home/docs'}, reason: 'ответа ещё нет — а пометка видна');
+    expect(slow.cursorIndex, was + 1, reason: 'и шаг тоже: это одно действие');
+
+    // Стрелка, нажатая следом, считается от **новой** строки, а не от
+    // вчерашней: иначе нажатие пропадало бы.
+    slow.moveCursor(1);
+    expect(slow.cursorIndex, was + 2);
+
+    await lagging.releaseAll();
+    expect(slow.cursorIndex, was + 2, reason: 'ядро согласилось, курсор назад не дёрнулся');
+  });
+
+  test('пробел на строке, которая не помечается, курсора не двигает', () async {
+    await panel.openPath('/home');
+    panel.setCursorIndex(0);
+    expect(panel.currentEntry?.isParent, isTrue);
+
+    panel.toggleCurrentMark();
+    await pumpEventQueue();
+
+    expect(panel.markedPaths, isEmpty);
+    expect(panel.cursorIndex, 0, reason: '«..» не помечается — и шага тут нет');
   });
 
   test('опоздавшее подтверждение пометки не отбирает поставленное', () async {

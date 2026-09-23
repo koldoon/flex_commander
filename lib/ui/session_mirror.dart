@@ -307,16 +307,32 @@ class SessionMirror extends ChangeNotifier implements Session {
     // прогоне), и тогда ответ успевает прийти раньше, чем мы поставим своё, —
     // а поставленное поверх ответа значит снять только что поставленное.
     final entry = currentEntry;
-    if (entry != null && !entry.isParent && !(rows.isTree && entry.level == 0)) {
+    final marking = entry != null && !entry.isParent && !(rows.isTree && entry.level == 0);
+    var cursorSeq = 0;
+    if (marking) {
       final marks = {..._state.markedPaths};
       if (!marks.remove(entry.path)) {
         marks.add(entry.path);
       }
-      _state = _state.copyWith(markedPaths: marks, marksSeq: _marksSeq);
+      // И шаг курсора — **тоже сразу**: это одно действие, и показывать
+      // половину значит отдать человеку курсор, отстающий от его нажатий.
+      // Пока ядро обходит помеченный каталог, ответ отстаёт, курсор догонял
+      // рывком, а стрелка, нажатая в этот миг, считалась от вчерашней строки и
+      // пропадала (`docs/spec/client-server.md`, §5.5).
+      var index = _state.cursorIndex;
+      if (step && entries.isNotEmpty) {
+        index = (index + 1).clamp(0, entries.length - 1);
+      }
+      _cursorSeq++;
+      cursorSeq = _cursorSeq;
+      // Строка запоминается путём — как и у стрелки: пока заявка едет, номер
+      // в новом списке будет означать другую строку.
+      _rememberCursor(index);
+      _state = _state.copyWith(markedPaths: marks, marksSeq: _marksSeq, cursorIndex: index, cursorSeq: _cursorSeq);
       notifyListeners();
     }
 
-    _link.tell(ToggleMark(id, step: step, seq: _marksSeq));
+    _link.tell(ToggleMark(id, step: step, seq: _marksSeq, cursorSeq: cursorSeq));
   }
 
   /// Помеченное, а если не помечено ничего — объект под курсором.

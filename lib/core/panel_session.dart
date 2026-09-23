@@ -1423,11 +1423,18 @@ class PanelSession {
   /// так пометка нескольких файлов подряд делается одной клавишей.
   ///
   /// [step] — шагать ли: пометка на месте курсор не двигает.
-  void toggleCurrentMark({bool step = true, int seq = 0}) {
+  void toggleCurrentMark({bool step = true, int seq = 0, int cursorSeq = 0}) {
     // Номер заявки — тот же, что у [setMarks]: пометку эта сторона показывает
     // сразу, и опоздавшее подтверждение не должно её отбирать.
     if (seq != 0) {
       _marksSeq = seq;
+    }
+    // Номер заявки на курсор ставится **до** проверки: шаг — половина того же
+    // действия, и зеркало показывает его сразу. Не совпади его догадка с
+    // правилом «эта строка не помечается», поправить её можно только
+    // подтверждением с этим номером (`docs/spec/client-server.md`, §5.5).
+    if (cursorSeq != 0) {
+      _cursorSeq = cursorSeq;
     }
     final node = currentNode;
     if (node == null || !_markable(node)) {
