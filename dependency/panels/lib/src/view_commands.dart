@@ -569,7 +569,7 @@ class TreeBranchCommand extends AppCommand {
     }
 
     if (expand) {
-      if (row.isDirectory && !row.isOpen) {
+      if (row.opensAsBranch && !row.isOpen) {
         panel.setExpanded(row.path, expanded: true);
       } else if (row.isOpen) {
         // Раскрытая ветвь — шаг внутрь: следующая строка и есть её первый
@@ -635,13 +635,13 @@ class ToggleTreeBranchCommand extends AppCommand {
   /// ничего вовсе: до навигации он не доходил.
   @override
   bool isExecutable(CommandContext context) =>
-      context.session.rows.isTree && (context.session.currentEntry?.isDirectory ?? false);
+      context.session.rows.isTree && (context.session.currentEntry?.opensAsBranch ?? false);
 
   @override
   Future<void> execute(CommandContext context) async {
     final panel = context.session;
     final row = panel.currentEntry;
-    if (row == null || !row.isDirectory) {
+    if (row == null || !row.opensAsBranch) {
       return;
     }
     panel.setExpanded(row.path, expanded: !row.isOpen);

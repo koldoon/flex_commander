@@ -537,6 +537,9 @@ class PanelSession {
   /// (`docs/spec/panel-node-list.md`, §3).
   RowsKind _rows = RowsKind.listing;
 
+  /// Архивы, раскрытые ветвями дерева, и аренда каждого.
+  late final _BranchMounts _branchMounts = _BranchMounts(_registry);
+
   /// Раскрытые ветви — то, что переживает и смену вида, и перезапуск.
   ///
   /// Здесь, а не только в наборе строк: набор живёт от чтения до чтения, а
@@ -1696,7 +1699,7 @@ class PanelSession {
           if (_savedCursor.isNotEmpty && _cursorToPath(_savedCursor)) {
             _savedCursor = '';
           } else if (wasPath.isEmpty || !_cursorToPath(wasPath)) {
-            _cursorToPath(dir.pathString);
+            _cursorToDirectory(dir);
           }
         },
       );
@@ -1781,6 +1784,10 @@ class PanelSession {
     final changed = expanded ? list.expand(path) : list.collapse(path);
     if (!changed) {
       return;
+    }
+    if (!expanded) {
+      // Свернули архив — держать его больше незачем (§4б).
+      _branchMounts.release(path);
     }
     _rememberExpanded(list);
     await _rebuildRows();
@@ -1896,6 +1903,7 @@ class PanelSession {
       if (closed == 0) {
         return const TreeExpansion(opened: 0, stopped: false);
       }
+      _branchMounts.release(path);
       _rememberExpanded(list);
       // Свернули ветвь — курсор остаётся на ней; свернули всё — на корне, где
       // он и оказался бы, потеряв свою строку. Ставится это внутри пересборки:
@@ -1972,6 +1980,8 @@ class PanelSession {
   /// самой не видно.
   NodeList _listFor(DirectoryNode dir) {
     if (!_rows.isTree) {
+      // Дерева больше нет — нет и раскрытых ветвей, а значит и аренд.
+      _branchMounts.releaseAll();
       return DirectoryNodeList(dir);
     }
     final previous = _list;
@@ -1986,8 +1996,10 @@ class PanelSession {
     final open = {
       ...(dir.provider is PanelPreferredView ? _expandedHere : _expanded),
       if (previous is TreeNodeList) ...previous.expandedPaths,
+      // В цепочку идут и архивы: панель, стоящая внутри архива, показывает
+      // дерево от диска, и сам архив в нём раскрыт (§4б).
       for (final node in dir.path)
-        if (node is DirectoryNode) node.pathString,
+        if (node is DirectoryNode || _branchMounts.mountable(node)) node.pathString,
     };
     if (dir.provider is PanelPreferredView) {
       _expandedHere = open;
@@ -1995,12 +2007,27 @@ class PanelSession {
       _expanded = open;
     }
     return TreeNodeList(
-      roots: [dir.provider.rootDirectory],
+      roots: [_treeRootFor(dir)],
       expanded: open,
+      mounter: _branchMounts,
       // Одни каталоги — просьба вида: файлы у него живут в соседнем столбце
       // (`docs/spec/panel-view-combined.md`, §4).
       directoriesOnly: _rows == RowsKind.branches,
     );
+  }
+
+  /// Корень дерева — корень самого внешнего источника.
+  ///
+  /// Не того, в котором стоит панель: у архива это его собственный корень, и
+  /// дерево показало бы одно нутро архива — без пути назад
+  /// (`docs/spec/panel-view-tree.md`, §4б). Наружу идём по хозяевам: корень
+  /// смонтированного лежит в узле того, кто его держит.
+  DirectoryNode _treeRootFor(DirectoryNode dir) {
+    var root = dir.provider.rootDirectory;
+    for (var host = root.parent; host != null; host = root.parent) {
+      root = host.provider.rootDirectory;
+    }
+    return root;
   }
 
   /// Свести набор строк с тем, что просил вид.
@@ -2034,7 +2061,7 @@ class PanelSession {
         final saved = _savedCursor;
         _savedCursor = '';
         if (saved.isEmpty || !_cursorToPath(saved)) {
-          _cursorToPath(dir.pathString);
+          _cursorToDirectory(dir);
         }
       },
     );
@@ -2086,6 +2113,25 @@ class PanelSession {
   }
 
   /// Ставит курсор на строку с этим путём; нет такой — оставляет как есть.
+  /// Курсор на строку каталога — или на ту, которой каталог показан в дереве.
+  ///
+  /// У корня архива своей строки нет: содержимое висит под строкой самого
+  /// файла, и «ветвь этого каталога» — она. Наружу идём по хозяевам, как и
+  /// корень дерева (`docs/spec/panel-view-tree.md`, §4б).
+  bool _cursorToDirectory(DirectoryNode dir) {
+    if (_cursorToPath(dir.pathString)) {
+      return true;
+    }
+    var provider = dir.provider;
+    for (var host = provider.rootDirectory.parent; host != null; host = provider.rootDirectory.parent) {
+      if (_cursorToPath(host.pathString)) {
+        return true;
+      }
+      provider = host.provider;
+    }
+    return false;
+  }
+
   bool _cursorToPath(String path) {
     final index = _nodes.indexWhere((node) => node.pathString == path);
     if (index < 0) {
@@ -3567,6 +3613,7 @@ class PanelSession {
     // фон, продолжает читать то, из чего панель уже вышла.
     unawaited(_lease?.release());
     _lease = null;
+    _branchMounts.releaseAll();
     unawaited(_releaseRoot());
     selection.removeListener(_onSelectionChanged);
     selection.dispose();
@@ -3600,5 +3647,69 @@ class _SizeScan {
   void cancel() {
     operation?.cancel();
     release();
+  }
+}
+
+/// Архивы, раскрытые ветвями дерева, и аренда каждого.
+///
+/// Аренда живёт, пока ветвь раскрыта: свернули — отпустили, сменили дерево на
+/// список — отпустили все, закрыли панель — тоже. Реестр считает арендаторов,
+/// поэтому архив, раскрытый в дереве и открытый панелью, монтируется один раз
+/// (`docs/spec/panel-view-tree.md`, §4б).
+class _BranchMounts implements BranchMounter {
+  _BranchMounts(this._registry);
+
+  final ProviderRegistry _registry;
+
+  /// Путь узла-хозяина → аренда смонтированного над ним источника.
+  final Map<String, ProviderLease> _held = {};
+
+  @override
+  bool mountable(FsNode node) => _registry.schemeFor(node) != null;
+
+  @override
+  Future<DirectoryNode?> mount(FsNode node) async {
+    final at = node.pathString;
+    final held = _held[at];
+    if (held != null) {
+      return held.provider.rootDirectory;
+    }
+    final scheme = _registry.schemeFor(node);
+    if (scheme == null) {
+      return null;
+    }
+    try {
+      final lease = await _registry.acquire().run(AcquireParams(scheme, node));
+      _held[at] = lease;
+      return lease.provider.rootDirectory;
+    } on Object {
+      // Битый архив и отказ в пароле — пустая ветвь, как и каталог, в который
+      // не пустили: строка остаётся на месте, внутрь не видно.
+      return null;
+    }
+  }
+
+  /// Отпустить архив по пути — и всё, что было раскрыто внутри него.
+  ///
+  /// Вложенный архив лежит **внутри** пути внешнего (`/a.zip:zip:/b.7z`),
+  /// поэтому хвост считается от пути с разделителем, а не резкой по «/»:
+  /// у смонтированного источника разделитель свой.
+  void release(String path) {
+    if (path.isEmpty) {
+      releaseAll();
+      return;
+    }
+    for (final at in _held.keys.toList()) {
+      if (at == path || at.startsWith('$path/') || at.startsWith('$path:')) {
+        unawaited(_held.remove(at)!.release());
+      }
+    }
+  }
+
+  void releaseAll() {
+    for (final lease in _held.values) {
+      unawaited(lease.release());
+    }
+    _held.clear();
   }
 }

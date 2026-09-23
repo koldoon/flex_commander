@@ -212,6 +212,13 @@ class FileEntry {
 
   bool get isDirectory => kind == EntryKind.directory;
 
+  /// Раскрывается ли строка в дереве.
+  ///
+  /// Каталог — всегда, архив — потому что ядро сказало [hasBranches]: в дереве
+  /// он такая же ветвь, просто открывается монтированием
+  /// (`docs/spec/panel-view-tree.md`, §4б).
+  bool get opensAsBranch => isDirectory || hasBranches;
+
   bool get isParent => kind == EntryKind.parent;
 
   bool get isLink => kind == EntryKind.link;

@@ -514,4 +514,44 @@ void main() {
       expect(await File(p.join(root, 'docs', 'deep', 'note.txt')).readAsString(), 'глубоко');
     });
   });
+
+  group('архив ветвью в дереве', () {
+    /// Панель на настоящем диске с деревом: архив в нём — ветвь
+    /// (`docs/spec/panel-view-tree.md`, §4б).
+    Future<TestPanel> treePanel() async {
+      final panel = testPanel(provider: disk, registry: registry, settings: PanelSettings.defaults(root));
+      addTearDown(panel.dispose);
+      await panel.openPath(root);
+      await panel.session.setRows(RowsKind.tree);
+      return panel;
+    }
+
+    test('настоящий zip раскрывается ветвью и отпускается со сворачиванием', () async {
+      final panel = await treePanel();
+      final row = panel.session.nodes.firstWhere((node) => node.name == 'sample.zip');
+      expect(row.hasBranches, isTrue, reason: 'знак раскрытия стоит, пока архив не открыт');
+
+      await panel.session.setExpanded(row.pathString, expanded: true);
+
+      expect(panel.session.nodes.map((node) => node.name), containsAllInOrder(['sample.zip', 'docs', 'readme.md']));
+      expect(registry.mounted, hasLength(1));
+
+      await panel.session.setExpanded(row.pathString, expanded: false);
+      await pumpEventQueue();
+
+      expect(registry.mounted, isEmpty);
+    });
+
+    test('битый архив раскрывается в ничто, а строка остаётся', () async {
+      await writeArchive(broken: true);
+      final panel = await treePanel();
+      final row = panel.session.nodes.firstWhere((node) => node.name == 'sample.zip');
+
+      await panel.session.setExpanded(row.pathString, expanded: true);
+
+      expect(panel.session.nodes.map((node) => node.name), contains('sample.zip'));
+      expect(panel.session.nodes.map((node) => node.name), isNot(contains('readme.md')));
+      expect(panel.session.error, isNull, reason: 'внутрь не видно — это не отказ панели');
+    });
+  });
 }

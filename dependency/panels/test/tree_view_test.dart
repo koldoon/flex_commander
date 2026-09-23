@@ -38,6 +38,33 @@ class _RemoteProvider extends InMemoryTreeProvider {
   }
 }
 
+/// Архив — подставкой: настоящий упаковщик дереву не нужен, важно лишь, что
+/// файл открывается каталогом (`docs/spec/panel-view-tree.md`, §4б).
+class _ArcMount implements FcBackendModule {
+  const _ArcMount();
+
+  @override
+  String get id => 'test.arc';
+
+  @override
+  String get title => 'Arc archives';
+
+  @override
+  void installBackend(BackendRegistry registry) {
+    registry.provider(
+      'arc',
+      () => TaskOperation<FsNode, TreeProvider>(
+        (op, host) async => InMemoryArchiveProvider([
+          FakeEntry.directory('/inner'),
+          FakeEntry.file('/inner/doc.txt', content: [1, 2, 3]),
+          FakeEntry.file('/readme.md', content: [4]),
+        ], host),
+      ),
+      extensions: {'arc'},
+    );
+  }
+}
+
 /// Источник, обход которого идёт заметное время.
 ///
 /// В памяти каталог считается быстрее кадра, и «пока считается» проверить
@@ -90,9 +117,15 @@ void main() {
     TreeProvider? source,
     PanelSettings? left,
     double height = 600,
+    List<FcBackendModule> backend = const [],
   }) async {
     final settings = AppSettings(left: left ?? PanelSettings.defaults(at), right: PanelSettings.defaults('/home'));
-    final runtime = await testApp(provider: source ?? provider(), modules: featureModules(), settings: settings);
+    final runtime = await testApp(
+      provider: source ?? provider(),
+      modules: featureModules(),
+      backend: backend,
+      settings: settings,
+    );
     await runtime.app.start();
 
     tester.view.physicalSize = Size(900, height);
@@ -124,6 +157,17 @@ void main() {
         .length;
   }
 
+  /// Сколько знаков раскрытия видно: у каждой ветви свой, у файла нет.
+  int chevrons(WidgetTester tester) {
+    final icons = FcTheme.of(tester.element(find.byType(TreeView))).icons;
+    final closed = String.fromCharCode(icons.branchClosed.codePoint);
+    final open = String.fromCharCode(icons.branchOpen.codePoint);
+    return tester
+        .widgetList<Text>(find.descendant(of: find.byType(TreeView), matching: find.byType(Text)))
+        .where((text) => text.data == closed || text.data == open)
+        .length;
+  }
+
   /// Что видно в дереве, сверху вниз. Шапка в счёт не идёт — это заголовки
   /// колонок, а не ветви.
   List<String> branches(WidgetTester tester) => [
@@ -135,6 +179,30 @@ void main() {
     ))
       if ((text.data ?? '').isNotEmpty && (text.data ?? '').codeUnitAt(0) < 0xE000) text.data!,
   ];
+
+  testWidgets('архив раскрывается той же клавишей, что и каталог', (tester) async {
+    // Живая находка: `Right` над архивом не делал ничего, а `Enter` уводил
+    // панель внутрь архива — и наверху дерева оказывался его корень
+    // (`docs/spec/panel-view-tree.md`, §4б).
+    final source = InMemoryTreeProvider([...entries(), FakeEntry.file('/home/archive.arc', size: 1)])..home = '/home';
+    final runtime = await open(tester, source: source, backend: const [_ArcMount()]);
+
+    runtime.app.left.setCursorToName('archive.arc');
+    await tester.pumpAndSettle();
+    expect(runtime.app.left.currentEntry?.opensAsBranch, isTrue, reason: 'архив в дереве — ветвь');
+    expect(
+      chevrons(tester),
+      runtime.app.left.entries.where((row) => row.opensAsBranch).length,
+      reason: 'знак раскрытия стоит у каждой ветви, архив не исключение',
+    );
+
+    expect(runtime.commands.run(ToggleTreeBranchCommand.commandId, const CommandInvocation()), isTrue);
+    await tester.pumpAndSettle();
+
+    expect(branches(tester), containsAllInOrder(['archive.arc', 'inner', 'readme.md']));
+    // Панель осталась там, где стояла: внутрь архива её никто не уводил.
+    expect(runtime.app.left.currentPath, '/home');
+  });
 
   testWidgets('дерево открывается раскрытым до текущего каталога', (tester) async {
     await open(tester, at: '/home/lib');

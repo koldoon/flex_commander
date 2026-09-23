@@ -26,12 +26,55 @@ class TreeExpansion {
   final bool stopped;
 }
 
+/// Кто раскрывает ветвь, которая каталогом не является: архив.
+///
+/// Набор строк не знает ни реестра источников, ни аренды — и не должен: его
+/// дело развернуть ветви в строки. Монтирует и держит аренду сессия
+/// (`docs/spec/panel-view-tree.md`, §4б).
+abstract interface class BranchMounter {
+  /// Можно ли раскрыть этот узел. Спрашивается на каждой строке — поэтому
+  /// синхронно и дёшево, по расширению, как решает и `Enter` в списке.
+  bool mountable(FsNode node);
+
+  /// Смонтировать и отдать корень источника; null — не вышло.
+  Future<DirectoryNode?> mount(FsNode node);
+}
+
 class TreeNodeList implements NodeList {
-  TreeNodeList({required List<DirectoryNode> roots, Iterable<String> expanded = const [], this.directoriesOnly = false})
-    : _rootDirectories = List.unmodifiable(roots),
-      _roots = [for (final root in roots) _Branch(root)],
-      _expanded = {...expanded} {
+  TreeNodeList({
+    required List<DirectoryNode> roots,
+    Iterable<String> expanded = const [],
+    this.directoriesOnly = false,
+    this.mounter,
+  }) : _rootDirectories = List.unmodifiable(roots),
+       _roots = [for (final root in roots) _Branch(root)],
+       _expanded = {...expanded} {
     assert(roots.isNotEmpty, 'дерево без корней показывать нечем');
+  }
+
+  /// Кто откроет архив под курсором; null — некому, и архив остаётся файлом.
+  final BranchMounter? mounter;
+
+  /// Раскрываемо ли: каталог — всегда, архив — если есть кому его открыть.
+  bool _isBranch(FsNode node) => node is DirectoryNode || (mounter?.mountable(node) ?? false);
+
+  /// Каталог ветви: сам узел или корень смонтированного источника.
+  ///
+  /// [mount] — можно ли ради этого монтировать. Ложь у тех, кто ходит по
+  /// дереву сам: «раскрыть всё» архивы не открывает (§4б).
+  Future<DirectoryNode?> _directoryOf(_Branch branch, {bool mount = true}) async {
+    final node = branch.node;
+    if (node is DirectoryNode) {
+      return node;
+    }
+    if (branch.mounted != null || !mount) {
+      return branch.mounted;
+    }
+    final mounter = this.mounter;
+    if (mounter == null || !mounter.mountable(node)) {
+      return null;
+    }
+    return branch.mounted = await mounter.mount(node);
   }
 
   /// Показывать только каталоги: файлы в такие строки не попадают вовсе.
@@ -118,7 +161,8 @@ class TreeNodeList implements NodeList {
           return true;
         }
         final node = branch.node;
-        if (walk(branch.children ?? const [], node is DirectoryNode ? node : parent)) {
+        final dir = node is DirectoryNode ? node : branch.mounted;
+        if (walk(branch.children ?? const [], dir ?? parent)) {
           return true;
         }
       }
@@ -227,12 +271,12 @@ class TreeNodeList implements NodeList {
   }
 
   /// Прочитать содержимое одной ветви, если его ещё нет.
-  Future<void> _fillOne(_Branch branch) async {
+  Future<void> _fillOne(_Branch branch, {bool mount = false}) async {
     if (branch.children != null) {
       return;
     }
-    final node = branch.node;
-    if (node is! DirectoryNode) {
+    final node = await _directoryOf(branch, mount: mount);
+    if (node == null) {
       return;
     }
     try {
@@ -248,9 +292,11 @@ class TreeNodeList implements NodeList {
   bool? _branchesIn(_Branch branch, bool includeHidden) {
     final children = branch.children;
     if (children == null) {
-      return null;
+      // Архив отвечает «да» не читая: узнать иначе можно только открыв его, а
+      // открывать всё видимое ради знака — читать диск целиком (§4б).
+      return _isBranch(branch.node) && branch.node is! DirectoryNode ? true : null;
     }
-    return children.any((child) => child.node is DirectoryNode && (includeHidden || !child.node.name.startsWith('.')));
+    return children.any((child) => _isBranch(child.node) && (includeHidden || !child.node.name.startsWith('.')));
   }
 
   /// Дочитать показанные ветви — только ради знака раскрытия.
@@ -274,7 +320,10 @@ class TreeNodeList implements NodeList {
       for (final branch in branches) {
         op.checkCanceled();
         final node = branch.node;
-        if (node is! DirectoryNode) {
+        // Нераскрытый архив пропускается нарочно: знак у него есть и без
+        // чтения, а читать — значит открывать архив (§4б).
+        final dir = node is DirectoryNode ? node : branch.mounted;
+        if (dir == null) {
           continue;
         }
         if (level > 0 && !includeHidden && node.name.startsWith('.')) {
@@ -332,8 +381,13 @@ class TreeNodeList implements NodeList {
   /// Дочитывает раскрытые ветви — и только их.
   Future<void> _fill(_Branch branch, OperationContext op) async {
     op.checkCanceled();
-    final node = branch.node;
-    if (node is! DirectoryNode || !_expanded.contains(node.pathString)) {
+    if (!_expanded.contains(branch.node.pathString)) {
+      return;
+    }
+    // Раскрытый архив монтируется здесь: до этого он был файлом, а теперь у
+    // ветви есть каталог — корень его источника (§4б).
+    final node = await _directoryOf(branch);
+    if (node == null) {
       return;
     }
 
@@ -367,7 +421,7 @@ class TreeNodeList implements NodeList {
       final shown = [
         for (final branch in branches)
           if ((level == 0 || order.includeHidden || !branch.node.name.startsWith('.')) &&
-              (!directoriesOnly || branch.node is DirectoryNode))
+              (!directoriesOnly || _isBranch(branch.node)))
             branch,
       ];
       // Корни идут в том порядке, в каком их дали: их выбрали — человек в
@@ -381,7 +435,7 @@ class TreeNodeList implements NodeList {
       }
       for (final branch in shown) {
         final node = branch.node;
-        final open = node is DirectoryNode && _expanded.contains(node.pathString);
+        final open = (node is DirectoryNode || branch.mounted != null) && _expanded.contains(node.pathString);
         node
           ..level = level
           ..isOpen = open
@@ -404,6 +458,9 @@ class _Branch {
 
   final FsNode node;
   List<_Branch>? children;
+
+  /// Корень смонтированного источника у ветви-архива; null — не открывали.
+  DirectoryNode? mounted;
 
   /// Есть ли внутри свои ветви; null — не смотрели.
   ///
