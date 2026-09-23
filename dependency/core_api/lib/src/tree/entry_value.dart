@@ -31,6 +31,9 @@ FileEntry entryValueOf(FsNode node) {
     // «Раскрывается» и «есть что внутри» — разные вопросы: у архива с одними
     // файлами второй ложен, а первый нет (`docs/spec/panel-view-tree.md`, §4б).
     mountsAsBranch: node.mountsAsBranch,
+    // Показанный путь — тот, которым панель называет себя и которым открывают
+    // каталог. У «..» его нет: она показывает чужой каталог.
+    displayPath: node is ParentDirNode ? '' : node.displayPath,
     modified: file?.modified,
     created: file?.created,
     accessed: file?.accessed,

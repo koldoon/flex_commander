@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import '../app/tree_trace.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -417,6 +418,7 @@ class CommandRegistry extends ChangeNotifier implements CommandService, Operatio
   @override
   bool dispatch(KeyCombination combination) {
     final binding = bindingFor(combination);
+    traceTree('клавиша', '$combination → ${binding?.commandId ?? 'никому'}');
     if (binding == null) {
       return false;
     }

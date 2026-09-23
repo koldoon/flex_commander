@@ -45,6 +45,7 @@ class FileEntry {
     this.isOpen = false,
     this.hasBranches = false,
     this.mountsAsBranch = false,
+    this.displayPath = '',
     this.sizeIsFinal = true,
     this.id = 0,
   });
@@ -154,6 +155,7 @@ class FileEntry {
     isOpen: isOpen,
     hasBranches: hasBranches,
     mountsAsBranch: mountsAsBranch,
+    displayPath: displayPath,
     sizeIsFinal: isFinal,
     canStream: canStream,
     canReceive: canReceive,
@@ -181,6 +183,7 @@ class FileEntry {
     isOpen: isOpen,
     hasBranches: hasBranches,
     mountsAsBranch: mountsAsBranch,
+    displayPath: displayPath,
     sizeIsFinal: sizeIsFinal,
     canStream: canStream,
     canReceive: canReceive,
@@ -211,6 +214,17 @@ class FileEntry {
   /// архива с одними файлами внутри он ложен — а раскрыть архив всё равно
   /// можно (`docs/spec/panel-view-tree.md`, §4б).
   final bool mountsAsBranch;
+
+  /// Путь строки **тем же текстом, каким его видит человек**:
+  /// `/home/a.zip/inner`, без схем провайдеров.
+  ///
+  /// Отдельно от [path] нарочно. [path] — опознание строки, и схемы в нём
+  /// нужны: `/home/a.zip:zip:/inner`. Но панель называет себя показанным путём
+  /// (`Session.currentPath`), им же открывают каталог и его набирает человек —
+  /// и сравнивать одно с другим можно, только говоря на одном языке. Внутри
+  /// архива эти два текста расходятся, и путаница уже стоила связке столбцов
+  /// вечного перетягивания курсора (`docs/spec/panel-view-combined.md`, §5).
+  final String displayPath;
 
   /// Размер окончателен.
   ///

@@ -185,12 +185,19 @@ class _CombinedViewState extends State<CombinedView> {
   ///
   /// Архив тоже называет каталог — свой корень: открыть его путём умеет сама
   /// сессия, монтируя по дороге (`docs/spec/panel-view-tree.md`, §4б).
+  ///
+  /// **Показанным путём**, а не опознанием строки: с ним сравнивают
+  /// `Session.currentPath` и им же открывают каталог. Внутри архива эти два
+  /// текста разные (`/home/a.zip/inner` против `/home/a.zip:zip:/inner`), и
+  /// столбцы, говорящие на разных языках, не узнают одно и то же место —
+  /// каждый считает отставшим соседа и тянет его к себе (живая находка
+  /// 23 сентября 2026).
   String? _branchUnderCursor() {
     final entry = _tree?.currentEntry;
     if (entry == null || !entry.opensAsBranch) {
       return null;
     }
-    final at = entry.realPath.isEmpty ? entry.path : entry.realPath;
+    final at = entry.realPath.isEmpty ? entry.displayPath : entry.realPath;
     return at.isEmpty ? null : at;
   }
 
@@ -206,8 +213,14 @@ class _CombinedViewState extends State<CombinedView> {
     final list = _list;
     final at = _branchUnderCursor();
     if (tree == null || list == null || !tree.active || at == null || at == list.currentPath) {
+      traceTree(
+        'связка',
+        'дерево дрогнуло, молчим: ветвь=$at список=${list?.currentPath} '
+            'активно=${tree?.active} ждём=$_awaited',
+      );
       return;
     }
+    traceTree('связка', 'дерево ведёт: ветвь=$at список=${list.currentPath} ждём=$_awaited');
     _follow?.cancel();
     _follow = Timer(_followDelay, _followCursor);
   }
@@ -222,11 +235,14 @@ class _CombinedViewState extends State<CombinedView> {
     final list = _list;
     final at = _branchUnderCursor();
     if (!mounted || list == null || at == null || at == list.currentPath) {
+      traceTree('связка', 'следование отменилось: ветвь=$at список=${list?.currentPath}');
       return;
     }
     _awaited = at;
+    traceTree('связка', 'список идёт за ветвью: $at');
     unawaited(
       list.openPath(at).then((opened) {
+        traceTree('связка', 'список ${opened ? 'дошёл' : 'НЕ дошёл'}: $at → ${list.currentPath}');
         // Не доехал — и не доедет: ждать больше нечего.
         if (!opened && _awaited == at) {
           _awaited = null;
@@ -271,8 +287,10 @@ class _CombinedViewState extends State<CombinedView> {
     // дерево оставалось на месте: следование работало через раз
     // (`docs/spec/panel-view-combined.md`, §5).
     if (at.isEmpty || at == _branchUnderCursor()) {
+      traceTree('связка', 'список дрогнул, молчим: список=$at ветвь=${_branchUnderCursor()}');
       return;
     }
+    traceTree('связка', 'список ведёт: список=$at ветвь=${_branchUnderCursor()} ждём=$_awaited');
     // **Не из самого уведомления.** Панель рассказывает о себе, разбирая
     // событие ядра, и просьба к ядру изнутри этого разбора попадает в поток
     // событий, который в этот момент как раз и вещает: «Cannot fire new event.
@@ -289,15 +307,53 @@ class _CombinedViewState extends State<CombinedView> {
       return;
     }
     if (_awaited != null && at != _awaited) {
+      traceTree('связка', 'дерево не догоняет: список=$at ждём=$_awaited');
       return;
     }
     if (at == _branchUnderCursor()) {
       return;
     }
+    traceTree('связка', 'дерево идёт за списком: $at (ветвь была ${_branchUnderCursor()})');
     // Дерево пошло за списком — а значит, догонять его обратно не нужно:
     // заявку слежения отменяем, иначе они переставляли бы друг друга.
     _follow?.cancel();
     unawaited(tree.openPath(at));
+  }
+
+  /// Прошлый снимок: щуп печатает **изменения**, а не каждую сборку.
+  String _traced = '';
+
+  /// Что сейчас видит человек: окно дерева вокруг курсора и путь списка.
+  ///
+  /// Окном, а не целиком: в дереве бывает четыре тысячи строк, и лог из них
+  /// нечитаем.
+  void _trace(Session tree, Session list) {
+    if (!treeTraceOn) {
+      return;
+    }
+    String around(Session panel) {
+      final rows = panel.entries;
+      final at = panel.cursorIndex;
+      final from = (at - 2).clamp(0, rows.length);
+      final to = (at + 3).clamp(0, rows.length);
+      return [
+        for (var index = from; index < to; index++)
+          '${index == at ? '[' : ''}${'·' * rows[index].level}${rows[index].name}'
+              '${rows[index].isOpen ? '/' : ''}${rows[index].hasBranches ? '>' : ''}${index == at ? ']' : ''}',
+      ].join(' ');
+    }
+
+    final snapshot =
+        'показан=${tree.active ? 'дерево' : 'список'} | '
+        'дерево: строк=${tree.entries.length} курсор=${tree.cursorIndex} ${tree.currentEntry?.path ?? '—'} '
+        'путь=${tree.currentPath} :: ${around(tree)} | '
+        'список: строк=${list.entries.length} путь=${list.currentPath} '
+        'курсор=${list.currentEntry?.name ?? '—'}';
+    if (snapshot == _traced) {
+      return;
+    }
+    _traced = snapshot;
+    traceTree('вид', snapshot);
   }
 
   @override
@@ -309,6 +365,8 @@ class _CombinedViewState extends State<CombinedView> {
       // Спутник ещё не заведён: показываем то, что есть, — саму панель.
       return FileTable(panel: widget.panel, settings: widget.settings);
     }
+
+    _trace(tree, list);
 
     return FcSplitView(
       ratio: settings.treeShare,

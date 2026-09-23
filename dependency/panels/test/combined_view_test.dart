@@ -176,6 +176,41 @@ void main() {
     expect(tree(runtime).currentEntry?.path, '/home/archive.arc:arc:/inner');
   });
 
+  /// Ждёт, пока связка доведёт столбец файлов: дверь придерживает вести по
+  /// 100 мс, а `pumpAndSettle` времени сам не двигает.
+  Future<void> settleUntil(WidgetTester tester, AppRuntime runtime, String path) async {
+    for (var step = 0; step < 20 && list(runtime).currentPath != path; step++) {
+      await tester.pump(const Duration(milliseconds: 100));
+    }
+  }
+
+  testWidgets('курсор на папке внутри архива — список показывает её, а не корень архива', (tester) async {
+    // Живая находка: стоишь на папке внутри архива, а в столбце файлов — корень
+    // архива. Столбцы говорили на разных языках: строка называлась опознанием
+    // (`…arc:arc:/inner`), а панель — показанным путём (`…arc/inner`), и
+    // следование уводило список не туда, куда показывает курсор
+    // (`docs/spec/panel-view-combined.md`, §5).
+    final runtime = await open(tester, lagging: true);
+    await settle(tester);
+    await cursorInTree(tester, runtime, 'archive.arc');
+    runtime.commands.dispatch(KeyCombination.parse('Enter'));
+    await settle(tester);
+
+    while (tree(runtime).currentEntry?.name != 'inner') {
+      runtime.commands.dispatch(KeyCombination.parse('Down'));
+      await tester.pump();
+    }
+    await settleUntil(tester, runtime, '/home/archive.arc/inner');
+
+    expect(tree(runtime).currentEntry?.name, 'inner', reason: 'курсор остался там, куда его поставили');
+    expect(list(runtime).currentPath, '/home/archive.arc/inner', reason: 'список показывает папку под курсором');
+    expect(
+      list(runtime).entries.map((row) => row.name),
+      contains('doc.txt'),
+      reason: 'и её содержимое, а не содержимое корня архива',
+    );
+  });
+
   testWidgets('вид разводит сторону на два столбца', (tester) async {
     final runtime = await open(tester);
 
