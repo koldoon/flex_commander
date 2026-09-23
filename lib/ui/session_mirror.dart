@@ -165,14 +165,19 @@ class SessionMirror extends ChangeNotifier implements Session {
   PanelSteps cursorSteps = const PanelSteps.list();
 
   @override
-  int get cursorIndex => _state.cursorIndex;
+  /// Где стоит курсор — **здесь**, а не в состоянии панели: курсор
+  /// принадлежит этой стороне, и ядро о нём ничего не решает
+  /// (`docs/spec/client-server.md`, §5.6).
+  @override
+  int get cursorIndex => _cursorIndex;
+
+  int _cursorIndex = 0;
 
   @override
-  FileEntry? get currentEntry =>
-      _state.cursorIndex >= 0 && _state.cursorIndex < entries.length ? entries[_state.cursorIndex] : null;
+  FileEntry? get currentEntry => _cursorIndex >= 0 && _cursorIndex < entries.length ? entries[_cursorIndex] : null;
 
   @override
-  void moveCursor(int delta) => setCursorIndex(_state.cursorIndex + delta);
+  void moveCursor(int delta) => setCursorIndex(_cursorIndex + delta);
 
   @override
   void moveCursorPage(int direction) {
@@ -212,7 +217,7 @@ class SessionMirror extends ChangeNotifier implements Session {
       return;
     }
     _cursorPath = path;
-    _state = _state.copyWith(cursorIndex: index);
+    _cursorIndex = index;
     notifyListeners();
     _link.tell(CursorAt(id, path));
   }
@@ -225,13 +230,13 @@ class SessionMirror extends ChangeNotifier implements Session {
   @override
   void setCursorIndex(int index) {
     final clamped = entries.isEmpty ? 0 : index.clamp(0, entries.length - 1);
-    if (clamped == _state.cursorIndex) {
+    if (clamped == _cursorIndex) {
       return;
     }
     // Строка запоминается **путём**: список могут сменить, и номер в новом
     // будет означать другую строку.
     _rememberCursor(clamped);
-    _state = _state.copyWith(cursorIndex: clamped);
+    _cursorIndex = clamped;
     notifyListeners();
     // Факт уходит **сразу**, а не с ближайшим кадром: следом за шагом курсора
     // идёт заявка, которой это место и нужно — сменить вид на дерево,
@@ -817,10 +822,10 @@ class SessionMirror extends ChangeNotifier implements Session {
   /// оставить его на месте.
   int get _cursorIndexNow {
     if (_cursorPath.isEmpty) {
-      return _state.cursorIndex;
+      return _cursorIndex;
     }
     final at = entries.indexWhere((entry) => entry.path == _cursorPath);
-    return at < 0 ? _state.cursorIndex : at;
+    return at < 0 ? _cursorIndex : at;
   }
 
   /// Запомнить строку под курсором — ту, что стоит по этому номеру сейчас.
@@ -839,7 +844,7 @@ class SessionMirror extends ChangeNotifier implements Session {
         // уйдёт из состояния следующим шагом, — и слушать его значит вернуть
         // то самое эхо, ради которого всё затевалось
         // (`docs/spec/client-server.md`, §5.6).
-        var next = state.copyWith(cursorIndex: _state.cursorIndex);
+        var next = state;
         if (state.marksSeq < _marksSeq) {
           next = next.copyWith(markedPaths: _state.markedPaths, marksSeq: _marksSeq);
         }
@@ -864,13 +869,13 @@ class SessionMirror extends ChangeNotifier implements Session {
         // (`docs/spec/client-server.md`, §5.6.4).
         final placed = listing.cursor.isEmpty ? -1 : listing.entries.indexWhere((e) => e.path == listing.cursor);
         if (placed >= 0) {
-          _state = _state.copyWith(cursorIndex: placed);
+          _cursorIndex = placed;
           _rememberCursor(placed);
         } else {
           // Список сменился сам по себе — курсор ищет в нём **свою строку**:
           // человека, пошедшего по списку, прирост находок с места не сдвигает
           // (§5.6.4).
-          _state = _state.copyWith(cursorIndex: _cursorIndexNow);
+          _cursorIndex = _cursorIndexNow;
         }
         notifyListeners();
 

@@ -28,8 +28,6 @@ class PanelState {
     this.busy = false,
     this.statusText,
     this.headerText,
-    this.cursorIndex = 0,
-    this.cursorSeq = 0,
     this.generation = 0,
     this.rows = RowsKind.listing,
     this.scroll = 0,
@@ -102,14 +100,10 @@ class PanelState {
   /// соединения, списку закладок.
   final String? headerText;
 
-  final int cursorIndex;
-
-  /// Номер заявки, на которую этот курсор — ответ.
-  ///
-  /// Зеркало двигает курсор у себя сразу и запоминает номер своей просьбы.
-  /// Подтверждение с меньшим номером — опоздавшее, и слушать его нельзя:
-  /// при удержании стрелки курсор дёргался бы назад.
-  final int cursorSeq;
+  // Курсора здесь нет и быть не должно: он принадлежит экрану, там его рисуют
+  // и там же решают, куда он идёт. Ядру о нём говорят фактом (`CursorAt`), а
+  // ставит оно его только вместе со списком (`PanelListing.cursor`) — и только
+  // нарочно (`docs/spec/client-server.md`, §5.6).
 
   /// Номер списка: растёт с каждым новым. По нему ядро отвергает заявки на
   /// строки того списка, которого уже нет.
@@ -177,8 +171,6 @@ class PanelState {
     bool clearStatus = false,
     String? headerText,
     bool clearHeader = false,
-    int? cursorIndex,
-    int? cursorSeq,
     int? generation,
     RowsKind? rows,
     double? scroll,
@@ -204,8 +196,6 @@ class PanelState {
     busy: busy ?? this.busy,
     statusText: clearStatus ? null : (statusText ?? this.statusText),
     headerText: clearHeader ? null : (headerText ?? this.headerText),
-    cursorIndex: cursorIndex ?? this.cursorIndex,
-    cursorSeq: cursorSeq ?? this.cursorSeq,
     generation: generation ?? this.generation,
     rows: rows ?? this.rows,
     scroll: scroll ?? this.scroll,
@@ -221,7 +211,7 @@ class PanelState {
   );
 
   @override
-  String toString() => 'PanelState($currentPath, ${phase.name}, cursor $cursorIndex)';
+  String toString() => 'PanelState($currentPath, ${phase.name})';
 }
 
 /// Список панели целиком.

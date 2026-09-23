@@ -2238,7 +2238,6 @@ class PanelSession {
   ///
   /// Едет обратно в состоянии: по нему зеркало узнаёт своё подтверждение и
   /// отбрасывает опоздавшие.
-  int _cursorSeq = 0;
 
   /// Состояние панели значением — всё, кроме списка.
   PanelState get state => PanelState(
@@ -2254,8 +2253,6 @@ class PanelSession {
     busy: _busy,
     statusText: _statusText,
     headerText: headerText,
-    cursorIndex: _cursorIndex,
-    cursorSeq: _cursorSeq,
     generation: _generation,
     // Правило — показанное: в находках это то, которым человек их разложил, а
     // не то, что стоит в его настройках.

@@ -216,7 +216,9 @@ void main() {
       await link.call(const GoUp(PanelId.left));
 
       expect(lastState()!.currentPath, '/home');
-      expect(lastState()!.cursorIndex, greaterThanOrEqualTo(0));
+      // Курсор при подъёме ставит ядро — и говорит об этом списком, а не
+      // состоянием (`docs/spec/client-server.md`, §5.6.4).
+      expect(lastListing()!.cursor, '/home/docs');
     });
   });
 
