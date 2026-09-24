@@ -76,7 +76,9 @@ void main() {
     for (final element in inHelp(find.byType(Text)).evaluate()) {
       final text = element.widget as Text;
       final origin = tester.getTopLeft(find.byWidget(text));
-      if (text.data == name || (origin.dy - top).abs() >= 0.5) {
+      // Строки оглавления набраны кусками (`Text.rich`) — у них `data` пуст;
+      // сюда они попадают, только если случайно встали на ту же высоту.
+      if (text.data == null || text.data == name || (origin.dy - top).abs() >= 0.5) {
         continue;
       }
       cells.add((origin.dx, text.data ?? ''));

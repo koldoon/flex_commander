@@ -36,6 +36,7 @@ workspace:
   - dependency/file_info
   - dependency/file_ops
   - dependency/ftp
+  - dependency/history
   - dependency/image_viewer
   - dependency/key_presets
   - dependency/local_fs
@@ -106,6 +107,9 @@ dependencies:
 
   fc_ftp:
     path: dependency/ftp
+
+  fc_history:
+    path: dependency/history
 
   fc_local_fs:
     path: dependency/local_fs

@@ -11,6 +11,7 @@ import 'package:fc_file_icons/fc_file_icons.dart';
 import 'package:fc_file_info/fc_file_info.dart';
 import 'package:fc_file_ops/fc_file_ops.dart';
 import 'package:fc_ftp/fc_ftp.dart';
+import 'package:fc_history/fc_history.dart';
 import 'package:fc_image_viewer/fc_image_viewer.dart';
 import 'package:fc_key_presets/fc_key_presets.dart';
 import 'package:fc_local_fs/fc_local_fs.dart';
@@ -118,6 +119,10 @@ List<FcModule> featureModules() => [
   const AttributeEditing(),
   // Редактор после оболочки: он занимает место её заглушки на F4.
   const TextEditor(),
+  // История работ — после всех, чьи работы она записывает: порядок здесь
+  // задаёт лишь приоритет привязок, а `Cmd-Z` не спорит ни с кем
+  // (`docs/spec/operation-history.md`).
+  const OperationHistoryModule(),
   // Обновление приложения собой же. Последним: оно ни от чего не зависит и
   // ничего не приносит панелям — только команду, окно и флажок в настройках
   // (`docs/spec/self-update.md`).
