@@ -10,6 +10,55 @@ void main() {
 
   double widthOf(String text) => textWidthOf(text, style, scaler);
 
+  group('обрезка имени серединой (`docs/spec/name-trim.md`)', () {
+    const name = 'Отчёт за третий квартал 2026 года, окончательный.xlsx';
+
+    test('влезает — не трогаем', () {
+      expect(trimTextMiddle(name, style, widthOf(name) + 1, scaler), name);
+    });
+
+    test('видны оба конца, и расширение в том числе', () {
+      final trimmed = trimTextMiddle(name, style, widthOf(name) / 2, scaler);
+
+      expect(trimmed, contains('…'));
+      expect(trimmed, startsWith('Отчёт'));
+      expect(trimmed.endsWith('.xlsx'), isTrue, reason: 'ради хвоста всё и затевалось');
+      expect(widthOf(trimmed), lessThanOrEqualTo(widthOf(name) / 2));
+    });
+
+    test('показанного столько, сколько влезло', () {
+      final room = widthOf(name) / 2;
+      final trimmed = trimTextMiddle(name, style, room, scaler);
+
+      // Ещё один знак — и не поместилось бы: иначе обрезка жадничает.
+      expect(widthOf('$trimmed…'), greaterThan(room));
+    });
+
+    test('знак не рвётся посередине', () {
+      // Одни лишь горы: куда ни придись разрез, он приходится на суррогатную
+      // пару, — обрезка по кодовым единицам оставила бы половину знака.
+      const emoji = '🏔🏔🏔🏔🏔🏔🏔🏔🏔🏔🏔🏔.jpg';
+      final trimmed = trimTextMiddle(emoji, style, widthOf(emoji) / 2, scaler);
+
+      final halves = trimmed.runes.where((rune) => rune >= 0xD800 && rune <= 0xDFFF);
+      expect(halves, isEmpty, reason: 'половины знака в показанном не бывает');
+      expect(trimmed, contains('…'));
+    });
+
+    test('места нет вовсе — имя возвращается как есть', () {
+      expect(trimTextMiddle(name, style, 0, scaler), name);
+      expect(trimTextMiddle(name, style, double.infinity, scaler), name);
+    });
+
+    test('в несколько строк мерка по строкам, а дыра всё равно одна', () {
+      final room = widthOf(name) / 4;
+      final trimmed = trimTextMiddle(name, style, room, scaler, maxLines: 2);
+
+      expect('…'.allMatches(trimmed).length, 1);
+      expect(spanFitsLines(TextSpan(text: trimmed, style: style), room, scaler, maxLines: 2), isTrue);
+    });
+  });
+
   test('влезает — не трогаем', () {
     expect(trimTextHead('/home/docs', style, widthOf('/home/docs') + 1, scaler), '/home/docs');
   });

@@ -1,11 +1,20 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:flutter/foundation.dart';
 
 /// Настройки видов панели.
 ///
 /// Общие на приложение, а не на панель: две панели с разным числом колонок в
 /// кратком виде выглядели бы поломкой, а не настройкой
 /// (`docs/spec/panel-views.md`, §7).
-class PanelsSettings implements Serializable {
+/// Оповещает о правках **сама**: настройки видов правят в окне настроек, а
+/// видно их в панели — и ждать, пока панель проснётся по другому поводу, значит
+/// показывать человеку, что нажатие ни к чему не привело
+/// (`docs/spec/name-trim.md`, §7).
+///
+/// Оповещает не всякая правка, а та, которую видно сразу и некому показать
+/// иначе: ширину столбца и долю дерева правят прямой манипуляцией, и тот, кто
+/// их правит, перерисовывается сам.
+class PanelsSettings extends ChangeNotifier implements Serializable {
   PanelsSettings({
     this.briefColumns = autoColumns,
     this.treeSize = true,
@@ -14,7 +23,8 @@ class PanelsSettings implements Serializable {
     this.iconTileSize = defaultIconTileSize,
     this.iconNameWidth = autoNameWidth,
     this.columnWidth = defaultColumnWidth,
-  });
+    String nameTrim = trimEnd,
+  }) : _nameTrim = nameTrim;
 
   /// Какую долю ширины занимает дерево в комбинированном виде.
   static const double defaultTreeShare = 1 / 3;
@@ -98,6 +108,32 @@ class PanelsSettings implements Serializable {
   /// Сколько столбцов у краткого вида; [autoColumns] — сколько влезет.
   int briefColumns;
 
+  /// Чем жертвовать в имени, которому не хватило ширины: концом или серединой
+  /// (`docs/spec/name-trim.md`).
+  ///
+  /// Строкой, а не перечислением: на диске лежит слово, и переименование члена
+  /// перечисления в коде не должно превращать чужую настройку в умолчание —
+  /// тем же приёмом живёт «что делать по концу команды» у терминала.
+  String get nameTrim => _nameTrim;
+  String _nameTrim;
+
+  set nameTrim(String value) {
+    if (value == _nameTrim) {
+      return;
+    }
+    _nameTrim = value;
+    notifyListeners();
+  }
+
+  /// Отрезать хвост: `Отчёт за третий квартал 20…`. Так было всегда.
+  static const String trimEnd = 'end';
+
+  /// Вырезать середину: `Отчёт за третий…ный.xlsx`. Привычка Finder.
+  static const String trimMiddle = 'middle';
+
+  /// Удобство для тех, кто показывает имена: им нужно не слово, а сторона.
+  bool get trimsNameInMiddle => nameTrim == trimMiddle;
+
   /// Показывать ли размер в дереве.
   ///
   /// Включено: размер — то, ради чего каталог и помечают
@@ -125,8 +161,15 @@ class PanelsSettings implements Serializable {
     treeShare = extract(treeShare, m['treeShare']).clamp(minTreeShare, maxTreeShare);
     iconTileSize = extract(iconTileSize, m['iconTileSize']).clamp(minIconTileSize, maxIconTileSize);
     columnWidth = extract(columnWidth, m['columnWidth']).clamp(minColumnWidth, maxColumnWidth);
+    // Незнакомое слово — это чужая настройка или опечатка в правленом руками
+    // файле: показываем как было, а не гадаем.
+    final trim = extract(nameTrim, m['nameTrim']);
+    _nameTrim = trim == trimMiddle ? trimMiddle : trimEnd;
     final width = extract(iconNameWidth, m['iconNameWidth']);
     iconNameWidth = width <= autoNameWidth ? autoNameWidth : width.clamp(minNameWidth, maxNameWidth);
+    // Настройки перечитали целиком — скажем и об этом: так же приходит
+    // выбранный набор настроек, и виды обязаны его увидеть.
+    notifyListeners();
   }
 
   @override
@@ -138,5 +181,6 @@ class PanelsSettings implements Serializable {
     m['iconTileSize'] = iconTileSize;
     m['iconNameWidth'] = iconNameWidth;
     m['columnWidth'] = columnWidth;
+    m['nameTrim'] = nameTrim;
   }
 }

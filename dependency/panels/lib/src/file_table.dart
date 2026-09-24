@@ -425,7 +425,10 @@ class _FileTableState extends State<FileTable> {
     return ListenableBuilder(
       // Строки перерисовываются и при движении курсора, и при изменении
       // пометки; ListView строит только видимые, поэтому это дёшево.
-      listenable: panel,
+      // Вместе с панелью — настройки видов: правку в окне настроек видно
+      // сразу, а не когда панель проснётся по своему поводу
+      // (`docs/spec/name-trim.md`, §7).
+      listenable: Listenable.merge([panel, widget.settings()]),
       builder: (context, _) {
         _prepareScroll();
 
@@ -454,7 +457,7 @@ class _FileTableState extends State<FileTable> {
         // Правило показа имён одно на приложение: две панели, делящие имя
         // по-разному, — не гибкость, а недосмотр.
         final naming = app.fileNaming;
-        _cache.frame([theme, columns, widths, rows, naming, _rowHeight]);
+        _cache.frame([theme, columns, widths, rows, naming, _rowHeight, widget.settings().nameTrim]);
 
         return NotificationListener<ScrollEndNotification>(
           // Прокрутка запоминается, когда устоялась: с неё вид и начнёт, когда
@@ -495,6 +498,7 @@ class _FileTableState extends State<FileTable> {
                   underCursor: underCursor,
                   panelActive: active,
                   naming: naming,
+                  nameSide: widget.settings().trimsNameInMiddle ? FcTrimSide.middle : FcTrimSide.tail,
                   // Байты — для правил иконок по содержимому. Спрашивают их у
                   // панели: строка принадлежит ей, и она же знает, откуда читать.
                   contentOf: panel.contentOf,

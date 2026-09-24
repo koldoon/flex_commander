@@ -12,6 +12,13 @@ enum FcTrimSide {
   /// Голова — пути: в конце текущий каталог, а по началу видно, о каком корне
   /// речь ([trimTextHead]).
   head,
+
+  /// Середина — имена, когда так попросили: видны оба конца, и расширение в
+  /// том числе ([trimTextMiddle], `docs/spec/name-trim.md`).
+  ///
+  /// Не про пути: у них середины не режут — звено с дырой посередине читается
+  /// как другое имя.
+  middle,
 }
 
 /// Строка, которой может не хватить ширины: обрежется — и договорится
@@ -103,6 +110,13 @@ class FcTrimmedText extends StatelessWidget {
       return _wrapped(context, _plain(shown), trimmed: shown != text);
     }
 
+    if (side == FcTrimSide.middle) {
+      // Имя сокращается **целиком**, сколько бы строк ему ни отвели: дыра в
+      // середине имени одна, а не по одной на строку.
+      final shown = trimTextMiddle(text, measured, width, scaler, maxLines: maxLines);
+      return _wrapped(context, _plain(shown), trimmed: shown != text);
+    }
+
     if (maxLines > 1) {
       // Несколько строк — и мерка другая: помещается ли текст в отведённые
       // строки, а не в одну. Ту же меру завела многострочная строка состояния.
@@ -116,8 +130,9 @@ class FcTrimmedText extends StatelessWidget {
   Widget _plain(String shown) => Text(
     shown,
     maxLines: maxLines,
-    // Хвост режет `ellipsis`; голова уже отрезана — ей многоточие поставили мы.
-    overflow: side == FcTrimSide.head ? TextOverflow.clip : TextOverflow.ellipsis,
+    // Хвост режет `ellipsis`; голову и середину отрезали мы, и многоточие в
+    // них уже стоит — второе поставил бы `ellipsis`.
+    overflow: side == FcTrimSide.tail ? TextOverflow.ellipsis : TextOverflow.clip,
     // Переносим только там, где строк больше одной: у однострочного переносить
     // нечего, а `softWrap: false` бережёт раскладку от лишней работы.
     softWrap: maxLines > 1,

@@ -261,6 +261,7 @@ class _BriefViewState extends State<BriefView> {
           // сейчас клавиши.
           panelActive: active,
           naming: naming,
+          nameSide: widget.settings().trimsNameInMiddle ? FcTrimSide.middle : FcTrimSide.tail,
           contentOf: panel.contentOf,
           onPress: () => _onPress(index),
         ),
@@ -274,7 +275,10 @@ class _BriefViewState extends State<BriefView> {
     final theme = FcTheme.of(context);
 
     return ListenableBuilder(
-      listenable: panel,
+      // Вместе с панелью — настройки видов: правку в окне настроек видно
+      // сразу, а не когда панель проснётся по своему поводу
+      // (`docs/spec/name-trim.md`, §7).
+      listenable: Listenable.merge([panel, widget.settings()]),
       builder:
           (context, _) => LayoutBuilder(
             builder: (context, constraints) {
@@ -338,7 +342,7 @@ class _BriefViewState extends State<BriefView> {
               final naming = app.fileNaming;
               // Ширины в приметы не входят: их целиком задают два числа ниже, а
               // сам список каждый раз новый (`docs/spec/panel-redraw.md`, §6).
-              _cache.frame([theme, rowHeight, columnWidth, iconWidth, entries, naming]);
+              _cache.frame([theme, rowHeight, columnWidth, iconWidth, entries, naming, widget.settings().nameTrim]);
 
               final list = ListView.builder(
                 controller: _scroll,

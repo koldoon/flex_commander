@@ -25,11 +25,17 @@ class IconTile extends StatelessWidget {
     required this.underCursor,
     required this.panelActive,
     required this.width,
+    this.nameSide = FcTrimSide.tail,
     this.contentOf,
     this.onPress,
   });
 
   final FileEntry entry;
+
+  /// Чем жертвовать в имени, которому не хватило плитки
+  /// (`docs/spec/name-trim.md`). Имя тут в две строки, и дыра в нём всё равно
+  /// одна: сокращается оно целиком, а не построчно.
+  final FcTrimSide nameSide;
 
   /// Сторона значка в точках — своя величина, не размер строки списка.
   final double iconSize;
@@ -180,6 +186,7 @@ class IconTile extends StatelessWidget {
           text: entry.name,
           style: style,
           width: room,
+          side: nameSide,
           textAlign: TextAlign.center,
           maxLines: nameLines,
         ),

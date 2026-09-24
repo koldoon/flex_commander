@@ -205,6 +205,64 @@ String trimTextHead(String value, TextStyle style, double maxWidth, TextScaler s
   return _trimByLetters(value, style, maxWidth, scaler);
 }
 
+/// Обрезает имя **посередине**: `Отчёт за третий…ный.xlsx`.
+///
+/// Второй способ сократить имя, и выбирают его настройкой
+/// (`docs/spec/name-trim.md`). Хвост важен не меньше начала: в нём расширение
+/// и то, чем похожие имена и различаются, — «черновик» против
+/// «окончательный».
+///
+/// **К путям отношения не имеет**: у них своё правило, по звеньям и слева
+/// ([trimTextHead]).
+///
+/// Считается вручную: `TextOverflow.ellipsis` всегда режет хвост, а середину
+/// не умеет вовсе. Двоичный поиск по числу оставленных знаков — около восьми
+/// замеров на одно не поместившееся имя, и только на нём: поместившееся
+/// возвращается первым же вопросом.
+///
+/// Знаками, а не кодовыми единицами: имя с эмодзи или составным знаком,
+/// разорванное посередине, — это мусор, а не обрубок.
+///
+/// [maxLines] больше одной — и мерка другая: помещается ли показанное в
+/// отведённые строки. Само показанное при этом считается по всему имени, а не
+/// по строке: иначе вырезанных дыр в имени было бы столько же, сколько строк.
+String trimTextMiddle(String value, TextStyle style, double maxWidth, TextScaler scaler, {int maxLines = 1}) {
+  if (maxWidth.isInfinite || maxWidth <= 0) {
+    return value;
+  }
+
+  bool fits(String text) =>
+      maxLines > 1
+          ? spanFitsLines(TextSpan(text: text, style: style), maxWidth, scaler, maxLines: maxLines)
+          : textWidthOf(text, style, scaler) <= maxWidth;
+
+  if (fits(value)) {
+    return value;
+  }
+
+  final letters = value.characters.toList();
+  String shown(int keep) {
+    // Нечётный знак достаётся голове: читают слева направо, и начало важнее.
+    final head = (keep + 1) ~/ 2;
+    final tail = keep ~/ 2;
+    return '${letters.take(head).join()}…${tail == 0 ? '' : letters.skip(letters.length - tail).join()}';
+  }
+
+  // Самое длинное показанное, которое ещё помещается.
+  var low = 0;
+  var high = letters.length - 1;
+  while (low < high) {
+    final middle = (low + high + 1) ~/ 2;
+    if (fits(shown(middle))) {
+      low = middle;
+    } else {
+      high = middle - 1;
+    }
+  }
+
+  return shown(low);
+}
+
 /// Обрезка буквами: для строк без звеньев и для звена, которое само не влезло.
 String _trimByLetters(String value, TextStyle style, double maxWidth, TextScaler scaler) {
   // Двоичный поиск самого длинного хвоста, который помещается вместе с «…».

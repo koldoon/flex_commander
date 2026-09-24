@@ -73,6 +73,21 @@ class Panels implements FcBackendModule, FcFrontendModule {
     registry.settingsSchema(() {
       final strings = registry.services.resolve<Strings>();
       return SettingsSchema([
+        // Списком, а не флажком: «резать середину: да/нет» — вопрос не о том, и
+        // третий способ (скажем, по словам) превратил бы флажок в список
+        // всё равно (`docs/spec/name-trim.md`, §6).
+        SettingsField.option(
+          'nameTrim',
+          title: strings.tr('Long names are shortened'),
+          description: strings.tr('Paths are not affected: they are always shortened from the left, by whole links'),
+          allowed: {
+            PanelsSettings.trimEnd: strings.tr('At the end'),
+            PanelsSettings.trimMiddle: strings.tr('In the middle'),
+          },
+          defaultValue: PanelsSettings.trimEnd,
+          read: () => settingsOf().nameTrim,
+          write: (value) => settingsOf().nameTrim = value,
+        ),
         SettingsField.flag(
           'cursorHoldsPlace',
           defaultValue: true,
@@ -375,6 +390,13 @@ const Map<String, String> _russian = {
   'Row below': 'Ряд ниже',
   'Move the cursor one row of tiles': 'Перевести курсор на ряд плиток',
   'File panels': 'Файловые панели',
+
+  // Сокращение длинных имён (`docs/spec/name-trim.md`).
+  'Long names are shortened': 'Длинные имена сокращаются',
+  'Paths are not affected: they are always shortened from the left, by whole links':
+      'Путей это не касается: они всегда сокращаются слева и по целым звеньям',
+  'At the end': 'с конца',
+  'In the middle': 'в середине',
 
   // Заголовки колонок.
   // У колонки значка заголовка нет; имя ей нужно только в списке колонок.

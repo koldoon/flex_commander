@@ -430,7 +430,10 @@ class TreeViewState extends State<TreeView> {
     final theme = FcTheme.of(context);
 
     return ListenableBuilder(
-      listenable: panel,
+      // Вместе с панелью — настройки видов: правку в окне настроек видно
+      // сразу, а не когда панель проснётся по своему поводу
+      // (`docs/spec/name-trim.md`, §7).
+      listenable: Listenable.merge([panel, widget.settings()]),
       builder: (context, _) {
         // Столбцов у дерева нет: `Left` и `Right` здесь свои
         // (`docs/spec/panel-view-tree.md`, §6).
@@ -507,7 +510,7 @@ class TreeViewState extends State<TreeView> {
               // у них общий, а обращение это поиск унаследованного виджета.
               final active = takesKeysHere(context, panel);
               final navigator = widget.rows == RowsKind.branches;
-              _cache.frame([theme, step, showSize, sizeWidth, inset, rows, navigator]);
+              _cache.frame([theme, step, showSize, sizeWidth, inset, rows, navigator, widget.settings().nameTrim]);
 
               return ListView.builder(
                 controller: _scroll,
@@ -532,6 +535,7 @@ class TreeViewState extends State<TreeView> {
                       sizeWidth: showSize ? sizeWidth : 0,
                       inset: inset,
                       panelActive: active,
+                      nameSide: widget.settings().trimsNameInMiddle ? FcTrimSide.middle : FcTrimSide.tail,
                       // Дерево одних каталогов — навигатор соседнего столбца, и
                       // правила у него свои: место видно и без курсора, а знак
                       // раскрытия стоит только там, где внутри и правда ветви
@@ -697,6 +701,7 @@ class _BranchRow extends StatelessWidget {
     required this.sizeWidth,
     required this.inset,
     required this.panelActive,
+    required this.nameSide,
     this.navigator = false,
     required this.onPress,
     required this.onToggle,
@@ -707,6 +712,10 @@ class _BranchRow extends StatelessWidget {
   final FileEntry row;
 
   final bool underCursor;
+
+  /// Чем жертвовать в имени, которому не хватило места
+  /// (`docs/spec/name-trim.md`).
+  final FcTrimSide nameSide;
 
   /// Помечена ли ветвь. Показывается теми же цветами, что в списке: пометка в
   /// панели одна, и выглядеть она обязана одинаково
@@ -880,7 +889,7 @@ class _BranchRow extends StatelessWidget {
                                   // осталось от знака, значка и колонки
                                   // размера, — а считать это семью слагаемыми
                                   // было бы хрупко.
-                                  child: FcTrimmedText(text: row.name, style: style),
+                                  child: FcTrimmedText(text: row.name, style: style, side: nameSide),
                                 ),
                               ),
                             ),

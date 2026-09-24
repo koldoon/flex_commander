@@ -19,6 +19,7 @@ class FileTableRow extends StatelessWidget {
     required this.underCursor,
     required this.panelActive,
     this.naming = const ReferenceFileNaming(),
+    this.nameSide = FcTrimSide.tail,
     this.contentOf,
     this.onPress,
   });
@@ -38,6 +39,13 @@ class FileTableRow extends StatelessWidget {
   /// у которой есть колонка `Ext`; дерево или миниатюры покажут имя иначе, и
   /// спрашивать их о расширении будет бессмысленно.
   final FileNaming naming;
+
+  /// Чем жертвовать в имени, которому не хватило колонки: концом или
+  /// серединой (`docs/spec/name-trim.md`).
+  ///
+  /// Доводом, а не вопросом к настройкам: строка рисует любую колонку и о том,
+  /// что панель настраивают, знать не обязана.
+  final FcTrimSide nameSide;
 
   /// Чем открыть байты строки — иконке, если правило спрашивает о содержимом.
   final Content Function(FileEntry entry)? contentOf;
@@ -147,6 +155,9 @@ class FileTableRow extends StatelessWidget {
           child: FcTrimmedText(
             text: text,
             width: width - metrics.cellPadding * 2,
+            // Середину режет только имя: у размера и даты середины нет —
+            // есть число, и дыра в нём не значит ничего.
+            side: column.id == FsColumns.name ? nameSide : FcTrimSide.tail,
             textAlign: column.align == ColumnAlign.end ? TextAlign.right : TextAlign.left,
             style: _styleFor(theme, column),
           ),

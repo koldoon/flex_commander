@@ -327,6 +327,7 @@ class _IconsViewState extends State<IconsView> {
           // Тот же вопрос, что задаёт плашка пути: горит курсор там, где
           // сейчас клавиши.
           panelActive: active,
+          nameSide: widget.settings().trimsNameInMiddle ? FcTrimSide.middle : FcTrimSide.tail,
           contentOf: panel.contentOf,
           onPress: () => _onPress(index),
         ),
@@ -340,7 +341,10 @@ class _IconsViewState extends State<IconsView> {
     final theme = FcTheme.of(context);
 
     return ListenableBuilder(
-      listenable: panel,
+      // Вместе с панелью — настройки видов: правку в окне настроек видно
+      // сразу, а не когда панель проснётся по своему поводу
+      // (`docs/spec/name-trim.md`, §7).
+      listenable: Listenable.merge([panel, widget.settings()]),
       builder:
           (context, _) => LayoutBuilder(
             builder: (context, constraints) {
@@ -431,7 +435,7 @@ class _IconsViewState extends State<IconsView> {
               // Спрашивается один раз на список, а не в каждой плитке: ответ у
               // них общий, а обращение это поиск унаследованного виджета.
               final active = takesKeysHere(context, panel);
-              _cache.frame([theme, iconSize, tileWidth, tileHeight, nameHeight, entries]);
+              _cache.frame([theme, iconSize, tileWidth, tileHeight, nameHeight, entries, widget.settings().nameTrim]);
 
               final list = ListView.builder(
                 controller: _scroll,

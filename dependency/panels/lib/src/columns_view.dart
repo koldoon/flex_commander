@@ -592,7 +592,10 @@ class ColumnsViewState extends State<ColumnsView> {
     final theme = FcTheme.of(context);
 
     return ListenableBuilder(
-      listenable: panel,
+      // Вместе с панелью — настройки видов: правку в окне настроек видно
+      // сразу, а не когда панель проснётся по своему поводу
+      // (`docs/spec/name-trim.md`, §7).
+      listenable: Listenable.merge([panel, widget.settings()]),
       builder: (context, _) {
         // Вбок и вниз здесь ходят свои команды: шаг переменный, и постоянным
         // числом строк его не описать (`panel-view-columns.md`, §6).
@@ -721,6 +724,8 @@ class ColumnsViewState extends State<ColumnsView> {
                                         // быть ничего (файл, закрытая ветвь).
                                         nextOwner: at + 1 < chain.columns.length ? chain.columns[at + 1].owner : -1,
                                         current: at == chain.current,
+                                        nameSide:
+                                            widget.settings().trimsNameInMiddle ? FcTrimSide.middle : FcTrimSide.tail,
                                         step: _step,
                                         controller: _verticalOf(rows[chain.columns[at].owner].path),
                                         onPress: _onPress,
@@ -772,6 +777,7 @@ class _Column extends StatefulWidget {
     required this.panel,
     required this.rows,
     required this.column,
+    required this.nameSide,
     required this.nextOwner,
     required this.current,
     required this.step,
@@ -788,6 +794,10 @@ class _Column extends StatefulWidget {
 
   /// Курсор стоит в этом столбце.
   final bool current;
+
+  /// Чем жертвовать в имени, которому не хватило столбца
+  /// (`docs/spec/name-trim.md`).
+  final FcTrimSide nameSide;
 
   final double step;
   final ScrollController controller;
@@ -826,6 +836,7 @@ class _ColumnState extends State<_Column> {
       widget.current,
       widget.nextOwner,
       column.selected,
+      widget.nameSide,
     ]);
 
     // Пустой столбец — не то же, что отсутствие столбца: «здесь пусто» надо
@@ -848,6 +859,7 @@ class _ColumnState extends State<_Column> {
         return _cache.of(index, [row, underCursor, entered, onTrail, marked, active], () {
           return _ColumnRow(
             row: row,
+            nameSide: widget.nameSide,
             underCursor: underCursor,
             entered: entered,
             onTrail: onTrail,
@@ -941,6 +953,7 @@ class _ColumnHeader extends StatelessWidget {
 class _ColumnRow extends StatelessWidget {
   const _ColumnRow({
     required this.row,
+    required this.nameSide,
     required this.underCursor,
     required this.entered,
     required this.onTrail,
@@ -950,6 +963,10 @@ class _ColumnRow extends StatelessWidget {
   });
 
   final FileEntry row;
+
+  /// Чем жертвовать в имени, которому не хватило столбца
+  /// (`docs/spec/name-trim.md`).
+  final FcTrimSide nameSide;
 
   final bool underCursor;
 
@@ -1042,7 +1059,7 @@ class _ColumnRow extends StatelessWidget {
                             padding: EdgeInsets.only(right: metrics.cellPadding),
                             child: Transform.translate(
                               offset: Offset(0, metrics.rowTextVerticalNudge),
-                              child: FcTrimmedText(text: row.name, style: style),
+                              child: FcTrimmedText(text: row.name, style: style, side: nameSide),
                             ),
                           ),
                         ),
