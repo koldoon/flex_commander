@@ -169,6 +169,7 @@ CommandRegistry.dispatch(combination, app)
 | `Alt-Shift-Enter` | `panel.calculateSizes` | посчитать размеры всех каталогов здесь |
 | `Cmd-Shift-H` | `panel.toggleHidden` | показать/скрыть скрытые объекты |
 | `Alt-F7` | `search.findFiles` | искать по дереву от текущего каталога — открывает окно |
+| `Ctrl-M` | `file.renameBatch` | групповое переименование помеченного — окно с предпросмотром |
 | `Alt-F9` | `archive.extractHere` | распаковать архив туда же, где он лежит |
 | `Alt-F5` | `archive.packHere` | упаковать выбранное в архив в этой же панели — открывает окно |
 
@@ -656,6 +657,7 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 | `panel.quickSearch.erase` | `Bsp` | идёт быстрый поиск (ненайденное стирает разом) |
 | `panel.quickSearch.stop` | `Esc` | идёт быстрый поиск |
 | `search.findFiles` | `Alt-F7` | панель стоит в каталоге и не занята |
+| `file.renameBatch` | `Ctrl-M` | есть цели, и источник умеет переименовывать |
 | `archive.extractHere` | `Alt-F9` | под курсором (или в пометке) архив, и панель принимает запись |
 | `archive.packHere` | `Alt-F5` | есть цели, панель принимает запись и объявлен хоть один упаковщик |
 | `search.goToFound` | `Enter` | панель показывает находки, и под курсором не `..` |
