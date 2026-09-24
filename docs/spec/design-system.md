@@ -375,7 +375,7 @@ cellPadding`), потому что размер иконки настраива�
 |---|---|---|
 | `test/view/goldens/application_view.png` | `application_view_golden_test.dart`, шрифты не загружены (Ahem) | геометрия: позиции колонок, высоты строк, линейки, доли ряда кнопок |
 | `test/view/goldens/design_anchor.png` | `design_anchor_golden_test.dart`, **настоящие** шрифты | набор: кегль, начертание, глифы иконок |
-| `goldens/anchor_copy.png`, `anchor_move.png`, `anchor_archive.png`, `anchor_progress*`, `anchor_find.png`, `anchor_settings.png`, `anchor_help.png`, `anchor_palette.png` | тот же тест | раскладка каждого окна команды |
+| `goldens/anchor_copy.png`, `anchor_move.png`, `anchor_archive.png`, `anchor_progress*`, `anchor_find.png`, `anchor_settings.png`, `anchor_help.png`, `anchor_palette.png`, `anchor_multi_rename.png` | тот же тест | раскладка каждого окна команды |
 
 Окна команд снимаются **комбинацией клавиш** (`dispatch(KeyCombination.parse(...))`),
 а не вызовом команды по имени: клавиша, кнопка нижней панели и строка палитры

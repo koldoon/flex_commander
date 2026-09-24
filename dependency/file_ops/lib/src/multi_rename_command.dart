@@ -4,6 +4,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
+import 'file_ops_settings.dart';
 import 'multi_rename_form.dart';
 import 'rename_batch.dart';
 import 'rename_plan.dart';
@@ -13,7 +14,14 @@ import 'rename_plan.dart';
 /// Окно показывает **две колонки, было и станет**, строка в строку, и до
 /// нажатия на диске не меняется ничего (`docs/spec/multi-rename.md`).
 class MultiRenameCommand extends AppCommand {
-  MultiRenameCommand(this.naming);
+  MultiRenameCommand(this.naming, {required this.settings, required this.save});
+
+  /// Настройки модуля — наборы правил и то, чем переименовывали в прошлый раз.
+  final FileOpsSettings Function() settings;
+
+  /// Записать настройки на диск. Зовётся, когда окно закрывают: правила меняют
+  /// на каждое нажатие клавиши, и писать файл на каждое было бы расточительно.
+  final void Function() save;
 
   static const String commandId = 'file.renameBatch';
 
@@ -75,6 +83,7 @@ class MultiRenameCommand extends AppCommand {
 
     run = MultiRenameRun(
       app: context.app,
+      settings: settings(),
       commandId: id,
       title: tr('Multi-rename'),
       // Целой фразой, а не склейкой: по-русски «не вышло» согласуется с тем,
@@ -83,6 +92,7 @@ class MultiRenameCommand extends AppCommand {
       show: present,
       naming: naming,
       panel: panel,
+      save: save,
     );
     run.onStart = () => _apply(context, run);
 
@@ -118,6 +128,8 @@ class MultiRenameCommand extends AppCommand {
       // Пометка жила путями, а пути изменились все разом (§10).
       panel.clearMarks(by: MarkChange.work);
       panel.setCursorToName(first);
+      // Набранное ложится на диск: следующий раз окно откроется тем же (§12).
+      run.remember();
     }
   }
 }
@@ -133,10 +145,19 @@ class MultiRenameRun extends FcAsyncRun {
     required super.show,
     required this.naming,
     required this.panel,
-  });
+    required this.settings,
+    required this.save,
+  }) : spec = settings.lastRename;
+
+  /// Записать настройки на диск.
+  final void Function() save;
 
   final FileNaming naming;
   final Session panel;
+  final FileOpsSettings settings;
+
+  /// Имя выбранного набора; пусто — ни один не выбран.
+  String preset = '';
 
   /// Цели — в том порядке, в каком их видно в панели: по нему считается номер.
   List<FileEntry> entries = const [];
@@ -144,7 +165,8 @@ class MultiRenameRun extends FcAsyncRun {
   /// Занятые имена по каталогам; пока не спросили — проверка не строга.
   Map<String, Set<String>> taken = const {};
 
-  RenameSpec spec = const RenameSpec();
+  /// Окно открывается там, где его закрыли (§12).
+  RenameSpec spec;
 
   RenamePlan get plan => RenamePlan.build(entries, spec, naming: naming, taken: taken);
 
@@ -170,6 +192,51 @@ class MultiRenameRun extends FcAsyncRun {
 
   void edit(RenameSpec value) {
     spec = value;
+    settings.lastRename = value;
     notifyListeners();
+  }
+
+  /// Взять набор: правила его, и он же становится выбранным.
+  void applyPreset(String name) {
+    final stored = settings.renamePreset(name);
+    preset = stored == null ? '' : name;
+    if (stored != null) {
+      spec = stored;
+      settings.lastRename = stored;
+    }
+    notifyListeners();
+  }
+
+  /// Записать набранное под именем. Одноимённый **свой** набор переписывается —
+  /// это и есть «обновить»; чужое имя занимать молча нельзя, и об этом говорит
+  /// сам вопрос об имени.
+  void savePreset(String name) {
+    settings.saveRenamePreset(name, spec);
+    preset = name.trim();
+    save();
+    notifyListeners();
+  }
+
+  void removePreset(String name) {
+    settings.removeRenamePreset(name);
+    if (preset == name) {
+      preset = '';
+    }
+    save();
+    notifyListeners();
+  }
+
+  /// Запомнить набранное на диске.
+  void remember() => save();
+
+  /// Окно закрывают — набранное остаётся.
+  ///
+  /// Здесь, а не в команде: `Esc`, крестик и кнопка «Cancel» ведут сюда все
+  /// трое, и запоминать в каждом месте по отдельности значило бы забыть в
+  /// одном из них.
+  @override
+  void dismiss() {
+    remember();
+    super.dismiss();
   }
 }

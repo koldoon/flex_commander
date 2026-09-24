@@ -111,6 +111,40 @@ void main() {
     expect(find.byType(FcErrorText), findsOneWidget);
   });
 
+  /// Настройки модуля — те же, что читает окно.
+  FileOpsSettings settingsOf() => runtime.app.moduleSettings(FileOps.commandId).section(FileOpsSettings.new);
+
+  testWidgets('набранное переживает закрытие окна', (tester) async {
+    await markPhotos(tester);
+    await pumpDialog(tester);
+
+    await tester.enterText(nameField(), 'Отпуск_[C]');
+    await settle(tester);
+    await tester.tap(find.widgetWithText(FcButton, 'Cancel'));
+    await settle(tester);
+
+    expect(settingsOf().lastRename.nameMask, 'Отпуск_[C]');
+
+    // Окно открывается там, где его закрыли: маску набирают долго, а нужна
+    // она обычно дважды подряд.
+    await pumpDialog(tester);
+    expect(find.text('Отпуск_[C]'), findsWidgets);
+  });
+
+  testWidgets('выбранный набор раскладывается по полям', (tester) async {
+    settingsOf().saveRenamePreset('мои снимки', const RenameSpec(nameMask: 'Отпуск_[C]', extensionMask: 'jpg'));
+    await markPhotos(tester);
+    await pumpDialog(tester);
+
+    await tester.tap(find.text('Not saved'));
+    await settle(tester);
+    await tester.tap(find.text('мои снимки').last);
+    await settle(tester);
+
+    expect(find.text('Отпуск_1.jpg'), findsOneWidget, reason: 'правила набора видны сразу в предпросмотре');
+    expect(find.text('Отпуск_[C]'), findsWidgets, reason: 'и в самих полях');
+  });
+
   testWidgets('переименование доходит до диска тем, что показал предпросмотр', (tester) async {
     await markPhotos(tester);
     final command = await pumpDialog(tester);

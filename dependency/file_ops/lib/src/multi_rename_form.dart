@@ -67,6 +67,10 @@ class _MultiRenameFormState extends State<MultiRenameForm> {
         busy: !run.canApply,
         submitLabel: strings.tr('Rename'),
         children: [
+          // Набор — первой строкой: он решает всё, что стоит ниже, и после
+          // полей читался бы припиской к ним. Тем же порядком стоят наборы
+          // настроек (`docs/spec/settings-presets.md`, §6).
+          CommandDialogField(label: strings.tr('Preset'), child: _presets(context)),
           CommandDialogField(
             label: strings.tr('Name'),
             child: FcTextField(
@@ -167,6 +171,88 @@ class _MultiRenameFormState extends State<MultiRenameForm> {
         ],
       ),
     );
+  }
+
+  /// Строка набора: список сохранённых и две кнопки при нём.
+  ///
+  /// Кнопки рядом со списком, а не внизу окна: они про то, что выбрано в нём, а
+  /// ряд внизу — про само переименование.
+  Widget _presets(BuildContext context) {
+    final strings = context.strings;
+    final run = widget.run;
+    final names = run.settings.renamePresetNames;
+    final chosen = run.preset;
+
+    return Wrap(
+      spacing: FcTheme.of(context).metrics.dialogGap,
+      runSpacing: FcTheme.of(context).metrics.dialogLineGap,
+      crossAxisAlignment: WrapCrossAlignment.center,
+      children: [
+        FcSelect<String>(
+          // Пустая строка — настоящий вариант, а не пустота: «ни одного» это
+          // тоже состояние, и ходьба стрелками по значению, которого в списке
+          // нет, спотыкалась бы.
+          options: {'': strings.tr('Not saved'), for (final name in names) name: name},
+          value: names.contains(chosen) ? chosen : '',
+          onChanged: _take,
+        ),
+        FcButton(
+          label: strings.tr('Save'),
+          onPressed:
+              () => askName(
+                run.app,
+                title: strings.tr('Save the rules'),
+                submitLabel: strings.tr('Save'),
+                // Имя выбранного набора — готовым: записать под ним значит
+                // обновить его, а это самое частое продолжение правки.
+                initial: chosen.isEmpty ? strings.tr('My rules') : chosen,
+                save: (name) => name.trim().isEmpty ? strings.tr('A set without a name cannot be chosen') : _save(name),
+              ),
+        ),
+        FcButton(
+          label: strings.tr('Delete'),
+          onPressed:
+              chosen.isEmpty
+                  ? null
+                  : () => askConfirm(
+                    run.app,
+                    title: strings.tr('Delete set'),
+                    message: strings.tr(
+                      'Delete «{name}»? The rules in the window stay as they are.',
+                      args: {'name': chosen},
+                    ),
+                    confirmLabel: strings.tr('Delete'),
+                    onConfirm: () => setState(() => run.removePreset(chosen)),
+                  ),
+        ),
+      ],
+    );
+  }
+
+  /// Взять набор: правила его, и поля показывают их сразу.
+  void _take(String name) {
+    widget.run.applyPreset(name);
+    _fill(widget.run.spec);
+  }
+
+  String? _save(String name) {
+    setState(() => widget.run.savePreset(name));
+    return null;
+  }
+
+  /// Разложить правила по полям.
+  ///
+  /// Руками, а не перестройкой формы: поля живут своими `TextEditingController`,
+  /// и набранное в них меняется только тогда, когда его меняет человек — иначе
+  /// курсор в поле прыгал бы на каждую перерисовку.
+  void _fill(RenameSpec spec) {
+    _name.text = spec.nameMask;
+    _extension.text = spec.extensionMask;
+    _find.text = spec.find;
+    _replace.text = spec.replace;
+    _start.text = '${spec.counter.start}';
+    _step.text = '${spec.counter.step}';
+    _digits.text = '${spec.counter.digits}';
   }
 
   /// Поле с маленькой подписью слева: столбец подписей формы занят общим

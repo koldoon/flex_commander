@@ -3,6 +3,7 @@ import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'clipboard_commands.dart';
+import 'file_ops_settings.dart';
 import 'multi_rename_command.dart';
 import 'rename_batch.dart';
 import 'copy_path_command.dart';
@@ -39,6 +40,11 @@ class FileOps implements FcBackendModule, FcFrontendModule {
 
   @override
   void installFrontend(FrontendRegistry registry) {
+    // Область забирается **сейчас**, пока идёт установка: позже имя раздела уже
+    // неизвестно, и настройки уехали бы в чужой.
+    final settings = registry.settings;
+    FileOpsSettings settingsOf() => settings.section(FileOpsSettings.new);
+
     registry.strings('ru', _russian);
     registry.plurals('ru', _plurals);
 
@@ -46,7 +52,9 @@ class FileOps implements FcBackendModule, FcFrontendModule {
     registry.command((context) => RenameCommand());
     // Имена считает экран этой же командой, работе едут готовые пары
     // (`docs/spec/multi-rename.md`, §2).
-    registry.command((context) => MultiRenameCommand(context.resolve<FileNaming>()));
+    registry.command(
+      (context) => MultiRenameCommand(context.resolve<FileNaming>(), settings: settingsOf, save: settings.save),
+    );
     registry.command((context) => RemoveCommand());
     registry.command((context) => RemovePermanentlyCommand());
     registry.command((context) => CopyCommand());
@@ -93,6 +101,14 @@ const Map<String, String> _russian = {
 
   // Групповое переименование (`docs/spec/multi-rename.md`).
   'Multi-rename': 'Переименовать разом',
+  // Наборы правил. «Preset», «Delete set» и «A set without a name cannot be
+  // chosen» переводит оболочка — там же, где наборы настроек: одно и то же
+  // слово дважды в словарях не объявляют.
+  'Not saved': 'Не сохранён',
+  'Save the rules': 'Сохранение набора',
+  'My rules': 'Мои правила',
+  'Delete «{name}»? The rules in the window stay as they are.':
+      'Удалить «{name}»? Набранное в окне останется как есть.',
   'Rename the selected items at once, with a preview': 'Переименовать помеченное разом, с предпросмотром',
   'Name': 'Имя',
   'Extension': 'Расширение',
