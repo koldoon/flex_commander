@@ -76,6 +76,7 @@ export 'src/format/date_format.dart';
 export 'src/format/duration_format.dart';
 export 'src/format/size_format.dart';
 export 'src/util/file_mask.dart';
+export 'src/util/name_replacement.dart';
 export 'src/util/name_rule.dart';
 export 'src/util/rename_mask.dart';
 export 'src/util/file_name.dart';
