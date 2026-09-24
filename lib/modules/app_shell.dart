@@ -249,8 +249,8 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     registry.command((context) => CloseSessionCommand());
     registry.command((context) => CycleSessionsCommand(forward: true));
     registry.command((context) => CycleSessionsCommand(forward: false));
+    registry.command((context) => SessionByNumberCommand());
     registry.command((context) => SelectSessionCommand());
-    registry.command((context) => ChooseSessionCommand());
     registry.command((context) => RenameSessionCommand());
     registry.binding(KeyBinding('Cmd-Shift-T', NewSessionCommand.commandId, context: KeyContext.panel));
     registry.binding(KeyBinding('Cmd-Shift-W', CloseSessionCommand.commandId, context: KeyContext.panel));
@@ -259,14 +259,14 @@ class AppShell implements FcBackendModule, FcFrontendModule {
     // и есть родное.
     registry.binding(KeyBinding('Ctrl-Tab', CycleSessionsCommand.nextId, context: KeyContext.panel));
     registry.binding(KeyBinding('Ctrl-Shift-Tab', CycleSessionsCommand.previousId, context: KeyContext.panel));
-    registry.binding(KeyBinding('Cmd-Shift-O', ChooseSessionCommand.commandId, context: KeyContext.panel));
+    registry.binding(KeyBinding('Cmd-Shift-O', SelectSessionCommand.commandId, context: KeyContext.panel));
     for (var number = 1; number <= 9; number++) {
       registry.binding(
         KeyBinding(
           'Alt-$number',
-          SelectSessionCommand.commandId,
+          SessionByNumberCommand.commandId,
           id: 'panel.sessions.select.$number',
-          parameters: {SelectSessionCommand.numberParam: '$number'},
+          parameters: {SessionByNumberCommand.numberParam: '$number'},
           context: KeyContext.panel,
         ),
       );

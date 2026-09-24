@@ -52,7 +52,7 @@ void main() {
   }
 
   Future<void> openDialog(WidgetTester tester) async {
-    app.commands.run(ChooseSessionCommand.commandId);
+    app.commands.run(SelectSessionCommand.commandId);
     await tester.pumpAndSettle();
   }
 

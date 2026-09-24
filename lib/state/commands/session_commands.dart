@@ -171,7 +171,7 @@ class CycleSessionsCommand extends AppCommand {
 }
 
 /// Набор по номеру: `Alt-1`…`Alt-9`.
-class SelectSessionCommand extends AppCommand {
+class SessionByNumberCommand extends AppCommand {
   static const String commandId = 'panel.sessions.select';
 
   /// Номер набора, считая с единицы.
@@ -220,7 +220,7 @@ class SelectSessionCommand extends AppCommand {
 /// Устроено палитрой, а не своим окном: вопрос тот же — «найди по названию и
 /// покажи», — и повторять его вторым виджетом незачем
 /// (`docs/spec/panel-sessions.md`, §3).
-class ChooseSessionCommand extends AppCommand {
+class SelectSessionCommand extends AppCommand {
   static const String commandId = 'panel.sessions.choose';
 
   @override

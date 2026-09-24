@@ -288,7 +288,7 @@ void main() {
 
       // Номер виден в окне выбора — с выключенным рядом это единственное место,
       // где он написан.
-      app.commands.run(ChooseSessionCommand.commandId);
+      app.commands.run(SelectSessionCommand.commandId);
       await tester.pumpAndSettle();
       expect(find.byType(FcPickList), findsOneWidget);
       await tester.sendKeyEvent(LogicalKeyboardKey.escape);
