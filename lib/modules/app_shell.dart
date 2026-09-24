@@ -719,6 +719,7 @@ const Map<String, String> _russian = {
 
   // Команды оболочки.
   'Help': 'Справка',
+  'Search help': 'Поиск по справке',
   'Everything the application remembers by your choice': 'Всё, что приложение помнит по вашему выбору',
   'Settings': 'Настройки',
   'Commands': 'Команды',
@@ -912,6 +913,7 @@ const Map<String, String> _russian = {
 
 /// Множественные формы оболочки.
 const Map<String, PluralForms> _plurals = {
+  '{n} rows': (one: '{n} строка', few: '{n} строки', many: '{n} строк'),
   '{n} times': (one: '{n} раз', few: '{n} раза', many: '{n} раз'),
   'Reset {n} keys': (one: 'Вернули {n} клавишу', few: 'Вернули {n} клавиши', many: 'Вернули {n} клавиш'),
 };

@@ -2,6 +2,8 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
+import '../../view/dialogs/help_view.dart';
+
 /// Справка: что сейчас настроено и какие клавиши за что отвечают.
 ///
 /// Первый шаг сознательно скромный — таблица текущего состояния вместо
@@ -55,9 +57,10 @@ class HelpCommand extends AppCommand {
         id: commandId,
         resizable: true,
         takesFocus: true,
-        // Со строчными линейками: описания команд занимают то одну строчку, то
-        // три, и без них соседние сливаются в сплошной абзац.
-        content: FcKeyValueTable(sections: _sections(context), divided: true),
+        // Ширину назначает само окно, долей экрана: с оглавлением слева мерить
+        // содержимое интринсиками уже нечем (`docs/spec/help-window.md`, §4).
+        ownWidth: true,
+        content: HelpView(sections: _sections(context)),
         onSubmit: close,
         onDismiss: close,
       ),

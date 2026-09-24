@@ -7,9 +7,11 @@ import 'package:flex_commander/state/app_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flex_commander/view/dialogs/dialog_frame.dart';
+import 'package:flex_commander/view/dialogs/help_view.dart';
 import 'package:flutter_test/flutter_test.dart';
 
-/// Справка: таблица текущих настроек и привязок клавиш.
+/// Справка: оглавление, поиск и разделы — текущие настройки и привязки клавиш
+/// (`docs/spec/help-window.md`).
 void main() {
   late InMemoryTreeProvider provider;
   late AppController app;
@@ -47,7 +49,19 @@ void main() {
 
   /// Поиск внутри окна справки: те же подписи есть и на кнопках нижней
   /// панели — «F5» там номер клавиши, а не строка таблицы.
-  Finder inHelp(Finder finder) => find.descendant(of: find.byType(FcKeyValueTable), matching: finder);
+  Finder inHelp(Finder finder) => find.descendant(of: find.byType(HelpView), matching: finder);
+
+  /// Набрать в поиске справки.
+  Future<void> search(WidgetTester tester, String query) async {
+    await tester.enterText(find.descendant(of: find.byType(HelpView), matching: find.byType(FcTextField)), query);
+    await tester.pumpAndSettle();
+  }
+
+  /// Названия разделов в оглавлении; пусто — оглавления нет вовсе.
+  List<String> toc(WidgetTester tester) => [
+    for (final list in tester.widgetList<FcPickList>(find.byType(FcPickList)))
+      for (final row in list.rows) row.title,
+  ];
 
   /// Вся строка таблицы, кроме названия, — по порядку слева направо.
   ///
@@ -79,14 +93,15 @@ void main() {
     testWidgets('F1 открывает справку', (tester) async {
       await openHelp(tester);
 
-      expect(find.byType(FcKeyValueTable), findsOneWidget);
+      expect(find.byType(HelpView), findsOneWidget);
       expect(find.text('Help'), findsWidgets);
-      // «Settings» в справке двое: заголовок раздела настроек приложения и
-      // подпись команды, открывающей их окно.
-      expect(inHelp(find.text('Settings')), findsNWidgets(2));
+      // «Settings» в справке трое: строка оглавления, заголовок раздела
+      // настроек приложения и подпись команды, открывающей их окно.
+      expect(inHelp(find.text('Settings')), findsNWidgets(3));
       // Команды показаны по модулям: заголовок раздела — название модуля, а не
-      // общее «Commands». Первым — тот, кто объявлен первым.
-      expect(inHelp(find.text('Shell')), findsOneWidget);
+      // общее «Commands». Первым — тот, кто объявлен первым. Дважды — потому
+      // что то же название стоит строкой в оглавлении.
+      expect(inHelp(find.text('Shell')), findsNWidgets(2));
       // Кнопок нет вовсе: читать справку нечем, кроме глаз, а закрывают её
       // `Esc` и крестик в заголовке.
       expect(find.byType(FcButton), findsNothing);
@@ -101,8 +116,8 @@ void main() {
       expect(find.widgetWithText(FcButton, 'Close'), findsNothing);
 
       // И содержимое от этого доходит до низа окна, а не оставляет полосу.
-      final dialog = tester.getRect(find.byType(FcKeyValueTable));
-      final content = tester.getRect(find.byType(FcKeyValueSections));
+      final dialog = tester.getRect(find.byType(HelpView));
+      final content = tester.getRect(find.byType(FcIndexedSections));
       expect(content.bottom, closeTo(dialog.bottom, 1));
     });
 
@@ -131,24 +146,17 @@ void main() {
 
     /// Окно целиком, вместе с полосой заголовка.
     Size frameSize(WidgetTester tester) =>
-        tester.getSize(find.ancestor(of: find.byType(FcKeyValueTable), matching: find.byType(Container)).last);
+        tester.getSize(find.ancestor(of: find.byType(HelpView), matching: find.byType(Container)).last);
 
     testWidgets('окно не занимает больше трёх четвертей ширины и не выходит за поля по высоте', (tester) async {
       const screen = Size(1400, 900);
       await openHelp(tester, size: screen);
 
       final size = frameSize(tester);
-      // Ширина — долей окна: поля дали бы предел, зависящий от того, как далеко
-      // отодвинуты края, и на широком экране окно растянулось бы во всю ширину.
+      // Ширина — долей окна: с оглавлением слева содержимое её больше не
+      // назначает (`docs/spec/help-window.md`, §4).
       expect(size.width, lessThanOrEqualTo(screen.width * 0.75));
       expect(size.height, lessThanOrEqualTo(screen.height - 240));
-    });
-
-    testWidgets('на просторном экране окно облегает таблицу, а не разъезжается', (tester) async {
-      await openHelp(tester, size: const Size(1900, 1200));
-
-      // Столбцы считаются по содержимому, поэтому лишней ширины у окна нет.
-      expect(frameSize(tester).width, lessThan(1900 - 240));
     });
 
     testWidgets('на тесном экране окно упирается в свою долю, а не вылезает', (tester) async {
@@ -159,7 +167,7 @@ void main() {
       expect(frameSize(tester).width, lessThanOrEqualTo(700 * 0.75));
     });
 
-    testWidgets('на маленьком экране таблица прокручивается, а не обрезается', (tester) async {
+    testWidgets('на маленьком экране справка прокручивается, а не обрезается', (tester) async {
       await openHelp(tester, size: const Size(802, 621));
 
       final position = _ownScroll(tester).controller!.position;
@@ -169,17 +177,75 @@ void main() {
       expect(position.pixels, 0);
     });
 
-    testWidgets('стрелки и PgDn листают таблицу', (tester) async {
+    testWidgets('PgDn листает, стрелка из поиска уводит к следующему разделу', (tester) async {
       await openHelp(tester);
       final controller = _ownScroll(tester).controller!;
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
-      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+      await tester.pumpAndSettle();
       expect(controller.offset, greaterThan(0));
 
-      await tester.sendKeyEvent(LogicalKeyboardKey.end);
-      await tester.pump();
-      expect(controller.offset, controller.position.maxScrollExtent);
+      // Стрелки отдаются разделам: фокус при открытии стоит в поиске, и водить
+      // ими нечего (§5).
+      controller.jumpTo(0);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      expect(controller.offset, greaterThan(0), reason: 'уехали ко второму разделу');
+    });
+  });
+
+  group('оглавление и поиск', () {
+    testWidgets('слева стоят названия всех разделов', (tester) async {
+      await openHelp(tester);
+
+      expect(toc(tester), containsAll(['Application', 'Settings', 'File operations']));
+    });
+
+    testWidgets('поиск отбирает и разделы, и оглавление', (tester) async {
+      await openHelp(tester);
+      await search(tester, 'rename');
+
+      expect(toc(tester), isNot(contains('Application')), reason: 'в разделе о сборке такого слова нет');
+      expect(toc(tester), contains('File operations'));
+      expect(inHelp(find.text('Multi-rename')), findsOneWidget);
+    });
+
+    testWidgets('совпало название раздела — раздел показан целиком', (tester) async {
+      await openHelp(tester);
+      final all = inHelp(find.byType(Text)).evaluate().length;
+      await search(tester, 'terminal');
+
+      expect(toc(tester), ['Terminal']);
+      expect(inHelp(find.byType(Text)).evaluate().length, lessThan(all));
+      // Команды терминала остались все, а не только та, где слово повторено.
+      expect(inHelp(find.text('Command line')), findsOneWidget);
+    });
+
+    testWidgets('ищется и по клавише: «а что такое Alt-F9»', (tester) async {
+      await openHelp(tester);
+      await search(tester, 'alt-f9');
+
+      expect(toc(tester), isNotEmpty);
+      expect(inHelp(find.textContaining('Alt-F9')), findsWidgets);
+    });
+
+    testWidgets('не нашлось — сказано один раз, справа', (tester) async {
+      await openHelp(tester);
+      await search(tester, 'такого тут нет');
+
+      expect(toc(tester), isEmpty, reason: 'пустое оглавление сказало бы то же самое вторично');
+      expect(inHelp(find.text('Nothing found')), findsOneWidget);
+    });
+
+    testWidgets('щелчок по разделу в оглавлении прокручивает к нему', (tester) async {
+      await openHelp(tester);
+      final controller = _ownScroll(tester).controller!;
+
+      await tester.tap(find.descendant(of: find.byType(FcPickList), matching: find.text('Terminal')));
+      await tester.pumpAndSettle();
+
+      expect(controller.offset, greaterThan(0));
     });
   });
 
@@ -305,6 +371,10 @@ void main() {
 /// окно молча переполнялось бы. Её прокрутка своего контроллера не заводит, и
 /// по нему они и различаются: справка листается клавишами и потому держит его
 /// сама.
+/// Прокрутка **содержимого**: своя есть и у оглавления, и идёт она первой —
+/// столбец с ним стоит слева.
 SingleChildScrollView _ownScroll(WidgetTester tester) => tester
-    .widgetList<SingleChildScrollView>(find.byType(SingleChildScrollView))
-    .firstWhere((one) => one.controller != null);
+    .widgetList<SingleChildScrollView>(
+      find.descendant(of: find.byType(HelpView), matching: find.byType(SingleChildScrollView)),
+    )
+    .lastWhere((one) => one.controller != null);

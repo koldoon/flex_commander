@@ -386,8 +386,8 @@ void main() {
   });
 
   group('растянутое окно', () {
-    /// Содержимое справки — таблица со всеми командами.
-    Rect content(WidgetTester tester) => tester.getRect(find.byType(FcKeyValueSections));
+    /// Содержимое справки — оглавление и разделы рядом с ним.
+    Rect content(WidgetTester tester) => tester.getRect(find.byType(FcIndexedSections));
 
     /// Низ окна: у справки кнопок нет вовсе — содержимое доходит до края.
 

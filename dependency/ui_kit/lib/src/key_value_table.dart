@@ -150,58 +150,11 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
     return KeyEventResult.handled;
   }
 
-  /// Сколько столбцов нужно — по самому полному разделу.
-  int get _columns => widget.sections.fold(1, (count, section) => section.columns > count ? section.columns : count);
-
-  /// Ширины столбцов, кроме последнего, — **по всем разделам сразу**.
-  ///
-  /// Одна таблица, а не таблица на раздел: подписи разных разделов описывают
-  /// один и тот же объект, и стоять они обязаны на одной глубине. Последний
-  /// столбец здесь не меряется — ему достаётся весь остаток, и переносится он
-  /// по краю окна, а не раньше.
-  List<double> _widths(BuildContext context) {
-    // Доли мерить незачем: ширину столбцам задаёт не текст, а отведённое место.
-    if (widget.bounded) {
-      return List<double>.filled(_columns, 0);
-    }
-
-    final theme = FcTheme.of(context);
-    final scaler = MediaQuery.textScalerOf(context);
-    final widths = List<double>.filled(_columns, 0);
-
-    // Тем же стилем, каким ячейки будут набраны: `Text` смешивает переданный
-    // стиль с наследуемым, и замер без этого выходит уже нарисованного
-    // ([FcTheme.effective]).
-    final labelStyle = FcTheme.effective(context, theme.dialogLabelStyle);
-    final textStyle = FcTheme.effective(context, theme.dialogTextStyle);
-
-    for (final section in widget.sections) {
-      for (final row in section.rows) {
-        final cells = row.cells;
-        for (var i = 0; i < cells.length && i < _columns - 1; i++) {
-          final painter = TextPainter(
-            text: TextSpan(text: cells[i], style: i == 0 ? labelStyle : textStyle),
-            textDirection: TextDirection.ltr,
-            textScaler: scaler,
-            maxLines: 1,
-          )..layout();
-          final width = painter.width > theme.metrics.helpCellMaxWidth ? theme.metrics.helpCellMaxWidth : painter.width;
-          if (width > widths[i]) {
-            widths[i] = width;
-          }
-          painter.dispose();
-        }
-      }
-    }
-    return widths;
-  }
-
   @override
   Widget build(BuildContext context) {
-    final theme = FcTheme.of(context);
-    final metrics = theme.metrics;
-    final widths = _widths(context);
-    final columns = _columns;
+    final metrics = FcTheme.of(context).metrics;
+    final columns = keyValueColumns(widget.sections);
+    final widths = keyValueColumnWidths(context, widget.sections, columns: columns, bounded: widget.bounded);
 
     return Focus(
       autofocus: widget.autofocus,
@@ -222,7 +175,13 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
                 // стояли: там просвет отделяет заголовок от чужих строк, а не
                 // блок от блока.
                 if (i > 0) SizedBox(height: widget.divided ? metrics.dialogHorizontalPadding : metrics.sectionGap),
-                _section(theme, widget.sections[i], widths, columns),
+                FcKeyValueSection(
+                  section: widget.sections[i],
+                  widths: widths,
+                  columns: columns,
+                  divided: widget.divided,
+                  bounded: widget.bounded,
+                ),
               ],
             ],
           ),
@@ -230,6 +189,111 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
       ),
     );
   }
+
+  /// Обёртка для прокрутки вбок; без неё — то же самое, что дали.
+  ///
+  /// Внутри вертикальной, а не снаружи: листают её сверху вниз, и заголовок
+  /// раздела должен уезжать вместе со своими строками, а не оставаться на
+  /// месте, пока строки едут вбок.
+  Widget _sideways(Widget child) =>
+      widget.horizontal ? SingleChildScrollView(scrollDirection: Axis.horizontal, child: child) : child;
+}
+
+/// Сколько столбцов нужно разделам — по самому полному из них.
+int keyValueColumns(List<FcTableSection> sections) =>
+    sections.fold(1, (count, section) => section.columns > count ? section.columns : count);
+
+/// Ширины столбцов, кроме последнего, — **по всем разделам сразу**.
+///
+/// Одна таблица, а не таблица на раздел: подписи разных разделов описывают
+/// один и тот же объект, и стоять они обязаны на одной глубине. Последний
+/// столбец здесь не меряется — ему достаётся весь остаток, и переносится он
+/// по краю окна, а не раньше.
+///
+/// Считается по **всем** разделам, даже когда показаны не все: в справке с
+/// поиском столбцы иначе прыгали бы на каждую букву
+/// (`docs/spec/help-window.md`, §6).
+List<double> keyValueColumnWidths(
+  BuildContext context,
+  List<FcTableSection> sections, {
+  required int columns,
+  bool bounded = false,
+}) {
+  // Доли мерить незачем: ширину столбцам задаёт не текст, а отведённое место.
+  if (bounded) {
+    return List<double>.filled(columns, 0);
+  }
+
+  final theme = FcTheme.of(context);
+  final scaler = MediaQuery.textScalerOf(context);
+  final widths = List<double>.filled(columns, 0);
+
+  // Тем же стилем, каким ячейки будут набраны: `Text` смешивает переданный
+  // стиль с наследуемым, и замер без этого выходит уже нарисованного
+  // ([FcTheme.effective]).
+  final labelStyle = FcTheme.effective(context, theme.dialogLabelStyle);
+  final textStyle = FcTheme.effective(context, theme.dialogTextStyle);
+
+  for (final section in sections) {
+    for (final row in section.rows) {
+      final cells = row.cells;
+      for (var i = 0; i < cells.length && i < columns - 1; i++) {
+        final painter = TextPainter(
+          text: TextSpan(text: cells[i], style: i == 0 ? labelStyle : textStyle),
+          textDirection: TextDirection.ltr,
+          textScaler: scaler,
+          maxLines: 1,
+        )..layout();
+        final width = painter.width > theme.metrics.helpCellMaxWidth ? theme.metrics.helpCellMaxWidth : painter.width;
+        if (width > widths[i]) {
+          widths[i] = width;
+        }
+        painter.dispose();
+      }
+    }
+  }
+  return widths;
+}
+
+/// Один раздел таблицы «ключ → значение».
+///
+/// Отдельным виджетом, потому что разделы показывают не только лентой: справка
+/// раскладывает их по оглавлению и отбирает поиском, а ширины столбцов у них
+/// при этом общие (`docs/spec/help-window.md`, §6).
+class FcKeyValueSection extends StatelessWidget {
+  const FcKeyValueSection({
+    super.key,
+    required this.section,
+    required this.widths,
+    required this.columns,
+    this.divided = false,
+    this.bounded = false,
+    this.shares,
+  });
+
+  final FcTableSection section;
+
+  /// Ширины столбцов, общие на все разделы ([keyValueColumnWidths]).
+  final List<double> widths;
+
+  final int columns;
+
+  /// Отделять строки друг от друга линейкой — см. [FcKeyValueSections.divided].
+  final bool divided;
+
+  /// Ширина задана снаружи — см. [FcKeyValueSections.bounded].
+  final bool bounded;
+
+  /// Доли столбцов, когда ширина задана снаружи; null — обычные
+  /// [FcKeyValueSections.labelShare] и [FcKeyValueSections.valueShare].
+  ///
+  /// Задаёт их тот, кто знает, что в столбцах: у справки это имя команды,
+  /// клавиши и описание, и делить остаток поровну между последними двумя
+  /// неправильно — описание длиннее клавиш в разы.
+  final List<int>? shares;
+
+  @override
+  Widget build(BuildContext context) => _section(FcTheme.of(context), section, widths, columns);
 
   /// Раздел целиком: заголовок и строки под ним.
   ///
@@ -244,7 +308,7 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
     final metrics = theme.metrics;
     final title = Text(section.title, style: theme.dialogTitleStyle.copyWith(fontSize: metrics.sectionHeadingFontSize));
 
-    if (!widget.divided) {
+    if (!divided) {
       return Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -280,14 +344,6 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
     );
   }
 
-  /// Обёртка для прокрутки вбок; без неё — то же самое, что дали.
-  ///
-  /// Внутри вертикальной, а не снаружи: листают её сверху вниз, и заголовок
-  /// раздела должен уезжать вместе со своими строками, а не оставаться на
-  /// месте, пока строки едут вбок.
-  Widget _sideways(Widget child) =>
-      widget.horizontal ? SingleChildScrollView(scrollDirection: Axis.horizontal, child: child) : child;
-
   /// Строки раздела — таблицей с **общими** ширинами столбцов.
   ///
   /// Таблица на раздел, а ширины общие: со стороны это и есть одна таблица, у
@@ -303,7 +359,7 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
     // прилипает к той, что над ней. Линейке нужно больше воздуха, чем строке
     // без неё, поэтому и роль другая; без линейки просвет прежний — окна
     // сведений от этой правки поехать не должны.
-    final gap = widget.divided ? metrics.dialogLineGap : metrics.dialogPadding / 4;
+    final gap = divided ? metrics.dialogLineGap : metrics.dialogPadding / 4;
 
     return Table(
       // Линейки между строками, а также сверху и снизу: раздел получает
@@ -311,15 +367,17 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
       // нет — столбцы разделены просветом, и вертикальные сделали бы решётку.
       // Только между строками: края раздела рисует плашка вокруг него, и
       // линейка по её кромке была бы второй границей на том же месте.
-      border: widget.divided ? TableBorder(horizontalInside: _divider(theme)) : null,
+      border: divided ? TableBorder(horizontalInside: _divider(theme)) : null,
       columnWidths: {
-        if (widget.bounded)
+        if (bounded)
           // Долями: подпись и значение делят отведённую ширину, а не растут по
           // содержимому. Столбцов бывает и три — тогда доля значения делится
-          // между ними поровну.
+          // между ними поровну, если не сказано иначе.
           for (var i = 0; i < columns; i++)
             i: FlexColumnWidth(
-              i == 0 ? FcKeyValueSections.labelShare.toDouble() : FcKeyValueSections.valueShare / (columns - 1),
+              shares != null && shares!.length == columns
+                  ? shares![i].toDouble()
+                  : (i == 0 ? FcKeyValueSections.labelShare.toDouble() : FcKeyValueSections.valueShare / (columns - 1)),
             )
         else ...{
           for (var i = 0; i < columns - 1; i++) i: FixedColumnWidth(widths[i] + metrics.dialogGap),
@@ -342,9 +400,9 @@ class _FcKeyValueSectionsState extends State<FcKeyValueSections> {
                   // Просвет между столбцами: ширину им задаёт доля, и без поля
                   // подпись прилипла бы к значению.
                   padding: EdgeInsets.only(
-                    top: widget.divided ? gap : 0,
+                    top: divided ? gap : 0,
                     bottom: gap,
-                    right: widget.bounded && i < columns - 1 ? metrics.dialogGap : 0,
+                    right: bounded && i < columns - 1 ? metrics.dialogGap : 0,
                   ),
                   child: Text(
                     i < row.cells.length ? row.cells[i] : '',

@@ -52,7 +52,8 @@ void main() {
     app.commands.run(HelpCommand.commandId);
     await tester.pumpAndSettle();
 
-    expect(find.text('Application'), findsOneWidget);
+    // Дважды: строкой в оглавлении справки и заголовком раздела.
+    expect(find.text('Application'), findsNWidgets(2));
     expect(find.text('0.0.77 (build 128)'), findsOneWidget);
     expect(find.text('arm64'), findsOneWidget);
   });
