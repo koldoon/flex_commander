@@ -52,6 +52,9 @@ class RenameCounter {
   final int digits;
 
   String at(int index) => (start + step * index).toString().padLeft(digits, '0');
+
+  RenameCounter copyWith({int? start, int? step, int? digits}) =>
+      RenameCounter(start: start ?? this.start, step: step ?? this.step, digits: digits ?? this.digits);
 }
 
 /// Разобранная маска переименования.

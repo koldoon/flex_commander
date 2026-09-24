@@ -36,6 +36,10 @@ dev_dependencies:
   fc_navigation:
     path: ../navigation
 
+  # Окно рисуется настоящим оформлением: своих значений у API нет.
+  fc_default_theme:
+    path: ../default_theme
+
   flex_commander:
     path: ../..
 

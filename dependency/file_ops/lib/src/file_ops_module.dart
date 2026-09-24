@@ -3,6 +3,7 @@ import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'clipboard_commands.dart';
+import 'multi_rename_command.dart';
 import 'rename_batch.dart';
 import 'copy_path_command.dart';
 import 'file_commands.dart';
@@ -43,6 +44,9 @@ class FileOps implements FcBackendModule, FcFrontendModule {
 
     registry.command((context) => MakeDirectoryCommand());
     registry.command((context) => RenameCommand());
+    // Имена считает экран этой же командой, работе едут готовые пары
+    // (`docs/spec/multi-rename.md`, §2).
+    registry.command((context) => MultiRenameCommand(context.resolve<FileNaming>()));
     registry.command((context) => RemoveCommand());
     registry.command((context) => RemovePermanentlyCommand());
     registry.command((context) => CopyCommand());
@@ -64,6 +68,9 @@ class FileOps implements FcBackendModule, FcFrontendModule {
     // Shift-F6 — там же, где переименование во всех коммандерах: рядом с
     // переносом, потому что это его ближайший родственник.
     registry.binding(KeyBinding('Shift-F6', RenameCommand.commandId, context: KeyContext.panel));
+    // `Ctrl-M` — привычка Total Commander; `Cmd-M` на macOS занят системой
+    // (`docs/keyboard.md`, «Занятые системой сочетания»).
+    registry.binding(KeyBinding('Ctrl-M', MultiRenameCommand.commandId, context: KeyContext.panel));
     // На macOS F-клавиши по умолчанию отданы системе (F7 — «предыдущий трек»),
     // и до приложения нажатие не доходит. Привычное сочетание из Finder
     // работает без настройки клавиатуры.
@@ -83,6 +90,31 @@ class FileOps implements FcBackendModule, FcFrontendModule {
 /// Русские строки файловых операций.
 const Map<String, String> _russian = {
   'Delete failed': 'Удалить не вышло',
+
+  // Групповое переименование (`docs/spec/multi-rename.md`).
+  'Multi-rename': 'Переименовать разом',
+  'Rename the selected items at once, with a preview': 'Переименовать помеченное разом, с предпросмотром',
+  'Name': 'Имя',
+  'Extension': 'Расширение',
+  'Find': 'Найти',
+  'Replace with': 'Заменить на',
+  'Regular expression': 'Регулярное выражение',
+  'Case sensitive': 'Различать регистр',
+  'Case': 'Регистр',
+  'Counter': 'Счётчик',
+  'Was': 'Было',
+  'Becomes': 'Станет',
+  'Renaming…': 'Переименование…',
+  'failed': 'не удалось',
+  'Skip': 'Пропустить',
+  'Skip all': 'Пропустить все',
+  'Cancel': 'Отмена',
+  'Unchanged': 'без изменений',
+  'UPPERCASE': 'ВЕРХНИЙ',
+  'lowercase': 'нижний',
+  'First capital': 'Первая заглавная',
+  'Every Word': 'Каждое Слово',
+  'The expression is not understood': 'Выражение не понято',
   'File operations': 'Файловые операции',
 
   // Перенос.
@@ -134,6 +166,8 @@ const Map<String, String> _russian = {
 
 /// Множественные формы: ключ — та форма, которую называют на месте.
 const Map<String, PluralForms> _plurals = {
+  '{n} to rename': (one: '{n} переименуется', few: '{n} переименуются', many: '{n} переименуются'),
+  '{n} collisions': (one: '{n} столкновение', few: '{n} столкновения', many: '{n} столкновений'),
   'Copied {n} addresses': (one: 'Скопирован {n} адрес', few: 'Скопировано {n} адреса', many: 'Скопировано {n} адресов'),
   'Copied {n} items': (one: 'Скопирован {n} объект', few: 'Скопировано {n} объекта', many: 'Скопировано {n} объектов'),
   '{n} items ready to move': (
