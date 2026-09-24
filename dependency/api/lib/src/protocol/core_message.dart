@@ -7,6 +7,7 @@ import '../values/fs_error.dart';
 import '../values/node_attributes.dart';
 import 'entry_ref.dart';
 import 'file_entry.dart';
+import 'journal_entry.dart';
 import 'operation_spec.dart';
 import '../os/credentials.dart';
 import '../os/elevation.dart';
@@ -310,7 +311,7 @@ final class SetHeaderText extends CoreRequest implements PanelRequest {
 /// Ответом приходит её имя ([CoreRunning]); дальше о ней рассказывают события,
 /// а говорят с ней [TellOperation].
 final class RunOperation extends CoreRequest {
-  const RunOperation(this.runId, this.spec);
+  const RunOperation(this.runId, this.spec, {this.journal = false});
 
   /// Имя работы даёт **эта** сторона, а не ядро.
   ///
@@ -319,6 +320,12 @@ final class RunOperation extends CoreRequest {
   /// С именем на руках подписка встаёт до запуска.
   final String runId;
   final OperationSpec spec;
+
+  /// Вести ли журнал сделанного (`docs/spec/operation-history.md`, §5).
+  ///
+  /// Спрашивает та сторона, потому что знает, есть ли кому его подобрать: нет
+  /// модуля истории — нет и довода, и ядро не тратит ни памяти, ни событий.
+  final bool journal;
 }
 
 /// Дадут ли записать в этот файл.
@@ -775,6 +782,21 @@ final class OperationFound extends CoreEvent {
 
   final String runId;
   final List<FileEntry> entries;
+}
+
+/// Работа рассказывает, что сделала, — пачкой, по ходу дела.
+///
+/// Своим событием, а не в исходе: прерванная на середине работа обязана отдать
+/// то, что успела, а копия миллиона файлов не должна ни копиться в памяти до
+/// конца, ни ехать одним куском (`docs/spec/operation-history.md`, §4).
+final class OperationJournaled extends CoreEvent {
+  const OperationJournaled(this.runId, this.entries, {this.obstacle});
+
+  final String runId;
+  final List<JournalEntry> entries;
+
+  /// Почему отменить эту работу будет нельзя; null — пока ничего не мешает.
+  final String? obstacle;
 }
 
 /// Оболочка что-то вывела — байтами, как они пришли.

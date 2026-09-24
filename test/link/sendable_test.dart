@@ -151,6 +151,17 @@ void main() {
     sendable('вывод оболочки', const LinkEvent(ShellOutput('shell@localhost', [104, 105])));
     sendable('конец оболочки', const LinkEvent(ShellExited('shell@localhost', 0)));
     sendable('находки', const LinkEvent(OperationFound('run#1', [entry])));
+    sendable(
+      'журнал работы',
+      const LinkEvent(
+        OperationJournaled('run#1', [
+          Created('/home/copy.txt', kind: EntryKind.file, size: 10),
+          Moved(from: '/home/a.txt', to: '/home/docs/a.txt', kind: EntryKind.file),
+          Trashed(from: '/home/b.txt', to: '/.Trash/b.txt', kind: EntryKind.file),
+          Destroyed('/home/c.txt', reason: 'overwritten'),
+        ]),
+      ),
+    );
     sendable('ход работы', const LinkEvent(OperationProgress('run#1', ProgressReport(message: 'Copying…'))));
     sendable(
       'вопрос работы',
