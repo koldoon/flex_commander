@@ -112,7 +112,11 @@ class AppShell implements FcBackendModule, FcFrontendModule {
       (services) => TaskOperation<OperationInputs, void>(
         (op, inputs) => op.delegate(
           inputs.editor.remove(),
-          RemoveParams(inputs.targets, toTrash: inputs.option<bool>(FileOperations.toTrash) ?? true),
+          RemoveParams(
+            inputs.targets,
+            toTrash: inputs.option<bool>(FileOperations.toTrash) ?? true,
+            journal: inputs.journal,
+          ),
         ),
       ),
     );
@@ -125,7 +129,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
         if (parent == null || name.isEmpty) {
           throw FsError(name, FsErrorKind.invalidName);
         }
-        await op.delegate(inputs.editor.makeDirectory(), MakeDirectoryParams(parent, name));
+        await op.delegate(inputs.editor.makeDirectory(), MakeDirectoryParams(parent, name, journal: inputs.journal));
       }),
     );
 
@@ -177,7 +181,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
         if (node == null || name.isEmpty) {
           throw FsError(name, FsErrorKind.invalidName);
         }
-        await op.delegate(inputs.editor.rename(), RenameParams(node, name));
+        await op.delegate(inputs.editor.rename(), RenameParams(node, name, journal: inputs.journal));
       }),
     );
   }
@@ -666,6 +670,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
             inputs.targets,
             destination,
             followLinks: inputs.option<bool>(FileOperations.followLinks) ?? false,
+            journal: inputs.journal,
           ),
         );
       });

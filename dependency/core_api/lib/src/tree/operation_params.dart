@@ -1,4 +1,5 @@
 import 'fs_node.dart';
+import 'journal.dart';
 import 'tree_provider.dart';
 
 // Данные, с которыми заводят работы над деревом.
@@ -26,10 +27,14 @@ class ListingParams {
 /// должен где-то лежать. Живого состояния здесь нет и быть не может: ни
 /// панели, ни областей, ни приложения.
 class TransferParams {
-  const TransferParams(this.nodes, this.destination, {this.followLinks = false});
+  const TransferParams(this.nodes, this.destination, {this.followLinks = false, this.journal = Journal.none});
 
   final List<FsNode> nodes;
   final DirectoryNode destination;
+
+  /// Куда писать сделанное; [Journal.none] — не писать
+  /// (`docs/spec/operation-history.md`, §4).
+  final Journal journal;
 
   /// Идти ли по символическим ссылкам. По умолчанию нет: ссылка переносится
   /// ссылкой, как в mc.
@@ -38,25 +43,34 @@ class TransferParams {
 
 /// Что удалять и куда — в корзину или совсем.
 class RemoveParams {
-  const RemoveParams(this.nodes, {this.toTrash = true});
+  const RemoveParams(this.nodes, {this.toTrash = true, this.journal = Journal.none});
 
   final List<FsNode> nodes;
   final bool toTrash;
+
+  /// Куда писать сделанное; [Journal.none] — не писать.
+  final Journal journal;
 }
 
 /// Где и под каким именем создать каталог.
 class MakeDirectoryParams {
-  const MakeDirectoryParams(this.parent, this.name);
+  const MakeDirectoryParams(this.parent, this.name, {this.journal = Journal.none});
 
   final DirectoryNode parent;
   final String name;
+
+  /// Куда писать сделанное; [Journal.none] — не писать.
+  final Journal journal;
 }
 
 /// Что переименовать и во что.
 class RenameParams {
-  const RenameParams(this.node, this.name);
+  const RenameParams(this.node, this.name, {this.journal = Journal.none});
 
   final FsNode node;
+
+  /// Куда писать сделанное; [Journal.none] — не писать.
+  final Journal journal;
 
   /// Новое имя — только имя, без пути: переименование не переносит.
   final String name;

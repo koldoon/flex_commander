@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:fc_api/fc_api.dart';
 
 import '../fs_node.dart';
+import '../journal.dart';
 import '../measured_sizes.dart';
 import '../size_walk.dart';
 import '../tree_provider.dart';
@@ -102,6 +103,15 @@ class TreeTransferEngine implements TreeEditor {
       }
 
       final renamed = await editor.lookup(parent, name);
+      params.journal.did(
+        Moved(
+          from: node.displayPath,
+          to: journalPathIn(parent, name),
+          kind: journalKindOf(node),
+          size: node.size,
+          modified: journalModifiedOf(node),
+        ),
+      );
       return renamed ?? node;
     });
   }
@@ -117,6 +127,7 @@ class TreeTransferEngine implements TreeEditor {
 
       final created = await editor.createDirectory(parent, params.name);
       op.checkCanceled();
+      params.journal.did(Created(created.displayPath, kind: EntryKind.directory));
       return created;
     });
   }
@@ -138,6 +149,7 @@ class TreeTransferEngine implements TreeEditor {
       final nodes = params.nodes;
       final destination = params.destination;
       final followLinks = params.followLinks;
+      final journal = params.journal;
       // Приёмник проверяется до начала работы: менять «куда» по ходу нечем,
       // и спрашивать об этом по каждому объекту незачем.
       final target = _editorOf(destination);
@@ -223,6 +235,9 @@ class TreeTransferEngine implements TreeEditor {
                 progress.sourceDoneWholly(i);
                 continue;
               }
+              // Перезапись возвращать неоткуда: прежнего содержимого нет
+              // нигде (`docs/spec/operation-history.md`, §7).
+              journal.did(Destroyed(existing.displayPath, reason: 'overwritten'));
               // В задании объекты приёмника не считаются — они не наши, — но
               // и молчать о них нельзя: уборка по сети идёт минутами, а окно
               // показывало бы прежние цифры.
@@ -240,13 +255,38 @@ class TreeTransferEngine implements TreeEditor {
                 node.provider.capabilities.canRename &&
                 await source!.renameEntry(node, destination, node.name)) {
               // Переименование переносит всё поддерево одним действием —
-              // поштучно объекты в нём не проходили.
+              // поштучно объекты в нём не проходили. И журнал такой же: один
+              // переезд, а не запись на каждый объект внутри.
+              journal.did(
+                Moved(
+                  from: node.displayPath,
+                  to: journalPathIn(destination, node.name),
+                  kind: journalKindOf(node),
+                  size: node.size,
+                  modified: journalModifiedOf(node),
+                ),
+              );
               progress.sourceDoneWholly(i);
               continue;
             }
 
             Future<void> transfer() async {
-              await _copyTree(source, target, node, destination, node.name, op, progress, links, overwrite, pool);
+              // При переносе копия внутрь журнала не пишет: сделанное — это
+              // переезд, и он записывается здесь одной строкой. Слияние же
+              // отменить нельзя вовсе (см. ниже).
+              await _copyTree(
+                source,
+                target,
+                node,
+                destination,
+                node.name,
+                op,
+                progress,
+                links,
+                overwrite,
+                pool,
+                move ? Journal.none : journal,
+              );
               if (move) {
                 // Дожидаемся всего, что ушло в пул из этого источника: убирать
                 // его, пока часть содержимого ещё летит, нельзя.
@@ -256,8 +296,28 @@ class TreeTransferEngine implements TreeEditor {
                 // что человек решил сохранить.
                 if (overwrite.kept.isEmpty) {
                   await _purge(source!, node, op, progress);
+                  if (merging) {
+                    // Перенос слиянием точного обратного действия не имеет: в
+                    // приёмнике своё лежит вперемешку с чужим, и вернуть
+                    // каталог целиком значило бы утащить чужое
+                    // (`docs/spec/operation-history.md`, §8).
+                    journal.cannotUndo('merged into an existing folder');
+                  } else {
+                    journal.did(
+                      Moved(
+                        from: node.displayPath,
+                        to: journalPathIn(destination, node.name),
+                        kind: journalKindOf(node),
+                        size: node.size,
+                        modified: journalModifiedOf(node),
+                      ),
+                    );
+                  }
                 } else {
                   await _purgeExcept(source!, node, overwrite.kept, op, progress);
+                  // Часть источника осталась на месте — обратного действия у
+                  // такого переноса нет (§8).
+                  journal.cannotUndo('part of the source stayed behind');
                 }
               }
             }
@@ -377,9 +437,23 @@ class TreeTransferEngine implements TreeEditor {
             final landed = toTrash ? await editor.trashEntry(node) : null;
             if (landed != null) {
               // Корзина — это переименование: поддерево уезжает одним действием,
-              // поштучно его объекты не проходят.
+              // поштучно его объекты не проходят. И журнал такой же: одна
+              // строка на объект, с именем, которым он там лёг.
+              params.journal.did(
+                Trashed(
+                  from: node.displayPath,
+                  to: landed.displayPath,
+                  kind: journalKindOf(node),
+                  size: node.size,
+                  modified: journalModifiedOf(node),
+                ),
+              );
               progress.sourceDoneWholly(i);
             } else {
+              // Мимо корзины — возвращать неоткуда: одна такая запись делает
+              // работу неотменимой целиком (`docs/spec/operation-history.md`,
+              // §7). Поштучно внутрь не пишем: там всё равно нечего возвращать.
+              params.journal.did(Destroyed(node.displayPath, reason: 'deleted permanently'));
               await _deleteTree(editor, node, op, progress);
             }
           } on FsError catch (error) {
@@ -425,6 +499,7 @@ class TreeTransferEngine implements TreeEditor {
     _LinkPolicy links,
     _OverwritePolicy overwrite,
     _TransferPool pool,
+    Journal journal,
   ) async {
     await op.checkpoint();
     progress.advance();
@@ -439,7 +514,7 @@ class TreeTransferEngine implements TreeEditor {
       }
       // Пошли по ссылке: дальше работаем с целью, но под именем ссылки.
       try {
-        await _copyTree(source, target, followed, destination, name, op, progress, links, overwrite, pool);
+        await _copyTree(source, target, followed, destination, name, op, progress, links, overwrite, pool, journal);
       } finally {
         links.leaveLink(node);
       }
@@ -452,6 +527,16 @@ class TreeTransferEngine implements TreeEditor {
       // отказом — «уже существует».
       final present = await target.lookup(destination, name);
       final created = present is DirectoryNode ? present : await target.createDirectory(destination, name);
+
+      // Каталог, которого не было, записывается **одной** строкой, а внутрь
+      // журнал не идёт вовсе: там всё создано этой работой, и отмена снесёт
+      // дерево целиком. Поштучно пишется только слияние — там своё лежит
+      // вперемешку с чужим (`docs/spec/operation-history.md`, §6).
+      final fresh = present is! DirectoryNode;
+      if (fresh) {
+        journal.did(Created(created.displayPath, kind: EntryKind.directory));
+      }
+      final inside = fresh ? Journal.none : journal;
 
       // Что в приёмнике уже лежит — спрашивается **одним** перечислением, а не
       // проверкой на каждый объект. По сети проверка — это обмен с сервером, и
@@ -479,6 +564,7 @@ class TreeTransferEngine implements TreeEditor {
             overwrite.kept.add(child.pathString);
             continue;
           }
+          inside.did(Destroyed(present.displayPath, reason: 'overwritten'));
           await _purge(target, present, op, progress);
         }
         if (child is DirectoryNode || child.size >= _soloBytes) {
@@ -487,10 +573,10 @@ class TreeTransferEngine implements TreeEditor {
             // разлетелись: иначе его полоса делилась бы с чужими байтами.
             await pool.drain();
           }
-          await _copyTree(source, target, child, created, child.name, op, progress, links, overwrite, pool);
+          await _copyTree(source, target, child, created, child.name, op, progress, links, overwrite, pool, inside);
         } else {
           await pool.add(
-            () => _copyTree(source, target, child, created, child.name, op, progress, links, overwrite, pool),
+            () => _copyTree(source, target, child, created, child.name, op, progress, links, overwrite, pool, inside),
           );
         }
       }
@@ -505,6 +591,16 @@ class TreeTransferEngine implements TreeEditor {
     final item = progress.startItem(node.name, bytes: node.size < 0 ? null : node.size);
     try {
       await _copyFile(source, target, node, destination, name, op, progress, item);
+      // После удачи, а не до неё: до этой строки файла в приёмнике нет, и
+      // отменять было бы нечего.
+      journal.did(
+        Created(
+          journalPathIn(destination, name),
+          kind: journalKindOf(node),
+          size: node.size,
+          modified: journalModifiedOf(node),
+        ),
+      );
     } finally {
       progress.finishItem(item);
     }

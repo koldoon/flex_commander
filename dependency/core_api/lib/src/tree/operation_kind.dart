@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 
 import 'fs_node.dart';
+import 'journal.dart';
 import 'tree_provider.dart';
 
 /// Что работа получает от ядра, когда её заводят.
@@ -15,6 +16,7 @@ class OperationInputs {
     this.destination,
     this.options = const {},
     this.onFound = _nothingFound,
+    this.journal = Journal.none,
   });
 
   /// Над чем работать — узлами. Псевдострока «..» сюда не попадает: ядро
@@ -41,6 +43,13 @@ class OperationInputs {
   /// Пачками, а не по одной: находки приходят быстрее, чем экран успевает
   /// обновиться.
   final void Function(List<FsNode> found) onFound;
+
+  /// Куда работа складывает свершившееся — по ходу дела.
+  ///
+  /// Тем же приёмом, что и [onFound], и по той же причине: прерванная работа
+  /// обязана отдать то, что успела (`docs/spec/operation-history.md`, §4).
+  /// [Journal.none] — журнала не ведут, и работа о нём не думает.
+  final Journal journal;
 
   static void _nothingFound(List<FsNode> found) {}
 

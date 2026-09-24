@@ -6,6 +6,7 @@
 /// подставок, что и тесты ядра.
 library;
 
+export 'src/collected_journal.dart';
 export 'src/command_run.dart';
 export 'src/dialog_finders.dart';
 export 'src/progress_log.dart';
