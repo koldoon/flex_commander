@@ -676,6 +676,8 @@ F4 Edit, F5 Copy, F6 Move, F7 Mk Dir, F8 Delete, F9 `-`, F10 `-`.
 | `file.removePermanently` | `Shift-F8`, `Shift-Cmd-Bsp` | то же |
 | `file.copy` | `F5` | то же |
 | `file.move` | `F6` | то же |
+| `history.undo` | `Cmd-Z` | за сеанс была хоть одна файловая работа |
+| `history.show` | — | всегда: список открывают и пустым |
 | `app.background` | `Cmd-B` | есть хоть одна фоновая работа |
 | `background.cursorUp` | `Up` | ввод в списке работ и работ больше одной |
 | `background.cursorDown` | `Down` | то же |
