@@ -138,7 +138,14 @@ class _FindFilesResultsState extends State<FindFilesResults> {
                   // Растянули окно — прибавка достаётся списку: ради неё его и
                   // тянут. Сводка под ним остаётся на месте.
                   expands: true,
-                  child: SizedBox(height: _visibleRows * theme.metrics.rowHeight, child: _list(context, state)),
+                  // Плашка — та же, какой обведены дерево выбора каталога и
+                  // раздел настроек: список в окне выглядит одинаково, где бы
+                  // он ни стоял. Вплотную: курсор упирается в её края, как
+                  // строка панели — в рамку (`docs/widgets.md`).
+                  child: FcPlate(
+                    tight: true,
+                    child: SizedBox(height: _visibleRows * theme.metrics.rowHeight, child: _list(context, state)),
+                  ),
                 ),
                 // Две строки, как в `mc`: сколько нашлось и где обход сейчас.
                 // Обе стоят всегда — строка, то появляющаяся, то исчезающая,
