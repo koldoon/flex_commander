@@ -96,7 +96,13 @@ class TarArchiver implements FcBackendModule, FcFrontendModule {
           // tar и 7z, а здесь выбирают, чем tar обёрнут
           // (`docs/spec/archive-here.md`, §4).
           label: 'Container',
-          values: [(value: 'plain', title: 'tar'), (value: 'gzip', title: 'tar.gz'), (value: 'tgz', title: 'tgz')],
+          // Имя архива зависит от выбранного: `.tar` без сжатия не должен
+          // называться `.tar.gz`.
+          values: [
+            PackerValue('plain', 'tar', extension: 'tar'),
+            PackerValue('gzip', 'tar.gz', extension: 'tar.gz'),
+            PackerValue('tgz', 'tgz', extension: 'tgz'),
+          ],
           fallback: 'gzip',
         ),
       ),

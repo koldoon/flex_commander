@@ -50,11 +50,29 @@ class PackerChoice {
   /// Подпись строки в окне: «Compression».
   final String label;
 
-  /// Значение → как оно называется человеку.
-  final List<({String value, String title})> values;
+  final List<PackerValue> values;
 
   /// Что выбрано, пока не выбрали другого.
   final String fallback;
+}
+
+/// Одно значение довода: что уйдёт в заявку, как это зовут человеку и чем
+/// кончается имя архива, если от значения зависит и оно.
+class PackerValue {
+  const PackerValue(this.value, this.title, {this.extension = ''});
+
+  /// Что уйдёт в заявку: `best`, `gzip`.
+  final String value;
+
+  /// Как значение называется человеку: «Best», «tar.gz».
+  final String title;
+
+  /// Чем кончается имя архива при этом значении; пусто — расширение от
+  /// значения не зависит (степень сжатия имени не меняет).
+  ///
+  /// Иначе выбор молча расходится с именем: `tar` без сжатия ложился в файл
+  /// `.tar.gz` (`docs/spec/archive-here.md`, §8).
+  final String extension;
 }
 
 /// Объявленные упаковщики — в порядке объявления модулей.

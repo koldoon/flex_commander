@@ -18,6 +18,10 @@ class PackHereCommand extends AppCommand {
   /// (`docs/spec/archive-here.md`, §4).
   static const String nameParam = 'name';
   static const String formatParam = 'format';
+
+  /// Свой довод формата — тем же одним именем, каким бы он ни звался в заявке:
+  /// сжатие у zip, контейнер у tar. Иначе сценарий до него не достаёт вовсе.
+  static const String optionParam = 'option';
   static const String followLinksParam = 'followLinks';
 
   /// Объявленные упаковщики. Пусто — команды нет: паковать нечем.
@@ -62,7 +66,7 @@ class PackHereCommand extends AppCommand {
         format: _formatOf(context.invocation.param<String>(formatParam)),
         name: given,
         followLinks: context.invocation.param<bool>(followLinksParam) ?? false,
-        choice: null,
+        choice: context.invocation.param<String>(optionParam),
       );
       return;
     }
@@ -123,7 +127,7 @@ class PackHereCommand extends AppCommand {
     // Снимком: пока открыто окно, панель уходит куда угодно, а человек видел
     // то, что видел (`docs/spec/client-server.md`, §5.6а).
     final where = panel.currentPath;
-    final full = _withExtension(name.trim(), format.extension);
+    final full = _withExtension(name.trim(), _extensionOf(format, choice));
     if (full.isEmpty || full.contains('/') || full.contains(r'\')) {
       throw FsError(full, FsErrorKind.invalidName);
     }
@@ -146,6 +150,25 @@ class PackHereCommand extends AppCommand {
     }
     // Панель показывает не то, что на диске: там появился архив.
     await reloadPanelsAt(context.app, [where]);
+  }
+
+  /// Чем кончается имя: расширением выбранного значения, если оно от него
+  /// зависит, и расширением формата иначе.
+  ///
+  /// У tar это не придирка: `.tar` без сжатия не должен называться `.tar.gz`
+  /// (`docs/spec/archive-here.md`, §8).
+  static String _extensionOf(PackerSpec format, String? choice) {
+    final option = format.choice;
+    if (option == null) {
+      return format.extension;
+    }
+    final picked = choice ?? option.fallback;
+    for (final value in option.values) {
+      if (value.value == picked && value.extension.isNotEmpty) {
+        return value.extension;
+      }
+    }
+    return format.extension;
   }
 
   /// Дописывает расширение формата, если человек своего не написал.

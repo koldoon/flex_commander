@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_archive/fc_archive.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_tar/fc_tar.dart';
 import 'package:fc_zip/fc_zip.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
@@ -29,8 +30,8 @@ void main() {
 
     runtime = await testApp(
       provider: LocalTreeProvider(homePath: root, readInIsolate: false),
-      modules: [const ZipArchiver(), const ArchiveHere()],
-      backend: [const ZipArchiver(), const ArchiveHere()],
+      modules: [const ZipArchiver(), const TarArchiver(), const ArchiveHere()],
+      backend: [const ZipArchiver(), const TarArchiver(), const ArchiveHere()],
       settings: AppSettings(left: PanelSettings.defaults(source), right: PanelSettings.defaults(other)),
     );
     await runtime.app.start();
@@ -74,5 +75,29 @@ void main() {
     // она говорит, во что паковать.
     expect(find.text('Format'), findsOneWidget);
     expect(find.text('ZIP'), findsWidgets);
+  });
+
+  testWidgets('имя архива идёт за выбранным значением, а не за форматом', (tester) async {
+    // У tar выбор контейнера меняет и имя: `.tar` без сжатия не должен
+    // называться `.tar.gz` (`docs/spec/archive-here.md`, §8).
+    await tester.pumpWidget(FlexCommanderApp(controller: runtime.app));
+    await tester.pumpAndSettle();
+    runtime.app.left.setCursorToName('notes.txt');
+    await tester.pumpAndSettle();
+
+    final command = runtime.commands.create(PackHereCommand.commandId)!;
+    final plain = File(p.join(source, 'work.tar'));
+    await tester.runAsync(() async {
+      await command.executeWith(const {
+        PackHereCommand.nameParam: 'work',
+        PackHereCommand.formatParam: 'tar',
+        PackHereCommand.optionParam: 'plain',
+      });
+      await waitUntilAsync(plain.exists, tries: 400, step: const Duration(milliseconds: 10));
+    });
+    await tester.pump();
+
+    expect(plain.existsSync(), isTrue, reason: 'выбран контейнер tar — и имя такое же');
+    expect(File(p.join(source, 'work.tar.gz')).existsSync(), isFalse);
   });
 }
