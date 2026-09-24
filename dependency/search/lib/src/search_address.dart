@@ -62,6 +62,7 @@ class SearchAddress {
     flag(_case, query.caseSensitive);
     put(_ignore, query.ignore);
     flag(_links, query.followLinks);
+    flag(_archives, query.archives);
     flag(_hidden, query.hidden);
     // Обратное умолчанию: обход по умолчанию рекурсивный, и «не заходить
     // внутрь» — это то, о чём стоит сказать.
@@ -112,6 +113,7 @@ class SearchAddress {
         hidden: flag(_hidden),
         ignore: values[_ignore] ?? '',
         followLinks: flag(_links),
+        archives: flag(_archives),
         content: values[_content] ?? '',
         contentRegexp: flag(_contentRegexp),
         contentCase: flag(_contentCase),
@@ -147,6 +149,7 @@ class SearchAddress {
   static const String _case = 'case';
   static const String _ignore = 'ignore';
   static const String _links = 'links';
+  static const String _archives = 'archives';
   static const String _hidden = 'hidden';
   static const String _plain = 'plain';
   static const String _content = 'content';

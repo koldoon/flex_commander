@@ -324,6 +324,14 @@ class _FindFilesFormState extends State<FindFilesForm> {
           onChanged: state.busy ? null : state.setFollowLinks,
         ),
         gap,
+        // Рядом с «вложенные» и «по ссылкам»: там же, где человек решает,
+        // насколько широко копать (`docs/spec/file-search.md`, §12.1).
+        FcCheckbox(
+          label: context.strings.tr('Look in archives'),
+          value: state.query.archives,
+          onChanged: state.busy ? null : state.setArchives,
+        ),
+        gap,
         // Один флажок на окно: регистр в имени и в каталогах-исключениях —
         // одно правило, двух в нём не нужно.
         FcCheckbox(

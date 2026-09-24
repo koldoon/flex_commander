@@ -362,6 +362,27 @@ void main() {
     expect(find.text('Done'), findsOneWidget);
   });
 
+  testWidgets('«в архивах» живой флажок и выключен по умолчанию', (tester) async {
+    // Поиск по содержимому внутри архива — распаковка каждого подходящего
+    // файла, и такое включают осознанно (`docs/spec/file-search.md`, §12.1).
+    await pumpApp(tester);
+    await openWindow(tester);
+
+    final flags = tester.widgetList<FcCheckbox>(find.byType(FcCheckbox)).toList();
+    final archives = flags.firstWhere((flag) => flag.label == 'Look in archives');
+
+    expect(archives.value, isFalse);
+    expect(archives.onChanged, isNotNull);
+
+    await tester.tap(find.text('Look in archives'));
+    await tester.pumpAndSettle();
+
+    final after = tester
+        .widgetList<FcCheckbox>(find.byType(FcCheckbox))
+        .firstWhere((flag) => flag.label == 'Look in archives');
+    expect(after.value, isTrue);
+  });
+
   testWidgets('«во вложенных» выключается — и находится только своё', (tester) async {
     await pumpApp(tester);
     await openWindow(tester);

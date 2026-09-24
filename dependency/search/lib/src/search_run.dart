@@ -36,11 +36,25 @@ class SearchRun {
   @visibleForTesting
   static Duration breath = const Duration(milliseconds: 8);
 
+  /// Сколько архивов вложения разворачивать: `1` — сам архив обходится, а
+  /// архив внутри него уже нет.
+  ///
+  /// Константой в коде, а не настройкой — по той же причине, что и предел
+  /// памяти посчитанных размеров: число, которое нечем объяснить человеку, в
+  /// окне настроек лишнее. Попросят — заведём
+  /// (`docs/spec/file-search.md`, §12.4).
+  @visibleForTesting
+  static int archiveDepth = 1;
+
   /// Работа, которую остаётся запустить: `start` — и она пойдёт.
+  ///
+  /// [registry] — чем открывать архивы по дороге; null — нечем, и флажок «в
+  /// архивах» ничего не меняет (§12.2).
   static Operation<SearchQuery, List<FsNode>> from(
     DirectoryNode where, {
     required void Function(List<FsNode>) onFound,
     Strings? strings,
+    ProviderRegistry? registry,
   }) {
     final said = strings ?? StringsRegistry();
     return TaskOperation<SearchQuery, List<FsNode>>((op, query) async {
@@ -87,102 +101,127 @@ class SearchRun {
       // (§10.4). Память живёт ровно столько, сколько обход.
       final visited = <String>{_identityOf(where)};
       final sinceBreath = Stopwatch()..start();
-      while (stack.isNotEmpty) {
-        // Прерывание проверяется на каждом каталоге, а не на каждом файле:
-        // между каталогами и есть настоящее ожидание — чтение с диска или из
-        // сети.
-        await op.checkpoint();
 
-        // …и здесь же обход отдаёт управление циклу событий.
-        //
-        // **Иначе он занимает поток целиком.** Локальный провайдер читает
-        // каталог **синхронно** (`readDirectoryBlocking`), а `await` над тем,
-        // что уже готово, — это микрозадача; микрозадачи же выполняются
-        // **до** кадра. Весь обход укладывался в один оборот цикла: ни кадра,
-        // ни таймера, пока он не кончится. Живьём — `*.dart` по рабочему
-        // каталогу вешал приложение намертво, ограничитель перерисовки не
-        // спасал (его таймеру неоткуда было сработать), и даже прервать поиск
-        // было нечем: просьба об отмене приходит из той же очереди.
-        //
-        // Именно [Future.delayed], а не `await null`: таймер уводит обход в
-        // очередь событий, где его ждут кадр, нажатия и прочие таймеры.
-        //
-        // По времени, а не по каталогам: каталоги бывают и на сто записей, и
-        // на одну, и считать их пришлось бы наугад.
-        if (sinceBreath.elapsed >= breath) {
-          sinceBreath
-            ..reset()
-            ..start();
-          flush();
-          await Future<void>.delayed(Duration.zero);
-        }
+      /// Обходит одну стопку до конца. Своя стопка — у каждого архива: так
+      /// аренда живёт ровно пока ветвь обходят (§12.3).
+      ///
+      /// [depth] — сколько архивов вложения уже открыто.
+      Future<void> walk(Queue<DirectoryNode> stack, int depth) async {
+        while (stack.isNotEmpty) {
+          // Прерывание проверяется на каждом каталоге, а не на каждом файле:
+          // между каталогами и есть настоящее ожидание — чтение с диска или из
+          // сети.
+          await op.checkpoint();
 
-        final dir = stack.removeFirst();
-        // Путь **для человека**: в строке хода работы он и стоит. Машинный
-        // (`pathString`) несёт схемы провайдеров — `…/a.zip:zip:/inner`, — и
-        // читать их в этой строке незачем.
-        op.report(message: dir.displayPath, indeterminate: true, itemsTransferred: found.length);
+          // …и здесь же обход отдаёт управление циклу событий.
+          //
+          // **Иначе он занимает поток целиком.** Локальный провайдер читает
+          // каталог **синхронно** (`readDirectoryBlocking`), а `await` над тем,
+          // что уже готово, — это микрозадача; микрозадачи же выполняются
+          // **до** кадра. Весь обход укладывался в один оборот цикла: ни кадра,
+          // ни таймера, пока он не кончится. Живьём — `*.dart` по рабочему
+          // каталогу вешал приложение намертво, ограничитель перерисовки не
+          // спасал (его таймеру неоткуда было сработать), и даже прервать поиск
+          // было нечем: просьба об отмене приходит из той же очереди.
+          //
+          // Именно [Future.delayed], а не `await null`: таймер уводит обход в
+          // очередь событий, где его ждут кадр, нажатия и прочие таймеры.
+          //
+          // По времени, а не по каталогам: каталоги бывают и на сто записей, и
+          // на одну, и считать их пришлось бы наугад.
+          if (sinceBreath.elapsed >= breath) {
+            sinceBreath
+              ..reset()
+              ..start();
+            flush();
+            await Future<void>.delayed(Duration.zero);
+          }
 
-        final List<FsNode> children;
-        try {
-          children = await dir.provider.listChildren(dir);
-        } on Object {
-          // Каталог, в который не пустили, поиск не прекращает: непрочитанный
-          // `/root` посреди дерева — обычное дело, а не повод бросить работу.
-          continue;
-        }
+          final dir = stack.removeFirst();
+          // Путь **для человека**: в строке хода работы он и стоит. Машинный
+          // (`pathString`) несёт схемы провайдеров — `…/a.zip:zip:/inner`, — и
+          // читать их в этой строке незачем.
+          op.report(message: dir.displayPath, indeterminate: true, itemsTransferred: found.length);
 
-        final descend = <DirectoryNode>[];
-        for (final node in children) {
-          if (!query.hidden && node.name.startsWith('.')) {
+          final List<FsNode> children;
+          try {
+            children = await dir.provider.listChildren(dir);
+          } on Object {
+            // Каталог, в который не пустили, поиск не прекращает: непрочитанный
+            // `/root` посреди дерева — обычное дело, а не повод бросить работу.
             continue;
           }
-          // Исключённый каталог убирается из поиска целиком — и спуск, и сама
-          // находка: «не заходить, но показать» читалось бы как ошибка
-          // (§10.3). Сличается **имя**, а не путь: человек пишет
-          // `node_modules`, а не `**/node_modules`.
-          if (!ignored.isEmpty && node is DirectoryNode && ignored.matches(node.name)) {
-            continue;
-          }
-          // Имя отбирает первым: маска дешева, чтение дорого. Файл, не
-          // прошедший по имени, размеру или дате, не читается вовсе (§11.2).
-          if ((name.isEmpty || name.matches(node.name)) && _fits(node, query)) {
-            if (content.isEmpty) {
-              found.add(node);
-              batch.add(node);
-            } else if (node is! DirectoryNode && await _hasInside(node, content, op)) {
-              found.add(node);
-              batch.add(node);
+
+          final descend = <DirectoryNode>[];
+          // Архивы этого каталога — их обходят своей стопкой, в том порядке, в
+          // каком их вернул источник.
+          final dive = <FsNode>[];
+          for (final node in children) {
+            if (!query.hidden && node.name.startsWith('.')) {
+              continue;
+            }
+            // Исключённый каталог убирается из поиска целиком — и спуск, и сама
+            // находка: «не заходить, но показать» читалось бы как ошибка
+            // (§10.3). Сличается **имя**, а не путь: человек пишет
+            // `node_modules`, а не `**/node_modules`.
+            if (!ignored.isEmpty && node is DirectoryNode && ignored.matches(node.name)) {
+              continue;
+            }
+            // Имя отбирает первым: маска дешева, чтение дорого. Файл, не
+            // прошедший по имени, размеру или дате, не читается вовсе (§11.2).
+            if ((name.isEmpty || name.matches(node.name)) && _fits(node, query)) {
+              if (content.isEmpty) {
+                found.add(node);
+                batch.add(node);
+              } else if (node is! DirectoryNode && await _hasInside(node, content, op)) {
+                found.add(node);
+                batch.add(node);
+              }
+            }
+            if (!query.recursive) {
+              continue;
+            }
+            // Каталог может и сам подойти под правило, и содержать подходящее:
+            // одно другому не мешает.
+            if (node is DirectoryNode) {
+              if (visited.add(_identityOf(node))) {
+                descend.add(node);
+              }
+              continue;
+            }
+            // Ссылка, ведущая в каталог, — тоже дорога вниз, если о том просили.
+            // Ведёт ли она в каталог, видно **без** разыменования: `targetType`
+            // приходит вместе с чтением каталога, а `resolve` стоит похода к
+            // источнику (§10.4).
+            if (query.followLinks && node is LinkNode && node.isDirectoryLink) {
+              final target = await _targetOf(node);
+              if (target != null && visited.add(_identityOf(target))) {
+                descend.add(target);
+              }
             }
           }
-          if (!query.recursive) {
-            continue;
-          }
-          // Каталог может и сам подойти под правило, и содержать подходящее:
-          // одно другому не мешает.
-          if (node is DirectoryNode) {
-            if (visited.add(_identityOf(node))) {
-              descend.add(node);
-            }
-            continue;
-          }
-          // Ссылка, ведущая в каталог, — тоже дорога вниз, если о том просили.
-          // Ведёт ли она в каталог, видно **без** разыменования: `targetType`
-          // приходит вместе с чтением каталога, а `resolve` стоит похода к
-          // источнику (§10.4).
-          if (query.followLinks && node is LinkNode && node.isDirectoryLink) {
-            final target = await _targetOf(node);
-            if (target != null && visited.add(_identityOf(target))) {
-              descend.add(target);
+          if (query.archives && registry != null && depth < archiveDepth) {
+            for (final node in children) {
+              if (registry.schemeFor(node) != null) {
+                dive.add(node);
+              }
             }
           }
-        }
-        // Задом наперёд: стопка отдаёт последнее, а спускаться надо в первый
-        // подкаталог — в том порядке, в каком их вернул источник.
-        for (final dir in descend.reversed) {
-          stack.addFirst(dir);
+          // Архивы — до подкаталогов: находка из архива, лежащего здесь, стоит
+          // ближе к этому каталогу, чем всё, что глубже.
+          for (final archive in dive) {
+            await op.checkpoint();
+            await _inside(op, registry!, archive, (root) => walk(Queue<DirectoryNode>()..add(root), depth + 1));
+          }
+          // Задом наперёд: стопка отдаёт последнее, а спускаться надо в первый
+          // подкаталог — в том порядке, в каком их вернул источник.
+          for (final dir in descend.reversed) {
+            stack.addFirst(dir);
+          }
         }
       }
+
+      await walk(stack, 0);
 
       // Последняя пачка — до итога: «нашлось столько-то» не должно опережать
       // самих находок.
@@ -194,6 +233,39 @@ class SearchRun {
       op.report(message: said.tr('Found: {count}', args: {'count': found.length}), itemsTransferred: found.length);
       return found;
     });
+  }
+
+  /// Монтирует архив, отдаёт его корень обходу и **отпускает аренду**.
+  ///
+  /// Отпускание в `finally`: прервали поиск посреди архива — держать его
+  /// больше некому (§12.3). Архив, который не открылся, не дочитался или
+  /// спросил пароль, которого некому ввести, пропускается — как пропускается
+  /// нечитаемый каталог (§12.5).
+  static Future<void> _inside(
+    OperationContext op,
+    ProviderRegistry registry,
+    FsNode archive,
+    Future<void> Function(DirectoryNode root) walk,
+  ) async {
+    final scheme = registry.schemeFor(archive);
+    if (scheme == null) {
+      return;
+    }
+    final ProviderLease lease;
+    try {
+      lease = await registry.acquire().run(AcquireParams(scheme, archive));
+    } on Object {
+      return;
+    }
+    try {
+      await walk(lease.provider.rootDirectory);
+    } on OperationCanceled {
+      rethrow;
+    } on Object {
+      // Оглавление оборвалось на середине — дальше по внешнему дереву.
+    } finally {
+      await lease.release();
+    }
   }
 
   /// Подходит ли объект по размеру и дате.

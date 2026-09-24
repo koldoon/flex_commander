@@ -31,6 +31,7 @@ abstract final class SearchWork {
         hiddenOption: query.hidden,
         ignoreOption: query.ignore,
         followLinksOption: query.followLinks,
+        archivesOption: query.archives,
         if (query.sizeFrom case final from?) sizeFromOption: from,
         if (query.sizeTo case final to?) sizeToOption: to,
         if (query.changedAfter case final after?) changedAfterOption: after.millisecondsSinceEpoch,
@@ -67,6 +68,7 @@ abstract final class SearchWork {
 
   /// Спускаться ли в ссылки, ведущие в каталог.
   static const String followLinksOption = 'followLinks';
+  static const String archivesOption = 'archives';
 
   /// Размер в байтах: от и до включительно.
   static const String sizeFromOption = 'sizeFrom';

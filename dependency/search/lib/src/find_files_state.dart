@@ -216,6 +216,11 @@ class FindFilesState extends ChangeNotifier {
     notifyListeners();
   }
 
+  void setArchives(bool value) {
+    query = query.copyWith(archives: value);
+    notifyListeners();
+  }
+
   /// Набранное в полях размера и даты — строками, как набрано.
   void setLimits(SearchLimits value) {
     _limits = value;

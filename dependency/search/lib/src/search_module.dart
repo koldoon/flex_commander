@@ -37,7 +37,13 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
     registry.strings('ru', {'Found: {count}': 'Найдено: {count}', 'Find {what}': 'Поиск {what}'});
 
     // Поиск только читает: забывать посчитанные размеры после него не за что.
-    registry.operation(SearchWork.kind, (services) => searching(services.resolve<Strings>()), writes: false);
+    registry.operation(
+      SearchWork.kind,
+      // Реестр источников — чтобы обход умел заходить в архивы по дороге
+      // (`docs/spec/file-search.md`, §12).
+      (services) => searching(services.resolve<Strings>(), services.resolve<ProviderRegistry>()),
+      writes: false,
+    );
 
     // Поиск — источник по адресу, как `ssh` и `zip`: весь запрос лежит в
     // строке, и по ней же он восстанавливается (`docs/spec/file-search.md`,
@@ -79,7 +85,7 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
   }
 
   /// Работа: где искать — единственная цель заявки, о чём — её доводы.
-  static Operation<OperationInputs, void> searching([Strings? strings]) {
+  static Operation<OperationInputs, void> searching([Strings? strings, ProviderRegistry? sources]) {
     return TaskOperation<OperationInputs, void>((op, inputs) async {
       final where = inputs.targets.whereType<DirectoryNode>().firstOrNull;
       if (where == null) {
@@ -105,6 +111,7 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
         contentCase: inputs.option<bool>(SearchWork.contentCaseOption) ?? false,
         wholeWords: inputs.option<bool>(SearchWork.wholeWordsOption) ?? false,
         allCharsets: inputs.option<bool>(SearchWork.allCharsetsOption) ?? false,
+        archives: inputs.option<bool>(SearchWork.archivesOption) ?? false,
       );
       // Находки складываются **прямо в источник**, если он назван приёмником:
       // список принадлежит ему, и копить их где-то ещё значило бы завести
@@ -118,7 +125,7 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
         inputs.onFound(nodes);
       }
 
-      await op.delegate(SearchRun.from(where, onFound: found, strings: strings), query);
+      await op.delegate(SearchRun.from(where, onFound: found, strings: strings, registry: sources), query);
     });
   }
 
@@ -130,6 +137,7 @@ class FileSearch implements FcBackendModule, FcFrontendModule {
 const Map<String, String> _russian = {
   'Content:': 'Содержимое:',
   'Whole words': 'Слова целиком',
+  'Look in archives': 'Искать в архивах',
   'Regular expression': 'Регулярное выражение',
   'File search': 'Поиск файлов',
 

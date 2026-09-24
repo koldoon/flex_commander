@@ -17,6 +17,7 @@ class SearchQuery {
     this.hidden = false,
     this.ignore = '',
     this.followLinks = false,
+    this.archives = false,
     this.sizeFrom,
     this.sizeTo,
     this.changedAfter,
@@ -52,6 +53,13 @@ class SearchQuery {
 
   /// Спускаться ли в ссылки, ведущие в каталог.
   final bool followLinks;
+
+  /// Заходить ли в архивы, встреченные по дороге.
+  ///
+  /// Выключено по умолчанию: поиск по имени внутри архива — чтение оглавления,
+  /// а поиск по содержимому — распаковка каждого подходящего файла
+  /// (`docs/spec/file-search.md`, §12).
+  final bool archives;
 
   /// Размер в байтах: от и до включительно; null — без ограничения.
   final int? sizeFrom;
@@ -101,6 +109,7 @@ class SearchQuery {
     bool? hidden,
     String? ignore,
     bool? followLinks,
+    bool? archives,
     int? Function()? sizeFrom,
     int? Function()? sizeTo,
     DateTime? Function()? changedAfter,
@@ -118,6 +127,7 @@ class SearchQuery {
     hidden: hidden ?? this.hidden,
     ignore: ignore ?? this.ignore,
     followLinks: followLinks ?? this.followLinks,
+    archives: archives ?? this.archives,
     // Способом, а не значением: у этих полей «не задано» — законное значение,
     // и обычным `?:` его не отличить от «не трогай».
     sizeFrom: sizeFrom == null ? this.sizeFrom : sizeFrom(),
