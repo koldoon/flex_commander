@@ -195,6 +195,7 @@ void main() {
   anchor('окно переноса', 'anchor_move.png', 'F6');
   anchor('окно упаковки', 'anchor_archive.png', 'Shift-F5');
   anchor('окно поиска', 'anchor_find.png', 'Alt-F7');
+  anchor('окно группового переименования', 'anchor_multi_rename.png', 'Ctrl-M');
   anchor('окно настроек', 'anchor_settings.png', 'F9');
 
   /// Раздел наборов — отбором в окне настроек: он стоит последним, и без

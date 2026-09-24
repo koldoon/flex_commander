@@ -54,96 +54,125 @@ class _MultiRenameFormState extends State<MultiRenameForm> {
     final plan = run.plan;
     final problem = _spec.problem;
 
-    return CommandDialogForm(
-      error: null,
-      onCancel: run.dismiss,
-      // Кнопка гаснет, пока маска негодна, спорят имена или менять нечего.
-      onSubmit: run.submit,
-      busy: !run.canApply,
-      submitLabel: strings.tr('Rename'),
-      children: [
-        CommandDialogField(
-          label: strings.tr('Name'),
-          child: FcTextField(
-            controller: _name,
-            autofocus: true,
-            hintText: '[N]',
-            onChanged: (value) => _edit(_spec.copyWith(nameMask: value)),
+    // Ширину назначает само окно, долей экрана: ленивый список на вопрос о
+    // своей ширине не отвечает вовсе, а рама без `ownWidth` мерила бы
+    // содержимое интринсиками (`docs/spec/dialog-placement.md`).
+    return SizedBox(
+      width: MediaQuery.sizeOf(context).width * FcTheme.of(context).metrics.paletteWidthFactor,
+      child: CommandDialogForm(
+        error: null,
+        onCancel: run.dismiss,
+        // Кнопка гаснет, пока маска негодна, спорят имена или менять нечего.
+        onSubmit: run.submit,
+        busy: !run.canApply,
+        submitLabel: strings.tr('Rename'),
+        children: [
+          CommandDialogField(
+            label: strings.tr('Name'),
+            child: FcTextField(
+              controller: _name,
+              autofocus: true,
+              hintText: '[N]',
+              onChanged: (value) => _edit(_spec.copyWith(nameMask: value)),
+            ),
           ),
-        ),
-        CommandDialogField(
-          label: strings.tr('Extension'),
-          child: FcTextField(
-            controller: _extension,
-            hintText: '[E]',
-            onChanged: (value) => _edit(_spec.copyWith(extensionMask: value)),
+          CommandDialogField(
+            label: strings.tr('Extension'),
+            child: FcTextField(
+              controller: _extension,
+              hintText: '[E]',
+              onChanged: (value) => _edit(_spec.copyWith(extensionMask: value)),
+            ),
           ),
-        ),
-        // Ошибка стоит **по ходу набора**, как у выражения в окне поиска: до
-        // нажатия «Rename» человек уже знает, что маска не понята.
-        if (problem != null) CommandDialogField.wide(child: FcErrorText(message: strings.tr(problem))),
-        CommandDialogField(
-          label: strings.tr('Find'),
-          child: FcTextField(controller: _find, onChanged: (value) => _edit(_spec.copyWith(find: value))),
-        ),
-        CommandDialogField(
-          label: strings.tr('Replace with'),
-          child: FcTextField(controller: _replace, onChanged: (value) => _edit(_spec.copyWith(replace: value))),
-        ),
-        CommandDialogField.wide(
-          child: Row(
-            children: [
-              FcCheckbox(
-                label: strings.tr('Regular expression'),
-                value: _spec.regexp,
-                onChanged: (value) => _edit(_spec.copyWith(regexp: value)),
-              ),
-              SizedBox(width: FcTheme.of(context).metrics.dialogSectionGap),
-              FcCheckbox(
-                label: strings.tr('Case sensitive'),
-                value: _spec.caseSensitive,
-                onChanged: (value) => _edit(_spec.copyWith(caseSensitive: value)),
-              ),
-            ],
+          // Ошибка стоит **по ходу набора**, как у выражения в окне поиска: до
+          // нажатия «Rename» человек уже знает, что маска не понята.
+          if (problem != null) CommandDialogField.wide(child: FcErrorText(message: strings.tr(problem))),
+          CommandDialogField(
+            label: strings.tr('Find'),
+            child: FcTextField(controller: _find, onChanged: (value) => _edit(_spec.copyWith(find: value))),
           ),
-        ),
-        CommandDialogField(
-          label: strings.tr('Case'),
-          child: Row(
-            children: [
-              Expanded(child: _caseSelect(context, name: true)),
-              SizedBox(width: FcTheme.of(context).metrics.dialogGap),
-              Expanded(child: _caseSelect(context, name: false)),
-            ],
+          CommandDialogField(
+            label: strings.tr('Replace with'),
+            child: FcTextField(controller: _replace, onChanged: (value) => _edit(_spec.copyWith(replace: value))),
           ),
-        ),
-        CommandDialogField(
-          label: strings.tr('Counter'),
-          child: Row(
-            children: [
-              Expanded(child: _number(_start, (value) => _spec.counter.copyWith(start: value))),
-              SizedBox(width: FcTheme.of(context).metrics.dialogGap),
-              Expanded(child: _number(_step, (value) => _spec.counter.copyWith(step: value))),
-              SizedBox(width: FcTheme.of(context).metrics.dialogGap),
-              Expanded(child: _number(_digits, (value) => _spec.counter.copyWith(digits: value))),
-            ],
+          CommandDialogField.wide(
+            // Строкой, а пойдёт узко — в две: флажки облегают подпись, и на
+            // переводе подлиннее пара их в одну строку уже не влезает.
+            child: Wrap(
+              spacing: FcTheme.of(context).metrics.dialogSectionGap,
+              runSpacing: FcTheme.of(context).metrics.dialogLineGap,
+              children: [
+                FcCheckbox(
+                  label: strings.tr('Regular expression'),
+                  value: _spec.regexp,
+                  onChanged: (value) => _edit(_spec.copyWith(regexp: value)),
+                ),
+                FcCheckbox(
+                  label: strings.tr('Case sensitive'),
+                  value: _spec.caseSensitive,
+                  onChanged: (value) => _edit(_spec.copyWith(caseSensitive: value)),
+                ),
+              ],
+            ),
           ),
-        ),
-        CommandDialogField.wide(
-          // Своя высота **и** растяжение: `expands` работает только там, где
-          // высоту окну задала рама, а без неё таблице нужна собственная — тем
-          // же приёмом живёт список находок.
-          expands: true,
-          indented: false,
-          child: SizedBox(
-            height: FcTheme.of(context).metrics.rowHeight * _visibleRows,
-            child: RenamePreviewTable(plan: plan),
+          // Регистр — двумя строками, а не двумя списками в одной: список
+          // облегает самый длинный вариант и ужиматься не умеет, и в узком
+          // окне пара таких подписанных списков просто не помещается.
+          CommandDialogField(label: strings.tr('Name case'), child: _caseSelect(context, name: true)),
+          CommandDialogField(label: strings.tr('Extension case'), child: _caseSelect(context, name: false)),
+          // У каждого числа своя подпись: три поля подряд без них — загадка,
+          // а не форма.
+          CommandDialogField(
+            label: strings.tr('Counter'),
+            child: Row(
+              children: [
+                Expanded(
+                  child: _titled(
+                    context,
+                    strings.tr('Start at'),
+                    _number(_start, (value) => _spec.counter.copyWith(start: value)),
+                  ),
+                ),
+                SizedBox(width: FcTheme.of(context).metrics.dialogGap),
+                Expanded(
+                  child: _titled(
+                    context,
+                    strings.tr('Step by'),
+                    _number(_step, (value) => _spec.counter.copyWith(step: value)),
+                  ),
+                ),
+                SizedBox(width: FcTheme.of(context).metrics.dialogGap),
+                Expanded(
+                  child: _titled(
+                    context,
+                    strings.tr('Digits'),
+                    _number(_digits, (value) => _spec.counter.copyWith(digits: value)),
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-        CommandDialogField.wide(indented: false, child: FcText(_summary(context, plan))),
-      ],
+          CommandDialogField.wide(
+            // Своя высота **и** растяжение: `expands` работает только там, где
+            // высоту окну задала рама, а без неё таблице нужна собственная — тем
+            // же приёмом живёт список находок.
+            expands: true,
+            indented: false,
+            child: SizedBox(
+              height: FcTheme.of(context).metrics.rowHeight * _visibleRows,
+              child: RenamePreviewTable(plan: plan),
+            ),
+          ),
+          CommandDialogField.wide(indented: false, child: FcText(_summary(context, plan))),
+        ],
+      ),
     );
   }
+
+  /// Поле с маленькой подписью слева: столбец подписей формы занят общим
+  /// именем строки, а полей внутри строки несколько.
+  Widget _titled(BuildContext context, String title, Widget field) =>
+      Row(children: [FcText(title), SizedBox(width: FcTheme.of(context).metrics.dialogGap), Expanded(child: field)]);
 
   Widget _caseSelect(BuildContext context, {required bool name}) => FcSelect<RenameCase>(
     options: {for (final value in RenameCase.values) value: context.strings.tr(_caseTitles[value]!)},

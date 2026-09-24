@@ -77,7 +77,9 @@ class MultiRenameCommand extends AppCommand {
       app: context.app,
       commandId: id,
       title: tr('Multi-rename'),
-      failureMessage: '${tr('Multi-rename')} ${tr('failed')}',
+      // Целой фразой, а не склейкой: по-русски «не вышло» согласуется с тем,
+      // что именно не вышло, и собирать её из кусков нельзя.
+      failureMessage: tr('Multi-rename failed'),
       show: present,
       naming: naming,
       panel: panel,
