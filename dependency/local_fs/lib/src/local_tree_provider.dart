@@ -574,9 +574,11 @@ class LocalTreeProvider
   }
 
   @override
-  Future<bool> trashEntry(FsNode node) async {
-    await _moveToTrash(entityPathOf(node));
-    return true;
+  Future<FsNode?> trashEntry(FsNode node) async {
+    final landed = await _moveToTrash(entityPathOf(node));
+    // Узлом, а не строкой: путь в корзине собирает провайдер, и собирать его
+    // второй раз на чужой стороне значило бы повторить правило разведения имён.
+    return resolvePath().run(landed);
   }
 
   @override
@@ -592,7 +594,8 @@ class LocalTreeProvider
   /// Перенос, а не удаление: корзина — это каталог `~/.Trash`, и объект должен
   /// оставаться восстановимым. Имя при совпадении разводится суффиксом, как
   /// это делает сама система.
-  Future<void> _moveToTrash(String path) async {
+  /// Отвечает путём, которым объект в корзине и лёг.
+  Future<String> _moveToTrash(String path) async {
     final trash = Directory(p.join(homePath, '.Trash'));
     try {
       if (!await trash.exists()) {
@@ -607,6 +610,7 @@ class LocalTreeProvider
       }
 
       await _entityAt(path).rename(target);
+      return target;
     } on FileSystemException catch (error) {
       // Перенос между дисками сам по себе невозможен: корзина живёт на диске
       // пользователя, а объект может быть на другом.

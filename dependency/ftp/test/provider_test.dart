@@ -203,7 +203,7 @@ void main() {
       final dir = await directory('/pub');
 
       expect(await provider.deleteTree(dir), isFalse, reason: 'рекурсию ведёт движок — он и покажет ход');
-      expect(await provider.trashEntry(dir), isFalse, reason: 'корзины на сервере нет');
+      expect(await provider.trashEntry(dir), isNull, reason: 'корзины на сервере нет');
     });
 
     test('копия средствами сервера не обещается', () async {

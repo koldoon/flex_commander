@@ -191,7 +191,7 @@ class WritableSevenZipTreeProvider extends SevenZipTreeProvider
 
   /// Корзины у архива нет: удалённое из него удалено насовсем.
   @override
-  Future<bool> trashEntry(FsNode node) async => false;
+  Future<FsNode?> trashEntry(FsNode node) async => null;
 
   @override
   bool isSameEntity(FsNode node, DirectoryNode destination) => pathOf(node.parentDirectory!) == pathOf(destination);

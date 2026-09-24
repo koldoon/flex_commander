@@ -264,7 +264,7 @@ class FtpTreeProvider implements TreeProvider, NodeEditor, FileContentProvider, 
 
   /// Корзины на сервере нет.
   @override
-  Future<bool> trashEntry(FsNode node) async => false;
+  Future<FsNode?> trashEntry(FsNode node) async => null;
 
   @override
   bool isSameEntity(FsNode node, DirectoryNode destination) =>

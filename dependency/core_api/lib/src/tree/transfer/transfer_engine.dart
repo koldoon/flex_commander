@@ -374,7 +374,8 @@ class TreeTransferEngine implements TreeEditor {
               throw FsError(node.pathString, FsErrorKind.notSupported);
             }
 
-            if (toTrash && await editor.trashEntry(node)) {
+            final landed = toTrash ? await editor.trashEntry(node) : null;
+            if (landed != null) {
               // Корзина — это переименование: поддерево уезжает одним действием,
               // поштучно его объекты не проходят.
               progress.sourceDoneWholly(i);

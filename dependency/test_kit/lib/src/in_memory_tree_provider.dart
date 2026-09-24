@@ -525,20 +525,44 @@ class InMemoryTreeProvider extends InMemoryReadOnlyProvider implements NodeEdito
     return true;
   }
 
-  /// Корзины у фейка нет: движок удалит объект обходом.
+  /// Корзина фейка — каталог `/.Trash`: объект **переезжает** туда, а не
+  /// пропадает.
+  ///
+  /// Настоящий перенос, а не удаление: по этому узлу его потом возвращают
+  /// (`docs/spec/operation-history.md`, §3), и фейк, который бы его стирал, не
+  /// дал бы проверить отмену вовсе. Имя при совпадении разводится суффиксом —
+  /// тем же правилом, что у локальной ФС.
   @override
-  Future<bool> trashEntry(FsNode node) async {
+  Future<FsNode?> trashEntry(FsNode node) async {
     if (!hasTrash) {
-      return false;
+      return null;
     }
     final path = p.normalize(physicalPathOf(node));
     if (!_entries.containsKey(path)) {
       throw FsError(path, FsErrorKind.notFound);
     }
-    _removeTree(path);
+
+    if (!_entries.containsKey(trashPath)) {
+      add(FakeEntry.directory(trashPath));
+    }
+
+    var target = p.normalize(p.join(trashPath, p.basename(path)));
+    var attempt = 2;
+    while (_entries.containsKey(target)) {
+      target = p.normalize(p.join(trashPath, '${p.basenameWithoutExtension(path)} $attempt${p.extension(path)}'));
+      attempt++;
+    }
+
+    for (final key in _subtreeOf(path)) {
+      final entry = _entries.remove(key)!;
+      add(_cloneAt(entry, p.normalize(p.join(target, p.relative(key, from: path)))));
+    }
     trashed.add(path);
-    return true;
+    return resolvePath().run(target);
   }
+
+  /// Где у фейка корзина.
+  static const String trashPath = '/.Trash';
 
   /// Подсчёт объектов задания. В памяти он мгновенный, но проходит теми же
   /// шагами, что и на диске: счётчики в окне команды должны заполняться так же.

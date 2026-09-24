@@ -229,7 +229,7 @@ void main() {
     test('корзины и удаления поддерева нет — рекурсию ведёт движок', () async {
       final node = await provider.resolvePath().run('/srv/www');
 
-      expect(await provider.trashEntry(node!), isFalse);
+      expect(await provider.trashEntry(node!), isNull);
       expect(await provider.deleteTree(node), isFalse);
     });
 
