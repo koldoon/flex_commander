@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 
 import 'app_scope.dart';
 import 'command_dialog.dart';
+import 'dialog_body.dart';
 import 'directory_tree.dart';
 import 'fc_theme.dart';
 import 'trimmed_text.dart';
@@ -247,15 +248,19 @@ class _FileFormState extends State<_FileForm> {
 
   /// Подпись над содержимым — как в окне поиска: слева она отняла бы у дерева
   /// и пути ту самую ширину, ради которой окно и тянут.
-  Widget _labeled(FcTheme theme, String label, Widget child) => Column(
+  ///
+  /// [grows] — содержимому отдаётся вся оставшаяся высота. Так стоит дерево в
+  /// растянутом окне: прибавка должна доставаться ему, а не пустоте под полем
+  /// имени (`docs/spec/dialog-resize.md`, §5).
+  Widget _labeled(FcTheme theme, String label, Widget child, {bool grows = false}) => Column(
     crossAxisAlignment: CrossAxisAlignment.stretch,
-    mainAxisSize: MainAxisSize.min,
+    mainAxisSize: grows ? MainAxisSize.max : MainAxisSize.min,
     children: [
       Padding(
         padding: EdgeInsets.only(bottom: theme.metrics.dialogLineGap),
         child: Text(label, style: theme.dialogLabelStyle),
       ),
-      child,
+      if (grows) Expanded(child: child) else child,
     ],
   );
 
@@ -263,6 +268,9 @@ class _FileFormState extends State<_FileForm> {
   Widget build(BuildContext context) {
     final state = widget.state;
     final theme = FcTheme.of(context);
+    // Высоту окну задала рама — значит, её кто-то должен занять, и занимает её
+    // дерево: оно здесь главное, а остальные строки ростом не пользуются.
+    final stretches = FcDialogSizing.of(context);
     // Ширина — доля экрана, как у окна работы и палитры: окно назначает её
     // само ([DialogSpec.ownWidth]), а дальше её меняет мышь.
     return SizedBox(
@@ -282,13 +290,19 @@ class _FileFormState extends State<_FileForm> {
                 // Дерево к тому же лениво прокручивается, и мерить его рама всё
                 // равно не умеет (`docs/spec/dialog-body.md`).
                 CommandDialogField.wide(
+                  // Растянули окно — прибавка достаётся дереву. Без этого она
+                  // уходила в пустоту под полем имени, а дерево оставалось в
+                  // свои девять строк, сколько окно ни тяни.
+                  expands: true,
                   child: _labeled(
                     theme,
                     context.strings.tr(state.picks == null ? 'Folder' : 'File'),
+                    grows: stretches,
                     SizedBox(
-                      // Высота — числом: список прокрутки мерить себя не умеет,
-                      // ради того он и ленив. Ширину ему даёт окно.
-                      height: theme.metrics.rowHeight * 9,
+                      // Высота — числом, пока высоту не задала рама: список
+                      // прокрутки мерить себя не умеет, ради того он и ленив.
+                      // Ширину ему даёт окно.
+                      height: stretches ? null : theme.metrics.rowHeight * 9,
                       child: _DropArea(
                         state: state,
                         child: FcDirectoryTree(

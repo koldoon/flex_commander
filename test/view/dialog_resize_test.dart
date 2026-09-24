@@ -1,10 +1,15 @@
+import 'dart:async';
+
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flex_commander/app.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
 import 'package:flex_commander/bootstrap/app_runtime.dart';
 import 'package:flex_commander/state/commands/help_command.dart';
+import 'package:flex_commander/state/commands/preset_files.dart';
+import 'package:flex_commander/state/presets.dart';
 import 'package:flex_commander/view/dialogs/dialog_frame.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/widgets.dart';
@@ -382,6 +387,33 @@ void main() {
 
       // Вдвое дальше от края, чем полоса стороны, — это ещё угол.
       expect(cursorAt(tester, box.bottomRight - const Offset(9, 9)), isNot(MouseCursor.defer));
+    });
+  });
+
+  group('растянутое окно с деревом', () {
+    /// Окно загрузки набора: дерево каталогов, строка места и имя файла.
+    Future<void> openImport(WidgetTester tester) async {
+      unawaited(
+        importPreset(
+          runtime.app,
+          runtime.app.strings,
+          Presets(app: runtime.app, catalog: () => runtime.resolve<SettingsCatalog>()),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    double treeHeight(WidgetTester tester) => tester.getSize(find.byType(FcDirectoryTree)).height;
+
+    testWidgets('прибавка достаётся дереву, а не пустоте под именем файла', (tester) async {
+      await start(tester);
+      await openImport(tester);
+      final before = treeHeight(tester);
+
+      await dragFrom(tester, edgeOf(window(tester), bottom: 2), const Offset(0, 160));
+
+      // Тянут окно ради дерева: в нём ищут файл, и растёт должно оно.
+      expect(treeHeight(tester), greaterThan(before + 100));
     });
   });
 
