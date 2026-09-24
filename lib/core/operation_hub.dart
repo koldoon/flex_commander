@@ -68,7 +68,7 @@ class OperationHub {
   ///
   /// Имя работы даёт та сторона: подписка у неё встаёт раньше запуска, и
   /// первое же событие — «начали» — не проходит мимо.
-  Future<void> run(String runId, OperationSpec spec) async {
+  Future<void> run(String runId, OperationSpec spec, {bool journal = false}) async {
     final declared = _factories[spec.kind];
     if (declared == null) {
       _say(OperationEnded(runId, OperationOutcome.failed, message: 'Нет такой работы: ${spec.kind}'));
@@ -86,6 +86,10 @@ class OperationHub {
       // забывать всё равно надо. И откуда, и куда: перенос меняет оба конца, а
       // хаб — единственный, кто знает их сразу (§12.4).
       run.touched = declared.writes ? _touchedBy(targets, destination) : const [];
+      // Журнал ведут, только когда его попросили и когда работа вообще пишет:
+      // у подсчёта и поиска рассказывать не о чем
+      // (`docs/spec/operation-history.md`, §5).
+      run.journal = journal && declared.writes ? _RunJournal(runId, _say) : null;
       _running[runId] = run;
 
       // Сперва подписки, потом запуск: до `start` не происходит ничего, и
@@ -107,6 +111,7 @@ class OperationHub {
           editor: _editor,
           options: spec.options,
           onFound: (found) => _collect(runId, found),
+          journal: run.journal ?? Journal.none,
         ),
       );
 
@@ -197,6 +202,9 @@ class OperationHub {
     // бы с числом на сотню миллисекунд младше правды — на поиске это «нашлось
     // 12300» вместо 12487 (`docs/spec/growing-listing.md`, §5).
     run?.reports?.flush();
+    // Журнал — туда же и по той же причине: прерванная работа обязана отдать
+    // то, что успела, а «работа кончилась» с той стороны закрывает запись.
+    run?.journal?.flush();
     run?.release();
     if (run?.asked != null) {
       // Вопрос снимается вместе с работой: спрашивать уже нечего, а закрыть
@@ -357,6 +365,80 @@ class OperationHub {
 }
 
 /// Одна идущая работа: сама операция, её подписки и то, что она держит.
+/// Журнал одной работы: копит записи и отдаёт их пачками.
+///
+/// Пачками и с пределом — здесь, на границе, а не в движке: движку незачем
+/// знать ни про порт, ни про то, сколько памяти позволено журналу
+/// (`docs/spec/operation-history.md`, §4 и §5).
+class _RunJournal implements Journal {
+  _RunJournal(this._runId, this._say) {
+    _sending = Throttle(_flushNow, interval: () => OperationHub.reportWindow);
+  }
+
+  /// Сколько записей журнал держит, прежде чем сдаться.
+  ///
+  /// Числом в коде, а не настройкой: «сколько памяти работе позволено съесть,
+  /// прежде чем она перестанет быть отменимой» — не тот выбор, который
+  /// предлагают человеку (§5). Пятитысячной записи хватает на любое разумное
+  /// слияние, а копия целого каталога стоит одной (§6).
+  static const int limit = 5000;
+
+  final String _runId;
+  final void Function(CoreEvent event) _say;
+
+  late final Throttle _sending;
+  final List<JournalEntry> _waiting = [];
+  String? _obstacle;
+
+  @override
+  bool get writes => !_full;
+
+  @override
+  void did(JournalEntry entry) {
+    if (_full) {
+      return;
+    }
+    if (_count >= limit) {
+      // Дальше писать бессмысленно: неполный журнал отменить всё равно нельзя,
+      // а держать его в памяти — только тратить её.
+      _full = true;
+      _obstacle ??= 'too many objects to remember';
+      _waiting.clear();
+      _sending.call();
+      return;
+    }
+    _count++;
+    _waiting.add(entry);
+    _sending.call();
+  }
+
+  @override
+  void cannotUndo(String reason) {
+    _obstacle ??= reason;
+    _sending.call();
+  }
+
+  void _flushNow() {
+    if (_waiting.isEmpty && (_obstacle == null || _saidObstacle)) {
+      return;
+    }
+    final entries = List<JournalEntry>.of(_waiting);
+    _waiting.clear();
+    _saidObstacle = _obstacle != null;
+    _say(OperationJournaled(_runId, entries, obstacle: _obstacle));
+  }
+
+  /// Отдаёт придержанное — перед тем, как сказать «работа кончилась».
+  void flush() {
+    _sending.flush();
+    _flushNow();
+  }
+
+  bool _full = false;
+  bool _saidObstacle = false;
+  int _count = 0;
+}
+
 class _Run {
   _Run(this.operation, this.leases);
 
@@ -365,6 +447,9 @@ class _Run {
 
   /// Чем отчёты о ходе работы придерживаются на пути через границу.
   Throttle? reports;
+
+  /// Журнал сделанного; null — его не ведут.
+  _RunJournal? journal;
 
   StreamSubscription<OperationRequest>? _requests;
   VoidCallback? _stopWatching;

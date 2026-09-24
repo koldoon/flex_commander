@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
@@ -293,6 +295,65 @@ void main() {
     expect(sent.length, lessThan(15), reason: 'через границу ушло ${sent.length} отчётов из сорока');
     expect(sent, isNotEmpty, reason: 'ход работы не доехал вовсе');
     expect(sent.last.message, 'шаг 39', reason: 'последний отчёт потерялся в ограничителе');
+  });
+
+  group('журнал через границу', () {
+    /// Что ядро рассказало о сделанном за эту работу.
+    Future<(List<JournalEntry>, String?)> journalOf(OperationSpec spec, {bool journal = true}) async {
+      final entries = <JournalEntry>[];
+      String? obstacle;
+      final done = Completer<void>();
+      final watching = link.events.listen((event) {
+        if (event is OperationJournaled && event.runId == 'run#journal') {
+          entries.addAll(event.entries);
+          obstacle ??= event.obstacle;
+        }
+        if (event is OperationEnded && event.runId == 'run#journal') {
+          done.complete();
+        }
+      });
+
+      link.tell(RunOperation('run#journal', spec, journal: journal));
+      await done.future;
+      await watching.cancel();
+      return (entries, obstacle);
+    }
+
+    test('копия рассказывает, что создала', () async {
+      await openLeft();
+      final (entries, obstacle) = await journalOf(
+        OperationSpec(
+          kind: FileOperations.copy,
+          targets: Targets.row(row('notes.txt')),
+          destination: const Destination.path('/home/docs'),
+        ),
+      );
+
+      expect(entries.whereType<Created>().single.path, '/home/docs/notes.txt');
+      expect(obstacle, isNull);
+    });
+
+    test('без просьбы ядро о журнале молчит', () async {
+      await openLeft();
+      final (entries, obstacle) = await journalOf(
+        OperationSpec(
+          kind: FileOperations.copy,
+          targets: Targets.row(row('notes.txt')),
+          destination: const Destination.path('/home/docs'),
+        ),
+        journal: false,
+      );
+
+      expect(entries, isEmpty, reason: 'нет модуля истории — нет и журнала');
+      expect(obstacle, isNull);
+    });
+
+    test('читающая работа не рассказывает ничего: ей не о чем', () async {
+      await openLeft();
+      final (entries, _) = await journalOf(OperationSpec(kind: 'test.reads', targets: Targets.row(row('notes.txt'))));
+
+      expect(entries, isEmpty);
+    });
   });
 }
 

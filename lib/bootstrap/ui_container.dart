@@ -314,6 +314,9 @@ class UiContainer extends DI {
           // знает по имени.
           contentTypes: frontend.serviceBindings.containsKey(ContentTypes) ? c.get<ContentTypes>() : null,
           fileIcons: frontend.serviceBindings.containsKey(FileIcons) ? c.get<FileIcons>() : null,
+          // И история: нет модуля — журнал не ведётся вовсе
+          // (`docs/spec/operation-history.md`, §5).
+          history: frontend.serviceBindings.containsKey(OperationHistory) ? c.get<OperationHistory>() : null,
           toasts: ToastController(duration: overrides.toastDuration ?? ToastController.defaultDuration),
           credentials: c.get<CredentialsController>(),
           fileNaming: c.get<FileNaming>(),

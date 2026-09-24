@@ -35,6 +35,7 @@ export 'src/commands/command_registry.dart';
 export 'src/commands/command_service.dart';
 export 'src/commands/key_combination.dart';
 export 'src/commands/key_context.dart';
+export 'src/background/operation_history.dart';
 export 'src/background/operations.dart';
 
 // --- Модули ---

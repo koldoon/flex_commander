@@ -401,10 +401,10 @@ class CoreServer implements CoreHandler {
         session(panel).cancel();
         return null;
 
-      case RunOperation(:final runId, :final spec):
+      case RunOperation(:final runId, :final spec, :final journal):
         // Не ждём: работа живёт своей жизнью, а о ходе дела рассказывает
         // событиями. Ждать её здесь значило бы держать очередь просьб.
-        unawaited(_operations.run(runId, spec));
+        unawaited(_operations.run(runId, spec, journal: journal));
         return const CoreDone();
 
       case TellOperation(:final runId, :final input):

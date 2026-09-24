@@ -53,6 +53,7 @@ class AppController extends ChangeNotifier implements Application {
     this.dragAndDrop,
     this.contentTypes,
     this.fileIcons,
+    this.history,
   }) : _panels = _panelsOf(sessions, panels),
        _shown = [...(shown ?? UiSettings.defaultShown)],
        _splitRatio = settings.splitRatio,
@@ -487,6 +488,10 @@ class AppController extends ChangeNotifier implements Application {
   @override
   final FileIcons? fileIcons;
 
+  /// История файловых работ; null — модуля истории в сборке нет.
+  @override
+  final OperationHistory? history;
+
   /// Своя половина настроек: разделы модулей и то, чем экран не заведует.
   ///
   /// Свой экземпляр, а не общий с ядром: приехал рукопожатием, правится здесь
@@ -731,7 +736,11 @@ class AppController extends ChangeNotifier implements Application {
       // Ядра нет вовсе: работать некому, и молчать об этом нельзя.
       throw StateError('Приложение собрано без ядра: работу заводить негде');
     }
-    return RemoteOperation(door, runId: runId, onFound: onFound);
+
+    // Журнал подбирается **здесь** — в единственном месте, через которое
+    // уходит всякая работа ядра. Нет службы истории — нет и журнала: ядро о
+    // нём даже не узнает (`docs/spec/operation-history.md`, §5).
+    return RemoteOperation(door, runId: runId, onFound: onFound, history: history);
   }
 
   @override

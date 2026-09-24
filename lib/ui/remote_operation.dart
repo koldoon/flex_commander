@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_ui_api/fc_ui_api.dart';
 
 import '../link/link.dart';
 
@@ -11,7 +12,7 @@ import '../link/link.dart';
 /// идёт не тут: они написаны против [Operation], и переучивать их было бы
 /// ошибкой — окно работы одно на приложение (`docs/spec/client-server.md`, §7).
 class RemoteOperation implements Operation<OperationSpec, void> {
-  RemoteOperation(this._link, {String? runId, this.onFound}) : runId = runId ?? 'run#${_nextRun++}' {
+  RemoteOperation(this._link, {String? runId, this.onFound, this.history}) : runId = runId ?? 'run#${_nextRun++}' {
     _events = _link.events.listen(_apply);
   }
 
@@ -29,6 +30,13 @@ class RemoteOperation implements Operation<OperationSpec, void> {
 
   /// Работа нашла — пачкой, по ходу дела; null — за находками никто не пришёл.
   final void Function(List<FileEntry> entries)? onFound;
+
+  /// Куда рассказать о сделанном; null — журнала никто не собирает, и ядру о
+  /// нём не говорят вовсе (`docs/spec/operation-history.md`, §5).
+  ///
+  /// Здесь, а не у того, кто заводит работу: это единственное место, где
+  /// сходятся имя работы, её журнал и исход.
+  final OperationHistory? history;
 
   @override
   late final MutableOperationStatus status = MutableOperationStatus();
@@ -57,7 +65,8 @@ class RemoteOperation implements Operation<OperationSpec, void> {
     // первым же отчётом. Уведомить здесь значило бы сказать «дело пошло»
     // раньше, чем оно пошло, — а окно по этому и отличает отказ от неудачи.
     _state = OperationState.processing;
-    _link.tell(RunOperation(runId, params));
+    history?.begin(runId, kind: params.kind);
+    _link.tell(RunOperation(runId, params, journal: history != null));
   }
 
   @override
@@ -83,6 +92,9 @@ class RemoteOperation implements Operation<OperationSpec, void> {
 
       case OperationFound(runId: final id, :final entries) when id == runId:
         onFound?.call(entries);
+
+      case OperationJournaled(runId: final id, :final entries, :final obstacle) when id == runId:
+        history?.did(runId, entries, obstacle: obstacle);
 
       case OperationAskCanceled(runId: final id) when id == runId:
         // Вопрос снят вместе с работой: окно закрывается, а не ждёт ответа,
@@ -144,6 +156,9 @@ class RemoteOperation implements Operation<OperationSpec, void> {
     }
     _asked = null;
     status.setRequest(null);
+    // Запись закрывается **до** разбора исхода: дальше идут завершения
+    // ожидающих, и они вправе тут же спросить историю.
+    history?.ended(runId, outcome);
     switch (outcome) {
       case OperationOutcome.done:
         _setState(OperationState.complete);

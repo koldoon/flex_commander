@@ -1,6 +1,7 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:flutter/foundation.dart';
 
+import '../background/operation_history.dart';
 import '../background/operations.dart';
 import '../commands/command_service.dart';
 import 'errors.dart';
@@ -328,6 +329,10 @@ abstract interface class Application implements Listenable {
   /// Чем рисовать иконку строки; null — модуля нет, и панель рисует их сама,
   /// теми же глифами, что и всегда (`docs/spec/file-icons.md`).
   FileIcons? get fileIcons;
+
+  /// История файловых работ; null — модуля истории в сборке нет, и журнал не
+  /// ведётся вовсе (`docs/spec/operation-history.md`, §5).
+  OperationHistory? get history;
 
   /// Само окно: подвинуть, развернуть.
   ///
