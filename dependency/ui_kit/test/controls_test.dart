@@ -215,15 +215,15 @@ void main() {
 
   group('выпадающий список', () {
     testWidgets('раскрывается и выбирает вариант', (tester) async {
-      var choice = 'copy';
+      var picked = 'copy';
       await pumpInDialogColumn(
         tester,
         StatefulBuilder(
           builder:
               (context, setState) => FcSelect<String>(
                 options: const {'copy': 'Copy', 'move': 'Move'},
-                value: choice,
-                onChanged: (next) => setState(() => choice = next),
+                value: picked,
+                onChanged: (next) => setState(() => picked = next),
               ),
         ),
       );
@@ -243,7 +243,7 @@ void main() {
 
       await tester.tap(option);
       await tester.pumpAndSettle();
-      expect(choice, 'move');
+      expect(picked, 'move');
       expect(find.text('Copy'), findsNothing, reason: 'в поле стоит выбранное, а не первое из списка');
     });
 
@@ -252,28 +252,28 @@ void main() {
       // `toString()` значения, а у обычного объекта он у всех одинаковый —
       // «Instance of …». Выбор молча возвращал первое значение, и формат
       // упаковки поменять было нельзя (`docs/spec/archive-here.md`, §8).
-      const first = _Choice('zip');
-      const second = _Choice('tar');
-      _Choice choice = first;
+      const first = _Option('zip');
+      const second = _Option('tar');
+      _Option picked = first;
 
       await pumpInDialogColumn(
         tester,
         StatefulBuilder(
           builder:
-              (context, setState) => FcSelect<_Choice>(
+              (context, setState) => FcSelect<_Option>(
                 options: const {first: 'ZIP', second: 'TAR'},
-                value: choice,
-                onChanged: (next) => setState(() => choice = next),
+                value: picked,
+                onChanged: (next) => setState(() => picked = next),
               ),
         ),
       );
 
-      await tester.tap(find.descendant(of: find.byType(FcSelect<_Choice>), matching: find.byType(Opacity)));
+      await tester.tap(find.descendant(of: find.byType(FcSelect<_Option>), matching: find.byType(Opacity)));
       await tester.pumpAndSettle();
       await tester.tap(find.text('TAR', findRichText: true));
       await tester.pumpAndSettle();
 
-      expect(choice, same(second));
+      expect(picked, same(second));
       expect(find.text('TAR'), findsOneWidget);
     });
 
@@ -307,15 +307,15 @@ void main() {
     });
 
     testWidgets('щелчок мимо закрывает список, ничего не выбрав', (tester) async {
-      var choice = 'copy';
+      var picked = 'copy';
       await pumpInDialogColumn(
         tester,
         StatefulBuilder(
           builder:
               (context, setState) => FcSelect<String>(
                 options: const {'copy': 'Copy', 'move': 'Move'},
-                value: choice,
-                onChanged: (next) => setState(() => choice = next),
+                value: picked,
+                onChanged: (next) => setState(() => picked = next),
               ),
         ),
       );
@@ -330,7 +330,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byType(FcPickList), findsNothing);
-      expect(choice, 'copy');
+      expect(picked, 'copy');
     });
 
     testWidgets('ширина — по самому длинному варианту, а не во всю строку', (tester) async {
@@ -404,8 +404,8 @@ void main() {
 }
 
 /// Значение без своего текста: `toString` у всех такой один и тот же.
-class _Choice {
-  const _Choice(this.name);
+class _Option {
+  const _Option(this.name);
 
   final String name;
 }

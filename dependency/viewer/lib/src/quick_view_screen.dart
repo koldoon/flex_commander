@@ -4,7 +4,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/foundation.dart';
 
-import 'viewer_choice.dart';
+import 'open_viewer.dart';
 
 /// Быстрый просмотр: содержимое того, что под курсором соседней панели.
 ///

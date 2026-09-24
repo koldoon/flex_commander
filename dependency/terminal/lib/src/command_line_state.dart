@@ -233,7 +233,7 @@ class CommandLineState extends ChangeNotifier implements ViewportState {
 
   /// Кандидаты, которые стоит показать: их больше одного, значит есть из чего
   /// выбирать. Один подставляется молча — показывать нечего.
-  List<CompletionCandidate> get suggestions => (_completion?.hasChoice ?? false) ? _completion!.candidates : const [];
+  List<CompletionCandidate> get suggestions => (_completion?.isAmbiguous ?? false) ? _completion!.candidates : const [];
 
   /// Который кандидат подставлен сейчас; -1 — перебор не начинали.
   int get suggestionIndex => _completion?.index ?? -1;
@@ -277,7 +277,7 @@ class CommandLineState extends ChangeNotifier implements ViewportState {
   /// Следующий кандидат по кругу.
   void cycleCompletion({required bool forward}) {
     final run = _completion;
-    if (run == null || !run.hasChoice) {
+    if (run == null || !run.isAmbiguous) {
       return;
     }
     _insertCompletion(run, run.step(forward: forward).insertion, to: run.end);

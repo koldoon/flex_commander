@@ -38,7 +38,7 @@ void main() {
   test('выбор темы в окне настроек доезжает до раздела настроек', () {
     runtime.app.theme.register(_light);
 
-    (fieldOf('fc.shell', 'themeId') as SettingsChoice).write('light');
+    (fieldOf('fc.shell', 'themeId') as SettingsOption).write('light');
 
     expect(runtime.app.theme.current.id, 'light');
     // Имя сохраняет команда, а не служба: правка мимо неё переживала бы

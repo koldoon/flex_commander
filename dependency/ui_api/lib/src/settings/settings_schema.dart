@@ -228,23 +228,28 @@ sealed class SettingsField {
     write: write,
   );
 
-  /// Выбор из готового списка.
-  static SettingsChoice choice(
+  /// Одно значение из готового перечня.
+  ///
+  /// «Option», а не «choice»: в этом коде так зовётся всякий довод, у которого
+  /// есть перечень допустимых значений, — и у заявки на работу
+  /// (`OperationSpec.options`), и у упаковщика (`PackerOption`). Слово то же,
+  /// что у разбора аргументов в самом Dart (`ArgParser.addOption`).
+  static SettingsOption option(
     String id, {
     required String title,
     String description = '',
     String note = '',
-    required Map<String, String> options,
+    required Map<String, String> allowed,
     required String defaultValue,
     required String Function() read,
     required void Function(String value) write,
     List<SettingsAction> actions = const [],
-  }) => SettingsChoice(
+  }) => SettingsOption(
     id,
     title: title,
     description: description,
     note: note,
-    options: options,
+    allowed: allowed,
     defaultValue: defaultValue,
     read: read,
     write: write,
@@ -699,13 +704,13 @@ class SettingsList extends SettingsField {
   }
 }
 
-class SettingsChoice extends SettingsField {
-  const SettingsChoice(
+class SettingsOption extends SettingsField {
+  const SettingsOption(
     super.id, {
     required super.title,
     super.description,
     super.note,
-    required this.options,
+    required this.allowed,
     required this.defaultValue,
     required this.read,
     required this.write,
@@ -720,8 +725,8 @@ class SettingsChoice extends SettingsField {
   /// (`docs/spec/settings-presets.md`, §6).
   final List<SettingsAction> actions;
 
-  /// Значение → подпись.
-  final Map<String, String> options;
+  /// Что у настройки бывает: значение → подпись.
+  final Map<String, String> allowed;
 
   /// Что стоит, пока не выбрали своего.
   final String defaultValue;
@@ -742,7 +747,7 @@ class SettingsChoice extends SettingsField {
   void apply(Object? value) {
     // Только то, что есть в списке: вариант мог пропасть вместе с выключенным
     // модулем, и ставить его значило бы выбрать несуществующее.
-    if (value is String && options.containsKey(value)) {
+    if (value is String && allowed.containsKey(value)) {
       write(value);
     }
   }

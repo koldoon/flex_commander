@@ -90,11 +90,11 @@ class EditFileCommand extends AppCommand {
         // сервера целый файл, чтобы затем спросить, открывать ли его вообще.
         if (!await _canWrite(op, panel, entry)) {
           switch (await _askReadOnly(context, entry)) {
-            case _ReadOnlyChoice.cancel:
+            case _ReadOnlyAnswer.cancel:
               throw const OperationCanceled();
-            case _ReadOnlyChoice.readOnly:
+            case _ReadOnlyAnswer.readOnly:
               readOnly = true;
-            case _ReadOnlyChoice.elevate:
+            case _ReadOnlyAnswer.elevate:
               // Правим как обычно: о том, что записать не дадут, узнает сама
               // запись — и предложит повышение.
               readOnly = false;
@@ -172,11 +172,11 @@ class EditFileCommand extends AppCommand {
   ///
   /// `Enter` при этом остаётся на «только чтение»: соглашаться вслепую на путь,
   /// который потом спросит пароль администратора, человек не должен.
-  Future<_ReadOnlyChoice> _askReadOnly(CommandContext context, FileEntry entry) {
+  Future<_ReadOnlyAnswer> _askReadOnly(CommandContext context, FileEntry entry) {
     final view = context.app.view;
-    final answer = Completer<_ReadOnlyChoice>();
+    final answer = Completer<_ReadOnlyAnswer>();
     late final String dialogId;
-    void reply(_ReadOnlyChoice value) {
+    void reply(_ReadOnlyAnswer value) {
       view.closeDialog(dialogId);
       if (!answer.isCompleted) {
         answer.complete(value);
@@ -199,12 +199,12 @@ class EditFileCommand extends AppCommand {
                   : tr('{path} cannot be written. Open it for reading?', args: {'path': entry.path}),
           confirmLabel: tr('Open read-only'),
           alternativeLabel: mayElevate ? tr('Edit anyway') : null,
-          onAlternative: mayElevate ? () => reply(_ReadOnlyChoice.elevate) : null,
-          onCancel: () => reply(_ReadOnlyChoice.cancel),
-          onConfirm: () => reply(_ReadOnlyChoice.readOnly),
+          onAlternative: mayElevate ? () => reply(_ReadOnlyAnswer.elevate) : null,
+          onCancel: () => reply(_ReadOnlyAnswer.cancel),
+          onConfirm: () => reply(_ReadOnlyAnswer.readOnly),
         ),
-        onSubmit: () => reply(_ReadOnlyChoice.readOnly),
-        onDismiss: () => reply(_ReadOnlyChoice.cancel),
+        onSubmit: () => reply(_ReadOnlyAnswer.readOnly),
+        onDismiss: () => reply(_ReadOnlyAnswer.cancel),
       ),
     );
 
@@ -213,7 +213,7 @@ class EditFileCommand extends AppCommand {
 }
 
 /// Что человек выбрал, узнав, что писать в файл не дают.
-enum _ReadOnlyChoice {
+enum _ReadOnlyAnswer {
   /// Передумал открывать вовсе.
   cancel,
 

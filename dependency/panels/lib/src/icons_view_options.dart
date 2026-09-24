@@ -31,13 +31,13 @@ class _IconsViewOptionsState extends State<IconsViewOptions> {
 
   /// Что выбрано списком ширины имени; [PanelsSettings.autoNameWidth] — «Авто»,
   /// [PanelsSettings.customNameWidth] — «Своё».
-  late int _width = _widthChoice(widget.settings().iconNameWidth);
+  late int _width = _listedWidth(widget.settings().iconNameWidth);
 
   late final TextEditingController _ownSize = TextEditingController(text: '${widget.settings().iconTileSize}');
 
   late final TextEditingController _ownWidth = TextEditingController(text: '${_shownWidth(widget.settings())}');
 
-  static int _widthChoice(int width) => switch (width) {
+  static int _listedWidth(int width) => switch (width) {
     PanelsSettings.autoNameWidth => PanelsSettings.autoNameWidth,
     _ when PanelsSettings.nameWidths.contains(width) => width,
     _ => PanelsSettings.customNameWidth,

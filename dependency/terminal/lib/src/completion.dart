@@ -243,7 +243,9 @@ class CompletionRun {
   /// Где стоял курсор до первой вставки.
   int typedCaret = 0;
 
-  bool get hasChoice => candidates.length > 1;
+  /// Дополнение неоднозначно: подошло больше одного. Слово то же, что у
+  /// оболочек, — «ambiguous completion».
+  bool get isAmbiguous => candidates.length > 1;
 
   bool matches(String current) => current == text;
 

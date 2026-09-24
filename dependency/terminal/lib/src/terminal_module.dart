@@ -111,11 +111,11 @@ class ShellTerminal implements FcBackendModule, FcFrontendModule, FcModuleLifecy
           read: () => settingsOf().shell,
           write: (value) => settingsOf().shell = value,
         ),
-        SettingsField.choice(
+        SettingsField.option(
           'afterCommand',
           title: strings.tr('When a command ends'),
           description: strings.tr('What to do with the terminal screen once the command is done'),
-          options: {
+          allowed: {
             TerminalSettings.waitAfterCommand: strings.tr('Wait for a key'),
             TerminalSettings.hideAfterCommand: strings.tr('Hide it'),
           },

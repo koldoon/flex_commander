@@ -1092,7 +1092,7 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
       ),
       // Выпадающим списком, а не переключателем: темы приносят модули, и
       // строка на каждый вариант росла бы вместе с их числом.
-      SettingsChoice choice => Wrap(
+      SettingsOption option => Wrap(
         // Одной строкой со списком: кнопки — про то, что в нём выбрано, и
         // отдельной строкой читались бы как своё, отдельное дело. `Wrap` —
         // чтобы в узком окне ряд переносился, а не лез за край.
@@ -1101,14 +1101,14 @@ class _FcSettingsFormState extends State<FcSettingsForm> {
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           FcSelect<String>(
-            options: choice.options,
-            value: choice.read(),
+            options: option.allowed,
+            value: option.read(),
             onChanged: (value) {
-              choice.write(value);
+              option.write(value);
               switched();
             },
           ),
-          for (final action in choice.actions) _actionButton(action),
+          for (final action in option.actions) _actionButton(action),
         ],
       ),
       SettingsNumber number => Row(

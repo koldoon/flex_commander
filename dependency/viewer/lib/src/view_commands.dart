@@ -2,7 +2,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'quick_view_screen.dart';
-import 'viewer_choice.dart';
+import 'open_viewer.dart';
 
 /// Показать файл под курсором — во весь экран.
 ///

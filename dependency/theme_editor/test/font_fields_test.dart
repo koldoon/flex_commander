@@ -84,34 +84,34 @@ void main() {
       SystemFont(family: 'Monotype Corsiva', fixedPitch: false),
     ];
 
-    final ui = fieldOf('ui', fonts: installed) as SettingsChoice;
-    expect(ui.options.keys, contains('Ubuntu'));
-    expect(ui.options.keys, contains('Monotype Corsiva'));
+    final ui = fieldOf('ui', fonts: installed) as SettingsOption;
+    expect(ui.allowed.keys, contains('Ubuntu'));
+    expect(ui.allowed.keys, contains('Monotype Corsiva'));
 
     // Списку файлов — только моноширинные: пропорциональным шрифтом столбцы
     // размеров и дат перестают стоять столбцами.
-    final fixed = fieldOf('fixed', fonts: installed) as SettingsChoice;
-    expect(fixed.options.keys, contains('Menlo'));
-    expect(fixed.options.keys, isNot(contains('Monotype Corsiva')));
+    final fixed = fieldOf('fixed', fonts: installed) as SettingsOption;
+    expect(fixed.allowed.keys, contains('Menlo'));
+    expect(fixed.allowed.keys, isNot(contains('Monotype Corsiva')));
   });
 
   test('неустановленный шрифт темы всё равно в списке', () {
     // У темы по умолчанию это Consolas: на macOS его обычно нет, а выбранным в
     // списке он обязан показаться — иначе поле врёт про то, что стоит.
     const installed = [SystemFont(family: 'Menlo', fixedPitch: true)];
-    final fixed = fieldOf('fixed', fonts: installed) as SettingsChoice;
+    final fixed = fieldOf('fixed', fonts: installed) as SettingsOption;
 
-    expect(fixed.options.keys, contains(const DefaultFonts().fixed));
+    expect(fixed.allowed.keys, contains(const DefaultFonts().fixed));
     expect(fixed.read(), const DefaultFonts().fixed);
   });
 
   test('выбранный список едет в накладку, а темин — снимает правку', () {
     const installed = [SystemFont(family: 'Menlo', fixedPitch: true)];
 
-    (fieldOf('fixed', fonts: installed) as SettingsChoice).write('Menlo');
+    (fieldOf('fixed', fonts: installed) as SettingsOption).write('Menlo');
     expect(themes.current.fonts.fixed, 'Menlo');
 
-    (fieldOf('fixed', fonts: installed) as SettingsChoice).write(const DefaultFonts().fixed);
+    (fieldOf('fixed', fonts: installed) as SettingsOption).write(const DefaultFonts().fixed);
     expect(overlay.currentEdit.fixedFont, isNull, reason: 'запись, повторяющая тему, правкой не считается');
   });
 }

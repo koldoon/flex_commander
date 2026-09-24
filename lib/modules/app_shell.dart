@@ -339,7 +339,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
       final mine = chosen.isNotEmpty && !presets.isEmbedded(chosen);
 
       return SettingsSchema([
-        SettingsField.choice(
+        SettingsField.option(
           'preset',
           // Пустая строка, а не имя: «ничего не выбрано» — это отсутствие
           // набора, и заводить под него настоящий набор незачем. Список рисует
@@ -351,7 +351,7 @@ class AppShell implements FcBackendModule, FcFrontendModule {
           // «Default» — настоящий вариант, а не пустота: это состояние «ничего
           // не выбрано», и оно тоже выбор. С уточнением: «Default» уже значит
           // «Обычное» у темы, а тут оно про умолчания.
-          options: {'': strings.tr('Default', context: 'preset'), for (final item in presets.all) item.name: item.name},
+          allowed: {'': strings.tr('Default', context: 'preset'), for (final item in presets.all) item.name: item.name},
           read: () => presets.current,
           write: presets.select,
           // Кнопки при списке, а не блоками порознь: все четыре — про то, что
@@ -423,12 +423,12 @@ class AppShell implements FcBackendModule, FcFrontendModule {
       return SettingsSchema([
         // Тема — выбор из установленных, и знает их служба оформления, а не
         // модуль темы: тот объявляет только себя.
-        SettingsField.choice(
+        SettingsField.option(
           'themeId',
           defaultValue: app.theme.available.first.id,
           title: strings.tr('Theme'),
           // Название темы приходит значением — переводит его тот, кто показывает.
-          options: {for (final theme in app.theme.available) theme.id: strings.tr(theme.title)},
+          allowed: {for (final theme in app.theme.available) theme.id: strings.tr(theme.title)},
           read: () => app.theme.current.id,
           // Командой, а не службой: имя выбранной темы сохраняет она, и выбор
           // из окна настроек иначе не переживает перезапуск
@@ -500,12 +500,12 @@ class AppShell implements FcBackendModule, FcFrontendModule {
       final strings = registry.services.resolve<Strings>();
       return SettingsSchema([
         // Язык впереди темы: на нём написано всё остальное в этом окне.
-        SettingsField.choice(
+        SettingsField.option(
           'language',
           defaultValue: systemLanguage,
           title: strings.tr('Language'),
           description: strings.tr('Interface language; «System» follows the machine'),
-          options: {systemLanguage: strings.tr('System'), 'en': 'English', 'ru': 'Русский'},
+          allowed: {systemLanguage: strings.tr('System'), 'en': 'English', 'ru': 'Русский'},
           read: () => settings.section(ShellSettings.new).language,
           write: (value) {
             settings.section(ShellSettings.new).language = value;
@@ -518,14 +518,14 @@ class AppShell implements FcBackendModule, FcFrontendModule {
         // здесь, — вид адреса приносит модуль (`docs/spec/panel-crumbs.md`,
         // §6). Ни одного не объявили — и поля нет: выбор из ничего не выбор.
         if (app.panelHeaders.available.isNotEmpty)
-          SettingsField.choice(
+          SettingsField.option(
             'panelHeader',
             defaultValue: app.panelHeaders.available.first.id,
             title: strings.tr('Panel address'),
             description: strings.tr('How the current path is shown above the panel'),
             // Название заголовка приходит значением — переводит его тот, кто
             // показывает.
-            options: {for (final header in app.panelHeaders.available) header.id: strings.tr(header.title)},
+            allowed: {for (final header in app.panelHeaders.available) header.id: strings.tr(header.title)},
             // Пусто — стоит первый объявленный: он и рисуется, и выбор из
             // пустоты человеку показывать незачем.
             read: () => app.panelHeader.isEmpty ? app.panelHeaders.available.first.id : app.panelHeader,

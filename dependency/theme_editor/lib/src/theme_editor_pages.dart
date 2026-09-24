@@ -140,11 +140,11 @@ SettingsField _fontField(
     ..removeWhere((family) => family.isEmpty);
   final sorted = families.toList()..sort();
 
-  return SettingsField.choice(
+  return SettingsField.option(
     id,
     title: title,
     description: description,
-    options: {for (final family in sorted) family: family},
+    allowed: {for (final family in sorted) family: family},
     defaultValue: defaultValue,
     read: read,
     write: write,
