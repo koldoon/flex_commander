@@ -3,6 +3,7 @@ import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'clipboard_commands.dart';
+import 'rename_batch.dart';
 import 'copy_path_command.dart';
 import 'file_commands.dart';
 import 'transfer_commands.dart';
@@ -13,7 +14,7 @@ import 'transfer_commands.dart';
 /// причине, что и навигация: это набор действий, а не устройство приложения.
 /// Работают они через [TreeEditor], поэтому источник и приёмник могут быть
 /// из разных провайдеров, и модулю это безразлично.
-class FileOps implements FcFrontendModule {
+class FileOps implements FcBackendModule, FcFrontendModule {
   const FileOps();
 
   static const String commandId = 'fc.file_ops';
@@ -23,6 +24,17 @@ class FileOps implements FcFrontendModule {
 
   @override
   String get title => 'File operations';
+
+  /// Переименование пачки — работа ядра: там живут узлы и там же видно, чьё
+  /// имя освободилось. Объявляет её сам модуль, а не оболочка: работа
+  /// принадлежит файловым операциям (`docs/spec/multi-rename.md`, §2).
+  @override
+  void installBackend(BackendRegistry registry) {
+    registry.operation(
+      RenameOperations.batch,
+      (services) => RenameBatchWork(strings: services.resolve<Strings>()).operation(),
+    );
+  }
 
   @override
   void installFrontend(FrontendRegistry registry) {
