@@ -9,7 +9,7 @@ class PackerSpec {
     required this.title,
     required this.kind,
     required this.extension,
-    this.choice,
+    this.option,
     this.nameOption = 'name',
     this.followLinksOption = 'followLinks',
   });
@@ -28,7 +28,7 @@ class PackerSpec {
   final String extension;
 
   /// Свой довод формата: степень сжатия у zip, вид контейнера у tar.
-  final PackerChoice? choice;
+  final PackerOption? option;
 
   /// Как работа зовёт имя архива и проход по ссылкам. У всех троих одинаково,
   /// но договор лучше записать, чем предполагать.
@@ -36,24 +36,31 @@ class PackerSpec {
   final String followLinksOption;
 }
 
-/// Выбор из нескольких значений — одна строка в окне упаковки.
+/// Довод формата — одна строка в окне упаковки: имя, подпись и перечень
+/// допустимых значений.
 ///
-/// Списком, а не произвольным виджетом: у всех нынешних упаковщиков свой довод
-/// устроен одинаково — выбрать одно из нескольких. Появится формат, которому
-/// этого мало, — тогда и заведём ему окно (`docs/spec/archive-here.md`, §4).
-class PackerChoice {
-  const PackerChoice({required this.option, required this.label, required this.values, required this.fallback});
+/// Словарь тот же, что у разбора аргументов в самом Dart
+/// (`ArgParser.addOption(name, allowed:, defaultsTo:)`): вещь называется так,
+/// как её привычно звать, а не по тому, чем её рисуют.
+///
+/// Перечнем, а не произвольным виджетом: у всех нынешних упаковщиков свой
+/// довод устроен одинаково — выбрать одно из нескольких. Появится формат,
+/// которому этого мало, — тогда и заведём ему окно
+/// (`docs/spec/archive-here.md`, §4).
+class PackerOption {
+  const PackerOption({required this.name, required this.label, required this.allowed, required this.defaultsTo});
 
   /// Как довод зовётся в заявке: `compression`, `format`.
-  final String option;
+  final String name;
 
   /// Подпись строки в окне: «Compression».
   final String label;
 
-  final List<PackerValue> values;
+  /// Что у него бывает.
+  final List<PackerValue> allowed;
 
   /// Что выбрано, пока не выбрали другого.
-  final String fallback;
+  final String defaultsTo;
 }
 
 /// Одно значение довода: что уйдёт в заявку, как это зовут человеку и чем

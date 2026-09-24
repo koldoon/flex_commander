@@ -66,7 +66,7 @@ class PackHereCommand extends AppCommand {
         format: _formatOf(context.invocation.param<String>(formatParam)),
         name: given,
         followLinks: context.invocation.param<bool>(followLinksParam) ?? false,
-        choice: context.invocation.param<String>(optionParam),
+        option: context.invocation.param<String>(optionParam),
       );
       return;
     }
@@ -80,7 +80,7 @@ class PackHereCommand extends AppCommand {
       format: run.format,
       name: run.name,
       followLinks: run.followLinks,
-      choice: run.choiceOf(run.format),
+      option: run.optionOf(run.format),
       run: run,
     );
 
@@ -120,14 +120,14 @@ class PackHereCommand extends AppCommand {
     required PackerSpec format,
     required String name,
     required bool followLinks,
-    required String? choice,
+    required String? option,
     FcAsyncRun? run,
   }) async {
     final panel = context.session;
     // Снимком: пока открыто окно, панель уходит куда угодно, а человек видел
     // то, что видел (`docs/spec/client-server.md`, §5.6а).
     final where = panel.currentPath;
-    final full = _withExtension(name.trim(), _extensionOf(format, choice));
+    final full = _withExtension(name.trim(), _extensionOf(format, option));
     if (full.isEmpty || full.contains('/') || full.contains(r'\')) {
       throw FsError(full, FsErrorKind.invalidName);
     }
@@ -138,7 +138,7 @@ class PackHereCommand extends AppCommand {
       options: {
         format.nameOption: full,
         format.followLinksOption: followLinks,
-        if (format.choice case final option?) option.option: choice ?? option.fallback,
+        if (format.option case final declared?) declared.name: option ?? declared.defaultsTo,
       },
     );
 
@@ -157,13 +157,13 @@ class PackHereCommand extends AppCommand {
   ///
   /// У tar это не придирка: `.tar` без сжатия не должен называться `.tar.gz`
   /// (`docs/spec/archive-here.md`, §8).
-  static String _extensionOf(PackerSpec format, String? choice) {
-    final option = format.choice;
+  static String _extensionOf(PackerSpec format, String? chosen) {
+    final option = format.option;
     if (option == null) {
       return format.extension;
     }
-    final picked = choice ?? option.fallback;
-    for (final value in option.values) {
+    final picked = chosen ?? option.defaultsTo;
+    for (final value in option.allowed) {
       if (value.value == picked && value.extension.isNotEmpty) {
         return value.extension;
       }
@@ -202,17 +202,17 @@ class _PackRun extends FcAsyncRun {
 
   /// Выбранное значение довода — своё у каждого формата: сменил формат и
   /// вернулся, а выбранное на месте.
-  final Map<String, String> _choices = {};
+  final Map<String, String> _options = {};
 
-  String choiceOf(PackerSpec spec) => _choices[spec.id] ?? spec.choice?.fallback ?? '';
+  String optionOf(PackerSpec spec) => _options[spec.id] ?? spec.option?.defaultsTo ?? '';
 
   void setFormat(PackerSpec value) {
     format = value;
     notifyListeners();
   }
 
-  void setChoice(String value) {
-    _choices[format.id] = value;
+  void setOption(String value) {
+    _options[format.id] = value;
     notifyListeners();
   }
 
@@ -247,7 +247,7 @@ class _PackFormState extends State<_PackForm> {
   @override
   Widget build(BuildContext context) {
     final run = widget.run;
-    final choice = run.format.choice;
+    final option = run.format.option;
 
     return CommandDialogForm(
       error: run.error,
@@ -277,15 +277,15 @@ class _PackFormState extends State<_PackForm> {
             onChanged: run.setFormat,
           ),
         ),
-        if (choice != null)
+        if (option != null)
           CommandDialogField(
-            label: context.strings.tr(choice.label),
+            label: context.strings.tr(option.label),
             child: FcSelect<String>(
               // Названия значений приходят объявлением — переводит их тот, кто
               // показывает.
-              options: {for (final value in choice.values) value.value: context.strings.tr(value.title)},
-              value: run.choiceOf(run.format),
-              onChanged: run.setChoice,
+              options: {for (final value in option.allowed) value.value: context.strings.tr(value.title)},
+              value: run.optionOf(run.format),
+              onChanged: run.setOption,
             ),
           ),
         CommandDialogField.wide(

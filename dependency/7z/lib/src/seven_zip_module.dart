@@ -111,16 +111,16 @@ class SevenZipArchiver implements FcBackendModule, FcFrontendModule {
         title: '7z',
         kind: SevenZipPacking.kind,
         extension: '7z',
-        choice: PackerChoice(
-          option: SevenZipPacking.compressionOption,
+        option: PackerOption(
+          name: SevenZipPacking.compressionOption,
           label: 'Compression',
-          values: [
+          allowed: [
             PackerValue('none', 'Store'),
             PackerValue('fast', 'Fast'),
             PackerValue('normal', 'Normal'),
             PackerValue('best', 'Best'),
           ],
-          fallback: 'normal',
+          defaultsTo: 'normal',
         ),
       ),
     );

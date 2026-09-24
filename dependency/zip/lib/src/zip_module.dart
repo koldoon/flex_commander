@@ -78,16 +78,16 @@ class ZipArchiver implements FcBackendModule, FcFrontendModule {
         title: 'ZIP',
         kind: ZipPacking.kind,
         extension: 'zip',
-        choice: PackerChoice(
-          option: ZipPacking.compressionOption,
+        option: PackerOption(
+          name: ZipPacking.compressionOption,
           label: 'Compression',
-          values: [
+          allowed: [
             PackerValue('none', 'Store'),
             PackerValue('fast', 'Fast'),
             PackerValue('normal', 'Normal'),
             PackerValue('best', 'Best'),
           ],
-          fallback: 'normal',
+          defaultsTo: 'normal',
         ),
       ),
     );
