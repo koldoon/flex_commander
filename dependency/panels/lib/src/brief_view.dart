@@ -8,6 +8,7 @@ import 'package:flutter/widgets.dart';
 
 import 'cursor_pin.dart';
 import 'columns.dart';
+import 'file_colors.dart';
 import 'file_table_row.dart';
 import 'panel_drag.dart';
 import 'row_cache.dart';
@@ -240,11 +241,20 @@ class _BriefViewState extends State<BriefView> {
   }
 
   /// Строка списка — из памяти, если у неё ничего не изменилось.
-  Widget _row(Session panel, List<FileEntry> entries, int index, List<double> widths, bool active, FileNaming naming) {
+  Widget _row(
+    Session panel,
+    List<FileEntry> entries,
+    int index,
+    List<double> widths,
+    bool active,
+    FileNaming naming,
+    FileColors colors,
+  ) {
     final entry = entries[index];
     final marked = panel.isMarked(entry);
     final underCursor = panel.cursorIndex == index;
-    return _cache.of(index, [entry, marked, underCursor, active], () {
+    final painted = colors.of(entry, FcTheme.of(context).colors);
+    return _cache.of(index, [entry, marked, underCursor, active, painted], () {
       // Строку можно утащить — тем же жестом и по тому же правилу, что в
       // таблице (`panel_drag.dart`).
       return panelDragSource(
@@ -262,6 +272,7 @@ class _BriefViewState extends State<BriefView> {
           panelActive: active,
           naming: naming,
           nameSide: widget.settings().trimsNameInMiddle ? FcTrimSide.middle : FcTrimSide.tail,
+          color: painted,
           contentOf: panel.contentOf,
           onPress: () => _onPress(index),
         ),
@@ -340,9 +351,20 @@ class _BriefViewState extends State<BriefView> {
               // них общий, а обращение это поиск унаследованного виджета.
               final active = takesKeysHere(context, panel);
               final naming = app.fileNaming;
+              // Цвет строки — по правилам модуля (`docs/spec/file-colors.md`).
+              final colors = FileColors(rules: widget.settings().fileColors, types: app.contentTypes);
               // Ширины в приметы не входят: их целиком задают два числа ниже, а
               // сам список каждый раз новый (`docs/spec/panel-redraw.md`, §6).
-              _cache.frame([theme, rowHeight, columnWidth, iconWidth, entries, naming, widget.settings().nameTrim]);
+              _cache.frame([
+                theme,
+                rowHeight,
+                columnWidth,
+                iconWidth,
+                entries,
+                naming,
+                widget.settings().nameTrim,
+                colors.rules,
+              ]);
 
               final list = ListView.builder(
                 controller: _scroll,
@@ -356,7 +378,10 @@ class _BriefViewState extends State<BriefView> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       for (var row = 0; row < rows && first + row < entries.length; row++)
-                        SizedBox(height: rowHeight, child: _row(panel, entries, first + row, widths, active, naming)),
+                        SizedBox(
+                          height: rowHeight,
+                          child: _row(panel, entries, first + row, widths, active, naming, colors),
+                        ),
                     ],
                   );
                 },

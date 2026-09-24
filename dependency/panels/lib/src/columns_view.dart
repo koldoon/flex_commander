@@ -7,6 +7,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
 import 'column_chain.dart';
+import 'file_colors.dart';
 import 'file_type_icon.dart';
 import 'mark_drag.dart';
 import 'panels_settings.dart';
@@ -726,6 +727,10 @@ class ColumnsViewState extends State<ColumnsView> {
                                         current: at == chain.current,
                                         nameSide:
                                             widget.settings().trimsNameInMiddle ? FcTrimSide.middle : FcTrimSide.tail,
+                                        colors: FileColors(
+                                          rules: widget.settings().fileColors,
+                                          types: AppScope.read(context).contentTypes,
+                                        ),
                                         step: _step,
                                         controller: _verticalOf(rows[chain.columns[at].owner].path),
                                         onPress: _onPress,
@@ -778,6 +783,7 @@ class _Column extends StatefulWidget {
     required this.rows,
     required this.column,
     required this.nameSide,
+    required this.colors,
     required this.nextOwner,
     required this.current,
     required this.step,
@@ -798,6 +804,9 @@ class _Column extends StatefulWidget {
   /// Чем жертвовать в имени, которому не хватило столбца
   /// (`docs/spec/name-trim.md`).
   final FcTrimSide nameSide;
+
+  /// Правила окраски строк (`docs/spec/file-colors.md`).
+  final FileColors colors;
 
   final double step;
   final ScrollController controller;
@@ -837,6 +846,7 @@ class _ColumnState extends State<_Column> {
       widget.nextOwner,
       column.selected,
       widget.nameSide,
+      widget.colors.rules,
     ]);
 
     // Пустой столбец — не то же, что отсутствие столбца: «здесь пусто» надо
@@ -860,6 +870,7 @@ class _ColumnState extends State<_Column> {
           return _ColumnRow(
             row: row,
             nameSide: widget.nameSide,
+            color: widget.colors.of(row, FcTheme.of(context).colors),
             underCursor: underCursor,
             entered: entered,
             onTrail: onTrail,
@@ -954,6 +965,7 @@ class _ColumnRow extends StatelessWidget {
   const _ColumnRow({
     required this.row,
     required this.nameSide,
+    required this.color,
     required this.underCursor,
     required this.entered,
     required this.onTrail,
@@ -967,6 +979,9 @@ class _ColumnRow extends StatelessWidget {
   /// Чем жертвовать в имени, которому не хватило столбца
   /// (`docs/spec/name-trim.md`).
   final FcTrimSide nameSide;
+
+  /// Цвет строки по правилам; null — обычный (`docs/spec/file-colors.md`).
+  final Color? color;
 
   final bool underCursor;
 
@@ -1010,7 +1025,11 @@ class _ColumnRow extends StatelessWidget {
     final colors = theme.colors;
     final metrics = theme.metrics;
 
-    final style = _bright ? theme.rowStyle.copyWith(color: colors.cursorText) : theme.rowStyle;
+    // Цвет правила сильнее курсора (`docs/spec/file-colors.md`, §2).
+    final style =
+        color != null
+            ? theme.rowStyle.copyWith(color: color)
+            : (_bright ? theme.rowStyle.copyWith(color: colors.cursorText) : theme.rowStyle);
     // Знак «дальше вправо» — тот же шеврон, что закрытая ветвь в дереве: он и
     // там, и здесь значит «дальше в эту сторону».
     final glyph = TextStyle(

@@ -7,6 +7,7 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 
 import 'cursor_pin.dart';
+import 'file_colors.dart';
 import 'icon_tile.dart';
 import 'mark_drag.dart';
 import 'panel_drag.dart';
@@ -306,11 +307,13 @@ class _IconsViewState extends State<IconsView> {
     double tileWidth,
     double nameHeight,
     bool active,
+    FileColors colors,
   ) {
     final entry = entries[index];
     final marked = panel.isMarked(entry);
     final underCursor = panel.cursorIndex == index;
-    return _cache.of(index, [entry, marked, underCursor, active], () {
+    final painted = colors.of(entry, FcTheme.of(context).colors);
+    return _cache.of(index, [entry, marked, underCursor, active, painted], () {
       // Плитку можно утащить — тем же жестом и по тому же правилу, что строку
       // в таблице (`panel_drag.dart`).
       return panelDragSource(
@@ -328,6 +331,7 @@ class _IconsViewState extends State<IconsView> {
           // сейчас клавиши.
           panelActive: active,
           nameSide: widget.settings().trimsNameInMiddle ? FcTrimSide.middle : FcTrimSide.tail,
+          color: painted,
           contentOf: panel.contentOf,
           onPress: () => _onPress(index),
         ),
@@ -435,7 +439,22 @@ class _IconsViewState extends State<IconsView> {
               // Спрашивается один раз на список, а не в каждой плитке: ответ у
               // них общий, а обращение это поиск унаследованного виджета.
               final active = takesKeysHere(context, panel);
-              _cache.frame([theme, iconSize, tileWidth, tileHeight, nameHeight, entries, widget.settings().nameTrim]);
+              // Цвет имени — по тем же правилам, что и в списке
+              // (`docs/spec/file-colors.md`, §2а).
+              final colors = FileColors(
+                rules: widget.settings().fileColors,
+                types: AppScope.read(context).contentTypes,
+              );
+              _cache.frame([
+                theme,
+                iconSize,
+                tileWidth,
+                tileHeight,
+                nameHeight,
+                entries,
+                widget.settings().nameTrim,
+                colors.rules,
+              ]);
 
               final list = ListView.builder(
                 controller: _scroll,
@@ -459,7 +478,7 @@ class _IconsViewState extends State<IconsView> {
                         SizedBox(
                           width: tileWidth,
                           height: tileHeight,
-                          child: _tile(panel, entries, first + column, iconSize, tileWidth, nameHeight, active),
+                          child: _tile(panel, entries, first + column, iconSize, tileWidth, nameHeight, active, colors),
                         ),
                     ],
                   );

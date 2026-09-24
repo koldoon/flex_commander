@@ -11,6 +11,7 @@ import 'file_table_header.dart';
 import 'panel_drag.dart';
 import 'panels_settings.dart';
 import 'columns.dart';
+import 'file_colors.dart';
 import 'file_table_row.dart';
 import 'mark_drag.dart';
 import 'row_cache.dart';
@@ -457,7 +458,11 @@ class _FileTableState extends State<FileTable> {
         // Правило показа имён одно на приложение: две панели, делящие имя
         // по-разному, — не гибкость, а недосмотр.
         final naming = app.fileNaming;
-        _cache.frame([theme, columns, widths, rows, naming, _rowHeight, widget.settings().nameTrim]);
+        // Цвет строки — по правилам модуля; служба значением, а не в реестре:
+        // правила лежат в разделе, который у вида и так в руках
+        // (`docs/spec/file-colors.md`).
+        final colors = FileColors(rules: widget.settings().fileColors, types: app.contentTypes);
+        _cache.frame([theme, columns, widths, rows, naming, _rowHeight, widget.settings().nameTrim, colors.rules]);
 
         return NotificationListener<ScrollEndNotification>(
           // Прокрутка запоминается, когда устоялась: с неё вид и начнёт, когда
@@ -489,7 +494,8 @@ class _FileTableState extends State<FileTable> {
               final entry = rows[index];
               final marked = panel.isMarked(entry);
               final underCursor = index == panel.cursorIndex;
-              return _cache.of(index, [entry, marked, underCursor, active], () {
+              final painted = colors.of(entry, theme.colors);
+              return _cache.of(index, [entry, marked, underCursor, active, painted], () {
                 final row = FileTableRow(
                   entry: entry,
                   columns: columns,
@@ -499,6 +505,7 @@ class _FileTableState extends State<FileTable> {
                   panelActive: active,
                   naming: naming,
                   nameSide: widget.settings().trimsNameInMiddle ? FcTrimSide.middle : FcTrimSide.tail,
+                  color: painted,
                   // Байты — для правил иконок по содержимому. Спрашивают их у
                   // панели: строка принадлежит ей, и она же знает, откуда читать.
                   contentOf: panel.contentOf,

@@ -26,6 +26,7 @@ class IconTile extends StatelessWidget {
     required this.panelActive,
     required this.width,
     this.nameSide = FcTrimSide.tail,
+    this.color,
     this.contentOf,
     this.onPress,
   });
@@ -36,6 +37,9 @@ class IconTile extends StatelessWidget {
   /// (`docs/spec/name-trim.md`). Имя тут в две строки, и дыра в нём всё равно
   /// одна: сокращается оно целиком, а не построчно.
   final FcTrimSide nameSide;
+
+  /// Цвет имени по правилам; null — обычный (`docs/spec/file-colors.md`).
+  final Color? color;
 
   /// Сторона значка в точках — своя величина, не размер строки списка.
   final double iconSize;
@@ -71,7 +75,11 @@ class IconTile extends StatelessWidget {
     final theme = FcTheme.of(context);
     final colors = theme.colors;
     final metrics = theme.metrics;
-    final style = _selected ? nameStyle(theme).copyWith(color: colors.cursorText) : nameStyle(theme);
+    // Цвет правила сильнее курсора (`docs/spec/file-colors.md`, §2).
+    final style =
+        color != null
+            ? nameStyle(theme).copyWith(color: color)
+            : (_selected ? nameStyle(theme).copyWith(color: colors.cursorText) : nameStyle(theme));
 
     return GestureDetector(
       behavior: HitTestBehavior.opaque,

@@ -9,6 +9,7 @@ export 'src/columns_view.dart';
 export 'src/brief_view_options.dart';
 export 'src/combined_view.dart';
 export 'src/crumbs_header.dart';
+export 'src/file_colors.dart';
 export 'src/file_table.dart';
 export 'src/icon_tile.dart';
 export 'src/icons_view.dart';

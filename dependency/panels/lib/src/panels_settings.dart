@@ -25,8 +25,10 @@ class PanelsSettings extends ChangeNotifier implements Serializable {
     this.columnWidth = defaultColumnWidth,
     String nameTrim = trimEnd,
     int statusLines = defaultStatusLines,
+    List<FileColorRule>? fileColors,
   }) : _nameTrim = nameTrim,
-       _statusLines = statusLines;
+       _statusLines = statusLines,
+       fileColors = fileColors ?? defaultFileColors;
 
   /// Какую долю ширины занимает дерево в комбинированном виде.
   static const double defaultTreeShare = 1 / 3;
@@ -180,6 +182,23 @@ class PanelsSettings extends ChangeNotifier implements Serializable {
   /// (`docs/spec/panel-view-combined.md`, §7).
   double treeShare;
 
+  /// Правила окраски строк: условие → цвет, первое совпавшее выигрывает
+  /// (`docs/spec/file-colors.md`).
+  ///
+  /// Окна правки у них нет — список в схему настроек не ложится, — и правятся
+  /// они в файле, как и правила иконок (§4 спеки).
+  List<FileColorRule> fileColors;
+
+  /// Умолчания: битую ссылку видно сразу, скрытое приглушено.
+  ///
+  /// Ролями, а не числами: числа замёрзли бы под одну тему и разъехались бы в
+  /// другой.
+  /// Не `const`: условие разбирает маску при создании, и постоянным значением
+  /// его не сделать.
+  static final List<FileColorRule> defaultFileColors = [
+    FileColorRule(when: EntryCondition(broken: true), color: 'error'),
+  ];
+
   @override
   void fromMap(Map<String, dynamic> m) {
     briefColumns = extract(briefColumns, m['briefColumns']).clamp(autoColumns, maxColumns);
@@ -191,6 +210,9 @@ class PanelsSettings extends ChangeNotifier implements Serializable {
     // Незнакомое слово — это чужая настройка или опечатка в правленом руками
     // файле: показываем как было, а не гадаем.
     _statusLines = extract(statusLines, m['statusLines']).clamp(minStatusLines, maxStatusLines);
+    // Ключа нет вовсе — живём умолчаниями; есть, пусть и пустой, — значит
+    // человек так написал, и добавлять ему своё было бы спором с ним.
+    fileColors = m.containsKey('fileColors') ? FileColorRule.listFromJson(m['fileColors']) : defaultFileColors;
     final trim = extract(nameTrim, m['nameTrim']);
     _nameTrim = trim == trimMiddle ? trimMiddle : trimEnd;
     final width = extract(iconNameWidth, m['iconNameWidth']);
@@ -211,5 +233,6 @@ class PanelsSettings extends ChangeNotifier implements Serializable {
     m['columnWidth'] = columnWidth;
     m['nameTrim'] = nameTrim;
     m['statusLines'] = statusLines;
+    m['fileColors'] = [for (final rule in fileColors) rule.toJson()];
   }
 }

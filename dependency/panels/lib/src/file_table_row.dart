@@ -20,6 +20,7 @@ class FileTableRow extends StatelessWidget {
     required this.panelActive,
     this.naming = const ReferenceFileNaming(),
     this.nameSide = FcTrimSide.tail,
+    this.color,
     this.contentOf,
     this.onPress,
   });
@@ -46,6 +47,12 @@ class FileTableRow extends StatelessWidget {
   /// Доводом, а не вопросом к настройкам: строка рисует любую колонку и о том,
   /// что панель настраивают, знать не обязана.
   final FcTrimSide nameSide;
+
+  /// Цвет строки по правилам; null — обычный (`docs/spec/file-colors.md`).
+  ///
+  /// Готовым цветом, а не правилами: строка рисует то, что ей дали, а правила
+  /// читает тот, у кого они есть.
+  final Color? color;
 
   /// Чем открыть байты строки — иконке, если правило спрашивает о содержимом.
   final Content Function(FileEntry entry)? contentOf;
@@ -175,8 +182,16 @@ class FileTableRow extends StatelessWidget {
 
   /// В референсе все ячейки строки одного цвета, а под курсором — белые:
   /// тип объекта показывает иконка, а не цвет имени.
+  ///
+  /// **Цвет правила сильнее курсора** (`docs/spec/file-colors.md`, §2): «под
+  /// курсором всё белое» стирало бы единственный признак недоступного файла
+  /// ровно тогда, когда на него смотрят. Фон курсора тёмный, читаемость от
+  /// этого не страдает.
   TextStyle _styleFor(FcTheme theme, ColumnSpec column) {
     final base = theme.rowStyle;
+    if (color case final painted?) {
+      return base.copyWith(color: painted);
+    }
     return _selected ? base.copyWith(color: theme.colors.cursorText) : base;
   }
 }

@@ -9,6 +9,7 @@ import 'package:flutter/widgets.dart';
 import 'columns.dart';
 import 'cursor_pin.dart';
 import 'file_table_header.dart';
+import 'file_colors.dart';
 import 'file_type_icon.dart';
 import 'mark_drag.dart';
 import 'panel_drag.dart';
@@ -510,7 +511,23 @@ class TreeViewState extends State<TreeView> {
               // у них общий, а обращение это поиск унаследованного виджета.
               final active = takesKeysHere(context, panel);
               final navigator = widget.rows == RowsKind.branches;
-              _cache.frame([theme, step, showSize, sizeWidth, inset, rows, navigator, widget.settings().nameTrim]);
+              // Цвет ветви — по тем же правилам, что и строки списка
+              // (`docs/spec/file-colors.md`, §2а).
+              final painter = FileColors(
+                rules: widget.settings().fileColors,
+                types: AppScope.read(context).contentTypes,
+              );
+              _cache.frame([
+                theme,
+                step,
+                showSize,
+                sizeWidth,
+                inset,
+                rows,
+                navigator,
+                widget.settings().nameTrim,
+                painter.rules,
+              ]);
 
               return ListView.builder(
                 controller: _scroll,
@@ -526,7 +543,8 @@ class TreeViewState extends State<TreeView> {
                   // Размер приходит **в строке**: его проставило ядро, и
                   // второго источника у него нет (`panel-node-list.md`, §4).
                   final size = showSize ? row.size : FileEntry.unknownSize;
-                  return _cache.of(index, [row, underCursor, marked, size, active], () {
+                  final painted = painter.of(row, theme.colors);
+                  return _cache.of(index, [row, underCursor, marked, size, active, painted], () {
                     final branch = _BranchRow(
                       row: row,
                       underCursor: underCursor,
@@ -536,6 +554,7 @@ class TreeViewState extends State<TreeView> {
                       inset: inset,
                       panelActive: active,
                       nameSide: widget.settings().trimsNameInMiddle ? FcTrimSide.middle : FcTrimSide.tail,
+                      color: painted,
                       // Дерево одних каталогов — навигатор соседнего столбца, и
                       // правила у него свои: место видно и без курсора, а знак
                       // раскрытия стоит только там, где внутри и правда ветви
@@ -702,6 +721,7 @@ class _BranchRow extends StatelessWidget {
     required this.inset,
     required this.panelActive,
     required this.nameSide,
+    this.color,
     this.navigator = false,
     required this.onPress,
     required this.onToggle,
@@ -716,6 +736,9 @@ class _BranchRow extends StatelessWidget {
   /// Чем жертвовать в имени, которому не хватило места
   /// (`docs/spec/name-trim.md`).
   final FcTrimSide nameSide;
+
+  /// Цвет ветви по правилам; null — обычный (`docs/spec/file-colors.md`).
+  final Color? color;
 
   /// Помечена ли ветвь. Показывается теми же цветами, что в списке: пометка в
   /// панели одна, и выглядеть она обязана одинаково
@@ -814,7 +837,12 @@ class _BranchRow extends StatelessWidget {
     final square = FileIconSize.of(metrics, AppScope.read(context).fileIcons);
     final indent = square + metrics.treeMarkGap;
 
-    final style = _bright ? theme.rowStyle.copyWith(color: colors.cursorText) : theme.rowStyle;
+    // Цвет правила сильнее курсора: признак недоступного не должен пропадать
+    // ровно тогда, когда на строку смотрят (`docs/spec/file-colors.md`, §2).
+    final style =
+        color != null
+            ? theme.rowStyle.copyWith(color: color)
+            : (_bright ? theme.rowStyle.copyWith(color: colors.cursorText) : theme.rowStyle);
     final glyph = TextStyle(
       fontFamily: icons.fontFamily,
       fontSize: metrics.fontSize,
