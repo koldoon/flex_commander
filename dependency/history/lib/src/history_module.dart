@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
+import 'history_command.dart';
 import 'history_service.dart';
 import 'history_settings.dart';
 import 'undo_command.dart';
@@ -42,6 +43,7 @@ class OperationHistoryModule implements FcBackendModule, FcFrontendModule {
 
     registry.service<OperationHistory>((services) => OperationHistoryService(settings: settingsOf));
     registry.command((context) => UndoCommand(context.resolve<OperationHistory>()));
+    registry.command((context) => ShowHistoryCommand(context.resolve<OperationHistory>()));
 
     // Панельная клавиша: в редакторе, в поле ввода и в терминале `Cmd-Z`
     // принадлежит экрану — там отменяют набранное, а не файловую работу.
@@ -74,6 +76,11 @@ const Map<String, String> _coreRussian = {
 
 const Map<String, String> _russian = {
   'Operation history': 'История операций',
+  'What the application did to files this session': 'Что приложение сделало с файлами за этот сеанс',
+  'Filter operations': 'Отбор по работам',
+  'Only the newest operation can be undone': 'Отменяется только последняя работа',
+  'still running': 'ещё идёт',
+
   'Undo': 'Отменить',
   'Undo the last file operation, if it can be undone': 'Отменить последнюю файловую работу, если это возможно',
   'Undo failed': 'Отменить не вышло',
@@ -95,6 +102,7 @@ const Map<String, String> _russian = {
 };
 
 const Map<String, PluralForms> _plurals = {
+  '{n} objects': (one: '{n} объект', few: '{n} объекта', many: '{n} объектов'),
   'delete {n} objects': (one: 'удалить {n} объект', few: 'удалить {n} объекта', many: 'удалить {n} объектов'),
   'move {n} objects back': (one: 'вернуть {n} объект', few: 'вернуть {n} объекта', many: 'вернуть {n} объектов'),
   'return {n} objects from Trash': (
