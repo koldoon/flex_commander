@@ -24,7 +24,9 @@ class PanelsSettings extends ChangeNotifier implements Serializable {
     this.iconNameWidth = autoNameWidth,
     this.columnWidth = defaultColumnWidth,
     String nameTrim = trimEnd,
-  }) : _nameTrim = nameTrim;
+    int statusLines = defaultStatusLines,
+  }) : _nameTrim = nameTrim,
+       _statusLines = statusLines;
 
   /// Какую долю ширины занимает дерево в комбинированном виде.
   static const double defaultTreeShare = 1 / 3;
@@ -134,6 +136,31 @@ class PanelsSettings extends ChangeNotifier implements Serializable {
   /// Удобство для тех, кто показывает имена: им нужно не слово, а сторона.
   bool get trimsNameInMiddle => nameTrim == trimMiddle;
 
+  /// Сколько строчек позволено строке состояния
+  /// (`docs/spec/panel-status-lines.md`).
+  ///
+  /// Одна: дёрганье списка под каждой стрелкой человек видит каждый раз, а
+  /// недоговорённое имя — лишь когда оно длинное. Кому дороже обещание «имя
+  /// договаривает полоса», тот ставит три.
+  static const int defaultStatusLines = 1;
+  static const int minStatusLines = 1;
+
+  /// Больше трёх нельзя: четвёртая строчка отъедает от списка заметно, а имя,
+  /// не влезшее в три, не влезет и в пять.
+  static const int maxStatusLines = 3;
+
+  int get statusLines => _statusLines;
+  int _statusLines;
+
+  set statusLines(int value) {
+    final sane = value.clamp(minStatusLines, maxStatusLines);
+    if (sane == _statusLines) {
+      return;
+    }
+    _statusLines = sane;
+    notifyListeners();
+  }
+
   /// Показывать ли размер в дереве.
   ///
   /// Включено: размер — то, ради чего каталог и помечают
@@ -163,6 +190,7 @@ class PanelsSettings extends ChangeNotifier implements Serializable {
     columnWidth = extract(columnWidth, m['columnWidth']).clamp(minColumnWidth, maxColumnWidth);
     // Незнакомое слово — это чужая настройка или опечатка в правленом руками
     // файле: показываем как было, а не гадаем.
+    _statusLines = extract(statusLines, m['statusLines']).clamp(minStatusLines, maxStatusLines);
     final trim = extract(nameTrim, m['nameTrim']);
     _nameTrim = trim == trimMiddle ? trimMiddle : trimEnd;
     final width = extract(iconNameWidth, m['iconNameWidth']);
@@ -182,5 +210,6 @@ class PanelsSettings extends ChangeNotifier implements Serializable {
     m['iconNameWidth'] = iconNameWidth;
     m['columnWidth'] = columnWidth;
     m['nameTrim'] = nameTrim;
+    m['statusLines'] = statusLines;
   }
 }

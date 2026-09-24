@@ -13,6 +13,52 @@ void main() {
   group('обрезка имени серединой (`docs/spec/name-trim.md`)', () {
     const name = 'Отчёт за третий квартал 2026 года, окончательный.xlsx';
 
+    group('обрезка серединой по кускам (`docs/spec/panel-status-lines.md`, §3)', () {
+      const glyph = TextStyle(fontFamily: 'icons');
+      const name = 'очень длинное имя ссылки, которому не хватит ширины полосы.lnk';
+      const target = '/Users/koldoon/Developer/Projects/цель ссылки.txt';
+      const pieces = <TextPiece>[(name, null, false), (' → ', glyph, true), (target, null, false)];
+
+      String plain(List<TextPiece> value) => value.map((piece) => piece.$1).join();
+
+      test('влезает — не трогаем: тот же список кусков', () {
+        final room = widthOf(plain(pieces)) + 1;
+
+        expect(trimPiecesMiddle(pieces, style, room, scaler), same(pieces));
+      });
+
+      test('видны оба конца, и стрелка остаётся стрелкой', () {
+        final trimmed = trimPiecesMiddle(pieces, style, widthOf(plain(pieces)) / 2, scaler);
+        final text = plain(trimmed);
+
+        expect(text, startsWith('очень'));
+        expect(text, endsWith('.txt'), reason: 'цель ссылки — самое нужное в этой строке');
+        expect(text, contains('…'));
+        expect(
+          trimmed.where((piece) => piece.$2 == glyph).map((piece) => piece.$1).join(),
+          ' → ',
+          reason: 'кусок со стрелкой набран своим шрифтом, как бы ни лёг разрез',
+        );
+      });
+
+      test('разрез съедает и стрелку, когда места совсем нет', () {
+        // Место на несколько знаков: стрелка в середине, и она уходит первой —
+        // но начертание оставшегося не путается.
+        final trimmed = trimPiecesMiddle(pieces, style, widthOf('очень…txt'), scaler);
+
+        expect(plain(trimmed), contains('…'));
+        expect(trimmed.every((piece) => piece.$1.isNotEmpty), isTrue, reason: 'пустых кусков не бывает');
+      });
+
+      test('соседние знаки одного начертания идут одним куском', () {
+        final trimmed = trimPiecesMiddle(pieces, style, widthOf(plain(pieces)) / 2, scaler);
+
+        for (var at = 1; at < trimmed.length; at++) {
+          expect(trimmed[at].$2 == trimmed[at - 1].$2, isFalse, reason: 'иначе набор рвал бы кернинг на каждом знаке');
+        }
+      });
+    });
+
     test('влезает — не трогаем', () {
       expect(trimTextMiddle(name, style, widthOf(name) + 1, scaler), name);
     });

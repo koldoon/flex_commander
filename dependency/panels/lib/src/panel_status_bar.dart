@@ -4,22 +4,30 @@ import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 
+import 'panels_settings.dart';
+
 /// Строка состояния под списком.
 ///
 /// Что показывается, по убыванию приоритета: текст, выставленный командой →
 /// сводка по помеченным объектам → сведения об объекте под курсором.
 /// Правила взяты из `getSelectionInfoText` референса.
 class PanelStatusBar extends StatelessWidget {
-  const PanelStatusBar({super.key, required this.panel});
+  const PanelStatusBar({super.key, required this.panel, required this.settings});
 
   final Session panel;
+
+  /// Настройки видов: сколько строчек позволено полосе и чем жертвовать в
+  /// длинном имени (`docs/spec/panel-status-lines.md`).
+  final PanelsSettings Function() settings;
 
   @override
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
 
     return ListenableBuilder(
-      listenable: panel,
+      // Вместе с панелью — настройки: число строчек правят в окне настроек, и
+      // видно это должно быть сразу.
+      listenable: Listenable.merge([panel, settings()]),
       builder: (context, _) {
         final error = panel.phase == PanelPhase.error;
         final stroke = theme.metrics.strokeWidth;
@@ -76,48 +84,57 @@ class PanelStatusBar extends StatelessWidget {
     return free > 0 ? free / 2 : 0;
   }
 
-  /// Сколько строчек строка состояния позволяет себе занять.
-  ///
-  /// Три — потому что четвёртая отъедает от списка уже заметно, а имя, не
-  /// влезшее в три, не влезет и в пять. Приложение клавиатурное, и договорить
-  /// имя под курсором больше некому: подсказка — про мышь
-  /// (`docs/widgets.md`, раздел `PanelStatusBar`).
-  static const int maxLines = 3;
-
-  /// Строка состояния: растёт до [maxLines], дальше договаривает подсказкой.
+  /// Строка состояния: растёт до разрешённого настройкой, дальше договаривает
+  /// подсказкой.
   ///
   /// Сюда смотрят, когда имя в списке обрезано, — и обрезанная строка
   /// состояния оставляла бы вопрос без ответа совсем (`docs/spec/tooltips.md`,
   /// §7). `FcTrimmedText` не встаёт: текст набран кусками разных стилей.
   Widget _text(BuildContext context, FcTheme theme, {required bool error}) {
     final style = error ? theme.statusStyle.copyWith(color: theme.colors.error) : theme.statusStyle;
-    final (span, whole) = _content(theme, context.strings);
-    final shown = Text.rich(span, maxLines: maxLines, overflow: TextOverflow.ellipsis, style: style);
+    final view = settings();
+    final lines = view.statusLines;
+    final (pieces, whole) = _content(theme, context.strings);
 
     // Своей раскладкой: полоса занимает всю ширину панели, и знать её заранее
     // неоткуда. Интринсиками панель никто не меряет — это не окно команды.
     return LayoutBuilder(
       builder: (context, constraints) {
         final measured = FcTheme.effective(context, style);
-        final fits = spanFitsLines(
-          TextSpan(style: measured, children: [span]),
-          constraints.maxWidth,
-          MediaQuery.textScalerOf(context),
-          maxLines: maxLines,
+        final scaler = MediaQuery.textScalerOf(context);
+        final fits = spanFitsLines(_span(measured, pieces), constraints.maxWidth, scaler, maxLines: lines);
+
+        // Хвост режет сам каркас; середину считаем сами — тем же правилом, что
+        // и колонки списка, и по кускам, чтобы стрелка ссылки осталась
+        // стрелкой (`docs/spec/panel-status-lines.md`, §3).
+        final shownPieces =
+            fits || !view.trimsNameInMiddle
+                ? pieces
+                : trimPiecesMiddle(pieces, measured, constraints.maxWidth, scaler, maxLines: lines);
+
+        final shown = Text.rich(
+          _span(style, shownPieces),
+          maxLines: lines,
+          overflow: view.trimsNameInMiddle ? TextOverflow.clip : TextOverflow.ellipsis,
+          style: style,
         );
         return fcTooltipIf(context, trimmed: !fits, message: whole, child: shown);
       },
     );
   }
 
+  /// Куски — одним набором.
+  InlineSpan _span(TextStyle style, List<TextPiece> pieces) =>
+      TextSpan(style: style, children: [for (final piece in pieces) TextSpan(text: piece.$1, style: piece.$2)]);
+
   /// Что сказано — набором и теми же словами простым текстом.
   ///
   /// Двумя значениями сразу, а не двумя методами: подсказка обязана говорить
   /// **то же**, что полоса, а два места, собирающие одно, однажды разойдутся.
-  (InlineSpan, String) _content(FcTheme theme, Strings strings) {
+  (List<TextPiece>, String) _content(FcTheme theme, Strings strings) {
     final status = panel.statusText;
     if (status != null && status.isNotEmpty) {
-      return (TextSpan(text: status), status);
+      return ([(status, null, false)], status);
     }
 
     final marked = panel.markedPaths;
@@ -128,7 +145,7 @@ class PanelStatusBar extends StatelessWidget {
       // сказать об этом надо прямо, иначе растущее число выглядит ошибкой.
       final scanning = panel.markedSizeIsFinal ? '' : ' ${strings.tr('(Scanning…)')}';
       final text = size > 0 ? '$items, ${formatBytesLong(size)}$scanning' : '$items$scanning';
-      return (TextSpan(text: text), text);
+      return ([(text, null, false)], text);
     }
 
     final entry = panel.currentEntry;
@@ -136,16 +153,13 @@ class PanelStatusBar extends StatelessWidget {
       // Стрелка — глиф шрифта иконок, а не пара знаков «->»: рисованная
       // стрелка не рассыпается на разные шрифты и выглядит как стрелка.
       return (
-        TextSpan(
-          children: [
-            TextSpan(text: entry.name),
-            TextSpan(
-              text: ' ${theme.icons.glyph(theme.icons.angleRight)} ',
-              style: TextStyle(fontFamily: theme.icons.fontFamily),
-            ),
-            TextSpan(text: entry.reference),
-          ],
-        ),
+        [
+          (entry.name, null, false),
+          // Стрелка не режется: без неё строка читается как одно длинное имя,
+          // а не как ссылка (`docs/spec/panel-status-lines.md`, §3).
+          (' ${theme.icons.glyph(theme.icons.angleRight)} ', TextStyle(fontFamily: theme.icons.fontFamily), true),
+          (entry.reference, null, false),
+        ],
         // В подсказке стрелка — обычный знак: шрифта значков там нет, и глиф
         // вышел бы пустым прямоугольником.
         '${entry.name} $_arrow ${entry.reference}',
@@ -153,7 +167,7 @@ class PanelStatusBar extends StatelessWidget {
     }
 
     final name = entry?.name ?? '-';
-    return (TextSpan(text: name), name);
+    return ([(name, null, false)], name);
   }
 
   /// Стрелка для подсказки: набором её рисует глиф шрифта значков.

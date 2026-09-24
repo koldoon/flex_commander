@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'history_arrows.dart';
+import 'panels_settings.dart';
 import 'panel_status_bar.dart';
 
 /// Панель целиком: «плашка» пути, таблица файлов и строка состояния.
@@ -18,9 +19,13 @@ import 'panel_status_bar.dart';
 /// Сторону панель выводит сама, а не получает параметром: вид её строит реестр,
 /// а он передаёт только состояние — про место в окне ему знать неоткуда.
 class PanelView extends StatefulWidget {
-  const PanelView({super.key, required this.panel});
+  const PanelView({super.key, required this.panel, required this.settings});
 
   final Session panel;
+
+  /// Настройки видов: полосе состояния нужно знать, сколько ей строчек
+  /// (`docs/spec/panel-status-lines.md`).
+  final PanelsSettings Function() settings;
 
   @override
   State<PanelView> createState() => _PanelViewState();
@@ -134,7 +139,7 @@ class _PanelViewState extends State<PanelView> {
                   active: takesKeysHere(context, panel),
                 ),
           ),
-          footer: PanelStatusBar(panel: panel),
+          footer: PanelStatusBar(panel: panel, settings: widget.settings),
           // Не таблица файлов, а то, чем рисуется вид содержимого панели:
           // результаты поиска и просмотрщики — такие же жильцы панели, как и
           // файлы. Каталог же человек показывает как хочет — своим видом

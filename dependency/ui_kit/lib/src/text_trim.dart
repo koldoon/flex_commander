@@ -263,6 +263,111 @@ String trimTextMiddle(String value, TextStyle style, double maxWidth, TextScaler
   return shown(low);
 }
 
+/// Кусок набранного текста: что написано, чем и режется ли он вовсе.
+///
+/// Строка состояния набирает имя ссылки, стрелку глифом шрифта значков и цель —
+/// тремя кусками (`docs/spec/panel-status-lines.md`, §3). Стрелка помечена
+/// нерезаемой: без неё строка читается как одно длинное имя, а не как ссылка.
+typedef TextPiece = (String text, TextStyle? style, bool whole);
+
+/// Обрезает серединой набранное **кусками разных начертаний**.
+///
+/// То же правило, что у [trimTextMiddle], и та же двоичная мерка; разница в
+/// том, что знаки берутся с головы и с хвоста **всей** строки, а начертание
+/// каждый знак сохраняет своё.
+///
+/// Нерезаемый кусок остаётся целым, где бы ни прошёл разрез, — и тогда
+/// многоточий получается два: `очень длинн… → …цель.txt`. Так у ссылки видно
+/// и то, что это ссылка, и оба конца.
+///
+/// Отдельно от [trimTextMiddle]: у плоской строки есть память ширин, а здесь
+/// каждый замер — набор куска заново, и спрашивают об этом раз на перерисовку
+/// полосы, а не на строку списка.
+List<TextPiece> trimPiecesMiddle(
+  List<TextPiece> pieces,
+  TextStyle style,
+  double maxWidth,
+  TextScaler scaler, {
+  int maxLines = 1,
+}) {
+  if (maxWidth.isInfinite || maxWidth <= 0) {
+    return pieces;
+  }
+
+  bool fits(List<TextPiece> shown) => spanFitsLines(
+    TextSpan(style: style, children: [for (final piece in shown) TextSpan(text: piece.$1, style: piece.$2)]),
+    maxWidth,
+    scaler,
+    maxLines: maxLines,
+  );
+
+  if (fits(pieces)) {
+    return pieces;
+  }
+
+  final letters = [
+    for (final piece in pieces)
+      for (final letter in piece.$1.characters) (letter, piece.$2, piece.$3),
+  ];
+  // Резать можно не всё: места нерезаемых знаков считаются занятыми всегда.
+  final free = [
+    for (var at = 0; at < letters.length; at++)
+      if (!letters[at].$3) at,
+  ];
+
+  List<TextPiece> shown(int keep) {
+    // Нечётный знак достаётся голове: читают слева направо, и начало важнее.
+    final head = (keep + 1) ~/ 2;
+    final kept = {...free.take(head), ...free.skip(free.length - keep ~/ 2)};
+
+    final result = <TextPiece>[];
+    var dropped = false;
+    for (var at = 0; at < letters.length; at++) {
+      final letter = letters[at];
+      if (!letter.$3 && !kept.contains(at)) {
+        dropped = true;
+        continue;
+      }
+      if (dropped) {
+        result.add(('…', null, true));
+        dropped = false;
+      }
+      result.add(letter);
+    }
+    if (dropped) {
+      result.add(('…', null, true));
+    }
+    return _joined(result);
+  }
+
+  var low = 0;
+  var high = free.length - 1;
+  while (low < high) {
+    final middle = (low + high + 1) ~/ 2;
+    if (fits(shown(middle))) {
+      low = middle;
+    } else {
+      high = middle - 1;
+    }
+  }
+
+  return shown(low);
+}
+
+/// Соседние знаки одного начертания — одним куском: набор из сотни кусков по
+/// знаку и кернинг рвёт, и стоит дороже.
+List<TextPiece> _joined(List<TextPiece> letters) {
+  final pieces = <TextPiece>[];
+  for (final letter in letters) {
+    if (pieces.isNotEmpty && pieces.last.$2 == letter.$2) {
+      pieces[pieces.length - 1] = ('${pieces.last.$1}${letter.$1}', letter.$2, pieces.last.$3);
+    } else {
+      pieces.add(letter);
+    }
+  }
+  return pieces;
+}
+
 /// Обрезка буквами: для строк без звеньев и для звена, которое само не влезло.
 String _trimByLetters(String value, TextStyle style, double maxWidth, TextScaler scaler) {
   // Двоичный поиск самого длинного хвоста, который помещается вместе с «…».

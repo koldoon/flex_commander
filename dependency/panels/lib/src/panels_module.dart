@@ -88,6 +88,17 @@ class Panels implements FcBackendModule, FcFrontendModule {
           read: () => settingsOf().nameTrim,
           write: (value) => settingsOf().nameTrim = value,
         ),
+        SettingsField.integer(
+          'statusLines',
+          defaultValue: PanelsSettings.defaultStatusLines,
+          title: strings.tr('Status line grows up to'),
+          unit: strings.tr('lines'),
+          min: PanelsSettings.minStatusLines,
+          max: PanelsSettings.maxStatusLines,
+          description: strings.tr('A long name is told in full by the status line — at the cost of the list twitching'),
+          read: () => settingsOf().statusLines,
+          write: (value) => settingsOf().statusLines = value,
+        ),
         SettingsField.flag(
           'cursorHoldsPlace',
           defaultValue: true,
@@ -104,7 +115,7 @@ class Panels implements FcBackendModule, FcFrontendModule {
     registry.viewport(PanelViewports.files, (context, panel) => FileTable(panel: panel, settings: settingsOf));
     // Панель — тоже состояние области, и рисуется тем же механизмом, что всё
     // остальное: ядро не знает, чем показывают файлы.
-    registry.view<Session>((context, panel) => PanelView(panel: panel));
+    registry.view<Session>((context, panel) => PanelView(panel: panel, settings: settingsOf));
 
     // Таблица — вид по умолчанию, и объявляется она так же, как остальные:
     // отдельного «встроенного» вида нет, иначе виды делились бы на свои и
@@ -396,6 +407,9 @@ const Map<String, String> _russian = {
   'Paths are not affected: they are always shortened from the left, by whole links':
       'Путей это не касается: они всегда сокращаются слева и по целым звеньям',
   'At the end': 'с конца',
+  'Status line grows up to': 'Строка состояния растёт до',
+  'A long name is told in full by the status line — at the cost of the list twitching':
+      'Длинное имя договаривает строка состояния — ценой дёрганья списка',
   'In the middle': 'в середине',
 
   // Заголовки колонок.
