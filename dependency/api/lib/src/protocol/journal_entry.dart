@@ -34,6 +34,7 @@ sealed class JournalEntry {
         kind: kind,
         size: size,
         modified: modified,
+        whole: map['whole'] == true,
       ),
       'moved' when map['from'] is String && map['to'] is String => Moved(
         from: map['from']! as String,
@@ -73,12 +74,19 @@ sealed class JournalEntry {
 /// правили. `modified` пустой значит «неизвестно, сверяй по размеру»: платить
 /// лишним чтением за каждый скопированный файл ради даты незачем.
 class Created extends JournalEntry {
-  const Created(this.path, {required this.kind, this.size = FileEntry.unknownSize, this.modified});
+  const Created(this.path, {required this.kind, this.size = FileEntry.unknownSize, this.modified, this.whole = false});
 
   final String path;
   final EntryKind kind;
   final int size;
   final DateTime? modified;
+
+  /// Каталог создан **целиком**: всё, что в нём, тоже сделала эта работа.
+  ///
+  /// Так пишется копия каталога, которого не было (`docs/spec/operation-history.md`,
+  /// §6): отмена сносит его деревом. Пустой каталог, созданный `F7`, помечен
+  /// иначе — его удаляют, только если он с тех пор так и остался пуст.
+  final bool whole;
 
   bool get isDirectory => kind == EntryKind.directory;
 
@@ -87,6 +95,7 @@ class Created extends JournalEntry {
     'what': 'created',
     'path': path,
     'kind': kind.name,
+    if (whole) 'whole': true,
     if (size != FileEntry.unknownSize) 'size': size,
     if (modified != null) 'modified': modified!.toIso8601String(),
   };

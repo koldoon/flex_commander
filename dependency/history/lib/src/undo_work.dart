@@ -79,13 +79,15 @@ class _Undo {
       return;
     }
     try {
-      if (node is DirectoryNode) {
-        // Каталог сносится только пустым: в нём могло появиться чужое.
+      if (node is DirectoryNode && !entry.whole) {
+        // Пустой каталог сносится, только если он так и остался пуст: в нём
+        // могло появиться чужое. Каталог, созданный копированием целиком,
+        // уходит деревом — там всё сделала эта работа (§6).
         final children = await node.provider.listChildren(node);
         if (children.isNotEmpty) {
           return;
         }
-      } else if (!await _isSame(node, entry) && !await _agreesToDelete(entry.path)) {
+      } else if (node is! DirectoryNode && !await _isSame(node, entry) && !await _agreesToDelete(entry.path)) {
         return;
       }
 

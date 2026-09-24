@@ -534,7 +534,9 @@ class TreeTransferEngine implements TreeEditor {
       // вперемешку с чужим (`docs/spec/operation-history.md`, §6).
       final fresh = present is! DirectoryNode;
       if (fresh) {
-        journal.did(Created(created.displayPath, kind: EntryKind.directory));
+        // Целиком: всё, что в нём окажется, тоже сделала эта работа, — и
+        // отмена снесёт его деревом.
+        journal.did(Created(created.displayPath, kind: EntryKind.directory, whole: true));
       }
       final inside = fresh ? Journal.none : journal;
 
