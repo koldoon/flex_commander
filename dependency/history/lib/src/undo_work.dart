@@ -1,6 +1,8 @@
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_core_api/fc_core_api.dart';
 
+import 'undo_trace.dart';
+
 /// Имя работы отката и её доводы.
 abstract final class HistoryOperations {
   static const String undo = 'history.undo';
@@ -33,12 +35,25 @@ class UndoWork {
       return;
     }
 
+    traceUndo('начали: ${entries.length} записей');
     final undo = _Undo(op: op, inputs: inputs, registry: registry, strings: strings);
-    // Снизу вверх: последнее сделанное отменяется первым — иначе возвращённое
-    // на место тут же перекрыл бы откат того, что делалось до него.
-    for (final entry in entries.reversed) {
-      await op.checkpoint();
-      await undo.one(entry);
+    try {
+      // Снизу вверх: последнее сделанное отменяется первым — иначе возвращённое
+      // на место тут же перекрыл бы откат того, что делалось до него.
+      for (final (at, entry) in entries.reversed.indexed) {
+        await op.checkpoint();
+        // Счёт виден в окне: иначе на большом журнале оно выглядит вставшим.
+        op.report(message: strings.tr('Undoing…'), itemsTransferred: at, itemsTotal: entries.length);
+        traceUndo('запись ${at + 1}/${entries.length}: ${entry.toMap()}');
+        await undo.one(entry);
+        traceUndo('запись ${at + 1} отменена');
+      }
+    } finally {
+      // Накопленное применяется в конце: у архива запись — это пересборка, и
+      // делать её на каждый объект значило бы переписывать его столько раз,
+      // сколько их в журнале.
+      await undo.closeBatches();
+      traceUndo('кончили');
     }
   });
 }
@@ -53,6 +68,36 @@ class _Undo {
   final Strings strings;
 
   bool _skipAll = false;
+
+  /// Провайдеры, которым запись открыта пачкой: закрываются в конце.
+  final List<BatchedWrites> _batches = [];
+
+  /// Открыть пачку записей, если провайдер их копит (архивы).
+  ///
+  /// Без этого архив пересобирался бы на каждый объект: у него запись — это
+  /// пересборка целиком (`docs/spec/archive-write-back.md`).
+  Future<void> _openBatch(FsNode node) async {
+    final provider = node.provider;
+    if (provider is! BatchedWrites) {
+      return;
+    }
+    final batch = provider as BatchedWrites;
+    if (_batches.any((opened) => identical(opened, batch))) {
+      return;
+    }
+    traceUndo('открываем пачку записей: ${provider.runtimeType}');
+    _batches.add(batch);
+    await batch.beginWrites(op);
+  }
+
+  /// Закрыть все открытые пачки — чем бы работа ни кончилась.
+  Future<void> closeBatches() async {
+    for (final batch in _batches) {
+      traceUndo('закрываем пачку: ${batch.runtimeType}');
+      await batch.endWrites(op);
+    }
+    _batches.clear();
+  }
 
   Future<void> one(JournalEntry entry) async {
     switch (entry) {
@@ -93,12 +138,15 @@ class _Undo {
 
       final editor = _editorOf(node);
       if (editor == null) {
+        traceUndo('провайдер не умеет писать: ${entry.path}');
         return;
       }
-      op.report(message: strings.tr('Undoing…'), itemName: node.name);
+      await _openBatch(node);
+      traceUndo('удаляем ${node.pathString}');
       if (!await editor.deleteTree(node)) {
         await editor.deleteEntry(node);
       }
+      traceUndo('удалили ${node.pathString}');
     } finally {
       await found?.release();
     }
@@ -130,7 +178,8 @@ class _Undo {
         return;
       }
 
-      op.report(message: strings.tr('Undoing…'), itemName: place.name);
+      await _openBatch(node);
+      traceUndo('возвращаем ${node.pathString} → ${parent.pathString}/${place.name}');
       if (!await editor.renameEntry(node, parent, place.name)) {
         // Провайдер так не умеет — переносим движком, той же дорогой, какой
         // объект сюда и приехал.
@@ -143,8 +192,11 @@ class _Undo {
   }
 
   Future<ResolvedNode?> _resolve(String path) async {
+    traceUndo('разбираем путь $path');
     try {
-      return await registry.resolveDisplayPath().run(ResolvePathParams(path));
+      final resolved = await registry.resolveDisplayPath().run(ResolvePathParams(path));
+      traceUndo('разобрали $path → ${resolved.node?.pathString ?? 'ничего'}');
+      return resolved;
     } on FsError {
       // Путь не разобрался: источника, в котором это лежало, больше нет.
       return null;

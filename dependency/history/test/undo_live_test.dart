@@ -71,6 +71,30 @@ void main() {
     await settle(tester);
   }
 
+  testWidgets('F7 создал каталог, Cmd-Z его убрал', (tester) async {
+    await open(tester);
+
+    // Каталог заводится той же работой, что и по `F7`.
+    await runtime.app.runOperation().run(
+      const OperationSpec(
+        kind: FileOperations.makeDirectory,
+        destination: Destination.path('/home'),
+        options: {FileOperations.name: '111'},
+      ),
+    );
+    await settle(tester);
+    expect(await exists('/home/111'), isTrue);
+
+    await combination(tester, 'Cmd-Z');
+    expect(find.textContaining('delete 1 object'), findsOneWidget);
+    await agree(tester);
+
+    expect(await exists('/home/111'), isFalse);
+    // Работа кончилась — окно ушло вместе с ней: висящее окно выглядит как
+    // зависшая отмена (живой разбор 25 сентября 2026).
+    expect(runtime.app.view.dialogs, isEmpty);
+  });
+
   testWidgets('F5 скопировал, Cmd-Z вернул приёмник к прежнему виду', (tester) async {
     await open(tester);
     await copyToDest(tester);

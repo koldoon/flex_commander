@@ -105,10 +105,16 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
     operation.start(params);
 
     var refused = false;
+    // Дошла ли работа до конца — успехом или прерыванием. Отказ до начала дела
+    // и неудача посреди него сюда не попадают: окно остаётся, показывать им
+    // есть что.
+    var ended = false;
     try {
       await operation.result;
+      ended = true;
     } on OperationCanceled {
       // Прервано пользователем.
+      ended = true;
     } on FsError catch (failure) {
       // **Работа, упавшая до первого слова о ходе дела, — это отказ, а не
       // неудача.** Значит, ввод негодный: путь ведёт не туда, имя занято,
@@ -144,6 +150,17 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
         _operation = null;
       } else {
         _finishRun();
+        // **Работа кончилась — окну больше нечего показывать.** Закрывает
+        // прогон, а не команда: иначе каждая команда без формы обязана помнить
+        // об этом сама, и одна уже забыла — окно `Alt-F9` висело до `Esc`, а
+        // за ним и окно отмены (живой разбор 25 сентября 2026).
+        //
+        // Кроме прогонов с формой: там работу заводит `submit`, и окно стоит до
+        // конца **хвоста** — отпустить аренду, перечитать панели, — иначе на
+        // этот промежуток из-под него выглядывала бы форма с параметрами.
+        if (ended && !_submitting) {
+          _closeOnce();
+        }
       }
       notifyListeners();
     }
@@ -242,19 +259,38 @@ class FcAsyncRun extends ChangeNotifier implements AsyncCommand {
     }
 
     error = null;
+    // Пока идёт `onStart`, окно принадлежит подтверждению: закрыть его — его
+    // дело, и закрывает оно после хвоста.
+    _submitting = true;
     try {
       await onStart?.call();
     } on FsError catch (failure) {
       error = failure.message;
       notifyListeners();
       return;
+    } finally {
+      _submitting = false;
     }
     // Ошибка оставляет окно открытым: ввод можно исправить и повторить.
     if (error == null) {
-      close?.call();
+      _closeOnce();
       _finishRun();
     }
   }
+
+  /// Закрывает окно один раз: закрыть его могут и прогон, и подтверждение.
+  void _closeOnce() {
+    if (_closed) {
+      return;
+    }
+    _closed = true;
+    close?.call();
+  }
+
+  bool _closed = false;
+
+  /// Работа заведена подтверждением: окно закроет оно само.
+  bool _submitting = false;
 
   /// Отказ: пока идёт вопрос — его вариант для Esc; во время работы — просьба
   /// прервать; в остальное время — закрыть окно.

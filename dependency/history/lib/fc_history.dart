@@ -8,5 +8,6 @@ export 'src/history_module.dart';
 export 'src/history_service.dart';
 export 'src/history_settings.dart';
 export 'src/undo_command.dart';
+export 'src/undo_trace.dart';
 export 'src/undo_plan.dart';
 export 'src/undo_work.dart';

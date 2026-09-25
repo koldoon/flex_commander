@@ -52,6 +52,15 @@ void main() {
     return app.commands.isExecutable(command);
   }
 
+  test('окно хода работы уходит вместе с работой', () async {
+    await start(inside: insideMany);
+    app.left.setCursorToName('box.arc');
+
+    await extract();
+
+    expect(app.view.dialogs, isEmpty, reason: 'работа кончилась — окну нечего показывать');
+  });
+
   test('архив с россыпью внутри раскладывается в каталог по своему имени', () async {
     await start(inside: insideMany);
     app.left.setCursorToName('box.arc');
