@@ -37,10 +37,13 @@ class UndoCommand extends AppCommand {
   @override
   bool isExecutable(CommandContext context) => history.last != null;
 
+  /// Что именно отменяем; null — нечего.
+  HistoryRecord? get _target => history.undoTarget;
+
   @override
   Future<void> execute(CommandContext context) async {
-    final record = history.last;
-    if (record == null) {
+    final record = _target;
+    if (record == null && history.undoObstacle == null) {
       return;
     }
 
@@ -56,7 +59,7 @@ class UndoCommand extends AppCommand {
       return;
     }
 
-    final plan = UndoPlan.of(record.journal);
+    final plan = UndoPlan.of(record!.journal);
     var agreed = false;
     await askConfirm(
       context.app,
@@ -111,6 +114,10 @@ class UndoCommand extends AppCommand {
         ),
         message: tr('Undoing…'),
       );
+      // Работа отменена — второй раз её не отменяют: сделанного ею на диске
+      // больше нет, а следующий `Cmd-Z` должен взяться за предыдущую
+      // (`docs/spec/operation-history.md`, §9).
+      history.markUndone(record.runId);
     } finally {
       await reloadPanelsAt(context.app, places);
     }

@@ -80,6 +80,7 @@ const Map<String, String> _russian = {
   'Filter operations': 'Отбор по работам',
   'Only the newest operation can be undone': 'Отменяется только последняя работа',
   'still running': 'ещё идёт',
+  'undone': 'отменена',
 
   'Undo': 'Отменить',
   'Undo the last file operation, if it can be undone': 'Отменить последнюю файловую работу, если это возможно',

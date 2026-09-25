@@ -15,7 +15,15 @@ abstract interface class OperationHistory implements Listenable {
   /// Последняя запись; null — ничего ещё не делали.
   HistoryRecord? get last;
 
-  /// Почему последнюю запись отменить нельзя; null — можно.
+  /// Что отменит `Cmd-Z`; null — отменять нечего.
+  ///
+  /// Не всегда последняя: сама отмена тоже работа и тоже попадает в список, но
+  /// отменять её не дадут — это был бы повтор. Уже отменённая запись
+  /// пропускается по той же причине: её на диске больше нет
+  /// (`docs/spec/operation-history.md`, §9).
+  HistoryRecord? get undoTarget;
+
+  /// Почему [undoTarget] отменить нельзя; null — можно.
   String? get undoObstacle;
 
   /// Работа началась.
@@ -26,6 +34,9 @@ abstract interface class OperationHistory implements Listenable {
 
   /// Работа кончилась — и вот чем.
   void ended(String runId, OperationOutcome outcome);
+
+  /// Эту работу отменили: второй раз её не отменяют.
+  void markUndone(String runId);
 }
 
 /// Одна работа в истории.
@@ -53,11 +64,17 @@ class HistoryRecord {
   /// Чем кончилась; null — ещё идёт.
   OperationOutcome? outcome;
 
+  /// Эту работу уже отменили.
+  ///
+  /// Запись остаётся в списке — человек должен видеть, что происходило, — но
+  /// отменять её второй раз нечего: сделанного ею на диске больше нет.
+  bool undone = false;
+
   bool get isRunning => outcome == null;
 
   /// Сколько объектов задето — по журналу, а не по намерению.
   int get count => journal.length;
 
   /// Отменима ли: есть что отменять и ничего не мешает.
-  bool get canUndo => !isRunning && obstacle == null && journal.isNotEmpty;
+  bool get canUndo => !isRunning && !undone && obstacle == null && journal.isNotEmpty;
 }

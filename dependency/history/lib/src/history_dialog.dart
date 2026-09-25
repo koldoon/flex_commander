@@ -67,8 +67,9 @@ class HistoryDialogState extends ChangeNotifier {
         id: '$at',
         title: titleOfKind(record.kind, strings),
         subtitle: _saidAbout(record),
-        // Верхняя — та, которую и отменяют.
-        marked: at == 0,
+        // Помечена та, которую и отменят: не всегда верхняя — сама отмена и
+        // уже отменённое пропускаются (§9).
+        marked: record.runId == history.undoTarget?.runId,
       ),
   ];
 
@@ -82,8 +83,8 @@ class HistoryDialogState extends ChangeNotifier {
       return '$when · ${strings.tr('still running')}';
     }
     final counted = strings.plural(record.count, one: '{n} object', other: '{n} objects');
-    final obstacle = record.obstacle;
-    return obstacle == null ? '$when · $counted' : '$when · $counted · ${strings.tr(obstacle)}';
+    final said = record.undone ? strings.tr('undone') : (record.obstacle == null ? null : strings.tr(record.obstacle!));
+    return said == null ? '$when · $counted' : '$when · $counted · $said';
   }
 
   static String _two(int value) => value < 10 ? '0$value' : '$value';
@@ -96,7 +97,9 @@ class HistoryDialogState extends ChangeNotifier {
       return;
     }
     final at = int.tryParse(found[_selected.clamp(0, found.length - 1)].id);
-    if (at != 0) {
+    final chosen = at == null || at >= history.all.length ? null : history.all[at];
+    if (chosen == null || chosen.runId != history.undoTarget?.runId) {
+      // Перескок вернул бы мир, которого уже нет (§11).
       notice = strings.tr('Only the newest operation can be undone');
       notifyListeners();
       return;

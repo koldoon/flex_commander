@@ -95,6 +95,38 @@ void main() {
     expect(runtime.app.view.dialogs, isEmpty);
   });
 
+  testWidgets('Cmd-Z отменяет одну работу за другой, а не упирается в себя', (tester) async {
+    await open(tester);
+
+    // Создали каталог, потом рядом переименовали файл — две работы подряд.
+    await runtime.app.runOperation().run(
+      const OperationSpec(
+        kind: FileOperations.makeDirectory,
+        destination: Destination.path('/home'),
+        options: {FileOperations.name: '111'},
+      ),
+    );
+    await runtime.app.runOperation().run(
+      const OperationSpec(
+        kind: FileOperations.rename,
+        targets: Targets.paths(['/home/notes.txt']),
+        options: {FileOperations.name: 'renamed.txt'},
+      ),
+    );
+    await settle(tester);
+
+    await combination(tester, 'Cmd-Z');
+    await agree(tester);
+    expect(await exists('/home/notes.txt'), isTrue, reason: 'переименование отменилось');
+    expect(await exists('/home/111'), isTrue, reason: 'до каталога ещё не дошли');
+
+    // Вторая отмена берётся за предыдущую работу, а не за саму отмену.
+    await combination(tester, 'Cmd-Z');
+    await agree(tester);
+
+    expect(await exists('/home/111'), isFalse, reason: 'дошла очередь и до каталога');
+  });
+
   testWidgets('F5 скопировал, Cmd-Z вернул приёмник к прежнему виду', (tester) async {
     await open(tester);
     await copyToDest(tester);

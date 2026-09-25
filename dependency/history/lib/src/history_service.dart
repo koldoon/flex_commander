@@ -3,6 +3,7 @@ import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/foundation.dart';
 
 import 'history_settings.dart';
+import 'undo_work.dart';
 
 /// История файловых работ за сеанс (`docs/spec/operation-history.md`).
 ///
@@ -22,9 +23,37 @@ class OperationHistoryService extends ChangeNotifier implements OperationHistory
   @override
   HistoryRecord? get last => _records.firstOrNull;
 
+  /// Что отменит `Cmd-Z`.
+  ///
+  /// Сама отмена пропускается — отменить отмену значило бы повторить работу, а
+  /// повтора в приложении нет, — и уже отменённая тоже: её на диске больше
+  /// нет. Всё прочее не пропускается **никогда**: необратимая запись сверху
+  /// останавливает отмену и говорит почему
+  /// (`docs/spec/operation-history.md`, §9 и §11).
+  @override
+  HistoryRecord? get undoTarget {
+    for (final record in _records) {
+      if (record.kind == HistoryOperations.undo || record.undone) {
+        continue;
+      }
+      return record;
+    }
+    return null;
+  }
+
+  @override
+  void markUndone(String runId) {
+    final record = _byId(runId);
+    if (record == null) {
+      return;
+    }
+    record.undone = true;
+    notifyListeners();
+  }
+
   @override
   String? get undoObstacle {
-    final record = last;
+    final record = undoTarget;
     if (record == null) {
       return 'nothing to undo';
     }

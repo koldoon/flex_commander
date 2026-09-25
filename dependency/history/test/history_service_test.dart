@@ -66,6 +66,34 @@ void main() {
     expect(history.undoObstacle, 'too many objects');
   });
 
+  test('отмена в списке видна, но отменять её не дают', () {
+    work('run#1', journal: const [Created('/dest/a.txt', kind: EntryKind.file)]);
+    work('run#2', kind: 'history.undo');
+
+    expect(history.all.length, 2, reason: 'она изменила диск — человек должен её видеть');
+    expect(history.undoTarget!.runId, 'run#1', reason: 'отменять отмену значило бы повторять');
+  });
+
+  test('отменённая запись пропускается, и очередь доходит до предыдущей', () {
+    work('run#1', journal: const [Created('/dest/a.txt', kind: EntryKind.file)]);
+    work('run#2', journal: const [Created('/dest/b.txt', kind: EntryKind.file)]);
+
+    expect(history.undoTarget!.runId, 'run#2');
+    history.markUndone('run#2');
+
+    expect(history.undoTarget!.runId, 'run#1', reason: 'сделанного второй работой на диске уже нет');
+    expect(history.all.length, 2, reason: 'из списка она никуда не делась');
+  });
+
+  test('необратимая запись сверху останавливает отмену, а не пропускается', () {
+    work('run#1', journal: const [Created('/dest/a.txt', kind: EntryKind.file)]);
+    work('run#2', journal: const [Destroyed('/dest/b.txt', reason: 'deleted permanently')]);
+
+    // Перескок вернул бы мир, которого уже нет (§11).
+    expect(history.undoTarget!.runId, 'run#2');
+    expect(history.undoObstacle, 'deleted permanently');
+  });
+
   test('глубина держит список коротким', () {
     settings.depth = 2;
 
