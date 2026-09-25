@@ -590,12 +590,11 @@ class CommandDialogField {
   /// обязана доходить до краёв окна, иначе она читается не как «эта строка», а
   /// как «эта плитка». Само содержимое строки при этом отбито внутри — под
   /// текстом поля ввода ([dialogInputTextInset]).
-  const CommandDialogField.bleed({required Widget child})
+  const CommandDialogField.bleed({required Widget child, this.expands = false})
     : label = '',
       _child = child,
       children = const [],
       bleeds = true,
-      expands = false,
       _tight = false,
       _stacked = false,
       _indented = true;

@@ -155,6 +155,9 @@ class _HistoryDialogFormState extends State<HistoryDialogForm> {
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
     final state = widget.state;
+    // Высоту окну задала рама — значит, её кто-то должен занять, и занимает
+    // список: он здесь главное.
+    final stretches = FcDialogSizing.of(context);
 
     return ListenableBuilder(
       listenable: state,
@@ -183,9 +186,16 @@ class _HistoryDialogFormState extends State<HistoryDialogForm> {
                 // сказать, почему нажатие ничего не сделало, надо здесь же.
                 if (state.notice case final said?) CommandDialogField.wide(child: FcErrorText(message: said)),
                 CommandDialogField.bleed(
+                  // Растянули окно — прибавка достаётся списку; не растягивали
+                  // — он назначает высоту себе сам. Ленивый список себя мерить
+                  // не умеет, а рама окна, которому высоту задали, не
+                  // подвинется под его желания (`docs/spec/dialog-resize.md`,
+                  // §6).
+                  expands: true,
                   child: ConstrainedBox(
                     constraints: BoxConstraints(
-                      maxHeight: (theme.metrics.rowHeight + theme.metrics.rowGap) * _visibleRows,
+                      maxHeight:
+                          stretches ? double.infinity : (theme.metrics.rowHeight + theme.metrics.rowGap) * _visibleRows,
                     ),
                     child: FcPickList(
                       rows: state.shown,
