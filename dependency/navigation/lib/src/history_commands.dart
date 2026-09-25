@@ -68,7 +68,11 @@ class ChooseHistoryCommand extends AppCommand {
   String get id => commandId;
 
   @override
-  String get label => tr('History');
+  /// «Panel history», а не просто «History»: историй в приложении две —
+  /// пройденные этой панелью каталоги и файловые работы за сеанс
+  /// (`docs/spec/operation-history.md`). Одинаковое название у соседних строк
+  /// палитры — это выбор наугад.
+  String get label => tr('Panel history');
 
   @override
   String get description => tr('Show where this panel has been');
@@ -101,7 +105,7 @@ class ChooseHistoryCommand extends AppCommand {
     state.close = () => view.closeDialog(dialogId);
     dialogId = view.showDialog(
       DialogSpec(
-        title: 'History',
+        title: 'Panel history',
         // Над своей панелью: история у каждой своя, и окно должно вставать
         // там, куда оно поведёт (`docs/spec/dialog-placement.md`).
         area: area,

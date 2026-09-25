@@ -233,7 +233,7 @@ const Map<String, String> _russian = {
   'Return to the previous directory of this panel': 'Вернуться в каталог, где панель была до этого',
   'Forward': 'Вперёд',
   'Go forward again after going back': 'Пойти вперёд после возврата назад',
-  'History': 'История',
+  'Panel history': 'История панели',
   'Show where this panel has been': 'Показать, где эта панель уже была',
   'Filter by path': 'Отбор по пути',
   'Go': 'Перейти',
