@@ -1,0 +1,47 @@
+name: fc_markdown_kit
+description: "Показ markdown: оформление из темы, врезки кода и точка расширения для диаграмм."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  # Объявление рисовальщика врезки: `MarkdownBlockSpec` живёт в общем API,
+  # потому что объявляет его один модуль, а спрашивает другой.
+  fc_ui_api:
+    path: ../ui_api
+
+  # Тема и рама: свёрстанный документ занимает место панели и обязан выглядеть
+  # так же, как всё остальное.
+  fc_ui_kit:
+    path: ../ui_kit
+
+  # Вёрстка. Та же библиотека, какой окно обновления рисует описание выпуска, —
+  # второй заводить незачем.
+  flutter_markdown_plus: ^1.0.12
+
+  # Разбор нужен и напрямую: документ режется по узлам верхнего уровня, чтобы
+  # строиться лениво (`docs/spec/markdown-viewer.md`, §5).
+  markdown: ^7.3.1
+
+  # Подсветка врезок кода. Цвета берутся из той же таблицы, что у показа текста.
+  fc_text_kit:
+    path: ../text_kit
+
+  re_highlight: ^0.0.3
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_default_theme:
+    path: ../default_theme

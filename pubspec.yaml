@@ -40,6 +40,7 @@ workspace:
   - dependency/image_viewer
   - dependency/key_presets
   - dependency/local_fs
+  - dependency/markdown_kit
   - dependency/navigation
   - dependency/panels
   - dependency/platform

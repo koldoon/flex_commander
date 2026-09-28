@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_markdown_kit/fc_markdown_kit.dart';
 import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:path/path.dart' as p;
@@ -90,7 +91,7 @@ class Updates implements FcFrontendModule {
       ], save: settings.save);
     });
 
-    registry.strings('ru', _russian);
+    registry.strings('ru', {...markdownKitRussian, ..._russian});
   }
 
   static String get _home =>

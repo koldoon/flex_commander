@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:ui' as ui;
 
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_markdown_kit/fc_markdown_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_platform/fc_platform.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
@@ -72,50 +73,6 @@ Future<void> _restart(Application app, UpdateService updates, File archive) asyn
   await ServicesBinding.instance.exitApplication(ui.AppExitType.cancelable);
 }
 
-/// Как выглядят заметки: тем же набором стилей, что и остальные окна.
-///
-/// Своей темы у разметки нет и быть не должно — окно обновления обязано
-/// выглядеть как окно приложения, а не как страница GitHub.
-MarkdownStyleSheet _notesStyle(FcTheme theme) {
-  final metrics = theme.metrics;
-  final code = theme.dialogTextStyle.copyWith(
-    fontFamily: theme.fonts.fixed,
-    fontFamilyFallback: theme.fonts.fixedFallback,
-  );
-
-  return MarkdownStyleSheet(
-    p: theme.dialogTextStyle,
-    // Заголовки разделов — тем же кеглем, что заголовки в справке: в заметках
-    // они разделяют части рассказа, а не спорят с заголовком окна.
-    h1: theme.dialogTitleStyle.copyWith(fontSize: metrics.sectionHeadingFontSize),
-    h2: theme.dialogTitleStyle.copyWith(fontSize: metrics.sectionHeadingFontSize),
-    h3: theme.dialogTitleStyle,
-    strong: theme.dialogTextStyle.copyWith(fontWeight: FontWeight.bold, color: theme.colors.dialogLabel),
-    em: theme.dialogTextStyle.copyWith(fontStyle: FontStyle.italic),
-    code: code,
-    codeblockPadding: EdgeInsets.all(metrics.dialogPadding),
-    codeblockDecoration: BoxDecoration(
-      color: theme.colors.dialogListBackground,
-      borderRadius: BorderRadius.circular(metrics.inputRadius),
-    ),
-    // Подчёркиванием, а не только цветом: в окне мало текста, и ссылка обязана
-    // отличаться от выделенного слова с первого взгляда — иначе по ней просто
-    // не нажмут.
-    a: theme.dialogTextStyle.copyWith(color: theme.colors.dialogLabel, decoration: TextDecoration.underline),
-    listBullet: theme.dialogTextStyle,
-    blockSpacing: metrics.dialogGap,
-    tableHead: theme.dialogTextStyle.copyWith(fontWeight: FontWeight.bold, color: theme.colors.dialogLabel),
-    tableBody: theme.dialogTextStyle,
-    tableBorder: TableBorder.all(color: theme.colors.dialogListBorder, width: metrics.strokeWidth),
-    tableCellsPadding: EdgeInsets.symmetric(horizontal: metrics.cellPadding, vertical: metrics.dialogLineGap),
-    blockquoteDecoration: BoxDecoration(
-      color: theme.colors.dialogListBackground,
-      borderRadius: BorderRadius.circular(metrics.inputRadius),
-    ),
-    blockquotePadding: EdgeInsets.all(metrics.dialogPadding),
-  );
-}
-
 /// Содержимое окна: заметки выпуска и ряд кнопок.
 class UpdateReadyView extends StatelessWidget {
   const UpdateReadyView({
@@ -162,7 +119,11 @@ class UpdateReadyView extends StatelessWidget {
                 : SingleChildScrollView(
                   child: MarkdownBody(
                     data: notes.trim(),
-                    styleSheet: _notesStyle(theme),
+                    styleSheet: fcMarkdownStyle(theme),
+                    // Врезки кода рисуем сами — ради подсветки, которой у них
+                    // не было. Рисовальщиков диаграмм тут нет и не нужно:
+                    // описание выпуска их не содержит.
+                    builders: {'pre': FcFencedBlockBuilder(blocks: const [], maxWidth: double.infinity)},
                     onTapLink: (_, href, _) {
                       if (href != null && href.isNotEmpty) {
                         unawaited(openLink(href));

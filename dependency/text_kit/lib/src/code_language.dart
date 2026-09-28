@@ -16,9 +16,17 @@ String? languageOf(String fileName) {
   if (dot < 0 || dot == name.length - 1) {
     return null;
   }
-  final extension = name.substring(dot + 1);
+  return languageNamed(name.substring(dot + 1));
+}
 
-  return _byExtension[extension] ?? (builtinAllLanguages.containsKey(extension) ? extension : null);
+/// Язык подсветки по его имени; null — такого нет.
+///
+/// Тем же столом, что и [languageOf]: врезка ```` ```js ```` в markdown и файл
+/// `x.js` должны подсвечиваться одинаково, а две таблицы однажды разойдутся.
+String? languageNamed(String name) {
+  final language = name.toLowerCase();
+
+  return _byExtension[language] ?? (builtinAllLanguages.containsKey(language) ? language : null);
 }
 
 const Map<String, String> _byFileName = {'makefile': 'makefile', 'dockerfile': 'dockerfile', 'cmakelists.txt': 'cmake'};
