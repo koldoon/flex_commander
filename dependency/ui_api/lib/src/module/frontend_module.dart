@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 
 import '../app/application.dart';
 import '../app/node_info.dart';
+import '../app/markdown_block_spec.dart';
 import '../app/packer_spec.dart';
 import '../app/panel_header_spec.dart';
 import '../app/panel_view_spec.dart';
@@ -130,6 +131,15 @@ abstract interface class FrontendRegistry {
   ///
   /// Объявляет модуль, а выбирает оболочка просмотра — по убыванию приоритета.
   void viewer(ViewerSpec spec);
+
+  /// Чем рисовать огороженную врезку ```` ```<язык> ```` в свёрстанном
+  /// markdown.
+  ///
+  /// Объявляет модуль, а спрашивает тот, кто показывает документ. Реестр нужен
+  /// затем, чтобы диаграмму рисовал **отдельный** модуль, а просмотрщик о ней
+  /// не знал (`docs/spec/markdown-viewer.md`, §2). Пусто — врезки остаются
+  /// врезками кода, и это законный вид документа.
+  void markdownBlock(MarkdownBlockSpec spec);
 
   /// Чем рисовать состояние типа [S].
   ///

@@ -40,6 +40,7 @@ class AppController extends ChangeNotifier implements Application {
     Future<BuildInfo> Function()? buildInfo,
     PanelColumns? columns,
     List<ViewerSpec> viewers = const [],
+    List<MarkdownBlockSpec> markdownBlocks = const [],
     List<NodeInfoProvider> nodeInfoProviders = const [],
     Views? views,
     ThemeController? theme,
@@ -80,6 +81,7 @@ class AppController extends ChangeNotifier implements Application {
        // По убыванию приоритета — один раз при сборке: спрашивают этот список
        // на каждое открытие файла, а меняться ему больше негде.
        viewers = [...viewers]..sort((a, b) => b.priority.compareTo(a.priority)),
+       markdownBlocks = [...markdownBlocks]..sort((a, b) => b.priority.compareTo(a.priority)),
        nodeInfoProviders = [...nodeInfoProviders]..sort((a, b) => b.priority.compareTo(a.priority)),
        views = views ?? const NoViews(),
        window = window ?? const NoopWindowService() {
@@ -430,6 +432,10 @@ class AppController extends ChangeNotifier implements Application {
   /// Объявленные просмотрщики, по убыванию приоритета.
   @override
   final List<ViewerSpec> viewers;
+
+  /// Объявленные рисовальщики врезок markdown, по убыванию приоритета.
+  @override
+  final List<MarkdownBlockSpec> markdownBlocks;
 
   /// Объявленные провайдеры сведений, по убыванию приоритета.
   @override

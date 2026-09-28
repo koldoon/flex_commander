@@ -56,6 +56,10 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
   /// их показывает окно упаковки.
   final List<PackerSpec> packers = [];
 
+  /// Объявленные рисовальщики врезок markdown — в порядке объявления; по
+  /// приоритету их расставит приложение.
+  final List<MarkdownBlockSpec> markdownBlocks = [];
+
   /// Провайдеры сведений — фабриками: их зовут, когда приложение уже собрано,
   /// как и фабрики команд.
   final List<NodeInfoProvider Function(FcContext context)> nodeInfoFactories = [];
@@ -127,6 +131,18 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
       throw StateError('Просмотрщик «${spec.id}» уже объявлен');
     }
     viewers.add(spec);
+  }
+
+  @override
+  void markdownBlock(MarkdownBlockSpec spec) {
+    final taken = markdownBlocks.indexWhere((declared) => declared.id == spec.id);
+    if (taken >= 0) {
+      // Два рисовальщика под одним именем — недосмотр: имя уходит в отказы и в
+      // настройки, и победа последнего сделала бы вид документа зависящим от
+      // порядка модулей в списке.
+      throw StateError('Рисовальщик врезок «${spec.id}» уже объявлен');
+    }
+    markdownBlocks.add(spec);
   }
 
   @override

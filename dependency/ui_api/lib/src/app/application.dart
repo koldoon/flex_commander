@@ -11,6 +11,7 @@ import 'panel_header_spec.dart';
 import 'panel_view_spec.dart';
 import 'panel_viewport.dart';
 import 'viewport.dart';
+import 'markdown_block_spec.dart';
 import 'node_info.dart';
 import 'content_types.dart';
 import 'file_icons.dart';
@@ -196,6 +197,12 @@ abstract interface class Application implements Listenable {
   /// спрашивает `accepts` тот, кто открывает, — оболочка просмотра. Решать за
   /// неё ядру нечем: про типы файлов оно не знает ничего.
   List<ViewerSpec> get viewers;
+
+  /// Объявленные рисовальщики врезок markdown, по убыванию приоритета.
+  ///
+  /// Тот же порядок вещей, что и с просмотрщиками: ядро складывает, а
+  /// спрашивает `accepts` тот, кто показывает документ.
+  List<MarkdownBlockSpec> get markdownBlocks;
 
   /// Чем рисуются состояния: панель, просмотрщик, заявка от работы.
   ///
