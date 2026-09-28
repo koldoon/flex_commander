@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:typed_data';
 import 'dart:ui' as ui;
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 
 import 'image_viewer_settings.dart';
 
@@ -13,9 +15,25 @@ import 'image_viewer_settings.dart';
 /// Размеры и формат берутся из заголовка, а не из распакованного растра: в
 /// этом весь смысл — по ним и решается, распаковывать ли вообще.
 class ImageDocument {
-  ImageDocument({required this.bytes, required this.width, required this.height, required this.format});
+  ImageDocument({
+    required this.bytes,
+    required this.width,
+    required this.height,
+    required this.format,
+    this.vectorSource,
+  });
 
   final Uint8List bytes;
+
+  /// Разметка векторной картинки; null — картинка растровая.
+  ///
+  /// Держится текстом, а не разбирается заново: по `F5` его показывают как есть
+  /// (`docs/spec/image-viewer.md`, §13.3), по нему же ищут, и второй разбор
+  /// ради того же текста был бы работой на пустом месте.
+  final String? vectorSource;
+
+  /// Вектор ли это. У вектора нет точек, и пределы у него другие (§13.2).
+  bool get isVector => vectorSource != null;
 
   /// Чем показывать: один источник на весь показ.
   ///
@@ -64,6 +82,13 @@ class ImageDocument {
     await checkpoint();
 
     final bytes = Uint8List.fromList(chunks);
+
+    // Вектор разбирается своим путём и до растрового: `ImageDescriptor` на нём
+    // всё равно споткнётся, и мы бы зря пошли спрашивать систему.
+    if (_looksLikeSvg(bytes)) {
+      return _readVector(bytes, checkpoint);
+    }
+
     var shown = bytes;
     var format = _formatOf(bytes);
     var size = await _sizeOf(bytes);
@@ -110,6 +135,58 @@ class ImageDocument {
     return ImageDocument(bytes: shown, width: size.$1, height: size.$2, format: format);
   }
 
+  /// Похоже ли начало файла на `svg`.
+  ///
+  /// По содержимому, а не по имени: имя врёт чаще, чем первые байты, — то же
+  /// правило, по которому здесь опознаются и растровые форматы ([_formatOf]).
+  /// Смотрим начало: перед корневым тегом законно стоят объявление xml,
+  /// `DOCTYPE` и комментарии.
+  static bool _looksLikeSvg(Uint8List bytes) {
+    final head = utf8.decode(bytes.take(_svgProbe).toList(), allowMalformed: true);
+    return head.contains('<svg');
+  }
+
+  /// Сколько байт от начала читаем, опознавая вектор.
+  static const int _svgProbe = 4096;
+
+  /// Разобрать векторную картинку и узнать её размеры.
+  ///
+  /// Размеры — из `viewBox`: это не «сколько в ней точек», а в каких единицах
+  /// нарисовано содержимое (§13.2). Отсюда и округление вверх — в плашке
+  /// уместно целое.
+  ///
+  /// Не разобралось — [ViewerDeclined]: файл достанется текстовому
+  /// просмотрщику, и человек увидит разметку, которую и будет чинить (§13.5).
+  static Future<ImageDocument> _readVector(Uint8List bytes, Future<void> Function() checkpoint) async {
+    final source = utf8.decode(bytes, allowMalformed: true);
+
+    PictureInfo? info;
+    try {
+      info = await vg.loadPicture(SvgStringLoader(source), null);
+    } on Object {
+      throw const ViewerDeclined();
+    }
+    await checkpoint();
+
+    final size = info.size;
+    // Картинка нужна была только ради размеров: рисует показ сам, своим
+    // виджетом, и держать её здесь значило бы держать вторую копию.
+    info.picture.dispose();
+
+    if (!size.width.isFinite || !size.height.isFinite || size.width <= 0 || size.height <= 0) {
+      // Ни `viewBox`, ни сторон: показывать это как картинку не во что.
+      throw const ViewerDeclined();
+    }
+
+    return ImageDocument(
+      bytes: bytes,
+      width: size.width.ceil(),
+      height: size.height.ceil(),
+      format: 'SVG',
+      vectorSource: source,
+    );
+  }
+
   /// Распаковать заранее — до того, как картинку покажут.
   ///
   /// Иначе видно чужое: пока новая картинка распаковывается, показ рисует
@@ -121,7 +198,9 @@ class ImageDocument {
   /// чей заголовок уже разобран, а если распаковка всё же не удалась — пусть
   /// об этом скажет показ, а не тишина.
   Future<void> warmUp() {
-    if (_stream != null) {
+    // У вектора распаковывать нечего: его рисуют из разметки, и своим кешем
+    // разобранного заведует сам `flutter_svg`.
+    if (isVector || _stream != null) {
       return Future<void>.value();
     }
 

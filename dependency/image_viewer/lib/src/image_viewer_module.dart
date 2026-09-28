@@ -1,4 +1,5 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'image_document.dart';
@@ -26,7 +27,11 @@ class ImageViewer implements FcFrontendModule {
   ///
   /// `tiff` и `avif` не умеет никто из них — на них отказ с предложением
   /// открыть системой.
-  static const Set<String> extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'heic'};
+  ///
+  /// `svg` — вектор, и путь у него свой: его не распаковывают, а разбирают
+  /// (`docs/spec/image-viewer.md`, §13). Он же единственный здесь, у кого есть
+  /// читаемый исходник, и `F5` его показывает.
+  static const Set<String> extensions = {'png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp', 'heic', 'svg'};
 
   @override
   String get id => 'fc.image_viewer';
@@ -102,6 +107,12 @@ class ImageViewer implements FcFrontendModule {
     );
 
     registry.command((context) => ToggleImageFitCommand());
+    registry.command((context) => ToggleImageSourceCommand());
+    // Поиск по разметке вектора — команды общие с текстом и редактором: показ
+    // текста у них один, значит и поиск один.
+    registry.command((context) => FindImageSourceCommand(id: _findId, screenId: ImageViewerScreen.viewerId));
+    registry.command((context) => FcFindNextCommand(id: _findNextId, screenId: ImageViewerScreen.viewerId));
+    registry.command((context) => FcFindPreviousCommand(id: _findPreviousId, screenId: ImageViewerScreen.viewerId));
     registry.command((context) => ZoomImageCommand());
     registry.command((context) => StepImageCommand(forward: true));
     registry.command((context) => StepImageCommand(forward: false));
@@ -110,6 +121,17 @@ class ImageViewer implements FcFrontendModule {
     // весь экран или в быстром просмотре. `inState` находит её сквозь хозяина.
     registry.binding(
       KeyBinding.inState<ImageViewerScreen>('F2', ToggleImageFitCommand.commandId, context: KeyContext.imageViewer),
+    );
+    // `F5` — «картинка / исходник», та же клавиша и тот же смысл, что у
+    // просмотрщика markdown и у форматтеров. На снимке команда недоступна, и
+    // клавиша там ничего не делает.
+    registry.binding(
+      KeyBinding.inState<ImageViewerScreen>('F5', ToggleImageSourceCommand.commandId, context: KeyContext.imageViewer),
+    );
+    registry.binding(KeyBinding.inState<ImageViewerScreen>('F7', _findId, context: KeyContext.imageViewer));
+    registry.binding(KeyBinding.inState<ImageViewerScreen>('Shift-F7', _findNextId, context: KeyContext.imageViewer));
+    registry.binding(
+      KeyBinding.inState<ImageViewerScreen>('Shift-Cmd-G', _findPreviousId, context: KeyContext.imageViewer),
     );
     // Приближение — и на `+`, и на `=`: на большинстве раскладок плюс требует
     // Shift, а привычка из браузеров говорит именно про эту клавишу. Это
@@ -156,6 +178,12 @@ class ImageViewer implements FcFrontendModule {
       ),
     );
   }
+
+  /// Имена команд поиска по разметке. Свои, а не текстового просмотрщика:
+  /// переназначают их отдельно, и экран у них другой.
+  static const String _findId = 'image.find';
+  static const String _findNextId = 'image.findNext';
+  static const String _findPreviousId = 'image.findPrevious';
 
   /// Служба, без которой модуль умеет обойтись; null — её никто не объявил.
   static T? _optional<T>(FcServices services) {
@@ -215,6 +243,10 @@ const Map<String, String> _russian = {
   'Fit the image into the window or show it pixel for pixel': 'Вписать картинку в окно или показать пиксель в пиксель',
   'Fit to window': 'Вписано в окно',
   'Actual size': 'Настоящий размер',
+  'Source': 'Исходник',
+  'Picture': 'Картинка',
+  'Show the markup of a vector image instead of the picture':
+      'Показать разметку векторной картинки вместо самой картинки',
   'Next': 'Следующая',
   'Previous': 'Предыдущая',
   'Show the next image in the same directory': 'Показать следующую картинку в том же каталоге',

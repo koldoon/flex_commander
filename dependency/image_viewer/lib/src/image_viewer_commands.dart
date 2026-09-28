@@ -1,3 +1,4 @@
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
 import 'image_viewer_screen.dart';
@@ -56,6 +57,59 @@ class ToggleImageFitCommand extends AppCommand {
     // Переключилось и закончилось — о таком говорят всплывающим сообщением: на
     // картинке, которая и так помещалась, разницы не видно.
     context.app.toasts.show(screen.fitToWindow ? tr('Fit to window') : tr('Actual size'));
+  }
+}
+
+/// Найти в разметке — и показать её, если сейчас видна картинка.
+///
+/// Иначе `F7` на векторе открыл бы окно поиска, нашёл бы в невидимом тексте и
+/// ничего не показал: нажатие обязано что-то менять.
+class FindImageSourceCommand extends FcFindTextCommand {
+  FindImageSourceCommand({required super.id, required super.screenId});
+
+  @override
+  Future<void> execute(CommandContext context) {
+    imageViewerInFocus(context.app)?.revealSourceForSearch();
+    return super.execute(context);
+  }
+}
+
+/// Показать разметку вместо картинки — и обратно.
+///
+/// Только у вектора: у растра исходника нет вовсе, и команда на нём недоступна
+/// (`docs/spec/image-viewer.md`, §13.3).
+class ToggleImageSourceCommand extends AppCommand {
+  static const String commandId = 'image.source';
+
+  /// Приложение для **прототипа**: подпись спрашивают и без запуска.
+  Application? _app;
+
+  @override
+  bool init(Application app) {
+    _app = app;
+    return true;
+  }
+
+  @override
+  String get id => commandId;
+
+  /// Подпись говорит, что клавиша сделает **сейчас**.
+  @override
+  String get label => imageViewerInFocus(_app)?.showsSource == true ? tr('Picture') : tr('Source');
+
+  @override
+  Set<String> get keywords => const {'svg', 'markup', 'xml', 'code'};
+
+  @override
+  String get description => tr('Show the markup of a vector image instead of the picture');
+
+  /// У снимка разметки нет: обещать переключение и не переключить нельзя.
+  @override
+  bool isExecutable(CommandContext context) => imageViewerInFocus(context.app)?.hasSource == true;
+
+  @override
+  Future<void> execute(CommandContext context) async {
+    imageViewerInFocus(context.app)?.toggleSource();
   }
 }
 

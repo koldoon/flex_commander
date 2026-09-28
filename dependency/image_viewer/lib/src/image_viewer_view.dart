@@ -1,9 +1,12 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_svg/flutter_svg.dart';
+import 'package:re_editor/re_editor.dart';
 
 import 'image_viewer_screen.dart';
 
@@ -27,6 +30,23 @@ class ImageViewerView extends StatelessWidget {
       listenable: Listenable.merge([screen, if (app != null) app.view]),
       builder: (context, _) {
         final document = screen.document;
+
+        // Разметку показываем тем же полем и той же подсветкой, какими её
+        // показывает текстовый просмотрщик: `F5` обязан давать то, что было до
+        // этапа, а не хуже (`docs/spec/image-viewer.md`, §13.3).
+        if (screen.showsSource) {
+          return FcTextView(
+            controller: screen.source,
+            finder: screen.finder,
+            path: screen.entry.path,
+            fileName: screen.entry.name,
+            trailing: formatBytesLong(screen.entry.size),
+            readOnly: true,
+            shortcuts: _sourceShortcuts,
+            outerEdge: _edgeOf(app),
+            focused: app == null || app.view.takesKeys(screen),
+          );
+        }
 
         return FcPanelFrame(
           outerEdge: _edgeOf(app),
@@ -97,29 +117,45 @@ class ImageViewerView extends StatelessWidget {
       maxHeight: double.infinity,
       child: Transform.translate(
         offset: screen.offset,
-        child: Image(
-          image: document.image,
-          width: shown.width,
-          height: shown.height,
-          // Размер посчитан снаружи по настоящим сторонам картинки, так что
-          // вписывать нечего. `contain`, а не `fill`, — на случай, когда в
-          // коробке всё же окажется не то: пусть покажется меньше, чем
-          // растянется в чужие пропорции.
-          fit: BoxFit.contain,
-          // Мелкая картинка вблизи должна остаться собой, а не расплыться:
-          // точки видно точками, как в любом просмотрщике.
-          filterQuality: shown.width > document.width ? FilterQuality.none : FilterQuality.medium,
-          // **Не** `gaplessPlayback`: он держит прежнюю картинку, пока новая не
-          // распакуется, — а коробка уже нового размера, и в ней мелькает
-          // чужое. Распаковку мы делаем заранее (`warmUp`), и обычно ждать
-          // нечего; но кеш картинок не бесконечен, и при беглом листании
-          // распакованное успевает из него вылететь. Пустое место на миг
-          // честнее, чем обрезок предыдущего снимка.
-          gaplessPlayback: false,
-        ),
+        child: switch (document.vectorSource) {
+          // Вектор рисуется заново под каждый размер — в этом весь его смысл:
+          // приблизили, и он остался чётким. Сглаживать и выбирать
+          // `filterQuality` тут нечего, точек у него нет.
+          final vector? => SvgPicture.string(vector, width: shown.width, height: shown.height, fit: BoxFit.contain),
+          _ => Image(
+            image: document.image,
+            width: shown.width,
+            height: shown.height,
+            // Размер посчитан снаружи по настоящим сторонам картинки, так что
+            // вписывать нечего. `contain`, а не `fill`, — на случай, когда в
+            // коробке всё же окажется не то: пусть покажется меньше, чем
+            // растянется в чужие пропорции.
+            fit: BoxFit.contain,
+            // Мелкая картинка вблизи должна остаться собой, а не расплыться:
+            // точки видно точками, как в любом просмотрщике.
+            filterQuality: shown.width > document.width ? FilterQuality.none : FilterQuality.medium,
+            // **Не** `gaplessPlayback`: он держит прежнюю картинку, пока новая не
+            // распакуется, — а коробка уже нового размера, и в ней мелькает
+            // чужое. Распаковку мы делаем заранее (`warmUp`), и обычно ждать
+            // нечего; но кеш картинок не бесконечен, и при беглом листании
+            // распакованное успевает из него вылететь. Пустое место на миг
+            // честнее, чем обрезок предыдущего снимка.
+            gaplessPlayback: false,
+          ),
+        },
       ),
     );
   }
+
+  /// Какие клавиши поле разметки отпускает экрану.
+  ///
+  /// `Esc` закрывает показ — он принадлежит оболочке. Стрелки **не** отпускаем:
+  /// в картинке они листают каталог, а в разметке должны крутить текст, как в
+  /// любом показе текста.
+  static const FcTextShortcuts _sourceShortcuts = FcTextShortcuts(
+    released: {CodeShortcutType.esc},
+    scrollsByArrows: true,
+  );
 
   /// Какого размера показывать картинку.
   Size _shownSize(BoxConstraints constraints) {

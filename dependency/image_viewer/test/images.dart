@@ -25,3 +25,16 @@ const String bmpData =
 
 /// WEBP 5×5.
 const String webpData = 'UklGRjoAAABXRUJQVlA4IC4AAACQAQCdASoFAAUAAUAmJaACdLoAA5gA/vCbQ/4DdfFtMv/ucD/uyf/2yf+pAAAA';
+
+/// SVG 24×16 — с `viewBox`, как рисуют значки.
+const String svgSource =
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 16">'
+    '<rect width="24" height="16" fill="#1e63e8"/></svg>';
+
+/// SVG без `viewBox`, но со сторонами: размеры берутся из них.
+const String svgSizedSource =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="10" height="7">'
+    '<rect width="10" height="7" fill="#000"/></svg>';
+
+/// Разметка, которая не разбирается: тег не закрыт.
+const String brokenSvgSource = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 16"><rect ';

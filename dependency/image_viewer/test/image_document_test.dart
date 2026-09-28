@@ -24,6 +24,11 @@ void main() {
       FakeEntry.file('/home/dot.bmp', content: imageOf(bmpData)),
       FakeEntry.file('/home/logo.webp', content: imageOf(webpData)),
       FakeEntry.file('/home/notes.png', content: 'это не картинка, а текст'.codeUnits),
+      FakeEntry.file('/home/icon.svg', content: svgSource.codeUnits),
+      FakeEntry.file('/home/sized.svg', content: svgSizedSource.codeUnits),
+      FakeEntry.file('/home/broken.svg', content: brokenSvgSource.codeUnits),
+      // Имя врёт: внутри разметка. Опознаём по содержимому, как и растровые.
+      FakeEntry.file('/home/lying.png', content: svgSource.codeUnits),
       // Заголовок `HEIC`: `ftyp` на пятом байте и марка формата за ним. Дальше
       // — мусор, и это нарочно: Flutter такого всё равно не разберёт, а
       // система в прогоне подставная.
@@ -144,6 +149,52 @@ void main() {
       await read('photo.heic', settings: settings, system: system);
 
       expect(system.limit, 1000000);
+    });
+  });
+
+  group('вектор', () {
+    test('размеры берутся из viewBox, формат — SVG', () async {
+      final document = await read('icon.svg');
+
+      expect(document.format, 'SVG');
+      expect(document.width, 24);
+      expect(document.height, 16);
+      expect(document.isVector, isTrue);
+      expect(document.vectorSource, contains('<svg'));
+    });
+
+    test('без viewBox размеры берутся из сторон', () async {
+      final document = await read('sized.svg');
+
+      expect(document.width, 10);
+      expect(document.height, 7);
+    });
+
+    test('опознаётся по содержимому, а не по имени', () async {
+      final document = await read('lying.png');
+
+      expect(document.format, 'SVG');
+      expect(document.isVector, isTrue);
+    });
+
+    test('битая разметка уходит дальше по очереди, а не отказом', () async {
+      // `ViewerDeclined`, а не `ViewerRefused`: человеку с битым `svg` нужен
+      // текст, который он будет чинить, а не тост (`image-viewer.md`, §13.5).
+      await expectLater(read('broken.svg'), throwsA(isA<ViewerDeclined>()));
+    });
+
+    test('предел размера файла действует и на вектор', () async {
+      final settings = ImageViewerSettings(maxFileSize: 10);
+
+      await expectLater(read('icon.svg', settings: settings), throwsA(isA<ViewerRefused>()));
+    });
+
+    test('распаковывать нечего: warmUp у вектора — пустой ход', () async {
+      final document = await read('icon.svg');
+
+      // Не должен ни упасть, ни подвиснуть: растрового потока у вектора нет.
+      await document.warmUp();
+      document.release();
     });
   });
 }

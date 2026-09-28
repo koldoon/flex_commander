@@ -198,6 +198,12 @@ the images of the same directory without leaving the viewer. Two limits guard
 memory — file size and pixel count — and both are read from the header before
 anything is decoded; over either one, the viewer says so and points at `Cmd+O`.
 
+**Vector.** `svg` opens as a picture, not as markup, and stays sharp at any zoom
+— it is redrawn for every size rather than rasterised once. `F5` shows the
+markup instead, with the same highlighting the text viewer gives it, and `F7`
+searches in it. Markup that does not parse is handed to the text viewer: with a
+broken `svg` you want the text you are about to fix, not a refusal.
+
 **File info (`Cmd+I`, `Alt+Enter`).** Everything known about the object: name,
 full path, type, size, dates, permissions, where it is opened from — and, for a
 directory, a button that counts its size rather than walking the disk uninvited.
@@ -501,7 +507,7 @@ takes and saying in words when nothing does.
 | `dependency/text_kit` | text display shared by the viewer and the editor |
 | `dependency/panels` | the file panels screen |
 | `dependency/viewer` | the viewing shell: `F3`, `Shift+F3` and choosing a viewer |
-| `dependency/text_viewer`, `dependency/image_viewer` | viewers: text and images |
+| `dependency/text_viewer`, `dependency/image_viewer` | viewers: text, images and vector |
 | `dependency/file_info` | file info: the window, the fallback viewer, section providers |
 | `dependency/attributes` | editing attributes: permissions, dates, owner, extended |
 | `dependency/editor` | the text editor (`F4`) |

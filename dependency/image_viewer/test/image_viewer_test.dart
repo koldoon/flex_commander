@@ -3,6 +3,7 @@ import 'dart:typed_data';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_image_viewer/fc_image_viewer.dart';
 import 'package:fc_test_kit/fc_test_kit.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:fc_text_viewer/fc_text_viewer.dart';
 import 'package:fc_viewer/fc_viewer.dart';
 import 'package:flex_commander/bootstrap/app_modules.dart';
@@ -37,6 +38,11 @@ void main() {
         // Заголовок `HEIC`: `ftyp` на пятом байте. Дальше мусор — Flutter
         // такого не разберёт, а система в прогоне подставная.
         FakeEntry.file('/home/phone/photo.heic', content: [0, 0, 0, 24, ...'ftypheic'.codeUnits, 1, 2, 3]),
+        // Тоже своим каталогом и по той же причине: в `/home` они сбили бы
+        // счёт соседей у листания.
+        FakeEntry.directory('/home/vector'),
+        FakeEntry.file('/home/vector/icon.svg', content: svgSource.codeUnits),
+        FakeEntry.file('/home/vector/broken.svg', content: brokenSvgSource.codeUnits),
       ])..home = '/home',
       modules: [...featureModules(), _SystemImagesModule(system)],
     );
@@ -282,6 +288,69 @@ void main() {
       expect(screen.document.format, 'HEIC');
       expect(screen.document.width, 2860);
       expect(screen.document.height, 3814);
+    });
+  });
+
+  group('вектор', () {
+    /// Показывает разметку из своего каталога.
+    Future<void> viewVector(String name) async {
+      await runtime.app.left.openPath('/home/vector');
+      await pumpEventQueue();
+      await view(name);
+    }
+
+    test('`.svg` открывает просмотрщик изображений, а не текстовый', () async {
+      await viewVector('icon.svg');
+
+      final screen = shownFullscreen();
+      expect(screen, isA<ImageViewerScreen>());
+      expect((screen! as ImageViewerScreen).document.format, 'SVG');
+    });
+
+    test('битую разметку забирает текстовый: чинить её будут текстом', () async {
+      await viewVector('broken.svg');
+
+      expect(shownFullscreen(), isA<TextViewerScreen>());
+    });
+
+    test('F5 показывает разметку и возвращает картинку', () async {
+      await viewVector('icon.svg');
+      final screen = shownFullscreen()! as ImageViewerScreen;
+      expect(screen.showsSource, isFalse);
+
+      expect(runtime.commands.dispatch(KeyCombination.parse('F5')), isTrue);
+      await pumpEventQueue();
+      expect(screen.showsSource, isTrue);
+
+      expect(runtime.commands.dispatch(KeyCombination.parse('F5')), isTrue);
+      await pumpEventQueue();
+      expect(screen.showsSource, isFalse);
+    });
+
+    test('у снимка разметки нет — команда недоступна', () async {
+      await view('a.png');
+      final screen = shownFullscreen()! as ImageViewerScreen;
+
+      expect(screen.hasSource, isFalse);
+      expect(runtime.commands.isExecutable(runtime.commands.find('image.source')!), isFalse);
+    });
+
+    test('поиск просят в картинке — показывается разметка', () async {
+      await viewVector('icon.svg');
+      final screen = shownFullscreen()! as ImageViewerScreen;
+
+      // Нажатие обязано что-то менять: искать в невидимом тексте нельзя.
+      await runtime.commands.create('image.find')!.executeWith({FcFindTextCommand.patternParam: 'rect'});
+      await pumpEventQueue();
+
+      expect(screen.showsSource, isTrue);
+      expect(screen.finder.matchCount, greaterThan(0));
+    });
+
+    test('у снимка поиск недоступен: искать в нём нечего', () async {
+      await view('a.png');
+
+      expect(runtime.commands.isExecutable(runtime.commands.find('image.find')!), isFalse);
     });
   });
 }

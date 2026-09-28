@@ -1,6 +1,8 @@
 import 'package:fc_api/fc_api.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:flutter/widgets.dart';
+import 'package:re_editor/re_editor.dart';
 
 import 'image_document.dart';
 import 'image_viewer_settings.dart';
@@ -10,7 +12,7 @@ import 'image_viewer_settings.dart';
 /// Соседей по каталогу держит он же: стрелки листают альбом, не выходя в
 /// панель. Панель для этого не нужна — просмотрщик открывают и из палитры, и
 /// из будущего поиска, где панели нет вовсе.
-class ImageViewerScreen extends ChangeNotifier implements ViewerContent {
+class ImageViewerScreen extends ChangeNotifier implements ViewerContent, FcSearchable {
   ImageViewerScreen({
     required FileEntry entry,
     required ImageDocument document,
@@ -26,6 +28,53 @@ class ImageViewerScreen extends ChangeNotifier implements ViewerContent {
 
   /// Имя в реестре просмотрщиков.
   static const String viewerId = 'image';
+
+  /// Показывать разметку вместо картинки.
+  ///
+  /// Только у вектора: у растра исходника нет, и переключать нечего (§13.3).
+  bool get showsSource => _showsSource && document.isVector;
+  bool _showsSource = false;
+
+  /// Есть ли что показывать по `F5`.
+  bool get hasSource => document.isVector;
+
+  void toggleSource() {
+    if (!document.isVector) {
+      return;
+    }
+    _showsSource = !_showsSource;
+    notifyListeners();
+  }
+
+  /// Разметка векторной картинки — ею же и ищут.
+  ///
+  /// Заводится вместе с показом, а не по первому `F5`: поиск обязан работать
+  /// сразу, а переключение — не повод перечитывать файл.
+  CodeLineEditingController get source => _source ??= CodeLineEditingController.fromText(document.vectorSource ?? '');
+  CodeLineEditingController? _source;
+
+  FcTextFinder? _finder;
+
+  /// Имя для поиска.
+  ///
+  /// У вектора ищут в разметке; у растра искать нечего — и команда поиска, не
+  /// найдя своего имени, остаётся недоступной, а `F7` на снимке не открывает
+  /// окна, которому нечего предложить.
+  @override
+  String get id => document.isVector ? viewerId : '';
+
+  @override
+  FcTextFinder get finder => _finder ??= FcTextFinder(source);
+
+  /// Искать просят в картинке — значит, показать разметку и искать в ней.
+  ///
+  /// Нажатие обязано что-то менять: промолчать в ответ на `F7` нельзя.
+  void revealSourceForSearch() {
+    if (document.isVector && !_showsSource) {
+      _showsSource = true;
+      notifyListeners();
+    }
+  }
 
   /// Пределы масштаба и запомненный вид.
   final ImageViewerSettings settings;
@@ -168,6 +217,10 @@ class ImageViewerScreen extends ChangeNotifier implements ViewerContent {
     _targetIndex = null;
     _entry = sibling;
     _document = document;
+    // Разметка принадлежала прежней картинке: у следующей она своя, а у
+    // растровой её нет вовсе.
+    _dropSource();
+    _showsSource = false;
     // Масштаб и смещение сбрасываются: следующая картинка другого размера, и
     // унаследованный масштаб показал бы её углом.
     _zoom = null;
@@ -184,6 +237,14 @@ class ImageViewerScreen extends ChangeNotifier implements ViewerContent {
   @override
   void dispose() {
     _document.release();
+    _dropSource();
     super.dispose();
+  }
+
+  /// Отпустить разметку и поиск по ней.
+  void _dropSource() {
+    _finder = null;
+    _source?.dispose();
+    _source = null;
   }
 }
