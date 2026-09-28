@@ -42,6 +42,11 @@ MarkdownStyleSheet fcMarkdownStyle(FcTheme theme) {
     blockSpacing: metrics.dialogGap,
     tableHead: theme.dialogTextStyle.copyWith(fontWeight: FontWeight.bold, color: theme.colors.dialogLabel),
     tableBody: theme.dialogTextStyle,
+    // Читают таблицу слева направо и сверху вниз — так текст в ячейках и
+    // стоит. По центру заголовок отрывался бы от своей колонки, а по середине
+    // высоты строка с одной строчкой уезжала бы от соседней с тремя.
+    tableHeadAlign: TextAlign.left,
+    tableVerticalAlignment: TableCellVerticalAlignment.top,
     // Линейки таблицы — тем же цветом, каким панель делит колонки: таблица в
     // документе и таблица файлов рисуют одно и то же, и разными им быть незачем.
     tableBorder: TableBorder.all(color: theme.colors.columnDivider, width: metrics.strokeWidth),

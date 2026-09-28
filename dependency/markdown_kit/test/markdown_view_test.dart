@@ -68,6 +68,23 @@ void main() {
       expect(find.textContaining('#'), findsNothing);
     });
 
+    testWidgets('в таблице текст прижат влево и вверх', (tester) async {
+      // У правой ячейки три строки, у левой одна: по середине высоты они
+      // разъехались бы.
+      await pump(
+        tester,
+        '| Ключ | Что делает |\n|---|---|\n| `F3` | раз<br/>два<br/>три |\n',
+        size: const Size(800, 400),
+      );
+
+      final head = tester.getRect(find.text('Ключ'));
+      final cell = tester.getRect(find.textContaining('F3'));
+      final tall = tester.getRect(find.textContaining('раз'));
+
+      expect((cell.left - head.left).abs(), lessThan(2), reason: 'заголовок и ячейка — по одному левому краю');
+      expect((cell.top - tall.top).abs(), lessThan(2), reason: 'обе ячейки начинаются с верхней кромки строки');
+    });
+
     testWidgets('цитата, таблица и эмодзи показываются', (tester) async {
       await pump(tester, '> Осторожно.\n\n| a | b |\n|---|---|\n| 1 | 2 |\n\nГотово :tada:\n');
 
