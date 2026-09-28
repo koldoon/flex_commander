@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/gestures.dart';
@@ -8,6 +10,7 @@ import 'package:markdown/markdown.dart' as md;
 
 import 'markdown_document.dart';
 import 'markdown_fenced_builder.dart';
+import 'markdown_image.dart';
 import 'markdown_style.dart';
 
 /// Свёрстанный markdown — списком блоков, строящимся по мере показа.
@@ -23,6 +26,8 @@ class FcMarkdownView extends StatefulWidget {
     this.blocks = const <MarkdownBlockSpec>[],
     this.onTapLink,
     this.controller,
+    this.activeBlock,
+    this.resolveImage,
     this.padding = EdgeInsets.zero,
   });
 
@@ -36,6 +41,19 @@ class FcMarkdownView extends StatefulWidget {
   final void Function(String text, String? href, String title)? onTapLink;
 
   final ScrollController? controller;
+
+  /// Блок, в котором стоит найденное; null — не ищут или не нашлось.
+  ///
+  /// Показ подводит к нему список и подсвечивает его целиком. Целиком, а не
+  /// слово: подсветить слово внутри свёрстанного абзаца значило бы
+  /// перехватывать построение всех текстовых тегов
+  /// (`docs/spec/markdown-viewer.md`, §7).
+  final int? activeBlock;
+
+  /// Чем прочесть картинку по относительному пути; null — читать нечем, и
+  /// вместо картинки показывается подпись.
+  final FcImageResolver? resolveImage;
+
   final EdgeInsets padding;
 
   @override
@@ -55,6 +73,16 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
   /// Ширина, под которую построены блоки; меняется — строим заново.
   double _width = 0;
 
+  /// Ключи построенных блоков — по ним показ подводит список к найденному.
+  final Map<int, GlobalKey> _keys = {};
+
+  /// Свой контроллер, если снаружи не дали: без него не подвести список.
+  ScrollController? _own;
+  ScrollController get _scroll => widget.controller ?? (_own ??= ScrollController());
+
+  /// Сколько раз пробовали подвести список к блоку, который ещё не построен.
+  int _attempts = 0;
+
   MarkdownStyleSheet? _style;
 
   @override
@@ -69,16 +97,52 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
     if (!identical(old.document, widget.document) || !identical(old.blocks, widget.blocks)) {
       _reset();
     }
+    if (widget.activeBlock != old.activeBlock && widget.activeBlock != null) {
+      _attempts = 0;
+      WidgetsBinding.instance.addPostFrameCallback((_) => _reveal(widget.activeBlock!));
+    }
+  }
+
+  /// Подвести список к блоку.
+  ///
+  /// Построенный блок показывается точно; непостроенный сперва подводится
+  /// примерно — по его доле в документе, — и показывается точно следующим
+  /// кадром. Проб ровно две: список мог и не доехать, но крутить его без конца
+  /// хуже, чем показать приблизительно.
+  void _reveal(int index) {
+    if (!mounted) {
+      return;
+    }
+
+    final target = _keys[index]?.currentContext;
+    if (target != null) {
+      unawaited(Scrollable.ensureVisible(target, alignment: 0.1, duration: const Duration(milliseconds: 120)));
+
+      return;
+    }
+
+    if (_attempts >= 2 || !_scroll.hasClients) {
+      return;
+    }
+    _attempts++;
+
+    final position = _scroll.position;
+    final blocks = widget.document.length;
+    final share = blocks == 0 ? 0.0 : index / blocks;
+    position.jumpTo((share * position.maxScrollExtent).clamp(0.0, position.maxScrollExtent));
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reveal(index));
   }
 
   @override
   void dispose() {
     _disposeRecognizers();
+    _own?.dispose();
     super.dispose();
   }
 
   void _reset() {
     _built.clear();
+    _keys.clear();
     _style = null;
     _disposeRecognizers();
   }
@@ -101,8 +165,21 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
         Theme.of(context),
       ).copyWith(textScaler: MediaQuery.textScalerOf(context)).merge(fcMarkdownStyle(FcTheme.of(context)));
 
-  Widget _blockAt(BuildContext context, int index) =>
-      _built[index] ??= Padding(padding: widget.padding, child: _build(context, widget.document.nodes[index]));
+  Widget _blockAt(BuildContext context, int index) {
+    final body =
+        _built[index] ??= KeyedSubtree(
+          key: _keys[index] ??= GlobalKey(),
+          child: Padding(padding: widget.padding, child: _build(context, widget.document.nodes[index])),
+        );
+
+    if (index != widget.activeBlock) {
+      return body;
+    }
+
+    // Найденное видно подложкой: слово внутри свёрстанного абзаца подсветить
+    // нечем, а блок целиком человек находит взглядом сразу.
+    return ColoredBox(color: FcTheme.of(context).colors.markedBackground, child: body);
+  }
 
   Widget _build(BuildContext context, md.Node node) {
     final builder = MarkdownBuilder(
@@ -112,7 +189,7 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
       selectable: false,
       styleSheet: _styleOf(context),
       imageDirectory: null,
-      imageBuilder: null,
+      imageBuilder: (uri, title, alt) => FcMarkdownImage(uri: uri, alt: alt ?? '', resolve: widget.resolveImage),
       checkboxBuilder: null,
       bulletBuilder: null,
       builders: {'pre': FcFencedBlockBuilder(blocks: widget.blocks, maxWidth: _width)},
@@ -141,11 +218,7 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
       }
 
       return SelectionArea(
-        child: ListView.builder(
-          controller: widget.controller,
-          itemCount: widget.document.length,
-          itemBuilder: _blockAt,
-        ),
+        child: ListView.builder(controller: _scroll, itemCount: widget.document.length, itemBuilder: _blockAt),
       );
     },
   );

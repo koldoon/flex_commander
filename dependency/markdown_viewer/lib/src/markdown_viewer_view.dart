@@ -61,6 +61,8 @@ class MarkdownViewerView extends StatelessWidget {
           child: FcMarkdownView(
             document: screen.document,
             blocks: app?.markdownBlocks ?? const [],
+            activeBlock: screen.activeBlock,
+            resolveImage: screen.resolveImage,
             padding: EdgeInsets.symmetric(
               horizontal: theme.metrics.dialogPadding,
               vertical: theme.metrics.dialogLineGap,

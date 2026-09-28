@@ -60,6 +60,55 @@ void main() {
     });
   });
 
+  group('проекция видимого текста', () {
+    test('по строке на заголовок, абзац и пункт списка', () {
+      final document = FcMarkdownDocument.parse('# Заголовок\n\nАбзац.\n\n- раз\n- два\n');
+
+      expect(document.plainText.split('\n'), ['Заголовок', 'Абзац.', 'раз', 'два']);
+    });
+
+    test('разметки в ней нет: ищут то, что читают', () {
+      final document = FcMarkdownDocument.parse('# Заголовок\n\n**Жирно** и *косо*.\n');
+
+      expect(document.plainText, isNot(contains('#')));
+      expect(document.plainText, isNot(contains('*')));
+      expect(document.plainText, contains('Жирно и косо.'));
+    });
+
+    test('ячейки таблицы идут через табуляцию', () {
+      final document = FcMarkdownDocument.parse('| a | b |\n|---|---|\n| 1 | 2 |\n');
+
+      expect(document.plainText.split('\n'), ['a\tb', '1\t2']);
+    });
+
+    test('врезка кода — своими строками: в ней тоже ищут', () {
+      final document = FcMarkdownDocument.parse('```dart\nvoid main() {}\nprint(1);\n```\n');
+
+      expect(document.plainText.split('\n'), ['void main() {}', 'print(1);']);
+    });
+
+    test('каждая строка знает свой блок', () {
+      final document = FcMarkdownDocument.parse('# Заголовок\n\n- раз\n- два\n\nХвост.\n');
+
+      // Заголовок — блок 0, оба пункта — блок 1, хвост — блок 2.
+      expect(document.blockOfLine, [0, 1, 1, 2]);
+      expect(document.blockOfLine.length, document.plainText.split('\n').length);
+    });
+
+    test('пустой документ — пустая проекция, а не строка из ничего', () {
+      final document = FcMarkdownDocument.parse('');
+
+      expect(document.plainText, isEmpty);
+      expect(document.blockOfLine, isEmpty);
+    });
+
+    test('разделитель строки не занимает', () {
+      final document = FcMarkdownDocument.parse('Раз\n\n---\n\nДва\n');
+
+      expect(document.plainText.split('\n'), ['Раз', 'Два']);
+    });
+  });
+
   test('язык врезки доезжает до показа классом', () {
     final document = FcMarkdownDocument.parse('```dart\nvoid main() {}\n```\n');
 

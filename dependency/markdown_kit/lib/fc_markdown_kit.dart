@@ -16,6 +16,7 @@ library;
 export 'src/markdown_code_block.dart';
 export 'src/markdown_document.dart';
 export 'src/markdown_fenced_builder.dart';
+export 'src/markdown_image.dart';
 export 'src/markdown_strings.dart';
 export 'src/markdown_style.dart';
 export 'src/markdown_view.dart';

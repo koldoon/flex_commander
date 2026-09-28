@@ -39,6 +39,10 @@ dependencies:
 
   re_highlight: ^0.0.3
 
+  # Картинки в документе бывают векторными — значки в README почти всегда
+  # такие. Тот же пакет, каким их показывает просмотрщик изображений.
+  flutter_svg: ^2.3.0
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

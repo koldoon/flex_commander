@@ -58,4 +58,77 @@ class FcMarkdownDocument {
 
   /// Сколько блоков в документе.
   int get length => nodes.length;
+
+  /// Видимый текст документа — то, что человек читает, строками.
+  ///
+  /// По нему и ищут: искать по разметке значило бы находить звёздочки и
+  /// решётки, которых на экране нет (`docs/spec/markdown-viewer.md`, §7).
+  late final String plainText = _projected.$1.join('\n');
+
+  /// Строка [plainText] → номер блока в [nodes].
+  ///
+  /// Так найденное превращается в место на экране: поиск говорит строку,
+  /// а показу нужен блок, который надо показать.
+  late final List<int> blockOfLine = _projected.$2;
+
+  /// Обход делается один раз: строки и их блоки считаются вместе.
+  late final (List<String>, List<int>) _projected = _projection();
+
+  (List<String>, List<int>) _projection() {
+    final lines = <String>[];
+    final blocks = <int>[];
+
+    for (var index = 0; index < nodes.length; index++) {
+      for (final line in _linesOf(nodes[index])) {
+        lines.add(line);
+        blocks.add(index);
+      }
+    }
+
+    return (lines, blocks);
+  }
+
+  /// Во что превращается узел на экране — построчно.
+  ///
+  /// Пустых строк не даём: поиск по ним не ходит, а номера строк они бы
+  /// сдвинули.
+  static List<String> _linesOf(md.Node node) {
+    if (node is! md.Element) {
+      final text = node.textContent.trim();
+
+      return text.isEmpty ? const [] : [text];
+    }
+
+    switch (node.tag) {
+      // Врезка кода — своими строками: в ней ищут так же, как в файле.
+      case 'pre':
+        return node.textContent.split('\n').where((line) => line.trim().isNotEmpty).toList();
+
+      // Ячейки строки таблицы — через табуляцию: на экране они стоят в ряд.
+      case 'tr':
+        final cells = node.children?.whereType<md.Element>().map((cell) => cell.textContent.trim()) ?? const [];
+        final row = cells.where((cell) => cell.isNotEmpty).join('\t');
+
+        return row.isEmpty ? const [] : [row];
+
+      // Обёртки: своей строки не дают, но их содержимое — даёт.
+      case 'ul':
+      case 'ol':
+      case 'blockquote':
+      case 'table':
+      case 'thead':
+      case 'tbody':
+      case 'section':
+        return [for (final child in node.children ?? const <md.Node>[]) ..._linesOf(child)];
+
+      // Разделитель читать нечего.
+      case 'hr':
+        return const [];
+
+      default:
+        final text = node.textContent.trim();
+
+        return text.isEmpty ? const [] : [text];
+    }
+  }
 }

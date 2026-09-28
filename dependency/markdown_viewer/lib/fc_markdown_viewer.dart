@@ -5,6 +5,7 @@
 /// Спецификация — `docs/spec/markdown-viewer.md`.
 library;
 
+export 'src/markdown_sources.dart';
 export 'src/markdown_viewer_commands.dart';
 export 'src/markdown_viewer_module.dart';
 export 'src/markdown_viewer_screen.dart';

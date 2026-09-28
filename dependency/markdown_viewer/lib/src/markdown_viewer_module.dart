@@ -2,8 +2,10 @@ import 'dart:convert';
 
 import 'package:fc_api/fc_api.dart';
 import 'package:fc_markdown_kit/fc_markdown_kit.dart';
+import 'package:fc_text_kit/fc_text_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 
+import 'markdown_sources.dart';
 import 'markdown_viewer_commands.dart';
 import 'markdown_viewer_screen.dart';
 import 'markdown_viewer_settings.dart';
@@ -78,6 +80,15 @@ class MarkdownViewer implements FcFrontendModule {
 
     registry.command((context) => ToggleMarkdownFormatCommand());
 
+    // Поиск — команды общие с текстом и редактором: показ текста у них один,
+    // значит и поиск один. Ищут в том виде, который показан: в свёрстанном по
+    // видимому тексту, в исходнике по разметке (§7).
+    registry.command((context) => FcFindTextCommand(id: findCommandId, screenId: MarkdownViewerScreen.screenId));
+    registry.command((context) => FcFindNextCommand(id: findNextCommandId, screenId: MarkdownViewerScreen.screenId));
+    registry.command(
+      (context) => FcFindPreviousCommand(id: findPreviousCommandId, screenId: MarkdownViewerScreen.screenId),
+    );
+
     // `F5` — та же клавиша и тот же смысл, что у вектора и у будущих
     // форматтеров. Раздел свой: спор считается по клавише **и** контексту, и в
     // разделе текста два `F5` выглядели бы спором, которого нет (§8).
@@ -88,7 +99,24 @@ class MarkdownViewer implements FcFrontendModule {
         context: KeyContext.markdownViewer,
       ),
     );
+    registry.binding(KeyBinding.inState<MarkdownViewerScreen>('F7', findCommandId, context: KeyContext.markdownViewer));
+    registry.binding(
+      KeyBinding.inState<MarkdownViewerScreen>('Shift-F7', findNextCommandId, context: KeyContext.markdownViewer),
+    );
+    registry.binding(
+      KeyBinding.inState<MarkdownViewerScreen>(
+        'Shift-Cmd-G',
+        findPreviousCommandId,
+        context: KeyContext.markdownViewer,
+      ),
+    );
   }
+
+  /// Имена команд поиска. Свои, а не текстового просмотрщика: переназначают их
+  /// отдельно, и экран у них другой.
+  static const String findCommandId = 'markdown.find';
+  static const String findNextCommandId = 'markdown.findNext';
+  static const String findPreviousCommandId = 'markdown.findPrevious';
 
   /// Служба, без которой модуль умеет обойтись; null — её никто не объявил.
   static T? _optional<T>(FcServices services) {
@@ -138,6 +166,7 @@ class MarkdownViewer implements FcFrontendModule {
       onSettingsChanged: onSettingsChanged,
       place: request.place,
       openWith: openWith,
+      resolveImage: imageResolverOf(request),
     );
   }
 
