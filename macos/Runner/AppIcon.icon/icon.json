@@ -24,11 +24,13 @@
       "layers": [
         {
           "image-name": "selection_bar.svg",
-          "name": "selection_bar"
+          "name": "selection_bar",
+          "glass": false
         },
         {
           "image-name": "selection.svg",
           "name": "selection",
+          "glass": false,
           "fill-specializations": [
             {
               "value": {
@@ -40,6 +42,7 @@
         {
           "image-name": "rows_left.svg",
           "name": "rows_left",
+          "glass": false,
           "opacity-specializations": [
             {
               "value": 0.26
@@ -66,6 +69,7 @@
         {
           "image-name": "rows_right.svg",
           "name": "rows_right",
+          "glass": false,
           "opacity-specializations": [
             {
               "value": 0.22
@@ -98,7 +102,7 @@
         "enabled": false,
         "value": 0.5
       },
-      "specular": true
+      "specular": false
     },
     {
       "name": "Panels",

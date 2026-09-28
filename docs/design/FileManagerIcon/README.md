@@ -6,6 +6,17 @@
 - `Previews/` — PNG 1024 с эффектами: default, dark, clear (для сайта, App Store, README).
 - `Legacy/AppIcon.icns` и `AppIcon.iconset` — растровая иконка для macOS 15 и старше или для сборки без Xcode 26.
 
+## Пакет существует в двух копиях
+- `FileManager.icon` здесь — **дизайнерский исходник**, в сборку он не идёт.
+- `macos/Runner/AppIcon.icon` — **то, что собирается** (`AppIcon.icon in Resources`
+  в `macos/Runner.xcodeproj/project.pbxproj`).
+
+Копии расходятся молча. Меняете иконку — меняйте **оба** `icon.json` и сверяйте `diff`.
+Если на диске исправлено, а в приложении старое, — первым делом смотрите, на какую из копий.
+
+Набор PNG в `macos/Runner/Assets.xcassets/AppIcon.appiconset` — плоская легаси-иконка
+для старых систем; к стеклу на macOS 26+ отношения не имеет.
+
 ## Быстрый путь (Xcode 26)
 1. Откройте `FileManager.icon` в Icon Composer и проверьте режимы Default / Dark / Clear / Tinted.
 2. Перетащите `FileManager.icon` в навигатор проекта.
@@ -18,13 +29,18 @@
 **Фон (Fill):** линейный градиент #5AAEFF → #1648C4. Для Dark: #3C3F47 → #131417.
 Либо можно положить `background.svg` отдельным слоем.
 
-**Группа Panels** (нижняя). Specular: вкл, Translucency: 40%, Shadow: Layer Color 50%.
+**Группа Panels** (нижняя). Liquid Glass: вкл, Specular: вкл, Translucency: 40%, Shadow: Layer Color 50%.
 | Слой | Цвет | Opacity light / dark |
 |---|---|---|
 | panel_left | #FFFFFF | 94% / 15% |
 | panel_right | #FFFFFF | 74% / 9% |
 
-**Группа Content** (верхняя). Specular: вкл, Translucency: выкл, Shadow: Neutral 30%.
+**Группа Content** (верхняя). Liquid Glass: **выкл** у каждого слоя (`"glass": false`),
+Specular: **выкл**, Translucency: выкл, Shadow: Neutral 30%.
+
+Стекло со строк снято намеренно: тонкие полоски ловили преломление и блик по всему
+периметру, и на macOS 27 иконка выглядела перегруженной. Стекло осталось только у панелей.
+`glass` — свойство **слоя**, а не группы: на объекте группы этот ключ игнорируется.
 Слои сверху вниз:
 | Слой | Цвет light / dark | Opacity light / dark |
 |---|---|---|
