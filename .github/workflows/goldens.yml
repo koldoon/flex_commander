@@ -1,0 +1,50 @@
+# Перерисовать эталоны — на раннере, а не на машине разработки.
+#
+# Снимки зависят от отрисовки шрифтов, а она у macOS разных версий своя: на
+# `macos-latest` (macOS 26) и на рабочей машине (macOS 27) одно и то же окно
+# расходится на несколько точек. Перерисованные локально эталоны поэтому валят
+# CI, а перерисованные здесь — совпадают с ним по определению.
+#
+# Запускается руками, когда картинка изменилась по делу: добавился раздел
+# настроек, поехала раскладка окна. Результат приезжает артефактом, его кладут
+# в `test/view/goldens/` и коммитят вместе с той правкой, которая их изменила.
+name: Goldens
+
+on:
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: macos-latest
+    timeout-minutes: 60
+
+    steps:
+      - uses: actions/checkout@v7
+
+      # Та же версия, что и в CI: эталоны зависят и от неё тоже.
+      - uses: subosito/flutter-action@v2
+        with:
+          flutter-version: 3.47.2
+          channel: stable
+          cache: true
+
+      - name: Версия окружения
+        run: |
+          flutter --version
+          sw_vers
+
+      - name: Зависимости воркспейса
+        run: flutter pub get
+
+      # Снимки живут только в корневом `test/view`: в пакетах их не держат.
+      - name: Перерисовать
+        run: flutter test test/view --update-goldens
+
+      - name: Что изменилось
+        run: git status --porcelain test/view/goldens
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: goldens
+          path: test/view/goldens
+          retention-days: 7
