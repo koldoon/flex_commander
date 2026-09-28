@@ -28,7 +28,10 @@ class FcMarkdownView extends StatefulWidget {
     this.controller,
     this.activeBlock,
     this.resolveImage,
-    this.padding = EdgeInsets.zero,
+    this.blockPadding = EdgeInsets.zero,
+    this.contentPadding = EdgeInsets.zero,
+    this.contentWidthFactor = 1,
+    this.headingSpacing = 0,
   });
 
   final FcMarkdownDocument document;
@@ -47,14 +50,35 @@ class FcMarkdownView extends StatefulWidget {
   /// Показ подводит к нему список и подсвечивает его целиком. Целиком, а не
   /// слово: подсветить слово внутри свёрстанного абзаца значило бы
   /// перехватывать построение всех текстовых тегов
-  /// (`docs/spec/markdown-viewer.md`, §7).
+  /// (`docs/spec/markdown-viewer.md`, §8).
   final int? activeBlock;
 
   /// Чем прочесть картинку по относительному пути; null — читать нечем, и
   /// вместо картинки показывается подпись.
   final FcImageResolver? resolveImage;
 
-  final EdgeInsets padding;
+  /// Отступ **каждого** блока: им разносят абзацы между собой.
+  final EdgeInsets blockPadding;
+
+  /// Отступ всего документа — сверху и снизу один раз, а не у каждого блока.
+  ///
+  /// Документ должен читаться документом, а не сплошным текстом от края до
+  /// края: поля сверху и снизу для того и нужны.
+  final EdgeInsets contentPadding;
+
+  /// Какую долю ширины занимает текст; 1 — всю.
+  ///
+  /// Длинная строка читается плохо: глаз теряет начало следующей. Поля по краям
+  /// дают колонку разумной ширины, а прокрутка при этом остаётся во всю
+  /// область — хватать её у самого края привычнее.
+  final double contentWidthFactor;
+
+  /// Сколько воздуха добавить **над** заголовком.
+  ///
+  /// Сверху, а не снизу: заголовок принадлежит тому, что под ним, и без отбивки
+  /// сверху он сливается с концом предыдущего раздела. Чем крупнее заголовок,
+  /// тем больше отбивка — так отличают часть от подраздела, не читая.
+  final double headingSpacing;
 
   @override
   State<FcMarkdownView> createState() => _FcMarkdownViewState();
@@ -165,11 +189,32 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
         Theme.of(context),
       ).copyWith(textScaler: MediaQuery.textScalerOf(context)).merge(fcMarkdownStyle(FcTheme.of(context)));
 
+  /// Отбивка над заголовком; 0 — обычный блок.
+  ///
+  /// Первому блоку она не нужна: над ним и так поле документа.
+  double _headingTop(int index) {
+    if (index == 0 || widget.headingSpacing <= 0) {
+      return 0;
+    }
+    final node = widget.document.nodes[index];
+    final tag = node is md.Element ? node.tag : '';
+
+    return switch (tag) {
+      'h1' || 'h2' => widget.headingSpacing,
+      'h3' || 'h4' => widget.headingSpacing * 0.6,
+      'h5' || 'h6' => widget.headingSpacing * 0.4,
+      _ => 0,
+    };
+  }
+
   Widget _blockAt(BuildContext context, int index) {
     final body =
         _built[index] ??= KeyedSubtree(
           key: _keys[index] ??= GlobalKey(),
-          child: Padding(padding: widget.padding, child: _build(context, widget.document.nodes[index])),
+          child: Padding(
+            padding: widget.blockPadding.copyWith(top: widget.blockPadding.top + _headingTop(index)),
+            child: _build(context, widget.document.nodes[index]),
+          ),
         );
 
     if (index != widget.activeBlock) {
@@ -211,14 +256,25 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
     builder: (context, constraints) {
       // Округляем: иначе перетаскивание разделителя пересобирало бы документ
       // на каждый пиксель.
-      final width = constraints.maxWidth.isFinite ? (constraints.maxWidth / 8).floorToDouble() * 8 : 0.0;
+      final available = constraints.maxWidth.isFinite ? (constraints.maxWidth / 8).floorToDouble() * 8 : 0.0;
+      final factor = widget.contentWidthFactor.clamp(0.1, 1.0);
+      // Поля по краям — отступом списка, а не рамкой вокруг него: полоса
+      // прокрутки должна остаться у края области, а не ехать вместе с текстом.
+      final side = (available * (1 - factor) / 2).floorToDouble();
+      final width = available - side * 2;
+
       if (width != _width) {
         _width = width;
         _built.clear();
       }
 
       return SelectionArea(
-        child: ListView.builder(controller: _scroll, itemCount: widget.document.length, itemBuilder: _blockAt),
+        child: ListView.builder(
+          controller: _scroll,
+          padding: widget.contentPadding.add(EdgeInsets.symmetric(horizontal: side)),
+          itemCount: widget.document.length,
+          itemBuilder: _blockAt,
+        ),
       );
     },
   );

@@ -76,7 +76,7 @@ class MarkdownViewerScreen extends ChangeNotifier implements ViewerContent, FcSe
   /// На экране этого поля нет: оно существует ради [FcTextFinder], который
   /// построен на буфере редактора и другого текста не знает. Найденное
   /// превращается в место на экране картой «строка → блок»
-  /// (`docs/spec/markdown-viewer.md`, §7).
+  /// (`docs/spec/markdown-viewer.md`, §8).
   CodeLineEditingController get shown => _shown ??= CodeLineEditingController.fromText(document.plainText);
   CodeLineEditingController? _shown;
 

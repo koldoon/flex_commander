@@ -19,6 +19,18 @@ class MarkdownViewerView extends StatelessWidget {
 
   final MarkdownViewerScreen screen;
 
+  /// Поля сверху и снизу: документ должен начинаться не от самой кромки.
+  ///
+  /// Числом, а не ролью темы: это раскладка одного экрана, а роль потянула бы
+  /// за собой и оформление по умолчанию, и редактор тем, и макет.
+  static const double documentMargin = 50;
+
+  /// Какую долю ширины занимает текст.
+  ///
+  /// Три четверти: строка во всю ширину читается плохо — глаз теряет начало
+  /// следующей.
+  static const double documentWidthFactor = 0.75;
+
   /// `Esc` закрывает показ — он принадлежит оболочке. Стрелки крутят текст: в
   /// показе курсора не видно, и шагать им по строкам некому.
   static const FcTextShortcuts _shortcuts = FcTextShortcuts(
@@ -63,10 +75,14 @@ class MarkdownViewerView extends StatelessWidget {
             blocks: app?.markdownBlocks ?? const [],
             activeBlock: screen.activeBlock,
             resolveImage: screen.resolveImage,
-            padding: EdgeInsets.symmetric(
-              horizontal: theme.metrics.dialogPadding,
-              vertical: theme.metrics.dialogLineGap,
-            ),
+            // Блоки разносим между собой малым отступом, а поля документа
+            // задаём один раз — сверху и снизу.
+            blockPadding: EdgeInsets.symmetric(vertical: theme.metrics.dialogLineGap),
+            contentPadding: const EdgeInsets.symmetric(vertical: documentMargin),
+            contentWidthFactor: documentWidthFactor,
+            // Вдвое против обычной отбивки раздела: в документе заголовков
+            // много, и меньшей они не отделяются от предыдущего текста.
+            headingSpacing: theme.metrics.dialogSectionGap * 2,
             onTapLink: (_, href, _) => _openLink(href),
           ),
         );
@@ -77,7 +93,7 @@ class MarkdownViewerView extends StatelessWidget {
   /// Внешняя ссылка уходит системе.
   ///
   /// Переходов по внутренним ссылкам в этой версии нет
-  /// (`docs/spec/markdown-viewer.md`, §9): они требуют решить, что происходит с
+  /// (`docs/spec/markdown-viewer.md`, §10): они требуют решить, что происходит с
   /// панелью и историей.
   void _openLink(String? href) {
     final open = screen.openWith;

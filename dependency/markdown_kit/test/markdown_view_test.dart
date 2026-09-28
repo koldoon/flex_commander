@@ -27,6 +27,9 @@ void main() {
     List<MarkdownBlockSpec> blocks = const [],
     void Function(String text, String? href, String title)? onTapLink,
     Size size = const Size(600, 400),
+    EdgeInsets contentPadding = EdgeInsets.zero,
+    double contentWidthFactor = 1,
+    double headingSpacing = 0,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -40,7 +43,14 @@ void main() {
             child: SizedBox(
               width: size.width,
               height: size.height,
-              child: FcMarkdownView(document: FcMarkdownDocument.parse(source), blocks: blocks, onTapLink: onTapLink),
+              child: FcMarkdownView(
+                document: FcMarkdownDocument.parse(source),
+                blocks: blocks,
+                onTapLink: onTapLink,
+                contentPadding: contentPadding,
+                contentWidthFactor: contentWidthFactor,
+                headingSpacing: headingSpacing,
+              ),
             ),
           ),
         ),
@@ -180,6 +190,110 @@ void main() {
 
       expect(find.text('Блок номер 0.'), findsNothing);
       expect(find.textContaining('Блок номер'), findsWidgets);
+    });
+  });
+
+  group('документ, а не сплошной текст', () {
+    testWidgets('колонка уже области: строка во всю ширину читается плохо', (tester) async {
+      late double given;
+      await pump(
+        tester,
+        '```mermaid\nA-->B\n```\n',
+        blocks: [
+          _spec(
+            'mermaid',
+            build: (context, request) {
+              given = request.maxWidth;
+
+              return const SizedBox.shrink();
+            },
+          ),
+        ],
+        size: const Size(800, 300),
+        contentWidthFactor: 0.75,
+      );
+
+      // Три четверти от восьмисот. Врезке достаётся ширина **колонки**, а не
+      // области: иначе диаграмма вылезла бы за поля.
+      expect(given, 600);
+    });
+
+    testWidgets('текст стоит не у самой кромки', (tester) async {
+      await pump(tester, 'Первый абзац.\n', size: const Size(800, 300), contentWidthFactor: 0.75);
+
+      final box = tester.getRect(find.text('Первый абзац.'));
+      final list = tester.getRect(find.byType(ListView));
+
+      expect(box.left - list.left, greaterThan(90), reason: 'слева поле в восьмую часть ширины');
+      expect(list.right - box.right, greaterThan(90));
+    });
+
+    testWidgets('поле сверху отодвигает документ от кромки', (tester) async {
+      await pump(
+        tester,
+        'Первый абзац.\n',
+        size: const Size(800, 300),
+        contentPadding: const EdgeInsets.symmetric(vertical: 50),
+      );
+
+      final list = tester.getRect(find.byType(ListView));
+      final text = tester.getRect(find.text('Первый абзац.'));
+
+      expect(text.top - list.top, greaterThanOrEqualTo(50));
+    });
+
+    testWidgets('над заголовком воздуха больше, чем между абзацами', (tester) async {
+      await pump(
+        tester,
+        'Конец раздела.\n\n## Новый раздел\n\nЕго текст.\n',
+        size: const Size(800, 400),
+        headingSpacing: 32,
+      );
+
+      final before = tester.getRect(find.text('Конец раздела.'));
+      final heading = tester.getRect(find.text('Новый раздел'));
+      final after = tester.getRect(find.text('Его текст.'));
+
+      // Заголовок принадлежит тому, что под ним: сверху отбивка больше.
+      expect(heading.top - before.bottom, greaterThan(after.top - heading.bottom));
+      expect(heading.top - before.bottom, greaterThanOrEqualTo(32));
+    });
+
+    testWidgets('подзаголовку воздуха меньше, чем разделу', (tester) async {
+      await pump(
+        tester,
+        'Текст.\n\n## Раздел\n\nТекст.\n\n#### Мелкий\n\nТекст.\n',
+        size: const Size(800, 600),
+        headingSpacing: 32,
+      );
+
+      final texts = find.text('Текст.');
+      final big = tester.getRect(find.text('Раздел'));
+      final small = tester.getRect(find.text('Мелкий'));
+
+      final beforeBig = big.top - tester.getRect(texts.at(0)).bottom;
+      final beforeSmall = small.top - tester.getRect(texts.at(1)).bottom;
+
+      expect(beforeSmall, lessThan(beforeBig), reason: 'часть и подраздел должны различаться, не читая');
+    });
+
+    testWidgets('первому блоку отбивка не нужна: над ним и так поле', (tester) async {
+      await pump(tester, '# Заголовок\n\nТекст.\n', size: const Size(800, 400), headingSpacing: 32);
+
+      final list = tester.getRect(find.byType(ListView));
+      final heading = tester.getRect(find.text('Заголовок'));
+
+      expect(heading.top - list.top, lessThan(32));
+    });
+
+    testWidgets('без доводов всё как было: полная ширина и без полей', (tester) async {
+      await pump(tester, 'Первый абзац.\n', size: const Size(800, 300));
+
+      final box = tester.getRect(find.text('Первый абзац.'));
+      final list = tester.getRect(find.byType(ListView));
+
+      expect(box.left - list.left, lessThan(10));
+      expect(box.top - list.top, lessThan(10));
     });
   });
 

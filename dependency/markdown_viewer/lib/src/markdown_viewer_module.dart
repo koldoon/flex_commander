@@ -82,7 +82,7 @@ class MarkdownViewer implements FcFrontendModule {
 
     // Поиск — команды общие с текстом и редактором: показ текста у них один,
     // значит и поиск один. Ищут в том виде, который показан: в свёрстанном по
-    // видимому тексту, в исходнике по разметке (§7).
+    // видимому тексту, в исходнике по разметке (§8).
     registry.command((context) => FcFindTextCommand(id: findCommandId, screenId: MarkdownViewerScreen.screenId));
     registry.command((context) => FcFindNextCommand(id: findNextCommandId, screenId: MarkdownViewerScreen.screenId));
     registry.command(
@@ -91,7 +91,7 @@ class MarkdownViewer implements FcFrontendModule {
 
     // `F5` — та же клавиша и тот же смысл, что у вектора и у будущих
     // форматтеров. Раздел свой: спор считается по клавише **и** контексту, и в
-    // разделе текста два `F5` выглядели бы спором, которого нет (§8).
+    // разделе текста два `F5` выглядели бы спором, которого нет (§9).
     registry.binding(
       KeyBinding.inState<MarkdownViewerScreen>(
         'F5',

@@ -10,7 +10,7 @@ import 'markdown_style.dart';
 ///
 /// Путь относительный — от каталога самого документа. Разрешает его тот, кто
 /// открыл файл: `.md` лежит и в архиве, и на сервере, и читать соседний файл
-/// через `dart:io` там нечем (`docs/spec/markdown-viewer.md`, §9).
+/// через `dart:io` там нечем (`docs/spec/markdown-viewer.md`, §10).
 typedef FcImageResolver = Future<Uint8List> Function(String path);
 
 /// Картинка из документа.
@@ -61,7 +61,7 @@ class _FcMarkdownImageState extends State<FcMarkdownImage> {
   @override
   Widget build(BuildContext context) {
     // Удалённые картинки не забираем: показ файла не должен молча ходить в
-    // сеть (§11). Вместо неё — подпись и адрес, чтобы человек понял, что здесь
+    // сеть (§12). Вместо неё — подпись и адрес, чтобы человек понял, что здесь
     // было и куда смотреть.
     if (_remote) {
       return _placeholder(context, widget.uri.host.isEmpty ? widget.uri.scheme : widget.uri.host);

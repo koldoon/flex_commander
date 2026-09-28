@@ -53,7 +53,7 @@ void main() {
     test('врезка GitHub остаётся цитатой, а не узлом, которого показ не знает', () {
       // `AlertBlockSyntax` делает `div`, на котором отрисовка падает; поэтому
       // его в наборе нет, и `> [!NOTE]` разбирается обычной цитатой
-      // (`docs/spec/markdown-viewer.md`, §10).
+      // (`docs/spec/markdown-viewer.md`, §11).
       final alert = FcMarkdownDocument.parse('> [!NOTE]\n> Осторожно.\n');
 
       expect((alert.nodes.single as md.Element).tag, 'blockquote');

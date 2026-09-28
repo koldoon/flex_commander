@@ -42,7 +42,9 @@ MarkdownStyleSheet fcMarkdownStyle(FcTheme theme) {
     blockSpacing: metrics.dialogGap,
     tableHead: theme.dialogTextStyle.copyWith(fontWeight: FontWeight.bold, color: theme.colors.dialogLabel),
     tableBody: theme.dialogTextStyle,
-    tableBorder: TableBorder.all(color: theme.colors.dialogListBorder, width: metrics.strokeWidth),
+    // Линейки таблицы — тем же цветом, каким панель делит колонки: таблица в
+    // документе и таблица файлов рисуют одно и то же, и разными им быть незачем.
+    tableBorder: TableBorder.all(color: theme.colors.columnDivider, width: metrics.strokeWidth),
     tableCellsPadding: EdgeInsets.symmetric(horizontal: metrics.cellPadding, vertical: metrics.dialogLineGap),
     blockquoteDecoration: BoxDecoration(
       color: theme.colors.dialogListBackground,
