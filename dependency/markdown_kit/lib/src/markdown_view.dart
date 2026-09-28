@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart' show SelectionArea, Theme;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -32,6 +33,7 @@ class FcMarkdownView extends StatefulWidget {
     this.contentPadding = EdgeInsets.zero,
     this.contentWidthFactor = 1,
     this.headingSpacing = 0,
+    this.autofocus = false,
   });
 
   final FcMarkdownDocument document;
@@ -72,6 +74,13 @@ class FcMarkdownView extends StatefulWidget {
   /// дают колонку разумной ширины, а прокрутка при этом остаётся во всю
   /// область — хватать её у самого края привычнее.
   final double contentWidthFactor;
+
+  /// Просить ли клавиши себе.
+  ///
+  /// Документ листают с клавиатуры — стрелками, страницами, `Home` и `End`.
+  /// Без фокуса нажатие не дошло бы до показа вовсе, а нажатие без ответа —
+  /// ошибка.
+  final bool autofocus;
 
   /// Сколько воздуха добавить **над** заголовком.
   ///
@@ -268,16 +277,55 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
         _built.clear();
       }
 
-      return SelectionArea(
-        child: ListView.builder(
-          controller: _scroll,
-          padding: widget.contentPadding.add(EdgeInsets.symmetric(horizontal: side)),
-          itemCount: widget.document.length,
-          itemBuilder: _blockAt,
+      return Focus(
+        autofocus: widget.autofocus,
+        onKeyEvent: _onKey,
+        child: SelectionArea(
+          child: ListView.builder(
+            controller: _scroll,
+            padding: widget.contentPadding.add(EdgeInsets.symmetric(horizontal: side)),
+            itemCount: widget.document.length,
+            itemBuilder: _blockAt,
+          ),
         ),
       );
     },
   );
+
+  /// Прокрутка клавишами: документ листают так же, как показ текста.
+  ///
+  /// Стрелки идут строками, страницы — почти экраном (с нахлёстом в десятую
+  /// часть, чтобы не терять место чтения), `Home` и `End` — к краям.
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is KeyUpEvent || !_scroll.hasClients) {
+      return KeyEventResult.ignored;
+    }
+
+    final position = _scroll.position;
+    final page = position.viewportDimension * 0.9;
+
+    final target = switch (event.logicalKey) {
+      LogicalKeyboardKey.arrowDown => position.pixels + _lineStep,
+      LogicalKeyboardKey.arrowUp => position.pixels - _lineStep,
+      LogicalKeyboardKey.pageDown || LogicalKeyboardKey.space => position.pixels + page,
+      LogicalKeyboardKey.pageUp => position.pixels - page,
+      LogicalKeyboardKey.home => 0.0,
+      LogicalKeyboardKey.end => position.maxScrollExtent,
+      _ => null,
+    };
+
+    if (target == null) {
+      return KeyEventResult.ignored;
+    }
+
+    _scroll.jumpTo(target.clamp(0.0, position.maxScrollExtent));
+
+    return KeyEventResult.handled;
+  }
+
+  /// Шаг стрелки. Три строки: по одной документ листать утомительно, а
+  /// половиной экрана — уже страница.
+  static const double _lineStep = 56;
 
   @override
   GestureRecognizer createLink(String text, String? href, String title) {

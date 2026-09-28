@@ -83,6 +83,9 @@ class MarkdownViewerView extends StatelessWidget {
             // Вдвое против обычной отбивки раздела: в документе заголовков
             // много, и меньшей они не отделяются от предыдущего текста.
             headingSpacing: theme.metrics.dialogSectionGap * 2,
+            // Во весь экран клавиши наши сразу; в панели — только когда в
+            // показ вошли: пока курсор в файлах, стрелки принадлежат ему.
+            autofocus: focused,
             onTapLink: (_, href, _) => _openLink(href),
           ),
         );

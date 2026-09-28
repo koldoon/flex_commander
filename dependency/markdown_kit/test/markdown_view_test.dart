@@ -3,6 +3,7 @@ import 'package:fc_markdown_kit/fc_markdown_kit.dart';
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 /// Рисовальщик врезки для теста: что объявил, то и делает.
@@ -30,6 +31,7 @@ void main() {
     EdgeInsets contentPadding = EdgeInsets.zero,
     double contentWidthFactor = 1,
     double headingSpacing = 0,
+    bool autofocus = false,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -50,6 +52,7 @@ void main() {
                 contentPadding: contentPadding,
                 contentWidthFactor: contentWidthFactor,
                 headingSpacing: headingSpacing,
+                autofocus: autofocus,
               ),
             ),
           ),
@@ -311,6 +314,63 @@ void main() {
 
       expect(box.left - list.left, lessThan(10));
       expect(box.top - list.top, lessThan(10));
+    });
+  });
+
+  group('прокрутка клавишами', () {
+    /// Длинный документ: коротким листать нечего.
+    String longDocument() => [for (var i = 0; i < 200; i++) 'Строка номер $i.'].join('\n\n');
+
+    double offsetOf(WidgetTester tester) =>
+        (tester.widget<ListView>(find.byType(ListView))).controller!.position.pixels;
+
+    testWidgets('стрелка вниз листает, вверх возвращает', (tester) async {
+      await pump(tester, longDocument(), size: const Size(500, 300), autofocus: true);
+      expect(offsetOf(tester), 0);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      final stepped = offsetOf(tester);
+      expect(stepped, greaterThan(0), reason: 'нажатие обязано что-то менять');
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+      expect(offsetOf(tester), lessThan(stepped));
+    });
+
+    testWidgets('страница листает больше строки', (tester) async {
+      await pump(tester, longDocument(), size: const Size(500, 300), autofocus: true);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pump();
+      final line = offsetOf(tester);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.home);
+      await tester.pump();
+      await tester.sendKeyEvent(LogicalKeyboardKey.pageDown);
+      await tester.pump();
+
+      expect(offsetOf(tester), greaterThan(line));
+    });
+
+    testWidgets('`End` уводит в конец, `Home` возвращает в начало', (tester) async {
+      await pump(tester, longDocument(), size: const Size(500, 300), autofocus: true);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      await tester.pump();
+      expect(offsetOf(tester), greaterThan(0));
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.home);
+      await tester.pump();
+      expect(offsetOf(tester), 0);
+    });
+
+    testWidgets('дальше краёв не уезжает', (tester) async {
+      await pump(tester, longDocument(), size: const Size(500, 300), autofocus: true);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pump();
+      expect(offsetOf(tester), 0, reason: 'выше начала листать некуда');
     });
   });
 
