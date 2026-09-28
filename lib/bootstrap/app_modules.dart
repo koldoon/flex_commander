@@ -13,6 +13,7 @@ import 'package:fc_file_ops/fc_file_ops.dart';
 import 'package:fc_ftp/fc_ftp.dart';
 import 'package:fc_history/fc_history.dart';
 import 'package:fc_image_viewer/fc_image_viewer.dart';
+import 'package:fc_markdown_viewer/fc_markdown_viewer.dart';
 import 'package:fc_key_presets/fc_key_presets.dart';
 import 'package:fc_local_fs/fc_local_fs.dart';
 import 'package:fc_navigation/fc_navigation.dart';
@@ -112,6 +113,7 @@ List<FcModule> featureModules() => [
   const Viewer(),
   const TextViewer(),
   const ImageViewer(),
+  const MarkdownViewer(),
   const KeyPresets(),
   // Последним в очереди просмотрщиков: берётся за то, за что не взялся никто.
   const FileInfo(),

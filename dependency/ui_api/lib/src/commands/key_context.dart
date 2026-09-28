@@ -16,6 +16,7 @@ enum KeyContext {
   panel('File panels'),
   textViewer('Text viewer'),
   imageViewer('Image viewer'),
+  markdownViewer('Markdown viewer'),
   editor('Text editor'),
   commandLine('Command line'),
 

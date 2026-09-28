@@ -508,7 +508,7 @@ takes and saying in words when nothing does.
 | `dependency/markdown_kit` | markdown rendering: theme styles, highlighted code blocks, the extension point for diagrams |
 | `dependency/panels` | the file panels screen |
 | `dependency/viewer` | the viewing shell: `F3`, `Shift+F3` and choosing a viewer |
-| `dependency/text_viewer`, `dependency/image_viewer` | viewers: text, images and vector |
+| `dependency/text_viewer`, `dependency/image_viewer`, `dependency/markdown_viewer` | viewers: text, images, vector and markdown |
 | `dependency/file_info` | file info: the window, the fallback viewer, section providers |
 | `dependency/attributes` | editing attributes: permissions, dates, owner, extended |
 | `dependency/editor` | the text editor (`F4`) |

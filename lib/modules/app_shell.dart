@@ -772,6 +772,7 @@ const Map<String, String> _russian = {
   'File panels': 'Файловые панели',
   'Text viewer': 'Просмотр',
   'Image viewer': 'Картинки',
+  'Markdown viewer': 'Markdown',
   'Text editor': 'Редактор',
   'Command line': 'Командная строка',
   'Everywhere': 'Везде',

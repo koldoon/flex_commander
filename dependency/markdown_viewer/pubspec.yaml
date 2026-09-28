@@ -1,0 +1,54 @@
+name: fc_markdown_viewer
+description: "Просмотрщик markdown: один из тех, что объявляют себя в реестре просмотрщиков."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  fc_api:
+    path: ../api
+
+  fc_ui_api:
+    path: ../ui_api
+
+  fc_ui_kit:
+    path: ../ui_kit
+
+  # Сам показ разметки: оформление, врезки, ленивый список блоков.
+  fc_markdown_kit:
+    path: ../markdown_kit
+
+  # Показ исходника по `F5`: то же поле и та же подсветка, какими его
+  # показывает текстовый просмотрщик.
+  fc_text_kit:
+    path: ../text_kit
+
+  re_editor: ^0.10.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  fc_test_kit:
+    path: ../test_kit
+
+  fc_default_theme:
+    path: ../default_theme
+
+  flex_commander:
+    path: ../..
+
+  # Оболочка просмотра: без неё `F3` некому обслужить.
+  fc_viewer:
+    path: ../viewer
+
+  # Проверяем и то, что реестр не перепутал: обычный текст остался за текстовым.
+  fc_text_viewer:
+    path: ../text_viewer
