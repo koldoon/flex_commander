@@ -41,4 +41,16 @@ const Map<String, String> _russian = {
   'Unknown diagram type: {kind}': 'Неизвестный вид диаграммы: {kind}',
   '{kind} is not drawn yet': '{kind} пока не рисуется',
   'Line {line}: {what}': 'Строка {line}: {what}',
+
+  // Что именно не так — подставляется в «Строка N: …».
+  'the diagram is empty': 'диаграмма пуста',
+  'this block is never closed': 'эта рамка не закрыта',
+  'this end closes nothing': 'этот end ничего не закрывает',
+  'this line divides a block, but no block is open': 'эта строка делит рамку, но ни одна рамка не открыта',
+  'this line does not say who the participant is': 'не сказано, кто участник',
+  'this line does not say whose activation it is': 'не сказано, чью активность открывают',
+  'a note needs a colon and its text': 'у заметки нет двоеточия и текста',
+  'a note must say left of, right of or over': 'у заметки должно быть left of, right of или over',
+  'a message needs both sides of the arrow': 'у сообщения должны быть обе стороны стрелки',
+  'do not understand this line': 'непонятная строка',
 };

@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import 'mermaid_error.dart';
 import 'mermaid_kind.dart';
+import 'sequence/sequence_parser.dart';
 
 /// Нарисовать врезку ```` ```mermaid ````.
 ///
@@ -31,10 +32,6 @@ Widget buildMermaidBlock(BuildContext context, MarkdownBlockRequest request) {
     );
   }
 
-  if (!kind.isDrawn) {
-    throw MarkdownBlockRefused(said.tr('{kind} is not drawn yet', args: {'kind': kind.keyword}));
-  }
-
   try {
     return _draw(context, kind, request);
   } on MermaidError catch (error) {
@@ -44,6 +41,17 @@ Widget buildMermaidBlock(BuildContext context, MarkdownBlockRequest request) {
   }
 }
 
-/// Собственно отрисовка. Пока не умеет никто — выше это и сказано.
-Widget _draw(BuildContext context, MermaidKind kind, MarkdownBlockRequest request) =>
-    throw MarkdownBlockRefused(context.strings.tr('{kind} is not drawn yet', args: {'kind': kind.keyword}));
+/// Собственно отрисовка.
+///
+/// Рисовать пока не умеет никто, но **разобрать** последовательность мы уже
+/// умеем — и разбираем: опечатку в диаграмме человеку стоит показать сегодня, а
+/// не ждать, пока появится картинка. Отказ «пока не рисуется» приходит после
+/// разбора, а не вместо него.
+Widget _draw(BuildContext context, MermaidKind kind, MarkdownBlockRequest request) {
+  if (kind == MermaidKind.sequence) {
+    // Разбор бросит `MermaidError` с номером строки — его поймает вызывающий.
+    parseSequenceDiagram(request.source);
+  }
+
+  throw MarkdownBlockRefused(context.strings.tr('{kind} is not drawn yet', args: {'kind': kind.keyword}));
+}

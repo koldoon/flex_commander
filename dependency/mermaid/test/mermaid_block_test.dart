@@ -69,6 +69,26 @@ void main() {
     expect(find.textContaining('Cli->>API: POST /orders'), findsOneWidget);
   });
 
+  testWidgets('ошибка разбора названа с номером строки', (tester) async {
+    // Считается по **исходной** врезке: пустые строки и комментарии до неё
+    // номер не сдвигают.
+    await pump(tester, 'sequenceDiagram\n  A->>B: раз\n  end');
+
+    expect(find.text('Line 3: this end closes nothing'), findsOneWidget);
+  });
+
+  testWidgets('незакрытая рамка указывает на своё начало, а не на конец', (tester) async {
+    await pump(tester, 'sequenceDiagram\n  alt да\n    A->>B: раз');
+
+    expect(find.text('Line 2: this block is never closed'), findsOneWidget);
+  });
+
+  testWidgets('верная диаграмма разбирается и говорит, что пока не рисуется', (tester) async {
+    await pump(tester, 'sequenceDiagram\n  autonumber\n  A->>B: раз\n  alt да\n    B-->>A: два\n  end');
+
+    expect(find.text('sequenceDiagram is not drawn yet'), findsOneWidget);
+  });
+
   testWidgets('чужой язык врезки этот рисовальщик не трогает', (tester) async {
     await tester.pumpWidget(
       MaterialApp(

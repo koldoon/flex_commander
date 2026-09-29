@@ -11,3 +11,6 @@ export 'src/mermaid_block.dart';
 export 'src/mermaid_error.dart';
 export 'src/mermaid_kind.dart';
 export 'src/mermaid_module.dart';
+export 'src/sequence/sequence_model.dart';
+export 'src/sequence/sequence_parser.dart';
+export 'src/text/lexer.dart';

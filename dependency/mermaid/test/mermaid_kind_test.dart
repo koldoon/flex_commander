@@ -38,8 +38,13 @@ void main() {
     expect(mermaidFirstWordOf('\n\n%% и всё\n'), isEmpty);
   });
 
-  test('рисовать пока не умеем ни один вид — и это сказано вслух', () {
-    // Когда появится первый, здесь станет видно, что именно он и появился.
-    expect(MermaidKind.values.where((kind) => kind.isDrawn), isEmpty);
+  test('у каждого вида своё слово, и они не повторяются', () {
+    final words = [
+      for (final kind in MermaidKind.values)
+        if (kind != MermaidKind.unknown) kind.keyword,
+    ];
+
+    expect(words.toSet(), hasLength(words.length));
+    expect(words, isNot(contains('')));
   });
 }
