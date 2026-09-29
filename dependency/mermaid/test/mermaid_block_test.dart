@@ -46,9 +46,9 @@ void main() {
   });
 
   testWidgets('вид знаем, но ещё не рисуем — так и сказано', (tester) async {
-    await pump(tester, 'sequenceDiagram\n  A->>B: привет');
+    await pump(tester, 'classDiagram\n  class Кошка');
 
-    expect(find.text('sequenceDiagram is not drawn yet'), findsOneWidget);
+    expect(find.text('classDiagram is not drawn yet'), findsOneWidget);
   });
 
   testWidgets('и для графа тоже', (tester) async {
@@ -64,9 +64,11 @@ void main() {
   });
 
   testWidgets('исходник врезки виден целиком: его и будут чинить', (tester) async {
-    await pump(tester, 'sequenceDiagram\n  Cli->>API: POST /orders');
+    // На том виде, который ещё не рисуется: у нарисованного исходника на
+    // экране нет — есть картинка.
+    await pump(tester, 'gantt\n  title План');
 
-    expect(find.textContaining('Cli->>API: POST /orders'), findsOneWidget);
+    expect(find.textContaining('title План'), findsOneWidget);
   });
 
   testWidgets('ошибка разбора названа с номером строки', (tester) async {
@@ -83,10 +85,19 @@ void main() {
     expect(find.text('Line 2: this block is never closed'), findsOneWidget);
   });
 
-  testWidgets('верная диаграмма разбирается и говорит, что пока не рисуется', (tester) async {
+  testWidgets('верная последовательность рисуется картинкой, а не текстом', (tester) async {
     await pump(tester, 'sequenceDiagram\n  autonumber\n  A->>B: раз\n  alt да\n    B-->>A: два\n  end');
 
-    expect(find.text('sequenceDiagram is not drawn yet'), findsOneWidget);
+    expect(find.byType(MermaidDiagramView), findsOneWidget);
+    expect(find.byType(FcCodeBlock), findsNothing, reason: 'нарисованному исходник не нужен');
+    expect(find.textContaining('is not drawn yet'), findsNothing);
+  });
+
+  testWidgets('нарисованная диаграмма умещается в данную ширину', (tester) async {
+    await pump(tester, 'sequenceDiagram\n  Очень->>Длинный: подпись, которая заведомо шире врезки в шестьсот точек');
+
+    final box = tester.getRect(find.byType(MermaidDiagramView));
+    expect(box.width, lessThanOrEqualTo(600));
   });
 
   testWidgets('чужой язык врезки этот рисовальщик не трогает', (tester) async {
