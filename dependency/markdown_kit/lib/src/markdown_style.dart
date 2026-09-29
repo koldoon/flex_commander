@@ -2,6 +2,8 @@ import 'package:fc_ui_kit/fc_ui_kit.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 
+import 'markdown_table_width.dart';
+
 /// Как выглядит свёрстанный markdown: тем же набором стилей, что и окна.
 ///
 /// Своей темы у разметки нет и быть не должно — документ обязан выглядеть как
@@ -40,6 +42,9 @@ MarkdownStyleSheet fcMarkdownStyle(FcTheme theme) {
     a: theme.dialogTextStyle.copyWith(color: theme.colors.dialogLabel, decoration: TextDecoration.underline),
     listBullet: theme.dialogTextStyle,
     blockSpacing: metrics.dialogGap,
+    // Ширина колонок — по содержимому: поровну колонка «Да/Нет» получала
+    // столько же, сколько колонка с описанием на три строки.
+    tableColumnWidth: const FcContentColumnWidth(),
     tableHead: theme.dialogTextStyle.copyWith(fontWeight: FontWeight.bold, color: theme.colors.dialogLabel),
     tableBody: theme.dialogTextStyle,
     // Читают таблицу слева направо и сверху вниз — так текст в ячейках и
