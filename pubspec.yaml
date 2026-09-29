@@ -42,6 +42,7 @@ workspace:
   - dependency/local_fs
   - dependency/markdown_kit
   - dependency/markdown_viewer
+  - dependency/mermaid
   - dependency/navigation
   - dependency/panels
   - dependency/platform
@@ -157,6 +158,9 @@ dependencies:
 
   fc_markdown_viewer:
     path: dependency/markdown_viewer
+
+  fc_mermaid:
+    path: dependency/mermaid
 
   fc_key_presets:
     path: dependency/key_presets

@@ -506,6 +506,7 @@ takes and saying in words when nothing does.
 | `dependency/ui_kit` | shared widgets: panel frame, dialogs, buttons, fields |
 | `dependency/text_kit` | text display shared by the viewer and the editor |
 | `dependency/markdown_kit` | markdown rendering: theme styles, highlighted code blocks, the extension point for diagrams |
+| `dependency/mermaid` | mermaid diagrams inside markdown: own parser and painter |
 | `dependency/panels` | the file panels screen |
 | `dependency/viewer` | the viewing shell: `F3`, `Shift+F3` and choosing a viewer |
 | `dependency/text_viewer`, `dependency/image_viewer`, `dependency/markdown_viewer` | viewers: text, images, vector and markdown |
