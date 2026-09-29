@@ -445,6 +445,19 @@ void main() {
       expect(size.height, theme.metrics.checkboxSize);
     });
 
+    testWidgets('флажок стоит там же, где маркер обычного списка', (tester) async {
+      // Флажок — это маркер списка задач. Прижатый влево, он один торчал бы за
+      // поля документа: `•` показ центрует в колонке маркера, а номер и вовсе
+      // прижимает вправо.
+      await pump(tester, '- обычный пункт\n');
+      final bullet = tester.getRect(find.text('•')).center.dx;
+
+      await pump(tester, source);
+      final mark = tester.getRect(find.byType(FcCheckboxMark).first).center.dx;
+
+      expect(mark, moreOrLessEquals(bullet, epsilon: 1));
+    });
+
     testWidgets('отмеченное отмечено, неотмеченное нет', (tester) async {
       await pump(tester, source);
 
