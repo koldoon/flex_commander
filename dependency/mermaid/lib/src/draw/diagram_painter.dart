@@ -18,6 +18,8 @@ class DiagramPainter extends CustomPainter {
       switch (shape) {
         case DiagramBox():
           _box(canvas, shape);
+        case DiagramFigure():
+          _figure(canvas, shape);
         case DiagramPath():
           _path(canvas, shape);
         case DiagramLabel(:final run, :final at, :final backdrop):
@@ -61,12 +63,39 @@ class DiagramPainter extends CustomPainter {
     );
   }
 
+  /// Фигура узла: заливка и обводка — те же, что у коробки.
+  void _figure(Canvas canvas, DiagramFigure figure) {
+    if (figure.filled) {
+      canvas
+        ..drawPath(figure.path, Paint()..color = style.colorOf(figure.ink))
+        ..drawPath(
+          figure.path,
+          Paint()
+            ..style = PaintingStyle.stroke
+            ..strokeWidth = style.stroke
+            ..color = style.edge,
+        );
+
+      return;
+    }
+
+    canvas.drawPath(
+      figure.path,
+      Paint()
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = style.stroke
+        ..color = style.colorOf(figure.ink),
+    );
+  }
+
   void _path(Canvas canvas, DiagramPath path) {
     final paint =
         Paint()
           ..style = PaintingStyle.stroke
-          // Линия вызова толще прочих: она главная.
-          ..strokeWidth = path.ink == DiagramInk.line ? style.arrowStroke : style.stroke
+          // Линия вызова толще прочих: она главная. Толстая — ещё толще:
+          // в графе её так и просят написать, `==>`.
+          ..strokeWidth =
+              path.thick ? style.arrowStroke * 2 : (path.ink == DiagramInk.line ? style.arrowStroke : style.stroke)
           ..color = style.colorOf(path.ink);
 
     for (var i = 0; i + 1 < path.points.length; i++) {
@@ -81,6 +110,9 @@ class DiagramPainter extends CustomPainter {
 
     if (path.head != DiagramHead.none && path.points.length >= 2) {
       _head(canvas, path.points[path.points.length - 2], path.points.last, path.head, paint);
+    }
+    if (path.tail != DiagramHead.none && path.points.length >= 2) {
+      _head(canvas, path.points[1], path.points.first, path.tail, paint);
     }
   }
 
@@ -132,6 +164,12 @@ class DiagramPainter extends CustomPainter {
         canvas
           ..drawLine(to - unit * half + normal * half, to + unit * half - normal * half, line)
           ..drawLine(to - unit * half - normal * half, to + unit * half + normal * half, line);
+
+      case DiagramHead.circle:
+        // Пустой внутри: залитый читался бы точкой на линии, а не её концом.
+        canvas
+          ..drawCircle(to - unit * (size / 3), size / 3, Paint()..color = style.background)
+          ..drawCircle(to - unit * (size / 3), size / 3, line);
     }
   }
 

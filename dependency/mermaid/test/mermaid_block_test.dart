@@ -51,10 +51,12 @@ void main() {
     expect(find.text('classDiagram is not drawn yet'), findsOneWidget);
   });
 
-  testWidgets('и для графа тоже', (tester) async {
-    await pump(tester, 'flowchart TD\n  A-->B');
+  testWidgets('верный граф рисуется картинкой, а не текстом', (tester) async {
+    await pump(tester, 'flowchart TD\n  A[Начало] --> B{Развилка}');
 
-    expect(find.text('flowchart is not drawn yet'), findsOneWidget);
+    expect(find.byType(MermaidDiagramView), findsOneWidget);
+    expect(find.text('flowchart is not drawn yet'), findsNothing);
+    expect(find.textContaining('flowchart TD'), findsNothing, reason: 'исходника на экране быть не должно');
   });
 
   testWidgets('кривой граф называет строку, а не «пока не рисуется»', (tester) async {

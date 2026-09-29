@@ -33,6 +33,9 @@ enum DiagramHead {
 
   /// Открытая «галочка».
   open,
+
+  /// Кружок — им кончается `--o` в графе.
+  circle,
 }
 
 /// Готовая диаграмма: размер и фигуры в порядке отрисовки.
@@ -73,12 +76,29 @@ class DiagramBox extends DiagramShape {
   final bool dashed;
 }
 
+/// Произвольная фигура: формы узлов графа.
+///
+/// Путём, а не перечислением форм: их тринадцать, и знать о них рисовальщику
+/// незачем — он умеет заливать и обводить, а какой ромб у ромба угол, решает
+/// раскладка (`docs/spec/mermaid.md`, §7).
+class DiagramFigure extends DiagramShape {
+  const DiagramFigure({required this.path, this.ink = DiagramInk.fill, this.filled = true});
+
+  final Path path;
+  final DiagramInk ink;
+
+  /// Заливать ли; незалитая — только обводка.
+  final bool filled;
+}
+
 /// Ломаная: стрелка сообщения, линия жизни, черта между ветвями.
 class DiagramPath extends DiagramShape {
   const DiagramPath({
     required this.points,
     this.head = DiagramHead.none,
+    this.tail = DiagramHead.none,
     this.dashed = false,
+    this.thick = false,
     this.ink = DiagramInk.line,
   });
 
@@ -86,7 +106,15 @@ class DiagramPath extends DiagramShape {
   final List<Offset> points;
 
   final DiagramHead head;
+
+  /// Наконечник у начала: у двусторонней стрелки.
+  final DiagramHead tail;
+
   final bool dashed;
+
+  /// Толстая линия — `==>` в графе.
+  final bool thick;
+
   final DiagramInk ink;
 }
 

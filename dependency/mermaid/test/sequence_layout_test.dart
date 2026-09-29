@@ -82,6 +82,9 @@ void main() {
           case DiagramLabel(:final at, :final run):
             expect(at.dx + run.size.width, lessThanOrEqualTo(l.size.width + 0.01));
             expect(at.dy + run.size.height, lessThanOrEqualTo(l.size.height + 0.01));
+          case DiagramFigure(:final path):
+            // Фигур последовательность не рисует: они из графа.
+            expect(path, isNotNull);
         }
       }
     });
