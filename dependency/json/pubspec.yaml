@@ -1,0 +1,34 @@
+name: fc_json
+description: "Форматтер json: читаемый вид для показа и для правки."
+publish_to: 'none'
+version: 1.0.0
+
+resolution: workspace
+
+environment:
+  sdk: ^3.7.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # Имя файла, по которому решается «моё ли это».
+  fc_api:
+    path: ../api
+
+  # Объявление форматтера: `FormatterSpec`. Про экраны модуль не знает ничего —
+  # ему дают текст, он отдаёт текст.
+  fc_ui_api:
+    path: ../ui_api
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+
+  # Сборка приложения в тесте: проверяется, что модуль объявляет своё в
+  # настоящем реестре, а не в подставном.
+  fc_test_kit:
+    path: ../test_kit
+
+  flex_commander:
+    path: ../..
