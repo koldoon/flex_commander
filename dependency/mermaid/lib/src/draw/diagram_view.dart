@@ -71,15 +71,23 @@ class _MermaidDiagramViewState extends State<MermaidDiagramView> {
     final wanted = fits ? 1.0 : widget.maxWidth / layout.size.width;
     final scale = wanted < MermaidDiagramView.minScale ? MermaidDiagramView.minScale : wanted;
 
-    final picture = SizedBox(
-      width: layout.size.width * scale,
-      height: layout.size.height * scale,
-      child: FittedBox(
-        fit: BoxFit.fill,
-        child: SizedBox(
-          width: layout.size.width,
-          height: layout.size.height,
-          child: CustomPaint(painter: DiagramPainter(layout: layout, style: style)),
+    // `Align`, а не голый `SizedBox`: врезка в документе растянута на всю
+    // ширину колонки, и без него картинка растягивалась бы вместе с ней —
+    // буквы становились широкими. `Align` даёт ребёнку его собственный размер.
+    final picture = Align(
+      alignment: Alignment.centerLeft,
+      child: SizedBox(
+        width: layout.size.width * scale,
+        height: layout.size.height * scale,
+        child: FittedBox(
+          // `contain`, а не `fill`: пропорции картинки не наше дело менять.
+          fit: BoxFit.contain,
+          alignment: Alignment.topLeft,
+          child: SizedBox(
+            width: layout.size.width,
+            height: layout.size.height,
+            child: CustomPaint(painter: DiagramPainter(layout: layout, style: style)),
+          ),
         ),
       ),
     );

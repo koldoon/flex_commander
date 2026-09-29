@@ -94,7 +94,7 @@ class CoreServer implements CoreHandler {
     final panel = PanelId(_nextId++);
     _panels[panel] = session;
     _watch(panel, session);
-
+пл
     // С подключением: образец уже стоит там, куда идём, — соединение поднято,
     // и второй аренде оно достаётся тем же (`spec/provider-lease.md`, §2).
     // Без этого спутник комбинированного вида над сервером падал бы в

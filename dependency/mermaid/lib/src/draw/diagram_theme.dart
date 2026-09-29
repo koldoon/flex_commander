@@ -32,7 +32,10 @@ class DiagramStyle {
         DiagramTextRole.blockLabel: faintText,
         DiagramTextRole.number: faintText,
       },
-      line: theme.colors.panelBorder,
+      // Цветом текста, а не рамки: `panelBorder` — «белый 15%», и стрелки на
+      // нём выходили бледнее собственных подписей. Стрелка — главное на
+      // диаграмме, её и видно первой.
+      line: theme.colors.rowText,
       fill: theme.colors.dialogListBackground,
       edge: theme.colors.dialogListBorder,
       bar: theme.colors.markedBar,
