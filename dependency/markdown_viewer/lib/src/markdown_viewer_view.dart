@@ -40,9 +40,14 @@ class MarkdownViewerView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Приложение нужно только в панели: во весь экран рама и фокус известны и
-    // так — оба края внешние, ввод его.
-    final app = screen.place == ViewerPlace.panel ? AppScope.read(context) : null;
+    // Объявленное модулями спрашиваем всегда, когда есть у кого: рисовальщики
+    // врезок нужны и во весь экран. Раньше приложение читалось только в
+    // панели — и диаграмма во весь экран оставалась кодом.
+    final scope = AppScope.maybeRead(context);
+
+    // А вот рама и фокус — дело панели: во весь экран оба края внешние, ввод
+    // его, и спрашивать об этом некого.
+    final app = screen.place == ViewerPlace.panel ? scope : null;
 
     return ListenableBuilder(
       listenable: Listenable.merge([screen, if (app != null) app.view]),
@@ -72,7 +77,7 @@ class MarkdownViewerView extends StatelessWidget {
           header: FcPathPlate(path: screen.entry.path, trailing: formatBytesLong(screen.entry.size), active: focused),
           child: FcMarkdownView(
             document: screen.document,
-            blocks: app?.markdownBlocks ?? const [],
+            blocks: scope?.markdownBlocks ?? const [],
             activeBlock: screen.activeBlock,
             resolveImage: screen.resolveImage,
             // Блоки разносим между собой малым отступом, а поля документа

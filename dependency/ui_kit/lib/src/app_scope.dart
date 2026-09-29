@@ -26,6 +26,13 @@ class AppScope extends InheritedNotifier<Application> {
     assert(scope != null, 'AppScope не найден выше по дереву');
     return scope!.notifier!;
   }
+
+  /// То же, но null, если приложения над деревом нет.
+  ///
+  /// Нужно показу, который обязан собираться и в одиночку: виджет-тест
+  /// поднимает его без приложения, а объявленное модулями спрашивает только
+  /// тогда, когда есть у кого.
+  static Application? maybeRead(BuildContext context) => context.getInheritedWidgetOfExactType<AppScope>()?.notifier;
 }
 
 /// Строки на языке человека — для дерева виджетов.
