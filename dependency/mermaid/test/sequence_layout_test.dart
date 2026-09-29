@@ -238,6 +238,30 @@ void main() {
       expect(labelsOf(l).where((label) => label.backdrop), hasLength(2), reason: 'ярлык рамки и подпись сообщения');
     });
 
+    test('ни одна подложка не накрывает горизонтальную черту', () {
+      // Подложка ярлыка выедала из верха рамки и из границы между ветвями по
+      // куску: ярлык сидел ровно на черте. А черта здесь граница — её видно
+      // должно быть целиком.
+      final l = layout('alt да\n  A->>B: раз\nelse нет\n  A->>B: два\nend\n');
+      final frame = boxesOf(l).firstWhere((b) => b.ink == DiagramInk.faint && !b.filled);
+      final lines = [
+        frame.rect.top,
+        frame.rect.bottom,
+        ...pathsOf(l).where((p) => p.points.first.dy == p.points.last.dy).map((p) => p.points.first.dy),
+      ];
+
+      for (final label in labelsOf(l).where((label) => label.backdrop)) {
+        // Подложка шире надписи на пиксель сверху и снизу — иначе линия
+        // просвечивает вплотную к буквам.
+        final top = label.at.dy - 1;
+        final bottom = label.at.dy + label.run.size.height + 1;
+
+        for (final line in lines) {
+          expect(line > top && line < bottom, isFalse, reason: 'черта на $line попала под подложку $top…$bottom');
+        }
+      }
+    });
+
     test('рамка ложится раньше надписей', () {
       // Порядок фигур — порядок отрисовки. Рисуй рамку последней, её черта
       // прошла бы поверх подписи, и подложка ничего бы не спасла.

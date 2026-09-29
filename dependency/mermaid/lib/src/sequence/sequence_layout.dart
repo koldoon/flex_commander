@@ -388,6 +388,10 @@ class _Layout {
         dividers.add((_frames.length - 1, _y));
       }
 
+      // Ярлык не садится прямо на черту — ни на верх рамки, ни на границу
+      // между ветвями: его подложка выедала бы из линии кусок, а линия здесь
+      // граница и должна читаться целиком.
+      _y += metrics.labelGap;
       _content.add(DiagramLabel(run: run, at: Offset(_left() + inset + metrics.blockInset, _y), backdrop: true));
       _y += run.size.height + metrics.labelGap;
 
