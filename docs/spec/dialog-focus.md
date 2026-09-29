@@ -12,10 +12,10 @@
 Окно упаковщика (`7z`, `zip`) — три контрола, из них с клавиатуры доступен один:
 
 ```
-Archive name  [archive.7z            ]   ← фокус, ввод работает
-              [ ] Follow symlinks         ← только мышь
-Compression   ( ) Store (•) Normal ( ) Max   ← только мышь
-                          [ Create ] [ Cancel ]   ← только мышь
+Archive name  [archive.7z            ]   < фокус, ввод работает
+              [ ] Follow symlinks         < только мышь
+Compression   ( ) Store (•) Normal ( ) Max   < только мышь
+                          [ Create ] [ Cancel ]   < только мышь
 ```
 
 То же в окне поиска (`fc_text_kit`): поле работает, «Case sensitive» и

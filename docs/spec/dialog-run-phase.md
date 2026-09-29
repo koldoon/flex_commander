@@ -38,7 +38,7 @@ if (isRunning) {
   return CommandDialogProgress(...);
 }
 
-return CommandDialogForm(...);   // ← ветка «иначе»
+return CommandDialogForm(...);   // < ветка «иначе»
 ```
 
 Форма стоит последней и потому работает **фолбэком**: как только `isRunning`
@@ -56,10 +56,10 @@ try {
   unawaited(_progress?.cancel());
   unawaited(_requests?.cancel());
   _redraw.cancel();
-  _running = false;        // ← окно уже показывает форму
+  _running = false;        // < окно уже показывает форму
   _question = null;
   _finishRun();
-  notifyListeners();       // ← и перерисовывается, чтобы её показать
+  notifyListeners();       // < и перерисовывается, чтобы её показать
 }
 ```
 
@@ -68,7 +68,7 @@ try {
 ```dart
 try {
   await execute();
-  closeDialog();           // ← только здесь
+  closeDialog();           // < только здесь
 } on FsError catch (failure) {
   error = failure.message;
 }
@@ -84,8 +84,8 @@ try {
   await resolved.release();
   await source?.release();
   panel.selection.clear();
-  await panel.reload();          // ← перечитывание источника
-  await _reloadDestination();    // ← и приёмника
+  await panel.reload();          // < перечитывание источника
+  await _reloadDestination();    // < и приёмника
 }
 ```
 
@@ -128,17 +128,17 @@ targets.isEmpty || isRunning) return`) тоже пропускает. Значи
 Окно после завершения работы — до тех пор, пока не закроется:
 
 ```
-┌ Copy «archive.dmg» ──────────────────────────────┐
-│   Item    Copying…                               │
-│   File    archive.dmg                            │
-│           4.0 GB of 4.0 GB                       │
-│           ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓   │
-│   Total   1 of 1                                 │
-│           4.0 GB of 4.0 GB                       │
-│           ▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓▓   │
-├──────────────────────────────────────────────────┤
-│                        [Background]   [Cancel]   │  ← обе приглушены
-└──────────────────────────────────────────────────┘
++ Copy «archive.dmg» ------------------------------+
+|   Item    Copying…                               |
+|   File    archive.dmg                            |
+|           4.0 GB of 4.0 GB                       |
+|           ####################################   |
+|   Total   1 of 1                                 |
+|           4.0 GB of 4.0 GB                       |
+|           ####################################   |
++--------------------------------------------------+
+|                        [Background]   [Cancel]   |  < обе приглушены
++--------------------------------------------------+
 ```
 
 Прогресс **замирает** на последних числах, обе кнопки гаснут, и окно в таком
@@ -154,12 +154,12 @@ targets.isEmpty || isRunning) return`) тоже пропускает. Значи
 показывает разбор:
 
 ```
-┌ Copy «archive.dmg» ──────────────────┐
-│   Copy failed                        │
-│   /backup: permission denied         │
-├──────────────────────────────────────┤
-│                          [Close]     │
-└──────────────────────────────────────┘
++ Copy «archive.dmg» ------------------+
+|   Copy failed                        |
+|   /backup: permission denied         |
++--------------------------------------+
+|                          [Close]     |
++--------------------------------------+
 ```
 
 `Enter` и `Esc` в хвосте не делают ничего: подтверждать нечего, работа кончилась,

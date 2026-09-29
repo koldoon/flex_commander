@@ -9,25 +9,25 @@
 
 ```
 HardwareKeyboard
-   │
-   ▼
-FocusManager, ранний обработчик (KeyboardHandler)   ← до дерева фокуса
-   │  KeyDownEvent / KeyRepeatEvent
-   ▼
+   |
+   v
+FocusManager, ранний обработчик (KeyboardHandler)   < до дерева фокуса
+   |  KeyDownEvent / KeyRepeatEvent
+   v
 KeyCombination.fromEvent(event)          "Cmd-Shift-F5"
-   │
-   ▼
+   |
+   v
 CommandRegistry.dispatch(combination, app)
-   │  перебор установленных команд → совпадение привязки
-   │  → проверка nameMatch по объекту под курсором
-   │  → isExecutable(context)
-   ├─ команда найдена ─► execute(context)  → KeyEventResult.handled
-   └─ не найдена ──────► KeyEventResult.ignored
-                            │
-                            ▼
+   |  перебор установленных команд > совпадение привязки
+   |  > проверка nameMatch по объекту под курсором
+   |  > isExecutable(context)
+   +- команда найдена -> execute(context)  > KeyEventResult.handled
+   +- не найдена ------> KeyEventResult.ignored
+                            |
+                            v
                          дерево фокуса: окно, поле ввода, прокрутка
-                            │  не взяли
-                            ▼
+                            |  не взяли
+                            v
                          поздний обработчик: гасит Escape, остальное — в систему
 ```
 

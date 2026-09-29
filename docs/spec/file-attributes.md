@@ -385,28 +385,28 @@ FinderInfo` он бы этим стёр, не заметив.
 ## 8. Окно
 
 ```
-┌─ notes.txt ─────────────────────────────────────────────────┐
-│  Octal [0644]  -rw-r--r--                                   │
-│  ┌ User ────┐ ┌ Group ───┐ ┌ Others ──┐ ┌ Special ─┐        │
-│  │ [x] read │ │ [x] read │ │ [x] read │ │ [ ]setuid│        │
-│  │ [x] write│ │ [ ] write│ │ [ ] write│ │ [ ]setgid│        │
-│  │ [ ] exec │ │ [ ] exec │ │ [ ] exec │ │ [ ]sticky│        │
-│  └──────────┘ └──────────┘ └──────────┘ └──────────┘        │
-│      Owner  [ koldoon        ] [ staff         ]            │
-│   Modified  [ 2026-09-09 02:06:59 ]                         │
-│   Accessed  [ 2026-09-10 18:19:26 ]                         │
-│                                                             │
-│  Extended attributes   4 attributes                         │
-│  com.apple.macl          72 bytes [ binary      ] [Remove]  │
-│  com.apple.metadata:…    66 bytes [ https://ex… ] [Remove]  │
-│  com.apple.provenance    11 bytes [ binary      ] [Remove]  │
-│  com.apple.quarantine    57 bytes [ 0281;6aa09… ] [Remove]  │
-│  [ name          ] [ value              ]          [Add]    │
-│                                                             │
-│  Apply to                                                   │
-│  [ files and directories ▾ ]  [ ] Recursive                 │
-│                                     [ Cancel ]  [ Apply ]   │
-└─────────────────────────────────────────────────────────────┘
++- notes.txt -------------------------------------------------+
+|  Octal [0644]  -rw-r--r--                                   |
+|  + User ----+ + Group ---+ + Others --+ + Special -+        |
+|  | [x] read | | [x] read | | [x] read | | [ ]setuid|        |
+|  | [x] write| | [ ] write| | [ ] write| | [ ]setgid|        |
+|  | [ ] exec | | [ ] exec | | [ ] exec | | [ ]sticky|        |
+|  +----------+ +----------+ +----------+ +----------+        |
+|      Owner  [ koldoon        ] [ staff         ]            |
+|   Modified  [ 2026-09-09 02:06:59 ]                         |
+|   Accessed  [ 2026-09-10 18:19:26 ]                         |
+|                                                             |
+|  Extended attributes   4 attributes                         |
+|  com.apple.macl          72 bytes [ binary      ] [Remove]  |
+|  com.apple.metadata:…    66 bytes [ https://ex… ] [Remove]  |
+|  com.apple.provenance    11 bytes [ binary      ] [Remove]  |
+|  com.apple.quarantine    57 bytes [ 0281;6aa09… ] [Remove]  |
+|  [ name          ] [ value              ]          [Add]    |
+|                                                             |
+|  Apply to                                                   |
+|  [ files and directories v ]  [ ] Recursive                 |
+|                                     [ Cancel ]  [ Apply ]   |
++-------------------------------------------------------------+
 ```
 
 Образец раскладки — `docs/design/permissions/Attributes Dialog.dc.html`; он же

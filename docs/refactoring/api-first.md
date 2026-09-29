@@ -128,7 +128,7 @@ typedef AppCommandFactory = AppCommand Function(FcContext context);
 ```dart
 Future<AppRuntime> initModules(List<FcModule> modules, {AppOverrides overrides});
 // AppBootstrapCommand = Commands.asSequence()
-//   .add(InstallModulesCommand())      // FcModule.install → Registrations
+//   .add(InstallModulesCommand())      // FcModule.install > Registrations
 //   .add(LoadSettingsCommand())        // AppSettings + ModuleSettings
 //   .add(BuildContainerCommand())      // dicom: ProviderRegistry, CommandRegistry, AppController
 //   .add(RunStartupCommandsCommand())  // registry.startup(...) последовательно
@@ -175,7 +175,7 @@ abstract final class Commands {
   static CommandGroupBuilder inParallel();
 }
 // Builder: description/timeout/data/lifecycle/result/error/cancel[/lastResult/allResults/
-//          skipErrors/skipCancellations] → build() | execute()
+//          skipErrors/skipCancellations] > build() | execute()
 ```
 
 **Стыковка со старым слоем — один класс, два интерфейса:**

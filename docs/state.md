@@ -211,30 +211,30 @@ abstract interface class Session {
 
 ```
 клавиша Enter
-   │
-   ▼
+   |
+   v
 CommandRegistry.dispatch("Enter")
-   │
-   ▼
+   |
+   v
 OpenNodeCommand.execute()
-   │  panel.busy = true; statusText = "Loading…"
-   ▼
+   |  panel.busy = true; statusText = "Loading…"
+   v
 PanelSession.open(dir)
-   │
-   ▼
-dir.refresh() → TreeProvider.getDirectoryListing()      [Operation, изолят]
-   │
-   ├─ ошибка ────────► status = error, панель остаётся на прежнем каталоге,
-   │                   в строке состояния — сообщение
-   ├─ отменено ──────► состояние не меняется
-   └─ успех ─────────► directory = dir
+   |
+   v
+dir.refresh() > TreeProvider.getDirectoryListing()      [Operation, изолят]
+   |
+   +- ошибка --------> status = error, панель остаётся на прежнем каталоге,
+   |                   в строке состояния — сообщение
+   +- отменено ------> состояние не меняется
+   +- успех ---------> directory = dir
                        nodes = sort(dir.nodes)
                        selection.clear()
                        cursorIndex = 0
                        busy = false; statusText = null
                        notifyListeners()
-                              │
-                              ▼
+                              |
+                              v
                      ListenableBuilder перестраивает FileTable
 ```
 

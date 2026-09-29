@@ -33,9 +33,9 @@ return Stream.fromIterable([...]);       // и кусками наружу
 сошлись байт в байт.
 
 ```
-openRead → File.openRead(начало данных, +сжатый размер)   // сжатые байты
-         → RawZLibFilter кусок за куском                   // по мере запроса
-         → Stream<List<int>>
+openRead > File.openRead(начало данных, +сжатый размер)   // сжатые байты
+         > RawZLibFilter кусок за куском                   // по мере запроса
+         > Stream<List<int>>
 ```
 
 Что это даёт разом:

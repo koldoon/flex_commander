@@ -29,43 +29,43 @@ Flutter, а не мы. Вреда вышло два. Часть значений
 
 ```
 FlexCommanderApp                      MaterialApp, тема, AppScope
-└── ApplicationView                   Scaffold без AppBar
-    ├── Expanded
-    │   └── screens.active.build()    что видно сейчас; ядро о содержимом не знает
-    │       ├─ FilesScreen            fc_panels
-    │       │   └── SplitView                 две панели + перетаскиваемый разделитель
-    │       │       ├── PanelScope(left)
-    │       │       │   └── PanelView
-    │       │       │       └── FcPanelFrame           рамка и «плашка», из fc_ui_kit
-    │       │       │           ├── FcPathPlate        путь, поверх верхней рамки
-    │       │       │           ├── Expanded
-    │       │       │           │   └── FileTable      вид панели: table (или BriefView, TreeView)
-    │       │       │           │       ├── FileTableHeader
-    │       │       │           │       │   └── FileTableHeaderCell × N   (+ полосы захвата границ)
-    │       │       │           │       ├── ColumnDividers               вертикальные линейки на всю высоту
-    │       │       │           │       └── ListView.builder
-    │       │       │           │           └── FileTableRow × N
-    │       │       │           └── PanelStatusBar
-    │       │       │   (под панелью — стопка её статусной области, столбцом:)
-    │       │       │   ├── QuickSearchView            полоса набора, пока идёт поиск
-    │       │       │   └── BackgroundTasksView        фоновые работы, если они есть
-    │       │       ├── SplitHandle
-    │       │       └── PanelScope(right) → PanelView
-    │       ├─ ViewerScreen           fc_viewer
-    │       │   └── ViewerView
-    │       │       └── FcTextView            тот же показ, только readOnly
-    │       └─ EditorScreen           fc_editor
-    │           └── EditorView
-    │               └── FcTextView            общий показ текста, из fc_text_kit
-    │                   └── FcPanelFrame       та же рамка, что у панели
-    │                       ├── FcPathPlate    полный адрес, размер или знак правки
-    │                       └── CodeEditor     re_editor: своя раскладка и отрисовка
-    ├── FunctionBar                    команды видимого экрана
-    │   └── FunctionButton × 10
-    ├── CommandDialogLayer             окна команд, поверх экрана
-    ├── CredentialsLayer               вопрос о пароле — та же рама, другой источник
-    ├── ErrorLayer                     непойманная ошибка — та же рама, свой источник
-    └── ToastLayer                     всплывающие сообщения — выше всех
++-- ApplicationView                   Scaffold без AppBar
+    +-- Expanded
+    |   +-- screens.active.build()    что видно сейчас; ядро о содержимом не знает
+    |       +- FilesScreen            fc_panels
+    |       |   +-- SplitView                 две панели + перетаскиваемый разделитель
+    |       |       +-- PanelScope(left)
+    |       |       |   +-- PanelView
+    |       |       |       +-- FcPanelFrame           рамка и «плашка», из fc_ui_kit
+    |       |       |           +-- FcPathPlate        путь, поверх верхней рамки
+    |       |       |           +-- Expanded
+    |       |       |           |   +-- FileTable      вид панели: table (или BriefView, TreeView)
+    |       |       |           |       +-- FileTableHeader
+    |       |       |           |       |   +-- FileTableHeaderCell × N   (+ полосы захвата границ)
+    |       |       |           |       +-- ColumnDividers               вертикальные линейки на всю высоту
+    |       |       |           |       +-- ListView.builder
+    |       |       |           |           +-- FileTableRow × N
+    |       |       |           +-- PanelStatusBar
+    |       |       |   (под панелью — стопка её статусной области, столбцом:)
+    |       |       |   +-- QuickSearchView            полоса набора, пока идёт поиск
+    |       |       |   +-- BackgroundTasksView        фоновые работы, если они есть
+    |       |       +-- SplitHandle
+    |       |       +-- PanelScope(right) > PanelView
+    |       +- ViewerScreen           fc_viewer
+    |       |   +-- ViewerView
+    |       |       +-- FcTextView            тот же показ, только readOnly
+    |       +- EditorScreen           fc_editor
+    |           +-- EditorView
+    |               +-- FcTextView            общий показ текста, из fc_text_kit
+    |                   +-- FcPanelFrame       та же рамка, что у панели
+    |                       +-- FcPathPlate    полный адрес, размер или знак правки
+    |                       +-- CodeEditor     re_editor: своя раскладка и отрисовка
+    +-- FunctionBar                    команды видимого экрана
+    |   +-- FunctionButton × 10
+    +-- CommandDialogLayer             окна команд, поверх экрана
+    +-- CredentialsLayer               вопрос о пароле — та же рама, другой источник
+    +-- ErrorLayer                     непойманная ошибка — та же рама, свой источник
+    +-- ToastLayer                     всплывающие сообщения — выше всех
 ```
 
 Порядок слоёв — это порядок рисования, и последняя строка тут не случайна.

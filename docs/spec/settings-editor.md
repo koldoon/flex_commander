@@ -45,7 +45,7 @@
 ## 3. Настройка — блок, а не строка
 
 ```
-Application shell                       ← заголовок раздела, крупнее прочего
+Application shell                       < заголовок раздела, крупнее прочего
 
 Directory size scans
 How many directories are measured at once
@@ -86,9 +86,9 @@ shell: Compound extensions» — чтобы отличать одинаковы�
 **Флаг — единственное исключение**: квадрат встаёт на строку подписи.
 
 ```
-☑ Wrap long lines
+x Wrap long lines
 
-☑ Typing goes to the command line
+x Typing goes to the command line
   The mc habit: no jump-to-name by the first letter
 ```
 

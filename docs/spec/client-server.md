@@ -232,27 +232,27 @@ dependency/ui_api   fc_ui_api    API интерфейса
 ### 5.1. Запросы
 
 ```
-start(CoreConfig)                     → CoreStartup
-openPath(panel, path, {allowConnect}) → Opened | Failed
+start(CoreConfig)                     > CoreStartup
+openPath(panel, path, {allowConnect}) > Opened | Failed
 openEntry(panel, EntryRef)            вход в каталог, в архив, разворот ссылки
 goUp(panel) / reload(panel)
 move(panel, PanelMove, seq)           строка, страница, первая, последняя, по имени
 mark(panel, MarkChange)               пометить, снять, все, по маске, инвертировать
 arrange(panel, {sort, columns, showHidden})
-runOperation(OperationSpec)           → runId
+runOperation(OperationSpec)           > runId
 tell(runId, OperationInput)           отмена, ответ, кусок байт, ввод в оболочку, размер окна
-openContent(EntryRef, mode)           → разговор: куски содержимого
-checkWriteAccess(EntryRef)            → дадут ли писать (правка спрашивает до чтения)
-openShell(panel, {directory, размер}) → разговор с оболочкой места
-listNames(panel, path)                → имена в каталоге (адрес — корню дерева, путь — источнику)
-listTargets(panel)                    → цели значениями (то же, что развернёт `Targets.marked`)
-startCore()                           → поднять панели там, где их оставили
+openContent(EntryRef, mode)           > разговор: куски содержимого
+checkWriteAccess(EntryRef)            > дадут ли писать (правка спрашивает до чтения)
+openShell(panel, {directory, размер}) > разговор с оболочкой места
+listNames(panel, path)                > имена в каталоге (адрес — корню дерева, путь — источнику)
+listTargets(panel)                    > цели значениями (то же, что развернёт `Targets.marked`)
+startCore()                           > поднять панели там, где их оставили
 changeSettings(ui)                    место окна, разделитель, активная панель
 answerCredential(askId, секрет)       ответ на вопрос ядра
 answerElevation(askId, согласен)      ответ на предложение повысить права
 closePanel(panel)                     панель убрали из области
-saveSettings()                        → записать сейчас и дождаться записи
-describe(EntryRef)                    → сведения для окна информации
+saveSettings()                        > записать сейчас и дождаться записи
+describe(EntryRef)                    > сведения для окна информации
 settingsChanged(values)
 shutdown()
 ```

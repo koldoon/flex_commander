@@ -27,16 +27,16 @@
 ## 2. Что получается
 
 ```
-│    koldoon    │    Developer    │ flex_commander │
-├───────────────┼─────────────────┼────────────────┤
-│ Developer   › │ dependency    › │ api            │
-│ Documents     │ docs            │ editor         │
-│ Downloads     │ lib             │ panels         │
-│ Music         │ macos           │ search         │
-│ Pictures      │ test            │ ssh            │
-│               │ README.md       │                │
-│               ├╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌┤                │
-│               │ ↔ тянут границу │                │
+|    koldoon    |    Developer    | flex_commander |
++---------------+-----------------+----------------+
+| Developer   › | dependency    › | api            |
+| Documents     | docs            | editor         |
+| Downloads     | lib             | panels         |
+| Music         | macos           | search         |
+| Pictures      | test            | ssh            |
+|               | README.md       |                |
+|               +----------------+                |
+|               | - тянут границу |                |
 ```
 
 * **столбец — содержимое одного каталога**, в том же порядке сортировки, что и
@@ -94,7 +94,7 @@
 проверяемое без `pumpWidget`:
 
 ```dart
-ColumnChain.of(rows, cursor) → List<ChainColumn { owner, rows, selected }>
+ColumnChain.of(rows, cursor) > List<ChainColumn { owner, rows, selected }>
 ```
 
 Правило: **столбец `k` — это строки уровня `k` внутри поддерева той строки

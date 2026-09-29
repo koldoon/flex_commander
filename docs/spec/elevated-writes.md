@@ -139,11 +139,11 @@ abstract interface class Elevation implements Listenable {
 
 ```
 openWrite(parent, name)
-  └ обычная запись
-      ├ вышло          → обычный приёмник, как сейчас
-      └ permissionDenied
-          ├ повышение выключено → FsError, как сейчас
-          └ разрешено → приёмник во временный файл;
+  + обычная запись
+      + вышло          > обычный приёмник, как сейчас
+      + permissionDenied
+          + повышение выключено > FsError, как сейчас
+          + разрешено > приёмник во временный файл;
                         на close(): elevation.copyOver(host: this, …)
 ```
 
@@ -219,12 +219,12 @@ openWrite(parent, name)
 ## 7. Что увидит человек
 
 ```
-┌ Administrator rights ───────────────────────────────────┐
-│  Save /etc/squid/squid.conf on tester@shark              │
-│  as administrator?                                       │
-├──────────────────────────────────────────────────────────┤
-│                                  [Cancel]  [Continue]    │
-└──────────────────────────────────────────────────────────┘
++ Administrator rights -----------------------------------+
+|  Save /etc/squid/squid.conf on tester@shark              |
+|  as administrator?                                       |
++----------------------------------------------------------+
+|                                  [Cancel]  [Continue]    |
++----------------------------------------------------------+
 ```
 
 Место названо всегда, даже когда оно своя машина: «записать /etc/hosts от

@@ -68,20 +68,20 @@ _bottomStrip(context, app) ?? SizedBox(height: FcTheme.of(context).metrics.comma
 `ViewportPosition`, плюс общие для окна:
 
 ```
-полоса заголовка          ── рама окна
-  ↕ windowTopPadding
-┌─ рабочая область ────────────────────────────┐
-│  панель left        ↔ areaGap ↔  панель right│
-│    ↕ areaGap                    ↕ areaGap    │
-│  стопка leftStatus              rightStatus  │
-│    ↕ areaGap                    ↕ areaGap    │
-│  работы этой стороны            работы       │
-└──────────────────────────────────────────────┘
-  ↕ areaGap
+полоса заголовка          -- рама окна
+  | windowTopPadding
++- рабочая область ----------------------------+
+|  панель left        - areaGap -  панель right|
+|    | areaGap                    | areaGap    |
+|  стопка leftStatus              rightStatus  |
+|    | areaGap                    | areaGap    |
+|  работы этой стороны            работы       |
++----------------------------------------------+
+  | areaGap
 полоса bottom (командная строка) — если она есть
-  ↕ areaGap
+  | areaGap
 ряд функциональных кнопок
-  ↕ windowBottomPadding
+  | windowBottomPadding
 ```
 
 Полноэкранное содержимое занимает место рабочей области целиком и отбивается
