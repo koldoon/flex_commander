@@ -262,6 +262,29 @@ void main() {
       expect(text.top - list.top, greaterThanOrEqualTo(50));
     });
 
+    testWidgets('над чертой воздуха больше, чем между абзацами', (tester) async {
+      // Вплотную к предыдущему абзацу черта читается его подчёркиванием, а не
+      // границей частей.
+      await pump(
+        tester,
+        'Конец части.\n\nВторой абзац.\n\n---\n\nНовая часть.\n',
+        size: const Size(800, 400),
+        headingSpacing: 32,
+      );
+
+      final double withGap =
+          tester.getRect(find.text('Новая часть.')).top - tester.getRect(find.text('Второй абзац.')).bottom;
+
+      // Тот же документ без отбивки: заголовков в нём нет, и больше `headingSpacing`
+      // влиять не на что — вся разница приходится на черту.
+      await pump(tester, 'Конец части.\n\nВторой абзац.\n\n---\n\nНовая часть.\n', size: const Size(800, 400));
+
+      final double without =
+          tester.getRect(find.text('Новая часть.')).top - tester.getRect(find.text('Второй абзац.')).bottom;
+
+      expect(withGap - without, moreOrLessEquals(32 * 0.4, epsilon: 0.5));
+    });
+
     testWidgets('над заголовком воздуха больше, чем между абзацами', (tester) async {
       await pump(
         tester,

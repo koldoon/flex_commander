@@ -266,10 +266,10 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
         Theme.of(context),
       ).copyWith(textScaler: MediaQuery.textScalerOf(context)).merge(fcMarkdownStyle(FcTheme.of(context)));
 
-  /// Отбивка над заголовком; 0 — обычный блок.
+  /// Отбивка над заголовком и над чертой; 0 — обычный блок.
   ///
   /// Первому блоку она не нужна: над ним и так поле документа.
-  double _headingTop(int index) {
+  double _topGap(int index) {
     if (index == 0 || widget.headingSpacing <= 0) {
       return 0;
     }
@@ -279,7 +279,9 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
     return switch (tag) {
       'h1' || 'h2' => widget.headingSpacing,
       'h3' || 'h4' => widget.headingSpacing * 0.6,
-      'h5' || 'h6' => widget.headingSpacing * 0.4,
+      // Черта делит части наравне с заголовком, и воздух ей нужен по той же
+      // причине: вплотную к предыдущему абзацу она читается его подчёркиванием.
+      'h5' || 'h6' || 'hr' => widget.headingSpacing * 0.4,
       _ => 0,
     };
   }
@@ -289,7 +291,7 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
         _built[index] ??= KeyedSubtree(
           key: _keys[index] ??= GlobalKey(),
           child: Padding(
-            padding: widget.blockPadding.copyWith(top: widget.blockPadding.top + _headingTop(index)),
+            padding: widget.blockPadding.copyWith(top: widget.blockPadding.top + _topGap(index)),
             child: _build(context, widget.document.nodes[index]),
           ),
         );

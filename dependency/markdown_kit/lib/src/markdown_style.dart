@@ -49,8 +49,18 @@ MarkdownStyleSheet fcMarkdownStyle(FcTheme theme) {
     tableVerticalAlignment: TableCellVerticalAlignment.top,
     // Линейки таблицы — тем же цветом, каким панель делит колонки: таблица в
     // документе и таблица файлов рисуют одно и то же, и разными им быть незачем.
-    tableBorder: TableBorder.all(color: theme.colors.columnDivider, width: metrics.strokeWidth),
-    tableCellsPadding: EdgeInsets.symmetric(horizontal: metrics.cellPadding, vertical: metrics.dialogLineGap),
+    // Углы скруглены тем же радиусом, что у затенённой врезки: оба —
+    // «вставленный кусок», и острые углы у одного при скруглённых у другого
+    // читаются как небрежность.
+    tableBorder: TableBorder.all(
+      color: theme.colors.columnDivider,
+      width: metrics.strokeWidth,
+      borderRadius: BorderRadius.circular(metrics.inputRadius),
+    ),
+    // Тем же отступом, что и у затенённой врезки: таблица и врезка — оба
+    // «вставленный кусок», и внутренние поля у них должны совпадать. С прежним
+    // текст стоял вплотную к линейкам.
+    tableCellsPadding: EdgeInsets.all(metrics.dialogPadding),
     blockquoteDecoration: BoxDecoration(
       color: theme.colors.dialogListBackground,
       borderRadius: BorderRadius.circular(metrics.inputRadius),
