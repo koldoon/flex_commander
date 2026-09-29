@@ -39,6 +39,8 @@ void main() {
   List<DiagramBox> boxesOf(DiagramLayout l) => l.shapes.whereType<DiagramBox>().toList();
   List<DiagramLabel> labelsOf(DiagramLayout l) => l.shapes.whereType<DiagramLabel>().toList();
 
+  List<DiagramFigure> figuresOf(DiagramLayout l) => l.shapes.whereType<DiagramFigure>().toList();
+
   /// Правый нижний угол надписи: им проверяют, что она целиком внутри плашки.
   Offset label(DiagramLabel it) => it.at + Offset(it.run.size.width, it.run.size.height);
 
@@ -180,24 +182,65 @@ void main() {
       expect(widths.reduce((a, b) => a > b ? a : b), outer.rect.width, reason: 'широкая черта — по внешней рамке');
     });
 
+    test('черта между ветвями идёт поверх плашки, а не под ней', () {
+      // Плашка висит под чертой: черта — крыша ветви. Нарисуй её раньше —
+      // плашка закроет её собой, и штрихи появятся только правее плашки.
+      final l = layout('alt да\n  A->>B: раз\nelse нет\n  A->>B: два\nend\n');
+      final divider = l.shapes.indexWhere(
+        (shape) => shape is DiagramPath && shape.dashed && shape.points.first.dy == shape.points.last.dy,
+      );
+      final tabs = [
+        for (var i = 0; i < l.shapes.length; i++)
+          if (l.shapes[i] is DiagramFigure) i,
+      ];
+
+      expect(divider, isNonNegative);
+      expect(divider, greaterThan(tabs.last), reason: 'черту рисуют последней из двух');
+
+      // И она на том же уровне, что верх плашки: плашка ей не отступает.
+      final line = l.shapes[divider] as DiagramPath;
+      final tab = (l.shapes[tabs.last] as DiagramFigure).path.getBounds();
+      expect(line.points.first.dy, tab.top);
+      expect(line.points.first.dx, lessThanOrEqualTo(tab.left), reason: 'черта идёт во всю ширину рамки');
+    });
+
+    test('плашка стоит ровно в углу рамки и со срезанным углом', () {
+      // Закладка отрезает от рамки уголок: её верх и левый край — это верх и
+      // левый край рамки. Правый нижний угол срезан, как в UML.
+      final l = layout('loop опрос\n  A->>B: раз\nend\n');
+      final frame = boxesOf(l).firstWhere((box) => box.ink == DiagramInk.faint && !box.filled);
+      final tab = figuresOf(l).single;
+      final bounds = tab.path.getBounds();
+
+      expect(bounds.left, frame.rect.left);
+      expect(bounds.top, frame.rect.top);
+
+      // Правый нижний угол пуст, а левый нижний и правый верхний — нет: срез
+      // ровно один.
+      expect(tab.path.contains(bounds.bottomRight - const Offset(1, 1)), isFalse);
+      expect(tab.path.contains(bounds.bottomLeft + const Offset(1, -1)), isTrue);
+      expect(tab.path.contains(bounds.topRight + const Offset(-1, 1)), isTrue);
+    });
+
     test('слово рамки стоит в плашке, а условие рядом с ней', () {
       // Без плашки слово читается подписью соседнего сообщения, а не именем
       // конструкции.
       final l = layout('alt да\n  A->>B: сообщение\nelse нет\n  A->>B: другое\nend\n');
 
-      final tabs = boxesOf(l).where((box) => box.ink == DiagramInk.fill && box.filled).toList();
+      final tabs = figuresOf(l);
       final padding = const SequenceMetrics().tabPadding * 2;
 
       // По плашке на ветвь, и ширина каждой — по её слову.
-      expect(tabs.map((tab) => tab.rect.width), ['alt'.length * 7 + padding, 'else'.length * 7 + padding]);
+      expect(tabs.map((tab) => tab.path.getBounds().width), ['alt'.length * 7 + padding, 'else'.length * 7 + padding]);
 
       // Слово — внутри своей плашки и без подложки: плашка сама ему фон.
       for (final tab in tabs) {
+        final bounds = tab.path.getBounds();
         final word = labelsOf(l).firstWhere(
-          (label) => !label.backdrop && tab.rect.contains(label.at),
-          orElse: () => throw StateError('в плашке ${tab.rect} нет слова'),
+          (label) => !label.backdrop && bounds.contains(label.at),
+          orElse: () => throw StateError('в плашке $bounds нет слова'),
         );
-        expect(tab.rect.contains(label(word)), isTrue);
+        expect(bounds.contains(label(word)), isTrue);
       }
 
       // Условие — рядом, на подложке: оно идёт поверх линий жизни.

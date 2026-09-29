@@ -20,6 +20,7 @@ class SequenceMetrics {
     this.blockInset = 8,
     this.blockGap = 12,
     this.tabPadding = 5,
+    this.tabBevel = 8,
     this.notePadding = 8,
     this.noteGap = 10,
   });
@@ -59,6 +60,9 @@ class SequenceMetrics {
 
   /// Отступ слова внутри плашки в углу рамки.
   final double tabPadding;
+
+  /// Срез правого нижнего угла плашки.
+  final double tabBevel;
 
   /// Отступ текста внутри заметки.
   final double notePadding;
@@ -386,19 +390,12 @@ class _Layout {
       final keyword = measure.run(word, DiagramTextRole.blockLabel);
       final condition = section.label.isEmpty ? null : measure.run(section.label, DiagramTextRole.blockLabel);
 
-      if (i > 0) {
-        // Черта между ветвями — её ширину знаем только в конце, рисуем
-        // вместе с рамкой.
-        _frames.add(DiagramPath(points: [Offset(0, _y), Offset(0, _y)], dashed: true, ink: DiagramInk.faint));
-        dividers.add((_frames.length - 1, _y));
-      }
-
-      // Плашка не садится прямо на черту — ни на верх рамки, ни на границу
-      // между ветвями: линия здесь граница и должна читаться целиком.
-      _y += metrics.labelGap;
-
       // Слово, которым рамку объявили, — в плашке: без неё оно читается
       // подписью соседнего сообщения, а не именем конструкции.
+      //
+      // Плашка стоит **ровно в углу**: её верх и левый край — это верх и левый
+      // край рамки, то есть она отрезает от рамки уголок. Правый нижний угол
+      // срезан — так эту закладку рисуют в UML, и так её узнают.
       final tall = math.max(keyword.size.height, condition?.size.height ?? 0);
       final tab = Rect.fromLTWH(
         _left() + inset,
@@ -406,7 +403,16 @@ class _Layout {
         keyword.size.width + metrics.tabPadding * 2,
         tall + metrics.tabPadding,
       );
-      _frames.add(DiagramBox(rect: tab, radius: 3, ink: DiagramInk.fill));
+      _frames.add(DiagramFigure(path: _tabPath(tab), ink: DiagramInk.fill));
+
+      if (i > 0) {
+        // Черта между ветвями — **после** плашки: она крыша ветви, и плашка
+        // висит под ней. Нарисуй её раньше — плашка закроет её собой, и штрихи
+        // появятся только правее плашки. Ширину черты знаем только в конце,
+        // поэтому пока это заглушка.
+        _frames.add(DiagramPath(points: [Offset(0, tab.top), Offset(0, tab.top)], dashed: true, ink: DiagramInk.faint));
+        dividers.add((_frames.length - 1, tab.top));
+      }
       _content.add(
         DiagramLabel(run: keyword, at: Offset(tab.left + metrics.tabPadding, tab.center.dy - keyword.size.height / 2)),
       );
@@ -436,6 +442,19 @@ class _Layout {
       _frames[index] = DiagramPath(points: [Offset(left, y), Offset(right, y)], dashed: true, ink: DiagramInk.faint);
     }
     _y = bottom + metrics.blockGap;
+  }
+
+  /// Пятиугольник закладки: срезан правый нижний угол.
+  Path _tabPath(Rect tab) {
+    final bevel = math.min(metrics.tabBevel, math.min(tab.width, tab.height) / 2);
+
+    return Path()
+      ..moveTo(tab.left, tab.top)
+      ..lineTo(tab.right, tab.top)
+      ..lineTo(tab.right, tab.bottom - bevel)
+      ..lineTo(tab.right - bevel, tab.bottom)
+      ..lineTo(tab.left, tab.bottom)
+      ..close();
   }
 
   String _separatorWord(BlockKind kind) => switch (kind) {
