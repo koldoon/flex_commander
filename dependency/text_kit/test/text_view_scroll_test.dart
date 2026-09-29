@@ -47,6 +47,8 @@ void main() {
     WidgetTester tester, {
     required bool readOnly,
     required bool scrollsByArrows,
+    int? startAtLine,
+    void Function(int line)? onTopLine,
   }) async {
     final CodeLineEditingController controller = CodeLineEditingController.fromText(text);
     await tester.pumpWidget(
@@ -63,6 +65,8 @@ void main() {
             fileName: 'big.txt',
             readOnly: readOnly,
             shortcuts: FcTextShortcuts(scrollsByArrows: scrollsByArrows),
+            startAtLine: startAtLine,
+            onTopLine: onTopLine,
           ),
         ),
       ),
@@ -305,6 +309,76 @@ void main() {
 
         expect(controller.selection.extentIndex, 41);
         expect(position.pixels, greaterThan(0));
+      });
+    });
+  });
+
+  group('место чтения', () {
+    /// Высота строки — шагом стрелки: она крутит ровно на одну.
+    ///
+    /// Показ после этого снимается насовсем: повторный `pumpWidget` того же
+    /// вида **не создаёт состояние заново**, а место чтения ставится один раз,
+    /// при появлении. В приложении так и есть — `F5` меняет виджет целиком.
+    Future<double> lineStep(WidgetTester tester) async {
+      await pump(tester, readOnly: true, scrollsByArrows: true);
+      final ScrollPosition position = scroll(tester);
+      await press(tester, LogicalKeyboardKey.arrowDown);
+      final double step = position.pixels;
+      expect(step, greaterThan(0));
+
+      await tester.pump(const Duration(milliseconds: 200));
+      await tester.pumpWidget(const SizedBox());
+      await tester.pump();
+
+      return step;
+    }
+
+    testWidgets('просили строку — она и встала сверху', (tester) async {
+      // Сверху, а не «стала видна»: «показать позицию» подвела бы строку к
+      // ближнему краю, и прыжок вперёд оставил бы её внизу экрана — место
+      // чтения уехало бы на целый экран.
+      await onDesktop(tester, () async {
+        final double step = await lineStep(tester);
+
+        await pump(tester, readOnly: true, scrollsByArrows: true, startAtLine: 200);
+        // Строку показ ставит вторым кадром: до первого высоты строки не знает
+        // никто.
+        await tester.pump();
+        await tester.pump();
+
+        expect(scroll(tester).pixels, moreOrLessEquals(200 * step, epsilon: 1));
+      });
+    });
+
+    testWidgets('без просьбы текст открывается с начала', (tester) async {
+      await onDesktop(tester, () async {
+        await pump(tester, readOnly: true, scrollsByArrows: true);
+        await tester.pump();
+        await tester.pump();
+
+        expect(scroll(tester).pixels, 0);
+      });
+    });
+
+    testWidgets('показ говорит, какая строка сверху', (tester) async {
+      await onDesktop(tester, () async {
+        final double step = await lineStep(tester);
+
+        final List<int> seen = <int>[];
+        await pump(tester, readOnly: true, scrollsByArrows: true, onTopLine: seen.add);
+        await tester.pump();
+
+        expect(seen.last, 0, reason: 'сверху начало');
+
+        await press(tester, LogicalKeyboardKey.pageDown);
+        await press(tester, LogicalKeyboardKey.pageDown);
+
+        // Названная строка — та, до которой докрутили, а не просто «больше
+        // нуля»: курсор здесь не в счёт, стрелки его не водят.
+        expect(seen.last, greaterThan(0));
+        // С точностью до строки: у верхней кромки строка бывает видна
+        // наполовину, и считать ли её видимой — дело поля, а не наше.
+        expect((seen.last - scroll(tester).pixels / step).abs(), lessThanOrEqualTo(1));
       });
     });
   });

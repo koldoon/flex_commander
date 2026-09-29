@@ -53,7 +53,7 @@ void main() {
     test('врезка GitHub остаётся цитатой, а не узлом, которого показ не знает', () {
       // `AlertBlockSyntax` делает `div`, на котором отрисовка падает; поэтому
       // его в наборе нет, и `> [!NOTE]` разбирается обычной цитатой
-      // (`docs/spec/markdown-viewer.md`, §11).
+      // (`docs/spec/markdown-viewer.md`, §12).
       final alert = FcMarkdownDocument.parse('> [!NOTE]\n> Осторожно.\n');
 
       expect((alert.nodes.single as md.Element).tag, 'blockquote');
@@ -124,5 +124,88 @@ void main() {
     final pre = document.nodes.single as md.Element;
 
     expect(pre.attributes['data-metadata'], 'theme=neutral');
+  });
+
+  group('место блока в исходнике', () {
+    // Строки пронумерованы с нуля: 0 — заголовок, 2 — абзац, и так далее.
+    const source = r"""
+# Заголовок
+
+Просто абзац, который
+в исходнике разбит на две строки.
+
+- первый пункт
+- второй пункт
+
+1. раз
+2. два
+
+| Ключ | Что делает |
+|---|---|
+| `F3` | показать |
+
+```dart
+void main() {}
+```
+
+> цитата
+
+---
+
+## Второй заголовок
+""";
+
+    test('каждый блок знает свою строку', () {
+      final document = FcMarkdownDocument.parse(source);
+      final at = document.sourceLineOfBlock;
+      final tags = document.nodes.map((node) => node is md.Element ? node.tag : 'text').toList();
+
+      expect(tags, ['h1', 'p', 'ul', 'ol', 'table', 'pre', 'blockquote', 'hr', 'h2']);
+      expect(at, [0, 2, 5, 8, 11, 15, 19, 21, 23]);
+    });
+
+    test('врезка начинается с ограды, а не с первой строки кода', () {
+      final document = FcMarkdownDocument.parse(source);
+      final lines = source.split('\n');
+      final pre = document.nodes.indexWhere((node) => node is md.Element && node.tag == 'pre');
+
+      expect(lines[document.sourceLineOfBlock[pre]], '```dart');
+    });
+
+    test('строка исходника находит свой блок', () {
+      final document = FcMarkdownDocument.parse(source);
+
+      // Середина врезки — всё ещё врезка, а не то, что до неё.
+      expect(document.blockOfSourceLine(16), 5);
+      // Пустая строка между блоками достаётся предыдущему: он ещё не кончился.
+      expect(document.blockOfSourceLine(1), 0);
+      expect(document.blockOfSourceLine(23), 8);
+      expect(document.blockOfSourceLine(999), 8, reason: 'за концом — последний блок');
+    });
+
+    test('номер строки не идёт назад', () {
+      // Порядок — главное: по нему и ищут, а сбой порядка увёл бы поиск вперёд
+      // по всему файлу.
+      final document = FcMarkdownDocument.parse(source);
+      final at = document.sourceLineOfBlock;
+
+      for (var i = 1; i < at.length; i++) {
+        expect(at[i], greaterThanOrEqualTo(at[i - 1]), reason: 'блок $i');
+      }
+    });
+
+    test('повторяющийся заголовок берётся тот, что ниже', () {
+      // Ключ у них один и тот же: спасает только то, что ищут курсором вперёд.
+      final document = FcMarkdownDocument.parse('## Проверка\n\nраз\n\n## Проверка\n\nдва\n');
+
+      expect(document.sourceLineOfBlock, [0, 2, 4, 6]);
+    });
+
+    test('пустой документ никого не роняет', () {
+      final document = FcMarkdownDocument.parse('');
+
+      expect(document.sourceLineOfBlock, isEmpty);
+      expect(document.blockOfSourceLine(0), 0);
+    });
   });
 }

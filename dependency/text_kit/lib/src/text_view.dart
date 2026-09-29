@@ -28,6 +28,8 @@ class FcTextView extends StatefulWidget {
     this.shortcuts = const FcTextShortcuts(),
     this.outerEdge = PanelOuterEdge.both,
     this.focused = true,
+    this.startAtLine,
+    this.onTopLine,
   });
 
   /// Содержимое и курсор. Владеет им экран: сохранять или копировать просит
@@ -68,12 +70,36 @@ class FcTextView extends StatefulWidget {
   /// нельзя.
   final bool focused;
 
+  /// С какой строки открыть текст; null — с начала.
+  ///
+  /// Так переключение вида не теряет место чтения: показ markdown переводит
+  /// блок документа в строку исходника и открывает её сверху
+  /// (`docs/spec/markdown-viewer.md`, §8).
+  ///
+  /// Применяется **один раз**, при появлении показа.
+  final int? startAtLine;
+
+  /// Сверху видно другую строку.
+  ///
+  /// Курсор для этого не годится: в показе стрелки крутят текст, а не водят
+  /// курсор, и он остаётся там, где был.
+  final void Function(int line)? onTopLine;
+
   @override
   State<FcTextView> createState() => _FcTextViewState();
 }
 
 class _FcTextViewState extends State<FcTextView> {
   final FocusNode _focus = FocusNode(debugLabel: 'FcTextView');
+
+  /// Своя прокрутка: ею открывают текст на нужной строке.
+  final CodeScrollController _scroll = CodeScrollController();
+
+  /// Видимые строки — их считает само поле, а отдаёт через указатель слева.
+  CodeIndicatorValueNotifier? _visible;
+
+  /// Высота строки; 0 — ещё не рисовали.
+  double _lineHeight = 0;
 
   @override
   void initState() {
@@ -87,8 +113,16 @@ class _FcTextViewState extends State<FcTextView> {
     //
     // После кадра: до него узла ещё нет в дереве фокуса.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted && widget.focused) {
+      if (!mounted) {
+        return;
+      }
+      if (widget.focused) {
         _focus.requestFocus();
+      }
+      // Вторым кадром: до первого высоты строки ещё не знает никто.
+      final start = widget.startAtLine;
+      if (start != null && start > 0) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _openAt(start));
       }
     });
   }
@@ -111,8 +145,41 @@ class _FcTextViewState extends State<FcTextView> {
 
   @override
   void dispose() {
+    _visible?.removeListener(_onVisible);
+    _scroll.verticalScroller.dispose();
+    _scroll.horizontalScroller.dispose();
     _focus.dispose();
     super.dispose();
+  }
+
+  /// Поле пересчитало видимое: запомнить высоту строки и сказать, что сверху.
+  ///
+  /// Слушатель зовут во время раскладки, поэтому здесь только чтение и
+  /// сообщение наружу — ни `setState`, ни прокрутки.
+  void _onVisible() {
+    final paragraphs = _visible?.value?.paragraphs;
+    if (paragraphs == null || paragraphs.isEmpty) {
+      return;
+    }
+    _lineHeight = paragraphs.first.height;
+    widget.onTopLine?.call(paragraphs.first.index);
+  }
+
+  /// Открыть текст на строке [line].
+  ///
+  /// Прокруткой в пикселях, а не «показать позицию»: та подводит строку к
+  /// ближнему краю — прыжок вперёд оставил бы её внизу, и место чтения уехало
+  /// бы на экран. Высота строки здесь одна на все: перенос по словам в показе
+  /// выключен.
+  void _openAt(int line) {
+    if (!mounted || _lineHeight <= 0) {
+      return;
+    }
+    final scroller = _scroll.verticalScroller;
+    if (!scroller.hasClients) {
+      return;
+    }
+    scroller.jumpTo((line * _lineHeight).clamp(0.0, scroller.position.maxScrollExtent));
   }
 
   @override
@@ -134,6 +201,7 @@ class _FcTextViewState extends State<FcTextView> {
         padding: EdgeInsets.all(theme.metrics.scrollbarInset),
         child: CodeEditor(
           controller: widget.controller,
+          scrollController: _scroll,
           findController: widget.finder?.findController,
           focusNode: _focus,
           readOnly: widget.readOnly,
@@ -144,11 +212,33 @@ class _FcTextViewState extends State<FcTextView> {
           wordWrap: widget.wordWrap,
           padding: EdgeInsets.symmetric(horizontal: theme.metrics.panelLeftPadding),
           style: textViewStyle(theme, textBaseStyle(theme), languageOf(widget.fileName)),
-          indicatorBuilder: widget.showLineNumbers ? _lineNumbers : null,
+          // Указатель нужен и без номеров строк: только через него поле
+          // говорит, что сейчас видно. Без номеров он пустой и места не
+          // занимает.
+          indicatorBuilder: _indicator,
           shortcutsActivatorsBuilder: widget.shortcuts,
         ),
       ),
     );
+  }
+
+  /// Указатель слева: номера строк, если их просили, и подписка на видимое.
+  Widget _indicator(
+    BuildContext context,
+    CodeLineEditingController controller,
+    CodeChunkController chunkController,
+    CodeIndicatorValueNotifier notifier,
+  ) {
+    if (!identical(_visible, notifier)) {
+      _visible?.removeListener(_onVisible);
+      _visible = notifier..addListener(_onVisible);
+    }
+
+    if (!widget.showLineNumbers) {
+      return const SizedBox.shrink();
+    }
+
+    return _lineNumbers(context, controller, chunkController, notifier);
   }
 
   /// Номера строк слева. Цвет библиотека берёт от текста поля с прозрачностью

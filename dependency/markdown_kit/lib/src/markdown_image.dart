@@ -10,7 +10,7 @@ import 'markdown_style.dart';
 ///
 /// Путь относительный — от каталога самого документа. Разрешает его тот, кто
 /// открыл файл: `.md` лежит и в архиве, и на сервере, и читать соседний файл
-/// через `dart:io` там нечем (`docs/spec/markdown-viewer.md`, §10).
+/// через `dart:io` там нечем (`docs/spec/markdown-viewer.md`, §11).
 typedef FcImageResolver = Future<Uint8List> Function(String path);
 
 /// Картинка из документа.

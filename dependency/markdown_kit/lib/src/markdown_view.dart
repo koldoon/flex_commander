@@ -34,6 +34,8 @@ class FcMarkdownView extends StatefulWidget {
     this.contentWidthFactor = 1,
     this.headingSpacing = 0,
     this.autofocus = false,
+    this.startAtBlock,
+    this.onTopBlock,
   });
 
   final FcMarkdownDocument document;
@@ -52,7 +54,7 @@ class FcMarkdownView extends StatefulWidget {
   /// Показ подводит к нему список и подсвечивает его целиком. Целиком, а не
   /// слово: подсветить слово внутри свёрстанного абзаца значило бы
   /// перехватывать построение всех текстовых тегов
-  /// (`docs/spec/markdown-viewer.md`, §8).
+  /// (`docs/spec/markdown-viewer.md`, §9).
   final int? activeBlock;
 
   /// Чем прочесть картинку по относительному пути; null — читать нечем, и
@@ -81,6 +83,23 @@ class FcMarkdownView extends StatefulWidget {
   /// Без фокуса нажатие не дошло бы до показа вовсе, а нажатие без ответа —
   /// ошибка.
   final bool autofocus;
+
+  /// С какого блока открыть документ; null — с начала.
+  ///
+  /// Так `F5` не теряет место чтения: исходник и свёрстанный вид разной длины,
+  /// и общего у них только «какой блок сейчас сверху»
+  /// (`docs/spec/markdown-viewer.md`, §8).
+  ///
+  /// Применяется **один раз**, при появлении показа: иначе любая перерисовка
+  /// отбрасывала бы человека назад.
+  final int? startAtBlock;
+
+  /// Сверху видно другой блок.
+  ///
+  /// Спрашивается по концу прокрутки, а не на каждый пиксель: считать это
+  /// приходится по построенным блокам, а место чтения нужно знать только к
+  /// моменту переключения вида.
+  final void Function(int block)? onTopBlock;
 
   /// Сколько воздуха добавить **над** заголовком.
   ///
@@ -119,6 +138,15 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
   MarkdownStyleSheet? _style;
 
   @override
+  void initState() {
+    super.initState();
+    final start = widget.startAtBlock;
+    if (start != null && start > 0) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _reveal(start, alignment: 0));
+    }
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
     _reset();
@@ -142,19 +170,19 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
   /// примерно — по его доле в документе, — и показывается точно следующим
   /// кадром. Проб ровно две: список мог и не доехать, но крутить его без конца
   /// хуже, чем показать приблизительно.
-  void _reveal(int index) {
+  void _reveal(int index, {double alignment = 0.1, Duration duration = const Duration(milliseconds: 120)}) {
     if (!mounted) {
       return;
     }
 
     final target = _keys[index]?.currentContext;
     if (target != null) {
-      unawaited(Scrollable.ensureVisible(target, alignment: 0.1, duration: const Duration(milliseconds: 120)));
+      unawaited(Scrollable.ensureVisible(target, alignment: alignment, duration: duration));
 
       return;
     }
 
-    if (_attempts >= 2 || !_scroll.hasClients) {
+    if (_attempts >= 3 || !_scroll.hasClients) {
       return;
     }
     _attempts++;
@@ -163,7 +191,38 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
     final blocks = widget.document.length;
     final share = blocks == 0 ? 0.0 : index / blocks;
     position.jumpTo((share * position.maxScrollExtent).clamp(0.0, position.maxScrollExtent));
-    WidgetsBinding.instance.addPostFrameCallback((_) => _reveal(index));
+    WidgetsBinding.instance.addPostFrameCallback((_) => _reveal(index, alignment: alignment, duration: duration));
+  }
+
+  /// Какой блок сейчас сверху.
+  ///
+  /// Считается по построенным: непостроенных на экране и нет. Берём тот, чей
+  /// низ ещё под верхней кромкой, — то есть первый, который человек видит.
+  int? _topBlock() {
+    final viewport = context.findRenderObject();
+    if (viewport is! RenderBox || !viewport.hasSize) {
+      return null;
+    }
+
+    int? best;
+    var bestTop = double.infinity;
+
+    for (final entry in _keys.entries) {
+      final box = entry.value.currentContext?.findRenderObject();
+      if (box is! RenderBox || !box.hasSize) {
+        continue;
+      }
+      final top = box.localToGlobal(Offset.zero, ancestor: viewport).dy;
+      if (top + box.size.height <= 0) {
+        continue;
+      }
+      if (top < bestTop) {
+        bestTop = top;
+        best = entry.key;
+      }
+    }
+
+    return best;
   }
 
   @override
@@ -281,16 +340,39 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
         autofocus: widget.autofocus,
         onKeyEvent: _onKey,
         child: SelectionArea(
-          child: ListView.builder(
-            controller: _scroll,
-            padding: widget.contentPadding.add(EdgeInsets.symmetric(horizontal: side)),
-            itemCount: widget.document.length,
-            itemBuilder: _blockAt,
+          child: NotificationListener<ScrollEndNotification>(
+            onNotification: _noteTopBlock,
+            child: ListView.builder(
+              controller: _scroll,
+              padding: widget.contentPadding.add(EdgeInsets.symmetric(horizontal: side)),
+              itemCount: widget.document.length,
+              itemBuilder: _blockAt,
+            ),
           ),
         ),
       );
     },
   );
+
+  /// Докрутили — запомнить, что теперь сверху.
+  bool _noteTopBlock(ScrollEndNotification notification) {
+    if (widget.onTopBlock != null) {
+      // Следующим кадром: прыжок сообщает о конце прокрутки **до** того, как
+      // список переложен, и по горячим следам сверху виден ещё старый блок.
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted) {
+          return;
+        }
+        final top = _topBlock();
+        if (top != null) {
+          widget.onTopBlock?.call(top);
+        }
+      });
+    }
+
+    // `false`: уведомление наше только к сведению, пусть идёт дальше.
+    return false;
+  }
 
   /// Прокрутка клавишами: документ листают так же, как показ текста.
   ///

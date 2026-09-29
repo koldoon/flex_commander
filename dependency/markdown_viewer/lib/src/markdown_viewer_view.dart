@@ -64,6 +64,10 @@ class MarkdownViewerView extends StatelessWidget {
             shortcuts: _shortcuts,
             outerEdge: _edgeOf(app),
             focused: focused,
+            // Место чтения переезжает вместе с видом: `F5` не должен
+            // отбрасывать человека в начало документа.
+            startAtLine: screen.startLine,
+            onTopLine: screen.noteTopLine,
           );
         }
 
@@ -91,6 +95,8 @@ class MarkdownViewerView extends StatelessWidget {
             // Во весь экран клавиши наши сразу; в панели — только когда в
             // показ вошли: пока курсор в файлах, стрелки принадлежат ему.
             autofocus: focused,
+            startAtBlock: screen.startBlock,
+            onTopBlock: screen.noteTopBlock,
             onTapLink: (_, href, _) => _openLink(href),
           ),
         );
@@ -101,7 +107,7 @@ class MarkdownViewerView extends StatelessWidget {
   /// Внешняя ссылка уходит системе.
   ///
   /// Переходов по внутренним ссылкам в этой версии нет
-  /// (`docs/spec/markdown-viewer.md`, §10): они требуют решить, что происходит с
+  /// (`docs/spec/markdown-viewer.md`, §11): они требуют решить, что происходит с
   /// панелью и историей.
   void _openLink(String? href) {
     final open = screen.openWith;
