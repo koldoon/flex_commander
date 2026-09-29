@@ -45,7 +45,7 @@ void main() {
   group('столбцы', () {
     test('шапки не налезают друг на друга', () {
       final l = layout('participant Один\nparticipant Два\nparticipant Три\nОдин->>Три: раз\n');
-      final headers = boxesOf(l).where((b) => b.ink == DiagramInk.fill).toList();
+      final headers = boxesOf(l).where((b) => b.ink == DiagramInk.plate).toList();
 
       for (var i = 0; i + 1 < headers.length; i++) {
         expect(headers[i].rect.right, lessThanOrEqualTo(headers[i + 1].rect.left), reason: 'столбцы $i и ${i + 1}');
@@ -211,6 +211,45 @@ void main() {
     });
   });
 
+  group('плашки участников', () {
+    test('плашка залита своей краской, а не как коробка заметки', () {
+      // Она инвертирована: заливка цветом линий, надпись цветом фона.
+      final l = layout('participant A\nNote over A: заметка\n');
+
+      expect(boxesOf(l).where((b) => b.ink == DiagramInk.plate), hasLength(1));
+      expect(boxesOf(l).where((b) => b.ink == DiagramInk.fill), hasLength(1));
+    });
+  });
+
+  group('надписи поверх линий', () {
+    test('подпись сообщения просит подложку, а надпись на плашке — нет', () {
+      // Подпись сидит ровно на линиях жизни: без подложки буквы в них тонут.
+      // Плашке подложка не нужна — она сама себе фон.
+      final l = layout('participant A\nA->>B: раз\n');
+      final backed = labelsOf(l).where((label) => label.backdrop).toList();
+
+      expect(backed, hasLength(1), reason: 'подпись сообщения — одна');
+      expect(labelsOf(l).where((label) => !label.backdrop), isNotEmpty, reason: 'надписи на плашках');
+    });
+
+    test('ярлык рамки тоже с подложкой', () {
+      final l = layout('alt да\n  A->>B: раз\nend\n');
+
+      expect(labelsOf(l).where((label) => label.backdrop), hasLength(2), reason: 'ярлык рамки и подпись сообщения');
+    });
+
+    test('рамка ложится раньше надписей', () {
+      // Порядок фигур — порядок отрисовки. Рисуй рамку последней, её черта
+      // прошла бы поверх подписи, и подложка ничего бы не спасла.
+      final l = layout('alt да\n  A->>B: раз\nend\n');
+      final frame = l.shapes.indexWhere((s) => s is DiagramBox && s.ink == DiagramInk.faint && !s.filled);
+      final label = l.shapes.indexWhere((s) => s is DiagramLabel && s.backdrop);
+
+      expect(frame, isNonNegative, reason: 'черта рамки должна найтись');
+      expect(frame, lessThan(label));
+    });
+  });
+
   group('особые случаи', () {
     test('сообщение самому себе рисуется петлёй вправо', () {
       final l = layout('A->>A: сам себе\n');
@@ -224,8 +263,8 @@ void main() {
 
     test('заметка поверх двоих стоит между ними', () {
       final l = layout('participant A\nparticipant B\nNote over A,B: общая\n');
-      final note = boxesOf(l).where((b) => b.ink == DiagramInk.fill).toList().last;
-      final headers = boxesOf(l).where((b) => b.ink == DiagramInk.fill).take(2).toList();
+      final note = boxesOf(l).firstWhere((b) => b.ink == DiagramInk.fill);
+      final headers = boxesOf(l).where((b) => b.ink == DiagramInk.plate).toList();
 
       expect(note.rect.center.dx, greaterThan(headers.first.rect.center.dx));
       expect(note.rect.center.dx, lessThan(headers.last.rect.center.dx));

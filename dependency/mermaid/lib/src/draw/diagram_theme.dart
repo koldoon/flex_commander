@@ -16,6 +16,9 @@ class DiagramStyle {
     required this.edge,
     required this.bar,
     required this.faint,
+    required this.plate,
+    required this.onPlate,
+    required this.background,
     required this.stroke,
   });
 
@@ -26,7 +29,8 @@ class DiagramStyle {
 
     return DiagramStyle(
       text: {
-        DiagramTextRole.participant: base.copyWith(color: theme.colors.rowText, fontWeight: FontWeight.w600),
+        // Надпись на плашке — цветом фона панели: плашка инвертирована.
+        DiagramTextRole.participant: base.copyWith(color: theme.colors.panelBackground, fontWeight: FontWeight.w600),
         DiagramTextRole.message: base.copyWith(color: theme.colors.rowText),
         DiagramTextRole.note: base.copyWith(color: theme.colors.rowText),
         DiagramTextRole.blockLabel: faintText,
@@ -40,6 +44,10 @@ class DiagramStyle {
       edge: theme.colors.dialogListBorder,
       bar: theme.colors.markedBar,
       faint: theme.colors.secondaryText,
+      // Тем же цветом, что и линии жизни: плашка и линия — одно целое.
+      plate: theme.colors.secondaryText,
+      onPlate: theme.colors.panelBackground,
+      background: theme.colors.panelBackground,
       stroke: theme.metrics.strokeWidth,
     );
   }
@@ -61,11 +69,27 @@ class DiagramStyle {
   /// Второстепенное: рамки блоков, ярлыки.
   final Color faint;
 
+  /// Плашка участника — залита цветом линий жизни.
+  final Color plate;
+
+  /// Надпись на плашке — цветом фона панели.
+  final Color onPlate;
+
+  /// Фон, которым подкладывают надписи, чтобы они не тонули в линиях.
+  final Color background;
+
   final double stroke;
+
+  /// Толщина линии вызова.
+  ///
+  /// В 1.2 раза против обычной: стрелка на диаграмме главная, и волосяной
+  /// линии ей мало.
+  double get arrowStroke => stroke * 1.2;
 
   Color colorOf(DiagramInk ink) => switch (ink) {
     DiagramInk.line => line,
     DiagramInk.fill => fill,
+    DiagramInk.plate => plate,
     DiagramInk.bar => bar,
     DiagramInk.faint => faint,
   };

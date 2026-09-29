@@ -20,7 +20,15 @@ class DiagramPainter extends CustomPainter {
           _box(canvas, shape);
         case DiagramPath():
           _path(canvas, shape);
-        case DiagramLabel(:final run, :final at):
+        case DiagramLabel(:final run, :final at, :final backdrop):
+          if (backdrop) {
+            // Подложка чуть шире надписи: вплотную к буквам линия всё равно
+            // просвечивала бы.
+            canvas.drawRect(
+              Rect.fromLTWH(at.dx - 2, at.dy - 1, run.size.width + 4, run.size.height + 2),
+              Paint()..color = style.background,
+            );
+          }
           run.paint(canvas, at);
       }
     }
@@ -36,7 +44,9 @@ class DiagramPainter extends CustomPainter {
         Paint()
           ..style = PaintingStyle.stroke
           ..strokeWidth = style.stroke
-          ..color = style.edge,
+          // У плашки обводка того же цвета, что заливка: отдельная граница
+          // разрезала бы её пополам.
+          ..color = box.ink == DiagramInk.plate ? style.plate : style.edge,
       );
 
       return;
@@ -55,7 +65,8 @@ class DiagramPainter extends CustomPainter {
     final paint =
         Paint()
           ..style = PaintingStyle.stroke
-          ..strokeWidth = style.stroke
+          // Линия вызова толще прочих: она главная.
+          ..strokeWidth = path.ink == DiagramInk.line ? style.arrowStroke : style.stroke
           ..color = style.colorOf(path.ink);
 
     for (var i = 0; i + 1 < path.points.length; i++) {

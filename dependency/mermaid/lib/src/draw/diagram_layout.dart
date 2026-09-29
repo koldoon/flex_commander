@@ -10,6 +10,10 @@ enum DiagramInk {
   /// Заливка коробок.
   fill,
 
+  /// Плашка участника: она инвертирована — залита цветом линий, а надпись на
+  /// ней цветом фона.
+  plate,
+
   /// Полоса активности.
   bar,
 
@@ -88,10 +92,16 @@ class DiagramPath extends DiagramShape {
 
 /// Замеренный текст на своём месте.
 class DiagramLabel extends DiagramShape {
-  const DiagramLabel({required this.run, required this.at});
+  const DiagramLabel({required this.run, required this.at, this.backdrop = false});
 
   final DiagramTextRun run;
 
   /// Левый верхний угол.
   final Offset at;
+
+  /// Подложить под надпись фон.
+  ///
+  /// Надпись сидит поверх линий жизни и рамок, и без подложки буквы тонут в
+  /// них. Плашке участника подложка не нужна: она сама себе фон.
+  final bool backdrop;
 }

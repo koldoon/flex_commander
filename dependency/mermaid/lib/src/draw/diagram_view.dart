@@ -73,9 +73,10 @@ class _MermaidDiagramViewState extends State<MermaidDiagramView> {
 
     // `Align`, а не голый `SizedBox`: врезка в документе растянута на всю
     // ширину колонки, и без него картинка растягивалась бы вместе с ней —
-    // буквы становились широкими. `Align` даёт ребёнку его собственный размер.
+    // буквы становились широкими. `Align` даёт ребёнку его собственный размер,
+    // а узкую диаграмму ставит посередине отведённой ширины.
     final picture = Align(
-      alignment: Alignment.centerLeft,
+      alignment: Alignment.center,
       child: SizedBox(
         width: layout.size.width * scale,
         height: layout.size.height * scale,

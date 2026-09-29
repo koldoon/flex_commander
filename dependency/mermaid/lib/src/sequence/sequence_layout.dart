@@ -130,7 +130,9 @@ class _Layout {
 
     final right = math.max(_centres.last + _widths.last / 2, _overhang) + metrics.margin;
 
-    return DiagramLayout(size: Size(right, bottom), shapes: [..._lifelines, ..._bars, ..._content, ..._frames]);
+    // Рамки **до** содержимого: иначе их линии легли бы поверх надписей, и
+    // подложка под надписью не спасала бы.
+    return DiagramLayout(size: Size(right, bottom), shapes: [..._lifelines, ..._bars, ..._frames, ..._content]);
   }
 
   double _headerHeight() => _headers.map((run) => run.size.height).reduce(math.max) + metrics.headerPadding * 2;
@@ -250,7 +252,9 @@ class _Layout {
       final top = _y;
       final height = metrics.messageGap;
       if (run != null) {
-        _content.add(DiagramLabel(run: run, at: Offset(from + metrics.selfLoop + metrics.labelGap, top)));
+        _content.add(
+          DiagramLabel(run: run, at: Offset(from + metrics.selfLoop + metrics.labelGap, top), backdrop: true),
+        );
         _y += run.size.height + metrics.labelGap;
       }
       final loopTop = _y;
@@ -270,7 +274,7 @@ class _Layout {
     } else {
       if (run != null) {
         final centre = (from + to) / 2;
-        _content.add(DiagramLabel(run: run, at: Offset(centre - run.size.width / 2, _y)));
+        _content.add(DiagramLabel(run: run, at: Offset(centre - run.size.width / 2, _y), backdrop: true));
         _y += run.size.height + metrics.labelGap;
       }
       _content.add(
@@ -384,7 +388,7 @@ class _Layout {
         dividers.add((_frames.length - 1, _y));
       }
 
-      _content.add(DiagramLabel(run: run, at: Offset(_left() + inset + metrics.blockInset, _y)));
+      _content.add(DiagramLabel(run: run, at: Offset(_left() + inset + metrics.blockInset, _y), backdrop: true));
       _y += run.size.height + metrics.labelGap;
 
       _walk(section.steps, depth + 1);
@@ -417,7 +421,7 @@ class _Layout {
     for (var i = 0; i < _headers.length; i++) {
       final run = _headers[i];
       final rect = Rect.fromLTWH(_centres[i] - _widths[i] / 2, metrics.margin, _widths[i], _headerHeight());
-      _lifelines.add(DiagramBox(rect: rect, radius: 3, ink: DiagramInk.fill));
+      _lifelines.add(DiagramBox(rect: rect, radius: 3, ink: DiagramInk.plate));
       _lifelines.add(
         DiagramLabel(run: run, at: Offset(rect.center.dx - run.size.width / 2, rect.center.dy - run.size.height / 2)),
       );
