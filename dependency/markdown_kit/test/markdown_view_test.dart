@@ -205,7 +205,7 @@ void main() {
       final source = [for (var i = 0; i < 300; i++) 'Блок номер $i.'].join('\n\n');
 
       await pump(tester, source, size: const Size(400, 200));
-      await tester.drag(find.byType(ListView), const Offset(0, -2000));
+      await tester.drag(find.byType(CustomScrollView), const Offset(0, -2000));
       await tester.pump();
 
       expect(find.text('Блок номер 0.'), findsNothing);
@@ -242,7 +242,7 @@ void main() {
       await pump(tester, 'Первый абзац.\n', size: const Size(800, 300), contentWidthFactor: 0.75);
 
       final box = tester.getRect(find.text('Первый абзац.'));
-      final list = tester.getRect(find.byType(ListView));
+      final list = tester.getRect(find.byType(CustomScrollView));
 
       expect(box.left - list.left, greaterThan(90), reason: 'слева поле в восьмую часть ширины');
       expect(list.right - box.right, greaterThan(90));
@@ -256,7 +256,7 @@ void main() {
         contentPadding: const EdgeInsets.symmetric(vertical: 50),
       );
 
-      final list = tester.getRect(find.byType(ListView));
+      final list = tester.getRect(find.byType(CustomScrollView));
       final text = tester.getRect(find.text('Первый абзац.'));
 
       expect(text.top - list.top, greaterThanOrEqualTo(50));
@@ -300,7 +300,7 @@ void main() {
     testWidgets('первому блоку отбивка не нужна: над ним и так поле', (tester) async {
       await pump(tester, '# Заголовок\n\nТекст.\n', size: const Size(800, 400), headingSpacing: 32);
 
-      final list = tester.getRect(find.byType(ListView));
+      final list = tester.getRect(find.byType(CustomScrollView));
       final heading = tester.getRect(find.text('Заголовок'));
 
       expect(heading.top - list.top, lessThan(32));
@@ -310,7 +310,7 @@ void main() {
       await pump(tester, 'Первый абзац.\n', size: const Size(800, 300));
 
       final box = tester.getRect(find.text('Первый абзац.'));
-      final list = tester.getRect(find.byType(ListView));
+      final list = tester.getRect(find.byType(CustomScrollView));
 
       expect(box.left - list.left, lessThan(10));
       expect(box.top - list.top, lessThan(10));
@@ -322,7 +322,7 @@ void main() {
     String longDocument() => [for (var i = 0; i < 200; i++) 'Строка номер $i.'].join('\n\n');
 
     double offsetOf(WidgetTester tester) =>
-        (tester.widget<ListView>(find.byType(ListView))).controller!.position.pixels;
+        tester.state<ScrollableState>(find.byType(Scrollable).first).position.pixels;
 
     testWidgets('стрелка вниз листает, вверх возвращает', (tester) async {
       await pump(tester, longDocument(), size: const Size(500, 300), autofocus: true);

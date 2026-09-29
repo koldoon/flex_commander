@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:fc_ui_api/fc_ui_api.dart';
 import 'package:fc_ui_kit/fc_ui_kit.dart';
@@ -137,14 +138,18 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
 
   MarkdownStyleSheet? _style;
 
-  @override
-  void initState() {
-    super.initState();
-    final start = widget.startAtBlock;
-    if (start != null && start > 0) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _reveal(start, alignment: 0));
-    }
-  }
+  /// Блок, с которого список начинается, — точка отсчёта прокрутки.
+  ///
+  /// Не «подвести список к блоку», а **начать с него**: подвод — это прикидка
+  /// «доля от всей длины», а длину ленивый список знает только по построенному.
+  /// На неровном документе прикидка промахивается, список прыгает несколько
+  /// кадров подряд и доезжает уже плавностью — человек видит, как показ куда-то
+  /// едет сам. Точка отсчёта ставит место сразу и точно
+  /// (`docs/spec/markdown-viewer.md`, §8).
+  late final int _origin = (widget.startAtBlock ?? 0).clamp(0, math.max(0, widget.document.length - 1));
+
+  /// Ключ середины: с него виджет прокрутки ведёт отсчёт.
+  final GlobalKey _centre = GlobalKey();
 
   @override
   void didChangeDependencies() {
@@ -168,8 +173,11 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
   ///
   /// Построенный блок показывается точно; непостроенный сперва подводится
   /// примерно — по его доле в документе, — и показывается точно следующим
-  /// кадром. Проб ровно две: список мог и не доехать, но крутить его без конца
-  /// хуже, чем показать приблизительно.
+  /// кадром. Проб не больше трёх: список мог и не доехать, но крутить его без
+  /// конца хуже, чем показать приблизительно.
+  ///
+  /// [duration] — за сколько доехать; `Duration.zero` ставит сразу, без
+  /// плавности.
   void _reveal(int index, {double alignment = 0.1, Duration duration = const Duration(milliseconds: 120)}) {
     if (!mounted) {
       return;
@@ -190,7 +198,8 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
     final position = _scroll.position;
     final blocks = widget.document.length;
     final share = blocks == 0 ? 0.0 : index / blocks;
-    position.jumpTo((share * position.maxScrollExtent).clamp(0.0, position.maxScrollExtent));
+    final from = position.minScrollExtent;
+    position.jumpTo((from + share * (position.maxScrollExtent - from)).clamp(from, position.maxScrollExtent));
     WidgetsBinding.instance.addPostFrameCallback((_) => _reveal(index, alignment: alignment, duration: duration));
   }
 
@@ -342,11 +351,42 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
         child: SelectionArea(
           child: NotificationListener<ScrollEndNotification>(
             onNotification: _noteTopBlock,
-            child: ListView.builder(
+            child: CustomScrollView(
               controller: _scroll,
-              padding: widget.contentPadding.add(EdgeInsets.symmetric(horizontal: side)),
-              itemCount: widget.document.length,
-              itemBuilder: _blockAt,
+              // Отсчёт — от блока, с которого читают: всё, что выше него, уходит
+              // в отрицательную часть прокрутки и строится, только если туда
+              // поднимутся.
+              center: _centre,
+              slivers: [
+                if (_origin > 0)
+                  SliverPadding(
+                    // Поле документа сверху — над **первым** блоком, а он здесь.
+                    padding: EdgeInsets.only(top: widget.contentPadding.top, left: side, right: side),
+                    sliver: SliverList(
+                      // Отсчёт вверх: нулевой ребёнок — блок прямо над началом.
+                      delegate: SliverChildBuilderDelegate(
+                        (context, index) => _blockAt(context, _origin - 1 - index),
+                        childCount: _origin,
+                      ),
+                    ),
+                  ),
+                SliverPadding(
+                  key: _centre,
+                  padding: EdgeInsets.only(
+                    // А если начинают с самого начала, то первый блок — здесь.
+                    top: _origin == 0 ? widget.contentPadding.top : 0,
+                    bottom: widget.contentPadding.bottom,
+                    left: side,
+                    right: side,
+                  ),
+                  sliver: SliverList(
+                    delegate: SliverChildBuilderDelegate(
+                      (context, index) => _blockAt(context, _origin + index),
+                      childCount: widget.document.length - _origin,
+                    ),
+                  ),
+                ),
+              ],
             ),
           ),
         ),
@@ -391,7 +431,9 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
       LogicalKeyboardKey.arrowUp => position.pixels - _lineStep,
       LogicalKeyboardKey.pageDown || LogicalKeyboardKey.space => position.pixels + page,
       LogicalKeyboardKey.pageUp => position.pixels - page,
-      LogicalKeyboardKey.home => 0.0,
+      // Начало документа — не ноль: отсчёт идёт от блока, с которого открыли,
+      // и всё, что выше, лежит в отрицательной части.
+      LogicalKeyboardKey.home => position.minScrollExtent,
       LogicalKeyboardKey.end => position.maxScrollExtent,
       _ => null,
     };
@@ -400,7 +442,7 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
       return KeyEventResult.ignored;
     }
 
-    _scroll.jumpTo(target.clamp(0.0, position.maxScrollExtent));
+    _scroll.jumpTo(target.clamp(position.minScrollExtent, position.maxScrollExtent));
 
     return KeyEventResult.handled;
   }
