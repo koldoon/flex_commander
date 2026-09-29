@@ -414,4 +414,38 @@ void main() {
       expect(tapped, 'https://example.org');
     });
   });
+
+  group('список задач', () {
+    const source = '- [ ] не сделано\n- [x] сделано\n- [ ] тоже не сделано\n';
+
+    testWidgets('флажки — наши, а не значки Material', (tester) async {
+      // Значок Material рисуется чёрным и в тёмной теме выглядит дырой.
+      await pump(tester, source);
+
+      expect(find.byType(FcCheckboxMark), findsNWidgets(3));
+      expect(find.byIcon(Icons.check_box), findsNothing);
+      expect(find.byIcon(Icons.check_box_outline_blank), findsNothing);
+    });
+
+    testWidgets('отмеченное отмечено, неотмеченное нет', (tester) async {
+      await pump(tester, source);
+
+      final marks = tester.widgetList<FcCheckboxMark>(find.byType(FcCheckboxMark));
+
+      expect(marks.map((mark) => mark.value), [false, true, false]);
+    });
+
+    testWidgets('нажатие ничего не меняет: документ показывают, а не правят', (tester) async {
+      await pump(tester, source);
+
+      await tester.tap(find.byType(FcCheckboxMark).first, warnIfMissed: false);
+      await tester.pumpAndSettle();
+
+      expect(tester.widgetList<FcCheckboxMark>(find.byType(FcCheckboxMark)).map((mark) => mark.value), [
+        false,
+        true,
+        false,
+      ]);
+    });
+  });
 }

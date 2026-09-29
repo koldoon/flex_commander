@@ -190,7 +190,6 @@ class _FcCheckboxState extends State<FcCheckbox> {
   Widget build(BuildContext context) {
     final theme = FcTheme.of(context);
     final metrics = theme.metrics;
-    final colors = theme.colors;
     final enabled = _enabled;
     final value = widget.value;
     final label = widget.label;
@@ -215,34 +214,7 @@ class _FcCheckboxState extends State<FcCheckbox> {
               child: Row(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Container(
-                    width: metrics.checkboxSize,
-                    height: metrics.checkboxSize,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: colors.inputBackground,
-                      border: Border.all(color: colors.inputBorder, width: metrics.strokeWidth),
-                      borderRadius: BorderRadius.circular(metrics.inputRadius),
-                    ),
-                    // Поверх, а не рамкой: знак поехал бы вместе с подписью.
-                    // Слой стоит всегда — появление `foregroundDecoration`
-                    // пересобирает то, что под ним.
-                    foregroundDecoration: BoxDecoration(
-                      border: Border.all(
-                        color: _focused ? colors.focusRing : const Color(0x00000000),
-                        width: metrics.focusRingWidth,
-                      ),
-                      borderRadius: BorderRadius.circular(metrics.inputRadius),
-                    ),
-                    // Три состояния — три вида знака: галочка, чёрточка,
-                    // пусто. Приглушать смешанное цветом нельзя: приглушённое в
-                    // приложении означает «недоступно», а тут всё доступно.
-                    child: switch (value) {
-                      true => _Mark(theme.icons.check, theme: theme),
-                      null => _Mark(theme.icons.mixed, theme: theme),
-                      false => null,
-                    },
-                  ),
+                  FcCheckboxMark(value: value, focused: _focused),
                   SizedBox(width: metrics.checkboxGap),
                   // Подпись уступает, если места мало: в форме флаг стоит в
                   // столбце значений, а тот бывает узким. Раньше флаг занимал
@@ -259,6 +231,55 @@ class _FcCheckboxState extends State<FcCheckbox> {
           ),
         ),
       ),
+    );
+  }
+}
+
+/// Сам флажок — квадратик со знаком, без подписи.
+///
+/// Отдельно от [FcCheckbox] ради списков задач в markdown: там подпись рисует
+/// разметка, а сам флажок трогать нельзя — документ показывают, а не правят
+/// (`docs/spec/markdown-viewer.md`, §6). Приглушать его при этом незачем:
+/// приглушённое в приложении означает «недоступно», а здесь это просто отметка
+/// в тексте.
+class FcCheckboxMark extends StatelessWidget {
+  const FcCheckboxMark({super.key, required this.value, this.focused = false});
+
+  /// null — смешанное.
+  final bool? value;
+
+  /// Обвести кольцом фокуса.
+  final bool focused;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = FcTheme.of(context);
+    final metrics = theme.metrics;
+    final colors = theme.colors;
+
+    return Container(
+      width: metrics.checkboxSize,
+      height: metrics.checkboxSize,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: colors.inputBackground,
+        border: Border.all(color: colors.inputBorder, width: metrics.strokeWidth),
+        borderRadius: BorderRadius.circular(metrics.inputRadius),
+      ),
+      // Поверх, а не рамкой: знак поехал бы вместе с подписью. Слой стоит
+      // всегда — появление `foregroundDecoration` пересобирает то, что под ним.
+      foregroundDecoration: BoxDecoration(
+        border: Border.all(color: focused ? colors.focusRing : const Color(0x00000000), width: metrics.focusRingWidth),
+        borderRadius: BorderRadius.circular(metrics.inputRadius),
+      ),
+      // Три состояния — три вида знака: галочка, чёрточка, пусто. Приглушать
+      // смешанное цветом нельзя: приглушённое в приложении означает
+      // «недоступно», а тут всё доступно.
+      child: switch (value) {
+        true => _Mark(theme.icons.check, theme: theme),
+        null => _Mark(theme.icons.mixed, theme: theme),
+        false => null,
+      },
     );
   }
 }

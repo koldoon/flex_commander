@@ -314,7 +314,14 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
       styleSheet: _styleOf(context),
       imageDirectory: null,
       imageBuilder: (uri, title, alt) => FcMarkdownImage(uri: uri, alt: alt ?? '', resolve: widget.resolveImage),
-      checkboxBuilder: null,
+      // Флажок списка задач — наш, а не значок Material: тот рисуется чёрным
+      // и в тёмной теме выглядит дырой. Нажать его нельзя: документ
+      // показывают, а не правят (`docs/spec/markdown-viewer.md`, §6).
+      checkboxBuilder:
+          (checked) => Padding(
+            padding: _styleOf(context).listBulletPadding ?? EdgeInsets.zero,
+            child: FcCheckboxMark(value: checked),
+          ),
       bulletBuilder: null,
       builders: {'pre': FcFencedBlockBuilder(blocks: widget.blocks, maxWidth: _width)},
       paddingBuilders: const {},
