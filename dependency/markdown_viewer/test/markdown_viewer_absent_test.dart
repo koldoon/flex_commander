@@ -46,9 +46,11 @@ void main() {
     expect(runtime.commands.find(ToggleMarkdownFormatCommand.commandId), isNull);
   });
 
-  test('и рисовальщиков врезок никто не спрашивает', () {
-    // Реестр из шага 1 пуст — и это законный вид приложения.
-    expect(runtime.app.markdownBlocks, isEmpty);
+  test('а рисовальщик врезок остаётся: он не наш', () {
+    // Врезки объявляет модуль диаграмм, и к показу markdown он отношения не
+    // имеет. Выключили показ — реестр врезок не при чём; спрашивать его просто
+    // стало некому.
+    expect(runtime.app.markdownBlocks.map((spec) => spec.id), contains('mermaid'));
   });
 
   test('а приложение живо', () {
