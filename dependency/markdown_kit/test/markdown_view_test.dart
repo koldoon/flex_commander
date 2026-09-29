@@ -469,6 +469,42 @@ void main() {
     });
   });
 
+  group('маркеры списков', () {
+    testWidgets('все прижаты к правому краю колонки', (tester) async {
+      // Показ прижимает номер вправо, а точку центрует: у точки выходит втрое
+      // больший зазор до текста, и на глаз она висит сама по себе.
+      await pump(tester, '- пункт списка\n');
+      expect(tester.widget<Text>(find.text('•')).textAlign, TextAlign.right);
+
+      await pump(tester, '1. пункт списка\n');
+      expect(tester.widget<Text>(find.text('1.')).textAlign, TextAlign.right);
+    });
+
+    testWidgets('зазор до текста у всех списков один и тот же', (tester) async {
+      // Тот же, что у флажка до его метки: маркер списка и есть знак при
+      // подписи. В библиотеке он вдвое меньше, и текст стоял вплотную.
+      final gap = DefaultMetrics().checkboxGap;
+
+      await pump(tester, '- пункт списка\n');
+      expect(tester.getRect(find.text('пункт списка')).left - tester.getRect(find.text('•')).right, gap);
+
+      await pump(tester, '1. пункт списка\n');
+      expect(tester.getRect(find.text('пункт списка')).left - tester.getRect(find.text('1.')).right, gap);
+
+      await pump(tester, '- [ ] пункт списка\n');
+      expect(tester.getRect(find.text('пункт списка')).left - tester.getRect(find.byType(FcCheckboxMark)).right, gap);
+    });
+
+    testWidgets('нумерация продолжается, а не начинается заново', (tester) async {
+      // Свой значок пункта — это ещё и свой счётчик: сбиться в нём легко.
+      await pump(tester, '1. раз\n1. два\n1. три\n');
+
+      expect(find.text('1.'), findsOneWidget);
+      expect(find.text('2.'), findsOneWidget);
+      expect(find.text('3.'), findsOneWidget);
+    });
+  });
+
   group('список задач', () {
     const source = '- [ ] не сделано\n- [x] сделано\n- [ ] тоже не сделано\n';
 
@@ -499,17 +535,17 @@ void main() {
       expect(size.height, theme.metrics.checkboxSize);
     });
 
-    testWidgets('флажок стоит там же, где маркер обычного списка', (tester) async {
-      // Флажок — это маркер списка задач. Прижатый влево, он один торчал бы за
-      // поля документа: `•` показ центрует в колонке маркера, а номер и вовсе
-      // прижимает вправо.
+    testWidgets('флажок прижат к тому же краю, что и маркер обычного списка', (tester) async {
+      // Флажок — это маркер списка задач, и зазор до текста у него должен быть
+      // такой же, как у точки и у номера. Иначе колонка маркеров перестаёт
+      // читаться колонкой.
       await pump(tester, '- обычный пункт\n');
-      final bullet = tester.getRect(find.text('•')).center.dx;
+      final column = tester.getRect(find.text('•')).right;
 
       await pump(tester, source);
-      final mark = tester.getRect(find.byType(FcCheckboxMark).first).center.dx;
+      final mark = tester.getRect(find.byType(FcCheckboxMark).first).right;
 
-      expect(mark, moreOrLessEquals(bullet, epsilon: 1));
+      expect(mark, moreOrLessEquals(column, epsilon: 1));
     });
 
     testWidgets('отмеченное отмечено, неотмеченное нет', (tester) async {

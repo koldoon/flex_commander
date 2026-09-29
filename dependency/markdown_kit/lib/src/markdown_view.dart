@@ -322,15 +322,23 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
       // ширины (`builder.dart:435`), и без него флажок растягивался бы поперёк
       // неё — квадратик выходил вдвое шире, чем выше.
       //
-      // По центру колонки, а не у левого края: флажок — это маркер списка
-      // задач, а маркер `•` показ центрует (номер и вовсе прижимает вправо).
-      // Прижатый влево, он один торчал бы за поля документа.
+      // К правому краю колонки — туда же, куда точка и номер: зазор до текста
+      // у всех маркеров один, и колонка читается колонкой.
       checkboxBuilder:
           (checked) => Padding(
             padding: _styleOf(context).listBulletPadding ?? EdgeInsets.zero,
-            child: Align(child: FcCheckboxMark(value: checked)),
+            child: Align(alignment: Alignment.centerRight, child: FcCheckboxMark(value: checked)),
           ),
-      bulletBuilder: null,
+      // Значок пункта — свой, ради выключки. Показ прижимает номер вправо, а
+      // точку центрует в колонке маркера: у точки выходит втрое больший зазор
+      // до текста, и на глаз она висит сама по себе. Все маркеры — вправо, к
+      // одному краю (`docs/spec/markdown-viewer.md`, §6).
+      bulletBuilder:
+          (parameters) => Text(
+            parameters.style == BulletStyle.unorderedList ? '•' : '${parameters.index + 1}.',
+            textAlign: TextAlign.right,
+            style: _styleOf(context).listBullet,
+          ),
       builders: {'pre': FcFencedBlockBuilder(blocks: widget.blocks, maxWidth: _width)},
       paddingBuilders: const {},
       listItemCrossAxisAlignment: MarkdownListItemCrossAxisAlignment.baseline,

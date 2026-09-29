@@ -41,6 +41,11 @@ MarkdownStyleSheet fcMarkdownStyle(FcTheme theme) {
     // выделенного слова с первого взгляда — иначе по ней просто не нажмут.
     a: theme.dialogTextStyle.copyWith(color: theme.colors.dialogLabel, decoration: TextDecoration.underline),
     listBullet: theme.dialogTextStyle,
+    // Зазор от маркера до текста — тот же, что у флажка до его метки
+    // (`checkboxGap`): маркер списка и есть знак при подписи. В библиотеке он
+    // 4, и текст стоял к точке вплотную; заодно флажок в списке задач теперь
+    // отбит от текста ровно так же, как флажок в окне.
+    listBulletPadding: EdgeInsets.only(right: metrics.checkboxGap),
     blockSpacing: metrics.dialogGap,
     // Ширина колонок — по содержимому: поровну колонка «Да/Нет» получала
     // столько же, сколько колонка с описанием на три строки.
