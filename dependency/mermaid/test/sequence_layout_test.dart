@@ -39,6 +39,9 @@ void main() {
   List<DiagramBox> boxesOf(DiagramLayout l) => l.shapes.whereType<DiagramBox>().toList();
   List<DiagramLabel> labelsOf(DiagramLayout l) => l.shapes.whereType<DiagramLabel>().toList();
 
+  /// Правый нижний угол надписи: им проверяют, что она целиком внутри плашки.
+  Offset label(DiagramLabel it) => it.at + Offset(it.run.size.width, it.run.size.height);
+
   /// Стрелки сообщений: прямые, не пунктирные линии жизни и не черты рамок.
   List<DiagramPath> arrowsOf(DiagramLayout l) => pathsOf(l).where((p) => p.head != DiagramHead.none).toList();
 
@@ -177,14 +180,30 @@ void main() {
       expect(widths.reduce((a, b) => a > b ? a : b), outer.rect.width, reason: 'широкая черта — по внешней рамке');
     });
 
-    test('ярлык ветви написан словом рамки', () {
-      final l = layout('alt да\n  A->>B: раз\nelse нет\n  A->>B: два\nend\n');
-      final texts = labelsOf(l).map((x) => x.run.size.width).toList();
+    test('слово рамки стоит в плашке, а условие рядом с ней', () {
+      // Без плашки слово читается подписью соседнего сообщения, а не именем
+      // конструкции.
+      final l = layout('alt да\n  A->>B: сообщение\nelse нет\n  A->>B: другое\nend\n');
 
-      // Точного текста подставной замер не несёт — проверяем, что ярлыков
-      // ровно два и они разной длины: «alt да» и «else нет».
-      expect(texts.where((w) => w == 'alt да'.length * 7), hasLength(1));
-      expect(texts.where((w) => w == 'else нет'.length * 7), hasLength(1));
+      final tabs = boxesOf(l).where((box) => box.ink == DiagramInk.fill && box.filled).toList();
+      final padding = const SequenceMetrics().tabPadding * 2;
+
+      // По плашке на ветвь, и ширина каждой — по её слову.
+      expect(tabs.map((tab) => tab.rect.width), ['alt'.length * 7 + padding, 'else'.length * 7 + padding]);
+
+      // Слово — внутри своей плашки и без подложки: плашка сама ему фон.
+      for (final tab in tabs) {
+        final word = labelsOf(l).firstWhere(
+          (label) => !label.backdrop && tab.rect.contains(label.at),
+          orElse: () => throw StateError('в плашке ${tab.rect} нет слова'),
+        );
+        expect(tab.rect.contains(label(word)), isTrue);
+      }
+
+      // Условие — рядом, на подложке: оно идёт поверх линий жизни.
+      final conditions = labelsOf(l).where((x) => x.backdrop).map((x) => x.run.size.width).toList();
+      expect(conditions, contains('да'.length * 7));
+      expect(conditions, contains('нет'.length * 7));
     });
   });
 

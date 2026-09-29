@@ -19,6 +19,7 @@ class SequenceMetrics {
     this.activation = 8,
     this.blockInset = 8,
     this.blockGap = 12,
+    this.tabPadding = 5,
     this.notePadding = 8,
     this.noteGap = 10,
   });
@@ -55,6 +56,9 @@ class SequenceMetrics {
 
   /// После закрытой рамки.
   final double blockGap;
+
+  /// Отступ слова внутри плашки в углу рамки.
+  final double tabPadding;
 
   /// Отступ текста внутри заметки.
   final double notePadding;
@@ -379,7 +383,8 @@ class _Layout {
     for (var i = 0; i < block.sections.length; i++) {
       final section = block.sections[i];
       final word = i == 0 ? block.kind.keyword : _separatorWord(block.kind);
-      final run = measure.run(section.label.isEmpty ? word : '$word ${section.label}', DiagramTextRole.blockLabel);
+      final keyword = measure.run(word, DiagramTextRole.blockLabel);
+      final condition = section.label.isEmpty ? null : measure.run(section.label, DiagramTextRole.blockLabel);
 
       if (i > 0) {
         // Черта между ветвями — её ширину знаем только в конце, рисуем
@@ -388,12 +393,34 @@ class _Layout {
         dividers.add((_frames.length - 1, _y));
       }
 
-      // Ярлык не садится прямо на черту — ни на верх рамки, ни на границу
-      // между ветвями: его подложка выедала бы из линии кусок, а линия здесь
-      // граница и должна читаться целиком.
+      // Плашка не садится прямо на черту — ни на верх рамки, ни на границу
+      // между ветвями: линия здесь граница и должна читаться целиком.
       _y += metrics.labelGap;
-      _content.add(DiagramLabel(run: run, at: Offset(_left() + inset + metrics.blockInset, _y), backdrop: true));
-      _y += run.size.height + metrics.labelGap;
+
+      // Слово, которым рамку объявили, — в плашке: без неё оно читается
+      // подписью соседнего сообщения, а не именем конструкции.
+      final tall = math.max(keyword.size.height, condition?.size.height ?? 0);
+      final tab = Rect.fromLTWH(
+        _left() + inset,
+        _y,
+        keyword.size.width + metrics.tabPadding * 2,
+        tall + metrics.tabPadding,
+      );
+      _frames.add(DiagramBox(rect: tab, radius: 3, ink: DiagramInk.fill));
+      _content.add(
+        DiagramLabel(run: keyword, at: Offset(tab.left + metrics.tabPadding, tab.center.dy - keyword.size.height / 2)),
+      );
+      if (condition != null) {
+        // Условие — рядом с плашкой и на подложке: оно идёт поверх линий жизни.
+        _content.add(
+          DiagramLabel(
+            run: condition,
+            at: Offset(tab.right + metrics.labelGap, tab.center.dy - condition.size.height / 2),
+            backdrop: true,
+          ),
+        );
+      }
+      _y = tab.bottom + metrics.labelGap;
 
       _walk(section.steps, depth + 1);
     }
