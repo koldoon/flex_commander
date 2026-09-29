@@ -41,6 +41,7 @@ class AppController extends ChangeNotifier implements Application {
     PanelColumns? columns,
     List<ViewerSpec> viewers = const [],
     List<MarkdownBlockSpec> markdownBlocks = const [],
+    List<FormatterSpec> formatters = const [],
     List<NodeInfoProvider> nodeInfoProviders = const [],
     Views? views,
     ThemeController? theme,
@@ -82,6 +83,7 @@ class AppController extends ChangeNotifier implements Application {
        // на каждое открытие файла, а меняться ему больше негде.
        viewers = [...viewers]..sort((a, b) => b.priority.compareTo(a.priority)),
        markdownBlocks = [...markdownBlocks]..sort((a, b) => b.priority.compareTo(a.priority)),
+       formatters = [...formatters]..sort((a, b) => b.priority.compareTo(a.priority)),
        nodeInfoProviders = [...nodeInfoProviders]..sort((a, b) => b.priority.compareTo(a.priority)),
        views = views ?? const NoViews(),
        window = window ?? const NoopWindowService() {
@@ -436,6 +438,10 @@ class AppController extends ChangeNotifier implements Application {
   /// Объявленные рисовальщики врезок markdown, по убыванию приоритета.
   @override
   final List<MarkdownBlockSpec> markdownBlocks;
+
+  /// Объявленные форматтеры, по убыванию приоритета.
+  @override
+  final List<FormatterSpec> formatters;
 
   /// Объявленные провайдеры сведений, по убыванию приоритета.
   @override

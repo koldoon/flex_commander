@@ -60,6 +60,10 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
   /// приоритету их расставит приложение.
   final List<MarkdownBlockSpec> markdownBlocks = [];
 
+  /// Объявленные форматтеры — в порядке объявления; по приоритету их расставит
+  /// приложение.
+  final List<FormatterSpec> formatters = [];
+
   /// Провайдеры сведений — фабриками: их зовут, когда приложение уже собрано,
   /// как и фабрики команд.
   final List<NodeInfoProvider Function(FcContext context)> nodeInfoFactories = [];
@@ -143,6 +147,18 @@ class FrontendRegistrations extends ModuleRegistrations<FcFrontendModule> implem
       throw StateError('Рисовальщик врезок «${spec.id}» уже объявлен');
     }
     markdownBlocks.add(spec);
+  }
+
+  @override
+  void formatter(FormatterSpec spec) {
+    final taken = formatters.indexWhere((declared) => declared.id == spec.id);
+    if (taken >= 0) {
+      // Два форматтера под одним именем — недосмотр: имя уходит в настройки и
+      // в отказы, и победа последнего сделала бы вид документа зависящим от
+      // порядка модулей в списке.
+      throw StateError('Форматтер «${spec.id}» уже объявлен');
+    }
+    formatters.add(spec);
   }
 
   @override

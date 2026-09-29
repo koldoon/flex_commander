@@ -2,6 +2,7 @@ import 'package:fc_api/fc_api.dart';
 
 import '../app/application.dart';
 import '../app/node_info.dart';
+import '../app/formatter_spec.dart';
 import '../app/markdown_block_spec.dart';
 import '../app/packer_spec.dart';
 import '../app/panel_header_spec.dart';
@@ -140,6 +141,14 @@ abstract interface class FrontendRegistry {
   /// не знал (`docs/spec/markdown-viewer.md`, §2). Пусто — врезки остаются
   /// врезками кода, и это законный вид документа.
   void markdownBlock(MarkdownBlockSpec spec);
+
+  /// Чем привести текст файла в читаемый вид.
+  ///
+  /// Объявляет модуль, а спрашивают показ текста и редактор: один рисует
+  /// отформатированную копию, другой правит документ на месте
+  /// (`docs/spec/formatters.md`, §2). Пусто — `F5` в показе ничего не делает,
+  /// и это законное состояние: файл открывается текстом, как раньше.
+  void formatter(FormatterSpec spec);
 
   /// Чем рисовать состояние типа [S].
   ///

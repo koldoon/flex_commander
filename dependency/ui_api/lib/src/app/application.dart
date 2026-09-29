@@ -11,6 +11,7 @@ import 'panel_header_spec.dart';
 import 'panel_view_spec.dart';
 import 'panel_viewport.dart';
 import 'viewport.dart';
+import 'formatter_spec.dart';
 import 'markdown_block_spec.dart';
 import 'node_info.dart';
 import 'content_types.dart';
@@ -203,6 +204,12 @@ abstract interface class Application implements Listenable {
   /// Тот же порядок вещей, что и с просмотрщиками: ядро складывает, а
   /// спрашивает `accepts` тот, кто показывает документ.
   List<MarkdownBlockSpec> get markdownBlocks;
+
+  /// Объявленные форматтеры, по убыванию приоритета.
+  ///
+  /// Спрашивают их показ текста и редактор; ядро складывает и упорядочивает, а
+  /// решать, чей это файл, ему нечем.
+  List<FormatterSpec> get formatters;
 
   /// Чем рисуются состояния: панель, просмотрщик, заявка от работы.
   ///
