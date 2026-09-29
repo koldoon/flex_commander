@@ -49,6 +49,7 @@ void main() {
     required bool scrollsByArrows,
     int? startAtLine,
     void Function(int line)? onTopLine,
+    int frames = 2,
   }) async {
     final CodeLineEditingController controller = CodeLineEditingController.fromText(text);
     await tester.pumpWidget(
@@ -73,8 +74,9 @@ void main() {
     );
     // Фокус поле просит следующим кадром после появления: без него клавиши до
     // него не дойдут.
-    await tester.pump();
-    await tester.pump();
+    for (int i = 0; i < frames; i++) {
+      await tester.pump();
+    }
     return controller;
   }
 
@@ -347,6 +349,41 @@ void main() {
         await tester.pump();
 
         expect(scroll(tester).pixels, moreOrLessEquals(200 * step, epsilon: 1));
+      });
+    });
+
+    testWidgets('до постановки места поле не показывают', (tester) async {
+      // Высоту строки знает только нарисованное поле, поэтому прыжок случается
+      // кадром позже первой отрисовки. Показать этот кадр значит показать текст
+      // не на том месте — а выглядит это как очень быстрая прокрутка.
+      await onDesktop(tester, () async {
+        final double step = await lineStep(tester);
+
+        // Ни одного лишнего кадра: смотрим ровно на то, что нарисовано первым.
+        await pump(tester, readOnly: true, scrollsByArrows: true, startAtLine: 200, frames: 0);
+
+        Opacity shown() =>
+            tester.widget<Opacity>(find.ancestor(of: find.byType(CodeEditor), matching: find.byType(Opacity)).first);
+
+        expect(shown().opacity, 0, reason: 'первый кадр — ещё не на месте');
+
+        await tester.pump();
+        await tester.pump();
+
+        expect(shown().opacity, 1);
+        expect(scroll(tester).pixels, moreOrLessEquals(200 * step, epsilon: 1));
+      });
+    });
+
+    testWidgets('без просьбы поле видно сразу', (tester) async {
+      await onDesktop(tester, () async {
+        await pump(tester, readOnly: true, scrollsByArrows: true, frames: 0);
+
+        final Opacity shown = tester.widget<Opacity>(
+          find.ancestor(of: find.byType(CodeEditor), matching: find.byType(Opacity)).first,
+        );
+
+        expect(shown.opacity, 1, reason: 'прятать нечего — место и так начальное');
       });
     });
 

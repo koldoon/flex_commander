@@ -101,6 +101,20 @@ class _FcTextViewState extends State<FcTextView> {
   /// Высота строки; 0 — ещё не рисовали.
   double _lineHeight = 0;
 
+  /// Место чтения поставлено — текст можно показывать.
+  ///
+  /// До этого поле держат невидимым. Высоту строки знает только нарисованное
+  /// поле, поэтому прыжок случается кадром позже первой отрисовки, и без этой
+  /// задержки человек успевает увидеть кадр не на том месте — выглядит это как
+  /// очень быстрая прокрутка (`docs/spec/markdown-viewer.md`, §8).
+  late bool _placed = (widget.startAtLine ?? 0) <= 0;
+
+  /// Сколько кадров ждали высоту строки.
+  ///
+  /// Не дождались — показываем как есть: пустое поле хуже поля не на той
+  /// строке.
+  int _waited = 0;
+
   @override
   void initState() {
     super.initState();
@@ -119,11 +133,7 @@ class _FcTextViewState extends State<FcTextView> {
       if (widget.focused) {
         _focus.requestFocus();
       }
-      // Вторым кадром: до первого высоты строки ещё не знает никто.
-      final start = widget.startAtLine;
-      if (start != null && start > 0) {
-        WidgetsBinding.instance.addPostFrameCallback((_) => _openAt(start));
-      }
+      _openAtStart();
     });
   }
 
@@ -171,15 +181,27 @@ class _FcTextViewState extends State<FcTextView> {
   /// ближнему краю — прыжок вперёд оставил бы её внизу, и место чтения уехало
   /// бы на экран. Высота строки здесь одна на все: перенос по словам в показе
   /// выключен.
-  void _openAt(int line) {
-    if (!mounted || _lineHeight <= 0) {
+  void _openAtStart() {
+    if (!mounted || _placed) {
       return;
     }
+
     final scroller = _scroll.verticalScroller;
-    if (!scroller.hasClients) {
+    if (_lineHeight <= 0 || !scroller.hasClients) {
+      // Высоту строки приносит первая же отрисовка; ждём её, но не вечно.
+      if (_waited++ < 5) {
+        WidgetsBinding.instance.addPostFrameCallback((_) => _openAtStart());
+
+        return;
+      }
+      setState(() => _placed = true);
+
       return;
     }
+
+    final line = widget.startAtLine ?? 0;
     scroller.jumpTo((line * _lineHeight).clamp(0.0, scroller.position.maxScrollExtent));
+    setState(() => _placed = true);
   }
 
   @override
@@ -199,24 +221,29 @@ class _FcTextViewState extends State<FcTextView> {
       // текст отодвигают уже свои поля.
       child: Padding(
         padding: EdgeInsets.all(theme.metrics.scrollbarInset),
-        child: CodeEditor(
-          controller: widget.controller,
-          scrollController: _scroll,
-          findController: widget.finder?.findController,
-          focusNode: _focus,
-          readOnly: widget.readOnly,
-          // В режиме чтения курсора не видно: править нечего, а мигающая
-          // палочка обещает ввод. Позицию он всё равно держит — ею листают
-          // стрелки и страницы, — просто не мозолит глаза.
-          showCursorWhenReadOnly: false,
-          wordWrap: widget.wordWrap,
-          padding: EdgeInsets.symmetric(horizontal: theme.metrics.panelLeftPadding),
-          style: textViewStyle(theme, textBaseStyle(theme), languageOf(widget.fileName)),
-          // Указатель нужен и без номеров строк: только через него поле
-          // говорит, что сейчас видно. Без номеров он пустой и места не
-          // занимает.
-          indicatorBuilder: _indicator,
-          shortcutsActivatorsBuilder: widget.shortcuts,
+        // Невидимое, но живое: поле обязано нарисоваться, иначе высоту строки
+        // узнать не у кого, а прыгать вслепую — тот же кадр не на том месте.
+        child: Opacity(
+          opacity: _placed ? 1 : 0,
+          child: CodeEditor(
+            controller: widget.controller,
+            scrollController: _scroll,
+            findController: widget.finder?.findController,
+            focusNode: _focus,
+            readOnly: widget.readOnly,
+            // В режиме чтения курсора не видно: править нечего, а мигающая
+            // палочка обещает ввод. Позицию он всё равно держит — ею листают
+            // стрелки и страницы, — просто не мозолит глаза.
+            showCursorWhenReadOnly: false,
+            wordWrap: widget.wordWrap,
+            padding: EdgeInsets.symmetric(horizontal: theme.metrics.panelLeftPadding),
+            style: textViewStyle(theme, textBaseStyle(theme), languageOf(widget.fileName)),
+            // Указатель нужен и без номеров строк: только через него поле
+            // говорит, что сейчас видно. Без номеров он пустой и места не
+            // занимает.
+            indicatorBuilder: _indicator,
+            shortcutsActivatorsBuilder: widget.shortcuts,
+          ),
         ),
       ),
     );
