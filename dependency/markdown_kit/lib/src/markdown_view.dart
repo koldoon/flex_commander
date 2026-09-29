@@ -317,10 +317,14 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
       // Флажок списка задач — наш, а не значок Material: тот рисуется чёрным
       // и в тёмной теме выглядит дырой. Нажать его нельзя: документ
       // показывают, а не правят (`docs/spec/markdown-viewer.md`, §6).
+      //
+      // `Align` обязателен: показ ставит значок пункта в коробку жёсткой
+      // ширины (`builder.dart:435`), и без него флажок растягивался бы поперёк
+      // неё — квадратик выходил вдвое шире, чем выше.
       checkboxBuilder:
           (checked) => Padding(
             padding: _styleOf(context).listBulletPadding ?? EdgeInsets.zero,
-            child: FcCheckboxMark(value: checked),
+            child: Align(alignment: Alignment.centerLeft, child: FcCheckboxMark(value: checked)),
           ),
       bulletBuilder: null,
       builders: {'pre': FcFencedBlockBuilder(blocks: widget.blocks, maxWidth: _width)},

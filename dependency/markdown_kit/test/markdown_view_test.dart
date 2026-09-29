@@ -427,6 +427,24 @@ void main() {
       expect(find.byIcon(Icons.check_box_outline_blank), findsNothing);
     });
 
+    testWidgets('флажок квадратный, а не растянутый', (tester) async {
+      // Показ ставит значок пункта в коробку жёсткой ширины, и без `Align`
+      // флажок растягивается поперёк неё. На глаз это видно плохо — поэтому
+      // меряем, а не смотрим.
+      await pump(tester, source);
+
+      final theme = FcTheme(
+        colors: DefaultColors(),
+        metrics: DefaultMetrics(),
+        icons: DefaultIcons(),
+        fonts: DefaultFonts(),
+      );
+      final size = tester.getSize(find.byType(FcCheckboxMark).first);
+
+      expect(size.width, theme.metrics.checkboxSize);
+      expect(size.height, theme.metrics.checkboxSize);
+    });
+
     testWidgets('отмеченное отмечено, неотмеченное нет', (tester) async {
       await pump(tester, source);
 
