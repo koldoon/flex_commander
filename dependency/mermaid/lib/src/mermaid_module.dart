@@ -52,5 +52,12 @@ const Map<String, String> _russian = {
   'a note needs a colon and its text': 'у заметки нет двоеточия и текста',
   'a note must say left of, right of or over': 'у заметки должно быть left of, right of или over',
   'a message needs both sides of the arrow': 'у сообщения должны быть обе стороны стрелки',
+  'this is not a direction': 'это не направление',
+  'this line does not say what the subgraph is': 'не сказано, что за подграф',
+  'this line does not say what the node is': 'не сказано, что за узел',
+  'a link needs both of its ends': 'у связи должны быть оба конца',
+  'a direction inside a subgraph is not drawn yet': 'направление внутри подграфа пока не рисуется',
+  'invisible links are not drawn yet': 'невидимые связи пока не рисуются',
+  'a link with heads at both ends is not drawn yet': 'связь с наконечниками на обоих концах пока не рисуется',
   'do not understand this line': 'непонятная строка',
 };

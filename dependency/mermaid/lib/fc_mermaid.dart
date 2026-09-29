@@ -15,6 +15,8 @@ export 'src/draw/diagram_layout.dart';
 export 'src/draw/diagram_theme.dart';
 export 'src/draw/diagram_view.dart';
 export 'src/draw/diagram_text.dart';
+export 'src/flowchart/flowchart_model.dart';
+export 'src/flowchart/flowchart_parser.dart';
 export 'src/sequence/sequence_layout.dart';
 export 'src/sequence/sequence_model.dart';
 export 'src/sequence/sequence_parser.dart';

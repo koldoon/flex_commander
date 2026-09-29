@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import 'mermaid_error.dart';
 import 'mermaid_kind.dart';
 import 'draw/diagram_view.dart';
+import 'flowchart/flowchart_parser.dart';
 import 'sequence/sequence_layout.dart';
 import 'sequence/sequence_parser.dart';
 
@@ -53,6 +54,13 @@ Widget _draw(BuildContext context, MermaidKind kind, MarkdownBlockRequest reques
     final diagram = parseSequenceDiagram(request.source);
 
     return MermaidDiagramView(maxWidth: request.maxWidth, build: (measure) => layoutSequence(diagram, measure));
+  }
+
+  // Разбор подключён раньше отрисовки нарочно: опечатку в диаграмме человеку
+  // стоит показать сегодня, а не ждать картинки. Верная диаграмма получает
+  // «пока не рисуется», кривая — строку с номером (`docs/spec/mermaid.md`, §7).
+  if (kind == MermaidKind.flowchart) {
+    parseFlowchart(request.source);
   }
 
   throw MarkdownBlockRefused(context.strings.tr('{kind} is not drawn yet', args: {'kind': kind.keyword}));

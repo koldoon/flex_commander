@@ -57,6 +57,21 @@ void main() {
     expect(find.text('flowchart is not drawn yet'), findsOneWidget);
   });
 
+  testWidgets('кривой граф называет строку, а не «пока не рисуется»', (tester) async {
+    // Разбор подключён раньше отрисовки нарочно: опечатку человеку стоит
+    // показать сегодня, а не ждать картинки (`docs/spec/mermaid.md`, §7).
+    await pump(tester, 'flowchart TD\n  A --> B\n  end');
+
+    expect(find.text('Line 3: this end closes nothing'), findsOneWidget);
+    expect(find.text('flowchart is not drawn yet'), findsNothing);
+  });
+
+  testWidgets('незакрытый подграф указывает на своё начало', (tester) async {
+    await pump(tester, 'flowchart TD\n  subgraph S\n    A --> B');
+
+    expect(find.text('Line 2: this block is never closed'), findsOneWidget);
+  });
+
   testWidgets('врезка без объявления вида', (tester) async {
     await pump(tester, '%% тут только комментарий');
 
