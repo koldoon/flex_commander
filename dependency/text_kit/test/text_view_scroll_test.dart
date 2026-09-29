@@ -419,4 +419,37 @@ void main() {
       });
     });
   });
+
+  group('начало и конец документа', () {
+    testWidgets('`End` уводит в конец, `Home` возвращает в начало', (tester) async {
+      // Библиотека вешает голые `Home` и `End` на край **строки**, и в показе
+      // это выглядит как «клавиша не работает»: каретки не видно, а вбок текст
+      // обычно и не едет.
+      await onDesktop(tester, () async {
+        await pump(tester, readOnly: true, scrollsByArrows: true);
+        final ScrollPosition position = scroll(tester);
+
+        await press(tester, LogicalKeyboardKey.end);
+        expect(position.pixels, position.maxScrollExtent);
+        expect(position.maxScrollExtent, greaterThan(0), reason: 'иначе проверке нечего показывать');
+
+        await press(tester, LogicalKeyboardKey.home);
+        expect(position.pixels, 0);
+      });
+    });
+
+    testWidgets('в редакторе они остаются у края строки', (tester) async {
+      // Там каретку видно, и `Home` по строке — правильное поведение.
+      await onDesktop(tester, () async {
+        final CodeLineEditingController controller = await pump(tester, readOnly: false, scrollsByArrows: false);
+        controller.selection = const CodeLineSelection.collapsed(index: 0, offset: 3);
+        await tester.pump();
+
+        await press(tester, LogicalKeyboardKey.end);
+
+        expect(scroll(tester).pixels, 0, reason: 'текст не поехал');
+        expect(controller.selection.baseIndex, 0, reason: 'каретка осталась на своей строке');
+      });
+    });
+  });
 }

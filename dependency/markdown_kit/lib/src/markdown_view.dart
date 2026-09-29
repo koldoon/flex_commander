@@ -448,12 +448,14 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
       LogicalKeyboardKey.arrowUp => position.pixels - _lineStep,
       LogicalKeyboardKey.pageDown || LogicalKeyboardKey.space => position.pixels + page,
       LogicalKeyboardKey.pageUp => position.pixels - page,
-      // Начало документа — не ноль: отсчёт идёт от блока, с которого открыли,
-      // и всё, что выше, лежит в отрицательной части.
-      LogicalKeyboardKey.home => position.minScrollExtent,
-      LogicalKeyboardKey.end => position.maxScrollExtent,
       _ => null,
     };
+
+    if (event.logicalKey == LogicalKeyboardKey.home || event.logicalKey == LogicalKeyboardKey.end) {
+      _toEdge(end: event.logicalKey == LogicalKeyboardKey.end);
+
+      return KeyEventResult.handled;
+    }
 
     if (target == null) {
       return KeyEventResult.ignored;
@@ -463,6 +465,38 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
 
     return KeyEventResult.handled;
   }
+
+  /// В начало или в конец документа.
+  ///
+  /// Одним прыжком не выходит: у ленивого списка предел прокрутки — **оценка**
+  /// по уже построенному, и прыжок в неё строит следующий кусок, после чего
+  /// предел отодвигается. Поэтому прыгаем, пока он двигается. Край здесь и
+  /// правда край: начало — `minScrollExtent`, а не ноль, потому что отсчёт
+  /// идёт от блока, с которого открыли.
+  void _toEdge({required bool end, int attempts = 0}) {
+    if (!mounted || !_scroll.hasClients) {
+      return;
+    }
+
+    final position = _scroll.position;
+    final target = end ? position.maxScrollExtent : position.minScrollExtent;
+    if ((position.pixels - target).abs() < 0.5) {
+      return;
+    }
+
+    position.jumpTo(target);
+    if (attempts >= _edgeAttempts) {
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) => _toEdge(end: end, attempts: attempts + 1));
+  }
+
+  /// Сколько раз догоняем убегающий край.
+  ///
+  /// Оценка пересчитывается по средней высоте построенного и с каждым разом
+  /// точнее; десятка хватает с запасом, а без предела опечатка в расчёте
+  /// крутила бы список вечно.
+  static const int _edgeAttempts = 10;
 
   /// Шаг стрелки. Три строки: по одной документ листать утомительно, а
   /// половиной экрана — уже страница.

@@ -88,13 +88,18 @@ void main() {
       expect(viewer.build(CodeShortcutType.selectionExtendDown), defaults.build(CodeShortcutType.selectionExtendDown));
     });
 
-    test('кроме двух стрелок просмотрщик не задевает ничего', () {
+    test('сверх объявленного просмотрщик не задевает ничего', () {
+      // Сторож: всякая новая правка раскладки обязана быть **объявлена** —
+      // либо отпущена, либо названа в одном из множеств класса. Правка «по
+      // месту», в теле `build`, здесь и упирается.
       const defaults = DefaultCodeShortcutsActivatorsBuilder();
 
       for (final type in CodeShortcutType.values) {
         if (viewer.released.contains(type) ||
             FcTextShortcuts.find.contains(type) ||
             FcTextShortcuts.added.containsKey(type) ||
+            FcTextShortcuts.docEdges.containsKey(type) ||
+            FcTextShortcuts.lineEdges.contains(type) ||
             type == CodeShortcutType.cursorMoveUp ||
             type == CodeShortcutType.cursorMoveDown ||
             type == CodeShortcutType.scrollLineUp ||
@@ -126,5 +131,37 @@ void main() {
       }
       expect(shortcuts.build(type), defaults.build(type), reason: '$type');
     }
+  });
+
+  group('начало и конец документа', () {
+    const viewer = FcTextShortcuts(scrollsByArrows: true);
+    const home = SingleActivator(LogicalKeyboardKey.home);
+    const end = SingleActivator(LogicalKeyboardKey.end);
+
+    test('в библиотеке голые Home и End — это край строки, а не документа', () {
+      const defaults = DefaultCodeShortcutsActivatorsBuilder();
+
+      expect(defaults.build(CodeShortcutType.cursorMoveLineStart), contains(home));
+      expect(defaults.build(CodeShortcutType.cursorMoveLineEnd), contains(end));
+      expect(defaults.build(CodeShortcutType.cursorMovePageStart), isNot(contains(home)));
+      expect(defaults.build(CodeShortcutType.cursorMovePageEnd), isNot(contains(end)));
+    });
+
+    test('просмотрщику они уводят в край документа', () {
+      expect(viewer.build(CodeShortcutType.cursorMovePageStart), contains(home));
+      expect(viewer.build(CodeShortcutType.cursorMovePageEnd), contains(end));
+    });
+
+    test('и отобраны у края строки целиком, а не перекрыты', () {
+      // Назначить клавишу двум типам сразу и надеяться, что нужный перезапишет
+      // другого, значило бы держаться за порядок значений в `enum` библиотеки.
+      expect(viewer.build(CodeShortcutType.cursorMoveLineStart), isEmpty);
+      expect(viewer.build(CodeShortcutType.cursorMoveLineEnd), isEmpty);
+    });
+
+    test('редактору край строки остаётся: там каретку видно', () {
+      expect(shortcuts.build(CodeShortcutType.cursorMoveLineStart), contains(home));
+      expect(shortcuts.build(CodeShortcutType.cursorMovePageStart), isNot(contains(home)));
+    });
   });
 }

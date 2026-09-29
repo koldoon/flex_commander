@@ -32,6 +32,7 @@ void main() {
     double contentWidthFactor = 1,
     double headingSpacing = 0,
     bool autofocus = false,
+    int? startAtBlock,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -53,6 +54,7 @@ void main() {
                 contentWidthFactor: contentWidthFactor,
                 headingSpacing: headingSpacing,
                 autofocus: autofocus,
+                startAtBlock: startAtBlock,
               ),
             ),
           ),
@@ -376,16 +378,68 @@ void main() {
       expect(offsetOf(tester), greaterThan(line));
     });
 
-    testWidgets('`End` уводит в конец, `Home` возвращает в начало', (tester) async {
-      await pump(tester, longDocument(), size: const Size(500, 300), autofocus: true);
+    /// Документ, на котором предел прокрутки **занижен**: сверху короткие
+    /// абзацы, а вся высота — во врезках в конце.
+    ///
+    /// Ленивый список считает предел по средней высоте построенного, и пока
+    /// построены одни короткие абзацы, конец документа кажется гораздо ближе,
+    /// чем он есть. Завышенный предел Flutter поправляет сам, заниженный — нет:
+    /// прыжок в него упирается в никуда.
+    String taperedDocument() {
+      final tall = '```\n${List.generate(80, (n) => 'строка кода $n').join('\n')}\n```';
+
+      return [
+        for (var i = 0; i < 200; i++) 'Абзац $i.',
+        for (var i = 0; i < 20; i++) tall,
+        'Самый последний абзац.',
+      ].join('\n\n');
+    }
+
+    ScrollPosition positionOf(WidgetTester tester) =>
+        tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+
+    testWidgets('`End` доводит до последнего блока, а не куда придётся', (tester) async {
+      await pump(tester, taperedDocument(), size: const Size(500, 300), autofocus: true);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.end);
-      await tester.pump();
-      expect(offsetOf(tester), greaterThan(0));
+      await tester.pumpAndSettle();
+
+      // Проверяем не «уехали куда-то», а «виден конец»: прежняя проверка
+      // требовала от `End` только «больше нуля» — и пропускала ровно эту беду.
+      expect(find.text('Самый последний абзац.'), findsOneWidget);
+      expect(positionOf(tester).pixels, moreOrLessEquals(positionOf(tester).maxScrollExtent, epsilon: 0.5));
+    });
+
+    testWidgets('`Home` возвращает к первому блоку', (tester) async {
+      await pump(tester, taperedDocument(), size: const Size(500, 300), autofocus: true);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.home);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Абзац 0.'), findsOneWidget);
+      expect(positionOf(tester).pixels, positionOf(tester).minScrollExtent);
+    });
+
+    testWidgets('`End` доводит до конца и из середины документа', (tester) async {
+      // Открыли с середины — предел занижен ещё сильнее: построена только
+      // середина, а хвост целиком во врезках.
+      await pump(tester, taperedDocument(), size: const Size(500, 300), autofocus: true, startAtBlock: 100);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.end);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Самый последний абзац.'), findsOneWidget);
+    });
+
+    testWidgets('`Home` доходит до начала и из середины документа', (tester) async {
+      await pump(tester, taperedDocument(), size: const Size(500, 300), autofocus: true, startAtBlock: 100);
 
       await tester.sendKeyEvent(LogicalKeyboardKey.home);
-      await tester.pump();
-      expect(offsetOf(tester), 0);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Абзац 0.'), findsOneWidget);
     });
 
     testWidgets('дальше краёв не уезжает', (tester) async {

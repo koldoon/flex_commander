@@ -11,7 +11,8 @@ import 'package:re_editor/re_editor.dart';
 /// `Esc` отпускают оба экрана: он закрывает их, и, утонув в виджете, оставил бы
 /// человека внутри без выхода. Просмотрщик отпускает ещё и копирование — у него
 /// на `Cmd-C` стоит своя команда, которая говорит, что случилось, — и ход
-/// курсора стрелками: там они крутят текст ([scrollsByArrows]).
+/// курсора стрелками: там они крутят текст ([scrollsByArrows]). Ему же `Home` и
+/// `End` уводят в начало и конец **документа**, а не строки.
 class FcTextShortcuts extends DefaultCodeShortcutsActivatorsBuilder {
   const FcTextShortcuts({this.released = const {CodeShortcutType.esc}, this.scrollsByArrows = false});
 
@@ -59,6 +60,30 @@ class FcTextShortcuts extends DefaultCodeShortcutsActivatorsBuilder {
     CodeShortcutType.scrollLineDown: [SingleActivator(LogicalKeyboardKey.arrowDown)],
   };
 
+  /// Начало и конец **документа** — на голые `Home` и `End`.
+  ///
+  /// Библиотека вешает их на начало и конец строки, а документ отдаёт по
+  /// `Ctrl-Home` и `Ctrl-End`. В просмотрщике это значит «ничего не
+  /// происходит»: каретки не видно, а вбок текст на этих строках обычно и не
+  /// едет. Так листают Lister, встроенный просмотрщик Far и `less` — и человек
+  /// ждёт того же.
+  static const Map<CodeShortcutType, List<ShortcutActivator>> docEdges = {
+    CodeShortcutType.cursorMovePageStart: [SingleActivator(LogicalKeyboardKey.home)],
+    CodeShortcutType.cursorMovePageEnd: [SingleActivator(LogicalKeyboardKey.end)],
+  };
+
+  /// У кого `Home` и `End` забирают.
+  ///
+  /// Отпускаем целиком, а не перекрываем: назначить клавишу двум типам сразу и
+  /// надеяться, что нужный перезапишет другого, значило бы держаться за порядок
+  /// значений в `enum` библиотеки. Вместе с голой клавишей уходит и `Cmd-Left`
+  /// с `Cmd-Right`, но в просмотрщике ходить невидимой кареткой по строке
+  /// незачем.
+  static const Set<CodeShortcutType> lineEdges = {
+    CodeShortcutType.cursorMoveLineStart,
+    CodeShortcutType.cursorMoveLineEnd,
+  };
+
   /// У кого прокрутка стрелки забирает.
   ///
   /// Ход курсора **отпускается**, а не просто перекрывается: назначить стрелку
@@ -76,12 +101,16 @@ class FcTextShortcuts extends DefaultCodeShortcutsActivatorsBuilder {
     }
 
     if (scrollsByArrows) {
-      if (_walking.contains(type)) {
+      if (_walking.contains(type) || lineEdges.contains(type)) {
         return const [];
       }
       final List<ShortcutActivator>? scrolling = _scrolling[type];
       if (scrolling != null) {
         return scrolling;
+      }
+      final List<ShortcutActivator>? edges = docEdges[type];
+      if (edges != null) {
+        return [...?super.build(type), ...edges];
       }
     }
 
