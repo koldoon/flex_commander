@@ -13,12 +13,52 @@ import 'markdown_style.dart';
 /// через `dart:io` там нечем (`docs/spec/markdown-viewer.md`, §11).
 typedef FcImageResolver = Future<Uint8List> Function(String path);
 
+/// Прочитанные картинки документа и высота, которую они заняли.
+///
+/// Один на показ. Пока блок с картинкой уезжал за край и возвращался, чтение
+/// начиналось заново, а место под картинку на это время схлопывалось в ноль:
+/// документ дёргался на каждой прокрутке, а полоса прокрутки прыгала вслед за
+/// пересчитанной длиной (`docs/spec/markdown-viewer.md`, §11).
+class FcImageStore {
+  final Map<String, Future<Uint8List>> _reads = {};
+  final Map<String, Uint8List> _ready = {};
+  final Map<String, double> _heights = {};
+
+  /// Байты, если они уже прочитаны. Есть — рисуем сразу, без ожидания кадра.
+  Uint8List? ready(String key) => _ready[key];
+
+  /// Сколько картинка заняла в прошлый раз; null — ещё не показывали.
+  double? heightOf(String key) => _heights[key];
+
+  /// Запомнить занятую высоту: по ней резервируют место, пока идёт чтение.
+  void remember(String key, double height) {
+    if (height > 0) {
+      _heights[key] = height;
+    }
+  }
+
+  /// Прочитать один раз на документ.
+  Future<Uint8List> read(String key, Future<Uint8List> Function() from) =>
+      _reads[key] ??= from().then((bytes) {
+        _ready[key] = bytes;
+
+        return bytes;
+      });
+
+  /// Забыть всё: документ сменился.
+  void clear() {
+    _reads.clear();
+    _ready.clear();
+    _heights.clear();
+  }
+}
+
 /// Картинка из документа.
 ///
 /// Растровую рисует `Image`, векторную — `flutter_svg`: значки в README почти
 /// всегда векторные, и показывать их рамкой было бы обиднее всего.
 class FcMarkdownImage extends StatefulWidget {
-  const FcMarkdownImage({super.key, required this.uri, required this.alt, this.resolve});
+  const FcMarkdownImage({super.key, required this.uri, required this.alt, this.resolve, this.store});
 
   /// Адрес как он написан в документе.
   final Uri uri;
@@ -29,12 +69,26 @@ class FcMarkdownImage extends StatefulWidget {
   /// Чем прочесть соседний файл; null — читать нечем.
   final FcImageResolver? resolve;
 
+  /// Прочитанное этим документом; null — своё на каждую картинку.
+  final FcImageStore? store;
+
   @override
   State<FcMarkdownImage> createState() => _FcMarkdownImageState();
 }
 
 class _FcMarkdownImageState extends State<FcMarkdownImage> {
   Future<Uint8List>? _bytes;
+
+  /// Своё хранилище, если снаружи не дали: тогда оно живёт ровно столько,
+  /// сколько сама картинка.
+  FcImageStore? _own;
+
+  /// Им меряют занятую высоту, чтобы запомнить её на следующий показ.
+  final GlobalKey _box = GlobalKey();
+
+  FcImageStore get _store => widget.store ?? (_own ??= FcImageStore());
+
+  String get _key => widget.uri.toString();
 
   /// Удалённая ли картинка. За такими в сеть не ходим (§11).
   bool get _remote => widget.uri.hasScheme && widget.uri.scheme != 'file';
@@ -45,8 +99,18 @@ class _FcMarkdownImageState extends State<FcMarkdownImage> {
     // Чтение начинается только для соседнего файла: спросить разрешителя про
     // `https://…` значило бы сходить в сеть его руками.
     if (!_remote) {
-      _bytes ??= _read();
+      _bytes ??= _store.read(_key, _read);
     }
+  }
+
+  /// Запомнить, сколько места картинка заняла.
+  void _measure() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final box = _box.currentContext?.findRenderObject();
+      if (box is RenderBox && box.hasSize) {
+        _store.remember(_key, box.size.height);
+      }
+    });
   }
 
   Future<Uint8List> _read() async {
@@ -67,6 +131,14 @@ class _FcMarkdownImageState extends State<FcMarkdownImage> {
       return _placeholder(context, widget.uri.host.isEmpty ? widget.uri.scheme : widget.uri.host);
     }
 
+    // Байты уже есть — рисуем прямо сейчас, без круга через `FutureBuilder`:
+    // он и на готовом будущем отдаёт первый кадр пустым, а пустой кадр здесь
+    // означает нулевую высоту и прыжок документа.
+    final ready = _store.ready(_key);
+    if (ready != null) {
+      return _picture(context, ready);
+    }
+
     return FutureBuilder<Uint8List>(
       future: _bytes,
       builder: (context, snapshot) {
@@ -74,15 +146,29 @@ class _FcMarkdownImageState extends State<FcMarkdownImage> {
           return _placeholder(context, null);
         }
         if (!snapshot.hasData) {
-          return const SizedBox.shrink();
+          // Место под картинку держим по прошлому показу: иначе блок
+          // схлопывается в ноль и утягивает за собой всё, что ниже.
+          return SizedBox(height: _store.heightOf(_key) ?? 0);
         }
 
-        final bytes = snapshot.data!;
-
-        return _looksLikeSvg(bytes)
-            ? SvgPicture.memory(bytes, fit: BoxFit.scaleDown)
-            : Image.memory(bytes, fit: BoxFit.scaleDown, errorBuilder: (context, _, _) => _placeholder(context, null));
+        return _picture(context, snapshot.data!);
       },
+    );
+  }
+
+  Widget _picture(BuildContext context, Uint8List bytes) {
+    _measure();
+
+    return KeyedSubtree(
+      key: _box,
+      child:
+          _looksLikeSvg(bytes)
+              ? SvgPicture.memory(bytes, fit: BoxFit.scaleDown)
+              : Image.memory(
+                bytes,
+                fit: BoxFit.scaleDown,
+                errorBuilder: (context, _, _) => _placeholder(context, null),
+              ),
     );
   }
 

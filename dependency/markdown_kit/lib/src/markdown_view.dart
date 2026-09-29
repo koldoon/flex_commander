@@ -129,6 +129,12 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
   /// Ключи построенных блоков — по ним показ подводит список к найденному.
   final Map<int, GlobalKey> _keys = {};
 
+  /// Прочитанные картинки документа: один на показ.
+  ///
+  /// Блок уезжает за край — его состояние сносят, и без общего хранилища
+  /// чтение начиналось бы заново, а место под картинку схлопывалось в ноль.
+  final FcImageStore _images = FcImageStore();
+
   /// Свой контроллер, если снаружи не дали: без него не подвести список.
   ScrollController? _own;
   ScrollController get _scroll => widget.controller ?? (_own ??= ScrollController());
@@ -244,6 +250,7 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
   void _reset() {
     _built.clear();
     _keys.clear();
+    _images.clear();
     _style = null;
     _disposeRecognizers();
   }
@@ -313,7 +320,8 @@ class _FcMarkdownViewState extends State<FcMarkdownView> implements MarkdownBuil
       selectable: false,
       styleSheet: _styleOf(context),
       imageDirectory: null,
-      imageBuilder: (uri, title, alt) => FcMarkdownImage(uri: uri, alt: alt ?? '', resolve: widget.resolveImage),
+      imageBuilder:
+          (uri, title, alt) => FcMarkdownImage(uri: uri, alt: alt ?? '', resolve: widget.resolveImage, store: _images),
       // Флажок списка задач — наш, а не значок Material: тот рисуется чёрным
       // и в тёмной теме выглядит дырой. Нажать его нельзя: документ
       // показывают, а не правят (`docs/spec/markdown-viewer.md`, §6).

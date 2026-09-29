@@ -382,6 +382,12 @@ class SessionMirror extends ChangeNotifier implements Session {
     _pulling = true;
     unawaited(
       _link.call(AskSizes(id, asked)).then((reply) {
+        // Ответ мог прийти позже, чем зеркало снесли: обход каталогов идёт
+        // своим чередом, а панель к этому времени закрыли. Оповещать уже
+        // некого, и `notifyListeners` на снесённом падает.
+        if (_disposed) {
+          return;
+        }
         _pulling = false;
         final answer = reply is CoreSizes ? reply : const CoreSizes({});
         for (final path in asked) {
@@ -898,8 +904,12 @@ class SessionMirror extends ChangeNotifier implements Session {
     }
   }
 
+  /// Зеркало снесли: хвосты запросов уже никому не нужны.
+  bool _disposed = false;
+
   @override
   void dispose() {
+    _disposed = true;
     _work?.cancel();
     unawaited(_events.cancel());
     super.dispose();

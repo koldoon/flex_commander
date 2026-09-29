@@ -95,4 +95,93 @@ void main() {
 
     expect(find.text('missing.png'), findsOneWidget);
   });
+
+  group('картинка не схлопывается на прокрутке', () {
+    /// Настоящая картинка 40×30: у однопиксельной высоту не измерить.
+    final Uint8List wide = base64Decode(
+      'iVBORw0KGgoAAAANSUhEUgAAACgAAAAeCAIAAADRv8uKAAAAKklEQVR4nO3NMQ0AAAgDsAmb/yALGXA0'
+      '6d9MeyJisVgsFovFYrFYLP4bL9HP3Ew1mJ9PAAAAAElFTkSuQmCC',
+    );
+
+    /// Длинный документ: картинка сверху, под ней есть куда уехать.
+    final source = '![схема](shot.png)\n\n${[for (var i = 0; i < 60; i++) 'Абзац \$i.'].join('\n\n')}';
+
+    testWidgets('читается один раз на документ, а не на каждый показ', (tester) async {
+      var reads = 0;
+      await pump(
+        tester,
+        source,
+        resolve: (path) async {
+          reads++;
+
+          return wide;
+        },
+      );
+
+      expect(reads, 1);
+
+      final position = tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+      position.jumpTo(900);
+      await tester.pumpAndSettle();
+      position.jumpTo(0);
+      await tester.pumpAndSettle();
+
+      expect(reads, 1, reason: 'блок вернулся в окно — читать заново нечего');
+    });
+
+    testWidgets('вернувшись в окно, занимает своё место тем же кадром', (tester) async {
+      await pump(tester, source, resolve: (path) async => wide);
+
+      final position = tester.state<ScrollableState>(find.byType(Scrollable).first).position;
+      position.jumpTo(900);
+      await tester.pumpAndSettle();
+
+      position.jumpTo(0);
+      // Один кадр, без ожидания: без хранилища здесь была бы пустота нулевой
+      // высоты, и всё, что ниже, прыгнуло бы вверх.
+      await tester.pump();
+
+      expect(find.byType(Image, skipOffstage: false), findsOneWidget);
+      expect(tester.getSize(find.byType(Image, skipOffstage: false)).height, greaterThan(0));
+    });
+  });
+
+  group('хранилище картинок', () {
+    test('читает один раз на ключ', () async {
+      final store = FcImageStore();
+      var reads = 0;
+      Future<Uint8List> read() async {
+        reads++;
+
+        return Uint8List(1);
+      }
+
+      await store.read('a', read);
+      await store.read('a', read);
+
+      expect(reads, 1);
+      expect(store.ready('a'), isNotNull);
+    });
+
+    test('помнит занятую высоту, а нулевую не помнит', () {
+      final store = FcImageStore();
+
+      expect(store.heightOf('a'), isNull);
+      store.remember('a', 120);
+      expect(store.heightOf('a'), 120);
+      store.remember('a', 0);
+      expect(store.heightOf('a'), 120, reason: 'ноль — это ещё не показывали, а не «высота ноль»');
+    });
+
+    test('смена документа всё забывает', () async {
+      final store = FcImageStore();
+      await store.read('a', () async => Uint8List(1));
+      store.remember('a', 120);
+
+      store.clear();
+
+      expect(store.ready('a'), isNull);
+      expect(store.heightOf('a'), isNull);
+    });
+  });
 }
