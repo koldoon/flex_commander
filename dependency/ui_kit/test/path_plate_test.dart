@@ -150,6 +150,68 @@ void main() {
       );
     });
 
+    /// Ширина с долей точки — то, что даёт настоящий шрифт.
+    ///
+    /// У тестового шрифта все знаки целой ширины, и доли, из-за которой беда и
+    /// случалась, на нём не бывает вовсе. Масштаб набора её заводит, не привязывая
+    /// проверку к шрифтам машины.
+    Future<void> pumpScaled(WidgetTester tester, {required String size}) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          theme: ThemeData(
+            extensions: [
+              FcTheme(colors: DefaultColors(), metrics: metrics, icons: DefaultIcons(), fonts: DefaultFonts()),
+            ],
+          ),
+          home: MediaQuery(
+            data: const MediaQueryData(textScaler: TextScaler.linear(1.07)),
+            child: Scaffold(
+              body: Center(
+                child: SizedBox(
+                  width: 1000,
+                  height: 300,
+                  child: FcPanelFrame(header: FcPathPlate(path: long, trailing: size), child: const SizedBox()),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('приписке отмеряют не меньше, чем она занимает', (tester) async {
+      // Доля точки решает всё: «28 B» шириной 35.04 получало 35, и многоточие
+      // съедало не долю, а целый знак — на экране оставалось «28…».
+      await pumpScaled(tester, size: '28 B');
+
+      final texts = find.descendant(of: find.byType(FcPathPlate), matching: find.byType(Text));
+      final suffix = tester.renderObject<RenderParagraph>(texts.last);
+
+      expect(suffix.didExceedMaxLines, isFalse, reason: 'размер обрезан многоточием');
+      expect(
+        tester.getRect(texts.last).width,
+        greaterThanOrEqualTo(suffix.getMaxIntrinsicWidth(double.infinity) - 0.01),
+        reason: 'приписке отмерили меньше, чем она занимает',
+      );
+    });
+
+    testWidgets('путь при этом по-прежнему занимает всё остальное', (tester) async {
+      // Приписка перестала быть гибкой — важно, что отнятое ушло пути, а не
+      // пропало: плашка облегает оба.
+      await pumpScaled(tester, size: '28 B');
+
+      final texts = find.descendant(of: find.byType(FcPathPlate), matching: find.byType(Text));
+      final plate = tester.getRect(find.byType(FcPathPlate));
+      final inner = plate.width - 2 * (metrics.labelPadding + metrics.strokeWidth);
+
+      expect(
+        tester.getRect(texts.first).width + tester.getRect(texts.last).width,
+        closeTo(inner, 2),
+        reason: 'вдвоём они занимают плашку целиком',
+      );
+    });
+
     testWidgets('набранный путь не вылезает за отведённое', (tester) async {
       await pumpWithSuffix(tester, width: 1000);
 
