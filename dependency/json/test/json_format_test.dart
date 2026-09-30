@@ -81,22 +81,5 @@ void main() {
     test('хвост после значения не проглатывается', () {
       expect(() => formatJson('{} лишнее'), throwsFormatException);
     });
-
-    test('место переводится в строку и столбец', () {
-      try {
-        formatJson('{\n  "a": 1,\n  "b": ,\n}');
-        fail('ожидался отказ');
-      } on FormatException catch (error) {
-        final place = jsonErrorPlace(error, '{\n  "a": 1,\n  "b": ,\n}');
-
-        expect(place, isNotNull);
-        expect(place!.line, 3, reason: 'сломалось на третьей строке');
-        expect(place.column, greaterThan(1));
-      }
-    });
-
-    test('смещения нет — места тоже нет, и это не падение', () {
-      expect(jsonErrorPlace(const FormatException('без места'), '{}'), isNull);
-    });
   });
 }

@@ -60,6 +60,12 @@ class TextViewerView extends StatelessWidget {
       listenable: Listenable.merge([screen, if (app != null) app.view]),
       builder:
           (context, _) => FcTextView(
+            // Ключ по виду: переключение «Format / Raw» должно открыть текст на
+            // новом месте, а `startAtLine` применяется один раз — при появлении
+            // показа. Со сменой ключа поле появляется заново и место ставит
+            // само, невидимым, без быстрой прокрутки на глазах
+            // (`docs/spec/formatters.md`, §4).
+            key: ValueKey(screen.formatted),
             controller: screen.controller,
             finder: screen.finder,
             // Полный адрес, а не одно имя: файл может лежать в архиве или на
@@ -75,6 +81,8 @@ class TextViewerView extends StatelessWidget {
             // Во весь экран фокус нужен сразу; в панели — только когда в показ
             // вошли: пока курсор в файлах, стрелки принадлежат ему.
             focused: app == null || app.view.takesKeys(screen),
+            startAtLine: screen.startLine,
+            onTopLine: screen.noteTopLine,
           ),
     );
   }

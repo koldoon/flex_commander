@@ -151,4 +151,48 @@ void main() {
       }),
     );
   });
+
+  group('отформатированная копия', () {
+    testWidgets(
+      'место чтения показ ставит сам: вид получает строку и говорит верхнюю',
+      (tester) async => withDesktopPlatform(() async {
+        final screen = await screenWith(List.filled(40, 'строка').join('\n'));
+        await pumpScreen(tester, TextViewerView(screen: screen));
+
+        final view = tester.widget<FcTextView>(find.byType(FcTextView));
+
+        // Открыли с начала — строки не назначено вовсе, и поле показывается
+        // сразу, без прыжка.
+        expect(view.startAtLine, isNull);
+        // А верхнюю строку показ узнаёт от поля: из неё берётся доля, по которой
+        // место чтения переезжает при переключении.
+        expect(view.onTopLine, isNotNull);
+
+        await disposeScreen(tester);
+      }),
+    );
+
+    testWidgets(
+      'переключение поднимает поле заново: место применяется при появлении',
+      (tester) async => withDesktopPlatform(() async {
+        final screen = await screenWith(List.filled(40, 'строка').join('\n'));
+        await pumpScreen(tester, TextViewerView(screen: screen));
+        final was = tester.state(find.byType(FcTextView));
+        // Верхнюю строку говорит само поле; здесь она назначается руками — так
+        // выглядит прокрутка до середины.
+        screen.noteTopLine(20);
+
+        screen.showFormatted((text) => List.filled(400, 'строка').join('\n'));
+        await tester.pump();
+
+        final view = tester.widget<FcTextView>(find.byType(FcTextView));
+        expect(view.startAtLine, 200, reason: 'половина сорока строк — это половина четырёхсот');
+        // Поле поднято заново — иначе `startAtLine` не применился бы вовсе: он
+        // читается один раз, при появлении показа.
+        expect(tester.state(find.byType(FcTextView)), isNot(same(was)));
+
+        await disposeScreen(tester);
+      }),
+    );
+  });
 }

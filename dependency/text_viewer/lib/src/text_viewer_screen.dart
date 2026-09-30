@@ -11,7 +11,8 @@ import 'package:re_editor/re_editor.dart';
 /// запуск команды.
 ///
 /// [ChangeNotifier], потому что показ меняется по ходу дела: `F2` переключает
-/// перенос строк, и вид перерисовывается сам.
+/// перенос строк, `F5` — исходник и отформатированную копию, и вид
+/// перерисовывается сам.
 class TextViewerScreen extends ChangeNotifier implements ViewerContent, FcSearchable {
   TextViewerScreen({
     required this.entry,
@@ -21,7 +22,8 @@ class TextViewerScreen extends ChangeNotifier implements ViewerContent, FcSearch
     bool showLineNumbers = false,
     this.onWrapChanged,
     this.onLineNumbersChanged,
-  }) : controller = CodeLineEditingController.fromText(text),
+  }) : _raw = text,
+       controller = CodeLineEditingController.fromText(text),
        _wordWrap = wordWrap,
        _showLineNumbers = showLineNumbers;
 
@@ -59,8 +61,76 @@ class TextViewerScreen extends ChangeNotifier implements ViewerContent, FcSearch
   /// Куда сообщить, что номера строк переключили.
   final void Function(bool showLineNumbers)? onLineNumbersChanged;
 
+  /// Текст файла, как он прочитан. Его не меняет ничто: показ не умеет писать,
+  /// а отформатированное — копия (`docs/spec/formatters.md`, §4).
+  final String _raw;
+
+  /// Отформатированная копия, если её уже считали. Считается один раз: вернуться
+  /// к ней вторым нажатием ничего не стоит.
+  String? _formatted;
+
+  bool _showsFormatted = false;
   bool _wordWrap;
   bool _showLineNumbers;
+
+  /// Исходный текст — им форматируют и по нему называют место сбоя.
+  String get raw => _raw;
+
+  /// Показана ли сейчас отформатированная копия.
+  bool get formatted => _showsFormatted;
+
+  /// С какой строки открыть текст; null — с начала.
+  ///
+  /// Меняется при переключении вида: место чтения переносится **долей** от
+  /// длины. Строка в двух видах означает разное — одна строка машинного json
+  /// разворачивается в сотню (`docs/spec/formatters.md`, §4).
+  int? get startLine => _startLine;
+  int? _startLine;
+
+  /// Сверху видно другую строку — говорит вид. Отсюда берётся доля, по которой
+  /// место чтения переезжает при переключении.
+  void noteTopLine(int line) => _topLine = line;
+  int _topLine = 0;
+
+  /// Показать отформатированную копию.
+  ///
+  /// Форматирует [format] — форматтер из реестра; исключение разбора уходит
+  /// наружу, и на экране остаётся исходник: пустой экран не объясняет ничего.
+  void showFormatted(String Function(String text) format) {
+    if (_showsFormatted) {
+      return;
+    }
+    // Порядок важен: считаем **до** того, как объявить копию показанной, —
+    // иначе отказ разбора оставил бы показ в состоянии, которого нет.
+    final text = _formatted ??= format(_raw);
+    _showsFormatted = true;
+    _show(text);
+  }
+
+  /// Вернуться к исходнику.
+  void showRaw() {
+    if (!_showsFormatted) {
+      return;
+    }
+    _showsFormatted = false;
+    _show(_raw);
+  }
+
+  /// Положить в показ другой текст, перенеся место чтения долей от длины.
+  ///
+  /// Текст меняется **в том же буфере**: поиск после этого ищет по показанному
+  /// сам, и второго буфера, как в markdown, заводить не нужно — там два вида
+  /// были разной природы, а здесь оба текст.
+  void _show(String text) {
+    final was = controller.lineCount;
+    final part = was <= 1 ? 0.0 : _topLine / was;
+    // Запись через контроллер кладёт правку в его историю, но отмены в показе
+    // нет: `Cmd-Z` — правка, а поле открыто для чтения и правок не принимает.
+    controller.text = text;
+    final lines = controller.lineCount;
+    _startLine = (part * lines).round().clamp(0, lines - 1);
+    notifyListeners();
+  }
 
   /// Переносить длинные строки. В этом режиме прокрутка только вертикальная:
   /// переносить и одновременно возить по ширине нечего.

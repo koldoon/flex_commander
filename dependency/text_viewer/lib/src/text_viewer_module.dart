@@ -196,6 +196,16 @@ class TextViewer implements FcFrontendModule {
           read: () => settingsOf().maxFileSize,
           write: (value) => settingsOf().maxFileSize = value,
         ),
+        SettingsField.integer(
+          'maxFormatSize',
+          defaultValue: TextViewerSettings.defaultMaxFormatSize,
+          title: strings.tr('Largest file to format'),
+          unit: strings.tr('bytes'),
+          min: 1024,
+          max: 100 * 1024 * 1024,
+          read: () => settingsOf().maxFormatSize,
+          write: (value) => settingsOf().maxFormatSize = value,
+        ),
       ], save: settings.save);
     });
 
@@ -212,6 +222,9 @@ class TextViewer implements FcFrontendModule {
     );
 
     registry.command((context) => ToggleWordWrapCommand());
+    // Предел спрашивается у настроек в момент нажатия, а не при установке: его
+    // могли только что поменять.
+    registry.command((context) => ToggleFormatCommand(maxSize: () => settingsOf().maxFormatSize));
     registry.command((context) => ToggleLineNumbersCommand());
     registry.command((context) => CopySelectionCommand(registry.services.resolve<ClipboardService>()));
 
@@ -227,6 +240,9 @@ class TextViewer implements FcFrontendModule {
     // экран или в быстром просмотре. `inState` находит его сквозь хозяина.
     registry.binding(
       KeyBinding.inState<TextViewerScreen>('F2', ToggleWordWrapCommand.commandId, context: KeyContext.textViewer),
+    );
+    registry.binding(
+      KeyBinding.inState<TextViewerScreen>('F5', ToggleFormatCommand.commandId, context: KeyContext.textViewer),
     );
     registry.binding(
       KeyBinding.inState<TextViewerScreen>('F9', ToggleLineNumbersCommand.commandId, context: KeyContext.textViewer),
@@ -358,11 +374,18 @@ const Map<String, String> _russian = {
   'Show line numbers: On': 'Номера строк: показаны',
   'Show line numbers: Off': 'Номера строк: скрыты',
   'File is too large: {size}, limit is {limit}': 'Файл слишком велик: {size}, предел — {limit}',
+  'text|Format': 'Красиво',
+  'Raw': 'Исходник',
+  'Show the text formatted': 'Показать текст в читаемом виде',
+  'Too large to format: {size}, limit is {limit}': 'Слишком велик для форматирования: {size}, предел — {limit}',
+  'Not valid {what}: {why}': 'Это не {what}: {why}',
+  'Not valid {what}: {why} at line {line}, column {column}': 'Это не {what}: {why} — строка {line}, столбец {column}',
 
   // Настройки.
   'Wrap long lines': 'Переносить длинные строки',
   'Show line numbers': 'Показывать номера строк',
   'Largest file to open': 'Наибольший открываемый файл',
+  'Largest file to format': 'Наибольший форматируемый файл',
   'bytes': 'байт',
 };
 

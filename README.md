@@ -175,6 +175,7 @@ only asks. Nothing claims it — it opens as text.
 | Kind | What it gives |
 |---|---|
 | Text | syntax highlighting, word wrap on `F2`, line numbers on `F9`, search on `Cmd-F` / `F7` |
+| JSON | `F5` lays a machine-written one-liner out over lines; the file itself is never touched |
 | Images | png, jpeg, gif (animated), webp, bmp and HEIC, zoom and fit |
 | Vector | `svg` drawn as a picture, sharp at any zoom; `F5` shows the markup |
 | Markdown | headings, lists, tables, images and highlighted code; `F5` shows the source |
@@ -304,7 +305,7 @@ On Windows and Linux `Cmd` reads as `Ctrl`.
 |---|---|
 | `F3` / `F4` | view / edit the file under the cursor |
 | `Shift-F3` | quick view in the other panel; `Tab` hands the input to it |
-| `F5` (viewer) | formatted or source — markdown and vector |
+| `F5` (viewer) | formatted or source — markdown, vector and json |
 | `F2` (viewer / editor) | word wrap / save |
 | `F9` (viewer, editor) | line numbers |
 | `Cmd-F`, `F7` / `Cmd-G` / `Shift-Cmd-G` | find / find next / find previous |

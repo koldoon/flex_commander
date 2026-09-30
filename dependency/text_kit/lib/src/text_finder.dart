@@ -114,15 +114,27 @@ class FcTextFinder {
     controller.makePositionCenterIfInvisible(match.start);
   }
 
-  /// Ждёт, пока поиск в изоляте договорит **по нашей строке**.
+  /// Ждёт, пока поиск в изоляте договорит **по нашей строке и по нашему
+  /// тексту**.
   ///
   /// Именно по нашей: пока идёт поиск, значение успевает побывать в
   /// промежуточных состояниях — от прошлой строки, от переключённого флажка, —
   /// и «поиск закончился» само по себе ещё не значит, что закончился нужный.
+  ///
+  /// И по нашему тексту: сам текст показа мог только что смениться —
+  /// переключением на отформатированную копию (`docs/spec/formatters.md`, §4).
+  /// Строка та же, и поиск библиотеки её не перезапустит — пересчёт идёт от
+  /// смены текста и приходит позже. Дождаться его обязаны мы: иначе счёт
+  /// совпадений остался бы от текста, которого на экране уже нет.
   Future<void> _settled(String text) async {
     bool ready() {
       final CodeFindValue? value = findController.value;
-      return value != null && value.option.pattern == text && !value.searching;
+      if (value == null || value.option.pattern != text || value.searching) {
+        return false;
+      }
+      final CodeFindResult? result = value.result;
+
+      return result != null && result.codeLines.equals(controller.codeLines);
     }
 
     if (ready()) {

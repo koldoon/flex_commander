@@ -145,9 +145,13 @@ void main() {
 
       // Ни копирования из-под просмотрщика, ни второго просмотрщика поверх
       // первого.
-      expect(runtime.commands.commandFor(KeyCombination.parse('F5')), isNull);
       expect(runtime.commands.commandFor(KeyCombination.parse('F3')), isNull);
       expect(runtime.commands.dispatch(KeyCombination.parse('F3')), isFalse);
+      // `F5` в показе принадлежит форматтеру, а не копированию, и за простой
+      // текст браться некому: нажатие ничего не делает
+      // (`docs/spec/formatters.md`, §3).
+      expect(runtime.commands.commandFor(KeyCombination.parse('F5'))?.id, 'text.format');
+      expect(runtime.commands.dispatch(KeyCombination.parse('F5')), isFalse);
       expect(runtime.app.view.stackAt(ViewportPosition.fullscreen), hasLength(1));
     });
 
